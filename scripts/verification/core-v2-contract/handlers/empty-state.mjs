@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const EMPTY_STATE_ACTION_TYPES = Object.freeze([
   'set-host-state',
   'query-target',
@@ -113,10 +115,6 @@ function recordValue(value, label) {
 function stringValue(value, label) {
   assert(typeof value === 'string' && value.length > 0, `${label} must be a non-empty string`);
   return value;
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isRecord(value) {

@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 import type { SceneDocument } from '../../src/patch-map/dense/contracts';
 import { CoreScene } from '../../src/patch-map/dense/scene';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
@@ -221,7 +223,7 @@ describe('PatchMap REN-007 render-relations actual-only fold', () => {
     expect(source).not.toMatch(/\.expected\b/u);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
     expect(source).not.toMatch(/node:/u);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('fold-render-relations.mjs', 'fold');
     expect(compact).not.toContain('[[10,0],[30,-10],[40,10],[30,30],[10,20]]');
     expect(compact).not.toContain('[170,260]');
     expect(compact).not.toContain('[230,440]');

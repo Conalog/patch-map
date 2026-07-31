@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const RENDER_ORIENTATION_ACTION_TYPES = Object.freeze([
   'loadOrientationMatrix',
   'setWorldTransform',
@@ -608,10 +610,6 @@ function assertExactKeys(value, keys, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isRecord(value) {

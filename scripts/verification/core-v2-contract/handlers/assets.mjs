@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const ASSET_ACTION_TYPES = Object.freeze([
   'registerAssets',
   'initializeWithRequiredAssetFailure',
@@ -440,10 +442,6 @@ function nonNegativeInteger(value, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function validateJsonValue(value, path, ancestors) {

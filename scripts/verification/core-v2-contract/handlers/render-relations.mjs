@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const RENDER_RELATIONS_ACTION_TYPES = Object.freeze([
   'loadDataset',
   'observeRelationPath',
@@ -761,10 +763,6 @@ function assertExactKeys(value, keys, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isRecord(value) {

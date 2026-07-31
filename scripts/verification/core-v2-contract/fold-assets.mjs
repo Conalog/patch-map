@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const ASSET_FOLD_REVISION = 'patch-map-assets-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
@@ -506,10 +508,6 @@ function assertExactKeys(value, keys, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function validateJsonValue(value, path, ancestors) {

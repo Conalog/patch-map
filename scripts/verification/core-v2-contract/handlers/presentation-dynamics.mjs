@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const PRESENTATION_DYNAMICS_HANDLER_REVISION =
   'core-v2-presentation-dynamics-handlers/1';
 
@@ -748,10 +750,6 @@ function nonNegativeInteger(value, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isRecord(value) {

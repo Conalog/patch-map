@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 import {
   fold,
   RENDER_TEXT_FOLD_REVISION,
@@ -36,7 +38,7 @@ describe('PatchMap REN-006 / REN-011 actual-only fold', () => {
     expect(RENDER_TEXT_FOLD_REVISION).toBe('core-v2-render-text-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('fold-render-text.mjs', 'fold');
     expect(source).not.toMatch(/node:/u);
     expect(actualSupport).not.toContain(forbiddenEvidenceName);
     expect(actualSupport).not.toContain('compare.mjs');

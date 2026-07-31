@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 type JsonRecord = Record<string, unknown>;
 type Handler = (context: unknown, action: unknown) => unknown;
 type HandlerEntry = readonly [string, Handler];
@@ -116,7 +118,7 @@ describe('AST-001 actual-only asset handlers', () => {
       'contract/destroy',
       'contract/registerAlias',
     ]);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('handlers/assets.mjs', 'handler');
     expect(source).not.toMatch(/node:|readFile|compareObservation|catalog-normalized/u);
     expect(source).not.toMatch(/expectedCode\s*(?:===|!==)/u);
   });

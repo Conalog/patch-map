@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const LIFECYCLE_RESIZE_FOLD_REVISION = 'core-v2-lifecycle-resize-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
@@ -480,10 +482,6 @@ function validateJsonValue(value, path, ancestors) {
   } finally {
     ancestors.delete(value);
   }
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function deepFreeze(value, seen = new WeakSet()) {

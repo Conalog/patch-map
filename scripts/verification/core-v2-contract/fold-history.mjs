@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const HISTORY_FOLD_REVISION = 'core-v2-history-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
@@ -532,10 +534,6 @@ function assertExactKeys(record, keys, label) {
     sameJson(Object.keys(record).sort(), [...keys].sort()),
     `${label} exact keys`,
   );
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

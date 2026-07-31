@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 type JsonRecord = Record<string, unknown>;
 
 interface ContractAction {
@@ -158,7 +160,7 @@ describe('PatchMap REN-005 render-images actual-only fold', () => {
     expect(source).not.toMatch(/\.expected\b/u);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
     expect(source).not.toMatch(/node:/u);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('fold-render-images.mjs', 'fold');
   });
 
   it('folds the controlled race into fourteen frozen semantic domains', () => {

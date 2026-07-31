@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const REPLACEMENT_RECOVERY_HANDLER_REVISION =
   'core-v2-replacement-recovery-handlers/1';
 
@@ -1079,10 +1081,6 @@ function sortKeys(value) {
   return Object.fromEntries(
     Object.keys(value).sort().map((key) => [key, sortKeys(value[key])]),
   );
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function assert(condition, message) {

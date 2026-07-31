@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const AUTHORING_HANDLER_REVISION = 'core-v2-authoring-handlers/1';
 
 export const AUTHORING_CASE_IDS = Object.freeze([
@@ -802,10 +804,6 @@ function assertExactKeys(value, keys, label) {
       && actual.every((key, index) => key === expected[index]),
     `${label} keys`,
   );
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isRecord(value) {

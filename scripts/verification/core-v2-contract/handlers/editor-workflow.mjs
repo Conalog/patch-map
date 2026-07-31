@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const EDITOR_WORKFLOW_HANDLER_REVISION =
   'core-v2-editor-workflow-handlers/1';
 
@@ -1007,10 +1009,6 @@ function assertExactKeys(value, keys, label) {
       && actual.every((key, index) => key === expected[index]),
     `${label} keys`,
   );
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isRecord(value) {

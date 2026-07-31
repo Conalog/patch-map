@@ -1,3 +1,5 @@
+import { cloneOptional as clone } from '../value-atoms.mjs';
+
 export const PIXIJS_INTEGRATION_HANDLER_REVISION =
   'core-v2-pixijs-integration-handlers/1';
 
@@ -666,10 +668,6 @@ function recordValue(value, label) {
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function clone(value) {
-  return value === undefined ? undefined : structuredClone(value);
 }
 
 function deepFreeze(value, seen = new WeakSet()) {

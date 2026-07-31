@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const RENDER_TEXT_HANDLER_REVISION = 'core-v2-render-text-handlers/1';
 
 export const RENDER_TEXT_CASE_IDS = Object.freeze(['REN-006', 'REN-011']);
@@ -792,10 +794,6 @@ function validateJsonValue(value, label, ancestors) {
   } finally {
     ancestors.delete(value);
   }
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

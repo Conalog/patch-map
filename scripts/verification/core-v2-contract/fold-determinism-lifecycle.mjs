@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const DETERMINISM_LIFECYCLE_FOLD_REVISION =
   'core-v2-determinism-lifecycle-fold/1';
 
@@ -859,10 +861,6 @@ function uint32(value, label) {
 function finiteNumber(value, label) {
   assert(typeof value === 'number' && Number.isFinite(value), `${label} finite`);
   return value;
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameArray(left, right) {

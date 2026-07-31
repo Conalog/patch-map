@@ -5,6 +5,8 @@ import { Color } from 'pixi.js';
 import type { ColorSource } from 'pixi.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 import {
   createPatchMapColorResolver,
   materializePatchMapGrid,
@@ -269,7 +271,7 @@ describe('PatchMap data-foundation actual-only fold', () => {
     expect(source).not.toMatch(/from\s+['"][^'"]*compare\.mjs['"]/u);
     expect(source).not.toMatch(/from\s+['"][^'"]*observe\.mjs['"]/u);
     expect(source).not.toMatch(/node:/u);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('fold-data-foundation.mjs', 'fold');
   });
 
   it.each([

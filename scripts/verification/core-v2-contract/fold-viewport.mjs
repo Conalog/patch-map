@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const VIEWPORT_FOLD_REVISION = 'core-v2-viewport-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
@@ -1045,10 +1047,6 @@ function deepFreeze(value, seen = new WeakSet()) {
   seen.add(value);
   for (const nested of Object.values(value)) deepFreeze(nested, seen);
   return Object.freeze(value);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 interface FoldRuntime {
   readonly FOUNDATION_FOLD_REVISION: string;
   foldFoundationExecution(
@@ -141,7 +143,7 @@ describe('PatchMap actual-only foundation observation fold', () => {
     expect(source).not.toMatch(/from\s+['"][^'"]*compare\.mjs['"]/);
     expect(source).not.toMatch(/from\s+['"][^'"]*observe\.mjs['"]/);
     expect(source).not.toMatch(/node:/);
-    expect(source).not.toMatch(/^\s*import\s/m);
+    await assertCommittedVerifierEntryImportFirewall('fold-foundation.mjs', 'fold');
   });
 
   it.each(Object.keys(ACTIONS) as FoundationCaseId[])(

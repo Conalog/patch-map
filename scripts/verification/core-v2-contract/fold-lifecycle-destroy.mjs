@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const LIFECYCLE_DESTROY_FOLD_REVISION = 'core-v2-lifecycle-destroy-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
@@ -369,10 +371,6 @@ function booleanValue(value, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function deepFreeze(value, seen = new WeakSet()) {

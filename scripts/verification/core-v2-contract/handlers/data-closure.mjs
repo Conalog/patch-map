@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const DATA_CLOSURE_ACTION_TYPES = Object.freeze([
   'ingestLegacyRoot',
   'snapshot',
@@ -772,10 +774,6 @@ function sameStrings(actual, expected) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function deepFreeze(value, seen = new WeakSet()) {

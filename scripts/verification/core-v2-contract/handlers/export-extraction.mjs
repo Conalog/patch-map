@@ -1,3 +1,5 @@
+import { cloneOptional as clone } from '../value-atoms.mjs';
+
 export const EXPORT_EXTRACTION_HANDLER_REVISION =
   'core-v2-export-extraction-handlers/1';
 
@@ -785,10 +787,6 @@ function assertExactKeys(value, expected, label) {
       && actual.every((key, index) => key === sortedExpected[index]),
     `${label} exact keys`,
   );
-}
-
-function clone(value) {
-  return value === undefined ? undefined : structuredClone(value);
 }
 
 function assert(condition, message) {

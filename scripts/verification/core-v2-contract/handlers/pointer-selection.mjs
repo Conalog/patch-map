@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const POINTER_SELECTION_HANDLER_REVISION = 'core-v2-pointer-selection-handlers/1';
 
 export const POINTER_SELECTION_CASE_IDS = Object.freeze([
@@ -4254,10 +4256,6 @@ function assertExactKeys(value, expected, label) {
     JSON.stringify(actual) === JSON.stringify(wanted),
     `${label} keys ${JSON.stringify(actual)}`,
   );
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

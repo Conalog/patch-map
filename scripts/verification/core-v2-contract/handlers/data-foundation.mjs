@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const DATA_FOUNDATION_ACTION_TYPES = Object.freeze([
   'loadShorthandMatrix',
   'observeGeometry',
@@ -842,10 +844,6 @@ function allNumbersFinite(value) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function deepFreeze(value, seen = new WeakSet()) {

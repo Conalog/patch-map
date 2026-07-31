@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const DETERMINISM_LIFECYCLE_HANDLER_REVISION =
   'core-v2-determinism-lifecycle-handlers/1';
 
@@ -1174,10 +1176,6 @@ function uint32(value, label) {
   const number = nonNegativeInteger(value, label);
   assert(number <= 0xffff_ffff, `${label} uint32`);
   return number;
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isRecord(value) {

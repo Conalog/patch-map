@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const UPDATE_TRANSACTIONS_HANDLER_REVISION =
   'core-v2-update-transactions-handlers/1';
 
@@ -4384,10 +4386,6 @@ function recordValue(value, label) {
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isDeepFrozen(value, seen = new WeakSet()) {

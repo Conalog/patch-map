@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
 import {
   UPDATE_TRANSACTIONS_ACTION_TYPES,
@@ -76,7 +78,7 @@ describe('PatchMap shared update transaction action handlers', () => {
     expect(entries.map(([id]) => id)).toEqual(
       UPDATE_TRANSACTIONS_ACTION_TYPES.map((type) => `contract/${type}`),
     );
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('handlers/update-transactions.mjs', 'handler');
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
     expect(source).not.toContain('catalog-normalized-expected');
     expect(source).not.toContain('/evidence/');

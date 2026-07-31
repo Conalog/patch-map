@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 import {
   PatchMap,
   type PatchMapEngineSurface,
@@ -185,7 +187,7 @@ describe('PatchMap render-foundation actual-only handlers', () => {
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
     expect(source).not.toMatch(/node:/u);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('handlers/render-foundation.mjs', 'handler');
   });
 
   it.each([

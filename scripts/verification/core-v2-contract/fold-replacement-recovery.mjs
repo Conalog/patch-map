@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const REPLACEMENT_RECOVERY_FOLD_REVISION =
   'core-v2-replacement-recovery-fold/1';
 
@@ -849,10 +851,6 @@ function recordValue(value, label) {
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function deepFreeze(value, seen = new WeakSet()) {

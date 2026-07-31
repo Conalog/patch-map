@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const UPDATE_TRANSACTIONS_FOLD_REVISION =
   'core-v2-update-transactions-fold/1';
 
@@ -2158,10 +2160,6 @@ function deepFreeze(value, seen = new WeakSet()) {
   seen.add(value);
   for (const nested of Object.values(value)) deepFreeze(nested, seen);
   return Object.freeze(value);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

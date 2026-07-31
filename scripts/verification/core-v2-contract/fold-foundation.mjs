@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const FOUNDATION_FOLD_REVISION = 'core-v2-foundation-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
@@ -1083,10 +1085,6 @@ function assignOwned(target, key, value, source) {
 function cloneRecord(value, label) {
   assert(isPlainObject(value), `${label} must be a plain object`);
   return clone(value);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function validateJsonValue(value, path, ancestors) {

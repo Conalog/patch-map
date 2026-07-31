@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const HISTORY_HANDLER_REVISION = 'core-v2-history-handlers/1';
 
 export const HISTORY_CASE_IDS = Object.freeze([
@@ -1069,10 +1071,6 @@ function callSync(target, method, ...args) {
   const result = call(target, method, ...args);
   assert(!(result instanceof Promise), `product ${method}() must be synchronous`);
   return result;
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

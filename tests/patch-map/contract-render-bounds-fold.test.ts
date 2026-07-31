@@ -5,6 +5,8 @@ import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/ev
 import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 import {
   PatchMap,
   type PatchMapEngineSurface,
@@ -223,7 +225,7 @@ describe('PatchMap LAY-005 render-bounds actual-only fold', () => {
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
     expect(source).not.toMatch(/node:/u);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('fold-render-bounds.mjs', 'fold');
   });
 
   it('folds the real Engine execution into fourteen frozen domains', async () => {

@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const FOUNDATION_ACTION_TYPES = Object.freeze([
   'initialize',
   'snapshot-resolved-dataset',
@@ -808,10 +810,6 @@ function isDeeplyFrozen(value, seen = new WeakSet()) {
   if (!Object.isFrozen(value)) return false;
   seen.add(value);
   return Object.values(value).every((nested) => isDeeplyFrozen(nested, seen));
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function recordValue(value, label) {

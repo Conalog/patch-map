@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const LAYOUT_ORDER_HANDLER_REVISION = 'core-v2-layout-order-handlers/1';
 
 export const LAYOUT_ORDER_CASE_IDS = Object.freeze(['LAY-002', 'LAY-003']);
@@ -912,10 +914,6 @@ function normalizeNumber(value, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isRecord(value) {

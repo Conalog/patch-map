@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const LIFECYCLE_DESTROY_ACTION_TYPES = Object.freeze([
   'initialize',
   'loadDataset',
@@ -378,10 +380,6 @@ function nonNegativeNumber(value, label) {
   finiteNumber(value, label);
   assert(value >= 0, `${label} must be non-negative`);
   return value;
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function deepFreeze(value, seen = new WeakSet()) {

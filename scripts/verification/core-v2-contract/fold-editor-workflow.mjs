@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const EDITOR_WORKFLOW_FOLD_REVISION =
   'core-v2-editor-workflow-fold/1';
 
@@ -900,10 +902,6 @@ function assertExactKeys(value, keys, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function validateJson(value, path, ancestors) {

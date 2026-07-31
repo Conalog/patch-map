@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const PERFORMANCE_HANDLER_REVISION =
   'core-v2-performance-handlers/1';
 
@@ -666,10 +668,6 @@ function arrayValue(value, label) {
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function assert(condition, message) {

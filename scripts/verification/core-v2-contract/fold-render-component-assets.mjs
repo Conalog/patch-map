@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const RENDER_COMPONENT_ASSETS_FOLD_REVISION =
   'core-v2-render-component-assets-fold/1';
 
@@ -1082,10 +1084,6 @@ function assertExactKeys(value, keys, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function validateJsonValue(value, path, ancestors) {

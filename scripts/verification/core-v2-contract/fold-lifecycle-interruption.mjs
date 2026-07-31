@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const LIFECYCLE_INTERRUPTION_FOLD_REVISION =
   'core-v2-lifecycle-interruption-fold/1';
 
@@ -790,10 +792,6 @@ function nonNegativeNumber(value, label) {
 function finiteNumber(value, label) {
   assert(typeof value === 'number' && Number.isFinite(value), `${label} finite`);
   return value;
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameArray(left, right) {

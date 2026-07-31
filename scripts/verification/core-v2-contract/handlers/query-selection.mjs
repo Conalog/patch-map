@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const QUERY_SELECTION_HANDLER_REVISION = 'core-v2-query-selection-handlers/1';
 
 export const QUERY_SELECTION_CASE_IDS = Object.freeze([
@@ -806,10 +808,6 @@ function assertExactKeys(record, keys, label) {
     sameJson(Object.keys(record).sort(), [...keys].sort()),
     `${label} exact keys`,
   );
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isRecord(value) {

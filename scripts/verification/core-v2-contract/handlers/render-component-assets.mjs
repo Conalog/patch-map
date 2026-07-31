@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const RENDER_COMPONENT_ASSETS_HANDLER_REVISION =
   'core-v2-render-component-assets-handlers/2';
 
@@ -536,10 +538,6 @@ function assertExactKeys(value, keys, label) {
   const actual = Object.keys(record).sort();
   const accepted = [...keys].sort();
   assert(sameJson(actual, accepted), `${label} keys`);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

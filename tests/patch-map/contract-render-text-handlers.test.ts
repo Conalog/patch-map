@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 import { createPatchMapRenderTextSpecimens } from '../../lab/patch-map/contract/render-text-fixtures';
 
 type JsonRecord = Record<string, unknown>;
@@ -175,7 +177,7 @@ describe('PatchMap REN-006 / REN-011 actual-only handlers', () => {
     );
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('handlers/render-text.mjs', 'handler');
     expect(source).not.toMatch(/\b(?:chosen|screenAngle|rgba)\b/u);
     expect(source).not.toMatch(/node:/u);
     expect(source).not.toContain('ensureSessionEngine');

@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const RENDER_IMAGES_HANDLER_REVISION = 'core-v2-render-images-handlers/1';
 
 const CASE_TRACE = Object.freeze([
@@ -342,10 +344,6 @@ function assertExactKeys(value, keys, label) {
   const actual = Object.keys(value).sort();
   const expected = [...keys].sort();
   assert(sameJson(actual, expected), `${label} keys`);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

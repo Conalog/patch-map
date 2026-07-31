@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 type JsonRecord = Record<string, unknown>;
 
 interface ContractAction {
@@ -171,7 +173,7 @@ describe('PatchMap LAY-002 actual-only layout-order fold', () => {
     expect(LAYOUT_ORDER_FOLD_REVISION).toBe('core-v2-layout-order-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('fold-layout-order.mjs', 'fold');
     expect(source).not.toMatch(/node:/u);
     expect(source).not.toContain('params.placementMatrix');
     expect(source).not.toContain('fixtureParams.placementMatrix');

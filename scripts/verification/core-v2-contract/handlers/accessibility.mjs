@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const ACCESSIBILITY_HANDLER_REVISION =
   'core-v2-accessibility-handlers/1';
 
@@ -531,10 +533,6 @@ function assertSameArray(actual, expected, label) {
 
 function frameTime(actionIndex, offset) {
   return 2 + actionIndex * 10 + offset;
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

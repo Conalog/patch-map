@@ -5,6 +5,8 @@ import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/ev
 import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
 import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/dense/renderer-types';
 import { createPatchMapExecutableLabBridge } from '../../lab/patch-map/contract/executable-bridge';
@@ -164,11 +166,23 @@ describe('PatchMap shared presentation dynamics contract runtime', () => {
       runtime.product as unknown as Readonly<Record<string, unknown>>,
     );
     const moduleSources = await Promise.all([
-      '../../scripts/verification/core-v2-contract/handlers/presentation-dynamics.mjs',
-      '../../scripts/verification/core-v2-contract/fold-presentation-dynamics.mjs',
-      '../../lab/patch-map/contract/presentation-dynamics-runtime.ts',
-    ].map(async (relativePath) => ({
+      {
+        relativePath:
+          '../../scripts/verification/core-v2-contract/handlers/presentation-dynamics.mjs',
+        verifierEntry: ['handlers/presentation-dynamics.mjs', 'handler'] as const,
+      },
+      {
+        relativePath:
+          '../../scripts/verification/core-v2-contract/fold-presentation-dynamics.mjs',
+        verifierEntry: ['fold-presentation-dynamics.mjs', 'fold'] as const,
+      },
+      {
+        relativePath: '../../lab/patch-map/contract/presentation-dynamics-runtime.ts',
+        verifierEntry: null,
+      },
+    ].map(async ({ relativePath, verifierEntry }) => ({
       relativePath,
+      verifierEntry,
       source: await readFile(
         fileURLToPath(new URL(relativePath, import.meta.url)),
         'utf8',
@@ -185,10 +199,14 @@ describe('PatchMap shared presentation dynamics contract runtime', () => {
     expect(entries.map(([id]) => id)).toEqual(
       PRESENTATION_DYNAMICS_ACTION_TYPES.map((type) => `contract/${type}`),
     );
-    for (const { relativePath, source } of moduleSources) {
+    for (const { relativePath, verifierEntry, source } of moduleSources) {
       expect(source, relativePath).not.toMatch(forbiddenProductTokens);
       expect(source, relativePath).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
-      expect(source, relativePath).not.toMatch(/^\s*import\s/mu);
+      if (verifierEntry === null) {
+        expect(source, relativePath).not.toMatch(/^\s*import\s/mu);
+      } else {
+        await assertCommittedVerifierEntryImportFirewall(...verifierEntry);
+      }
     }
     expect(runtime.product.resourceProbe({ caseId: 'ANI-002' })).toMatchObject({
       ownership: zeroOwnership(),

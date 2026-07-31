@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const PRESENTATION_DYNAMICS_FOLD_REVISION =
   'core-v2-presentation-dynamics-fold/1';
 
@@ -1252,10 +1254,6 @@ function validateJsonValue(value, label, ancestors) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function deepFreeze(value, seen = new WeakSet()) {

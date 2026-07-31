@@ -1,3 +1,5 @@
+import { cloneOptional as clone } from './value-atoms.mjs';
+
 export const ACCESSIBILITY_FOLD_REVISION =
   'core-v2-accessibility-fold/1';
 
@@ -633,10 +635,6 @@ function allNumbersFinite(value) {
   if (Array.isArray(value)) return value.every(allNumbersFinite);
   if (!isRecord(value)) return true;
   return Object.values(value).every(allNumbersFinite);
-}
-
-function clone(value) {
-  return value === undefined ? undefined : structuredClone(value);
 }
 
 function validateJson(value, label, seen) {

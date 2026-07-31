@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const RENDER_BOUNDS_ACTION_TYPES = Object.freeze([
   'loadBoundsMatrix',
   'queryBounds',
@@ -322,10 +324,6 @@ function assertExactKeys(value, keys, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isRecord(value) {

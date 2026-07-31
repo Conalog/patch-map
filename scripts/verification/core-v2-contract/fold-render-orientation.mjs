@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const RENDER_ORIENTATION_FOLD_REVISION = 'core-v2-render-orientation-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
@@ -607,10 +609,6 @@ function assignPath(target, segments, value, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function validateJsonValue(value, path, ancestors) {

@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const VIEWPORT_HANDLER_REVISION = 'core-v2-viewport-handlers/1';
 
 export const VIEWPORT_CASE_IDS = Object.freeze([
@@ -1850,10 +1852,6 @@ function actualError(error) {
     name: error instanceof Error ? error.name : 'Error',
     message: error instanceof Error ? error.message : String(error),
   };
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

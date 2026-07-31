@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const LIFECYCLE_INTERRUPTION_ACTION_TYPES = Object.freeze([
   'begin-move-gesture',
   'move-pointer',
@@ -1388,10 +1390,6 @@ function callSync(target, method, ...args) {
   assert(isRecord(target), `${method} target`);
   assert(typeof target[method] === 'function', `engine ${method}()`);
   return target[method](...args);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

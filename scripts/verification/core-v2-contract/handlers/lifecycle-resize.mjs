@@ -1,3 +1,5 @@
+import { clone } from '../value-atoms.mjs';
+
 export const LIFECYCLE_RESIZE_ACTION_TYPES = Object.freeze([
   'loadDataset',
   'set-view',
@@ -309,10 +311,6 @@ function positiveNumber(value, label) {
   const number = finiteNumber(value, label);
   assert(number > 0, `${label} must be positive`);
   return number;
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function isRecord(value) {

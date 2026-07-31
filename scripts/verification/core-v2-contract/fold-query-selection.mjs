@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const QUERY_SELECTION_FOLD_REVISION = 'core-v2-query-selection-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
@@ -400,10 +402,6 @@ function assertExactKeys(record, keys, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function validateJson(value, path, ancestors) {

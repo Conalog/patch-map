@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 type JsonRecord = Record<string, unknown>;
 type Handler = (context: unknown, action: unknown) => unknown;
 type HandlerEntry = readonly [string, Handler];
@@ -149,7 +151,7 @@ describe('PatchMap REN-008 / REN-010 component-asset actual-only handlers', () =
     expect(source).not.toMatch(/\.expected\b/u);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
     expect(source).not.toMatch(/node:/u);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('handlers/render-component-assets.mjs', 'handler');
     expect(source).toContain("callSync(engine, 'componentVisualProbe'");
     expect(source).toContain("call(engine, 'patch'");
   });

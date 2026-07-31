@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const RENDER_TEXT_FOLD_REVISION = 'core-v2-render-text-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
@@ -2001,10 +2003,6 @@ function validateJsonValue(value, label, ancestors) {
   } finally {
     ancestors.delete(value);
   }
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function sameJson(left, right) {

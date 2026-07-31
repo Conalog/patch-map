@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const INTERACTION_EDITOR_FOLD_REVISION =
   'core-v2-interaction-editor-fold/1';
 
@@ -706,10 +708,6 @@ function isRecord(value) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function assert(condition, message) {

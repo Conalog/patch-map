@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 type JsonRecord = Record<string, unknown>;
 
 interface ContractAction {
@@ -172,7 +174,7 @@ describe('LIF-005 actual-only lifecycle fold', () => {
     expect(source).not.toMatch(/from\s+['"][^'"]*compare\.mjs['"]/u);
     expect(source).not.toMatch(/from\s+['"][^'"]*observe\.mjs['"]/u);
     expect(source).not.toMatch(/node:/u);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('fold-lifecycle-destroy.mjs', 'fold');
   });
 
   it('projects all twelve immutable assertions from actual lifecycle facts', () => {

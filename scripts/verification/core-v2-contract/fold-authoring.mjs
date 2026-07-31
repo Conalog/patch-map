@@ -1,3 +1,5 @@
+import { clone } from './value-atoms.mjs';
+
 export const AUTHORING_FOLD_REVISION = 'core-v2-authoring-fold/1';
 
 const OBSERVATION_REVISION = 'core-v2-semantic-observation/1';
@@ -775,10 +777,6 @@ function validateJson(value, label, seen) {
 
 function cloneRecord(value, label) {
   return clone(recordValue(value, label));
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function stringArray(value, label) {

@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 type JsonRecord = Record<string, unknown>;
 type Point = readonly [number, number];
 type Bounds = readonly [number, number, number, number];
@@ -182,7 +184,7 @@ describe('LIF-004 actual-only lifecycle resize fold', () => {
     expect(source).not.toMatch(/from\s+['"][^'"]*compare\.mjs['"]/u);
     expect(source).not.toMatch(/from\s+['"][^'"]*observe\.mjs['"]/u);
     expect(source).not.toMatch(/node:/u);
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('fold-lifecycle-resize.mjs', 'fold');
   });
 
   it('projects all twelve immutable assertions from product-shaped facts', () => {

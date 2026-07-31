@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+
 type JsonRecord = Record<string, unknown>;
 
 interface ContractAction {
@@ -113,7 +115,7 @@ describe('AST-001 actual-only asset fold', () => {
       'utf8',
     );
     expect(ASSET_FOLD_REVISION).toBe('patch-map-assets-fold/1');
-    expect(source).not.toMatch(/^\s*import\s/mu);
+    await assertCommittedVerifierEntryImportFirewall('fold-assets.mjs', 'fold');
     expect(source).not.toMatch(/node:|readFile|compareObservation|catalog-normalized/u);
 
     const folded = fold();
