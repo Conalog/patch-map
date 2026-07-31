@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 
 import { describe, expect, it } from 'vitest';
 
@@ -29,6 +29,15 @@ import {
   renderPatchMapContractLab,
   renderPatchMapContractRouteError,
 } from '../../lab/patch-map/contract/main';
+
+async function readTypeScriptSources(directory: URL): Promise<readonly string[]> {
+  const entries = (await readdir(directory, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  return Promise.all(entries.map((entry) => (
+    readFile(new URL(entry.name, directory), 'utf8')
+  )));
+}
 
 describe('PatchMap focused contract Lab presenters', () => {
   it('owns 173 exact, independent presenter and root identities', () => {
@@ -888,7 +897,7 @@ describe('PatchMap actual-only Lab bridge', () => {
   });
 
   it('keeps the Lab runtime dependency-firewalled from approved expected contents', async () => {
-    const sources = await Promise.all([
+    const rootSources = await Promise.all([
       'presenters.ts',
       'route.ts',
       'bridge.ts',
@@ -900,6 +909,9 @@ describe('PatchMap actual-only Lab bridge', () => {
       'lifecycle-interruption-runtime.ts',
       'main.ts',
     ].map((file) => readFile(new URL(`../../lab/patch-map/contract/${file}`, import.meta.url), 'utf8')));
+    const runtimeSources = await readTypeScriptSources(
+      new URL('../../lab/patch-map/contract/executable-runtime/', import.meta.url),
+    );
     const automationSources = await Promise.all([
       '../../scripts/verification/core-v2-contract/handlers/replacement-recovery.mjs',
       '../../scripts/verification/core-v2-contract/fold-replacement-recovery.mjs',
@@ -908,7 +920,7 @@ describe('PatchMap actual-only Lab bridge', () => {
       '../../scripts/verification/core-v2-contract/handlers/authoring.mjs',
       '../../scripts/verification/core-v2-contract/fold-authoring.mjs',
     ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
-    const joined = [...sources, ...automationSources].join('\n');
+    const joined = [...rootSources, ...runtimeSources, ...automationSources].join('\n');
     expect(joined).not.toContain('catalog-normalized-expected');
     expect(joined).not.toMatch(/from ['"].*compare/);
     expect(joined).not.toMatch(/from ['"].*observe/);
