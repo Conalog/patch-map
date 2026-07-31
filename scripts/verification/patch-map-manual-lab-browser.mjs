@@ -376,10 +376,22 @@ async function openCase(caseId) {
     server.resolvedUrls.local[0],
   ).href;
   await page.goto(url, { waitUntil: 'networkidle' });
-  await page.waitForFunction(() => {
-    const state = window.__PATCH_MAP_MANUAL_LAB__?.state();
-    return state?.status === 'ready' || state?.status === 'failed';
-  }, undefined, { timeout: 20_000 });
+  try {
+    await page.waitForFunction(() => {
+      const state = window.__PATCH_MAP_MANUAL_LAB__?.state();
+      return state?.status === 'ready' || state?.status === 'failed';
+    }, undefined, { timeout: 20_000 });
+  } catch (cause) {
+    const state = await manualState().catch(() => null);
+    throw new Error(
+      `${caseId} manual Lab ready timeout: ${JSON.stringify({
+        url,
+        state,
+        errors,
+      })}`,
+      { cause },
+    );
+  }
   const state = await manualState();
   if (state.status !== 'ready') {
     throw new Error(`${caseId} manual Lab failed: ${state.error ?? 'unknown error'}`);
