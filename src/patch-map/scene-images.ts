@@ -43,6 +43,17 @@ export interface PatchMapSceneImageReconcileOptions {
   readonly activeEntityIds?: ReadonlySet<string>;
 }
 
+/**
+ * Opaque, single-use image ownership plan produced without touching renderer or
+ * controller state. A plan is valid only for the controller and reconcile
+ * revision that prepared it.
+ */
+export interface PatchMapSceneImageReconcilePlan {
+  readonly kind: 'patch-map-scene-image-reconcile-plan';
+  readonly imageCount: number;
+  readonly activeImageCount: number;
+}
+
 export interface PatchMapSceneImageReconcileResult {
   readonly added: readonly string[];
   readonly updated: readonly string[];
@@ -193,6 +204,19 @@ interface DesiredImage {
   readonly active: boolean;
 }
 
+interface PreparedReconcilePlan {
+  readonly owner: PatchMapSceneImageController;
+  readonly revision: number;
+  readonly desired: ReadonlyMap<string, DesiredImage>;
+  readonly reservedBindings: ReadonlyMap<string, string>;
+  consumed: boolean;
+}
+
+const preparedReconcilePlans = new WeakMap<
+  PatchMapSceneImageReconcilePlan,
+  PreparedReconcilePlan
+>();
+
 const EMPTY_RECONCILE_RESULT: PatchMapSceneImageReconcileResult = Object.freeze({
   added: Object.freeze([]),
   updated: Object.freeze([]),
@@ -223,6 +247,7 @@ export class PatchMapSceneImageController {
   private readonly pendingFrameReleases = new Set<ImageBinding>();
   private readonly pendingFinalizations = new Set<Promise<void>>();
   private readonly lifecycleFailures: unknown[] = [];
+  private reconcileRevision = 0;
   private destroyedValue = false;
 
   public constructor(
@@ -235,16 +260,54 @@ export class PatchMapSceneImageController {
   }
 
   /**
-   * Atomically validates the next parser sidecar, then diffs target ownership.
-   * Request-compatible ownership transfers reserve a binding across the diff;
-   * every other old binding retires before its replacement starts.
+   * Normalizes and collision-validates the next parser sidecar without reading
+   * renderer probes or mutating target, binding, generation, or attempt state.
    */
-  public reconcile(
+  public prepareReconcile(
     index: PatchMapProjectionIndex,
     options: PatchMapSceneImageReconcileOptions = {},
-  ): PatchMapSceneImageReconcileResult {
+  ): PatchMapSceneImageReconcilePlan {
     this.assertAlive();
     const desired = normalizeDesiredImages(index, options.activeEntityIds);
+    assertPreparedBindingCompatibility(desired, this.targets, this.bindings);
+    const plan = Object.freeze({
+      kind: 'patch-map-scene-image-reconcile-plan' as const,
+      imageCount: desired.size,
+      activeImageCount: countActiveDesiredImages(desired),
+    });
+    preparedReconcilePlans.set(plan, {
+      owner: this,
+      revision: this.reconcileRevision,
+      desired,
+      reservedBindings: desiredActiveBindingSignatures(desired),
+      consumed: false,
+    });
+    return plan;
+  }
+
+  /**
+   * Commits one prepared ownership plan. Once validation succeeds, supported
+   * renderer bind/unbind/probe failures are recorded for `settle()` rather than
+   * escaping synchronously after logical ownership has started to mutate.
+   */
+  public commitReconcile(
+    plan: PatchMapSceneImageReconcilePlan,
+  ): PatchMapSceneImageReconcileResult {
+    this.assertAlive();
+    const prepared = preparedReconcilePlans.get(plan);
+    if (!prepared || prepared.owner !== this) {
+      throw new TypeError('scene image reconcile plan belongs to another controller');
+    }
+    if (prepared.consumed) {
+      throw new TypeError('scene image reconcile plan was already committed');
+    }
+    if (prepared.revision !== this.reconcileRevision) {
+      throw new TypeError('scene image reconcile plan is stale');
+    }
+    prepared.consumed = true;
+    this.reconcileRevision += 1;
+
+    const { desired, reservedBindings } = prepared;
     if (desired.size === 0 && this.targets.size === 0) return EMPTY_RECONCILE_RESULT;
 
     const added: string[] = [];
@@ -254,7 +317,6 @@ export class PatchMapSceneImageController {
     const deactivated: string[] = [];
     const bindingsStarted: string[] = [];
     const bindingsRetired: string[] = [];
-    const reservedBindings = desiredActiveBindingSignatures(desired);
 
     for (const entityId of [...this.targets.keys()].sort()) {
       const target = this.targets.get(entityId)!;
@@ -325,6 +387,18 @@ export class PatchMapSceneImageController {
   }
 
   /**
+   * Atomically validates the next parser sidecar, then diffs target ownership.
+   * Request-compatible ownership transfers reserve a binding across the diff;
+   * every other old binding retires before its replacement starts.
+   */
+  public reconcile(
+    index: PatchMapProjectionIndex,
+    options: PatchMapSceneImageReconcileOptions = {},
+  ): PatchMapSceneImageReconcileResult {
+    return this.commitReconcile(this.prepareReconcile(index, options));
+  }
+
+  /**
    * Retry one failed logical image target. Consumers sharing the same binding
    * join one new request generation; a concurrent retry observes and reuses
    * that pending generation instead of issuing another backend request.
@@ -361,6 +435,7 @@ export class PatchMapSceneImageController {
       );
     }
 
+    this.reconcileRevision += 1;
     binding.resourceState = 'pending';
     binding.observation = null;
     binding.rendererGeneration = null;
@@ -550,16 +625,16 @@ export class PatchMapSceneImageController {
       };
       this.bindings.set(binding.key, binding);
       bindingsStarted.push(binding.key);
-      this.startBinding(binding);
+      this.startBinding(binding, true);
     }
     binding.consumers.set(target.entityId, target.generation);
     binding.attempts.add(target.current);
     target.current.binding = binding;
-    const rendererProbe = this.renderer.sceneAssetBindingProbe(binding.key);
+    const rendererProbe = this.safeBindingProbe(binding.key);
     binding.rendererGeneration = rendererProbe?.generation ?? binding.rendererGeneration;
     target.current.rendererGeneration = binding.rendererGeneration;
     if (binding.observation) {
-      this.applyBindingOutcome(binding, target.current);
+      this.applyBindingOutcome(binding, target.current, undefined, true);
       binding.attempts.delete(target.current);
       target.current.binding = null;
     }
@@ -572,7 +647,7 @@ export class PatchMapSceneImageController {
   ): void {
     const attempt = target.current;
     const rendererProbe = target.active
-      ? this.renderer.sceneImageProbe(target.entityId)
+      ? this.safeLeafImageProbe(target.entityId)
       : null;
     target.staleAttachCount = Math.max(
       target.staleAttachCount,
@@ -590,22 +665,28 @@ export class PatchMapSceneImageController {
     binding.retired = true;
     this.bindings.delete(binding.key);
     bindingsRetired.push(binding.key);
-    this.trackRelease(binding, this.renderer.unbindSceneAsset(binding.key));
+    this.trackRelease(binding, this.safeUnbindSceneAsset(binding.key));
   }
 
-  private startBinding(binding: ImageBinding): void {
-    let completion: Promise<LeafAssetBindingObservation>;
-    try {
-      completion = this.renderer.bindSceneAsset(binding.key, binding.request);
-    } catch (error) {
-      completion = Promise.reject(asError(error));
-    }
-    const rendererProbe = this.renderer.sceneAssetBindingProbe(binding.key);
+  private startBinding(binding: ImageBinding, bridgeFailuresAreLifecycle = false): void {
+    const completion = this.bindSceneAsset(binding.key, binding.request);
+    const rendererProbe = bridgeFailuresAreLifecycle
+      ? this.safeBindingProbe(binding.key)
+      : this.renderer.sceneAssetBindingProbe(binding.key);
     binding.rendererGeneration = rendererProbe?.generation ?? null;
-    const settlement = completion.then(
-      (observation) => this.settleBinding(binding, observation),
-      (error: unknown) => this.rejectBinding(binding, error),
+    const outcome = completion.then(
+      (observation) => this.settleBinding(binding, observation, bridgeFailuresAreLifecycle),
+      (error: unknown) => this.rejectBinding(binding, error, bridgeFailuresAreLifecycle),
     );
+    const settlement = bridgeFailuresAreLifecycle
+      ? outcome.catch((error: unknown) => {
+        this.lifecycleFailures.push(error);
+        if (!binding.retired && this.bindings.get(binding.key) === binding) {
+          binding.resourceState = 'failed';
+          this.invalidate(`scene-image:${binding.key}:failed`);
+        }
+      })
+      : outcome;
     binding.settlement = settlement;
     this.pendingSettlements.add(settlement);
     void settlement.finally(() => this.pendingSettlements.delete(settlement));
@@ -614,10 +695,13 @@ export class PatchMapSceneImageController {
   private settleBinding(
     binding: ImageBinding,
     observation: LeafAssetBindingObservation,
+    bridgeFailuresAreLifecycle: boolean,
   ): void {
     binding.observation = observation;
     binding.rendererGeneration = observation.generation;
-    const probe = this.renderer.sceneAssetBindingProbe(binding.key);
+    const probe = bridgeFailuresAreLifecycle
+      ? this.safeBindingProbe(binding.key)
+      : this.renderer.sceneAssetBindingProbe(binding.key);
     binding.resourceState = observation.normalizedResourceIdentity !== null
       ? 'resolved'
       : probe?.state === 'resolved'
@@ -627,20 +711,24 @@ export class PatchMapSceneImageController {
     binding.attempts.clear();
     for (const attempt of attempts) {
       attempt.binding = null;
-      this.applyBindingOutcome(binding, attempt, probe);
+      this.applyBindingOutcome(binding, attempt, probe, bridgeFailuresAreLifecycle);
     }
     if (!binding.retired && this.bindings.get(binding.key) === binding) {
       this.invalidate(`scene-image:${binding.key}:${binding.resourceState}`);
     }
   }
 
-  private rejectBinding(binding: ImageBinding, error: unknown): void {
+  private rejectBinding(
+    binding: ImageBinding,
+    error: unknown,
+    bridgeFailuresAreLifecycle: boolean,
+  ): void {
     binding.resourceState = 'failed';
     const attempts = [...binding.attempts];
     binding.attempts.clear();
     for (const attempt of attempts) {
       attempt.binding = null;
-      this.applyBindingOutcome(binding, attempt);
+      this.applyBindingOutcome(binding, attempt, undefined, bridgeFailuresAreLifecycle);
     }
     this.lifecycleFailures.push(error);
     if (!binding.retired && this.bindings.get(binding.key) === binding) {
@@ -651,19 +739,25 @@ export class PatchMapSceneImageController {
   private applyBindingOutcome(
     binding: ImageBinding,
     attempt: ImageAttempt,
-    suppliedProbe: LeafAssetBindingProbe | null = this.renderer.sceneAssetBindingProbe(binding.key),
+    suppliedProbe?: LeafAssetBindingProbe | null,
+    bridgeFailuresAreLifecycle = false,
   ): void {
+    const rendererProbe = suppliedProbe === undefined
+      ? bridgeFailuresAreLifecycle
+        ? this.safeBindingProbe(binding.key)
+        : this.renderer.sceneAssetBindingProbe(binding.key)
+      : suppliedProbe;
     const observation = binding.observation;
-    attempt.rendererGeneration = observation?.generation ?? suppliedProbe?.generation ?? null;
-    attempt.cacheIdentity = observation?.cacheIdentity ?? suppliedProbe?.cacheIdentity ?? null;
+    attempt.rendererGeneration = observation?.generation ?? rendererProbe?.generation ?? null;
+    attempt.cacheIdentity = observation?.cacheIdentity ?? rendererProbe?.cacheIdentity ?? null;
     attempt.normalizedResourceIdentity = observation?.normalizedResourceIdentity ??
-      suppliedProbe?.normalizedResourceIdentity ??
+      rendererProbe?.normalizedResourceIdentity ??
       null;
     attempt.naturalSize = normalizeNaturalSize(
-      observation?.naturalSize ?? suppliedProbe?.naturalSize ?? null,
+      observation?.naturalSize ?? rendererProbe?.naturalSize ?? null,
     );
     attempt.reusedResolvedResource = observation?.reusedResolvedResource ??
-      suppliedProbe?.reusedResolvedResource ??
+      rendererProbe?.reusedResolvedResource ??
       false;
     attempt.resourceState = binding.resourceState;
 
@@ -701,7 +795,9 @@ export class PatchMapSceneImageController {
       }
     }
     if (current && target) {
-      const imageProbe = this.renderer.sceneImageProbe(target.entityId);
+      const imageProbe = bridgeFailuresAreLifecycle
+        ? this.safeLeafImageProbe(target.entityId)
+        : this.renderer.sceneImageProbe(target.entityId);
       target.staleAttachCount = Math.max(
         target.staleAttachCount,
         imageProbe?.staleAttachCount ?? 0,
@@ -799,6 +895,45 @@ export class PatchMapSceneImageController {
     );
     this.pendingReleases.add(tracked);
     void tracked.finally(() => this.pendingReleases.delete(tracked));
+  }
+
+  private bindSceneAsset(
+    key: string,
+    request: LeafAssetBindingRequest,
+  ): Promise<LeafAssetBindingObservation> {
+    try {
+      return Promise.resolve(this.renderer.bindSceneAsset(key, request));
+    } catch (error) {
+      return Promise.reject(asError(error));
+    }
+  }
+
+  private safeUnbindSceneAsset(key: string): Promise<boolean> {
+    try {
+      return Promise.resolve(this.renderer.unbindSceneAsset(key));
+    } catch (error) {
+      return Promise.reject(asError(error));
+    }
+  }
+
+  private safeBindingProbe(key: string): LeafAssetBindingProbe | null {
+    try {
+      return this.renderer.sceneAssetBindingProbe(key);
+    } catch (error) {
+      this.lifecycleFailures.push(asError(error));
+      return null;
+    }
+  }
+
+  private safeLeafImageProbe(entityId: string): ReturnType<
+    PatchMapSceneImageRendererBridge['sceneImageProbe']
+  > {
+    try {
+      return this.renderer.sceneImageProbe(entityId);
+    } catch (error) {
+      this.lifecycleFailures.push(asError(error));
+      return null;
+    }
   }
 
   private pruneTargetAttempts(target: ImageTarget): void {
@@ -899,6 +1034,49 @@ function desiredActiveBindingSignatures(
     if (image.active) signatures.set(image.projection.bindingKey, image.requestSignature);
   }
   return signatures;
+}
+
+function countActiveDesiredImages(desired: ReadonlyMap<string, DesiredImage>): number {
+  let count = 0;
+  for (const image of desired.values()) {
+    if (image.active) count += 1;
+  }
+  return count;
+}
+
+/**
+ * A retained binding is the only existing ownership that can survive the
+ * detach pass. Validating it here keeps the commit phase free of collision
+ * discovery after target mutation has started.
+ */
+function assertPreparedBindingCompatibility(
+  desired: ReadonlyMap<string, DesiredImage>,
+  targets: ReadonlyMap<string, ImageTarget>,
+  bindings: ReadonlyMap<string, ImageBinding>,
+): void {
+  const retainedBindingSignatures = new Map<string, string>();
+  for (const binding of bindings.values()) {
+    for (const consumerId of binding.consumers.keys()) {
+      const target = targets.get(consumerId);
+      const next = desired.get(consumerId);
+      if (
+        target &&
+        next &&
+        target.signature === next.signature &&
+        target.active === next.active
+      ) {
+        retainedBindingSignatures.set(binding.key, binding.requestSignature);
+        break;
+      }
+    }
+  }
+  for (const image of desired.values()) {
+    if (!image.active) continue;
+    const retainedSignature = retainedBindingSignatures.get(image.projection.bindingKey);
+    if (retainedSignature !== undefined && retainedSignature !== image.requestSignature) {
+      throw new TypeError(`image binding key collision: ${image.projection.bindingKey}`);
+    }
+  }
 }
 
 function cloneProjection(entityId: string, value: PatchMapImageProjection): PatchMapImageProjection {

@@ -43,10 +43,15 @@ interface MockBinding {
 
 class MockImageRenderer implements PatchMapSceneImageRendererBridge {
   public readonly operations: string[] = [];
+  public readonly bridgeCalls: string[] = [];
   public readonly requests = new Map<string, LeafAssetBindingRequest>();
   public readonly imageProbes = new Map<string, LeafSceneImageProbe>();
   public finalizeCount = 0;
   public finalizeFailure: Error | null = null;
+  public bindFailure: Error | null = null;
+  public unbindFailure: Error | null = null;
+  public bindingProbeFailures = 0;
+  public imageProbeFailures = 0;
 
   private readonly live = new Map<string, MockBinding>();
   private readonly all = new Map<string, MockBinding[]>();
@@ -55,6 +60,12 @@ class MockImageRenderer implements PatchMapSceneImageRendererBridge {
     key: string,
     request: LeafAssetBindingRequest,
   ): Promise<LeafAssetBindingObservation> {
+    this.bridgeCalls.push(`bind:${key}`);
+    if (this.bindFailure) {
+      const failure = this.bindFailure;
+      this.bindFailure = null;
+      throw failure;
+    }
     const generation = (this.all.get(key)?.length ?? 0) + 1;
     const binding: MockBinding = {
       key,
@@ -78,6 +89,12 @@ class MockImageRenderer implements PatchMapSceneImageRendererBridge {
   }
 
   public unbindSceneAsset(key: string): Promise<boolean> {
+    this.bridgeCalls.push(`unbind:${key}`);
+    if (this.unbindFailure) {
+      const failure = this.unbindFailure;
+      this.unbindFailure = null;
+      throw failure;
+    }
     const binding = this.live.get(key);
     this.operations.push(`unbind:${key}`);
     if (!binding) return Promise.resolve(false);
@@ -87,6 +104,11 @@ class MockImageRenderer implements PatchMapSceneImageRendererBridge {
   }
 
   public sceneAssetBindingProbe(key: string): LeafAssetBindingProbe | null {
+    this.bridgeCalls.push(`binding-probe:${key}`);
+    if (this.bindingProbeFailures > 0) {
+      this.bindingProbeFailures -= 1;
+      throw new Error(`fixture binding probe failed: ${key}`);
+    }
     const binding = this.live.get(key);
     if (!binding) return null;
     return Object.freeze({
@@ -110,10 +132,16 @@ class MockImageRenderer implements PatchMapSceneImageRendererBridge {
   }
 
   public sceneImageProbe(entityId: string): LeafSceneImageProbe | null {
+    this.bridgeCalls.push(`image-probe:${entityId}`);
+    if (this.imageProbeFailures > 0) {
+      this.imageProbeFailures -= 1;
+      throw new Error(`fixture image probe failed: ${entityId}`);
+    }
     return this.imageProbes.get(entityId) ?? null;
   }
 
   public finalizeAssetUnloads(): Promise<void> {
+    this.bridgeCalls.push('finalize');
     this.operations.push('finalize');
     this.finalizeCount += 1;
     if (this.finalizeFailure) return Promise.reject(this.finalizeFailure);
@@ -812,6 +840,145 @@ describe('PatchMapSceneImageController', () => {
     await expect(controller.finalizeAfterRenderedFrame()).resolves.toBeUndefined();
     await expect(controller.settle()).rejects.toThrow('scene image lifecycle failed');
     expect(controller.probe().abandonedRequests.pendingReleaseCount).toBe(1);
+  });
+
+  it('prepares a reconcile plan without mutating probes, generations, or the renderer bridge', async () => {
+    const renderer = new MockImageRenderer();
+    const controller = new PatchMapSceneImageController(renderer);
+    const key = 'alias:fixture-image';
+    controller.reconcile(imageIndex([image('image', 'fixture-image', 'alias')]));
+    renderer.resolve(key);
+    await controller.settle();
+
+    const before = controller.probe();
+    const operationsBefore = [...renderer.operations];
+    renderer.bridgeCalls.length = 0;
+    const plan = controller.prepareReconcile(imageIndex([
+      image('image', 'replacement-image', 'alias'),
+      image('second', 'replacement-image', 'alias'),
+    ]));
+
+    expect(plan).toEqual({
+      kind: 'patch-map-scene-image-reconcile-plan',
+      imageCount: 2,
+      activeImageCount: 2,
+    });
+    expect(Object.isFrozen(plan)).toBe(true);
+    expect(renderer.bridgeCalls).toEqual([]);
+    expect(renderer.operations).toEqual(operationsBefore);
+    expect(controller.probe()).toEqual(before);
+  });
+
+  it('leaves exact controller and renderer state after invalid or colliding preparation', async () => {
+    const renderer = new MockImageRenderer();
+    const controller = new PatchMapSceneImageController(renderer);
+    const key = 'alias:fixture-image';
+    controller.reconcile(imageIndex([image('image', 'fixture-image', 'alias')]));
+    renderer.resolve(key);
+    await controller.settle();
+    const before = controller.probe();
+    const operationsBefore = [...renderer.operations];
+
+    const invalid: PatchMapProjectionIndex = {
+      byEntityId: Object.freeze({}),
+      imagesByEntityId: Object.freeze({
+        wrong: image('right', 'fixture-image', 'alias'),
+      }),
+    };
+    expect(() => controller.prepareReconcile(invalid)).toThrow(
+      'image projection identity mismatch',
+    );
+
+    const collision = imageIndex([
+      projection('one', 'first', 'alias', 'alias:collision', 'alias:first'),
+      projection('two', 'second', 'alias', 'alias:collision', 'alias:second'),
+    ]);
+    expect(() => controller.prepareReconcile(collision)).toThrow(
+      'image binding key collision',
+    );
+    expect(renderer.operations).toEqual(operationsBefore);
+    expect(controller.probe()).toEqual(before);
+  });
+
+  it('commits a prepared plan with the same ownership result as reconcile', () => {
+    const preparedRenderer = new MockImageRenderer();
+    const directRenderer = new MockImageRenderer();
+    const preparedController = new PatchMapSceneImageController(preparedRenderer);
+    const directController = new PatchMapSceneImageController(directRenderer);
+    const initial = imageIndex([image('old-target', 'fixture-image', 'alias')]);
+    const next = imageIndex([
+      image('replacement-target', 'fixture-image', 'alias'),
+      image('second', 'replacement-image', 'alias'),
+    ]);
+    preparedController.reconcile(initial);
+    directController.reconcile(initial);
+
+    const plan = preparedController.prepareReconcile(next);
+    expect(preparedRenderer.operations).toEqual(directRenderer.operations);
+    const preparedResult = preparedController.commitReconcile(plan);
+    const directResult = directController.reconcile(next);
+
+    expect(preparedResult).toEqual(directResult);
+    expect(preparedController.probe()).toEqual(directController.probe());
+    expect(preparedRenderer.operations).toEqual(directRenderer.operations);
+  });
+
+  it('rejects a prepared plan made stale by retry before any reconcile mutation', async () => {
+    const renderer = new MockImageRenderer();
+    const controller = new PatchMapSceneImageController(renderer);
+    const key = 'alias:fixture-image';
+    const index = imageIndex([image('image', 'fixture-image', 'alias')]);
+    controller.reconcile(index);
+    renderer.fail(key);
+    await controller.settle();
+
+    const plan = controller.prepareReconcile(index);
+    expect(controller.retry('image')).toMatchObject({ status: 'started', generation: 2 });
+    expect(() => controller.commitReconcile(plan)).toThrow('scene image reconcile plan is stale');
+    expect(controller.imageProbe('image')).toMatchObject({
+      generation: 2,
+      bindingKey: key,
+      state: 'pending',
+    });
+    expect(renderer.operations.filter((operation) => operation === `bind:${key}`)).toHaveLength(2);
+  });
+
+  it('tracks synchronous bridge failures without leaving a synchronous half-commit', async () => {
+    const renderer = new MockImageRenderer();
+    const controller = new PatchMapSceneImageController(renderer);
+    const oldKey = 'alias:old-image';
+    const replacementKey = 'alias:replacement-image';
+    controller.reconcile(imageIndex([image('image', 'old-image', 'alias')]));
+    renderer.resolve(oldKey);
+    await controller.settle();
+
+    const plan = controller.prepareReconcile(imageIndex([
+      image('image', 'replacement-image', 'alias'),
+    ]));
+    renderer.imageProbeFailures = 1;
+    renderer.unbindFailure = new Error('fixture sync unbind failed');
+    renderer.bindFailure = new Error('fixture sync bind failed');
+    renderer.bindingProbeFailures = 3;
+
+    let result: ReturnType<PatchMapSceneImageController['commitReconcile']> | undefined;
+    expect(() => {
+      result = controller.commitReconcile(plan);
+    }).not.toThrow();
+    expect(result).toMatchObject({
+      updated: ['image'],
+      bindingsStarted: [replacementKey],
+      bindingsRetired: [oldKey],
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(controller.imageProbe('image')).toMatchObject({
+      generation: 2,
+      bindingKey: replacementKey,
+      state: 'failed',
+      attachmentState: 'current',
+    });
+    await expect(controller.settle()).rejects.toThrow('scene image lifecycle failed');
   });
 
   it('rejects binding-key collisions before mutating renderer or controller state', () => {
