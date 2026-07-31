@@ -272,6 +272,247 @@ describe('PatchMapPresentationController', () => {
     expect(first.snapshot()).toEqual(second.snapshot());
     expect(Object.isFrozen(firstResults[3])).toBe(true);
   });
+
+  it('keeps the internal reconcile kernel equivalent without public materialization', () => {
+    const publicController = new PatchMapPresentationController({
+      lifecycleGeneration: 5,
+    });
+    const internalController = new PatchMapPresentationController({
+      lifecycleGeneration: 5,
+    });
+
+    const scheduled = publicController.retarget(
+      retarget('bar', 12, 4, 10, 40, 0),
+    );
+    const internalScheduled = internalController.retargetForReconcile(
+      'bar',
+      12,
+      4,
+      10,
+      40,
+      0,
+    );
+    expect(internalScheduled).toMatchObject({
+      found: true,
+      scheduled: scheduled.scheduled,
+      replaced: scheduled.replaced,
+      startValue: scheduled.startValue,
+      destinationValue: scheduled.destinationValue,
+      durationMs: scheduled.durationMs,
+      changed: scheduled.published,
+      published: scheduled.published,
+    });
+    expect(internalController.snapshot()).toEqual(publicController.snapshot());
+    expect(internalController.probe('bar')).toEqual(publicController.probe('bar'));
+
+    const replaced = publicController.retarget(
+      retarget('bar', 12, 4, 10, 20, 75),
+    );
+    const internalReplaced = internalController.retargetForReconcile(
+      'bar',
+      12,
+      4,
+      10,
+      20,
+      75,
+    );
+    expect(internalReplaced).toMatchObject({
+      found: true,
+      scheduled: replaced.scheduled,
+      replaced: replaced.replaced,
+      startValue: replaced.startValue,
+      destinationValue: replaced.destinationValue,
+      changedValue: replaced.updates[0]?.value,
+      settled: false,
+      published: replaced.published,
+    });
+    expect(Object.isFrozen(replaced)).toBe(true);
+    expect(Object.isFrozen(replaced.updates)).toBe(true);
+    expect(Object.isFrozen(replaced.updates[0])).toBe(true);
+    expect(Object.isFrozen(replaced.dirtyEntityIds)).toBe(true);
+    expect(Object.isFrozen(replaced.dirtyRanges)).toBe(true);
+    expect(Object.isFrozen(replaced.dirtyRanges[0])).toBe(true);
+    expect(Object.isFrozen(replaced.settledEntityIds)).toBe(true);
+    expect(internalController.snapshot()).toEqual(publicController.snapshot());
+    expect(internalController.probe('bar')).toEqual(publicController.probe('bar'));
+
+    const disabled = publicController.retarget({
+      ...retarget('bar', 12, 4, 10, 7, 100),
+      enabled: false,
+    });
+    const internalDisabled = internalController.retargetForReconcile(
+      'bar',
+      12,
+      4,
+      10,
+      7,
+      100,
+      undefined,
+      false,
+    );
+    expect(internalDisabled).toMatchObject({
+      found: false,
+      scheduled: disabled.scheduled,
+      replaced: disabled.replaced,
+      startValue: disabled.startValue,
+      destinationValue: disabled.destinationValue,
+      changedValue: disabled.updates[0]?.value,
+      settled: true,
+      published: disabled.published,
+    });
+    expect(internalController.snapshot()).toEqual(publicController.snapshot());
+    expect(internalController.probe('bar')).toEqual(publicController.probe('bar'));
+
+    const equal = publicController.retarget(
+      retarget('equal', 2, 1, 7, 7, 100),
+    );
+    const internalEqual = internalController.retargetForReconcile(
+      'equal',
+      2,
+      1,
+      7,
+      7,
+      100,
+    );
+    expect(internalEqual).toMatchObject({
+      scheduled: false,
+      changed: false,
+      settled: false,
+      published: equal.published,
+    });
+    const zeroDuration = publicController.retarget({
+      ...retarget('zero', 3, 1, 2, 9, 100),
+      durationMs: 0,
+    });
+    const internalZeroDuration = internalController.retargetForReconcile(
+      'zero',
+      3,
+      1,
+      2,
+      9,
+      100,
+      0,
+    );
+    expect(internalZeroDuration).toMatchObject({
+      scheduled: false,
+      changed: true,
+      changedValue: zeroDuration.updates[0]?.value,
+      settled: true,
+      published: zeroDuration.published,
+    });
+    expect(internalController.snapshot()).toEqual(publicController.snapshot());
+
+    const scratch = internalController.readActiveForReconcile('missing');
+    expect(internalController.readActiveForReconcile('bar')).toBe(scratch);
+    internalController.retargetForReconcile('stable', 5, 1, 1, 4, 100);
+    const before = internalController.snapshot();
+    const beforeProbe = internalController.probe('stable');
+    expect(() => internalController.retargetForReconcile(
+      'invalid',
+      0,
+      1,
+      0,
+      Number.NaN,
+      100,
+    )).toThrow(TypeError);
+    expect(internalController.snapshot()).toEqual(before);
+    expect(internalController.probe('stable')).toEqual(beforeProbe);
+  });
+
+  it('preserves public validation order and canonicalizes negative zero time', () => {
+    const controller = new PatchMapPresentationController();
+    const reads: string[] = [];
+    const invalid = {
+      get entityId() {
+        reads.push('entityId');
+        return '';
+      },
+      get slot() {
+        reads.push('slot');
+        return 0;
+      },
+    } as PatchMapPresentationRetargetInput;
+
+    expect(() => controller.retarget(invalid)).toThrow(TypeError);
+    expect(reads).toEqual(['entityId']);
+
+    const result = controller.retarget(retarget('zero-time', 1, 1, 5, 10, -0));
+    expect(Object.is(result.timeMs, -0)).toBe(false);
+    expect(Object.is(controller.snapshot().clockMs, -0)).toBe(false);
+  });
+
+  it('matches internal replacement, cancel no-op, and destroy cleanup semantics', () => {
+    const publicController = new PatchMapPresentationController();
+    const internalController = new PatchMapPresentationController();
+    publicController.retarget(retarget('bar', 3, 1, 4, 12, 0));
+    internalController.retargetForReconcile('bar', 3, 1, 4, 12, 0);
+
+    const publicReplacement = publicController.retarget(
+      retarget('bar', 7, 2, 6, 18, 20),
+    );
+    const internalReplacement = internalController.retargetForReconcile(
+      'bar',
+      7,
+      2,
+      6,
+      18,
+      20,
+    );
+    expect(internalReplacement).toMatchObject({
+      scheduled: publicReplacement.scheduled,
+      replaced: true,
+      startValue: publicReplacement.startValue,
+      published: publicReplacement.published,
+    });
+    expect(internalController.snapshot()).toEqual(publicController.snapshot());
+
+    expect(publicController.cancel({
+      entityId: 'bar',
+      generation: 1,
+      timeMs: 20,
+      reason: 'replacement',
+    }).cancelled).toBe(false);
+    expect(internalController.cancelForReconcile(
+      'bar',
+      1,
+      20,
+      'replacement',
+    )).toBe(false);
+    expect(internalController.snapshot()).toEqual(publicController.snapshot());
+
+    expect(publicController.cancel({
+      entityId: 'bar',
+      generation: 2,
+      timeMs: 20,
+      reason: 'replacement',
+    }).cancelled).toBe(true);
+    expect(internalController.cancelForReconcile(
+      'bar',
+      2,
+      20,
+      'replacement',
+    )).toBe(true);
+    expect(internalController.snapshot()).toEqual(publicController.snapshot());
+
+    publicController.retarget(retarget('secret', 9, 3, 1, 5, 20));
+    internalController.retargetForReconcile('secret', 9, 3, 1, 5, 20);
+    const scratch = internalController.readActiveForReconcile('bar');
+    expect(scratch).toMatchObject({ found: false, entityId: 'bar' });
+    internalController.readActiveForReconcile('secret');
+    expect(scratch).toMatchObject({ found: true, entityId: 'secret', generation: 3 });
+    publicController.destroy();
+    internalController.destroy();
+    expect(scratch).toMatchObject({
+      found: false,
+      entityId: '',
+      slot: 0,
+      generation: 0,
+      currentValue: 0,
+    });
+    expect(internalController.probe('secret')).toBeNull();
+    expect(scratch.entityId).toBe('');
+    expect(internalController.snapshot()).toEqual(publicController.snapshot());
+  });
 });
 
 function retarget(

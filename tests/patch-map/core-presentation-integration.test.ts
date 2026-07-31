@@ -9,7 +9,10 @@ import {
   PatchMapError,
   PixiEngineSurface,
 } from '../../src/patch-map/engine';
-import { PatchMapPresentationError } from '../../src/patch-map/presentation';
+import {
+  PatchMapPresentationController,
+  PatchMapPresentationError,
+} from '../../src/patch-map/presentation';
 import type {
   PatchMapRendererPresentationEntityProbe,
   PatchMapResolvedPresentationPolicy,
@@ -31,6 +34,7 @@ describe('PatchMap bar presentation integration', () => {
 
   afterEach(async () => {
     await Promise.all(allocated.splice(0).map((core) => core.destroy()));
+    vi.restoreAllMocks();
   });
 
   it('commits semantic height immediately and publishes deterministic bottom-anchored frames', () => {
@@ -74,6 +78,33 @@ describe('PatchMap bar presentation integration', () => {
         active: false,
         controller: { activeCount: 0, totalSettlementCount: 1 },
       });
+  });
+
+  it('reconciles bars without materializing public presentation observations', () => {
+    const publicProbe = vi.spyOn(PatchMapPresentationController.prototype, 'probe');
+    const publicRetarget = vi.spyOn(PatchMapPresentationController.prototype, 'retarget');
+    const publicCancel = vi.spyOn(PatchMapPresentationController.prototype, 'cancel');
+    const { core } = createTestCore(allocated);
+    core.load(scene(10));
+    core.publishFrame(0);
+    publicProbe.mockClear();
+    publicRetarget.mockClear();
+    publicCancel.mockClear();
+
+    expect(core.reconcile(scene(40)).status).toBe('committed');
+    const controller = (
+      core as unknown as {
+        presentationController: PatchMapPresentationController;
+      }
+    ).presentationController;
+    const activeBeforeNoOp = controller.snapshot();
+    expect(core.reconcile(scene(40)).status).toBe('committed');
+    expect(controller.snapshot()).toEqual(activeBeforeNoOp);
+    expect(core.reconcile(scene(25, false)).status).toBe('committed');
+
+    expect(publicProbe).not.toHaveBeenCalled();
+    expect(publicRetarget).not.toHaveBeenCalled();
+    expect(publicCancel).not.toHaveBeenCalled();
   });
 
   it('renders a same-clock viewport frame without rebuilding unchanged presentation geometry', () => {

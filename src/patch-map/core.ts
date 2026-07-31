@@ -2767,15 +2767,15 @@ export class PatchMapRuntime {
       for (const entityId of incrementalEntityIds) {
         const bar = nextBars[entityId];
         const previous = previousBars[entityId];
-        const active = this.presentationController.probe(entityId);
+        const active = this.presentationController.readActiveForReconcile(entityId);
         if (bar === undefined) {
-          if (active !== null) {
-            this.presentationController.cancel({
+          if (active.found) {
+            this.presentationController.cancelForReconcile(
               entityId,
-              generation: active.generation,
+              active.generation,
               timeMs,
-              reason: 'remove',
-            });
+              'remove',
+            );
           }
           continue;
         }
@@ -2800,45 +2800,45 @@ export class PatchMapRuntime {
         const destinationChanged =
           previous?.destinationHeight !== bar.destinationHeight;
         if (!canAnimate) {
-          if (active !== null) {
-            this.presentationController.cancel({
+          if (active.found) {
+            this.presentationController.cancelForReconcile(
               entityId,
-              generation: active.generation,
+              active.generation,
               timeMs,
-              reason: entity === null ? 'remove' : entity.visible ? 'replacement' : 'hide',
-            });
+              entity === null ? 'remove' : entity.visible ? 'replacement' : 'hide',
+            );
           }
           continue;
         }
         if (destinationChanged) {
-          const retargeted = this.presentationController.retarget({
+          const retargeted = this.presentationController.retargetForReconcile(
             entityId,
-            slot: ref.slot,
-            generation: ref.generation,
-            currentVisibleValue: currentHeight,
-            destinationValue: bar.destinationHeight,
+            ref.slot,
+            ref.generation,
+            currentHeight,
+            bar.destinationHeight,
             timeMs,
-            durationMs: bar.animationDuration,
-            enabled: bar.animation,
-          });
+            bar.animationDuration,
+            bar.animation,
+          );
           if (retargeted.scheduled) {
             visibleHeights.set(entityId, retargeted.startValue);
           }
           continue;
         }
         if (
-          active !== null &&
+          active.found &&
           active.slot === ref.slot &&
           active.generation === ref.generation
         ) {
           visibleHeights.set(entityId, active.currentValue);
-        } else if (active !== null) {
-          this.presentationController.cancel({
+        } else if (active.found) {
+          this.presentationController.cancelForReconcile(
             entityId,
-            generation: active.generation,
+            active.generation,
             timeMs,
-            reason: 'replacement',
-          });
+            'replacement',
+          );
         }
       }
       const incremental = this.presentationProjection.replaceIncremental(
@@ -2855,14 +2855,14 @@ export class PatchMapRuntime {
 
     for (const entityId of Object.keys(previousBars).sort()) {
       if (nextBars[entityId] !== undefined) continue;
-      const active = this.presentationController.probe(entityId);
-      if (active !== null) {
-        this.presentationController.cancel({
+      const active = this.presentationController.readActiveForReconcile(entityId);
+      if (active.found) {
+        this.presentationController.cancelForReconcile(
           entityId,
-          generation: active.generation,
+          active.generation,
           timeMs,
-          reason: 'remove',
-        });
+          'remove',
+        );
       }
     }
 
@@ -2872,7 +2872,7 @@ export class PatchMapRuntime {
       const previous = previousBars[entityId];
       const entity = this.scene.get(entityId);
       const ref = entity?.ref ?? null;
-      const active = this.presentationController.probe(entityId);
+      const active = this.presentationController.readActiveForReconcile(entityId);
       const currentHeight = this.presentationProjection.visibleHeight(entityId) ??
         previous?.destinationHeight ??
         bar.destinationHeight;
@@ -2889,45 +2889,45 @@ export class PatchMapRuntime {
       const destinationChanged = previous?.destinationHeight !== bar.destinationHeight;
 
       if (!canAnimate) {
-        if (active !== null) {
-          this.presentationController.cancel({
+        if (active.found) {
+          this.presentationController.cancelForReconcile(
             entityId,
-            generation: active.generation,
+            active.generation,
             timeMs,
-            reason: entity === null ? 'remove' : entity.visible ? 'replacement' : 'hide',
-          });
+            entity === null ? 'remove' : entity.visible ? 'replacement' : 'hide',
+          );
         }
         continue;
       }
 
       if (destinationChanged) {
-        const retargeted = this.presentationController.retarget({
+        const retargeted = this.presentationController.retargetForReconcile(
           entityId,
-          slot: ref.slot,
-          generation: ref.generation,
-          currentVisibleValue: currentHeight,
-          destinationValue: bar.destinationHeight,
+          ref.slot,
+          ref.generation,
+          currentHeight,
+          bar.destinationHeight,
           timeMs,
-          durationMs: bar.animationDuration,
-          enabled: bar.animation,
-        });
+          bar.animationDuration,
+          bar.animation,
+        );
         if (retargeted.scheduled) visibleHeights.set(entityId, retargeted.startValue);
         continue;
       }
 
       if (
-        active !== null &&
+        active.found &&
         active.slot === ref.slot &&
         active.generation === ref.generation
       ) {
         visibleHeights.set(entityId, active.currentValue);
-      } else if (active !== null) {
-        this.presentationController.cancel({
+      } else if (active.found) {
+        this.presentationController.cancelForReconcile(
           entityId,
-          generation: active.generation,
+          active.generation,
           timeMs,
-          reason: 'replacement',
-        });
+          'replacement',
+        );
       }
     }
 

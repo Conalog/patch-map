@@ -137,16 +137,27 @@ export class PatchMapPresentationError extends Error {
   }
 }
 
-interface NormalizedRetarget {
+export interface PatchMapPresentationReconcileState {
+  readonly found: boolean;
   readonly entityId: string;
   readonly slot: number;
   readonly generation: number;
-  readonly currentVisibleValue: number;
+  readonly currentValue: number;
+  readonly scheduled: boolean;
+  readonly replaced: boolean;
+  readonly startValue: number;
   readonly destinationValue: number;
-  readonly timeMs: number;
   readonly durationMs: number;
-  readonly enabled: boolean;
+  readonly changed: boolean;
+  readonly changedValue: number;
+  readonly settled: boolean;
+  readonly published: boolean;
 }
+
+type MutableReconcileState = {
+  -readonly [Key in keyof PatchMapPresentationReconcileState]:
+    PatchMapPresentationReconcileState[Key];
+};
 
 const EMPTY_IDS: readonly string[] = Object.freeze([]);
 const EMPTY_UPDATES: readonly PatchMapPresentationUpdate[] = Object.freeze([]);
@@ -184,6 +195,22 @@ export class PatchMapPresentationController {
   private totalSupersessionCountValue = 0;
   private publishedFrameCountValue = 0;
   private destroyedValue = false;
+  private readonly reconcileState: MutableReconcileState = {
+    found: false,
+    entityId: '',
+    slot: 0,
+    generation: 0,
+    currentValue: 0,
+    scheduled: false,
+    replaced: false,
+    startValue: 0,
+    destinationValue: 0,
+    durationMs: 0,
+    changed: false,
+    changedValue: 0,
+    settled: false,
+    published: false,
+  };
 
   public constructor(options: PatchMapPresentationControllerOptions = {}) {
     this.lifecycleGenerationValue = uint32Positive(
@@ -219,77 +246,152 @@ export class PatchMapPresentationController {
 
   public retarget(input: PatchMapPresentationRetargetInput): PatchMapPresentationRetargetResult {
     this.assertAlive('retarget');
-    const normalized = this.normalizeRetarget(input);
-    this.assertMonotonic(normalized.timeMs, 'retarget');
+    const entityId = nonEmptyString(input.entityId, 'entityId');
+    const slot = uint32(input.slot, 'slot');
+    const generation = uint32Positive(input.generation, 'generation');
+    const currentVisibleValue = finite(input.currentVisibleValue, 'currentVisibleValue');
+    const destinationValue = finite(input.destinationValue, 'destinationValue');
+    const timeMs = finite(input.timeMs, 'timeMs');
+    const durationMs = nonNegativeFinite(
+      input.durationMs ?? this.defaultDurationMs,
+      'durationMs',
+    );
+    const enabled = optionalBoolean(input.enabled, true, 'enabled');
+    const state = this.retargetForReconcile(
+      entityId,
+      slot,
+      generation,
+      currentVisibleValue,
+      destinationValue,
+      timeMs,
+      durationMs,
+      enabled,
+    );
+    return this.materializeRetargetResult(state, timeMs);
+  }
 
-    const updates: PatchMapPresentationUpdate[] = [];
-    const settledIds: string[] = [];
-    const existing = this.indexById.get(normalized.entityId);
+  /**
+   * Internal allocation-free active-row view for the Core reconcile loop.
+   * The returned controller-owned object is ephemeral and overwritten by the
+   * next reconcile read, retarget, or cancel call.
+   */
+  public readActiveForReconcile(
+    entityId: string,
+  ): PatchMapPresentationReconcileState {
+    const state = this.reconcileState;
+    if (this.destroyedValue) {
+      this.resetReconcileState(state);
+      return state;
+    }
+    const index = this.indexById.get(entityId);
+    state.found = index !== undefined;
+    state.entityId = entityId;
+    state.slot = index === undefined ? 0 : (this.slots[index] ?? 0);
+    state.generation = index === undefined ? 0 : (this.generations[index] ?? 0);
+    state.currentValue = index === undefined ? 0 : (this.currentValues[index] ?? 0);
+    this.clearReconcileTransition(state);
+    return state;
+  }
+
+  /**
+   * Internal scalar retarget kernel. It preserves controller counters and
+   * publication semantics without materializing public frame arrays.
+   */
+  public retargetForReconcile(
+    entityIdInput: string,
+    slotInput: number,
+    generationInput: number,
+    currentVisibleValueInput: number,
+    destinationValueInput: number,
+    timeMsInput: number,
+    durationMsInput?: number,
+    enabledInput?: boolean,
+  ): PatchMapPresentationReconcileState {
+    this.assertAlive('retarget');
+    const entityId = nonEmptyString(entityIdInput, 'entityId');
+    const slot = uint32(slotInput, 'slot');
+    const generation = uint32Positive(generationInput, 'generation');
+    const currentVisibleValue = finite(currentVisibleValueInput, 'currentVisibleValue');
+    const destinationValue = finite(destinationValueInput, 'destinationValue');
+    const timeMs = finite(timeMsInput, 'timeMs');
+    const durationMs = nonNegativeFinite(
+      durationMsInput ?? this.defaultDurationMs,
+      'durationMs',
+    );
+    const enabled = optionalBoolean(enabledInput, true, 'enabled');
+    this.assertMonotonic(timeMs, 'retarget');
+
+    const state = this.reconcileState;
+    state.found = false;
+    state.entityId = entityId;
+    state.slot = slot;
+    state.generation = generation;
+    state.currentValue = currentVisibleValue;
+    state.scheduled = false;
+    state.replaced = false;
+    state.startValue = currentVisibleValue;
+    state.destinationValue = destinationValue;
+    state.durationMs = durationMs;
+    state.changed = false;
+    state.changedValue = currentVisibleValue;
+    state.settled = false;
+    state.published = false;
+
+    const existing = this.indexById.get(entityId);
     const replaced = existing !== undefined;
-    let startValue = normalized.currentVisibleValue;
+    let startValue = currentVisibleValue;
 
     if (existing !== undefined) {
       this.totalSupersessionCountValue += 1;
-      const sameIdentity = this.slots[existing] === normalized.slot &&
-        this.generations[existing] === normalized.generation;
+      const sameIdentity = this.slots[existing] === slot &&
+        this.generations[existing] === generation;
       if (sameIdentity) {
-        startValue = this.sampleAt(existing, normalized.timeMs);
+        startValue = this.sampleAt(existing, timeMs);
         if (!Object.is(startValue, this.currentValues[existing])) {
           this.currentValues[existing] = startValue;
-          updates.push(this.updateAt(existing, startValue));
+          state.changed = true;
+          state.changedValue = startValue;
         }
       } else {
         this.totalCancellationCountValue += 1;
       }
     }
 
-    this.clockMsValue = normalized.timeMs;
-    const immediate = !normalized.enabled || normalized.durationMs === 0;
-    if (immediate || Object.is(startValue, normalized.destinationValue)) {
+    this.clockMsValue = timeMs;
+    const immediate = !enabled || durationMs === 0;
+    if (immediate || Object.is(startValue, destinationValue)) {
       if (existing !== undefined) this.removeAt(existing);
-      if (!Object.is(startValue, normalized.destinationValue)) {
-        replaceUpdate(updates, Object.freeze({
-          entityId: normalized.entityId,
-          slot: normalized.slot,
-          generation: normalized.generation,
-          value: normalized.destinationValue,
-        }));
-        settledIds.push(normalized.entityId);
+      if (!Object.is(startValue, destinationValue)) {
+        state.changed = true;
+        state.changedValue = destinationValue;
+        state.settled = true;
         this.totalSettlementCountValue += 1;
       }
-      const frame = this.finishFrame('retarget', normalized.timeMs, updates, settledIds);
-      return Object.freeze({
-        ...frame,
-        operation: 'retarget',
-        scheduled: false,
-        replaced,
-        startValue,
-        destinationValue: normalized.destinationValue,
-        durationMs: normalized.durationMs,
-      });
+      this.publishReconcileTransition(state);
+      state.replaced = replaced;
+      state.startValue = startValue;
+      state.currentValue = state.changed ? state.changedValue : startValue;
+      return state;
     }
 
-    const index = existing ?? this.append(normalized.entityId);
-    if (existing !== undefined) this.ids[index] = normalized.entityId;
-    this.slots[index] = normalized.slot;
-    this.generations[index] = normalized.generation;
+    const index = existing ?? this.append(entityId);
+    if (existing !== undefined) this.ids[index] = entityId;
+    this.slots[index] = slot;
+    this.generations[index] = generation;
     this.startValues[index] = startValue;
-    this.destinationValues[index] = normalized.destinationValue;
+    this.destinationValues[index] = destinationValue;
     this.currentValues[index] = startValue;
-    this.startTimes[index] = normalized.timeMs;
-    this.durations[index] = normalized.durationMs;
-    this.indexById.set(normalized.entityId, index);
+    this.startTimes[index] = timeMs;
+    this.durations[index] = durationMs;
+    this.indexById.set(entityId, index);
 
-    const frame = this.finishFrame('retarget', normalized.timeMs, updates, settledIds);
-    return Object.freeze({
-      ...frame,
-      operation: 'retarget',
-      scheduled: true,
-      replaced,
-      startValue,
-      destinationValue: normalized.destinationValue,
-      durationMs: normalized.durationMs,
-    });
+    this.publishReconcileTransition(state);
+    state.found = true;
+    state.scheduled = true;
+    state.replaced = replaced;
+    state.startValue = startValue;
+    state.currentValue = startValue;
+    return state;
   }
 
   public advance(timeMs: number): PatchMapPresentationFrame {
@@ -357,18 +459,17 @@ export class PatchMapPresentationController {
     const entityId = nonEmptyString(input.entityId, 'entityId');
     const generation = uint32Positive(input.generation, 'generation');
     const reason = cancelReason(input.reason);
-    this.assertMonotonic(input.timeMs, 'cancel');
-    this.clockMsValue = input.timeMs;
-    const index = this.indexById.get(entityId);
-    const cancelled = index !== undefined && this.generations[index] === generation;
-    if (cancelled) {
-      this.removeAt(index);
-      this.totalCancellationCountValue += 1;
-    }
+    const timeMs = input.timeMs;
+    const cancelled = this.cancelForReconcile(
+      entityId,
+      generation,
+      timeMs,
+      reason,
+    );
     return Object.freeze({
       lifecycleGeneration: this.lifecycleGenerationValue,
       presentationRevision: this.presentationRevisionValue,
-      timeMs: input.timeMs,
+      timeMs,
       entityId,
       reason,
       cancelled,
@@ -377,15 +478,40 @@ export class PatchMapPresentationController {
     });
   }
 
+  /** Internal allocation-free cancel kernel for Core reconciliation. */
+  public cancelForReconcile(
+    entityIdInput: string,
+    generationInput: number,
+    timeMs: number,
+    reasonInput: Exclude<PatchMapPresentationCancelReason, 'destroy'>,
+  ): boolean {
+    this.assertAlive('cancel');
+    const entityId = nonEmptyString(entityIdInput, 'entityId');
+    const generation = uint32Positive(generationInput, 'generation');
+    cancelReason(reasonInput);
+    this.assertMonotonic(timeMs, 'cancel');
+    this.clockMsValue = timeMs;
+    const index = this.indexById.get(entityId);
+    const cancelled = index !== undefined && this.generations[index] === generation;
+    if (cancelled) {
+      this.removeAt(index);
+      this.totalCancellationCountValue += 1;
+    }
+    this.resetReconcileState(this.reconcileState);
+    return cancelled;
+  }
+
   public probe(entityId: string): PatchMapPresentationProbe | null {
     if (this.destroyedValue) return null;
+    const active = this.readActiveForReconcile(entityId);
+    if (!active.found) return null;
     const index = this.indexById.get(entityId);
     if (index === undefined) return null;
     return Object.freeze({
-      entityId: this.requiredId(index),
-      slot: this.slots[index] ?? 0,
-      generation: this.generations[index] ?? 0,
-      currentValue: this.currentValues[index] ?? 0,
+      entityId: active.entityId,
+      slot: active.slot,
+      generation: active.generation,
+      currentValue: active.currentValue,
       startValue: this.startValues[index] ?? 0,
       destinationValue: this.destinationValues[index] ?? 0,
       startTimeMs: this.startTimes[index] ?? 0,
@@ -411,6 +537,7 @@ export class PatchMapPresentationController {
 
   public destroy(): PatchMapPresentationDestroyResult {
     if (this.destroyedValue) {
+      this.resetReconcileState(this.reconcileState);
       return Object.freeze({
         lifecycleGeneration: this.lifecycleGenerationValue,
         presentationRevision: this.presentationRevisionValue,
@@ -438,6 +565,7 @@ export class PatchMapPresentationController {
     this.startTimes = new Float64Array(0);
     this.durations = new Float64Array(0);
     this.destroyedValue = true;
+    this.resetReconcileState(this.reconcileState);
     return Object.freeze({
       lifecycleGeneration: this.lifecycleGenerationValue,
       presentationRevision: this.presentationRevisionValue,
@@ -448,17 +576,75 @@ export class PatchMapPresentationController {
     });
   }
 
-  private normalizeRetarget(input: PatchMapPresentationRetargetInput): NormalizedRetarget {
-    return {
-      entityId: nonEmptyString(input.entityId, 'entityId'),
-      slot: uint32(input.slot, 'slot'),
-      generation: uint32Positive(input.generation, 'generation'),
-      currentVisibleValue: finite(input.currentVisibleValue, 'currentVisibleValue'),
-      destinationValue: finite(input.destinationValue, 'destinationValue'),
-      timeMs: finite(input.timeMs, 'timeMs'),
-      durationMs: nonNegativeFinite(input.durationMs ?? this.defaultDurationMs, 'durationMs'),
-      enabled: optionalBoolean(input.enabled, true, 'enabled'),
-    };
+  private resetReconcileState(state: MutableReconcileState): void {
+    state.found = false;
+    state.entityId = '';
+    state.slot = 0;
+    state.generation = 0;
+    state.currentValue = 0;
+    this.clearReconcileTransition(state);
+  }
+
+  private clearReconcileTransition(state: MutableReconcileState): void {
+    state.scheduled = false;
+    state.replaced = false;
+    state.startValue = state.currentValue;
+    state.destinationValue = state.currentValue;
+    state.durationMs = 0;
+    state.changed = false;
+    state.changedValue = state.currentValue;
+    state.settled = false;
+    state.published = false;
+  }
+
+  private publishReconcileTransition(state: MutableReconcileState): void {
+    state.published = state.changed;
+    if (!state.published) return;
+    this.presentationRevisionValue += 1;
+    this.publishedFrameCountValue += 1;
+  }
+
+  private materializeRetargetResult(
+    state: PatchMapPresentationReconcileState,
+    timeMs: number,
+  ): PatchMapPresentationRetargetResult {
+    const updates: readonly PatchMapPresentationUpdate[] = state.changed
+      ? Object.freeze([Object.freeze({
+          entityId: state.entityId,
+          slot: state.slot,
+          generation: state.generation,
+          value: state.changedValue,
+        })])
+      : EMPTY_UPDATES;
+    const dirtyEntityIds = state.changed
+      ? Object.freeze([state.entityId])
+      : EMPTY_IDS;
+    const dirtyRanges: readonly PatchMapPresentationDirtyRange[] = state.changed
+      ? Object.freeze([Object.freeze({ start: state.slot, end: state.slot + 1 })])
+      : EMPTY_RANGES;
+    const settledEntityIds = state.settled
+      ? Object.freeze([state.entityId])
+      : EMPTY_IDS;
+    return Object.freeze({
+      operation: 'retarget',
+      lifecycleGeneration: this.lifecycleGenerationValue,
+      presentationRevision: this.presentationRevisionValue,
+      timeMs,
+      activeCount: this.countValue,
+      changedCount: updates.length,
+      settledCount: settledEntityIds.length,
+      totalSettlementCount: this.totalSettlementCountValue,
+      published: state.published,
+      updates,
+      dirtyEntityIds,
+      dirtyRanges,
+      settledEntityIds,
+      scheduled: state.scheduled,
+      replaced: state.replaced,
+      startValue: state.startValue,
+      destinationValue: state.destinationValue,
+      durationMs: state.durationMs,
+    });
   }
 
   private assertAlive(operation: PatchMapPresentationDiagnostic['operation']): void {
