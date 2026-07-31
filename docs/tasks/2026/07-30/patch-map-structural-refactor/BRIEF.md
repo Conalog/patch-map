@@ -14,13 +14,14 @@
 
 # Current Facts
 
-- The initial allowed refactor inventory contained 84 product files, 48 Lab
-  files, 156 tests, 23 performance files, 104 verification files, and five
-  examples: 420 files total. New cohesive modules remain in the same review
+- The 420-file starting inventory covers product, Lab, tests, performance,
+  verification, and examples. New cohesive modules remain in its review
   ledger; frozen evidence and generated/dependency content stay excluded.
 - `engine.ts` is 6,372 LOC and `core.ts` is 2,650 LOC. Parser, transaction,
   text-layout, incremental-parser, authoring, and editor-workflow facades are
   now 601, 969, 310, 614, 96, and 900 LOC with focused downward owners.
+- Mesh and Pixi renderer coordinators are 1,256 and 2,002 LOC after CPU value
+  planning moved below unchanged GPU/Application/resource owners.
 - Renderer ownership is sound: one manual Application loop, aggregate layers,
   one root interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
@@ -58,15 +59,14 @@
 - Parser lowering and structural transaction planning are split into acyclic
   owners; relation cleanup now falls back before touching an external frozen
   relation root.
-- The checkpoint passes 188 unit files / 1,612 tests, lint/typecheck, and
-  independent P0–P2 review. Unchanged renderer/Lab/package/lifecycle/hot paths
-  retain their preceding risk-specific checkpoints.
+- The checkpoint passes 188 unit files / 1,613 tests, lint/typecheck, Lab
+  build, representative headless WebGL, and independent P0–P2 review.
 
 # Next Step
 
-- Split renderer CPU planning and publication-policy atoms while retaining
-  Pixi Application, aggregate GPU resources, frame ownership, and exact upload
-  behavior in their current coordinators.
+- Extract the next largest pure Core reconcile/frame and Engine selection/query
+  planning boundaries without moving scheduler, transaction, event, surface,
+  or public API ownership.
 
 # Working Boundary
 
