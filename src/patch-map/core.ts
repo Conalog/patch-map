@@ -22,8 +22,6 @@ import type {
   ParsePatchMapOptions,
   ParsePatchMapResult,
   PatchMapBarProjection,
-  PatchMapComponentVisualProjection,
-  PatchMapEntityProjection,
   PatchMapProjectionIndex,
 } from './contracts';
 import type { PatchMapPresentationFrame } from './presentation';
@@ -40,7 +38,6 @@ import {
   parsePatchMapV010Async,
   parsePatchMapV010DirectTextBatch,
   parsePatchMapV010SelectedRoots,
-  projectPatchMapIntrinsicImageAffine,
 } from './parser';
 import {
   inheritPatchMapV010IncrementalParserCaches,
@@ -86,20 +83,8 @@ import {
   type PatchMapSceneImageRetryResult,
   type PatchMapSceneImagesProbe,
 } from './scene-images';
-import {
-  patchMapAffineCenter,
-  patchMapAffineBasis,
-  freezePatchMapBounds,
-  freezePatchMapAffine,
-  projectPatchMapSignedRect,
-  type PatchMapBoundsTuple,
-} from './semantic/geometry';
-import {
-  compactPatchMapStableRecord,
-  patchPatchMapStableRecord,
-  rollbackPatchMapStableRecord,
-  type PatchMapStableRecordStrategy,
-} from './semantic/stable-record-overlay';
+import type { PatchMapBoundsTuple } from './semantic/geometry';
+import type { PatchMapStableRecordStrategy } from './semantic/stable-record-overlay';
 import {
   boundsFor,
   fitView,
@@ -113,7 +98,6 @@ import {
   type PatchMapBarPresentationProductProbe,
   type PatchMapComponentVisualProductProbe,
   type PatchMapComponentVisualTarget,
-  type PatchMapDirectBarHeightUpdate,
   type PatchMapLoadResult,
   type PatchMapPrepareResult,
   type PatchMapPresentationLifecycleResult,
@@ -178,6 +162,19 @@ import {
   incrementalDenseEntityIds,
   structuralTargetMappingsReusable,
 } from './core/reconcile-planning';
+import { reconcileDirectBarHeightParse } from './core/direct-bar-reconcile';
+import {
+  intrinsicImageProjectionUpdate,
+  projectionWithResolvedIntrinsicSizes,
+  resolvedIntrinsicImageSizes,
+  type PatchMapIntrinsicImageGeometry,
+} from './core/intrinsic-image-projection';
+import {
+  compactPatchMapProjectionStableRecords,
+  isPlainRecord,
+  jsonEquivalent,
+  rollbackPatchMapProjectionStableRecords,
+} from './core/projection-records';
 
 export { normalizePatchMapTextTarget } from './core/contracts';
 export type * from './core/contracts';
@@ -189,13 +186,6 @@ interface PatchMapCooperativeLoadHooks {
    * currently published Core state is still untouched.
    */
   readonly assertCurrent?: () => void;
-}
-
-interface PatchMapIntrinsicImageGeometry {
-  readonly entityId: string;
-  readonly bindingKey: string;
-  readonly generation: number | null;
-  readonly naturalSize: readonly [number, number];
 }
 
 export class PatchMapRuntime {
@@ -433,7 +423,7 @@ export class PatchMapRuntime {
       const candidate = this.loadAuthority.prepareCandidate({
         scene: candidateScene,
         parse,
-        projection: this.projectionWithResolvedIntrinsicSizes(parse.projection),
+        projection: projectionWithResolvedIntrinsicSizes(parse.projection, this.sceneImages),
         ownedInputDataset: retainedInput.dataset,
         ownedParseOptionsKey: retainedInput.optionsKey,
         entityCount: store.entityCount,
@@ -494,7 +484,7 @@ export class PatchMapRuntime {
       const candidate = this.loadAuthority.prepareCandidate({
         scene: candidateScene,
         parse,
-        projection: this.projectionWithResolvedIntrinsicSizes(parse.projection),
+        projection: projectionWithResolvedIntrinsicSizes(parse.projection, this.sceneImages),
         ownedInputDataset: retainedInput.dataset,
         ownedParseOptionsKey: retainedInput.optionsKey,
         entityCount: store.entityCount,
@@ -2260,10 +2250,11 @@ export class PatchMapRuntime {
     const base = this.parseResultValue?.projection;
     const currentIndex = this.projectionValue ?? base;
     if (!base || !currentIndex) return;
-    const update = this.intrinsicImageProjectionUpdate(
+    const update = intrinsicImageProjectionUpdate(
       base,
       currentIndex,
       resolutions,
+      this.sceneImages,
     );
     if (update.changedIds.length === 0) return;
     this.updatePublishedScene({ projection: update.projection });
@@ -2280,113 +2271,11 @@ export class PatchMapRuntime {
     this.spatialHit.invalidate();
   }
 
-  private projectionWithResolvedIntrinsicSizes(
-    base: PatchMapProjectionIndex,
-  ): PatchMapProjectionIndex {
-    const update = this.intrinsicImageProjectionUpdate(
-      base,
-      base,
-      this.resolvedIntrinsicImageSizes(base),
-    );
-    return update.projection;
-  }
-
-  private intrinsicImageProjectionUpdate(
-    base: PatchMapProjectionIndex,
-    currentIndex: PatchMapProjectionIndex,
-    resolutions: readonly PatchMapIntrinsicImageGeometry[],
-  ): Readonly<{
-    projection: PatchMapProjectionIndex;
-    changedIds: readonly string[];
-  }> {
-    const replacements: Record<string, PatchMapEntityProjection> = Object.create(null) as Record<
-      string,
-      PatchMapEntityProjection
-    >;
-
-    for (const resolution of resolutions) {
-      const image = base.imagesByEntityId?.[resolution.entityId];
-      if (
-        !image ||
-        image.dimensionMode !== 'intrinsic' ||
-        image.intrinsicTransform === undefined ||
-        image.bindingKey !== resolution.bindingKey
-      ) {
-        continue;
-      }
-      if (resolution.generation !== null) {
-        const current = this.sceneImages.imageProbe(resolution.entityId);
-        if (
-          current?.generation !== resolution.generation ||
-          current.bindingKey !== resolution.bindingKey ||
-          current.attachmentState !== 'current'
-        ) {
-          continue;
-        }
-      }
-      const sourceProjection = base.byEntityId[resolution.entityId];
-      if (!sourceProjection) continue;
-      const [width, height] = resolution.naturalSize;
-      if (!(width > 0) || !(height > 0) || !Number.isFinite(width) || !Number.isFinite(height)) {
-        continue;
-      }
-      const affine = projectPatchMapIntrinsicImageAffine(image.intrinsicTransform, width, height);
-      const localBounds = freezePatchMapBounds(0, 0, width, height);
-      const projection = Object.freeze({
-        ...sourceProjection,
-        affine,
-        localBounds,
-        worldBasis: patchMapAffineBasis(affine),
-        visibleCenter: patchMapAffineCenter(affine, localBounds),
-      } satisfies PatchMapEntityProjection);
-      if (jsonEquivalent(currentIndex.byEntityId[resolution.entityId], projection)) continue;
-      replacements[resolution.entityId] = projection;
-    }
-
-    const changedIds = Object.keys(replacements).sort();
-    return Object.freeze({
-      projection: changedIds.length === 0
-        ? currentIndex
-        : freezeProjectionReplacements(currentIndex, replacements),
-      changedIds: Object.freeze(changedIds),
-    });
-  }
-
-  private resolvedIntrinsicImageSizes(
-    projection: PatchMapProjectionIndex,
-  ): readonly PatchMapIntrinsicImageGeometry[] {
-    const images = projection.imagesByEntityId ?? {};
-    const resolutions: PatchMapIntrinsicImageGeometry[] = [];
-    for (const entityId of Object.keys(images).sort()) {
-      const image = images[entityId];
-      if (image?.dimensionMode !== 'intrinsic') continue;
-      const probe = this.sceneImages.imageProbe(entityId);
-      if (probe?.naturalSize && probe.attachmentState === 'current') {
-        resolutions.push({
-          entityId,
-          bindingKey: probe.bindingKey,
-          generation: probe.generation,
-          naturalSize: probe.naturalSize,
-        });
-        continue;
-      }
-      const naturalSize = this.sceneImages.resolvedBindingNaturalSize(image.bindingKey);
-      if (naturalSize === null) continue;
-      resolutions.push({
-        entityId,
-        bindingKey: image.bindingKey,
-        generation: null,
-        naturalSize,
-      });
-    }
-    return Object.freeze(resolutions);
-  }
-
   private reapplyResolvedIntrinsicSizes(): void {
     const projection = this.parseResultValue?.projection;
     if (!projection) return;
     this.pendingIntrinsicImageSizes.clear();
-    this.applyIntrinsicImageSizes(this.resolvedIntrinsicImageSizes(projection));
+    this.applyIntrinsicImageSizes(resolvedIntrinsicImageSizes(projection, this.sceneImages));
   }
 
   /**
@@ -2628,231 +2517,6 @@ function reconcileFacts(
   });
 }
 
-function reconcileDirectBarHeightParse(
-  input: unknown,
-  previous: ParsePatchMapResult,
-  updates: readonly PatchMapDirectBarHeightUpdate[],
-  componentTargets: ReadonlyMap<string, IndexedComponentTarget | null>,
-  recordStrategy: PatchMapStableRecordStrategy,
-): ParsePatchMapResult | null {
-  if (!isOwnedPatchMapDataset(input) || updates.length === 0) return null;
-  const entities = [...previous.document.entities];
-  const selectedEntityProjections = Object.create(null) as Record<
-    string,
-    PatchMapEntityProjection
-  >;
-  const selectedBarProjections = Object.create(null) as Record<
-    string,
-    PatchMapBarProjection
-  >;
-  const selectedComponentProjections = Object.create(null) as Record<
-    string,
-    PatchMapComponentVisualProjection
-  >;
-  const entityIds: string[] = [];
-  const seenTargets = new Set<string>();
-
-  for (const update of updates) {
-    if (!Number.isFinite(update.height) || update.height < 0) return null;
-    const targetKey = componentTargetKey(update);
-    if (seenTargets.has(targetKey)) return null;
-    seenTargets.add(targetKey);
-    const indexed = componentTargets.get(targetKey);
-    if (
-      indexed === undefined ||
-      indexed === null ||
-      indexed.rootIndex === null ||
-      indexed.componentIndex === null
-    ) {
-      return null;
-    }
-    const root = input[indexed.rootIndex];
-    if (root?.type !== 'item' || root.id !== update.ownerId) return null;
-    const component = root.components[indexed.componentIndex];
-    if (
-      component?.type !== 'bar' ||
-      component.id !== update.componentId ||
-      typeof component.size !== 'object' ||
-      component.size === null ||
-      !('height' in component.size) ||
-      typeof component.size.height !== 'number' ||
-      component.size.height !== update.height
-    ) {
-      return null;
-    }
-
-    const entityIndex = indexed.entityIndex;
-    const entity = previous.document.entities[entityIndex];
-    const bar = previous.projection.barsByEntityId?.[indexed.entityId];
-    const projection = previous.projection.byEntityId[indexed.entityId];
-    const ownerProjection = bar === undefined
-      ? undefined
-      : previous.projection.byEntityId[bar.ownerId];
-    if (
-      entity?.id !== indexed.entityId ||
-      entity.kind !== 'bar' ||
-      bar === undefined ||
-      projection === undefined ||
-      ownerProjection === undefined
-    ) {
-      return null;
-    }
-
-    const oldHeight = projection.localBounds[3];
-    const deltaHeight = update.height - oldHeight;
-    const localDeltaY = directBarPlacementDeltaY(bar.placement, deltaHeight);
-    const ownerAffine = ownerProjection.affine;
-    const affine = freezePatchMapAffine(
-      projection.affine[0],
-      projection.affine[1],
-      projection.affine[2],
-      projection.affine[3],
-      projection.affine[4] + ownerAffine[2] * localDeltaY,
-      projection.affine[5] + ownerAffine[3] * localDeltaY,
-    );
-    const dense = projectPatchMapSignedRect(
-      {
-        x: affine[4],
-        y: affine[5],
-        rotation: projection.rotationDegrees,
-        scaleX: projection.scaleX,
-        scaleY: projection.scaleY,
-      },
-      projection.localBounds[2],
-      update.height,
-    );
-    const localBounds = freezePatchMapBounds(
-      projection.localBounds[0],
-      projection.localBounds[1],
-      projection.localBounds[2],
-      update.height,
-    );
-    entities[entityIndex] = Object.freeze({
-      ...entity,
-      x: dense.x,
-      y: dense.y,
-      width: dense.width,
-      height: dense.height,
-    });
-    selectedEntityProjections[indexed.entityId] = Object.freeze({
-      ...projection,
-      localBounds,
-      affine,
-      worldBasis: patchMapAffineBasis(affine),
-      visibleCenter: patchMapAffineCenter(affine, localBounds),
-    });
-    selectedBarProjections[indexed.entityId] = Object.freeze({
-      ...bar,
-      destinationHeight: update.height,
-    });
-    const componentProjection =
-      previous.projection.componentsByEntityId?.[indexed.entityId];
-    if (componentProjection !== undefined) {
-      selectedComponentProjections[indexed.entityId] = Object.freeze({
-        ...componentProjection,
-        authoredSize: component.size,
-      });
-    }
-    entityIds.push(indexed.entityId);
-  }
-
-  const entityProjections = patchPatchMapStableRecord(
-    previous.projection.byEntityId,
-    selectedEntityProjections,
-    entityIds,
-    recordStrategy,
-    true,
-  );
-  const barProjections = patchPatchMapStableRecord(
-    previous.projection.barsByEntityId,
-    selectedBarProjections,
-    entityIds,
-    recordStrategy,
-    true,
-  );
-  const componentProjections = patchPatchMapStableRecord(
-    previous.projection.componentsByEntityId,
-    selectedComponentProjections,
-    entityIds,
-    recordStrategy,
-    true,
-  );
-  if (
-    entityProjections === null ||
-    barProjections === null ||
-    componentProjections === null
-  ) {
-    return null;
-  }
-  const document = Object.freeze({
-    ...previous.document,
-    entities: Object.freeze(entities),
-  });
-  const projection = Object.freeze({
-    ...previous.projection,
-    byEntityId: entityProjections,
-    componentsByEntityId: componentProjections,
-    barsByEntityId: barProjections,
-  });
-  return Object.freeze({
-    ...previous,
-    document,
-    projection,
-  });
-}
-
-function directBarPlacementDeltaY(
-  placement: NonNullable<PatchMapProjectionIndex['barsByEntityId']>[string]['placement'],
-  deltaHeight: number,
-): number {
-  if (
-    placement === 'bottom' ||
-    placement === 'left-bottom' ||
-    placement === 'right-bottom'
-  ) {
-    return -deltaHeight;
-  }
-  if (placement === 'left' || placement === 'right' || placement === 'center') {
-    return -deltaHeight / 2;
-  }
-  return 0;
-}
-
-function compactPatchMapProjectionStableRecords(
-  projection: PatchMapProjectionIndex,
-): void {
-  for (const record of patchMapProjectionStableRecords(projection)) {
-    compactPatchMapStableRecord(record);
-  }
-}
-
-function rollbackPatchMapProjectionStableRecords(
-  candidate: PatchMapProjectionIndex,
-  previous: PatchMapProjectionIndex,
-): void {
-  const candidateRecords = patchMapProjectionStableRecords(candidate);
-  const previousRecords = patchMapProjectionStableRecords(previous);
-  for (let index = 0; index < candidateRecords.length; index += 1) {
-    rollbackPatchMapStableRecord(
-      candidateRecords[index],
-      previousRecords[index],
-    );
-  }
-}
-
-function patchMapProjectionStableRecords(
-  projection: PatchMapProjectionIndex,
-): readonly (Readonly<Record<string, unknown>> | undefined)[] {
-  return [
-    projection.byEntityId,
-    projection.componentsByEntityId,
-    projection.backgroundsByEntityId,
-    projection.imagesByEntityId,
-    projection.textsByEntityId,
-    projection.barsByEntityId,
-    projection.relationsByEntityId,
-  ];
-}
 
 interface PatchMapReconcileFactStamp {
   readonly revision: number;
@@ -2876,28 +2540,6 @@ function freezeReconcileResult<T extends PatchMapReconcileResult>(result: T): T 
   }) as T;
 }
 
-function jsonEquivalent(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) return true;
-  if (Array.isArray(left) || Array.isArray(right)) {
-    return Array.isArray(left) &&
-      Array.isArray(right) &&
-      left.length === right.length &&
-      left.every((value, index) => jsonEquivalent(value, right[index]));
-  }
-  if (!isPlainRecord(left) || !isPlainRecord(right)) return false;
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  if (leftKeys.length !== rightKeys.length) return false;
-  return leftKeys.every(
-    (key) => Object.prototype.hasOwnProperty.call(right, key) && jsonEquivalent(left[key], right[key]),
-  );
-}
-
-function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object') return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
 
 function retainedOwnedInputDataset(
   input: unknown,
@@ -2969,19 +2611,6 @@ function normalizeCleanupFailure(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value));
 }
 
-function freezeProjectionReplacements(
-  source: PatchMapProjectionIndex,
-  replacements: Readonly<Record<string, PatchMapEntityProjection>>,
-): PatchMapProjectionIndex {
-  const byEntityId = Object.freeze({
-    ...source.byEntityId,
-    ...replacements,
-  });
-  return Object.freeze({
-    ...source,
-    byEntityId,
-  });
-}
 
 function normalizeRefreshTarget(
   target: unknown,
