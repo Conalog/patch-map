@@ -119,6 +119,39 @@ describe('PatchMap human-operated Lab catalog', () => {
     }
   });
 
+  it('keeps pure workbench rendering separate from the live product session', async () => {
+    const [sessionSource, viewSource] = await Promise.all([
+      readFile(
+        new URL('../../lab/patch-map/interactive/manual-workbench.ts', import.meta.url),
+        'utf8',
+      ),
+      readFile(
+        new URL('../../lab/patch-map/interactive/manual-workbench-view.ts', import.meta.url),
+        'utf8',
+      ),
+    ]);
+
+    expect(sessionSource).toContain(
+      "export { renderPatchMapManualWorkbench } from './manual-workbench-view';",
+    );
+    expect(sessionSource).toContain('const next = new PatchMap({');
+    expect(sessionSource).not.toContain('function renderSelectionPanel(');
+    expect(viewSource).toContain('export function renderPatchMapManualWorkbench(');
+    expect(viewSource).toContain('function renderSelectionPanel(');
+    for (const sessionToken of [
+      'new PatchMap(',
+      'PatchMapAssetRuntime',
+      'addEventListener(',
+      'ResizeObserver',
+      'querySelector',
+    ]) {
+      expect(viewSource).not.toContain(sessionToken);
+    }
+    expect(viewSource).not.toMatch(
+      /normalizedExpected|approvedExpected|comparisonResult/u,
+    );
+  });
+
   it('uses the package frame loop without whole-scene probes or Lab-owned cadence', async () => {
     const [source, schedulerSource] = await Promise.all([
       readFile(
