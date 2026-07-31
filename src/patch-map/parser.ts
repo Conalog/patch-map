@@ -36,14 +36,9 @@ import type {
 } from './semantic/dataset';
 import {
   PATCH_MAP_IDENTITY_AFFINE,
-  applyPatchMapAffine,
   patchMapAffineBasis,
   patchMapAffineCenter,
   createPatchMapAffine,
-  multiplyPatchMapAffine,
-  projectPatchMapSignedRect,
-  type PatchMapAffineMatrix,
-  type PatchMapDenseRectProjection,
 } from './semantic/geometry';
 import {
   layoutPatchMapText,
@@ -70,32 +65,25 @@ import {
   inheritPatchMapV010DirectParseIndexes,
   type PatchMapDirectTextParseTargetIndex,
 } from './parser/direct-text-index';
+import {
+  composePatchMapParserTransform,
+  projectPatchMapIntrinsicImageAffine,
+  projectPatchMapParserImage,
+  projectPatchMapParserTopLeft,
+  type PatchMapEntityProjectionDraft,
+  type PatchMapParserSize,
+  type PatchMapParserTransform,
+} from './parser/transform-projection';
 
 export { inheritPatchMapV010DirectParseIndexes };
 export type { PatchMapDirectTextParseTargetIndex };
+export { projectPatchMapIntrinsicImageAffine };
 
 type JsonRecord = Record<string, unknown>;
 
-interface Transform {
-  readonly x: number;
-  readonly y: number;
-  readonly rotation: number;
-  readonly scaleX: number;
-  readonly scaleY: number;
-  readonly affine: PatchMapAffineMatrix;
-  readonly imageIntrinsicTransform: PatchMapImageIntrinsicTransform;
-}
-
-interface EntityProjectionDraft extends PatchMapDenseRectProjection {
-  readonly affine: PatchMapAffineMatrix;
-  readonly rotationDegrees: number;
-  readonly contentOrientation: PatchMapContentOrientation;
-}
-
-interface Size {
-  readonly width: number;
-  readonly height: number;
-}
+type Transform = PatchMapParserTransform;
+type EntityProjectionDraft = PatchMapEntityProjectionDraft;
+type Size = PatchMapParserSize;
 
 interface Box extends Size {
   readonly x: number;
@@ -783,7 +771,7 @@ function parseGrid(
       if (cellValue === 0 && !hideInactive) return;
 
       const instanceId = `${sourceId}.${row}.${column}`;
-      const cellTransform = composeTransform(
+      const cellTransform = composePatchMapParserTransform(
         transform,
         column * (itemSize.width + gap.x),
         row * (itemSize.height + gap.y),
@@ -872,7 +860,7 @@ function parseItemInstance(
   };
   state.expandedItems.push(instance);
 
-  const denseTransform = centerPivotTopLeft(transform, size, 'follow-item');
+  const denseTransform = projectPatchMapParserTopLeft(transform, size, 'follow-item');
   addEntity(
     {
       kind: 'rect',
@@ -1003,7 +991,7 @@ function parseComponent(
         radius,
         tint,
       });
-      const denseTransform = centerPivotTopLeft(transform, local, 'follow-item');
+      const denseTransform = projectPatchMapParserTopLeft(transform, local, 'follow-item');
       addEntity(
         {
           kind: 'rect',
@@ -1076,7 +1064,7 @@ function parseComponent(
       ), opacity),
       { ...owner, component },
       state,
-      centerPivotTopLeft(transform, local, 'follow-item'),
+      projectPatchMapParserTopLeft(transform, local, 'follow-item'),
     );
     return;
   }
@@ -1087,7 +1075,7 @@ function parseComponent(
     const margin = boxSpacing(value.margin, `${path}.margin`, state);
     const local = resolvePatchMapPlacementBounds(content, componentSize, placement, margin, path);
     const transform = componentTransform(itemTransform, local, attrs, path, state);
-    const denseTransform = centerPivotTopLeft(transform, local, contentOrientation);
+    const denseTransform = projectPatchMapParserTopLeft(transform, local, contentOrientation);
     const animation = barAnimation(value.animation, `${path}.animation`, sourceElementId, state);
     const animationDuration = barAnimationDuration(
       value.animationDuration,
@@ -1182,7 +1170,7 @@ function parseComponent(
       ), opacity),
       { ...owner, component },
       state,
-      centerPivotTopLeft(transform, local, contentOrientation),
+      projectPatchMapParserTopLeft(transform, local, contentOrientation),
     );
     return;
   }
@@ -1251,7 +1239,7 @@ function parseComponent(
       ), opacity),
       { ...owner, component },
       state,
-      centerPivotTopLeft(transform, local, contentOrientation),
+      projectPatchMapParserTopLeft(transform, local, contentOrientation),
     );
     return;
   }
@@ -1278,7 +1266,7 @@ function parseDirectRect(
   const size = fixedSize(value.size, `${path}.size`, state);
   const stroke = isRecord(value.stroke) ? value.stroke : undefined;
   const radius = projectedRadius(value.radius, `${path}.radius`, state);
-  const denseTransform = centerPivotTopLeft(transform, size);
+  const denseTransform = projectPatchMapParserTopLeft(transform, size);
   addEntity(
     {
       kind: 'rect',
@@ -1324,8 +1312,8 @@ function parseDirectImage(
     : fixedSize(value.size, `${path}.size`, state);
   const attrs = isRecord(value.attrs) ? value.attrs : undefined;
   const denseTransform = authoredSize && attrs?.display === 'image'
-    ? centerPivotTopLeft(transform, size)
-    : centerPivotImage(transform, size);
+    ? projectPatchMapParserTopLeft(transform, size)
+    : projectPatchMapParserImage(transform, size);
   const projected = imageEntity(
     sourceId,
     transform,
@@ -1427,7 +1415,7 @@ function parseDirectText(
     ), owner.opacity),
     owner,
     state,
-    centerPivotTopLeft(transform, box),
+    projectPatchMapParserTopLeft(transform, box),
   );
 }
 
@@ -1786,7 +1774,7 @@ function imageEntity(
   path: string,
   state: ParseState,
 ): ImageEntityInput {
-  const denseTransform = centerPivotTopLeft(transform, box);
+  const denseTransform = projectPatchMapParserTopLeft(transform, box);
   return {
     kind: 'image',
     id,
@@ -1835,7 +1823,7 @@ function textEntity(
   if (alignValue !== undefined && alignValue !== 'left' && alignValue !== 'center' && alignValue !== 'right') {
     warn(state, `${path}.style.align`, 'text-align-degraded', 'Unsupported text alignment fell back to left');
   }
-  const denseTransform = centerPivotTopLeft(transform, box);
+  const denseTransform = projectPatchMapParserTopLeft(transform, box);
   return {
     kind: 'text',
     id,
@@ -2063,7 +2051,7 @@ function elementTransform(
   state: ParseState,
 ): Transform {
   const projectsSignedScale = SIGNED_SCALE_ATTRIBUTE_TYPES.has(type);
-  return composeTransform(
+  return composePatchMapParserTransform(
     parent,
     numericAttribute(attrs?.x, `${path}.attrs.x`, state),
     numericAttribute(attrs?.y, `${path}.attrs.y`, state),
@@ -2080,7 +2068,7 @@ function componentTransform(
   path: string,
   state: ParseState,
 ): Transform {
-  return composeTransform(
+  return composePatchMapParserTransform(
     itemTransform,
     box.x + numericAttribute(attrs?.x, `${path}.attrs.x`, state),
     box.y + numericAttribute(attrs?.y, `${path}.attrs.y`, state),
@@ -2088,89 +2076,6 @@ function componentTransform(
     scaleAttribute(attrs?.scaleX, `${path}.attrs.scaleX`, state),
     scaleAttribute(attrs?.scaleY, `${path}.attrs.scaleY`, state),
   );
-}
-
-function composeTransform(
-  parent: Transform,
-  x: number,
-  y: number,
-  rotation: number,
-  scaleX = 1,
-  scaleY = 1,
-): Transform {
-  const radians = parent.rotation * Math.PI / 180;
-  const cos = Math.cos(radians);
-  const sin = Math.sin(radians);
-  const localX = x * parent.scaleX;
-  const localY = y * parent.scaleY;
-  const handedness = Math.sign(parent.scaleX * parent.scaleY) || 1;
-  const localTranslationAffine = createPatchMapAffine(x, y);
-  const localRotationScaleAffine = createPatchMapAffine(0, 0, rotation, scaleX, scaleY);
-  const localPivotScaleAffine = createPatchMapAffine(0, 0, 0, scaleX, scaleY);
-  return {
-    x: parent.x + localX * cos - localY * sin,
-    y: parent.y + localX * sin + localY * cos,
-    rotation: parent.rotation + rotation * handedness,
-    scaleX: parent.scaleX * scaleX,
-    scaleY: parent.scaleY * scaleY,
-    affine: multiplyPatchMapAffine(
-      parent.affine,
-      multiplyPatchMapAffine(localTranslationAffine, localRotationScaleAffine),
-    ),
-    imageIntrinsicTransform: Object.freeze({
-      parentAffine: parent.affine,
-      localTranslationAffine,
-      localRotationScaleAffine,
-      localPivotScaleAffine,
-    }),
-  };
-}
-
-/**
- * The PATCH MAP origin is the authored local top-left, while the inherited
- * dense renderer rotates quads around their center. Shift the stored top-left
- * so both representations produce the same transformed corners and AABB.
- */
-function centerPivotTopLeft(
-  transform: Transform,
-  size: Size,
-  contentOrientation: PatchMapContentOrientation = 'follow-item',
-): EntityProjectionDraft {
-  return Object.freeze({
-    ...projectPatchMapSignedRect(transform, size.width, size.height),
-    affine: transform.affine,
-    rotationDegrees: transform.rotation,
-    contentOrientation,
-  });
-}
-
-/** Standalone image `attrs` use the inherited Sprite center-pivot contract. */
-function centerPivotImage(
-  transform: Transform,
-  size: Size,
-): EntityProjectionDraft {
-  const width = size.width * Math.abs(transform.scaleX);
-  const height = size.height * Math.abs(transform.scaleY);
-  const x = transform.x + (transform.scaleX < 0 ? -width : 0);
-  const y = transform.y + (transform.scaleY < 0 ? -height : 0);
-  const affine = projectPatchMapIntrinsicImageAffine(
-    transform.imageIntrinsicTransform,
-    size.width,
-    size.height,
-  );
-  return Object.freeze({
-    x,
-    y,
-    width,
-    height,
-    rotation: transform.rotation,
-    localBounds: Object.freeze([0, 0, size.width, size.height] as const),
-    scaleX: transform.scaleX,
-    scaleY: transform.scaleY,
-    affine,
-    rotationDegrees: transform.rotation,
-    contentOrientation: 'follow-item',
-  });
 }
 
 function parseContentOrientation(
@@ -2388,37 +2293,6 @@ function imageSourceProjection(
   } satisfies PatchMapImageProjection);
   state.imageProjectionByEntityId[entityId] = projection;
   return projection;
-}
-
-/**
- * Preserve exact nested affine authority while applying the standalone Sprite
- * center pivot whose placement changes with decoded intrinsic dimensions.
- */
-export function projectPatchMapIntrinsicImageAffine(
-  transform: PatchMapImageIntrinsicTransform,
-  width: number,
-  height: number,
-): PatchMapAffineMatrix {
-  if (!(width >= 0) || !Number.isFinite(width) || !(height >= 0) || !Number.isFinite(height)) {
-    throw new TypeError('intrinsic image dimensions must be finite and non-negative');
-  }
-  const halfWidth = width / 2;
-  const halfHeight = height / 2;
-  const pivotCenter = applyPatchMapAffine(
-    transform.localPivotScaleAffine,
-    Object.freeze([halfWidth, halfHeight] as const),
-  );
-  const local = multiplyPatchMapAffine(
-    transform.localTranslationAffine,
-    multiplyPatchMapAffine(
-      createPatchMapAffine(pivotCenter[0], pivotCenter[1]),
-      multiplyPatchMapAffine(
-        transform.localRotationScaleAffine,
-        createPatchMapAffine(-halfWidth, -halfHeight),
-      ),
-    ),
-  );
-  return multiplyPatchMapAffine(transform.parentAffine, local);
 }
 
 function normalizeImageSource(
