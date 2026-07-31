@@ -5,6 +5,7 @@ import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/d
 import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
 import type { PatchMapSpatialHitAuthority } from '../../src/patch-map/core/spatial-hit-authority';
+import type { PatchMapBarPresentationAuthority } from '../../src/patch-map/core/bar-presentation-authority';
 import {
   PatchMap,
   PatchMapError,
@@ -94,14 +95,14 @@ describe('PatchMap bar presentation integration', () => {
     publicCancel.mockClear();
 
     expect(core.reconcile(scene(40)).status).toBe('committed');
-    const controller = (
+    const presentation = (
       core as unknown as {
-        presentationController: PatchMapPresentationController;
+        barPresentation: PatchMapBarPresentationAuthority;
       }
-    ).presentationController;
-    const activeBeforeNoOp = controller.snapshot();
+    ).barPresentation;
+    const activeBeforeNoOp = presentation.snapshot();
     expect(core.reconcile(scene(40)).status).toBe('committed');
-    expect(controller.snapshot()).toEqual(activeBeforeNoOp);
+    expect(presentation.snapshot()).toEqual(activeBeforeNoOp);
     expect(core.reconcile(scene(25, false)).status).toBe('committed');
 
     expect(publicProbe).not.toHaveBeenCalled();

@@ -1,8 +1,10 @@
 import type { ParsePatchMapResult, PatchMapComponentVisualProjection, PatchMapProjectionIndex, PatchMapTextProjection } from '../contracts';
 import type { PatchMapScene } from '../scene';
 import type { PatchMapSceneImageController } from '../scene-images';
-import type { PatchMapPresentationController } from '../presentation';
-import type { PatchMapPresentationProjectionStore } from '../presentation-projection';
+import type {
+  PatchMapPresentationProbe,
+  PatchMapPresentationSnapshot,
+} from '../presentation';
 import {
   createPatchMapPaintOrderProductProbe,
   type PatchMapPaintOrderProductProbe,
@@ -210,9 +212,12 @@ export function createPatchMapBarPresentationProductProbe(
   target: PatchMapComponentVisualTarget,
   targets: ReadonlyMap<string, PatchMapIndexedComponentTarget | null>,
   semanticProjection: PatchMapProjectionIndex | null,
-  presentationProjection: PatchMapPresentationProjectionStore,
-  presentationController: PatchMapPresentationController,
-  ghostPublicationCount: number,
+  presentation: Readonly<{
+    readonly ghostPublicationCount: number;
+    snapshot(): PatchMapPresentationSnapshot;
+    probe(entityId: string): PatchMapPresentationProbe | null;
+    visibleHeight(entityId: string): number | null;
+  }>,
 ): PatchMapBarPresentationProductProbe | null {
   const normalizedTarget = normalizeComponentVisualTarget(target);
   const indexed = targets.get(patchMapComponentProbeTargetKey(normalizedTarget));
@@ -226,9 +231,9 @@ export function createPatchMapBarPresentationProductProbe(
   ) {
     return null;
   }
-  const controller = presentationController.snapshot();
-  const active = presentationController.probe(indexed.entityId);
-  const presentationHeight = presentationProjection.visibleHeight(indexed.entityId) ??
+  const controller = presentation.snapshot();
+  const active = presentation.probe(indexed.entityId);
+  const presentationHeight = presentation.visibleHeight(indexed.entityId) ??
     bar.destinationHeight;
   return Object.freeze({
     target: normalizedTarget,
@@ -244,7 +249,7 @@ export function createPatchMapBarPresentationProductProbe(
     destinationHeight: active?.destinationValue ?? bar.destinationHeight,
     startTimeMs: active?.startTimeMs ?? null,
     controller,
-    ghostPublicationCount,
+    ghostPublicationCount: presentation.ghostPublicationCount,
   });
 }
 

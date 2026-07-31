@@ -18,6 +18,10 @@ import type {
 } from '../../src/patch-map/core/published-scene-state';
 import type { PatchMapSpatialHitAuthority } from '../../src/patch-map/core/spatial-hit-authority';
 import type {
+  PatchMapBarPresentationAuthority,
+  PatchMapBarPresentationLoadState,
+} from '../../src/patch-map/core/bar-presentation-authority';
+import type {
   LeafAssetBindingObservation,
   LeafAssetBindingProbe,
   LeafAssetBindingRequest,
@@ -31,8 +35,6 @@ import type {
   PatchMapPixiRendererDebug,
   RootInteractionHandlers,
 } from '../../src/patch-map/renderers/types';
-import type { PatchMapPresentationController } from '../../src/patch-map/presentation';
-import type { PatchMapPresentationProjectionStore } from '../../src/patch-map/presentation-projection';
 import type {
   PatchMapSceneImageController,
   PatchMapSceneImageIntrinsicSize,
@@ -158,13 +160,9 @@ describe('PatchMap load atomicity', () => {
 
 interface RuntimeInternals {
   readonly publishedScene: PatchMapPublishedSceneAuthority;
-  readonly presentationController: PatchMapPresentationController;
-  readonly presentationGeneration: number;
-  readonly presentationProjection: PatchMapPresentationProjectionStore;
+  readonly barPresentation: PatchMapBarPresentationAuthority;
   readonly spatialHit: PatchMapSpatialHitAuthority;
   readonly pendingIntrinsicImageSizes: Map<string, PatchMapSceneImageIntrinsicSize>;
-  readonly invalidPresentationEntityIds: Set<string>;
-  readonly animationClockMs: number;
   readonly automaticAnimationFramesActive: boolean;
   readonly suspended: boolean;
   readonly sceneImages: PatchMapSceneImageController;
@@ -182,16 +180,13 @@ interface RuntimeCapture {
   readonly presentationProbe: ReturnType<PatchMapRuntime['barPresentationProbe']>;
   readonly sceneImagesProbe: ReturnType<PatchMapSceneImageController['probe']>;
   readonly boundBindingKeys: readonly string[];
-  readonly controller: PatchMapPresentationController;
-  readonly presentationGeneration: number;
-  readonly projectionStore: PatchMapPresentationProjectionStore;
+  readonly barPresentation: PatchMapBarPresentationAuthority;
+  readonly barPresentationState: PatchMapBarPresentationLoadState;
   readonly spatialHit: PatchMapSpatialHitAuthority;
   readonly pendingIntrinsicImageSizes: Map<string, PatchMapSceneImageIntrinsicSize>;
   readonly pendingIntrinsicEntries: readonly (
     readonly [string, PatchMapSceneImageIntrinsicSize]
   )[];
-  readonly invalidPresentationEntityIds: Set<string>;
-  readonly animationClockMs: number;
   readonly automaticAnimationFramesActive: boolean;
 }
 
@@ -221,16 +216,13 @@ function captureRuntime(
     }),
     sceneImagesProbe: internals.sceneImages.probe(),
     boundBindingKeys: renderer.boundBindingKeys,
-    controller: internals.presentationController,
-    presentationGeneration: internals.presentationGeneration,
-    projectionStore: internals.presentationProjection,
+    barPresentation: internals.barPresentation,
+    barPresentationState: internals.barPresentation.captureLoadedState(),
     spatialHit: internals.spatialHit,
     pendingIntrinsicImageSizes: internals.pendingIntrinsicImageSizes,
     pendingIntrinsicEntries: Object.freeze([
       ...internals.pendingIntrinsicImageSizes.entries(),
     ]),
-    invalidPresentationEntityIds: internals.invalidPresentationEntityIds,
-    animationClockMs: internals.animationClockMs,
     automaticAnimationFramesActive: internals.automaticAnimationFramesActive,
   };
 }
@@ -255,15 +247,19 @@ function expectRuntimeRestored(
   })).toEqual(before.presentationProbe);
   expect(internals.sceneImages.probe()).toEqual(before.sceneImagesProbe);
   expect(renderer.boundBindingKeys).toEqual(before.boundBindingKeys);
-  expect(internals.presentationController).toBe(before.controller);
-  expect(internals.presentationGeneration).toBe(before.presentationGeneration);
-  expect(internals.presentationProjection).toBe(before.projectionStore);
+  expect(internals.barPresentation).toBe(before.barPresentation);
+  const restoredPresentation = internals.barPresentation.captureLoadedState();
+  expect(restoredPresentation.controller).toBe(before.barPresentationState.controller);
+  expect(restoredPresentation.generation).toBe(before.barPresentationState.generation);
+  expect(restoredPresentation.projectionStore)
+    .toBe(before.barPresentationState.projectionStore);
+  expect(restoredPresentation.invalidEntityIds)
+    .toBe(before.barPresentationState.invalidEntityIds);
+  expect(restoredPresentation.clockMs).toBe(before.barPresentationState.clockMs);
   expect(internals.spatialHit).toBe(before.spatialHit);
   expect(internals.pendingIntrinsicImageSizes).toBe(before.pendingIntrinsicImageSizes);
   expect([...internals.pendingIntrinsicImageSizes.entries()])
     .toEqual(before.pendingIntrinsicEntries);
-  expect(internals.invalidPresentationEntityIds).toBe(before.invalidPresentationEntityIds);
-  expect(internals.animationClockMs).toBe(before.animationClockMs);
   expect(internals.automaticAnimationFramesActive)
     .toBe(before.automaticAnimationFramesActive);
   expect(renderer.currentProjection).toBe(before.visibleProjection);

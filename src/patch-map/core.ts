@@ -31,10 +31,7 @@ import type {
   PatchMapEntityProjection,
   PatchMapProjectionIndex,
 } from './contracts';
-import {
-  PatchMapPresentationController,
-  type PatchMapPresentationFrame,
-} from './presentation';
+import type { PatchMapPresentationFrame } from './presentation';
 import {
   PATCH_MAP_PRESENTATION_POLICY_REVISION,
   type PatchMapPresentationFillOverride,
@@ -42,7 +39,6 @@ import {
   type PatchMapPresentationPolicyProductProbe,
   type PatchMapResolvedPresentationPolicy,
 } from './presentation-policy';
-import { PatchMapPresentationProjectionStore } from './presentation-projection';
 import type { PatchMapPaintOrderProductProbe } from './paint-order-product';
 import {
   inheritPatchMapV010DirectParseIndexes,
@@ -174,6 +170,10 @@ import {
   patchMapTextProbeTargetKey as patchMapTextTargetKey,
 } from './core/product-probe-reader';
 import { PatchMapRootInteractionAuthority } from './core/root-interaction-authority';
+import {
+  PatchMapBarPresentationAuthority,
+  type PatchMapBarPresentationLoadState,
+} from './core/bar-presentation-authority';
 
 export { normalizePatchMapTextTarget } from './core/contracts';
 export type * from './core/contracts';
@@ -187,26 +187,11 @@ interface PatchMapCooperativeLoadHooks {
   readonly assertCurrent?: () => void;
 }
 
-interface PatchMapLogicalPresentationPolicy {
-  readonly revision: number;
-  readonly highlightIds: readonly string[] | null;
-  readonly deEmphasisAlpha: number;
-  readonly hiddenLayerIds: readonly string[];
-  readonly fillOverrides: readonly PatchMapPresentationFillOverride[];
-}
-
 interface PatchMapLoadedRuntimeState {
-  readonly presentationProjection: PatchMapPresentationProjectionStore;
-  readonly presentationController: PatchMapPresentationController;
-  readonly presentationGeneration: number;
+  readonly barPresentation: PatchMapBarPresentationLoadState;
   readonly spatialHit: PatchMapSpatialHitAuthority;
   readonly currentView: CoreView;
   readonly pendingIntrinsicImageSizes: Map<string, PatchMapSceneImageIntrinsicSize>;
-  readonly presentationGhostPublicationCount: number;
-  readonly presentationEntityEpoch: number;
-  readonly presentationValidatedEntityEpoch: number;
-  readonly invalidPresentationEntityIds: Set<string>;
-  readonly animationClockMs: number;
   readonly automaticAnimationFramesActive: boolean;
 }
 
@@ -239,7 +224,7 @@ export class PatchMapRuntime {
   private externalFrameLoop: PatchMapFrameLoop | null = null;
   private automaticAnimationFramesActive = false;
   private readonly sceneImages: PatchMapSceneImageController;
-  private presentationProjection = new PatchMapPresentationProjectionStore();
+  private readonly barPresentation = new PatchMapBarPresentationAuthority();
   private readonly parseOptions: ParsePatchMapOptions;
   private readonly autoRender: boolean;
   private readonly requestFrame: (() => void) | undefined;
@@ -247,15 +232,10 @@ export class PatchMapRuntime {
   private readonly stableRecordStrategy: PatchMapStableRecordStrategy;
   private readonly rootInteraction: PatchMapRootInteractionAuthority;
   private spatialHit = new PatchMapSpatialHitAuthority();
-  private logicalPresentationPolicy: PatchMapLogicalPresentationPolicy | null = null;
-  private presentationPolicyRevision = 0;
-  private presentationController: PatchMapPresentationController;
-  private presentationGeneration = 1;
   private sceneImageReconcileSuspended = false;
   private currentView: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   private worldFlipX = false;
   private worldFlipY = false;
-  private animationClockMs = 0;
   private lastFrameReport: FrameReport | null = null;
   private suspended = false;
   private destroyedValue = false;
@@ -263,14 +243,9 @@ export class PatchMapRuntime {
   private componentRendererFactsPublished = false;
   private textRendererFactsPublished = false;
   private renderedSceneRevision: number | null = null;
-  private presentationGhostPublicationCount = 0;
-  private presentationEntityEpoch = 0;
-  private presentationValidatedEntityEpoch = 0;
-  private invalidPresentationEntityIds = new Set<string>();
   private loadSequence = 0;
   private loadSideEffectsInProgress = false;
   private terminalLoadFailure: Error | null = null;
-  private reducedMotionValue = false;
 
   private constructor(renderer: PatchMapPixiRenderer, options: PatchMapRuntimeOptions) {
     this.renderer = renderer;
@@ -286,9 +261,6 @@ export class PatchMapRuntime {
       ...(options.initialCapacity === undefined ? {} : { initialCapacity: options.initialCapacity }),
       ...(options.historyLimit === undefined ? {} : { historyLimit: options.historyLimit }),
       ...(options.eventLimit === undefined ? {} : { eventLimit: options.eventLimit }),
-    });
-    this.presentationController = new PatchMapPresentationController({
-      lifecycleGeneration: this.presentationGeneration,
     });
     this.publishedScene = new PatchMapPublishedSceneAuthority({
       scene: this.createScene(),
@@ -400,7 +372,7 @@ export class PatchMapRuntime {
   public get activeAnimations(): number {
     return this.destroyedValue || this.terminalLoadFailure !== null
       ? 0
-      : this.scene.activeAnimations + this.presentationController.activeCount;
+      : this.scene.activeAnimations + this.barPresentation.activeCount;
   }
 
   /** Source-level workload size used by the shared adaptive frame policy. */
@@ -410,7 +382,7 @@ export class PatchMapRuntime {
 
   /** Current monotonic presentation clock used by a package-owned frame loop. */
   public get frameTimeMs(): number {
-    return this.animationClockMs;
+    return this.barPresentation.clockMs;
   }
 
   /** Root-owned gesture state used by automatic and host-driven frame loops. */
@@ -421,11 +393,11 @@ export class PatchMapRuntime {
   }
 
   public get presentationRevision(): number {
-    return this.presentationController.presentationRevision;
+    return this.barPresentation.presentationRevision;
   }
 
   public get reducedMotion(): boolean {
-    return this.reducedMotionValue;
+    return this.barPresentation.reducedMotion;
   }
 
   public get view(): CoreView {
@@ -447,7 +419,7 @@ export class PatchMapRuntime {
   /** Renderer-visible projection. Semantic consumers should use `projection`. */
   public get visibleProjection(): PatchMapProjectionIndex | null {
     this.assertLoadPublicationHealthy();
-    return this.presentationProjection.presentation;
+    return this.barPresentation.visibleProjection;
   }
 
   public load(input: unknown, options: ParsePatchMapOptions = this.parseOptions): PatchMapLoadResult {
@@ -615,7 +587,7 @@ export class PatchMapRuntime {
     this.installLoadedRuntimeState(nextRuntime);
     this.loadSideEffectsInProgress = true;
     try {
-      const presentation = nextRuntime.presentationProjection.presentation;
+      const presentation = this.barPresentation.visibleProjection;
       if (presentation === null) {
         throw new Error('PatchMap load candidate has no presentation projection');
       }
@@ -668,61 +640,33 @@ export class PatchMapRuntime {
     projection: PatchMapProjectionIndex,
     view: CoreView | undefined,
   ): PatchMapLoadedRuntimeState {
-    const presentationGeneration = this.presentationGeneration + 1;
-    const presentationController = new PatchMapPresentationController({
-      lifecycleGeneration: presentationGeneration,
-    });
-    const presentationProjection = new PatchMapPresentationProjectionStore();
-    presentationProjection.replace(projection);
     const spatialHit = new PatchMapSpatialHitAuthority();
     spatialHit.setDenseGeometryCompatible(true);
     spatialHit.clearStaleProjectionIds();
-    const presentationEntityEpoch = this.presentationEntityEpoch + 1;
     return {
-      presentationProjection,
-      presentationController,
-      presentationGeneration,
+      barPresentation: this.barPresentation.prepareLoadedState(projection),
       spatialHit,
       currentView: view ?? Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 }),
       pendingIntrinsicImageSizes: new Map(),
-      presentationGhostPublicationCount: 0,
-      presentationEntityEpoch,
-      presentationValidatedEntityEpoch: presentationEntityEpoch,
-      invalidPresentationEntityIds: new Set(),
-      animationClockMs: 0,
       automaticAnimationFramesActive: false,
     };
   }
 
   private captureLoadedRuntimeState(): PatchMapLoadedRuntimeState {
     return {
-      presentationProjection: this.presentationProjection,
-      presentationController: this.presentationController,
-      presentationGeneration: this.presentationGeneration,
+      barPresentation: this.barPresentation.captureLoadedState(),
       spatialHit: this.spatialHit,
       currentView: this.currentView,
       pendingIntrinsicImageSizes: this.pendingIntrinsicImageSizes,
-      presentationGhostPublicationCount: this.presentationGhostPublicationCount,
-      presentationEntityEpoch: this.presentationEntityEpoch,
-      presentationValidatedEntityEpoch: this.presentationValidatedEntityEpoch,
-      invalidPresentationEntityIds: this.invalidPresentationEntityIds,
-      animationClockMs: this.animationClockMs,
       automaticAnimationFramesActive: this.automaticAnimationFramesActive,
     };
   }
 
   private installLoadedRuntimeState(state: PatchMapLoadedRuntimeState): void {
-    this.presentationProjection = state.presentationProjection;
-    this.presentationController = state.presentationController;
-    this.presentationGeneration = state.presentationGeneration;
+    this.barPresentation.installLoadedState(state.barPresentation);
     this.spatialHit = state.spatialHit;
     this.currentView = state.currentView;
     this.pendingIntrinsicImageSizes = state.pendingIntrinsicImageSizes;
-    this.presentationGhostPublicationCount = state.presentationGhostPublicationCount;
-    this.presentationEntityEpoch = state.presentationEntityEpoch;
-    this.presentationValidatedEntityEpoch = state.presentationValidatedEntityEpoch;
-    this.invalidPresentationEntityIds = state.invalidPresentationEntityIds;
-    this.animationClockMs = state.animationClockMs;
     this.automaticAnimationFramesActive = state.automaticAnimationFramesActive;
   }
 
@@ -765,7 +709,7 @@ export class PatchMapRuntime {
         state: capturePatchMapPixiRendererPublication(this.renderer),
       });
     }
-    const presentation = runtime.presentationProjection.presentation ??
+    const presentation = runtime.barPresentation.projectionStore.presentation ??
       published.projection;
     return Object.freeze({
       kind: 'compatibility',
@@ -827,11 +771,9 @@ export class PatchMapRuntime {
   }
 
   private disposeLoadedRuntimeState(state: PatchMapLoadedRuntimeState): void {
-    state.presentationController.destroy();
-    state.presentationProjection.clear();
+    this.barPresentation.disposeLoadedState(state.barPresentation);
     state.spatialHit.destroy();
     state.pendingIntrinsicImageSizes.clear();
-    state.invalidPresentationEntityIds.clear();
   }
 
   private matchesOwnedIncrementalInput(
@@ -1173,9 +1115,11 @@ export class PatchMapRuntime {
       this.sceneImageReconcileSuspended = false;
     }
     const commitMs = now() - commitStarted;
-    const presentation = this.reconcileBarPresentation(
+    const presentation = this.barPresentation.reconcile(
+      this.projectionValue,
       parse.projection,
-      !this.reducedMotionValue && options.animateBarChanges !== false,
+      this.scene,
+      !this.barPresentation.reducedMotion && options.animateBarChanges !== false,
       directBarParse === null ? options.animatedBarTargets : undefined,
       incrementalEntityIds ??
         (
@@ -1205,7 +1149,7 @@ export class PatchMapRuntime {
           : undefined,
     );
     if (
-      isLargePatchMapAnimatedBarBatch(this.presentationController.activeCount)
+      isLargePatchMapAnimatedBarBatch(this.barPresentation.activeCount)
     ) {
       this.renderer.setAggregateCullPrecision(false);
     }
@@ -1229,7 +1173,7 @@ export class PatchMapRuntime {
     this.spatialHit.clearSpatialAnimations();
     this.spatialHit.invalidate(
       directBarParse !== null &&
-      this.presentationController.activeCount > 0,
+      this.barPresentation.activeCount > 0,
     );
     // Large animated batches must not make the first pointer event pay for
     // the presentation envelope. Non-interactive consumers retain the lean
@@ -1238,10 +1182,10 @@ export class PatchMapRuntime {
       this.rootInteraction.pointerListenerCount,
       this.scene,
       this.projectionValue,
-      this.presentationProjection.presentation,
-      this.presentationController,
+      this.barPresentation.visibleProjection,
+      this.barPresentation,
     );
-    if (this.presentationController.activeCount > 0) this.invalidate('presentation');
+    if (this.barPresentation.activeCount > 0) this.invalidate('presentation');
     if (this.stableRecordStrategy === 'internal-overlay') {
       compactPatchMapProjectionStableRecords(parse.projection);
     }
@@ -1293,17 +1237,16 @@ export class PatchMapRuntime {
     if (!Number.isFinite(timeMs)) throw new TypeError('timeMs must be finite');
     this.applyPendingIntrinsicImageSizes();
     this.scheduler.cancelPending();
-    if (timeMs !== this.animationClockMs) {
+    if (timeMs !== this.barPresentation.clockMs) {
       if (this.scene.activeAnimations > 0) {
         this.advance(timeMs);
       } else {
         // Renderer-side bar presentation is the common Engine path. Preserve
         // its aggregate dirty-range fast path without entering the dense
         // transaction animation table when that table is idle.
-        this.advancePresentation(timeMs);
+        this.advanceBarPresentation(timeMs);
       }
     }
-    this.animationClockMs = timeMs;
     this.adaptiveFrameBudget.reset(now());
     this.automaticAnimationFramesActive = false;
     this.lastFrameReport = this.flushScene();
@@ -1319,14 +1262,12 @@ export class PatchMapRuntime {
    */
   public setReducedMotion(enabled: boolean): boolean {
     this.assertAlive();
-    if (typeof enabled !== 'boolean') {
-      throw new TypeError('reduced motion must be a boolean');
-    }
-    if (this.reducedMotionValue === enabled) return false;
-    this.reducedMotionValue = enabled;
+    if (!this.barPresentation.setReducedMotion(enabled)) return false;
     if (enabled && this.projectionValue !== null) {
-      const presentation = this.reconcileBarPresentation(
+      const presentation = this.barPresentation.reconcile(
         this.projectionValue,
+        this.projectionValue,
+        this.scene,
         false,
       );
       this.renderer.setProjection(presentation);
@@ -1344,16 +1285,15 @@ export class PatchMapRuntime {
    */
   public suspendPresentation(timeMs: number): PatchMapPresentationLifecycleResult {
     this.assertAlive();
-    if (!Number.isFinite(timeMs) || timeMs < this.animationClockMs) {
+    if (!Number.isFinite(timeMs) || timeMs < this.barPresentation.clockMs) {
       throw new RangeError('suspend timeMs must be finite and monotonic');
     }
     this.scheduler.cancelPending();
     this.scheduler.setContinuous(false, 'page-suspend');
     this.rootInteraction.cancelGesture();
-    const frame = this.applyPresentationFrame(
-      this.presentationController.settle(timeMs),
+    const frame = this.publishBarPresentationFrame(
+      this.barPresentation.settle(timeMs, this.scene, this.projectionValue),
     );
-    this.animationClockMs = timeMs;
     this.adaptiveFrameBudget.reset(now());
     this.automaticAnimationFramesActive = false;
     this.suspended = true;
@@ -1371,13 +1311,12 @@ export class PatchMapRuntime {
    */
   public resumePresentation(timeMs: number): PatchMapPresentationLifecycleResult {
     this.assertAlive();
-    if (!Number.isFinite(timeMs) || timeMs < this.animationClockMs) {
+    if (!Number.isFinite(timeMs) || timeMs < this.barPresentation.clockMs) {
       throw new RangeError('resume timeMs must be finite and monotonic');
     }
-    const frame = this.applyPresentationFrame(
-      this.presentationController.settle(timeMs),
+    const frame = this.publishBarPresentationFrame(
+      this.barPresentation.settle(timeMs, this.scene, this.projectionValue),
     );
-    this.animationClockMs = timeMs;
     this.adaptiveFrameBudget.reset(now());
     this.automaticAnimationFramesActive = false;
     this.suspended = false;
@@ -1405,7 +1344,7 @@ export class PatchMapRuntime {
     const hitImpact = this.spatialHit.planCommit(
       batch,
       this.scene,
-      this.animationClockMs,
+      this.barPresentation.clockMs,
     );
     const result = this.scene.commit(batch);
     if (
@@ -1424,7 +1363,7 @@ export class PatchMapRuntime {
     const hasGeometryChange = batch.operations.some(
       (operation) => operation.type !== 'view' && operation.type !== 'selection',
     );
-    if (hasGeometryChange) this.presentationEntityEpoch += 1;
+    if (hasGeometryChange) this.barPresentation.recordGeometryMutation();
     const hasSelection = batch.operations.some((operation) => operation.type === 'selection');
     const lastView = [...batch.operations].reverse().find((operation) => operation.type === 'view');
     if (lastView?.type === 'view') this.currentView = Object.freeze({ ...lastView.view });
@@ -1437,12 +1376,12 @@ export class PatchMapRuntime {
     this.spatialHit.invalidateFromCommit(
       hitImpact,
       rendererDomain === 'bar-only' &&
-      this.presentationController.activeCount > 0,
+      this.barPresentation.activeCount > 0,
     );
     const projectionStalenessChanged =
       this.spatialHit.applyCommitProjectionStaleness(hitImpact, this.scene);
     if (projectionStalenessChanged) {
-      const projection = this.presentationProjection.presentation;
+      const projection = this.barPresentation.visibleProjection;
       if (projection !== null) {
         this.renderer.setProjection(
           projection,
@@ -1481,9 +1420,8 @@ export class PatchMapRuntime {
     // Validate and advance the presentation authority first. Its structured
     // monotonic-clock error is part of the public Core/Engine contract, and a
     // rejected frame must not partially advance dense transaction animations.
-    const presentation = this.advancePresentation(timeMs);
+    const presentation = this.advanceBarPresentation(timeMs);
     const result = this.scene.advance(timeMs);
-    this.animationClockMs = timeMs;
     if (result.changed > 0) {
       this.componentRendererFactsPublished = false;
       this.textRendererFactsPublished = false;
@@ -1573,8 +1511,8 @@ export class PatchMapRuntime {
       options,
       this.scene,
       this.projectionValue,
-      this.presentationProjection.presentation,
-      this.presentationController,
+      this.barPresentation.visibleProjection,
+      this.barPresentation,
     );
   }
 
@@ -1584,7 +1522,7 @@ export class PatchMapRuntime {
     return this.spatialHit.hitBounds(
       target,
       this.scene,
-      this.presentationProjection.presentation,
+      this.barPresentation.visibleProjection,
     );
   }
 
@@ -1606,7 +1544,7 @@ export class PatchMapRuntime {
       target,
       this.componentTargets,
       this.projectionValue,
-      this.presentationProjection.presentation,
+      this.barPresentation.visibleProjection,
       this.scene,
       this.renderer,
       this.sceneImages,
@@ -1622,9 +1560,7 @@ export class PatchMapRuntime {
       target,
       this.componentTargets,
       this.projectionValue,
-      this.presentationProjection,
-      this.presentationController,
-      this.presentationGhostPublicationCount,
+      this.barPresentation,
     );
   }
 
@@ -1634,7 +1570,7 @@ export class PatchMapRuntime {
     return createPatchMapRuntimePaintOrderProbe(
       this.scene,
       this.renderer,
-      this.presentationProjection.presentation,
+      this.barPresentation.visibleProjection,
       this.renderedSceneRevision,
     );
   }
@@ -1646,7 +1582,7 @@ export class PatchMapRuntime {
       target,
       this.textTargets,
       this.projectionValue,
-      this.presentationProjection.presentation,
+      this.barPresentation.visibleProjection,
       this.scene,
       this.renderer,
       this.textRendererFactsPublished,
@@ -1736,18 +1672,7 @@ export class PatchMapRuntime {
     input: PatchMapPresentationPolicyInput,
   ): PatchMapPresentationPolicyProductProbe {
     this.assertAlive();
-    const candidate = normalizeLogicalPresentationPolicy(
-      input,
-      this.presentationPolicyRevision + 1,
-    );
-    if (sameLogicalPresentationPolicy(this.logicalPresentationPolicy, candidate)) {
-      return this.presentationPolicyProbe();
-    }
-    this.presentationPolicyRevision += 1;
-    this.logicalPresentationPolicy = Object.freeze({
-      ...candidate,
-      revision: this.presentationPolicyRevision,
-    });
+    if (!this.barPresentation.setLogicalPolicy(input)) return this.presentationPolicyProbe();
     this.applyPresentationPolicyToRenderer();
     this.spatialHit.invalidate();
     this.invalidate('presentation-policy');
@@ -1756,9 +1681,7 @@ export class PatchMapRuntime {
 
   public clearPresentationPolicy(): PatchMapPresentationPolicyProductProbe {
     this.assertAlive();
-    if (this.logicalPresentationPolicy === null) return this.presentationPolicyProbe();
-    this.presentationPolicyRevision += 1;
-    this.logicalPresentationPolicy = null;
+    if (!this.barPresentation.clearLogicalPolicy()) return this.presentationPolicyProbe();
     this.renderer.setPresentationPolicy(null);
     this.spatialHit.invalidate();
     this.invalidate('presentation-policy:clear');
@@ -1768,7 +1691,7 @@ export class PatchMapRuntime {
   public presentationPolicyProbe(): PatchMapPresentationPolicyProductProbe {
     this.assertAlive();
     const parse = this.parseResultValue;
-    const policy = this.logicalPresentationPolicy;
+    const policy = this.barPresentation.logicalPolicy;
     const sourceIds = parse === null
       ? []
       : [...new Set([
@@ -1810,7 +1733,7 @@ export class PatchMapRuntime {
     });
     return Object.freeze({
       schemaRevision: PATCH_MAP_PRESENTATION_POLICY_REVISION,
-      revision: this.presentationPolicyRevision,
+      revision: this.barPresentation.policyRevision,
       status: policy === null ? 'normal' : 'active',
       highlightIds: policy?.highlightIds ?? null,
       deEmphasisAlpha: policy?.deEmphasisAlpha ?? 1,
@@ -1889,7 +1812,7 @@ export class PatchMapRuntime {
         selected,
       }),
     });
-    const presentation = this.presentationProjection.applyTransientEntityProjections(
+    const presentation = this.barPresentation.applyTransientEntityProjections(
       selected.projection.byEntityId,
       uniqueEntityIds,
     );
@@ -1918,12 +1841,12 @@ export class PatchMapRuntime {
   public clearIncrementalPreview(): PatchMapTransientProjectionResult {
     this.assertAlive();
     this.updatePublishedScene({ transientIncrementalParse: null });
-    const entityIds = this.presentationProjection.clearTransientEntityProjections();
+    const entityIds = this.barPresentation.clearTransientEntityProjections();
     const dirtyRanges = contiguousSlotRanges(entityIds.flatMap((entityId) => {
       const ref = this.scene.ref(entityId);
       return ref === null ? [] : [ref.slot];
     }));
-    const presentation = this.presentationProjection.presentation;
+    const presentation = this.barPresentation.visibleProjection;
     if (presentation !== null && dirtyRanges.length > 0) {
       this.renderer.setProjection(
         presentation,
@@ -1983,7 +1906,7 @@ export class PatchMapRuntime {
       return ref === null ? [] : [ref.slot];
     }).sort((left, right) => left - right);
     const dirtyRanges = contiguousSlotRanges(slots);
-    const projection = this.presentationProjection.presentation;
+    const projection = this.barPresentation.visibleProjection;
     if (dirtyRanges.length > 0 && projection !== null) {
       this.renderer.setProjection(projection, dirtyRanges);
       this.componentRendererFactsPublished = false;
@@ -2228,9 +2151,7 @@ export class PatchMapRuntime {
     this.adaptiveFrameBudget.destroy();
     this.rootInteraction.destroy();
     this.spatialHit.destroy();
-    this.presentationController.destroy();
-    this.presentationProjection.clear();
-    this.logicalPresentationPolicy = null;
+    this.barPresentation.destroy();
     const cleanupFailures: Error[] = [];
     try {
       await this.sceneImages.destroy();
@@ -2296,15 +2217,16 @@ export class PatchMapRuntime {
         viewportGestureActive: this.viewportGestureActive,
       });
       if (plan.presentationAdvanced) {
-        this.animationClockMs += plan.presentationDeltaMs;
+        const presentationTimeMs =
+          this.barPresentation.clockMs + plan.presentationDeltaMs;
         if (this.scene.activeAnimations > 0) {
           const spatialAnimationActive = this.spatialHit.hasSpatialAnimations;
-          const advanced = this.scene.advance(this.animationClockMs);
+          const advanced = this.scene.advance(presentationTimeMs);
           if (advanced.changed > 0 && spatialAnimationActive) this.spatialHit.invalidate();
           this.renderer.markChanges(advanced.changedRanges, 'animation');
         }
-        this.advancePresentation(this.animationClockMs);
-        this.spatialHit.pruneCompletedSpatialAnimations(this.animationClockMs);
+        this.advanceBarPresentation(presentationTimeMs);
+        this.spatialHit.pruneCompletedSpatialAnimations(presentationTimeMs);
       }
       this.lastFrameReport = this.flushScene();
       this.adaptiveFrameBudget.complete(plan, now());
@@ -2348,7 +2270,7 @@ export class PatchMapRuntime {
   }
 
   private applyPresentationPolicyToRenderer(): void {
-    const policy = this.logicalPresentationPolicy;
+    const policy = this.barPresentation.logicalPolicy;
     if (policy === null) {
       if (typeof this.renderer.setPresentationPolicy === 'function') {
         this.renderer.setPresentationPolicy(null);
@@ -2375,288 +2297,27 @@ export class PatchMapRuntime {
     this.renderer.setPresentationPolicy(resolved);
   }
 
-  private resetPresentationController(): void {
-    this.presentationController.destroy();
-    this.presentationGeneration += 1;
-    this.presentationController = new PatchMapPresentationController({
-      lifecycleGeneration: this.presentationGeneration,
-    });
-    this.presentationProjection.clear();
-    this.presentationGhostPublicationCount = 0;
+  private advanceBarPresentation(timeMs: number): PatchMapPresentationFrame {
+    return this.publishBarPresentationFrame(
+      this.barPresentation.advance(timeMs, this.scene, this.projectionValue),
+    );
   }
 
-  /**
-   * Commit semantic bar destinations immediately while retaining only active
-   * renderer-visible heights in the transient projection sidecar.
-   */
-  private reconcileBarPresentation(
-    next: PatchMapProjectionIndex,
-    animateBarChanges: boolean,
-    animatedBarTargets?: readonly PatchMapComponentVisualTarget[],
-    incrementalEntityIds?: readonly string[],
-  ): PatchMapProjectionIndex {
-    const previousBars = this.projectionValue?.barsByEntityId ?? {};
-    const nextBars = next.barsByEntityId ?? {};
-    const visibleHeights = new Map<string, number>();
-    const timeMs = this.animationClockMs;
-    const animatedTargetKeys = animatedBarTargets === undefined
-      ? null
-      : new Set(animatedBarTargets.map(componentTargetKey));
-
-    if (
-      incrementalEntityIds !== undefined &&
-      incrementalBarPresentationCompatible(
-        previousBars,
-        nextBars,
-        incrementalEntityIds,
-      )
-    ) {
-      for (const entityId of incrementalEntityIds) {
-        const bar = nextBars[entityId];
-        const previous = previousBars[entityId];
-        const active = this.presentationController.readActiveForReconcile(entityId);
-        if (bar === undefined) {
-          if (active.found) {
-            this.presentationController.cancelForReconcile(
-              entityId,
-              active.generation,
-              timeMs,
-              'remove',
-            );
-          }
-          continue;
-        }
-        const entity = this.scene.get(entityId);
-        const ref = entity?.ref ?? null;
-        const currentHeight = this.presentationProjection.visibleHeight(entityId) ??
-          previous?.destinationHeight ??
-          bar.destinationHeight;
-        const canAnimate = animateBarChanges &&
-          (
-            animatedTargetKeys === null ||
-            animatedTargetKeys.has(componentTargetKey({
-              ownerId: bar.ownerId,
-              componentId: bar.componentId,
-            }))
-          ) &&
-          previous !== undefined &&
-          entity?.kind === 'bar' &&
-          entity.visible &&
-          ref !== null &&
-          bar.animation;
-        const destinationChanged =
-          previous?.destinationHeight !== bar.destinationHeight;
-        if (!canAnimate) {
-          if (active.found) {
-            this.presentationController.cancelForReconcile(
-              entityId,
-              active.generation,
-              timeMs,
-              entity === null ? 'remove' : entity.visible ? 'replacement' : 'hide',
-            );
-          }
-          continue;
-        }
-        if (destinationChanged) {
-          const retargeted = this.presentationController.retargetForReconcile(
-            entityId,
-            ref.slot,
-            ref.generation,
-            currentHeight,
-            bar.destinationHeight,
-            timeMs,
-            bar.animationDuration,
-            bar.animation,
-          );
-          if (retargeted.scheduled) {
-            visibleHeights.set(entityId, retargeted.startValue);
-          }
-          continue;
-        }
-        if (
-          active.found &&
-          active.slot === ref.slot &&
-          active.generation === ref.generation
-        ) {
-          visibleHeights.set(entityId, active.currentValue);
-        } else if (active.found) {
-          this.presentationController.cancelForReconcile(
-            entityId,
-            active.generation,
-            timeMs,
-            'replacement',
-          );
-        }
-      }
-      const incremental = this.presentationProjection.replaceIncremental(
-        next,
-        incrementalEntityIds,
-        visibleHeights,
-      );
-      if (incremental !== null) {
-        this.presentationValidatedEntityEpoch = this.presentationEntityEpoch;
-        this.invalidPresentationEntityIds.clear();
-        return incremental;
-      }
-    }
-
-    for (const entityId of Object.keys(previousBars).sort()) {
-      if (nextBars[entityId] !== undefined) continue;
-      const active = this.presentationController.readActiveForReconcile(entityId);
-      if (active.found) {
-        this.presentationController.cancelForReconcile(
-          entityId,
-          active.generation,
-          timeMs,
-          'remove',
-        );
-      }
-    }
-
-    for (const entityId of Object.keys(nextBars).sort()) {
-      const bar = nextBars[entityId];
-      if (bar === undefined) continue;
-      const previous = previousBars[entityId];
-      const entity = this.scene.get(entityId);
-      const ref = entity?.ref ?? null;
-      const active = this.presentationController.readActiveForReconcile(entityId);
-      const currentHeight = this.presentationProjection.visibleHeight(entityId) ??
-        previous?.destinationHeight ??
-        bar.destinationHeight;
-      const canAnimate = animateBarChanges &&
-        (animatedTargetKeys === null || animatedTargetKeys.has(componentTargetKey({
-          ownerId: bar.ownerId,
-          componentId: bar.componentId,
-        }))) &&
-        previous !== undefined &&
-        entity?.kind === 'bar' &&
-        entity.visible &&
-        ref !== null &&
-        bar.animation;
-      const destinationChanged = previous?.destinationHeight !== bar.destinationHeight;
-
-      if (!canAnimate) {
-        if (active.found) {
-          this.presentationController.cancelForReconcile(
-            entityId,
-            active.generation,
-            timeMs,
-            entity === null ? 'remove' : entity.visible ? 'replacement' : 'hide',
-          );
-        }
-        continue;
-      }
-
-      if (destinationChanged) {
-        const retargeted = this.presentationController.retargetForReconcile(
-          entityId,
-          ref.slot,
-          ref.generation,
-          currentHeight,
-          bar.destinationHeight,
-          timeMs,
-          bar.animationDuration,
-          bar.animation,
-        );
-        if (retargeted.scheduled) visibleHeights.set(entityId, retargeted.startValue);
-        continue;
-      }
-
-      if (
-        active.found &&
-        active.slot === ref.slot &&
-        active.generation === ref.generation
-      ) {
-        visibleHeights.set(entityId, active.currentValue);
-      } else if (active.found) {
-        this.presentationController.cancelForReconcile(
-          entityId,
-          active.generation,
-          timeMs,
-          'replacement',
-        );
-      }
-    }
-
-    this.presentationValidatedEntityEpoch = this.presentationEntityEpoch;
-    this.invalidPresentationEntityIds.clear();
-    return this.presentationProjection.replace(next, visibleHeights);
-  }
-
-  private advancePresentation(timeMs: number): PatchMapPresentationFrame {
-    return this.applyPresentationFrame(this.presentationController.advance(timeMs));
-  }
-
-  private applyPresentationFrame(
+  private publishBarPresentationFrame(
     frame: PatchMapPresentationFrame,
   ): PatchMapPresentationFrame {
-    if (frame.updates.length === 0) {
-      this.spatialHit.settlePresentationIndex(frame.activeCount);
-      return frame;
-    }
-    const validateEntities =
-      this.presentationValidatedEntityEpoch !== this.presentationEntityEpoch;
-    if (validateEntities) this.invalidPresentationEntityIds.clear();
-    let changedCount = 0;
-    let filteredRanges = false;
-    for (const update of frame.updates) {
-      const ref = this.scene.ref(update.entityId);
-      const bar = this.projectionValue?.barsByEntityId?.[update.entityId];
-      let invalid =
-        ref === null ||
-        ref.slot !== update.slot ||
-        ref.generation !== update.generation ||
-        bar === undefined ||
-        this.invalidPresentationEntityIds.has(update.entityId);
-      if (!invalid && validateEntities) {
-        const entity = ref === null ? null : this.scene.get(ref);
-        invalid = entity?.kind !== 'bar' || !entity.visible;
-      }
-      if (invalid) {
-        this.invalidPresentationEntityIds.add(update.entityId);
-        this.presentationGhostPublicationCount += 1;
-        filteredRanges = true;
-        continue;
-      }
-      if (this.presentationProjection.applyBarHeight(update.entityId, update.value)) {
-        changedCount += 1;
-      }
-    }
-    if (validateEntities) {
-      this.presentationValidatedEntityEpoch = this.presentationEntityEpoch;
-    }
-    if (changedCount === 0) {
-      this.spatialHit.settlePresentationIndex(frame.activeCount);
-      return frame;
-    }
-    const projection = this.presentationProjection.presentation;
+    this.spatialHit.settlePresentationIndex(frame.activeCount);
+    if (this.barPresentation.publicationChangedCount === 0) return frame;
+    const projection = this.barPresentation.visibleProjection;
     if (projection === null) return frame;
-    const ranges = filteredRanges
-      ? contiguousSlotRanges(frame.updates.flatMap((update) =>
-          this.invalidPresentationEntityIds.has(update.entityId)
-            ? []
-            : [update.slot]))
-      : frame.dirtyRanges;
     this.renderer.setProjection(
       projection,
-      ranges,
+      this.barPresentation.publicationDirtyRanges,
       undefined,
       'bar-presentation',
     );
     this.componentRendererFactsPublished = false;
-    this.spatialHit.settlePresentationIndex(frame.activeCount);
     return frame;
-  }
-
-  private visibleBarHeights(): ReadonlyMap<string, number> {
-    const heights = new Map<string, number>();
-    const bars = this.projectionValue?.barsByEntityId ?? {};
-    for (const entityId of Object.keys(bars).sort()) {
-      if (this.presentationController.probe(entityId) === null) continue;
-      const height = this.presentationProjection.visibleHeight(entityId);
-      if (height !== null) heights.set(entityId, height);
-    }
-    return heights;
   }
 
   private activeSceneImageIds(): ReadonlySet<string> {
@@ -2691,9 +2352,8 @@ export class PatchMapRuntime {
     if (update.changedIds.length === 0) return;
     this.updatePublishedScene({ projection: update.projection });
     this.spatialHit.setDenseGeometryCompatible(false);
-    const presentation = this.presentationProjection.replace(
+    const presentation = this.barPresentation.replaceProjectionPreservingVisibleBars(
       update.projection,
-      this.visibleBarHeights(),
     );
     this.spatialHit.acceptCurrentProjectionIds(update.changedIds);
     this.renderer.setProjection(
@@ -3345,29 +3005,6 @@ function directBarEntityIds(
   return ids.size === 0 ? undefined : Object.freeze([...ids]);
 }
 
-function incrementalBarPresentationCompatible(
-  previous: Readonly<Record<string, PatchMapBarProjection>>,
-  next: Readonly<Record<string, PatchMapBarProjection>>,
-  entityIds: readonly string[],
-): boolean {
-  for (const entityId of entityIds) {
-    const before = previous[entityId];
-    const after = next[entityId];
-    if (before === undefined || after === undefined) {
-      continue;
-    }
-    if (
-      before.ownerId !== after.ownerId ||
-      before.componentId !== after.componentId ||
-      before.animation !== after.animation ||
-      before.animationDuration !== after.animationDuration
-    ) {
-      return false;
-    }
-  }
-  return true;
-}
-
 function changedProjectionEntityIds(
   previous: PatchMapProjectionIndex,
   next: PatchMapProjectionIndex,
@@ -3768,98 +3405,6 @@ function freezeProjectionReplacements(
     ...source,
     byEntityId,
   });
-}
-
-function normalizeLogicalPresentationPolicy(
-  input: PatchMapPresentationPolicyInput,
-  revision: number,
-): PatchMapLogicalPresentationPolicy {
-  if (input === null || typeof input !== 'object') {
-    throw new TypeError('presentation policy must be an object');
-  }
-  const deEmphasisAlpha = input.deEmphasisAlpha ?? 0.2;
-  if (
-    !Number.isFinite(deEmphasisAlpha) ||
-    deEmphasisAlpha < 0 ||
-    deEmphasisAlpha > 1
-  ) {
-    throw new RangeError('deEmphasisAlpha must be between zero and one');
-  }
-  return Object.freeze({
-    revision,
-    highlightIds: input.highlightIds === undefined || input.highlightIds === null
-      ? null
-      : freezeLogicalIds(input.highlightIds, 'highlightIds'),
-    deEmphasisAlpha,
-    hiddenLayerIds: freezeLogicalIds(input.hiddenLayerIds ?? [], 'hiddenLayerIds'),
-    fillOverrides: freezePresentationFillOverrides(input.fillOverrides ?? []),
-  });
-}
-
-function freezePresentationFillOverrides(
-  values: readonly PatchMapPresentationFillOverride[],
-): readonly PatchMapPresentationFillOverride[] {
-  if (!Array.isArray(values)) throw new TypeError('fillOverrides must be an array');
-  const byId = new Map<string, PatchMapPresentationFillOverride>();
-  for (const [index, value] of values.entries()) {
-    if (!isPlainRecord(value)) {
-      throw new TypeError(`fillOverrides[${index}] must be an object`);
-    }
-    const { id, packedColor } = value;
-    if (typeof id !== 'string' || id.length === 0) {
-      throw new TypeError(`fillOverrides[${index}].id must be a non-empty string`);
-    }
-    if (
-      typeof packedColor !== 'number' ||
-      !Number.isSafeInteger(packedColor) ||
-      packedColor < 0 ||
-      packedColor > 0xffffffff
-    ) {
-      throw new RangeError(`fillOverrides[${index}].packedColor must be a packed RGBA integer`);
-    }
-    if (byId.has(id)) throw new RangeError(`fillOverrides contains duplicate id ${id}`);
-    byId.set(id, Object.freeze({ id, packedColor: packedColor >>> 0 }));
-  }
-  return Object.freeze([...byId.values()].sort((left, right) =>
-    left.id.localeCompare(right.id),
-  ));
-}
-
-function freezeLogicalIds(values: readonly string[], label: string): readonly string[] {
-  if (!Array.isArray(values)) throw new TypeError(`${label} must be an array`);
-  return Object.freeze([...new Set(values.map((value, index) => {
-    if (typeof value !== 'string' || value.length === 0) {
-      throw new TypeError(`${label}[${index}] must be a non-empty string`);
-    }
-    return value;
-  }))].sort());
-}
-
-function sameLogicalPresentationPolicy(
-  left: PatchMapLogicalPresentationPolicy | null,
-  right: PatchMapLogicalPresentationPolicy,
-): boolean {
-  return left !== null &&
-    left.deEmphasisAlpha === right.deEmphasisAlpha &&
-    sameNullableStringArray(left.highlightIds, right.highlightIds) &&
-    sameStringArray(left.hiddenLayerIds, right.hiddenLayerIds) &&
-    samePresentationFillOverrides(left.fillOverrides, right.fillOverrides);
-}
-
-function samePresentationFillOverrides(
-  left: readonly PatchMapPresentationFillOverride[],
-  right: readonly PatchMapPresentationFillOverride[],
-): boolean {
-  return left.length === right.length && left.every((value, index) =>
-    value.id === right[index]?.id && value.packedColor === right[index]?.packedColor
-  );
-}
-
-function sameNullableStringArray(
-  left: readonly string[] | null,
-  right: readonly string[] | null,
-): boolean {
-  return left === null || right === null ? left === right : sameStringArray(left, right);
 }
 
 function normalizeRefreshTarget(
