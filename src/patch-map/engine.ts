@@ -30,7 +30,6 @@ import type {
   PatchMapPixiRendererLossProbe,
   PatchMapRenderLaneRole,
 } from './renderers/types';
-import { PatchMapPixiRuntimeError } from './renderers/pixi-renderer';
 import type { PatchMapSceneImageRetryResult } from './scene-images';
 import {
   PATCH_MAP_ASSET_RUNTIME,
@@ -203,6 +202,28 @@ import {
 } from './engine/scene-state-authority';
 import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-authority';
 import {
+  EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS as EMPTY_RECONCILE_DIAGNOSTICS,
+  EMPTY_PATCH_MAP_TARGETS as EMPTY_TARGETS,
+  PatchMapError,
+  createPatchMapAssetInitializationError,
+  createPatchMapDiagnosticFromError,
+  createPatchMapOperationDiagnostic,
+  createPatchMapOperationError,
+  createPatchMapRefusedDestroyTargetResult,
+  createPatchMapRefusedPatchResult,
+  createPatchMapRefusedTransactionResult,
+  createPatchMapRejectedPatchResult,
+  createPatchMapRejectedTransactionResult,
+  createPatchMapSemanticMutationDiagnostic,
+  createPatchMapTransactionDiagnostic,
+  freezePatchMapCommittedTransactionResult as freezeCommittedTransactionResult,
+  freezePatchMapMutationTargets as freezeMutationTargets,
+  freezePatchMapReconcileDiagnostics as freezeReconcileDiagnostics,
+  freezePatchMapTargets as freezeTargets,
+  freezePatchMapTransactionHistory as freezeTransactionHistory,
+} from './engine/operation-outcomes';
+export { PatchMapError } from './engine/operation-outcomes';
+import {
   componentOrderOwners,
   directAnimatedBarTargets,
   directBarHeightUpdatesFor,
@@ -268,7 +289,6 @@ import type {
   PatchMapEngineTextProbe,
   PatchMapEngineTextPublicationStatus,
   PatchMapEngineTextRevisionTuple,
-  PatchMapEngineTransactionHistory,
   PatchMapEngineTransactionPerformanceProbe,
   PatchMapEngineTransactionResult,
   PatchMapEngineTransformerCancelResult,
@@ -318,7 +338,6 @@ import type {
 } from './engine/public-contracts';
 export type * from './engine/public-contracts';
 import type { PatchMapReconcileDiagnostic } from './semantic/reconcile';
-import { PatchMapPresentationError } from './presentation';
 import {
   PatchMapSemanticHistory,
   type PatchMapHistoryDirection,
@@ -5821,35 +5840,12 @@ export class PatchMap {
 
   private assetInitializationError(error: unknown): PatchMapError {
     if (error instanceof PatchMapError) return error;
-    if (error instanceof PatchMapPixiRuntimeError) {
-      return this.operationError(error.code, error.code, 'initialize', false);
-    }
-    if (error instanceof PatchMapAssetError) {
-      return this.operationError(
-        error.code,
-        error.category,
-        'initialize',
-        error.retryable,
-      );
-    }
-    return this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'initialize', false);
+    return createPatchMapAssetInitializationError(error, this.revisionStamp());
   }
 
   private diagnosticFrom(error: unknown, operation: string): PatchMapEngineDiagnostic {
-    if (error instanceof PatchMapDatasetError) {
-      return this.operationDiagnostic(error.code, error.category, operation, true, error.datasetPath);
-    }
     if (error instanceof PatchMapError) return error.diagnostic;
-    if (error instanceof PatchMapPixiRuntimeError) {
-      return this.operationDiagnostic(error.code, error.code, operation, false);
-    }
-    if (error instanceof PatchMapPresentationError) {
-      return this.operationDiagnostic('CONFLICT', 'CONFLICT', operation, true);
-    }
-    if (error instanceof PatchMapAssetError) {
-      return this.operationDiagnostic(error.code, error.category, operation, error.retryable);
-    }
-    return this.operationDiagnostic('INTERNAL_FAILURE', 'INTERNAL_FAILURE', operation, false);
+    return createPatchMapDiagnosticFromError(error, operation, this.revisionStamp());
   }
 
   private semanticMutationDiagnostic(
@@ -5857,42 +5853,23 @@ export class PatchMap {
     target: PatchMapSemanticTarget | null,
     operation = 'patch',
   ): PatchMapEngineDiagnostic {
-    const mapping = mutationDiagnosticMapping(diagnostic);
-    const base = this.operationDiagnostic(
-      mapping.code,
-      mapping.category,
+    return createPatchMapSemanticMutationDiagnostic(
+      diagnostic,
+      target,
       operation,
-      mapping.recoverable,
-      diagnostic.path,
+      this.revisionStamp(),
     );
-    return Object.freeze({
-      ...base,
-      missingCount: diagnostic.reason === 'missing-target' && target ? 1 : 0,
-    });
   }
 
   private engineTransactionDiagnostic(
     diagnostic: PatchMapMutationTransactionDiagnostic,
     operation: string,
   ): PatchMapEngineDiagnostic {
-    const category: PatchMapDiagnosticCategory = diagnostic.category === 'MISSING_TARGET'
-      ? 'MISSING_TARGET'
-      : diagnostic.category === 'CONFLICT'
-        ? 'CONFLICT'
-      : diagnostic.category === 'UNSUPPORTED_RUNTIME'
-        ? 'UNSUPPORTED_RUNTIME'
-        : 'INVALID_INPUT';
-    const base = this.operationDiagnostic(
-      diagnostic.code,
-      category,
+    return createPatchMapTransactionDiagnostic(
+      diagnostic,
       operation,
-      true,
-      diagnostic.path,
+      this.revisionStamp(),
     );
-    return Object.freeze({
-      ...base,
-      missingCount: diagnostic.category === 'MISSING_TARGET' ? 1 : 0,
-    });
   }
 
   private rejectedTransactionResult(
@@ -5902,20 +5879,15 @@ export class PatchMap {
     transactionDiagnostic: PatchMapMutationTransactionDiagnostic | undefined,
     history: PatchMapHistoryState,
   ): Extract<PatchMapEngineTransactionResult, { readonly status: 'rejected' }> {
-    return Object.freeze({
-      status: 'rejected',
-      changed: false,
+    return createPatchMapRejectedTransactionResult(
       actionId,
       previousRevisions,
-      revisions: this.revisionStamp(),
-      semanticHash: this.materialized?.semanticHash ?? null,
-      applied: freezeMutationTargets([]),
-      missing: freezeMutationTargets([]),
-      unchanged: freezeMutationTargets([]),
-      history: freezeTransactionHistory(false, null, history, history),
+      this.revisionStamp(),
+      this.materialized?.semanticHash ?? null,
       diagnostic,
-      ...(transactionDiagnostic === undefined ? {} : { transactionDiagnostic }),
-    });
+      transactionDiagnostic,
+      history,
+    );
   }
 
   private refusedTransactionResult(
@@ -5929,20 +5901,15 @@ export class PatchMap {
     history: PatchMapHistoryState,
     reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[],
   ): Extract<PatchMapEngineTransactionResult, { readonly status: 'refused' }> {
-    return Object.freeze({
-      status: 'refused',
-      changed: false,
+    return createPatchMapRefusedTransactionResult(
       actionId,
       previousRevisions,
-      revisions: this.revisionStamp(),
-      semanticHash: this.materialized?.semanticHash ?? null,
-      applied: freezeMutationTargets([]),
-      missing: freezeMutationTargets([]),
-      unchanged: freezeMutationTargets([]),
-      history: freezeTransactionHistory(false, null, history, history),
+      this.revisionStamp(),
+      this.materialized?.semanticHash ?? null,
       diagnostic,
+      history,
       reconcileDiagnostics,
-    });
+    );
   }
 
   private rejectedGeometryPatchResult(
@@ -5961,18 +5928,13 @@ export class PatchMap {
       true,
       failure.diagnostic.path,
     );
-    const result = Object.freeze({
-      status: 'rejected',
-      changed: false,
+    const result = createPatchMapRejectedPatchResult(
       target,
       previousRevisions,
-      revisions: this.revisionStamp(),
-      semanticHash: this.materialized?.semanticHash ?? null,
-      applied: EMPTY_TARGETS,
-      missing: EMPTY_TARGETS,
-      unchanged: EMPTY_TARGETS,
+      this.revisionStamp(),
+      this.materialized?.semanticHash ?? null,
       diagnostic,
-    } satisfies PatchMapEnginePatchResult);
+    );
     this.emit('diagnostic', diagnostic);
     return result;
   }
@@ -5993,19 +5955,14 @@ export class PatchMap {
       recoverable,
       datasetPath,
     );
-    const result = Object.freeze({
-      status: 'refused',
-      changed: false,
+    const result = createPatchMapRefusedPatchResult(
       target,
       previousRevisions,
-      revisions: this.revisionStamp(),
-      semanticHash: this.materialized?.semanticHash ?? null,
-      applied: EMPTY_TARGETS,
-      missing: EMPTY_TARGETS,
-      unchanged: EMPTY_TARGETS,
+      this.revisionStamp(),
+      this.materialized?.semanticHash ?? null,
       diagnostic,
       reconcileDiagnostics,
-    } satisfies PatchMapEnginePatchResult);
+    );
     this.emit('diagnostic', diagnostic);
     return result;
   }
@@ -6026,19 +5983,14 @@ export class PatchMap {
       recoverable,
       datasetPath,
     );
-    const result = Object.freeze({
-      status: 'refused',
-      changed: false,
+    const result = createPatchMapRefusedDestroyTargetResult(
       target,
       previousRevisions,
-      revisions: this.revisionStamp(),
-      semanticHash: this.materialized?.semanticHash ?? null,
-      applied: EMPTY_TARGETS,
-      missing: EMPTY_TARGETS,
-      unchanged: EMPTY_TARGETS,
+      this.revisionStamp(),
+      this.materialized?.semanticHash ?? null,
       diagnostic,
       reconcileDiagnostics,
-    } satisfies PatchMapEngineDestroyTargetResult);
+    );
     this.emit('diagnostic', diagnostic);
     return result;
   }
@@ -6161,7 +6113,13 @@ export class PatchMap {
     operation: string,
     recoverable: boolean,
   ): PatchMapError {
-    return new PatchMapError(this.operationDiagnostic(code, category, operation, recoverable));
+    return createPatchMapOperationError(
+      this.revisionStamp(),
+      code,
+      category,
+      operation,
+      recoverable,
+    );
   }
 
   private operationDiagnostic(
@@ -6171,20 +6129,14 @@ export class PatchMap {
     recoverable: boolean,
     datasetPath?: string,
   ): PatchMapEngineDiagnostic {
-    return Object.freeze({
+    return createPatchMapOperationDiagnostic(
+      this.revisionStamp(),
       code,
       category,
       operation,
-      lifecycleGeneration: this.publication.lifecycleGeneration,
-      sceneRevision: this.publication.sceneRevision,
-      revisionStamp: this.revisionStamp(),
       recoverable,
-      retryable: recoverable,
-      appliedCount: 0,
-      missingCount: 0,
-      unchangedCount: 0,
-      ...(datasetPath === undefined ? {} : { datasetPath }),
-    });
+      datasetPath,
+    );
   }
 
   private emit<K extends PatchMapEngineEvent>(event: K, value: PatchMapEngineEventMap[K]): void {
@@ -6305,16 +6257,6 @@ function yieldPatchMapEngineTask(): Promise<void> {
 
 function assetInternalEngineCleanupFailure(): Error {
   return new Error('PatchMap required asset cleanup failed');
-}
-
-export class PatchMapError extends Error {
-  public readonly diagnostic: PatchMapEngineDiagnostic;
-
-  public constructor(diagnostic: PatchMapEngineDiagnostic) {
-    super(`${diagnostic.code}: ${diagnostic.operation}`);
-    this.name = 'PatchMapError';
-    this.diagnostic = diagnostic;
-  }
 }
 
 function normalizeEngineComponentVisualTarget(
@@ -6646,57 +6588,10 @@ function normalizeBackground(value: number | string): number {
   return Number.parseInt(body.length === 6 ? `${body}ff` : body, 16) >>> 0;
 }
 
-const EMPTY_TARGETS = Object.freeze([] as PatchMapSemanticTarget[]);
 const EMPTY_COMPONENT_VISUAL_TARGETS = Object.freeze(
   [] as PatchMapComponentVisualTarget[],
 );
 const EMPTY_STRING_IDS = Object.freeze([] as string[]);
-const EMPTY_RECONCILE_DIAGNOSTICS = Object.freeze([] as PatchMapReconcileDiagnostic[]);
-
-function freezeMutationTargets(
-  values: readonly PatchMapMutationTarget[],
-): readonly PatchMapMutationTarget[] {
-  if (
-    Object.isFrozen(values) &&
-    values.every((target) => Object.isFrozen(target))
-  ) {
-    return values;
-  }
-  return Object.freeze(values.map((target) => Object.freeze({ ...target })));
-}
-
-function freezeCommittedTransactionResult(
-  candidate: MaterializedPatchMapDataset,
-  value: Omit<
-    Extract<PatchMapEngineTransactionResult, { readonly status: 'committed' }>,
-    'semanticHash'
-  >,
-): Extract<PatchMapEngineTransactionResult, { readonly status: 'committed' }> {
-  const result = value as Extract<
-    PatchMapEngineTransactionResult,
-    { readonly status: 'committed' }
-  >;
-  Object.defineProperty(result, 'semanticHash', {
-    enumerable: true,
-    configurable: false,
-    get: () => candidate.semanticHash,
-  });
-  return Object.freeze(result);
-}
-
-function freezeTransactionHistory(
-  recorded: boolean,
-  commandId: string | null,
-  previous: PatchMapHistoryState,
-  current: PatchMapHistoryState,
-): PatchMapEngineTransactionHistory {
-  return Object.freeze({
-    recorded,
-    commandId,
-    depthDelta: current.undoDepth - previous.undoDepth,
-    state: current,
-  });
-}
 
 function historySnapshotForDataset(
   dataset: readonly NormalizedPatchMapElement[],
@@ -6765,45 +6660,8 @@ function semanticTargetIdentity(target: PatchMapSemanticTarget): string {
     : `component:${target.ownerId.length}:${target.ownerId}:${target.id.length}:${target.id}`;
 }
 
-function freezeTargets(values: readonly PatchMapSemanticTarget[]): readonly PatchMapSemanticTarget[] {
-  return Object.freeze([...values]);
-}
-
 function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function freezeReconcileDiagnostics(
-  values: readonly PatchMapReconcileDiagnostic[],
-): readonly PatchMapReconcileDiagnostic[] {
-  return Object.freeze(values.map((diagnostic) => Object.freeze({ ...diagnostic })));
-}
-
-function mutationDiagnosticMapping(
-  diagnostic: PatchMapSemanticMutationDiagnostic,
-): Readonly<{
-  code: string;
-  category: PatchMapDiagnosticCategory;
-  recoverable: boolean;
-}> {
-  switch (diagnostic.reason) {
-    case 'missing-target':
-      return { code: 'MISSING_TARGET', category: 'MISSING_TARGET', recoverable: true };
-    case 'ambiguous-target':
-      return { code: 'INVALID_MUTATION', category: 'INVALID_INPUT', recoverable: true };
-    case 'unsupported-structure':
-      return { code: 'INVALID_MUTATION', category: 'INVALID_INPUT', recoverable: true };
-    case 'invalid-candidate':
-      return {
-        code: diagnostic.datasetCode ?? 'INVALID_MUTATION',
-        category: 'INVALID_INPUT',
-        recoverable: true,
-      };
-    case 'invalid-target':
-      return { code: 'INVALID_MUTATION', category: 'INVALID_INPUT', recoverable: true };
-    case 'invalid-value':
-      return { code: 'INVALID_VALUE', category: 'INVALID_INPUT', recoverable: true };
-  }
 }
 
 function countPatchMapRelationLinks(
