@@ -15,11 +15,15 @@
 # Current Facts
 
 - The 420-file allowed inventory excludes frozen and generated content.
-- `engine.ts` is 6,184 LOC and `core.ts` is 2,495 LOC. Parser, transaction,
-  text-layout, incremental-parser, authoring, and editor-workflow facades are
-  now 601, 969, 310, 614, 96, and 900 LOC with focused downward owners.
+- `engine.ts` is 6,193 LOC and `core.ts` is 2,495 LOC. Parser, transaction,
+  text-layout, incremental-parser, authoring, and editor-workflow facades have
+  focused downward owners while their atomic writers remain singular.
 - Mesh and Pixi renderer coordinators are 1,256 and 2,002 LOC after CPU value
   planning moved below unchanged GPU/Application/resource owners.
+- Assets are a 667-line coordinator above policy/backend value owners. The
+  browser verifier is a 1,950-line I/O owner above catalog and assertion
+  modules; expected loading, report mutation, browser, server, and cleanup stay
+  in that root.
 - Renderer ownership stays one manual loop, aggregate layers, one root
   interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
@@ -30,43 +34,31 @@
 
 - Every allowed file receives a keep, move, split, consolidate, or delete
   judgment; cohesive files do not require mechanical edits.
-- The working plan owns the 420-file disposition and T0–T10 migration map;
-  initial clone analysis found 379 groups / 4.4% duplication, concentrated in
-  contract automation/tests and several product helper families.
-- Core publication/load/spatial-hit/root-interaction/bar-presentation and
-  projection planning plus Engine viewport/publication/scene/transformer/
-  surface/reconcile/history planning now have explicit owners while atomic
-  publication and live runtime installation remain in their facades.
-- Parser transform/state/value normalization, Dataset normalization,
-  transaction inputs/fast paths, Core reconcile/dense planning, and Engine
-  input/publication policy now have focused owners; atomic writers remain in
-  their facades.
-- Host mode/contracts and Dataset raw normalization are acyclic children;
-  host listeners/tooltips and Dataset ownership registries remain singular.
-- Renderer text/DevTools decisions, renderer leases, leaf signatures, and Pixi
-  dirty-range/relation planning have pure owners without changing shared GPU
-  resource ownership.
-- Lab input/actions, component-asset inspector, run profile/results, and
-  expected-blind recursive module firewall have focused owners while session,
-  lifecycle, and DOM composition writers remain singular.
-- Large update-handler and text-fold tests now expose case-domain suites and
-  expected-blind fixture/runner owners; every module is under 1,000 LOC and
-  comparison remains isolated.
-- Text layout, incremental parsing, authoring planning, and editor workflow
-  normalization now have downward owners; public facades, error channels,
-  exact order, immutable plans, and the workflow single writer remain intact.
-- Parser lowering and structural transaction planning are split into acyclic
-  owners; relation cleanup now falls back before touching an external frozen
-  relation root.
-- Core reconcile values and Engine product-probe composition now have typed
-  read-only owners; atomic writers and probe-time surface identity stay intact.
-- The checkpoint passes 188 unit files / 1,615 tests, lint/typecheck,
-  product/Lab builds, canonical 38/173, and independent P0–P2 review.
+- The working plan owns the 420-file disposition and T0–T10 migration map.
+  Product facades retain atomic publication, scheduler, renderer, listener,
+  lifecycle, asset, and ownership-registry writes above acyclic value/planning
+  modules.
+- Parser, Dataset, transaction, reconcile, text, authoring, editor, host,
+  renderer planning, Lab presentation, and large contract-test composition now
+  have explicit domain owners without a parallel public or write path.
+- Verification now shares only proven value atoms: 55 strict clones, eight
+  optional clones, 50 freezes, eight ordered-key assertions, and 56 exact
+  type-suffix validators moved with their call counts unchanged. Policy
+  variants remain local.
+- A committed-source firewall recursively covers all 35 handlers and 34 folds,
+  permits only the import-free value leaf, and fail-closes expected, external,
+  Node/dynamic, computed-global, constructor, and static-string path access.
+  Independent P0–P2 review passes after closing two concrete bypass classes.
+- The checkpoint passes 190 unit files / 1,679 tests, full lint/typecheck,
+  product/Lab builds, and canonical 38/173. Browser, packed consumer, memory,
+  and performance were not repeated because product, rendering, export,
+  resource/destroy ownership, and hot algorithms did not change.
 
 # Next Step
 
-- Split asset policy/backend values and the browser verifier catalog/assertions
-  without moving resource, browser, report, or cleanup ownership.
+- Split `operations.ts` contracts and pure redaction/extraction-security values
+  while keeping callback queues, subscriptions, diagnostics, and dispatch in
+  the facade.
 
 # Working Boundary
 
