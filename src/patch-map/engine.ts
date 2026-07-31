@@ -77,14 +77,12 @@ import {
 import {
   PatchMapDatasetError,
   materializePatchMapDataset,
-  ownedPatchMapElementIds,
   ownedPatchMapExactPatchIndices,
   ownedPatchMapMaterialization,
   ownedPatchMapPreviewPatchIndices,
   releasePatchMapSemanticHashScratch,
   validatePatchMapDatasetReferences,
   type MaterializedPatchMapDataset,
-  type PatchMapComponent,
   type NormalizedPatchMapElement,
 } from './semantic/dataset';
 import {
@@ -204,6 +202,10 @@ import {
   type PatchMapTransformerEditSession,
 } from './engine/transformer-edit-authority';
 import { PatchMapPublicationAuthority } from './engine/publication-authority';
+import {
+  PatchMapSceneStateAuthority,
+  type PatchMapSceneStatePlan,
+} from './engine/scene-state-authority';
 export type {
   PatchMapEngineComponentSemanticProbe,
   PatchMapEngineTextSemanticProbe,
@@ -320,9 +322,9 @@ import {
 } from './history';
 import {
   PATCH_MAP_QUERY_SELECTION_REVISION,
-  PatchMapLogicalSceneIndex,
   applyPatchMapSelectionOperation,
   patchMapLogicalTargetKey,
+  type PatchMapLogicalSceneIndex,
   type PatchMapLogicalTargetSnapshot,
   type PatchMapQueryReuseOperation,
   type PatchMapSceneQuery,
@@ -481,18 +483,6 @@ const FACILITIES = Object.freeze([
   'assets',
 ] as const);
 
-interface PatchMapResolvedTargetAuthority {
-  readonly target: PatchMapMutationTarget;
-  readonly lifecycleGeneration: number;
-  readonly sceneRevision: number;
-}
-
-interface PatchMapQueryResultAuthority {
-  readonly lifecycleGeneration: number;
-  readonly sceneRevision: number;
-  readonly targets: readonly PatchMapLogicalTargetSnapshot[];
-}
-
 type PatchMapEngineHistoryCompanion = PatchMapEngineHistoryCompanionState;
 type PatchMapEngineHistoryTransition = PatchMapHistoryTransition<
   readonly NormalizedPatchMapElement[],
@@ -501,8 +491,7 @@ type PatchMapEngineHistoryTransition = PatchMapHistoryTransition<
 
 interface PreparedPatchMapEngineLoad {
   readonly materialized: MaterializedPatchMapDataset;
-  readonly componentSemantics: Map<string, PatchMapEngineComponentSemanticProbe>;
-  readonly textSemantics: Map<string, IndexedEngineTextSemantic>;
+  readonly scenePlan: PatchMapSceneStatePlan;
 }
 
 export class PatchMap {
@@ -524,6 +513,9 @@ export class PatchMap {
   private readonly transformerEdits = new PatchMapTransformerEditAuthority();
   private readonly viewportAuthority = new PatchMapViewportAuthority();
   private readonly publication = new PatchMapPublicationAuthority();
+  private readonly sceneState = new PatchMapSceneStateAuthority(
+    EMPTY_MATERIALIZED_DATASET,
+  );
   private pendingTransactionPlanMs = 0;
   private lastTransactionPerformance: PatchMapEngineTransactionPerformanceProbe | null = null;
   private readonly listeners = new Map<PatchMapEngineEvent, Set<(event: unknown) => void>>();
@@ -537,15 +529,6 @@ export class PatchMap {
   private terminalRendererLossProbe: PatchMapPixiRendererLossProbe | null = null;
   private initializePromise: Promise<PatchMapInitializeResult> | null = null;
   private instanceId: string | null = null;
-  private materialized: MaterializedPatchMapDataset | null = null;
-  private readonly resolvedTargetAuthorities = new WeakMap<
-    PatchMapResolvedTargetSnapshot,
-    PatchMapResolvedTargetAuthority
-  >();
-  private readonly queryResultAuthorities = new WeakMap<
-    PatchMapEngineQueryResult,
-    PatchMapQueryResultAuthority
-  >();
   private readonly commandTargetAuthorities = new WeakMap<
     PatchMapCommandTargetState,
     Readonly<{
@@ -553,25 +536,12 @@ export class PatchMap {
       readonly targetIds: readonly string[];
     }>
   >();
-  private logicalSceneIndexCache: Readonly<{
-    readonly materialized: MaterializedPatchMapDataset;
-    readonly index: PatchMapLogicalSceneIndex;
-  }> | null = null;
   private defaultViewportContributorsCache: Readonly<{
     readonly dataset: readonly NormalizedPatchMapElement[];
     readonly geometry: PatchMapViewportGeometry;
     readonly result: PatchMapViewportContributorResult;
   }> | null = null;
-  private readonly logicalSceneIndexesByMaterialized =
-    new WeakMap<MaterializedPatchMapDataset, PatchMapLogicalSceneIndex>();
-  private readonly logicalSelectionIndexesByMaterialized =
-    new WeakMap<MaterializedPatchMapDataset, PatchMapLogicalSceneIndex>();
-  private componentSemantics = new Map<string, PatchMapEngineComponentSemanticProbe>();
-  private textSemantics = new Map<string, IndexedEngineTextSemantic>();
-  private logicalSelectionIds: readonly string[] = Object.freeze([]);
   private historyHostCompanion: PatchMapMutationJsonValue | null = null;
-  private datasetRef: string | null = null;
-  private targetLifecycleGeneration = 0;
   private rendererConfiguration: Readonly<{
     resolution: number;
     antialias: boolean;
@@ -588,6 +558,33 @@ export class PatchMap {
   private pointerGestureAuthority: PatchMapPointerGestureAuthority | null = null;
   private assetSession: PatchMapAssetSession | null = null;
   private requiredAssetAcquisitions: PatchMapAssetAcquisition[] = [];
+
+  private get materialized(): MaterializedPatchMapDataset | null {
+    return this.sceneState.materialized;
+  }
+
+  private get componentSemantics(): ReadonlyMap<
+    string,
+    PatchMapEngineComponentSemanticProbe
+  > {
+    return this.sceneState.componentSemantics;
+  }
+
+  private get textSemantics(): ReadonlyMap<string, IndexedEngineTextSemantic> {
+    return this.sceneState.textSemantics;
+  }
+
+  private get logicalSelectionIds(): readonly string[] {
+    return this.sceneState.selectionIds;
+  }
+
+  private get datasetRef(): string | null {
+    return this.sceneState.datasetRef;
+  }
+
+  private get targetLifecycleGeneration(): number {
+    return this.sceneState.targetLifecycleGeneration;
+  }
 
   public constructor(options: PatchMapOptions = {}) {
     this.surfaceFactory = options.surfaceFactory ?? createPixiSurface;
@@ -935,7 +932,7 @@ export class PatchMap {
   public loadDataset(input: unknown, options: PatchMapLoadOptions = {}): PatchMapEngineLoadResult {
     const surface = this.requireSurface('loadDataset');
     const prepared = this.prepareDatasetLoad(input, options);
-    return this.publishPreparedDatasetLoad(surface, prepared, options);
+    return this.publishPreparedDatasetLoad(surface, prepared);
   }
 
   /**
@@ -977,14 +974,13 @@ export class PatchMap {
   private publishPreparedDatasetLoad(
     surface: PatchMapEngineSurface,
     prepared: PreparedPatchMapEngineLoad,
-    options: PatchMapLoadOptions,
   ): PatchMapEngineLoadResult {
     this.cancelActiveTransformerEdit('replace', true);
     this.loadSequence += 1;
     surface.load(prepared.materialized.dataset);
     this.pointerGestureAuthority?.interrupt('replace');
     this.transformerGestures.interrupt();
-    return this.commitPreparedDatasetLoad(prepared, options);
+    return this.commitPreparedDatasetLoad(prepared);
   }
 
   public async loadDatasetAsync(
@@ -1018,8 +1014,12 @@ export class PatchMap {
       const textSemantics = indexTextSemantics(materialized.dataset);
       const prepared = Object.freeze({
         materialized,
-        componentSemantics,
-        textSemantics,
+        scenePlan: this.sceneState.prepareReplacement({
+          materialized,
+          componentSemantics,
+          textSemantics,
+          datasetRef: options.datasetRef ?? null,
+        }),
       });
       await yieldPatchMapEngineTask();
       this.assertCooperativeLoadCurrent(
@@ -1041,7 +1041,7 @@ export class PatchMap {
       assertCurrent();
       this.pointerGestureAuthority?.interrupt('replace');
       this.transformerGestures.interrupt();
-      return this.commitPreparedDatasetLoad(prepared, options);
+      return this.commitPreparedDatasetLoad(prepared);
     } finally {
       this.pendingWork -= 1;
     }
@@ -1053,10 +1053,16 @@ export class PatchMap {
   ): PreparedPatchMapEngineLoad {
     const materialized = materializePatchMapDataset(input);
     this.validateStrictDatasetLoad(materialized, options);
+    const componentSemantics = indexComponentSemantics(materialized.dataset);
+    const textSemantics = indexTextSemantics(materialized.dataset);
     return Object.freeze({
       materialized,
-      componentSemantics: indexComponentSemantics(materialized.dataset),
-      textSemantics: indexTextSemantics(materialized.dataset),
+      scenePlan: this.sceneState.prepareReplacement({
+        materialized,
+        componentSemantics,
+        textSemantics,
+        datasetRef: options.datasetRef ?? null,
+      }),
     });
   }
 
@@ -1078,12 +1084,10 @@ export class PatchMap {
 
   private commitPreparedDatasetLoad(
     prepared: PreparedPatchMapEngineLoad,
-    options: PatchMapLoadOptions,
   ): PatchMapEngineLoadResult {
-    const { componentSemantics, materialized, textSemantics } = prepared;
+    const { materialized, scenePlan } = prepared;
     const selectionBefore = this.logicalSelectionIds;
     const modeBefore = this.hostInteractions.modeProbe().activeState;
-    this.logicalSelectionIds = Object.freeze([]);
     this.historyHostCompanion = null;
     if (modeBefore !== 'select') {
       this.hostInteractions.applyModeOperation({ op: 'replace', state: 'select' });
@@ -1094,15 +1098,10 @@ export class PatchMap {
     this.hostInteractions.clearTooltip('redraw');
     this.hostInteractions.clearLogicalBindings();
     this.accessibility.replaceScene();
-    this.materialized = materialized;
+    this.sceneState.commit(scenePlan);
     this.defaultViewportContributorsCache = null;
-    this.logicalSceneIndexCache = null;
-    this.targetLifecycleGeneration += 1;
     this.clearHistoryAuthority('replace');
-    this.componentSemantics = componentSemantics;
-    this.textSemantics = textSemantics;
     this.resetLiveOverlayState();
-    this.datasetRef = options.datasetRef ?? null;
     this.publication.advanceScene();
     this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
     this.editorWorkflows.onSceneReplaced();
@@ -1774,6 +1773,12 @@ export class PatchMap {
       !directSemanticProjection
       ? componentOrderOwners(plan.operations)
       : EMPTY_HISTORY_ORDER_IDS;
+    const scenePlan = this.sceneState.prepareMutation({
+      materialized: plan.candidate,
+      componentSemantics,
+      textSemantics,
+      selectionIds: selectionAfter,
+    });
     let reconcile: PatchMapSurfaceReconcileResult;
     const reconcileStarted = enginePerformanceNow();
     try {
@@ -1842,12 +1847,8 @@ export class PatchMap {
       return result;
     }
 
-    this.materialized = plan.candidate;
+    this.sceneState.commit(scenePlan);
     this.defaultViewportContributorsCache = null;
-    this.logicalSceneIndexCache = null;
-    this.componentSemantics = componentSemantics;
-    this.textSemantics = textSemantics;
-    this.logicalSelectionIds = selectionAfter;
     this.historyHostCompanion = companionAfter.hostCompanion;
     this.hostInteractions.applyModeOperation({
       op: 'replace',
@@ -1920,9 +1921,7 @@ export class PatchMap {
     this.requireSurface('relativePatch');
     const target = normalizeEngineMutationTarget(targetInput);
     if (target.kind !== 'element') throw new TypeError('relativePatch requires an element target');
-    const current = this.materialized === null
-      ? null
-      : findEngineSemanticTarget(this.materialized.dataset, target);
+    const current = this.sceneState.findTarget(target);
     if (current === null) return this.patch(target, {});
     const geometry = applyPatchMapRelativeGeometryUpdate(
       current as unknown as NormalizedPatchMapElement,
@@ -1942,9 +1941,7 @@ export class PatchMap {
     this.requireSurface('resizeAroundOrigin');
     const target = normalizeEngineMutationTarget(targetInput);
     if (target.kind !== 'element') throw new TypeError('resizeAroundOrigin requires an element target');
-    const current = this.materialized === null
-      ? null
-      : findEngineSemanticTarget(this.materialized.dataset, target);
+    const current = this.sceneState.findTarget(target);
     if (current === null) return this.patch(target, {});
     const geometry = resizePatchMapGeometryAroundOrigin(
       current as unknown as NormalizedPatchMapElement,
@@ -2072,6 +2069,11 @@ export class PatchMap {
       this.emit('diagnostic', diagnostic);
       return result;
     }
+    const scenePlan = this.sceneState.prepareMutation({
+      materialized: mutation.candidate,
+      componentSemantics,
+      textSemantics,
+    });
     let reconcile: PatchMapSurfaceReconcileResult;
     try {
       reconcile = surface.reconcile(mutation.candidate.dataset, {
@@ -2113,11 +2115,8 @@ export class PatchMap {
       );
     }
 
-    this.materialized = mutation.candidate;
+    this.sceneState.commit(scenePlan);
     this.defaultViewportContributorsCache = null;
-    this.logicalSceneIndexCache = null;
-    this.componentSemantics = componentSemantics;
-    this.textSemantics = textSemantics;
     this.publication.advanceScene();
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
     const historyStatus = this.history.commitPrepared(preparedHistory);
@@ -2241,6 +2240,12 @@ export class PatchMap {
       this.emit('diagnostic', diagnostic);
       return result;
     }
+    const scenePlan = this.sceneState.prepareMutation({
+      materialized: mutation.candidate,
+      componentSemantics,
+      textSemantics,
+      selectionIds: selectionAfter,
+    });
     let reconcile: PatchMapSurfaceReconcileResult;
     try {
       reconcile = surface.reconcile(mutation.candidate.dataset, {
@@ -2285,12 +2290,8 @@ export class PatchMap {
       );
     }
 
-    this.materialized = mutation.candidate;
+    this.sceneState.commit(scenePlan);
     this.defaultViewportContributorsCache = null;
-    this.logicalSceneIndexCache = null;
-    this.componentSemantics = componentSemantics;
-    this.textSemantics = textSemantics;
-    this.logicalSelectionIds = selectionAfter;
     this.publication.advanceScene();
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
     if (!sameStringArray(selectionBefore, selectionAfter)) {
@@ -2599,7 +2600,9 @@ export class PatchMap {
       sequence = ++this.submissionSequence;
       const input = await submission.input;
       inputResolved = true;
-      const prepared = this.prepareDatasetLoad(input);
+      const prepared = this.prepareDatasetLoad(input, {
+        ...(submission.datasetRef ? { datasetRef: submission.datasetRef } : {}),
+      });
       if (sequence !== this.submissionSequence || this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
         outcome = Object.freeze({
           status: 'superseded',
@@ -2610,9 +2613,7 @@ export class PatchMap {
         return outcome;
       }
       const surface = this.requireSurface('loadDataset');
-      const result = this.publishPreparedDatasetLoad(surface, prepared, {
-        ...(submission.datasetRef ? { datasetRef: submission.datasetRef } : {}),
-      });
+      const result = this.publishPreparedDatasetLoad(surface, prepared);
       this.emit('drawComplete', Object.freeze({
         requestId: submission.requestId,
         ...sourceFields,
@@ -2953,11 +2954,10 @@ export class PatchMap {
     }
     if (this.logicalSelectionIds.length > 0) {
       surface.select([]);
-      this.logicalSelectionIds = Object.freeze([]);
       this.publication.advanceInteraction();
     }
+    this.sceneState.rebindHostSelection(Object.freeze([]));
     this.publication.commitLifecycleRebind(rebind);
-    this.targetLifecycleGeneration += 1;
     return Object.freeze({
       lifecycleGeneration: this.publication.lifecycleGeneration,
       sceneRevision: this.publication.sceneRevision,
@@ -3103,7 +3103,7 @@ export class PatchMap {
       targets: evaluated.targets,
     } satisfies PatchMapEngineQueryResult);
     if (result.status !== 'rejected') {
-      this.queryResultAuthorities.set(result, Object.freeze({
+      this.sceneState.rememberQueryResult(result, Object.freeze({
         lifecycleGeneration: this.targetLifecycleGeneration,
         sceneRevision: this.publication.sceneRevision,
         targets: result.targets,
@@ -3126,7 +3126,7 @@ export class PatchMap {
     if (!PATCH_MAP_QUERY_REUSE_OPERATIONS.includes(operation)) {
       throw new TypeError('query reuse operation is unsupported');
     }
-    const authority = this.queryResultAuthorities.get(result);
+    const authority = this.sceneState.queryResultAuthority(result);
     if (
       authority === undefined ||
       authority.lifecycleGeneration !== this.targetLifecycleGeneration ||
@@ -3958,7 +3958,7 @@ export class PatchMap {
       }
     }
     surface.select(change.current);
-    this.logicalSelectionIds = change.current;
+    this.sceneState.replaceSelection(change.current);
     if (change.changed) {
       if (change.source !== 'canvas') {
         this.pointerGestureAuthority?.interrupt('selection-change');
@@ -4206,9 +4206,7 @@ export class PatchMap {
   public resolveTarget(targetInput: PatchMapMutationTarget): PatchMapResolvedTargetSnapshot | null {
     this.requireSurface('resolveTarget');
     const target = normalizeEngineMutationTarget(targetInput);
-    const value = this.materialized === null
-      ? null
-      : findEngineSemanticTarget(this.materialized.dataset, target);
+    const value = this.sceneState.findTarget(target);
     if (value === null) return null;
     const snapshot = Object.freeze({
       target,
@@ -4216,7 +4214,7 @@ export class PatchMap {
       sceneRevision: this.publication.sceneRevision,
       value: cloneDetachedEngineRecord(value),
     });
-    this.resolvedTargetAuthorities.set(snapshot, Object.freeze({
+    this.sceneState.rememberResolvedTarget(snapshot, Object.freeze({
       target,
       lifecycleGeneration: this.targetLifecycleGeneration,
       sceneRevision: this.publication.sceneRevision,
@@ -4229,7 +4227,7 @@ export class PatchMap {
     patch: unknown,
   ): PatchMapEnginePatchResult {
     this.requireSurface('patch');
-    const authority = this.resolvedTargetAuthorities.get(snapshot);
+    const authority = this.sceneState.resolvedTargetAuthority(snapshot);
     if (
       authority === undefined ||
       authority.lifecycleGeneration !== this.targetLifecycleGeneration ||
@@ -4266,8 +4264,7 @@ export class PatchMap {
       throw this.operationError('DESTROYED', 'DESTROYED', 'query', false);
     }
     if (!this.surface) throw this.operationError('NOT_READY', 'NOT_READY', 'query', true);
-    const value = this.materialized ? findElement(this.materialized.dataset, target.id) : null;
-    return value;
+    return this.sceneState.findElement(target.id);
   }
 
   public snapshot(): PatchMapEngineSnapshot {
@@ -4948,7 +4945,7 @@ export class PatchMap {
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
     );
     surface.select(next.selectionIds);
-    this.logicalSelectionIds = next.selectionIds;
+    this.sceneState.replaceSelection(next.selectionIds);
     this.hostInteractions.applyModeOperation({ op: 'replace', state: next.mode });
     this.historyHostCompanion = next.hostCompanion;
     if (
@@ -5080,10 +5077,8 @@ export class PatchMap {
     if (this.materialized !== null) {
       releasePatchMapSemanticHashScratch(this.materialized.dataset);
     }
-    this.materialized = null;
+    this.sceneState.destroy();
     this.defaultViewportContributorsCache = null;
-    this.logicalSceneIndexCache = null;
-    this.logicalSelectionIds = Object.freeze([]);
     this.resetLiveOverlayState();
     this.viewportAuthority.destroy();
     this.externalDependencyRevisions.clear();
@@ -5091,11 +5086,8 @@ export class PatchMap {
     this.history.destroy();
     this.historyHostCompanion = null;
     this.publication.clearHistoryPublications();
-    this.componentSemantics.clear();
-    this.textSemantics.clear();
     this.pendingTransactionPlanMs = 0;
     this.lastTransactionPerformance = null;
-    this.datasetRef = null;
     this.rendererConfiguration = null;
     this.initializePromise = null;
     this.assetSession = assetCleanupSucceeded ? null : assetSession;
@@ -5156,7 +5148,7 @@ export class PatchMap {
       surface.clearIncrementalPreview();
       if (!sameStringArray(this.logicalSelectionIds, active.startSelectionIds)) {
         surface.select(active.startSelectionIds);
-        this.logicalSelectionIds = active.startSelectionIds;
+        this.sceneState.replaceSelection(active.startSelectionIds);
       }
       this.publication.advanceInteraction();
       return;
@@ -5184,7 +5176,7 @@ export class PatchMap {
       );
     }
     if (!sameStringArray(this.logicalSelectionIds, active.startSelectionIds)) {
-      this.logicalSelectionIds = active.startSelectionIds;
+      this.sceneState.replaceSelection(active.startSelectionIds);
     }
     this.publication.advanceInteraction();
   }
@@ -5292,6 +5284,12 @@ export class PatchMap {
             ? this.validLogicalSelection(requestedSelection, materialized)
             : this.validOwnedStructuralSelection(requestedSelection, materialized)
           : this.validOwnedStableSelection(requestedSelection, materialized);
+        const scenePlan = this.sceneState.prepareMutation({
+          materialized,
+          componentSemantics,
+          textSemantics,
+          selectionIds: selection,
+        });
         const reconcile = surface.reconcile?.(materialized.dataset, {
           animateBarChanges: false,
           ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
@@ -5315,19 +5313,14 @@ export class PatchMap {
           failure = this.operationDiagnostic('CONFLICT', 'CONFLICT', direction, true, datasetPath);
           return false;
         }
-        this.logicalSelectionIds = selection;
         this.hostInteractions.applyModeOperation({ op: 'replace', state: mode });
         this.historyHostCompanion = companion?.hostCompanion ?? null;
+        this.sceneState.commit(scenePlan);
       } catch (error) {
         failure = this.diagnosticFrom(error, direction);
         return false;
       }
-
-      this.materialized = materialized;
       this.defaultViewportContributorsCache = null;
-      this.logicalSceneIndexCache = null;
-      this.componentSemantics = componentSemantics;
-      this.textSemantics = textSemantics;
       this.publication.advanceScene();
       this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
       if (
@@ -5490,66 +5483,21 @@ export class PatchMap {
     ids: readonly string[],
     materialized: MaterializedPatchMapDataset | null,
   ): readonly string[] {
-    if (materialized === null || ids.length === 0) return Object.freeze([]);
-    const index = materialized === this.materialized
-      ? this.logicalSceneIndex()
-      : new PatchMapLogicalSceneIndex(materialized.dataset);
-    return Object.freeze(
-      [...new Set(ids)].filter((id) => index.target(id) !== null),
-    );
+    return this.sceneState.validLogicalSelection(ids, materialized);
   }
 
   private validOwnedStructuralSelection(
     ids: readonly string[],
     materialized: MaterializedPatchMapDataset,
   ): readonly string[] {
-    if (ids.length === 0) return Object.freeze([]);
-    const elementIds = ownedPatchMapElementIds(materialized.dataset);
-    if (elementIds === null) return this.validLogicalSelection(ids, materialized);
-    const previousElementIds = this.materialized === null
-      ? null
-      : ownedPatchMapElementIds(this.materialized.dataset);
-    const currentIndex = this.logicalSceneIndexCache?.index ?? null;
-    const selected: string[] = [];
-    for (const id of new Set(ids)) {
-      if (elementIds.has(id)) {
-        selected.push(id);
-        continue;
-      }
-      const previousElementId = id.startsWith('element:')
-        ? id.slice('element:'.length)
-        : id;
-      // A structural command removed this exact previously-owned element.
-      // Its selection is deterministically dropped; building a 5,000-target
-      // logical query snapshot cannot change that result.
-      if (previousElementIds?.has(previousElementId)) continue;
-      if (currentIndex === null) {
-        return this.validLogicalSelection(ids, materialized);
-      }
-      const target = currentIndex.target(id);
-      if (
-        target !== null &&
-        (
-          elementIds.has(target.id) ||
-          (target.ownerId !== null && elementIds.has(target.ownerId))
-        )
-      ) {
-        selected.push(id);
-      }
-    }
-    return Object.freeze(selected);
+    return this.sceneState.validOwnedStructuralSelection(ids, materialized);
   }
 
   private validOwnedStableSelection(
     ids: readonly string[],
     materialized: MaterializedPatchMapDataset,
   ): readonly string[] {
-    return Object.freeze(
-      [...new Set(ids)].filter((id) => {
-        const owned = this.ownedSelectionTargetExists(id, materialized);
-        return owned ?? this.logicalSceneIdentityIndex().target(id) !== null;
-      }),
-    );
+    return this.sceneState.validOwnedStableSelection(ids, materialized);
   }
 
   /**
@@ -5562,64 +5510,11 @@ export class PatchMap {
     id: string,
     materialized: MaterializedPatchMapDataset,
   ): boolean | null {
-    const elementIds = ownedPatchMapElementIds(materialized.dataset);
-    if (elementIds === null) return null;
-    if (elementIds.has(id)) return true;
-    if (id.startsWith('element:')) {
-      return elementIds.has(id.slice('element:'.length));
-    }
-    const componentKey = (ownerId: string, componentId: string): boolean =>
-      this.componentSemantics.has(componentSemanticKey(ownerId, componentId));
-    if (id.startsWith('component:')) {
-      const body = id.slice('component:'.length);
-      const separator = body.indexOf('/');
-      return separator > 0 && separator < body.length - 1
-        ? componentKey(body.slice(0, separator), body.slice(separator + 1))
-        : false;
-    }
-    const ownerSeparator = id.indexOf('/');
-    if (ownerSeparator > 0 && ownerSeparator < id.length - 1) {
-      return componentKey(
-        id.slice(0, ownerSeparator),
-        id.slice(ownerSeparator + 1),
-      );
-    }
-    const selectionSeparator = id.indexOf('::');
-    const typeSeparator = selectionSeparator < 0
-      ? -1
-      : id.indexOf(':', selectionSeparator + 2);
-    if (
-      selectionSeparator > 0 &&
-      typeSeparator > selectionSeparator + 2 &&
-      typeSeparator < id.length - 1
-    ) {
-      const ownerId = id.slice(0, selectionSeparator);
-      const componentType = id.slice(selectionSeparator + 2, typeSeparator);
-      const componentId = id.slice(typeSeparator + 1);
-      const semantic = this.componentSemantics.get(componentSemanticKey(
-        ownerId,
-        componentId,
-      ));
-      return semantic !== undefined && semantic.componentType === componentType;
-    }
-    return null;
+    return this.sceneState.ownedSelectionTargetExists(id, materialized);
   }
 
   private logicalSceneIndex(): PatchMapLogicalSceneIndex {
-    const materialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
-    if (this.logicalSceneIndexCache?.materialized !== materialized) {
-      let index = this.logicalSceneIndexesByMaterialized.get(materialized);
-      if (index === undefined) {
-        index = new PatchMapLogicalSceneIndex(materialized.dataset);
-        this.logicalSceneIndexesByMaterialized.set(materialized, index);
-      }
-      this.logicalSceneIndexCache = Object.freeze({
-        materialized,
-        index,
-      });
-      this.logicalSelectionIndexesByMaterialized.set(materialized, index);
-    }
-    return this.logicalSceneIndexCache.index;
+    return this.sceneState.logicalSceneIndex();
   }
 
   /**
@@ -5629,17 +5524,11 @@ export class PatchMap {
    * labels, values, order, and locks can never be stale.
    */
   private logicalSceneIdentityIndex(): PatchMapLogicalSceneIndex {
-    return this.logicalSceneIndexCache?.index ?? this.logicalSceneIndex();
+    return this.sceneState.logicalSceneIdentityIndex();
   }
 
   private logicalSceneSelectionIndex(): PatchMapLogicalSceneIndex {
-    const materialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
-    let index = this.logicalSelectionIndexesByMaterialized.get(materialized);
-    if (index === undefined) {
-      index = new PatchMapLogicalSceneIndex(materialized.dataset);
-      this.logicalSelectionIndexesByMaterialized.set(materialized, index);
-    }
-    return index;
+    return this.sceneState.logicalSceneSelectionIndex();
   }
 
   private refreshAccessibilityAuthority(operation: string): void {
@@ -7280,34 +7169,6 @@ function normalizeSnapshotTarget(value: unknown): PatchMapMutationTarget | null 
   }
 }
 
-function findEngineSemanticTarget(
-  dataset: readonly NormalizedPatchMapElement[],
-  target: PatchMapMutationTarget,
-): NormalizedPatchMapElement | PatchMapComponent | null {
-  let result: NormalizedPatchMapElement | PatchMapComponent | null = null;
-  const visit = (elements: readonly NormalizedPatchMapElement[]): void => {
-    for (const element of elements) {
-      if (target.kind === 'element' && element.id === target.id) {
-        result = element;
-      }
-      if (target.kind === 'component' && element.id === target.ownerId) {
-        const components = element.type === 'item'
-          ? element.components
-          : element.type === 'grid'
-            ? element.item.components
-            : Object.freeze([] as PatchMapComponent[]);
-        const component = components.find((entry) => entry.id === target.id);
-        if (component !== undefined) {
-          result = component;
-        }
-      }
-      if (element.type === 'group') visit(element.children);
-    }
-  };
-  visit(dataset);
-  return result;
-}
-
 function semanticTargetIdentity(target: PatchMapSemanticTarget): string {
   return target.kind === 'element'
     ? `element:${target.id.length}:${target.id}`
@@ -7370,20 +7231,6 @@ function countPatchMapRelationLinks(
 }
 
 export type { PatchMapComponentVisualTarget } from './core/contracts';
-
-function findElement(
-  values: readonly NormalizedPatchMapElement[],
-  id: string,
-): Readonly<Record<string, unknown>> | null {
-  for (const value of values) {
-    if (value.id === id) return value;
-    if (value.type === 'group') {
-      const nested = findElement(value.children, id);
-      if (nested) return nested;
-    }
-  }
-  return null;
-}
 
 function selectionHitUsesSpatialFastPath(options: PatchMapSelectionHitOptions): boolean {
   return options.candidateIds === undefined &&
