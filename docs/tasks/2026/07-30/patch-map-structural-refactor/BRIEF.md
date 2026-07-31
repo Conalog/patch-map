@@ -49,11 +49,16 @@
 - T7 routes Core bar reconciliation through one controller-owned scalar
   scratch while keeping public presentation results frozen; the isolated
   5,000-bar controller stage improved by more than 50%.
+- T8 separates the manual Lab's pure markup/copy/panel renderer from its live
+  session and shares only exact browser-safe value helpers across seven
+  contract runtimes. Import-free contract files remain standalone.
 
 # Next Step
 
-- Split the manual Lab's pure view and exact journal/value helpers from session
-  ownership, then consolidate only contract-proven test harness atoms.
+- Select one final high-value ownership extraction from the remaining
+  `engine.ts`, `core.ts`, and Lab composition analyses; then run the
+  package/memory/performance checks required by the chosen path and finish the
+  PR-ready review.
 
 # Working Boundary
 
