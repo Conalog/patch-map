@@ -1,7 +1,7 @@
 import {
   normalizePatchMapTextTarget,
   type PatchMapTextTarget,
-} from '../core';
+} from '../core/contracts';
 import type { PatchMapTextProjection } from '../contracts';
 import type {
   NormalizedPatchMapElement,

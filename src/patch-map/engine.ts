@@ -13,7 +13,7 @@ import {
   type PatchMapTextTarget,
   type PatchMapTextTransformProbe,
   normalizePatchMapTextTarget,
-} from './core';
+} from './core/contracts';
 import {
   PatchMapFrameLoop,
   type PatchMapFrameLoopOptions,
@@ -8838,7 +8838,7 @@ function countPatchMapRelationLinks(
   return count;
 }
 
-export type { PatchMapComponentVisualTarget } from './core';
+export type { PatchMapComponentVisualTarget } from './core/contracts';
 
 function findElement(
   values: readonly NormalizedPatchMapElement[],
