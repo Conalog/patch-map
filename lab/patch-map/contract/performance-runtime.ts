@@ -14,6 +14,7 @@ import {
   type PatchMapPerformanceSemanticProjection,
 } from '../../../performance/patch-map/contract-workload';
 import type { PatchMap } from '../../../src/patch-map';
+import { deepFreezePatchMapLabValue as deepFreeze } from './runtime-values';
 
 export const PATCH_MAP_PERFORMANCE_RUNTIME_REVISION =
   'core-v2-performance-runtime/1' as const;
@@ -574,11 +575,4 @@ function nextAnimationFrame(): Promise<void> {
 
 function invariant(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(`Invalid PatchMap performance runtime: ${message}`);
-}
-
-function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
 }

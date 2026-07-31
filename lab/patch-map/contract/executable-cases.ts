@@ -2,6 +2,10 @@ import actionSchemaJson from '../../../docs/reference/core-v2-functional-contrac
 import manifestJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-evidence-manifest.v1.json';
 import profileJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
 import fixtureCatalogJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-fixtures.v1.json';
+import {
+  deepFreezePatchMapLabValue as deepFreeze,
+  isPatchMapLabRecord as isRecord,
+} from './runtime-values';
 
 export const PATCH_MAP_EXECUTABLE_CASE_IDS = Object.freeze([
   'EVT-001',
@@ -486,15 +490,4 @@ function sameJson(left: unknown, right: unknown): boolean {
 
 function invariant(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(`Invalid PatchMap executable Lab catalog: ${message}`);
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
 }

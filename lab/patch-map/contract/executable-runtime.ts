@@ -21,6 +21,10 @@ import {
   type PatchMapEngineSnapshot,
   type PatchMapSemanticProductProbe,
 } from '../../../src/patch-map';
+import {
+  deepFreezePatchMapLabValue as deepFreeze,
+  isPatchMapLabRecord as isRecord,
+} from './runtime-values';
 
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
 import * as foundationHandlersModule from '../../../scripts/verification/core-v2-contract/handlers/foundation.mjs';
@@ -2426,17 +2430,6 @@ function requireInspectableEngine(value: unknown): InspectableEngine {
   return value as unknown as InspectableEngine;
 }
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
 function invariant(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(`Invalid PatchMap executable Lab runtime: ${message}`);
-}
-
-function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
 }

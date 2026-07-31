@@ -1,4 +1,5 @@
 import packageConsumerResultJson from '../../../performance/patch-map/results/package-consumer.json';
+import { deepFreezePatchMapLabValue as deepFreeze } from './runtime-values';
 
 export const PATCH_MAP_PACKAGE_INTEGRATION_RUNTIME_REVISION =
   'patch-map-package-integration-runtime/1' as const;
@@ -38,11 +39,4 @@ export function createPatchMapPackageIntegrationRuntime(): PatchMapPackageIntegr
       },
     }),
   });
-}
-
-function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
 }

@@ -4,6 +4,10 @@ import {
   type PatchMap,
   type PatchMapEngineAuthoringResult,
 } from '../../../src/patch-map';
+import {
+  deepFreezePatchMapLabValue as deepFreeze,
+  detachPatchMapLabValue as detach,
+} from './runtime-values';
 
 export const PATCH_MAP_AUTHORING_RUNTIME_REVISION =
   'core-v2-authoring-runtime/1' as const;
@@ -237,17 +241,6 @@ function assertActive(released: boolean, operation: string): void {
   invariant(!released, `${operation} requires an active runtime`);
 }
 
-function detach<T>(value: T): T {
-  return deepFreeze(structuredClone(value));
-}
-
 function invariant(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(`Invalid PatchMap authoring runtime: ${message}`);
-}
-
-function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
 }
