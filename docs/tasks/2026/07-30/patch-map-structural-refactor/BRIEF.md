@@ -20,7 +20,7 @@
   five examples: 420 files total, excluding frozen evidence and prohibited
   generated/dependency content. New cohesive modules and their contract tests
   remain in the same file-by-file review ledger.
-- `engine.ts` is 7,206 LOC, `core.ts` is 3,445 LOC, and
+- `engine.ts` is 6,834 LOC, `core.ts` is 3,356 LOC, and
   `semantic/dataset.ts` is 1,170 LOC after the current authority extractions.
   The two facades still
   combine lifecycle, mutation, presentation, viewport, interaction, assets,
@@ -47,10 +47,12 @@
   presentation; Engine viewport, frame publication, transformer edit, scene
   state, and surface lifecycle; and Dataset contracts, value, and authored
   style normalization now have explicit single owners.
-- The current checkpoint passes 164 unit files / 1,531 tests, full lint and
+- Reconcile ordering/dirty-root/bar fast-path planning and private Core load
+  candidates/freshness/rollback checkpoints now have explicit owners while
+  atomic publication and live runtime installation remain in their facades.
+- The current checkpoint passes 166 unit files / 1,537 tests, full lint and
   typecheck, product/Lab builds, canonical 173 contract, headless 173 routes,
-  10,000 bars, actual-production, 2+7 memory, and a 5,000-bar smoke. Independent
-  review found no unresolved P0-P2 issue.
+  and 2+7 memory cleanup. Independent review found no unresolved P0-P2 issue.
 - The last verified product baseline remains 151 files / 1,471 tests,
   canonical 38/173, packed consumers, headless 173 routes, actual-production,
   10,000 records, and 2+7 memory cleanup. It is a baseline, not evidence for
@@ -58,10 +60,9 @@
 
 # Next Step
 
-- Extract the remaining Core load/reconcile candidate owner without moving
-  atomic publication out of the facade, then continue Engine, Dataset,
-  transaction, parser, renderer, Lab, test, verification, and performance
-  tranches in the recorded migration order.
+- Extract the parser direct-text index/cache owner and transaction request
+  normalization owner without changing diagnostic order, then continue the
+  remaining renderer, Lab, test, verification, and performance dispositions.
 
 # Working Boundary
 
