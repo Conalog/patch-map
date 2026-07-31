@@ -1,14 +1,13 @@
 import productionShapedWorkloadJson from '../../docs/reference/core-v2-functional-contract/evidence/production-shaped-workload.v1.json';
 import {
   PatchMapDatasetError,
-  PatchMap,
   createPatchMapSemanticProbe,
   materializePatchMapDataset,
   validatePatchMapDatasetReferences,
+  type PatchMap,
   type PatchMapEngineGeometryProbe,
   type PatchMapEngineTextProbe,
   type PatchMapEngineTransactionPerformanceProbe,
-  type PatchMapSemanticProductProbe,
   type PatchMapSurfaceEntityGeometry,
 } from '../../src/patch-map';
 import { buildPatchMapSeededScenarioScene } from '../../lab/patch-map/contract/seeded-scene';
@@ -832,12 +831,15 @@ function countNonFinite(value: unknown, seen = new WeakSet<object>()): number {
   if (seen.has(value)) return 0;
   seen.add(value);
   if (Array.isArray(value)) {
-    return value.reduce((count, entry) => count + countNonFinite(entry, seen), 0);
+    let count = 0;
+    for (const entry of value as unknown[]) count += countNonFinite(entry, seen);
+    return count;
   }
-  return Object.values(value).reduce(
-    (count, entry) => count + countNonFinite(entry, seen),
-    0,
-  );
+  let count = 0;
+  for (const entry of Object.values(value as Readonly<Record<string, unknown>>)) {
+    count += countNonFinite(entry, seen);
+  }
+  return count;
 }
 
 function nextAnimationFrameTime(): Promise<number> {
