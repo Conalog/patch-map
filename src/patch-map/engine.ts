@@ -529,6 +529,7 @@ export class PatchMap {
   private surface: PatchMapEngineSurface | null = null;
   private frameLoop: PatchMapFrameLoop | null = null;
   private frameLoopPausedForVisibility = false;
+  private terminalSurfaceFailure: Error | null = null;
   private frameClockMs = 0;
   private retainedCleanupSurface: PatchMapEngineSurface | null = null;
   private authoritativeCanvas: HTMLCanvasElement | null = null;
@@ -726,6 +727,7 @@ export class PatchMap {
 
   /** O(1) frame-loop seam shared by browser hosts and the PatchMap Labs. */
   public get activeAnimations(): number {
+    if (this.terminalSurfaceFailure !== null) return 0;
     const surface = this.surface;
     if (surface === null) return 0;
     return surface.frameLoopActiveAnimations?.()
@@ -772,6 +774,7 @@ export class PatchMap {
    */
   public createFrameLoop(options: PatchMapFrameLoopOptions = {}): PatchMapFrameLoop {
     this.requireSurface('createFrameLoop');
+    if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
     if (this.frameLoop !== null && !this.frameLoop.isDestroyed) {
       throw this.operationError('CONFLICT', 'CONFLICT', 'createFrameLoop', false);
     }
@@ -847,6 +850,7 @@ export class PatchMap {
       powerPreference: options.powerPreference ?? 'high-performance',
       assetSession,
       requestFrame: () => this.requestManagedFrameLoop(),
+      onTerminalFailure: (error) => this.handleSurfaceTerminalFailure(error),
       ...(options.target ? { target: options.target } : {}),
       ...(options.canvas ? { canvas: options.canvas } : {}),
     };
@@ -2786,6 +2790,7 @@ export class PatchMap {
   }
 
   public publishFrame(timeMs = globalThis.performance?.now() ?? Date.now()): void {
+    if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
     if (!Number.isFinite(timeMs)) throw new TypeError('timeMs must be finite');
     if (this.pageLifecycle.probe().state === 'hidden') return;
     const surface = this.requireSurface('publishFrame');
@@ -6382,12 +6387,26 @@ export class PatchMap {
   }
 
   private requestManagedFrameLoop(): void {
-    if (this.frameLoop === null || this.pageLifecycle.probe().state === 'hidden') return;
+    if (
+      this.terminalSurfaceFailure !== null ||
+      this.frameLoop === null ||
+      this.pageLifecycle.probe().state === 'hidden'
+    ) {
+      return;
+    }
     if (this.frameLoop.isDestroyed) {
       this.frameLoop = null;
       return;
     }
     this.frameLoop.request();
+  }
+
+  private handleSurfaceTerminalFailure(error: Error): void {
+    if (this.terminalSurfaceFailure !== null) return;
+    this.terminalSurfaceFailure = error;
+    this.frameLoop?.destroy();
+    this.frameLoop = null;
+    this.frameLoopPausedForVisibility = false;
   }
 
   private deliverEngineEvent<K extends PatchMapEngineEvent>(

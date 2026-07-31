@@ -52,6 +52,8 @@ export interface PatchMapRuntimeOptions extends PatchMapPixiRendererOptions, Cor
   readonly internalStableRecordOverlays?: boolean;
   /** Product-owned frame-loop wake-up for async resource completion. */
   readonly requestFrame?: () => void;
+  /** Internal owner notification when load publication can no longer be proven coherent. */
+  readonly onTerminalFailure?: (error: Error) => void;
 }
 
 export type PatchMapRootViewportChangeSource =

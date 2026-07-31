@@ -26,6 +26,7 @@ const MAX_COOPERATIVE_CHUNK_SIZE = 512;
 export class PatchMapScene extends CoreScene {
   private revisionOffset = 0;
   private readonly capacityFloor: number;
+  private loadedValue = false;
 
   public constructor(options: CoreSceneCreateOptions = {}) {
     super(options);
@@ -36,7 +37,18 @@ export class PatchMapScene extends CoreScene {
     return super.revision - this.revisionOffset;
   }
 
+  public seedReplacementFrom(previous: PatchMapScene): void {
+    if (this.loadedValue) {
+      throw new Error('PatchMapScene replacement seed requires a fresh scene');
+    }
+    this.seedReplacementLoadAuthority(
+      previous.revision,
+      previous.replacementLoadGeneration,
+    );
+  }
+
   public override load(document: SceneDocument): LoadResult {
+    this.loadedValue = true;
     return this.logicalLoadResult(super.load(document));
   }
 
@@ -44,12 +56,14 @@ export class PatchMapScene extends CoreScene {
     document: SceneDocument,
     assertCurrent: () => void,
   ): Promise<LoadResult> {
-    if (super.revision !== 0) {
+    if (this.loadedValue) {
       throw new Error('PatchMapScene cooperative load requires a fresh candidate');
     }
     const chunks = planCooperativeChunks(document);
     if (chunks === null || chunks.length <= 1) return this.load(document);
 
+    this.loadedValue = true;
+    const loadRevision = super.revision + 1;
     const emptyDocument: SceneDocument = Object.freeze({
       ...document,
       entities: Object.freeze([]),
@@ -68,9 +82,9 @@ export class PatchMapScene extends CoreScene {
       await yieldSceneTask();
     }
     assertCurrent();
-    this.revisionOffset = super.revision - 1;
+    this.revisionOffset = super.revision - loadRevision;
     return Object.freeze({
-      revision: 1,
+      revision: loadRevision,
       entityCount: document.entities.length,
       capacity: denseCapacity(
         Math.max(this.capacityFloor, document.entities.length),

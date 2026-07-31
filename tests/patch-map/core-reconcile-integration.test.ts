@@ -12,6 +12,7 @@ import {
   PatchMapRuntime,
   type PatchMapRuntimeOptions,
 } from '../../src/patch-map/core';
+import type { PatchMapPublishedSceneState } from '../../src/patch-map/core/published-scene-state';
 import { PatchMapParseError } from '../../src/patch-map/contracts';
 import type {
   PatchMapPixiInitializationMetrics,
@@ -489,6 +490,56 @@ describe('PatchMap runtime dense reconcile', () => {
     expect(renderer.markCalls).toEqual([]);
   });
 
+  it('publishes sync load authorities with one immutable state reference', () => {
+    const { core } = createTestCore(allocated);
+    const authority = publishedSceneAuthority(core);
+    const before = authority.current();
+    const owned = materializePatchMapDataset([directRect('box')]);
+
+    const loaded = core.load(owned.dataset);
+    const after = authority.current();
+
+    expect(after).not.toBe(before);
+    expect(Object.isFrozen(after)).toBe(true);
+    expect(after.scene).not.toBe(before.scene);
+    expect(before.scene.destroy()).toBe(false);
+    expect(after.parse).toBe(loaded.parse);
+    expect(after.projection).toBe(loaded.parse.projection);
+    expect(after.ownedInputDataset).toBe(owned.dataset);
+    expect(after.entityCount).toBe(loaded.store.entityCount);
+    expect(core.identity).toBe(after.parse?.identity);
+    expect(core.projection).toBe(after.projection);
+    expect(core.entityCount).toBe(after.entityCount);
+  });
+
+  it('keeps a cooperative first-load candidate private until its final state swap', async () => {
+    const { core } = createTestCore(allocated);
+    const authority = publishedSceneAuthority(core);
+    const before = authority.current();
+    const observed: PatchMapPublishedSceneState[] = [];
+    const input = Array.from(
+      { length: 300 },
+      (_, index) => directRect(`box-${index}`, { x: index }),
+    );
+
+    const loaded = await core.loadAsync(input, undefined, {
+      assertCurrent: () => {
+        observed.push(authority.current());
+      },
+    });
+    const after = authority.current();
+
+    expect(observed.length).toBeGreaterThan(1);
+    expect(observed.every((state) => state === before)).toBe(true);
+    expect(after).not.toBe(before);
+    expect(after.scene).not.toBe(before.scene);
+    expect(after.parse).toBe(loaded.parse);
+    expect(after.projection).toBe(loaded.parse.projection);
+    expect(after.entityCount).toBe(300);
+    expect(before.scene.destroy()).toBe(false);
+    expect(after.scene.snapshot().entityCount).toBe(300);
+  });
+
   it('inverts screen-axis flips after rotation for transformed pointer coordinates', () => {
     const { core } = createTestCore(allocated);
     core.load([directRect('endpoint', { x: 110, width: 20, height: 20 })]);
@@ -506,6 +557,14 @@ describe('PatchMap runtime dense reconcile', () => {
     expect(world.y).toBeCloseTo(80, 10);
   });
 });
+
+function publishedSceneAuthority(core: PatchMapRuntime): Readonly<{
+  current(): PatchMapPublishedSceneState;
+}> {
+  return (core as unknown as {
+    publishedScene: Readonly<{ current(): PatchMapPublishedSceneState }>;
+  }).publishedScene;
+}
 
 type RelationMatrixElement =
   | {

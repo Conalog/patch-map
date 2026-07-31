@@ -4,6 +4,7 @@ import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
 import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/dense/renderer-types';
 import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+import type { PatchMapSpatialHitAuthority } from '../../src/patch-map/core/spatial-hit-authority';
 import {
   PatchMap,
   PatchMapError,
@@ -153,17 +154,16 @@ describe('PatchMap bar presentation integration', () => {
     core.reconcile(scene(40));
     core.publishFrame(50);
     const internals = core as unknown as {
-      animatedBarHitIndexValue: unknown;
-      entityHitIndexValue: unknown;
+      spatialHit: PatchMapSpatialHitAuthority;
     };
     const firstCenter = core.visibleProjection?.byEntityId['item-a::bar:level']?.visibleCenter;
     if (firstCenter === undefined) throw new Error('missing first bar center');
     const firstHit = core.hitTestScreen({ x: firstCenter[0], y: firstCenter[1] });
-    const envelope = internals.animatedBarHitIndexValue;
+    const envelope = internals.spatialHit.debugSnapshot().animatedBarIndex;
 
     expect(core.get(firstHit!)?.id).toBe('item-a');
     expect(envelope).not.toBeNull();
-    expect(internals.entityHitIndexValue).toBeNull();
+    expect(internals.spatialHit.debugSnapshot().exactIndex).toBeNull();
 
     core.publishFrame(100);
     const secondCenter = core.visibleProjection?.byEntityId['item-a::bar:level']?.visibleCenter;
@@ -172,10 +172,10 @@ describe('PatchMap bar presentation integration', () => {
       x: secondCenter[0],
       y: secondCenter[1],
     })!)?.id).toBe('item-a');
-    expect(internals.animatedBarHitIndexValue).toBe(envelope);
+    expect(internals.spatialHit.debugSnapshot().animatedBarIndex).toBe(envelope);
 
     core.publishFrame(200);
-    expect(internals.animatedBarHitIndexValue).toBeNull();
+    expect(internals.spatialHit.debugSnapshot().animatedBarIndex).toBeNull();
   });
 
   it('reuses the animated-bar hit envelope across direct mid-animation retargets', async () => {
@@ -197,14 +197,14 @@ describe('PatchMap bar presentation integration', () => {
     });
     engine.publishFrame(50);
     const internals = core as unknown as {
-      animatedBarHitIndexValue: unknown;
+      spatialHit: PatchMapSpatialHitAuthority;
     };
     const firstCenter =
       core.visibleProjection?.byEntityId['item-a::bar:level']?.visibleCenter;
     if (firstCenter === undefined) throw new Error('missing first bar center');
     expect(core.hitTestScreen({ x: firstCenter[0], y: firstCenter[1] }))
       .not.toBeNull();
-    const envelope = internals.animatedBarHitIndexValue;
+    const envelope = internals.spatialHit.debugSnapshot().animatedBarIndex;
     expect(envelope).not.toBeNull();
 
     engine.updateBarHeights({
@@ -212,14 +212,14 @@ describe('PatchMap bar presentation integration', () => {
       heights: new Float64Array([70]),
       recordHistory: false,
     });
-    expect(internals.animatedBarHitIndexValue).toBe(envelope);
+    expect(internals.spatialHit.debugSnapshot().animatedBarIndex).toBe(envelope);
     engine.publishFrame(100);
     const secondCenter =
       core.visibleProjection?.byEntityId['item-a::bar:level']?.visibleCenter;
     if (secondCenter === undefined) throw new Error('missing second bar center');
     expect(core.hitTestScreen({ x: secondCenter[0], y: secondCenter[1] }))
       .not.toBeNull();
-    expect(internals.animatedBarHitIndexValue).toBe(envelope);
+    expect(internals.spatialHit.debugSnapshot().animatedBarIndex).toBe(envelope);
 
     await engine.destroy();
   });

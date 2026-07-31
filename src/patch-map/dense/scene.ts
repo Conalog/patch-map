@@ -88,6 +88,36 @@ export class CoreScene {
     return this.animations.count;
   }
 
+  /**
+   * Seed a fresh private replacement so its first load advances the same
+   * revision and EntityRef generation sequences as this scene would in place.
+   */
+  protected seedReplacementLoadAuthority(revision: number, generation: number): void {
+    this.assertAlive();
+    if (
+      this.revisionCounter !== 0 ||
+      this.loadGeneration !== 0 ||
+      this.store.liveCount !== 0 ||
+      this.frameCounter !== 0
+    ) {
+      throw new Error('CoreScene replacement authority requires a fresh scene');
+    }
+    if (!Number.isInteger(revision) || revision < 0) {
+      throw new RangeError('replacement revision must be a non-negative integer');
+    }
+    if (!Number.isInteger(generation) || generation < 0 || generation > 0xffff_ffff) {
+      throw new RangeError('replacement generation must be a uint32');
+    }
+    this.revisionCounter = revision;
+    this.loadGeneration = generation;
+    this.store.revision = revision;
+  }
+
+  protected get replacementLoadGeneration(): number {
+    this.assertAlive();
+    return this.loadGeneration;
+  }
+
   public load(document: SceneDocument): LoadResult {
     this.assertAlive();
     const normalized = normalizeDocument(document);

@@ -527,6 +527,16 @@ export class PatchMapSceneImageController {
     return target ? this.projectTarget(target, rendererFactsPublished) : null;
   }
 
+  /** Reuse one already-decoded binding while a replacement target is still private. */
+  public resolvedBindingNaturalSize(
+    bindingKey: string,
+  ): readonly [number, number] | null {
+    this.assertAlive();
+    const binding = this.bindings.get(nonempty(bindingKey, 'image binding key'));
+    if (!binding || binding.retired || binding.resourceState !== 'resolved') return null;
+    return normalizeNaturalSize(binding.observation?.naturalSize ?? null);
+  }
+
   public probe(rendererFactsPublished = true): PatchMapSceneImagesProbe {
     const images: Record<string, PatchMapSceneImageProductProbe> = Object.create(null) as Record<
       string,

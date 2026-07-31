@@ -11,6 +11,7 @@ import type {
   PatchMapProjectionIndex,
 } from '../../src/patch-map/contracts';
 import { PatchMapRuntime } from '../../src/patch-map/core';
+import type { PatchMapSpatialHitAuthority } from '../../src/patch-map/core/spatial-hit-authority';
 import {
   PatchMapEntityHitIndex,
   patchMapEntityContainsWorldPoint,
@@ -178,10 +179,7 @@ describe('PatchMap bounded entity hit index', () => {
         query(): readonly EntityRef[];
         ref(id: string): EntityRef | null;
       };
-      entityHitIndexValue: PatchMapEntityHitIndex | null;
-      denseHitGeometryCompatible: boolean;
-      staleHitProjectionIds: Set<string>;
-      spatialHitAnimationEnds: Map<string, number>;
+      spatialHit: PatchMapSpatialHitAuthority;
     };
     const snapshotSpy = vi.spyOn(internals.scene, 'snapshot');
     const querySpy = vi.spyOn(internals.scene, 'query');
@@ -202,7 +200,7 @@ describe('PatchMap bounded entity hit index', () => {
       }] });
       core.commit({ operations: [{ type: 'remove', target: id }] });
     }
-    expect(internals.staleHitProjectionIds.size).toBe(0);
+    expect(internals.spatialHit.debugSnapshot().staleProjectionIds).toEqual([]);
 
     expect(core.hitTestScreen({ x: 5, y: 5 })?.slot).toBe(0);
     expect(core.hitTestScreen({ x: 5, y: 5 })?.slot).toBe(0);
@@ -243,9 +241,11 @@ describe('PatchMap bounded entity hit index', () => {
     core.advance(25);
     expect(core.hitTestScreen({ x: 35, y: 5 })).not.toBeNull();
     expect(snapshotSpy).toHaveBeenCalledTimes(1);
-    expect(internals.spatialHitAnimationEnds.size).toBe(0);
+    expect(internals.spatialHit.debugSnapshot().spatialAnimationCount).toBe(0);
     core.commit({ operations: [{ type: 'remove', target: 'value-bar' }] });
-    expect([...internals.staleHitProjectionIds].some((id) => id.startsWith('churn-'))).toBe(false);
+    expect(internals.spatialHit.debugSnapshot().staleProjectionIds.some(
+      (id) => id.startsWith('churn-'),
+    )).toBe(false);
 
     core.commit({ operations: [{ type: 'patch', target: 'target', changes: { x: 128 } }] });
     expect(core.hitTestScreen({ x: 133, y: 5 })?.slot).toBe(0);
@@ -273,7 +273,7 @@ describe('PatchMap bounded entity hit index', () => {
     core.advance(125);
     expect(core.hitTestScreen({ x: 261, y: 5 })?.slot).toBe(0);
     expect(snapshotSpy).toHaveBeenCalledTimes(5);
-    expect(internals.spatialHitAnimationEnds.size).toBe(0);
+    expect(internals.spatialHit.debugSnapshot().spatialAnimationCount).toBe(0);
 
     core.reconcile([{ type: 'rect', id: 'target', size: 10, attrs: { x: 300 } }]);
     expect(core.hitTestScreen({ x: 305, y: 5 })?.slot).toBe(0);
@@ -282,14 +282,16 @@ describe('PatchMap bounded entity hit index', () => {
     expect(snapshotSpy).toHaveBeenCalledTimes(5);
     expect(querySpy).not.toHaveBeenCalled();
 
-    internals.denseHitGeometryCompatible = false;
+    internals.spatialHit.setDenseGeometryCompatible(false);
     expect(core.hitTestScreen({ x: 305, y: 5 })?.slot).toBe(0);
     expect(snapshotSpy).toHaveBeenCalledTimes(6);
-    expect(internals.entityHitIndexValue).not.toBeNull();
+    expect(internals.spatialHit.debugSnapshot().exactIndex).not.toBeNull();
 
     expect(await core.destroy()).toBe(true);
-    expect(internals.entityHitIndexValue).toBeNull();
-    expect(internals.staleHitProjectionIds.size).toBe(0);
+    expect(internals.spatialHit.debugSnapshot()).toMatchObject({
+      exactIndex: null,
+      staleProjectionIds: [],
+    });
   });
 });
 

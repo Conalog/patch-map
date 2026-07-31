@@ -212,6 +212,29 @@ describe('PatchMap lifecycle authority', () => {
     expect(driver.pending()).toBe(0);
   });
 
+  it('destroys the managed frame loop when a surface enters terminal publication state', async () => {
+    const { factory, options } = createSurfaceFactory();
+    const driver = createFrameDriver();
+    const engine = new PatchMap({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'terminal-frame-owner', width: 800, height: 600 });
+    const loop = engine.createFrameLoop({ driver });
+    loop.request(100);
+    expect(driver.pending()).toBe(1);
+
+    const terminal = new Error('surface publication is not coherent');
+    options[0]?.onTerminalFailure?.(terminal);
+
+    expect(driver.pending()).toBe(0);
+    expect(loop.isDestroyed).toBe(true);
+    expect(engine.activeAnimations).toBe(0);
+    expect(() => engine.createFrameLoop({ driver })).toThrow(terminal);
+    expect(() => engine.publishFrame(20)).toThrow(terminal);
+    options[0]?.requestFrame?.();
+    expect(driver.pending()).toBe(0);
+
+    await engine.destroy();
+  });
+
   it('starts a late-owned frame loop paused while the document is hidden', async () => {
     const { factory } = createSurfaceFactory();
     const driver = createFrameDriver();

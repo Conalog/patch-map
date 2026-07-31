@@ -264,6 +264,36 @@ describe('PatchMap scene image integration', () => {
     });
   });
 
+  it('publishes a replacement target with an already-decoded shared intrinsic size', async () => {
+    const { core, renderer } = createCore(allocated);
+    core.load([{
+      type: 'image',
+      id: 'old-target',
+      source: 'fixture-image',
+      attrs: { x: 10, y: 20 },
+    }]);
+    renderer.resolve('alias:fixture-image', { naturalSize: [80, 40] });
+    await core.settleSceneImages();
+
+    core.load([{
+      type: 'image',
+      id: 'replacement-target',
+      source: 'fixture-image',
+      attrs: { x: 30, y: 50 },
+    }]);
+
+    expect(core.projection?.byEntityId['replacement-target']?.localBounds)
+      .toEqual([0, 0, 80, 40]);
+    expect(core.visibleProjection?.byEntityId['replacement-target']?.localBounds)
+      .toEqual([0, 0, 80, 40]);
+    expect(core.hitBounds('replacement-target')).toEqual([30, 50, 80, 40]);
+    expect(core.sceneImageProbe().images['replacement-target']).toMatchObject({
+      generation: 1,
+      naturalSize: [80, 40],
+      attachmentState: 'current',
+    });
+  });
+
   it('batches shared intrinsic sizes and recomputes rotated reflected center pivots', async () => {
     const { core, renderer } = createCore(allocated);
     core.load([

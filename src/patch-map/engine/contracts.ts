@@ -77,6 +77,8 @@ export interface PatchMapSurfaceOptions {
   readonly assetSession?: PatchMapAssetSession;
   /** Internal bridge from async Pixi/Core invalidation to the product frame owner. */
   readonly requestFrame?: () => void;
+  /** Quiesces the product frame owner when the surface cannot prove coherent publication. */
+  readonly onTerminalFailure?: (error: Error) => void;
 }
 
 export interface PatchMapSurfaceViewportInput {
