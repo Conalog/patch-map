@@ -20,10 +20,9 @@
   focused downward owners while their atomic writers remain singular.
 - Mesh and Pixi renderer coordinators are 1,256 and 2,002 LOC after CPU value
   planning moved below unchanged GPU/Application/resource owners.
-- Assets are a 667-line coordinator above policy/backend value owners. The
-  browser verifier is a 1,950-line I/O owner above catalog and assertion
-  modules; expected loading, report mutation, browser, server, and cleanup stay
-  in that root.
+- Operations are a 425-line callback/diagnostic writer above contract,
+  redaction, and extraction-security owners. Scene images are a 978-line
+  lifecycle writer above contract and pure reconcile-value owners.
 - Renderer ownership stays one manual loop, aggregate layers, one root
   interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
@@ -41,24 +40,22 @@
 - Parser, Dataset, transaction, reconcile, text, authoring, editor, host,
   renderer planning, Lab presentation, and large contract-test composition now
   have explicit domain owners without a parallel public or write path.
-- Verification now shares only proven value atoms: 55 strict clones, eight
-  optional clones, 50 freezes, eight ordered-key assertions, and 56 exact
-  type-suffix validators moved with their call counts unchanged. Policy
-  variants remain local.
-- A committed-source firewall recursively covers all 35 handlers and 34 folds,
-  permits only the import-free value leaf, and fail-closes expected, external,
-  Node/dynamic, computed-global, constructor, and static-string path access.
-  Independent P0–P2 review passes after closing two concrete bypass classes.
-- The checkpoint passes 190 unit files / 1,679 tests, full lint/typecheck,
-  product/Lab builds, and canonical 38/173. Browser, packed consumer, memory,
-  and performance were not repeated because product, rendering, export,
-  resource/destroy ownership, and hot algorithms did not change.
+- Expected-blind verification shares only proven import-free value atoms and
+  recursively fail-closes expected, external, dynamic-global, constructor, and
+  static-string access across all committed handlers and folds.
+- Operations retain one callback queue and diagnostic writer; scene images
+  retain prepared-plan, async freshness, renderer binding, release,
+  invalidation, and destroy ownership. Review also fixed nonnegative nested
+  queue counts and teardown continuation after synchronous unbind failures.
+- The checkpoint passes 190 unit files / 1,681 tests, full lint/typecheck,
+  product/Lab builds, canonical 38/173, and 2+7 memory with 5,099 entities and
+  nine ownership cycles. Browser, packed consumer, and performance were not
+  repeated because route, export, and hot algorithms did not change.
 
 # Next Step
 
-- Split `operations.ts` contracts and pure redaction/extraction-security values
-  while keeping callback queues, subscriptions, diagnostics, and dispatch in
-  the facade.
+- Classify and split the semantic reconcile and dense-store boundaries without
+  changing O(dirty) caches, atomic writers, operation order, or allocations.
 
 # Working Boundary
 
