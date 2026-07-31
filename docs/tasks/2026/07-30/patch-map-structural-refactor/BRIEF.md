@@ -14,10 +14,9 @@
 
 # Current Facts
 
-- The 420-file starting inventory covers product, Lab, tests, performance,
-  verification, and examples. New cohesive modules remain in its review
-  ledger; frozen evidence and generated/dependency content stay excluded.
-- `engine.ts` is 6,372 LOC and `core.ts` is 2,650 LOC. Parser, transaction,
+- The 420-file inventory covers every allowed product, Lab, test, performance,
+  verification, and example file; frozen/generated content stays excluded.
+- `engine.ts` is 6,184 LOC and `core.ts` is 2,495 LOC. Parser, transaction,
   text-layout, incremental-parser, authoring, and editor-workflow facades are
   now 601, 969, 310, 614, 96, and 900 LOC with focused downward owners.
 - Mesh and Pixi renderer coordinators are 1,256 and 2,002 LOC after CPU value
@@ -30,9 +29,8 @@
 
 # Current State
 
-- The task is reopened for a file-by-file refactor. Every allowed file will
-  receive an explicit keep, move, split, consolidate, or delete judgment;
-  mechanical edits to already cohesive files are not required.
+- Every allowed file receives a keep, move, split, consolidate, or delete
+  judgment; cohesive files do not require mechanical edits.
 - The working plan owns the 420-file disposition and T0–T10 migration map;
   initial clone analysis found 379 groups / 4.4% duplication, concentrated in
   contract automation/tests and several product helper families.
@@ -59,14 +57,15 @@
 - Parser lowering and structural transaction planning are split into acyclic
   owners; relation cleanup now falls back before touching an external frozen
   relation root.
+- Core reconcile values and Engine product-probe composition now have typed
+  read-only owners; atomic writers and probe-time surface identity stay intact.
 - The checkpoint passes 188 unit files / 1,613 tests, lint/typecheck, Lab
   build, representative headless WebGL, and independent P0–P2 review.
 
 # Next Step
 
-- Extract the next largest pure Core reconcile/frame and Engine selection/query
-  planning boundaries without moving scheduler, transaction, event, surface,
-  or public API ownership.
+- Split host-interaction contracts/mode atoms and dataset raw normalization
+  while retaining listener/tooltip and ownership-registry single writers.
 
 # Working Boundary
 
