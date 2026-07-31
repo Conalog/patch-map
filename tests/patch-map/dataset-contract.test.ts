@@ -193,6 +193,33 @@ describe('PatchMap approved dataset foundation', () => {
     expect(result.dataset[0]?.attrs).toEqual({ display: 'fixture', nested: { ok: true } });
   });
 
+  it('detaches prototype-sensitive attrs as own frozen data without polluting prototypes', () => {
+    const input = JSON.parse(
+      '[{"type":"rect","id":"prototype-safe","size":10,"attrs":{"__proto__":{"polluted":true}}}]',
+    ) as unknown;
+    const before = JSON.stringify(input);
+
+    const attrs = materializePatchMapDataset(input).dataset[0]?.attrs;
+
+    expect(Object.prototype.hasOwnProperty.call(attrs, '__proto__')).toBe(true);
+    expect(Object.getPrototypeOf(attrs)).toBe(Object.prototype);
+    expect((attrs as Readonly<Record<string, unknown>>)['__proto__']).toEqual({ polluted: true });
+    expect(Object.prototype).not.toHaveProperty('polluted');
+    expect(Object.isFrozen(attrs)).toBe(true);
+    expect(JSON.stringify(input)).toBe(before);
+  });
+
+  it('reports the same deterministic first closed-schema error before scalar validation', () => {
+    expect(() => materializePatchMapDataset([
+      { type: 'rect', size: -1, zUnknown: true, aUnknown: true },
+    ])).toThrowError(
+      expect.objectContaining<Partial<PatchMapDatasetError>>({
+        code: 'UNKNOWN_FIELD',
+        datasetPath: '$[0].aUnknown',
+      }),
+    );
+  });
+
   it('rejects invalid direct colors while preserving unresolved dotted theme paths', () => {
     expect(() => materializePatchMapDataset([
       { type: 'rect', id: 'bad-color', size: 10, fill: 'not-a-color' },
