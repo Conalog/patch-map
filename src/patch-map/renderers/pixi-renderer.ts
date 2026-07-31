@@ -71,6 +71,11 @@ import type {
   PatchMapResolvedPresentationPolicy,
 } from '../presentation-policy';
 import { PatchMapPresentationStoreView } from './presentation-store';
+import {
+  pixiDevtoolsOwnsApplication,
+  registerPixiDevtools,
+  unregisterPixiDevtools,
+} from './pixi-devtools-registration';
 import type {
   PatchMapAccessibilityActivationInput,
   PatchMapAccessibilityRenderNode,
@@ -182,23 +187,6 @@ interface PixiPublicRendererSurface {
   readonly name?: string;
   readonly context?: PixiPublicGlContextSystem;
 }
-
-interface PixiDevtoolsHandle {
-  readonly app: Application;
-}
-
-interface PixiDevtoolsRegistration {
-  readonly token: object;
-  readonly handle: PixiDevtoolsHandle;
-}
-
-type PixiDevtoolsGlobal = typeof globalThis & {
-  __PIXI_DEVTOOLS__?: PixiDevtoolsHandle;
-};
-
-const DEVTOOLS_REGISTRATIONS: PixiDevtoolsRegistration[] = [];
-let previousDevtoolsHandle: PixiDevtoolsHandle | undefined;
-let previousDevtoolsHandleWasPresent = false;
 
 export class PatchMapPixiRenderer implements CoreRenderer {
   public readonly application: Application;
@@ -2621,47 +2609,6 @@ function activeRendererBackend(application: Application): PatchMapActiveRenderer
     return version === 2 ? 'webgl2' : version === 1 ? 'webgl1' : 'unknown';
   }
   return 'unknown';
-}
-
-function registerPixiDevtools(token: object, application: Application): void {
-  const root = globalThis as PixiDevtoolsGlobal;
-  if (DEVTOOLS_REGISTRATIONS.length === 0) {
-    previousDevtoolsHandleWasPresent = Object.prototype.hasOwnProperty.call(
-      root,
-      '__PIXI_DEVTOOLS__',
-    );
-    previousDevtoolsHandle = root.__PIXI_DEVTOOLS__;
-  }
-  const registration = Object.freeze({
-    token,
-    handle: Object.freeze({ app: application }),
-  });
-  DEVTOOLS_REGISTRATIONS.push(registration);
-  root.__PIXI_DEVTOOLS__ = registration.handle;
-}
-
-function unregisterPixiDevtools(token: object): void {
-  const index = DEVTOOLS_REGISTRATIONS.findIndex((entry) => entry.token === token);
-  if (index < 0) return;
-  const [registration] = DEVTOOLS_REGISTRATIONS.splice(index, 1);
-  const root = globalThis as PixiDevtoolsGlobal;
-  if (root.__PIXI_DEVTOOLS__ !== registration?.handle) return;
-  const next = DEVTOOLS_REGISTRATIONS.at(-1);
-  if (next) {
-    root.__PIXI_DEVTOOLS__ = next.handle;
-    return;
-  }
-  if (previousDevtoolsHandleWasPresent) {
-    Reflect.set(root, '__PIXI_DEVTOOLS__', previousDevtoolsHandle);
-  } else {
-    Reflect.deleteProperty(root, '__PIXI_DEVTOOLS__');
-  }
-  previousDevtoolsHandle = undefined;
-  previousDevtoolsHandleWasPresent = false;
-}
-
-function pixiDevtoolsOwnsApplication(application: Application): boolean {
-  return (globalThis as PixiDevtoolsGlobal).__PIXI_DEVTOOLS__?.app === application;
 }
 
 function backendName(application: Application): string {
