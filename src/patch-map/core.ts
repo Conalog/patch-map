@@ -33,26 +33,17 @@ import {
 } from './presentation-policy';
 import type { PatchMapPaintOrderProductProbe } from './paint-order-product';
 import {
-  inheritPatchMapV010DirectParseIndexes,
   parsePatchMapV010,
   parsePatchMapV010Async,
-  parsePatchMapV010DirectTextBatch,
   parsePatchMapV010SelectedRoots,
 } from './parser';
 import {
-  inheritPatchMapV010IncrementalParserCaches,
-  parsePatchMapV010DirectElementAngleBatch,
-  parsePatchMapV010IncrementalFlat,
-  parsePatchMapV010IncrementalStructure,
-  patchMapV010StructuralChangedEntityIds,
   primePatchMapV010IncrementalFlat,
 } from './incremental-parser';
 import {
   ownedPatchMapPreviewPatchIndices,
 } from './semantic/dataset';
 import {
-  inheritRendererDegradationDiagnostics,
-  inheritRendererDegradationDiagnosticsIncremental,
   withRendererDegradationDiagnostics,
 } from './renderers/degradation';
 import {
@@ -62,9 +53,6 @@ import {
   type PatchMapFrameLoopOptions,
 } from './scheduler';
 import {
-  planPatchMapParsedSceneReconcile,
-  planPatchMapParsedSceneReconcileIncremental,
-  planPatchMapParsedSceneReconcileStructuralWindow,
   primePatchMapParsedSceneReconcileIncremental,
 } from './semantic/reconcile';
 import {
@@ -143,30 +131,20 @@ import {
   type PatchMapLoadRuntimeState,
 } from './core/load-authority';
 import {
-  denseReconcileOptions,
   resolvePresentationFillOverrides,
   semanticPresentationFillDenseIds,
   semanticSelectionDenseIds,
 } from './core/semantic-dense-planning';
 import {
-  cachedTransientSelectedParse,
-  changedProjectionEntityIds,
-  directBarEntityIds,
-  directElementAngleEntityIds,
-  directTextEntityIds,
-  directTextParseTargetHints,
   freezeReconcileResult,
   incrementalParseOptionsKey,
-  incrementalDenseEntityIds,
   matchesOwnedIncrementalInput,
-  matchesOwnedStructuralInput,
   reconcileFacts,
   reconcileFactStamp,
   retainedOwnedInputDataset,
   sameStringArray,
-  structuralTargetMappingsReusable,
 } from './core/reconcile-planning';
-import { reconcileDirectBarHeightParse } from './core/direct-bar-reconcile';
+import { preparePatchMapReconcileCandidate } from './core/reconcile-candidate';
 import {
   intrinsicImageProjectionUpdate,
   projectionWithResolvedIntrinsicSizes,
@@ -176,7 +154,6 @@ import {
 import {
   compactPatchMapProjectionStableRecords,
   isPlainRecord,
-  jsonEquivalent,
   rollbackPatchMapProjectionStableRecords,
 } from './core/projection-records';
 
@@ -692,218 +669,36 @@ export class PatchMapRuntime {
     options: PatchMapReconcileOptions = {},
   ): PatchMapReconcileResult {
     this.assertAlive();
-    const currentParse = this.parseResultValue;
+    const published = this.publishedScene.current();
+    const currentParse = published.parse;
     if (currentParse === null) {
       throw new Error('PatchMapRuntime.reconcile requires a loaded PATCH MAP dataset');
     }
 
     const totalStarted = now();
-    const before = reconcileFactStamp(this.scene);
-    const parseStarted = now();
-    const parseOptions = options.parse ?? this.parseOptions;
-    const directBarParse = options.directBarHeightUpdates === undefined ||
-      !matchesOwnedIncrementalInput(
-        input,
-        options.directBarHeightUpdates.map(({ ownerId }) => ownerId),
-        parseOptions,
-        this.publishedScene.current(),
-      )
-      ? null
-      : reconcileDirectBarHeightParse(
-          input,
-          currentParse,
-          options.directBarHeightUpdates,
-          this.componentTargets,
-          this.stableRecordStrategy,
-        );
-    const directTextParse =
-      directBarParse !== null ||
-      options.directTextUpdates === undefined ||
-      !matchesOwnedIncrementalInput(
-        input,
-        options.directTextUpdates.map(({ ownerId }) => ownerId),
-        parseOptions,
-        this.publishedScene.current(),
-      )
-        ? null
-        : parsePatchMapV010DirectTextBatch(
-            input,
-            currentParse,
-            options.directTextUpdates,
-            parseOptions,
-            directTextParseTargetHints(
-              options.directTextUpdates,
-              this.componentTargets,
-            ),
-            this.stableRecordStrategy,
-          );
-    const directElementAngleParse =
-      directBarParse !== null ||
-      directTextParse !== null ||
-      options.directElementAngleUpdates === undefined ||
-      this.ownedInputDataset === null ||
-      !matchesOwnedIncrementalInput(
-        input,
-        options.directElementAngleUpdates.map(({ id }) => id),
-        parseOptions,
-        this.publishedScene.current(),
-      )
-        ? null
-        : parsePatchMapV010DirectElementAngleBatch(
-            input,
-            this.ownedInputDataset,
-            currentParse,
-            options.directElementAngleUpdates,
-            this.stableRecordStrategy,
-          );
-    const structuralParse =
-      directBarParse !== null ||
-      directTextParse !== null ||
-      directElementAngleParse !== null ||
-      options.structuralSharing !== true ||
-      !matchesOwnedStructuralInput(
-        input,
-        parseOptions,
-        this.publishedScene.current(),
-      )
-        ? null
-        : parsePatchMapV010IncrementalStructure(
-            input,
-            this.ownedInputDataset,
-            currentParse,
-            parseOptions,
-          );
-    const incrementalInputMatches =
-      directBarParse === null &&
-      directTextParse === null &&
-      directElementAngleParse === null &&
-      structuralParse === null &&
-      options.incrementalRootIds !== undefined &&
-      matchesOwnedIncrementalInput(
-        input,
-        options.incrementalRootIds,
-        parseOptions,
-        this.publishedScene.current(),
-      );
-    const cachedSelectedParse = !incrementalInputMatches
-      ? null
-      : cachedTransientSelectedParse(
-          input,
-          currentParse,
-          options.incrementalRootIds ?? [],
-          parseOptions,
-          this.publishedScene.current(),
-        );
-    const incrementalParse = !incrementalInputMatches
-      ? null
-      : parsePatchMapV010IncrementalFlat(
-          input,
-          currentParse,
-          options.incrementalRootIds ?? [],
-          parseOptions,
-          cachedSelectedParse ?? undefined,
-          this.stableRecordStrategy,
-        );
-    const parserResult =
-      directBarParse ??
-        directTextParse ??
-        directElementAngleParse ??
-        structuralParse ??
-        incrementalParse ??
-        parsePatchMapV010(input, parseOptions);
-    const incrementalEntityIds = directBarParse !== null
-      ? directBarEntityIds(
-          options.directBarHeightUpdates ?? [],
-          this.componentTargets,
-        )
-      : directTextParse !== null
-        ? directTextEntityIds(options.directTextUpdates ?? [], this.textTargets)
-        : directElementAngleParse !== null
-          ? directElementAngleEntityIds(
-              currentParse,
-              options.directElementAngleUpdates ?? [],
-            )
-          : incrementalParse === null
-            ? undefined
-            : incrementalDenseEntityIds(
-                parserResult,
-                options.incrementalRootIds ?? [],
-              );
-    const hierarchyOnlyTargetMapping =
-      structuralParse !== null &&
-      structuralTargetMappingsReusable(currentParse, parserResult, options);
-    const structuralPresentationEntityIds = structuralParse === null
-      ? undefined
-      : patchMapV010StructuralChangedEntityIds(parserResult) ??
-        changedProjectionEntityIds(
-          currentParse.projection,
-          parserResult.projection,
-        );
-    if (
-      directBarParse !== null ||
-      directTextParse !== null ||
-      directElementAngleParse !== null ||
-      hierarchyOnlyTargetMapping
-    ) {
-      inheritRendererDegradationDiagnostics(currentParse, parserResult);
-    } else if (
-      incrementalParse !== null &&
-      incrementalEntityIds !== undefined
-    ) {
-      inheritRendererDegradationDiagnosticsIncremental(
-        currentParse,
-        parserResult,
-        incrementalEntityIds,
-      );
-    }
-    const parse = withRendererDegradationDiagnostics(
-      parserResult,
+    const before = reconcileFactStamp(published.scene);
+    const candidate = preparePatchMapReconcileCandidate(
+      input,
+      options,
+      this.parseOptions,
+      currentParse,
+      published,
+      published.scene,
+      this.stableRecordStrategy,
       this.renderer.strategy,
     );
-    inheritPatchMapV010DirectParseIndexes(parserResult, parse);
-    inheritPatchMapV010IncrementalParserCaches(parserResult, parse);
-    const parseMs = now() - parseStarted;
-
-    const planStarted = now();
-    const reconcileOptions = denseReconcileOptions(
-      options,
-      currentParse,
+    const {
       parse,
-      this.scene.selection().refs.flatMap((ref) => {
-        const entity = this.scene.get(ref);
-        return entity === null ? [] : [entity.id];
-      }),
-    );
-    const plan = (
-      incrementalEntityIds === undefined
-        ? null
-        : planPatchMapParsedSceneReconcileIncremental(
-            currentParse.document,
-            parse.document,
-            incrementalEntityIds,
-            reconcileOptions,
-            true,
-          )
-    ) ?? (
-      structuralParse === null
-        ? null
-        : planPatchMapParsedSceneReconcileStructuralWindow(
-            currentParse.document,
-            parse.document,
-            reconcileOptions,
-          )
-    ) ?? planPatchMapParsedSceneReconcile(
-      currentParse.document,
-      parse.document,
-      reconcileOptions,
-    );
-    const semanticChanged = directBarParse !== null ||
-      directTextParse !== null ||
-      directElementAngleParse !== null ||
-      structuralParse !== null ||
-      incrementalParse !== null ||
-      !jsonEquivalent(currentParse, parse);
-    const planMs = now() - planStarted;
+      plan,
+      path,
+      incrementalEntityIds,
+      hierarchyOnlyTargetMapping,
+      structuralPresentationEntityIds,
+      semanticChanged,
+      parseOptions,
+      parseMs,
+      planMs,
+    } = candidate;
 
     if (!plan.safeToCommit) {
       if (this.stableRecordStrategy === 'internal-overlay') {
@@ -934,9 +729,9 @@ export class PatchMapRuntime {
     try {
       commit = this.commitWithRendererDomain(
         plan.batch,
-        directTextParse !== null
+        path === 'direct-text'
           ? 'text-only'
-          : directBarParse !== null
+          : path === 'direct-bar'
             ? 'bar-only'
             : undefined,
       );
@@ -957,7 +752,7 @@ export class PatchMapRuntime {
       parse.projection,
       this.scene,
       !this.barPresentation.reducedMotion && options.animateBarChanges !== false,
-      directBarParse === null ? options.animatedBarTargets : undefined,
+      path === 'direct-bar' ? undefined : options.animatedBarTargets,
       incrementalEntityIds ??
         (
           hierarchyOnlyTargetMapping
@@ -979,9 +774,9 @@ export class PatchMapRuntime {
       presentation,
       commit.changedRanges,
       this.spatialHit.staleProjectionIds,
-      directTextParse !== null
+      path === 'direct-text'
         ? 'text'
-        : directBarParse !== null
+        : path === 'direct-bar'
           ? 'bar-presentation'
           : undefined,
     );
@@ -991,15 +786,15 @@ export class PatchMapRuntime {
       this.renderer.setAggregateCullPrecision(false);
     }
     if (
-      directBarParse === null &&
-      directTextParse === null &&
-      directElementAngleParse === null
+      path !== 'direct-bar' &&
+      path !== 'direct-text' &&
+      path !== 'direct-angle'
     ) {
       this.sceneImages.reconcile(parse.projection, {
         activeEntityIds: this.activeSceneImageIds(),
       });
       this.reapplyResolvedIntrinsicSizes();
-      if (incrementalParse === null && !hierarchyOnlyTargetMapping) {
+      if (path !== 'incremental' && !hierarchyOnlyTargetMapping) {
         this.updatePublishedScene({
           componentTargets: indexComponentTargets(parse),
           textTargets: indexTextTargets(parse),
@@ -1009,7 +804,7 @@ export class PatchMapRuntime {
     }
     this.spatialHit.clearSpatialAnimations();
     this.spatialHit.invalidate(
-      directBarParse !== null &&
+      path === 'direct-bar' &&
       this.barPresentation.activeCount > 0,
     );
     // Large animated batches must not make the first pointer event pay for
