@@ -63,6 +63,16 @@ import {
   parsePatchMapCssColor,
 } from './parser/color';
 import { normalizePatchMapImageSource } from './parser/image-source';
+import {
+  cachePatchMapV010DirectParseIndexes,
+  directTextParseIndexes,
+  directTextTargetKey,
+  inheritPatchMapV010DirectParseIndexes,
+  type PatchMapDirectTextParseTargetIndex,
+} from './parser/direct-text-index';
+
+export { inheritPatchMapV010DirectParseIndexes };
+export type { PatchMapDirectTextParseTargetIndex };
 
 type JsonRecord = Record<string, unknown>;
 
@@ -144,38 +154,6 @@ interface ParseState {
   sourceElements: number;
   relationLinks: number;
   gridCells: number;
-}
-
-export interface PatchMapDirectTextParseTargetIndex {
-  readonly rootIndex: number;
-  readonly componentIndex: number;
-  readonly componentPath: string;
-  readonly entityId: string;
-  readonly entityIndex: number;
-}
-
-interface DirectTextParseIndexes {
-  readonly rootIds: readonly string[];
-  readonly targets: ReadonlyMap<string, PatchMapDirectTextParseTargetIndex>;
-}
-
-const DIRECT_TEXT_PARSE_INDEX_CACHE = new WeakMap<
-  ParsePatchMapResult,
-  DirectTextParseIndexes
->();
-
-/**
- * Renderer diagnostics may wrap an otherwise unchanged parser result. Carry
- * private direct-update indexes across that immutable shell so repeat text
- * edits do not rebuild the 5,000-root/component/entity lookup catalog.
- */
-export function inheritPatchMapV010DirectParseIndexes(
-  source: ParsePatchMapResult,
-  target: ParsePatchMapResult,
-): void {
-  if (source === target) return;
-  const indexes = DIRECT_TEXT_PARSE_INDEX_CACHE.get(source);
-  if (indexes !== undefined) DIRECT_TEXT_PARSE_INDEX_CACHE.set(target, indexes);
 }
 
 interface ElementContext {
@@ -472,7 +450,7 @@ export function parsePatchMapV010DirectTextBatch(
       textsByEntityId: textProjections,
     }),
   });
-  if (indexes !== null) DIRECT_TEXT_PARSE_INDEX_CACHE.set(result, indexes);
+  if (indexes !== null) cachePatchMapV010DirectParseIndexes(result, indexes);
   return result;
 }
 
@@ -604,93 +582,6 @@ function createParseState(options: ParsePatchMapOptions): ParseState {
     relationLinks: 0,
     gridCells: 0,
   };
-}
-
-function directTextTargetKey(ownerId: string, componentId: string): string {
-  return `${ownerId.length}:${ownerId}:${componentId}`;
-}
-
-function directTextParseIndexes(
-  previous: ParsePatchMapResult,
-  rootCount: number,
-): DirectTextParseIndexes | null {
-  const cached = DIRECT_TEXT_PARSE_INDEX_CACHE.get(previous);
-  if (cached !== undefined) {
-    return cached.rootIds.length === rootCount ? cached : null;
-  }
-  const rootIds = new Array<string | undefined>(rootCount);
-  for (const identity of previous.identity.elements) {
-    const match = /^\$\[(\d+)\]$/u.exec(identity.sourcePath);
-    if (match === null) continue;
-    const index = Number(match[1]);
-    if (
-      !Number.isSafeInteger(index) ||
-      index < 0 ||
-      index >= rootCount ||
-      rootIds[index] !== undefined
-    ) {
-      return null;
-    }
-    rootIds[index] = identity.sourceId;
-  }
-  if (rootIds.some((rootId) => rootId === undefined)) return null;
-
-  const componentIdentities = new Map<string, ComponentIdentity>();
-  for (const identity of previous.identity.components) {
-    const key = directTextTargetKey(identity.sourceElementId, identity.componentId);
-    if (componentIdentities.has(key)) return null;
-    componentIdentities.set(key, identity);
-  }
-  const entityIndices = new Map(
-    previous.document.entities.map((entity, index) => [entity.id, index] as const),
-  );
-  if (entityIndices.size !== previous.document.entities.length) return null;
-
-  const targets = new Map<string, PatchMapDirectTextParseTargetIndex>();
-  for (const projection of Object.values(previous.projection.textsByEntityId ?? {})) {
-    if (
-      projection.targetKind !== 'component' ||
-      projection.ownerId === undefined ||
-      projection.componentId === undefined
-    ) {
-      continue;
-    }
-    const key = directTextTargetKey(projection.ownerId, projection.componentId);
-    const identity = componentIdentities.get(key);
-    const pathMatch = identity === undefined
-      ? null
-      : /^\$\[(\d+)\]\.components\[(\d+)\]$/u.exec(identity.componentPath);
-    const rootIndex = pathMatch === null ? Number.NaN : Number(pathMatch[1]);
-    const componentIndex = pathMatch === null ? Number.NaN : Number(pathMatch[2]);
-    const entityIndex = entityIndices.get(projection.entityId);
-    if (
-      targets.has(key) ||
-      identity === undefined ||
-      !Number.isSafeInteger(rootIndex) ||
-      rootIndex < 0 ||
-      rootIndex >= rootCount ||
-      !Number.isSafeInteger(componentIndex) ||
-      componentIndex < 0 ||
-      rootIds[rootIndex] !== projection.ownerId ||
-      entityIndex === undefined ||
-      !identity.entityIds.includes(projection.entityId)
-    ) {
-      return null;
-    }
-    targets.set(key, Object.freeze({
-      rootIndex,
-      componentIndex,
-      componentPath: identity.componentPath,
-      entityId: projection.entityId,
-      entityIndex,
-    }));
-  }
-  const result = Object.freeze({
-    rootIds: Object.freeze(rootIds as string[]),
-    targets,
-  });
-  DIRECT_TEXT_PARSE_INDEX_CACHE.set(previous, result);
-  return result;
 }
 
 function finishParseState(
