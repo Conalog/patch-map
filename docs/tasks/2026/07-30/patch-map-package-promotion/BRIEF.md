@@ -19,36 +19,26 @@
   package class and `/lab/patch-map/` is the single Korean manual Lab.
 - The Lab exposes all 173 manually operable routes, seeded scenes through
   10,000 records, and the user-supplied 605-root actual-production JSON.
-- Repeated 5,000-bar retargeting is improved, but the preserved 2+7 proxy
-  checkpoint still honestly fails its predeclared outlier budgets. This
-  remains independent from the actual-production compatibility fix.
+- The structural refactor keeps atomic mutation in the facade while assigning
+  geometry, semantic indexing, Pixi adaptation, Mesh planning, public
+  contracts, Lab presentation, and actual-only test harnesses explicit owners.
 
 # Current State
 
-- Actual-production rendering now projects `attrs.alpha` multiplicatively
-  through group/grid/item/component/direct/relation hierarchies instead of
-  preserving it without rendering.
-- Authored standalone images keep the approved Sprite-center contract by
-  default; v0.10 producer records marked `attrs.display: "image"` use the
-  legacy top-left pivot so same-transform site imagery and overlays align.
-- Standalone root images use a dedicated aggregate underlay container, while
-  component background/content assets keep their own lanes. The production
-  image therefore renders behind the authored overlay without moving item
-  icons behind their frames.
-- The manual Lab installs an explicit allowlisted ingestion profile for
-  `https://images.conalog.com`; the default product security boundary remains
-  deny-by-default. Async image settlement wakes the package-owned frame loop,
-  so resolved textures publish without a host-authored extra frame.
-- Verification passes: typecheck, full lint, 148 files/1,457 unit tests,
-  package and Lab builds, canonical 38/173 contract, 173-route headless Lab
-  192/192, actual-production headless load/pan/destroy with zero browser
-  errors, packed ESM/CJS/types plus 38 journeys, and 2+7 lifecycle memory over
-  5,099 entities. The changed memory run reported a 94,087-byte retained-heap
-  median and complete DOM/scheduler/renderer release; immutable historical
-  evidence was not overwritten.
+- Actual-production alpha, image pivot/underlay, remote allowlist, async
+  invalidation, content orientation, and aggregate lane behavior remain
+  verified without per-entity display objects or listeners.
+- Final gates pass 151 files / 1,471 tests, full lint/typecheck, package and Lab
+  builds, canonical 38/173 contract, packed ESM/CJS/types plus 38 journeys,
+  headless 173 routes / 192 checks, actual-production load/pan/destroy, and
+  2+7 lifecycle memory with DOM/scheduler/renderer release.
+- Public `core-v2` Lab aliases and canvas probe identity are removed; retained
+  historical identifiers exist only in immutable contract/evidence tooling.
+- The final 5,000-bar 2+7 Chromium proxy remains FAIL because one 4x
+  repeated-action sample reached 2,924.9ms over the 900ms limit. The 1x
+  repeated-action median/p95 is 50.9/109.1ms. Windows-native and qualified
+  WebGPU results remain pending.
 
 # Next Step
 
-- Record the completed tranche in the worklog, commit implementation and
-  verification/docs by intent, perform the final clean-worktree review, and
-  prepare the PR. Version bumping remains post-merge work.
+- Open and review the cleanup PR. Increase the version only after merge.

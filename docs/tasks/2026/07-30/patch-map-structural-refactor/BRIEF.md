@@ -20,48 +20,33 @@
   indexing, and Mesh planning now have explicit owners below the facade.
 - Renderer ownership is sound: one manual Application loop, aggregate layers,
   one root interaction authority, and explicit asset/destroy coordination.
-- Exact clone analysis reports 7.3% across product, Lab, tests, performance,
-  and verification. Only semantically equivalent helper families will move.
-- Repeated retargeting has two measured costs: rounded-bar chunk rebuilds and
-  presentation/reconcile allocation and lookup work.
+- The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
+  `/lab/patch-map/`; historical `core-v2` identifiers remain only inside
+  immutable contract/evidence compatibility boundaries.
 
 # Current State
 
-- The worktree started clean on `performance/core-v2`.
-- Three independent analyses completed: structure/dependency, duplication/test
-  structure, and PixiJS lifecycle/hot-path performance.
-- T1 moved exact hash, grid, and relation endpoint atoms to shared owners and
-  removed the accessibility-to-engine type back-edge without changing the
-  package surface.
-- T2 moved surface/world geometry and relation hit indexing into a pure engine
-  module while keeping `PatchMap` and `PixiEngineSurface` as the only runtime
-  owners in the facade.
-- T3 moved component/text semantic indexing and its incremental fast paths
-  behind typed maps, leaving atomic load/patch/history decisions in `PatchMap`.
-- T4 moved the Pixi/Core surface adapter and its port contracts below the
-  facade; headless 173-route, actual-production, and 2+7 ownership gates pass.
-- T5 split aggregate Mesh geometry and store-to-CPU lane planning into pure
-  modules; `mesh-layer.ts` remains the sole Pixi resource, upload, culling,
-  and destroy owner.
-- T6 retains rounded-bar Mesh/Geometry identity for value-only updates and
-  uploads only changed position buffers; structural style, radius, visibility,
-  and fill-presence transitions still rebuild atomically.
-- T7 routes Core bar reconciliation through one controller-owned scalar
-  scratch while keeping public presentation results frozen; the isolated
-  5,000-bar controller stage improved by more than 50%.
-- T8 separates the manual Lab's pure markup/copy/panel renderer from its live
-  session and shares only exact browser-safe value helpers across seven
-  contract runtimes. Import-free contract files remain standalone.
-- T9 moves Core and Engine public DTO contracts to type-only owners and moves
-  the actual-only contract Lab surface double into a test support boundary.
-  Root exports, runtime authority, and the expected/comparator firewall remain
-  unchanged; full unit/build/contract and packed-consumer gates pass.
+- T1-T4 established shared utility, geometry, semantic-index, and Pixi surface
+  boundaries while leaving atomic mutation and runtime ownership in the
+  `PatchMap` facade.
+- T5-T7 separated Mesh planning and retained rounded-bar geometry, then removed
+  reconcile allocations; Pixi resource/upload/destroy ownership remains in
+  `mesh-layer.ts` and the central scheduler remains singular.
+- T8-T9 separated the pure Lab view, shared exact runtime values, Core/Engine
+  public contracts, and the actual-only test harness without weakening the
+  expected/comparator firewall or root API.
+- Final gates pass 151 files / 1,471 tests, package and Lab builds, canonical
+  38 decisions / 173 cases, packed ESM/CJS/types plus 38 journeys, headless
+  173 routes / 192 checks, actual-production rendering, and 2+7 lifecycle
+  memory with complete resource release.
+- The final 5,000-bar 2+7 proxy remains honestly FAIL: 1x repeated-action
+  median/p95 is 50.9/109.1ms, while one 4x sample reached 2,924.9ms over the
+  900ms limit. Windows-native and qualified WebGPU measurements remain pending.
 
 # Next Step
 
-- Run the final release checkpoint: headless Lab, lifecycle memory, quiet-host
-  performance confirmation, task-local context validation, and independent PR
-  review; then commit the durable checkpoint and leave a clean worktree.
+- Open and review the cleanup PR. Version bumping and native target
+  qualification remain post-merge work.
 
 # Working Boundary
 
