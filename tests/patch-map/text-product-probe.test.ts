@@ -13,6 +13,7 @@ import {
   type PatchMapRuntimeOptions,
   type PatchMapTextTarget,
 } from '../../src/patch-map/core';
+import { createPatchMapTextProductProbe } from '../../src/patch-map/core/product-probe-reader';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
 import type {
   PatchMapPixiInitializationMetrics,
@@ -328,8 +329,10 @@ describe('PatchMap O(1) text product probe', () => {
   });
 
   it('keeps the public lookup body on fixed indexes without scene or Pixi traversal', () => {
-    const source = PatchMapRuntime.prototype.textProbe.toString();
+    const facadeSource = PatchMapRuntime.prototype.textProbe.toString();
+    const source = createPatchMapTextProductProbe.toString();
 
+    expect(facadeSource).toContain('createPatchMapTextProductProbe');
     expect(source).toContain('textTargets.get');
     expect(source).toContain('scene.get');
     expect(source).toContain('textRendererProbe');
