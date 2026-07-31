@@ -21,27 +21,42 @@ import {
   multiplyPatchMapAffine,
   type PatchMapAffineMatrix,
 } from './geometry';
+import {
+  PATCH_MAP_MUTATION_TRANSACTION_REVISION,
+  type PatchMapMutationConflictPolicy,
+  type PatchMapMutationJsonValue,
+  type PatchMapMutationOperation,
+  type PatchMapMutationPathChange,
+  type PatchMapMutationPathSegment,
+  type PatchMapMutationTarget,
+  type PatchMapMutationTransactionDiagnostic,
+  type PatchMapMutationTransactionPlan,
+  type PatchMapMutationTransactionSummary,
+  type PatchMapPlannedBarHeightUpdate,
+  type PatchMapPlannedElementAngleUpdate,
+  type PatchMapPlannedTextUpdate,
+} from './transaction/contracts';
+import {
+  TransactionValidationFailure,
+  datasetDiagnosticCode,
+  diagnostic,
+  transactionFail,
+} from './transaction/diagnostics';
+import {
+  cloneImmutableJson,
+  cloneMutableJson,
+  defineMutableProperty,
+  isJsonRecord,
+  isMutableJsonRecord,
+  isPlainRecord,
+  isUnsafeJsonPathSegment,
+  jsonEquivalent,
+  requireRecordValue,
+  type MutableJsonRecord,
+  type MutableJsonValue,
+} from './transaction/json-values';
 
-export const PATCH_MAP_MUTATION_TRANSACTION_REVISION =
-  'core-v2-mutation-transaction/1' as const;
-
-export type PatchMapMutationConflictPolicy = 'reject' | 'cancel-active' | 'queue-after';
-export type PatchMapMutationPathSegment = string | number;
-export type PatchMapMutationTarget =
-  | Readonly<{ readonly kind: 'element'; readonly id: string }>
-  | Readonly<{
-      readonly kind: 'component';
-      readonly ownerId: string;
-      readonly id: string;
-    }>;
-
-export type PatchMapMutationJsonValue =
-  | null
-  | string
-  | number
-  | boolean
-  | readonly PatchMapMutationJsonValue[]
-  | Readonly<{ readonly [key: string]: PatchMapMutationJsonValue }>;
+export * from './transaction/contracts';
 
 /** Detach caller-owned JSON for host companion and transaction boundaries. */
 export function detachPatchMapMutationJsonValue(
@@ -50,204 +65,6 @@ export function detachPatchMapMutationJsonValue(
 ): PatchMapMutationJsonValue {
   return cloneImmutableJson(value, path);
 }
-
-export interface PatchMapMutationPathChange {
-  readonly path: readonly PatchMapMutationPathSegment[];
-  readonly value: PatchMapMutationJsonValue;
-}
-
-export type PatchMapMutationOperation =
-  | Readonly<{
-      readonly op: 'add';
-      readonly parent: Extract<PatchMapMutationTarget, { readonly kind: 'element' }> | null;
-      readonly collection: 'children';
-      readonly index: number;
-      readonly value: Readonly<Record<string, PatchMapMutationJsonValue>>;
-    }>
-  | Readonly<{
-      readonly op: 'merge';
-      readonly target: PatchMapMutationTarget;
-      readonly changes: readonly PatchMapMutationPathChange[];
-    }>
-  | Readonly<{
-      readonly op: 'replace';
-      readonly target: PatchMapMutationTarget;
-      readonly value: Readonly<Record<string, PatchMapMutationJsonValue>>;
-    }>
-  | Readonly<{
-      readonly op: 'reconcile-components';
-      readonly target: Extract<PatchMapMutationTarget, { readonly kind: 'element' }>;
-      readonly components: readonly Readonly<Record<string, PatchMapMutationJsonValue>>[];
-      readonly matchMode?: 'replace';
-    }>
-  | Readonly<{
-      readonly op: 'remove';
-      readonly target: PatchMapMutationTarget;
-      readonly cascade: 'reject' | 'subtree';
-    }>
-  | Readonly<{
-      readonly op: 'move';
-      readonly target: Extract<PatchMapMutationTarget, { readonly kind: 'element' }>;
-      readonly parent: Extract<PatchMapMutationTarget, { readonly kind: 'element' }> | null;
-      readonly index: number;
-    }>
-  | Readonly<{
-      readonly op: 'group';
-      readonly targets: readonly Extract<
-        PatchMapMutationTarget,
-        { readonly kind: 'element' }
-      >[];
-      readonly value: Readonly<Record<string, PatchMapMutationJsonValue>>;
-    }>
-  | Readonly<{
-      readonly op: 'ungroup';
-      readonly target: Extract<PatchMapMutationTarget, { readonly kind: 'element' }>;
-      readonly relationPolicy: 'reject' | 'remove';
-    }>;
-
-export interface PatchMapMutationTransactionRequest {
-  readonly operations: readonly PatchMapMutationOperation[];
-  readonly strict: boolean;
-  readonly actionId?: string;
-  readonly conflictPolicy?: PatchMapMutationConflictPolicy;
-  readonly recordHistory?: boolean;
-  readonly history?: PatchMapMutationJsonValue;
-}
-
-/**
- * A target-set merge keeps the empty-set no-op distinct from a raw mutation
- * transaction, whose operations array remains intentionally non-empty.
- */
-export interface PatchMapBulkPatchRequest {
-  readonly targets: readonly PatchMapMutationTarget[];
-  readonly changes: readonly PatchMapMutationPathChange[];
-  readonly strict: boolean;
-  readonly actionId?: string;
-}
-
-export interface PatchMapBarHeightBatchTarget {
-  readonly ownerId: string;
-  readonly componentId: string;
-}
-
-export interface PatchMapBarHeightBatchRequest {
-  readonly targets: readonly PatchMapBarHeightBatchTarget[];
-  readonly heights: ArrayLike<number>;
-  readonly actionId?: string;
-  readonly recordHistory?: boolean;
-}
-
-export interface PatchMapPlannedBarHeightUpdate extends PatchMapBarHeightBatchTarget {
-  readonly height: number;
-}
-
-export interface PatchMapTextBatchTarget {
-  readonly ownerId: string;
-  readonly componentId: string;
-}
-
-export interface PatchMapTextBatchRequest {
-  readonly targets: readonly PatchMapTextBatchTarget[];
-  readonly texts: readonly string[];
-  readonly styles?: readonly PatchMapTextStyle[];
-  readonly actionId?: string;
-  readonly recordHistory?: boolean;
-}
-
-export interface PatchMapPlannedTextUpdate extends PatchMapTextBatchTarget {
-  readonly text: string;
-}
-
-export interface PatchMapPlannedElementAngleUpdate {
-  readonly id: string;
-  readonly angle: number;
-}
-
-export type PatchMapMutationDiagnosticCategory =
-  | 'INVALID_INPUT'
-  | 'MISSING_TARGET'
-  | 'CONFLICT'
-  | 'UNSUPPORTED_RUNTIME';
-
-export type PatchMapMutationDiagnosticCode =
-  | 'INVALID_SCHEMA_VERSION'
-  | 'INVALID_RECORD_KIND'
-  | 'UNKNOWN_FIELD'
-  | 'INVALID_VALUE'
-  | 'INVALID_PATH'
-  | 'INVALID_MUTATION'
-  | 'OVERLAPPING_PATH'
-  | 'CONFLICTING_FIELDS'
-  | 'DUPLICATE_ID'
-  | 'NON_SERIALIZABLE_VALUE'
-  | 'MISSING_TARGET'
-  | 'CONFLICT'
-  | 'UNSUPPORTED_RUNTIME';
-
-export interface PatchMapMutationTransactionDiagnostic {
-  readonly code: PatchMapMutationDiagnosticCode;
-  readonly category: PatchMapMutationDiagnosticCategory;
-  readonly path: string;
-  readonly message: string;
-  readonly operationIndex?: number;
-  readonly target?: PatchMapMutationTarget;
-  readonly datasetCode?: PatchMapDatasetError['code'];
-}
-
-export interface PatchMapMutationTransactionSummary {
-  readonly appliedCount: number;
-  readonly missingCount: number;
-  readonly unchangedCount: number;
-}
-
-export type PatchMapMutationTransactionPlan =
-  | Readonly<{
-      readonly status: 'planned';
-      readonly changed: boolean;
-      readonly schemaRevision: typeof PATCH_MAP_MUTATION_TRANSACTION_REVISION;
-      readonly strict: boolean;
-      readonly conflictPolicy: PatchMapMutationConflictPolicy;
-      readonly operations: readonly PatchMapMutationOperation[];
-      readonly actionId?: string;
-      readonly recordHistory?: boolean;
-      readonly history?: PatchMapMutationJsonValue;
-      /** Compact exact-height batch used by the aggregate bar hot path. */
-      readonly directBarHeightUpdates?: readonly PatchMapPlannedBarHeightUpdate[];
-      /** Compact owner-qualified text batch used by the editor text hot path. */
-      readonly directTextUpdates?: readonly PatchMapPlannedTextUpdate[];
-      /** Compact top-level angle batch used by viewport-scale authoring. */
-      readonly directElementAngleUpdates?: readonly PatchMapPlannedElementAngleUpdate[];
-      /** Logical selection replacement authored by group/ungroup. */
-      readonly selectionIds?: readonly string[];
-      /** Semantic hierarchy IDs whose aggregate retained order may change. */
-      readonly allowedElementOrderIds?: readonly string[];
-      readonly candidate: MaterializedPatchMapDataset;
-      readonly applied: readonly PatchMapMutationTarget[];
-      readonly missing: readonly PatchMapMutationTarget[];
-      readonly unchanged: readonly PatchMapMutationTarget[];
-      readonly summary: PatchMapMutationTransactionSummary;
-    }>
-  | Readonly<{
-      readonly status: 'rejected';
-      readonly changed: false;
-      readonly schemaRevision: typeof PATCH_MAP_MUTATION_TRANSACTION_REVISION;
-      readonly actionId?: string;
-      readonly candidate: null;
-      readonly applied: readonly [];
-      readonly missing: readonly [];
-      readonly unchanged: readonly [];
-      readonly summary: PatchMapMutationTransactionSummary;
-      readonly diagnostic: PatchMapMutationTransactionDiagnostic;
-    }>;
-
-type MutableJsonValue =
-  | null
-  | string
-  | number
-  | boolean
-  | MutableJsonValue[]
-  | { [key: string]: MutableJsonValue };
-type MutableJsonRecord = { [key: string]: MutableJsonValue };
 
 interface NormalizedTransaction {
   readonly operations: readonly PatchMapMutationOperation[];
@@ -312,7 +129,6 @@ const REMOVE_FIELDS = new Set(['op', 'target', 'cascade']);
 const MOVE_FIELDS = new Set(['op', 'target', 'parent', 'index']);
 const GROUP_FIELDS = new Set(['op', 'targets', 'value']);
 const UNGROUP_FIELDS = new Set(['op', 'target', 'relationPolicy']);
-const UNSAFE_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
 const ELEMENT_TYPE_SET = new Set<string>(PATCH_MAP_ELEMENT_TYPES);
 const COMPONENT_TYPE_SET = new Set<string>(PATCH_MAP_COMPONENT_TYPES);
 const SUPPORTED_OPERATION_SET = new Set([
@@ -2131,7 +1947,7 @@ function normalizeChange(
   const segments = Object.freeze(
     record.path.map((segment, segmentIndex) => {
       if (typeof segment === 'string') {
-        if (segment.length === 0 || UNSAFE_PATH_SEGMENTS.has(segment)) {
+        if (segment.length === 0 || isUnsafeJsonPathSegment(segment)) {
           transactionFail(
             'INVALID_PATH',
             'INVALID_INPUT',
@@ -3343,151 +3159,10 @@ function strictRecord(
   return value;
 }
 
-function cloneImmutableJson(
-  value: unknown,
-  path: string,
-  ancestors = new Set<object>(),
-): PatchMapMutationJsonValue {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) nonSerializable(path, 'numbers must be finite');
-    return value;
-  }
-  if (Array.isArray(value)) {
-    if (ancestors.has(value)) nonSerializable(path, 'cyclic values are not accepted');
-    ancestors.add(value);
-    try {
-      const result: PatchMapMutationJsonValue[] = [];
-      for (let index = 0; index < value.length; index += 1) {
-        if (!Object.prototype.hasOwnProperty.call(value, index)) {
-          nonSerializable(`${path}[${index}]`, 'sparse arrays are not accepted');
-        }
-        result.push(cloneImmutableJson(value[index], `${path}[${index}]`, ancestors));
-      }
-      return Object.freeze(result);
-    } finally {
-      ancestors.delete(value);
-    }
-  }
-  if (isPlainRecord(value)) {
-    if (ancestors.has(value)) nonSerializable(path, 'cyclic values are not accepted');
-    ancestors.add(value);
-    try {
-      const result: Record<string, PatchMapMutationJsonValue> = {};
-      for (const key of Object.keys(value)) {
-        if (UNSAFE_PATH_SEGMENTS.has(key)) nonSerializable(`${path}.${key}`, 'unsafe keys are not accepted');
-        defineImmutableProperty(result, key, cloneImmutableJson(value[key], `${path}.${key}`, ancestors));
-      }
-      return Object.freeze(result);
-    } finally {
-      ancestors.delete(value);
-    }
-  }
-  nonSerializable(path, 'values must be JSON scalars, arrays, or strict plain records');
-}
-
-function cloneMutableJson(
-  value: unknown,
-  path: string,
-  ancestors = new Set<object>(),
-): MutableJsonValue {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) nonSerializable(path, 'numbers must be finite');
-    return value;
-  }
-  if (Array.isArray(value)) {
-    if (ancestors.has(value)) nonSerializable(path, 'cyclic values are not accepted');
-    ancestors.add(value);
-    try {
-      return value.map((entry, index) => cloneMutableJson(entry, `${path}[${index}]`, ancestors));
-    } finally {
-      ancestors.delete(value);
-    }
-  }
-  if (isPlainRecord(value)) {
-    if (ancestors.has(value)) nonSerializable(path, 'cyclic values are not accepted');
-    ancestors.add(value);
-    try {
-      const result: MutableJsonRecord = {};
-      for (const key of Object.keys(value)) {
-        if (UNSAFE_PATH_SEGMENTS.has(key)) nonSerializable(`${path}.${key}`, 'unsafe keys are not accepted');
-        defineMutableProperty(result, key, cloneMutableJson(value[key], `${path}.${key}`, ancestors));
-      }
-      return result;
-    } finally {
-      ancestors.delete(value);
-    }
-  }
-  nonSerializable(path, 'values must be JSON scalars, arrays, or strict plain records');
-}
-
-function jsonEquivalent(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) return true;
-  if (Array.isArray(left) && Array.isArray(right)) {
-    return left.length === right.length && left.every((entry, index) => jsonEquivalent(entry, right[index]));
-  }
-  if (!isPlainRecord(left) || !isPlainRecord(right)) return false;
-  const leftKeys = Object.keys(left).sort();
-  const rightKeys = Object.keys(right).sort();
-  return leftKeys.length === rightKeys.length && leftKeys.every(
-    (key, index) => key === rightKeys[index] && jsonEquivalent(left[key], right[key]),
-  );
-}
-
-function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-
-function isJsonRecord(
-  value: PatchMapMutationJsonValue,
-): value is Readonly<Record<string, PatchMapMutationJsonValue>> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isMutableJsonRecord(value: unknown): value is MutableJsonRecord {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function requireRecordValue(record: MutableJsonRecord, key: string): MutableJsonValue {
-  const value = record[key];
-  if (value === undefined) throw new Error(`Missing staged record value ${key}`);
-  return value;
-}
-
-function defineMutableProperty(target: MutableJsonRecord, key: string, value: MutableJsonValue): void {
-  Object.defineProperty(target, key, {
-    value,
-    enumerable: true,
-    configurable: true,
-    writable: true,
-  });
-}
-
-function defineImmutableProperty(
-  target: Record<string, PatchMapMutationJsonValue>,
-  key: string,
-  value: PatchMapMutationJsonValue,
-): void {
-  Object.defineProperty(target, key, {
-    value,
-    enumerable: true,
-    configurable: false,
-    writable: false,
-  });
-}
-
 function requireAt<T>(values: readonly T[], index: number): T {
   const value = values[index];
   if (value === undefined) throw new Error(`Missing value at index ${index}`);
   return value;
-}
-
-function datasetDiagnosticCode(error: PatchMapDatasetError): PatchMapMutationDiagnosticCode {
-  if (/duplicate/iu.test(error.message)) return 'DUPLICATE_ID';
-  return error.code;
 }
 
 function freezeSummary(
@@ -3514,51 +3189,4 @@ function rejected(
     summary: freezeSummary(0, 0, 0),
     diagnostic: mutationDiagnostic,
   });
-}
-
-function diagnostic(
-  code: PatchMapMutationDiagnosticCode,
-  category: PatchMapMutationDiagnosticCategory,
-  path: string,
-  message: string,
-  operationIndex?: number,
-  target?: PatchMapMutationTarget,
-  datasetCode?: PatchMapDatasetError['code'],
-): PatchMapMutationTransactionDiagnostic {
-  return Object.freeze({
-    code,
-    category,
-    path,
-    message,
-    ...(operationIndex === undefined ? {} : { operationIndex }),
-    ...(target === undefined ? {} : { target }),
-    ...(datasetCode === undefined ? {} : { datasetCode }),
-  });
-}
-
-function transactionFail(
-  code: PatchMapMutationDiagnosticCode,
-  category: PatchMapMutationDiagnosticCategory,
-  path: string,
-  message: string,
-  operationIndex?: number,
-  target?: PatchMapMutationTarget,
-): never {
-  throw new TransactionValidationFailure(
-    diagnostic(code, category, path, message, operationIndex, target),
-  );
-}
-
-function nonSerializable(path: string, message: string): never {
-  transactionFail('NON_SERIALIZABLE_VALUE', 'INVALID_INPUT', path, message);
-}
-
-class TransactionValidationFailure extends Error {
-  public readonly diagnostic: PatchMapMutationTransactionDiagnostic;
-
-  public constructor(mutationDiagnostic: PatchMapMutationTransactionDiagnostic) {
-    super(mutationDiagnostic.message);
-    this.name = 'TransactionValidationFailure';
-    this.diagnostic = mutationDiagnostic;
-  }
 }
