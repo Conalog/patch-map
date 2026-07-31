@@ -935,6 +935,70 @@ describe('PatchMap staged semantic transaction planner', () => {
     expect(JSON.stringify(source)).toBe(sourceBefore);
   });
 
+  it('falls back before removing external relation dependencies during owned ungroup', () => {
+    const input = [
+      {
+        type: 'group',
+        id: 'group-a',
+        children: [{
+          type: 'rect',
+          id: 'child',
+          size: { width: 20, height: 10 },
+          fill: '#ff8800',
+        }],
+      },
+      {
+        type: 'relations',
+        id: 'links',
+        links: [
+          { source: 'group-a', target: 'other' },
+          { source: 'child', target: 'other' },
+        ],
+      },
+      {
+        type: 'rect',
+        id: 'other',
+        size: { width: 10, height: 10 },
+        fill: '#00ff00',
+      },
+    ];
+    const inputBefore = JSON.stringify(input);
+    const current = materializePatchMapDataset(input);
+    const currentBefore = JSON.stringify(current);
+    const relationRoot = current.dataset[1];
+
+    const ungrouped = planPatchMapMutationTransaction(current, {
+      strict: true,
+      actionId: 'ungroup-remove-relations',
+      operations: [{
+        op: 'ungroup',
+        target: elementTarget('group-a'),
+        relationPolicy: 'remove',
+      }],
+    });
+
+    expect(ungrouped).toMatchObject({
+      status: 'planned',
+      changed: true,
+      actionId: 'ungroup-remove-relations',
+      applied: [elementTarget('group-a')],
+      missing: [],
+      unchanged: [],
+      selectionIds: ['child'],
+      allowedElementOrderIds: ['group-a', 'links', 'other', 'child'],
+    });
+    if (ungrouped.status !== 'planned') throw new Error('Expected relation-safe ungroup plan');
+    expect(findElement(ungrouped.candidate.dataset, 'group-a')).toBeUndefined();
+    expect(parentId(ungrouped.candidate.dataset, 'child')).toBeNull();
+    expect(requireElement(ungrouped.candidate.dataset, 'links')).toMatchObject({
+      type: 'relations',
+      links: [{ source: 'child', target: 'other' }],
+    });
+    expect(JSON.stringify(input)).toBe(inputBefore);
+    expect(JSON.stringify(current)).toBe(currentBefore);
+    expect(current.dataset[1]).toBe(relationRoot);
+  });
+
   it('rebases the pinned rotation and uniform-scale profile without changing world affine', () => {
     const source = materializePatchMapDataset([
       {

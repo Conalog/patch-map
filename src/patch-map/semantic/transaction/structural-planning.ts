@@ -57,6 +57,9 @@ export function planOwnedTopLevelStructuralTransaction(
   ) {
     return null;
   }
+  if (operation.op === 'ungroup' && operation.relationPolicy === 'remove') {
+    return null;
+  }
   const rootIndexById = ownedRootIndexById(current.dataset);
   if (rootIndexById === null) return null;
   if (
