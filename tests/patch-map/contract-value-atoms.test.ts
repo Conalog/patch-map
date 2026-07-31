@@ -20,15 +20,20 @@ interface ValueAtomsModule {
   ): (value: object, keys: readonly string[], label: string) => void;
 }
 
+const valueAtomsNamespace: unknown = await import(
+  /* @vite-ignore */ new URL(
+    '../../scripts/verification/core-v2-contract/value-atoms.mjs',
+    import.meta.url,
+  ).href
+);
+
 const {
   clone,
   cloneOptional,
   deepFreeze,
   createTypeSuffixValueAtoms,
   createOrderedExactKeyAssertion,
-} = await import(
-  '../../scripts/verification/core-v2-contract/value-atoms.mjs'
-) as unknown as ValueAtomsModule;
+} = valueAtomsNamespace as ValueAtomsModule;
 
 describe('core-v2 verifier value atoms', () => {
   it('clones detached values without mutating the source', () => {

@@ -15,12 +15,17 @@ interface VerifierImportFirewallModule {
   }>): Promise<void>;
 }
 
+const firewallNamespace: unknown = await import(
+  /* @vite-ignore */ new URL(
+    '../../scripts/verification/core-v2-contract/verifier-import-firewall.mjs',
+    import.meta.url,
+  ).href
+);
+
 const {
   assertCoreV2ContractImportFirewall,
   assertVerifierEntryImportFirewall,
-} = await import(
-  '../../scripts/verification/core-v2-contract/verifier-import-firewall.mjs'
-) as unknown as VerifierImportFirewallModule;
+} = firewallNamespace as VerifierImportFirewallModule;
 
 const temporaryRoots: string[] = [];
 

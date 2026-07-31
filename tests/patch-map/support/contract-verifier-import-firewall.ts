@@ -11,9 +11,14 @@ const contractRoot = new URL(
   import.meta.url,
 );
 
-const { assertVerifierEntryImportFirewall } = await import(
-  '../../../scripts/verification/core-v2-contract/verifier-import-firewall.mjs'
-) as unknown as VerifierImportFirewallModule;
+const firewallNamespace: unknown = await import(
+  /* @vite-ignore */ new URL(
+    '../../../scripts/verification/core-v2-contract/verifier-import-firewall.mjs',
+    import.meta.url,
+  ).href
+);
+const { assertVerifierEntryImportFirewall } =
+  firewallNamespace as VerifierImportFirewallModule;
 
 export async function assertCommittedVerifierEntryImportFirewall(
   relativePath: string,

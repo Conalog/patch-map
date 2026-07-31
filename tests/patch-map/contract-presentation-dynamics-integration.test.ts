@@ -205,7 +205,10 @@ describe('PatchMap shared presentation dynamics contract runtime', () => {
       if (verifierEntry === null) {
         expect(source, relativePath).not.toMatch(/^\s*import\s/mu);
       } else {
-        await assertCommittedVerifierEntryImportFirewall(...verifierEntry);
+        await assertCommittedVerifierEntryImportFirewall(
+          verifierEntry[0],
+          verifierEntry[1],
+        );
       }
     }
     expect(runtime.product.resourceProbe({ caseId: 'ANI-002' })).toMatchObject({
