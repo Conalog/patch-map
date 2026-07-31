@@ -46,6 +46,7 @@ export class PatchMapSemanticHistory<
   private readonly pendingPreparedRecords = new Set<
     WeakRef<PatchMapPreparedRecordPlan<TDataset, TCompanion>>
   >();
+  private pendingPlanRegistrationsSincePrune = 0;
   private cursorValue = 0;
   private epochValue = 0;
   private continuationId: string | null = null;
@@ -168,11 +169,10 @@ export class PatchMapSemanticHistory<
       nextContinuationId,
       pendingRef: null,
     };
-    if (
-      this.pendingPreparedRecords.size > 0 &&
-      this.pendingPreparedRecords.size % PENDING_PLAN_PRUNE_INTERVAL === 0
-    ) {
+    this.pendingPlanRegistrationsSincePrune += 1;
+    if (this.pendingPlanRegistrationsSincePrune >= PENDING_PLAN_PRUNE_INTERVAL) {
       this.prunePendingPreparedRecords();
+      this.pendingPlanRegistrationsSincePrune = 0;
     }
     const pendingRef = new WeakRef(plan);
     plan.pendingRef = pendingRef;
@@ -362,6 +362,7 @@ export class PatchMapSemanticHistory<
       plan.pendingRef = null;
     }
     this.pendingPreparedRecords.clear();
+    this.pendingPlanRegistrationsSincePrune = 0;
     this.entriesValue = Object.freeze([]);
     this.cursorValue = 0;
     this.continuationId = null;
