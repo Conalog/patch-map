@@ -323,6 +323,7 @@ describe('PatchMap semantic history integration', () => {
         changes: [{ path: ['attrs', 'x'], value: 10 }],
       }],
     });
+    expect(pendingHistoryPlanCount(engine)).toBe(0);
 
     const invalidBefore = engine.historyInspection();
     expect(engine.setHistoryCapacity(-1)).toEqual({
@@ -371,6 +372,7 @@ describe('PatchMap semantic history integration', () => {
     engine.loadDataset(stacking());
     expect(engine.historyState().depth).toBe(0);
     await engine.destroy();
+    expect(pendingHistoryPlanCount(engine)).toBe(0);
     expect(lifecycle).toEqual([
       'history-cleared:host',
       'history-cleared:destroy',
@@ -429,4 +431,11 @@ function elementX(
   const value = (attrs as Readonly<Record<string, unknown>>).x;
   if (typeof value !== 'number') throw new Error(`missing x for ${id}`);
   return value;
+}
+
+function pendingHistoryPlanCount(engine: PatchMap): number {
+  const history = (engine as unknown as Readonly<{
+    history: Readonly<{ pendingPreparedRecords: ReadonlySet<unknown> }>;
+  }>).history;
+  return history.pendingPreparedRecords.size;
 }

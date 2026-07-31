@@ -42,6 +42,9 @@ export class PatchMapSemanticHistory<
     PatchMapHistoryPreparedRecord,
     PatchMapPreparedRecordPlan<TDataset, TCompanion>
   >();
+  private readonly pendingPreparedRecords = new Set<
+    PatchMapPreparedRecordPlan<TDataset, TCompanion>
+  >();
   private cursorValue = 0;
   private epochValue = 0;
   private continuationId: string | null = null;
@@ -156,20 +159,22 @@ export class PatchMapSemanticHistory<
       baseEpoch: this.epochValue,
       baseCursor: this.cursorValue,
     });
-    this.preparedRecords.set(token, {
+    const plan: PatchMapPreparedRecordPlan<TDataset, TCompanion> = {
       phase: 'pending',
       baseEntries,
       nextEntries,
       nextCursor,
       nextContinuationId,
-    });
+    };
+    this.preparedRecords.set(token, plan);
+    this.pendingPreparedRecords.add(plan);
     return token;
   }
 
   /**
    * Apply a prepared stack transition without cloning, callbacks, equality work,
-   * collection mutation, or any other fallible user-code boundary. Unknown,
-   * consumed, cancelled, and state-stale tokens fail closed as status values.
+   * or any fallible user-code boundary. Unknown, consumed, cancelled, and
+   * state-stale tokens fail closed as status values.
    */
   public commitPrepared(
     token: PatchMapHistoryPreparedRecord,
@@ -178,21 +183,27 @@ export class PatchMapSemanticHistory<
     if (plan === undefined) return 'invalid';
     if (plan.phase === 'cancelled') return 'cancelled';
     if (plan.phase !== 'pending') return 'stale';
+    const baseEntries = plan.baseEntries;
+    const nextEntries = plan.nextEntries;
+    const nextCursor = plan.nextCursor;
+    const nextContinuationId = plan.nextContinuationId;
     if (
+      baseEntries === null ||
+      nextEntries === null ||
       this.destroyedValue ||
       this.transitioning ||
       token.baseEpoch !== this.epochValue ||
       token.baseCursor !== this.cursorValue ||
-      plan.baseEntries !== this.entriesValue
+      baseEntries !== this.entriesValue
     ) {
-      plan.phase = 'stale';
+      this.finishPreparedRecord(plan, 'stale');
       return 'stale';
     }
 
-    plan.phase = 'committed';
-    this.entriesValue = plan.nextEntries;
-    this.cursorValue = plan.nextCursor;
-    this.continuationId = plan.nextContinuationId;
+    this.finishPreparedRecord(plan, 'committed');
+    this.entriesValue = nextEntries;
+    this.cursorValue = nextCursor;
+    this.continuationId = nextContinuationId;
     this.epochValue += 1;
     return token.plannedStatus;
   }
@@ -201,7 +212,7 @@ export class PatchMapSemanticHistory<
   public cancelPrepared(token: PatchMapHistoryPreparedRecord): boolean {
     const plan = this.preparedRecords.get(token);
     if (plan === undefined || plan.phase !== 'pending') return false;
-    plan.phase = 'cancelled';
+    this.finishPreparedRecord(plan, 'cancelled');
     return true;
   }
 
@@ -331,6 +342,13 @@ export class PatchMapSemanticHistory<
     if (this.transitioning) {
       throw new Error('cannot destroy PatchMapSemanticHistory during a transition');
     }
+    for (const plan of this.pendingPreparedRecords) {
+      plan.phase = 'stale';
+      plan.baseEntries = null;
+      plan.nextEntries = null;
+      plan.nextContinuationId = null;
+    }
+    this.pendingPreparedRecords.clear();
     this.entriesValue = Object.freeze([]);
     this.cursorValue = 0;
     this.continuationId = null;
@@ -381,6 +399,17 @@ export class PatchMapSemanticHistory<
       throw new Error(`cannot ${operation}: a history transition is active`);
     }
   }
+
+  private finishPreparedRecord(
+    plan: PatchMapPreparedRecordPlan<TDataset, TCompanion>,
+    phase: Exclude<PatchMapPreparedRecordPlan<TDataset, TCompanion>['phase'], 'pending'>,
+  ): void {
+    this.pendingPreparedRecords.delete(plan);
+    plan.phase = phase;
+    plan.baseEntries = null;
+    plan.nextEntries = null;
+    plan.nextContinuationId = null;
+  }
 }
 
 interface PatchMapPreparedRecordPlan<
@@ -388,10 +417,10 @@ interface PatchMapPreparedRecordPlan<
   TCompanion,
 > {
   phase: 'pending' | 'committed' | 'cancelled' | 'stale';
-  readonly baseEntries: readonly PatchMapSemanticHistoryCommand<TDataset, TCompanion>[];
-  readonly nextEntries: readonly PatchMapSemanticHistoryCommand<TDataset, TCompanion>[];
+  baseEntries: readonly PatchMapSemanticHistoryCommand<TDataset, TCompanion>[] | null;
+  nextEntries: readonly PatchMapSemanticHistoryCommand<TDataset, TCompanion>[] | null;
   readonly nextCursor: number;
-  readonly nextContinuationId: string | null;
+  nextContinuationId: string | null;
 }
 
 function assertCommitOutcome(value: string): asserts value is PatchMapHistoryCommitOutcome {

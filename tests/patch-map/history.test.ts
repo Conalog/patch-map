@@ -280,6 +280,143 @@ describe('PatchMap semantic history', () => {
     expect(history.record(invalidCommand, 'no-op')).toBe('no-op');
   });
 
+  it('keeps terminal token status while releasing every retained command branch', () => {
+    const history = new PatchMapSemanticHistory<StackDataset>();
+    const zero = singleDataset('box', 0);
+    const one = singleDataset('box', 1);
+    const two = singleDataset('box', 2);
+    const committed = history.prepareRecord(simpleCommand('committed', zero, one));
+
+    expect(history.commitPrepared(committed)).toBe('recorded');
+    expect(history.commitPrepared(committed)).toBe('stale');
+    expect(history.cancelPrepared(committed)).toBe(false);
+    expect(preparedPlanProbe(history, committed)).toEqual({
+      phase: 'committed',
+      baseEntries: null,
+      nextEntries: null,
+    });
+
+    const cancelled = history.prepareRecord(simpleCommand('cancelled', one, two));
+    expect(history.cancelPrepared(cancelled)).toBe(true);
+    expect(history.cancelPrepared(cancelled)).toBe(false);
+    expect(history.commitPrepared(cancelled)).toBe('cancelled');
+    expect(preparedPlanProbe(history, cancelled)).toEqual({
+      phase: 'cancelled',
+      baseEntries: null,
+      nextEntries: null,
+    });
+
+    const pending = history.prepareRecord(simpleCommand('pending', one, two));
+    expect(history.destroy()).toBe(true);
+    expect(history.commitPrepared(pending)).toBe('stale');
+    expect(history.cancelPrepared(pending)).toBe(false);
+    expect(preparedPlanProbe(history, pending)).toEqual({
+      phase: 'stale',
+      baseEntries: null,
+      nextEntries: null,
+    });
+    expect(pendingPreparedPlanCount(history)).toBe(0);
+  });
+
+  it('rejects non-JSON array structure without invoking accessors', () => {
+    const history = new PatchMapSemanticHistory<readonly unknown[]>();
+    const before = Object.freeze([{ id: 'box', zIndex: 0 }]);
+    let accessorReads = 0;
+    const accessorDataset: unknown[] = [];
+    Object.defineProperty(accessorDataset, 0, {
+      enumerable: true,
+      get: () => {
+        accessorReads += 1;
+        return { id: 'box', zIndex: 1 };
+      },
+    });
+    expect(() => history.prepareRecord({
+      id: 'accessor',
+      before: { dataset: before },
+      after: { dataset: accessorDataset },
+    })).toThrow('$.after.dataset[0] must be an enumerable data property');
+    expect(accessorReads).toBe(0);
+
+    const sparse = new Array<unknown>(1);
+    expect(() => history.prepareRecord({
+      id: 'sparse',
+      before: { dataset: before },
+      after: { dataset: sparse },
+    })).toThrow('$.after.dataset[0] must not be sparse');
+
+    const symbolic = [{ id: 'box', zIndex: 1 }];
+    Object.defineProperty(symbolic, Symbol('metadata'), {
+      enumerable: true,
+      value: 'hidden',
+    });
+    expect(() => history.prepareRecord({
+      id: 'symbolic',
+      before: { dataset: before },
+      after: { dataset: symbolic },
+    })).toThrow('$.after.dataset must not contain symbol keys');
+
+    const extra = [{ id: 'box', zIndex: 1 }];
+    Object.defineProperty(extra, 'metadata', {
+      enumerable: true,
+      value: 'extra',
+    });
+    expect(() => history.prepareRecord({
+      id: 'extra',
+      before: { dataset: before },
+      after: { dataset: extra },
+    })).toThrow('$.after.dataset.metadata must not be an extra array property');
+    expect(history.state()).toMatchObject({ depth: 0, cursor: 0 });
+  });
+
+  it('rejects structurally invalid owned companions without invoking accessors', () => {
+    const before = materializePatchMapDataset([{
+      type: 'rect',
+      id: 'box',
+      size: { width: 10, height: 10 },
+    }]).dataset;
+    const after = materializePatchMapDataset([{
+      type: 'rect',
+      id: 'box',
+      size: { width: 20, height: 20 },
+    }]).dataset;
+    const history = new PatchMapSemanticHistory<typeof before, unknown>();
+    let accessorReads = 0;
+    const accessor = Object.freeze(Object.defineProperty({}, 'hidden', {
+      enumerable: false,
+      get: () => {
+        accessorReads += 1;
+        return 'hidden';
+      },
+    }));
+    const sparse = Object.freeze(new Array<unknown>(1));
+    const symbolic = Object.freeze(Object.defineProperty({}, Symbol('metadata'), {
+      enumerable: true,
+      value: 'hidden',
+    }));
+    const extraArray = ['value'];
+    Object.defineProperty(extraArray, 'metadata', {
+      enumerable: true,
+      value: 'extra',
+    });
+    Object.freeze(extraArray);
+
+    for (const [id, companion] of [
+      ['accessor', accessor],
+      ['sparse', sparse],
+      ['symbolic', symbolic],
+      ['extra-array', extraArray],
+      ['non-finite', Number.POSITIVE_INFINITY],
+    ] as const) {
+      expect(() => history.prepareOwnedChangedRecord({
+        id,
+        before: { dataset: before, companion },
+        after: { dataset: after, companion: null },
+      })).toThrow('$.before.companion must be Engine-owned and deeply frozen');
+    }
+    expect(accessorReads).toBe(0);
+    expect(history.state()).toMatchObject({ depth: 0, cursor: 0 });
+  });
+
   it('precomputes redo truncation and capacity eviction before commit', () => {
     const history = new PatchMapSemanticHistory<StackDataset>({ capacity: 2 });
     const zero = singleDataset('box', 0);
@@ -510,4 +647,36 @@ function command(
     before: { dataset: before, companion: beforeCompanion },
     after: { dataset: after, companion: afterCompanion },
   };
+}
+
+function preparedPlanProbe(
+  history: PatchMapSemanticHistory<StackDataset>,
+  token: object,
+): Readonly<{
+  readonly phase: string;
+  readonly baseEntries: unknown;
+  readonly nextEntries: unknown;
+}> {
+  const records = (history as unknown as Readonly<{
+    preparedRecords: WeakMap<object, Readonly<{
+      phase: string;
+      baseEntries: unknown;
+      nextEntries: unknown;
+    }>>;
+  }>).preparedRecords;
+  const plan = records.get(token);
+  if (plan === undefined) throw new Error('prepared plan is missing');
+  return {
+    phase: plan.phase,
+    baseEntries: plan.baseEntries,
+    nextEntries: plan.nextEntries,
+  };
+}
+
+function pendingPreparedPlanCount(
+  history: PatchMapSemanticHistory<StackDataset>,
+): number {
+  return (history as unknown as Readonly<{
+    pendingPreparedRecords: ReadonlySet<unknown>;
+  }>).pendingPreparedRecords.size;
 }

@@ -81,7 +81,7 @@ function isDeeplyFrozenJson(
   if (
     value === null ||
     typeof value === 'string' ||
-    typeof value === 'number' ||
+    (typeof value === 'number' && Number.isFinite(value)) ||
     typeof value === 'boolean'
   ) {
     return true;
@@ -89,19 +89,42 @@ function isDeeplyFrozenJson(
   if (typeof value !== 'object' || !Object.isFrozen(value)) return false;
   if (visited.has(value)) return false;
   visited.add(value);
-  if (!Array.isArray(value) && !isPlainJsonRecord(value)) {
+  try {
+    if (Array.isArray(value)) {
+      for (let index = 0; index < value.length; index += 1) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, index);
+        if (
+          descriptor === undefined ||
+          !descriptor.enumerable ||
+          !('value' in descriptor) ||
+          !isDeeplyFrozenJson(descriptor.value, visited)
+        ) {
+          return false;
+        }
+      }
+      return Reflect.ownKeys(value).every((key) => (
+        key === 'length' ||
+        (typeof key === 'string' && isCanonicalArrayIndex(key, value.length))
+      ));
+    }
+    if (!isPlainJsonRecord(value)) return false;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    for (const key of Reflect.ownKeys(value)) {
+      if (typeof key !== 'string') return false;
+      const descriptor = descriptors[key];
+      if (
+        descriptor === undefined ||
+        !descriptor.enumerable ||
+        !('value' in descriptor) ||
+        !isDeeplyFrozenJson(descriptor.value, visited)
+      ) {
+        return false;
+      }
+    }
+    return true;
+  } finally {
     visited.delete(value);
-    return false;
   }
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  const deeplyFrozen = Object.keys(value).every((key) => {
-    const descriptor = descriptors[key];
-    return descriptor !== undefined &&
-      'value' in descriptor &&
-      isDeeplyFrozenJson(descriptor.value, visited);
-  });
-  visited.delete(value);
-  return deeplyFrozen;
 }
 
 function isPlainJsonRecord(value: object): value is Readonly<Record<string, unknown>> {
@@ -164,10 +187,27 @@ function cloneSemanticValue(
     if (Array.isArray(value)) {
       const clone: unknown[] = [];
       for (let index = 0; index < value.length; index += 1) {
-        if (!Object.prototype.hasOwnProperty.call(value, index)) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, index);
+        if (descriptor === undefined) {
           throw new TypeError(`${path}[${index}] must not be sparse`);
         }
-        clone.push(cloneSemanticValue(value[index], `${path}[${index}]`, ancestors));
+        if (!descriptor.enumerable || !('value' in descriptor)) {
+          throw new TypeError(`${path}[${index}] must be an enumerable data property`);
+        }
+        clone.push(cloneSemanticValue(
+          descriptor.value,
+          `${path}[${index}]`,
+          ancestors,
+        ));
+      }
+      for (const key of Reflect.ownKeys(value)) {
+        if (key === 'length') continue;
+        if (typeof key !== 'string') {
+          throw new TypeError(`${path} must not contain symbol keys`);
+        }
+        if (!isCanonicalArrayIndex(key, value.length)) {
+          throw new TypeError(`${path}.${key} must not be an extra array property`);
+        }
       }
       return Object.freeze(clone);
     }
@@ -196,6 +236,14 @@ function cloneSemanticValue(
   } finally {
     ancestors.delete(value);
   }
+}
+
+function isCanonicalArrayIndex(key: string, length: number): boolean {
+  const index = Number(key);
+  return Number.isSafeInteger(index) &&
+    index >= 0 &&
+    index < length &&
+    String(index) === key;
 }
 
 export function semanticEqual(left: unknown, right: unknown): boolean {
