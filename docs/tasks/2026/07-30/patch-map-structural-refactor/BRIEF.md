@@ -36,12 +36,14 @@
 - T2 moved surface/world geometry and relation hit indexing into a pure engine
   module while keeping `PatchMap` and `PixiEngineSurface` as the only runtime
   owners in the facade.
+- T3 moved component/text semantic indexing and its incremental fast paths
+  behind typed maps, leaving atomic load/patch/history decisions in `PatchMap`.
 
 # Next Step
 
-- Extract component/text semantic indexing from `engine.ts` behind typed maps,
-  then move the Pixi surface adapter only after its destroy and
-  late-initialization ownership can be verified as one cohesive checkpoint.
+- Move the Pixi surface adapter only after its destroy and late-initialization
+  ownership can be verified as one cohesive checkpoint, then capture the fresh
+  performance baseline required before renderer/presentation hot-path work.
 
 # Working Boundary
 

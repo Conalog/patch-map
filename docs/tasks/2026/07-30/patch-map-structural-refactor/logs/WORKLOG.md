@@ -38,3 +38,19 @@
   one-way pure geometry boundary. No Pixi, scheduler, asset, publication, or
   lifecycle owner changed, so browser, packed-consumer, memory, and performance
   gates were intentionally deferred.
+
+**2026-07-30**
+
+- **Batch:** T3 semantic index ownership.
+- **Work:** Moved component/text semantic probe contracts, full indexing,
+  structural and flat incremental reconciliation, detached probe cloning, and
+  direct/planned bar-height semantic fast paths into `engine/semantic-index.ts`.
+- **Evidence:** Targeted 108 tests, scoped lint, and typecheck passed. The
+  tranche gate passed 148 files / 1,457 tests, full lint/typecheck, package and
+  Lab builds, and the canonical 173-record verifier. Independent review found
+  item/grid/group traversal, visibility/lock inheritance, identity keys, and
+  fast paths behavior-equivalent.
+- **Result:** Reduced `engine.ts` from 10,408 to 9,887 lines while preserving
+  its sole authority over atomic load/patch/history map replacement. No
+  renderer, asset, scheduler, or lifecycle owner changed, so browser,
+  packed-consumer, memory, and performance gates remained deferred.
