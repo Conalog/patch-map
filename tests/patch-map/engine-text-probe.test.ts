@@ -10,6 +10,7 @@ import {
   type PatchMapSurfaceReconcileResult,
   type PatchMapSurfaceView,
 } from '../../src/patch-map/engine';
+import { readPatchMapEngineTextProbe } from '../../src/patch-map/engine/product-probe-reader';
 import { parsePatchMapV010 } from '../../src/patch-map/parser';
 import type {
   PatchMapEntityPaintProbe,
@@ -260,10 +261,12 @@ describe('PatchMap O(1) text product seam', () => {
   });
 
   it('does not add a dataset or Pixi traversal fallback to the Engine probe', () => {
-    const source = PatchMap.prototype.textProbe.toString();
+    const facade = PatchMap.prototype.textProbe.toString();
+    const source = readPatchMapEngineTextProbe.toString();
 
-    expect(source).toContain('textSemantics.get');
-    expect(source).toContain('surface.textProbe');
+    expect(facade).toContain('readPatchMapEngineTextProbe');
+    expect(source).toContain('state.textSemantic');
+    expect(source).toContain('state.textProbe');
     expect(source).not.toContain('findElement');
     expect(source).not.toMatch(/\.snapshot\s*\(/u);
     expect(source).not.toContain('.children');

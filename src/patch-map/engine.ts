@@ -2,7 +2,6 @@ import {
   type PatchMapComponentVisualTarget,
   type PatchMapPresentationLifecycleResult,
   type PatchMapTextTarget,
-  normalizePatchMapTextTarget,
 } from './core/contracts';
 import {
   PatchMapFrameLoop,
@@ -23,11 +22,7 @@ import {
 } from './viewport';
 import type { SlotRange } from './dense/contracts';
 import type {
-  PatchMapComponentRenderRole,
-} from './contracts';
-import type {
   PatchMapPixiRendererLossProbe,
-  PatchMapRenderLaneRole,
 } from './renderers/types';
 import type { PatchMapSceneImageRetryResult } from './scene-images';
 import {
@@ -81,7 +76,6 @@ import {
   type NormalizedPatchMapElement,
 } from './semantic/dataset';
 import {
-  createPatchMapSemanticProbe,
   type PatchMapSemanticProductProbe,
   type PatchMapSemanticTarget,
 } from './semantic/probe';
@@ -137,7 +131,6 @@ import type {
   PatchMapEngineSceneImagesProbe,
   PatchMapEngineSurface,
   PatchMapInteractionOwnershipProbe,
-  PatchMapSurfaceDebug,
   PatchMapSurfaceOptions,
   PatchMapSurfacePointerInput,
   PatchMapSurfaceReconcileResult,
@@ -200,11 +193,26 @@ import {
 } from './engine/scene-state-authority';
 import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-authority';
 import {
+  emptyPatchMapEngineSurfaceDebug,
+  PATCH_MAP_ENGINE_FACILITIES as FACILITIES,
+  readPatchMapEngineAggregateRenderOwnerProbe,
+  readPatchMapEngineBarPresentationProbe,
+  readPatchMapEngineComponentVisualProbe,
+  readPatchMapEngineInteractionOwnershipProbe,
+  readPatchMapEnginePaintOrderProbe,
+  readPatchMapEnginePixiPublicSurfaceProbe,
+  readPatchMapEngineRendererLossProbe,
+  readPatchMapEngineSceneImageProbe,
+  readPatchMapEngineSemanticProbe,
+  readPatchMapEngineSnapshot,
+  readPatchMapEngineTextProbe,
+  type PatchMapEngineProductProbeReadPort,
+} from './engine/product-probe-reader';
+import {
   assertTransformerHandleKind,
   finiteTuple,
   nonEmptyValue,
   normalizeBackground,
-  normalizeEngineComponentVisualTarget,
   normalizeEngineMutationTarget,
   normalizeOptionalSourceRevision,
   normalizeSnapshotTarget,
@@ -228,7 +236,6 @@ import {
   type PatchMapEngineHistorySnapshot,
   type PatchMapEngineHistoryTransition,
 } from './engine/history-planning';
-import { resolvePatchMapTextPublicationStatus } from './engine/text-probe-publication-policy';
 import {
   EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS as EMPTY_RECONCILE_DIAGNOSTICS,
   EMPTY_PATCH_MAP_TARGETS as EMPTY_TARGETS,
@@ -315,7 +322,6 @@ import type {
   PatchMapEngineSemanticRefreshResult,
   PatchMapEngineSnapshot,
   PatchMapEngineTextProbe,
-  PatchMapEngineTextRevisionTuple,
   PatchMapEngineTransactionPerformanceProbe,
   PatchMapEngineTransactionResult,
   PatchMapEngineTransformerCancelResult,
@@ -523,16 +529,6 @@ const PATCH_MAP_QUERY_REUSE_OPERATIONS = Object.freeze([
   'transform',
   'select',
 ] as const satisfies readonly PatchMapQueryReuseOperation[]);
-const FACILITIES = Object.freeze([
-  'renderer',
-  'viewport',
-  'world',
-  'state',
-  'history',
-  'resize',
-  'assets',
-] as const);
-
 interface PreparedPatchMapEngineLoad {
   readonly materialized: MaterializedPatchMapDataset;
   readonly scenePlan: PatchMapSceneStatePlan;
@@ -562,6 +558,7 @@ export class PatchMap {
   private readonly surfaceLifecycle: PatchMapSurfaceLifecycleAuthority<
     PatchMapInitializeResult
   >;
+  private readonly productProbeReadPort: PatchMapEngineProductProbeReadPort;
   private pendingTransactionPlanMs = 0;
   private lastTransactionPerformance: PatchMapEngineTransactionPerformanceProbe | null = null;
   private readonly listeners = new Map<PatchMapEngineEvent, Set<(event: unknown) => void>>();
@@ -664,6 +661,52 @@ export class PatchMap {
         return evaluated.status === 'rejected' ? Object.freeze([]) : evaluated.targets;
       },
     });
+    this.productProbeReadPort = Object.freeze({
+      lifecycle: () => this.lifecycle,
+      instanceId: () => this.instanceId,
+      viewportSnapshot: () => this.viewportAuthority.snapshot(),
+      surfaceDebug: () => this.surface?.debugSnapshot() ?? null,
+      revisionStamp: () => this.revisionStamp(),
+      publishedTuple: () => this.publication.publishedTuple,
+      frameRevision: () => this.publication.frameRevision,
+      sceneRevision: () => this.publication.sceneRevision,
+      viewRevision: () => this.publication.viewRevision,
+      interactionRevision: () => this.publication.interactionRevision,
+      materialized: () => this.materialized,
+      datasetRef: () => this.datasetRef,
+      selectionIds: () => this.logicalSelectionIds,
+      componentSemantic: (ownerId, componentId) => this.componentSemantics.get(
+        componentSemanticKey(ownerId, componentId),
+      ) ?? null,
+      textSemantic: (target) => this.textSemantics.get(engineTextTargetKey(target)) ?? null,
+      historyState: () => this.history.state(),
+      interactionMode: () => this.hostInteractions.modeProbe().activeState,
+      pendingWork: () => this.pendingWork,
+      rendererConfiguration: () => this.rendererConfiguration,
+      assetProbe: () => this.assetSession?.probe() ?? null,
+      canvasCount: () => this.surfaceLifecycle.canvasCount,
+      subscriptionCount: () => this.subscriptionCount(),
+      sceneImageProbe: () => this.requireSurface('sceneImageProbe').sceneImageProbe?.() ?? null,
+      componentVisualProbe: (target) => this.requireSurface('componentVisualProbe')
+        .componentVisualProbe?.(target) ?? null,
+      barPresentationProbe: (target) => this.requireSurface('barPresentationProbe')
+        .barPresentationProbe?.(target) ?? null,
+      paintOrderProbe: () => this.requireSurface('paintOrderProbe').paintOrderProbe?.() ?? null,
+      textProbe: (target) => this.requireSurface('textProbe').textProbe?.(target) ?? null,
+      interactionOwnershipProbe: () => this.requireSurface('interactionOwnershipProbe')
+        .interactionOwnershipProbe?.() ?? null,
+      pixiPublicSurfaceProbe: () => this.requireSurface('pixiPublicSurfaceProbe')
+        .pixiPublicSurfaceProbe?.() ?? null,
+      rendererLossProbe: () => this.requireSurface('rendererLossProbe')
+        .rendererLossProbe?.() ?? null,
+      surfaceCanvasCount: () => this.surface?.canvasCount ?? 0,
+      terminalRendererLossProbe: () => this.terminalRendererLossProbe,
+      logicalComponentTarget: (ownerId, componentId) => this.logicalSceneIndex().target({
+        kind: 'component',
+        ownerId,
+        id: componentId,
+      }),
+    } satisfies PatchMapEngineProductProbeReadPort);
   }
 
   public on<K extends PatchMapEngineEvent>(event: K, listener: PatchMapEngineListener<K>): () => void {
@@ -4367,43 +4410,7 @@ export class PatchMap {
   }
 
   public snapshot(): PatchMapEngineSnapshot {
-    const viewport = this.viewportAuthority.snapshot();
-    const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
-      viewport.width,
-      viewport.height,
-      viewport.pixelRatio,
-    );
-    return Object.freeze({
-      lifecycle: this.lifecycle,
-      instanceId: this.instanceId,
-      revisions: this.revisionStamp(),
-      publishedTuple: this.publication.publishedTuple,
-      frameRevision: this.publication.frameRevision,
-      datasetRef: this.datasetRef,
-      semanticHash: this.materialized?.semanticHash ?? null,
-      rootIds: this.materialized?.rootIds ?? Object.freeze([]),
-      historyDepth: this.history.state().undoDepth,
-      pendingWork: this.pendingWork,
-      zoomLimits: viewport.zoomLimits,
-      viewport: viewport.viewport,
-      selectionIds: this.logicalSelectionIds,
-      facilities: FACILITIES,
-      resources: Object.freeze({
-        canvasCount:
-          this.surfaceLifecycle.canvasCount,
-        canvas: Object.freeze({
-          cssSize: surfaceDebug.cssSize,
-          backingSize: surfaceDebug.backingSize,
-        }),
-        renderer: this.rendererConfiguration,
-        rendering: Object.freeze({
-          commandCount: surfaceDebug.renderCommandCount ?? null,
-          visiblePrimitiveCount: surfaceDebug.visiblePrimitiveCount ?? null,
-        }),
-        assets: this.assetSession?.probe() ?? null,
-        subscriptions: Object.freeze({ active: this.subscriptionCount(), duplicates: 0 }),
-      }),
-    });
+    return readPatchMapEngineSnapshot(this.productProbeReadPort);
   }
 
   public runtimeDiagnostics(): PatchMapRuntimeDiagnosticsSnapshot {
@@ -4443,7 +4450,7 @@ export class PatchMap {
     }
     const semantic = this.semanticProbe();
     const viewport = this.viewportAuthority.snapshot();
-    const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
+    const surfaceDebug = this.surface?.debugSnapshot() ?? emptyPatchMapEngineSurfaceDebug(
       viewport.width,
       viewport.height,
       viewport.pixelRatio,
@@ -4499,27 +4506,11 @@ export class PatchMap {
   }
 
   public semanticProbe(): PatchMapSemanticProductProbe {
-    const viewport = this.viewportAuthority.snapshot();
-    const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
-      viewport.width,
-      viewport.height,
-      viewport.pixelRatio,
-    );
-    return createPatchMapSemanticProbe(this.materialized, {
-      lifecycle: this.lifecycle,
-      datasetRef: this.datasetRef,
-      interactionMode: this.hostInteractions.modeProbe().activeState,
-      selectionIds: this.logicalSelectionIds,
-      activeAnimationCount: surfaceDebug.activeAnimationCount,
-      ...(surfaceDebug.activeGestureCount === undefined
-        ? {}
-        : { activeGestureCount: surfaceDebug.activeGestureCount }),
-      historyDepth: this.history.state().undoDepth,
-    });
+    return readPatchMapEngineSemanticProbe(this.productProbeReadPort);
   }
 
   public sceneImageProbe(): PatchMapEngineSceneImagesProbe | null {
-    return this.requireSurface('sceneImageProbe').sceneImageProbe?.() ?? null;
+    return readPatchMapEngineSceneImageProbe(this.productProbeReadPort);
   }
 
   public retryAsset(
@@ -4560,63 +4551,17 @@ export class PatchMap {
   public componentVisualProbe(
     target: PatchMapComponentVisualTarget,
   ): PatchMapEngineComponentVisualProbe | null {
-    const normalizedTarget = normalizeEngineComponentVisualTarget(target);
-    const surface = this.requireSurface('componentVisualProbe');
-    const visual = surface.componentVisualProbe?.(normalizedTarget) ?? null;
-    const semanticOwnerId = visual?.semanticOwnerId ?? normalizedTarget.ownerId;
-    const semantic = this.componentSemantics.get(componentSemanticKey(
-      semanticOwnerId,
-      normalizedTarget.componentId,
-    )) ?? null;
-    if (semantic === null && visual === null) return null;
-    return Object.freeze({
-      target: normalizedTarget,
-      semantic,
-      entityId: visual?.entityId ?? null,
-      logicalIdentity: visual?.logicalIdentity ?? null,
-      componentType: visual?.componentType ?? semantic?.componentType ?? null,
-      renderRole: visual?.renderRole ?? null,
-      entityKind: visual?.entityKind ?? null,
-      geometry: visual?.geometry ?? null,
-      publication: visual?.publication ?? null,
-      sceneImage: visual?.sceneImage ?? null,
-      rendererPaint: visual?.rendererPaint ?? null,
-      renderLanes: visual?.renderLanes ?? null,
-      revisions: this.revisionStamp(),
-      availability: Object.freeze({
-        semantic: semantic !== null,
-        surface: visual !== null,
-        rendererPaint: visual?.rendererPaint !== null && visual?.rendererPaint !== undefined,
-        renderLanes: visual?.renderLanes !== null && visual?.renderLanes !== undefined,
-      }),
-    });
+    return readPatchMapEngineComponentVisualProbe(this.productProbeReadPort, target);
   }
 
   public barPresentationProbe(
     target: PatchMapComponentVisualTarget,
   ): PatchMapEngineBarPresentationProbe | null {
-    const normalizedTarget = normalizeEngineComponentVisualTarget(target);
-    const probe = this.requireSurface('barPresentationProbe')
-      .barPresentationProbe?.(normalizedTarget) ?? null;
-    if (probe === null) return null;
-    return Object.freeze({
-      ...probe,
-      revisions: this.revisionStamp(),
-      publishedTuple: this.publication.publishedTuple,
-      frameRevision: this.publication.frameRevision,
-    });
+    return readPatchMapEngineBarPresentationProbe(this.productProbeReadPort, target);
   }
 
   public paintOrderProbe(): PatchMapEnginePaintOrderProbe | null {
-    const probe = this.requireSurface('paintOrderProbe').paintOrderProbe?.() ?? null;
-    if (probe === null) return null;
-    return Object.freeze({
-      ...probe,
-      revisions: this.revisionStamp(),
-      publishedTuple: this.publication.publishedTuple,
-      frameRevision: this.publication.frameRevision,
-      history: this.history.state(),
-    });
+    return readPatchMapEnginePaintOrderProbe(this.productProbeReadPort);
   }
 
   /**
@@ -4625,63 +4570,7 @@ export class PatchMap {
    * permitted on this path.
    */
   public textProbe(target: PatchMapTextTarget): PatchMapEngineTextProbe | null {
-    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') return null;
-    const normalizedTarget = normalizePatchMapTextTarget(target);
-    const surface = this.requireSurface('textProbe');
-    const requestedSemantic = this.textSemantics.get(engineTextTargetKey(normalizedTarget)) ?? null;
-    const visual = surface.textProbe?.(normalizedTarget) ?? null;
-    if (visual === null && requestedSemantic?.gridTemplate) return null;
-
-    const semantic = visual?.semanticOwnerId && normalizedTarget.kind === 'component'
-      ? this.textSemantics.get(engineTextTargetKey({
-          kind: 'component',
-          ownerId: visual.semanticOwnerId,
-          id: normalizedTarget.id,
-        })) ?? requestedSemantic
-      : requestedSemantic;
-    if (semantic === null && visual === null) return null;
-
-    const currentRevisions = this.revisionStamp();
-    const publishedTuple = this.publication.publishedTuple;
-    const publishedCurrent =
-      publishedTuple.scene === this.publication.sceneRevision &&
-      publishedTuple.view === this.publication.viewRevision &&
-      publishedTuple.interaction === this.publication.interactionRevision;
-    const status = resolvePatchMapTextPublicationStatus(visual, publishedCurrent);
-    const revisionTuple: PatchMapEngineTextRevisionTuple = Object.freeze({
-      current: currentRevisions,
-      published: publishedTuple,
-      frameRevision: this.publication.frameRevision,
-      surfaceSceneRevision: visual?.publication.sceneRevision ?? null,
-      surfaceRenderedSceneRevision: visual?.publication.renderedSceneRevision ?? null,
-      rendererFrame: visual?.publication.rendererFrame ?? null,
-    });
-    const rendererAvailable = visual !== null &&
-      visual.renderer.route !== null &&
-      visual.renderer.route !== 'none' &&
-      visual.renderer.rendererKind !== 'none' &&
-      visual.renderer.route === visual.renderer.rendererKind;
-    return Object.freeze({
-      target: normalizedTarget,
-      semantic: semantic?.probe ?? null,
-      semanticOwnerId: visual?.semanticOwnerId ?? semantic?.probe.semanticOwnerId ?? null,
-      entityId: visual?.entityId ?? null,
-      projection: visual?.semantic ?? null,
-      geometry: visual?.geometry ?? null,
-      state: visual?.state ?? null,
-      transform: visual?.transform ?? null,
-      renderer: visual?.renderer ?? null,
-      rendererPaint: visual?.rendererPaint ?? null,
-      renderLanes: visual?.renderLanes ?? null,
-      publication: Object.freeze({ status, revisions: revisionTuple }),
-      availability: Object.freeze({
-        semantic: semantic !== null,
-        surface: visual !== null,
-        renderer: rendererAvailable,
-        rendererPaint: visual?.rendererPaint !== null && visual?.rendererPaint !== undefined,
-        renderLanes: visual?.renderLanes !== null && visual?.renderLanes !== undefined,
-      }),
-    });
+    return readPatchMapEngineTextProbe(this.productProbeReadPort, target);
   }
 
   public settleSceneImages(): Promise<void> {
@@ -4743,77 +4632,21 @@ export class PatchMap {
   }
 
   public interactionOwnershipProbe(): PatchMapInteractionOwnershipProbe | null {
-    return this.requireSurface('interactionOwnershipProbe').interactionOwnershipProbe?.() ?? null;
+    return readPatchMapEngineInteractionOwnershipProbe(this.productProbeReadPort);
   }
 
   public pixiPublicSurfaceProbe(): PatchMapEnginePixiPublicSurfaceProbe | null {
-    const surface = this.requireSurface('pixiPublicSurfaceProbe');
-    const probe = surface.pixiPublicSurfaceProbe?.() ?? null;
-    if (probe === null) return null;
-    return Object.freeze({
-      ...probe,
-      lifecycle: this.lifecycle,
-      revisions: this.revisionStamp(),
-      canvasCount: surface.canvasCount,
-    });
+    return readPatchMapEnginePixiPublicSurfaceProbe(this.productProbeReadPort);
   }
 
   public aggregateRenderOwnerProbe(
     target: PatchMapComponentVisualTarget,
   ): PatchMapAggregateRenderOwnerProbe | null {
-    const normalized = normalizeEngineComponentVisualTarget(target);
-    const logicalTarget = this.logicalSceneIndex().target({
-      kind: 'component',
-      ownerId: normalized.ownerId,
-      id: normalized.componentId,
-    });
-    const visual = this.componentVisualProbe(normalized);
-    if (
-      logicalTarget === null ||
-      visual === null ||
-      visual.entityId === null ||
-      visual.geometry === null
-    ) {
-      return null;
-    }
-    const laneRole = visual.rendererPaint?.lane ?? componentRenderLane(visual.renderRole);
-    return Object.freeze({
-      target: normalized,
-      logicalTarget,
-      entityId: visual.entityId,
-      aggregateRenderOwnerId:
-        `render-owner:${normalized.ownerId}/${normalized.componentId}`,
-      rendererKind: visual.rendererPaint?.rendererKind ?? null,
-      renderLane: laneRole === null ? null : visual.renderLanes?.[laneRole] ?? null,
-      worldBounds: visual.geometry.worldBounds,
-      visible: visual.geometry.visible,
-      revisions: this.revisionStamp(),
-      publishedTuple: this.publication.publishedTuple,
-      frameRevision: this.publication.frameRevision,
-    });
+    return readPatchMapEngineAggregateRenderOwnerProbe(this.productProbeReadPort, target);
   }
 
   public rendererLossProbe(): PatchMapEngineRendererLossProbe | null {
-    if (
-      (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') &&
-      this.terminalRendererLossProbe !== null
-    ) {
-      return Object.freeze({
-        ...this.terminalRendererLossProbe,
-        revisions: this.revisionStamp(),
-        publishedTuple: this.publication.publishedTuple,
-        canvasCount: 0,
-      });
-    }
-    const surface = this.requireSurface('rendererLossProbe');
-    const probe = surface.rendererLossProbe?.() ?? null;
-    if (probe === null) return null;
-    return Object.freeze({
-      ...probe,
-      revisions: this.revisionStamp(),
-      publishedTuple: this.publication.publishedTuple,
-      canvasCount: surface.canvasCount,
-    });
+    return readPatchMapEngineRendererLossProbe(this.productProbeReadPort);
   }
 
   public forceRendererLoss(): boolean {
@@ -6209,15 +6042,6 @@ function assetInternalEngineCleanupFailure(): Error {
   return new Error('PatchMap required asset cleanup failed');
 }
 
-function componentRenderLane(
-  role: PatchMapComponentRenderRole | null,
-): PatchMapRenderLaneRole | null {
-  if (role === null) return null;
-  if (role === 'background-asset') return 'background-assets';
-  if (role === 'content-asset') return 'content-assets';
-  return role;
-}
-
 function requireRegionGeometry(
   surface: PatchMapEngineSurface,
   operation: string,
@@ -6315,21 +6139,6 @@ function samePublishedTuple(
   return left.scene === right.scene &&
     left.view === right.view &&
     left.interaction === right.interaction;
-}
-
-function emptySurfaceDebug(width: number, height: number, pixelRatio: number): PatchMapSurfaceDebug {
-  return Object.freeze({
-    cssSize: Object.freeze([width, height] as [number, number]),
-    backingSize: Object.freeze([
-      Math.round(width * pixelRatio),
-      Math.round(height * pixelRatio),
-    ] as [number, number]),
-    selectionIds: Object.freeze([] as string[]),
-    activeAnimationCount: 0,
-    activeGestureCount: 0,
-    renderCommandCount: 0,
-    visiblePrimitiveCount: 0,
-  });
 }
 
 const EMPTY_COMPONENT_VISUAL_TARGETS = Object.freeze(
