@@ -54,3 +54,23 @@
   its sole authority over atomic load/patch/history map replacement. No
   renderer, asset, scheduler, or lifecycle owner changed, so browser,
   packed-consumer, memory, and performance gates remained deferred.
+
+**2026-07-30**
+
+- **Batch:** T4 Pixi surface adapter ownership.
+- **Work:** Moved the `PixiEngineSurface` class, default Core factory, surface
+  port contracts, pointer bridge, and image probe projection into
+  `engine/pixi-surface.ts` and `engine/contracts.ts`; retained all compatibility
+  re-exports and the default factory selection in `PatchMap`.
+- **Evidence:** Targeted 57 tests, scoped lint, and typecheck passed. The
+  tranche gate passed 148 files / 1,457 tests, full lint/typecheck, package and
+  Lab builds, and the canonical verifier. Headless Lab passed 173 routes /
+  192 checks with zero console/page/network errors; actual-production passed
+  605 roots / 643 components and destroy cleanup; 2+7 memory passed 5,099
+  entities plus 9 ownership cycles with 92,939-byte retained-heap median.
+  Independent review returned a clean verdict.
+- **Result:** Reduced `engine.ts` from 9,887 to 8,866 lines and made the
+  facade-to-surface port explicit without adding a scheduler, listener, ticker,
+  asset owner, or per-entity object. Packed-consumer was not repeated because
+  package exports/dependencies did not change; performance was deferred until
+  the fresh pre-hot-path baseline. Windows native remains pending.

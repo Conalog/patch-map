@@ -38,12 +38,14 @@
   owners in the facade.
 - T3 moved component/text semantic indexing and its incremental fast paths
   behind typed maps, leaving atomic load/patch/history decisions in `PatchMap`.
+- T4 moved the Pixi/Core surface adapter and its port contracts below the
+  facade; headless 173-route, actual-production, and 2+7 ownership gates pass.
 
 # Next Step
 
-- Move the Pixi surface adapter only after its destroy and late-initialization
-  ownership can be verified as one cohesive checkpoint, then capture the fresh
-  performance baseline required before renderer/presentation hot-path work.
+- Capture a fresh 5,000/10,000/actual-production WebGL baseline in temporary
+  evidence, then split mesh planning from retained Pixi resources before
+  changing rounded-bar or presentation hot paths.
 
 # Working Boundary
 
