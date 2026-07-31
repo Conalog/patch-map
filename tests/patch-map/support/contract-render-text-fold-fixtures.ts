@@ -7,7 +7,7 @@ import { layoutPatchMapText, type PatchMapTextLayout } from '../../../src/patch-
 
 import {
   arrayValue, isRecord, numberValue, requireRecord, stringValue, type JsonRecord,
-} from './contract-render-text-fold-harness';
+} from './contract-render-text-values';
 
 type TextTarget =
   Readonly<{ kind: 'element'; id: string }> |

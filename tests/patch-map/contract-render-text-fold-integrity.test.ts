@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  approvedExpectedCase,
   arrayValue,
-  compareObservation,
   fold,
   requireRecord,
   selectedCase,
@@ -12,6 +10,10 @@ import {
   type JsonRecord,
   type MaterializedCase,
 } from './support/contract-render-text-fold-harness';
+import {
+  approvedExpectedCase,
+  compareObservation,
+} from './support/contract-render-text-fold-comparison';
 import {
   actionActual,
   exportedOwner,
