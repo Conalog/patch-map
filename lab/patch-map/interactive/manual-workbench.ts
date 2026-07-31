@@ -27,30 +27,29 @@ import {
   advancedExample,
   defaultManualAnimationDuration,
   manualActionDisplay,
-  manualModeLabel,
   manualSceneSizeLabel,
-  type ManualPointerMode,
 } from './manual-workbench-view';
+import { runPatchMapManualAdvancedAction } from './manual-workbench-actions';
+import {
+  angleDegrees,
+  canvasPoint,
+  cursorForMode,
+  interactionModeForManualMode,
+  isManualPointerMode,
+  isResizeHandle,
+  manualModeForShortcutKey,
+  manualModeLabel,
+  manualModeStatusHelp,
+  midpoint,
+  normalizeDeltaDegrees,
+  selectionVisualModeForManualMode,
+  viewportPanOperationForManualMode,
+  type ManualPointerGesture,
+  type ManualPointerMode,
+} from './manual-workbench-input';
 import { PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS } from '../lab-settings';
 
 export { renderPatchMapManualWorkbench } from './manual-workbench-view';
-
-interface ManualPointerGesture {
-  readonly pointerId: number;
-  readonly kind: 'box' | 'paint' | 'transform';
-  readonly startScreen: readonly [number, number];
-  readonly startWorld: readonly [number, number];
-  readonly selectionBefore: readonly string[];
-  readonly transformKind?: 'move' | 'resize' | 'rotate';
-  readonly resizeHandle?: 'nw' | 'ne' | 'sw' | 'se' | 'n' | 'e' | 's' | 'w';
-  readonly rotationCenterScreen?: readonly [number, number];
-  readonly rotationStartDegrees?: number;
-  segments: Array<readonly [
-    readonly [number, number],
-    readonly [number, number],
-  ]>;
-  moved: boolean;
-}
 
 export interface PatchMapManualLabState {
   readonly caseId: string;
@@ -337,16 +336,7 @@ export function mountPatchMapManualWorkbench(
       return;
     }
     if (event.altKey) return;
-    const modeByKey: Readonly<Record<string, ManualPointerMode>> = {
-      v: 'select',
-      b: 'box',
-      p: 'paint',
-      m: 'move',
-      r: 'resize',
-      o: 'rotate',
-      h: 'pan',
-    };
-    const shortcutMode = modeByKey[key];
+    const shortcutMode = manualModeForShortcutKey(key);
     if (shortcutMode !== undefined) {
       event.preventDefault();
       activateMode(shortcutMode);
@@ -1059,31 +1049,16 @@ export function mountPatchMapManualWorkbench(
     if (live !== null) {
       live.applyInteractionModeOperation({
         op: 'replace',
-        state: mode === 'pan'
-          ? 'pan'
-          : mode === 'move' || mode === 'resize' || mode === 'rotate'
-            ? 'transform'
-            : mode === 'paint'
-              ? 'relation-paint'
-              : 'select',
+        state: interactionModeForManualMode(mode),
       });
       live.configureViewportPolicy({
-        op: mode === 'pan' ? 'start' : 'stop',
+        op: viewportPanOperationForManualMode(mode),
         policy: 'pan',
       });
       refreshSelectionVisual(live);
       live.canvasHandle().element.style.cursor = cursorForMode(mode);
     }
-    const help = {
-      select: '객체를 클릭하고 Shift로 선택을 추가·해제합니다.',
-      box: '범위를 드래그합니다. Shift를 누르면 기존 선택에 추가합니다.',
-      paint: '객체 위를 연속으로 문지릅니다. Shift를 누르면 기존 선택에 추가합니다.',
-      move: '선택 객체를 드래그합니다. Shift를 누르면 한 축으로 고정합니다.',
-      resize: '선택 핸들을 드래그합니다. Shift를 누르면 가로세로 비율을 고정합니다.',
-      rotate: '회전 핸들을 드래그합니다. Shift를 누르면 15° 단위로 맞춥니다.',
-      pan: '빈 캔버스를 드래그하고 휠로 확대·축소합니다.',
-    } satisfies Record<ManualPointerMode, string>;
-    setText(host, 'mode-help', `${manualModeLabel(mode)}: ${help[mode]}`);
+    setText(host, 'mode-help', `${manualModeLabel(mode)}: ${manualModeStatusHelp(mode)}`);
     host.dataset.manualMode = mode;
   }
 
@@ -1377,43 +1352,7 @@ export function mountPatchMapManualWorkbench(
     const input: unknown = JSON.parse(
       required<HTMLTextAreaElement>(host, '[data-manual-advanced-json]').value,
     );
-    switch (method) {
-      case 'author':
-        return next.author(input);
-      case 'patch': {
-        const record = requireRecord(input, '부분 갱신 입력');
-        return next.patch(
-          record.target as Parameters<PatchMap['patch']>[0],
-          record.patch,
-        );
-      }
-      case 'transact':
-        return next.transact(input as Parameters<PatchMap['transact']>[0]);
-      case 'selection':
-        return next.applySelection(
-          input as Parameters<PatchMap['applySelection']>[0],
-        );
-      case 'viewport':
-        return next.setViewport(input as Parameters<PatchMap['setViewport']>[0]);
-      case 'world-transform':
-        return next.setWorldTransform(
-          input as Parameters<PatchMap['setWorldTransform']>[0],
-        );
-      case 'history-companion':
-        return next.setHistoryCompanion(
-          input as Parameters<PatchMap['setHistoryCompanion']>[0],
-        );
-      case 'live-overlay':
-        return next.applyLiveOverlay(
-          input as Parameters<PatchMap['applyLiveOverlay']>[0],
-        );
-      case 'viewport-policy':
-        return next.configureViewportPolicy(
-          input as Parameters<PatchMap['configureViewportPolicy']>[0],
-        );
-      default:
-        throw new Error(`지원하지 않는 고급 작업입니다: ${method}`);
-    }
+    return runPatchMapManualAdvancedAction(next, method, input);
   }
 
   function refresh(): void {
@@ -1545,7 +1484,7 @@ export function mountPatchMapManualWorkbench(
 
   function refreshSelectionVisual(next: PatchMap): void {
     next.setSelectionVisualPolicy({
-      mode: mode === 'pan' ? 'hidden' : 'all',
+      mode: selectionVisualModeForManualMode(mode),
       handleCssPx: 10,
       strokeCssPx: 2,
     });
@@ -1929,72 +1868,11 @@ function manualEventLabel(type: string): string {
   return labels[type] ?? type;
 }
 
-function canvasPoint(
-  event: Pick<PointerEvent | MouseEvent, 'clientX' | 'clientY'>,
-  canvas: HTMLCanvasElement,
-): readonly [number, number] {
-  const rect = canvas.getBoundingClientRect();
-  const width = Math.max(1, rect.width);
-  const height = Math.max(1, rect.height);
-  const cssWidth = Number.parseFloat(canvas.style.width) || width;
-  const cssHeight = Number.parseFloat(canvas.style.height) || height;
-  return Object.freeze([
-    (event.clientX - rect.left) * (cssWidth / width),
-    (event.clientY - rect.top) * (cssHeight / height),
-  ]);
-}
-
 function surfaceSize(frame: HTMLElement): Readonly<{ width: number; height: number }> {
   return Object.freeze({
     width: Math.max(480, Math.round(frame.clientWidth || 900)),
     height: Math.max(420, Math.round(frame.clientHeight || 560)),
   });
-}
-
-function midpoint(
-  left: readonly [number, number],
-  right: readonly [number, number],
-): readonly [number, number] {
-  return Object.freeze([(left[0] + right[0]) / 2, (left[1] + right[1]) / 2]);
-}
-
-function angleDegrees(
-  center: readonly [number, number],
-  point: readonly [number, number],
-): number {
-  return Math.atan2(point[1] - center[1], point[0] - center[0]) * 180 / Math.PI;
-}
-
-function normalizeDeltaDegrees(value: number): number {
-  let result = value % 360;
-  if (result > 180) result -= 360;
-  if (result < -180) result += 360;
-  return result;
-}
-
-function cursorForMode(mode: ManualPointerMode): string {
-  const cursors: Record<ManualPointerMode, string> = {
-    select: 'default',
-    box: 'crosshair',
-    paint: 'cell',
-    move: 'move',
-    resize: 'nwse-resize',
-    rotate: 'crosshair',
-    pan: 'grab',
-  };
-  return cursors[mode];
-}
-
-function isResizeHandle(
-  value: unknown,
-): value is 'nw' | 'ne' | 'sw' | 'se' | 'n' | 'e' | 's' | 'w' {
-  return typeof value === 'string' &&
-    ['nw', 'ne', 'sw', 'se', 'n', 'e', 's', 'w'].includes(value);
-}
-
-function isManualPointerMode(value: unknown): value is ManualPointerMode {
-  return typeof value === 'string' &&
-    ['select', 'box', 'paint', 'move', 'resize', 'rotate', 'pan'].includes(value);
 }
 
 function isManualToolGroup(value: unknown): value is PatchMapManualToolGroup {
@@ -2029,11 +1907,6 @@ function fingerprint(input: unknown): string {
   return `${value.length}:${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 
-
-function requireRecord(value: unknown, label: string): Readonly<Record<string, unknown>> {
-  if (!isRecord(value)) throw new TypeError(`${label} 값은 객체여야 합니다.`);
-  return value;
-}
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

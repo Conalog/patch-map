@@ -11,15 +11,12 @@ import {
   PATCH_MAP_MANUAL_SCENE_SIZE_OPTIONS,
   type PatchMapManualSceneSize,
 } from './manual-scene';
+import {
+  manualModeTitleHelp,
+  type ManualPointerMode,
+} from './manual-workbench-input';
 
-export type ManualPointerMode =
-  | 'select'
-  | 'box'
-  | 'paint'
-  | 'move'
-  | 'resize'
-  | 'rotate'
-  | 'pan';
+export { manualModeLabel, type ManualPointerMode } from './manual-workbench-input';
 
 const MANUAL_COMMAND_HELP: Readonly<Record<string, string>> = Object.freeze({
   'select-first': '첫 번째 예제 객체 하나를 선택합니다.',
@@ -258,19 +255,6 @@ export function advancedExample(method: string): string {
     'viewport-policy': { op: 'temporary', policy: 'pan' },
   };
   return JSON.stringify(examples[method] ?? examples.author, null, 2);
-}
-
-export function manualModeLabel(mode: ManualPointerMode): string {
-  const labels: Readonly<Record<ManualPointerMode, string>> = {
-    select: '선택',
-    box: '영역 선택',
-    paint: '붓질 선택',
-    move: '이동',
-    resize: '크기 조절',
-    rotate: '회전',
-    pan: '화면 이동',
-  };
-  return labels[mode];
 }
 
 export function manualActionDisplay(value: string): string {
@@ -597,25 +581,12 @@ function modeButton(
   label: string,
   shortcut: string,
 ): string {
-  return `<button type="button" data-manual-mode="${mode}" aria-pressed="${mode === 'select'}" title="${escapeHtml(manualModeHelp(mode))}"><span>${escapeHtml(label)}</span><kbd>${escapeHtml(shortcut)}</kbd></button>`;
+  return `<button type="button" data-manual-mode="${mode}" aria-pressed="${mode === 'select'}" title="${escapeHtml(manualModeTitleHelp(mode))}"><span>${escapeHtml(label)}</span><kbd>${escapeHtml(shortcut)}</kbd></button>`;
 }
 
 function commandButton(command: string, label: string): string {
   const help = MANUAL_COMMAND_HELP[command];
   return `<button type="button" data-manual-command="${escapeHtml(command)}"${help === undefined ? '' : ` title="${escapeHtml(help)}"`}><span data-manual-command-label>${escapeHtml(label)}</span>${help === undefined ? '' : `<small>${escapeHtml(help)}</small>`}</button>`;
-}
-
-function manualModeHelp(mode: ManualPointerMode): string {
-  const help: Readonly<Record<ManualPointerMode, string>> = {
-    select: '객체를 클릭하고 Shift로 선택을 추가·해제합니다.',
-    box: '범위를 드래그하고 Shift로 기존 선택에 추가합니다.',
-    paint: '객체 위를 문지르고 Shift로 기존 선택에 추가합니다.',
-    move: '선택 객체를 끌고 Shift로 이동 축을 고정합니다.',
-    resize: '선택 핸들을 끌고 Shift로 가로세로 비율을 고정합니다.',
-    rotate: '회전 핸들을 끌고 Shift로 15° 단위에 맞춥니다.',
-    pan: '빈 캔버스를 끌고 휠로 확대·축소합니다.',
-  };
-  return help[mode];
 }
 
 function escapeHtml(value: string): string {
