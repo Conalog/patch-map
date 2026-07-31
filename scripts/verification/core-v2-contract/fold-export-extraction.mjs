@@ -1,4 +1,4 @@
-import { cloneOptional as clone } from './value-atoms.mjs';
+import { cloneOptional as clone, deepFreeze } from './value-atoms.mjs';
 
 export const EXPORT_EXTRACTION_FOLD_REVISION =
   'core-v2-export-extraction-fold/1';
@@ -625,12 +625,6 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
-}
 
 function assert(condition, message) {
   if (!condition) throw new Error(`Invalid Core v2 export/extraction fold: ${message}`);

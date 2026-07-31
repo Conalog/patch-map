@@ -1,4 +1,4 @@
-import { clone } from '../value-atoms.mjs';
+import { clone, deepFreeze } from '../value-atoms.mjs';
 
 export const DATA_FOUNDATION_ACTION_TYPES = Object.freeze([
   'loadShorthandMatrix',
@@ -846,12 +846,6 @@ function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
-}
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

@@ -1,4 +1,4 @@
-import { clone } from '../value-atoms.mjs';
+import { clone, deepFreeze } from '../value-atoms.mjs';
 
 export const VIEWPORT_HANDLER_REVISION = 'core-v2-viewport-handlers/1';
 
@@ -1864,12 +1864,6 @@ function isRecord(value) {
   return prototype === Object.prototype || prototype === null;
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
-}
 
 function assert(condition, message) {
   if (!condition) throw new Error(`Core v2 viewport handler invalid: ${message}`);

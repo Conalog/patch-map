@@ -1,3 +1,5 @@
+import { deepFreeze } from './value-atoms.mjs';
+
 export const ASSET_INGESTION_FOLD_REVISION =
   'patch-map-asset-ingestion-fold/1';
 
@@ -836,11 +838,4 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(`Invalid Core v2 asset-ingestion fold: ${message}`);
   }
-}
-
-function deepFreeze(value, seen = new WeakSet()) {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
 }

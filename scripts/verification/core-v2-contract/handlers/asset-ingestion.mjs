@@ -1,3 +1,5 @@
+import { deepFreeze } from '../value-atoms.mjs';
+
 export const ASSET_INGESTION_HANDLER_REVISION =
   'patch-map-asset-ingestion-handlers/1';
 
@@ -688,12 +690,6 @@ function clone(value, seen = new WeakMap()) {
   return result;
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
-}
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

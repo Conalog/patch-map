@@ -1,4 +1,4 @@
-import { clone } from './value-atoms.mjs';
+import { clone, deepFreeze } from './value-atoms.mjs';
 
 export const EDITOR_WORKFLOW_FOLD_REVISION =
   'core-v2-editor-workflow-fold/1';
@@ -936,11 +936,4 @@ function isRecord(value) {
 
 function assert(condition, message) {
   if (!condition) throw new Error(`Invalid Core v2 editor workflow fold: ${message}`);
-}
-
-function deepFreeze(value, seen = new WeakSet()) {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
 }

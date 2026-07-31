@@ -1,3 +1,5 @@
+import { deepFreeze } from './value-atoms.mjs';
+
 export const SECURITY_OPERATIONS_FOLD_REVISION =
   'core-v2-security-operations-fold/1';
 
@@ -563,12 +565,6 @@ function validateJson(value, label, seen) {
   seen.delete(value);
 }
 
-function deepFreeze(value, seen = new WeakSet()) {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
-}
 
 function assert(condition, message) {
   if (!condition) throw new Error(`Invalid Core v2 security/operations fold: ${message}`);
