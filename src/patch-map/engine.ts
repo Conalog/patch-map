@@ -102,7 +102,6 @@ import {
   type PatchMapBarHeightBatchRequest,
   type PatchMapBulkPatchRequest,
   type PatchMapMutationJsonValue,
-  type PatchMapMutationOperation,
   type PatchMapTextBatchRequest,
   type PatchMapMutationTarget,
   type PatchMapMutationTransactionDiagnostic,
@@ -203,8 +202,6 @@ import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-au
 import {
   assertTransformerHandleKind,
   finiteTuple,
-  isPatchMapHistoryCompanionRecord,
-  isPatchMapInteractionMode,
   nonEmptyValue,
   normalizeBackground,
   normalizeEngineComponentVisualTarget,
@@ -219,6 +216,18 @@ import {
   validatePoint,
   validatePositiveFinite,
 } from './engine/input-contracts';
+import {
+  createPatchMapEngineHistoryCompanion,
+  createPatchMapEngineHistorySnapshot,
+  patchMapEngineHistoryTransactionSelection,
+  planPatchMapEngineHistoryCompanion,
+  resolvePatchMapEngineHistoryTransitionMode,
+  resolvePatchMapEngineHistoryTransitionSelection,
+  validPatchMapEngineHistorySelection,
+  type PatchMapEngineHistoryCompanion,
+  type PatchMapEngineHistorySnapshot,
+  type PatchMapEngineHistoryTransition,
+} from './engine/history-planning';
 import { resolvePatchMapTextPublicationStatus } from './engine/text-probe-publication-policy';
 import {
   EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS as EMPTY_RECONCILE_DIAGNOSTICS,
@@ -362,8 +371,6 @@ import {
   type PatchMapHistoryInspection,
   type PatchMapHistoryPreparedRecord,
   type PatchMapHistoryState,
-  type PatchMapHistoryTransition,
-  type PatchMapSemanticHistorySnapshotInput,
 } from './history';
 import {
   PATCH_MAP_QUERY_SELECTION_REVISION,
@@ -525,12 +532,6 @@ const FACILITIES = Object.freeze([
   'resize',
   'assets',
 ] as const);
-
-type PatchMapEngineHistoryCompanion = PatchMapEngineHistoryCompanionState;
-type PatchMapEngineHistoryTransition = PatchMapHistoryTransition<
-  readonly NormalizedPatchMapElement[],
-  PatchMapEngineHistoryCompanion
->;
 
 interface PreparedPatchMapEngineLoad {
   readonly materialized: MaterializedPatchMapDataset;
@@ -1807,7 +1808,7 @@ export class PatchMap {
     const modeBefore = this.hostInteractions.modeProbe().activeState;
     const requestedSelectionAfter = plan.selectionIds ??
       (!directSemanticProjection
-        ? transactionSelectionAfter(selectionBefore, plan.operations)
+        ? patchMapEngineHistoryTransactionSelection(selectionBefore, plan.operations)
         : selectionBefore);
     let companionAfter: PatchMapEngineHistoryCompanion;
     try {
@@ -1815,6 +1816,7 @@ export class PatchMap {
         plan.history,
         requestedSelectionAfter,
         plan.candidate,
+        modeBefore,
         incrementalRootIds !== undefined,
         structuralRootDelta !== null,
       );
@@ -1838,7 +1840,7 @@ export class PatchMap {
         preparedHistory = this.history.prepareOwnedChangedRecord({
           id: commandId,
           before: this.historySnapshot(),
-          after: historySnapshotForDataset(plan.candidate.dataset, companionAfter),
+          after: createPatchMapEngineHistorySnapshot(plan.candidate.dataset, companionAfter),
         });
       }
     } catch (error) {
@@ -2139,7 +2141,7 @@ export class PatchMap {
       preparedHistory = this.history.prepareOwnedChangedRecord({
         id: `patch:${this.publication.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
         before: this.historySnapshot(),
-        after: historySnapshotForDataset(
+        after: createPatchMapEngineHistorySnapshot(
           mutation.candidate.dataset,
           this.historyCompanionForSelection(selectionBefore),
         ),
@@ -2300,17 +2302,21 @@ export class PatchMap {
       : reconcileStructuralTextSemantics(
           this.textSemantics,
           structuralRootDelta,
-        );
+    );
     const selectionBefore = this.logicalSelectionIds;
-    const selectionAfter = structuralRootDelta === null
-      ? this.validLogicalSelection(selectionBefore, mutation.candidate)
-      : this.validOwnedStructuralSelection(selectionBefore, mutation.candidate);
+    const selectionAfter = validPatchMapEngineHistorySelection(
+      selectionBefore,
+      mutation.candidate,
+      false,
+      structuralRootDelta !== null,
+      this.sceneState,
+    );
     let preparedHistory: PatchMapHistoryPreparedRecord;
     try {
       preparedHistory = this.history.prepareOwnedChangedRecord({
         id: `destroy:${this.publication.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
         before: this.historySnapshot(),
-        after: historySnapshotForDataset(
+        after: createPatchMapEngineHistorySnapshot(
           mutation.candidate.dataset,
           this.historyCompanionForSelection(selectionAfter),
         ),
@@ -5030,6 +5036,7 @@ export class PatchMap {
       detached,
       previousSelection,
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+      previousMode,
     );
     surface.select(next.selectionIds);
     this.sceneState.replaceSelection(next.selectionIds);
@@ -5372,16 +5379,14 @@ export class PatchMap {
               incrementalRootIds,
             );
         const companion = transition.snapshot.companion;
-        const mode = companion?.mode ?? 'select';
-        if (!isPatchMapInteractionMode(mode)) {
-          throw new TypeError('history companion mode is unsupported');
-        }
-        const requestedSelection = companion?.selectionIds ?? Object.freeze([]);
-        const selection = incrementalRootIds === undefined
-          ? structuralRootDelta === null
-            ? this.validLogicalSelection(requestedSelection, materialized)
-            : this.validOwnedStructuralSelection(requestedSelection, materialized)
-          : this.validOwnedStableSelection(requestedSelection, materialized);
+        const mode = resolvePatchMapEngineHistoryTransitionMode(transition);
+        const selection = resolvePatchMapEngineHistoryTransitionSelection(
+          transition,
+          materialized,
+          incrementalRootIds !== undefined,
+          structuralRootDelta !== null,
+          this.sceneState,
+        );
         const scenePlan = this.sceneState.prepareMutation({
           materialized,
           componentSemantics,
@@ -5492,18 +5497,11 @@ export class PatchMap {
     return result;
   }
 
-  private historySnapshot(): PatchMapSemanticHistorySnapshotInput<
-    readonly NormalizedPatchMapElement[],
-    PatchMapEngineHistoryCompanion
-  > {
-    return Object.freeze({
-      dataset: this.materialized?.dataset ?? Object.freeze([]),
-      companion: Object.freeze({
-        selectionIds: Object.freeze([...this.logicalSelectionIds]),
-        mode: this.hostInteractions.modeProbe().activeState,
-        hostCompanion: this.historyHostCompanion,
-      }),
-    });
+  private historySnapshot(): PatchMapEngineHistorySnapshot {
+    return createPatchMapEngineHistorySnapshot(
+      this.materialized?.dataset ?? Object.freeze([]),
+      this.historyCompanionForSelection(this.logicalSelectionIds),
+    );
   }
 
   private rememberCommandTargetState(state: PatchMapCommandTargetState): void {
@@ -5516,50 +5514,31 @@ export class PatchMap {
   private historyCompanionForSelection(
     selectionIds: readonly string[],
   ): PatchMapEngineHistoryCompanion {
-    return Object.freeze({
-      selectionIds: Object.freeze([...selectionIds]),
-      mode: this.hostInteractions.modeProbe().activeState,
-      hostCompanion: this.historyHostCompanion,
-    });
+    return createPatchMapEngineHistoryCompanion(
+      selectionIds,
+      this.hostInteractions.modeProbe().activeState,
+      this.historyHostCompanion,
+    );
   }
 
   private nextHistoryCompanion(
     value: PatchMapMutationJsonValue | undefined,
     fallbackSelectionIds: readonly string[],
     materialized: MaterializedPatchMapDataset,
+    fallbackMode: PatchMapEngineHistoryCompanion['mode'],
     stableIdentity = false,
     structuralIdentity = false,
   ): PatchMapEngineHistoryCompanion {
-    const record = isPatchMapHistoryCompanionRecord(value) ? value : null;
-    const selectedValue = record?.selectedIds;
-    if (
-      selectedValue !== undefined &&
-      (
-        !Array.isArray(selectedValue) ||
-        selectedValue.some((entry) => typeof entry !== 'string')
-      )
-    ) {
-      throw new TypeError('history companion selectedIds must be an array of strings');
-    }
-    const modeValue = record?.mode;
-    if (modeValue !== undefined && !isPatchMapInteractionMode(modeValue)) {
-      throw new TypeError('history companion mode is unsupported');
-    }
-    const requestedIds = selectedValue === undefined
-      ? fallbackSelectionIds
-      : selectedValue as readonly string[];
-    const selectedIds = stableIdentity
-      ? this.validOwnedStableSelection(requestedIds, materialized)
-      : structuralIdentity
-        ? this.validOwnedStructuralSelection(requestedIds, materialized)
-        : this.validLogicalSelection(requestedIds, materialized);
-    return Object.freeze({
-      selectionIds: selectedIds,
-      mode: modeValue === undefined
-        ? this.hostInteractions.modeProbe().activeState
-        : modeValue,
-      hostCompanion: value === undefined ? this.historyHostCompanion : value,
-    });
+    return planPatchMapEngineHistoryCompanion(
+      value,
+      fallbackSelectionIds,
+      materialized,
+      stableIdentity,
+      structuralIdentity,
+      fallbackMode,
+      this.historyHostCompanion,
+      this.sceneState,
+    );
   }
 
   private clearHistoryAuthority(
@@ -5575,27 +5554,6 @@ export class PatchMap {
     });
     if (changed || emitEvenIfUnchanged) this.emit('historyCleared', result);
     return result;
-  }
-
-  private validLogicalSelection(
-    ids: readonly string[],
-    materialized: MaterializedPatchMapDataset | null,
-  ): readonly string[] {
-    return this.sceneState.validLogicalSelection(ids, materialized);
-  }
-
-  private validOwnedStructuralSelection(
-    ids: readonly string[],
-    materialized: MaterializedPatchMapDataset,
-  ): readonly string[] {
-    return this.sceneState.validOwnedStructuralSelection(ids, materialized);
-  }
-
-  private validOwnedStableSelection(
-    ids: readonly string[],
-    materialized: MaterializedPatchMapDataset,
-  ): readonly string[] {
-    return this.sceneState.validOwnedStableSelection(ids, materialized);
   }
 
   /**
@@ -6378,32 +6336,6 @@ const EMPTY_COMPONENT_VISUAL_TARGETS = Object.freeze(
   [] as PatchMapComponentVisualTarget[],
 );
 const EMPTY_STRING_IDS = Object.freeze([] as string[]);
-
-function historySnapshotForDataset(
-  dataset: readonly NormalizedPatchMapElement[],
-  companion: PatchMapEngineHistoryCompanion,
-): PatchMapSemanticHistorySnapshotInput<
-  readonly NormalizedPatchMapElement[],
-  PatchMapEngineHistoryCompanion
-> {
-  return Object.freeze({
-    dataset,
-    companion,
-  });
-}
-
-function transactionSelectionAfter(
-  selectionIds: readonly string[],
-  operations: readonly PatchMapMutationOperation[],
-): readonly string[] {
-  const removed = new Set(
-    operations.flatMap((operation) =>
-      operation.op === 'remove' && operation.target.kind === 'element'
-        ? [operation.target.id]
-        : []),
-  );
-  return Object.freeze(selectionIds.filter((id) => !removed.has(id)));
-}
 
 function semanticTargetIdentity(target: PatchMapSemanticTarget): string {
   return target.kind === 'element'
