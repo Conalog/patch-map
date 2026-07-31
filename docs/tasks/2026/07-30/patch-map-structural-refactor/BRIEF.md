@@ -22,10 +22,8 @@
   remain in the same file-by-file review ledger.
 - `engine.ts` is 6,443 LOC, `core.ts` is 3,021 LOC, `parser.ts` is 1,942 LOC,
   `semantic/transaction.ts` is 1,965 LOC, and `semantic/dataset.ts` is 1,170
-  LOC after the current authority extractions. `leaf-layer.ts` is 1,685
-  LOC and `pixi-renderer.ts` is 2,474 LOC. Lab contract `main.ts` is 1,251
-  LOC, the manual workbench is 1,923 LOC, and its executable bridge is 799
-  LOC after presentation, input, action, profile, and result boundaries.
+  LOC. The semantic text-layout and incremental-parser facades are now 310
+  and 614 LOC with cohesive internal owners no larger than 679 LOC.
 - Renderer ownership is sound: one manual Application loop, aggregate layers,
   one root interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
@@ -57,17 +55,19 @@
 - Large update-handler and text-fold tests now expose case-domain suites and
   expected-blind fixture/runner owners; every module is under 1,000 LOC and
   comparison remains isolated.
+- Semantic text contracts, segmentation/wrapping, bidi, font diagnostics,
+  signatures, incremental fragments, projection patching, and cache indexes
+  now have downward owners with public facades and exact allocation/order
+  behavior preserved.
 - The checkpoint passes 188 unit files / 1,612 tests, lint/typecheck, and
-  independent P0–P2 review. Unchanged product/Lab code retains
-  the preceding build, canonical 173, and 173-route headless
-  checkpoint; package, GPU ownership, destroy, and hot paths retain their prior
-  packed-consumer, memory, and performance checkpoints.
+  independent P0–P2 review. Unchanged renderer/Lab/package/lifecycle/hot paths
+  retain their preceding risk-specific checkpoints.
 
 # Next Step
 
-- Split semantic text layout into contract, segmentation/wrapping, bidi,
-  font/diagnostic, and signature owners while preserving exact ordering,
-  references, signatures, and allocation behavior.
+- Split authoring and editor-workflow normalization, planning, and state
+  authorities while preserving action order, diagnostics, immutable plans,
+  atomic session publication, and current allocation behavior.
 
 # Working Boundary
 
