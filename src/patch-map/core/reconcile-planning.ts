@@ -1,18 +1,29 @@
 import type {
+  ParsePatchMapOptions,
   ParsePatchMapResult,
   PatchMapProjectionIndex,
 } from '../contracts';
+import {
+  isOwnedPatchMapDataset,
+  ownedPatchMapExactPatchIndices,
+} from '../semantic/dataset';
+import type { PatchMapDenseReconcilePlan } from '../semantic/reconcile';
+import type { PatchMapScene } from '../scene';
 import type { PatchMapDirectTextParseTargetIndex } from '../parser';
 import type {
   PatchMapDirectBarHeightUpdate,
   PatchMapDirectElementAngleUpdate,
   PatchMapDirectTextUpdate,
+  PatchMapReconcileFacts,
   PatchMapReconcileOptions,
+  PatchMapReconcileResult,
 } from './contracts';
 import type {
   PatchMapIndexedComponentTarget,
   PatchMapIndexedTextTarget,
+  PatchMapPublishedSceneState,
 } from './published-scene-state';
+import { isPlainRecord } from './projection-records';
 import {
   patchMapComponentProbeTargetKey,
   patchMapTextProbeTargetKey,
@@ -144,4 +155,174 @@ export function structuralTargetMappingsReusable(
     }
   }
   return true;
+}
+
+export function matchesOwnedIncrementalInput(
+  input: unknown,
+  dirtyRootIds: readonly string[],
+  options: ParsePatchMapOptions,
+  state: PatchMapPublishedSceneState,
+): boolean {
+  const optionsKey = incrementalParseOptionsKey(options);
+  if (
+    !isOwnedPatchMapDataset(input) ||
+    state.ownedInputDataset === null ||
+    optionsKey === null ||
+    optionsKey !== state.ownedParseOptionsKey ||
+    input.length !== state.ownedInputDataset.length
+  ) {
+    return false;
+  }
+  const dirty = new Set(dirtyRootIds);
+  const exactDirtyIndices = ownedPatchMapExactPatchIndices(
+    input,
+    state.ownedInputDataset,
+  );
+  if (exactDirtyIndices !== null) {
+    for (const index of exactDirtyIndices) {
+      const rootId = input[index]?.id;
+      if (typeof rootId !== 'string' || !dirty.has(rootId)) return false;
+    }
+    return true;
+  }
+  for (let index = 0; index < input.length; index += 1) {
+    const root = input[index];
+    const rootId = root?.id;
+    if (typeof rootId !== 'string') return false;
+    if (!dirty.has(rootId) && root !== state.ownedInputDataset[index]) return false;
+  }
+  return true;
+}
+
+export function matchesOwnedStructuralInput(
+  input: unknown,
+  options: ParsePatchMapOptions,
+  state: PatchMapPublishedSceneState,
+): input is readonly unknown[] {
+  const optionsKey = incrementalParseOptionsKey(options);
+  return (
+    isOwnedPatchMapDataset(input) &&
+    state.ownedInputDataset !== null &&
+    optionsKey !== null &&
+    optionsKey === state.ownedParseOptionsKey
+  );
+}
+
+export function cachedTransientSelectedParse(
+  input: unknown,
+  base: ParsePatchMapResult,
+  dirtyRootIds: readonly string[],
+  options: ParsePatchMapOptions,
+  state: PatchMapPublishedSceneState,
+): ParsePatchMapResult | null {
+  const cached = state.transientIncrementalParse;
+  if (
+    cached === null ||
+    cached.base !== base ||
+    !Array.isArray(input) ||
+    incrementalParseOptionsKey(options) !== cached.optionsKey ||
+    !sameStringArray(dirtyRootIds, cached.dirtyRootIds) ||
+    cached.dirtyIndices.length !== cached.dirtyRoots.length
+  ) {
+    return null;
+  }
+  for (let index = 0; index < cached.dirtyIndices.length; index += 1) {
+    const rootIndex = cached.dirtyIndices[index];
+    if (
+      rootIndex === undefined ||
+      input[rootIndex] !== cached.dirtyRoots[index]
+    ) {
+      return null;
+    }
+  }
+  return cached.selected;
+}
+
+export function retainedOwnedInputDataset(
+  input: unknown,
+  options: ParsePatchMapOptions,
+): Readonly<{
+  dataset: readonly unknown[] | null;
+  optionsKey: string | null;
+}> {
+  const optionsKey = incrementalParseOptionsKey(options);
+  const dataset = isOwnedPatchMapDataset(input) && optionsKey !== null
+    ? input
+    : null;
+  return Object.freeze({
+    dataset,
+    optionsKey: dataset === null ? null : optionsKey,
+  });
+}
+
+/**
+ * Conservative key for parser configuration reused by the incremental path.
+ * Unsupported runtime shapes deliberately disable reuse; the canonical parser
+ * remains authoritative for them.
+ */
+export function incrementalParseOptionsKey(options: ParsePatchMapOptions): string | null {
+  const colors = options.colors;
+  if (colors === undefined) return 'colors:default';
+  if (!isPlainRecord(colors)) return null;
+  const entries: string[] = [];
+  for (const key of Object.keys(colors).sort()) {
+    const value = colors[key];
+    if (typeof value === 'string') {
+      entries.push(JSON.stringify([key, 'string', value]));
+    } else if (typeof value === 'number' && Number.isFinite(value)) {
+      entries.push(JSON.stringify([key, 'number', Object.is(value, -0) ? 0 : value]));
+    } else if (value === undefined) {
+      entries.push(JSON.stringify([key, 'undefined']));
+    } else {
+      return null;
+    }
+  }
+  return `colors:${entries.join('|')}`;
+}
+
+export interface PatchMapReconcileFactStamp {
+  readonly revision: number;
+  readonly entityCount: number;
+  readonly selectionCount: number;
+}
+
+export function reconcileFactStamp(scene: PatchMapScene): PatchMapReconcileFactStamp {
+  return Object.freeze({
+    revision: scene.revision,
+    entityCount: scene.entityCount,
+    selectionCount: scene.selection().refs.length,
+  });
+}
+
+export function reconcileFacts(
+  plan: PatchMapDenseReconcilePlan,
+  semanticChanged: boolean,
+  before: PatchMapReconcileFactStamp,
+  after: PatchMapReconcileFactStamp,
+): PatchMapReconcileFacts {
+  return Object.freeze({
+    semanticChanged,
+    denseChanged: plan.batch.operations.length > 0,
+    structuralChanged: plan.summary.added > 0 || plan.summary.removed > 0,
+    structuralReplacement: plan.summary.replaced > 0,
+    fullRebuild: false,
+    revisionBefore: before.revision,
+    revisionAfter: after.revision,
+    entityCountBefore: before.entityCount,
+    entityCountAfter: after.entityCount,
+    selectionCountBefore: before.selectionCount,
+    selectionCountAfter: after.selectionCount,
+  });
+}
+
+export function freezeReconcileResult<T extends PatchMapReconcileResult>(result: T): T {
+  return Object.freeze({
+    ...result,
+    timings: Object.freeze(result.timings),
+    facts: Object.freeze(result.facts),
+  }) as T;
+}
+
+export function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
