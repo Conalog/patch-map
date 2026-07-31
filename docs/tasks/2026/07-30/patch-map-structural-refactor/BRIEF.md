@@ -23,7 +23,7 @@
 - `engine.ts` is 6,443 LOC, `core.ts` is 3,021 LOC, `parser.ts` is 1,942 LOC,
   `semantic/transaction.ts` is 1,965 LOC, and `semantic/dataset.ts` is 1,170
   LOC. The semantic text-layout and incremental-parser facades are now 310
-  and 614 LOC with cohesive internal owners no larger than 679 LOC.
+  and 614 LOC; authoring and editor-workflow facades are 96 and 900 LOC.
 - Renderer ownership is sound: one manual Application loop, aggregate layers,
   one root interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
@@ -55,19 +55,18 @@
 - Large update-handler and text-fold tests now expose case-domain suites and
   expected-blind fixture/runner owners; every module is under 1,000 LOC and
   comparison remains isolated.
-- Semantic text contracts, segmentation/wrapping, bidi, font diagnostics,
-  signatures, incremental fragments, projection patching, and cache indexes
-  now have downward owners with public facades and exact allocation/order
-  behavior preserved.
+- Text layout, incremental parsing, authoring planning, and editor workflow
+  normalization now have downward owners; public facades, error channels,
+  exact order, immutable plans, and the workflow single writer remain intact.
 - The checkpoint passes 188 unit files / 1,612 tests, lint/typecheck, and
   independent P0–P2 review. Unchanged renderer/Lab/package/lifecycle/hot paths
   retain their preceding risk-specific checkpoints.
 
 # Next Step
 
-- Split authoring and editor-workflow normalization, planning, and state
-  authorities while preserving action order, diagnostics, immutable plans,
-  atomic session publication, and current allocation behavior.
+- Extract the next cohesive Core image/reconcile and Engine history/interaction
+  orchestration boundaries without moving renderer, scheduler, transaction,
+  lifecycle, or public API ownership.
 
 # Working Boundary
 
