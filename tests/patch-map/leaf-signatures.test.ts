@@ -64,7 +64,7 @@ describe('PatchMap leaf render signatures', () => {
       entityId: 'label',
       route: 'fallback-text',
       rendererKind: 'fallback-text',
-      routeReason: 'advanced:stroke',
+      routeReason: 'atlas-coverage-unproven',
       objectCount: 1,
       semanticSignatures: semantic,
       attachedSignatures: attached,
