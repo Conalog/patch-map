@@ -15,9 +15,13 @@
 
 # Current Facts
 
-- `src/patch-map` contains 76 files and 65,664 LOC. `engine.ts` is 7,871 LOC;
-  public Engine contracts, Pixi surface adaptation, geometry, semantic
-  indexing, and Mesh planning now have explicit owners below the facade.
+- The allowed refactor corpus contains 76 product files, 41 Lab files, 152
+  product tests, 23 performance files, 104 verification files, and five
+  examples, excluding frozen evidence and prohibited generated/dependency
+  content.
+- `engine.ts` is 7,871 LOC and `core.ts` is 4,392 LOC. Their classes still
+  combine lifecycle, mutation, presentation, viewport, interaction, assets,
+  publication, and diagnostics, so the prior completed assessment was wrong.
 - Renderer ownership is sound: one manual Application loop, aggregate layers,
   one root interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
@@ -26,27 +30,21 @@
 
 # Current State
 
-- T1-T4 established shared utility, geometry, semantic-index, and Pixi surface
-  boundaries while leaving atomic mutation and runtime ownership in the
-  `PatchMap` facade.
-- T5-T7 separated Mesh planning and retained rounded-bar geometry, then removed
-  reconcile allocations; Pixi resource/upload/destroy ownership remains in
-  `mesh-layer.ts` and the central scheduler remains singular.
-- T8-T9 separated the pure Lab view, shared exact runtime values, Core/Engine
-  public contracts, and the actual-only test harness without weakening the
-  expected/comparator firewall or root API.
-- Final gates pass 151 files / 1,471 tests, package and Lab builds, canonical
-  38 decisions / 173 cases, packed ESM/CJS/types plus 38 journeys, headless
-  173 routes / 192 checks, actual-production rendering, and 2+7 lifecycle
-  memory with complete resource release.
-- The final 5,000-bar 2+7 proxy remains honestly FAIL: 1x repeated-action
-  median/p95 is 50.9/109.1ms, while one 4x sample reached 2,924.9ms over the
-  900ms limit. Windows-native and qualified WebGPU measurements remain pending.
+- The task is reopened for a file-by-file refactor. Every allowed file will
+  receive an explicit keep, move, split, consolidate, or delete judgment;
+  mechanical edits to already cohesive files are not required.
+- Initial clone analysis over TypeScript/JavaScript finds 379 clone groups and
+  4.4% duplication at the 15-line/100-token threshold, concentrated in
+  contract folds/handlers/tests plus several product helper families.
+- The last verified product baseline remains 151 files / 1,471 tests,
+  canonical 38/173, packed consumers, headless 173 routes, actual-production,
+  10,000 records, and 2+7 memory cleanup. It is a baseline, not evidence for
+  subsequent changed paths.
 
 # Next Step
 
-- Open and review the cleanup PR. Version bumping and native target
-  qualification remain post-merge work.
+- Complete the full file inventory and extract the first cohesive Core and
+  Engine state authorities while retaining atomic facade composition.
 
 # Working Boundary
 

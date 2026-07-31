@@ -28,10 +28,13 @@
 - Actual-production alpha, image pivot/underlay, remote allowlist, async
   invalidation, content orientation, and aggregate lane behavior remain
   verified without per-entity display objects or listeners.
-- Final gates pass 151 files / 1,471 tests, full lint/typecheck, package and Lab
-  builds, canonical 38/173 contract, packed ESM/CJS/types plus 38 journeys,
-  headless 173 routes / 192 checks, actual-production load/pan/destroy, and
-  2+7 lifecycle memory with DOM/scheduler/renderer release.
+- The structural cleanup is reopened: `engine.ts` and `core.ts` still combine
+  too many stateful responsibilities, and all allowed source, Lab, test,
+  performance, verification, example, and root configuration files are being
+  reviewed before the PR.
+- The previous 151 files / 1,471 tests, canonical 38/173, package, headless
+  Lab, actual-production, and 2+7 memory results remain the unchanged-path
+  baseline only.
 - Public `core-v2` Lab aliases and canvas probe identity are removed; retained
   historical identifiers exist only in immutable contract/evidence tooling.
 - The final 5,000-bar 2+7 Chromium proxy remains FAIL because one 4x
@@ -41,4 +44,5 @@
 
 # Next Step
 
-- Open and review the cleanup PR. Increase the version only after merge.
+- Finish the reopened structural refactor and its release checkpoint before
+  opening the cleanup PR.
