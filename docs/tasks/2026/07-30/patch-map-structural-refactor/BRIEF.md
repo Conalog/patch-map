@@ -54,16 +54,20 @@
 - Lab input/actions, component-asset inspector, run profile/results, and
   expected-blind recursive module firewall have focused owners while session,
   lifecycle, and DOM composition writers remain singular.
-- The current checkpoint passes 182 unit files / 1,612 tests, full lint and
-  typecheck, product/Lab builds, canonical 173 contract, all 173 headless routes
-  / 192 checks with zero browser errors, and independent P0–P2 review.
-  Unchanged package, GPU ownership, destroy, and hot paths retain their prior
+- Large update-handler and text-fold tests now expose case-domain suites and
+  expected-blind fixture/runner owners; every module is under 1,000 LOC and
+  comparison remains isolated.
+- The checkpoint passes 188 unit files / 1,612 tests, lint/typecheck, and
+  independent P0–P2 review. Unchanged product/Lab code retains
+  the preceding build, canonical 173, and 173-route headless
+  checkpoint; package, GPU ownership, destroy, and hot paths retain their prior
   packed-consumer, memory, and performance checkpoints.
 
 # Next Step
 
-- Split product tests above 1,000 LOC by stable contract domains and share only
-  narrow fixture/build helpers, preserving visible case IDs and assertions.
+- Split semantic text layout into contract, segmentation/wrapping, bidi,
+  font/diagnostic, and signature owners while preserving exact ordering,
+  references, signatures, and allocation behavior.
 
 # Working Boundary
 
