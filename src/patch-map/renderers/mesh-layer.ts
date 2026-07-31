@@ -19,26 +19,33 @@ import {
   type PatchMapEntityPaintProbe,
   type PatchMapProjectionRenderContext,
   type PatchMapRenderLaneProbe,
-  type PatchMapResolvedRenderQuadScratch,
 } from './types';
 import {
   appendPatchMapRoundedRectPath,
-  clamp01,
   packedRgbaToMeshStyle,
-  writeExactQuadPositionValues,
 } from './mesh/geometry';
 import {
   buildAggregateBarLaneGeometry,
   buildAggregateChunkLaneGeometry,
-  isDrawable,
-  resolveBarProgress,
-  writeRoundedBarPositionValues,
   type AggregateGeometryGroup,
-  type AggregateChunkLaneGeometry,
-  type BarPrimitiveBinding,
   type BarSlotBinding,
   type StyledBackgroundPrimitive,
 } from './mesh/chunk-geometry';
+import {
+  barOnlyDirtyChunkSlots,
+  barSlotBindingMatches,
+  dirtyBarSlotsByChunk,
+  dirtyChunkIndices,
+  updateBoundBarSlotPositions,
+} from './mesh/update-planning';
+import {
+  aggregateLaneGeometryBounds,
+  boundsIntersectsViewport,
+  chunkIntersectsViewport,
+  includePositionBounds,
+  type AggregateViewportBounds,
+  type AggregateViewportCull,
+} from './mesh/viewport-culling';
 
 export {
   appendPatchMapRoundedRectPath,
@@ -58,6 +65,8 @@ export {
   type AggregateChunkGeometry,
   type AggregateGeometryGroup,
 } from './mesh/chunk-geometry';
+
+export { dirtyChunkIndices } from './mesh/update-planning';
 
 export const DEFAULT_AGGREGATE_MESH_CHUNK_SIZE = 512;
 
@@ -141,20 +150,6 @@ interface ChunkRecord {
   geometryVisible: boolean | null;
 }
 
-interface AggregateViewportBounds {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-}
-
-interface AggregateViewportCull {
-  readonly matrix: Matrix;
-  readonly width: number;
-  readonly height: number;
-  readonly padding: number;
-}
-
 interface UploadDelta {
   bytes: number;
   changed: boolean;
@@ -189,289 +184,6 @@ const EMPTY_DEBUG: AggregateMeshLayerDebug = Object.freeze({
   fullRebuildEpoch: -1,
 });
 
-export function dirtyChunkIndices(
-  capacity: number,
-  chunkSize: number,
-  changedRanges: readonly SlotRange[],
-): readonly number[] {
-  if (!Number.isSafeInteger(chunkSize) || chunkSize <= 0) {
-    throw new RangeError('chunkSize must be a positive safe integer');
-  }
-  const resolvedCapacity = Math.max(0, Math.floor(capacity));
-  const chunks = new Set<number>();
-  for (const range of changedRanges) {
-    const start = Math.max(0, Math.min(resolvedCapacity, Math.floor(range.start)));
-    const end = Math.max(start, Math.min(resolvedCapacity, Math.ceil(range.end)));
-    if (start === end) continue;
-    const first = Math.floor(start / chunkSize);
-    const last = Math.floor((end - 1) / chunkSize);
-    for (let chunk = first; chunk <= last; chunk += 1) chunks.add(chunk);
-  }
-  return [...chunks].sort((left, right) => left - right);
-}
-
-function dirtyBarSlotsByChunk(
-  store: RenderStoreView,
-  chunkSize: number,
-  changedRanges: readonly SlotRange[],
-): ReadonlyMap<number, readonly number[]> {
-  const slotsByChunk = new Map<number, Set<number>>();
-  for (const range of changedRanges) {
-    const start = Math.max(0, Math.min(store.capacity, Math.floor(range.start)));
-    const end = Math.max(start, Math.min(store.capacity, Math.ceil(range.end)));
-    for (let slot = start; slot < end; slot += 1) {
-      if (
-        (store.alive[slot] as number) === 0 ||
-        (store.kind[slot] as number) !== RenderKind.Bar
-      ) {
-        continue;
-      }
-      const chunkIndex = Math.floor(slot / chunkSize);
-      const slots = slotsByChunk.get(chunkIndex) ?? new Set<number>();
-      slots.add(slot);
-      slotsByChunk.set(chunkIndex, slots);
-    }
-  }
-  return new Map(
-    [...slotsByChunk].map(([chunkIndex, slots]) => [
-      chunkIndex,
-      Object.freeze([...slots]),
-    ] as const),
-  );
-}
-
-function barOnlyDirtyChunkSlots(
-  store: RenderStoreView,
-  chunkSize: number,
-  changedRanges: readonly SlotRange[],
-  previousAlive: Uint8Array,
-  previousKind: Uint8Array,
-): ReadonlyMap<number, readonly number[]> {
-  const classifications = new Map<
-    number,
-    { readonly slots: Set<number>; barOnly: boolean }
-  >();
-
-  for (const range of changedRanges) {
-    const start = Math.max(0, Math.min(store.capacity, Math.floor(range.start)));
-    const end = Math.max(start, Math.min(store.capacity, Math.ceil(range.end)));
-    for (let slot = start; slot < end; slot += 1) {
-      const chunkIndex = Math.floor(slot / chunkSize);
-      let classification = classifications.get(chunkIndex);
-      if (classification === undefined) {
-        classification = { slots: new Set(), barOnly: true };
-        classifications.set(chunkIndex, classification);
-      }
-      if (
-        (store.alive[slot] as number) !== 0 &&
-        (store.kind[slot] as number) === RenderKind.Bar &&
-        (previousAlive[slot] ?? 0) !== 0 &&
-        (previousKind[slot] ?? -1) === RenderKind.Bar
-      ) {
-        classification.slots.add(slot);
-      } else {
-        // A dead slot can represent a removal, and a newly live Bar can reuse
-        // a slot that previously held another kind. Both must take the full
-        // structural path so obsolete lane meshes are pruned.
-        classification.barOnly = false;
-      }
-    }
-  }
-
-  const result = new Map<number, readonly number[]>();
-  for (const [chunkIndex, classification] of classifications) {
-    if (classification.barOnly && classification.slots.size > 0) {
-      result.set(chunkIndex, [...classification.slots]);
-    }
-  }
-  return result;
-}
-
-function hasVisiblePackedAlpha(packed: number, opacity: number): boolean {
-  return ((packed >>> 0) & 0xff) !== 0 && clamp01(opacity) > 0;
-}
-
-function isFiniteBarQuad(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  rotation: number,
-): boolean {
-  return (
-    Number.isFinite(x) &&
-    Number.isFinite(y) &&
-    Number.isFinite(width) &&
-    Number.isFinite(height) &&
-    width > 0 &&
-    height > 0 &&
-    Number.isFinite(rotation) &&
-    Number.isFinite(x + width / 2) &&
-    Number.isFinite(y + height / 2)
-  );
-}
-
-function primitiveBindingMatches(
-  binding: BarPrimitiveBinding | null,
-  expected: boolean,
-  expectedGeometryKind: BarPrimitiveBinding['geometryKind'],
-  packed: number,
-  opacity: number,
-  zIndex: number,
-  records: ReadonlyMap<string, MeshRecord>,
-): boolean {
-  if (!expected) return binding === null;
-  if (
-    binding === null ||
-    binding.geometryKind !== expectedGeometryKind ||
-    binding.packed !== (packed >>> 0) ||
-    binding.opacity !== opacity ||
-    binding.zIndex !== zIndex
-  ) {
-    return false;
-  }
-  const record = records.get(binding.key);
-  const positionValuesPerPrimitive =
-    binding.geometryKind === 'rounded' ? 42 : 8;
-  return (
-    record !== undefined &&
-    binding.primitiveIndex * positionValuesPerPrimitive +
-      positionValuesPerPrimitive <= record.geometry.positions.length
-  );
-}
-
-function barSlotBindingMatches(
-  store: RenderStoreView,
-  slot: number,
-  binding: BarSlotBinding | undefined,
-  records: ReadonlyMap<string, MeshRecord>,
-): boolean {
-  const radius = Math.max(0, store.radius[slot] as number);
-  const geometryKind: BarPrimitiveBinding['geometryKind'] =
-    radius > 0 ? 'rounded' : 'quad';
-  if (
-    binding === undefined ||
-    binding.entityId !== (store.ids[slot] ?? `@slot:${slot}`) ||
-    binding.radius !== radius ||
-    (store.alive[slot] as number) === 0 ||
-    (store.kind[slot] as number) !== RenderKind.Bar
-  ) {
-    return false;
-  }
-  const opacity = store.opacity[slot] as number;
-  const zIndex = store.zIndex[slot] as number;
-  const x = store.x[slot] as number;
-  const y = store.y[slot] as number;
-  const width = store.width[slot] as number;
-  const height = store.height[slot] as number;
-  const rotation = store.rotation[slot] as number;
-  const drawable = isDrawable(store, slot) &&
-    isFiniteBarQuad(x, y, width, height, rotation);
-  const trackPacked = store.trackFill[slot] as number;
-  const trackExpected = drawable && hasVisiblePackedAlpha(trackPacked, opacity);
-
-  const progress = resolveBarProgress(store, slot);
-  const fillWidth = width * progress;
-  const fillPacked = store.fill[slot] as number;
-  const fillExpected =
-    drawable &&
-    Number.isFinite(fillWidth) &&
-    fillWidth > 0 &&
-    hasVisiblePackedAlpha(fillPacked, opacity);
-
-  return (
-    primitiveBindingMatches(
-      binding.track,
-      trackExpected,
-      geometryKind,
-      trackPacked,
-      opacity,
-      zIndex,
-      records,
-    ) &&
-    primitiveBindingMatches(
-      binding.fill,
-      fillExpected,
-      geometryKind,
-      fillPacked,
-      opacity,
-      zIndex,
-      records,
-    )
-  );
-}
-
-function updateBoundBarSlotPositions(
-  store: RenderStoreView,
-  slot: number,
-  binding: BarSlotBinding,
-  records: ReadonlyMap<string, MeshRecord>,
-  dirtyRecords: Set<MeshRecord>,
-  trackQuad: PatchMapResolvedRenderQuadScratch,
-  fillQuad: PatchMapResolvedRenderQuadScratch,
-  projectionContext?: PatchMapProjectionRenderContext,
-): void {
-  const x = store.x[slot] as number;
-  const y = store.y[slot] as number;
-  const width = store.width[slot] as number;
-  const height = store.height[slot] as number;
-  const rotation = store.rotation[slot] as number;
-  const progress = resolveBarProgress(store, slot);
-  writePatchMapSlotQuad(trackQuad, store, slot, projectionContext);
-  writePatchMapSlotQuad(fillQuad, store, slot, projectionContext, progress);
-  const transformChanged =
-    binding.x !== x ||
-    binding.y !== y ||
-    binding.width !== width ||
-    binding.height !== height ||
-    binding.rotation !== rotation ||
-    binding.projectionRevision !== (projectionContext?.revision ?? -1);
-  if (binding.track !== null && transformChanged) {
-    const record = records.get(binding.track.key) as MeshRecord;
-    const changed = binding.track.geometryKind === 'rounded'
-      ? writeRoundedBarPositionValues(
-          record.geometry.positions,
-          binding.track.primitiveIndex,
-          trackQuad,
-          binding.radius,
-        )
-      : writeExactQuadPositionValues(
-        record.geometry.positions,
-        binding.track.primitiveIndex,
-        trackQuad.vertices,
-      );
-    if (changed) dirtyRecords.add(record);
-  }
-  if (binding.fill !== null && (transformChanged || binding.progress !== progress)) {
-    const record = records.get(binding.fill.key) as MeshRecord;
-    const fillRadius = Math.min(
-      binding.radius,
-      width * progress / 2,
-      height / 2,
-    );
-    const changed = binding.fill.geometryKind === 'rounded'
-      ? writeRoundedBarPositionValues(
-          record.geometry.positions,
-          binding.fill.primitiveIndex,
-          fillQuad,
-          fillRadius,
-        )
-      : writeExactQuadPositionValues(
-        record.geometry.positions,
-        binding.fill.primitiveIndex,
-        fillQuad.vertices,
-      );
-    if (changed) dirtyRecords.add(record);
-  }
-  binding.x = x;
-  binding.y = y;
-  binding.width = width;
-  binding.height = height;
-  binding.rotation = rotation;
-  binding.progress = progress;
-  binding.projectionRevision = projectionContext?.revision ?? -1;
-}
-
 function destroyMeshRecord(record: MeshRecord): void {
   record.mesh.destroy();
   record.geometry.destroy(true);
@@ -497,82 +209,6 @@ function createChunkRecord(): ChunkRecord {
     geometryBounds: null,
     geometryVisible: null,
   };
-}
-
-function aggregateLaneGeometryBounds(
-  geometry: AggregateChunkLaneGeometry,
-): AggregateViewportBounds | null {
-  let bounds: AggregateViewportBounds | null = null;
-  for (const group of [
-    ...geometry.backgroundGroups,
-    ...geometry.rectGroups,
-    ...geometry.barGroups,
-  ]) {
-    bounds = includePositionBounds(bounds, group.positions);
-  }
-  for (const background of geometry.styledBackgrounds) {
-    bounds = includePositionBounds(bounds, background.quad.vertices);
-  }
-  for (const rect of geometry.styledRects) {
-    bounds = includePositionBounds(bounds, rect.quad.vertices);
-  }
-  for (const bar of geometry.styledBars) {
-    bounds = includePositionBounds(bounds, bar.quad.vertices);
-  }
-  return bounds;
-}
-
-function includePositionBounds(
-  bounds: AggregateViewportBounds | null,
-  positions: ArrayLike<number>,
-): AggregateViewportBounds | null {
-  let next = bounds;
-  for (let index = 0; index + 1 < positions.length; index += 2) {
-    const x = positions[index];
-    const y = positions[index + 1];
-    if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y)) {
-      continue;
-    }
-    next ??= { minX: x, minY: y, maxX: x, maxY: y };
-    next.minX = Math.min(next.minX, x);
-    next.minY = Math.min(next.minY, y);
-    next.maxX = Math.max(next.maxX, x);
-    next.maxY = Math.max(next.maxY, y);
-  }
-  return next;
-}
-
-function chunkIntersectsViewport(
-  chunk: ChunkRecord,
-  viewport: AggregateViewportCull,
-): boolean {
-  const bounds = chunk.geometryBounds;
-  if (bounds === null) return true;
-  const { matrix, width, height, padding } = viewport;
-  const corners = [
-    bounds.minX, bounds.minY,
-    bounds.maxX, bounds.minY,
-    bounds.maxX, bounds.maxY,
-    bounds.minX, bounds.maxY,
-  ];
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (let index = 0; index < corners.length; index += 2) {
-    const x = corners[index]!;
-    const y = corners[index + 1]!;
-    const screenX = matrix.a * x + matrix.c * y + matrix.tx;
-    const screenY = matrix.b * x + matrix.d * y + matrix.ty;
-    minX = Math.min(minX, screenX);
-    minY = Math.min(minY, screenY);
-    maxX = Math.max(maxX, screenX);
-    maxY = Math.max(maxY, screenY);
-  }
-  return maxX >= -padding &&
-    minX <= width + padding &&
-    maxY >= -padding &&
-    minY <= height + padding;
 }
 
 function setChunkGeometryVisible(
@@ -637,34 +273,6 @@ function setChunkGeometryVisible(
     }
   }
   chunk.geometryVisible = visible;
-}
-
-function boundsIntersectsViewport(
-  bounds: AggregateViewportBounds | null,
-  viewport: AggregateViewportCull,
-): boolean {
-  if (bounds === null) return true;
-  const { matrix, width, height, padding } = viewport;
-  const x0 = bounds.minX;
-  const y0 = bounds.minY;
-  const x1 = bounds.maxX;
-  const y1 = bounds.maxY;
-  const screenX0 = matrix.a * x0 + matrix.c * y0 + matrix.tx;
-  const screenY0 = matrix.b * x0 + matrix.d * y0 + matrix.ty;
-  const screenX1 = matrix.a * x1 + matrix.c * y0 + matrix.tx;
-  const screenY1 = matrix.b * x1 + matrix.d * y0 + matrix.ty;
-  const screenX2 = matrix.a * x1 + matrix.c * y1 + matrix.tx;
-  const screenY2 = matrix.b * x1 + matrix.d * y1 + matrix.ty;
-  const screenX3 = matrix.a * x0 + matrix.c * y1 + matrix.tx;
-  const screenY3 = matrix.b * x0 + matrix.d * y1 + matrix.ty;
-  const minX = Math.min(screenX0, screenX1, screenX2, screenX3);
-  const minY = Math.min(screenY0, screenY1, screenY2, screenY3);
-  const maxX = Math.max(screenX0, screenX1, screenX2, screenX3);
-  const maxY = Math.max(screenY0, screenY1, screenY2, screenY3);
-  return maxX >= -padding &&
-    minX <= width + padding &&
-    maxY >= -padding &&
-    minY <= height + padding;
 }
 
 function appendStyledBackground(
