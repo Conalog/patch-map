@@ -23,9 +23,9 @@
 - `engine.ts` is 6,443 LOC, `core.ts` is 3,021 LOC, `parser.ts` is 1,942 LOC,
   `semantic/transaction.ts` is 1,965 LOC, and `semantic/dataset.ts` is 1,170
   LOC after the current authority extractions. `leaf-layer.ts` is 1,685
-  LOC, `pixi-renderer.ts` is 2,474 LOC, and contract `main.ts` is 1,820 LOC.
-  The facades still combine enough stateful responsibilities to require
-  further ownership work.
+  LOC and `pixi-renderer.ts` is 2,474 LOC. Lab contract `main.ts` is 1,251
+  LOC, the manual workbench is 1,923 LOC, and its executable bridge is 799
+  LOC after presentation, input, action, profile, and result boundaries.
 - Renderer ownership is sound: one manual Application loop, aggregate layers,
   one root interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
@@ -51,17 +51,19 @@
 - Renderer text/DevTools decisions, renderer leases, leaf signatures, and Pixi
   dirty-range/relation planning have pure owners without changing shared GPU
   resource ownership.
-- The current checkpoint passes 181 unit files / 1,599 tests, full lint and
-  typecheck, product/Lab builds, canonical 173 contract, and independent P0–P2
-  review. Unchanged renderer, lifecycle, package, and hot paths intentionally
-  retain their preceding browser, memory, packed-consumer, and performance
-  checkpoints.
+- Lab input/actions, component-asset inspector, run profile/results, and
+  expected-blind recursive module firewall have focused owners while session,
+  lifecycle, and DOM composition writers remain singular.
+- The current checkpoint passes 182 unit files / 1,612 tests, full lint and
+  typecheck, product/Lab builds, canonical 173 contract, all 173 headless routes
+  / 192 checks with zero browser errors, and independent P0–P2 review.
+  Unchanged package, GPU ownership, destroy, and hot paths retain their prior
+  packed-consumer, memory, and performance checkpoints.
 
 # Next Step
 
-- Split the Lab's large manual-workbench, contract composition, executable
-  bridge, and stylesheet by cohesive controller/presentation ownership while
-  keeping all 173 routes manually operable and expected-blind.
+- Split product tests above 1,000 LOC by stable contract domains and share only
+  narrow fixture/build helpers, preserving visible case IDs and assertions.
 
 # Working Boundary
 
