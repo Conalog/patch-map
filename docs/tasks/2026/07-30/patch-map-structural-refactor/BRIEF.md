@@ -1,7 +1,6 @@
 # Goal
 
-- Refactor PatchMap into explicit API, engine, renderer, semantic, dense-store,
-  Lab, and verification ownership boundaries while preserving every approved
+- Refactor PatchMap into explicit product ownership boundaries while preserving every approved
   observable contract and improving or maintaining WebGL performance.
 
 # Scope
@@ -16,14 +15,12 @@
 # Current Facts
 
 - The initial allowed refactor inventory contained 84 product files, 48 Lab
-  files, 156 product tests, 23 performance files, 104 verification files, and
-  five examples: 420 files total, excluding frozen evidence and prohibited
-  generated/dependency content. New cohesive modules and their contract tests
-  remain in the same file-by-file review ledger.
-- `engine.ts` is 6,372 LOC, `core.ts` is 2,650 LOC, `parser.ts` is 1,942 LOC,
-  `semantic/transaction.ts` is 1,965 LOC, and `semantic/dataset.ts` is 1,170
-  LOC. The semantic text-layout and incremental-parser facades are now 310
-  and 614 LOC; authoring and editor-workflow facades are 96 and 900 LOC.
+  files, 156 tests, 23 performance files, 104 verification files, and five
+  examples: 420 files total. New cohesive modules remain in the same review
+  ledger; frozen evidence and generated/dependency content stay excluded.
+- `engine.ts` is 6,372 LOC and `core.ts` is 2,650 LOC. Parser, transaction,
+  text-layout, incremental-parser, authoring, and editor-workflow facades are
+  now 601, 969, 310, 614, 96, and 900 LOC with focused downward owners.
 - Renderer ownership is sound: one manual Application loop, aggregate layers,
   one root interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
@@ -58,15 +55,18 @@
 - Text layout, incremental parsing, authoring planning, and editor workflow
   normalization now have downward owners; public facades, error channels,
   exact order, immutable plans, and the workflow single writer remain intact.
+- Parser lowering and structural transaction planning are split into acyclic
+  owners; relation cleanup now falls back before touching an external frozen
+  relation root.
 - The checkpoint passes 188 unit files / 1,612 tests, lint/typecheck, and
   independent P0–P2 review. Unchanged renderer/Lab/package/lifecycle/hot paths
   retain their preceding risk-specific checkpoints.
 
 # Next Step
 
-- Split parser direct-text/component lowering and transaction structural
-  mutation planning behind their existing public facades while preserving
-  canonical diagnostic/order, atomic fallback, and current allocations.
+- Split renderer CPU planning and publication-policy atoms while retaining
+  Pixi Application, aggregate GPU resources, frame ownership, and exact upload
+  behavior in their current coordinators.
 
 # Working Boundary
 
