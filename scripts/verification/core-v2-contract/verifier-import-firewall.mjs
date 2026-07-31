@@ -36,6 +36,10 @@ const DYNAMIC_CODE_GLOBALS = new Set([
   'eval',
   'importScripts',
 ]);
+const DOTTED_BROWSER_GLOBAL_ROOTS = new Set([
+  'globalThis',
+  'window',
+]);
 const EXPECTED_VALUE_TOKENS = new Set([
   'approvedExpected',
   'expectedCase',
@@ -147,7 +151,7 @@ async function visitModule({
   const source = await readFile(physicalFile, 'utf8');
   const tokens = tokenize(source);
   assertExpectedBlindSource(tokens, chain);
-  if (leaf) assertBrowserGlobalLeaf(tokens, chain);
+  assertSourceGlobalPolicy(tokens, chain, leaf);
   const links = collectModuleLinks(tokens, chain);
 
   for (const link of links) {
@@ -242,19 +246,60 @@ function assertExpectedBlindSource(tokens, chain) {
   }
 }
 
-function assertBrowserGlobalLeaf(tokens, chain) {
-  for (const token of tokens) {
+function assertSourceGlobalPolicy(tokens, chain, leaf) {
+  const sourceName = chain.at(-1) ?? 'verifier source';
+  const shadowsGlobal = !leaf && hasSimpleLocalBinding(tokens, 'global');
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
     if (token.kind === 'identifier' && NODE_ONLY_GLOBALS.has(token.value)) {
-      fail('NODE_GLOBAL', chain, `${VALUE_ATOMS_FILENAME} uses Node-only global ${token.value}`);
+      if (token.value === 'global' && shadowsGlobal && tokens[index - 1]?.value !== '.') continue;
+      fail('NODE_GLOBAL', chain, `${sourceName} uses Node-only global ${token.value}`);
     }
     if (token.kind === 'identifier' && DYNAMIC_CODE_GLOBALS.has(token.value)) {
       fail(
         'DYNAMIC_CODE_GLOBAL',
         chain,
-        `${VALUE_ATOMS_FILENAME} uses dynamic code global ${token.value}`,
+        `${sourceName} uses dynamic code global ${token.value}`,
+      );
+    }
+    if (leaf && token.kind === 'string' && token.escaped) {
+      fail('ESCAPED_STRING', chain, `${VALUE_ATOMS_FILENAME} uses an escaped string token`);
+    }
+    const dottedRoot = token.kind === 'identifier' && (
+      DOTTED_BROWSER_GLOBAL_ROOTS.has(token.value) ||
+      (leaf && token.value === 'self')
+    );
+    if (!dottedRoot) continue;
+    if (isComputedGlobalAccess(tokens, index)) {
+      fail(
+        'COMPUTED_GLOBAL_ACCESS',
+        chain,
+        `${sourceName} uses computed access from ${token.value}`,
+      );
+    }
+    if (tokens[index + 1]?.value !== '.') {
+      fail(
+        'GLOBAL_ROOT_ESCAPE',
+        chain,
+        `${sourceName} passes or aliases browser global root ${token.value}`,
       );
     }
   }
+}
+
+function hasSimpleLocalBinding(tokens, name) {
+  return tokens.some((token, index) =>
+    token.kind === 'identifier' &&
+    (token.value === 'const' || token.value === 'let' || token.value === 'var') &&
+    tokens[index + 1]?.kind === 'identifier' &&
+    tokens[index + 1].value === name);
+}
+
+function isComputedGlobalAccess(tokens, index) {
+  if (tokens[index + 1]?.value === '[') return true;
+  return tokens[index + 1]?.value === '?' &&
+    tokens[index + 2]?.value === '.' &&
+    tokens[index + 3]?.value === '[';
 }
 
 function collectModuleLinks(tokens, chain) {
@@ -357,11 +402,10 @@ function tokenizeRange(source, start, stopAtClosingBrace) {
       index = template.end;
       continue;
     }
-    if (/[A-Za-z_$]/u.test(value)) {
-      let end = index + 1;
-      while (end < source.length && /[A-Za-z0-9_$]/u.test(source[end])) end += 1;
-      tokens.push({ kind: 'identifier', value: source.slice(index, end) });
-      index = end;
+    const identifier = readIdentifierToken(source, index);
+    if (identifier !== null) {
+      tokens.push(identifier);
+      index = identifier.end;
       continue;
     }
     if (stopAtClosingBrace && value === '}' && braceDepth === 0) {
@@ -376,27 +420,92 @@ function tokenizeRange(source, start, stopAtClosingBrace) {
 }
 
 function readStringToken(source, start, quote) {
-  let escaped = false;
   let containsEscape = false;
   let value = '';
-  for (let index = start + 1; index < source.length; index += 1) {
+  let index = start + 1;
+  while (index < source.length) {
     const character = source[index];
-    if (escaped) {
-      escaped = false;
-      containsEscape = true;
-      value += character;
-      continue;
-    }
     if (character === '\\') {
-      escaped = true;
+      const escape = readStringEscape(source, index);
+      containsEscape = true;
+      value += escape.value;
+      index = escape.end;
       continue;
     }
     if (character === quote) {
       return { kind: 'string', value, escaped: containsEscape, end: index + 1 };
     }
     value += character;
+    index += 1;
   }
   return { kind: 'string', value, escaped: true, end: source.length };
+}
+
+function readIdentifierToken(source, start) {
+  const first = readIdentifierCharacter(source, start, true);
+  if (first === null) return null;
+  let value = first.value;
+  let escaped = first.escaped;
+  let index = first.end;
+  while (index < source.length) {
+    const next = readIdentifierCharacter(source, index, false);
+    if (next === null) break;
+    value += next.value;
+    escaped ||= next.escaped;
+    index = next.end;
+  }
+  return { kind: 'identifier', value, escaped, end: index };
+}
+
+function readIdentifierCharacter(source, index, start) {
+  const character = source[index];
+  const allowed = start ? /[A-Za-z_$]/u : /[A-Za-z0-9_$]/u;
+  if (allowed.test(character)) {
+    return { value: character, escaped: false, end: index + 1 };
+  }
+  const escape = readUnicodeEscape(source, index);
+  if (escape === null || !allowed.test(escape.value)) return null;
+  return { value: escape.value, escaped: true, end: escape.end };
+}
+
+function readStringEscape(source, start) {
+  const unicode = readUnicodeEscape(source, start);
+  if (unicode !== null) return unicode;
+  if (source[start + 1] === 'x') {
+    const digits = source.slice(start + 2, start + 4);
+    if (/^[0-9A-Fa-f]{2}$/u.test(digits)) {
+      return { value: String.fromCodePoint(Number.parseInt(digits, 16)), end: start + 4 };
+    }
+  }
+  const character = source[start + 1];
+  const simple = {
+    b: '\b',
+    f: '\f',
+    n: '\n',
+    r: '\r',
+    t: '\t',
+    v: '\v',
+  };
+  return {
+    value: character === '\n' || character === '\r' ? '' : (simple[character] ?? character ?? ''),
+    end: Math.min(start + 2, source.length),
+  };
+}
+
+function readUnicodeEscape(source, start) {
+  if (source[start] !== '\\' || source[start + 1] !== 'u') return null;
+  if (source[start + 2] === '{') {
+    const close = source.indexOf('}', start + 3);
+    if (close === -1) return null;
+    const digits = source.slice(start + 3, close);
+    if (!/^[0-9A-Fa-f]{1,6}$/u.test(digits)) return null;
+    const codePoint = Number.parseInt(digits, 16);
+    if (codePoint > 0x10ffff) return null;
+    return { value: String.fromCodePoint(codePoint), end: close + 1 };
+  }
+  const digits = source.slice(start + 2, start + 6);
+  if (!/^[0-9A-Fa-f]{4}$/u.test(digits)) return null;
+  return { value: String.fromCodePoint(Number.parseInt(digits, 16)), end: start + 6 };
 }
 
 function skipLineComment(source, start) {
@@ -411,24 +520,40 @@ function skipBlockComment(source, start) {
 
 function readTemplate(source, start) {
   const tokens = [];
-  let escaped = false;
-  for (let index = start; index < source.length; index += 1) {
+  let value = '';
+  let containsEscape = false;
+  let index = start;
+  const pushStringToken = () => {
+    if (value.length > 0 || containsEscape) {
+      tokens.push({ kind: 'string', value, escaped: containsEscape });
+    }
+    value = '';
+    containsEscape = false;
+  };
+  while (index < source.length) {
     const character = source[index];
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
     if (character === '\\') {
-      escaped = true;
+      const escape = readStringEscape(source, index);
+      containsEscape = true;
+      value += escape.value;
+      index = escape.end;
       continue;
     }
-    if (character === '`') return { tokens, end: index + 1 };
+    if (character === '`') {
+      pushStringToken();
+      return { tokens, end: index + 1 };
+    }
     if (character === '$' && source[index + 1] === '{') {
+      pushStringToken();
       const expression = tokenizeRange(source, index + 2, true);
       tokens.push(...expression.tokens);
-      index = expression.end - 1;
+      index = expression.end;
+      continue;
     }
+    value += character;
+    index += 1;
   }
+  pushStringToken();
   return { tokens, end: source.length };
 }
 

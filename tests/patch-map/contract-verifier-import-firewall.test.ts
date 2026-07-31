@@ -40,10 +40,18 @@ describe('core-v2 verifier recursive import firewall', () => {
 
   it('allows only each role-specific direct value atom path with an import-free browser leaf', async () => {
     const root = await createGraph({
-      handlerSource: "import { browserValue } from '../value-atoms.mjs';\nexport { browserValue };\n",
+      handlerSource: [
+        "import { browserValue } from '../value-atoms.mjs';",
+        'const now = globalThis.performance?.now?.() ?? 0;',
+        'const global = { local: true };',
+        'export { browserValue, global, now };',
+        '',
+      ].join('\n'),
       foldSource: "import { browserValue } from './value-atoms.mjs';\nexport { browserValue };\n",
       valueAtomsSource: [
+        "// globalThis['process'] and process are inert comments",
         "const prose = \"import('node:fs') is inert text\";",
+        'const whitespace = /\\s+/u;',
         'export const browserValue = globalThis.Math.max(prose.length, 1);',
         '',
       ].join('\n'),
@@ -62,6 +70,19 @@ describe('core-v2 verifier recursive import firewall', () => {
     await expect(assertCoreV2ContractImportFirewall(root)).rejects.toMatchObject({
       code: 'NODE_GLOBAL',
     });
+  });
+
+  it.each([
+    ['Node', 'export const value = process.env.NODE_ENV;\n', 'NODE_GLOBAL'],
+    ['dynamic', 'export const value = Function("return 1")();\n', 'DYNAMIC_CODE_GLOBAL'],
+  ])('blocks %s globals directly in verifier entries', async (_label, handlerSource, code) => {
+    const root = await createGraph({
+      handlerSource,
+      foldSource: '',
+      valueAtomsSource: 'export const value = 1;\n',
+    });
+
+    await expect(assertHandler(root)).rejects.toMatchObject({ code });
   });
 
   it.each([
@@ -106,6 +127,96 @@ describe('core-v2 verifier recursive import firewall', () => {
     ['Node process global', 'export const value = process.env.NODE_ENV;\n', {}, 'NODE_GLOBAL'],
     ['dynamic eval global', 'export const value = eval("1");\n', {}, 'DYNAMIC_CODE_GLOBAL'],
     ['dynamic Function global', 'export const value = Function("return 1")();\n', {}, 'DYNAMIC_CODE_GLOBAL'],
+    [
+      'computed Node global',
+      "export const value = globalThis['process'];\n",
+      {},
+      'COMPUTED_GLOBAL_ACCESS',
+    ],
+    [
+      'computed dynamic global',
+      "export const value = globalThis['Function'];\n",
+      {},
+      'COMPUTED_GLOBAL_ACCESS',
+    ],
+    [
+      'computed window global',
+      "export const value = window['process'];\n",
+      {},
+      'COMPUTED_GLOBAL_ACCESS',
+    ],
+    [
+      'computed self global',
+      "export const value = self['process'];\n",
+      {},
+      'COMPUTED_GLOBAL_ACCESS',
+    ],
+    [
+      'dotted Node global',
+      'export const value = globalThis.process;\n',
+      {},
+      'NODE_GLOBAL',
+    ],
+    [
+      'dotted dynamic global',
+      'export const value = window.Function;\n',
+      {},
+      'DYNAMIC_CODE_GLOBAL',
+    ],
+    [
+      'aliased browser global root',
+      'export const value = globalThis;\n',
+      {},
+      'GLOBAL_ROOT_ESCAPE',
+    ],
+    [
+      'browser global root passed to Reflect',
+      "export const value = Reflect.get(globalThis, 'process');\n",
+      {},
+      'GLOBAL_ROOT_ESCAPE',
+    ],
+    [
+      'template expected path',
+      'export const value = fetch(`./catalog-normalized-expected.json`);\n',
+      {},
+      'EXPECTED_VALUE_FILE',
+    ],
+    [
+      'escaped Node identifier',
+      'export const value = proce\\u0073s.env.NODE_ENV;\n',
+      {},
+      'NODE_GLOBAL',
+    ],
+    [
+      'braced escaped Node identifier',
+      'export const value = proce\\u{73}s.env.NODE_ENV;\n',
+      {},
+      'NODE_GLOBAL',
+    ],
+    [
+      'escaped expected identifier',
+      'export const normalized\\u0045xpected = 1;\n',
+      {},
+      'EXPECTED_VALUE_TOKEN',
+    ],
+    [
+      'escaped expected string',
+      "export const value = './catalog-normalized-\\u0065xpected.json';\n",
+      {},
+      'EXPECTED_VALUE_FILE',
+    ],
+    [
+      'escaped expected template segment',
+      'export const value = `./catalog-normalized-\\x65xpected.json`;\n',
+      {},
+      'EXPECTED_VALUE_FILE',
+    ],
+    [
+      'escaped inert leaf string',
+      "export const value = 'ordinary\\nprose';\n",
+      {},
+      'ESCAPED_STRING',
+    ],
     ['normalized expected token', 'export const normalizedExpected = 1;\n', {}, 'EXPECTED_VALUE_TOKEN'],
     ['approved expected token', 'export const approvedExpected = 1;\n', {}, 'EXPECTED_VALUE_TOKEN'],
   ])('blocks transitive %s access from the value atom leaf', async (
