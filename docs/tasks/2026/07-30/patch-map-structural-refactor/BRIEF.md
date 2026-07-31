@@ -20,7 +20,7 @@
   five examples: 420 files total, excluding frozen evidence and prohibited
   generated/dependency content. New cohesive modules and their contract tests
   remain in the same file-by-file review ledger.
-- `engine.ts` is 6,692 LOC, `core.ts` is 3,299 LOC, `parser.ts` is 2,620 LOC,
+- `engine.ts` is 6,616 LOC, `core.ts` is 3,140 LOC, `parser.ts` is 2,358 LOC,
   `semantic/transaction.ts` is 1,965 LOC, and `semantic/dataset.ts` is 1,170
   LOC after the current authority extractions. `leaf-layer.ts` is 1,685
   LOC, `pixi-renderer.ts` is 2,474 LOC, and contract `main.ts` is 1,820 LOC.
@@ -52,16 +52,18 @@
 - Leaf publication signatures, Pixi dirty-range/relation planning, and owned
   transaction fast paths now have pure owners while resource and state writers
   remain in their facades.
-- The current checkpoint passes 176 unit files / 1,579 tests, full lint and
+- Parser state/diagnostics/freeze, semantic-to-dense planning, and text probe
+  publication policy now have focused owners without changing facade writers.
+- The current checkpoint passes 178 unit files / 1,584 tests, full lint and
   typecheck, product/Lab builds, canonical 173 contract, and a representative
-  headless WebGL Lab run with zero console/page/network errors. Unchanged-path
+  headless WebGL Lab run from the preceding renderer checkpoint. Unchanged-path
   package, memory, and performance gates were intentionally not repeated.
 
 # Next Step
 
-- Split the next cohesive Engine/Core/parser and Lab composition
-  responsibilities, then continue the remaining test, verification, and
-  performance file dispositions without moving stateful writers.
+- Split the next cohesive Core/parser reconcile and value-normalization
+  responsibilities, then move into Lab composition and remaining test,
+  verification, and performance file dispositions without moving writers.
 
 # Working Boundary
 
