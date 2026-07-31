@@ -23,6 +23,9 @@
 - Operations are a 425-line callback/diagnostic writer above contract,
   redaction, and extraction-security owners. Scene images are a 978-line
   lifecycle writer above contract and pure reconcile-value owners.
+- Semantic reconcile is a 702-line planner/cache facade above contract,
+  entity-delta, retained-order, and result-value owners. The 1,094-line dense
+  store and 929-line transformer planner are cohesive keep decisions.
 - Renderer ownership stays one manual loop, aggregate layers, one root
   interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
@@ -51,11 +54,14 @@
   product/Lab builds, canonical 38/173, and 2+7 memory with 5,099 entities and
   nine ownership cycles. Browser, packed consumer, and performance were not
   repeated because route, export, and hot algorithms did not change.
+- Reconcile extraction preserves the O(dirty) WeakMap transfer, both 512-row
+  guards, exact operation order, and every Set/Map/freeze/spread/loop count;
+  independent review found no P0–P2 issue.
 
 # Next Step
 
-- Classify and split the semantic reconcile and dense-store boundaries without
-  changing O(dirty) caches, atomic writers, operation order, or allocations.
+- Consolidate Engine's scattered pure reconcile decisions into its existing
+  planner while retaining atomic surface/history/publication writes in Engine.
 
 # Working Boundary
 
