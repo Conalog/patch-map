@@ -208,6 +208,101 @@ describe('PatchMap pure semantic mutation candidate', () => {
     });
   });
 
+  it('rejects executable and extended target records without invoking accessors', () => {
+    const current = makeMaterializedScene();
+    let accessorReads = 0;
+    const accessorTarget = Object.defineProperties({}, {
+      kind: {
+        enumerable: true,
+        get: () => {
+          accessorReads += 1;
+          return 'element';
+        },
+      },
+      id: { enumerable: true, value: 'item-a' },
+    });
+    const symbolTarget = { kind: 'element', id: 'item-a' };
+    Object.defineProperty(symbolTarget, Symbol('executable'), {
+      enumerable: true,
+      value: 'hidden',
+    });
+    const hiddenTarget = { kind: 'element' };
+    Object.defineProperty(hiddenTarget, 'id', {
+      enumerable: false,
+      value: 'item-a',
+    });
+
+    for (const [target, path] of [
+      [accessorTarget, '$.target.kind'],
+      [symbolTarget, '$.target'],
+      [hiddenTarget, '$.target.id'],
+      [{ kind: 'element', id: 'item-a', extra: true }, '$.target.extra'],
+    ] as const) {
+      expect(applyPatchMapSemanticPatch(
+        current,
+        target as unknown as Parameters<typeof applyPatchMapSemanticPatch>[1],
+        {},
+      )).toMatchObject({
+        status: 'rejected',
+        changed: false,
+        candidate: null,
+        diagnostic: { reason: 'invalid-target', path },
+      });
+    }
+    expect(accessorReads).toBe(0);
+  });
+
+  it('rejects executable and extended patch JSON without invoking accessors', () => {
+    const current = makeMaterializedScene();
+    let accessorReads = 0;
+    const accessorPatch = Object.defineProperty({}, 'show', {
+      enumerable: true,
+      get: () => {
+        accessorReads += 1;
+        return false;
+      },
+    });
+    const accessorArray: unknown[] = [];
+    Object.defineProperty(accessorArray, 0, {
+      enumerable: true,
+      get: () => {
+        accessorReads += 1;
+        return 1;
+      },
+    });
+    const symbolPatch = { show: false };
+    Object.defineProperty(symbolPatch, Symbol('executable'), {
+      enumerable: true,
+      value: 'hidden',
+    });
+    const sparseArray = new Array<unknown>(1);
+    const extraArray = [1];
+    Object.defineProperty(extraArray, 'extra', {
+      enumerable: true,
+      value: 2,
+    });
+
+    for (const [patch, path] of [
+      [accessorPatch, '$.patch.show'],
+      [{ attrs: { values: accessorArray } }, '$.patch.attrs.values[0]'],
+      [symbolPatch, '$.patch'],
+      [{ attrs: { values: sparseArray } }, '$.patch.attrs.values[0]'],
+      [{ attrs: { values: extraArray } }, '$.patch.attrs.values.extra'],
+    ] as const) {
+      expect(applyPatchMapSemanticPatch(
+        current,
+        { kind: 'element', id: 'item-a' },
+        patch,
+      )).toMatchObject({
+        status: 'rejected',
+        changed: false,
+        candidate: null,
+        diagnostic: { reason: 'invalid-value', path },
+      });
+    }
+    expect(accessorReads).toBe(0);
+  });
+
   it('reports invalid JSON and schema values with precise structured diagnostics', () => {
     const current = makeMaterializedScene();
     const cyclic: Record<string, unknown> = {};

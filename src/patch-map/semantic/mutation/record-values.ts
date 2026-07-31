@@ -13,25 +13,33 @@ export function normalizeTarget(value: unknown): PatchMapSemanticTarget {
   if (!isPlainRecord(value)) {
     fail('invalid-target', '$.target', 'target must be a plain object');
   }
-  const kind = value.kind;
+  const fields = ownEnumerableDataRecord(
+    value,
+    '$.target',
+    'invalid-target',
+    'target',
+  );
+  const kind = fields.kind;
   const acceptedFields = kind === 'element' ? ELEMENT_TARGET_FIELDS : COMPONENT_TARGET_FIELDS;
-  const unknownField = Object.keys(value).find((key) => !acceptedFields.has(key));
+  const unknownField = Object.keys(fields).find((key) => !acceptedFields.has(key));
   if (unknownField !== undefined) {
     fail('invalid-target', `$.target.${unknownField}`, 'target contains an unknown field');
   }
   if (kind !== 'element' && kind !== 'component') {
     fail('invalid-target', '$.target.kind', "target kind must be 'element' or 'component'");
   }
-  if (typeof value.id !== 'string') {
+  const id = fields.id;
+  if (typeof id !== 'string') {
     fail('invalid-target', '$.target.id', 'target id must be a string');
   }
   if (kind === 'element') {
-    return Object.freeze({ kind, id: value.id });
+    return Object.freeze({ kind, id });
   }
-  if (typeof value.ownerId !== 'string') {
+  const ownerId = fields.ownerId;
+  if (typeof ownerId !== 'string') {
     fail('invalid-target', '$.target.ownerId', 'component target ownerId must be a string');
   }
-  return Object.freeze({ kind, ownerId: value.ownerId, id: value.id });
+  return Object.freeze({ kind, ownerId, id });
 }
 
 export function normalizePatch(value: unknown): Readonly<Record<string, unknown>> {
@@ -52,11 +60,12 @@ function cloneJsonRecord(
   ancestors.add(value);
   try {
     const result: Record<string, unknown> = {};
-    for (const key of Object.keys(value)) {
+    const fields = ownEnumerableDataRecord(value, path, 'invalid-value', 'record');
+    for (const key of Object.keys(fields)) {
       if (UNSAFE_KEYS.has(key)) {
         fail('invalid-value', `${path}.${key}`, 'unsafe property names are not accepted');
       }
-      defineDataProperty(result, key, cloneJsonValue(value[key], `${path}.${key}`, ancestors));
+      defineDataProperty(result, key, cloneJsonValue(fields[key], `${path}.${key}`, ancestors));
     }
     return Object.freeze(result);
   } finally {
@@ -75,11 +84,29 @@ function cloneJsonValue(value: unknown, path: string, ancestors: Set<object>): u
     ancestors.add(value);
     try {
       const clone: unknown[] = [];
-      for (let index = 0; index < value.length; index += 1) {
-        if (!Object.prototype.hasOwnProperty.call(value, index)) {
+      const length = value.length;
+      for (let index = 0; index < length; index += 1) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, index);
+        if (descriptor === undefined) {
           fail('invalid-value', `${path}[${index}]`, 'sparse arrays are not accepted');
         }
-        clone.push(cloneJsonValue(value[index], `${path}[${index}]`, ancestors));
+        if (!descriptor.enumerable || !('value' in descriptor)) {
+          fail(
+            'invalid-value',
+            `${path}[${index}]`,
+            'array entries must be own enumerable data properties',
+          );
+        }
+        clone.push(cloneJsonValue(descriptor.value, `${path}[${index}]`, ancestors));
+      }
+      for (const key of Reflect.ownKeys(value)) {
+        if (key === 'length') continue;
+        if (typeof key !== 'string') {
+          fail('invalid-value', path, 'arrays must not contain symbol keys');
+        }
+        if (!isCanonicalArrayIndex(key, length)) {
+          fail('invalid-value', `${path}.${key}`, 'extra array properties are not accepted');
+        }
       }
       return Object.freeze(clone);
     } finally {
@@ -143,6 +170,45 @@ function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
   const prototype: unknown = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
+}
+
+function ownEnumerableDataRecord(
+  value: Readonly<Record<string, unknown>>,
+  path: string,
+  reason: Extract<
+    PatchMapSemanticMutationDiagnosticReason,
+    'invalid-target' | 'invalid-value'
+  >,
+  subject: 'record' | 'target',
+): Readonly<Record<string, unknown>> {
+  const result: Record<string, unknown> = {};
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string') {
+      fail(reason, path, `${subject} must not contain symbol keys`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (
+      descriptor === undefined ||
+      !descriptor.enumerable ||
+      !('value' in descriptor)
+    ) {
+      fail(
+        reason,
+        `${path}.${key}`,
+        `${subject} fields must be own enumerable data properties`,
+      );
+    }
+    defineDataProperty(result, key, descriptor.value);
+  }
+  return result;
+}
+
+function isCanonicalArrayIndex(key: string, length: number): boolean {
+  const index = Number(key);
+  return Number.isSafeInteger(index) &&
+    index >= 0 &&
+    index < length &&
+    String(index) === key;
 }
 
 function defineDataProperty(target: Record<string, unknown>, key: string, value: unknown): void {
