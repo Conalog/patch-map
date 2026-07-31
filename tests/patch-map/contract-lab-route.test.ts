@@ -30,13 +30,20 @@ import {
   renderPatchMapContractRouteError,
 } from '../../lab/patch-map/contract/main';
 
-async function readTypeScriptSources(directory: URL): Promise<readonly string[]> {
+async function readTypeScriptTreeSources(directory: URL): Promise<readonly string[]> {
   const entries = (await readdir(directory, { withFileTypes: true }))
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
     .sort((left, right) => left.name.localeCompare(right.name));
-  return Promise.all(entries.map((entry) => (
-    readFile(new URL(entry.name, directory), 'utf8')
-  )));
+  const sources: string[] = [];
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      sources.push(...await readTypeScriptTreeSources(new URL(`${entry.name}/`, directory)));
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith('.ts')) {
+      sources.push(await readFile(new URL(entry.name, directory), 'utf8'));
+    }
+  }
+  return sources;
 }
 
 describe('PatchMap focused contract Lab presenters', () => {
@@ -897,25 +904,10 @@ describe('PatchMap actual-only Lab bridge', () => {
   });
 
   it('keeps the Lab runtime dependency-firewalled from approved expected contents', async () => {
-    const rootSources = await Promise.all([
-      'presenters.ts',
-      'route.ts',
-      'bridge.ts',
-      'executable-bridge.ts',
-      'executable-cases.ts',
-      'executable-runtime.ts',
-      'authoring-runtime.ts',
-      'replacement-recovery-runtime.ts',
-      'lifecycle-interruption-runtime.ts',
-      'main.ts',
-      'run-observer.ts',
-    ].map((file) => readFile(new URL(`../../lab/patch-map/contract/${file}`, import.meta.url), 'utf8')));
-    const runtimeSources = await readTypeScriptSources(
-      new URL('../../lab/patch-map/contract/executable-runtime/', import.meta.url),
-    );
-    const inspectorSources = await readTypeScriptSources(
-      new URL('../../lab/patch-map/contract/inspectors/', import.meta.url),
-    );
+    const [contractSources, interactiveSources] = await Promise.all([
+      readTypeScriptTreeSources(new URL('../../lab/patch-map/contract/', import.meta.url)),
+      readTypeScriptTreeSources(new URL('../../lab/patch-map/interactive/', import.meta.url)),
+    ]);
     const automationSources = await Promise.all([
       '../../scripts/verification/core-v2-contract/handlers/replacement-recovery.mjs',
       '../../scripts/verification/core-v2-contract/fold-replacement-recovery.mjs',
@@ -924,17 +916,17 @@ describe('PatchMap actual-only Lab bridge', () => {
       '../../scripts/verification/core-v2-contract/handlers/authoring.mjs',
       '../../scripts/verification/core-v2-contract/fold-authoring.mjs',
     ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
-    const joined = [
-      ...rootSources,
-      ...runtimeSources,
-      ...inspectorSources,
-      ...automationSources,
-    ].join('\n');
+    const contractJoined = contractSources.join('\n');
+    const interactiveJoined = interactiveSources.join('\n');
+    const automationJoined = automationSources.join('\n');
+    const joined = [contractJoined, interactiveJoined, automationJoined].join('\n');
     expect(joined).not.toContain('catalog-normalized-expected');
     expect(joined).not.toMatch(/from ['"].*compare/);
     expect(joined).not.toMatch(/from ['"](?!\.\.?\/run-observer['"]).*observe/);
     expect(joined).not.toMatch(/node:/);
-    expect(joined).not.toMatch(/(?:execute|mutate|select|transform)(?:Scene|Entity|Selection|Viewport)/);
+    expect(`${contractJoined}\n${automationJoined}`).not.toMatch(
+      /(?:execute|mutate|select|transform)(?:Scene|Entity|Selection|Viewport)/,
+    );
     expect(joined).toContain("state.status === 'failed'\n          ? 'not-run'");
     expect(joined).toContain("'.contract-case-action[data-action-index]'");
     expect(joined).not.toContain("querySelectorAll<HTMLElement>('[data-action-index]')");
