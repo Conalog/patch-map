@@ -22,8 +22,8 @@
   one root interaction authority, and explicit asset/destroy coordination.
 - Exact clone analysis reports 7.3% across product, Lab, tests, performance,
   and verification. Only semantically equivalent helper families will move.
-- The known 5,000-bar repeated-retarget outliers are dominated by
-  presentation/reconcile allocation and lookup work, not canvas draw time.
+- Repeated retargeting has two measured costs: rounded-bar chunk rebuilds and
+  presentation/reconcile allocation and lookup work.
 
 # Current State
 
@@ -43,12 +43,15 @@
 - T5 split aggregate Mesh geometry and store-to-CPU lane planning into pure
   modules; `mesh-layer.ts` remains the sole Pixi resource, upload, culling,
   and destroy owner.
+- T6 retains rounded-bar Mesh/Geometry identity for value-only updates and
+  uploads only changed position buffers; structural style, radius, visibility,
+  and fill-presence transitions still rebuild atomically.
 
 # Next Step
 
-- Complete the uncontended 10,000-bar WebGL checkpoint, then optimize rounded
-  bar retention and presentation reconcile as separately measurable hot-path
-  changes.
+- Remove public observation allocation from the internal presentation
+  reconcile loop while preserving its frozen public probes and publication
+  semantics, then measure it as a separate hot-path tranche.
 
 # Working Boundary
 
