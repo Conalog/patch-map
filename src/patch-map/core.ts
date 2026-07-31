@@ -83,17 +83,14 @@ import {
 } from './semantic/reconcile';
 import {
   PatchMapPixiRenderer,
-  capturePatchMapPixiRendererPublication,
   restorePatchMapPixiRendererPublication,
   type PatchMapPixiInitializationMetrics,
-  type PatchMapPixiRendererPublicationCheckpoint,
 } from './renderers/pixi-renderer';
 import type { PatchMapInteractionOverlayPolicy } from './renderers/types';
 import type { PatchMapSemanticTarget } from './semantic/probe';
 import {
   PatchMapSceneImageController,
   type PatchMapSceneImageIntrinsicSize,
-  type PatchMapSceneImageReconcilePlan,
   type PatchMapSceneImageRetryResult,
   type PatchMapSceneImagesProbe,
 } from './scene-images';
@@ -170,10 +167,12 @@ import {
   patchMapTextProbeTargetKey as patchMapTextTargetKey,
 } from './core/product-probe-reader';
 import { PatchMapRootInteractionAuthority } from './core/root-interaction-authority';
+import { PatchMapBarPresentationAuthority } from './core/bar-presentation-authority';
 import {
-  PatchMapBarPresentationAuthority,
-  type PatchMapBarPresentationLoadState,
-} from './core/bar-presentation-authority';
+  PatchMapLoadAuthority,
+  type PatchMapLoadRendererCheckpoint,
+  type PatchMapLoadRuntimeState,
+} from './core/load-authority';
 
 export { normalizePatchMapTextTarget } from './core/contracts';
 export type * from './core/contracts';
@@ -187,31 +186,12 @@ interface PatchMapCooperativeLoadHooks {
   readonly assertCurrent?: () => void;
 }
 
-interface PatchMapLoadedRuntimeState {
-  readonly barPresentation: PatchMapBarPresentationLoadState;
-  readonly spatialHit: PatchMapSpatialHitAuthority;
-  readonly currentView: CoreView;
-  readonly pendingIntrinsicImageSizes: Map<string, PatchMapSceneImageIntrinsicSize>;
-  readonly automaticAnimationFramesActive: boolean;
-}
-
 interface PatchMapIntrinsicImageGeometry {
   readonly entityId: string;
   readonly bindingKey: string;
   readonly generation: number | null;
   readonly naturalSize: readonly [number, number];
 }
-
-type PatchMapLoadedRendererCheckpoint =
-  | Readonly<{
-      readonly kind: 'pixi';
-      readonly state: PatchMapPixiRendererPublicationCheckpoint;
-    }>
-  | Readonly<{
-      readonly kind: 'compatibility';
-      readonly presentation: PatchMapProjectionIndex | null;
-      readonly staleProjectionIds: ReadonlySet<string>;
-    }>;
 
 export class PatchMapRuntime {
   public readonly renderer: PatchMapPixiRenderer;
@@ -224,6 +204,7 @@ export class PatchMapRuntime {
   private externalFrameLoop: PatchMapFrameLoop | null = null;
   private automaticAnimationFramesActive = false;
   private readonly sceneImages: PatchMapSceneImageController;
+  private readonly loadAuthority: PatchMapLoadAuthority;
   private readonly barPresentation = new PatchMapBarPresentationAuthority();
   private readonly parseOptions: ParsePatchMapOptions;
   private readonly autoRender: boolean;
@@ -243,8 +224,6 @@ export class PatchMapRuntime {
   private componentRendererFactsPublished = false;
   private textRendererFactsPublished = false;
   private renderedSceneRevision: number | null = null;
-  private loadSequence = 0;
-  private loadSideEffectsInProgress = false;
   private terminalLoadFailure: Error | null = null;
 
   private constructor(renderer: PatchMapPixiRenderer, options: PatchMapRuntimeOptions) {
@@ -276,11 +255,17 @@ export class PatchMapRuntime {
     this.scheduler = new InvalidationScheduler((timeMs) => this.renderScheduledFrame(timeMs));
     this.sceneImages = new PatchMapSceneImageController(renderer, {
       onInvalidate: (reason) => {
-        if (this.loadSideEffectsInProgress) return;
+        if (this.loadAuthority.publicationSideEffectsInProgress) return;
         this.invalidate(reason);
       },
       onIntrinsicSize: (resolution) => this.queueIntrinsicImageSize(resolution),
     });
+    this.loadAuthority = new PatchMapLoadAuthority(
+      this.publishedScene,
+      this.barPresentation,
+      this.sceneImages,
+      this.renderer,
+    );
     this.rootInteraction = new PatchMapRootInteractionAuthority(
       renderer,
       {
@@ -424,7 +409,7 @@ export class PatchMapRuntime {
 
   public load(input: unknown, options: ParsePatchMapOptions = this.parseOptions): PatchMapLoadResult {
     this.assertAlive();
-    this.loadSequence += 1;
+    this.loadAuthority.beginLoad();
     const normalizeStarted = now();
     const parse = withRendererDegradationDiagnostics(
       parsePatchMapV010(input, options),
@@ -437,13 +422,17 @@ export class PatchMapRuntime {
       const storeStarted = now();
       const store = candidateScene.load(parse.document);
       const storeLoadMs = now() - storeStarted;
-      const candidate = this.prepareLoadedProjection(
-        candidateScene,
+      primePatchMapV010IncrementalFlat(parse);
+      primePatchMapParsedSceneReconcileIncremental(parse.document);
+      const retainedInput = retainedOwnedInputDataset(input, options);
+      const candidate = this.loadAuthority.prepareCandidate({
+        scene: candidateScene,
         parse,
-        store,
-        input,
-        options,
-      );
+        projection: this.projectionWithResolvedIntrinsicSizes(parse.projection),
+        ownedInputDataset: retainedInput.dataset,
+        ownedParseOptionsKey: retainedInput.optionsKey,
+        entityCount: store.entityCount,
+      });
       this.commitLoadedProjection(candidate, parse, store);
       candidateScene = null;
       return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
@@ -463,13 +452,11 @@ export class PatchMapRuntime {
     hooks: PatchMapCooperativeLoadHooks = {},
   ): Promise<PatchMapLoadResult> {
     this.assertAlive();
-    const sequence = ++this.loadSequence;
+    const sequence = this.loadAuthority.beginLoad();
     const sceneRevision = this.scene.revision;
     const assertCurrent = (): void => {
       this.assertAlive();
-      if (this.loadSequence !== sequence || this.scene.revision !== sceneRevision) {
-        throw new Error('PatchMapRuntime cooperative load was superseded');
-      }
+      this.loadAuthority.assertCurrent(sequence, sceneRevision, this.scene.revision);
       hooks.assertCurrent?.();
     };
     assertCurrent();
@@ -496,13 +483,17 @@ export class PatchMapRuntime {
         assertCurrent();
       }
 
-      const candidate = this.prepareLoadedProjection(
-        candidateScene,
+      primePatchMapV010IncrementalFlat(parse);
+      primePatchMapParsedSceneReconcileIncremental(parse.document);
+      const retainedInput = retainedOwnedInputDataset(input, options);
+      const candidate = this.loadAuthority.prepareCandidate({
+        scene: candidateScene,
         parse,
-        store,
-        input,
-        options,
-      );
+        projection: this.projectionWithResolvedIntrinsicSizes(parse.projection),
+        ownedInputDataset: retainedInput.dataset,
+        ownedParseOptionsKey: retainedInput.optionsKey,
+        entityCount: store.entityCount,
+      });
       assertCurrent();
       this.commitLoadedProjection(candidate, parse, store);
       candidateScene = null;
@@ -524,68 +515,39 @@ export class PatchMapRuntime {
     });
   }
 
-  private prepareLoadedProjection(
-    scene: PatchMapScene,
-    parse: ParsePatchMapResult,
-    store: LoadResult,
-    input: unknown,
-    options: ParsePatchMapOptions,
-  ): PatchMapPublishedSceneCandidate {
-    primePatchMapV010IncrementalFlat(parse);
-    primePatchMapParsedSceneReconcileIncremental(parse.document);
-    const retainedInput = retainedOwnedInputDataset(input, options);
-    const projection = this.projectionWithResolvedIntrinsicSizes(parse.projection);
-    return this.publishedScene.prepare({
-      scene,
-      parse,
-      projection,
-      ownedInputDataset: retainedInput.dataset,
-      ownedParseOptionsKey: retainedInput.optionsKey,
-      transientIncrementalParse: null,
-      componentTargets: indexComponentTargets(parse),
-      textTargets: indexTextTargets(parse),
-      entityCount: store.entityCount,
-    });
-  }
-
   private commitLoadedProjection(
     candidate: PatchMapPublishedSceneCandidate,
     parse: ParsePatchMapResult,
     store: LoadResult,
   ): void {
-    const loadedProjection = candidate.state.projection;
-    if (loadedProjection === null) {
-      throw new Error('PatchMap load candidate has no semantic projection');
-    }
-    const previousRuntime = this.captureLoadedRuntimeState();
-    const nextRuntime = this.prepareLoadedRuntimeState(
-      loadedProjection,
-      parse.document.view,
-    );
-    let imagePlan: PatchMapSceneImageReconcilePlan;
-    let rendererCheckpoint: PatchMapLoadedRendererCheckpoint;
-    try {
-      imagePlan = this.sceneImages.prepareReconcile(parse.projection, {
-        activeEntityIds: activeSceneImageIds(candidate.state),
-      });
-      rendererCheckpoint = this.captureLoadedRendererCheckpoint(
-        candidate.expected,
-        previousRuntime,
-      );
-    } catch (error) {
-      this.disposeLoadedRuntimeState(nextRuntime);
-      throw error;
-    }
+    const prepared = this.loadAuthority.preparePublication({
+      candidate,
+      sourceProjection: parse.projection,
+      view: parse.document.view,
+      activeImageEntityIds: activeSceneImageIds(candidate.state),
+      currentRuntime: {
+        spatialHit: this.spatialHit,
+        currentView: this.currentView,
+        pendingIntrinsicImageSizes: this.pendingIntrinsicImageSizes,
+        automaticAnimationFramesActive: this.automaticAnimationFramesActive,
+      },
+    });
+    const {
+      previousRuntime,
+      nextRuntime,
+      imagePlan,
+      rendererCheckpoint,
+    } = prepared;
     let previousPublished: PatchMapPublishedScenePrevious;
     try {
       previousPublished = this.publishedScene.publish(candidate);
     } catch (error) {
-      this.disposeLoadedRuntimeState(nextRuntime);
+      this.loadAuthority.disposeRuntimeState(nextRuntime);
       throw error;
     }
 
     this.installLoadedRuntimeState(nextRuntime);
-    this.loadSideEffectsInProgress = true;
+    this.loadAuthority.beginPublicationSideEffects();
     try {
       const presentation = this.barPresentation.visibleProjection;
       if (presentation === null) {
@@ -629,40 +591,14 @@ export class PatchMapRuntime {
       throw error;
     }
 
-    this.loadSideEffectsInProgress = false;
-    this.disposeLoadedRuntimeState(previousRuntime);
+    this.loadAuthority.endPublicationSideEffects();
+    this.loadAuthority.disposeRuntimeState(previousRuntime);
     this.publishedScene.discard(previousPublished.previous);
     this.adaptiveFrameBudget.reset();
     this.invalidate('load');
   }
 
-  private prepareLoadedRuntimeState(
-    projection: PatchMapProjectionIndex,
-    view: CoreView | undefined,
-  ): PatchMapLoadedRuntimeState {
-    const spatialHit = new PatchMapSpatialHitAuthority();
-    spatialHit.setDenseGeometryCompatible(true);
-    spatialHit.clearStaleProjectionIds();
-    return {
-      barPresentation: this.barPresentation.prepareLoadedState(projection),
-      spatialHit,
-      currentView: view ?? Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 }),
-      pendingIntrinsicImageSizes: new Map(),
-      automaticAnimationFramesActive: false,
-    };
-  }
-
-  private captureLoadedRuntimeState(): PatchMapLoadedRuntimeState {
-    return {
-      barPresentation: this.barPresentation.captureLoadedState(),
-      spatialHit: this.spatialHit,
-      currentView: this.currentView,
-      pendingIntrinsicImageSizes: this.pendingIntrinsicImageSizes,
-      automaticAnimationFramesActive: this.automaticAnimationFramesActive,
-    };
-  }
-
-  private installLoadedRuntimeState(state: PatchMapLoadedRuntimeState): void {
+  private installLoadedRuntimeState(state: PatchMapLoadRuntimeState): void {
     this.barPresentation.installLoadedState(state.barPresentation);
     this.spatialHit = state.spatialHit;
     this.currentView = state.currentView;
@@ -672,10 +608,10 @@ export class PatchMapRuntime {
 
   private rollbackLoadedProjection(
     previousPublished: PatchMapPublishedScenePrevious,
-    previousRuntime: PatchMapLoadedRuntimeState,
-    nextRuntime: PatchMapLoadedRuntimeState,
+    previousRuntime: PatchMapLoadRuntimeState,
+    nextRuntime: PatchMapLoadRuntimeState,
     failedState: PatchMapPublishedSceneState,
-    rendererCheckpoint: PatchMapLoadedRendererCheckpoint,
+    rendererCheckpoint: PatchMapLoadRendererCheckpoint,
   ): boolean {
     let restored = true;
     try {
@@ -685,9 +621,9 @@ export class PatchMapRuntime {
     }
     this.installLoadedRuntimeState(previousRuntime);
     restored = this.restoreLoadedRendererCheckpoint(rendererCheckpoint) && restored;
-    this.loadSideEffectsInProgress = false;
+    this.loadAuthority.endPublicationSideEffects();
     try {
-      this.disposeLoadedRuntimeState(nextRuntime);
+      this.loadAuthority.disposeRuntimeState(nextRuntime);
     } catch {
       restored = false;
     }
@@ -699,27 +635,8 @@ export class PatchMapRuntime {
     return restored;
   }
 
-  private captureLoadedRendererCheckpoint(
-    published: PatchMapPublishedSceneState,
-    runtime: PatchMapLoadedRuntimeState,
-  ): PatchMapLoadedRendererCheckpoint {
-    if (this.renderer instanceof PatchMapPixiRenderer) {
-      return Object.freeze({
-        kind: 'pixi',
-        state: capturePatchMapPixiRendererPublication(this.renderer),
-      });
-    }
-    const presentation = runtime.barPresentation.projectionStore.presentation ??
-      published.projection;
-    return Object.freeze({
-      kind: 'compatibility',
-      presentation,
-      staleProjectionIds: runtime.spatialHit.staleProjectionIds,
-    });
-  }
-
   private restoreLoadedRendererCheckpoint(
-    checkpoint: PatchMapLoadedRendererCheckpoint,
+    checkpoint: PatchMapLoadRendererCheckpoint,
   ): boolean {
     if (checkpoint.kind === 'pixi') {
       restorePatchMapPixiRendererPublication(this.renderer, checkpoint.state);
@@ -768,12 +685,6 @@ export class PatchMapRuntime {
     } catch {
       // Terminal state is already sealed; owner notification is best-effort.
     }
-  }
-
-  private disposeLoadedRuntimeState(state: PatchMapLoadedRuntimeState): void {
-    this.barPresentation.disposeLoadedState(state.barPresentation);
-    state.spatialHit.destroy();
-    state.pendingIntrinsicImageSizes.clear();
   }
 
   private matchesOwnedIncrementalInput(
