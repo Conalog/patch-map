@@ -61,8 +61,8 @@ export class PatchMapAccessibilityAuthority {
 
   public reconcile(derivation: PatchMapAccessibilityDerivation): void {
     this.assertAlive();
-    const retainedIds = new Set(derivation.targets.map(({ id }) => id));
     const targets = Object.freeze(derivation.targets.map(freezeTargetInput));
+    const retainedIds = new Set(targets.map(({ id }) => id));
     const hiddenFocusableCount = nonNegativeInteger(
       derivation.hiddenFocusableCount,
       'hiddenFocusableCount',
