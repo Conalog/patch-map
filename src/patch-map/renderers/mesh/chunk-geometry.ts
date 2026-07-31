@@ -20,7 +20,6 @@ import {
   buildQuadGeometry,
   clamp01,
   finishGeometry,
-  fitPatchMapCornerRadii,
   isFiniteLine,
   isFiniteQuad,
   multiplyPackedRgba,
@@ -70,12 +69,13 @@ interface MutableLineGroup extends PackedMeshStyle {
 interface MutableRoundedBarGroup extends PackedMeshStyle {
   readonly key: string;
   readonly drawOrder: number;
-  readonly primitives: StyledBackgroundPrimitive[];
+  readonly primitives: StyledBarPrimitive[];
 }
 
 export interface BarPrimitiveBinding {
   readonly key: string;
   readonly primitiveIndex: number;
+  readonly geometryKind: 'quad' | 'rounded';
   readonly packed: number;
   readonly opacity: number;
   readonly zIndex: number;
@@ -83,8 +83,9 @@ export interface BarPrimitiveBinding {
 
 export interface BarSlotBinding {
   readonly entityId: string;
-  readonly track: BarPrimitiveBinding | null;
-  readonly fill: BarPrimitiveBinding | null;
+  track: BarPrimitiveBinding | null;
+  fill: BarPrimitiveBinding | null;
+  readonly radius: number;
   x: number;
   y: number;
   width: number;
@@ -129,8 +130,14 @@ export interface StyledBackgroundPrimitive {
   readonly drawOrder: number;
 }
 
+interface StyledBarPrimitive extends StyledBackgroundPrimitive {
+  readonly slot: number;
+  readonly part: 'track' | 'fill';
+  readonly radius: number;
+}
+
 function buildRoundedBarGeometry(
-  primitives: readonly StyledBackgroundPrimitive[],
+  primitives: readonly StyledBarPrimitive[],
 ): AggregateGeometryData {
   const positions = new Float32Array(
     primitives.length * ROUNDED_BAR_VERTICES_PER_PRIMITIVE * 2,
@@ -143,57 +150,16 @@ function buildRoundedBarGeometry(
   );
 
   for (let primitiveIndex = 0; primitiveIndex < primitives.length; primitiveIndex += 1) {
-    const primitive = primitives[primitiveIndex] as StyledBackgroundPrimitive;
-    const projection = primitive.quad.projection;
-    const localWidth = projection?.localBounds[2] ?? primitive.quad.width;
-    const localHeight = projection?.localBounds[3] ?? primitive.quad.height;
-    if (!(localWidth > 0) || !(localHeight > 0)) continue;
-
-    const scaleX = primitive.quad.width / localWidth;
-    const scaleY = primitive.quad.height / localHeight;
-    const [basisA, basisB, basisC, basisD] = primitive.quad.basis;
-    const [topLeftX, topLeftY] = primitive.quad.vertices;
-    const radii = fitPatchMapCornerRadii(
-      localWidth,
-      localHeight,
-      primitive.paint.radius,
+    const primitive = primitives[primitiveIndex] as StyledBarPrimitive;
+    writeRoundedBarPositionValues(
+      positions,
+      primitiveIndex,
+      primitive.quad,
+      primitive.radius,
+      uvs,
     );
     const vertexBase = primitiveIndex * ROUNDED_BAR_VERTICES_PER_PRIMITIVE;
-    const positionBase = vertexBase * 2;
     const indexBase = primitiveIndex * ROUNDED_BAR_INDICES_PER_PRIMITIVE;
-
-    const writeVertex = (vertexIndex: number, localX: number, localY: number): void => {
-      const offset = positionBase + vertexIndex * 2;
-      positions[offset] = Math.fround(
-        topLeftX + basisA * scaleX * localX + basisC * scaleY * localY,
-      );
-      positions[offset + 1] = Math.fround(
-        topLeftY + basisB * scaleX * localX + basisD * scaleY * localY,
-      );
-      uvs[offset] = localX / localWidth;
-      uvs[offset + 1] = localY / localHeight;
-    };
-
-    writeVertex(0, localWidth / 2, localHeight / 2);
-    let perimeterIndex = 0;
-    const corners = [
-      [localWidth - radii[1], radii[1], radii[1], -Math.PI / 2],
-      [localWidth - radii[2], localHeight - radii[2], radii[2], 0],
-      [radii[3], localHeight - radii[3], radii[3], Math.PI / 2],
-      [radii[0], radii[0], radii[0], Math.PI],
-    ] as const;
-    for (const [centerX, centerY, radius, startAngle] of corners) {
-      for (let segment = 0; segment <= ROUNDED_BAR_CORNER_SEGMENTS; segment += 1) {
-        const angle = startAngle +
-          (segment / ROUNDED_BAR_CORNER_SEGMENTS) * (Math.PI / 2);
-        writeVertex(
-          1 + perimeterIndex,
-          centerX + Math.cos(angle) * radius,
-          centerY + Math.sin(angle) * radius,
-        );
-        perimeterIndex += 1;
-      }
-    }
 
     for (let edge = 0; edge < ROUNDED_BAR_PERIMETER_VERTICES; edge += 1) {
       const offset = indexBase + edge * 3;
@@ -205,6 +171,212 @@ function buildRoundedBarGeometry(
   }
 
   return finishGeometry(positions, uvs, indices, primitives.length);
+}
+
+type RoundedBarQuad = StyledBackgroundPrimitive['quad'];
+
+export function writeRoundedBarPositionValues(
+  positions: Float32Array,
+  primitiveIndex: number,
+  quad: RoundedBarQuad,
+  radius: number,
+  uvs?: Float32Array,
+): boolean {
+  const projection = quad.projection;
+  const localWidth = projection?.localBounds[2] ?? quad.width;
+  const localHeight = projection?.localBounds[3] ?? quad.height;
+  if (!(localWidth > 0) || !(localHeight > 0)) return false;
+
+  const fittedRadius = Math.min(
+    Math.max(0, radius),
+    localWidth / 2,
+    localHeight / 2,
+  );
+  const scaleX = quad.width / localWidth;
+  const scaleY = quad.height / localHeight;
+  const [basisA, basisB, basisC, basisD] = quad.basis;
+  const [topLeftX, topLeftY] = quad.vertices;
+  const positionBase = primitiveIndex * ROUNDED_BAR_VERTICES_PER_PRIMITIVE * 2;
+  let changed = writeRoundedBarVertex(
+    positions,
+    uvs,
+    positionBase,
+    0,
+    localWidth / 2,
+    localHeight / 2,
+    localWidth,
+    localHeight,
+    scaleX,
+    scaleY,
+    basisA,
+    basisB,
+    basisC,
+    basisD,
+    topLeftX,
+    topLeftY,
+  );
+  changed = writeRoundedBarCorner(
+    positions,
+    uvs,
+    positionBase,
+    0,
+    localWidth - fittedRadius,
+    fittedRadius,
+    fittedRadius,
+    -Math.PI / 2,
+    localWidth,
+    localHeight,
+    scaleX,
+    scaleY,
+    basisA,
+    basisB,
+    basisC,
+    basisD,
+    topLeftX,
+    topLeftY,
+  ) || changed;
+  changed = writeRoundedBarCorner(
+    positions,
+    uvs,
+    positionBase,
+    ROUNDED_BAR_CORNER_SEGMENTS + 1,
+    localWidth - fittedRadius,
+    localHeight - fittedRadius,
+    fittedRadius,
+    0,
+    localWidth,
+    localHeight,
+    scaleX,
+    scaleY,
+    basisA,
+    basisB,
+    basisC,
+    basisD,
+    topLeftX,
+    topLeftY,
+  ) || changed;
+  changed = writeRoundedBarCorner(
+    positions,
+    uvs,
+    positionBase,
+    (ROUNDED_BAR_CORNER_SEGMENTS + 1) * 2,
+    fittedRadius,
+    localHeight - fittedRadius,
+    fittedRadius,
+    Math.PI / 2,
+    localWidth,
+    localHeight,
+    scaleX,
+    scaleY,
+    basisA,
+    basisB,
+    basisC,
+    basisD,
+    topLeftX,
+    topLeftY,
+  ) || changed;
+  changed = writeRoundedBarCorner(
+    positions,
+    uvs,
+    positionBase,
+    (ROUNDED_BAR_CORNER_SEGMENTS + 1) * 3,
+    fittedRadius,
+    fittedRadius,
+    fittedRadius,
+    Math.PI,
+    localWidth,
+    localHeight,
+    scaleX,
+    scaleY,
+    basisA,
+    basisB,
+    basisC,
+    basisD,
+    topLeftX,
+    topLeftY,
+  ) || changed;
+  return changed;
+}
+
+function writeRoundedBarCorner(
+  positions: Float32Array,
+  uvs: Float32Array | undefined,
+  positionBase: number,
+  perimeterStart: number,
+  centerX: number,
+  centerY: number,
+  radius: number,
+  startAngle: number,
+  localWidth: number,
+  localHeight: number,
+  scaleX: number,
+  scaleY: number,
+  basisA: number,
+  basisB: number,
+  basisC: number,
+  basisD: number,
+  topLeftX: number,
+  topLeftY: number,
+): boolean {
+  let changed = false;
+  for (let segment = 0; segment <= ROUNDED_BAR_CORNER_SEGMENTS; segment += 1) {
+    const angle = startAngle +
+      (segment / ROUNDED_BAR_CORNER_SEGMENTS) * (Math.PI / 2);
+    changed = writeRoundedBarVertex(
+      positions,
+      uvs,
+      positionBase,
+      1 + perimeterStart + segment,
+      centerX + Math.cos(angle) * radius,
+      centerY + Math.sin(angle) * radius,
+      localWidth,
+      localHeight,
+      scaleX,
+      scaleY,
+      basisA,
+      basisB,
+      basisC,
+      basisD,
+      topLeftX,
+      topLeftY,
+    ) || changed;
+  }
+  return changed;
+}
+
+function writeRoundedBarVertex(
+  positions: Float32Array,
+  uvs: Float32Array | undefined,
+  positionBase: number,
+  vertexIndex: number,
+  localX: number,
+  localY: number,
+  localWidth: number,
+  localHeight: number,
+  scaleX: number,
+  scaleY: number,
+  basisA: number,
+  basisB: number,
+  basisC: number,
+  basisD: number,
+  topLeftX: number,
+  topLeftY: number,
+): boolean {
+  const offset = positionBase + vertexIndex * 2;
+  const nextX = Math.fround(
+    topLeftX + basisA * scaleX * localX + basisC * scaleY * localY,
+  );
+  const nextY = Math.fround(
+    topLeftY + basisB * scaleX * localX + basisD * scaleY * localY,
+  );
+  const changed = positions[offset] !== nextX || positions[offset + 1] !== nextY;
+  positions[offset] = nextX;
+  positions[offset + 1] = nextY;
+  if (uvs !== undefined) {
+    uvs[offset] = localX / localWidth;
+    uvs[offset + 1] = localY / localHeight;
+  }
+  return changed;
 }
 
 export function isDrawable(store: RenderStoreView, slot: number): boolean {
@@ -263,7 +435,8 @@ function getLineGroup(
 }
 
 function buildRoundedBarGroups(
-  primitives: readonly StyledBackgroundPrimitive[],
+  primitives: readonly StyledBarPrimitive[],
+  bindings: ReadonlyMap<number, BarSlotBinding>,
 ): readonly AggregateGeometryGroup[] {
   const groups = new Map<string, MutableRoundedBarGroup>();
   for (const primitive of primitives) {
@@ -280,7 +453,21 @@ function buildRoundedBarGroups(
       };
       groups.set(key, group);
     }
+    const primitiveIndex = group.primitives.length;
     group.primitives.push(primitive);
+    const binding = bindings.get(primitive.slot);
+    if (binding !== undefined) {
+      const primitiveBinding: BarPrimitiveBinding = {
+        key,
+        primitiveIndex,
+        geometryKind: 'rounded',
+        packed: primitive.fill >>> 0,
+        opacity: primitive.opacity,
+        zIndex: Math.floor(primitive.drawOrder / PASSES_PER_Z_INDEX),
+      };
+      if (primitive.part === 'track') binding.track = primitiveBinding;
+      else binding.fill = primitiveBinding;
+    }
   }
   return [...groups.values()].map((group) => ({
     key: group.key,
@@ -328,6 +515,7 @@ function appendBarPrimitive(
   return {
     key: group.key,
     primitiveIndex,
+    geometryKind: 'quad',
     packed: packed >>> 0,
     opacity,
     zIndex,
@@ -365,7 +553,7 @@ function styledBarPaint(
 function appendStyledBarSlot(
   store: RenderStoreView,
   slot: number,
-  primitives: StyledBackgroundPrimitive[],
+  primitives: StyledBarPrimitive[],
   bindings: Map<number, BarSlotBinding>,
   projectionContext?: PatchMapProjectionRenderContext,
 ): number {
@@ -376,15 +564,31 @@ function appendStyledBarSlot(
   const rotation = store.rotation[slot] as number;
   const progress = resolveBarProgress(store, slot);
   const entityId = store.ids[slot] ?? `@slot:${slot}`;
+  const radius = Math.max(0, store.radius[slot] as number);
+  bindings.set(slot, {
+    entityId,
+    track: null,
+    fill: null,
+    radius,
+    x,
+    y,
+    width,
+    height,
+    rotation,
+    progress,
+    projectionRevision: projectionContext?.revision ?? -1,
+  });
   let count = 0;
   if (isDrawable(store, slot) && width > 0 && height > 0) {
     const opacity = store.opacity[slot] as number;
     const zIndex = store.zIndex[slot] as number;
-    const radius = Math.max(0, store.radius[slot] as number);
     const trackFill = (store.trackFill[slot] as number) >>> 0;
     const trackStyle = packedRgbaToMeshStyle(trackFill, opacity);
     if (trackStyle.alpha > 0) {
       primitives.push({
+        slot,
+        part: 'track',
+        radius,
         entityId,
         quad: resolvePatchMapSlotQuad(store, slot, projectionContext),
         paint: styledBarPaint(entityId, trackFill, radius),
@@ -402,6 +606,9 @@ function appendStyledBarSlot(
     if (fillWidth > 0 && fillStyle.alpha > 0) {
       const fillRadius = Math.min(radius, fillWidth / 2, height / 2);
       primitives.push({
+        slot,
+        part: 'fill',
+        radius: fillRadius,
         entityId,
         quad: resolvePatchMapSlotQuad(store, slot, projectionContext, progress),
         paint: styledBarPaint(entityId, fill, fillRadius),
@@ -413,18 +620,6 @@ function appendStyledBarSlot(
       count += 1;
     }
   }
-  bindings.set(slot, {
-    entityId,
-    track: null,
-    fill: null,
-    x,
-    y,
-    width,
-    height,
-    rotation,
-    progress,
-    projectionRevision: projectionContext?.revision ?? -1,
-  });
   return count;
 }
 
@@ -487,6 +682,7 @@ function appendBarSlot(
     entityId,
     track,
     fill,
+    radius: 0,
     x,
     y,
     width,
@@ -504,7 +700,7 @@ export function buildAggregateBarLaneGeometry(
   projectionContext?: PatchMapProjectionRenderContext,
 ): AggregateBarLaneGeometry {
   const groups = new Map<string, MutableQuadGroup>();
-  const styledBars: StyledBackgroundPrimitive[] = [];
+  const styledBars: StyledBarPrimitive[] = [];
   const bindings = new Map<number, BarSlotBinding>();
   const paintProbes = new Map<string, PatchMapEntityPaintProbe>();
   let visibleBars = 0;
@@ -530,7 +726,7 @@ export function buildAggregateBarLaneGeometry(
       ...[...groups.values()].map((group) =>
         geometryGroup(group, buildQuadGeometry(group.primitives)),
       ),
-      ...buildRoundedBarGroups(styledBars),
+      ...buildRoundedBarGroups(styledBars, bindings),
     ],
     styledBars: [],
     bindings,
@@ -566,7 +762,7 @@ export function buildAggregateChunkLaneGeometry(
   const rectGroups = new Map<string, MutableQuadGroup>();
   const styledRects: StyledBackgroundPrimitive[] = [];
   const barGroups = new Map<string, MutableQuadGroup>();
-  const styledBars: StyledBackgroundPrimitive[] = [];
+  const styledBars: StyledBarPrimitive[] = [];
   const relationGroups = new Map<string, MutableLineGroup>();
   const barSlots: number[] = [];
   const barBindings = new Map<number, BarSlotBinding>();
@@ -829,7 +1025,7 @@ export function buildAggregateChunkLaneGeometry(
       ...[...barGroups.values()].map((group) =>
         geometryGroup(group, buildQuadGeometry(group.primitives)),
       ),
-      ...buildRoundedBarGroups(styledBars),
+      ...buildRoundedBarGroups(styledBars, barBindings),
     ],
     styledBars: [],
     relationGroups: [...relationGroups.values()].map((group) =>

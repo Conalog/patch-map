@@ -544,12 +544,36 @@ describe('AggregateMeshLayer', () => {
       primitiveCount: 2,
       renderObjectCount: 0,
     });
+    const trackBefore = roundedMeshes.find((mesh) => mesh.zIndex === 5);
+    const fillBefore = roundedMeshes.find((mesh) => mesh.zIndex === 6);
+    if (trackBefore === undefined || fillBefore === undefined) {
+      throw new Error('expected rounded track and fill meshes');
+    }
+    const trackPositionsBefore = [...trackBefore.geometry.positions];
+    const fillPositionsBefore = [...fillBefore.geometry.positions];
+    const fillUvsBefore = fillBefore.geometry.uvs;
+    const fillIndicesBefore = fillBefore.geometry.indices;
 
     (store.value as Float32Array)[1] = 75;
     (store as { revision: number }).revision = 2;
     const animated = layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
+    const roundedMeshesAfter = layer.relationContainer.children.filter((child) =>
+      child instanceof Mesh && child.label.includes(': bar chunk 0'),
+    ) as Mesh<MeshGeometry>[];
+    const freshFill = buildAggregateChunkGeometry(
+      store,
+      0,
+      store.capacity,
+    ).quadGroups.find((group) => group.tint === 0x00cc66);
     expect(animated.geometrySlotsVisited).toBe(1);
-    expect(animated.uploadedBytes).toBeGreaterThan(0);
+    expect(animated.uploadedBytes).toBe(fillBefore.geometry.positions.byteLength);
+    expect(animated.uploadedBytes).toBe(168);
+    expect(roundedMeshesAfter).toEqual(roundedMeshes);
+    expect([...trackBefore.geometry.positions]).toEqual(trackPositionsBefore);
+    expect([...fillBefore.geometry.positions]).not.toEqual(fillPositionsBefore);
+    expect(fillBefore.geometry.uvs).toBe(fillUvsBefore);
+    expect(fillBefore.geometry.indices).toBe(fillIndicesBefore);
+    expect([...fillBefore.geometry.positions]).toEqual([...(freshFill?.positions ?? [])]);
     expect(layer.relationContainer.children.filter((child) =>
       child instanceof Graphics && child.label.includes(': styled bar chunk 0'),
     )).toHaveLength(0);
@@ -557,6 +581,7 @@ describe('AggregateMeshLayer', () => {
     (store.radius as Float64Array)[1] = 0;
     (store as { revision: number }).revision = 3;
     layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
+    expect(roundedMeshes.every((mesh) => mesh.destroyed)).toBe(true);
     expect(layer.relationContainer.children.filter((child) =>
       child instanceof Graphics && child.label.includes(': styled bar chunk 0'),
     )).toHaveLength(0);
@@ -570,6 +595,36 @@ describe('AggregateMeshLayer', () => {
 
     layer.destroy();
     expect(roundedMeshes.every((mesh) => mesh.destroyed)).toBe(true);
+  });
+
+  it('updates one rounded primitive in a retained multi-bar style group', () => {
+    const store = createBarChunkStore();
+    (store.radius as Float64Array).fill(4);
+    const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'rounded group' });
+    layer.sync(store, { fullRebuildEpoch: 1 });
+    const meshes = layer.relationContainer.children.filter(
+      (child): child is Mesh<MeshGeometry> =>
+        child instanceof Mesh && child.label.includes(': bar chunk 0'),
+    );
+    const fill = meshes.find((mesh) => mesh.zIndex === 2);
+    if (fill === undefined) throw new Error('expected grouped rounded fill mesh');
+    const fillPositionsBefore = [...fill.geometry.positions];
+
+    (store.value as Float32Array)[2] = 85;
+    (store as { revision: number }).revision = 2;
+    const updated = layer.sync(store, { changedRanges: [{ start: 2, end: 3 }] });
+    const freshFill = buildAggregateChunkGeometry(
+      store,
+      0,
+      store.capacity,
+    ).quadGroups.find((group) => group.tint === 0x00cc66);
+
+    expect(updated.geometrySlotsVisited).toBe(1);
+    expect(updated.uploadedBytes).toBe(fill.geometry.positions.byteLength);
+    expect(layer.relationContainer.children).toContain(fill);
+    expect([...fill.geometry.positions]).not.toEqual(fillPositionsBefore);
+    expect([...fill.geometry.positions]).toEqual([...(freshFill?.positions ?? [])]);
+    layer.destroy();
   });
 
   it('takes the structural path when a non-bar slot is replaced by a bar', () => {

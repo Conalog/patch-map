@@ -31,8 +31,8 @@ import {
   buildAggregateBarLaneGeometry,
   buildAggregateChunkLaneGeometry,
   isDrawable,
-  isStyledBar,
   resolveBarProgress,
+  writeRoundedBarPositionValues,
   type AggregateGeometryGroup,
   type AggregateChunkLaneGeometry,
   type BarPrimitiveBinding,
@@ -314,6 +314,7 @@ function isFiniteBarQuad(
 function primitiveBindingMatches(
   binding: BarPrimitiveBinding | null,
   expected: boolean,
+  expectedGeometryKind: BarPrimitiveBinding['geometryKind'],
   packed: number,
   opacity: number,
   zIndex: number,
@@ -322,6 +323,7 @@ function primitiveBindingMatches(
   if (!expected) return binding === null;
   if (
     binding === null ||
+    binding.geometryKind !== expectedGeometryKind ||
     binding.packed !== (packed >>> 0) ||
     binding.opacity !== opacity ||
     binding.zIndex !== zIndex
@@ -329,9 +331,12 @@ function primitiveBindingMatches(
     return false;
   }
   const record = records.get(binding.key);
+  const positionValuesPerPrimitive =
+    binding.geometryKind === 'rounded' ? 42 : 8;
   return (
     record !== undefined &&
-    binding.primitiveIndex * 8 + 8 <= record.geometry.positions.length
+    binding.primitiveIndex * positionValuesPerPrimitive +
+      positionValuesPerPrimitive <= record.geometry.positions.length
   );
 }
 
@@ -341,10 +346,13 @@ function barSlotBindingMatches(
   binding: BarSlotBinding | undefined,
   records: ReadonlyMap<string, MeshRecord>,
 ): boolean {
+  const radius = Math.max(0, store.radius[slot] as number);
+  const geometryKind: BarPrimitiveBinding['geometryKind'] =
+    radius > 0 ? 'rounded' : 'quad';
   if (
-    isStyledBar(store, slot) ||
     binding === undefined ||
     binding.entityId !== (store.ids[slot] ?? `@slot:${slot}`) ||
+    binding.radius !== radius ||
     (store.alive[slot] as number) === 0 ||
     (store.kind[slot] as number) !== RenderKind.Bar
   ) {
@@ -375,6 +383,7 @@ function barSlotBindingMatches(
     primitiveBindingMatches(
       binding.track,
       trackExpected,
+      geometryKind,
       trackPacked,
       opacity,
       zIndex,
@@ -383,6 +392,7 @@ function barSlotBindingMatches(
     primitiveBindingMatches(
       binding.fill,
       fillExpected,
+      geometryKind,
       fillPacked,
       opacity,
       zIndex,
@@ -418,27 +428,40 @@ function updateBoundBarSlotPositions(
     binding.projectionRevision !== (projectionContext?.revision ?? -1);
   if (binding.track !== null && transformChanged) {
     const record = records.get(binding.track.key) as MeshRecord;
-    if (
-      writeExactQuadPositionValues(
+    const changed = binding.track.geometryKind === 'rounded'
+      ? writeRoundedBarPositionValues(
+          record.geometry.positions,
+          binding.track.primitiveIndex,
+          trackQuad,
+          binding.radius,
+        )
+      : writeExactQuadPositionValues(
         record.geometry.positions,
         binding.track.primitiveIndex,
         trackQuad.vertices,
-      )
-    ) {
-      dirtyRecords.add(record);
-    }
+      );
+    if (changed) dirtyRecords.add(record);
   }
   if (binding.fill !== null && (transformChanged || binding.progress !== progress)) {
     const record = records.get(binding.fill.key) as MeshRecord;
-    if (
-      writeExactQuadPositionValues(
+    const fillRadius = Math.min(
+      binding.radius,
+      width * progress / 2,
+      height / 2,
+    );
+    const changed = binding.fill.geometryKind === 'rounded'
+      ? writeRoundedBarPositionValues(
+          record.geometry.positions,
+          binding.fill.primitiveIndex,
+          fillQuad,
+          fillRadius,
+        )
+      : writeExactQuadPositionValues(
         record.geometry.positions,
         binding.fill.primitiveIndex,
         fillQuad.vertices,
-      )
-    ) {
-      dirtyRecords.add(record);
-    }
+      );
+    if (changed) dirtyRecords.add(record);
   }
   binding.x = x;
   binding.y = y;
