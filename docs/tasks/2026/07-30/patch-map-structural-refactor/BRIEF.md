@@ -15,7 +15,7 @@
 # Current Facts
 
 - The 420-file allowed inventory excludes frozen and generated content.
-- `engine.ts` is 6,193 LOC and `core.ts` is 2,495 LOC. Parser, transaction,
+- `engine.ts` is 6,162 LOC and `core.ts` is 2,495 LOC. Parser, transaction,
   text-layout, incremental-parser, authoring, and editor-workflow facades have
   focused downward owners while their atomic writers remain singular.
 - Mesh and Pixi renderer coordinators are 1,256 and 2,002 LOC after CPU value
@@ -57,11 +57,14 @@
 - Reconcile extraction preserves the O(dirty) WeakMap transfer, both 512-row
   guards, exact operation order, and every Set/Map/freeze/spread/loop count;
   independent review found no P0–P2 issue.
+- Engine now delegates the repeated full/structural/flat component and text
+  semantic branches to one existing planner owner without new collections,
+  passes, closures, or atomic write paths.
 
 # Next Step
 
-- Consolidate Engine's scattered pure reconcile decisions into its existing
-  planner while retaining atomic surface/history/publication writes in Engine.
+- Split query/selection contracts and pure value policies while keeping the
+  lazy logical index, spatial hit testing, and target caches in its facade.
 
 # Working Boundary
 
