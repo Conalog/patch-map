@@ -472,7 +472,7 @@ export class PatchMapSceneImageController {
       this.bindings.delete(binding.key);
       for (const attempt of binding.attempts) attempt.binding = null;
       binding.attempts.clear();
-      this.trackRelease(binding, this.renderer.unbindSceneAsset(binding.key));
+      this.trackRelease(binding, this.safeUnbindSceneAsset(binding.key));
     }
     for (const target of this.targets.values()) {
       if (target.current.attachmentState === 'current') {

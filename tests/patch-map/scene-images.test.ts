@@ -748,6 +748,33 @@ describe('PatchMapSceneImageController', () => {
     expect(invalidate).toHaveBeenCalledTimes(callsBeforeLateCompletion);
   });
 
+  it('completes every binding teardown before reporting a synchronous unbind failure', async () => {
+    const renderer = new MockImageRenderer();
+    const controller = new PatchMapSceneImageController(renderer);
+    const firstKey = 'alias:first-image';
+    const secondKey = 'alias:second-image';
+    controller.reconcile(imageIndex([
+      image('first', 'first-image', 'alias'),
+      image('second', 'second-image', 'alias'),
+    ]));
+    renderer.unbindFailure = new Error('fixture synchronous unbind failed');
+
+    await expect(controller.destroy()).rejects.toThrow('scene image lifecycle failed');
+
+    expect(renderer.bridgeCalls.filter((call) => call.startsWith('unbind:'))).toEqual([
+      `unbind:${firstKey}`,
+      `unbind:${secondKey}`,
+    ]);
+    expect(controller.probe()).toMatchObject({
+      destroyed: true,
+      targetCount: 0,
+      bindingCount: 0,
+      pendingSettlementCount: 0,
+      pendingReleaseCount: 0,
+    });
+    await expect(controller.destroy()).resolves.toBeUndefined();
+  });
+
   it('publishes decoded size once only for a current intrinsic generation', async () => {
     const renderer = new MockImageRenderer();
     const onIntrinsicSize = vi.fn();
