@@ -21,9 +21,9 @@
   generated/dependency content. New cohesive modules and their contract tests
   remain in the same file-by-file review ledger.
 - `engine.ts` is 6,692 LOC, `core.ts` is 3,299 LOC, `parser.ts` is 2,620 LOC,
-  `semantic/transaction.ts` is 2,485 LOC, and `semantic/dataset.ts` is 1,170
-  LOC after the current authority extractions. `leaf-layer.ts` is 1,804
-  LOC, `pixi-renderer.ts` is 2,717 LOC, and contract `main.ts` is 1,820 LOC.
+  `semantic/transaction.ts` is 1,965 LOC, and `semantic/dataset.ts` is 1,170
+  LOC after the current authority extractions. `leaf-layer.ts` is 1,685
+  LOC, `pixi-renderer.ts` is 2,474 LOC, and contract `main.ts` is 1,820 LOC.
   The facades still combine enough stateful responsibilities to require
   further ownership work.
 - Renderer ownership is sound: one manual Application loop, aggregate layers,
@@ -49,16 +49,19 @@
   DevTools decisions, and Lab runtime/view/run observation have focused owners.
 - Immutable Engine operation outcomes and Core renderer leases now have single
   owners without changing event order or shared GPU resource ownership.
-- The current checkpoint passes 174 unit files / 1,569 tests, full lint and
+- Leaf publication signatures, Pixi dirty-range/relation planning, and owned
+  transaction fast paths now have pure owners while resource and state writers
+  remain in their facades.
+- The current checkpoint passes 176 unit files / 1,579 tests, full lint and
   typecheck, product/Lab builds, canonical 173 contract, and a representative
   headless WebGL Lab run with zero console/page/network errors. Unchanged-path
   package, memory, and performance gates were intentionally not repeated.
 
 # Next Step
 
-- Split the next cohesive transaction/parser/renderer responsibilities, then
-  continue the remaining Lab, test, verification, and performance file
-  dispositions without moving stateful writers.
+- Split the next cohesive Engine/Core/parser and Lab composition
+  responsibilities, then continue the remaining test, verification, and
+  performance file dispositions without moving stateful writers.
 
 # Working Boundary
 
