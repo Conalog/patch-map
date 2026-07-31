@@ -13,7 +13,15 @@ const CODE_COMMIT = process.env.PATCH_MAP_CODE_COMMIT ?? 'uncommitted';
 const SMOKE = process.argv.includes('--smoke');
 const WARMUPS = SMOKE ? 0 : 2;
 const MEASURED = SMOKE ? 1 : 7;
-const SIZE = 5_000;
+const SCENE_SIZE = process.env.PATCH_MAP_PERF_SCENE_SIZE ?? '5000';
+const NUMERIC_SCENE_SIZE = /^\d+$/.test(SCENE_SIZE)
+  ? Number.parseInt(SCENE_SIZE, 10)
+  : null;
+const LOAD_TIMEOUT_MS =
+  SCENE_SIZE === 'actual-production' ||
+  (NUMERIC_SCENE_SIZE !== null && NUMERIC_SCENE_SIZE > 5_000)
+    ? 120_000
+    : 60_000;
 const SEED = 319;
 const PAN_MOVES = 12;
 const PAN_MOVE_WAIT_MS = 28;
@@ -127,14 +135,17 @@ function validateTrial(trial, label) {
   };
   check(trial.action.status === 'committed', 'bar batch did not commit');
   check(
-    trial.action.appliedCount + trial.action.unchangedCount === SIZE,
-    'bar batch count did not cover the 5000 targets',
+    NUMERIC_SCENE_SIZE === null ||
+      trial.action.appliedCount + trial.action.unchangedCount === NUMERIC_SCENE_SIZE,
+    `bar batch count did not cover the ${SCENE_SIZE} targets`,
   );
   check(trial.activeAnimationsAfterAction > 0, 'animation was not visible after action');
-  check(
-    trial.presentationDistinctHeightCount >= 2,
-    'presentation height did not visibly interpolate',
-  );
+  if (NUMERIC_SCENE_SIZE !== null) {
+    check(
+      trial.presentationDistinctHeightCount >= 2,
+      'presentation height did not visibly interpolate',
+    );
+  }
   check(trial.panRafGapsMs.length >= 3, 'rAF sample was too short');
   check(trial.panCanvasFrameGapsMs.length >= 3, 'canvas frame sample was too short');
   if (trial.activeAnimationsAtPointerDown > 0) {
@@ -195,8 +206,8 @@ function profileBudgetViolations(profile) {
 
 async function runTrial(page, trialIndex) {
   await page.goto(
-    `lab/patch-map/?scenario=REN-009&size=${SIZE}&seed=${SEED}`,
-    { waitUntil: 'networkidle', timeout: 60_000 },
+    `lab/patch-map/?scenario=REN-009&size=${SCENE_SIZE}&seed=${SEED}`,
+    { waitUntil: 'networkidle', timeout: LOAD_TIMEOUT_MS },
   );
   await page.waitForFunction(
     () => {
@@ -204,7 +215,7 @@ async function runTrial(page, trialIndex) {
       return status === 'ready' || status === 'failed';
     },
     undefined,
-    { timeout: 60_000 },
+    { timeout: LOAD_TIMEOUT_MS },
   );
   const initialState = await page.evaluate(() =>
     window.__PATCH_MAP_MANUAL_LAB__?.state());
@@ -267,7 +278,13 @@ async function runTrial(page, trialIndex) {
     } catch {
       // Long Task observation is diagnostic; rAF and product facts stay normative.
     }
-    const targets = [0, 77, 4_999];
+    const size = Number.parseInt(
+      window.__PATCH_MAP_MANUAL_LAB__.state().sceneSize,
+      10,
+    );
+    const targets = Number.isSafeInteger(size)
+      ? [0, Math.min(77, size - 1), size - 1]
+      : [];
     const tick = (time) => {
       sample.raf.push(time);
       const bridge = window.__PATCH_MAP_MANUAL_LAB__;
@@ -513,7 +530,7 @@ async function main() {
       protocol: Object.freeze({
         warmups: WARMUPS,
         measured: MEASURED,
-        size: SIZE,
+      size: SCENE_SIZE,
         seed: SEED,
         panMoves: PAN_MOVES,
         panMoveWaitMs: PAN_MOVE_WAIT_MS,
@@ -571,7 +588,9 @@ async function main() {
         `PatchMap bar/pan checkpoint failed; evidence saved to ${OUTPUT_PATH}`,
       );
     }
-    process.stdout.write(`PASS: PatchMap 5000-bar animation plus pan 2+7\n`);
+    process.stdout.write(
+      `PASS: PatchMap ${SCENE_SIZE}-scene animation plus pan 2+7\n`,
+    );
   } finally {
     await page?.close().catch(() => undefined);
     await context?.close().catch(() => undefined);

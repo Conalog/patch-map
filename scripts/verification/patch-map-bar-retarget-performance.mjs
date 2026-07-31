@@ -10,7 +10,20 @@ import { createServer } from 'vite';
 
 const ROOT = process.cwd();
 const SMOKE = process.argv.includes('--smoke');
-const SIZE = 5_000;
+const SCENE_SIZE = process.env.PATCH_MAP_PERF_SCENE_SIZE ?? '5000';
+const NUMERIC_SCENE_SIZE = /^\d+$/.test(SCENE_SIZE)
+  ? Number.parseInt(SCENE_SIZE, 10)
+  : null;
+const EXPECTED_TARGET_COUNT = NUMERIC_SCENE_SIZE;
+const LOAD_TIMEOUT_MS =
+  SCENE_SIZE === 'actual-production' ||
+  (NUMERIC_SCENE_SIZE !== null && NUMERIC_SCENE_SIZE > 5_000)
+    ? 120_000
+    : 60_000;
+const SETTLE_TIMEOUT_MS =
+  NUMERIC_SCENE_SIZE !== null && NUMERIC_SCENE_SIZE > 5_000
+    ? 60_000
+    : 20_000;
 const SEED = 319;
 const UPDATE_COUNT = 6;
 const UPDATE_INTERVAL_MS = 75;
@@ -54,22 +67,58 @@ function stats(values, label) {
 }
 
 async function configure(page, trial) {
+  const initialSceneSize = SCENE_SIZE === '5000' ? SCENE_SIZE : '100';
   await page.goto(
-    `lab/patch-map/?scenario=REN-009&size=${SIZE}&seed=${SEED + trial}`,
-    { waitUntil: 'networkidle', timeout: 60_000 },
+    `lab/patch-map/?scenario=REN-009&size=${initialSceneSize}&seed=${SEED + trial}`,
+    { waitUntil: 'networkidle', timeout: LOAD_TIMEOUT_MS },
   );
   await page.waitForFunction(
-    () => window.__PATCH_MAP_MANUAL_LAB__?.state().status === 'ready',
+    () => {
+      const status = window.__PATCH_MAP_MANUAL_LAB__?.state().status;
+      return status === 'ready' || status === 'failed';
+    },
     undefined,
-    { timeout: 60_000 },
+    { timeout: LOAD_TIMEOUT_MS },
   );
+  const initialState = await page.evaluate(() =>
+    window.__PATCH_MAP_MANUAL_LAB__?.state());
+  if (initialState?.status !== 'ready') {
+    throw new Error(
+      `trial ${trial} Lab failed: ${initialState?.error ?? 'unknown'}`,
+    );
+  }
   await page.locator('[data-manual-animation-duration]').fill('2000');
-  await page.locator('[data-manual-command="animation-duration"]').click();
+  if (initialSceneSize === SCENE_SIZE) {
+    await page.locator('[data-manual-command="animation-duration"]').click();
+  } else {
+    await page.evaluate((sceneSize) => {
+      const select = document.querySelector('[data-testid="manual-dataset-size"]');
+      if (!(select instanceof HTMLSelectElement)) {
+        throw new Error('manual dataset-size select is unavailable');
+      }
+      if (select.disabled) {
+        throw new Error('manual dataset-size select is unexpectedly disabled');
+      }
+      select.value = sceneSize;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }, SCENE_SIZE);
+  }
   await page.waitForFunction(
-    () => window.__PATCH_MAP_MANUAL_LAB__?.state().status === 'ready',
-    undefined,
-    { timeout: 60_000 },
+    (targetSceneSize) => {
+      const state = window.__PATCH_MAP_MANUAL_LAB__?.state();
+      return state?.status === 'failed' ||
+        (state?.status === 'ready' && state.sceneSize === targetSceneSize);
+    },
+    SCENE_SIZE,
+    { timeout: LOAD_TIMEOUT_MS },
   );
+  const configuredState = await page.evaluate(() =>
+    window.__PATCH_MAP_MANUAL_LAB__?.state());
+  if (configuredState?.status !== 'ready') {
+    throw new Error(
+      `trial ${trial} Lab reconfiguration failed: ${configuredState?.error ?? 'unknown'}`,
+    );
+  }
 }
 
 async function runTrial(page, trial) {
@@ -154,7 +203,7 @@ async function runTrial(page, trial) {
   await page.waitForFunction(
     () => window.__PATCH_MAP_MANUAL_LAB__?.state().activeAnimations === 0,
     undefined,
-    { timeout: 20_000 },
+    { timeout: SETTLE_TIMEOUT_MS },
   );
   const settled = await page.evaluate(() => {
     const bridge = window.__PATCH_MAP_MANUAL_LAB__;
@@ -197,19 +246,28 @@ async function runTrial(page, trial) {
 
 function validateTrial(trial, label) {
   const failures = [];
+  const animationExpected = SCENE_SIZE !== 'actual-production';
   if (trial.actions.length !== UPDATE_COUNT) {
     failures.push(`${label} did not execute ${UPDATE_COUNT} updates`);
   }
   for (const action of trial.actions) {
     if (action.status !== 'committed') failures.push(`${label} update did not commit`);
     if (action.appliedCount <= 0) failures.push(`${label} update applied no bars`);
-    if (action.activeAnimations <= 0) failures.push(`${label} update did not animate`);
+    if (
+      EXPECTED_TARGET_COUNT !== null &&
+      action.appliedCount > EXPECTED_TARGET_COUNT
+    ) {
+      failures.push(`${label} update exceeded ${EXPECTED_TARGET_COUNT} bars`);
+    }
+    if (animationExpected && action.activeAnimations <= 0) {
+      failures.push(`${label} update did not animate`);
+    }
   }
   if (Math.hypot(...trial.viewportDelta) < 10) {
     failures.push(`${label} viewport did not move during repeated updates`);
   }
   if (trial.rafGapsMs.length < 3) failures.push(`${label} rAF sample was too short`);
-  if (trial.activeAnimationsDuringSample <= 0) {
+  if (animationExpected && trial.activeAnimationsDuringSample <= 0) {
     failures.push(`${label} animation settled before repeated-update sampling ended`);
   }
   if (!trial.settled.semanticHash?.startsWith('fnv1a64:')) {
@@ -317,11 +375,13 @@ try {
     checkpoint: 'patch-map-repeated-bar-retarget',
     generatedAt: new Date().toISOString(),
     protocol: Object.freeze({
-      size: SIZE,
+      size: SCENE_SIZE,
       seed: SEED,
       updateCount: UPDATE_COUNT,
       updateIntervalMs: UPDATE_INTERVAL_MS,
       animationDurationMs: 2_000,
+      animationExpected: SCENE_SIZE !== 'actual-production',
+      settleTimeoutMs: SETTLE_TIMEOUT_MS,
       warmups: WARMUPS,
       measured: MEASURED,
       headless: true,
