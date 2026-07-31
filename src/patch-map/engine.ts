@@ -15,8 +15,6 @@ import type {
   PatchMapPresentationPolicyProductProbe,
 } from './presentation-policy';
 import {
-  PATCH_MAP_DEFAULT_VIEWPORT_POLICIES,
-  PATCH_MAP_VIEWPORT_POLICIES,
   PATCH_MAP_VIEWPORT_REVISION,
   patchMapBoundsCenter,
   patchMapViewportFitScale,
@@ -24,7 +22,6 @@ import {
   resolvePatchMapViewportContributors,
   type PatchMapViewportContributorResult,
   type PatchMapViewportGeometry,
-  type PatchMapViewportPolicy,
 } from './viewport';
 import type { SlotRange } from './dense/contracts';
 import type {
@@ -132,7 +129,6 @@ import type {
   PatchMapRelationHit,
   PatchMapRelationHitOptions,
   PatchMapSurfaceGeometrySnapshot,
-  PatchMapSurfaceView,
 } from './engine/surface-contract';
 export type {
   PatchMapPoint,
@@ -199,6 +195,10 @@ import {
   type PatchMapEngineComponentSemanticProbe,
   type PatchMapOwnedStructuralRootDelta,
 } from './engine/semantic-index';
+import {
+  PatchMapViewportAuthority,
+  type PatchMapViewportViewEffect,
+} from './engine/viewport-authority';
 export type {
   PatchMapEngineComponentSemanticProbe,
   PatchMapEngineTextSemanticProbe,
@@ -533,6 +533,7 @@ export class PatchMap {
   private readonly pageLifecycle = new PatchMapPageLifecycleAuthority();
   private readonly accessibility = new PatchMapAccessibilityAuthority();
   private readonly transformerGestures = new PatchMapTransformerGestureAuthority();
+  private readonly viewportAuthority = new PatchMapViewportAuthority();
   private activeTransformerEdit: ActivePatchMapTransformerEdit | null = null;
   private transformerEditPreviewCount = 0;
   private transformerEditCommittedMutationCount = 0;
@@ -600,7 +601,6 @@ export class PatchMap {
     readonly surfaceRevision: number;
     readonly representedRevisions: PatchMapGeometryRevisionTuple;
   }> | null = null;
-  private zoomLimits: readonly [number, number] = DEFAULT_ZOOM_LIMITS;
   private rendererConfiguration: Readonly<{
     resolution: number;
     antialias: boolean;
@@ -616,42 +616,10 @@ export class PatchMap {
   private overlayAcceptedCount = 0;
   private overlayPublicationCount = 0;
   private readonly externalDependencyRevisions = new Map<string, string>();
-  private viewportWidth = 0;
-  private viewportHeight = 0;
-  private viewportPixelRatio = 1;
-  private viewportCenterWorld: readonly [number, number] = Object.freeze([0, 0]);
-  private viewportScale = 1;
-  private viewportPolicyRegistry = new Set<PatchMapViewportPolicy>(
-    PATCH_MAP_DEFAULT_VIEWPORT_POLICIES,
-  );
-  private viewportPolicyEnabled = new Set<PatchMapViewportPolicy>(
-    PATCH_MAP_DEFAULT_VIEWPORT_POLICIES,
-  );
-  private viewportTemporaryPolicies: Readonly<{
-    readonly registry: readonly PatchMapViewportPolicy[];
-    readonly enabled: readonly PatchMapViewportPolicy[];
-  }> | null = null;
-  private viewportMotion: Readonly<{
-    readonly velocityX: number;
-    readonly velocityY: number;
-  }> | null = null;
-  private lastSettledViewportKey: string | null = null;
-  private lastSerializedViewportKey: string | null = null;
-  private lastSerializedViewport: PatchMapSerializedViewportState | null = null;
-  private viewportSettledPublicationCount = 0;
-  private viewportPersistenceWriteCount = 0;
-  private viewportSuppressedEquivalentSaveCount = 0;
   private surfaceViewportInputUnbind: (() => void) | null = null;
   private surfacePointerInputUnbind: (() => void) | null = null;
   private surfaceAccessibilityActivationUnbind: (() => void) | null = null;
   private pointerGestureAuthority: PatchMapPointerGestureAuthority | null = null;
-  private worldRotationDegrees = 0;
-  private worldFlipX = false;
-  private worldFlipY = false;
-  private viewportPointerTransformRevision = 0;
-  private viewportResizePolicyApplicationCount = 0;
-  private viewportBlackFrameCount = 0;
-  private viewportResizePendingFrame = false;
   private assetSession: PatchMapAssetSession | null = null;
   private requiredAssetAcquisitions: PatchMapAssetAcquisition[] = [];
 
@@ -805,7 +773,7 @@ export class PatchMap {
 
   /** Product-owned pointer/motion state; Lab hosts do not mirror it. */
   public get viewportGestureActive(): boolean {
-    if (this.viewportMotion !== null) return true;
+    if (this.viewportAuthority.motionActive) return true;
     if (this.surface?.viewportGestureActive?.() === true) return true;
     return (this.pointerGestureAuthority?.probe().activeGestureCount ?? 0) > 0;
   }
@@ -882,7 +850,6 @@ export class PatchMap {
     this.lifecycle = 'initializing';
     this.terminalRendererLossProbe = null;
     this.instanceId = options.instanceId;
-    this.zoomLimits = normalizeZoomLimits(options.zoomLimits ?? DEFAULT_ZOOM_LIMITS);
     const surfaceOptions: PatchMapSurfaceOptions = {
       width: options.width,
       height: options.height,
@@ -900,15 +867,13 @@ export class PatchMap {
       ...(options.target ? { target: options.target } : {}),
       ...(options.canvas ? { canvas: options.canvas } : {}),
     };
-    this.viewportWidth = surfaceOptions.width;
-    this.viewportHeight = surfaceOptions.height;
-    this.viewportPixelRatio = surfaceOptions.pixelRatio;
-    this.viewportCenterWorld = Object.freeze([surfaceOptions.width / 2, surfaceOptions.height / 2]);
-    this.viewportScale = 1;
-    this.worldRotationDegrees = 0;
-    this.worldFlipX = false;
-    this.worldFlipY = false;
-    this.resetViewportRuntime();
+    this.viewportAuthority.initialize({
+      width: surfaceOptions.width,
+      height: surfaceOptions.height,
+      pixelRatio: surfaceOptions.pixelRatio,
+      zoomLimits: options.zoomLimits ?? DEFAULT_ZOOM_LIMITS,
+      viewRevision: this.viewRevision,
+    });
     const requiredAliases = options.requiredAssets?.map(({ alias }) => alias) ?? [];
     this.initializePromise = (async (): Promise<PatchMapInitializeResult> => {
       const attemptAcquisitions: PatchMapAssetAcquisition[] = [];
@@ -929,8 +894,12 @@ export class PatchMap {
           backend: surfaceOptions.preference,
         });
         pendingSurface = await this.surfaceFactory(surfaceOptions);
-        pendingSurface.setViewportGesturePolicies?.(this.orderedEnabledViewportPolicies());
-        pendingSurface.setViewportZoomLimits?.(this.zoomLimits);
+        pendingSurface.setViewportGesturePolicies?.(
+          this.viewportAuthority.orderedEnabledPolicies(),
+        );
+        pendingSurface.setViewportZoomLimits?.(
+          this.viewportAuthority.snapshot().zoomLimits,
+        );
         if (this.isDestroyingOrDestroyed()) {
           this.retainedCleanupSurface = pendingSurface;
           pendingSurface = null;
@@ -2765,7 +2734,7 @@ export class PatchMap {
       throw new RangeError('page lifecycle time must be finite and monotonic');
     }
     const pointerBefore = this.pointerGestureAuthority?.probe() ?? destroyedPointerGestureProbe();
-    const motionBefore = this.viewportMotion !== null;
+    const motionBefore = this.viewportAuthority.motionActive;
     let presentation: PatchMapPresentationLifecycleResult | null = null;
     const changed = input.state !== before.state;
     if (this.frameLoop?.isDestroyed) {
@@ -2787,7 +2756,7 @@ export class PatchMap {
     const transition = this.pageLifecycle.transition(input.state, input.timeMs);
     if (changed) this.frameClockMs = input.timeMs;
     if (transition.changed && transition.state === 'hidden') {
-      this.viewportMotion = null;
+      this.viewportAuthority.cancelMotion();
       surface.cancelViewportGestures?.();
       if (this.cancelActiveTransformerEdit('blur', true) === null) {
         this.transformerGestures.interrupt();
@@ -2827,7 +2796,7 @@ export class PatchMap {
     return Object.freeze({
       ...lifecycle,
       activeAnimationCount: this.activeAnimations,
-      decelerationActive: this.viewportMotion !== null,
+      decelerationActive: this.viewportAuthority.motionActive,
       activeGestureCount: pointer.activeGestureCount,
       pointerCaptureCount: pointer.pointerCaptureCount,
     });
@@ -2846,15 +2815,11 @@ export class PatchMap {
       this.emit('diagnostic', diagnostic);
       throw new PatchMapError(diagnostic);
     }
-    if (this.viewportResizePendingFrame) {
-      const visiblePrimitiveCount = surface.debugSnapshot().visiblePrimitiveCount;
-      if (
-        (this.materialized?.rootIds.length ?? 0) > 0 &&
-        visiblePrimitiveCount === 0
-      ) {
-        this.viewportBlackFrameCount += 1;
-      }
-      this.viewportResizePendingFrame = false;
+    if (this.viewportAuthority.resizeFramePending) {
+      this.viewportAuthority.completeResizeFrame(
+        (this.materialized?.rootIds.length ?? 0) > 0,
+        surface.debugSnapshot().visiblePrimitiveCount,
+      );
     }
     this.frameRevision += 1;
     this.publishedTuple = Object.freeze({
@@ -2894,33 +2859,29 @@ export class PatchMap {
     validatePositiveFinite('height', height);
     validatePositiveFinite('pixelRatio', pixelRatio);
     const surface = this.requireSurface('resize');
+    const effect = this.viewportAuthority.planResize(width, height, pixelRatio);
     const changed = surface.resize(width, height, pixelRatio);
     if (!changed) return false;
-    this.viewportWidth = width;
-    this.viewportHeight = height;
-    this.viewportPixelRatio = pixelRatio;
-    surface.setView(this.resolvedSurfaceView());
-    this.viewRevision += 1;
-    this.viewportPointerTransformRevision = this.viewRevision;
-    this.viewportResizePolicyApplicationCount += 1;
-    this.viewportResizePendingFrame = true;
+    surface.setView(effect.surfaceView);
+    const nextViewRevision = this.viewRevision + 1;
+    this.viewportAuthority.commitResize(effect, nextViewRevision);
+    this.viewRevision = nextViewRevision;
     return true;
   }
 
   public viewportProbe(): PatchMapViewportState {
-    return this.viewportState();
+    return this.viewportAuthority.snapshot().viewport;
   }
 
   public viewportTransformProbe(): PatchMapViewportTransformProbe {
     const surface = this.requireSurface('viewportTransformProbe');
     const debug = surface.debugSnapshot();
+    const viewport = this.viewportAuthority.snapshot();
+    const resize = this.viewportAuthority.resizeProbe();
     return Object.freeze({
       schemaRevision: PATCH_MAP_VIEWPORT_REVISION,
-      world: this.worldTransformState(),
-      pointerTransformRevision: this.viewportPointerTransformRevision,
-      resizePolicyApplicationCount: this.viewportResizePolicyApplicationCount,
-      blackFrameCount: this.viewportBlackFrameCount,
-      pendingResizeFrame: this.viewportResizePendingFrame,
+      world: viewport.world,
+      ...resize,
       surface: Object.freeze({
         canvasCount: surface.canvasCount,
         cssSize: debug.cssSize,
@@ -2935,20 +2896,24 @@ export class PatchMap {
   ): PatchMapViewportChangeResult {
     const delta = finiteTuple(deltaCss, 'deltaCss');
     const surface = this.requireSurface('panViewport');
+    const viewport = this.viewportAuthority.snapshot();
     if (
       (source === 'pointer' || source === 'middle-pointer') &&
-      !this.viewportPolicyEnabled.has('pan')
+      !this.viewportAuthority.hasPolicy('pan')
     ) {
       return this.blockedViewportResult(source);
     }
-    if (source === 'deceleration' && !this.viewportPolicyEnabled.has('deceleration')) {
+    if (
+      source === 'deceleration' &&
+      !this.viewportAuthority.hasPolicy('deceleration')
+    ) {
       return this.blockedViewportResult(source);
     }
     const center = surface.screenToWorld({
-      x: this.viewportWidth / 2 - delta[0],
-      y: this.viewportHeight / 2 - delta[1],
+      x: viewport.width / 2 - delta[0],
+      y: viewport.height / 2 - delta[1],
     });
-    return this.commitViewport([center.x, center.y], this.viewportScale, source);
+    return this.commitViewport([center.x, center.y], viewport.scale, source);
   }
 
   public zoomViewportAt(input: Readonly<{
@@ -2963,20 +2928,21 @@ export class PatchMap {
     const source = input.source ?? 'wheel';
     const policy = source === 'pinch' ? 'pinch' : source === 'programmatic' ? null : 'wheel';
     const surface = this.requireSurface('zoomViewportAt');
-    if (policy !== null && !this.viewportPolicyEnabled.has(policy)) {
+    if (policy !== null && !this.viewportAuthority.hasPolicy(policy)) {
       return this.blockedViewportResult(source);
     }
+    const viewport = this.viewportAuthority.snapshot();
     const worldUnderAnchor = surface.screenToWorld({ x: anchor[0], y: anchor[1] });
     const nextScale = Math.min(
-      this.zoomLimits[1],
-      Math.max(this.zoomLimits[0], this.viewportScale * input.factor),
+      viewport.zoomLimits[1],
+      Math.max(viewport.zoomLimits[0], viewport.scale * input.factor),
     );
-    const ratio = this.viewportScale / nextScale;
+    const ratio = viewport.scale / nextScale;
     const center: readonly [number, number] = Object.freeze([
       worldUnderAnchor.x -
-        (worldUnderAnchor.x - this.viewportCenterWorld[0]) * ratio,
+        (worldUnderAnchor.x - viewport.centerWorld[0]) * ratio,
       worldUnderAnchor.y -
-        (worldUnderAnchor.y - this.viewportCenterWorld[1]) * ratio,
+        (worldUnderAnchor.y - viewport.centerWorld[1]) * ratio,
     ]);
     return this.commitViewport(center, nextScale, source);
   }
@@ -2986,43 +2952,22 @@ export class PatchMap {
   ): boolean {
     const velocity = finiteTuple(velocityCssPxPerMs, 'velocityCssPxPerMs');
     this.requireSurface('startViewportDeceleration');
-    if (!this.viewportPolicyEnabled.has('deceleration')) return false;
-    this.viewportMotion = Object.freeze({
-      velocityX: velocity[0],
-      velocityY: velocity[1],
-    });
-    return true;
+    return this.viewportAuthority.startMotion(velocity);
   }
 
   public advanceViewportMotion(deltaMs: number): PatchMapViewportChangeResult {
-    if (!Number.isFinite(deltaMs) || deltaMs < 0) {
-      throw new RangeError('viewport motion deltaMs must be finite and non-negative');
-    }
-    const motion = this.viewportMotion;
-    if (motion === null || !this.viewportPolicyEnabled.has('deceleration')) {
-      this.viewportMotion = null;
+    const effect = this.viewportAuthority.planMotionAdvance(deltaMs);
+    if (effect.blocked) {
+      this.viewportAuthority.commitMotion(effect);
       return this.blockedViewportResult('deceleration');
     }
-    const decay = Math.exp(-deltaMs / 120);
-    const displacementScale = 120 * (1 - decay);
-    const result = this.panViewport(
-      [
-        motion.velocityX * displacementScale,
-        motion.velocityY * displacementScale,
-      ],
-      'deceleration',
-    );
-    const velocityX = motion.velocityX * decay;
-    const velocityY = motion.velocityY * decay;
-    this.viewportMotion = Math.hypot(velocityX, velocityY) < 0.001
-      ? null
-      : Object.freeze({ velocityX, velocityY });
+    const result = this.panViewport(effect.displacementCss, 'deceleration');
+    this.viewportAuthority.commitMotion(effect);
     return result;
   }
 
   public cancelViewportMotion(): boolean {
-    const changed = this.viewportMotion !== null;
-    this.viewportMotion = null;
+    const changed = this.viewportAuthority.cancelMotion();
     this.surface?.cancelViewportGestures?.();
     return changed;
   }
@@ -3030,47 +2975,18 @@ export class PatchMap {
   public settleViewport(): PatchMapViewportSettleResult {
     this.requireSurface('settleViewport');
     this.cancelViewportMotion();
-    const key = viewportStateKey(this.viewportCenterWorld, this.viewportScale);
-    const changed = key !== this.lastSettledViewportKey;
-    if (changed) {
-      this.lastSettledViewportKey = key;
-      this.viewportSettledPublicationCount += 1;
-    }
-    const result = Object.freeze({
-      changed,
-      viewport: this.viewportState(),
-      publicationCount: this.viewportSettledPublicationCount,
-      persistence: this.viewportPersistenceProbe(),
-    } satisfies PatchMapViewportSettleResult);
-    if (changed) this.emit('viewSettled', result);
+    const result = this.viewportAuthority.settle();
+    if (result.changed) this.emit('viewSettled', result);
     return result;
   }
 
   public serializeViewport(): PatchMapSerializedViewportState {
     this.requireSurface('serializeViewport');
-    const serialized = serializedViewport(this.viewportCenterWorld, this.viewportScale);
-    const key = viewportStateKey(serialized.centerWorld, serialized.scale);
-    if (key === this.lastSerializedViewportKey) {
-      this.viewportSuppressedEquivalentSaveCount += 1;
-      return this.lastSerializedViewport ?? serialized;
-    }
-    this.lastSerializedViewportKey = key;
-    this.lastSerializedViewport = serialized;
-    this.viewportPersistenceWriteCount += 1;
-    return serialized;
+    return this.viewportAuthority.serialize();
   }
 
   public viewportPersistenceProbe(): PatchMapViewportPersistenceProbe {
-    return Object.freeze({
-      settledPublicationCount: this.viewportSettledPublicationCount,
-      persistenceWriteCount: this.viewportPersistenceWriteCount,
-      equivalentSaveCount: 0,
-      suppressedEquivalentSaveCount: this.viewportSuppressedEquivalentSaveCount,
-      settled:
-        this.lastSettledViewportKey ===
-        viewportStateKey(this.viewportCenterWorld, this.viewportScale),
-      serialized: this.lastSerializedViewport,
-    });
+    return this.viewportAuthority.persistenceProbe();
   }
 
   /**
@@ -3092,7 +3008,7 @@ export class PatchMap {
     this.hostInteractions.clearTooltip('redraw');
     this.submissionSequence += 1;
     this.loadSequence += 1;
-    this.viewportMotion = null;
+    this.viewportAuthority.cancelMotion();
     surface.cancelViewportGestures?.();
     if (this.cancelActiveTransformerEdit('redraw', true) === null) {
       this.transformerGestures.interrupt();
@@ -3117,7 +3033,7 @@ export class PatchMap {
     input: unknown,
     fallback: PatchMapViewportFitOptions = {},
   ): PatchMapViewportRestoreResult {
-    const restored = normalizeSerializedViewport(input, this.zoomLimits);
+    const restored = this.viewportAuthority.normalizeSerialized(input);
     if (restored !== null) {
       const result = this.commitViewport(
         restored.centerWorld,
@@ -3144,16 +3060,17 @@ export class PatchMap {
     options: PatchMapViewportTargetOptions = {},
   ): PatchMapViewportFocusResult {
     const contributors = this.resolveViewportContributors(options);
+    const viewport = this.viewportAuthority.snapshot();
     if (contributors.worldBounds === null) {
       return Object.freeze({
         ...contributors,
         status: 'empty',
         changed: false,
-        viewport: this.viewportState(),
+        viewport: viewport.viewport,
       });
     }
     const center = patchMapBoundsCenter(contributors.worldBounds);
-    const change = this.commitViewport(center, this.viewportScale, 'focus');
+    const change = this.commitViewport(center, viewport.scale, 'focus');
     return Object.freeze({
       ...contributors,
       status: 'applied',
@@ -3168,6 +3085,7 @@ export class PatchMap {
   ): PatchMapViewportFitResult {
     const padding = normalizePatchMapViewportPadding(options.paddingCssPx);
     const contributors = this.resolveViewportContributors(options);
+    const viewport = this.viewportAuthority.snapshot();
     const paddingCssPx = Object.freeze([padding.x, padding.y] as const);
     if (contributors.worldBounds === null) {
       return Object.freeze({
@@ -3175,15 +3093,15 @@ export class PatchMap {
         status: 'empty',
         changed: false,
         paddingCssPx,
-        viewport: this.viewportState(),
+        viewport: viewport.viewport,
       });
     }
     const scale = patchMapViewportFitScale(
       contributors.worldBounds,
-      [this.viewportWidth, this.viewportHeight],
+      [viewport.width, viewport.height],
       padding,
-      this.worldRotationDegrees,
-      this.zoomLimits,
+      viewport.world.rotationDegrees,
+      viewport.zoomLimits,
     );
     const center = patchMapBoundsCenter(contributors.worldBounds);
     const change = this.commitViewport(center, scale, source);
@@ -3200,95 +3118,17 @@ export class PatchMap {
     operation: PatchMapViewportPolicyOperation,
   ): PatchMapViewportPolicyProbe {
     const surface = this.requireSurface('configureViewportPolicy');
-    const registry = new Set(this.viewportPolicyRegistry);
-    const enabled = new Set(this.viewportPolicyEnabled);
-    let temporary = this.viewportTemporaryPolicies;
-    switch (operation.op) {
-      case 'add':
-        registry.add(normalizeViewportPolicy(operation.policy));
-        enabled.add(operation.policy);
-        break;
-      case 'start': {
-        const policy = normalizeViewportPolicy(operation.policy);
-        if (!registry.has(policy)) registry.add(policy);
-        enabled.add(policy);
-        break;
-      }
-      case 'stop':
-        enabled.delete(normalizeViewportPolicy(operation.policy));
-        break;
-      case 'remove': {
-        const policy = normalizeViewportPolicy(operation.policy);
-        registry.delete(policy);
-        enabled.delete(policy);
-        break;
-      }
-      case 'temporary': {
-        const policy = normalizeViewportPolicy(operation.policy);
-        if (temporary !== null) {
-          throw new Error('a temporary viewport policy is already active');
-        }
-        temporary = Object.freeze({
-          registry: orderedViewportPolicies(registry),
-          enabled: orderedViewportPolicies(enabled),
-        });
-        registry.add(policy);
-        enabled.add(policy);
-        break;
-      }
-      case 'restore-temporary':
-        if (temporary !== null) {
-          replacePolicySet(registry, temporary.registry);
-          replacePolicySet(enabled, temporary.enabled);
-          temporary = null;
-        }
-        break;
-      case 'cancel-all':
-        this.viewportMotion = null;
-        surface.cancelViewportGestures?.();
-        break;
-      case 'redraw':
-        break;
-    }
-    const orderedEnabled = orderedViewportPolicies(enabled);
-    surface.setViewportGesturePolicies?.(orderedEnabled);
-    this.viewportPolicyRegistry = registry;
-    this.viewportPolicyEnabled = enabled;
-    this.viewportTemporaryPolicies = temporary;
+    const effect = this.viewportAuthority.planPolicy(operation);
+    if (effect.cancelGestures) surface.cancelViewportGestures?.();
+    surface.setViewportGesturePolicies?.(effect.enabledPolicies);
+    this.viewportAuthority.commitPolicy(effect);
     const probe = this.viewportPolicyProbe();
     this.emit('viewportPolicyChanged', probe);
     return probe;
   }
 
   public viewportPolicyProbe(): PatchMapViewportPolicyProbe {
-    const destroyed = this.lifecycle === 'destroyed' || this.lifecycle === 'destroying';
-    const registry = destroyed
-      ? Object.freeze([] as PatchMapViewportPolicy[])
-      : orderedViewportPolicies(this.viewportPolicyRegistry);
-    const enabled = destroyed
-      ? Object.freeze([] as PatchMapViewportPolicy[])
-      : orderedViewportPolicies(this.viewportPolicyEnabled);
-    const callbacks = Object.fromEntries(
-      PATCH_MAP_VIEWPORT_POLICIES.map((policy) => [
-        policy,
-        registry.includes(policy) ? 1 : 0,
-      ]),
-    ) as Record<PatchMapViewportPolicy, 0 | 1>;
-    return Object.freeze({
-      schemaRevision: PATCH_MAP_VIEWPORT_REVISION,
-      policies: registry,
-      enabledPolicies: enabled,
-      temporary: !destroyed && this.viewportTemporaryPolicies !== null,
-      callbacksByPolicy: Object.freeze(callbacks),
-      resources: Object.freeze({
-        tickers: 0,
-        listeners: 0,
-        captures: 0,
-        motions: destroyed || this.viewportMotion === null ? 0 : 1,
-        cursors: 0,
-      }),
-      destroyed,
-    });
+    return this.viewportAuthority.policyProbe(this.isDestroyingOrDestroyed());
   }
 
   public setViewport(input: Readonly<{
@@ -3303,35 +3143,14 @@ export class PatchMap {
   }
 
   public setWorldTransform(input: PatchMapWorldTransformInput): PatchMapWorldTransformState {
-    if (!Number.isFinite(input.rotationDegrees)) {
-      throw new RangeError('rotationDegrees must be finite');
-    }
-    if (typeof input.flipX !== 'boolean' || typeof input.flipY !== 'boolean') {
-      throw new TypeError('flipX and flipY must be booleans');
-    }
+    const effect = this.viewportAuthority.planWorldTransform(input);
     const surface = this.requireSurface('setWorldTransform');
-    const rotationDegrees = Object.is(input.rotationDegrees, -0)
-      ? 0
-      : input.rotationDegrees;
-    if (
-      rotationDegrees === this.worldRotationDegrees &&
-      input.flipX === this.worldFlipX &&
-      input.flipY === this.worldFlipY
-    ) {
-      return this.worldTransformState();
-    }
-    const next = Object.freeze({
-      rotationDegrees,
-      flipX: input.flipX,
-      flipY: input.flipY,
-    });
-    surface.setView(this.resolvedSurfaceView(next));
-    this.worldRotationDegrees = next.rotationDegrees;
-    this.worldFlipX = next.flipX;
-    this.worldFlipY = next.flipY;
-    this.viewRevision += 1;
-    this.viewportPointerTransformRevision = this.viewRevision;
-    return this.worldTransformState();
+    if (!effect.changed) return effect.world;
+    surface.setView(effect.surfaceView);
+    const nextViewRevision = this.viewRevision + 1;
+    this.viewportAuthority.commitWorldTransform(effect, nextViewRevision);
+    this.viewRevision = nextViewRevision;
+    return effect.world;
   }
 
   public queryScene(input: PatchMapSceneQuery = {}): PatchMapEngineQueryResult {
@@ -3595,12 +3414,13 @@ export class PatchMap {
     if (hit.target === null) {
       return this.hostInteractions.clearTooltip('empty-target');
     }
+    const viewport = this.viewportAuthority.snapshot();
     const input = Object.freeze({
       targetId: hit.target.ownerId ?? hit.target.selectionId,
       anchorCss: Object.freeze([point.x, point.y] as const),
       viewportCssPx: Object.freeze([
-        this.viewportWidth,
-        this.viewportHeight,
+        viewport.width,
+        viewport.height,
       ] as const),
       tooltipSizeCssPx,
     });
@@ -3696,13 +3516,14 @@ export class PatchMap {
       surface.geometrySnapshot?.().entities ??
       null;
     if (geometries === null) return null;
+    const viewport = this.viewportAuthority.snapshot();
     return createPatchMapSelectionVisualProbe(
       this.logicalSceneSelectionIndex(),
       geometries,
       {
         ...options,
         selectionIds,
-        viewportScale: options.viewportScale ?? this.viewportScale,
+        viewportScale: options.viewportScale ?? viewport.scale,
       },
     );
   }
@@ -4182,16 +4003,17 @@ export class PatchMap {
     deltaCss: readonly [number, number],
   ): PatchMapEngineTransformerEdgePanResult {
     this.requireSurface('edgeAutoPanTransformer');
+    const viewport = this.viewportAuthority.snapshot();
     const resolved = resolvePatchMapEdgeAutoPan(
       pointerScreen,
       deltaCss,
-      this.viewportCenterWorld,
-      this.viewportScale,
-      [this.viewportWidth, this.viewportHeight],
+      viewport.centerWorld,
+      viewport.scale,
+      [viewport.width, viewport.height],
     );
     this.setViewport({
       centerWorld: resolved.centerWorld,
-      scale: this.viewportScale,
+      scale: viewport.scale,
     });
     return Object.freeze({
       ...resolved,
@@ -4531,10 +4353,11 @@ export class PatchMap {
   }
 
   public snapshot(): PatchMapEngineSnapshot {
+    const viewport = this.viewportAuthority.snapshot();
     const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
-      this.viewportWidth,
-      this.viewportHeight,
-      this.viewportPixelRatio,
+      viewport.width,
+      viewport.height,
+      viewport.pixelRatio,
     );
     return Object.freeze({
       lifecycle: this.lifecycle,
@@ -4547,8 +4370,8 @@ export class PatchMap {
       rootIds: this.materialized?.rootIds ?? Object.freeze([]),
       historyDepth: this.history.state().undoDepth,
       pendingWork: this.pendingWork,
-      zoomLimits: this.zoomLimits,
-      viewport: this.viewportState(),
+      zoomLimits: viewport.zoomLimits,
+      viewport: viewport.viewport,
       selectionIds: this.logicalSelectionIds,
       facilities: FACILITIES,
       resources: Object.freeze({
@@ -4605,10 +4428,11 @@ export class PatchMap {
       });
     }
     const semantic = this.semanticProbe();
+    const viewport = this.viewportAuthority.snapshot();
     const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
-      this.viewportWidth,
-      this.viewportHeight,
-      this.viewportPixelRatio,
+      viewport.width,
+      viewport.height,
+      viewport.pixelRatio,
     );
     const assetProbe = this.assetSession?.probe() ?? null;
     const operationsProbe = this.operations.probe();
@@ -4661,10 +4485,11 @@ export class PatchMap {
   }
 
   public semanticProbe(): PatchMapSemanticProductProbe {
+    const viewport = this.viewportAuthority.snapshot();
     const surfaceDebug = this.surface?.debugSnapshot() ?? emptySurfaceDebug(
-      this.viewportWidth,
-      this.viewportHeight,
-      this.viewportPixelRatio,
+      viewport.width,
+      viewport.height,
+      viewport.pixelRatio,
     );
     return createPatchMapSemanticProbe(this.materialized, {
       lifecycle: this.lifecycle,
@@ -5286,7 +5111,7 @@ export class PatchMap {
     this.submissionSequence += 1;
     this.loadSequence += 1;
     const surface = this.surface;
-    this.viewportMotion = null;
+    this.viewportAuthority.cancelMotion();
     surface?.cancelViewportGestures?.();
     this.pointerGestureAuthority?.destroy();
     this.pointerGestureAuthority = null;
@@ -5340,9 +5165,7 @@ export class PatchMap {
     this.logicalSceneIndexCache = null;
     this.logicalSelectionIds = Object.freeze([]);
     this.resetLiveOverlayState();
-    this.viewportPolicyRegistry.clear();
-    this.viewportPolicyEnabled.clear();
-    this.viewportTemporaryPolicies = null;
+    this.viewportAuthority.destroy();
     this.externalDependencyRevisions.clear();
     this.clearHistoryAuthority('destroy', true);
     this.history.destroy();
@@ -6169,37 +5992,11 @@ export class PatchMap {
     ) {
       return;
     }
-    const centerWorld = finiteTuple(input.centerWorld, 'surface viewport centerWorld');
-    if (
-      !Number.isFinite(input.scale) ||
-      input.scale < this.zoomLimits[0] ||
-      input.scale > this.zoomLimits[1]
-    ) {
-      throw new RangeError('surface viewport scale must be within the configured zoom limits');
-    }
-    const previous = this.viewportState();
-    if (
-      centerWorld[0] === this.viewportCenterWorld[0] &&
-      centerWorld[1] === this.viewportCenterWorld[1] &&
-      input.scale === this.viewportScale
-    ) {
-      return;
-    }
-    const previousRevisions = this.revisionStamp();
-    this.viewportCenterWorld = centerWorld;
-    this.viewportScale = input.scale;
-    this.viewRevision += 1;
-    this.viewportPointerTransformRevision = this.viewRevision;
-    const result = Object.freeze({
-      changed: true,
-      blocked: false,
-      source: input.source,
-      previous,
-      viewport: this.viewportState(),
-      previousRevisions,
-      revisions: this.revisionStamp(),
-    } satisfies PatchMapViewportChangeResult);
-    this.emit('viewChanged', result);
+    const effect = this.viewportAuthority.planSurfaceAppliedView(
+      input.centerWorld,
+      input.scale,
+    );
+    this.commitViewportEffect(surface, effect, input.source);
   }
 
   private acceptSurfacePointerInput(
@@ -6486,50 +6283,41 @@ export class PatchMap {
     scale: number,
     source: PatchMapViewportChangeSource,
   ): PatchMapViewportChangeResult {
-    const centerWorld = finiteTuple(centerWorldValue, 'centerWorld');
-    if (
-      !Number.isFinite(scale) ||
-      scale < this.zoomLimits[0] ||
-      scale > this.zoomLimits[1]
-    ) {
-      throw new RangeError('scale must be within the configured zoom limits');
-    }
+    const effect = this.viewportAuthority.planView(centerWorldValue, scale);
     const surface = this.requireSurface('setViewport');
-    const previous = this.viewportState();
+    return this.commitViewportEffect(surface, effect, source);
+  }
+
+  private commitViewportEffect(
+    surface: PatchMapEngineSurface,
+    effect: PatchMapViewportViewEffect,
+    source: PatchMapViewportChangeSource,
+  ): PatchMapViewportChangeResult {
     const previousRevisions = this.revisionStamp();
-    const changed =
-      centerWorld[0] !== this.viewportCenterWorld[0] ||
-      centerWorld[1] !== this.viewportCenterWorld[1] ||
-      scale !== this.viewportScale;
-    if (changed) {
-      surface.setView(this.resolvedSurfaceView(
-        this.worldTransformState(),
-        centerWorld,
-        scale,
-      ));
-      this.viewportCenterWorld = centerWorld;
-      this.viewportScale = scale;
-      this.viewRevision += 1;
-      this.viewportPointerTransformRevision = this.viewRevision;
+    if (effect.changed) {
+      if (!effect.surfaceAlreadyApplied) surface.setView(effect.surfaceView);
+      const nextViewRevision = this.viewRevision + 1;
+      this.viewportAuthority.commitView(effect, nextViewRevision);
+      this.viewRevision = nextViewRevision;
       this.refreshAccessibilitySurfaceIfActive('setViewport');
     }
     const result = Object.freeze({
-      changed,
+      changed: effect.changed,
       blocked: false,
       source,
-      previous,
-      viewport: this.viewportState(),
+      previous: effect.previous,
+      viewport: effect.viewport,
       previousRevisions,
       revisions: this.revisionStamp(),
     } satisfies PatchMapViewportChangeResult);
-    if (changed) this.emit('viewChanged', result);
+    if (effect.changed) this.emit('viewChanged', result);
     return result;
   }
 
   private blockedViewportResult(
     source: PatchMapViewportChangeSource,
   ): PatchMapViewportChangeResult {
-    const viewport = this.viewportState();
+    const viewport = this.viewportAuthority.snapshot().viewport;
     const revisions = this.revisionStamp();
     return Object.freeze({
       changed: false,
@@ -6594,70 +6382,6 @@ export class PatchMap {
       });
     }
     return result;
-  }
-
-  private resetViewportRuntime(): void {
-    this.viewportPolicyRegistry = new Set(PATCH_MAP_DEFAULT_VIEWPORT_POLICIES);
-    this.viewportPolicyEnabled = new Set(PATCH_MAP_DEFAULT_VIEWPORT_POLICIES);
-    this.viewportTemporaryPolicies = null;
-    this.viewportMotion = null;
-    this.lastSettledViewportKey = null;
-    this.lastSerializedViewportKey = null;
-    this.lastSerializedViewport = null;
-    this.viewportSettledPublicationCount = 0;
-    this.viewportPersistenceWriteCount = 0;
-    this.viewportSuppressedEquivalentSaveCount = 0;
-    this.viewportPointerTransformRevision = this.viewRevision;
-    this.viewportResizePolicyApplicationCount = 0;
-    this.viewportBlackFrameCount = 0;
-    this.viewportResizePendingFrame = false;
-  }
-
-  private orderedEnabledViewportPolicies(): readonly PatchMapViewportPolicy[] {
-    return orderedViewportPolicies(this.viewportPolicyEnabled);
-  }
-
-  private resolvedSurfaceView(
-    world: PatchMapWorldTransformInput = this.worldTransformState(),
-    centerWorld: readonly [number, number] = this.viewportCenterWorld,
-    scale: number = this.viewportScale,
-  ): PatchMapSurfaceView {
-    const radians = world.rotationDegrees * Math.PI / 180;
-    const cosine = Math.cos(radians);
-    const sine = Math.sin(radians);
-    const scaledX = centerWorld[0] * scale;
-    const scaledY = centerWorld[1] * scale;
-    const transformedCenterX = (scaledX * cosine - scaledY * sine) * (world.flipX ? -1 : 1);
-    const transformedCenterY = (scaledX * sine + scaledY * cosine) * (world.flipY ? -1 : 1);
-    return Object.freeze({
-      x: this.viewportWidth / 2 - transformedCenterX,
-      y: this.viewportHeight / 2 - transformedCenterY,
-      scale,
-      rotation: world.rotationDegrees,
-      ...(world.flipX ? { flipX: true } : {}),
-      ...(world.flipY ? { flipY: true } : {}),
-    });
-  }
-
-  private worldTransformState(): PatchMapWorldTransformState {
-    return Object.freeze({
-      rotationDegrees: this.worldRotationDegrees,
-      flipX: this.worldFlipX,
-      flipY: this.worldFlipY,
-    });
-  }
-
-  private viewportState(): PatchMapViewportState {
-    return Object.freeze({
-      centerWorld: this.viewportCenterWorld,
-      scale: this.viewportScale,
-      screenBounds: Object.freeze([
-        0,
-        0,
-        this.viewportWidth,
-        this.viewportHeight,
-      ] as [number, number, number, number]),
-    });
   }
 
   private operationError(
@@ -7061,77 +6785,6 @@ function finiteTuple(
   return Object.freeze([value[0], value[1]]);
 }
 
-function serializedViewport(
-  centerWorld: readonly [number, number],
-  scale: number,
-): PatchMapSerializedViewportState {
-  return Object.freeze({
-    schemaRevision: PATCH_MAP_VIEWPORT_REVISION,
-    centerWorld: Object.freeze([centerWorld[0], centerWorld[1]] as const),
-    scale,
-  });
-}
-
-function normalizeSerializedViewport(
-  value: unknown,
-  limits: readonly [number, number],
-): PatchMapSerializedViewportState | null {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
-  const record = value as Readonly<Record<string, unknown>>;
-  const center = record.centerWorld;
-  const scale = record.scale;
-  if (
-    !Array.isArray(center) ||
-    center.length !== 2 ||
-    !Number.isFinite(center[0]) ||
-    !Number.isFinite(center[1]) ||
-    !Number.isFinite(scale) ||
-    (scale as number) < limits[0] ||
-    (scale as number) > limits[1]
-  ) {
-    return null;
-  }
-  return serializedViewport(
-    [center[0] as number, center[1] as number],
-    scale as number,
-  );
-}
-
-function viewportStateKey(
-  centerWorld: readonly [number, number],
-  scale: number,
-): string {
-  return `${canonicalViewportScalar(centerWorld[0])},${canonicalViewportScalar(centerWorld[1])},${canonicalViewportScalar(scale)}`;
-}
-
-function canonicalViewportScalar(value: number): number {
-  return Object.is(value, -0) ? 0 : value;
-}
-
-function normalizeViewportPolicy(value: unknown): PatchMapViewportPolicy {
-  if (
-    typeof value !== 'string' ||
-    !PATCH_MAP_VIEWPORT_POLICIES.includes(value as PatchMapViewportPolicy)
-  ) {
-    throw new TypeError('unsupported viewport policy');
-  }
-  return value as PatchMapViewportPolicy;
-}
-
-function orderedViewportPolicies(
-  values: ReadonlySet<PatchMapViewportPolicy>,
-): readonly PatchMapViewportPolicy[] {
-  return Object.freeze(PATCH_MAP_VIEWPORT_POLICIES.filter((policy) => values.has(policy)));
-}
-
-function replacePolicySet(
-  target: Set<PatchMapViewportPolicy>,
-  values: readonly PatchMapViewportPolicy[],
-): void {
-  target.clear();
-  for (const value of values) target.add(value);
-}
-
 function resolvePatchMapHistoryShortcut(
   input: PatchMapHistoryShortcutInput,
 ): PatchMapHistoryDirection | null {
@@ -7196,14 +6849,6 @@ function emptySurfaceDebug(width: number, height: number, pixelRatio: number): P
     renderCommandCount: 0,
     visiblePrimitiveCount: 0,
   });
-}
-
-function normalizeZoomLimits(value: readonly [number, number]): readonly [number, number] {
-  const [min, max] = value;
-  if (!(min > 0) || !(max >= min) || !Number.isFinite(min) || !Number.isFinite(max)) {
-    throw new RangeError('zoomLimits must contain positive finite min/max values');
-  }
-  return Object.freeze([min, max]);
 }
 
 function normalizeBackground(value: number | string): number {

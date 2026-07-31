@@ -116,6 +116,27 @@ describe('PatchMap viewport authority', () => {
     expect(surface.viewportInputBindingCount).toBe(0);
   });
 
+  it('refreshes active accessibility geometry for programmatic and root-surface view commits', async () => {
+    const { engine, surface } = await createEngine(engines, 'viewport-accessibility');
+    engine.loadDataset(catalogProfiles.datasets['all-kinds-scene']);
+    engine.accessibilityTree();
+    const before = surface.accessibilityRefreshCount;
+
+    engine.setViewport({ centerWorld: [200, 150], scale: 1.5 });
+    expect(surface.accessibilityRefreshCount).toBe(before + 1);
+
+    surface.emitViewportInput({
+      source: 'wheel',
+      centerWorld: [240, 180],
+      scale: 2,
+    });
+    expect(surface.accessibilityRefreshCount).toBe(before + 2);
+    expect(engine.viewportProbe()).toMatchObject({
+      centerWorld: [240, 180],
+      scale: 2,
+    });
+  });
+
   it('focuses and fits hierarchy-aware contributors without moving on empty or invalid input', async () => {
     const { engine, surface } = await createEngine(engines, 'viewport-targets');
     engine.loadDataset(catalogProfiles.datasets['all-kinds-scene']);
@@ -234,12 +255,17 @@ describe('PatchMap viewport authority', () => {
       },
     });
 
+    const resizeDebugCount = surface.debugSnapshotCount;
     engine.publishFrame(1);
+    expect(surface.debugSnapshotCount).toBe(resizeDebugCount + 1);
     expect(engine.viewportTransformProbe()).toMatchObject({
       pointerTransformRevision: engine.snapshot().revisions.viewRevision,
       blackFrameCount: 0,
       pendingResizeFrame: false,
     });
+    const settledDebugCount = surface.debugSnapshotCount;
+    engine.publishFrame(1.5);
+    expect(surface.debugSnapshotCount).toBe(settledDebugCount);
     const afterPublishedResize = engine.viewportTransformProbe();
     expect(engine.resize(1024, 768, 2)).toBe(false);
     expect(engine.viewportTransformProbe()).toEqual(afterPublishedResize);
@@ -428,6 +454,8 @@ class ViewportSurface implements PatchMapEngineSurface {
   public destroyed = false;
   public cancelCount = 0;
   public setViewCount = 0;
+  public accessibilityRefreshCount = 0;
+  public debugSnapshotCount = 0;
   public visiblePrimitiveCount = WORLD_ENTITIES.length;
   private width: number;
   private height: number;
@@ -463,6 +491,11 @@ class ViewportSurface implements PatchMapEngineSurface {
   public setView(view: PatchMapSurfaceView): void {
     this.view = Object.freeze({ ...view });
     this.setViewCount += 1;
+  }
+
+  public setAccessibilityTree(): undefined {
+    this.accessibilityRefreshCount += 1;
+    return undefined;
   }
 
   public setViewportGesturePolicies(policies: readonly PatchMapViewportPolicy[]): void {
@@ -584,6 +617,7 @@ class ViewportSurface implements PatchMapEngineSurface {
   }
 
   public debugSnapshot(): PatchMapSurfaceDebug {
+    this.debugSnapshotCount += 1;
     return Object.freeze({
       cssSize: Object.freeze([this.width, this.height] as const),
       backingSize: Object.freeze([
