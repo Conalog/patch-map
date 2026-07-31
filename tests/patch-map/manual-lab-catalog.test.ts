@@ -153,12 +153,15 @@ describe('PatchMap human-operated Lab catalog', () => {
   });
 
   it('uses the package frame loop without whole-scene probes or Lab-owned cadence', async () => {
-    const [source, schedulerSource] = await Promise.all([
+    const [source, adaptiveFrameBudgetSource] = await Promise.all([
       readFile(
         new URL('../../lab/patch-map/interactive/manual-workbench.ts', import.meta.url),
         'utf8',
       ),
-      readFile(new URL('../../src/patch-map/scheduler.ts', import.meta.url), 'utf8'),
+      readFile(new URL(
+        '../../src/patch-map/scheduler/adaptive-frame-budget.ts',
+        import.meta.url,
+      ), 'utf8'),
     ]);
     const refresh = source.slice(
       source.indexOf('  function refresh(): void {'),
@@ -195,9 +198,9 @@ describe('PatchMap human-operated Lab catalog', () => {
     expect(framePublication).toContain('frameLoop?.publishNow()');
     expect(source).not.toContain('deferHeavyPanFrame');
     expect(source).not.toContain('pendingAnimationElapsed');
-    expect(schedulerSource).toContain('export class PatchMapAdaptiveFrameBudget');
-    expect(schedulerSource).toContain('largePresentationIntervalMs ?? 75');
-    expect(schedulerSource).toContain('largeViewportFramesPerPresentation ?? 3');
+    expect(adaptiveFrameBudgetSource).toContain('export class PatchMapAdaptiveFrameBudget');
+    expect(adaptiveFrameBudgetSource).toContain('largePresentationIntervalMs ?? 75');
+    expect(adaptiveFrameBudgetSource).toContain('largeViewportFramesPerPresentation ?? 3');
     expect(source).toContain('next.updateBarHeights({');
     expect(source).toContain('const heights = new Float64Array(targets.length);');
     expect(source).toContain('next.updateTexts({');

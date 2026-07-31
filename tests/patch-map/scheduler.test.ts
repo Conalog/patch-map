@@ -7,6 +7,17 @@ import {
   type PatchMapFrameLoopTarget,
   type FrameDriver,
 } from '../../src/patch-map/scheduler';
+import {
+  PatchMapAdaptiveFrameBudget as RootPatchMapAdaptiveFrameBudget,
+  PatchMapFrameLoop as RootPatchMapFrameLoop,
+} from '../../src/patch-map';
+
+describe('scheduler facade exports', () => {
+  it('preserves root and facade class identity', () => {
+    expect(RootPatchMapAdaptiveFrameBudget).toBe(PatchMapAdaptiveFrameBudget);
+    expect(RootPatchMapFrameLoop).toBe(PatchMapFrameLoop);
+  });
+});
 
 function fakeDriver(): FrameDriver & { fire(time: number): void; pending(): number } {
   let nextHandle = 1;
