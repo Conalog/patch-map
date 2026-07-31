@@ -18,22 +18,38 @@ import {
   type PatchMapContractLabRunResult,
   type PatchMapContractLabState,
   type PatchMapContractLabStatus,
-  type PatchMapContractPublishedTuple,
 } from './bridge';
 import {
-  PATCH_MAP_EXECUTABLE_CLOCK_PROFILE,
-  PATCH_MAP_EXECUTABLE_PROFILE_ENVIRONMENT,
   isPatchMapExecutableCaseId,
   materializePatchMapExecutableCase,
   resolvePatchMapExecutableDataset,
   selectPatchMapExecutableActionDefinitions,
   type PatchMapExecutableCaseId,
-  type PatchMapExecutableCasePlan,
 } from './executable-cases';
+import {
+  ExecutableLabClock,
+  defaultEnvironment,
+  defaultProvenance,
+  freshCasePlan,
+} from './executable-run-profile';
+import {
+  attachPostDestroyProductProbe,
+  cleanupSummary,
+  destroyedWithoutRunObservation,
+  emptyPublishedTuple,
+  executionActionIndex,
+  executionPublishedTuple,
+  executionWithProductCleanup,
+  failureObservation,
+  mergeCleanup,
+  partialExecutionFrom,
+  serializeError,
+} from './executable-run-results';
 import { resolvePatchMapExecutableRuntime } from './executable-runtime';
-
-const EXECUTABLE_RUNNER_REVISION = 'core-v2-executable-lab-runner/1';
-const EXECUTABLE_FAILURE_SCHEMA = 'core-v2-contract-lab-failure/1';
+import {
+  deepFreezePatchMapLabValue as deepFreeze,
+  isPatchMapLabRecord as isRecord,
+} from './runtime-values';
 
 interface WorkerRuntime {
   executeContractCase(
@@ -726,67 +742,6 @@ export function createPatchMapExecutableLabBridge(
   });
 }
 
-class ExecutableLabClock {
-  private current = PATCH_MAP_EXECUTABLE_CLOCK_PROFILE.startMs;
-
-  public now(): number {
-    return this.current;
-  }
-
-  public advanceTo(timeMs: number): Promise<void> {
-    invariant(Number.isFinite(timeMs) && timeMs >= this.current, 'manual clock cannot rewind');
-    this.current = timeMs;
-    return Promise.resolve();
-  }
-
-  public withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const timeout = globalThis.setTimeout(() => {
-        reject(new Error(`PatchMap executable Lab timed out: ${label}`));
-      }, timeoutMs);
-      promise.then(
-        (value) => {
-          globalThis.clearTimeout(timeout);
-          resolve(value);
-        },
-        (error: unknown) => {
-          globalThis.clearTimeout(timeout);
-          reject(error instanceof Error ? error : new Error(String(error)));
-        },
-      );
-    });
-  }
-}
-
-function freshCasePlan(plan: PatchMapExecutableCasePlan): PatchMapExecutableCasePlan {
-  return deepFreeze(structuredClone(plan));
-}
-
-function defaultProvenance(plan: PatchMapExecutableCasePlan): Readonly<Record<string, unknown>> {
-  return Object.freeze({
-    source: 'focused-lab-product-source',
-    codeCommit: 'unbound-worktree-source',
-    packedPackageSha256: 'not-packed-source-lab',
-    fixtureSha256: plan.fixtureSha256,
-    runnerRevision: EXECUTABLE_RUNNER_REVISION,
-    promotionEligible: false,
-  });
-}
-
-function defaultEnvironment(plan: PatchMapExecutableCasePlan): Readonly<Record<string, unknown>> {
-  const userAgent = typeof navigator === 'undefined' ? 'unit-or-non-browser' : navigator.userAgent;
-  return deepFreeze({
-    ...structuredClone(PATCH_MAP_EXECUTABLE_PROFILE_ENVIRONMENT),
-    backend: 'webgl2',
-    browser: userAgent,
-    browserVersion: userAgent,
-    route: plan.route,
-    datasetSize: plan.routeParams.size,
-    seed: plan.routeParams.seed,
-    canvasLifetime: 'transient-until-executor-cleanup',
-  });
-}
-
 async function releaseSupplementalWebGLLease(
   engine: TargetedWebGLPatchMapEngine,
 ): Promise<Readonly<Record<string, unknown>>> {
@@ -816,179 +771,12 @@ async function releaseSupplementalWebGLLease(
   });
 }
 
-function mergeCleanup(
-  executionCleanup: Readonly<Record<string, unknown>> | null,
-  supplementalCleanup: Readonly<Record<string, unknown>> | null,
-  productProbeFailure: Readonly<Record<string, unknown>> | null = null,
-): Readonly<Record<string, unknown>> | null {
-  if (!executionCleanup && !supplementalCleanup && !productProbeFailure) return null;
-  const executionStatus = executionCleanup?.status;
-  const supplementalStatus = supplementalCleanup?.status;
-  const productProbeStatus = productProbeFailure?.status;
-  const status = [executionStatus, supplementalStatus, productProbeStatus]
-    .filter((value): value is string => typeof value === 'string')
-    .every((value) => value === 'completed')
-    ? 'completed'
-    : 'failed';
-  return deepFreeze({
-    ...(executionCleanup ?? {}),
-    status,
-    ...(supplementalCleanup ? { supplementalWebGLLease: supplementalCleanup } : {}),
-    ...(productProbeFailure ? { productResourceProbe: productProbeFailure } : {}),
-  });
-}
-
-function attachPostDestroyProductProbe(
-  execution: Readonly<Record<string, unknown>>,
-  productResources: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> {
-  const cleanup = requireRecord(execution.cleanup, 'execution cleanup');
-  invariant(
-    cleanup.status === 'completed' || cleanup.status === 'failed',
-    'post-destroy probe requires terminal cleanup',
-  );
-  invariant(cleanup.productResources === undefined, 'execution cleanup productResources is unique');
-  return deepFreeze({
-    ...execution,
-    cleanup: {
-      ...cleanup,
-      productResources,
-    },
-  });
-}
-
-function executionWithProductCleanup(
-  productResources: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> {
-  return deepFreeze({
-    status: 'failed',
-    cleanup: {
-      status: 'completed',
-      errors: [],
-      releases: [],
-      productResources,
-    },
-  });
-}
-
-function failureObservation(
-  plan: PatchMapExecutableCasePlan,
-  partialExecution: Readonly<Record<string, unknown>> | null,
-  error: unknown,
-): Readonly<Record<string, unknown>> {
-  return deepFreeze({
-    $schema: EXECUTABLE_FAILURE_SCHEMA,
-    case: {
-      id: plan.id,
-      caseType: plan.caseType,
-      rootTestId: plan.rootTestId,
-      params: structuredClone(plan.routeParams),
-    },
-    execution: partialExecution,
-    outcome: {
-      status: 'failed',
-      error: serializeError(error),
-      promotionEligible: false,
-    },
-  });
-}
-
-function destroyedWithoutRunObservation(
-  plan: PatchMapExecutableCasePlan,
-): Readonly<Record<string, unknown>> {
-  return deepFreeze({
-    $schema: EXECUTABLE_FAILURE_SCHEMA,
-    case: { id: plan.id, rootTestId: plan.rootTestId, params: structuredClone(plan.routeParams) },
-    execution: null,
-    outcome: {
-      status: 'destroyed-without-run',
-      promotionEligible: false,
-    },
-  });
-}
-
-function partialExecutionFrom(error: unknown): Readonly<Record<string, unknown>> | null {
-  if (!isRecord(error) || !isRecord(error.partialExecution)) return null;
-  return error.partialExecution;
-}
-
-function executionActionIndex(execution: Readonly<Record<string, unknown>>): number {
-  if (!Array.isArray(execution.actionResults)) return -1;
-  const results = execution.actionResults as unknown as readonly unknown[];
-  const last = results.at(-1);
-  return isRecord(last) && Number.isInteger(last.index) ? Number(last.index) : -1;
-}
-
-function executionPublishedTuple(
-  execution: Readonly<Record<string, unknown>>,
-): PatchMapContractPublishedTuple {
-  const terminal = isRecord(execution.terminalSnapshot) ? execution.terminalSnapshot : null;
-  const tuple = terminal && isRecord(terminal.publishedTuple) ? terminal.publishedTuple : null;
-  if (!tuple) return emptyPublishedTuple();
-  return Object.freeze({
-    scene: finiteNumberOrZero(tuple.scene),
-    view: finiteNumberOrZero(tuple.view),
-    interaction: finiteNumberOrZero(tuple.interaction),
-  });
-}
-
-function cleanupSummary(
-  cleanup: Readonly<Record<string, unknown>> | null,
-  runCount: number,
-  completedRunCount: number,
-): Readonly<Record<string, unknown>> {
-  const releases = cleanup && Array.isArray(cleanup.releases) ? cleanup.releases : [];
-  const remaining = releases
-    .map((release) => isRecord(release) && isRecord(release.remainingResources)
-      ? release.remainingResources
-      : null)
-    .filter((value): value is Readonly<Record<string, unknown>> => value !== null);
-  const supplemental = cleanup && isRecord(cleanup.supplementalWebGLLease)
-    && isRecord(cleanup.supplementalWebGLLease.remainingResources)
-    ? cleanup.supplementalWebGLLease.remainingResources
-    : null;
-  if (supplemental) remaining.push(supplemental);
-  return deepFreeze({
-    status: cleanup?.status ?? 'not-run',
-    runCount,
-    completedRunCount,
-    releasedEngineCount: releases.length + Number(supplemental !== null),
-    retainedCanvasCount: sumFinite(remaining, 'canvasCount'),
-    retainedSubscriptionCount: sumFinite(remaining, 'subscriptions'),
-    retainedPendingWork: sumFinite(remaining, 'pendingWork'),
-  });
-}
-
-function sumFinite(values: readonly Readonly<Record<string, unknown>>[], field: string): number | null {
-  if (values.length === 0) return null;
-  const numbers = values.map((value) => value[field]);
-  return numbers.every((value): value is number => typeof value === 'number' && Number.isFinite(value))
-    ? numbers.reduce((sum, value) => sum + value, 0)
-    : null;
-}
-
 function assertSurfaceIsReleased(surfaceHost: HTMLElement | undefined): void {
   if (!surfaceHost || typeof surfaceHost.querySelector !== 'function') return;
   invariant(
     surfaceHost.querySelector('canvas[data-patch-map-product="patch-map"]') === null,
     'executor left a tracked PixiJS canvas in the Lab host',
   );
-}
-
-function serializeError(error: unknown): Readonly<Record<string, unknown>> {
-  return Object.freeze({
-    name: error instanceof Error ? error.name : typeof error,
-    code: errorCode(error),
-    message: error instanceof Error ? error.message : String(error),
-  });
-}
-
-function errorCode(error: unknown): string {
-  if (isRecord(error) && typeof error.code === 'string') return error.code;
-  if (isRecord(error) && isRecord(error.diagnostic) && typeof error.diagnostic.code === 'string') {
-    return error.diagnostic.code;
-  }
-  return error instanceof Error ? error.name : 'UNKNOWN_FAILURE';
 }
 
 function arrayValue(value: unknown, label: string): readonly unknown[] {
@@ -1006,25 +794,6 @@ function requiredString(value: unknown, label: string): string {
   return value;
 }
 
-function finiteNumberOrZero(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
-function emptyPublishedTuple(): PatchMapContractPublishedTuple {
-  return Object.freeze({ scene: 0, view: 0, interaction: 0 });
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
 function invariant(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(`Invalid PatchMap executable Lab bridge: ${message}`);
-}
-
-function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
 }
