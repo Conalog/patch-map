@@ -4,149 +4,51 @@ import type {
   PatchMapImageSourceKind,
   PatchMapProjectionIndex,
 } from './contracts';
-import { normalizePatchMapAssetDescriptor } from './assets';
 import type { PatchMapAssetSource } from './semantic/dataset';
 import type {
   PatchMapSceneImageAssetBindingObservation as LeafAssetBindingObservation,
   PatchMapSceneImageAssetBindingProbe as LeafAssetBindingProbe,
   PatchMapSceneImageAssetBindingRequest as LeafAssetBindingRequest,
-  PatchMapSceneImageAssetRenderRole as LeafAssetRenderRole,
+  PatchMapSceneImageAttachmentState,
+  PatchMapSceneImageAttemptProbe,
+  PatchMapSceneImageControllerOptions,
+  PatchMapSceneImageDiagnostic,
+  PatchMapSceneImageIntrinsicSize,
+  PatchMapSceneImageProductProbe,
+  PatchMapSceneImageReconcileOptions,
+  PatchMapSceneImageReconcilePlan,
+  PatchMapSceneImageReconcileResult,
+  PatchMapSceneImageResourceState,
+  PatchMapSceneImageRetryResult,
   PatchMapSceneImageRendererBridge,
+  PatchMapSceneImagesProbe,
 } from './scene-images/contracts';
+import {
+  EMPTY_RECONCILE_RESULT,
+  assertPreparedBindingCompatibility,
+  countActiveDesiredImages,
+  desiredActiveBindingSignatures,
+  freezeReconcileResult,
+  normalizeDesiredImages,
+  reconcileChanged,
+  type DesiredImage,
+} from './scene-images/reconcile-values';
 
-export type { PatchMapSceneImageRendererBridge } from './scene-images/contracts';
-
-export type PatchMapSceneImageResourceState =
-  | 'absent'
-  | 'pending'
-  | 'resolved'
-  | 'failed';
-
-export type PatchMapSceneImageAttachmentState = 'current' | 'unbound' | 'stale';
-
-export interface PatchMapSceneImageControllerOptions {
-  /** Schedules one aggregate frame; never creates an entity ticker or RAF. */
-  readonly onInvalidate?: (reason: string) => void;
-  /** Commits decoded logical size only for the still-current intrinsic target. */
-  readonly onIntrinsicSize?: (resolution: PatchMapSceneImageIntrinsicSize) => void;
-}
-
-export interface PatchMapSceneImageIntrinsicSize {
-  readonly entityId: string;
-  readonly bindingKey: string;
-  readonly generation: number;
-  readonly naturalSize: readonly [number, number];
-}
-
-export interface PatchMapSceneImageReconcileOptions {
-  /** Omit to acquire every image. Hidden images should be excluded by the Core. */
-  readonly activeEntityIds?: ReadonlySet<string>;
-}
-
-/**
- * Opaque, single-use image ownership plan produced without touching renderer or
- * controller state. A plan is valid only for the controller and reconcile
- * revision that prepared it.
- */
-export interface PatchMapSceneImageReconcilePlan {
-  readonly kind: 'patch-map-scene-image-reconcile-plan';
-  readonly imageCount: number;
-  readonly activeImageCount: number;
-}
-
-export interface PatchMapSceneImageReconcileResult {
-  readonly added: readonly string[];
-  readonly updated: readonly string[];
-  readonly removed: readonly string[];
-  readonly activated: readonly string[];
-  readonly deactivated: readonly string[];
-  readonly bindingsStarted: readonly string[];
-  readonly bindingsRetired: readonly string[];
-}
-
-export interface PatchMapSceneImageRetryResult {
-  readonly status: 'started' | 'deduplicated' | 'unavailable';
-  readonly entityId: string;
-  readonly bindingKey: string | null;
-  readonly generation: number;
-}
-
-export interface PatchMapSceneImageDiagnostic {
-  readonly level: 'warning';
-  readonly code: 'ASSET_LOAD_FAILED';
-  readonly targetId: string;
-  readonly bindingKey: string;
-  readonly generation: number;
-  readonly message: string;
-}
-
-export interface PatchMapSceneImageAttemptProbe {
-  readonly generation: number;
-  readonly bindingKey: string;
-  readonly authoredSource: PatchMapAssetSource;
-  readonly sourceKind: PatchMapImageSourceKind;
-  readonly dimensionMode: PatchMapImageDimensionMode;
-  readonly sourceCacheIdentity: string;
-  readonly resourceState: PatchMapSceneImageResourceState;
-  readonly attachmentState: PatchMapSceneImageAttachmentState;
-  readonly rendererGeneration: number | null;
-  readonly cacheIdentity: string | null;
-  readonly normalizedResourceIdentity: string | null;
-  readonly naturalSize: readonly [number, number] | null;
-  readonly reusedResolvedResource: boolean;
-  readonly diagnosticCount: number;
-}
-
-export interface PatchMapSceneImageProductProbe {
-  readonly entityId: string;
-  readonly active: boolean;
-  readonly generation: number;
-  readonly authoredSource: PatchMapAssetSource;
-  readonly sourceKind: PatchMapImageSourceKind;
-  readonly dimensionMode: PatchMapImageDimensionMode;
-  readonly bindingKey: string;
-  readonly sourceCacheIdentity: string;
-  readonly state: PatchMapSceneImageResourceState;
-  readonly attachmentState: PatchMapSceneImageAttachmentState;
-  readonly cacheIdentity: string | null;
-  readonly normalizedResourceIdentity: string | null;
-  readonly naturalSize: readonly [number, number] | null;
-  readonly reusedResolvedResource: boolean;
-  readonly publication: Readonly<{
-    /** Physical Sprite facts are current only for the matching binding generation. */
-    readonly rendererFacts: 'current' | 'pending';
-  }>;
-  readonly renderObjectCount: 0 | 1;
-  readonly placeholderCount: 0 | 1;
-  /** Current binding-wide semantic consumers; zero for inactive targets. */
-  readonly bindingConsumerCount: number;
-  readonly role: LeafAssetRenderRole;
-  readonly rendererGeneration: number | null;
-  readonly staleAttachCount: number;
-  readonly staleCompletionCount: number;
-  readonly diagnosticCount: number;
-  readonly attempts: readonly PatchMapSceneImageAttemptProbe[];
-}
-
-export interface PatchMapSceneImagesProbe {
-  readonly destroyed: boolean;
-  readonly targetCount: number;
-  readonly activeTargetCount: number;
-  readonly bindingCount: number;
-  readonly pendingBindingCount: number;
-  readonly pendingSettlementCount: number;
-  readonly pendingReleaseCount: number;
-  readonly diagnosticCount: number;
-  readonly staleAttachCount: number;
-  readonly staleCompletionCount: number;
-  readonly images: Readonly<Record<string, PatchMapSceneImageProductProbe>>;
-  readonly diagnostics: readonly PatchMapSceneImageDiagnostic[];
-  readonly abandonedRequests: Readonly<{
-    readonly pendingSettlementCount: number;
-    readonly pendingReleaseCount: number;
-    readonly staleAttachmentCount: number;
-  }>;
-}
+export type {
+  PatchMapSceneImageAttachmentState,
+  PatchMapSceneImageAttemptProbe,
+  PatchMapSceneImageControllerOptions,
+  PatchMapSceneImageDiagnostic,
+  PatchMapSceneImageIntrinsicSize,
+  PatchMapSceneImageProductProbe,
+  PatchMapSceneImageReconcileOptions,
+  PatchMapSceneImageReconcilePlan,
+  PatchMapSceneImageReconcileResult,
+  PatchMapSceneImageRendererBridge,
+  PatchMapSceneImageResourceState,
+  PatchMapSceneImageRetryResult,
+  PatchMapSceneImagesProbe,
+};
 
 interface ImageAttempt {
   readonly entityId: string;
@@ -196,14 +98,6 @@ interface ImageBinding {
   settlement: Promise<void> | null;
 }
 
-interface DesiredImage {
-  readonly projection: PatchMapImageProjection;
-  readonly request: LeafAssetBindingRequest;
-  readonly requestSignature: string;
-  readonly signature: string;
-  readonly active: boolean;
-}
-
 interface PreparedReconcilePlan {
   readonly owner: PatchMapSceneImageController;
   readonly revision: number;
@@ -216,16 +110,6 @@ const preparedReconcilePlans = new WeakMap<
   PatchMapSceneImageReconcilePlan,
   PreparedReconcilePlan
 >();
-
-const EMPTY_RECONCILE_RESULT: PatchMapSceneImageReconcileResult = Object.freeze({
-  added: Object.freeze([]),
-  updated: Object.freeze([]),
-  removed: Object.freeze([]),
-  activated: Object.freeze([]),
-  deactivated: Object.freeze([]),
-  bindingsStarted: Object.freeze([]),
-  bindingsRetired: Object.freeze([]),
-});
 
 export const PATCH_MAP_SCENE_IMAGE_ATTEMPT_LIMIT = 8;
 
@@ -1003,130 +887,6 @@ export class PatchMapSceneImageController {
   }
 }
 
-function normalizeDesiredImages(
-  index: PatchMapProjectionIndex,
-  activeEntityIds: ReadonlySet<string> | undefined,
-): ReadonlyMap<string, DesiredImage> {
-  const result = new Map<string, DesiredImage>();
-  const bindingSignatures = new Map<string, string>();
-  const images = index.imagesByEntityId ?? {};
-  for (const entityId of Object.keys(images).sort()) {
-    const projection = cloneProjection(entityId, images[entityId]!);
-    const request = requestFor(projection);
-    const requestSignature = stableSerialize(request);
-    const previous = bindingSignatures.get(projection.bindingKey);
-    if (previous !== undefined && previous !== requestSignature) {
-      throw new TypeError(`image binding key collision: ${projection.bindingKey}`);
-    }
-    bindingSignatures.set(projection.bindingKey, requestSignature);
-    const active = activeEntityIds?.has(entityId) ?? true;
-    result.set(entityId, Object.freeze({
-      projection,
-      request,
-      requestSignature,
-      signature: [
-        projection.bindingKey,
-        requestSignature,
-        projection.dimensionMode,
-        projection.authoredSize ? 'authored-size' : 'derived-size',
-      ].join('|'),
-      active,
-    }));
-  }
-  return result;
-}
-
-function desiredActiveBindingSignatures(
-  desired: ReadonlyMap<string, DesiredImage>,
-): ReadonlyMap<string, string> {
-  const signatures = new Map<string, string>();
-  for (const image of desired.values()) {
-    if (image.active) signatures.set(image.projection.bindingKey, image.requestSignature);
-  }
-  return signatures;
-}
-
-function countActiveDesiredImages(desired: ReadonlyMap<string, DesiredImage>): number {
-  let count = 0;
-  for (const image of desired.values()) {
-    if (image.active) count += 1;
-  }
-  return count;
-}
-
-/**
- * A retained binding is the only existing ownership that can survive the
- * detach pass. Validating it here keeps the commit phase free of collision
- * discovery after target mutation has started.
- */
-function assertPreparedBindingCompatibility(
-  desired: ReadonlyMap<string, DesiredImage>,
-  targets: ReadonlyMap<string, ImageTarget>,
-  bindings: ReadonlyMap<string, ImageBinding>,
-): void {
-  const retainedBindingSignatures = new Map<string, string>();
-  for (const binding of bindings.values()) {
-    for (const consumerId of binding.consumers.keys()) {
-      const target = targets.get(consumerId);
-      const next = desired.get(consumerId);
-      if (
-        target &&
-        next &&
-        target.signature === next.signature &&
-        target.active === next.active
-      ) {
-        retainedBindingSignatures.set(binding.key, binding.requestSignature);
-        break;
-      }
-    }
-  }
-  for (const image of desired.values()) {
-    if (!image.active) continue;
-    const retainedSignature = retainedBindingSignatures.get(image.projection.bindingKey);
-    if (retainedSignature !== undefined && retainedSignature !== image.requestSignature) {
-      throw new TypeError(`image binding key collision: ${image.projection.bindingKey}`);
-    }
-  }
-}
-
-function cloneProjection(entityId: string, value: PatchMapImageProjection): PatchMapImageProjection {
-  if (value.entityId !== entityId) throw new TypeError(`image projection identity mismatch: ${entityId}`);
-  const bindingKey = nonempty(value.bindingKey, 'image binding key');
-  const cacheIdentity = nonempty(value.cacheIdentity, 'image cache identity');
-  const authoredSource = value.sourceKind === 'descriptor'
-    ? normalizePatchMapAssetDescriptor(value.authoredSource)
-    : nonemptyStringSource(value.authoredSource, value.sourceKind);
-  return Object.freeze({
-    entityId,
-    authoredSource,
-    bindingKey,
-    cacheIdentity,
-    sourceKind: value.sourceKind,
-    authoredSize: value.authoredSize,
-    dimensionMode: value.dimensionMode,
-  });
-}
-
-function nonemptyStringSource(
-  source: PatchMapAssetSource,
-  kind: Exclude<PatchMapImageSourceKind, 'descriptor'>,
-): string {
-  if (typeof source !== 'string' || source.length === 0) {
-    throw new TypeError(`${kind} image source must be a non-empty string`);
-  }
-  return source;
-}
-
-function requestFor(projection: PatchMapImageProjection): LeafAssetBindingRequest {
-  if (projection.sourceKind === 'alias') {
-    if (typeof projection.authoredSource !== 'string') {
-      throw new TypeError('alias image source must be a string');
-    }
-    return Object.freeze({ kind: 'alias', alias: projection.authoredSource });
-  }
-  return Object.freeze({ kind: 'source', source: projection.authoredSource });
-}
-
 function createAttempt(
   entityId: string,
   projection: PatchMapImageProjection,
@@ -1188,30 +948,6 @@ function retryResult(
   });
 }
 
-function freezeReconcileResult(
-  value: Omit<PatchMapSceneImageReconcileResult, never>,
-): PatchMapSceneImageReconcileResult {
-  return Object.freeze({
-    added: Object.freeze(value.added),
-    updated: Object.freeze(value.updated),
-    removed: Object.freeze(value.removed),
-    activated: Object.freeze(value.activated),
-    deactivated: Object.freeze(value.deactivated),
-    bindingsStarted: Object.freeze(value.bindingsStarted),
-    bindingsRetired: Object.freeze(value.bindingsRetired),
-  });
-}
-
-function reconcileChanged(result: PatchMapSceneImageReconcileResult): boolean {
-  return result.added.length > 0 ||
-    result.updated.length > 0 ||
-    result.removed.length > 0 ||
-    result.activated.length > 0 ||
-    result.deactivated.length > 0 ||
-    result.bindingsStarted.length > 0 ||
-    result.bindingsRetired.length > 0;
-}
-
 function diagnosticKey(entityId: string, generation: number): string {
   return `${entityId.length}:${entityId}:${generation}`;
 }
@@ -1219,15 +955,6 @@ function diagnosticKey(entityId: string, generation: number): string {
 function nonempty(value: string, label: string): string {
   if (value.length === 0) throw new TypeError(`${label} must be non-empty`);
   return value;
-}
-
-function stableSerialize(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
-  const record = value as Readonly<Record<string, unknown>>;
-  return `{${Object.keys(record).sort().map(
-    (key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`,
-  ).join(',')}}`;
 }
 
 function asError(value: unknown): Error {
