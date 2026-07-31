@@ -104,6 +104,30 @@ export interface PatchMapPixiInitializationMetrics {
   readonly rendererBuildMs: number;
 }
 
+/**
+ * CPU-only renderer publication state that a scene load may replace before
+ * its authoritative publication succeeds. The checkpoint deliberately keeps
+ * the exact retained references: none of these values are mutated in place by
+ * the load-side publication methods.
+ *
+ * This is an internal rollback seam, not a serialized or public package API.
+ */
+export interface PatchMapPixiRendererPublicationCheckpoint {
+  readonly projectionIndex: PatchMapProjectionIndex;
+  readonly staleProjectionEntityIds: ReadonlySet<string>;
+  readonly projectionRevision: number;
+  readonly pendingRanges: SlotRange[] | undefined;
+  readonly pendingOverlayRanges: SlotRange[] | undefined;
+  readonly pendingProjectionTransformOnly: boolean;
+  readonly pendingBarPresentationOnly: boolean;
+  readonly pendingTextOnly: boolean;
+  readonly lastInvalidation: string;
+  readonly storeEpoch: number;
+  readonly presentationPolicy: PatchMapResolvedPresentationPolicy | null;
+  readonly presentationStore: PatchMapPresentationStoreView | null;
+  readonly presentationBaseStore: RenderStoreView | null;
+}
+
 export class PatchMapPixiRuntimeError extends Error {
   public readonly code: 'UNSUPPORTED_RUNTIME' | 'RENDERER_LOST';
 
@@ -463,7 +487,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     } = {},
   ): void {
     this.assertAlive();
-    this.lastInvalidation = reason;
     const previousIdle =
       this.pendingRanges !== undefined &&
       this.pendingRanges.length === 0;
@@ -473,20 +496,35 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     const textOnly =
       options.domain === 'text-only' &&
       (previousIdle || this.pendingTextOnly);
+    const invalidatesProjectionTransform = options.fullRebuild || ranges.length > 0;
+    const nextProjectionTransformOnly = invalidatesProjectionTransform
+      ? false
+      : this.pendingProjectionTransformOnly;
+    const nextBarPresentationOnly = invalidatesProjectionTransform
+      ? barOnly
+      : this.pendingBarPresentationOnly;
+    const nextTextOnly = invalidatesProjectionTransform
+      ? textOnly
+      : this.pendingTextOnly;
     // A view-only commit intentionally publishes an empty range after
     // setWorldOrientation(). Preserve the orientation fast-path promise in
     // that case; any actual scene mutation or full rebuild revokes it.
-    if (options.fullRebuild || ranges.length > 0) {
-      this.pendingProjectionTransformOnly = false;
-      this.pendingBarPresentationOnly = barOnly;
-      this.pendingTextOnly = textOnly;
-    }
     if (options.fullRebuild) {
-      this.storeEpoch += 1;
+      const nextStoreEpoch = this.storeEpoch + 1;
+      this.lastInvalidation = reason;
+      this.pendingProjectionTransformOnly = nextProjectionTransformOnly;
+      this.pendingBarPresentationOnly = nextBarPresentationOnly;
+      this.pendingTextOnly = nextTextOnly;
+      this.storeEpoch = nextStoreEpoch;
       this.pendingRanges = undefined;
       return;
     }
-    this.pendingRanges = mergeRanges(this.pendingRanges ?? [], ranges);
+    const nextRanges = mergeRanges(this.pendingRanges ?? [], ranges);
+    this.lastInvalidation = reason;
+    this.pendingProjectionTransformOnly = nextProjectionTransformOnly;
+    this.pendingBarPresentationOnly = nextBarPresentationOnly;
+    this.pendingTextOnly = nextTextOnly;
+    this.pendingRanges = nextRanges;
   }
 
   public markOverlayChanges(ranges: readonly SlotRange[], reason: string): void {
@@ -518,13 +556,15 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.assertAlive();
     const normalized = policy === null ? null : normalizePresentationPolicy(policy);
     if (samePresentationPolicy(this.presentationPolicy, normalized)) return false;
-    this.presentationPolicy = normalized;
-    this.presentationStore = normalized === null || this.lastSourceStore === null
+    const nextPresentationStore = normalized === null || this.lastSourceStore === null
       ? null
       : new PatchMapPresentationStoreView(this.lastSourceStore, normalized);
-    this.presentationBaseStore = this.presentationStore === null
+    const nextPresentationBaseStore = nextPresentationStore === null
       ? null
       : this.lastSourceStore;
+    this.presentationPolicy = normalized;
+    this.presentationStore = nextPresentationStore;
+    this.presentationBaseStore = nextPresentationBaseStore;
     this.pendingRanges = undefined;
     this.pendingOverlayRanges = undefined;
     this.pendingProjectionTransformOnly = false;
@@ -592,10 +632,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     const previous = this.projectionIndex;
     const previousStaleEntityIds = this.staleProjectionEntityIds;
-    this.projectionIndex = index;
-    this.pendingProjectionTransformOnly = false;
-    this.staleProjectionEntityIds = nextStaleEntityIds;
-    this.projectionRevision += 1;
     const projectionRanges = changedRanges === undefined
       ? this.lastStore
         ? projectionChangedRanges(this.lastStore, previous, index)
@@ -625,13 +661,21 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.pendingRanges.length === 0 ||
         this.pendingTextOnly
       );
-    this.pendingRanges = mergeRanges(this.pendingRanges ?? [], ranges);
-    this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], ranges);
-    this.pendingBarPresentationOnly = barPresentationOnly;
-    this.pendingTextOnly = textOnly;
-    this.lastInvalidation = changedRanges === undefined
+    const nextPendingRanges = mergeRanges(this.pendingRanges ?? [], ranges);
+    const nextPendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], ranges);
+    const nextInvalidation = changedRanges === undefined
       ? 'projection'
       : 'presentation-projection';
+    const nextProjectionRevision = this.projectionRevision + 1;
+    this.projectionIndex = index;
+    this.pendingProjectionTransformOnly = false;
+    this.staleProjectionEntityIds = nextStaleEntityIds;
+    this.projectionRevision = nextProjectionRevision;
+    this.pendingRanges = nextPendingRanges;
+    this.pendingOverlayRanges = nextPendingOverlayRanges;
+    this.pendingBarPresentationOnly = barPresentationOnly;
+    this.pendingTextOnly = textOnly;
+    this.lastInvalidation = nextInvalidation;
     return true;
   }
 
@@ -1935,6 +1979,59 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private assertAlive(): void {
     if (this.destroyedValue) throw new Error('PatchMapPixiRenderer is destroyed');
   }
+}
+
+type PatchMapPixiRendererPublicationState = {
+  -readonly [Key in keyof PatchMapPixiRendererPublicationCheckpoint]:
+    PatchMapPixiRendererPublicationCheckpoint[Key];
+};
+
+/** Capture exact load-side CPU publication state without touching Pixi/GPU state. */
+export function capturePatchMapPixiRendererPublication(
+  renderer: PatchMapPixiRenderer,
+): PatchMapPixiRendererPublicationCheckpoint {
+  if (renderer.destroyed) throw new Error('PatchMapPixiRenderer is destroyed');
+  const state = renderer as unknown as PatchMapPixiRendererPublicationState;
+  return Object.freeze({
+    projectionIndex: state.projectionIndex,
+    staleProjectionEntityIds: state.staleProjectionEntityIds,
+    projectionRevision: state.projectionRevision,
+    pendingRanges: state.pendingRanges,
+    pendingOverlayRanges: state.pendingOverlayRanges,
+    pendingProjectionTransformOnly: state.pendingProjectionTransformOnly,
+    pendingBarPresentationOnly: state.pendingBarPresentationOnly,
+    pendingTextOnly: state.pendingTextOnly,
+    lastInvalidation: state.lastInvalidation,
+    storeEpoch: state.storeEpoch,
+    presentationPolicy: state.presentationPolicy,
+    presentationStore: state.presentationStore,
+    presentationBaseStore: state.presentationBaseStore,
+  });
+}
+
+/**
+ * Restore a captured publication checkpoint using assignments only. This is
+ * intentionally non-throwing so rollback cannot mask the original load
+ * failure with validation, allocation, renderer, or GPU work.
+ */
+export function restorePatchMapPixiRendererPublication(
+  renderer: PatchMapPixiRenderer,
+  checkpoint: PatchMapPixiRendererPublicationCheckpoint,
+): void {
+  const state = renderer as unknown as PatchMapPixiRendererPublicationState;
+  state.projectionIndex = checkpoint.projectionIndex;
+  state.staleProjectionEntityIds = checkpoint.staleProjectionEntityIds;
+  state.projectionRevision = checkpoint.projectionRevision;
+  state.pendingRanges = checkpoint.pendingRanges;
+  state.pendingOverlayRanges = checkpoint.pendingOverlayRanges;
+  state.pendingProjectionTransformOnly = checkpoint.pendingProjectionTransformOnly;
+  state.pendingBarPresentationOnly = checkpoint.pendingBarPresentationOnly;
+  state.pendingTextOnly = checkpoint.pendingTextOnly;
+  state.lastInvalidation = checkpoint.lastInvalidation;
+  state.storeEpoch = checkpoint.storeEpoch;
+  state.presentationPolicy = checkpoint.presentationPolicy;
+  state.presentationStore = checkpoint.presentationStore;
+  state.presentationBaseStore = checkpoint.presentationBaseStore;
 }
 
 function resolveAggregateOverlayVertices(
