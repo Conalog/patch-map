@@ -25,6 +25,7 @@ import type {
 import type {
   PatchMapPixiRendererDebug,
   RootInteractionHandlers,
+  RootPointerInput,
 } from '../../src/patch-map/renderers/types';
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import { applyPatchMapAffine } from '../../src/patch-map/semantic/geometry';
@@ -264,20 +265,15 @@ describe('PatchMap bar presentation integration', () => {
   });
 
   it('leaves pointer-gesture frame ownership to the host when auto-render is disabled', () => {
-    const { core } = createTestCore(allocated);
-    const gesture = core as unknown as {
-      onPointerDown(x: number, y: number, pointerId: number, button: number): void;
-      onPointerMove(x: number, y: number, pointerId: number): void;
-      onPointerUp(pointerId: number): void;
-    };
+    const { core, renderer } = createTestCore(allocated);
 
-    gesture.onPointerDown(20, 30, 7, 1);
+    renderer.dispatchRootPointer('down', 20, 30, 7, 1);
     expect(core.debugSnapshot()).toMatchObject({
       activeGestureCount: 1,
       scheduler: { continuous: false, pending: false, frameCount: 0 },
     });
 
-    gesture.onPointerMove(32, 38, 7);
+    renderer.dispatchRootPointer('move', 32, 38, 7, 1);
     expect(core.view).toMatchObject({ x: 12, y: 8 });
     expect(core.debugSnapshot()).toMatchObject({
       activeGestureCount: 1,
@@ -285,7 +281,7 @@ describe('PatchMap bar presentation integration', () => {
       scheduler: { continuous: false, pending: false, frameCount: 0 },
     });
 
-    gesture.onPointerUp(7);
+    renderer.dispatchRootPointer('up', 32, 38, 7, 1);
     expect(core.debugSnapshot()).toMatchObject({
       activeGestureCount: 0,
       scheduler: { continuous: false, pending: false, frameCount: 0 },
@@ -646,6 +642,7 @@ class RendererTestDouble {
   public readonly presentationPolicies: Array<PatchMapResolvedPresentationPolicy | null> = [];
   public destroyed = false;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
+  private rootInteractions: RootInteractionHandlers | null = null;
 
   public markChanges(): void {}
   public markOverlayChanges(): void {}
@@ -697,8 +694,34 @@ class RendererTestDouble {
   public unloadAsset(): Promise<boolean> { return Promise.resolve(false); }
   public finalizeAssetUnloads(): Promise<void> { return Promise.resolve(); }
   public captureBase64(): Promise<string> { return Promise.resolve('data:image/png;base64,'); }
-  public bindRootInteractions(_handlers: RootInteractionHandlers): () => void {
-    return () => undefined;
+  public bindRootInteractions(handlers: RootInteractionHandlers): () => void {
+    this.rootInteractions = handlers;
+    return () => {
+      if (this.rootInteractions === handlers) this.rootInteractions = null;
+    };
+  }
+  public dispatchRootPointer(
+    type: RootPointerInput['type'],
+    screenX: number,
+    screenY: number,
+    pointerId: number,
+    button: number,
+  ): void {
+    if (this.rootInteractions === null) throw new Error('root interactions are not bound');
+    this.rootInteractions.pointer(Object.freeze({
+      type,
+      screenX,
+      screenY,
+      pointerId,
+      pointerType: 'mouse',
+      button,
+      buttons: type === 'down' || type === 'move' ? 1 : 0,
+      timeMs: 0,
+      shiftKey: false,
+      ctrlKey: false,
+      altKey: false,
+      metaKey: false,
+    }));
   }
   public debugSnapshot(): PatchMapPixiRendererDebug {
     return Object.freeze({

@@ -121,11 +121,7 @@ import {
   panView,
   zoomViewAt,
 } from './view';
-import {
-  PATCH_MAP_DEFAULT_VIEWPORT_POLICIES,
-  PATCH_MAP_VIEWPORT_POLICIES,
-  type PatchMapViewportPolicy,
-} from './viewport';
+import type { PatchMapViewportPolicy } from './viewport';
 import { PatchMapScene } from './scene';
 import {
   type AnimateBarsOptions,
@@ -143,7 +139,6 @@ import {
   type PatchMapReconcileResult,
   type PatchMapRootPointerInput,
   type PatchMapRootViewportChange,
-  type PatchMapRootViewportChangeSource,
   type PatchMapRuntimeDebug,
   type PatchMapRuntimeOptions,
   type PatchMapSelectionOverlayPolicyInput,
@@ -178,6 +173,7 @@ import {
   patchMapComponentProbeTargetKey as componentTargetKey,
   patchMapTextProbeTargetKey as patchMapTextTargetKey,
 } from './core/product-probe-reader';
+import { PatchMapRootInteractionAuthority } from './core/root-interaction-authority';
 
 export { normalizePatchMapTextTarget } from './core/contracts';
 export type * from './core/contracts';
@@ -197,13 +193,6 @@ interface PatchMapLogicalPresentationPolicy {
   readonly deEmphasisAlpha: number;
   readonly hiddenLayerIds: readonly string[];
   readonly fillOverrides: readonly PatchMapPresentationFillOverride[];
-}
-
-interface PanState {
-  readonly pointerId: number;
-  readonly source: Extract<PatchMapRootViewportChangeSource, 'pointer' | 'middle-pointer'>;
-  x: number;
-  y: number;
 }
 
 interface PatchMapLoadedRuntimeState {
@@ -255,9 +244,8 @@ export class PatchMapRuntime {
   private readonly autoRender: boolean;
   private readonly requestFrame: (() => void) | undefined;
   private readonly onTerminalFailure: ((error: Error) => void) | undefined;
-  private readonly rootSelectionMode: 'immediate' | 'deferred';
   private readonly stableRecordStrategy: PatchMapStableRecordStrategy;
-  private readonly unbindInteractions: () => void;
+  private readonly rootInteraction: PatchMapRootInteractionAuthority;
   private spatialHit = new PatchMapSpatialHitAuthority();
   private logicalPresentationPolicy: PatchMapLogicalPresentationPolicy | null = null;
   private presentationPolicyRevision = 0;
@@ -270,21 +258,6 @@ export class PatchMapRuntime {
   private animationClockMs = 0;
   private lastFrameReport: FrameReport | null = null;
   private suspended = false;
-  private pan: PanState | null = null;
-  private viewportPolicies = new Set<PatchMapViewportPolicy>(
-    PATCH_MAP_DEFAULT_VIEWPORT_POLICIES,
-  );
-  private viewportZoomLimits: readonly [number, number] = Object.freeze([
-    Number.MIN_VALUE,
-    Number.MAX_VALUE,
-  ]);
-  private readonly rootViewportListeners = new Set<
-    (change: PatchMapRootViewportChange) => void
-  >();
-  private readonly rootPointerListeners = new Set<
-    (input: PatchMapRootPointerInput) => void
-  >();
-  private pointerSequence = 0;
   private destroyedValue = false;
   private pendingIntrinsicImageSizes = new Map<string, PatchMapSceneImageIntrinsicSize>();
   private componentRendererFactsPublished = false;
@@ -306,7 +279,6 @@ export class PatchMapRuntime {
     this.autoRender = options.autoRender ?? true;
     this.requestFrame = options.requestFrame;
     this.onTerminalFailure = options.onTerminalFailure;
-    this.rootSelectionMode = options.rootSelectionMode ?? 'immediate';
     this.stableRecordStrategy = options.internalStableRecordOverlays === true
       ? 'internal-overlay'
       : 'frozen-copy';
@@ -337,36 +309,33 @@ export class PatchMapRuntime {
       },
       onIntrinsicSize: (resolution) => this.queueIntrinsicImageSize(resolution),
     });
-    this.unbindInteractions = renderer.bindRootInteractions({
-      pointer: (input) => {
-        this.publishRootPointerInput(input);
-        if (input.type === 'down') {
-          this.onPointerDown(input.screenX, input.screenY, input.pointerId, input.button);
-        } else if (input.type === 'move') {
-          this.onPointerMove(input.screenX, input.screenY, input.pointerId);
-        } else {
-          this.onPointerUp(input.pointerId);
-        }
+    this.rootInteraction = new PatchMapRootInteractionAuthority(
+      renderer,
+      {
+        readView: () => this.currentView,
+        selectAtScreen: (point) => {
+          this.selectAtScreen(point);
+        },
+        panBy: (delta) => {
+          this.panBy(delta);
+        },
+        zoomAt: (point, factor) => {
+          this.zoomAt(point, factor);
+        },
+        hitTestInteractive: (point) => this.hitTestScreen(
+          point,
+          { interactiveOnly: true },
+        ) !== null,
+        requestGestureFrame: () => this.requestExternalFrameLoop(),
+        setGestureContinuous: (enabled, reason) => {
+          this.scheduler.setContinuous(enabled, reason);
+        },
       },
-      wheel: (x, y, deltaY) => {
-        if (this.viewportPolicies.has('wheel')) {
-          const before = this.currentView;
-          const nextScale = Math.min(
-            this.viewportZoomLimits[1],
-            Math.max(
-              this.viewportZoomLimits[0],
-              before.scale * Math.exp(-deltaY * 0.001),
-            ),
-          );
-          this.zoomAt({ x, y }, nextScale / before.scale);
-          this.publishRootViewportChange('wheel', before);
-        }
+      {
+        selectionMode: options.rootSelectionMode ?? 'immediate',
+        autoRender: this.autoRender,
       },
-      contextMenu: (x, y) => this.hitTestScreen(
-        { x, y },
-        { interactiveOnly: true },
-      ) !== null,
-    });
+    );
   }
 
   private get scene(): PatchMapScene {
@@ -448,7 +417,7 @@ export class PatchMapRuntime {
   public get viewportGestureActive(): boolean {
     return !this.destroyedValue &&
       this.terminalLoadFailure === null &&
-      this.pan !== null;
+      this.rootInteraction.activeGesture;
   }
 
   public get presentationRevision(): number {
@@ -834,7 +803,7 @@ export class PatchMapRuntime {
     );
     this.terminalLoadFailure = failure;
     this.suspended = true;
-    this.pan = null;
+    this.rootInteraction.cancelGesture();
     this.automaticAnimationFramesActive = false;
     this.scheduler.setContinuous(false, 'load-rollback-terminal');
     this.scheduler.cancelPending();
@@ -846,7 +815,7 @@ export class PatchMapRuntime {
       // Terminal state already prevents any later publication.
     }
     try {
-      this.unbindInteractions();
+      this.rootInteraction.destroy();
     } catch {
       // Preserve the original load error; destroy still owns final cleanup.
     }
@@ -1266,7 +1235,7 @@ export class PatchMapRuntime {
     // the presentation envelope. Non-interactive consumers retain the lean
     // update path and build no auxiliary index.
     this.spatialHit.primeAnimatedBarsIfNeeded(
-      this.rootPointerListeners.size,
+      this.rootInteraction.pointerListenerCount,
       this.scene,
       this.projectionValue,
       this.presentationProjection.presentation,
@@ -1380,7 +1349,7 @@ export class PatchMapRuntime {
     }
     this.scheduler.cancelPending();
     this.scheduler.setContinuous(false, 'page-suspend');
-    this.pan = null;
+    this.rootInteraction.cancelGesture();
     const frame = this.applyPresentationFrame(
       this.presentationController.settle(timeMs),
     );
@@ -1565,7 +1534,7 @@ export class PatchMapRuntime {
       this.currentView,
       screenPoint,
       this.currentView.scale * factor,
-      { min: this.viewportZoomLimits[0], max: this.viewportZoomLimits[1] },
+      { min: this.rootInteraction.zoomLimits[0], max: this.rootInteraction.zoomLimits[1] },
     ));
   }
 
@@ -1582,7 +1551,7 @@ export class PatchMapRuntime {
       bounds,
       { width: this.renderer.width, height: this.renderer.height },
       padding,
-      { min: this.viewportZoomLimits[0], max: this.viewportZoomLimits[1] },
+      { min: this.rootInteraction.zoomLimits[0], max: this.rootInteraction.zoomLimits[1] },
     ));
   }
 
@@ -2177,7 +2146,7 @@ export class PatchMapRuntime {
       suspended: this.suspended,
       entityCount: this.entityCountValue,
       activeAnimations: this.activeAnimations,
-      activeGestureCount: this.destroyedValue || this.pan === null ? 0 : 1,
+      activeGestureCount: this.rootInteraction.activeGesture ? 1 : 0,
       selectionCount,
       diagnostics: this.diagnostics.length,
       renderer: this.renderer.debugSnapshot(),
@@ -2198,69 +2167,33 @@ export class PatchMapRuntime {
     policies: readonly PatchMapViewportPolicy[],
   ): readonly PatchMapViewportPolicy[] {
     this.assertAlive();
-    if (!Array.isArray(policies)) throw new TypeError('viewport policies must be an array');
-    const supported = new Set<PatchMapViewportPolicy>(PATCH_MAP_VIEWPORT_POLICIES);
-    const next = new Set<PatchMapViewportPolicy>();
-    const requested = policies as readonly unknown[];
-    for (const [index, value] of requested.entries()) {
-      if (typeof value !== 'string' || !supported.has(value as PatchMapViewportPolicy)) {
-        throw new TypeError(`viewport policies[${index}] is unsupported`);
-      }
-      const policy = value as PatchMapViewportPolicy;
-      next.add(policy);
-    }
-    this.viewportPolicies = next;
-    if (!next.has('pan')) this.cancelViewportGestures();
-    return Object.freeze(PATCH_MAP_VIEWPORT_POLICIES.filter((policy) => next.has(policy)));
+    return this.rootInteraction.setGesturePolicies(policies);
   }
 
   public setViewportZoomLimits(
     limits: readonly [number, number],
   ): readonly [number, number] {
     this.assertAlive();
-    if (
-      !Array.isArray(limits) ||
-      limits.length !== 2 ||
-      !Number.isFinite(limits[0]) ||
-      !Number.isFinite(limits[1]) ||
-      !(limits[0] > 0) ||
-      limits[1] < limits[0]
-    ) {
-      throw new RangeError('viewport zoom limits must be finite, positive, and ordered');
-    }
-    this.viewportZoomLimits = Object.freeze([limits[0], limits[1]]);
-    return this.viewportZoomLimits;
+    return this.rootInteraction.setZoomLimits(limits);
   }
 
   public bindRootViewportChanges(
     listener: (change: PatchMapRootViewportChange) => void,
   ): () => void {
     this.assertAlive();
-    if (typeof listener !== 'function') {
-      throw new TypeError('root viewport listener must be a function');
-    }
-    this.rootViewportListeners.add(listener);
-    return () => {
-      this.rootViewportListeners.delete(listener);
-    };
+    return this.rootInteraction.bindViewportChanges(listener);
   }
 
   public bindRootPointerInputs(
     listener: (input: PatchMapRootPointerInput) => void,
   ): () => void {
     this.assertAlive();
-    if (typeof listener !== 'function') {
-      throw new TypeError('root pointer input listener must be a function');
-    }
-    this.rootPointerListeners.add(listener);
-    return () => {
-      this.rootPointerListeners.delete(listener);
-    };
+    return this.rootInteraction.bindPointerInputs(listener);
   }
 
   public cancelViewportGestures(): void {
     this.assertAlive();
-    this.pan = null;
+    this.rootInteraction.cancelGesture();
     this.scheduler.setContinuous(false, 'gesture-cancel');
   }
 
@@ -2288,15 +2221,12 @@ export class PatchMapRuntime {
     if (this.destroyedValue) return false;
     this.destroyedValue = true;
     this.suspended = false;
-    this.pan = null;
-    this.viewportPolicies.clear();
-    this.rootViewportListeners.clear();
-    this.rootPointerListeners.clear();
+    this.rootInteraction.cancelGesture();
     this.externalFrameLoop?.destroy();
     this.externalFrameLoop = null;
     this.scheduler.destroy();
     this.adaptiveFrameBudget.destroy();
-    this.unbindInteractions();
+    this.rootInteraction.destroy();
     this.spatialHit.destroy();
     this.presentationController.destroy();
     this.presentationProjection.clear();
@@ -2955,44 +2885,6 @@ export class PatchMapRuntime {
     });
   }
 
-  private onPointerDown(x: number, y: number, pointerId: number, button: number): void {
-    if (this.destroyedValue) return;
-    if (button === 0 && this.rootSelectionMode === 'immediate') {
-      this.selectAtScreen({ x, y });
-    }
-    if (
-      this.viewportPolicies.has('pan') &&
-      (button === 0 || button === 1)
-    ) {
-      this.pan = {
-        pointerId,
-        source: button === 1 ? 'middle-pointer' : 'pointer',
-        x,
-        y,
-      };
-      this.requestExternalFrameLoop();
-      if (this.autoRender) this.scheduler.setContinuous(true, 'gesture');
-    }
-  }
-
-  private onPointerMove(x: number, y: number, pointerId: number): void {
-    const pan = this.pan;
-    if (!pan || pan.pointerId !== pointerId || this.destroyedValue) return;
-    const delta = { x: x - pan.x, y: y - pan.y };
-    pan.x = x;
-    pan.y = y;
-    const before = this.currentView;
-    this.panBy(delta);
-    this.publishRootViewportChange(pan.source, before);
-  }
-
-  private onPointerUp(pointerId: number): void {
-    if (this.pan?.pointerId !== pointerId) return;
-    this.pan = null;
-    this.requestExternalFrameLoop();
-    if (this.autoRender) this.scheduler.setContinuous(false, 'gesture-end');
-  }
-
   private requireFrameReport(): FrameReport {
     const report = this.lastFrameReport;
     if (!report) throw new Error('PatchMap has not produced a frame report');
@@ -3008,27 +2900,6 @@ export class PatchMapRuntime {
     if (this.terminalLoadFailure !== null) throw this.terminalLoadFailure;
   }
 
-  private publishRootViewportChange(
-    source: PatchMapRootViewportChangeSource,
-    before: CoreView,
-  ): void {
-    const view = this.currentView;
-    if (
-      before.x === view.x &&
-      before.y === view.y &&
-      before.scale === view.scale &&
-      before.rotation === view.rotation
-    ) {
-      return;
-    }
-    const change = Object.freeze({ source, view } satisfies PatchMapRootViewportChange);
-    for (const listener of [...this.rootViewportListeners]) listener(change);
-  }
-
-  private publishRootPointerInput(input: PatchMapRootPointerInput): void {
-    if (this.destroyedValue) return;
-    for (const listener of [...this.rootPointerListeners]) listener(input);
-  }
 }
 
 /**
