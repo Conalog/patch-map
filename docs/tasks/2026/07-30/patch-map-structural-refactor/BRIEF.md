@@ -20,8 +20,8 @@
   five examples: 420 files total, excluding frozen evidence and prohibited
   generated/dependency content. New cohesive modules and their contract tests
   remain in the same file-by-file review ledger.
-- `engine.ts` is 7,244 LOC, `core.ts` is 3,900 LOC, and
-  `semantic/dataset.ts` is 1,531 LOC after the current authority extractions.
+- `engine.ts` is 7,206 LOC, `core.ts` is 3,445 LOC, and
+  `semantic/dataset.ts` is 1,170 LOC after the current authority extractions.
   The two facades still
   combine lifecycle, mutation, presentation, viewport, interaction, assets,
   publication, and diagnostics, so the prior completed assessment was wrong.
@@ -43,12 +43,14 @@
   Lab executable runtime, renderer resource ports, and Engine viewport state
   now have explicit owners. A file-by-file disposition rule and T0–T10
   migration map are recorded in the working architecture plan.
-- Core publication, spatial hit, product probes, and root interaction; Engine
-  viewport, frame publication, transformer edit, and scene state; and Dataset
-  contracts/value normalization now have explicit single owners.
-- The current integrated checkpoint passes 162 unit files / 1,524 tests, full
-  lint, and full typecheck. Renderer, package, memory, and hot-path ownership
-  did not change in this checkpoint, so their expensive gates were not rerun.
+- Core publication, spatial hit, product probes, root interaction, and bar
+  presentation; Engine viewport, frame publication, transformer edit, scene
+  state, and surface lifecycle; and Dataset contracts, value, and authored
+  style normalization now have explicit single owners.
+- The current checkpoint passes 164 unit files / 1,531 tests, full lint and
+  typecheck, product/Lab builds, canonical 173 contract, headless 173 routes,
+  10,000 bars, actual-production, 2+7 memory, and a 5,000-bar smoke. Independent
+  review found no unresolved P0-P2 issue.
 - The last verified product baseline remains 151 files / 1,471 tests,
   canonical 38/173, packed consumers, headless 173 routes, actual-production,
   10,000 records, and 2+7 memory cleanup. It is a baseline, not evidence for
@@ -56,10 +58,10 @@
 
 # Next Step
 
-- Extract Core bar presentation and load/reconcile candidates, Engine surface
-  lifecycle and remaining root interaction, then continue Dataset style and
-  ownership, transaction, parser, renderer, Lab, test, verification, and
-  performance tranches while retaining atomic facade composition.
+- Extract the remaining Core load/reconcile candidate owner without moving
+  atomic publication out of the facade, then continue Engine, Dataset,
+  transaction, parser, renderer, Lab, test, verification, and performance
+  tranches in the recorded migration order.
 
 # Working Boundary
 
