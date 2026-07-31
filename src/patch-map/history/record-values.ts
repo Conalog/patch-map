@@ -15,14 +15,23 @@ export function detachCommand<
   if (input === null || typeof input !== 'object') {
     throw new TypeError('history command must be an object');
   }
-  if (typeof input.id !== 'string' || input.id.length === 0) {
+  const id = ownEnumerableDataValue(input, 'id', '$.id');
+  if (typeof id !== 'string' || id.length === 0) {
     throw new TypeError('history command id must be a non-empty string');
   }
-  const before = detachSnapshot(input.before, '$.before');
-  const after = detachSnapshot(input.after, '$.after');
+  const before = detachSnapshot(
+    ownEnumerableDataValue(input, 'before', '$.before') as
+      PatchMapSemanticHistorySnapshotInput<TDataset, TCompanion>,
+    '$.before',
+  );
+  const after = detachSnapshot(
+    ownEnumerableDataValue(input, 'after', '$.after') as
+      PatchMapSemanticHistorySnapshotInput<TDataset, TCompanion>,
+    '$.after',
+  );
   const record = Object.freeze({ before, after });
   return Object.freeze({
-    id: input.id,
+    id,
     recordCount: 1,
     records: Object.freeze([record]),
     before,
@@ -39,14 +48,23 @@ export function retainOwnedImmutableCommand<
   if (input === null || typeof input !== 'object') {
     throw new TypeError('history command must be an object');
   }
-  if (typeof input.id !== 'string' || input.id.length === 0) {
+  const id = ownEnumerableDataValue(input, 'id', '$.id');
+  if (typeof id !== 'string' || id.length === 0) {
     throw new TypeError('history command id must be a non-empty string');
   }
-  const before = retainOwnedImmutableSnapshot(input.before, '$.before');
-  const after = retainOwnedImmutableSnapshot(input.after, '$.after');
+  const before = retainOwnedImmutableSnapshot(
+    ownEnumerableDataValue(input, 'before', '$.before') as
+      PatchMapSemanticHistorySnapshotInput<TDataset, TCompanion>,
+    '$.before',
+  );
+  const after = retainOwnedImmutableSnapshot(
+    ownEnumerableDataValue(input, 'after', '$.after') as
+      PatchMapSemanticHistorySnapshotInput<TDataset, TCompanion>,
+    '$.after',
+  );
   const record = Object.freeze({ before, after });
   return Object.freeze({
-    id: input.id,
+    id,
     recordCount: 1,
     records: Object.freeze([record]),
     before,
@@ -64,14 +82,19 @@ function retainOwnedImmutableSnapshot<
   if (input === null || typeof input !== 'object') {
     throw new TypeError(`${path} must be an object`);
   }
-  if (!isOwnedPatchMapDataset(input.dataset)) {
+  const dataset = ownEnumerableDataValue(input, 'dataset', `${path}.dataset`);
+  if (!isOwnedPatchMapDataset(dataset)) {
     throw new TypeError(`${path}.dataset must be an Engine-owned materialized array`);
   }
-  const companion = input.companion === undefined ? null : input.companion;
+  const companionValue = ownEnumerableDataValue(input, 'companion', `${path}.companion`);
+  const companion = companionValue === undefined ? null : companionValue;
   if (!isDeeplyFrozenJson(companion)) {
     throw new TypeError(`${path}.companion must be Engine-owned and deeply frozen`);
   }
-  return Object.freeze({ dataset: input.dataset, companion });
+  return Object.freeze({ dataset, companion }) as PatchMapSemanticHistorySnapshot<
+    TDataset,
+    TCompanion
+  >;
 }
 
 function isDeeplyFrozenJson(
@@ -158,13 +181,15 @@ function detachSnapshot<
   if (input === null || typeof input !== 'object') {
     throw new TypeError(`${path} must be an object`);
   }
-  if (!Array.isArray(input.dataset)) {
+  const datasetValue = ownEnumerableDataValue(input, 'dataset', `${path}.dataset`);
+  if (!Array.isArray(datasetValue)) {
     throw new TypeError(`${path}.dataset must be an array`);
   }
-  const dataset = cloneSemanticValue(input.dataset, `${path}.dataset`) as TDataset;
-  const companion = input.companion === undefined
+  const dataset = cloneSemanticValue(datasetValue, `${path}.dataset`) as TDataset;
+  const companionValue = ownEnumerableDataValue(input, 'companion', `${path}.companion`);
+  const companion = companionValue === undefined
     ? null
-    : cloneSemanticValue(input.companion, `${path}.companion`) as TCompanion;
+    : cloneSemanticValue(companionValue, `${path}.companion`) as TCompanion;
   return Object.freeze({ dataset, companion });
 }
 
@@ -244,6 +269,19 @@ function isCanonicalArrayIndex(key: string, length: number): boolean {
     index >= 0 &&
     index < length &&
     String(index) === key;
+}
+
+function ownEnumerableDataValue(
+  input: object,
+  key: string,
+  path: string,
+): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(input, key);
+  if (descriptor === undefined) return undefined;
+  if (!descriptor.enumerable || !('value' in descriptor)) {
+    throw new TypeError(`${path} must be an own enumerable data property`);
+  }
+  return descriptor.value;
 }
 
 export function semanticEqual(left: unknown, right: unknown): boolean {

@@ -368,6 +368,44 @@ describe('PatchMap semantic history', () => {
     expect(history.state()).toMatchObject({ depth: 0, cursor: 0 });
   });
 
+  it('rejects command and snapshot accessors without reading them', () => {
+    const history = new PatchMapSemanticHistory<readonly unknown[]>();
+    const dataset = Object.freeze([{ id: 'box', zIndex: 0 }]);
+    let commandReads = 0;
+    const command = {
+      id: 'command-accessor',
+      before: { dataset },
+      after: { dataset },
+    } as Record<string, unknown>;
+    Object.defineProperty(command, 'after', {
+      enumerable: true,
+      get: () => {
+        commandReads += 1;
+        return { dataset };
+      },
+    });
+    expect(() => history.prepareRecord(command as unknown as
+      PatchMapSemanticHistoryCommandInput<readonly unknown[]>))
+      .toThrow('$.after must be an own enumerable data property');
+    expect(commandReads).toBe(0);
+
+    let datasetReads = 0;
+    const snapshot = Object.defineProperty({}, 'dataset', {
+      enumerable: true,
+      get: () => {
+        datasetReads += 1;
+        return dataset;
+      },
+    });
+    expect(() => history.prepareRecord({
+      id: 'snapshot-accessor',
+      before: { dataset },
+      after: snapshot as Readonly<{ dataset: readonly unknown[] }>,
+    })).toThrow('$.after.dataset must be an own enumerable data property');
+    expect(datasetReads).toBe(0);
+    expect(history.state()).toMatchObject({ depth: 0, cursor: 0 });
+  });
+
   it('rejects structurally invalid owned companions without invoking accessors', () => {
     const before = materializePatchMapDataset([{
       type: 'rect',
@@ -380,6 +418,21 @@ describe('PatchMap semantic history', () => {
       size: { width: 20, height: 20 },
     }]).dataset;
     const history = new PatchMapSemanticHistory<typeof before, unknown>();
+    let datasetReads = 0;
+    const accessorSnapshot = Object.defineProperty({}, 'dataset', {
+      enumerable: true,
+      get: () => {
+        datasetReads += 1;
+        return before;
+      },
+    });
+    expect(() => history.prepareOwnedChangedRecord({
+      id: 'owned-snapshot-accessor',
+      before: accessorSnapshot as Readonly<{ dataset: typeof before }>,
+      after: { dataset: after },
+    })).toThrow('$.before.dataset must be an own enumerable data property');
+    expect(datasetReads).toBe(0);
+
     let accessorReads = 0;
     const accessor = Object.freeze(Object.defineProperty({}, 'hidden', {
       enumerable: false,

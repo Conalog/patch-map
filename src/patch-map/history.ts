@@ -24,6 +24,7 @@ import {
 export type * from './history/contracts';
 
 const DEFAULT_HISTORY_CAPACITY = 50;
+const PENDING_PLAN_PRUNE_INTERVAL = 256;
 
 /**
  * Pure semantic history. It owns detached, deeply frozen full snapshots but
@@ -43,7 +44,7 @@ export class PatchMapSemanticHistory<
     PatchMapPreparedRecordPlan<TDataset, TCompanion>
   >();
   private readonly pendingPreparedRecords = new Set<
-    PatchMapPreparedRecordPlan<TDataset, TCompanion>
+    WeakRef<PatchMapPreparedRecordPlan<TDataset, TCompanion>>
   >();
   private cursorValue = 0;
   private epochValue = 0;
@@ -165,9 +166,18 @@ export class PatchMapSemanticHistory<
       nextEntries,
       nextCursor,
       nextContinuationId,
+      pendingRef: null,
     };
+    if (
+      this.pendingPreparedRecords.size > 0 &&
+      this.pendingPreparedRecords.size % PENDING_PLAN_PRUNE_INTERVAL === 0
+    ) {
+      this.prunePendingPreparedRecords();
+    }
+    const pendingRef = new WeakRef(plan);
+    plan.pendingRef = pendingRef;
     this.preparedRecords.set(token, plan);
-    this.pendingPreparedRecords.add(plan);
+    this.pendingPreparedRecords.add(pendingRef);
     return token;
   }
 
@@ -342,11 +352,14 @@ export class PatchMapSemanticHistory<
     if (this.transitioning) {
       throw new Error('cannot destroy PatchMapSemanticHistory during a transition');
     }
-    for (const plan of this.pendingPreparedRecords) {
+    for (const pendingRef of this.pendingPreparedRecords) {
+      const plan = pendingRef.deref();
+      if (plan === undefined) continue;
       plan.phase = 'stale';
       plan.baseEntries = null;
       plan.nextEntries = null;
       plan.nextContinuationId = null;
+      plan.pendingRef = null;
     }
     this.pendingPreparedRecords.clear();
     this.entriesValue = Object.freeze([]);
@@ -404,11 +417,22 @@ export class PatchMapSemanticHistory<
     plan: PatchMapPreparedRecordPlan<TDataset, TCompanion>,
     phase: Exclude<PatchMapPreparedRecordPlan<TDataset, TCompanion>['phase'], 'pending'>,
   ): void {
-    this.pendingPreparedRecords.delete(plan);
+    if (plan.pendingRef !== null) {
+      this.pendingPreparedRecords.delete(plan.pendingRef);
+      plan.pendingRef = null;
+    }
     plan.phase = phase;
     plan.baseEntries = null;
     plan.nextEntries = null;
     plan.nextContinuationId = null;
+  }
+
+  private prunePendingPreparedRecords(): void {
+    for (const pendingRef of this.pendingPreparedRecords) {
+      if (pendingRef.deref() === undefined) {
+        this.pendingPreparedRecords.delete(pendingRef);
+      }
+    }
   }
 }
 
@@ -421,6 +445,7 @@ interface PatchMapPreparedRecordPlan<
   nextEntries: readonly PatchMapSemanticHistoryCommand<TDataset, TCompanion>[] | null;
   readonly nextCursor: number;
   nextContinuationId: string | null;
+  pendingRef: WeakRef<PatchMapPreparedRecordPlan<TDataset, TCompanion>> | null;
 }
 
 function assertCommitOutcome(value: string): asserts value is PatchMapHistoryCommitOutcome {
