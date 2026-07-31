@@ -31,8 +31,10 @@ describe('PatchMap async and transient presentation substrate', () => {
     engine.loadDataset(scene());
     const accepted: number[] = [];
     const published: number[] = [];
+    const frameOverlayStates: ReturnType<PatchMap['liveOverlayProbe']>[] = [];
     engine.on('overlayAccepted', ({ sourceRevision }) => accepted.push(sourceRevision));
     engine.on('overlayPublished', ({ sourceRevision }) => published.push(sourceRevision));
+    engine.on('frame', () => frameOverlayStates.push(engine.liveOverlayProbe()));
 
     for (let sourceRevision = 2; sourceRevision <= 13; sourceRevision += 1) {
       const result = engine.applyLiveOverlay({
@@ -74,6 +76,11 @@ describe('PatchMap async and transient presentation substrate', () => {
     engine.publishFrame(200);
 
     expect(surface.frameCount).toBe(1);
+    expect(frameOverlayStates).toMatchObject([{
+      latestPublished: null,
+      pendingPublicationCount: 1,
+      publicationCount: 0,
+    }]);
     expect(published).toEqual([13]);
     expect(engine.liveOverlayProbe()).toMatchObject({
       latestAccepted: { sourceRevision: 13, payloadHash: 'overlay-319-13' },

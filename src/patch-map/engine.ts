@@ -203,6 +203,7 @@ import {
   PatchMapTransformerEditAuthority,
   type PatchMapTransformerEditSession,
 } from './engine/transformer-edit-authority';
+import { PatchMapPublicationAuthority } from './engine/publication-authority';
 export type {
   PatchMapEngineComponentSemanticProbe,
   PatchMapEngineTextSemanticProbe,
@@ -522,6 +523,7 @@ export class PatchMap {
   private readonly transformerGestures = new PatchMapTransformerGestureAuthority();
   private readonly transformerEdits = new PatchMapTransformerEditAuthority();
   private readonly viewportAuthority = new PatchMapViewportAuthority();
+  private readonly publication = new PatchMapPublicationAuthority();
   private pendingTransactionPlanMs = 0;
   private lastTransactionPerformance: PatchMapEngineTransactionPerformanceProbe | null = null;
   private readonly listeners = new Map<PatchMapEngineEvent, Set<(event: unknown) => void>>();
@@ -530,7 +532,6 @@ export class PatchMap {
   private frameLoop: PatchMapFrameLoop | null = null;
   private frameLoopPausedForVisibility = false;
   private terminalSurfaceFailure: Error | null = null;
-  private frameClockMs = 0;
   private retainedCleanupSurface: PatchMapEngineSurface | null = null;
   private authoritativeCanvas: HTMLCanvasElement | null = null;
   private terminalRendererLossProbe: PatchMapPixiRendererLossProbe | null = null;
@@ -569,22 +570,8 @@ export class PatchMap {
   private textSemantics = new Map<string, IndexedEngineTextSemantic>();
   private logicalSelectionIds: readonly string[] = Object.freeze([]);
   private historyHostCompanion: PatchMapMutationJsonValue | null = null;
-  private pendingHistoryPublications: readonly Readonly<{
-    readonly direction: PatchMapHistoryDirection;
-    readonly sceneRevision: number;
-  }>[] = Object.freeze([]);
   private datasetRef: string | null = null;
-  private lifecycleGeneration = 0;
   private targetLifecycleGeneration = 0;
-  private sceneRevision = 0;
-  private viewRevision = 0;
-  private interactionRevision = 0;
-  private frameRevision = 0;
-  private publishedTuple: PatchMapPublishedTuple = Object.freeze({ scene: 0, view: 0, interaction: 0 });
-  private geometryRevisionCorrelation: Readonly<{
-    readonly surfaceRevision: number;
-    readonly representedRevisions: PatchMapGeometryRevisionTuple;
-  }> | null = null;
   private rendererConfiguration: Readonly<{
     resolution: number;
     antialias: boolean;
@@ -594,11 +581,6 @@ export class PatchMap {
   private submissionSequence = 0;
   private loadSequence = 0;
   private pendingWork = 0;
-  private latestOverlayAccepted: PatchMapLiveOverlayTuple | null = null;
-  private latestOverlayPublished: PatchMapLiveOverlayPublishedTuple | null = null;
-  private pendingOverlayPublication: PatchMapLiveOverlayTuple | null = null;
-  private overlayAcceptedCount = 0;
-  private overlayPublicationCount = 0;
   private readonly externalDependencyRevisions = new Map<string, string>();
   private surfaceViewportInputUnbind: (() => void) | null = null;
   private surfacePointerInputUnbind: (() => void) | null = null;
@@ -660,8 +642,8 @@ export class PatchMap {
   ): PatchMapSanitizedDiagnostic & PatchMapEngineDiagnostic {
     const diagnostic = this.operations.reportDiagnostic({
       ...input,
-      lifecycleGeneration: this.lifecycleGeneration,
-      sceneRevision: this.sceneRevision,
+      lifecycleGeneration: this.publication.lifecycleGeneration,
+      sceneRevision: this.publication.sceneRevision,
       revisionStamp: this.revisionStamp(),
     }) as PatchMapSanitizedDiagnostic & PatchMapEngineDiagnostic;
     this.deliverEngineEvent('diagnostic', diagnostic);
@@ -741,7 +723,7 @@ export class PatchMap {
 
   /** Lightweight published-frame counter for animation HUDs and host diagnostics. */
   public get publishedFrameRevision(): number {
-    return this.frameRevision;
+    return this.publication.frameRevision;
   }
 
   /** O(1) source workload shared with the package frame-loop policy. */
@@ -753,7 +735,7 @@ export class PatchMap {
 
   /** Current monotonic product presentation clock for late frame-loop ownership. */
   public get frameTimeMs(): number {
-    return this.frameClockMs;
+    return this.publication.frameClockMs;
   }
 
   /** Product-owned pointer/motion state; Lab hosts do not mirror it. */
@@ -859,7 +841,7 @@ export class PatchMap {
       height: surfaceOptions.height,
       pixelRatio: surfaceOptions.pixelRatio,
       zoomLimits: options.zoomLimits ?? DEFAULT_ZOOM_LIMITS,
-      viewRevision: this.viewRevision,
+      viewRevision: this.publication.viewRevision,
     });
     const requiredAliases = options.requiredAssets?.map(({ alias }) => alias) ?? [];
     this.initializePromise = (async (): Promise<PatchMapInitializeResult> => {
@@ -916,10 +898,10 @@ export class PatchMap {
         this.surfaceAccessibilityActivationUnbind =
           accessibilityActivationUnbind;
         this.pointerGestureAuthority = pointerAuthority;
-        this.geometryRevisionCorrelation = null;
+        this.publication.resetGeometryCorrelation();
         pendingSurface = null;
         this.requiredAssetAcquisitions.push(...attemptAcquisitions);
-        this.lifecycleGeneration += 1;
+        this.publication.advanceLifecycle();
         this.lifecycle = this.materialized?.rootIds.length ? 'scene-ready' : 'ready-empty';
         const result = this.initializeResult();
         this.emit('ready', result);
@@ -964,7 +946,7 @@ export class PatchMap {
   public async prepareScene(): Promise<PatchMapEnginePrepareResult> {
     const surface = this.requireSurface('prepareScene');
     const revisions = this.revisionStamp();
-    const publishedTuple = this.publishedTuple;
+    const publishedTuple = this.publication.publishedTuple;
     if (surface.prepare === undefined) {
       return Object.freeze({
         status: 'unsupported',
@@ -1012,8 +994,8 @@ export class PatchMap {
     const surface = this.requireSurface('loadDatasetAsync');
     this.cancelActiveTransformerEdit('replace', true);
     const sequence = ++this.loadSequence;
-    const lifecycleGeneration = this.lifecycleGeneration;
-    const sceneRevision = this.sceneRevision;
+    const lifecycleGeneration = this.publication.lifecycleGeneration;
+    const sceneRevision = this.publication.sceneRevision;
     this.pendingWork += 1;
     try {
       const materialized = materializePatchMapDataset(input);
@@ -1106,7 +1088,9 @@ export class PatchMap {
     if (modeBefore !== 'select') {
       this.hostInteractions.applyModeOperation({ op: 'replace', state: 'select' });
     }
-    if (selectionBefore.length > 0 || modeBefore !== 'select') this.interactionRevision += 1;
+    if (selectionBefore.length > 0 || modeBefore !== 'select') {
+      this.publication.advanceInteraction();
+    }
     this.hostInteractions.clearTooltip('redraw');
     this.hostInteractions.clearLogicalBindings();
     this.accessibility.replaceScene();
@@ -1119,12 +1103,12 @@ export class PatchMap {
     this.textSemantics = textSemantics;
     this.resetLiveOverlayState();
     this.datasetRef = options.datasetRef ?? null;
-    this.sceneRevision += 1;
+    this.publication.advanceScene();
     this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
     this.editorWorkflows.onSceneReplaced();
     const result: PatchMapEngineLoadResult = Object.freeze({
       lifecycle: this.lifecycle,
-      sceneRevision: this.sceneRevision,
+      sceneRevision: this.publication.sceneRevision,
       semanticHash: materialized.semanticHash,
       rootIds: materialized.rootIds,
     });
@@ -1755,7 +1739,7 @@ export class PatchMap {
       return result;
     }
     const selectionAfter = companionAfter.selectionIds;
-    const commandId = actionId ?? `transaction:${this.sceneRevision + 1}`;
+    const commandId = actionId ?? `transaction:${this.publication.sceneRevision + 1}`;
     let preparedHistory: PatchMapHistoryPreparedRecord | null = null;
     try {
       if (plan.recordHistory !== false) {
@@ -1869,14 +1853,14 @@ export class PatchMap {
       op: 'replace',
       state: companionAfter.mode,
     });
-    this.sceneRevision += 1;
+    this.publication.advanceScene();
     this.lifecycle = plan.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
     if (
       !sameStringArray(selectionBefore, selectionAfter) ||
       modeBefore !== companionAfter.mode ||
       plan.history !== undefined
     ) {
-      this.interactionRevision += 1;
+      this.publication.advanceInteraction();
     }
     let historyRecorded = false;
     if (preparedHistory !== null) {
@@ -2063,7 +2047,7 @@ export class PatchMap {
     let preparedHistory: PatchMapHistoryPreparedRecord;
     try {
       preparedHistory = this.history.prepareOwnedChangedRecord({
-        id: `patch:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
+        id: `patch:${this.publication.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
         before: this.historySnapshot(),
         after: historySnapshotForDataset(
           mutation.candidate.dataset,
@@ -2134,7 +2118,7 @@ export class PatchMap {
     this.logicalSceneIndexCache = null;
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
-    this.sceneRevision += 1;
+    this.publication.advanceScene();
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
     const historyStatus = this.history.commitPrepared(preparedHistory);
     if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
@@ -2232,7 +2216,7 @@ export class PatchMap {
     let preparedHistory: PatchMapHistoryPreparedRecord;
     try {
       preparedHistory = this.history.prepareOwnedChangedRecord({
-        id: `destroy:${this.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
+        id: `destroy:${this.publication.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
         before: this.historySnapshot(),
         after: historySnapshotForDataset(
           mutation.candidate.dataset,
@@ -2307,9 +2291,11 @@ export class PatchMap {
     this.componentSemantics = componentSemantics;
     this.textSemantics = textSemantics;
     this.logicalSelectionIds = selectionAfter;
-    this.sceneRevision += 1;
+    this.publication.advanceScene();
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-    if (!sameStringArray(selectionBefore, selectionAfter)) this.interactionRevision += 1;
+    if (!sameStringArray(selectionBefore, selectionAfter)) {
+      this.publication.advanceInteraction();
+    }
     const historyStatus = this.history.commitPrepared(preparedHistory);
     if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
       throw new Error(`destroy history preflight became ${historyStatus} after surface commit`);
@@ -2349,7 +2335,7 @@ export class PatchMap {
     const before = surface.presentationPolicyProbe();
     const policy = surface.setPresentationPolicy(input);
     const changed = policy.revision !== before.revision;
-    if (changed) this.interactionRevision += 1;
+    if (changed) this.publication.advanceInteraction();
     const result = Object.freeze({
       changed,
       publication: changed ? 'pending' : 'current',
@@ -2375,7 +2361,7 @@ export class PatchMap {
     const before = surface.presentationPolicyProbe();
     const policy = surface.clearPresentationPolicy();
     const changed = policy.revision !== before.revision;
-    if (changed) this.interactionRevision += 1;
+    if (changed) this.publication.advanceInteraction();
     const result = Object.freeze({
       changed,
       publication: changed ? 'pending' : 'current',
@@ -2404,8 +2390,11 @@ export class PatchMap {
     this.requireSurface('applyLiveOverlay');
     const sourceRevision = positiveSafeInteger(input.sourceRevision, 'sourceRevision');
     const payloadHash = nonEmptyValue(input.payloadHash, 'payloadHash');
-    const latest = this.latestOverlayAccepted;
-    if (latest !== null && sourceRevision <= latest.sourceRevision) {
+    const acceptance = this.publication.planOverlayAcceptance(
+      sourceRevision,
+      payloadHash,
+    );
+    if (acceptance.status === 'superseded') {
       const diagnostic = this.operationDiagnostic(
         'SUPERSEDED',
         'SUPERSEDED',
@@ -2450,14 +2439,7 @@ export class PatchMap {
         transaction,
       });
     }
-    const tuple = Object.freeze({
-      sourceRevision,
-      payloadHash,
-      sceneRevision: this.sceneRevision,
-    });
-    this.latestOverlayAccepted = tuple;
-    this.pendingOverlayPublication = tuple;
-    this.overlayAcceptedCount += 1;
+    const tuple = this.publication.commitOverlayAcceptance(acceptance);
     this.emit('overlayAccepted', tuple);
     return Object.freeze({
       status: 'accepted',
@@ -2470,13 +2452,7 @@ export class PatchMap {
 
   public liveOverlayProbe(): PatchMapLiveOverlayProbe {
     this.requireSurface('liveOverlayProbe');
-    return Object.freeze({
-      latestAccepted: this.latestOverlayAccepted,
-      latestPublished: this.latestOverlayPublished,
-      pendingPublicationCount: this.pendingOverlayPublication === null ? 0 : 1,
-      acceptedCount: this.overlayAcceptedCount,
-      publicationCount: this.overlayPublicationCount,
-    });
+    return this.publication.overlayProbe();
   }
 
   public replaceExternalDependency(
@@ -2582,7 +2558,7 @@ export class PatchMap {
         selectionIds,
       });
     }
-    this.sceneRevision += 1;
+    this.publication.advanceScene();
     const result = Object.freeze({
       status: 'committed',
       changed: true,
@@ -2741,7 +2717,7 @@ export class PatchMap {
       presentation = surface.resumePresentation?.(input.timeMs) ?? null;
     }
     const transition = this.pageLifecycle.transition(input.state, input.timeMs);
-    if (changed) this.frameClockMs = input.timeMs;
+    if (changed) this.publication.setFrameClock(input.timeMs);
     if (transition.changed && transition.state === 'hidden') {
       this.viewportAuthority.cancelMotion();
       surface.cancelViewportGestures?.();
@@ -2755,7 +2731,7 @@ export class PatchMap {
         pointerBefore.activePointerCount > 0 ||
         pointerBefore.activeGestureCount > 0
       ) {
-        this.interactionRevision += 1;
+        this.publication.advanceInteraction();
       }
     }
     const result = Object.freeze({
@@ -2797,7 +2773,7 @@ export class PatchMap {
     try {
       this.refreshAccessibilitySurfaceIfActive('publishFrame');
       surface.publishFrame(timeMs);
-      this.frameClockMs = timeMs;
+      this.publication.setFrameClock(timeMs);
     } catch (error) {
       const diagnostic = this.diagnosticFrom(error, 'publishFrame');
       this.emit('diagnostic', diagnostic);
@@ -2809,35 +2785,14 @@ export class PatchMap {
         surface.debugSnapshot().visiblePrimitiveCount,
       );
     }
-    this.frameRevision += 1;
-    this.publishedTuple = Object.freeze({
-      scene: this.sceneRevision,
-      view: this.viewRevision,
-      interaction: this.interactionRevision,
-    });
-    this.emit('frame', Object.freeze({ frameRevision: this.frameRevision, publishedTuple: this.publishedTuple }));
-    if (this.pendingHistoryPublications.length > 0) {
-      const pending = this.pendingHistoryPublications;
-      this.pendingHistoryPublications = Object.freeze([]);
-      for (const entry of pending) {
-        if (entry.sceneRevision !== this.publishedTuple.scene) continue;
-        this.emit('historyVisible', Object.freeze({
-          direction: entry.direction,
-          sceneRevision: entry.sceneRevision,
-          frameRevision: this.frameRevision,
-          publication: 'published',
-        }));
-      }
+    const publication = this.publication.commitFrame();
+    this.emit('frame', publication);
+    for (const visible of this.publication.publishPendingHistory()) {
+      this.emit('historyVisible', visible);
     }
-    if (this.pendingOverlayPublication !== null) {
-      const published = Object.freeze({
-        ...this.pendingOverlayPublication,
-        frameRevision: this.frameRevision,
-      });
-      this.latestOverlayPublished = published;
-      this.pendingOverlayPublication = null;
-      this.overlayPublicationCount += 1;
-      this.emit('overlayPublished', published);
+    const overlayPublished = this.publication.publishPendingOverlay();
+    if (overlayPublished !== null) {
+      this.emit('overlayPublished', overlayPublished);
     }
     this.pageLifecycle.publishedFrame();
   }
@@ -2851,9 +2806,9 @@ export class PatchMap {
     const changed = surface.resize(width, height, pixelRatio);
     if (!changed) return false;
     surface.setView(effect.surfaceView);
-    const nextViewRevision = this.viewRevision + 1;
+    const nextViewRevision = this.publication.viewRevision + 1;
     this.viewportAuthority.commitResize(effect, nextViewRevision);
-    this.viewRevision = nextViewRevision;
+    this.publication.advanceView();
     return true;
   }
 
@@ -2986,12 +2941,7 @@ export class PatchMap {
   public rebindHostLifecycle(
     requestedGeneration: number,
   ): PatchMapHostLifecycleRebindResult {
-    if (
-      !Number.isSafeInteger(requestedGeneration) ||
-      requestedGeneration !== this.lifecycleGeneration + 1
-    ) {
-      throw new RangeError('host lifecycle generation must advance by exactly one');
-    }
+    const rebind = this.publication.planLifecycleRebind(requestedGeneration);
     const surface = this.requireSurface('rebindHostLifecycle');
     this.hostInteractions.clearTooltip('redraw');
     this.submissionSequence += 1;
@@ -3004,13 +2954,13 @@ export class PatchMap {
     if (this.logicalSelectionIds.length > 0) {
       surface.select([]);
       this.logicalSelectionIds = Object.freeze([]);
-      this.interactionRevision += 1;
+      this.publication.advanceInteraction();
     }
-    this.lifecycleGeneration = requestedGeneration;
+    this.publication.commitLifecycleRebind(rebind);
     this.targetLifecycleGeneration += 1;
     return Object.freeze({
-      lifecycleGeneration: this.lifecycleGeneration,
-      sceneRevision: this.sceneRevision,
+      lifecycleGeneration: this.publication.lifecycleGeneration,
+      sceneRevision: this.publication.sceneRevision,
       canvasCount: surface.canvasCount,
       selectionIds: this.logicalSelectionIds,
       revisions: this.revisionStamp(),
@@ -3135,9 +3085,9 @@ export class PatchMap {
     const surface = this.requireSurface('setWorldTransform');
     if (!effect.changed) return effect.world;
     surface.setView(effect.surfaceView);
-    const nextViewRevision = this.viewRevision + 1;
+    const nextViewRevision = this.publication.viewRevision + 1;
     this.viewportAuthority.commitWorldTransform(effect, nextViewRevision);
-    this.viewRevision = nextViewRevision;
+    this.publication.advanceView();
     return effect.world;
   }
 
@@ -3149,13 +3099,13 @@ export class PatchMap {
       status: evaluated.status,
       code: evaluated.code,
       lifecycleGeneration: this.targetLifecycleGeneration,
-      sceneRevision: this.sceneRevision,
+      sceneRevision: this.publication.sceneRevision,
       targets: evaluated.targets,
     } satisfies PatchMapEngineQueryResult);
     if (result.status !== 'rejected') {
       this.queryResultAuthorities.set(result, Object.freeze({
         lifecycleGeneration: this.targetLifecycleGeneration,
-        sceneRevision: this.sceneRevision,
+        sceneRevision: this.publication.sceneRevision,
         targets: result.targets,
       }));
     }
@@ -3180,7 +3130,7 @@ export class PatchMap {
     if (
       authority === undefined ||
       authority.lifecycleGeneration !== this.targetLifecycleGeneration ||
-      authority.sceneRevision !== this.sceneRevision
+      authority.sceneRevision !== this.publication.sceneRevision
     ) {
       return Object.freeze({
         status: 'rejected',
@@ -3298,7 +3248,11 @@ export class PatchMap {
     );
     return target === null
       ? null
-      : createPatchMapLogicalPropagationTrace(target, this.sceneRevision, options);
+      : createPatchMapLogicalPropagationTrace(
+          target,
+          this.publication.sceneRevision,
+          options,
+        );
   }
 
   public dispatchLogicalPropagationAtScreen(
@@ -3312,7 +3266,7 @@ export class PatchMap {
       ? null
       : createPatchMapLogicalPropagationTrace(
           hit.target,
-          this.sceneRevision,
+          this.publication.sceneRevision,
           options,
         );
   }
@@ -3416,7 +3370,7 @@ export class PatchMap {
     const state = operation === 'hover'
       ? this.hostInteractions.hoverTooltip(input)
       : this.hostInteractions.toggleTooltipPin(input);
-    if (state.revision !== beforeRevision) this.interactionRevision += 1;
+    if (state.revision !== beforeRevision) this.publication.advanceInteraction();
     return state;
   }
 
@@ -3460,7 +3414,7 @@ export class PatchMap {
     const authority = this.commandTargetAuthorities.get(current);
     if (
       authority === undefined ||
-      authority.lifecycleGeneration !== this.lifecycleGeneration
+      authority.lifecycleGeneration !== this.publication.lifecycleGeneration
     ) {
       return Object.freeze({ status: 'rejected', code: 'STALE_TARGET', state: current });
     }
@@ -3537,7 +3491,7 @@ export class PatchMap {
       handleCssPx: visual.handleCssPx,
       strokeCssPx: visual.strokeCssPx,
     }) ?? false;
-    if (changed) this.interactionRevision += 1;
+    if (changed) this.publication.advanceInteraction();
     return visual;
   }
 
@@ -3816,7 +3770,7 @@ export class PatchMap {
       });
     }
 
-    this.interactionRevision += 1;
+    this.publication.advanceInteraction();
     this.transformerEdits.recordPreview(active, {
       latestPlan: plan,
       latestMutationPlan: mutationPlan,
@@ -4009,7 +3963,7 @@ export class PatchMap {
       if (change.source !== 'canvas') {
         this.pointerGestureAuthority?.interrupt('selection-change');
       }
-      this.interactionRevision += 1;
+      this.publication.advanceInteraction();
       this.emit('selectionChanged', change);
       const source = change.source === 'canvas' ? 'pointer' : change.source;
       this.hostInteractions.publish(
@@ -4020,12 +3974,12 @@ export class PatchMap {
           target: change.current.at(-1) ?? null,
           selectedIds: change.current,
         }),
-        this.interactionRevision,
+        this.publication.interactionRevision,
       );
       if (change.source === 'canvas') {
         this.hostInteractions.publishSelectionToHost(
           change.current,
-          this.interactionRevision,
+          this.publication.interactionRevision,
         );
       }
     }
@@ -4113,7 +4067,7 @@ export class PatchMap {
     }
     const result = authority.dispatch(Object.freeze({
       ...input,
-      viewRevision: input.viewRevision ?? this.viewRevision,
+      viewRevision: input.viewRevision ?? this.publication.viewRevision,
     }));
     if (transformerOwned) {
       if (input.type === 'up' || input.type === 'up-outside') {
@@ -4122,7 +4076,7 @@ export class PatchMap {
         this.cancelTransformerEdit(input.pointerId, 'pointer-cancel');
       }
     }
-    if (result.events.length > 0) this.interactionRevision += 1;
+    if (result.events.length > 0) this.publication.advanceInteraction();
     for (const event of result.events) {
       this.emit('pointerEvent', event);
       this.hostInteractions.dispatchPointerEvent(event);
@@ -4259,13 +4213,13 @@ export class PatchMap {
     const snapshot = Object.freeze({
       target,
       lifecycleGeneration: this.targetLifecycleGeneration,
-      sceneRevision: this.sceneRevision,
+      sceneRevision: this.publication.sceneRevision,
       value: cloneDetachedEngineRecord(value),
     });
     this.resolvedTargetAuthorities.set(snapshot, Object.freeze({
       target,
       lifecycleGeneration: this.targetLifecycleGeneration,
-      sceneRevision: this.sceneRevision,
+      sceneRevision: this.publication.sceneRevision,
     }));
     return snapshot;
   }
@@ -4279,7 +4233,7 @@ export class PatchMap {
     if (
       authority === undefined ||
       authority.lifecycleGeneration !== this.targetLifecycleGeneration ||
-      authority.sceneRevision !== this.sceneRevision
+      authority.sceneRevision !== this.publication.sceneRevision
     ) {
       const previousRevisions = this.revisionStamp();
       const target = authority?.target ?? normalizeSnapshotTarget(snapshot);
@@ -4327,8 +4281,8 @@ export class PatchMap {
       lifecycle: this.lifecycle,
       instanceId: this.instanceId,
       revisions: this.revisionStamp(),
-      publishedTuple: this.publishedTuple,
-      frameRevision: this.frameRevision,
+      publishedTuple: this.publication.publishedTuple,
+      frameRevision: this.publication.frameRevision,
       datasetRef: this.datasetRef,
       semanticHash: this.materialized?.semanticHash ?? null,
       rootIds: this.materialized?.rootIds ?? Object.freeze([]),
@@ -4552,8 +4506,8 @@ export class PatchMap {
     return Object.freeze({
       ...probe,
       revisions: this.revisionStamp(),
-      publishedTuple: this.publishedTuple,
-      frameRevision: this.frameRevision,
+      publishedTuple: this.publication.publishedTuple,
+      frameRevision: this.publication.frameRevision,
     });
   }
 
@@ -4563,8 +4517,8 @@ export class PatchMap {
     return Object.freeze({
       ...probe,
       revisions: this.revisionStamp(),
-      publishedTuple: this.publishedTuple,
-      frameRevision: this.frameRevision,
+      publishedTuple: this.publication.publishedTuple,
+      frameRevision: this.publication.frameRevision,
       history: this.history.state(),
     });
   }
@@ -4592,9 +4546,11 @@ export class PatchMap {
     if (semantic === null && visual === null) return null;
 
     const currentRevisions = this.revisionStamp();
-    const publishedCurrent = this.publishedTuple.scene === this.sceneRevision &&
-      this.publishedTuple.view === this.viewRevision &&
-      this.publishedTuple.interaction === this.interactionRevision;
+    const publishedTuple = this.publication.publishedTuple;
+    const publishedCurrent =
+      publishedTuple.scene === this.publication.sceneRevision &&
+      publishedTuple.view === this.publication.viewRevision &&
+      publishedTuple.interaction === this.publication.interactionRevision;
     const status: PatchMapEngineTextPublicationStatus = surfaceTextProbeIsAbsent(visual)
       ? 'absent'
       : surfaceTextProbeIsCurrent(visual) && publishedCurrent
@@ -4604,8 +4560,8 @@ export class PatchMap {
           : 'pending';
     const revisionTuple: PatchMapEngineTextRevisionTuple = Object.freeze({
       current: currentRevisions,
-      published: this.publishedTuple,
-      frameRevision: this.frameRevision,
+      published: publishedTuple,
+      frameRevision: this.publication.frameRevision,
       surfaceSceneRevision: visual?.publication.sceneRevision ?? null,
       surfaceRenderedSceneRevision: visual?.publication.renderedSceneRevision ?? null,
       rendererFrame: visual?.publication.rendererFrame ?? null,
@@ -4742,8 +4698,8 @@ export class PatchMap {
       worldBounds: visual.geometry.worldBounds,
       visible: visual.geometry.visible,
       revisions: this.revisionStamp(),
-      publishedTuple: this.publishedTuple,
-      frameRevision: this.frameRevision,
+      publishedTuple: this.publication.publishedTuple,
+      frameRevision: this.publication.frameRevision,
     });
   }
 
@@ -4755,7 +4711,7 @@ export class PatchMap {
       return Object.freeze({
         ...this.terminalRendererLossProbe,
         revisions: this.revisionStamp(),
-        publishedTuple: this.publishedTuple,
+        publishedTuple: this.publication.publishedTuple,
         canvasCount: 0,
       });
     }
@@ -4765,7 +4721,7 @@ export class PatchMap {
     return Object.freeze({
       ...probe,
       revisions: this.revisionStamp(),
-      publishedTuple: this.publishedTuple,
+      publishedTuple: this.publication.publishedTuple,
       canvasCount: surface.canvasCount,
     });
   }
@@ -4862,7 +4818,7 @@ export class PatchMap {
       this.emit('diagnostic', diagnostic);
       throw failure;
     }
-    if (!samePublishedTuple(this.publishedTuple, request.targetTuple)) {
+    if (!samePublishedTuple(this.publication.publishedTuple, request.targetTuple)) {
       throw this.operationError(
         'STALE_TARGET',
         'STALE_TARGET',
@@ -4894,7 +4850,7 @@ export class PatchMap {
           false,
         );
       }
-      if (!samePublishedTuple(this.publishedTuple, request.targetTuple)) {
+      if (!samePublishedTuple(this.publication.publishedTuple, request.targetTuple)) {
         throw this.operationError(
           'SUPERSEDED',
           'SUPERSEDED',
@@ -5000,7 +4956,7 @@ export class PatchMap {
       previousMode !== next.mode ||
       next.hostCompanion !== null
     ) {
-      this.interactionRevision += 1;
+      this.publication.advanceInteraction();
     }
     return this.historyCompanionForSelection(this.logicalSelectionIds);
   }
@@ -5134,7 +5090,7 @@ export class PatchMap {
     this.clearHistoryAuthority('destroy', true);
     this.history.destroy();
     this.historyHostCompanion = null;
-    this.pendingHistoryPublications = Object.freeze([]);
+    this.publication.clearHistoryPublications();
     this.componentSemantics.clear();
     this.textSemantics.clear();
     this.pendingTransactionPlanMs = 0;
@@ -5144,7 +5100,9 @@ export class PatchMap {
     this.initializePromise = null;
     this.assetSession = assetCleanupSucceeded ? null : assetSession;
     this.lifecycle = 'destroyed';
-    this.emit('destroyed', Object.freeze({ lifecycleGeneration: this.lifecycleGeneration }));
+    this.emit('destroyed', Object.freeze({
+      lifecycleGeneration: this.publication.lifecycleGeneration,
+    }));
     this.listeners.clear();
     if (cleanupFailures.length > 0) {
       throw this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'destroy', false);
@@ -5180,11 +5138,7 @@ export class PatchMap {
   }
 
   private resetLiveOverlayState(): void {
-    this.latestOverlayAccepted = null;
-    this.latestOverlayPublished = null;
-    this.pendingOverlayPublication = null;
-    this.overlayAcceptedCount = 0;
-    this.overlayPublicationCount = 0;
+    this.publication.resetOverlay();
   }
 
   private restoreTransformerPreview(active: PatchMapTransformerEditSession): void {
@@ -5204,7 +5158,7 @@ export class PatchMap {
         surface.select(active.startSelectionIds);
         this.logicalSelectionIds = active.startSelectionIds;
       }
-      this.interactionRevision += 1;
+      this.publication.advanceInteraction();
       return;
     }
     const incrementalRootIds = active.latestPlan?.status === 'planned'
@@ -5232,7 +5186,7 @@ export class PatchMap {
     if (!sameStringArray(this.logicalSelectionIds, active.startSelectionIds)) {
       this.logicalSelectionIds = active.startSelectionIds;
     }
-    this.interactionRevision += 1;
+    this.publication.advanceInteraction();
   }
 
   private cancelActiveTransformerEdit(
@@ -5263,7 +5217,7 @@ export class PatchMap {
         direction,
         previousRevisions,
         revisions: this.revisionStamp(),
-        sceneRevision: this.sceneRevision,
+        sceneRevision: this.publication.sceneRevision,
         semanticHash: this.materialized?.semanticHash ?? null,
         diagnostic,
         reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
@@ -5374,14 +5328,14 @@ export class PatchMap {
       this.logicalSceneIndexCache = null;
       this.componentSemantics = componentSemantics;
       this.textSemantics = textSemantics;
-      this.sceneRevision += 1;
+      this.publication.advanceScene();
       this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
       if (
         !sameStringArray(selectionBefore, this.logicalSelectionIds) ||
         modeBefore !== this.hostInteractions.modeProbe().activeState ||
         hostCompanionBefore !== this.historyHostCompanion
       ) {
-        this.interactionRevision += 1;
+        this.publication.advanceInteraction();
       }
       return true;
     };
@@ -5396,7 +5350,7 @@ export class PatchMap {
         direction,
         previousRevisions,
         revisions: this.revisionStamp(),
-        sceneRevision: this.sceneRevision,
+        sceneRevision: this.publication.sceneRevision,
         semanticHash: this.materialized?.semanticHash ?? null,
         diagnostic: failure,
         reconcileDiagnostics,
@@ -5412,7 +5366,7 @@ export class PatchMap {
         direction,
         previousRevisions,
         revisions: this.revisionStamp(),
-        sceneRevision: this.sceneRevision,
+        sceneRevision: this.publication.sceneRevision,
         semanticHash: this.materialized?.semanticHash ?? null,
         history: this.history.state(),
       } satisfies PatchMapEngineHistoryResult);
@@ -5428,14 +5382,14 @@ export class PatchMap {
       recordCount: transition.command.recordCount,
       previousRevisions,
       revisions: this.revisionStamp(),
-      sceneRevision: this.sceneRevision,
+      sceneRevision: this.publication.sceneRevision,
       semanticHash: materialized.semanticHash,
       publication: 'pending',
       history: this.history.state(),
     } satisfies PatchMapEngineHistoryResult);
     const restored = Object.freeze({
       direction,
-      sceneRevision: this.sceneRevision,
+      sceneRevision: this.publication.sceneRevision,
       selectionIds: Object.freeze([...this.logicalSelectionIds]),
       mode: this.hostInteractions.modeProbe().activeState,
       publication: 'pending',
@@ -5443,10 +5397,7 @@ export class PatchMap {
     this.emit('semanticRestored', restored);
     this.emit('selectionReconciled', restored);
     this.emit(direction === 'undo' ? 'historyUndone' : 'historyRedone', result);
-    this.pendingHistoryPublications = Object.freeze([
-      ...this.pendingHistoryPublications,
-      Object.freeze({ direction, sceneRevision: this.sceneRevision }),
-    ]);
+    this.publication.queueHistoryPublication(direction);
     return result;
   }
 
@@ -5466,7 +5417,7 @@ export class PatchMap {
 
   private rememberCommandTargetState(state: PatchMapCommandTargetState): void {
     this.commandTargetAuthorities.set(state, Object.freeze({
-      lifecycleGeneration: this.lifecycleGeneration,
+      lifecycleGeneration: this.publication.lifecycleGeneration,
       targetIds: state.targetIds,
     }));
   }
@@ -5525,7 +5476,7 @@ export class PatchMap {
     emitEvenIfUnchanged = false,
   ): PatchMapEngineHistoryClearResult {
     const changed = this.history.clear();
-    this.pendingHistoryPublications = Object.freeze([]);
+    this.publication.clearHistoryPublications();
     const result = Object.freeze({
       changed,
       reason,
@@ -5865,12 +5816,7 @@ export class PatchMap {
   }
 
   private revisionStamp(): PatchMapRevisionStamp {
-    return Object.freeze({
-      lifecycleGeneration: this.lifecycleGeneration,
-      sceneRevision: this.sceneRevision,
-      viewRevision: this.viewRevision,
-      interactionRevision: this.interactionRevision,
-    });
+    return this.publication.revisionStamp();
   }
 
   private correlateGeometryRevision(surfaceRevision: number | null): Readonly<{
@@ -5880,38 +5826,7 @@ export class PatchMap {
     readonly revisionLags: PatchMapGeometryRevisionTuple | null;
     readonly revisionLag: number | null;
   }> {
-    if (surfaceRevision === null || !Number.isFinite(surfaceRevision)) {
-      return Object.freeze({
-        revision: null,
-        surfaceRevision: null,
-        representedRevisions: null,
-        revisionLags: null,
-        revisionLag: null,
-      });
-    }
-    if (this.geometryRevisionCorrelation?.surfaceRevision !== surfaceRevision) {
-      this.geometryRevisionCorrelation = Object.freeze({
-        surfaceRevision,
-        representedRevisions: Object.freeze({
-          scene: this.sceneRevision,
-          view: this.viewRevision,
-          interaction: this.interactionRevision,
-        }),
-      });
-    }
-    const representedRevisions = this.geometryRevisionCorrelation.representedRevisions;
-    const revisionLags = Object.freeze({
-      scene: this.sceneRevision - representedRevisions.scene,
-      view: this.viewRevision - representedRevisions.view,
-      interaction: this.interactionRevision - representedRevisions.interaction,
-    });
-    return Object.freeze({
-      revision: representedRevisions.scene,
-      surfaceRevision,
-      representedRevisions,
-      revisionLags,
-      revisionLag: revisionLags.scene,
-    });
+    return this.publication.correlateGeometryRevision(surfaceRevision);
   }
 
   private assertCooperativeLoadCurrent(
@@ -5926,8 +5841,8 @@ export class PatchMap {
     if (
       this.surface !== surface ||
       this.loadSequence !== sequence ||
-      this.lifecycleGeneration !== lifecycleGeneration ||
-      this.sceneRevision !== sceneRevision
+      this.publication.lifecycleGeneration !== lifecycleGeneration ||
+      this.publication.sceneRevision !== sceneRevision
     ) {
       throw this.operationError('SUPERSEDED', 'SUPERSEDED', 'loadDatasetAsync', true);
     }
@@ -6248,9 +6163,9 @@ export class PatchMap {
     const previousRevisions = this.revisionStamp();
     if (effect.changed) {
       if (!effect.surfaceAlreadyApplied) surface.setView(effect.surfaceView);
-      const nextViewRevision = this.viewRevision + 1;
+      const nextViewRevision = this.publication.viewRevision + 1;
       this.viewportAuthority.commitView(effect, nextViewRevision);
-      this.viewRevision = nextViewRevision;
+      this.publication.advanceView();
       this.refreshAccessibilitySurfaceIfActive('setViewport');
     }
     const result = Object.freeze({
@@ -6356,8 +6271,8 @@ export class PatchMap {
       code,
       category,
       operation,
-      lifecycleGeneration: this.lifecycleGeneration,
-      sceneRevision: this.sceneRevision,
+      lifecycleGeneration: this.publication.lifecycleGeneration,
+      sceneRevision: this.publication.sceneRevision,
       revisionStamp: this.revisionStamp(),
       recoverable,
       retryable: recoverable,
@@ -6426,8 +6341,8 @@ export class PatchMap {
           code: 'HOST_CALLBACK_FAILURE',
           category: 'HOST_CALLBACK_FAILURE',
           operation: `event:${event}`,
-          lifecycleGeneration: this.lifecycleGeneration,
-          sceneRevision: this.sceneRevision,
+          lifecycleGeneration: this.publication.lifecycleGeneration,
+          sceneRevision: this.publication.sceneRevision,
           revisionStamp: this.revisionStamp(),
           recoverable: true,
           retryable: false,
