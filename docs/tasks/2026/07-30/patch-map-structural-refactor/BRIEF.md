@@ -25,6 +25,9 @@
 - Accessibility is a 304-line state writer above contract and semantic-tree
   leaves. Presentation keeps its allocation-free hot controller intact above
   an import-free contract leaf.
+- Migration, semantic probe, and scheduling now expose compact compatibility
+  facades above contracts, pure observation/compatibility values, frame-driver,
+  and adaptive-budget leaves while keeping their state writers singular.
 - Renderer ownership stays one manual loop, aggregate layers, one root
   interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
@@ -42,11 +45,11 @@
 - Parser, Dataset, transaction, reconcile, text, authoring, editor, host,
   renderer planning, Lab presentation, and large contract-test composition now
   have explicit domain owners without a parallel public or write path.
-- The checkpoint passes 190 unit files / 1,686 tests, full lint/typecheck,
-  product/Lab builds, canonical 38/173, and 2+7 memory with 5,099 entities and
-  nine ownership cycles and 97,195-byte retained-heap median. Browser, packed
-  consumer, and performance were not repeated because route, export, and hot
-  algorithms did not change.
+- The checkpoint passes 190 unit files / 1,687 tests, full lint/typecheck,
+  product/Lab builds, and canonical 38/173. The latest applicable 2+7 memory
+  result remains 5,099 entities, nine ownership cycles, and a 97,195-byte
+  retained-heap median; route, export, resource, and hot algorithms did not
+  change in the latest structural tranche.
 - Engine now delegates the repeated full/structural/flat component and text
   semantic branches to one existing planner owner without new collections,
   passes, closures, or atomic write paths.
@@ -55,11 +58,13 @@
 - Accessibility reconciliation validates and freezes its complete candidate
   before publication; presentation runtime algorithms and pass counts remain
   unchanged.
+- Invalid migration remounts and frame-loop resumes now validate before
+  changing live lifecycle state, preserving atomic failure.
 
 # Next Step
 
-- Split migration compatibility/persistence values from its host canary/session
-  authority without changing the approved profile or observable diagnostics.
+- Extract Core reconcile candidate preparation below the atomic publication
+  coordinator without adding a second writer or changing parser-path priority.
 
 # Working Boundary
 
