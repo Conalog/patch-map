@@ -10,7 +10,15 @@ import type {
 } from '../semantic/transaction';
 import {
   componentSemanticKey,
+  indexComponentSemantics,
+  indexTextSemantics,
+  reconcileFlatComponentSemantics,
+  reconcileFlatTextSemantics,
+  reconcileStructuralComponentSemantics,
+  reconcileStructuralTextSemantics,
+  type IndexedEngineTextSemantic,
   type PatchMapEngineComponentSemanticProbe,
+  type PatchMapOwnedStructuralRootDelta,
 } from './semantic-index';
 
 export interface PatchMapHistoryReconcileOrderScope {
@@ -30,6 +38,44 @@ const INCREMENTAL_FLAT_ROOT_TYPES = new Set([
   'image',
   'text',
 ]);
+
+export function reconcileComponentSemantics(
+  current: ReadonlyMap<string, PatchMapEngineComponentSemanticProbe>,
+  currentDataset: readonly NormalizedPatchMapElement[],
+  candidateDataset: readonly NormalizedPatchMapElement[],
+  incrementalRootIds: readonly string[] | undefined,
+  structuralRootDelta: PatchMapOwnedStructuralRootDelta | null,
+): ReadonlyMap<string, PatchMapEngineComponentSemanticProbe> {
+  return incrementalRootIds === undefined
+    ? structuralRootDelta === null
+      ? indexComponentSemantics(candidateDataset)
+      : reconcileStructuralComponentSemantics(current, structuralRootDelta)
+    : reconcileFlatComponentSemantics(
+        current,
+        currentDataset,
+        candidateDataset,
+        incrementalRootIds,
+      );
+}
+
+export function reconcileTextSemantics(
+  current: ReadonlyMap<string, IndexedEngineTextSemantic>,
+  currentDataset: readonly NormalizedPatchMapElement[],
+  candidateDataset: readonly NormalizedPatchMapElement[],
+  incrementalRootIds: readonly string[] | undefined,
+  structuralRootDelta: PatchMapOwnedStructuralRootDelta | null,
+): ReadonlyMap<string, IndexedEngineTextSemantic> {
+  return incrementalRootIds === undefined
+    ? structuralRootDelta === null
+      ? indexTextSemantics(candidateDataset)
+      : reconcileStructuralTextSemantics(current, structuralRootDelta)
+    : reconcileFlatTextSemantics(
+        current,
+        currentDataset,
+        candidateDataset,
+        incrementalRootIds,
+      );
+}
 
 export function historyReconcileOrderScope(
   beforeDataset: readonly NormalizedPatchMapElement[],

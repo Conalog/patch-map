@@ -169,14 +169,9 @@ import {
   indexTextSemantics,
   ownedStructuralRootDelta,
   reconcileDirectBarHeightComponentSemantics,
-  reconcileFlatComponentSemantics,
-  reconcileFlatTextSemantics,
   reconcilePlannedBarHeightComponentSemantics,
-  reconcileStructuralComponentSemantics,
-  reconcileStructuralTextSemantics,
   type IndexedEngineTextSemantic,
   type PatchMapEngineComponentSemanticProbe,
-  type PatchMapOwnedStructuralRootDelta,
 } from './engine/semantic-index';
 import {
   PatchMapViewportAuthority,
@@ -269,6 +264,8 @@ import {
   operationsMayChangeElementStructure,
   operationsOnlyUpdateBarSize,
   operationsOnlyUpdateElementGeometry,
+  reconcileComponentSemantics,
+  reconcileTextSemantics,
 } from './engine/reconcile-planning';
 export type {
   PatchMapEngineComponentSemanticProbe,
@@ -1803,58 +1800,45 @@ export class PatchMap {
       : null;
     const directBarComponentSemantics =
       plannedElementAngleUpdates !== undefined || elementGeometryOnly
-      ? null
-      : plannedBarHeightUpdates === undefined
-      ? reconcileDirectBarHeightComponentSemantics(
-          this.componentSemantics,
-          plan.candidate.dataset,
-          plan.operations,
-        )
-      : reconcilePlannedBarHeightComponentSemantics(
-          this.componentSemantics,
-          plan.candidate.dataset,
-          plannedBarHeightUpdates,
-        );
+        ? null
+        : plannedBarHeightUpdates === undefined
+          ? reconcileDirectBarHeightComponentSemantics(
+              this.componentSemantics,
+              plan.candidate.dataset,
+              plan.operations,
+            )
+          : reconcilePlannedBarHeightComponentSemantics(
+              this.componentSemantics,
+              plan.candidate.dataset,
+              plannedBarHeightUpdates,
+            );
     const componentSemantics =
       plannedTextUpdates !== undefined ||
       plannedElementAngleUpdates !== undefined ||
       elementGeometryOnly
-      ? this.componentSemantics
-      : directBarComponentSemantics ??
-        (incrementalRootIds === undefined
-          ? structuralRootDelta === null
-            ? indexComponentSemantics(plan.candidate.dataset)
-            : reconcileStructuralComponentSemantics(
-                this.componentSemantics,
-                structuralRootDelta,
-              )
-          : reconcileFlatComponentSemantics(
-              this.componentSemantics,
-              currentDataset,
-              plan.candidate.dataset,
-              incrementalRootIds,
-            ));
+        ? this.componentSemantics
+        : directBarComponentSemantics ?? reconcileComponentSemantics(
+            this.componentSemantics,
+            currentDataset,
+            plan.candidate.dataset,
+            incrementalRootIds,
+            structuralRootDelta,
+          );
     const textSemantics =
       plannedElementAngleUpdates !== undefined || elementGeometryOnly
-      ? this.textSemantics
-      : plannedTextUpdates === undefined &&
-      (
-        directBarComponentSemantics !== null ||
-        operationsOnlyUpdateBarSize(plan.operations, componentSemantics)
-      )
         ? this.textSemantics
-        : incrementalRootIds === undefined
-          ? structuralRootDelta === null
-            ? indexTextSemantics(plan.candidate.dataset)
-            : reconcileStructuralTextSemantics(
-                this.textSemantics,
-                structuralRootDelta,
-              )
-          : reconcileFlatTextSemantics(
+        : plannedTextUpdates === undefined &&
+          (
+            directBarComponentSemantics !== null ||
+            operationsOnlyUpdateBarSize(plan.operations, componentSemantics)
+          )
+          ? this.textSemantics
+          : reconcileTextSemantics(
               this.textSemantics,
               currentDataset,
               plan.candidate.dataset,
               incrementalRootIds,
+              structuralRootDelta,
             );
     const selectionBefore = this.logicalSelectionIds;
     const modeBefore = this.hostInteractions.modeProbe().activeState;
@@ -1916,8 +1900,7 @@ export class PatchMap {
       ? undefined
       : plannedBarHeightUpdates ??
         directBarHeightUpdatesFor(plan.operations, componentSemantics);
-    const allowedComponentOrderOwners =
-      !directSemanticProjection
+    const allowedComponentOrderOwners = !directSemanticProjection
       ? componentOrderOwners(plan.operations)
       : EMPTY_STRING_IDS;
     const scenePlan = this.sceneState.prepareMutation({
@@ -2171,22 +2154,20 @@ export class PatchMap {
       currentDataset,
       mutation.candidate.dataset,
     );
-    const componentSemantics = incrementalRootIds === undefined
-      ? indexComponentSemantics(mutation.candidate.dataset)
-      : reconcileFlatComponentSemantics(
-          this.componentSemantics,
-          currentDataset,
-          mutation.candidate.dataset,
-          incrementalRootIds,
-        );
-    const textSemantics = incrementalRootIds === undefined
-      ? indexTextSemantics(mutation.candidate.dataset)
-      : reconcileFlatTextSemantics(
-          this.textSemantics,
-          currentDataset,
-          mutation.candidate.dataset,
-          incrementalRootIds,
-        );
+    const componentSemantics = reconcileComponentSemantics(
+      this.componentSemantics,
+      currentDataset,
+      mutation.candidate.dataset,
+      incrementalRootIds,
+      null,
+    );
+    const textSemantics = reconcileTextSemantics(
+      this.textSemantics,
+      currentDataset,
+      mutation.candidate.dataset,
+      incrementalRootIds,
+      null,
+    );
     const selectionBefore = this.logicalSelectionIds;
     let preparedHistory: PatchMapHistoryPreparedRecord;
     try {
@@ -2339,21 +2320,25 @@ export class PatchMap {
       );
     }
 
+    const currentDataset =
+      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset;
     const structuralRootDelta = ownedStructuralRootDelta(
-      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset,
+      currentDataset,
       mutation.candidate.dataset,
     );
-    const componentSemantics = structuralRootDelta === null
-      ? indexComponentSemantics(mutation.candidate.dataset)
-      : reconcileStructuralComponentSemantics(
-          this.componentSemantics,
-          structuralRootDelta,
-        );
-    const textSemantics = structuralRootDelta === null
-      ? indexTextSemantics(mutation.candidate.dataset)
-      : reconcileStructuralTextSemantics(
-          this.textSemantics,
-          structuralRootDelta,
+    const componentSemantics = reconcileComponentSemantics(
+      this.componentSemantics,
+      currentDataset,
+      mutation.candidate.dataset,
+      undefined,
+      structuralRootDelta,
+    );
+    const textSemantics = reconcileTextSemantics(
+      this.textSemantics,
+      currentDataset,
+      mutation.candidate.dataset,
+      undefined,
+      structuralRootDelta,
     );
     const selectionBefore = this.logicalSelectionIds;
     const selectionAfter = validPatchMapEngineHistorySelection(
@@ -5170,15 +5155,11 @@ export class PatchMap {
     const currentMaterialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
     const apply = (transition: PatchMapEngineHistoryTransition): boolean => {
       let materialized: MaterializedPatchMapDataset;
-      let componentSemantics: Map<string, PatchMapEngineComponentSemanticProbe>;
-      let textSemantics: Map<string, IndexedEngineTextSemantic>;
-      let incrementalRootIds: readonly string[] | undefined;
-      let structuralRootDelta: PatchMapOwnedStructuralRootDelta | null;
       const selectionBefore = this.logicalSelectionIds;
       try {
         materialized = ownedPatchMapMaterialization(transition.snapshot.dataset) ??
           materializePatchMapDataset(transition.snapshot.dataset);
-        incrementalRootIds = incrementalOwnedRootIds(
+        const incrementalRootIds = incrementalOwnedRootIds(
           currentMaterialized.dataset,
           materialized.dataset,
         );
@@ -5186,7 +5167,7 @@ export class PatchMap {
           transition.command.before.dataset,
           transition.command.after.dataset,
         );
-        structuralRootDelta =
+        const structuralRootDelta =
           incrementalRootIds === undefined &&
           orderScope.allowedElementOrderIds.length > 0
             ? ownedStructuralRootDelta(
@@ -5194,32 +5175,20 @@ export class PatchMap {
                 materialized.dataset,
               )
             : null;
-        componentSemantics = incrementalRootIds === undefined
-          ? structuralRootDelta === null
-            ? indexComponentSemantics(materialized.dataset)
-            : reconcileStructuralComponentSemantics(
-                this.componentSemantics,
-                structuralRootDelta,
-              )
-          : reconcileFlatComponentSemantics(
-              this.componentSemantics,
-              currentMaterialized.dataset,
-              materialized.dataset,
-              incrementalRootIds,
-            );
-        textSemantics = incrementalRootIds === undefined
-          ? structuralRootDelta === null
-            ? indexTextSemantics(materialized.dataset)
-            : reconcileStructuralTextSemantics(
-                this.textSemantics,
-                structuralRootDelta,
-              )
-          : reconcileFlatTextSemantics(
-              this.textSemantics,
-              currentMaterialized.dataset,
-              materialized.dataset,
-              incrementalRootIds,
-            );
+        const componentSemantics = reconcileComponentSemantics(
+          this.componentSemantics,
+          currentMaterialized.dataset,
+          materialized.dataset,
+          incrementalRootIds,
+          structuralRootDelta,
+        );
+        const textSemantics = reconcileTextSemantics(
+          this.textSemantics,
+          currentMaterialized.dataset,
+          materialized.dataset,
+          incrementalRootIds,
+          structuralRootDelta,
+        );
         const companion = transition.snapshot.companion;
         const mode = resolvePatchMapEngineHistoryTransitionMode(transition);
         const selection = resolvePatchMapEngineHistoryTransitionSelection(
