@@ -1,4 +1,6 @@
-import { clone, deepFreeze } from '../value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from '../value-atoms.mjs';
+
+const { booleanValue } = createTypeSuffixValueAtoms(assert);
 
 export const RENDER_COMPONENT_ASSETS_HANDLER_REVISION =
   'core-v2-render-component-assets-handlers/2';
@@ -528,10 +530,6 @@ function finiteNumber(value, label) {
   return value;
 }
 
-function booleanValue(value, label) {
-  assert(typeof value === 'boolean', `${label} boolean`);
-  return value;
-}
 
 function assertExactKeys(value, keys, label) {
   const record = recordValue(value, label);

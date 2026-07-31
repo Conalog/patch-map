@@ -1,4 +1,10 @@
-import { clone, deepFreeze } from '../value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from '../value-atoms.mjs';
+
+const {
+  recordValue,
+  arrayValue,
+  booleanValue,
+} = createTypeSuffixValueAtoms(assert);
 
 export const VIEWPORT_HANDLER_REVISION = 'core-v2-viewport-handlers/1';
 
@@ -1796,25 +1802,13 @@ function nonNegativeInteger(value, label) {
   return value;
 }
 
-function booleanValue(value, label) {
-  assert(typeof value === 'boolean', `${label} boolean`);
-  return value;
-}
 
 function stringValue(value, label) {
   assert(typeof value === 'string' && value.length > 0, `${label} non-empty string`);
   return value;
 }
 
-function arrayValue(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value;
-}
 
-function recordValue(value, label) {
-  assert(isRecord(value), `${label} object`);
-  return value;
-}
 
 function assertExactKeys(value, keys, label) {
   assertAllowedKeys(value, keys, label);

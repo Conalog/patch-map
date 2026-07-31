@@ -1,4 +1,6 @@
-import { clone, deepFreeze } from './value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from './value-atoms.mjs';
+
+const { booleanValue } = createTypeSuffixValueAtoms(assert);
 
 export const RENDER_TEXT_FOLD_REVISION = 'core-v2-render-text-fold/1';
 
@@ -1942,10 +1944,6 @@ function nullableString(value, label) {
   return stringValue(value, label);
 }
 
-function booleanValue(value, label) {
-  assert(typeof value === 'boolean', `${label} boolean`);
-  return value;
-}
 
 function optionalBoolean(value, label) {
   if (value === null || value === undefined) return false;

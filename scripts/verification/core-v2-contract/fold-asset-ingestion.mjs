@@ -1,4 +1,12 @@
-import { deepFreeze } from './value-atoms.mjs';
+import { deepFreeze, createTypeSuffixValueAtoms } from './value-atoms.mjs';
+
+const {
+  recordValue,
+  arrayValue,
+  stringValue,
+  booleanValue,
+  finiteNumber,
+} = createTypeSuffixValueAtoms(assert);
 
 export const ASSET_INGESTION_FOLD_REVISION =
   'patch-map-asset-ingestion-fold/1';
@@ -795,20 +803,8 @@ function nullableString(value, label) {
   return stringValue(value, label);
 }
 
-function stringValue(value, label) {
-  assert(typeof value === 'string' && value.length > 0, `${label} string`);
-  return value;
-}
 
-function booleanValue(value, label) {
-  assert(typeof value === 'boolean', `${label} boolean`);
-  return value;
-}
 
-function finiteNumber(value, label) {
-  assert(typeof value === 'number' && Number.isFinite(value), `${label} finite`);
-  return value;
-}
 
 function nonNegativeInteger(value, label) {
   assert(Number.isInteger(value) && value >= 0, `${label} non-negative integer`);
@@ -820,15 +816,7 @@ function stringArray(value, label) {
     stringValue(entry, `${label}[${index}]`));
 }
 
-function arrayValue(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value;
-}
 
-function recordValue(value, label) {
-  assert(isRecord(value), `${label} object`);
-  return value;
-}
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

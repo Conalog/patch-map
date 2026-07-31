@@ -1,4 +1,11 @@
-import { clone } from '../value-atoms.mjs';
+import { clone, createTypeSuffixValueAtoms } from '../value-atoms.mjs';
+
+const {
+  recordValue,
+  arrayValue,
+  stringValue,
+  finiteNumber,
+} = createTypeSuffixValueAtoms(assert);
 
 export const DETERMINISM_LIFECYCLE_HANDLER_REVISION =
   'core-v2-determinism-lifecycle-handlers/1';
@@ -1127,34 +1134,18 @@ function finiteBounds(value, label) {
   return values.map((entry, index) => finiteNumber(entry, `${label}[${index}]`));
 }
 
-function arrayValue(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value;
-}
 
-function recordValue(value, label) {
-  assert(isRecord(value), `${label} object`);
-  return value;
-}
 
 function nullableRecord(value, label) {
   return value === null ? null : recordValue(value, label);
 }
 
-function stringValue(value, label) {
-  assert(typeof value === 'string' && value.length > 0, `${label} string`);
-  return value;
-}
 
 function nullableString(value, label) {
   assert(value === null || typeof value === 'string', `${label} nullable string`);
   return value;
 }
 
-function finiteNumber(value, label) {
-  assert(typeof value === 'number' && Number.isFinite(value), `${label} finite`);
-  return value;
-}
 
 function nonNegativeNumber(value, label) {
   const number = finiteNumber(value, label);

@@ -1,4 +1,10 @@
-import { clone } from '../value-atoms.mjs';
+import { clone, createTypeSuffixValueAtoms } from '../value-atoms.mjs';
+
+const {
+  recordValue,
+  stringValue,
+  booleanValue,
+} = createTypeSuffixValueAtoms(assert);
 
 export const LIFECYCLE_INTERRUPTION_ACTION_TYPES = Object.freeze([
   'begin-move-gesture',
@@ -1336,10 +1342,6 @@ function exactRecord(value, keys, label) {
   return record;
 }
 
-function recordValue(value, label) {
-  assert(isRecord(value), `${label} object`);
-  return value;
-}
 
 function stringArray(value, label) {
   assert(
@@ -1360,15 +1362,7 @@ function pointTuple(value, label) {
   return [value[0], value[1]];
 }
 
-function stringValue(value, label) {
-  assert(typeof value === 'string' && value.length > 0, `${label} string`);
-  return value;
-}
 
-function booleanValue(value, label) {
-  assert(typeof value === 'boolean', `${label} boolean`);
-  return value;
-}
 
 function positiveInteger(value, label) {
   assert(Number.isInteger(value) && value > 0, `${label} positive integer`);

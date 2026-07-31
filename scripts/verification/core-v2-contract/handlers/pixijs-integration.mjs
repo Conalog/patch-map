@@ -1,4 +1,6 @@
-import { cloneOptional as clone } from '../value-atoms.mjs';
+import { cloneOptional as clone, createTypeSuffixValueAtoms } from '../value-atoms.mjs';
+
+const { recordValue } = createTypeSuffixValueAtoms(assert);
 
 export const PIXIJS_INTEGRATION_HANDLER_REVISION =
   'core-v2-pixijs-integration-handlers/1';
@@ -661,10 +663,6 @@ function assertExactKeys(value, expected, label) {
   );
 }
 
-function recordValue(value, label) {
-  assert(isRecord(value), `${label} object`);
-  return value;
-}
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

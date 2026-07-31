@@ -1,3 +1,10 @@
+import { createTypeSuffixValueAtoms } from '../value-atoms.mjs';
+
+const {
+  recordValue,
+  arrayValue,
+} = createTypeSuffixValueAtoms(assert);
+
 export const MIGRATION_HANDLER_REVISION =
   'core-v2-migration-handlers/1';
 
@@ -732,15 +739,7 @@ function stringValue(value, label) {
   return value;
 }
 
-function arrayValue(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value;
-}
 
-function recordValue(value, label) {
-  assert(isRecord(value), `${label} object`);
-  return value;
-}
 
 function clone(value) {
   return structuredClone(value);

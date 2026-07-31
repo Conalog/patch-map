@@ -1,4 +1,10 @@
-import { clone, deepFreeze } from '../value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from '../value-atoms.mjs';
+
+const {
+  stringValue,
+  booleanValue,
+  finiteNumber,
+} = createTypeSuffixValueAtoms(assert);
 
 export const INTERACTION_EDITOR_HANDLER_REVISION =
   'core-v2-interaction-editor-handlers/1';
@@ -1108,20 +1114,8 @@ function recordValue(value, label) {
   return value;
 }
 
-function stringValue(value, label) {
-  assert(typeof value === 'string' && value.length > 0, `${label} string`);
-  return value;
-}
 
-function booleanValue(value, label) {
-  assert(typeof value === 'boolean', `${label} boolean`);
-  return value;
-}
 
-function finiteNumber(value, label) {
-  assert(typeof value === 'number' && Number.isFinite(value), `${label} finite`);
-  return value;
-}
 
 function nonNegativeInteger(value, label) {
   assert(Number.isSafeInteger(value) && value >= 0, `${label} non-negative integer`);

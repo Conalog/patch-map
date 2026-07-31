@@ -1,4 +1,6 @@
-import { cloneOptional as clone, deepFreeze } from '../value-atoms.mjs';
+import { cloneOptional as clone, deepFreeze, createTypeSuffixValueAtoms } from '../value-atoms.mjs';
+
+const { recordValue } = createTypeSuffixValueAtoms(assert);
 
 export const PACKAGE_INTEGRATION_HANDLER_REVISION =
   'patch-map-package-integration-handlers/1';
@@ -802,10 +804,6 @@ function assertExactKeys(value, expected, label) {
   );
 }
 
-function recordValue(value, label) {
-  assert(isRecord(value), `${label} object`);
-  return value;
-}
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

@@ -1,4 +1,11 @@
-import { clone, deepFreeze } from './value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from './value-atoms.mjs';
+
+const {
+  recordValue,
+  arrayValue,
+  stringValue,
+  finiteNumber,
+} = createTypeSuffixValueAtoms(assert);
 
 export const LIFECYCLE_INTERRUPTION_FOLD_REVISION =
   'core-v2-lifecycle-interruption-fold/1';
@@ -746,15 +753,7 @@ function exactRecord(value, keys, label) {
   return record;
 }
 
-function recordValue(value, label) {
-  assert(isRecord(value), `${label} object`);
-  return value;
-}
 
-function arrayValue(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value;
-}
 
 function stringArray(value, label) {
   assert(
@@ -765,10 +764,6 @@ function stringArray(value, label) {
   return [...value];
 }
 
-function stringValue(value, label) {
-  assert(typeof value === 'string' && value.length > 0, `${label} string`);
-  return value;
-}
 
 function positiveInteger(value, label) {
   assert(Number.isSafeInteger(value) && value > 0, `${label} positive integer`);
@@ -789,10 +784,6 @@ function nonNegativeNumber(value, label) {
   return number;
 }
 
-function finiteNumber(value, label) {
-  assert(typeof value === 'number' && Number.isFinite(value), `${label} finite`);
-  return value;
-}
 
 function sameArray(left, right) {
   return left.length === right.length

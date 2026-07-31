@@ -1,4 +1,6 @@
-import { clone, deepFreeze } from './value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from './value-atoms.mjs';
+
+const { booleanValue } = createTypeSuffixValueAtoms(assert);
 
 export const LIFECYCLE_DESTROY_FOLD_REVISION = 'core-v2-lifecycle-destroy-fold/1';
 
@@ -364,10 +366,6 @@ function finiteNumber(value, label) {
   return value;
 }
 
-function booleanValue(value, label) {
-  assert(typeof value === 'boolean', `${label} boolean`);
-  return value;
-}
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);

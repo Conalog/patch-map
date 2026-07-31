@@ -1,4 +1,9 @@
-import { clone, deepFreeze } from './value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from './value-atoms.mjs';
+
+const {
+  arrayValue,
+  booleanValue,
+} = createTypeSuffixValueAtoms(assert);
 
 export const UPDATE_TRANSACTIONS_FOLD_REVISION =
   'core-v2-update-transactions-fold/1';
@@ -1989,10 +1994,6 @@ function tupleAt(value, index, label) {
   return entry;
 }
 
-function arrayValue(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value;
-}
 
 function integerArray(value, label) {
   return arrayValue(value, label).map((entry, index) =>
@@ -2077,10 +2078,6 @@ function nullableString(value, label) {
   return value;
 }
 
-function booleanValue(value, label) {
-  assert(typeof value === 'boolean', `${label} boolean`);
-  return value;
-}
 
 function stringValue(value, label) {
   assert(typeof value === 'string' && value.length > 0, `${label} non-empty string`);

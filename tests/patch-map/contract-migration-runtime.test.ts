@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
 import {
   PATCH_MAP_MIGRATION_CASE_IDS,
   PATCH_MAP_MIGRATION_CLEANUP_REVISION,
@@ -36,14 +37,16 @@ describe('PatchMap migration contract runtime', () => {
       'json',
     ].join('-');
 
+    await assertCommittedVerifierEntryImportFirewall('handlers/migration.mjs', 'handler');
+
     for (const source of [handlerSource, foldSource]) {
       expect(source).not.toContain(forbiddenEvidenceName);
       expect(source).not.toMatch(
         /from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u,
       );
       expect(source).not.toMatch(/node:/u);
-      expect(source).not.toMatch(/^\s*import\s/mu);
     }
+    expect(foldSource).not.toMatch(/^\s*import\s/mu);
   });
 
   it.each(PATCH_MAP_MIGRATION_CASE_IDS)(

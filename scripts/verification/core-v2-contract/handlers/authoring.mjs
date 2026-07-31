@@ -1,4 +1,11 @@
-import { clone, deepFreeze } from '../value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from '../value-atoms.mjs';
+
+const {
+  recordValue,
+  arrayValue,
+  stringValue,
+  finiteNumber,
+} = createTypeSuffixValueAtoms(assert);
 
 export const AUTHORING_HANDLER_REVISION = 'core-v2-authoring-handlers/1';
 
@@ -756,30 +763,14 @@ function nullableString(value, label) {
   return stringValue(value, label);
 }
 
-function stringValue(value, label) {
-  assert(typeof value === 'string' && value.length > 0, `${label} string`);
-  return value;
-}
 
-function finiteNumber(value, label) {
-  assert(typeof value === 'number' && Number.isFinite(value), `${label} finite`);
-  return value;
-}
 
 function nonNegativeInteger(value, label) {
   assert(Number.isInteger(value) && value >= 0, `${label} non-negative integer`);
   return value;
 }
 
-function arrayValue(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value;
-}
 
-function recordValue(value, label) {
-  assert(isRecord(value), `${label} object`);
-  return value;
-}
 
 function currentEngine(state, operation) {
   assert(state.engine !== null, `${operation} Engine exists`);

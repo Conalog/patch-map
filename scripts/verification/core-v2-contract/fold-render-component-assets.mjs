@@ -1,4 +1,6 @@
-import { clone, deepFreeze } from './value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from './value-atoms.mjs';
+
+const { arrayValue } = createTypeSuffixValueAtoms(assert);
 
 export const RENDER_COMPONENT_ASSETS_FOLD_REVISION =
   'core-v2-render-component-assets-fold/1';
@@ -1047,10 +1049,6 @@ function cloneRecord(value, label) {
   return clone(recordValue(value, label));
 }
 
-function arrayValue(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value;
-}
 
 function stringValue(value, label) {
   assert(typeof value === 'string' && value.length > 0, `${label} non-empty string`);

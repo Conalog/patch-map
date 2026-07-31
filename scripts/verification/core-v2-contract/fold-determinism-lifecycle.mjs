@@ -1,4 +1,12 @@
-import { clone, deepFreeze } from './value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from './value-atoms.mjs';
+
+const {
+  recordValue,
+  arrayValue,
+  stringValue,
+  booleanValue,
+  finiteNumber,
+} = createTypeSuffixValueAtoms(assert);
 
 export const DETERMINISM_LIFECYCLE_FOLD_REVISION =
   'core-v2-determinism-lifecycle-fold/1';
@@ -786,19 +794,11 @@ function productRecord(value, label) {
   return recordValue(value, label);
 }
 
-function recordValue(value, label) {
-  assert(isRecord(value), `${label} object`);
-  return value;
-}
 
 function nullableRecord(value, label) {
   return value === null ? null : recordValue(value, label);
 }
 
-function arrayValue(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value;
-}
 
 function stringArray(value, label) {
   assert(
@@ -824,20 +824,12 @@ function boundsTuple(value, label) {
   return values;
 }
 
-function stringValue(value, label) {
-  assert(typeof value === 'string' && value.length > 0, `${label} string`);
-  return value;
-}
 
 function nullableString(value, label) {
   assert(value === null || typeof value === 'string', `${label} nullable string`);
   return value;
 }
 
-function booleanValue(value, label) {
-  assert(typeof value === 'boolean', `${label} boolean`);
-  return value;
-}
 
 function positiveInteger(value, label) {
   assert(Number.isSafeInteger(value) && value > 0, `${label} positive integer`);
@@ -858,10 +850,6 @@ function uint32(value, label) {
   return number;
 }
 
-function finiteNumber(value, label) {
-  assert(typeof value === 'number' && Number.isFinite(value), `${label} finite`);
-  return value;
-}
 
 function sameArray(left, right) {
   return left.length === right.length

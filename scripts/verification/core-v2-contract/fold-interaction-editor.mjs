@@ -1,4 +1,10 @@
-import { clone, deepFreeze } from './value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from './value-atoms.mjs';
+
+const {
+  arrayValue,
+  stringValue,
+  booleanValue,
+} = createTypeSuffixValueAtoms(assert);
 
 export const INTERACTION_EDITOR_FOLD_REVISION =
   'core-v2-interaction-editor-fold/1';
@@ -650,10 +656,6 @@ function cloneRecord(value, label) {
   return clone(recordValue(value, label));
 }
 
-function arrayValue(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value;
-}
 
 function stringArray(value, label) {
   return arrayValue(value, label).map((entry, index) =>
@@ -670,20 +672,12 @@ function recordValue(value, label) {
   return value;
 }
 
-function stringValue(value, label) {
-  assert(typeof value === 'string' && value.length > 0, `${label} string`);
-  return value;
-}
 
 function nullableString(value, label) {
   assert(value === null || (typeof value === 'string' && value.length > 0), `${label} nullable string`);
   return value;
 }
 
-function booleanValue(value, label) {
-  assert(typeof value === 'boolean', `${label} boolean`);
-  return value;
-}
 
 function finiteNumber(value, label) {
   assert(typeof value === 'number' && Number.isFinite(value), `${label} finite number`);

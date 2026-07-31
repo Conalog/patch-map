@@ -1,4 +1,9 @@
-import { clone, deepFreeze } from './value-atoms.mjs';
+import { clone, deepFreeze, createTypeSuffixValueAtoms } from './value-atoms.mjs';
+
+const {
+  arrayValue,
+  booleanValue,
+} = createTypeSuffixValueAtoms(assert);
 
 export const RENDER_IMAGES_FOLD_REVISION = 'core-v2-render-images-fold/1';
 
@@ -742,10 +747,6 @@ function positiveInteger(value, label) {
   return value;
 }
 
-function arrayValue(value, label) {
-  assert(Array.isArray(value), `${label} array`);
-  return value;
-}
 
 function stringArray(value, label) {
   return arrayValue(value, label).map((entry, index) => (
@@ -763,10 +764,6 @@ function nullableString(value, label) {
   return value;
 }
 
-function booleanValue(value, label) {
-  assert(typeof value === 'boolean', `${label} boolean`);
-  return value;
-}
 
 function traceAction(type, operands) {
   return Object.freeze({ type, operands: deepFreeze(operands) });
