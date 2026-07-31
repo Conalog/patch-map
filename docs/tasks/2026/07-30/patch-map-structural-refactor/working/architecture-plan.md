@@ -168,6 +168,11 @@ renderer, or destroy ownership changed.
   aggregate layer planning.
 - Separate leaf binding/text/image probes and retained mesh/particle resource
   owners without adding per-entity Pixi objects.
+- Treat fallback `Text` fidelity as a separate product fix: the current route
+  accepts advanced v0.10 style intent but omits several Pixi-owned raster
+  fields and tints the whole fallback texture. Map semantic-owned versus
+  Pixi-owned fields explicitly and measure re-raster/upload cost before any
+  observable change; never alter immutable expected evidence to hide it.
 
 Gate: renderer tests, headless browser, 2+7 memory, and paired
 5,000/10,000/actual-production WebGL performance.
