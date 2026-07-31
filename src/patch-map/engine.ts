@@ -695,11 +695,20 @@ export class PatchMap {
       textProbe: (target) => this.requireSurface('textProbe').textProbe?.(target) ?? null,
       interactionOwnershipProbe: () => this.requireSurface('interactionOwnershipProbe')
         .interactionOwnershipProbe?.() ?? null,
-      pixiPublicSurfaceProbe: () => this.requireSurface('pixiPublicSurfaceProbe')
-        .pixiPublicSurfaceProbe?.() ?? null,
-      rendererLossProbe: () => this.requireSurface('rendererLossProbe')
-        .rendererLossProbe?.() ?? null,
-      surfaceCanvasCount: () => this.surface?.canvasCount ?? 0,
+      pixiPublicSurfaceRead: () => {
+        const surface = this.requireSurface('pixiPublicSurfaceProbe');
+        return Object.freeze({
+          probe: surface.pixiPublicSurfaceProbe?.() ?? null,
+          canvasCount: surface.canvasCount,
+        });
+      },
+      rendererLossSurfaceRead: () => {
+        const surface = this.requireSurface('rendererLossProbe');
+        return Object.freeze({
+          probe: surface.rendererLossProbe?.() ?? null,
+          canvasCount: surface.canvasCount,
+        });
+      },
       terminalRendererLossProbe: () => this.terminalRendererLossProbe,
       logicalComponentTarget: (ownerId, componentId) => this.logicalSceneIndex().target({
         kind: 'component',

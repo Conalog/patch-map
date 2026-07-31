@@ -48,6 +48,9 @@ class PixiProbeSurface implements PatchMapEngineSurface {
   public destroyed = false;
   public lossState: PatchMapPixiRendererLossProbe['state'] = 'healthy';
   public forceLossCount = 0;
+  public destroyFailureCount = 0;
+  public onPixiPublicSurfaceProbe: (() => void) | null = null;
+  public onRendererLossProbe: (() => void) | null = null;
   private readonly lanes = renderLanes();
 
   public load(): void {}
@@ -119,6 +122,9 @@ class PixiProbeSurface implements PatchMapEngineSurface {
   }
 
   public pixiPublicSurfaceProbe(): PatchMapPixiPublicSurfaceProbe {
+    const callback = this.onPixiPublicSurfaceProbe;
+    this.onPixiPublicSurfaceProbe = null;
+    callback?.();
     return Object.freeze({
       rendererLibrary: 'pixi.js-v8',
       rendererVersion: '8.test',
@@ -142,6 +148,9 @@ class PixiProbeSurface implements PatchMapEngineSurface {
   }
 
   public rendererLossProbe(): PatchMapPixiRendererLossProbe {
+    const callback = this.onRendererLossProbe;
+    this.onRendererLossProbe = null;
+    callback?.();
     return Object.freeze({
       backend: 'webgl2',
       webGLVersion: 2,
@@ -164,6 +173,10 @@ class PixiProbeSurface implements PatchMapEngineSurface {
   }
 
   public destroy(): Promise<boolean> {
+    if (this.destroyFailureCount > 0) {
+      this.destroyFailureCount -= 1;
+      throw new Error('injected surface cleanup failure');
+    }
     if (this.destroyed) return Promise.resolve(false);
     this.destroyed = true;
     this.canvasCount = 0;
@@ -223,6 +236,32 @@ describe('PatchMap public PixiJS product probes', () => {
     });
 
     await engine.destroy();
+  });
+
+  it('keeps the Pixi canvas count coupled to the synchronously probed surface', async () => {
+    const { engine, surface } = createProbeEngine();
+    await engine.initialize({
+      instanceId: 'pixi-public-probe-reentrant-destroy',
+      width: 800,
+      height: 600,
+      backend: 'webgl2',
+    });
+    surface.destroyFailureCount = 2;
+    const destroyPromises: Promise<boolean>[] = [];
+    surface.onPixiPublicSurfaceProbe = () => {
+      destroyPromises.push(engine.destroy());
+    };
+
+    expect(engine.pixiPublicSurfaceProbe()).toMatchObject({
+      lifecycle: 'destroying',
+      canvasCount: 1,
+    });
+    const destroyPromise = destroyPromises.at(0);
+    if (destroyPromise === undefined) throw new Error('expected reentrant destroy');
+    await expect(destroyPromise).rejects.toMatchObject({
+      diagnostic: { operation: 'destroy' },
+    });
+    await expect(engine.destroy()).resolves.toBe(false);
   });
 
   it('rejects WebGL1 before allocating a surface', async () => {
@@ -328,5 +367,31 @@ describe('PatchMap public PixiJS product probes', () => {
       listenerCount: 0,
       destroyed: true,
     });
+  });
+
+  it('keeps the renderer-loss canvas count coupled to the synchronously probed surface', async () => {
+    const { engine, surface } = createProbeEngine();
+    await engine.initialize({
+      instanceId: 'pixi-loss-probe-reentrant-destroy',
+      width: 800,
+      height: 600,
+      backend: 'webgl2',
+    });
+    surface.destroyFailureCount = 2;
+    const destroyPromises: Promise<boolean>[] = [];
+    surface.onRendererLossProbe = () => {
+      destroyPromises.push(engine.destroy());
+    };
+
+    expect(engine.rendererLossProbe()).toMatchObject({
+      canvasCount: 1,
+    });
+    expect(engine.destroyed).toBe(true);
+    const destroyPromise = destroyPromises.at(0);
+    if (destroyPromise === undefined) throw new Error('expected reentrant destroy');
+    await expect(destroyPromise).rejects.toMatchObject({
+      diagnostic: { operation: 'destroy' },
+    });
+    await expect(engine.destroy()).resolves.toBe(false);
   });
 });

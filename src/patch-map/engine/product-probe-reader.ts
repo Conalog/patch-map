@@ -97,13 +97,14 @@ export interface PatchMapEngineProductProbeReadPort {
   interactionOwnershipProbe(): ReturnType<
     NonNullable<PatchMapEngineSurface['interactionOwnershipProbe']>
   > | null;
-  pixiPublicSurfaceProbe(): ReturnType<
-    NonNullable<PatchMapEngineSurface['pixiPublicSurfaceProbe']>
-  > | null;
-  rendererLossProbe(): ReturnType<
-    NonNullable<PatchMapEngineSurface['rendererLossProbe']>
-  > | null;
-  surfaceCanvasCount(): number;
+  pixiPublicSurfaceRead(): Readonly<{
+    probe: ReturnType<NonNullable<PatchMapEngineSurface['pixiPublicSurfaceProbe']>> | null;
+    canvasCount: number;
+  }>;
+  rendererLossSurfaceRead(): Readonly<{
+    probe: ReturnType<NonNullable<PatchMapEngineSurface['rendererLossProbe']>> | null;
+    canvasCount: number;
+  }>;
   terminalRendererLossProbe(): PatchMapPixiRendererLossProbe | null;
   logicalComponentTarget(
     ownerId: string,
@@ -315,13 +316,14 @@ export function readPatchMapEngineInteractionOwnershipProbe(
 export function readPatchMapEnginePixiPublicSurfaceProbe(
   state: PatchMapEngineProductProbeReadPort,
 ): PatchMapEnginePixiPublicSurfaceProbe | null {
-  const probe = state.pixiPublicSurfaceProbe();
+  const surfaceRead = state.pixiPublicSurfaceRead();
+  const probe = surfaceRead.probe;
   if (probe === null) return null;
   return Object.freeze({
     ...probe,
     lifecycle: state.lifecycle(),
     revisions: state.revisionStamp(),
-    canvasCount: state.surfaceCanvasCount(),
+    canvasCount: surfaceRead.canvasCount,
   });
 }
 
@@ -363,26 +365,26 @@ export function readPatchMapEngineAggregateRenderOwnerProbe(
 export function readPatchMapEngineRendererLossProbe(
   state: PatchMapEngineProductProbeReadPort,
 ): PatchMapEngineRendererLossProbe | null {
-  if (
-    (state.lifecycle() === 'destroyed' || state.lifecycle() === 'destroying') &&
-    state.terminalRendererLossProbe() !== null
-  ) {
+  const lifecycle = state.lifecycle();
+  if (lifecycle === 'destroyed' || lifecycle === 'destroying') {
     const terminal = state.terminalRendererLossProbe();
-    if (terminal === null) return null;
-    return Object.freeze({
-      ...terminal,
-      revisions: state.revisionStamp(),
-      publishedTuple: state.publishedTuple(),
-      canvasCount: 0,
-    });
+    if (terminal !== null) {
+      return Object.freeze({
+        ...terminal,
+        revisions: state.revisionStamp(),
+        publishedTuple: state.publishedTuple(),
+        canvasCount: 0,
+      });
+    }
   }
-  const probe = state.rendererLossProbe();
+  const surfaceRead = state.rendererLossSurfaceRead();
+  const probe = surfaceRead.probe;
   if (probe === null) return null;
   return Object.freeze({
     ...probe,
     revisions: state.revisionStamp(),
     publishedTuple: state.publishedTuple(),
-    canvasCount: state.surfaceCanvasCount(),
+    canvasCount: surfaceRead.canvasCount,
   });
 }
 
