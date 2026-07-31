@@ -20,7 +20,7 @@
   five examples: 420 files total, excluding frozen evidence and prohibited
   generated/dependency content. New cohesive modules and their contract tests
   remain in the same file-by-file review ledger.
-- `engine.ts` is 6,443 LOC, `core.ts` is 3,021 LOC, `parser.ts` is 1,942 LOC,
+- `engine.ts` is 6,372 LOC, `core.ts` is 2,650 LOC, `parser.ts` is 1,942 LOC,
   `semantic/transaction.ts` is 1,965 LOC, and `semantic/dataset.ts` is 1,170
   LOC. The semantic text-layout and incremental-parser facades are now 310
   and 614 LOC; authoring and editor-workflow facades are 96 and 900 LOC.
@@ -39,9 +39,9 @@
   initial clone analysis found 379 groups / 4.4% duplication, concentrated in
   contract automation/tests and several product helper families.
 - Core publication/load/spatial-hit/root-interaction/bar-presentation and
-  Engine viewport/publication/scene/transformer/surface-lifecycle/reconcile
-  decisions now have explicit owners while atomic publication and live runtime
-  installation remain in their facades.
+  projection planning plus Engine viewport/publication/scene/transformer/
+  surface/reconcile/history planning now have explicit owners while atomic
+  publication and live runtime installation remain in their facades.
 - Parser transform/state/value normalization, Dataset normalization,
   transaction inputs/fast paths, Core reconcile/dense planning, and Engine
   input/publication policy now have focused owners; atomic writers remain in
@@ -64,9 +64,9 @@
 
 # Next Step
 
-- Extract the next cohesive Core image/reconcile and Engine history/interaction
-  orchestration boundaries without moving renderer, scheduler, transaction,
-  lifecycle, or public API ownership.
+- Split parser direct-text/component lowering and transaction structural
+  mutation planning behind their existing public facades while preserving
+  canonical diagnostic/order, atomic fallback, and current allocations.
 
 # Working Boundary
 
