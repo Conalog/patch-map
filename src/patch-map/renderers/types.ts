@@ -1,6 +1,4 @@
-import type { Container } from 'pixi.js';
-
-import type { CoreView, SlotRange } from '../dense/contracts';
+import type { CoreView } from '../dense/contracts';
 import type { RenderStoreView } from '../dense/renderer-types';
 import type { PatchMapEntityProjection, PatchMapProjectionIndex } from '../contracts';
 import type {
@@ -217,35 +215,6 @@ export interface PatchMapResolvedRenderQuadScratch {
   width: number;
   height: number;
   vertices: [number, number, number, number, number, number, number, number];
-}
-
-export interface AggregateLayerSyncOptions {
-  readonly changedRanges?: readonly SlotRange[];
-  readonly fullRebuildEpoch?: number;
-  readonly projectionContext?: PatchMapProjectionRenderContext;
-  /** Recompute projection transforms only; semantic/style/topology is unchanged. */
-  readonly projectionTransformOnly?: boolean;
-}
-
-export interface AggregateLayerDebug {
-  readonly strategy: PatchMapRendererStrategy;
-  readonly renderObjects: number;
-  readonly visiblePrimitives: number;
-  readonly uploadedChunks: number;
-  readonly uploadedBytes: number;
-}
-
-export interface AggregateLayerSyncResult {
-  readonly renderObjects: number;
-  readonly visiblePrimitives: number;
-  readonly uploadedChunks: number;
-  readonly uploadedBytes: number;
-}
-
-export interface AggregateLayer {
-  readonly container: Container;
-  sync(store: RenderStoreView, options?: AggregateLayerSyncOptions): AggregateLayerSyncResult;
-  destroy(): void;
 }
 
 export interface RootPointerInput {

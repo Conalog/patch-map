@@ -7,12 +7,14 @@ import type {
 import { normalizePatchMapAssetDescriptor } from './assets';
 import type { PatchMapAssetSource } from './semantic/dataset';
 import type {
-  LeafAssetBindingObservation,
-  LeafAssetBindingProbe,
-  LeafAssetBindingRequest,
-  LeafAssetRenderRole,
-  LeafSceneImageProbe,
-} from './renderers/leaf-layer';
+  PatchMapSceneImageAssetBindingObservation as LeafAssetBindingObservation,
+  PatchMapSceneImageAssetBindingProbe as LeafAssetBindingProbe,
+  PatchMapSceneImageAssetBindingRequest as LeafAssetBindingRequest,
+  PatchMapSceneImageAssetRenderRole as LeafAssetRenderRole,
+  PatchMapSceneImageRendererBridge,
+} from './scene-images/contracts';
+
+export type { PatchMapSceneImageRendererBridge } from './scene-images/contracts';
 
 export type PatchMapSceneImageResourceState =
   | 'absent'
@@ -21,17 +23,6 @@ export type PatchMapSceneImageResourceState =
   | 'failed';
 
 export type PatchMapSceneImageAttachmentState = 'current' | 'unbound' | 'stale';
-
-export interface PatchMapSceneImageRendererBridge {
-  bindSceneAsset(
-    key: string,
-    request: LeafAssetBindingRequest,
-  ): Promise<LeafAssetBindingObservation>;
-  unbindSceneAsset(key: string): Promise<boolean>;
-  sceneAssetBindingProbe(key: string): LeafAssetBindingProbe | null;
-  sceneImageProbe(entityId: string): LeafSceneImageProbe | null;
-  finalizeAssetUnloads(): Promise<void>;
-}
 
 export interface PatchMapSceneImageControllerOptions {
   /** Schedules one aggregate frame; never creates an entity ticker or RAF. */

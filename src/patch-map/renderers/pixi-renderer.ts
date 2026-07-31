@@ -22,12 +22,14 @@ import {
 } from '../dense/renderer-types';
 import {
   AggregateLeafLayer,
-  type LeafAssetBindingObservation,
-  type LeafAssetBindingProbe,
-  type LeafAssetBindingRequest,
-  type LeafSceneImageProbe,
   type PatchMapBitmapTextCapabilityRequest,
 } from './leaf-layer';
+import type {
+  PatchMapSceneImageAssetBindingObservation as LeafAssetBindingObservation,
+  PatchMapSceneImageAssetBindingProbe as LeafAssetBindingProbe,
+  PatchMapSceneImageAssetBindingRequest as LeafAssetBindingRequest,
+  PatchMapSceneImageLeafProbe as LeafSceneImageProbe,
+} from '../scene-images/contracts';
 import { AggregateMeshLayer } from './mesh-layer';
 import { ParticleGraphicsLayer } from './particle-layer';
 import type { PatchMapProjectionIndex, PatchMapTextProjection } from '../contracts';

@@ -26,7 +26,6 @@ import type {
   PatchMapPixiPublicSurfaceProbe,
   PatchMapPixiRendererLossProbe,
 } from '../renderers/types';
-import type { PatchMapPixiRenderer } from '../renderers/pixi-renderer';
 import type {
   PatchMapSceneImageAttemptProbe,
   PatchMapSceneImageProductProbe,
@@ -61,6 +60,7 @@ import type {
   PatchMapSurfacePrepareResult,
   PatchMapSurfaceReconcileOptions,
   PatchMapSurfaceReconcileResult,
+  PatchMapSurfaceRendererPort,
   PatchMapSurfaceViewportInput,
 } from './contracts';
 import type {
@@ -86,6 +86,7 @@ import {
 
 export class PixiEngineSurface implements PatchMapEngineSurface {
   private readonly core: PatchMapRuntime;
+  private readonly renderer: PatchMapSurfaceRendererPort;
   private readonly unbindCoreViewportChanges: () => void;
   private readonly unbindCorePointerInputs: () => void;
   private viewportInputListener:
@@ -119,6 +120,7 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
 
   public constructor(core: PatchMapRuntime) {
     this.core = core;
+    this.renderer = core.renderer;
     this.unbindCoreViewportChanges = typeof core.bindRootViewportChanges === 'function'
       ? core.bindRootViewportChanges(({ source, view }) => {
           const orientationChanged = (
@@ -383,12 +385,10 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
       input: PatchMapAccessibilityActivationInput,
     ) => void,
   ): () => void {
-    const bind = (
-      this.core.renderer as Partial<PatchMapPixiRenderer>
-    ).bindAccessibilityActivation;
+    const bind = this.renderer.bindAccessibilityActivation;
     return bind === undefined
       ? () => undefined
-      : bind.call(this.core.renderer, listener);
+      : bind.call(this.renderer, listener);
   }
 
   public cancelViewportGestures(): void {
@@ -404,24 +404,15 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
   public setAccessibilityTree(
     nodes: readonly PatchMapAccessibilityRenderNode[],
   ): PatchMapAccessibilitySurfaceProbe | undefined {
-    const publish = (
-      this.core.renderer as Partial<PatchMapPixiRenderer>
-    ).setAccessibilityTree;
-    return publish?.call(this.core.renderer, nodes);
+    return this.renderer.setAccessibilityTree?.call(this.renderer, nodes);
   }
 
   public focusAccessibilityTarget(targetId: string): boolean {
-    const focus = (
-      this.core.renderer as Partial<PatchMapPixiRenderer>
-    ).focusAccessibilityTarget;
-    return focus?.call(this.core.renderer, targetId) ?? false;
+    return this.renderer.focusAccessibilityTarget?.call(this.renderer, targetId) ?? false;
   }
 
   public accessibilitySurfaceProbe(): PatchMapAccessibilitySurfaceProbe | undefined {
-    const probe = (
-      this.core.renderer as Partial<PatchMapPixiRenderer>
-    ).accessibilitySurfaceProbe;
-    return probe?.call(this.core.renderer);
+    return this.renderer.accessibilitySurfaceProbe?.call(this.renderer);
   }
 
   public setReducedMotion(enabled: boolean): boolean {
@@ -707,11 +698,9 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
   }
 
   public rendererLossProbe(): PatchMapPixiRendererLossProbe {
-    const renderer = this.core.renderer;
-    if (typeof renderer.rendererLossProbe === 'function') {
-      return renderer.rendererLossProbe();
-    }
-    const debug = renderer.debugSnapshot();
+    const probe = this.renderer.rendererLossProbe;
+    if (probe !== undefined) return probe.call(this.renderer);
+    const debug = this.core.renderer.debugSnapshot();
     const backend = debug.backend === 'webgpu' ? 'webgpu' : 'webgl2';
     return Object.freeze({
       backend,
@@ -729,7 +718,7 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
   }
 
   public forceRendererLoss(): boolean {
-    return this.core.renderer.forceRendererLoss();
+    return this.renderer.forceRendererLoss?.call(this.renderer) ?? false;
   }
 
   public async destroy(): Promise<boolean> {
@@ -865,4 +854,3 @@ function freezeReconcileDiagnostics(
 ): readonly PatchMapReconcileDiagnostic[] {
   return Object.freeze(values.map((diagnostic) => Object.freeze({ ...diagnostic })));
 }
-

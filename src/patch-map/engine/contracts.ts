@@ -183,6 +183,23 @@ export interface PatchMapSurfaceComponentVisualProbe {
   readonly renderLanes: PatchMapRenderLaneSnapshot | null;
 }
 
+/** Renderer capabilities consumed by the Pixi-backed Engine surface. */
+export interface PatchMapSurfaceRendererPort {
+  bindAccessibilityActivation?(
+    listener: (
+      targetId: string,
+      input: PatchMapAccessibilityActivationInput,
+    ) => void,
+  ): () => void;
+  setAccessibilityTree?(
+    nodes: readonly PatchMapAccessibilityRenderNode[],
+  ): PatchMapAccessibilitySurfaceProbe;
+  focusAccessibilityTarget?(targetId: string): boolean;
+  accessibilitySurfaceProbe?(): PatchMapAccessibilitySurfaceProbe;
+  rendererLossProbe?(): PatchMapPixiRendererLossProbe;
+  forceRendererLoss?(): boolean;
+}
+
 export interface PatchMapEngineSurface {
   readonly canvasCount: number;
   readonly destroyed: boolean;

@@ -23,6 +23,15 @@ import {
 } from '../assets';
 import type { PatchMapTextProjection } from '../contracts';
 import type { PatchMapAssetSource } from '../semantic/dataset';
+import type {
+  PatchMapSceneImageAssetBindingObservation,
+  PatchMapSceneImageAssetBindingProbe,
+  PatchMapSceneImageAssetBindingRequest,
+  PatchMapSceneImageAssetBindingState,
+  PatchMapSceneImageAssetRenderRole,
+  PatchMapSceneImageAssetSourceKind,
+  PatchMapSceneImageLeafProbe,
+} from '../scene-images/contracts';
 import { segmentPatchMapGraphemes } from '../semantic/text-layout';
 import {
   selectPatchMapTextRenderRoute,
@@ -78,52 +87,13 @@ interface ImageEntry {
   vertices: PatchMapQuadVertices;
 }
 
-export type LeafAssetSourceKind = 'alias' | 'url' | 'data-uri' | 'descriptor';
-export type LeafAssetBindingState = 'pending' | 'resolved' | 'failed';
-export type LeafAssetRenderRole = 'image' | 'asset-placeholder' | 'none';
-
-export type LeafAssetBindingRequest =
-  | Readonly<{ readonly kind: 'alias'; readonly alias: string }>
-  | Readonly<{ readonly kind: 'source'; readonly source: PatchMapAssetSource }>;
-
-export interface LeafAssetBindingObservation {
-  readonly key: string;
-  readonly generation: number;
-  readonly status: 'attached' | 'stale';
-  readonly cacheIdentity: string | null;
-  readonly normalizedResourceIdentity: string | null;
-  readonly reusedResolvedResource: boolean;
-  readonly naturalSize: readonly [number, number] | null;
-}
-
-export interface LeafAssetBindingProbe {
-  readonly key: string;
-  readonly generation: number;
-  readonly request: LeafAssetBindingRequest;
-  readonly sourceKind: LeafAssetSourceKind;
-  readonly state: LeafAssetBindingState;
-  readonly attached: boolean;
-  readonly cacheIdentity: string | null;
-  readonly normalizedResourceIdentity: string | null;
-  readonly reusedResolvedResource: boolean;
-  readonly naturalSize: readonly [number, number] | null;
-  readonly consumerCount: number;
-  readonly renderObjectCount: number;
-  readonly placeholderCount: number;
-  readonly renderRole: LeafAssetRenderRole;
-  readonly staleAttachCount: number;
-  readonly staleCompletionCount: number;
-}
-
-export interface LeafSceneImageProbe {
-  readonly entityId: string;
-  readonly renderObjectCount: 0 | 1;
-  readonly role: LeafAssetRenderRole;
-  readonly bindingKey: string;
-  readonly bindingGeneration: number;
-  readonly staleAttachCount?: number;
-  readonly staleCompletionCount?: number;
-}
+export type LeafAssetSourceKind = PatchMapSceneImageAssetSourceKind;
+export type LeafAssetBindingState = PatchMapSceneImageAssetBindingState;
+export type LeafAssetRenderRole = PatchMapSceneImageAssetRenderRole;
+export type LeafAssetBindingRequest = PatchMapSceneImageAssetBindingRequest;
+export type LeafAssetBindingObservation = PatchMapSceneImageAssetBindingObservation;
+export type LeafAssetBindingProbe = PatchMapSceneImageAssetBindingProbe;
+export type LeafSceneImageProbe = PatchMapSceneImageLeafProbe;
 
 export interface LeafAssetBindingTransition {
   readonly key: string;
