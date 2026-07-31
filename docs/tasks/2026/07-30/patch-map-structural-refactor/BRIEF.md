@@ -14,15 +14,14 @@
 
 # Current Facts
 
-- The 420-file inventory covers every allowed product, Lab, test, performance,
-  verification, and example file; frozen/generated content stays excluded.
+- The 420-file allowed inventory excludes frozen and generated content.
 - `engine.ts` is 6,184 LOC and `core.ts` is 2,495 LOC. Parser, transaction,
   text-layout, incremental-parser, authoring, and editor-workflow facades are
   now 601, 969, 310, 614, 96, and 900 LOC with focused downward owners.
 - Mesh and Pixi renderer coordinators are 1,256 and 2,002 LOC after CPU value
   planning moved below unchanged GPU/Application/resource owners.
-- Renderer ownership is sound: one manual Application loop, aggregate layers,
-  one root interaction authority, and explicit asset/destroy coordination.
+- Renderer ownership stays one manual loop, aggregate layers, one root
+  interaction authority, and explicit asset/destroy coordination.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
   `/lab/patch-map/`; historical `core-v2` identifiers remain only inside
   immutable contract/evidence compatibility boundaries.
@@ -42,6 +41,8 @@
   transaction inputs/fast paths, Core reconcile/dense planning, and Engine
   input/publication policy now have focused owners; atomic writers remain in
   their facades.
+- Host mode/contracts and Dataset raw normalization are acyclic children;
+  host listeners/tooltips and Dataset ownership registries remain singular.
 - Renderer text/DevTools decisions, renderer leases, leaf signatures, and Pixi
   dirty-range/relation planning have pure owners without changing shared GPU
   resource ownership.
@@ -59,13 +60,13 @@
   relation root.
 - Core reconcile values and Engine product-probe composition now have typed
   read-only owners; atomic writers and probe-time surface identity stay intact.
-- The checkpoint passes 188 unit files / 1,613 tests, lint/typecheck, Lab
-  build, representative headless WebGL, and independent P0–P2 review.
+- The checkpoint passes 188 unit files / 1,615 tests, lint/typecheck,
+  product/Lab builds, canonical 38/173, and independent P0–P2 review.
 
 # Next Step
 
-- Split host-interaction contracts/mode atoms and dataset raw normalization
-  while retaining listener/tooltip and ownership-registry single writers.
+- Split asset policy/backend values and the browser verifier catalog/assertions
+  without moving resource, browser, report, or cleanup ownership.
 
 # Working Boundary
 
