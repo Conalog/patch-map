@@ -18,7 +18,6 @@ import {
   type PatchMapImageDimensionMode,
   type PatchMapImageIntrinsicTransform,
   type PatchMapImageProjection,
-  type PatchMapImageSourceKind,
   type PatchMapOmittedRelationProjection,
   type PatchMapRelationProjection,
   type PatchMapTextProjection,
@@ -58,7 +57,12 @@ import {
   type PatchMapStableRecordStrategy,
 } from './semantic/stable-record-overlay';
 import { PATCH_MAP_DEFAULT_COLOR_THEME } from './semantic/color';
-import { stableHash64Hex as stableHash } from './shared/stable-hash';
+import {
+  deterministicPatchMapTokenColor,
+  multiplyPatchMapRgba,
+  parsePatchMapCssColor,
+} from './parser/color';
+import { normalizePatchMapImageSource } from './parser/image-source';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -1089,7 +1093,7 @@ function parseComponent(
       );
       const radius = projectedBackgroundRadius(sourceRecord.radius, `${path}.source.radius`, state);
       const tint = resolveColor(value.tint, 0xffffffff, `${path}.tint`, state);
-      const fill = multiplyColor(sourceFill, tint);
+      const fill = multiplyPatchMapRgba(sourceFill, tint);
       addComponentVisualProjection(
         entityId,
         instanceId,
@@ -1207,7 +1211,10 @@ function parseComponent(
     const trackFill = resolveColor(source?.fill, 0x00000000, `${path}.source.fill`, state);
     const fill = value.tint === undefined
       ? trackFill
-      : multiplyColor(trackFill === 0 ? 0xffffffff : trackFill, resolveColor(value.tint, 0xffffffff, `${path}.tint`, state));
+      : multiplyPatchMapRgba(
+          trackFill === 0 ? 0xffffffff : trackFill,
+          resolveColor(value.tint, 0xffffffff, `${path}.tint`, state),
+        );
     state.barProjectionByEntityId[entityId] = Object.freeze({
       entityId,
       ownerId: instanceId,
@@ -2527,109 +2534,19 @@ function normalizeImageSource(
   value: unknown,
   path: string,
   state: ParseState,
-): Readonly<{
-  authoredSource: PatchMapImageProjection['authoredSource'];
-  bindingKey: string;
-  cacheIdentity: string;
-  sourceKind: PatchMapImageSourceKind;
-}> {
+): ReturnType<typeof normalizePatchMapImageSource> {
   if (typeof value === 'string' && value.length > 0) {
-    const sourceKind = classifyImageSourceString(value);
-    if (sourceKind === 'data-uri') {
-      const identity = `data-uri:${value.length}:${stableHash(value)}`;
-      return Object.freeze({
-        authoredSource: value,
-        bindingKey: identity,
-        cacheIdentity: identity,
-        sourceKind,
-      });
-    }
-    const identity = `${sourceKind}:${value}`;
-    return Object.freeze({
-      authoredSource: value,
-      bindingKey: identity,
-      cacheIdentity: identity,
-      sourceKind,
-    });
+    return normalizePatchMapImageSource(value);
   }
   if (isRecord(value) && typeof value.src === 'string' && value.src.length > 0) {
-    const authoredSource = deepFreeze(cloneJson(value)) as unknown as PatchMapImageProjection['authoredSource'];
-    const canonical = stableSerializeJson(authoredSource);
-    return Object.freeze({
-      authoredSource,
-      bindingKey: `descriptor:${canonical}`,
-      cacheIdentity: descriptorCacheIdentity(authoredSource),
-      sourceKind: 'descriptor',
-    });
+    const authoredSource = deepFreeze(
+      cloneJson(value),
+    ) as unknown as PatchMapImageProjection['authoredSource'];
+    return normalizePatchMapImageSource(authoredSource);
   }
   warn(state, path, 'invalid-asset-source', 'Invalid asset source uses a deterministic missing-asset alias');
   const authoredSource = `@missing-asset:${pathToken(path)}`;
-  const identity = `alias:${authoredSource}`;
-  return Object.freeze({
-    authoredSource,
-    bindingKey: identity,
-    cacheIdentity: identity,
-    sourceKind: 'alias',
-  });
-}
-
-function classifyImageSourceString(source: string): Exclude<PatchMapImageSourceKind, 'descriptor'> {
-  if (/^data:/iu.test(source)) return 'data-uri';
-  if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/iu.test(source)) return 'url';
-  return 'alias';
-}
-
-function descriptorCacheIdentity(
-  source: PatchMapImageProjection['authoredSource'],
-): string {
-  if (typeof source === 'string') return `descriptor:${source}`;
-  if (descriptorNeedsFramedIdentity(source)) {
-    const canonical = stableSerializeJson(source);
-    return `descriptor-safe:${source.src.length}:${source.src}:${stableHash(canonical)}`;
-  }
-  const query: Array<readonly [string, unknown]> = [];
-  if (source.data !== undefined) {
-    const keys = Object.keys(source.data).sort();
-    if (keys.length === 0) query.push(['data', source.data]);
-    for (const key of keys) query.push([key, source.data[key]]);
-  }
-  if (source.format !== undefined) query.push(['format', source.format]);
-  if (source.parser !== undefined) query.push(['parser', source.parser]);
-  if (source.loadParser !== undefined) query.push(['loadParser', source.loadParser]);
-  query.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
-  const suffix = query.length === 0
-    ? ''
-    : `?${query.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(
-        scalarIdentityValue(value),
-      )}`).join('&')}`;
-  return `descriptor:${source.src}${suffix}`;
-}
-
-function descriptorNeedsFramedIdentity(
-  source: Exclude<PatchMapImageProjection['authoredSource'], string>,
-): boolean {
-  if (/[?#]/u.test(source.src)) return true;
-  const topLevelOptionNames = new Set(['data', 'format', 'parser', 'loadParser']);
-  return Object.keys(source.data ?? {}).some((key) => topLevelOptionNames.has(key));
-}
-
-function scalarIdentityValue(value: unknown): string {
-  return typeof value === 'string' ? value : stableSerializeJson(value);
-}
-
-function stableSerializeJson(value: unknown): string {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') {
-    return JSON.stringify(value);
-  }
-  if (typeof value === 'number') return Number.isFinite(value) ? JSON.stringify(value) : 'null';
-  if (Array.isArray(value)) return `[${value.map(stableSerializeJson).join(',')}]`;
-  if (isRecord(value)) {
-    return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableSerializeJson(value[key])}`)
-      .join(',')}}`;
-  }
-  return JSON.stringify(`@unsupported:${typeof value}`);
+  return normalizePatchMapImageSource(authoredSource);
 }
 
 function relationEndpoint(value: unknown, path: string, state: ParseState, sourceId: string): string {
@@ -2649,106 +2566,14 @@ function resolveColor(value: unknown, fallback: Rgba, path: string, state: Parse
     if (themeValue !== undefined && themeValue !== value) {
       return resolveColor(themeValue, fallback, path, state);
     }
-    const parsed = parseCssColor(value);
+    const parsed = parsePatchMapCssColor(value);
     if (parsed !== undefined) return parsed;
-    const hashed = ((fnv1a(value) & 0xffffff) * 0x100 + 0xff) >>> 0;
+    const hashed = deterministicPatchMapTokenColor(value);
     warn(state, path, 'color-fallback', `Unknown color token ${JSON.stringify(value)} used deterministic hash fallback`);
     return hashed;
   }
   warn(state, path, 'color-fallback', 'Unsupported color value used the documented fallback');
   return fallback >>> 0;
-}
-
-function parseCssColor(input: string): Rgba | undefined {
-  const value = input.trim().toLowerCase();
-  const hex = /^#([0-9a-f]{3,8})$/.exec(value)?.[1];
-  if (hex) {
-    if (hex.length === 3) return pack(parseInt(hex[0]! + hex[0]!, 16), parseInt(hex[1]! + hex[1]!, 16), parseInt(hex[2]! + hex[2]!, 16), 255);
-    if (hex.length === 4) return pack(parseInt(hex[0]! + hex[0]!, 16), parseInt(hex[1]! + hex[1]!, 16), parseInt(hex[2]! + hex[2]!, 16), parseInt(hex[3]! + hex[3]!, 16));
-    if (hex.length === 6) return (parseInt(hex, 16) * 0x100 + 0xff) >>> 0;
-    if (hex.length === 8) return parseInt(hex, 16) >>> 0;
-  }
-  const rgb = /^rgba?\(\s*([^,]+),\s*([^,]+),\s*([^,)]+)(?:,\s*([^)]*))?\s*\)$/.exec(value);
-  if (rgb) {
-    const channels = rgb.slice(1, 4).map(cssChannel);
-    const alpha = rgb[4] === undefined ? 255 : cssAlpha(rgb[4]);
-    if (channels.every((channel) => channel !== undefined) && alpha !== undefined) {
-      return pack(channels[0]!, channels[1]!, channels[2]!, alpha);
-    }
-  }
-  const hsl = /^hsla?\(\s*([^,]+),\s*([^,]+)%,\s*([^,)]+)%(?:,\s*([^)]*))?\s*\)$/.exec(value);
-  if (hsl) {
-    const hue = Number(hsl[1]);
-    const saturation = Number(hsl[2]);
-    const lightness = Number(hsl[3]);
-    const alpha = hsl[4] === undefined ? 255 : cssAlpha(hsl[4]);
-    if ([hue, saturation, lightness].every(Number.isFinite) && alpha !== undefined) {
-      const [r, g, b] = hslToRgb(hue, clamp01(saturation / 100), clamp01(lightness / 100));
-      return pack(r, g, b, alpha);
-    }
-  }
-  return undefined;
-}
-
-function cssChannel(value: string): number | undefined {
-  const percentage = /^(-?(?:\d+\.?\d*|\.\d+))%$/.exec(value.trim());
-  const amount = percentage ? Number(percentage[1]) * 2.55 : Number(value);
-  return Number.isFinite(amount) ? Math.round(Math.min(255, Math.max(0, amount))) : undefined;
-}
-
-function cssAlpha(value: string): number | undefined {
-  const text = value.trim();
-  const percentage = /^(-?(?:\d+\.?\d*|\.\d+))%$/.exec(text);
-  const amount = percentage ? Number(percentage[1]) / 100 : Number(text);
-  return Number.isFinite(amount) ? Math.round(clamp01(amount) * 255) : undefined;
-}
-
-function hslToRgb(hue: number, saturation: number, lightness: number): [number, number, number] {
-  const h = ((hue % 360) + 360) % 360 / 360;
-  if (saturation === 0) {
-    const gray = Math.round(lightness * 255);
-    return [gray, gray, gray];
-  }
-  const q = lightness < 0.5
-    ? lightness * (1 + saturation)
-    : lightness + saturation - lightness * saturation;
-  const p = 2 * lightness - q;
-  const channel = (offset: number): number => {
-    let t = h + offset;
-    if (t < 0) t += 1;
-    if (t > 1) t -= 1;
-    if (t < 1 / 6) return p + (q - p) * 6 * t;
-    if (t < 1 / 2) return q;
-    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-    return p;
-  };
-  return [
-    Math.round(channel(1 / 3) * 255 + 1e-8),
-    Math.round(channel(0) * 255 + 1e-8),
-    Math.round(channel(-1 / 3) * 255 + 1e-8),
-  ];
-}
-
-function multiplyColor(left: Rgba, right: Rgba): Rgba {
-  return pack(
-    Math.round(((left >>> 24) & 0xff) * ((right >>> 24) & 0xff) / 255),
-    Math.round(((left >>> 16) & 0xff) * ((right >>> 16) & 0xff) / 255),
-    Math.round(((left >>> 8) & 0xff) * ((right >>> 8) & 0xff) / 255),
-    Math.round((left & 0xff) * (right & 0xff) / 255),
-  );
-}
-
-function pack(r: number, g: number, b: number, a: number): Rgba {
-  return ((((r & 0xff) * 0x1000000) + ((g & 0xff) << 16) + ((b & 0xff) << 8) + (a & 0xff)) >>> 0);
-}
-
-function fnv1a(value: string): number {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return hash >>> 0;
 }
 
 function inspectAttributes(attrs: JsonRecord | undefined, path: string, type: string, state: ParseState): void {
