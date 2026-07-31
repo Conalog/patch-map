@@ -5,11 +5,40 @@ import { RenderKind } from '../../src/patch-map/dense/renderer-types';
 import {
   buildPatchMapRelationAdjacency,
   expandPatchMapRelationDependencyRanges,
+  mergeRanges,
   projectionChangedRanges,
-} from '../../src/patch-map/renderers/pixi-renderer';
+  projectionStalenessChangedRanges,
+  rangesTouchPatchMapRelationTopology,
+} from '../../src/patch-map/renderers/renderer-reconcile-ranges';
 import { parsePatchMapV010 } from '../../src/patch-map/parser';
 
 describe('PatchMap Pixi relation adjacency', () => {
+  it('merges dirty ranges and maps staleness changes without mutating inputs', () => {
+    const left = Object.freeze([
+      Object.freeze({ start: 3, end: 5 }),
+      Object.freeze({ start: 0, end: 1 }),
+    ]);
+    const right = Object.freeze([
+      Object.freeze({ start: 2, end: 4 }),
+      Object.freeze({ start: 5, end: 7 }),
+    ]);
+
+    expect(mergeRanges(left, right)).toEqual([
+      { start: 0, end: 1 },
+      { start: 2, end: 7 },
+    ]);
+    expect(left).toEqual([{ start: 3, end: 5 }, { start: 0, end: 1 }]);
+    expect(right).toEqual([{ start: 2, end: 4 }, { start: 5, end: 7 }]);
+    expect(projectionStalenessChangedRanges(
+      new Set(['removed', 'stable']),
+      new Set(['stable', 'added']),
+      new Map([['removed', 0], ['stable', 2], ['added', 4]]),
+    )).toEqual([
+      { start: 0, end: 1 },
+      { start: 4, end: 5 },
+    ]);
+  });
+
   it('dirties an image slot when only descriptor options change', () => {
     const before = parsePatchMapV010([{
       type: 'image',
@@ -79,6 +108,26 @@ describe('PatchMap Pixi relation adjacency', () => {
       { start: 4, end: 5 },
       { start: 7, end: 8 },
     ]);
+  });
+
+  it('rebuilds adjacency only when dirty relation membership or endpoints change', () => {
+    const store = createRelationStore(2, [[0, 1]]);
+    const adjacency = buildPatchMapRelationAdjacency(store);
+
+    expect(rangesTouchPatchMapRelationTopology(
+      store,
+      [{ start: 0, end: 1 }],
+      adjacency.relationSlots,
+      adjacency.endpointsByRelation,
+    )).toBe(false);
+
+    (store.relationTo as Int32Array)[2] = 0;
+    expect(rangesTouchPatchMapRelationTopology(
+      store,
+      [{ start: 2, end: 3 }],
+      adjacency.relationSlots,
+      adjacency.endpointsByRelation,
+    )).toBe(true);
   });
 
   it('builds exact memberships for a 5k high-degree star without duplicate scans', () => {
