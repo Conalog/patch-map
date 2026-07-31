@@ -9,13 +9,13 @@ import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset
 
 describe('PatchMap deterministic text projection', () => {
   it('keeps component text on one semantic-layout pass followed by signature-safe relocation', () => {
-    const parserSource = readFileSync(
-      new URL('../../src/patch-map/parser.ts', import.meta.url),
+    const componentSource = readFileSync(
+      new URL('../../src/patch-map/parser/component-text-lowering.ts', import.meta.url),
       'utf8',
     );
-    const branchStart = parserSource.indexOf("  if (type === 'text') {");
-    const branchEnd = parserSource.indexOf('\nfunction parseDirectRect', branchStart);
-    const componentTextBranch = parserSource.slice(branchStart, branchEnd);
+    const branchStart = componentSource.indexOf("  if (type === 'text') {");
+    const branchEnd = componentSource.indexOf('\n  warn(\n', branchStart);
+    const componentTextBranch = componentSource.slice(branchStart, branchEnd);
 
     expect(branchStart).toBeGreaterThanOrEqual(0);
     expect(branchEnd).toBeGreaterThan(branchStart);
