@@ -235,6 +235,10 @@ describe('PatchMap migration session authority', () => {
       activeGestureCount: 1,
     });
 
+    const beforeInvalidRemount = authority.probe();
+    expect(() => authority.remountSession('')).toThrow(/session ID/u);
+    expect(authority.probe()).toEqual(beforeInvalidRemount);
+
     authority.recordTriggerState('remount');
     expect(authority.remountSession('after-rollback')).toMatchObject({
       activeEngine: 'previous',

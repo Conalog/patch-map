@@ -216,6 +216,12 @@ describe('PatchMapFrameLoop', () => {
     expect(loop.pause()).toBe(true);
     expect(loop.isPaused).toBe(true);
     expect(driver.pending()).toBe(0);
+    const paused = loop.debugSnapshot();
+    for (const duration of [-1, Number.NaN]) {
+      expect(() => loop.resume(duration)).toThrow();
+      expect(loop.debugSnapshot()).toEqual(paused);
+      expect(driver.pending()).toBe(0);
+    }
     expect(loop.resume(100)).toBe(true);
     expect(loop.isPaused).toBe(false);
     expect(driver.pending()).toBe(1);

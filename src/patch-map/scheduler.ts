@@ -97,9 +97,10 @@ export class PatchMapFrameLoop {
   public resume(monitorDurationMs = 0): boolean {
     this.assertAlive();
     if (!this.paused) return false;
+    const duration = nonnegativeFinite(monitorDurationMs, 'monitorDurationMs');
     this.paused = false;
     this.budget.reset();
-    this.request(monitorDurationMs);
+    this.request(duration);
     return true;
   }
 

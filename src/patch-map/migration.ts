@@ -214,10 +214,11 @@ export class PatchMapMigrationAuthority {
 
   public remountSession(nextSessionId: string): PatchMapMigrationProbe {
     this.assertMounted();
+    const sessionId = nonEmptyString(nextSessionId, 'session ID');
     this.activeGestures.clear();
     this.activeSession = null;
     this.rollbackPendingValue = false;
-    return this.mountSession(nextSessionId, {
+    return this.mountSession(sessionId, {
       authoritative: this.desiredEngineValue,
     });
   }
