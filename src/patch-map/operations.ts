@@ -1,183 +1,40 @@
-export const PATCH_MAP_OPERATIONS_REVISION = 'core-v2-operations/1' as const;
-export const PATCH_MAP_RUNTIME_DIAGNOSTICS_REVISION =
-  'core-v2-runtime-diagnostics/1' as const;
-export const PATCH_MAP_EXTRACTION_SECURITY_REVISION =
-  'core-v2-extraction-security/1' as const;
+import {
+  PATCH_MAP_OPERATIONS_REVISION,
+  PATCH_MAP_RUNTIME_DIAGNOSTICS_REVISION,
+  type PatchMapOperationalCallback,
+  type PatchMapOperationalDiagnosticInput,
+  type PatchMapOperationalDispatchResult,
+  type PatchMapOperationalEvent,
+  type PatchMapOperationalEventInput,
+  type PatchMapOperationalSubscription,
+  type PatchMapOperationsAuthorityOptions,
+  type PatchMapOperationsProbe,
+  type PatchMapRuntimeDiagnosticRecord,
+  type PatchMapRuntimeDiagnosticsSnapshot,
+  type PatchMapRuntimeDiagnosticsState,
+  type PatchMapSanitizedDiagnostic,
+} from './operations/contracts';
+import {
+  DEFAULT_DIAGNOSTIC_CAPACITY,
+  DISABLED_RUNTIME_DIAGNOSTICS,
+  controlledValue,
+  deepFreeze,
+  emptyDispatchResult,
+  normalizeCapacity,
+  normalizeCountRecord,
+  normalizeDigest,
+  normalizeRevisionStamp,
+  redactPatchMapOperationalDiagnostic,
+  redactPatchMapOperationalEvent,
+  telemetryFromDiagnostic,
+} from './operations/redaction-values';
 
-const DEFAULT_DIAGNOSTIC_CAPACITY = 100;
-const MAX_DIAGNOSTIC_CAPACITY = 100;
-const EMPTY_REVISION_STAMP = Object.freeze({
-  lifecycleGeneration: 0,
-  sceneRevision: 0,
-  viewRevision: 0,
-  interactionRevision: 0,
-});
-const DISABLED_RUNTIME_DIAGNOSTICS = Object.freeze({
-  revision: PATCH_MAP_RUNTIME_DIAGNOSTICS_REVISION,
-  enabled: false,
-  capacity: 0,
-  records: Object.freeze([]),
-  current: null,
-});
-
-export interface PatchMapOperationsRevisionStamp {
-  readonly lifecycleGeneration: number;
-  readonly sceneRevision: number;
-  readonly viewRevision: number;
-  readonly interactionRevision: number;
-}
-
-export interface PatchMapOperationalDiagnosticInput {
-  readonly code: string;
-  readonly category: string;
-  readonly operation: string;
-  readonly lifecycleGeneration?: number;
-  readonly sceneRevision?: number;
-  readonly revisionStamp?: PatchMapOperationsRevisionStamp;
-  readonly logicalId?: string | null;
-  readonly recoverable?: boolean;
-  readonly retryable?: boolean;
-  readonly appliedCount?: number;
-  readonly missingCount?: number;
-  readonly unchangedCount?: number;
-  readonly details?: unknown;
-}
-
-export interface PatchMapSanitizedDiagnostic {
-  readonly code: string;
-  readonly category: string;
-  readonly operation: string;
-  readonly lifecycleGeneration: number;
-  readonly sceneRevision: number;
-  readonly revisionStamp: PatchMapOperationsRevisionStamp;
-  readonly logicalId: string | null;
-  readonly recoverable: boolean;
-  readonly retryable: boolean;
-  readonly appliedCount: number;
-  readonly missingCount: number;
-  readonly unchangedCount: number;
-  readonly sanitizedHash: string;
-}
-
-export interface PatchMapOperationalEventInput {
-  readonly type: string;
-  readonly operation: string;
-  readonly revisionStamp: PatchMapOperationsRevisionStamp;
-  readonly logicalId?: string | null;
-  readonly counts?: Readonly<Record<string, number>>;
-  readonly details?: unknown;
-}
-
-export interface PatchMapOperationalEvent {
-  readonly type: string;
-  readonly operation: string;
-  readonly revisionStamp: PatchMapOperationsRevisionStamp;
-  readonly logicalId: string | null;
-  readonly counts: Readonly<Record<string, number>>;
-  readonly sanitizedHash: string;
-}
-
-export interface PatchMapOperationalCallbackControl {
-  enqueue(id: string, action: () => void): void;
-}
-
-export type PatchMapOperationalCallback = (
-  event: PatchMapOperationalEvent,
-  control: PatchMapOperationalCallbackControl,
-) => void;
-
-export interface PatchMapOperationalSubscription {
-  readonly id: string;
-  dispose(): boolean;
-}
-
-export interface PatchMapOperationalDispatchResult {
-  readonly deliveredCount: number;
-  readonly callbackFailureCount: number;
-  readonly queuedActionCount: number;
-  readonly queuedActionFailureCount: number;
-}
-
-export interface PatchMapRuntimeDiagnosticsState {
-  readonly instanceId: string | null;
-  readonly lifecycle: string;
-  readonly backend: Readonly<{
-    readonly kind: string | null;
-    readonly lossState: string;
-  }>;
-  readonly revisions: PatchMapOperationsRevisionStamp;
-  readonly counts: Readonly<{
-    readonly roots: number;
-    readonly elements: number;
-    readonly components: number;
-    readonly materialized: number;
-    readonly text: number;
-    readonly relations: number;
-  }>;
-  readonly activeWork: Readonly<{
-    readonly gestures: number;
-    readonly animations: number;
-    readonly pendingAssets: number;
-    readonly pendingWork: number;
-  }>;
-  readonly resources: Readonly<{
-    readonly canvases: number;
-    readonly listeners: number;
-    readonly observers: number;
-    readonly tickers: number;
-    readonly textureLeases: number;
-    readonly callbackRegistrations: number;
-  }>;
-  readonly cleanup: Readonly<{
-    readonly destroyed: boolean;
-    readonly released: boolean;
-  }>;
-}
-
-export interface PatchMapRuntimeDiagnosticRecord extends PatchMapRuntimeDiagnosticsState {
-  readonly package: Readonly<{
-    readonly version: string;
-    readonly digest: string | null;
-  }>;
-  readonly sequence: number;
-  readonly lastAction: Readonly<{
-    readonly operation: string;
-    readonly status: 'completed' | 'failed';
-  }> | null;
-  readonly lastError: PatchMapSanitizedDiagnostic | null;
-}
-
-export interface PatchMapRuntimeDiagnosticsSnapshot {
-  readonly revision: typeof PATCH_MAP_RUNTIME_DIAGNOSTICS_REVISION;
-  readonly enabled: boolean;
-  readonly capacity: number;
-  readonly records: readonly PatchMapRuntimeDiagnosticRecord[];
-  readonly current: PatchMapRuntimeDiagnosticRecord | null;
-}
-
-export interface PatchMapOperationsProbe {
-  readonly revision: typeof PATCH_MAP_OPERATIONS_REVISION;
-  readonly collectionEnabled: boolean;
-  readonly telemetryEnabled: boolean;
-  readonly capacity: number;
-  readonly recordCount: number;
-  readonly diagnosticObserverCount: number;
-  readonly telemetryObserverCount: number;
-  readonly callbackRegistrations: number;
-  readonly queuedActionCount: number;
-  readonly disposed: boolean;
-  readonly lastCallbackFailure: PatchMapSanitizedDiagnostic | null;
-}
-
-export interface PatchMapOperationsAuthorityOptions {
-  readonly collectionEnabled?: boolean;
-  readonly telemetryEnabled?: boolean;
-  readonly capacity?: number;
-  readonly instanceId?: string;
-  readonly packageVersion?: string;
-  readonly packageDigest?: string | null;
-  readonly logger?: (diagnostic: PatchMapSanitizedDiagnostic) => void;
-}
+export * from './operations/contracts';
+export { PatchMapExtractionSecurityAuthority } from './operations/extraction-security-authority';
+export {
+  redactPatchMapOperationalDiagnostic,
+  redactPatchMapOperationalEvent,
+};
 
 interface CallbackEntry<T> {
   readonly id: string;
@@ -542,192 +399,6 @@ export class PatchMapOperationsAuthority {
   }
 }
 
-export type PatchMapExtractionReadability =
-  | 'readable'
-  | 'tainted'
-  | 'readback-failed';
-
-export interface PatchMapExtractionSecurityProbe {
-  readonly revision: typeof PATCH_MAP_EXTRACTION_SECURITY_REVISION;
-  readonly trackedAssetCount: number;
-  readonly unreadableAssetCount: number;
-  readonly code: 'EXTRACTION_TAINTED' | 'EXTRACTION_READBACK_FAILED' | null;
-  readonly sanitizedAssetId: string | null;
-}
-
-/**
- * Renderer-independent asset readability ledger. Asset loaders register only
- * logical ownership and readability; source URLs and bytes never enter it.
- */
-export class PatchMapExtractionSecurityAuthority {
-  private readonly assets = new Map<string, PatchMapExtractionReadability>();
-
-  public setAssetReadability(
-    logicalAssetId: string,
-    readability: PatchMapExtractionReadability,
-  ): void {
-    const id = controlledValue(logicalAssetId, 'asset');
-    if (!['readable', 'tainted', 'readback-failed'].includes(readability)) {
-      throw new TypeError('Unknown PatchMap extraction readability');
-    }
-    this.assets.set(id, readability);
-  }
-
-  public deleteAsset(logicalAssetId: string): boolean {
-    return this.assets.delete(controlledValue(logicalAssetId, 'asset'));
-  }
-
-  public clear(): void {
-    this.assets.clear();
-  }
-
-  public preflight(): PatchMapExtractionSecurityProbe {
-    let firstFailed: readonly [string, PatchMapExtractionReadability] | null = null;
-    let unreadableAssetCount = 0;
-    for (const entry of this.assets.entries()) {
-      if (entry[1] === 'readable') continue;
-      unreadableAssetCount += 1;
-      if (firstFailed === null) firstFailed = entry;
-    }
-    const code = firstFailed === null
-      ? null
-      : firstFailed[1] === 'tainted'
-        ? 'EXTRACTION_TAINTED'
-        : 'EXTRACTION_READBACK_FAILED';
-    return Object.freeze({
-      revision: PATCH_MAP_EXTRACTION_SECURITY_REVISION,
-      trackedAssetCount: this.assets.size,
-      unreadableAssetCount,
-      code,
-      sanitizedAssetId: firstFailed === null
-        ? null
-        : `asset:${boundedHash(firstFailed[0])}`,
-    });
-  }
-}
-
-export function redactPatchMapOperationalDiagnostic(
-  input: PatchMapOperationalDiagnosticInput,
-): PatchMapSanitizedDiagnostic {
-  const revisions = normalizeRevisionStamp(
-    input.revisionStamp ?? {
-      ...EMPTY_REVISION_STAMP,
-      lifecycleGeneration: input.lifecycleGeneration ?? 0,
-      sceneRevision: input.sceneRevision ?? 0,
-    },
-  );
-  const logicalId = input.logicalId === undefined || input.logicalId === null
-    ? null
-    : controlledValue(input.logicalId, `id:${boundedHash(input.logicalId)}`);
-  const stable = {
-    code: controlledValue(input.code, 'INTERNAL_FAILURE'),
-    category: controlledValue(input.category, 'INTERNAL_FAILURE'),
-    operation: controlledValue(input.operation, 'unknown'),
-    lifecycleGeneration: revisions.lifecycleGeneration,
-    sceneRevision: revisions.sceneRevision,
-    revisionStamp: revisions,
-    logicalId,
-    recoverable: input.recoverable === true,
-    retryable: input.retryable === true,
-    appliedCount: nonNegativeCount(input.appliedCount ?? 0),
-    missingCount: nonNegativeCount(input.missingCount ?? 0),
-    unchangedCount: nonNegativeCount(input.unchangedCount ?? 0),
-  };
-  return deepFreeze({
-    ...stable,
-    sanitizedHash: boundedHash({
-      stable,
-      details: input.details,
-    }),
-  });
-}
-
-export function redactPatchMapOperationalEvent(
-  input: PatchMapOperationalEventInput,
-): PatchMapOperationalEvent {
-  const stable = {
-    type: controlledValue(input.type, 'unknown'),
-    operation: controlledValue(input.operation, 'unknown'),
-    revisionStamp: normalizeRevisionStamp(input.revisionStamp),
-    logicalId: input.logicalId === undefined || input.logicalId === null
-      ? null
-      : controlledValue(input.logicalId, `id:${boundedHash(input.logicalId)}`),
-    counts: normalizeCountRecord(input.counts ?? {}),
-  };
-  return deepFreeze({
-    ...stable,
-    sanitizedHash: boundedHash({ stable, details: input.details }),
-  });
-}
-
-function telemetryFromDiagnostic(
-  diagnostic: PatchMapSanitizedDiagnostic,
-): PatchMapOperationalEvent {
-  return deepFreeze({
-    type: 'diagnostic',
-    operation: diagnostic.operation,
-    revisionStamp: diagnostic.revisionStamp,
-    logicalId: diagnostic.logicalId,
-    counts: {
-      applied: diagnostic.appliedCount,
-      missing: diagnostic.missingCount,
-      unchanged: diagnostic.unchangedCount,
-    },
-    sanitizedHash: diagnostic.sanitizedHash,
-  });
-}
-
-function emptyDispatchResult(): PatchMapOperationalDispatchResult {
-  return Object.freeze({
-    deliveredCount: 0,
-    callbackFailureCount: 0,
-    queuedActionCount: 0,
-    queuedActionFailureCount: 0,
-  });
-}
-
-function normalizeRevisionStamp(
-  value: PatchMapOperationsRevisionStamp,
-): PatchMapOperationsRevisionStamp {
-  return Object.freeze({
-    lifecycleGeneration: nonNegativeCount(value.lifecycleGeneration),
-    sceneRevision: nonNegativeCount(value.sceneRevision),
-    viewRevision: nonNegativeCount(value.viewRevision),
-    interactionRevision: nonNegativeCount(value.interactionRevision),
-  });
-}
-
-function normalizeCountRecord<T extends Readonly<Record<string, number>>>(
-  input: T,
-): T {
-  const output: Record<string, number> = {};
-  for (const key of Object.keys(input).sort()) {
-    output[controlledValue(key, 'count')] = nonNegativeCount(input[key] ?? 0);
-  }
-  return Object.freeze(output) as T;
-}
-
-function normalizeCapacity(value: number): number {
-  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_DIAGNOSTIC_CAPACITY) {
-    throw new RangeError(`PatchMap diagnostic capacity must be between 1 and ${MAX_DIAGNOSTIC_CAPACITY}`);
-  }
-  return value;
-}
-
-function normalizeDigest(value: string | null): string | null {
-  if (value === null) return null;
-  return /^[a-f0-9]{64}$/u.test(value) ? value : `hash:${boundedHash(value)}`;
-}
-
-function controlledValue(value: string, fallback: string): string {
-  return /^[A-Za-z0-9_.:/-]{1,128}$/u.test(value) ? value : fallback;
-}
-
-function nonNegativeCount(value: number): number {
-  if (!Number.isSafeInteger(value) || value < 0) return 0;
-  return value;
-}
-
 function activeCount<T>(registry: ReadonlyMap<string, CallbackEntry<T>>): number {
   let count = 0;
   for (const entry of registry.values()) {
@@ -738,59 +409,4 @@ function activeCount<T>(registry: ReadonlyMap<string, CallbackEntry<T>>): number
 
 function deactivate<T>(registry: ReadonlyMap<string, CallbackEntry<T>>): void {
   for (const entry of registry.values()) entry.active = false;
-}
-
-function boundedHash(value: unknown): string {
-  const text = boundedStableText(value);
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return `fnv1a32:${(hash >>> 0).toString(16).padStart(8, '0')}`;
-}
-
-function boundedStableText(value: unknown): string {
-  const seen = new WeakSet<object>();
-  let visited = 0;
-  function visit(current: unknown, depth: number): unknown {
-    if (visited >= 256) return '[LIMIT]';
-    visited += 1;
-    if (current === null) return null;
-    if (typeof current === 'string') return current.slice(0, 1_024);
-    if (typeof current === 'number') return Number.isFinite(current) ? current : '[NON_FINITE]';
-    if (typeof current === 'boolean') return current;
-    if (typeof current === 'bigint') return current.toString();
-    if (typeof current === 'undefined') return '[UNDEFINED]';
-    if (typeof current === 'symbol') return '[SYMBOL]';
-    if (typeof current === 'function') return '[FUNCTION]';
-    if (depth >= 6) return '[DEPTH]';
-    if (seen.has(current)) return '[CYCLE]';
-    seen.add(current);
-    if (current instanceof Error) {
-      return {
-        name: controlledValue(current.name, 'Error'),
-        cause: visit(current.cause, depth + 1),
-      };
-    }
-    if (Array.isArray(current)) {
-      return current.slice(0, 64).map((entry) => visit(entry, depth + 1));
-    }
-    const output: Record<string, unknown> = {};
-    for (const key of Object.keys(current).sort().slice(0, 64)) {
-      output[key.slice(0, 128)] = visit(
-        (current as Readonly<Record<string, unknown>>)[key],
-        depth + 1,
-      );
-    }
-    return output;
-  }
-  return JSON.stringify(visit(value, 0));
-}
-
-function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
-  if (value === null || typeof value !== 'object' || seen.has(value)) return value;
-  seen.add(value);
-  for (const nested of Object.values(value)) deepFreeze(nested, seen);
-  return Object.freeze(value);
 }
