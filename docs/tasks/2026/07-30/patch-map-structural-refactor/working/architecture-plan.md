@@ -35,40 +35,67 @@ public index
 ```text
 src/patch-map/
 ├── index.ts                         # public export manifest
-├── engine.ts                        # compatibility re-export facade
+├── engine.ts                        # PatchMap facade and atomic coordinator
 ├── engine/
-│   ├── contracts.ts                 # public PatchMap I/O/result contracts
+│   ├── public-contracts.ts          # compatibility contract barrel
+│   ├── contracts/                   # lifecycle/viewport/mutation/etc. contracts
 │   ├── surface-contract.ts          # facade <-> surface port
-│   ├── patch-map.ts                 # product primary flow and authorities
 │   ├── pixi-surface.ts              # PatchMapRuntime surface adapter/factory
 │   ├── surface-geometry.ts          # geometry snapshots/relation hit index
-│   └── semantic-index.ts            # component/text index atoms
+│   ├── semantic-index.ts            # component/text index atoms
+│   ├── viewport-authority.ts        # view/policy/motion/persistence writer
+│   ├── transformer-edit-authority.ts
+│   ├── publication-authority.ts     # revisions/frame/visible ledgers
+│   └── scene-state-authority.ts     # dataset/index/selection single writer
+├── core.ts                          # Core facade and atomic coordinator
+├── core/
+│   ├── published-scene-state.ts     # one published semantic/dense reference
+│   ├── spatial-hit-authority.ts     # exact/animated spatial index lifetime
+│   ├── product-probe-reader.ts      # read-only semantic/renderer correlation
+│   ├── root-interaction-authority.ts # one root binding and gesture state
+│   ├── bar-presentation-authority.ts
+│   └── load-authority.ts            # private candidate + rollback checkpoint
+├── parser.ts                        # v0.10 lowering facade
+├── parser/
+│   ├── color.ts
+│   ├── image-source.ts
+│   └── lowering/                    # element/grid/component/relation lowering
 ├── shared/
 │   ├── stable-hash.ts               # exact stable hash primitive
 │   └── json-values.ts               # proven JSON predicates/equality only
-├── core.ts                          # central runtime owner; retain initially
-├── parser.ts                        # v0.10 lowering pipeline; retain initially
 ├── dense/                           # dense store and atomic transaction
-├── semantic/                        # normalized domain decisions
+├── semantic/
+│   ├── transaction.ts               # transaction facade
+│   ├── transaction/                 # contracts/diagnostics/JSON/staging
+│   ├── dataset.ts                   # dataset facade
+│   ├── dataset/
+│   │   ├── contracts.ts             # import-free dataset contracts/errors
+│   │   ├── value-normalization.ts   # exact values/JSON detachment
+│   │   └── semantic-hash.ts
+│   └── ...                          # normalized domain decisions
 └── renderers/
     ├── pixi-renderer.ts             # Application and aggregate coordinator
-    ├── mesh-layer.ts                # compatibility facade
+    ├── leaf-layer.ts                # leaf facade/resource coordinator
+    ├── particle-layer.ts            # particle/graphics coordinator
+    ├── mesh-layer.ts                # retained mesh owner
     ├── mesh/
-    │   ├── geometry.ts              # CPU geometry planning
+    │   ├── chunk-geometry.ts        # CPU geometry planning
     │   ├── chunk-store.ts           # retained buffers/bounds/uploads
-    │   └── layer.ts                 # stateful lane owner
-    ├── relation-endpoint-geometry.ts
-    ├── particle-layer.ts
-    └── leaf-layer.ts
+    │   └── chunk-planner.ts         # deterministic topology/chunk planning
+    └── relation-endpoint-geometry.ts
 
 lab/patch-map/
 ├── contract/
 │   ├── main.ts                      # mount/composition
-│   ├── runtime-values.ts            # exact browser-safe value helpers
-│   └── runtime-journal.ts           # shared bounded journal
+│   ├── executable-runtime.ts        # compatibility facade
+│   └── executable-runtime/
+│       ├── registry.ts              # ordered shard composition
+│       ├── descriptors/             # capability-family declarations
+│       ├── script-modules.ts        # sole handler/fold ESM boundary
+│       └── case-routing.ts
 └── interactive/
-    ├── manual-workbench.ts           # session/actions/composition
-    └── manual-workbench-view.ts      # pure markup/panels
+    ├── manual-workbench.ts          # session/action controller
+    └── manual-workbench-view.ts     # pure markup/panels
 
 tests/patch-map/support/
 ├── contract-runtime-harness.ts      # loader/clock/catalog atoms
@@ -78,67 +105,109 @@ tests/patch-map/support/
 Compatibility facades remain only where current internal tests or consumers
 import a path directly. The package still publishes only `"."`.
 
+## File inventory disposition
+
+The allowed corpus currently contains 420 files: 84 product, 48 Lab, 156
+tests, 104 active scripts, 23 performance files, and five examples. Every file
+is covered by the following rule; explicit exceptions override the directory
+default.
+
+| Area | Default | Explicit split/consolidation candidates |
+| --- | --- | --- |
+| `src/patch-map` | keep cohesive files in place | every file above 1,000 LOC plus mixed-owner renderer, authoring, history, asset, host, operation, accessibility, and query files |
+| `lab/patch-map` | keep focused case/runtime files | `manual-workbench.ts`, `contract/main.ts`, `style.css`, executable registry/bridge, and repeated actual-only session adapters |
+| `tests/patch-map` | keep all assertions and case identities | split files above 1,000 LOC by describe/domain; share setup only through narrow support modules |
+| `scripts/verification` | keep small orchestrators and negative probes | split large handler/fold/browser/package files; consolidate actual-only actions, browser process I/O, and package process helpers |
+| `performance/patch-map` | keep workload/protocol/result identities | split workload construction, browser harness, and report assembly; share runner/stat/result I/O |
+| `examples` and root config | keep minimal examples and public manifests | correct lint/build coverage and remove only proven stale configuration |
+| contract fixtures/evidence/results | frozen | no semantic edits, regeneration, rename, or deletion |
+
+No whole production, test, verification, performance, example, or root file
+is currently proven obsolete. Deletion requires a concrete unreferenced proof;
+otherwise the disposition is keep, move, split, or consolidate. Exact clone
+analysis found 379 groups / 4.4%; equivalence must be proven before merging.
+
 ## Migration tranches
 
-### T1 — exact utilities and contract direction
+### T0 — restore green and close active ownership gaps
 
-- Share the identical stable-hash implementation and spatial-grid atoms.
-- Share relation endpoint geometry used by mesh and particle strategies.
-- Move surface geometry types below the facade to eliminate the type-only
-  `engine -> core -> renderer -> accessibility -> engine` cycle.
-- Point Lab code at the root public entry where it uses only public symbols.
+- Finish published scene/spatial hit/viewport/transaction/Lab runtime
+  extractions.
+- Remove the transaction helper cycle through a downward contracts module.
+- Repair atomic load rollback for every published side authority.
+- Keep each commit buildable and preserve current facades.
 
-Gate: affected unit tests, scoped lint, typecheck. No browser/package/memory or
-performance run unless a runtime owner changes.
+Gate: focused tests, scoped lint, source/full typecheck. At tranche completion,
+full unit/lint/typecheck/build/contract; headless and memory only because load,
+renderer, or destroy ownership changed.
 
-### T2 — engine surface and geometry extraction
+### T1 — contracts and exact shared atoms
 
-- Move `PixiEngineSurface` and its factory behind `engine/pixi-surface.ts`.
-- Move pure geometry snapshot, screen projection, and relation hit-index atoms
-  to `engine/surface-geometry.ts`.
-- Move component/text indexing atoms to `engine/semantic-index.ts`.
-- Keep `PatchMap` as the single lifecycle, publication, transaction, viewport,
-  history, and interaction coordinator.
+- Split large public contract barrels by product domain behind compatibility
+  exports.
+- Consolidate only proven stable-hash, JSON, relation endpoint, spatial-grid,
+  and reconcile-result atoms.
+- Remove local cycles; never create a generic utility dump.
 
-Gate: engine/core/geometry tests, full product unit/lint/typecheck/build and
-canonical contract. Because surface/destroy ownership moves, also run
-headless Lab, actual-production, packed consumer, and 2+7 memory.
+### T2 — Core and Engine state authorities
 
-### T3 — mesh planning and retained storage
+- Extract root interaction, transformer session, frame publication, and bar
+  presentation writers while Core/Engine retain atomic orchestration.
+- Do not move transaction application, scheduler ownership, or callbacks into
+  a second writer.
 
-- Separate pure geometry planning from Pixi resource ownership.
-- First move code without algorithm changes.
-- Then remove per-primitive temporary arrays/closures and retain rounded-bar
-  topology so height changes update positions instead of rebuilding chunks.
-- Preserve precise paint order and relation endpoint semantics.
+### T3 — parser, dataset, transaction, reconcile, and text substrate
 
-Gate: renderer tests and build first. Then paired 5,000/10,000/actual-production
-WebGL measurements, browser, contract, and memory. Roll back any change that
-increases draw calls/render objects by 10%, uploaded bytes by 5%, or action,
-frame, rAF p95, or retained heap by 10%.
+- Split lowering/normalization/hash/staging/text-layout by data ownership.
+- Preserve exact diagnostic order, semantic hash, immutable objects, and flat
+  fast paths.
 
-### T4 — presentation/reconcile work buffer
+### T4 — renderer, image, asset, and lifecycle ownership
 
-- Replace internal per-entity frozen update objects with a reusable typed
-  work buffer owned by presentation.
-- Materialize public immutable probes only at observation boundaries.
-- Batch slot/generation validation and projection application.
-- Skip leaf/overlay/cull work only when revision and dirty-domain proofs allow.
+- Split Pixi Application/root interaction/loss/accessibility coordination from
+  aggregate layer planning.
+- Separate leaf binding/text/image probes and retained mesh/particle resource
+  owners without adding per-entity Pixi objects.
 
-Gate: atomic transaction/presentation/hit-test tests plus the same paired
-performance matrix. Keep the change only if the target stage improves by at
-least 15% without any contract regression.
+Gate: renderer tests, headless browser, 2+7 memory, and paired
+5,000/10,000/actual-production WebGL performance.
 
-### T5 — Lab and test composition
+### T5 — authoring, editor, history, host, accessibility, and operations
 
-- Extract pure Lab view markup from session ownership.
-- Consolidate exact `deepFreeze` and journal clones only.
-- Add narrow contract runtime test atoms; keep browser-isolated handlers/folds
-  standalone and keep unsupported-capability fakes minimal.
+- Extract state authorities only where there is one writer and a private
+  prepare/commit boundary.
+- Share exact command/result atoms without hiding case-specific semantics.
 
-Gate: Lab/catalog/executor targeted tests, full unit/lint/typecheck, Lab build,
-canonical verifier, and 173-route headless browser. Package/memory/performance
-only if product or ownership code changes in the same checkpoint.
+### T6 — Lab runtime and UI composition
+
+- Shard the declarative registry, split executable bridge/session lifecycle,
+  manual workbench controller/view, contract composition, and CSS layers.
+- Keep all 173 cases manually operable and expected-blind.
+
+### T7 — test composition
+
+- Split test files above 1,000 LOC by semantic describe block.
+- Share loaders, clocks, surface stubs, and dataset builders only; keep
+  assertions and case IDs local and visible.
+
+### T8 — verification runtime
+
+- Split large action handlers, folds, browser runners, worker I/O, package
+  verification, and release orchestration.
+- Maintain independent actual generation/comparison and immutable expected
+  firewalls.
+
+### T9 — performance tooling, examples, root config, and durable docs
+
+- Separate workload construction, harness lifecycle, and report assembly.
+- Keep examples minimal, make lint/build coverage complete, and record the
+  final per-area disposition.
+
+### T10 — release checkpoint
+
+- Run full contract/release gates, packed consumer, headless 173 routes,
+  actual-production/10,000, 2+7 memory, and hot-path performance checkpoints.
+- Complete independent review, intent commits, and a clean worktree.
 
 ## Measurement and rollback
 

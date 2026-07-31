@@ -83,3 +83,24 @@
 - Batch: T9 public contracts and contract test harness. Work: Moved Core DTOs and text-target validation into core/contracts.ts, moved 96 Engine public contracts and three union bases into the type-only engine/public-contracts.ts owner, retained PatchMap, private event/state, Pixi, scheduler, and lifecycle authority in engine.ts, and moved the actual-only contract surface double into tests/patch-map/support without expected/comparator access. Evidence: Independent reviews passed; targeted 72 tests, scoped lint/typecheck, full lint/typecheck, 151 files / 1,471 unit tests, package/Lab builds, canonical 135 capability + 38 journey contract, and packed ESM/CJS/types + 38 journeys passed. Result: Reduced core.ts from 4,738 to 4,392 lines, engine.ts from 8,866 to 7,871 lines, and contract-lab-execution.test.ts from 2,401 to 1,637 lines while preserving root exports and runtime behavior. Headless Lab, memory, and performance were intentionally deferred to the final release checkpoint because this tranche changed no renderer, resource, destroy, or hot path; Windows native and qualified WebGPU remain pending.
 - Batch: Final release checkpoint. Work: Removed the remaining public Core v2 Lab alias and canvas probe identity, synchronized mutable browser verification with /lab/patch-map/, and completed the refactor release gates. Evidence: Independent review PASS; typecheck/full lint, 151 files / 1,471 unit tests, package and Lab builds, canonical 38 decisions / 173 cases, packed ESM/CJS/types + 38 journeys, and headless 173 routes / 192 checks with zero console/page/network errors PASS. The prior actual-production and 2+7 ownership checkpoint remains applicable because this final naming change did not alter renderer/resource/destroy ownership. The fresh 5,000-bar 2+7 run preserved raw samples outside the repository: 1x repeated median/p95 50.9/109.1ms; one 4x sample reached 2,924.9ms and the 900ms budget honestly FAILed. Result: Public product identity is PatchMap-only, immutable evidence is unchanged, no browser/server process remains, and Windows-native plus qualified WebGPU stay pending.
 - Batch: Reopened full-file structural refactor. Work: Rejected the prior completion assessment after measuring the remaining 7,871-line Engine and 4,392-line Core state owners; enumerated 76 product, 41 Lab, 152 test, 23 performance, 104 verification, and five example files and started file-level responsibility/dependency judgments. Evidence: The current unchanged-path baseline remains 151 files / 1,471 tests and the prior release gates; jscpd at 15 lines / 100 tokens reports 379 clone groups and 4.4% duplication. Result: The cleanup PR is paused; the next restartable tranche extracts cohesive Core and Engine state authorities before broader parser/renderer/Lab/automation consolidation.
+
+**2026-07-31**
+
+- **Batch:** Reopened T0 publication and state-authority checkpoint.
+- **Work:** Made Core load publication atomic across semantic, dense, image,
+  renderer, and terminal frame-loop state; extracted read-only product probes
+  and the single root interaction binding from Core; extracted revision/frame
+  publication and live scene/index/selection state from Engine; and split
+  Dataset contracts plus exact value/JSON normalization into downward leaves.
+- **Evidence:** Independent review found no P1/P2 regression. The integrated
+  checkpoint passed 162 unit files / 1,524 tests, full lint, and full
+  typecheck. Targeted suites also fixed and locked one `submitDataset`
+  `datasetRef` handoff regression, frame/overlay event order, root
+  pointer/viewport order, prototype-safe `__proto__` detachment, and the first
+  closed-schema diagnostic path.
+- **Result:** Reduced `core.ts` to 3,900 lines, `engine.ts` to 7,244 lines, and
+  `semantic/dataset.ts` to 1,531 lines while replacing facade state with
+  cohesive authorities. Commits: `a785bac`, `9677fc6`, `b5657ce`, `6f4ba74`,
+  `84f1761`, `1a6dd80`, and `1d12c4e`. Browser, package, memory, and performance
+  gates were intentionally not repeated because this checkpoint changed no
+  renderer/resource/package/hot-path ownership.
