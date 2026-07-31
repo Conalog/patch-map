@@ -5,171 +5,37 @@ import type {
 } from './query-selection';
 import type { PatchMapSemanticPointerEvent } from './pointer-gesture';
 import type { PatchMapMutationTarget } from './semantic/transaction';
+import {
+  PATCH_MAP_COMMAND_TARGET_REVISION,
+  PATCH_MAP_EDITOR_MOUNT_REVISION,
+  PATCH_MAP_HOST_TOOLTIP_REVISION,
+  type PatchMapCommandTargetState,
+  type PatchMapCommandTargetStatus,
+  type PatchMapEditorMountDecision,
+  type PatchMapHostEventSubscription,
+  type PatchMapHostInteractionAuthorityOptions,
+  type PatchMapHostInteractionProbe,
+  type PatchMapHostObservedEvent,
+  type PatchMapHostTooltipInput,
+  type PatchMapHostTooltipPublication,
+  type PatchMapHostTooltipState,
+  type PatchMapHostTooltipSubscription,
+  type PatchMapInteractionModeOperation,
+  type PatchMapInteractionModeProbe,
+  type PatchMapInteractionModeResult,
+  type PatchMapLogicalEventBindingDescriptor,
+  type PatchMapLogicalEventBindingHandle,
+  type PatchMapLogicalEventBindingProbe,
+  type PatchMapLogicalEventDelivery,
+  type PatchMapLogicalPropagationOptions,
+  type PatchMapLogicalPropagationTrace,
+  type PatchMapSelectionHostPublication,
+  type PatchMapTooltipClearReason,
+} from './host-interaction/contracts';
+import { PatchMapInteractionModeAuthority } from './host-interaction/mode-authority';
 
-export const PATCH_MAP_HOST_INTERACTION_REVISION = 'core-v2-host-interaction/1' as const;
-export const PATCH_MAP_COMMAND_TARGET_REVISION = 'core-v2-command-target/1' as const;
-export const PATCH_MAP_HOST_TOOLTIP_REVISION = 'core-v2-host-tooltip/1' as const;
-export const PATCH_MAP_EDITOR_MOUNT_REVISION = 'core-v2-editor-mount/1' as const;
-
-export type PatchMapCommandTargetStatus = 'pending' | 'active' | 'released';
-
-export interface PatchMapCommandTargetState {
-  readonly schemaRevision: typeof PATCH_MAP_COMMAND_TARGET_REVISION;
-  readonly commandId: string;
-  readonly targetIds: readonly string[];
-  readonly status: PatchMapCommandTargetStatus | null;
-  readonly statusTrace: readonly PatchMapCommandTargetStatus[];
-}
-
-export type PatchMapTooltipClearReason = 'drag' | 'redraw' | 'destroy' | 'empty-target';
-
-export interface PatchMapHostTooltipInput {
-  readonly targetId: string;
-  readonly anchorCss: readonly [number, number];
-  readonly viewportCssPx: readonly [number, number];
-  readonly tooltipSizeCssPx: readonly [number, number];
-}
-
-export interface PatchMapHostTooltipState {
-  readonly schemaRevision: typeof PATCH_MAP_HOST_TOOLTIP_REVISION;
-  readonly targetId: string | null;
-  readonly anchorCss: readonly [number, number] | null;
-  readonly boundsCss: readonly [number, number, number, number] | null;
-  readonly pinned: boolean;
-  readonly revision: number;
-  readonly clearTrace: readonly PatchMapTooltipClearReason[];
-  readonly destroyed: boolean;
-}
-
-export interface PatchMapHostTooltipPublication {
-  readonly reason: 'hover' | 'pin' | 'unpin' | PatchMapTooltipClearReason;
-  readonly state: PatchMapHostTooltipState;
-}
-
-export interface PatchMapHostTooltipSubscription {
-  dispose(): 'disposed' | 'already-disposed';
-}
-
-export interface PatchMapEditorMountDecision {
-  readonly schemaRevision: typeof PATCH_MAP_EDITOR_MOUNT_REVISION;
-  readonly status: 'allowed' | 'blocked';
-  readonly blockedPlant: boolean;
-  readonly createsEngine: boolean;
-  readonly canvasBudget: 0 | 1;
-}
-
-export type PatchMapLogicalEventBindingDescriptor =
-  | Readonly<{
-      readonly id: string;
-      readonly event: 'click';
-      readonly target: PatchMapMutationTarget | null;
-    }>
-  | Readonly<{
-      readonly id: string;
-      readonly event: 'click';
-      readonly query: PatchMapSceneQuery;
-    }>;
-
-export interface PatchMapLogicalEventDelivery {
-  readonly event: 'click';
-  readonly targetId: string | null;
-  readonly targetKey: PatchMapLogicalTargetKey | 'surface';
-  readonly bindingIds: readonly string[];
-  readonly pointer: PatchMapSemanticPointerEvent['payload'];
-}
-
-export interface PatchMapLogicalEventBindingProbe {
-  readonly enabled: boolean;
-  readonly disposed: boolean;
-  readonly bindingCount: number;
-  readonly listenerCount: 0 | 1;
-  readonly deliveryCount: number;
-}
-
-export interface PatchMapLogicalEventBindingHandle {
-  enable(): 'enabled' | 'already-enabled' | 'disposed';
-  disable(): 'disabled' | 'already-disabled' | 'disposed';
-  dispose(): 'disposed' | 'already-disposed';
-  probe(): PatchMapLogicalEventBindingProbe;
-}
-
-export interface PatchMapHostObservedEvent {
-  readonly family: string;
-  readonly type: string;
-  readonly revision: number;
-  readonly payload: unknown;
-}
-
-export interface PatchMapHostEventSubscription {
-  dispose(): 'disposed' | 'already-disposed';
-}
-
-export type PatchMapInteractionMode =
-  | 'select'
-  | 'pan'
-  | 'transform'
-  | 'relation-paint'
-  | 'text-edit';
-
-export type PatchMapInteractionModeOperation =
-  | Readonly<{ readonly op: 'replace' | 'push'; readonly state: string }>
-  | Readonly<{ readonly op: 'pause' | 'resume' | 'pop' | 'blur' }>
-  | Readonly<{
-      readonly op: 'temporary';
-      readonly state: string;
-      readonly modifier: string;
-    }>
-  | Readonly<{ readonly op: 'release-temporary'; readonly modifier: string }>;
-
-export interface PatchMapInteractionModeResult {
-  readonly status: 'changed' | 'unchanged' | 'rejected';
-  readonly code: 'MISSING_TARGET' | null;
-  readonly activeState: PatchMapInteractionMode;
-  readonly lifecycleDelta: readonly string[];
-}
-
-export interface PatchMapInteractionModeProbe {
-  readonly activeState: PatchMapInteractionMode;
-  readonly stack: readonly PatchMapInteractionMode[];
-  readonly lifecycle: readonly string[];
-  readonly temporaryModeCount: 0 | 1;
-  readonly temporaryModifiers: readonly string[];
-  readonly captureCount: 0;
-  readonly activeOwnerCount: 0 | 1;
-  readonly paused: boolean;
-  readonly destroyed: boolean;
-}
-
-export interface PatchMapLogicalPropagationOptions {
-  readonly phase?: 'capture' | 'target' | 'bubble';
-  readonly mode?: 'none' | 'stop' | 'immediate-stop';
-}
-
-export interface PatchMapLogicalPropagationTrace {
-  readonly phases: readonly string[];
-  readonly currentTargets: readonly string[];
-  readonly composedPath: readonly string[];
-  readonly target: string;
-  readonly targetListenerCount: number;
-  readonly sceneRevision: number;
-}
-
-export interface PatchMapSelectionHostPublication {
-  readonly selectedIds: readonly string[];
-  readonly interactionRevision: number;
-}
-
-export interface PatchMapHostInteractionProbe {
-  readonly bindings: number;
-  readonly bindingListeners: number;
-  readonly eventSubscriptions: number;
-  readonly selectionHostListeners: number;
-  readonly tooltipHostListeners: number;
-  readonly callbackFailureCount: number;
-  readonly tooltip: PatchMapHostTooltipState;
-  readonly mode: PatchMapInteractionModeProbe;
-  readonly destroyed: boolean;
-}
+export * from './host-interaction/contracts';
+export { PatchMapInteractionModeAuthority } from './host-interaction/mode-authority';
 
 interface BindingGroup {
   readonly descriptors: readonly PatchMapLogicalEventBindingDescriptor[];
@@ -184,12 +50,6 @@ interface ObservedSubscription {
   readonly type: string | null;
   readonly listener: (event: PatchMapHostObservedEvent) => void;
   disposed: boolean;
-}
-
-export interface PatchMapHostInteractionAuthorityOptions {
-  readonly queryTargets: (query: PatchMapSceneQuery) => readonly PatchMapLogicalTargetSnapshot[];
-  readonly normalMode?: PatchMapInteractionMode;
-  readonly modes?: readonly PatchMapInteractionMode[];
 }
 
 /**
@@ -684,198 +544,6 @@ export class PatchMapHostInteractionAuthority {
     if (this.destroyed) {
       throw new Error(`PatchMap host interaction authority is destroyed: ${operation}`);
     }
-  }
-}
-
-export class PatchMapInteractionModeAuthority {
-  private readonly normal: PatchMapInteractionMode;
-  private readonly supported: ReadonlySet<PatchMapInteractionMode>;
-  private readonly stack: PatchMapInteractionMode[] = [];
-  private readonly lifecycle: string[] = [];
-  private temporary: Readonly<{
-    readonly state: PatchMapInteractionMode;
-    readonly previous: PatchMapInteractionMode;
-    readonly modifier: string;
-  }> | null = null;
-  private paused = false;
-  private destroyed = false;
-
-  public constructor(options: Readonly<{
-    readonly normal: PatchMapInteractionMode;
-    readonly modes: readonly PatchMapInteractionMode[];
-  }>) {
-    const supported = new Set(options.modes);
-    if (!supported.has(options.normal)) {
-      throw new Error('normal interaction mode must be supported');
-    }
-    this.normal = options.normal;
-    this.supported = supported;
-  }
-
-  public apply(operation: PatchMapInteractionModeOperation): PatchMapInteractionModeResult {
-    if (this.destroyed) throw new Error('PatchMap interaction mode authority is destroyed');
-    const lifecycleStart = this.lifecycle.length;
-    let status: PatchMapInteractionModeResult['status'] = 'unchanged';
-    let code: PatchMapInteractionModeResult['code'] = null;
-    if (operation.op === 'replace' || operation.op === 'push') {
-      const state = this.asSupported(operation.state);
-      if (state === null) {
-        status = 'rejected';
-        code = 'MISSING_TARGET';
-      } else if (operation.op === 'replace') {
-        status = this.replace(state);
-      } else {
-        status = this.push(state);
-      }
-    } else if (operation.op === 'pop') {
-      status = this.pop();
-    } else if (operation.op === 'pause') {
-      if (!this.paused) {
-        this.paused = true;
-        this.lifecycle.push(`pause:${this.activeState()}`);
-        status = 'changed';
-      }
-    } else if (operation.op === 'resume') {
-      if (this.paused) {
-        this.paused = false;
-        this.lifecycle.push(`resume:${this.activeState()}`);
-        status = 'changed';
-      }
-    } else if (operation.op === 'temporary') {
-      const state = this.asSupported(operation.state);
-      if (state === null) {
-        status = 'rejected';
-        code = 'MISSING_TARGET';
-      } else {
-        status = this.startTemporary(state, operation.modifier);
-      }
-    } else if (operation.op === 'release-temporary') {
-      status = this.releaseTemporary(operation.modifier);
-    } else {
-      status = this.blur();
-    }
-    return Object.freeze({
-      status,
-      code,
-      activeState: this.activeState(),
-      lifecycleDelta: Object.freeze(this.lifecycle.slice(lifecycleStart)),
-    });
-  }
-
-  public inputOwner(stateValue: string, input: string): string | null {
-    const state = this.asSupported(stateValue);
-    if (state === null || typeof input !== 'string' || input.length === 0) return null;
-    if (state === 'select' && input !== 'pointer-click') return null;
-    if (
-      (state === 'pan' || state === 'transform' || state === 'relation-paint') &&
-      input !== 'pointer-drag'
-    ) {
-      return null;
-    }
-    return state;
-  }
-
-  public probe(): PatchMapInteractionModeProbe {
-    return Object.freeze({
-      activeState: this.activeState(),
-      stack: Object.freeze([...this.stack]),
-      lifecycle: Object.freeze([...this.lifecycle]),
-      temporaryModeCount: this.temporary === null ? 0 : 1,
-      temporaryModifiers: Object.freeze(
-        this.temporary === null ? [] : [this.temporary.modifier],
-      ),
-      captureCount: 0,
-      activeOwnerCount: this.destroyed ? 0 : 1,
-      paused: this.paused,
-      destroyed: this.destroyed,
-    });
-  }
-
-  public destroy(): void {
-    if (this.destroyed) return;
-    this.stack.splice(0);
-    this.temporary = null;
-    this.paused = false;
-    this.destroyed = true;
-  }
-
-  private replace(state: PatchMapInteractionMode): 'changed' | 'unchanged' {
-    if (this.stack.length === 1 && this.stack[0] === state) return 'unchanged';
-    if (this.stack.length > 0) this.lifecycle.push(`exit:${this.activeState()}`);
-    this.stack.splice(0, this.stack.length, state);
-    this.lifecycle.push(`enter:${state}`);
-    this.temporary = null;
-    this.paused = false;
-    return 'changed';
-  }
-
-  private push(state: PatchMapInteractionMode): 'changed' | 'unchanged' {
-    if (this.activeState() === state) return 'unchanged';
-    if (this.stack.length > 0) this.lifecycle.push(`exit:${this.activeState()}`);
-    this.stack.push(state);
-    this.lifecycle.push(`enter:${state}`);
-    this.temporary = null;
-    this.paused = false;
-    return 'changed';
-  }
-
-  private pop(): 'changed' | 'unchanged' {
-    if (this.stack.length <= 1) return 'unchanged';
-    this.lifecycle.push(`exit:${this.activeState()}`);
-    this.stack.pop();
-    this.lifecycle.push(`enter:${this.activeState()}`);
-    this.temporary = null;
-    this.paused = false;
-    return 'changed';
-  }
-
-  private startTemporary(
-    state: PatchMapInteractionMode,
-    modifier: string,
-  ): 'changed' | 'unchanged' {
-    validateNonEmptyString(modifier, 'temporary mode modifier');
-    if (this.temporary !== null) return 'unchanged';
-    const previous = this.activeState();
-    this.temporary = Object.freeze({ state, previous, modifier });
-    if (state === previous) return 'changed';
-    this.lifecycle.push(`exit:${previous}`, `enter:${state}`);
-    return 'changed';
-  }
-
-  private releaseTemporary(modifier: string): 'changed' | 'unchanged' {
-    const temporary = this.temporary;
-    if (temporary === null || temporary.modifier !== modifier) return 'unchanged';
-    this.temporary = null;
-    if (temporary.state !== temporary.previous) {
-      this.lifecycle.push(`exit:${temporary.state}`, `enter:${temporary.previous}`);
-    }
-    return 'changed';
-  }
-
-  private blur(): 'changed' | 'unchanged' {
-    const before = this.activeState();
-    const hadTemporary = this.temporary !== null;
-    const wasPaused = this.paused;
-    this.temporary = null;
-    this.paused = false;
-    if (before !== this.normal) {
-      this.lifecycle.push(`exit:${before}`, `enter:${this.normal}`);
-      this.stack.splice(0, this.stack.length, this.normal);
-      return 'changed';
-    }
-    if (this.stack.length === 0) this.stack.push(this.normal);
-    else this.stack.splice(0, this.stack.length, this.normal);
-    return hadTemporary || wasPaused ? 'changed' : 'unchanged';
-  }
-
-  private activeState(): PatchMapInteractionMode {
-    return this.temporary?.state ?? this.stack.at(-1) ?? this.normal;
-  }
-
-  private asSupported(value: string): PatchMapInteractionMode | null {
-    return this.supported.has(value as PatchMapInteractionMode)
-      ? value as PatchMapInteractionMode
-      : null;
   }
 }
 
