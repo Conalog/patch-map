@@ -143,7 +143,6 @@ export type {
 import type {
   PatchMapEngineSceneImagesProbe,
   PatchMapEngineSurface,
-  PatchMapEngineSurfaceFactory,
   PatchMapInteractionOwnershipProbe,
   PatchMapSurfaceDebug,
   PatchMapSurfaceOptions,
@@ -206,6 +205,7 @@ import {
   PatchMapSceneStateAuthority,
   type PatchMapSceneStatePlan,
 } from './engine/scene-state-authority';
+import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-authority';
 export type {
   PatchMapEngineComponentSemanticProbe,
   PatchMapEngineTextSemanticProbe,
@@ -495,7 +495,6 @@ interface PreparedPatchMapEngineLoad {
 }
 
 export class PatchMap {
-  private readonly surfaceFactory: PatchMapEngineSurfaceFactory;
   private readonly assetRuntime: PatchMapAssetRuntime;
   private readonly assetPolicy: PatchMapAssetPolicy | undefined;
   private readonly operations: PatchMapOperationsAuthority;
@@ -516,18 +515,18 @@ export class PatchMap {
   private readonly sceneState = new PatchMapSceneStateAuthority(
     EMPTY_MATERIALIZED_DATASET,
   );
+  private readonly surfaceLifecycle: PatchMapSurfaceLifecycleAuthority<
+    PatchMapInitializeResult
+  >;
   private pendingTransactionPlanMs = 0;
   private lastTransactionPerformance: PatchMapEngineTransactionPerformanceProbe | null = null;
   private readonly listeners = new Map<PatchMapEngineEvent, Set<(event: unknown) => void>>();
   private lifecycle: PatchMapLifecycle = 'new';
-  private surface: PatchMapEngineSurface | null = null;
   private frameLoop: PatchMapFrameLoop | null = null;
   private frameLoopPausedForVisibility = false;
-  private terminalSurfaceFailure: Error | null = null;
-  private retainedCleanupSurface: PatchMapEngineSurface | null = null;
-  private authoritativeCanvas: HTMLCanvasElement | null = null;
+  private initializationBootstrapInProgress = false;
+  private initializationMustCleanLateSurface = false;
   private terminalRendererLossProbe: PatchMapPixiRendererLossProbe | null = null;
-  private initializePromise: Promise<PatchMapInitializeResult> | null = null;
   private instanceId: string | null = null;
   private readonly commandTargetAuthorities = new WeakMap<
     PatchMapCommandTargetState,
@@ -552,9 +551,6 @@ export class PatchMap {
   private loadSequence = 0;
   private pendingWork = 0;
   private readonly externalDependencyRevisions = new Map<string, string>();
-  private surfaceViewportInputUnbind: (() => void) | null = null;
-  private surfacePointerInputUnbind: (() => void) | null = null;
-  private surfaceAccessibilityActivationUnbind: (() => void) | null = null;
   private pointerGestureAuthority: PatchMapPointerGestureAuthority | null = null;
   private assetSession: PatchMapAssetSession | null = null;
   private requiredAssetAcquisitions: PatchMapAssetAcquisition[] = [];
@@ -586,8 +582,30 @@ export class PatchMap {
     return this.sceneState.targetLifecycleGeneration;
   }
 
+  private get surface(): PatchMapEngineSurface | null {
+    return this.surfaceLifecycle.liveSurface;
+  }
+
+  private get retainedCleanupSurface(): PatchMapEngineSurface | null {
+    return this.surfaceLifecycle.cleanupSurface;
+  }
+
+  private get authoritativeCanvas(): HTMLCanvasElement | null {
+    return this.surfaceLifecycle.authoritativeCanvas;
+  }
+
+  private get initializePromise(): Promise<PatchMapInitializeResult> | null {
+    return this.surfaceLifecycle.initialization;
+  }
+
+  private get terminalSurfaceFailure(): Error | null {
+    return this.surfaceLifecycle.terminalFailure;
+  }
+
   public constructor(options: PatchMapOptions = {}) {
-    this.surfaceFactory = options.surfaceFactory ?? createPixiSurface;
+    this.surfaceLifecycle = new PatchMapSurfaceLifecycleAuthority(
+      options.surfaceFactory ?? createPixiSurface,
+    );
     this.assetRuntime = options.assetRuntime ?? PATCH_MAP_ASSET_RUNTIME;
     this.assetPolicy = options.assetPolicy;
     this.operations = options.operations ?? new PatchMapOperationsAuthority();
@@ -841,9 +859,21 @@ export class PatchMap {
       viewRevision: this.publication.viewRevision,
     });
     const requiredAliases = options.requiredAssets?.map(({ alias }) => alias) ?? [];
-    this.initializePromise = (async (): Promise<PatchMapInitializeResult> => {
+    // Register the public initialization promise before entering any
+    // host-provided asset or surface callback. A synchronous reentrant
+    // initialize() must observe and reuse this promise instead of starting a
+    // second renderer allocation before ownership is published.
+    let resolveInitialization!: (result: PatchMapInitializeResult) => void;
+    let rejectInitialization!: (reason?: unknown) => void;
+    const initialization = new Promise<PatchMapInitializeResult>((resolve, reject) => {
+      resolveInitialization = resolve;
+      rejectInitialization = reject;
+    });
+    this.surfaceLifecycle.setInitialization(initialization);
+    this.initializationBootstrapInProgress = true;
+    const initializationWork = (async (): Promise<PatchMapInitializeResult> => {
       const attemptAcquisitions: PatchMapAssetAcquisition[] = [];
-      let pendingSurface: PatchMapEngineSurface | null = null;
+      let candidateSurface: PatchMapEngineSurface | null = null;
       try {
         for (const alias of requiredAliases) {
           attemptAcquisitions.push(await assetSession.acquire(alias));
@@ -859,44 +889,61 @@ export class PatchMap {
             .padStart(8, '0')}`,
           backend: surfaceOptions.preference,
         });
-        pendingSurface = await this.surfaceFactory(surfaceOptions);
-        pendingSurface.setViewportGesturePolicies?.(
+        candidateSurface = await this.surfaceLifecycle.allocateCandidate(surfaceOptions);
+        candidateSurface.setViewportGesturePolicies?.(
           this.viewportAuthority.orderedEnabledPolicies(),
         );
-        pendingSurface.setViewportZoomLimits?.(
+        candidateSurface.setViewportZoomLimits?.(
           this.viewportAuthority.snapshot().zoomLimits,
         );
         if (this.isDestroyingOrDestroyed()) {
-          this.retainedCleanupSurface = pendingSurface;
-          pendingSurface = null;
+          if (this.initializationMustCleanLateSurface) {
+            const cleanup = await this.surfaceLifecycle.cleanup(candidateSurface);
+            if (cleanup.rendererLoss?.destroyed === true) {
+              this.terminalRendererLossProbe = cleanup.rendererLoss;
+            }
+            if (cleanup.error !== null) {
+              candidateSurface = null;
+              throw this.operationError(
+                'INTERNAL_FAILURE',
+                'INTERNAL_FAILURE',
+                'initialize',
+                false,
+              );
+            }
+          } else {
+            this.surfaceLifecycle.retainCandidateForCleanup(candidateSurface);
+          }
+          candidateSurface = null;
           throw this.operationError('DESTROYED', 'DESTROYED', 'initialize', false);
         }
-        const readySurface = pendingSurface;
-        const viewportInputUnbind = readySurface.bindViewportInput?.((input) => {
-          this.acceptSurfaceViewportInput(readySurface, input);
-        }) ?? null;
+        const readySurface = candidateSurface;
         const pointerAuthority = new PatchMapPointerGestureAuthority({
           hitTest: (point) => readySurface.hitTestScreen(point),
         });
-        const pointerInputUnbind = readySurface.bindPointerInput?.((input) => {
-          this.acceptSurfacePointerInput(readySurface, input);
-        }) ?? null;
-        const accessibilityActivationUnbind =
-          readySurface.bindAccessibilityActivation?.((targetId, input) => {
-            if (this.surface !== readySurface || this.isDestroyingOrDestroyed()) {
-              return;
-            }
-            this.activateAccessibilityTarget(targetId, input);
-          }) ?? null;
-        this.surface = readySurface;
-        this.authoritativeCanvas = readySurface.canvasElement?.() ?? null;
-        this.surfaceViewportInputUnbind = viewportInputUnbind;
-        this.surfacePointerInputUnbind = pointerInputUnbind;
-        this.surfaceAccessibilityActivationUnbind =
-          accessibilityActivationUnbind;
+        try {
+          this.surfaceLifecycle.installCandidate(readySurface, {
+            viewport: (input: PatchMapSurfaceViewportInput) =>
+              this.acceptSurfaceViewportInput(readySurface, input),
+            pointer: (input: PatchMapSurfacePointerInput) =>
+              this.acceptSurfacePointerInput(readySurface, input),
+            accessibility: (targetId, input) => {
+              if (
+                !this.surfaceLifecycle.isCurrent(readySurface) ||
+                this.isDestroyingOrDestroyed()
+              ) {
+                return;
+              }
+              this.activateAccessibilityTarget(targetId, input);
+            },
+          });
+        } catch (error) {
+          pointerAuthority.destroy();
+          throw error;
+        }
         this.pointerGestureAuthority = pointerAuthority;
         this.publication.resetGeometryCorrelation();
-        pendingSurface = null;
+        candidateSurface = null;
         this.requiredAssetAcquisitions.push(...attemptAcquisitions);
         this.publication.advanceLifecycle();
         this.lifecycle = this.materialized?.rootIds.length ? 'scene-ready' : 'ready-empty';
@@ -905,17 +952,18 @@ export class PatchMap {
         return result;
       } catch (error) {
         const cleanupFailures: unknown[] = [];
-        if (pendingSurface) {
-          const cleanup = await this.cleanupSurface(pendingSurface);
+        if (candidateSurface) {
+          const cleanup = await this.surfaceLifecycle.cleanup(candidateSurface);
+          if (cleanup.rendererLoss?.destroyed === true) {
+            this.terminalRendererLossProbe = cleanup.rendererLoss;
+          }
           if (cleanup.error) cleanupFailures.push(cleanup.error);
         }
         const acquisitionSettlements = await Promise.allSettled(
           attemptAcquisitions.map(async (acquisition) => acquisition.release()),
         );
         cleanupFailures.push(...rejectedReasons(acquisitionSettlements));
-        this.surface = null;
-        this.authoritativeCanvas = null;
-        this.initializePromise = null;
+        this.surfaceLifecycle.clearInitialization(initialization);
         this.rendererConfiguration = null;
         if (this.lifecycle !== 'destroyed' && this.lifecycle !== 'destroying') {
           this.lifecycle = 'new';
@@ -926,7 +974,9 @@ export class PatchMap {
         throw this.assetInitializationError(error);
       }
     })();
-    return this.initializePromise;
+    this.initializationBootstrapInProgress = false;
+    void initializationWork.then(resolveInitialization, rejectInitialization);
+    return initialization;
   }
 
   public loadDataset(input: unknown, options: PatchMapLoadOptions = {}): PatchMapEngineLoadResult {
@@ -4291,7 +4341,7 @@ export class PatchMap {
       facilities: FACILITIES,
       resources: Object.freeze({
         canvasCount:
-          (this.surface?.canvasCount ?? 0) + (this.retainedCleanupSurface?.canvasCount ?? 0),
+          this.surfaceLifecycle.canvasCount,
         canvas: Object.freeze({
           cssSize: surfaceDebug.cssSize,
           backingSize: surfaceDebug.backingSize,
@@ -4356,7 +4406,7 @@ export class PatchMap {
     const elements = semantic.scene.counts.elements;
     const components = semantic.scene.counts.components;
     const canvasCount =
-      (this.surface?.canvasCount ?? 0) + (this.retainedCleanupSurface?.canvasCount ?? 0);
+      this.surfaceLifecycle.canvasCount;
     return this.operations.captureRuntimeDiagnostics({
       instanceId: this.instanceId,
       lifecycle: this.lifecycle,
@@ -5038,7 +5088,17 @@ export class PatchMap {
     this.hostInteractions.destroy();
     this.accessibility.destroy();
     this.operations.disposeCallbacks();
-    const pendingInitialization = this.initializePromise;
+    // A host callback may synchronously reenter destroy before the async
+    // initialization task has returned control to initialize(). Waiting on
+    // the public promise in that narrow bootstrap window would await the
+    // callback that is itself awaiting destroy. The initialization owner
+    // cleans any surface that arrives after this destroy completes.
+    if (this.initializationBootstrapInProgress) {
+      this.initializationMustCleanLateSurface = true;
+    }
+    const pendingInitialization = this.initializationBootstrapInProgress
+      ? null
+      : this.initializePromise;
     const assetSession = this.assetSession;
     const cleanupFailures: unknown[] = [];
     const requiredAcquisitions = this.requiredAssetAcquisitions.splice(0);
@@ -5072,8 +5132,6 @@ export class PatchMap {
     } catch (error) {
       cleanupFailures.push(error);
     }
-    this.surface = null;
-    this.authoritativeCanvas = null;
     if (this.materialized !== null) {
       releasePatchMapSemanticHashScratch(this.materialized.dataset);
     }
@@ -5089,7 +5147,7 @@ export class PatchMap {
     this.pendingTransactionPlanMs = 0;
     this.lastTransactionPerformance = null;
     this.rendererConfiguration = null;
-    this.initializePromise = null;
+    this.surfaceLifecycle.clearInitialization();
     this.assetSession = assetCleanupSucceeded ? null : assetSession;
     this.lifecycle = 'destroyed';
     this.emit('destroyed', Object.freeze({
@@ -5618,68 +5676,14 @@ export class PatchMap {
   private async cleanupSurface(
     surface: PatchMapEngineSurface,
   ): Promise<Readonly<{ released: boolean; error: Error | null }>> {
-    let lastError: Error | null = null;
-    let viewportCleanupFailed = false;
-    if (this.surface === surface && this.surfaceViewportInputUnbind !== null) {
-      try {
-        this.surfaceViewportInputUnbind();
-      } catch {
-        lastError = new Error('PatchMap viewport input cleanup failed');
-        viewportCleanupFailed = true;
-      } finally {
-        this.surfaceViewportInputUnbind = null;
-      }
+    const cleanup = await this.surfaceLifecycle.cleanup(surface);
+    if (cleanup.rendererLoss?.destroyed === true) {
+      this.terminalRendererLossProbe = cleanup.rendererLoss;
     }
-    if (this.surface === surface && this.surfacePointerInputUnbind !== null) {
-      try {
-        this.surfacePointerInputUnbind();
-      } catch {
-        lastError = new Error('PatchMap pointer input cleanup failed');
-        viewportCleanupFailed = true;
-      } finally {
-        this.surfacePointerInputUnbind = null;
-      }
-    }
-    if (
-      this.surface === surface &&
-      this.surfaceAccessibilityActivationUnbind !== null
-    ) {
-      try {
-        this.surfaceAccessibilityActivationUnbind();
-      } catch {
-        lastError = new Error(
-          'PatchMap accessibility activation cleanup failed',
-        );
-        viewportCleanupFailed = true;
-      } finally {
-        this.surfaceAccessibilityActivationUnbind = null;
-      }
-    }
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      let attemptFailed = false;
-      try {
-        await surface.destroy();
-        const rendererLoss = surface.rendererLossProbe?.() ?? null;
-        if (rendererLoss?.destroyed === true) {
-          this.terminalRendererLossProbe = rendererLoss;
-        }
-      } catch {
-        lastError = new Error('PatchMap surface cleanup failed');
-        attemptFailed = true;
-      }
-      if (surface.canvasCount === 0) {
-        if (this.surface === surface) this.surface = null;
-        if (this.retainedCleanupSurface === surface) this.retainedCleanupSurface = null;
-        return Object.freeze({
-          released: true,
-          error: attemptFailed || viewportCleanupFailed ? lastError : null,
-        });
-      }
-      if (!attemptFailed) lastError = new Error('PatchMap surface retained a canvas after destroy');
-    }
-    this.surface = this.surface === surface ? null : this.surface;
-    this.retainedCleanupSurface = surface;
-    return Object.freeze({ released: false, error: lastError });
+    return Object.freeze({
+      released: cleanup.released,
+      error: cleanup.error,
+    });
   }
 
   private destroyAssetSession(
@@ -6206,8 +6210,7 @@ export class PatchMap {
   }
 
   private handleSurfaceTerminalFailure(error: Error): void {
-    if (this.terminalSurfaceFailure !== null) return;
-    this.terminalSurfaceFailure = error;
+    if (!this.surfaceLifecycle.recordTerminalFailure(error)) return;
     this.frameLoop?.destroy();
     this.frameLoop = null;
     this.frameLoopPausedForVisibility = false;

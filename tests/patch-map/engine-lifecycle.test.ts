@@ -157,7 +157,105 @@ class FakeSurface implements PatchMapEngineSurface {
   }
 }
 
+class RetryingFakeSurface extends FakeSurface {
+  private remainingFailures: number;
+
+  public constructor(destroyFailures: number) {
+    super();
+    this.remainingFailures = destroyFailures;
+  }
+
+  public override destroy(): Promise<boolean> {
+    if (this.remainingFailures > 0) {
+      this.remainingFailures -= 1;
+      return Promise.reject(new Error('surface destroy failed'));
+    }
+    return super.destroy();
+  }
+}
+
 describe('PatchMap lifecycle authority', () => {
+  it('publishes initialization ownership before a surface factory can reenter', async () => {
+    const surfaces: FakeSurface[] = [];
+    let reentrant: Promise<unknown> | null = null;
+    const owner: { engine: PatchMap | null } = { engine: null };
+    const engine = new PatchMap({
+      surfaceFactory: (options) => {
+        reentrant = owner.engine!.initialize({
+          instanceId: 'reentrant-initialize',
+          width: 800,
+          height: 600,
+        });
+        const surface = new FakeSurface(options);
+        surfaces.push(surface);
+        return Promise.resolve(surface);
+      },
+    });
+    owner.engine = engine;
+
+    const initializing = engine.initialize({
+      instanceId: 'reentrant-initialize',
+      width: 800,
+      height: 600,
+    });
+    await expect(initializing).resolves.toMatchObject({ lifecycle: 'ready-empty' });
+    expect(reentrant).toBe(initializing);
+    expect(surfaces).toHaveLength(1);
+
+    await engine.destroy();
+    expect(surfaces[0]).toMatchObject({ destroyed: true, canvasCount: 0 });
+  });
+
+  it('does not deadlock when a surface factory awaits reentrant destroy', async () => {
+    const surface = new FakeSurface();
+    const owner: { engine: PatchMap | null } = { engine: null };
+    const engine = new PatchMap({
+      surfaceFactory: async () => {
+        await owner.engine!.destroy();
+        return surface;
+      },
+    });
+    owner.engine = engine;
+
+    await expect(engine.initialize({
+      instanceId: 'reentrant-destroy',
+      width: 800,
+      height: 600,
+    })).rejects.toMatchObject({ diagnostic: { code: 'DESTROYED' } });
+    expect(surface).toMatchObject({ destroyed: true, canvasCount: 0 });
+    expect(engine.snapshot()).toMatchObject({
+      lifecycle: 'destroyed',
+      resources: { canvasCount: 0 },
+    });
+  });
+
+  it('reports failed bootstrap cleanup and retains the surface for destroy retry', async () => {
+    const surface = new RetryingFakeSurface(2);
+    const owner: { engine: PatchMap | null } = { engine: null };
+    const engine = new PatchMap({
+      surfaceFactory: async () => {
+        await owner.engine!.destroy();
+        return surface;
+      },
+    });
+    owner.engine = engine;
+
+    await expect(engine.initialize({
+      instanceId: 'reentrant-destroy-cleanup-failure',
+      width: 800,
+      height: 600,
+    })).rejects.toMatchObject({
+      diagnostic: { code: 'INTERNAL_FAILURE', operation: 'initialize' },
+    });
+    expect(engine.snapshot()).toMatchObject({
+      lifecycle: 'destroyed',
+      resources: { canvasCount: 1 },
+    });
+
+    await expect(engine.destroy()).resolves.toBe(false);
+    expect(surface).toMatchObject({ destroyed: true, canvasCount: 0 });
+  });
+
   it('reads frame-loop facts without allocating a surface debug snapshot', async () => {
     const { factory, surfaces } = createSurfaceFactory();
     const engine = new PatchMap({ surfaceFactory: factory });
