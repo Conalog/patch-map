@@ -22,7 +22,8 @@
   remain in the same file-by-file review ledger.
 - `engine.ts` is 6,834 LOC, `core.ts` is 3,356 LOC, `parser.ts` is 2,746 LOC,
   `semantic/transaction.ts` is 2,485 LOC, and `semantic/dataset.ts` is 1,170
-  LOC after the current authority extractions.
+  LOC after the current authority extractions. `leaf-layer.ts` is now 1,804
+  LOC, `pixi-renderer.ts` is 2,717 LOC, and contract `main.ts` is 1,820 LOC.
   The two facades still
   combine lifecycle, mutation, presentation, viewport, interaction, assets,
   publication, and diagnostics, so the prior completed assessment was wrong.
@@ -53,9 +54,14 @@
   atomic publication and live runtime installation remain in their facades.
 - Parser direct-text cache/index decisions and transaction request/operation/
   target/path normalization now have single downward owners without new scans.
-- The current checkpoint passes 168 unit files / 1,546 tests, full lint and
-  typecheck, product/Lab builds, canonical 173 contract, headless 173 routes,
-  and 2+7 memory cleanup. Independent review found no unresolved P0-P2 issue.
+- Leaf text-style decisions, nested Pixi DevTools registration, and contract
+  Lab run-performance observation now have focused owners while Pixi resource
+  creation, Application lifecycle, and Lab orchestration remain in their
+  existing coordinators.
+- The current checkpoint passes 171 unit files / 1,560 tests, full lint and
+  typecheck, product/Lab builds, canonical 173 contract, and a representative
+  headless WebGL Lab run with zero console/page/network errors. Unchanged-path
+  package, memory, and performance gates were intentionally not repeated.
 - The last verified product baseline remains 151 files / 1,471 tests,
   canonical 38/173, packed consumers, headless 173 routes, actual-production,
   10,000 records, and 2+7 memory cleanup. It is a baseline, not evidence for
@@ -63,9 +69,9 @@
 
 # Next Step
 
-- Extract pure renderer text-style decisions and the contract Lab run observer
-  while retaining Application, aggregate resource, session, and lifecycle
-  writers, then continue the remaining file dispositions.
+- Extract the next cohesive pure decision owners from the remaining Core and
+  Engine facades while retaining atomic publication, renderer lifecycle, and
+  stateful writer ownership in those facades.
 
 # Working Boundary
 
