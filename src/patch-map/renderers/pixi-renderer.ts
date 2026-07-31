@@ -7,7 +7,6 @@ import {
   Graphics,
   Matrix,
   Rectangle,
-  VERSION,
   type ApplicationOptions,
   type FederatedPointerEvent,
 } from 'pixi.js';
@@ -50,8 +49,6 @@ import type {
   PatchMapRenderLaneSnapshot,
   PatchMapRendererLossState,
   PatchMapRendererStrategy,
-  PatchMapTextAttachedSignatures,
-  PatchMapTextSemanticSignatures,
   PatchMapTextRendererProbe,
   PatchMapPixiPublicSurfaceProbe,
   PatchMapPixiRendererDebug,
@@ -62,7 +59,6 @@ import type {
 import {
   createPatchMapProjectionQuadCache,
   createPatchMapWorldAffine,
-  resolvePatchMapSlotQuad,
   type PatchMapProjectionRenderContext,
   type PatchMapWorldOrientation,
 } from './types';
@@ -72,7 +68,6 @@ import type {
 } from '../presentation-policy';
 import { PatchMapPresentationStoreView } from './presentation-store';
 import {
-  pixiDevtoolsOwnsApplication,
   registerPixiDevtools,
   unregisterPixiDevtools,
 } from './pixi-devtools-registration';
@@ -91,12 +86,49 @@ import type {
   PatchMapAccessibilityRenderNode,
   PatchMapAccessibilitySurfaceProbe,
 } from '../accessibility';
+import {
+  activeRendererBackend,
+  backendName,
+  publicGlContext,
+  readPatchMapPixiPublicSurfaceProbe,
+  readPatchMapPixiRendererLossProbe,
+} from './pixi-renderer/backend-public-surface';
+import {
+  appendOverlayHandles,
+  appendOverlayOutline,
+  DEFAULT_INTERACTION_OVERLAY_POLICY,
+  interactionOverlayLabel,
+  normalizeInteractionOverlayPolicy,
+  resolveAggregateOverlayVertices,
+  sameInteractionOverlayPolicy,
+} from './pixi-renderer/interaction-overlay';
+import {
+  freezeRendererTextProbe,
+  freezeRendererTextSemanticSignatures,
+  normalizePresentationPolicy,
+  samePresentationPolicy,
+  sameRendererTextAttachedSignatures,
+  sameRendererTextSemanticSignatures,
+} from './pixi-renderer/presentation-values';
+import {
+  packedAlpha,
+  packedRgb,
+  positive,
+  sameStringSet,
+  sameView,
+  sameWorldOrientation,
+} from './pixi-renderer/value-atoms';
 
 export {
   buildPatchMapRelationAdjacency,
   expandPatchMapRelationDependencyRanges,
   projectionChangedRanges,
 } from './renderer-reconcile-ranges';
+export {
+  capturePatchMapPixiRendererPublication,
+  restorePatchMapPixiRendererPublication,
+  type PatchMapPixiRendererPublicationCheckpoint,
+} from './pixi-renderer/publication-checkpoint';
 
 export interface PatchMapPixiRendererOptions {
   readonly target?: HTMLElement;
@@ -123,30 +155,6 @@ export interface PatchMapPixiRendererOptions {
 export interface PatchMapPixiInitializationMetrics {
   readonly applicationInitMs: number;
   readonly rendererBuildMs: number;
-}
-
-/**
- * CPU-only renderer publication state that a scene load may replace before
- * its authoritative publication succeeds. The checkpoint deliberately keeps
- * the exact retained references: none of these values are mutated in place by
- * the load-side publication methods.
- *
- * This is an internal rollback seam, not a serialized or public package API.
- */
-export interface PatchMapPixiRendererPublicationCheckpoint {
-  readonly projectionIndex: PatchMapProjectionIndex;
-  readonly staleProjectionEntityIds: ReadonlySet<string>;
-  readonly projectionRevision: number;
-  readonly pendingRanges: SlotRange[] | undefined;
-  readonly pendingOverlayRanges: SlotRange[] | undefined;
-  readonly pendingProjectionTransformOnly: boolean;
-  readonly pendingBarPresentationOnly: boolean;
-  readonly pendingTextOnly: boolean;
-  readonly lastInvalidation: string;
-  readonly storeEpoch: number;
-  readonly presentationPolicy: PatchMapResolvedPresentationPolicy | null;
-  readonly presentationStore: PatchMapPresentationStoreView | null;
-  readonly presentationBaseStore: RenderStoreView | null;
 }
 
 export class PatchMapPixiRuntimeError extends Error {
@@ -181,28 +189,9 @@ const DEFAULT_WORLD_ORIENTATION: PatchMapWorldOrientation = Object.freeze({
   flipX: false,
   flipY: false,
 });
-const DEFAULT_INTERACTION_OVERLAY_POLICY: PatchMapInteractionOverlayPolicy = Object.freeze({
-  visibleEntityIds: null,
-  transformableEntityIds: null,
-  resizableEntityIds: null,
-  hidden: false,
-  handleCssPx: 6,
-  strokeCssPx: 2,
-});
 const EMPTY_PROJECTION_INDEX: PatchMapProjectionIndex = Object.freeze({
   byEntityId: Object.freeze({}),
 });
-
-interface PixiPublicGlContextSystem {
-  readonly webGLVersion?: 1 | 2;
-  readonly isLost?: boolean;
-  forceContextLoss?(): void;
-}
-
-interface PixiPublicRendererSurface {
-  readonly name?: string;
-  readonly context?: PixiPublicGlContextSystem;
-}
 
 export class PatchMapPixiRenderer implements CoreRenderer {
   public readonly application: Application;
@@ -1435,79 +1424,11 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   }
 
   public publicSurfaceProbe(): PatchMapPixiPublicSurfaceProbe {
-    const stage = this.application.stage;
-    const roles: readonly PatchMapRenderLaneRole[] = [
-      'background-geometry',
-      'background-assets',
-      'ordinary-geometry',
-      'relations-dynamic',
-      'content-assets',
-      'text',
-      'interaction-overlay',
-    ];
-    return Object.freeze({
-      rendererLibrary: 'pixi.js-v8',
-      rendererVersion: VERSION,
-      backend: activeRendererBackend(this.application),
-      applicationInitialized: this.application.renderer !== undefined,
-      manualRender: true,
-      canvas: Object.freeze({
-        authoritative: this.application.canvas === this.canvas,
-        attached: this.target?.contains(this.canvas) ?? this.canvas.isConnected,
-        patchMapProduct: this.canvas.dataset.patchMapProduct === 'patch-map'
-          ? 'patch-map'
-          : null,
-      }),
-      stage: Object.freeze({
-        label: stage.label,
-        authoritative: stage.children.includes(this.world) && this.world.parent === stage,
-        discoverableByDevTools: pixiDevtoolsOwnsApplication(this.application),
-        worldAttached: stage.children.includes(this.world) && this.world.parent === stage,
-        childCount: stage.children.length,
-      }),
-      aggregateLayers: Object.freeze(roles.map((role) => {
-        const lane = this.lastLaneProbe[role];
-        return Object.freeze({
-          role,
-          label: lane.label,
-          renderObjectCount: lane.renderObjectCount,
-          visiblePrimitiveCount: lane.visiblePrimitiveCount,
-        });
-      })),
-    });
+    return readPatchMapPixiPublicSurfaceProbe(this);
   }
 
   public rendererLossProbe(): PatchMapPixiRendererLossProbe {
-    if (this.destroyedValue) {
-      return Object.freeze({
-        backend: this.activeBackend,
-        webGLVersion: this.initialWebGLVersion,
-        state: 'destroyed',
-        contextLost: false,
-        lossEventCount: this.rendererLossEventCount,
-        restorationEventCount: this.rendererRestorationEventCount,
-        recoveredFrameCount: this.recoveredRendererFrameCount,
-        listenerCount: 0,
-        lastLossFrame: this.lastRendererLossFrame,
-        lastRecoveryFrame: this.lastRendererRecoveryFrame,
-        destroyed: true,
-      });
-    }
-    const context = publicGlContext(this.application);
-    const contextLost = context?.isLost === true;
-    return Object.freeze({
-      backend: this.activeBackend,
-      webGLVersion: context?.webGLVersion ?? this.initialWebGLVersion,
-      state: contextLost ? 'lost' : this.rendererLossState,
-      contextLost,
-      lossEventCount: this.rendererLossEventCount,
-      restorationEventCount: this.rendererRestorationEventCount,
-      recoveredFrameCount: this.recoveredRendererFrameCount,
-      listenerCount: this.contextLossUnbind === null ? 0 : 2,
-      lastLossFrame: this.lastRendererLossFrame,
-      lastRecoveryFrame: this.lastRendererRecoveryFrame,
-      destroyed: false,
-    });
+    return readPatchMapPixiRendererLossProbe(this);
   }
 
   /**
@@ -1985,120 +1906,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   }
 }
 
-type PatchMapPixiRendererPublicationState = {
-  -readonly [Key in keyof PatchMapPixiRendererPublicationCheckpoint]:
-    PatchMapPixiRendererPublicationCheckpoint[Key];
-};
-
-/** Capture exact load-side CPU publication state without touching Pixi/GPU state. */
-export function capturePatchMapPixiRendererPublication(
-  renderer: PatchMapPixiRenderer,
-): PatchMapPixiRendererPublicationCheckpoint {
-  if (renderer.destroyed) throw new Error('PatchMapPixiRenderer is destroyed');
-  const state = renderer as unknown as PatchMapPixiRendererPublicationState;
-  return Object.freeze({
-    projectionIndex: state.projectionIndex,
-    staleProjectionEntityIds: state.staleProjectionEntityIds,
-    projectionRevision: state.projectionRevision,
-    pendingRanges: state.pendingRanges,
-    pendingOverlayRanges: state.pendingOverlayRanges,
-    pendingProjectionTransformOnly: state.pendingProjectionTransformOnly,
-    pendingBarPresentationOnly: state.pendingBarPresentationOnly,
-    pendingTextOnly: state.pendingTextOnly,
-    lastInvalidation: state.lastInvalidation,
-    storeEpoch: state.storeEpoch,
-    presentationPolicy: state.presentationPolicy,
-    presentationStore: state.presentationStore,
-    presentationBaseStore: state.presentationBaseStore,
-  });
-}
-
-/**
- * Restore a captured publication checkpoint using assignments only. This is
- * intentionally non-throwing so rollback cannot mask the original load
- * failure with validation, allocation, renderer, or GPU work.
- */
-export function restorePatchMapPixiRendererPublication(
-  renderer: PatchMapPixiRenderer,
-  checkpoint: PatchMapPixiRendererPublicationCheckpoint,
-): void {
-  const state = renderer as unknown as PatchMapPixiRendererPublicationState;
-  state.projectionIndex = checkpoint.projectionIndex;
-  state.staleProjectionEntityIds = checkpoint.staleProjectionEntityIds;
-  state.projectionRevision = checkpoint.projectionRevision;
-  state.pendingRanges = checkpoint.pendingRanges;
-  state.pendingOverlayRanges = checkpoint.pendingOverlayRanges;
-  state.pendingProjectionTransformOnly = checkpoint.pendingProjectionTransformOnly;
-  state.pendingBarPresentationOnly = checkpoint.pendingBarPresentationOnly;
-  state.pendingTextOnly = checkpoint.pendingTextOnly;
-  state.lastInvalidation = checkpoint.lastInvalidation;
-  state.storeEpoch = checkpoint.storeEpoch;
-  state.presentationPolicy = checkpoint.presentationPolicy;
-  state.presentationStore = checkpoint.presentationStore;
-  state.presentationBaseStore = checkpoint.presentationBaseStore;
-}
-
-function resolveAggregateOverlayVertices(
-  store: RenderStoreView,
-  slots: readonly number[],
-  projectionContext: PatchMapProjectionRenderContext,
-): readonly number[] | null {
-  const quads = slots.flatMap((slot) => {
-    const quad = resolvePatchMapSlotQuad(store, slot, projectionContext);
-    return quad.width > 0 && quad.height > 0 ? [quad] : [];
-  });
-  if (quads.length === 0) return null;
-  if (quads.length === 1) return Object.freeze([...quads[0]!.vertices]);
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (const quad of quads) {
-    for (let index = 0; index < quad.vertices.length; index += 2) {
-      const x = quad.vertices[index];
-      const y = quad.vertices[index + 1];
-      if (x === undefined || y === undefined) continue;
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x);
-      maxY = Math.max(maxY, y);
-    }
-  }
-  return Object.freeze([minX, minY, maxX, minY, maxX, maxY, minX, maxY]);
-}
-
-function appendOverlayOutline(
-  graphics: Graphics,
-  vertices: readonly number[],
-): void {
-  const firstX = vertices[0];
-  const firstY = vertices[1];
-  if (firstX === undefined || firstY === undefined) return;
-  graphics.moveTo(firstX, firstY);
-  for (let index = 2; index < vertices.length; index += 2) {
-    graphics.lineTo(vertices[index]!, vertices[index + 1]!);
-  }
-  graphics.closePath();
-}
-
-function appendOverlayHandles(
-  graphics: Graphics,
-  vertices: readonly number[],
-  size: number,
-): void {
-  const half = size / 2;
-  for (let index = 0; index < vertices.length; index += 2) {
-    const x = vertices[index];
-    const y = vertices[index + 1];
-    if (x === undefined || y === undefined) continue;
-    graphics.rect(x - half, y - half, size, size);
-  }
-}
-
-function interactionOverlayLabel(selection: Graphics, transformer: Graphics): string {
-  return `${selection.label} + ${transformer.label}`;
-}
-
 function slotsForRanges(capacity: number, ranges: readonly SlotRange[]): readonly number[] {
   const slots: number[] = [];
   for (const range of ranges) {
@@ -2107,280 +1914,6 @@ function slotsForRanges(capacity: number, ranges: readonly SlotRange[]): readonl
     for (let slot = start; slot < end; slot += 1) slots.push(slot);
   }
   return slots;
-}
-
-function sameStringSet(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
-  if (left === right) return true;
-  if (left.size !== right.size) return false;
-  for (const value of left) {
-    if (!right.has(value)) return false;
-  }
-  return true;
-}
-
-function normalizeInteractionOverlayPolicy(
-  policy: PatchMapInteractionOverlayPolicy,
-): PatchMapInteractionOverlayPolicy {
-  const visibleEntityIds = policy.visibleEntityIds === null
-    ? null
-    : freezeEntityIds(policy.visibleEntityIds, 'visibleEntityIds');
-  const transformableEntityIds = policy.transformableEntityIds === null
-    ? null
-    : freezeEntityIds(policy.transformableEntityIds, 'transformableEntityIds');
-  return Object.freeze({
-    visibleEntityIds,
-    transformableEntityIds,
-    resizableEntityIds: policy.resizableEntityIds === null
-      ? null
-      : freezeEntityIds(policy.resizableEntityIds, 'resizableEntityIds'),
-    hidden: policy.hidden,
-    handleCssPx: positive(policy.handleCssPx, 'handleCssPx'),
-    strokeCssPx: positive(policy.strokeCssPx, 'strokeCssPx'),
-  });
-}
-
-function sameInteractionOverlayPolicy(
-  left: PatchMapInteractionOverlayPolicy,
-  right: PatchMapInteractionOverlayPolicy,
-): boolean {
-  return left.hidden === right.hidden &&
-    left.handleCssPx === right.handleCssPx &&
-    left.strokeCssPx === right.strokeCssPx &&
-    sameNullableStringArray(left.visibleEntityIds, right.visibleEntityIds) &&
-    sameNullableStringArray(left.transformableEntityIds, right.transformableEntityIds) &&
-    sameNullableStringArray(left.resizableEntityIds, right.resizableEntityIds);
-}
-
-function sameNullableStringArray(
-  left: readonly string[] | null,
-  right: readonly string[] | null,
-): boolean {
-  return left === null || right === null
-    ? left === right
-    : sameStringArray(left, right);
-}
-
-function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length &&
-    left.every((value, index) => value === right[index]);
-}
-
-function freezeEntityIds(values: readonly string[], label: string): readonly string[] {
-  if (!Array.isArray(values)) throw new TypeError(`${label} must be an array`);
-  return Object.freeze([...new Set(values.map((value, index) => {
-    if (typeof value !== 'string' || value.length === 0) {
-      throw new TypeError(`${label}[${index}] must be a non-empty string`);
-    }
-    return value;
-  }))]);
-}
-
-function normalizePresentationPolicy(
-  policy: PatchMapResolvedPresentationPolicy,
-): PatchMapResolvedPresentationPolicy {
-  if (!Number.isSafeInteger(policy.revision) || policy.revision < 1) {
-    throw new RangeError('presentation policy revision must be a positive safe integer');
-  }
-  if (
-    !Number.isFinite(policy.deEmphasisAlpha) ||
-    policy.deEmphasisAlpha < 0 ||
-    policy.deEmphasisAlpha > 1
-  ) {
-    throw new RangeError('presentation deEmphasisAlpha must be between zero and one');
-  }
-  return Object.freeze({
-    revision: policy.revision,
-    highlightedEntityIds: policy.highlightedEntityIds === null
-      ? null
-      : freezePresentationIds(policy.highlightedEntityIds, 'highlightedEntityIds'),
-    deEmphasisAlpha: policy.deEmphasisAlpha,
-    hiddenEntityIds: freezePresentationIds(policy.hiddenEntityIds, 'hiddenEntityIds'),
-    fillOverrides: freezePresentationFillOverrides(policy.fillOverrides),
-  });
-}
-
-function freezePresentationFillOverrides(
-  values: PatchMapResolvedPresentationPolicy['fillOverrides'],
-): PatchMapResolvedPresentationPolicy['fillOverrides'] {
-  if (!Array.isArray(values as unknown)) {
-    throw new TypeError('fillOverrides must be an array');
-  }
-  const seen = new Set<string>();
-  return Object.freeze(values.map((value, index) => {
-    if (value === null || typeof value !== 'object') {
-      throw new TypeError(`fillOverrides[${index}] must be an object`);
-    }
-    if (typeof value.id !== 'string' || value.id.length === 0) {
-      throw new TypeError(`fillOverrides[${index}].id must be a non-empty string`);
-    }
-    if (seen.has(value.id)) {
-      throw new RangeError(`fillOverrides contains duplicate id ${value.id}`);
-    }
-    if (
-      !Number.isSafeInteger(value.packedColor) ||
-      value.packedColor < 0 ||
-      value.packedColor > 0xffffffff
-    ) {
-      throw new RangeError(
-        `fillOverrides[${index}].packedColor must be a packed RGBA integer`,
-      );
-    }
-    seen.add(value.id);
-    return Object.freeze({ id: value.id, packedColor: value.packedColor >>> 0 });
-  }).sort((left, right) => left.id.localeCompare(right.id)));
-}
-
-function freezePresentationIds(values: readonly string[], label: string): readonly string[] {
-  if (!Array.isArray(values)) throw new TypeError(`${label} must be an array`);
-  const result = values.map((value, index) => {
-    if (typeof value !== 'string' || value.length === 0) {
-      throw new TypeError(`${label}[${index}] must be a non-empty string`);
-    }
-    return value;
-  });
-  return Object.freeze([...new Set(result)].sort());
-}
-
-function samePresentationPolicy(
-  left: PatchMapResolvedPresentationPolicy | null,
-  right: PatchMapResolvedPresentationPolicy | null,
-): boolean {
-  if (left === right) return true;
-  if (left === null || right === null) return false;
-  return left.revision === right.revision &&
-    left.deEmphasisAlpha === right.deEmphasisAlpha &&
-    sameOptionalStringArray(left.highlightedEntityIds, right.highlightedEntityIds) &&
-    sameOrderedStrings(left.hiddenEntityIds, right.hiddenEntityIds) &&
-    samePresentationFillOverrides(left.fillOverrides, right.fillOverrides);
-}
-
-function samePresentationFillOverrides(
-  left: PatchMapResolvedPresentationPolicy['fillOverrides'],
-  right: PatchMapResolvedPresentationPolicy['fillOverrides'],
-): boolean {
-  return left.length === right.length && left.every((value, index) =>
-    value.id === right[index]?.id && value.packedColor === right[index]?.packedColor
-  );
-}
-
-function sameOptionalStringArray(
-  left: readonly string[] | null,
-  right: readonly string[] | null,
-): boolean {
-  return left === null || right === null
-    ? left === right
-    : sameOrderedStrings(left, right);
-}
-
-function sameOrderedStrings(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function freezeRendererTextSemanticSignatures(
-  signatures: PatchMapTextSemanticSignatures,
-): PatchMapTextSemanticSignatures {
-  return Object.freeze({
-    content: signatures.content,
-    style: signatures.style,
-    layout: signatures.layout,
-  });
-}
-
-function freezeRendererTextAttachedSignatures(
-  signatures: PatchMapTextAttachedSignatures,
-): PatchMapTextAttachedSignatures {
-  return Object.freeze({
-    content: signatures.content,
-    style: signatures.style,
-    layout: signatures.layout,
-    renderer: signatures.renderer,
-  });
-}
-
-function freezeRendererTextProbe(probe: PatchMapTextRendererProbe): PatchMapTextRendererProbe {
-  return Object.freeze({
-    ...probe,
-    semanticSignatures: freezeRendererTextSemanticSignatures(probe.semanticSignatures),
-    attachedSignatures: probe.attachedSignatures === null
-      ? null
-      : freezeRendererTextAttachedSignatures(probe.attachedSignatures),
-    lastRenderedSignatures: probe.lastRenderedSignatures === null
-      ? null
-      : freezeRendererTextAttachedSignatures(probe.lastRenderedSignatures),
-  });
-}
-
-function sameRendererTextSemanticSignatures(
-  semantic: PatchMapTextSemanticSignatures,
-  attached: PatchMapTextAttachedSignatures | null,
-): boolean {
-  return attached !== null &&
-    semantic.content === attached.content &&
-    semantic.style === attached.style &&
-    semantic.layout === attached.layout;
-}
-
-function sameRendererTextAttachedSignatures(
-  left: PatchMapTextAttachedSignatures | null,
-  right: PatchMapTextAttachedSignatures | null,
-): boolean {
-  return left === right || (
-    left !== null &&
-    right !== null &&
-    left.content === right.content &&
-    left.style === right.style &&
-    left.layout === right.layout &&
-    left.renderer === right.renderer
-  );
-}
-
-function sameView(left: CoreView, right: CoreView): boolean {
-  return (
-    left.x === right.x &&
-    left.y === right.y &&
-    left.scale === right.scale &&
-    (left.rotation ?? 0) === (right.rotation ?? 0)
-  );
-}
-
-function sameWorldOrientation(left: PatchMapWorldOrientation, right: PatchMapWorldOrientation): boolean {
-  return left.rotationDegrees === right.rotationDegrees &&
-    left.flipX === right.flipX &&
-    left.flipY === right.flipY;
-}
-
-function publicRenderer(application: Application): PixiPublicRendererSurface {
-  return application.renderer as unknown as PixiPublicRendererSurface;
-}
-
-function publicGlContext(application: Application): PixiPublicGlContextSystem | null {
-  return publicRenderer(application).context ?? null;
-}
-
-function activeRendererBackend(application: Application): PatchMapActiveRendererBackend {
-  const renderer = publicRenderer(application);
-  const name = renderer.name ?? application.renderer.constructor.name;
-  if (/webgpu/i.test(name)) return 'webgpu';
-  if (/webgl|glrenderer/i.test(name)) {
-    const version = renderer.context?.webGLVersion;
-    return version === 2 ? 'webgl2' : version === 1 ? 'webgl1' : 'unknown';
-  }
-  return 'unknown';
-}
-
-function backendName(application: Application): string {
-  const name = publicRenderer(application).name ?? application.renderer.constructor.name;
-  if (/webgpu/i.test(name)) return 'webgpu';
-  if (/webgl|glrenderer/i.test(name)) return 'webgl';
-  return name || 'unknown';
-}
-
-function packedRgb(value: number): number {
-  return (value >>> 8) & 0xffffff;
-}
-
-function packedAlpha(value: number): number {
-  return (value & 0xff) / 255;
 }
 
 function freezeLane(
@@ -2442,11 +1975,6 @@ function updateAccessibilityRectangle(
   const rectangle = new Rectangle(...bounds);
   if (field === 'boundsArea') container.boundsArea = rectangle;
   else container.hitArea = rectangle;
-}
-
-function positive(value: number, name: string): number {
-  if (!(value > 0) || !Number.isFinite(value)) throw new RangeError(`${name} must be positive and finite`);
-  return value;
 }
 
 function now(): number {
