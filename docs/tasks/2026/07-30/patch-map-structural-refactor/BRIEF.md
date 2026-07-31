@@ -46,12 +46,14 @@
 - T6 retains rounded-bar Mesh/Geometry identity for value-only updates and
   uploads only changed position buffers; structural style, radius, visibility,
   and fill-presence transitions still rebuild atomically.
+- T7 routes Core bar reconciliation through one controller-owned scalar
+  scratch while keeping public presentation results frozen; the isolated
+  5,000-bar controller stage improved by more than 50%.
 
 # Next Step
 
-- Remove public observation allocation from the internal presentation
-  reconcile loop while preserving its frozen public probes and publication
-  semantics, then measure it as a separate hot-path tranche.
+- Split the manual Lab's pure view and exact journal/value helpers from session
+  ownership, then consolidate only contract-proven test harness atoms.
 
 # Working Boundary
 
