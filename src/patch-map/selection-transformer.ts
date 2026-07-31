@@ -6,164 +6,22 @@ import type {
   PatchMapRelationsElement,
   NormalizedPatchMapElement,
 } from './semantic/dataset';
+import {
+  PATCH_MAP_SELECTION_TRANSFORMER_REVISION,
+  type PatchMapRelationEndpointResolution,
+  type PatchMapSelectionFrameProbe,
+  type PatchMapSelectionVisualOptions,
+  type PatchMapSelectionVisualProbe,
+  type PatchMapTransformableSubsetProbe,
+  type PatchMapTransformEligibility,
+  type PatchMapTransformerHandle,
+  type PatchMapTransformerHandleProbe,
+  type PatchMapTransformerHandleRegion,
+  type PatchMapTransformerTargetGeometry,
+} from './selection-transformer/contracts';
 
-export const PATCH_MAP_SELECTION_TRANSFORMER_REVISION =
-  'core-v2-selection-transformer/1' as const;
-
-export type PatchMapSelectionVisualMode =
-  | 'all'
-  | 'group-only'
-  | 'element-only'
-  | 'hidden';
-
-export type PatchMapTransformEligibility =
-  | 'ineligible'
-  | 'move-rotate'
-  | 'move-resize-rotate'
-  | 'locked'
-  | 'none';
-
-export type PatchMapTransformerHandle =
-  | 'nw'
-  | 'ne'
-  | 'sw'
-  | 'se'
-  | 'n'
-  | 'e'
-  | 's'
-  | 'w'
-  | 'frame'
-  | 'rotate';
-
-export type PatchMapTransformerInputFamily =
-  | 'selection'
-  | 'pan'
-  | 'hover'
-  | 'context-menu'
-  | 'transform';
-
-export interface PatchMapTransformerTargetGeometry {
-  readonly id: string;
-  readonly ownerItemId?: string;
-  readonly componentId?: string;
-  readonly localBounds?: readonly [number, number, number, number];
-  readonly screenBounds: readonly [number, number, number, number];
-  readonly screenBasis?: readonly [number, number, number, number];
-  readonly screenAngle?: number;
-  readonly visible: boolean;
-}
-
-export interface PatchMapTransformableSubsetProbe {
-  readonly schemaRevision: typeof PATCH_MAP_SELECTION_TRANSFORMER_REVISION;
-  readonly selectedTargets: readonly PatchMapLogicalTargetSnapshot[];
-  readonly transformableTargets: readonly PatchMapLogicalTargetSnapshot[];
-  readonly rotatableTargets: readonly PatchMapLogicalTargetSnapshot[];
-  readonly resizableTargets: readonly PatchMapLogicalTargetSnapshot[];
-  readonly lockedTargets: readonly PatchMapLogicalTargetSnapshot[];
-  readonly ineligibleTargets: readonly PatchMapLogicalTargetSnapshot[];
-  readonly activeResizeHandles: boolean;
-  readonly subsetIndicator: Readonly<{
-    readonly selected: number;
-    readonly transformable: number;
-    readonly resizable: number;
-  }>;
-  readonly eligibilityById: Readonly<Record<string, PatchMapTransformEligibility>>;
-}
-
-export interface PatchMapSelectionFrameProbe {
-  readonly kind: 'oriented' | 'axis-aligned-union';
-  readonly orientationDegrees: number;
-  readonly screenBounds: readonly [number, number, number, number];
-  readonly screenCorners: readonly [
-    readonly [number, number],
-    readonly [number, number],
-    readonly [number, number],
-    readonly [number, number],
-  ];
-}
-
-export interface PatchMapSelectionVisualOptions {
-  readonly selectionIds: readonly string[];
-  readonly mode?: PatchMapSelectionVisualMode;
-  readonly rejectIds?: readonly string[];
-  readonly lockedIds?: readonly string[];
-  readonly includeTypes?: readonly string[];
-  readonly handleCssPx?: number;
-  readonly strokeCssPx?: number;
-  readonly viewportScale?: number;
-}
-
-export interface PatchMapSelectionVisualProbe {
-  readonly schemaRevision: typeof PATCH_MAP_SELECTION_TRANSFORMER_REVISION;
-  readonly mode: PatchMapSelectionVisualMode;
-  readonly selectedTargets: readonly PatchMapLogicalTargetSnapshot[];
-  readonly overlayTargets: readonly PatchMapLogicalTargetSnapshot[];
-  readonly transformableTargets: readonly PatchMapLogicalTargetSnapshot[];
-  readonly overlayCount: 0 | 1;
-  readonly explicitlyIndicatesTransformableSubset: boolean;
-  readonly handleCssPx: number;
-  readonly strokeCssPx: number;
-  readonly frame: PatchMapSelectionFrameProbe | null;
-}
-
-export interface PatchMapTransformerHandleRegion {
-  readonly id: PatchMapTransformerHandle;
-  readonly kind: 'corner' | 'edge' | 'frame' | 'rotate';
-  readonly center: readonly [number, number];
-  readonly cursor: string;
-}
-
-export interface PatchMapTransformerHandleProbe {
-  readonly schemaRevision: typeof PATCH_MAP_SELECTION_TRANSFORMER_REVISION;
-  readonly frame: PatchMapSelectionFrameProbe;
-  readonly visibleCorners: readonly ['nw', 'ne', 'sw', 'se'];
-  readonly regions: readonly PatchMapTransformerHandleRegion[];
-  readonly overlapPriority: readonly ['corner', 'edge', 'rotate', 'frame'];
-  readonly cornerCssPx: number;
-  readonly edgeStripCssPx: number;
-  readonly rotateZoneCssPx: number;
-  readonly cursorDirectionByHandle: Readonly<Record<string, string>>;
-}
-
-export interface PatchMapRelationEndpointResolution {
-  readonly schemaRevision: typeof PATCH_MAP_SELECTION_TRANSFORMER_REVISION;
-  readonly requestedRelationIds: readonly string[];
-  readonly resolvedRelationIds: readonly string[];
-  readonly missingRelationIds: readonly string[];
-  readonly targets: readonly PatchMapLogicalTargetSnapshot[];
-  readonly missingEndpointIds: readonly string[];
-  readonly duplicateTargetCount: 0;
-  readonly suppressedDuplicateEndpointCount: number;
-  readonly retainedEndpointSnapshotCount: 0;
-}
-
-export interface PatchMapTransformerGestureProbe {
-  readonly schemaRevision: typeof PATCH_MAP_SELECTION_TRANSFORMER_REVISION;
-  readonly activeGestureCount: 0 | 1;
-  readonly pointerCaptureCount: 0 | 1;
-  readonly activePointerId: number | null;
-  readonly activeHandle: PatchMapTransformerHandle | null;
-  readonly selectionDeliveryCount: number;
-  readonly panDeliveryCount: number;
-  readonly hoverDeliveryCount: number;
-  readonly contextMenuDeliveryCount: number;
-  readonly transformDeliveryCount: number;
-  readonly staleCompletionCount: number;
-  readonly destroyed: boolean;
-}
-
-interface ActiveTransformerGesture {
-  readonly pointerId: number;
-  readonly handle: PatchMapTransformerHandle;
-}
-
-interface MutableGestureDeliveries {
-  selection: number;
-  pan: number;
-  hover: number;
-  contextMenu: number;
-  transform: number;
-}
+export * from './selection-transformer/contracts';
+export { PatchMapTransformerGestureAuthority } from './selection-transformer/gesture-authority';
 
 const CORNER_HANDLES = Object.freeze(['nw', 'ne', 'sw', 'se'] as const);
 const HANDLE_PRIORITY = Object.freeze(['corner', 'edge', 'rotate', 'frame'] as const);
@@ -426,102 +284,6 @@ export function resolvePatchMapRelationEndpoints(
     suppressedDuplicateEndpointCount: duplicateTargetCount,
     retainedEndpointSnapshotCount: 0,
   });
-}
-
-/**
- * One root transformer gesture record. It does not own entity listeners,
- * timers, tickers, or renderer objects; it only arbitrates input families.
- */
-export class PatchMapTransformerGestureAuthority {
-  private active: ActiveTransformerGesture | null = null;
-  private readonly deliveries: MutableGestureDeliveries = {
-    selection: 0,
-    pan: 0,
-    hover: 0,
-    contextMenu: 0,
-    transform: 0,
-  };
-  private staleCompletionCount = 0;
-  private destroyed = false;
-
-  public begin(pointerId: number, handle: PatchMapTransformerHandle): void {
-    this.assertAlive('begin');
-    validatePointerId(pointerId);
-    validateHandle(handle);
-    if (this.active !== null) throw new Error('PatchMap transformer already owns a gesture');
-    this.active = Object.freeze({ pointerId, handle });
-  }
-
-  public owns(pointerId: number): boolean {
-    return !this.destroyed && this.active?.pointerId === pointerId;
-  }
-
-  public route(
-    pointerId: number,
-    family: PatchMapTransformerInputFamily,
-  ): Readonly<{ readonly owner: 'transformer' | 'canvas'; readonly deliveryCount: 0 | 1 }> {
-    validatePointerId(pointerId);
-    if (!['selection', 'pan', 'hover', 'context-menu', 'transform'].includes(family)) {
-      throw new TypeError('transformer input family is unsupported');
-    }
-    if (!this.owns(pointerId)) {
-      return Object.freeze({ owner: 'canvas', deliveryCount: 1 });
-    }
-    if (family === 'transform') {
-      this.deliveries.transform += 1;
-      return Object.freeze({ owner: 'transformer', deliveryCount: 1 });
-    }
-    return Object.freeze({ owner: 'transformer', deliveryCount: 0 });
-  }
-
-  public complete(pointerId: number): boolean {
-    validatePointerId(pointerId);
-    if (!this.owns(pointerId)) {
-      this.staleCompletionCount += 1;
-      return false;
-    }
-    this.active = null;
-    return true;
-  }
-
-  public cancel(pointerId: number): boolean {
-    return this.complete(pointerId);
-  }
-
-  public interrupt(): boolean {
-    if (this.active === null) return false;
-    this.active = null;
-    return true;
-  }
-
-  public probe(): PatchMapTransformerGestureProbe {
-    return Object.freeze({
-      schemaRevision: PATCH_MAP_SELECTION_TRANSFORMER_REVISION,
-      activeGestureCount: this.active === null ? 0 : 1,
-      pointerCaptureCount: this.active === null ? 0 : 1,
-      activePointerId: this.active?.pointerId ?? null,
-      activeHandle: this.active?.handle ?? null,
-      selectionDeliveryCount: this.deliveries.selection,
-      panDeliveryCount: this.deliveries.pan,
-      hoverDeliveryCount: this.deliveries.hover,
-      contextMenuDeliveryCount: this.deliveries.contextMenu,
-      transformDeliveryCount: this.deliveries.transform,
-      staleCompletionCount: this.staleCompletionCount,
-      destroyed: this.destroyed,
-    });
-  }
-
-  public destroy(): void {
-    if (this.destroyed) return;
-    this.active = null;
-    this.destroyed = true;
-  }
-
-  private assertAlive(operation: string): void {
-    if (this.destroyed) {
-      throw new Error(`PatchMap transformer gesture authority is destroyed (${operation})`);
-    }
-  }
 }
 
 function patchMapTransformEligibility(
@@ -822,18 +584,6 @@ function validateStringArray(values: readonly string[], label: string): void {
 function validateFiniteTuple(values: readonly number[], label: string): void {
   if (!Array.isArray(values) || values.some((value) => !Number.isFinite(value))) {
     throw new RangeError(`${label} must contain finite numbers`);
-  }
-}
-
-function validatePointerId(pointerId: number): void {
-  if (!Number.isSafeInteger(pointerId) || pointerId < 0) {
-    throw new RangeError('transformer pointerId must be a non-negative safe integer');
-  }
-}
-
-function validateHandle(handle: PatchMapTransformerHandle): void {
-  if (!['nw', 'ne', 'sw', 'se', 'n', 'e', 's', 'w', 'frame', 'rotate'].includes(handle)) {
-    throw new TypeError('transformer handle is unsupported');
   }
 }
 
