@@ -14,8 +14,10 @@
 
 # Current Facts
 
-- The 420-file allowed inventory excludes frozen and generated content.
-- `engine.ts` is 6,170 LOC and `core.ts` is 2,358 LOC. Parser, transaction,
+- The allowed inventory is 606 files / 484,871 LOC after excluding
+  generated and forbidden content; 224,708 LOC is retained result JSON rather
+  than refactorable code.
+- `engine.ts` is 6,108 LOC and `core.ts` is 2,358 LOC. Parser, transaction,
   text-layout, incremental-parser, authoring, and editor-workflow facades have
   focused downward owners while their atomic writers remain singular.
 - Mesh and Pixi renderer coordinators are 1,256 and 2,002 LOC after CPU value
@@ -24,7 +26,8 @@
   facades above contracts, pure observation/compatibility values, frame-driver,
   and adaptive-budget leaves while keeping their state writers singular.
 - Renderer ownership stays one manual loop, aggregate layers, one root
-  interaction authority, and explicit asset/destroy coordination.
+  interaction authority, and explicit asset/destroy coordination; Engine asset
+  sessions and its managed loop now have singular child authorities.
 - The shipping identity is only `@conalog/patch-map`, `PatchMap`, and
   `/lab/patch-map/`; historical `core-v2` identifiers remain only inside
   immutable contract/evidence compatibility boundaries.
@@ -33,7 +36,7 @@
 
 - Every allowed file receives a keep, move, split, consolidate, or delete
   judgment; cohesive files do not require mechanical edits.
-- The working plan owns the 420-file disposition and T0–T10 migration map.
+- The working plan owns the 606-file disposition and T0–T10 migration map.
   Product facades retain atomic publication, scheduler, renderer, listener,
   lifecycle, asset, and ownership-registry writes above acyclic value/planning
   modules.
@@ -41,10 +44,9 @@
   renderer planning, Lab presentation, and large contract-test composition now
   have explicit domain owners without a parallel public or write path.
 - The checkpoint passes 190 unit files / 1,692 tests, full lint/typecheck,
-  product/Lab builds, and canonical 38/173. The latest applicable 2+7 memory
-  result remains 5,099 entities, nine ownership cycles, and a 97,195-byte
-  retained-heap median; route, export, resource, and hot algorithms did not
-  change in the latest structural tranche.
+  product/Lab builds, canonical 38/173, headless 173 routes / 192 checks, and
+  2+7 memory over 5,099 entities and nine ownership cycles with a 96,539-byte
+  retained-heap median. Export and frame algorithms did not change.
 - Core reconcile candidate preparation and semantic mutation record values now
   live below their atomic facades without changing parser priority or adding
   entity-scale collections, passes, or closures.
@@ -61,8 +63,8 @@
 
 # Next Step
 
-- Extract Engine asset-session ownership while preserving required acquisition,
-  failed-initialization release, cleanup retry, and surface session identity.
+- Remove the remaining Pixi renderer child-to-facade type cycle through narrow
+  structural ports without changing runtime imports or GPU behavior.
 
 # Working Boundary
 

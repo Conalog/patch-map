@@ -43,6 +43,8 @@ src/patch-map/
 │   ├── pixi-surface.ts              # PatchMapRuntime surface adapter/factory
 │   ├── surface-geometry.ts          # geometry snapshots/relation hit index
 │   ├── semantic-index.ts            # component/text index atoms
+│   ├── asset-session-authority.ts    # session/required lease lifetime
+│   ├── managed-frame-loop-authority.ts # one loop/visibility pause reason
 │   ├── viewport-authority.ts        # view/policy/motion/persistence writer
 │   ├── transformer-edit-authority.ts
 │   ├── publication-authority.ts     # revisions/frame/visible ledgers
@@ -107,25 +109,28 @@ import a path directly. The package still publishes only `"."`.
 
 ## File inventory disposition
 
-The allowed corpus currently contains 420 files: 84 product, 48 Lab, 156
-tests, 104 active scripts, 23 performance files, and five examples. Every file
-is covered by the following rule; explicit exceptions override the directory
+The current allowed corpus contains 606 files / 484,871 LOC: 203 product, 61
+Lab, 199 tests, 108 active verification scripts, 23 performance files, five
+examples, and seven root configuration files. Performance result JSON accounts
+for 224,708 LOC and is evidence rather than refactorable code. Every file is
+covered by the following rule; explicit exceptions override the directory
 default.
 
 | Area | Default | Explicit split/consolidation candidates |
 | --- | --- | --- |
-| `src/patch-map` | keep cohesive files in place | every file above 1,000 LOC plus mixed-owner renderer, authoring, history, asset, host, operation, accessibility, and query files |
-| `lab/patch-map` | keep focused case/runtime files | `manual-workbench.ts`, `contract/main.ts`, `style.css`, executable registry/bridge, and repeated actual-only session adapters |
-| `tests/patch-map` | keep all assertions and case identities | split files above 1,000 LOC by describe/domain; share setup only through narrow support modules |
-| `scripts/verification` | keep small orchestrators and negative probes | split large handler/fold/browser/package files; consolidate actual-only actions, browser process I/O, and package process helpers |
-| `performance/patch-map` | keep workload/protocol/result identities | split workload construction, browser harness, and report assembly; share runner/stat/result I/O |
+| `src/patch-map` | 202 cohesive files keep | remove the `pixi-renderer` child type cycle through structural ports; keep large atomic writers and GPU resource owners intact |
+| `lab/patch-map` | 57 focused files keep | split `manual-workbench.ts`, `contract/main.ts`, `style.css`, and `executable-bridge.ts` by existing composition boundaries |
+| `tests/patch-map` | 196 files keep with assertions and case identities | split three mixed composition suites by existing describe/domain blocks |
+| `scripts/verification` | 100 focused files keep | split eight mixed handler/fold/browser/package orchestrators without sharing actual/fold case registries |
+| `performance/patch-map` | 19 files keep plus immutable results | split/consolidate four workload/harness runners only after exact equivalence proof |
 | `examples` and root config | keep minimal examples and public manifests | correct lint/build coverage and remove only proven stale configuration |
 | contract fixtures/evidence/results | frozen | no semantic edits, regeneration, rename, or deletion |
 
 No whole production, test, verification, performance, example, or root file
 is currently proven obsolete. Deletion requires a concrete unreferenced proof;
-otherwise the disposition is keep, move, split, or consolidate. Exact clone
-analysis found 379 groups / 4.4%; equivalence must be proven before merging.
+otherwise the disposition is keep, move, split, or consolidate. The product
+runtime graph has no runtime SCC; one type-only Pixi renderer SCC remains.
+Equivalence must be proven before consolidating repeated verification atoms.
 
 ## Migration tranches
 
