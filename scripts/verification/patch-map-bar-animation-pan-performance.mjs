@@ -205,8 +205,12 @@ function profileBudgetViolations(profile) {
 }
 
 async function runTrial(page, trialIndex) {
+  const initialSceneSize =
+    NUMERIC_SCENE_SIZE !== null && NUMERIC_SCENE_SIZE > 5_000
+      ? '100'
+      : SCENE_SIZE;
   await page.goto(
-    `lab/patch-map/?scenario=REN-009&size=${SCENE_SIZE}&seed=${SEED}`,
+    `lab/patch-map/?scenario=REN-009&size=${initialSceneSize}&seed=${SEED}`,
     { waitUntil: 'networkidle', timeout: LOAD_TIMEOUT_MS },
   );
   await page.waitForFunction(
@@ -221,6 +225,36 @@ async function runTrial(page, trialIndex) {
     window.__PATCH_MAP_MANUAL_LAB__?.state());
   if (initialState?.status !== 'ready') {
     throw new Error(`trial ${trialIndex} Lab failed: ${initialState?.error ?? 'unknown'}`);
+  }
+  if (initialSceneSize !== SCENE_SIZE) {
+    await page.evaluate((sceneSize) => {
+      const select = document.querySelector('[data-testid="manual-dataset-size"]');
+      if (!(select instanceof HTMLSelectElement)) {
+        throw new Error('manual dataset-size select is unavailable');
+      }
+      if (select.disabled) {
+        throw new Error('manual dataset-size select is unexpectedly disabled');
+      }
+      select.value = sceneSize;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }, SCENE_SIZE);
+    await page.waitForFunction(
+      (targetSceneSize) => {
+        const state = window.__PATCH_MAP_MANUAL_LAB__?.state();
+        return state?.status === 'failed' ||
+          (state?.status === 'ready' && state.sceneSize === targetSceneSize);
+      },
+      SCENE_SIZE,
+      { timeout: LOAD_TIMEOUT_MS },
+    );
+    const configuredState = await page.evaluate(() =>
+      window.__PATCH_MAP_MANUAL_LAB__?.state());
+    if (configuredState?.status !== 'ready') {
+      throw new Error(
+        `trial ${trialIndex} Lab reconfiguration failed: `
+        + `${configuredState?.error ?? 'unknown'}`,
+      );
+    }
   }
 
   // Keep the historical performance protocol explicit even though the human
