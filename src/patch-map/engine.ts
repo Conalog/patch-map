@@ -93,7 +93,6 @@ import {
   type PatchMapMutationJsonValue,
   type PatchMapTextBatchRequest,
   type PatchMapMutationTarget,
-  type PatchMapMutationTransactionDiagnostic,
   type PatchMapMutationTransactionPlan,
   type PatchMapMutationTransactionRequest,
 } from './semantic/transaction';
@@ -163,8 +162,6 @@ import {
   indexComponentSemantics,
   indexTextSemantics,
   ownedStructuralRootDelta,
-  reconcileDirectBarHeightComponentSemantics,
-  reconcilePlannedBarHeightComponentSemantics,
   type IndexedEngineTextSemantic,
   type PatchMapEngineComponentSemanticProbe,
 } from './engine/semantic-index';
@@ -173,6 +170,7 @@ import {
   type PatchMapViewportViewEffect,
 } from './engine/viewport-authority';
 import { PatchMapTransformerSessionCoordinator } from './engine/transformer-session-coordinator';
+import { PatchMapTransactionCommitCoordinator } from './engine/transaction-commit-coordinator';
 import { PatchMapPublicationAuthority } from './engine/publication-authority';
 import {
   PatchMapSceneStateAuthority,
@@ -215,7 +213,6 @@ import {
 import {
   createPatchMapEngineHistoryCompanion,
   createPatchMapEngineHistorySnapshot,
-  patchMapEngineHistoryTransactionSelection,
   planPatchMapEngineHistoryCompanion,
   resolvePatchMapEngineHistoryTransitionMode,
   resolvePatchMapEngineHistoryTransitionSelection,
@@ -234,29 +231,15 @@ import {
   createPatchMapOperationError,
   createPatchMapRefusedDestroyTargetResult,
   createPatchMapRefusedPatchResult,
-  createPatchMapRefusedTransactionResult,
   createPatchMapRejectedPatchResult,
-  createPatchMapRejectedTransactionResult,
   createPatchMapSemanticMutationDiagnostic,
-  createPatchMapTransactionDiagnostic,
-  freezePatchMapCommittedTransactionResult as freezeCommittedTransactionResult,
-  freezePatchMapMutationTargets as freezeMutationTargets,
   freezePatchMapReconcileDiagnostics as freezeReconcileDiagnostics,
   freezePatchMapTargets as freezeTargets,
-  freezePatchMapTransactionHistory as freezeTransactionHistory,
 } from './engine/operation-outcomes';
 export { PatchMapError } from './engine/operation-outcomes';
 import {
-  componentOrderOwners,
-  directAnimatedBarTargets,
-  directBarHeightUpdatesFor,
   historyReconcileOrderScope,
-  incrementalBarHeightRootIds,
-  incrementalFlatRootIds,
   incrementalOwnedRootIds,
-  operationsMayChangeElementStructure,
-  operationsOnlyUpdateBarSize,
-  operationsOnlyUpdateElementGeometry,
   reconcileComponentSemantics,
   reconcileTextSemantics,
 } from './engine/reconcile-planning';
@@ -538,6 +521,7 @@ export class PatchMap {
   private readonly pageLifecycle = new PatchMapPageLifecycleAuthority();
   private readonly managedFrameLoop = new PatchMapManagedFrameLoopAuthority();
   private readonly accessibility = new PatchMapAccessibilityAuthority();
+  private readonly transactionCommit: PatchMapTransactionCommitCoordinator;
   private readonly transformerSessions: PatchMapTransformerSessionCoordinator;
   private readonly viewportAuthority = new PatchMapViewportAuthority();
   private readonly publication = new PatchMapPublicationAuthority();
@@ -548,8 +532,6 @@ export class PatchMap {
     PatchMapInitializeResult
   >;
   private readonly productProbeReadPort: PatchMapEngineProductProbeReadPort;
-  private pendingTransactionPlanMs = 0;
-  private lastTransactionPerformance: PatchMapEngineTransactionPerformanceProbe | null = null;
   private readonly listeners = new Map<PatchMapEngineEvent, Set<(event: unknown) => void>>();
   private lifecycle: PatchMapLifecycle = 'new';
   private initializationBootstrapInProgress = false;
@@ -649,6 +631,55 @@ export class PatchMap {
         return evaluated.status === 'rejected' ? Object.freeze([]) : evaluated.targets;
       },
     });
+    this.transactionCommit = new PatchMapTransactionCommitCoordinator(
+      this.sceneState,
+      this.history,
+      this.hostInteractions,
+      this.publication,
+      {
+        lifecycle: () => this.lifecycle,
+        liveSurface: () => this.surface,
+        reducedMotion: () => this.accessibility.reducedMotion,
+        terminalSurfaceFailure: () => this.terminalSurfaceFailure,
+        historySnapshot: () => this.historySnapshot(),
+        planHistoryCompanion: (
+          value,
+          fallbackSelectionIds,
+          materialized,
+          fallbackMode,
+          stableIdentity,
+          structuralIdentity,
+        ) => this.nextHistoryCompanion(
+          value,
+          fallbackSelectionIds,
+          materialized,
+          fallbackMode,
+          stableIdentity,
+          structuralIdentity,
+        ),
+        commitSceneMetadata: (hostCompanion) => {
+          this.defaultViewportContributorsCache = null;
+          this.historyHostCompanion = hostCompanion;
+        },
+        commitLifecycle: (lifecycle) => {
+          this.lifecycle = lifecycle;
+        },
+        restoreAuthoritativeSurfaceScene: (surface, operation) => {
+          this.restoreAuthoritativeSurfaceScene(surface, operation);
+        },
+        revisionStamp: () => this.revisionStamp(),
+        diagnosticFrom: (error, operation) => this.diagnosticFrom(error, operation),
+        operationDiagnostic: (code, category, operation, recoverable, datasetPath) =>
+          this.operationDiagnostic(code, category, operation, recoverable, datasetPath),
+        emitDiagnostic: (diagnostic) => {
+          this.emit('diagnostic', diagnostic);
+        },
+        emitChange: (result) => {
+          this.emit('change', result);
+        },
+        now: enginePerformanceNow,
+      },
+    );
     this.transformerSessions = new PatchMapTransformerSessionCoordinator({
       requireSurface: (operation) => this.requireSurface(operation),
       requirePointerGestures: (operation) => this.requirePointerGestureAuthority(operation),
@@ -672,12 +703,13 @@ export class PatchMap {
         previousHistory,
         beforeChangeEvent,
       }) =>
-        this.applyPlannedTransaction(
+        this.transactionCommit.commit(
           surface,
           plan,
           'transact',
           previousRevisions,
           previousHistory,
+          0,
           beforeChangeEvent,
         ),
       advanceInteraction: () => {
@@ -1315,13 +1347,14 @@ export class PatchMap {
     const previousHistory = this.history.state();
     const planStarted = enginePerformanceNow();
     const plan = this.planMutationRequest(request, schemaRevision);
-    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
-    return this.applyPlannedTransaction(
+    const transactionPlanMs = enginePerformanceNow() - planStarted;
+    return this.transactionCommit.commit(
       surface,
       plan,
       'transact',
       previousRevisions,
       previousHistory,
+      transactionPlanMs,
     );
   }
 
@@ -1343,13 +1376,14 @@ export class PatchMap {
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
       request,
     );
-    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
-    return this.applyPlannedTransaction(
+    const transactionPlanMs = enginePerformanceNow() - planStarted;
+    return this.transactionCommit.commit(
       surface,
       plan,
       'transact',
       previousRevisions,
       previousHistory,
+      transactionPlanMs,
     );
   }
 
@@ -1370,13 +1404,14 @@ export class PatchMap {
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
       request,
     );
-    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
-    return this.applyPlannedTransaction(
+    const transactionPlanMs = enginePerformanceNow() - planStarted;
+    return this.transactionCommit.commit(
       surface,
       plan,
       'transact',
       previousRevisions,
       previousHistory,
+      transactionPlanMs,
     );
   }
 
@@ -1395,13 +1430,14 @@ export class PatchMap {
     const previousHistory = this.history.state();
     const planStarted = enginePerformanceNow();
     const plan = this.planBulkPatchRequest(request, schemaRevision);
-    this.pendingTransactionPlanMs = enginePerformanceNow() - planStarted;
-    return this.applyPlannedTransaction(
+    const transactionPlanMs = enginePerformanceNow() - planStarted;
+    return this.transactionCommit.commit(
       surface,
       plan,
       'bulkPatch',
       previousRevisions,
       previousHistory,
+      transactionPlanMs,
     );
   }
 
@@ -1737,380 +1773,8 @@ export class PatchMap {
     );
   }
 
-  private applyPlannedTransaction(
-    surface: PatchMapEngineSurface,
-    plan: PatchMapMutationTransactionPlan,
-    operation: 'transact' | 'bulkPatch',
-    previousRevisions: PatchMapRevisionStamp,
-    previousHistory: PatchMapHistoryState,
-    beforeChangeEvent?: () => void,
-  ): PatchMapEngineTransactionResult {
-    const applyStarted = enginePerformanceNow();
-    if (plan.status === 'rejected') {
-      const diagnostic = this.engineTransactionDiagnostic(plan.diagnostic, operation);
-      const result = this.rejectedTransactionResult(
-        plan.actionId ?? null,
-        previousRevisions,
-        diagnostic,
-        plan.diagnostic,
-        previousHistory,
-      );
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-
-    const actionId = plan.actionId ?? null;
-    if (plan.conflictPolicy !== 'reject') {
-      const diagnostic = this.operationDiagnostic(
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        operation,
-        true,
-      );
-      const result = this.rejectedTransactionResult(
-        actionId,
-        previousRevisions,
-        diagnostic,
-        undefined,
-        previousHistory,
-      );
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-    if (!plan.changed) {
-      return Object.freeze({
-        status: 'unchanged',
-        changed: false,
-        actionId,
-        previousRevisions,
-        revisions: this.revisionStamp(),
-        semanticHash: this.materialized?.semanticHash ?? null,
-        applied: freezeMutationTargets(plan.applied),
-        missing: freezeMutationTargets(plan.missing),
-        unchanged: freezeMutationTargets(plan.unchanged),
-        history: freezeTransactionHistory(false, null, previousHistory, previousHistory),
-      } satisfies PatchMapEngineTransactionResult);
-    }
-
-    if (!surface.reconcile) {
-      const diagnostic = this.operationDiagnostic(
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        operation,
-        false,
-      );
-      const result = this.refusedTransactionResult(
-        actionId,
-        previousRevisions,
-        diagnostic,
-        plan,
-        previousHistory,
-        EMPTY_RECONCILE_DIAGNOSTICS,
-      );
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-
-    const currentDataset =
-      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset;
-    const plannedBarHeightUpdates = plan.directBarHeightUpdates;
-    const plannedTextUpdates = plan.directTextUpdates;
-    const plannedElementAngleUpdates = plan.directElementAngleUpdates;
-    const incrementalRootIds = plannedBarHeightUpdates !== undefined
-      ? incrementalBarHeightRootIds(
-          currentDataset,
-          plan.candidate.dataset,
-          plannedBarHeightUpdates,
-        )
-      : plannedTextUpdates !== undefined
-        ? incrementalOwnedRootIds(currentDataset, plan.candidate.dataset)
-        : plannedElementAngleUpdates !== undefined
-          ? Object.freeze(plannedElementAngleUpdates.map(({ id }) => id))
-          : incrementalFlatRootIds(
-              currentDataset,
-              plan.candidate.dataset,
-              plan.operations,
-            );
-    const directSemanticProjection =
-      plannedBarHeightUpdates !== undefined ||
-      plannedTextUpdates !== undefined ||
-      plannedElementAngleUpdates !== undefined;
-    const elementGeometryOnly = operationsOnlyUpdateElementGeometry(plan.operations);
-    const structuralSharing = !directSemanticProjection &&
-      operationsMayChangeElementStructure(plan.operations);
-    const structuralRootDelta = structuralSharing
-      ? ownedStructuralRootDelta(currentDataset, plan.candidate.dataset)
-      : null;
-    const directBarComponentSemantics =
-      plannedElementAngleUpdates !== undefined || elementGeometryOnly
-        ? null
-        : plannedBarHeightUpdates === undefined
-          ? reconcileDirectBarHeightComponentSemantics(
-              this.componentSemantics,
-              plan.candidate.dataset,
-              plan.operations,
-            )
-          : reconcilePlannedBarHeightComponentSemantics(
-              this.componentSemantics,
-              plan.candidate.dataset,
-              plannedBarHeightUpdates,
-            );
-    const componentSemantics =
-      plannedTextUpdates !== undefined ||
-      plannedElementAngleUpdates !== undefined ||
-      elementGeometryOnly
-        ? this.componentSemantics
-        : directBarComponentSemantics ?? reconcileComponentSemantics(
-            this.componentSemantics,
-            currentDataset,
-            plan.candidate.dataset,
-            incrementalRootIds,
-            structuralRootDelta,
-          );
-    const textSemantics =
-      plannedElementAngleUpdates !== undefined || elementGeometryOnly
-        ? this.textSemantics
-        : plannedTextUpdates === undefined &&
-          (
-            directBarComponentSemantics !== null ||
-            operationsOnlyUpdateBarSize(plan.operations, componentSemantics)
-          )
-          ? this.textSemantics
-          : reconcileTextSemantics(
-              this.textSemantics,
-              currentDataset,
-              plan.candidate.dataset,
-              incrementalRootIds,
-              structuralRootDelta,
-            );
-    const selectionBefore = this.logicalSelectionIds;
-    const modeBefore = this.hostInteractions.modeProbe().activeState;
-    const requestedSelectionAfter = plan.selectionIds ??
-      (!directSemanticProjection
-        ? patchMapEngineHistoryTransactionSelection(selectionBefore, plan.operations)
-        : selectionBefore);
-    let companionAfter: PatchMapEngineHistoryCompanion;
-    try {
-      companionAfter = this.nextHistoryCompanion(
-        plan.history,
-        requestedSelectionAfter,
-        plan.candidate,
-        modeBefore,
-        incrementalRootIds !== undefined,
-        structuralRootDelta !== null,
-      );
-    } catch (error) {
-      const diagnostic = this.diagnosticFrom(error, operation);
-      const result = this.rejectedTransactionResult(
-        actionId,
-        previousRevisions,
-        diagnostic,
-        undefined,
-        previousHistory,
-      );
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-    const selectionAfter = companionAfter.selectionIds;
-    const commandId = actionId ?? `transaction:${this.publication.sceneRevision + 1}`;
-    let preparedHistory: PatchMapHistoryPreparedRecord | null = null;
-    try {
-      if (plan.recordHistory !== false) {
-        preparedHistory = this.history.prepareOwnedChangedRecord({
-          id: commandId,
-          before: this.historySnapshot(),
-          after: createPatchMapEngineHistorySnapshot(plan.candidate.dataset, companionAfter),
-        });
-      }
-    } catch (error) {
-      const diagnostic = this.diagnosticFrom(error, operation);
-      const result = this.rejectedTransactionResult(
-        actionId,
-        previousRevisions,
-        diagnostic,
-        undefined,
-        previousHistory,
-      );
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-
-    const animatedBarTargets = plannedElementAngleUpdates !== undefined
-      ? EMPTY_COMPONENT_VISUAL_TARGETS
-      : plannedBarHeightUpdates ??
-        directAnimatedBarTargets(plan.operations, componentSemantics);
-    const directBarHeightUpdates = plannedElementAngleUpdates !== undefined
-      ? undefined
-      : plannedBarHeightUpdates ??
-        directBarHeightUpdatesFor(plan.operations, componentSemantics);
-    const allowedComponentOrderOwners = !directSemanticProjection
-      ? componentOrderOwners(plan.operations)
-      : EMPTY_STRING_IDS;
-    const scenePlan = this.sceneState.prepareMutation({
-      materialized: plan.candidate,
-      componentSemantics,
-      textSemantics,
-      selectionIds: selectionAfter,
-    });
-    let reconcile: PatchMapSurfaceReconcileResult;
-    const reconcileStarted = enginePerformanceNow();
-    try {
-      reconcile = surface.reconcile(plan.candidate.dataset, {
-        animateBarChanges:
-          !this.accessibility.reducedMotion &&
-          animatedBarTargets.length > 0,
-        animatedBarTargets,
-        allowedComponentOrderOwners,
-        ...(incrementalRootIds === undefined
-          ? {}
-          : { incrementalRootIds }),
-        ...(structuralSharing ? { structuralSharing: true } : {}),
-        ...(directBarHeightUpdates === undefined
-          ? {}
-          : { directBarHeightUpdates }),
-        ...(plannedTextUpdates === undefined
-          ? {}
-          : { directTextUpdates: plannedTextUpdates }),
-        ...(plannedElementAngleUpdates === undefined
-          ? {}
-          : { directElementAngleUpdates: plannedElementAngleUpdates }),
-        ...(plan.allowedElementOrderIds === undefined
-          ? {}
-          : { allowedElementOrderIds: plan.allowedElementOrderIds }),
-        ...(!sameStringArray(selectionBefore, selectionAfter)
-          ? { selectionIds: selectionAfter }
-          : {}),
-      });
-    } catch (error) {
-      if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
-      if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
-      const diagnostic = this.diagnosticFrom(error, operation);
-      const result = this.refusedTransactionResult(
-        actionId,
-        previousRevisions,
-        diagnostic,
-        plan,
-        previousHistory,
-        EMPTY_RECONCILE_DIAGNOSTICS,
-      );
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-    const reconcileCompleted = enginePerformanceNow();
-
-    if (
-      !this.isSurfaceMutationCurrent(surface, previousRevisions) ||
-      (preparedHistory !== null && !this.history.canCommitPrepared(preparedHistory))
-    ) {
-      if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
-      this.restoreAuthoritativeSurfaceScene(surface, operation);
-      const diagnostic = this.operationDiagnostic(
-        'CONFLICT',
-        'CONFLICT',
-        operation,
-        true,
-      );
-      const result = this.refusedTransactionResult(
-        actionId,
-        previousRevisions,
-        diagnostic,
-        plan,
-        this.history.state(),
-        EMPTY_RECONCILE_DIAGNOSTICS,
-      );
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-
-    const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
-    if (reconcile.status === 'refused') {
-      if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
-      const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
-      const diagnostic = this.operationDiagnostic(
-        'CONFLICT',
-        'CONFLICT',
-        operation,
-        true,
-        datasetPath,
-      );
-      const result = this.refusedTransactionResult(
-        actionId,
-        previousRevisions,
-        diagnostic,
-        plan,
-        previousHistory,
-        reconcileDiagnostics,
-      );
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-
-    this.sceneState.commit(scenePlan);
-    this.defaultViewportContributorsCache = null;
-    this.historyHostCompanion = companionAfter.hostCompanion;
-    this.hostInteractions.applyModeOperation({
-      op: 'replace',
-      state: companionAfter.mode,
-    });
-    this.publication.advanceScene();
-    this.lifecycle = plan.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-    if (
-      !sameStringArray(selectionBefore, selectionAfter) ||
-      modeBefore !== companionAfter.mode ||
-      plan.history !== undefined
-    ) {
-      this.publication.advanceInteraction();
-    }
-    let historyRecorded = false;
-    if (preparedHistory !== null) {
-      const historyStatus = this.history.commitPrepared(preparedHistory);
-      if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
-        throw new Error(`${operation} history preflight became ${historyStatus} after surface commit`);
-      }
-      historyRecorded = historyStatus === 'recorded';
-    } else {
-      this.history.closeActionGroup();
-    }
-    const currentHistory = this.history.state();
-    const result = freezeCommittedTransactionResult(plan.candidate, {
-      status: 'committed',
-      changed: true,
-      actionId,
-      previousRevisions,
-      revisions: this.revisionStamp(),
-      applied: freezeMutationTargets(plan.applied),
-      missing: freezeMutationTargets(plan.missing),
-      unchanged: freezeMutationTargets(plan.unchanged),
-      history: freezeTransactionHistory(
-        historyRecorded,
-        historyRecorded ? commandId : null,
-        previousHistory,
-        currentHistory,
-      ),
-      publication: 'pending',
-      denseOperationCount: reconcile.operationCount,
-      denseChanged: reconcile.denseChanged,
-      reconcileDiagnostics,
-    });
-    const completed = enginePerformanceNow();
-    this.lastTransactionPerformance = Object.freeze({
-      transactionPlanMs: this.pendingTransactionPlanMs,
-      preReconcileMs: reconcileStarted - applyStarted,
-      reconcileMs: reconcileCompleted - reconcileStarted,
-      postReconcileMs: completed - reconcileCompleted,
-      totalMs:
-        this.pendingTransactionPlanMs +
-        (completed - applyStarted),
-      surfaceTimings: reconcile.timings ?? null,
-    });
-    this.pendingTransactionPlanMs = 0;
-    beforeChangeEvent?.();
-    this.emit('change', result);
-    return result;
-  }
-
   public transactionPerformanceProbe(): PatchMapEngineTransactionPerformanceProbe | null {
-    return this.lastTransactionPerformance;
+    return this.transactionCommit.performanceProbe();
   }
 
   public relativePatch(
@@ -4857,8 +4521,7 @@ export class PatchMap {
     this.history.destroy();
     this.historyHostCompanion = null;
     this.publication.clearHistoryPublications();
-    this.pendingTransactionPlanMs = 0;
-    this.lastTransactionPerformance = null;
+    this.transactionCommit.reset();
     this.rendererConfiguration = null;
     this.surfaceLifecycle.clearInitialization();
     this.assetSessions.completeDestroy(assetCleanupSucceeded);
@@ -5312,20 +4975,6 @@ export class PatchMap {
     }
   }
 
-  private isSurfaceMutationCurrent(
-    surface: PatchMapEngineSurface,
-    revisions: PatchMapRevisionStamp,
-  ): boolean {
-    return (
-      this.lifecycle !== 'destroyed' &&
-      this.lifecycle !== 'destroying' &&
-      this.surface === surface &&
-      this.publication.lifecycleGeneration === revisions.lifecycleGeneration &&
-      this.publication.sceneRevision === revisions.sceneRevision &&
-      this.publication.interactionRevision === revisions.interactionRevision
-    );
-  }
-
   private restoreAuthoritativeSurfaceScene(
     surface: PatchMapEngineSurface,
     operation: string,
@@ -5434,57 +5083,6 @@ export class PatchMap {
       target,
       operation,
       this.revisionStamp(),
-    );
-  }
-
-  private engineTransactionDiagnostic(
-    diagnostic: PatchMapMutationTransactionDiagnostic,
-    operation: string,
-  ): PatchMapEngineDiagnostic {
-    return createPatchMapTransactionDiagnostic(
-      diagnostic,
-      operation,
-      this.revisionStamp(),
-    );
-  }
-
-  private rejectedTransactionResult(
-    actionId: string | null,
-    previousRevisions: PatchMapRevisionStamp,
-    diagnostic: PatchMapEngineDiagnostic,
-    transactionDiagnostic: PatchMapMutationTransactionDiagnostic | undefined,
-    history: PatchMapHistoryState,
-  ): Extract<PatchMapEngineTransactionResult, { readonly status: 'rejected' }> {
-    return createPatchMapRejectedTransactionResult(
-      actionId,
-      previousRevisions,
-      this.revisionStamp(),
-      this.materialized?.semanticHash ?? null,
-      diagnostic,
-      transactionDiagnostic,
-      history,
-    );
-  }
-
-  private refusedTransactionResult(
-    actionId: string | null,
-    previousRevisions: PatchMapRevisionStamp,
-    diagnostic: PatchMapEngineDiagnostic,
-    _plan: Extract<
-      ReturnType<typeof planPatchMapMutationTransaction>,
-      { readonly status: 'planned' }
-    >,
-    history: PatchMapHistoryState,
-    reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[],
-  ): Extract<PatchMapEngineTransactionResult, { readonly status: 'refused' }> {
-    return createPatchMapRefusedTransactionResult(
-      actionId,
-      previousRevisions,
-      this.revisionStamp(),
-      this.materialized?.semanticHash ?? null,
-      diagnostic,
-      history,
-      reconcileDiagnostics,
     );
   }
 
@@ -5905,11 +5503,6 @@ function samePublishedTuple(
     left.view === right.view &&
     left.interaction === right.interaction;
 }
-
-const EMPTY_COMPONENT_VISUAL_TARGETS = Object.freeze(
-  [] as PatchMapComponentVisualTarget[],
-);
-const EMPTY_STRING_IDS = Object.freeze([] as string[]);
 
 function semanticTargetIdentity(target: PatchMapSemanticTarget): string {
   return target.kind === 'element'
