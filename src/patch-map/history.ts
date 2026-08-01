@@ -193,19 +193,10 @@ export class PatchMapSemanticHistory<
     if (plan === undefined) return 'invalid';
     if (plan.phase === 'cancelled') return 'cancelled';
     if (plan.phase !== 'pending') return 'stale';
-    const baseEntries = plan.baseEntries;
     const nextEntries = plan.nextEntries;
     const nextCursor = plan.nextCursor;
     const nextContinuationId = plan.nextContinuationId;
-    if (
-      baseEntries === null ||
-      nextEntries === null ||
-      this.destroyedValue ||
-      this.transitioning ||
-      token.baseEpoch !== this.epochValue ||
-      token.baseCursor !== this.cursorValue ||
-      baseEntries !== this.entriesValue
-    ) {
+    if (!this.isPreparedPlanCurrent(token, plan) || nextEntries === null) {
       this.finishPreparedRecord(plan, 'stale');
       return 'stale';
     }
@@ -218,12 +209,34 @@ export class PatchMapSemanticHistory<
     return token.plannedStatus;
   }
 
+  /** Check a prepared token without consuming it or changing history state. */
+  public canCommitPrepared(token: PatchMapHistoryPreparedRecord): boolean {
+    const plan = this.preparedRecords.get(token);
+    return plan !== undefined && this.isPreparedPlanCurrent(token, plan);
+  }
+
   /** Discard a refused surface publication without touching history authority. */
   public cancelPrepared(token: PatchMapHistoryPreparedRecord): boolean {
     const plan = this.preparedRecords.get(token);
     if (plan === undefined || plan.phase !== 'pending') return false;
     this.finishPreparedRecord(plan, 'cancelled');
     return true;
+  }
+
+  private isPreparedPlanCurrent(
+    token: PatchMapHistoryPreparedRecord,
+    plan: PatchMapPreparedRecordPlan<TDataset, TCompanion>,
+  ): boolean {
+    return (
+      plan.phase === 'pending' &&
+      plan.baseEntries !== null &&
+      plan.nextEntries !== null &&
+      !this.destroyedValue &&
+      !this.transitioning &&
+      token.baseEpoch === this.epochValue &&
+      token.baseCursor === this.cursorValue &&
+      plan.baseEntries === this.entriesValue
+    );
   }
 
   /**

@@ -19,6 +19,7 @@ class TransformerSurface implements PatchMapEngineSurface {
   public frameCount = 0;
   public reconcileCount = 0;
   public refuseNextReconcile = false;
+  public nextReconcileCallback: (() => void) | null = null;
   public lastReconcileOptions: PatchMapSurfaceReconcileOptions = Object.freeze({});
   private width: number;
   private height: number;
@@ -48,6 +49,9 @@ class TransformerSurface implements PatchMapEngineSurface {
       if (options.selectionIds !== undefined) {
         this.selectionIds = Object.freeze([...options.selectionIds]);
       }
+      const callback = this.nextReconcileCallback;
+      this.nextReconcileCallback = null;
+      callback?.();
     }
     return Object.freeze({
       status,
@@ -269,6 +273,31 @@ describe('PatchMap transformer edit integration', () => {
       activeGestureCount: 0,
       pointerCaptureCount: 0,
     });
+  });
+
+  it('returns a refused completion when reentrant selection already cancels the session', async () => {
+    const { engine, surface } = await createEngine(engines);
+    engine.loadDataset(scene());
+    engine.applySelection({ op: 'replace', ids: ['rect-b'], source: 'programmatic' });
+    beginMovePreview(engine, 79);
+    surface.nextReconcileCallback = () => {
+      engine.applySelection({ op: 'replace', ids: ['image-a'], source: 'programmatic' });
+    };
+
+    expect(engine.completeTransformerEdit(79)).toMatchObject({
+      status: 'refused',
+      changed: false,
+      gesture: null,
+      transaction: { status: 'refused' },
+      probe: {
+        activeSessionCount: 0,
+        cancelledSessionCount: 1,
+        committedMutationCount: 0,
+      },
+    });
+    expect(geometry(engine, 'rect-b')).toMatchObject({ x: 160, y: 40 });
+    expect(geometryFromDataset(surface.loaded, 'rect-b')).toMatchObject({ x: 160, y: 40 });
+    expect(engine.snapshot().selectionIds).toEqual(['image-a']);
   });
 
   it('reverts every explicit cancellation reason without history or retained resources', async () => {

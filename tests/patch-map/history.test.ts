@@ -166,7 +166,9 @@ describe('PatchMap semantic history', () => {
 
     expect(prepared).toMatchObject({ plannedStatus: 'recorded', baseEpoch: 0, baseCursor: 0 });
     expect(history.state()).toMatchObject({ depth: 0, cursor: 0 });
+    expect(history.canCommitPrepared(prepared)).toBe(true);
     expect(history.commitPrepared(prepared)).toBe('recorded');
+    expect(history.canCommitPrepared(prepared)).toBe(false);
     expect(history.inspect().commands[0]).toMatchObject({
       before: {
         dataset: [{ id: 'box', zIndex: 0 }],

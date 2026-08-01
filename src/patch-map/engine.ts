@@ -578,6 +578,7 @@ export class PatchMap {
   private submissionSequence = 0;
   private loadSequence = 0;
   private pendingWork = 0;
+  private destroySettlement: Promise<boolean> | null = null;
   private readonly externalDependencyRevisions = new Map<string, string>();
   private pointerGestureAuthority: PatchMapPointerGestureAuthority | null = null;
 
@@ -1146,8 +1147,22 @@ export class PatchMap {
     prepared: PreparedPatchMapEngineLoad,
   ): PatchMapEngineLoadResult {
     this.transformerSessions.cancelActive('replace', true);
-    this.loadSequence += 1;
+    const sequence = ++this.loadSequence;
+    const lifecycleGeneration = this.publication.lifecycleGeneration;
+    const sceneRevision = this.publication.sceneRevision;
     surface.load(prepared.materialized.dataset);
+    try {
+      this.assertCooperativeLoadCurrent(
+        surface,
+        sequence,
+        lifecycleGeneration,
+        sceneRevision,
+        'loadDataset',
+      );
+    } catch (error) {
+      this.restoreAuthoritativeSurfaceScene(surface, 'loadDataset');
+      throw error;
+    }
     this.pointerGestureAuthority?.interrupt('replace');
     this.transformerSessions.interruptGestures();
     return this.commitPreparedDatasetLoad(prepared);
@@ -1982,6 +1997,30 @@ export class PatchMap {
       return result;
     }
     const reconcileCompleted = enginePerformanceNow();
+
+    if (
+      !this.isSurfaceMutationCurrent(surface, previousRevisions) ||
+      (preparedHistory !== null && !this.history.canCommitPrepared(preparedHistory))
+    ) {
+      if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
+      this.restoreAuthoritativeSurfaceScene(surface, operation);
+      const diagnostic = this.operationDiagnostic(
+        'CONFLICT',
+        'CONFLICT',
+        operation,
+        true,
+      );
+      const result = this.refusedTransactionResult(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        plan,
+        this.history.state(),
+        EMPTY_RECONCILE_DIAGNOSTICS,
+      );
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
 
     const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
     if (reconcile.status === 'refused') {
@@ -4707,9 +4746,47 @@ export class PatchMap {
     return this.applyHistory('redo');
   }
 
-  public async destroy(): Promise<boolean> {
-    if (this.lifecycle === 'destroying') return false;
-    if (this.lifecycle === 'destroyed') return this.retryDestroyedCleanup();
+  public destroy(): Promise<boolean> {
+    if (this.destroySettlement !== null) {
+      return this.destroySettlement.then(() => false);
+    }
+    if (this.lifecycle === 'destroyed') return this.beginDestroyedCleanupRetry();
+    let resolveSettlement!: (result: boolean) => void;
+    let rejectSettlement!: (error: unknown) => void;
+    const settlement = new Promise<boolean>((resolve, reject) => {
+      resolveSettlement = resolve;
+      rejectSettlement = reject;
+    });
+    this.destroySettlement = settlement;
+    void this.performDestroy().then((result) => {
+      this.destroySettlement = null;
+      resolveSettlement(result);
+    }, (error) => {
+      this.destroySettlement = null;
+      rejectSettlement(error);
+    });
+    return settlement;
+  }
+
+  private beginDestroyedCleanupRetry(): Promise<boolean> {
+    let resolveSettlement!: (result: boolean) => void;
+    let rejectSettlement!: (error: unknown) => void;
+    const settlement = new Promise<boolean>((resolve, reject) => {
+      resolveSettlement = resolve;
+      rejectSettlement = reject;
+    });
+    this.destroySettlement = settlement;
+    void this.retryDestroyedCleanup().then((result) => {
+      this.destroySettlement = null;
+      resolveSettlement(result);
+    }, (error) => {
+      this.destroySettlement = null;
+      rejectSettlement(error);
+    });
+    return settlement;
+  }
+
+  private async performDestroy(): Promise<boolean> {
     this.managedFrameLoop.destroy();
     this.transformerSessions.cancelActive('destroy', false);
     this.lifecycle = 'destroying';
@@ -5220,9 +5297,10 @@ export class PatchMap {
     sequence: number,
     lifecycleGeneration: number,
     sceneRevision: number,
+    operation = 'loadDatasetAsync',
   ): void {
     if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
-      throw this.operationError('DESTROYED', 'DESTROYED', 'loadDatasetAsync', false);
+      throw this.operationError('DESTROYED', 'DESTROYED', operation, false);
     }
     if (
       this.surface !== surface ||
@@ -5230,7 +5308,48 @@ export class PatchMap {
       this.publication.lifecycleGeneration !== lifecycleGeneration ||
       this.publication.sceneRevision !== sceneRevision
     ) {
-      throw this.operationError('SUPERSEDED', 'SUPERSEDED', 'loadDatasetAsync', true);
+      throw this.operationError('SUPERSEDED', 'SUPERSEDED', operation, true);
+    }
+  }
+
+  private isSurfaceMutationCurrent(
+    surface: PatchMapEngineSurface,
+    revisions: PatchMapRevisionStamp,
+  ): boolean {
+    return (
+      this.lifecycle !== 'destroyed' &&
+      this.lifecycle !== 'destroying' &&
+      this.surface === surface &&
+      this.publication.lifecycleGeneration === revisions.lifecycleGeneration &&
+      this.publication.sceneRevision === revisions.sceneRevision &&
+      this.publication.interactionRevision === revisions.interactionRevision
+    );
+  }
+
+  private restoreAuthoritativeSurfaceScene(
+    surface: PatchMapEngineSurface,
+    operation: string,
+  ): void {
+    if (
+      this.lifecycle === 'destroyed' ||
+      this.lifecycle === 'destroying' ||
+      this.surface !== surface
+    ) {
+      return;
+    }
+    try {
+      surface.load(this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset);
+      surface.select(this.logicalSelectionIds);
+    } catch (cause) {
+      const terminal = this.operationError(
+        'INTERNAL_FAILURE',
+        'INTERNAL_FAILURE',
+        operation,
+        false,
+      );
+      terminal.cause = cause;
+      this.handleSurfaceTerminalFailure(terminal);
+      throw terminal;
     }
   }
 
