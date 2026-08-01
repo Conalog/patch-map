@@ -24,7 +24,6 @@ import type {
   PatchMapBarProjection,
   PatchMapProjectionIndex,
 } from './contracts';
-import type { PatchMapPresentationFrame } from './presentation';
 import {
   PATCH_MAP_PRESENTATION_POLICY_REVISION,
   type PatchMapPresentationPolicyInput,
@@ -42,12 +41,7 @@ import {
 import {
   withRendererDegradationDiagnostics,
 } from './renderers/degradation';
-import {
-  PatchMapAdaptiveFrameBudget,
-  PatchMapFrameLoop,
-  InvalidationScheduler,
-  type PatchMapFrameLoopOptions,
-} from './scheduler';
+import type { PatchMapFrameLoop, PatchMapFrameLoopOptions } from './scheduler';
 import {
   primePatchMapParsedSceneReconcileIncremental,
 } from './semantic/reconcile';
@@ -155,6 +149,7 @@ import {
   preparePatchMapSemanticRefresh,
   preparePatchMapTransientDirtyRanges,
 } from './core/transient-projection-planning';
+import { PatchMapFramePublicationAuthority } from './core/frame-publication-authority';
 
 export { normalizePatchMapTextTarget } from './core/contracts';
 export type * from './core/contracts';
@@ -174,16 +169,11 @@ export class PatchMapRuntime {
 
   private readonly publishedScene: PatchMapPublishedSceneAuthority;
   private readonly sceneOptions: CoreSceneOptions;
-  private readonly scheduler: InvalidationScheduler;
-  private readonly adaptiveFrameBudget = new PatchMapAdaptiveFrameBudget();
-  private externalFrameLoop: PatchMapFrameLoop | null = null;
-  private automaticAnimationFramesActive = false;
+  private readonly framePublication: PatchMapFramePublicationAuthority;
   private readonly sceneImages: PatchMapSceneImageController;
   private readonly loadAuthority: PatchMapLoadAuthority;
   private readonly barPresentation = new PatchMapBarPresentationAuthority();
   private readonly parseOptions: ParsePatchMapOptions;
-  private readonly autoRender: boolean;
-  private readonly requestFrame: (() => void) | undefined;
   private readonly onTerminalFailure: ((error: Error) => void) | undefined;
   private readonly stableRecordStrategy: PatchMapStableRecordStrategy;
   private readonly rootInteraction: PatchMapRootInteractionAuthority;
@@ -192,21 +182,15 @@ export class PatchMapRuntime {
   private currentView: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   private worldFlipX = false;
   private worldFlipY = false;
-  private lastFrameReport: FrameReport | null = null;
-  private suspended = false;
   private destroyedValue = false;
   private pendingIntrinsicImageSizes = new Map<string, PatchMapSceneImageIntrinsicSize>();
-  private componentRendererFactsPublished = false;
-  private textRendererFactsPublished = false;
-  private renderedSceneRevision: number | null = null;
   private terminalFailure: Error | null = null;
 
   private constructor(renderer: PatchMapPixiRenderer, options: PatchMapRuntimeOptions) {
     this.renderer = renderer;
     this.initializationMetrics = renderer.initializationMetrics;
     this.parseOptions = options.parse ?? {};
-    this.autoRender = options.autoRender ?? true;
-    this.requestFrame = options.requestFrame;
+    const autoRender = options.autoRender ?? true;
     this.onTerminalFailure = options.onTerminalFailure;
     this.stableRecordStrategy = options.internalStableRecordOverlays === true
       ? 'internal-overlay'
@@ -227,11 +211,33 @@ export class PatchMapRuntime {
       textTargets: new Map(),
       entityCount: 0,
     });
-    this.scheduler = new InvalidationScheduler((timeMs) => this.renderScheduledFrame(timeMs));
+    this.framePublication = new PatchMapFramePublicationAuthority(
+      renderer,
+      this.barPresentation,
+      {
+        assertAlive: () => this.assertAlive(),
+        assertPublicationHealthy: () => this.assertPublicationHealthy(),
+        isRuntimeDestroyed: () => this.destroyedValue,
+        readScene: () => this.scene,
+        readProjection: () => this.projectionValue,
+        readSpatialHit: () => this.spatialHit,
+        readFrameWorkloadSize: () => this.parseResultValue?.identity.counts.sourceElements ?? 0,
+        readViewportGestureActive: () => this.rootInteraction.activeGesture,
+        applyPendingIntrinsicImageSizes: () => this.applyPendingIntrinsicImageSizes(),
+        cancelRootGesture: () => this.rootInteraction.cancelGesture(),
+        finalizeSceneImagesAfterRenderedFrame: () => {
+          void this.sceneImages.finalizeAfterRenderedFrame();
+        },
+      },
+      {
+        autoRender,
+        ...(options.requestFrame === undefined ? {} : { requestFrame: options.requestFrame }),
+      },
+    );
     this.sceneImages = new PatchMapSceneImageController(renderer, {
       onInvalidate: (reason) => {
         if (this.loadAuthority.publicationSideEffectsInProgress) return;
-        this.invalidate(reason);
+        this.framePublication.invalidate(reason);
       },
       onIntrinsicSize: (resolution) => this.queueIntrinsicImageSize(resolution),
     });
@@ -258,14 +264,14 @@ export class PatchMapRuntime {
           point,
           { interactiveOnly: true },
         ) !== null,
-        requestGestureFrame: () => this.requestExternalFrameLoop(),
+        requestGestureFrame: () => this.framePublication.requestExternalFrameLoop(),
         setGestureContinuous: (enabled, reason) => {
-          this.scheduler.setContinuous(enabled, reason);
+          this.framePublication.setContinuous(enabled, reason);
         },
       },
       {
         selectionMode: options.rootSelectionMode ?? 'immediate',
-        autoRender: this.autoRender,
+        autoRender,
       },
     );
   }
@@ -319,38 +325,30 @@ export class PatchMapRuntime {
   }
 
   public get activeAnimations(): number {
-    return this.destroyedValue || this.terminalFailure !== null
-      ? 0
-      : this.scene.activeAnimations + this.barPresentation.activeCount;
+    return this.framePublication.activeAnimations;
   }
 
   /** Source-level workload size used by the shared adaptive frame policy. */
   public get frameWorkloadSize(): number {
-    this.assertPublicationHealthy();
-    return this.parseResultValue?.identity.counts.sourceElements ?? 0;
+    return this.framePublication.frameWorkloadSize;
   }
 
   /** Current monotonic presentation clock used by a package-owned frame loop. */
   public get frameTimeMs(): number {
-    this.assertPublicationHealthy();
-    return this.barPresentation.clockMs;
+    return this.framePublication.frameTimeMs;
   }
 
   /** Root-owned gesture state used by automatic and host-driven frame loops. */
   public get viewportGestureActive(): boolean {
-    return !this.destroyedValue &&
-      this.terminalFailure === null &&
-      this.rootInteraction.activeGesture;
+    return this.framePublication.viewportGestureActive;
   }
 
   public get presentationRevision(): number {
-    this.assertPublicationHealthy();
-    return this.barPresentation.presentationRevision;
+    return this.framePublication.presentationRevision;
   }
 
   public get reducedMotion(): boolean {
-    this.assertPublicationHealthy();
-    return this.barPresentation.reducedMotion;
+    return this.framePublication.reducedMotion;
   }
 
   public get view(): CoreView {
@@ -501,7 +499,7 @@ export class PatchMapRuntime {
         spatialHit: this.spatialHit,
         currentView: this.currentView,
         pendingIntrinsicImageSizes: this.pendingIntrinsicImageSizes,
-        automaticAnimationFramesActive: this.automaticAnimationFramesActive,
+        automaticAnimationFramesActive: this.framePublication.automaticAnimationFramesActive,
       },
     });
     const {
@@ -566,8 +564,8 @@ export class PatchMapRuntime {
     this.loadAuthority.endPublicationSideEffects();
     this.loadAuthority.disposeRuntimeState(previousRuntime);
     this.publishedScene.discard(previousPublished.previous);
-    this.adaptiveFrameBudget.reset();
-    this.invalidate('load');
+    this.framePublication.resetAdaptiveBudget();
+    this.framePublication.invalidate('load');
   }
 
   private installLoadedRuntimeState(state: PatchMapLoadRuntimeState): void {
@@ -575,7 +573,9 @@ export class PatchMapRuntime {
     this.spatialHit = state.spatialHit;
     this.currentView = state.currentView;
     this.pendingIntrinsicImageSizes = state.pendingIntrinsicImageSizes;
-    this.automaticAnimationFramesActive = state.automaticAnimationFramesActive;
+    this.framePublication.installAutomaticAnimationFramesActive(
+      state.automaticAnimationFramesActive,
+    );
   }
 
   private rollbackLoadedProjection(
@@ -646,18 +646,7 @@ export class PatchMapRuntime {
     if (this.terminalFailure !== null) return;
     const failure = new Error(message, { cause });
     this.terminalFailure = failure;
-    this.suspended = true;
-    this.rootInteraction.cancelGesture();
-    this.automaticAnimationFramesActive = false;
-    this.scheduler.setContinuous(false, 'load-rollback-terminal');
-    this.scheduler.cancelPending();
-    try {
-      if (this.externalFrameLoop !== null && !this.externalFrameLoop.isDestroyed) {
-        this.externalFrameLoop.pause();
-      }
-    } catch {
-      // Terminal state already prevents any later publication.
-    }
+    this.framePublication.sealTerminal();
     try {
       this.rootInteraction.destroy();
     } catch {
@@ -861,7 +850,9 @@ export class PatchMapRuntime {
       this.barPresentation.visibleProjection,
       this.barPresentation,
     );
-    if (this.barPresentation.activeCount > 0) this.invalidate('presentation');
+    if (this.barPresentation.activeCount > 0) {
+      this.framePublication.invalidate('presentation');
+    }
     if (this.stableRecordStrategy === 'internal-overlay') {
       compactPatchMapProjectionStableRecords(parse.projection);
     }
@@ -869,52 +860,16 @@ export class PatchMapRuntime {
 
   /** Build aggregate CPU/GPU resources without presenting a visible frame. */
   public async prepare(): Promise<PatchMapPrepareResult> {
-    this.assertAlive();
-    this.applyPendingIntrinsicImageSizes();
-    this.renderer.synchronizeNextFlush();
-    this.scheduler.cancelPending();
-    const syncStarted = now();
-    this.lastFrameReport = this.flushScene();
-    const storeSyncMs = now() - syncStarted;
-    const frame = this.requireFrameReport();
-    const prepareStarted = now();
-    await this.renderer.prepareGpu();
-    const gpuPrepareMs = now() - prepareStarted;
-    return Object.freeze({ storeSyncMs, gpuPrepareMs, frame });
+    return this.framePublication.prepare();
   }
 
   public flush(reason = 'manual'): FrameReport {
-    this.assertAlive();
-    this.applyPendingIntrinsicImageSizes();
-    this.scheduler.cancelPending();
-    this.lastFrameReport = this.flushScene();
-    if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
-    if (this.autoRender && this.activeAnimations > 0) this.scheduler.invalidate(reason);
-    return this.requireFrameReport();
+    return this.framePublication.flush(reason);
   }
 
   /** Advance the deterministic presentation clock and publish one manual frame. */
   public publishFrame(timeMs: number): FrameReport {
-    this.assertAlive();
-    if (!Number.isFinite(timeMs)) throw new TypeError('timeMs must be finite');
-    this.applyPendingIntrinsicImageSizes();
-    this.scheduler.cancelPending();
-    if (timeMs !== this.barPresentation.clockMs) {
-      if (this.scene.activeAnimations > 0) {
-        this.advance(timeMs);
-      } else {
-        // Renderer-side bar presentation is the common Engine path. Preserve
-        // its aggregate dirty-range fast path without entering the dense
-        // transaction animation table when that table is idle.
-        this.advanceBarPresentation(timeMs);
-      }
-    }
-    this.adaptiveFrameBudget.reset(now());
-    this.automaticAnimationFramesActive = false;
-    this.lastFrameReport = this.flushScene();
-    if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
-    if (this.autoRender && this.activeAnimations > 0) this.scheduler.invalidate('presentation');
-    return this.requireFrameReport();
+    return this.framePublication.publishFrame(timeMs);
   }
 
   /**
@@ -923,21 +878,7 @@ export class PatchMapRuntime {
    * later reconciles from scheduling interpolation.
    */
   public setReducedMotion(enabled: boolean): boolean {
-    this.assertAlive();
-    if (!this.barPresentation.setReducedMotion(enabled)) return false;
-    if (enabled && this.projectionValue !== null) {
-      const presentation = this.barPresentation.reconcile(
-        this.projectionValue,
-        this.projectionValue,
-        this.scene,
-        false,
-      );
-      this.renderer.setProjection(presentation);
-      this.spatialHit.clearSpatialAnimations();
-      this.spatialHit.invalidate();
-      this.invalidate('reduced-motion');
-    }
-    return true;
+    return this.framePublication.setReducedMotion(enabled);
   }
 
   /**
@@ -946,25 +887,7 @@ export class PatchMapRuntime {
    * but no elapsed wall-clock delta is integrated.
    */
   public suspendPresentation(timeMs: number): PatchMapPresentationLifecycleResult {
-    this.assertAlive();
-    if (!Number.isFinite(timeMs) || timeMs < this.barPresentation.clockMs) {
-      throw new RangeError('suspend timeMs must be finite and monotonic');
-    }
-    this.scheduler.cancelPending();
-    this.scheduler.setContinuous(false, 'page-suspend');
-    this.rootInteraction.cancelGesture();
-    const frame = this.publishBarPresentationFrame(
-      this.barPresentation.settle(timeMs, this.scene, this.projectionValue),
-    );
-    this.adaptiveFrameBudget.reset(now());
-    this.automaticAnimationFramesActive = false;
-    this.suspended = true;
-    return Object.freeze({
-      state: 'suspended',
-      timeMs,
-      settledCount: frame.settledCount,
-      activeAnimationCount: this.activeAnimations,
-    });
+    return this.framePublication.suspendPresentation(timeMs);
   }
 
   /**
@@ -972,22 +895,7 @@ export class PatchMapRuntime {
    * caller chooses the single coherent publication frame.
    */
   public resumePresentation(timeMs: number): PatchMapPresentationLifecycleResult {
-    this.assertAlive();
-    if (!Number.isFinite(timeMs) || timeMs < this.barPresentation.clockMs) {
-      throw new RangeError('resume timeMs must be finite and monotonic');
-    }
-    const frame = this.publishBarPresentationFrame(
-      this.barPresentation.settle(timeMs, this.scene, this.projectionValue),
-    );
-    this.adaptiveFrameBudget.reset(now());
-    this.automaticAnimationFramesActive = false;
-    this.suspended = false;
-    return Object.freeze({
-      state: 'running',
-      timeMs,
-      settledCount: frame.settledCount,
-      activeAnimationCount: this.activeAnimations,
-    });
+    return this.framePublication.resumePresentation(timeMs);
   }
 
   public commit(batch: TransactionBatch): CommitResult {
@@ -1089,7 +997,9 @@ export class PatchMapRuntime {
         this.reapplyResolvedIntrinsicSizes();
       }
     }
-    this.invalidate(this.scene.activeAnimations > 0 ? 'animation' : 'commit');
+    this.framePublication.invalidate(
+      this.scene.activeAnimations > 0 ? 'animation' : 'commit',
+    );
     const entityCountDelta = result.added - result.removed;
     if (entityCountDelta !== 0) {
       this.updatePublishedScene({
@@ -1099,28 +1009,7 @@ export class PatchMapRuntime {
   }
 
   public advance(timeMs: number): AdvanceResult {
-    this.assertAlive();
-    // Validate and advance the presentation authority first. Its structured
-    // monotonic-clock error is part of the public Core/Engine contract, and a
-    // rejected frame must not partially advance dense transaction animations.
-    const presentation = this.advanceBarPresentation(timeMs);
-    const result = this.scene.advance(timeMs);
-    if (result.changed > 0) {
-      this.componentRendererFactsPublished = false;
-      this.textRendererFactsPublished = false;
-    }
-    if (result.changed > 0 && this.spatialHit.hasSpatialAnimations) {
-      this.spatialHit.invalidate();
-    }
-    this.spatialHit.pruneCompletedSpatialAnimations(timeMs);
-    this.renderer.markChanges(result.changedRanges, 'animation');
-    if (presentation.changedCount === 0 && presentation.activeCount === 0) return result;
-    return Object.freeze({
-      ...result,
-      activeAnimations: result.activeAnimations + presentation.activeCount,
-      changed: result.changed + presentation.changedCount,
-      changedRanges: mergeSlotRanges(result.changedRanges, presentation.dirtyRanges),
-    });
+    return this.framePublication.advance(timeMs);
   }
 
   public setView(view: CoreView): CommitResult {
@@ -1211,7 +1100,7 @@ export class PatchMapRuntime {
 
   public sceneImageProbe(): PatchMapSceneImagesProbe {
     this.assertAlive();
-    return this.sceneImages.probe(this.componentRendererFactsPublished);
+    return this.sceneImages.probe(this.framePublication.componentRendererFactsPublished);
   }
 
   public retrySceneImage(entityId: string): PatchMapSceneImageRetryResult {
@@ -1231,7 +1120,7 @@ export class PatchMapRuntime {
       this.scene,
       this.renderer,
       this.sceneImages,
-      this.componentRendererFactsPublished,
+      this.framePublication.componentRendererFactsPublished,
     );
   }
 
@@ -1254,7 +1143,7 @@ export class PatchMapRuntime {
       this.scene,
       this.renderer,
       this.barPresentation.visibleProjection,
-      this.renderedSceneRevision,
+      this.framePublication.renderedSceneRevision,
     );
   }
 
@@ -1268,8 +1157,8 @@ export class PatchMapRuntime {
       this.barPresentation.visibleProjection,
       this.scene,
       this.renderer,
-      this.textRendererFactsPublished,
-      this.renderedSceneRevision,
+      this.framePublication.textRendererFactsPublished,
+      this.framePublication.renderedSceneRevision,
     );
   }
 
@@ -1293,7 +1182,7 @@ export class PatchMapRuntime {
     });
     this.renderer.markChanges([], 'selection');
     this.renderer.markOverlayChanges(result.changedRanges, 'selection');
-    this.invalidate('selection');
+    this.framePublication.invalidate('selection');
     return target;
   }
 
@@ -1347,7 +1236,7 @@ export class PatchMapRuntime {
       strokeCssPx: input.strokeCssPx,
     });
     const changed = this.renderer.setInteractionOverlayPolicy(policy);
-    if (changed) this.invalidate('interaction-overlay-policy');
+    if (changed) this.framePublication.invalidate('interaction-overlay-policy');
     return changed;
   }
 
@@ -1358,7 +1247,7 @@ export class PatchMapRuntime {
     if (!this.barPresentation.setLogicalPolicy(input)) return this.presentationPolicyProbe();
     this.applyPresentationPolicyToRenderer();
     this.spatialHit.invalidate();
-    this.invalidate('presentation-policy');
+    this.framePublication.invalidate('presentation-policy');
     return this.presentationPolicyProbe();
   }
 
@@ -1367,7 +1256,7 @@ export class PatchMapRuntime {
     if (!this.barPresentation.clearLogicalPolicy()) return this.presentationPolicyProbe();
     this.renderer.setPresentationPolicy(null);
     this.spatialHit.invalidate();
-    this.invalidate('presentation-policy:clear');
+    this.framePublication.invalidate('presentation-policy:clear');
     return this.presentationPolicyProbe();
   }
 
@@ -1453,11 +1342,9 @@ export class PatchMapRuntime {
       dirtyRanges,
       this.spatialHit.staleProjectionIds,
     );
-    this.componentRendererFactsPublished = false;
-    this.textRendererFactsPublished = false;
-    this.renderedSceneRevision = null;
+    this.framePublication.markProjectionFactsStale();
     this.spatialHit.invalidate();
-    this.invalidate('transformer-preview');
+    this.framePublication.invalidate('transformer-preview');
     return Object.freeze({
       changed: dirtyRanges.length > 0,
       entityIds: prepared.entityIds,
@@ -1480,11 +1367,9 @@ export class PatchMapRuntime {
         dirtyRanges,
         this.spatialHit.staleProjectionIds,
       );
-      this.componentRendererFactsPublished = false;
-      this.textRendererFactsPublished = false;
-      this.renderedSceneRevision = null;
+      this.framePublication.markProjectionFactsStale();
       this.spatialHit.invalidate();
-      this.invalidate('transformer-preview-clear');
+      this.framePublication.invalidate('transformer-preview-clear');
     }
     return Object.freeze({
       changed: dirtyRanges.length > 0,
@@ -1512,11 +1397,9 @@ export class PatchMapRuntime {
     const projection = this.barPresentation.visibleProjection;
     if (prepared.dirtyRanges.length > 0 && projection !== null) {
       this.renderer.setProjection(projection, prepared.dirtyRanges);
-      this.componentRendererFactsPublished = false;
-      this.textRendererFactsPublished = false;
-      this.renderedSceneRevision = null;
+      this.framePublication.markProjectionFactsStale();
       this.spatialHit.invalidate();
-      this.invalidate('semantic-refresh');
+      this.framePublication.invalidate('semantic-refresh');
     }
     return prepared;
   }
@@ -1607,7 +1490,7 @@ export class PatchMapRuntime {
     const changed = this.scene.resize(width, height, pixelRatio);
     if (changed) {
       this.renderer.markChanges([], 'resize');
-      this.invalidate('resize');
+      this.framePublication.invalidate('resize');
     }
     return changed;
   }
@@ -1667,14 +1550,14 @@ export class PatchMapRuntime {
     const selectionCount = this.destroyedValue ? 0 : this.scene.selection().refs.length;
     return Object.freeze({
       destroyed: this.destroyedValue,
-      suspended: this.suspended,
+      suspended: this.framePublication.suspended,
       entityCount: this.entityCountValue,
       activeAnimations: this.activeAnimations,
       activeGestureCount: this.rootInteraction.activeGesture ? 1 : 0,
       selectionCount,
       diagnostics: this.diagnostics.length,
       renderer: this.renderer.debugSnapshot(),
-      scheduler: this.scheduler.debugSnapshot(),
+      scheduler: this.framePublication.schedulerDebugSnapshot(),
     });
   }
 
@@ -1718,7 +1601,7 @@ export class PatchMapRuntime {
   public cancelViewportGestures(): void {
     this.assertAlive();
     this.rootInteraction.cancelGesture();
-    this.scheduler.setContinuous(false, 'gesture-cancel');
+    this.framePublication.setContinuous(false, 'gesture-cancel');
   }
 
   /**
@@ -1727,29 +1610,13 @@ export class PatchMapRuntime {
    * frame owner.
    */
   public createFrameLoop(options: PatchMapFrameLoopOptions = {}): PatchMapFrameLoop {
-    this.assertAlive();
-    if (this.autoRender) {
-      throw new Error('createFrameLoop requires autoRender: false');
-    }
-    if (
-      this.externalFrameLoop !== null &&
-      !this.externalFrameLoop.isDestroyed
-    ) {
-      throw new Error('PatchMapRuntime already owns an active frame loop');
-    }
-    this.externalFrameLoop = new PatchMapFrameLoop(this, options);
-    return this.externalFrameLoop;
+    return this.framePublication.createFrameLoop(options);
   }
 
   public async destroy(): Promise<boolean> {
     if (this.destroyedValue) return false;
     this.destroyedValue = true;
-    this.suspended = false;
-    this.rootInteraction.cancelGesture();
-    this.externalFrameLoop?.destroy();
-    this.externalFrameLoop = null;
-    this.scheduler.destroy();
-    this.adaptiveFrameBudget.destroy();
+    this.framePublication.destroy();
     this.rootInteraction.destroy();
     this.spatialHit.destroy();
     this.barPresentation.destroy();
@@ -1767,9 +1634,6 @@ export class PatchMapRuntime {
       componentTargets: new Map(),
       textTargets: new Map(),
     });
-    this.componentRendererFactsPublished = false;
-    this.textRendererFactsPublished = false;
-    this.renderedSceneRevision = null;
     this.pendingIntrinsicImageSizes.clear();
     try {
       this.scene.destroy();
@@ -1794,80 +1658,6 @@ export class PatchMapRuntime {
       throw new AggregateError(cleanupFailures, 'PatchMap cleanup failed');
     }
     return true;
-  }
-
-  private renderScheduledFrame(timeMs: number): boolean {
-    if (
-      this.destroyedValue ||
-      this.suspended ||
-      this.terminalFailure !== null
-    ) {
-      return false;
-    }
-    this.applyPendingIntrinsicImageSizes();
-    const activeAnimationsBefore = this.activeAnimations;
-    if (activeAnimationsBefore > 0) {
-      if (!this.automaticAnimationFramesActive) {
-        this.adaptiveFrameBudget.reset(timeMs);
-        this.automaticAnimationFramesActive = true;
-      }
-      const plan = this.adaptiveFrameBudget.plan({
-        wallTimeMs: timeMs,
-        activeAnimationCount: activeAnimationsBefore,
-        workloadSize: this.frameWorkloadSize,
-        viewportGestureActive: this.viewportGestureActive,
-      });
-      if (plan.presentationAdvanced) {
-        const presentationTimeMs =
-          this.barPresentation.clockMs + plan.presentationDeltaMs;
-        if (this.scene.activeAnimations > 0) {
-          const spatialAnimationActive = this.spatialHit.hasSpatialAnimations;
-          const advanced = this.scene.advance(presentationTimeMs);
-          if (advanced.changed > 0 && spatialAnimationActive) this.spatialHit.invalidate();
-          this.renderer.markChanges(advanced.changedRanges, 'animation');
-        }
-        this.advanceBarPresentation(presentationTimeMs);
-        this.spatialHit.pruneCompletedSpatialAnimations(presentationTimeMs);
-      }
-      this.lastFrameReport = this.flushScene();
-      this.adaptiveFrameBudget.complete(plan, now());
-    } else {
-      this.adaptiveFrameBudget.reset(timeMs);
-      this.lastFrameReport = this.flushScene();
-    }
-    if (this.lastFrameReport.rendered) void this.sceneImages.finalizeAfterRenderedFrame();
-    const active = this.activeAnimations > 0;
-    if (!active) this.automaticAnimationFramesActive = false;
-    return active;
-  }
-
-  private invalidate(reason: string): void {
-    if (this.terminalFailure !== null) return;
-    this.componentRendererFactsPublished = false;
-    this.textRendererFactsPublished = false;
-    this.requestExternalFrameLoop();
-    this.requestFrame?.();
-    if (this.autoRender && !this.suspended) this.scheduler.invalidate(reason);
-  }
-
-  private flushScene(): FrameReport {
-    const report = this.scene.flush();
-    this.componentRendererFactsPublished = true;
-    if (report.rendered) {
-      this.textRendererFactsPublished = true;
-      this.renderedSceneRevision = report.revision;
-    }
-    return report;
-  }
-
-  private requestExternalFrameLoop(): void {
-    if (this.terminalFailure !== null) return;
-    if (this.externalFrameLoop === null) return;
-    if (this.externalFrameLoop.isDestroyed) {
-      this.externalFrameLoop = null;
-      return;
-    }
-    this.externalFrameLoop.request();
   }
 
   private applyPresentationPolicyToRenderer(): void {
@@ -1896,29 +1686,6 @@ export class PatchMapRuntime {
         : resolvePresentationFillOverrides(parse, policy.fillOverrides),
     });
     this.renderer.setPresentationPolicy(resolved);
-  }
-
-  private advanceBarPresentation(timeMs: number): PatchMapPresentationFrame {
-    return this.publishBarPresentationFrame(
-      this.barPresentation.advance(timeMs, this.scene, this.projectionValue),
-    );
-  }
-
-  private publishBarPresentationFrame(
-    frame: PatchMapPresentationFrame,
-  ): PatchMapPresentationFrame {
-    this.spatialHit.settlePresentationIndex(frame.activeCount);
-    if (this.barPresentation.publicationChangedCount === 0) return frame;
-    const projection = this.barPresentation.visibleProjection;
-    if (projection === null) return frame;
-    this.renderer.setProjection(
-      projection,
-      this.barPresentation.publicationDirtyRanges,
-      undefined,
-      'bar-presentation',
-    );
-    this.componentRendererFactsPublished = false;
-    return frame;
   }
 
   private activeSceneImageIds(): ReadonlySet<string> {
@@ -2045,12 +1812,6 @@ export class PatchMapRuntime {
     });
   }
 
-  private requireFrameReport(): FrameReport {
-    const report = this.lastFrameReport;
-    if (!report) throw new Error('PatchMap has not produced a frame report');
-    return report;
-  }
-
   private assertAlive(): void {
     if (this.destroyedValue) throw new Error('PatchMapRuntime is destroyed');
     this.assertPublicationHealthy();
@@ -2094,17 +1855,6 @@ function barPercentageHeight(
     throw new Error('bar percentage animation requires a parser-owned height reference');
   }
   return reference * percent / 100;
-}
-
-function mergeSlotRanges(
-  left: readonly SlotRange[],
-  right: readonly SlotRange[],
-): readonly SlotRange[] {
-  const slots: number[] = [];
-  for (const range of [...left, ...right]) {
-    for (let slot = range.start; slot < range.end; slot += 1) slots.push(slot);
-  }
-  return contiguousSlotRanges(slots);
 }
 
 function activeSceneImageIds(

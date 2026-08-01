@@ -154,9 +154,6 @@ describe('PatchMap transient projection planning', () => {
     const order: string[] = [];
     const facade = {
       parseOptions: {},
-      componentRendererFactsPublished: true,
-      textRendererFactsPublished: true,
-      renderedSceneRevision: 7,
       assertAlive(): void {},
       updatePublishedScene(patch: Partial<PatchMapPublishedSceneState>): void {
         order.push(patch.transientIncrementalParse === null ? 'clear' : 'publish');
@@ -190,8 +187,19 @@ describe('PatchMap transient projection planning', () => {
           order.push('spatial');
         },
       },
-      invalidate(): void {
-        order.push('invalidate');
+      framePublication: {
+        componentRendererFactsPublished: true,
+        textRendererFactsPublished: true,
+        renderedSceneRevision: 7 as number | null,
+        markProjectionFactsStale(): void {
+          order.push('facts-stale');
+          this.componentRendererFactsPublished = false;
+          this.textRendererFactsPublished = false;
+          this.renderedSceneRevision = null;
+        },
+        invalidate(): void {
+          order.push('invalidate');
+        },
       },
     };
 
@@ -207,6 +215,7 @@ describe('PatchMap transient projection planning', () => {
       'bar',
       'ref:rect-b',
       'renderer',
+      'facts-stale',
       'spatial',
       'invalidate',
     ]);
@@ -215,9 +224,9 @@ describe('PatchMap transient projection planning', () => {
       entityIds: ['rect-b'],
       dirtyRanges: [{ start: 4, end: 5 }],
     });
-    expect(facade.componentRendererFactsPublished).toBe(false);
-    expect(facade.textRendererFactsPublished).toBe(false);
-    expect(facade.renderedSceneRevision).toBeNull();
+    expect(facade.framePublication.componentRendererFactsPublished).toBe(false);
+    expect(facade.framePublication.textRendererFactsPublished).toBe(false);
+    expect(facade.framePublication.renderedSceneRevision).toBeNull();
   });
 });
 

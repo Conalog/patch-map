@@ -171,7 +171,7 @@ describe('PatchMap load and mutation publication atomicity', () => {
     expect(internals.publishedScene.current()).toBe(before.published);
     expect(internals.sceneImages.probe()).toEqual(before.sceneImagesProbe);
     expect(renderer.boundBindingKeys).toEqual(before.boundBindingKeys);
-    expect(internals.suspended).toBe(true);
+    expect(internals.framePublication.suspended).toBe(true);
     expect(onTerminalFailure).toHaveBeenCalledTimes(1);
     expect(onTerminalFailure).toHaveBeenCalledWith(expect.objectContaining({
       message: 'PatchMapRuntime entered a terminal state after load rollback failed',
@@ -223,7 +223,7 @@ interface RuntimeInternals {
   readonly spatialHit: PatchMapSpatialHitAuthority;
   readonly pendingIntrinsicImageSizes: Map<string, PatchMapSceneImageIntrinsicSize>;
   readonly automaticAnimationFramesActive: boolean;
-  readonly suspended: boolean;
+  readonly framePublication: Readonly<{ suspended: boolean }>;
   readonly sceneImages: PatchMapSceneImageController;
 }
 
