@@ -4,7 +4,7 @@ import {
   type PatchMapTextTarget,
 } from './core/contracts';
 import {
-  PatchMapFrameLoop,
+  type PatchMapFrameLoop,
   type PatchMapFrameLoopOptions,
 } from './scheduler';
 import type {
@@ -185,6 +185,7 @@ import {
 } from './engine/scene-state-authority';
 import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-authority';
 import { PatchMapAssetSessionAuthority } from './engine/asset-session-authority';
+import { PatchMapManagedFrameLoopAuthority } from './engine/managed-frame-loop-authority';
 import {
   emptyPatchMapEngineSurfaceDebug,
   PATCH_MAP_ENGINE_FACILITIES as FACILITIES,
@@ -541,6 +542,7 @@ export class PatchMap {
   private readonly hostAssetIngestion = new PatchMapHostAssetIngestionAuthority();
   private readonly editorWorkflows = new PatchMapEditorWorkflowAuthority();
   private readonly pageLifecycle = new PatchMapPageLifecycleAuthority();
+  private readonly managedFrameLoop = new PatchMapManagedFrameLoopAuthority();
   private readonly accessibility = new PatchMapAccessibilityAuthority();
   private readonly transformerGestures = new PatchMapTransformerGestureAuthority();
   private readonly transformerEdits = new PatchMapTransformerEditAuthority();
@@ -557,8 +559,6 @@ export class PatchMap {
   private lastTransactionPerformance: PatchMapEngineTransactionPerformanceProbe | null = null;
   private readonly listeners = new Map<PatchMapEngineEvent, Set<(event: unknown) => void>>();
   private lifecycle: PatchMapLifecycle = 'new';
-  private frameLoop: PatchMapFrameLoop | null = null;
-  private frameLoopPausedForVisibility = false;
   private initializationBootstrapInProgress = false;
   private initializationMustCleanLateSurface = false;
   private terminalRendererLossProbe: PatchMapPixiRendererLossProbe | null = null;
@@ -860,15 +860,14 @@ export class PatchMap {
   public createFrameLoop(options: PatchMapFrameLoopOptions = {}): PatchMapFrameLoop {
     this.requireSurface('createFrameLoop');
     if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
-    if (this.frameLoop !== null && !this.frameLoop.isDestroyed) {
+    const frameLoop = this.managedFrameLoop.create(this, options);
+    if (frameLoop === null) {
       throw this.operationError('CONFLICT', 'CONFLICT', 'createFrameLoop', false);
     }
-    this.frameLoop = new PatchMapFrameLoop(this, options);
     if (this.pageLifecycle.probe().state === 'hidden') {
-      this.frameLoop.pause();
-      this.frameLoopPausedForVisibility = true;
+      this.managedFrameLoop.pauseForVisibility();
     }
-    return this.frameLoop;
+    return frameLoop;
   }
 
   public initialize(options: PatchMapInitializeOptions): Promise<PatchMapInitializeResult> {
@@ -2837,18 +2836,9 @@ export class PatchMap {
     const motionBefore = this.viewportAuthority.motionActive;
     let presentation: PatchMapPresentationLifecycleResult | null = null;
     const changed = input.state !== before.state;
-    if (this.frameLoop?.isDestroyed) {
-      this.frameLoop = null;
-      this.frameLoopPausedForVisibility = false;
-    }
+    this.managedFrameLoop.discardDestroyed();
     if (changed && input.state === 'hidden') {
-      if (
-        this.frameLoop !== null &&
-        !this.frameLoop.isPaused
-      ) {
-        this.frameLoop.pause();
-        this.frameLoopPausedForVisibility = true;
-      }
+      this.managedFrameLoop.pauseForVisibility();
       presentation = surface.suspendPresentation?.(input.timeMs) ?? null;
     } else if (changed) {
       presentation = surface.resumePresentation?.(input.timeMs) ?? null;
@@ -2879,12 +2869,9 @@ export class PatchMap {
     } satisfies PatchMapEngineDocumentVisibilityResult);
     if (
       transition.changed &&
-      transition.state === 'visible' &&
-      this.frameLoop !== null
+      transition.state === 'visible'
     ) {
-      this.frameLoop.synchronizeLogicalTime(input.timeMs);
-      if (this.frameLoopPausedForVisibility) this.frameLoop.resume();
-      this.frameLoopPausedForVisibility = false;
+      this.managedFrameLoop.resumeFromVisibility(input.timeMs);
     }
     if (transition.changed) this.emit('documentVisibilityChanged', result);
     return result;
@@ -4941,9 +4928,7 @@ export class PatchMap {
   public async destroy(): Promise<boolean> {
     if (this.lifecycle === 'destroying') return false;
     if (this.lifecycle === 'destroyed') return this.retryDestroyedCleanup();
-    this.frameLoop?.destroy();
-    this.frameLoop = null;
-    this.frameLoopPausedForVisibility = false;
+    this.managedFrameLoop.destroy();
     this.cancelActiveTransformerEdit('destroy', false);
     this.lifecycle = 'destroying';
     this.submissionSequence += 1;
@@ -5910,23 +5895,17 @@ export class PatchMap {
   private requestManagedFrameLoop(): void {
     if (
       this.terminalSurfaceFailure !== null ||
-      this.frameLoop === null ||
+      !this.managedFrameLoop.hasFrameLoop ||
       this.pageLifecycle.probe().state === 'hidden'
     ) {
       return;
     }
-    if (this.frameLoop.isDestroyed) {
-      this.frameLoop = null;
-      return;
-    }
-    this.frameLoop.request();
+    this.managedFrameLoop.request();
   }
 
   private handleSurfaceTerminalFailure(error: Error): void {
     if (!this.surfaceLifecycle.recordTerminalFailure(error)) return;
-    this.frameLoop?.destroy();
-    this.frameLoop = null;
-    this.frameLoopPausedForVisibility = false;
+    this.managedFrameLoop.destroy();
   }
 
   private deliverEngineEvent<K extends PatchMapEngineEvent>(
