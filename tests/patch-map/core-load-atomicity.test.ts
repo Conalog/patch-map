@@ -40,7 +40,7 @@ import type {
   PatchMapSceneImageIntrinsicSize,
 } from '../../src/patch-map/scene-images';
 
-describe('PatchMap load atomicity', () => {
+describe('PatchMap load and mutation publication atomicity', () => {
   const allocated: PatchMapRuntime[] = [];
 
   afterEach(async () => {
@@ -89,6 +89,65 @@ describe('PatchMap load atomicity', () => {
     expect(failure).toBe(boundaryError);
     expectRuntimeRestored(core, renderer, before);
     expect(renderer.boundBindingKeys).toEqual(['alias:old-image']);
+  });
+
+  it('seals the runtime when renderer marking fails after a dense commit', () => {
+    const onTerminalFailure = vi.fn();
+    const { core, renderer } = createActiveCore(allocated, onTerminalFailure);
+    const boundaryError = new Error('mutation mark boundary failed');
+    renderer.nextMarkFailure = boundaryError;
+
+    expect(() => core.reconcile(runtimeScene(55, 'old-image')))
+      .toThrow(boundaryError);
+    expect(onTerminalFailure).toHaveBeenCalledTimes(1);
+    expect(onTerminalFailure).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'PatchMapRuntime entered a terminal state after mutation publication failed',
+      cause: boundaryError,
+    }));
+    expect(() => core.snapshot())
+      .toThrow('PatchMapRuntime entered a terminal state after mutation publication failed');
+    expect(() => core.reconcile(runtimeScene(60, 'old-image')))
+      .toThrow('PatchMapRuntime entered a terminal state after mutation publication failed');
+    const leakedReads = [
+      () => core.entityCount,
+      () => core.frameWorkloadSize,
+      () => core.frameTimeMs,
+      () => core.presentationRevision,
+      () => core.reducedMotion,
+      () => core.view,
+      () => core.diagnostics,
+      () => core.identity,
+      () => core.projection,
+      () => core.ref(BAR_ID),
+      () => core.get(BAR_ID),
+      () => core.query(),
+      () => core.selection(),
+    ];
+    for (const read of leakedReads) {
+      expect(read)
+        .toThrow('PatchMapRuntime entered a terminal state after mutation publication failed');
+    }
+    expect(core.activeAnimations).toBe(0);
+    expect(core.viewportGestureActive).toBe(false);
+  });
+
+  it('seals the runtime when projection publication fails after reconcile commit', () => {
+    const onTerminalFailure = vi.fn();
+    const { core, renderer } = createActiveCore(allocated, onTerminalFailure);
+    const boundaryError = new Error('mutation projection boundary failed');
+    renderer.nextProjectionFailure = boundaryError;
+
+    expect(() => core.reconcile(runtimeScene(55, 'old-image')))
+      .toThrow(boundaryError);
+    expect(onTerminalFailure).toHaveBeenCalledTimes(1);
+    expect(onTerminalFailure).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'PatchMapRuntime entered a terminal state after mutation publication failed',
+      cause: boundaryError,
+    }));
+    expect(() => core.visibleProjection)
+      .toThrow('PatchMapRuntime entered a terminal state after mutation publication failed');
+    expect(() => core.publishFrame(100))
+      .toThrow('PatchMapRuntime entered a terminal state after mutation publication failed');
   });
 
   it('keeps the original async failure and terminates an unprovable compatibility rollback', async () => {

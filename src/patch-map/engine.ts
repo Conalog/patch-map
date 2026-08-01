@@ -1023,6 +1023,7 @@ export class PatchMap {
             accessibility: (targetId, input) => {
               if (
                 !this.surfaceLifecycle.isCurrent(readySurface) ||
+                this.terminalSurfaceFailure !== null ||
                 this.isDestroyingOrDestroyed()
               ) {
                 return;
@@ -1940,6 +1941,7 @@ export class PatchMap {
       });
     } catch (error) {
       if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
+      if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
       const diagnostic = this.diagnosticFrom(error, operation);
       const result = this.refusedTransactionResult(
         actionId,
@@ -2212,6 +2214,7 @@ export class PatchMap {
       });
     } catch (error) {
       this.history.cancelPrepared(preparedHistory);
+      if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
       const diagnostic = this.diagnosticFrom(error, 'patch');
       const result = Object.freeze({
         status: 'refused',
@@ -2395,6 +2398,7 @@ export class PatchMap {
       });
     } catch (error) {
       this.history.cancelPrepared(preparedHistory);
+      if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
       const diagnostic = this.diagnosticFrom(error, 'destroyTarget');
       const result = Object.freeze({
         status: 'refused',
@@ -5231,6 +5235,7 @@ export class PatchMap {
         this.historyHostCompanion = companion?.hostCompanion ?? null;
         this.sceneState.commit(scenePlan);
       } catch (error) {
+        if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
         failure = this.diagnosticFrom(error, direction);
         return false;
       }
@@ -5556,6 +5561,7 @@ export class PatchMap {
   ): void {
     if (
       this.surface !== surface ||
+      this.terminalSurfaceFailure !== null ||
       this.lifecycle === 'destroyed' ||
       this.lifecycle === 'destroying'
     ) {
@@ -5574,6 +5580,7 @@ export class PatchMap {
   ): void {
     if (
       this.surface !== surface ||
+      this.terminalSurfaceFailure !== null ||
       this.lifecycle === 'destroyed' ||
       this.lifecycle === 'destroying'
     ) {
@@ -5586,6 +5593,7 @@ export class PatchMap {
     if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
       throw this.operationError('DESTROYED', 'DESTROYED', operation, false);
     }
+    if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
     if (!this.surface) throw this.operationError('NOT_READY', 'NOT_READY', operation, true);
     return this.surface;
   }

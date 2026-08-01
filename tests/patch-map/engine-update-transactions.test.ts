@@ -8,8 +8,10 @@ import {
   type PatchMapPoint,
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
+  type PatchMapSurfacePointerInput,
   type PatchMapSurfaceReconcileOptions,
   type PatchMapSurfaceReconcileResult,
+  type PatchMapSurfaceViewportInput,
 } from '../../src/patch-map/engine';
 
 interface RecordedReconcile {
@@ -43,7 +45,8 @@ class TransactionSurface implements PatchMapEngineSurface {
   public loadCount = 0;
   public frameCount = 0;
   public loaded: unknown = null;
-  public mode: 'committed' | 'refused' | 'throw' = 'committed';
+  public mode: 'committed' | 'refused' | 'throw' | 'terminal' = 'committed';
+  public onTerminalFailure: ((error: Error) => void) | null = null;
   public hitId: string | null = null;
   public selectionIds: readonly string[] = Object.freeze([]);
   public readonly reconcileCalls: RecordedReconcile[] = [];
@@ -109,6 +112,12 @@ class TransactionSurface implements PatchMapEngineSurface {
             }),
       }),
     }));
+    if (this.mode === 'terminal') {
+      const cause = new Error('surface mutation boundary failure');
+      const terminal = new Error('terminal surface mutation failure', { cause });
+      this.onTerminalFailure?.(terminal);
+      throw cause;
+    }
     if (this.mode === 'throw') throw new Error('surface transaction failure');
     if (this.mode === 'refused') {
       return Object.freeze({
@@ -788,6 +797,57 @@ describe('PatchMap update transactions', () => {
     expect(changes).toHaveLength(1);
   });
 
+  it('propagates a terminal surface mutation instead of reporting a recoverable refusal', async () => {
+    const { engine, surface } = await createEngine(engines, 'surface-terminal');
+    engine.loadDataset(updateScene());
+    const authorityBefore = engine.exportDataset();
+    const viewportBefore = engine.viewportProbe();
+    const selectionBefore = engine.selectionIds;
+    const internals = engine as unknown as {
+      readonly materialized: Readonly<{ dataset: readonly unknown[] }> | null;
+      acceptSurfaceViewportInput(
+        owner: PatchMapEngineSurface,
+        input: PatchMapSurfaceViewportInput,
+      ): void;
+      acceptSurfacePointerInput(
+        owner: PatchMapEngineSurface,
+        input: PatchMapSurfacePointerInput,
+      ): void;
+    };
+    surface.mode = 'terminal';
+
+    expect(() => engine.transact({
+      strict: true,
+      actionId: 'terminal',
+      operations: [mergeElement('rect-b', [['attrs', 'x']], [200])],
+    })).toThrow('terminal surface mutation failure');
+    expect(() => engine.exportDataset()).toThrow('terminal surface mutation failure');
+    expect(internals.materialized?.dataset).toBe(authorityBefore);
+    expect(() => engine.historyState()).toThrow('terminal surface mutation failure');
+    expect(() => engine.publishFrame()).toThrow('terminal surface mutation failure');
+    expect(() => engine.panViewport([10, 5]))
+      .toThrow('terminal surface mutation failure');
+
+    internals.acceptSurfaceViewportInput(surface, {
+      source: 'pointer',
+      centerWorld: [999, 999],
+      scale: 2,
+    });
+    surface.hitId = 'rect-b';
+    internals.acceptSurfacePointerInput(surface, {
+      type: 'down',
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 0,
+      buttons: 1,
+      screen: [180, 40],
+      timeMs: 1,
+      modifiers: { shift: false, ctrl: false, alt: false, meta: false },
+    });
+    expect(engine.viewportProbe()).toEqual(viewportBefore);
+    expect(engine.selectionIds).toEqual(selectionBefore);
+  });
+
   it('animates direct bar size targets and snaps non-direct ancestor layout changes', async () => {
     const { engine, surface } = await createEngine(engines, 'bar-targeting');
     engine.loadDataset(updateScene());
@@ -1357,7 +1417,10 @@ async function createEngine(
 ): Promise<Readonly<{ engine: PatchMap; surface: TransactionSurface }>> {
   const surface = new TransactionSurface({ width: 800, height: 600, pixelRatio: 1 });
   const engine = new PatchMap({
-    surfaceFactory: () => Promise.resolve(surface),
+    surfaceFactory: (options) => {
+      surface.onTerminalFailure = options.onTerminalFailure ?? null;
+      return Promise.resolve(surface);
+    },
     historyLimit: 16,
   });
   engines.push(engine);

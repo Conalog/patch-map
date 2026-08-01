@@ -112,6 +112,7 @@ import {
 import {
   PatchMapSpatialHitAuthority,
   isLargePatchMapAnimatedBarBatch,
+  type PatchMapSpatialHitCommitImpact,
 } from './core/spatial-hit-authority';
 import {
   createPatchMapBarPresentationProductProbe,
@@ -144,7 +145,10 @@ import {
   retainedOwnedInputDataset,
   sameStringArray,
 } from './core/reconcile-planning';
-import { preparePatchMapReconcileCandidate } from './core/reconcile-candidate';
+import {
+  preparePatchMapReconcileCandidate,
+  type PatchMapPreparedReconcileCandidate,
+} from './core/reconcile-candidate';
 import {
   intrinsicImageProjectionUpdate,
   projectionWithResolvedIntrinsicSizes,
@@ -200,7 +204,7 @@ export class PatchMapRuntime {
   private componentRendererFactsPublished = false;
   private textRendererFactsPublished = false;
   private renderedSceneRevision: number | null = null;
-  private terminalLoadFailure: Error | null = null;
+  private terminalFailure: Error | null = null;
 
   private constructor(renderer: PatchMapPixiRenderer, options: PatchMapRuntimeOptions) {
     this.renderer = renderer;
@@ -323,59 +327,68 @@ export class PatchMapRuntime {
   }
 
   public get entityCount(): number {
+    this.assertPublicationHealthy();
     return this.entityCountValue;
   }
 
   public get activeAnimations(): number {
-    return this.destroyedValue || this.terminalLoadFailure !== null
+    return this.destroyedValue || this.terminalFailure !== null
       ? 0
       : this.scene.activeAnimations + this.barPresentation.activeCount;
   }
 
   /** Source-level workload size used by the shared adaptive frame policy. */
   public get frameWorkloadSize(): number {
+    this.assertPublicationHealthy();
     return this.parseResultValue?.identity.counts.sourceElements ?? 0;
   }
 
   /** Current monotonic presentation clock used by a package-owned frame loop. */
   public get frameTimeMs(): number {
+    this.assertPublicationHealthy();
     return this.barPresentation.clockMs;
   }
 
   /** Root-owned gesture state used by automatic and host-driven frame loops. */
   public get viewportGestureActive(): boolean {
     return !this.destroyedValue &&
-      this.terminalLoadFailure === null &&
+      this.terminalFailure === null &&
       this.rootInteraction.activeGesture;
   }
 
   public get presentationRevision(): number {
+    this.assertPublicationHealthy();
     return this.barPresentation.presentationRevision;
   }
 
   public get reducedMotion(): boolean {
+    this.assertPublicationHealthy();
     return this.barPresentation.reducedMotion;
   }
 
   public get view(): CoreView {
+    this.assertPublicationHealthy();
     return this.currentView;
   }
 
   public get diagnostics(): readonly ParseDiagnostic[] {
+    this.assertPublicationHealthy();
     return this.parseResultValue?.diagnostics ?? [];
   }
 
   public get identity(): ParseIdentityIndex | null {
+    this.assertPublicationHealthy();
     return this.parseResultValue?.identity ?? null;
   }
 
   public get projection(): PatchMapProjectionIndex | null {
+    this.assertPublicationHealthy();
     return this.projectionValue;
   }
 
   /** Renderer-visible projection. Semantic consumers should use `projection`. */
   public get visibleProjection(): PatchMapProjectionIndex | null {
-    this.assertLoadPublicationHealthy();
+    this.assertPublicationHealthy();
     return this.barPresentation.visibleProjection;
   }
 
@@ -629,12 +642,23 @@ export class PatchMapRuntime {
   }
 
   private markTerminalLoadFailure(cause: unknown): void {
-    if (this.terminalLoadFailure !== null) return;
-    const failure = new Error(
+    this.markTerminalFailure(
       'PatchMapRuntime entered a terminal state after load rollback failed',
-      { cause },
+      cause,
     );
-    this.terminalLoadFailure = failure;
+  }
+
+  private markTerminalMutationFailure(cause: unknown): void {
+    this.markTerminalFailure(
+      'PatchMapRuntime entered a terminal state after mutation publication failed',
+      cause,
+    );
+  }
+
+  private markTerminalFailure(message: string, cause: unknown): void {
+    if (this.terminalFailure !== null) return;
+    const failure = new Error(message, { cause });
+    this.terminalFailure = failure;
     this.suspended = true;
     this.rootInteraction.cancelGesture();
     this.automaticAnimationFramesActive = false;
@@ -691,11 +715,7 @@ export class PatchMapRuntime {
       parse,
       plan,
       path,
-      incrementalEntityIds,
-      hierarchyOnlyTargetMapping,
-      structuralPresentationEntityIds,
       semanticChanged,
-      parseOptions,
       parseMs,
       planMs,
     } = candidate;
@@ -747,6 +767,46 @@ export class PatchMapRuntime {
       this.sceneImageReconcileSuspended = false;
     }
     const commitMs = now() - commitStarted;
+    try {
+      this.publishReconcileCandidate(input, options, candidate, commit);
+    } catch (error) {
+      // The dense store has already committed. Its exact slot generations,
+      // animation table, and history cannot be reconstructed without changing
+      // stable identity. Seal the runtime instead of exposing a partially
+      // published scene through Engine's still-previous semantic authority.
+      this.markTerminalMutationFailure(error);
+      throw error;
+    }
+    const after = reconcileFactStamp(this.scene);
+    return freezeReconcileResult({
+      status: 'committed',
+      parse,
+      plan,
+      commit,
+      timings: {
+        parseMs,
+        planMs,
+        commitMs,
+        totalMs: now() - totalStarted,
+      },
+      facts: reconcileFacts(plan, semanticChanged, before, after),
+    });
+  }
+
+  private publishReconcileCandidate(
+    input: unknown,
+    options: PatchMapReconcileOptions,
+    candidate: PatchMapPreparedReconcileCandidate,
+    commit: CommitResult,
+  ): void {
+    const {
+      parse,
+      path,
+      incrementalEntityIds,
+      hierarchyOnlyTargetMapping,
+      structuralPresentationEntityIds,
+      parseOptions,
+    } = candidate;
     const presentation = this.barPresentation.reconcile(
       this.projectionValue,
       parse.projection,
@@ -780,9 +840,7 @@ export class PatchMapRuntime {
           ? 'bar-presentation'
           : undefined,
     );
-    if (
-      isLargePatchMapAnimatedBarBatch(this.barPresentation.activeCount)
-    ) {
+    if (isLargePatchMapAnimatedBarBatch(this.barPresentation.activeCount)) {
       this.renderer.setAggregateCullPrecision(false);
     }
     if (
@@ -804,8 +862,7 @@ export class PatchMapRuntime {
     }
     this.spatialHit.clearSpatialAnimations();
     this.spatialHit.invalidate(
-      path === 'direct-bar' &&
-      this.barPresentation.activeCount > 0,
+      path === 'direct-bar' && this.barPresentation.activeCount > 0,
     );
     // Large animated batches must not make the first pointer event pay for
     // the presentation envelope. Non-interactive consumers retain the lean
@@ -821,20 +878,6 @@ export class PatchMapRuntime {
     if (this.stableRecordStrategy === 'internal-overlay') {
       compactPatchMapProjectionStableRecords(parse.projection);
     }
-    const after = reconcileFactStamp(this.scene);
-    return freezeReconcileResult({
-      status: 'committed',
-      parse,
-      plan,
-      commit,
-      timings: {
-        parseMs,
-        planMs,
-        commitMs,
-        totalMs: now() - totalStarted,
-      },
-      facts: reconcileFacts(plan, semanticChanged, before, after),
-    });
   }
 
   /** Build aggregate CPU/GPU resources without presenting a visible frame. */
@@ -979,6 +1022,28 @@ export class PatchMapRuntime {
       this.barPresentation.clockMs,
     );
     const result = this.scene.commit(batch);
+    try {
+      this.publishDenseCommit(
+        batch,
+        result,
+        directImageVisibilityIds,
+        hitImpact,
+        rendererDomain,
+      );
+    } catch (error) {
+      this.markTerminalMutationFailure(error);
+      throw error;
+    }
+    return result;
+  }
+
+  private publishDenseCommit(
+    batch: TransactionBatch,
+    result: CommitResult,
+    directImageVisibilityIds: ReadonlySet<string>,
+    hitImpact: PatchMapSpatialHitCommitImpact,
+    rendererDomain?: 'bar-only' | 'text-only',
+  ): void {
     if (
       !this.sceneImageReconcileSuspended &&
       batch.operations.some((operation) =>
@@ -1044,7 +1109,6 @@ export class PatchMapRuntime {
         entityCount: this.entityCountValue + entityCountDelta,
       });
     }
-    return result;
   }
 
   public advance(timeMs: number): AdvanceResult {
@@ -1209,7 +1273,7 @@ export class PatchMapRuntime {
 
   public textProbe(target: PatchMapTextTarget): PatchMapTextProductProbe | null {
     if (this.destroyedValue) return null;
-    this.assertLoadPublicationHealthy();
+    this.assertPublicationHealthy();
     return createPatchMapTextProductProbe(
       target,
       this.textTargets,
@@ -1678,28 +1742,32 @@ export class PatchMapRuntime {
   }
 
   public ref(id: string): EntityRef | null {
+    this.assertPublicationHealthy();
     return this.scene.ref(id);
   }
 
   public get(target: string | EntityRef): EntitySnapshot | null {
+    this.assertPublicationHealthy();
     return this.scene.get(target);
   }
 
   public query(filter: QueryFilter = {}): readonly EntityRef[] {
+    this.assertPublicationHealthy();
     return this.scene.query(filter);
   }
 
   public selection(): SelectionSnapshot {
+    this.assertPublicationHealthy();
     return this.scene.selection();
   }
 
   public snapshot(): SceneSnapshot {
-    this.assertLoadPublicationHealthy();
+    this.assertPublicationHealthy();
     return this.scene.snapshot();
   }
 
   public debugSnapshot(): PatchMapRuntimeDebug {
-    this.assertLoadPublicationHealthy();
+    this.assertPublicationHealthy();
     const selectionCount = this.destroyedValue ? 0 : this.scene.selection().refs.length;
     return Object.freeze({
       destroyed: this.destroyedValue,
@@ -1836,7 +1904,7 @@ export class PatchMapRuntime {
     if (
       this.destroyedValue ||
       this.suspended ||
-      this.terminalLoadFailure !== null
+      this.terminalFailure !== null
     ) {
       return false;
     }
@@ -1878,7 +1946,7 @@ export class PatchMapRuntime {
   }
 
   private invalidate(reason: string): void {
-    if (this.terminalLoadFailure !== null) return;
+    if (this.terminalFailure !== null) return;
     this.componentRendererFactsPublished = false;
     this.textRendererFactsPublished = false;
     this.requestExternalFrameLoop();
@@ -1897,7 +1965,7 @@ export class PatchMapRuntime {
   }
 
   private requestExternalFrameLoop(): void {
-    if (this.terminalLoadFailure !== null) return;
+    if (this.terminalFailure !== null) return;
     if (this.externalFrameLoop === null) return;
     if (this.externalFrameLoop.isDestroyed) {
       this.externalFrameLoop = null;
@@ -2089,11 +2157,11 @@ export class PatchMapRuntime {
 
   private assertAlive(): void {
     if (this.destroyedValue) throw new Error('PatchMapRuntime is destroyed');
-    this.assertLoadPublicationHealthy();
+    this.assertPublicationHealthy();
   }
 
-  private assertLoadPublicationHealthy(): void {
-    if (this.terminalLoadFailure !== null) throw this.terminalLoadFailure;
+  private assertPublicationHealthy(): void {
+    if (this.terminalFailure !== null) throw this.terminalFailure;
   }
 
 }

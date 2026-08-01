@@ -54,7 +54,7 @@ type PatchMapReconcileCandidatePath =
   | 'incremental'
   | 'full';
 
-interface PatchMapPreparedReconcileCandidate {
+export interface PatchMapPreparedReconcileCandidate {
   readonly parse: ParsePatchMapResult;
   readonly plan: PatchMapDenseReconcilePlan;
   readonly path: PatchMapReconcileCandidatePath;
