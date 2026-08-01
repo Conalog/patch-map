@@ -30,23 +30,51 @@ const assertionsPath = fileURLToPath(new URL(
   '../../scripts/verification/core-v2-contract-render-browser/assertions.mjs',
   import.meta.url,
 ));
+const ownedModulePaths = [
+  scriptPath,
+  catalogPath,
+  assertionsPath,
+  fileURLToPath(new URL(
+    '../../scripts/verification/core-v2-contract-render-browser/browser-run.mjs',
+    import.meta.url,
+  )),
+  fileURLToPath(new URL(
+    '../../scripts/verification/core-v2-contract-render-browser/expected-cases.mjs',
+    import.meta.url,
+  )),
+  fileURLToPath(new URL(
+    '../../scripts/verification/core-v2-contract-render-browser/focused-input.mjs',
+    import.meta.url,
+  )),
+  fileURLToPath(new URL(
+    '../../scripts/verification/core-v2-contract-render-browser/webgl-probe.mjs',
+    import.meta.url,
+  )),
+] as const;
 let rootSource = '';
 let catalogSource = '';
 let assertionsSource = '';
+let browserRunSource = '';
+let focusedInputSource = '';
+let webGlProbeSource = '';
 let source = '';
 
 beforeAll(async () => {
-  [rootSource, catalogSource, assertionsSource] = await Promise.all([
-    readFile(scriptPath, 'utf8'),
-    readFile(catalogPath, 'utf8'),
-    readFile(assertionsPath, 'utf8'),
-  ]);
-  source = [rootSource, catalogSource, assertionsSource].join('\n');
+  const ownedSources = await Promise.all(
+    ownedModulePaths.map((path) => readFile(path, 'utf8')),
+  );
+  rootSource = ownedSources[0]!;
+  catalogSource = ownedSources[1]!;
+  assertionsSource = ownedSources[2]!;
+  browserRunSource = ownedSources[3]!;
+  focusedInputSource = ownedSources[5]!;
+  webGlProbeSource = ownedSources[6]!;
+  source = ownedSources.join('\n');
 });
 
 describe('PatchMap render browser checkpoint script', () => {
   it('is valid Node syntax', () => {
-    for (const path of [scriptPath, catalogPath, assertionsPath]) {
+    for (const path of ownedModulePaths) {
       const checked = spawnSync(process.execPath, ['--check', path], {
         encoding: 'utf8',
       });
@@ -59,6 +87,10 @@ describe('PatchMap render browser checkpoint script', () => {
   it('keeps catalog and assertions acyclic, fixture-blind, and free of checkpoint ownership', () => {
     expect(rootSource).toContain("from './core-v2-contract-render-browser/catalog.mjs'");
     expect(rootSource).toContain("from './core-v2-contract-render-browser/assertions.mjs'");
+    expect(rootSource).toContain("from './core-v2-contract-render-browser/browser-run.mjs'");
+    expect(rootSource).toContain("from './core-v2-contract-render-browser/expected-cases.mjs'");
+    expect(rootSource).toContain("from './core-v2-contract-render-browser/focused-input.mjs'");
+    expect(rootSource).toContain("from './core-v2-contract-render-browser/webgl-probe.mjs'");
     expect(catalogSource).not.toMatch(/core-v2-contract-render-browser\.mjs|assertions\.mjs/u);
     expect(assertionsSource).toContain("from './catalog.mjs'");
     for (const childSource of [catalogSource, assertionsSource]) {
@@ -458,10 +490,6 @@ describe('PatchMap render browser checkpoint script', () => {
     expect(source).toContain('fixtures: browserRun.fixtures');
     expect(source).toContain('captures: browserRun.captures');
 
-    const browserRunSource = rootSource.slice(
-      rootSource.indexOf('async function executeBrowserRun'),
-      rootSource.indexOf('async function loadExpectedCases'),
-    );
     expect(browserRunSource).not.toMatch(/normalized|expectedCase|compareObservation|readFile/u);
     expect(browserRunSource).toContain('bridge[operationName]');
     expect(browserRunSource).toContain('bridge.actualObservation()');
@@ -652,11 +680,11 @@ describe('PatchMap render browser checkpoint script', () => {
       expect(source).toContain(`'${caseId}',`);
     }
     expect(source).toContain("if (caseSpec.id === 'VIE-001')");
-    expect(source).toContain('await verifyViewportRootInput(page)');
+    expect(source).toContain('await verifyViewportRootInput(page, BRIDGE_NAME)');
     expect(source).toContain("caseSpec.id === 'EVT-003'");
     expect(source).toContain("caseSpec.id === 'EVT-008'");
     expect(source).toContain("caseSpec.id === 'ACC-002'");
-    expect(source).toContain('await verifyPointerRootInput(page, caseSpec.id)');
+    expect(source).toContain('await verifyPointerRootInput(page, caseSpec.id, BRIDGE_NAME)');
     expect(source).toContain("state?.status === 'armed'");
     expect(source).toContain('state.caseId === expectedCaseId');
     expect(source).toContain('`[data-testid="scenario-${expectedCaseId.toLowerCase()}"]`');
@@ -676,6 +704,9 @@ describe('PatchMap render browser checkpoint script', () => {
     expect(source).toContain('observed.ownership?.rootListenerCount === 8');
     expect(source).toContain('observed.nativeContextMenu[0]?.defaultPrevented === true');
     expect(source).toContain('observed.nativeContextMenu[1]?.defaultPrevented === false');
+    expect(focusedInputSource).not.toMatch(
+      /normalized|expectedCase|compareObservation|readFile/u,
+    );
     expect(source).toContain('const DOM_CONTROL_CASES = new Set([...FOCUSED_UI_CASES, ...CONTROL_CASES]);');
     expect(source).toContain('const first = DOM_CONTROL_CASES.has(caseSpec.id)');
     expect(source).toContain('const repeat = DOM_CONTROL_CASES.has(caseSpec.id)');
@@ -717,7 +748,7 @@ describe('PatchMap render browser checkpoint script', () => {
     expect(gpuCaseBlock).toContain('...DETERMINISM_LIFECYCLE_TRANCHE_CASES');
     expect(gpuCaseBlock).toContain('...ACCESSIBILITY_TRANCHE_CASES');
     expect(gpuCaseBlock).toContain('...PERFORMANCE_GPU_CASES');
-    expect(source).toContain('await installWebGlCanvasProbe(page, caseSpec.id)');
+    expect(source).toContain('await installWebGlCanvasProbe(page, caseSpec.id, GPU_PROBE_NAME)');
     expect(source).toContain('await page.addInitScript(({ probeName, caseIdentity }) => {');
     expect(source).toContain('const originalGetContext = HTMLCanvasElement.prototype.getContext;');
     expect(source).toContain("actualContext: typeof WebGL2RenderingContext !== 'undefined'");
@@ -758,11 +789,9 @@ describe('PatchMap render browser checkpoint script', () => {
     expect(source).toContain('initial/reconcile/hide/show each issue WebGL2 draws');
     expect(source).toContain("context.actualContext === 'webgl2'");
 
-    const probeSource = source.slice(
-      source.indexOf('async function installWebGlCanvasProbe'),
-      source.indexOf('async function executeCase'),
+    expect(webGlProbeSource).not.toMatch(
+      /normalized|expectedCase|compareObservation|readFile/u,
     );
-    expect(probeSource).not.toMatch(/normalized|expectedCase|compareObservation|readFile/u);
   });
 
   it('drives REN-008 and REN-010 through actual controls and verifies every actual phase inspector', () => {

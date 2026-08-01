@@ -27,6 +27,10 @@ const browserAssertionsUrl = new URL(
   '../../scripts/verification/core-v2-contract-render-browser/assertions.mjs',
   import.meta.url,
 );
+const browserRunUrl = new URL(
+  '../../scripts/verification/core-v2-contract-render-browser/browser-run.mjs',
+  import.meta.url,
+);
 
 describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
   it('keeps terminal traces bounded and hidden unless the actual execution failed', async () => {
@@ -190,10 +194,11 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
   });
 
   it('keeps both text cases in the shared browser checkpoint with their focused inspectors', async () => {
-    const [source, catalogSource, assertionSource] = await Promise.all([
+    const [source, catalogSource, assertionSource, browserRunSource] = await Promise.all([
       readFile(browserScriptUrl, 'utf8'),
       readFile(browserCatalogUrl, 'utf8'),
       readFile(browserAssertionsUrl, 'utf8'),
+      readFile(browserRunUrl, 'utf8'),
     ]);
     const caseBlock = catalogSource.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
@@ -212,11 +217,14 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
     expect(catalogSource).toContain(
       "const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);",
     );
-    expect(source).toContain('async function collectTextFocusedUi');
-    expect(source).toContain("inspectorTestId: 'ren-006-text-inspector'");
-    expect(source).toContain("inspectorTestId: 'ren-011-text-inspector'");
-    expect(source).toContain('Number(inspector.dataset.observedChoiceCount) === config.choices.length');
-    expect(source).toContain('async function readTextFocusedUi');
+    expect(source).toContain("from './core-v2-contract-render-browser/browser-run.mjs'");
+    expect(browserRunSource).toContain('async function collectTextFocusedUi');
+    expect(browserRunSource).toContain("inspectorTestId: 'ren-006-text-inspector'");
+    expect(browserRunSource).toContain("inspectorTestId: 'ren-011-text-inspector'");
+    expect(browserRunSource).toContain(
+      'Number(inspector.dataset.observedChoiceCount) === config.choices.length',
+    );
+    expect(browserRunSource).toContain('async function readTextFocusedUi');
     expect(assertionSource).toContain('assertTextFocusedUi(caseSpec.id, run.ui, runLabel)');
     expect(assertionSource).toContain("choices.rapid['intermediate-publication-count'] === '0'");
     expect(assertionSource).toContain("choices.placed['local-bounds'] === '[219,135,16,20]'");

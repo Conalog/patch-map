@@ -110,16 +110,16 @@ function assertControlUi(caseId, ui, runLabel) {
 }
 
 export function assertDestroyControl(caseId, destroyed, runLabel) {
+  invariant(
+    cleanupStatus(destroyed.cleanup) === 'completed',
+    `${caseId} ${runLabel} destroy cleanup completion`,
+  );
   if (!CONTROL_CASES.has(caseId)) return;
   invariant(
     destroyed.trigger === 'click:destroy-case',
     `${caseId} ${runLabel} actual Destroy control`,
   );
   invariant(destroyed.rootStatus === 'destroyed', `${caseId} ${runLabel} destroyed DOM state`);
-  invariant(
-    cleanupStatus(destroyed.cleanup) === 'completed',
-    `${caseId} ${runLabel} Destroy control cleanup completion`,
-  );
 }
 
 function assertImmutableConflictActuals(caseId, actualObservation, runLabel) {
