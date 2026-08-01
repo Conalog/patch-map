@@ -28,21 +28,24 @@
 - Actual-production alpha, image pivot/underlay, remote allowlist, async
   invalidation, content orientation, and aggregate lane behavior remain
   verified without per-entity display objects or listeners.
-- The structural cleanup is reopened: `engine.ts` and `core.ts` still combine
-  too many stateful responsibilities, and all allowed source, Lab, test,
-  performance, verification, example, and root configuration files are being
-  reviewed before the PR.
-- The previous 151 files / 1,471 tests, canonical 38/173, package, headless
-  Lab, actual-production, and 2+7 memory results remain the unchanged-path
-  baseline only.
+- The 671-file structural inventory and T0–T10 ownership migration are
+  complete. `engine.ts`, `core.ts`, and `pixi-renderer.ts` are 5,542, 1,969,
+  and 1,813 lines above singular transaction, frame, accessibility, asset,
+  interaction, and resource authorities.
+- The final checkpoint passes 194 unit files / 1,729 tests, full
+  lint/typecheck, product/Lab builds, canonical 38/173, headless 173 routes /
+  192 checks, and 2+7 memory over 5,099 entities and nine ownership cycles.
 - Public `core-v2` Lab aliases and canvas probe identity are removed; retained
   historical identifiers exist only in immutable contract/evidence tooling.
-- The final 5,000-bar 2+7 Chromium proxy remains FAIL because one 4x
-  repeated-action sample reached 2,924.9ms over the 900ms limit. The 1x
-  repeated-action median/p95 is 50.9/109.1ms. Windows-native and qualified
-  WebGPU results remain pending.
+- The current 5,000-bar Chromium proxy passes animation/pan and repeated
+  retarget 2+7 checkpoints; the prior 2,924.9ms 4x outlier fell to a 203.4ms
+  repeated-action p95 aggregate. The 10,000-bar load/interaction and
+  animation/pan smoke pass, while repeated retarget during active pan remains
+  unfavorable and is reported as such. Packed consumer was not repeated
+  because its boundary did not change. Windows-native and qualified WebGPU
+  results remain pending.
 
 # Next Step
 
-- Finish the reopened structural refactor and its release checkpoint before
-  opening the cleanup PR.
+- Open the cleanup PR from the clean branch; increase the package version only
+  after merge.

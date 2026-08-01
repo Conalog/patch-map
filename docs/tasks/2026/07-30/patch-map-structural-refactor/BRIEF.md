@@ -14,17 +14,16 @@
 
 # Current Facts
 
-- The allowed inventory is 647 files / 486,968 LOC after excluding
+- The allowed inventory is 671 files / 486,968 LOC after excluding
   generated and forbidden content; 224,708 LOC is retained result JSON rather
   than refactorable code.
-- `engine.ts` is 6,108 LOC and `core.ts` is 2,358 LOC. Parser, transaction,
-  text-layout, incremental-parser, authoring, and editor-workflow facades have
-  focused downward owners while their atomic writers remain singular.
-- Mesh and Pixi renderer coordinators are 1,256 and 2,002 LOC after CPU value
-  planning moved below unchanged GPU/Application/resource owners.
-- Migration, semantic probe, and scheduling now expose compact compatibility
-  facades above contracts, pure observation/compatibility values, frame-driver,
-  and adaptive-budget leaves while keeping their state writers singular.
+- `engine.ts`, `core.ts`, and `pixi-renderer.ts` are 5,542, 1,969, and 1,813
+  LOC. Transaction commit, frame publication, and nonvisual accessibility
+  overlay ownership now live in focused downward authorities while their
+  atomic writers remain singular.
+- Parser, transaction, text-layout, incremental-parser, authoring, editor,
+  Mesh, and Pixi CPU planning facades have focused owners below unchanged
+  public, GPU/Application, and resource boundaries.
 - Renderer ownership stays one manual loop, aggregate layers, one root
   interaction authority, and explicit asset/destroy coordination; Engine asset
   sessions and its managed loop now have singular child authorities.
@@ -36,35 +35,30 @@
 
 - Every allowed file receives a keep, move, split, consolidate, or delete
   judgment; cohesive files do not require mechanical edits.
-- The working plan owns the 614-file disposition and T0–T10 migration map.
-  Product facades retain atomic publication, scheduler, renderer, listener,
-  lifecycle, asset, and ownership-registry writes above acyclic value/planning
-  modules.
+- The working plan owns the current 671-file disposition and completed T0–T10
+  migration map. Product facades retain atomic publication, scheduler,
+  renderer, listener, lifecycle, asset, and ownership-registry writes above
+  acyclic value/planning modules.
 - Parser, Dataset, transaction, reconcile, text, authoring, editor, host,
   renderer planning, Lab presentation, and contract-test execution support now
   have explicit domain owners without a parallel public or write path.
-- Retained release evidence covers 192 unit files / 1,717 tests, full
-  lint/typecheck, builds, canonical 38/173, headless 173 routes / 192 checks,
-  and 2+7 memory; it remains unchanged-path evidence only.
-- Lab pointer gestures and executable trusted-input sessions now have explicit
-  retryable cleanup owners while preserving one visible workbench session.
-- Update/pointer action handlers and update/pointer/layout observation folds
-  now compose focused owned modules behind a recursive expected-blind import
-  firewall; their registries, action IDs, case dispatch, and comparison
-  boundary remain unchanged.
-- Browser and package verification now keep process, browser, filesystem, and
-  cleanup ownership in compact roots above focused probes, source templates,
-  artifact policy, evidence, and comparison modules; final destroy cleanup is
-  mandatory for every browser case and packed journey.
-- Performance roots are 39/210/58/108-line facades above dataset, measurement,
-  trial, lifecycle, CLI, browser, and report owners; sample order, raw shape,
-  and cleanup remain unchanged.
+- The final checkpoint passes 194 unit files / 1,729 tests, full lint/typecheck,
+  product/Lab builds, canonical 38/173, headless 173 routes / 192 checks, and
+  2+7 memory with 5,099 entities, nine cycles, and 98,215-byte retained median.
+- Expected-blind automation, browser/package cleanup, Lab sessions, and
+  performance tooling now compose focused owners while preserving registries,
+  action IDs, sample order, result shape, and final destroy enforcement.
+- WebGL proxies pass at 5,000 records for 2+7 animation/pan and repeated
+  retarget workloads. The 10,000-record load/interaction and animation/pan
+  smoke pass; repeated retarget remains honestly unfavorable under active pan.
+- Packed consumer was not repeated because package exports, dependencies,
+  assets, and consumer boundaries did not change. Qualified WebGPU and Windows
+  native remain pending.
 
 # Next Step
 
-- Finish the remaining Core/Engine ownership tranche: reduce the 6,108-line
-  Engine and 2,358-line Core only through singular state authorities with
-  explicit prepare/commit ports, then run the final release checkpoint.
+- Open the cleanup PR from the clean structural-refactor branch; perform the
+  version increase only after merge.
 
 # Working Boundary
 

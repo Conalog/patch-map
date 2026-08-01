@@ -45,6 +45,7 @@ src/patch-map/
 │   ├── semantic-index.ts            # component/text index atoms
 │   ├── asset-session-authority.ts    # session/required lease lifetime
 │   ├── managed-frame-loop-authority.ts # one loop/visibility pause reason
+│   ├── transaction-commit-coordinator.ts # atomic commit/publication ordering
 │   ├── viewport-authority.ts        # view/policy/motion/persistence writer
 │   ├── transformer-edit-authority.ts
 │   ├── publication-authority.ts     # revisions/frame/visible ledgers
@@ -56,6 +57,7 @@ src/patch-map/
 │   ├── product-probe-reader.ts      # read-only semantic/renderer correlation
 │   ├── root-interaction-authority.ts # one root binding and gesture state
 │   ├── bar-presentation-authority.ts
+│   ├── frame-publication-authority.ts # scheduler/invalidation/frame writer
 │   └── load-authority.ts            # private candidate + rollback checkpoint
 ├── parser.ts                        # v0.10 lowering facade
 ├── parser/
@@ -77,6 +79,8 @@ src/patch-map/
 │   └── ...                          # normalized domain decisions
 └── renderers/
     ├── pixi-renderer.ts             # Application and aggregate coordinator
+    ├── pixi-renderer/
+    │   └── accessibility-overlay-authority.ts # nonvisual nodes/listener lifetime
     ├── leaf-layer.ts                # leaf facade/resource coordinator
     ├── particle-layer.ts            # particle/graphics coordinator
     ├── mesh-layer.ts                # retained mesh owner
@@ -109,8 +113,8 @@ import a path directly. The package still publishes only `"."`.
 
 ## File inventory disposition
 
-The current allowed corpus contains 647 files / 486,968 LOC: 203 product, 69
-Lab, 203 tests, 137 active verification scripts, 23 performance files, five
+The current allowed corpus contains 671 files / 486,968 LOC: 208 product, 69
+Lab, 205 tests, 137 active verification scripts, 40 performance files, five
 examples, and seven root configuration files. Performance result JSON accounts
 for 224,708 LOC and is evidence rather than refactorable code. Every file is
 covered by the following rule; explicit exceptions override the directory
@@ -160,6 +164,10 @@ renderer, or destroy ownership changed.
   presentation writers while Core/Engine retain atomic orchestration.
 - Do not move transaction application, scheduler ownership, or callbacks into
   a second writer.
+
+Completed with singular transformer-session, frame-publication, transaction-
+commit, asset-session, managed-loop, viewport, publication, and scene-state
+authorities below the two atomic facades.
 
 ### T3 — parser, dataset, transaction, reconcile, and text substrate
 
@@ -236,6 +244,11 @@ repeated because no product hot path changed.
 - Run full contract/release gates, packed consumer, headless 173 routes,
   actual-production/10,000, 2+7 memory, and hot-path performance checkpoints.
 - Complete independent review, intent commits, and a clean worktree.
+
+Completed the integrated unit/lint/typecheck/build/canonical/headless/memory
+checkpoint and the 5,000/10,000 WebGL hot-path checkpoints. Packed consumer was
+not repeated because its export, dependency, asset, and public-consumer paths
+did not change. Qualified WebGPU and Windows-native cells remain pending.
 
 ## Measurement and rollback
 
