@@ -7,6 +7,10 @@ import { renderPatchMapContractLab } from '../../lab/patch-map/contract/main';
 import { parsePatchMapContractRoute } from '../../lab/patch-map/contract/route';
 
 const mainUrl = new URL('../../lab/patch-map/contract/main.ts', import.meta.url);
+const textInspectorUrl = new URL(
+  '../../lab/patch-map/contract/inspectors/text-inspector.ts',
+  import.meta.url,
+);
 const runObserverUrl = new URL(
   '../../lab/patch-map/contract/run-observer.ts',
   import.meta.url,
@@ -156,20 +160,11 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
   });
 
   it('keeps the Lab inspector expected-blind and refreshes it only from folded actualObservation', async () => {
-    const [source, runObserverSource] = await Promise.all([
+    const [source, inspectorSource, runObserverSource] = await Promise.all([
       readFile(mainUrl, 'utf8'),
+      readFile(textInspectorUrl, 'utf8'),
       readFile(runObserverUrl, 'utf8'),
     ]);
-    const inspectorSource = [
-      source.slice(
-        source.indexOf('function renderTextInspectorOptions'),
-        source.indexOf('export function renderPatchMapContractLab'),
-      ),
-      source.slice(
-        source.indexOf('function refreshTextInspector'),
-        source.indexOf('function terminalRen005Product'),
-      ),
-    ].join('\n');
     const chooserListener = source.slice(
       source.indexOf("const textChooser = target.querySelector<HTMLSelectElement>"),
       source.indexOf("const componentAssetChooser = target.querySelector<HTMLSelectElement>"),
