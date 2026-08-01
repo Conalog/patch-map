@@ -109,7 +109,7 @@ import a path directly. The package still publishes only `"."`.
 
 ## File inventory disposition
 
-The current allowed corpus contains 606 files / 484,871 LOC: 203 product, 61
+The current allowed corpus contains 610 files / 485,641 LOC: 203 product, 65
 Lab, 199 tests, 108 active verification scripts, 23 performance files, five
 examples, and seven root configuration files. Performance result JSON accounts
 for 224,708 LOC and is evidence rather than refactorable code. Every file is
@@ -118,8 +118,8 @@ default.
 
 | Area | Default | Explicit split/consolidation candidates |
 | --- | --- | --- |
-| `src/patch-map` | 202 cohesive files keep | remove the `pixi-renderer` child type cycle through structural ports; keep large atomic writers and GPU resource owners intact |
-| `lab/patch-map` | 57 focused files keep | split `manual-workbench.ts`, `contract/main.ts`, `style.css`, and `executable-bridge.ts` by existing composition boundaries |
+| `src/patch-map` | 203 reviewed files keep | the `pixi-renderer` type cycle is removed; keep large atomic writers and GPU resource owners intact |
+| `lab/patch-map` | 65 reviewed files keep | presentation, CSS, pointer, and executable live-session boundaries are split; retain the remaining orchestration facades |
 | `tests/patch-map` | 196 files keep with assertions and case identities | split three mixed composition suites by existing describe/domain blocks |
 | `scripts/verification` | 100 focused files keep | split eight mixed handler/fold/browser/package orchestrators without sharing actual/fold case registries |
 | `performance/patch-map` | 19 files keep plus immutable results | split/consolidate four workload/harness runners only after exact equivalence proof |
@@ -129,7 +129,7 @@ default.
 No whole production, test, verification, performance, example, or root file
 is currently proven obsolete. Deletion requires a concrete unreferenced proof;
 otherwise the disposition is keep, move, split, or consolidate. The product
-runtime graph has no runtime SCC; one type-only Pixi renderer SCC remains.
+runtime and all-import TypeScript graphs have no SCC.
 Equivalence must be proven before consolidating repeated verification atoms.
 
 ## Migration tranches
@@ -193,6 +193,9 @@ Gate: renderer tests, headless browser, 2+7 memory, and paired
 - Shard the declarative registry, split executable bridge/session lifecycle,
   manual workbench controller/view, contract composition, and CSS layers.
 - Keep all 173 cases manually operable and expected-blind.
+
+Completed with separate presentation, CSS, pointer, trusted-input session, and
+cleanup owners below the unchanged manual and executable orchestration facades.
 
 ### T7 — test composition
 
