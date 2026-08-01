@@ -150,7 +150,11 @@ describe('PatchMap transformer edit integration', () => {
     const semanticBefore = engine.exportDataset();
     const historyBefore = engine.historyState().undoDepth;
     const changes: unknown[] = [];
-    engine.on('change', (event) => changes.push(event));
+    let cancellationDuringChange: ReturnType<PatchMap['cancelTransformerEdit']> | null = null;
+    engine.on('change', (event) => {
+      changes.push(event);
+      cancellationDuringChange = engine.cancelTransformerEdit(7, 'redraw');
+    });
 
     expect(engine.beginTransformerEdit({
       pointerId: 7,
@@ -191,6 +195,11 @@ describe('PatchMap transformer edit integration', () => {
       },
     });
     expect(changes).toHaveLength(1);
+    expect(cancellationDuringChange).toMatchObject({
+      status: 'stale',
+      cancelled: false,
+      probe: { activeSessionCount: 0, committedMutationCount: 1 },
+    });
     expect(geometry(engine, 'rect-b')).toMatchObject({ width: 70, height: 60 });
 
     expect(engine.undo()).toMatchObject({ status: 'committed', actionId: 'gesture-1' });
