@@ -26,14 +26,11 @@ import type {
 } from './renderers/types';
 import type { PatchMapSceneImageRetryResult } from './scene-images';
 import {
-  PATCH_MAP_ASSET_RUNTIME,
   PATCH_MAP_BUILTIN_ASSETS,
   PatchMapAssetError,
   type PatchMapAssetAcquisition,
-  type PatchMapAssetPolicy,
   type PatchMapAssetRegistration,
   type PatchMapAssetRegistrationResult,
-  type PatchMapAssetRuntime,
   type PatchMapAssetRuntimeProbe,
   type PatchMapAssetSession,
   type PatchMapAssetSessionProbe,
@@ -187,6 +184,7 @@ import {
   type PatchMapSceneStatePlan,
 } from './engine/scene-state-authority';
 import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-authority';
+import { PatchMapAssetSessionAuthority } from './engine/asset-session-authority';
 import {
   emptyPatchMapEngineSurfaceDebug,
   PATCH_MAP_ENGINE_FACILITIES as FACILITIES,
@@ -532,8 +530,7 @@ interface PreparedPatchMapEngineLoad {
 }
 
 export class PatchMap {
-  private readonly assetRuntime: PatchMapAssetRuntime;
-  private readonly assetPolicy: PatchMapAssetPolicy | undefined;
+  private readonly assetSessions: PatchMapAssetSessionAuthority;
   private readonly operations: PatchMapOperationsAuthority;
   private readonly extractionSecurity: PatchMapExtractionSecurityAuthority;
   private readonly history: PatchMapSemanticHistory<
@@ -590,8 +587,6 @@ export class PatchMap {
   private pendingWork = 0;
   private readonly externalDependencyRevisions = new Map<string, string>();
   private pointerGestureAuthority: PatchMapPointerGestureAuthority | null = null;
-  private assetSession: PatchMapAssetSession | null = null;
-  private requiredAssetAcquisitions: PatchMapAssetAcquisition[] = [];
 
   private get materialized(): MaterializedPatchMapDataset | null {
     return this.sceneState.materialized;
@@ -644,8 +639,10 @@ export class PatchMap {
     this.surfaceLifecycle = new PatchMapSurfaceLifecycleAuthority(
       options.surfaceFactory ?? createPixiSurface,
     );
-    this.assetRuntime = options.assetRuntime ?? PATCH_MAP_ASSET_RUNTIME;
-    this.assetPolicy = options.assetPolicy;
+    this.assetSessions = new PatchMapAssetSessionAuthority(
+      options.assetRuntime,
+      options.assetPolicy,
+    );
     this.operations = options.operations ?? new PatchMapOperationsAuthority();
     this.extractionSecurity = options.extractionSecurity
       ?? new PatchMapExtractionSecurityAuthority();
@@ -680,7 +677,7 @@ export class PatchMap {
       interactionMode: () => this.hostInteractions.modeProbe().activeState,
       pendingWork: () => this.pendingWork,
       rendererConfiguration: () => this.rendererConfiguration,
-      assetProbe: () => this.assetSession?.probe() ?? null,
+      assetProbe: () => this.assetSessions.sessionProbe(),
       canvasCount: () => this.surfaceLifecycle.canvasCount,
       subscriptionCount: () => this.subscriptionCount(),
       sceneImageProbe: () => this.requireSurface('sceneImageProbe').sceneImageProbe?.() ?? null,
@@ -799,20 +796,18 @@ export class PatchMap {
 
   public acquireAsset(alias: string): Promise<PatchMapAssetAcquisition> {
     this.assertAssetLifecycle('acquireAsset');
-    if (!this.assetSession) {
+    const acquisition = this.assetSessions.acquire(alias);
+    if (acquisition === null) {
       return Promise.reject(this.operationError('NOT_READY', 'NOT_READY', 'acquireAsset', true));
     }
-    return this.assetSession.acquire(alias);
+    return acquisition;
   }
 
   public assetProbe(alias?: string): Readonly<{
     session: PatchMapAssetSessionProbe | null;
     runtime: PatchMapAssetRuntimeProbe;
   }> {
-    return Object.freeze({
-      session: this.assetSession?.probe() ?? null,
-      runtime: this.assetRuntime.probe(alias),
-    });
+    return this.assetSessions.probe(alias);
   }
 
   /** O(1) frame-loop seam shared by browser hosts and the PatchMap Labs. */
@@ -1038,7 +1033,7 @@ export class PatchMap {
         this.pointerGestureAuthority = pointerAuthority;
         this.publication.resetGeometryCorrelation();
         candidateSurface = null;
-        this.requiredAssetAcquisitions.push(...attemptAcquisitions);
+        this.assetSessions.adoptRequiredAcquisitions(attemptAcquisitions);
         this.publication.advanceLifecycle();
         this.lifecycle = this.materialized?.rootIds.length ? 'scene-ready' : 'ready-empty';
         const result = this.initializeResult();
@@ -1053,9 +1048,10 @@ export class PatchMap {
           }
           if (cleanup.error) cleanupFailures.push(cleanup.error);
         }
-        const acquisitionSettlements = await Promise.allSettled(
-          attemptAcquisitions.map(async (acquisition) => acquisition.release()),
-        );
+        const acquisitionSettlements = await this.assetSessions
+          .releaseInitializationAcquisitions(
+            attemptAcquisitions,
+          );
         cleanupFailures.push(...rejectedReasons(acquisitionSettlements));
         this.surfaceLifecycle.clearInitialization(initialization);
         this.rendererConfiguration = null;
@@ -4453,7 +4449,7 @@ export class PatchMap {
       viewport.height,
       viewport.pixelRatio,
     );
-    const assetProbe = this.assetSession?.probe() ?? null;
+    const assetProbe = this.assetSessions.sessionProbe();
     const operationsProbe = this.operations.probe();
     const rendererLoss = this.surface?.rendererLossProbe?.()
       ?? this.terminalRendererLossProbe;
@@ -4974,19 +4970,17 @@ export class PatchMap {
     const pendingInitialization = this.initializationBootstrapInProgress
       ? null
       : this.initializePromise;
-    const assetSession = this.assetSession;
     const cleanupFailures: unknown[] = [];
-    const requiredAcquisitions = this.requiredAssetAcquisitions.splice(0);
     let assetCleanup: Promise<void>;
     if (surface) {
       const cleanup = await this.cleanupSurface(surface);
       if (cleanup.error) cleanupFailures.push(cleanup.error);
-      assetCleanup = this.destroyAssetSession(assetSession, requiredAcquisitions);
+      assetCleanup = this.assetSessions.destroy();
     } else {
       // Starting asset teardown cancels a required acquisition that may be
       // holding initialization open. The late surface, if any, is retained by
       // the initialization continuation until this destroy owns it below.
-      assetCleanup = this.destroyAssetSession(assetSession, requiredAcquisitions);
+      assetCleanup = this.assetSessions.destroy();
     }
     if (pendingInitialization) {
       // Initialization owns a renderer allocation that may not exist yet. Its
@@ -5000,7 +4994,7 @@ export class PatchMap {
       const cleanup = await this.cleanupSurface(retainedSurface);
       if (cleanup.error) cleanupFailures.push(cleanup.error);
     }
-    let assetCleanupSucceeded = assetSession === null;
+    let assetCleanupSucceeded = false;
     try {
       await assetCleanup;
       assetCleanupSucceeded = true;
@@ -5023,7 +5017,7 @@ export class PatchMap {
     this.lastTransactionPerformance = null;
     this.rendererConfiguration = null;
     this.surfaceLifecycle.clearInitialization();
-    this.assetSession = assetCleanupSucceeded ? null : assetSession;
+    this.assetSessions.completeDestroy(assetCleanupSucceeded);
     this.lifecycle = 'destroyed';
     this.emit('destroyed', Object.freeze({
       lifecycleGeneration: this.publication.lifecycleGeneration,
@@ -5041,20 +5035,10 @@ export class PatchMap {
       const cleanup = await this.cleanupSurface(this.retainedCleanupSurface);
       if (cleanup.error) cleanupFailures.push(cleanup.error);
     }
-    if (this.assetSession && !this.assetSession.probe().destroyed) {
-      try {
-        await this.assetSession.destroy();
-        this.assetSession = null;
-      } catch (error) {
-        cleanupFailures.push(error);
-      }
-    } else if (this.assetSession?.probe().destroyed) {
-      try {
-        await this.assetSession.retryCleanup();
-        this.assetSession = null;
-      } catch (error) {
-        cleanupFailures.push(error);
-      }
+    try {
+      await this.assetSessions.retryCleanup();
+    } catch (error) {
+      cleanupFailures.push(error);
     }
     if (cleanupFailures.length > 0) {
       throw this.operationError('INTERNAL_FAILURE', 'INTERNAL_FAILURE', 'destroy', false);
@@ -5500,18 +5484,6 @@ export class PatchMap {
     });
   }
 
-  private destroyAssetSession(
-    assetSession: PatchMapAssetSession | null,
-    requiredAcquisitions: readonly PatchMapAssetAcquisition[],
-  ): Promise<void> {
-    if (assetSession) return assetSession.destroy();
-    return Promise.allSettled(
-      requiredAcquisitions.map(async (acquisition) => acquisition.release()),
-    ).then((settlements) => {
-      if (rejectedReasons(settlements).length > 0) throw assetInternalEngineCleanupFailure();
-    });
-  }
-
   private initializeResult(): PatchMapInitializeResult {
     const lifecycle = this.lifecycle === 'scene-ready' ? 'scene-ready' : 'ready-empty';
     return Object.freeze({
@@ -5609,20 +5581,11 @@ export class PatchMap {
   }
 
   private ensureAssetSession(instanceId: string): PatchMapAssetSession {
-    if (this.assetSession) {
-      if (this.assetSession.instanceId !== instanceId) {
-        throw new PatchMapAssetError('CONFLICT', 'CONFLICT', false);
-      }
-      return this.assetSession;
-    }
-    if (this.instanceId !== null && this.instanceId !== instanceId) {
+    const session = this.assetSessions.ensureSession(instanceId, this.instanceId);
+    if (session === null) {
       throw new PatchMapAssetError('CONFLICT', 'CONFLICT', false);
     }
-    this.assetSession = this.assetRuntime.createSession({
-      instanceId,
-      ...(this.assetPolicy ? { policy: this.assetPolicy } : {}),
-    });
-    return this.assetSession;
+    return session;
   }
 
   private assetInitializationError(error: unknown): PatchMapError {
@@ -6022,10 +5985,6 @@ function yieldPatchMapEngineTask(): Promise<void> {
   return new Promise((resolve) => {
     globalThis.setTimeout(resolve, 0);
   });
-}
-
-function assetInternalEngineCleanupFailure(): Error {
-  return new Error('PatchMap required asset cleanup failed');
 }
 
 function requireRegionGeometry(
