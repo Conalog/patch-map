@@ -1,4 +1,6 @@
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
@@ -33,6 +35,68 @@ const fold = foldModule as unknown as PackageFoldRuntime;
 const packedProvenance = packageConsumerEvidence.provenance;
 
 describe('PatchMap packed integration automation substrate', () => {
+  it('keeps package verifier owned modules loadable and explicitly composed', async () => {
+    const urls = [
+      new URL('../../scripts/verification/patch-map-package.mjs', import.meta.url),
+      new URL(
+        '../../scripts/verification/patch-map-package/consumer-sources.mjs',
+        import.meta.url,
+      ),
+      new URL(
+        '../../scripts/verification/patch-map-package/evidence.mjs',
+        import.meta.url,
+      ),
+      new URL(
+        '../../scripts/verification/patch-map-package/supply-chain.mjs',
+        import.meta.url,
+      ),
+      new URL('../../scripts/verification/patch-map-package-matrix.mjs', import.meta.url),
+      new URL(
+        '../../scripts/verification/patch-map-package-matrix/artifact-policy.mjs',
+        import.meta.url,
+      ),
+      new URL(
+        '../../scripts/verification/patch-map-package-matrix/journey-comparison.mjs',
+        import.meta.url,
+      ),
+      new URL(
+        '../../scripts/verification/patch-map-package-matrix/runner-sources.mjs',
+        import.meta.url,
+      ),
+    ];
+    const paths = urls.map((url) => fileURLToPath(url));
+    const sources = await Promise.all(paths.map((path) => readFile(path, 'utf8')));
+    for (const path of paths) {
+      const checked = spawnSync(process.execPath, ['--check', path], { encoding: 'utf8' });
+      expect(checked.status).toBe(0);
+      expect(checked.stderr).toBe('');
+    }
+
+    const root = sources[0]!;
+    const consumers = sources[1]!;
+    const evidence = sources[2]!;
+    const supplyChain = sources[3]!;
+    const matrix = sources[4]!;
+    const artifact = sources[5]!;
+    const comparison = sources[6]!;
+    const runners = sources[7]!;
+    expect(root).toContain("from './patch-map-package/consumer-sources.mjs'");
+    expect(root).toContain("from './patch-map-package/evidence.mjs'");
+    expect(root).toContain("from './patch-map-package/supply-chain.mjs'");
+    expect(consumers).toContain('export const PACKED_CONSUMER_ESM_SOURCE = `');
+    expect(consumers).toContain('export const PACKED_CONSUMER_CJS_SOURCE = `');
+    expect(evidence).toContain('export function collectPackageFailures');
+    expect(evidence).toContain('export function createPackageConsumerEvidence');
+    expect(supplyChain).toContain('export function createSupplyChainEvidence');
+    expect(matrix).toContain("from './patch-map-package-matrix/artifact-policy.mjs'");
+    expect(matrix).toContain("from './patch-map-package-matrix/journey-comparison.mjs'");
+    expect(matrix).toContain("from './patch-map-package-matrix/runner-sources.mjs'");
+    expect(artifact).toContain("export const PACKAGE_NAME = '@conalog/patch-map';");
+    expect(comparison).toContain('export function comparePackedJourneyRuns');
+    expect(comparison).toContain('countDestroySummaryFailures(run.destroySummary)');
+    expect(runners).toContain('export function journeyRunnerSource');
+  });
+
   it('registers five cases through one collision-free shared handler family', () => {
     expect(PATCH_MAP_PACKAGE_INTEGRATION_RUNTIME_REVISION)
       .toBe('patch-map-package-integration-runtime/1');
