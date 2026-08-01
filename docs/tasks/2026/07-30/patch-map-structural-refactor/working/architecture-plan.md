@@ -223,6 +223,14 @@ transaction surface extracted while assertions remain in semantic suites.
 - Keep examples minimal, make lint/build coverage complete, and record the
   final per-area disposition.
 
+Completed the four mixed runners as compact facades above dataset,
+measurement, mutation, interaction, semantic projection, trial lifecycle,
+visible metrics, CLI, browser, and report owners. The exact 2+7 order, raw
+samples, timing order, summary schema, and retained evidence inputs remain
+unchanged. A 100-record headless WebGL2 smoke verified the browser module graph
+and zero lifecycle cleanup failures; the full performance matrix was not
+repeated because no product hot path changed.
+
 ### T10 — release checkpoint
 
 - Run full contract/release gates, packed consumer, headless 173 routes,

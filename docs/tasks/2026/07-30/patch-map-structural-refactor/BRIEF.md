@@ -43,11 +43,9 @@
 - Parser, Dataset, transaction, reconcile, text, authoring, editor, host,
   renderer planning, Lab presentation, and contract-test execution support now
   have explicit domain owners without a parallel public or write path.
-- The checkpoint covers 192 unit files / 1,717 tests through the integrated
-  run plus targeted correction, with full lint/typecheck,
-  product/Lab builds, canonical 38/173, headless 173 routes / 192 checks, and
-  2+7 memory over 5,099 entities and nine ownership cycles with a 100,451-byte
-  retained-heap median. Export and frame algorithms did not change.
+- Retained release evidence covers 192 unit files / 1,717 tests, full
+  lint/typecheck, builds, canonical 38/173, headless 173 routes / 192 checks,
+  and 2+7 memory; it remains unchanged-path evidence only.
 - Lab pointer gestures and executable trusted-input sessions now have explicit
   retryable cleanup owners while preserving one visible workbench session.
 - Update/pointer action handlers and update/pointer/layout observation folds
@@ -58,12 +56,15 @@
   cleanup ownership in compact roots above focused probes, source templates,
   artifact policy, evidence, and comparison modules; final destroy cleanup is
   mandatory for every browser case and packed journey.
+- Performance roots are 39/210/58/108-line facades above dataset, measurement,
+  trial, lifecycle, CLI, browser, and report owners; sample order, raw shape,
+  and cleanup remain unchanged.
 
 # Next Step
 
-- Split the four mixed performance workload/harness runners along dataset,
-  trial, measurement, and report boundaries while preserving exact samples,
-  timing order, and immutable retained result evidence.
+- Finish the remaining Core/Engine ownership tranche: reduce the 6,108-line
+  Engine and 2,358-line Core only through singular state authorities with
+  explicit prepare/commit ports, then run the final release checkpoint.
 
 # Working Boundary
 
