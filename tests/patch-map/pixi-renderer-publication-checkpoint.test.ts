@@ -6,8 +6,6 @@ import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
 import type { PatchMapResolvedPresentationPolicy } from '../../src/patch-map/presentation-policy';
 import {
   PatchMapPixiRenderer,
-  capturePatchMapPixiRendererPublication,
-  restorePatchMapPixiRendererPublication,
   type PatchMapPixiRendererPublicationCheckpoint,
 } from '../../src/patch-map/renderers/pixi-renderer';
 import type { PatchMapPresentationStoreView } from '../../src/patch-map/renderers/presentation-store';
@@ -134,24 +132,23 @@ interface RendererCheckpointHarness {
     reason: string,
     options?: Readonly<{ fullRebuild?: boolean; domain?: 'bar-only' | 'text-only' }>,
   ): void;
+  capturePublicationCheckpoint(): PatchMapPixiRendererPublicationCheckpoint;
+  restorePublicationCheckpoint(
+    checkpoint: PatchMapPixiRendererPublicationCheckpoint,
+  ): void;
 }
 
 function captureHarnessPublication(
   renderer: RendererCheckpointHarness,
 ): PatchMapPixiRendererPublicationCheckpoint {
-  return capturePatchMapPixiRendererPublication(
-    renderer as unknown as PatchMapPixiRenderer,
-  );
+  return renderer.capturePublicationCheckpoint();
 }
 
 function restoreHarnessPublication(
   renderer: RendererCheckpointHarness,
   checkpoint: PatchMapPixiRendererPublicationCheckpoint,
 ): void {
-  restorePatchMapPixiRendererPublication(
-    renderer as unknown as PatchMapPixiRenderer,
-    checkpoint,
-  );
+  renderer.restorePublicationCheckpoint(checkpoint);
 }
 
 function rendererHarness(

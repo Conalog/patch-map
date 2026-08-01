@@ -57,7 +57,6 @@ import {
 } from './semantic/reconcile';
 import {
   PatchMapPixiRenderer,
-  restorePatchMapPixiRendererPublication,
   type PatchMapPixiInitializationMetrics,
 } from './renderers/pixi-renderer';
 import type { PatchMapInteractionOverlayPolicy } from './renderers/types';
@@ -624,7 +623,7 @@ export class PatchMapRuntime {
     checkpoint: PatchMapLoadRendererCheckpoint,
   ): boolean {
     if (checkpoint.kind === 'pixi') {
-      restorePatchMapPixiRendererPublication(this.renderer, checkpoint.state);
+      this.renderer.restorePublicationCheckpoint(checkpoint.state);
       return true;
     }
     if (checkpoint.presentation === null) return false;

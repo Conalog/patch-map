@@ -118,17 +118,14 @@ import {
   sameView,
   sameWorldOrientation,
 } from './pixi-renderer/value-atoms';
+import type { PatchMapPixiRendererPublicationCheckpoint } from './pixi-renderer/publication-checkpoint';
 
 export {
   buildPatchMapRelationAdjacency,
   expandPatchMapRelationDependencyRanges,
   projectionChangedRanges,
 } from './renderer-reconcile-ranges';
-export {
-  capturePatchMapPixiRendererPublication,
-  restorePatchMapPixiRendererPublication,
-  type PatchMapPixiRendererPublicationCheckpoint,
-} from './pixi-renderer/publication-checkpoint';
+export type { PatchMapPixiRendererPublicationCheckpoint } from './pixi-renderer/publication-checkpoint';
 
 export interface PatchMapPixiRendererOptions {
   readonly target?: HTMLElement;
@@ -1424,11 +1421,72 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   }
 
   public publicSurfaceProbe(): PatchMapPixiPublicSurfaceProbe {
-    return readPatchMapPixiPublicSurfaceProbe(this);
+    return readPatchMapPixiPublicSurfaceProbe(
+      this.application,
+      this.canvas,
+      this.world,
+      this.target,
+      this.lastLaneProbe,
+    );
   }
 
   public rendererLossProbe(): PatchMapPixiRendererLossProbe {
-    return readPatchMapPixiRendererLossProbe(this);
+    return readPatchMapPixiRendererLossProbe(
+      this.application,
+      this.activeBackend,
+      this.initialWebGLVersion,
+      this.destroyedValue,
+      this.rendererLossState,
+      this.rendererLossEventCount,
+      this.rendererRestorationEventCount,
+      this.recoveredRendererFrameCount,
+      this.contextLossUnbind,
+      this.lastRendererLossFrame,
+      this.lastRendererRecoveryFrame,
+    );
+  }
+
+  /** @internal Capture exact load-side CPU publication state without touching Pixi/GPU state. */
+  public capturePublicationCheckpoint(): PatchMapPixiRendererPublicationCheckpoint {
+    if (this.destroyed) throw new Error('PatchMapPixiRenderer is destroyed');
+    return Object.freeze({
+      projectionIndex: this.projectionIndex,
+      staleProjectionEntityIds: this.staleProjectionEntityIds,
+      projectionRevision: this.projectionRevision,
+      pendingRanges: this.pendingRanges,
+      pendingOverlayRanges: this.pendingOverlayRanges,
+      pendingProjectionTransformOnly: this.pendingProjectionTransformOnly,
+      pendingBarPresentationOnly: this.pendingBarPresentationOnly,
+      pendingTextOnly: this.pendingTextOnly,
+      lastInvalidation: this.lastInvalidation,
+      storeEpoch: this.storeEpoch,
+      presentationPolicy: this.presentationPolicy,
+      presentationStore: this.presentationStore,
+      presentationBaseStore: this.presentationBaseStore,
+    });
+  }
+
+  /**
+   * @internal Restore a captured checkpoint using assignments only so rollback
+   * cannot mask the original load failure with validation, allocation, renderer,
+   * or GPU work.
+   */
+  public restorePublicationCheckpoint(
+    checkpoint: PatchMapPixiRendererPublicationCheckpoint,
+  ): void {
+    this.projectionIndex = checkpoint.projectionIndex;
+    this.staleProjectionEntityIds = checkpoint.staleProjectionEntityIds;
+    this.projectionRevision = checkpoint.projectionRevision;
+    this.pendingRanges = checkpoint.pendingRanges;
+    this.pendingOverlayRanges = checkpoint.pendingOverlayRanges;
+    this.pendingProjectionTransformOnly = checkpoint.pendingProjectionTransformOnly;
+    this.pendingBarPresentationOnly = checkpoint.pendingBarPresentationOnly;
+    this.pendingTextOnly = checkpoint.pendingTextOnly;
+    this.lastInvalidation = checkpoint.lastInvalidation;
+    this.storeEpoch = checkpoint.storeEpoch;
+    this.presentationPolicy = checkpoint.presentationPolicy;
+    this.presentationStore = checkpoint.presentationStore;
+    this.presentationBaseStore = checkpoint.presentationBaseStore;
   }
 
   /**

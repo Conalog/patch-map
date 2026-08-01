@@ -1,6 +1,5 @@
 import { VERSION, type Application, type Container } from 'pixi.js';
 
-import type { PatchMapPixiRenderer } from '../pixi-renderer';
 import { pixiDevtoolsOwnsApplication } from '../pixi-devtools-registration';
 import type {
   PatchMapActiveRendererBackend,
@@ -20,28 +19,6 @@ export interface PixiPublicGlContextSystem {
 interface PixiPublicRendererSurface {
   readonly name?: string;
   readonly context?: PixiPublicGlContextSystem;
-}
-
-interface PatchMapPixiPublicSurfaceState {
-  readonly application: Application;
-  readonly canvas: HTMLCanvasElement;
-  readonly world: Container;
-  readonly target: HTMLElement | undefined;
-  readonly lastLaneProbe: PatchMapRenderLaneSnapshot;
-}
-
-interface PatchMapPixiRendererLossStateView {
-  readonly application: Application;
-  readonly activeBackend: PatchMapActiveRendererBackend;
-  readonly initialWebGLVersion: 1 | 2 | null;
-  readonly destroyedValue: boolean;
-  readonly rendererLossState: PatchMapRendererLossState;
-  readonly rendererLossEventCount: number;
-  readonly rendererRestorationEventCount: number;
-  readonly recoveredRendererFrameCount: number;
-  readonly contextLossUnbind: (() => void) | null;
-  readonly lastRendererLossFrame: number | null;
-  readonly lastRendererRecoveryFrame: number | null;
 }
 
 export function publicGlContext(application: Application): PixiPublicGlContextSystem | null {
@@ -69,10 +46,13 @@ export function backendName(application: Application): string {
 }
 
 export function readPatchMapPixiPublicSurfaceProbe(
-  renderer: PatchMapPixiRenderer,
+  application: Application,
+  canvas: HTMLCanvasElement,
+  world: Container,
+  target: HTMLElement | undefined,
+  lastLaneProbe: PatchMapRenderLaneSnapshot,
 ): PatchMapPixiPublicSurfaceProbe {
-  const state = renderer as unknown as PatchMapPixiPublicSurfaceState;
-  const stage = state.application.stage;
+  const stage = application.stage;
   const roles: readonly PatchMapRenderLaneRole[] = [
     'background-geometry',
     'background-assets',
@@ -85,25 +65,25 @@ export function readPatchMapPixiPublicSurfaceProbe(
   return Object.freeze({
     rendererLibrary: 'pixi.js-v8',
     rendererVersion: VERSION,
-    backend: activeRendererBackend(state.application),
-    applicationInitialized: state.application.renderer !== undefined,
+    backend: activeRendererBackend(application),
+    applicationInitialized: application.renderer !== undefined,
     manualRender: true,
     canvas: Object.freeze({
-      authoritative: state.application.canvas === state.canvas,
-      attached: state.target?.contains(state.canvas) ?? state.canvas.isConnected,
-      patchMapProduct: state.canvas.dataset.patchMapProduct === 'patch-map'
+      authoritative: application.canvas === canvas,
+      attached: target?.contains(canvas) ?? canvas.isConnected,
+      patchMapProduct: canvas.dataset.patchMapProduct === 'patch-map'
         ? 'patch-map'
         : null,
     }),
     stage: Object.freeze({
       label: stage.label,
-      authoritative: stage.children.includes(state.world) && state.world.parent === stage,
-      discoverableByDevTools: pixiDevtoolsOwnsApplication(state.application),
-      worldAttached: stage.children.includes(state.world) && state.world.parent === stage,
+      authoritative: stage.children.includes(world) && world.parent === stage,
+      discoverableByDevTools: pixiDevtoolsOwnsApplication(application),
+      worldAttached: stage.children.includes(world) && world.parent === stage,
       childCount: stage.children.length,
     }),
     aggregateLayers: Object.freeze(roles.map((role) => {
-      const lane = state.lastLaneProbe[role];
+      const lane = lastLaneProbe[role];
       return Object.freeze({
         role,
         label: lane.label,
@@ -115,37 +95,46 @@ export function readPatchMapPixiPublicSurfaceProbe(
 }
 
 export function readPatchMapPixiRendererLossProbe(
-  renderer: PatchMapPixiRenderer,
+  application: Application,
+  activeBackendValue: PatchMapActiveRendererBackend,
+  initialWebGLVersion: 1 | 2 | null,
+  destroyed: boolean,
+  rendererLossState: PatchMapRendererLossState,
+  rendererLossEventCount: number,
+  rendererRestorationEventCount: number,
+  recoveredRendererFrameCount: number,
+  contextLossUnbind: (() => void) | null,
+  lastRendererLossFrame: number | null,
+  lastRendererRecoveryFrame: number | null,
 ): PatchMapPixiRendererLossProbe {
-  const state = renderer as unknown as PatchMapPixiRendererLossStateView;
-  if (state.destroyedValue) {
+  if (destroyed) {
     return Object.freeze({
-      backend: state.activeBackend,
-      webGLVersion: state.initialWebGLVersion,
+      backend: activeBackendValue,
+      webGLVersion: initialWebGLVersion,
       state: 'destroyed',
       contextLost: false,
-      lossEventCount: state.rendererLossEventCount,
-      restorationEventCount: state.rendererRestorationEventCount,
-      recoveredFrameCount: state.recoveredRendererFrameCount,
+      lossEventCount: rendererLossEventCount,
+      restorationEventCount: rendererRestorationEventCount,
+      recoveredFrameCount: recoveredRendererFrameCount,
       listenerCount: 0,
-      lastLossFrame: state.lastRendererLossFrame,
-      lastRecoveryFrame: state.lastRendererRecoveryFrame,
+      lastLossFrame: lastRendererLossFrame,
+      lastRecoveryFrame: lastRendererRecoveryFrame,
       destroyed: true,
     });
   }
-  const context = publicGlContext(state.application);
+  const context = publicGlContext(application);
   const contextLost = context?.isLost === true;
   return Object.freeze({
-    backend: state.activeBackend,
-    webGLVersion: context?.webGLVersion ?? state.initialWebGLVersion,
-    state: contextLost ? 'lost' : state.rendererLossState,
+    backend: activeBackendValue,
+    webGLVersion: context?.webGLVersion ?? initialWebGLVersion,
+    state: contextLost ? 'lost' : rendererLossState,
     contextLost,
-    lossEventCount: state.rendererLossEventCount,
-    restorationEventCount: state.rendererRestorationEventCount,
-    recoveredFrameCount: state.recoveredRendererFrameCount,
-    listenerCount: state.contextLossUnbind === null ? 0 : 2,
-    lastLossFrame: state.lastRendererLossFrame,
-    lastRecoveryFrame: state.lastRendererRecoveryFrame,
+    lossEventCount: rendererLossEventCount,
+    restorationEventCount: rendererRestorationEventCount,
+    recoveredFrameCount: recoveredRendererFrameCount,
+    listenerCount: contextLossUnbind === null ? 0 : 2,
+    lastLossFrame: lastRendererLossFrame,
+    lastRecoveryFrame: lastRendererRecoveryFrame,
     destroyed: false,
   });
 }

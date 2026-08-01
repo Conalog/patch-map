@@ -11,7 +11,6 @@ import type {
 } from '../scene-images';
 import {
   PatchMapPixiRenderer,
-  capturePatchMapPixiRendererPublication,
   type PatchMapPixiRendererPublicationCheckpoint,
 } from '../renderers/pixi-renderer';
 import type {
@@ -207,7 +206,7 @@ export class PatchMapLoadAuthority {
     if (this.renderer instanceof PatchMapPixiRenderer) {
       return Object.freeze({
         kind: 'pixi',
-        state: capturePatchMapPixiRendererPublication(this.renderer),
+        state: this.renderer.capturePublicationCheckpoint(),
       });
     }
     const presentation = runtime.barPresentation.projectionStore.presentation ??
