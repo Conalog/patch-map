@@ -47,10 +47,15 @@ const REMAINING_CASE_IDS = Object.freeze([
 
 describe('PatchMap shared update transaction action handlers', () => {
   it('registers one browser-safe product handler family with no answer-data imports', async () => {
-    const source = await readFile(fileURLToPath(new URL(
-      '../../scripts/verification/core-v2-contract/handlers/update-transactions.mjs',
+    const source = (await Promise.all([
+      'update-transactions.mjs',
+      'update-transactions/journey-actions.mjs',
+      'update-transactions/mutation-actions.mjs',
+      'update-transactions/support.mjs',
+    ].map(async (relativePath) => readFile(fileURLToPath(new URL(
+      `../../scripts/verification/core-v2-contract/handlers/${relativePath}`,
       import.meta.url,
-    )), 'utf8');
+    )), 'utf8')))).join('\n');
     const adapter = createProductAdapter();
     const entries = createUpdateTransactionHandlerEntries(adapter);
 
