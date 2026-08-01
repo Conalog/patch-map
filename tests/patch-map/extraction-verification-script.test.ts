@@ -9,10 +9,20 @@ const performanceSource = readFileSync(
   ),
   'utf8',
 );
-const harnessSource = readFileSync(
+const harnessFacadeSource = readFileSync(
   new URL('../../performance/patch-map/harness.ts', import.meta.url),
   'utf8',
 );
+const ownedHarnessSource = [
+  harnessFacadeSource,
+  ...[
+    '../../performance/patch-map/harness/contracts.ts',
+    '../../performance/patch-map/harness/extraction-trial.ts',
+    '../../performance/patch-map/harness/phase-measurements.ts',
+    '../../performance/patch-map/harness/renderer-trial.ts',
+  ].map((relativePath) =>
+    readFileSync(new URL(relativePath, import.meta.url), 'utf8')),
+].join('\n');
 const packageSource = [
   '../../scripts/verification/patch-map-package.mjs',
   '../../scripts/verification/patch-map-package/consumer-sources.mjs',
@@ -36,11 +46,15 @@ describe('PatchMap extraction verification scripts', () => {
   });
 
   it('measures the public exact-tuple Engine API without normalized expected evidence', () => {
-    expect(harnessSource).toContain('runExtraction(spec: BenchmarkSpec)');
-    expect(harnessSource).toContain('engine.extractPublishedScene({');
-    expect(harnessSource).toContain('sameCanvasObject: beforeCanvas.element === afterCanvas.element');
-    expect(harnessSource).toContain('canvasCountAfterDestroy: destroyedSnapshot.resources.canvasCount');
-    expect(harnessSource).not.toContain('catalog-normalized-expected');
+    expect(harnessFacadeSource).toContain('runExtraction(spec: BenchmarkSpec)');
+    expect(ownedHarnessSource).toContain('engine.extractPublishedScene({');
+    expect(ownedHarnessSource).toContain(
+      'sameCanvasObject: beforeCanvas.element === afterCanvas.element',
+    );
+    expect(ownedHarnessSource).toContain(
+      'canvasCountAfterDestroy: destroyedSnapshot.resources.canvasCount',
+    );
+    expect(ownedHarnessSource).not.toContain('catalog-normalized-expected');
     expect(performanceSource).not.toContain('catalog-normalized-expected');
   });
 
