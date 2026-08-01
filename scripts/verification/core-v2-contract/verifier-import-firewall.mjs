@@ -92,6 +92,8 @@ export async function assertCoreV2ContractImportFirewall(
       chain: [VALUE_ATOMS_FILENAME],
       directSpecifier: '',
       valueAtoms,
+      ownedModuleDirectory: null,
+      role: null,
       leaf: true,
       visited: new Set(),
     });
@@ -127,12 +129,17 @@ export async function assertVerifierEntryImportFirewall({
     ? HANDLER_DIRECT_IMPORT
     : FOLD_DIRECT_IMPORT;
   const valueAtoms = resolve(root, VALUE_ATOMS_FILENAME);
+  const ownedModuleDirectory = role === 'handler'
+    ? resolve(root, 'handlers', basename(entry, '.mjs'))
+    : resolve(root, basename(entry, '.mjs'));
   await visitModule({
     root,
     file: entry,
     chain: [displayPath(root, entry)],
     directSpecifier,
     valueAtoms,
+    ownedModuleDirectory,
+    role,
     leaf: false,
     visited: new Set(),
   });
@@ -144,6 +151,8 @@ async function visitModule({
   chain,
   directSpecifier,
   valueAtoms,
+  ownedModuleDirectory,
+  role,
   leaf,
   visited,
 }) {
@@ -155,7 +164,11 @@ async function visitModule({
   const source = await readFile(physicalFile, 'utf8');
   const tokens = tokenize(source);
   assertExpectedBlindSource(tokens, chain);
-  assertSourceGlobalPolicy(tokens, chain, leaf);
+  const protectSelfGlobal = leaf || (
+    ownedModuleDirectory !== null &&
+    isWithinDirectory(ownedModuleDirectory, physicalFile)
+  );
+  assertSourceGlobalPolicy(tokens, chain, leaf, protectSelfGlobal);
   const links = collectModuleLinks(tokens, chain);
 
   for (const link of links) {
@@ -164,15 +177,25 @@ async function visitModule({
     }
     const target = await resolveRelativeImport(root, physicalFile, link.specifier, chain);
     const nextChain = [...chain, displayPath(root, target)];
-    assertAllowedTarget(root, target, link.specifier, nextChain);
+    assertAllowedTarget(
+      root,
+      target,
+      link.specifier,
+      nextChain,
+      ownedModuleDirectory,
+    );
     if (leaf) {
       fail('LEAF_IMPORT', nextChain, `${VALUE_ATOMS_FILENAME} must remain import-free`);
     }
-    if (link.kind !== 'import' || link.specifier !== directSpecifier || target !== valueAtoms) {
+    const isValueAtomImport = target === valueAtoms &&
+      link.specifier === relativeImportSpecifier(physicalFile, valueAtoms);
+    const isOwnedModuleImport = ownedModuleDirectory !== null &&
+      isWithinDirectory(ownedModuleDirectory, target);
+    if (link.kind !== 'import' || (!isValueAtomImport && !isOwnedModuleImport)) {
       fail(
         'DIRECT_IMPORT_NOT_ALLOWED',
         nextChain,
-        `only ${JSON.stringify(directSpecifier)} may be imported directly`,
+        `only ${JSON.stringify(directSpecifier)} or the entry-owned module subtree may be imported directly`,
       );
     }
     await visitModule({
@@ -181,7 +204,9 @@ async function visitModule({
       chain: nextChain,
       directSpecifier,
       valueAtoms,
-      leaf: true,
+      ownedModuleDirectory,
+      role,
+      leaf: target === valueAtoms,
       visited,
     });
   }
@@ -211,7 +236,13 @@ async function resolveRelativeImport(root, importer, specifier, chain) {
   }
 }
 
-function assertAllowedTarget(root, target, specifier, chain) {
+function assertAllowedTarget(
+  root,
+  target,
+  specifier,
+  chain,
+  ownedModuleDirectory,
+) {
   const name = basename(target);
   const rootRelative = relative(root, target);
   if (EXPECTED_VALUE_FILE.test(specifier) || EXPECTED_VALUE_FILE.test(rootRelative)) {
@@ -220,12 +251,27 @@ function assertAllowedTarget(root, target, specifier, chain) {
   if (CONTROL_MODULE_FILENAMES.has(name)) {
     fail('CONTROL_MODULE_IMPORT', chain, `${name} is outside the expected-blind leaf boundary`);
   }
-  if (rootRelative.startsWith(`handlers${sep}`) || /^fold-[a-z0-9-]+\.mjs$/u.test(name)) {
+  const isOwnedModule = ownedModuleDirectory !== null &&
+    isWithinDirectory(ownedModuleDirectory, target);
+  if (
+    (rootRelative.startsWith(`handlers${sep}`) && !isOwnedModule) ||
+    /^fold-[a-z0-9-]+\.mjs$/u.test(name)
+  ) {
     fail('HANDLER_FOLD_IMPORT', chain, 'handlers and folds may not import each other');
   }
   if (!name.endsWith('.mjs')) {
     fail('NON_ESM_IMPORT', chain, 'verifier value imports must resolve to committed .mjs files');
   }
+}
+
+function relativeImportSpecifier(importer, target) {
+  const relativePath = relative(resolve(importer, '..'), target).split(sep).join('/');
+  return relativePath.startsWith('.') ? relativePath : `./${relativePath}`;
+}
+
+function isWithinDirectory(directory, target) {
+  const path = relative(directory, target);
+  return path !== '' && path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path);
 }
 
 function assertWithinContractRoot(root, target, chain) {
@@ -273,7 +319,7 @@ function readStaticStringRun(tokens, start) {
   return value;
 }
 
-function assertSourceGlobalPolicy(tokens, chain, leaf) {
+function assertSourceGlobalPolicy(tokens, chain, leaf, protectSelfGlobal) {
   const sourceName = chain.at(-1) ?? 'verifier source';
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
@@ -299,7 +345,7 @@ function assertSourceGlobalPolicy(tokens, chain, leaf) {
     }
     const dottedRoot = token.kind === 'identifier' && (
       BROWSER_GLOBAL_ROOTS.has(token.value) ||
-      (leaf && token.value === 'self')
+      (protectSelfGlobal && token.value === 'self')
     );
     if (!dottedRoot) continue;
     if (isComputedGlobalAccess(tokens, index)) {

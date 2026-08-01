@@ -68,6 +68,186 @@ describe('core-v2 committed verifier source policy firewall', () => {
     await expect(assertFold(root)).resolves.toBeUndefined();
   });
 
+  it('recursively checks an entry-owned handler module subtree', async () => {
+    const root = await createGraph({
+      handlerSource: [
+        "import { nestedValue } from './entry/actions.mjs';",
+        'export { nestedValue };',
+        '',
+      ].join('\n'),
+      foldSource: '',
+      valueAtomsSource: 'export const browserValue = globalThis.Math.max(1, 2);\n',
+      files: {
+        'handlers/entry/actions.mjs': [
+          "import { browserValue } from '../../value-atoms.mjs';",
+          'export const nestedValue = browserValue;',
+          '',
+        ].join('\n'),
+      },
+    });
+
+    await expect(assertHandler(root)).resolves.toBeUndefined();
+  });
+
+  it.each([
+    ['Node global', 'export const value = process.env.NODE_ENV;\n', {}, 'NODE_GLOBAL'],
+    [
+      'expected token',
+      'export const normalizedExpected = 1;\n',
+      {},
+      'EXPECTED_VALUE_TOKEN',
+    ],
+    [
+      'comparison control',
+      "import '../../compare.mjs';\n",
+      { 'compare.mjs': '' },
+      'CONTROL_MODULE_IMPORT',
+    ],
+    [
+      'cross-handler module',
+      "import '../peer/helper.mjs';\n",
+      { 'handlers/peer/helper.mjs': '' },
+      'HANDLER_FOLD_IMPORT',
+    ],
+    [
+      'cross-fold module',
+      "import '../../fold-entry.mjs';\n",
+      {},
+      'HANDLER_FOLD_IMPORT',
+    ],
+    [
+      'contract-root escape',
+      "import '../../../outside.mjs';\n",
+      {},
+      'OUTSIDE_CONTRACT_ROOT',
+    ],
+    [
+      'computed self global',
+      "export const value = self['process'];\n",
+      {},
+      'COMPUTED_GLOBAL_ACCESS',
+    ],
+    [
+      'dotted self dynamic global',
+      'export const value = self.Function;\n',
+      {},
+      'DYNAMIC_CODE_GLOBAL',
+    ],
+    [
+      'self root alias',
+      'const root = self;\nexport { root };\n',
+      {},
+      'GLOBAL_ROOT_ESCAPE',
+    ],
+  ])('blocks transitive %s access from an entry-owned module', async (
+    _label,
+    ownedSource,
+    files,
+    code,
+  ) => {
+    const root = await createGraph({
+      handlerSource: "import './entry/actions.mjs';\n",
+      foldSource: '',
+      valueAtomsSource: 'export const value = 1;\n',
+      files: {
+        'handlers/entry/actions.mjs': ownedSource,
+        ...files,
+      },
+    });
+
+    await expect(assertHandler(root)).rejects.toMatchObject({ code });
+  });
+
+  it('recursively checks an entry-owned fold module subtree', async () => {
+    const root = await createGraph({
+      handlerSource: '',
+      foldSource: [
+        "import { nestedValue } from './fold-entry/projections.mjs';",
+        'export { nestedValue };',
+        '',
+      ].join('\n'),
+      valueAtomsSource: 'export const browserValue = globalThis.Math.max(1, 2);\n',
+      files: {
+        'fold-entry/projections.mjs': [
+          "import { browserValue } from '../value-atoms.mjs';",
+          'export const nestedValue = browserValue;',
+          '',
+        ].join('\n'),
+      },
+    });
+
+    await expect(assertFold(root)).resolves.toBeUndefined();
+  });
+
+  it.each([
+    ['Node global', 'export const value = process.env.NODE_ENV;\n', {}, 'NODE_GLOBAL'],
+    [
+      'expected token',
+      'export const normalizedExpected = 1;\n',
+      {},
+      'EXPECTED_VALUE_TOKEN',
+    ],
+    [
+      'comparison control',
+      "import '../compare.mjs';\n",
+      { 'compare.mjs': '' },
+      'CONTROL_MODULE_IMPORT',
+    ],
+    [
+      'cross-fold module',
+      "import '../fold-peer.mjs';\n",
+      { 'fold-peer.mjs': '' },
+      'HANDLER_FOLD_IMPORT',
+    ],
+    [
+      'cross-handler module',
+      "import '../handlers/peer.mjs';\n",
+      { 'handlers/peer.mjs': '' },
+      'HANDLER_FOLD_IMPORT',
+    ],
+    [
+      'contract-root escape',
+      "import '../../outside.mjs';\n",
+      {},
+      'OUTSIDE_CONTRACT_ROOT',
+    ],
+    [
+      'computed self global',
+      "export const value = self['process'];\n",
+      {},
+      'COMPUTED_GLOBAL_ACCESS',
+    ],
+    [
+      'dotted self dynamic global',
+      'export const value = self.Function;\n',
+      {},
+      'DYNAMIC_CODE_GLOBAL',
+    ],
+    [
+      'self root alias',
+      'const root = self;\nexport { root };\n',
+      {},
+      'GLOBAL_ROOT_ESCAPE',
+    ],
+  ])('blocks transitive %s access from an entry-owned fold module', async (
+    _label,
+    ownedSource,
+    files,
+    code,
+  ) => {
+    const root = await createGraph({
+      handlerSource: '',
+      foldSource: "import './fold-entry/projections.mjs';\n",
+      valueAtomsSource: 'export const value = 1;\n',
+      files: {
+        'fold-entry/projections.mjs': ownedSource,
+        ...files,
+      },
+    });
+
+    await expect(assertFold(root)).rejects.toMatchObject({ code });
+  });
+
   it('checks a committed value atom leaf even before a handler or fold imports it', async () => {
     const root = await createGraph({
       handlerSource: '',
