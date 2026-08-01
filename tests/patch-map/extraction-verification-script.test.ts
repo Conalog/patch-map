@@ -13,10 +13,11 @@ const harnessSource = readFileSync(
   new URL('../../performance/patch-map/harness.ts', import.meta.url),
   'utf8',
 );
-const packageSource = readFileSync(
-  new URL('../../scripts/verification/patch-map-package.mjs', import.meta.url),
-  'utf8',
-);
+const packageSource = [
+  '../../scripts/verification/patch-map-package.mjs',
+  '../../scripts/verification/patch-map-package/consumer-sources.mjs',
+].map((relativePath) =>
+  readFileSync(new URL(relativePath, import.meta.url), 'utf8')).join('\n');
 const memorySource = readFileSync(
   new URL('../../scripts/verification/patch-map-memory.mjs', import.meta.url),
   'utf8',
