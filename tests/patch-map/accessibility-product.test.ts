@@ -18,7 +18,7 @@ import {
   type PatchMapSurfaceReconcileResult,
   type PatchMapSurfaceView,
 } from '../../src/patch-map';
-import { PatchMapPixiRenderer } from '../../src/patch-map/renderers/pixi-renderer';
+import { PatchMapAccessibilityOverlayAuthority } from '../../src/patch-map/renderers/pixi-renderer/accessibility-overlay-authority';
 
 describe('PatchMap accessibility product authority', () => {
   it('probes an inactive Pixi accessibility system without dereferencing its released DOM root', () => {
@@ -28,21 +28,17 @@ describe('PatchMap accessibility product authority', () => {
       activeElement: new TestHTMLElement(),
     });
     try {
-      const probe = PatchMapPixiRenderer.prototype.accessibilitySurfaceProbe.call({
-        destroyedValue: false,
-        application: {
+      const authority = new PatchMapAccessibilityOverlayAuthority(
+        {
           renderer: {
             accessibility: {
               isActive: false,
               div: null,
             },
           },
-        },
-        accessibilityRoot: null,
-        accessibilityNodes: new Map(),
-        accessibilityClickListener: null,
-        accessibilityFocusedId: null,
-      } as unknown as PatchMapPixiRenderer);
+        } as unknown as ConstructorParameters<typeof PatchMapAccessibilityOverlayAuthority>[0],
+      );
+      const probe = authority.probe();
 
       expect(probe).toMatchObject({
         active: false,
