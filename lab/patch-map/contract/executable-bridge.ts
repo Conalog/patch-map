@@ -1,17 +1,10 @@
-import {
-  PatchMap,
-  type PatchMapOptions,
-  type PatchMapEngineSurfaceFactory,
-  type PatchMapInitializeOptions,
-  type PatchMapInitializeResult,
-} from '../../../src/patch-map/engine';
+import type { PatchMapEngineSurfaceFactory } from '../../../src/patch-map/engine';
 
 // @ts-expect-error -- the committed browser-safe executor is authored as an ESM JavaScript module.
 import * as workerModule from '../../../scripts/verification/core-v2-contract/execute-worker.mjs';
 
 import {
   PATCH_MAP_CONTRACT_LAB_BRIDGE_REVISION,
-  PatchMapContractExecutionNotImplementedError,
   type PatchMapContractGesturePlan,
   type PatchMapContractLabBridgeV1,
   type PatchMapContractLabMilestone,
@@ -45,11 +38,17 @@ import {
   partialExecutionFrom,
   serializeError,
 } from './executable-run-results';
+import { PatchMapExecutableLiveGestureController } from './executable-live-gesture';
 import { resolvePatchMapExecutableRuntime } from './executable-runtime';
 import {
   deepFreezePatchMapLabValue as deepFreeze,
   isPatchMapLabRecord as isRecord,
 } from './runtime-values';
+import {
+  TargetedWebGLPatchMapEngine,
+  assertPatchMapExecutableSurfaceReleased,
+  surfaceHostForEngineRole,
+} from './targeted-webgl-engine';
 
 interface WorkerRuntime {
   executeContractCase(
@@ -71,67 +70,6 @@ export interface PatchMapExecutableLabBridgeOptions {
   readonly environment?: Readonly<Record<string, unknown>>;
 }
 
-class TargetedWebGLPatchMapEngine extends PatchMap {
-  private readonly surfaceHost: HTMLElement | undefined;
-
-  public constructor(
-    surfaceHost: HTMLElement | undefined,
-    surfaceFactory: PatchMapEngineSurfaceFactory | undefined,
-    engineOptions: Readonly<PatchMapOptions> = {},
-  ) {
-    super({
-      ...engineOptions,
-      ...(surfaceFactory ? { surfaceFactory } : {}),
-    });
-    this.surfaceHost = surfaceHost;
-  }
-
-  public override initialize(options: PatchMapInitializeOptions): Promise<PatchMapInitializeResult> {
-    return super.initialize({
-      ...options,
-      preference: 'webgl',
-      ...(this.surfaceHost ? { target: this.surfaceHost } : {}),
-    });
-  }
-}
-
-function surfaceHostForEngineRole(
-  visibleHost: HTMLElement | undefined,
-  factoryContext: unknown,
-): HTMLElement | undefined {
-  if (
-    visibleHost === undefined
-    || typeof document === 'undefined'
-    || !isRecord(factoryContext)
-    || typeof factoryContext.role !== 'string'
-    || !factoryContext.role.startsWith('declared-failure:')
-  ) {
-    return visibleHost;
-  }
-  return document.createElement('div');
-}
-
-interface LiveViewportGestureEvent {
-  readonly source: string;
-  readonly centerWorld: readonly [number, number];
-  readonly scale: number;
-  readonly viewRevision: number;
-}
-
-interface LiveViewportGestureSession {
-  readonly actionIndex: number;
-  readonly engine: TargetedWebGLPatchMapEngine;
-  readonly events: LiveViewportGestureEvent[];
-  readonly unbind: () => void;
-}
-
-interface LivePointerGestureSession {
-  readonly actionIndex: number;
-  readonly engine: TargetedWebGLPatchMapEngine;
-  readonly events: Readonly<Record<string, unknown>>[];
-  readonly unbind: () => void;
-}
-
 export function createPatchMapExecutableLabBridge(
   options: PatchMapExecutableLabBridgeOptions,
 ): PatchMapContractLabBridgeV1 {
@@ -140,6 +78,11 @@ export function createPatchMapExecutableLabBridge(
 
   const casePlan = materializePatchMapExecutableCase(options.caseId, options.size, options.seed);
   const runtime = resolvePatchMapExecutableRuntime(options.caseId);
+  const liveGesture = new PatchMapExecutableLiveGestureController(
+    casePlan,
+    options.surfaceHost,
+    options.surfaceFactory,
+  );
   invariant(casePlan.rootTestId === options.rootTestId, 'fixture root test identity');
 
   let status: PatchMapContractLabStatus = 'armed';
@@ -154,8 +97,6 @@ export function createPatchMapExecutableLabBridge(
   let lastObservation: Readonly<Record<string, unknown>> | null = null;
   let lastRun: Readonly<PatchMapContractLabRunResult> | null = null;
   let activeRun: Promise<Readonly<PatchMapContractLabRunResult>> | null = null;
-  let liveViewportGesture: LiveViewportGestureSession | null = null;
-  let livePointerGesture: LivePointerGestureSession | null = null;
 
   function state(): Readonly<PatchMapContractLabState> {
     return Object.freeze({
@@ -176,9 +117,8 @@ export function createPatchMapExecutableLabBridge(
 
   async function executeFreshRun(isRepeat: boolean): Promise<Readonly<PatchMapContractLabRunResult>> {
     invariant(!destroyed, `${options.caseId} bridge is destroyed`);
-    if (liveViewportGesture !== null) await releaseViewportGesture();
-    if (livePointerGesture !== null) await releasePointerGesture();
-    assertSurfaceIsReleased(options.surfaceHost);
+    await liveGesture.release();
+    assertPatchMapExecutableSurfaceReleased(options.surfaceHost);
     status = 'running';
     actionIndex = -1;
     repeatIndex = isRepeat ? repeatIndex + 1 : 0;
@@ -277,7 +217,7 @@ export function createPatchMapExecutableLabBridge(
         cleanup,
       } satisfies PatchMapContractLabRunResult);
       lastRun = run;
-      assertSurfaceIsReleased(options.surfaceHost);
+      assertPatchMapExecutableSurfaceReleased(options.surfaceHost);
       return run;
     } catch (error) {
       if (supplementalEngine) {
@@ -321,7 +261,7 @@ export function createPatchMapExecutableLabBridge(
       publishedTuple = partialExecution ? executionPublishedTuple(partialExecution) : emptyPublishedTuple();
       status = 'failed';
       lastObservation = failureObservation(casePlan, partialExecution, error);
-      assertSurfaceIsReleased(options.surfaceHost);
+      assertPatchMapExecutableSurfaceReleased(options.surfaceHost);
       throw error;
     }
   }
@@ -347,295 +287,6 @@ export function createPatchMapExecutableLabBridge(
     await activeRun.catch(() => undefined);
   }
 
-  async function armViewportGesture(
-    value: number,
-  ): Promise<Readonly<PatchMapContractGesturePlan>> {
-    invariant(options.caseId === 'VIE-001', `${options.caseId} live gesture case`);
-    invariant(value === 0, 'VIE-001 live gesture action index');
-    invariant(!destroyed, `${options.caseId} bridge is destroyed`);
-    invariant(options.surfaceHost !== undefined, 'VIE-001 live gesture surface host');
-    await awaitActiveRun();
-
-    if (liveViewportGesture === null) {
-      assertSurfaceIsReleased(options.surfaceHost);
-      const engine = new TargetedWebGLPatchMapEngine(
-        options.surfaceHost,
-        options.surfaceFactory,
-      );
-      try {
-        await engine.initialize({
-          instanceId: `contract-${options.caseId.toLowerCase()}-trusted-gesture`,
-          width: 800,
-          height: 600,
-          pixelRatio: 1,
-          strategy: 'mesh',
-          preference: 'webgl',
-          zoomLimits: [0.25, 4],
-        });
-        const profile = requireRecord(
-          casePlan.fixtureProfiles['viewport-transform-matrix'],
-          'VIE-001 viewport fixture profile',
-        );
-        const datasetRef = requiredString(
-          profile.datasetRef,
-          'VIE-001 viewport fixture datasetRef',
-        );
-        const dataset = structuredClone(resolvePatchMapExecutableDataset(datasetRef));
-        engine.loadDataset(dataset, { datasetRef });
-        engine.setViewport({ centerWorld: [400, 300], scale: 1 });
-        engine.publishFrame(0);
-        const events: LiveViewportGestureEvent[] = [];
-        const unbind = engine.on('viewChanged', (event) => {
-          events.push(Object.freeze({
-            source: event.source,
-            centerWorld: Object.freeze([
-              event.viewport.centerWorld[0],
-              event.viewport.centerWorld[1],
-            ] as const),
-            scale: event.viewport.scale,
-            viewRevision: event.revisions.viewRevision,
-          }));
-        });
-        if (options.surfaceHost.dataset) {
-          options.surfaceHost.dataset.patchMapRootInputProbe = 'true';
-        }
-        liveViewportGesture = { actionIndex: value, engine, events, unbind };
-      } catch (error) {
-        await engine.destroy().catch(() => undefined);
-        if (options.surfaceHost.dataset) {
-          delete options.surfaceHost.dataset.patchMapRootInputProbe;
-        }
-        throw error;
-      }
-    }
-
-    return deepFreeze({
-      revision: 'core-v2-contract-gesture-plan/1',
-      actionIndex: value,
-      driverId: 'trusted-pointer-wheel',
-      ownerQualifiedTarget:
-        `[data-testid="${casePlan.rootTestId}"] [data-contract-surface] `
-        + 'canvas[data-patch-map-product="patch-map"]',
-      cssLocalAnchors: [
-        { x: 400, y: 300 },
-        { x: 440, y: 280 },
-      ],
-      button: 0,
-      modifiers: [],
-      publishedTuple,
-    });
-  }
-
-  function viewportGestureObservation(): Readonly<Record<string, unknown>> {
-    const session = liveViewportGesture;
-    invariant(session !== null, 'VIE-001 live gesture session');
-    const { engine } = session;
-    const geometry = engine.geometryProbe();
-    invariant(geometry !== null, 'VIE-001 live gesture geometry');
-    const target = geometry.entities.find((entity) => entity.id === 'rect-b');
-    invariant(target !== undefined, 'VIE-001 live gesture target geometry');
-    const point = {
-      x: target.screenBounds[0] + target.screenBounds[2] / 2,
-      y: target.screenBounds[1] + target.screenBounds[3] / 2,
-    };
-    const snapshot = engine.snapshot();
-    const anchorWorld = engine.screenToWorld({ x: 400, y: 300 });
-    return deepFreeze({
-      $schema: 'core-v2-contract-gesture-observation/1',
-      case: {
-        id: options.caseId,
-        actionIndex: session.actionIndex,
-      },
-      events: structuredClone(session.events),
-      viewport: structuredClone(engine.viewportProbe()),
-      persistence: structuredClone(engine.viewportPersistenceProbe()),
-      revisions: structuredClone(snapshot.revisions),
-      ownership: structuredClone(engine.interactionOwnershipProbe()),
-      anchorWorld: { x: anchorWorld.x, y: anchorWorld.y },
-      transformedHit: {
-        point,
-        target: engine.hitTest(point),
-      },
-      resources: {
-        canvasCount: snapshot.resources.canvasCount,
-        subscriptions: snapshot.resources.subscriptions.active,
-        pendingWork: snapshot.pendingWork,
-      },
-    });
-  }
-
-  async function releaseViewportGesture(): Promise<void> {
-    const session = liveViewportGesture;
-    if (session === null) return;
-    liveViewportGesture = null;
-    const errors: unknown[] = [];
-    try {
-      session.unbind();
-    } catch (error) {
-      errors.push(error);
-    }
-    try {
-      await session.engine.destroy();
-    } catch (error) {
-      errors.push(error);
-    }
-    if (options.surfaceHost) {
-      if (options.surfaceHost.dataset) {
-        delete options.surfaceHost.dataset.patchMapRootInputProbe;
-      }
-      try {
-        assertSurfaceIsReleased(options.surfaceHost);
-      } catch (error) {
-        errors.push(error);
-      }
-    }
-    if (errors.length > 0) {
-      throw new AggregateError(errors, 'PatchMap VIE-001 live gesture cleanup failed');
-    }
-  }
-
-  async function armPointerGesture(
-    value: number,
-  ): Promise<Readonly<PatchMapContractGesturePlan>> {
-    invariant(
-      options.caseId === 'EVT-003' ||
-        options.caseId === 'EVT-008' ||
-        options.caseId === 'ACC-002',
-      `${options.caseId} live pointer case`,
-    );
-    invariant(value === 0, `${options.caseId} live pointer action index`);
-    invariant(!destroyed, `${options.caseId} bridge is destroyed`);
-    invariant(options.surfaceHost !== undefined, `${options.caseId} live pointer surface host`);
-    await awaitActiveRun();
-
-    if (livePointerGesture === null) {
-      assertSurfaceIsReleased(options.surfaceHost);
-      const engine = new TargetedWebGLPatchMapEngine(
-        options.surfaceHost,
-        options.surfaceFactory,
-      );
-      try {
-        await engine.initialize({
-          instanceId: `contract-${options.caseId.toLowerCase()}-trusted-pointer`,
-          width: 800,
-          height: 600,
-          pixelRatio: 1,
-          strategy: 'mesh',
-          preference: 'webgl',
-          zoomLimits: [0.25, 4],
-        });
-        const profileId = options.caseId === 'ACC-002'
-          ? 'logical-accessibility-tree'
-          : 'input-device-and-gesture-matrix';
-        const profile = requireRecord(
-          casePlan.fixtureProfiles[profileId],
-          `${options.caseId} pointer fixture profile`,
-        );
-        const datasetRef = requiredString(
-          profile.datasetRef,
-          `${options.caseId} pointer fixture datasetRef`,
-        );
-        const dataset = structuredClone(resolvePatchMapExecutableDataset(datasetRef));
-        engine.loadDataset(dataset, { datasetRef });
-        engine.setViewport({ centerWorld: [400, 300], scale: 1 });
-        engine.publishFrame(0);
-        if (options.caseId === 'ACC-002') {
-          engine.accessibilityTree('scene');
-          engine.publishFrame(1);
-        }
-        const events: Readonly<Record<string, unknown>>[] = [];
-        const unbind = engine.on('pointerEvent', (event) => {
-          events.push(
-            structuredClone(event) as unknown as Readonly<Record<string, unknown>>,
-          );
-        });
-        if (options.surfaceHost.dataset) {
-          options.surfaceHost.dataset.patchMapRootInputProbe = 'true';
-        }
-        livePointerGesture = { actionIndex: value, engine, events, unbind };
-      } catch (error) {
-        await engine.destroy().catch(() => undefined);
-        if (options.surfaceHost.dataset) {
-          delete options.surfaceHost.dataset.patchMapRootInputProbe;
-        }
-        throw error;
-      }
-    }
-
-    const anchors = options.caseId === 'EVT-003'
-      ? [{ x: 20, y: 30 }, { x: 400, y: 400 }]
-      : [{ x: 170, y: 50 }, { x: 400, y: 400 }];
-    return deepFreeze({
-      revision: 'core-v2-contract-gesture-plan/1',
-      actionIndex: value,
-      driverId: options.caseId === 'EVT-003'
-        ? 'trusted-pointer-hover-leave'
-        : options.caseId === 'EVT-008'
-          ? 'trusted-secondary-contextmenu'
-          : 'trusted-accessibility-click',
-      ownerQualifiedTarget:
-        `[data-testid="${casePlan.rootTestId}"] [data-contract-surface] `
-        + 'canvas[data-patch-map-product="patch-map"]',
-      cssLocalAnchors: anchors,
-      button: options.caseId === 'EVT-008' ? 2 : 0,
-      modifiers: [],
-      publishedTuple,
-    });
-  }
-
-  function pointerGestureObservation(): Readonly<Record<string, unknown>> {
-    const session = livePointerGesture;
-    invariant(session !== null, `${options.caseId} live pointer session`);
-    const snapshot = session.engine.snapshot();
-    return deepFreeze({
-      $schema: 'core-v2-contract-pointer-input-observation/1',
-      case: {
-        id: options.caseId,
-        actionIndex: session.actionIndex,
-      },
-      events: structuredClone(session.events),
-      pointerGesture: structuredClone(session.engine.pointerGestureProbe()),
-      ownership: structuredClone(session.engine.interactionOwnershipProbe()),
-      accessibility: structuredClone(session.engine.accessibilityProbe()),
-      snapshot: structuredClone(session.engine.snapshot()),
-      resources: {
-        canvasCount: snapshot.resources.canvasCount,
-        subscriptions: snapshot.resources.subscriptions.active,
-        pendingWork: snapshot.pendingWork,
-      },
-    });
-  }
-
-  async function releasePointerGesture(): Promise<void> {
-    const session = livePointerGesture;
-    if (session === null) return;
-    livePointerGesture = null;
-    const errors: unknown[] = [];
-    try {
-      session.unbind();
-    } catch (error) {
-      errors.push(error);
-    }
-    try {
-      await session.engine.destroy();
-    } catch (error) {
-      errors.push(error);
-    }
-    if (options.surfaceHost) {
-      if (options.surfaceHost.dataset) {
-        delete options.surfaceHost.dataset.patchMapRootInputProbe;
-      }
-      try {
-        assertSurfaceIsReleased(options.surfaceHost);
-      } catch (error) {
-        errors.push(error);
-      }
-    }
-    if (errors.length > 0) {
-      throw new AggregateError(errors, `PatchMap ${options.caseId} live pointer cleanup failed`);
-    }
-  }
-
   return Object.freeze({
     revision: PATCH_MAP_CONTRACT_LAB_BRIDGE_REVISION,
     state,
@@ -651,10 +302,9 @@ export function createPatchMapExecutableLabBridge(
     async resetCase(): Promise<Readonly<Record<string, unknown>>> {
       invariant(!destroyed, `${options.caseId} bridge is destroyed`);
       await awaitActiveRun();
-      await releaseViewportGesture();
-      await releasePointerGesture();
+      await liveGesture.release();
       const summary = cleanupSummary(lastCleanup, runCount, completedRunCount);
-      assertSurfaceIsReleased(options.surfaceHost);
+      assertPatchMapExecutableSurfaceReleased(options.surfaceHost);
       status = 'armed';
       actionIndex = -1;
       repeatIndex = 0;
@@ -668,47 +318,15 @@ export function createPatchMapExecutableLabBridge(
     repeatCase(): Promise<Readonly<PatchMapContractLabRunResult>> {
       return startRun(true);
     },
-    armGesture(value: number): Promise<Readonly<PatchMapContractGesturePlan>> {
+    async armGesture(value: number): Promise<Readonly<PatchMapContractGesturePlan>> {
       assertActionIndex(value);
-      if (options.caseId === 'VIE-001') return armViewportGesture(value);
-      if (
-        options.caseId === 'EVT-003' ||
-        options.caseId === 'EVT-008' ||
-        options.caseId === 'ACC-002'
-      ) {
-        return armPointerGesture(value);
-      }
-      return Promise.reject(new PatchMapContractExecutionNotImplementedError(
-        options.caseId,
-        'gesture execution for the current non-gesture executable slice',
-      ));
+      invariant(!destroyed, `${options.caseId} bridge is destroyed`);
+      await awaitActiveRun();
+      return liveGesture.arm(value, publishedTuple);
     },
     async awaitMilestone(value: number, milestone: PatchMapContractLabMilestone): Promise<void> {
       assertActionIndex(value);
-      if (options.caseId === 'VIE-001' && liveViewportGesture !== null) {
-        invariant(liveViewportGesture.actionIndex === value, 'VIE-001 live gesture action identity');
-        if (milestone === 'settled') {
-          liveViewportGesture.engine.settleViewport();
-          liveViewportGesture.engine.publishFrame(0);
-        }
-        if (milestone === 'released') await releaseViewportGesture();
-        return;
-      }
-      if (
-        (
-          options.caseId === 'EVT-003' ||
-          options.caseId === 'EVT-008' ||
-          options.caseId === 'ACC-002'
-        ) &&
-        livePointerGesture !== null
-      ) {
-        invariant(
-          livePointerGesture.actionIndex === value,
-          `${options.caseId} live pointer action identity`,
-        );
-        if (milestone === 'released') await releasePointerGesture();
-        return;
-      }
+      if (await liveGesture.awaitMilestone(value, milestone)) return;
       const run = await startRun(false);
       const result = arrayValue(run.execution.actionResults, 'execution actionResults')[value];
       invariant(isRecord(result) && result.status === 'completed', `${options.caseId} action ${value} completion`);
@@ -717,8 +335,8 @@ export function createPatchMapExecutableLabBridge(
       }
     },
     async actualObservation(): Promise<Readonly<Record<string, unknown>>> {
-      if (liveViewportGesture !== null) return viewportGestureObservation();
-      if (livePointerGesture !== null) return pointerGestureObservation();
+      const liveObservation = liveGesture.observation();
+      if (liveObservation !== null) return liveObservation;
       if (lastObservation) return lastObservation;
       if (destroyed) return destroyedWithoutRunObservation(casePlan);
       try {
@@ -731,12 +349,11 @@ export function createPatchMapExecutableLabBridge(
     async destroyCase(): Promise<Readonly<Record<string, unknown>>> {
       if (!destroyed) {
         await awaitActiveRun();
-        await releaseViewportGesture();
-        await releasePointerGesture();
+        await liveGesture.release();
         destroyed = true;
         status = 'destroyed';
       }
-      assertSurfaceIsReleased(options.surfaceHost);
+      assertPatchMapExecutableSurfaceReleased(options.surfaceHost);
       return cleanupSummary(lastCleanup, runCount, completedRunCount);
     },
   });
@@ -771,14 +388,6 @@ async function releaseSupplementalWebGLLease(
   });
 }
 
-function assertSurfaceIsReleased(surfaceHost: HTMLElement | undefined): void {
-  if (!surfaceHost || typeof surfaceHost.querySelector !== 'function') return;
-  invariant(
-    surfaceHost.querySelector('canvas[data-patch-map-product="patch-map"]') === null,
-    'executor left a tracked PixiJS canvas in the Lab host',
-  );
-}
-
 function arrayValue(value: unknown, label: string): readonly unknown[] {
   invariant(Array.isArray(value), label);
   return value;
@@ -786,11 +395,6 @@ function arrayValue(value: unknown, label: string): readonly unknown[] {
 
 function requireRecord(value: unknown, label: string): Readonly<Record<string, unknown>> {
   invariant(isRecord(value), label);
-  return value;
-}
-
-function requiredString(value: unknown, label: string): string {
-  invariant(typeof value === 'string' && value.length > 0, label);
   return value;
 }
 

@@ -30,23 +30,16 @@ import {
   manualSceneSizeLabel,
 } from './manual-workbench-view';
 import { runPatchMapManualAdvancedAction } from './manual-workbench-actions';
+import { settlePatchMapManualCleanup } from './manual-workbench-cleanup';
 import {
-  angleDegrees,
-  canvasPoint,
-  cursorForMode,
-  interactionModeForManualMode,
   isManualPointerMode,
-  isResizeHandle,
   manualModeForShortcutKey,
-  manualModeLabel,
-  manualModeStatusHelp,
-  midpoint,
-  normalizeDeltaDegrees,
-  selectionVisualModeForManualMode,
-  viewportPanOperationForManualMode,
-  type ManualPointerGesture,
   type ManualPointerMode,
 } from './manual-workbench-input';
+import {
+  PatchMapManualPointerController,
+  type PatchMapManualPointerOutcome,
+} from './manual-pointer-controller';
 import { PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS } from '../lab-settings';
 
 export { renderPatchMapManualWorkbench } from './manual-workbench-view';
@@ -142,14 +135,10 @@ export function mountPatchMapManualWorkbench(
   );
   let status: PatchMapManualLabState['status'] = 'booting';
   let generation = 0;
-  let mode: ManualPointerMode = 'select';
   let lastAction = 'boot';
   let lastError: string | null = null;
   let actionSequence = 0;
   let animationSequence = 0;
-  let activePointer: ManualPointerGesture | null = null;
-  let panPointerId: number | null = null;
-  let canvasAbortController: AbortController | null = null;
   let resizeFrame = 0;
   let refreshFrame = 0;
   let framesPaused = false;
@@ -172,6 +161,12 @@ export function mountPatchMapManualWorkbench(
   const assetRuntime = new PatchMapAssetRuntime(createPatchMapPixiAssetBackend({
     ingestionPolicy: MANUAL_LAB_EXTERNAL_ASSET_PROFILE,
   }));
+  const pointerController = new PatchMapManualPointerController(
+    host,
+    canvasFrame,
+    (kind) => `manual-${kind}-${++actionSequence}`,
+    handlePointerOutcome,
+  );
 
   const ready = boot();
   void ready.catch(() => undefined);
@@ -260,14 +255,14 @@ export function mountPatchMapManualWorkbench(
       next.fitViewport({ paddingCssPx: 46 });
       publishEngineFrame(next);
     }
-    bindCanvas(next);
+    pointerController.bind(next);
     installResizeObserver();
     required<HTMLElement>(host, '[data-manual-loading]').hidden = true;
     status = 'ready';
     lastError = null;
     lastAction = loadScene ? 'initialize + load' : 'initialize';
     refreshSceneEditor();
-    activateMode(mode);
+    pointerController.activateMode(pointerController.mode);
     refresh();
     return next;
   }
@@ -294,7 +289,7 @@ export function mountPatchMapManualWorkbench(
     for (const button of host.querySelectorAll<HTMLButtonElement>('[data-manual-mode]')) {
       button.addEventListener('click', () => {
         const nextMode = button.dataset.manualMode;
-        if (isManualPointerMode(nextMode)) activateMode(nextMode);
+        if (isManualPointerMode(nextMode)) pointerController.activateMode(nextMode);
       }, { signal });
     }
     for (const button of host.querySelectorAll<HTMLButtonElement>('[data-manual-command]')) {
@@ -339,26 +334,12 @@ export function mountPatchMapManualWorkbench(
     const shortcutMode = manualModeForShortcutKey(key);
     if (shortcutMode !== undefined) {
       event.preventDefault();
-      activateMode(shortcutMode);
+      pointerController.activateMode(shortcutMode);
       return;
     }
     if (key === 'escape') {
-      const gesture = activePointer;
-      if (
-        gesture?.kind === 'transform' &&
-        next.transformerEditProbe().activeSessionCount > 0
-      ) {
-        next.cancelTransformerEdit(gesture.pointerId, 'escape');
-        const canvas = next.canvasHandle().element;
-        if (canvas.hasPointerCapture(gesture.pointerId)) {
-          canvas.releasePointerCapture(gesture.pointerId);
-        }
-        activePointer = null;
-        hideMarquee();
-        publishEngineFrame(next);
-        lastAction = 'transform-cancelled';
+      if (pointerController.cancelActiveTransformFromEscape()) {
         event.preventDefault();
-        refresh();
       }
       return;
     }
@@ -397,7 +378,7 @@ export function mountPatchMapManualWorkbench(
       next.on('viewSettled', (event) => recordEvent('viewSettled', event)),
       next.on('selectionChanged', (event) => {
         recordEvent('selectionChanged', event);
-        refreshSelectionVisual(next);
+        pointerController.refreshSelectionVisual(next);
       }),
       next.on('change', (event) => {
         recordEvent('change', event);
@@ -421,295 +402,6 @@ export function mountPatchMapManualWorkbench(
     if (engineUnbinds.length !== MANUAL_EVENT_NAMES.length) {
       throw new Error('PatchMap manual Lab event binding drift');
     }
-  }
-
-  function bindCanvas(next: PatchMap): void {
-    canvasAbortController?.abort();
-    canvasAbortController = new AbortController();
-    const canvasSignal = canvasAbortController.signal;
-    const canvas = next.canvasHandle().element;
-    canvas.dataset.manualPatchMapCanvas = 'true';
-    canvas.setAttribute('aria-label', 'PatchMap 직접 조작 화면');
-    canvas.addEventListener('pointerdown', (event) => onPointerDown(event, next), {
-      signal: canvasSignal,
-    });
-    canvas.addEventListener('pointermove', (event) => onPointerMove(event, next), {
-      signal: canvasSignal,
-    });
-    canvas.addEventListener('pointerup', (event) => onPointerUp(event, next), {
-      signal: canvasSignal,
-    });
-    canvas.addEventListener('pointercancel', (event) => onPointerCancel(event, next), {
-      signal: canvasSignal,
-    });
-    canvas.addEventListener('pointerleave', (event) => {
-      if (activePointer === null) clearTooltip();
-      else if (activePointer.pointerId === event.pointerId) startFrameLoop(400);
-    }, { signal: canvasSignal });
-    canvas.addEventListener('wheel', () => {
-      startFrameLoop(650);
-      queueRefresh();
-    }, { signal: canvasSignal, passive: true });
-    canvas.addEventListener('contextmenu', (event) => {
-      const point = canvasPoint(event, canvas);
-      const tooltip = next.toggleTooltipPinAtScreen(
-        { x: point[0], y: point[1] },
-        [180, 44],
-      );
-      showTooltip(tooltip.targetId, event.clientX, event.clientY);
-      queueRefresh();
-    }, { signal: canvasSignal });
-  }
-
-  function onPointerDown(event: PointerEvent, next: PatchMap): void {
-    if (event.button !== 0 || activePointer !== null) return;
-    const canvas = next.canvasHandle().element;
-    const screen = canvasPoint(event, canvas);
-    const world = next.screenToWorld({ x: screen[0], y: screen[1] });
-    const selectionBefore = next.snapshot().selectionIds;
-    if (mode === 'pan') {
-      panPointerId = event.pointerId;
-      canvas.setPointerCapture(event.pointerId);
-      startFrameLoop(800);
-      return;
-    }
-    if (mode === 'box' || mode === 'paint') {
-      canvas.setPointerCapture(event.pointerId);
-      activePointer = {
-        pointerId: event.pointerId,
-        kind: mode,
-        startScreen: screen,
-        startWorld: [world.x, world.y],
-        selectionBefore,
-        segments: [],
-        moved: false,
-      };
-      if (mode === 'box') drawMarquee(screen, screen);
-      startFrameLoop(500);
-      return;
-    }
-    if (mode === 'move' || mode === 'resize' || mode === 'rotate') {
-      const hit = next.selectionHitTestScreen({ x: screen[0], y: screen[1] });
-      let selectionIds = selectionBefore;
-      const hitSelectionId = hit.target?.selectionId ?? null;
-      if (hitSelectionId !== null && !selectionIds.includes(hitSelectionId)) {
-        selectionIds = next.applySelection({
-          op: event.shiftKey ? 'add' : 'replace',
-          ids: [hitSelectionId],
-          source: 'canvas',
-        }).current;
-      }
-      if (selectionIds.length === 0) return;
-      refreshSelectionVisual(next);
-      const visual = next.selectionVisualProbe();
-      const center = visual?.frame === null || visual?.frame === undefined
-        ? null
-        : midpoint(visual.frame.screenCorners[0], visual.frame.screenCorners[2]);
-      const actualHandle = next.hitTransformerHandle(screen);
-      const resizeHandle = isResizeHandle(actualHandle) ? actualHandle : 'se';
-      const transformerKind = mode;
-      next.beginTransformerEdit({
-        pointerId: event.pointerId,
-        actionId: `manual-${transformerKind}-${++actionSequence}`,
-        kind: transformerKind,
-        handle: transformerKind === 'move'
-          ? 'frame'
-          : transformerKind === 'rotate'
-            ? 'rotate'
-            : resizeHandle,
-        selectionIds,
-      });
-      canvas.setPointerCapture(event.pointerId);
-      activePointer = {
-        pointerId: event.pointerId,
-        kind: 'transform',
-        startScreen: screen,
-        startWorld: [world.x, world.y],
-        selectionBefore: selectionIds,
-        transformKind: transformerKind,
-        ...(transformerKind === 'resize' ? { resizeHandle } : {}),
-        ...(transformerKind === 'rotate' && center !== null
-          ? {
-              rotationCenterScreen: center,
-              rotationStartDegrees: angleDegrees(center, screen),
-            }
-          : {}),
-        segments: [],
-        moved: false,
-      };
-      startFrameLoop(800);
-      return;
-    }
-    if (mode === 'select') {
-      activePointer = {
-        pointerId: event.pointerId,
-        kind: 'paint',
-        startScreen: screen,
-        startWorld: [world.x, world.y],
-        selectionBefore,
-        segments: [],
-        moved: false,
-      };
-      return;
-    }
-    startFrameLoop(800);
-  }
-
-  function onPointerMove(event: PointerEvent, next: PatchMap): void {
-    const canvas = next.canvasHandle().element;
-    const screen = canvasPoint(event, canvas);
-    const world = next.screenToWorld({ x: screen[0], y: screen[1] });
-    setText(host, 'pointer', `${screen[0].toFixed(0)}, ${screen[1].toFixed(0)} → ${world.x.toFixed(1)}, ${world.y.toFixed(1)}`);
-    const gesture = activePointer;
-    if (gesture === null || gesture.pointerId !== event.pointerId) {
-      if (mode === 'pan') {
-        clearTooltip();
-        return;
-      }
-      const tooltip = next.hoverTooltipAtScreen(
-        { x: screen[0], y: screen[1] },
-        [180, 44],
-      );
-      showTooltip(tooltip.targetId, event.clientX, event.clientY);
-      if (mode === 'resize' || mode === 'rotate' || mode === 'move') {
-        const handle = next.hitTransformerHandle(screen);
-        canvas.style.cursor = handle === null
-          ? mode === 'move'
-            ? 'move'
-            : mode === 'rotate'
-              ? 'crosshair'
-              : 'nwse-resize'
-          : next.transformerHandleProbe()?.regions.find(({ id }) => id === handle)?.cursor ?? '';
-      }
-      return;
-    }
-    const distance = Math.hypot(
-      screen[0] - gesture.startScreen[0],
-      screen[1] - gesture.startScreen[1],
-    );
-    if (distance > 3) gesture.moved = true;
-    if (gesture.kind === 'box') {
-      drawMarquee(gesture.startScreen, screen);
-    } else if (gesture.kind === 'paint' && mode === 'paint') {
-      const previous = gesture.segments.at(-1)?.[1] ?? gesture.startScreen;
-      gesture.segments.push(Object.freeze([previous, screen] as const));
-      drawPaintTrail(gesture);
-    } else if (gesture.kind === 'transform' && gesture.transformKind !== undefined) {
-      const deltaWorld = Object.freeze([
-        world.x - gesture.startWorld[0],
-        world.y - gesture.startWorld[1],
-      ] as const);
-      if (gesture.transformKind === 'move') {
-        next.previewTransformerEdit(event.pointerId, {
-          kind: 'move',
-          selectionIds: gesture.selectionBefore,
-          deltaWorld,
-          axisLock: event.shiftKey,
-        });
-      } else if (gesture.transformKind === 'resize') {
-        next.previewTransformerEdit(event.pointerId, {
-          kind: 'resize',
-          selectionIds: gesture.selectionBefore,
-          handle: gesture.resizeHandle ?? 'se',
-          deltaWorld,
-          lockAspectRatio: event.shiftKey,
-          minSize: 8,
-        });
-      } else {
-        const center = gesture.rotationCenterScreen ?? gesture.startScreen;
-        const startDegrees = gesture.rotationStartDegrees ??
-          angleDegrees(center, gesture.startScreen);
-        let deltaDegrees = normalizeDeltaDegrees(
-          angleDegrees(center, screen) - startDegrees,
-        );
-        if (event.shiftKey) deltaDegrees = Math.round(deltaDegrees / 15) * 15;
-        next.previewTransformerEdit(event.pointerId, {
-          kind: 'rotate',
-          selectionIds: gesture.selectionBefore,
-          deltaDegrees,
-        });
-      }
-    }
-    startFrameLoop(800);
-    queueRefresh();
-  }
-
-  function onPointerUp(event: PointerEvent, next: PatchMap): void {
-    if (panPointerId === event.pointerId) {
-      panPointerId = null;
-      const canvas = next.canvasHandle().element;
-      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-      lastAction = 'pan-gesture';
-      startFrameLoop(600);
-      queueRefresh();
-      return;
-    }
-    const gesture = activePointer;
-    if (gesture === null || gesture.pointerId !== event.pointerId) return;
-    const canvas = next.canvasHandle().element;
-    const screen = canvasPoint(event, canvas);
-    try {
-      if (gesture.kind === 'box') {
-        next.selectBox(gesture.startScreen, screen, {
-          mode: event.shiftKey ? 'add' : 'replace',
-          partialIntersection: true,
-        });
-      } else if (gesture.kind === 'paint' && mode === 'paint') {
-        const segments = gesture.segments.length > 0
-          ? gesture.segments
-          : [Object.freeze([gesture.startScreen, screen] as const)];
-        next.selectPaint(segments, {
-          mode: event.shiftKey ? 'add' : 'replace',
-          toleranceCssPx: 10,
-        });
-      } else if (
-        gesture.kind === 'paint' &&
-        mode === 'select' &&
-        !gesture.moved
-      ) {
-        // Root pointer authority already applies replace/toggle selection from
-        // the exact click event. Do not repeat the 5,000-scene selection pass
-        // in the Lab host for Shift-click.
-      } else if (
-        gesture.kind === 'transform' &&
-        next.transformerEditProbe().activeSessionCount > 0
-      ) {
-        next.completeTransformerEdit(event.pointerId);
-      }
-      lastAction = gesture.kind === 'transform'
-        ? `${gesture.transformKind ?? 'transform'}-gesture`
-        : `${gesture.kind}-selection`;
-      publishEngineFrame(next);
-    } finally {
-      activePointer = null;
-      hideMarquee();
-      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-      startFrameLoop(600);
-      refresh();
-    }
-  }
-
-  function onPointerCancel(event: PointerEvent, next: PatchMap): void {
-    if (panPointerId === event.pointerId) {
-      panPointerId = null;
-      lastAction = 'pan-cancelled';
-      startFrameLoop(400);
-      queueRefresh();
-      return;
-    }
-    const gesture = activePointer;
-    if (gesture === null || gesture.pointerId !== event.pointerId) return;
-    if (
-      gesture.kind === 'transform' &&
-      next.transformerEditProbe().activeSessionCount > 0
-    ) {
-      next.cancelTransformerEdit(event.pointerId, 'pointer-cancel');
-    }
-    activePointer = null;
-    hideMarquee();
-    lastAction = 'gesture-cancelled';
-    publishEngineFrame(next);
-    refresh();
   }
 
   async function runCommand(command: string): Promise<unknown> {
@@ -1038,28 +730,6 @@ export function mountPatchMapManualWorkbench(
     for (const panel of host.querySelectorAll<HTMLElement>('[data-manual-tool-panel]')) {
       panel.hidden = panel.dataset.manualToolPanel !== tool;
     }
-  }
-
-  function activateMode(nextMode: ManualPointerMode): void {
-    mode = nextMode;
-    for (const button of host.querySelectorAll<HTMLButtonElement>('[data-manual-mode]')) {
-      button.setAttribute('aria-pressed', String(button.dataset.manualMode === mode));
-    }
-    const live = liveEngine();
-    if (live !== null) {
-      live.applyInteractionModeOperation({
-        op: 'replace',
-        state: interactionModeForManualMode(mode),
-      });
-      live.configureViewportPolicy({
-        op: viewportPanOperationForManualMode(mode),
-        policy: 'pan',
-      });
-      refreshSelectionVisual(live);
-      live.canvasHandle().element.style.cursor = cursorForMode(mode);
-    }
-    setText(host, 'mode-help', `${manualModeLabel(mode)}: ${manualModeStatusHelp(mode)}`);
-    host.dataset.manualMode = mode;
   }
 
   function transformSelection(
@@ -1482,19 +1152,30 @@ export function mountPatchMapManualWorkbench(
       JSON.stringify(next.exportDataset(), null, 2);
   }
 
-  function refreshSelectionVisual(next: PatchMap): void {
-    next.setSelectionVisualPolicy({
-      mode: selectionVisualModeForManualMode(mode),
-      handleCssPx: 10,
-      strokeCssPx: 2,
-    });
-  }
-
   function recordEvent(type: string, value: unknown, refreshNow = true): void {
     const summary = eventSummary(type, value);
     eventJournal.push(summary);
     if (eventJournal.length > 120) eventJournal = eventJournal.slice(-120);
     if (refreshNow) queueRefresh();
+  }
+
+  function handlePointerOutcome(outcome: PatchMapManualPointerOutcome): void {
+    switch (outcome.type) {
+      case 'action':
+        lastAction = outcome.value;
+        return;
+      case 'frame-request':
+        startFrameLoop(outcome.durationMs);
+        return;
+      case 'publish-frame':
+        publishEngineFrame(requireEngine());
+        return;
+      case 'queue-refresh':
+        queueRefresh();
+        return;
+      case 'refresh':
+        refresh();
+    }
   }
 
   function startFrameLoop(durationMs: number): void {
@@ -1546,55 +1227,6 @@ export function mountPatchMapManualWorkbench(
     } catch {
       performanceObserver = null;
     }
-  }
-
-  function drawMarquee(
-    start: readonly [number, number],
-    end: readonly [number, number],
-  ): void {
-    const marquee = required<HTMLElement>(host, '[data-manual-marquee]');
-    const canvas = requireEngine().canvasHandle().element;
-    const canvasRect = canvas.getBoundingClientRect();
-    const frameRect = canvasFrame.getBoundingClientRect();
-    const left = Math.min(start[0], end[0]) + canvasRect.left - frameRect.left;
-    const top = Math.min(start[1], end[1]) + canvasRect.top - frameRect.top;
-    marquee.style.left = `${left}px`;
-    marquee.style.top = `${top}px`;
-    marquee.style.width = `${Math.abs(end[0] - start[0])}px`;
-    marquee.style.height = `${Math.abs(end[1] - start[1])}px`;
-    marquee.dataset.kind = 'box';
-    marquee.hidden = false;
-  }
-
-  function drawPaintTrail(gesture: ManualPointerGesture): void {
-    const last = gesture.segments.at(-1)?.[1] ?? gesture.startScreen;
-    const half = 12;
-    drawMarquee(
-      [last[0] - half, last[1] - half],
-      [last[0] + half, last[1] + half],
-    );
-    required<HTMLElement>(host, '[data-manual-marquee]').dataset.kind = 'paint';
-  }
-
-  function hideMarquee(): void {
-    required<HTMLElement>(host, '[data-manual-marquee]').hidden = true;
-  }
-
-  function showTooltip(targetId: string | null, clientX: number, clientY: number): void {
-    const tooltip = required<HTMLElement>(host, '[data-manual-tooltip]');
-    if (targetId === null) {
-      tooltip.hidden = true;
-      return;
-    }
-    const frameRect = canvasFrame.getBoundingClientRect();
-    tooltip.textContent = targetId;
-    tooltip.style.left = `${clientX - frameRect.left + 14}px`;
-    tooltip.style.top = `${clientY - frameRect.top + 14}px`;
-    tooltip.hidden = false;
-  }
-
-  function clearTooltip(): void {
-    required<HTMLElement>(host, '[data-manual-tooltip]').hidden = true;
   }
 
   function zoomAtCenter(factor: number): unknown {
@@ -1666,7 +1298,7 @@ export function mountPatchMapManualWorkbench(
       sceneSize: manualSceneSize,
       status,
       generation,
-      mode,
+      mode: pointerController.mode,
       selectedIds: next?.selectionIds ?? snapshot?.selectionIds ?? Object.freeze([]),
       history: Object.freeze({
         undoDepth: history.undoDepth,
@@ -1697,26 +1329,39 @@ export function mountPatchMapManualWorkbench(
   }
 
   async function destroyEngine(): Promise<void> {
-    canvasAbortController?.abort();
-    canvasAbortController = null;
-    resizeObserver?.disconnect();
-    resizeObserver = null;
-    cancelAnimationFrame(refreshFrame);
-    cancelAnimationFrame(resizeFrame);
-    refreshFrame = 0;
-    resizeFrame = 0;
-    frameLoop?.destroy();
-    frameLoop = null;
-    activePointer = null;
-    panPointerId = null;
-    hideMarquee();
-    await releaseAllAssets();
-    for (const unbind of engineUnbinds.splice(0)) unbind();
-    const previous = engine;
-    engine = null;
-    lastSnapshot = null;
-    if (previous !== null) await previous.destroy();
-    surfaceHost.replaceChildren();
+    await settlePatchMapManualCleanup([
+      () => pointerController.unbind(),
+      () => {
+        const previous = resizeObserver;
+        resizeObserver = null;
+        previous?.disconnect();
+      },
+      () => {
+        const previousRefreshFrame = refreshFrame;
+        const previousResizeFrame = resizeFrame;
+        refreshFrame = 0;
+        resizeFrame = 0;
+        cancelAnimationFrame(previousRefreshFrame);
+        cancelAnimationFrame(previousResizeFrame);
+      },
+      () => {
+        const previous = frameLoop;
+        frameLoop = null;
+        previous?.destroy();
+      },
+      releaseAllAssets,
+      async () => {
+        const unbinds = engineUnbinds.splice(0);
+        await settlePatchMapManualCleanup(unbinds);
+      },
+      async () => {
+        const previous = engine;
+        engine = null;
+        lastSnapshot = null;
+        if (previous !== null) await previous.destroy();
+      },
+      () => surfaceHost.replaceChildren(),
+    ]);
   }
 
   async function destroy(): Promise<void> {

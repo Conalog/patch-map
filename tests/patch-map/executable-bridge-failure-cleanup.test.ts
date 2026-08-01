@@ -1,8 +1,99 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createPatchMapExecutableLabBridge } from '../../lab/patch-map/contract/executable-bridge';
+import { TargetedWebGLPatchMapEngine } from '../../lab/patch-map/contract/targeted-webgl-engine';
+import type { PatchMapSurfaceOptions } from '../../src/patch-map/engine';
+import { FakeSurface } from './support/contract-lab-harness';
 
 describe('PatchMap executable bridge failure cleanup', () => {
+  it('retains late initialization cleanup ownership until destroy can release it', async () => {
+    let surface: RetryableDestroySurface | null = null;
+    const surfaceHost = trackedSurfaceHost(() => surface);
+    const bridge = createPatchMapExecutableLabBridge({
+      caseId: 'VIE-001',
+      rootTestId: 'scenario-vie-001',
+      size: '100',
+      seed: 319,
+      surfaceHost,
+      surfaceFactory: (options) => {
+        surface = new RetryableDestroySurface(options, 4, true);
+        return Promise.resolve(surface);
+      },
+      environment: { browser: 'vitest', backend: 'webgl2' },
+    });
+
+    await expect(bridge.armGesture(0)).rejects.toMatchObject({
+      name: 'AggregateError',
+      message: 'PatchMap VIE-001 live gesture initialization cleanup failed',
+    });
+
+    const allocatedSurface = requireRetryableSurface(surface);
+    expect(allocatedSurface.destroyAttempts).toBe(4);
+    expect(allocatedSurface.canvasCount).toBe(1);
+    expect(surfaceHost.dataset.patchMapRootInputProbe).toBeUndefined();
+    expect(bridge.state()).toMatchObject({
+      status: 'armed',
+      actionIndex: -1,
+      publishedTuple: { scene: 0, view: 0, interaction: 0 },
+    });
+    expect(await bridge.destroyCase()).toMatchObject({
+      status: 'not-run',
+      runCount: 0,
+      completedRunCount: 0,
+      releasedEngineCount: 0,
+      retainedCanvasCount: null,
+      retainedSubscriptionCount: null,
+      retainedPendingWork: null,
+    });
+    expect(allocatedSurface.destroyAttempts).toBe(5);
+    expect(allocatedSurface.canvasCount).toBe(0);
+  });
+
+  it('retries only unfinished live-gesture release steps', async () => {
+    let surface: RetryableDestroySurface | null = null;
+    const surfaceHost = trackedSurfaceHost(() => surface);
+    const unbind = vi.fn();
+    const subscription = vi
+      .spyOn(TargetedWebGLPatchMapEngine.prototype, 'on')
+      .mockReturnValue(unbind);
+    const bridge = createPatchMapExecutableLabBridge({
+      caseId: 'VIE-001',
+      rootTestId: 'scenario-vie-001',
+      size: '100',
+      seed: 319,
+      surfaceHost,
+      surfaceFactory: (options) => {
+        surface = new RetryableDestroySurface(options, 2);
+        return Promise.resolve(surface);
+      },
+      environment: { browser: 'vitest', backend: 'webgl2' },
+    });
+
+    try {
+      await expect(bridge.armGesture(0)).resolves.toMatchObject({
+        driverId: 'trusted-pointer-wheel',
+      });
+      const allocatedSurface = requireRetryableSurface(surface);
+      await expect(bridge.awaitMilestone(0, 'released')).rejects.toMatchObject({
+        name: 'AggregateError',
+        message: 'PatchMap VIE-001 live gesture cleanup failed',
+      });
+      expect(unbind).toHaveBeenCalledTimes(1);
+      expect(allocatedSurface.destroyAttempts).toBe(2);
+      expect(allocatedSurface.canvasCount).toBe(1);
+      expect(surfaceHost.dataset.patchMapRootInputProbe).toBeUndefined();
+
+      await expect(bridge.awaitMilestone(0, 'released')).resolves.toBeUndefined();
+      expect(unbind).toHaveBeenCalledTimes(1);
+      expect(allocatedSurface.destroyAttempts).toBe(3);
+      expect(allocatedSurface.canvasCount).toBe(0);
+      await expect(bridge.destroyCase()).resolves.toMatchObject({ status: 'not-run' });
+      expect(allocatedSurface.destroyAttempts).toBe(3);
+    } finally {
+      subscription.mockRestore();
+    }
+  });
+
   it('releases and publishes text product resources without masking the execution failure', async () => {
     const bridge = createPatchMapExecutableLabBridge({
       caseId: 'REN-006',
@@ -81,4 +172,47 @@ function requireRecord(value: unknown, label: string): Readonly<Record<string, u
     throw new Error(`Missing ${label}`);
   }
   return value as Readonly<Record<string, unknown>>;
+}
+
+class RetryableDestroySurface extends FakeSurface {
+  public destroyAttempts = 0;
+
+  public constructor(
+    options: PatchMapSurfaceOptions,
+    private readonly failedDestroyCount: number,
+    private readonly failCanvasLookup = false,
+  ) {
+    super(options);
+  }
+
+  public override canvasElement(): HTMLCanvasElement {
+    if (this.failCanvasLookup) throw new Error('synthetic late initialization failure');
+    return super.canvasElement();
+  }
+
+  public override destroy(): Promise<boolean> {
+    this.destroyAttempts += 1;
+    if (this.destroyAttempts <= this.failedDestroyCount) {
+      return Promise.reject(new Error('synthetic retryable teardown failure'));
+    }
+    return super.destroy();
+  }
+}
+
+function trackedSurfaceHost(
+  surface: () => RetryableDestroySurface | null,
+): HTMLElement {
+  return {
+    dataset: {},
+    querySelector(): HTMLCanvasElement | null {
+      return (surface()?.canvasCount ?? 0) > 0 ? {} as HTMLCanvasElement : null;
+    },
+  } as unknown as HTMLElement;
+}
+
+function requireRetryableSurface(
+  surface: RetryableDestroySurface | null,
+): RetryableDestroySurface {
+  if (surface === null) throw new Error('Missing retryable surface');
+  return surface;
 }
