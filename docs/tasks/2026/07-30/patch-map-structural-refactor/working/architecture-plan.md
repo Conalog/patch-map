@@ -109,8 +109,8 @@ import a path directly. The package still publishes only `"."`.
 
 ## File inventory disposition
 
-The current allowed corpus contains 637 files / 486,674 LOC: 203 product, 69
-Lab, 203 tests, 127 active verification scripts, 23 performance files, five
+The current allowed corpus contains 647 files / 486,968 LOC: 203 product, 69
+Lab, 203 tests, 137 active verification scripts, 23 performance files, five
 examples, and seven root configuration files. Performance result JSON accounts
 for 224,708 LOC and is evidence rather than refactorable code. Every file is
 covered by the following rule; explicit exceptions override the directory
@@ -121,7 +121,7 @@ default.
 | `src/patch-map` | 203 reviewed files keep | the `pixi-renderer` type cycle is removed; keep large atomic writers and GPU resource owners intact |
 | `lab/patch-map` | 65 reviewed files keep | presentation, CSS, pointer, and executable live-session boundaries are split; retain the remaining orchestration facades |
 | `tests/patch-map` | 203 reviewed files keep with assertions and case identities | mixed Lab/foundation suites are split; the cohesive transaction assertion suite retains its lifecycle owner above a surface harness |
-| `scripts/verification` | 124 focused files keep | update/pointer action handlers and update/pointer/layout folds are split; split the remaining three browser/package orchestrators without sharing actual/fold case registries |
+| `scripts/verification` | 137 reviewed files keep | all eight mixed action/fold/browser/package roots now compose focused owned modules without sharing actual/fold case registries |
 | `performance/patch-map` | 19 files keep plus immutable results | split/consolidate four workload/harness runners only after exact equivalence proof |
 | `examples` and root config | keep minimal examples and public manifests | correct lint/build coverage and remove only proven stale configuration |
 | contract fixtures/evidence/results | frozen | no semantic edits, regeneration, rename, or deletion |
@@ -214,7 +214,8 @@ transaction surface extracted while assertions remain in semantic suites.
   firewalls.
 - Completed the update/pointer action-handler and update/pointer/layout-fold
   boundaries behind a recursive owned-module firewall; browser and package
-  orchestration remain.
+  orchestration now retain only process, I/O, browser, comparison, and cleanup
+  composition above focused owned modules.
 
 ### T9 — performance tooling, examples, root config, and durable docs
 

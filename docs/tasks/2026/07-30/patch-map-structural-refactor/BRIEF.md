@@ -14,7 +14,7 @@
 
 # Current Facts
 
-- The allowed inventory is 637 files / 486,674 LOC after excluding
+- The allowed inventory is 647 files / 486,968 LOC after excluding
   generated and forbidden content; 224,708 LOC is retained result JSON rather
   than refactorable code.
 - `engine.ts` is 6,108 LOC and `core.ts` is 2,358 LOC. Parser, transaction,
@@ -43,7 +43,8 @@
 - Parser, Dataset, transaction, reconcile, text, authoring, editor, host,
   renderer planning, Lab presentation, and contract-test execution support now
   have explicit domain owners without a parallel public or write path.
-- The checkpoint passes 192 unit files / 1,716 tests, full lint/typecheck,
+- The checkpoint covers 192 unit files / 1,717 tests through the integrated
+  run plus targeted correction, with full lint/typecheck,
   product/Lab builds, canonical 38/173, headless 173 routes / 192 checks, and
   2+7 memory over 5,099 entities and nine ownership cycles with a 100,451-byte
   retained-heap median. Export and frame algorithms did not change.
@@ -53,12 +54,16 @@
   now compose focused owned modules behind a recursive expected-blind import
   firewall; their registries, action IDs, case dispatch, and comparison
   boundary remain unchanged.
+- Browser and package verification now keep process, browser, filesystem, and
+  cleanup ownership in compact roots above focused probes, source templates,
+  artifact policy, evidence, and comparison modules; final destroy cleanup is
+  mandatory for every browser case and packed journey.
 
 # Next Step
 
-- Split the remaining browser and package verification orchestrators along
-  process, source-template, evidence, and comparison boundaries while keeping
-  each root as the sole I/O and cleanup owner.
+- Split the four mixed performance workload/harness runners along dataset,
+  trial, measurement, and report boundaries while preserving exact samples,
+  timing order, and immutable retained result evidence.
 
 # Working Boundary
 
