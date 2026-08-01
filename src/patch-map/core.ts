@@ -35,14 +35,10 @@ import type { PatchMapPaintOrderProductProbe } from './paint-order-product';
 import {
   parsePatchMapV010,
   parsePatchMapV010Async,
-  parsePatchMapV010SelectedRoots,
 } from './parser';
 import {
   primePatchMapV010IncrementalFlat,
 } from './incremental-parser';
-import {
-  ownedPatchMapPreviewPatchIndices,
-} from './semantic/dataset';
 import {
   withRendererDegradationDiagnostics,
 } from './renderers/degradation';
@@ -120,7 +116,6 @@ import {
   createPatchMapTextProductProbe,
   indexPatchMapComponentProbeTargets as indexComponentTargets,
   indexPatchMapTextProbeTargets as indexTextTargets,
-  patchMapComponentProbeTargetKey as componentTargetKey,
 } from './core/product-probe-reader';
 import { PatchMapRootInteractionAuthority } from './core/root-interaction-authority';
 import { PatchMapBarPresentationAuthority } from './core/bar-presentation-authority';
@@ -137,12 +132,9 @@ import {
 } from './core/semantic-dense-planning';
 import {
   freezeReconcileResult,
-  incrementalParseOptionsKey,
-  matchesOwnedIncrementalInput,
   reconcileFacts,
   reconcileFactStamp,
   retainedOwnedInputDataset,
-  sameStringArray,
 } from './core/reconcile-planning';
 import {
   preparePatchMapReconcileCandidate,
@@ -156,9 +148,13 @@ import {
 } from './core/intrinsic-image-projection';
 import {
   compactPatchMapProjectionStableRecords,
-  isPlainRecord,
   rollbackPatchMapProjectionStableRecords,
 } from './core/projection-records';
+import {
+  preparePatchMapIncrementalPreview,
+  preparePatchMapSemanticRefresh,
+  preparePatchMapTransientDirtyRanges,
+} from './core/transient-projection-planning';
 
 export { normalizePatchMapTextTarget } from './core/contracts';
 export type * from './core/contracts';
@@ -284,14 +280,6 @@ export class PatchMapRuntime {
 
   private get projectionValue(): PatchMapProjectionIndex | null {
     return this.publishedScene.current().projection;
-  }
-
-  private get ownedInputDataset(): readonly unknown[] | null {
-    return this.publishedScene.current().ownedInputDataset;
-  }
-
-  private get ownedParseOptionsKey(): string | null {
-    return this.publishedScene.current().ownedParseOptionsKey;
   }
 
   private get componentTargets(): ReadonlyMap<string, IndexedComponentTarget | null> {
@@ -1444,83 +1432,22 @@ export class PatchMapRuntime {
   ): PatchMapTransientProjectionResult | null {
     this.assertAlive();
     this.updatePublishedScene({ transientIncrementalParse: null });
-    const current = this.parseResultValue;
-    const sparseDirtyIndices = this.ownedInputDataset === null
-      ? null
-      : ownedPatchMapPreviewPatchIndices(input, this.ownedInputDataset);
-    const optionsKey = incrementalParseOptionsKey(this.parseOptions);
-    const sparseInputMatches =
-      sparseDirtyIndices !== null &&
-      optionsKey !== null &&
-      optionsKey === this.ownedParseOptionsKey;
-    if (
-      current === null ||
-      (
-        !sparseInputMatches &&
-        !matchesOwnedIncrementalInput(
-          input,
-          dirtyRootIds,
-          this.parseOptions,
-          this.publishedScene.current(),
-        )
-      )
-    ) {
-      return null;
-    }
-    const roots = input as readonly Readonly<{ readonly id: string }>[];
-    const dirty = new Set(dirtyRootIds);
-    if (dirty.size !== dirtyRootIds.length) return null;
-    const dirtyIndices: number[] = [];
-    if (sparseInputMatches) {
-      for (const index of sparseDirtyIndices) {
-        const root = roots[index];
-        if (root === undefined || !dirty.delete(root.id)) return null;
-        dirtyIndices.push(index);
-      }
-    } else {
-      for (let index = 0; index < roots.length; index += 1) {
-        if (dirty.delete(roots[index]!.id)) dirtyIndices.push(index);
-      }
-    }
-    if (dirty.size !== 0) return null;
-    const selected = parsePatchMapV010SelectedRoots(
-      roots,
-      dirtyIndices,
+    const prepared = preparePatchMapIncrementalPreview(
+      input,
+      dirtyRootIds,
       this.parseOptions,
+      this.publishedScene.current(),
     );
-    if (selected.diagnostics.some(({ level }) => level === 'error')) return null;
-
-    const entityIds: string[] = [];
-    for (const rootId of dirtyRootIds) {
-      const expected = current.identity.entityIdsBySourceId[rootId] ?? [];
-      const actual = selected.identity.entityIdsBySourceId[rootId] ?? [];
-      if (!sameStringArray(expected, actual)) return null;
-      for (const entityId of actual) {
-        if (selected.projection.byEntityId[entityId] === undefined) return null;
-        entityIds.push(entityId);
-      }
-    }
-    const uniqueEntityIds = Object.freeze([...new Set(entityIds)]);
-    if (optionsKey === null) return null;
+    if (prepared === null) return null;
     this.updatePublishedScene({
-      transientIncrementalParse: Object.freeze({
-        base: current,
-        optionsKey,
-        dirtyRootIds: Object.freeze([...dirtyRootIds]),
-        dirtyIndices: Object.freeze(dirtyIndices),
-        dirtyRoots: Object.freeze(dirtyIndices.map((index) => roots[index] as object)),
-        selected,
-      }),
+      transientIncrementalParse: prepared,
     });
     const presentation = this.barPresentation.applyTransientEntityProjections(
-      selected.projection.byEntityId,
-      uniqueEntityIds,
+      prepared.selected.projection.byEntityId,
+      prepared.entityIds,
     );
     if (presentation === null) return null;
-    const dirtyRanges = contiguousSlotRanges(uniqueEntityIds.flatMap((entityId) => {
-      const ref = this.scene.ref(entityId);
-      return ref === null ? [] : [ref.slot];
-    }));
+    const dirtyRanges = preparePatchMapTransientDirtyRanges(prepared.entityIds, this.scene);
     this.renderer.setProjection(
       presentation,
       dirtyRanges,
@@ -1533,7 +1460,7 @@ export class PatchMapRuntime {
     this.invalidate('transformer-preview');
     return Object.freeze({
       changed: dirtyRanges.length > 0,
-      entityIds: uniqueEntityIds,
+      entityIds: prepared.entityIds,
       dirtyRanges,
     });
   }
@@ -1574,54 +1501,24 @@ export class PatchMapRuntime {
     if (!Array.isArray(targets)) throw new TypeError('refresh targets must be an array');
     const parse = this.parseResultValue;
     if (parse === null) throw new Error('PatchMapRuntime.refreshSemanticTargets requires a loaded dataset');
-    const recomputedTargets: string[] = [];
-    const missingTargets: string[] = [];
-    const denseEntityIds = new Set<string>();
-    for (const [index, target] of targets.entries()) {
-      const normalized = normalizeRefreshTarget(target, index);
-      const label = normalized.kind === 'component'
-        ? `${normalized.ownerId}/${normalized.id}`
-        : normalized.id;
-      const resolved = normalized.kind === 'component'
-        ? componentRefreshEntityIds(this.componentTargets, normalized)
-        : semanticSelectionDenseIds(parse, [normalized.id]);
-      if (resolved.length === 0) {
-        missingTargets.push(label);
-        continue;
-      }
-      recomputedTargets.push(label);
-      for (const entityId of resolved) denseEntityIds.add(entityId);
-    }
-    if (options.strict === true && missingTargets.length > 0) {
-      return Object.freeze({
-        changed: false,
-        recomputedTargets: Object.freeze([]),
-        missingTargets: Object.freeze(missingTargets),
-        dirtyRanges: Object.freeze([]),
-        dataDiffCount: 0,
-      });
-    }
-    const slots = [...denseEntityIds].flatMap((entityId) => {
-      const ref = this.scene.ref(entityId);
-      return ref === null ? [] : [ref.slot];
-    }).sort((left, right) => left - right);
-    const dirtyRanges = contiguousSlotRanges(slots);
+    const prepared = preparePatchMapSemanticRefresh(
+      targets,
+      options,
+      parse,
+      this.componentTargets,
+      this.scene,
+    );
+    if (options.strict === true && prepared.missingTargets.length > 0) return prepared;
     const projection = this.barPresentation.visibleProjection;
-    if (dirtyRanges.length > 0 && projection !== null) {
-      this.renderer.setProjection(projection, dirtyRanges);
+    if (prepared.dirtyRanges.length > 0 && projection !== null) {
+      this.renderer.setProjection(projection, prepared.dirtyRanges);
       this.componentRendererFactsPublished = false;
       this.textRendererFactsPublished = false;
       this.renderedSceneRevision = null;
       this.spatialHit.invalidate();
       this.invalidate('semantic-refresh');
     }
-    return Object.freeze({
-      changed: dirtyRanges.length > 0,
-      recomputedTargets: Object.freeze(recomputedTargets),
-      missingTargets: Object.freeze(missingTargets),
-      dirtyRanges,
-      dataDiffCount: 0,
-    });
+    return prepared;
   }
 
   public animateBarHeights(options: AnimateBarsOptions = {}): CommitResult {
@@ -2318,40 +2215,5 @@ function normalizeCleanupFailure(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value));
 }
 
-
-function normalizeRefreshTarget(
-  target: unknown,
-  index: number,
-): PatchMapSemanticTarget {
-  if (!isPlainRecord(target)) {
-    throw new TypeError(`refresh targets[${index}] must be an object`);
-  }
-  if (target.kind !== 'element' && target.kind !== 'component') {
-    throw new TypeError(`refresh targets[${index}].kind is unsupported`);
-  }
-  if (typeof target.id !== 'string' || target.id.length === 0) {
-    throw new TypeError(`refresh targets[${index}].id must be a non-empty string`);
-  }
-  if (target.kind === 'component') {
-    if (typeof target.ownerId !== 'string' || target.ownerId.length === 0) {
-      throw new TypeError(`refresh targets[${index}].ownerId must be a non-empty string`);
-    }
-    return Object.freeze({ kind: 'component', ownerId: target.ownerId, id: target.id });
-  }
-  return Object.freeze({ kind: 'element', id: target.id });
-}
-
-function componentRefreshEntityIds(
-  targets: ReadonlyMap<string, IndexedComponentTarget | null>,
-  target: Extract<PatchMapSemanticTarget, { readonly kind: 'component' }>,
-): readonly string[] {
-  const indexed = targets.get(componentTargetKey({
-    ownerId: target.ownerId,
-    componentId: target.id,
-  }));
-  return indexed === undefined || indexed === null
-    ? Object.freeze([])
-    : Object.freeze([indexed.entityId]);
-}
 
 export type { EntityPatch };
