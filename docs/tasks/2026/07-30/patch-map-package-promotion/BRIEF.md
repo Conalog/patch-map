@@ -32,20 +32,19 @@
   complete. `engine.ts`, `core.ts`, and `pixi-renderer.ts` are 5,542, 1,969,
   and 1,813 lines above singular transaction, frame, accessibility, asset,
   interaction, and resource authorities.
-- The final checkpoint passes 194 unit files / 1,729 tests, full
-  lint/typecheck, product/Lab builds, canonical 38/173, headless 173 routes /
-  192 checks, and 2+7 memory over 5,099 entities and nine ownership cycles.
+- The branch-readiness checkpoint passes 194 unit files / 1,735 tests, full
+  lint/typecheck, product/Lab builds, canonical 38/173, packed ESM/CJS/types
+  with 38 journeys and four examples, headless 173 routes / 192 checks, and
+  2+7 memory over 5,099 entities plus nine ownership cycles.
 - Public `core-v2` Lab aliases and canvas probe identity are removed; retained
   historical identifiers exist only in immutable contract/evidence tooling.
-- The current 5,000-bar Chromium proxy passes animation/pan and repeated
-  retarget 2+7 checkpoints; the prior 2,924.9ms 4x outlier fell to a 203.4ms
-  repeated-action p95 aggregate. The 10,000-bar load/interaction and
-  animation/pan smoke pass, while repeated retarget during active pan remains
-  unfavorable and is reported as such. Packed consumer was not repeated
-  because its boundary did not change. Windows-native and qualified WebGPU
-  results remain pending.
+- The current 5,000-bar repeated-retarget 2+7 Chromium proxy passes its fixed
+  budgets: repeated-action p95 is 78.5ms at 1x and 401.3ms at 4x. The
+  10,000-bar 1x smoke passes at 159.2ms repeated-action p95, but its 233.3ms
+  rAF p95 and 20 long tasks remain unfavorable and are reported as such.
+  Windows-native and qualified WebGPU results remain pending.
 
 # Next Step
 
-- Open the cleanup PR from the clean branch; increase the package version only
-  after merge.
+- Review and commit the branch-readiness patch when explicitly requested, then
+  update the cleanup PR. Increase the package version only after merge.

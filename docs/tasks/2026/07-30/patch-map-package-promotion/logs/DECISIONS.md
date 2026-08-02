@@ -77,3 +77,27 @@
 - **Decision:** Keep one aggregate scene owner but split standalone images into a dedicated underlay container; retain separate component background, geometry, content, text, and interaction lanes. Preserve the approved default Sprite-center image pivot, while treating v0.10 `attrs.display: "image"` records as the producer's legacy top-left layout profile.
 - **Why:** This preserves PATCH MAP root-underlay semantics and component content visibility without reintroducing per-entity display objects, listeners, tickers, or closures.
 - **Impact:** Renderer lifecycle and DevTools ownership stay aggregate. Async asset settlement must wake the package-owned frame loop, and Lab external assets remain available only through an explicit allowlisted profile.
+
+## 2026-08-02 — Landing safety boundaries
+
+- **Reentrant mutations remain atomic.** A renderer callback may synchronously
+  replace, patch, destroy, or restore the same surface. The outer operation
+  now verifies its surface, revision, and history generation after reconcile;
+  if ownership changed, it restores the authoritative nested state and rejects
+  instead of publishing a mixed result. Serializing every callback was rejected
+  because it would change the synchronous host contract and add hot-path queueing.
+- **External assets earn cache admission.** An allowlisted external URL must be
+  fetched and validated by the ingestion policy before its texture can enter
+  the engine-owned Pixi session. Borrowing a matching unverified global cache
+  entry was rejected because URL equality does not prove that the configured
+  origin, MIME, size, and lifecycle policy admitted those bytes.
+- **The package ships only verified module formats.** `@conalog/patch-map`
+  publishes ESM, CJS, and declarations; the undocumented and unverified UMD
+  output was removed. Node 22 is the repository/CI toolchain, the package
+  declares Node 20+, public examples are linted in-repo and typechecked from
+  the packed artifact, and publish lifecycle hooks rebuild and run contract and
+  packed-consumer gates. Versioning remains a post-merge decision.
+- **Generated readiness output is transient by default.** Package, memory, and
+  release verifiers write environment-specific results outside tracked
+  evidence unless an explicit artifact path is supplied. This prevents a
+  routine check from silently replacing digest-bound evidence.

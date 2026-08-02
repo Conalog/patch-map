@@ -81,6 +81,7 @@ identity remain stable. Invalid strict loads and mutations fail atomically.
 
 ## Runtime support
 
+- Node.js: `>=20` for package consumers; Node.js 22 for repository CI
 - WebGL2: production baseline
 - WebGPU: experimental
 - WebGL1 and Canvas fallback: unsupported
@@ -91,6 +92,9 @@ See [product documentation](./docs/patch-map/README.md), the packaged
 `npm run lab`.
 
 ## Development
+
+Use Node.js 22 (`.nvmrc`; package minimum is 20) and install the locked dependencies with `npm ci`.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the risk-based verification gates.
 
 ```sh
 npm run typecheck

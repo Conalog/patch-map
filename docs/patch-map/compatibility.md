@@ -11,7 +11,7 @@ These are tested profiles, not claims about unmeasured environments.
 | browser automation | bundled Chromium, headless | development/release proxy |
 | Windows Chrome/Edge | exact latest-two versions from release manifest | pending until native headed measurement |
 | WebGL1 / Canvas fallback | any | unsupported production runtime |
-| Node | CJS import/parser smoke only | no DOM renderer claim |
+| Node | package metadata requires 20+; CI and release verification use 22 | CJS/import/type consumer support only; no headless Node DOM renderer claim |
 
 ## Toolchain matrix
 

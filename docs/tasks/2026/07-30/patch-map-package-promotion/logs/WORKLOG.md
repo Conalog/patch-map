@@ -164,3 +164,28 @@
 **2026-07-31**
 - Batch: Structural refactor promotion checkpoint. Work: Integrated the completed PatchMap ownership refactor and removed the remaining public Core v2 route/probe identity without changing the root API or immutable contract corpus. Evidence: Final unit/build/contract/package/headless Lab gates PASS and independent review reports no blocker; lifecycle ownership remains proven by the unchanged-path 2+7 checkpoint. The fresh Chromium performance proxy is preserved as FAIL because a 4x outlier exceeded its declared limit, while Windows-native and qualified WebGPU remain pending. Result: The branch is ready for a cleanup PR after the final documentation commit and clean-worktree check; version bump remains post-merge.
 - Batch: Promotion paused for full structural refactor. Work: Reopened the cleanup because Core and Engine still combine excessive stateful responsibilities and began a complete allowed-file inventory. Evidence: Previous release results remain baseline-only for unchanged paths. Result: PR creation and versioning remain deferred until the new structural goal and release checkpoint complete.
+
+## 2026-08-02 — Branch readiness fixed point
+
+- Reviewed the full branch for correctness, runtime ownership, workflow scope,
+  removable complexity, validation, and documentation drift. Fixed reentrant
+  atomicity, replacement supersession, external asset admission, scheduler
+  continuation after observer errors, presentation O(N²) lookups, dirty-range
+  expansion, package metadata/publish guards, CI packed-consumer coverage,
+  JavaScript/public-example lint coverage, and tracked-evidence pollution.
+- Consolidated repeated slot-range, strict plain-record, ordered string-array,
+  component visual-target, Mesh graphics, and hidden-image probe policy. Kept
+  transaction, history, parser diagnostic, and bar hot-path loops separate
+  where extraction would blur atomic boundaries or add per-entity calls.
+  `jscpd` reports 0.6% duplication at the 8-line/80-token threshold.
+- Fresh verification passed full lint/typecheck, 194 unit files / 1,735 tests,
+  product and Lab builds, canonical 38 decisions / 173 cases, headless 173
+  routes / 192 checks with zero console/page/network errors, packed ESM/CJS/
+  types + 38 journeys + four examples, and 2+7 memory over 5,099 entities plus
+  nine ownership cycles at 98,319-byte retained-heap median.
+- The 5,000-bar repeated-retarget 2+7 checkpoint passed: 1x repeated-action
+  p95 78.5ms and 4x p95 401.3ms. The 10,000-bar 1x smoke passed at 159.2ms
+  repeated-action p95, while 233.3ms rAF p95 and 20 long tasks remain honestly
+  unfavorable. Results are transient readiness artifacts; Windows-native and
+  qualified WebGPU stay pending. No version, commit, push, or PR metadata was
+  changed by the branch-readiness run.

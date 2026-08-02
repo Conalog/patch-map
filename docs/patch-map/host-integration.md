@@ -11,13 +11,18 @@ active PatchMap canvas. Multiple engines may share one `PatchMapAssetRuntime`;
 each engine keeps its own asset session and releases only its leases at
 destroy. Do not call PixiJS global cache destruction from an instance.
 
-Use `engine.createFrameLoop()` when the host wants visible animation and
+An external URL must pass the package ingestion policy, including configured
+origin, response, MIME, size, and byte validation, before the engine admits its
+texture. An existing Pixi global-cache entry with the same URL is not evidence
+that those checks ran and is never borrowed as a validation shortcut.
+
+Use `patchMap.createFrameLoop()` when the host wants visible animation and
 gesture frames without implementing its own requestAnimationFrame scheduler.
-The Engine owns that loop, schedules it from product changes, pauses it across
+PatchMap owns that loop, schedules it from product changes, pauses it across
 document visibility transitions, and destroys it before the Pixi surface.
 Deterministic evidence runners may omit it and continue to call
 `publishFrame(timeMs)` explicitly. Never run both a host RAF publisher and the
-package loop for the same Engine.
+package loop for the same PatchMap instance.
 
 The packaged `examples/patch-map/host-adapter.ts` demonstrates the intended
 adapter boundary:

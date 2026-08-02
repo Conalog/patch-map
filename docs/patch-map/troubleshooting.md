@@ -11,8 +11,10 @@
 ## A change is not visible
 
 State commits and visible frames are separate. Inspect the revision tuple,
-then call `publishFrame()` from the host's invalidation loop. Do not add one
-ticker or closure per entity.
+then use the single loop returned by `patchMap.createFrameLoop()` for normal
+host animation and interaction. Deterministic/manual runners may call
+`publishFrame(timeMs)` at an explicit boundary. Do not run both publishers or
+add one ticker or closure per entity.
 
 ## Lookup or update is rejected
 

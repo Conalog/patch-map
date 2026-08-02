@@ -13,7 +13,7 @@ The normal lifecycle is:
 2. await `initialize()` with a host, dimensions, and WebGL preference;
 3. pass PATCH MAP v0.10 JSON to `loadDataset()`;
 4. create one package-owned `PatchMapFrameLoop` with
-   `engine.createFrameLoop()` when the host wants managed visible animation,
+   `patchMap.createFrameLoop()` when the host wants managed visible animation,
    or call `publishFrame()` at an explicit deterministic boundary;
 5. use public query, transaction, selection, transformer, viewport, event,
    history, snapshot, and extraction methods;
@@ -27,7 +27,7 @@ pointer bookkeeping. `destroy()` cancels the owned loop before releasing the
 Pixi surface; creating a second live loop for the same runtime is rejected.
 
 The aggregate renderer and dense runtime are package internals. Consumers use
-`PatchMap` and `engine.createFrameLoop()` so the same lifecycle, scheduling,
+`PatchMap` and `patchMap.createFrameLoop()` so the same lifecycle, scheduling,
 animation, viewport, and cleanup policy is shared by every service and the
 single PatchMap Lab.
 

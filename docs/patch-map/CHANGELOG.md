@@ -1,6 +1,6 @@
 # PatchMap changelog
 
-## 0.10.0
+## Unreleased
 
 - Promoted the PixiJS WebGL PatchMap runtime to the package root with direct
   PATCH MAP v0.10 JSON input.

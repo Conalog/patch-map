@@ -82,6 +82,7 @@ component의 owner/ID identity가 유지됩니다. strict load와 mutation 오�
 
 ## 지원 범위
 
+- Node.js: 패키지 소비자는 `>=20`, 저장소 CI는 Node.js 22
 - WebGL2: production 기준선
 - WebGPU: experimental
 - WebGL1·Canvas fallback: 미지원
@@ -92,6 +93,9 @@ component의 owner/ID identity가 유지됩니다. strict load와 mutation 오�
 확인할 수 있습니다.
 
 ## 개발 검증
+
+Node.js 22(`.nvmrc`, 패키지 최소 20)에서 `npm ci`로 잠긴 의존성을 설치합니다. 변경 위험별
+검증 범위는 [CONTRIBUTING.md](./CONTRIBUTING.md)를 참고하세요.
 
 ```sh
 npm run typecheck
