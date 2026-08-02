@@ -52,10 +52,14 @@ let browser;
 try {
   await mkdir(consumer, { recursive: true });
   await mkdir(reproduciblePackDirectory, { recursive: true });
-  const packed = await execute('npm', ['pack', '--json', '--pack-destination', temporary], {
-    cwd: ROOT,
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  const packed = await execute(
+    'npm',
+    ['pack', '--ignore-scripts', '--json', '--pack-destination', temporary],
+    {
+      cwd: ROOT,
+      maxBuffer: 10 * 1024 * 1024,
+    },
+  );
   const packResult = JSON.parse(packed.stdout);
   const packRecord = packResult[0];
   const filename = packRecord?.filename;
@@ -64,7 +68,7 @@ try {
   const packageArtifact = await analyzePackedArtifact({ packRecord, tarball });
   const secondPacked = await execute(
     'npm',
-    ['pack', '--json', '--pack-destination', reproduciblePackDirectory],
+    ['pack', '--ignore-scripts', '--json', '--pack-destination', reproduciblePackDirectory],
     {
       cwd: ROOT,
       maxBuffer: 10 * 1024 * 1024,
@@ -112,7 +116,7 @@ try {
   await writeFile(path.join(consumer, 'main.js'), PACKED_CONSUMER_ESM_SOURCE);
   await writeFile(path.join(consumer, 'consumer.cjs'), PACKED_CONSUMER_CJS_SOURCE);
 
-  await execute('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund'], {
+  await execute('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], {
     cwd: consumer,
     maxBuffer: 20 * 1024 * 1024,
   });

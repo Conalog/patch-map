@@ -15,22 +15,15 @@ export default defineConfig({
     lib: {
       entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
       name: 'PatchMap',
-      formats: ['es', 'cjs', 'umd'],
+      formats: ['es', 'cjs'],
       fileName: (format) => {
         if (format === 'es') return 'index.js';
-        if (format === 'cjs') return 'index.cjs';
-        return 'index.umd.js';
+        return 'index.cjs';
       },
     },
     rollupOptions: {
-      // Consumers must share their Pixi scene graph with PATCH MAP. The other
-      // runtime helpers are bundled so the documented UMD usage needs only PIXI.
+      // Consumers must share their Pixi scene graph with PATCH MAP.
       external: isPixiDependency,
-      output: {
-        globals: {
-          'pixi.js': 'PIXI',
-        },
-      },
     },
   },
   test: {

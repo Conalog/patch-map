@@ -24,7 +24,7 @@ const nativeWindows = parsePatchMapNativeWindowsCell(
 const HOST_LIFECYCLE_CYCLES = nativeWindows.requested ? 10 : 9;
 const RESULTS = path.resolve(
   process.env.PATCH_MAP_MEMORY_ARTIFACT_DIR
-    ?? path.join(ROOT, 'performance/patch-map/results'),
+    ?? path.join(ROOT, '.perf-results/memory'),
 );
 const server = await createServer({
   root: ROOT,

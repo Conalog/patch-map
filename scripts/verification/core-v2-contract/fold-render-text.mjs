@@ -661,7 +661,6 @@ function projectItemText(actual, execution) {
   const placed = supplemental.find(({ id }) => id === 'placed').probe;
   const uprightRow = supplemental.find(({ id }) => id === 'upright');
   assert(uprightRow !== undefined, 'upright supplemental row');
-  const upright = uprightRow.probe;
 
   actual.scene.itemText = {
     logicalCount: terminalRows.length,

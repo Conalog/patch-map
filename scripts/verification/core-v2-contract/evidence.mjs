@@ -812,7 +812,7 @@ function firstDifference(left, right, pointer) {
   if (Array.isArray(left) && Array.isArray(right)) {
     const length = Math.max(left.length, right.length);
     for (let index = 0; index < length; index += 1) {
-      if (index >= left.length || index >= right.length) return `${pointer}/${index}` || '/';
+      if (index >= left.length || index >= right.length) return `${pointer}/${index}`;
       const nested = firstDifference(left[index], right[index], `${pointer}/${index}`);
       if (nested !== null) return nested;
     }
@@ -820,7 +820,7 @@ function firstDifference(left, right, pointer) {
   if (isPlainObject(left) && isPlainObject(right)) {
     const keys = [...new Set([...Object.keys(left), ...Object.keys(right)])].sort();
     for (const key of keys) {
-      if (!Object.hasOwn(left, key) || !Object.hasOwn(right, key)) return `${pointer}/${escapePointer(key)}` || '/';
+      if (!Object.hasOwn(left, key) || !Object.hasOwn(right, key)) return `${pointer}/${escapePointer(key)}`;
       const nested = firstDifference(left[key], right[key], `${pointer}/${escapePointer(key)}`);
       if (nested !== null) return nested;
     }

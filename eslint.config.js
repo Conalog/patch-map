@@ -28,6 +28,51 @@ export default defineConfig(
     ],
   },
   {
+    files: ['scripts/**/*.mjs', 'performance/patch-map/**/*.mjs'],
+    extends: [eslint.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    },
+    rules: {
+      'no-undef': 'off',
+      // ESLint 10 added these rules to the recommended JavaScript preset as
+      // well. Keep the same ownership/state-machine contract as the typed
+      // sources instead of forcing unrelated verification rewrites.
+      'no-useless-assignment': 'off',
+      'preserve-caught-error': 'off',
+      'no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+  {
+    // Public examples import the packed package name, so their strict type
+    // boundary belongs to verify:package. Keep them in the ordinary lint gate
+    // without making a fresh checkout depend on pre-existing dist output.
+    files: ['examples/patch-map/**/*.ts'],
+    extends: [eslint.configs.recommended, tseslint.configs.recommended],
+    rules: {
+      'no-undef': 'off',
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports' },
+      ],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+  {
     files: typescriptFiles,
     extends: [eslint.configs.recommended, tseslint.configs.recommendedTypeChecked],
     languageOptions: {

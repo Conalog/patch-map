@@ -120,8 +120,8 @@ export function projectPartialMerge(actual, execution, plan) {
   const merged = actionActualAt(execution, 1, 'merge');
   const empty = actionActualAt(execution, 2, 'merge');
   const target = recordValue(plan.fixture.setup.params.target, 'UPD-002 target');
-  const ownerId = stringValue(target.ownerId, 'UPD-002 owner ID');
-  const targetId = stringValue(target.id, 'UPD-002 target ID');
+  stringValue(target.ownerId, 'UPD-002 owner ID');
+  stringValue(target.id, 'UPD-002 target ID');
   const finalComponent = recordValue(empty.record, 'UPD-002 target record');
   const emptyEvents = recordValue(empty.events, 'UPD-002 empty events');
   const frozenPatch = cloneRecord(frozen.patch, 'UPD-002 frozen patch');

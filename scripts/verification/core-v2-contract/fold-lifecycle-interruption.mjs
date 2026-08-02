@@ -114,7 +114,7 @@ function baseActual(options, plan, execution, product) {
   const semantic = recordValue(product.semantic, 'product semantic');
   const revisions = recordValue(snapshot.revisions, 'snapshot revisions');
   const resources = recordValue(snapshot.resources, 'snapshot resources');
-  const hostInteraction = recordValue(product.hostInteraction, 'host interaction');
+  recordValue(product.hostInteraction, 'host interaction');
   const pointerGesture = recordValue(product.pointerGesture, 'pointer gesture');
   const transformerGesture = recordValue(
     product.transformerGesture,

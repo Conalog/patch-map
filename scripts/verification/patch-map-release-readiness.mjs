@@ -18,7 +18,7 @@ const ROOT = process.cwd();
 const CODE_COMMIT = process.env.PATCH_MAP_CODE_COMMIT ?? 'uncommitted';
 const OUTPUT_PATH = path.resolve(
   process.env.PATCH_MAP_RELEASE_READINESS_OUTPUT
-    ?? path.join(ROOT, 'performance/patch-map/results/release-readiness.json'),
+    ?? path.join(ROOT, '.perf-results/release-readiness.json'),
 );
 const DECISION_FIXTURES_PATH = path.join(
   ROOT,

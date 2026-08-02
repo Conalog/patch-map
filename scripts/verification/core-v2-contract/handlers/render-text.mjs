@@ -177,7 +177,7 @@ async function snapshotObservationAction(adapter, state, context, action, defini
   };
 }
 
-async function patchAction(adapter, state, context, action, definition) {
+async function patchAction(adapter, state, context, action, _definition) {
   const engine = currentEngine(state, 'patch');
   const normalized = normalizePatchAction(context.caseId, action);
   const before = observeProduct(

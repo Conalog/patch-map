@@ -2,11 +2,21 @@
   "name": "@conalog/patch-map",
   "version": "0.10.0",
   "description": "PixiJS GPU renderer and interaction runtime for PATCH MAP v0.10 datasets",
+  "license": "MIT",
+  "author": "Conalog",
+  "homepage": "https://github.com/Conalog/patch-map#readme",
+  "bugs": "https://github.com/Conalog/patch-map/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Conalog/patch-map.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "unpkg": "./dist/index.umd.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -24,6 +34,9 @@
     "README_KR.md"
   ],
   "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly && node scripts/verification/finalize-declarations.mjs",
     "build:lab": "vite build --config vite.patch-map-lab.config.ts",
@@ -55,7 +68,9 @@
     "generate:release-manifest": "node scripts/verification/patch-map-native-release-template.mjs",
     "verify:native-release-probes": "node scripts/verification/patch-map-native-release-negative-probes.mjs",
     "verify:release-readiness": "node scripts/verification/patch-map-release-readiness.mjs",
-    "verify:release-readiness:strict": "node scripts/verification/patch-map-release-readiness.mjs --require-release"
+    "verify:release-readiness:strict": "node scripts/verification/patch-map-release-readiness.mjs --require-release",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test && npm run verify:contract && npm run verify:package"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

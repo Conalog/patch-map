@@ -170,7 +170,7 @@ async function runTrial(page, trial) {
 
   const actions = [];
   for (let iteration = 0; iteration < UPDATE_COUNT; iteration += 1) {
-    actions.push(await page.evaluate(async (iteration) => {
+    actions.push(await page.evaluate(async () => {
       const bridge = window.__PATCH_MAP_MANUAL_LAB__;
       const engine = bridge.engine();
       const started = performance.now();
@@ -183,7 +183,7 @@ async function runTrial(page, trial) {
         activeAnimations: engine.activeAnimations,
         transaction: engine.transactionPerformanceProbe(),
       };
-    }, iteration));
+    }));
     await page.mouse.move(
       startX + (iteration + 1) * 12,
       startY + (iteration + 1) * 7,
