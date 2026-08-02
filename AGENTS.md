@@ -9,7 +9,7 @@ Repeat this read after context compaction, session resume, or automatic
 continuation. The PixiJS GPU product contract, PATCH MAP v0.10 input boundary,
 and clean-room boundary cannot be changed without explicit user approval.
 
-Work only in this dedicated `performance/core-v2` worktree and branch until
+Work only in this dedicated `feat/patch-map-pixi` worktree and branch until
 the cleanup PR lands. Do not open or search another worktree, branch, ref, Git
 history, original/reference internals, dependency source, `node_modules`,
 `dist`, bundles, source maps, or archives. Every content search must exclude
