@@ -69,7 +69,7 @@ export class NoopRenderer implements CoreRenderer {
   }
 }
 
-export function assertViewport(width: number, height: number, pixelRatio: number): void {
+function assertViewport(width: number, height: number, pixelRatio: number): void {
   if (!Number.isFinite(width) || width < 0) {
     throw new RangeError('Renderer width must be a finite non-negative number');
   }

@@ -18,7 +18,6 @@ import {
   defineDataProperty,
   enumValue,
   finiteNumber,
-  hasOwn,
   invalidValue,
   isRecord,
   nonnegativeFiniteNumber,
@@ -88,7 +87,7 @@ export function normalizeAssetSource(value: unknown, path: string): PatchMapAsse
 export function normalizeBackgroundSource(value: unknown, path: string): PatchMapBackgroundSource {
   if (typeof value === 'string') return value;
   const record = recordValue(value, path, 'background source must be a string or source object');
-  return hasOwn(record, 'src')
+  return Object.hasOwn(record, 'src')
     ? normalizeAssetDescriptor(record, path)
     : normalizeRectTexture(record, path);
 }
@@ -98,7 +97,7 @@ function normalizeAssetDescriptor(value: unknown, path: string): PatchMapAssetDe
   assertKnownFields(record, ASSET_DESCRIPTOR_FIELDS, path);
   return Object.freeze({
     src: stringValue(requiredField(record, 'src', path), `${path}.src`),
-    ...(hasOwn(record, 'data')
+    ...(Object.hasOwn(record, 'data')
       ? {
           data: cloneJsonRecord(
             recordValue(record.data, `${path}.data`, 'data must be an object'),
@@ -106,13 +105,13 @@ function normalizeAssetDescriptor(value: unknown, path: string): PatchMapAssetDe
           ),
         }
       : {}),
-    ...(hasOwn(record, 'format')
+    ...(Object.hasOwn(record, 'format')
       ? { format: stringValue(record.format, `${path}.format`) }
       : {}),
-    ...(hasOwn(record, 'parser')
+    ...(Object.hasOwn(record, 'parser')
       ? { parser: stringValue(record.parser, `${path}.parser`) }
       : {}),
-    ...(hasOwn(record, 'loadParser')
+    ...(Object.hasOwn(record, 'loadParser')
       ? { loadParser: stringValue(record.loadParser, `${path}.loadParser`) }
       : {}),
   });
@@ -121,7 +120,7 @@ function normalizeAssetDescriptor(value: unknown, path: string): PatchMapAssetDe
 export function normalizeRectTexture(value: unknown, path: string): PatchMapRectTexture {
   const record = recordValue(value, path, 'rectangular texture source must be an object');
   assertKnownFields(record, RECT_TEXTURE_FIELDS, path);
-  if (hasOwn(record, 'type') && record.type !== 'rect') {
+  if (Object.hasOwn(record, 'type') && record.type !== 'rect') {
     throw new PatchMapDatasetError(
       'INVALID_RECORD_KIND',
       `${path}.type`,
@@ -130,14 +129,14 @@ export function normalizeRectTexture(value: unknown, path: string): PatchMapRect
   }
   return Object.freeze({
     type: 'rect',
-    fill: hasOwn(record, 'fill') ? normalizeColorLike(record.fill, `${path}.fill`) : TRANSPARENT,
-    borderWidth: hasOwn(record, 'borderWidth')
+    fill: Object.hasOwn(record, 'fill') ? normalizeColorLike(record.fill, `${path}.fill`) : TRANSPARENT,
+    borderWidth: Object.hasOwn(record, 'borderWidth')
       ? nonnegativeFiniteNumber(record.borderWidth, `${path}.borderWidth`)
       : 0,
-    borderColor: hasOwn(record, 'borderColor')
+    borderColor: Object.hasOwn(record, 'borderColor')
       ? normalizeColorLike(record.borderColor, `${path}.borderColor`)
       : BLACK,
-    radius: normalizeRadius(hasOwn(record, 'radius') ? record.radius : undefined, `${path}.radius`),
+    radius: normalizeRadius(Object.hasOwn(record, 'radius') ? record.radius : undefined, `${path}.radius`),
   });
 }
 
@@ -149,38 +148,38 @@ export function normalizeStrokeStyle(
   if (value === undefined) return defaultStrokeStyle();
   const record = recordValue(value, path, 'stroke style must be an object');
   assertKnownFields(record, STROKE_FIELDS, path);
-  if (hasOwn(record, 'opacity') && !allowCompatibilityOpacity) {
+  if (Object.hasOwn(record, 'opacity') && !allowCompatibilityOpacity) {
     throw new PatchMapDatasetError('UNKNOWN_FIELD', `${path}.opacity`, 'unknown field opacity');
   }
-  if (hasOwn(record, 'alpha') && hasOwn(record, 'opacity')) {
+  if (Object.hasOwn(record, 'alpha') && Object.hasOwn(record, 'opacity')) {
     invalidValue(path, 'alpha and compatibility opacity are mutually exclusive');
   }
   return Object.freeze({
-    color: hasOwn(record, 'color') ? normalizeColorLike(record.color, `${path}.color`) : BLACK,
-    alpha: hasOwn(record, 'alpha')
+    color: Object.hasOwn(record, 'color') ? normalizeColorLike(record.color, `${path}.color`) : BLACK,
+    alpha: Object.hasOwn(record, 'alpha')
       ? rangedNumber(record.alpha, `${path}.alpha`, 0, 1)
-      : hasOwn(record, 'opacity')
+      : Object.hasOwn(record, 'opacity')
         ? rangedNumber(record.opacity, `${path}.opacity`, 0, 1)
         : 1,
-    width: hasOwn(record, 'width')
+    width: Object.hasOwn(record, 'width')
       ? nonnegativeFiniteNumber(record.width, `${path}.width`)
       : 1,
-    cap: hasOwn(record, 'cap')
+    cap: Object.hasOwn(record, 'cap')
       ? enumValue(record.cap, `${path}.cap`, new Set(['butt', 'round', 'square']))
       : 'butt',
-    join: hasOwn(record, 'join')
+    join: Object.hasOwn(record, 'join')
       ? enumValue(record.join, `${path}.join`, new Set(['miter', 'round', 'bevel']))
       : 'miter',
-    miterLimit: hasOwn(record, 'miterLimit')
+    miterLimit: Object.hasOwn(record, 'miterLimit')
       ? nonnegativeFiniteNumber(record.miterLimit, `${path}.miterLimit`)
       : 10,
-    alignment: hasOwn(record, 'alignment')
+    alignment: Object.hasOwn(record, 'alignment')
       ? rangedNumber(record.alignment, `${path}.alignment`, 0, 1)
       : 0.5,
-    pixelLine: hasOwn(record, 'pixelLine')
+    pixelLine: Object.hasOwn(record, 'pixelLine')
       ? booleanValue(record.pixelLine, `${path}.pixelLine`)
       : false,
-    ...(hasOwn(record, 'textureSpace')
+    ...(Object.hasOwn(record, 'textureSpace')
       ? {
           textureSpace: enumValue(
             record.textureSpace,
@@ -189,11 +188,11 @@ export function normalizeStrokeStyle(
           ),
         }
       : {}),
-    ...(hasOwn(record, 'fill') ? { fill: cloneJsonValue(record.fill, `${path}.fill`) } : {}),
-    ...(hasOwn(record, 'texture')
+    ...(Object.hasOwn(record, 'fill') ? { fill: cloneJsonValue(record.fill, `${path}.fill`) } : {}),
+    ...(Object.hasOwn(record, 'texture')
       ? { texture: cloneJsonValue(record.texture, `${path}.texture`) }
       : {}),
-    ...(hasOwn(record, 'matrix')
+    ...(Object.hasOwn(record, 'matrix')
       ? { matrix: cloneJsonValue(record.matrix, `${path}.matrix`) }
       : {}),
   });
@@ -358,15 +357,15 @@ function normalizeDropShadow(
   const record = recordValue(value, path, 'dropShadow must be a boolean or object');
   assertKnownFields(record, DROP_SHADOW_FIELDS, path);
   return Object.freeze({
-    ...(hasOwn(record, 'color')
+    ...(Object.hasOwn(record, 'color')
       ? { color: normalizeColorLike(record.color, `${path}.color`) }
       : {}),
-    ...(hasOwn(record, 'alpha')
+    ...(Object.hasOwn(record, 'alpha')
       ? { alpha: rangedNumber(record.alpha, `${path}.alpha`, 0, 1) }
       : {}),
-    ...(hasOwn(record, 'angle') ? { angle: finiteNumber(record.angle, `${path}.angle`) } : {}),
-    ...(hasOwn(record, 'blur') ? { blur: finiteNumber(record.blur, `${path}.blur`) } : {}),
-    ...(hasOwn(record, 'distance')
+    ...(Object.hasOwn(record, 'angle') ? { angle: finiteNumber(record.angle, `${path}.angle`) } : {}),
+    ...(Object.hasOwn(record, 'blur') ? { blur: finiteNumber(record.blur, `${path}.blur`) } : {}),
+    ...(Object.hasOwn(record, 'distance')
       ? { distance: finiteNumber(record.distance, `${path}.distance`) }
       : {}),
   });
@@ -392,8 +391,8 @@ function normalizeTagStyles(
 function normalizeAutoFont(value: unknown, path: string): Readonly<Record<string, number>> {
   const record = recordValue(value, path, 'autoFont must be an object');
   assertKnownFields(record, AUTO_FONT_FIELDS, path);
-  const min = hasOwn(record, 'min') ? positiveFiniteNumber(record.min, `${path}.min`) : undefined;
-  const max = hasOwn(record, 'max') ? positiveFiniteNumber(record.max, `${path}.max`) : undefined;
+  const min = Object.hasOwn(record, 'min') ? positiveFiniteNumber(record.min, `${path}.min`) : undefined;
+  const max = Object.hasOwn(record, 'max') ? positiveFiniteNumber(record.max, `${path}.max`) : undefined;
   if (min !== undefined && max !== undefined && min > max) {
     invalidValue(path, 'autoFont min must be less than or equal to max');
   }

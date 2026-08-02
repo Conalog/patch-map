@@ -1,5 +1,6 @@
 import { Color, type ColorSource } from 'pixi.js';
 
+import { isPlainRecord } from '../shared/plain-record';
 import { PatchMapDatasetError } from './dataset';
 
 export type PatchMapCanonicalRgba = `#${string}`;
@@ -250,39 +251,39 @@ function validateAndDetachColorObject(
   inputPath: string,
 ): ColorSource {
   const keys = Object.keys(value);
-  if (hasOwn(value, 'r') || hasOwn(value, 'g') || hasOwn(value, 'b')) {
+  if (Object.hasOwn(value, 'r') || Object.hasOwn(value, 'g') || Object.hasOwn(value, 'b')) {
     assertExactFields(keys, RGB_FIELDS, inputPath, ['r', 'g', 'b']);
     const result = {
       r: colorNumber(value.r, inputPath, 'RGB channel r', 0, 255),
       g: colorNumber(value.g, inputPath, 'RGB channel g', 0, 255),
       b: colorNumber(value.b, inputPath, 'RGB channel b', 0, 255),
-      ...(hasOwn(value, 'a')
+      ...(Object.hasOwn(value, 'a')
         ? { a: colorNumber(value.a, inputPath, 'alpha channel', 0, 1) }
         : {}),
     };
     return result;
   }
 
-  if (hasOwn(value, 'l')) {
+  if (Object.hasOwn(value, 'l')) {
     assertExactFields(keys, HSL_FIELDS, inputPath, ['h', 's', 'l']);
     const result = {
       h: colorNumber(value.h, inputPath, 'HSL channel h', 0, 360),
       s: colorNumber(value.s, inputPath, 'HSL channel s', 0, 100),
       l: colorNumber(value.l, inputPath, 'HSL channel l', 0, 100),
-      ...(hasOwn(value, 'a')
+      ...(Object.hasOwn(value, 'a')
         ? { a: colorNumber(value.a, inputPath, 'alpha channel', 0, 1) }
         : {}),
     };
     return result;
   }
 
-  if (hasOwn(value, 'v')) {
+  if (Object.hasOwn(value, 'v')) {
     assertExactFields(keys, HSV_FIELDS, inputPath, ['h', 's', 'v']);
     const result = {
       h: colorNumber(value.h, inputPath, 'HSV channel h', 0, 360),
       s: colorNumber(value.s, inputPath, 'HSV channel s', 0, 100),
       v: colorNumber(value.v, inputPath, 'HSV channel v', 0, 100),
-      ...(hasOwn(value, 'a')
+      ...(Object.hasOwn(value, 'a')
         ? { a: colorNumber(value.a, inputPath, 'alpha channel', 0, 1) }
         : {}),
     };
@@ -389,22 +390,12 @@ function isThemeBranch(value: unknown): value is Readonly<Record<string, unknown
 
 function isColorObjectShape(value: Readonly<Record<string, unknown>>): boolean {
   return (
-    hasOwn(value, 'r') ||
-    hasOwn(value, 'g') ||
-    hasOwn(value, 'b') ||
-    hasOwn(value, 'l') ||
-    hasOwn(value, 'v')
+    Object.hasOwn(value, 'r') ||
+    Object.hasOwn(value, 'g') ||
+    Object.hasOwn(value, 'b') ||
+    Object.hasOwn(value, 'l') ||
+    Object.hasOwn(value, 'v')
   );
-}
-
-function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype = Object.getPrototypeOf(value) as unknown;
-  return prototype === Object.prototype || prototype === null;
-}
-
-function hasOwn(record: Readonly<Record<string, unknown>>, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(record, key);
 }
 
 function appendObjectPath(base: string, key: string): string {

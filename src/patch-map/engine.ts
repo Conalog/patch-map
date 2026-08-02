@@ -25,6 +25,7 @@ import type {
   PatchMapPixiRendererLossProbe,
 } from './renderers/types';
 import type { PatchMapSceneImageRetryResult } from './scene-images';
+import { sameStringArray } from './shared/string-array-values';
 import {
   PATCH_MAP_BUILTIN_ASSETS,
   PatchMapAssetError,
@@ -557,7 +558,6 @@ export class PatchMap {
     background: string;
     backend: 'webgl' | 'webgpu';
   }> | null = null;
-  private submissionSequence = 0;
   private loadSequence = 0;
   private pendingWork = 0;
   private destroySettlement: Promise<boolean> | null = null;
@@ -1964,6 +1964,22 @@ export class PatchMap {
       return result;
     }
 
+    if (
+      !this.isSurfaceMutationCurrent(surface, previousRevisions) ||
+      !this.history.canCommitPrepared(preparedHistory)
+    ) {
+      this.history.cancelPrepared(preparedHistory);
+      this.restoreAuthoritativeSurfaceScene(surface, 'patch');
+      return this.refusedPatchResult(
+        mutation.target,
+        previousRevisions,
+        'CONFLICT',
+        'CONFLICT',
+        true,
+        EMPTY_RECONCILE_DIAGNOSTICS,
+      );
+    }
+
     const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
     if (reconcile.status === 'refused') {
       this.history.cancelPrepared(preparedHistory);
@@ -2146,6 +2162,22 @@ export class PatchMap {
       } satisfies PatchMapEngineDestroyTargetResult);
       this.emit('diagnostic', diagnostic);
       return result;
+    }
+
+    if (
+      !this.isSurfaceMutationCurrent(surface, previousRevisions) ||
+      !this.history.canCommitPrepared(preparedHistory)
+    ) {
+      this.history.cancelPrepared(preparedHistory);
+      this.restoreAuthoritativeSurfaceScene(surface, 'destroyTarget');
+      return this.refusedDestroyTargetResult(
+        mutation.target,
+        previousRevisions,
+        'CONFLICT',
+        'CONFLICT',
+        true,
+        EMPTY_RECONCILE_DIAGNOSTICS,
+      );
     }
 
     const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
@@ -2468,13 +2500,13 @@ export class PatchMap {
         } satisfies PatchMapDatasetSubmissionResult);
         return outcome;
       }
-      sequence = ++this.submissionSequence;
+      sequence = ++this.loadSequence;
       const input = await submission.input;
       inputResolved = true;
       const prepared = this.prepareDatasetLoad(input, {
         ...(submission.datasetRef ? { datasetRef: submission.datasetRef } : {}),
       });
-      if (sequence !== this.submissionSequence || this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
+      if (sequence !== this.loadSequence || this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
         outcome = Object.freeze({
           status: 'superseded',
           requestId: submission.requestId,
@@ -2505,7 +2537,7 @@ export class PatchMap {
         !inputResolved &&
         sequence !== 0 &&
         (
-          sequence !== this.submissionSequence ||
+          sequence !== this.loadSequence ||
           this.lifecycle === 'destroyed' ||
           this.lifecycle === 'destroying'
         )
@@ -2804,7 +2836,6 @@ export class PatchMap {
     const rebind = this.publication.planLifecycleRebind(requestedGeneration);
     const surface = this.requireSurface('rebindHostLifecycle');
     this.hostInteractions.clearTooltip('redraw');
-    this.submissionSequence += 1;
     this.loadSequence += 1;
     this.viewportAuthority.cancelMotion();
     surface.cancelViewportGestures?.();
@@ -4454,7 +4485,6 @@ export class PatchMap {
     this.managedFrameLoop.destroy();
     this.transformerSessions.cancelActive('destroy', false);
     this.lifecycle = 'destroying';
-    this.submissionSequence += 1;
     this.loadSequence += 1;
     const surface = this.surface;
     this.viewportAuthority.cancelMotion();
@@ -4656,6 +4686,11 @@ export class PatchMap {
             : {}),
         });
         if (reconcile === undefined) return false;
+        if (!this.isSurfaceMutationCurrent(surface, previousRevisions)) {
+          this.restoreAuthoritativeSurfaceScene(surface, direction);
+          failure = this.operationDiagnostic('CONFLICT', 'CONFLICT', direction, true);
+          return false;
+        }
         reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
         if (reconcile.status === 'refused') {
           const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
@@ -4973,6 +5008,17 @@ export class PatchMap {
     ) {
       throw this.operationError('SUPERSEDED', 'SUPERSEDED', operation, true);
     }
+  }
+
+  private isSurfaceMutationCurrent(
+    surface: PatchMapEngineSurface,
+    revisions: PatchMapRevisionStamp,
+  ): boolean {
+    return !this.isDestroyingOrDestroyed() &&
+      this.surface === surface &&
+      this.publication.lifecycleGeneration === revisions.lifecycleGeneration &&
+      this.publication.sceneRevision === revisions.sceneRevision &&
+      this.publication.interactionRevision === revisions.interactionRevision;
   }
 
   private restoreAuthoritativeSurfaceScene(
@@ -5508,10 +5554,6 @@ function semanticTargetIdentity(target: PatchMapSemanticTarget): string {
   return target.kind === 'element'
     ? `element:${target.id.length}:${target.id}`
     : `component:${target.ownerId.length}:${target.ownerId}:${target.id.length}:${target.id}`;
-}
-
-function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function countPatchMapRelationLinks(

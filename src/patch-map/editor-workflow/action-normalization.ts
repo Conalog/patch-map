@@ -1,5 +1,5 @@
+import { isPlainRecord } from '../shared/plain-record';
 import type { PatchMapEditorWorkflowAction } from './contracts';
-import { isPlainRecord } from './dataset-atoms';
 
 export function normalizeAction(value: PatchMapEditorWorkflowAction): PatchMapEditorWorkflowAction {
   if (!isPlainRecord(value) || typeof value.type !== 'string') {
@@ -150,4 +150,3 @@ function exact<T>(value: unknown, expected: T, label: string): T {
   if (value !== expected) throw new TypeError(`${label} is invalid`);
   return expected;
 }
-

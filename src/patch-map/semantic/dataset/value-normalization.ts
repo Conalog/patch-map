@@ -67,8 +67,8 @@ export function normalizeGap(value: unknown, path: string): PatchMapAxisSpacing 
   const record = recordValue(value, path, 'gap must be a nonnegative number or {x,y}');
   assertKnownFields(record, VECTOR_FIELDS, path);
   return Object.freeze({
-    x: hasOwn(record, 'x') ? nonnegativeFiniteNumber(record.x, `${path}.x`) : 0,
-    y: hasOwn(record, 'y') ? nonnegativeFiniteNumber(record.y, `${path}.y`) : 0,
+    x: Object.hasOwn(record, 'x') ? nonnegativeFiniteNumber(record.x, `${path}.x`) : 0,
+    y: Object.hasOwn(record, 'y') ? nonnegativeFiniteNumber(record.y, `${path}.y`) : 0,
   });
 }
 
@@ -80,13 +80,13 @@ export function normalizeEdges(value: unknown, path: string): PatchMapEdges {
   }
   const record = recordValue(value, path, 'spacing must be a finite number or axis/edge object');
   assertKnownFields(record, SPACING_FIELDS, path);
-  const x = hasOwn(record, 'x') ? finiteNumber(record.x, `${path}.x`) : 0;
-  const y = hasOwn(record, 'y') ? finiteNumber(record.y, `${path}.y`) : 0;
+  const x = Object.hasOwn(record, 'x') ? finiteNumber(record.x, `${path}.x`) : 0;
+  const y = Object.hasOwn(record, 'y') ? finiteNumber(record.y, `${path}.y`) : 0;
   return Object.freeze({
-    top: hasOwn(record, 'top') ? finiteNumber(record.top, `${path}.top`) : y,
-    right: hasOwn(record, 'right') ? finiteNumber(record.right, `${path}.right`) : x,
-    bottom: hasOwn(record, 'bottom') ? finiteNumber(record.bottom, `${path}.bottom`) : y,
-    left: hasOwn(record, 'left') ? finiteNumber(record.left, `${path}.left`) : x,
+    top: Object.hasOwn(record, 'top') ? finiteNumber(record.top, `${path}.top`) : y,
+    right: Object.hasOwn(record, 'right') ? finiteNumber(record.right, `${path}.right`) : x,
+    bottom: Object.hasOwn(record, 'bottom') ? finiteNumber(record.bottom, `${path}.bottom`) : y,
+    left: Object.hasOwn(record, 'left') ? finiteNumber(record.left, `${path}.left`) : x,
   });
 }
 
@@ -105,16 +105,16 @@ export function normalizeRadius(value: unknown, path: string): PatchMapRadius {
   const record = recordValue(value, path, 'radius must be a nonnegative number or corner object');
   assertKnownFields(record, RADIUS_FIELDS, path);
   return Object.freeze({
-    topLeft: hasOwn(record, 'topLeft')
+    topLeft: Object.hasOwn(record, 'topLeft')
       ? nonnegativeFiniteNumber(record.topLeft, `${path}.topLeft`)
       : 0,
-    topRight: hasOwn(record, 'topRight')
+    topRight: Object.hasOwn(record, 'topRight')
       ? nonnegativeFiniteNumber(record.topRight, `${path}.topRight`)
       : 0,
-    bottomRight: hasOwn(record, 'bottomRight')
+    bottomRight: Object.hasOwn(record, 'bottomRight')
       ? nonnegativeFiniteNumber(record.bottomRight, `${path}.bottomRight`)
       : 0,
-    bottomLeft: hasOwn(record, 'bottomLeft')
+    bottomLeft: Object.hasOwn(record, 'bottomLeft')
       ? nonnegativeFiniteNumber(record.bottomLeft, `${path}.bottomLeft`)
       : 0,
   });
@@ -136,7 +136,7 @@ export function requiredField(
   key: string,
   path: string,
 ): unknown {
-  if (!hasOwn(record, key) || record[key] === undefined) {
+  if (!Object.hasOwn(record, key) || record[key] === undefined) {
     invalidValue(`${path}.${key}`, 'required field is missing');
   }
   return record[key];
@@ -263,10 +263,6 @@ export function isRecord(value: unknown): value is Readonly<Record<string, unkno
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
   const prototype: unknown = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
-}
-
-export function hasOwn(record: Readonly<Record<string, unknown>>, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(record, key);
 }
 
 export function defineDataProperty(

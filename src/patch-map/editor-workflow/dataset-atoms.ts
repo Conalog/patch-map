@@ -11,6 +11,7 @@ import {
   type PatchMapMutationJsonValue,
   type PatchMapMutationOperation,
 } from '../semantic/transaction';
+import { isPlainRecord } from '../shared/plain-record';
 
 export function mergeElement(
   id: string,
@@ -228,14 +229,3 @@ export function finiteJson(value: unknown, fallback: number): number {
 export function uniqueStrings(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
-
-export function sameStrings(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-export function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype = Reflect.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-

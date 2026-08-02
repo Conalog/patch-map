@@ -437,6 +437,58 @@ describe('PatchMap lifecycle authority', () => {
     expect(surfaces[0]?.frameCount).toBe(1);
   });
 
+  it('uses one replacement generation across submissions and direct loads', async () => {
+    const { factory, surfaces } = createSurfaceFactory();
+    const engine = new PatchMap({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'shared-replacement-generation', width: 800, height: 600 });
+
+    const staleInput = deferred<unknown>();
+    const staleSubmission = engine.submitDataset({
+      requestId: 'stale-submission',
+      datasetRef: 'all-kinds-scene',
+      input: staleInput.promise,
+    });
+    engine.loadDataset(catalogProfiles.datasets['interactive-scene-revision-2'], {
+      datasetRef: 'direct-replacement',
+    });
+    staleInput.resolve(catalogProfiles.datasets['all-kinds-scene']);
+
+    await expect(staleSubmission).resolves.toMatchObject({
+      status: 'superseded',
+      requestId: 'stale-submission',
+    });
+    expect(engine.snapshot()).toMatchObject({
+      datasetRef: 'direct-replacement',
+      revisions: { sceneRevision: 1 },
+    });
+    expect(surfaces[0]?.loadCount).toBe(1);
+
+    const staleDirectLoad = engine.loadDatasetAsync(
+      catalogProfiles.datasets['all-kinds-scene'],
+      { datasetRef: 'stale-direct-async' },
+    );
+    const latestSubmission = engine.submitDataset({
+      requestId: 'latest-submission',
+      datasetRef: 'interactive-scene',
+      input: Promise.resolve(catalogProfiles.datasets['interactive-scene']),
+    });
+
+    await expect(latestSubmission).resolves.toMatchObject({
+      status: 'committed',
+      requestId: 'latest-submission',
+      sceneRevision: 2,
+    });
+    await expect(staleDirectLoad).rejects.toMatchObject({
+      diagnostic: { code: 'SUPERSEDED', operation: 'loadDatasetAsync' },
+    });
+    expect(engine.snapshot()).toMatchObject({
+      datasetRef: 'interactive-scene',
+      revisions: { sceneRevision: 2 },
+    });
+    expect(surfaces[0]?.loadCount).toBe(2);
+    await engine.destroy();
+  });
+
   it('prepares aggregate GPU resources without publishing a visible frame', async () => {
     const { factory, surfaces } = createSurfaceFactory();
     const engine = new PatchMap({ surfaceFactory: factory });

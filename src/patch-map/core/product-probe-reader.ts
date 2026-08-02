@@ -20,6 +20,7 @@ import type {
   PatchMapTextSemanticSignatures,
 } from '../renderers/types';
 import {
+  normalizePatchMapComponentVisualTarget,
   normalizePatchMapTextTarget,
   type PatchMapBarPresentationProductProbe,
   type PatchMapComponentVisualProductProbe,
@@ -162,7 +163,7 @@ export function createPatchMapComponentVisualProductProbe(
   sceneImages: PatchMapSceneImageController,
   rendererFactsPublished: boolean,
 ): PatchMapComponentVisualProductProbe | null {
-  const normalizedTarget = normalizeComponentVisualTarget(target);
+  const normalizedTarget = normalizePatchMapComponentVisualTarget(target);
   const indexed = targets.get(patchMapComponentProbeTargetKey(normalizedTarget));
   if (!indexed) return null;
   const component = componentVisualProjection(semanticProjection, indexed.entityId);
@@ -219,7 +220,7 @@ export function createPatchMapBarPresentationProductProbe(
     visibleHeight(entityId: string): number | null;
   }>,
 ): PatchMapBarPresentationProductProbe | null {
-  const normalizedTarget = normalizeComponentVisualTarget(target);
+  const normalizedTarget = normalizePatchMapComponentVisualTarget(target);
   const indexed = targets.get(patchMapComponentProbeTargetKey(normalizedTarget));
   if (!indexed) return null;
   const bar = semanticProjection?.barsByEntityId?.[indexed.entityId];
@@ -506,21 +507,6 @@ function indexComponentTarget(
   // source-owner target is deliberately unavailable instead of selecting an
   // arbitrary instance; callers can query an instance-qualified owner.
   targets.set(key, null);
-}
-
-function normalizeComponentVisualTarget(
-  target: PatchMapComponentVisualTarget,
-): PatchMapComponentVisualTarget {
-  if (target === null || typeof target !== 'object') {
-    throw new TypeError('component visual target must be an object');
-  }
-  if (typeof target.ownerId !== 'string' || target.ownerId.length === 0) {
-    throw new TypeError('component visual target ownerId must be a non-empty string');
-  }
-  if (typeof target.componentId !== 'string' || target.componentId.length === 0) {
-    throw new TypeError('component visual target componentId must be a non-empty string');
-  }
-  return Object.freeze({ ownerId: target.ownerId, componentId: target.componentId });
 }
 
 function indexTextTarget(

@@ -19,7 +19,6 @@ import {
   cloneJsonRecord,
   enumValue,
   finiteNumber,
-  hasOwn,
   invalidValue,
   nonnegativeFiniteNumber,
   normalizeComponentSize,
@@ -246,10 +245,10 @@ export function normalizeElement(
         type,
         ...base,
         source: normalizeAssetSource(requiredField(record, 'source', path), `${path}.source`),
-        ...(hasOwn(record, 'size')
+        ...(Object.hasOwn(record, 'size')
           ? { size: normalizeFixedSize(record.size, `${path}.size`) }
           : {}),
-        ...(hasOwn(record, 'opacity')
+        ...(Object.hasOwn(record, 'opacity')
           ? { opacity: rangedNumber(record.opacity, `${path}.opacity`, 0, 1) }
           : {}),
       });
@@ -259,10 +258,10 @@ export function normalizeElement(
         ...base,
         text: optionalString(record, 'text', path, ''),
         style: normalizeTextStyle(optionalField(record, 'style'), `${path}.style`, false, true),
-        ...(hasOwn(record, 'size')
+        ...(Object.hasOwn(record, 'size')
           ? { size: normalizeFixedSize(record.size, `${path}.size`) }
           : {}),
-        ...(hasOwn(record, 'overflow')
+        ...(Object.hasOwn(record, 'overflow')
           ? {
               overflow: enumValue(
                 record.overflow,
@@ -277,14 +276,14 @@ export function normalizeElement(
         type,
         ...base,
         size: normalizeFixedSize(requiredField(record, 'size', path), `${path}.size`),
-        ...(hasOwn(record, 'fill')
+        ...(Object.hasOwn(record, 'fill')
           ? { fill: normalizeColorLike(record.fill, `${path}.fill`) }
           : {}),
-        ...(hasOwn(record, 'stroke')
+        ...(Object.hasOwn(record, 'stroke')
           ? { stroke: normalizeStrokeStyle(record.stroke, `${path}.stroke`) }
           : {}),
         radius: normalizeRadius(optionalField(record, 'radius'), `${path}.radius`),
-        ...(hasOwn(record, 'eventMode')
+        ...(Object.hasOwn(record, 'eventMode')
           ? {
               eventMode: enumValue(
                 record.eventMode,
@@ -302,17 +301,17 @@ function normalizeElementBase(
   path: string,
   state: NormalizationState,
 ): ElementBaseFields {
-  const id = hasOwn(record, 'id')
+  const id = Object.hasOwn(record, 'id')
     ? stringValue(record.id, `${path}.id`)
     : generatedElementId(path);
   registerElementId(id, `${path}.id`, state);
 
   return Object.freeze({
     id,
-    ...(hasOwn(record, 'label') ? { label: stringValue(record.label, `${path}.label`) } : {}),
+    ...(Object.hasOwn(record, 'label') ? { label: stringValue(record.label, `${path}.label`) } : {}),
     show: optionalBoolean(record, 'show', path, true),
     locked: optionalBoolean(record, 'locked', path, false),
-    ...(hasOwn(record, 'attrs') ? { attrs: normalizeAttrs(record.attrs, `${path}.attrs`) } : {}),
+    ...(Object.hasOwn(record, 'attrs') ? { attrs: normalizeAttrs(record.attrs, `${path}.attrs`) } : {}),
   });
 }
 
@@ -375,8 +374,8 @@ function normalizeComponent(
         type,
         ...base,
         source: normalizeBackgroundSource(requiredField(record, 'source', path), `${path}.source`),
-        tint: hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
-        ...(hasOwn(record, 'size')
+        tint: Object.hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
+        ...(Object.hasOwn(record, 'size')
           ? { size: normalizeComponentSize(record.size, `${path}.size`) }
           : {}),
       });
@@ -388,7 +387,7 @@ function normalizeComponent(
         size: normalizeComponentSize(requiredField(record, 'size', path), `${path}.size`),
         placement: normalizePlacement(record, path, 'bottom'),
         margin: normalizeEdges(optionalField(record, 'margin'), `${path}.margin`),
-        tint: hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
+        tint: Object.hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
         animation: optionalBoolean(record, 'animation', path, true),
         animationDuration: optionalNonnegativeFiniteNumber(
           record,
@@ -405,7 +404,7 @@ function normalizeComponent(
         size: normalizeComponentSize(requiredField(record, 'size', path), `${path}.size`),
         placement: normalizePlacement(record, path, 'center'),
         margin: normalizeEdges(optionalField(record, 'margin'), `${path}.margin`),
-        tint: hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
+        tint: Object.hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
       });
     case 'text':
       return Object.freeze({
@@ -414,7 +413,7 @@ function normalizeComponent(
         text: optionalString(record, 'text', path, ''),
         placement: normalizePlacement(record, path, 'center'),
         margin: normalizeEdges(optionalField(record, 'margin'), `${path}.margin`),
-        tint: hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
+        tint: Object.hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
         style: normalizeTextStyle(optionalField(record, 'style'), `${path}.style`, true, true),
         split: optionalInteger(record, 'split', path, 0),
       });
@@ -428,16 +427,16 @@ function normalizeComponentBase(
   index: number,
   state: NormalizationState,
 ): ComponentBaseFields {
-  const id = hasOwn(record, 'id')
+  const id = Object.hasOwn(record, 'id')
     ? stringValue(record.id, `${path}.id`)
     : `@component:${index}`;
   registerComponentId(ownerId, id, `${path}.id`, state);
 
   return Object.freeze({
     id,
-    ...(hasOwn(record, 'label') ? { label: stringValue(record.label, `${path}.label`) } : {}),
+    ...(Object.hasOwn(record, 'label') ? { label: stringValue(record.label, `${path}.label`) } : {}),
     show: optionalBoolean(record, 'show', path, true),
-    ...(hasOwn(record, 'attrs') ? { attrs: normalizeAttrs(record.attrs, `${path}.attrs`) } : {}),
+    ...(Object.hasOwn(record, 'attrs') ? { attrs: normalizeAttrs(record.attrs, `${path}.attrs`) } : {}),
   });
 }
 
@@ -499,16 +498,16 @@ function normalizeLinks(values: readonly unknown[], path: string): readonly Patc
 
 function normalizeAttrs(value: unknown, path: string): PatchMapAttrs {
   const record = recordValue(value, path, 'attrs must be a string-keyed object');
-  if (hasOwn(record, 'angle') && hasOwn(record, 'rotation')) {
+  if (Object.hasOwn(record, 'angle') && Object.hasOwn(record, 'rotation')) {
     invalidValue(path, 'angle and rotation are mutually exclusive');
   }
 
   for (const key of ['x', 'y', 'angle', 'rotation', 'zIndex', 'scaleX', 'scaleY'] as const) {
-    if (hasOwn(record, key)) finiteNumber(record[key], `${path}.${key}`);
+    if (Object.hasOwn(record, key)) finiteNumber(record[key], `${path}.${key}`);
   }
-  if (hasOwn(record, 'alpha')) rangedNumber(record.alpha, `${path}.alpha`, 0, 1);
+  if (Object.hasOwn(record, 'alpha')) rangedNumber(record.alpha, `${path}.alpha`, 0, 1);
   for (const key of ['scale', 'skew', 'pivot'] as const) {
-    if (hasOwn(record, key)) validateVector(record[key], `${path}.${key}`);
+    if (Object.hasOwn(record, key)) validateVector(record[key], `${path}.${key}`);
   }
 
   return cloneJsonRecord(record, path);
@@ -564,7 +563,7 @@ function generatedElementId(path: string): string {
 }
 
 function optionalField(record: Readonly<Record<string, unknown>>, key: string): unknown {
-  return hasOwn(record, key) ? record[key] : undefined;
+  return Object.hasOwn(record, key) ? record[key] : undefined;
 }
 
 function requiredArray(
@@ -582,7 +581,7 @@ function optionalArray(
   key: string,
   path: string,
 ): readonly unknown[] {
-  if (!hasOwn(record, key)) return [];
+  if (!Object.hasOwn(record, key)) return [];
   const value = record[key];
   if (!Array.isArray(value)) invalidValue(`${path}.${key}`, 'field must be an array');
   return value;
@@ -594,7 +593,7 @@ function optionalString(
   path: string,
   fallback: string,
 ): string {
-  return hasOwn(record, key) ? stringValue(record[key], `${path}.${key}`) : fallback;
+  return Object.hasOwn(record, key) ? stringValue(record[key], `${path}.${key}`) : fallback;
 }
 
 function optionalBoolean(
@@ -603,7 +602,7 @@ function optionalBoolean(
   path: string,
   fallback: boolean,
 ): boolean {
-  return hasOwn(record, key) ? booleanValue(record[key], `${path}.${key}`) : fallback;
+  return Object.hasOwn(record, key) ? booleanValue(record[key], `${path}.${key}`) : fallback;
 }
 
 function optionalInteger(
@@ -612,7 +611,7 @@ function optionalInteger(
   path: string,
   fallback: number,
 ): number {
-  if (!hasOwn(record, key)) return fallback;
+  if (!Object.hasOwn(record, key)) return fallback;
   const value = record[key];
   if (typeof value !== 'number' || !Number.isInteger(value)) {
     invalidValue(`${path}.${key}`, 'field must be an integer');
@@ -626,7 +625,7 @@ function optionalNonnegativeFiniteNumber(
   path: string,
   fallback: number,
 ): number {
-  return hasOwn(record, key)
+  return Object.hasOwn(record, key)
     ? nonnegativeFiniteNumber(record[key], `${path}.${key}`)
     : fallback;
 }
@@ -638,7 +637,7 @@ function optionalEnum(
   accepted: ReadonlySet<string>,
   fallback: string,
 ): string {
-  return hasOwn(record, key)
+  return Object.hasOwn(record, key)
     ? enumValue(record[key], `${path}.${key}`, accepted)
     : fallback;
 }

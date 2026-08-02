@@ -8,18 +8,19 @@ import type {
 } from '../contracts';
 import { parsePatchMapV010SelectedRoots } from '../parser';
 import { ownedPatchMapPreviewPatchIndices } from '../semantic/dataset';
+import { isPlainRecord } from '../shared/plain-record';
+import { sameStringArray } from '../shared/string-array-values';
 import type { PatchMapSemanticTarget } from '../semantic/probe';
 import type {
   PatchMapSemanticRefreshOptions,
   PatchMapSemanticRefreshResult,
 } from './contracts';
-import { isPlainRecord } from './projection-records';
 import {
   incrementalParseOptionsKey,
   matchesOwnedIncrementalInput,
-  sameStringArray,
 } from './reconcile-planning';
 import { semanticSelectionDenseIds } from './semantic-dense-planning';
+import { contiguousSlotRanges } from './slot-ranges';
 import {
   type PatchMapIndexedComponentTarget,
   type PatchMapPublishedSceneState,
@@ -207,18 +208,4 @@ function componentRefreshEntityIds(
   return indexed === undefined || indexed === null
     ? Object.freeze([])
     : Object.freeze([indexed.entityId]);
-}
-
-function contiguousSlotRanges(slots: readonly number[]): readonly SlotRange[] {
-  const ordered = [...new Set(slots)].sort((left, right) => left - right);
-  const ranges: SlotRange[] = [];
-  for (const slot of ordered) {
-    const previous = ranges.at(-1);
-    if (previous?.end === slot) {
-      ranges[ranges.length - 1] = Object.freeze({ start: previous.start, end: slot + 1 });
-    } else {
-      ranges.push(Object.freeze({ start: slot, end: slot + 1 }));
-    }
-  }
-  return Object.freeze(ranges);
 }

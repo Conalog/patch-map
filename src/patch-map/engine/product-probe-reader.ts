@@ -1,5 +1,6 @@
 import type { PatchMapAssetSessionProbe } from '../assets';
 import {
+  normalizePatchMapComponentVisualTarget,
   normalizePatchMapTextTarget,
   type PatchMapComponentVisualTarget,
   type PatchMapTextTarget,
@@ -20,7 +21,6 @@ import type {
   PatchMapInteractionOwnershipProbe,
   PatchMapSurfaceDebug,
 } from './contracts';
-import { normalizeEngineComponentVisualTarget } from './input-contracts';
 import type {
   IndexedEngineTextSemantic,
   PatchMapEngineComponentSemanticProbe,
@@ -185,7 +185,7 @@ export function readPatchMapEngineComponentVisualProbe(
   state: PatchMapEngineProductProbeReadPort,
   target: PatchMapComponentVisualTarget,
 ): PatchMapEngineComponentVisualProbe | null {
-  const normalizedTarget = normalizeEngineComponentVisualTarget(target);
+  const normalizedTarget = normalizePatchMapComponentVisualTarget(target);
   const visual = state.componentVisualProbe(normalizedTarget);
   const semanticOwnerId = visual?.semanticOwnerId ?? normalizedTarget.ownerId;
   const semantic = state.componentSemantic(
@@ -220,7 +220,7 @@ export function readPatchMapEngineBarPresentationProbe(
   state: PatchMapEngineProductProbeReadPort,
   target: PatchMapComponentVisualTarget,
 ): PatchMapEngineBarPresentationProbe | null {
-  const normalizedTarget = normalizeEngineComponentVisualTarget(target);
+  const normalizedTarget = normalizePatchMapComponentVisualTarget(target);
   const probe = state.barPresentationProbe(normalizedTarget);
   if (probe === null) return null;
   return Object.freeze({
@@ -331,7 +331,7 @@ export function readPatchMapEngineAggregateRenderOwnerProbe(
   state: PatchMapEngineProductProbeReadPort,
   target: PatchMapComponentVisualTarget,
 ): PatchMapAggregateRenderOwnerProbe | null {
-  const normalized = normalizeEngineComponentVisualTarget(target);
+  const normalized = normalizePatchMapComponentVisualTarget(target);
   const logicalTarget = state.logicalComponentTarget(
     normalized.ownerId,
     normalized.componentId,

@@ -34,6 +34,7 @@ export function createPatchMapPixiAssetBackend(
   return Object.freeze({
     keyNamespace,
     get(request: PatchMapAssetBackendRequest): unknown {
+      if (options.ingestionPolicy !== undefined && !request.packageOwned) return undefined;
       const externalKey = externalBorrowKey(request);
       return externalKey === null ? undefined : Assets.get<unknown>(externalKey);
     },

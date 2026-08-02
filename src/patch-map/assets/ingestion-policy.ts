@@ -6,7 +6,8 @@ import {
   type PatchMapAssetPolicyContext,
   type PatchMapAssetResponseMetadata,
 } from './contracts';
-import { invalidAsset, isPlainRecord, nonempty } from './registration-normalization';
+import { isPlainRecord } from '../shared/plain-record';
+import { invalidAsset, nonempty } from './registration-normalization';
 
 interface NormalizedIngestionProfile {
   readonly protocols: readonly string[];

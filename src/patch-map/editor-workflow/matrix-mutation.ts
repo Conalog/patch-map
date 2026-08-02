@@ -10,6 +10,7 @@ import {
   type PatchMapMutationOperation,
   type PatchMapMutationTransactionRequest,
 } from '../semantic/transaction';
+import { isPlainRecord } from '../shared/plain-record';
 
 import type { PatchMapEditorMutationKind } from './contracts';
 import {
@@ -18,7 +19,6 @@ import {
   finiteAttribute,
   finiteJson,
   finiteSize,
-  isPlainRecord,
   matrixGrid,
   mergeElement,
   removeElement,
@@ -144,4 +144,3 @@ export function planPatchMapEditorMatrixMutation(
     history: detachPatchMapMutationJsonValue(companion, '$.editorMatrixCompanion'),
   });
 }
-

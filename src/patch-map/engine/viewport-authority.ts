@@ -13,6 +13,7 @@ import type {
   PatchMapWorldTransformInput,
   PatchMapWorldTransformState,
 } from './public-contracts';
+import { finiteTuple } from './input-contracts';
 import type { PatchMapSurfaceView } from './surface-contract';
 
 interface PatchMapViewportMotion {
@@ -702,21 +703,6 @@ function replacePolicySet(
 ): void {
   target.clear();
   for (const value of values) target.add(value);
-}
-
-function finiteTuple(
-  value: readonly [number, number],
-  label: string,
-): readonly [number, number] {
-  if (
-    !Array.isArray(value) ||
-    value.length !== 2 ||
-    !Number.isFinite(value[0]) ||
-    !Number.isFinite(value[1])
-  ) {
-    throw new RangeError(`${label} must contain two finite coordinates`);
-  }
-  return Object.freeze([value[0], value[1]]);
 }
 
 function normalizeZoomLimits(

@@ -4,6 +4,7 @@ import type {
   PatchMapFixedSize,
   PatchMapRectElement,
 } from './dataset';
+import { isPlainRecord } from '../shared/plain-record';
 import {
   PATCH_MAP_IDENTITY_AFFINE,
   applyPatchMapAffine,
@@ -294,8 +295,8 @@ function validateRectGeometry(target: PatchMapElement): ValidatedRectGeometry {
     : validateAttrs(target.attrs);
   const x = optionalFinite(attrs.x, '$.target.attrs.x', 0);
   const y = optionalFinite(attrs.y, '$.target.attrs.y', 0);
-  const hasAngle = hasOwn(attrs, 'angle');
-  const hasRotation = hasOwn(attrs, 'rotation');
+  const hasAngle = Object.hasOwn(attrs, 'angle');
+  const hasRotation = Object.hasOwn(attrs, 'rotation');
   if (hasAngle && hasRotation) {
     invalid(
       'INVALID_GEOMETRY_VALUE',
@@ -336,10 +337,10 @@ function validateRelativeChanges(changes: PatchMapRelativeGeometryChanges): Read
       invalid('INVALID_GEOMETRY_VALUE', '$.changes.attrs', 'relative attrs must be a plain record');
     }
     assertKnownKeys(changes.attrs, new Set(['x', 'y']), '$.changes.attrs');
-    if (hasOwn(changes.attrs, 'x')) x = finite(changes.attrs.x, '$.changes.attrs.x');
-    if (hasOwn(changes.attrs, 'y')) y = finite(changes.attrs.y, '$.changes.attrs.y');
+    if (Object.hasOwn(changes.attrs, 'x')) x = finite(changes.attrs.x, '$.changes.attrs.x');
+    if (Object.hasOwn(changes.attrs, 'y')) y = finite(changes.attrs.y, '$.changes.attrs.y');
   }
-  const angle = hasOwn(changes, 'angle')
+  const angle = Object.hasOwn(changes, 'angle')
     ? finite(changes.angle, '$.changes.angle')
     : undefined;
   return Object.freeze({
@@ -500,16 +501,6 @@ class GeometryUpdateFailure extends Error {
     super(diagnostic.message);
     this.name = 'GeometryUpdateFailure';
   }
-}
-
-function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
-
-function hasOwn(record: Readonly<Record<string, unknown>>, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(record, key);
 }
 
 function normalizeSignedZero(value: number): number {

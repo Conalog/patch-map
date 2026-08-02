@@ -1,7 +1,6 @@
 import type {
   AdvanceResult,
   FrameReport,
-  SlotRange,
 } from '../dense/contracts';
 import type { PatchMapProjectionIndex } from '../contracts';
 import type { PatchMapPresentationFrame } from '../presentation';
@@ -21,6 +20,7 @@ import type {
 } from './contracts';
 import type { PatchMapBarPresentationAuthority } from './bar-presentation-authority';
 import type { PatchMapSpatialHitAuthority } from './spatial-hit-authority';
+import { mergeSlotRanges } from './slot-ranges';
 
 interface PatchMapFramePublicationPort {
   readonly assertAlive: () => void;
@@ -437,30 +437,6 @@ export class PatchMapFramePublicationAuthority implements PatchMapFrameLoopTarge
   }
 }
 
-function mergeSlotRanges(
-  left: readonly SlotRange[],
-  right: readonly SlotRange[],
-): readonly SlotRange[] {
-  const slots: number[] = [];
-  for (const range of [...left, ...right]) {
-    for (let slot = range.start; slot < range.end; slot += 1) slots.push(slot);
-  }
-  return contiguousSlotRanges(slots);
-}
-
-function contiguousSlotRanges(slots: readonly number[]): readonly SlotRange[] {
-  const ordered = [...new Set(slots)].sort((left, right) => left - right);
-  const ranges: SlotRange[] = [];
-  for (const slot of ordered) {
-    const previous = ranges.at(-1);
-    if (previous?.end === slot) {
-      ranges[ranges.length - 1] = Object.freeze({ start: previous.start, end: slot + 1 });
-    } else {
-      ranges.push(Object.freeze({ start: slot, end: slot + 1 }));
-    }
-  }
-  return Object.freeze(ranges);
-}
 
 function now(): number {
   return globalThis.performance?.now() ?? Date.now();

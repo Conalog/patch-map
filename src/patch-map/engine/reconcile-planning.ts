@@ -8,6 +8,7 @@ import type {
   PatchMapMutationOperation,
   PatchMapPlannedBarHeightUpdate,
 } from '../semantic/transaction';
+import { sameStringArray } from '../shared/string-array-values';
 import {
   componentSemanticKey,
   indexComponentSemantics,
@@ -476,8 +477,4 @@ function indexHistoryOrders(
   };
   visit(dataset, null);
   return Object.freeze({ elementIdsByParent, componentIdsByOwner });
-}
-
-function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
 }

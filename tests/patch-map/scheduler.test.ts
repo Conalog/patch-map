@@ -258,4 +258,36 @@ describe('PatchMapFrameLoop', () => {
       pending: false,
     });
   });
+
+  it('retains frame ownership when a host observation callback throws', () => {
+    const driver = fakeDriver();
+    let animations = 1;
+    let throwObservation = true;
+    const target: PatchMapFrameLoopTarget = {
+      get activeAnimations() {
+        return animations;
+      },
+      frameWorkloadSize: 1,
+      frameTimeMs: 0,
+      viewportGestureActive: false,
+      destroyed: false,
+      publishFrame: vi.fn(),
+    };
+    const loop = new PatchMapFrameLoop(target, {
+      driver,
+      onFrame: () => {
+        if (throwObservation) throw new Error('host observer failed');
+      },
+    });
+
+    loop.request();
+    expect(() => driver.fire(48)).toThrow('host observer failed');
+    expect(driver.pending()).toBe(1);
+
+    throwObservation = false;
+    animations = 0;
+    driver.fire(64);
+    expect(driver.pending()).toBe(0);
+    expect(loop.debugSnapshot().frameCount).toBe(2);
+  });
 });

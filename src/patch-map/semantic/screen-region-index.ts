@@ -3,9 +3,9 @@ import {
   spatialCellKey as cellKey,
 } from './spatial-grid';
 
-export const PATCH_MAP_SCREEN_REGION_CELL_SIZE = 128;
-export const PATCH_MAP_SCREEN_REGION_MAX_CELLS_PER_GEOMETRY = 256;
-export const PATCH_MAP_SCREEN_REGION_MAX_QUERY_CELLS = 4_096;
+const PATCH_MAP_SCREEN_REGION_CELL_SIZE = 128;
+const PATCH_MAP_SCREEN_REGION_MAX_CELLS_PER_GEOMETRY = 256;
+const PATCH_MAP_SCREEN_REGION_MAX_QUERY_CELLS = 4_096;
 
 export type PatchMapScreenRegionBounds =
   readonly [x: number, y: number, width: number, height: number];

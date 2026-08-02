@@ -78,7 +78,7 @@ export function resolvePatchMapRelationPath(
   });
 }
 
-export function projectRelationStrokeWidths(
+function projectRelationStrokeWidths(
   localPoints: readonly PatchMapPointTuple[],
   affine: readonly [number, number, number, number, number, number],
   width: number,
@@ -123,7 +123,7 @@ export function selfLinkWorldPoints(
   ]);
 }
 
-export function boundsForRelationPoints(
+function boundsForRelationPoints(
   points: readonly PatchMapPointTuple[],
 ): PatchMapBoundsTuple {
   if (points.length === 0) return Object.freeze([0, 0, 0, 0]);
@@ -157,7 +157,7 @@ export function relationPathHitScreen(
   return false;
 }
 
-export function pointSegmentDistance(
+function pointSegmentDistance(
   point: PatchMapPointTuple,
   from: PatchMapPointTuple,
   to: PatchMapPointTuple,

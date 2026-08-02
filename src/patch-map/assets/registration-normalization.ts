@@ -1,4 +1,5 @@
 import type { PatchMapAssetDescriptor, PatchMapAssetSource } from '../semantic/dataset';
+import { isPlainRecord } from '../shared/plain-record';
 import { stableHash64Hex as stableHash } from '../shared/stable-hash';
 import {
   PatchMapAssetError,
@@ -192,12 +193,6 @@ export function invalidAsset(message: string): never {
   const error = new PatchMapAssetError('INVALID_VALUE', 'INVALID_INPUT', false);
   error.message = `INVALID_VALUE: ${message}`;
   throw error;
-}
-
-export function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype = Reflect.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }
 
 export function deepFreeze<T>(value: T): T {

@@ -9,6 +9,7 @@ import type {
   PatchMapProjectionIndex,
 } from '../contracts';
 import type { PatchMapStableRecordStrategy } from '../semantic/stable-record-overlay';
+import { sameStringArray } from '../shared/string-array-values';
 
 import {
   ROOT_FRAGMENTS_CACHE,
@@ -469,7 +470,7 @@ function sameElementIdentities(
     left.sourceId === right.sourceId &&
     left.sourcePath === right.sourcePath &&
     left.type === right.type &&
-    sameStrings(left.entityIds, right.entityIds)
+    sameStringArray(left.entityIds, right.entityIds)
   ));
 }
 
@@ -482,7 +483,7 @@ function sameComponentIdentities(
     left.componentPath === right.componentPath &&
     left.type === right.type &&
     left.sourceElementId === right.sourceElementId &&
-    sameStrings(left.entityIds, right.entityIds)
+    sameStringArray(left.entityIds, right.entityIds)
   ));
 }
 
@@ -494,7 +495,7 @@ function sameExpandedIdentities(
     left.instanceId === right.instanceId &&
     left.sourceElementId === right.sourceElementId &&
     left.sourcePath === right.sourcePath &&
-    sameStrings(left.entityIds, right.entityIds) &&
+    sameStringArray(left.entityIds, right.entityIds) &&
     (
       left.grid === right.grid ||
       (
@@ -548,13 +549,6 @@ function sameStableRecords<Value>(
       const candidate = after[index];
       return candidate !== undefined && same(entry, candidate);
     })
-  );
-}
-
-function sameStrings(left: readonly string[], right: readonly string[]): boolean {
-  return (
-    left.length === right.length &&
-    left.every((entry, index) => entry === right[index])
   );
 }
 

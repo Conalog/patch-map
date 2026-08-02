@@ -128,7 +128,7 @@ export function planPatchMapBarHeightBatch(
       );
     }
     if (
-      Object.prototype.hasOwnProperty.call(record, 'actionId') &&
+      Object.hasOwn(record, 'actionId') &&
       (typeof record.actionId !== 'string' || record.actionId.length === 0)
     ) {
       transactionFail(
@@ -139,7 +139,7 @@ export function planPatchMapBarHeightBatch(
       );
     }
     if (
-      Object.prototype.hasOwnProperty.call(record, 'recordHistory') &&
+      Object.hasOwn(record, 'recordHistory') &&
       typeof record.recordHistory !== 'boolean'
     ) {
       transactionFail(
@@ -382,7 +382,7 @@ export function planPatchMapTextBatch(
       );
     }
     if (
-      Object.prototype.hasOwnProperty.call(record, 'styles') &&
+      Object.hasOwn(record, 'styles') &&
       (
         !Array.isArray(record.styles) ||
         record.styles.length !== record.targets.length
@@ -396,7 +396,7 @@ export function planPatchMapTextBatch(
       );
     }
     if (
-      Object.prototype.hasOwnProperty.call(record, 'actionId') &&
+      Object.hasOwn(record, 'actionId') &&
       (typeof record.actionId !== 'string' || record.actionId.length === 0)
     ) {
       transactionFail(
@@ -407,7 +407,7 @@ export function planPatchMapTextBatch(
       );
     }
     if (
-      Object.prototype.hasOwnProperty.call(record, 'recordHistory') &&
+      Object.hasOwn(record, 'recordHistory') &&
       typeof record.recordHistory !== 'boolean'
     ) {
       transactionFail(

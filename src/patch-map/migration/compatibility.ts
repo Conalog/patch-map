@@ -3,6 +3,7 @@ import {
   validatePatchMapDatasetReferences,
   type PatchMapDatasetMaterialization,
 } from '../semantic/dataset';
+import { isPlainRecord } from '../shared/plain-record';
 import {
   PATCH_MAP_MIGRATION_REVISION,
   PatchMapMigrationError,
@@ -193,7 +194,7 @@ function cloneSerializable(
     if (Array.isArray(value)) {
       const clone: unknown[] = [];
       for (let index = 0; index < value.length; index += 1) {
-        if (!Object.prototype.hasOwnProperty.call(value, index)) {
+        if (!Object.hasOwn(value, index)) {
           serializableFail(`${path}[${index}]`, 'array holes are not serializable');
         }
         clone.push(cloneSerializable(value[index], `${path}[${index}]`, ancestors));
@@ -254,15 +255,6 @@ function serializableFail(path: string, detail: string): never {
   throw new PatchMapMigrationError('NON_SERIALIZABLE_VALUE', path, detail);
 }
 
-function isPlainRecord(
-  value: unknown,
-): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return false;
-  }
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
 
 function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   if (value === null || typeof value !== 'object' || seen.has(value)) {

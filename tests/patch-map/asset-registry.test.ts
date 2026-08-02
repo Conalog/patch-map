@@ -599,6 +599,33 @@ describe('PatchMap shared asset runtime', () => {
     expect(fetchedSources[1]).not.toContain('patch-map-builtin://');
   });
 
+  it('does not borrow an unverified external Pixi cache entry under ingestion policy', () => {
+    const pixiAssets = Assets as unknown as { get(id: string): unknown };
+    const get = vi.spyOn(pixiAssets, 'get').mockReturnValue(
+      Object.freeze({ texture: 'unverified-external' }),
+    );
+    const backend = createPatchMapPixiAssetBackend({
+      ingestionPolicy: {
+        protocols: ['https:'],
+        origins: ['https://assets.example.test'],
+        redirects: 'revalidate',
+        credentials: 'omit',
+        mediaTypes: ['image/png'],
+        maxEncodedBytes: 1024,
+        maxDecodedWidth: 64,
+        maxDecodedHeight: 64,
+      },
+    });
+
+    expect(backend.get(Object.freeze({
+      key: 'patch-map-asset:policy-cache',
+      descriptor: Object.freeze({ src: 'https://assets.example.test/external.png' }),
+      cacheIdentity: 'descriptor:policy-cache',
+      packageOwned: false,
+    }))).toBeUndefined();
+    expect(get).not.toHaveBeenCalled();
+  });
+
   it('isolates owned URL loads from Pixi source cache identity before unloading', async () => {
     const pixiAssets = Assets as unknown as {
       get(id: string): unknown;

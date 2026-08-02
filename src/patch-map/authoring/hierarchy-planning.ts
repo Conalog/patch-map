@@ -1,4 +1,6 @@
 import type { NormalizedPatchMapElement } from '../semantic/dataset';
+import { isPlainRecord } from '../shared/plain-record';
+import { sameStringArray } from '../shared/string-array-values';
 import {
   invertPatchMapAffine,
   type PatchMapAffineMatrix,
@@ -13,12 +15,11 @@ import type {
   PatchMapAuthoringPlan,
   PatchMapAuthoringPlanningContext,
 } from './contracts';
-import { fail, isJsonRecord, isPlainRecord } from './normalization';
+import { fail, isJsonRecord } from './normalization';
 import {
   elementTarget,
   facts,
   plannedPlan,
-  sameStrings,
   unchangedPlan,
   uniqueTargetIds,
 } from './plan-results';
@@ -110,7 +111,7 @@ export function planReorder(
     ? [...remaining, ...orderedTargets]
     : [...orderedTargets, ...remaining];
   const resultFacts = facts({ orderedIds: orderedTargets, placement: action.placement });
-  if (sameStrings(siblings, desired)) return unchangedPlan(action, resultFacts);
+  if (sameStringArray(siblings, desired)) return unchangedPlan(action, resultFacts);
   const parent = parentId === null ? null : elementTarget(parentId);
   const operations: PatchMapMutationOperation[] = action.placement === 'front'
     ? orderedTargets.map((id) => Object.freeze({

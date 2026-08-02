@@ -255,13 +255,6 @@ export function patchMapBoundsCenter(
   ]);
 }
 
-export function freezeViewportIds(
-  values: readonly string[],
-  label: string,
-): readonly string[] {
-  return Object.freeze(normalizeIds(values, label));
-}
-
 function indexElements(
   dataset: readonly NormalizedPatchMapElement[],
 ): ReadonlyMap<string, NormalizedPatchMapElement> {

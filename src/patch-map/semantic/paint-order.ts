@@ -97,7 +97,7 @@ export interface PatchMapPaintPlan {
   readonly runLimit: number;
 }
 
-export const DEFAULT_PATCH_MAP_PAINT_RUN_LIMIT = 512;
+const DEFAULT_PATCH_MAP_PAINT_RUN_LIMIT = 512;
 
 const SCENE_KINDS = new Set<PatchMapScenePaintKind>([
   'background',

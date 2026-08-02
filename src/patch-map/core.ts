@@ -13,7 +13,6 @@ import type {
   QueryFilter,
   SceneSnapshot,
   SelectionSnapshot,
-  SlotRange,
   TransactionBatch,
 } from './dense/contracts';
 import type {
@@ -150,6 +149,7 @@ import {
   preparePatchMapTransientDirtyRanges,
 } from './core/transient-projection-planning';
 import { PatchMapFramePublicationAuthority } from './core/frame-publication-authority';
+import { contiguousSlotRanges } from './core/slot-ranges';
 
 export { normalizePatchMapTextTarget } from './core/contracts';
 export type * from './core/contracts';
@@ -1272,6 +1272,9 @@ export class PatchMapRuntime {
         ])].sort();
     const highlightSet = new Set(policy?.highlightIds ?? []);
     const hiddenSet = new Set(policy?.hiddenLayerIds ?? []);
+    const fillOverrideById = new Map(
+      policy?.fillOverrides.map((entry) => [entry.id, entry] as const) ?? [],
+    );
     const entities = sourceIds.map((id) => {
       const denseEntityIds = parse === null
         ? Object.freeze([] as string[])
@@ -1280,7 +1283,7 @@ export class PatchMapRuntime {
         const probe = this.renderer.presentationEntityProbe(entityId);
         return probe === null ? [] : [probe];
       });
-      const fillOverride = policy?.fillOverrides.find((entry) => entry.id === id);
+      const fillOverride = fillOverrideById.get(id);
       const packedFillFacts = fillOverride === undefined || parse === null
         ? rendererFacts
         : semanticPresentationFillDenseIds(parse, id).flatMap((entityId) => {
@@ -1867,20 +1870,6 @@ function activeSceneImageIds(
     if (entity?.kind === 'image' && entity.visible) active.add(entityId);
   }
   return active;
-}
-
-function contiguousSlotRanges(slots: readonly number[]): readonly SlotRange[] {
-  const ordered = [...new Set(slots)].sort((left, right) => left - right);
-  const ranges: SlotRange[] = [];
-  for (const slot of ordered) {
-    const previous = ranges.at(-1);
-    if (previous?.end === slot) {
-      ranges[ranges.length - 1] = Object.freeze({ start: previous.start, end: slot + 1 });
-    } else {
-      ranges.push(Object.freeze({ start: slot, end: slot + 1 }));
-    }
-  }
-  return Object.freeze(ranges);
 }
 
 function now(): number {

@@ -243,6 +243,79 @@ describe('PatchMap synchronous reentrancy and lifecycle settlement', () => {
     expect(engine.historyState()).toMatchObject({ undoDepth: 0, redoDepth: 0 });
   });
 
+  it('restores the nested authoritative patch before refusing a stale outer patch', async () => {
+    const { engine, surface } = await createEngine(engines, 'nested-patch');
+    engine.loadDataset(scene('rect-a', 0));
+    surface.nextReconcileCallback = () => {
+      expect(engine.patch(
+        { kind: 'element', id: 'rect-a' },
+        { attrs: { x: 200 } },
+      )).toMatchObject({ status: 'committed', changed: true });
+    };
+
+    expect(engine.patch(
+      { kind: 'element', id: 'rect-a' },
+      { attrs: { x: 100 } },
+    )).toMatchObject({
+      status: 'refused',
+      changed: false,
+      diagnostic: { category: 'CONFLICT' },
+    });
+    expect(rectX(engine.exportDataset(), 'rect-a')).toBe(200);
+    expect(rectX(surface.loaded, 'rect-a')).toBe(200);
+  });
+
+  it('preserves a nested mutation before refusing a stale destroy', async () => {
+    const { engine, surface } = await createEngine(engines, 'nested-destroy');
+    engine.loadDataset([
+      ...scene('rect-a', 0),
+      ...scene('rect-b', 10),
+    ]);
+    surface.nextReconcileCallback = () => {
+      expect(engine.patch(
+        { kind: 'element', id: 'rect-b' },
+        { attrs: { x: 200 } },
+      )).toMatchObject({ status: 'committed', changed: true });
+    };
+
+    expect(engine.destroyTarget({ kind: 'element', id: 'rect-a' })).toMatchObject({
+      status: 'refused',
+      changed: false,
+      diagnostic: { category: 'CONFLICT' },
+    });
+    expect(rootIds(engine.exportDataset())).toEqual(['rect-a', 'rect-b']);
+    expect(rootIds(surface.loaded)).toEqual(['rect-a', 'rect-b']);
+    expect(rectX(engine.exportDataset(), 'rect-b')).toBe(200);
+    expect(rectX(surface.loaded, 'rect-b')).toBe(200);
+  });
+
+  it('preserves reentrant interaction state before refusing stale history application', async () => {
+    const { engine, surface } = await createEngine(engines, 'selection-history');
+    engine.loadDataset(scene('rect-a', 0));
+    expect(engine.patch(
+      { kind: 'element', id: 'rect-a' },
+      { attrs: { x: 10 } },
+    )).toMatchObject({ status: 'committed', changed: true });
+    surface.nextReconcileCallback = () => {
+      engine.applySelection({
+        op: 'replace',
+        ids: ['rect-a'],
+        source: 'programmatic',
+      });
+    };
+
+    expect(engine.undo()).toMatchObject({
+      status: 'refused',
+      changed: false,
+      diagnostic: { category: 'CONFLICT' },
+    });
+    expect(rectX(engine.exportDataset(), 'rect-a')).toBe(10);
+    expect(rectX(surface.loaded, 'rect-a')).toBe(10);
+    expect(engine.snapshot().selectionIds).toEqual(['rect-a']);
+    expect(surface.debugSnapshot().selectionIds).toEqual(['rect-a']);
+    expect(engine.historyState()).toMatchObject({ undoDepth: 1, redoDepth: 0 });
+  });
+
   it('makes concurrent destroy callers wait for the shared cleanup settlement', async () => {
     const { engine, surface } = await createEngine(engines, 'concurrent-destroy');
     const cleanup = deferred<void>();

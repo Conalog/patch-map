@@ -1,6 +1,7 @@
 import type { Graphics } from 'pixi.js';
 
 import type { RenderStoreView } from '../../dense/renderer-types';
+import { sameNullableStringArray } from '../../shared/string-array-values';
 import type { PatchMapInteractionOverlayPolicy } from '../types';
 import {
   resolvePatchMapSlotQuad,
@@ -112,20 +113,6 @@ export function sameInteractionOverlayPolicy(
     sameNullableStringArray(left.visibleEntityIds, right.visibleEntityIds) &&
     sameNullableStringArray(left.transformableEntityIds, right.transformableEntityIds) &&
     sameNullableStringArray(left.resizableEntityIds, right.resizableEntityIds);
-}
-
-function sameNullableStringArray(
-  left: readonly string[] | null,
-  right: readonly string[] | null,
-): boolean {
-  return left === null || right === null
-    ? left === right
-    : sameStringArray(left, right);
-}
-
-function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length &&
-    left.every((value, index) => value === right[index]);
 }
 
 function freezeEntityIds(values: readonly string[], label: string): readonly string[] {

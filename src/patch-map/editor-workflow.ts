@@ -25,10 +25,10 @@ import {
   relationsElement,
   removeElement,
   resizeGridCells,
-  sameStrings,
   textElement,
   uniqueStrings,
 } from './editor-workflow/dataset-atoms';
+import { sameStringArray } from './shared/string-array-values';
 
 export {
   PATCH_MAP_EDITOR_MUTATION_KINDS,
@@ -756,7 +756,7 @@ export class PatchMapEditorWorkflowAuthority {
       return rejected(action, 'CONFLICT', ['targets'], 'host delete confirmation is required');
     }
     const expected = uniqueStrings([...deletion.requestedIds, ...deletion.cascadeTargets]);
-    if (!sameStrings(expected, action.targets)) {
+    if (!sameStringArray(expected, action.targets)) {
       return rejected(action, 'CONFLICT', ['targets'], 'confirmed delete targets do not match');
     }
     const missing = action.targets.find((id) => findElement(materialized.dataset, id) === null);

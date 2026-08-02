@@ -340,7 +340,7 @@ export function freezePatchMapAffine(
   return Object.freeze(matrix);
 }
 
-export function freezePatchMapPoint(x: number, y: number): PatchMapPointTuple {
+function freezePatchMapPoint(x: number, y: number): PatchMapPointTuple {
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
     throw new TypeError('point values must be finite');
   }

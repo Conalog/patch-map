@@ -14,6 +14,7 @@ import type {
   PatchMapMutationTransactionDiagnostic,
   PatchMapMutationTransactionPlan,
 } from '../semantic/transaction';
+import { sameStringArray } from '../shared/string-array-values';
 import type { PatchMapHostInteractionAuthority } from '../host-interaction';
 import type {
   PatchMapEngineSurface,
@@ -550,7 +551,3 @@ const EMPTY_COMPONENT_VISUAL_TARGETS = Object.freeze(
   [] as PatchMapComponentVisualTarget[],
 );
 const EMPTY_STRING_IDS = Object.freeze([] as string[]);
-
-function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => right[index] === value);
-}

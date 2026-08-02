@@ -570,8 +570,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ? this.lastSourceStore ?? this.lastStore
       : this.presentationStore;
     if (store === null) return null;
-    const slot = store.ids.indexOf(entityId);
-    if (slot < 0 || (store.alive[slot] ?? 0) === 0) return null;
+    const slot = this.slotByEntityId.get(entityId);
+    if (slot === undefined || (store.alive[slot] ?? 0) === 0) return null;
     const visible = ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0 &&
       (store.opacity[slot] ?? 0) > 0;
     return Object.freeze({

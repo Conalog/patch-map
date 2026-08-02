@@ -9,6 +9,7 @@ import {
   type PatchMapMutationOperation,
   type PatchMapMutationTransactionRequest,
 } from './semantic/transaction';
+import { isPlainRecord } from './shared/plain-record';
 
 export const PATCH_MAP_HOST_ASSET_INGESTION_REVISION =
   'core-v2-host-asset-ingestion/1' as const;
@@ -408,10 +409,4 @@ function nonempty(value: unknown, label: string): string {
 
 function roundSix(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000;
-}
-
-function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype = Reflect.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }

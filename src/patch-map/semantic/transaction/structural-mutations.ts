@@ -452,7 +452,7 @@ function groupValueRecord(
       operationIndex,
     );
   }
-  if (Object.prototype.hasOwnProperty.call(value, 'children')) {
+  if (Object.hasOwn(value, 'children')) {
     transactionFail(
       'CONFLICTING_FIELDS',
       'INVALID_INPUT',

@@ -16,7 +16,7 @@ import {
 } from '../semantic/entity-hit-index';
 import type { PatchMapBoundsTuple } from '../semantic/geometry';
 
-export const PATCH_MAP_ANIMATED_BAR_HIT_PRIME_THRESHOLD = 1_024;
+const PATCH_MAP_ANIMATED_BAR_HIT_PRIME_THRESHOLD = 1_024;
 
 export interface PatchMapSpatialHitScene {
   snapshot(): SceneSnapshot;

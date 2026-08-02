@@ -373,6 +373,21 @@ export interface AnimateBarsOptions {
   readonly maxPercent?: number;
 }
 
+export function normalizePatchMapComponentVisualTarget(
+  target: PatchMapComponentVisualTarget,
+): PatchMapComponentVisualTarget {
+  if (target === null || typeof target !== 'object') {
+    throw new TypeError('component visual target must be an object');
+  }
+  if (typeof target.ownerId !== 'string' || target.ownerId.length === 0) {
+    throw new TypeError('component visual target ownerId must be a non-empty string');
+  }
+  if (typeof target.componentId !== 'string' || target.componentId.length === 0) {
+    throw new TypeError('component visual target componentId must be a non-empty string');
+  }
+  return Object.freeze({ ownerId: target.ownerId, componentId: target.componentId });
+}
+
 export function normalizePatchMapTextTarget(target: PatchMapTextTarget): PatchMapTextTarget {
   if (target === null || typeof target !== 'object' || Array.isArray(target)) {
     throw new TypeError('text target must be an object');

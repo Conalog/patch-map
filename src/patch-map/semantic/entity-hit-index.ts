@@ -20,8 +20,8 @@ import {
   spatialCellKey as cellKey,
 } from './spatial-grid';
 
-export const PATCH_MAP_ENTITY_HIT_CELL_SIZE = 128;
-export const PATCH_MAP_ENTITY_HIT_MAX_CELLS = 256;
+const PATCH_MAP_ENTITY_HIT_CELL_SIZE = 128;
+const PATCH_MAP_ENTITY_HIT_MAX_CELLS = 256;
 
 interface PatchMapEntityHitEntry {
   readonly ref: EntityRef;

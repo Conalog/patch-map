@@ -1,5 +1,6 @@
 import type { PatchMapDatasetError } from '../dataset';
 import type { PatchMapSemanticTarget } from '../probe';
+import { isPlainRecord } from '../../shared/plain-record';
 import type {
   PatchMapSemanticMutationDiagnostic,
   PatchMapSemanticMutationDiagnosticReason,
@@ -164,12 +165,6 @@ export function diagnostic(
     message,
     ...(datasetCode === undefined ? {} : { datasetCode }),
   });
-}
-
-function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }
 
 function ownEnumerableDataRecord(

@@ -666,10 +666,6 @@ export class CoreScene {
   }
 }
 
-export function createCoreScene(options: CoreSceneCreateOptions = {}): CoreScene {
-  return new CoreScene(options);
-}
-
 function validateLimit(value: number, name: string, allowZero: boolean): number {
   if (!Number.isSafeInteger(value) || value < (allowZero ? 0 : 1)) {
     throw new RangeError(`${name} must be a ${allowZero ? 'non-negative' : 'positive'} safe integer`);

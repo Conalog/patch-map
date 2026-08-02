@@ -704,14 +704,14 @@ function textLetterSpacing(
   return undefined;
 }
 
-export function textSplit(value: unknown, path: string, state: ParseState): number {
+function textSplit(value: unknown, path: string, state: ParseState): number {
   if (value === undefined) return 0;
   if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
   warn(state, path, 'invalid-text-split', 'Invalid split fell back to zero');
   return 0;
 }
 
-export function textPlacement(
+function textPlacement(
   value: unknown,
   path: string,
   state: ParseState,

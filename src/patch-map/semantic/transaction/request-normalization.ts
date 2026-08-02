@@ -10,11 +10,11 @@ import type {
   PatchMapMutationPathSegment,
   PatchMapMutationTarget,
 } from './contracts';
+import { isPlainRecord } from '../../shared/plain-record';
 import { transactionFail } from './diagnostics';
 import {
   cloneImmutableJson,
   isJsonRecord,
-  isPlainRecord,
   isUnsafeJsonPathSegment,
 } from './json-values';
 
@@ -120,7 +120,7 @@ export function normalizeBulkPatch(value: unknown): NormalizedTransaction {
     transactionFail('INVALID_VALUE', 'INVALID_INPUT', '$.strict', 'strict must be a boolean');
   }
   if (
-    Object.prototype.hasOwnProperty.call(record, 'actionId') &&
+    Object.hasOwn(record, 'actionId') &&
     (typeof record.actionId !== 'string' || record.actionId.length === 0)
   ) {
     transactionFail(
@@ -177,7 +177,7 @@ export function normalizeTransaction(value: unknown): NormalizedTransaction {
     transactionFail('INVALID_VALUE', 'INVALID_INPUT', '$.strict', 'strict must be a boolean');
   }
   if (
-    Object.prototype.hasOwnProperty.call(record, 'actionId') &&
+    Object.hasOwn(record, 'actionId') &&
     (typeof record.actionId !== 'string' || record.actionId.length === 0)
   ) {
     transactionFail(
@@ -201,7 +201,7 @@ export function normalizeTransaction(value: unknown): NormalizedTransaction {
     );
   }
   if (
-    Object.prototype.hasOwnProperty.call(record, 'recordHistory') &&
+    Object.hasOwn(record, 'recordHistory') &&
     typeof record.recordHistory !== 'boolean'
   ) {
     transactionFail(
@@ -215,7 +215,7 @@ export function normalizeTransaction(value: unknown): NormalizedTransaction {
   const operations = Object.freeze(
     record.operations.map((operation, index) => normalizeOperation(operation, index)),
   );
-  const history = Object.prototype.hasOwnProperty.call(record, 'history')
+  const history = Object.hasOwn(record, 'history')
     ? cloneImmutableJson(record.history, '$.history')
     : undefined;
   const actionId = typeof record.actionId === 'string' ? record.actionId : undefined;
@@ -526,7 +526,7 @@ function normalizeChange(
   const path = `$.operations[${operationIndex}].changes[${changeIndex}]`;
   const record = strictRecord(value, path, 'change must be a strict plain record');
   rejectUnknownFields(record, CHANGE_FIELDS, path, operationIndex, target);
-  if (!Object.prototype.hasOwnProperty.call(record, 'value')) {
+  if (!Object.hasOwn(record, 'value')) {
     transactionFail(
       'INVALID_MUTATION',
       'INVALID_INPUT',

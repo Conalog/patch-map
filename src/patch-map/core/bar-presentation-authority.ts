@@ -16,8 +16,14 @@ import type {
 } from '../presentation-policy';
 import { PatchMapPresentationProjectionStore } from '../presentation-projection';
 import type { PatchMapScene } from '../scene';
+import { isPlainRecord } from '../shared/plain-record';
+import {
+  sameNullableStringArray,
+  sameStringArray,
+} from '../shared/string-array-values';
 import type { PatchMapComponentVisualTarget } from './contracts';
 import { patchMapComponentProbeTargetKey } from './product-probe-reader';
+import { contiguousSlotRanges } from './slot-ranges';
 
 export interface PatchMapLogicalPresentationPolicy {
   readonly revision: number;
@@ -555,20 +561,6 @@ function incrementalBarPresentationCompatible(
   return true;
 }
 
-function contiguousSlotRanges(slots: readonly number[]): readonly SlotRange[] {
-  const ordered = [...new Set(slots)].sort((left, right) => left - right);
-  const ranges: SlotRange[] = [];
-  for (const slot of ordered) {
-    const previous = ranges.at(-1);
-    if (previous?.end === slot) {
-      ranges[ranges.length - 1] = Object.freeze({ start: previous.start, end: slot + 1 });
-    } else {
-      ranges.push(Object.freeze({ start: slot, end: slot + 1 }));
-    }
-  }
-  return Object.freeze(ranges);
-}
-
 function normalizeLogicalPresentationPolicy(
   input: PatchMapPresentationPolicyInput,
   revision: number,
@@ -652,21 +644,4 @@ function samePresentationFillOverrides(
   return left.length === right.length && left.every((value, index) =>
     value.id === right[index]?.id && value.packedColor === right[index]?.packedColor
   );
-}
-
-function sameNullableStringArray(
-  left: readonly string[] | null,
-  right: readonly string[] | null,
-): boolean {
-  return left === null || right === null ? left === right : sameStringArray(left, right);
-}
-
-function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object') return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }

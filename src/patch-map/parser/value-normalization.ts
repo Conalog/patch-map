@@ -209,7 +209,7 @@ export function barAnimationDuration(
   );
 }
 
-export function componentLength(
+function componentLength(
   value: unknown,
   reference: number,
   path: string,
@@ -427,7 +427,7 @@ export function inspectAttributes(
   }
 }
 
-export function numericAttribute(
+function numericAttribute(
   value: unknown,
   path: string,
   state: PatchMapParseState,
@@ -440,7 +440,7 @@ export function numericAttribute(
   return 0;
 }
 
-export function scaleAttribute(
+function scaleAttribute(
   value: unknown,
   path: string,
   state: PatchMapParseState,

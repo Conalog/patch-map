@@ -129,7 +129,7 @@ function writeRotatedCorner(
   return changed;
 }
 
-export function writeQuadPositionValues(
+function writeQuadPositionValues(
   positions: Float32Array,
   primitiveIndex: number,
   x: number,

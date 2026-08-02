@@ -195,10 +195,10 @@ export function rebaseElementRecord(
   const attrs = isMutableJsonRecord(record.attrs) ? record.attrs : {};
   defineMutableProperty(attrs, 'x', normalizeSignedZero(x));
   defineMutableProperty(attrs, 'y', normalizeSignedZero(y));
-  if (Object.prototype.hasOwnProperty.call(attrs, 'rotation') &&
-      !Object.prototype.hasOwnProperty.call(attrs, 'angle')) {
+  if (Object.hasOwn(attrs, 'rotation') &&
+      !Object.hasOwn(attrs, 'angle')) {
     defineMutableProperty(attrs, 'rotation', normalizeSignedZero(angle * Math.PI / 180));
-  } else if (angle !== 0 || Object.prototype.hasOwnProperty.call(attrs, 'angle')) {
+  } else if (angle !== 0 || Object.hasOwn(attrs, 'angle')) {
     defineMutableProperty(attrs, 'angle', angle);
     delete attrs.rotation;
   } else {
@@ -216,7 +216,7 @@ function writeScaleAttribute(
   value: number,
 ): void {
   const normalized = normalizeSignedZero(Math.abs(value - 1) <= 1e-12 ? 1 : value);
-  if (normalized === 1 && !Object.prototype.hasOwnProperty.call(attrs, key)) delete attrs[key];
+  if (normalized === 1 && !Object.hasOwn(attrs, key)) delete attrs[key];
   else defineMutableProperty(attrs, key, normalized);
 }
 

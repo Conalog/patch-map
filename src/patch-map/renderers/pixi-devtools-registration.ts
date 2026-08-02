@@ -20,7 +20,7 @@ let previousHandleWasPresent = false;
 export function registerPixiDevtools(token: object, application: Application): void {
   const root = globalThis as PixiDevtoolsGlobal;
   if (REGISTRATIONS.length === 0) {
-    previousHandleWasPresent = Object.prototype.hasOwnProperty.call(
+    previousHandleWasPresent = Object.hasOwn(
       root,
       '__PIXI_DEVTOOLS__',
     );

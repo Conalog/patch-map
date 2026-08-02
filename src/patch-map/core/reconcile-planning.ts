@@ -10,6 +10,8 @@ import {
 import type { PatchMapDenseReconcilePlan } from '../semantic/reconcile';
 import type { PatchMapScene } from '../scene';
 import type { PatchMapDirectTextParseTargetIndex } from '../parser';
+import { isPlainRecord } from '../shared/plain-record';
+import { sameStringArray } from '../shared/string-array-values';
 import type {
   PatchMapDirectBarHeightUpdate,
   PatchMapDirectElementAngleUpdate,
@@ -23,7 +25,6 @@ import type {
   PatchMapIndexedTextTarget,
   PatchMapPublishedSceneState,
 } from './published-scene-state';
-import { isPlainRecord } from './projection-records';
 import {
   patchMapComponentProbeTargetKey,
   patchMapTextProbeTargetKey,
@@ -321,8 +322,4 @@ export function freezeReconcileResult<T extends PatchMapReconcileResult>(result:
     timings: Object.freeze(result.timings),
     facts: Object.freeze(result.facts),
   }) as T;
-}
-
-export function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
 }

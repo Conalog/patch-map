@@ -2,6 +2,7 @@ import type {
   PatchMapEntityProjection,
   PatchMapProjectionIndex,
 } from '../contracts';
+import { isPlainRecord } from '../shared/plain-record';
 import {
   compactPatchMapStableRecord,
   rollbackPatchMapStableRecord,
@@ -56,14 +57,8 @@ export function jsonEquivalent(left: unknown, right: unknown): boolean {
   const rightKeys = Object.keys(right);
   if (leftKeys.length !== rightKeys.length) return false;
   return leftKeys.every(
-    (key) => Object.prototype.hasOwnProperty.call(right, key) && jsonEquivalent(left[key], right[key]),
+    (key) => Object.hasOwn(right, key) && jsonEquivalent(left[key], right[key]),
   );
-}
-
-export function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object') return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }
 
 export function freezeProjectionReplacements(

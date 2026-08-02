@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  normalizePatchMapComponentVisualTarget,
+} from '../../src/patch-map/core/contracts';
+import {
   assertTransformerHandleKind,
   finiteTuple,
   isPatchMapHistoryCompanionRecord,
   isPatchMapInteractionMode,
   nonEmptyValue,
   normalizeBackground,
-  normalizeEngineComponentVisualTarget,
   normalizeEngineMutationTarget,
   normalizeOptionalSourceRevision,
   normalizeSnapshotTarget,
@@ -110,12 +112,12 @@ describe('PatchMap Engine input contracts', () => {
 
   it('normalizes owner-qualified component visual targets', () => {
     const target = { ownerId: 'item-a', componentId: 'label' };
-    const normalized = normalizeEngineComponentVisualTarget(target);
+    const normalized = normalizePatchMapComponentVisualTarget(target);
 
     expect(normalized).toEqual(target);
     expect(normalized).not.toBe(target);
     expect(Object.isFrozen(normalized)).toBe(true);
-    expect(() => normalizeEngineComponentVisualTarget({
+    expect(() => normalizePatchMapComponentVisualTarget({
       ownerId: '',
       componentId: 'label',
     })).toThrow('component visual target ownerId must be a non-empty string');

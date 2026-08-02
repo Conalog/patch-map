@@ -1,4 +1,8 @@
 import type { PatchMapResolvedPresentationPolicy } from '../../presentation-policy';
+import {
+  sameNullableStringArray,
+  sameStringArray,
+} from '../../shared/string-array-values';
 import type {
   PatchMapTextAttachedSignatures,
   PatchMapTextRendererProbe,
@@ -37,8 +41,8 @@ export function samePresentationPolicy(
   if (left === null || right === null) return false;
   return left.revision === right.revision &&
     left.deEmphasisAlpha === right.deEmphasisAlpha &&
-    sameOptionalStringArray(left.highlightedEntityIds, right.highlightedEntityIds) &&
-    sameOrderedStrings(left.hiddenEntityIds, right.hiddenEntityIds) &&
+    sameNullableStringArray(left.highlightedEntityIds, right.highlightedEntityIds) &&
+    sameStringArray(left.hiddenEntityIds, right.hiddenEntityIds) &&
     samePresentationFillOverrides(left.fillOverrides, right.fillOverrides);
 }
 
@@ -140,19 +144,6 @@ function samePresentationFillOverrides(
   return left.length === right.length && left.every((value, index) =>
     value.id === right[index]?.id && value.packedColor === right[index]?.packedColor
   );
-}
-
-function sameOptionalStringArray(
-  left: readonly string[] | null,
-  right: readonly string[] | null,
-): boolean {
-  return left === null || right === null
-    ? left === right
-    : sameOrderedStrings(left, right);
-}
-
-function sameOrderedStrings(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function freezeRendererTextAttachedSignatures(

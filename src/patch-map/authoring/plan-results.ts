@@ -116,10 +116,6 @@ export function isPathChange<T>(value: T | null): value is T {
   return value !== null;
 }
 
-export function sameStrings(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
 function jsonEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }

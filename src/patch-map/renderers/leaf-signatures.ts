@@ -1,4 +1,5 @@
 import type { PatchMapTextProjection } from '../contracts';
+import { isPlainRecord } from '../shared/plain-record';
 import {
   RenderAlign,
   type RenderStoreView,
@@ -134,10 +135,4 @@ export function stableSerializeLeafValue(value: unknown): string {
       .join(',')}}`;
   }
   throw new TypeError('asset descriptor must contain JSON values');
-}
-
-function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype = Reflect.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }

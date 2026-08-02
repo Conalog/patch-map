@@ -530,7 +530,7 @@ export function resolveBarProgress(store: RenderStoreView, slot: number): number
     : 0;
 }
 
-export function isStyledBar(store: RenderStoreView, slot: number): boolean {
+function isStyledBar(store: RenderStoreView, slot: number): boolean {
   return Math.max(0, store.radius[slot] as number) > 0;
 }
 

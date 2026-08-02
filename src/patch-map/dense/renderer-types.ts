@@ -22,12 +22,6 @@ export const RenderAlign = Object.freeze({
   Right: 2,
 } as const);
 
-export const RenderFit = Object.freeze({
-  Contain: 0,
-  Cover: 1,
-  Stretch: 2,
-} as const);
-
 /**
  * Narrow, read-only bridge between the dense store and render backends.
  *

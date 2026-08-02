@@ -1,4 +1,3 @@
-import type { PatchMapComponentVisualTarget } from '../core/contracts';
 import type { PatchMapHistoryDirection } from '../history';
 import type { PatchMapInteractionMode } from '../host-interaction';
 import type { PatchMapMutationJsonValue, PatchMapMutationTarget } from '../semantic/transaction';
@@ -25,21 +24,6 @@ export function nonEmptyValue(value: unknown, label: string): string {
     throw new TypeError(`${label} must be a non-empty string`);
   }
   return value;
-}
-
-export function normalizeEngineComponentVisualTarget(
-  target: PatchMapComponentVisualTarget,
-): PatchMapComponentVisualTarget {
-  if (target === null || typeof target !== 'object') {
-    throw new TypeError('component visual target must be an object');
-  }
-  if (typeof target.ownerId !== 'string' || target.ownerId.length === 0) {
-    throw new TypeError('component visual target ownerId must be a non-empty string');
-  }
-  if (typeof target.componentId !== 'string' || target.componentId.length === 0) {
-    throw new TypeError('component visual target componentId must be a non-empty string');
-  }
-  return Object.freeze({ ownerId: target.ownerId, componentId: target.componentId });
 }
 
 export function validateInitializeOptions(options: PatchMapInitializeOptions): void {

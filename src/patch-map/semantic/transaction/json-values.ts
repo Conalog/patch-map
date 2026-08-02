@@ -1,4 +1,5 @@
 import type { PatchMapMutationJsonValue } from './contracts';
+import { isPlainRecord } from '../../shared/plain-record';
 import { nonSerializable } from './diagnostics';
 
 export type MutableJsonValue =
@@ -36,7 +37,7 @@ export function cloneImmutableJson(
     try {
       const result: PatchMapMutationJsonValue[] = [];
       for (let index = 0; index < value.length; index += 1) {
-        if (!Object.prototype.hasOwnProperty.call(value, index)) {
+        if (!Object.hasOwn(value, index)) {
           nonSerializable(`${path}[${index}]`, 'sparse arrays are not accepted');
         }
         result.push(cloneImmutableJson(value[index], `${path}[${index}]`, ancestors));
@@ -126,12 +127,6 @@ export function jsonEquivalent(left: unknown, right: unknown): boolean {
   return leftKeys.length === rightKeys.length && leftKeys.every(
     (key, index) => key === rightKeys[index] && jsonEquivalent(left[key], right[key]),
   );
-}
-
-export function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }
 
 export function isJsonRecord(

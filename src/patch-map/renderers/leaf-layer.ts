@@ -1221,22 +1221,7 @@ export class AggregateLeafLayer {
       this.paintProbesByEntityId.delete(previousEntityId);
     }
     this.imageEntityIdBySlot.set(slot, entityId);
-    const bindingGeneration = this.bindings.get(bindingKey)?.generation ?? 0;
-    this.setImageProbe(slot, entityId, bindingKey, bindingGeneration, 0, 'none');
-    if (lane === null) {
-      this.paintProbesByEntityId.delete(entityId);
-      return;
-    }
-    this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
-      entityId,
-      lane: publicImageLane(lane),
-      rendererKind: 'none',
-      primitiveCount: 0,
-      renderObjectCount: 0,
-      packedTint: (store.tint[slot] ?? 0xffffffff) >>> 0,
-      rgbTint: null,
-      alpha: null,
-    }));
+    this.publishHiddenImageProbe(store, slot, entityId, bindingKey, lane);
   }
 
   private removeVisibleImage(
@@ -1248,6 +1233,16 @@ export class AggregateLeafLayer {
   ): void {
     this.removeImageEntry(slot);
     this.unindexVisibleImageBinding(slot);
+    this.publishHiddenImageProbe(store, slot, entityId, bindingKey, lane);
+  }
+
+  private publishHiddenImageProbe(
+    store: RenderStoreView,
+    slot: number,
+    entityId: string,
+    bindingKey: string,
+    lane: LeafImageLane | null,
+  ): void {
     const bindingGeneration = this.bindings.get(bindingKey)?.generation ?? 0;
     this.setImageProbe(slot, entityId, bindingKey, bindingGeneration, 0, 'none');
     if (lane === null) {

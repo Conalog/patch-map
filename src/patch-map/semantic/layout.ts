@@ -96,12 +96,12 @@ export function resolvePatchMapComponentSize(
 
   let width: number;
   let height: number;
-  if (isRecord(size) && (hasOwn(size, 'width') || hasOwn(size, 'height'))) {
+  if (isRecord(size) && (Object.hasOwn(size, 'width') || Object.hasOwn(size, 'height'))) {
     assertExactKeys(size, new Set(['width', 'height']), path);
-    if (!hasOwn(size, 'width')) {
+    if (!Object.hasOwn(size, 'width')) {
       invalid(`${path}.width`, 'component size requires both width and height');
     }
-    if (!hasOwn(size, 'height')) {
+    if (!Object.hasOwn(size, 'height')) {
       invalid(`${path}.height`, 'component size requires both width and height');
     }
     width = resolvePatchMapDimension(size.width, available.width, `${path}.width`);
@@ -323,10 +323,6 @@ function assertExactKeys(value: Readonly<Record<string, unknown>>, allowed: Read
   if (unexpected !== undefined) {
     invalid(`${path}.${unexpected}`, 'field is not accepted by this dimension form');
   }
-}
-
-function hasOwn(value: Readonly<Record<string, unknown>>, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(value, key);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

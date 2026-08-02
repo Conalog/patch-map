@@ -55,7 +55,7 @@ export interface PatchMapOwnedStructuralRootDelta {
   readonly added: readonly NormalizedPatchMapElement[];
 }
 
-export const EMPTY_TEXT_MARGIN = Object.freeze({
+const EMPTY_TEXT_MARGIN = Object.freeze({
   top: 0,
   right: 0,
   bottom: 0,

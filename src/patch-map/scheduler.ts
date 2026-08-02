@@ -34,8 +34,11 @@ export class PatchMapFrameLoop {
   private readonly onAnimationFrame = (wallTimeMs: number): void => {
     this.handle = null;
     if (this.destroyed || this.paused || this.target.destroyed) return;
-    this.publishAt(wallTimeMs);
-    if (this.shouldContinue()) this.schedule();
+    try {
+      this.publishAt(wallTimeMs);
+    } finally {
+      if (this.shouldContinue()) this.schedule();
+    }
   };
 
   public constructor(
@@ -70,9 +73,11 @@ export class PatchMapFrameLoop {
       this.driver.cancel(this.handle);
       this.handle = null;
     }
-    const observation = this.publishAt(this.driver.now());
-    if (this.shouldContinue()) this.schedule();
-    return observation;
+    try {
+      return this.publishAt(this.driver.now());
+    } finally {
+      if (this.shouldContinue()) this.schedule();
+    }
   }
 
   /**

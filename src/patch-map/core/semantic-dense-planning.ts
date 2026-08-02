@@ -1,6 +1,7 @@
 import type { ParsePatchMapResult } from '../contracts';
 import type { PatchMapPresentationFillOverride } from '../presentation-policy';
 import type { PatchMapReconcileOptions as PatchMapDenseReconcileOptions } from '../semantic/reconcile';
+import { sameStringArray } from '../shared/string-array-values';
 import type { PatchMapReconcileOptions } from './contracts';
 import type { PatchMapIndexedComponentTarget } from './published-scene-state';
 import { patchMapComponentProbeTargetKey } from './product-probe-reader';
@@ -129,9 +130,6 @@ export function semanticPresentationFillDenseIds(
     : semanticSelectionDenseIds(parse, [semanticId]);
 }
 
-function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
 
 function elementOrderDenseIds(
   parse: ParsePatchMapResult,
