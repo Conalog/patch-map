@@ -832,9 +832,14 @@ export function mountPatchMapManualWorkbench(
       targets = directTargets.map(({ id, componentId }) => ({ id, componentId }));
       targetCount = directTargets.length;
     } else {
-      const compiled = currentAnimatedBarTargets(next);
-      targets = compiled;
-      targetCount = compiled.count;
+      if (manualSceneSize === 'actual-production') {
+        const compiled = currentAnimatedBarTargets(next);
+        targets = compiled;
+        targetCount = compiled.count;
+      } else {
+        targets = directTargets;
+        targetCount = directTargets.length;
+      }
     }
     const heights = new Float64Array(targetCount);
     for (let index = 0; index < targetCount; index += 1) {
