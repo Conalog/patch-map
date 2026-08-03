@@ -92,6 +92,10 @@ component의 owner/ID identity가 유지됩니다. strict load와 mutation 오�
 [예제](./examples/patch-map), `npm run lab`으로 실행하는 조작형 Lab에서
 확인할 수 있습니다.
 
+기존 host integration을 교체하는 경우에는 engine, frame loop, 저장,
+teardown 경로를 바꾸기 전에 [마이그레이션 가이드](./docs/patch-map/migration.md)를
+먼저 확인하세요.
+
 ## 개발 검증
 
 Node.js 22(`.nvmrc`, 패키지 최소 20)에서 `npm ci`로 잠긴 의존성을 설치합니다. 변경 위험별

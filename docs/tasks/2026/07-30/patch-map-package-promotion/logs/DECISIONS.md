@@ -101,3 +101,9 @@
   release verifiers write environment-specific results outside tracked
   evidence unless an explicit artifact path is supplied. This prevents a
   routine check from silently replacing digest-bound evidence.
+
+**2026-08-02**
+- Background: Candidate verification could previously look structurally complete while targeting retained evidence locations or embedding a prior package observation, and native templates could look complete without qualified raw measurements.
+- Decision: Embedded packed-consumer evidence is promotion-ineligible, generated output paths must stay inside the dedicated workspace `.perf-results` candidate root while read-only candidate inputs independently exclude repository metadata, dependency/build/bundle/source-map locations, retained results, and approved contract evidence, and native manifests remain pending without qualified raw evidence, validator identity, target authenticity, and commit binding.
+- Why: Candidate output must never promote itself or overwrite approved evidence, and structural completeness is not equivalent to Windows-native, NVDA, device, or qualified WebGPU qualification.
+- Impact: Fresh candidates can be compared or archived only through a later explicit promotion step, while templates and locally complete-looking synthetic artifacts remain pending rather than being presented as release PASS evidence.

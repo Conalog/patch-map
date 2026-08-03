@@ -91,6 +91,10 @@ See [product documentation](./docs/patch-map/README.md), the packaged
 [examples](./examples/patch-map), and the interactive Lab started with
 `npm run lab`.
 
+Upgrading an existing host integration? Follow the
+[migration guide](./docs/patch-map/migration.md) before replacing its engine,
+frame loop, persistence, or teardown path.
+
 ## Development
 
 Use Node.js 22 (`.nvmrc`; package minimum is 20) and install the locked dependencies with `npm ci`.

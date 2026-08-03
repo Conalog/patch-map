@@ -39,7 +39,7 @@ adapter boundary:
 - `snapshot()` and `extract()` use public detached probes;
 - `destroy()` disposes host subscriptions before engine teardown.
 
-The adapter must not import Original symbols, copy renderer behavior, rebuild
+The adapter must not import previous-runtime symbols, copy renderer behavior, rebuild
 geometry, mutate normalized output, or retain Pixi display objects. Event
 callbacks and canvas ownership remain instance-local.
 

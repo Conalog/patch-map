@@ -28,23 +28,34 @@
 - Actual-production alpha, image pivot/underlay, remote allowlist, async
   invalidation, content orientation, and aggregate lane behavior remain
   verified without per-entity display objects or listeners.
-- The 671-file structural inventory and T0–T10 ownership migration are
-  complete. `engine.ts`, `core.ts`, and `pixi-renderer.ts` are 5,542, 1,969,
-  and 1,813 lines above singular transaction, frame, accessibility, asset,
-  interaction, and resource authorities.
-- The branch-readiness checkpoint passes 194 unit files / 1,735 tests, full
-  lint/typecheck, product/Lab builds, canonical 38/173, packed ESM/CJS/types
-  with 38 journeys and four examples, headless 173 routes / 192 checks, and
-  2+7 memory over 5,099 entities plus nine ownership cycles.
+- The current 762-file allowed-tree inventory has been reviewed across runtime,
+  renderers, Lab/examples, tests/verification/performance, documentation,
+  configuration, and binary assets. The structural migration keeps singular
+  transaction, frame, accessibility, asset, interaction, and resource
+  authorities while eliminating newly identified reentrant, supersession,
+  cleanup-retry, descriptor-safety, culling-bound, and Lab lifecycle defects.
+- The fresh branch-readiness checkpoint passes 195 unit files / 1,759 tests,
+  full lint/typecheck, product/Lab builds, canonical 38/173, headless 173
+  routes / 192 checks, actual-production WebGL over 605 roots / 643
+  components, 2+7 memory over 5,099 entities plus nine ownership cycles, and
+  the strict packed ESM/CJS/types consumer with 38 journeys, four examples,
+  aggregate-object ownership, lifecycle cleanup, and the required audit.
 - Public `core-v2` Lab aliases and canvas probe identity are removed; retained
   historical identifiers exist only in immutable contract/evidence tooling.
+- The branch-readiness patch is fixed in separate runtime/rendering, Lab
+  lifecycle, release-verification, and documentation commits. No version,
+  push, PR metadata, or merge action is part of this checkpoint.
 - The current 5,000-bar repeated-retarget 2+7 Chromium proxy passes its fixed
-  budgets: repeated-action p95 is 78.5ms at 1x and 401.3ms at 4x. The
-  10,000-bar 1x smoke passes at 159.2ms repeated-action p95, but its 233.3ms
-  rAF p95 and 20 long tasks remain unfavorable and are reported as such.
-  Windows-native and qualified WebGPU results remain pending.
+  budgets: repeated-action p95 is 62.4ms at 1x and 234.9ms at 4x. The 4x rAF
+  p95 remains unfavorable at 251.9ms with long-task-count p95 11. The fresh
+  10,000-bar 1x smoke passes at 104.3ms repeated-action p95 and 166.6ms rAF
+  p95, with 21 long tasks still reported rather than hidden. Windows-native
+  and qualified WebGPU results remain pending.
 
 # Next Step
 
-- Review and commit the branch-readiness patch when explicitly requested, then
-  update the cleanup PR. Increase the package version only after merge.
+- Update the cleanup PR when explicitly requested. The external project-context
+  shape checker must learn that the retained
+  `performance-core-v2/evidence` directory is evidence-only instead of asking
+  this branch to restore explicitly removed legacy BRIEF/WORKLOG/DECISIONS.
+  Increase the package version only after merge.
