@@ -320,3 +320,22 @@
 - Normalized the final consumer vocabulary across runtime, declarations, READMEs, API/migration/host docs, four examples, the single Lab, and package verification. Replaced `target`/`resize`, `data.load/export`, unsuffixed transform/viewport deltas, and `assets.inspect`; removed public renderer strategy selection and redundant viewport focus; renamed matching public option/result/target types.
 - Replaced the root internal barrel with an explicit shipping allowlist and rewrote the packed consumer around `PatchMap.mount()` and public domains. TypeScript negative probes now prevent the removed names and internal runtime helpers from returning. Updated the extraction-script meta test to assert the public `capture.png()` path instead of the removed low-level package probe.
 - Verification passed 196 unit files / 1,783 tests, full lint/typecheck, product and Lab builds, canonical 38 decisions / 173 cases, and required-audit packed ESM/CJS/types with all 38 journeys, four examples, four aggregate objects, and clean headless browser/server teardown. The initial full unit pass found only a stale extraction meta assertion; the corrected final full run passed. Renderer/resource/hot-path code did not change, so memory and performance matrices were not repeated and no new performance result is claimed.
+
+**2026-08-03**
+
+- Closed the pre-push review findings at the actual runtime boundary. The root
+  `PatchMap` now rejects direct construction, `mount()` returns a frozen public
+  facade without Engine lifecycle/probe seams, and packed ESM/CJS verification
+  asserts both properties. Reworked the two packed foundation journeys to use
+  `mount()`, `data`, `targets`, `history`, `debug`, `capture`, and `destroy`
+  instead of relying on the leaked constructor.
+- Preflighted replacement fit padding and target-set authority before sync or
+  async dataset commits, preventing a cross-instance/stale target or invalid
+  padding failure from committing data first. Split independent legacy mount
+  option type probes, corrected stale troubleshooting/changelog claims, and
+  renamed newly generated supply-chain evidence to PatchMap-neutral naming.
+- Verification passed the focused 24 tests, full typecheck/lint, 196 unit files
+  / 1,785 tests, canonical 38 decisions / 173 cases, and the required-audit
+  packed ESM/CJS/types consumer with all 38 journeys, four examples, aggregate
+  ownership, and clean lifecycle teardown. Renderer/resource/hot-path code did
+  not change, so memory and performance matrices were not repeated.

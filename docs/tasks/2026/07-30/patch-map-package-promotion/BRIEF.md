@@ -115,15 +115,22 @@
   four examples, four aggregate objects, and clean headless lifecycle teardown.
   No renderer, scheduler, resource, or mutation hot path changed, so this
   checkpoint makes no new memory or performance claim.
+- The pre-push public-boundary checkpoint seals the runtime package behind
+  `PatchMap.mount()`: direct construction fails and mounted instances expose
+  only the documented domains. Dataset replacement now preflights fit target
+  authority and padding before committing, so an invalid fit cannot leave a
+  successfully replaced scene behind a thrown call. The packed foundation
+  runner uses only this public facade, and current verification passes 196
+  unit files / 1,785 tests, lint/typecheck, canonical 38/173, and the
+  required-audit packed ESM/CJS/types consumer with 38 journeys, four examples,
+  aggregate ownership, and clean lifecycle teardown.
 
 # Next Step
 
-- Update the cleanup PR when explicitly requested. Integrating services should
-  start with `PatchMap.mount()`, use `update()` for one owner, queried target
-  sets plus columnar `updateBatch()` for repeated batches, and `transaction()` for
+- Push the reviewed branch and update the Draft PR, then observe remote CI and
+  address only actionable review findings. Integrating services should start
+  with `PatchMap.mount()`, use `update()` for one owner, queried target sets
+  plus columnar `updateBatch()` for repeated batches, and `transaction()` for
   heterogeneous or structural atomic work. Retain non-bar per-cell live state
-  until a separately approved package contract exists. The external
-  project-context shape checker must learn that the retained
-  `performance-core-v2/evidence` directory is evidence-only instead of asking
-  this branch to restore explicitly removed legacy BRIEF/WORKLOG/DECISIONS.
-  Increase the package version only after merge.
+  until a separately approved package contract exists. Increase the package
+  version only after merge.

@@ -12,14 +12,13 @@
 ## A change is not visible
 
 `PatchMap.mount()` owns the normal frame loop and invalidates it after domain
-updates. Do not add a second host RAF/ticker. Deterministic/manual runners may
-use the advanced constructor and `publishFrame(timeMs)` at an explicit
-boundary, but must not run both publication models.
+updates. Do not add a second host RAF/ticker. Deterministic publication seams
+belong to package-internal verification and are not part of the consumer API.
 
 ## Lookup or update is rejected
 
-Compiled targets are detached and revision-bound. Compile the selector again
-after replacing data. Public domain APIs use one shape: element `{ id }` or
+Queried target sets are detached and revision-bound. Run `targets.query()`
+again after replacing data. Public domain APIs use one shape: element `{ id }` or
 component `{ id, componentId }`. `PatchMapError.hint` and rejected update
 results explain missing IDs without partially applying the batch.
 
