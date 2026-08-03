@@ -63,7 +63,7 @@ function patchMapErrorHint(diagnostic: PatchMapEngineDiagnostic): string {
     return 'Create a new PatchMap instance instead of reusing a destroyed one.';
   }
   if (diagnostic.code === 'MISSING_TARGET') {
-    return 'Check id/componentId, or compile the selector again after loading new data.';
+    return 'Check id/componentId, or query the target set again after loading new data.';
   }
   if (diagnostic.code === 'INVALID_VALUE' || diagnostic.code === 'INVALID_INPUT') {
     return diagnostic.datasetPath === undefined

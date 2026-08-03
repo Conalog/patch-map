@@ -300,3 +300,17 @@
   owners, and clean lifecycle teardown. Browser, memory, and performance gates
   were not repeated because the aggregate renderer, resource ownership, and
   existing height hot path did not change.
+
+**2026-08-03**
+
+- Replaced the public `targets.compile()` / `PatchMapCompiledTargets` language
+  with `targets.query()` / `PatchMapTargetSet`. The result now exposes only
+  `matches` and `count`; scene revision and reusable query authority remain
+  internal while stale and cross-instance sets continue to fail closed.
+- Updated the Lab, 5,000/10,000 performance harness, package declaration
+  negative checks, README, migration guide, diagnostics, and focused tests.
+  Verification passed 18 developer API tests, scoped lint, typecheck, Lab and
+  production builds, required audit, packed ESM/CJS/types, 38 journeys, four
+  examples, aggregate ownership, and lifecycle cleanup. No browser, memory, or
+  performance matrix was repeated because target resolution, renderer code,
+  and hot-path execution were unchanged.

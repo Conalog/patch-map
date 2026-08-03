@@ -35,7 +35,7 @@ import type {
   PatchMapTextBatchRequest,
 } from './semantic/transaction';
 import type {
-  PatchMapCompiledTargets,
+  PatchMapTargetSet,
   PatchMapDataLoadResult,
   PatchMapDeveloperApi,
   PatchMapFitOptions,
@@ -108,7 +108,7 @@ interface PatchMapDeveloperHost {
   snapshot(): PatchMapEngineSnapshot;
 }
 
-interface CompiledAuthority {
+interface TargetSetAuthority {
   readonly query: PatchMapEngineQueryResult;
   readonly logical: readonly PatchMapLogicalTargetSnapshot[];
 }
@@ -168,12 +168,12 @@ function targetMatch(target: PatchMapLogicalTargetSnapshot): PatchMapTargetMatch
   });
 }
 
-function isCompiledTargets(value: PatchMapTargets): value is PatchMapCompiledTargets {
+function isTargetSet(value: PatchMapTargets): value is PatchMapTargetSet {
   return typeof value === 'object' &&
     value !== null &&
     !Array.isArray(value) &&
-    'selector' in value &&
-    'targets' in value;
+    'matches' in value &&
+    'count' in value;
 }
 
 function oneOrMany<T>(value: PatchMapOneOrMany<T>): readonly T[] {
@@ -240,15 +240,15 @@ function dataLoadResult(result: PatchMapEngineLoadResult): PatchMapDataLoadResul
 
 function resolveSelectionIds(
   targets: PatchMapSelectionTargets,
-  compiled: WeakMap<PatchMapCompiledTargets, CompiledAuthority>,
+  targetSets: WeakMap<PatchMapTargetSet, TargetSetAuthority>,
 ): readonly string[] {
   if (typeof targets === 'string') return Object.freeze([targets]);
   if (Array.isArray(targets) && (targets.length === 0 || typeof targets[0] === 'string')) {
     return Object.freeze([...(targets as readonly string[])]);
   }
-  if (isCompiledTargets(targets as PatchMapTargets)) {
-    const authority = compiled.get(targets as PatchMapCompiledTargets);
-    if (authority === undefined) throw new TypeError('compiled targets belong to another PatchMap');
+  if (isTargetSet(targets as PatchMapTargets)) {
+    const authority = targetSets.get(targets as PatchMapTargetSet);
+    if (authority === undefined) throw new TypeError('target set belongs to another PatchMap');
     return Object.freeze([...new Set(authority.logical.map((target) => target.selectionId))]);
   }
   return Object.freeze([...new Set(oneOrMany(targets as PatchMapOneOrMany<PatchMapTarget>)
@@ -256,18 +256,18 @@ function resolveSelectionIds(
 }
 
 export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMapDeveloperApi {
-  const compiled = new WeakMap<PatchMapCompiledTargets, CompiledAuthority>();
+  const targetSets = new WeakMap<PatchMapTargetSet, TargetSetAuthority>();
 
   const assertReusable = (
-    targets: PatchMapCompiledTargets,
+    targets: PatchMapTargetSet,
     operation: 'update' | 'focus' | 'select',
-  ): CompiledAuthority => {
-    const authority = compiled.get(targets);
+  ): TargetSetAuthority => {
+    const authority = targetSets.get(targets);
     if (authority === undefined) {
-      throw new TypeError('compiled targets belong to another PatchMap instance');
+      throw new TypeError('target set belongs to another PatchMap instance');
     }
     if (host.reuseQueryResult(authority.query, operation).status === 'rejected') {
-      throw new TypeError('compiled targets are stale; compile the selector again after loading data');
+      throw new TypeError('target set is stale; run targets.query() again after loading data');
     }
     return authority;
   };
@@ -275,7 +275,7 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
   const targetsOf = (
     value: PatchMapTargets,
     operation: 'update' | 'focus' | 'select',
-  ): readonly PatchMapTarget[] => isCompiledTargets(value)
+  ): readonly PatchMapTarget[] => isTargetSet(value)
     ? assertReusable(value, operation).logical.map(targetMatch)
     : oneOrMany(value as PatchMapOneOrMany<PatchMapTarget>);
 
@@ -285,8 +285,8 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
     readonly selected: readonly PatchMapLogicalTargetSnapshot[];
     readonly sceneTargets: readonly PatchMapLogicalTargetSnapshot[];
   }> => {
-    if (isCompiledTargets(value as PatchMapTargets)) {
-      const authority = assertReusable(value as PatchMapCompiledTargets, 'update');
+    if (isTargetSet(value as PatchMapTargets)) {
+      const authority = assertReusable(value as PatchMapTargetSet, 'update');
       return Object.freeze({
         selected: authority.logical,
         sceneTargets: authority.query.targets,
@@ -364,7 +364,7 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
       });
       return result.targets[0] === undefined ? null : targetMatch(result.targets[0]);
     },
-    compile(selector: PatchMapTargetSelector): PatchMapCompiledTargets {
+    query(selector: PatchMapTargetSelector): PatchMapTargetSet {
       if (selector.id !== undefined) nonEmptyString(selector.id, 'selector.id');
       if (selector.componentId !== undefined) {
         nonEmptyString(selector.componentId, 'selector.componentId');
@@ -380,14 +380,11 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
       );
       const logical = Object.freeze(query.targets.filter((target) =>
         matchesSelector(target, selector, byKey)));
-      const frozenSelector = Object.freeze({ ...selector });
       const result = Object.freeze({
-        selector: frozenSelector,
-        targets: Object.freeze(logical.map(targetMatch)),
+        matches: Object.freeze(logical.map(targetMatch)),
         count: logical.length,
-        sceneRevision: query.sceneRevision,
       });
-      compiled.set(result, Object.freeze({ query, logical }));
+      targetSets.set(result, Object.freeze({ query, logical }));
       return result;
     },
   });
@@ -404,12 +401,12 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
     op: 'replace' | 'add' | 'remove' | 'toggle',
     selected: PatchMapSelectionTargets,
   ): readonly string[] => {
-    if (isCompiledTargets(selected as PatchMapTargets)) {
-      assertReusable(selected as PatchMapCompiledTargets, 'select');
+    if (isTargetSet(selected as PatchMapTargets)) {
+      assertReusable(selected as PatchMapTargetSet, 'select');
     }
     return host.applySelection({
       op,
-      ids: resolveSelectionIds(selected, compiled),
+      ids: resolveSelectionIds(selected, targetSets),
       source: 'external',
     }).current;
   };
@@ -428,7 +425,7 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
   });
 
   const transformIds = (selected: PatchMapTargets): readonly string[] =>
-    resolveSelectionIds(selected, compiled);
+    resolveSelectionIds(selected, targetSets);
   const transformOptions = (
     options: PatchMapTransformOptions,
   ): PatchMapEngineTransformerEditOptions => Object.freeze({

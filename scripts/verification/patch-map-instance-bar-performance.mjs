@@ -78,7 +78,7 @@ async function configure(page, size, trial) {
     }];
     const loaded = engine.loadDataset(dataset);
     engine.fitViewport({ paddingCssPx: 24 });
-    const targets = engine.targets.compile({
+    const targets = engine.targets.query({
       within: 'perf-grid',
       type: 'bar',
       componentId: 'level',

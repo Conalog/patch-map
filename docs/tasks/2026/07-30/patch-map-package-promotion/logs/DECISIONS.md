@@ -186,3 +186,16 @@
 - **Impact:** Type declarations and runtime validation now reject the removed
   aliases. The bar animation/GPU dirty-range path is unchanged, so this is a
   public-surface simplification rather than a new performance claim.
+
+## 2026-08-03 — Present reusable targets as a query result
+
+- **Background:** `targets.compile()` accurately described the internal
+  one-time selector resolution but forced application developers to understand
+  compilation and scene-revision bookkeeping.
+- **Decision:** Expose `targets.query()` returning a `PatchMapTargetSet` with
+  detached `matches` and `count`. Keep the scene query, revision authority,
+  cross-instance protection, and stale rejection in an internal WeakMap.
+- **Impact:** Repeated `updateBatch()`, selection, focus, and transform calls
+  retain the same cached target identity and complexity. Dataset replacement
+  still requires an explicit new query so a stale selector cannot update a
+  different scene accidentally.

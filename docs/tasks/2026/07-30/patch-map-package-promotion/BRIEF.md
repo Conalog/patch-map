@@ -29,6 +29,10 @@
 - Authored bar/text fast planners and the concrete grid-cell bar overlay remain
   internal commit paths. `updateBatch()` selects them without exposing
   `ownerId`, dense slots, or separate bar/text mutation domains.
+- Repeated semantic addressing uses `targets.query()` and an opaque
+  revision-bound `PatchMapTargetSet`. The internal one-time scene scan and
+  WeakMap authority remain, while compilation terminology and revision
+  bookkeeping stay outside application code.
 - The default package entry now guides application developers through
   `PatchMap.mount()`, `update()/updateBatch()/transaction()`, and cohesive
   `data/targets/selection/transform/viewport/history/assets/capture` domains.
@@ -96,12 +100,16 @@
   declarations enforce their absence, and callers use
   `bar.changes.size.width` / `bar.changes.source.fill`; the existing
   `bar.height` fast planner and renderer hot path are unchanged.
+- `targets.compile()` and `PatchMapCompiledTargets` are absent from the public
+  declaration. `targets.query()` returns `{ matches, count }`, retains cached
+  repeated-batch resolution, and still rejects cross-instance or stale target
+  sets after dataset replacement.
 
 # Next Step
 
 - Update the cleanup PR when explicitly requested. Integrating services should
-  start with `PatchMap.mount()`, use `update()` for one owner, compiled targets
-  plus columnar `updateBatch()` for repeated batches, and `transaction()` for
+  start with `PatchMap.mount()`, use `update()` for one owner, queried target
+  sets plus columnar `updateBatch()` for repeated batches, and `transaction()` for
   heterogeneous or structural atomic work. Retain non-bar per-cell live state
   until a separately approved package contract exists. The external
   project-context shape checker must learn that the retained

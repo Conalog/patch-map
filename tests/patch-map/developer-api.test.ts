@@ -278,17 +278,19 @@ describe('PatchMap high-level developer API', () => {
     await Promise.all(engines.splice(0).map((engine) => engine.destroy()));
   });
 
-  it('compiles semantic instance targets once and reuses stable id/componentId addresses', () => {
+  it('queries a reusable semantic target set with stable id/componentId addresses', () => {
     const harness = createHost();
     const map = createPatchMapDeveloperApi(harness.host);
-    const usage = map.targets.compile({
+    const usage = map.targets.query({
       within: 'rack-grid',
       componentId: 'usage',
       type: 'bar',
       scope: 'instances',
     });
 
-    expect(usage.targets).toEqual([{
+    expect('compile' in map.targets).toBe(false);
+    expect(usage.count).toBe(1);
+    expect(usage.matches).toEqual([{
       id: 'rack-grid.12.3',
       componentId: 'usage',
       kind: 'component',
@@ -349,14 +351,14 @@ describe('PatchMap high-level developer API', () => {
     });
   });
 
-  it('rejects stale compiled selectors instead of updating a new scene by accident', () => {
+  it('rejects stale target sets instead of updating a new scene by accident', () => {
     const harness = createHost();
     const map = createPatchMapDeveloperApi(harness.host);
-    const targets = map.targets.compile({ type: 'bar', scope: 'instances' });
+    const targets = map.targets.query({ type: 'bar', scope: 'instances' });
     harness.setReusable(false);
 
     expect(() => map.updateBatch({ targets, bar: { height: [30] } })).toThrow(
-      'compiled targets are stale; compile the selector again after loading data',
+      'target set is stale; run targets.query() again after loading data',
     );
   });
 

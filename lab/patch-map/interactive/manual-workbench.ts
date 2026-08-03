@@ -7,7 +7,7 @@ import {
   type PatchMapAssetIngestionPolicyProfile,
   type PatchMapFrameLoop,
   type PatchMapEngineHistoryResult,
-  type PatchMapCompiledTargets,
+  type PatchMapTargetSet,
   type PatchMapUpdateTargets,
 } from '../../../src/patch-map/index';
 import {
@@ -158,7 +158,8 @@ export function mountPatchMapManualWorkbench(
   const assetLeases: PatchMapAssetAcquisition[] = [];
   let engineUnbinds: Array<() => void> = [];
   let frameLoop: PatchMapFrameLoop | null = null;
-  let compiledAnimatedBars: PatchMapCompiledTargets | null = null;
+  let animatedBarTargets: PatchMapTargetSet | null = null;
+  let animatedBarSceneRevision: number | null = null;
   let resizeObserver: ResizeObserver | null = null;
   let performanceObserver: PerformanceObserver | null = null;
   let lastSnapshot: ReturnType<PatchMap['snapshot']> | null = null;
@@ -853,18 +854,19 @@ export function mountPatchMapManualWorkbench(
     return result;
   }
 
-  function currentAnimatedBarTargets(next: PatchMap): PatchMapCompiledTargets {
+  function currentAnimatedBarTargets(next: PatchMap): PatchMapTargetSet {
     const sceneRevision = next.snapshot().revisions.sceneRevision;
     if (
-      compiledAnimatedBars === null ||
-      compiledAnimatedBars.sceneRevision !== sceneRevision
+      animatedBarTargets === null ||
+      animatedBarSceneRevision !== sceneRevision
     ) {
-      compiledAnimatedBars = next.targets.compile({
+      animatedBarTargets = next.targets.query({
         type: 'bar',
         scope: manualSceneSize === 'actual-production' ? 'instances' : 'authored',
       });
+      animatedBarSceneRevision = sceneRevision;
     }
-    return compiledAnimatedBars;
+    return animatedBarTargets;
   }
 
   function randomizeTexts(): unknown {
@@ -1417,7 +1419,10 @@ export function mountPatchMapManualWorkbench(
 
   async function destroyEngine(): Promise<void> {
     await settlePatchMapManualCleanup([
-      () => { compiledAnimatedBars = null; },
+      () => {
+        animatedBarTargets = null;
+        animatedBarSceneRevision = null;
+      },
       () => pointerController.unbind(),
       () => {
         const previous = resizeObserver;

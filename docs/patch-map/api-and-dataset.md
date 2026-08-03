@@ -81,11 +81,11 @@ the engine clears the overlay. See the
 [migration guide](./migration.md#grid-template-values-versus-concrete-cell-values)
 for the persistence and unsupported-state boundary.
 
-Repeated semantic target sets can be compiled once without exposing JSONPath
-or dense slots:
+Repeated semantic target sets can be queried once and reused without exposing
+JSONPath or dense slots:
 
 ```ts
-const usageBars = patchMap.targets.compile({
+const usageBars = patchMap.targets.query({
   within: 'rack-grid',
   componentId: 'usage',
   type: 'bar',
@@ -98,8 +98,8 @@ patchMap.updateBatch({
 }, { animate: true });
 ```
 
-Compiled targets are revision-bound. Loading a replacement dataset makes an
-old handle fail with a direct instruction to compile it again, preventing a
+Target sets are revision-bound. Loading a replacement dataset makes an old
+set fail with a direct instruction to query it again, preventing a
 stale batch from reaching unrelated IDs.
 
 `data.load()` detaches caller data. It preserves stable element IDs,

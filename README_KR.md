@@ -69,10 +69,10 @@ frame loop, host 크기 관찰, 최초 fit을 자동으로 소유합니다. `des
 명시적으로 실행할 때만 사용하세요.
 
 grid instance를 반복 갱신할 때는 JSONPath나 갱신마다 scene scan을 쓰지
-않고 semantic selector를 한 번 compile해 재사용할 수 있습니다.
+않고 semantic target set을 한 번 조회해 재사용할 수 있습니다.
 
 ```ts
-const usageBars = patchMap.targets.compile({
+const usageBars = patchMap.targets.query({
   within: 'rack-grid',
   componentId: 'usage',
   type: 'bar',

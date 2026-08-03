@@ -68,11 +68,11 @@ animation frame loop, observes the host size, fits the initial data, and
 releases those resources in `destroy()`. Use `backend: 'webgpu'` only for an
 explicit experimental session.
 
-For repeated grid-instance updates, compile one semantic selector and reuse
-it without JSONPath or per-update scene scans:
+For repeated grid-instance updates, query one semantic target set and reuse it
+without JSONPath or per-update scene scans:
 
 ```ts
-const usageBars = patchMap.targets.compile({
+const usageBars = patchMap.targets.query({
   within: 'rack-grid',
   componentId: 'usage',
   type: 'bar',

@@ -121,6 +121,8 @@ const capabilities: readonly string[] = PATCH_MAP_HOST_ADAPTER_CAPABILITIES;
 const mount: typeof PatchMapHostAdapter.mount = PatchMapHostAdapter.mount;
 const snapshot: PatchMapEngineSnapshot | null = null;
 declare const mounted: Awaited<ReturnType<typeof PatchMap.mount>>;
+// @ts-expect-error targets.compile is intentionally not a public API.
+mounted.targets.compile(targetSelector);
 mounted.update({
   id: 'strict-bar-fill',
   bar: {

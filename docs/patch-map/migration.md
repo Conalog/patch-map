@@ -36,11 +36,11 @@ assets, and cleanup to one `PatchMap` instance.
 | create and mount a map | `await PatchMap.mount({ target, data })` | one live `PatchMap` and one canvas per host slot; host sizing and frame ownership default to the package |
 | set PATCH MAP JSON | `data.load()` or `data.loadAsync()` | pass the existing v0.10 array directly; use the compatibility materializer only for the one documented legacy object |
 | drive visible frames | automatic after `mount()` | remove the previous host RAF/ticker; explicit publication remains an advanced deterministic seam |
-| find logical objects | `targets.get()` or `targets.compile()` | use `{ id, componentId? }`; compiled selectors are detached and revision-bound |
+| find logical objects | `targets.get()` or `targets.query()` | use `{ id, componentId? }`; target sets are detached and revision-bound |
 | update one logical owner | `update()` | change element fields and its bar/text/icon/background components in one atomic commit; omit `componentId` only when the component type is unique |
 | update many objects with equal-shaped values | columnar `updateBatch()` | column lengths must match target count; authored bar/text fast paths retain their compact planners |
 | compose heterogeneous or structural work | `transaction()` | one ordered validation, scene publication, selection companion, and history entry; one failure rejects the whole operation |
-| selection | `selection.set/add/remove/toggle/clear` | use stable IDs or compiled targets; pointer-originated selection stays package-owned |
+| selection | `selection.set/add/remove/toggle/clear` | use stable IDs or target sets; pointer-originated selection stays package-owned |
 | move, resize, or rotate | transformer edit methods | use stable selection IDs; do not mutate geometry snapshots |
 | pan, zoom, reset, or fit | `viewport.pan/zoom/reset/fit` | remove duplicate host coordinate transforms and viewport inertia |
 | undo and redo | `history.undo/redo` | route keyboard ownership through `handleHistoryShortcut()` only in advanced editor hosts |
@@ -136,8 +136,8 @@ const target = patchMap.targets.get({ id: 'rack-01' });
 if (target) patchMap.selection.set(target.id);
 ```
 
-Each target match is detached. A compiled target set also records its scene
-revision and rejects after dataset replacement; compile it again instead of
+Each target match is detached. A queried target set is also bound to its scene
+revision and rejects after dataset replacement; query it again instead of
 mutating its detached `value` object.
 
 Subscribe with `selection.onChange()` and change selection with
@@ -212,7 +212,7 @@ instance overlay API rather than cloning the grid template into thousands of
 dataset records:
 
 ```ts
-const usageBars = patchMap.targets.compile({
+const usageBars = patchMap.targets.query({
   within: 'rack-grid',
   componentId: 'usage',
   type: 'bar',

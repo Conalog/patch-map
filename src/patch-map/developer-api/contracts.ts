@@ -56,11 +56,9 @@ export interface PatchMapTargetMatch extends PatchMapTarget {
   readonly value: Readonly<Record<string, unknown>>;
 }
 
-export interface PatchMapCompiledTargets {
-  readonly selector: Readonly<PatchMapTargetSelector>;
-  readonly targets: readonly PatchMapTargetMatch[];
+export interface PatchMapTargetSet {
+  readonly matches: readonly PatchMapTargetMatch[];
   readonly count: number;
-  readonly sceneRevision: number;
 }
 
 export type PatchMapOneOrMany<T> = T | readonly T[];
@@ -68,7 +66,7 @@ export type PatchMapOneOrMany<T> = T | readonly T[];
 export type PatchMapTargets =
   | PatchMapTarget
   | readonly PatchMapTarget[]
-  | PatchMapCompiledTargets;
+  | PatchMapTargetSet;
 
 export type PatchMapSelectionTargets =
   | string
@@ -251,7 +249,7 @@ export interface PatchMapDataApi {
 
 export interface PatchMapTargetsApi {
   get(target: PatchMapTarget): PatchMapTargetMatch | null;
-  compile(selector: PatchMapTargetSelector): PatchMapCompiledTargets;
+  query(selector: PatchMapTargetSelector): PatchMapTargetSet;
 }
 
 export interface PatchMapSelectionApi {
