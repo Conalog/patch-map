@@ -48,32 +48,43 @@ const data = [{
   ],
 }];
 
-const patchMap = new PatchMap();
-
-await patchMap.initialize({
-  instanceId: 'rack-map',
-  target: document.querySelector('#map')!,
-  width: 960,
-  height: 640,
-  preference: 'webgl',
-  strategy: 'mesh',
+const patchMap = await PatchMap.mount({
+  target: '#map',
+  data,
+  fit: { padding: 24 },
 });
 
-patchMap.loadDataset(data);
-patchMap.fitViewport({ paddingCssPx: 24 });
-
-const frameLoop = patchMap.createFrameLoop();
-frameLoop.publishNow();
-
-patchMap.updateBarHeights({
-  targets: [{ ownerId: 'rack-01', componentId: 'usage' }],
-  heights: [82],
+patchMap.bars.set({
+  id: 'rack-01',
+  componentId: 'usage',
+  height: 82,
 });
-frameLoop.request(600);
 
 // During unmount:
-frameLoop.destroy();
 await patchMap.destroy();
+```
+
+`mount()` defaults to the production WebGL2 Mesh renderer, owns the single
+animation frame loop, observes the host size, fits the initial data, and
+releases those resources in `destroy()`. Use `backend: 'webgpu'` only for an
+explicit experimental session.
+
+For repeated grid-instance updates, compile one semantic selector and reuse
+it without JSONPath or per-update scene scans:
+
+```ts
+const usageBars = patchMap.targets.compile({
+  within: 'rack-grid',
+  componentId: 'usage',
+  type: 'bar',
+  scope: 'instances',
+});
+
+patchMap.bars.setInstanceBatch(
+  usageBars,
+  new Float32Array(usageBars.count).fill(75),
+  { animate: true },
+);
 ```
 
 The input object is detached and never mutated. IDs and component owner/ID

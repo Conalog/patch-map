@@ -6,8 +6,8 @@ scene state, aggregate Pixi rendering, hit testing, selection, transformation,
 history, renderer resources, per-instance subscriptions, and reusable frame
 cadence.
 
-Use one `PatchMap` per mounted map. A host slot must contain exactly one
-active PatchMap canvas. Multiple engines may share one `PatchMapAssetRuntime`;
+Use `PatchMap.mount({ target, data })` once per mounted map. A host slot must
+contain exactly one active PatchMap canvas. Multiple engines may share one `PatchMapAssetRuntime`;
 each engine keeps its own asset session and releases only its leases at
 destroy. Do not call PixiJS global cache destruction from an instance.
 
@@ -16,16 +16,17 @@ origin, response, MIME, size, and byte validation, before the engine admits its
 texture. An existing Pixi global-cache entry with the same URL is not evidence
 that those checks ran and is never borrowed as a validation shortcut.
 
-Use `patchMap.createFrameLoop()` when the host wants visible animation and
-gesture frames without implementing its own requestAnimationFrame scheduler.
-PatchMap owns that loop, schedules it from product changes, pauses it across
-document visibility transitions, and destroys it before the Pixi surface.
+The normal `PatchMap.mount()` path creates the package frame loop for visible
+animation and gesture frames, observes the host size, schedules product
+changes, pauses across document visibility transitions, and destroys these
+resources before the Pixi surface.
 Deterministic evidence runners may omit it and continue to call
 `publishFrame(timeMs)` explicitly. Never run both a host RAF publisher and the
 package loop for the same PatchMap instance.
 
-The packaged `examples/patch-map/host-adapter.ts` demonstrates the intended
-adapter boundary:
+The packaged examples demonstrate the intended high-level boundary.
+`examples/patch-map/host-adapter.ts` is reserved for advanced migration
+verification responsibilities:
 
 - `load()` first uses the explicit canonical/legacy compatibility
   materializer, then delegates the detached array to `loadDataset()`;

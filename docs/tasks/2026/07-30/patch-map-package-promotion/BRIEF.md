@@ -23,6 +23,10 @@
   separate public operations: `updateBarHeights()` changes authored semantic
   state, while `updateInstanceBarHeights()` addresses stable
   `<grid>.<row>.<column>` IDs without rewriting the dataset or history.
+- The default package entry now guides application developers through
+  `PatchMap.mount()` and cohesive `data/targets/bars/texts/selection/transform/
+  viewport/history/assets/capture` domains. `PatchMapAdvanced` retains the
+  deterministic low-level seams without creating a second runtime or renderer.
 - The structural refactor keeps atomic mutation in the facade while assigning
   geometry, semantic indexing, Pixi adaptation, Mesh planning, public
   contracts, Lab presentation, and actual-only test harnesses explicit owners.
@@ -61,14 +65,21 @@
   58.9ms for 10,000 cells. The 10,000-cell rAF-gap p95 median is 99.1ms and
   long-task-count median is 2; those unfavorable residual gaps remain visible
   in `.perf-results/patch-map/instance-bar-latest.json`.
+- The DX promotion checkpoint passes full lint, 196 unit files / 1,772 tests,
+  typecheck, product and Lab builds, canonical 38/173 verification, and the
+  required-audit packed ESM/CJS/types consumer with 38 journeys, four
+  high-level examples, aggregate ownership, capture serialization, and clean
+  lifecycle teardown. The renderer and bar hot path did not change, so this
+  checkpoint makes no new performance claim.
 
 # Next Step
 
 - Update the cleanup PR when explicitly requested. Integrating services should
-  migrate materialized per-cell bar writes to the documented runtime overlay
-  API and retain non-bar per-cell live state until a separately approved
-  package contract exists. The external project-context shape checker must
-  learn that the retained
+  start with `PatchMap.mount()` and the domain API, use compiled semantic
+  targets for repeated batches, migrate materialized per-cell bar writes to
+  the documented runtime overlay API, and retain non-bar per-cell live state
+  until a separately approved package contract exists. The external
+  project-context shape checker must learn that the retained
   `performance-core-v2/evidence` directory is evidence-only instead of asking
   this branch to restore explicitly removed legacy BRIEF/WORKLOG/DECISIONS.
   Increase the package version only after merge.

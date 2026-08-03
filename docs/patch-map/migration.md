@@ -33,19 +33,19 @@ assets, and cleanup to one `PatchMap` instance.
 
 | Existing host responsibility | PatchMap replacement | Important cutover rule |
 | --- | --- | --- |
-| create and mount a map | `new PatchMap()` then await `initialize()` | one live `PatchMap` and one canvas per host slot |
-| set PATCH MAP JSON | `loadDataset()` or `loadDatasetAsync()` | pass the existing v0.10 array directly; use the compatibility materializer only for the one documented legacy object |
-| drive visible frames | `createFrameLoop()` or explicit `publishFrame()` | never run both a host RAF/ticker and the package loop for one instance |
-| find logical objects | `queryScene()` or `resolveTarget()` | results are detached and revision-bound, not mutable live nodes |
-| update many objects | `updateBarHeights()`, `updateInstanceBarHeights()`, `updateTexts()`, `bulkPatch()`, or `transact()` | choose template/semantic updates or concrete-instance presentation updates deliberately; inspect the returned status |
-| selection | `applySelection()`, hit-test methods, and `bindSelectionHost()` | the binding publishes canvas-originated selection to the host; external state enters through `applySelection()` or `setExternalSelection()` |
+| create and mount a map | `await PatchMap.mount({ target, data })` | one live `PatchMap` and one canvas per host slot; host sizing and frame ownership default to the package |
+| set PATCH MAP JSON | `data.load()` or `data.loadAsync()` | pass the existing v0.10 array directly; use the compatibility materializer only for the one documented legacy object |
+| drive visible frames | automatic after `mount()` | remove the previous host RAF/ticker; explicit publication remains an advanced deterministic seam |
+| find logical objects | `targets.get()` or `targets.compile()` | use `{ id, componentId? }`; compiled selectors are detached and revision-bound |
+| update many objects | `bars.set()`, `bars.setInstanceBatch()`, or `texts.set()` | choose authored/template updates or concrete-instance presentation updates deliberately; inspect the returned status |
+| selection | `selection.set/add/remove/toggle/clear` | use stable IDs or compiled targets; pointer-originated selection stays package-owned |
 | move, resize, or rotate | transformer edit methods | use stable selection IDs; do not mutate geometry snapshots |
-| pan, zoom, reset, or fit | viewport methods | remove duplicate host coordinate transforms and viewport inertia |
-| undo and redo | history methods | route keyboard ownership through `handleHistoryShortcut()` |
-| load images or fonts | asset registration/session methods | do not borrow Pixi global-cache state as proof of validation |
+| pan, zoom, reset, or fit | `viewport.pan/zoom/reset/fit` | remove duplicate host coordinate transforms and viewport inertia |
+| undo and redo | `history.undo/redo` | route keyboard ownership through `handleHistoryShortcut()` only in advanced editor hosts |
+| load images or fonts | `assets.register()` | do not borrow Pixi global-cache state as proof of validation |
 | validate a save | `preparePatchMapPersistenceExport()` and semantic-hash roundtrip | write only after every guard passes |
-| inspect state | `snapshot()` and semantic/product probes | probes are diagnostics, not mutable renderer handles |
-| capture a report | `extractPublishedScene()` | publish first and pass the exact current tuple and CSS size |
+| inspect state | `debug.snapshot()` | snapshots are diagnostics, not mutable renderer handles |
+| capture a report | `await capture.png()` | the package publishes and protects the exact capture tuple |
 | unmount | dispose host subscriptions, stop retained handles, then await `destroy()` | teardown is asynchronous and must finish before remounting the slot |
 
 ## Target lifecycle
@@ -55,71 +55,42 @@ The smallest complete replacement looks like this:
 ```ts
 import {
   PatchMap,
-  materializePatchMapCompatibilityDataset,
-  type PatchMapSelectionHostPublication,
 } from '@conalog/patch-map';
 
 export async function mountMap(
   host: HTMLElement,
   input: unknown,
-  onCanvasSelection: (value: PatchMapSelectionHostPublication) => void,
 ) {
-  const patchMap = new PatchMap();
-
-  try {
-    await patchMap.initialize({
-      instanceId: 'service-map',
-      target: host,
-      width: host.clientWidth,
-      height: host.clientHeight,
-      preference: 'webgl',
-      strategy: 'mesh',
-    });
-
-    // Canonical PATCH MAP v0.10 arrays remain unchanged. The materializer also
-    // admits the single legacy generic-item profile documented below.
-    const compatible = materializePatchMapCompatibilityDataset(input);
-    patchMap.loadDataset(compatible.canonicalDataset, {
-      datasetRef: 'service:current',
-      strict: true,
-    });
-
-    patchMap.fitViewport({ paddingCssPx: 24 });
-    const frameLoop = patchMap.createFrameLoop();
-    const releaseSelection = patchMap.bindSelectionHost(onCanvasSelection);
-    frameLoop.publishNow();
-
-    return {
-      patchMap,
-      async destroy() {
-        releaseSelection();
-        frameLoop.destroy();
-        await patchMap.destroy();
-      },
-    };
-  } catch (error) {
-    await patchMap.destroy().catch(() => undefined);
-    throw error;
-  }
+  return PatchMap.mount({
+    instanceId: 'service-map',
+    target: host,
+    data: input,
+    fit: { padding: 24 },
+  });
 }
 ```
 
-The packaged [`host-adapter.ts`](../../examples/patch-map/host-adapter.ts)
-shows the complete consumer-owned adapter boundary. Copy or adapt that source
-inside the consuming service; it is an example, not a package subpath export.
-The minimal, Dashboard, Editor, and Report examples are compiled and executed
-against the packed artifact during release verification.
+The returned object owns its frame loop and ResizeObserver. The host unmount
+path only needs `await patchMap.destroy()`. For the pinned legacy generic-item
+profile, materialize it before passing `data`; canonical PATCH MAP v0.10 arrays
+are passed directly.
+
+The packaged `minimal`, `dashboard`, `editor`, and `report` examples show the
+preferred domain API. [`host-adapter.ts`](../../examples/patch-map/host-adapter.ts)
+remains an advanced migration verifier; do not copy its low-level lifecycle
+into a normal integration.
 
 ### Frame ownership
 
 Choose one publication model per instance:
 
-1. Normal interactive services create exactly one loop with
-   `patchMap.createFrameLoop()`. PatchMap invalidates it for product-owned
-   mutations, animation, and interaction, pauses it for document visibility,
-   and cancels it during engine destruction.
-2. Deterministic evidence or a deliberately manual host omits the loop and
-   calls `publishFrame(timeMs)` only at explicit boundaries.
+1. Normal interactive services use `PatchMap.mount()`, which creates and owns
+   exactly one loop. PatchMap invalidates it for product-owned mutations,
+   animation, and interaction, pauses it for document visibility, and cancels
+   it during destruction.
+2. Deterministic evidence or a deliberately manual host uses
+   `PatchMapAdvanced`, omits the loop, and calls `publishFrame(timeMs)` only at
+   explicit boundaries.
 
 Do not keep the old ticker, requestAnimationFrame callback, entity-level
 animation closures, or mirrored pointer bookkeeping. Running two publishers
@@ -128,7 +99,7 @@ unmount.
 
 ## Dataset cutover
 
-`loadDataset()` and `loadDatasetAsync()` accept the strict unversioned PATCH
+`data.load()` and `data.loadAsync()` accept the strict unversioned PATCH
 MAP array schema. Existing v0.10 `item`, `grid`, `relations`, `group`, `rect`,
 `text`, `image`, `icon`, and component records remain the input boundary.
 PatchMap detaches that input, preserves stable element IDs and component
@@ -147,13 +118,11 @@ Do not use it as a permissive unknown-schema converter.
 | non-array persistence root | rejected as `INVALID_EXPORT_ROOT` before any host write |
 | cyclic, sparse, accessor-backed, non-plain, symbol-keyed, non-finite, or non-JSON value | rejected as `NON_SERIALIZABLE_VALUE` at the exact input path |
 
-Use synchronous `loadDataset()` for an already available scene. Use
-`loadDatasetAsync()` or `submitDataset()` when replacement work must yield or
-when requests can supersede one another. A superseded `loadDatasetAsync()`
-rejects with a structured `SUPERSEDED` diagnostic; `submitDataset()` resolves
-with `status: 'superseded'` and invokes its optional release callback exactly
-once. Neither outcome is success, so it must not update host persistence or
-analytics as though the new scene committed.
+Use synchronous `data.load()` for an already available scene and
+`data.loadAsync()` when replacement work must yield. A superseded async load
+rejects with a structured `SUPERSEDED` diagnostic, so it must not update host
+persistence or analytics as though the new scene committed. Advanced hosts
+that need an explicit supersession queue may use `PatchMapAdvanced.submitDataset()`.
 
 With `{ strict: true }`, a dangling relation or invalid required value rejects
 before publication. Compatibility mode may omit a dangling relation from
@@ -165,52 +134,38 @@ Old live-node references cannot cross the new engine boundary. Query by
 stable logical identity and keep snapshots short-lived:
 
 ```ts
-const result = patchMap.queryScene({
-  recursive: true,
-  where: { id: 'rack-01' },
-});
-
-const target = result.targets[0];
-if (target) {
-  patchMap.applySelection({
-    op: 'replace',
-    ids: [target.selectionId],
-    source: 'programmatic',
-  });
-}
+const target = patchMap.targets.get({ id: 'rack-01' });
+if (target) patchMap.selection.set(target.id);
 ```
 
-Each query result records its lifecycle and scene revision. Re-query after a
-dataset replacement. If a flow intentionally retains a resolved snapshot,
-use `patchResolved()` and handle `STALE_TARGET`; never recover by mutating its
-detached `value` object.
+Each target match is detached. A compiled target set also records its scene
+revision and rejects after dataset replacement; compile it again instead of
+mutating its detached `value` object.
 
-Canvas-originated selection can be published out through
-`bindSelectionHost()`. Host-originated selection travels in through
-`setExternalSelection()` or `applySelection()`. This directionality prevents
-the host and canvas from echoing the same change forever. Dispose every
-binding returned to the host before destroying the engine.
+Subscribe with `selection.onChange()` and change selection with
+`selection.set/add/remove/toggle/clear`. The returned unsubscribe function
+must be called when the host no longer needs the notification.
 
 ## Mutations, animation, and history
 
-Replace direct object edits and per-node commands with one atomic engine
-operation. Prefer the specialized batch paths for high-volume bar or text
-changes; use `bulkPatch()` or `transact()` for general changes.
+Replace direct object edits and per-node commands with one domain operation.
+Prefer the specialized batch paths for high-volume bar or text changes.
 
 ```ts
-const result = patchMap.bulkPatch({
-  targets: [{ kind: 'element', id: 'rack-01' }],
-  changes: [{ path: ['attrs', 'x'], value: 120 }],
-  strict: true,
-  actionId: 'move-rack-01',
-});
+const result = patchMap.transform.move(
+  { id: 'rack-01' },
+  [120, 0],
+  {
+    actionId: 'move-rack-01',
+  },
+);
 
-if (result.status === 'rejected' || result.status === 'refused') {
+if (result.status !== 'committed') {
   // Keep host state unchanged and surface result.diagnostic.
 }
 ```
 
-`updateBarHeights()` and `updateTexts()` share the same commit, animation,
+`bars.set()` and `texts.set()` share the same commit, animation,
 history, and publication authorities without constructing a generic
 per-target command graph. Repeated bar updates retarget the active animation;
 the host must not create one ticker or closure per bar.
@@ -218,24 +173,29 @@ the host must not create one ticker or closure per bar.
 ### Grid template values versus concrete cell values
 
 A v0.10 `grid` stores one reusable `item` template. Updating the template bar
-with `updateBarHeights()` intentionally changes every expanded cell that uses
+with `bars.set()` intentionally changes every expanded cell that uses
 that component. An older host may instead have addressed materialized cell
 objects independently. Preserve that observable behavior with the runtime
 instance overlay API rather than cloning the grid template into thousands of
 dataset records:
 
 ```ts
-const result = patchMap.updateInstanceBarHeights({
-  targets: [
-    { id: 'rack-grid.12.3', componentId: 'usage' },
-    { id: 'rack-grid.12.4', componentId: 'usage' },
-  ],
-  heights: new Float64Array([37, 81]),
+const usageBars = patchMap.targets.compile({
+  within: 'rack-grid',
+  componentId: 'usage',
+  type: 'bar',
+  scope: 'instances',
 });
+
+const result = patchMap.bars.setInstanceBatch(
+  usageBars,
+  new Float64Array([37, 81]),
+  { animate: true },
+);
 
 if (result.status === 'rejected') {
   // No target was applied. Keep the host's corresponding live values intact.
-  console.error(result.diagnostic, result.missingTargets);
+  console.error(result.diagnostic, result.missing);
 }
 ```
 
@@ -259,7 +219,7 @@ updates while the same concrete owner/component identity exists and are
 discarded when that identity disappears, a new dataset is loaded, or the
 engine is destroyed. Persist per-cell live values in the host's state channel
 and replay them after loading if they must survive a remount. Use
-`updateBarHeights()` instead when the height is authored template state that
+`bars.set()` instead when the height is authored template state that
 must export and participate in history.
 
 Only bar height has this dedicated concrete-instance overlay in the current
@@ -325,21 +285,16 @@ or discard those identities in the host serializer.
 
 ## Extraction cutover
 
-Extraction is tied to an exact visible publication, not merely the latest
-logical state:
+The normal capture API protects the exact visible publication while the image
+is being extracted:
 
 ```ts
-frameLoop.publishNow();
-const snapshot = patchMap.snapshot();
-const capture = await patchMap.extractPublishedScene({
-  targetTuple: snapshot.publishedTuple,
-  cssSize: snapshot.resources.canvas.cssSize,
-  mime: 'image/png',
-});
+const capture = await patchMap.capture.png();
 ```
 
-A stale tuple, changed CSS size, unreadable asset, renderer loss, or destroyed
-instance rejects instead of returning a capture for a different frame.
+An unreadable asset, renderer loss, or destroyed instance rejects instead of
+returning a capture for a different frame. Exact tuple extraction remains an
+advanced deterministic seam on `PatchMapAdvanced`.
 
 ## Canary and rollback
 

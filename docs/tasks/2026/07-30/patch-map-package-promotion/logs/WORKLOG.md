@@ -237,3 +237,28 @@
   61.9ms at 10,000 targets, with zero and two long tasks respectively; the
   full 2+7 matrix was not repeated because renderer and lifecycle ownership
   did not change.
+
+## 2026-08-03 — High-level package DX tranche
+
+- Added the runtime-identical `PatchMap.mount()` entry with production WebGL2
+  Mesh defaults, owned frame cadence, ResizeObserver integration, initial
+  load/fit, and one-call teardown. Grouped normal work into `data`, `targets`,
+  `bars`, `texts`, `selection`, `transform`, `viewport`, `history`, `assets`,
+  `debug`, and `capture` domains; retained deterministic low-level control as
+  `PatchMapAdvanced`.
+- Replaced public `ownerId` mutation envelopes with one stable
+  `{ id, componentId? }` shape, accepted singular or batched inputs, added
+  revision-bound semantic target compilation for repeated instance batches,
+  and deliberately excluded JSONPath. Updated all four normal examples and
+  package/migration/troubleshooting documentation to start from this path.
+- Fix-first review found and corrected three lifecycle/API gaps: concurrent
+  captures are serialized behind the owned frame loop, manual mount sizing is
+  reachable through `viewport.resize()`, and `selection.onChange()` observes
+  both API-originated and canvas-originated changes.
+- Verification: focused 12/12 developer/capture tests PASS; full lint,
+  typecheck, 196 unit files / 1,772 tests, product and Lab builds, canonical
+  38/173 contract, and required-audit packed ESM/CJS/types + 38 journeys + four
+  examples PASS. The packed browser retained four aggregate owners and clean
+  lifecycle teardown. The earlier unchanged-path 2+7 memory checkpoint also
+  passed, but no new performance result is claimed because renderer, dense
+  store, and bar animation hot paths did not change.

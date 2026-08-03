@@ -14,10 +14,10 @@ provides a redesigned engine API; it does not emulate the previous package API.
 - [Changelog](./CHANGELOG.md)
 
 Runnable TypeScript examples are packaged in `examples/patch-map`:
-`minimal`, `dashboard`, `editor`, and `report`. Their shared
-`host-adapter.ts` is consumer-owned orchestration over public PatchMap methods;
-it does not implement rendering, selection, transformation, history, or
-extraction semantics itself.
+`minimal`, `dashboard`, `editor`, and `report`. All four use the preferred
+`PatchMap.mount()` and domain APIs. `host-adapter.ts` remains only as an
+advanced migration verifier; it does not implement rendering, selection,
+transformation, history, or extraction semantics itself.
 
 ## Release identity
 

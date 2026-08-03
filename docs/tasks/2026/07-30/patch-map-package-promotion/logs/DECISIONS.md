@@ -128,3 +128,25 @@
   dataset load or destroy. Export, semantic hash, scene revision, and history
   remain authored-only. Other concrete per-cell component properties are
   explicitly unsupported until they receive an equally bounded package API.
+
+## 2026-08-03 — Make the default package surface task-oriented
+
+- **Background:** The production engine was complete, but normal consumers
+  still had to configure the renderer, own publication cadence, translate
+  public identities into low-level mutation envelopes, and coordinate resize
+  and exact-tuple capture themselves.
+- **Decision:** Keep one runtime class, but type the root `PatchMap` entry as an
+  async `mount()` plus cohesive task domains. Keep the constructor and explicit
+  lifecycle/publication/probe seams under `PatchMapAdvanced`. Accept one or
+  many targets directly, use stable `{ id, componentId? }` addresses, and
+  compile a small revision-bound semantic selector for repeated batches.
+  JSONPath, dense slots, and normalized expected data remain outside the API.
+- **Why:** Common integration should express user work rather than renderer
+  bookkeeping, while specialized hosts and evidence runners still need exact
+  deterministic control. A runtime-identical advanced alias avoids wrapper
+  drift, duplicate canvases, and divergent performance behavior.
+- **Impact:** `mount()` owns WebGL2 Mesh defaults, one frame loop, host resize,
+  first load/fit/publication, and cleanup. `selection.onChange()` observes all
+  selection sources, manual sizing is available through `viewport.resize()`,
+  and overlapping `capture.png()` calls serialize so one request cannot
+  supersede another request's frame tuple.

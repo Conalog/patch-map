@@ -48,32 +48,43 @@ const data = [{
   ],
 }];
 
-const patchMap = new PatchMap();
-
-await patchMap.initialize({
-  instanceId: 'rack-map',
-  target: document.querySelector('#map')!,
-  width: 960,
-  height: 640,
-  preference: 'webgl',
-  strategy: 'mesh',
+const patchMap = await PatchMap.mount({
+  target: '#map',
+  data,
+  fit: { padding: 24 },
 });
 
-patchMap.loadDataset(data);
-patchMap.fitViewport({ paddingCssPx: 24 });
-
-const frameLoop = patchMap.createFrameLoop();
-frameLoop.publishNow();
-
-patchMap.updateBarHeights({
-  targets: [{ ownerId: 'rack-01', componentId: 'usage' }],
-  heights: [82],
+patchMap.bars.set({
+  id: 'rack-01',
+  componentId: 'usage',
+  height: 82,
 });
-frameLoop.request(600);
 
 // 화면에서 제거할 때
-frameLoop.destroy();
 await patchMap.destroy();
+```
+
+`mount()`는 production 기준인 WebGL2 Mesh renderer, 단 하나의 animation
+frame loop, host 크기 관찰, 최초 fit을 자동으로 소유합니다. `destroy()`만
+호출하면 이 자원도 함께 정리됩니다. `backend: 'webgpu'`는 실험 세션을
+명시적으로 실행할 때만 사용하세요.
+
+grid instance를 반복 갱신할 때는 JSONPath나 갱신마다 scene scan을 쓰지
+않고 semantic selector를 한 번 compile해 재사용할 수 있습니다.
+
+```ts
+const usageBars = patchMap.targets.compile({
+  within: 'rack-grid',
+  componentId: 'usage',
+  type: 'bar',
+  scope: 'instances',
+});
+
+patchMap.bars.setInstanceBatch(
+  usageBars,
+  new Float32Array(usageBars.count).fill(75),
+  { animate: true },
+);
 ```
 
 입력 객체는 내부 데이터와 분리되며 수정되지 않습니다. element ID와
