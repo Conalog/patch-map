@@ -51,6 +51,12 @@ icon, or background components in one atomic commit. A component ID is optional
 when the owner has exactly one component of that type; an ambiguous owner is
 rejected with an instruction to set `componentId`.
 
+Only mutation fields with a distinct optimized commit path receive a named
+shortcut. `bar.height` selects the aggregate bar-height path; other bar fields
+remain under `bar.changes`, for example
+`{ size: { width: 80 }, source: { fill: '#22c55e' } }`. This keeps the public
+surface from implying a performance distinction that does not exist.
+
 `changes` is for non-structural fields such as `attrs`, `size`, visibility, and
 component source/style data. Stable identity and identity-bearing collections
 (`id`, `type`, `components`, `children`, grid `item`/`cells`, and relation

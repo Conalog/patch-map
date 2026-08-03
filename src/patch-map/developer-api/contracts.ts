@@ -109,10 +109,6 @@ export interface PatchMapComponentUpdate {
 export interface PatchMapBarUpdate extends PatchMapComponentUpdate {
   /** Convenience alias for `size.height`. `null` restores an instance overlay. */
   readonly height?: number | null;
-  /** Convenience alias for `size.width`. */
-  readonly width?: PatchMapMutationJsonValue;
-  /** Convenience alias for `source.fill`. */
-  readonly fill?: PatchMapMutationJsonValue;
 }
 
 export interface PatchMapTextUpdate extends PatchMapComponentUpdate {
@@ -146,8 +142,6 @@ export interface PatchMapComponentUpdateColumns {
 
 export interface PatchMapBarUpdateColumns extends PatchMapComponentUpdateColumns {
   readonly height?: PatchMapUpdateColumn<number | null>;
-  readonly width?: PatchMapUpdateColumn<PatchMapMutationJsonValue>;
-  readonly fill?: PatchMapUpdateColumn<PatchMapMutationJsonValue>;
 }
 
 export interface PatchMapTextUpdateColumns extends PatchMapComponentUpdateColumns {

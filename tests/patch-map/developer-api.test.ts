@@ -367,7 +367,12 @@ describe('PatchMap high-level developer API', () => {
     expect(map.update({
       id: 'rack',
       changes: { attrs: { x: 40 } },
-      bar: { width: 88, fill: '#22c55e' },
+      bar: {
+        changes: {
+          size: { width: 88 },
+          source: { fill: '#22c55e' },
+        },
+      },
       text: { text: '정상', style: { fill: '#ffffff' } },
     }, { actionId: 'refresh-rack' })).toMatchObject({
       status: 'committed',
@@ -422,7 +427,11 @@ describe('PatchMap high-level developer API', () => {
     });
 
     expect(map.transaction([
-      { type: 'update', id: 'rack', bar: { fill: '#f97316' } },
+      {
+        type: 'update',
+        id: 'rack',
+        bar: { changes: { source: { fill: '#f97316' } } },
+      },
       { type: 'move', id: 'rack', parentId: null, index: 0 },
     ], {
       actionId: 'reorder-rack',
@@ -447,6 +456,22 @@ describe('PatchMap high-level developer API', () => {
       targets: ['rack'],
       bar: { height: [20, 30] },
     })).toThrow('bar.height column length must match 1 targets');
+    expect(harness.lastBarRequest()).toBeNull();
+    expect(harness.lastTransactionRequest()).toBeNull();
+  });
+
+  it('keeps non-hot-path bar fields behind component changes', () => {
+    const harness = createHost();
+    const map = createPatchMapDeveloperApi(harness.host);
+
+    expect(() => map.update({
+      id: 'rack',
+      bar: { fill: '#22c55e' },
+    } as never)).toThrow('$.update.bar.fill is not a supported field');
+    expect(() => map.updateBatch({
+      targets: ['rack'],
+      bar: { width: [92] },
+    } as never)).toThrow('$.updateBatch.bar.width is not a supported field');
     expect(harness.lastBarRequest()).toBeNull();
     expect(harness.lastTransactionRequest()).toBeNull();
   });
@@ -531,7 +556,12 @@ describe('PatchMap high-level developer API', () => {
     expect(map.updateBatch({
       targets: ['rack'],
       changes: { attrs: [{ x: 64 }] },
-      bar: { width: [92], fill: ['#16a34a'] },
+      bar: {
+        changes: {
+          size: [{ width: 92 }],
+          source: [{ fill: '#16a34a' }],
+        },
+      },
       text: { text: ['가동'], style: [{ fill: '#f8fafc' }] },
     }, { actionId: 'columnar-rack' })).toMatchObject({
       status: 'committed',
@@ -593,7 +623,12 @@ describe('PatchMap high-level developer API', () => {
     }]);
     const input = Object.freeze({
       id: 'rack',
-      bar: Object.freeze({ height: 72, fill: '#22c55e' }),
+      bar: Object.freeze({
+        height: 72,
+        changes: Object.freeze({
+          source: Object.freeze({ fill: '#22c55e' }),
+        }),
+      }),
       text: Object.freeze({
         text: '정상',
         style: Object.freeze({ fill: '#ffffff' }),
@@ -608,7 +643,7 @@ describe('PatchMap high-level developer API', () => {
     expect(surface.reconcileCalls).toHaveLength(1);
     expect(input).toEqual({
       id: 'rack',
-      bar: { height: 72, fill: '#22c55e' },
+      bar: { height: 72, changes: { source: { fill: '#22c55e' } } },
       text: { text: '정상', style: { fill: '#ffffff' } },
     });
     const rack = engine.exportDataset()[0];

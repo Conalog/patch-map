@@ -28,8 +28,6 @@ const COMPONENT_COLUMN_FIELDS = new Set(['componentId', 'changes']);
 const BAR_COLUMN_FIELDS = new Set([
   ...COMPONENT_COLUMN_FIELDS,
   'height',
-  'width',
-  'fill',
 ]);
 const TEXT_COLUMN_FIELDS = new Set([
   ...COMPONENT_COLUMN_FIELDS,
@@ -76,8 +74,6 @@ export function fastBarUpdate(
     input.icon !== undefined ||
     input.text !== undefined ||
     input.bar.height === undefined ||
-    input.bar.width !== undefined ||
-    input.bar.fill !== undefined ||
     input.bar.changes !== undefined
   ) return null;
   return Object.freeze({
@@ -127,8 +123,6 @@ export function fastBarBatch(
     input.background !== undefined ||
     input.icon !== undefined ||
     input.text !== undefined ||
-    input.bar.width !== undefined ||
-    input.bar.fill !== undefined ||
     input.bar.changes !== undefined
   ) return null;
   return Object.freeze(targets.map((target, index) => Object.freeze({
@@ -194,12 +188,6 @@ export function batchRow(
         ...(input.bar.height === undefined
           ? {}
           : { height: columnValue(input.bar.height, index, 'bar.height') }),
-        ...(input.bar.width === undefined
-          ? {}
-          : { width: columnValue(input.bar.width, index, 'bar.width') }),
-        ...(input.bar.fill === undefined
-          ? {}
-          : { fill: columnValue(input.bar.fill, index, 'bar.fill') }),
       }),
     }),
     ...(input.icon === undefined ? {} : {
@@ -227,8 +215,6 @@ export function validateBatchColumns(input: PatchMapUpdateBatch, count: number):
     ...componentColumns('icon', input.icon),
     ...componentColumns('text', input.text),
     ['bar.height', input.bar?.height],
-    ['bar.width', input.bar?.width],
-    ['bar.fill', input.bar?.fill],
     ['text.text', input.text?.text],
     ['text.style', input.text?.style],
   ];

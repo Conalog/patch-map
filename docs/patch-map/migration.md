@@ -154,12 +154,19 @@ structural operations must succeed or fail together.
 ```ts
 patchMap.update({
   id: 'rack-01',
-  bar: { height: 72, fill: '#22c55e' },
+  bar: {
+    height: 72,
+    changes: { source: { fill: '#22c55e' } },
+  },
   text: { text: '정상', style: { fill: '#ffffff' } },
 });
 
 patchMap.transaction([
-  { type: 'update', id: 'rack-01', bar: { fill: '#f97316' } },
+  {
+    type: 'update',
+    id: 'rack-01',
+    bar: { changes: { source: { fill: '#f97316' } } },
+  },
   { type: 'move', id: 'rack-02', parentId: 'group-b', index: 2 },
 ], {
   actionId: 'move-racks',

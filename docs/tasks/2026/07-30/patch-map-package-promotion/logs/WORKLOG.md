@@ -287,3 +287,16 @@
   examples, four aggregate renderer owners, and clean lifecycle teardown.
   Renderer and mutation hot paths did not change, so browser, memory, and
   performance matrices were not repeated.
+
+**2026-08-03**
+
+- Removed `bar.width` and `bar.fill` from singular and columnar public mutation
+  contracts because both used the generic component merge and had no separate
+  hot path. Migrated examples and tests to `bar.changes`, retained
+  `bar.height`, and added runtime plus packed-declaration negative checks.
+- Verification passed the focused developer API suite (18 tests), full
+  lint/typecheck, production build, required dependency audit, packed
+  ESM/CJS/types, all 38 journeys, four public examples, four aggregate renderer
+  owners, and clean lifecycle teardown. Browser, memory, and performance gates
+  were not repeated because the aggregate renderer, resource ownership, and
+  existing height hot path did not change.

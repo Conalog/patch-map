@@ -23,6 +23,9 @@
   one logical owner, columnar `updateBatch()` changes the same fields across
   many targets, and `transaction()` commits ordered heterogeneous/structural
   work atomically. Component IDs are optional only when their type is unique.
+- Named mutation shortcuts are reserved for distinct optimized commit paths.
+  `bar.height` remains public; bar width, fill, and other ordinary component
+  fields use the single `bar.changes` merge shape.
 - Authored bar/text fast planners and the concrete grid-cell bar overlay remain
   internal commit paths. `updateBatch()` selects them without exposing
   `ownerId`, dense slots, or separate bar/text mutation domains.
@@ -88,6 +91,11 @@
   ownership is available directly on mount. The strict packed ESM/CJS/types
   consumer, all 38 journeys, four examples, aggregate ownership, audit, and
   teardown pass with a negative declaration check for the removed alias.
+- The public bar mutation shape no longer exposes non-hot-path `width` or
+  `fill` shortcuts. Runtime validation rejects both spellings, packed strict
+  declarations enforce their absence, and callers use
+  `bar.changes.size.width` / `bar.changes.source.fill`; the existing
+  `bar.height` fast planner and renderer hot path are unchanged.
 
 # Next Step
 

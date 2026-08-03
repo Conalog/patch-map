@@ -120,6 +120,21 @@ const targetSelector: PatchMapTargetSelector = {
 const capabilities: readonly string[] = PATCH_MAP_HOST_ADAPTER_CAPABILITIES;
 const mount: typeof PatchMapHostAdapter.mount = PatchMapHostAdapter.mount;
 const snapshot: PatchMapEngineSnapshot | null = null;
+declare const mounted: Awaited<ReturnType<typeof PatchMap.mount>>;
+mounted.update({
+  id: 'strict-bar-fill',
+  bar: {
+    // @ts-expect-error Non-hot-path bar fill belongs under bar.changes.source.fill.
+    fill: '#22c55e',
+  },
+});
+mounted.updateBatch({
+  targets: ['strict-bar-width'],
+  bar: {
+    // @ts-expect-error Non-hot-path bar width belongs under bar.changes.size.width.
+    width: [80],
+  },
+});
 void [
   Engine,
   highLevelMount,

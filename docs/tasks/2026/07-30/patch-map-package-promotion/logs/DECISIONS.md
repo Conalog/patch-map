@@ -173,3 +173,16 @@
   consumer verification use the high-level lifecycle. Internal Lab and
   expected-blind verification retain direct source access without creating a
   second shipping API or renderer.
+
+## 2026-08-03 — Reserve mutation shortcuts for actual hot paths
+
+- **Background:** `bar.width` and `bar.fill` were convenience aliases over the
+  same generic component merge used by `bar.changes`. Their names implied a
+  performance distinction that did not exist and duplicated one operation.
+- **Decision:** Keep the named `bar.height` field because it selects the
+  authored/concrete aggregate bar-height planner. Remove public `bar.width`
+  and `bar.fill`; express them through `bar.changes.size.width` and
+  `bar.changes.source.fill` in singular, batch, and transaction updates.
+- **Impact:** Type declarations and runtime validation now reject the removed
+  aliases. The bar animation/GPU dirty-range path is unchanged, so this is a
+  public-surface simplification rather than a new performance claim.

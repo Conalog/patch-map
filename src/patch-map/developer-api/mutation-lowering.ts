@@ -52,7 +52,7 @@ const ELEMENT_STRUCTURAL_FIELDS = new Set([
 const UPDATE_FIELDS = new Set(['id', 'changes', ...COMPONENT_TYPES]);
 const TRANSACTION_UPDATE_FIELDS = new Set([...UPDATE_FIELDS, 'type']);
 const COMPONENT_FIELDS = new Set(['componentId', 'changes']);
-const BAR_FIELDS = new Set([...COMPONENT_FIELDS, 'height', 'width', 'fill']);
+const BAR_FIELDS = new Set([...COMPONENT_FIELDS, 'height']);
 const TEXT_FIELDS = new Set([...COMPONENT_FIELDS, 'text', 'style']);
 const TRANSACTION_FIELDS: Readonly<Record<string, ReadonlySet<string>>> = Object.freeze({
   add: new Set(['type', 'parentId', 'index', 'value']),
@@ -362,12 +362,6 @@ function componentPathChanges(
     const bar = patch as PatchMapBarUpdate;
     if (bar.height !== undefined) {
       changes.push(pathChange(['size', 'height'], bar.height, `${path}.height`));
-    }
-    if (bar.width !== undefined) {
-      changes.push(pathChange(['size', 'width'], bar.width, `${path}.width`));
-    }
-    if (bar.fill !== undefined) {
-      changes.push(pathChange(['source', 'fill'], bar.fill, `${path}.fill`));
     }
   } else if (type === 'text') {
     const text = patch as PatchMapTextUpdate;
