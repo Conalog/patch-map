@@ -37,7 +37,9 @@ assets, and cleanup to one `PatchMap` instance.
 | set PATCH MAP JSON | `data.load()` or `data.loadAsync()` | pass the existing v0.10 array directly; use the compatibility materializer only for the one documented legacy object |
 | drive visible frames | automatic after `mount()` | remove the previous host RAF/ticker; explicit publication remains an advanced deterministic seam |
 | find logical objects | `targets.get()` or `targets.compile()` | use `{ id, componentId? }`; compiled selectors are detached and revision-bound |
-| update many objects | `bars.set()`, `bars.setInstanceBatch()`, or `texts.set()` | choose authored/template updates or concrete-instance presentation updates deliberately; inspect the returned status |
+| update one logical owner | `update()` | change element fields and its bar/text/icon/background components in one atomic commit; omit `componentId` only when the component type is unique |
+| update many objects with equal-shaped values | columnar `updateBatch()` | column lengths must match target count; authored bar/text fast paths retain their compact planners |
+| compose heterogeneous or structural work | `transaction()` | one ordered validation, scene publication, selection companion, and history entry; one failure rejects the whole operation |
 | selection | `selection.set/add/remove/toggle/clear` | use stable IDs or compiled targets; pointer-originated selection stays package-owned |
 | move, resize, or rotate | transformer edit methods | use stable selection IDs; do not mutate geometry snapshots |
 | pan, zoom, reset, or fit | `viewport.pan/zoom/reset/fit` | remove duplicate host coordinate transforms and viewport inertia |
@@ -148,8 +150,34 @@ must be called when the host no longer needs the notification.
 
 ## Mutations, animation, and history
 
-Replace direct object edits and per-node commands with one domain operation.
-Prefer the specialized batch paths for high-volume bar or text changes.
+Replace direct object edits and per-node commands with one of three mutation
+operations. Use `update()` for one owner, `updateBatch()` for equal-length
+columnar values over many owners, and `transaction()` when different update or
+structural operations must succeed or fail together.
+
+```ts
+patchMap.update({
+  id: 'rack-01',
+  bar: { height: 72, fill: '#22c55e' },
+  text: { text: '정상', style: { fill: '#ffffff' } },
+});
+
+patchMap.transaction([
+  { type: 'update', id: 'rack-01', bar: { fill: '#f97316' } },
+  { type: 'move', id: 'rack-02', parentId: 'group-b', index: 2 },
+], {
+  actionId: 'move-racks',
+  selectedIds: ['rack-01', 'rack-02'],
+});
+```
+
+`update()` deliberately rejects a top-level array. Use `transaction([...])`
+for heterogeneous changes or `updateBatch({ targets, ... })` for homogeneous
+columns. This keeps the choice based on intent instead of object count.
+`update().changes` also rejects stable identity and structural collections
+such as `id`, `type`, `components`, `children`, grid `item`/`cells`, and
+relations. Use an explicit structural transaction instead of hiding a whole
+subtree replacement inside a merge.
 
 ```ts
 const result = patchMap.transform.move(
@@ -165,15 +193,16 @@ if (result.status !== 'committed') {
 }
 ```
 
-`bars.set()` and `texts.set()` share the same commit, animation,
-history, and publication authorities without constructing a generic
-per-target command graph. Repeated bar updates retarget the active animation;
+Single bar-height and text-content updates and matching columnar batches retain
+the compact planners. General component fields lower to one strict transaction.
+All three public operations share the same commit, animation, history, and
+publication authorities. Repeated bar updates retarget the active animation;
 the host must not create one ticker or closure per bar.
 
 ### Grid template values versus concrete cell values
 
 A v0.10 `grid` stores one reusable `item` template. Updating the template bar
-with `bars.set()` intentionally changes every expanded cell that uses
+with `update()` intentionally changes every expanded cell that uses
 that component. An older host may instead have addressed materialized cell
 objects independently. Preserve that observable behavior with the runtime
 instance overlay API rather than cloning the grid template into thousands of
@@ -187,11 +216,15 @@ const usageBars = patchMap.targets.compile({
   scope: 'instances',
 });
 
-const result = patchMap.bars.setInstanceBatch(
-  usageBars,
-  new Float64Array([37, 81]),
-  { animate: true },
-);
+const result = patchMap.updateBatch({
+  targets: usageBars,
+  bar: {
+    height: Float64Array.from(
+      { length: usageBars.count },
+      (_, index) => 20 + (index * 17) % 70,
+    ),
+  },
+}, { animate: true });
 
 if (result.status === 'rejected') {
   // No target was applied. Keep the host's corresponding live values intact.
@@ -219,7 +252,7 @@ updates while the same concrete owner/component identity exists and are
 discarded when that identity disappears, a new dataset is loaded, or the
 engine is destroyed. Persist per-cell live values in the host's state channel
 and replay them after loading if they must survive a remount. Use
-`bars.set()` instead when the height is authored template state that
+`update()` instead when the height is authored template state that
 must export and participate in history.
 
 Only bar height has this dedicated concrete-instance overlay in the current

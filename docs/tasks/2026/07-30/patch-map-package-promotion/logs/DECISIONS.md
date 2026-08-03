@@ -150,3 +150,10 @@
   selection sources, manual sizing is available through `viewport.resize()`,
   and overlapping `capture.png()` calls serialize so one request cannot
   supersede another request's frame tuple.
+
+**2026-08-03**
+
+- **Decision: unify public mutation intent without flattening hot paths.** Separate `bars.set`, `bars.setBatch`, instance-bar variants, and `texts.set` made simple updates hard to discover and could not naturally combine geometry, color, content, and style changes on one logical owner.
+- Expose `update()` for one owner, columnar `updateBatch()` for equal-shaped high-volume changes, and `transaction()` for ordered heterogeneous or structural atomic work. Omit `componentId` only for a unique matching type; reject ambiguous types, unknown fields, accessor-backed envelopes, identity rewrites, and mismatched columns before commit.
+- The three methods are separated by user intent rather than by every component property, while keeping a compact columnar form for 5,000/10,000 updates and one explicit atomic workflow operation.
+- The facade lowers to the existing authored bar/text planners, concrete grid-cell overlay, or strict semantic transaction. Broad compiled selectors preserve owner-local duplicate component IDs, cache stable address indexes, and do not expose dense slots. Raw `transact()` remains advanced.

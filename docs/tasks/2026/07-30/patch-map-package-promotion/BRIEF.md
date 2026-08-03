@@ -19,10 +19,13 @@
   package class and `/lab/patch-map/` is the single Korean manual Lab.
 - The Lab exposes all 173 manually operable routes, seeded scenes through
   10,000 records, and the user-supplied 605-root actual-production JSON.
-- Grid item-template bar state and concrete cell presentation state now have
-  separate public operations: `updateBarHeights()` changes authored semantic
-  state, while `updateInstanceBarHeights()` addresses stable
-  `<grid>.<row>.<column>` IDs without rewriting the dataset or history.
+- Public mutation intent is expressed by three operations: `update()` changes
+  one logical owner, columnar `updateBatch()` changes the same fields across
+  many targets, and `transaction()` commits ordered heterogeneous/structural
+  work atomically. Component IDs are optional only when their type is unique.
+- Authored bar/text fast planners and the concrete grid-cell bar overlay remain
+  internal commit paths. `updateBatch()` selects them without exposing
+  `ownerId`, dense slots, or separate bar/text mutation domains.
 - The default package entry now guides application developers through
   `PatchMap.mount()` and cohesive `data/targets/bars/texts/selection/transform/
   viewport/history/assets/capture` domains. `PatchMapAdvanced` retains the
@@ -71,13 +74,20 @@
   high-level examples, aggregate ownership, capture serialization, and clean
   lifecycle teardown. The renderer and bar hot path did not change, so this
   checkpoint makes no new performance claim.
+- The unified mutation checkpoint passes targeted 28/28 facade/Lab tests,
+  full lint/typecheck, 196 unit files / 1,780 tests, product and Lab builds,
+  canonical 38/173, required-audit packed ESM/CJS/types + 38 journeys, and the
+  representative headless WebGL Lab with console/page/network error zero.
+  The final public-path 5,000/10,000 concrete-bar 2+7 proxy passed at 25.2ms
+  and 52.1ms repeated-update p95 medians; a later final-code 10,000 smoke
+  passed at 49.9ms. Windows-native and qualified WebGPU remain pending.
 
 # Next Step
 
 - Update the cleanup PR when explicitly requested. Integrating services should
-  start with `PatchMap.mount()` and the domain API, use compiled semantic
-  targets for repeated batches, migrate materialized per-cell bar writes to
-  the documented runtime overlay API, and retain non-bar per-cell live state
+  start with `PatchMap.mount()`, use `update()` for one owner, compiled targets
+  plus columnar `updateBatch()` for repeated batches, and `transaction()` for
+  heterogeneous or structural atomic work. Retain non-bar per-cell live state
   until a separately approved package contract exists. The external
   project-context shape checker must learn that the retained
   `performance-core-v2/evidence` directory is evidence-only instead of asking

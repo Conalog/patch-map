@@ -54,10 +54,9 @@ const patchMap = await PatchMap.mount({
   fit: { padding: 24 },
 });
 
-patchMap.bars.set({
+patchMap.update({
   id: 'rack-01',
-  componentId: 'usage',
-  height: 82,
+  bar: { height: 82 },
 });
 
 // During unmount:
@@ -80,11 +79,12 @@ const usageBars = patchMap.targets.compile({
   scope: 'instances',
 });
 
-patchMap.bars.setInstanceBatch(
-  usageBars,
-  new Float32Array(usageBars.count).fill(75),
-  { animate: true },
-);
+patchMap.updateBatch({
+  targets: usageBars,
+  bar: {
+    height: new Float32Array(usageBars.count).fill(75),
+  },
+}, { animate: true });
 ```
 
 The input object is detached and never mutated. IDs and component owner/ID

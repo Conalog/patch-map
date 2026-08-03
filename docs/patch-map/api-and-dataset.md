@@ -9,8 +9,9 @@ import { PatchMap } from '@conalog/patch-map';
 The normal lifecycle is intentionally short:
 
 1. await `PatchMap.mount({ target, data })`;
-2. use the `data`, `targets`, `bars`, `texts`, `selection`, `viewport`,
-   `history`, `assets`, and `debug` domains;
+2. use `update()`, `transaction()`, the columnar `updateBatch()`, and the
+   `data`, `targets`, `selection`, `viewport`, `history`, `assets`, and `debug`
+   domains;
 3. await `destroy()` when the host unmounts.
 
 ```ts
@@ -20,10 +21,9 @@ const patchMap = await PatchMap.mount({
   fit: { padding: 24 },
 });
 
-patchMap.bars.set({
+patchMap.update({
   id: 'rack-01',
-  componentId: 'usage',
-  height: 72,
+  bar: { height: 72 },
 });
 
 await patchMap.destroy();
@@ -51,10 +51,27 @@ The aggregate renderer and dense runtime are package internals. Consumers use
 the same `PatchMap.mount()` lifecycle, scheduling, animation, viewport, and
 cleanup policy as the single PatchMap Lab.
 
-For a grid template bar, use `bars.set()` to change authored semantic state for
-every expanded cell. Use `bars.setInstances()` or `bars.setInstanceBatch()`
-when concrete cells need independent runtime values. A concrete cell target keeps the
-template component ID and uses `<grid-id>.<row>.<column>` as `id`.
+For one owner, use `update()`. It may change element fields and its bar, text,
+icon, or background components in one atomic commit. A component ID is optional
+when the owner has exactly one component of that type; an ambiguous owner is
+rejected with an instruction to set `componentId`.
+
+`changes` is for non-structural fields such as `attrs`, `size`, visibility, and
+component source/style data. Stable identity and identity-bearing collections
+(`id`, `type`, `components`, `children`, grid `item`/`cells`, and relation
+collections) cannot be rewritten through `update()`. Express those changes as
+an explicit `transaction()` add/replace/remove/move/group/ungroup operation.
+
+Use `transaction()` for ordered heterogeneous or structural work such as
+updating one object, moving another, and publishing the resulting selection as
+one history entry. Use `updateBatch()` only for equal-length columnar values on
+many targets. Both are atomic; transaction expresses workflow semantics while
+the batch expresses a high-volume data layout.
+
+Updating an authored grid template bar changes every expanded cell. When
+concrete cells need independent runtime values, pass concrete instance targets
+to `update()` or `updateBatch()`. A concrete cell keeps the template component
+ID and uses `<grid-id>.<row>.<column>` as `id`.
 Instance batches are atomic, leave the caller dataset/history/semantic hash
 unchanged, reuse the central animation scheduler, and update aggregate Mesh
 dirty ranges without creating per-cell display objects. Passing `null` restores
@@ -74,7 +91,10 @@ const usageBars = patchMap.targets.compile({
   scope: 'instances',
 });
 
-patchMap.bars.setInstanceBatch(usageBars, heights, { animate: true });
+patchMap.updateBatch({
+  targets: usageBars,
+  bar: { height: heights },
+}, { animate: true });
 ```
 
 Compiled targets are revision-bound. Loading a replacement dataset makes an
