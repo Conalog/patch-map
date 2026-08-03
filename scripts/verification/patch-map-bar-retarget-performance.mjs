@@ -179,7 +179,7 @@ async function runTrial(page, trial) {
       return {
         wallMs,
         status: result.status,
-        appliedCount: result.applied.length,
+        appliedCount: result.appliedCount,
         activeAnimations: engine.activeAnimations,
         transaction: engine.transactionPerformanceProbe(),
       };
