@@ -1,3 +1,8 @@
+const PACKED_CONSUMER_HOST_DEPENDENCIES = Object.freeze({
+  'pixi.js': '8.19.0',
+  'typescript': '5.9.3',
+});
+
 export function createPackedConsumerPackageJson(tarball) {
   return `${JSON.stringify({
     name: 'patch-map-package-consumer',
@@ -5,9 +10,16 @@ export function createPackedConsumerPackageJson(tarball) {
     type: 'module',
     dependencies: {
       '@conalog/patch-map': `file:${tarball}`,
-      'pixi.js': '8.19.0',
-      'typescript': '5.9.3',
+      ...PACKED_CONSUMER_HOST_DEPENDENCIES,
     },
+  }, null, 2)}\n`;
+}
+
+export function createPackedConsumerDependencySeedPackageJson() {
+  return `${JSON.stringify({
+    name: 'patch-map-package-consumer-dependency-seed',
+    private: true,
+    dependencies: PACKED_CONSUMER_HOST_DEPENDENCIES,
   }, null, 2)}\n`;
 }
 

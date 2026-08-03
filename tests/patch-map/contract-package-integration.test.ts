@@ -81,10 +81,16 @@ describe('PatchMap packed integration automation substrate', () => {
     const comparison = sources[6]!;
     const runners = sources[7]!;
     expect(root).toContain("from './patch-map-package/consumer-sources.mjs'");
+    expect(root).toContain('createPackedConsumerDependencySeedPackageJson');
+    expect(root).toContain("'--prefer-offline'");
+    expect(root).toContain("'--offline'");
     expect(root).toContain("from './patch-map-package/evidence.mjs'");
     expect(root).toContain("from './patch-map-package/supply-chain.mjs'");
     expect(consumers).toContain('export const PACKED_CONSUMER_ESM_SOURCE = `');
     expect(consumers).toContain('export const PACKED_CONSUMER_CJS_SOURCE = `');
+    expect(consumers).toContain(
+      'export function createPackedConsumerDependencySeedPackageJson()',
+    );
     expect(evidence).toContain('export function collectPackageFailures');
     expect(evidence).toContain('export function createPackageConsumerEvidence');
     expect(supplyChain).toContain('export function createSupplyChainEvidence');

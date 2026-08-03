@@ -10,6 +10,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 import {
+  createPackedConsumerDependencySeedPackageJson,
   createPackedConsumerPackageJson,
   PACKED_CONSUMER_CJS_SOURCE,
   PACKED_CONSUMER_ESM_SOURCE,
@@ -44,6 +45,7 @@ const RESULTS = path.resolve(
     ?? path.join(temporary, 'results'),
 );
 const consumer = path.join(temporary, 'consumer');
+const dependencySeed = path.join(temporary, 'dependency-seed');
 const reproduciblePackDirectory = path.join(temporary, 'reproducible-pack');
 const errors = { console: [], page: [], network: [] };
 const requireAudit = process.argv.includes('--require-audit');
@@ -53,6 +55,7 @@ let operationFailure;
 
 try {
   await mkdir(consumer, { recursive: true });
+  await mkdir(dependencySeed, { recursive: true });
   await mkdir(reproduciblePackDirectory, { recursive: true });
   const packed = await execute(
     'npm',
@@ -105,6 +108,10 @@ try {
     path.join(consumer, 'package.json'),
     createPackedConsumerPackageJson(tarball),
   );
+  await writeFile(
+    path.join(dependencySeed, 'package.json'),
+    createPackedConsumerDependencySeedPackageJson(),
+  );
   await preparePackedConsumerMatrix({
     root: ROOT,
     consumer,
@@ -118,6 +125,20 @@ try {
   await writeFile(path.join(consumer, 'main.js'), PACKED_CONSUMER_ESM_SOURCE);
   await writeFile(path.join(consumer, 'consumer.cjs'), PACKED_CONSUMER_CJS_SOURCE);
 
+  // A lockfile-driven root install can populate npm's tarball cache without
+  // retaining the registry metadata npm needs to validate peers in a new
+  // project. Seed only the public host dependencies, then keep the actual
+  // packed-artifact consumer installation strictly offline.
+  await execute('npm', [
+    'install',
+    '--prefer-offline',
+    '--ignore-scripts',
+    '--no-audit',
+    '--no-fund',
+  ], {
+    cwd: dependencySeed,
+    maxBuffer: 20 * 1024 * 1024,
+  });
   await execute('npm', [
     'install',
     '--offline',
