@@ -158,20 +158,22 @@ function createHost() {
       added: Object.freeze([]),
       removed: Object.freeze([]),
     }));
+  const loadDataset = vi.fn(() => Object.freeze({
+    lifecycle: 'scene-ready' as const,
+    sceneRevision: 2,
+    semanticHash: 'hash',
+    rootIds: Object.freeze(['rack-grid']),
+  }));
+  const loadDatasetAsync = vi.fn(() => Promise.resolve(Object.freeze({
+    lifecycle: 'scene-ready' as const,
+    sceneRevision: 2,
+    semanticHash: 'hash',
+    rootIds: Object.freeze(['rack-grid']),
+  })));
   const host = {
     selectionIds: Object.freeze([]),
-    loadDataset: () => Object.freeze({
-      lifecycle: 'scene-ready' as const,
-      sceneRevision: 2,
-      semanticHash: 'hash',
-      rootIds: Object.freeze(['rack-grid']),
-    }),
-    loadDatasetAsync: () => Promise.resolve(Object.freeze({
-      lifecycle: 'scene-ready' as const,
-      sceneRevision: 2,
-      semanticHash: 'hash',
-      rootIds: Object.freeze(['rack-grid']),
-    })),
+    loadDataset,
+    loadDatasetAsync,
     exportDataset: () => Object.freeze([]),
     transact: (request: Readonly<{ readonly operations: readonly Readonly<{ readonly target?: unknown }>[] }>) => {
       lastTransactionRequest = request;
@@ -258,6 +260,8 @@ function createHost() {
   };
   return {
     host: host as unknown as Parameters<typeof createPatchMapApi>[0],
+    loadDataset,
+    loadDatasetAsync,
     fitViewport,
     resize,
     applySelection,
@@ -677,6 +681,34 @@ describe('PatchMap high-level developer API', () => {
     expect(harness.fitViewport).toHaveBeenCalledOnce();
   });
 
+  it('preflights replacement fit targets before committing a dataset', async () => {
+    const source = createHost();
+    const destination = createHost();
+    const sourceMap = createPatchMapApi(source.host);
+    const destinationMap = createPatchMapApi(destination.host);
+    const foreignTargets = sourceMap.targets.query({ type: 'bar', scope: 'instances' });
+
+    expect(() => destinationMap.data.replace([], {
+      fit: { targets: foreignTargets },
+    })).toThrow('target set belongs to another PatchMap instance');
+    expect(destination.loadDataset).not.toHaveBeenCalled();
+
+    await expect(destinationMap.data.replaceAsync([], {
+      fit: { targets: foreignTargets },
+    })).rejects.toThrow('target set belongs to another PatchMap instance');
+    expect(destination.loadDatasetAsync).not.toHaveBeenCalled();
+  });
+
+  it('preflights replacement fit padding before committing a dataset', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+
+    expect(() => map.data.replace([], {
+      fit: { padding: -1 },
+    })).toThrow('viewport padding must contain two finite non-negative values');
+    expect(harness.loadDataset).not.toHaveBeenCalled();
+  });
+
   it('maps common editor and capture work without exposing low-level request envelopes', async () => {
     const harness = createHost();
     const map = createPatchMapApi(harness.host);
@@ -708,7 +740,10 @@ describe('PatchMap high-level developer API', () => {
   });
 
   it('ships one intentional package surface without low-level implementation exports', () => {
-    expect(PublicPatchMap).toBe(PatchMap);
+    expect(PublicPatchMap).not.toBe(PatchMap);
+    expect(() => Reflect.construct(PublicPatchMap as unknown as new () => object, [])).toThrow(
+      'PatchMap cannot be constructed directly; use PatchMap.mount(...)',
+    );
     expect(typeof PublicPatchMap.mount).toBe('function');
     for (const internalName of [
       'PatchMapAdvanced',

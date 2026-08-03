@@ -10,6 +10,7 @@ import {
 import { createPatchMapApi } from './developer-api';
 import type {
   PatchMapApi,
+  PatchMapInstance,
   PatchMapOptions,
 } from './developer-api/contracts';
 import type {
@@ -674,10 +675,10 @@ export class PatchMap {
 
   /**
    * Mount the production PatchMap with safe browser defaults. The returned
-   * object is the same Engine used by the Lab, with one owned frame loop and
-   * one owned resize subscription that are both released by destroy().
+   * facade owns one internal Engine frame loop and one resize subscription;
+   * destroy() releases both without exposing deterministic Engine seams.
    */
-  public static async mount(options: PatchMapOptions): Promise<PatchMap> {
+  public static async mount(options: PatchMapOptions): Promise<PatchMapInstance> {
     const target = resolvePatchMapMountContainer(options.container);
     const [width, height] = resolvePatchMapMountSize(target, options.width, options.height);
     const instanceId = options.instanceId
@@ -716,7 +717,7 @@ export class PatchMap {
       if (options.resizeMode !== 'manual') {
         engine.mountResizeCleanup = engine.observeMountSize(target, options.pixelRatio);
       }
-      return engine;
+      return publicPatchMapInstance(engine);
     } catch (error) {
       await engine.destroy().catch(() => undefined);
       throw error;
@@ -852,6 +853,7 @@ export class PatchMap {
       textSemantic: (target) => this.textSemantics.get(engineTextTargetKey(target)) ?? null,
       historyState: () => this.historyAuthority.state(),
       interactionMode: () => this.hostInteractions.modeProbe().activeState,
+      staleGestureCount: () => this.pointerGestureAuthority?.probe().staleGestureCount ?? 0,
       pendingWork: () => this.pendingWork,
       rendererConfiguration: () => this.rendererConfiguration,
       assetProbe: () => this.assetSessions.sessionProbe(),
@@ -5767,6 +5769,27 @@ export class PatchMap {
       );
     }
   }
+}
+
+function publicPatchMapInstance(engine: PatchMap): PatchMapInstance {
+  return Object.freeze({
+    update: engine.update,
+    updateBatch: engine.updateBatch,
+    transaction: engine.transaction,
+    data: engine.data,
+    targets: engine.targets,
+    selection: engine.selection,
+    transform: engine.transform,
+    viewport: engine.viewport,
+    history: engine.history,
+    assets: engine.assets,
+    debug: engine.debug,
+    capture: engine.capture,
+    get destroyed(): boolean {
+      return engine.destroyed;
+    },
+    destroy: () => engine.destroy(),
+  });
 }
 
 function rejectedReasons(

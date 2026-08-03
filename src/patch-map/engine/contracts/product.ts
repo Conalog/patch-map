@@ -9,6 +9,7 @@ import type {
   PatchMapOperationsAuthority,
 } from '../../operations';
 import type { PatchMapPresentationPolicyProductProbe } from '../../presentation-policy';
+import type { PatchMapInteractionMode } from '../../host-interaction';
 import type { PatchMapEngineSurfaceFactory } from '../contracts';
 import type {
   PatchMapEngineDiagnostic,
@@ -148,6 +149,10 @@ export interface PatchMapEngineSnapshot {
   readonly zoomLimits: readonly [number, number];
   readonly viewport: PatchMapViewportState;
   readonly selectionIds: readonly string[];
+  readonly interaction: Readonly<{
+    readonly mode: PatchMapInteractionMode;
+    readonly staleGestureCount: number;
+  }>;
   readonly facilities: readonly string[];
   readonly resources: Readonly<{
     canvasCount: number;

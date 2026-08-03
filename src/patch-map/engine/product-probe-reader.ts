@@ -73,6 +73,7 @@ export interface PatchMapEngineProductProbeReadPort {
   textSemantic(target: PatchMapTextTarget): IndexedEngineTextSemantic | null;
   historyState(): PatchMapHistoryState;
   interactionMode(): PatchMapInteractionMode;
+  staleGestureCount(): number;
   pendingWork(): number;
   rendererConfiguration(): Readonly<{
     resolution: number;
@@ -135,6 +136,10 @@ export function readPatchMapEngineSnapshot(
     zoomLimits: viewport.zoomLimits,
     viewport: viewport.viewport,
     selectionIds: state.selectionIds(),
+    interaction: Object.freeze({
+      mode: state.interactionMode(),
+      staleGestureCount: state.staleGestureCount(),
+    }),
     facilities: PATCH_MAP_ENGINE_FACILITIES,
     resources: Object.freeze({
       canvasCount: state.canvasCount(),

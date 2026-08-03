@@ -2,11 +2,22 @@
 import { PatchMap as PatchMapImplementation } from './patch-map/engine';
 import type {
   PatchMapInstance,
+  PatchMapOptions,
   PatchMapStatic,
 } from './patch-map/developer-api';
 
+const PublicPatchMap = class PatchMap {
+  private constructor() {
+    throw new TypeError('PatchMap cannot be constructed directly; use PatchMap.mount(...)');
+  }
+
+  public static mount(options: PatchMapOptions): Promise<PatchMapInstance> {
+    return PatchMapImplementation.mount(options);
+  }
+};
+
 /** Mounts the aggregate PixiJS PatchMap product. */
-export const PatchMap: PatchMapStatic = PatchMapImplementation;
+export const PatchMap: PatchMapStatic = Object.freeze(PublicPatchMap);
 export type PatchMap = PatchMapInstance;
 
 export { PatchMapError } from './patch-map/engine/operation-outcomes';

@@ -56,6 +56,7 @@ import type {
 } from './developer-api/contracts';
 import { createPatchMapMutationApi } from './developer-api/mutations';
 import type { PatchMapTransformerEditRequest } from './transformer-edit';
+import { normalizePatchMapViewportPadding } from './viewport';
 
 export type * from './developer-api/contracts';
 
@@ -330,25 +331,45 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     return Object.freeze({ selected, sceneTargets: logical });
   };
 
-  const fit = (options: PatchMapFitOptions = {}): PatchMapViewportFitResult => host.fitViewport({
-    ...(options.padding === undefined ? {} : { paddingCssPx: options.padding }),
-    ...(options.targets === undefined
-      ? {}
-      : { targets: targetsOf(options.targets, 'focus').map((target) => target.id) }),
-  });
+  const engineFitOptions = (
+    options: PatchMapFitOptions = {},
+  ): PatchMapViewportFitOptions => {
+    const padding = options.padding === undefined
+      ? null
+      : normalizePatchMapViewportPadding(options.padding);
+    return Object.freeze({
+      ...(padding === null
+        ? {}
+        : { paddingCssPx: Object.freeze([padding.x, padding.y] as const) }),
+      ...(options.targets === undefined
+        ? {}
+        : { targets: targetsOf(options.targets, 'focus').map((target) => target.id) }),
+    });
+  };
+
+  const fit = (options: PatchMapFitOptions = {}): PatchMapViewportFitResult =>
+    host.fitViewport(engineFitOptions(options));
+
+  const replaceFitOptions = (
+    options: PatchMapDataReplaceOptions,
+  ): PatchMapViewportFitOptions | null => options.fit === false
+    ? null
+    : engineFitOptions(options.fit === true || options.fit === undefined ? {} : options.fit);
 
   const data = Object.freeze({
     replace(input: unknown, options: PatchMapDataReplaceOptions = {}): PatchMapDataReplaceResult {
+      const fitOptions = replaceFitOptions(options);
       const result = dataReplaceResult(host.loadDataset(input, engineLoadOptions(options)));
-      if (options.fit !== false) fit(options.fit === true || options.fit === undefined ? {} : options.fit);
+      if (fitOptions !== null) host.fitViewport(fitOptions);
       return result;
     },
     async replaceAsync(
       input: unknown,
       options: PatchMapDataReplaceOptions = {},
     ): Promise<PatchMapDataReplaceResult> {
+      const fitOptions = replaceFitOptions(options);
       const result = dataReplaceResult(await host.loadDatasetAsync(input, engineLoadOptions(options)));
-      if (options.fit !== false) fit(options.fit === true || options.fit === undefined ? {} : options.fit);
+      if (fitOptions !== null) host.fitViewport(fitOptions);
       return result;
     },
     snapshot(): readonly unknown[] {
