@@ -128,6 +128,7 @@ try {
       let transformerEditBeforeDestroy = null;
       let transformerEditAfterDestroy = null;
       let historyBeforeDestroy = null;
+      let instanceBarBeforeDestroy = null;
       let extractionBeforeDestroy = null;
       let pageLifecycleBeforeDestroy = null;
       let pageLifecycleAfterDestroy = null;
@@ -158,7 +159,17 @@ try {
             type: 'item',
             id: 'item-a',
             size: { width: 100, height: 80 },
-            components: [{ type: 'text', id: 'label', text: 'Alpha' }],
+            components: [
+              { type: 'text', id: 'label', text: 'Alpha' },
+              {
+                type: 'bar',
+                id: 'level',
+                source: { type: 'rect', fill: '#2563eb' },
+                size: { width: 60, height: 8 },
+                placement: 'bottom',
+                animation: true,
+              },
+            ],
             attrs: { x: 10, y: 20 },
           },
           {
@@ -169,6 +180,16 @@ try {
             attrs: { x: 160, y: 40 },
           },
         ]);
+        const instanceBarResult = engine.updateInstanceBarHeights({
+          targets: [{ ownerId: 'item-a', componentId: 'level' }],
+          heights: new Float64Array([42]),
+          animate: false,
+        });
+        instanceBarBeforeDestroy = {
+          status: instanceBarResult.status,
+          appliedCount: instanceBarResult.appliedTargets.length,
+          overlayCount: instanceBarResult.overlayCount,
+        };
         engine.bindLogicalEvents([
           {
             id: 'memory-rect',
@@ -391,6 +412,7 @@ try {
         transformerEditBeforeDestroy,
         transformerEditAfterDestroy,
         historyBeforeDestroy,
+        instanceBarBeforeDestroy,
         extractionBeforeDestroy,
         pageLifecycleBeforeDestroy,
         pageLifecycleAfterDestroy,
@@ -497,6 +519,9 @@ try {
       JSON.stringify(trial.historyBeforeDestroy?.companionSelectionIds) !==
         JSON.stringify(['item-a']) ||
       trial.historyBeforeDestroy?.hostCompanionFrozen !== true ||
+      trial.instanceBarBeforeDestroy?.status !== 'committed' ||
+      trial.instanceBarBeforeDestroy?.appliedCount !== 1 ||
+      trial.instanceBarBeforeDestroy?.overlayCount !== 1 ||
       JSON.stringify(trial.extractionBeforeDestroy?.capturedTuple) !==
         JSON.stringify(trial.extractionBeforeDestroy?.requestedTuple) ||
       !String(trial.extractionBeforeDestroy?.dataUrlPrefix).startsWith('data:image/png') ||

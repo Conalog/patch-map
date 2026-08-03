@@ -29,6 +29,14 @@ export function collectPackageFailures({
     esm.frameLoopPackage?.pendingBeforeDestroy !== false ||
     esm.frameLoopPackage?.destroyedAfterEngine !== true
   ) failures.push('packed ESM frame-loop export or lifecycle ownership failed');
+  if (
+    esm.instanceBarPackage?.methodType !== 'function' ||
+    esm.instanceBarPackage?.status !== 'committed' ||
+    esm.instanceBarPackage?.appliedCount !== 1 ||
+    esm.instanceBarPackage?.overlayCount !== 1 ||
+    esm.instanceBarPackage?.datasetIdentityUnchanged !== true ||
+    esm.instanceBarPackage?.semanticHashUnchanged !== true
+  ) failures.push('packed ESM instance-bar overlay boundary failed');
   if (esm.transactionRevision !== 'core-v2-mutation-transaction/1') failures.push('packed ESM transaction revision export failed');
   if (
     esm.authoringRevision !== 'core-v2-authoring/1' ||

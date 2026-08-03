@@ -62,6 +62,7 @@
     "perf:contract": "node performance/patch-map/contract-run.mjs",
     "perf:bar-pan": "node scripts/verification/patch-map-bar-animation-pan-performance.mjs",
     "perf:bar-retarget": "node scripts/verification/patch-map-bar-retarget-performance.mjs",
+    "perf:instance-bars": "node scripts/verification/patch-map-instance-bar-performance.mjs",
     "perf:extraction": "node scripts/verification/patch-map-extraction-performance.mjs",
     "verify:performance-report": "node performance/patch-map/report/verify.mjs",
     "verify:performance-contract": "node performance/patch-map/report/verify-contract.mjs",

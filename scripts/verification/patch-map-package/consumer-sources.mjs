@@ -172,6 +172,22 @@ engine.loadDataset(input);
 await engine.publishFrame(0);
 const initialEngineSnapshot = engine.snapshot();
 const initialSemantic = engine.semanticProbe();
+const instanceBarDatasetBefore = engine.exportDataset();
+const instanceBarSemanticHashBefore = engine.snapshot().semanticHash;
+const instanceBarResult = engine.updateInstanceBarHeights({
+  targets: [{ ownerId: 'consumer-item', componentId: 'bar' }],
+  heights: new Float64Array([56]),
+  animate: false,
+});
+const instanceBarPackage = {
+  methodType: typeof PatchMap.prototype.updateInstanceBarHeights,
+  status: instanceBarResult.status,
+  appliedCount: instanceBarResult.appliedTargets.length,
+  overlayCount: instanceBarResult.overlayCount,
+  datasetIdentityUnchanged: engine.exportDataset() === instanceBarDatasetBefore,
+  semanticHashUnchanged:
+    engine.snapshot().semanticHash === instanceBarSemanticHashBefore,
+};
 const mountAllowed = resolvePatchMapEditorMount(false);
 const mountBlocked = resolvePatchMapEditorMount(true);
 const tooltipPublications = [];
@@ -575,6 +591,7 @@ window.__PACKAGE_RESULT__ = {
     pendingBeforeDestroy: frameLoopBeforeDestroy.pending,
     destroyedAfterEngine: packageFrameLoop.debugSnapshot().destroyed,
   },
+  instanceBarPackage,
   authoringRevision: PATCH_MAP_AUTHORING_REVISION,
   transactionRevision: PATCH_MAP_MUTATION_TRANSACTION_REVISION,
   commandTargetRevision: PATCH_MAP_COMMAND_TARGET_REVISION,
