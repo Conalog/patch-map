@@ -32,7 +32,7 @@ export interface PatchMapManualScene {
     readonly componentId: string;
   }>[];
   readonly instanceBarTargets: readonly Readonly<{
-    readonly ownerId: string;
+    readonly id: string;
     readonly componentId: string;
   }>[];
   readonly textTargets: readonly Readonly<{
@@ -168,6 +168,8 @@ export function buildPatchMapManualScene(
     ownerId: `node-${index}`,
     componentId: 'label' as const,
   }));
+  const instanceBarTargets = barTargets.map(({ ownerId, componentId }) =>
+    Object.freeze({ id: ownerId, componentId }));
   return deepFreeze({
     revision: PATCH_MAP_MANUAL_SCENE_REVISION,
     animationDurationMs,
@@ -182,7 +184,7 @@ export function buildPatchMapManualScene(
     ],
     relationIds: ['manual-relations'],
     barTargets,
-    instanceBarTargets: barTargets,
+    instanceBarTargets,
     textTargets,
   });
 }
@@ -276,7 +278,7 @@ function buildActualProductionScene(
 
 function actualInstanceBarTargets(
   dataset: readonly Readonly<Record<string, unknown>>[],
-): readonly Readonly<{ readonly ownerId: string; readonly componentId: string }>[] {
+): readonly Readonly<{ readonly id: string; readonly componentId: string }>[] {
   return dataset.flatMap((record) => {
     if (typeof record.id !== 'string') return [];
     const ownerId = record.id;
@@ -285,7 +287,7 @@ function actualInstanceBarTargets(
         isRecord(component) &&
         component.type === 'bar' &&
         typeof component.id === 'string'
-          ? [{ ownerId, componentId: component.id }]
+          ? [{ id: ownerId, componentId: component.id }]
           : []);
     }
     if (
@@ -307,7 +309,7 @@ function actualInstanceBarTargets(
         ? rowValue.flatMap((value, column) => value === 0
             ? []
             : barIds.map((componentId) => ({
-                ownerId: `${ownerId}.${row}.${column}`,
+                id: `${ownerId}.${row}.${column}`,
                 componentId,
               })))
         : []);

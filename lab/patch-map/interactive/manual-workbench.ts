@@ -818,7 +818,7 @@ export function mountPatchMapManualWorkbench(
       targets = targets.filter((_, index) => index % 10 === animationSequence % 10);
     } else if (scope === 'selected') {
       const selected = new Set(next.snapshot().selectionIds);
-      targets = targets.filter(({ ownerId }) => selected.has(ownerId));
+      targets = targets.filter(({ id }) => selected.has(id));
       if (targets.length === 0) targets = scene.instanceBarTargets.slice(0, 1);
     }
     const heights = new Float64Array(targets.length);

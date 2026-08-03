@@ -181,7 +181,7 @@ try {
           },
         ]);
         const instanceBarResult = engine.updateInstanceBarHeights({
-          targets: [{ ownerId: 'item-a', componentId: 'level' }],
+          targets: [{ id: 'item-a', componentId: 'level' }],
           heights: new Float64Array([42]),
           animate: false,
         });

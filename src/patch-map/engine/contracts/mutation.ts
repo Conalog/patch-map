@@ -1,6 +1,6 @@
 import type {
-  PatchMapComponentVisualTarget,
   PatchMapInstanceBarHeightBatchRequest,
+  PatchMapInstanceBarTarget,
   PatchMapReconcileTimings,
 } from '../../core/contracts';
 import type { SlotRange } from '../../dense/contracts';
@@ -168,8 +168,8 @@ export type PatchMapEngineInstanceBarHeightResult =
       readonly publication: 'pending';
       readonly previousRevisions: PatchMapRevisionStamp;
       readonly revisions: PatchMapRevisionStamp;
-      readonly appliedTargets: readonly PatchMapComponentVisualTarget[];
-      readonly missingTargets: readonly PatchMapComponentVisualTarget[];
+      readonly appliedTargets: readonly PatchMapInstanceBarTarget[];
+      readonly missingTargets: readonly PatchMapInstanceBarTarget[];
       readonly dirtyRanges: readonly SlotRange[];
       readonly activeAnimationCount: number;
       readonly overlayCount: number;
@@ -179,8 +179,8 @@ export type PatchMapEngineInstanceBarHeightResult =
       readonly changed: false;
       readonly previousRevisions: PatchMapRevisionStamp;
       readonly revisions: PatchMapRevisionStamp;
-      readonly appliedTargets: readonly PatchMapComponentVisualTarget[];
-      readonly missingTargets: readonly PatchMapComponentVisualTarget[];
+      readonly appliedTargets: readonly PatchMapInstanceBarTarget[];
+      readonly missingTargets: readonly PatchMapInstanceBarTarget[];
       readonly dirtyRanges: readonly SlotRange[];
       readonly activeAnimationCount: number;
       readonly overlayCount: number;
@@ -191,7 +191,7 @@ export type PatchMapEngineInstanceBarHeightResult =
       readonly previousRevisions: PatchMapRevisionStamp;
       readonly revisions: PatchMapRevisionStamp;
       readonly appliedTargets: readonly [];
-      readonly missingTargets: readonly PatchMapComponentVisualTarget[];
+      readonly missingTargets: readonly PatchMapInstanceBarTarget[];
       readonly dirtyRanges: readonly [];
       readonly activeAnimationCount: number;
       readonly overlayCount: number;

@@ -14,23 +14,23 @@ import {
   type PatchMapStableRecordStrategy,
 } from '../semantic/stable-record-overlay';
 import type {
-  PatchMapComponentVisualTarget,
+  PatchMapInstanceBarTarget,
 } from './contracts';
 import type {
   PatchMapIndexedComponentTarget,
 } from './published-scene-state';
-import { patchMapComponentProbeTargetKey } from './product-probe-reader';
+import { patchMapComponentTargetKey } from './product-probe-reader';
 
 export interface PatchMapInstanceBarOverlayUpdate {
-  readonly target: PatchMapComponentVisualTarget;
+  readonly target: PatchMapInstanceBarTarget;
   readonly height: number | null;
 }
 
 export interface PatchMapInstanceBarOverlayPlan {
   readonly projection: PatchMapProjectionIndex;
   readonly changedEntityIds: readonly string[];
-  readonly appliedTargets: readonly PatchMapComponentVisualTarget[];
-  readonly missingTargets: readonly PatchMapComponentVisualTarget[];
+  readonly appliedTargets: readonly PatchMapInstanceBarTarget[];
+  readonly missingTargets: readonly PatchMapInstanceBarTarget[];
 }
 
 /**
@@ -65,14 +65,17 @@ export function planPatchMapInstanceBarOverlay(
   const selectedBars = Object.create(null) as Record<string, PatchMapBarProjection>;
   const patchedEntityIds: string[] = [];
   const changedEntityIds: string[] = [];
-  const appliedTargets: PatchMapComponentVisualTarget[] = [];
-  const missingTargets: PatchMapComponentVisualTarget[] = [];
+  const appliedTargets: PatchMapInstanceBarTarget[] = [];
+  const missingTargets: PatchMapInstanceBarTarget[] = [];
   const seen = new Set<string>();
 
   for (const update of updates) {
-    const key = patchMapComponentProbeTargetKey(update.target);
+    const key = patchMapComponentTargetKey(
+      update.target.id,
+      update.target.componentId,
+    );
     if (seen.has(key)) {
-      throw new TypeError(`duplicate instance bar target: ${update.target.ownerId}/${update.target.componentId}`);
+      throw new TypeError(`duplicate instance bar target: ${update.target.id}/${update.target.componentId}`);
     }
     seen.add(key);
     const indexed = componentTargets.get(key);
@@ -88,7 +91,7 @@ export function planPatchMapInstanceBarOverlay(
       !bar ||
       !entity ||
       !owner ||
-      bar.ownerId !== update.target.ownerId ||
+      bar.ownerId !== update.target.id ||
       bar.componentId !== update.target.componentId
     ) {
       missingTargets.push(update.target);

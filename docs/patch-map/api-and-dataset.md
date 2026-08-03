@@ -34,7 +34,7 @@ single PatchMap Lab.
 For a grid template bar, use `updateBarHeights()` to change authored semantic
 state for every expanded cell. Use `updateInstanceBarHeights()` when concrete
 cells need independent runtime values. A concrete cell target keeps the
-template component ID and uses `<grid-id>.<row>.<column>` as `ownerId`.
+template component ID and uses `<grid-id>.<row>.<column>` as `id`.
 Instance batches are atomic, leave the caller dataset/history/semantic hash
 unchanged, reuse the central animation scheduler, and update aggregate Mesh
 dirty ranges without creating per-cell display objects. Passing `null` restores

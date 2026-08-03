@@ -77,7 +77,7 @@ async function configure(page, size, trial) {
       },
     }];
     const targets = Array.from({ length: recordCount }, (_, index) => ({
-      ownerId: `perf-grid.${Math.floor(index / columns)}.${index % columns}`,
+      id: `perf-grid.${Math.floor(index / columns)}.${index % columns}`,
       componentId: 'level',
     }));
     const loaded = engine.loadDataset(dataset);

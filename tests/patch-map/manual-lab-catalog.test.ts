@@ -227,6 +227,11 @@ describe('PatchMap manual Lab scene', () => {
       'manual-relations',
     ]);
     expect(first.barTargets).toHaveLength(100);
+    expect(first.instanceBarTargets).toHaveLength(100);
+    expect(first.instanceBarTargets[0]).toEqual({
+      id: first.barTargets[0]?.ownerId,
+      componentId: first.barTargets[0]?.componentId,
+    });
     expect(first.textTargets).toHaveLength(100);
     expect(materialized.semanticHash).toMatch(/^fnv1a64:[a-f0-9]{16}$/u);
   });
@@ -246,6 +251,7 @@ describe('PatchMap manual Lab scene', () => {
     expect(buildPatchMapManualScene('5000', 0xffff_ffff).barTargets).toHaveLength(5_000);
     const exploratory = buildPatchMapManualScene('10000', 319);
     expect(exploratory.barTargets).toHaveLength(10_000);
+    expect(exploratory.instanceBarTargets).toHaveLength(10_000);
     expect(exploratory.textTargets).toHaveLength(10_000);
     expect(Object.isFrozen(exploratory.dataset)).toBe(true);
     expect(buildPatchMapManualScene('production', 319).barTargets).toHaveLength(500);
@@ -272,6 +278,7 @@ describe('PatchMap manual Lab scene', () => {
     ]);
     expect(first.relationIds).toEqual(['0VOBsciH00fn0Va']);
     expect(first.barTargets).toHaveLength(309);
+    expect(first.instanceBarTargets).toHaveLength(2_701);
     expect(first.textTargets).toHaveLength(0);
     expect(visibleBars).toHaveLength(309);
     expect(visibleBars.every((component) => component.show === true)).toBe(true);

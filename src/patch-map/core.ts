@@ -73,6 +73,7 @@ import {
   type PatchMapComponentVisualTarget,
   type PatchMapInstanceBarHeightBatchRequest,
   type PatchMapInstanceBarHeightBatchResult,
+  type PatchMapInstanceBarTarget,
   type PatchMapLoadResult,
   type PatchMapPrepareResult,
   type PatchMapPresentationLifecycleResult,
@@ -89,7 +90,7 @@ import {
   type PatchMapTextTarget,
   type PatchMapTransientProjectionResult,
   type PatchMapWorldTransform,
-  normalizePatchMapComponentVisualTarget,
+  normalizePatchMapInstanceBarTarget,
 } from './core/contracts';
 import {
   PatchMapPublishedSceneAuthority,
@@ -110,6 +111,7 @@ import {
   createPatchMapComponentVisualProductProbe,
   createPatchMapRuntimePaintOrderProbe,
   createPatchMapTextProductProbe,
+  patchMapComponentTargetKey,
   indexPatchMapComponentProbeTargets as indexComponentTargets,
   indexPatchMapTextProbeTargets as indexTextTargets,
 } from './core/product-probe-reader';
@@ -171,7 +173,7 @@ interface PatchMapCooperativeLoadHooks {
 }
 
 interface PatchMapStoredInstanceBarHeight {
-  readonly target: PatchMapComponentVisualTarget;
+  readonly target: PatchMapInstanceBarTarget;
   readonly height: number;
 }
 
@@ -2044,7 +2046,7 @@ function normalizeInstanceBarHeightUpdates(
     throw new TypeError('instance bar animate must be a boolean');
   }
   return Object.freeze(request.targets.map((target, index) => {
-    const normalizedTarget = normalizePatchMapComponentVisualTarget(target);
+    const normalizedTarget = normalizePatchMapInstanceBarTarget(target);
     const height = heights[index];
     if (height !== null && (typeof height !== 'number' || !Number.isFinite(height) || height < 0)) {
       throw new RangeError(`instance bar heights[${index}] must be null or finite and non-negative`);
@@ -2053,8 +2055,8 @@ function normalizeInstanceBarHeightUpdates(
   }));
 }
 
-function patchMapInstanceBarTargetKey(target: PatchMapComponentVisualTarget): string {
-  return `${target.ownerId.length}:${target.ownerId}:${target.componentId}`;
+function patchMapInstanceBarTargetKey(target: PatchMapInstanceBarTarget): string {
+  return patchMapComponentTargetKey(target.id, target.componentId);
 }
 
 function commitInstanceBarHeightEntries(

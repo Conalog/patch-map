@@ -175,7 +175,7 @@ const initialSemantic = engine.semanticProbe();
 const instanceBarDatasetBefore = engine.exportDataset();
 const instanceBarSemanticHashBefore = engine.snapshot().semanticHash;
 const instanceBarResult = engine.updateInstanceBarHeights({
-  targets: [{ ownerId: 'consumer-item', componentId: 'bar' }],
+  targets: [{ id: 'consumer-item', componentId: 'bar' }],
   heights: new Float64Array([56]),
   animate: false,
 });

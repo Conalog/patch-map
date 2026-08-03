@@ -22,8 +22,14 @@ import {
   sameNullableStringArray,
   sameStringArray,
 } from '../shared/string-array-values';
-import type { PatchMapComponentVisualTarget } from './contracts';
-import { patchMapComponentProbeTargetKey } from './product-probe-reader';
+import type {
+  PatchMapComponentVisualTarget,
+  PatchMapInstanceBarTarget,
+} from './contracts';
+import {
+  patchMapComponentProbeTargetKey,
+  patchMapComponentTargetKey,
+} from './product-probe-reader';
 import { contiguousSlotRanges } from './slot-ranges';
 
 export interface PatchMapLogicalPresentationPolicy {
@@ -33,6 +39,10 @@ export interface PatchMapLogicalPresentationPolicy {
   readonly hiddenLayerIds: readonly string[];
   readonly fillOverrides: readonly PatchMapPresentationFillOverride[];
 }
+
+type PatchMapAnimatedBarTarget =
+  | PatchMapComponentVisualTarget
+  | PatchMapInstanceBarTarget;
 
 /**
  * A replaceable bar-presentation state prepared before an atomic scene load.
@@ -222,7 +232,7 @@ export class PatchMapBarPresentationAuthority {
     next: PatchMapProjectionIndex,
     scene: PatchMapScene,
     animateBarChanges: boolean,
-    animatedBarTargets?: readonly PatchMapComponentVisualTarget[],
+    animatedBarTargets?: readonly PatchMapAnimatedBarTarget[],
     incrementalEntityIds?: readonly string[],
     entitySourceById?: ParseIdentityIndex['entitySourceById'],
   ): PatchMapProjectionIndex {
@@ -232,7 +242,7 @@ export class PatchMapBarPresentationAuthority {
     const timeMs = this.clockMsValue;
     const animatedTargetKeys = animatedBarTargets === undefined
       ? null
-      : new Set(animatedBarTargets.map(patchMapComponentProbeTargetKey));
+      : new Set(animatedBarTargets.map(animatedBarTargetKey));
 
     if (
       incrementalEntityIds !== undefined &&
@@ -553,19 +563,21 @@ function barMatchesAnimatedTarget(
   animatedTargetKeys: ReadonlySet<string>,
   entitySourceById: ParseIdentityIndex['entitySourceById'] | undefined,
 ): boolean {
-  if (animatedTargetKeys.has(patchMapComponentProbeTargetKey({
-    ownerId: bar.ownerId,
-    componentId: bar.componentId,
-  }))) {
+  if (animatedTargetKeys.has(
+    patchMapComponentTargetKey(bar.ownerId, bar.componentId),
+  )) {
     return true;
   }
   const sourceElementId = entitySourceById?.[entityId]?.sourceElementId;
   return sourceElementId !== undefined && animatedTargetKeys.has(
-    patchMapComponentProbeTargetKey({
-      ownerId: sourceElementId,
-      componentId: bar.componentId,
-    }),
+    patchMapComponentTargetKey(sourceElementId, bar.componentId),
   );
+}
+
+function animatedBarTargetKey(target: PatchMapAnimatedBarTarget): string {
+  return 'ownerId' in target
+    ? patchMapComponentProbeTargetKey(target)
+    : patchMapComponentTargetKey(target.id, target.componentId);
 }
 
 function incrementalBarPresentationCompatible(

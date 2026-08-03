@@ -116,7 +116,7 @@
   every cell but cannot represent different live bar values per cell.
 - **Decision:** Keep `updateBarHeights()` as the authored, exported, historical
   template mutation and add `updateInstanceBarHeights()` as runtime-only
-  presentation state keyed by the stable concrete owner ID
+  presentation state keyed by the public stable concrete `id`
   `<grid-id>.<row>.<column>` plus template component ID. Resolve targets through
   the load-time component index, patch stable projection records, and publish
   aggregate Mesh dirty ranges through the existing central bar controller.

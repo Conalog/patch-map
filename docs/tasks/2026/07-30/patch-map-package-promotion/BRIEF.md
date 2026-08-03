@@ -22,7 +22,7 @@
 - Grid item-template bar state and concrete cell presentation state now have
   separate public operations: `updateBarHeights()` changes authored semantic
   state, while `updateInstanceBarHeights()` addresses stable
-  `<grid>.<row>.<column>` owners without rewriting the dataset or history.
+  `<grid>.<row>.<column>` IDs without rewriting the dataset or history.
 - The structural refactor keeps atomic mutation in the facade while assigning
   geometry, semantic indexing, Pixi adaptation, Mesh planning, public
   contracts, Lab presentation, and actual-only test harnesses explicit owners.

@@ -17,6 +17,7 @@ export type {
   PatchMapBarPresentationProductProbe,
   PatchMapInstanceBarHeightBatchRequest,
   PatchMapInstanceBarHeightBatchResult,
+  PatchMapInstanceBarTarget,
   PatchMapPresentationLifecycleResult,
   PatchMapReconcileTimings,
   PatchMapSelectionOverlayPolicyInput,

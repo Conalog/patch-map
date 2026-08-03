@@ -287,8 +287,8 @@ describe('PatchMap bar presentation integration', () => {
 
     expect(engine.updateInstanceBarHeights({
       targets: [
-        { ownerId: 'grid-a.0.0', componentId: 'level' },
-        { ownerId: 'grid-a.0.1', componentId: 'level' },
+        { id: 'grid-a.0.0', componentId: 'level' },
+        { id: 'grid-a.0.1', componentId: 'level' },
       ],
       heights: new Float64Array([54, 27]),
       animate: false,
@@ -296,8 +296,8 @@ describe('PatchMap bar presentation integration', () => {
       status: 'committed',
       changed: true,
       appliedTargets: [
-        { ownerId: 'grid-a.0.0', componentId: 'level' },
-        { ownerId: 'grid-a.0.1', componentId: 'level' },
+        { id: 'grid-a.0.0', componentId: 'level' },
+        { id: 'grid-a.0.1', componentId: 'level' },
       ],
       missingTargets: [],
       activeAnimationCount: 0,
@@ -318,35 +318,40 @@ describe('PatchMap bar presentation integration', () => {
     const beforeRejected = core.projection;
     expect(engine.updateInstanceBarHeights({
       targets: [
-        { ownerId: 'grid-a.0.0', componentId: 'level' },
-        { ownerId: 'missing.0.0', componentId: 'level' },
+        { id: 'grid-a.0.0', componentId: 'level' },
+        { id: 'missing.0.0', componentId: 'level' },
       ],
       heights: [70, 80],
       animate: false,
     })).toMatchObject({
       status: 'rejected',
       changed: false,
-      missingTargets: [{ ownerId: 'missing.0.0', componentId: 'level' }],
+      missingTargets: [{ id: 'missing.0.0', componentId: 'level' }],
       overlayCount: 2,
     });
     expect(core.projection).toBe(beforeRejected);
     expect(() => engine.updateInstanceBarHeights({
       targets: [
-        { ownerId: 'grid-a.0.0', componentId: 'level' },
-        { ownerId: 'grid-a.0.0', componentId: 'level' },
+        { id: 'grid-a.0.0', componentId: 'level' },
+        { id: 'grid-a.0.0', componentId: 'level' },
       ],
       heights: [30, 40],
       animate: false,
     })).toThrow(/duplicate instance bar target/);
     expect(() => engine.updateInstanceBarHeights({
-      targets: [{ ownerId: 'grid-a.0.0', componentId: 'level' }],
+      targets: [{ id: 'grid-a.0.0', componentId: 'level' }],
       heights: [-1],
       animate: false,
     })).toThrow(/finite and non-negative/);
+    expect(() => engine.updateInstanceBarHeights({
+      targets: [{ ownerId: 'grid-a.0.0', componentId: 'level' }] as never,
+      heights: [30],
+      animate: false,
+    })).toThrow(/target id must be a non-empty string/);
     expect(core.projection).toBe(beforeRejected);
 
     expect(engine.updateInstanceBarHeights({
-      targets: [{ ownerId: 'grid-a.0.0', componentId: 'level' }],
+      targets: [{ id: 'grid-a.0.0', componentId: 'level' }],
       heights: [null],
       animate: false,
     })).toMatchObject({ status: 'committed', overlayCount: 1 });
@@ -365,7 +370,7 @@ describe('PatchMap bar presentation integration', () => {
     engine.publishFrame(250);
     expect(core.projection?.byEntityId['grid-a.0.1::bar:level']?.localBounds[3]).toBe(15);
     expect(engine.updateInstanceBarHeights({
-      targets: [{ ownerId: 'grid-a.0.1', componentId: 'level' }],
+      targets: [{ id: 'grid-a.0.1', componentId: 'level' }],
       heights: [null],
       animate: false,
     })).toMatchObject({ status: 'unchanged', changed: false, overlayCount: 0 });
@@ -386,8 +391,8 @@ describe('PatchMap bar presentation integration', () => {
     engine.loadDataset(gridScene(10));
     engine.publishFrame(0);
     const targets = [
-      { ownerId: 'grid-a.0.0', componentId: 'level' },
-      { ownerId: 'grid-a.0.1', componentId: 'level' },
+      { id: 'grid-a.0.0', componentId: 'level' },
+      { id: 'grid-a.0.1', componentId: 'level' },
     ];
 
     expect(engine.updateInstanceBarHeights({
@@ -395,20 +400,22 @@ describe('PatchMap bar presentation integration', () => {
       heights: new Float64Array([50, 30]),
     })).toMatchObject({ status: 'committed', activeAnimationCount: 2 });
     engine.publishFrame(50);
-    const firstVisible = targets.map((target) =>
-      engine.barPresentationProbe(target)?.presentationHeight);
+    const firstVisible = targets.map(({ id, componentId }) =>
+      engine.barPresentationProbe({ ownerId: id, componentId })?.presentationHeight);
 
     expect(engine.updateInstanceBarHeights({
       targets,
       heights: new Float64Array([25, 60]),
     })).toMatchObject({ status: 'committed', activeAnimationCount: 2 });
-    expect(targets.map((target) =>
-      engine.barPresentationProbe(target)?.presentationHeight)).toEqual(firstVisible);
+    expect(targets.map(({ id, componentId }) =>
+      engine.barPresentationProbe({ ownerId: id, componentId })?.presentationHeight))
+      .toEqual(firstVisible);
     expect(core.activeAnimations).toBe(2);
 
     engine.publishFrame(250);
-    expect(targets.map((target) =>
-      engine.barPresentationProbe(target)?.presentationHeight)).toEqual([25, 60]);
+    expect(targets.map(({ id, componentId }) =>
+      engine.barPresentationProbe({ ownerId: id, componentId })?.presentationHeight))
+      .toEqual([25, 60]);
     expect(core.activeAnimations).toBe(0);
 
     await engine.destroy();

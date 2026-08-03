@@ -237,6 +237,12 @@ export interface PatchMapComponentVisualTarget {
   readonly componentId: string;
 }
 
+/** A concrete item or expanded grid-cell component address. */
+export interface PatchMapInstanceBarTarget {
+  readonly id: string;
+  readonly componentId: string;
+}
+
 /**
  * Runtime-only bar destinations for concrete item instances. Numeric entries
  * replace the renderer-visible destination; `null` restores the authored
@@ -244,15 +250,15 @@ export interface PatchMapComponentVisualTarget {
  * untouched.
  */
 export interface PatchMapInstanceBarHeightBatchRequest {
-  readonly targets: readonly PatchMapComponentVisualTarget[];
+  readonly targets: readonly PatchMapInstanceBarTarget[];
   readonly heights: ArrayLike<number | null>;
   readonly animate?: boolean;
 }
 
 export interface PatchMapInstanceBarHeightBatchResult {
   readonly changed: boolean;
-  readonly appliedTargets: readonly PatchMapComponentVisualTarget[];
-  readonly missingTargets: readonly PatchMapComponentVisualTarget[];
+  readonly appliedTargets: readonly PatchMapInstanceBarTarget[];
+  readonly missingTargets: readonly PatchMapInstanceBarTarget[];
   readonly dirtyRanges: readonly SlotRange[];
   readonly activeAnimationCount: number;
   readonly overlayCount: number;
@@ -408,6 +414,22 @@ export function normalizePatchMapComponentVisualTarget(
     throw new TypeError('component visual target componentId must be a non-empty string');
   }
   return Object.freeze({ ownerId: record.ownerId, componentId: record.componentId });
+}
+
+export function normalizePatchMapInstanceBarTarget(
+  target: unknown,
+): PatchMapInstanceBarTarget {
+  if (target === null || typeof target !== 'object' || Array.isArray(target)) {
+    throw new TypeError('instance bar target must be an object');
+  }
+  const record = target as Readonly<Record<string, unknown>>;
+  if (typeof record.id !== 'string' || record.id.length === 0) {
+    throw new TypeError('instance bar target id must be a non-empty string');
+  }
+  if (typeof record.componentId !== 'string' || record.componentId.length === 0) {
+    throw new TypeError('instance bar target componentId must be a non-empty string');
+  }
+  return Object.freeze({ id: record.id, componentId: record.componentId });
 }
 
 export function normalizePatchMapTextTarget(target: PatchMapTextTarget): PatchMapTextTarget {

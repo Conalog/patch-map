@@ -227,8 +227,8 @@ dataset records:
 ```ts
 const result = patchMap.updateInstanceBarHeights({
   targets: [
-    { ownerId: 'rack-grid.12.3', componentId: 'usage' },
-    { ownerId: 'rack-grid.12.4', componentId: 'usage' },
+    { id: 'rack-grid.12.3', componentId: 'usage' },
+    { id: 'rack-grid.12.4', componentId: 'usage' },
   ],
   heights: new Float64Array([37, 81]),
 });
@@ -239,7 +239,7 @@ if (result.status === 'rejected') {
 }
 ```
 
-The concrete owner ID is the stable expanded grid identity
+The concrete target `id` is the stable expanded grid identity
 `<grid-id>.<row>.<column>`; `componentId` remains the ID declared by the item
 template. The batch resolves those IDs through the load-time dense component
 index, updates aggregate projection slots, and uploads only the resulting

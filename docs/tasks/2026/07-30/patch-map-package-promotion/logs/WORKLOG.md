@@ -204,8 +204,9 @@
 
 ## 2026-08-03 — Concrete grid-instance bar updates
 
-- Added the public `PatchMap.updateInstanceBarHeights()` batch for item and
-  expanded-grid component identities. It keeps an atomic runtime overlay over
+- Added the public `PatchMap.updateInstanceBarHeights()` batch with
+  `{ id, componentId }` targets for item and expanded-grid component
+  identities. It keeps an atomic runtime overlay over
   authored projection state, reuses dense component indexes and stable-record
   patching, emits only aggregate Mesh dirty ranges, and retargets one central
   animation controller. Missing/duplicate/invalid targets cannot partially
@@ -229,3 +230,10 @@
   required audit, public overlay call, and lifecycle cleanup PASS; 2+7 memory
   plus nine ownership cycles over 5,099 entities PASS at 98,247-byte retained
   heap median with DOM/scheduler/renderer released.
+- Simplified the public instance address from `{ ownerId, componentId }` to
+  `{ id, componentId }` without adding a per-target conversion allocation.
+  Focused type/lint/unit checks and the strict packed consumer passed. A fresh
+  headless smoke recorded repeated-action p95 of 28.1ms at 5,000 targets and
+  61.9ms at 10,000 targets, with zero and two long tasks respectively; the
+  full 2+7 matrix was not repeated because renderer and lifecycle ownership
+  did not change.

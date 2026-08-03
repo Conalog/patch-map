@@ -150,7 +150,14 @@ export function indexPatchMapTextProbeTargets(
 export function patchMapComponentProbeTargetKey(
   target: PatchMapComponentVisualTarget,
 ): string {
-  return `${target.ownerId.length}:${target.ownerId}:${target.componentId}`;
+  return patchMapComponentTargetKey(target.ownerId, target.componentId);
+}
+
+export function patchMapComponentTargetKey(
+  id: string,
+  componentId: string,
+): string {
+  return `${id.length}:${id}:${componentId}`;
 }
 
 export function createPatchMapComponentVisualProductProbe(
