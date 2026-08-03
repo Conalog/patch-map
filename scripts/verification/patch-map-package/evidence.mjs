@@ -45,7 +45,11 @@ export function collectPackageFailures({
   if (esm.backend !== 'webgl') failures.push('packed ESM did not use WebGL');
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.assetRuntimeCount !== 0) failures.push('packed ESM asset status was inconsistent');
-  if (esm.internalExportsAbsent !== true) failures.push('packed ESM exposed internal runtime symbols');
+  if (
+    esm.internalExportsAbsent !== true ||
+    esm.constructorRejected !== true ||
+    esm.instanceInternalsAbsent !== true
+  ) failures.push('packed ESM exposed internal runtime symbols');
   if (
     esm.destroyResult !== true ||
     esm.destroyed !== true ||
@@ -57,7 +61,8 @@ export function collectPackageFailures({
     cjs.persistenceType !== 'function' ||
     cjs.rootKind !== 'array' ||
     cjs.id !== 'cjs-rect' ||
-    cjs.internalExportsAbsent !== true
+    cjs.internalExportsAbsent !== true ||
+    cjs.constructorRejected !== true
   ) failures.push('packed CJS public surface failed');
 
   if (

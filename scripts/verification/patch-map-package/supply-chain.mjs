@@ -81,7 +81,7 @@ export function createSupplyChainEvidence({
     licenseCounts: licenseInventory.licenseCounts,
   });
   const sbom = Object.freeze({
-    format: 'core-v2-spdx-lite/1',
+    format: 'patch-map-spdx-lite/1',
     packageDigest: first.sha256,
     packageCount: licenseInventory.packageCount,
     packages: licenseInventory.packages,

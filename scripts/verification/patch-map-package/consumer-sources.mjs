@@ -104,6 +104,19 @@ const afterRejectedReplace = map.debug.snapshot();
 const assetStatus = map.assets.status();
 const capture = await map.capture.png();
 const renderObjects = initial.resources.rendering.commandCount;
+let constructorRejected = false;
+try {
+  Reflect.construct(PatchMap, []);
+} catch {
+  constructorRejected = true;
+}
+const instanceInternalsAbsent = [
+  'initialize',
+  'loadDataset',
+  'publishFrame',
+  'semanticProbe',
+  'historyInspection',
+].every((name) => !(name in map));
 const destroyResult = await map.destroy();
 
 const internalNames = [
@@ -138,6 +151,8 @@ window.__PACKAGE_RESULT__ = {
   capturePrefix: capture.dataUrl.slice(0, 22),
   captureLength: capture.dataUrl.length,
   internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
+  constructorRejected,
+  instanceInternalsAbsent,
   destroyResult,
   destroyed: map.destroyed,
   canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
@@ -155,6 +170,12 @@ const canonical = materializePatchMapCompatibilityDataset([
   { type: 'rect', id: 'cjs-rect', size: 10, fill: '#ff0000' },
 ]);
 const persistence = preparePatchMapPersistenceExport(canonical.canonicalDataset);
+let constructorRejected = false;
+try {
+  Reflect.construct(PatchMap, []);
+} catch {
+  constructorRejected = true;
+}
 const internalNames = [
   'PatchMapFrameLoop',
   'PatchMapPixiRenderer',
@@ -169,5 +190,6 @@ process.stdout.write(JSON.stringify({
   rootKind: persistence.rootKind,
   id: persistence.dataset[0]?.id ?? null,
   internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
+  constructorRejected,
 }));
 `;

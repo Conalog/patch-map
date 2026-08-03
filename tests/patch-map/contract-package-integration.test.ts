@@ -88,6 +88,8 @@ describe('PatchMap packed integration automation substrate', () => {
     expect(evidence).toContain('export function collectPackageFailures');
     expect(evidence).toContain('export function createPackageConsumerEvidence');
     expect(supplyChain).toContain('export function createSupplyChainEvidence');
+    expect(supplyChain).toContain("format: 'patch-map-spdx-lite/1'");
+    expect(supplyChain).not.toContain("format: 'core-v2-spdx-lite/1'");
     expect(matrix).toContain("from './patch-map-package-matrix/artifact-policy.mjs'");
     expect(matrix).toContain("from './patch-map-package-matrix/journey-comparison.mjs'");
     expect(matrix).toContain("from './patch-map-package-matrix/runner-sources.mjs'");

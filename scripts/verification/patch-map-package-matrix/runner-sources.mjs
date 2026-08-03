@@ -345,14 +345,13 @@ const packageDigest = ${JSON.stringify(packageDigest)};
 const codeCommit = ${JSON.stringify(codeCommit)};
 const journeyIds = PATCH_MAP_EXECUTABLE_CASE_IDS.filter((id) => id.startsWith('CSM-'));
 
-function historyCorruptEntryCount(inspection) {
-  return inspection.commands.filter((command) =>
-    typeof command.id !== 'string'
-    || command.id.length === 0
-    || command.recordCount !== command.records.length
-    || !Array.isArray(command.before.dataset)
-    || !Array.isArray(command.after.dataset)
-  ).length;
+function historyCorruptEntryCount(history) {
+  return history.depth === history.undoDepth + history.redoDepth
+    && history.cursor === history.undoDepth
+    && history.undoDepth >= 0
+    && history.redoDepth >= 0
+    ? 0
+    : 1;
 }
 
 function partialPublicationCount(before, after) {
@@ -381,7 +380,7 @@ async function runPackedFoundationProbe(caseId, plan, host) {
   target.style.width = '800px';
   target.style.height = '600px';
   host.appendChild(target);
-  const engine = new PatchMap();
+  let map = null;
   const cleanupErrors = [];
   try {
     if (caseId === 'CSM-003') {
@@ -392,34 +391,35 @@ async function runPackedFoundationProbe(caseId, plan, host) {
       emptyUi.dataset.hostState = 'no-blueprint';
       const noBlueprintCanvasCount = target.querySelectorAll('canvas').length;
 
-      await engine.initialize({
+      map = await PatchMap.mount({
         instanceId: 'packed-host-probe-csm-003',
-        target,
+        container: target,
         width: 800,
         height: 600,
-        preference: 'webgl',
-        strategy: 'mesh',
+        backend: 'webgl',
+        resizeMode: 'manual',
+        fit: false,
       });
       const datasetRef = String(plan.hostSupplies.emptyDatasetRef);
-      engine.loadDataset(
+      map.data.replace(
         structuredClone(resolvePatchMapExecutableDataset(datasetRef)),
-        { datasetRef },
+        { datasetRef, fit: false },
       );
-      engine.publishFrame(0);
+      await map.capture.png();
       emptyUi.dataset.hostState = 'empty-dataset';
-      const beforeFailure = engine.snapshot();
+      const beforeFailure = map.debug.snapshot();
       let declaredFailureObserved = false;
       try {
-        engine.loadDataset(invalidStrictDataset(), {
+        map.data.replace(invalidStrictDataset(), {
           datasetRef: 'packed-declared-failure',
           strict: true,
+          fit: false,
         });
       } catch {
         declaredFailureObserved = true;
       }
-      const afterFailure = engine.snapshot();
-      const semantic = engine.semanticProbe();
-      const inspection = engine.historyInspection();
+      const afterFailure = map.debug.snapshot();
+      const history = map.history.state;
       return {
         hostProbe: {
           $schema: 'core-v2-packed-host-probe/1',
@@ -428,13 +428,13 @@ async function runPackedFoundationProbe(caseId, plan, host) {
           engineReturns: {
             loadingCanvasCount,
             noBlueprintCanvasCount,
-            emptySceneNodeCount: semantic.scene.nodes.length,
-            missingQuery: engine.query({ id: 'missing' }),
+            emptySceneNodeCount: map.targets.query({ scope: 'all' }).count,
+            missingQuery: map.targets.get({ id: 'missing' }),
           },
           failureRollback: {
             priorSceneRevision:
               afterFailure.revisions.sceneRevision - beforeFailure.revisions.sceneRevision,
-            historyDepth: inspection.state.depth,
+            historyDepth: history.depth,
             hostOwnsEmptyUi:
               declaredFailureObserved
               && emptyUi.isConnected
@@ -444,54 +444,55 @@ async function runPackedFoundationProbe(caseId, plan, host) {
             lifecycle: afterFailure.lifecycle,
             sceneRevision: afterFailure.revisions.sceneRevision,
             selectedIds: afterFailure.selectionIds,
-            mode: semantic.interaction.mode,
+            mode: afterFailure.interaction.mode,
           },
         },
         browserProbe: {
           $schema: 'patch-map-browser-probe/1',
           caseId,
-          history: { corruptEntryCount: historyCorruptEntryCount(inspection) },
+          history: { corruptEntryCount: historyCorruptEntryCount(history) },
           interaction: {
-            staleGestureCount: engine.pointerGestureProbe().staleGestureCount,
+            staleGestureCount: afterFailure.interaction.staleGestureCount,
           },
         },
       };
     }
 
-    await engine.initialize({
+    map = await PatchMap.mount({
       instanceId: 'packed-host-probe-csm-001',
-      target,
+      container: target,
       width: 800,
       height: 600,
-      preference: 'webgl',
-      strategy: 'mesh',
+      backend: 'webgl',
+      resizeMode: 'manual',
+      fit: false,
     });
     const datasetRef = String(plan.hostSupplies.datasetRef);
-    const loaded = engine.loadDataset(
+    const loaded = map.data.replace(
       structuredClone(resolvePatchMapExecutableDataset(datasetRef)),
-      { datasetRef },
+      { datasetRef, fit: false },
     );
-    engine.publishFrame(0);
-    const beforeFailure = engine.snapshot();
+    await map.capture.png();
+    const beforeFailure = map.debug.snapshot();
     let hostRetryRequired = false;
     try {
-      engine.loadDataset(invalidStrictDataset(), {
+      map.data.replace(invalidStrictDataset(), {
         datasetRef: 'packed-declared-failure',
         strict: true,
+        fit: false,
       });
     } catch {
       hostRetryRequired = true;
     }
-    const afterFailure = engine.snapshot();
-    const semantic = engine.semanticProbe();
-    const inspection = engine.historyInspection();
+    const afterFailure = map.debug.snapshot();
+    const history = map.history.state;
     return {
       hostProbe: {
         $schema: 'core-v2-packed-host-probe/1',
         caseId,
         promotionEligible: true,
         engineReturns: {
-          lifecycle: loaded.lifecycle,
+          lifecycle: beforeFailure.lifecycle,
           sceneRevision: loaded.sceneRevision,
           publishedTuple: beforeFailure.publishedTuple,
           rootIds: loaded.rootIds,
@@ -507,21 +508,21 @@ async function runPackedFoundationProbe(caseId, plan, host) {
           lifecycle: afterFailure.lifecycle,
           sceneRevision: afterFailure.revisions.sceneRevision,
           selectedIds: afterFailure.selectionIds,
-          mode: semantic.interaction.mode,
+          mode: afterFailure.interaction.mode,
           datasetRef: afterFailure.datasetRef,
         },
       },
       browserProbe: {
         $schema: 'patch-map-browser-probe/1',
         caseId,
-        history: { corruptEntryCount: historyCorruptEntryCount(inspection) },
+        history: { corruptEntryCount: historyCorruptEntryCount(history) },
         interaction: {
-          staleGestureCount: engine.pointerGestureProbe().staleGestureCount,
+          staleGestureCount: afterFailure.interaction.staleGestureCount,
         },
       },
     };
   } finally {
-    await engine.destroy().catch((error) => {
+    await map?.destroy().catch((error) => {
       cleanupErrors.push({
         name: error instanceof Error ? error.name : 'Error',
         message: error instanceof Error ? error.message : String(error),
