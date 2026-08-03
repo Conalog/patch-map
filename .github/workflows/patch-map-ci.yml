@@ -3,6 +3,12 @@ name: PatchMap CI
 on:
   pull_request:
   push:
+    branches:
+      - main
+
+concurrency:
+  group: patch-map-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
