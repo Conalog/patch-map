@@ -60,21 +60,12 @@ describe('PatchMap extraction verification scripts', () => {
 
   it('keeps packed and lifecycle artifacts redirectable while probing extraction', () => {
     expect(packageSource).toContain('PATCH_MAP_PACKAGE_ARTIFACT_DIR');
-    expect(packageSource).toContain('engine.extractPublishedScene({');
-    expect(packageSource).toContain(
-      'extractionType: typeof PatchMap.prototype.extractPublishedScene',
-    );
-    expect(packageSource).toContain('validatePatchMapDatasetReferences(engine.exportDataset())');
-    expect(packageSource).toContain("strictReferenceValidatorType: typeof validatePatchMapDatasetReferences");
-    expect(packageSource).toContain('resolvePatchMapEditorMount(false)');
-    expect(packageSource).toContain('engine.bindTooltipHost(');
-    expect(packageSource).toContain('engine.hoverTooltipAtScreen({ x: 20, y: 30 }, [160, 80])');
-    expect(packageSource).toContain("tooltipRevision: PATCH_MAP_HOST_TOOLTIP_REVISION");
-    expect(packageSource).toContain("editorMountRevision: PATCH_MAP_EDITOR_MOUNT_REVISION");
-    expect(packageSource).toContain(
-      'pageLifecycleRevision: PATCH_MAP_PAGE_LIFECYCLE_REVISION',
-    );
-    expect(packageSource).toContain('engine.setDocumentVisibility({');
+    expect(packageSource).toContain('const capture = await map.capture.png()');
+    expect(packageSource).toContain('capturePrefix: capture.dataUrl.slice(0, 22)');
+    expect(packageSource).toContain('map.data.replace([');
+    expect(packageSource).toContain('rejectedReplaceAtomic:');
+    expect(packageSource).toContain('internalExportsAbsent: internalNames.every');
+    expect(packageSource).toContain('canvasCountAfterDestroy:');
     expect(memorySource).toContain('PATCH_MAP_MEMORY_ARTIFACT_DIR');
     expect(memorySource).toContain('engine.extractPublishedScene({');
     expect(memorySource).toContain('tooltipSubscription = engine.bindTooltipHost(');

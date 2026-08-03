@@ -93,9 +93,9 @@ export async function preparePackedConsumerMatrix({
   await writeFile(path.join(consumer, 'strict-consumer.ts'), `
 import {
   PatchMap,
-  type PatchMapEngineSnapshot,
-  type PatchMapMountOptions,
-  type PatchMapTargetSelector,
+  type PatchMapDebugSnapshot,
+  type PatchMapOptions,
+  type PatchMapTargetQuery,
 } from '${PACKAGE_NAME}';
 import {
   PATCH_MAP_HOST_ADAPTER_CAPABILITIES,
@@ -106,12 +106,12 @@ import { PatchMapAdvanced } from '${PACKAGE_NAME}';
 
 const Engine: typeof PatchMap = PatchMap;
 const highLevelMount: typeof PatchMap.mount = PatchMap.mount;
-const mountOptions: PatchMapMountOptions = {
-  target: '#strict-types-only',
+const mountOptions: PatchMapOptions = {
+  container: '#strict-types-only',
   data: [],
   fit: { padding: 24 },
 };
-const targetSelector: PatchMapTargetSelector = {
+const targetSelector: PatchMapTargetQuery = {
   within: 'rack-grid',
   componentId: 'usage',
   type: 'bar',
@@ -119,10 +119,22 @@ const targetSelector: PatchMapTargetSelector = {
 };
 const capabilities: readonly string[] = PATCH_MAP_HOST_ADAPTER_CAPABILITIES;
 const mount: typeof PatchMapHostAdapter.mount = PatchMapHostAdapter.mount;
-const snapshot: PatchMapEngineSnapshot | null = null;
+const snapshot: PatchMapDebugSnapshot | null = null;
 declare const mounted: Awaited<ReturnType<typeof PatchMap.mount>>;
 // @ts-expect-error targets.compile is intentionally not a public API.
 mounted.targets.compile(targetSelector);
+// @ts-expect-error data replacement is named replace, not load.
+mounted.data.load([]);
+// @ts-expect-error detached data is named snapshot, not export.
+mounted.data.export();
+// @ts-expect-error transforms expose relative intent in the method name.
+mounted.transform.move({ id: 'strict-bar-fill' }, [1, 1]);
+// @ts-expect-error viewport movement exposes relative intent in the method name.
+mounted.viewport.pan(1, 1);
+// @ts-expect-error asset diagnostics use a typed status result.
+mounted.assets.inspect();
+// @ts-expect-error mount uses container and does not expose renderer strategy.
+PatchMap.mount({ target: '#legacy', strategy: 'particle' });
 mounted.update({
   id: 'strict-bar-fill',
   bar: {
@@ -180,10 +192,12 @@ export async function verifyPackedConsumerTypes(consumer) {
 
 export function createPackedProductAlias({ root, consumer }) {
   const sourceRoot = path.resolve(root, 'src/patch-map');
+  const sourceEntry = path.join(sourceRoot, 'index.ts');
   const packedEntry = path.resolve(
     consumer,
     'node_modules/@conalog/patch-map/dist/index.js',
   );
+  const boundaryId = '\0patch-map-packed-product-boundary';
   const resolutions = [];
   return Object.freeze({
     plugin: {
@@ -193,11 +207,22 @@ export function createPackedProductAlias({ root, consumer }) {
         if (typeof importer !== 'string' || !source.startsWith('.')) return null;
         const cleanImporter = importer.split('?', 1)[0];
         const resolved = path.resolve(path.dirname(cleanImporter), source);
-        if (resolved !== sourceRoot && !resolved.startsWith(`${sourceRoot}${path.sep}`)) {
+        if (
+          resolved !== sourceRoot &&
+          resolved !== path.join(sourceRoot, 'index') &&
+          resolved !== sourceEntry
+        ) {
           return null;
         }
         resolutions.push(Object.freeze({ source, importer: cleanImporter }));
-        return packedEntry;
+        return boundaryId;
+      },
+      load(id) {
+        if (id !== boundaryId) return null;
+        return [
+          `export { PatchMap } from ${JSON.stringify(packedEntry)};`,
+          `export * from ${JSON.stringify(sourceEntry)};`,
+        ].join('\n');
       },
     },
     probe() {

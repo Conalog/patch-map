@@ -97,12 +97,11 @@ async function runHostAdapter() {
   try {
     adapter = await PatchMapHostAdapter.mount({
       instanceId: 'package-host-adapter',
-      target: host,
+      container: host,
       width: 420,
       height: 240,
       backend: 'webgl',
-      strategy: 'mesh',
-      resize: 'manual',
+      resizeMode: 'manual',
     });
     const legacyLoad = adapter.load({
       kind: 'generic-item',
@@ -214,27 +213,25 @@ async function runMultipleInstances() {
     [A, B] = await Promise.all([
       PatchMapHostAdapter.mount({
         instanceId: 'package-instance-A',
-        target: slotA,
+        container: slotA,
         width: 360,
         height: 220,
         background: '#f8fafc',
         backend: 'webgl',
-        strategy: 'mesh',
         assets: [SHARED_ASSET],
         assetRuntime: runtime,
-        resize: 'manual',
+        resizeMode: 'manual',
       }),
       PatchMapHostAdapter.mount({
         instanceId: 'package-instance-B',
-        target: slotB,
+        container: slotB,
         width: 360,
         height: 220,
         background: '#111827',
         backend: 'webgl',
-        strategy: 'mesh',
         assets: [SHARED_ASSET],
         assetRuntime: runtime,
-        resize: 'manual',
+        resizeMode: 'manual',
       }),
     ]);
     A.load(DATASET, { datasetRef: 'interactive-scene:A' });
@@ -252,7 +249,7 @@ async function runMultipleInstances() {
     callbacks.A.length = 0;
     callbacks.B.length = 0;
     const baselineB = {
-      assetLeaseCount: B.assetProbe('device').session?.leaseCount ?? -1,
+      assetLeaseCount: B.assetStatus('device').session?.leaseCount ?? -1,
       sceneSemanticHash: B.snapshot().semanticHash,
     };
 
@@ -265,22 +262,21 @@ async function runMultipleInstances() {
 
     const afterDestroyA = {
       semanticHash: B.snapshot().semanticHash,
-      assetLeaseCount: B.assetProbe('device').session?.leaseCount ?? -1,
+      assetLeaseCount: B.assetStatus('device').session?.leaseCount ?? -1,
       callbackCountFromA: callbacks.B.length,
       sharedLeaseCount: runtime.probe('device').resource?.leaseCount ?? -1,
     };
 
     A2 = await PatchMapHostAdapter.mount({
       instanceId: 'package-instance-A2',
-      target: slotA,
+      container: slotA,
       width: 360,
       height: 220,
       background: '#ecfeff',
       backend: 'webgl',
-      strategy: 'mesh',
       assets: [SHARED_ASSET],
       assetRuntime: runtime,
-      resize: 'manual',
+      resizeMode: 'manual',
     });
     A2.load(structuredClone(DATASET), { datasetRef: 'interactive-scene:A2' });
     return {

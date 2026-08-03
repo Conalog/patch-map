@@ -91,11 +91,11 @@ export function auditPackedHostAdapterSource(source) {
   );
   const restrictedImports = imports.filter((specifier) => specifier !== PACKAGE_NAME);
   const requiredDelegations = Object.freeze({
-    load: '.data.load(',
+    load: '.data.replace(',
     lookup: '.targets.get(',
     'bulk-update': '.transaction(',
     selection: '.selection.set(',
-    transform: '.transform.move(',
+    transform: '.transform.moveBy(',
     history: '.history.state',
     snapshot: '.debug.snapshot(',
     extract: '.capture.png(',
