@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   PatchMap,
+  PatchMapHostInteractionAuthority,
   resolvePatchMapEditorMount,
   type PatchMapEnginePointerInput,
   type PatchMapEngineSurface,
@@ -12,6 +13,31 @@ import {
 } from '../../src/patch-map';
 
 describe('PatchMap host interaction substrate', () => {
+  it('makes standalone destroy reentrancy idempotent before notifying tooltip hosts', () => {
+    const authority = new PatchMapHostInteractionAuthority({ queryTargets: () => [] });
+    authority.hoverTooltip({
+      targetId: 'rect-a',
+      anchorCss: [10, 20],
+      viewportCssPx: [800, 600],
+      tooltipSizeCssPx: [120, 40],
+    });
+    let destroyPublications = 0;
+    authority.bindTooltipHost(({ reason }) => {
+      if (reason !== 'destroy') return;
+      destroyPublications += 1;
+      authority.destroy();
+    });
+
+    authority.destroy();
+
+    expect(destroyPublications).toBe(1);
+    expect(authority.probe()).toMatchObject({
+      destroyed: true,
+      tooltipHostListeners: 0,
+      tooltip: { destroyed: true, clearTrace: ['destroy'] },
+    });
+  });
+
   it('blocks editor plants before allocating an Engine or canvas', () => {
     expect(resolvePatchMapEditorMount(false)).toEqual({
       schemaRevision: 'core-v2-editor-mount/1',

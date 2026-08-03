@@ -626,6 +626,35 @@ describe('PatchMap shared asset runtime', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
+  it('fails closed when image decoded-size inspection is absent under ingestion policy', async () => {
+    const pixiAssets = Assets as unknown as { load(descriptor: unknown): Promise<unknown> };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'unsafe' }));
+    const createObjectURL = vi.fn(() => 'blob:unsafe');
+    const backend = createPatchMapPixiAssetBackend({
+      ingestionPolicy: {
+        protocols: ['https:'],
+        origins: ['https://assets.example.test'],
+        redirects: 'revalidate',
+        credentials: 'omit',
+        mediaTypes: ['image/png'],
+        maxEncodedBytes: 1024,
+        maxDecodedWidth: 64,
+        maxDecodedHeight: 64,
+      },
+      fetchAsset: () => Promise.resolve(new Blob(['png'], { type: 'image/png' })),
+      createObjectURL,
+    });
+
+    await expect(backend.load(Object.freeze({
+      key: 'patch-map-asset:missing-inspector',
+      descriptor: Object.freeze({ src: 'https://assets.example.test/external.png' }),
+      cacheIdentity: 'descriptor:missing-inspector',
+      packageOwned: false,
+    }))).rejects.toMatchObject({ code: 'ASSET_POLICY_REJECTED' });
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+  });
+
   it('isolates owned URL loads from Pixi source cache identity before unloading', async () => {
     const pixiAssets = Assets as unknown as {
       get(id: string): unknown;

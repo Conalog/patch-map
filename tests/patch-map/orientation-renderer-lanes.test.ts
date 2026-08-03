@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { Mesh, type MeshGeometry } from 'pixi.js';
 import type { EntityInput } from '../../src/patch-map/dense/contracts';
 import {
   RenderFlags,
@@ -135,6 +136,49 @@ describe('PatchMap orientation renderer lanes', () => {
     expect([...track.positions]).toEqual(expectedTrack.vertices.map(Math.fround));
     expect([...fill.positions]).toEqual(expectedFill.vertices.map(Math.fround));
     expect(expectedFill.center).not.toEqual(expectedTrack.center);
+  });
+
+  it('keeps projected rounded bar radii stable across partial build and update', () => {
+    const parsed = parsePatchMapV010([item('rounded-meter', 'follow-item', [{
+      type: 'bar',
+      id: 'rounded-level',
+      size: { width: 20, height: 8 },
+      source: { type: 'rect', fill: '#223344', radius: 4 },
+      tint: '#33aa55',
+    }])]);
+    const entity = parsed.document.entities.find((candidate) => candidate.kind === 'bar');
+    if (!entity) throw new Error('rounded bar entity was not projected');
+    const store = createRenderStore([entity], { value: 0.5 });
+    const context = projectionContext(parsed.projection, 1, 0, false, false);
+    const initial = buildAggregateChunkGeometry(store, 0, 1, context);
+    const initialFill = initial.quadGroups.reduce((latest, group) =>
+      latest === null || group.drawOrder > latest.drawOrder ? group : latest,
+    null as (typeof initial.quadGroups)[number] | null);
+    if (!initialFill) throw new Error('rounded bar fill geometry was not created');
+
+    expect(initialFill.positions[10]! - initialFill.positions[2]!).toBeCloseTo(4, 6);
+
+    const layer = new AggregateMeshLayer({ chunkSize: 8 });
+    layer.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
+    const fillMesh = layer.relationContainer.children.reduce<Mesh<MeshGeometry> | null>(
+      (latest, child) => child instanceof Mesh &&
+        (latest === null || child.zIndex > latest.zIndex)
+        ? child as Mesh<MeshGeometry>
+        : latest,
+      null,
+    );
+    if (!fillMesh) throw new Error('rounded bar fill mesh was not created');
+
+    (store.value as Float64Array)[0] = 0.75;
+    (store as { revision: number }).revision = 2;
+    layer.sync(store, {
+      changedRanges: [{ start: 0, end: 1 }],
+      projectionContext: context,
+    });
+
+    expect(fillMesh.geometry.positions[10]! - fillMesh.geometry.positions[2]!)
+      .toBeCloseTo(4, 6);
+    layer.destroy();
   });
 
   it.each([

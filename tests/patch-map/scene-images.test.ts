@@ -628,6 +628,32 @@ describe('PatchMapSceneImageController', () => {
     expect(controller.retry('retry-a').status).toBe('unavailable');
   });
 
+  it('contains a retry probe failure as a lifecycle failure without a pending half-commit', async () => {
+    const renderer = new MockImageRenderer();
+    const controller = new PatchMapSceneImageController(renderer);
+    const key = 'url:https://assets.example.test/retry-probe.png';
+    controller.reconcile(imageIndex([
+      image('retry-probe', 'https://assets.example.test/retry-probe.png', 'url'),
+    ]));
+    renderer.fail(key, 1);
+    await controller.settleBindings([key]);
+    renderer.bindingProbeFailures = 1;
+
+    expect(controller.retry('retry-probe')).toMatchObject({
+      status: 'started',
+      generation: 2,
+    });
+    renderer.resolve(key, { generation: 2 });
+    await expect(controller.settleBindings([key])).rejects.toThrow(
+      'PatchMap scene image lifecycle failed',
+    );
+    expect(controller.imageProbe('retry-probe')).toMatchObject({
+      generation: 2,
+      state: 'resolved',
+      attachmentState: 'current',
+    });
+  });
+
   it('does not request another frame for an unchanged image reconciliation', () => {
     const renderer = new MockImageRenderer();
     const invalidate = vi.fn();

@@ -39,13 +39,13 @@ import {
   TEXT_BATCH_FIELDS,
   TEXT_BATCH_TARGET_FIELDS,
   isIndexStructuralPath,
-  isNumberArrayLike,
   isPatchMapComponentType,
   isPatchMapElementType,
-  isStringArray,
   normalizeBulkPatch,
   normalizeTransaction,
   rejectUnknownFields,
+  strictNumberArrayLike,
+  strictOrderedArray,
   strictRecord,
   targetKey,
   targetLabel,
@@ -96,6 +96,8 @@ export function planPatchMapBarHeightBatch(
   requestInput: unknown,
 ): PatchMapMutationTransactionPlan {
   let record: Readonly<Record<string, unknown>>;
+  let targets: readonly unknown[];
+  let heights: readonly unknown[];
   try {
     record = strictRecord(
       requestInput,
@@ -103,23 +105,13 @@ export function planPatchMapBarHeightBatch(
       'bar height batch must be a strict plain record',
     );
     rejectUnknownFields(record, BAR_HEIGHT_BATCH_FIELDS, '$');
-    if (!Array.isArray(record.targets)) {
-      transactionFail(
-        'INVALID_VALUE',
-        'INVALID_INPUT',
-        '$.targets',
-        'targets must be an ordered array',
-      );
-    }
-    if (!isNumberArrayLike(record.heights)) {
-      transactionFail(
-        'INVALID_VALUE',
-        'INVALID_INPUT',
-        '$.heights',
-        'heights must be a numeric array or typed array',
-      );
-    }
-    if (record.targets.length !== record.heights.length) {
+    targets = strictOrderedArray(record.targets, '$.targets', 'targets must be an ordered array');
+    heights = strictNumberArrayLike(
+      record.heights,
+      '$.heights',
+      'heights must be a numeric array or typed array',
+    );
+    if (targets.length !== heights.length) {
       transactionFail(
         'INVALID_VALUE',
         'INVALID_INPUT',
@@ -160,7 +152,7 @@ export function planPatchMapBarHeightBatch(
   const recordHistory = typeof record.recordHistory === 'boolean'
     ? record.recordHistory
     : undefined;
-  if (record.targets.length === 0) {
+  if (targets.length === 0) {
     return Object.freeze({
       status: 'planned',
       changed: false,
@@ -198,9 +190,9 @@ export function planPatchMapBarHeightBatch(
   const seenTargets = new Set<string>();
   let changed = false;
   try {
-    for (let index = 0; index < record.targets.length; index += 1) {
+    for (let index = 0; index < targets.length; index += 1) {
       const targetRecord = strictRecord(
-        record.targets[index],
+        targets[index],
         `$.targets[${index}]`,
         'bar height target must be a strict plain record',
       );
@@ -224,7 +216,7 @@ export function planPatchMapBarHeightBatch(
           index,
         );
       }
-      const height = record.heights[index];
+      const height = heights[index];
       if (typeof height !== 'number' || !Number.isFinite(height) || height < 0) {
         transactionFail(
           'INVALID_VALUE',
@@ -350,6 +342,9 @@ export function planPatchMapTextBatch(
   requestInput: unknown,
 ): PatchMapMutationTransactionPlan {
   let record: Readonly<Record<string, unknown>>;
+  let targets: readonly unknown[];
+  let texts: readonly unknown[];
+  let styles: readonly unknown[] | undefined;
   try {
     record = strictRecord(
       requestInput,
@@ -357,15 +352,9 @@ export function planPatchMapTextBatch(
       'text batch must be a strict plain record',
     );
     rejectUnknownFields(record, TEXT_BATCH_FIELDS, '$');
-    if (!Array.isArray(record.targets)) {
-      transactionFail(
-        'INVALID_VALUE',
-        'INVALID_INPUT',
-        '$.targets',
-        'targets must be an ordered array',
-      );
-    }
-    if (!isStringArray(record.texts)) {
+    targets = strictOrderedArray(record.targets, '$.targets', 'targets must be an ordered array');
+    texts = strictOrderedArray(record.texts, '$.texts', 'texts must be an ordered string array');
+    if (!texts.every((value) => typeof value === 'string')) {
       transactionFail(
         'INVALID_VALUE',
         'INVALID_INPUT',
@@ -373,7 +362,7 @@ export function planPatchMapTextBatch(
         'texts must be an ordered string array',
       );
     }
-    if (record.targets.length !== record.texts.length) {
+    if (targets.length !== texts.length) {
       transactionFail(
         'INVALID_VALUE',
         'INVALID_INPUT',
@@ -381,19 +370,20 @@ export function planPatchMapTextBatch(
         'texts length must match targets length',
       );
     }
-    if (
-      Object.hasOwn(record, 'styles') &&
-      (
-        !Array.isArray(record.styles) ||
-        record.styles.length !== record.targets.length
-      )
-    ) {
-      transactionFail(
-        'INVALID_VALUE',
-        'INVALID_INPUT',
+    if (Object.hasOwn(record, 'styles')) {
+      styles = strictOrderedArray(
+        record.styles,
         '$.styles',
         'styles must be an ordered array matching targets length',
       );
+      if (styles.length !== targets.length) {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          '$.styles',
+          'styles must be an ordered array matching targets length',
+        );
+      }
     }
     if (
       Object.hasOwn(record, 'actionId') &&
@@ -428,7 +418,7 @@ export function planPatchMapTextBatch(
   const recordHistory = typeof record.recordHistory === 'boolean'
     ? record.recordHistory
     : undefined;
-  if (record.targets.length === 0) {
+  if (targets.length === 0) {
     return Object.freeze({
       status: 'planned',
       changed: false,
@@ -466,9 +456,9 @@ export function planPatchMapTextBatch(
   const seenTargets = new Set<string>();
   let changed = false;
   try {
-    for (let index = 0; index < record.targets.length; index += 1) {
+    for (let index = 0; index < targets.length; index += 1) {
       const targetRecord = strictRecord(
-        record.targets[index],
+        targets[index],
         `$.targets[${index}]`,
         'text target must be a strict plain record',
       );
@@ -492,7 +482,7 @@ export function planPatchMapTextBatch(
           index,
         );
       }
-      const text = record.texts[index];
+      const text = texts[index];
       if (typeof text !== 'string') {
         transactionFail(
           'INVALID_VALUE',
@@ -503,10 +493,14 @@ export function planPatchMapTextBatch(
         );
       }
       let stylePatch: PatchMapTextStyle | undefined;
-      if (Array.isArray(record.styles)) {
+      if (styles !== undefined) {
         try {
+          const detachedStyle = cloneImmutableJson(
+            styles[index],
+            `$.styles[${index}]`,
+          );
           stylePatch = normalizePatchMapTextStylePatch(
-            record.styles[index],
+            detachedStyle,
             `$.styles[${index}]`,
           );
         } catch (error) {

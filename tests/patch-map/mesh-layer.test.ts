@@ -302,6 +302,22 @@ describe('AggregateMeshLayer', () => {
     layer.destroy();
   });
 
+  it('shrinks retained chunk bounds after bars move away from an old viewport', () => {
+    const store = createBarChunkStore();
+    const layer = new AggregateMeshLayer({ chunkSize: 2, label: 'moving chunk bounds' });
+    layer.sync(store, { fullRebuildEpoch: 1 });
+    const oldViewport = new Matrix(1, 0, 0, 1, -190, 0);
+
+    expect(layer.cull(oldViewport, 70, 40, 0, false)).toBe(1);
+
+    (store.x as Float32Array).set([20, 40], 2);
+    (store as { revision: number }).revision = 2;
+    layer.sync(store, { changedRanges: [{ start: 2, end: 4 }] });
+
+    expect(layer.cull(oldViewport, 70, 40, 0, false)).toBe(0);
+    layer.destroy();
+  });
+
   it('defers offscreen bar uploads and catches up before a chunk becomes visible', () => {
     const store = createBarChunkStore();
     const layer = new AggregateMeshLayer({ chunkSize: 2, label: 'deferred bars' });

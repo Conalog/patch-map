@@ -158,6 +158,7 @@ export class PatchMapHostInteractionAuthority {
   private tooltipState: PatchMapHostTooltipState = emptyTooltipState();
   private tooltipEverActive = false;
   private callbackFailureCount = 0;
+  private destroying = false;
   private destroyed = false;
 
   public constructor(options: PatchMapHostInteractionAuthorityOptions) {
@@ -509,19 +510,24 @@ export class PatchMapHostInteractionAuthority {
   }
 
   public destroy(): void {
-    if (this.destroyed) return;
-    this.clearTooltip('destroy');
-    for (const group of this.bindingGroups) {
-      group.enabled = false;
-      group.disposed = true;
+    if (this.destroyed || this.destroying) return;
+    this.destroying = true;
+    try {
+      this.clearTooltip('destroy');
+      for (const group of this.bindingGroups) {
+        group.enabled = false;
+        group.disposed = true;
+      }
+      for (const subscription of this.subscriptions) subscription.disposed = true;
+      this.bindingGroups.clear();
+      this.subscriptions.clear();
+      this.selectionHostListeners.clear();
+      this.tooltipHostListeners.clear();
+      this.modes.destroy();
+      this.destroyed = true;
+    } finally {
+      this.destroying = false;
     }
-    for (const subscription of this.subscriptions) subscription.disposed = true;
-    this.bindingGroups.clear();
-    this.subscriptions.clear();
-    this.selectionHostListeners.clear();
-    this.tooltipHostListeners.clear();
-    this.modes.destroy();
-    this.destroyed = true;
   }
 
   private publishTooltip(
@@ -541,7 +547,7 @@ export class PatchMapHostInteractionAuthority {
   }
 
   private assertAlive(operation: string): void {
-    if (this.destroyed) {
+    if (this.destroyed || this.destroying) {
       throw new Error(`PatchMap host interaction authority is destroyed: ${operation}`);
     }
   }

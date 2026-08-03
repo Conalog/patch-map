@@ -556,6 +556,31 @@ describe('PatchMap runtime dense reconcile', () => {
     expect(world.x).toBeCloseTo(120, 10);
     expect(world.y).toBeCloseTo(80, 10);
   });
+
+  it('restores renderer orientation and keeps view coordinates atomic when orientation publication fails', () => {
+    const { core, renderer } = createTestCore(allocated);
+    core.load([directRect('endpoint', { x: 110, width: 20, height: 20 })]);
+    const before = core.snapshot();
+    const worldBefore = core.screenToWorld({ x: 170, y: 260 });
+    renderer.worldOrientationFailure = new Error('orientation publication failed');
+
+    expect(() => core.setWorldTransform({
+      x: 10,
+      y: 20,
+      scale: 2,
+      rotationDegrees: 90,
+      flipX: true,
+      flipY: false,
+    })).toThrow('orientation publication failed');
+
+    expect(core.snapshot()).toEqual(before);
+    expect(core.screenToWorld({ x: 170, y: 260 })).toEqual(worldBefore);
+    expect(renderer.worldOrientation).toEqual({
+      rotationDegrees: 0,
+      flipX: false,
+      flipY: false,
+    });
+  });
 });
 
 function publishedSceneAuthority(core: PatchMapRuntime): Readonly<{
@@ -649,6 +674,16 @@ class RendererTestDouble {
   public readonly height = 600;
   public readonly pixelRatio = 1;
   public destroyed = false;
+  public worldOrientationFailure: Error | null = null;
+  public worldOrientation: Readonly<{
+    readonly rotationDegrees: number;
+    readonly flipX: boolean;
+    readonly flipY: boolean;
+  }> = Object.freeze({
+    rotationDegrees: 0,
+    flipX: false,
+    flipY: false,
+  });
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 
   public markChanges(
@@ -669,7 +704,17 @@ class RendererTestDouble {
     return true;
   }
 
-  public setWorldOrientation(): boolean {
+  public setWorldOrientation(orientation: Readonly<{
+    readonly rotationDegrees: number;
+    readonly flipX: boolean;
+    readonly flipY: boolean;
+  }>): boolean {
+    this.worldOrientation = Object.freeze({ ...orientation });
+    if (this.worldOrientationFailure !== null) {
+      const failure = this.worldOrientationFailure;
+      this.worldOrientationFailure = null;
+      throw failure;
+    }
     return true;
   }
 

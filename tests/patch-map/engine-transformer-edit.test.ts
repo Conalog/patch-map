@@ -442,6 +442,119 @@ describe('PatchMap transformer edit integration', () => {
     });
   });
 
+  it('keeps an active preview intact when replacement or mutation preflight rejects', async () => {
+    const { engine, surface } = await createEngine(engines);
+    engine.loadDataset(scene());
+    engine.applySelection({ op: 'replace', ids: ['rect-b'], source: 'programmatic' });
+    beginMovePreview(engine, 25);
+    const previewDataset = surface.loaded;
+
+    await expect(engine.loadDatasetAsync([
+      { type: 'rect', id: 'duplicate', size: 10 },
+      { type: 'rect', id: 'duplicate', size: 10 },
+    ], { strict: true })).rejects.toMatchObject({ code: 'DUPLICATE_ID' });
+    expect(engine.transact({ strict: true, operations: [] })).toMatchObject({
+      status: 'rejected',
+      changed: false,
+    });
+    expect(engine.patch({ kind: 'element', id: 'missing' }, {})).toMatchObject({
+      status: 'rejected',
+      changed: false,
+    });
+    expect(engine.destroyTarget({ kind: 'element', id: 'missing' })).toMatchObject({
+      status: 'rejected',
+      changed: false,
+    });
+
+    expect(engine.transformerEditProbe()).toMatchObject({
+      activeSessionCount: 1,
+      activePointerId: 25,
+      previewOverlayCount: 1,
+      cancelledSessionCount: 0,
+    });
+    expect(surface.loaded).toBe(previewDataset);
+    expect(geometryFromDataset(surface.loaded, 'rect-b')).toMatchObject({ x: 170, y: 45 });
+
+    expect(engine.patch(
+      { kind: 'element', id: 'rect-b' },
+      { attrs: { x: 165 } },
+    )).toMatchObject({ status: 'committed' });
+    expect(engine.transformerEditProbe()).toMatchObject({
+      activeSessionCount: 0,
+      cancelledSessionCount: 1,
+    });
+  });
+
+  it('does not replace selection when pointer gesture acquisition fails', async () => {
+    const { engine } = await createEngine(engines);
+    engine.loadDataset(scene());
+    engine.applySelection({ op: 'replace', ids: ['rect-b'], source: 'programmatic' });
+    engine.beginOwnedPointerGesture('pan', 40);
+
+    expect(() => engine.beginTransformerEdit({
+      pointerId: 41,
+      actionId: 'blocked-transformer',
+      kind: 'move',
+      handle: 'frame',
+      selectionIds: ['image-a'],
+    })).toThrow();
+
+    expect(engine.selectionIds).toEqual(['rect-b']);
+    expect(engine.transformerEditProbe()).toMatchObject({ activeSessionCount: 0 });
+    expect(engine.transformerGestureProbe()).toMatchObject({ activeGestureCount: 0 });
+    engine.cancelOwnedPointerGesture('pointer-cancel');
+  });
+
+  it('keeps explicit selection and root pointer ownership when transformer start changes target', async () => {
+    const { engine } = await createEngine(engines);
+    engine.loadDataset(scene());
+    engine.applySelection({ op: 'replace', ids: ['rect-b'], source: 'programmatic' });
+
+    expect(engine.beginTransformerEdit({
+      pointerId: 42,
+      actionId: 'switch-target-transformer',
+      kind: 'move',
+      handle: 'frame',
+      selectionIds: ['image-a'],
+    })).toMatchObject({ activeSessionCount: 1, activePointerId: 42 });
+    expect(engine.selectionIds).toEqual(['image-a']);
+    expect(engine.transformerGestureProbe()).toMatchObject({ activeGestureCount: 1 });
+
+    expect(engine.dispatchPointerInput(pointerInput('cancel', 42))).toMatchObject({
+      clickSuppressed: true,
+    });
+    expect(engine.selectionIds).toEqual(['image-a']);
+    expect(engine.transformerEditProbe()).toMatchObject({ activeSessionCount: 0 });
+    expect(engine.transformerGestureProbe()).toMatchObject({ activeGestureCount: 0 });
+  });
+
+  it('restores authoritative geometry when the first preview is cancelled reentrantly', async () => {
+    const { engine, surface } = await createEngine(engines);
+    engine.loadDataset(scene());
+    engine.applySelection({ op: 'replace', ids: ['rect-b'], source: 'programmatic' });
+    engine.beginTransformerEdit({
+      pointerId: 43,
+      actionId: 'reentrant-first-preview',
+      kind: 'move',
+      handle: 'frame',
+      selectionIds: ['rect-b'],
+    });
+    surface.nextReconcileCallback = () => {
+      engine.applySelection({ op: 'replace', ids: ['image-a'], source: 'programmatic' });
+    };
+
+    expect(() => engine.previewTransformerEdit(43, {
+      kind: 'move',
+      selectionIds: ['rect-b'],
+      deltaWorld: [10, 5],
+    })).toThrow(/CONFLICT/u);
+    expect(geometry(engine, 'rect-b')).toMatchObject({ x: 160, y: 40 });
+    expect(geometryFromDataset(surface.loaded, 'rect-b')).toMatchObject({ x: 160, y: 40 });
+    expect(engine.selectionIds).toEqual(['image-a']);
+    expect(engine.transformerEditProbe()).toMatchObject({ activeSessionCount: 0 });
+    expect(engine.transformerGestureProbe()).toMatchObject({ activeGestureCount: 0 });
+  });
+
   it('preserves the pointer world point while temporary edge-pan returns inactive', async () => {
     const { engine } = await createEngine(engines);
     engine.loadDataset(scene());

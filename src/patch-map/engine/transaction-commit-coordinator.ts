@@ -131,6 +131,7 @@ export class PatchMapTransactionCommitCoordinator {
     previousRevisions: PatchMapRevisionStamp,
     previousHistory: PatchMapHistoryState,
     transactionPlanMs: number,
+    beforeSurfaceReconcile?: () => void,
     beforeChangeEvent?: () => void,
   ): PatchMapEngineTransactionResult {
     const applyStarted = this.port.now();
@@ -323,9 +324,46 @@ export class PatchMapTransactionCommitCoordinator {
       textSemantics,
       selectionIds: selectionAfter,
     });
-    const reconcileStarted = this.port.now();
+    let reconcileStarted = 0;
+    let reconcileCompleted = 0;
+    let reconcileBaseRevisions = previousRevisions;
     let reconcile: PatchMapSurfaceReconcileResult;
+    if (!this.isSurfaceMutationCurrent(surface, previousRevisions)) {
+      if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
+      const diagnostic = this.port.operationDiagnostic(
+        'CONFLICT',
+        'CONFLICT',
+        operation,
+        true,
+      );
+      return this.publishRefused(
+        actionId,
+        previousRevisions,
+        diagnostic,
+        this.history.state(),
+        EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS,
+      );
+    }
     try {
+      beforeSurfaceReconcile?.();
+      if (!this.isSurfaceSceneCurrent(surface, previousRevisions)) {
+        if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
+        const diagnostic = this.port.operationDiagnostic(
+          'CONFLICT',
+          'CONFLICT',
+          operation,
+          true,
+        );
+        return this.publishRefused(
+          actionId,
+          previousRevisions,
+          diagnostic,
+          this.history.state(),
+          EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS,
+        );
+      }
+      reconcileBaseRevisions = this.port.revisionStamp();
+      reconcileStarted = this.port.now();
       reconcile = surface.reconcile(plan.candidate.dataset, {
         animateBarChanges: !this.port.reducedMotion() && animatedBarTargets.length > 0,
         animatedBarTargets,
@@ -358,10 +396,10 @@ export class PatchMapTransactionCommitCoordinator {
         EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS,
       );
     }
-    const reconcileCompleted = this.port.now();
+    reconcileCompleted = this.port.now();
 
     if (
-      !this.isSurfaceMutationCurrent(surface, previousRevisions) ||
+      !this.isSurfaceMutationCurrent(surface, reconcileBaseRevisions) ||
       (preparedHistory !== null && !this.history.canCommitPrepared(preparedHistory))
     ) {
       if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
@@ -543,6 +581,18 @@ export class PatchMapTransactionCommitCoordinator {
       this.publication.lifecycleGeneration === revisions.lifecycleGeneration &&
       this.publication.sceneRevision === revisions.sceneRevision &&
       this.publication.interactionRevision === revisions.interactionRevision;
+  }
+
+  private isSurfaceSceneCurrent(
+    surface: PatchMapEngineSurface,
+    revisions: PatchMapRevisionStamp,
+  ): boolean {
+    const lifecycle = this.port.lifecycle();
+    return lifecycle !== 'destroyed' &&
+      lifecycle !== 'destroying' &&
+      this.port.liveSurface() === surface &&
+      this.publication.lifecycleGeneration === revisions.lifecycleGeneration &&
+      this.publication.sceneRevision === revisions.sceneRevision;
   }
 }
 

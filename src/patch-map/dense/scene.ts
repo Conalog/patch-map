@@ -631,6 +631,14 @@ export class CoreScene {
         this.store.addCanonical(entity);
         structural = true;
       } else if (entity && slot !== undefined) {
+        const current = this.store.canonicalAt(slot);
+        if (current.kind !== entity.kind) {
+          this.animations.cancelSlot(slot);
+          this.store.remove(slot);
+          this.store.addCanonical(entity);
+          structural = true;
+          continue;
+        }
         const properties = new Set(nonHistoricalAnimationProperties.get(id));
         for (const property of this.animations.activeProperties(slot)) properties.add(property);
         this.store.replaceCanonical(slot, preserveProperties(entity, this.store, slot, properties));
@@ -642,7 +650,9 @@ export class CoreScene {
     } else {
       this.refreshChangedRelations(EMPTY_IDS, EMPTY_IDS, changedEndpointIds);
     }
-    this.applySelection(selection);
+    // History can replace a selected ID with a different entity kind. The
+    // identity set remains equal, but the new dense slot still needs its bit.
+    this.applySelection(selection, selection);
     if (!sameView(this.store.view, view)) this.store.setView(view);
     this.revisionCounter += 1;
     this.store.revision = this.revisionCounter;

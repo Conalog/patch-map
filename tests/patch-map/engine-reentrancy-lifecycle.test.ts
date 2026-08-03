@@ -24,9 +24,12 @@ class ReentrantSurface implements PatchMapEngineSurface {
   public canvasCount = 1;
   public destroyed = false;
   public loaded: unknown = null;
+  public readonly loadedRootHistory: string[] = [];
   public nextLoadCallback: (() => void) | null = null;
   public nextReconcileCallback: (() => void) | null = null;
   public destroyCallCount = 0;
+  private nextAsyncLoadGate: Promise<void> | null = null;
+  private nextAsyncLoadEntered: (() => void) | null = null;
   private destroyFailuresRemaining = 0;
   private destroyGate: Promise<void> | null = null;
   private width: number;
@@ -50,11 +53,30 @@ class ReentrantSurface implements PatchMapEngineSurface {
     this.destroyFailuresRemaining = count;
   }
 
+  public deferNextAsyncLoadUntil(
+    gate: Promise<void>,
+    entered: () => void,
+  ): void {
+    this.nextAsyncLoadGate = gate;
+    this.nextAsyncLoadEntered = entered;
+  }
+
   public load(input: unknown): void {
     this.loaded = input;
+    this.loadedRootHistory.push(rootIds(input)[0] ?? '<empty>');
     const callback = this.nextLoadCallback;
     this.nextLoadCallback = null;
     callback?.();
+  }
+
+  public async loadAsync(input: unknown): Promise<void> {
+    const gate = this.nextAsyncLoadGate;
+    const entered = this.nextAsyncLoadEntered;
+    this.nextAsyncLoadGate = null;
+    this.nextAsyncLoadEntered = null;
+    entered?.();
+    if (gate !== null) await gate;
+    this.load(input);
   }
 
   public reconcile(input: unknown): PatchMapSurfaceReconcileResult {
@@ -167,6 +189,60 @@ describe('PatchMap synchronous reentrancy and lifecycle settlement', () => {
     expect(rootIds(engine.exportDataset())).toEqual(['baseline']);
     expect(rootIds(surface.loaded)).toEqual(['baseline']);
     expectStructuredReentrancyFailure(failure, 'loadDataset');
+  });
+
+  it('restores the authoritative scene after a late async surface load is superseded', async () => {
+    const { engine, surface } = await createEngine(engines, 'superseded-async-load');
+    engine.loadDataset(scene('baseline', 20), { datasetRef: 'baseline' });
+    const gate = deferred<void>();
+    const entered = deferred<void>();
+    surface.deferNextAsyncLoadUntil(gate.promise, entered.resolve);
+
+    const stale = engine.loadDatasetAsync(
+      scene('stale-candidate', 300),
+      { datasetRef: 'stale' },
+    );
+    await entered.promise;
+    engine.loadDataset(scene('latest', 200), { datasetRef: 'latest' });
+    gate.resolve();
+
+    await expect(stale).rejects.toMatchObject({
+      diagnostic: { category: 'SUPERSEDED', operation: 'loadDatasetAsync' },
+    });
+    expect(rootIds(engine.exportDataset())).toEqual(['latest']);
+    expect(rootIds(surface.loaded)).toEqual(['latest']);
+    expect(engine.snapshot()).toMatchObject({
+      datasetRef: 'latest',
+      revisions: { sceneRevision: 2 },
+    });
+  });
+
+  it('does not let a superseded async load restore over a newer in-flight load owner', async () => {
+    const { engine, surface } = await createEngine(engines, 'overlapping-async-loads');
+    engine.loadDataset(scene('baseline', 20), { datasetRef: 'baseline' });
+    const firstGate = deferred<void>();
+    const firstEntered = deferred<void>();
+    surface.deferNextAsyncLoadUntil(firstGate.promise, firstEntered.resolve);
+    const first = engine.loadDatasetAsync(scene('first', 100), { datasetRef: 'first' });
+    await firstEntered.promise;
+
+    const secondGate = deferred<void>();
+    const secondEntered = deferred<void>();
+    surface.deferNextAsyncLoadUntil(secondGate.promise, secondEntered.resolve);
+    const second = engine.loadDatasetAsync(scene('second', 200), { datasetRef: 'second' });
+    await secondEntered.promise;
+
+    firstGate.resolve();
+    await expect(first).rejects.toMatchObject({
+      diagnostic: { category: 'SUPERSEDED', operation: 'loadDatasetAsync' },
+    });
+    expect(surface.loadedRootHistory.at(-1)).toBe('first');
+    expect(surface.loadedRootHistory.slice(-2)).not.toEqual(['first', 'baseline']);
+
+    secondGate.resolve();
+    await expect(second).resolves.toMatchObject({ lifecycle: 'scene-ready' });
+    expect(rootIds(engine.exportDataset())).toEqual(['second']);
+    expect(rootIds(surface.loaded)).toEqual(['second']);
   });
 
   it('refuses a stale outer transaction when surface.reconcile synchronously commits a nested one', async () => {

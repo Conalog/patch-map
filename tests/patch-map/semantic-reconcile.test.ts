@@ -6,6 +6,11 @@ import type {
   RectEntityInput,
   SceneDocument,
 } from '../../src/patch-map/dense/contracts';
+import {
+  RenderFlags,
+  type CoreRenderer,
+  type RenderStoreView,
+} from '../../src/patch-map/dense/renderer-types';
 import { parsePatchMapV010 } from '../../src/patch-map/parser';
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import {
@@ -179,6 +184,42 @@ describe('PatchMap dense reconcile planner', () => {
     expect(plan.summary).toMatchObject({ added: 1, removed: 1, replaced: 1 });
     expect(scene.get('content')?.kind).toBe('text');
     expect(scene.ref('content')).not.toEqual(refBefore);
+    scene.destroy();
+  });
+
+  it('advances same-ID kind identity and relation adjacency across undo and redo', () => {
+    const current = document(rect('a'), rect('b', { x: 30 }), rect('content'));
+    const candidate = document(
+      rect('a'),
+      rect('b', { x: 30 }),
+      relation('content', 'a', 'b'),
+    );
+    const renderer = new SelectedCountRenderer();
+    const scene = new CoreScene({ historyLimit: 1, renderer });
+    scene.load(current);
+    scene.commit({ operations: [{ type: 'selection', targets: ['content'], mode: 'replace' }] });
+    scene.commit(planPatchMapSceneReconcile(current, candidate).batch);
+    const relationRef = scene.ref('content');
+    expect(scene.get('content')?.kind).toBe('relation');
+    scene.flush();
+    expect(renderer.selectedCount).toBe(1);
+
+    expect(scene.undo()).toBe(true);
+    expect(scene.get(relationRef!)).toBeNull();
+    expect(scene.get('content')?.kind).toBe('rect');
+    scene.flush();
+    expect(renderer.selectedCount).toBe(1);
+    const rectRef = scene.ref('content');
+
+    expect(scene.redo()).toBe(true);
+    expect(scene.get(rectRef!)).toBeNull();
+    expect(scene.get('content')).toMatchObject({
+      kind: 'relation',
+      data: { from: 'a', to: 'b' },
+    });
+    expect(scene.ref('content')).not.toEqual(relationRef);
+    scene.flush();
+    expect(renderer.selectedCount).toBe(1);
     scene.destroy();
   });
 
@@ -425,6 +466,37 @@ describe('PatchMap dense reconcile planner', () => {
     }));
   });
 });
+
+class SelectedCountRenderer implements CoreRenderer {
+  public readonly width = 800;
+  public readonly height = 600;
+  public readonly pixelRatio = 1;
+  public destroyed = false;
+  public selectedCount = 0;
+
+  public resize(): boolean { return false; }
+  public setView(): boolean { return false; }
+  public flush(store: RenderStoreView): Readonly<{
+    readonly rendered: boolean;
+    readonly commandCount: number;
+  }> {
+    this.selectedCount = 0;
+    for (let slot = 0; slot < store.capacity; slot += 1) {
+      if (
+        (store.alive[slot] ?? 0) !== 0 &&
+        ((store.flags[slot] ?? 0) & RenderFlags.Selected) !== 0
+      ) {
+        this.selectedCount += 1;
+      }
+    }
+    return Object.freeze({ rendered: true, commandCount: 1 });
+  }
+  public destroy(): boolean {
+    if (this.destroyed) return false;
+    this.destroyed = true;
+    return true;
+  }
+}
 
 function document(...entities: readonly EntityInput[]): SceneDocument {
   return { version: 1, entities };

@@ -812,6 +812,38 @@ describe('PatchMap lifecycle authority', () => {
     expect(surfaces[0]?.loadCount).toBe(1);
   });
 
+  it('does not supersede a valid async load when a later request fails strict validation', async () => {
+    const { factory, surfaces } = createSurfaceFactory();
+    const engine = new PatchMap({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'map-invalid-does-not-supersede', width: 800, height: 600 });
+    const valid = structuredClone(catalogProfiles.datasets['lifecycle-scene-b']);
+    const dangling = structuredClone(catalogProfiles.datasets['interactive-scene']);
+    const relation = dangling.find((element) => element.type === 'relations');
+    if (relation?.type !== 'relations') throw new Error('Missing relation fixture');
+    relation.links = [{ source: 'item-a', target: 'absent' }];
+
+    const validLoad = engine.loadDatasetAsync(valid, {
+      datasetRef: 'valid-predecessor',
+      strict: true,
+    });
+    const invalidLoad = engine.loadDatasetAsync(dangling, {
+      datasetRef: 'invalid-successor',
+      strict: true,
+    });
+
+    await expect(invalidLoad).rejects.toMatchObject({
+      code: 'MISSING_TARGET',
+      datasetPath: '$[3].links[0].target',
+    });
+    await expect(validLoad).resolves.toMatchObject({ sceneRevision: 1 });
+    expect(engine.snapshot()).toMatchObject({
+      datasetRef: 'valid-predecessor',
+      pendingWork: 0,
+      revisions: { sceneRevision: 1 },
+    });
+    expect(surfaces[0]?.loadCount).toBe(1);
+  });
+
   it('clears selection identity on authoritative dataset replacement', async () => {
     const { factory } = createSurfaceFactory();
     const engine = new PatchMap({ surfaceFactory: factory });

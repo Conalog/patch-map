@@ -37,11 +37,14 @@ export function cloneImmutableJson(
     try {
       const result: PatchMapMutationJsonValue[] = [];
       for (let index = 0; index < value.length; index += 1) {
-        if (!Object.hasOwn(value, index)) {
-          nonSerializable(`${path}[${index}]`, 'sparse arrays are not accepted');
-        }
-        result.push(cloneImmutableJson(value[index], `${path}[${index}]`, ancestors));
+        const entryPath = `${path}[${index}]`;
+        result.push(cloneImmutableJson(
+          ownArrayDataValue(value, index, entryPath),
+          entryPath,
+          ancestors,
+        ));
       }
+      assertNoExtraArrayProperties(value, path);
       return Object.freeze(result);
     } finally {
       ancestors.delete(value);
@@ -52,14 +55,14 @@ export function cloneImmutableJson(
     ancestors.add(value);
     try {
       const result: Record<string, PatchMapMutationJsonValue> = {};
-      for (const key of Object.keys(value)) {
+      for (const [key, entry] of ownRecordDataEntries(value, path)) {
         if (isUnsafeJsonPathSegment(key)) {
           nonSerializable(`${path}.${key}`, 'unsafe keys are not accepted');
         }
         defineImmutableProperty(
           result,
           key,
-          cloneImmutableJson(value[key], `${path}.${key}`, ancestors),
+          cloneImmutableJson(entry, `${path}.${key}`, ancestors),
         );
       }
       return Object.freeze(result);
@@ -87,7 +90,17 @@ export function cloneMutableJson(
     if (ancestors.has(value)) nonSerializable(path, 'cyclic values are not accepted');
     ancestors.add(value);
     try {
-      return value.map((entry, index) => cloneMutableJson(entry, `${path}[${index}]`, ancestors));
+      const result: MutableJsonValue[] = [];
+      for (let index = 0; index < value.length; index += 1) {
+        const entryPath = `${path}[${index}]`;
+        result.push(cloneMutableJson(
+          ownArrayDataValue(value, index, entryPath),
+          entryPath,
+          ancestors,
+        ));
+      }
+      assertNoExtraArrayProperties(value, path);
+      return result;
     } finally {
       ancestors.delete(value);
     }
@@ -97,14 +110,14 @@ export function cloneMutableJson(
     ancestors.add(value);
     try {
       const result: MutableJsonRecord = {};
-      for (const key of Object.keys(value)) {
+      for (const [key, entry] of ownRecordDataEntries(value, path)) {
         if (isUnsafeJsonPathSegment(key)) {
           nonSerializable(`${path}.${key}`, 'unsafe keys are not accepted');
         }
         defineMutableProperty(
           result,
           key,
-          cloneMutableJson(value[key], `${path}.${key}`, ancestors),
+          cloneMutableJson(entry, `${path}.${key}`, ancestors),
         );
       }
       return result;
@@ -172,4 +185,59 @@ function defineImmutableProperty(
     configurable: false,
     writable: false,
   });
+}
+
+function ownArrayDataValue(
+  value: readonly unknown[],
+  index: number,
+  path: string,
+): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(value, index);
+  if (descriptor === undefined) {
+    return nonSerializable(path, 'sparse arrays are not accepted');
+  }
+  if (!descriptor.enumerable || !('value' in descriptor)) {
+    return nonSerializable(path, 'array entries must be own enumerable data properties');
+  }
+  return descriptor.value;
+}
+
+function assertNoExtraArrayProperties(value: readonly unknown[], path: string): void {
+  for (const key of Reflect.ownKeys(value)) {
+    if (key === 'length') continue;
+    if (typeof key !== 'string') {
+      nonSerializable(path, 'arrays must not contain symbol keys');
+    }
+    const index = Number(key);
+    if (
+      !Number.isSafeInteger(index) ||
+      index < 0 ||
+      index >= value.length ||
+      String(index) !== key
+    ) {
+      nonSerializable(`${path}.${key}`, 'extra array properties are not accepted');
+    }
+  }
+}
+
+function ownRecordDataEntries(
+  value: Readonly<Record<string, unknown>>,
+  path: string,
+): readonly (readonly [string, unknown])[] {
+  const entries: (readonly [string, unknown])[] = [];
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string') {
+      nonSerializable(path, 'records must not contain symbol keys');
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (
+      descriptor === undefined ||
+      !descriptor.enumerable ||
+      !('value' in descriptor)
+    ) {
+      nonSerializable(`${path}.${key}`, 'record fields must be own enumerable data properties');
+    }
+    entries.push([key, descriptor.value]);
+  }
+  return entries;
 }

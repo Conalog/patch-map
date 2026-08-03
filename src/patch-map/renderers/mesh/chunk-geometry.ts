@@ -134,6 +134,7 @@ interface StyledBarPrimitive extends StyledBackgroundPrimitive {
   readonly slot: number;
   readonly part: 'track' | 'fill';
   readonly radius: number;
+  readonly widthFraction: number;
 }
 
 function buildRoundedBarGeometry(
@@ -156,6 +157,7 @@ function buildRoundedBarGeometry(
       primitiveIndex,
       primitive.quad,
       primitive.radius,
+      primitive.widthFraction,
       uvs,
     );
     const vertexBase = primitiveIndex * ROUNDED_BAR_VERTICES_PER_PRIMITIVE;
@@ -180,10 +182,13 @@ export function writeRoundedBarPositionValues(
   primitiveIndex: number,
   quad: RoundedBarQuad,
   radius: number,
+  widthFraction = 1,
   uvs?: Float32Array,
 ): boolean {
   const projection = quad.projection;
-  const localWidth = projection?.localBounds[2] ?? quad.width;
+  const localWidth = projection === null
+    ? quad.width
+    : projection.localBounds[2] * widthFraction;
   const localHeight = projection?.localBounds[3] ?? quad.height;
   if (!(localWidth > 0) || !(localHeight > 0)) return false;
 
@@ -589,6 +594,7 @@ function appendStyledBarSlot(
         slot,
         part: 'track',
         radius,
+        widthFraction: 1,
         entityId,
         quad: resolvePatchMapSlotQuad(store, slot, projectionContext),
         paint: styledBarPaint(entityId, trackFill, radius),
@@ -609,6 +615,7 @@ function appendStyledBarSlot(
         slot,
         part: 'fill',
         radius: fillRadius,
+        widthFraction: progress,
         entityId,
         quad: resolvePatchMapSlotQuad(store, slot, projectionContext, progress),
         paint: styledBarPaint(entityId, fill, fillRadius),

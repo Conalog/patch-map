@@ -351,6 +351,30 @@ describe('PatchMap logical query and selection substrate', () => {
     expect(changes).toHaveLength(5);
     expect(surfaces[0]?.selectionIds).toEqual([]);
 
+    engine.applySelection({ op: 'replace', ids: ['rect-b'] });
+    expect(() => engine.applySelection({
+      op: 'clear-all',
+    } as never)).toThrow('unsupported selection operation');
+    expect(() => engine.applySelection({
+      op: 'clear',
+      source: 'unknown',
+    } as never)).toThrow('unsupported selection source');
+    let accessorReads = 0;
+    const accessorOperation = Object.defineProperty({
+      op: 'replace',
+      ids: ['item-a'],
+    }, 'source', {
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return 'external';
+      },
+    });
+    expect(() => engine.applySelection(accessorOperation as never)).toThrow('data-only');
+    expect(() => engine.applySelection({ op: 'clear', ids: [] } as never)).toThrow('unknown field');
+    expect(accessorReads).toBe(0);
+    expect(engine.selectionIds).toEqual(['rect-b']);
+
     engine.loadDataset(QUERY_DATASET);
     expect(engine.applySelection({
       op: 'replace',

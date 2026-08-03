@@ -100,22 +100,16 @@ export function isPatchMapComponentType(value: unknown): value is string {
 export function normalizeBulkPatch(value: unknown): NormalizedTransaction {
   const record = strictRecord(value, '$', 'bulk patch must be a strict plain record');
   rejectUnknownFields(record, BULK_PATCH_FIELDS, '$');
-  if (!Array.isArray(record.targets)) {
-    transactionFail(
-      'INVALID_VALUE',
-      'INVALID_INPUT',
-      '$.targets',
-      'targets must be an ordered array',
-    );
-  }
-  if (!Array.isArray(record.changes)) {
-    transactionFail(
-      'INVALID_VALUE',
-      'INVALID_INPUT',
-      '$.changes',
-      'changes must be an ordered array',
-    );
-  }
+  const targetValues = strictOrderedArray(
+    record.targets,
+    '$.targets',
+    'targets must be an ordered array',
+  );
+  const changeValues = strictOrderedArray(
+    record.changes,
+    '$.changes',
+    'changes must be an ordered array',
+  );
   if (typeof record.strict !== 'boolean') {
     transactionFail('INVALID_VALUE', 'INVALID_INPUT', '$.strict', 'strict must be a boolean');
   }
@@ -131,7 +125,7 @@ export function normalizeBulkPatch(value: unknown): NormalizedTransaction {
     );
   }
 
-  const targets = record.targets.map((target, index) =>
+  const targets = targetValues.map((target, index) =>
     normalizeTarget(target, `$.targets[${index}]`, index));
   const actionId = typeof record.actionId === 'string' ? record.actionId : undefined;
   if (targets.length === 0) {
@@ -141,7 +135,7 @@ export function normalizeBulkPatch(value: unknown): NormalizedTransaction {
     normalizeOperation({
       op: 'merge',
       target: { kind: 'element', id: '__core_v2_empty_bulk_validation__' },
-      changes: record.changes,
+      changes: changeValues,
     }, 0);
     return Object.freeze({
       operations: EMPTY_OPERATIONS,
@@ -152,7 +146,7 @@ export function normalizeBulkPatch(value: unknown): NormalizedTransaction {
   }
 
   const operations = Object.freeze(targets.map((target, index) =>
-    normalizeOperation({ op: 'merge', target, changes: record.changes }, index)));
+    normalizeOperation({ op: 'merge', target, changes: changeValues }, index)));
   return Object.freeze({
     operations,
     strict: record.strict,
@@ -165,7 +159,12 @@ export function normalizeTransaction(value: unknown): NormalizedTransaction {
   const record = strictRecord(value, '$', 'transaction must be a strict plain record');
   rejectUnknownFields(record, TRANSACTION_FIELDS, '$');
 
-  if (!Array.isArray(record.operations) || record.operations.length === 0) {
+  const operationValues = strictOrderedArray(
+    record.operations,
+    '$.operations',
+    'operations must be a non-empty ordered array',
+  );
+  if (operationValues.length === 0) {
     transactionFail(
       'INVALID_MUTATION',
       'INVALID_INPUT',
@@ -213,7 +212,7 @@ export function normalizeTransaction(value: unknown): NormalizedTransaction {
   }
 
   const operations = Object.freeze(
-    record.operations.map((operation, index) => normalizeOperation(operation, index)),
+    operationValues.map((operation, index) => normalizeOperation(operation, index)),
   );
   const history = Object.hasOwn(record, 'history')
     ? cloneImmutableJson(record.history, '$.history')
@@ -303,18 +302,15 @@ function normalizeOperation(value: unknown, operationIndex: number): PatchMapMut
     case 'merge': {
       rejectUnknownFields(record, MERGE_FIELDS, path, operationIndex);
       const target = normalizeTarget(record.target, `${path}.target`, operationIndex);
-      if (!Array.isArray(record.changes)) {
-        transactionFail(
-          'INVALID_VALUE',
-          'INVALID_INPUT',
-          `${path}.changes`,
-          'changes must be an ordered array',
-          operationIndex,
-          target,
-        );
-      }
+      const changeValues = strictOrderedArray(
+        record.changes,
+        `${path}.changes`,
+        'changes must be an ordered array',
+        operationIndex,
+        target,
+      );
       const changes = Object.freeze(
-        record.changes.map((change, changeIndex) =>
+        changeValues.map((change, changeIndex) =>
           normalizeChange(change, operationIndex, changeIndex, target),
         ),
       );
@@ -346,16 +342,13 @@ function normalizeOperation(value: unknown, operationIndex: number): PatchMapMut
           target,
         );
       }
-      if (!Array.isArray(record.components)) {
-        transactionFail(
-          'INVALID_VALUE',
-          'INVALID_INPUT',
-          `${path}.components`,
-          'components must be an ordered array',
-          operationIndex,
-          target,
-        );
-      }
+      const componentValues = strictOrderedArray(
+        record.components,
+        `${path}.components`,
+        'components must be an ordered array',
+        operationIndex,
+        target,
+      );
       if (record.matchMode !== undefined && record.matchMode !== 'replace') {
         transactionFail(
           'UNSUPPORTED_RUNTIME',
@@ -367,7 +360,7 @@ function normalizeOperation(value: unknown, operationIndex: number): PatchMapMut
         );
       }
       const components = Object.freeze(
-        record.components.map((component, index) => {
+        componentValues.map((component, index) => {
           const componentRecord = strictRecord(
             component,
             `${path}.components[${index}]`,
@@ -406,7 +399,13 @@ function normalizeOperation(value: unknown, operationIndex: number): PatchMapMut
     }
     case 'group': {
       rejectUnknownFields(record, GROUP_FIELDS, path, operationIndex);
-      if (!Array.isArray(record.targets) || record.targets.length === 0) {
+      const targetValues = strictOrderedArray(
+        record.targets,
+        `${path}.targets`,
+        'group targets must be a non-empty ordered array',
+        operationIndex,
+      );
+      if (targetValues.length === 0) {
         transactionFail(
           'INVALID_VALUE',
           'INVALID_INPUT',
@@ -415,7 +414,7 @@ function normalizeOperation(value: unknown, operationIndex: number): PatchMapMut
           operationIndex,
         );
       }
-      const targets = Object.freeze(record.targets.map((target, targetIndex) =>
+      const targets = Object.freeze(targetValues.map((target, targetIndex) =>
         normalizeElementTarget(target, `${path}.targets[${targetIndex}]`, operationIndex)));
       const identities = new Set(targets.map((target) => target.id));
       if (identities.size !== targets.length) {
@@ -536,7 +535,14 @@ function normalizeChange(
       target,
     );
   }
-  if (!Array.isArray(record.path) || record.path.length === 0) {
+  const pathValues = strictOrderedArray(
+    record.path,
+    `${path}.path`,
+    'path must be a non-empty segment array',
+    operationIndex,
+    target,
+  );
+  if (pathValues.length === 0) {
     transactionFail(
       'INVALID_PATH',
       'INVALID_INPUT',
@@ -547,7 +553,7 @@ function normalizeChange(
     );
   }
   const segments = Object.freeze(
-    record.path.map((segment, segmentIndex) => {
+    pathValues.map((segment, segmentIndex) => {
       if (typeof segment === 'string') {
         if (segment.length === 0 || isUnsafeJsonPathSegment(segment)) {
           transactionFail(
@@ -688,9 +694,20 @@ export function isNumberArrayLike(value: unknown): value is ArrayLike<number> {
     );
 }
 
-export function isStringArray(value: unknown): value is readonly string[] {
-  return Array.isArray(value) &&
-    value.every((entry): entry is string => typeof entry === 'string');
+export function strictNumberArrayLike(
+  value: unknown,
+  path: string,
+  message: string,
+): readonly unknown[] {
+  if (Array.isArray(value)) return strictOrderedArray(value, path, message);
+  if (!isNumberArrayLike(value)) {
+    transactionFail('INVALID_VALUE', 'INVALID_INPUT', path, message);
+  }
+  const detached: unknown[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    detached.push(value[index]);
+  }
+  return Object.freeze(detached);
 }
 
 export function isIndexStructuralPath(path: readonly PatchMapMutationPathSegment[]): boolean {
@@ -745,7 +762,111 @@ export function strictRecord(
   if (!isPlainRecord(value)) {
     transactionFail('INVALID_VALUE', 'INVALID_INPUT', path, message);
   }
-  return value;
+  const detached: Record<string, unknown> = {};
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string') {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        path,
+        'strict records must not contain symbol keys',
+      );
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !descriptor.enumerable || !('value' in descriptor)) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        `${path}.${key}`,
+        'strict record fields must be own enumerable data properties',
+      );
+    }
+    Object.defineProperty(detached, key, {
+      value: descriptor.value,
+      enumerable: true,
+      configurable: false,
+      writable: false,
+    });
+  }
+  return Object.freeze(detached);
+}
+
+export function strictOrderedArray(
+  value: unknown,
+  path: string,
+  message: string,
+  operationIndex?: number,
+  target?: PatchMapMutationTarget,
+): readonly unknown[] {
+  if (!Array.isArray(value)) {
+    transactionFail(
+      'INVALID_VALUE',
+      'INVALID_INPUT',
+      path,
+      message,
+      operationIndex,
+      target,
+    );
+  }
+  const detached: unknown[] = new Array(value.length);
+  let entryCount = 0;
+  for (const key of Reflect.ownKeys(value)) {
+    if (key === 'length') continue;
+    if (typeof key !== 'string') {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        path,
+        'ordered arrays must not contain symbol keys',
+        operationIndex,
+        target,
+      );
+    }
+    const index = Number(key);
+    if (
+      !Number.isSafeInteger(index) ||
+      index < 0 ||
+      index >= value.length ||
+      String(index) !== key
+    ) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        `${path}.${key}`,
+        'ordered arrays must not contain extra properties',
+        operationIndex,
+        target,
+      );
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !descriptor.enumerable || !('value' in descriptor)) {
+      transactionFail(
+        'INVALID_VALUE',
+        'INVALID_INPUT',
+        `${path}[${index}]`,
+        'ordered arrays require own enumerable data entries without gaps',
+        operationIndex,
+        target,
+      );
+    }
+    detached[index] = descriptor.value;
+    entryCount += 1;
+  }
+  if (entryCount !== value.length) {
+    for (let index = 0; index < detached.length; index += 1) {
+      if (!Object.hasOwn(detached, index)) {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          `${path}[${index}]`,
+          'ordered arrays require own enumerable data entries without gaps',
+          operationIndex,
+          target,
+        );
+      }
+    }
+  }
+  return Object.freeze(detached);
 }
 
 export function requireAt<T>(values: readonly T[], index: number): T {

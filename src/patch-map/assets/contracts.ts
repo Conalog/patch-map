@@ -86,6 +86,10 @@ export interface PatchMapPixiAssetBackendOptions {
    * the backend lookup/fetch boundary.
    */
   readonly ingestionPolicy?: PatchMapAssetIngestionPolicyProfile;
+  /**
+   * Optional host override for decoded dimensions. When omitted, the browser
+   * backend uses `createImageBitmap`; runtimes without either path fail closed.
+   */
   readonly inspectDecodedSize?: (
     blob: Blob,
   ) => Promise<Readonly<{ readonly width: number; readonly height: number }>>;

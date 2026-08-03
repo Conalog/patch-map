@@ -418,6 +418,73 @@ describe('PatchMap staged semantic transaction planner', () => {
     });
   });
 
+  it('rejects accessor-backed JSON without invoking caller code', () => {
+    let accessorReads = 0;
+    const accessorValue = Object.defineProperty({}, 'nested', {
+      enumerable: true,
+      get() {
+        accessorReads += 1;
+        return 10;
+      },
+    });
+
+    const result = planPatchMapMutationTransaction(makeScene(), {
+      strict: true,
+      operations: [merge(elementTarget('rect-b'), ['attrs', 'metadata'], accessorValue)],
+    });
+
+    expect(result).toMatchObject({
+      status: 'rejected',
+      diagnostic: { code: 'NON_SERIALIZABLE_VALUE' },
+    });
+    expect(accessorReads).toBe(0);
+  });
+
+  it('rejects accessor-backed direct batch arrays without invoking caller code', () => {
+    let accessorReads = 0;
+    const targets = [] as unknown[];
+    Object.defineProperty(targets, 0, {
+      enumerable: true,
+      configurable: true,
+      get() {
+        accessorReads += 1;
+        return { ownerId: 'item-a', componentId: 'bar' };
+      },
+    });
+
+    expect(planPatchMapBarHeightBatch(makeScene(), {
+      targets,
+      heights: [20],
+    })).toMatchObject({ status: 'rejected', diagnostic: { code: 'INVALID_VALUE' } });
+    expect(planPatchMapTextBatch(makeScene(), {
+      targets,
+      texts: ['value'],
+    })).toMatchObject({ status: 'rejected', diagnostic: { code: 'INVALID_VALUE' } });
+    expect(accessorReads).toBe(0);
+  });
+
+  it('rejects accessor-backed text styles without invoking nested caller code', () => {
+    let accessorReads = 0;
+    const style = Object.defineProperty({}, 'fontSize', {
+      enumerable: true,
+      configurable: true,
+      get() {
+        accessorReads += 1;
+        return 20;
+      },
+    });
+
+    expect(planPatchMapTextBatch(makeScene(), {
+      targets: [{ ownerId: 'item-a', componentId: 'label' }],
+      texts: ['updated'],
+      styles: [style],
+    })).toMatchObject({
+      status: 'rejected',
+      diagnostic: { code: 'NON_SERIALIZABLE_VALUE' },
+    });
+    expect(accessorReads).toBe(0);
+  });
+
   it('validates an empty bulk target set as a detached product no-op', () => {
     const current = makeScene();
     const request = Object.freeze({

@@ -134,6 +134,7 @@ interface ChunkRecord {
   readonly backgroundMeshes: Map<string, MeshRecord>;
   backgroundGraphics: Graphics | null;
   backgroundGraphicsContext: GraphicsContext | null;
+  backgroundGraphicsBounds: AggregateViewportBounds | null;
   readonly rectMeshes: Map<string, MeshRecord>;
   readonly rectGraphics: Map<number, GraphicsRecord>;
   readonly barMeshes: Map<string, MeshRecord>;
@@ -199,6 +200,7 @@ function createChunkRecord(): ChunkRecord {
     backgroundMeshes: new Map(),
     backgroundGraphics: null,
     backgroundGraphicsContext: null,
+    backgroundGraphicsBounds: null,
     rectMeshes: new Map(),
     rectGraphics: new Map(),
     barMeshes: new Map(),
@@ -938,11 +940,8 @@ export class AggregateMeshLayer {
       record.geometry.getBuffer('aPosition').update(record.geometry.positions.byteLength);
       bytes += record.geometry.positions.byteLength;
       record.bounds = includePositionBounds(null, record.geometry.positions);
-      chunk.geometryBounds = includePositionBounds(
-        chunk.geometryBounds,
-        record.geometry.positions,
-      );
     }
+    if (dirtyRecords.size > 0) this.#recomputeChunkGeometryBounds(chunk);
     if (this.#viewportCull !== null) {
       setChunkGeometryVisible(
         chunk,
@@ -997,15 +996,7 @@ export class AggregateMeshLayer {
       chunk.paintEntityIds.add(entityId);
       this.#paintProbesByEntityId.set(entityId, probe);
     }
-    for (const group of built.groups) {
-      chunk.geometryBounds = includePositionBounds(chunk.geometryBounds, group.positions);
-    }
-    for (const primitive of built.styledBars) {
-      chunk.geometryBounds = includePositionBounds(
-        chunk.geometryBounds,
-        primitive.quad.vertices,
-      );
-    }
+    this.#recomputeChunkGeometryBounds(chunk);
     if (this.#viewportCull !== null) {
       setChunkGeometryVisible(
         chunk,
@@ -1034,12 +1025,17 @@ export class AggregateMeshLayer {
       chunk.backgroundGraphicsContext?.destroy();
       chunk.backgroundGraphics = null;
       chunk.backgroundGraphicsContext = null;
+      chunk.backgroundGraphicsBounds = null;
       return true;
     }
 
     const context = new GraphicsContext();
     context.batchMode = 'auto';
-    for (const primitive of primitives) appendStyledBackground(context, primitive);
+    let bounds: AggregateViewportBounds | null = null;
+    for (const primitive of primitives) {
+      appendStyledBackground(context, primitive);
+      bounds = includePositionBounds(bounds, primitive.quad.vertices);
+    }
 
     if (chunk.backgroundGraphics === null) {
       const graphics = new Graphics({ context });
@@ -1053,7 +1049,25 @@ export class AggregateMeshLayer {
     }
     chunk.backgroundGraphicsContext?.destroy();
     chunk.backgroundGraphicsContext = context;
+    chunk.backgroundGraphicsBounds = bounds;
     return true;
+  }
+
+  #recomputeChunkGeometryBounds(chunk: ChunkRecord): void {
+    let bounds: AggregateViewportBounds | null = null;
+    bounds = includeAggregateBounds(bounds, chunk.backgroundGraphicsBounds);
+    for (const records of [
+      chunk.backgroundMeshes,
+      chunk.rectMeshes,
+      chunk.barMeshes,
+      chunk.rectGraphics,
+      chunk.barGraphics,
+    ]) {
+      for (const record of records.values()) {
+        bounds = includeAggregateBounds(bounds, record.bounds);
+      }
+    }
+    chunk.geometryBounds = bounds;
   }
 
   #syncStyledGraphics(
@@ -1194,4 +1208,17 @@ export class AggregateMeshLayer {
     this.#deferredBarChunks.delete(chunkIndex);
     this.#chunks.delete(chunkIndex);
   }
+}
+
+function includeAggregateBounds(
+  bounds: AggregateViewportBounds | null,
+  included: AggregateViewportBounds | null,
+): AggregateViewportBounds | null {
+  if (included === null) return bounds;
+  if (bounds === null) return { ...included };
+  bounds.minX = Math.min(bounds.minX, included.minX);
+  bounds.minY = Math.min(bounds.minY, included.minY);
+  bounds.maxX = Math.max(bounds.maxX, included.maxX);
+  bounds.maxY = Math.max(bounds.maxY, included.maxY);
+  return bounds;
 }

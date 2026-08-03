@@ -13,6 +13,9 @@ interface PatchMapSelectionEligibilityContext {
   readonly predicate: PatchMapSelectionEligibilityOptions['predicate'];
 }
 
+const CLEAR_SELECTION_FIELDS = new Set(['op', 'source']);
+const SET_SELECTION_FIELDS = new Set(['op', 'source', 'ids']);
+
 export function patchMapSelectionClickType(clickCount: number): PatchMapSelectionClickType {
   const normalized = normalizeClickCount(clickCount);
   if (normalized === 1) return 'single';
@@ -25,24 +28,24 @@ export function applyPatchMapSelectionOperation(
   input: PatchMapSelectionSetOperation,
   isValid: (id: string) => boolean,
 ): PatchMapSelectionChange {
-  validateSelectionIds(current, 'current selection');
-  const source = input.source ?? 'programmatic';
-  const requested = input.op === 'clear'
+  const operation = normalizeSelectionOperation(input);
+  const before = strictSelectionIds(current, 'current selection');
+  const source = operation.source;
+  const requested = operation.op === 'clear'
     ? Object.freeze([] as string[])
-    : uniqueStrings(input.ids, 'selection operation IDs');
-  const before = Object.freeze([...current]);
+    : uniqueStrings(operation.ids);
   const next = [...before];
 
-  if (input.op === 'replace') {
+  if (operation.op === 'replace') {
     next.splice(0, next.length, ...requested.filter(isValid));
-  } else if (input.op === 'add') {
+  } else if (operation.op === 'add') {
     for (const id of requested) {
       if (isValid(id) && !next.includes(id)) next.push(id);
     }
-  } else if (input.op === 'remove') {
+  } else if (operation.op === 'remove') {
     const removed = new Set(requested);
     next.splice(0, next.length, ...next.filter((id) => !removed.has(id)));
-  } else if (input.op === 'toggle') {
+  } else if (operation.op === 'toggle') {
     for (const id of requested) {
       const index = next.indexOf(id);
       if (index >= 0) {
@@ -51,7 +54,7 @@ export function applyPatchMapSelectionOperation(
         next.push(id);
       }
     }
-  } else {
+  } else if (operation.op === 'clear') {
     next.splice(0, next.length);
   }
 
@@ -143,16 +146,113 @@ export function normalizeClickCount(value: number): number {
   return value;
 }
 
-function validateSelectionIds(values: readonly string[], label: string): void {
-  if (!Array.isArray(values)) throw new TypeError(`${label} must be an array`);
-  values.forEach((value, index) => {
+function strictSelectionIds(values: unknown, label: string): readonly string[] {
+  const detached = strictSelectionArray(values, label);
+  detached.forEach((value, index) => {
     if (typeof value !== 'string' || value.length === 0) {
       throw new TypeError(`${label}[${index}] must be a non-empty string`);
     }
   });
+  return detached as readonly string[];
 }
 
-function uniqueStrings(values: readonly string[], label: string): readonly string[] {
-  validateSelectionIds(values, label);
+function uniqueStrings(values: readonly string[]): readonly string[] {
   return Object.freeze([...new Set(values)]);
+}
+
+function normalizeSelectionOperation(input: unknown): PatchMapSelectionSetOperation & Readonly<{
+  readonly source: 'canvas' | 'external' | 'programmatic';
+}> {
+  const record = strictSelectionRecord(input);
+  const op = record.op;
+  if (op !== 'replace' && op !== 'add' && op !== 'remove' && op !== 'toggle' && op !== 'clear') {
+    throw new TypeError(`unsupported selection operation ${JSON.stringify(op)}`);
+  }
+  const source = record.source ?? 'programmatic';
+  if (source !== 'canvas' && source !== 'external' && source !== 'programmatic') {
+    throw new TypeError(`unsupported selection source ${JSON.stringify(source)}`);
+  }
+  const allowed = op === 'clear' ? CLEAR_SELECTION_FIELDS : SET_SELECTION_FIELDS;
+  const unknown = Object.keys(record).find((key) => !allowed.has(key));
+  if (unknown !== undefined) {
+    throw new TypeError(`selection operation contains unknown field ${JSON.stringify(unknown)}`);
+  }
+  if (op === 'clear') {
+    return Object.freeze({
+      op,
+      source,
+    });
+  }
+  if (!Object.hasOwn(record, 'ids')) {
+    throw new TypeError('selection operation IDs must be provided');
+  }
+  return Object.freeze({
+    op,
+    source,
+    ids: strictSelectionIds(record.ids, 'selection operation IDs'),
+  });
+}
+
+function strictSelectionRecord(value: unknown): Readonly<Record<string, unknown>> {
+  const prototype = value === null || typeof value !== 'object'
+    ? undefined
+    : Reflect.getPrototypeOf(value);
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    (prototype !== Object.prototype && prototype !== null)
+  ) {
+    throw new TypeError('selection operation must be a strict plain record');
+  }
+  const detached: Record<string, unknown> = {};
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string') {
+      throw new TypeError('selection operation must not contain symbol fields');
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !descriptor.enumerable || !('value' in descriptor)) {
+      throw new TypeError(`selection operation field ${JSON.stringify(key)} must be data-only`);
+    }
+    Object.defineProperty(detached, key, {
+      value: descriptor.value,
+      enumerable: true,
+      configurable: false,
+      writable: false,
+    });
+  }
+  return Object.freeze(detached);
+}
+
+function strictSelectionArray(value: unknown, label: string): readonly unknown[] {
+  if (!Array.isArray(value)) throw new TypeError(`${label} must be an array`);
+  const detached: unknown[] = new Array(value.length);
+  let entryCount = 0;
+  for (const key of Reflect.ownKeys(value)) {
+    if (key === 'length') continue;
+    if (typeof key !== 'string') throw new TypeError(`${label} must not contain symbol fields`);
+    const index = Number(key);
+    if (
+      !Number.isSafeInteger(index) ||
+      index < 0 ||
+      index >= value.length ||
+      String(index) !== key
+    ) {
+      throw new TypeError(`${label} must not contain extra fields`);
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !descriptor.enumerable || !('value' in descriptor)) {
+      throw new TypeError(`${label}[${index}] must be an own enumerable data entry`);
+    }
+    detached[index] = descriptor.value;
+    entryCount += 1;
+  }
+  if (entryCount !== value.length) {
+    for (let index = 0; index < detached.length; index += 1) {
+      if (!Object.hasOwn(detached, index)) {
+        throw new TypeError(`${label}[${index}] must be an own enumerable data entry`);
+      }
+    }
+  }
+  return Object.freeze(detached);
 }

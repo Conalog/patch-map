@@ -345,7 +345,7 @@ export class PatchMapSceneImageController {
       binding.attempts.add(attempt);
       attempt.binding = binding;
     }
-    this.startBinding(binding);
+    this.startBinding(binding, true);
     this.invalidate(`scene-image:${binding.key}:retry`);
     return retryResult(
       'started',

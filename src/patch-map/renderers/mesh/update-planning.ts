@@ -273,6 +273,7 @@ export function updateBoundBarSlotPositions<
           binding.track.primitiveIndex,
           trackQuad,
           binding.radius,
+          1,
         )
       : writeExactQuadPositionValues(
         record.geometry.positions,
@@ -294,6 +295,7 @@ export function updateBoundBarSlotPositions<
           binding.fill.primitiveIndex,
           fillQuad,
           fillRadius,
+          progress,
         )
       : writeExactQuadPositionValues(
         record.geometry.positions,

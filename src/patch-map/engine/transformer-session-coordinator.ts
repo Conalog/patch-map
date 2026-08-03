@@ -50,7 +50,9 @@ export interface PatchMapTransformerSessionPort {
   readonly selectionIds: () => readonly string[];
   readonly historyState: () => PatchMapHistoryState;
   readonly clearTooltipForDrag: () => void;
-  readonly applySelection: (operation: PatchMapSelectionSetOperation) => void;
+  readonly applySelectionForTransformerStart: (
+    operation: PatchMapSelectionSetOperation,
+  ) => void;
   readonly replaceSelectionForRollback: (selectionIds: readonly string[]) => void;
   readonly revisionStamp: () => PatchMapRevisionStamp;
   readonly applyPlannedTransaction: (input: Readonly<{
@@ -170,24 +172,31 @@ export class PatchMapTransformerSessionCoordinator {
     const selectionIds = Object.freeze([
       ...(input.selectionIds ?? this.port.selectionIds()),
     ]);
-    if (input.selectionIds !== undefined) {
-      this.port.applySelection({
-        op: 'replace',
-        ids: selectionIds,
-        source: 'programmatic',
-      });
-    }
     this.beginHandleGesture(input.pointerId, input.handle);
-    this.edits.begin({
-      pointerId: input.pointerId,
-      actionId,
-      kind: input.kind,
-      handle: input.handle,
-      selectionIds,
-      startMaterialized: materialized,
-      startSelectionIds: Object.freeze([...this.port.selectionIds()]),
-      historyDepthBefore: this.port.historyState().undoDepth,
-    });
+    try {
+      if (input.selectionIds !== undefined) {
+        this.port.applySelectionForTransformerStart({
+          op: 'replace',
+          ids: selectionIds,
+          source: 'programmatic',
+        });
+      }
+      this.edits.begin({
+        pointerId: input.pointerId,
+        actionId,
+        kind: input.kind,
+        handle: input.handle,
+        selectionIds,
+        startMaterialized: materialized,
+        startSelectionIds: Object.freeze([...this.port.selectionIds()]),
+        historyDepthBefore: this.port.historyState().undoDepth,
+      });
+    } catch (error) {
+      if (this.gestures.owns(input.pointerId)) {
+        this.cancelHandleGesture(input.pointerId, 'selection-change');
+      }
+      throw error;
+    }
     return this.editProbe();
   }
 
@@ -270,6 +279,11 @@ export class PatchMapTransformerSessionCoordinator {
         reconcileDiagnostics: diagnostics,
         probe: this.editProbe(),
       });
+    }
+
+    if (this.edits.current() !== active) {
+      this.restoreAuthoritativeAfterStalePreview(surface, transient !== null);
+      throw this.port.operationFailure('CONFLICT', 'previewTransformerEdit', true);
     }
 
     this.port.advanceInteraction();
@@ -477,5 +491,30 @@ export class PatchMapTransformerSessionCoordinator {
       this.port.replaceSelectionForRollback(active.startSelectionIds);
     }
     this.port.advanceInteraction();
+  }
+
+  private restoreAuthoritativeAfterStalePreview(
+    surface: PatchMapEngineSurface,
+    transientPreview: boolean,
+  ): void {
+    if (transientPreview && surface.clearIncrementalPreview !== undefined) {
+      surface.clearIncrementalPreview();
+      return;
+    }
+    const authoritative = this.port.materialized();
+    if (authoritative === null || !surface.reconcile) {
+      throw this.port.operationFailure(
+        'UNSUPPORTED_RUNTIME',
+        'restoreTransformerPreview',
+        false,
+      );
+    }
+    const reconcile = surface.reconcile(authoritative.dataset, {
+      animateBarChanges: false,
+      selectionIds: this.port.selectionIds(),
+    });
+    if (reconcile.status === 'refused') {
+      throw this.port.operationFailure('CONFLICT', 'restoreTransformerPreview', false);
+    }
   }
 }

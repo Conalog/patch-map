@@ -128,11 +128,26 @@ async function isolatedPixiDescriptor(
 ): Promise<PatchMapAssetDescriptor> {
   const blob = await fetchAsset(descriptor.src);
   if (ingestionPolicy) {
-    const decoded = inspectDecodedSize ? await inspectDecodedSize(blob) : undefined;
+    const mediaType = normalizeMediaType(blob.type);
+    const svgText = mediaType === 'image/svg+xml' ? await blob.text() : undefined;
+    if (svgText !== undefined) {
+      assertPatchMapAssetResponseAllowed(ingestionPolicy, {
+        requestUrl: descriptor.src,
+        finalUrl: descriptor.src,
+        mediaType,
+        encodedBytes: blob.size,
+        svgText,
+      });
+    }
+    const inspect = inspectDecodedSize ?? defaultInspectDecodedSize;
+    if (mediaType.startsWith('image/') && inspect === null) {
+      throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
+    }
+    const decoded = inspect === null ? undefined : await inspect(blob);
     assertPatchMapAssetResponseAllowed(ingestionPolicy, {
       requestUrl: descriptor.src,
       finalUrl: descriptor.src,
-      mediaType: blob.type,
+      mediaType,
       encodedBytes: blob.size,
       ...(decoded === undefined
         ? {}
@@ -140,9 +155,7 @@ async function isolatedPixiDescriptor(
             decodedWidth: decoded.width,
             decodedHeight: decoded.height,
           }),
-      ...(normalizeMediaType(blob.type) === 'image/svg+xml'
-        ? { svgText: await blob.text() }
-        : {}),
+      ...(svgText === undefined ? {} : { svgText }),
     });
   }
   const objectUrl = createObjectURL(blob);
@@ -153,6 +166,17 @@ async function isolatedPixiDescriptor(
     ...(parser === null ? {} : { parser }),
   });
 }
+
+const defaultInspectDecodedSize = typeof globalThis.createImageBitmap === 'function'
+  ? async (blob: Blob): Promise<Readonly<{ readonly width: number; readonly height: number }>> => {
+      const bitmap = await globalThis.createImageBitmap(blob);
+      try {
+        return Object.freeze({ width: bitmap.width, height: bitmap.height });
+      } finally {
+        bitmap.close();
+      }
+    }
+  : null;
 
 async function defaultFetchAsset(src: string): Promise<Blob> {
   const response = await fetch(src, {

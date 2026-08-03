@@ -1019,19 +1019,38 @@ export class PatchMapRuntime {
   public setWorldTransform(view: PatchMapWorldTransform): CommitResult {
     this.assertAlive();
     validateWorldTransform(view);
-    this.worldFlipX = view.flipX;
-    this.worldFlipY = view.flipY;
-    this.renderer.setWorldOrientation({
+    const previousOrientation = Object.freeze({
+      rotationDegrees: this.currentView.rotation ?? 0,
+      flipX: this.worldFlipX,
+      flipY: this.worldFlipY,
+    });
+    const nextOrientation = Object.freeze({
       rotationDegrees: view.rotationDegrees,
       flipX: view.flipX,
       flipY: view.flipY,
     });
-    return this.setView({
-      x: view.x,
-      y: view.y,
-      scale: view.scale,
-      rotation: view.rotationDegrees,
-    });
+    try {
+      this.renderer.setWorldOrientation(nextOrientation);
+      const result = this.setView({
+        x: view.x,
+        y: view.y,
+        scale: view.scale,
+        rotation: view.rotationDegrees,
+      });
+      this.worldFlipX = view.flipX;
+      this.worldFlipY = view.flipY;
+      return result;
+    } catch (error) {
+      try {
+        this.renderer.setWorldOrientation(previousOrientation);
+      } catch (rollbackError) {
+        throw new AggregateError(
+          [error, rollbackError],
+          'world transform and renderer-orientation rollback both failed',
+        );
+      }
+      throw error;
+    }
   }
 
   public panBy(delta: CorePoint): CommitResult {

@@ -125,6 +125,42 @@ describe('PatchMap transaction request normalization', () => {
     expect(normalized.operations).toBe(EMPTY_OPERATIONS);
     expect(Object.isFrozen(normalized.operations)).toBe(true);
   });
+
+  it('rejects request, operation, and array-index accessors without invoking them', () => {
+    let reads = 0;
+    const requestAccessor = Object.defineProperty({ strict: true }, 'operations', {
+      enumerable: true,
+      get() {
+        reads += 1;
+        return [];
+      },
+    });
+    const operationAccessor = Object.defineProperty({}, 'op', {
+      enumerable: true,
+      get() {
+        reads += 1;
+        return 'remove';
+      },
+    });
+    const operationArray = [] as unknown[];
+    Object.defineProperty(operationArray, 0, {
+      enumerable: true,
+      configurable: true,
+      get() {
+        reads += 1;
+        return { op: 'remove', target: { kind: 'element', id: 'box' }, cascade: 'reject' };
+      },
+    });
+
+    for (const input of [
+      requestAccessor,
+      { strict: true, operations: [operationAccessor] },
+      { strict: true, operations: operationArray },
+    ]) {
+      expect(() => normalizeTransaction(input)).toThrow(TransactionValidationFailure);
+    }
+    expect(reads).toBe(0);
+  });
 });
 
 function normalizationDiagnostic(input: unknown) {

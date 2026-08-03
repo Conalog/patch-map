@@ -559,10 +559,14 @@ export class PatchMap {
     backend: 'webgl' | 'webgpu';
   }> | null = null;
   private loadSequence = 0;
+  private activeAsyncSurfaceLoadSequence: number | null = null;
   private pendingWork = 0;
   private destroySettlement: Promise<boolean> | null = null;
   private readonly externalDependencyRevisions = new Map<string, string>();
   private pointerGestureAuthority: PatchMapPointerGestureAuthority | null = null;
+  private readonly cancelActiveTransformerBeforeSurfaceReconcile = (): void => {
+    this.transformerSessions.cancelActive('redraw', true);
+  };
 
   private get materialized(): MaterializedPatchMapDataset | null {
     return this.sceneState.materialized;
@@ -689,8 +693,8 @@ export class PatchMap {
       clearTooltipForDrag: () => {
         this.hostInteractions.clearTooltip('drag');
       },
-      applySelection: (operation) => {
-        this.applySelection(operation);
+        applySelectionForTransformerStart: (operation) => {
+          this.applySelectionWithPolicy(operation, true);
       },
       replaceSelectionForRollback: (selectionIds) => {
         this.sceneState.replaceSelection(selectionIds);
@@ -710,6 +714,7 @@ export class PatchMap {
           previousRevisions,
           previousHistory,
           0,
+          undefined,
           beforeChangeEvent,
         ),
       advanceInteraction: () => {
@@ -1180,6 +1185,7 @@ export class PatchMap {
   ): PatchMapEngineLoadResult {
     this.transformerSessions.cancelActive('replace', true);
     const sequence = ++this.loadSequence;
+    this.activeAsyncSurfaceLoadSequence = null;
     const lifecycleGeneration = this.publication.lifecycleGeneration;
     const sceneRevision = this.publication.sceneRevision;
     surface.load(prepared.materialized.dataset);
@@ -1205,14 +1211,13 @@ export class PatchMap {
     options: PatchMapLoadOptions = {},
   ): Promise<PatchMapEngineLoadResult> {
     const surface = this.requireSurface('loadDatasetAsync');
-    this.transformerSessions.cancelActive('replace', true);
+    const materialized = materializePatchMapDataset(input);
+    this.validateStrictDatasetLoad(materialized, options);
     const sequence = ++this.loadSequence;
     const lifecycleGeneration = this.publication.lifecycleGeneration;
     const sceneRevision = this.publication.sceneRevision;
     this.pendingWork += 1;
     try {
-      const materialized = materializePatchMapDataset(input);
-      this.validateStrictDatasetLoad(materialized, options);
       await yieldPatchMapEngineTask();
       this.assertCooperativeLoadCurrent(
         surface,
@@ -1253,9 +1258,28 @@ export class PatchMap {
           sceneRevision,
         );
       };
-      if (surface.loadAsync) await surface.loadAsync(materialized.dataset, assertCurrent);
-      else surface.load(materialized.dataset);
-      assertCurrent();
+      try {
+        this.transformerSessions.cancelActive('replace', true);
+        if (surface.loadAsync) {
+          this.activeAsyncSurfaceLoadSequence = sequence;
+          await surface.loadAsync(materialized.dataset, assertCurrent);
+        } else {
+          surface.load(materialized.dataset);
+        }
+        assertCurrent();
+      } catch (error) {
+        if (
+          this.activeAsyncSurfaceLoadSequence === null ||
+          this.activeAsyncSurfaceLoadSequence === sequence
+        ) {
+          this.restoreAuthoritativeSurfaceScene(surface, 'loadDatasetAsync');
+        }
+        throw error;
+      } finally {
+        if (this.activeAsyncSurfaceLoadSequence === sequence) {
+          this.activeAsyncSurfaceLoadSequence = null;
+        }
+      }
       this.pointerGestureAuthority?.interrupt('replace');
       this.transformerSessions.interruptGestures();
       return this.commitPreparedDatasetLoad(prepared);
@@ -1342,7 +1366,6 @@ export class PatchMap {
     schemaRevision = PATCH_MAP_MUTATION_TRANSACTION_REVISION,
   ): PatchMapEngineTransactionResult {
     const surface = this.requireSurface('transact');
-    this.transformerSessions.cancelActive('redraw', true);
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
     const planStarted = enginePerformanceNow();
@@ -1355,6 +1378,7 @@ export class PatchMap {
       previousRevisions,
       previousHistory,
       transactionPlanMs,
+      this.cancelActiveTransformerBeforeSurfaceReconcile,
     );
   }
 
@@ -1368,7 +1392,6 @@ export class PatchMap {
     request: PatchMapBarHeightBatchRequest,
   ): PatchMapEngineTransactionResult {
     const surface = this.requireSurface('updateBarHeights');
-    this.transformerSessions.cancelActive('redraw', true);
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
     const planStarted = enginePerformanceNow();
@@ -1384,6 +1407,7 @@ export class PatchMap {
       previousRevisions,
       previousHistory,
       transactionPlanMs,
+      this.cancelActiveTransformerBeforeSurfaceReconcile,
     );
   }
 
@@ -1396,7 +1420,6 @@ export class PatchMap {
     request: PatchMapTextBatchRequest,
   ): PatchMapEngineTransactionResult {
     const surface = this.requireSurface('updateTexts');
-    this.transformerSessions.cancelActive('redraw', true);
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
     const planStarted = enginePerformanceNow();
@@ -1412,6 +1435,7 @@ export class PatchMap {
       previousRevisions,
       previousHistory,
       transactionPlanMs,
+      this.cancelActiveTransformerBeforeSurfaceReconcile,
     );
   }
 
@@ -1425,7 +1449,6 @@ export class PatchMap {
     schemaRevision = PATCH_MAP_MUTATION_TRANSACTION_REVISION,
   ): PatchMapEngineTransactionResult {
     const surface = this.requireSurface('bulkPatch');
-    this.transformerSessions.cancelActive('redraw', true);
     const previousRevisions = this.revisionStamp();
     const previousHistory = this.history.state();
     const planStarted = enginePerformanceNow();
@@ -1438,6 +1461,7 @@ export class PatchMap {
       previousRevisions,
       previousHistory,
       transactionPlanMs,
+      this.cancelActiveTransformerBeforeSurfaceReconcile,
     );
   }
 
@@ -1827,7 +1851,6 @@ export class PatchMap {
    */
   public patch(target: PatchMapSemanticTarget, patch: unknown): PatchMapEnginePatchResult {
     const surface = this.requireSurface('patch');
-    this.transformerSessions.cancelActive('redraw', true);
     const previousRevisions = this.revisionStamp();
     const mutation = applyPatchMapSemanticPatch(
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
@@ -1935,8 +1958,22 @@ export class PatchMap {
       componentSemantics,
       textSemantics,
     });
+    let reconcileBaseRevisions = previousRevisions;
     let reconcile: PatchMapSurfaceReconcileResult;
     try {
+      this.transformerSessions.cancelActive('redraw', true);
+      if (!this.isSurfaceSceneCurrent(surface, previousRevisions)) {
+        this.history.cancelPrepared(preparedHistory);
+        return this.refusedPatchResult(
+          mutation.target,
+          previousRevisions,
+          'CONFLICT',
+          'CONFLICT',
+          true,
+          EMPTY_RECONCILE_DIAGNOSTICS,
+        );
+      }
+      reconcileBaseRevisions = this.revisionStamp();
       reconcile = surface.reconcile(mutation.candidate.dataset, {
         animateBarChanges:
           !this.accessibility.reducedMotion &&
@@ -1965,7 +2002,7 @@ export class PatchMap {
     }
 
     if (
-      !this.isSurfaceMutationCurrent(surface, previousRevisions) ||
+      !this.isSurfaceMutationCurrent(surface, reconcileBaseRevisions) ||
       !this.history.canCommitPrepared(preparedHistory)
     ) {
       this.history.cancelPrepared(preparedHistory);
@@ -2027,7 +2064,6 @@ export class PatchMap {
    */
   public destroyTarget(target: PatchMapSemanticTarget): PatchMapEngineDestroyTargetResult {
     const surface = this.requireSurface('destroyTarget');
-    this.transformerSessions.cancelActive('redraw', true);
     const previousRevisions = this.revisionStamp();
     const mutation = removePatchMapSemanticTarget(
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
@@ -2132,8 +2168,22 @@ export class PatchMap {
       textSemantics,
       selectionIds: selectionAfter,
     });
+    let reconcileBaseRevisions = previousRevisions;
     let reconcile: PatchMapSurfaceReconcileResult;
     try {
+      this.transformerSessions.cancelActive('redraw', true);
+      if (!this.isSurfaceSceneCurrent(surface, previousRevisions)) {
+        this.history.cancelPrepared(preparedHistory);
+        return this.refusedDestroyTargetResult(
+          mutation.target,
+          previousRevisions,
+          'CONFLICT',
+          'CONFLICT',
+          true,
+          EMPTY_RECONCILE_DIAGNOSTICS,
+        );
+      }
+      reconcileBaseRevisions = this.revisionStamp();
       reconcile = surface.reconcile(mutation.candidate.dataset, {
         animateBarChanges: false,
         ...(mutation.target.kind === 'element'
@@ -2165,7 +2215,7 @@ export class PatchMap {
     }
 
     if (
-      !this.isSurfaceMutationCurrent(surface, previousRevisions) ||
+      !this.isSurfaceMutationCurrent(surface, reconcileBaseRevisions) ||
       !this.history.canCommitPrepared(preparedHistory)
     ) {
       this.history.cancelPrepared(preparedHistory);
@@ -3580,6 +3630,13 @@ export class PatchMap {
   }
 
   public applySelection(input: PatchMapSelectionSetOperation): PatchMapSelectionChange {
+    return this.applySelectionWithPolicy(input, false);
+  }
+
+  private applySelectionWithPolicy(
+    input: PatchMapSelectionSetOperation,
+    preserveTransformerGesture: boolean,
+  ): PatchMapSelectionChange {
     const surface = this.requireSurface('select');
     const materialized = this.materialized;
     const change = applyPatchMapSelectionOperation(
@@ -3591,7 +3648,7 @@ export class PatchMap {
         return owned ?? this.logicalSceneIndex().target(id) !== null;
       },
     );
-    if (change.changed) {
+    if (change.changed && !preserveTransformerGesture) {
       if (this.transformerSessions.cancelActive('selection-change', true) === null) {
         this.transformerSessions.interruptGestures();
       }
@@ -3599,7 +3656,7 @@ export class PatchMap {
     surface.select(change.current);
     this.sceneState.replaceSelection(change.current);
     if (change.changed) {
-      if (change.source !== 'canvas') {
+      if (change.source !== 'canvas' && !preserveTransformerGesture) {
         this.pointerGestureAuthority?.interrupt('selection-change');
       }
       this.publication.advanceInteraction();
@@ -5019,6 +5076,16 @@ export class PatchMap {
       this.publication.lifecycleGeneration === revisions.lifecycleGeneration &&
       this.publication.sceneRevision === revisions.sceneRevision &&
       this.publication.interactionRevision === revisions.interactionRevision;
+  }
+
+  private isSurfaceSceneCurrent(
+    surface: PatchMapEngineSurface,
+    revisions: PatchMapRevisionStamp,
+  ): boolean {
+    return !this.isDestroyingOrDestroyed() &&
+      this.surface === surface &&
+      this.publication.lifecycleGeneration === revisions.lifecycleGeneration &&
+      this.publication.sceneRevision === revisions.sceneRevision;
   }
 
   private restoreAuthoritativeSurfaceScene(
