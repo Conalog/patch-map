@@ -71,7 +71,16 @@ describe('PatchMap Engine immutable operation outcomes', () => {
     });
     expect(Object.isFrozen(diagnostic)).toBe(true);
     expect(error).toBeInstanceOf(PatchMapError);
-    expect(error.message).toBe('INVALID_VALUE: patch');
+    expect(error.message).toBe(
+      'PatchMap received invalid input [INVALID_VALUE: patch]. ' +
+      'Check the operation arguments and PATCH MAP v0.10 input shape.',
+    );
+    expect(error).toMatchObject({
+      code: 'INVALID_VALUE',
+      operation: 'patch',
+      recoverable: true,
+      hint: 'Check the operation arguments and PATCH MAP v0.10 input shape.',
+    });
     expect(error.diagnostic).toMatchObject({
       code: 'INVALID_VALUE',
       category: 'INVALID_INPUT',

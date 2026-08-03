@@ -1,6 +1,7 @@
 import {
   PatchMapFrameLoop,
   type PatchMapFrameLoopOptions,
+  type PatchMapFrameLoopObservation,
   type PatchMapFrameLoopTarget,
 } from '../scheduler';
 
@@ -56,6 +57,24 @@ export class PatchMapManagedFrameLoopAuthority {
       return;
     }
     frameLoop.request();
+  }
+
+  public publishNow(): PatchMapFrameLoopObservation | null {
+    const frameLoop = this.frameLoop;
+    if (frameLoop === null || frameLoop.isDestroyed) return null;
+    return frameLoop.publishNow();
+  }
+
+  public pause(): boolean {
+    const frameLoop = this.frameLoop;
+    if (frameLoop === null || frameLoop.isDestroyed || frameLoop.isPaused) return false;
+    return frameLoop.pause();
+  }
+
+  public resume(): boolean {
+    const frameLoop = this.frameLoop;
+    if (frameLoop === null || frameLoop.isDestroyed || !frameLoop.isPaused) return false;
+    return frameLoop.resume();
   }
 
   public destroy(): void {

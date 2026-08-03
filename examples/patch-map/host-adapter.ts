@@ -1,5 +1,5 @@
 import {
-  PatchMap,
+  PatchMapAdvanced,
   materializePatchMapCompatibilityDataset,
   preparePatchMapPersistenceExport,
   type PatchMapBulkPatchRequest,
@@ -51,18 +51,18 @@ export interface PatchMapHostAdapterDisposer {
  * and subscription disposal.
  */
 export class PatchMapHostAdapter {
-  readonly #engine: PatchMap;
+  readonly #engine: PatchMapAdvanced;
   readonly #disposers = new Set<() => void>();
   #destroyed = false;
 
-  private constructor(engine: PatchMap) {
+  private constructor(engine: PatchMapAdvanced) {
     this.#engine = engine;
   }
 
   public static async mount(
     options: PatchMapHostAdapterMountOptions,
   ): Promise<PatchMapHostAdapter> {
-    const engine = new PatchMap(options.engine);
+    const engine = new PatchMapAdvanced(options.engine);
     const adapter = new PatchMapHostAdapter(engine);
     try {
       await engine.initialize(options.initialize);
@@ -110,17 +110,17 @@ export class PatchMapHostAdapter {
     return this.#engine.applyTransformerEdit(request, options);
   }
 
-  public history(command: 'inspect'): ReturnType<PatchMap['historyInspection']>;
-  public history(command: 'undo' | 'redo'): ReturnType<PatchMap['undo']>;
+  public history(command: 'inspect'): ReturnType<PatchMapAdvanced['historyInspection']>;
+  public history(command: 'undo' | 'redo'): ReturnType<PatchMapAdvanced['undo']>;
   public history(
     command: PatchMapHostHistoryCommand,
-  ): ReturnType<PatchMap['historyInspection']> | ReturnType<PatchMap['undo']> {
+  ): ReturnType<PatchMapAdvanced['historyInspection']> | ReturnType<PatchMapAdvanced['undo']> {
     if (command === 'inspect') return this.#engine.historyInspection();
     return command === 'undo' ? this.#engine.undo() : this.#engine.redo();
   }
 
   public observeSelection(
-    listener: Parameters<PatchMap['bindSelectionHost']>[0],
+    listener: Parameters<PatchMapAdvanced['bindSelectionHost']>[0],
   ): PatchMapHostAdapterDisposer {
     const release = this.#engine.bindSelectionHost(listener);
     this.#disposers.add(release);
@@ -155,7 +155,7 @@ export class PatchMapHostAdapter {
     return this.#engine.snapshot();
   }
 
-  public assetProbe(alias?: string): ReturnType<PatchMap['assetProbe']> {
+  public assetProbe(alias?: string): ReturnType<PatchMapAdvanced['assetProbe']> {
     return this.#engine.assetProbe(alias);
   }
 

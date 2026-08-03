@@ -16,9 +16,11 @@ class ExtractionSurface implements PatchMapEngineSurface {
   public canvasCount = 1;
   public destroyed = false;
   public captureCount = 0;
+  public deferCapture = false;
   public replaceCanvasAfterCapture = false;
   public rendererLost = false;
 
+  private readonly captureResolvers: Array<() => void> = [];
   private canvas = {} as HTMLCanvasElement;
   private width: number;
   private height: number;
@@ -40,7 +42,18 @@ class ExtractionSurface implements PatchMapEngineSurface {
     if (this.replaceCanvasAfterCapture) {
       this.canvas = {} as HTMLCanvasElement;
     }
+    if (this.deferCapture) {
+      return new Promise((resolve) => {
+        this.captureResolvers.push(() => resolve('data:image/png;base64,cGl4aQ=='));
+      });
+    }
     return Promise.resolve('data:image/png;base64,cGl4aQ==');
+  }
+
+  public resolveNextCapture(): void {
+    const resolve = this.captureResolvers.shift();
+    if (resolve === undefined) throw new Error('no pending capture');
+    resolve();
   }
 
   public rendererLossProbe(): PatchMapPixiRendererLossProbe {
@@ -151,6 +164,53 @@ describe('PatchMap published scene extraction', () => {
       identity: before.identity,
     });
     expect(surface).toMatchObject({ captureCount: 1 });
+    expect(engine.snapshot().pendingWork).toBe(0);
+    await engine.destroy();
+  });
+
+  it('serializes managed captures behind one owned frame loop', async () => {
+    let surface: ExtractionSurface | null = null;
+    let now = 1;
+    const engine = new PatchMap({
+      surfaceFactory: (options) => {
+        surface = new ExtractionSurface(options);
+        return Promise.resolve(surface);
+      },
+    });
+    await engine.initialize({
+      instanceId: 'extract-managed-queue',
+      width: 320,
+      height: 180,
+      pixelRatio: 1,
+    });
+    engine.loadDataset(scene());
+    engine.createFrameLoop({
+      driver: {
+        now: () => now++,
+        request: () => 1,
+        cancel: () => undefined,
+      },
+    });
+    const activeSurface = surface as ExtractionSurface | null;
+    if (activeSurface === null) throw new Error('missing extraction surface');
+    activeSurface.deferCapture = true;
+
+    const first = engine.captureManagedPng();
+    await Promise.resolve();
+    const second = engine.captureManagedPng();
+    await Promise.resolve();
+    expect(activeSurface.captureCount).toBe(1);
+
+    activeSurface.resolveNextCapture();
+    await first;
+    await Promise.resolve();
+    expect(activeSurface.captureCount).toBe(2);
+
+    activeSurface.resolveNextCapture();
+    await expect(second).resolves.toMatchObject({
+      mime: 'image/png',
+      authoritativeCanvasRetained: true,
+    });
     expect(engine.snapshot().pendingWork).toBe(0);
     await engine.destroy();
   });

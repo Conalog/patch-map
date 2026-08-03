@@ -101,6 +101,7 @@ export type * from './host-interaction';
 export type * from './semantic/paint-order';
 export { PatchMap, PatchMapError } from './engine';
 export type * from './engine';
+export type * from './developer-api';
 export {
   PATCH_MAP_ASSET_RUNTIME,
   PATCH_MAP_BUILTIN_ASSETS,

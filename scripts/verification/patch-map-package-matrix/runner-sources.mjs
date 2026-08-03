@@ -356,7 +356,7 @@ export function journeyRunnerSource({ root, packageDigest, codeCommit }) {
     'scripts/verification/core-v2-contract/fold-foundation.mjs',
   );
   return `
-import { PatchMap } from '${PACKAGE_NAME}';
+import { PatchMapAdvanced } from '${PACKAGE_NAME}';
 import { createPatchMapExecutableLabBridge } from ${JSON.stringify(bridgePath)};
 import {
   PATCH_MAP_EXECUTABLE_CASE_IDS,
@@ -406,7 +406,7 @@ async function runPackedFoundationProbe(caseId, plan, host) {
   target.style.width = '800px';
   target.style.height = '600px';
   host.appendChild(target);
-  const engine = new PatchMap();
+  const engine = new PatchMapAdvanced();
   const cleanupErrors = [];
   try {
     if (caseId === 'CSM-003') {

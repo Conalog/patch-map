@@ -7,6 +7,11 @@ import {
   type PatchMapFrameLoop,
   type PatchMapFrameLoopOptions,
 } from './scheduler';
+import { createPatchMapDeveloperApi } from './developer-api';
+import type {
+  PatchMapDeveloperApi,
+  PatchMapMountOptions,
+} from './developer-api/contracts';
 import type {
   PatchMapPresentationPolicyInput,
   PatchMapPresentationPolicyProductProbe,
@@ -509,16 +514,57 @@ const PATCH_MAP_QUERY_REUSE_OPERATIONS = Object.freeze([
   'transform',
   'select',
 ] as const satisfies readonly PatchMapQueryReuseOperation[]);
+let patchMapMountSequence = 0;
+
+function resolvePatchMapMountTarget(target: string | HTMLElement): HTMLElement {
+  if (typeof target !== 'string') return target;
+  const element = globalThis.document?.querySelector<HTMLElement>(target) ?? null;
+  if (element === null) {
+    throw new TypeError(
+      `PatchMap.mount could not find target "${target}". ` +
+      'Create the host element before mounting or pass the HTMLElement directly.',
+    );
+  }
+  return element;
+}
+
+function resolvePatchMapMountSize(
+  target: HTMLElement,
+  width: number | undefined,
+  height: number | undefined,
+): readonly [number, number] {
+  const bounds = target.getBoundingClientRect();
+  const resolvedWidth = width ?? (bounds.width || target.clientWidth);
+  const resolvedHeight = height ?? (bounds.height || target.clientHeight);
+  if (!(resolvedWidth > 0) || !(resolvedHeight > 0)) {
+    throw new RangeError(
+      'PatchMap.mount requires a visible host size. ' +
+      'Give the host CSS width/height or pass width and height explicitly.',
+    );
+  }
+  return Object.freeze([resolvedWidth, resolvedHeight] as const);
+}
 interface PreparedPatchMapEngineLoad {
   readonly materialized: MaterializedPatchMapDataset;
   readonly scenePlan: PatchMapSceneStatePlan;
 }
 
 export class PatchMap {
+  public readonly data: PatchMapDeveloperApi['data'];
+  public readonly targets: PatchMapDeveloperApi['targets'];
+  public readonly bars: PatchMapDeveloperApi['bars'];
+  public readonly texts: PatchMapDeveloperApi['texts'];
+  public readonly selection: PatchMapDeveloperApi['selection'];
+  public readonly transform: PatchMapDeveloperApi['transform'];
+  public readonly viewport: PatchMapDeveloperApi['viewport'];
+  public readonly history: PatchMapDeveloperApi['history'];
+  public readonly assets: PatchMapDeveloperApi['assets'];
+  public readonly debug: PatchMapDeveloperApi['debug'];
+  public readonly capture: PatchMapDeveloperApi['capture'];
   private readonly assetSessions: PatchMapAssetSessionAuthority;
   private readonly operations: PatchMapOperationsAuthority;
   private readonly extractionSecurity: PatchMapExtractionSecurityAuthority;
-  private readonly history: PatchMapSemanticHistory<
+  private readonly historyAuthority: PatchMapSemanticHistory<
     readonly NormalizedPatchMapElement[],
     PatchMapEngineHistoryCompanion
   >;
@@ -568,6 +614,10 @@ export class PatchMap {
   private activeAsyncSurfaceLoadSequence: number | null = null;
   private pendingWork = 0;
   private destroySettlement: Promise<boolean> | null = null;
+  private mountResizeCleanup: (() => void) | null = null;
+  private managedCaptureDepth = 0;
+  private managedCaptureSettlement: Promise<void> = Promise.resolve();
+  private deferredMountResize: readonly [number, number, number] | null = null;
   private readonly externalDependencyRevisions = new Map<string, string>();
   private pointerGestureAuthority: PatchMapPointerGestureAuthority | null = null;
   private readonly cancelActiveTransformerBeforeSurfaceReconcile = (): void => {
@@ -621,6 +671,55 @@ export class PatchMap {
     return this.surfaceLifecycle.terminalFailure;
   }
 
+  /**
+   * Mount the production PatchMap with safe browser defaults. The returned
+   * object is the same Engine used by the Lab, with one owned frame loop and
+   * one owned resize subscription that are both released by destroy().
+   */
+  public static async mount(options: PatchMapMountOptions): Promise<PatchMap> {
+    const target = resolvePatchMapMountTarget(options.target);
+    const [width, height] = resolvePatchMapMountSize(target, options.width, options.height);
+    const instanceId = options.instanceId
+      ?? (target.id.length > 0 ? target.id : `patch-map-${++patchMapMountSequence}`);
+    const engine = new PatchMap({
+      ...(options.historyLimit === undefined ? {} : { historyLimit: options.historyLimit }),
+    });
+    try {
+      await engine.initialize({
+        instanceId,
+        target,
+        width,
+        height,
+        ...(options.pixelRatio === undefined ? {} : { pixelRatio: options.pixelRatio }),
+        ...(options.antialias === undefined ? {} : { antialias: options.antialias }),
+        ...(options.background === undefined ? {} : { background: options.background }),
+        ...(options.zoomLimits === undefined ? {} : { zoomLimits: options.zoomLimits }),
+        strategy: options.strategy ?? 'mesh',
+        preference: options.backend === 'webgpu' ? 'webgpu' : 'webgl',
+        backend: options.backend === 'webgpu' ? 'webgpu' : 'webgl2',
+        ...(options.devtools === undefined ? {} : { devtools: options.devtools }),
+        ...(options.powerPreference === undefined
+          ? {}
+          : { powerPreference: options.powerPreference }),
+        ...(options.assets === undefined ? {} : { requiredAssets: options.assets }),
+      });
+      const frameLoop = engine.createFrameLoop();
+      if (options.data !== undefined) {
+        engine.data.load(options.data, {
+          fit: options.fit === undefined ? { padding: 24 } : options.fit,
+        });
+      }
+      frameLoop.publishNow();
+      if (options.resize !== 'manual') {
+        engine.mountResizeCleanup = engine.observeMountSize(target, options.pixelRatio);
+      }
+      return engine;
+    } catch (error) {
+      await engine.destroy().catch(() => undefined);
+      throw error;
+    }
+  }
+
   public constructor(options: PatchMapOptions = {}) {
     this.surfaceLifecycle = new PatchMapSurfaceLifecycleAuthority(
       options.surfaceFactory ?? createPixiSurface,
@@ -632,7 +731,7 @@ export class PatchMap {
     this.operations = options.operations ?? new PatchMapOperationsAuthority();
     this.extractionSecurity = options.extractionSecurity
       ?? new PatchMapExtractionSecurityAuthority();
-    this.history = new PatchMapSemanticHistory({
+    this.historyAuthority = new PatchMapSemanticHistory({
       ...(options.historyLimit === undefined ? {} : { capacity: options.historyLimit }),
     });
     this.hostInteractions = new PatchMapHostInteractionAuthority({
@@ -643,7 +742,7 @@ export class PatchMap {
     });
     this.transactionCommit = new PatchMapTransactionCommitCoordinator(
       this.sceneState,
-      this.history,
+      this.historyAuthority,
       this.hostInteractions,
       this.publication,
       {
@@ -695,7 +794,7 @@ export class PatchMap {
       requirePointerGestures: (operation) => this.requirePointerGestureAuthority(operation),
       materialized: () => this.materialized,
       selectionIds: () => this.logicalSelectionIds,
-      historyState: () => this.history.state(),
+      historyState: () => this.historyAuthority.state(),
       clearTooltipForDrag: () => {
         this.hostInteractions.clearTooltip('drag');
       },
@@ -748,7 +847,7 @@ export class PatchMap {
         componentSemanticKey(ownerId, componentId),
       ) ?? null,
       textSemantic: (target) => this.textSemantics.get(engineTextTargetKey(target)) ?? null,
-      historyState: () => this.history.state(),
+      historyState: () => this.historyAuthority.state(),
       interactionMode: () => this.hostInteractions.modeProbe().activeState,
       pendingWork: () => this.pendingWork,
       rendererConfiguration: () => this.rendererConfiguration,
@@ -785,6 +884,53 @@ export class PatchMap {
         id: componentId,
       }),
     } satisfies PatchMapEngineProductProbeReadPort);
+    const developerApi = createPatchMapDeveloperApi(this);
+    this.data = developerApi.data;
+    this.targets = developerApi.targets;
+    this.bars = developerApi.bars;
+    this.texts = developerApi.texts;
+    this.selection = developerApi.selection;
+    this.transform = developerApi.transform;
+    this.viewport = developerApi.viewport;
+    this.history = developerApi.history;
+    this.assets = developerApi.assets;
+    this.debug = developerApi.debug;
+    this.capture = developerApi.capture;
+  }
+
+  private observeMountSize(
+    target: HTMLElement,
+    pixelRatio: number | undefined,
+  ): () => void {
+    let disposed = false;
+    const resize = (): void => {
+      if (disposed || this.destroyed) return;
+      const bounds = target.getBoundingClientRect();
+      if (!(bounds.width > 0) || !(bounds.height > 0)) return;
+      const resolution = pixelRatio ?? globalThis.devicePixelRatio ?? 1;
+      if (this.managedCaptureDepth > 0) {
+        this.deferredMountResize = Object.freeze([bounds.width, bounds.height, resolution]);
+        return;
+      }
+      this.resize(bounds.width, bounds.height, resolution);
+    };
+    const ownerWindow = target.ownerDocument?.defaultView;
+    const ResizeObserverConstructor = ownerWindow?.ResizeObserver ?? globalThis.ResizeObserver;
+    if (ResizeObserverConstructor !== undefined) {
+      const observer = new ResizeObserverConstructor(resize);
+      observer.observe(target);
+      return () => {
+        if (disposed) return;
+        disposed = true;
+        observer.disconnect();
+      };
+    }
+    ownerWindow?.addEventListener('resize', resize);
+    return () => {
+      if (disposed) return;
+      disposed = true;
+      ownerWindow?.removeEventListener('resize', resize);
+    };
   }
 
   public on<K extends PatchMapEngineEvent>(event: K, listener: PatchMapEngineListener<K>): () => void {
@@ -943,6 +1089,50 @@ export class PatchMap {
       this.managedFrameLoop.pauseForVisibility();
     }
     return frameLoop;
+  }
+
+  /** Internal bridge used by high-level capture to keep one publication clock. */
+  public publishManagedFrameNow(): void {
+    this.requireSurface('publishManagedFrameNow');
+    if (this.managedFrameLoop.publishNow() === null) {
+      throw this.operationError('NOT_READY', 'NOT_READY', 'publishManagedFrameNow', true);
+    }
+  }
+
+  /** Queue captures so one request cannot resume or supersede another request's frame tuple. */
+  public captureManagedPng(): Promise<PatchMapEngineExtractionResult> {
+    const capture = this.managedCaptureSettlement.then(() => this.performManagedPngCapture());
+    this.managedCaptureSettlement = capture.then(
+      () => undefined,
+      () => undefined,
+    );
+    return capture;
+  }
+
+  private async performManagedPngCapture(): Promise<PatchMapEngineExtractionResult> {
+    this.publishManagedFrameNow();
+    const resume = this.managedFrameLoop.pause();
+    this.managedCaptureDepth += 1;
+    const snapshot = this.snapshot();
+    try {
+      return await this.extractPublishedScene({
+        targetTuple: snapshot.publishedTuple,
+        cssSize: snapshot.resources.canvas.cssSize,
+        mime: 'image/png',
+      });
+    } finally {
+      this.managedCaptureDepth -= 1;
+      if (
+        this.managedCaptureDepth === 0 &&
+        this.deferredMountResize !== null &&
+        !this.destroyed
+      ) {
+        const [width, height, pixelRatio] = this.deferredMountResize;
+        this.deferredMountResize = null;
+        this.resize(width, height, pixelRatio);
+      }
+      if (resume) this.managedFrameLoop.resume();
+    }
   }
 
   public initialize(options: PatchMapInitializeOptions): Promise<PatchMapInitializeResult> {
@@ -1373,7 +1563,7 @@ export class PatchMap {
   ): PatchMapEngineTransactionResult {
     const surface = this.requireSurface('transact');
     const previousRevisions = this.revisionStamp();
-    const previousHistory = this.history.state();
+    const previousHistory = this.historyAuthority.state();
     const planStarted = enginePerformanceNow();
     const plan = this.planMutationRequest(request, schemaRevision);
     const transactionPlanMs = enginePerformanceNow() - planStarted;
@@ -1399,7 +1589,7 @@ export class PatchMap {
   ): PatchMapEngineTransactionResult {
     const surface = this.requireSurface('updateBarHeights');
     const previousRevisions = this.revisionStamp();
-    const previousHistory = this.history.state();
+    const previousHistory = this.historyAuthority.state();
     const planStarted = enginePerformanceNow();
     const plan = planPatchMapBarHeightBatch(
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
@@ -1498,7 +1688,7 @@ export class PatchMap {
   ): PatchMapEngineTransactionResult {
     const surface = this.requireSurface('updateTexts');
     const previousRevisions = this.revisionStamp();
-    const previousHistory = this.history.state();
+    const previousHistory = this.historyAuthority.state();
     const planStarted = enginePerformanceNow();
     const plan = planPatchMapTextBatch(
       this.materialized ?? EMPTY_MATERIALIZED_DATASET,
@@ -1527,7 +1717,7 @@ export class PatchMap {
   ): PatchMapEngineTransactionResult {
     const surface = this.requireSurface('bulkPatch');
     const previousRevisions = this.revisionStamp();
-    const previousHistory = this.history.state();
+    const previousHistory = this.historyAuthority.state();
     const planStarted = enginePerformanceNow();
     const plan = this.planBulkPatchRequest(request, schemaRevision);
     const transactionPlanMs = enginePerformanceNow() - planStarted;
@@ -1565,7 +1755,7 @@ export class PatchMap {
         facts: plan.facts,
         transaction: null,
         diagnostic: plan.diagnostic,
-        history: this.history.state(),
+        history: this.historyAuthority.state(),
       });
     }
     if (plan.status === 'unchanged') {
@@ -1579,7 +1769,7 @@ export class PatchMap {
         facts: plan.facts,
         transaction: null,
         diagnostic: null,
-        history: this.history.state(),
+        history: this.historyAuthority.state(),
       });
     }
 
@@ -1690,7 +1880,7 @@ export class PatchMap {
         facts: plan.facts,
         transaction: null,
         diagnostic: plan.diagnostic,
-        history: this.history.state(),
+        history: this.historyAuthority.state(),
         selectionIds: Object.freeze([...this.logicalSelectionIds]),
         probe: this.editorWorkflows.probe(),
       });
@@ -1699,7 +1889,7 @@ export class PatchMap {
     if (plan.transaction === null) {
       if (plan.selectionIds !== undefined) this.select(plan.selectionIds);
       this.editorWorkflows.commit(plan);
-      if (plan.closeHistoryGroup) this.history.closeActionGroup();
+      if (plan.closeHistoryGroup) this.historyAuthority.closeActionGroup();
       return Object.freeze({
         schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
         actionType: plan.actionType,
@@ -1710,7 +1900,7 @@ export class PatchMap {
         facts: plan.facts,
         transaction: null,
         diagnostic: null,
-        history: this.history.state(),
+        history: this.historyAuthority.state(),
         selectionIds: Object.freeze([...this.logicalSelectionIds]),
         probe: this.editorWorkflows.probe(),
       });
@@ -1721,7 +1911,7 @@ export class PatchMap {
     if (accepted) {
       if (plan.selectionIds !== undefined) this.select(plan.selectionIds);
       this.editorWorkflows.commit(plan);
-      if (plan.closeHistoryGroup) this.history.closeActionGroup();
+      if (plan.closeHistoryGroup) this.historyAuthority.closeActionGroup();
     } else {
       this.editorWorkflows.discard(plan);
     }
@@ -1775,7 +1965,7 @@ export class PatchMap {
         requestedCount: requested.length,
         executedCount: 0,
         transactions: Object.freeze([]),
-        history: this.history.state(),
+        history: this.historyAuthority.state(),
         companionRestored: false,
       });
     }
@@ -1796,7 +1986,7 @@ export class PatchMap {
           requestedCount: requested.length,
           executedCount: transactions.length,
           transactions: Object.freeze([...transactions]),
-          history: this.history.state(),
+          history: this.historyAuthority.state(),
           companionRestored: false,
         });
       }
@@ -1812,7 +2002,7 @@ export class PatchMap {
           requestedCount: requested.length,
           executedCount: transactions.length,
           transactions: Object.freeze([...transactions]),
-          history: this.history.state(),
+          history: this.historyAuthority.state(),
           companionRestored: false,
         });
       }
@@ -1831,12 +2021,12 @@ export class PatchMap {
           requestedCount: requested.length,
           executedCount: transactions.filter((entry) => entry.status === 'committed').length,
           transactions: Object.freeze([...transactions]),
-          history: this.history.state(),
+          history: this.historyAuthority.state(),
           companionRestored: false,
         });
       }
     }
-    this.history.closeActionGroup();
+    this.historyAuthority.closeActionGroup();
     const currentCompanion = this.historyCompanionState().hostCompanion;
     return Object.freeze({
       schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
@@ -1846,7 +2036,7 @@ export class PatchMap {
       requestedCount: requested.length,
       executedCount: transactions.length,
       transactions: Object.freeze([...transactions]),
-      history: this.history.state(),
+      history: this.historyAuthority.state(),
       companionRestored:
         JSON.stringify(currentCompanion) === JSON.stringify(companion),
     });
@@ -2004,7 +2194,7 @@ export class PatchMap {
     const selectionBefore = this.logicalSelectionIds;
     let preparedHistory: PatchMapHistoryPreparedRecord;
     try {
-      preparedHistory = this.history.prepareOwnedChangedRecord({
+      preparedHistory = this.historyAuthority.prepareOwnedChangedRecord({
         id: `patch:${this.publication.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
         before: this.historySnapshot(),
         after: createPatchMapEngineHistorySnapshot(
@@ -2040,7 +2230,7 @@ export class PatchMap {
     try {
       this.transformerSessions.cancelActive('redraw', true);
       if (!this.isSurfaceSceneCurrent(surface, previousRevisions)) {
-        this.history.cancelPrepared(preparedHistory);
+        this.historyAuthority.cancelPrepared(preparedHistory);
         return this.refusedPatchResult(
           mutation.target,
           previousRevisions,
@@ -2058,7 +2248,7 @@ export class PatchMap {
         ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
       });
     } catch (error) {
-      this.history.cancelPrepared(preparedHistory);
+      this.historyAuthority.cancelPrepared(preparedHistory);
       if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
       const diagnostic = this.diagnosticFrom(error, 'patch');
       const result = Object.freeze({
@@ -2080,9 +2270,9 @@ export class PatchMap {
 
     if (
       !this.isSurfaceMutationCurrent(surface, reconcileBaseRevisions) ||
-      !this.history.canCommitPrepared(preparedHistory)
+      !this.historyAuthority.canCommitPrepared(preparedHistory)
     ) {
-      this.history.cancelPrepared(preparedHistory);
+      this.historyAuthority.cancelPrepared(preparedHistory);
       this.restoreAuthoritativeSurfaceScene(surface, 'patch');
       return this.refusedPatchResult(
         mutation.target,
@@ -2096,7 +2286,7 @@ export class PatchMap {
 
     const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
     if (reconcile.status === 'refused') {
-      this.history.cancelPrepared(preparedHistory);
+      this.historyAuthority.cancelPrepared(preparedHistory);
       return this.refusedPatchResult(
         mutation.target,
         previousRevisions,
@@ -2111,7 +2301,7 @@ export class PatchMap {
     this.defaultViewportContributorsCache = null;
     this.publication.advanceScene();
     this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-    const historyStatus = this.history.commitPrepared(preparedHistory);
+    const historyStatus = this.historyAuthority.commitPrepared(preparedHistory);
     if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
       throw new Error(`patch history preflight became ${historyStatus} after surface commit`);
     }
@@ -2213,7 +2403,7 @@ export class PatchMap {
     );
     let preparedHistory: PatchMapHistoryPreparedRecord;
     try {
-      preparedHistory = this.history.prepareOwnedChangedRecord({
+      preparedHistory = this.historyAuthority.prepareOwnedChangedRecord({
         id: `destroy:${this.publication.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
         before: this.historySnapshot(),
         after: createPatchMapEngineHistorySnapshot(
@@ -2250,7 +2440,7 @@ export class PatchMap {
     try {
       this.transformerSessions.cancelActive('redraw', true);
       if (!this.isSurfaceSceneCurrent(surface, previousRevisions)) {
-        this.history.cancelPrepared(preparedHistory);
+        this.historyAuthority.cancelPrepared(preparedHistory);
         return this.refusedDestroyTargetResult(
           mutation.target,
           previousRevisions,
@@ -2271,7 +2461,7 @@ export class PatchMap {
           : {}),
       });
     } catch (error) {
-      this.history.cancelPrepared(preparedHistory);
+      this.historyAuthority.cancelPrepared(preparedHistory);
       if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
       const diagnostic = this.diagnosticFrom(error, 'destroyTarget');
       const result = Object.freeze({
@@ -2293,9 +2483,9 @@ export class PatchMap {
 
     if (
       !this.isSurfaceMutationCurrent(surface, reconcileBaseRevisions) ||
-      !this.history.canCommitPrepared(preparedHistory)
+      !this.historyAuthority.canCommitPrepared(preparedHistory)
     ) {
-      this.history.cancelPrepared(preparedHistory);
+      this.historyAuthority.cancelPrepared(preparedHistory);
       this.restoreAuthoritativeSurfaceScene(surface, 'destroyTarget');
       return this.refusedDestroyTargetResult(
         mutation.target,
@@ -2309,7 +2499,7 @@ export class PatchMap {
 
     const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
     if (reconcile.status === 'refused') {
-      this.history.cancelPrepared(preparedHistory);
+      this.historyAuthority.cancelPrepared(preparedHistory);
       return this.refusedDestroyTargetResult(
         mutation.target,
         previousRevisions,
@@ -2327,7 +2517,7 @@ export class PatchMap {
     if (!sameStringArray(selectionBefore, selectionAfter)) {
       this.publication.advanceInteraction();
     }
-    const historyStatus = this.history.commitPrepared(preparedHistory);
+    const historyStatus = this.historyAuthority.commitPrepared(preparedHistory);
     if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
       throw new Error(`destroy history preflight became ${historyStatus} after surface commit`);
     }
@@ -2516,7 +2706,7 @@ export class PatchMap {
   ): PatchMapEngineSemanticRefreshResult {
     const surface = this.requireSurface('refreshSemantic');
     const previousRevisions = this.revisionStamp();
-    const history = this.history.state();
+    const history = this.historyAuthority.state();
     const selectionIds = this.logicalSelectionIds;
     const rejectedBase = {
       changed: false as const,
@@ -3617,7 +3807,7 @@ export class PatchMap {
         historyDepthDelta: 0,
       });
     }
-    const before = this.history.state();
+    const before = this.historyAuthority.state();
     const transaction = this.transact({
       strict: true,
       operations: plan.operations,
@@ -3626,7 +3816,7 @@ export class PatchMap {
         ? {}
         : { recordHistory: options.recordHistory }),
     });
-    const after = this.history.state();
+    const after = this.historyAuthority.state();
     return Object.freeze({
       schemaRevision: PATCH_MAP_TRANSFORMER_EDIT_REVISION,
       status: transaction.status,
@@ -4468,7 +4658,7 @@ export class PatchMap {
 
   public historyState(): PatchMapHistoryState {
     this.requireSurface('historyState');
-    return this.history.state();
+    return this.historyAuthority.state();
   }
 
   public historyInspection(): PatchMapHistoryInspection<
@@ -4476,7 +4666,7 @@ export class PatchMap {
     PatchMapEngineHistoryCompanion
   > {
     this.requireSurface('historyInspection');
-    return this.history.inspect();
+    return this.historyAuthority.inspect();
   }
 
   public historyCompanionState(): PatchMapEngineHistoryCompanionState {
@@ -4519,7 +4709,7 @@ export class PatchMap {
   public setHistoryCapacity(capacity: number): PatchMapEngineHistoryCapacityResult {
     this.requireSurface('setHistoryCapacity');
     try {
-      const change = this.history.setCapacity(capacity);
+      const change = this.historyAuthority.setCapacity(capacity);
       return Object.freeze({
         status: 'committed',
         changed: change.changed,
@@ -4533,7 +4723,7 @@ export class PatchMap {
         changed: false,
         code: 'INVALID_VALUE',
         capacity,
-        history: this.history.state(),
+        history: this.historyAuthority.state(),
       });
     }
   }
@@ -4616,6 +4806,9 @@ export class PatchMap {
   }
 
   private async performDestroy(): Promise<boolean> {
+    this.mountResizeCleanup?.();
+    this.mountResizeCleanup = null;
+    this.deferredMountResize = null;
     this.managedFrameLoop.destroy();
     this.transformerSessions.cancelActive('destroy', false);
     this.lifecycle = 'destroying';
@@ -4682,7 +4875,7 @@ export class PatchMap {
     this.viewportAuthority.destroy();
     this.externalDependencyRevisions.clear();
     this.clearHistoryAuthority('destroy', true);
-    this.history.destroy();
+    this.historyAuthority.destroy();
     this.historyHostCompanion = null;
     this.publication.clearHistoryPublications();
     this.transactionCommit.reset();
@@ -4741,7 +4934,7 @@ export class PatchMap {
         semanticHash: this.materialized?.semanticHash ?? null,
         diagnostic,
         reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
-        history: this.history.state(),
+        history: this.historyAuthority.state(),
       } satisfies PatchMapEngineHistoryResult);
       this.emit('diagnostic', diagnostic);
       return result;
@@ -4853,8 +5046,8 @@ export class PatchMap {
     };
 
     const transition = direction === 'undo'
-      ? this.history.undo(apply)
-      : this.history.redo(apply);
+      ? this.historyAuthority.undo(apply)
+      : this.historyAuthority.redo(apply);
     if (transition === null && failure !== null) {
       const result = Object.freeze({
         status: 'refused',
@@ -4866,7 +5059,7 @@ export class PatchMap {
         semanticHash: this.materialized?.semanticHash ?? null,
         diagnostic: failure,
         reconcileDiagnostics,
-        history: this.history.state(),
+        history: this.historyAuthority.state(),
       } satisfies PatchMapEngineHistoryResult);
       this.emit('diagnostic', failure);
       return result;
@@ -4880,7 +5073,7 @@ export class PatchMap {
         revisions: this.revisionStamp(),
         sceneRevision: this.publication.sceneRevision,
         semanticHash: this.materialized?.semanticHash ?? null,
-        history: this.history.state(),
+        history: this.historyAuthority.state(),
       } satisfies PatchMapEngineHistoryResult);
     }
 
@@ -4897,7 +5090,7 @@ export class PatchMap {
       sceneRevision: this.publication.sceneRevision,
       semanticHash: materialized.semanticHash,
       publication: 'pending',
-      history: this.history.state(),
+      history: this.historyAuthority.state(),
     } satisfies PatchMapEngineHistoryResult);
     const restored = Object.freeze({
       direction,
@@ -4961,12 +5154,12 @@ export class PatchMap {
     reason: PatchMapEngineHistoryClearResult['reason'],
     emitEvenIfUnchanged = false,
   ): PatchMapEngineHistoryClearResult {
-    const changed = this.history.clear();
+    const changed = this.historyAuthority.clear();
     this.publication.clearHistoryPublications();
     const result = Object.freeze({
       changed,
       reason,
-      history: this.history.state(),
+      history: this.historyAuthority.state(),
     });
     if (changed || emitEvenIfUnchanged) this.emit('historyCleared', result);
     return result;

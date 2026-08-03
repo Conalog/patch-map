@@ -95,6 +95,8 @@ import {
   PatchMap,
   type PatchMapEngineSnapshot,
   type PatchMapInitializeOptions,
+  type PatchMapMountOptions,
+  type PatchMapTargetSelector,
 } from '${PACKAGE_NAME}';
 import {
   PATCH_MAP_HOST_ADAPTER_CAPABILITIES,
@@ -108,10 +110,31 @@ const options: PatchMapInitializeOptions = {
   preference: 'webgl',
 };
 const Engine: typeof PatchMap = PatchMap;
+const highLevelMount: typeof PatchMap.mount = PatchMap.mount;
+const mountOptions: PatchMapMountOptions = {
+  target: '#strict-types-only',
+  data: [],
+  fit: { padding: 24 },
+};
+const targetSelector: PatchMapTargetSelector = {
+  within: 'rack-grid',
+  componentId: 'usage',
+  type: 'bar',
+  scope: 'instances',
+};
 const capabilities: readonly string[] = PATCH_MAP_HOST_ADAPTER_CAPABILITIES;
 const mount: typeof PatchMapHostAdapter.mount = PatchMapHostAdapter.mount;
 const snapshot: PatchMapEngineSnapshot | null = null;
-void [options, Engine, capabilities, mount, snapshot];
+void [
+  options,
+  Engine,
+  highLevelMount,
+  mountOptions,
+  targetSelector,
+  capabilities,
+  mount,
+  snapshot,
+];
 `);
   await writeFile(path.join(consumer, 'examples.html'), html('/examples-runner.ts'));
   await writeFile(path.join(consumer, 'matrix.html'), html('/matrix-runner.ts'));

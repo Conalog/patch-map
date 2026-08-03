@@ -28,13 +28,73 @@ export const EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS = Object.freeze(
   [] as PatchMapReconcileDiagnostic[],
 );
 
+function patchMapErrorSummary(diagnostic: PatchMapEngineDiagnostic): string {
+  switch (diagnostic.code) {
+    case 'UNSUPPORTED_RUNTIME':
+      return diagnostic.operation === 'initialize'
+        ? 'PatchMap could not start the requested GPU renderer'
+        : 'This PatchMap operation is unavailable in the current renderer';
+    case 'NOT_READY':
+      return 'PatchMap is not ready for this operation';
+    case 'DESTROYED':
+      return 'This PatchMap instance has already been destroyed';
+    case 'MISSING_TARGET':
+      return 'PatchMap could not find one or more requested targets';
+    case 'INVALID_VALUE':
+    case 'INVALID_INPUT':
+      return 'PatchMap received invalid input';
+    case 'CONFLICT':
+      return 'PatchMap could not apply the operation because state changed';
+    case 'RENDERER_LOST':
+      return 'PatchMap lost its GPU renderer context';
+    default:
+      return 'PatchMap could not complete the operation';
+  }
+}
+
+function patchMapErrorHint(diagnostic: PatchMapEngineDiagnostic): string {
+  if (diagnostic.code === 'UNSUPPORTED_RUNTIME' && diagnostic.operation === 'initialize') {
+    return 'Use a browser with WebGL2 and hardware acceleration enabled. WebGPU is experimental.';
+  }
+  if (diagnostic.code === 'NOT_READY') {
+    return 'Await PatchMap.mount(...) or initialize(...) before calling this method.';
+  }
+  if (diagnostic.code === 'DESTROYED') {
+    return 'Create a new PatchMap instance instead of reusing a destroyed one.';
+  }
+  if (diagnostic.code === 'MISSING_TARGET') {
+    return 'Check id/componentId, or compile the selector again after loading new data.';
+  }
+  if (diagnostic.code === 'INVALID_VALUE' || diagnostic.code === 'INVALID_INPUT') {
+    return diagnostic.datasetPath === undefined
+      ? 'Check the operation arguments and PATCH MAP v0.10 input shape.'
+      : `Check the value at ${diagnostic.datasetPath}.`;
+  }
+  if (diagnostic.code === 'RENDERER_LOST') {
+    return 'Destroy this instance and mount a new one after the browser restores GPU access.';
+  }
+  return diagnostic.recoverable
+    ? 'Review diagnostic for the rejected operation; the current scene was left unchanged.'
+    : 'Destroy this instance and mount a new one. Preserve this diagnostic when reporting the issue.';
+}
+
 export class PatchMapError extends Error {
   public readonly diagnostic: PatchMapEngineDiagnostic;
+  public readonly code: PatchMapEngineDiagnostic['code'];
+  public readonly operation: PatchMapEngineDiagnostic['operation'];
+  public readonly hint: string;
+  public readonly recoverable: boolean;
 
   public constructor(diagnostic: PatchMapEngineDiagnostic) {
-    super(`${diagnostic.code}: ${diagnostic.operation}`);
+    const summary = patchMapErrorSummary(diagnostic);
+    const hint = patchMapErrorHint(diagnostic);
+    super(`${summary} [${diagnostic.code}: ${diagnostic.operation}]. ${hint}`);
     this.name = 'PatchMapError';
     this.diagnostic = diagnostic;
+    this.code = diagnostic.code;
+    this.operation = diagnostic.operation;
+    this.hint = hint;
+    this.recoverable = diagnostic.recoverable;
   }
 }
 

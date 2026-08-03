@@ -1,4 +1,4 @@
-import { PatchMapHostAdapter } from './host-adapter';
+import { PatchMap } from '@conalog/patch-map';
 
 const DASHBOARD_DATASET = Object.freeze([
   Object.freeze({
@@ -38,27 +38,21 @@ export async function runDashboardExample(host: HTMLElement): Promise<Readonly<{
   readonly barHeight: unknown;
   readonly canvasCountAfterDestroy: number;
 }>> {
-  const adapter = await PatchMapHostAdapter.mount({
-    initialize: {
-      instanceId: 'patch-map-example-dashboard',
-      target: host,
-      width: 320,
-      height: 200,
-      preference: 'webgl',
-      strategy: 'mesh',
-      background: '#f8fafc',
-    },
+  const patchMap = await PatchMap.mount({
+    instanceId: 'patch-map-example-dashboard',
+    target: host,
+    width: 320,
+    height: 200,
+    background: '#f8fafc',
+    data: DASHBOARD_DATASET,
   });
-  adapter.load(DASHBOARD_DATASET, { datasetRef: 'example:dashboard' });
-  const update = adapter.bulkUpdate({
-    strict: true,
-    actionId: 'dashboard-refresh',
-    targets: [{ kind: 'component', ownerId: 'dashboard-metric', id: 'bar' }],
-    changes: [{ path: ['size', 'height'], value: 72 }],
-  });
-  adapter.publish(16);
-  const bar = adapter.lookup('bar');
-  await adapter.destroy();
+  const update = patchMap.bars.set({
+    id: 'dashboard-metric',
+    componentId: 'bar',
+    height: 72,
+  }, { actionId: 'dashboard-refresh' });
+  const bar = patchMap.targets.get({ id: 'dashboard-metric', componentId: 'bar' });
+  await patchMap.destroy();
   return Object.freeze({
     example: 'dashboard',
     updateStatus: update.status,

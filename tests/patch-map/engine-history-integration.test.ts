@@ -435,7 +435,7 @@ function elementX(
 
 function pendingHistoryPlanCount(engine: PatchMap): number {
   const history = (engine as unknown as Readonly<{
-    history: Readonly<{ pendingPreparedRecords: ReadonlySet<unknown> }>;
-  }>).history;
+    historyAuthority: Readonly<{ pendingPreparedRecords: ReadonlySet<unknown> }>;
+  }>).historyAuthority;
   return history.pendingPreparedRecords.size;
 }

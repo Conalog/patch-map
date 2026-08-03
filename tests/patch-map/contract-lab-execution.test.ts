@@ -525,7 +525,11 @@ describe('PatchMap executable Lab product bridge', () => {
       status: 'failed',
       supplementalWebGLLease: {
         status: 'failed',
-        error: { message: 'INTERNAL_FAILURE: destroy' },
+        error: {
+          message:
+            'PatchMap could not complete the operation [INTERNAL_FAILURE: destroy]. ' +
+            'Destroy this instance and mount a new one. Preserve this diagnostic when reporting the issue.',
+        },
       },
     });
     expect(await bridge.destroyCase()).toMatchObject({

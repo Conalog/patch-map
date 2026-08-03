@@ -4,5 +4,21 @@
  * The package intentionally exposes one PixiJS product surface. Historical
  * performance controls and experiment subpaths are not part of the release.
  */
+import { PatchMap as PatchMapImplementation } from './patch-map/engine';
+import type {
+  PatchMapConstructor,
+  PatchMapPublic,
+} from './patch-map/developer-api';
+
+/** Preferred high-level entry. Runtime-identical to the advanced Engine. */
+export const PatchMap: PatchMapConstructor = PatchMapImplementation;
+export type PatchMap = PatchMapPublic;
+
+/**
+ * Explicit lifecycle/verification seam for deterministic runners and advanced
+ * editor hosts. Normal applications should use `PatchMap.mount()`.
+ */
+export { PatchMapImplementation as PatchMapAdvanced };
+
 export * from './patch-map/index';
 export type * from './patch-map/input';

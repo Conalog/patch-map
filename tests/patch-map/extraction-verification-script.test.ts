@@ -61,7 +61,9 @@ describe('PatchMap extraction verification scripts', () => {
   it('keeps packed and lifecycle artifacts redirectable while probing extraction', () => {
     expect(packageSource).toContain('PATCH_MAP_PACKAGE_ARTIFACT_DIR');
     expect(packageSource).toContain('engine.extractPublishedScene({');
-    expect(packageSource).toContain('extractionType: typeof PatchMap.prototype.extractPublishedScene');
+    expect(packageSource).toContain(
+      'extractionType: typeof PatchMapAdvanced.prototype.extractPublishedScene',
+    );
     expect(packageSource).toContain('validatePatchMapDatasetReferences(engine.exportDataset())');
     expect(packageSource).toContain("strictReferenceValidatorType: typeof validatePatchMapDatasetReferences");
     expect(packageSource).toContain('resolvePatchMapEditorMount(false)');

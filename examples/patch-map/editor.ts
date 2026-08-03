@@ -1,4 +1,4 @@
-import { PatchMapHostAdapter } from './host-adapter';
+import { PatchMap } from '@conalog/patch-map';
 
 const EDITOR_DATASET = Object.freeze([
   Object.freeze({
@@ -20,37 +20,30 @@ export async function runEditorExample(host: HTMLElement): Promise<Readonly<{
   readonly disposedSelectionHosts: number;
   readonly canvasCountAfterDestroy: number;
 }>> {
-  const adapter = await PatchMapHostAdapter.mount({
-    initialize: {
-      instanceId: 'patch-map-example-editor',
-      target: host,
-      width: 360,
-      height: 220,
-      preference: 'webgl',
-      strategy: 'mesh',
-    },
+  const patchMap = await PatchMap.mount({
+    instanceId: 'patch-map-example-editor',
+    target: host,
+    width: 360,
+    height: 220,
+    data: EDITOR_DATASET,
   });
-  adapter.load(EDITOR_DATASET, { datasetRef: 'example:editor' });
   const publications: string[][] = [];
-  adapter.observeSelection((publication) => {
-    publications.push([...publication.selectedIds]);
+  const releaseSelection = patchMap.selection.onChange((ids) => {
+    publications.push([...ids]);
   });
-  const selection = adapter.selection(['editor-card']);
-  const transform = adapter.transform(
-    {
-      kind: 'move',
-      selectionIds: ['editor-card'],
-      deltaWorld: [12, 8],
-    },
+  const selection = patchMap.selection.set('editor-card');
+  const transform = patchMap.transform.move(
+    { id: 'editor-card' },
+    [12, 8],
     { actionId: 'editor-move', recordHistory: true },
   );
-  const undo = adapter.history('undo');
-  adapter.publish(16);
-  const disposedSelectionHosts = adapter.dispose();
-  await adapter.destroy();
+  const undo = patchMap.history.undo();
+  releaseSelection();
+  const disposedSelectionHosts = 1;
+  await patchMap.destroy();
   return Object.freeze({
     example: 'editor',
-    selectedIds: selection.current,
+    selectedIds: selection,
     transformStatus: transform.status,
     undoStatus: undo.status,
     selectionPublicationCount: publications.length,

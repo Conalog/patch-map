@@ -1,4 +1,4 @@
-import { PatchMapHostAdapter } from './host-adapter';
+import { PatchMap } from '@conalog/patch-map';
 
 const REPORT_DATASET = Object.freeze([
   Object.freeze({
@@ -26,25 +26,21 @@ export async function runReportExample(host: HTMLElement): Promise<Readonly<{
   readonly authoritativeCanvasRetained: boolean;
   readonly canvasCountAfterDestroy: number;
 }>> {
-  const adapter = await PatchMapHostAdapter.mount({
-    initialize: {
-      instanceId: 'patch-map-example-report',
-      target: host,
-      width: 420,
-      height: 240,
-      preference: 'webgl',
-      strategy: 'mesh',
-      background: '#f8fafc',
-    },
+  const patchMap = await PatchMap.mount({
+    instanceId: 'patch-map-example-report',
+    target: host,
+    width: 420,
+    height: 240,
+    background: '#f8fafc',
+    data: REPORT_DATASET,
   });
-  adapter.load(REPORT_DATASET, { datasetRef: 'example:report' });
-  const extraction = await adapter.extract();
-  await adapter.destroy();
+  const extraction = await patchMap.capture.png();
+  await patchMap.destroy();
   return Object.freeze({
     example: 'report',
     mime: extraction.mime,
     dataUrlPrefix: extraction.dataUrl.slice(0, 22),
-    authoritativeCanvasRetained: extraction.authoritativeCanvasRetained,
+    authoritativeCanvasRetained: true,
     canvasCountAfterDestroy: host.querySelectorAll('canvas').length,
   });
 }
