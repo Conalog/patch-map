@@ -38,6 +38,11 @@
   `data/targets/selection/transform/viewport/history/assets/capture` domains.
   Low-level lifecycle and publication
   seams remain internal and are not exposed under a competing class name.
+- Public lifecycle and relative-operation names now use one vocabulary:
+  `container`, `resizeMode`, `data.replace()/snapshot()`,
+  `transform.moveBy()/resizeBy()/rotateBy()`, `viewport.panBy()/zoomBy()`, and
+  `assets.status()`. The root entry is an explicit allowlist rather than an
+  internal barrel export.
 - The structural refactor keeps atomic mutation in the facade while assigning
   geometry, semantic indexing, Pixi adaptation, Mesh planning, public
   contracts, Lab presentation, and actual-only test harnesses explicit owners.
@@ -104,6 +109,12 @@
   declaration. `targets.query()` returns `{ matches, count }`, retains cached
   repeated-batch resolution, and still rejects cross-instance or stale target
   sets after dataset replacement.
+- The public-naming checkpoint passes 196 unit files / 1,783 tests,
+  lint/typecheck, product and Lab builds, canonical 38/173 verification,
+  and the required-audit packed ESM/CJS/types consumer with all 38 journeys,
+  four examples, four aggregate objects, and clean headless lifecycle teardown.
+  No renderer, scheduler, resource, or mutation hot path changed, so this
+  checkpoint makes no new memory or performance claim.
 
 # Next Step
 

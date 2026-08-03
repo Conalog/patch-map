@@ -199,3 +199,10 @@
   retain the same cached target identity and complexity. Dataset replacement
   still requires an explicit new query so a stale selector cannot update a
   different scene accidentally.
+
+**2026-08-03**
+
+- **Background:** The high-level facade still mixed renderer-era names with consumer intent: mount accepted `target` and `strategy`, dataset replacement was called `load`, detached data was called `export`, and relative transforms lacked a relative suffix. The root barrel also made internal additions easy to publish accidentally.
+- **Decision:** Use `container`/`resizeMode`, `data.replace()`/`replaceAsync()`/`snapshot()`, `transform.*By()`, `viewport.panBy()`/`zoomBy()`, and typed `assets.status()`. Remove redundant `viewport.focus()` in favor of `fit({ targets })`, keep Mesh selection internal, and publish an explicit root value/type allowlist.
+- **Why:** Each name now states whether an operation replaces, snapshots, or applies a relative delta, while applications no longer choose an internal rendering strategy or discover verification machinery through the package barrel.
+- **Impact:** The shipping surface is intentionally breaking before promotion; docs, examples, Lab wiring, declarations, and packed negative checks move together. Aggregate rendering, scheduling, stable identity, atomic mutation, and resource ownership are unchanged.

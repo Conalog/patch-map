@@ -8,7 +8,7 @@ import { PatchMap } from '@conalog/patch-map';
 
 The normal lifecycle is intentionally short:
 
-1. await `PatchMap.mount({ target, data })`;
+1. await `PatchMap.mount({ container, data })`;
 2. use `update()`, `transaction()`, the columnar `updateBatch()`, and the
    `data`, `targets`, `selection`, `viewport`, `history`, `assets`, and `debug`
    domains;
@@ -16,7 +16,7 @@ The normal lifecycle is intentionally short:
 
 ```ts
 const patchMap = await PatchMap.mount({
-  target: '#map',
+  container: '#map',
   data,
   fit: { padding: 24 },
 });
@@ -29,9 +29,32 @@ patchMap.update({
 await patchMap.destroy();
 ```
 
+## Public naming map
+
+The public names describe intent instead of the internal Engine operation that
+implements it:
+
+| Intent | Public API |
+| --- | --- |
+| Create and own a map | `PatchMap.mount({ container, data })` |
+| Replace the whole dataset | `data.replace()` / `data.replaceAsync()` |
+| Read a detached dataset copy | `data.snapshot()` |
+| Address one known object/component | `targets.get({ id, componentId? })` |
+| Reuse a semantic set | `targets.query(query)` |
+| Apply a relative transform | `transform.moveBy()` / `resizeBy()` / `rotateBy()` |
+| Apply a relative viewport change | `viewport.panBy()` / `zoomBy()` |
+| Inspect loaded asset ownership | `assets.status()` |
+| Capture the visible result | `capture.png()` |
+
+`update()` remains the default mutation for one logical owner,
+`updateBatch()` is the columnar high-volume form, and `transaction()` is the
+ordered heterogeneous/structural atomic form. There are no parallel `load`,
+`export`, `compile`, or low-level renderer strategy APIs on the shipping
+surface.
+
 `mount()` selects WebGL2 + Mesh by default, derives the host size, owns one
 frame loop, observes later host resizes, publishes the first visible frame,
-and cleans those resources in `destroy()`. Pass `resize: 'manual'` only when
+and cleans those resources in `destroy()`. Pass `resizeMode: 'manual'` only when
 the surrounding layout system calls `patchMap.viewport.resize(width, height)`
 itself.
 
@@ -102,7 +125,7 @@ Target sets are revision-bound. Loading a replacement dataset makes an old
 set fail with a direct instruction to query it again, preventing a
 stale batch from reaching unrelated IDs.
 
-`data.load()` detaches caller data. It preserves stable element IDs,
+`data.replace()` detaches caller data. It preserves stable element IDs,
 component owner/ID identity, relation endpoints, and deterministic ordering
 without retaining mutable aliases. Use `{ strict: true }` when dangling
 relations must reject atomically. Compatibility mode omits a dangling
@@ -116,7 +139,7 @@ diagnostics or an atomic error. PatchMap never claims successful loading after
 dropping unsupported required data.
 
 Display objects, Pixi renderer internals, dense slots, mutable live nodes, and
-command classes are not public identities. Use `targets.get/compile()` for
+command classes are not public identities. Use `targets.get()/query()` for
 application addressing and `debug.snapshot()` for detached diagnostics.
 Low-level lifecycle and publication probes are package-internal verification
 seams and are not exported from `@conalog/patch-map`.

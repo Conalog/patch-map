@@ -49,7 +49,7 @@ const data = [{
 }];
 
 const patchMap = await PatchMap.mount({
-  target: '#map',
+  container: '#map',
   data,
   fit: { padding: 24 },
 });

@@ -314,3 +314,9 @@
   examples, aggregate ownership, and lifecycle cleanup. No browser, memory, or
   performance matrix was repeated because target resolution, renderer code,
   and hot-path execution were unchanged.
+
+**2026-08-03**
+
+- Normalized the final consumer vocabulary across runtime, declarations, READMEs, API/migration/host docs, four examples, the single Lab, and package verification. Replaced `target`/`resize`, `data.load/export`, unsuffixed transform/viewport deltas, and `assets.inspect`; removed public renderer strategy selection and redundant viewport focus; renamed matching public option/result/target types.
+- Replaced the root internal barrel with an explicit shipping allowlist and rewrote the packed consumer around `PatchMap.mount()` and public domains. TypeScript negative probes now prevent the removed names and internal runtime helpers from returning. Updated the extraction-script meta test to assert the public `capture.png()` path instead of the removed low-level package probe.
+- Verification passed 196 unit files / 1,783 tests, full lint/typecheck, product and Lab builds, canonical 38 decisions / 173 cases, and required-audit packed ESM/CJS/types with all 38 journeys, four examples, four aggregate objects, and clean headless browser/server teardown. The initial full unit pass found only a stale extraction meta assertion; the corrected final full run passed. Renderer/resource/hot-path code did not change, so memory and performance matrices were not repeated and no new performance result is claimed.

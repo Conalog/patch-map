@@ -33,17 +33,17 @@ assets, and cleanup to one `PatchMap` instance.
 
 | Existing host responsibility | PatchMap replacement | Important cutover rule |
 | --- | --- | --- |
-| create and mount a map | `await PatchMap.mount({ target, data })` | one live `PatchMap` and one canvas per host slot; host sizing and frame ownership default to the package |
-| set PATCH MAP JSON | `data.load()` or `data.loadAsync()` | pass the existing v0.10 array directly; use the compatibility materializer only for the one documented legacy object |
+| create and mount a map | `await PatchMap.mount({ container, data })` | one live `PatchMap` and one canvas per host slot; host sizing and frame ownership default to the package |
+| replace PATCH MAP JSON | `data.replace()` or `data.replaceAsync()` | pass the existing v0.10 array directly; use the compatibility materializer only for the one documented legacy object |
 | drive visible frames | automatic after `mount()` | remove the previous host RAF/ticker; explicit publication remains an advanced deterministic seam |
 | find logical objects | `targets.get()` or `targets.query()` | use `{ id, componentId? }`; target sets are detached and revision-bound |
 | update one logical owner | `update()` | change element fields and its bar/text/icon/background components in one atomic commit; omit `componentId` only when the component type is unique |
 | update many objects with equal-shaped values | columnar `updateBatch()` | column lengths must match target count; authored bar/text fast paths retain their compact planners |
 | compose heterogeneous or structural work | `transaction()` | one ordered validation, scene publication, selection companion, and history entry; one failure rejects the whole operation |
 | selection | `selection.set/add/remove/toggle/clear` | use stable IDs or target sets; pointer-originated selection stays package-owned |
-| move, resize, or rotate | transformer edit methods | use stable selection IDs; do not mutate geometry snapshots |
-| pan, zoom, reset, or fit | `viewport.pan/zoom/reset/fit` | remove duplicate host coordinate transforms and viewport inertia |
-| undo and redo | `history.undo/redo` | route keyboard ownership through `handleHistoryShortcut()` only in advanced editor hosts |
+| move, resize, or rotate | `transform.moveBy/resizeBy/rotateBy` | use stable IDs or target sets; all three methods apply relative deltas |
+| pan, zoom, reset, or fit | `viewport.panBy/zoomBy/reset/fit` | remove duplicate host coordinate transforms and viewport inertia |
+| undo and redo | `history.undo/redo` | the host may map shortcuts to these same public methods; do not create a second history owner |
 | load images or fonts | `assets.register()` | do not borrow Pixi global-cache state as proof of validation |
 | validate a save | `preparePatchMapPersistenceExport()` and semantic-hash roundtrip | write only after every guard passes |
 | inspect state | `debug.snapshot()` | snapshots are diagnostics, not mutable renderer handles |
@@ -65,7 +65,7 @@ export async function mountMap(
 ) {
   return PatchMap.mount({
     instanceId: 'service-map',
-    target: host,
+    container: host,
     data: input,
     fit: { padding: 24 },
   });
@@ -96,7 +96,7 @@ unmount.
 
 ## Dataset cutover
 
-`data.load()` and `data.loadAsync()` accept the strict unversioned PATCH
+`data.replace()` and `data.replaceAsync()` accept the strict unversioned PATCH
 MAP array schema. Existing v0.10 `item`, `grid`, `relations`, `group`, `rect`,
 `text`, `image`, `icon`, and component records remain the input boundary.
 PatchMap detaches that input, preserves stable element IDs and component
@@ -115,11 +115,11 @@ Do not use it as a permissive unknown-schema converter.
 | non-array persistence root | rejected as `INVALID_EXPORT_ROOT` before any host write |
 | cyclic, sparse, accessor-backed, non-plain, symbol-keyed, non-finite, or non-JSON value | rejected as `NON_SERIALIZABLE_VALUE` at the exact input path |
 
-Use synchronous `data.load()` for an already available scene and
-`data.loadAsync()` when replacement work must yield. A superseded async load
+Use synchronous `data.replace()` for an already available scene and
+`data.replaceAsync()` when replacement work must yield. A superseded async replacement
 rejects with a structured `SUPERSEDED` diagnostic, so it must not update host
 persistence or analytics as though the new scene committed. Hosts that need an
-explicit supersession queue should coordinate `data.loadAsync()` calls and
+explicit supersession queue should coordinate `data.replaceAsync()` calls and
 treat only the latest fulfilled request as committed application state.
 
 With `{ strict: true }`, a dangling relation or invalid required value rejects
@@ -183,7 +183,7 @@ relations. Use an explicit structural transaction instead of hiding a whole
 subtree replacement inside a merge.
 
 ```ts
-const result = patchMap.transform.move(
+const result = patchMap.transform.moveBy(
   { id: 'rack-01' },
   [120, 0],
   {
@@ -249,7 +249,7 @@ The optional `animate: false` applies the destination immediately. The entire
 batch validates before publication: a missing target rejects atomically, and
 duplicate targets or invalid heights throw without a partial update.
 
-Instance overlays deliberately do not change `exportDataset()`, the semantic
+Instance overlays deliberately do not change `data.snapshot()`, the semantic
 hash or scene revision, or undo/redo history. They survive later semantic
 updates while the same concrete owner/component identity exists and are
 discarded when that identity disappears, a new dataset is loaded, or the
@@ -265,16 +265,16 @@ package API exists, or materialize canonical item records when that is the
 approved dataset model. This boundary prevents an unbounded per-entity runtime
 from entering the aggregate renderer unnoticed.
 
-Undo and redo operate on engine history. Use `historyInspection()` for UI
-state, `undo()` and `redo()` for explicit commands, and
-`handleHistoryShortcut()` when routing keyboard input. If the host keeps
-editor companion state, stage it with `setHistoryCompanion()` so it travels
-through the same reversible boundary instead of maintaining a second history.
+Undo and redo operate on PatchMap history. Read `history.state` for button
+availability and call `history.undo()` or `history.redo()` from buttons and
+keyboard shortcuts. `transaction(..., { selectedIds })` publishes selection
+with the same history entry instead of maintaining a second history owner.
 
 ## Assets and asynchronous work
 
-Register required assets during `initialize()` or with `registerAssets()` and
-acquire them through the engine/session APIs. External URLs must pass the
+Register required assets through the mount `assets` option or
+`assets.register()`. Inspect owned resource state through `assets.status()`.
+External URLs must pass the
 configured ingestion policy, including origin, redirects, MIME type, encoded
 size, decoded size, and SVG checks. An existing Pixi global-cache key is not a
 validation shortcut.
@@ -301,7 +301,7 @@ import {
   preparePatchMapPersistenceExport,
 } from '@conalog/patch-map';
 
-const pending = preparePatchMapPersistenceExport(patchMap.exportDataset(), {
+const pending = preparePatchMapPersistenceExport(patchMap.data.snapshot(), {
   strictReferences: true,
 });
 const reloaded = materializePatchMapCompatibilityDataset(
@@ -334,11 +334,11 @@ internal verification seam.
 
 ## Canary and rollback
 
-`PatchMapMigrationAuthority` is optional instance-local host orchestration,
-not a second renderer. It pins exactly one authoritative engine for a mounted
-session. Any comparison or previous-engine shadow must be explicitly
-read-only, own no canvas, and suppress selection, command, history,
-persistence, callback, and analytics publication.
+Canary and rollback orchestration belongs to the integrating service, not the
+PatchMap package. Mount exactly one authoritative `PatchMap` per host slot.
+Any comparison session must be read-only, own no authoritative canvas, and
+suppress selection, command, history, persistence, callback, and analytics
+publication.
 
 Promotion uses fixed `1% -> 10% -> 50% -> 100%` cohorts. Stop when any of the
 following is observed:

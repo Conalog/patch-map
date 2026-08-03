@@ -6,7 +6,7 @@ scene state, aggregate Pixi rendering, hit testing, selection, transformation,
 history, renderer resources, per-instance subscriptions, and reusable frame
 cadence.
 
-Use `PatchMap.mount({ target, data })` once per mounted map. A host slot must
+Use `PatchMap.mount({ container, data })` once per mounted map. A host slot must
 contain exactly one active PatchMap canvas. Multiple engines may share one `PatchMapAssetRuntime`;
 each engine keeps its own asset session and releases only its leases at
 destroy. Do not call PixiJS global cache destruction from an instance.
@@ -28,7 +28,7 @@ The packaged examples demonstrate the intended high-level boundary.
 boundary without acquiring a second engine API:
 
 - `load()` first uses the explicit canonical/legacy compatibility
-  materializer, then delegates the detached array to `data.load()`;
+  materializer, then delegates the detached array to `data.replace()`;
 - `prepareSave()` validates a detached array, strict references by default,
   and returns serialized data only after the guard succeeds;
 - `lookup()` delegates to `targets.get()`;
@@ -43,10 +43,9 @@ The adapter must not import previous-runtime symbols, copy renderer behavior, re
 geometry, mutate normalized output, or retain Pixi display objects. Event
 callbacks and canvas ownership remain instance-local.
 
-Canary and rollback selection also stays in the host. PatchMap exports an
-instance-local migration authority for one engine choice per session,
-read-only shadow-effect suppression, fixed promotion cohorts, and
-next-remount rollback; it deliberately does not package a prior engine.
+Canary and rollback selection stay in the host. PatchMap ships compatibility
+materialization and persistence guards, but does not expose renderer-choice or
+shadow-runtime authorities as a competing product API.
 
 For extraction, publish the desired state, capture the exact
 `publishedTuple`, and request `image/png` at the current CSS size. PatchMap

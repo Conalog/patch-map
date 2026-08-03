@@ -27,7 +27,7 @@ results explain missing IDs without partially applying the batch.
 
 Release every acquisition or destroy its engine. Shared assets unload only
 after the final lease is released. Do not clear global Pixi caches from one
-instance. Inspect `assets.inspect()` for pending, lease, and cleanup counts.
+instance. Inspect `assets.status()` for pending, lease, and cleanup counts.
 
 ## Capture is stale
 
