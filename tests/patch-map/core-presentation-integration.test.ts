@@ -226,6 +226,194 @@ describe('PatchMap bar presentation integration', () => {
     await engine.destroy();
   });
 
+  it('animates every expanded grid bar from one template batch target', async () => {
+    const { core } = createTestCore(allocated);
+    const engine = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    await engine.initialize({
+      instanceId: 'grid-template-bar-animation',
+      width: 800,
+      height: 600,
+    });
+    engine.loadDataset(gridScene(10));
+    engine.publishFrame(0);
+    const barIds = Object.keys(core.projection?.barsByEntityId ?? {});
+    expect(barIds).toHaveLength(3);
+
+    expect(engine.updateBarHeights({
+      targets: [{ ownerId: 'grid-a', componentId: 'level' }],
+      heights: new Float64Array([54]),
+      recordHistory: false,
+    })).toMatchObject({ status: 'committed', changed: true });
+    expect(core.activeAnimations).toBe(3);
+    for (const entityId of barIds) {
+      expect(core.projection?.byEntityId[entityId]?.localBounds[3]).toBe(54);
+      expect(core.visibleProjection?.byEntityId[entityId]?.localBounds[3]).toBe(10);
+    }
+
+    engine.publishFrame(100);
+    for (const entityId of barIds) {
+      const height = core.visibleProjection?.byEntityId[entityId]?.localBounds[3];
+      expect(height).toBeGreaterThan(10);
+      expect(height).toBeLessThan(54);
+    }
+    engine.publishFrame(200);
+    expect(core.activeAnimations).toBe(0);
+    for (const entityId of barIds) {
+      expect(core.visibleProjection?.byEntityId[entityId]?.localBounds[3]).toBe(54);
+    }
+
+    await engine.destroy();
+  });
+
+  it('updates expanded grid bars independently without mutating authored data or history', async () => {
+    const { core } = createTestCore(allocated);
+    const engine = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    await engine.initialize({
+      instanceId: 'grid-instance-bar-overlay',
+      width: 800,
+      height: 600,
+    });
+    const input = gridScene(10);
+    const inputBefore = JSON.stringify(input);
+    engine.loadDataset(input);
+    engine.publishFrame(0);
+    const authored = engine.exportDataset();
+    const history = engine.historyState();
+    const revisions = engine.snapshot().revisions;
+
+    expect(engine.updateInstanceBarHeights({
+      targets: [
+        { ownerId: 'grid-a.0.0', componentId: 'level' },
+        { ownerId: 'grid-a.0.1', componentId: 'level' },
+      ],
+      heights: new Float64Array([54, 27]),
+      animate: false,
+    })).toMatchObject({
+      status: 'committed',
+      changed: true,
+      appliedTargets: [
+        { ownerId: 'grid-a.0.0', componentId: 'level' },
+        { ownerId: 'grid-a.0.1', componentId: 'level' },
+      ],
+      missingTargets: [],
+      activeAnimationCount: 0,
+      overlayCount: 2,
+      previousRevisions: revisions,
+      revisions: {
+        sceneRevision: revisions.sceneRevision,
+        interactionRevision: revisions.interactionRevision + 1,
+      },
+    });
+    expect(core.projection?.byEntityId['grid-a.0.0::bar:level']?.localBounds[3]).toBe(54);
+    expect(core.projection?.byEntityId['grid-a.0.1::bar:level']?.localBounds[3]).toBe(27);
+    expect(core.projection?.byEntityId['grid-a.1.0::bar:level']?.localBounds[3]).toBe(10);
+    expect(engine.exportDataset()).toBe(authored);
+    expect(engine.historyState()).toEqual(history);
+    expect(JSON.stringify(input)).toBe(inputBefore);
+
+    const beforeRejected = core.projection;
+    expect(engine.updateInstanceBarHeights({
+      targets: [
+        { ownerId: 'grid-a.0.0', componentId: 'level' },
+        { ownerId: 'missing.0.0', componentId: 'level' },
+      ],
+      heights: [70, 80],
+      animate: false,
+    })).toMatchObject({
+      status: 'rejected',
+      changed: false,
+      missingTargets: [{ ownerId: 'missing.0.0', componentId: 'level' }],
+      overlayCount: 2,
+    });
+    expect(core.projection).toBe(beforeRejected);
+    expect(() => engine.updateInstanceBarHeights({
+      targets: [
+        { ownerId: 'grid-a.0.0', componentId: 'level' },
+        { ownerId: 'grid-a.0.0', componentId: 'level' },
+      ],
+      heights: [30, 40],
+      animate: false,
+    })).toThrow(/duplicate instance bar target/);
+    expect(() => engine.updateInstanceBarHeights({
+      targets: [{ ownerId: 'grid-a.0.0', componentId: 'level' }],
+      heights: [-1],
+      animate: false,
+    })).toThrow(/finite and non-negative/);
+    expect(core.projection).toBe(beforeRejected);
+
+    expect(engine.updateInstanceBarHeights({
+      targets: [{ ownerId: 'grid-a.0.0', componentId: 'level' }],
+      heights: [null],
+      animate: false,
+    })).toMatchObject({ status: 'committed', overlayCount: 1 });
+    expect(core.projection?.byEntityId['grid-a.0.0::bar:level']?.localBounds[3]).toBe(10);
+
+    expect(engine.updateBarHeights({
+      targets: [{ ownerId: 'grid-a', componentId: 'level' }],
+      heights: [20],
+      recordHistory: false,
+    })).toMatchObject({ status: 'committed' });
+    expect(core.projection?.byEntityId['grid-a.0.0::bar:level']?.localBounds[3]).toBe(20);
+    expect(core.projection?.byEntityId['grid-a.0.1::bar:level']?.localBounds[3]).toBe(27);
+    expect(core.projection?.byEntityId['grid-a.1.0::bar:level']?.localBounds[3]).toBe(20);
+
+    engine.loadDataset(gridScene(15));
+    engine.publishFrame(250);
+    expect(core.projection?.byEntityId['grid-a.0.1::bar:level']?.localBounds[3]).toBe(15);
+    expect(engine.updateInstanceBarHeights({
+      targets: [{ ownerId: 'grid-a.0.1', componentId: 'level' }],
+      heights: [null],
+      animate: false,
+    })).toMatchObject({ status: 'unchanged', changed: false, overlayCount: 0 });
+
+    await engine.destroy();
+  });
+
+  it('retargets independent grid bars through one central animation controller', async () => {
+    const { core } = createTestCore(allocated);
+    const engine = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    await engine.initialize({
+      instanceId: 'grid-instance-bar-animation',
+      width: 800,
+      height: 600,
+    });
+    engine.loadDataset(gridScene(10));
+    engine.publishFrame(0);
+    const targets = [
+      { ownerId: 'grid-a.0.0', componentId: 'level' },
+      { ownerId: 'grid-a.0.1', componentId: 'level' },
+    ];
+
+    expect(engine.updateInstanceBarHeights({
+      targets,
+      heights: new Float64Array([50, 30]),
+    })).toMatchObject({ status: 'committed', activeAnimationCount: 2 });
+    engine.publishFrame(50);
+    const firstVisible = targets.map((target) =>
+      engine.barPresentationProbe(target)?.presentationHeight);
+
+    expect(engine.updateInstanceBarHeights({
+      targets,
+      heights: new Float64Array([25, 60]),
+    })).toMatchObject({ status: 'committed', activeAnimationCount: 2 });
+    expect(targets.map((target) =>
+      engine.barPresentationProbe(target)?.presentationHeight)).toEqual(firstVisible);
+    expect(core.activeAnimations).toBe(2);
+
+    engine.publishFrame(250);
+    expect(targets.map((target) =>
+      engine.barPresentationProbe(target)?.presentationHeight)).toEqual([25, 60]);
+    expect(core.activeAnimations).toBe(0);
+
+    await engine.destroy();
+  });
+
   it('invalidates surface geometry only when a presentation frame advances', () => {
     const { core } = createTestCore(allocated);
     const surface = new PixiEngineSurface(core);
@@ -785,6 +973,27 @@ function scene(height: number, animation = true): readonly unknown[] {
       animation,
       animationDuration: 200,
     }],
+  }];
+}
+
+function gridScene(height: number): readonly unknown[] {
+  return [{
+    type: 'grid',
+    id: 'grid-a',
+    cells: [[1, 1], [1, 0]],
+    gap: 4,
+    item: {
+      size: { width: 100, height: 80 },
+      components: [{
+        type: 'bar',
+        id: 'level',
+        source: { type: 'rect', fill: '#336699' },
+        size: { width: 60, height },
+        placement: 'bottom',
+        animation: true,
+        animationDuration: 200,
+      }],
+    },
   }];
 }
 

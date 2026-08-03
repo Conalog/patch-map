@@ -15,6 +15,8 @@ export type {
 } from './scheduler';
 export type {
   PatchMapBarPresentationProductProbe,
+  PatchMapInstanceBarHeightBatchRequest,
+  PatchMapInstanceBarHeightBatchResult,
   PatchMapPresentationLifecycleResult,
   PatchMapReconcileTimings,
   PatchMapSelectionOverlayPolicyInput,

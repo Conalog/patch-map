@@ -184,8 +184,14 @@ export function planOwnedBarHeightTransaction(
     }
     const rootIndex = rootIndexById.get(operation.target.ownerId);
     const root = rootIndex === undefined ? undefined : roots[rootIndex];
-    if (rootIndex === undefined || root?.type !== 'item') return null;
-    const matches = root.components.filter(({ id }) => id === operation.target.id);
+    if (
+      rootIndex === undefined ||
+      (root?.type !== 'item' && root?.type !== 'grid')
+    ) return null;
+    const rootComponents = root.type === 'item'
+      ? root.components
+      : root.item.components;
+    const matches = rootComponents.filter(({ id }) => id === operation.target.id);
     const component = matches.length === 1 ? matches[0] : undefined;
     if (
       component?.type !== 'bar' ||

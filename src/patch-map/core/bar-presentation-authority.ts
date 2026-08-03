@@ -1,6 +1,7 @@
 import type {
   PatchMapBarProjection,
   PatchMapEntityProjection,
+  ParseIdentityIndex,
   PatchMapProjectionIndex,
 } from '../contracts';
 import type { SlotRange } from '../dense/contracts';
@@ -223,6 +224,7 @@ export class PatchMapBarPresentationAuthority {
     animateBarChanges: boolean,
     animatedBarTargets?: readonly PatchMapComponentVisualTarget[],
     incrementalEntityIds?: readonly string[],
+    entitySourceById?: ParseIdentityIndex['entitySourceById'],
   ): PatchMapProjectionIndex {
     const previousBars = previousSemantic?.barsByEntityId ?? {};
     const nextBars = next.barsByEntityId ?? {};
@@ -259,10 +261,12 @@ export class PatchMapBarPresentationAuthority {
         const canAnimate = animateBarChanges &&
           (
             animatedTargetKeys === null ||
-            animatedTargetKeys.has(patchMapComponentProbeTargetKey({
-              ownerId: bar.ownerId,
-              componentId: bar.componentId,
-            }))
+            barMatchesAnimatedTarget(
+              entityId,
+              bar,
+              animatedTargetKeys,
+              entitySourceById,
+            )
           ) &&
           previous !== undefined &&
           entity?.kind === 'bar' &&
@@ -349,12 +353,15 @@ export class PatchMapBarPresentationAuthority {
         previous?.destinationHeight ??
         bar.destinationHeight;
       const canAnimate = animateBarChanges &&
-        (animatedTargetKeys === null || animatedTargetKeys.has(
-          patchMapComponentProbeTargetKey({
-            ownerId: bar.ownerId,
-            componentId: bar.componentId,
-          }),
-        )) &&
+        (
+          animatedTargetKeys === null ||
+          barMatchesAnimatedTarget(
+            entityId,
+            bar,
+            animatedTargetKeys,
+            entitySourceById,
+          )
+        ) &&
         previous !== undefined &&
         entity?.kind === 'bar' &&
         entity.visible &&
@@ -538,6 +545,27 @@ export class PatchMapBarPresentationAuthority {
   private createController(generation: number): PatchMapPresentationController {
     return new PatchMapPresentationController({ lifecycleGeneration: generation });
   }
+}
+
+function barMatchesAnimatedTarget(
+  entityId: string,
+  bar: PatchMapBarProjection,
+  animatedTargetKeys: ReadonlySet<string>,
+  entitySourceById: ParseIdentityIndex['entitySourceById'] | undefined,
+): boolean {
+  if (animatedTargetKeys.has(patchMapComponentProbeTargetKey({
+    ownerId: bar.ownerId,
+    componentId: bar.componentId,
+  }))) {
+    return true;
+  }
+  const sourceElementId = entitySourceById?.[entityId]?.sourceElementId;
+  return sourceElementId !== undefined && animatedTargetKeys.has(
+    patchMapComponentProbeTargetKey({
+      ownerId: sourceElementId,
+      componentId: bar.componentId,
+    }),
+  );
 }
 
 function incrementalBarPresentationCompatible(

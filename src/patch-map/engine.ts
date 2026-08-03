@@ -275,6 +275,7 @@ import type {
   PatchMapEngineHistoryResult,
   PatchMapEngineHistoryVisibleEvent,
   PatchMapEngineHostAssetIngestionResult,
+  PatchMapEngineInstanceBarHeightResult,
   PatchMapEngineLoadResult,
   PatchMapEnginePageLifecycleProbe,
   PatchMapEnginePageLifecycleWorkInput,
@@ -314,6 +315,7 @@ import type {
   PatchMapHostLifecycleRebindResult,
   PatchMapInitializeOptions,
   PatchMapInitializeResult,
+  PatchMapInstanceBarHeightRequest,
   PatchMapLifecycle,
   PatchMapLiveOverlayInput,
   PatchMapLiveOverlayProbe,
@@ -466,6 +468,10 @@ type PatchMapEngineEventMap = {
   readonly viewportPolicyChanged: PatchMapViewportPolicyProbe;
   readonly documentVisibilityChanged: PatchMapEngineDocumentVisibilityResult;
   readonly presentationChanged: PatchMapEnginePresentationResult;
+  readonly instanceBarHeightsChanged: Extract<
+    PatchMapEngineInstanceBarHeightResult,
+    { readonly status: 'committed' }
+  >;
   readonly overlayAccepted: PatchMapLiveOverlayTuple;
   readonly overlayPublished: PatchMapLiveOverlayPublishedTuple;
   readonly semanticRefreshed: Extract<
@@ -1409,6 +1415,77 @@ export class PatchMap {
       transactionPlanMs,
       this.cancelActiveTransformerBeforeSurfaceReconcile,
     );
+  }
+
+  /**
+   * Update concrete item/grid-instance bar destinations without rewriting the
+   * authored PATCH MAP dataset or recording semantic history.
+   */
+  public updateInstanceBarHeights(
+    request: PatchMapInstanceBarHeightRequest,
+  ): PatchMapEngineInstanceBarHeightResult {
+    const surface = this.requireSurface('updateInstanceBarHeights');
+    const previousRevisions = this.revisionStamp();
+    if (!surface.updateInstanceBarHeights) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'updateInstanceBarHeights',
+        false,
+      );
+    }
+    this.cancelActiveTransformerBeforeSurfaceReconcile();
+    const updated = surface.updateInstanceBarHeights(request);
+    if (updated.missingTargets.length > 0) {
+      const diagnostic = this.operationDiagnostic(
+        'MISSING_TARGET',
+        'MISSING_TARGET',
+        'updateInstanceBarHeights',
+        true,
+      );
+      const result = Object.freeze({
+        status: 'rejected',
+        changed: false,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        appliedTargets: Object.freeze([]),
+        missingTargets: updated.missingTargets,
+        dirtyRanges: Object.freeze([]),
+        activeAnimationCount: updated.activeAnimationCount,
+        overlayCount: updated.overlayCount,
+        diagnostic,
+      } satisfies PatchMapEngineInstanceBarHeightResult);
+      this.emit('diagnostic', diagnostic);
+      return result;
+    }
+    if (!updated.changed) {
+      return Object.freeze({
+        status: 'unchanged',
+        changed: false,
+        previousRevisions,
+        revisions: this.revisionStamp(),
+        appliedTargets: updated.appliedTargets,
+        missingTargets: Object.freeze([]),
+        dirtyRanges: updated.dirtyRanges,
+        activeAnimationCount: updated.activeAnimationCount,
+        overlayCount: updated.overlayCount,
+      });
+    }
+    this.publication.advanceInteraction();
+    const result = Object.freeze({
+      status: 'committed',
+      changed: true,
+      publication: 'pending',
+      previousRevisions,
+      revisions: this.revisionStamp(),
+      appliedTargets: updated.appliedTargets,
+      missingTargets: Object.freeze([]),
+      dirtyRanges: updated.dirtyRanges,
+      activeAnimationCount: updated.activeAnimationCount,
+      overlayCount: updated.overlayCount,
+    } satisfies PatchMapEngineInstanceBarHeightResult);
+    this.emit('instanceBarHeightsChanged', result);
+    return result;
   }
 
   /**

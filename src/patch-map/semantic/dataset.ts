@@ -5,6 +5,7 @@ import {
   type MaterializedPatchMapDataset,
   type PatchMapDatasetMaterialization,
   type PatchMapElement,
+  type PatchMapGridElement,
   type PatchMapItemElement,
   type PatchMapRelationsElement,
   type PatchMapTextStyle,
@@ -344,22 +345,25 @@ export function replaceOwnedPatchMapBarHeightRoot(
   componentId: string,
   height: number,
   componentIndexHint?: number,
-): PatchMapItemElement | null {
+): PatchMapItemElement | PatchMapGridElement | null {
   if (
     !OWNED_PATCH_MAP_ROOTS.has(root) ||
-    root.type !== 'item' ||
+    (root.type !== 'item' && root.type !== 'grid') ||
     !Number.isFinite(height) ||
     height < 0
   ) {
     return null;
   }
+  const rootComponents = root.type === 'item'
+    ? root.components
+    : root.item.components;
   const hintedComponent = componentIndexHint === undefined
     ? undefined
-    : root.components[componentIndexHint];
+    : rootComponents[componentIndexHint];
   const componentIndex = hintedComponent?.id === componentId
     ? componentIndexHint!
-    : root.components.findIndex(({ id }) => id === componentId);
-  const component = componentIndex < 0 ? undefined : root.components[componentIndex];
+    : rootComponents.findIndex(({ id }) => id === componentId);
+  const component = componentIndex < 0 ? undefined : rootComponents[componentIndex];
   if (
     component?.type !== 'bar' ||
     typeof component.size !== 'object' ||
@@ -372,12 +376,15 @@ export function replaceOwnedPatchMapBarHeightRoot(
   }
   const size = Object.freeze({ ...component.size, height });
   const replacement = Object.freeze({ ...component, size });
-  const components = [...root.components];
+  const components = [...rootComponents];
   components[componentIndex] = replacement;
-  const next = Object.freeze({
-    ...root,
-    components: Object.freeze(components),
-  });
+  const frozenComponents = Object.freeze(components);
+  const next = root.type === 'item'
+    ? Object.freeze({ ...root, components: frozenComponents })
+    : Object.freeze({
+        ...root,
+        item: Object.freeze({ ...root.item, components: frozenComponents }),
+      });
   OWNED_PATCH_MAP_ROOTS.add(next);
   return next;
 }

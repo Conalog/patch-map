@@ -3,14 +3,9 @@ import type {
   PatchMapBarProjection,
   PatchMapComponentVisualProjection,
   PatchMapEntityProjection,
-  PatchMapProjectionIndex,
 } from '../contracts';
 import { isOwnedPatchMapDataset } from '../semantic/dataset';
 import {
-  freezePatchMapAffine,
-  freezePatchMapBounds,
-  patchMapAffineBasis,
-  patchMapAffineCenter,
   projectPatchMapSignedRect,
 } from '../semantic/geometry';
 import {
@@ -22,6 +17,7 @@ import type {
   PatchMapIndexedComponentTarget as IndexedComponentTarget,
 } from './published-scene-state';
 import { patchMapComponentProbeTargetKey as componentTargetKey } from './product-probe-reader';
+import { projectPatchMapBarDestinationHeight } from './instance-bar-overlay';
 
 export function reconcileDirectBarHeightParse(
   input: unknown,
@@ -93,32 +89,20 @@ export function reconcileDirectBarHeightParse(
       return null;
     }
 
-    const oldHeight = projection.localBounds[3];
-    const deltaHeight = update.height - oldHeight;
-    const localDeltaY = directBarPlacementDeltaY(bar.placement, deltaHeight);
-    const ownerAffine = ownerProjection.affine;
-    const affine = freezePatchMapAffine(
-      projection.affine[0],
-      projection.affine[1],
-      projection.affine[2],
-      projection.affine[3],
-      projection.affine[4] + ownerAffine[2] * localDeltaY,
-      projection.affine[5] + ownerAffine[3] * localDeltaY,
+    const nextProjection = projectPatchMapBarDestinationHeight(
+      projection,
+      ownerProjection,
+      bar,
+      update.height,
     );
     const dense = projectPatchMapSignedRect(
       {
-        x: affine[4],
-        y: affine[5],
+        x: nextProjection.affine[4],
+        y: nextProjection.affine[5],
         rotation: projection.rotationDegrees,
         scaleX: projection.scaleX,
         scaleY: projection.scaleY,
       },
-      projection.localBounds[2],
-      update.height,
-    );
-    const localBounds = freezePatchMapBounds(
-      projection.localBounds[0],
-      projection.localBounds[1],
       projection.localBounds[2],
       update.height,
     );
@@ -129,13 +113,7 @@ export function reconcileDirectBarHeightParse(
       width: dense.width,
       height: dense.height,
     });
-    selectedEntityProjections[indexed.entityId] = Object.freeze({
-      ...projection,
-      localBounds,
-      affine,
-      worldBasis: patchMapAffineBasis(affine),
-      visibleCenter: patchMapAffineCenter(affine, localBounds),
-    });
+    selectedEntityProjections[indexed.entityId] = nextProjection;
     selectedBarProjections[indexed.entityId] = Object.freeze({
       ...bar,
       destinationHeight: update.height,
@@ -194,21 +172,4 @@ export function reconcileDirectBarHeightParse(
     document,
     projection,
   });
-}
-
-function directBarPlacementDeltaY(
-  placement: NonNullable<PatchMapProjectionIndex['barsByEntityId']>[string]['placement'],
-  deltaHeight: number,
-): number {
-  if (
-    placement === 'bottom' ||
-    placement === 'left-bottom' ||
-    placement === 'right-bottom'
-  ) {
-    return -deltaHeight;
-  }
-  if (placement === 'left' || placement === 'right' || placement === 'center') {
-    return -deltaHeight / 2;
-  }
-  return 0;
 }

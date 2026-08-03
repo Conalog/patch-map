@@ -3,6 +3,8 @@ import {
   type PatchMapRuntime,
   type PatchMapBarPresentationProductProbe,
   type PatchMapComponentVisualTarget,
+  type PatchMapInstanceBarHeightBatchRequest,
+  type PatchMapInstanceBarHeightBatchResult,
   type PatchMapPresentationLifecycleResult,
   type PatchMapRootPointerInput,
   type PatchMapRuntimeOptions,
@@ -262,6 +264,18 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
 
   public clearIncrementalPreview(): PatchMapTransientProjectionResult {
     const result = this.core.clearIncrementalPreview();
+    if (result.changed) {
+      this.geometryRevision += 1;
+      this.geometryRevisionProjection = this.core.visibleProjection;
+      this.invalidateGeometryCache();
+    }
+    return result;
+  }
+
+  public updateInstanceBarHeights(
+    request: PatchMapInstanceBarHeightBatchRequest,
+  ): PatchMapInstanceBarHeightBatchResult {
+    const result = this.core.updateInstanceBarHeights(request);
     if (result.changed) {
       this.geometryRevision += 1;
       this.geometryRevisionProjection = this.core.visibleProjection;

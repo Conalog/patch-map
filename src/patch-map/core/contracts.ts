@@ -237,6 +237,27 @@ export interface PatchMapComponentVisualTarget {
   readonly componentId: string;
 }
 
+/**
+ * Runtime-only bar destinations for concrete item instances. Numeric entries
+ * replace the renderer-visible destination; `null` restores the authored
+ * template value. The caller's PATCH MAP dataset and semantic history remain
+ * untouched.
+ */
+export interface PatchMapInstanceBarHeightBatchRequest {
+  readonly targets: readonly PatchMapComponentVisualTarget[];
+  readonly heights: ArrayLike<number | null>;
+  readonly animate?: boolean;
+}
+
+export interface PatchMapInstanceBarHeightBatchResult {
+  readonly changed: boolean;
+  readonly appliedTargets: readonly PatchMapComponentVisualTarget[];
+  readonly missingTargets: readonly PatchMapComponentVisualTarget[];
+  readonly dirtyRanges: readonly SlotRange[];
+  readonly activeAnimationCount: number;
+  readonly overlayCount: number;
+}
+
 export interface PatchMapComponentVisualGeometryProbe {
   readonly localBounds: PatchMapBoundsTuple;
   readonly worldBounds: PatchMapBoundsTuple;
@@ -374,18 +395,19 @@ export interface AnimateBarsOptions {
 }
 
 export function normalizePatchMapComponentVisualTarget(
-  target: PatchMapComponentVisualTarget,
+  target: unknown,
 ): PatchMapComponentVisualTarget {
   if (target === null || typeof target !== 'object') {
     throw new TypeError('component visual target must be an object');
   }
-  if (typeof target.ownerId !== 'string' || target.ownerId.length === 0) {
+  const record = target as Readonly<Record<string, unknown>>;
+  if (typeof record.ownerId !== 'string' || record.ownerId.length === 0) {
     throw new TypeError('component visual target ownerId must be a non-empty string');
   }
-  if (typeof target.componentId !== 'string' || target.componentId.length === 0) {
+  if (typeof record.componentId !== 'string' || record.componentId.length === 0) {
     throw new TypeError('component visual target componentId must be a non-empty string');
   }
-  return Object.freeze({ ownerId: target.ownerId, componentId: target.componentId });
+  return Object.freeze({ ownerId: record.ownerId, componentId: record.componentId });
 }
 
 export function normalizePatchMapTextTarget(target: PatchMapTextTarget): PatchMapTextTarget {

@@ -517,8 +517,11 @@ export function reconcileDirectBarHeightComponentSemantics(
       return null;
     }
     const root = roots.get(operation.target.ownerId);
-    if (root?.type !== 'item') return null;
-    const matches = root.components.filter(({ id }) => id === operation.target.id);
+    if (root?.type !== 'item' && root?.type !== 'grid') return null;
+    const rootComponents = root.type === 'item'
+      ? root.components
+      : root.item.components;
+    const matches = rootComponents.filter(({ id }) => id === operation.target.id);
     const component = matches.length === 1 ? matches[0] : undefined;
     const key = componentSemanticKey(operation.target.ownerId, operation.target.id);
     const before = current.get(key);
@@ -542,8 +545,11 @@ export function reconcilePlannedBarHeightComponentSemantics(
   const next = new Map(current);
   for (const update of updates) {
     const root = roots.get(update.ownerId);
-    if (root?.type !== 'item') return null;
-    const component = root.components.find(({ id }) => id === update.componentId);
+    if (root?.type !== 'item' && root?.type !== 'grid') return null;
+    const rootComponents = root.type === 'item'
+      ? root.components
+      : root.item.components;
+    const component = rootComponents.find(({ id }) => id === update.componentId);
     const key = componentSemanticKey(update.ownerId, update.componentId);
     const before = current.get(key);
     if (component?.type !== 'bar' || before?.componentType !== 'bar') return null;

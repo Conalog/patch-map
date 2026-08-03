@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { PatchMapElement, PatchMapItemElement, PatchMapRectElement } from '../../src/patch-map/semantic/dataset';
+import type {
+  PatchMapElement,
+  PatchMapGridElement,
+  PatchMapItemElement,
+  PatchMapRectElement,
+} from '../../src/patch-map/semantic/dataset';
 import type { PatchMapMutationJsonValue } from '../../src/patch-map/semantic/transaction';
 import type {
   PatchMap,
@@ -775,6 +780,38 @@ describe('PatchMap update transactions', () => {
     expect(surface.reconcileCalls).toHaveLength(2);
   });
 
+  it('updates one grid template bar across every expanded cell', async () => {
+    const { engine, surface } = await createEngine(engines, 'grid-bar-batch');
+    engine.loadDataset(gridBarScene());
+
+    const result = engine.updateBarHeights({
+      targets: [{ ownerId: 'grid-a', componentId: 'bar' }],
+      heights: new Float64Array([54]),
+      actionId: 'grid-bar-batch-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'committed',
+      changed: true,
+      applied: [{ kind: 'component', ownerId: 'grid-a', id: 'bar' }],
+    });
+    expect(gridComponentById(engine, 'grid-a', 'bar'))
+      .toMatchObject({ size: { width: 60, height: 54 } });
+    expect(surface.reconcileCalls[0]?.options).toEqual({
+      animateBarChanges: true,
+      animatedBarTargets: [{ ownerId: 'grid-a', componentId: 'bar' }],
+      allowedComponentOrderOwners: [],
+      incrementalRootIds: ['grid-a'],
+      directBarHeightUpdates: [
+        { ownerId: 'grid-a', componentId: 'bar', height: 54 },
+      ],
+    });
+
+    expect(engine.undo()).toMatchObject({ status: 'committed' });
+    expect(gridComponentById(engine, 'grid-a', 'bar'))
+      .toMatchObject({ size: { width: 60, height: 10 } });
+  });
+
   it('commits compact text batches atomically and restores them as one history unit', async () => {
     const { engine, surface } = await createEngine(engines, 'compact-text-batch');
     engine.loadDataset(updateScene());
@@ -1258,6 +1295,20 @@ function hierarchyUpdateScene(): readonly unknown[] {
   ];
 }
 
+function gridBarScene(): readonly unknown[] {
+  return [{
+    type: 'grid',
+    id: 'grid-a',
+    cells: [[1, 1], [1, 0]],
+    gap: 4,
+    item: {
+      size: { width: 100, height: 80 },
+      padding: 4,
+      components: [backgroundComponent(), barComponent()],
+    },
+  }];
+}
+
 function rectRecord(id: string, x: number, y: number): Readonly<Record<string, unknown>> {
   return {
     type: 'rect',
@@ -1354,6 +1405,12 @@ function itemById(engine: PatchMap, id: string): PatchMapItemElement {
   return element;
 }
 
+function gridById(engine: PatchMap, id: string): PatchMapGridElement {
+  const element = elementById(engine, id);
+  if (element.type !== 'grid') throw new Error(`Expected grid ${id}`);
+  return element;
+}
+
 function relationById(
   engine: PatchMap,
   id: string,
@@ -1393,6 +1450,14 @@ function parentId(elements: readonly PatchMapElement[], id: string): string | nu
 function componentById(engine: PatchMap, ownerId: string, id: string) {
   const component = itemById(engine, ownerId).components.find((candidate) => candidate.id === id);
   if (component === undefined) throw new Error(`Missing component ${ownerId}/${id}`);
+  return component;
+}
+
+function gridComponentById(engine: PatchMap, ownerId: string, id: string) {
+  const component = gridById(engine, ownerId).item.components.find(
+    (candidate) => candidate.id === id,
+  );
+  if (component === undefined) throw new Error(`Missing grid component ${ownerId}/${id}`);
   return component;
 }
 

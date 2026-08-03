@@ -6,6 +6,8 @@ import type {
   PatchMapDirectBarHeightUpdate,
   PatchMapDirectElementAngleUpdate,
   PatchMapDirectTextUpdate,
+  PatchMapInstanceBarHeightBatchRequest,
+  PatchMapInstanceBarHeightBatchResult,
   PatchMapPresentationLifecycleResult,
   PatchMapReconcileTimings,
   PatchMapRootViewportChangeSource,
@@ -260,6 +262,9 @@ export interface PatchMapEngineSurface {
     targets: readonly PatchMapSemanticTarget[],
     options?: Readonly<{ readonly strict?: boolean }>,
   ): PatchMapSemanticRefreshResult;
+  updateInstanceBarHeights?(
+    request: PatchMapInstanceBarHeightBatchRequest,
+  ): PatchMapInstanceBarHeightBatchResult;
   hitTestScreen(point: PatchMapPoint): string | null;
   screenToWorld(point: PatchMapPoint): PatchMapPoint;
   /** Optional allocation-free frame facts for current aggregate surfaces. */

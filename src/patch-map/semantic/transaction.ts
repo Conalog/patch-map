@@ -245,7 +245,10 @@ export function planPatchMapBarHeightBatch(
       seenTargets.add(key);
       const rootIndex = rootIndexById.get(target.ownerId);
       const root = rootIndex === undefined ? undefined : roots[rootIndex];
-      if (rootIndex === undefined || root?.type !== 'item') {
+      if (
+        rootIndex === undefined ||
+        (root?.type !== 'item' && root?.type !== 'grid')
+      ) {
         transactionFail(
           'MISSING_TARGET',
           'MISSING_TARGET',
@@ -255,10 +258,13 @@ export function planPatchMapBarHeightBatch(
           target,
         );
       }
-      const componentIndex = root.components.findIndex(({ id }) => id === target.id);
+      const rootComponents = root.type === 'item'
+        ? root.components
+        : root.item.components;
+      const componentIndex = rootComponents.findIndex(({ id }) => id === target.id);
       const component = componentIndex < 0
         ? undefined
-        : root.components[componentIndex];
+        : rootComponents[componentIndex];
       if (
         component?.type !== 'bar' ||
         typeof component.size !== 'object' ||

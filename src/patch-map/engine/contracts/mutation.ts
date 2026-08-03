@@ -1,4 +1,8 @@
-import type { PatchMapReconcileTimings } from '../../core/contracts';
+import type {
+  PatchMapComponentVisualTarget,
+  PatchMapInstanceBarHeightBatchRequest,
+  PatchMapReconcileTimings,
+} from '../../core/contracts';
 import type { SlotRange } from '../../dense/contracts';
 import type { PatchMapHistoryState } from '../../history';
 import type { PatchMapSemanticMutationDiagnostic } from '../../semantic/mutation';
@@ -154,6 +158,45 @@ export interface PatchMapLiveOverlayTuple {
   readonly payloadHash: string;
   readonly sceneRevision: number;
 }
+
+export type PatchMapInstanceBarHeightRequest = PatchMapInstanceBarHeightBatchRequest;
+
+export type PatchMapEngineInstanceBarHeightResult =
+  | Readonly<{
+      readonly status: 'committed';
+      readonly changed: true;
+      readonly publication: 'pending';
+      readonly previousRevisions: PatchMapRevisionStamp;
+      readonly revisions: PatchMapRevisionStamp;
+      readonly appliedTargets: readonly PatchMapComponentVisualTarget[];
+      readonly missingTargets: readonly PatchMapComponentVisualTarget[];
+      readonly dirtyRanges: readonly SlotRange[];
+      readonly activeAnimationCount: number;
+      readonly overlayCount: number;
+    }>
+  | Readonly<{
+      readonly status: 'unchanged';
+      readonly changed: false;
+      readonly previousRevisions: PatchMapRevisionStamp;
+      readonly revisions: PatchMapRevisionStamp;
+      readonly appliedTargets: readonly PatchMapComponentVisualTarget[];
+      readonly missingTargets: readonly PatchMapComponentVisualTarget[];
+      readonly dirtyRanges: readonly SlotRange[];
+      readonly activeAnimationCount: number;
+      readonly overlayCount: number;
+    }>
+  | Readonly<{
+      readonly status: 'rejected';
+      readonly changed: false;
+      readonly previousRevisions: PatchMapRevisionStamp;
+      readonly revisions: PatchMapRevisionStamp;
+      readonly appliedTargets: readonly [];
+      readonly missingTargets: readonly PatchMapComponentVisualTarget[];
+      readonly dirtyRanges: readonly [];
+      readonly activeAnimationCount: number;
+      readonly overlayCount: number;
+      readonly diagnostic: PatchMapEngineDiagnostic;
+    }>;
 
 export interface PatchMapLiveOverlayPublishedTuple
   extends PatchMapLiveOverlayTuple {

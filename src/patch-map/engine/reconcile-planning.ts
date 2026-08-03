@@ -409,7 +409,7 @@ export function incrementalBarHeightRootIds(
       const after = candidate[index];
       if (
         before === undefined ||
-        after?.type !== 'item' ||
+        (after?.type !== 'item' && after?.type !== 'grid') ||
         before.id !== after.id ||
         before.type !== after.type ||
         !updateOwnerIds.delete(after.id)
@@ -439,7 +439,7 @@ export function incrementalBarHeightRootIds(
   for (const update of updates) {
     const index = rootOrder.get(update.ownerId);
     const root = index === undefined ? undefined : candidate[index];
-    if (root?.type !== 'item') return undefined;
+    if (root?.type !== 'item' && root?.type !== 'grid') return undefined;
     dirty.add(update.ownerId);
   }
   return Object.freeze(
