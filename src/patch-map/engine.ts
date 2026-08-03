@@ -550,10 +550,11 @@ interface PreparedPatchMapEngineLoad {
 }
 
 export class PatchMap {
+  public readonly update: PatchMapDeveloperApi['update'];
+  public readonly updateBatch: PatchMapDeveloperApi['updateBatch'];
+  public readonly transaction: PatchMapDeveloperApi['transaction'];
   public readonly data: PatchMapDeveloperApi['data'];
   public readonly targets: PatchMapDeveloperApi['targets'];
-  public readonly bars: PatchMapDeveloperApi['bars'];
-  public readonly texts: PatchMapDeveloperApi['texts'];
   public readonly selection: PatchMapDeveloperApi['selection'];
   public readonly transform: PatchMapDeveloperApi['transform'];
   public readonly viewport: PatchMapDeveloperApi['viewport'];
@@ -885,10 +886,11 @@ export class PatchMap {
       }),
     } satisfies PatchMapEngineProductProbeReadPort);
     const developerApi = createPatchMapDeveloperApi(this);
+    this.update = developerApi.update;
+    this.updateBatch = developerApi.updateBatch;
+    this.transaction = developerApi.transaction;
     this.data = developerApi.data;
     this.targets = developerApi.targets;
-    this.bars = developerApi.bars;
-    this.texts = developerApi.texts;
     this.selection = developerApi.selection;
     this.transform = developerApi.transform;
     this.viewport = developerApi.viewport;

@@ -31,17 +31,14 @@ import type {
 } from './query-selection';
 import type {
   PatchMapBarHeightBatchRequest,
+  PatchMapMutationTransactionRequest,
   PatchMapTextBatchRequest,
 } from './semantic/transaction';
 import type {
-  PatchMapBarUpdate,
-  PatchMapBarUpdateOptions,
   PatchMapCompiledTargets,
   PatchMapDataLoadResult,
   PatchMapDeveloperApi,
   PatchMapFitOptions,
-  PatchMapInstanceBarUpdate,
-  PatchMapInstanceBarUpdateOptions,
   PatchMapOneOrMany,
   PatchMapSelectionTargets,
   PatchMapDataLoadOptions,
@@ -50,11 +47,10 @@ import type {
   PatchMapTargetScope,
   PatchMapTargets,
   PatchMapTargetSelector,
-  PatchMapTextUpdate,
-  PatchMapTextUpdateOptions,
   PatchMapTransformOptions,
-  PatchMapUpdateResult,
+  PatchMapUpdateTargets,
 } from './developer-api/contracts';
+import { createPatchMapMutationApi } from './developer-api/mutations';
 import type { PatchMapTransformerEditRequest } from './transformer-edit';
 
 export type * from './developer-api/contracts';
@@ -67,6 +63,7 @@ interface PatchMapDeveloperHost {
     options?: PatchMapEngineLoadOptions,
   ): Promise<PatchMapEngineLoadResult>;
   exportDataset(): readonly unknown[];
+  transact(request: PatchMapMutationTransactionRequest): PatchMapEngineTransactionResult;
   updateBarHeights(request: PatchMapBarHeightBatchRequest): PatchMapEngineTransactionResult;
   updateInstanceBarHeights(
     request: PatchMapInstanceBarHeightBatchRequest,
@@ -114,6 +111,34 @@ interface PatchMapDeveloperHost {
 interface CompiledAuthority {
   readonly query: PatchMapEngineQueryResult;
   readonly logical: readonly PatchMapLogicalTargetSnapshot[];
+}
+
+interface LogicalTargetAddressIndex {
+  readonly elements: ReadonlyMap<string, PatchMapLogicalTargetSnapshot>;
+  readonly components: ReadonlyMap<string, PatchMapLogicalTargetSnapshot>;
+}
+
+const LOGICAL_TARGET_ADDRESS_CACHE = new WeakMap<object, LogicalTargetAddressIndex>();
+const INCLUDE_ALL_LOGICAL_TARGETS = (): boolean => true;
+
+function componentAddress(ownerId: string, componentId: string): string {
+  return `${ownerId}\u0000${componentId}`;
+}
+
+function logicalTargetAddressIndex(
+  targets: readonly PatchMapLogicalTargetSnapshot[],
+): LogicalTargetAddressIndex {
+  const cached = LOGICAL_TARGET_ADDRESS_CACHE.get(targets);
+  if (cached !== undefined) return cached;
+  const elements = new Map<string, PatchMapLogicalTargetSnapshot>();
+  const components = new Map<string, PatchMapLogicalTargetSnapshot>();
+  for (const target of targets) {
+    if (target.kind === 'element') elements.set(target.id, target);
+    else components.set(componentAddress(target.ownerId!, target.id), target);
+  }
+  const result = Object.freeze({ elements, components });
+  LOGICAL_TARGET_ADDRESS_CACHE.set(targets, result);
+  return result;
 }
 
 function nonEmptyString(value: string, name: string): string {
@@ -213,34 +238,6 @@ function dataLoadResult(result: PatchMapEngineLoadResult): PatchMapDataLoadResul
   });
 }
 
-function projectTransactionResult(result: PatchMapEngineTransactionResult): PatchMapUpdateResult {
-  return Object.freeze({
-    status: result.status === 'committed'
-      ? 'committed'
-      : result.status === 'rejected'
-        ? 'rejected'
-        : 'unchanged',
-    changed: result.changed,
-    appliedCount: result.applied.length,
-    missing: Object.freeze(result.missing.map((target) => target.kind === 'element'
-      ? Object.freeze({ id: target.id })
-      : Object.freeze({ id: target.ownerId, componentId: target.id }))),
-    diagnostic: result.status === 'rejected' ? result.diagnostic : null,
-  });
-}
-
-function projectInstanceResult(
-  result: PatchMapEngineInstanceBarHeightResult,
-): PatchMapUpdateResult {
-  return Object.freeze({
-    status: result.status,
-    changed: result.changed,
-    appliedCount: result.appliedTargets.length,
-    missing: result.missingTargets,
-    diagnostic: result.status === 'rejected' ? result.diagnostic : null,
-  });
-}
-
 function resolveSelectionIds(
   targets: PatchMapSelectionTargets,
   compiled: WeakMap<PatchMapCompiledTargets, CompiledAuthority>,
@@ -281,6 +278,50 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
   ): readonly PatchMapTarget[] => isCompiledTargets(value)
     ? assertReusable(value, operation).logical.map(targetMatch)
     : oneOrMany(value as PatchMapOneOrMany<PatchMapTarget>);
+
+  const logicalTargetsOf = (
+    value: PatchMapUpdateTargets,
+  ): Readonly<{
+    readonly selected: readonly PatchMapLogicalTargetSnapshot[];
+    readonly sceneTargets: readonly PatchMapLogicalTargetSnapshot[];
+  }> => {
+    if (isCompiledTargets(value as PatchMapTargets)) {
+      const authority = assertReusable(value as PatchMapCompiledTargets, 'update');
+      return Object.freeze({
+        selected: authority.logical,
+        sceneTargets: authority.query.targets,
+      });
+    }
+    const requested: readonly PatchMapTarget[] = typeof value === 'string'
+      ? Object.freeze([{ id: value }])
+      : Array.isArray(value) && (value.length === 0 || typeof value[0] === 'string')
+        ? Object.freeze((value as readonly string[]).map((id) => Object.freeze({ id })))
+        : oneOrMany(value as PatchMapOneOrMany<PatchMapTarget>);
+    const logical = host.queryScene({
+      recursive: true,
+      predicate: INCLUDE_ALL_LOGICAL_TARGETS,
+    }).targets;
+    if (requested.length === 0) {
+      return Object.freeze({ selected: Object.freeze([]), sceneTargets: logical });
+    }
+    const index = logicalTargetAddressIndex(logical);
+    const selected = Object.freeze(requested.map((target) => {
+      nonEmptyString(target.id, 'target.id');
+      if (target.componentId !== undefined) {
+        nonEmptyString(target.componentId, 'target.componentId');
+      }
+      const match = target.componentId === undefined
+        ? index.elements.get(target.id)
+        : index.components.get(componentAddress(target.id, target.componentId));
+      if (match === undefined) {
+        throw new TypeError(target.componentId === undefined
+          ? `No PatchMap target has id ${target.id}`
+          : `No PatchMap component matches ${target.id}/${target.componentId}`);
+      }
+      return match;
+    }));
+    return Object.freeze({ selected, sceneTargets: logical });
+  };
 
   const fit = (options: PatchMapFitOptions = {}): PatchMapViewportFitResult => host.fitViewport({
     ...(options.padding === undefined ? {} : { paddingCssPx: options.padding }),
@@ -330,7 +371,10 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
       }
       if (selector.type !== undefined) nonEmptyString(selector.type, 'selector.type');
       if (selector.within !== undefined) nonEmptyString(selector.within, 'selector.within');
-      const query = host.queryScene({ recursive: true });
+      const query = host.queryScene({
+        recursive: true,
+        predicate: INCLUDE_ALL_LOGICAL_TARGETS,
+      });
       const byKey = new Map<string, PatchMapLogicalTargetSnapshot>(
         query.targets.map((target) => [target.key, target]),
       );
@@ -348,66 +392,12 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
     },
   });
 
-  const setBarBatch = (
-      selected: PatchMapTargets,
-      heights: ArrayLike<number>,
-      options: PatchMapBarUpdateOptions = {},
-  ): PatchMapUpdateResult => {
-    const resolved = targetsOf(selected, 'update');
-    const request: PatchMapBarHeightBatchRequest = {
-      targets: resolved.map((target) => ({
-        ownerId: nonEmptyString(target.id, 'target.id'),
-        componentId: nonEmptyString(target.componentId ?? '', 'target.componentId'),
-      })),
-      heights,
-      ...(options.actionId === undefined ? {} : { actionId: options.actionId }),
-      ...(options.recordHistory === undefined ? {} : { recordHistory: options.recordHistory }),
-    };
-    return projectTransactionResult(host.updateBarHeights(request));
-  };
-  const setInstanceBarBatch = (
-      selected: PatchMapTargets,
-      heights: ArrayLike<number | null>,
-      options: PatchMapInstanceBarUpdateOptions = {},
-  ): PatchMapUpdateResult => {
-    const resolved = targetsOf(selected, 'update');
-    return projectInstanceResult(host.updateInstanceBarHeights({
-      targets: resolved.map((target) => ({
-        id: nonEmptyString(target.id, 'target.id'),
-        componentId: nonEmptyString(target.componentId ?? '', 'target.componentId'),
-      })),
-      heights,
-      ...(options.animate === undefined ? {} : { animate: options.animate }),
-    }));
-  };
-  const bars = Object.freeze({
-    set: (input: PatchMapOneOrMany<PatchMapBarUpdate>, options: PatchMapBarUpdateOptions = {}) => {
-      const updates = oneOrMany(input);
-      return setBarBatch(updates, updates.map((update) => update.height), options);
-    },
-    setBatch: setBarBatch,
-    setInstances: (
-      input: PatchMapOneOrMany<PatchMapInstanceBarUpdate>,
-      options: PatchMapInstanceBarUpdateOptions = {},
-    ) => {
-      const updates = oneOrMany(input);
-      return setInstanceBarBatch(updates, updates.map((update) => update.height), options);
-    },
-    setInstanceBatch: setInstanceBarBatch,
-  });
-
-  const texts = Object.freeze({
-    set(input: PatchMapOneOrMany<PatchMapTextUpdate>, options: PatchMapTextUpdateOptions = {}): PatchMapUpdateResult {
-      const updates = oneOrMany(input);
-      const hasStyle = updates.some((update) => update.style !== undefined);
-      return projectTransactionResult(host.updateTexts({
-        targets: updates.map((update) => ({ ownerId: update.id, componentId: update.componentId })),
-        texts: updates.map((update) => update.text),
-        ...(hasStyle ? { styles: updates.map((update) => update.style ?? {}) } : {}),
-        ...(options.actionId === undefined ? {} : { actionId: options.actionId }),
-        ...(options.recordHistory === undefined ? {} : { recordHistory: options.recordHistory }),
-      }));
-    },
+  const mutations = createPatchMapMutationApi(host, {
+    resolveTargets: logicalTargetsOf,
+    sceneTargets: () => host.queryScene({
+      recursive: true,
+      predicate: INCLUDE_ALL_LOGICAL_TARGETS,
+    }).targets,
   });
 
   const selectionOperation = (
@@ -551,10 +541,11 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
   });
 
   return Object.freeze({
+    update: mutations.update,
+    updateBatch: mutations.updateBatch,
+    transaction: mutations.transaction,
     data,
     targets,
-    bars,
-    texts,
     selection,
     transform,
     viewport,

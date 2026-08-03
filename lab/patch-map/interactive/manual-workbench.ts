@@ -7,6 +7,8 @@ import {
   type PatchMapAssetIngestionPolicyProfile,
   type PatchMapFrameLoop,
   type PatchMapEngineHistoryResult,
+  type PatchMapCompiledTargets,
+  type PatchMapUpdateTargets,
 } from '../../../src/patch-map/index';
 import {
   patchMapKoreanStatus,
@@ -156,6 +158,7 @@ export function mountPatchMapManualWorkbench(
   const assetLeases: PatchMapAssetAcquisition[] = [];
   let engineUnbinds: Array<() => void> = [];
   let frameLoop: PatchMapFrameLoop | null = null;
+  let compiledAnimatedBars: PatchMapCompiledTargets | null = null;
   let resizeObserver: ResizeObserver | null = null;
   let performanceObserver: PerformanceObserver | null = null;
   let lastSnapshot: ReturnType<PatchMap['snapshot']> | null = null;
@@ -813,24 +816,50 @@ export function mountPatchMapManualWorkbench(
   function animateBars(scope: 'all' | 'partial' | 'selected'): unknown {
     const next = requireEngine();
     animationSequence += 1;
-    let targets = scene.instanceBarTargets;
+    let targets: PatchMapUpdateTargets;
+    let targetCount: number;
+    let directTargets = scene.instanceBarTargets;
     if (scope === 'partial') {
-      targets = targets.filter((_, index) => index % 10 === animationSequence % 10);
+      directTargets = directTargets.filter(
+        (_, index) => index % 10 === animationSequence % 10,
+      );
+      targets = directTargets.map(({ id, componentId }) => ({ id, componentId }));
+      targetCount = directTargets.length;
     } else if (scope === 'selected') {
       const selected = new Set(next.snapshot().selectionIds);
-      targets = targets.filter(({ id }) => selected.has(id));
-      if (targets.length === 0) targets = scene.instanceBarTargets.slice(0, 1);
+      directTargets = directTargets.filter(({ id }) => selected.has(id));
+      if (directTargets.length === 0) directTargets = scene.instanceBarTargets.slice(0, 1);
+      targets = directTargets.map(({ id, componentId }) => ({ id, componentId }));
+      targetCount = directTargets.length;
+    } else {
+      const compiled = currentAnimatedBarTargets(next);
+      targets = compiled;
+      targetCount = compiled.count;
     }
-    const heights = new Float64Array(targets.length);
-    for (let index = 0; index < targets.length; index += 1) {
+    const heights = new Float64Array(targetCount);
+    for (let index = 0; index < targetCount; index += 1) {
       heights[index] = 8 + ((index * 17 + animationSequence * 23) % 52);
     }
-    const result = next.updateInstanceBarHeights({
+    const result = next.updateBatch({
       targets,
-      heights,
-    });
+      bar: { height: heights },
+    }, { animate: true });
     startFrameLoop(1_200);
     return result;
+  }
+
+  function currentAnimatedBarTargets(next: PatchMap): PatchMapCompiledTargets {
+    const sceneRevision = next.snapshot().revisions.sceneRevision;
+    if (
+      compiledAnimatedBars === null ||
+      compiledAnimatedBars.sceneRevision !== sceneRevision
+    ) {
+      compiledAnimatedBars = next.targets.compile({
+        type: 'bar',
+        scope: manualSceneSize === 'actual-production' ? 'instances' : 'authored',
+      });
+    }
+    return compiledAnimatedBars;
   }
 
   function randomizeTexts(): unknown {
@@ -840,11 +869,10 @@ export function mountPatchMapManualWorkbench(
       .filter((_, index) => index % 4 === animationSequence % 4);
     const texts = targets.map(({ ownerId }, index) =>
       `${ownerId.slice(5)}:${animationSequence}:${index}`);
-    return next.updateTexts({
-      actionId: `manual-text-${animationSequence}`,
-      targets,
-      texts,
-    });
+    return next.updateBatch({
+      targets: targets.map(({ ownerId: id, componentId }) => ({ id, componentId })),
+      text: { text: texts },
+    }, { actionId: `manual-text-${animationSequence}` });
   }
 
   function styleSelected(): unknown {
@@ -868,13 +896,13 @@ export function mountPatchMapManualWorkbench(
     const value = required<HTMLInputElement>(host, '[data-manual-text-value]').value;
     const selected = next.snapshot().selectionIds;
     if (selected.includes('manual-text')) {
-      return next.patch({ kind: 'element', id: 'manual-text' }, { text: value });
+      return next.update({ id: 'manual-text', text: { text: value } });
     }
     const ownerId = selected.find((id) => id.startsWith('node-')) ?? 'node-0';
-    return next.patch(
-      { kind: 'component', ownerId, id: 'label' },
-      { text: value },
-    );
+    return next.update({
+      id: ownerId,
+      text: { componentId: 'label', text: value },
+    });
   }
 
   function createElement(): unknown {
@@ -1384,6 +1412,7 @@ export function mountPatchMapManualWorkbench(
 
   async function destroyEngine(): Promise<void> {
     await settlePatchMapManualCleanup([
+      () => { compiledAnimatedBars = null; },
       () => pointerController.unbind(),
       () => {
         const previous = resizeObserver;

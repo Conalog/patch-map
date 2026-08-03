@@ -76,22 +76,26 @@ async function configure(page, size, trial) {
         }],
       },
     }];
-    const targets = Array.from({ length: recordCount }, (_, index) => ({
-      id: `perf-grid.${Math.floor(index / columns)}.${index % columns}`,
-      componentId: 'level',
-    }));
     const loaded = engine.loadDataset(dataset);
     engine.fitViewport({ paddingCssPx: 24 });
+    const targets = engine.targets.compile({
+      within: 'perf-grid',
+      type: 'bar',
+      componentId: 'level',
+      scope: 'instances',
+    });
     window.__PATCH_MAP_INSTANCE_BAR_PERF__ = { targets };
     return {
       rootIds: loaded.rootIds,
-      targetCount: targets.length,
+      targetCount: targets.count,
       semanticHash: engine.snapshot().semanticHash,
       sceneRevision: engine.snapshot().revisions.sceneRevision,
     };
   }, size);
   if (configured.targetCount !== size || configured.rootIds[0] !== 'perf-grid') {
-    throw new Error(`failed to configure ${size} grid instances`);
+    throw new Error(
+      `failed to configure ${size} grid instances: ${JSON.stringify(configured)}`,
+    );
   }
   await page.locator('[data-manual-mode="pan"]').click();
   await page.waitForTimeout(100);
@@ -134,21 +138,24 @@ async function runTrial(page, size, trial) {
     actions.push(await page.evaluate((sequence) => {
       const engine = window.__PATCH_MAP_MANUAL_LAB__.engine();
       const targets = window.__PATCH_MAP_INSTANCE_BAR_PERF__.targets;
-      const heights = new Float64Array(targets.length);
+      const heights = new Float64Array(targets.count);
       for (let index = 0; index < heights.length; index += 1) {
         heights[index] = 5 + ((index * 17 + sequence * 23) % 37);
       }
       const before = engine.snapshot().revisions;
       const started = performance.now();
-      const result = engine.updateInstanceBarHeights({ targets, heights });
+      const result = engine.updateBatch({
+        targets,
+        bar: { height: heights },
+      }, { animate: true });
+      const after = engine.snapshot().revisions;
       return {
         wallMs: performance.now() - started,
         status: result.status,
-        appliedCount: result.appliedTargets.length,
-        overlayCount: result.overlayCount,
-        activeAnimations: result.activeAnimationCount,
+        appliedCount: result.appliedCount,
+        activeAnimations: engine.activeAnimations,
         sceneRevisionDelta:
-          result.revisions.sceneRevision - before.sceneRevision,
+          after.sceneRevision - before.sceneRevision,
       };
     }, iteration + 1));
     await page.mouse.move(
@@ -214,7 +221,6 @@ function validateTrial(value, size) {
   for (const action of value.actions) {
     if (action.status !== 'committed') failures.push(`${size}: update was not committed`);
     if (action.appliedCount !== size) failures.push(`${size}: applied count mismatch`);
-    if (action.overlayCount !== size) failures.push(`${size}: overlay count mismatch`);
     if (action.activeAnimations < Math.floor(size * 0.95)) {
       failures.push(`${size}: animation count mismatch`);
     }

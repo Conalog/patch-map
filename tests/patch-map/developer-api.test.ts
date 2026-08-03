@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createPatchMapDeveloperApi } from '../../src/patch-map/developer-api';
 import { PatchMap } from '../../src/patch-map/engine';
@@ -12,6 +12,7 @@ import type {
   PatchMapEngineTransactionResult,
 } from '../../src/patch-map/engine/public-contracts';
 import type { PatchMapLogicalTargetSnapshot } from '../../src/patch-map/query-selection';
+import { createEngine } from './support/engine-update-transaction-surface';
 
 const REVISIONS = Object.freeze({
   lifecycleGeneration: 1,
@@ -72,17 +73,79 @@ function createHost() {
     parentKey: cell.key,
     ancestorKeys: Object.freeze([root.key, cell.key]),
   });
+  const rack = logicalTarget({
+    key: 'element:rack',
+    kind: 'element',
+    id: 'rack',
+    type: 'item',
+    topLevel: true,
+  });
+  const rackUsage = logicalTarget({
+    key: 'component:rack/usage',
+    kind: 'component',
+    id: 'usage',
+    ownerId: rack.id,
+    type: 'bar',
+    parentKey: rack.key,
+    ancestorKeys: Object.freeze([rack.key]),
+  });
+  const rackLabel = logicalTarget({
+    key: 'component:rack/label',
+    kind: 'component',
+    id: 'label',
+    ownerId: rack.id,
+    type: 'text',
+    parentKey: rack.key,
+    ancestorKeys: Object.freeze([rack.key]),
+  });
+  const ambiguous = logicalTarget({
+    key: 'element:ambiguous',
+    kind: 'element',
+    id: 'ambiguous',
+    type: 'item',
+    topLevel: true,
+  });
+  const primaryBar = logicalTarget({
+    key: 'component:ambiguous/primary',
+    kind: 'component',
+    id: 'primary',
+    ownerId: ambiguous.id,
+    type: 'bar',
+    parentKey: ambiguous.key,
+    ancestorKeys: Object.freeze([ambiguous.key]),
+  });
+  const secondaryBar = logicalTarget({
+    key: 'component:ambiguous/secondary',
+    kind: 'component',
+    id: 'secondary',
+    ownerId: ambiguous.id,
+    type: 'bar',
+    parentKey: ambiguous.key,
+    ancestorKeys: Object.freeze([ambiguous.key]),
+  });
   const query = Object.freeze({
     schemaRevision: 'core-v2-query-selection/1',
     status: 'matched',
     code: null,
     lifecycleGeneration: 1,
     sceneRevision: 2,
-    targets: Object.freeze([root, cell, usage]),
+    targets: Object.freeze([
+      root,
+      cell,
+      usage,
+      rack,
+      rackUsage,
+      rackLabel,
+      ambiguous,
+      primaryBar,
+      secondaryBar,
+    ]),
   }) as PatchMapEngineQueryResult;
   let reusable = true;
   let lastBarRequest: unknown = null;
   let lastInstanceRequest: unknown = null;
+  let lastTextRequest: unknown = null;
+  let lastTransactionRequest: unknown = null;
   let lastTransformRequest: unknown = null;
   const fitViewport = vi.fn(() => Object.freeze({ status: 'applied' }));
   const resize = vi.fn(() => true);
@@ -112,6 +175,16 @@ function createHost() {
       rootIds: Object.freeze(['rack-grid']),
     })),
     exportDataset: () => Object.freeze([]),
+    transact: (request: Readonly<{ readonly operations: readonly Readonly<{ readonly target?: unknown }>[] }>) => {
+      lastTransactionRequest = request;
+      return Object.freeze({
+        status: 'committed',
+        changed: true,
+        applied: Object.freeze(request.operations.flatMap((operation) =>
+          operation.target === undefined ? [] : [operation.target])),
+        missing: Object.freeze([]),
+      }) as unknown as PatchMapEngineTransactionResult;
+    },
     updateBarHeights: (request: unknown) => {
       lastBarRequest = request;
       return Object.freeze({
@@ -130,12 +203,15 @@ function createHost() {
         missingTargets: Object.freeze([]),
       }) as unknown as PatchMapEngineInstanceBarHeightResult;
     },
-    updateTexts: () => Object.freeze({
-      status: 'unchanged',
-      changed: false,
-      applied: Object.freeze([]),
-      missing: Object.freeze([]),
-    }) as unknown as PatchMapEngineTransactionResult,
+    updateTexts: (request: unknown) => {
+      lastTextRequest = request;
+      return Object.freeze({
+        status: 'committed',
+        changed: true,
+        applied: Object.freeze([{ kind: 'component', ownerId: 'rack', id: 'label' }]),
+        missing: Object.freeze([]),
+      }) as unknown as PatchMapEngineTransactionResult;
+    },
     queryScene: () => query,
     reuseQueryResult: () => Object.freeze({ status: reusable ? 'accepted' : 'rejected' }),
     on: (_event: 'selectionChanged', listener: typeof selectionListener) => {
@@ -190,12 +266,20 @@ function createHost() {
     setReusable: (value: boolean) => { reusable = value; },
     lastBarRequest: () => lastBarRequest,
     lastInstanceRequest: () => lastInstanceRequest,
+    lastTextRequest: () => lastTextRequest,
+    lastTransactionRequest: () => lastTransactionRequest,
     lastTransformRequest: () => lastTransformRequest,
     publishSelection: (ids: readonly string[]) => selectionListener?.(Object.freeze({ current: ids })),
   };
 }
 
 describe('PatchMap high-level developer API', () => {
+  const engines: PatchMap[] = [];
+
+  afterEach(async () => {
+    await Promise.all(engines.splice(0).map((engine) => engine.destroy()));
+  });
+
   it('compiles semantic instance targets once and reuses stable id/componentId addresses', () => {
     const harness = createHost();
     const map = createPatchMapDeveloperApi(harness.host);
@@ -214,7 +298,10 @@ describe('PatchMap high-level developer API', () => {
       label: null,
       value: {},
     }]);
-    expect(map.bars.setInstanceBatch(usage, new Float32Array([72]), {
+    expect(map.updateBatch({
+      targets: usage,
+      bar: { height: new Float32Array([72]) },
+    }, {
       animate: true,
     })).toMatchObject({ status: 'committed', appliedCount: 1 });
     expect(harness.lastInstanceRequest()).toEqual({
@@ -229,10 +316,9 @@ describe('PatchMap high-level developer API', () => {
     const harness = createHost();
     const map = createPatchMapDeveloperApi(harness.host);
 
-    expect(map.bars.set({
+    expect(map.update({
       id: 'rack',
-      componentId: 'usage',
-      height: 44,
+      bar: { height: 44 },
     }, { actionId: 'refresh' })).toMatchObject({
       status: 'committed',
       changed: true,
@@ -245,15 +331,301 @@ describe('PatchMap high-level developer API', () => {
     });
   });
 
+  it('requires componentId only when the component type is ambiguous', () => {
+    const harness = createHost();
+    const map = createPatchMapDeveloperApi(harness.host);
+
+    expect(() => map.update({
+      id: 'ambiguous',
+      bar: { height: 44 },
+    })).toThrow(
+      'ambiguous has multiple bar components. Set bar.componentId to choose one.',
+    );
+    expect(map.update({
+      id: 'ambiguous',
+      bar: { componentId: 'secondary', height: 44 },
+    })).toMatchObject({ status: 'committed' });
+    expect(harness.lastBarRequest()).toEqual({
+      targets: [{ ownerId: 'ambiguous', componentId: 'secondary' }],
+      heights: [44],
+    });
+  });
+
   it('rejects stale compiled selectors instead of updating a new scene by accident', () => {
     const harness = createHost();
     const map = createPatchMapDeveloperApi(harness.host);
     const targets = map.targets.compile({ type: 'bar', scope: 'instances' });
     harness.setReusable(false);
 
-    expect(() => map.bars.setInstanceBatch(targets, [30])).toThrow(
+    expect(() => map.updateBatch({ targets, bar: { height: [30] } })).toThrow(
       'compiled targets are stale; compile the selector again after loading data',
     );
+  });
+
+  it('merges heterogeneous owner changes through one low-level atomic transaction', () => {
+    const harness = createHost();
+    const map = createPatchMapDeveloperApi(harness.host);
+
+    expect(map.update({
+      id: 'rack',
+      changes: { attrs: { x: 40 } },
+      bar: { width: 88, fill: '#22c55e' },
+      text: { text: '정상', style: { fill: '#ffffff' } },
+    }, { actionId: 'refresh-rack' })).toMatchObject({
+      status: 'committed',
+      changed: true,
+      appliedCount: 3,
+    });
+
+    expect(harness.lastTransactionRequest()).toEqual({
+      operations: [
+        {
+          op: 'merge',
+          target: { kind: 'element', id: 'rack' },
+          changes: [{ path: ['attrs', 'x'], value: 40 }],
+        },
+        {
+          op: 'merge',
+          target: { kind: 'component', ownerId: 'rack', id: 'usage' },
+          changes: [
+            { path: ['size', 'width'], value: 88 },
+            { path: ['source', 'fill'], value: '#22c55e' },
+          ],
+        },
+        {
+          op: 'merge',
+          target: { kind: 'component', ownerId: 'rack', id: 'label' },
+          changes: [
+            { path: ['text'], value: '정상' },
+            { path: ['style', 'fill'], value: '#ffffff' },
+          ],
+        },
+      ],
+      strict: true,
+      actionId: 'refresh-rack',
+    });
+  });
+
+  it('keeps columnar batches distinct from heterogeneous structural transactions', () => {
+    const harness = createHost();
+    const map = createPatchMapDeveloperApi(harness.host);
+
+    expect(map.updateBatch({
+      targets: ['rack'],
+      text: {
+        text: ['점검 필요'],
+        style: [{ fill: '#ef4444' }],
+      },
+    })).toMatchObject({ status: 'committed', appliedCount: 1 });
+    expect(harness.lastTextRequest()).toEqual({
+      targets: [{ ownerId: 'rack', componentId: 'label' }],
+      texts: ['점검 필요'],
+      styles: [{ fill: '#ef4444' }],
+    });
+
+    expect(map.transaction([
+      { type: 'update', id: 'rack', bar: { fill: '#f97316' } },
+      { type: 'move', id: 'rack', parentId: null, index: 0 },
+    ], {
+      actionId: 'reorder-rack',
+      selectedIds: ['rack'],
+    })).toMatchObject({ status: 'committed' });
+    expect(harness.lastTransactionRequest()).toMatchObject({
+      strict: true,
+      actionId: 'reorder-rack',
+      history: { selectedIds: ['rack'] },
+      operations: [
+        { op: 'merge', target: { kind: 'component', ownerId: 'rack', id: 'usage' } },
+        { op: 'move', target: { kind: 'element', id: 'rack' }, parent: null, index: 0 },
+      ],
+    });
+  });
+
+  it('rejects malformed batch columns before committing any mutation', () => {
+    const harness = createHost();
+    const map = createPatchMapDeveloperApi(harness.host);
+
+    expect(() => map.updateBatch({
+      targets: ['rack'],
+      bar: { height: [20, 30] },
+    })).toThrow('bar.height column length must match 1 targets');
+    expect(harness.lastBarRequest()).toBeNull();
+    expect(harness.lastTransactionRequest()).toBeNull();
+  });
+
+  it('keeps identity-bearing collections behind explicit structural transactions', () => {
+    const harness = createHost();
+    const map = createPatchMapDeveloperApi(harness.host);
+
+    expect(() => map.update({
+      id: 'rack',
+      changes: { components: [] },
+    })).toThrow(
+      'update() cannot change protected components; use transaction() for structural changes',
+    );
+    expect(harness.lastTransactionRequest()).toBeNull();
+  });
+
+  it('reports mutation field typos instead of silently ignoring them', () => {
+    const harness = createHost();
+    const map = createPatchMapDeveloperApi(harness.host);
+
+    expect(() => map.update({
+      id: 'rack',
+      bar: { height: 40, colour: '#22c55e' },
+    } as never)).toThrow('$.update.bar.colour is not a supported field');
+    expect(() => map.updateBatch({
+      targets: ['rack'],
+      bars: { height: [40] },
+    } as never)).toThrow('$.updateBatch.bars is not a supported field');
+    expect(() => map.transaction([{
+      type: 'reparent',
+      id: 'rack',
+    }] as never)).toThrow('$.transaction[0].type is not supported: reparent');
+    expect(harness.lastBarRequest()).toBeNull();
+    expect(harness.lastTransactionRequest()).toBeNull();
+  });
+
+  it('rejects accessor-backed mutation envelopes without evaluating getters', () => {
+    const harness = createHost();
+    const map = createPatchMapDeveloperApi(harness.host);
+    let reads = 0;
+    const input = { id: 'rack' } as Record<string, unknown>;
+    Object.defineProperty(input, 'bar', {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        return { height: 40 };
+      },
+    });
+
+    expect(() => map.update(input as never)).toThrow();
+    expect(reads).toBe(0);
+    expect(harness.lastBarRequest()).toBeNull();
+  });
+
+  it('rejects accessor-backed columns without evaluating them or committing', () => {
+    const harness = createHost();
+    const map = createPatchMapDeveloperApi(harness.host);
+    let reads = 0;
+    const heights = { length: 1 };
+    Object.defineProperty(heights, '0', {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        return 20;
+      },
+    });
+
+    expect(() => map.updateBatch({
+      targets: ['rack'],
+      bar: { height: heights as ArrayLike<number> },
+    })).toThrow('bar.height[0] must be a present data property');
+    expect(reads).toBe(0);
+    expect(harness.lastBarRequest()).toBeNull();
+    expect(harness.lastTransactionRequest()).toBeNull();
+  });
+
+  it('lowers a heterogeneous columnar row into one strict commit', () => {
+    const harness = createHost();
+    const map = createPatchMapDeveloperApi(harness.host);
+
+    expect(map.updateBatch({
+      targets: ['rack'],
+      changes: { attrs: [{ x: 64 }] },
+      bar: { width: [92], fill: ['#16a34a'] },
+      text: { text: ['가동'], style: [{ fill: '#f8fafc' }] },
+    }, { actionId: 'columnar-rack' })).toMatchObject({
+      status: 'committed',
+      appliedCount: 3,
+    });
+    expect(harness.lastTransactionRequest()).toMatchObject({
+      strict: true,
+      actionId: 'columnar-rack',
+      operations: [
+        {
+          op: 'merge',
+          target: { kind: 'element', id: 'rack' },
+          changes: [{ path: ['attrs', 'x'], value: 64 }],
+        },
+        {
+          op: 'merge',
+          target: { kind: 'component', ownerId: 'rack', id: 'usage' },
+          changes: [
+            { path: ['size', 'width'], value: 92 },
+            { path: ['source', 'fill'], value: '#16a34a' },
+          ],
+        },
+        {
+          op: 'merge',
+          target: { kind: 'component', ownerId: 'rack', id: 'label' },
+          changes: [
+            { path: ['text'], value: '가동' },
+            { path: ['style', 'fill'], value: '#f8fafc' },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('publishes one real atomic scene commit without mutating the caller update', async () => {
+    const { engine, surface } = await createEngine(engines, 'developer-api-atomic');
+    engine.loadDataset([{
+      type: 'item',
+      id: 'rack',
+      attrs: { x: 0, y: 0 },
+      size: { width: 100, height: 120 },
+      components: [
+        {
+          type: 'bar',
+          id: 'usage',
+          source: { type: 'rect', fill: '#2563eb' },
+          size: { width: 80, height: 40 },
+          placement: 'bottom',
+          animation: true,
+        },
+        {
+          type: 'text',
+          id: 'label',
+          text: '40',
+          placement: 'top',
+          style: { fontSize: 12, fill: '#111827' },
+        },
+      ],
+    }]);
+    const input = Object.freeze({
+      id: 'rack',
+      bar: Object.freeze({ height: 72, fill: '#22c55e' }),
+      text: Object.freeze({
+        text: '정상',
+        style: Object.freeze({ fill: '#ffffff' }),
+      }),
+    });
+
+    expect(engine.update(input, { actionId: 'rack-live-state' })).toMatchObject({
+      status: 'committed',
+      changed: true,
+      appliedCount: 2,
+    });
+    expect(surface.reconcileCalls).toHaveLength(1);
+    expect(input).toEqual({
+      id: 'rack',
+      bar: { height: 72, fill: '#22c55e' },
+      text: { text: '정상', style: { fill: '#ffffff' } },
+    });
+    const rack = engine.exportDataset()[0];
+    expect(rack?.type).toBe('item');
+    if (rack?.type !== 'item') throw new Error('expected item result');
+    expect(rack.components[0]).toMatchObject({
+      id: 'usage',
+      size: { width: 80, height: 72 },
+      source: { type: 'rect', fill: '#22c55e' },
+    });
+    expect(rack.components[1]).toMatchObject({
+      id: 'label',
+      text: '정상',
+      style: { fontSize: 12, fill: '#ffffff' },
+    });
   });
 
   it('loads and fits through one high-level call', () => {

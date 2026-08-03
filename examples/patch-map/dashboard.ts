@@ -46,10 +46,9 @@ export async function runDashboardExample(host: HTMLElement): Promise<Readonly<{
     background: '#f8fafc',
     data: DASHBOARD_DATASET,
   });
-  const update = patchMap.bars.set({
+  const update = patchMap.update({
     id: 'dashboard-metric',
-    componentId: 'bar',
-    height: 72,
+    bar: { height: 72 },
   }, { actionId: 'dashboard-refresh' });
   const bar = patchMap.targets.get({ id: 'dashboard-metric', componentId: 'bar' });
   await patchMap.destroy();

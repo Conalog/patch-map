@@ -13,6 +13,10 @@ import type {
 } from '../engine/public-contracts';
 import type { PatchMapHistoryState } from '../history';
 import type { PatchMapTextStyle } from '../semantic/dataset';
+import type {
+  PatchMapMutationConflictPolicy,
+  PatchMapMutationJsonValue,
+} from '../semantic/transaction';
 import type { PatchMapResizeHandle } from '../transformer-edit';
 
 /** One public address shape for elements and their components. */
@@ -79,38 +83,128 @@ export interface PatchMapDataLoadResult {
   readonly sceneRevision: number;
 }
 
-export interface PatchMapBarUpdate extends PatchMapTarget {
-  readonly componentId: string;
-  readonly height: number;
-}
+export type PatchMapUpdateRecord = Readonly<Record<string, PatchMapMutationJsonValue>>;
 
-export interface PatchMapInstanceBarUpdate extends PatchMapTarget {
-  readonly componentId: string;
-  /** `null` restores the authored/template value. */
-  readonly height: number | null;
-}
-
-export interface PatchMapBarUpdateOptions {
+export interface PatchMapMutationOptions {
   readonly actionId?: string;
   readonly recordHistory?: boolean;
 }
 
-export interface PatchMapInstanceBarUpdateOptions {
+export interface PatchMapUpdateOptions extends PatchMapMutationOptions {
+  /** Applies to concrete grid-instance bar presentation updates. */
   readonly animate?: boolean;
 }
 
-export interface PatchMapTextUpdate extends PatchMapTarget {
-  readonly componentId: string;
-  readonly text: string;
+export interface PatchMapComponentUpdate {
+  /** Optional when the owner has exactly one component of this type. */
+  readonly componentId?: string;
+  /** PATCH MAP component fields merged recursively without changing identity. */
+  readonly changes?: PatchMapUpdateRecord;
+}
+
+export interface PatchMapBarUpdate extends PatchMapComponentUpdate {
+  /** Convenience alias for `size.height`. `null` restores an instance overlay. */
+  readonly height?: number | null;
+  /** Convenience alias for `size.width`. */
+  readonly width?: PatchMapMutationJsonValue;
+  /** Convenience alias for `source.fill`. */
+  readonly fill?: PatchMapMutationJsonValue;
+}
+
+export interface PatchMapTextUpdate extends PatchMapComponentUpdate {
+  readonly text?: string;
   readonly style?: PatchMapTextStyle;
 }
 
-export interface PatchMapTextUpdateOptions {
-  readonly actionId?: string;
-  readonly recordHistory?: boolean;
+/** One logical owner update. Component IDs are optional when unambiguous. */
+export interface PatchMapUpdate {
+  readonly id: string;
+  /** PATCH MAP element fields merged recursively without changing identity. */
+  readonly changes?: PatchMapUpdateRecord;
+  readonly background?: PatchMapComponentUpdate;
+  readonly bar?: PatchMapBarUpdate;
+  readonly icon?: PatchMapComponentUpdate;
+  readonly text?: PatchMapTextUpdate;
 }
 
-export type PatchMapUpdateStatus = 'committed' | 'unchanged' | 'rejected';
+export type PatchMapUpdateTargets =
+  | string
+  | readonly string[]
+  | PatchMapTargets;
+
+export type PatchMapUpdateColumn<T> = ArrayLike<T>;
+
+export interface PatchMapComponentUpdateColumns {
+  /** Shared component ID; omit when every owner has exactly one matching component. */
+  readonly componentId?: string;
+  readonly changes?: Readonly<Record<string, PatchMapUpdateColumn<PatchMapMutationJsonValue>>>;
+}
+
+export interface PatchMapBarUpdateColumns extends PatchMapComponentUpdateColumns {
+  readonly height?: PatchMapUpdateColumn<number | null>;
+  readonly width?: PatchMapUpdateColumn<PatchMapMutationJsonValue>;
+  readonly fill?: PatchMapUpdateColumn<PatchMapMutationJsonValue>;
+}
+
+export interface PatchMapTextUpdateColumns extends PatchMapComponentUpdateColumns {
+  readonly text?: PatchMapUpdateColumn<string>;
+  readonly style?: PatchMapUpdateColumn<PatchMapTextStyle>;
+}
+
+/** Columnar, equal-length input for large homogeneous updates. */
+export interface PatchMapUpdateBatch {
+  readonly targets: PatchMapUpdateTargets;
+  readonly changes?: Readonly<Record<string, PatchMapUpdateColumn<PatchMapMutationJsonValue>>>;
+  readonly background?: PatchMapComponentUpdateColumns;
+  readonly bar?: PatchMapBarUpdateColumns;
+  readonly icon?: PatchMapComponentUpdateColumns;
+  readonly text?: PatchMapTextUpdateColumns;
+}
+
+export type PatchMapTransactionOperation =
+  | (PatchMapUpdate & Readonly<{ readonly type: 'update' }>)
+  | Readonly<{
+      readonly type: 'add';
+      readonly parentId: string | null;
+      readonly index: number;
+      readonly value: PatchMapUpdateRecord;
+    }>
+  | Readonly<{
+      readonly type: 'replace';
+      readonly id: string;
+      readonly componentId?: string;
+      readonly value: PatchMapUpdateRecord;
+    }>
+  | Readonly<{
+      readonly type: 'remove';
+      readonly id: string;
+      readonly componentId?: string;
+      readonly cascade?: 'reject' | 'subtree';
+    }>
+  | Readonly<{
+      readonly type: 'move';
+      readonly id: string;
+      readonly parentId: string | null;
+      readonly index: number;
+    }>
+  | Readonly<{
+      readonly type: 'group';
+      readonly ids: readonly string[];
+      readonly value: PatchMapUpdateRecord;
+    }>
+  | Readonly<{
+      readonly type: 'ungroup';
+      readonly id: string;
+      readonly relationPolicy?: 'reject' | 'remove';
+    }>;
+
+export interface PatchMapTransactionOptions extends PatchMapMutationOptions {
+  readonly conflictPolicy?: PatchMapMutationConflictPolicy;
+  /** Selection published and restored atomically with the transaction history entry. */
+  readonly selectedIds?: readonly string[];
+}
+
+export type PatchMapUpdateStatus = 'committed' | 'unchanged' | 'rejected' | 'refused';
 
 export interface PatchMapUpdateResult {
   readonly status: PatchMapUpdateStatus;
@@ -157,28 +251,6 @@ export interface PatchMapDataApi {
 export interface PatchMapTargetsApi {
   get(target: PatchMapTarget): PatchMapTargetMatch | null;
   compile(selector: PatchMapTargetSelector): PatchMapCompiledTargets;
-}
-
-export interface PatchMapBarsApi {
-  set(updates: PatchMapOneOrMany<PatchMapBarUpdate>, options?: PatchMapBarUpdateOptions): PatchMapUpdateResult;
-  setBatch(
-    targets: PatchMapTargets,
-    heights: ArrayLike<number>,
-    options?: PatchMapBarUpdateOptions,
-  ): PatchMapUpdateResult;
-  setInstances(
-    updates: PatchMapOneOrMany<PatchMapInstanceBarUpdate>,
-    options?: PatchMapInstanceBarUpdateOptions,
-  ): PatchMapUpdateResult;
-  setInstanceBatch(
-    targets: PatchMapTargets,
-    heights: ArrayLike<number | null>,
-    options?: PatchMapInstanceBarUpdateOptions,
-  ): PatchMapUpdateResult;
-}
-
-export interface PatchMapTextsApi {
-  set(updates: PatchMapOneOrMany<PatchMapTextUpdate>, options?: PatchMapTextUpdateOptions): PatchMapUpdateResult;
 }
 
 export interface PatchMapSelectionApi {
@@ -258,10 +330,14 @@ export interface PatchMapCaptureApi {
 }
 
 export interface PatchMapDeveloperApi {
+  update(input: PatchMapUpdate, options?: PatchMapUpdateOptions): PatchMapUpdateResult;
+  updateBatch(input: PatchMapUpdateBatch, options?: PatchMapUpdateOptions): PatchMapUpdateResult;
+  transaction(
+    operations: readonly PatchMapTransactionOperation[],
+    options?: PatchMapTransactionOptions,
+  ): PatchMapUpdateResult;
   readonly data: PatchMapDataApi;
   readonly targets: PatchMapTargetsApi;
-  readonly bars: PatchMapBarsApi;
-  readonly texts: PatchMapTextsApi;
   readonly selection: PatchMapSelectionApi;
   readonly transform: PatchMapTransformApi;
   readonly viewport: PatchMapViewportApi;

@@ -201,9 +201,10 @@ describe('PatchMap human-operated Lab catalog', () => {
     expect(adaptiveFrameBudgetSource).toContain('export class PatchMapAdaptiveFrameBudget');
     expect(adaptiveFrameBudgetSource).toContain('largePresentationIntervalMs ?? 75');
     expect(adaptiveFrameBudgetSource).toContain('largeViewportFramesPerPresentation ?? 3');
-    expect(source).toContain('next.updateInstanceBarHeights({');
-    expect(source).toContain('const heights = new Float64Array(targets.length);');
-    expect(source).toContain('next.updateTexts({');
+    expect(source).toContain('next.updateBatch({');
+    expect(source).toContain('const heights = new Float64Array(targetCount);');
+    expect(source).toContain("scope: manualSceneSize === 'actual-production' ? 'instances' : 'authored'");
+    expect(source).toContain('text: { text: texts }');
   });
 });
 
