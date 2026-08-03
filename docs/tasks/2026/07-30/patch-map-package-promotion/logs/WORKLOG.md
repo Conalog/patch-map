@@ -201,3 +201,31 @@
 **2026-08-03**
 - After disk capacity recovered, the previously blocked strict packed-consumer gate passed from the current worktree: production build 191 modules, packed ESM/CJS/types, all 38 consumer journeys, four public examples, four aggregate objects, required dependency audit, and lifecycle cleanup. No retained or approved evidence changed, the temporary consumer exited cleanly, Windows-native and qualified WebGPU remain pending, and branch-readiness still performed no commit, push, PR metadata update, merge, or version bump.
 - After the user explicitly resumed the unfinished cleanup, the reviewed patch was separated into runtime/rendering atomicity, Lab lifecycle, release-verification, and documentation intents and committed to leave a clean PR-ready worktree; push, PR metadata, merge, and version bump remain outside this checkpoint.
+
+## 2026-08-03 — Concrete grid-instance bar updates
+
+- Added the public `PatchMap.updateInstanceBarHeights()` batch for item and
+  expanded-grid component identities. It keeps an atomic runtime overlay over
+  authored projection state, reuses dense component indexes and stable-record
+  patching, emits only aggregate Mesh dirty ranges, and retargets one central
+  animation controller. Missing/duplicate/invalid targets cannot partially
+  publish; `null`, semantic reconcile, replacement load, and destroy have
+  explicit restore/cleanup behavior.
+- Moved the single manual Lab's all/partial/selected bar actions to that public
+  package path. The 605-root actual-production scene now addresses 2,701
+  concrete bar instances independently while retaining all 309 authored bar
+  templates byte-for-byte. Fixed the 5-second REN-009 pause/resume path so its
+  frame request covers the selected animation duration.
+- Added a headless 5,000/10,000-cell 2+7 WebGL checkpoint with six rapid
+  retargets during pan. Repeated-action p95 median was 25.5ms at 5,000 and
+  58.9ms at 10,000; rAF-gap p95 median was 33.4ms and 99.1ms respectively.
+  The 10,000-cell long-task-count median remained 2 and p95 7. Raw samples are
+  retained under `.perf-results/patch-map/instance-bar-latest.json`;
+  Windows-native and qualified WebGPU remain pending.
+- Verification: targeted 56 tests PASS; full typecheck/lint and 195 files /
+  1,764 tests PASS; Lab build and canonical 38/173 contract PASS; representative
+  and actual-production headless WebGL PASS with console/page/network error 0;
+  packed production build plus ESM/CJS/types, 38 journeys, four examples,
+  required audit, public overlay call, and lifecycle cleanup PASS; 2+7 memory
+  plus nine ownership cycles over 5,099 entities PASS at 98,247-byte retained
+  heap median with DOM/scheduler/renderer released.

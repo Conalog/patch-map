@@ -31,6 +31,18 @@ The aggregate renderer and dense runtime are package internals. Consumers use
 animation, viewport, and cleanup policy is shared by every service and the
 single PatchMap Lab.
 
+For a grid template bar, use `updateBarHeights()` to change authored semantic
+state for every expanded cell. Use `updateInstanceBarHeights()` when concrete
+cells need independent runtime values. A concrete cell target keeps the
+template component ID and uses `<grid-id>.<row>.<column>` as `ownerId`.
+Instance batches are atomic, leave the caller dataset/history/semantic hash
+unchanged, reuse the central animation scheduler, and update aggregate Mesh
+dirty ranges without creating per-cell display objects. Passing `null` restores
+the current authored template height; loading another dataset or destroying
+the engine clears the overlay. See the
+[migration guide](./migration.md#grid-template-values-versus-concrete-cell-values)
+for the persistence and unsupported-state boundary.
+
 `loadDataset()` detaches caller data. It preserves stable element IDs,
 component owner/ID identity, relation endpoints, and deterministic ordering
 without retaining mutable aliases. Use `{ strict: true }` when dangling

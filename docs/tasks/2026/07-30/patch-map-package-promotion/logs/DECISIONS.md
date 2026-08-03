@@ -107,3 +107,24 @@
 - Decision: Embedded packed-consumer evidence is promotion-ineligible, generated output paths must stay inside the dedicated workspace `.perf-results` candidate root while read-only candidate inputs independently exclude repository metadata, dependency/build/bundle/source-map locations, retained results, and approved contract evidence, and native manifests remain pending without qualified raw evidence, validator identity, target authenticity, and commit binding.
 - Why: Candidate output must never promote itself or overwrite approved evidence, and structural completeness is not equivalent to Windows-native, NVDA, device, or qualified WebGPU qualification.
 - Impact: Fresh candidates can be compared or archived only through a later explicit promotion step, while templates and locally complete-looking synthetic artifacts remain pending rather than being presented as release PASS evidence.
+
+## 2026-08-03 — Separate authored grid templates from cell presentation overlays
+
+- **Background:** PATCH MAP v0.10 stores one `grid.item` template, while some
+  existing hosts retained independently addressable materialized cell state.
+  Applying a semantic component update to the template correctly fans out to
+  every cell but cannot represent different live bar values per cell.
+- **Decision:** Keep `updateBarHeights()` as the authored, exported, historical
+  template mutation and add `updateInstanceBarHeights()` as runtime-only
+  presentation state keyed by the stable concrete owner ID
+  `<grid-id>.<row>.<column>` plus template component ID. Resolve targets through
+  the load-time component index, patch stable projection records, and publish
+  aggregate Mesh dirty ranges through the existing central bar controller.
+- **Why:** Independent cell values are restored without expanding the dataset,
+  creating per-cell Pixi objects/listeners/tickers/closures, rebuilding a
+  generic mutation graph, or making rapid retargets accumulate animations.
+- **Impact:** Batches validate atomically; `null` restores authored state;
+  overlays survive semantic reconcile while identity remains and clear on
+  dataset load or destroy. Export, semantic hash, scene revision, and history
+  remain authored-only. Other concrete per-cell component properties are
+  explicitly unsupported until they receive an equally bounded package API.

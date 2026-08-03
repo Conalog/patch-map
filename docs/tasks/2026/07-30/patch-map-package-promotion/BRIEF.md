@@ -19,6 +19,10 @@
   package class and `/lab/patch-map/` is the single Korean manual Lab.
 - The Lab exposes all 173 manually operable routes, seeded scenes through
   10,000 records, and the user-supplied 605-root actual-production JSON.
+- Grid item-template bar state and concrete cell presentation state now have
+  separate public operations: `updateBarHeights()` changes authored semantic
+  state, while `updateInstanceBarHeights()` addresses stable
+  `<grid>.<row>.<column>` owners without rewriting the dataset or history.
 - The structural refactor keeps atomic mutation in the facade while assigning
   geometry, semantic indexing, Pixi adaptation, Mesh planning, public
   contracts, Lab presentation, and actual-only test harnesses explicit owners.
@@ -51,11 +55,20 @@
   10,000-bar 1x smoke passes at 104.3ms repeated-action p95 and 166.6ms rAF
   p95, with 21 long tasks still reported rather than hidden. Windows-native
   and qualified WebGPU results remain pending.
+- The concrete grid-instance checkpoint uses one aggregate Mesh path and one
+  central presentation controller while retargeting during pan. Its fresh 2+7
+  WebGL proxy records repeated-update p95 medians of 25.5ms for 5,000 cells and
+  58.9ms for 10,000 cells. The 10,000-cell rAF-gap p95 median is 99.1ms and
+  long-task-count median is 2; those unfavorable residual gaps remain visible
+  in `.perf-results/patch-map/instance-bar-latest.json`.
 
 # Next Step
 
-- Update the cleanup PR when explicitly requested. The external project-context
-  shape checker must learn that the retained
+- Update the cleanup PR when explicitly requested. Integrating services should
+  migrate materialized per-cell bar writes to the documented runtime overlay
+  API and retain non-bar per-cell live state until a separately approved
+  package contract exists. The external project-context shape checker must
+  learn that the retained
   `performance-core-v2/evidence` directory is evidence-only instead of asking
   this branch to restore explicitly removed legacy BRIEF/WORKLOG/DECISIONS.
   Increase the package version only after merge.

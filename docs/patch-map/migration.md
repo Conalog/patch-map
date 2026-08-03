@@ -37,7 +37,7 @@ assets, and cleanup to one `PatchMap` instance.
 | set PATCH MAP JSON | `loadDataset()` or `loadDatasetAsync()` | pass the existing v0.10 array directly; use the compatibility materializer only for the one documented legacy object |
 | drive visible frames | `createFrameLoop()` or explicit `publishFrame()` | never run both a host RAF/ticker and the package loop for one instance |
 | find logical objects | `queryScene()` or `resolveTarget()` | results are detached and revision-bound, not mutable live nodes |
-| update many objects | `updateBarHeights()`, `updateTexts()`, `bulkPatch()`, or `transact()` | inspect the returned status; strict failures do not partially apply |
+| update many objects | `updateBarHeights()`, `updateInstanceBarHeights()`, `updateTexts()`, `bulkPatch()`, or `transact()` | choose template/semantic updates or concrete-instance presentation updates deliberately; inspect the returned status |
 | selection | `applySelection()`, hit-test methods, and `bindSelectionHost()` | the binding publishes canvas-originated selection to the host; external state enters through `applySelection()` or `setExternalSelection()` |
 | move, resize, or rotate | transformer edit methods | use stable selection IDs; do not mutate geometry snapshots |
 | pan, zoom, reset, or fit | viewport methods | remove duplicate host coordinate transforms and viewport inertia |
@@ -214,6 +214,60 @@ if (result.status === 'rejected' || result.status === 'refused') {
 history, and publication authorities without constructing a generic
 per-target command graph. Repeated bar updates retarget the active animation;
 the host must not create one ticker or closure per bar.
+
+### Grid template values versus concrete cell values
+
+A v0.10 `grid` stores one reusable `item` template. Updating the template bar
+with `updateBarHeights()` intentionally changes every expanded cell that uses
+that component. An older host may instead have addressed materialized cell
+objects independently. Preserve that observable behavior with the runtime
+instance overlay API rather than cloning the grid template into thousands of
+dataset records:
+
+```ts
+const result = patchMap.updateInstanceBarHeights({
+  targets: [
+    { ownerId: 'rack-grid.12.3', componentId: 'usage' },
+    { ownerId: 'rack-grid.12.4', componentId: 'usage' },
+  ],
+  heights: new Float64Array([37, 81]),
+});
+
+if (result.status === 'rejected') {
+  // No target was applied. Keep the host's corresponding live values intact.
+  console.error(result.diagnostic, result.missingTargets);
+}
+```
+
+The concrete owner ID is the stable expanded grid identity
+`<grid-id>.<row>.<column>`; `componentId` remains the ID declared by the item
+template. The batch resolves those IDs through the load-time dense component
+index, updates aggregate projection slots, and uploads only the resulting
+dirty Mesh ranges. It does not create a DisplayObject, listener, ticker, or
+closure per cell. One central presentation controller retargets animations,
+including repeated updates before the previous animation settles.
+
+Numeric values are runtime presentation state. Passing `null` for one entry
+removes that cell's overlay and restores its current authored template height.
+The optional `animate: false` applies the destination immediately. The entire
+batch validates before publication: a missing target rejects atomically, and
+duplicate targets or invalid heights throw without a partial update.
+
+Instance overlays deliberately do not change `exportDataset()`, the semantic
+hash or scene revision, or undo/redo history. They survive later semantic
+updates while the same concrete owner/component identity exists and are
+discarded when that identity disappears, a new dataset is loaded, or the
+engine is destroyed. Persist per-cell live values in the host's state channel
+and replay them after loading if they must survive a remount. Use
+`updateBarHeights()` instead when the height is authored template state that
+must export and participate in history.
+
+Only bar height has this dedicated concrete-instance overlay in the current
+shipping API. Text, icon, color, visibility, or structural per-cell state must
+not be disguised as a bar update: keep it in the host until an explicit
+package API exists, or materialize canonical item records when that is the
+approved dataset model. This boundary prevents an unbounded per-entity runtime
+from entering the aggregate renderer unnoticed.
 
 Undo and redo operate on engine history. Use `historyInspection()` for UI
 state, `undo()` and `redo()` for explicit commands, and
