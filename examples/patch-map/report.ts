@@ -28,7 +28,7 @@ export async function runReportExample(host: HTMLElement): Promise<Readonly<{
 }>> {
   const patchMap = await PatchMap.mount({
     instanceId: 'patch-map-example-report',
-    target: host,
+    container: host,
     width: 420,
     height: 240,
     background: '#f8fafc',

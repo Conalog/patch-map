@@ -40,7 +40,7 @@ export async function runDashboardExample(host: HTMLElement): Promise<Readonly<{
 }>> {
   const patchMap = await PatchMap.mount({
     instanceId: 'patch-map-example-dashboard',
-    target: host,
+    container: host,
     width: 320,
     height: 200,
     background: '#f8fafc',

@@ -22,7 +22,7 @@ export async function runEditorExample(host: HTMLElement): Promise<Readonly<{
 }>> {
   const patchMap = await PatchMap.mount({
     instanceId: 'patch-map-example-editor',
-    target: host,
+    container: host,
     width: 360,
     height: 220,
     data: EDITOR_DATASET,
@@ -32,7 +32,7 @@ export async function runEditorExample(host: HTMLElement): Promise<Readonly<{
     publications.push([...ids]);
   });
   const selection = patchMap.selection.set('editor-card');
-  const transform = patchMap.transform.move(
+  const transform = patchMap.transform.moveBy(
     { id: 'editor-card' },
     [12, 8],
     { actionId: 'editor-move', recordHistory: true },

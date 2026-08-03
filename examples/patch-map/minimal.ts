@@ -19,7 +19,7 @@ export async function runMinimalExample(host: HTMLElement): Promise<Readonly<{
 }>> {
   const patchMap = await PatchMap.mount({
     instanceId: 'patch-map-example-minimal',
-    target: host,
+    container: host,
     width: 320,
     height: 180,
     data: MINIMAL_DATASET,

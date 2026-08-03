@@ -3,7 +3,7 @@ import {
   type PatchMapEngineSurfaceFactory,
   type PatchMapInitializeOptions,
   type PatchMapInitializeResult,
-  type PatchMapOptions,
+  type PatchMapEngineOptions,
 } from '../../../src/patch-map/engine';
 
 import { isPatchMapLabRecord as isRecord } from './runtime-values';
@@ -14,7 +14,7 @@ export class TargetedWebGLPatchMapEngine extends PatchMap {
   public constructor(
     surfaceHost: HTMLElement | undefined,
     surfaceFactory: PatchMapEngineSurfaceFactory | undefined,
-    engineOptions: Readonly<PatchMapOptions> = {},
+    engineOptions: Readonly<PatchMapEngineOptions> = {},
   ) {
     super({
       ...engineOptions,

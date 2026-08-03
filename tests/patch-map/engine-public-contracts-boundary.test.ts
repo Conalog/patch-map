@@ -8,7 +8,7 @@ import type {
   PatchMapEngineSnapshot as RootSnapshot,
   PatchMapEngineTransactionResult as RootTransactionResult,
   PatchMapEngineTransformerCompletionResult as RootTransformerCompletionResult,
-  PatchMapOptions as RootOptions,
+  PatchMapEngineOptions as RootOptions,
   PatchMapViewportState as RootViewportState,
 } from '../../src/patch-map';
 import type {
@@ -19,7 +19,7 @@ import type {
   PatchMapEngineSnapshot as OwnedSnapshot,
   PatchMapEngineTransactionResult as OwnedTransactionResult,
   PatchMapEngineTransformerCompletionResult as OwnedTransformerCompletionResult,
-  PatchMapOptions as OwnedOptions,
+  PatchMapEngineOptions as OwnedOptions,
   PatchMapViewportState as OwnedViewportState,
 } from '../../src/patch-map/engine/public-contracts';
 import type {
@@ -31,7 +31,7 @@ import type {
 } from '../../src/patch-map/engine/contracts/mutation';
 import type {
   PatchMapEngineSnapshot as DownwardSnapshot,
-  PatchMapOptions as DownwardOptions,
+  PatchMapEngineOptions as DownwardOptions,
 } from '../../src/patch-map/engine/contracts/product';
 import type {
   PatchMapEngineQueryResult as DownwardQueryResult,

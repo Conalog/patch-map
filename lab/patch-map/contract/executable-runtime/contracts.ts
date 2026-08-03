@@ -1,4 +1,4 @@
-import type { PatchMapOptions } from '../../../../src/patch-map';
+import type { PatchMapEngineOptions } from '../../../../src/patch-map';
 import type {
   PatchMapExecutableCasePlan,
 } from '../executable-cases';
@@ -80,7 +80,7 @@ export interface PatchMapFoldedExecution {
 
 export interface PatchMapExecutableRun {
   readonly handlerEntries: readonly PatchMapExecutableHandlerEntry[];
-  readonly engineOptions: Readonly<PatchMapOptions>;
+  readonly engineOptions: Readonly<PatchMapEngineOptions>;
   readonly actionTimeoutMs?: number;
   readonly postDestroyProductProbe?: () =>
     | Readonly<Record<string, unknown>>

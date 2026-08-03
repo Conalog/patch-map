@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createPatchMapDeveloperApi } from '../../src/patch-map/developer-api';
+import { createPatchMapApi } from '../../src/patch-map/developer-api';
 import { PatchMap } from '../../src/patch-map/engine';
 import * as PublicPackage from '../../src/index';
 import { PatchMap as PublicPatchMap } from '../../src/index';
@@ -257,7 +257,7 @@ function createHost() {
     }),
   };
   return {
-    host: host as unknown as Parameters<typeof createPatchMapDeveloperApi>[0],
+    host: host as unknown as Parameters<typeof createPatchMapApi>[0],
     fitViewport,
     resize,
     applySelection,
@@ -280,7 +280,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('queries a reusable semantic target set with stable id/componentId addresses', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
     const usage = map.targets.query({
       within: 'rack-grid',
       componentId: 'usage',
@@ -314,7 +314,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('keeps the low-level ownerId translation behind the ergonomic bar API', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
 
     expect(map.update({
       id: 'rack',
@@ -333,7 +333,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('requires componentId only when the component type is ambiguous', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
 
     expect(() => map.update({
       id: 'ambiguous',
@@ -353,7 +353,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('rejects stale target sets instead of updating a new scene by accident', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
     const targets = map.targets.query({ type: 'bar', scope: 'instances' });
     harness.setReusable(false);
 
@@ -364,7 +364,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('merges heterogeneous owner changes through one low-level atomic transaction', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
 
     expect(map.update({
       id: 'rack',
@@ -413,7 +413,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('keeps columnar batches distinct from heterogeneous structural transactions', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
 
     expect(map.updateBatch({
       targets: ['rack'],
@@ -452,7 +452,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('rejects malformed batch columns before committing any mutation', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
 
     expect(() => map.updateBatch({
       targets: ['rack'],
@@ -464,7 +464,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('keeps non-hot-path bar fields behind component changes', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
 
     expect(() => map.update({
       id: 'rack',
@@ -480,7 +480,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('keeps identity-bearing collections behind explicit structural transactions', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
 
     expect(() => map.update({
       id: 'rack',
@@ -493,7 +493,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('reports mutation field typos instead of silently ignoring them', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
 
     expect(() => map.update({
       id: 'rack',
@@ -513,7 +513,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('rejects accessor-backed mutation envelopes without evaluating getters', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
     let reads = 0;
     const input = { id: 'rack' } as Record<string, unknown>;
     Object.defineProperty(input, 'bar', {
@@ -531,7 +531,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('rejects accessor-backed columns without evaluating them or committing', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
     let reads = 0;
     const heights = { length: 1 };
     Object.defineProperty(heights, '0', {
@@ -553,7 +553,7 @@ describe('PatchMap high-level developer API', () => {
 
   it('lowers a heterogeneous columnar row into one strict commit', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
 
     expect(map.updateBatch({
       targets: ['rack'],
@@ -665,9 +665,11 @@ describe('PatchMap high-level developer API', () => {
 
   it('loads and fits through one high-level call', () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
 
-    expect(map.data.load([], { datasetRef: 'dashboard' })).toEqual({
+    expect('load' in map.data).toBe(false);
+    expect('export' in map.data).toBe(false);
+    expect(map.data.replace([], { datasetRef: 'dashboard' })).toEqual({
       rootIds: ['rack-grid'],
       semanticHash: 'hash',
       sceneRevision: 2,
@@ -677,9 +679,12 @@ describe('PatchMap high-level developer API', () => {
 
   it('maps common editor and capture work without exposing low-level request envelopes', async () => {
     const harness = createHost();
-    const map = createPatchMapDeveloperApi(harness.host);
+    const map = createPatchMapApi(harness.host);
 
-    expect(map.transform.move({ id: 'rack-grid.12.3' }, [8, 4], {
+    expect('move' in map.transform).toBe(false);
+    expect('pan' in map.viewport).toBe(false);
+    expect('inspect' in map.assets).toBe(false);
+    expect(map.transform.moveBy({ id: 'rack-grid.12.3' }, [8, 4], {
       actionId: 'drag-rack',
     })).toMatchObject({ status: 'committed' });
     expect(harness.lastTransformRequest()).toEqual({
@@ -702,15 +707,24 @@ describe('PatchMap high-level developer API', () => {
     });
   });
 
-  it('ships one PatchMap name without exposing the low-level implementation alias', () => {
+  it('ships one intentional package surface without low-level implementation exports', () => {
     expect(PublicPatchMap).toBe(PatchMap);
     expect(typeof PublicPatchMap.mount).toBe('function');
-    expect('PatchMapAdvanced' in PublicPackage).toBe(false);
+    for (const internalName of [
+      'PatchMapAdvanced',
+      'PatchMapFrameLoop',
+      'PatchMapPixiRenderer',
+      'PatchMapMigrationAuthority',
+      'parsePatchMapV010',
+      'planPatchMapMutationTransaction',
+    ]) {
+      expect(internalName in PublicPackage).toBe(false);
+    }
   });
 
   it('explains a missing mount target before allocating renderer resources', async () => {
-    await expect(PatchMap.mount({ target: '#missing-patch-map-host' })).rejects.toThrow(
-      'Create the host element before mounting',
+    await expect(PatchMap.mount({ container: '#missing-patch-map-host' })).rejects.toThrow(
+      'Create the container element before mounting',
     );
   });
 });

@@ -3,15 +3,15 @@ import {
   materializePatchMapCompatibilityDataset,
   preparePatchMapPersistenceExport,
   type PatchMap as PatchMapInstance,
-  type PatchMapDataLoadOptions,
-  type PatchMapDataLoadResult,
-  type PatchMapEngineHistoryResult,
-  type PatchMapEngineSnapshot,
-  type PatchMapEngineTransformerEditResult,
+  type PatchMapDataReplaceOptions,
+  type PatchMapDataReplaceResult,
+  type PatchMapHistoryResult,
+  type PatchMapDebugSnapshot,
+  type PatchMapTransformResult,
   type PatchMapHistoryState,
-  type PatchMapMountOptions,
+  type PatchMapOptions,
   type PatchMapPersistenceExport,
-  type PatchMapTargets,
+  type PatchMapTargetsInput,
   type PatchMapTransformOptions,
   type PatchMapTransactionOperation,
   type PatchMapUpdateResult,
@@ -33,7 +33,7 @@ export const PATCH_MAP_HOST_ADAPTER_CAPABILITIES = Object.freeze([
 ] as const);
 
 export type PatchMapHostHistoryCommand = 'inspect' | 'undo' | 'redo';
-export type PatchMapHostAdapterMountOptions = PatchMapMountOptions;
+export type PatchMapHostAdapterMountOptions = PatchMapOptions;
 
 export interface PatchMapHostAdapterDisposer {
   readonly disposed: boolean;
@@ -61,14 +61,14 @@ export class PatchMapHostAdapter {
 
   public load(
     input: unknown,
-    options: PatchMapDataLoadOptions = {},
-  ): PatchMapDataLoadResult {
+    options: PatchMapDataReplaceOptions = {},
+  ): PatchMapDataReplaceResult {
     const compatible = materializePatchMapCompatibilityDataset(input);
-    return this.#map.data.load(compatible.canonicalDataset, options);
+    return this.#map.data.replace(compatible.canonicalDataset, options);
   }
 
   public prepareSave(strictReferences = true): PatchMapPersistenceExport {
-    return preparePatchMapPersistenceExport(this.#map.data.export(), {
+    return preparePatchMapPersistenceExport(this.#map.data.snapshot(), {
       strictReferences,
     });
   }
@@ -88,18 +88,18 @@ export class PatchMapHostAdapter {
   }
 
   public transform(
-    targets: PatchMapTargets,
-    by: readonly [number, number],
+    targets: PatchMapTargetsInput,
+    delta: readonly [number, number],
     options: PatchMapTransformOptions = {},
-  ): PatchMapEngineTransformerEditResult {
-    return this.#map.transform.move(targets, by, options);
+  ): PatchMapTransformResult {
+    return this.#map.transform.moveBy(targets, delta, options);
   }
 
   public history(command: 'inspect'): PatchMapHistoryState;
-  public history(command: 'undo' | 'redo'): PatchMapEngineHistoryResult;
+  public history(command: 'undo' | 'redo'): PatchMapHistoryResult;
   public history(
     command: PatchMapHostHistoryCommand,
-  ): PatchMapHistoryState | PatchMapEngineHistoryResult {
+  ): PatchMapHistoryState | PatchMapHistoryResult {
     if (command === 'inspect') return this.#map.history.state;
     return command === 'undo' ? this.#map.history.undo() : this.#map.history.redo();
   }
@@ -131,12 +131,12 @@ export class PatchMapHostAdapter {
     return releases.length;
   }
 
-  public snapshot(): PatchMapEngineSnapshot {
+  public snapshot(): PatchMapDebugSnapshot {
     return this.#map.debug.snapshot();
   }
 
-  public assetProbe(alias?: string): unknown {
-    return this.#map.assets.inspect(alias);
+  public assetStatus(alias?: string) {
+    return this.#map.assets.status(alias);
   }
 
   public extract() {

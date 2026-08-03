@@ -1,14 +1,14 @@
 import type { PatchMapLogicalTargetSnapshot } from '../query-selection';
 import type { PatchMapMutationOperation } from '../semantic/transaction';
 import type {
-  PatchMapDeveloperApi,
+  PatchMapApi,
   PatchMapTransactionOperation,
   PatchMapTransactionOptions,
   PatchMapUpdate,
   PatchMapUpdateBatch,
   PatchMapUpdateOptions,
   PatchMapUpdateResult,
-  PatchMapUpdateTargets,
+  PatchMapUpdateTargetsInput,
 } from './contracts';
 import {
   batchRow,
@@ -38,7 +38,7 @@ import {
 export type { PatchMapMutationDeveloperHost } from './mutation-commit';
 
 export interface PatchMapMutationDeveloperDependencies {
-  resolveTargets(targets: PatchMapUpdateTargets): Readonly<{
+  resolveTargets(targets: PatchMapUpdateTargetsInput): Readonly<{
     readonly selected: readonly PatchMapLogicalTargetSnapshot[];
     readonly sceneTargets: readonly PatchMapLogicalTargetSnapshot[];
   }>;
@@ -48,7 +48,7 @@ export interface PatchMapMutationDeveloperDependencies {
 export function createPatchMapMutationApi(
   host: PatchMapMutationDeveloperHost,
   dependencies: PatchMapMutationDeveloperDependencies,
-): Pick<PatchMapDeveloperApi, 'update' | 'updateBatch' | 'transaction'> {
+): Pick<PatchMapApi, 'update' | 'updateBatch' | 'transaction'> {
   const update = (
     input: PatchMapUpdate,
     options: PatchMapUpdateOptions = {},

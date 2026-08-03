@@ -18,7 +18,7 @@ import type {
 } from './lifecycle';
 import type { PatchMapViewportState } from './viewport';
 
-export interface PatchMapOptions {
+export interface PatchMapEngineOptions {
   readonly surfaceFactory?: PatchMapEngineSurfaceFactory;
   readonly assetRuntime?: PatchMapAssetRuntime;
   readonly assetPolicy?: PatchMapAssetPolicy;

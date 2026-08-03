@@ -7,10 +7,10 @@ import {
   type PatchMapFrameLoop,
   type PatchMapFrameLoopOptions,
 } from './scheduler';
-import { createPatchMapDeveloperApi } from './developer-api';
+import { createPatchMapApi } from './developer-api';
 import type {
-  PatchMapDeveloperApi,
-  PatchMapMountOptions,
+  PatchMapApi,
+  PatchMapOptions,
 } from './developer-api/contracts';
 import type {
   PatchMapPresentationPolicyInput,
@@ -328,7 +328,7 @@ import type {
   PatchMapLiveOverlayResult,
   PatchMapLiveOverlayTuple,
   PatchMapLoadOptions,
-  PatchMapOptions,
+  PatchMapEngineOptions,
   PatchMapPublishedTuple,
   PatchMapResolvedTargetSnapshot,
   PatchMapRevisionStamp,
@@ -516,13 +516,13 @@ const PATCH_MAP_QUERY_REUSE_OPERATIONS = Object.freeze([
 ] as const satisfies readonly PatchMapQueryReuseOperation[]);
 let patchMapMountSequence = 0;
 
-function resolvePatchMapMountTarget(target: string | HTMLElement): HTMLElement {
-  if (typeof target !== 'string') return target;
-  const element = globalThis.document?.querySelector<HTMLElement>(target) ?? null;
+function resolvePatchMapMountContainer(container: string | HTMLElement): HTMLElement {
+  if (typeof container !== 'string') return container;
+  const element = globalThis.document?.querySelector<HTMLElement>(container) ?? null;
   if (element === null) {
     throw new TypeError(
-      `PatchMap.mount could not find target "${target}". ` +
-      'Create the host element before mounting or pass the HTMLElement directly.',
+      `PatchMap.mount could not find container "${container}". ` +
+      'Create the container element before mounting or pass the HTMLElement directly.',
     );
   }
   return element;
@@ -550,18 +550,18 @@ interface PreparedPatchMapEngineLoad {
 }
 
 export class PatchMap {
-  public readonly update: PatchMapDeveloperApi['update'];
-  public readonly updateBatch: PatchMapDeveloperApi['updateBatch'];
-  public readonly transaction: PatchMapDeveloperApi['transaction'];
-  public readonly data: PatchMapDeveloperApi['data'];
-  public readonly targets: PatchMapDeveloperApi['targets'];
-  public readonly selection: PatchMapDeveloperApi['selection'];
-  public readonly transform: PatchMapDeveloperApi['transform'];
-  public readonly viewport: PatchMapDeveloperApi['viewport'];
-  public readonly history: PatchMapDeveloperApi['history'];
-  public readonly assets: PatchMapDeveloperApi['assets'];
-  public readonly debug: PatchMapDeveloperApi['debug'];
-  public readonly capture: PatchMapDeveloperApi['capture'];
+  public readonly update: PatchMapApi['update'];
+  public readonly updateBatch: PatchMapApi['updateBatch'];
+  public readonly transaction: PatchMapApi['transaction'];
+  public readonly data: PatchMapApi['data'];
+  public readonly targets: PatchMapApi['targets'];
+  public readonly selection: PatchMapApi['selection'];
+  public readonly transform: PatchMapApi['transform'];
+  public readonly viewport: PatchMapApi['viewport'];
+  public readonly history: PatchMapApi['history'];
+  public readonly assets: PatchMapApi['assets'];
+  public readonly debug: PatchMapApi['debug'];
+  public readonly capture: PatchMapApi['capture'];
   private readonly assetSessions: PatchMapAssetSessionAuthority;
   private readonly operations: PatchMapOperationsAuthority;
   private readonly extractionSecurity: PatchMapExtractionSecurityAuthority;
@@ -677,8 +677,8 @@ export class PatchMap {
    * object is the same Engine used by the Lab, with one owned frame loop and
    * one owned resize subscription that are both released by destroy().
    */
-  public static async mount(options: PatchMapMountOptions): Promise<PatchMap> {
-    const target = resolvePatchMapMountTarget(options.target);
+  public static async mount(options: PatchMapOptions): Promise<PatchMap> {
+    const target = resolvePatchMapMountContainer(options.container);
     const [width, height] = resolvePatchMapMountSize(target, options.width, options.height);
     const instanceId = options.instanceId
       ?? (target.id.length > 0 ? target.id : `patch-map-${++patchMapMountSequence}`);
@@ -697,7 +697,7 @@ export class PatchMap {
         ...(options.antialias === undefined ? {} : { antialias: options.antialias }),
         ...(options.background === undefined ? {} : { background: options.background }),
         ...(options.zoomLimits === undefined ? {} : { zoomLimits: options.zoomLimits }),
-        strategy: options.strategy ?? 'mesh',
+        strategy: 'mesh',
         preference: options.backend === 'webgpu' ? 'webgpu' : 'webgl',
         backend: options.backend === 'webgpu' ? 'webgpu' : 'webgl2',
         ...(options.devtools === undefined ? {} : { devtools: options.devtools }),
@@ -708,12 +708,12 @@ export class PatchMap {
       });
       const frameLoop = engine.createFrameLoop();
       if (options.data !== undefined) {
-        engine.data.load(options.data, {
+        engine.data.replace(options.data, {
           fit: options.fit === undefined ? { padding: 24 } : options.fit,
         });
       }
       frameLoop.publishNow();
-      if (options.resize !== 'manual') {
+      if (options.resizeMode !== 'manual') {
         engine.mountResizeCleanup = engine.observeMountSize(target, options.pixelRatio);
       }
       return engine;
@@ -723,7 +723,7 @@ export class PatchMap {
     }
   }
 
-  public constructor(options: PatchMapOptions = {}) {
+  public constructor(options: PatchMapEngineOptions = {}) {
     this.surfaceLifecycle = new PatchMapSurfaceLifecycleAuthority(
       options.surfaceFactory ?? createPixiSurface,
     );
@@ -887,19 +887,19 @@ export class PatchMap {
         id: componentId,
       }),
     } satisfies PatchMapEngineProductProbeReadPort);
-    const developerApi = createPatchMapDeveloperApi(this);
-    this.update = developerApi.update;
-    this.updateBatch = developerApi.updateBatch;
-    this.transaction = developerApi.transaction;
-    this.data = developerApi.data;
-    this.targets = developerApi.targets;
-    this.selection = developerApi.selection;
-    this.transform = developerApi.transform;
-    this.viewport = developerApi.viewport;
-    this.history = developerApi.history;
-    this.assets = developerApi.assets;
-    this.debug = developerApi.debug;
-    this.capture = developerApi.capture;
+    const api = createPatchMapApi(this);
+    this.update = api.update;
+    this.updateBatch = api.updateBatch;
+    this.transaction = api.transaction;
+    this.data = api.data;
+    this.targets = api.targets;
+    this.selection = api.selection;
+    this.transform = api.transform;
+    this.viewport = api.viewport;
+    this.history = api.history;
+    this.assets = api.assets;
+    this.debug = api.debug;
+    this.capture = api.capture;
   }
 
   private observeMountSize(

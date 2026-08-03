@@ -8,7 +8,7 @@ import {
   type PatchMapFrameLoop,
   type PatchMapEngineHistoryResult,
   type PatchMapTargetSet,
-  type PatchMapUpdateTargets,
+  type PatchMapUpdateTargetsInput,
 } from '../../../src/patch-map/index';
 import {
   patchMapKoreanStatus,
@@ -817,7 +817,7 @@ export function mountPatchMapManualWorkbench(
   function animateBars(scope: 'all' | 'partial' | 'selected'): unknown {
     const next = requireEngine();
     animationSequence += 1;
-    let targets: PatchMapUpdateTargets;
+    let targets: PatchMapUpdateTargetsInput;
     let targetCount: number;
     let directTargets = scene.instanceBarTargets;
     if (scope === 'partial') {

@@ -1,7 +1,10 @@
 import type {
   PatchMapAssetPolicy,
   PatchMapAssetRegistration,
+  PatchMapAssetRegistrationResult,
   PatchMapAssetRuntime,
+  PatchMapAssetRuntimeProbe,
+  PatchMapAssetSessionProbe,
 } from '../assets';
 import type { PatchMapEngineDiagnostic } from '../engine/public-contracts';
 import type {
@@ -11,7 +14,6 @@ import type {
   PatchMapEngineSnapshot,
   PatchMapViewportChangeResult,
   PatchMapViewportFitResult,
-  PatchMapViewportFocusResult,
   PatchMapViewportRestoreResult,
   PatchMapViewportState,
 } from '../engine/public-contracts';
@@ -36,7 +38,7 @@ export type PatchMapTargetScope = 'all' | 'authored' | 'instances';
  * resolved against PatchMap's stable logical index once, then reused by batch
  * APIs without reparsing the input dataset.
  */
-export interface PatchMapTargetSelector {
+export interface PatchMapTargetQuery {
   /** Element/instance ID. When componentId is present this is its owner ID. */
   readonly id?: string;
   /** Stable component ID such as `usage` or `label`. */
@@ -63,23 +65,23 @@ export interface PatchMapTargetSet {
 
 export type PatchMapOneOrMany<T> = T | readonly T[];
 
-export type PatchMapTargets =
+export type PatchMapTargetsInput =
   | PatchMapTarget
   | readonly PatchMapTarget[]
   | PatchMapTargetSet;
 
-export type PatchMapSelectionTargets =
+export type PatchMapSelectionInput =
   | string
   | readonly string[]
-  | PatchMapTargets;
+  | PatchMapTargetsInput;
 
-export interface PatchMapDataLoadOptions {
+export interface PatchMapDataReplaceOptions {
   readonly datasetRef?: string;
   readonly strict?: boolean;
   readonly fit?: boolean | PatchMapFitOptions;
 }
 
-export interface PatchMapDataLoadResult {
+export interface PatchMapDataReplaceResult {
   readonly rootIds: readonly string[];
   readonly semanticHash: string;
   readonly sceneRevision: number;
@@ -125,10 +127,10 @@ export interface PatchMapUpdate {
   readonly text?: PatchMapTextUpdate;
 }
 
-export type PatchMapUpdateTargets =
+export type PatchMapUpdateTargetsInput =
   | string
   | readonly string[]
-  | PatchMapTargets;
+  | PatchMapTargetsInput;
 
 export type PatchMapUpdateColumn<T> = ArrayLike<T>;
 
@@ -149,7 +151,7 @@ export interface PatchMapTextUpdateColumns extends PatchMapComponentUpdateColumn
 
 /** Columnar, equal-length input for large homogeneous updates. */
 export interface PatchMapUpdateBatch {
-  readonly targets: PatchMapUpdateTargets;
+  readonly targets: PatchMapUpdateTargetsInput;
   readonly changes?: Readonly<Record<string, PatchMapUpdateColumn<PatchMapMutationJsonValue>>>;
   readonly background?: PatchMapComponentUpdateColumns;
   readonly bar?: PatchMapBarUpdateColumns;
@@ -207,16 +209,19 @@ export interface PatchMapUpdateResult {
   readonly changed: boolean;
   readonly appliedCount: number;
   readonly missing: readonly PatchMapTarget[];
-  readonly diagnostic: PatchMapEngineDiagnostic | null;
+  readonly diagnostic: PatchMapDiagnostic | null;
 }
+
+/** Structured public failure details without exposing Engine terminology. */
+export type PatchMapDiagnostic = PatchMapEngineDiagnostic;
 
 export interface PatchMapFitOptions {
   readonly padding?: number | readonly [number, number];
-  readonly targets?: PatchMapTargets;
+  readonly targets?: PatchMapTargetsInput;
 }
 
-export interface PatchMapMountOptions {
-  readonly target: string | HTMLElement;
+export interface PatchMapOptions {
+  readonly container: string | HTMLElement;
   readonly data?: unknown;
   readonly instanceId?: string;
   readonly width?: number;
@@ -225,7 +230,6 @@ export interface PatchMapMountOptions {
   readonly antialias?: boolean;
   readonly background?: number | string;
   readonly zoomLimits?: readonly [number, number];
-  readonly strategy?: 'mesh' | 'particle';
   readonly backend?: 'webgl' | 'webgpu';
   readonly devtools?: boolean;
   readonly powerPreference?: 'high-performance' | 'low-power';
@@ -235,29 +239,32 @@ export interface PatchMapMountOptions {
   readonly assetPolicy?: PatchMapAssetPolicy;
   readonly historyLimit?: number;
   /** Observe the host's CSS size and coalesce it through ResizeObserver. */
-  readonly resize?: 'observe' | 'manual';
+  readonly resizeMode?: 'observe' | 'manual';
   /** Auto-fit after the initial data load. Defaults to 24 CSS pixels. */
   readonly fit?: boolean | PatchMapFitOptions;
 }
 
 export interface PatchMapDataApi {
-  load(input: unknown, options?: PatchMapDataLoadOptions): PatchMapDataLoadResult;
-  loadAsync(input: unknown, options?: PatchMapDataLoadOptions): Promise<PatchMapDataLoadResult>;
-  export(): readonly unknown[];
+  replace(input: unknown, options?: PatchMapDataReplaceOptions): PatchMapDataReplaceResult;
+  replaceAsync(
+    input: unknown,
+    options?: PatchMapDataReplaceOptions,
+  ): Promise<PatchMapDataReplaceResult>;
+  snapshot(): readonly unknown[];
   serialize(strictReferences?: boolean): string;
 }
 
 export interface PatchMapTargetsApi {
   get(target: PatchMapTarget): PatchMapTargetMatch | null;
-  query(selector: PatchMapTargetSelector): PatchMapTargetSet;
+  query(query: PatchMapTargetQuery): PatchMapTargetSet;
 }
 
 export interface PatchMapSelectionApi {
   readonly ids: readonly string[];
-  set(targets: PatchMapSelectionTargets): readonly string[];
-  add(targets: PatchMapSelectionTargets): readonly string[];
-  remove(targets: PatchMapSelectionTargets): readonly string[];
-  toggle(targets: PatchMapSelectionTargets): readonly string[];
+  set(targets: PatchMapSelectionInput): readonly string[];
+  add(targets: PatchMapSelectionInput): readonly string[];
+  remove(targets: PatchMapSelectionInput): readonly string[];
+  toggle(targets: PatchMapSelectionInput): readonly string[];
   clear(): readonly string[];
   onChange(listener: (ids: readonly string[]) => void): () => void;
 }
@@ -267,56 +274,69 @@ export interface PatchMapTransformOptions {
   readonly recordHistory?: boolean;
 }
 
-export interface PatchMapResizeOptions {
+export interface PatchMapResizeByOptions {
   readonly handle: PatchMapResizeHandle;
-  readonly by: readonly [number, number];
+  readonly delta: readonly [number, number];
   readonly lockAspectRatio?: boolean;
   readonly minSize?: number;
 }
 
 export interface PatchMapTransformApi {
-  move(
-    targets: PatchMapTargets,
-    by: readonly [number, number],
+  moveBy(
+    targets: PatchMapTargetsInput,
+    delta: readonly [number, number],
     options?: PatchMapTransformOptions,
-  ): PatchMapEngineTransformerEditResult;
-  resize(
-    targets: PatchMapTargets,
-    resize: PatchMapResizeOptions,
+  ): PatchMapTransformResult;
+  resizeBy(
+    targets: PatchMapTargetsInput,
+    resize: PatchMapResizeByOptions,
     options?: PatchMapTransformOptions,
-  ): PatchMapEngineTransformerEditResult;
-  rotate(
-    targets: PatchMapTargets,
+  ): PatchMapTransformResult;
+  rotateBy(
+    targets: PatchMapTargetsInput,
     degrees: number,
     options?: PatchMapTransformOptions,
-  ): PatchMapEngineTransformerEditResult;
+  ): PatchMapTransformResult;
 }
+
+export type PatchMapTransformResult = PatchMapEngineTransformerEditResult;
 
 export interface PatchMapViewportApi {
   fit(options?: PatchMapFitOptions): PatchMapViewportFitResult;
-  focus(targets?: PatchMapTargets): PatchMapViewportFocusResult;
   reset(options?: PatchMapFitOptions): PatchMapViewportRestoreResult;
-  pan(x: number, y: number): PatchMapViewportChangeResult;
-  zoom(factor: number, anchor?: readonly [number, number]): PatchMapViewportChangeResult;
+  panBy(delta: readonly [number, number]): PatchMapViewportChangeResult;
+  zoomBy(factor: number, anchor?: readonly [number, number]): PatchMapViewportChangeResult;
   resize(width: number, height: number, pixelRatio?: number): boolean;
   readonly state: PatchMapViewportState;
 }
 
 export interface PatchMapHistoryApi {
   readonly state: PatchMapHistoryState;
-  undo(): PatchMapEngineHistoryResult;
-  redo(): PatchMapEngineHistoryResult;
-  clear(): PatchMapEngineHistoryClearResult;
+  undo(): PatchMapHistoryResult;
+  redo(): PatchMapHistoryResult;
+  clear(): PatchMapHistoryClearResult;
 }
 
+export type PatchMapHistoryResult = PatchMapEngineHistoryResult;
+export type PatchMapHistoryClearResult = PatchMapEngineHistoryClearResult;
+
 export interface PatchMapAssetsApi {
-  register(registrations: PatchMapOneOrMany<PatchMapAssetRegistration>): unknown;
-  inspect(alias?: string): unknown;
+  register(
+    registrations: PatchMapOneOrMany<PatchMapAssetRegistration>,
+  ): PatchMapAssetRegistrationResult;
+  status(alias?: string): PatchMapAssetStatus;
+}
+
+export interface PatchMapAssetStatus {
+  readonly session: PatchMapAssetSessionProbe | null;
+  readonly runtime: PatchMapAssetRuntimeProbe;
 }
 
 export interface PatchMapDebugApi {
-  snapshot(): PatchMapEngineSnapshot;
+  snapshot(): PatchMapDebugSnapshot;
 }
+
+export type PatchMapDebugSnapshot = PatchMapEngineSnapshot;
 
 export interface PatchMapCaptureResult {
   readonly dataUrl: string;
@@ -328,7 +348,7 @@ export interface PatchMapCaptureApi {
   png(): Promise<PatchMapCaptureResult>;
 }
 
-export interface PatchMapDeveloperApi {
+export interface PatchMapApi {
   update(input: PatchMapUpdate, options?: PatchMapUpdateOptions): PatchMapUpdateResult;
   updateBatch(input: PatchMapUpdateBatch, options?: PatchMapUpdateOptions): PatchMapUpdateResult;
   transaction(
@@ -347,12 +367,12 @@ export interface PatchMapDeveloperApi {
 }
 
 /** The default package surface shown to application developers. */
-export interface PatchMapPublic extends PatchMapDeveloperApi {
+export interface PatchMapInstance extends PatchMapApi {
   readonly destroyed: boolean;
   destroy(): Promise<boolean>;
 }
 
 /** Async-only construction keeps partially initialized instances out of app code. */
-export interface PatchMapConstructor {
-  mount(options: PatchMapMountOptions): Promise<PatchMapPublic>;
+export interface PatchMapStatic {
+  mount(options: PatchMapOptions): Promise<PatchMapInstance>;
 }

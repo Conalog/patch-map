@@ -1,4 +1,9 @@
-import type { PatchMapAssetRegistration } from './assets';
+import type {
+  PatchMapAssetRegistration,
+  PatchMapAssetRegistrationResult,
+  PatchMapAssetRuntimeProbe,
+  PatchMapAssetSessionProbe,
+} from './assets';
 import type { PatchMapInstanceBarHeightBatchRequest } from './core/contracts';
 import type { PatchMapHistoryState } from './history';
 import type {
@@ -11,7 +16,6 @@ import type {
   PatchMapViewportChangeResult,
   PatchMapViewportFitOptions,
   PatchMapViewportFitResult,
-  PatchMapViewportFocusResult,
   PatchMapViewportRestoreResult,
   PatchMapViewportState,
 } from './engine/public-contracts';
@@ -36,26 +40,26 @@ import type {
 } from './semantic/transaction';
 import type {
   PatchMapTargetSet,
-  PatchMapDataLoadResult,
-  PatchMapDeveloperApi,
+  PatchMapDataReplaceResult,
+  PatchMapApi,
   PatchMapFitOptions,
   PatchMapOneOrMany,
-  PatchMapSelectionTargets,
-  PatchMapDataLoadOptions,
+  PatchMapSelectionInput,
+  PatchMapDataReplaceOptions,
   PatchMapTarget,
   PatchMapTargetMatch,
   PatchMapTargetScope,
-  PatchMapTargets,
-  PatchMapTargetSelector,
+  PatchMapTargetsInput,
+  PatchMapTargetQuery,
   PatchMapTransformOptions,
-  PatchMapUpdateTargets,
+  PatchMapUpdateTargetsInput,
 } from './developer-api/contracts';
 import { createPatchMapMutationApi } from './developer-api/mutations';
 import type { PatchMapTransformerEditRequest } from './transformer-edit';
 
 export type * from './developer-api/contracts';
 
-interface PatchMapDeveloperHost {
+interface PatchMapApiHost {
   readonly selectionIds: readonly string[];
   loadDataset(input: unknown, options?: PatchMapEngineLoadOptions): PatchMapEngineLoadResult;
   loadDatasetAsync(
@@ -83,9 +87,6 @@ interface PatchMapDeveloperHost {
     options?: PatchMapEngineTransformerEditOptions,
   ): PatchMapEngineTransformerEditResult;
   fitViewport(options?: PatchMapViewportFitOptions): PatchMapViewportFitResult;
-  focusViewport(
-    options?: { readonly targets?: readonly string[] | null },
-  ): PatchMapViewportFocusResult;
   restoreViewport(
     input: unknown,
     fallback?: PatchMapViewportFitOptions,
@@ -102,8 +103,14 @@ interface PatchMapDeveloperHost {
   undo(): PatchMapEngineHistoryResult;
   redo(): PatchMapEngineHistoryResult;
   clearHistory(): PatchMapEngineHistoryClearResult;
-  registerAssets(instanceId: string, registrations: readonly PatchMapAssetRegistration[]): unknown;
-  assetProbe(alias?: string): unknown;
+  registerAssets(
+    instanceId: string,
+    registrations: readonly PatchMapAssetRegistration[],
+  ): PatchMapAssetRegistrationResult;
+  assetProbe(alias?: string): Readonly<{
+    session: PatchMapAssetSessionProbe | null;
+    runtime: PatchMapAssetRuntimeProbe;
+  }>;
   captureManagedPng(): Promise<PatchMapEngineExtractionResult>;
   snapshot(): PatchMapEngineSnapshot;
 }
@@ -168,7 +175,7 @@ function targetMatch(target: PatchMapLogicalTargetSnapshot): PatchMapTargetMatch
   });
 }
 
-function isTargetSet(value: PatchMapTargets): value is PatchMapTargetSet {
+function isTargetSet(value: PatchMapTargetsInput): value is PatchMapTargetSet {
   return typeof value === 'object' &&
     value !== null &&
     !Array.isArray(value) &&
@@ -201,7 +208,7 @@ function inScope(
 
 function matchesSelector(
   target: PatchMapLogicalTargetSnapshot,
-  selector: PatchMapTargetSelector,
+  selector: PatchMapTargetQuery,
   byKey: ReadonlyMap<string, PatchMapLogicalTargetSnapshot>,
 ): boolean {
   if (!inScope(target, selector.scope ?? 'all', byKey)) return false;
@@ -223,14 +230,14 @@ function matchesSelector(
   return true;
 }
 
-function engineLoadOptions(options: PatchMapDataLoadOptions): PatchMapEngineLoadOptions {
+function engineLoadOptions(options: PatchMapDataReplaceOptions): PatchMapEngineLoadOptions {
   return Object.freeze({
     ...(options.datasetRef === undefined ? {} : { datasetRef: options.datasetRef }),
     ...(options.strict === undefined ? {} : { strict: options.strict }),
   });
 }
 
-function dataLoadResult(result: PatchMapEngineLoadResult): PatchMapDataLoadResult {
+function dataReplaceResult(result: PatchMapEngineLoadResult): PatchMapDataReplaceResult {
   return Object.freeze({
     rootIds: result.rootIds,
     semanticHash: result.semanticHash,
@@ -239,14 +246,14 @@ function dataLoadResult(result: PatchMapEngineLoadResult): PatchMapDataLoadResul
 }
 
 function resolveSelectionIds(
-  targets: PatchMapSelectionTargets,
+  targets: PatchMapSelectionInput,
   targetSets: WeakMap<PatchMapTargetSet, TargetSetAuthority>,
 ): readonly string[] {
   if (typeof targets === 'string') return Object.freeze([targets]);
   if (Array.isArray(targets) && (targets.length === 0 || typeof targets[0] === 'string')) {
     return Object.freeze([...(targets as readonly string[])]);
   }
-  if (isTargetSet(targets as PatchMapTargets)) {
+  if (isTargetSet(targets as PatchMapTargetsInput)) {
     const authority = targetSets.get(targets as PatchMapTargetSet);
     if (authority === undefined) throw new TypeError('target set belongs to another PatchMap');
     return Object.freeze([...new Set(authority.logical.map((target) => target.selectionId))]);
@@ -255,7 +262,7 @@ function resolveSelectionIds(
     .map((target) => target.id))]);
 }
 
-export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMapDeveloperApi {
+export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
   const targetSets = new WeakMap<PatchMapTargetSet, TargetSetAuthority>();
 
   const assertReusable = (
@@ -273,19 +280,19 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
   };
 
   const targetsOf = (
-    value: PatchMapTargets,
+    value: PatchMapTargetsInput,
     operation: 'update' | 'focus' | 'select',
   ): readonly PatchMapTarget[] => isTargetSet(value)
     ? assertReusable(value, operation).logical.map(targetMatch)
     : oneOrMany(value as PatchMapOneOrMany<PatchMapTarget>);
 
   const logicalTargetsOf = (
-    value: PatchMapUpdateTargets,
+    value: PatchMapUpdateTargetsInput,
   ): Readonly<{
     readonly selected: readonly PatchMapLogicalTargetSnapshot[];
     readonly sceneTargets: readonly PatchMapLogicalTargetSnapshot[];
   }> => {
-    if (isTargetSet(value as PatchMapTargets)) {
+    if (isTargetSet(value as PatchMapTargetsInput)) {
       const authority = assertReusable(value as PatchMapTargetSet, 'update');
       return Object.freeze({
         selected: authority.logical,
@@ -331,20 +338,20 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
   });
 
   const data = Object.freeze({
-    load(input: unknown, options: PatchMapDataLoadOptions = {}): PatchMapDataLoadResult {
-      const result = dataLoadResult(host.loadDataset(input, engineLoadOptions(options)));
+    replace(input: unknown, options: PatchMapDataReplaceOptions = {}): PatchMapDataReplaceResult {
+      const result = dataReplaceResult(host.loadDataset(input, engineLoadOptions(options)));
       if (options.fit !== false) fit(options.fit === true || options.fit === undefined ? {} : options.fit);
       return result;
     },
-    async loadAsync(
+    async replaceAsync(
       input: unknown,
-      options: PatchMapDataLoadOptions = {},
-    ): Promise<PatchMapDataLoadResult> {
-      const result = dataLoadResult(await host.loadDatasetAsync(input, engineLoadOptions(options)));
+      options: PatchMapDataReplaceOptions = {},
+    ): Promise<PatchMapDataReplaceResult> {
+      const result = dataReplaceResult(await host.loadDatasetAsync(input, engineLoadOptions(options)));
       if (options.fit !== false) fit(options.fit === true || options.fit === undefined ? {} : options.fit);
       return result;
     },
-    export(): readonly unknown[] {
+    snapshot(): readonly unknown[] {
       return host.exportDataset();
     },
     serialize(strictReferences = true): string {
@@ -364,7 +371,7 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
       });
       return result.targets[0] === undefined ? null : targetMatch(result.targets[0]);
     },
-    query(selector: PatchMapTargetSelector): PatchMapTargetSet {
+    query(selector: PatchMapTargetQuery): PatchMapTargetSet {
       if (selector.id !== undefined) nonEmptyString(selector.id, 'selector.id');
       if (selector.componentId !== undefined) {
         nonEmptyString(selector.componentId, 'selector.componentId');
@@ -399,9 +406,9 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
 
   const selectionOperation = (
     op: 'replace' | 'add' | 'remove' | 'toggle',
-    selected: PatchMapSelectionTargets,
+    selected: PatchMapSelectionInput,
   ): readonly string[] => {
-    if (isTargetSet(selected as PatchMapTargets)) {
+    if (isTargetSet(selected as PatchMapTargetsInput)) {
       assertReusable(selected as PatchMapTargetSet, 'select');
     }
     return host.applySelection({
@@ -414,17 +421,17 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
     get ids(): readonly string[] {
       return host.selectionIds;
     },
-    set: (selected: PatchMapSelectionTargets) => selectionOperation('replace', selected),
-    add: (selected: PatchMapSelectionTargets) => selectionOperation('add', selected),
-    remove: (selected: PatchMapSelectionTargets) => selectionOperation('remove', selected),
-    toggle: (selected: PatchMapSelectionTargets) => selectionOperation('toggle', selected),
+    set: (selected: PatchMapSelectionInput) => selectionOperation('replace', selected),
+    add: (selected: PatchMapSelectionInput) => selectionOperation('add', selected),
+    remove: (selected: PatchMapSelectionInput) => selectionOperation('remove', selected),
+    toggle: (selected: PatchMapSelectionInput) => selectionOperation('toggle', selected),
     clear: () => host.applySelection({ op: 'clear', source: 'external' }).current,
     onChange(listener: (ids: readonly string[]) => void): () => void {
       return host.on('selectionChanged', (change) => listener(change.current));
     },
   });
 
-  const transformIds = (selected: PatchMapTargets): readonly string[] =>
+  const transformIds = (selected: PatchMapTargetsInput): readonly string[] =>
     resolveSelectionIds(selected, targetSets);
   const transformOptions = (
     options: PatchMapTransformOptions,
@@ -433,22 +440,22 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
     ...(options.recordHistory === undefined ? {} : { recordHistory: options.recordHistory }),
   });
   const transform = Object.freeze({
-    move(
-      selected: PatchMapTargets,
-      by: readonly [number, number],
+    moveBy(
+      selected: PatchMapTargetsInput,
+      delta: readonly [number, number],
       options: PatchMapTransformOptions = {},
     ): PatchMapEngineTransformerEditResult {
       return host.applyTransformerEdit({
         kind: 'move',
         selectionIds: transformIds(selected),
-        deltaWorld: by,
+        deltaWorld: delta,
       }, transformOptions(options));
     },
-    resize(
-      selected: PatchMapTargets,
+    resizeBy(
+      selected: PatchMapTargetsInput,
       resize: Readonly<{
-        readonly handle: Parameters<PatchMapDeveloperApi['transform']['resize']>[1]['handle'];
-        readonly by: readonly [number, number];
+        readonly handle: Parameters<PatchMapApi['transform']['resizeBy']>[1]['handle'];
+        readonly delta: readonly [number, number];
         readonly lockAspectRatio?: boolean;
         readonly minSize?: number;
       }>,
@@ -458,15 +465,15 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
         kind: 'resize',
         selectionIds: transformIds(selected),
         handle: resize.handle,
-        deltaWorld: resize.by,
+        deltaWorld: resize.delta,
         ...(resize.lockAspectRatio === undefined
           ? {}
           : { lockAspectRatio: resize.lockAspectRatio }),
         ...(resize.minSize === undefined ? {} : { minSize: resize.minSize }),
       }, transformOptions(options));
     },
-    rotate(
-      selected: PatchMapTargets,
+    rotateBy(
+      selected: PatchMapTargetsInput,
       degrees: number,
       options: PatchMapTransformOptions = {},
     ): PatchMapEngineTransformerEditResult {
@@ -480,19 +487,14 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
 
   const viewport = Object.freeze({
     fit,
-    focus(selected?: PatchMapTargets): PatchMapViewportFocusResult {
-      return host.focusViewport(selected === undefined
-        ? {}
-        : { targets: targetsOf(selected, 'focus').map((target) => target.id) });
-    },
     reset: (options: PatchMapFitOptions = {}) => host.restoreViewport(null, {
       ...(options.padding === undefined ? {} : { paddingCssPx: options.padding }),
       ...(options.targets === undefined
         ? {}
         : { targets: targetsOf(options.targets, 'focus').map((target) => target.id) }),
     }),
-    pan: (x: number, y: number) => host.panViewport([x, y]),
-    zoom(factor: number, anchor?: readonly [number, number]): PatchMapViewportChangeResult {
+    panBy: (delta: readonly [number, number]) => host.panViewport(delta),
+    zoomBy(factor: number, anchor?: readonly [number, number]): PatchMapViewportChangeResult {
       const size = host.snapshot().resources.canvas.cssSize;
       const resolvedAnchor = anchor ?? [size[0] / 2, size[1] / 2];
       return host.zoomViewportAt({ factor, anchorCss: resolvedAnchor, source: 'programmatic' });
@@ -514,12 +516,14 @@ export function createPatchMapDeveloperApi(host: PatchMapDeveloperHost): PatchMa
   });
 
   const assets = Object.freeze({
-    register(input: PatchMapOneOrMany<PatchMapAssetRegistration>): unknown {
+    register(
+      input: PatchMapOneOrMany<PatchMapAssetRegistration>,
+    ): PatchMapAssetRegistrationResult {
       const instanceId = host.snapshot().instanceId;
       if (instanceId === null) throw new TypeError('mount PatchMap before registering assets');
       return host.registerAssets(instanceId, oneOrMany(input));
     },
-    inspect: (alias?: string) => host.assetProbe(alias),
+    status: (alias?: string) => host.assetProbe(alias),
   });
 
   const capture = Object.freeze({
