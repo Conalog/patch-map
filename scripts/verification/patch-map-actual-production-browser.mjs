@@ -166,6 +166,7 @@ async function verifyActualProductionLab(activePage, baseUrl) {
         '0VQUL2c700nbal7,0VQUMUbL004tcz7,F70QxBkaoSjfPH8' &&
       loaded.semanticCounts?.rootElements === 605 &&
       loaded.semanticCounts?.components === 643 &&
+      loaded.semanticCounts?.hiddenLogicalComponents === 0 &&
       loaded.rendererBackend === 'webgl' &&
       loaded.selectedSize === 'actual-production' &&
       loaded.selectedTopSize === 'actual-production' &&
@@ -180,8 +181,69 @@ async function verifyActualProductionLab(activePage, baseUrl) {
       loaded.paintOrder.image?.paintIndex < loaded.paintOrder.overlay?.paintIndex &&
       Math.abs(loaded.paintOrder.overlayAlpha - 0.6) < 0.000_001 &&
       loaded.geometryAlignment.centerDistance < 25,
-    'the single PatchMap Lab loads the unmodified actual production JSON',
+    'the single PatchMap Lab reveals bars from the immutable actual production JSON',
     loaded,
+  );
+
+  const animation = await activePage.evaluate(async () => {
+    const bridge = window.__PATCH_MAP_MANUAL_LAB__;
+    const engine = bridge?.engine();
+    const authoredBefore = JSON.stringify(engine?.exportDataset() ?? []);
+    const started = performance.now();
+    const result = await bridge?.run('animate-all');
+    const bars = (engine?.exportDataset() ?? []).flatMap((root) => {
+      const components = root.type === 'item'
+        ? root.components
+        : root.type === 'grid'
+          ? root.item.components
+          : [];
+      return components.filter((component) => component.type === 'bar');
+    });
+    const targetInstanceBarCount = (engine?.exportDataset() ?? []).reduce(
+      (count, root) => {
+        if (root.type === 'item') {
+          return count + root.components.filter(
+            (component) => component.type === 'bar',
+          ).length;
+        }
+        if (root.type !== 'grid') return count;
+        const barCount = root.item.components.filter(
+          (component) => component.type === 'bar',
+        ).length;
+        const populatedCellCount = root.cells.reduce(
+          (cells, row) => cells + row.filter((value) => value !== 0).length,
+          0,
+        );
+        return count + barCount * populatedCellCount;
+      },
+      0,
+    );
+    return {
+      actionMs: performance.now() - started,
+      status: result?.status ?? null,
+      changed: result?.changed ?? null,
+      appliedCount: result?.appliedTargets?.length ?? -1,
+      targetInstanceBarCount,
+      targetBarCount: bars.length,
+      authoredUnchanged:
+        JSON.stringify(engine?.exportDataset() ?? []) === authoredBefore,
+      activeAnimations: engine?.activeAnimations ?? 0,
+    };
+  });
+  assert(
+    animation.status === 'committed' &&
+      animation.changed === true &&
+      animation.appliedCount === animation.targetInstanceBarCount &&
+      animation.targetBarCount === 309 &&
+      animation.authoredUnchanged === true &&
+      animation.activeAnimations > 0,
+    'all actual production bar instances animate without rewriting 309 templates',
+    animation,
+  );
+  await activePage.waitForFunction(
+    () => window.__PATCH_MAP_MANUAL_LAB__?.state().activeAnimations === 0,
+    undefined,
+    { timeout: 5_000 },
   );
 
   await activePage.locator('[data-manual-tool-button="view"]').click();

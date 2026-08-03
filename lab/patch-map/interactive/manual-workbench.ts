@@ -572,7 +572,7 @@ export function mountPatchMapManualWorkbench(
           if (framesPaused) {
             frameLoop?.pause();
           } else {
-            frameLoop?.resume(800);
+            frameLoop?.resume(Math.max(800, scene.animationDurationMs + 250));
           }
           result = { framesPaused };
           break;
@@ -813,20 +813,19 @@ export function mountPatchMapManualWorkbench(
   function animateBars(scope: 'all' | 'partial' | 'selected'): unknown {
     const next = requireEngine();
     animationSequence += 1;
-    let targets = scene.barTargets;
+    let targets = scene.instanceBarTargets;
     if (scope === 'partial') {
       targets = targets.filter((_, index) => index % 10 === animationSequence % 10);
     } else if (scope === 'selected') {
       const selected = new Set(next.snapshot().selectionIds);
       targets = targets.filter(({ ownerId }) => selected.has(ownerId));
-      if (targets.length === 0) targets = scene.barTargets.slice(0, 1);
+      if (targets.length === 0) targets = scene.instanceBarTargets.slice(0, 1);
     }
     const heights = new Float64Array(targets.length);
     for (let index = 0; index < targets.length; index += 1) {
       heights[index] = 8 + ((index * 17 + animationSequence * 23) % 52);
     }
-    const result = next.updateBarHeights({
-      actionId: `manual-bars-${scope}-${animationSequence}`,
+    const result = next.updateInstanceBarHeights({
       targets,
       heights,
     });

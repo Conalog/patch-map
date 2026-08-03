@@ -31,6 +31,10 @@ export interface PatchMapManualScene {
     readonly ownerId: string;
     readonly componentId: string;
   }>[];
+  readonly instanceBarTargets: readonly Readonly<{
+    readonly ownerId: string;
+    readonly componentId: string;
+  }>[];
   readonly textTargets: readonly Readonly<{
     readonly ownerId: string;
     readonly componentId: string;
@@ -178,6 +182,7 @@ export function buildPatchMapManualScene(
     ],
     relationIds: ['manual-relations'],
     barTargets,
+    instanceBarTargets: barTargets,
     textTargets,
   });
 }
@@ -193,10 +198,44 @@ export async function buildPatchMapManualSceneAsync(
   if (actualProductionDataset === null) {
     const module = await import('../../fixtures/actual-production.json');
     actualProductionDataset = deepFreeze(
-      module.default as unknown as readonly Readonly<Record<string, unknown>>[],
+      revealActualProductionBars(
+        module.default as unknown as readonly Readonly<Record<string, unknown>>[],
+      ),
     );
   }
   return buildActualProductionScene(actualProductionDataset, animationDurationMs);
+}
+
+function revealActualProductionBars(
+  dataset: readonly Readonly<Record<string, unknown>>[],
+): readonly Readonly<Record<string, unknown>>[] {
+  return revealBars(dataset) as readonly Readonly<Record<string, unknown>>[];
+}
+
+function revealBars(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    let changed = false;
+    const next = value.map((child) => {
+      const revealed = revealBars(child);
+      changed ||= revealed !== child;
+      return revealed;
+    });
+    return changed ? next : value;
+  }
+  if (!isRecord(value)) return value;
+
+  let next: Record<string, unknown> | null = null;
+  for (const [key, child] of Object.entries(value)) {
+    const revealed = revealBars(child);
+    if (revealed === child) continue;
+    next ??= { ...value };
+    next[key] = revealed;
+  }
+  if (value.type === 'bar' && value.show !== true) {
+    next ??= { ...value };
+    next.show = true;
+  }
+  return next ?? value;
 }
 
 function buildActualProductionScene(
@@ -220,8 +259,9 @@ function buildActualProductionScene(
     record.type === 'relations' && typeof record.id === 'string'
       ? [record.id]
       : []).slice(0, 1);
-  const barTargets = actualItemComponentTargets(dataset, 'bar');
-  const textTargets = actualItemComponentTargets(dataset, 'text');
+  const barTargets = actualComponentTargets(dataset, 'bar');
+  const instanceBarTargets = actualInstanceBarTargets(dataset);
+  const textTargets = actualComponentTargets(dataset, 'text');
   return deepFreeze({
     revision: PATCH_MAP_MANUAL_SCENE_REVISION,
     animationDurationMs,
@@ -229,23 +269,63 @@ function buildActualProductionScene(
     primaryIds,
     relationIds,
     barTargets,
+    instanceBarTargets,
     textTargets,
   });
 }
 
-function actualItemComponentTargets(
+function actualInstanceBarTargets(
+  dataset: readonly Readonly<Record<string, unknown>>[],
+): readonly Readonly<{ readonly ownerId: string; readonly componentId: string }>[] {
+  return dataset.flatMap((record) => {
+    if (typeof record.id !== 'string') return [];
+    const ownerId = record.id;
+    if (record.type === 'item' && Array.isArray(record.components)) {
+      return record.components.flatMap((component) =>
+        isRecord(component) &&
+        component.type === 'bar' &&
+        typeof component.id === 'string'
+          ? [{ ownerId, componentId: component.id }]
+          : []);
+    }
+    if (
+      record.type !== 'grid' ||
+      !Array.isArray(record.cells) ||
+      !isRecord(record.item) ||
+      !Array.isArray(record.item.components)
+    ) {
+      return [];
+    }
+    const barIds = record.item.components.flatMap((component) =>
+      isRecord(component) &&
+      component.type === 'bar' &&
+      typeof component.id === 'string'
+        ? [component.id]
+        : []);
+    return record.cells.flatMap((rowValue, row) =>
+      Array.isArray(rowValue)
+        ? rowValue.flatMap((value, column) => value === 0
+            ? []
+            : barIds.map((componentId) => ({
+                ownerId: `${ownerId}.${row}.${column}`,
+                componentId,
+              })))
+        : []);
+  });
+}
+
+function actualComponentTargets(
   dataset: readonly Readonly<Record<string, unknown>>[],
   type: 'bar' | 'text',
 ): readonly Readonly<{ readonly ownerId: string; readonly componentId: string }>[] {
   return dataset.flatMap((record) => {
-    if (
-      record.type !== 'item' ||
-      typeof record.id !== 'string' ||
-      !Array.isArray(record.components)
-    ) {
-      return [];
-    }
-    return record.components.flatMap((component) =>
+    if (typeof record.id !== 'string') return [];
+    const components = record.type === 'item' && Array.isArray(record.components)
+      ? record.components
+      : record.type === 'grid' && isRecord(record.item) && Array.isArray(record.item.components)
+        ? record.item.components
+        : [];
+    return components.flatMap((component) =>
       isRecord(component) &&
       component.type === type &&
       typeof component.id === 'string'

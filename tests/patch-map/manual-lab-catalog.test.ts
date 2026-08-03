@@ -201,7 +201,7 @@ describe('PatchMap human-operated Lab catalog', () => {
     expect(adaptiveFrameBudgetSource).toContain('export class PatchMapAdaptiveFrameBudget');
     expect(adaptiveFrameBudgetSource).toContain('largePresentationIntervalMs ?? 75');
     expect(adaptiveFrameBudgetSource).toContain('largeViewportFramesPerPresentation ?? 3');
-    expect(source).toContain('next.updateBarHeights({');
+    expect(source).toContain('next.updateInstanceBarHeights({');
     expect(source).toContain('const heights = new Float64Array(targets.length);');
     expect(source).toContain('next.updateTexts({');
   });
@@ -251,11 +251,14 @@ describe('PatchMap manual Lab scene', () => {
     expect(buildPatchMapManualScene('production', 319).barTargets).toHaveLength(500);
   });
 
-  it('loads the actual production JSON as one immutable manual Lab option', async () => {
+  it('reveals bars in the Lab without mutating the actual production JSON', async () => {
     const first = await buildPatchMapManualSceneAsync('actual-production', 319);
     const second = await buildPatchMapManualSceneAsync('actual-production', 999);
+    const sourceModule = await import('../../lab/fixtures/actual-production.json');
     const before = JSON.stringify(first.dataset);
     const materialized = materializePatchMapDataset(first.dataset);
+    const visibleBars = collectComponents(first.dataset, 'bar');
+    const sourceBars = collectComponents(sourceModule.default, 'bar');
 
     expect(first.dataset).toBe(second.dataset);
     expect(first.dataset).toHaveLength(605);
@@ -268,8 +271,12 @@ describe('PatchMap manual Lab scene', () => {
       'Ogb2flEqTTcIdcC',
     ]);
     expect(first.relationIds).toEqual(['0VOBsciH00fn0Va']);
-    expect(first.barTargets).toHaveLength(25);
+    expect(first.barTargets).toHaveLength(309);
     expect(first.textTargets).toHaveLength(0);
+    expect(visibleBars).toHaveLength(309);
+    expect(visibleBars.every((component) => component.show === true)).toBe(true);
+    expect(sourceBars).toHaveLength(309);
+    expect(sourceBars.every((component) => component.show === false)).toBe(true);
     expect(materialized.rootIds).toHaveLength(605);
     expect(JSON.stringify(first.dataset)).toBe(before);
     expect(Object.isFrozen(first.dataset)).toBe(true);
@@ -323,4 +330,18 @@ describe('PatchMap manual Lab scene', () => {
 
 function isUnknownRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function collectComponents(
+  value: unknown,
+  type: string,
+): readonly Readonly<Record<string, unknown>>[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((child) => collectComponents(child, type));
+  }
+  if (!isUnknownRecord(value)) return [];
+  return [
+    ...(value.type === type ? [value] : []),
+    ...Object.values(value).flatMap((child) => collectComponents(child, type)),
+  ];
 }
