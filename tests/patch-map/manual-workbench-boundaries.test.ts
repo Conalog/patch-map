@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { runPatchMapManualAdvancedAction } from '../../lab/patch-map/interactive/manual-workbench-actions';
-import { settlePatchMapManualCleanup } from '../../lab/patch-map/interactive/manual-workbench-cleanup';
+import {
+  createPatchMapManualOperationQueue,
+  patchMapManualKeyboardMutationAllowed,
+  releasePatchMapManualOwnedResources,
+  settlePatchMapManualCleanup,
+} from '../../lab/patch-map/interactive/manual-workbench-cleanup';
 import {
   PatchMapManualPointerController,
   type PatchMapManualPointerOutcome,
@@ -36,6 +41,32 @@ const MODES = Object.freeze([
 ] as const satisfies readonly ManualPointerMode[]);
 
 describe('PatchMap manual workbench input boundary', () => {
+  it('serializes Lab ownership changes and continues after a rejected operation', async () => {
+    const enqueue = createPatchMapManualOperationQueue();
+    const calls: string[] = [];
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const first = enqueue(async () => {
+      calls.push('first:start');
+      await firstGate;
+      calls.push('first:end');
+      throw new Error('first failed');
+    });
+    const second = enqueue(() => {
+      calls.push('second');
+      return 2;
+    });
+
+    await Promise.resolve();
+    expect(calls).toEqual(['first:start']);
+    releaseFirst();
+    await expect(first).rejects.toThrow('first failed');
+    await expect(second).resolves.toBe(2);
+    expect(calls).toEqual(['first:start', 'first:end', 'second']);
+  });
+
   it('settles every engine cleanup step while preserving the first failure', async () => {
     const calls: string[] = [];
     const firstFailure = new Error('pointer cleanup failed');
@@ -58,6 +89,30 @@ describe('PatchMap manual workbench input boundary', () => {
     ])).rejects.toBe(firstFailure);
 
     expect(calls).toEqual(['pointer', 'frame-loop', 'assets', 'engine']);
+  });
+
+  it('retains failed ownership cleanup for retry and blocks keyboard mutations while occupied', async () => {
+    const resources = ['released', 'retry'];
+    let retryFailures = 1;
+    const release = (resource: string): Promise<void> => {
+      if (resource === 'retry' && retryFailures > 0) {
+        retryFailures -= 1;
+        return Promise.reject(new Error('retry cleanup'));
+      }
+      return Promise.resolve();
+    };
+
+    await expect(releasePatchMapManualOwnedResources(resources, release))
+      .rejects.toThrow('retry cleanup');
+    expect(resources).toEqual(['retry']);
+    await expect(releasePatchMapManualOwnedResources(resources, release)).resolves.toBeUndefined();
+    expect(resources).toEqual([]);
+
+    expect(patchMapManualKeyboardMutationAllowed('ready', false)).toBe(true);
+    expect(patchMapManualKeyboardMutationAllowed('failed', false)).toBe(true);
+    expect(patchMapManualKeyboardMutationAllowed('booting', false)).toBe(false);
+    expect(patchMapManualKeyboardMutationAllowed('busy', false)).toBe(false);
+    expect(patchMapManualKeyboardMutationAllowed('ready', true)).toBe(false);
   });
 
   it('owns the exact seven keyboard modes and Korean operator copy', () => {

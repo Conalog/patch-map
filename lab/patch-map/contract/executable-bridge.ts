@@ -91,6 +91,8 @@ export function createPatchMapExecutableLabBridge(
   let runCount = 0;
   let completedRunCount = 0;
   let destroyed = false;
+  let destroying = false;
+  let destroyPromise: Promise<Readonly<Record<string, unknown>>> | null = null;
   let publishedTuple = emptyPublishedTuple();
   let lastExecution: Readonly<Record<string, unknown>> | null = null;
   let lastCleanup: Readonly<Record<string, unknown>> | null = null;
@@ -115,9 +117,14 @@ export function createPatchMapExecutableLabBridge(
     }
   }
 
+  function assertRunnable(): void {
+    invariant(!destroying && !destroyed, `${options.caseId} bridge is destroyed`);
+  }
+
   async function executeFreshRun(isRepeat: boolean): Promise<Readonly<PatchMapContractLabRunResult>> {
-    invariant(!destroyed, `${options.caseId} bridge is destroyed`);
+    assertRunnable();
     await liveGesture.release();
+    assertRunnable();
     assertPatchMapExecutableSurfaceReleased(options.surfaceHost);
     status = 'running';
     actionIndex = -1;
@@ -267,6 +274,7 @@ export function createPatchMapExecutableLabBridge(
   }
 
   function startRun(isRepeat: boolean): Promise<Readonly<PatchMapContractLabRunResult>> {
+    assertRunnable();
     if (activeRun) return activeRun;
     if (!isRepeat && lastRun) return Promise.resolve(lastRun);
     const pending = executeFreshRun(isRepeat);
@@ -300,9 +308,11 @@ export function createPatchMapExecutableLabBridge(
       return startRun(false);
     },
     async resetCase(): Promise<Readonly<Record<string, unknown>>> {
-      invariant(!destroyed, `${options.caseId} bridge is destroyed`);
+      assertRunnable();
       await awaitActiveRun();
+      assertRunnable();
       await liveGesture.release();
+      assertRunnable();
       const summary = cleanupSummary(lastCleanup, runCount, completedRunCount);
       assertPatchMapExecutableSurfaceReleased(options.surfaceHost);
       status = 'armed';
@@ -320,13 +330,16 @@ export function createPatchMapExecutableLabBridge(
     },
     async armGesture(value: number): Promise<Readonly<PatchMapContractGesturePlan>> {
       assertActionIndex(value);
-      invariant(!destroyed, `${options.caseId} bridge is destroyed`);
+      assertRunnable();
       await awaitActiveRun();
+      assertRunnable();
       return liveGesture.arm(value, publishedTuple);
     },
     async awaitMilestone(value: number, milestone: PatchMapContractLabMilestone): Promise<void> {
       assertActionIndex(value);
+      assertRunnable();
       if (await liveGesture.awaitMilestone(value, milestone)) return;
+      assertRunnable();
       const run = await startRun(false);
       const result = arrayValue(run.execution.actionResults, 'execution actionResults')[value];
       invariant(isRecord(result) && result.status === 'completed', `${options.caseId} action ${value} completion`);
@@ -338,7 +351,7 @@ export function createPatchMapExecutableLabBridge(
       const liveObservation = liveGesture.observation();
       if (liveObservation !== null) return liveObservation;
       if (lastObservation) return lastObservation;
-      if (destroyed) return destroyedWithoutRunObservation(casePlan);
+      if (destroying || destroyed) return destroyedWithoutRunObservation(casePlan);
       try {
         return (await startRun(false)).actualObservation;
       } catch {
@@ -346,15 +359,22 @@ export function createPatchMapExecutableLabBridge(
         return lastObservation;
       }
     },
-    async destroyCase(): Promise<Readonly<Record<string, unknown>>> {
-      if (!destroyed) {
+    destroyCase(): Promise<Readonly<Record<string, unknown>>> {
+      if (destroyPromise !== null) return destroyPromise;
+      destroying = true;
+      const pending = (async () => {
         await awaitActiveRun();
         await liveGesture.release();
         destroyed = true;
         status = 'destroyed';
-      }
-      assertPatchMapExecutableSurfaceReleased(options.surfaceHost);
-      return cleanupSummary(lastCleanup, runCount, completedRunCount);
+        assertPatchMapExecutableSurfaceReleased(options.surfaceHost);
+        return cleanupSummary(lastCleanup, runCount, completedRunCount);
+      })();
+      destroyPromise = pending;
+      pending.catch(() => {
+        if (destroyPromise === pending) destroyPromise = null;
+      });
+      return pending;
     },
   });
 }

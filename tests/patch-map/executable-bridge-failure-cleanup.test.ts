@@ -6,6 +6,24 @@ import type { PatchMapSurfaceOptions } from '../../src/patch-map/engine';
 import { FakeSurface } from './support/contract-lab-harness';
 
 describe('PatchMap executable bridge failure cleanup', () => {
+  it('rejects a repeat as soon as bridge destruction begins', async () => {
+    const bridge = createPatchMapExecutableLabBridge({
+      caseId: 'LIF-001',
+      rootTestId: 'scenario-lif-001',
+      size: '100',
+      seed: 319,
+      surfaceHost: trackedSurfaceHost(() => null),
+      environment: { browser: 'vitest', backend: 'webgl2' },
+    });
+
+    const destruction = bridge.destroyCase();
+    expect(() => bridge.repeatCase()).toThrow('LIF-001 bridge is destroyed');
+    await expect(destruction).resolves.toMatchObject({
+      status: 'not-run',
+      runCount: 0,
+    });
+  });
+
   it('retains late initialization cleanup ownership until destroy can release it', async () => {
     let surface: RetryableDestroySurface | null = null;
     const surfaceHost = trackedSurfaceHost(() => surface);
@@ -92,6 +110,37 @@ describe('PatchMap executable bridge failure cleanup', () => {
     } finally {
       subscription.mockRestore();
     }
+  });
+
+  it('allows destroy cleanup to retry while keeping execution permanently closed', async () => {
+    let surface: RetryableDestroySurface | null = null;
+    const surfaceHost = trackedSurfaceHost(() => surface);
+    const bridge = createPatchMapExecutableLabBridge({
+      caseId: 'VIE-001',
+      rootTestId: 'scenario-vie-001',
+      size: '100',
+      seed: 319,
+      surfaceHost,
+      surfaceFactory: (options) => {
+        surface = new RetryableDestroySurface(options, 2);
+        return Promise.resolve(surface);
+      },
+      environment: { browser: 'vitest', backend: 'webgl2' },
+    });
+
+    await expect(bridge.armGesture(0)).resolves.toMatchObject({
+      driverId: 'trusted-pointer-wheel',
+    });
+    const allocatedSurface = requireRetryableSurface(surface);
+    await expect(bridge.destroyCase()).rejects.toMatchObject({
+      name: 'AggregateError',
+    });
+    expect(allocatedSurface.canvasCount).toBe(1);
+    expect(() => bridge.repeatCase()).toThrow('VIE-001 bridge is destroyed');
+
+    await expect(bridge.destroyCase()).resolves.toMatchObject({ status: 'not-run' });
+    expect(allocatedSurface.canvasCount).toBe(0);
+    expect(() => bridge.runCase()).toThrow('VIE-001 bridge is destroyed');
   });
 
   it('releases and publishes text product resources without masking the execution failure', async () => {

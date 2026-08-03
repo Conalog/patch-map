@@ -30,7 +30,12 @@ import {
   manualSceneSizeLabel,
 } from './manual-workbench-view';
 import { runPatchMapManualAdvancedAction } from './manual-workbench-actions';
-import { settlePatchMapManualCleanup } from './manual-workbench-cleanup';
+import {
+  createPatchMapManualOperationQueue,
+  patchMapManualKeyboardMutationAllowed,
+  releasePatchMapManualOwnedResources,
+  settlePatchMapManualCleanup,
+} from './manual-workbench-cleanup';
 import {
   isManualPointerMode,
   manualModeForShortcutKey,
@@ -148,13 +153,16 @@ export function mountPatchMapManualWorkbench(
   let longTaskCount = 0;
   let eventJournal: Array<Readonly<Record<string, unknown>>> = [];
   let frameTimes: number[] = [];
-  let assetLeases: PatchMapAssetAcquisition[] = [];
+  const assetLeases: PatchMapAssetAcquisition[] = [];
   let engineUnbinds: Array<() => void> = [];
   let frameLoop: PatchMapFrameLoop | null = null;
   let resizeObserver: ResizeObserver | null = null;
   let performanceObserver: PerformanceObserver | null = null;
   let lastSnapshot: ReturnType<PatchMap['snapshot']> | null = null;
   let destroyed = false;
+  let destroyRequested = false;
+  let destroyPromise: Promise<void> | null = null;
+  const enqueueOperation = createPatchMapManualOperationQueue();
   const assetPolicy = createPatchMapAssetIngestionPolicy(
     MANUAL_LAB_EXTERNAL_ASSET_PROFILE,
   );
@@ -168,7 +176,7 @@ export function mountPatchMapManualWorkbench(
     handlePointerOutcome,
   );
 
-  const ready = boot();
+  const ready = enqueueOperation(boot);
   void ready.catch(() => undefined);
 
   required<HTMLSelectElement>(host, '[data-manual-scene-size]').value =
@@ -219,52 +227,64 @@ export function mountPatchMapManualWorkbench(
     const instanceId = `manual-${options.caseId.toLowerCase()}-${generation + 1}`;
     lastLiveRefreshWallTime = 0;
     generation += 1;
-    next.registerAssets(instanceId);
-    await next.initialize({
-      instanceId,
-      target: surfaceHost,
-      width: size.width,
-      height: size.height,
-      pixelRatio: Math.min(2, window.devicePixelRatio || 1),
-      strategy: 'mesh',
-      preference: 'webgl',
-      backend: 'webgl2',
-      antialias: false,
-      background: '#f8fafcff',
-      devtools: true,
-      powerPreference: 'high-performance',
-      zoomLimits: PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS,
-    });
     engine = next;
-    frameLoop = next.createFrameLoop({
-      onFrame: ({ wallTimeMs, activeAnimationsAfter }) => {
-        frameTimes.push(wallTimeMs);
-        if (frameTimes.length > 120) frameTimes = frameTimes.slice(-120);
-        if (
-          activeAnimationsAfter === 0 ||
-          wallTimeMs - lastLiveRefreshWallTime >= 200
-        ) {
-          lastLiveRefreshWallTime = wallTimeMs;
-          queueRefresh();
-        }
-      },
-    });
-    bindEngine(next);
-    if (loadScene) {
-      loadManualScene(next, scene);
-      next.fitViewport({ paddingCssPx: 46 });
-      publishEngineFrame(next);
+    try {
+      next.registerAssets(instanceId);
+      await next.initialize({
+        instanceId,
+        target: surfaceHost,
+        width: size.width,
+        height: size.height,
+        pixelRatio: Math.min(2, window.devicePixelRatio || 1),
+        strategy: 'mesh',
+        preference: 'webgl',
+        backend: 'webgl2',
+        antialias: false,
+        background: '#f8fafcff',
+        devtools: true,
+        powerPreference: 'high-performance',
+        zoomLimits: PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS,
+      });
+      frameLoop = next.createFrameLoop({
+        onFrame: ({ wallTimeMs, activeAnimationsAfter }) => {
+          frameTimes.push(wallTimeMs);
+          if (frameTimes.length > 120) frameTimes = frameTimes.slice(-120);
+          if (
+            activeAnimationsAfter === 0 ||
+            wallTimeMs - lastLiveRefreshWallTime >= 200
+          ) {
+            lastLiveRefreshWallTime = wallTimeMs;
+            queueRefresh();
+          }
+        },
+      });
+      bindEngine(next);
+      if (loadScene) {
+        loadManualScene(next, scene);
+        next.fitViewport({ paddingCssPx: 46 });
+        publishEngineFrame(next);
+      }
+      pointerController.bind(next);
+      installResizeObserver();
+      required<HTMLElement>(host, '[data-manual-loading]').hidden = true;
+      status = 'ready';
+      lastError = null;
+      lastAction = loadScene ? 'initialize + load' : 'initialize';
+      refreshSceneEditor();
+      pointerController.activateMode(pointerController.mode);
+      refresh();
+      return next;
+    } catch (error) {
+      try {
+        await destroyEngine();
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [error, cleanupError],
+          'PatchMap 직접 조작 세션 초기화와 정리에 모두 실패했습니다.',
+        );
+      }
+      throw error;
     }
-    pointerController.bind(next);
-    installResizeObserver();
-    required<HTMLElement>(host, '[data-manual-loading]').hidden = true;
-    status = 'ready';
-    lastError = null;
-    lastAction = loadScene ? 'initialize + load' : 'initialize';
-    refreshSceneEditor();
-    pointerController.activateMode(pointerController.mode);
-    refresh();
-    return next;
   }
 
   function bindStaticControls(): void {
@@ -309,6 +329,7 @@ export function mountPatchMapManualWorkbench(
 
   function onKeyDown(event: KeyboardEvent): void {
     if (isEditableTarget(event.target)) return;
+    if (!patchMapManualKeyboardMutationAllowed(status, destroyRequested)) return;
     const key = event.key.toLowerCase();
     const next = liveEngine();
     if (next === null) return;
@@ -404,10 +425,22 @@ export function mountPatchMapManualWorkbench(
     }
   }
 
-  async function runCommand(command: string): Promise<unknown> {
-    if (destroyed) throw new Error('PatchMap 직접 조작 실험실이 이미 종료되었습니다.');
+  function runCommand(command: string): Promise<unknown> {
+    if (destroyRequested || destroyed) {
+      return Promise.reject(new Error('PatchMap 직접 조작 실험실이 이미 종료되었습니다.'));
+    }
     status = 'busy';
     lastError = null;
+    refresh();
+    return enqueueOperation(() => {
+      status = 'busy';
+      lastError = null;
+      refresh();
+      return executeCommand(command);
+    });
+  }
+
+  async function executeCommand(command: string): Promise<unknown> {
     let result: unknown = null;
     try {
       switch (command) {
@@ -972,15 +1005,16 @@ export function mountPatchMapManualWorkbench(
   }
 
   async function releaseAsset(): Promise<unknown> {
-    const lease = assetLeases.pop();
-    if (lease !== undefined) await lease.release();
+    const lease = assetLeases.at(-1);
+    if (lease !== undefined) {
+      await lease.release();
+      if (assetLeases.at(-1) === lease) assetLeases.pop();
+    }
     return requireEngine().assetProbe('device');
   }
 
   async function releaseAllAssets(): Promise<void> {
-    const leases = assetLeases;
-    assetLeases = [];
-    await Promise.allSettled(leases.map(async (lease) => lease.release()));
+    await releasePatchMapManualOwnedResources(assetLeases, async (lease) => lease.release());
   }
 
   async function captureScene(): Promise<unknown> {
@@ -1026,7 +1060,7 @@ export function mountPatchMapManualWorkbench(
   }
 
   function refresh(): void {
-    const next = liveEngine();
+    const next = probeableEngine();
     host.dataset.manualStatus = status;
     setText(host, 'status', patchMapKoreanStatus(status));
     setText(host, 'last-action', actionDisplay(lastAction));
@@ -1284,22 +1318,37 @@ export function mountPatchMapManualWorkbench(
   }
 
   function stateSnapshot(): PatchMapManualLabState {
-    const next = liveEngine();
-    const animations = activeAnimationCount(next);
+    const next = probeableEngine();
+    let animations = 0;
+    let history: Readonly<{ readonly undoDepth: number; readonly redoDepth: number }> =
+      Object.freeze({ undoDepth: 0, redoDepth: 0 });
+    let selectedIds: readonly string[] = lastSnapshot?.selectionIds ?? Object.freeze([]);
     if (next === null) {
       lastSnapshot = null;
-    } else if (animations === 0) {
-      lastSnapshot = next.snapshot();
+      selectedIds = Object.freeze([]);
+    } else {
+      try {
+        animations = activeAnimationCount(next);
+        if (animations === 0) lastSnapshot = next.snapshot();
+        history = next.historyState();
+        selectedIds = next.selectionIds;
+      } catch {
+        // A cleanup-failed or externally destroying engine is not a live
+        // probe target. The bridge state must remain readable so destroy can
+        // be retried through the same ownership boundary.
+        animations = 0;
+      }
     }
     const snapshot = lastSnapshot;
-    const history = next?.historyState() ?? { undoDepth: 0, redoDepth: 0 };
     return Object.freeze({
       caseId: options.caseId,
       sceneSize: manualSceneSize,
       status,
       generation,
       mode: pointerController.mode,
-      selectedIds: next?.selectionIds ?? snapshot?.selectionIds ?? Object.freeze([]),
+      selectedIds: selectedIds.length > 0
+        ? selectedIds
+        : snapshot?.selectionIds ?? Object.freeze([]),
       history: Object.freeze({
         undoDepth: history.undoDepth,
         redoDepth: history.redoDepth,
@@ -1324,6 +1373,12 @@ export function mountPatchMapManualWorkbench(
     return engine.destroyed ? null : engine;
   }
 
+  function probeableEngine(): PatchMap | null {
+    return destroyRequested || status === 'booting' || status === 'busy'
+      ? null
+      : liveEngine();
+  }
+
   function activeAnimationCount(next: PatchMap | null): number {
     return next?.activeAnimations ?? 0;
   }
@@ -1346,31 +1401,49 @@ export function mountPatchMapManualWorkbench(
       },
       () => {
         const previous = frameLoop;
-        frameLoop = null;
         previous?.destroy();
+        if (frameLoop === previous) frameLoop = null;
       },
       releaseAllAssets,
       async () => {
-        const unbinds = engineUnbinds.splice(0);
-        await settlePatchMapManualCleanup(unbinds);
+        await releasePatchMapManualOwnedResources(engineUnbinds, (unbind) => unbind());
       },
       async () => {
         const previous = engine;
-        engine = null;
-        lastSnapshot = null;
-        if (previous !== null) await previous.destroy();
+        if (previous !== null) {
+          await previous.destroy();
+          if (engine === previous) {
+            engine = null;
+            lastSnapshot = null;
+          }
+        }
       },
       () => surfaceHost.replaceChildren(),
     ]);
   }
 
-  async function destroy(): Promise<void> {
+  function destroy(): Promise<void> {
+    if (destroyPromise !== null) return destroyPromise;
+    destroyRequested = true;
+    status = 'busy';
+    refresh();
+    const pending = enqueueOperation(destroyWorkbench);
+    destroyPromise = pending;
+    pending.catch((error: unknown) => {
+      if (destroyPromise === pending) destroyPromise = null;
+      fail(error);
+      refresh();
+    });
+    return pending;
+  }
+
+  async function destroyWorkbench(): Promise<void> {
     if (destroyed) return;
-    destroyed = true;
     abortController.abort();
     performanceObserver?.disconnect();
     performanceObserver = null;
     await destroyEngine();
+    destroyed = true;
     status = 'destroyed';
     if (window.__PATCH_MAP_MANUAL_LAB__ === bridge) {
       delete window.__PATCH_MAP_MANUAL_LAB__;
@@ -1397,12 +1470,13 @@ export function mountPatchMapManualWorkbench(
   }
 
   function syncDisabledState(offline: boolean): void {
+    const occupied = destroyRequested || status === 'booting' || status === 'busy';
     for (const button of host.querySelectorAll<HTMLButtonElement>('[data-manual-command]')) {
       const command = button.dataset.manualCommand;
-      button.disabled = offline && command !== 'reinitialize-session';
+      button.disabled = occupied || (offline && command !== 'reinitialize-session');
     }
     for (const button of host.querySelectorAll<HTMLButtonElement>('[data-manual-mode]')) {
-      button.disabled = offline;
+      button.disabled = occupied || offline;
     }
   }
 
