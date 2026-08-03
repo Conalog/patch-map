@@ -684,6 +684,8 @@ export class PatchMap {
       ?? (target.id.length > 0 ? target.id : `patch-map-${++patchMapMountSequence}`);
     const engine = new PatchMap({
       ...(options.historyLimit === undefined ? {} : { historyLimit: options.historyLimit }),
+      ...(options.assetRuntime === undefined ? {} : { assetRuntime: options.assetRuntime }),
+      ...(options.assetPolicy === undefined ? {} : { assetPolicy: options.assetPolicy }),
     });
     try {
       await engine.initialize({

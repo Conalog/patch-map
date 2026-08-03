@@ -14,11 +14,5 @@ import type {
 export const PatchMap: PatchMapConstructor = PatchMapImplementation;
 export type PatchMap = PatchMapPublic;
 
-/**
- * Explicit lifecycle/verification seam for deterministic runners and advanced
- * editor hosts. Normal applications should use `PatchMap.mount()`.
- */
-export { PatchMapImplementation as PatchMapAdvanced };
-
 export * from './patch-map/index';
 export type * from './patch-map/input';

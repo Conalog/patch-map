@@ -2,10 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createPatchMapDeveloperApi } from '../../src/patch-map/developer-api';
 import { PatchMap } from '../../src/patch-map/engine';
-import {
-  PatchMap as PublicPatchMap,
-  PatchMapAdvanced,
-} from '../../src/index';
+import * as PublicPackage from '../../src/index';
+import { PatchMap as PublicPatchMap } from '../../src/index';
 import type {
   PatchMapEngineInstanceBarHeightResult,
   PatchMapEngineQueryResult,
@@ -667,10 +665,10 @@ describe('PatchMap high-level developer API', () => {
     });
   });
 
-  it('keeps one runtime implementation behind high-level and advanced package names', () => {
-    expect(PublicPatchMap).toBe(PatchMapAdvanced);
+  it('ships one PatchMap name without exposing the low-level implementation alias', () => {
     expect(PublicPatchMap).toBe(PatchMap);
     expect(typeof PublicPatchMap.mount).toBe('function');
+    expect('PatchMapAdvanced' in PublicPackage).toBe(false);
   });
 
   it('explains a missing mount target before allocating renderer resources', async () => {

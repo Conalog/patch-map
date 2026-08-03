@@ -62,7 +62,7 @@ describe('PatchMap extraction verification scripts', () => {
     expect(packageSource).toContain('PATCH_MAP_PACKAGE_ARTIFACT_DIR');
     expect(packageSource).toContain('engine.extractPublishedScene({');
     expect(packageSource).toContain(
-      'extractionType: typeof PatchMapAdvanced.prototype.extractPublishedScene',
+      'extractionType: typeof PatchMap.prototype.extractPublishedScene',
     );
     expect(packageSource).toContain('validatePatchMapDatasetReferences(engine.exportDataset())');
     expect(packageSource).toContain("strictReferenceValidatorType: typeof validatePatchMapDatasetReferences");

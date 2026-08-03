@@ -77,22 +77,17 @@ path only needs `await patchMap.destroy()`. For the pinned legacy generic-item
 profile, materialize it before passing `data`; canonical PATCH MAP v0.10 arrays
 are passed directly.
 
-The packaged `minimal`, `dashboard`, `editor`, and `report` examples show the
-preferred domain API. [`host-adapter.ts`](../../examples/patch-map/host-adapter.ts)
-remains an advanced migration verifier; do not copy its low-level lifecycle
-into a normal integration.
+The packaged `minimal`, `dashboard`, `editor`, `report`, and
+[`host-adapter.ts`](../../examples/patch-map/host-adapter.ts) examples all use
+the same public `PatchMap.mount()` lifecycle and domain APIs.
 
 ### Frame ownership
 
-Choose one publication model per instance:
-
-1. Normal interactive services use `PatchMap.mount()`, which creates and owns
-   exactly one loop. PatchMap invalidates it for product-owned mutations,
-   animation, and interaction, pauses it for document visibility, and cancels
-   it during destruction.
-2. Deterministic evidence or a deliberately manual host uses
-   `PatchMapAdvanced`, omits the loop, and calls `publishFrame(timeMs)` only at
-   explicit boundaries.
+Interactive services use `PatchMap.mount()`, which creates and owns exactly one
+loop. PatchMap invalidates it for product-owned mutations, animation, and
+interaction, pauses it for document visibility, and cancels it during
+destruction. Package-internal deterministic evidence may drive publication
+explicitly, but that seam is not a consumer API.
 
 Do not keep the old ticker, requestAnimationFrame callback, entity-level
 animation closures, or mirrored pointer bookkeeping. Running two publishers
@@ -123,8 +118,9 @@ Do not use it as a permissive unknown-schema converter.
 Use synchronous `data.load()` for an already available scene and
 `data.loadAsync()` when replacement work must yield. A superseded async load
 rejects with a structured `SUPERSEDED` diagnostic, so it must not update host
-persistence or analytics as though the new scene committed. Advanced hosts
-that need an explicit supersession queue may use `PatchMapAdvanced.submitDataset()`.
+persistence or analytics as though the new scene committed. Hosts that need an
+explicit supersession queue should coordinate `data.loadAsync()` calls and
+treat only the latest fulfilled request as committed application state.
 
 With `{ strict: true }`, a dangling relation or invalid required value rejects
 before publication. Compatibility mode may omit a dangling relation from
@@ -327,7 +323,7 @@ const capture = await patchMap.capture.png();
 
 An unreadable asset, renderer loss, or destroyed instance rejects instead of
 returning a capture for a different frame. Exact tuple extraction remains an
-advanced deterministic seam on `PatchMapAdvanced`.
+internal verification seam.
 
 ## Canary and rollback
 

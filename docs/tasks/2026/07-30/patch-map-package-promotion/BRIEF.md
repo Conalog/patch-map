@@ -27,9 +27,10 @@
   internal commit paths. `updateBatch()` selects them without exposing
   `ownerId`, dense slots, or separate bar/text mutation domains.
 - The default package entry now guides application developers through
-  `PatchMap.mount()` and cohesive `data/targets/bars/texts/selection/transform/
-  viewport/history/assets/capture` domains. `PatchMapAdvanced` retains the
-  deterministic low-level seams without creating a second runtime or renderer.
+  `PatchMap.mount()`, `update()/updateBatch()/transaction()`, and cohesive
+  `data/targets/selection/transform/viewport/history/assets/capture` domains.
+  Low-level lifecycle and publication
+  seams remain internal and are not exposed under a competing class name.
 - The structural refactor keeps atomic mutation in the facade while assigning
   geometry, semantic indexing, Pixi adaptation, Mesh planning, public
   contracts, Lab presentation, and actual-only test harnesses explicit owners.
@@ -81,6 +82,12 @@
   The final public-path 5,000/10,000 concrete-bar 2+7 proxy passed at 25.2ms
   and 52.1ms repeated-update p95 medians; a later final-code 10,000 smoke
   passed at 49.9ms. Windows-native and qualified WebGPU remain pending.
+- The public lifecycle now has one name: `PatchMapAdvanced` is absent from the
+  root runtime export and packed declarations. The packaged host adapter uses
+  `PatchMap.mount()` and public domains, while optional shared asset runtime
+  ownership is available directly on mount. The strict packed ESM/CJS/types
+  consumer, all 38 journeys, four examples, aggregate ownership, audit, and
+  teardown pass with a negative declaration check for the removed alias.
 
 # Next Step
 

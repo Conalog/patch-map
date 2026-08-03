@@ -35,17 +35,12 @@ and cleans those resources in `destroy()`. Pass `resize: 'manual'` only when
 the surrounding layout system calls `patchMap.viewport.resize(width, height)`
 itself.
 
-`PatchMapAdvanced` exposes the lower-level constructor, `initialize()`,
-`createFrameLoop()`, and explicit publication methods for deterministic
-verification and specialized hosts. They are advanced lifecycle seams, not
-the default setup.
-
-`createFrameLoop()` keeps cadence, logical animation time, large-scene
+The package-owned frame loop keeps cadence, logical animation time, large-scene
 viewport-first publication, pause/resume, and RAF cancellation inside the
-package. Engine mutations and product-owned pointer/view events invalidate
-that loop automatically. The host does not duplicate bar thresholds or
-pointer bookkeeping. `destroy()` cancels the owned loop before releasing the
-Pixi surface; creating a second live loop for the same runtime is rejected.
+package-owned `PatchMap.mount()` lifecycle. Engine mutations and product-owned
+pointer/view events invalidate that loop automatically. The host does not
+create a second loop, duplicate bar thresholds, or mirror pointer bookkeeping.
+`destroy()` cancels the owned loop before releasing the Pixi surface.
 
 The aggregate renderer and dense runtime are package internals. Consumers use
 the same `PatchMap.mount()` lifecycle, scheduling, animation, viewport, and
@@ -117,4 +112,5 @@ dropping unsupported required data.
 Display objects, Pixi renderer internals, dense slots, mutable live nodes, and
 command classes are not public identities. Use `targets.get/compile()` for
 application addressing and `debug.snapshot()` for detached diagnostics.
-Specialized verification may import `PatchMapAdvanced` for deeper probes.
+Low-level lifecycle and publication probes are package-internal verification
+seams and are not exported from `@conalog/patch-map`.

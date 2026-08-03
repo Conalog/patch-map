@@ -91,14 +91,14 @@ export function auditPackedHostAdapterSource(source) {
   );
   const restrictedImports = imports.filter((specifier) => specifier !== PACKAGE_NAME);
   const requiredDelegations = Object.freeze({
-    load: '.loadDataset(',
-    lookup: '.queryScene(',
-    'bulk-update': '.bulkPatch(',
-    selection: '.applySelection(',
-    transform: '.applyTransformerEdit(',
-    history: '.historyInspection(',
-    snapshot: '.snapshot(',
-    extract: '.extractPublishedScene(',
+    load: '.data.load(',
+    lookup: '.targets.get(',
+    'bulk-update': '.transaction(',
+    selection: '.selection.set(',
+    transform: '.transform.move(',
+    history: '.history.state',
+    snapshot: '.debug.snapshot(',
+    extract: '.capture.png(',
     destroy: '.destroy(',
   });
   const missingDelegations = Object.entries(requiredDelegations)

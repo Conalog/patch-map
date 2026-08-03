@@ -157,3 +157,19 @@
 - Expose `update()` for one owner, columnar `updateBatch()` for equal-shaped high-volume changes, and `transaction()` for ordered heterogeneous or structural atomic work. Omit `componentId` only for a unique matching type; reject ambiguous types, unknown fields, accessor-backed envelopes, identity rewrites, and mismatched columns before commit.
 - The three methods are separated by user intent rather than by every component property, while keeping a compact columnar form for 5,000/10,000 updates and one explicit atomic workflow operation.
 - The facade lowers to the existing authored bar/text planners, concrete grid-cell overlay, or strict semantic transaction. Broad compiled selectors preserve owner-local duplicate component IDs, cache stable address indexes, and do not expose dense slots. Raw `transact()` remains advanced.
+
+## 2026-08-03 — Expose one lifecycle name
+
+- **Background:** `PatchMap` and `PatchMapAdvanced` were runtime-identical names
+  for the same engine. The second name exposed constructor, publication, and
+  probe seams that normal hosts do not need and made the recommended entry
+  ambiguous.
+- **Decision:** Export only `PatchMap`, with `PatchMap.mount()` as the consumer
+  lifecycle. Keep the implementation class and deterministic low-level seams
+  internal. Let `mount()` accept an optional shared asset runtime/policy so
+  multi-instance hosts do not need the low-level constructor for legitimate
+  resource ownership.
+- **Impact:** Public examples, the migration adapter, declarations, and packed
+  consumer verification use the high-level lifecycle. Internal Lab and
+  expected-blind verification retain direct source access without creating a
+  second shipping API or renderer.

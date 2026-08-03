@@ -1,24 +1,23 @@
 import {
-  PatchMapAdvanced,
+  PatchMap,
   materializePatchMapCompatibilityDataset,
   preparePatchMapPersistenceExport,
-  type PatchMapBulkPatchRequest,
-  type PatchMapEngineExtractionResult,
-  type PatchMapEngineLoadResult,
-  type PatchMapOptions,
+  type PatchMap as PatchMapInstance,
+  type PatchMapDataLoadOptions,
+  type PatchMapDataLoadResult,
+  type PatchMapEngineHistoryResult,
   type PatchMapEngineSnapshot,
-  type PatchMapEngineTransactionResult,
-  type PatchMapEngineTransformerEditOptions,
   type PatchMapEngineTransformerEditResult,
-  type PatchMapInitializeOptions,
-  type PatchMapLoadOptions,
-  type PatchMapLogicalTargetSnapshot,
+  type PatchMapHistoryState,
+  type PatchMapMountOptions,
   type PatchMapPersistenceExport,
-  type PatchMapSelectionChange,
-  type PatchMapTransformerEditRequest,
+  type PatchMapTargets,
+  type PatchMapTransformOptions,
+  type PatchMapTransactionOperation,
+  type PatchMapUpdateResult,
 } from '@conalog/patch-map';
 
-export const PATCH_MAP_HOST_ADAPTER_REVISION = 'patch-map-host-adapter/1' as const;
+export const PATCH_MAP_HOST_ADAPTER_REVISION = 'patch-map-host-adapter/2' as const;
 
 export const PATCH_MAP_HOST_ADAPTER_CAPABILITIES = Object.freeze([
   'load',
@@ -34,11 +33,7 @@ export const PATCH_MAP_HOST_ADAPTER_CAPABILITIES = Object.freeze([
 ] as const);
 
 export type PatchMapHostHistoryCommand = 'inspect' | 'undo' | 'redo';
-
-export interface PatchMapHostAdapterMountOptions {
-  readonly engine?: Readonly<PatchMapOptions>;
-  readonly initialize: PatchMapInitializeOptions;
-}
+export type PatchMapHostAdapterMountOptions = PatchMapMountOptions;
 
 export interface PatchMapHostAdapterDisposer {
   readonly disposed: boolean;
@@ -46,83 +41,73 @@ export interface PatchMapHostAdapterDisposer {
 }
 
 /**
- * Consumer-owned orchestration for the redesigned PatchMap API. Every semantic
- * operation delegates to PatchMap; this adapter owns only host lifecycle
- * and subscription disposal.
+ * Consumer-owned orchestration over the same high-level API used by normal
+ * applications. The adapter owns only host subscription disposal.
  */
 export class PatchMapHostAdapter {
-  readonly #engine: PatchMapAdvanced;
+  readonly #map: PatchMapInstance;
   readonly #disposers = new Set<() => void>();
   #destroyed = false;
 
-  private constructor(engine: PatchMapAdvanced) {
-    this.#engine = engine;
+  private constructor(map: PatchMapInstance) {
+    this.#map = map;
   }
 
   public static async mount(
     options: PatchMapHostAdapterMountOptions,
   ): Promise<PatchMapHostAdapter> {
-    const engine = new PatchMapAdvanced(options.engine);
-    const adapter = new PatchMapHostAdapter(engine);
-    try {
-      await engine.initialize(options.initialize);
-      return adapter;
-    } catch (error) {
-      await engine.destroy().catch(() => undefined);
-      throw error;
-    }
+    return new PatchMapHostAdapter(await PatchMap.mount(options));
   }
 
-  public load(input: unknown, options: PatchMapLoadOptions = {}): PatchMapEngineLoadResult {
+  public load(
+    input: unknown,
+    options: PatchMapDataLoadOptions = {},
+  ): PatchMapDataLoadResult {
     const compatible = materializePatchMapCompatibilityDataset(input);
-    return this.#engine.loadDataset(compatible.canonicalDataset, options);
+    return this.#map.data.load(compatible.canonicalDataset, options);
   }
 
   public prepareSave(strictReferences = true): PatchMapPersistenceExport {
-    return preparePatchMapPersistenceExport(this.#engine.exportDataset(), {
+    return preparePatchMapPersistenceExport(this.#map.data.export(), {
       strictReferences,
     });
   }
 
-  public lookup(id: string): PatchMapLogicalTargetSnapshot | null {
-    return this.#engine.queryScene({
-      recursive: true,
-      where: { id },
-    }).targets[0] ?? null;
+  public lookup(id: string) {
+    return this.#map.targets.get({ id });
   }
 
-  public bulkUpdate(request: PatchMapBulkPatchRequest): PatchMapEngineTransactionResult {
-    return this.#engine.bulkPatch(request);
+  public bulkUpdate(
+    operations: readonly PatchMapTransactionOperation[],
+  ): PatchMapUpdateResult {
+    return this.#map.transaction(operations);
   }
 
-  public selection(ids: readonly string[]): PatchMapSelectionChange {
-    return this.#engine.applySelection({
-      op: 'replace',
-      ids,
-      source: 'external',
-    });
+  public selection(ids: readonly string[]): readonly string[] {
+    return this.#map.selection.set(ids);
   }
 
   public transform(
-    request: PatchMapTransformerEditRequest,
-    options: PatchMapEngineTransformerEditOptions = {},
+    targets: PatchMapTargets,
+    by: readonly [number, number],
+    options: PatchMapTransformOptions = {},
   ): PatchMapEngineTransformerEditResult {
-    return this.#engine.applyTransformerEdit(request, options);
+    return this.#map.transform.move(targets, by, options);
   }
 
-  public history(command: 'inspect'): ReturnType<PatchMapAdvanced['historyInspection']>;
-  public history(command: 'undo' | 'redo'): ReturnType<PatchMapAdvanced['undo']>;
+  public history(command: 'inspect'): PatchMapHistoryState;
+  public history(command: 'undo' | 'redo'): PatchMapEngineHistoryResult;
   public history(
     command: PatchMapHostHistoryCommand,
-  ): ReturnType<PatchMapAdvanced['historyInspection']> | ReturnType<PatchMapAdvanced['undo']> {
-    if (command === 'inspect') return this.#engine.historyInspection();
-    return command === 'undo' ? this.#engine.undo() : this.#engine.redo();
+  ): PatchMapHistoryState | PatchMapEngineHistoryResult {
+    if (command === 'inspect') return this.#map.history.state;
+    return command === 'undo' ? this.#map.history.undo() : this.#map.history.redo();
   }
 
   public observeSelection(
-    listener: Parameters<PatchMapAdvanced['bindSelectionHost']>[0],
+    listener: (ids: readonly string[]) => void,
   ): PatchMapHostAdapterDisposer {
-    const release = this.#engine.bindSelectionHost(listener);
+    const release = this.#map.selection.onChange(listener);
     this.#disposers.add(release);
     let disposed = false;
     return {
@@ -146,32 +131,22 @@ export class PatchMapHostAdapter {
     return releases.length;
   }
 
-  public publish(timeMs = globalThis.performance?.now() ?? Date.now()): PatchMapEngineSnapshot {
-    this.#engine.publishFrame(timeMs);
-    return this.#engine.snapshot();
-  }
-
   public snapshot(): PatchMapEngineSnapshot {
-    return this.#engine.snapshot();
+    return this.#map.debug.snapshot();
   }
 
-  public assetProbe(alias?: string): ReturnType<PatchMapAdvanced['assetProbe']> {
-    return this.#engine.assetProbe(alias);
+  public assetProbe(alias?: string): unknown {
+    return this.#map.assets.inspect(alias);
   }
 
-  public async extract(): Promise<PatchMapEngineExtractionResult> {
-    const snapshot = this.publish();
-    return this.#engine.extractPublishedScene({
-      targetTuple: snapshot.publishedTuple,
-      cssSize: snapshot.resources.canvas.cssSize,
-      mime: 'image/png',
-    });
+  public extract() {
+    return this.#map.capture.png();
   }
 
   public async destroy(): Promise<boolean> {
     if (this.#destroyed) return false;
     this.#destroyed = true;
     this.dispose();
-    return this.#engine.destroy();
+    return this.#map.destroy();
   }
 }

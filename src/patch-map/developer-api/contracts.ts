@@ -1,4 +1,8 @@
-import type { PatchMapAssetRegistration } from '../assets';
+import type {
+  PatchMapAssetPolicy,
+  PatchMapAssetRegistration,
+  PatchMapAssetRuntime,
+} from '../assets';
 import type { PatchMapEngineDiagnostic } from '../engine/public-contracts';
 import type {
   PatchMapEngineHistoryClearResult,
@@ -234,6 +238,9 @@ export interface PatchMapMountOptions {
   readonly devtools?: boolean;
   readonly powerPreference?: 'high-performance' | 'low-power';
   readonly assets?: readonly PatchMapAssetRegistration[];
+  /** Share decoded asset ownership across mounted PatchMap instances. */
+  readonly assetRuntime?: PatchMapAssetRuntime;
+  readonly assetPolicy?: PatchMapAssetPolicy;
   readonly historyLimit?: number;
   /** Observe the host's CSS size and coalesce it through ResizeObserver. */
   readonly resize?: 'observe' | 'manual';

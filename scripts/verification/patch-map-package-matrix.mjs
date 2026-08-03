@@ -94,7 +94,6 @@ export async function preparePackedConsumerMatrix({
 import {
   PatchMap,
   type PatchMapEngineSnapshot,
-  type PatchMapInitializeOptions,
   type PatchMapMountOptions,
   type PatchMapTargetSelector,
 } from '${PACKAGE_NAME}';
@@ -102,13 +101,9 @@ import {
   PATCH_MAP_HOST_ADAPTER_CAPABILITIES,
   PatchMapHostAdapter,
 } from './examples/host-adapter';
+// @ts-expect-error PatchMapAdvanced is intentionally not a package export.
+import { PatchMapAdvanced } from '${PACKAGE_NAME}';
 
-const options: PatchMapInitializeOptions = {
-  instanceId: 'strict-types-only',
-  width: 320,
-  height: 180,
-  preference: 'webgl',
-};
 const Engine: typeof PatchMap = PatchMap;
 const highLevelMount: typeof PatchMap.mount = PatchMap.mount;
 const mountOptions: PatchMapMountOptions = {
@@ -126,7 +121,6 @@ const capabilities: readonly string[] = PATCH_MAP_HOST_ADAPTER_CAPABILITIES;
 const mount: typeof PatchMapHostAdapter.mount = PatchMapHostAdapter.mount;
 const snapshot: PatchMapEngineSnapshot | null = null;
 void [
-  options,
   Engine,
   highLevelMount,
   mountOptions,
@@ -134,6 +128,7 @@ void [
   capabilities,
   mount,
   snapshot,
+  PatchMapAdvanced,
 ];
 `);
   await writeFile(path.join(consumer, 'examples.html'), html('/examples-runner.ts'));

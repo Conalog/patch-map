@@ -16,28 +16,27 @@ origin, response, MIME, size, and byte validation, before the engine admits its
 texture. An existing Pixi global-cache entry with the same URL is not evidence
 that those checks ran and is never borrowed as a validation shortcut.
 
-The normal `PatchMap.mount()` path creates the package frame loop for visible
+The `PatchMap.mount()` path creates the package frame loop for visible
 animation and gesture frames, observes the host size, schedules product
 changes, pauses across document visibility transitions, and destroys these
-resources before the Pixi surface.
-Deterministic evidence runners may omit it and continue to call
-`publishFrame(timeMs)` explicitly. Never run both a host RAF publisher and the
-package loop for the same PatchMap instance.
+resources before the Pixi surface. Low-level deterministic publication is an
+internal verification concern, not a second consumer lifecycle. Never add a
+host RAF publisher alongside the package loop.
 
 The packaged examples demonstrate the intended high-level boundary.
-`examples/patch-map/host-adapter.ts` is reserved for advanced migration
-verification responsibilities:
+`examples/patch-map/host-adapter.ts` shows how a host can compose that same
+boundary without acquiring a second engine API:
 
 - `load()` first uses the explicit canonical/legacy compatibility
-  materializer, then delegates the detached array to `loadDataset()`;
+  materializer, then delegates the detached array to `data.load()`;
 - `prepareSave()` validates a detached array, strict references by default,
   and returns serialized data only after the guard succeeds;
-- `lookup()` delegates to `queryScene()`;
-- `bulkUpdate()` delegates to the atomic dense transaction path;
-- `selection()` and `transform()` delegate to engine authorities;
-- `history()` delegates to inspect/undo/redo;
+- `lookup()` delegates to `targets.get()`;
+- `bulkUpdate()` delegates to `transaction()`;
+- `selection()` and `transform()` delegate to their public domains;
+- `history()` delegates to state/undo/redo;
 - `observeSelection()` owns only the returned disposer;
-- `snapshot()` and `extract()` use public detached probes;
+- `snapshot()` and `extract()` use `debug.snapshot()` and `capture.png()`;
 - `destroy()` disposes host subscriptions before engine teardown.
 
 The adapter must not import previous-runtime symbols, copy renderer behavior, rebuild

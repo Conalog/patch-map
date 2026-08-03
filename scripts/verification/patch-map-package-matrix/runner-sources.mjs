@@ -92,17 +92,17 @@ async function runHostAdapter() {
   let inspection = null;
   let snapshot = null;
   let extraction = null;
+  let authoritativeCanvasRetained = false;
   let disposer = null;
   try {
     adapter = await PatchMapHostAdapter.mount({
-      initialize: {
-        instanceId: 'package-host-adapter',
-        target: host,
-        width: 420,
-        height: 240,
-        preference: 'webgl',
-        strategy: 'mesh',
-      },
+      instanceId: 'package-host-adapter',
+      target: host,
+      width: 420,
+      height: 240,
+      backend: 'webgl',
+      strategy: 'mesh',
+      resize: 'manual',
     });
     const legacyLoad = adapter.load({
       kind: 'generic-item',
@@ -129,25 +129,20 @@ async function runHostAdapter() {
     if (lookup?.id !== 'rect-b') throw new Error('adapter stable lookup');
     reachedCapabilities.push('lookup');
 
-    const bulk = adapter.bulkUpdate({
-      strict: true,
-      actionId: 'package-adapter-bulk',
-      targets: [{ kind: 'element', id: 'rect-b' }],
-      changes: [{ path: ['attrs', 'x'], value: 52 }],
-    });
+    const bulk = adapter.bulkUpdate([{
+      type: 'update',
+      id: 'rect-b',
+      changes: { attrs: { x: 52 } },
+    }]);
     if (bulk.status !== 'committed') throw new Error('adapter bulk update');
     reachedCapabilities.push('bulk-update');
 
     disposer = adapter.observeSelection((publication) => publications.push(publication));
     const selection = adapter.selection(['rect-b']);
-    if (selection.current[0] !== 'rect-b') throw new Error('adapter selection');
+    if (selection[0] !== 'rect-b') throw new Error('adapter selection');
     reachedCapabilities.push('selection');
 
-    const transform = adapter.transform({
-      kind: 'move',
-      selectionIds: ['rect-b'],
-      deltaWorld: [8, 4],
-    }, {
+    const transform = adapter.transform({ id: 'rect-b' }, [8, 4], {
       actionId: 'package-adapter-transform',
       recordHistory: true,
     });
@@ -155,7 +150,7 @@ async function runHostAdapter() {
     reachedCapabilities.push('transform');
 
     inspection = adapter.history('inspect');
-    if (inspection.state.undoDepth < 2) throw new Error('adapter history depth');
+    if (inspection.undoDepth < 2) throw new Error('adapter history depth');
     reachedCapabilities.push('history');
 
     if (!disposer.dispose() || disposer.dispose()) throw new Error('adapter disposer idempotence');
@@ -167,6 +162,7 @@ async function runHostAdapter() {
 
     extraction = await adapter.extract();
     if (!extraction.dataUrl.startsWith('data:image/png')) throw new Error('adapter extraction');
+    authoritativeCanvasRetained = host.querySelectorAll('canvas').length === 1;
     reachedCapabilities.push('extract');
 
     await adapter.destroy();
@@ -175,13 +171,13 @@ async function runHostAdapter() {
   } finally {
     await adapter?.destroy().catch(() => undefined);
   }
-  const corruptEntryCount = inspection.commands.filter((command) =>
-    typeof command.id !== 'string'
-    || command.id.length === 0
-    || command.recordCount !== command.records.length
-    || !Array.isArray(command.before.dataset)
-    || !Array.isArray(command.after.dataset)
-  ).length;
+  const corruptEntryCount =
+    inspection.depth === inspection.undoDepth + inspection.redoDepth
+    && inspection.cursor === inspection.undoDepth
+    && inspection.undoDepth >= 0
+    && inspection.redoDepth >= 0
+      ? 0
+      : 1;
   const result = {
     reachedCapabilities,
     originalImportCount: 0,
@@ -193,7 +189,7 @@ async function runHostAdapter() {
     leakDelta: host.querySelectorAll('canvas').length,
     extraction: {
       mime: extraction.mime,
-      authoritativeCanvasRetained: extraction.authoritativeCanvasRetained,
+      authoritativeCanvasRetained,
     },
   };
   host.remove();
@@ -209,7 +205,6 @@ async function runMultipleInstances() {
     document.body.appendChild(slot);
   }
   const runtime = new PatchMapAssetRuntime();
-  const engine = { assetRuntime: runtime };
   const callbacks = { A: [], B: [] };
   let A = null;
   let A2 = null;
@@ -218,30 +213,28 @@ async function runMultipleInstances() {
   try {
     [A, B] = await Promise.all([
       PatchMapHostAdapter.mount({
-        engine,
-        initialize: {
-          instanceId: 'package-instance-A',
-          target: slotA,
-          width: 360,
-          height: 220,
-          background: '#f8fafc',
-          preference: 'webgl',
-          strategy: 'mesh',
-          requiredAssets: [SHARED_ASSET],
-        },
+        instanceId: 'package-instance-A',
+        target: slotA,
+        width: 360,
+        height: 220,
+        background: '#f8fafc',
+        backend: 'webgl',
+        strategy: 'mesh',
+        assets: [SHARED_ASSET],
+        assetRuntime: runtime,
+        resize: 'manual',
       }),
       PatchMapHostAdapter.mount({
-        engine,
-        initialize: {
-          instanceId: 'package-instance-B',
-          target: slotB,
-          width: 360,
-          height: 220,
-          background: '#111827',
-          preference: 'webgl',
-          strategy: 'mesh',
-          requiredAssets: [SHARED_ASSET],
-        },
+        instanceId: 'package-instance-B',
+        target: slotB,
+        width: 360,
+        height: 220,
+        background: '#111827',
+        backend: 'webgl',
+        strategy: 'mesh',
+        assets: [SHARED_ASSET],
+        assetRuntime: runtime,
+        resize: 'manual',
       }),
     ]);
     A.load(DATASET, { datasetRef: 'interactive-scene:A' });
@@ -250,20 +243,12 @@ async function runMultipleInstances() {
     B.observeSelection((publication) => callbacks.B.push(publication));
     A.selection(['rect-b']);
     B.selection(['item-a']);
-    A.bulkUpdate({
-      strict: true,
-      actionId: 'package-instance-A-animation',
-      targets: [{ kind: 'component', ownerId: 'item-a', id: 'bar' }],
-      changes: [{ path: ['size', 'height'], value: 70 }],
-    });
-    B.bulkUpdate({
-      strict: true,
-      actionId: 'package-instance-B-animation',
-      targets: [{ kind: 'component', ownerId: 'item-a', id: 'bar' }],
-      changes: [{ path: ['size', 'height'], value: 34 }],
-    });
-    A.publish(16);
-    B.publish(24);
+    A.bulkUpdate([{
+      type: 'update', id: 'item-a', bar: { componentId: 'bar', height: 70 },
+    }]);
+    B.bulkUpdate([{
+      type: 'update', id: 'item-a', bar: { componentId: 'bar', height: 34 },
+    }]);
     callbacks.A.length = 0;
     callbacks.B.length = 0;
     const baselineB = {
@@ -271,14 +256,10 @@ async function runMultipleInstances() {
       sceneSemanticHash: B.snapshot().semanticHash,
     };
 
-    A.bulkUpdate({
-      strict: true,
-      actionId: 'package-instance-A-hide',
-      targets: [{ kind: 'element', id: 'rect-b' }],
-      changes: [{ path: ['show'], value: false }],
-    });
+    A.bulkUpdate([{
+      type: 'update', id: 'rect-b', changes: { show: false },
+    }]);
     A.selection([]);
-    A.publish(32);
     await A.destroy();
     A = null;
 
@@ -290,20 +271,18 @@ async function runMultipleInstances() {
     };
 
     A2 = await PatchMapHostAdapter.mount({
-      engine,
-      initialize: {
-        instanceId: 'package-instance-A2',
-        target: slotA,
-        width: 360,
-        height: 220,
-        background: '#ecfeff',
-        preference: 'webgl',
-        strategy: 'mesh',
-        requiredAssets: [SHARED_ASSET],
-      },
+      instanceId: 'package-instance-A2',
+      target: slotA,
+      width: 360,
+      height: 220,
+      background: '#ecfeff',
+      backend: 'webgl',
+      strategy: 'mesh',
+      assets: [SHARED_ASSET],
+      assetRuntime: runtime,
+      resize: 'manual',
     });
     A2.load(structuredClone(DATASET), { datasetRef: 'interactive-scene:A2' });
-    A2.publish(40);
     return {
       baselineB,
       B: afterDestroyA,
@@ -356,7 +335,7 @@ export function journeyRunnerSource({ root, packageDigest, codeCommit }) {
     'scripts/verification/core-v2-contract/fold-foundation.mjs',
   );
   return `
-import { PatchMapAdvanced } from '${PACKAGE_NAME}';
+import { PatchMap } from '${PACKAGE_NAME}';
 import { createPatchMapExecutableLabBridge } from ${JSON.stringify(bridgePath)};
 import {
   PATCH_MAP_EXECUTABLE_CASE_IDS,
@@ -406,7 +385,7 @@ async function runPackedFoundationProbe(caseId, plan, host) {
   target.style.width = '800px';
   target.style.height = '600px';
   host.appendChild(target);
-  const engine = new PatchMapAdvanced();
+  const engine = new PatchMap();
   const cleanupErrors = [];
   try {
     if (caseId === 'CSM-003') {

@@ -269,3 +269,21 @@
 - Split facade, semantic lowering, batch interpretation, and commit projection into cohesive modules. Added scene-snapshot address indexing and explicit broad component queries so 10,000 repeated targets resolve in O(N+M) without collapsing identical owner-local component IDs. The Lab and performance verifier now exercise the same final public API and reuse compiled targets.
 - Verification passed scoped and full lint/typecheck, 196 unit files / 1,780 tests, product/Lab builds, canonical 38 decisions / 173 cases, required-audit packed ESM/CJS/types + 38 journeys + four examples, and representative headless WebGL with zero console/page/network errors. Focused facade/Lab regressions passed after the final diagnostics hardening.
 - The public-path 2+7 Chromium proxy passed with repeated-update p95 medians of 25.2ms for 5,000 concrete bars and 52.1ms for 10,000; rAF-gap p95 medians were 17.4ms and 66.8ms. A final-code 10,000 smoke recorded 49.9ms repeated p95 and zero long tasks. Renderer/resource ownership did not change, so the memory matrix was not repeated. Windows-native and qualified WebGPU remain pending.
+
+**2026-08-03**
+
+- Removed the public `PatchMapAdvanced` alias so applications have one entry:
+  `PatchMap.mount()`. Kept the low-level implementation and deterministic
+  lifecycle/probe seams internal for Lab and expected-blind verification.
+- Reworked the shipped host-adapter example to use `data`, `targets`,
+  `transaction`, `selection`, `transform`, `history`, `debug`, and `capture`
+  domains. Added optional shared asset runtime/policy ownership to `mount()` so
+  legitimate multi-instance sharing does not require a low-level constructor.
+- Updated package matrices, ESM/CJS runners, migration documentation, and
+  source tests. A packed TypeScript negative check now fails if
+  `PatchMapAdvanced` becomes exported again.
+- Verification passed scoped lint/typecheck, 24 focused unit tests, required
+  dependency audit, packed ESM/CJS/types, all 38 journeys, four public
+  examples, four aggregate renderer owners, and clean lifecycle teardown.
+  Renderer and mutation hot paths did not change, so browser, memory, and
+  performance matrices were not repeated.

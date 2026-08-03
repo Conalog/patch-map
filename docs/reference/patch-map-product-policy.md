@@ -31,6 +31,8 @@
   low-level performance Playground does not ship.
 - Keep `PatchMapRuntime` and `createPatchMapRuntime()` internal. Product
   consumers, examples, Labs, and packed verification use `PatchMap`.
+- Keep the low-level Engine constructor and deterministic publication/probe
+  seams internal; do not expose a competing `PatchMapAdvanced` class alias.
 - Remove the unfinished Core v1 Canvas2D product surface, package export,
   Lab, product tests, build configuration, and consumer verification.
 - Remove legacy root product code once the root package exports the completed
