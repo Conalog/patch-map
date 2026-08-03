@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -13,8 +14,10 @@ import {
   REQUIRED_BROWSER_CELLS,
   requiredNativeArtifactRoles,
 } from './core-v2-native-release-contract.mjs';
+import { argumentValue } from './patch-map-browser-launch.mjs';
 
 const ROOT = process.cwd();
+const ARGV = process.argv.slice(2);
 const CODE_COMMIT = process.env.PATCH_MAP_CODE_COMMIT ?? 'uncommitted';
 const OUTPUT_PATH = path.resolve(
   process.env.PATCH_MAP_RELEASE_READINESS_OUTPUT
@@ -24,8 +27,8 @@ const DECISION_FIXTURES_PATH = path.join(
   ROOT,
   'docs/reference/core-v2-functional-contract/evidence/decision-fixtures.v1.json',
 );
-const NATIVE_MANIFEST_PATH = argumentValue('--native-manifest');
-const REQUIRE_RELEASE = process.argv.includes('--require-release');
+const NATIVE_MANIFEST_PATH = argumentValue(ARGV, '--native-manifest');
+const REQUIRE_RELEASE = ARGV.includes('--require-release');
 const COMMIT_HASH = /^[a-f0-9]{40}$/u;
 const SHA256_HASH = /^[a-f0-9]{64}$/u;
 const FULL_RENDERER_SCALES = Object.freeze([
@@ -71,9 +74,11 @@ const LOCAL_ARTIFACTS = Object.freeze([
     codeCommit: (value) => value.provenance?.codeCommit,
     pass: (value) =>
       value.status === 'pass'
+      && value.package === '@conalog/patch-map'
       && value.failures?.length === 0
       && value.provenance?.expectedEvidenceBound === true
       && SHA256_HASH.test(value.provenance?.packedPackageSha256 ?? '')
+      && value.artifact?.sha256 === value.provenance?.packedPackageSha256
       && value.packageMatrix?.failure === null
       && value.packageMatrix?.remainingCanvasCount === 0
       && value.journeyMatrix?.journeyCount === 38
@@ -167,11 +172,18 @@ const performanceDecision = requiredDecision(decisionFixtures, 'OQ-025');
 const inputDecision = requiredDecision(decisionFixtures, 'OQ-029');
 const localEvidence = [];
 const localFailures = [];
+const localArtifactValues = new Map();
+
+const immutableContract = verifyImmutableContract();
+if (!immutableContract.passed) {
+  localFailures.push('immutable-contract:canonical-verifier');
+}
 
 for (const descriptor of LOCAL_ARTIFACTS) {
   const absolutePath = safeWorkspacePath(descriptor.path);
   const bytes = await readFile(absolutePath);
   const value = JSON.parse(bytes.toString('utf8'));
+  localArtifactValues.set(descriptor.id, value);
   const artifactCommit = descriptor.codeCommit(value);
   const shapePass = descriptor.pass(value);
   const commitPass =
@@ -218,6 +230,9 @@ if (NATIVE_MANIFEST_PATH) {
       manifestSha256: sha256(bytes),
       performanceProfile: performanceDecision.setup.profile,
       codeCommit: CODE_COMMIT,
+      packedPackageSha256:
+        localArtifactValues.get('packed-consumer')?.provenance?.packedPackageSha256
+        ?? null,
     });
   } catch (error) {
     nativeEvidence = {
@@ -243,7 +258,8 @@ const report = {
   codeCommit: CODE_COMMIT,
   status,
   releaseVerified,
-  immutableContractModified: false,
+  immutableContractModified: !immutableContract.passed,
+  immutableContract,
   approvedProfile: {
     runtimeMatrix: runtimeDecision.setup,
     performance: performanceDecision.setup,
@@ -259,9 +275,10 @@ const report = {
   },
   nativeRelease: nativeEvidence,
   promotionRule:
-    'releaseVerified is true only when every local artifact remains valid and a digest-bound '
-    + 'native manifest passes all eight headed Windows WebGL2 cells, target performance, '
-    + 'NVDA/input-device, actual-host, migration, security, and review checks.',
+    'A structurally complete digest-bound native manifest remains pending until a qualified '
+    + 'raw-artifact validator and independent authenticity review are available. Only that '
+    + 'future qualified verification, together with valid local evidence and all eight headed '
+    + 'Windows WebGL2 cells, may set releaseVerified to true.',
 };
 
 await mkdir(path.dirname(OUTPUT_PATH), { recursive: true });
@@ -269,7 +286,7 @@ await writeFile(OUTPUT_PATH, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 
 if (releaseVerified) {
   process.stdout.write(
-    `PASS: Core v2 release readiness verified with ${nativeEvidence.checks.length} native checks\n`,
+    `PASS: PatchMap release readiness verified with ${nativeEvidence.checks.length} native checks\n`,
   );
 } else {
   process.stdout.write(
@@ -297,6 +314,11 @@ async function validateNativeManifest(manifest, context) {
   add(
     SHA256_HASH.test(manifest?.implementation?.packedPackageSha256 ?? ''),
     'packed package SHA-256',
+  );
+  add(
+    SHA256_HASH.test(context.packedPackageSha256 ?? '')
+      && manifest?.implementation?.packedPackageSha256 === context.packedPackageSha256,
+    'native manifest package digest matches fresh packed-consumer evidence',
   );
   add(
     /^8\.\d+\.\d+(?:[-+].+)?$/u.test(
@@ -556,12 +578,20 @@ async function validateNativeManifest(manifest, context) {
   );
   add(artifactHasRole(manifest?.review?.artifactId, 'review'), 'review artifact');
 
+  if (failures.length === 0) {
+    checks.push({
+      label: 'qualified external raw artifact validation',
+      status: 'pending',
+    });
+  }
   return {
-    status: failures.length === 0 ? 'pass' : 'fail',
+    status: failures.length === 0 ? 'pending' : 'fail',
     manifestPath: context.manifestPath,
     manifestSha256: context.manifestSha256,
     checks,
-    failures,
+    failures: failures.length === 0
+      ? ['qualified external raw artifact validation and independent authenticity review are pending']
+      : failures,
   };
 
   function add(condition, label, observation = undefined) {
@@ -577,6 +607,32 @@ async function validateNativeManifest(manifest, context) {
   function artifactHasRole(id, role) {
     return nonEmpty(id) && artifactById.get(id)?.role === role;
   }
+}
+
+function verifyImmutableContract() {
+  const verifiers = [
+    'scripts/verification/verify-core-v2-decision-evidence.mjs',
+    'scripts/verification/verify-core-v2-catalog-static-gates.mjs',
+    'scripts/verification/verify-core-v2-catalog.mjs',
+  ];
+  const checks = verifiers.map((relativePath) => {
+    const result = spawnSync(process.execPath, [path.join(ROOT, relativePath)], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    });
+    return {
+      path: relativePath,
+      status: result.status === 0 ? 'pass' : 'fail',
+      exitCode: result.status,
+      ...(result.status === 0
+        ? {}
+        : { error: (result.stderr || result.stdout || 'verifier failed').trim() }),
+    };
+  });
+  return {
+    passed: checks.every(({ status }) => status === 'pass'),
+    checks,
+  };
 }
 
 function fullRendererMatrixPass(value) {
@@ -630,14 +686,6 @@ function requiredDecision(fixtures, decision) {
   return record;
 }
 
-function argumentValue(name) {
-  const inlinePrefix = `${name}=`;
-  const inline = process.argv.find((argument) => argument.startsWith(inlinePrefix));
-  if (inline) return inline.slice(inlinePrefix.length);
-  const index = process.argv.indexOf(name);
-  return index >= 0 ? process.argv[index + 1] : undefined;
-}
-
 function safeWorkspacePath(value) {
   if (!nonEmpty(value)) throw new Error('evidence path must be a non-empty string');
   if (PROHIBITED_PATH_SEGMENT.test(value)) {
@@ -646,7 +694,7 @@ function safeWorkspacePath(value) {
   const absolutePath = path.resolve(ROOT, value);
   const relativePath = path.relative(ROOT, absolutePath);
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-    throw new Error(`evidence path leaves the Core v2 worktree: ${value}`);
+    throw new Error(`evidence path leaves the PatchMap worktree: ${value}`);
   }
   return absolutePath;
 }

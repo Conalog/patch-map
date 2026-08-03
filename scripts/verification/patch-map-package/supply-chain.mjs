@@ -116,5 +116,8 @@ function packageNameFromLockPath(lockPath) {
 }
 
 export function nonNegativeAuditCount(value) {
-  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new TypeError(`npm audit count must be a non-negative safe integer, received ${String(value)}`);
+  }
+  return value;
 }

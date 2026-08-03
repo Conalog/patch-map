@@ -32,7 +32,7 @@ const OUTPUT_PATH = path.resolve(
   process.env.PATCH_MAP_INTERACTION_PERF_OUTPUT
     ?? path.join(
       ROOT,
-      'docs/tasks/2026/07-15/performance-core-v2/evidence/interaction-performance-5000.json',
+      '.perf-results/patch-map/interaction-performance-5000.json',
     ),
 );
 

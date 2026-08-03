@@ -1,6 +1,12 @@
 import path from 'node:path';
 
 import {
+  resolvePatchMapCandidateInputPath,
+  resolvePatchMapCandidateOutputPath,
+} from '../../../scripts/verification/patch-map-candidate-path.mjs';
+
+import {
+  argumentValue,
   parsePatchMapBrowserLaunch,
   parsePatchMapNativeWindowsCell,
 } from '../../../scripts/verification/patch-map-browser-launch.mjs';
@@ -13,28 +19,33 @@ import {
 } from './protocol.mjs';
 
 export function parseContractRunOptions(arguments_, { root, resultsRoot }) {
-  const nativeWindows = arguments_.includes('--native-windows');
-  const browserLaunch = parsePatchMapBrowserLaunch(arguments_.slice(2), {
+  const argv = arguments_.slice(2);
+  const nativeWindows = argv.includes('--native-windows');
+  const browserLaunch = parsePatchMapBrowserLaunch(argv, {
     extraArgs: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
   });
   const nativeCell = parsePatchMapNativeWindowsCell(
-    arguments_.slice(2),
+    argv,
     browserLaunch,
   );
   const headed = browserLaunch.headed;
-  const smoke = arguments_.includes('--smoke');
+  const smoke = argv.includes('--smoke');
   const smokeSize = smoke
-    ? parseSize(argumentValue(arguments_, '--smoke-size') ?? '100')
+    ? parseSize(argumentValue(argv, '--smoke-size') ?? '100')
     : null;
-  const requestedHeaded = !arguments_.includes('--request-headless');
-  const codeCommit = argumentValue(arguments_, '--code-commit') ?? 'uncommitted';
-  const externalUrl = argumentValue(arguments_, '--url');
-  const cellId = argumentValue(arguments_, '--cell-id');
-  const outputDirectory = argumentValue(arguments_, '--output-dir');
+  const requestedHeaded = !argv.includes('--request-headless');
+  const codeCommit = argumentValue(argv, '--code-commit') ?? 'uncommitted';
+  const externalUrl = argumentValue(argv, '--url');
+  const cellId = argumentValue(argv, '--cell-id');
+  const outputDirectory = argumentValue(argv, '--output-dir');
+  const packageEvidence = argumentValue(argv, '--package-evidence');
   const resolvedResultsRoot = outputDirectory
-    ? path.resolve(root, outputDirectory)
-    : resultsRoot;
+    ? resolveFreshOutputDirectory(root, outputDirectory)
+    : resolveFreshOutputDirectory(root, path.relative(root, resultsRoot));
   const cpuThrottleRate = nativeWindows ? 1 : PROXY_CPU_THROTTLE_RATE;
+  if (!smoke) {
+    assert(packageEvidence !== undefined, 'full contract run requires --package-evidence');
+  }
   if (nativeWindows) {
     assert(nativeCell.requested, '--native-windows cell validation');
     assert(cellId === nativeCell.cellId, '--native-windows cell identity');
@@ -48,6 +59,9 @@ export function parseContractRunOptions(arguments_, { root, resultsRoot }) {
     externalUrl,
     headed,
     nativeWindows,
+    packageEvidencePath: packageEvidence === undefined
+      ? null
+      : resolveFreshPackageEvidence(root, packageEvidence),
     requestedHeaded,
     resultsRoot: resolvedResultsRoot,
     runMeasured: smoke ? 1 : MEASURED,
@@ -57,13 +71,29 @@ export function parseContractRunOptions(arguments_, { root, resultsRoot }) {
   };
 }
 
-function argumentValue(arguments_, name) {
-  const prefix = `${name}=`;
-  const inline = arguments_.find((argument) => argument.startsWith(prefix));
-  if (inline) return inline.slice(prefix.length);
-  const index = arguments_.indexOf(name);
-  return index >= 0 ? arguments_[index + 1] : undefined;
+function resolveFreshPackageEvidence(root, value) {
+  return resolvePatchMapCandidateInputPath({
+    root,
+    value,
+    label: 'package evidence',
+    prohibitedRoots: PROTECTED_EVIDENCE_ROOTS,
+  });
 }
+
+function resolveFreshOutputDirectory(root, value) {
+  return resolvePatchMapCandidateOutputPath({
+    root,
+    value,
+    label: 'contract output directory',
+    prohibitedRoots: PROTECTED_EVIDENCE_ROOTS,
+  });
+}
+
+const PROTECTED_EVIDENCE_ROOTS = Object.freeze([
+  'performance/patch-map/results',
+  'docs/reference/core-v2-functional-contract',
+  'docs/tasks/2026/07-16/core-v2-functional-spec',
+]);
 
 function parseSize(value) {
   const size = value === 'production-shaped-workload-v1'

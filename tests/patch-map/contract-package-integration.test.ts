@@ -153,6 +153,11 @@ describe('PatchMap packed integration automation substrate', () => {
         codeCommit: packedProvenance.codeCommit,
         packedPackageSha256: packedProvenance.packedPackageSha256,
         expectedEvidenceBound: true,
+        promotionEligible: false,
+        evidenceClassification: 'retained-historical-package-proof',
+        shippingPackageName: '@conalog/patch-map',
+        evidencePackageName: '@conalog/patch-map/core-v2',
+        packageIdentityMatchesShipping: false,
       },
       packageMatrix: {
         remainingCanvasCount: 0,

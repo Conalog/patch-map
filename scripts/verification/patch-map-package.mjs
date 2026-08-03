@@ -46,8 +46,10 @@ const RESULTS = path.resolve(
 const consumer = path.join(temporary, 'consumer');
 const reproduciblePackDirectory = path.join(temporary, 'reproducible-pack');
 const errors = { console: [], page: [], network: [] };
+const requireAudit = process.argv.includes('--require-audit');
 let server;
 let browser;
+let operationFailure;
 
 try {
   await mkdir(consumer, { recursive: true });
@@ -116,7 +118,13 @@ try {
   await writeFile(path.join(consumer, 'main.js'), PACKED_CONSUMER_ESM_SOURCE);
   await writeFile(path.join(consumer, 'consumer.cjs'), PACKED_CONSUMER_CJS_SOURCE);
 
-  await execute('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], {
+  await execute('npm', [
+    'install',
+    '--offline',
+    '--ignore-scripts',
+    '--no-audit',
+    '--no-fund',
+  ], {
     cwd: consumer,
     maxBuffer: 20 * 1024 * 1024,
   });
@@ -253,14 +261,35 @@ try {
   await mkdir(RESULTS, { recursive: true });
   await writeFile(path.join(RESULTS, 'package-consumer.json'), `${JSON.stringify(evidence, null, 2)}\n`);
   if (failures.length) throw new Error(failures.join('; '));
+  if (requireAudit && evidence.status !== 'pass') {
+    throw new Error(`packed dependency audit is required, received ${evidence.status}`);
+  }
   process.stdout.write(
-    `PASS: packed PatchMap ESM/CJS/types + ${journeyMatrix.passedJourneyCount} journeys, `
+    `${evidence.status === 'pass' ? 'PASS' : 'PENDING'}: packed PatchMap ESM/CJS/types + `
+      + `${journeyMatrix.passedJourneyCount} journeys, `
     + `${examples.executedExamples.length} examples, ${esm.renderObjects} aggregate objects, lifecycle clean\n`,
   );
-} finally {
-  await browser?.close();
-  await server?.close();
-  await rm(temporary, { recursive: true, force: true });
+} catch (error) {
+  operationFailure = error;
+}
+
+const cleanup = await Promise.allSettled([
+  browser?.close(),
+  server?.close(),
+  rm(temporary, { recursive: true, force: true }),
+]);
+const cleanupFailures = cleanup
+  .filter((result) => result.status === 'rejected')
+  .map((result) => result.reason);
+if (operationFailure !== undefined && cleanupFailures.length > 0) {
+  throw new AggregateError(
+    [operationFailure, ...cleanupFailures],
+    'packed consumer verification and cleanup both failed',
+  );
+}
+if (operationFailure !== undefined) throw operationFailure;
+if (cleanupFailures.length > 0) {
+  throw new AggregateError(cleanupFailures, 'packed consumer cleanup failed');
 }
 
 async function auditDependencyLock(root) {
@@ -306,9 +335,10 @@ async function auditDependencyLock(root) {
     high: nonNegativeAuditCount(vulnerabilities.high),
     critical: nonNegativeAuditCount(vulnerabilities.critical),
   });
-  const total = Number.isSafeInteger(vulnerabilities.total)
-    ? vulnerabilities.total
-    : Object.values(severityCounts).reduce((sum, count) => sum + count, 0);
+  const total = nonNegativeAuditCount(vulnerabilities.total);
+  if (total !== Object.values(severityCounts).reduce((sum, count) => sum + count, 0)) {
+    throw new Error('npm audit vulnerability total does not match severity counts');
+  }
   return Object.freeze({
     status: 'observed',
     auditLevel: 'low',

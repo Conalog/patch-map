@@ -8,8 +8,12 @@ import process from 'node:process';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
+import {
+  argumentValue,
+  parsePatchMapBrowserLaunch,
+} from '../../scripts/verification/patch-map-browser-launch.mjs';
+
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const BENCHMARK_ROOT = fileURLToPath(new URL('.', import.meta.url));
 const CODE_COMMIT = process.env.PATCH_MAP_CODE_COMMIT ?? 'uncommitted';
 const FULL_SCALES = Object.freeze([100, 500, 1_000, 2_000, 5_000, 'production']);
 const QUICK_SCALES = Object.freeze([100, 1_000]);
@@ -49,14 +53,6 @@ const SCALAR_METRICS = Object.freeze({
   reinitializeMs: (trial) => trial.phases.reinitializeMs,
   retainedJsHeapBytes: (trial) => trial.phases.retainedJsHeapBytes,
 });
-
-function argumentValue(name) {
-  const prefix = `${name}=`;
-  const inline = process.argv.find((argument) => argument.startsWith(prefix));
-  if (inline) return inline.slice(prefix.length);
-  const index = process.argv.indexOf(name);
-  return index >= 0 ? process.argv[index + 1] : undefined;
-}
 
 function assertStrategy(value, label) {
   if (value !== 'mesh' && value !== 'particle') {
@@ -242,45 +238,51 @@ async function runHarness(page, { role, strategy, scale, seed }) {
 }
 
 async function main() {
-  const quick = process.argv.includes('--quick');
-  const headed = process.argv.includes('--headed');
+  const argv = process.argv.slice(2);
+  const quick = argv.includes('--quick');
+  const browserLaunch = parsePatchMapBrowserLaunch(argv, {
+    extraArgs: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
+  });
+  const headed = browserLaunch.headed;
   const scales = quick ? QUICK_SCALES : FULL_SCALES;
-  const externalUrl = argumentValue('--url');
-  const selectedOverride = argumentValue('--selected');
+  const externalUrl = argumentValue(argv, '--url');
+  const selectedOverride = argumentValue(argv, '--selected');
   if (selectedOverride !== undefined) assertStrategy(selectedOverride, '--selected');
 
-  const server = await startServer(externalUrl);
-  const browser = await chromium.launch({
-    headless: !headed,
-    args: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
-  });
-  const context = await browser.newContext({
-    viewport: { width: 1_280, height: 720 },
-    deviceScaleFactor: 1,
-  });
-  const page = await context.newPage();
-  const cdp = await context.newCDPSession(page);
+  let server;
+  let browser;
+  let context;
   const consoleErrors = [];
   const pageErrors = [];
   const networkFailures = [];
 
-  page.on('console', (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
-  });
-  page.on('pageerror', (error) => pageErrors.push(error.stack ?? error.message));
-  page.on('requestfailed', (request) => {
-    networkFailures.push(
-      `${request.method()} ${request.url()} ${request.failure()?.errorText ?? 'request failed'}`,
-    );
-  });
-  page.on('response', (response) => {
-    if (response.status() >= 400) {
-      networkFailures.push(`${response.request().method()} ${response.url()} HTTP ${response.status()}`);
-    }
-  });
-
   let output;
+  let operationFailure;
   try {
+    server = await startServer(externalUrl);
+    browser = await chromium.launch(browserLaunch.launchOptions);
+    context = await browser.newContext({
+      viewport: { width: 1_280, height: 720 },
+      deviceScaleFactor: 1,
+    });
+    const page = await context.newPage();
+    const cdp = await context.newCDPSession(page);
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text());
+    });
+    page.on('pageerror', (error) => pageErrors.push(error.stack ?? error.message));
+    page.on('requestfailed', (request) => {
+      networkFailures.push(
+        `${request.method()} ${request.url()} ${request.failure()?.errorText ?? 'request failed'}`,
+      );
+    });
+    page.on('response', (response) => {
+      if (response.status() >= 400) {
+        networkFailures.push(
+          `${response.request().method()} ${response.url()} HTTP ${response.status()}`,
+        );
+      }
+    });
     await cdp.send('Performance.enable');
     await cdp.send('HeapProfiler.enable');
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU_THROTTLE_RATE });
@@ -305,14 +307,14 @@ async function main() {
       const scale = scales[scaleIndex];
       const seed = SEED_BASE + scaleIndex;
       for (const strategy of ['mesh', 'particle']) {
-        process.stdout.write(`[core-v2-perf] spike/${strategy}/${scale}: ${WARMUPS}+${MEASURED}\n`);
+        process.stdout.write(`[patch-map-perf] spike/${strategy}/${scale}: ${WARMUPS}+${MEASURED}\n`);
         runs.push(await runHarness(page, { role: 'spike', strategy, scale, seed }));
       }
     }
     for (let scaleIndex = 0; scaleIndex < scales.length; scaleIndex += 1) {
       const scale = scales[scaleIndex];
       const seed = SEED_BASE + scaleIndex;
-      process.stdout.write(`[core-v2-perf] selected/${selectedStrategy}/${scale}: ${WARMUPS}+${MEASURED}\n`);
+      process.stdout.write(`[patch-map-perf] selected/${selectedStrategy}/${scale}: ${WARMUPS}+${MEASURED}\n`);
       runs.push(
         await runHarness(page, { role: 'selected', strategy: selectedStrategy, scale, seed }),
       );
@@ -346,13 +348,34 @@ async function main() {
       browser: { consoleErrors, pageErrors, networkFailures },
       runs,
     };
-  } finally {
-    await context.close();
-    await browser.close();
-    await server.close();
+  } catch (error) {
+    operationFailure = error;
   }
 
-  const resultsDirectory = path.join(BENCHMARK_ROOT, 'results');
+  const cleanup = await Promise.allSettled([
+    context?.close(),
+    browser?.close(),
+    server?.close(),
+  ]);
+  const cleanupFailures = cleanup
+    .filter((result) => result.status === 'rejected')
+    .map((result) => result.reason);
+  if (operationFailure !== undefined && cleanupFailures.length > 0) {
+    throw new AggregateError(
+      [operationFailure, ...cleanupFailures],
+      'PatchMap benchmark and cleanup both failed',
+    );
+  }
+  if (operationFailure !== undefined) throw operationFailure;
+  if (cleanupFailures.length > 0) {
+    throw new AggregateError(cleanupFailures, 'PatchMap benchmark cleanup failed');
+  }
+  if (output === undefined) throw new Error('PatchMap benchmark produced no output');
+
+  const resultsDirectory = path.resolve(
+    process.env.PATCH_MAP_PERF_OUTPUT_DIR
+      ?? path.join(ROOT, '.perf-results/patch-map/full-renderer'),
+  );
   await mkdir(resultsDirectory, { recursive: true });
   const stamp = output.generatedAt.replaceAll(':', '-').replaceAll('.', '-');
   const basename = `${output.mode}-4x-${stamp}`;

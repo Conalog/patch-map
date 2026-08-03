@@ -1,5 +1,6 @@
 import packageConsumerResultJson from '../../../performance/patch-map/results/package-consumer.json';
 import { deepFreezePatchMapLabValue as deepFreeze } from './runtime-values';
+import { retainedPatchMapPackageEvidence } from './package-evidence';
 
 export const PATCH_MAP_PACKAGE_INTEGRATION_RUNTIME_REVISION =
   'patch-map-package-integration-runtime/1' as const;
@@ -29,8 +30,8 @@ export interface PatchMapPackageIntegrationRuntime {
  * runtime deliberately has no normalized expected or comparator dependency.
  */
 export function createPatchMapPackageIntegrationRuntime(): PatchMapPackageIntegrationRuntime {
-  const committed = deepFreeze(
-    structuredClone(packageConsumerResultJson) as Readonly<Record<string, unknown>>,
+  const committed = retainedPatchMapPackageEvidence(
+    packageConsumerResultJson as Readonly<Record<string, unknown>>,
   );
   return Object.freeze({
     product: Object.freeze({

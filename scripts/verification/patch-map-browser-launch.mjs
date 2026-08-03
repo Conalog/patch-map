@@ -9,6 +9,9 @@ export function parsePatchMapBrowserLaunch(
     extraArgs = [],
   } = {},
 ) {
+  if (argv.includes('--headed') && argv.includes('--headless')) {
+    throw new Error('--headed and --headless are mutually exclusive');
+  }
   const headed = argv.includes('--headed')
     ? true
     : argv.includes('--headless')
@@ -46,10 +49,27 @@ export function parsePatchMapBrowserLaunch(
 
 export function argumentValue(argv, name) {
   const prefix = `${name}=`;
-  const inline = argv.find((argument) => argument.startsWith(prefix));
-  if (inline) return inline.slice(prefix.length);
-  const index = argv.indexOf(name);
-  return index >= 0 ? argv[index + 1] : undefined;
+  const inlineValues = argv
+    .filter((argument) => argument.startsWith(prefix))
+    .map((argument) => argument.slice(prefix.length));
+  const positionalIndices = argv.flatMap((argument, index) =>
+    argument === name ? [index] : []);
+  if (inlineValues.length + positionalIndices.length > 1) {
+    throw new Error(`${name} must be provided at most once`);
+  }
+  if (inlineValues.length === 1) {
+    const [value] = inlineValues;
+    if (value === undefined || value.length === 0) {
+      throw new Error(`${name} requires a non-empty value`);
+    }
+    return value;
+  }
+  if (positionalIndices.length === 0) return undefined;
+  const value = argv[(positionalIndices[0] ?? -1) + 1];
+  if (value === undefined || value.length === 0 || value.startsWith('--')) {
+    throw new Error(`${name} requires a non-empty value`);
+  }
+  return value;
 }
 
 export function parsePatchMapNativeWindowsCell(

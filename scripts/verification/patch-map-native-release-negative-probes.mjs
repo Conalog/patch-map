@@ -26,8 +26,8 @@ if (
   throw new Error('packed consumer evidence must expose a 40-character implementation commit');
 }
 const TEMP_RELATIVE = path.join(
-  'performance/patch-map/results',
-  `.native-release-probes-${process.pid}`,
+  '.perf-results',
+  `native-release-probes-${process.pid}`,
 );
 const TEMP = path.join(ROOT, TEMP_RELATIVE);
 const TEMPLATE_RELATIVE = path.join(TEMP_RELATIVE, 'template.json');
@@ -59,15 +59,19 @@ try {
   const validManifest = await completeManifest(template);
   await writeManifest(validManifest);
   const validRun = runVerifier();
-  assertExit(validRun, 0, 'complete native release manifest');
+  if (validRun.status === 0) {
+    throw new Error('synthetic native release artifacts unexpectedly promoted');
+  }
   const validReport = JSON.parse(
     await readFile(path.join(ROOT, REPORT_RELATIVE), 'utf8'),
   );
   if (
-    validReport.status !== 'release-verified'
-    || validReport.releaseVerified !== true
+    validReport.nativeRelease?.status !== 'pending'
+    || validReport.releaseVerified !== false
+    || !validReport.nativeRelease?.failures?.some((failure) =>
+      failure.includes('qualified external raw artifact validation'))
   ) {
-    throw new Error('complete native release manifest did not promote');
+    throw new Error('synthetic native release manifest was not held pending');
   }
 
   const localDriftRun = runVerifier('b'.repeat(40));
@@ -215,7 +219,7 @@ try {
   }
 
   process.stdout.write(
-    `PASS: local commit binding + native release positive proof + `
+    `PASS: synthetic native artifacts held pending + local commit binding + `
       + `${probes.length} negative drift probes\n`,
   );
 } finally {

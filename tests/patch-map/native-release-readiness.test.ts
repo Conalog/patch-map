@@ -11,7 +11,7 @@ const scriptPath = fileURLToPath(
 );
 
 describe('PatchMap native release readiness', () => {
-  it('accepts a complete digest-bound manifest and rejects release drift', () => {
+  it('holds synthetic evidence pending and rejects every structural release drift', () => {
     const result = spawnSync(process.execPath, [scriptPath], {
       cwd: process.cwd(),
       encoding: 'utf8',
@@ -20,7 +20,7 @@ describe('PatchMap native release readiness', () => {
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
     expect(result.stdout).toContain(
-      'PASS: local commit binding + native release positive proof + 15 negative drift probes',
+      'PASS: synthetic native artifacts held pending + local commit binding + 15 negative drift probes',
     );
   }, 35_000);
 });

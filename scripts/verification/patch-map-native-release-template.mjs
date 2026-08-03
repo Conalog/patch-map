@@ -12,8 +12,10 @@ import {
   MANDATORY_INPUTS,
   REQUIRED_BROWSER_CELLS,
 } from './core-v2-native-release-contract.mjs';
+import { argumentValue } from './patch-map-browser-launch.mjs';
 
 const ROOT = process.cwd();
+const ARGV = process.argv.slice(2);
 const PROHIBITED_PATH_SEGMENT =
   /(^|[\\/])(node_modules|dist|bundle)([\\/]|$)|\.map$|\.umd\.|\.bundle\./u;
 const decisionFixtures = JSON.parse(
@@ -35,14 +37,14 @@ const packageEvidence = JSON.parse(
   ),
 );
 const outputPath = safeWorkspacePath(
-  argumentValue('--output')
-    ?? 'performance/patch-map/results/native-release-template.json',
+  argumentValue(ARGV, '--output')
+    ?? '.perf-results/native-release-template.json',
 );
 const runtimeDecision = requiredDecision(decisionFixtures, 'OQ-024');
 const performanceDecision = requiredDecision(decisionFixtures, 'OQ-025');
 const inputDecision = requiredDecision(decisionFixtures, 'OQ-029');
 const candidateCommit =
-  argumentValue('--commit')
+  argumentValue(ARGV, '--commit')
   ?? process.env.PATCH_MAP_CODE_COMMIT
   ?? packageEvidence.provenance?.codeCommit
   ?? 'pending';
@@ -56,13 +58,13 @@ const artifactDescriptors = [
     ['functional', 'nvda', 'inputs', 'performance', 'lifecycle'].map((kind) => ({
       id: cellArtifactRole(id, kind),
       role: cellArtifactRole(id, kind),
-      path: `performance/patch-map/results/native/${id}/${artifactFilename(kind)}`,
+      path: `.perf-results/native/${id}/${artifactFilename(kind)}`,
       sha256: 'pending',
     }))),
   ...GLOBAL_NATIVE_ARTIFACT_ROLES.map((role) => ({
     id: role,
     role,
-    path: `performance/patch-map/results/native/${role}.json`,
+    path: `.perf-results/native/${role}.json`,
     sha256: 'pending',
   })),
 ];
@@ -256,14 +258,6 @@ function requiredDecision(fixtures, decision) {
   return record;
 }
 
-function argumentValue(name) {
-  const inlinePrefix = `${name}=`;
-  const inline = process.argv.find((argument) => argument.startsWith(inlinePrefix));
-  if (inline) return inline.slice(inlinePrefix.length);
-  const index = process.argv.indexOf(name);
-  return index >= 0 ? process.argv[index + 1] : undefined;
-}
-
 function safeWorkspacePath(value) {
   if (typeof value !== 'string' || value.length === 0) {
     throw new Error('template output path must be a non-empty string');
@@ -274,7 +268,7 @@ function safeWorkspacePath(value) {
   const absolutePath = path.resolve(ROOT, value);
   const relativePath = path.relative(ROOT, absolutePath);
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-    throw new Error(`template output path leaves the Core v2 worktree: ${value}`);
+    throw new Error(`template output path leaves the PatchMap worktree: ${value}`);
   }
   return absolutePath;
 }

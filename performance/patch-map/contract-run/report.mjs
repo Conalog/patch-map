@@ -18,11 +18,6 @@ const MANIFEST_PATH = fileURLToPath(new URL(
   '../../../docs/reference/core-v2-functional-contract/evidence/catalog-evidence-manifest.v1.json',
   import.meta.url,
 ));
-const PACKAGE_EVIDENCE_PATH = fileURLToPath(new URL(
-  '../results/package-consumer.json',
-  import.meta.url,
-));
-
 function percentile(values, quantile) {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((left, right) => left - right);
@@ -49,7 +44,14 @@ export function hashText(value) {
 
 export async function summarizeEvidence(raw, runInfo) {
   const manifest = JSON.parse(await readFile(MANIFEST_PATH, 'utf8'));
-  const packageEvidence = JSON.parse(await readFile(PACKAGE_EVIDENCE_PATH, 'utf8'));
+  assert(
+    typeof runInfo.packageEvidencePath === 'string'
+      && runInfo.packageEvidencePath.length > 0,
+    'explicit package evidence path',
+  );
+  const packageEvidence = JSON.parse(
+    await readFile(runInfo.packageEvidencePath, 'utf8'),
+  );
   const expectedRecordDigests = Object.fromEntries(
     PERFORMANCE_CASE_IDS.map((id) => {
       const record = manifest.cases.find((entry) => entry.id === id);
@@ -143,9 +145,25 @@ export async function summarizeEvidence(raw, runInfo) {
     }),
   );
   const packedDigest = packageEvidence?.provenance?.packedPackageSha256;
+  assert(packageEvidence?.package === '@conalog/patch-map', 'shipping package identity');
+  assert(packageEvidence?.status === 'pass', 'packed package evidence pass');
+  assert(
+    typeof runInfo.codeCommit === 'string'
+      && /^[a-f0-9]{40}$/u.test(runInfo.codeCommit),
+    'performance run code commit',
+  );
+  assert(
+    packageEvidence?.provenance?.codeCommit === runInfo.codeCommit,
+    'packed package and performance commit binding',
+  );
   assert(
     typeof packedDigest === 'string' && /^[a-f0-9]{64}$/u.test(packedDigest),
     'packed package digest',
+  );
+  assert(packageEvidence?.artifact?.sha256 === packedDigest, 'packed artifact digest binding');
+  assert(
+    packageEvidence?.provenance?.expectedEvidenceBound === true,
+    'packed expected-evidence binding',
   );
   const browserErrorCount = runInfo.browserErrorCount;
   return {

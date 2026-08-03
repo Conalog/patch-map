@@ -58,7 +58,7 @@ const OUTPUT_PATH = path.resolve(
   process.env.PATCH_MAP_BAR_PAN_PERF_OUTPUT
     ?? path.join(
       ROOT,
-      'docs/tasks/2026/07-15/performance-core-v2/evidence/bar-animation-pan-performance.json',
+      '.perf-results/patch-map/bar-animation-pan-performance.json',
     ),
 );
 

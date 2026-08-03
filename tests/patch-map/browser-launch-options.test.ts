@@ -100,6 +100,19 @@ describe('PatchMap browser launch options', () => {
     expect(() => parsePatchMapBrowserLaunch(['--channel=firefox'])).toThrow(
       /chrome.*msedge/u,
     );
+    expect(() => parsePatchMapBrowserLaunch(['--headed', '--headless'])).toThrow(
+      /mutually exclusive/u,
+    );
+    expect(() => parsePatchMapBrowserLaunch(['--executable-path', '--headed'])).toThrow(
+      /requires a non-empty value/u,
+    );
+    expect(() => parsePatchMapBrowserLaunch(['--channel='])).toThrow(
+      /requires a non-empty value/u,
+    );
+    expect(() => parsePatchMapBrowserLaunch([
+      '--channel=chrome',
+      '--channel=msedge',
+    ])).toThrow(/at most once/u);
   });
 
   it('accepts native evidence only for an exact headed Windows browser cell', () => {

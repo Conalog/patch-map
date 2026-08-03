@@ -70,7 +70,7 @@
     "verify:release-readiness": "node scripts/verification/patch-map-release-readiness.mjs",
     "verify:release-readiness:strict": "node scripts/verification/patch-map-release-readiness.mjs --require-release",
     "prepack": "npm run build",
-    "prepublishOnly": "npm test && npm run verify:contract && npm run verify:package"
+    "prepublishOnly": "npm test && npm run verify:contract && npm run build:lab && npm run verify:package -- --require-audit && npm run verify:lab:all && npm run verify:memory"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

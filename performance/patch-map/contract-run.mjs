@@ -19,7 +19,7 @@ import {
 } from './contract-run/report.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const RESULTS_ROOT = fileURLToPath(new URL('./results/', import.meta.url));
+const RESULTS_ROOT = path.join(ROOT, '.perf-results/patch-map/contract');
 
 async function main() {
   const options = parseContractRunOptions(process.argv, {
@@ -79,6 +79,7 @@ async function main() {
     requestedHeaded: options.requestedHeaded,
     actualMode: options.headed ? 'headed' : 'headless',
     nativeWindows: options.nativeWindows,
+    packageEvidencePath: options.packageEvidencePath,
   });
   summary.provenance.rawArtifactSha256 = rawDigest;
   summary.rawArtifact = {

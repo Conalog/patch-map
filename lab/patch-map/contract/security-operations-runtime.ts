@@ -1,4 +1,5 @@
 import packageConsumerResultJson from '../../../performance/patch-map/results/package-consumer.json';
+import { retainedPatchMapPackageEvidence } from './package-evidence';
 import {
   PatchMapOperationsAuthority,
   type PatchMap,
@@ -172,8 +173,8 @@ export function createPatchMapSecurityOperationsRuntime(
 
     readPackageSupplyChainEvidence(): Readonly<Record<string, unknown>> {
       assertActive(released, 'readPackageSupplyChainEvidence');
-      return deepFreeze(
-        structuredClone(packageConsumerResultJson) as Readonly<Record<string, unknown>>,
+      return retainedPatchMapPackageEvidence(
+        packageConsumerResultJson as Readonly<Record<string, unknown>>,
       );
     },
   });

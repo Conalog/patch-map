@@ -48,7 +48,7 @@ const OUTPUT_PATH = path.resolve(
   process.env.PATCH_MAP_BAR_RETARGET_PERF_OUTPUT
     ?? path.join(
       ROOT,
-      'performance/patch-map/results/bar-retarget-latest.json',
+      '.perf-results/patch-map/bar-retarget-latest.json',
     ),
 );
 

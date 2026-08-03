@@ -471,6 +471,7 @@ export function createPackageConsumerEvidence({
       contractProfileBound: true,
       strictTypeScript: true,
       offlineInstall: true,
+      installMode: 'npm-offline-cache',
       productionBundler: productionBuild.productionBundler,
     },
     artifact: packageArtifact,
@@ -490,7 +491,11 @@ export function createPackageConsumerEvidence({
     esm,
     cjs,
     errors,
-    status: failures.length === 0 ? 'pass' : 'fail',
+    status: failures.length > 0
+      ? 'fail'
+      : supplyChain.status === 'pass'
+        ? 'pass'
+        : 'pending-external-audit',
     failures,
   };
 }
