@@ -66,7 +66,7 @@ const LOCAL_ARTIFACTS = Object.freeze([
       && value.environment?.headed === false
       && value.failures?.length === 0
       && everyErrorArrayEmpty(value.errors),
-    classification: 'headless-173-route-human-lab-proxy',
+    classification: 'headless-173-route-workflow-lab-proxy',
   },
   {
     id: 'packed-consumer',

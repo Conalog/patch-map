@@ -45,7 +45,7 @@ const routeCases = allRoutes
 const routeWorkerCount = allRoutes
   && !browserLaunch.headed
   && !nativeWindows.requested
-  ? Math.min(4, routeCases.length)
+  ? Math.min(2, routeCases.length)
   : 1;
 
 let server;
@@ -269,7 +269,7 @@ try {
     const routeProbe = routeProbes[index];
     check(
       isValidRouteProbe(routeProbe, record),
-      `${record.id} mounts a localized live manual route with every approved action mapped`,
+      `${record.id} mounts localized workflow guidance with exact automation ownership`,
       routeProbe,
     );
   }
@@ -362,9 +362,8 @@ async function readRouteProbe(targetPage) {
     documentTitle: document.title,
     localizedTitle:
       document.querySelector('#manual-case-guide-title')?.textContent ?? '',
-    hasGettingStartedGuide:
-      document.querySelector('#manual-onboarding-title')?.textContent
-        ?.includes('버튼은 세 단계로 사용하면 됩니다') ?? false,
+    onboardingTitle:
+      document.querySelector('#manual-onboarding-title')?.textContent ?? '',
     expandedLayoutGuide:
       document.querySelector('.manual-onboarding details')?.hasAttribute('open') ?? false,
     localizedToolDescriptionCount:
@@ -379,7 +378,14 @@ async function readRouteProbe(targetPage) {
       ].filter((phrase) =>
         document.querySelector('[data-testid="manual-workbench"]')?.textContent
           ?.includes(phrase)),
-    mappedActions:
+    coverageMode:
+      document.querySelector('[data-testid="manual-workbench"]')
+        ?.getAttribute('data-manual-coverage'),
+    exactActionCount: Number(
+      document.querySelector('[data-testid="manual-workbench"]')
+        ?.getAttribute('data-manual-exact-action-count'),
+    ),
+    duplicateManualActionRows:
       document.querySelectorAll('[data-manual-approved-action]').length,
     toolButtons:
       document.querySelectorAll('[data-manual-tool-button]').length,
@@ -393,11 +399,15 @@ function isValidRouteProbe(routeProbe, record) {
     && routeProbe.documentLanguage === 'ko'
     && routeProbe.documentTitle === 'PATCH MAP 기능 검증 실험실'
     && /[가-힣]/u.test(routeProbe.localizedTitle)
-    && routeProbe.hasGettingStartedGuide
+    && (routeProbe.coverageMode === 'automated-only'
+      ? routeProbe.onboardingTitle.includes('자동 증거')
+      : routeProbe.onboardingTitle.includes('직접 조작'))
     && routeProbe.expandedLayoutGuide
     && routeProbe.localizedToolDescriptionCount === routeProbe.toolButtons
     && routeProbe.oldEnglishPhrases.length === 0
-    && routeProbe.mappedActions === record.actionCount
+    && ['dedicated', 'shared-workflow', 'automated-only'].includes(routeProbe.coverageMode)
+    && routeProbe.exactActionCount === record.actionCount
+    && routeProbe.duplicateManualActionRows === 0
     && routeProbe.toolButtons > 0;
 }
 
@@ -421,7 +431,7 @@ async function openCase(caseId, targetPage = page) {
     `lab/patch-map/?scenario=${caseId}&size=100&seed=319`,
     server.resolvedUrls.local[0],
   ).href;
-  await targetPage.goto(url, { waitUntil: 'networkidle' });
+  await targetPage.goto(url, { waitUntil: 'domcontentloaded' });
   try {
     await targetPage.waitForFunction(() => {
       const state = window.__PATCH_MAP_MANUAL_LAB__?.state();
@@ -429,6 +439,7 @@ async function openCase(caseId, targetPage = page) {
     }, undefined, { timeout: 20_000 });
   } catch (cause) {
     const state = await manualState(targetPage).catch(() => null);
+    if (state?.status === 'ready') return;
     throw new Error(
       `${caseId} manual Lab ready timeout: ${JSON.stringify({
         url,
