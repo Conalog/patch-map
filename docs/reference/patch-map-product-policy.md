@@ -27,8 +27,10 @@
 - Dense-store, transaction, validation, and renderer-view code inherited from
   the performance control may be retained only as neutral PatchMap internals.
 - Ship one user-facing Lab at `/lab/patch-map/`. It uses `PatchMap` and the
-  package-owned frame loop for all 173 manually operable cases; a separate
-  low-level performance Playground does not ship.
+  package-owned frame loop. The 173 approved contracts retain exact automated
+  routes, while direct manipulation is organized into explicit reusable
+  workflows with dedicated, shared-workflow, or automated-only coverage. A
+  separate low-level performance Playground does not ship.
 - Keep `PatchMapRuntime` and `createPatchMapRuntime()` internal. Product
   consumers, examples, Labs, and packed verification use `PatchMap`.
 - Keep the low-level Engine constructor and deterministic publication/probe

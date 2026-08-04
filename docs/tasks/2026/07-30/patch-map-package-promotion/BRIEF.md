@@ -17,8 +17,11 @@
 
 - `src/patch-map` is the only shipping implementation; `PatchMap` is the root
   package class and `/lab/patch-map/` is the single Korean manual Lab.
-- The Lab exposes all 173 manually operable routes, seeded scenes through
-  10,000 records, and the user-supplied 605-root actual-production JSON.
+- The Lab retains exact expected-blind execution for all 173 approved routes
+  and separates it from 11 reusable manual workflows. Routes explicitly state
+  whether they own dedicated guidance, share a workflow, or require automated
+  evidence; seeded scenes through 10,000 records and the user-supplied
+  605-root actual-production JSON remain available for direct exploration.
 - Public mutation intent is expressed by three operations: `update()` changes
   one logical owner, columnar `updateBatch()` changes the same fields across
   many targets, and `transaction()` commits ordered heterogeneous/structural
@@ -124,6 +127,15 @@
   unit files / 1,785 tests, lint/typecheck, canonical 38/173, and the
   required-audit packed ESM/CJS/types consumer with 38 journeys, four examples,
   aggregate ownership, and clean lifecycle teardown.
+- The Lab coverage checkpoint removes the misleading 646-row action-to-tool
+  bridge. All 173 exact routes remain expected-blind, while the reusable manual
+  surface now declares 11 product workflows, 18 dedicated guides, 134 shared
+  workflow routes, and 21 automated-only routes. Verification passes 196 unit
+  files / 1,786 tests, scoped lint, full typecheck, the Lab build, canonical
+  38/173, and all 173 headless WebGL routes / 192 checks with zero
+  console/page/network errors. Package, resource ownership, renderer, and hot
+  paths did not change, so packed consumer, memory, and performance gates were
+  not repeated.
 
 # Next Step
 

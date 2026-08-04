@@ -339,3 +339,23 @@
   packed ESM/CJS/types consumer with all 38 journeys, four examples, aggregate
   ownership, and clean lifecycle teardown. Renderer/resource/hot-path code did
   not change, so memory and performance matrices were not repeated.
+
+**2026-08-04**
+
+- **Batch: Lab coverage ownership refactor.** Replaced the per-action keyword
+  classifier and duplicate 646-row action list with one explicit 11-workflow
+  manual catalog. Classified all 173 routes as 18 dedicated, 134 shared, or 21
+  automated-only cases; corrected case-specific tool ownership, kept the exact
+  expected-blind runner as the sole action-trace authority, and made the Korean
+  UI state that boundary directly.
+- Removed the dead action-to-panel listener and its CSS, added coverage and
+  exact-action metadata to every route, and made the full-route browser probe
+  verify those invariants. Reduced headless route concurrency from four pages
+  to two to avoid resource contention without reducing route or assertion
+  coverage.
+- Verification passed focused 29 tests, scoped lint, full typecheck, 196 unit
+  files / 1,786 tests, the Lab build, canonical 38 decisions / 173 cases, and
+  all 173 headless WebGL routes / 192 checks with zero console/page/network
+  errors. Package exports, renderer/resource ownership, lifecycle destroy, and
+  hot paths were unchanged, so packed consumer, memory, and performance gates
+  were intentionally not repeated.

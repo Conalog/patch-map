@@ -200,10 +200,14 @@ Gate: renderer tests, headless browser, 2+7 memory, and paired
 
 - Shard the declarative registry, split executable bridge/session lifecycle,
   manual workbench controller/view, contract composition, and CSS layers.
-- Keep all 173 cases manually operable and expected-blind.
+- Keep all 173 exact executions expected-blind. Organize direct manipulation
+  around reusable product workflows and label cases that require automated
+  package, security, performance, determinism, or lifecycle evidence.
 
 Completed with separate presentation, CSS, pointer, trusted-input session, and
-cleanup owners below the unchanged manual and executable orchestration facades.
+cleanup owners. A later Lab audit removed the duplicate action-to-tool bridge:
+the shared manual workflow catalog now owns free-play guidance, while the exact
+executable facade alone owns the approved action trace and observation result.
 
 ### T7 — test composition
 
