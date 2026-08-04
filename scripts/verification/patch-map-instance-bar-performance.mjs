@@ -10,6 +10,11 @@ import { createServer } from 'vite';
 
 const ROOT = process.cwd();
 const SMOKE = process.argv.includes('--smoke');
+const PROFILE = process.env.PATCH_MAP_INSTANCE_BAR_PROFILE === '1';
+const WORKLOAD = process.env.PATCH_MAP_INSTANCE_BAR_WORKLOAD ?? 'presentation';
+if (WORKLOAD !== 'height' && WORKLOAD !== 'presentation') {
+  throw new Error('PATCH_MAP_INSTANCE_BAR_WORKLOAD must be height or presentation');
+}
 const SIZES = (process.env.PATCH_MAP_INSTANCE_BAR_SIZES ?? '5000,10000')
   .split(',')
   .map((value) => Number.parseInt(value, 10));
@@ -22,7 +27,10 @@ const UPDATE_COUNT = 6;
 const UPDATE_INTERVAL_MS = 75;
 const OUTPUT_PATH = path.resolve(
   process.env.PATCH_MAP_INSTANCE_BAR_OUTPUT
-    ?? path.join(ROOT, '.perf-results/patch-map/instance-presentation-latest.json'),
+    ?? path.join(
+      ROOT,
+      `.perf-results/patch-map/instance-${WORKLOAD}-latest.json`,
+    ),
 );
 
 function percentile(values, quantile) {
@@ -40,6 +48,31 @@ function stats(values) {
   });
 }
 
+function summarizeCpuProfile(profile) {
+  const nodes = new Map(profile.nodes.map((node) => [node.id, node]));
+  const selfUsByNode = new Map();
+  for (let index = 0; index < profile.samples.length; index += 1) {
+    const nodeId = profile.samples[index];
+    selfUsByNode.set(
+      nodeId,
+      (selfUsByNode.get(nodeId) ?? 0) + (profile.timeDeltas[index] ?? 0),
+    );
+  }
+  return Object.freeze([...selfUsByNode]
+    .map(([nodeId, selfUs]) => {
+      const frame = nodes.get(nodeId)?.callFrame;
+      return frame === undefined ? null : Object.freeze({
+        functionName: frame.functionName || '(anonymous)',
+        url: frame.url,
+        lineNumber: frame.lineNumber + 1,
+        selfMs: selfUs / 1_000,
+      });
+    })
+    .filter((entry) => entry !== null && entry.functionName !== '(idle)')
+    .sort((left, right) => right.selfMs - left.selfMs)
+    .slice(0, 30));
+}
+
 async function configure(page, size, trial) {
   await page.goto(
     `lab/patch-map/?scenario=REN-009&size=100&seed=${319 + trial}`,
@@ -50,7 +83,7 @@ async function configure(page, size, trial) {
     undefined,
     { timeout: 120_000 },
   );
-  const configured = await page.evaluate((recordCount) => {
+  const configured = await page.evaluate(({ recordCount, workload }) => {
     const bridge = window.__PATCH_MAP_MANUAL_LAB__;
     const engine = bridge.engine();
     const columns = 100;
@@ -76,7 +109,7 @@ async function configure(page, size, trial) {
             animation: true,
             animationDuration: 2_000,
           },
-          {
+          ...(workload === 'presentation' ? [{
             type: 'icon',
             id: 'status',
             source: 'wifi',
@@ -84,11 +117,13 @@ async function configure(page, size, trial) {
             size: { width: 12, height: 12 },
             placement: 'center',
             show: false,
-          },
+          }] : []),
         ],
       },
     }];
+    const mountStarted = performance.now();
     const loaded = engine.loadDataset(dataset);
+    const mountMs = performance.now() - mountStarted;
     engine.fitViewport({ paddingCssPx: 24 });
     const targets = engine.targets.query({
       within: 'perf-grid',
@@ -101,8 +136,9 @@ async function configure(page, size, trial) {
       targetCount: targets.count,
       semanticHash: engine.snapshot().semanticHash,
       sceneRevision: engine.snapshot().revisions.sceneRevision,
+      mountMs,
     };
-  }, size);
+  }, { recordCount: size, workload: WORKLOAD });
   if (configured.targetCount !== size || configured.rootIds[0] !== 'perf-grid') {
     throw new Error(
       `failed to configure ${size} grid instances: ${JSON.stringify(configured)}`,
@@ -113,7 +149,7 @@ async function configure(page, size, trial) {
   return configured;
 }
 
-async function runTrial(page, size, trial) {
+async function runTrial(page, size, trial, cdp) {
   const configured = await configure(page, size, trial);
   const canvas = page.locator('[data-testid="manual-canvas-host"] canvas');
   await canvas.scrollIntoViewIfNeeded();
@@ -143,42 +179,54 @@ async function runTrial(page, size, trial) {
     window.__PATCH_MAP_INSTANCE_BAR_SAMPLE__ = sample;
     requestAnimationFrame(tick);
   });
+  if (cdp !== null) {
+    await cdp.send('Profiler.enable');
+    await cdp.send('Profiler.setSamplingInterval', { interval: 100 });
+    await cdp.send('Profiler.start');
+  }
 
   const actions = [];
   for (let iteration = 0; iteration < UPDATE_COUNT; iteration += 1) {
-    actions.push(await page.evaluate((sequence) => {
+    actions.push(await page.evaluate(({ sequence, workload }) => {
       const engine = window.__PATCH_MAP_MANUAL_LAB__.engine();
       const targets = window.__PATCH_MAP_INSTANCE_BAR_PERF__.targets;
       const heights = new Float64Array(targets.count);
-      const barTints = new Array(targets.count);
-      const iconShows = new Array(targets.count);
-      const iconSources = new Array(targets.count);
-      const iconTints = new Array(targets.count);
+      const barTints = workload === 'presentation' ? new Array(targets.count) : null;
+      const iconShows = workload === 'presentation' ? new Array(targets.count) : null;
+      const iconSources = workload === 'presentation' ? new Array(targets.count) : null;
+      const iconTints = workload === 'presentation' ? new Array(targets.count) : null;
       for (let index = 0; index < heights.length; index += 1) {
         heights[index] = 5 + ((index * 17 + sequence * 23) % 37);
-        barTints[index] = (index + sequence) % 2 === 0 ? '#2563eb' : '#7c3aed';
-        iconShows[index] = false;
-        iconSources[index] = 'wifi';
-        iconTints[index] = (index + sequence) % 2 === 0 ? '#ef4444' : '#f97316';
+        if (workload === 'presentation') {
+          barTints[index] = (index + sequence) % 2 === 0 ? '#2563eb' : '#7c3aed';
+          iconShows[index] = false;
+          iconSources[index] = 'wifi';
+          iconTints[index] = (index + sequence) % 2 === 0 ? '#ef4444' : '#f97316';
+        }
       }
       const before = engine.snapshot().revisions;
       const started = performance.now();
-      const result = engine.updateBatch({
-        targets,
-        bar: {
-          componentId: 'level',
-          height: heights,
-          changes: { tint: barTints },
-        },
-        icon: {
-          componentId: 'status',
-          changes: {
-            show: iconShows,
-            source: iconSources,
-            tint: iconTints,
-          },
-        },
-      }, { animate: true });
+      const result = workload === 'height'
+        ? engine.updateBatch({
+            targets,
+            bar: { componentId: 'level', height: heights },
+          }, { animate: true })
+        : engine.updateBatch({
+            targets,
+            bar: {
+              componentId: 'level',
+              height: heights,
+              changes: { tint: barTints },
+            },
+            icon: {
+              componentId: 'status',
+              changes: {
+                show: iconShows,
+                source: iconSources,
+                tint: iconTints,
+              },
+            },
+          }, { animate: true });
       const after = engine.snapshot().revisions;
       return {
         wallMs: performance.now() - started,
@@ -188,7 +236,7 @@ async function runTrial(page, size, trial) {
         sceneRevisionDelta:
           after.sceneRevision - before.sceneRevision,
       };
-    }, iteration + 1));
+    }, { sequence: iteration + 1, workload: WORKLOAD }));
     await page.mouse.move(
       startX + (iteration + 1) * 12,
       startY + (iteration + 1) * 7,
@@ -208,6 +256,9 @@ async function runTrial(page, size, trial) {
       activeAnimations: window.__PATCH_MAP_MANUAL_LAB__.engine().activeAnimations,
     };
   });
+  const cpuProfile = cdp === null
+    ? null
+    : summarizeCpuProfile((await cdp.send('Profiler.stop')).profile);
   await page.mouse.up();
   const viewportAfter = await page.evaluate(() =>
     window.__PATCH_MAP_MANUAL_LAB__.engine().viewportProbe());
@@ -244,6 +295,7 @@ async function runTrial(page, size, trial) {
     configured,
     settled,
     cleanupCanvasCount: cleanup,
+    cpuProfile,
   });
 }
 
@@ -251,7 +303,8 @@ function validateTrial(value, size) {
   const failures = [];
   for (const action of value.actions) {
     if (action.status !== 'committed') failures.push(`${size}: update was not committed`);
-    if (action.appliedCount !== size * 2) failures.push(`${size}: applied count mismatch`);
+    const expectedApplied = WORKLOAD === 'height' ? size : size * 2;
+    if (action.appliedCount !== expectedApplied) failures.push(`${size}: applied count mismatch`);
     if (action.activeAnimations < Math.floor(size * 0.95)) {
       failures.push(`${size}: animation count mismatch`);
     }
@@ -291,12 +344,17 @@ try {
         baseURL,
         viewport: { width: 1_440, height: 1_000 },
       });
-      const value = await runTrial(page, size, trial);
+      const cdp = PROFILE && trial >= WARMUPS
+        ? await page.context().newCDPSession(page)
+        : null;
+      const value = await runTrial(page, size, trial, cdp);
+      await cdp?.detach();
       failures.push(...validateTrial(value, size));
       (trial < WARMUPS ? warmupRaw : measuredRaw).push(value);
       await page.close();
     }
     const summary = Object.freeze({
+      mountMs: stats(measuredRaw.map(({ configured }) => configured.mountMs)),
       firstActionMs: stats(measuredRaw.map(({ actionMs }) => actionMs[0])),
       repeatedActionP95Ms: stats(measuredRaw.map(({ repeatedActionMs }) =>
         percentile(repeatedActionMs, 0.95))),
@@ -308,16 +366,18 @@ try {
   }
   const output = Object.freeze({
     schemaVersion: 1,
-    checkpoint: 'patch-map-grid-instance-presentation-overlay',
+    checkpoint: `patch-map-grid-instance-${WORKLOAD}-overlay`,
     generatedAt: new Date().toISOString(),
     protocol: Object.freeze({
       sizes: SIZES,
+      workload: WORKLOAD,
       updateCount: UPDATE_COUNT,
       updateIntervalMs: UPDATE_INTERVAL_MS,
       animationDurationMs: 2_000,
       warmups: WARMUPS,
       measured: MEASURED,
       headless: true,
+      cpuProfile: PROFILE,
       backend: 'webgl2',
       windowsNative: 'pending',
     }),

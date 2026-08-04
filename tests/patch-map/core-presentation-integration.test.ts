@@ -481,6 +481,30 @@ describe('PatchMap bar presentation integration', () => {
     expect(engine.historyState()).toEqual(history);
     expect(engine.snapshot().semanticHash).toBe(semanticHash);
 
+    const overridesBeforeHeightOnly = renderer.presentationOverrides.at(-1);
+    expect(engine.updateInstanceBarHeights({
+      targets: [{ id: 'grid-presentation.0.0', componentId: 'level' }],
+      heights: new Float64Array([52]),
+      animate: false,
+    })).toMatchObject({
+      status: 'committed',
+      changed: true,
+      appliedTargets: [{ id: 'grid-presentation.0.0', componentId: 'level' }],
+      overlayCount: 2,
+    });
+    expect(core.projection?.byEntityId['grid-presentation.0.0::bar:level']?.localBounds[3])
+      .toBe(52);
+    expect(renderer.presentationOverrides.at(-1)).toBe(overridesBeforeHeightOnly);
+    expect(renderer.presentationOverrides.at(-1)?.get(
+      'grid-presentation.0.0::bar:level',
+    )).toMatchObject({ fill: 0x2563ebff });
+    expect(renderer.presentationOverrides.at(-1)?.get(
+      'grid-presentation.0.0::icon:status',
+    )).toEqual({ visible: true, source: 'ess', tint: 0xef4444ff });
+    expect(engine.exportDataset()).toBe(exported);
+    expect(engine.historyState()).toEqual(history);
+    expect(engine.snapshot().semanticHash).toBe(semanticHash);
+
     expect(engine.transact({
       strict: true,
       operations: [{

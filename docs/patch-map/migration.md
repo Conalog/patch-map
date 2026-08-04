@@ -254,6 +254,9 @@ index, updates aggregate projection slots, and uploads only the resulting
 dirty Mesh ranges. It does not create a DisplayObject, listener, ticker, or
 closure per cell. One central presentation controller retargets animations,
 including repeated updates before the previous animation settles.
+Height-only `bar.height` batches retain their dedicated projection fast path;
+adding bar paint/visibility or icon columns selects the atomic general
+presentation path. Callers do not need a separate API or batching strategy.
 
 The concrete presentation fields are `bar.height`,
 `bar.changes.tint/source/show`, and `icon.changes.show/source/tint`. Passing

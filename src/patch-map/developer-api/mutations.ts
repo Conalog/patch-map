@@ -65,12 +65,12 @@ export function createPatchMapMutationApi(
     const resolved = dependencies.resolveTargets(normalized.id);
     const context = mutationContext(resolved.sceneTargets);
     const preferred = resolved.selected[0];
+    const fastBar = fastBarUpdate(normalized, preferred, context);
+    if (fastBar !== null) return commitBarUpdates(host, [fastBar], options);
     const fastPresentation = fastInstancePresentationUpdate(normalized, preferred, context);
     if (fastPresentation !== null) {
       return commitInstancePresentation(host, fastPresentation, options);
     }
-    const fastBar = fastBarUpdate(normalized, preferred, context);
-    if (fastBar !== null) return commitBarUpdates(host, [fastBar], options);
     const fastText = fastTextUpdate(normalized, preferred, context);
     if (fastText !== null) return commitTextUpdates(host, [fastText], options);
     return commitOperations(host, lowerUpdate(normalized, preferred, context), options);
@@ -92,13 +92,13 @@ export function createPatchMapMutationApi(
     if (selected.length === 0) return EMPTY_UPDATE_RESULT;
 
     const context = mutationContext(resolved.sceneTargets);
-    const fastPresentation = fastInstancePresentationBatch(normalized, selected, context);
-    if (fastPresentation !== null) {
-      return commitInstancePresentation(host, fastPresentation, options);
-    }
     const fastBars = fastBarBatch(normalized, selected, context);
     if (fastBars !== null) {
       return commitBarUpdates(host, fastBars, options, normalized.bar!.height);
+    }
+    const fastPresentation = fastInstancePresentationBatch(normalized, selected, context);
+    if (fastPresentation !== null) {
+      return commitInstancePresentation(host, fastPresentation, options);
     }
     const fastTexts = fastTextBatch(normalized, selected, context);
     if (fastTexts !== null) return commitTextUpdates(host, fastTexts, options);

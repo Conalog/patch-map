@@ -47,6 +47,9 @@ For live concrete grid state, send bar and icon columns in one
 `updateBatch()` call. Use `bar.height`, `bar.changes.tint/source/show`, and
 `icon.changes.show/source/tint`; use `null` in a column to restore the authored
 field. Do not prefilter these fields or maintain a second animation loop.
+Existing height-only batches keep the optimized concrete-bar path; the same
+public call automatically selects the broader atomic overlay only when paint,
+visibility, or icon columns are present.
 Concrete text presentation is still unsupported and should remain in the host
 under the structured
 `PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED` boundary.

@@ -153,7 +153,10 @@ import {
 import { PatchMapFramePublicationAuthority } from './core/frame-publication-authority';
 import { contiguousSlotRanges, mergeSlotRanges } from './core/slot-ranges';
 import {
+  applyPatchMapInstanceBarHeightStorageUpdates,
   instancePresentationRequestFromStored,
+  isPatchMapInstanceBarHeightOnlyRequest,
+  planPatchMapInstanceBarHeightOnlyOverlay,
   planPatchMapInstancePresentationOverlay,
   type PatchMapStoredInstancePresentation,
 } from './core/instance-presentation-overlay';
@@ -1505,6 +1508,9 @@ export class PatchMapRuntime {
     if (authored === undefined || current === null) {
       throw new Error('PatchMapRuntime.updateInstanceBarHeights requires a loaded dataset');
     }
+    if (isPatchMapInstanceBarHeightOnlyRequest(request)) {
+      return this.updateInstanceBarHeightOnly(request, current, authored);
+    }
     const plan = planPatchMapInstancePresentationOverlay(
       request,
       current,
@@ -1596,6 +1602,103 @@ export class PatchMapRuntime {
       this.renderer.setAggregateCullPrecision(false);
     }
     this.framePublication.invalidate('instance-presentation-overlay');
+    if (this.stableRecordStrategy === 'internal-overlay') {
+      compactPatchMapProjectionStableRecords(plan.projection);
+    }
+    return Object.freeze({
+      changed: true,
+      appliedTargets: plan.appliedTargets,
+      missingTargets: Object.freeze([]),
+      dirtyRanges,
+      activeAnimationCount: this.barPresentation.activeCount,
+      overlayCount: this.instancePresentations.size,
+    });
+  }
+
+  private updateInstanceBarHeightOnly(
+    request: PatchMapInstanceBarHeightBatchRequest,
+    current: PatchMapProjectionIndex,
+    authored: PatchMapProjectionIndex,
+  ): PatchMapInstanceBarHeightBatchResult {
+    const plan = planPatchMapInstanceBarHeightOnlyOverlay(
+      request,
+      current,
+      authored,
+      this.componentTargets,
+      this.instancePresentations,
+      this.stableRecordStrategy,
+    );
+    if (plan.missingTargets.length > 0) {
+      return Object.freeze({
+        changed: false,
+        appliedTargets: Object.freeze([]),
+        missingTargets: plan.missingTargets,
+        dirtyRanges: Object.freeze([]),
+        activeAnimationCount: this.barPresentation.activeCount,
+        overlayCount: this.instancePresentations.size,
+      });
+    }
+    if (plan.changedEntityIds.length === 0) {
+      applyPatchMapInstanceBarHeightStorageUpdates(
+        this.instancePresentations,
+        plan.storageUpdates,
+      );
+      return Object.freeze({
+        changed: plan.overlayStateChanged,
+        appliedTargets: plan.appliedTargets,
+        missingTargets: Object.freeze([]),
+        dirtyRanges: Object.freeze([]),
+        activeAnimationCount: this.barPresentation.activeCount,
+        overlayCount: this.instancePresentations.size,
+      });
+    }
+
+    const dirtyRanges = contiguousSlotRanges(plan.changedEntityIds.flatMap((entityId) => {
+      const ref = this.scene.ref(entityId);
+      return ref === null ? [] : [ref.slot];
+    }));
+    const presentation = this.barPresentation.reconcile(
+      current,
+      plan.projection,
+      this.scene,
+      !this.barPresentation.reducedMotion && request.animate !== false,
+      undefined,
+      plan.changedEntityIds,
+      this.parseResultValue?.identity.entitySourceById,
+    );
+    this.updatePublishedScene({
+      projection: plan.projection,
+      transientIncrementalParse: null,
+    });
+    try {
+      this.renderer.setProjection(
+        presentation,
+        dirtyRanges,
+        this.spatialHit.staleProjectionIds,
+      );
+    } catch (error) {
+      this.markTerminalMutationFailure(error);
+      throw error;
+    }
+    applyPatchMapInstanceBarHeightStorageUpdates(
+      this.instancePresentations,
+      plan.storageUpdates,
+    );
+    this.framePublication.markProjectionFactsStale();
+    this.spatialHit.setDenseGeometryCompatible(false);
+    this.spatialHit.clearSpatialAnimations();
+    this.spatialHit.invalidate(this.barPresentation.activeCount > 0);
+    this.spatialHit.primeAnimatedBarsIfNeeded(
+      this.rootInteraction.pointerListenerCount,
+      this.scene,
+      this.projectionValue,
+      this.barPresentation.visibleProjection,
+      this.barPresentation,
+    );
+    if (isLargePatchMapAnimatedBarBatch(this.barPresentation.activeCount)) {
+      this.renderer.setAggregateCullPrecision(false);
+    }
+    this.framePublication.invalidate('instance-bar-height-overlay');
     if (this.stableRecordStrategy === 'internal-overlay') {
       compactPatchMapProjectionStableRecords(plan.projection);
     }

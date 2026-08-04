@@ -63,6 +63,111 @@ export interface PatchMapInstancePresentationPlan {
   readonly overlayStateChanged: boolean;
 }
 
+export interface PatchMapInstanceBarHeightOnlyPlan {
+  readonly projection: PatchMapProjectionIndex;
+  readonly changedEntityIds: readonly string[];
+  readonly appliedTargets: readonly PatchMapInstanceBarTarget[];
+  readonly missingTargets: readonly PatchMapInstanceBarTarget[];
+  readonly storageUpdates: readonly Readonly<{
+    readonly key: string;
+    readonly presentation: PatchMapStoredInstancePresentation | null;
+  }>[];
+  readonly overlayStateChanged: boolean;
+}
+
+export function isPatchMapInstanceBarHeightOnlyRequest(
+  request: PatchMapInstanceBarHeightBatchRequest,
+): boolean {
+  return request.targets !== undefined &&
+    request.heights !== undefined &&
+    request.bar === undefined &&
+    request.icon === undefined;
+}
+
+/** Keep the established height-only hot path out of general presentation planning. */
+export function planPatchMapInstanceBarHeightOnlyOverlay(
+  request: PatchMapInstanceBarHeightBatchRequest,
+  current: PatchMapProjectionIndex,
+  authored: PatchMapProjectionIndex,
+  componentTargets: ReadonlyMap<string, PatchMapIndexedComponentTarget | null>,
+  presentations: ReadonlyMap<string, PatchMapStoredInstancePresentation>,
+  recordStrategy: PatchMapStableRecordStrategy,
+): PatchMapInstanceBarHeightOnlyPlan {
+  if (request.animate !== undefined && typeof request.animate !== 'boolean') {
+    throw new TypeError('instance presentation animate must be a boolean');
+  }
+  if (!Array.isArray(request.targets)) {
+    throw new TypeError('instance bar targets must be an array');
+  }
+  const heights = request.heights;
+  if (heights === undefined || heights === null || typeof heights !== 'object') {
+    throw new TypeError('instance bar height must be array-like');
+  }
+  if (!Number.isSafeInteger(heights.length) || heights.length < 0) {
+    throw new TypeError('instance bar height length must be a non-negative safe integer');
+  }
+  if (heights.length !== request.targets.length) {
+    throw new RangeError('instance bar height length must match targets length');
+  }
+
+  const updates: PatchMapInstanceBarOverlayUpdate[] = [];
+  for (let index = 0; index < request.targets.length; index += 1) {
+    const target = normalizeTarget(request.targets[index], `instance bar targets[${index}]`);
+    const height = heights[index];
+    if (height !== null &&
+      (typeof height !== 'number' || !Number.isFinite(height) || height < 0)) {
+      throw new RangeError(`instance bar height[${index}] must be null or finite and non-negative`);
+    }
+    updates.push(Object.freeze({ target, height }));
+  }
+
+  const barPlan = planPatchMapInstanceBarOverlay(
+    current,
+    authored,
+    updates,
+    componentTargets,
+    recordStrategy,
+  );
+  if (barPlan.missingTargets.length > 0) {
+    return Object.freeze({
+      projection: current,
+      changedEntityIds: Object.freeze([]),
+      appliedTargets: Object.freeze([]),
+      missingTargets: barPlan.missingTargets,
+      storageUpdates: Object.freeze([]),
+      overlayStateChanged: false,
+    });
+  }
+
+  let overlayStateChanged = false;
+  const storageUpdates = updates.flatMap(({ target, height }) => {
+    const key = storedKey('bar', target);
+    const previous = presentations.get(key);
+    const presentation = presentationWithHeight(previous, target, height);
+    if (sameStoredPresentation(previous, presentation)) return [];
+    overlayStateChanged = true;
+    return [Object.freeze({ key, presentation })];
+  });
+  return Object.freeze({
+    projection: barPlan.projection,
+    changedEntityIds: barPlan.changedEntityIds,
+    appliedTargets: barPlan.appliedTargets,
+    missingTargets: Object.freeze([]),
+    storageUpdates: Object.freeze(storageUpdates),
+    overlayStateChanged,
+  });
+}
+
+export function applyPatchMapInstanceBarHeightStorageUpdates(
+  presentations: Map<string, PatchMapStoredInstancePresentation>,
+  updates: PatchMapInstanceBarHeightOnlyPlan['storageUpdates'],
+): void {
+  for (const { key, presentation } of updates) {
+    if (presentation === null) presentations.delete(key);
+    else presentations.set(key, presentation);
+  }
+}
+
 export function planPatchMapInstancePresentationOverlay(
   request: PatchMapInstanceBarHeightBatchRequest,
   current: PatchMapProjectionIndex,
@@ -429,6 +534,38 @@ function mergePresentation(
     return null;
   }
   return Object.freeze(next) as unknown as PatchMapStoredInstancePresentation;
+}
+
+function presentationWithHeight(
+  previous: PatchMapStoredInstancePresentation | undefined,
+  target: PatchMapInstanceBarTarget,
+  height: number | null,
+): PatchMapStoredInstancePresentation | null {
+  if (height === null) {
+    if (previous === undefined) return null;
+    if (previous.height === undefined) return previous;
+    if (
+      previous.tint === undefined &&
+      previous.source === undefined &&
+      previous.show === undefined
+    ) return null;
+    return Object.freeze({
+      type: 'bar',
+      target: previous.target,
+      ...(previous.tint === undefined ? {} : { tint: previous.tint }),
+      ...(previous.source === undefined ? {} : { source: previous.source }),
+      ...(previous.show === undefined ? {} : { show: previous.show }),
+    });
+  }
+  if (previous !== undefined && Object.is(previous.height, height)) return previous;
+  return Object.freeze({
+    type: 'bar',
+    target: previous?.target ?? target,
+    height,
+    ...(previous?.tint === undefined ? {} : { tint: previous.tint }),
+    ...(previous?.source === undefined ? {} : { source: previous.source }),
+    ...(previous?.show === undefined ? {} : { show: previous.show }),
+  });
 }
 
 function presentationOverride(

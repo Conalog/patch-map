@@ -141,6 +141,17 @@
   The packed consumer verifies direct-URL `replaceAsync()`, capture, destroy,
   and shared-runtime remount with resolved resources and no Pixi cache-miss
   warning; the overlay capture needs no host sleep or status polling.
+- The concrete height-only performance checkpoint keeps the broader bar/icon
+  overlay while routing exact `bar.height` batches through the dedicated bar
+  projection planner. A same-Chromium, alternating-order packed 2+7 comparison
+  records 5,000/10,000 repeated-action p95 at 27.1/53.0ms for exact `70ed57f`,
+  30.4/65.4ms for regressed `60a0a62`, and 27.1/52.9ms for the fixed candidate.
+  Mount medians remain within 2ms across artifacts, separating the mutation
+  regression from environment variance. The candidate restores 10,000-cell
+  long-task median from 7 to the old value of 4; its 116.6ms frame-gap p95 is
+  still unfavorable against old 101.2ms and remains reported. The separate
+  bar+tint+icon 2+7 proxy records 64.2/137.0ms repeated-update p95 medians for
+  5,000/10,000 cells without changing the aggregate renderer or central loop.
 
 # Next Step
 

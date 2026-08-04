@@ -319,10 +319,8 @@ describe('PatchMap high-level developer API', () => {
       animate: true,
     })).toMatchObject({ status: 'committed', appliedCount: 1 });
     expect(harness.lastInstanceRequest()).toEqual({
-      bar: {
-        targets: [{ id: 'rack-grid.12.3', componentId: 'usage' }],
-        height: new Float32Array([72]),
-      },
+      targets: [{ id: 'rack-grid.12.3', componentId: 'usage' }],
+      heights: new Float32Array([72]),
       animate: true,
     });
     expect(map.selection.set(usage)).toEqual(['rack-grid.12.3']);
