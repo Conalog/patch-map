@@ -1,10 +1,12 @@
 import type { PatchMapContractPresenterDescriptor } from '../contract/presenters';
 import {
-  PATCH_MAP_MANUAL_ACTION_COUNT,
-  PATCH_MAP_MANUAL_CASE_COUNT,
+  PATCH_MAP_CONTRACT_CASE_COUNT,
+  PATCH_MAP_MANUAL_DEDICATED_CASE_COUNT,
   PATCH_MAP_MANUAL_TOOL_DESCRIPTIONS,
   PATCH_MAP_MANUAL_TOOL_LABELS,
+  PATCH_MAP_MANUAL_WORKFLOW_COUNT,
   selectPatchMapManualCase,
+  type PatchMapManualCaseDescriptor,
   type PatchMapManualToolGroup,
 } from './manual-case-catalog';
 import {
@@ -97,51 +99,30 @@ export function renderPatchMapManualWorkbench(
     `<button type="button" data-manual-tool-button="${tool}"${index === 0 ? ' aria-pressed="true"' : ' aria-pressed="false"'} title="${escapeHtml(PATCH_MAP_MANUAL_TOOL_DESCRIPTIONS[tool])}"><strong>${escapeHtml(PATCH_MAP_MANUAL_TOOL_LABELS[tool])}</strong><small>${escapeHtml(PATCH_MAP_MANUAL_TOOL_DESCRIPTIONS[tool])}</small></button>`,
   ).join('');
   const tasks = descriptor.tasks.map((task) => `<li>${escapeHtml(task)}</li>`).join('');
-  const actions = descriptor.actions.map((action) =>
-    `<li data-manual-approved-action="${escapeHtml(action.type)}"><span>${String(action.index + 1).padStart(2, '0')}</span><div><strong>${escapeHtml(action.label)}</strong><p>${escapeHtml(action.instruction)}</p></div><button type="button" data-manual-focus-tool="${action.group}">${escapeHtml(PATCH_MAP_MANUAL_TOOL_LABELS[action.group])} 열기</button></li>`,
-  ).join('');
 
-  return `<section class="manual-workbench" data-testid="manual-workbench" data-manual-status="booting" data-manual-case="${escapeHtml(presenter.caseId)}">
+  return `<section class="manual-workbench" data-testid="manual-workbench" data-manual-status="booting" data-manual-case="${escapeHtml(presenter.caseId)}" data-manual-coverage="${descriptor.coverage}" data-manual-exact-action-count="${descriptor.exactActionCount}">
     <header class="manual-workbench-header">
       <div>
         <span class="contract-kicker">직접 조작하는 제품 실험실</span>
         <h2>엔진을 켜둔 채, 원하는 동작을 직접 시험하세요.</h2>
-        <p>아래 캔버스는 계속 살아 있는 PixiJS WebGL 세션입니다. 자동 증거 실행기는 화면 아래에 별도로 있습니다.</p>
+        <p>아래 캔버스는 ${PATCH_MAP_MANUAL_WORKFLOW_COUNT}개 공통 조작 흐름을 자유롭게 시험하는 PixiJS WebGL 세션입니다. 173개 계약의 정확 실행기는 화면 아래에 별도로 있습니다.</p>
       </div>
       <div class="manual-coverage-stamp">
-        <strong>${PATCH_MAP_MANUAL_CASE_COUNT}/173</strong>
-        <span>케이스 연결 완료</span>
-        <small>${PATCH_MAP_MANUAL_ACTION_COUNT}/646개 작업</small>
+        <strong>${PATCH_MAP_MANUAL_WORKFLOW_COUNT}</strong>
+        <span>수동 조작 흐름</span>
+        <small>전용 안내 ${PATCH_MAP_MANUAL_DEDICATED_CASE_COUNT} · 정확 자동화 ${PATCH_MAP_CONTRACT_CASE_COUNT}</small>
       </div>
     </header>
-    <section class="manual-case-guide" aria-labelledby="manual-case-guide-title">
+    <section class="manual-case-guide" aria-labelledby="manual-case-guide-title" data-manual-coverage-guide="${descriptor.coverage}">
       <div>
         <span class="manual-case-id">${escapeHtml(descriptor.caseId)}</span>
+        <span class="manual-coverage-mode">${escapeHtml(descriptor.coverageLabel)}</span>
         <h3 id="manual-case-guide-title">${escapeHtml(descriptor.title)}</h3>
-        <p>이 케이스에서 먼저 확인할 동작입니다.</p>
+        <p>${escapeHtml(descriptor.coverageSummary)}</p>
       </div>
       <ol>${tasks}</ol>
     </section>
-    <section class="manual-onboarding" aria-labelledby="manual-onboarding-title">
-      <div class="manual-onboarding-heading">
-        <span class="contract-kicker">처음이라면 여기부터</span>
-        <h3 id="manual-onboarding-title">버튼은 세 단계로 사용하면 됩니다</h3>
-      </div>
-      <ol>
-        <li><span>1</span><div><strong>오른쪽에서 ‘${escapeHtml(PATCH_MAP_MANUAL_TOOL_LABELS[primaryTool])}’ 선택</strong><p>${escapeHtml(PATCH_MAP_MANUAL_TOOL_DESCRIPTIONS[primaryTool])}</p></div></li>
-        <li><span>2</span><div><strong>버튼을 누르거나 캔버스에서 직접 조작</strong><p>${escapeHtml(descriptor.tasks[0] ?? '안내된 동작을 캔버스에서 실행하세요.')}</p></div></li>
-        <li><span>3</span><div><strong>캔버스 아래 결과와 오른쪽 기록 확인</strong><p>선택 수·실행 취소 수·애니메이션·마지막 작업이 즉시 바뀝니다.</p></div></li>
-      </ol>
-      <details open>
-        <summary>화면 구성과 많은 버튼을 빠르게 이해하기</summary>
-        <div class="manual-layout-help">
-          <p><strong>캔버스 위 7개 모드</strong><span>마우스로 직접 선택·드래그할 때의 동작을 정합니다. 선택된 모드 옆 설명을 먼저 읽으세요.</span></p>
-          <p><strong>오른쪽 도구 탭</strong><span>관련 버튼만 묶어 둔 서랍입니다. 버튼 아래 짧은 설명이 실제로 바뀌는 내용을 알려줍니다.</span></p>
-          <p><strong>캔버스 아래 상태</strong><span>선택·히스토리·프레임·애니메이션이 실제로 반영됐는지 확인하는 곳입니다.</span></p>
-          <p><strong>맨 아래 자동 실행기</strong><span>승인된 순서를 자동으로 한 번 실행해 증거를 모읍니다. 자유 조작과는 별개입니다.</span></p>
-        </div>
-      </details>
-    </section>
+    ${renderManualOnboarding(descriptor, primaryTool)}
     <div class="manual-stage-layout">
       <section class="manual-stage-column">
         <div class="manual-mode-bar" role="toolbar" aria-label="캔버스 직접 조작 모드">
@@ -189,12 +170,55 @@ export function renderPatchMapManualWorkbench(
         </div>
       </aside>
     </div>
-    <details class="manual-approved-actions">
-      <summary><span>이 케이스의 승인 작업 연결표</span><strong>${descriptor.actions.length}/${descriptor.actions.length}개 직접 실행 가능</strong></summary>
-      <p>이 조작은 승인된 예상값을 읽지 않고 공개 제품 엔진만 직접 호출합니다. 각 항목의 ‘도구 열기’로 관련 버튼을 찾을 수 있습니다.</p>
-      <ol>${actions}</ol>
+    ${renderExactRunnerBoundary(descriptor)}
+  </section>`;
+}
+
+function renderManualOnboarding(
+  descriptor: PatchMapManualCaseDescriptor,
+  primaryTool: PatchMapManualToolGroup,
+): string {
+  const automatedOnly = descriptor.coverage === 'automated-only';
+  const title = automatedOnly
+    ? '이 케이스는 자동 증거로 확인합니다'
+    : '직접 조작은 세 단계로 확인합니다';
+  const steps = automatedOnly
+    ? [
+        ['공통 작업대는 탐색용', `‘${PATCH_MAP_MANUAL_TOOL_LABELS[primaryTool]}’ 도구로 관련 제품 상태만 살펴봅니다.`],
+        ['아래에서 정확 실행 시작', `${descriptor.exactActionCount}개 승인 작업을 정해진 순서로 자동 실행합니다.`],
+        ['실제 관찰과 정리 확인', '자동 실행 결과에서 실패·revision·자원 정리를 확인합니다.'],
+      ]
+    : [
+        [`오른쪽에서 ‘${PATCH_MAP_MANUAL_TOOL_LABELS[primaryTool]}’ 선택`, PATCH_MAP_MANUAL_TOOL_DESCRIPTIONS[primaryTool]],
+        ['버튼을 누르거나 캔버스에서 직접 조작', descriptor.tasks[0] ?? '안내된 동작을 캔버스에서 실행하세요.'],
+        ['화면과 상태 기록 비교', '선택·히스토리·프레임·애니메이션·마지막 작업이 즉시 바뀝니다.'],
+      ];
+
+  return `<section class="manual-onboarding" aria-labelledby="manual-onboarding-title">
+    <div class="manual-onboarding-heading">
+      <span class="contract-kicker">처음이라면 여기부터</span>
+      <h3 id="manual-onboarding-title">${escapeHtml(title)}</h3>
+    </div>
+    <ol>${steps.map(([stepTitle, description], index) =>
+      `<li><span>${index + 1}</span><div><strong>${escapeHtml(stepTitle ?? '')}</strong><p>${escapeHtml(description ?? '')}</p></div></li>`
+    ).join('')}</ol>
+    <details open>
+      <summary>화면 구성과 검증 범위를 빠르게 이해하기</summary>
+      <div class="manual-layout-help">
+        <p><strong>캔버스 위 7개 모드</strong><span>공통 장면을 선택·이동·변형하거나 화면을 움직이는 자유 조작입니다.</span></p>
+        <p><strong>오른쪽 조작 흐름</strong><span>현재 계약과 관련된 제품 기능을 모아 둔 공통 도구입니다.</span></p>
+        <p><strong>캔버스 아래 상태</strong><span>자유 조작 결과를 확인하지만 계약의 독립 합격 판정은 만들지 않습니다.</span></p>
+        <p><strong>맨 아래 정확 실행기</strong><span>이 케이스의 승인된 action trace와 실제 관찰·정리를 독립적으로 실행합니다.</span></p>
+      </div>
     </details>
   </section>`;
+}
+
+function renderExactRunnerBoundary(descriptor: PatchMapManualCaseDescriptor): string {
+  return `<aside class="manual-contract-boundary">
+    <strong>수동 작업대와 정확 실행기의 책임을 분리했습니다.</strong>
+    <p>현재 공통 캔버스는 자유 탐색용입니다. 이 경로의 ${descriptor.exactActionCount}개 승인 작업, 실제 관찰과 합격 판정은 바로 아래 ‘독립 정확 증거 실행기’만 담당합니다.</p>
+  </aside>`;
 }
 
 export function defaultManualAnimationDuration(caseId: string): number {

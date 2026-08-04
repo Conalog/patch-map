@@ -12,10 +12,14 @@ import {
 } from '../../lab/patch-map/contract/korean-copy';
 import { renderPatchMapManualWorkbench } from '../../lab/patch-map/interactive/manual-workbench';
 import {
-  PATCH_MAP_MANUAL_ACTION_COUNT,
+  PATCH_MAP_AUTOMATED_ONLY_CASE_COUNT,
+  PATCH_MAP_CONTRACT_CASE_COUNT,
+  PATCH_MAP_EXACT_ACTION_COUNT,
   PATCH_MAP_MANUAL_CASE_CATALOG,
-  PATCH_MAP_MANUAL_CASE_COUNT,
+  PATCH_MAP_MANUAL_DEDICATED_CASE_COUNT,
+  PATCH_MAP_MANUAL_SHARED_CASE_COUNT,
   PATCH_MAP_MANUAL_TOOL_LABELS,
+  PATCH_MAP_MANUAL_WORKFLOW_COUNT,
   selectPatchMapManualCase,
 } from '../../lab/patch-map/interactive/manual-case-catalog';
 import {
@@ -27,9 +31,13 @@ import { PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS } from '../../lab/patch-map/lab-settin
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 
 describe('PatchMap human-operated Lab catalog', () => {
-  it('maps all 173 cases and 646 approved actions without a second case runtime', () => {
-    expect(PATCH_MAP_MANUAL_CASE_COUNT).toBe(173);
-    expect(PATCH_MAP_MANUAL_ACTION_COUNT).toBe(646);
+  it('partitions exact contract routes from reusable manual workflows', () => {
+    expect(PATCH_MAP_CONTRACT_CASE_COUNT).toBe(173);
+    expect(PATCH_MAP_EXACT_ACTION_COUNT).toBe(646);
+    expect(PATCH_MAP_MANUAL_WORKFLOW_COUNT).toBe(11);
+    expect(PATCH_MAP_MANUAL_DEDICATED_CASE_COUNT).toBe(18);
+    expect(PATCH_MAP_MANUAL_SHARED_CASE_COUNT).toBe(134);
+    expect(PATCH_MAP_AUTOMATED_ONLY_CASE_COUNT).toBe(21);
     expect(PATCH_MAP_MANUAL_CASE_CATALOG.map(({ caseId }) => caseId))
       .toEqual(PATCH_MAP_CONTRACT_PRESENTERS.map(({ caseId }) => caseId));
 
@@ -37,9 +45,10 @@ describe('PatchMap human-operated Lab catalog', () => {
       const presenter = PATCH_MAP_CONTRACT_PRESENTERS[index];
       expect(presenter, descriptor.caseId).toBeDefined();
       expect(descriptor).toMatchObject({
-        revision: 'core-v2-manual-lab/1',
+        revision: 'patch-map-manual-lab/2',
         caseId: presenter?.caseId,
         title: patchMapKoreanCaseTitle(descriptor.caseId),
+        exactActionCount: presenter?.actions.length,
       });
       expect(descriptor.title, `${descriptor.caseId} Korean title`).toMatch(/[가-힣]/u);
       expect(descriptor.tasks.join(' '), `${descriptor.caseId} Korean tasks`).toMatch(/[가-힣]/u);
@@ -47,27 +56,36 @@ describe('PatchMap human-operated Lab catalog', () => {
       expect(new Set(descriptor.tools).size, `${descriptor.caseId} unique tools`)
         .toBe(descriptor.tools.length);
       expect(descriptor.tasks.length, `${descriptor.caseId} tasks`).toBeGreaterThanOrEqual(2);
-      expect(descriptor.actions.map(({ index: actionIndex, type }) => ({
-        index: actionIndex,
-        type,
-      }))).toEqual(presenter?.actions.map(({ index: actionIndex, type }) => ({
-        index: actionIndex,
-        type,
-      })));
-      for (const action of descriptor.actions) {
-        expect(descriptor.tools, `${descriptor.caseId}:${action.type} tool`).toContain(action.group);
-        expect(PATCH_MAP_MANUAL_TOOL_LABELS[action.group]).toBeTypeOf('string');
-        expect(action.label, `${descriptor.caseId}:${action.type} Korean label`).toMatch(/[가-힣]/u);
-        expect(action.instruction, `${descriptor.caseId}:${action.type} Korean instruction`)
-          .toMatch(/[가-힣]/u);
-        expect(action.instruction.length, `${descriptor.caseId}:${action.type} instruction`)
-          .toBeGreaterThan(12);
+      expect(['dedicated', 'shared-workflow', 'automated-only'])
+        .toContain(descriptor.coverage);
+      expect(descriptor.coverageLabel).toMatch(/[가-힣]/u);
+      expect(descriptor.coverageSummary).toMatch(/[가-힣]/u);
+      for (const tool of descriptor.tools) {
+        expect(PATCH_MAP_MANUAL_TOOL_LABELS[tool]).toBeTypeOf('string');
       }
       expect(JSON.stringify(descriptor)).not.toMatch(
         /normalizedExpected|approvedExpected|comparisonResult/u,
       );
     }
     expect(Object.keys(PATCH_MAP_KOREAN_CASE_TITLES)).toHaveLength(173);
+  });
+
+  it('uses explicit workflow ownership instead of action-name guessing', () => {
+    expect(selectPatchMapManualCase('LIF-004').tools).toEqual(['lifecycle', 'view']);
+    expect(selectPatchMapManualCase('VIE-007').tools).toEqual(['view', 'lifecycle']);
+    expect(selectPatchMapManualCase('LAY-004').tools).toEqual(['view', 'animation']);
+    expect(selectPatchMapManualCase('ANI-002').tools).toEqual(['animation', 'diagnostics']);
+    expect(selectPatchMapManualCase('ACC-002').tools).toEqual(['accessibility']);
+    expect(selectPatchMapManualCase('EVT-006').tools).toEqual(['accessibility', 'selection']);
+    expect(selectPatchMapManualCase('DET-002')).toMatchObject({
+      coverage: 'automated-only',
+      tools: ['lifecycle', 'diagnostics'],
+    });
+    for (const descriptor of PATCH_MAP_MANUAL_CASE_CATALOG.filter(
+      ({ caseId }) => caseId.startsWith('CSM-'),
+    )) {
+      expect(descriptor.tools, descriptor.caseId).not.toEqual(['diagnostics']);
+    }
   });
 
   it('pins direct free-play recipes for history, selection, transformer, and bars', () => {
@@ -90,18 +108,29 @@ describe('PatchMap human-operated Lab catalog', () => {
     );
   });
 
-  it('renders a persistent workbench and per-action manual tool links on every route', () => {
-    for (const caseId of ['HIS-001', 'SEL-005', 'TRN-009', 'REN-009', 'CSM-038']) {
+  it('renders a persistent workbench with honest manual coverage on every route', () => {
+    for (const caseId of [
+      'HIS-001',
+      'SEL-005',
+      'TRN-009',
+      'REN-009',
+      'CSM-038',
+      'DET-002',
+    ]) {
       const presenter = selectPatchMapContractPresenter(caseId);
+      const descriptor = selectPatchMapManualCase(caseId);
       const markup = renderPatchMapManualWorkbench(presenter);
       expect(markup).toContain('data-testid="manual-workbench"');
       expect(markup).toContain('data-testid="manual-canvas-host"');
-      expect(markup).toContain('173/173');
-      expect(markup).toContain('646/646개 작업');
+      expect(markup).toContain(`data-manual-coverage="${descriptor.coverage}"`);
+      expect(markup).toContain(
+        `data-manual-exact-action-count="${presenter.actions.length}"`,
+      );
+      expect(markup).toContain('11개 공통 조작 흐름');
+      expect(markup).toContain('전용 안내 18 · 정확 자동화 173');
       expect(markup).toContain('처음이라면 여기부터');
-      expect(markup).toContain('버튼은 세 단계로 사용하면 됩니다');
       expect(markup).toContain('<details open>');
-      expect(markup).toContain('화면 구성과 많은 버튼을 빠르게 이해하기');
+      expect(markup).toContain('화면 구성과 검증 범위를 빠르게 이해하기');
       expect(markup).toContain('직접 조작하는 제품 실험실');
       expect(markup).toContain('초당 프레임 / 최대 간격');
       expect(markup).toContain('data-manual-command="undo"');
@@ -110,13 +139,15 @@ describe('PatchMap human-operated Lab catalog', () => {
       expect(markup).toContain('data-manual-scene-size');
       expect(markup).toContain('<option value="10000">10,000개 · 탐색용</option>');
       expect(markup).toContain('data-manual-command="destroy-session"');
-      for (const action of presenter.actions) {
-        expect(markup).toContain(`data-manual-approved-action="${action.type}"`);
-      }
+      expect(markup).toContain(`${presenter.actions.length}개 승인 작업`);
+      expect(markup).not.toContain('data-manual-approved-action');
+      expect(markup).not.toContain('개 직접 실행 가능');
       expect(markup).not.toMatch(
         /Human-operated product Lab|Keep the engine alive|Selection you can keep changing|Approved action map/u,
       );
     }
+    expect(renderPatchMapManualWorkbench(selectPatchMapContractPresenter('DET-002')))
+      .toContain('이 케이스는 자동 증거로 확인합니다');
   });
 
   it('keeps pure workbench rendering separate from the live product session', async () => {

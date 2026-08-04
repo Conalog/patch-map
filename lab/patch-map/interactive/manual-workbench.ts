@@ -298,18 +298,6 @@ export function mountPatchMapManualWorkbench(
         if (isManualToolGroup(tool)) activateTool(tool);
       }, { signal });
     }
-    for (const button of host.querySelectorAll<HTMLButtonElement>('[data-manual-focus-tool]')) {
-      button.addEventListener('click', () => {
-        const tool = button.dataset.manualFocusTool;
-        if (isManualToolGroup(tool)) {
-          activateTool(tool);
-          required<HTMLElement>(host, `[data-manual-tool-panel="${tool}"]`).scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-          });
-        }
-      }, { signal });
-    }
     for (const button of host.querySelectorAll<HTMLButtonElement>('[data-manual-mode]')) {
       button.addEventListener('click', () => {
         const nextMode = button.dataset.manualMode;
