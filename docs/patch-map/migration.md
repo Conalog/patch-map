@@ -296,6 +296,12 @@ configured ingestion policy, including origin, redirects, MIME type, encoded
 size, decoded size, and SVG checks. An existing Pixi global-cache key is not a
 validation shortcut.
 
+`data.replaceAsync()` validates and publishes the dataset asynchronously but
+does not turn host timing into an asset-readiness signal. Use the first
+`await capture.png()` as the exact visible-publication barrier: it waits every
+active image binding in that tuple, publishes resolved textures, and captures
+without an adapter sleep or `assets.status()` poll.
+
 If several maps share a `PatchMapAssetRuntime`, each `PatchMap` still owns its
 own session and leases. Destroying one engine releases only its leases; the
 shared resource unloads after the final lease is released. Await `destroy()`
@@ -339,7 +345,9 @@ or discard those identities in the host serializer.
 ## Extraction cutover
 
 The normal capture API protects the exact visible publication while the image
-is being extracted:
+is being extracted. It first settles active direct-image and component-image
+bindings for that tuple, including a source introduced by `replaceAsync()` or
+a concrete icon overlay:
 
 ```ts
 const capture = await patchMap.capture.png();

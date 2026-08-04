@@ -136,6 +136,11 @@
   console/page/network errors. Package, resource ownership, renderer, and hot
   paths did not change, so packed consumer, memory, and performance gates were
   not repeated.
+- The image-readiness checkpoint makes `await capture.png()` the active-image
+  settlement barrier for direct URLs and newly shown concrete icon overlays.
+  The packed consumer verifies direct-URL `replaceAsync()`, capture, destroy,
+  and shared-runtime remount with resolved resources and no Pixi cache-miss
+  warning; the overlay capture needs no host sleep or status polling.
 
 # Next Step
 

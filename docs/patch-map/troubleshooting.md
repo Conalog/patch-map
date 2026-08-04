@@ -31,8 +31,9 @@ instance. Inspect `assets.status()` for pending, lease, and cleanup counts.
 ## Capture is stale
 
 Use `await patchMap.capture.png()`. It publishes through the owned frame loop
-and prevents resize or another capture from replacing the exact tuple before
-extraction finishes.
+after waiting the active image bindings, and prevents resize or another capture
+from replacing the exact tuple before extraction finishes. A just-replaced
+direct URL or newly shown overlay icon needs no host sleep or status poll.
 
 ## Support ownership
 

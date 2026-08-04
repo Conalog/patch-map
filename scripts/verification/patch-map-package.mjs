@@ -57,6 +57,16 @@ try {
   await mkdir(consumer, { recursive: true });
   await mkdir(dependencySeed, { recursive: true });
   await mkdir(reproduciblePackDirectory, { recursive: true });
+  const directImageDirectory = path.join(consumer, 'public', 'icons');
+  await mkdir(directImageDirectory, { recursive: true });
+  await writeFile(
+    path.join(directImageDirectory, 'ess.svg'),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#ef4444"/></svg>\n',
+  );
+  await writeFile(
+    path.join(directImageDirectory, 'stick.svg'),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#22c55e"/></svg>\n',
+  );
   const packed = await execute(
     'npm',
     ['pack', '--ignore-scripts', '--json', '--pack-destination', temporary],
@@ -178,7 +188,10 @@ try {
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 800, height: 500 } });
   page.on('console', (message) => {
-    if (message.type() === 'error') errors.console.push(message.text());
+    if (
+      message.type() === 'error' ||
+      (message.type() === 'warning' && message.text().includes('[Assets] Asset id'))
+    ) errors.console.push(`${message.type()}: ${message.text()}`);
   });
   page.on('pageerror', (error) => {
     errors.page.push(error.stack || `${error.name}: ${error.message}`);
@@ -288,7 +301,8 @@ try {
   process.stdout.write(
     `${evidence.status === 'pass' ? 'PASS' : 'PENDING'}: packed PatchMap ESM/CJS/types + `
       + `${journeyMatrix.passedJourneyCount} journeys, `
-    + `${examples.executedExamples.length} examples, ${esm.renderObjects} aggregate objects, lifecycle clean\n`,
+    + `${examples.executedExamples.length} examples, ${esm.renderObjects} aggregate objects, `
+    + 'direct-image capture ready, lifecycle clean\n',
   );
 } catch (error) {
   operationFailure = error;

@@ -1,4 +1,4 @@
-import { Assets } from 'pixi.js';
+import { Assets, Cache } from 'pixi.js';
 
 import type { PatchMapAssetDescriptor } from '../semantic/dataset';
 import {
@@ -36,7 +36,9 @@ export function createPatchMapPixiAssetBackend(
     get(request: PatchMapAssetBackendRequest): unknown {
       if (options.ingestionPolicy !== undefined && !request.packageOwned) return undefined;
       const externalKey = externalBorrowKey(request);
-      return externalKey === null ? undefined : Assets.get<unknown>(externalKey);
+      return externalKey === null || !Cache.has(externalKey)
+        ? undefined
+        : Cache.get<unknown>(externalKey);
     },
     async load(request: PatchMapAssetBackendRequest): Promise<unknown> {
       if (options.ingestionPolicy && !request.packageOwned) {

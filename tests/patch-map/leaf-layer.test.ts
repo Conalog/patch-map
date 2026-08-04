@@ -1,4 +1,4 @@
-import { Assets, Matrix, Texture } from 'pixi.js';
+import { Assets, Cache, Matrix, Texture } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { RenderStoreView } from '../../src/patch-map/dense/renderer-types';
@@ -293,7 +293,8 @@ describe('PatchMap aggregate leaf policy', () => {
 
   it('borrows a texture already present in the external Assets cache', async () => {
     const url = 'core-v2-test://external-texture.png';
-    vi.spyOn(Assets, 'get').mockReturnValue(Texture.WHITE as never);
+    vi.spyOn(Cache, 'has').mockReturnValue(true);
+    vi.spyOn(Cache, 'get').mockReturnValue(Texture.WHITE as never);
     const load = vi.spyOn(Assets, 'load').mockRejectedValue(new Error('must not reload') as never);
     const unload = vi.spyOn(Assets, 'unload').mockResolvedValue(undefined as never);
     const layer = createAssetLayer();

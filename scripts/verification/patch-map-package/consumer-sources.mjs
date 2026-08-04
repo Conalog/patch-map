@@ -30,6 +30,7 @@ export const PACKED_CONSUMER_ESM_SOURCE = `
 import * as packageApi from '@conalog/patch-map';
 import {
   PatchMap,
+  PatchMapAssetRuntime,
   assertPatchMapSemanticRoundtrip,
   materializePatchMapCompatibilityDataset,
   preparePatchMapPersistenceExport,
@@ -115,6 +116,7 @@ try {
 const afterRejectedReplace = map.debug.snapshot();
 const assetStatus = map.assets.status();
 const capture = await map.capture.png();
+const directImage = await verifyDirectImageLifecycle();
 const renderObjects = initial.resources.rendering.commandCount;
 let constructorRejected = false;
 try {
@@ -162,6 +164,7 @@ window.__PACKAGE_RESULT__ = {
   assetRuntimeCount: assetStatus.runtime.resourceCount,
   capturePrefix: capture.dataUrl.slice(0, 22),
   captureLength: capture.dataUrl.length,
+  directImage,
   internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
   constructorRejected,
   instanceInternalsAbsent,
@@ -169,6 +172,88 @@ window.__PACKAGE_RESULT__ = {
   destroyed: map.destroyed,
   canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
 };
+
+async function verifyDirectImageLifecycle() {
+  const directHost = document.createElement('div');
+  directHost.style.width = '180px';
+  directHost.style.height = '140px';
+  document.body.appendChild(directHost);
+  const runtime = new PatchMapAssetRuntime();
+  const assets = [
+    { alias: '/icons/ess.svg', descriptor: '/icons/ess.svg' },
+    { alias: '/icons/stick.svg', descriptor: '/icons/stick.svg' },
+  ];
+  const scene = (id, source) => [{
+    id,
+    type: 'image',
+    source,
+    show: true,
+    attrs: { x: 16, y: 16 },
+    size: { width: 96, height: 96 },
+  }];
+  let direct = null;
+  try {
+    direct = await PatchMap.mount({
+      container: directHost,
+      instanceId: 'packed-direct-image-first',
+      width: 180,
+      height: 140,
+      resizeMode: 'manual',
+      fit: false,
+      assets,
+      assetRuntime: runtime,
+      assetPolicy: () => undefined,
+      data: scene('initial-direct-image', '/icons/ess.svg'),
+    });
+    const initialCapture = await direct.capture.png();
+    const initialState = direct.assets.status('/icons/ess.svg').runtime.resource?.state ?? null;
+    const replacement = await direct.data.replaceAsync(
+      scene('replacement-direct-image', '/icons/stick.svg'),
+      { strict: true, fit: false },
+    );
+    const replacementCapture = await direct.capture.png();
+    const replacementState =
+      direct.assets.status('/icons/stick.svg').runtime.resource?.state ?? null;
+    const firstDestroy = await direct.destroy();
+    direct = null;
+    const firstCleanupResourceCount = runtime.probe().resourceCount;
+
+    direct = await PatchMap.mount({
+      container: directHost,
+      instanceId: 'packed-direct-image-remount',
+      width: 180,
+      height: 140,
+      resizeMode: 'manual',
+      fit: false,
+      assets,
+      assetRuntime: runtime,
+      assetPolicy: () => undefined,
+      data: scene('remounted-direct-image', '/icons/stick.svg'),
+    });
+    const remountCapture = await direct.capture.png();
+    const remountState = direct.assets.status('/icons/stick.svg').runtime.resource?.state ?? null;
+    const remountDestroy = await direct.destroy();
+    direct = null;
+    return {
+      initialState,
+      initialCaptureLength: initialCapture.dataUrl.length,
+      replacementRootId: replacement.rootIds[0] ?? null,
+      replacementSceneRevision: replacement.sceneRevision,
+      replacementState,
+      replacementCaptureLength: replacementCapture.dataUrl.length,
+      firstDestroy,
+      firstCleanupResourceCount,
+      remountState,
+      remountCaptureLength: remountCapture.dataUrl.length,
+      remountDestroy,
+      finalResourceCount: runtime.probe().resourceCount,
+      canvasCountAfterDestroy: directHost.querySelectorAll('canvas').length,
+    };
+  } finally {
+    await direct?.destroy().catch(() => undefined);
+    directHost.remove();
+  }
+}
 `;
 
 export const PACKED_CONSUMER_CJS_SOURCE = `

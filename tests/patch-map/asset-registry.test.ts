@@ -1,4 +1,4 @@
-import { Assets } from 'pixi.js';
+import { Assets, Cache } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -528,12 +528,15 @@ describe('PatchMap shared asset runtime', () => {
       revokeObjectURL: () => undefined,
     });
     const pixiAssets = Assets as unknown as {
-      get(id: string): unknown;
       load(descriptor: unknown): Promise<unknown>;
     };
+    const pixiCache = Cache as unknown as {
+      has(id: string): boolean;
+      get(id: string): unknown;
+    };
     const external = Object.freeze({ texture: 'external' });
-    const get = vi.spyOn(pixiAssets, 'get');
-    get.mockReturnValueOnce(external);
+    const has = vi.spyOn(pixiCache, 'has').mockReturnValueOnce(true);
+    const get = vi.spyOn(pixiCache, 'get').mockReturnValueOnce(external);
     const externalRequest: PatchMapAssetBackendRequest = Object.freeze({
       key: 'patch-map-asset:external',
       descriptor: Object.freeze({ src: 'https://assets.example.test/external.png' }),
@@ -542,10 +545,11 @@ describe('PatchMap shared asset runtime', () => {
     });
 
     expect(backend.get(externalRequest)).toBe(external);
+    expect(has.mock.calls.map(([key]) => key)).toEqual([externalRequest.descriptor.src]);
     expect(get.mock.calls.map(([key]) => key)).toEqual([externalRequest.descriptor.src]);
 
+    has.mockReset();
     get.mockReset();
-    get.mockReturnValue(undefined);
     const optionedRequest: PatchMapAssetBackendRequest = Object.freeze({
       ...externalRequest,
       descriptor: Object.freeze({
@@ -554,6 +558,7 @@ describe('PatchMap shared asset runtime', () => {
       }),
     });
     expect(backend.get(optionedRequest)).toBeUndefined();
+    expect(has).not.toHaveBeenCalled();
     expect(get).not.toHaveBeenCalled();
 
     const resource = Object.freeze({ texture: 'builtin' });

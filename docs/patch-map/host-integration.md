@@ -57,4 +57,6 @@ shadow-runtime authorities as a competing product API.
 
 For extraction, publish the desired state, capture the exact
 `publishedTuple`, and request `image/png` at the current CSS size. PatchMap
-keeps the authoritative canvas mounted and rejects stale tuples.
+waits the active image bindings, keeps the authoritative canvas mounted, and
+rejects stale tuples. Do not insert a host sleep or asset-status polling loop
+between `replaceAsync()` / `updateBatch()` and `await capture.png()`.

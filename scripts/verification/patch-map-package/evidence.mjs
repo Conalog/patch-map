@@ -42,6 +42,21 @@ export function collectPackageFailures({
     failures.push('packed ESM capture is not PNG data');
   }
   if (!(esm.captureLength > 100)) failures.push('packed ESM capture is unexpectedly empty');
+  if (
+    esm.directImage?.initialState !== 'resolved' ||
+    !(esm.directImage?.initialCaptureLength > 100) ||
+    esm.directImage?.replacementRootId !== 'replacement-direct-image' ||
+    !(esm.directImage?.replacementSceneRevision > 1) ||
+    esm.directImage?.replacementState !== 'resolved' ||
+    !(esm.directImage?.replacementCaptureLength > 100) ||
+    esm.directImage?.firstDestroy !== true ||
+    esm.directImage?.firstCleanupResourceCount !== 0 ||
+    esm.directImage?.remountState !== 'resolved' ||
+    !(esm.directImage?.remountCaptureLength > 100) ||
+    esm.directImage?.remountDestroy !== true ||
+    esm.directImage?.finalResourceCount !== 0 ||
+    esm.directImage?.canvasCountAfterDestroy !== 0
+  ) failures.push('packed direct-image replace/capture/remount lifecycle failed');
   if (esm.backend !== 'webgl') failures.push('packed ESM did not use WebGL');
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.assetRuntimeCount !== 0) failures.push('packed ESM asset status was inconsistent');

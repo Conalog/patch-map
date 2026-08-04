@@ -1721,6 +1721,11 @@ export class PatchMapRuntime {
 
   public async captureBase64(): Promise<string> {
     this.assertAlive();
+    const activeBindingKeys = this.activeSceneImageBindingKeys();
+    if (activeBindingKeys.length > 0) {
+      await this.settleSceneImageBindings(activeBindingKeys);
+      this.assertAlive();
+    }
     this.flush('capture');
     return this.renderer.captureBase64();
   }
@@ -1900,6 +1905,16 @@ export class PatchMapRuntime {
       this.publishedScene.current(),
       this.instancePresentationOverrides,
     );
+  }
+
+  private activeSceneImageBindingKeys(): readonly string[] {
+    const images = this.publishedScene.current().projection?.imagesByEntityId ?? {};
+    const keys = new Set<string>();
+    for (const entityId of this.activeSceneImageIds()) {
+      const bindingKey = images[entityId]?.bindingKey;
+      if (bindingKey !== undefined) keys.add(bindingKey);
+    }
+    return Object.freeze([...keys]);
   }
 
   private setRendererInstancePresentationOverrides(

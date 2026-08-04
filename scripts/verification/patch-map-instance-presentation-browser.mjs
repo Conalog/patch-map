@@ -153,13 +153,7 @@ try {
             },
           },
         }, { animate: true });
-        const deadline = performance.now() + 10_000;
-        let after;
-        do {
-          await new Promise((resolve) => setTimeout(resolve, 32));
-          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-          after = await pixels();
-        } while (after.redDominant <= 50 && performance.now() < deadline);
+        const after = await pixels();
         window.__PATCH_MAP_INSTANCE_PRESENTATION__ = {
           before,
           after,

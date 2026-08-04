@@ -46,6 +46,12 @@ implements it:
 | Inspect loaded asset ownership | `assets.status()` |
 | Capture the visible result | `capture.png()` |
 
+`await capture.png()` is also the readiness barrier for image assets visible
+in that exact publication. It waits currently active direct-image and component
+image bindings, publishes their resolved textures through the owned frame loop,
+and then reads the canvas. Hosts do not need an asset-status polling loop or a
+sleep before capturing a just-replaced image or newly shown icon.
+
 `update()` remains the default mutation for one logical owner,
 `updateBatch()` is the columnar high-volume form, and `transaction()` is the
 ordered heterogeneous/structural atomic form. There are no parallel `load`,
