@@ -72,17 +72,21 @@ grid instance를 반복 갱신할 때는 JSONPath나 갱신마다 scene scan을 
 않고 semantic target set을 한 번 조회해 재사용할 수 있습니다.
 
 ```ts
-const usageBars = patchMap.targets.query({
+const cells = patchMap.targets.query({
   within: 'rack-grid',
-  componentId: 'usage',
-  type: 'bar',
   scope: 'instances',
 });
 
 patchMap.updateBatch({
-  targets: usageBars,
+  targets: cells,
   bar: {
-    height: new Float32Array(usageBars.count).fill(75),
+    componentId: 'usage',
+    height: new Float32Array(cells.count).fill(75),
+    changes: { tint: barTints, source: barSources, show: barShows },
+  },
+  icon: {
+    componentId: 'status',
+    changes: { show: iconShows, source: iconSources, tint: iconTints },
   },
 }, { animate: true });
 ```

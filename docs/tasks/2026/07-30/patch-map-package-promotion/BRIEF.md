@@ -29,9 +29,9 @@
 - Named mutation shortcuts are reserved for distinct optimized commit paths.
   `bar.height` remains public; bar width, fill, and other ordinary component
   fields use the single `bar.changes` merge shape.
-- Authored bar/text fast planners and the concrete grid-cell bar overlay remain
-  internal commit paths. `updateBatch()` selects them without exposing
-  `ownerId`, dense slots, or separate bar/text mutation domains.
+- Authored bar/text fast planners and the concrete grid-cell bar/icon
+  presentation overlay remain internal commit paths. `updateBatch()` selects
+  them without exposing `ownerId`, dense slots, or separate mutation domains.
 - Repeated semantic addressing uses `targets.query()` and an opaque
   revision-bound `PatchMapTargetSet`. The internal one-time scene scan and
   WeakMap authority remain, while compilation terminology and revision
@@ -143,6 +143,7 @@
   address only actionable review findings. Integrating services should start
   with `PatchMap.mount()`, use `update()` for one owner, queried target sets
   plus columnar `updateBatch()` for repeated batches, and `transaction()` for
-  heterogeneous or structural atomic work. Retain non-bar per-cell live state
-  until a separately approved package contract exists. Increase the package
-  version only after merge.
+  heterogeneous or structural atomic work. Concrete bar height/tint/source/show
+  and icon show/source/tint use the renderer-only overlay; retain concrete text,
+  background, and arbitrary fields until a separately approved package contract
+  exists. Increase the package version only after merge.

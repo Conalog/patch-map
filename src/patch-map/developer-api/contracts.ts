@@ -106,9 +106,24 @@ export interface PatchMapComponentUpdate {
   readonly changes?: PatchMapUpdateRecord;
 }
 
+/**
+ * Runtime presentation fields supported on concrete grid components.
+ * `null` restores only that field from the authored template.
+ */
+export type PatchMapInstancePresentationChanges = PatchMapUpdateRecord & Readonly<{
+  readonly show?: boolean | null;
+  readonly source?: PatchMapMutationJsonValue | null;
+  readonly tint?: PatchMapMutationJsonValue | null;
+}>;
+
 export interface PatchMapBarUpdate extends PatchMapComponentUpdate {
   /** Convenience alias for `size.height`. `null` restores an instance overlay. */
   readonly height?: number | null;
+  readonly changes?: PatchMapInstancePresentationChanges;
+}
+
+export interface PatchMapIconUpdate extends PatchMapComponentUpdate {
+  readonly changes?: PatchMapInstancePresentationChanges;
 }
 
 export interface PatchMapTextUpdate extends PatchMapComponentUpdate {
@@ -123,7 +138,7 @@ export interface PatchMapUpdate {
   readonly changes?: PatchMapUpdateRecord;
   readonly background?: PatchMapComponentUpdate;
   readonly bar?: PatchMapBarUpdate;
-  readonly icon?: PatchMapComponentUpdate;
+  readonly icon?: PatchMapIconUpdate;
   readonly text?: PatchMapTextUpdate;
 }
 
@@ -142,6 +157,19 @@ export interface PatchMapComponentUpdateColumns {
 
 export interface PatchMapBarUpdateColumns extends PatchMapComponentUpdateColumns {
   readonly height?: PatchMapUpdateColumn<number | null>;
+  readonly changes?: PatchMapComponentUpdateColumns['changes'] & Readonly<{
+    readonly show?: PatchMapUpdateColumn<boolean | null>;
+    readonly source?: PatchMapUpdateColumn<PatchMapMutationJsonValue | null>;
+    readonly tint?: PatchMapUpdateColumn<PatchMapMutationJsonValue | null>;
+  }>;
+}
+
+export interface PatchMapIconUpdateColumns extends PatchMapComponentUpdateColumns {
+  readonly changes?: PatchMapComponentUpdateColumns['changes'] & Readonly<{
+    readonly show?: PatchMapUpdateColumn<boolean | null>;
+    readonly source?: PatchMapUpdateColumn<PatchMapMutationJsonValue | null>;
+    readonly tint?: PatchMapUpdateColumn<PatchMapMutationJsonValue | null>;
+  }>;
 }
 
 export interface PatchMapTextUpdateColumns extends PatchMapComponentUpdateColumns {
@@ -155,7 +183,7 @@ export interface PatchMapUpdateBatch {
   readonly changes?: Readonly<Record<string, PatchMapUpdateColumn<PatchMapMutationJsonValue>>>;
   readonly background?: PatchMapComponentUpdateColumns;
   readonly bar?: PatchMapBarUpdateColumns;
-  readonly icon?: PatchMapComponentUpdateColumns;
+  readonly icon?: PatchMapIconUpdateColumns;
   readonly text?: PatchMapTextUpdateColumns;
 }
 

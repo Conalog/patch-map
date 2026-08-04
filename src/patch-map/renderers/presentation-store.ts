@@ -5,6 +5,16 @@ import {
 import type { CoreView, Rgba } from '../dense/contracts';
 import type { PatchMapResolvedPresentationPolicy } from '../presentation-policy';
 
+/** Renderer-only sparse values projected into stable columnar arrays. */
+export interface PatchMapRendererEntityPresentationOverride {
+  readonly visible?: boolean;
+  readonly fill?: number;
+  readonly radius?: number;
+  readonly source?: string;
+  readonly tint?: number;
+  readonly trackFill?: number;
+}
+
 /**
  * Stable renderer-only view over the dense store.
  *
@@ -14,7 +24,8 @@ import type { PatchMapResolvedPresentationPolicy } from '../presentation-policy'
  */
 export class PatchMapPresentationStoreView implements RenderStoreView {
   private base: RenderStoreView;
-  private policy: PatchMapResolvedPresentationPolicy;
+  private policy: PatchMapResolvedPresentationPolicy | null;
+  private overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
   private readonly highlighted = new Set<string>();
   private readonly hidden = new Set<string>();
   private readonly fillOverrides = new Map<string, number>();
@@ -22,17 +33,27 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
   public readonly flags: Uint8Array;
   public readonly opacity: Float32Array;
   public readonly fill: Uint32Array;
+  public readonly radius: Float32Array;
+  public readonly source: string[];
+  public readonly tint: Uint32Array;
+  public readonly trackFill: Uint32Array;
 
   public constructor(
     base: RenderStoreView,
-    policy: PatchMapResolvedPresentationPolicy,
+    policy: PatchMapResolvedPresentationPolicy | null,
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride> = new Map(),
   ) {
     this.base = base;
     this.policy = policy;
+    this.overrides = overrides;
     this.flags = new Uint8Array(base.capacity);
     this.opacity = new Float32Array(base.capacity);
     this.fill = new Uint32Array(base.capacity);
-    this.synchronize(base, policy);
+    this.radius = new Float32Array(base.capacity);
+    this.source = new Array<string>(base.capacity).fill('');
+    this.tint = new Uint32Array(base.capacity);
+    this.trackFill = new Uint32Array(base.capacity);
+    this.synchronize(base, policy, undefined, overrides);
   }
 
   public get capacity(): number {
@@ -87,10 +108,6 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     return this.base.strokeWidth;
   }
 
-  public get radius(): ArrayLike<number> {
-    return this.base.radius;
-  }
-
   public get text(): readonly string[] {
     return this.base.text;
   }
@@ -119,14 +136,6 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     return this.base.maxLines;
   }
 
-  public get source(): readonly string[] {
-    return this.base.source;
-  }
-
-  public get tint(): ArrayLike<number> {
-    return this.base.tint;
-  }
-
   public get fit(): ArrayLike<number> {
     return this.base.fit;
   }
@@ -141,10 +150,6 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
 
   public get max(): ArrayLike<number> {
     return this.base.max;
-  }
-
-  public get trackFill(): ArrayLike<number> {
-    return this.base.trackFill;
   }
 
   public get relationFrom(): ArrayLike<number> {
@@ -181,17 +186,19 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
 
   public synchronize(
     base: RenderStoreView,
-    policy: PatchMapResolvedPresentationPolicy,
+    policy: PatchMapResolvedPresentationPolicy | null,
     ranges?: readonly Readonly<{ readonly start: number; readonly end: number }>[],
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride> = this.overrides,
   ): void {
     if (base.capacity !== this.flags.length) {
       throw new RangeError('presentation store capacity changed');
     }
     this.base = base;
     this.policy = policy;
-    replaceSet(this.highlighted, policy.highlightedEntityIds ?? []);
-    replaceSet(this.hidden, policy.hiddenEntityIds);
-    replaceFillOverrides(this.fillOverrides, policy.fillOverrides);
+    this.overrides = overrides;
+    replaceSet(this.highlighted, policy?.highlightedEntityIds ?? []);
+    replaceSet(this.hidden, policy?.hiddenEntityIds ?? []);
+    replaceFillOverrides(this.fillOverrides, policy?.fillOverrides ?? []);
     if (ranges === undefined) {
       this.synchronizeRange(0, base.capacity);
       return;
@@ -224,16 +231,30 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     const end = Math.max(start, Math.min(this.base.capacity, Math.trunc(endValue)));
     for (let slot = start; slot < end; slot += 1) {
       const id = this.base.ids[slot] ?? '';
+      const override = this.overrides.get(id);
       const hidden = this.hidden.has(id);
       const flags = this.base.flags[slot] ?? 0;
-      this.flags[slot] = hidden ? flags & ~RenderFlags.Visible : flags;
+      const presentationFlags = override?.visible === undefined
+        ? flags
+        : override.visible
+          ? flags | RenderFlags.Visible
+          : flags & ~RenderFlags.Visible;
+      this.flags[slot] = hidden
+        ? presentationFlags & ~RenderFlags.Visible
+        : presentationFlags;
       this.opacity[slot] = (this.base.opacity[slot] ?? 0) * this.emphasis(id);
-      this.fill[slot] = this.fillOverrides.get(id) ?? this.base.fill[slot] ?? 0;
+      this.fill[slot] = this.fillOverrides.get(id) ?? override?.fill ?? this.base.fill[slot] ?? 0;
+      this.radius[slot] = override?.radius ?? this.base.radius[slot] ?? 0;
+      this.source[slot] = override?.source ?? this.base.source[slot] ?? '';
+      this.tint[slot] = override?.tint ?? this.base.tint[slot] ?? 0xffffffff;
+      this.trackFill[slot] = override?.trackFill ?? this.base.trackFill[slot] ?? 0;
     }
   }
 
   private emphasis(entityId: string): number {
-    return this.policy.highlightedEntityIds === null || this.highlighted.has(entityId)
+    return this.policy === null ||
+      this.policy.highlightedEntityIds === null ||
+      this.highlighted.has(entityId)
       ? 1
       : this.policy.deEmphasisAlpha;
   }

@@ -5,7 +5,10 @@ import {
   RenderKind,
   type RenderStoreView,
 } from '../../src/patch-map/dense/renderer-types';
-import { PatchMapPresentationStoreView } from '../../src/patch-map/renderers/presentation-store';
+import {
+  PatchMapPresentationStoreView,
+  type PatchMapRendererEntityPresentationOverride,
+} from '../../src/patch-map/renderers/presentation-store';
 import type { PatchMapResolvedPresentationPolicy } from '../../src/patch-map/presentation-policy';
 
 describe('PatchMap renderer presentation store', () => {
@@ -83,6 +86,38 @@ describe('PatchMap renderer presentation store', () => {
       expect.closeTo(0.35, 6),
       expect.closeTo(0.35, 6),
     ]);
+  });
+
+  it('projects sparse instance bar and icon values without mutating dense columns', () => {
+    const base = store();
+    (base.kind as Uint8Array)[0] = RenderKind.Bar;
+    (base.kind as Uint8Array)[1] = RenderKind.Image;
+    (base.flags as Uint8Array)[1] = 0;
+    const before = Object.freeze({
+      flags: Array.from(base.flags),
+      fill: Array.from(base.fill),
+      source: [...base.source],
+      tint: Array.from(base.tint),
+    });
+    const view = new PatchMapPresentationStoreView(
+      base,
+      null,
+      new Map<string, PatchMapRendererEntityPresentationOverride>([
+      ['item-a', Object.freeze({ fill: 0x2563ebff, trackFill: 0xffffffff, radius: 6 })],
+      ['text-c', Object.freeze({ visible: true, source: 'ess', tint: 0xef4444ff })],
+      ]),
+    );
+
+    expect(view.fill[0]).toBe(0x2563ebff);
+    expect(view.trackFill[0]).toBe(0xffffffff);
+    expect(view.radius[0]).toBe(6);
+    expect(view.flags[1]! & RenderFlags.Visible).toBe(RenderFlags.Visible);
+    expect(view.source[1]).toBe('ess');
+    expect(view.tint[1]).toBe(0xef4444ff);
+    expect(Array.from(base.flags)).toEqual(before.flags);
+    expect(Array.from(base.fill)).toEqual(before.fill);
+    expect(base.source).toEqual(before.source);
+    expect(Array.from(base.tint)).toEqual(before.tint);
   });
 });
 

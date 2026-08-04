@@ -23,6 +23,7 @@ import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
 } from '../../src/patch-map/renderers/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
 import type {
   PatchMapPixiRendererDebug,
   RootInteractionHandlers,
@@ -417,6 +418,131 @@ describe('PatchMap bar presentation integration', () => {
       engine.barPresentationProbe({ ownerId: id, componentId })?.presentationHeight))
       .toEqual([25, 60]);
     expect(core.activeAnimations).toBe(0);
+
+    await engine.destroy();
+  });
+
+  it('publishes bar tint and hidden icon presentation atomically without semantic changes', async () => {
+    const { core, renderer } = createTestCore(allocated);
+    const engine = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    await engine.initialize({
+      instanceId: 'grid-instance-presentation-overlay',
+      width: 800,
+      height: 600,
+    });
+    const input = gridPresentationScene();
+    engine.loadDataset(input);
+    engine.publishFrame(0);
+    const exported = engine.exportDataset();
+    const history = engine.historyState();
+    const semanticHash = engine.snapshot().semanticHash;
+
+    expect(engine.updateInstanceBarHeights({
+      bar: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'level' }],
+        height: [48],
+        tint: ['#2563eb'],
+        source: [{ type: 'rect', fill: '#ffffff', radius: 8 }],
+        show: [true],
+      },
+      icon: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'status' }],
+        show: [true],
+        source: ['ess'],
+        tint: ['#ef4444'],
+      },
+      animate: false,
+    })).toMatchObject({
+      status: 'committed',
+      changed: true,
+      missingTargets: [],
+      overlayCount: 2,
+    });
+    await core.settleSceneImages();
+    expect(core.sceneImageProbe()).toMatchObject({ activeTargetCount: 1 });
+
+    const overrides = renderer.presentationOverrides.at(-1)!;
+    expect(overrides.get('grid-presentation.0.0::bar:level')).toMatchObject({
+      fill: 0x2563ebff,
+      trackFill: 0xffffffff,
+      radius: 8,
+      visible: true,
+    });
+    expect(overrides.get('grid-presentation.0.0::icon:status')).toEqual({
+      visible: true,
+      source: 'ess',
+      tint: 0xef4444ff,
+    });
+    expect(core.projection?.imagesByEntityId?.['grid-presentation.0.0::icon:status'])
+      .toMatchObject({ authoredSource: 'ess', bindingKey: 'alias:ess' });
+    expect(engine.exportDataset()).toBe(exported);
+    expect(engine.historyState()).toEqual(history);
+    expect(engine.snapshot().semanticHash).toBe(semanticHash);
+
+    expect(engine.transact({
+      strict: true,
+      operations: [{
+        op: 'merge',
+        target: { kind: 'component', ownerId: 'grid-presentation', id: 'level' },
+        changes: [{ path: ['tint'], value: '#22c55e' }],
+      }],
+    })).toMatchObject({ status: 'committed', changed: true });
+    expect(renderer.presentationOverrides.at(-1)?.get(
+      'grid-presentation.0.0::bar:level',
+    )).toMatchObject({ fill: 0x2563ebff });
+    expect(engine.updateInstanceBarHeights({
+      bar: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'level' }],
+        tint: [null],
+      },
+      animate: false,
+    })).toMatchObject({ status: 'committed', changed: true });
+    expect(renderer.presentationOverrides.at(-1)?.get(
+      'grid-presentation.0.0::bar:level',
+    )).toMatchObject({ fill: 0x22c55eff });
+
+    const projectionBeforeRejection = core.projection;
+    const overridesBeforeRejection = renderer.presentationOverrides.at(-1);
+    expect(engine.updateInstanceBarHeights({
+      bar: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'level' }],
+        tint: ['#22c55e'],
+      },
+      icon: {
+        targets: [{ id: 'missing.0.0', componentId: 'status' }],
+        show: [true],
+      },
+      animate: false,
+    })).toMatchObject({ status: 'rejected', changed: false });
+    expect(core.projection).toBe(projectionBeforeRejection);
+    expect(renderer.presentationOverrides.at(-1)).toBe(overridesBeforeRejection);
+
+    const throwingTint = Object.defineProperty({ length: 1 }, '0', {
+      get() { throw new Error('tint column accessor failed'); },
+    });
+    expect(() => engine.updateInstanceBarHeights({
+      bar: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'level' }],
+        tint: throwingTint,
+      },
+      animate: false,
+    })).toThrow('tint column accessor failed');
+    expect(core.projection).toBe(projectionBeforeRejection);
+    expect(renderer.presentationOverrides.at(-1)).toBe(overridesBeforeRejection);
+
+    engine.loadDataset(gridPresentationScene());
+    expect(renderer.presentationOverrides.at(-1)?.size).toBe(0);
+    expect(engine.updateInstanceBarHeights({
+      icon: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'status' }],
+        show: [null],
+        source: [null],
+        tint: [null],
+      },
+      animate: false,
+    })).toMatchObject({ status: 'unchanged', changed: false, overlayCount: 0 });
 
     await engine.destroy();
   });
@@ -836,6 +962,10 @@ class RendererTestDouble {
     staleIds: readonly string[] | null;
   }>> = [];
   public readonly presentationPolicies: Array<PatchMapResolvedPresentationPolicy | null> = [];
+  public readonly presentationOverrides: Array<ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  >> = [];
   public destroyed = false;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   private rootInteractions: RootInteractionHandlers | null = null;
@@ -858,6 +988,13 @@ class RendererTestDouble {
 
   public setPresentationPolicy(policy: PatchMapResolvedPresentationPolicy | null): boolean {
     this.presentationPolicies.push(policy);
+    return true;
+  }
+
+  public setInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  ): boolean {
+    this.presentationOverrides.push(overrides);
     return true;
   }
 
@@ -886,6 +1023,28 @@ class RendererTestDouble {
   }
   public synchronizeNextFlush(): void {}
   public prepareGpu(): Promise<void> { return Promise.resolve(); }
+  public bindSceneAsset(key: string): Promise<Readonly<{
+    key: string;
+    generation: number;
+    status: 'attached';
+    cacheIdentity: string;
+    normalizedResourceIdentity: string;
+    reusedResolvedResource: boolean;
+    naturalSize: readonly [number, number];
+  }>> {
+    return Promise.resolve(Object.freeze({
+      key,
+      generation: 1,
+      status: 'attached' as const,
+      cacheIdentity: key,
+      normalizedResourceIdentity: key,
+      reusedResolvedResource: false,
+      naturalSize: Object.freeze([24, 24] as const),
+    }));
+  }
+  public unbindSceneAsset(): Promise<boolean> { return Promise.resolve(true); }
+  public sceneAssetBindingProbe(): null { return null; }
+  public sceneImageProbe(): null { return null; }
   public loadAsset(): Promise<void> { return Promise.resolve(); }
   public unloadAsset(): Promise<boolean> { return Promise.resolve(false); }
   public finalizeAssetUnloads(): Promise<void> { return Promise.resolve(); }
@@ -1002,6 +1161,36 @@ function gridScene(height: number): readonly unknown[] {
       }],
     },
   }];
+}
+
+function gridPresentationScene(): readonly unknown[] {
+  return materializePatchMapDataset([{
+    type: 'grid',
+    id: 'grid-presentation',
+    cells: [[1]],
+    item: {
+      size: { width: 100, height: 80 },
+      components: [
+        {
+          type: 'bar',
+          id: 'level',
+          source: { type: 'rect', fill: '#ffffff' },
+          size: { width: 60, height: 20 },
+          placement: 'bottom',
+          tint: '#7c3aed',
+        },
+        {
+          type: 'icon',
+          id: 'status',
+          source: 'offline',
+          size: { width: 24, height: 24 },
+          placement: 'center',
+          tint: '#ffffff',
+          show: false,
+        },
+      ],
+    },
+  }]).dataset;
 }
 
 function transformedBarScene(

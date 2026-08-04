@@ -15,6 +15,7 @@ import type {
   PatchMapUpdateResult,
 } from './contracts';
 import type { ResolvedBarMutation, ResolvedTextMutation } from './mutation-batch';
+import type { ResolvedInstancePresentationBatch } from './mutation-batch';
 
 export interface PatchMapMutationDeveloperHost {
   transact(request: PatchMapMutationTransactionRequest): PatchMapEngineTransactionResult;
@@ -58,6 +59,17 @@ export function commitBarUpdates(
     heights: (heightColumn ?? updates.map(({ height }) => height)) as ArrayLike<number>,
     ...(options.actionId === undefined ? {} : { actionId: options.actionId }),
     ...(options.recordHistory === undefined ? {} : { recordHistory: options.recordHistory }),
+  }));
+}
+
+export function commitInstancePresentation(
+  host: PatchMapMutationDeveloperHost,
+  request: ResolvedInstancePresentationBatch,
+  options: PatchMapUpdateOptions,
+): PatchMapUpdateResult {
+  return projectInstanceResult(host.updateInstanceBarHeights({
+    ...request,
+    ...(options.animate === undefined ? {} : { animate: options.animate }),
   }));
 }
 

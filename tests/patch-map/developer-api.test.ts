@@ -71,6 +71,15 @@ function createHost() {
     parentKey: cell.key,
     ancestorKeys: Object.freeze([root.key, cell.key]),
   });
+  const statusIcon = logicalTarget({
+    key: 'component:rack-grid.12.3/status',
+    kind: 'component',
+    id: 'status',
+    ownerId: cell.id,
+    type: 'icon',
+    parentKey: cell.key,
+    ancestorKeys: Object.freeze([root.key, cell.key]),
+  });
   const rack = logicalTarget({
     key: 'element:rack',
     kind: 'element',
@@ -131,6 +140,7 @@ function createHost() {
       root,
       cell,
       usage,
+      statusIcon,
       rack,
       rackUsage,
       rackLabel,
@@ -309,11 +319,67 @@ describe('PatchMap high-level developer API', () => {
       animate: true,
     })).toMatchObject({ status: 'committed', appliedCount: 1 });
     expect(harness.lastInstanceRequest()).toEqual({
-      targets: [{ id: 'rack-grid.12.3', componentId: 'usage' }],
-      heights: new Float32Array([72]),
+      bar: {
+        targets: [{ id: 'rack-grid.12.3', componentId: 'usage' }],
+        height: new Float32Array([72]),
+      },
       animate: true,
     });
     expect(map.selection.set(usage)).toEqual(['rack-grid.12.3']);
+  });
+
+  it('lowers bar and icon concrete-cell presentation into one atomic columnar request', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+
+    expect(map.updateBatch({
+      targets: ['rack-grid.12.3'],
+      bar: {
+        componentId: 'usage',
+        height: new Float32Array([64]),
+        changes: {
+          tint: ['#2563eb'],
+          source: [{ type: 'rect', fill: '#ffffff', radius: 8 }],
+          show: [true],
+        },
+      },
+      icon: {
+        componentId: 'status',
+        changes: {
+          show: [true],
+          source: ['ess'],
+          tint: ['#ef4444'],
+        },
+      },
+    }, { animate: true })).toMatchObject({ status: 'committed', changed: true });
+
+    expect(harness.lastInstanceRequest()).toEqual({
+      bar: {
+        targets: [{ id: 'rack-grid.12.3', componentId: 'usage' }],
+        height: new Float32Array([64]),
+        tint: ['#2563eb'],
+        source: [{ type: 'rect', fill: '#ffffff', radius: 8 }],
+        show: [true],
+      },
+      icon: {
+        targets: [{ id: 'rack-grid.12.3', componentId: 'status' }],
+        show: [true],
+        source: ['ess'],
+        tint: ['#ef4444'],
+      },
+      animate: true,
+    });
+  });
+
+  it('rejects unsupported concrete-cell presentation before invoking the host', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+
+    expect(() => map.update({
+      id: 'rack-grid.12.3',
+      icon: { componentId: 'status', changes: { size: { width: 20 } } },
+    })).toThrow('PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED');
+    expect(harness.lastInstanceRequest()).toBeNull();
   });
 
   it('keeps the low-level ownerId translation behind the ergonomic bar API', () => {

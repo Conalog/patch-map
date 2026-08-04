@@ -1,4 +1,9 @@
 import type { PatchMapLogicalTargetSnapshot } from '../query-selection';
+import type {
+  PatchMapInstanceBarHeightBatchRequest,
+  PatchMapInstanceBarPresentationColumns,
+  PatchMapInstancePresentationColumns,
+} from '../core/contracts';
 import type { PatchMapMutationJsonValue } from '../semantic/transaction';
 import type {
   PatchMapComponentUpdate,
@@ -44,6 +49,11 @@ export type ResolvedTextMutation = ResolvedComponent & Readonly<{
   readonly style?: Readonly<Record<string, unknown>>;
 }>;
 
+export type ResolvedInstancePresentationBatch = Omit<
+  PatchMapInstanceBarHeightBatchRequest,
+  'animate'
+>;
+
 export function normalizeBatchInput(input: unknown): PatchMapUpdateBatch {
   const record = dataRecord(input, '$.updateBatch');
   assertKnownDataFields(record, BATCH_FIELDS, '$.updateBatch');
@@ -79,6 +89,56 @@ export function fastBarUpdate(
   return Object.freeze({
     ...resolveComponent(input.id, 'bar', input.bar.componentId, preferred, context),
     height: input.bar.height,
+  });
+}
+
+export function fastInstancePresentationUpdate(
+  input: PatchMapUpdate,
+  preferred: PatchMapLogicalTargetSnapshot | undefined,
+  context: MutationContext,
+): ResolvedInstancePresentationBatch | null {
+  if (
+    input.changes !== undefined ||
+    input.background !== undefined ||
+    input.text !== undefined ||
+    (input.bar === undefined && input.icon === undefined)
+  ) return null;
+  const bar = input.bar === undefined
+    ? undefined
+    : resolveComponent(input.id, 'bar', input.bar.componentId, preferred, context);
+  const icon = input.icon === undefined
+    ? undefined
+    : resolveComponent(input.id, 'icon', input.icon.componentId, preferred, context);
+  const components = [bar, icon].filter(
+    (component): component is ResolvedComponent => component !== undefined,
+  );
+  if (components.every((component) => !component.instance)) return null;
+  if (components.some((component) => !component.instance)) {
+    throw gridInstancePresentationUnsupported(
+      'update() cannot mix authored and concrete grid-instance components',
+    );
+  }
+  const barColumns = input.bar === undefined || bar === undefined
+    ? undefined
+    : instanceBarColumns(
+        [Object.freeze({ id: bar.ownerId, componentId: bar.componentId })],
+        input.bar.height === undefined ? undefined : [input.bar.height],
+        input.bar.changes,
+        '$.bar.changes',
+        false,
+      );
+  const iconColumns = input.icon === undefined || icon === undefined
+    ? undefined
+    : instanceColumns(
+        'icon',
+        [Object.freeze({ id: icon.ownerId, componentId: icon.componentId })],
+        input.icon.changes,
+        '$.icon.changes',
+        false,
+      );
+  return Object.freeze({
+    ...(barColumns === undefined ? {} : { bar: barColumns }),
+    ...(iconColumns === undefined ? {} : { icon: iconColumns }),
   });
 }
 
@@ -129,6 +189,153 @@ export function fastBarBatch(
     ...resolveComponent(ownerId(target), 'bar', input.bar!.componentId, target, context),
     height: columnValue(input.bar!.height!, index, 'bar.height'),
   })));
+}
+
+export function fastInstancePresentationBatch(
+  input: PatchMapUpdateBatch,
+  targets: readonly PatchMapLogicalTargetSnapshot[],
+  context: MutationContext,
+): ResolvedInstancePresentationBatch | null {
+  if (
+    input.changes !== undefined ||
+    input.background !== undefined ||
+    input.text !== undefined ||
+    (input.bar === undefined && input.icon === undefined)
+  ) return null;
+  const bars = input.bar === undefined
+    ? undefined
+    : targets.map((target) => resolveComponent(
+        ownerId(target),
+        'bar',
+        input.bar!.componentId,
+        target,
+        context,
+      ));
+  const icons = input.icon === undefined
+    ? undefined
+    : targets.map((target) => resolveComponent(
+        ownerId(target),
+        'icon',
+        input.icon!.componentId,
+        target,
+        context,
+      ));
+  const components = [...(bars ?? []), ...(icons ?? [])];
+  if (components.every((component) => !component.instance)) return null;
+  if (components.some((component) => !component.instance)) {
+    throw gridInstancePresentationUnsupported(
+      'updateBatch() cannot mix authored and concrete grid-instance components',
+    );
+  }
+  const barColumns = input.bar === undefined || bars === undefined
+    ? undefined
+    : instanceBarColumns(
+        bars.map(({ ownerId: id, componentId }) => Object.freeze({ id, componentId })),
+        input.bar.height,
+        input.bar.changes,
+        '$.bar.changes',
+        true,
+      );
+  const iconColumns = input.icon === undefined || icons === undefined
+    ? undefined
+    : instanceColumns(
+        'icon',
+        icons.map(({ ownerId: id, componentId }) => Object.freeze({ id, componentId })),
+        input.icon.changes,
+        '$.icon.changes',
+        true,
+      );
+  return Object.freeze({
+    ...(barColumns === undefined ? {} : { bar: barColumns }),
+    ...(iconColumns === undefined ? {} : { icon: iconColumns }),
+  });
+}
+
+function instanceBarColumns(
+  targets: PatchMapInstanceBarPresentationColumns['targets'],
+  height: PatchMapInstanceBarPresentationColumns['height'],
+  changes: PatchMapUpdateRecord | PatchMapComponentUpdateColumns['changes'] | undefined,
+  path: string,
+  columnar: boolean,
+): PatchMapInstanceBarPresentationColumns {
+  const columns = instanceChangeColumns('bar', changes, path, columnar);
+  if (height === undefined && columns === null) {
+    throw gridInstancePresentationUnsupported(
+      'concrete grid-instance bar update requires height or changes.tint/source/show',
+    );
+  }
+  return Object.freeze({
+    targets: Object.freeze([...targets]),
+    ...(height === undefined ? {} : { height }),
+    ...(columns ?? {}),
+  });
+}
+
+function instanceColumns(
+  type: 'icon',
+  targets: PatchMapInstancePresentationColumns['targets'],
+  changes: PatchMapUpdateRecord | PatchMapComponentUpdateColumns['changes'] | undefined,
+  path: string,
+  columnar: boolean,
+): PatchMapInstancePresentationColumns {
+  const columns = instanceChangeColumns(type, changes, path, columnar);
+  if (columns === null) {
+    throw gridInstancePresentationUnsupported(
+      'concrete grid-instance icon update requires changes.show/source/tint',
+    );
+  }
+  return Object.freeze({ targets: Object.freeze([...targets]), ...columns });
+}
+
+function instanceChangeColumns(
+  type: 'bar' | 'icon',
+  changes: PatchMapUpdateRecord | PatchMapComponentUpdateColumns['changes'] | undefined,
+  path: string,
+  columnar: boolean,
+): Readonly<{
+  readonly tint?: ArrayLike<unknown>;
+  readonly source?: ArrayLike<unknown>;
+  readonly show?: ArrayLike<boolean | null>;
+}> | null {
+  if (changes === undefined) return null;
+  const entries = Object.entries(changes);
+  const supported = new Set(['tint', 'source', 'show']);
+  const unsupported = entries.find(([name]) => !supported.has(name));
+  if (unsupported) {
+    throw gridInstancePresentationUnsupported(
+      `${path}.${unsupported[0]} is not supported for concrete grid-instance ${type} presentation`,
+    );
+  }
+  if (entries.length === 0) return null;
+  const column = (name: 'tint' | 'source' | 'show'): ArrayLike<unknown> | undefined => {
+    const value = changes[name];
+    if (value === undefined) return undefined;
+    return columnar && isArrayLikeColumn(value) ? value : [value];
+  };
+  const tint = column('tint');
+  const source = column('source');
+  const show = column('show');
+  return Object.freeze({
+    ...(tint === undefined ? {} : { tint }),
+    ...(source === undefined ? {} : { source }),
+    ...(show === undefined ? {} : {
+      show: show as ArrayLike<boolean | null>,
+    }),
+  });
+}
+
+function isArrayLikeColumn(value: unknown): value is ArrayLike<unknown> {
+  return value !== null && typeof value === 'object' &&
+    Number.isSafeInteger((value as ArrayLike<unknown>).length);
+}
+
+function gridInstancePresentationUnsupported(detail: string): TypeError {
+  const error = new TypeError(`PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED: ${detail}`);
+  Object.defineProperty(error, 'code', {
+    value: 'PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED',
+    enumerable: true,
+  });
+  return error;
 }
 
 export function fastTextBatch(

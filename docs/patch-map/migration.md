@@ -212,20 +212,32 @@ instance overlay API rather than cloning the grid template into thousands of
 dataset records:
 
 ```ts
-const usageBars = patchMap.targets.query({
+const cells = patchMap.targets.query({
   within: 'rack-grid',
-  componentId: 'usage',
-  type: 'bar',
   scope: 'instances',
 });
 
 const result = patchMap.updateBatch({
-  targets: usageBars,
+  targets: cells,
   bar: {
+    componentId: 'usage',
     height: Float64Array.from(
-      { length: usageBars.count },
+      { length: cells.count },
       (_, index) => 20 + (index * 17) % 70,
     ),
+    changes: {
+      tint: barTints,
+      source: barSources,
+      show: barShows,
+    },
+  },
+  icon: {
+    componentId: 'status',
+    changes: {
+      show: iconShows,
+      source: iconSources,
+      tint: iconTints,
+    },
   },
 }, { animate: true });
 
@@ -243,11 +255,14 @@ dirty Mesh ranges. It does not create a DisplayObject, listener, ticker, or
 closure per cell. One central presentation controller retargets animations,
 including repeated updates before the previous animation settles.
 
-Numeric values are runtime presentation state. Passing `null` for one entry
-removes that cell's overlay and restores its current authored template height.
-The optional `animate: false` applies the destination immediately. The entire
-batch validates before publication: a missing target rejects atomically, and
-duplicate targets or invalid heights throw without a partial update.
+The concrete presentation fields are `bar.height`,
+`bar.changes.tint/source/show`, and `icon.changes.show/source/tint`. Passing
+`null` for one entry removes only that field's overlay and restores its current
+authored template value. The optional `animate: false` applies the bar
+destination immediately. Height, paint, visibility, and icon source/tint are
+validated as one request before publication: a missing target rejects
+atomically, and duplicate targets, unequal columns, or invalid values throw
+without a partial update.
 
 Instance overlays deliberately do not change `data.snapshot()`, the semantic
 hash or scene revision, or undo/redo history. They survive later semantic
@@ -258,12 +273,14 @@ and replay them after loading if they must survive a remount. Use
 `update()` instead when the height is authored template state that
 must export and participate in history.
 
-Only bar height has this dedicated concrete-instance overlay in the current
-shipping API. Text, icon, color, visibility, or structural per-cell state must
-not be disguised as a bar update: keep it in the host until an explicit
-package API exists, or materialize canonical item records when that is the
-approved dataset model. This boundary prevents an unbounded per-entity runtime
-from entering the aggregate renderer unnoticed.
+Concrete text `show/text/style`, background presentation, arbitrary component
+fields, and structural per-cell state are not part of this tranche. They throw
+a `TypeError` with
+`code: "PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED"`; keep those values
+in the host until an explicit package contract exists, or materialize canonical
+item records when that is the approved dataset model. The supported bar/icon
+fields stay in renderer-only columnar overlays and do not introduce per-cell
+DisplayObjects, listeners, tickers, or closures.
 
 Undo and redo operate on PatchMap history. Read `history.state` for button
 availability and call `history.undo()` or `history.redo()` from buttons and

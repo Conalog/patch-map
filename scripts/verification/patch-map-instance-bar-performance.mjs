@@ -22,7 +22,7 @@ const UPDATE_COUNT = 6;
 const UPDATE_INTERVAL_MS = 75;
 const OUTPUT_PATH = path.resolve(
   process.env.PATCH_MAP_INSTANCE_BAR_OUTPUT
-    ?? path.join(ROOT, '.perf-results/patch-map/instance-bar-latest.json'),
+    ?? path.join(ROOT, '.perf-results/patch-map/instance-presentation-latest.json'),
 );
 
 function percentile(values, quantile) {
@@ -65,23 +65,34 @@ async function configure(page, size, trial) {
       gap: 2,
       item: {
         size: { width: 34, height: 46 },
-        components: [{
-          type: 'bar',
-          id: 'level',
-          source: { type: 'rect', fill: '#4f46e5' },
-          size: { width: 24, height: 8 },
-          placement: 'bottom',
-          animation: true,
-          animationDuration: 2_000,
-        }],
+        components: [
+          {
+            type: 'bar',
+            id: 'level',
+            source: { type: 'rect', fill: '#ffffff', radius: 3 },
+            tint: '#4f46e5',
+            size: { width: 24, height: 8 },
+            placement: 'bottom',
+            animation: true,
+            animationDuration: 2_000,
+          },
+          {
+            type: 'icon',
+            id: 'status',
+            source: 'wifi',
+            tint: '#ffffff',
+            size: { width: 12, height: 12 },
+            placement: 'center',
+            show: false,
+          },
+        ],
       },
     }];
     const loaded = engine.loadDataset(dataset);
     engine.fitViewport({ paddingCssPx: 24 });
     const targets = engine.targets.query({
       within: 'perf-grid',
-      type: 'bar',
-      componentId: 'level',
+      type: 'grid-cell',
       scope: 'instances',
     });
     window.__PATCH_MAP_INSTANCE_BAR_PERF__ = { targets };
@@ -139,14 +150,34 @@ async function runTrial(page, size, trial) {
       const engine = window.__PATCH_MAP_MANUAL_LAB__.engine();
       const targets = window.__PATCH_MAP_INSTANCE_BAR_PERF__.targets;
       const heights = new Float64Array(targets.count);
+      const barTints = new Array(targets.count);
+      const iconShows = new Array(targets.count);
+      const iconSources = new Array(targets.count);
+      const iconTints = new Array(targets.count);
       for (let index = 0; index < heights.length; index += 1) {
         heights[index] = 5 + ((index * 17 + sequence * 23) % 37);
+        barTints[index] = (index + sequence) % 2 === 0 ? '#2563eb' : '#7c3aed';
+        iconShows[index] = false;
+        iconSources[index] = 'wifi';
+        iconTints[index] = (index + sequence) % 2 === 0 ? '#ef4444' : '#f97316';
       }
       const before = engine.snapshot().revisions;
       const started = performance.now();
       const result = engine.updateBatch({
         targets,
-        bar: { height: heights },
+        bar: {
+          componentId: 'level',
+          height: heights,
+          changes: { tint: barTints },
+        },
+        icon: {
+          componentId: 'status',
+          changes: {
+            show: iconShows,
+            source: iconSources,
+            tint: iconTints,
+          },
+        },
       }, { animate: true });
       const after = engine.snapshot().revisions;
       return {
@@ -220,7 +251,7 @@ function validateTrial(value, size) {
   const failures = [];
   for (const action of value.actions) {
     if (action.status !== 'committed') failures.push(`${size}: update was not committed`);
-    if (action.appliedCount !== size) failures.push(`${size}: applied count mismatch`);
+    if (action.appliedCount !== size * 2) failures.push(`${size}: applied count mismatch`);
     if (action.activeAnimations < Math.floor(size * 0.95)) {
       failures.push(`${size}: animation count mismatch`);
     }
@@ -277,7 +308,7 @@ try {
   }
   const output = Object.freeze({
     schemaVersion: 1,
-    checkpoint: 'patch-map-grid-instance-bar-overlay',
+    checkpoint: 'patch-map-grid-instance-presentation-overlay',
     generatedAt: new Date().toISOString(),
     protocol: Object.freeze({
       sizes: SIZES,

@@ -160,9 +160,14 @@ export function lowerUpdate(
     }
     const component = resolveComponent(id, type, patch.componentId, preferred, context);
     if (component.instance) {
-      throw new TypeError(
-        `Concrete grid instance ${id}/${component.componentId} supports only bar height presentation updates through update() or updateBatch().`,
+      const error = new TypeError(
+        `PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED: Concrete grid instance ${id}/${component.componentId} does not support ${type} fields in this operation.`,
       );
+      Object.defineProperty(error, 'code', {
+        value: 'PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED',
+        enumerable: true,
+      });
+      throw error;
     }
     operations.push(mergePathOperation(
       { kind: 'component', ownerId: id, id: component.componentId },

@@ -66,7 +66,10 @@ import type {
   PatchMapRendererPresentationEntityProbe,
   PatchMapResolvedPresentationPolicy,
 } from '../presentation-policy';
-import { PatchMapPresentationStoreView } from './presentation-store';
+import {
+  PatchMapPresentationStoreView,
+  type PatchMapRendererEntityPresentationOverride,
+} from './presentation-store';
 import {
   registerPixiDevtools,
   unregisterPixiDevtools,
@@ -216,6 +219,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private lastStore: RenderStoreView | null = null;
   private lastSourceStore: RenderStoreView | null = null;
   private presentationPolicy: PatchMapResolvedPresentationPolicy | null = null;
+  private instancePresentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  > = new Map();
   private presentationStore: PatchMapPresentationStoreView | null = null;
   private presentationBaseStore: RenderStoreView | null = null;
   private pendingRanges: SlotRange[] | undefined;
@@ -535,9 +542,15 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.assertAlive();
     const normalized = policy === null ? null : normalizePresentationPolicy(policy);
     if (samePresentationPolicy(this.presentationPolicy, normalized)) return false;
-    const nextPresentationStore = normalized === null || this.lastSourceStore === null
+    const nextPresentationStore =
+      (normalized === null && this.instancePresentationOverrides.size === 0) ||
+      this.lastSourceStore === null
       ? null
-      : new PatchMapPresentationStoreView(this.lastSourceStore, normalized);
+      : new PatchMapPresentationStoreView(
+          this.lastSourceStore,
+          normalized,
+          this.instancePresentationOverrides,
+        );
     const nextPresentationBaseStore = nextPresentationStore === null
       ? null
       : this.lastSourceStore;
@@ -552,6 +565,52 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.lastInvalidation = normalized === null
       ? 'presentation-policy:clear'
       : `presentation-policy:${normalized.revision}`;
+    return true;
+  }
+
+  /** @internal Publish sparse instance presentation values into aggregate columns. */
+  public setInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+    changedRanges?: readonly SlotRange[],
+  ): boolean {
+    this.assertAlive();
+    this.instancePresentationOverrides = overrides;
+    if (this.lastSourceStore !== null) {
+      if (this.presentationStore === null) {
+        if (overrides.size > 0 || this.presentationPolicy !== null) {
+          this.presentationStore = new PatchMapPresentationStoreView(
+            this.lastSourceStore,
+            this.presentationPolicy,
+            overrides,
+          );
+          this.presentationBaseStore = this.lastSourceStore;
+          this.pendingRanges = undefined;
+        }
+      } else if (overrides.size === 0 && this.presentationPolicy === null) {
+        this.presentationStore = null;
+        this.presentationBaseStore = null;
+        this.pendingRanges = undefined;
+      } else {
+        this.presentationStore.synchronize(
+          this.lastSourceStore,
+          this.presentationPolicy,
+          changedRanges,
+          overrides,
+        );
+        this.pendingRanges = changedRanges === undefined
+          ? undefined
+          : mergeRanges(this.pendingRanges ?? [], changedRanges);
+      }
+    }
+    this.pendingOverlayRanges = changedRanges === undefined
+      ? undefined
+      : mergeRanges(this.pendingOverlayRanges ?? [], changedRanges);
+    this.pendingProjectionTransformOnly = false;
+    this.pendingBarPresentationOnly = false;
+    this.pendingTextOnly = false;
+    this.lastInvalidation = overrides.size === 0
+      ? 'instance-presentation:clear'
+      : 'instance-presentation';
     return true;
   }
 
@@ -942,17 +1001,18 @@ export class PatchMapPixiRenderer implements CoreRenderer {
 
   private presentationStoreFor(store: RenderStoreView): RenderStoreView {
     const policy = this.presentationPolicy;
-    if (policy === null) return store;
+    const overrides = this.instancePresentationOverrides;
+    if (policy === null && overrides.size === 0) return store;
     if (
       this.presentationStore === null ||
       this.presentationBaseStore !== store ||
       this.presentationStore.capacity !== store.capacity
     ) {
-      this.presentationStore = new PatchMapPresentationStoreView(store, policy);
+      this.presentationStore = new PatchMapPresentationStoreView(store, policy, overrides);
       this.presentationBaseStore = store;
       return this.presentationStore;
     }
-    this.presentationStore.synchronize(store, policy, this.pendingRanges);
+    this.presentationStore.synchronize(store, policy, this.pendingRanges, overrides);
     return this.presentationStore;
   }
 
@@ -1321,6 +1381,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       lastInvalidation: this.lastInvalidation,
       storeEpoch: this.storeEpoch,
       presentationPolicy: this.presentationPolicy,
+      instancePresentationOverrides: this.instancePresentationOverrides,
       presentationStore: this.presentationStore,
       presentationBaseStore: this.presentationBaseStore,
     });
@@ -1345,6 +1406,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.lastInvalidation = checkpoint.lastInvalidation;
     this.storeEpoch = checkpoint.storeEpoch;
     this.presentationPolicy = checkpoint.presentationPolicy;
+    this.instancePresentationOverrides = checkpoint.instancePresentationOverrides;
     this.presentationStore = checkpoint.presentationStore;
     this.presentationBaseStore = checkpoint.presentationBaseStore;
   }

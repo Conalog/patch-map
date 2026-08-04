@@ -243,6 +243,24 @@ export interface PatchMapInstanceBarTarget {
   readonly componentId: string;
 }
 
+export type PatchMapInstancePresentationComponentType = 'bar' | 'icon';
+
+export interface PatchMapInstancePresentationColumns {
+  readonly targets: readonly PatchMapInstanceBarTarget[];
+  /** `null` restores the authored field. */
+  readonly tint?: ArrayLike<unknown>;
+  /** `null` restores the authored field. */
+  readonly source?: ArrayLike<unknown>;
+  /** `null` restores the authored field. */
+  readonly show?: ArrayLike<boolean | null>;
+}
+
+export interface PatchMapInstanceBarPresentationColumns
+  extends PatchMapInstancePresentationColumns {
+  /** `null` restores the authored height. */
+  readonly height?: ArrayLike<number | null>;
+}
+
 /**
  * Runtime-only bar destinations for concrete item instances. Numeric entries
  * replace the renderer-visible destination; `null` restores the authored
@@ -250,8 +268,11 @@ export interface PatchMapInstanceBarTarget {
  * untouched.
  */
 export interface PatchMapInstanceBarHeightBatchRequest {
-  readonly targets: readonly PatchMapInstanceBarTarget[];
-  readonly heights: ArrayLike<number | null>;
+  /** Legacy internal height-only shape retained for existing verification tools. */
+  readonly targets?: readonly PatchMapInstanceBarTarget[];
+  readonly heights?: ArrayLike<number | null>;
+  readonly bar?: PatchMapInstanceBarPresentationColumns;
+  readonly icon?: PatchMapInstancePresentationColumns;
   readonly animate?: boolean;
 }
 

@@ -58,6 +58,7 @@
     "verify:lab:actual-production": "node scripts/verification/patch-map-actual-production-browser.mjs --headless",
     "verify:package": "npm run build && node scripts/verification/patch-map-package.mjs",
     "verify:memory": "node scripts/verification/patch-map-memory.mjs",
+    "verify:instance-presentation": "node scripts/verification/patch-map-instance-presentation-browser.mjs",
     "verify:local": "npm test && npm run verify:contract && npm run build:lab && npm run verify:package && npm run verify:lab:all && npm run verify:memory",
     "perf": "node performance/patch-map/run.mjs",
     "perf:quick": "node performance/patch-map/run.mjs --quick",

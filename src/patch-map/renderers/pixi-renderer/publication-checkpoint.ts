@@ -2,7 +2,10 @@ import type { PatchMapProjectionIndex } from '../../contracts';
 import type { SlotRange } from '../../dense/contracts';
 import type { RenderStoreView } from '../../dense/renderer-types';
 import type { PatchMapResolvedPresentationPolicy } from '../../presentation-policy';
-import type { PatchMapPresentationStoreView } from '../presentation-store';
+import type {
+  PatchMapPresentationStoreView,
+  PatchMapRendererEntityPresentationOverride,
+} from '../presentation-store';
 
 /**
  * CPU-only renderer publication state that a scene load may replace before
@@ -24,6 +27,10 @@ export interface PatchMapPixiRendererPublicationCheckpoint {
   readonly lastInvalidation: string;
   readonly storeEpoch: number;
   readonly presentationPolicy: PatchMapResolvedPresentationPolicy | null;
+  readonly instancePresentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  >;
   readonly presentationStore: PatchMapPresentationStoreView | null;
   readonly presentationBaseStore: RenderStoreView | null;
 }

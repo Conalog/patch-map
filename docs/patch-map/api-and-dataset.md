@@ -98,9 +98,11 @@ to `update()` or `updateBatch()`. A concrete cell keeps the template component
 ID and uses `<grid-id>.<row>.<column>` as `id`.
 Instance batches are atomic, leave the caller dataset/history/semantic hash
 unchanged, reuse the central animation scheduler, and update aggregate Mesh
-dirty ranges without creating per-cell display objects. Passing `null` restores
-the current authored template height; loading another dataset or destroying
-the engine clears the overlay. See the
+dirty ranges without creating per-cell display objects. Concrete bar
+presentation supports `height` plus `changes.tint/source/show`; concrete icon
+presentation supports `changes.show/source/tint`. Passing `null` for any one
+of those fields restores only that field from the current authored template.
+Loading another dataset or destroying the engine clears the overlay. See the
 [migration guide](./migration.md#grid-template-values-versus-concrete-cell-values)
 for the persistence and unsupported-state boundary.
 
@@ -108,18 +110,43 @@ Repeated semantic target sets can be queried once and reused without exposing
 JSONPath or dense slots:
 
 ```ts
-const usageBars = patchMap.targets.query({
+const cells = patchMap.targets.query({
   within: 'rack-grid',
-  componentId: 'usage',
-  type: 'bar',
   scope: 'instances',
 });
 
 patchMap.updateBatch({
-  targets: usageBars,
-  bar: { height: heights },
+  targets: cells,
+  bar: {
+    componentId: 'usage',
+    height: heights,
+    changes: {
+      tint: barTints,
+      source: barSources,
+      show: barShows,
+    },
+  },
+  icon: {
+    componentId: 'status',
+    changes: {
+      show: iconShows,
+      source: iconSources,
+      tint: iconTints,
+    },
+  },
 }, { animate: true });
 ```
+
+Every column must have `cells.count` entries. Validation covers the complete
+bar/icon request before publication, so a missing target, invalid source/color,
+or unequal column rejects without applying the other component. Presentation
+changes advance only the interaction revision and are not undoable authored
+data.
+
+Concrete text `show/text/style`, background presentation, and arbitrary
+component fields remain structured unsupported. They throw a `TypeError` whose
+`code` is `PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED`; adapters should
+retain those host values instead of silently dropping them.
 
 Target sets are revision-bound. Loading a replacement dataset makes an old
 set fail with a direct instruction to query it again, preventing a

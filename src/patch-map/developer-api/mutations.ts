@@ -14,6 +14,8 @@ import {
   batchRow,
   fastBarBatch,
   fastBarUpdate,
+  fastInstancePresentationBatch,
+  fastInstancePresentationUpdate,
   fastTextBatch,
   fastTextUpdate,
   normalizeBatchInput,
@@ -21,6 +23,7 @@ import {
 } from './mutation-batch';
 import {
   commitBarUpdates,
+  commitInstancePresentation,
   commitOperations,
   commitTextUpdates,
   commitTransactionOperations,
@@ -62,6 +65,10 @@ export function createPatchMapMutationApi(
     const resolved = dependencies.resolveTargets(normalized.id);
     const context = mutationContext(resolved.sceneTargets);
     const preferred = resolved.selected[0];
+    const fastPresentation = fastInstancePresentationUpdate(normalized, preferred, context);
+    if (fastPresentation !== null) {
+      return commitInstancePresentation(host, fastPresentation, options);
+    }
     const fastBar = fastBarUpdate(normalized, preferred, context);
     if (fastBar !== null) return commitBarUpdates(host, [fastBar], options);
     const fastText = fastTextUpdate(normalized, preferred, context);
@@ -85,6 +92,10 @@ export function createPatchMapMutationApi(
     if (selected.length === 0) return EMPTY_UPDATE_RESULT;
 
     const context = mutationContext(resolved.sceneTargets);
+    const fastPresentation = fastInstancePresentationBatch(normalized, selected, context);
+    if (fastPresentation !== null) {
+      return commitInstancePresentation(host, fastPresentation, options);
+    }
     const fastBars = fastBarBatch(normalized, selected, context);
     if (fastBars !== null) {
       return commitBarUpdates(host, fastBars, options, normalized.bar!.height);

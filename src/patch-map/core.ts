@@ -73,7 +73,6 @@ import {
   type PatchMapComponentVisualTarget,
   type PatchMapInstanceBarHeightBatchRequest,
   type PatchMapInstanceBarHeightBatchResult,
-  type PatchMapInstanceBarTarget,
   type PatchMapLoadResult,
   type PatchMapPrepareResult,
   type PatchMapPresentationLifecycleResult,
@@ -90,7 +89,6 @@ import {
   type PatchMapTextTarget,
   type PatchMapTransientProjectionResult,
   type PatchMapWorldTransform,
-  normalizePatchMapInstanceBarTarget,
 } from './core/contracts';
 import {
   PatchMapPublishedSceneAuthority,
@@ -111,7 +109,6 @@ import {
   createPatchMapComponentVisualProductProbe,
   createPatchMapRuntimePaintOrderProbe,
   createPatchMapTextProductProbe,
-  patchMapComponentTargetKey,
   indexPatchMapComponentProbeTargets as indexComponentTargets,
   indexPatchMapTextProbeTargets as indexTextTargets,
 } from './core/product-probe-reader';
@@ -154,11 +151,13 @@ import {
   preparePatchMapTransientDirtyRanges,
 } from './core/transient-projection-planning';
 import { PatchMapFramePublicationAuthority } from './core/frame-publication-authority';
-import { contiguousSlotRanges } from './core/slot-ranges';
+import { contiguousSlotRanges, mergeSlotRanges } from './core/slot-ranges';
 import {
-  planPatchMapInstanceBarOverlay,
-  type PatchMapInstanceBarOverlayUpdate,
-} from './core/instance-bar-overlay';
+  instancePresentationRequestFromStored,
+  planPatchMapInstancePresentationOverlay,
+  type PatchMapStoredInstancePresentation,
+} from './core/instance-presentation-overlay';
+import type { PatchMapRendererEntityPresentationOverride } from './renderers/presentation-store';
 
 export { normalizePatchMapTextTarget } from './core/contracts';
 export type * from './core/contracts';
@@ -170,11 +169,6 @@ interface PatchMapCooperativeLoadHooks {
    * currently published Core state is still untouched.
    */
   readonly assertCurrent?: () => void;
-}
-
-interface PatchMapStoredInstanceBarHeight {
-  readonly target: PatchMapInstanceBarTarget;
-  readonly height: number;
 }
 
 export class PatchMapRuntime {
@@ -199,7 +193,11 @@ export class PatchMapRuntime {
   private destroyedValue = false;
   private pendingIntrinsicImageSizes = new Map<string, PatchMapSceneImageIntrinsicSize>();
   private terminalFailure: Error | null = null;
-  private readonly instanceBarHeights = new Map<string, PatchMapStoredInstanceBarHeight>();
+  private instancePresentations = new Map<string, PatchMapStoredInstancePresentation>();
+  private instancePresentationOverrides = new Map<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  >();
 
   private constructor(renderer: PatchMapPixiRenderer, options: PatchMapRuntimeOptions) {
     this.renderer = renderer;
@@ -538,6 +536,7 @@ export class PatchMapRuntime {
       if (presentation === null) {
         throw new Error('PatchMap load candidate has no presentation projection');
       }
+      this.setRendererInstancePresentationOverrides(new Map());
       this.renderer.setProjection(
         presentation,
         undefined,
@@ -579,7 +578,8 @@ export class PatchMapRuntime {
     this.loadAuthority.endPublicationSideEffects();
     this.loadAuthority.disposeRuntimeState(previousRuntime);
     this.publishedScene.discard(previousPublished.previous);
-    this.instanceBarHeights.clear();
+    this.instancePresentations.clear();
+    this.instancePresentationOverrides.clear();
     this.framePublication.resetAdaptiveBudget();
     this.framePublication.invalidate('load');
   }
@@ -808,16 +808,23 @@ export class PatchMapRuntime {
     const candidateComponentTargets = mappingReusable
       ? this.componentTargets
       : indexComponentTargets(parse);
-    const overlayPlan = this.instanceBarHeights.size === 0
+    const retainedInput = retainedOwnedInputDataset(input, parseOptions);
+    const overlayPlan = this.instancePresentations.size === 0
       ? null
-      : planPatchMapInstanceBarOverlay(
+      : planPatchMapInstancePresentationOverlay(
+          instancePresentationRequestFromStored(
+            [...this.instancePresentations.values()],
+            !this.barPresentation.reducedMotion && options.animateBarChanges !== false,
+          ),
           parse.projection,
           parse.projection,
-          [...this.instanceBarHeights.values()],
           candidateComponentTargets,
+          retainedInput.dataset,
+          this.parseOptions,
+          new Map(),
+          new Map(),
           this.stableRecordStrategy,
           {
-            ...(previousProjection === null ? {} : { comparison: previousProjection }),
             strictMissing: false,
           },
         );
@@ -843,7 +850,13 @@ export class PatchMapRuntime {
       presentationEntityIds,
       parse.identity.entitySourceById,
     );
-    const retainedInput = retainedOwnedInputDataset(input, parseOptions);
+    const overlayDirtyRanges = contiguousSlotRanges(
+      (overlayPlan?.changedEntityIds ?? []).flatMap((entityId) => {
+        const ref = this.scene.ref(entityId);
+        return ref === null ? [] : [ref.slot];
+      }),
+    );
+    const publicationRanges = mergeSlotRanges(commit.changedRanges, overlayDirtyRanges);
     this.updatePublishedScene({
       parse,
       transientIncrementalParse: null,
@@ -855,13 +868,17 @@ export class PatchMapRuntime {
     this.spatialHit.clearStaleProjectionIds();
     this.renderer.setProjection(
       presentation,
-      commit.changedRanges,
+      publicationRanges,
       this.spatialHit.staleProjectionIds,
       path === 'direct-text'
         ? 'text'
         : path === 'direct-bar'
           ? 'bar-presentation'
           : undefined,
+    );
+    this.setRendererInstancePresentationOverrides(
+      overlayPlan?.rendererOverrides ?? new Map(),
+      publicationRanges,
     );
     if (isLargePatchMapAnimatedBarBatch(this.barPresentation.activeCount)) {
       this.renderer.setAggregateCullPrecision(false);
@@ -871,8 +888,11 @@ export class PatchMapRuntime {
       path !== 'direct-text' &&
       path !== 'direct-angle'
     ) {
-      this.sceneImages.reconcile(parse.projection, {
-        activeEntityIds: this.activeSceneImageIds(),
+      this.sceneImages.reconcile(effectiveProjection, {
+        activeEntityIds: activeSceneImageIds(
+          this.publishedScene.current(),
+          overlayPlan?.rendererOverrides,
+        ),
       });
       this.reapplyResolvedIntrinsicSizes();
       if (path !== 'incremental' && !hierarchyOnlyTargetMapping) {
@@ -900,9 +920,8 @@ export class PatchMapRuntime {
     if (this.barPresentation.activeCount > 0) {
       this.framePublication.invalidate('presentation');
     }
-    for (const target of overlayPlan?.missingTargets ?? []) {
-      this.instanceBarHeights.delete(patchMapInstanceBarTargetKey(target));
-    }
+    this.instancePresentations = new Map(overlayPlan?.presentations ?? []);
+    this.instancePresentationOverrides = new Map(overlayPlan?.rendererOverrides ?? []);
     if (this.stableRecordStrategy === 'internal-overlay') {
       compactPatchMapProjectionStableRecords(effectiveProjection);
     }
@@ -1476,27 +1495,25 @@ export class PatchMapRuntime {
     return prepared;
   }
 
-  /**
-   * Publish runtime-only absolute heights for concrete component instances.
-   * The authored parse, retained input, semantic history, and dense identity
-   * rows stay untouched; only aggregate projection records and dirty Mesh
-   * ranges change.
-   */
+  /** Publish runtime-only concrete component presentation without semantic mutation. */
   public updateInstanceBarHeights(
     request: PatchMapInstanceBarHeightBatchRequest,
   ): PatchMapInstanceBarHeightBatchResult {
     this.assertAlive();
-    const updates = normalizeInstanceBarHeightUpdates(request);
     const authored = this.parseResultValue?.projection;
     const current = this.projectionValue;
     if (authored === undefined || current === null) {
       throw new Error('PatchMapRuntime.updateInstanceBarHeights requires a loaded dataset');
     }
-    const plan = planPatchMapInstanceBarOverlay(
+    const plan = planPatchMapInstancePresentationOverlay(
+      request,
       current,
       authored,
-      updates,
       this.componentTargets,
+      this.publishedScene.current().ownedInputDataset,
+      this.parseOptions,
+      this.instancePresentations,
+      this.instancePresentationOverrides,
       this.stableRecordStrategy,
     );
     if (plan.missingTargets.length > 0) {
@@ -1506,30 +1523,19 @@ export class PatchMapRuntime {
         missingTargets: plan.missingTargets,
         dirtyRanges: Object.freeze([]),
         activeAnimationCount: this.barPresentation.activeCount,
-        overlayCount: this.instanceBarHeights.size,
+        overlayCount: this.instancePresentations.size,
       });
     }
-
-    let overlayStateChanged = false;
-    for (const update of updates) {
-      const key = patchMapInstanceBarTargetKey(update.target);
-      const previous = this.instanceBarHeights.get(key);
-      if (update.height === null) {
-        if (previous !== undefined) overlayStateChanged = true;
-        continue;
-      }
-      if (previous?.height === update.height) continue;
-      overlayStateChanged = true;
-    }
     if (plan.changedEntityIds.length === 0) {
-      commitInstanceBarHeightEntries(this.instanceBarHeights, updates);
+      this.instancePresentations = new Map(plan.presentations);
+      this.instancePresentationOverrides = new Map(plan.rendererOverrides);
       return Object.freeze({
-        changed: overlayStateChanged,
+        changed: plan.overlayStateChanged,
         appliedTargets: plan.appliedTargets,
         missingTargets: Object.freeze([]),
         dirtyRanges: Object.freeze([]),
         activeAnimationCount: this.barPresentation.activeCount,
-        overlayCount: this.instanceBarHeights.size,
+        overlayCount: this.instancePresentations.size,
       });
     }
 
@@ -1537,12 +1543,18 @@ export class PatchMapRuntime {
       const ref = this.scene.ref(entityId);
       return ref === null ? [] : [ref.slot];
     }));
+    const imagePlan = this.sceneImages.prepareReconcile(plan.projection, {
+      activeEntityIds: activeSceneImageIds(
+        this.publishedScene.current(),
+        plan.rendererOverrides,
+      ),
+    });
     const presentation = this.barPresentation.reconcile(
       current,
       plan.projection,
       this.scene,
       !this.barPresentation.reducedMotion && request.animate !== false,
-      plan.appliedTargets,
+      undefined,
       plan.changedEntityIds,
       this.parseResultValue?.identity.entitySourceById,
     );
@@ -1555,13 +1567,20 @@ export class PatchMapRuntime {
         presentation,
         dirtyRanges,
         this.spatialHit.staleProjectionIds,
-        'bar-presentation',
       );
+      this.setRendererInstancePresentationOverrides(plan.rendererOverrides, dirtyRanges);
     } catch (error) {
       this.markTerminalMutationFailure(error);
       throw error;
     }
-    commitInstanceBarHeightEntries(this.instanceBarHeights, updates);
+    try {
+      this.sceneImages.commitReconcile(imagePlan);
+    } catch (error) {
+      this.markTerminalMutationFailure(error);
+      throw error;
+    }
+    this.instancePresentations = new Map(plan.presentations);
+    this.instancePresentationOverrides = new Map(plan.rendererOverrides);
     this.framePublication.markProjectionFactsStale();
     this.spatialHit.setDenseGeometryCompatible(false);
     this.spatialHit.clearSpatialAnimations();
@@ -1576,7 +1595,7 @@ export class PatchMapRuntime {
     if (isLargePatchMapAnimatedBarBatch(this.barPresentation.activeCount)) {
       this.renderer.setAggregateCullPrecision(false);
     }
-    this.framePublication.invalidate('instance-bar-overlay');
+    this.framePublication.invalidate('instance-presentation-overlay');
     if (this.stableRecordStrategy === 'internal-overlay') {
       compactPatchMapProjectionStableRecords(plan.projection);
     }
@@ -1586,7 +1605,7 @@ export class PatchMapRuntime {
       missingTargets: Object.freeze([]),
       dirtyRanges,
       activeAnimationCount: this.barPresentation.activeCount,
-      overlayCount: this.instanceBarHeights.size,
+      overlayCount: this.instancePresentations.size,
     });
   }
 
@@ -1821,7 +1840,8 @@ export class PatchMapRuntime {
       textTargets: new Map(),
     });
     this.pendingIntrinsicImageSizes.clear();
-    this.instanceBarHeights.clear();
+    this.instancePresentations.clear();
+    this.instancePresentationOverrides.clear();
     try {
       this.scene.destroy();
     } catch (error) {
@@ -1876,7 +1896,20 @@ export class PatchMapRuntime {
   }
 
   private activeSceneImageIds(): ReadonlySet<string> {
-    return activeSceneImageIds(this.publishedScene.current());
+    return activeSceneImageIds(
+      this.publishedScene.current(),
+      this.instancePresentationOverrides,
+    );
+  }
+
+  private setRendererInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+    ranges?: readonly Readonly<{ readonly start: number; readonly end: number }>[],
+  ): void {
+    const renderer = this.renderer as PatchMapPixiRenderer & Readonly<{
+      setInstancePresentationOverrides?: PatchMapPixiRenderer['setInstancePresentationOverrides'];
+    }>;
+    renderer.setInstancePresentationOverrides?.(overrides, ranges);
   }
 
   private queueIntrinsicImageSize(resolution: PatchMapSceneImageIntrinsicSize): void {
@@ -2022,57 +2055,6 @@ function seededRandom(seed: number): () => number {
   };
 }
 
-function normalizeInstanceBarHeightUpdates(
-  request: PatchMapInstanceBarHeightBatchRequest,
-): readonly PatchMapInstanceBarOverlayUpdate[] {
-  if (request === null || typeof request !== 'object' || Array.isArray(request)) {
-    throw new TypeError('instance bar height batch must be an object');
-  }
-  if (!Array.isArray(request.targets)) {
-    throw new TypeError('instance bar height targets must be an array');
-  }
-  const heights = request.heights;
-  if (heights === null || typeof heights !== 'object') {
-    throw new TypeError('instance bar heights must be array-like');
-  }
-  const length = heights.length;
-  if (!Number.isSafeInteger(length) || length < 0) {
-    throw new TypeError('instance bar heights length must be a non-negative safe integer');
-  }
-  if (length !== request.targets.length) {
-    throw new RangeError('instance bar heights length must match targets length');
-  }
-  if (request.animate !== undefined && typeof request.animate !== 'boolean') {
-    throw new TypeError('instance bar animate must be a boolean');
-  }
-  return Object.freeze(request.targets.map((target, index) => {
-    const normalizedTarget = normalizePatchMapInstanceBarTarget(target);
-    const height = heights[index];
-    if (height !== null && (typeof height !== 'number' || !Number.isFinite(height) || height < 0)) {
-      throw new RangeError(`instance bar heights[${index}] must be null or finite and non-negative`);
-    }
-    return Object.freeze({ target: normalizedTarget, height: height ?? null });
-  }));
-}
-
-function patchMapInstanceBarTargetKey(target: PatchMapInstanceBarTarget): string {
-  return patchMapComponentTargetKey(target.id, target.componentId);
-}
-
-function commitInstanceBarHeightEntries(
-  store: Map<string, PatchMapStoredInstanceBarHeight>,
-  updates: readonly PatchMapInstanceBarOverlayUpdate[],
-): void {
-  for (const update of updates) {
-    const key = patchMapInstanceBarTargetKey(update.target);
-    if (update.height === null) {
-      store.delete(key);
-      continue;
-    }
-    store.set(key, Object.freeze({ target: update.target, height: update.height }));
-  }
-}
-
 function clampFraction(value: number): number {
   if (!Number.isFinite(value) || value < 0 || value > 1) {
     throw new RangeError('fraction must be between zero and one');
@@ -2097,12 +2079,18 @@ function barPercentageHeight(
 
 function activeSceneImageIds(
   published: PatchMapPublishedSceneState,
+  overrides?: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
 ): ReadonlySet<string> {
   const active = new Set<string>();
   const images = published.projection?.imagesByEntityId ?? {};
   for (const entityId of Object.keys(images)) {
     const entity = published.scene.get(entityId);
-    if (entity?.kind === 'image' && entity.visible) active.add(entityId);
+    if (
+      entity?.kind === 'image' &&
+      (overrides?.get(entityId)?.visible ?? entity.visible)
+    ) {
+      active.add(entityId);
+    }
   }
   return active;
 }

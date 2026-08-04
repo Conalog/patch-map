@@ -39,3 +39,17 @@ expand the production compatibility promise.
 Every promoted artifact must keep one digest across strict TypeScript,
 ESM/CJS, browser examples, the 38 host journeys, package hygiene, and
 lifecycle cleanup evidence.
+
+## Concrete grid presentation compatibility
+
+The concrete-cell overlay is intentionally narrower than authored component
+mutation. It supports bar `height/tint/source/show` and icon
+`show/source/tint` through root `PatchMap.update()` / columnar
+`PatchMap.updateBatch()`. Overlay state is revision-bound, excluded from
+dataset snapshots, semantic hashes, and history, and cleared on dataset
+replacement or destroy.
+
+Concrete text `show/text/style`, background fields, and other component
+changes remain unsupported and report
+`PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED`. This is an explicit
+compatibility boundary, not a best-effort drop policy.
