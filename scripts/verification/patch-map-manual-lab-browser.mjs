@@ -42,6 +42,11 @@ const representatives = [
 const routeCases = allRoutes
   ? cases
   : cases.filter(({ id }) => representatives.includes(id));
+const routeWorkerCount = allRoutes
+  && !browserLaunch.headed
+  && !nativeWindows.requested
+  ? Math.min(4, routeCases.length)
+  : 1;
 
 let server;
 let browser;
@@ -72,18 +77,7 @@ try {
     deviceScaleFactor: 1,
   });
   page = await context.newPage();
-  page.on('console', (message) => {
-    if (message.type() === 'error') errors.console.push(message.text());
-  });
-  page.on('pageerror', (error) => errors.page.push(error.stack ?? error.message));
-  page.on('requestfailed', (request) => {
-    errors.network.push(`${request.url()} ${request.failure()?.errorText ?? ''}`);
-  });
-  page.on('response', (response) => {
-    if (response.status() >= 400) {
-      errors.network.push(`${response.url()} HTTP ${response.status()}`);
-    }
-  });
+  observePage(page);
 
   await openCase('HIS-001');
   const rendererSupport = await page.evaluate(() => ({
@@ -270,51 +264,11 @@ try {
   }, generationBefore);
   check(true, 'Re-initialize creates exactly one fresh manual canvas');
 
-  for (const record of routeCases) {
-    await openCase(record.id);
-    const routeProbe = await page.evaluate(() => ({
-      caseId: window.__PATCH_MAP_MANUAL_LAB__?.state().caseId,
-      status: window.__PATCH_MAP_MANUAL_LAB__?.state().status,
-      canvasCount: window.__PATCH_MAP_MANUAL_LAB__?.state().canvasCount,
-      documentLanguage: document.documentElement.lang,
-      documentTitle: document.title,
-      localizedTitle:
-        document.querySelector('#manual-case-guide-title')?.textContent ?? '',
-      hasGettingStartedGuide:
-        document.querySelector('#manual-onboarding-title')?.textContent
-          ?.includes('버튼은 세 단계로 사용하면 됩니다') ?? false,
-      expandedLayoutGuide:
-        document.querySelector('.manual-onboarding details')?.hasAttribute('open') ?? false,
-      localizedToolDescriptionCount:
-        [...document.querySelectorAll('[data-manual-tool-button] small')]
-          .filter((element) => /[가-힣]/u.test(element.textContent ?? '')).length,
-      oldEnglishPhrases:
-        [
-          'Human-operated product Lab',
-          'Keep the engine alive',
-          'Selection you can keep changing',
-          'Approved action map',
-        ].filter((phrase) =>
-          document.querySelector('[data-testid="manual-workbench"]')?.textContent
-            ?.includes(phrase)),
-      mappedActions:
-        document.querySelectorAll('[data-manual-approved-action]').length,
-      toolButtons:
-        document.querySelectorAll('[data-manual-tool-button]').length,
-    }));
+  const routeProbes = await collectRouteProbes(routeCases);
+  for (const [index, record] of routeCases.entries()) {
+    const routeProbe = routeProbes[index];
     check(
-      routeProbe.caseId === record.id &&
-        routeProbe.status === 'ready' &&
-        routeProbe.canvasCount === 1 &&
-        routeProbe.documentLanguage === 'ko' &&
-        routeProbe.documentTitle === 'PATCH MAP 기능 검증 실험실' &&
-        /[가-힣]/u.test(routeProbe.localizedTitle) &&
-        routeProbe.hasGettingStartedGuide &&
-        routeProbe.expandedLayoutGuide &&
-        routeProbe.localizedToolDescriptionCount === routeProbe.toolButtons &&
-        routeProbe.oldEnglishPhrases.length === 0 &&
-        routeProbe.mappedActions === record.actionCount &&
-        routeProbe.toolButtons > 0,
+      isValidRouteProbe(routeProbe, record),
       `${record.id} mounts a localized live manual route with every approved action mapped`,
       routeProbe,
     );
@@ -342,6 +296,7 @@ const report = {
     headed: browserLaunch.headed,
     browserTarget: browserLaunch.target,
     browserVersion,
+    routeWorkerCount,
     windowsNative: nativeWindows.evidenceStatus,
     nativeCellId: nativeWindows.cellId,
   },
@@ -370,19 +325,110 @@ if (outputPath) {
 console.log(JSON.stringify(output, null, 2));
 if (failures.length > 0) process.exitCode = 1;
 
-async function openCase(caseId) {
+async function collectRouteProbes(records) {
+  const probes = new Array(records.length);
+  const extraPages = await Promise.all(
+    Array.from(
+      { length: Math.max(0, routeWorkerCount - 1) },
+      () => context.newPage(),
+    ),
+  );
+  const workerPages = [page, ...extraPages];
+  for (const workerPage of extraPages) observePage(workerPage);
+  let nextIndex = 0;
+
+  try {
+    await Promise.all(workerPages.map(async (workerPage) => {
+      while (nextIndex < records.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        const record = records[index];
+        await openCase(record.id, workerPage);
+        probes[index] = await readRouteProbe(workerPage);
+      }
+    }));
+    return probes;
+  } finally {
+    await Promise.allSettled(extraPages.map((workerPage) => workerPage.close()));
+  }
+}
+
+async function readRouteProbe(targetPage) {
+  return targetPage.evaluate(() => ({
+    caseId: window.__PATCH_MAP_MANUAL_LAB__?.state().caseId,
+    status: window.__PATCH_MAP_MANUAL_LAB__?.state().status,
+    canvasCount: window.__PATCH_MAP_MANUAL_LAB__?.state().canvasCount,
+    documentLanguage: document.documentElement.lang,
+    documentTitle: document.title,
+    localizedTitle:
+      document.querySelector('#manual-case-guide-title')?.textContent ?? '',
+    hasGettingStartedGuide:
+      document.querySelector('#manual-onboarding-title')?.textContent
+        ?.includes('버튼은 세 단계로 사용하면 됩니다') ?? false,
+    expandedLayoutGuide:
+      document.querySelector('.manual-onboarding details')?.hasAttribute('open') ?? false,
+    localizedToolDescriptionCount:
+      [...document.querySelectorAll('[data-manual-tool-button] small')]
+        .filter((element) => /[가-힣]/u.test(element.textContent ?? '')).length,
+    oldEnglishPhrases:
+      [
+        'Human-operated product Lab',
+        'Keep the engine alive',
+        'Selection you can keep changing',
+        'Approved action map',
+      ].filter((phrase) =>
+        document.querySelector('[data-testid="manual-workbench"]')?.textContent
+          ?.includes(phrase)),
+    mappedActions:
+      document.querySelectorAll('[data-manual-approved-action]').length,
+    toolButtons:
+      document.querySelectorAll('[data-manual-tool-button]').length,
+  }));
+}
+
+function isValidRouteProbe(routeProbe, record) {
+  return routeProbe.caseId === record.id
+    && routeProbe.status === 'ready'
+    && routeProbe.canvasCount === 1
+    && routeProbe.documentLanguage === 'ko'
+    && routeProbe.documentTitle === 'PATCH MAP 기능 검증 실험실'
+    && /[가-힣]/u.test(routeProbe.localizedTitle)
+    && routeProbe.hasGettingStartedGuide
+    && routeProbe.expandedLayoutGuide
+    && routeProbe.localizedToolDescriptionCount === routeProbe.toolButtons
+    && routeProbe.oldEnglishPhrases.length === 0
+    && routeProbe.mappedActions === record.actionCount
+    && routeProbe.toolButtons > 0;
+}
+
+function observePage(targetPage) {
+  targetPage.on('console', (message) => {
+    if (message.type() === 'error') errors.console.push(message.text());
+  });
+  targetPage.on('pageerror', (error) => errors.page.push(error.stack ?? error.message));
+  targetPage.on('requestfailed', (request) => {
+    errors.network.push(`${request.url()} ${request.failure()?.errorText ?? ''}`);
+  });
+  targetPage.on('response', (response) => {
+    if (response.status() >= 400) {
+      errors.network.push(`${response.url()} HTTP ${response.status()}`);
+    }
+  });
+}
+
+async function openCase(caseId, targetPage = page) {
   const url = new URL(
     `lab/patch-map/?scenario=${caseId}&size=100&seed=319`,
     server.resolvedUrls.local[0],
   ).href;
-  await page.goto(url, { waitUntil: 'networkidle' });
+  await targetPage.goto(url, { waitUntil: 'networkidle' });
   try {
-    await page.waitForFunction(() => {
+    await targetPage.waitForFunction(() => {
       const state = window.__PATCH_MAP_MANUAL_LAB__?.state();
       return state?.status === 'ready' || state?.status === 'failed';
     }, undefined, { timeout: 20_000 });
   } catch (cause) {
-    const state = await manualState().catch(() => null);
+    const state = await manualState(targetPage).catch(() => null);
     throw new Error(
       `${caseId} manual Lab ready timeout: ${JSON.stringify({
         url,
@@ -392,14 +438,14 @@ async function openCase(caseId) {
       { cause },
     );
   }
-  const state = await manualState();
+  const state = await manualState(targetPage);
   if (state.status !== 'ready') {
     throw new Error(`${caseId} manual Lab failed: ${state.error ?? 'unknown error'}`);
   }
 }
 
-async function manualState() {
-  return page.evaluate(() => window.__PATCH_MAP_MANUAL_LAB__?.state());
+async function manualState(targetPage = page) {
+  return targetPage.evaluate(() => window.__PATCH_MAP_MANUAL_LAB__?.state());
 }
 
 async function geometry(id) {
