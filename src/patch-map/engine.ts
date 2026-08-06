@@ -12,6 +12,10 @@ import type {
   PatchMapApi,
   PatchMapInstance,
   PatchMapOptions,
+  PatchMapPointerHoverEvent,
+  PatchMapPointerSelectionChange,
+  PatchMapSelectionPolicy,
+  PatchMapTarget,
 } from './developer-api/contracts';
 import type {
   PatchMapPresentationPolicyInput,
@@ -486,6 +490,8 @@ type PatchMapEngineEventMap = {
     { readonly status: 'committed' }
   >;
   readonly pointerEvent: PatchMapSemanticPointerEvent;
+  readonly pointerHover: PatchMapPointerHoverEvent;
+  readonly pointerSelectionChanged: PatchMapPointerSelectionChange;
   readonly selectionChanged: PatchMapSelectionChange;
   readonly change:
     | Extract<PatchMapEnginePatchResult, { readonly status: 'committed' }>
@@ -508,6 +514,11 @@ type PatchMapEngineEvent = keyof PatchMapEngineEventMap;
 type PatchMapEngineListener<K extends PatchMapEngineEvent> = (event: PatchMapEngineEventMap[K]) => void;
 
 const DEFAULT_ZOOM_LIMITS = Object.freeze([0.5, 30] as const);
+const DEFAULT_POINTER_SELECTION_POLICY = Object.freeze({
+  allowMultiple: true,
+  box: null,
+  isSelectable: null,
+} as const);
 const EMPTY_MATERIALIZED_DATASET = materializePatchMapDataset([]);
 const PATCH_MAP_QUERY_REUSE_OPERATIONS = Object.freeze([
   'update',
@@ -551,12 +562,26 @@ interface PreparedPatchMapEngineLoad {
   readonly scenePlan: PatchMapSceneStatePlan;
 }
 
+interface NormalizedPointerSelectionPolicy {
+  readonly allowMultiple: boolean;
+  readonly box: Readonly<{ readonly partialIntersection: boolean }> | null;
+  readonly isSelectable: ((target: PatchMapTarget) => boolean) | null;
+}
+
+interface PointerBoxGesture {
+  readonly pointerId: number;
+  readonly start: readonly [number, number];
+  readonly additive: boolean;
+  active: boolean;
+}
+
 export class PatchMap {
   public readonly update: PatchMapApi['update'];
   public readonly updateBatch: PatchMapApi['updateBatch'];
   public readonly transaction: PatchMapApi['transaction'];
   public readonly data: PatchMapApi['data'];
   public readonly targets: PatchMapApi['targets'];
+  public readonly pointer: PatchMapApi['pointer'];
   public readonly selection: PatchMapApi['selection'];
   public readonly transform: PatchMapApi['transform'];
   public readonly viewport: PatchMapApi['viewport'];
@@ -623,6 +648,10 @@ export class PatchMap {
   private deferredMountResize: readonly [number, number, number] | null = null;
   private readonly externalDependencyRevisions = new Map<string, string>();
   private pointerGestureAuthority: PatchMapPointerGestureAuthority | null = null;
+  private pointerSelectionPolicy: NormalizedPointerSelectionPolicy =
+    DEFAULT_POINTER_SELECTION_POLICY;
+  private pointerBoxGesture: PointerBoxGesture | null = null;
+  private pointerHoverTarget: PatchMapTarget | null = null;
   private readonly cancelActiveTransformerBeforeSurfaceReconcile = (): void => {
     this.transformerSessions.cancelActive('redraw', true);
   };
@@ -690,6 +719,7 @@ export class PatchMap {
       ...(options.assetPolicy === undefined ? {} : { assetPolicy: options.assetPolicy }),
     });
     try {
+      engine.configurePointerSelectionPolicy(options.selection);
       // Root PatchMap consumers receive the stable package catalog without
       // eagerly acquiring every builtin. Scene reconciliation leases only the
       // aliases that are actually authored or shown by presentation overlays.
@@ -901,6 +931,7 @@ export class PatchMap {
     this.transaction = api.transaction;
     this.data = api.data;
     this.targets = api.targets;
+    this.pointer = api.pointer;
     this.selection = api.selection;
     this.transform = api.transform;
     this.viewport = api.viewport;
@@ -945,11 +976,34 @@ export class PatchMap {
     };
   }
 
+  /** @internal Root `PatchMap.mount()` owns this policy boundary. */
+  public configurePointerSelectionPolicy(policy: PatchMapSelectionPolicy | undefined): void {
+    this.pointerSelectionPolicy = normalizePointerSelectionPolicy(policy);
+  }
+
   public on<K extends PatchMapEngineEvent>(event: K, listener: PatchMapEngineListener<K>): () => void {
     const listeners = this.listeners.get(event) ?? new Set<(event: unknown) => void>();
     listeners.add(listener as (event: unknown) => void);
     this.listeners.set(event, listeners);
     return () => listeners.delete(listener as (event: unknown) => void);
+  }
+
+  public onPointerHover(listener: (event: PatchMapPointerHoverEvent) => void): () => void {
+    if (typeof listener !== 'function') {
+      throw new TypeError('pointer hover listener must be a function');
+    }
+    this.requireSurface('onPointerHover');
+    return this.on('pointerHover', listener);
+  }
+
+  public onPointerSelectionChange(
+    listener: (change: PatchMapPointerSelectionChange) => void,
+  ): () => void {
+    if (typeof listener !== 'function') {
+      throw new TypeError('pointer selection listener must be a function');
+    }
+    this.requireSurface('onPointerSelectionChange');
+    return this.on('pointerSelectionChanged', listener);
   }
 
   public subscribeOperationalEvent(
@@ -1414,6 +1468,7 @@ export class PatchMap {
       throw error;
     }
     this.pointerGestureAuthority?.interrupt('replace');
+    this.resetPointerProjectionState();
     this.transformerSessions.interruptGestures();
     return this.commitPreparedDatasetLoad(prepared);
   }
@@ -1493,6 +1548,7 @@ export class PatchMap {
         }
       }
       this.pointerGestureAuthority?.interrupt('replace');
+      this.resetPointerProjectionState();
       this.transformerSessions.interruptGestures();
       return this.commitPreparedDatasetLoad(prepared);
     } finally {
@@ -2953,6 +3009,7 @@ export class PatchMap {
         this.transformerSessions.interruptGestures();
       }
       this.pointerGestureAuthority?.interrupt('blur');
+      this.resetPointerProjectionState();
       this.hostInteractions.clearTooltip('redraw');
       if (
         motionBefore ||
@@ -3175,6 +3232,8 @@ export class PatchMap {
     if (this.transformerSessions.cancelActive('redraw', true) === null) {
       this.transformerSessions.interruptGestures();
     }
+    this.pointerGestureAuthority?.interrupt('redraw');
+    this.resetPointerProjectionState();
     if (this.logicalSelectionIds.length > 0) {
       surface.select([]);
       this.publication.advanceInteraction();
@@ -3941,9 +4000,16 @@ export class PatchMap {
     if (change.changed) {
       if (change.source !== 'canvas' && !preserveTransformerGesture) {
         this.pointerGestureAuthority?.interrupt('selection-change');
+        this.resetPointerProjectionState();
       }
       this.publication.advanceInteraction();
       this.emit('selectionChanged', change);
+      if (change.source === 'canvas') {
+        this.emit(
+          'pointerSelectionChanged',
+          this.pointerSelectionPublication(change),
+        );
+      }
       const source = change.source === 'canvas' ? 'pointer' : change.source;
       this.hostInteractions.publish(
         'selection',
@@ -4041,6 +4107,7 @@ export class PatchMap {
     this.requireSurface('dispatchPointerInput');
     const authority = this.requirePointerGestureAuthority('dispatchPointerInput');
     const transformerOwned = this.transformerSessions.ownsPointer(input.pointerId);
+    this.preparePointerBoxGesture(input, transformerOwned);
     if (transformerOwned) {
       this.transformerSessions.routeInput(input.pointerId, 'transform');
     }
@@ -4059,20 +4126,228 @@ export class PatchMap {
     for (const event of result.events) {
       this.emit('pointerEvent', event);
       this.hostInteractions.dispatchPointerEvent(event);
+      if (event.type === 'hover-change' || event.type === 'hover-move') {
+        this.publishPointerHover(event);
+      }
     }
+    this.routePointerBoxGesture(input, result);
     const click = result.events.find((event) => event.type === 'click');
     if (
       click !== undefined &&
       click.payload.button === 0 &&
       this.hostInteractions.modeProbe().activeState === 'select'
     ) {
-      this.applySelection({
-        op: click.payload.modifiers.shift ? 'toggle' : 'replace',
-        ids: click.payload.target === null ? [] : [click.payload.target.id],
-        source: 'canvas',
-      });
+      this.applyPointerClickSelection(click);
     }
     return result;
+  }
+
+  private preparePointerBoxGesture(
+    input: PatchMapEnginePointerInput,
+    transformerOwned: boolean,
+  ): void {
+    if (input.type !== 'down') return;
+    this.pointerBoxGesture = null;
+    if (
+      transformerOwned ||
+      input.button !== 0 ||
+      this.pointerSelectionPolicy.box === null ||
+      this.hostInteractions.modeProbe().activeState !== 'select'
+    ) {
+      return;
+    }
+    this.pointerBoxGesture = {
+      pointerId: input.pointerId,
+      start: Object.freeze([input.screen[0], input.screen[1]] as const),
+      additive: this.pointerSelectionPolicy.allowMultiple && input.modifiers.shift,
+      active: false,
+    };
+  }
+
+  private routePointerBoxGesture(
+    input: PatchMapEnginePointerInput,
+    result: PatchMapPointerDispatchResult,
+  ): void {
+    const gesture = this.pointerBoxGesture;
+    if (gesture === null || gesture.pointerId !== input.pointerId) return;
+    if (result.events.some((event) => event.type === 'drag-start')) {
+      gesture.active = true;
+      this.requireSurface('pointerBoxSelection').cancelViewportGestures?.();
+      this.hostInteractions.clearTooltip('drag');
+    }
+    if (result.events.some((event) => event.type === 'drag-end')) {
+      if (gesture.active) this.commitPointerBoxSelection(gesture, input.screen);
+      this.pointerBoxGesture = null;
+      return;
+    }
+    if (
+      input.type === 'cancel' ||
+      input.type === 'leave' ||
+      input.type === 'up' ||
+      input.type === 'up-outside'
+    ) {
+      this.pointerBoxGesture = null;
+    }
+  }
+
+  private commitPointerBoxSelection(
+    gesture: PointerBoxGesture,
+    end: readonly [number, number],
+  ): void {
+    const box = this.pointerSelectionPolicy.box;
+    if (box === null) return;
+    const hit = this.selectBox(gesture.start, end, {
+      commit: false,
+      partialIntersection: box.partialIntersection,
+    });
+    const eligible: PatchMapLogicalTargetSnapshot[] = [];
+    for (const target of hit.targets) {
+      const selectable = this.pointerTargetSelectable(target);
+      if (selectable === null) return;
+      if (selectable) eligible.push(target);
+    }
+    const targets = this.pointerSelectionPolicy.allowMultiple
+      ? eligible
+      : eligible.slice(0, 1);
+    this.applySelection({
+      op: gesture.additive ? 'add' : 'replace',
+      ids: targets.map((target) => target.selectionId),
+      source: 'canvas',
+    });
+  }
+
+  private applyPointerClickSelection(click: PatchMapSemanticPointerEvent): void {
+    const rawTarget = click.payload.target?.id ?? null;
+    const target = this.pointerLogicalTargetAtScreen(click.payload.screen, rawTarget);
+    if (target !== null && this.pointerTargetSelectable(target) !== true) return;
+    this.applySelection({
+      op: this.pointerSelectionPolicy.allowMultiple && click.payload.modifiers.shift
+        ? 'toggle'
+        : 'replace',
+      ids: target === null ? [] : [target.selectionId],
+      source: 'canvas',
+    });
+  }
+
+  private pointerTargetSelectable(target: PatchMapLogicalTargetSnapshot): boolean | null {
+    const predicate = this.pointerSelectionPolicy.isSelectable;
+    if (predicate === null) return true;
+    try {
+      return predicate(publicPointerTarget(target)) === true;
+    } catch {
+      this.emit('diagnostic', this.operationDiagnostic(
+        'HOST_CALLBACK_FAILURE',
+        'HOST_CALLBACK_FAILURE',
+        'selection.isSelectable',
+        true,
+      ));
+      return null;
+    }
+  }
+
+  private publishPointerHover(event: PatchMapSemanticPointerEvent): void {
+    const target = event.type === 'hover-change' && event.payload.target === null
+      ? null
+      : this.pointerLogicalTargetAtScreen(
+          event.payload.screen,
+          event.payload.target?.id ?? null,
+        );
+    const next = target === null ? null : publicPointerTarget(target);
+    const previous = this.pointerHoverTarget;
+    if (event.type === 'hover-move' && next === null) return;
+    if (event.type === 'hover-change' && samePublicPointerTarget(previous, next)) return;
+    const world = this.requireSurface('pointerHover').screenToWorld({
+      x: event.payload.screen[0],
+      y: event.payload.screen[1],
+    });
+    const publication = Object.freeze({
+      type: next === null
+        ? 'leave'
+        : samePublicPointerTarget(previous, next)
+          ? 'move'
+          : 'hover',
+      target: next,
+      previousTarget: previous,
+      anchor: Object.freeze([...event.payload.screen] as [number, number]),
+      world: Object.freeze([world.x, world.y] as const),
+      pointerId: event.payload.pointerId,
+      pointerType: event.payload.pointerType,
+      modifiers: Object.freeze({ ...event.payload.modifiers }),
+    } satisfies PatchMapPointerHoverEvent);
+    this.pointerHoverTarget = next;
+    this.emit('pointerHover', publication);
+  }
+
+  private pointerLogicalTargetAtScreen(
+    screen: readonly [number, number],
+    fallbackId: string | null,
+  ): PatchMapLogicalTargetSnapshot | null {
+    const surface = this.requireSurface('pointerTarget');
+    const candidates = surface.queryRegionGeometry?.(Object.freeze([
+      screen[0],
+      screen[1],
+      0,
+      0,
+    ] as const));
+    if (candidates !== undefined) {
+      const index = this.logicalSceneSelectionIndex();
+      let selected: PatchMapLogicalTargetSnapshot | null = null;
+      for (const geometry of candidates.entities) {
+        const componentCandidate =
+          geometry.ownerItemId !== undefined && geometry.componentId !== undefined;
+        if (
+          !geometry.visible ||
+          (
+            !geometry.interactive &&
+            (!componentCandidate || geometry.ownerItemId !== fallbackId)
+          ) ||
+          !screenBoundsContain(geometry.screenBounds, screen)
+        ) {
+          continue;
+        }
+        const target = componentCandidate
+          ? index.target({
+              kind: 'component',
+              ownerId: geometry.ownerItemId!,
+              id: geometry.componentId!,
+            })
+          : index.target(geometry.id);
+        if (
+          target !== null &&
+          (selected === null || pointerTargetPaintOrder(target, selected) < 0)
+        ) {
+          selected = target;
+        }
+      }
+      if (selected !== null) return selected;
+    }
+    return fallbackId === null
+      ? null
+      : this.logicalSceneSelectionIndex().target(fallbackId);
+  }
+
+  private pointerSelectionPublication(
+    change: PatchMapSelectionChange,
+  ): PatchMapPointerSelectionChange {
+    const index = this.logicalSceneSelectionIndex();
+    const targets = (ids: readonly string[]): readonly PatchMapTarget[] => Object.freeze(
+      ids.flatMap((id) => {
+        const target = index.target(id);
+        return target === null ? [] : [publicPointerTarget(target)];
+      }),
+    );
+    return Object.freeze({
+      source: 'pointer',
+      selected: targets(change.current),
+      added: targets(change.added),
+      removed: targets(change.removed),
+      interactionRevision: this.publication.interactionRevision,
+    });
+  }
+
+  private resetPointerProjectionState(): void {
+    this.pointerBoxGesture = null;
+    this.pointerHoverTarget = null;
   }
 
   public pointerGestureProbe(): PatchMapPointerGestureProbe {
@@ -4088,7 +4363,10 @@ export class PatchMap {
     reason: PatchMapGestureCancelReason,
   ): PatchMapOwnedGestureTermination | null {
     this.requireSurface('interruptPointerGestures');
-    return this.requirePointerGestureAuthority('interruptPointerGestures').interrupt(reason);
+    const termination = this.requirePointerGestureAuthority('interruptPointerGestures')
+      .interrupt(reason);
+    this.resetPointerProjectionState();
+    return termination;
   }
 
   public beginOwnedPointerGesture(kind: PatchMapOwnedGestureKind, pointerId: number): void {
@@ -4834,6 +5112,7 @@ export class PatchMap {
     surface?.cancelViewportGestures?.();
     this.pointerGestureAuthority?.destroy();
     this.pointerGestureAuthority = null;
+    this.resetPointerProjectionState();
     this.transformerSessions.destroy();
     this.editorWorkflows.destroy();
     this.pageLifecycle.destroy();
@@ -5788,6 +6067,7 @@ function publicPatchMapInstance(engine: PatchMap): PatchMapInstance {
     transaction: engine.transaction,
     data: engine.data,
     targets: engine.targets,
+    pointer: engine.pointer,
     selection: engine.selection,
     transform: engine.transform,
     viewport: engine.viewport,
@@ -5951,6 +6231,95 @@ function selectionHitUsesSpatialFastPath(options: PatchMapSelectionHitOptions): 
     options.rejectIds === undefined &&
     options.lockedIds === undefined &&
     options.predicate === undefined;
+}
+
+function normalizePointerSelectionPolicy(
+  value: PatchMapSelectionPolicy | undefined,
+): NormalizedPointerSelectionPolicy {
+  if (value === undefined) return DEFAULT_POINTER_SELECTION_POLICY;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('selection policy must be an object');
+  }
+  if (value.allowMultiple !== undefined && typeof value.allowMultiple !== 'boolean') {
+    throw new TypeError('selection.allowMultiple must be boolean');
+  }
+  if (value.isSelectable !== undefined && typeof value.isSelectable !== 'function') {
+    throw new TypeError('selection.isSelectable must be a function');
+  }
+  let box: NormalizedPointerSelectionPolicy['box'] = null;
+  if (value.box === true) {
+    box = Object.freeze({ partialIntersection: true });
+  } else if (value.box !== undefined && value.box !== false) {
+    if (value.box === null || typeof value.box !== 'object' || Array.isArray(value.box)) {
+      throw new TypeError('selection.box must be boolean or an object');
+    }
+    if (
+      value.box.partialIntersection !== undefined &&
+      typeof value.box.partialIntersection !== 'boolean'
+    ) {
+      throw new TypeError('selection.box.partialIntersection must be boolean');
+    }
+    box = Object.freeze({
+      partialIntersection: value.box.partialIntersection ?? true,
+    });
+  }
+  return Object.freeze({
+    allowMultiple: value.allowMultiple ?? true,
+    box,
+    isSelectable: value.isSelectable ?? null,
+  });
+}
+
+function publicPointerTarget(target: PatchMapLogicalTargetSnapshot): PatchMapTarget {
+  return target.kind === 'element'
+    ? Object.freeze({ id: target.id })
+    : Object.freeze({ id: target.ownerId!, componentId: target.id });
+}
+
+function samePublicPointerTarget(
+  left: PatchMapTarget | null,
+  right: PatchMapTarget | null,
+): boolean {
+  return left === right || (
+    left !== null &&
+    right !== null &&
+    left.id === right.id &&
+    left.componentId === right.componentId
+  );
+}
+
+function screenBoundsContain(
+  bounds: readonly [number, number, number, number],
+  point: readonly [number, number],
+): boolean {
+  return bounds.every(Number.isFinite) &&
+    bounds[2] >= 0 &&
+    bounds[3] >= 0 &&
+    point[0] >= bounds[0] &&
+    point[0] <= bounds[0] + bounds[2] &&
+    point[1] >= bounds[1] &&
+    point[1] <= bounds[1] + bounds[3];
+}
+
+function pointerTargetPaintOrder(
+  left: PatchMapLogicalTargetSnapshot,
+  right: PatchMapLogicalTargetSnapshot,
+): number {
+  return pointerTargetZIndex(right) - pointerTargetZIndex(left) ||
+    right.depth - left.depth ||
+    right.sceneOrder - left.sceneOrder ||
+    left.key.localeCompare(right.key);
+}
+
+function pointerTargetZIndex(target: PatchMapLogicalTargetSnapshot): number {
+  const attrs = target.value.attrs;
+  const zIndex = attrs !== null &&
+    typeof attrs === 'object' &&
+    !Array.isArray(attrs) &&
+    typeof (attrs as Readonly<Record<string, unknown>>).zIndex === 'number'
+    ? (attrs as Readonly<{ readonly zIndex: number }>).zIndex
+    : null;
+  return zIndex !== null && Number.isFinite(zIndex) ? zIndex : target.zIndex;
 }
 
 function enginePerformanceNow(): number {

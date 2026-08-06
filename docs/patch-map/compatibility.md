@@ -75,3 +75,19 @@ tiles. An authored icon and a concrete icon overlay that name the same alias
 share its texture, including `show`, `tint`, component order, and `zIndex`
 behavior. `await capture.png()` settles a currently visible built-in source;
 replacement and destroy release its lease and Pixi cache ownership.
+
+## Pointer and selection compatibility
+
+`PatchMap.mount({ selection })` optionally enables package-owned primary-drag
+box selection and accepts `allowMultiple` plus a stable-target
+`isSelectable()` predicate. Without `selection.box`, the existing primary-pan
+behavior is preserved. With it enabled, the package cancels primary pan when
+the drag threshold is crossed; middle-pointer pan and wheel zoom remain
+available.
+
+`pointer.onHover()` publishes `hover/move/leave` with a CSS anchor, world point,
+and stable `{ id, componentId? }`. `selection.onPointerChange()` publishes only
+pointer-origin selection, while `selection.onChange()` retains its all-source
+ID contract. Grid components use `<grid>.<row>.<column>` as `id` and the
+template component identity as `componentId`. Subscriptions are instance-local,
+return disposers, and are also cleared by `destroy()`.

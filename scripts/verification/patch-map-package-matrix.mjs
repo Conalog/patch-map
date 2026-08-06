@@ -95,6 +95,8 @@ import {
   PatchMap,
   type PatchMapDebugSnapshot,
   type PatchMapOptions,
+  type PatchMapPointerHoverEvent,
+  type PatchMapPointerSelectionChange,
   type PatchMapTargetQuery,
   type PatchMapTheme,
 } from '${PACKAGE_NAME}';
@@ -115,6 +117,11 @@ const mountOptions: PatchMapOptions = {
     primary: { default: '#0c73bf', dark: '#063559' },
     gray: { light: '#9eb3c3' },
   },
+  selection: {
+    allowMultiple: true,
+    box: { partialIntersection: true },
+    isSelectable: ({ id }) => id !== 'locked-target',
+  },
 };
 const theme: PatchMapTheme = mountOptions.theme ?? {};
 const targetSelector: PatchMapTargetQuery = {
@@ -127,6 +134,16 @@ const capabilities: readonly string[] = PATCH_MAP_HOST_ADAPTER_CAPABILITIES;
 const mount: typeof PatchMapHostAdapter.mount = PatchMapHostAdapter.mount;
 const snapshot: PatchMapDebugSnapshot | null = null;
 declare const mounted: Awaited<ReturnType<typeof PatchMap.mount>>;
+const releaseHover = mounted.pointer.onHover((event: PatchMapPointerHoverEvent) => {
+  const targetId: string | null = event.target?.id ?? null;
+  void targetId;
+});
+const releasePointerSelection = mounted.selection.onPointerChange(
+  (change: PatchMapPointerSelectionChange) => {
+    const selectedCount: number = change.selected.length;
+    void selectedCount;
+  },
+);
 // @ts-expect-error targets.compile is intentionally not a public API.
 mounted.targets.compile(targetSelector);
 // @ts-expect-error data replacement is named replace, not load.
@@ -167,6 +184,8 @@ void [
   mount,
   snapshot,
   PatchMapAdvanced,
+  releaseHover,
+  releasePointerSelection,
 ];
 `);
   await writeFile(path.join(consumer, 'examples.html'), html('/examples-runner.ts'));

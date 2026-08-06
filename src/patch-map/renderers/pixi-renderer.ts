@@ -1229,6 +1229,26 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.assertAlive();
     this.interactionUnbind?.();
     const stage = this.application.stage;
+    const capturedPointerIds = new Set<number>();
+    const capturePointer = (pointerId: number): void => {
+      try {
+        this.canvas.setPointerCapture(pointerId);
+        capturedPointerIds.add(pointerId);
+      } catch {
+        // Synthetic/non-active pointer input cannot be captured. Federated
+        // pointerupoutside remains the fallback completion path.
+      }
+    };
+    const releasePointer = (pointerId: number): void => {
+      capturedPointerIds.delete(pointerId);
+      try {
+        if (this.canvas.hasPointerCapture(pointerId)) {
+          this.canvas.releasePointerCapture(pointerId);
+        }
+      } catch {
+        // The browser may implicitly release capture before this root cleanup.
+      }
+    };
     const pointerInput = (
       type: RootPointerInput['type'],
       event: FederatedPointerEvent,
@@ -1247,6 +1267,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       metaKey: event.metaKey,
     });
     const pointerDown = (event: FederatedPointerEvent): void => {
+      capturePointer(event.pointerId);
       handlers.pointer(pointerInput('down', event));
     };
     const pointerMove = (event: FederatedPointerEvent): void => {
@@ -1254,14 +1275,18 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     };
     const pointerUp = (event: FederatedPointerEvent): void => {
       handlers.pointer(pointerInput('up', event));
+      releasePointer(event.pointerId);
     };
     const pointerUpOutside = (event: FederatedPointerEvent): void => {
       handlers.pointer(pointerInput('up-outside', event));
+      releasePointer(event.pointerId);
     };
     const pointerCancel = (event: FederatedPointerEvent): void => {
       handlers.pointer(pointerInput('cancel', event));
+      releasePointer(event.pointerId);
     };
     const pointerLeave = (event: PointerEvent): void => {
+      if (capturedPointerIds.has(event.pointerId)) return;
       const bounds = this.canvas.getBoundingClientRect();
       const scaleX = bounds.width > 0 ? this.widthValue / bounds.width : 1;
       const scaleY = bounds.height > 0 ? this.heightValue / bounds.height : 1;
@@ -1322,6 +1347,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.canvas.removeEventListener('wheel', wheel);
       this.canvas.removeEventListener('pointerleave', pointerLeave);
       this.canvas.removeEventListener('contextmenu', contextMenu);
+      for (const pointerId of capturedPointerIds) releasePointer(pointerId);
+      capturedPointerIds.clear();
       if (this.interactionUnbind === unbind) this.interactionUnbind = null;
     };
     this.interactionUnbind = unbind;

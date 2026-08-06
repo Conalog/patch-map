@@ -31,6 +31,49 @@ export interface PatchMapTarget {
   readonly componentId?: string;
 }
 
+export interface PatchMapPointerEventModifiers {
+  readonly shift: boolean;
+  readonly ctrl: boolean;
+  readonly alt: boolean;
+  readonly meta: boolean;
+}
+
+/** Root-owned hover projection in CSS pixels and PatchMap world coordinates. */
+export interface PatchMapPointerHoverEvent {
+  readonly type: 'hover' | 'move' | 'leave';
+  readonly target: PatchMapTarget | null;
+  readonly previousTarget: PatchMapTarget | null;
+  readonly anchor: readonly [number, number];
+  readonly world: readonly [number, number];
+  readonly pointerId: number;
+  readonly pointerType: string;
+  readonly modifiers: PatchMapPointerEventModifiers;
+}
+
+/** Pointer-origin selection publication. Programmatic selection does not echo here. */
+export interface PatchMapPointerSelectionChange {
+  readonly source: 'pointer';
+  readonly selected: readonly PatchMapTarget[];
+  readonly added: readonly PatchMapTarget[];
+  readonly removed: readonly PatchMapTarget[];
+  readonly interactionRevision: number;
+}
+
+export interface PatchMapBoxSelectionOptions {
+  /** Select entities touched by the box. Defaults to true. */
+  readonly partialIntersection?: boolean;
+}
+
+/** Package-owned pointer selection policy for one mounted instance. */
+export interface PatchMapSelectionPolicy {
+  /** Preserve multi-target shift selection. Defaults to true. */
+  readonly allowMultiple?: boolean;
+  /** Enable root-owned pointer drag box selection. Disabled by default. */
+  readonly box?: boolean | PatchMapBoxSelectionOptions;
+  /** Called with detached stable identity, never renderer objects. */
+  readonly isSelectable?: (target: PatchMapTarget) => boolean;
+}
+
 export type PatchMapTargetScope = 'all' | 'authored' | 'instances';
 
 /**
@@ -275,6 +318,8 @@ export interface PatchMapOptions {
   readonly resizeMode?: 'observe' | 'manual';
   /** Auto-fit after the initial data load. Defaults to 24 CSS pixels. */
   readonly fit?: boolean | PatchMapFitOptions;
+  /** Root pointer selection policy; the package retains hit-test and gesture ownership. */
+  readonly selection?: PatchMapSelectionPolicy;
 }
 
 export interface PatchMapDataApi {
@@ -300,6 +345,11 @@ export interface PatchMapSelectionApi {
   toggle(targets: PatchMapSelectionInput): readonly string[];
   clear(): readonly string[];
   onChange(listener: (ids: readonly string[]) => void): () => void;
+  onPointerChange(listener: (change: PatchMapPointerSelectionChange) => void): () => void;
+}
+
+export interface PatchMapPointerApi {
+  onHover(listener: (event: PatchMapPointerHoverEvent) => void): () => void;
 }
 
 export interface PatchMapTransformOptions {
@@ -390,6 +440,7 @@ export interface PatchMapApi {
   ): PatchMapUpdateResult;
   readonly data: PatchMapDataApi;
   readonly targets: PatchMapTargetsApi;
+  readonly pointer: PatchMapPointerApi;
   readonly selection: PatchMapSelectionApi;
   readonly transform: PatchMapTransformApi;
   readonly viewport: PatchMapViewportApi;

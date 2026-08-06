@@ -48,6 +48,14 @@ The adapter must not import previous-runtime symbols, copy renderer behavior, re
 geometry, mutate normalized output, or retain Pixi display objects. Event
 callbacks and canvas ownership remain instance-local.
 
+Selection and tooltip plugins attach only to the public projections. Pass
+`selection: { box, allowMultiple, isSelectable }` to `mount()`, subscribe to
+`selection.onPointerChange()` for non-echo pointer changes, and subscribe to
+`pointer.onHover()` for stable target plus CSS/world anchors. PatchMap retains
+the root pointer listener, pointer capture, aggregate hit test, coordinate
+conversion, primary-drag versus pan arbitration, and frame invalidation. The
+host owns only the returned disposers and its plugin callbacks.
+
 For live concrete grid state, send bar and icon columns in one
 `updateBatch()` call. Use `bar.height`, `bar.changes.tint/source/show`, and
 `icon.changes.show/source/tint`; use `null` in a column to restore the authored

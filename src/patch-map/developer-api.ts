@@ -44,6 +44,8 @@ import type {
   PatchMapApi,
   PatchMapFitOptions,
   PatchMapOneOrMany,
+  PatchMapPointerHoverEvent,
+  PatchMapPointerSelectionChange,
   PatchMapSelectionInput,
   PatchMapDataReplaceOptions,
   PatchMapTarget,
@@ -81,6 +83,10 @@ interface PatchMapApiHost {
   on(
     event: 'selectionChanged',
     listener: (change: PatchMapSelectionChange) => void,
+  ): () => void;
+  onPointerHover(listener: (event: PatchMapPointerHoverEvent) => void): () => void;
+  onPointerSelectionChange(
+    listener: (change: PatchMapPointerSelectionChange) => void,
   ): () => void;
   applySelection(input: PatchMapSelectionSetOperation): PatchMapSelectionChange;
   applyTransformerEdit(
@@ -450,6 +456,15 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     onChange(listener: (ids: readonly string[]) => void): () => void {
       return host.on('selectionChanged', (change) => listener(change.current));
     },
+    onPointerChange(listener: (change: PatchMapPointerSelectionChange) => void): () => void {
+      return host.onPointerSelectionChange(listener);
+    },
+  });
+
+  const pointer = Object.freeze({
+    onHover(listener: (event: PatchMapPointerHoverEvent) => void): () => void {
+      return host.onPointerHover(listener);
+    },
   });
 
   const transformIds = (selected: PatchMapTargetsInput): readonly string[] =>
@@ -568,6 +583,7 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     transaction: mutations.transaction,
     data,
     targets,
+    pointer,
     selection,
     transform,
     viewport,

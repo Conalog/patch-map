@@ -41,7 +41,9 @@ assets, and cleanup to one `PatchMap` instance.
 | update one logical owner | `update()` | change element fields and its bar/text/icon/background components in one atomic commit; omit `componentId` only when the component type is unique |
 | update many objects with equal-shaped values | columnar `updateBatch()` | column lengths must match target count; authored bar/text fast paths retain their compact planners |
 | compose heterogeneous or structural work | `transaction()` | one ordered validation, scene publication, selection companion, and history entry; one failure rejects the whole operation |
-| selection | `selection.set/add/remove/toggle/clear` | use stable IDs or target sets; pointer-originated selection stays package-owned |
+| external selection | `selection.set/add/remove/toggle/clear` and `selection.onChange()` | use stable IDs or target sets; this all-source observer preserves the existing programmatic API |
+| pointer selection plugin | mount `selection: { box, allowMultiple, isSelectable }` and subscribe with `selection.onPointerChange()` | remove host drag rectangles, coordinate conversion, hit tests, pointer capture, and RAF ownership |
+| hover tooltip plugin | `pointer.onHover()` | consume stable `{ id, componentId? }`, CSS `anchor`, package-converted `world`, and `hover/move/leave`; do not inspect Pixi objects |
 | move, resize, or rotate | `transform.moveBy/resizeBy/rotateBy` | use stable IDs or target sets; all three methods apply relative deltas |
 | pan, zoom, reset, or fit | `viewport.panBy/zoomBy/reset/fit` | remove duplicate host coordinate transforms and viewport inertia |
 | undo and redo | `history.undo/redo` | the host may map shortcuts to these same public methods; do not create a second history owner |
@@ -151,9 +153,38 @@ Each target match is detached. A queried target set is also bound to its scene
 revision and rejects after dataset replacement; query it again instead of
 mutating its detached `value` object.
 
-Subscribe with `selection.onChange()` and change selection with
-`selection.set/add/remove/toggle/clear`. The returned unsubscribe function
-must be called when the host no longer needs the notification.
+Keep `selection.onChange()` when the host intentionally observes every source,
+and change external selection with `selection.set/add/remove/toggle/clear`.
+For an existing selection plugin, configure and subscribe at the pointer-owned
+boundary instead:
+
+```ts
+const patchMap = await PatchMap.mount({
+  container,
+  data,
+  selection: {
+    box: true,
+    allowMultiple: plugin.allowMultiple,
+    isSelectable: (target) => plugin.isSelectable(target),
+  },
+});
+
+const releasePointerSelection = patchMap.selection.onPointerChange(
+  ({ selected }) => plugin.onSelectionChange(selected),
+);
+const releaseHover = patchMap.pointer.onHover(
+  ({ type, target, anchor, world }) =>
+    tooltip.resolveView({ type, target, anchor, world }),
+);
+```
+
+Primary drag becomes box selection when enabled; middle-pointer pan and wheel
+zoom remain package-owned viewport gestures. Pointer capture keeps drag
+completion outside the canvas deterministic. Concrete component targets use
+the cell ID plus the stable template `componentId`. Both subscription methods
+return a disposer and `destroy()` clears any disposer the route did not call.
+Do not retain the old host pointer listeners, hit-test mirror, coordinate
+transform, or tooltip RAF.
 
 ## Mutations, animation, and history
 

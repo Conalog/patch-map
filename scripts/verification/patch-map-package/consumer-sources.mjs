@@ -119,6 +119,7 @@ const capture = await map.capture.png();
 const directImage = await verifyDirectImageLifecycle();
 const theme = await verifyThemeLifecycle();
 const builtins = await verifyBuiltinGlyphLifecycle();
+const pointerInteraction = await verifyPointerInteractionLifecycle();
 const renderObjects = initial.resources.rendering.commandCount;
 let constructorRejected = false;
 try {
@@ -132,6 +133,9 @@ const instanceInternalsAbsent = [
   'publishFrame',
   'semanticProbe',
   'historyInspection',
+  'configurePointerSelectionPolicy',
+  'onPointerHover',
+  'onPointerSelectionChange',
 ].every((name) => !(name in map));
 const destroyResult = await map.destroy();
 
@@ -169,6 +173,7 @@ window.__PACKAGE_RESULT__ = {
   directImage,
   theme,
   builtins,
+  pointerInteraction,
   internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
   constructorRejected,
   instanceInternalsAbsent,
@@ -492,6 +497,171 @@ async function verifyBuiltinGlyphLifecycle() {
     await builtinMap?.destroy().catch(() => undefined);
     builtinHost.remove();
   }
+}
+
+async function verifyPointerInteractionLifecycle() {
+  const pointerHost = document.createElement('div');
+  pointerHost.id = 'packed-pointer-host';
+  Object.assign(pointerHost.style, {
+    position: 'fixed',
+    left: '0',
+    top: '0',
+    zIndex: '2147483647',
+    width: '240px',
+    height: '160px',
+  });
+  document.body.appendChild(pointerHost);
+  const dataset = [{
+    type: 'grid',
+    id: 'pointer-grid',
+    attrs: { x: 20, y: 20 },
+    cells: [[1, 1, 1]],
+    item: {
+      size: { width: 50, height: 60 },
+      components: [{
+        type: 'bar',
+        id: 'bar',
+        source: { type: 'rect', fill: '#2563eb' },
+        size: { width: 50, height: 60 },
+        placement: 'center',
+        animation: false,
+      }, {
+        type: 'icon',
+        id: 'status',
+        source: 'device',
+        size: { width: 30, height: 30 },
+        placement: 'center',
+        attrs: { zIndex: 10 },
+      }],
+    },
+  }];
+  const datasetBefore = JSON.stringify(dataset);
+  let map = null;
+  let releaseHover = null;
+  let releaseSelection = null;
+  const firstHover = [];
+  const firstSelection = [];
+  const remountHover = [];
+  const remountSelection = [];
+  const selectableTargets = [];
+  const mount = async (instanceId, allowMultiple) => PatchMap.mount({
+    container: pointerHost,
+    instanceId,
+    width: 240,
+    height: 160,
+    background: '#000000',
+    resizeMode: 'manual',
+    fit: false,
+    data: dataset,
+    selection: {
+      allowMultiple,
+      box: { partialIntersection: true },
+      isSelectable: (target) => {
+        selectableTargets.push(target);
+        return target.id !== 'pointer-grid.0.2';
+      },
+    },
+  });
+  const subscribe = (hover, selection) => {
+    releaseHover = map.pointer.onHover((event) => {
+      hover.push(event);
+      if (window.__PATCH_MAP_POINTER_PROBE__) {
+        window.__PATCH_MAP_POINTER_PROBE__.lastPointerId = event.pointerId;
+      }
+    });
+    releaseSelection = map.selection.onPointerChange((event) => selection.push(event));
+  };
+  const release = () => {
+    releaseHover?.();
+    releaseSelection?.();
+    releaseHover = null;
+    releaseSelection = null;
+  };
+  map = await mount('packed-pointer-first', true);
+  subscribe(firstHover, firstSelection);
+  const firstViewportBefore = structuredClone(map.viewport.state);
+
+  return new Promise((resolve, reject) => {
+    let firstFinished = false;
+    let remountFinished = false;
+    window.__PATCH_MAP_POINTER_PROBE__ = {
+      phase: 'first',
+      captureDuring: false,
+      captureAfter: true,
+      recordBoxViewport: () => {
+        window.__PATCH_MAP_POINTER_PROBE__.boxViewport = structuredClone(map.viewport.state);
+      },
+      applyViewport: () => {
+        map.viewport.panBy([20, 10]);
+        map.viewport.zoomBy(1.2, [0, 0]);
+        return map.viewport.state;
+      },
+      finishFirst: async () => {
+        if (firstFinished) return;
+        firstFinished = true;
+        try {
+          const firstViewportAfter = structuredClone(map.viewport.state);
+          const firstSubscriptionCount = map.debug.snapshot().resources.subscriptions.active;
+          release();
+          const firstDestroy = await map.destroy();
+          const firstCanvasCountAfterDestroy = pointerHost.querySelectorAll('canvas').length;
+          map = await mount('packed-pointer-remount', false);
+          subscribe(remountHover, remountSelection);
+          Object.assign(window.__PATCH_MAP_POINTER_PROBE__, {
+            phase: 'remount',
+            firstViewportAfter,
+            firstSubscriptionCount,
+            firstDestroy,
+            firstCanvasCountAfterDestroy,
+          });
+        } catch (error) {
+          reject(error);
+        }
+      },
+      finishRemount: async () => {
+        if (remountFinished) return;
+        remountFinished = true;
+        try {
+          const probe = window.__PATCH_MAP_POINTER_PROBE__;
+          const remountSubscriptionCount = map.debug.snapshot().resources.subscriptions.active;
+          release();
+          const remountDestroy = await map.destroy();
+          map = null;
+          const canvasCountAfterDestroy = pointerHost.querySelectorAll('canvas').length;
+          const result = {
+            firstHover: firstHover.map(({ type, target, previousTarget, anchor }) => ({
+              type, target, previousTarget, anchor,
+            })),
+            firstSelection,
+            firstViewportBefore,
+            boxViewport: probe.boxViewport,
+            firstViewportAfter: probe.firstViewportAfter,
+            firstSubscriptionCount: probe.firstSubscriptionCount,
+            captureDuring: probe.captureDuring,
+            captureAfter: probe.captureAfter,
+            firstDestroy: probe.firstDestroy,
+            firstCanvasCountAfterDestroy: probe.firstCanvasCountAfterDestroy,
+            remountHover: remountHover.map(({ type, target }) => ({ type, target })),
+            remountSelection,
+            remountSubscriptionCount,
+            remountDestroy,
+            canvasCountAfterDestroy,
+            selectableTargets,
+            datasetImmutable: datasetBefore === JSON.stringify(dataset),
+          };
+          pointerHost.remove();
+          probe.phase = 'complete';
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      },
+    };
+  }).finally(async () => {
+    release();
+    await map?.destroy().catch(() => undefined);
+    pointerHost.remove();
+  });
 }
 
 async function captureGlyphMask(map, color) {

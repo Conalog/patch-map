@@ -68,6 +68,13 @@ frame loop, host 크기 관찰, 최초 fit을 자동으로 소유합니다. `des
 호출하면 이 자원도 함께 정리됩니다. `backend: 'webgpu'`는 실험 세션을
 명시적으로 실행할 때만 사용하세요.
 
+host tooltip과 selection plugin은 hit test를 복제하지 않고 package가 소유한
+pointer projection을 사용합니다. `PatchMap.mount()`의
+`selection: { box: true, allowMultiple, isSelectable }`로 primary drag box
+selection을 켜고, `pointer.onHover()`에서 stable hover target을,
+`selection.onPointerChange()`에서 pointer-origin selection을 구독합니다.
+두 구독은 disposer를 반환하며 `destroy()`에서도 자동 정리됩니다.
+
 grid instance를 반복 갱신할 때는 JSONPath나 갱신마다 scene scan을 쓰지
 않고 semantic target set을 한 번 조회해 재사용할 수 있습니다.
 

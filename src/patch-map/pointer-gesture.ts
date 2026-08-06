@@ -50,7 +50,8 @@ export type PatchMapSemanticPointerEventType =
   | 'drag-update'
   | 'drag-end'
   | 'cancel'
-  | 'hover-change';
+  | 'hover-change'
+  | 'hover-move';
 
 export interface PatchMapSemanticPointerPayload {
   readonly target: Readonly<{ readonly id: string }> | null;
@@ -298,9 +299,14 @@ export class PatchMapPointerGestureAuthority {
       dragging: false,
     };
     this.activePointers.set(input.pointerId, pointer);
-    if (!this.hoverDuringPress) this.hoverTarget = null;
+    const events: PatchMapSemanticPointerEvent[] = [];
+    if (!this.hoverDuringPress && this.hoverTarget !== null) {
+      this.hoverTarget = null;
+      events.push(semanticPointerEvent('hover-change', input, null, 0));
+    }
+    events.push(semanticPointerEvent('down', input, targetId, 0));
     return dispatchResult(
-      [semanticPointerEvent('down', input, targetId, 0)],
+      events,
       this.hoverTarget,
       false,
     );
@@ -313,7 +319,15 @@ export class PatchMapPointerGestureAuthority {
         return emptyDispatchResult(this.hoverTarget);
       }
       const nextHover = this.hit(input.screen);
-      if (nextHover === this.hoverTarget) return emptyDispatchResult(this.hoverTarget);
+      if (nextHover === this.hoverTarget) {
+        return nextHover === null
+          ? emptyDispatchResult(this.hoverTarget)
+          : dispatchResult(
+              [semanticPointerEvent('hover-move', input, nextHover, 0)],
+              this.hoverTarget,
+              false,
+            );
+      }
       this.hoverTarget = nextHover;
       return dispatchResult(
         [semanticPointerEvent('hover-change', input, nextHover, 0)],

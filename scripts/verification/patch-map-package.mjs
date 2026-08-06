@@ -201,6 +201,7 @@ try {
     if (response.status() >= 400) errors.network.push(`${response.url()} HTTP ${response.status()}`);
   });
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await runPackedPointerInteractionProbe(page);
   try {
     await page.waitForFunction(() => window.__PACKAGE_RESULT__ !== undefined, undefined, {
       timeout: 30_000,
@@ -325,6 +326,61 @@ if (operationFailure !== undefined && cleanupFailures.length > 0) {
 if (operationFailure !== undefined) throw operationFailure;
 if (cleanupFailures.length > 0) {
   throw new AggregateError(cleanupFailures, 'packed consumer cleanup failed');
+}
+
+async function runPackedPointerInteractionProbe(page) {
+  await page.waitForFunction(
+    () => window.__PATCH_MAP_POINTER_PROBE__?.phase === 'first',
+    undefined,
+    { timeout: 30_000 },
+  );
+  const bounds = await page.locator('#packed-pointer-host').boundingBox();
+  if (!bounds) throw new Error('packed pointer interaction host has no bounds');
+  const move = (x, y, steps = 1) => page.mouse.move(bounds.x + x, bounds.y + y, { steps });
+
+  await move(45, 45);
+  await move(48, 48);
+  await move(225, 140);
+  await move(45, 45);
+  await page.mouse.click(bounds.x + 45, bounds.y + 45);
+  await page.mouse.click(bounds.x + 145, bounds.y + 45);
+
+  await move(5, 5);
+  await page.mouse.down();
+  const captureDuring = await page.evaluate(() => {
+    const probe = window.__PATCH_MAP_POINTER_PROBE__;
+    const canvas = document.querySelector('#packed-pointer-host canvas');
+    return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
+  });
+  await move(180, 90, 5);
+  await page.mouse.up();
+  const captureAfter = await page.evaluate(() => {
+    const probe = window.__PATCH_MAP_POINTER_PROBE__;
+    const canvas = document.querySelector('#packed-pointer-host canvas');
+    return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
+  });
+  await page.evaluate(({ captureDuring, captureAfter }) => {
+    const probe = window.__PATCH_MAP_POINTER_PROBE__;
+    probe.captureDuring = captureDuring;
+    probe.captureAfter = captureAfter;
+    probe.recordBoxViewport();
+    probe.applyViewport();
+  }, { captureDuring, captureAfter });
+  await move(78, 66);
+  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.finishFirst());
+  await page.waitForFunction(
+    () => window.__PATCH_MAP_POINTER_PROBE__?.phase === 'remount',
+    undefined,
+    { timeout: 30_000 },
+  );
+
+  await move(225, 140);
+  await move(45, 45);
+  await move(5, 5);
+  await page.mouse.down();
+  await move(180, 90, 5);
+  await page.mouse.up();
+  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.finishRemount());
 }
 
 async function auditDependencyLock(root) {

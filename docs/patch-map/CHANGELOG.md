@@ -15,6 +15,8 @@
   documentation, and digest-bound release verification.
 - Restored the canonical default palette and wired partial, instance-local
   `PatchMap.mount({ theme })` overrides through authored and overlay rendering.
+- Added stable hover and pointer-selection projections plus package-owned,
+  policy-filtered drag box selection with root pointer capture and cleanup.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

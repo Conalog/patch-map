@@ -268,8 +268,10 @@ export class PatchMapSceneStateAuthority {
     if (id.startsWith('element:')) {
       return elementIds.has(id.slice('element:'.length));
     }
-    const componentKey = (ownerId: string, componentId: string): boolean =>
-      this.componentSemanticsValue.has(componentSemanticKey(ownerId, componentId));
+    const componentKey = (ownerId: string, componentId: string): boolean | null =>
+      this.componentSemanticsValue.has(componentSemanticKey(ownerId, componentId))
+        ? true
+        : null;
     if (id.startsWith('component:')) {
       const body = id.slice('component:'.length);
       const separator = body.indexOf('/');
@@ -297,7 +299,9 @@ export class PatchMapSceneStateAuthority {
         ownerId,
         componentId,
       ));
-      return semantic !== undefined && semantic.componentType === componentType;
+      return semantic === undefined
+        ? null
+        : semantic.componentType === componentType;
     }
     return null;
   }

@@ -111,6 +111,47 @@ export function collectPackageFailures({
     esm.builtins?.destroy !== true ||
     esm.builtins?.canvasCountAfterDestroy !== 0
   ) failures.push('packed builtin authored/overlay glyph or asset lifecycle failed');
+  const pointer = esm.pointerInteraction;
+  const pointerHoverTypes = new Set(pointer?.firstHover?.map(({ type }) => type));
+  const concreteHoverObserved = pointer?.firstHover?.some(({ target }) =>
+    target?.id === 'pointer-grid.0.0' && target?.componentId === 'status');
+  const postViewportHoverObserved = pointer?.firstHover?.some(({ target, anchor }) =>
+    target?.id === 'pointer-grid.0.0' &&
+    target?.componentId === 'status' &&
+    Math.abs(anchor?.[0] - 78) <= 2 &&
+    Math.abs(anchor?.[1] - 66) <= 2);
+  const firstSelection = pointer?.firstSelection ?? [];
+  const boxSelection = firstSelection.at(-1)?.selected;
+  const remountBoxSelection = pointer?.remountSelection?.at(-1)?.selected;
+  if (
+    pointerHoverTypes.has('hover') !== true ||
+    pointerHoverTypes.has('move') !== true ||
+    pointerHoverTypes.has('leave') !== true ||
+    concreteHoverObserved !== true ||
+    postViewportHoverObserved !== true ||
+    JSON.stringify(firstSelection[0]?.selected) !== JSON.stringify([
+      { id: 'pointer-grid.0.0', componentId: 'status' },
+    ]) ||
+    JSON.stringify(boxSelection) !== JSON.stringify([
+      { id: 'pointer-grid.0.0' },
+      { id: 'pointer-grid.0.1' },
+    ]) ||
+    JSON.stringify(remountBoxSelection) !== JSON.stringify([
+      { id: 'pointer-grid.0.0' },
+    ]) ||
+    JSON.stringify(pointer?.firstViewportBefore) !== JSON.stringify(pointer?.boxViewport) ||
+    JSON.stringify(pointer?.firstViewportBefore) === JSON.stringify(pointer?.firstViewportAfter) ||
+    pointer?.captureDuring !== true ||
+    pointer?.captureAfter !== false ||
+    pointer?.firstSubscriptionCount !== 2 ||
+    pointer?.remountSubscriptionCount !== 2 ||
+    pointer?.firstDestroy !== true ||
+    pointer?.remountDestroy !== true ||
+    pointer?.firstCanvasCountAfterDestroy !== 0 ||
+    pointer?.canvasCountAfterDestroy !== 0 ||
+    pointer?.datasetImmutable !== true ||
+    !pointer?.selectableTargets?.some(({ id }) => id === 'pointer-grid.0.2')
+  ) failures.push('packed pointer hover/selection/box/capture/remount lifecycle failed');
   if (esm.backend !== 'webgl') failures.push('packed ESM did not use WebGL');
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.assetRuntimeCount !== 0) failures.push('packed ESM asset status was inconsistent');

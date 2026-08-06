@@ -13,6 +13,10 @@ import {
   type PatchMapSurfacePointerInput,
   type PatchMapSurfaceView,
 } from '../../src/patch-map';
+import type {
+  PatchMapPointerHoverEvent,
+  PatchMapPointerSelectionChange,
+} from '../../src/patch-map/developer-api';
 
 describe('PatchMap root pointer and region-selection substrate', () => {
   it('normalizes click, drag, secondary, and touch traces without duplicate completion', () => {
@@ -250,6 +254,172 @@ describe('PatchMap root pointer and region-selection substrate', () => {
       destroyed: true,
     });
   });
+
+  it('projects stable authored/concrete hover and owns policy-filtered box selection', async () => {
+    const surface = new PointerTestSurface();
+    surface.hitResolver = ({ x, y }) => {
+      if (x >= 20 && x <= 80 && y >= 20 && y <= 80) {
+        return 'rack-grid.0.0';
+      }
+      if (x > 80 && x <= 140 && y >= 20 && y <= 80) {
+        return 'rack-grid.0.1';
+      }
+      if (x >= 200 && x <= 260 && y >= 20 && y <= 80) {
+        return 'authored';
+      }
+      return null;
+    };
+    surface.geometryEntities = Object.freeze([
+      geometry('rack-grid.0.0', [20, 20, 60, 60]),
+      { ...geometry('rack-grid.0.0::bar:bar', [20, 20, 60, 60], 'rack-grid.0.0', 'bar'), interactive: false },
+      { ...geometry('rack-grid.0.0::icon:status', [35, 35, 30, 30], 'rack-grid.0.0', 'status'), interactive: false },
+      geometry('rack-grid.0.1', [80, 20, 60, 60]),
+      { ...geometry('rack-grid.0.1::bar:bar', [80, 20, 60, 60], 'rack-grid.0.1', 'bar'), interactive: false },
+      { ...geometry('rack-grid.0.1::icon:status', [95, 35, 30, 30], 'rack-grid.0.1', 'status'), interactive: false },
+      geometry('authored', [200, 20, 60, 60]),
+      { ...geometry('authored::text:label', [200, 20, 60, 20], 'authored', 'label'), interactive: false },
+    ]);
+    const policyTargets: Array<Readonly<{ id: string; componentId?: string }>> = [];
+    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    engine.configurePointerSelectionPolicy({
+      allowMultiple: true,
+      box: { partialIntersection: true },
+      isSelectable: (target) => {
+        policyTargets.push(target);
+        return target.id !== 'rack-grid.0.1';
+      },
+    });
+    await engine.initialize({ instanceId: 'pointer-public-projection', width: 800, height: 600 });
+    engine.loadDataset(POINTER_PUBLIC_DATASET);
+    const hoverEvents: PatchMapPointerHoverEvent[] = [];
+    const selectionEvents: PatchMapPointerSelectionChange[] = [];
+    const releaseHover = engine.pointer.onHover((event) => hoverEvents.push(event));
+    const releaseSelection = engine.selection.onPointerChange((event) => {
+      selectionEvents.push(event);
+    });
+
+    surface.emit(surfacePointer('move', 1, [45, 45], 0, { buttons: 0 }));
+    surface.emit(surfacePointer('move', 1, [48, 48], 16, { buttons: 0 }));
+    surface.emit(surfacePointer('move', 1, [220, 30], 32, { buttons: 0 }));
+    surface.emit(surfacePointer('leave', 1, [500, 500], 48, { buttons: 0 }));
+    expect(hoverEvents.map(({ type, target, previousTarget }) => ({
+      type,
+      target,
+      previousTarget,
+    }))).toEqual([
+      {
+        type: 'hover',
+        target: { id: 'rack-grid.0.0', componentId: 'status' },
+        previousTarget: null,
+      },
+      {
+        type: 'move',
+        target: { id: 'rack-grid.0.0', componentId: 'status' },
+        previousTarget: { id: 'rack-grid.0.0', componentId: 'status' },
+      },
+      {
+        type: 'hover',
+        target: { id: 'authored', componentId: 'label' },
+        previousTarget: { id: 'rack-grid.0.0', componentId: 'status' },
+      },
+      {
+        type: 'leave',
+        target: null,
+        previousTarget: { id: 'authored', componentId: 'label' },
+      },
+    ]);
+    expect(hoverEvents[0]).toMatchObject({
+      anchor: [45, 45],
+      world: [45, 45],
+      pointerId: 1,
+      pointerType: 'mouse',
+    });
+
+    emitClick(surface, 2, [45, 45], 100);
+    expect(selectionEvents.at(-1)).toMatchObject({
+      source: 'pointer',
+      selected: [{ id: 'rack-grid.0.0', componentId: 'status' }],
+      added: [{ id: 'rack-grid.0.0', componentId: 'status' }],
+      removed: [],
+    });
+    emitClick(surface, 3, [105, 45], 140);
+    expect(engine.selection.ids).toEqual(['rack-grid.0.0::icon:status']);
+    expect(selectionEvents).toHaveLength(1);
+
+    surface.emit(surfacePointer('down', 4, [5, 5], 200));
+    surface.emit(surfacePointer('move', 4, [145, 90], 216));
+    surface.emit(surfacePointer('up', 4, [145, 90], 232, { buttons: 0 }));
+    expect(surface.cancelViewportGestureCount).toBe(1);
+    expect(engine.selection.ids).toEqual(['rack-grid.0.0']);
+    expect(selectionEvents.at(-1)).toMatchObject({
+      selected: [{ id: 'rack-grid.0.0' }],
+      added: [{ id: 'rack-grid.0.0' }],
+      removed: [{ id: 'rack-grid.0.0', componentId: 'status' }],
+    });
+    expect(policyTargets).toContainEqual({ id: 'rack-grid.0.1' });
+
+    engine.selection.clear();
+    engine.configurePointerSelectionPolicy({ allowMultiple: false, box: true });
+    surface.emit(surfacePointer('down', 5, [5, 5], 300));
+    surface.emit(surfacePointer('move', 5, [145, 90], 316));
+    surface.emit(surfacePointer('up', 5, [145, 90], 332, { buttons: 0 }));
+    expect(engine.selection.ids).toEqual(['rack-grid.0.0']);
+
+    engine.selection.clear();
+    engine.configurePointerSelectionPolicy({ allowMultiple: true, box: true });
+    surface.emit(surfacePointer('down', 6, [5, 5], 400));
+    surface.emit(surfacePointer('move', 6, [145, 90], 416));
+    surface.emit(surfacePointer('up', 6, [145, 90], 432, { buttons: 0 }));
+    expect(engine.selection.ids).toEqual(['rack-grid.0.0', 'rack-grid.0.1']);
+
+    const selectionBeforeFailure = engine.selection.ids;
+    engine.configurePointerSelectionPolicy({
+      box: true,
+      isSelectable: () => { throw new Error('host policy failed'); },
+    });
+    emitClick(surface, 7, [45, 45], 500);
+    expect(engine.selection.ids).toEqual(selectionBeforeFailure);
+
+    engine.configurePointerSelectionPolicy({
+      box: true,
+      isSelectable: ({ id }) => {
+        if (id === 'rack-grid.0.1') throw new Error('host box policy failed');
+        return true;
+      },
+    });
+    surface.emit(surfacePointer('down', 8, [5, 5], 540));
+    surface.emit(surfacePointer('move', 8, [145, 90], 556));
+    surface.emit(surfacePointer('up', 8, [145, 90], 572, { buttons: 0 }));
+    expect(engine.selection.ids).toEqual(selectionBeforeFailure);
+
+    const hoverCountBeforeRapidMoves = hoverEvents.length;
+    for (let index = 0; index < 100; index += 1) {
+      surface.emit(surfacePointer('move', 9, [45 + (index % 3), 45], 600 + index, {
+        buttons: 0,
+      }));
+    }
+    const rapidMoves = hoverEvents.slice(hoverCountBeforeRapidMoves);
+    expect(rapidMoves).toHaveLength(100);
+    expect(rapidMoves[0]).toMatchObject({
+      type: 'hover',
+      target: { id: 'rack-grid.0.0', componentId: 'status' },
+    });
+    expect(rapidMoves.slice(1).every(({ type }) => type === 'move')).toBe(true);
+
+    const hoverCountBeforeDispose = hoverEvents.length;
+    releaseHover();
+    releaseSelection();
+    for (let index = 0; index < 100; index += 1) {
+      surface.emit(surfacePointer('move', 10, [45 + (index % 3), 45], 800 + index, {
+        buttons: 0,
+      }));
+    }
+    expect(hoverEvents).toHaveLength(hoverCountBeforeDispose);
+    expect(engine.debug.snapshot().resources.subscriptions.active).toBe(0);
+
+    await expect(engine.destroy()).resolves.toBe(true);
+    expect(surface.pointerListener).toBeNull();
+  });
 });
 
 const REGION_DATASET = [
@@ -278,6 +448,40 @@ const REGION_DATASET = [
     type: 'relations',
     id: 'links',
     links: [{ source: 'item-a', target: 'rect-b' }],
+  },
+] as const;
+
+const POINTER_PUBLIC_DATASET = [
+  {
+    type: 'grid',
+    id: 'rack-grid',
+    attrs: { x: 20, y: 20 },
+    cells: [[1, 1]],
+    item: {
+      size: { width: 60, height: 60 },
+      components: [
+        {
+          type: 'bar',
+          id: 'bar',
+          source: { type: 'rect', fill: '#2563eb' },
+          size: { width: 60, height: 60 },
+        },
+        {
+          type: 'icon',
+          id: 'status',
+          source: 'device',
+          size: { width: 30, height: 30 },
+          attrs: { zIndex: 10 },
+        },
+      ],
+    },
+  },
+  {
+    type: 'item',
+    id: 'authored',
+    attrs: { x: 200, y: 20 },
+    size: { width: 60, height: 60 },
+    components: [{ type: 'text', id: 'label', text: 'authored' }],
   },
 ] as const;
 
@@ -321,6 +525,7 @@ function geometry(
   id: string,
   screenBounds: readonly [number, number, number, number],
   ownerItemId?: string,
+  componentId?: string,
 ) {
   return {
     id,
@@ -330,7 +535,22 @@ function geometry(
     visible: true,
     interactive: true,
     ...(ownerItemId === undefined ? {} : { ownerItemId }),
+    ...(componentId === undefined ? {} : { componentId }),
   };
+}
+
+function emitClick(
+  surface: PointerTestSurface,
+  pointerId: number,
+  screen: readonly [number, number],
+  timeMs: number,
+  overrides: Partial<PatchMapSurfacePointerInput> = {},
+): void {
+  surface.emit(surfacePointer('down', pointerId, screen, timeMs, overrides));
+  surface.emit(surfacePointer('up', pointerId, screen, timeMs + 16, {
+    ...overrides,
+    buttons: 0,
+  }));
 }
 
 function releasedResources() {
@@ -368,6 +588,22 @@ class PointerTestSurface implements PatchMapEngineSurface {
   public destroyed = false;
   public pointerListener: ((input: PatchMapSurfacePointerInput) => void) | null = null;
   public selectionIds: readonly string[] = Object.freeze([]);
+  public cancelViewportGestureCount = 0;
+  public hitResolver: (point: PatchMapPoint) => string | null = (point) => {
+    if (point.x >= 10 && point.x <= 110 && point.y >= 20 && point.y <= 100) {
+      return 'item-a';
+    }
+    if (point.x >= 160 && point.x <= 200 && point.y >= 40 && point.y <= 70) {
+      return 'rect-b';
+    }
+    return null;
+  };
+  public geometryEntities: PatchMapSurfaceGeometrySnapshot['entities'] = Object.freeze([
+    geometry('item-a', [10, 20, 100, 80]),
+    { ...geometry('item-a::text:label', [20, 30, 60, 10], 'item-a'), interactive: false },
+    geometry('rect-b', [160, 40, 40, 30]),
+    geometry('text-c', [40, 140, 80, 20]),
+  ]);
 
   public load(_input: unknown): void {
     this.selectionIds = Object.freeze([]);
@@ -399,13 +635,7 @@ class PointerTestSurface implements PatchMapEngineSurface {
   }
 
   public hitTestScreen(point: PatchMapPoint): string | null {
-    if (point.x >= 10 && point.x <= 110 && point.y >= 20 && point.y <= 100) {
-      return 'item-a';
-    }
-    if (point.x >= 160 && point.x <= 200 && point.y >= 40 && point.y <= 70) {
-      return 'rect-b';
-    }
-    return null;
+    return this.hitResolver(point);
   }
 
   public screenToWorld(point: PatchMapPoint): PatchMapPoint {
@@ -415,12 +645,7 @@ class PointerTestSurface implements PatchMapEngineSurface {
   public geometrySnapshot(): PatchMapSurfaceGeometrySnapshot {
     return Object.freeze({
       revision: 1,
-      entities: Object.freeze([
-        geometry('item-a', [10, 20, 100, 80]),
-        geometry('item-a::text:label', [20, 30, 60, 10], 'item-a'),
-        geometry('rect-b', [160, 40, 40, 30]),
-        geometry('text-c', [40, 140, 80, 20]),
-      ]),
+      entities: this.geometryEntities,
       relations: Object.freeze([{
         id: 'links:0',
         relationId: 'links',
@@ -431,6 +656,17 @@ class PointerTestSurface implements PatchMapEngineSurface {
       }]),
       selectionOverlay: null,
     });
+  }
+
+  public queryRegionGeometry() {
+    return Object.freeze({
+      entities: this.geometryEntities,
+      relations: this.geometrySnapshot().relations,
+    });
+  }
+
+  public cancelViewportGestures(): void {
+    this.cancelViewportGestureCount += 1;
   }
 
   public debugSnapshot(): PatchMapSurfaceDebug {

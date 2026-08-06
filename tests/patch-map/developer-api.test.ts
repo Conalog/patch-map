@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createPatchMapApi } from '../../src/patch-map/developer-api';
+import {
+  createPatchMapApi,
+  type PatchMapPointerHoverEvent,
+  type PatchMapPointerSelectionChange,
+} from '../../src/patch-map/developer-api';
 import { PatchMap } from '../../src/patch-map/engine';
 import * as PublicPackage from '../../src/index';
 import { PatchMap as PublicPatchMap } from '../../src/index';
@@ -160,6 +164,8 @@ function createHost() {
   let selectionListener: ((change: Readonly<{
     readonly current: readonly string[];
   }>) => void) | null = null;
+  let pointerHoverListener: ((event: PatchMapPointerHoverEvent) => void) | null = null;
+  let pointerSelectionListener: ((change: PatchMapPointerSelectionChange) => void) | null = null;
   const applySelection = vi.fn((input: { readonly op: string; readonly ids?: readonly string[] }) =>
     Object.freeze({
       changed: true,
@@ -228,6 +234,14 @@ function createHost() {
       selectionListener = listener;
       return () => { selectionListener = null; };
     },
+    onPointerHover: (listener: typeof pointerHoverListener) => {
+      pointerHoverListener = listener;
+      return () => { pointerHoverListener = null; };
+    },
+    onPointerSelectionChange: (listener: typeof pointerSelectionListener) => {
+      pointerSelectionListener = listener;
+      return () => { pointerSelectionListener = null; };
+    },
     applySelection,
     applyTransformerEdit: (request: unknown) => {
       lastTransformRequest = request;
@@ -282,6 +296,9 @@ function createHost() {
     lastTransactionRequest: () => lastTransactionRequest,
     lastTransformRequest: () => lastTransformRequest,
     publishSelection: (ids: readonly string[]) => selectionListener?.(Object.freeze({ current: ids })),
+    publishPointerHover: (event: PatchMapPointerHoverEvent) => pointerHoverListener?.(event),
+    publishPointerSelection: (change: PatchMapPointerSelectionChange) =>
+      pointerSelectionListener?.(change),
   };
 }
 
@@ -801,6 +818,47 @@ describe('PatchMap high-level developer API', () => {
       mime: 'image/png',
       size: [640, 360],
     });
+  });
+
+  it('projects root hover and pointer selection through disposer-based public domains', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+    const hoverEvents: PatchMapPointerHoverEvent[] = [];
+    const selectionEvents: PatchMapPointerSelectionChange[] = [];
+    const releaseHover = map.pointer.onHover((event) => hoverEvents.push(event));
+    const releaseSelection = map.selection.onPointerChange((change) => {
+      selectionEvents.push(change);
+    });
+    const target = Object.freeze({ id: 'rack-grid.12.3', componentId: 'status' });
+    const hover = Object.freeze({
+      type: 'hover' as const,
+      target,
+      previousTarget: null,
+      anchor: Object.freeze([44, 52] as const),
+      world: Object.freeze([22, 26] as const),
+      pointerId: 1,
+      pointerType: 'mouse',
+      modifiers: Object.freeze({ shift: false, ctrl: false, alt: false, meta: false }),
+    });
+    const selection = Object.freeze({
+      source: 'pointer' as const,
+      selected: Object.freeze([target]),
+      added: Object.freeze([target]),
+      removed: Object.freeze([]),
+      interactionRevision: 4,
+    });
+
+    harness.publishPointerHover(hover);
+    harness.publishPointerSelection(selection);
+    expect(hoverEvents).toEqual([hover]);
+    expect(selectionEvents).toEqual([selection]);
+
+    releaseHover();
+    releaseSelection();
+    harness.publishPointerHover(hover);
+    harness.publishPointerSelection(selection);
+    expect(hoverEvents).toHaveLength(1);
+    expect(selectionEvents).toHaveLength(1);
   });
 
   it('ships one intentional package surface without low-level implementation exports', () => {

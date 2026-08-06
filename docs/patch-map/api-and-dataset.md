@@ -10,7 +10,7 @@ The normal lifecycle is intentionally short:
 
 1. await `PatchMap.mount({ container, data })`;
 2. use `update()`, `transaction()`, the columnar `updateBatch()`, and the
-   `data`, `targets`, `selection`, `viewport`, `history`, `assets`, and `debug`
+   `data`, `targets`, `pointer`, `selection`, `viewport`, `history`, `assets`, and `debug`
    domains;
 3. await `destroy()` when the host unmounts.
 
@@ -54,6 +54,8 @@ implements it:
 | Read a detached dataset copy | `data.snapshot()` |
 | Address one known object/component | `targets.get({ id, componentId? })` |
 | Reuse a semantic set | `targets.query(query)` |
+| Observe package-owned hover | `pointer.onHover()` |
+| Observe pointer-origin selection | `selection.onPointerChange()` |
 | Apply a relative transform | `transform.moveBy()` / `resizeBy()` / `rotateBy()` |
 | Apply a relative viewport change | `viewport.panBy()` / `zoomBy()` |
 | Inspect loaded asset ownership | `assets.status()` |
@@ -90,6 +92,60 @@ package-owned `PatchMap.mount()` lifecycle. Engine mutations and product-owned
 pointer/view events invalidate that loop automatically. The host does not
 create a second loop, duplicate bar thresholds, or mirror pointer bookkeeping.
 `destroy()` cancels the owned loop before releasing the Pixi surface.
+
+## Pointer projection and box selection
+
+Keep hit testing, screen/world conversion, pointer capture, and gesture timing
+inside PatchMap. A host selection or tooltip plugin receives detached stable
+targets and coordinates through two disposer-based subscriptions:
+
+```ts
+const patchMap = await PatchMap.mount({
+  container,
+  data,
+  selection: {
+    box: { partialIntersection: true },
+    allowMultiple: selectionPlugin.allowMultiple,
+    isSelectable: ({ id, componentId }) =>
+      selectionPlugin.isSelectable({ id, componentId }),
+  },
+});
+
+const stopHover = patchMap.pointer.onHover((event) => {
+  tooltipPlugin.project({
+    type: event.type,
+    target: event.target,
+    anchor: event.anchor,
+    world: event.world,
+  });
+});
+
+const stopPointerSelection = patchMap.selection.onPointerChange((change) => {
+  selectionPlugin.onSelectionChange(change.selected);
+});
+```
+
+For a concrete grid component, the target is
+`{ id: '<grid>.<row>.<column>', componentId: '<template-component-id>' }`.
+Element hits omit `componentId`. Hover publications include the current CSS
+pixel `anchor`, package-converted `world` point, `previousTarget`, pointer
+identity, and modifiers. Same-target motion publishes `move`; exiting the
+target publishes `leave` with `target: null`.
+
+Box selection is disabled unless `selection.box` is enabled. Once a primary
+drag passes the package threshold, it owns pointer capture and cancels the
+competing primary pan before any viewport delta is applied. Middle-button pan
+and wheel zoom remain viewport gestures. `allowMultiple: false` keeps the first
+eligible target in deterministic paint/scene order; `true` keeps every
+eligible target and permits shift-add/toggle behavior. A thrown `isSelectable`
+callback aborts the entire pointer selection commit without changing selection
+and reports a host-callback diagnostic.
+
+`selection.onChange()` continues to observe every selection source as ID
+strings. `selection.onPointerChange()` is the non-echo host-plugin surface: it
+publishes only package pointer changes as stable `selected/added/removed`
+targets. Call each disposer when a host plugin detaches; `destroy()` also
+removes undisposed subscriptions and root listeners.
 
 The aggregate renderer and dense runtime are package internals. Consumers use
 the same `PatchMap.mount()` lifecycle, scheduling, animation, viewport, and
