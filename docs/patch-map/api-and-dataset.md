@@ -104,7 +104,10 @@ const patchMap = await PatchMap.mount({
   container,
   data,
   selection: {
-    box: { partialIntersection: true },
+    box: {
+      activationModifier: 'shift',
+      partialIntersection: true,
+    },
     allowMultiple: selectionPlugin.allowMultiple,
     isSelectable: ({ id, componentId }) =>
       selectionPlugin.isSelectable({ id, componentId }),
@@ -132,10 +135,14 @@ pixel `anchor`, package-converted `world` point, `previousTarget`, pointer
 identity, and modifiers. Same-target motion publishes `move`; exiting the
 target publishes `leave` with `target: null`.
 
-Box selection is disabled unless `selection.box` is enabled. Once a primary
-drag passes the package threshold, it owns pointer capture and cancels the
-competing primary pan before any viewport delta is applied. Middle-button pan
-and wheel zoom remain viewport gestures. `allowMultiple: false` keeps the first
+Box selection is disabled unless `selection.box` is enabled. Set
+`activationModifier: 'shift'` to retain ordinary primary-drag viewport pan and
+activate box selection only when Shift is held at pointer-down. That decision
+is latched for the gesture: releasing Shift after the drag starts still
+completes the box, while pressing Shift after an ordinary pan starts does not
+switch owners. `box: true` and `activationModifier: 'none'` retain the explicit
+all-primary-drag box behavior. Middle-button pan and wheel zoom remain viewport
+gestures. `allowMultiple: false` keeps the first
 eligible target in deterministic paint/scene order; `true` keeps every
 eligible target and permits shift-add/toggle behavior. A thrown `isSelectable`
 callback aborts the entire pointer selection commit without changing selection

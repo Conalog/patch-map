@@ -83,11 +83,13 @@ reserved built-in alias.
 
 ## Pointer and selection compatibility
 
-`PatchMap.mount({ selection })` optionally enables package-owned primary-drag
-box selection and accepts `allowMultiple` plus a stable-target
-`isSelectable()` predicate. Without `selection.box`, the existing primary-pan
-behavior is preserved. With it enabled, the package cancels primary pan when
-the drag threshold is crossed; middle-pointer pan and wheel zoom remain
+`PatchMap.mount({ selection })` optionally enables package-owned drag box
+selection and accepts `allowMultiple` plus a stable-target `isSelectable()`
+predicate. `box: { activationModifier: 'shift' }` preserves ordinary primary
+pan and assigns only Shift+primary drag to box selection. The modifier is
+latched at pointer-down so press/release during a gesture cannot change its
+owner. `box: true` or `activationModifier: 'none'` explicitly assigns every
+primary drag to box selection. Middle-pointer pan and wheel zoom remain
 available.
 
 `pointer.onHover()` publishes `hover/move/leave` with a CSS anchor, world point,

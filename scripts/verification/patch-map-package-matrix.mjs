@@ -119,7 +119,7 @@ const mountOptions: PatchMapOptions = {
   },
   selection: {
     allowMultiple: true,
-    box: { partialIntersection: true },
+    box: { partialIntersection: true, activationModifier: 'shift' },
     isSelectable: ({ id }) => id !== 'locked-target',
   },
 };

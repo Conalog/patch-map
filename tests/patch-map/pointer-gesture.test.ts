@@ -420,6 +420,64 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     await expect(engine.destroy()).resolves.toBe(true);
     expect(surface.pointerListener).toBeNull();
   });
+
+  it('latches shift-only box activation at pointer-down without taking ordinary pan drags', async () => {
+    const surface = new PointerTestSurface();
+    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    engine.configurePointerSelectionPolicy({
+      allowMultiple: true,
+      box: { partialIntersection: true, activationModifier: 'shift' },
+    });
+    await engine.initialize({ instanceId: 'pointer-shift-box', width: 800, height: 600 });
+    engine.loadDataset(REGION_DATASET);
+    const selectionEvents: PatchMapPointerSelectionChange[] = [];
+    engine.selection.onPointerChange((event) => selectionEvents.push(event));
+
+    surface.emit(surfacePointer('down', 1, [0, 0], 0));
+    surface.emit(surfacePointer('move', 1, [210, 120], 16));
+    surface.emit(surfacePointer('up', 1, [210, 120], 32));
+    expect(surface.cancelViewportGestureCount).toBe(0);
+    expect(engine.selection.ids).toEqual([]);
+    expect(selectionEvents).toEqual([]);
+
+    surface.emit(surfacePointer('down', 2, [0, 0], 48));
+    surface.emit(surfacePointer('move', 2, [20, 20], 64));
+    surface.emit(surfacePointer('move', 2, [210, 120], 80, {
+      modifiers: { shift: true, ctrl: false, alt: false, meta: false },
+    }));
+    surface.emit(surfacePointer('up', 2, [210, 120], 96, {
+      modifiers: { shift: true, ctrl: false, alt: false, meta: false },
+    }));
+    expect(surface.cancelViewportGestureCount).toBe(0);
+    expect(engine.selection.ids).toEqual([]);
+
+    surface.emit(surfacePointer('down', 3, [0, 0], 112, {
+      modifiers: { shift: true, ctrl: false, alt: false, meta: false },
+    }));
+    surface.emit(surfacePointer('move', 3, [210, 120], 128, {
+      modifiers: { shift: true, ctrl: false, alt: false, meta: false },
+    }));
+    surface.emit(surfacePointer('up', 3, [210, 120], 144));
+    expect(surface.cancelViewportGestureCount).toBe(1);
+    expect(engine.selection.ids).toEqual(['item-a', 'rect-b']);
+    expect(selectionEvents).toHaveLength(1);
+
+    engine.selection.clear();
+    surface.emit(surfacePointer('down', 4, [150, 30], 160, {
+      modifiers: { shift: true, ctrl: false, alt: false, meta: false },
+    }));
+    surface.emit(surfacePointer('move', 4, [210, 80], 176, {
+      modifiers: { shift: true, ctrl: false, alt: false, meta: false },
+    }));
+    surface.emit(surfacePointer('up-outside', 4, [210, 80], 192));
+    expect(engine.selection.ids).toEqual(['rect-b']);
+    expect(engine.pointerGestureProbe().activePointerCount).toBe(0);
+
+    expect(() => engine.configurePointerSelectionPolicy({
+      box: { activationModifier: 'alt' as 'shift' },
+    })).toThrow('selection.box.activationModifier must be none or shift');
+    await expect(engine.destroy()).resolves.toBe(true);
+  });
 });
 
 const REGION_DATASET = [

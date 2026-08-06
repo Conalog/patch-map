@@ -564,7 +564,10 @@ interface PreparedPatchMapEngineLoad {
 
 interface NormalizedPointerSelectionPolicy {
   readonly allowMultiple: boolean;
-  readonly box: Readonly<{ readonly partialIntersection: boolean }> | null;
+  readonly box: Readonly<{
+    readonly partialIntersection: boolean;
+    readonly activationModifier: 'none' | 'shift';
+  }> | null;
   readonly isSelectable: ((target: PatchMapTarget) => boolean) | null;
 }
 
@@ -4152,6 +4155,7 @@ export class PatchMap {
       transformerOwned ||
       input.button !== 0 ||
       this.pointerSelectionPolicy.box === null ||
+      !pointerBoxActivationMatches(this.pointerSelectionPolicy.box, input) ||
       this.hostInteractions.modeProbe().activeState !== 'select'
     ) {
       return;
@@ -4170,9 +4174,11 @@ export class PatchMap {
   ): void {
     const gesture = this.pointerBoxGesture;
     if (gesture === null || gesture.pointerId !== input.pointerId) return;
+    if (input.type === 'move') {
+      this.requireSurface('pointerBoxSelection').cancelViewportGestures?.();
+    }
     if (result.events.some((event) => event.type === 'drag-start')) {
       gesture.active = true;
-      this.requireSurface('pointerBoxSelection').cancelViewportGestures?.();
       this.hostInteractions.clearTooltip('drag');
     }
     if (result.events.some((event) => event.type === 'drag-end')) {
@@ -6248,7 +6254,7 @@ function normalizePointerSelectionPolicy(
   }
   let box: NormalizedPointerSelectionPolicy['box'] = null;
   if (value.box === true) {
-    box = Object.freeze({ partialIntersection: true });
+    box = Object.freeze({ partialIntersection: true, activationModifier: 'none' });
   } else if (value.box !== undefined && value.box !== false) {
     if (value.box === null || typeof value.box !== 'object' || Array.isArray(value.box)) {
       throw new TypeError('selection.box must be boolean or an object');
@@ -6259,8 +6265,16 @@ function normalizePointerSelectionPolicy(
     ) {
       throw new TypeError('selection.box.partialIntersection must be boolean');
     }
+    if (
+      value.box.activationModifier !== undefined &&
+      value.box.activationModifier !== 'none' &&
+      value.box.activationModifier !== 'shift'
+    ) {
+      throw new TypeError('selection.box.activationModifier must be none or shift');
+    }
     box = Object.freeze({
       partialIntersection: value.box.partialIntersection ?? true,
+      activationModifier: value.box.activationModifier ?? 'none',
     });
   }
   return Object.freeze({
@@ -6268,6 +6282,13 @@ function normalizePointerSelectionPolicy(
     box,
     isSelectable: value.isSelectable ?? null,
   });
+}
+
+function pointerBoxActivationMatches(
+  box: NonNullable<NormalizedPointerSelectionPolicy['box']>,
+  input: PatchMapEnginePointerInput,
+): boolean {
+  return box.activationModifier === 'none' || input.modifiers.shift;
 }
 
 function publicPointerTarget(target: PatchMapLogicalTargetSnapshot): PatchMapTarget {

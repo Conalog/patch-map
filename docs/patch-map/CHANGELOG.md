@@ -17,6 +17,9 @@
   `PatchMap.mount({ theme })` overrides through authored and overlay rendering.
 - Added stable hover and pointer-selection projections plus package-owned,
   policy-filtered drag box selection with root pointer capture and cleanup.
+- Added an explicit Shift-only box activation policy so ordinary primary drag
+  remains viewport pan, and restored the exact filled 72×72 PATCH MAP v0.10
+  built-in SVG catalog without changing host-injected alias ownership.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

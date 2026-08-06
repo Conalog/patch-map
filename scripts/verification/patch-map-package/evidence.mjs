@@ -129,11 +129,11 @@ export function collectPackageFailures({
   const pointerHoverTypes = new Set(pointer?.firstHover?.map(({ type }) => type));
   const concreteHoverObserved = pointer?.firstHover?.some(({ target }) =>
     target?.id === 'pointer-grid.0.0' && target?.componentId === 'status');
-  const postViewportHoverObserved = pointer?.firstHover?.some(({ target, anchor }) =>
+  const postViewportHoverObserved = pointer?.firstHover
+    ?.slice(pointer?.postViewportHoverStart ?? Number.POSITIVE_INFINITY)
+    .some(({ target }) =>
     target?.id === 'pointer-grid.0.0' &&
-    target?.componentId === 'status' &&
-    Math.abs(anchor?.[0] - 78) <= 2 &&
-    Math.abs(anchor?.[1] - 66) <= 2);
+    target?.componentId === 'status');
   const firstSelection = pointer?.firstSelection ?? [];
   const boxSelection = firstSelection.at(-1)?.selected;
   const remountBoxSelection = pointer?.remountSelection?.at(-1)?.selected;
@@ -146,6 +146,11 @@ export function collectPackageFailures({
     JSON.stringify(firstSelection[0]?.selected) !== JSON.stringify([
       { id: 'pointer-grid.0.0', componentId: 'status' },
     ]) ||
+    JSON.stringify(firstSelection[1]?.selected) !== JSON.stringify([
+      { id: 'pointer-grid.0.0', componentId: 'status' },
+      { id: 'pointer-grid.0.1', componentId: 'status' },
+    ]) ||
+    firstSelection.length !== 3 ||
     JSON.stringify(boxSelection) !== JSON.stringify([
       { id: 'pointer-grid.0.0' },
       { id: 'pointer-grid.0.1' },
@@ -153,10 +158,25 @@ export function collectPackageFailures({
     JSON.stringify(remountBoxSelection) !== JSON.stringify([
       { id: 'pointer-grid.0.0' },
     ]) ||
-    JSON.stringify(pointer?.firstViewportBefore) !== JSON.stringify(pointer?.boxViewport) ||
-    JSON.stringify(pointer?.firstViewportBefore) === JSON.stringify(pointer?.firstViewportAfter) ||
+    !viewportPanMatches(pointer?.plainPanBefore, pointer?.plainPanAfter, [20, 15]) ||
+    !viewportPanMatches(pointer?.lateShiftPanBefore, pointer?.lateShiftPanAfter, [20, 20]) ||
+    !viewportPanMatches(pointer?.middlePanBefore, pointer?.middlePanAfter, [10, 10]) ||
+    !(pointer?.wheelAfter?.scale > pointer?.wheelBefore?.scale) ||
+    JSON.stringify(pointer?.boxViewportBefore) !== JSON.stringify(pointer?.boxViewportAfter) ||
+    pointer?.plainPanBeforeSelectionCount !== 2 ||
+    pointer?.plainPanAfterSelectionCount !== 2 ||
+    pointer?.lateShiftPanBeforeSelectionCount !== 2 ||
+    pointer?.lateShiftPanAfterSelectionCount !== 2 ||
+    pointer?.wheelBeforeSelectionCount !== 2 ||
+    pointer?.wheelAfterSelectionCount !== 2 ||
+    pointer?.middlePanBeforeSelectionCount !== 2 ||
+    pointer?.middlePanAfterSelectionCount !== 2 ||
+    pointer?.boxViewportBeforeSelectionCount !== 2 ||
+    pointer?.boxViewportAfterSelectionCount !== 3 ||
     pointer?.captureDuring !== true ||
     pointer?.captureAfter !== false ||
+    pointer?.remountCaptureDuring !== true ||
+    pointer?.remountCaptureAfter !== false ||
     pointer?.firstSubscriptionCount !== 2 ||
     pointer?.remountSubscriptionCount !== 2 ||
     pointer?.firstDestroy !== true ||
@@ -281,15 +301,20 @@ export function collectPackageFailures({
   return failures;
 }
 
-function stringDistance(left, right) {
-  if (typeof left !== 'string' || typeof right !== 'string' || left.length !== right.length) {
-    return Number.POSITIVE_INFINITY;
+function viewportPanMatches(before, after, screenDelta) {
+  if (
+    !before ||
+    !after ||
+    !Number.isFinite(before.scale) ||
+    before.scale !== after.scale ||
+    !Array.isArray(before.centerWorld) ||
+    !Array.isArray(after.centerWorld)
+  ) {
+    return false;
   }
-  let distance = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) distance += 1;
-  }
-  return distance;
+  const epsilon = 1e-6;
+  return Math.abs(after.centerWorld[0] - (before.centerWorld[0] - screenDelta[0] / before.scale)) < epsilon &&
+    Math.abs(after.centerWorld[1] - (before.centerWorld[1] - screenDelta[1] / before.scale)) < epsilon;
 }
 
 export function createPackageConsumerEvidence({

@@ -62,6 +62,8 @@ export interface PatchMapPointerSelectionChange {
 export interface PatchMapBoxSelectionOptions {
   /** Select entities touched by the box. Defaults to true. */
   readonly partialIntersection?: boolean;
+  /** Required modifier at primary pointer-down. Defaults to `none`. */
+  readonly activationModifier?: 'none' | 'shift';
 }
 
 /** Package-owned pointer selection policy for one mounted instance. */

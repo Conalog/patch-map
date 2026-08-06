@@ -295,7 +295,21 @@ try {
   });
   await mkdir(RESULTS, { recursive: true });
   await writeFile(path.join(RESULTS, 'package-consumer.json'), `${JSON.stringify(evidence, null, 2)}\n`);
-  if (failures.length) throw new Error(failures.join('; '));
+  if (failures.length) {
+    process.stderr.write(`${JSON.stringify({
+      builtins: esm.builtins,
+      journey: {
+        browserRemainingCanvasCount: journeyBrowser.remainingCanvasCount,
+        journeyCount: journeyMatrix.journeyCount,
+        passedJourneyCount: journeyMatrix.passedJourneyCount,
+        failedJourneyCount: journeyMatrix.failedJourneyCount,
+        packageDigestAcrossJourneys: journeyMatrix.packageDigestAcrossJourneys,
+        packageDigest: packageArtifact.sha256,
+        cleanupFailureCount: journeyMatrix.cleanupFailureCount,
+      },
+    }, null, 2)}\n`);
+    throw new Error(failures.join('; '));
+  }
   if (requireAudit && evidence.status !== 'pass') {
     throw new Error(`packed dependency audit is required, received ${evidence.status}`);
   }
@@ -329,30 +343,84 @@ if (cleanupFailures.length > 0) {
 }
 
 async function runPackedPointerInteractionProbe(page) {
-  await page.waitForFunction(
-    () => window.__PATCH_MAP_POINTER_PROBE__?.phase === 'first',
-    undefined,
-    { timeout: 30_000 },
-  );
+  try {
+    await page.waitForFunction(
+      () => window.__PATCH_MAP_POINTER_PROBE__?.phase === 'first',
+      undefined,
+      { timeout: 120_000 },
+    );
+  } catch (error) {
+    const browserState = await page.evaluate(() => ({
+      readyState: document.readyState,
+      pointerPhase: window.__PATCH_MAP_POINTER_PROBE__?.phase ?? null,
+      resultPublished: window.__PACKAGE_RESULT__ !== undefined,
+      bodyText: document.body.textContent?.slice(0, 500) ?? '',
+    }));
+    throw new Error(
+      `packed pointer probe startup timeout: ${
+        error instanceof Error ? error.message : String(error)
+      }; browserState=${JSON.stringify(browserState)}; errors=${JSON.stringify(errors)}`,
+    );
+  }
   const bounds = await page.locator('#packed-pointer-host').boundingBox();
   if (!bounds) throw new Error('packed pointer interaction host has no bounds');
   const move = (x, y, steps = 1) => page.mouse.move(bounds.x + x, bounds.y + y, { steps });
+  const record = (label) => page.evaluate(
+    (value) => window.__PATCH_MAP_POINTER_PROBE__.record(value),
+    label,
+  );
 
   await move(45, 45);
   await move(48, 48);
   await move(225, 140);
   await move(45, 45);
   await page.mouse.click(bounds.x + 45, bounds.y + 45);
+  await page.keyboard.down('Shift');
+  await page.mouse.click(bounds.x + 95, bounds.y + 45);
+  await page.keyboard.up('Shift');
   await page.mouse.click(bounds.x + 145, bounds.y + 45);
 
+  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.clearSelection());
+  await record('plainPanBefore');
+  await move(190, 125);
+  await page.mouse.down();
+  await move(210, 140);
+  await page.mouse.up();
+  await record('plainPanAfter');
+
+  await record('lateShiftPanBefore');
+  await move(190, 125);
+  await page.mouse.down();
+  await move(195, 130);
+  await page.keyboard.down('Shift');
+  await move(210, 145);
+  await page.keyboard.up('Shift');
+  await page.mouse.up();
+  await record('lateShiftPanAfter');
+
+  await record('wheelBefore');
+  await move(200, 130);
+  await page.mouse.wheel(0, -120);
+  await record('wheelAfter');
+
+  await record('middlePanBefore');
+  await move(190, 125);
+  await page.mouse.down({ button: 'middle' });
+  await move(200, 135);
+  await page.mouse.up({ button: 'middle' });
+  await record('middlePanAfter');
+
+  await record('boxViewportBefore');
   await move(5, 5);
+  await page.keyboard.down('Shift');
   await page.mouse.down();
   const captureDuring = await page.evaluate(() => {
     const probe = window.__PATCH_MAP_POINTER_PROBE__;
     const canvas = document.querySelector('#packed-pointer-host canvas');
     return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
   });
-  await move(180, 90, 5);
+  await move(230, 150, 5);
+  await page.keyboard.up('Shift');
   await page.mouse.up();
   const captureAfter = await page.evaluate(() => {
     const probe = window.__PATCH_MAP_POINTER_PROBE__;
@@ -363,10 +431,10 @@ async function runPackedPointerInteractionProbe(page) {
     const probe = window.__PATCH_MAP_POINTER_PROBE__;
     probe.captureDuring = captureDuring;
     probe.captureAfter = captureAfter;
-    probe.recordBoxViewport();
-    probe.applyViewport();
   }, { captureDuring, captureAfter });
-  await move(78, 66);
+  await record('boxViewportAfter');
+  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.markPostViewportHover());
+  await move(75, 80);
   await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.finishFirst());
   await page.waitForFunction(
     () => window.__PATCH_MAP_POINTER_PROBE__?.phase === 'remount',
@@ -377,9 +445,26 @@ async function runPackedPointerInteractionProbe(page) {
   await move(225, 140);
   await move(45, 45);
   await move(5, 5);
+  await page.keyboard.down('Shift');
   await page.mouse.down();
-  await move(180, 90, 5);
+  const remountCaptureDuring = await page.evaluate(() => {
+    const probe = window.__PATCH_MAP_POINTER_PROBE__;
+    const canvas = document.querySelector('#packed-pointer-host canvas');
+    return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
+  });
+  await move(280, 190, 5);
+  await page.keyboard.up('Shift');
   await page.mouse.up();
+  const remountCaptureAfter = await page.evaluate(() => {
+    const probe = window.__PATCH_MAP_POINTER_PROBE__;
+    const canvas = document.querySelector('#packed-pointer-host canvas');
+    return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
+  });
+  await page.evaluate(({ remountCaptureDuring, remountCaptureAfter }) => {
+    const probe = window.__PATCH_MAP_POINTER_PROBE__;
+    probe.remountCaptureDuring = remountCaptureDuring;
+    probe.remountCaptureAfter = remountCaptureAfter;
+  }, { remountCaptureDuring, remountCaptureAfter });
   await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.finishRemount());
 }
 

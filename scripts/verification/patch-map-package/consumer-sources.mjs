@@ -584,7 +584,7 @@ async function verifyPointerInteractionLifecycle() {
     data: dataset,
     selection: {
       allowMultiple,
-      box: { partialIntersection: true },
+      box: { partialIntersection: true, activationModifier: 'shift' },
       isSelectable: (target) => {
         selectableTargets.push(target);
         return target.id !== 'pointer-grid.0.2';
@@ -617,13 +617,16 @@ async function verifyPointerInteractionLifecycle() {
       phase: 'first',
       captureDuring: false,
       captureAfter: true,
-      recordBoxViewport: () => {
-        window.__PATCH_MAP_POINTER_PROBE__.boxViewport = structuredClone(map.viewport.state);
+      remountCaptureDuring: false,
+      remountCaptureAfter: true,
+      record: (label) => {
+        const probe = window.__PATCH_MAP_POINTER_PROBE__;
+        probe[label] = structuredClone(map.viewport.state);
+        probe[label + 'SelectionCount'] = firstSelection.length;
       },
-      applyViewport: () => {
-        map.viewport.panBy([20, 10]);
-        map.viewport.zoomBy(1.2, [0, 0]);
-        return map.viewport.state;
+      clearSelection: () => map.selection.clear(),
+      markPostViewportHover: () => {
+        window.__PATCH_MAP_POINTER_PROBE__.postViewportHoverStart = firstHover.length;
       },
       finishFirst: async () => {
         if (firstFinished) return;
@@ -663,11 +666,33 @@ async function verifyPointerInteractionLifecycle() {
             })),
             firstSelection,
             firstViewportBefore,
-            boxViewport: probe.boxViewport,
             firstViewportAfter: probe.firstViewportAfter,
+            plainPanBefore: probe.plainPanBefore,
+            plainPanAfter: probe.plainPanAfter,
+            plainPanBeforeSelectionCount: probe.plainPanBeforeSelectionCount,
+            plainPanAfterSelectionCount: probe.plainPanAfterSelectionCount,
+            lateShiftPanBefore: probe.lateShiftPanBefore,
+            lateShiftPanAfter: probe.lateShiftPanAfter,
+            lateShiftPanBeforeSelectionCount: probe.lateShiftPanBeforeSelectionCount,
+            lateShiftPanAfterSelectionCount: probe.lateShiftPanAfterSelectionCount,
+            wheelBefore: probe.wheelBefore,
+            wheelAfter: probe.wheelAfter,
+            wheelBeforeSelectionCount: probe.wheelBeforeSelectionCount,
+            wheelAfterSelectionCount: probe.wheelAfterSelectionCount,
+            middlePanBefore: probe.middlePanBefore,
+            middlePanAfter: probe.middlePanAfter,
+            middlePanBeforeSelectionCount: probe.middlePanBeforeSelectionCount,
+            middlePanAfterSelectionCount: probe.middlePanAfterSelectionCount,
+            boxViewportBefore: probe.boxViewportBefore,
+            boxViewportAfter: probe.boxViewportAfter,
+            boxViewportBeforeSelectionCount: probe.boxViewportBeforeSelectionCount,
+            boxViewportAfterSelectionCount: probe.boxViewportAfterSelectionCount,
+            postViewportHoverStart: probe.postViewportHoverStart,
             firstSubscriptionCount: probe.firstSubscriptionCount,
             captureDuring: probe.captureDuring,
             captureAfter: probe.captureAfter,
+            remountCaptureDuring: probe.remountCaptureDuring,
+            remountCaptureAfter: probe.remountCaptureAfter,
             firstDestroy: probe.firstDestroy,
             firstCanvasCountAfterDestroy: probe.firstCanvasCountAfterDestroy,
             remountHover: remountHover.map(({ type, target }) => ({ type, target })),

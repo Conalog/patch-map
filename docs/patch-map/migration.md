@@ -163,7 +163,7 @@ const patchMap = await PatchMap.mount({
   container,
   data,
   selection: {
-    box: true,
+    box: { activationModifier: 'shift' },
     allowMultiple: plugin.allowMultiple,
     isSelectable: (target) => plugin.isSelectable(target),
   },
@@ -178,9 +178,11 @@ const releaseHover = patchMap.pointer.onHover(
 );
 ```
 
-Primary drag becomes box selection when enabled; middle-pointer pan and wheel
-zoom remain package-owned viewport gestures. Pointer capture keeps drag
-completion outside the canvas deterministic. Concrete component targets use
+With `activationModifier: 'shift'`, ordinary primary drag remains package-owned
+pan and Shift+primary drag becomes box selection. The modifier is latched at
+pointer-down; middle-pointer pan and wheel zoom remain package-owned viewport
+gestures. Pointer capture keeps drag completion outside the canvas
+deterministic. Concrete component targets use
 the cell ID plus the stable template `componentId`. Both subscription methods
 return a disposer and `destroy()` clears any disposer the route did not call.
 Do not retain the old host pointer listeners, hit-test mirror, coordinate
