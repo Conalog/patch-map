@@ -10,6 +10,14 @@ import {
   type PatchMapAssetBackendRequest,
   type PatchMapAssetPolicyContext,
 } from '../../src/patch-map/assets';
+import {
+  BUILTIN_IMAGE_SVGS,
+  builtinImageSvg,
+} from '../../src/patch-map/assets/builtin-image-glyphs';
+import {
+  BUILTIN_IMAGE_ALIASES,
+  builtinImageDataUri,
+} from '../../src/patch-map/assets/registration-normalization';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -59,6 +67,26 @@ class FakeAssetBackend implements PatchMapAssetBackend {
 }
 
 describe('PatchMap shared asset runtime', () => {
+  it('owns distinct transparent semantic glyphs instead of square fallback tiles', () => {
+    expect(BUILTIN_IMAGE_ALIASES).toEqual([
+      'object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi',
+    ]);
+    expect(Object.isFrozen(BUILTIN_IMAGE_SVGS)).toBe(true);
+    expect(new Set(Object.values(BUILTIN_IMAGE_SVGS)).size).toBe(BUILTIN_IMAGE_ALIASES.length);
+
+    for (const alias of BUILTIN_IMAGE_ALIASES) {
+      const svg = builtinImageSvg(alias);
+      expect(svg).toContain('viewBox="0 0 32 32"');
+      expect(svg).toContain('stroke="#fff"');
+      expect(svg).not.toContain('<rect x="2" y="2" width="28" height="28"');
+      expect(decodeURIComponent(builtinImageDataUri(alias).split(',', 2)[1] ?? '')).toBe(svg);
+    }
+    expect(() => builtinImageDataUri('unknown')).toThrowError(expect.objectContaining({
+      code: 'INVALID_VALUE',
+      category: 'INVALID_INPUT',
+    }));
+  });
+
   it('registers immutable builtins without allocating resources and rejects conflicts by the closed code', () => {
     const backend = new FakeAssetBackend();
     const runtime = new PatchMapAssetRuntime(backend);

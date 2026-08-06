@@ -65,6 +65,13 @@ image bindings, publishes their resolved textures through the owned frame loop,
 and then reads the canvas. Hosts do not need an asset-status polling loop or a
 sleep before capturing a just-replaced image or newly shown icon.
 
+`PatchMap.mount()` registers the package-owned `object`, `inverter`, `combiner`,
+`device`, `edge`, `loading`, `warning`, and `wifi` image aliases. The glyphs
+have transparent backgrounds and white monochrome artwork so authored icon
+tints and concrete `icon.changes.tint` overlays use the same texture. Registration
+does not eagerly load all eight resources: the active authored or overlay
+source owns the lease, and replacement or `destroy()` releases it.
+
 `update()` remains the default mutation for one logical owner,
 `updateBatch()` is the columnar high-volume form, and `transaction()` is the
 ordered heterogeneous/structural atomic form. There are no parallel `load`,

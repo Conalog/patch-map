@@ -65,3 +65,13 @@ Concrete text `show/text/style`, background fields, and other component
 changes remain unsupported and report
 `PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED`. This is an explicit
 compatibility boundary, not a best-effort drop policy.
+
+## Built-in image compatibility
+
+Root `PatchMap.mount()` always provides the package-owned `object`, `inverter`,
+`combiner`, `device`, `edge`, `loading`, `warning`, and `wifi` aliases. These
+aliases resolve to distinct semantic glyph silhouettes, not generic fallback
+tiles. An authored icon and a concrete icon overlay that name the same alias
+share its texture, including `show`, `tint`, component order, and `zIndex`
+behavior. `await capture.png()` settles a currently visible built-in source;
+replacement and destroy release its lease and Pixi cache ownership.

@@ -60,6 +60,7 @@
     "verify:memory": "node scripts/verification/patch-map-memory.mjs",
     "verify:instance-presentation": "node scripts/verification/patch-map-instance-presentation-browser.mjs",
     "verify:theme": "node scripts/verification/patch-map-theme-browser.mjs",
+    "verify:builtin-assets": "node scripts/verification/patch-map-builtin-assets-browser.mjs",
     "verify:local": "npm test && npm run verify:contract && npm run build:lab && npm run verify:package && npm run verify:lab:all && npm run verify:memory",
     "perf": "node performance/patch-map/run.mjs",
     "perf:quick": "node performance/patch-map/run.mjs --quick",

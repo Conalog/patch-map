@@ -68,6 +68,49 @@ export function collectPackageFailures({
     esm.theme?.customDestroy !== true ||
     esm.theme?.canvasCountAfterDestroy !== 0
   ) failures.push('packed default/custom theme capture or instance lifecycle failed');
+  const builtinAliases = ['object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi'];
+  const builtinSignaturesExpected = {
+    object: '01111110/11100111/11100111/11111111/10011001/11011011/11111111/00111100',
+    inverter: '11111111/11100001/11110111/11111111/10011101/11111101/11111111/11111111',
+    combiner: '11111111/11011111/11111111/11111111/10011001/10011001/10011001/11111111',
+    device: '11111111/10000001/10110111/11100111/10001101/11111111/11111111/00111100',
+    edge: '00000111/00000101/11111111/11110000/11111000/11011111/00000111/00000111',
+    loading: '11111000/00011110/00000111/00000011/00000011/00000111/00001110/00111000',
+    warning: '00011000/00111000/00111100/01111100/01111110/11011010/11011011/11111111',
+    wifi: '01111110/11100111/10111101/01111110/01011010/00111100/00111000/00011000',
+  };
+  const builtinSignatures = new Set();
+  let builtinCaptureValid = JSON.stringify(esm.builtins?.aliases) === JSON.stringify(builtinAliases);
+  for (const alias of builtinAliases) {
+    const authored = esm.builtins?.authored?.[alias];
+    const overlay = esm.builtins?.overlay?.[alias];
+    const signatureDistance = stringDistance(authored?.signature, overlay?.signature);
+    builtinCaptureValid &&=
+      authored?.pixelCount > 80 &&
+      authored?.occupancy < 0.58 &&
+      authored?.signature === builtinSignaturesExpected[alias] &&
+      overlay?.updateStatus === 'committed' &&
+      overlay?.pixelCount > 80 &&
+      overlay?.occupancy < 0.58 &&
+      JSON.stringify(authored?.bounds) === JSON.stringify(overlay?.bounds) &&
+      Math.abs(authored?.occupancy - overlay?.occupancy) < 0.03 &&
+      signatureDistance <= 2 &&
+      esm.builtins?.authoredResolved?.[alias] === true &&
+      esm.builtins?.overlayResolved?.[alias] === true;
+    builtinSignatures.add(authored?.signature);
+  }
+  if (
+    !builtinCaptureValid ||
+    builtinSignatures.size !== builtinAliases.length ||
+    esm.builtins?.hidden?.pixelCount !== 0 ||
+    esm.builtins?.runtimeBeforeDestroy?.resourceCount !== 1 ||
+    esm.builtins?.runtimeBeforeDestroy?.pendingCount !== 0 ||
+    esm.builtins?.runtimeBeforeDestroy?.leaseCount !== 1 ||
+    esm.builtins?.runtimeAfterDestroy?.resourceCount !== 0 ||
+    esm.builtins?.runtimeAfterDestroy?.leaseCount !== 0 ||
+    esm.builtins?.destroy !== true ||
+    esm.builtins?.canvasCountAfterDestroy !== 0
+  ) failures.push('packed builtin authored/overlay glyph or asset lifecycle failed');
   if (esm.backend !== 'webgl') failures.push('packed ESM did not use WebGL');
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.assetRuntimeCount !== 0) failures.push('packed ESM asset status was inconsistent');
@@ -181,6 +224,17 @@ export function collectPackageFailures({
     failures.push('packed browser consumer emitted errors');
   }
   return failures;
+}
+
+function stringDistance(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string' || left.length !== right.length) {
+    return Number.POSITIVE_INFINITY;
+  }
+  let distance = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) distance += 1;
+  }
+  return distance;
 }
 
 export function createPackageConsumerEvidence({

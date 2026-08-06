@@ -690,6 +690,10 @@ export class PatchMap {
       ...(options.assetPolicy === undefined ? {} : { assetPolicy: options.assetPolicy }),
     });
     try {
+      // Root PatchMap consumers receive the stable package catalog without
+      // eagerly acquiring every builtin. Scene reconciliation leases only the
+      // aliases that are actually authored or shown by presentation overlays.
+      engine.registerAssets(instanceId);
       await engine.initialize({
         instanceId,
         target,

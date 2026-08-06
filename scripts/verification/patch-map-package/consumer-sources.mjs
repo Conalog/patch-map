@@ -118,6 +118,7 @@ const assetStatus = map.assets.status();
 const capture = await map.capture.png();
 const directImage = await verifyDirectImageLifecycle();
 const theme = await verifyThemeLifecycle();
+const builtins = await verifyBuiltinGlyphLifecycle();
 const renderObjects = initial.resources.rendering.commandCount;
 let constructorRejected = false;
 try {
@@ -167,6 +168,7 @@ window.__PACKAGE_RESULT__ = {
   captureLength: capture.dataUrl.length,
   directImage,
   theme,
+  builtins,
   internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
   constructorRejected,
   instanceInternalsAbsent,
@@ -360,6 +362,186 @@ async function verifyDirectImageLifecycle() {
     await direct?.destroy().catch(() => undefined);
     directHost.remove();
   }
+}
+
+async function verifyBuiltinGlyphLifecycle() {
+  const aliases = ['object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi'];
+  const builtinHost = document.createElement('div');
+  builtinHost.style.width = '128px';
+  builtinHost.style.height = '128px';
+  document.body.appendChild(builtinHost);
+  const runtime = new PatchMapAssetRuntime();
+  const authoredScene = (alias) => [{
+    type: 'grid',
+    id: 'packed-authored-' + alias,
+    attrs: { x: 24, y: 24 },
+    cells: [[1]],
+    item: {
+      size: { width: 64, height: 64 },
+      components: [{
+        type: 'bar',
+        id: 'bar',
+        source: { type: 'rect', fill: '#ffffff' },
+        size: { width: 64, height: 64 },
+        placement: 'center',
+        tint: '#1d4ed8',
+        animation: false,
+      }, {
+        type: 'icon',
+        id: 'status',
+        source: alias,
+        size: { width: 56, height: 56 },
+        placement: 'center',
+        tint: '#22c55e',
+        show: true,
+        attrs: { zIndex: 10 },
+      }],
+    },
+  }];
+  const overlayScene = [{
+    type: 'grid',
+    id: 'packed-overlay-grid',
+    attrs: { x: 24, y: 24 },
+    cells: [[1]],
+    item: {
+      size: { width: 64, height: 64 },
+      components: [{
+        type: 'bar',
+        id: 'bar',
+        source: { type: 'rect', fill: '#ffffff' },
+        size: { width: 64, height: 64 },
+        placement: 'center',
+        tint: '#1d4ed8',
+        animation: false,
+      }, {
+        type: 'icon',
+        id: 'status',
+        source: 'device',
+        size: { width: 56, height: 56 },
+        placement: 'center',
+        tint: '#ffffff',
+        show: false,
+        attrs: { zIndex: 10 },
+      }],
+    },
+  }];
+  let builtinMap = null;
+  try {
+    builtinMap = await PatchMap.mount({
+      container: builtinHost,
+      instanceId: 'packed-builtin-glyphs',
+      width: 128,
+      height: 128,
+      background: '#000000',
+      data: authoredScene(aliases[0]),
+      assetRuntime: runtime,
+      fit: false,
+      resizeMode: 'manual',
+    });
+    const authored = {};
+    const overlay = {};
+    const authoredResolved = {};
+    const overlayResolved = {};
+    for (const alias of aliases) {
+      if (alias !== aliases[0]) {
+        await builtinMap.data.replaceAsync(authoredScene(alias), { strict: true, fit: false });
+      }
+      authored[alias] = await captureGlyphMask(builtinMap, 'green');
+      const status = builtinMap.assets.status(alias).runtime;
+      authoredResolved[alias] =
+        status.resource?.state === 'resolved' && status.pendingCount === 0;
+    }
+    await builtinMap.data.replaceAsync(overlayScene, { strict: true, fit: false });
+    const hidden = await captureGlyphMask(builtinMap, 'red');
+    for (const alias of aliases) {
+      const update = builtinMap.updateBatch({
+        targets: ['packed-overlay-grid.0.0'],
+        icon: {
+          componentId: 'status',
+          changes: {
+            show: [true],
+            source: [alias],
+            tint: ['#ef4444'],
+          },
+        },
+      });
+      overlay[alias] = {
+        updateStatus: update.status,
+        ...(await captureGlyphMask(builtinMap, 'red')),
+      };
+      const status = builtinMap.assets.status(alias).runtime;
+      overlayResolved[alias] =
+        status.resource?.state === 'resolved' && status.pendingCount === 0;
+    }
+    const runtimeBeforeDestroy = runtime.probe();
+    const destroy = await builtinMap.destroy();
+    builtinMap = null;
+    return {
+      aliases,
+      authored,
+      overlay,
+      authoredResolved,
+      overlayResolved,
+      hidden,
+      runtimeBeforeDestroy,
+      runtimeAfterDestroy: runtime.probe(),
+      destroy,
+      canvasCountAfterDestroy: builtinHost.querySelectorAll('canvas').length,
+    };
+  } finally {
+    await builtinMap?.destroy().catch(() => undefined);
+    builtinHost.remove();
+  }
+}
+
+async function captureGlyphMask(map, color) {
+  const capture = await map.capture.png();
+  const image = new Image();
+  image.src = capture.dataUrl;
+  await image.decode();
+  const canvas = document.createElement('canvas');
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(image, 0, 0);
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const points = [];
+  for (let y = 0; y < canvas.height; y += 1) {
+    for (let x = 0; x < canvas.width; x += 1) {
+      const offset = (y * canvas.width + x) * 4;
+      const red = pixels[offset];
+      const green = pixels[offset + 1];
+      const blue = pixels[offset + 2];
+      const alpha = pixels[offset + 3];
+      const matches = color === 'green'
+        ? green > 110 && green > red * 1.3 && green > blue * 1.3 && alpha > 180
+        : red > 120 && red > green * 1.5 && red > blue * 1.5 && alpha > 180;
+      if (matches) points.push([x, y]);
+    }
+  }
+  if (points.length === 0) return { pixelCount: 0, signature: '', occupancy: 0 };
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const width = maxX - minX + 1;
+  const height = maxY - minY + 1;
+  const buckets = Array.from({ length: 8 }, () => Array(8).fill(0));
+  for (const [x, y] of points) {
+    const bucketX = Math.min(7, Math.floor(((x - minX) * 8) / width));
+    const bucketY = Math.min(7, Math.floor(((y - minY) * 8) / height));
+    buckets[bucketY][bucketX] += 1;
+  }
+  return {
+    pixelCount: points.length,
+    bounds: { minX, maxX, minY, maxY, width, height },
+    occupancy: points.length / (width * height),
+    signature: buckets
+      .map((row) => row.map((count) => count >= 2 ? '1' : '0').join(''))
+      .join('/'),
+  };
 }
 `;
 

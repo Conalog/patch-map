@@ -6,17 +6,15 @@ import {
   type PatchMapAssetRegistration,
   type PatchMapNormalizedAssetRegistration,
 } from './contracts';
+import {
+  BUILTIN_IMAGE_SVGS,
+  builtinImageSvg,
+  type BuiltinImageAlias,
+} from './builtin-image-glyphs';
 
-export const BUILTIN_IMAGE_ALIASES = Object.freeze([
-  'object',
-  'inverter',
-  'combiner',
-  'device',
-  'edge',
-  'loading',
-  'warning',
-  'wifi',
-] as const);
+export const BUILTIN_IMAGE_ALIASES = Object.freeze(
+  Object.keys(BUILTIN_IMAGE_SVGS) as BuiltinImageAlias[],
+);
 
 export const BUILTIN_FONT_WEIGHTS = Object.freeze([300, 400, 500, 600, 700] as const);
 
@@ -172,14 +170,10 @@ function cloneJson(value: unknown, ancestors: WeakSet<object>): unknown {
 }
 
 export function builtinImageDataUri(alias: string): string {
-  const color = stableHash(`builtin-image:${alias}`).slice(0, 6);
-  const svg = [
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">',
-    `<rect x="2" y="2" width="28" height="28" rx="6" fill="#${color}"/>`,
-    '<path d="M9 16h14M16 9v14" stroke="#fff" stroke-width="3" stroke-linecap="round"/>',
-    '</svg>',
-  ].join('');
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  if (!Object.hasOwn(BUILTIN_IMAGE_SVGS, alias)) invalidAsset('unknown builtin image alias');
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+    builtinImageSvg(alias as BuiltinImageAlias),
+  )}`;
 }
 
 export function nonempty(value: unknown, label: string): string {
