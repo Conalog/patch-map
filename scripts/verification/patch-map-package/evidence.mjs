@@ -111,6 +111,11 @@ export function collectPackageFailures({
     esm.builtins?.runtimeBeforeDestroy?.leaseCount !== 7 ||
     esm.builtins?.runtimeAfterDestroy?.resourceCount !== 0 ||
     esm.builtins?.runtimeAfterDestroy?.leaseCount !== 0 ||
+    esm.builtins?.inverter24?.pixelCount !== 152 ||
+    esm.builtins?.inverter24?.bounds?.width !== 18 ||
+    esm.builtins?.inverter24?.bounds?.height !== 18 ||
+    esm.builtins?.inverter24?.signature !== builtinSignaturesExpected.inverter ||
+    esm.builtins?.inverter24Resolved !== true ||
     JSON.stringify(esm.builtins?.injectedAliases) !== JSON.stringify([
       'cloudAlert',
       'inverterFrame',

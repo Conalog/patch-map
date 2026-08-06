@@ -1,6 +1,7 @@
 import { Assets, Cache } from 'pixi.js';
 
 import type { PatchMapAssetDescriptor } from '../semantic/dataset';
+import { stableHash64Hex as stableHash } from '../shared/stable-hash';
 import {
   PatchMapAssetError,
   type PatchMapAssetBackend,
@@ -31,6 +32,7 @@ export function createPatchMapPixiAssetBackend(
   const createObjectURL = options.createObjectURL ?? ((blob: Blob) => URL.createObjectURL(blob));
   const revokeObjectURL = options.revokeObjectURL ?? ((url: string) => URL.revokeObjectURL(url));
   const ownedObjectUrls = new Map<string, string>();
+  const ownedPixiKeys = new Map<string, string>();
   return Object.freeze({
     keyNamespace,
     get(request: PatchMapAssetBackendRequest): unknown {
@@ -50,6 +52,7 @@ export function createPatchMapPixiAssetBackend(
         }));
       }
       const logicalDescriptor = pixiDescriptor(request);
+      const pixiKey = physicalPixiKey(request, logicalDescriptor);
       let objectUrl: string | null = null;
       try {
         const descriptor = await isolatedPixiDescriptor(
@@ -63,10 +66,12 @@ export function createPatchMapPixiAssetBackend(
           objectUrl = descriptor.src;
           ownedObjectUrls.set(request.key, objectUrl);
         }
-        return await Assets.load({
+        const resource = await (Assets.load({
           ...descriptor,
-          alias: request.key,
-        });
+          alias: pixiKey,
+        }) as Promise<unknown>);
+        ownedPixiKeys.set(request.key, pixiKey);
+        return resource;
       } catch (error) {
         if (objectUrl !== null) {
           ownedObjectUrls.delete(request.key);
@@ -77,13 +82,24 @@ export function createPatchMapPixiAssetBackend(
     },
     async unload(key: string): Promise<void> {
       const objectUrl = ownedObjectUrls.get(key);
-      await Assets.unload(key);
+      await Assets.unload(ownedPixiKeys.get(key) ?? key);
+      ownedPixiKeys.delete(key);
       if (objectUrl !== undefined) {
         ownedObjectUrls.delete(key);
         revokeObjectURL(objectUrl);
       }
     },
   });
+}
+
+function physicalPixiKey(
+  request: PatchMapAssetBackendRequest,
+  descriptor: PatchMapAssetDescriptor,
+): string {
+  if (!request.packageOwned || !descriptor.src.startsWith('data:image/svg+xml')) {
+    return request.key;
+  }
+  return `${request.key}:content:${stableHash(descriptor.src)}`;
 }
 
 function externalBorrowKey(request: PatchMapAssetBackendRequest): string | null {

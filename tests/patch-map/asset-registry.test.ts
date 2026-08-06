@@ -573,6 +573,7 @@ describe('PatchMap shared asset runtime', () => {
     });
     const pixiAssets = Assets as unknown as {
       load(descriptor: unknown): Promise<unknown>;
+      unload(id: string): Promise<void>;
     };
     const pixiCache = Cache as unknown as {
       has(id: string): boolean;
@@ -607,6 +608,7 @@ describe('PatchMap shared asset runtime', () => {
 
     const resource = Object.freeze({ texture: 'builtin' });
     const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(resource);
+    const unload = vi.spyOn(pixiAssets, 'unload').mockResolvedValue(undefined);
     const builtinRequest: PatchMapAssetBackendRequest = Object.freeze({
       key: 'patch-map-asset:device',
       descriptor: Object.freeze({ src: 'patch-map-builtin://images/device.svg' }),
@@ -614,15 +616,19 @@ describe('PatchMap shared asset runtime', () => {
       packageOwned: true,
     });
     await expect(backend.load(builtinRequest)).resolves.toBe(resource);
-    const imageLoad = load.mock.calls[0]?.[0];
+    const imageLoad = load.mock.calls[0]?.[0] as { readonly alias?: unknown } | undefined;
     expect(imageLoad).toMatchObject({
-      alias: builtinRequest.key,
       parser: 'svg',
       src: 'blob:core-v2/builtin-1',
     });
+    expect(imageLoad?.alias).toEqual(expect.stringMatching(
+      /^patch-map-asset:device:content:[0-9a-f]{16}$/u,
+    ));
     expect(fetchedSources[0]).toMatch(
       /^data:image\/svg\+xml;charset=utf-8,/,
     );
+    await backend.unload(builtinRequest.key);
+    expect(unload).toHaveBeenCalledWith(imageLoad?.alias);
 
     load.mockClear();
     await backend.load(Object.freeze({
@@ -646,6 +652,41 @@ describe('PatchMap shared asset runtime', () => {
       data: { family: 'Fira Code', weights: ['300', '400', '500', '600', '700'] },
     });
     expect(fetchedSources[1]).not.toContain('patch-map-builtin://');
+  });
+
+  it('binds every builtin Pixi cache alias to its exact SVG content', async () => {
+    const pixiAssets = Assets as unknown as {
+      load(descriptor: unknown): Promise<unknown>;
+      unload(id: string): Promise<void>;
+    };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'glyph' }));
+    const unload = vi.spyOn(pixiAssets, 'unload').mockResolvedValue(undefined);
+    let objectUrlSequence = 0;
+    const backend = createPatchMapPixiAssetBackend({
+      fetchAsset: () => Promise.resolve(new Blob(['fixture'], { type: 'image/svg+xml' })),
+      createObjectURL: () => `blob:patch-map-builtin/${++objectUrlSequence}`,
+      revokeObjectURL: () => undefined,
+    });
+    const physicalKeys: string[] = [];
+
+    for (const alias of BUILTIN_IMAGE_ALIASES) {
+      const request = Object.freeze({
+        key: 'patch-map-asset:reused-physical-alias',
+        descriptor: Object.freeze({ src: `patch-map-builtin://images/${alias}.svg` }),
+        cacheIdentity: `descriptor:${alias}`,
+        packageOwned: true,
+      });
+      await backend.load(request);
+      const descriptor = load.mock.calls.at(-1)?.[0] as { readonly alias?: unknown } | undefined;
+      expect(descriptor?.alias).toEqual(expect.stringMatching(
+        /^patch-map-asset:reused-physical-alias:content:[0-9a-f]{16}$/u,
+      ));
+      physicalKeys.push(String(descriptor?.alias));
+      await backend.unload(request.key);
+      expect(unload).toHaveBeenLastCalledWith(descriptor?.alias);
+    }
+
+    expect(new Set(physicalKeys).size).toBe(BUILTIN_IMAGE_ALIASES.length);
   });
 
   it('does not borrow an unverified external Pixi cache entry under ingestion policy', () => {

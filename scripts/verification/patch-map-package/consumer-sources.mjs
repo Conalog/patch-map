@@ -393,7 +393,7 @@ async function verifyBuiltinGlyphLifecycle() {
   builtinHost.style.height = '128px';
   document.body.appendChild(builtinHost);
   const runtime = new PatchMapAssetRuntime();
-  const authoredScene = (alias) => [{
+  const authoredScene = (alias, iconSize = 56) => [{
     type: 'grid',
     id: 'packed-authored-' + alias,
     attrs: { x: 24, y: 24 },
@@ -412,7 +412,7 @@ async function verifyBuiltinGlyphLifecycle() {
         type: 'icon',
         id: 'status',
         source: alias,
-        size: { width: 56, height: 56 },
+        size: { width: iconSize, height: iconSize },
         placement: 'center',
         tint: '#22c55e',
         show: true,
@@ -475,6 +475,12 @@ async function verifyBuiltinGlyphLifecycle() {
       authoredResolved[alias] =
         status.resource?.state === 'resolved' && status.pendingCount === 0;
     }
+    await builtinMap.data.replaceAsync(authoredScene('inverter', 24), {
+      strict: true,
+      fit: false,
+    });
+    const inverter24 = await captureGlyphMask(builtinMap, 'green');
+    const inverter24Status = builtinMap.assets.status('inverter').runtime;
     await builtinMap.data.replaceAsync(overlayScene, { strict: true, fit: false });
     const hidden = await captureGlyphMask(builtinMap, 'red');
     for (const alias of aliases) {
@@ -512,6 +518,9 @@ async function verifyBuiltinGlyphLifecycle() {
       overlay,
       authoredResolved,
       overlayResolved,
+      inverter24,
+      inverter24Resolved:
+        inverter24Status.resource?.state === 'resolved' && inverter24Status.pendingCount === 0,
       injectedAliases,
       injectedCapture,
       injectedResolved:

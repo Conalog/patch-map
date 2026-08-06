@@ -78,6 +78,9 @@ replacement and destroy release its lease and Pixi cache ownership.
 The package catalog embeds the original transparent 72×72 filled PATCH MAP
 v0.10 SVG artwork for `object`, `inverter`, `combiner`, `device`, `edge`,
 `loading`, `warning`, and `wifi`; white artwork preserves multiplicative tint.
+Its internal Pixi cache identity is content-bound while the public alias stays
+stable, so replacing an exact package artifact cannot reuse a texture produced
+from an older built-in SVG under the same alias.
 Distinct host aliases remain instance registrations and cannot replace a
 reserved built-in alias.
 

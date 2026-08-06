@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { chromium } from 'playwright';
@@ -8,6 +10,16 @@ import { createServer } from 'vite';
 import { parsePatchMapBrowserLaunch } from './patch-map-browser-launch.mjs';
 
 const aliases = ['object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi'];
+const expectedSourceDigests = Object.freeze({
+  object: 'e87c2ae562c7a3941a0c79249aa4c37494ef6222de31e57779d2aaa31d79e4d4',
+  inverter: 'd7527c15410edb84e560a9dcd763edf4914be13494c5a99509c373dff803992d',
+  combiner: '2965f5e1c28bd8779d7f02e967cefa43893d4171046708243b1ab03451ed1ee5',
+  device: 'a11ac1f84f74afb9a2e888d615c79d45312f2194c64510e64e10db7c8eb70680',
+  edge: '46cc54309389013808f40bcbfaa8574fdfec78521b52e3178b3a53eb7f7c3c84',
+  loading: '30645d95659f451df9d847f9dadf4d7a641e421c158c54619d7c817057ea00a5',
+  warning: '8d485f34e7fa054c787a6775a76a7e62f04e18b93f4741dab3137db15e45f1e8',
+  wifi: 'ef2c14fd831d067d559737b7f281be6e550605024a8d9e01a23579e4ccac206c',
+});
 const expectedSignatures = Object.freeze({
   object: '00111100/11101111/11100111/11111101/10011001/11011011/11111111/00111100',
   inverter: '11111111/10000001/11111111/10000001/10000001/10000001/10000001/11111111',
@@ -25,6 +37,18 @@ const expectedOverlaySignatures = Object.freeze({
   warning: '01111110/11100111/10000011/11000011/01100000/01100111/00111111/00011111',
 });
 const root = process.cwd();
+const sourceSvgs = Object.fromEntries(await Promise.all(aliases.map(async (alias) => [
+  alias,
+  await readFile(path.join(root, 'src', 'assets', 'icons', `${alias}.svg`), 'utf8'),
+])));
+const sourceDigests = Object.fromEntries(Object.entries(sourceSvgs).map(([alias, svg]) => [
+  alias,
+  createHash('sha256').update(svg).digest('hex'),
+]));
+const sourceDataUris = Object.fromEntries(Object.entries(sourceSvgs).map(([alias, svg]) => [
+  alias,
+  `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`,
+]));
 const browserLaunch = parsePatchMapBrowserLaunch(process.argv.slice(2));
 let server;
 let browser;
@@ -69,9 +93,11 @@ try {
         } from '${new URL('src/index.ts', baseUrl).href}';
 
         const aliases = ${JSON.stringify(aliases)};
+        const sourceDataUris = ${JSON.stringify(sourceDataUris)};
+        const sourceDigests = ${JSON.stringify(sourceDigests)};
         const host = document.querySelector('#map');
         const runtime = new PatchMapAssetRuntime();
-        const authoredScene = (alias) => [{
+        const authoredScene = (alias, iconSize = 56) => [{
           type: 'grid',
           id: 'authored-' + alias,
           attrs: { x: 24, y: 24 },
@@ -90,7 +116,7 @@ try {
               type: 'icon',
               id: 'status',
               source: alias,
-              size: { width: 56, height: 56 },
+              size: { width: iconSize, height: iconSize },
               placement: 'center',
               tint: '#22c55e',
               show: true,
@@ -126,22 +152,12 @@ try {
           },
         }];
 
-        const analyze = async (map, color) => {
-          const capture = await map.capture.png();
-          const image = new Image();
-          image.src = capture.dataUrl;
-          await image.decode();
-          const canvas = document.createElement('canvas');
-          canvas.width = image.naturalWidth;
-          canvas.height = image.naturalHeight;
-          const captureContext = canvas.getContext('2d', { willReadFrequently: true });
-          captureContext.drawImage(image, 0, 0);
-          const pixels = captureContext.getImageData(0, 0, canvas.width, canvas.height).data;
+        const analyzePixels = (pixels, canvasWidth, canvasHeight, color) => {
           const points = [];
           const colorCounts = new Map();
-          for (let y = 0; y < canvas.height; y += 1) {
-            for (let x = 0; x < canvas.width; x += 1) {
-              const offset = (y * canvas.width + x) * 4;
+          for (let y = 0; y < canvasHeight; y += 1) {
+            for (let x = 0; x < canvasWidth; x += 1) {
+              const offset = (y * canvasWidth + x) * 4;
               const red = pixels[offset];
               const green = pixels[offset + 1];
               const blue = pixels[offset + 2];
@@ -188,6 +204,45 @@ try {
           };
         };
 
+        const analyze = async (map, color) => {
+          const capture = await map.capture.png();
+          const image = new Image();
+          image.src = capture.dataUrl;
+          await image.decode();
+          const canvas = document.createElement('canvas');
+          canvas.width = image.naturalWidth;
+          canvas.height = image.naturalHeight;
+          const captureContext = canvas.getContext('2d', { willReadFrequently: true });
+          captureContext.drawImage(image, 0, 0);
+          return analyzePixels(
+            captureContext.getImageData(0, 0, canvas.width, canvas.height).data,
+            canvas.width,
+            canvas.height,
+            color,
+          );
+        };
+
+        const analyzeSource = async (alias, iconSize) => {
+          const image = new Image();
+          image.src = sourceDataUris[alias];
+          await image.decode();
+          const canvas = document.createElement('canvas');
+          canvas.width = 128;
+          canvas.height = 128;
+          const sourceContext = canvas.getContext('2d', { willReadFrequently: true });
+          const offset = 24 + (64 - iconSize) / 2;
+          sourceContext.drawImage(image, offset, offset, iconSize, iconSize);
+          sourceContext.globalCompositeOperation = 'source-in';
+          sourceContext.fillStyle = '#22c55e';
+          sourceContext.fillRect(0, 0, canvas.width, canvas.height);
+          return analyzePixels(
+            sourceContext.getImageData(0, 0, canvas.width, canvas.height).data,
+            canvas.width,
+            canvas.height,
+            'green',
+          );
+        };
+
         let map = null;
         try {
           map = await PatchMap.mount({
@@ -203,15 +258,22 @@ try {
           });
           const authored = {};
           const overlay = {};
+          const source = {};
           const authoredStatuses = {};
           const overlayStatuses = {};
           for (const alias of aliases) {
+            source[alias] = await analyzeSource(alias, 56);
             if (alias !== aliases[0]) {
               await map.data.replaceAsync(authoredScene(alias), { strict: true, fit: false });
             }
             authored[alias] = await analyze(map, 'green');
             authoredStatuses[alias] = map.assets.status(alias).runtime;
           }
+          await map.data.replaceAsync(authoredScene('inverter', 24), { strict: true, fit: false });
+          const inverter24 = {
+            source: await analyzeSource('inverter', 24),
+            runtime: await analyze(map, 'green'),
+          };
 
           await map.data.replaceAsync(overlayScene, { strict: true, fit: false });
           const hidden = await analyze(map, 'red');
@@ -235,8 +297,11 @@ try {
           map = null;
           window.__PATCH_MAP_BUILTINS__ = {
             aliases,
+            sourceDigests,
+            source,
             authored,
             overlay,
+            inverter24,
             authoredStatuses,
             overlayStatuses,
             hidden,
@@ -270,8 +335,13 @@ try {
   const result = await page.evaluate(() => window.__PATCH_MAP_BUILTINS__);
   const authoredSignatures = new Set();
   for (const alias of aliases) {
+    const source = result.source[alias];
     const authored = result.authored[alias];
     const overlay = result.overlay[alias];
+    assert(result.sourceDigests[alias] === expectedSourceDigests[alias],
+      `${alias} source digest matches PATCH MAP v0.10`, result.sourceDigests);
+    assert(source.pixelCount > 80,
+      `${alias} direct SVG raster has visible pixels`, source);
     assert(authored.pixelCount > 80, `${alias} authored glyph has visible pixels`, {
       authored,
       status: result.authoredStatuses[alias],
@@ -280,6 +350,19 @@ try {
     assert(authored.occupancy < 0.58, `${alias} authored glyph is not a filled square`, authored);
     assert(authored.signature === expectedSignatures[alias],
       `${alias} authored glyph matches its raster fixture`, authored);
+    const sourceDistances = aliases
+      .map((candidate) => ({
+        alias: candidate,
+        distance: signatureDistance(authored.signature, result.source[candidate].signature),
+      }))
+      .sort((left, right) => left.distance - right.distance || left.alias.localeCompare(right.alias));
+    assert(sourceDistances[0]?.alias === alias &&
+      sourceDistances[0].distance < sourceDistances[1].distance,
+    `${alias} authored runtime texture is uniquely closest to its exact source SVG`, {
+      source,
+      authored,
+      sourceDistances,
+    });
     assert(overlay.update.status === 'committed', `${alias} overlay committed`, overlay);
     assert(overlay.pixelCount > 80, `${alias} overlay glyph is above the bar`, overlay);
     assert(overlay.occupancy < 0.58, `${alias} overlay glyph is not a filled square`, overlay);
@@ -291,6 +374,10 @@ try {
       `${alias} overlay capture settled the asset`, result.overlayStatuses[alias]);
     authoredSignatures.add(authored.signature);
   }
+  assert(signatureDistance(
+    result.inverter24.runtime.signature,
+    result.inverter24.source.signature,
+  ) <= 4, '24px inverter runtime texture resolves the exact inverter SVG', result.inverter24);
   assert(result.hidden.pixelCount === 0, 'hidden overlay icon has no red pixels', result.hidden);
   assert(authoredSignatures.size === aliases.length, 'every builtin has a distinct raster silhouette', result);
   assert(result.runtimeBeforeDestroy.resourceCount === 1, 'only active alias remains leased', result);
@@ -319,4 +406,15 @@ try {
 
 function assert(condition, description, details) {
   if (!condition) throw new Error(`${description}: ${JSON.stringify(details)}`);
+}
+
+function signatureDistance(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string' || left.length !== right.length) {
+    return Number.POSITIVE_INFINITY;
+  }
+  let distance = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) distance += 1;
+  }
+  return distance;
 }
