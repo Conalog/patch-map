@@ -35,6 +35,7 @@ import type {
 import type { PatchMapAssetSession } from '../assets';
 import type {
   PatchMapImageSourceKind,
+  ParsePatchMapOptions,
 } from '../contracts';
 import type {
   PatchMapEntityPaintProbe,
@@ -76,6 +77,7 @@ export interface PatchMapSurfaceOptions {
   readonly requireWebGL2?: boolean;
   readonly devtools?: boolean;
   readonly powerPreference: 'high-performance' | 'low-power';
+  readonly parse?: ParsePatchMapOptions;
   readonly assetSession?: PatchMapAssetSession;
   /** Internal bridge from async Pixi/Core invalidation to the product frame owner. */
   readonly requestFrame?: () => void;

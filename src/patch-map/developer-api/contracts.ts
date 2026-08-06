@@ -248,9 +248,14 @@ export interface PatchMapFitOptions {
   readonly targets?: PatchMapTargetsInput;
 }
 
+/** Nested or dot-path PixiJS-compatible color values for one mounted instance. */
+export type PatchMapTheme = Readonly<Record<string, unknown>>;
+
 export interface PatchMapOptions {
   readonly container: string | HTMLElement;
   readonly data?: unknown;
+  /** Partial instance-local overrides of the canonical PatchMap color theme. */
+  readonly theme?: PatchMapTheme;
   readonly instanceId?: string;
   readonly width?: number;
   readonly height?: number;

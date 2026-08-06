@@ -57,6 +57,17 @@ export function collectPackageFailures({
     esm.directImage?.finalResourceCount !== 0 ||
     esm.directImage?.canvasCountAfterDestroy !== 0
   ) failures.push('packed direct-image replace/capture/remount lifecycle failed');
+  if (
+    !(esm.theme?.defaultCapture?.canonicalDefault > 8_000) ||
+    esm.theme?.defaultCapture?.legacyPurple !== 0 ||
+    !(esm.theme?.customCapture?.custom > 8_000) ||
+    !(esm.theme?.isolatedDefaultCapture?.canonicalDefault > 8_000) ||
+    esm.theme?.isolatedDefaultCapture?.custom !== 0 ||
+    esm.theme?.themeImmutable !== true ||
+    esm.theme?.defaultDestroy !== true ||
+    esm.theme?.customDestroy !== true ||
+    esm.theme?.canvasCountAfterDestroy !== 0
+  ) failures.push('packed default/custom theme capture or instance lifecycle failed');
   if (esm.backend !== 'webgl') failures.push('packed ESM did not use WebGL');
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.assetRuntimeCount !== 0) failures.push('packed ESM asset status was inconsistent');

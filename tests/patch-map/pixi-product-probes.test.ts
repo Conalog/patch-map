@@ -203,6 +203,55 @@ function createProbeEngine(): Readonly<{
 }
 
 describe('PatchMap public PixiJS product probes', () => {
+  it('binds one detached, normalized theme to the instance surface', async () => {
+    const { engine, options } = createProbeEngine();
+    const theme = {
+      primary: { default: '#0c73bf', dark: '#063559' },
+      gray: { light: '#9eb3c3' },
+    };
+
+    await engine.initialize({
+      instanceId: 'pixi-theme-probe',
+      width: 800,
+      height: 600,
+      theme,
+    });
+    theme.primary.default = '#ffffff';
+
+    expect(options).toHaveLength(1);
+    expect(options[0]?.parse).toEqual({
+      colors: {
+        'gray.light': '#9eb3c3ff',
+        'primary.dark': '#063559ff',
+        'primary.default': '#0c73bfff',
+      },
+    });
+    expect(Object.isFrozen(options[0]?.parse?.colors)).toBe(true);
+
+    await engine.destroy();
+  });
+
+  it('rejects an invalid theme before allocating a surface', async () => {
+    const { engine, options } = createProbeEngine();
+
+    await expect(Promise.resolve().then(() => engine.initialize({
+      instanceId: 'pixi-invalid-theme-probe',
+      width: 800,
+      height: 600,
+      theme: { primary: { default: [0, Number.NaN, 1] } },
+    }))).rejects.toMatchObject({
+      code: 'INVALID_VALUE',
+      datasetPath: '$.theme.primary.default',
+    });
+    expect(options).toHaveLength(0);
+    expect(engine.snapshot()).toMatchObject({
+      lifecycle: 'new',
+      resources: { canvasCount: 0 },
+    });
+
+    await engine.destroy();
+  });
+
   it('binds a normative WebGL2 request and exposes detached Application/stage facts', async () => {
     const { engine, options } = createProbeEngine();
     await engine.initialize({

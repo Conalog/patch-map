@@ -13,6 +13,8 @@
   next-remount rollback.
 - Added strict ESM/CJS/types, package hygiene, multi-instance, host journey,
   documentation, and digest-bound release verification.
+- Restored the canonical default palette and wired partial, instance-local
+  `PatchMap.mount({ theme })` overrides through authored and overlay rendering.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

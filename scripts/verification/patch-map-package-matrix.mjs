@@ -96,6 +96,7 @@ import {
   type PatchMapDebugSnapshot,
   type PatchMapOptions,
   type PatchMapTargetQuery,
+  type PatchMapTheme,
 } from '${PACKAGE_NAME}';
 import {
   PATCH_MAP_HOST_ADAPTER_CAPABILITIES,
@@ -110,7 +111,12 @@ const mountOptions: PatchMapOptions = {
   container: '#strict-types-only',
   data: [],
   fit: { padding: 24 },
+  theme: {
+    primary: { default: '#0c73bf', dark: '#063559' },
+    gray: { light: '#9eb3c3' },
+  },
 };
+const theme: PatchMapTheme = mountOptions.theme ?? {};
 const targetSelector: PatchMapTargetQuery = {
   within: 'rack-grid',
   componentId: 'usage',
@@ -155,6 +161,7 @@ void [
   Engine,
   highLevelMount,
   mountOptions,
+  theme,
   targetSelector,
   capabilities,
   mount,

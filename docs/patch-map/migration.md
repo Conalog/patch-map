@@ -34,6 +34,7 @@ assets, and cleanup to one `PatchMap` instance.
 | Existing host responsibility | PatchMap replacement | Important cutover rule |
 | --- | --- | --- |
 | create and mount a map | `await PatchMap.mount({ container, data })` | one live `PatchMap` and one canvas per host slot; host sizing and frame ownership default to the package |
+| apply a service color palette | `PatchMap.mount({ ..., theme })` | pass partial nested or dot-path overrides once per instance; omitted keys use canonical defaults |
 | replace PATCH MAP JSON | `data.replace()` or `data.replaceAsync()` | pass the existing v0.10 array directly; use the compatibility materializer only for the one documented legacy object |
 | drive visible frames | automatic after `mount()` | remove the previous host RAF/ticker; explicit publication remains an advanced deterministic seam |
 | find logical objects | `targets.get()` or `targets.query()` | use `{ id, componentId? }`; target sets are detached and revision-bound |
@@ -67,6 +68,10 @@ export async function mountMap(
     instanceId: 'service-map',
     container: host,
     data: input,
+    theme: {
+      primary: { default: '#0c73bf', dark: '#063559' },
+      gray: { light: '#9eb3c3' },
+    },
     fit: { padding: 24 },
   });
 }
@@ -76,6 +81,12 @@ The returned object owns its frame loop and ResizeObserver. The host unmount
 path only needs `await patchMap.destroy()`. For the pinned legacy generic-item
 profile, materialize it before passing `data`; canonical PATCH MAP v0.10 arrays
 are passed directly.
+
+Do not translate theme tokens into direct colors in the host adapter. The
+mount-level `theme` is detached and remains local to that instance, while
+`data.replace()` / `replaceAsync()` and concrete presentation replay continue
+to resolve through the same palette. Invalid theme values reject before a
+canvas or scene is published.
 
 The packaged `minimal`, `dashboard`, `editor`, `report`, and
 [`host-adapter.ts`](../../examples/patch-map/host-adapter.ts) examples all use

@@ -18,6 +18,7 @@ import type {
   PatchMapRevisionStamp,
 } from './lifecycle';
 import type { PatchMapViewportState } from './viewport';
+import type { PatchMapColorTheme } from '../../semantic/color';
 
 export interface PatchMapEngineOptions {
   readonly surfaceFactory?: PatchMapEngineSurfaceFactory;
@@ -30,6 +31,7 @@ export interface PatchMapEngineOptions {
 
 export interface PatchMapInitializeOptions {
   readonly instanceId: string;
+  readonly theme?: PatchMapColorTheme;
   readonly target?: HTMLElement;
   readonly canvas?: HTMLCanvasElement;
   readonly width: number;

@@ -40,6 +40,18 @@ Every promoted artifact must keep one digest across strict TypeScript,
 ESM/CJS, browser examples, the 38 host journeys, package hygiene, and
 lifecycle cleanup evidence.
 
+## Theme compatibility
+
+`PatchMap.mount({ theme })` accepts a partial nested or dot-path palette and
+keeps it instance-local. The canonical defaults include
+`primary.default=#0C73BFFF`, `primary.dark=#083967FF`,
+`primary.accent=#EF4444FF`, `gray.light=#9EB3C3FF`,
+`gray.default=#D9D9D9FF`, `gray.dark=#71717AFF`, `white=#FFFFFFFF`, and
+`black=#1A1A1AFF`. Missing custom keys fall back to those values. Supplied
+values are detached and normalized before rendering, so authored component
+colors and concrete presentation overlays use one palette without changing
+dataset snapshots, history, or semantic hashes.
+
 ## Concrete grid presentation compatibility
 
 The concrete-cell overlay is intentionally narrower than authored component

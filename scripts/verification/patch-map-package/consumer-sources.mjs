@@ -117,6 +117,7 @@ const afterRejectedReplace = map.debug.snapshot();
 const assetStatus = map.assets.status();
 const capture = await map.capture.png();
 const directImage = await verifyDirectImageLifecycle();
+const theme = await verifyThemeLifecycle();
 const renderObjects = initial.resources.rendering.commandCount;
 let constructorRejected = false;
 try {
@@ -165,6 +166,7 @@ window.__PACKAGE_RESULT__ = {
   capturePrefix: capture.dataUrl.slice(0, 22),
   captureLength: capture.dataUrl.length,
   directImage,
+  theme,
   internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
   constructorRejected,
   instanceInternalsAbsent,
@@ -172,6 +174,111 @@ window.__PACKAGE_RESULT__ = {
   destroyed: map.destroyed,
   canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
 };
+
+async function verifyThemeLifecycle() {
+  const defaultHost = document.createElement('div');
+  const customHost = document.createElement('div');
+  for (const host of [defaultHost, customHost]) {
+    host.style.width = '120px';
+    host.style.height = '120px';
+    document.body.appendChild(host);
+  }
+  const scene = (id) => [{
+    type: 'grid',
+    id,
+    cells: [[1]],
+    item: {
+      size: { width: 100, height: 100 },
+      components: [{
+        type: 'bar',
+        id: 'bar',
+        source: { type: 'rect', fill: 'white' },
+        size: { width: 100, height: 100 },
+        placement: 'center',
+        tint: 'primary.default',
+        animation: false,
+      }],
+    },
+  }];
+  const theme = { primary: { default: '#16a34a' } };
+  const themeBefore = JSON.stringify(theme);
+  let defaultMap = null;
+  let customMap = null;
+  try {
+    defaultMap = await PatchMap.mount({
+      container: defaultHost,
+      width: 120,
+      height: 120,
+      background: '#000000',
+      data: scene('packed-default-theme'),
+      fit: false,
+      resizeMode: 'manual',
+    });
+    customMap = await PatchMap.mount({
+      container: customHost,
+      width: 120,
+      height: 120,
+      background: '#000000',
+      theme,
+      data: scene('packed-custom-theme'),
+      fit: false,
+      resizeMode: 'manual',
+    });
+    const defaultCapture = await captureColorCounts(defaultMap);
+    const customCapture = await captureColorCounts(customMap);
+    const isolatedDefaultCapture = await captureColorCounts(defaultMap);
+    const defaultDestroy = await defaultMap.destroy();
+    defaultMap = null;
+    const customDestroy = await customMap.destroy();
+    customMap = null;
+    return {
+      defaultCapture,
+      customCapture,
+      isolatedDefaultCapture,
+      themeImmutable: JSON.stringify(theme) === themeBefore,
+      defaultDestroy,
+      customDestroy,
+      canvasCountAfterDestroy:
+        defaultHost.querySelectorAll('canvas').length +
+        customHost.querySelectorAll('canvas').length,
+    };
+  } finally {
+    await defaultMap?.destroy().catch(() => undefined);
+    await customMap?.destroy().catch(() => undefined);
+    defaultHost.remove();
+    customHost.remove();
+  }
+}
+
+async function captureColorCounts(map) {
+  const capture = await map.capture.png();
+  const image = new Image();
+  image.src = capture.dataUrl;
+  await image.decode();
+  const canvas = document.createElement('canvas');
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(image, 0, 0);
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const count = (red, green, blue) => {
+    let matches = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      if (
+        Math.abs(pixels[index] - red) <= 6 &&
+        Math.abs(pixels[index + 1] - green) <= 6 &&
+        Math.abs(pixels[index + 2] - blue) <= 6 &&
+        pixels[index + 3] >= 245
+      ) matches += 1;
+    }
+    return matches;
+  };
+  return {
+    canonicalDefault: count(12, 115, 191),
+    legacyPurple: count(79, 70, 229),
+    custom: count(22, 163, 74),
+  };
+}
 
 async function verifyDirectImageLifecycle() {
   const directHost = document.createElement('div');

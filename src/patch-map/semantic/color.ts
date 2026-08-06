@@ -7,13 +7,20 @@ export type PatchMapCanonicalRgba = `#${string}`;
 export type PatchMapNormalizedRgba = readonly [number, number, number, number];
 export type PatchMapByteRgba = readonly [number, number, number, number];
 export type PatchMapColorTheme = Readonly<Record<string, unknown>>;
+export type PatchMapNormalizedColorTheme = Readonly<
+  Record<string, PatchMapCanonicalRgba>
+>;
 
-export const PATCH_MAP_DEFAULT_COLOR_THEME: PatchMapColorTheme = Object.freeze({
+export const PATCH_MAP_DEFAULT_COLOR_THEME: PatchMapNormalizedColorTheme = Object.freeze({
   white: '#ffffffff',
-  black: '#000000ff',
+  black: '#1a1a1aff',
   transparent: '#00000000',
-  'primary.default': '#4f46e5ff',
-  'primary.dark': '#312e81ff',
+  'primary.default': '#0c73bfff',
+  'primary.dark': '#083967ff',
+  'primary.accent': '#ef4444ff',
+  'gray.light': '#9eb3c3ff',
+  'gray.default': '#d9d9d9ff',
+  'gray.dark': '#71717aff',
 });
 
 export type PatchMapResolvedColor =
@@ -111,6 +118,17 @@ export function createPatchMapColorResolver(
   theme: PatchMapColorTheme = Object.freeze({}),
 ): PatchMapColorResolver {
   return new PatchMapColorResolver(theme);
+}
+
+/** Validate, detach, flatten, and canonicalize one public instance theme. */
+export function normalizePatchMapColorTheme(
+  theme: PatchMapColorTheme,
+  inputPath = '$.theme',
+): PatchMapNormalizedColorTheme {
+  const entries = buildThemeEntries(theme, inputPath);
+  return Object.freeze(Object.fromEntries(
+    [...entries].map(([key, channels]) => [key, channels.rgba]),
+  ));
 }
 
 function buildThemeEntries(

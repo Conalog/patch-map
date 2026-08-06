@@ -51,6 +51,10 @@ const data = [{
 const patchMap = await PatchMap.mount({
   container: '#map',
   data,
+  theme: {
+    primary: { default: '#0c73bf', dark: '#063559' },
+    gray: { light: '#9eb3c3' },
+  },
   fit: { padding: 24 },
 });
 
@@ -67,6 +71,11 @@ await patchMap.destroy();
 animation frame loop, observes the host size, fits the initial data, and
 releases those resources in `destroy()`. Use `backend: 'webgpu'` only for an
 explicit experimental session.
+
+`theme` is a partial, instance-local palette override. Nested objects and
+dot-path keys are both accepted; omitted keys fall back to PatchMap's
+canonical default palette. Theme tokens are shared by authored rect, bar,
+icon, and text tint paths and by concrete bar/icon presentation overlays.
 
 For repeated grid-instance updates, query one semantic target set and reuse it
 without JSONPath or per-update scene scans:

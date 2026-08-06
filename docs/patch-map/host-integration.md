@@ -11,6 +11,11 @@ contain exactly one active PatchMap canvas. Multiple engines may share one `Patc
 each engine keeps its own asset session and releases only its leases at
 destroy. Do not call PixiJS global cache destruction from an instance.
 
+Pass service palette overrides through the same mount call as `theme`. Keep
+the object partial and instance-local; PatchMap flattens nested palette groups,
+normalizes their values, and applies canonical defaults for omitted keys. Do
+not pre-resolve theme tokens in the adapter or mutate the caller dataset.
+
 An external URL must pass the package ingestion policy, including configured
 origin, response, MIME, size, and byte validation, before the engine admits its
 texture. An existing Pixi global-cache entry with the same URL is not evidence

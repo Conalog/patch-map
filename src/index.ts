@@ -93,6 +93,7 @@ export type {
   PatchMapTargetSet,
   PatchMapTargetsApi,
   PatchMapTargetsInput,
+  PatchMapTheme,
   PatchMapTextUpdate,
   PatchMapTextUpdateColumns,
   PatchMapTransactionOperation,

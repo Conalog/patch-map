@@ -2,7 +2,11 @@ import { Color } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
 import fixtureCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixtures.v1.json';
-import { createPatchMapColorResolver } from '../../src/patch-map/semantic/color';
+import {
+  createPatchMapColorResolver,
+  normalizePatchMapColorTheme,
+  PATCH_MAP_DEFAULT_COLOR_THEME,
+} from '../../src/patch-map/semantic/color';
 import type { PatchMapColorResolutionError } from '../../src/patch-map/semantic/color';
 
 interface Dat004Params {
@@ -23,6 +27,34 @@ if (!dat004Case) throw new Error('approved DAT-004 fixture is unavailable');
 const approved = dat004Case.setup.params as unknown as Dat004Params;
 
 describe('PatchMap PixiJS color resolution', () => {
+  it('matches the canonical default palette and flattens partial public overrides', () => {
+    expect(PATCH_MAP_DEFAULT_COLOR_THEME).toEqual({
+      white: '#ffffffff',
+      black: '#1a1a1aff',
+      transparent: '#00000000',
+      'primary.default': '#0c73bfff',
+      'primary.dark': '#083967ff',
+      'primary.accent': '#ef4444ff',
+      'gray.light': '#9eb3c3ff',
+      'gray.default': '#d9d9d9ff',
+      'gray.dark': '#71717aff',
+    });
+
+    const theme = {
+      primary: { default: '#123456', dark: '#654321' },
+      gray: { light: '#abcdef80' },
+    };
+    const normalized = normalizePatchMapColorTheme(theme);
+    theme.primary.default = '#ffffff';
+
+    expect(normalized).toEqual({
+      'gray.light': '#abcdef80',
+      'primary.dark': '#654321ff',
+      'primary.default': '#123456ff',
+    });
+    expect(Object.isFrozen(normalized)).toBe(true);
+  });
+
   it('resolves approved direct inputs and isolates active themes by instance', () => {
     const themeA = structuredClone(approved.themeA);
     const themeB = structuredClone(approved.themeB);

@@ -154,6 +154,7 @@ export type {
   PatchMapSurfaceViewportInput,
 } from './engine/contracts';
 import { createPixiSurface } from './engine/pixi-surface';
+import { normalizePatchMapColorTheme } from './semantic/color';
 export { PixiEngineSurface } from './engine/pixi-surface';
 export {
   buildPatchMapRelationHitIndex,
@@ -694,6 +695,7 @@ export class PatchMap {
         target,
         width,
         height,
+        ...(options.theme === undefined ? {} : { theme: options.theme }),
         ...(options.pixelRatio === undefined ? {} : { pixelRatio: options.pixelRatio }),
         ...(options.antialias === undefined ? {} : { antialias: options.antialias }),
         ...(options.background === undefined ? {} : { background: options.background }),
@@ -1169,6 +1171,9 @@ export class PatchMap {
       );
     }
     validateInitializeOptions(options);
+    const parseOptions = options.theme === undefined
+      ? undefined
+      : Object.freeze({ colors: normalizePatchMapColorTheme(options.theme) });
     if (!this.operations.isInstanceCompatible(options.instanceId)) {
       return Promise.reject(
         this.operationError('CONFLICT', 'CONFLICT', 'initialize', false),
@@ -1203,6 +1208,7 @@ export class PatchMap {
       requireWebGL2: backend === 'webgl2',
       devtools: options.devtools ?? false,
       powerPreference: options.powerPreference ?? 'high-performance',
+      ...(parseOptions === undefined ? {} : { parse: parseOptions }),
       assetSession,
       requestFrame: () => this.requestManagedFrameLoop(),
       onTerminalFailure: (error) => this.handleSurfaceTerminalFailure(error),

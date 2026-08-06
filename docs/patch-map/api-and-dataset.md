@@ -18,6 +18,10 @@ The normal lifecycle is intentionally short:
 const patchMap = await PatchMap.mount({
   container: '#map',
   data,
+  theme: {
+    primary: { default: '#0c73bf', dark: '#063559' },
+    gray: { light: '#9eb3c3' },
+  },
   fit: { padding: 24 },
 });
 
@@ -28,6 +32,15 @@ patchMap.update({
 
 await patchMap.destroy();
 ```
+
+`theme` is a partial, instance-local override. It accepts nested keys as shown
+above or equivalent dot-path keys such as `'primary.default'`. Every supplied
+value is validated, detached, and normalized before renderer allocation; an
+invalid entry rejects the mount atomically at its `$.theme...` path. Missing
+keys fall back to the canonical palette, including `primary.default` =
+`#0C73BFFF`, `primary.dark` = `#083967FF`, and `gray.light` = `#9EB3C3FF`.
+The same active palette resolves authored rect fills, bar/icon/text tints, and
+concrete bar/icon overlay tints after replacement or replay.
 
 ## Public naming map
 
