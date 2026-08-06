@@ -70,21 +70,16 @@ export function collectPackageFailures({
   ) failures.push('packed default/custom theme capture or instance lifecycle failed');
   const builtinAliases = ['object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi'];
   const builtinSignaturesExpected = {
-    object: '00111100/11101111/11100111/11111101/10011001/11011011/11111111/00111100',
-    inverter: '11111111/10000001/11111111/10000001/10000001/10000001/10000001/11111111',
-    combiner: '11011011/11011011/11111111/11111111/11011011/11111111/11011011/11011011',
-    device: '11111110/11111110/10001101/10000111/10001111/10000111/11111110/11111110',
-    edge: '00011111/00011111/00001110/00000100/11111111/11111111/11111101/11111111',
-    loading: '01111100/11100011/10011011/10011001/10011101/11001111/11100110/01111100',
-    warning: '01111110/11000111/10000001/11000011/01100101/01100111/00111111/00011111',
+    object: '00111100/11111111/11100111/11111111/10011001/11011011/11111111/00111100',
+    inverter: '11111111/10000001/11111111/11111111/10000001/10000001/10000001/11111111',
+    combiner: '11011011/11011011/11111111/11111111/11111111/11111111/11011011/11011011',
+    device: '11111110/11111110/10001111/10001111/10001111/10001111/11111110/11111110',
+    edge: '00011111/00011111/00001110/00000100/11111111/11111111/11111111/11111111',
+    loading: '01111100/11100111/11011011/10011001/10011101/11001111/11100111/01111100',
+    warning: '01111110/11100111/10000001/11000011/01100000/01100111/00111111/00011111',
     wifi: '01111110/11111111/11011011/01111110/01111110/00011000/00011000/00011000',
   };
-  const builtinOverlaySignaturesExpected = {
-    ...builtinSignaturesExpected,
-    device: '11111110/11111110/10001101/10001111/10001111/10000111/11111110/11111110',
-    loading: '01111100/11100011/11011011/10011001/10011101/11001111/11100110/01111100',
-    warning: '01111110/11100111/10000011/11000011/01100000/01100111/00111111/00011111',
-  };
+  const builtinOverlaySignaturesExpected = builtinSignaturesExpected;
   const builtinSignatures = new Set();
   let builtinCaptureValid = JSON.stringify(esm.builtins?.aliases) === JSON.stringify(builtinAliases);
   for (const alias of builtinAliases) {
@@ -93,10 +88,12 @@ export function collectPackageFailures({
     builtinCaptureValid &&=
       authored?.pixelCount > 80 &&
       authored?.occupancy < 0.58 &&
+      Math.max(authored?.bounds?.width ?? 0, authored?.bounds?.height ?? 0) === 56 &&
       authored?.signature === builtinSignaturesExpected[alias] &&
       overlay?.updateStatus === 'committed' &&
       overlay?.pixelCount > 80 &&
       overlay?.occupancy < 0.58 &&
+      Math.max(overlay?.bounds?.width ?? 0, overlay?.bounds?.height ?? 0) === 56 &&
       overlay?.signature === builtinOverlaySignaturesExpected[alias] &&
       esm.builtins?.authoredResolved?.[alias] === true &&
       esm.builtins?.overlayResolved?.[alias] === true;
@@ -111,10 +108,11 @@ export function collectPackageFailures({
     esm.builtins?.runtimeBeforeDestroy?.leaseCount !== 7 ||
     esm.builtins?.runtimeAfterDestroy?.resourceCount !== 0 ||
     esm.builtins?.runtimeAfterDestroy?.leaseCount !== 0 ||
-    esm.builtins?.inverter24?.pixelCount !== 152 ||
-    esm.builtins?.inverter24?.bounds?.width !== 18 ||
-    esm.builtins?.inverter24?.bounds?.height !== 18 ||
-    esm.builtins?.inverter24?.signature !== builtinSignaturesExpected.inverter ||
+    esm.builtins?.inverter24?.pixelCount !== 284 ||
+    esm.builtins?.inverter24?.bounds?.width !== 24 ||
+    esm.builtins?.inverter24?.bounds?.height !== 24 ||
+    esm.builtins?.inverter24?.signature !==
+      '11111111/10000001/11111111/10000001/10000001/10000001/10000001/11111111' ||
     esm.builtins?.inverter24Resolved !== true ||
     JSON.stringify(esm.builtins?.injectedAliases) !== JSON.stringify([
       'cloudAlert',
@@ -126,6 +124,8 @@ export function collectPackageFailures({
       'wiringTertiary',
     ]) ||
     !(esm.builtins?.injectedCapture?.pixelCount > 80) ||
+    esm.builtins?.injectedCapture?.bounds?.width !== 20 ||
+    esm.builtins?.injectedCapture?.bounds?.height !== 20 ||
     esm.builtins?.injectedResolved !== true ||
     esm.builtins?.destroy !== true ||
     esm.builtins?.canvasCountAfterDestroy !== 0

@@ -412,7 +412,7 @@ async function verifyBuiltinGlyphLifecycle() {
         type: 'icon',
         id: 'status',
         source: alias,
-        size: { width: iconSize, height: iconSize },
+        size: iconSize,
         placement: 'center',
         tint: '#22c55e',
         show: true,
@@ -503,7 +503,7 @@ async function verifyBuiltinGlyphLifecycle() {
       overlayResolved[alias] =
         status.resource?.state === 'resolved' && status.pendingCount === 0;
     }
-    await builtinMap.data.replaceAsync(authoredScene('inverterFrame'), {
+    await builtinMap.data.replaceAsync(authoredScene('inverterFrame', 24), {
       strict: true,
       fit: false,
     });

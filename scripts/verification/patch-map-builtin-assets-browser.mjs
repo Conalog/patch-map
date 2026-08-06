@@ -21,20 +21,20 @@ const expectedSourceDigests = Object.freeze({
   wifi: 'ef2c14fd831d067d559737b7f281be6e550605024a8d9e01a23579e4ccac206c',
 });
 const expectedSignatures = Object.freeze({
-  object: '00111100/11101111/11100111/11111101/10011001/11011011/11111111/00111100',
-  inverter: '11111111/10000001/11111111/10000001/10000001/10000001/10000001/11111111',
-  combiner: '11011011/11011011/11111111/11111111/11011011/11111111/11011011/11011011',
-  device: '11111110/11111110/10001101/10000111/10001111/10000111/11111110/11111110',
-  edge: '00011111/00011111/00001110/00000100/11111111/11111111/11111101/11111111',
-  loading: '01111100/11100011/10011011/10011001/10011101/11001111/11100110/01111100',
-  warning: '01111110/11000111/10000001/11000011/01100101/01100111/00111111/00011111',
+  object: '00111100/11111111/11100111/11111111/10011001/11011011/11111111/00111100',
+  inverter: '11111111/10000001/11111111/11111111/10000001/10000001/10000001/11111111',
+  combiner: '11011011/11011011/11111111/11111111/11111111/11111111/11011011/11011011',
+  device: '11111110/11111110/10001111/10001111/10001111/10001111/11111110/11111110',
+  edge: '00011111/00011111/00001110/00000100/11111111/11111111/11111111/11111111',
+  loading: '01111100/11100111/11011011/10011001/10011101/11001111/11100111/01111100',
+  warning: '01111110/11100111/10000001/11000011/01100000/01100111/00111111/00011111',
   wifi: '01111110/11111111/11011011/01111110/01111110/00011000/00011000/00011000',
 });
 const expectedOverlaySignatures = Object.freeze({
   ...expectedSignatures,
-  device: '11111110/11111110/10001101/10001111/10001111/10000111/11111110/11111110',
-  loading: '01111100/11100011/11011011/10011001/10011101/11001111/11100110/01111100',
-  warning: '01111110/11100111/10000011/11000011/01100000/01100111/00111111/00011111',
+  device: '11111110/11111110/10001111/10001111/10001111/10001111/11111110/11111110',
+  loading: '01111100/11100111/11011011/10011001/10011101/11001111/11100111/01111100',
+  warning: '01111110/11100111/10000001/11000011/01100000/01100111/00111111/00011111',
 });
 const root = process.cwd();
 const sourceSvgs = Object.fromEntries(await Promise.all(aliases.map(async (alias) => [
@@ -91,10 +91,17 @@ try {
           PatchMap,
           PatchMapAssetRuntime,
         } from '${new URL('src/index.ts', baseUrl).href}';
+        import {
+          builtinImageRuntimeSvg,
+        } from '${new URL('src/patch-map/assets/builtin-image-glyphs.ts', baseUrl).href}';
 
         const aliases = ${JSON.stringify(aliases)};
         const sourceDataUris = ${JSON.stringify(sourceDataUris)};
         const sourceDigests = ${JSON.stringify(sourceDigests)};
+        const runtimeSourceDataUris = Object.fromEntries(aliases.map((alias) => [
+          alias,
+          'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(builtinImageRuntimeSvg(alias)),
+        ]));
         const host = document.querySelector('#map');
         const runtime = new PatchMapAssetRuntime();
         const authoredScene = (alias, iconSize = 56) => [{
@@ -116,7 +123,7 @@ try {
               type: 'icon',
               id: 'status',
               source: alias,
-              size: { width: iconSize, height: iconSize },
+              size: iconSize,
               placement: 'center',
               tint: '#22c55e',
               show: true,
@@ -222,9 +229,9 @@ try {
           );
         };
 
-        const analyzeSource = async (alias, iconSize) => {
+        const analyzeSource = async (source, iconSize) => {
           const image = new Image();
-          image.src = sourceDataUris[alias];
+          image.src = source;
           await image.decode();
           const canvas = document.createElement('canvas');
           canvas.width = 128;
@@ -252,6 +259,11 @@ try {
             height: 128,
             background: '#000000',
             data: authoredScene(aliases[0]),
+            assets: [{
+              alias: 'inverterFrame',
+              descriptor: sourceDataUris.inverter,
+            }],
+            assetPolicy: () => undefined,
             assetRuntime: runtime,
             fit: false,
             resizeMode: 'manual',
@@ -259,10 +271,12 @@ try {
           const authored = {};
           const overlay = {};
           const source = {};
+          const runtimeSource = {};
           const authoredStatuses = {};
           const overlayStatuses = {};
           for (const alias of aliases) {
-            source[alias] = await analyzeSource(alias, 56);
+            source[alias] = await analyzeSource(sourceDataUris[alias], 56);
+            runtimeSource[alias] = await analyzeSource(runtimeSourceDataUris[alias], 56);
             if (alias !== aliases[0]) {
               await map.data.replaceAsync(authoredScene(alias), { strict: true, fit: false });
             }
@@ -271,8 +285,17 @@ try {
           }
           await map.data.replaceAsync(authoredScene('inverter', 24), { strict: true, fit: false });
           const inverter24 = {
-            source: await analyzeSource('inverter', 24),
+            source: await analyzeSource(sourceDataUris.inverter, 24),
+            runtimeSource: await analyzeSource(runtimeSourceDataUris.inverter, 24),
             runtime: await analyze(map, 'green'),
+          };
+          await map.data.replaceAsync(authoredScene('inverterFrame', 24), {
+            strict: true,
+            fit: false,
+          });
+          const injectedInverterFrame24 = {
+            runtime: await analyze(map, 'green'),
+            status: map.assets.status('inverterFrame').runtime,
           };
 
           await map.data.replaceAsync(overlayScene, { strict: true, fit: false });
@@ -299,9 +322,11 @@ try {
             aliases,
             sourceDigests,
             source,
+            runtimeSource,
             authored,
             overlay,
             inverter24,
+            injectedInverterFrame24,
             authoredStatuses,
             overlayStatuses,
             hidden,
@@ -336,12 +361,17 @@ try {
   const authoredSignatures = new Set();
   for (const alias of aliases) {
     const source = result.source[alias];
+    const runtimeSource = result.runtimeSource[alias];
     const authored = result.authored[alias];
     const overlay = result.overlay[alias];
     assert(result.sourceDigests[alias] === expectedSourceDigests[alias],
       `${alias} source digest matches PATCH MAP v0.10`, result.sourceDigests);
     assert(source.pixelCount > 80,
       `${alias} direct SVG raster has visible pixels`, source);
+    assert(Math.max(source.bounds?.width ?? 0, source.bounds?.height ?? 0) < 56,
+      `${alias} original 72x72 source retains outer whitespace`, source);
+    assert(Math.max(runtimeSource.bounds?.width ?? 0, runtimeSource.bounds?.height ?? 0) === 56,
+      `${alias} fitted runtime source fills its public maximum axis`, runtimeSource);
     assert(authored.pixelCount > 80, `${alias} authored glyph has visible pixels`, {
       authored,
       status: result.authoredStatuses[alias],
@@ -353,13 +383,14 @@ try {
     const sourceDistances = aliases
       .map((candidate) => ({
         alias: candidate,
-        distance: signatureDistance(authored.signature, result.source[candidate].signature),
+        distance: signatureDistance(authored.signature, result.runtimeSource[candidate].signature),
       }))
       .sort((left, right) => left.distance - right.distance || left.alias.localeCompare(right.alias));
     assert(sourceDistances[0]?.alias === alias &&
       sourceDistances[0].distance < sourceDistances[1].distance,
-    `${alias} authored runtime texture is uniquely closest to its exact source SVG`, {
+    `${alias} authored runtime texture is uniquely closest to its fitted source SVG`, {
       source,
+      runtimeSource,
       authored,
       sourceDistances,
     });
@@ -376,13 +407,27 @@ try {
   }
   assert(signatureDistance(
     result.inverter24.runtime.signature,
-    result.inverter24.source.signature,
-  ) <= 4, '24px inverter runtime texture resolves the exact inverter SVG', result.inverter24);
+    result.inverter24.runtimeSource.signature,
+  ) <= 4, '24px inverter runtime texture resolves the fitted inverter SVG', result.inverter24);
+  assert(result.inverter24.runtime.bounds?.width === 24 &&
+    result.inverter24.runtime.bounds?.height === 24,
+  '24px builtin inverter visible bounds fill the public size', result.inverter24);
+  assert(result.inverter24.source.bounds?.width === 18 &&
+    result.inverter24.source.bounds?.height === 18,
+  'unmodified 72x72 source retains its original whitespace', result.inverter24);
+  assert(result.injectedInverterFrame24.runtime.bounds?.width === 18 &&
+    result.injectedInverterFrame24.runtime.bounds?.height === 18 &&
+    result.injectedInverterFrame24.runtime.signature === result.inverter24.source.signature,
+  'host-injected SVG sizing remains untrimmed', result.injectedInverterFrame24);
+  assert(result.injectedInverterFrame24.status.resource?.state === 'resolved',
+    'host-injected SVG capture settles the asset', result.injectedInverterFrame24);
   assert(result.hidden.pixelCount === 0, 'hidden overlay icon has no red pixels', result.hidden);
   assert(authoredSignatures.size === aliases.length, 'every builtin has a distinct raster silhouette', result);
-  assert(result.runtimeBeforeDestroy.resourceCount === 1, 'only active alias remains leased', result);
+  assert(result.runtimeBeforeDestroy.resourceCount === 2,
+    'active builtin plus registered host alias remain leased', result);
   assert(result.runtimeBeforeDestroy.pendingCount === 0, 'capture leaves no pending assets', result);
-  assert(result.runtimeBeforeDestroy.leaseCount === 1, 'active alias has one lease', result);
+  assert(result.runtimeBeforeDestroy.leaseCount === 2,
+    'active builtin and host alias each have one lease', result);
   assert(result.runtimeAfterDestroy.resourceCount === 0, 'destroy releases builtin texture', result);
   assert(result.runtimeAfterDestroy.leaseCount === 0, 'destroy releases builtin lease', result);
   assert(result.destroy === true && result.canvasCountAfterDestroy === 0,

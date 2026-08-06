@@ -81,6 +81,11 @@ v0.10 SVG artwork for `object`, `inverter`, `combiner`, `device`, `edge`,
 Its internal Pixi cache identity is content-bound while the public alias stays
 stable, so replacing an exact package artifact cannot reuse a texture produced
 from an older built-in SVG under the same alias.
+The package derives a square, artwork-fitted runtime view box for each built-in
+without changing the original SVG file or its digest. This makes a built-in
+icon's public `size` describe its visible maximum axis while preserving its
+aspect ratio. Direct URLs and host-registered aliases retain their authored
+canvas and view-box sizing; they are never implicitly trimmed.
 Distinct host aliases remain instance registrations and cannot replace a
 reserved built-in alias.
 

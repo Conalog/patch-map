@@ -8,7 +8,7 @@ import {
 } from './contracts';
 import {
   BUILTIN_IMAGE_SVGS,
-  builtinImageSvg,
+  builtinImageRuntimeSvg,
   type BuiltinImageAlias,
 } from './builtin-image-glyphs';
 
@@ -172,7 +172,7 @@ function cloneJson(value: unknown, ancestors: WeakSet<object>): unknown {
 export function builtinImageDataUri(alias: string): string {
   if (!Object.hasOwn(BUILTIN_IMAGE_SVGS, alias)) invalidAsset('unknown builtin image alias');
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-    builtinImageSvg(alias as BuiltinImageAlias),
+    builtinImageRuntimeSvg(alias as BuiltinImageAlias),
   )}`;
 }
 

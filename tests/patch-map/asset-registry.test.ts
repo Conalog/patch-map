@@ -13,7 +13,9 @@ import {
   type PatchMapAssetPolicyContext,
 } from '../../src/patch-map/assets';
 import {
+  BUILTIN_IMAGE_RUNTIME_VIEW_BOXES,
   BUILTIN_IMAGE_SVGS,
+  builtinImageRuntimeSvg,
   builtinImageSvg,
 } from '../../src/patch-map/assets/builtin-image-glyphs';
 import {
@@ -30,6 +32,16 @@ const PATCH_MAP_V010_BUILTIN_SHA256 = Object.freeze({
   loading: '30645d95659f451df9d847f9dadf4d7a641e421c158c54619d7c817057ea00a5',
   warning: '8d485f34e7fa054c787a6775a76a7e62f04e18b93f4741dab3137db15e45f1e8',
   wifi: 'ef2c14fd831d067d559737b7f281be6e550605024a8d9e01a23579e4ccac206c',
+});
+const PATCH_MAP_BUILTIN_RUNTIME_VIEW_BOXES = Object.freeze({
+  object: [6, 6, 60, 60],
+  inverter: [9, 9, 54, 54],
+  combiner: [6, 6, 60, 60],
+  device: [6, 6, 60, 60],
+  edge: [7.475, 7, 57, 57],
+  loading: [6, 5.8722, 60, 60],
+  warning: [3, 3.075, 66.375, 66.375],
+  wifi: [1.8711, 3.3711, 68.2578, 68.2578],
 });
 
 function deferred<T>() {
@@ -86,16 +98,21 @@ describe('PatchMap shared asset runtime', () => {
     ]);
     expect(Object.isFrozen(BUILTIN_IMAGE_SVGS)).toBe(true);
     expect(new Set(Object.values(BUILTIN_IMAGE_SVGS)).size).toBe(BUILTIN_IMAGE_ALIASES.length);
+    expect(BUILTIN_IMAGE_RUNTIME_VIEW_BOXES).toEqual(PATCH_MAP_BUILTIN_RUNTIME_VIEW_BOXES);
 
     for (const alias of BUILTIN_IMAGE_ALIASES) {
       const svg = builtinImageSvg(alias);
+      const runtimeSvg = builtinImageRuntimeSvg(alias);
+      const runtimeViewBox = PATCH_MAP_BUILTIN_RUNTIME_VIEW_BOXES[alias].join(' ');
       expect(svg).toContain('width="72" height="72" viewBox="0 0 72 72"');
       expect(svg).toMatch(/fill="#(?:FFF|FFFFFF)"/u);
       expect(svg).not.toContain('<rect');
       expect(createHash('sha256').update(svg).digest('hex')).toBe(
         PATCH_MAP_V010_BUILTIN_SHA256[alias],
       );
-      expect(decodeURIComponent(builtinImageDataUri(alias).split(',', 2)[1] ?? '')).toBe(svg);
+      expect(runtimeSvg).toContain(`width="72" height="72" viewBox="${runtimeViewBox}"`);
+      expect(runtimeSvg.replace(`viewBox="${runtimeViewBox}"`, 'viewBox="0 0 72 72"')).toBe(svg);
+      expect(decodeURIComponent(builtinImageDataUri(alias).split(',', 2)[1] ?? '')).toBe(runtimeSvg);
     }
     expect(() => builtinImageDataUri('unknown')).toThrowError(expect.objectContaining({
       code: 'INVALID_VALUE',
@@ -627,6 +644,9 @@ describe('PatchMap shared asset runtime', () => {
     expect(fetchedSources[0]).toMatch(
       /^data:image\/svg\+xml;charset=utf-8,/,
     );
+    expect(decodeURIComponent(fetchedSources[0]?.split(',', 2)[1] ?? '')).toContain(
+      'viewBox="6 6 60 60"',
+    );
     await backend.unload(builtinRequest.key);
     expect(unload).toHaveBeenCalledWith(imageLoad?.alias);
 
@@ -652,6 +672,25 @@ describe('PatchMap shared asset runtime', () => {
       data: { family: 'Fira Code', weights: ['300', '400', '500', '600', '700'] },
     });
     expect(fetchedSources[1]).not.toContain('patch-map-builtin://');
+
+    load.mockClear();
+    const rawHostSvg = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+      builtinImageSvg('inverter'),
+    )}`;
+    const hostRequest: PatchMapAssetBackendRequest = Object.freeze({
+      key: 'patch-map-asset:host-inverter-frame',
+      descriptor: Object.freeze({ src: rawHostSvg }),
+      cacheIdentity: 'descriptor:host-inverter-frame',
+      packageOwned: false,
+    });
+    await backend.load(hostRequest);
+    expect(fetchedSources[2]).toBe(rawHostSvg);
+    expect(load.mock.calls[0]?.[0]).toMatchObject({
+      alias: hostRequest.key,
+      src: 'blob:core-v2/builtin-3',
+    });
+    await backend.unload(hostRequest.key);
+    expect(unload).toHaveBeenLastCalledWith(hostRequest.key);
   });
 
   it('binds every builtin Pixi cache alias to its exact SVG content', async () => {

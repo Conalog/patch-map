@@ -21,7 +21,9 @@
   remains viewport pan, and restored the exact filled 72×72 PATCH MAP v0.10
   built-in SVG catalog without changing host-injected alias ownership. Built-in
   Pixi cache identities now include the exact SVG content so an older glyph
-  cannot satisfy the same public alias after an artifact replacement.
+  cannot satisfy the same public alias after an artifact replacement. Runtime
+  view boxes remove only the catalog artwork's transparent outer padding, so
+  public icon `size` describes its visible glyph bounds.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.
