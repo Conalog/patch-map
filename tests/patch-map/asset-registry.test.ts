@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { Assets, Cache } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -18,6 +20,17 @@ import {
   BUILTIN_IMAGE_ALIASES,
   builtinImageDataUri,
 } from '../../src/patch-map/assets/registration-normalization';
+
+const PATCH_MAP_V010_BUILTIN_SHA256 = Object.freeze({
+  object: 'e87c2ae562c7a3941a0c79249aa4c37494ef6222de31e57779d2aaa31d79e4d4',
+  inverter: 'd7527c15410edb84e560a9dcd763edf4914be13494c5a99509c373dff803992d',
+  combiner: '2965f5e1c28bd8779d7f02e967cefa43893d4171046708243b1ab03451ed1ee5',
+  device: 'a11ac1f84f74afb9a2e888d615c79d45312f2194c64510e64e10db7c8eb70680',
+  edge: '46cc54309389013808f40bcbfaa8574fdfec78521b52e3178b3a53eb7f7c3c84',
+  loading: '30645d95659f451df9d847f9dadf4d7a641e421c158c54619d7c817057ea00a5',
+  warning: '8d485f34e7fa054c787a6775a76a7e62f04e18b93f4741dab3137db15e45f1e8',
+  wifi: 'ef2c14fd831d067d559737b7f281be6e550605024a8d9e01a23579e4ccac206c',
+});
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -67,7 +80,7 @@ class FakeAssetBackend implements PatchMapAssetBackend {
 }
 
 describe('PatchMap shared asset runtime', () => {
-  it('owns distinct transparent semantic glyphs instead of square fallback tiles', () => {
+  it('owns the exact transparent PATCH MAP v0.10 filled glyph sources', () => {
     expect(BUILTIN_IMAGE_ALIASES).toEqual([
       'object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi',
     ]);
@@ -76,9 +89,12 @@ describe('PatchMap shared asset runtime', () => {
 
     for (const alias of BUILTIN_IMAGE_ALIASES) {
       const svg = builtinImageSvg(alias);
-      expect(svg).toContain('viewBox="0 0 32 32"');
-      expect(svg).toContain('stroke="#fff"');
-      expect(svg).not.toContain('<rect x="2" y="2" width="28" height="28"');
+      expect(svg).toContain('width="72" height="72" viewBox="0 0 72 72"');
+      expect(svg).toMatch(/fill="#(?:FFF|FFFFFF)"/u);
+      expect(svg).not.toContain('<rect');
+      expect(createHash('sha256').update(svg).digest('hex')).toBe(
+        PATCH_MAP_V010_BUILTIN_SHA256[alias],
+      );
       expect(decodeURIComponent(builtinImageDataUri(alias).split(',', 2)[1] ?? '')).toBe(svg);
     }
     expect(() => builtinImageDataUri('unknown')).toThrowError(expect.objectContaining({

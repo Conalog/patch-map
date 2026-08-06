@@ -75,6 +75,11 @@ tiles. An authored icon and a concrete icon overlay that name the same alias
 share its texture, including `show`, `tint`, component order, and `zIndex`
 behavior. `await capture.png()` settles a currently visible built-in source;
 replacement and destroy release its lease and Pixi cache ownership.
+The package catalog embeds the original transparent 72×72 filled PATCH MAP
+v0.10 SVG artwork for `object`, `inverter`, `combiner`, `device`, `edge`,
+`loading`, `warning`, and `wifi`; white artwork preserves multiplicative tint.
+Distinct host aliases remain instance registrations and cannot replace a
+reserved built-in alias.
 
 ## Pointer and selection compatibility
 

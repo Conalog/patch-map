@@ -371,6 +371,23 @@ async function verifyDirectImageLifecycle() {
 
 async function verifyBuiltinGlyphLifecycle() {
   const aliases = ['object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi'];
+  const injectedAliases = [
+    'cloudAlert',
+    'inverterFrame',
+    'ess',
+    'stick',
+    'wiringPrimary',
+    'wiringSecondary',
+    'wiringTertiary',
+  ];
+  const injectedAssets = injectedAliases.map((alias) => ({
+    alias,
+    descriptor: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" fill="#fff"><title>' +
+        alias +
+        '</title><path d="M36 4 68 36 36 68 4 36Z"/></svg>',
+    ),
+  }));
   const builtinHost = document.createElement('div');
   builtinHost.style.width = '128px';
   builtinHost.style.height = '128px';
@@ -439,7 +456,9 @@ async function verifyBuiltinGlyphLifecycle() {
       height: 128,
       background: '#000000',
       data: authoredScene(aliases[0]),
+      assets: injectedAssets,
       assetRuntime: runtime,
+      assetPolicy: () => undefined,
       fit: false,
       resizeMode: 'manual',
     });
@@ -478,6 +497,12 @@ async function verifyBuiltinGlyphLifecycle() {
       overlayResolved[alias] =
         status.resource?.state === 'resolved' && status.pendingCount === 0;
     }
+    await builtinMap.data.replaceAsync(authoredScene('inverterFrame'), {
+      strict: true,
+      fit: false,
+    });
+    const injectedCapture = await captureGlyphMask(builtinMap, 'green');
+    const injectedStatus = builtinMap.assets.status('inverterFrame').runtime;
     const runtimeBeforeDestroy = runtime.probe();
     const destroy = await builtinMap.destroy();
     builtinMap = null;
@@ -487,6 +512,10 @@ async function verifyBuiltinGlyphLifecycle() {
       overlay,
       authoredResolved,
       overlayResolved,
+      injectedAliases,
+      injectedCapture,
+      injectedResolved:
+        injectedStatus.resource?.state === 'resolved' && injectedStatus.pendingCount === 0,
       hidden,
       runtimeBeforeDestroy,
       runtimeAfterDestroy: runtime.probe(),

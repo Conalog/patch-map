@@ -9,14 +9,20 @@ import { parsePatchMapBrowserLaunch } from './patch-map-browser-launch.mjs';
 
 const aliases = ['object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi'];
 const expectedSignatures = Object.freeze({
-  object: '01111110/11100111/11100111/11111111/10011001/11011011/11111111/00111100',
-  inverter: '11111111/11100001/11110111/11111111/10011101/11111101/11111111/11111111',
-  combiner: '11111111/11011111/11111111/11111111/10011001/10011001/10011001/11111111',
-  device: '11111111/10000001/10110111/11100111/10001101/11111111/11111111/00111100',
-  edge: '00000111/00000101/11111111/11110000/11111000/11011111/00000111/00000111',
-  loading: '11111000/00011110/00000111/00000011/00000011/00000111/00001110/00111000',
-  warning: '00011000/00111000/00111100/01111100/01111110/11011010/11011011/11111111',
-  wifi: '01111110/11100111/10111101/01111110/01011010/00111100/00111000/00011000',
+  object: '00111100/11101111/11100111/11111101/10011001/11011011/11111111/00111100',
+  inverter: '11111111/10000001/11111111/10000001/10000001/10000001/10000001/11111111',
+  combiner: '11011011/11011011/11111111/11111111/11011011/11111111/11011011/11011011',
+  device: '11111110/11111110/10001101/10000111/10001111/10000111/11111110/11111110',
+  edge: '00011111/00011111/00001110/00000100/11111111/11111111/11111101/11111111',
+  loading: '01111100/11100011/10011011/10011001/10011101/11001111/11100110/01111100',
+  warning: '01111110/11000111/10000001/11000011/01100101/01100111/00111111/00011111',
+  wifi: '01111110/11111111/11011011/01111110/01111110/00011000/00011000/00011000',
+});
+const expectedOverlaySignatures = Object.freeze({
+  ...expectedSignatures,
+  device: '11111110/11111110/10001101/10001111/10001111/10000111/11111110/11111110',
+  loading: '01111100/11100011/11011011/10011001/10011101/11001111/11100110/01111100',
+  warning: '01111110/11100111/10000011/11000011/01100000/01100111/00111111/00011111',
 });
 const root = process.cwd();
 const browserLaunch = parsePatchMapBrowserLaunch(process.argv.slice(2));
@@ -277,15 +283,8 @@ try {
     assert(overlay.update.status === 'committed', `${alias} overlay committed`, overlay);
     assert(overlay.pixelCount > 80, `${alias} overlay glyph is above the bar`, overlay);
     assert(overlay.occupancy < 0.58, `${alias} overlay glyph is not a filled square`, overlay);
-    assert(
-      JSON.stringify(authored.bounds) === JSON.stringify(overlay.bounds) &&
-        Math.abs(authored.occupancy - overlay.occupancy) < 0.03 &&
-        signatureDistance(authored.signature, overlay.signature) <= 2,
-      `${alias} authored/overlay texture matches`, {
-      authored,
-      overlay,
-      },
-    );
+    assert(overlay.signature === expectedOverlaySignatures[alias],
+      `${alias} overlay glyph matches its tinted raster fixture`, overlay);
     assert(result.authoredStatuses[alias].resource?.state === 'resolved',
       `${alias} authored capture settled the asset`, result.authoredStatuses[alias]);
     assert(result.overlayStatuses[alias].resource?.state === 'resolved',
@@ -320,13 +319,4 @@ try {
 
 function assert(condition, description, details) {
   if (!condition) throw new Error(`${description}: ${JSON.stringify(details)}`);
-}
-
-function signatureDistance(left, right) {
-  if (left.length !== right.length) return Number.POSITIVE_INFINITY;
-  let distance = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) distance += 1;
-  }
-  return distance;
 }

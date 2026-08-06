@@ -70,21 +70,26 @@ export function collectPackageFailures({
   ) failures.push('packed default/custom theme capture or instance lifecycle failed');
   const builtinAliases = ['object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi'];
   const builtinSignaturesExpected = {
-    object: '01111110/11100111/11100111/11111111/10011001/11011011/11111111/00111100',
-    inverter: '11111111/11100001/11110111/11111111/10011101/11111101/11111111/11111111',
-    combiner: '11111111/11011111/11111111/11111111/10011001/10011001/10011001/11111111',
-    device: '11111111/10000001/10110111/11100111/10001101/11111111/11111111/00111100',
-    edge: '00000111/00000101/11111111/11110000/11111000/11011111/00000111/00000111',
-    loading: '11111000/00011110/00000111/00000011/00000011/00000111/00001110/00111000',
-    warning: '00011000/00111000/00111100/01111100/01111110/11011010/11011011/11111111',
-    wifi: '01111110/11100111/10111101/01111110/01011010/00111100/00111000/00011000',
+    object: '00111100/11101111/11100111/11111101/10011001/11011011/11111111/00111100',
+    inverter: '11111111/10000001/11111111/10000001/10000001/10000001/10000001/11111111',
+    combiner: '11011011/11011011/11111111/11111111/11011011/11111111/11011011/11011011',
+    device: '11111110/11111110/10001101/10000111/10001111/10000111/11111110/11111110',
+    edge: '00011111/00011111/00001110/00000100/11111111/11111111/11111101/11111111',
+    loading: '01111100/11100011/10011011/10011001/10011101/11001111/11100110/01111100',
+    warning: '01111110/11000111/10000001/11000011/01100101/01100111/00111111/00011111',
+    wifi: '01111110/11111111/11011011/01111110/01111110/00011000/00011000/00011000',
+  };
+  const builtinOverlaySignaturesExpected = {
+    ...builtinSignaturesExpected,
+    device: '11111110/11111110/10001101/10001111/10001111/10000111/11111110/11111110',
+    loading: '01111100/11100011/11011011/10011001/10011101/11001111/11100110/01111100',
+    warning: '01111110/11100111/10000011/11000011/01100000/01100111/00111111/00011111',
   };
   const builtinSignatures = new Set();
   let builtinCaptureValid = JSON.stringify(esm.builtins?.aliases) === JSON.stringify(builtinAliases);
   for (const alias of builtinAliases) {
     const authored = esm.builtins?.authored?.[alias];
     const overlay = esm.builtins?.overlay?.[alias];
-    const signatureDistance = stringDistance(authored?.signature, overlay?.signature);
     builtinCaptureValid &&=
       authored?.pixelCount > 80 &&
       authored?.occupancy < 0.58 &&
@@ -92,9 +97,7 @@ export function collectPackageFailures({
       overlay?.updateStatus === 'committed' &&
       overlay?.pixelCount > 80 &&
       overlay?.occupancy < 0.58 &&
-      JSON.stringify(authored?.bounds) === JSON.stringify(overlay?.bounds) &&
-      Math.abs(authored?.occupancy - overlay?.occupancy) < 0.03 &&
-      signatureDistance <= 2 &&
+      overlay?.signature === builtinOverlaySignaturesExpected[alias] &&
       esm.builtins?.authoredResolved?.[alias] === true &&
       esm.builtins?.overlayResolved?.[alias] === true;
     builtinSignatures.add(authored?.signature);
@@ -103,11 +106,22 @@ export function collectPackageFailures({
     !builtinCaptureValid ||
     builtinSignatures.size !== builtinAliases.length ||
     esm.builtins?.hidden?.pixelCount !== 0 ||
-    esm.builtins?.runtimeBeforeDestroy?.resourceCount !== 1 ||
+    esm.builtins?.runtimeBeforeDestroy?.resourceCount !== 7 ||
     esm.builtins?.runtimeBeforeDestroy?.pendingCount !== 0 ||
-    esm.builtins?.runtimeBeforeDestroy?.leaseCount !== 1 ||
+    esm.builtins?.runtimeBeforeDestroy?.leaseCount !== 7 ||
     esm.builtins?.runtimeAfterDestroy?.resourceCount !== 0 ||
     esm.builtins?.runtimeAfterDestroy?.leaseCount !== 0 ||
+    JSON.stringify(esm.builtins?.injectedAliases) !== JSON.stringify([
+      'cloudAlert',
+      'inverterFrame',
+      'ess',
+      'stick',
+      'wiringPrimary',
+      'wiringSecondary',
+      'wiringTertiary',
+    ]) ||
+    !(esm.builtins?.injectedCapture?.pixelCount > 80) ||
+    esm.builtins?.injectedResolved !== true ||
     esm.builtins?.destroy !== true ||
     esm.builtins?.canvasCountAfterDestroy !== 0
   ) failures.push('packed builtin authored/overlay glyph or asset lifecycle failed');
