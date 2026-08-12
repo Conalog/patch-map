@@ -580,8 +580,18 @@ export class AggregateMeshLayer {
         chunk !== undefined &&
         this.#viewportCull !== null
       ) {
-        this.#expandBarChunkBounds(store, chunk, changedBarSlots);
-        if (!chunkIntersectsViewport(chunk, this.#viewportCull)) {
+        const retainedBoundsVisible = chunkIntersectsViewport(chunk, this.#viewportCull);
+        // A currently visible chunk will be synchronized below and recompute
+        // its exact bounds. Expanding every active bar first duplicated the
+        // projection work on every animation frame. Only an offscreen chunk
+        // needs conservative expansion to detect a bar growing into view.
+        if (!retainedBoundsVisible) {
+          this.#expandBarChunkBounds(store, chunk, changedBarSlots);
+        }
+        if (
+          !retainedBoundsVisible &&
+          !chunkIntersectsViewport(chunk, this.#viewportCull)
+        ) {
           this.#deferredBarChunks.add(chunkIndex);
           continue;
         }

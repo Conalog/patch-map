@@ -9,6 +9,7 @@ import {
   PatchMapPresentationController,
   type PatchMapPresentationFrame,
   type PatchMapPresentationProbe,
+  type PatchMapPresentationReconcileFrame,
   type PatchMapPresentationSnapshot,
 } from '../presentation';
 import type {
@@ -30,7 +31,10 @@ import {
   patchMapComponentProbeTargetKey,
   patchMapComponentTargetKey,
 } from './product-probe-reader';
-import { contiguousSlotRanges } from './slot-ranges';
+import {
+  contiguousSlotRanges,
+  contiguousSlotRangesInPlace,
+} from './slot-ranges';
 
 export interface PatchMapLogicalPresentationPolicy {
   readonly revision: number;
@@ -62,6 +66,21 @@ export interface PatchMapBarPresentationLoadState {
 
 const EMPTY_RANGES: readonly SlotRange[] = Object.freeze([]);
 
+/** Ephemeral frame summary consumed synchronously by frame publication. */
+export interface PatchMapBarPresentationPublicationFrame {
+  readonly activeCount: number;
+  readonly changedCount: number;
+  readonly settledCount: number;
+  readonly totalSettlementCount: number;
+  readonly published: boolean;
+  readonly dirtyRanges: readonly SlotRange[];
+}
+
+type MutablePublicationFrame = {
+  -readonly [Key in keyof PatchMapBarPresentationPublicationFrame]:
+    PatchMapBarPresentationPublicationFrame[Key];
+};
+
 /**
  * Single writer for renderer-visible bar geometry and logical presentation
  * policy. It owns no renderer, scheduler, RAF, Pixi object, or listener.
@@ -80,6 +99,15 @@ export class PatchMapBarPresentationAuthority {
   private policyRevisionValue = 0;
   private publicationChangedCountValue = 0;
   private publicationDirtyRangesValue: readonly SlotRange[] = EMPTY_RANGES;
+  private readonly publicationSlots: number[] = [];
+  private readonly publicationFrame: MutablePublicationFrame = {
+    activeCount: 0,
+    changedCount: 0,
+    settledCount: 0,
+    totalSettlementCount: 0,
+    published: false,
+    dirtyRanges: EMPTY_RANGES,
+  };
 
   public constructor() {
     this.controller = this.createController(this.generation);
@@ -431,13 +459,17 @@ export class PatchMapBarPresentationAuthority {
     timeMs: number,
     scene: PatchMapScene,
     semanticProjection: PatchMapProjectionIndex | null,
-  ): PatchMapPresentationFrame {
-    const frame = this.applyFrame(
-      this.controller.advance(timeMs),
-      scene,
-      semanticProjection,
-    );
+  ): PatchMapBarPresentationPublicationFrame {
+    const source = this.controller.advanceForReconcile(timeMs);
+    this.applyReconcileFrame(source, scene, semanticProjection);
     this.clockMsValue = timeMs;
+    const frame = this.publicationFrame;
+    frame.activeCount = source.activeCount;
+    frame.changedCount = source.changedCount;
+    frame.settledCount = source.settledCount;
+    frame.totalSettlementCount = source.totalSettlementCount;
+    frame.published = source.published;
+    frame.dirtyRanges = this.publicationDirtyRangesValue;
     return frame;
   }
 
@@ -534,6 +566,53 @@ export class PatchMapBarPresentationAuthority {
     return frame;
   }
 
+  private applyReconcileFrame(
+    frame: PatchMapPresentationReconcileFrame,
+    scene: PatchMapScene,
+    semanticProjection: PatchMapProjectionIndex | null,
+  ): void {
+    this.resetPublication();
+    if (frame.changedCount === 0) return;
+    const validateEntities = this.validatedEntityEpoch !== this.entityEpoch;
+    if (validateEntities) this.invalidEntityIds.clear();
+    const validSlots = this.publicationSlots;
+    validSlots.length = 0;
+    for (let index = 0; index < frame.changedCount; index += 1) {
+      const entityId = frame.entityIds[index];
+      if (entityId === undefined) {
+        throw new Error('PatchMap presentation publication corruption');
+      }
+      const slot = frame.slots[index] ?? 0;
+      let invalid = this.invalidEntityIds.has(entityId);
+      if (!invalid && validateEntities) {
+        const generation = frame.generations[index] ?? 0;
+        const ref = scene.ref(entityId);
+        const bar = semanticProjection?.barsByEntityId?.[entityId];
+        invalid =
+          ref === null ||
+          ref.slot !== slot ||
+          ref.generation !== generation ||
+          bar === undefined;
+        if (!invalid) {
+          const entity = ref === null ? null : scene.get(ref);
+          invalid = entity?.kind !== 'bar' || !entity.visible;
+        }
+      }
+      if (invalid) {
+        this.invalidEntityIds.add(entityId);
+        this.ghostPublicationCountValue += 1;
+        continue;
+      }
+      if (this.projectionStore.applyBarHeight(entityId, frame.values[index] ?? 0)) {
+        this.publicationChangedCountValue += 1;
+        validSlots.push(slot);
+      }
+    }
+    if (validateEntities) this.validatedEntityEpoch = this.entityEpoch;
+    if (this.publicationChangedCountValue === 0) return;
+    this.publicationDirtyRangesValue = contiguousSlotRangesInPlace(validSlots);
+  }
+
   private visibleBarHeights(
     semanticProjection: PatchMapProjectionIndex,
   ): ReadonlyMap<string, number> {
@@ -550,6 +629,7 @@ export class PatchMapBarPresentationAuthority {
   private resetPublication(): void {
     this.publicationChangedCountValue = 0;
     this.publicationDirtyRangesValue = EMPTY_RANGES;
+    this.publicationSlots.length = 0;
   }
 
   private createController(generation: number): PatchMapPresentationController {

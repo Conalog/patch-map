@@ -837,7 +837,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     // View rotation can change upright projection geometry. Resolve it before
     // consuming pending ranges so the first published frame cannot lag.
-    this.setView(effectiveStore.view);
+    const viewChanged = this.setView(effectiveStore.view);
     if (
       storeReplaced ||
       this.pendingRanges === undefined ||
@@ -865,6 +865,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.pendingTextOnly &&
       !storeReplaced &&
       this.pendingRanges !== undefined;
+    const stableBarPresentationFrame = barPresentationOnly && !viewChanged;
     const ranges = this.pendingRanges === undefined ||
       this.relationSlotsByEndpoint.size === 0 ||
       projectionTransformOnly
@@ -886,13 +887,15 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     let aggregateViewportWork = false;
     if (this.aggregate instanceof AggregateMeshLayer) {
-      this.aggregate.cull(
-        this.worldMatrix,
-        this.widthValue,
-        this.heightValue,
-        48,
-        !barPresentationOnly,
-      );
+      if (!stableBarPresentationFrame) {
+        this.aggregate.cull(
+          this.worldMatrix,
+          this.widthValue,
+          this.heightValue,
+          48,
+          !barPresentationOnly,
+        );
+      }
       aggregateViewportWork = this.aggregate.hasVisibleDeferredBarUpdates();
     }
     const aggregate = !storeReplaced &&
@@ -905,7 +908,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
           projectionTransformOnly,
         );
     this.lastAggregateResult = aggregate;
-    if (this.aggregate instanceof AggregateMeshLayer) {
+    if (this.aggregate instanceof AggregateMeshLayer && !stableBarPresentationFrame) {
       this.aggregate.cull(
         this.worldMatrix,
         this.widthValue,
@@ -922,7 +925,12 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         : { changedRanges: barPresentationOnly ? [] : ranges }),
       ...(projectionTransformOnly ? { projectionTransformOnly: true } : {}),
     });
-    this.leaves.cull(this.worldMatrix, this.widthValue, this.heightValue);
+    // Bar presentation mutates only aggregate geometry. With a stable view,
+    // object-backed image/text bounds are unchanged and retaining their last
+    // cull result avoids an O(all leaves) scan on every animation frame.
+    if (!stableBarPresentationFrame) {
+      this.leaves.cull(this.worldMatrix, this.widthValue, this.heightValue);
+    }
     this.textProjectionSynchronizedRevision = this.projectionRevision;
     this.syncSelectionOverlay(
       effectiveStore,

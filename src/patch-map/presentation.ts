@@ -34,6 +34,29 @@ type MutableReconcileState = {
     PatchMapPresentationReconcileState[Key];
 };
 
+/**
+ * Ephemeral columnar publication owned by the controller. Core consumes this
+ * synchronously before the next controller call; application code continues
+ * to receive the immutable PatchMapPresentationFrame contract from advance().
+ */
+export interface PatchMapPresentationReconcileFrame {
+  readonly timeMs: number;
+  readonly activeCount: number;
+  readonly changedCount: number;
+  readonly settledCount: number;
+  readonly totalSettlementCount: number;
+  readonly published: boolean;
+  readonly entityIds: readonly (string | undefined)[];
+  readonly slots: Uint32Array;
+  readonly generations: Uint32Array;
+  readonly values: Float64Array;
+}
+
+type MutableReconcileFrame = {
+  -readonly [Key in keyof PatchMapPresentationReconcileFrame]:
+    PatchMapPresentationReconcileFrame[Key];
+};
+
 const EMPTY_IDS: readonly string[] = Object.freeze([]);
 const EMPTY_UPDATES: readonly PatchMapPresentationUpdate[] = Object.freeze([]);
 const EMPTY_RANGES: readonly PatchMapPresentationDirtyRange[] = Object.freeze([]);
@@ -62,6 +85,11 @@ export class PatchMapPresentationController {
   private currentValues: Float64Array;
   private startTimes: Float64Array;
   private durations: Float64Array;
+  private reconcileEntityIds: Array<string | undefined>;
+  private reconcileSlots: Uint32Array;
+  private reconcileGenerations: Uint32Array;
+  private reconcileValues: Float64Array;
+  private readonly reconcileFrame: MutableReconcileFrame;
   private readonly indexById = new Map<string, number>();
   private clockMsValue = 0;
   private presentationRevisionValue = 0;
@@ -105,6 +133,22 @@ export class PatchMapPresentationController {
     this.currentValues = new Float64Array(this.capacity);
     this.startTimes = new Float64Array(this.capacity);
     this.durations = new Float64Array(this.capacity);
+    this.reconcileEntityIds = new Array<string | undefined>(this.capacity);
+    this.reconcileSlots = new Uint32Array(this.capacity);
+    this.reconcileGenerations = new Uint32Array(this.capacity);
+    this.reconcileValues = new Float64Array(this.capacity);
+    this.reconcileFrame = {
+      timeMs: 0,
+      activeCount: 0,
+      changedCount: 0,
+      settledCount: 0,
+      totalSettlementCount: 0,
+      published: false,
+      entityIds: this.reconcileEntityIds,
+      slots: this.reconcileSlots,
+      generations: this.reconcileGenerations,
+      values: this.reconcileValues,
+    };
   }
 
   public get activeCount(): number {
@@ -303,6 +347,64 @@ export class PatchMapPresentationController {
   }
 
   /**
+   * Internal frame kernel for aggregate publication. It writes changed rows
+   * into controller-owned typed arrays instead of allocating and freezing one
+   * object per active bar. The returned view is valid only until the next call
+   * that advances or destroys this controller.
+   */
+  public advanceForReconcile(timeMs: number): PatchMapPresentationReconcileFrame {
+    this.assertAlive('advance');
+    this.assertMonotonic(timeMs, 'advance');
+    this.clockMsValue = timeMs;
+
+    let changedCount = 0;
+    let settledCount = 0;
+    let index = 0;
+    while (index < this.countValue) {
+      const value = this.sampleAt(index, timeMs);
+      let changedIndex = -1;
+      if (!Object.is(value, this.currentValues[index])) {
+        this.currentValues[index] = value;
+        changedIndex = changedCount;
+        this.writeReconcileUpdate(changedCount, index, value);
+        changedCount += 1;
+      }
+      const settled = timeMs - (this.startTimes[index] ?? 0) >=
+        (this.durations[index] ?? 0);
+      if (!settled) {
+        index += 1;
+        continue;
+      }
+      const destination = this.destinationValues[index] ?? 0;
+      if (!Object.is(value, destination)) {
+        this.currentValues[index] = destination;
+        if (changedIndex === -1) {
+          this.writeReconcileUpdate(changedCount, index, destination);
+          changedCount += 1;
+        } else {
+          this.reconcileValues[changedIndex] = destination;
+        }
+      }
+      settledCount += 1;
+      this.totalSettlementCountValue += 1;
+      this.removeAt(index);
+    }
+
+    const frame = this.reconcileFrame;
+    frame.timeMs = timeMs;
+    frame.activeCount = this.countValue;
+    frame.changedCount = changedCount;
+    frame.settledCount = settledCount;
+    frame.totalSettlementCount = this.totalSettlementCountValue;
+    frame.published = changedCount > 0;
+    if (frame.published) {
+      this.presentationRevisionValue += 1;
+      this.publishedFrameCountValue += 1;
+    }
+    return frame;
+  }
+
+  /**
    * Settle every active presentation at its already-committed semantic
    * destination without interpreting a long wall-clock gap as animation time.
    * Page suspension uses this once before the manual scheduler is gated.
@@ -439,6 +541,18 @@ export class PatchMapPresentationController {
     this.currentValues = new Float64Array(0);
     this.startTimes = new Float64Array(0);
     this.durations = new Float64Array(0);
+    this.reconcileEntityIds = [];
+    this.reconcileSlots = new Uint32Array(0);
+    this.reconcileGenerations = new Uint32Array(0);
+    this.reconcileValues = new Float64Array(0);
+    this.reconcileFrame.entityIds = this.reconcileEntityIds;
+    this.reconcileFrame.slots = this.reconcileSlots;
+    this.reconcileFrame.generations = this.reconcileGenerations;
+    this.reconcileFrame.values = this.reconcileValues;
+    this.reconcileFrame.activeCount = 0;
+    this.reconcileFrame.changedCount = 0;
+    this.reconcileFrame.settledCount = 0;
+    this.reconcileFrame.published = false;
     this.destroyedValue = true;
     this.resetReconcileState(this.reconcileState);
     return Object.freeze({
@@ -615,6 +729,13 @@ export class PatchMapPresentationController {
     });
   }
 
+  private writeReconcileUpdate(outputIndex: number, rowIndex: number, value: number): void {
+    this.reconcileEntityIds[outputIndex] = this.requiredId(rowIndex);
+    this.reconcileSlots[outputIndex] = this.slots[rowIndex] ?? 0;
+    this.reconcileGenerations[outputIndex] = this.generations[rowIndex] ?? 0;
+    this.reconcileValues[outputIndex] = value;
+  }
+
   private append(entityId: string): number {
     this.ensureCapacity(this.countValue + 1);
     const index = this.countValue;
@@ -661,6 +782,14 @@ export class PatchMapPresentationController {
     this.currentValues = growFloat64(this.currentValues, capacity);
     this.startTimes = growFloat64(this.startTimes, capacity);
     this.durations = growFloat64(this.durations, capacity);
+    this.reconcileEntityIds.length = capacity;
+    this.reconcileSlots = growUint32(this.reconcileSlots, capacity);
+    this.reconcileGenerations = growUint32(this.reconcileGenerations, capacity);
+    this.reconcileValues = growFloat64(this.reconcileValues, capacity);
+    this.reconcileFrame.entityIds = this.reconcileEntityIds;
+    this.reconcileFrame.slots = this.reconcileSlots;
+    this.reconcileFrame.generations = this.reconcileGenerations;
+    this.reconcileFrame.values = this.reconcileValues;
     this.capacity = capacity;
   }
 }

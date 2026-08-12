@@ -513,6 +513,55 @@ describe('PatchMapPresentationController', () => {
     expect(scratch.entityId).toBe('');
     expect(internalController.snapshot()).toEqual(publicController.snapshot());
   });
+
+  it('publishes equivalent animation frames through reusable columnar storage', () => {
+    const materialized = new PatchMapPresentationController({ lifecycleGeneration: 5 });
+    const columnar = new PatchMapPresentationController({ lifecycleGeneration: 5 });
+    for (const input of [
+      retarget('slot-five', 5, 1, 0, 10, 0),
+      retarget('slot-three', 3, 2, 5, 20, 0),
+      retarget('slot-four', 4, 3, 10, 40, 0),
+    ]) {
+      materialized.retarget(input);
+      columnar.retarget(input);
+    }
+
+    const expected = materialized.advance(100);
+    const actual = columnar.advanceForReconcile(100);
+    const rows = Array.from({ length: actual.changedCount }, (_, index) => ({
+      entityId: actual.entityIds[index],
+      slot: actual.slots[index],
+      generation: actual.generations[index],
+      value: actual.values[index],
+    })).sort((left, right) => (left.slot ?? 0) - (right.slot ?? 0));
+
+    expect(actual).toMatchObject({
+      timeMs: expected.timeMs,
+      activeCount: expected.activeCount,
+      changedCount: expected.changedCount,
+      settledCount: expected.settledCount,
+      totalSettlementCount: expected.totalSettlementCount,
+      published: expected.published,
+    });
+    expect(rows).toEqual(expected.updates);
+    expect(columnar.snapshot()).toEqual(materialized.snapshot());
+
+    const entityIds = actual.entityIds;
+    const slots = actual.slots;
+    const terminal = columnar.advanceForReconcile(200);
+    const expectedTerminal = materialized.advance(200);
+    expect(terminal).toBe(actual);
+    expect(terminal.entityIds).toBe(entityIds);
+    expect(terminal.slots).toBe(slots);
+    expect(terminal).toMatchObject({
+      activeCount: expectedTerminal.activeCount,
+      changedCount: expectedTerminal.changedCount,
+      settledCount: expectedTerminal.settledCount,
+      totalSettlementCount: expectedTerminal.totalSettlementCount,
+      published: expectedTerminal.published,
+    });
+    expect(columnar.snapshot()).toEqual(materialized.snapshot());
+  });
 });
 
 function retarget(

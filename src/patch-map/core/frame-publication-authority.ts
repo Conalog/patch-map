@@ -3,7 +3,6 @@ import type {
   FrameReport,
 } from '../dense/contracts';
 import type { PatchMapProjectionIndex } from '../contracts';
-import type { PatchMapPresentationFrame } from '../presentation';
 import type { PatchMapPixiRenderer } from '../renderers/pixi-renderer';
 import {
   InvalidationScheduler,
@@ -18,7 +17,10 @@ import type {
   PatchMapPrepareResult,
   PatchMapPresentationLifecycleResult,
 } from './contracts';
-import type { PatchMapBarPresentationAuthority } from './bar-presentation-authority';
+import type {
+  PatchMapBarPresentationAuthority,
+  PatchMapBarPresentationPublicationFrame,
+} from './bar-presentation-authority';
 import type { PatchMapSpatialHitAuthority } from './spatial-hit-authority';
 import { mergeSlotRanges } from './slot-ranges';
 
@@ -403,7 +405,9 @@ export class PatchMapFramePublicationAuthority implements PatchMapFrameLoopTarge
     return report;
   }
 
-  private advanceBarPresentation(timeMs: number): PatchMapPresentationFrame {
+  private advanceBarPresentation(
+    timeMs: number,
+  ): PatchMapBarPresentationPublicationFrame {
     return this.publishBarPresentationFrame(
       this.barPresentation.advance(
         timeMs,
@@ -414,8 +418,8 @@ export class PatchMapFramePublicationAuthority implements PatchMapFrameLoopTarge
   }
 
   private publishBarPresentationFrame(
-    frame: PatchMapPresentationFrame,
-  ): PatchMapPresentationFrame {
+    frame: PatchMapBarPresentationPublicationFrame,
+  ): PatchMapBarPresentationPublicationFrame {
     this.port.readSpatialHit().settlePresentationIndex(frame.activeCount);
     if (this.barPresentation.publicationChangedCount === 0) return frame;
     const projection = this.barPresentation.visibleProjection;
