@@ -481,6 +481,41 @@ describe('PatchMap bar presentation integration', () => {
     expect(engine.historyState()).toEqual(history);
     expect(engine.snapshot().semanticHash).toBe(semanticHash);
 
+    const barOverrideBeforeRepeatedColumns = overrides.get(
+      'grid-presentation.0.0::bar:level',
+    );
+    const iconOverrideBeforeRepeatedColumns = overrides.get(
+      'grid-presentation.0.0::icon:status',
+    );
+    const imageBeforeRepeatedColumns = core.projection?.imagesByEntityId?.[
+      'grid-presentation.0.0::icon:status'
+    ];
+    expect(engine.updateInstanceBarHeights({
+      bar: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'level' }],
+        height: [50],
+        tint: ['#2563eb'],
+        source: [{ type: 'rect', fill: '#ffffff', radius: 8 }],
+        show: [true],
+      },
+      icon: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'status' }],
+        show: [true],
+        source: ['ess'],
+        tint: ['#ef4444'],
+      },
+      animate: false,
+    })).toMatchObject({ status: 'committed', changed: true, overlayCount: 2 });
+    expect(renderer.presentationOverrides.at(-1)?.get(
+      'grid-presentation.0.0::bar:level',
+    )).toBe(barOverrideBeforeRepeatedColumns);
+    expect(renderer.presentationOverrides.at(-1)?.get(
+      'grid-presentation.0.0::icon:status',
+    )).toBe(iconOverrideBeforeRepeatedColumns);
+    expect(core.projection?.imagesByEntityId?.[
+      'grid-presentation.0.0::icon:status'
+    ]).toBe(imageBeforeRepeatedColumns);
+
     const overridesBeforeHeightOnly = renderer.presentationOverrides.at(-1);
     expect(engine.updateInstanceBarHeights({
       targets: [{ id: 'grid-presentation.0.0', componentId: 'level' }],

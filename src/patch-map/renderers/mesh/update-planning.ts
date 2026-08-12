@@ -106,6 +106,17 @@ export function barOnlyDirtyChunkSlots(
         (previousKind[slot] ?? -1) === RenderKind.Bar
       ) {
         classification.slots.add(slot);
+      } else if (
+        (store.alive[slot] as number) !== 0 &&
+        ((store.kind[slot] as number) === RenderKind.Image ||
+          (store.kind[slot] as number) === RenderKind.Text) &&
+        (previousAlive[slot] ?? 0) !== 0 &&
+        (previousKind[slot] ?? -1) === (store.kind[slot] as number)
+      ) {
+        // Image and text slots are owned by the leaf renderer. Presentation
+        // batches commonly interleave them with aggregate Bar slots in one
+        // dense range; retaining an empty classification prevents that leaf
+        // work from escalating the whole aggregate chunk to a rebuild.
       } else {
         // A dead slot can represent a removal, and a newly live Bar can reuse
         // a slot that previously held another kind. Both must take the full
@@ -117,7 +128,7 @@ export function barOnlyDirtyChunkSlots(
 
   const result = new Map<number, readonly number[]>();
   for (const [chunkIndex, classification] of classifications) {
-    if (classification.barOnly && classification.slots.size > 0) {
+    if (classification.barOnly) {
       result.set(chunkIndex, [...classification.slots]);
     }
   }

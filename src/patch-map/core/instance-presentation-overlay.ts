@@ -247,19 +247,41 @@ export function planPatchMapInstancePresentationOverlay(
   }
 
   let overlayStateChanged = false;
-  for (const { patch } of resolved) {
+  const changedPresentations: Array<Readonly<{
+    patch: NormalizedPresentationPatch;
+    indexed: PatchMapIndexedComponentTarget;
+    authoredComponent: PatchMapBarComponent | PatchMapIconComponent | null;
+    stored: PatchMapStoredInstancePresentation | undefined;
+    heightChanged: boolean;
+    rendererChanged: boolean;
+    sourceChanged: boolean;
+  }>> = [];
+  for (const { patch, indexed, authoredComponent } of resolved) {
     const key = storedKey(patch.type, patch.target);
     const previous = nextPresentations.get(key);
     const next = mergePresentation(previous, patch);
-    if (!sameStoredPresentation(previous, next)) overlayStateChanged = true;
+    if (sameStoredPresentation(previous, next)) continue;
+    overlayStateChanged = true;
     if (next === null) nextPresentations.delete(key);
     else nextPresentations.set(key, next);
+    changedPresentations.push(Object.freeze({
+      patch,
+      indexed,
+      authoredComponent,
+      stored: next ?? undefined,
+      heightChanged: patch.type === 'bar' &&
+        !Object.is(previous?.height, next?.height),
+      rendererChanged:
+        !sameNormalizedPresentationValue(previous?.tint, next?.tint) ||
+        !sameNormalizedPresentationValue(previous?.source, next?.source) ||
+        !Object.is(previous?.show, next?.show),
+      sourceChanged: !sameNormalizedPresentationValue(previous?.source, next?.source),
+    }));
   }
 
   const barHeightUpdates: PatchMapInstanceBarOverlayUpdate[] = [];
-  for (const { patch } of resolved) {
-    if (patch.type !== 'bar') continue;
-    const stored = nextPresentations.get(storedKey('bar', patch.target));
+  for (const { patch, stored, heightChanged } of changedPresentations) {
+    if (patch.type !== 'bar' || !heightChanged) continue;
     barHeightUpdates.push(Object.freeze({
       target: patch.target,
       height: stored?.height ?? null,
@@ -279,8 +301,15 @@ export function planPatchMapInstancePresentationOverlay(
   const colorState = createPatchMapParseState(parseOptions ?? {});
   const resolvedColors = new Map<unknown, Map<number, number>>();
 
-  for (const { patch, indexed, authoredComponent } of resolved) {
-    const stored = nextPresentations.get(storedKey(patch.type, patch.target));
+  for (const {
+    patch,
+    indexed,
+    authoredComponent,
+    stored,
+    rendererChanged,
+    sourceChanged,
+  } of changedPresentations) {
+    if (!rendererChanged) continue;
     const nextOverride = authoredComponent === null
       ? null
       : presentationOverride(stored, authoredComponent, colorState, resolvedColors);
@@ -289,7 +318,7 @@ export function planPatchMapInstancePresentationOverlay(
     else nextRendererOverrides.set(indexed.entityId, nextOverride);
     if (!sameRendererOverride(previousOverride, nextOverride)) changed.add(indexed.entityId);
 
-    if (patch.type !== 'icon') continue;
+    if (patch.type !== 'icon' || !sourceChanged) continue;
     const authoredImage = authored.imagesByEntityId?.[indexed.entityId];
     if (!authoredImage) continue;
     const nextImage = stored?.source === undefined
@@ -516,6 +545,25 @@ function mergePresentation(
   previous: PatchMapStoredInstancePresentation | undefined,
   patch: NormalizedPresentationPatch,
 ): PatchMapStoredInstancePresentation | null {
+  if (
+    previous !== undefined &&
+    (!Object.hasOwn(patch, 'height') ||
+      Object.is(previous.height, patch.height === null ? undefined : patch.height)) &&
+    (!Object.hasOwn(patch, 'tint') ||
+      sameNormalizedPresentationValue(
+        previous.tint,
+        patch.tint === null ? undefined : patch.tint,
+      )) &&
+    (!Object.hasOwn(patch, 'source') ||
+      sameNormalizedPresentationValue(
+        previous.source,
+        patch.source === null ? undefined : patch.source,
+      )) &&
+    (!Object.hasOwn(patch, 'show') ||
+      Object.is(previous.show, patch.show === null ? undefined : patch.show))
+  ) {
+    return previous;
+  }
   const next: Record<string, unknown> = {
     type: patch.type,
     target: patch.target,
@@ -692,9 +740,35 @@ function sameStoredPresentation(
     left.target.id === right.target.id &&
     left.target.componentId === right.target.componentId &&
     Object.is(left.height, right.height) &&
-    Object.is(left.tint, right.tint) &&
-    Object.is(left.source, right.source) &&
+    sameNormalizedPresentationValue(left.tint, right.tint) &&
+    sameNormalizedPresentationValue(left.source, right.source) &&
     Object.is(left.show, right.show);
+}
+
+function sameNormalizedPresentationValue(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (
+    left === null ||
+    right === null ||
+    typeof left !== 'object' ||
+    typeof right !== 'object' ||
+    Array.isArray(left) !== Array.isArray(right)
+  ) {
+    return false;
+  }
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length &&
+      left.every((value, index) => sameNormalizedPresentationValue(value, right[index]));
+  }
+  const leftRecord = left as Readonly<Record<string, unknown>>;
+  const rightRecord = right as Readonly<Record<string, unknown>>;
+  const leftKeys = Object.keys(leftRecord);
+  const rightKeys = Object.keys(rightRecord);
+  return leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) =>
+      Object.hasOwn(rightRecord, key) &&
+      sameNormalizedPresentationValue(leftRecord[key], rightRecord[key])
+    );
 }
 
 function sameRendererOverride(

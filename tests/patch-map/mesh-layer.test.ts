@@ -643,6 +643,43 @@ describe('AggregateMeshLayer', () => {
     layer.destroy();
   });
 
+  it('keeps interleaved stable leaf presentation ranges out of aggregate rebuilds', () => {
+    const store = createStore();
+    (store.kind as Uint8Array)[2] = RenderKind.Image;
+    (store.flags as Uint8Array)[2] = RenderFlags.Visible;
+    const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'mixed presentation' });
+    layer.sync(store, { fullRebuildEpoch: 1 });
+    const rectBefore = layer.quadContainer.children.find((child) =>
+      child.label.includes(': rect chunk 0'),
+    );
+    const barsBefore = layer.relationContainer.children.filter((child) =>
+      child instanceof Mesh && child.label.includes(': bar chunk 0'),
+    );
+
+    (store.value as Float32Array)[1] = 75;
+    (store.tint as Uint32Array)[2] = 0xef4444ff;
+    (store as { revision: number }).revision = 2;
+    const mixed = layer.sync(store, { changedRanges: [{ start: 1, end: 3 }] });
+
+    expect(mixed.geometrySlotsVisited).toBe(1);
+    expect(mixed.uploadedChunks).toBe(1);
+    expect(layer.quadContainer.children.find((child) =>
+      child.label.includes(': rect chunk 0'),
+    )).toBe(rectBefore);
+    expect(layer.relationContainer.children.filter((child) =>
+      child instanceof Mesh && child.label.includes(': bar chunk 0'),
+    )).toEqual(barsBefore);
+
+    (store.tint as Uint32Array)[2] = 0x22c55eff;
+    (store as { revision: number }).revision = 3;
+    const leafOnly = layer.sync(store, { changedRanges: [{ start: 2, end: 3 }] });
+
+    expect(leafOnly.geometrySlotsVisited).toBe(0);
+    expect(leafOnly.uploadedChunks).toBe(0);
+    expect(leafOnly.uploadedBytes).toBe(0);
+    layer.destroy();
+  });
+
   it('takes the structural path when a non-bar slot is replaced by a bar', () => {
     const store = createStore();
     const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'mesh replacement' });

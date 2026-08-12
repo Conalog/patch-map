@@ -39,6 +39,17 @@ const ROUNDED_BAR_CORNER_SEGMENTS = 4;
 const ROUNDED_BAR_PERIMETER_VERTICES = 4 * (ROUNDED_BAR_CORNER_SEGMENTS + 1);
 const ROUNDED_BAR_VERTICES_PER_PRIMITIVE = ROUNDED_BAR_PERIMETER_VERTICES + 1;
 const ROUNDED_BAR_INDICES_PER_PRIMITIVE = ROUNDED_BAR_PERIMETER_VERTICES * 3;
+const ROUNDED_BAR_UNIT_CORNERS = Object.freeze(
+  [-Math.PI / 2, 0, Math.PI / 2, Math.PI].flatMap((startAngle) =>
+    Array.from(
+      { length: ROUNDED_BAR_CORNER_SEGMENTS + 1 },
+      (_, segment) => {
+        const angle = startAngle +
+          (segment / ROUNDED_BAR_CORNER_SEGMENTS) * (Math.PI / 2);
+        return Object.freeze([Math.cos(angle), Math.sin(angle)] as const);
+      },
+    )),
+);
 
 export interface AggregateGeometryGroup extends AggregateGeometryData {
   readonly key: string;
@@ -228,7 +239,6 @@ export function writeRoundedBarPositionValues(
     localWidth - fittedRadius,
     fittedRadius,
     fittedRadius,
-    -Math.PI / 2,
     localWidth,
     localHeight,
     scaleX,
@@ -248,7 +258,6 @@ export function writeRoundedBarPositionValues(
     localWidth - fittedRadius,
     localHeight - fittedRadius,
     fittedRadius,
-    0,
     localWidth,
     localHeight,
     scaleX,
@@ -268,7 +277,6 @@ export function writeRoundedBarPositionValues(
     fittedRadius,
     localHeight - fittedRadius,
     fittedRadius,
-    Math.PI / 2,
     localWidth,
     localHeight,
     scaleX,
@@ -288,7 +296,6 @@ export function writeRoundedBarPositionValues(
     fittedRadius,
     fittedRadius,
     fittedRadius,
-    Math.PI,
     localWidth,
     localHeight,
     scaleX,
@@ -311,7 +318,6 @@ function writeRoundedBarCorner(
   centerX: number,
   centerY: number,
   radius: number,
-  startAngle: number,
   localWidth: number,
   localHeight: number,
   scaleX: number,
@@ -325,15 +331,14 @@ function writeRoundedBarCorner(
 ): boolean {
   let changed = false;
   for (let segment = 0; segment <= ROUNDED_BAR_CORNER_SEGMENTS; segment += 1) {
-    const angle = startAngle +
-      (segment / ROUNDED_BAR_CORNER_SEGMENTS) * (Math.PI / 2);
+    const [unitX, unitY] = ROUNDED_BAR_UNIT_CORNERS[perimeterStart + segment]!;
     changed = writeRoundedBarVertex(
       positions,
       uvs,
       positionBase,
       1 + perimeterStart + segment,
-      centerX + Math.cos(angle) * radius,
-      centerY + Math.sin(angle) * radius,
+      centerX + unitX * radius,
+      centerY + unitY * radius,
       localWidth,
       localHeight,
       scaleX,
