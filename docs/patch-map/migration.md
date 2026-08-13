@@ -497,6 +497,13 @@ boundary and `npm run verify:local` for its full local release proxy. A
 consuming service should add its own mount/load/interact/save/destroy smoke
 test rather than treating package tests as proof of host integration.
 
+For selection-policy artifact provenance, run
+`npm run verify:package:installed-selection -- /absolute/path/to/package.tgz`.
+This focused gate creates a fresh temporary consumer, installs that exact
+tarball offline, resolves the root package entry from the consumer's own
+`node_modules`, and exercises `clearOnBlankClick: 'double'` through public
+pointer down/up input. It intentionally uses no worktree-source alias.
+
 ## Unsupported migration requests
 
 There is no compatibility alias for a previous engine class, selector,
