@@ -12,6 +12,7 @@ import {
   type PatchMapSurfaceGeometrySnapshot,
   type PatchMapSurfacePointerInput,
   type PatchMapSurfaceView,
+  type PatchMapSelectionOverlayPolicyInput,
 } from '../../src/patch-map';
 import type {
   PatchMapPointerHoverEvent,
@@ -435,6 +436,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
 
     surface.emit(surfacePointer('down', 1, [0, 0], 0));
     surface.emit(surfacePointer('move', 1, [210, 120], 16));
+    expect(surface.selectionMarquee).toBeNull();
     surface.emit(surfacePointer('up', 1, [210, 120], 32));
     expect(surface.cancelViewportGestureCount).toBe(0);
     expect(engine.selection.ids).toEqual([]);
@@ -445,6 +447,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     surface.emit(surfacePointer('move', 2, [210, 120], 80, {
       modifiers: { shift: true, ctrl: false, alt: false, meta: false },
     }));
+    expect(surface.selectionMarquee).toBeNull();
     surface.emit(surfacePointer('up', 2, [210, 120], 96, {
       modifiers: { shift: true, ctrl: false, alt: false, meta: false },
     }));
@@ -457,7 +460,9 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     surface.emit(surfacePointer('move', 3, [210, 120], 128, {
       modifiers: { shift: true, ctrl: false, alt: false, meta: false },
     }));
+    expect(surface.selectionMarquee).toEqual({ start: [0, 0], current: [210, 120] });
     surface.emit(surfacePointer('up', 3, [210, 120], 144));
+    expect(surface.selectionMarquee).toBeNull();
     expect(surface.cancelViewportGestureCount).toBe(1);
     expect(engine.selection.ids).toEqual(['item-a', 'rect-b']);
     expect(selectionEvents).toHaveLength(1);
@@ -469,7 +474,9 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     surface.emit(surfacePointer('move', 4, [210, 80], 176, {
       modifiers: { shift: true, ctrl: false, alt: false, meta: false },
     }));
+    expect(surface.selectionMarquee).toEqual({ start: [150, 30], current: [210, 80] });
     surface.emit(surfacePointer('up-outside', 4, [210, 80], 192));
+    expect(surface.selectionMarquee).toBeNull();
     expect(engine.selection.ids).toEqual(['rect-b']);
     expect(engine.pointerGestureProbe().activePointerCount).toBe(0);
 
@@ -477,6 +484,62 @@ describe('PatchMap root pointer and region-selection substrate', () => {
       box: { activationModifier: 'alt' as 'shift' },
     })).toThrow('selection.box.activationModifier must be none or shift');
     await expect(engine.destroy()).resolves.toBe(true);
+  });
+
+  it('normalizes mount selection visuals and clears transient marquee on every cancel path', async () => {
+    const surface = new PointerTestSurface();
+    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    engine.configurePointerSelectionPolicy({
+      allowMultiple: true,
+      box: { activationModifier: 'shift' },
+      visual: {
+        color: '#ef4444',
+        strokeWidth: 3,
+        displayMode: 'element-only',
+      },
+    });
+    await engine.initialize({ instanceId: 'pointer-selection-visual', width: 800, height: 600 });
+    engine.loadDataset(REGION_DATASET);
+
+    expect(surface.overlayPolicy).toMatchObject({
+      visibleIds: [],
+      color: 0xef4444,
+      strokeCssPx: 3,
+      hidden: false,
+    });
+    engine.selection.set(['item-a', 'text-c']);
+    expect(surface.overlayPolicy?.visibleIds).toEqual(['item-a', 'text-c']);
+    engine.selection.set('item-a::text:label');
+    expect(surface.overlayPolicy?.visibleIds).toEqual(['item-a']);
+
+    surface.emit(surfacePointer('down', 10, [0, 0], 0, {
+      modifiers: { shift: true, ctrl: false, alt: false, meta: false },
+    }));
+    surface.emit(surfacePointer('move', 10, [80, 90], 16));
+    expect(surface.selectionMarquee).toEqual({ start: [0, 0], current: [80, 90] });
+    surface.emit(surfacePointer('cancel', 10, [80, 90], 32));
+    expect(surface.selectionMarquee).toBeNull();
+
+    surface.emit(surfacePointer('down', 11, [10, 10], 48, {
+      modifiers: { shift: true, ctrl: false, alt: false, meta: false },
+    }));
+    surface.emit(surfacePointer('move', 11, [100, 100], 64));
+    expect(surface.selectionMarquee).not.toBeNull();
+    engine.configurePointerSelectionPolicy({
+      box: { activationModifier: 'shift' },
+      visual: { color: 0x16a34a, strokeWidth: 4, displayMode: 'all' },
+    });
+    expect(surface.selectionMarquee).toBeNull();
+    expect(surface.overlayPolicy).toMatchObject({ color: 0x16a34a, strokeCssPx: 4 });
+
+    expect(() => engine.configurePointerSelectionPolicy({
+      visual: { color: '#not-a-color' },
+    })).toThrow('selection.visual.color is not a supported CSS color');
+    expect(() => engine.configurePointerSelectionPolicy({
+      visual: { strokeWidth: 0 },
+    })).toThrow('selection.visual.strokeWidth must be positive and finite');
+    await expect(engine.destroy()).resolves.toBe(true);
+    expect(surface.selectionMarquee).toBeNull();
   });
 });
 
@@ -647,6 +710,11 @@ class PointerTestSurface implements PatchMapEngineSurface {
   public pointerListener: ((input: PatchMapSurfacePointerInput) => void) | null = null;
   public selectionIds: readonly string[] = Object.freeze([]);
   public cancelViewportGestureCount = 0;
+  public overlayPolicy: PatchMapSelectionOverlayPolicyInput | null = null;
+  public selectionMarquee: Readonly<{
+    readonly start: readonly [number, number];
+    readonly current: readonly [number, number];
+  }> | null = null;
   public hitResolver: (point: PatchMapPoint) => string | null = (point) => {
     if (point.x >= 10 && point.x <= 110 && point.y >= 20 && point.y <= 100) {
       return 'item-a';
@@ -677,6 +745,19 @@ class PointerTestSurface implements PatchMapEngineSurface {
 
   public select(ids: readonly string[]): void {
     this.selectionIds = Object.freeze([...ids]);
+  }
+
+  public setSelectionOverlayPolicy(input: PatchMapSelectionOverlayPolicyInput): boolean {
+    this.overlayPolicy = structuredClone(input);
+    return true;
+  }
+
+  public setSelectionMarquee(input: Readonly<{
+    readonly start: readonly [number, number];
+    readonly current: readonly [number, number];
+  }> | null): boolean {
+    this.selectionMarquee = input === null ? null : structuredClone(input);
+    return true;
   }
 
   public bindPointerInput(
@@ -740,6 +821,7 @@ class PointerTestSurface implements PatchMapEngineSurface {
     this.pointerListener = null;
     this.canvasCount = 0;
     this.destroyed = true;
+    this.selectionMarquee = null;
     return Promise.resolve(true);
   }
 }

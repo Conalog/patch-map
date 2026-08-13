@@ -82,6 +82,7 @@ import {
   type PatchMapRootViewportChange,
   type PatchMapRuntimeDebug,
   type PatchMapRuntimeOptions,
+  type PatchMapSelectionMarqueeInput,
   type PatchMapSelectionOverlayPolicyInput,
   type PatchMapSemanticRefreshOptions,
   type PatchMapSemanticRefreshResult,
@@ -124,6 +125,7 @@ import {
   resolvePresentationFillOverrides,
   semanticPresentationFillDenseIds,
   semanticSelectionDenseIds,
+  semanticSelectionElementDenseIds,
 } from './core/semantic-dense-planning';
 import {
   freezeReconcileResult,
@@ -1308,6 +1310,7 @@ export class PatchMapRuntime {
     input: PatchMapSelectionOverlayPolicyInput,
   ): boolean {
     this.assertAlive();
+    if (typeof this.renderer.setInteractionOverlayPolicy !== 'function') return false;
     const parse = this.parseResultValue;
     if (parse === null) {
       throw new Error('PatchMapRuntime.setSelectionOverlayPolicy requires a loaded dataset');
@@ -1315,7 +1318,9 @@ export class PatchMapRuntime {
     const policy: PatchMapInteractionOverlayPolicy = Object.freeze({
       visibleEntityIds: input.visibleIds === null
         ? null
-        : semanticSelectionDenseIds(parse, input.visibleIds, this.componentTargets),
+        : input.elementOnly
+          ? semanticSelectionElementDenseIds(parse, input.visibleIds)
+          : semanticSelectionDenseIds(parse, input.visibleIds, this.componentTargets),
       transformableEntityIds: input.transformableIds === null
         ? null
         : semanticSelectionDenseIds(parse, input.transformableIds, this.componentTargets),
@@ -1325,9 +1330,18 @@ export class PatchMapRuntime {
       hidden: input.hidden,
       handleCssPx: input.handleCssPx,
       strokeCssPx: input.strokeCssPx,
+      color: input.color,
     });
     const changed = this.renderer.setInteractionOverlayPolicy(policy);
     if (changed) this.framePublication.invalidate('interaction-overlay-policy');
+    return changed;
+  }
+
+  public setSelectionMarquee(input: PatchMapSelectionMarqueeInput | null): boolean {
+    this.assertAlive();
+    if (typeof this.renderer.setSelectionMarquee !== 'function') return false;
+    const changed = this.renderer.setSelectionMarquee(input);
+    if (changed) this.framePublication.invalidate('selection-marquee');
     return changed;
   }
 

@@ -106,3 +106,10 @@ pointer-origin selection, while `selection.onChange()` retains its all-source
 ID contract. Grid components use `<grid>.<row>.<column>` as `id` and the
 template component identity as `componentId`. Subscriptions are instance-local,
 return disposers, and are also cleared by `destroy()`.
+
+Selection paint is configured only at the root mount boundary with
+`selection.visual`. Color, CSS-pixel stroke width, and `all`/`group-only`/
+`element-only`/`hidden` display mode apply equally to programmatic, click, and
+box selection. The package renders and cleans the transient drag marquee in
+the same canvas; it is intentionally absent from dataset, history, semantic
+hash, and debug state.

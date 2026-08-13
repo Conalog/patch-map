@@ -93,6 +93,15 @@ export interface PatchMapSelectionOverlayPolicyInput {
   readonly hidden: boolean;
   readonly handleCssPx: number;
   readonly strokeCssPx: number;
+  readonly color: number;
+  /** Resolve visible IDs as element-only identities without component expansion. */
+  readonly elementOnly?: boolean;
+}
+
+/** Transient screen-space box gesture paint. Never enters semantic state or probes. */
+export interface PatchMapSelectionMarqueeInput {
+  readonly start: readonly [number, number];
+  readonly current: readonly [number, number];
 }
 
 export interface PatchMapLoadResult {

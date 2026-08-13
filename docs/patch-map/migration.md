@@ -166,6 +166,11 @@ const patchMap = await PatchMap.mount({
     box: { activationModifier: 'shift' },
     allowMultiple: plugin.allowMultiple,
     isSelectable: (target) => plugin.isSelectable(target),
+    visual: {
+      color: '#ef4444',
+      strokeWidth: 3,
+      displayMode: 'element-only',
+    },
   },
 });
 
@@ -186,7 +191,9 @@ deterministic. Concrete component targets use
 the cell ID plus the stable template `componentId`. Both subscription methods
 return a disposer and `destroy()` clears any disposer the route did not call.
 Do not retain the old host pointer listeners, hit-test mirror, coordinate
-transform, or tooltip RAF.
+transform, tooltip RAF, transformer wireframe, or DOM drag rectangle. The
+package draws the configured selection frame and transient Shift-drag marquee
+in its canvas and clears both with the mounted lifecycle.
 
 ## Mutations, animation, and history
 

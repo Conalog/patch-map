@@ -111,6 +111,11 @@ const patchMap = await PatchMap.mount({
     allowMultiple: selectionPlugin.allowMultiple,
     isSelectable: ({ id, componentId }) =>
       selectionPlugin.isSelectable({ id, componentId }),
+    visual: {
+      color: '#ef4444',
+      strokeWidth: 3,
+      displayMode: 'element-only',
+    },
   },
 });
 
@@ -147,6 +152,18 @@ eligible target in deterministic paint/scene order; `true` keeps every
 eligible target and permits shift-add/toggle behavior. A thrown `isSelectable`
 callback aborts the entire pointer selection commit without changing selection
 and reports a host-callback diagnostic.
+
+`selection.visual` is an instance-local package-owned paint policy. `color`
+accepts a `0xRRGGBB` number or PATCH MAP CSS color, `strokeWidth` is measured
+in CSS pixels at every zoom/resolution, and `displayMode` accepts `all`,
+`group-only`, `element-only`, or `hidden`. In `element-only` mode, a selected
+component projects its outline to its stable owner item without changing the
+selected component identity. Programmatic, click, and box changes all use the
+same outline. Once a Shift drag crosses the package threshold, PatchMap draws
+the start-to-current marquee above selection and transformer paint and removes
+it on up, up-outside, cancel, leave, policy replacement, or destroy. The
+marquee is capture-visible but never enters dataset, history, semantic hash,
+or debug snapshots.
 
 `selection.onChange()` continues to observe every selection source as ID
 strings. `selection.onPointerChange()` is the non-echo host-plugin surface: it

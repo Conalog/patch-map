@@ -587,6 +587,7 @@ async function verifyPointerInteractionLifecycle() {
     instanceId,
     width: 240,
     height: 160,
+    pixelRatio: 2,
     background: '#000000',
     resizeMode: 'manual',
     fit: false,
@@ -597,6 +598,11 @@ async function verifyPointerInteractionLifecycle() {
       isSelectable: (target) => {
         selectableTargets.push(target);
         return target.id !== 'pointer-grid.0.2';
+      },
+      visual: {
+        color: '#ef4444',
+        strokeWidth: 3,
+        displayMode: 'element-only',
       },
     },
   });
@@ -616,6 +622,13 @@ async function verifyPointerInteractionLifecycle() {
     releaseSelection = null;
   };
   map = await mount('packed-pointer-first', true);
+  const baselineRed = await captureGlyphMask(map, 'red');
+  map.selection.set('pointer-grid.0.0');
+  const programmaticRed = await captureGlyphMask(map, 'red');
+  map.selection.set(['pointer-grid.0.0', 'pointer-grid.0.1']);
+  const multiRed = await captureGlyphMask(map, 'red');
+  map.selection.clear();
+  const clearedRed = await captureGlyphMask(map, 'red');
   subscribe(firstHover, firstSelection);
   const firstViewportBefore = structuredClone(map.viewport.state);
 
@@ -634,6 +647,7 @@ async function verifyPointerInteractionLifecycle() {
         probe[label + 'SelectionCount'] = firstSelection.length;
       },
       clearSelection: () => map.selection.clear(),
+      captureRed: () => captureGlyphMask(map, 'red'),
       markPostViewportHover: () => {
         window.__PATCH_MAP_POINTER_PROBE__.postViewportHoverStart = firstHover.length;
       },
@@ -709,6 +723,15 @@ async function verifyPointerInteractionLifecycle() {
             remountSubscriptionCount,
             remountDestroy,
             canvasCountAfterDestroy,
+            baselineRed,
+            programmaticRed,
+            multiRed,
+            clearedRed,
+            clickRed: probe.clickRed,
+            marqueeDuring: probe.marqueeDuring,
+            marqueeAfter: probe.marqueeAfter,
+            remountMarqueeDuring: probe.remountMarqueeDuring,
+            remountMarqueeAfter: probe.remountMarqueeAfter,
             selectableTargets,
             datasetImmutable: datasetBefore === JSON.stringify(dataset),
           };

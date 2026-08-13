@@ -15,6 +15,7 @@ import type {
   PatchMapPointerHoverEvent,
   PatchMapPointerSelectionChange,
   PatchMapSelectionPolicy,
+  PatchMapSelectionDisplayMode,
   PatchMapTarget,
 } from './developer-api/contracts';
 import type {
@@ -159,6 +160,7 @@ export type {
 } from './engine/contracts';
 import { createPixiSurface } from './engine/pixi-surface';
 import { normalizePatchMapColorTheme } from './semantic/color';
+import { parsePatchMapCssColor } from './parser/color';
 export { PixiEngineSurface } from './engine/pixi-surface';
 export {
   buildPatchMapRelationHitIndex,
@@ -518,6 +520,11 @@ const DEFAULT_POINTER_SELECTION_POLICY = Object.freeze({
   allowMultiple: true,
   box: null,
   isSelectable: null,
+  visual: Object.freeze({
+    color: 0x2f80ed,
+    strokeCssPx: 2,
+    mode: 'all' as const,
+  }),
 } as const);
 const EMPTY_MATERIALIZED_DATASET = materializePatchMapDataset([]);
 const PATCH_MAP_QUERY_REUSE_OPERATIONS = Object.freeze([
@@ -569,6 +576,11 @@ interface NormalizedPointerSelectionPolicy {
     readonly activationModifier: 'none' | 'shift';
   }> | null;
   readonly isSelectable: ((target: PatchMapTarget) => boolean) | null;
+  readonly visual: Readonly<{
+    readonly color: number;
+    readonly strokeCssPx: number;
+    readonly mode: PatchMapSelectionDisplayMode;
+  }>;
 }
 
 interface PointerBoxGesture {
@@ -812,6 +824,7 @@ export class PatchMap {
         commitSceneMetadata: (hostCompanion) => {
           this.defaultViewportContributorsCache = null;
           this.historyHostCompanion = hostCompanion;
+          this.syncConfiguredSelectionVisualPolicy();
         },
         commitLifecycle: (lifecycle) => {
           this.lifecycle = lifecycle;
@@ -846,6 +859,7 @@ export class PatchMap {
       },
       replaceSelectionForRollback: (selectionIds) => {
         this.sceneState.replaceSelection(selectionIds);
+        this.syncConfiguredSelectionVisualPolicy();
       },
       revisionStamp: () => this.revisionStamp(),
       applyPlannedTransaction: ({
@@ -981,7 +995,9 @@ export class PatchMap {
 
   /** @internal Root `PatchMap.mount()` owns this policy boundary. */
   public configurePointerSelectionPolicy(policy: PatchMapSelectionPolicy | undefined): void {
+    this.clearPointerBoxGesture();
     this.pointerSelectionPolicy = normalizePointerSelectionPolicy(policy);
+    this.syncConfiguredSelectionVisualPolicy();
   }
 
   public on<K extends PatchMapEngineEvent>(event: K, listener: PatchMapEngineListener<K>): () => void {
@@ -1611,6 +1627,7 @@ export class PatchMap {
     this.hostInteractions.clearLogicalBindings();
     this.accessibility.replaceScene();
     this.sceneState.commit(scenePlan);
+    this.syncConfiguredSelectionVisualPolicy();
     this.defaultViewportContributorsCache = null;
     this.clearHistoryAuthority('replace');
     this.resetLiveOverlayState();
@@ -3242,6 +3259,7 @@ export class PatchMap {
       this.publication.advanceInteraction();
     }
     this.sceneState.rebindHostSelection(Object.freeze([]));
+    this.syncConfiguredSelectionVisualPolicy();
     this.publication.commitLifecycleRebind(rebind);
     return Object.freeze({
       lifecycleGeneration: this.publication.lifecycleGeneration,
@@ -3775,9 +3793,62 @@ export class PatchMap {
       hidden: visual.mode === 'hidden',
       handleCssPx: visual.handleCssPx,
       strokeCssPx: visual.strokeCssPx,
+      color: 0x2f80ed,
+      elementOnly: false,
     }) ?? false;
     if (changed) this.publication.advanceInteraction();
     return visual;
+  }
+
+  private syncConfiguredSelectionVisualPolicy(): boolean {
+    const surface = this.surface;
+    if (surface === null || this.materialized === null) return false;
+    const policy = this.pointerSelectionPolicy.visual;
+    const overlayIds = this.configuredSelectionOverlayIds(policy.mode);
+    const subset = evaluatePatchMapTransformableSubset(
+      this.logicalSceneSelectionIndex(),
+      overlayIds,
+    );
+    return surface.setSelectionOverlayPolicy?.({
+      visibleIds: overlayIds,
+      transformableIds: subset.transformableTargets.map((target) => target.selectionId),
+      resizableIds: subset.resizableTargets.map((target) => target.selectionId),
+      hidden: policy.mode === 'hidden',
+      handleCssPx: 6,
+      strokeCssPx: policy.strokeCssPx,
+      color: policy.color,
+      elementOnly: policy.mode === 'element-only',
+    }) ?? false;
+  }
+
+  private configuredSelectionOverlayIds(
+    mode: PatchMapSelectionDisplayMode,
+  ): readonly string[] {
+    if (mode === 'hidden') return Object.freeze([]);
+    const index = this.logicalSceneSelectionIndex();
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const selectionId of this.logicalSelectionIds) {
+      let target = index.target(selectionId);
+      if (target === null) continue;
+      if (mode === 'element-only' && target.kind === 'component') {
+        const ownerId = target.ownerId;
+        target = ownerId === null ? null : index.target(ownerId);
+        if (target === null) continue;
+      }
+      if (mode === 'group-only' && target.type !== 'group') continue;
+      if (
+        mode === 'element-only' &&
+        (target.kind !== 'element' || target.type === 'group' || target.type === 'relations')
+      ) {
+        continue;
+      }
+      if (!seen.has(target.selectionId)) {
+        seen.add(target.selectionId);
+        ids.push(target.selectionId);
+      }
+    }
+    return Object.freeze(ids);
   }
 
   public transformerHandleProbe(
@@ -4000,6 +4071,7 @@ export class PatchMap {
     }
     surface.select(change.current);
     this.sceneState.replaceSelection(change.current);
+    this.syncConfiguredSelectionVisualPolicy();
     if (change.changed) {
       if (change.source !== 'canvas' && !preserveTransformerGesture) {
         this.pointerGestureAuthority?.interrupt('selection-change');
@@ -4150,7 +4222,7 @@ export class PatchMap {
     transformerOwned: boolean,
   ): void {
     if (input.type !== 'down') return;
-    this.pointerBoxGesture = null;
+    this.clearPointerBoxGesture();
     if (
       transformerOwned ||
       input.button !== 0 ||
@@ -4181,9 +4253,18 @@ export class PatchMap {
       gesture.active = true;
       this.hostInteractions.clearTooltip('drag');
     }
+    if (gesture.active && input.type === 'move') {
+      this.requireSurface('pointerBoxSelection').setSelectionMarquee?.({
+        start: gesture.start,
+        current: input.screen,
+      });
+    }
     if (result.events.some((event) => event.type === 'drag-end')) {
-      if (gesture.active) this.commitPointerBoxSelection(gesture, input.screen);
-      this.pointerBoxGesture = null;
+      try {
+        if (gesture.active) this.commitPointerBoxSelection(gesture, input.screen);
+      } finally {
+        this.clearPointerBoxGesture();
+      }
       return;
     }
     if (
@@ -4192,8 +4273,14 @@ export class PatchMap {
       input.type === 'up' ||
       input.type === 'up-outside'
     ) {
-      this.pointerBoxGesture = null;
+      this.clearPointerBoxGesture();
     }
+  }
+
+  private clearPointerBoxGesture(): void {
+    const active = this.pointerBoxGesture?.active === true;
+    this.pointerBoxGesture = null;
+    if (active) this.surface?.setSelectionMarquee?.(null);
   }
 
   private commitPointerBoxSelection(
@@ -4352,7 +4439,7 @@ export class PatchMap {
   }
 
   private resetPointerProjectionState(): void {
-    this.pointerBoxGesture = null;
+    this.clearPointerBoxGesture();
     this.pointerHoverTarget = null;
   }
 
@@ -4994,6 +5081,7 @@ export class PatchMap {
     );
     surface.select(next.selectionIds);
     this.sceneState.replaceSelection(next.selectionIds);
+    this.syncConfiguredSelectionVisualPolicy();
     this.hostInteractions.applyModeOperation({ op: 'replace', state: next.mode });
     this.historyHostCompanion = next.hostCompanion;
     if (
@@ -5673,6 +5761,7 @@ export class PatchMap {
     try {
       surface.load(this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset);
       surface.select(this.logicalSelectionIds);
+      this.syncConfiguredSelectionVisualPolicy();
     } catch (cause) {
       const terminal = this.operationError(
         'INTERNAL_FAILURE',
@@ -6252,6 +6341,7 @@ function normalizePointerSelectionPolicy(
   if (value.isSelectable !== undefined && typeof value.isSelectable !== 'function') {
     throw new TypeError('selection.isSelectable must be a function');
   }
+  const visual = normalizePointerSelectionVisualPolicy(value.visual);
   let box: NormalizedPointerSelectionPolicy['box'] = null;
   if (value.box === true) {
     box = Object.freeze({ partialIntersection: true, activationModifier: 'none' });
@@ -6281,7 +6371,48 @@ function normalizePointerSelectionPolicy(
     allowMultiple: value.allowMultiple ?? true,
     box,
     isSelectable: value.isSelectable ?? null,
+    visual,
   });
+}
+
+function normalizePointerSelectionVisualPolicy(
+  value: PatchMapSelectionPolicy['visual'],
+): NormalizedPointerSelectionPolicy['visual'] {
+  if (value === undefined) return DEFAULT_POINTER_SELECTION_POLICY.visual;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('selection.visual must be an object');
+  }
+  const mode = value.displayMode ?? 'all';
+  if (!['all', 'group-only', 'element-only', 'hidden'].includes(mode)) {
+    throw new TypeError('selection.visual.displayMode is unsupported');
+  }
+  const strokeCssPx = value.strokeWidth ?? 2;
+  if (!(strokeCssPx > 0) || !Number.isFinite(strokeCssPx)) {
+    throw new RangeError('selection.visual.strokeWidth must be positive and finite');
+  }
+  return Object.freeze({
+    color: normalizePointerSelectionColor(value.color),
+    strokeCssPx,
+    mode,
+  });
+}
+
+function normalizePointerSelectionColor(value: number | string | undefined): number {
+  if (value === undefined) return 0x2f80ed;
+  if (typeof value === 'number') {
+    if (!Number.isInteger(value) || value < 0 || value > 0xffffff) {
+      throw new RangeError('selection.visual.color number must be a 0xRRGGBB integer');
+    }
+    return value;
+  }
+  if (typeof value !== 'string') {
+    throw new TypeError('selection.visual.color must be a number or CSS color string');
+  }
+  const packed = parsePatchMapCssColor(value);
+  if (packed === undefined) {
+    throw new TypeError('selection.visual.color is not a supported CSS color');
+  }
+  return packed >>> 8;
 }
 
 function pointerBoxActivationMatches(

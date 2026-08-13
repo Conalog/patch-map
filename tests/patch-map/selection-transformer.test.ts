@@ -255,6 +255,8 @@ describe('PatchMap aggregate selection and transformer substrate', () => {
       hidden: false,
       handleCssPx: 8,
       strokeCssPx: 1,
+      color: 0x2f80ed,
+      elementOnly: false,
     });
     expect(engine.transformerHandleProbe()).toMatchObject({
       visibleCorners: ['nw', 'ne', 'sw', 'se'],

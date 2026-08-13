@@ -298,6 +298,7 @@ try {
   if (failures.length) {
     process.stderr.write(`${JSON.stringify({
       builtins: esm.builtins,
+      pointerInteraction: esm.pointerInteraction,
       journey: {
         browserRemainingCanvasCount: journeyBrowser.remainingCanvasCount,
         journeyCount: journeyMatrix.journeyCount,
@@ -375,6 +376,12 @@ async function runPackedPointerInteractionProbe(page) {
   await move(225, 140);
   await move(45, 45);
   await page.mouse.click(bounds.x + 45, bounds.y + 45);
+  const clickRed = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureRed(),
+  );
+  await page.evaluate((value) => {
+    window.__PATCH_MAP_POINTER_PROBE__.clickRed = value;
+  }, clickRed);
   await page.keyboard.down('Shift');
   await page.mouse.click(bounds.x + 95, bounds.y + 45);
   await page.keyboard.up('Shift');
@@ -420,6 +427,9 @@ async function runPackedPointerInteractionProbe(page) {
     return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
   });
   await move(230, 150, 5);
+  const marqueeDuring = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureRed(),
+  );
   await page.keyboard.up('Shift');
   await page.mouse.up();
   const captureAfter = await page.evaluate(() => {
@@ -433,6 +443,15 @@ async function runPackedPointerInteractionProbe(page) {
     probe.captureAfter = captureAfter;
   }, { captureDuring, captureAfter });
   await record('boxViewportAfter');
+  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.clearSelection());
+  const marqueeAfter = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureRed(),
+  );
+  await page.evaluate(({ marqueeDuring, marqueeAfter }) => {
+    const probe = window.__PATCH_MAP_POINTER_PROBE__;
+    probe.marqueeDuring = marqueeDuring;
+    probe.marqueeAfter = marqueeAfter;
+  }, { marqueeDuring, marqueeAfter });
   await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.markPostViewportHover());
   await move(75, 80);
   await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.finishFirst());
@@ -453,6 +472,9 @@ async function runPackedPointerInteractionProbe(page) {
     return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
   });
   await move(280, 190, 5);
+  const remountMarqueeDuring = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureRed(),
+  );
   await page.keyboard.up('Shift');
   await page.mouse.up();
   const remountCaptureAfter = await page.evaluate(() => {
@@ -465,6 +487,15 @@ async function runPackedPointerInteractionProbe(page) {
     probe.remountCaptureDuring = remountCaptureDuring;
     probe.remountCaptureAfter = remountCaptureAfter;
   }, { remountCaptureDuring, remountCaptureAfter });
+  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.clearSelection());
+  const remountMarqueeAfter = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureRed(),
+  );
+  await page.evaluate(({ remountMarqueeDuring, remountMarqueeAfter }) => {
+    const probe = window.__PATCH_MAP_POINTER_PROBE__;
+    probe.remountMarqueeDuring = remountMarqueeDuring;
+    probe.remountMarqueeAfter = remountMarqueeAfter;
+  }, { remountMarqueeDuring, remountMarqueeAfter });
   await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.finishRemount());
 }
 

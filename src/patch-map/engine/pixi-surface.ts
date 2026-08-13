@@ -8,6 +8,7 @@ import {
   type PatchMapPresentationLifecycleResult,
   type PatchMapRootPointerInput,
   type PatchMapRuntimeOptions,
+  type PatchMapSelectionMarqueeInput,
   type PatchMapSelectionOverlayPolicyInput,
   type PatchMapSemanticRefreshResult,
   type PatchMapTextProductProbe,
@@ -435,6 +436,10 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
 
   public setSelectionOverlayPolicy(input: PatchMapSelectionOverlayPolicyInput): boolean {
     return this.core.setSelectionOverlayPolicy(input);
+  }
+
+  public setSelectionMarquee(input: PatchMapSelectionMarqueeInput | null): boolean {
+    return this.core.setSelectionMarquee(input);
   }
 
   public setPresentationPolicy(

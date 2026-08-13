@@ -75,6 +75,8 @@ export interface PatchMapInteractionOverlayPolicy {
   readonly hidden: boolean;
   readonly handleCssPx: number;
   readonly strokeCssPx: number;
+  /** Normalized 0xRRGGBB shared by selection, transformer, and marquee strokes. */
+  readonly color: number;
 }
 
 export type PatchMapTextRendererKind = PatchMapTextRenderRoute | 'none';

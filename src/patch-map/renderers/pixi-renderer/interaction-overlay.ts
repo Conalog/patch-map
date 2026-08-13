@@ -16,6 +16,7 @@ export const DEFAULT_INTERACTION_OVERLAY_POLICY: PatchMapInteractionOverlayPolic
   hidden: false,
   handleCssPx: 6,
   strokeCssPx: 2,
+  color: 0x2f80ed,
 });
 
 export function resolveAggregateOverlayVertices(
@@ -100,6 +101,7 @@ export function normalizeInteractionOverlayPolicy(
     hidden: policy.hidden,
     handleCssPx: positive(policy.handleCssPx, 'handleCssPx'),
     strokeCssPx: positive(policy.strokeCssPx, 'strokeCssPx'),
+    color: normalizeRgb(policy.color),
   });
 }
 
@@ -110,9 +112,17 @@ export function sameInteractionOverlayPolicy(
   return left.hidden === right.hidden &&
     left.handleCssPx === right.handleCssPx &&
     left.strokeCssPx === right.strokeCssPx &&
+    left.color === right.color &&
     sameNullableStringArray(left.visibleEntityIds, right.visibleEntityIds) &&
     sameNullableStringArray(left.transformableEntityIds, right.transformableEntityIds) &&
     sameNullableStringArray(left.resizableEntityIds, right.resizableEntityIds);
+}
+
+function normalizeRgb(value: number): number {
+  if (!Number.isInteger(value) || value < 0 || value > 0xffffff) {
+    throw new RangeError('interaction overlay color must be a 0xRRGGBB integer');
+  }
+  return value;
 }
 
 function freezeEntityIds(values: readonly string[], label: string): readonly string[] {

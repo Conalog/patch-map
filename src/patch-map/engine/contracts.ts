@@ -11,6 +11,7 @@ import type {
   PatchMapPresentationLifecycleResult,
   PatchMapReconcileTimings,
   PatchMapRootViewportChangeSource,
+  PatchMapSelectionMarqueeInput,
   PatchMapSelectionOverlayPolicyInput,
   PatchMapSemanticRefreshResult,
   PatchMapTextProductProbe,
@@ -255,6 +256,7 @@ export interface PatchMapEngineSurface {
   accessibilitySurfaceProbe?(): PatchMapAccessibilitySurfaceProbe | undefined;
   setReducedMotion?(enabled: boolean): boolean;
   setSelectionOverlayPolicy?(input: PatchMapSelectionOverlayPolicyInput): boolean;
+  setSelectionMarquee?(input: PatchMapSelectionMarqueeInput | null): boolean;
   setPresentationPolicy?(
     input: PatchMapPresentationPolicyInput,
   ): PatchMapPresentationPolicyProductProbe;

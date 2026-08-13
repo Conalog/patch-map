@@ -80,7 +80,8 @@ icon, and text tint paths and by concrete bar/icon presentation overlays.
 Host tooltip and selection plugins use package-owned pointer projection rather
 than duplicating hit tests. Keep ordinary primary drag as viewport pan and use
 Shift+primary drag for box selection with
-`selection: { box: { activationModifier: 'shift' }, allowMultiple, isSelectable }`,
+`selection: { box: { activationModifier: 'shift' }, allowMultiple, isSelectable,
+visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' } }`,
 observe stable hover targets through `pointer.onHover()`, and observe non-echo
 pointer selection through `selection.onPointerChange()`. Both subscriptions
 return disposers and are also cleared by `destroy()`.

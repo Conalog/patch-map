@@ -49,12 +49,19 @@ geometry, mutate normalized output, or retain Pixi display objects. Event
 callbacks and canvas ownership remain instance-local.
 
 Selection and tooltip plugins attach only to the public projections. Pass
-`selection: { box, allowMultiple, isSelectable }` to `mount()`, subscribe to
+`selection: { box, allowMultiple, isSelectable, visual }` to `mount()`, subscribe to
 `selection.onPointerChange()` for non-echo pointer changes, and subscribe to
 `pointer.onHover()` for stable target plus CSS/world anchors. PatchMap retains
 the root pointer listener, pointer capture, aggregate hit test, coordinate
 conversion, primary-drag versus pan arbitration, and frame invalidation. The
 host owns only the returned disposers and its plugin callbacks.
+
+Map an existing Transformer wireframe with
+`visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' }`.
+PatchMap applies it to programmatic and pointer selection and uses the same
+CSS-pixel stroke for its package-owned box marquee. Do not add a host canvas,
+DOM overlay, pointer listener, coordinate conversion, or RAF for selection
+paint.
 
 For live concrete grid state, send bar and icon columns in one
 `updateBatch()` call. Use `bar.height`, `bar.changes.tint/source/show`, and

@@ -66,6 +66,22 @@ export interface PatchMapBoxSelectionOptions {
   readonly activationModifier?: 'none' | 'shift';
 }
 
+export type PatchMapSelectionDisplayMode =
+  | 'all'
+  | 'group-only'
+  | 'element-only'
+  | 'hidden';
+
+/** Package-owned selection and box-marquee paint for one mounted instance. */
+export interface PatchMapSelectionVisualPolicy {
+  /** Outline and marquee color. Accepts 0xRRGGBB or PATCH MAP CSS colors. */
+  readonly color?: number | string;
+  /** Screen-space outline width in CSS pixels. Defaults to 2. */
+  readonly strokeWidth?: number;
+  /** Which selected semantic targets receive an outline. Defaults to `all`. */
+  readonly displayMode?: PatchMapSelectionDisplayMode;
+}
+
 /** Package-owned pointer selection policy for one mounted instance. */
 export interface PatchMapSelectionPolicy {
   /** Preserve multi-target shift selection. Defaults to true. */
@@ -74,6 +90,8 @@ export interface PatchMapSelectionPolicy {
   readonly box?: boolean | PatchMapBoxSelectionOptions;
   /** Called with detached stable identity, never renderer objects. */
   readonly isSelectable?: (target: PatchMapTarget) => boolean;
+  /** Instance-local package-owned selection outline and box-marquee paint. */
+  readonly visual?: PatchMapSelectionVisualPolicy;
 }
 
 export type PatchMapTargetScope = 'all' | 'authored' | 'instances';

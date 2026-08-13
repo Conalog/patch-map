@@ -214,6 +214,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private readonly transformerOverlaySlots = new Set<number>();
   private readonly resizableOverlaySlots = new Set<number>();
   private interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
+  private selectionMarquee: Readonly<{
+    readonly start: readonly [number, number];
+    readonly current: readonly [number, number];
+  }> | null = null;
   private readonly target: HTMLElement | undefined;
   private cleanupPromise: Promise<void> = Promise.resolve();
   private interactionUnbind: (() => void) | null = null;
@@ -305,6 +309,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.heightValue = options.height;
     this.pixelRatioValue = options.pixelRatio;
     this.world = new Container({ label: 'PatchMap / world', isRenderGroup: true });
+    this.world.sortableChildren = true;
     this.world.eventMode = 'none';
     this.world.interactiveChildren = false;
     this.aggregate = options.strategy === 'mesh'
@@ -339,8 +344,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     );
     this.selectionOverlay = new Graphics({ label: 'PatchMap / selection overlay (0)' });
     this.selectionOverlay.eventMode = 'none';
+    this.selectionOverlay.zIndex = 1;
     this.transformerOverlay = new Graphics({ label: 'PatchMap / transformer overlay (0)' });
     this.transformerOverlay.eventMode = 'none';
+    this.transformerOverlay.zIndex = 2;
     if (this.aggregate instanceof AggregateMeshLayer) {
       // Preserve aggregate batching while matching PATCH MAP's authored
       // underlay -> item frame -> component-content order. Standalone root
@@ -536,8 +543,25 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       return false;
     }
     this.interactionOverlayPolicy = normalized;
+    if (this.lastStore !== null) {
+      this.syncSelectionOverlay(this.lastStore, true, undefined);
+    }
     this.pendingOverlayRanges = undefined;
     this.lastInvalidation = 'interaction-overlay-policy';
+    return true;
+  }
+
+  /** Transient box gesture paint; intentionally absent from snapshots and probes. */
+  public setSelectionMarquee(input: Readonly<{
+    readonly start: readonly [number, number];
+    readonly current: readonly [number, number];
+  }> | null): boolean {
+    this.assertAlive();
+    const next = input === null ? null : normalizeSelectionMarquee(input);
+    if (sameSelectionMarquee(this.selectionMarquee, next)) return false;
+    this.selectionMarquee = next;
+    if (this.lastStore !== null) this.drawInteractionOverlays(this.lastStore);
+    this.lastInvalidation = 'selection-marquee';
     return true;
   }
 
@@ -802,7 +826,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.pendingBarPresentationOnly = false;
       this.pendingTextOnly = false;
     }
-    if (scaleChanged) this.pendingOverlayRanges = undefined;
+    if (scaleChanged || this.selectionMarquee !== null) this.pendingOverlayRanges = undefined;
     this.applyWorldTransform();
     this.barPresentationVisibilityStale = true;
     this.lastInvalidation = 'view';
@@ -1538,6 +1562,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.transformerOverlaySlots.clear();
     this.resizableOverlaySlots.clear();
     this.interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
+    this.selectionMarquee = null;
     this.application.stage.removeChild(this.world);
     this.world.removeChildren();
     this.aggregate.destroy();
@@ -1704,9 +1729,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     if (!changed) return;
     const policy = this.interactionOverlayPolicy;
-    const visibleIds = policy.visibleEntityIds === null
-      ? null
-      : new Set(policy.visibleEntityIds);
     const transformableIds = policy.transformableEntityIds === null
       ? null
       : new Set(policy.transformableEntityIds);
@@ -1717,9 +1739,15 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.transformerOverlaySlots.clear();
     this.resizableOverlaySlots.clear();
     if (!policy.hidden) {
-      for (const slot of this.selectedSlots) {
+      const overlaySlots = policy.visibleEntityIds === null
+        ? this.selectedSlots
+        : policy.visibleEntityIds.flatMap((id) => {
+            const slot = this.slotByEntityId.get(id);
+            return slot === undefined ? [] : [slot];
+          });
+      for (const slot of overlaySlots) {
         const id = store.ids[slot];
-        if (!id || (visibleIds !== null && !visibleIds.has(id))) continue;
+        if (!id || store.alive[slot] !== 1) continue;
         this.visibleOverlaySlots.add(slot);
         if (transformableIds === null || transformableIds.has(id)) {
           this.transformerOverlaySlots.add(slot);
@@ -1729,6 +1757,11 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         }
       }
     }
+    this.drawInteractionOverlays(store);
+  }
+
+  private drawInteractionOverlays(store: RenderStoreView): void {
+    const policy = this.interactionOverlayPolicy;
     this.selectionOverlay.clear();
     this.transformerOverlay.clear();
     const overlayVertices = resolveAggregateOverlayVertices(
@@ -1748,7 +1781,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     if (this.visibleOverlaySlots.size > 0) {
       this.selectionOverlay.stroke({
-        color: 0x2f80ed,
+        color: policy.color,
         width: policy.strokeCssPx / Math.max(this.view.scale, 0.001),
         alpha: 1,
       });
@@ -1756,7 +1789,20 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     if (this.resizableOverlaySlots.size > 0) {
       this.transformerOverlay.fill({ color: 0xffffff, alpha: 1 });
       this.transformerOverlay.stroke({
-        color: 0x2f80ed,
+        color: policy.color,
+        width: policy.strokeCssPx / Math.max(this.view.scale, 0.001),
+        alpha: 1,
+      });
+    }
+    if (this.selectionMarquee !== null) {
+      appendScreenMarquee(
+        this.transformerOverlay,
+        this.selectionMarquee,
+        this.worldMatrix,
+      );
+      this.transformerOverlay.fill({ color: policy.color, alpha: 0.08 });
+      this.transformerOverlay.stroke({
+        color: policy.color,
         width: policy.strokeCssPx / Math.max(this.view.scale, 0.001),
         alpha: 1,
       });
@@ -1902,6 +1948,82 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private assertAlive(): void {
     if (this.destroyedValue) throw new Error('PatchMapPixiRenderer is destroyed');
   }
+}
+
+function normalizeSelectionMarquee(input: Readonly<{
+  readonly start: readonly [number, number];
+  readonly current: readonly [number, number];
+}>): Readonly<{
+  readonly start: readonly [number, number];
+  readonly current: readonly [number, number];
+}> {
+  const point = (
+    value: readonly [number, number],
+    label: string,
+  ): readonly [number, number] => {
+    if (!Array.isArray(value) || value.length !== 2 || !value.every(Number.isFinite)) {
+      throw new TypeError(`selection marquee ${label} must be a finite [x, y] tuple`);
+    }
+    return Object.freeze([value[0], value[1]] as const);
+  };
+  return Object.freeze({
+    start: point(input.start, 'start'),
+    current: point(input.current, 'current'),
+  });
+}
+
+function sameSelectionMarquee(
+  left: Readonly<{
+    readonly start: readonly [number, number];
+    readonly current: readonly [number, number];
+  }> | null,
+  right: Readonly<{
+    readonly start: readonly [number, number];
+    readonly current: readonly [number, number];
+  }> | null,
+): boolean {
+  return left === right || (
+    left !== null &&
+    right !== null &&
+    left.start[0] === right.start[0] &&
+    left.start[1] === right.start[1] &&
+    left.current[0] === right.current[0] &&
+    left.current[1] === right.current[1]
+  );
+}
+
+function appendScreenMarquee(
+  graphics: Graphics,
+  marquee: Readonly<{
+    readonly start: readonly [number, number];
+    readonly current: readonly [number, number];
+  }>,
+  world: Matrix,
+): void {
+  const determinant = world.a * world.d - world.b * world.c;
+  if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-12) return;
+  const left = Math.min(marquee.start[0], marquee.current[0]);
+  const top = Math.min(marquee.start[1], marquee.current[1]);
+  const right = Math.max(marquee.start[0], marquee.current[0]);
+  const bottom = Math.max(marquee.start[1], marquee.current[1]);
+  const inverse = (x: number, y: number): readonly [number, number] => {
+    const translatedX = x - world.tx;
+    const translatedY = y - world.ty;
+    return [
+      (world.d * translatedX - world.c * translatedY) / determinant,
+      (-world.b * translatedX + world.a * translatedY) / determinant,
+    ];
+  };
+  const northWest = inverse(left, top);
+  const northEast = inverse(right, top);
+  const southEast = inverse(right, bottom);
+  const southWest = inverse(left, bottom);
+  graphics
+    .moveTo(northWest[0], northWest[1])
+    .lineTo(northEast[0], northEast[1])
+    .lineTo(southEast[0], southEast[1])
+    .lineTo(southWest[0], southWest[1])
+    .closePath();
 }
 
 function slotsForRanges(capacity: number, ranges: readonly SlotRange[]): readonly number[] {
