@@ -59,29 +59,33 @@ try {
   }
   await writeFile(path.join(temporary, 'index.html'), [
     '<!doctype html>',
-    '<html><body style="margin:0">',
-    '<div id="host" style="width:640px;height:480px"></div>',
+    '<html><body style="display:flex;margin:0">',
+    '<div id="persistent-host" style="width:320px;height:240px"></div>',
+    '<div id="compatible-host" style="width:320px;height:240px"></div>',
     '<script type="module" src="/main.js"></script>',
     '</body></html>',
   ].join('\n'));
   await writeFile(path.join(temporary, 'main.js'), `
 import { PatchMap } from '@conalog/patch-map';
 
-const host = document.querySelector('#host');
 const changes = [];
+const persistentHover = [];
+const compatibleHover = [];
+const data = [{
+  type: 'rect',
+  id: 'selectable-item',
+  attrs: { x: 50, y: 50 },
+  size: { width: 80, height: 60 },
+  fill: '#2563eb',
+}];
 const map = await PatchMap.mount({
-  container: host,
-  width: 640,
-  height: 480,
+  container: document.querySelector('#persistent-host'),
+  width: 320,
+  height: 240,
   resizeMode: 'manual',
   fit: false,
-  data: [{
-    type: 'rect',
-    id: 'selectable-item',
-    attrs: { x: 100, y: 100 },
-    size: { width: 80, height: 60 },
-    fill: '#2563eb',
-  }],
+  data,
+  pointer: { hoverDuringPress: true },
   selection: {
     allowMultiple: true,
     clearOnBlankClick: 'double',
@@ -89,16 +93,31 @@ const map = await PatchMap.mount({
     isSelectable: () => true,
   },
 });
+const compatibleMap = await PatchMap.mount({
+  container: document.querySelector('#compatible-host'),
+  width: 320,
+  height: 240,
+  resizeMode: 'manual',
+  fit: false,
+  data,
+});
 const release = map.selection.onPointerChange((change) => changes.push(change));
+const releasePersistentHover = map.pointer.onHover((event) => persistentHover.push(event.type));
+const releaseCompatibleHover = compatibleMap.pointer.onHover((event) => compatibleHover.push(event.type));
 window.__PATCH_MAP_INSTALLED_SELECTION__ = {
   phase: 'ready',
   selectionIds: () => [...map.selection.ids],
   debugSelectionIds: () => [...map.debug.snapshot().selectionIds],
   selectItem: () => map.selection.set('selectable-item'),
   changes: () => structuredClone(changes),
+  persistentHover: () => [...persistentHover],
+  compatibleHover: () => [...compatibleHover],
   destroy: async () => {
     release();
-    return map.destroy();
+    releasePersistentHover();
+    releaseCompatibleHover();
+    const destroyed = await Promise.all([map.destroy(), compatibleMap.destroy()]);
+    return destroyed.every(Boolean);
   },
 };
 `);
@@ -128,13 +147,23 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
     undefined,
     { timeout: 30_000 },
   );
+  await page.mouse.move(90, 80);
+  const persistentHoverBeforePress = await hoverState(page, 'persistentHover');
+  await pointerDownUp(page, 90, 80);
+  const persistentHoverAfterPress = await hoverState(page, 'persistentHover');
+  await page.mouse.move(250, 200);
+  const persistentHoverAfterLeave = await hoverState(page, 'persistentHover');
+  await page.mouse.move(410, 80);
+  const compatibleHoverBeforePress = await hoverState(page, 'compatibleHover');
+  await pointerDownUp(page, 410, 80);
+  const compatibleHoverAfterPress = await hoverState(page, 'compatibleHover');
   await page.evaluate(() => window.__PATCH_MAP_INSTALLED_SELECTION__.selectItem());
   await page.waitForTimeout(550);
   const selected = await selectionState(page);
-  await pointerDownUp(page, 500, 400);
+  await pointerDownUp(page, 250, 200);
   const afterBlankSingle = await selectionState(page);
   await page.waitForTimeout(100);
-  await pointerDownUp(page, 500, 400);
+  await pointerDownUp(page, 250, 200);
   const afterBlankDouble = await selectionState(page);
   const changes = await page.evaluate(
     () => window.__PATCH_MAP_INSTALLED_SELECTION__.changes(),
@@ -147,6 +176,13 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
     artifact,
     artifactSha256,
     installedEntry,
+    hover: {
+      persistentBeforePress: persistentHoverBeforePress,
+      persistentAfterPress: persistentHoverAfterPress,
+      persistentAfterLeave: persistentHoverAfterLeave,
+      compatibleBeforePress: compatibleHoverBeforePress,
+      compatibleAfterPress: compatibleHoverAfterPress,
+    },
     selected,
     afterBlankSingle,
     afterBlankDouble,
@@ -160,6 +196,11 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
     !selectionEquals(selected, ['selectable-item']) ||
     !selectionEquals(afterBlankSingle, ['selectable-item']) ||
     !selectionEquals(afterBlankDouble, []) ||
+    !valuesEqual(persistentHoverBeforePress, ['hover']) ||
+    !valuesEqual(persistentHoverAfterPress, ['hover', 'move']) ||
+    !valuesEqual(persistentHoverAfterLeave, ['hover', 'move', 'leave']) ||
+    !valuesEqual(compatibleHoverBeforePress, ['hover']) ||
+    !valuesEqual(compatibleHoverAfterPress, ['hover', 'move', 'leave']) ||
     destroyed !== true ||
     canvasCountAfterDestroy !== 0 ||
     errors.length !== 0
@@ -185,7 +226,16 @@ async function pointerDownUp(page, x, y) {
 }
 
 function selectionEquals(state, expected) {
-  const serializedExpected = JSON.stringify(expected);
-  return JSON.stringify(state.ids) === serializedExpected &&
-    JSON.stringify(state.debugIds) === serializedExpected;
+  return valuesEqual(state.ids, expected) && valuesEqual(state.debugIds, expected);
+}
+
+function hoverState(page, key) {
+  return page.evaluate(
+    (name) => window.__PATCH_MAP_INSTALLED_SELECTION__[name](),
+    key,
+  );
+}
+
+function valuesEqual(actual, expected) {
+  return JSON.stringify(actual) === JSON.stringify(expected);
 }

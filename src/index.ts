@@ -88,6 +88,7 @@ export type {
   PatchMapOptions,
   PatchMapPointerApi,
   PatchMapPointerHoverEvent,
+  PatchMapPointerPolicy,
   PatchMapPointerEventModifiers,
   PatchMapPointerSelectionChange,
   PatchMapResizeByOptions,

@@ -69,6 +69,12 @@ from `selection.visual` for compatibility. Do not add a host canvas,
 DOM overlay, pointer listener, coordinate conversion, or RAF for selection
 paint.
 
+If clicking a selectable target should keep its tooltip visible, pass
+`pointer: { hoverDuringPress: true }` at mount. This preserves the current
+hover projection across pointer down/up without adding a host listener or hit
+test. Omit it, or set it to `false`, for the compatible pointer-down leave;
+real canvas leave and pointer cancel clear hover in both modes.
+
 To preserve selection on a blank single click, clear on blank double click,
 and remove only an already-selected target on its double click, set
 `clearOnBlankClick: 'double'` and `deselectOnTargetDoubleClick: true`.

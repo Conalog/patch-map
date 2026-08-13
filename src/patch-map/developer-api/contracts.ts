@@ -59,6 +59,12 @@ export interface PatchMapPointerSelectionChange {
   readonly interactionRevision: number;
 }
 
+/** Package-owned pointer projection policy for one mounted instance. */
+export interface PatchMapPointerPolicy {
+  /** Preserve the current hover target during press/click. Defaults to false. */
+  readonly hoverDuringPress?: boolean;
+}
+
 export interface PatchMapBoxSelectionOptions {
   /** Select entities touched by the box. Defaults to true. */
   readonly partialIntersection?: boolean;
@@ -362,6 +368,8 @@ export interface PatchMapOptions {
   readonly fit?: boolean | PatchMapFitOptions;
   /** Root pointer selection policy; the package retains hit-test and gesture ownership. */
   readonly selection?: PatchMapSelectionPolicy;
+  /** Root pointer projection policy; listeners and hit testing remain package-owned. */
+  readonly pointer?: PatchMapPointerPolicy;
 }
 
 export interface PatchMapDataApi {

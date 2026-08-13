@@ -78,7 +78,10 @@ canonical default palette. Theme tokens are shared by authored rect, bar,
 icon, and text tint paths and by concrete bar/icon presentation overlays.
 
 Host tooltip and selection plugins use package-owned pointer projection rather
-than duplicating hit tests. Keep ordinary primary drag as viewport pan and use
+than duplicating hit tests. Set `pointer: { hoverDuringPress: true }` when a
+tooltip should retain its current target through pointer down/up and click;
+the compatible omitted/false policy publishes leave on pointer down. Keep
+ordinary primary drag as viewport pan and use
 Shift+primary drag for box selection with
 `selection: { box: { activationModifier: 'shift', visual: { color: '#1099ff',
 strokeWidth: 1, fillAlpha: 0.08 } }, allowMultiple, isSelectable, visual: {

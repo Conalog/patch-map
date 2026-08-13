@@ -390,10 +390,17 @@ export class PatchMapPointerGestureAuthority {
 
   private pointerCancel(input: PatchMapPointerInput): PatchMapPointerDispatchResult {
     const active = this.activePointers.get(input.pointerId);
-    if (active === undefined) return emptyDispatchResult(this.clearHover());
-    this.activePointers.delete(input.pointerId);
-    const event = semanticPointerEvent('cancel', input, active.targetId, 0);
-    return dispatchResult([event], this.clearHover(), true);
+    const previousHover = this.hoverTarget;
+    this.clearHover();
+    const events: PatchMapSemanticPointerEvent[] = [];
+    if (active !== undefined) {
+      this.activePointers.delete(input.pointerId);
+      events.push(semanticPointerEvent('cancel', input, active.targetId, 0));
+    }
+    if (previousHover !== null) {
+      events.push(semanticPointerEvent('hover-change', input, null, 0));
+    }
+    return dispatchResult(events, this.hoverTarget, active !== undefined);
   }
 
   private pointerLeave(input: PatchMapPointerInput): PatchMapPointerDispatchResult {

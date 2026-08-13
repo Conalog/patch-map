@@ -13,6 +13,7 @@ import type {
   PatchMapInstance,
   PatchMapOptions,
   PatchMapPointerHoverEvent,
+  PatchMapPointerPolicy,
   PatchMapPointerSelectionChange,
   PatchMapSelectionPolicy,
   PatchMapSelectionDisplayMode,
@@ -529,6 +530,9 @@ const DEFAULT_POINTER_SELECTION_POLICY = Object.freeze({
     mode: 'all' as const,
   }),
 } as const);
+const DEFAULT_POINTER_POLICY = Object.freeze({
+  hoverDuringPress: false,
+} as const);
 const EMPTY_MATERIALIZED_DATASET = materializePatchMapDataset([]);
 const PATCH_MAP_QUERY_REUSE_OPERATIONS = Object.freeze([
   'update',
@@ -591,6 +595,10 @@ interface NormalizedPointerSelectionPolicy {
     readonly strokeCssPx: number;
     readonly mode: PatchMapSelectionDisplayMode;
   }>;
+}
+
+interface NormalizedPointerPolicy {
+  readonly hoverDuringPress: boolean;
 }
 
 interface PointerBoxGesture {
@@ -678,6 +686,7 @@ export class PatchMap {
   private deferredMountResize: readonly [number, number, number] | null = null;
   private readonly externalDependencyRevisions = new Map<string, string>();
   private pointerGestureAuthority: PatchMapPointerGestureAuthority | null = null;
+  private pointerPolicy: NormalizedPointerPolicy = DEFAULT_POINTER_POLICY;
   private pointerSelectionPolicy: NormalizedPointerSelectionPolicy =
     DEFAULT_POINTER_SELECTION_POLICY;
   private pointerBoxGesture: PointerBoxGesture | null = null;
@@ -750,6 +759,7 @@ export class PatchMap {
       ...(options.assetPolicy === undefined ? {} : { assetPolicy: options.assetPolicy }),
     });
     try {
+      engine.configurePointerPolicy(options.pointer);
       engine.configurePointerSelectionPolicy(options.selection);
       // Root PatchMap consumers receive the stable package catalog without
       // eagerly acquiring every builtin. Scene reconciliation leases only the
@@ -1007,6 +1017,11 @@ export class PatchMap {
       disposed = true;
       ownerWindow?.removeEventListener('resize', resize);
     };
+  }
+
+  /** @internal Root `PatchMap.mount()` owns this policy boundary. */
+  public configurePointerPolicy(policy: PatchMapPointerPolicy | undefined): void {
+    this.pointerPolicy = normalizePointerPolicy(policy);
   }
 
   /** @internal Root `PatchMap.mount()` owns this policy boundary. */
@@ -1379,6 +1394,7 @@ export class PatchMap {
         const readySurface = candidateSurface;
         const pointerAuthority = new PatchMapPointerGestureAuthority({
           hitTest: (point) => readySurface.hitTestScreen(point),
+          hoverDuringPress: this.pointerPolicy.hoverDuringPress,
         });
         try {
           this.surfaceLifecycle.installCandidate(readySurface, {
@@ -6481,6 +6497,24 @@ function normalizePointerSelectionPolicy(
     box,
     isSelectable: value.isSelectable ?? null,
     visual,
+  });
+}
+
+function normalizePointerPolicy(
+  value: PatchMapPointerPolicy | undefined,
+): NormalizedPointerPolicy {
+  if (value === undefined) return DEFAULT_POINTER_POLICY;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('pointer policy must be an object');
+  }
+  if (
+    value.hoverDuringPress !== undefined &&
+    typeof value.hoverDuringPress !== 'boolean'
+  ) {
+    throw new TypeError('pointer.hoverDuringPress must be boolean');
+  }
+  return Object.freeze({
+    hoverDuringPress: value.hoverDuringPress ?? false,
   });
 }
 

@@ -162,6 +162,7 @@ boundary instead:
 const patchMap = await PatchMap.mount({
   container,
   data,
+  pointer: { hoverDuringPress: true },
   selection: {
     box: {
       activationModifier: 'shift',
@@ -196,6 +197,10 @@ deterministic. Concrete hover targets use the cell ID plus the stable template
 `componentId`; pointer selection resolves the same hit to its stable cell ID,
 matching programmatic and box selection. Both subscription methods
 return a disposer and `destroy()` clears any disposer the route did not call.
+Set `pointer.hoverDuringPress` only when the existing tooltip contract keeps
+the current hover target through a selectable-target click. Omitted/false
+retains the compatible pointer-down leave, while actual leave and cancel clear
+hover in either mode.
 Do not retain the old host pointer listeners, hit-test mirror, coordinate
 transform, tooltip RAF, transformer wireframe, or DOM drag rectangle. The
 package draws the configured selection frame and transient Shift-drag marquee
@@ -503,6 +508,8 @@ This focused gate creates a fresh temporary consumer, installs that exact
 tarball offline, resolves the root package entry from the consumer's own
 `node_modules`, and exercises `clearOnBlankClick: 'double'` through public
 pointer down/up input. It intentionally uses no worktree-source alias.
+The equivalent `verify:package:installed-pointer` command additionally names
+the gate's true/false hover-policy coverage.
 
 ## Unsupported migration requests
 

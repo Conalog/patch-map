@@ -108,6 +108,12 @@ template component identity as `componentId`; point and box selection resolve
 to the stable grid-cell `id`. Subscriptions are instance-local,
 return disposers, and are also cleared by `destroy()`.
 
+`PatchMap.mount({ pointer: { hoverDuringPress: true } })` preserves the current
+hover target through a press/click, so a host tooltip does not disappear when
+the same selectable target is clicked. The option defaults to `false` for
+compatibility. A real leave or pointer cancel still publishes `leave` and
+clears the retained target.
+
 Selection paint is configured only at the root mount boundary with
 `selection.visual`. Color, CSS-pixel stroke width, and `all`/`group-only`/
 `element-only`/`hidden` display mode apply equally to programmatic, click, and

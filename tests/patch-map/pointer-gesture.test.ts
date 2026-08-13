@@ -113,6 +113,39 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     expect(viewChanged.map(({ type }) => type)).toEqual(['down', 'up']);
   });
 
+  it('keeps hover through press only when configured and publishes leave on cancel', () => {
+    const compatible = authorityForTest();
+    compatible.dispatch(pointer('move', 1, [20, 30], 0, { buttons: 0 }));
+    expect(compatible.dispatch(pointer('down', 1, [20, 30], 16)).events
+      .map(({ type }) => type)).toEqual(['hover-change', 'down']);
+    expect(compatible.probe().hoverTarget).toBeNull();
+
+    const persistent = new PatchMapPointerGestureAuthority({
+      hitTest: ({ x, y }) => x >= 0 && x <= 220 && y >= 0 && y <= 180
+        ? (x < 120 ? 'item-a' : 'rect-b')
+        : null,
+      hoverDuringPress: true,
+    });
+    persistent.dispatch(pointer('move', 2, [20, 30], 0, { buttons: 0 }));
+    expect(persistent.dispatch(pointer('down', 2, [20, 30], 16))).toMatchObject({
+      hoverTarget: 'item-a',
+      events: [{ type: 'down' }],
+    });
+    expect(persistent.dispatch(pointer('up', 2, [20, 30], 32, { buttons: 0 })))
+      .toMatchObject({
+        hoverTarget: 'item-a',
+        events: [{ type: 'up' }, { type: 'click' }],
+      });
+
+    persistent.dispatch(pointer('down', 3, [20, 30], 48));
+    expect(persistent.dispatch(pointer('cancel', 3, [20, 30], 64, { buttons: 0 })))
+      .toMatchObject({
+        hoverTarget: null,
+        clickSuppressed: true,
+        events: [{ type: 'cancel' }, { type: 'hover-change' }],
+      });
+  });
+
   it('clears hover and every owned gesture resource on interruption and destroy', () => {
     const authority = authorityForTest();
     expect(authority.dispatch(pointer('move', 1, [20, 30], 0, { buttons: 0 })))
@@ -421,6 +454,45 @@ describe('PatchMap root pointer and region-selection substrate', () => {
 
     await expect(engine.destroy()).resolves.toBe(true);
     expect(surface.pointerListener).toBeNull();
+  });
+
+  it('projects mount-owned hover persistence without changing the compatible default', async () => {
+    for (const hoverDuringPress of [false, true]) {
+      const surface = new PointerTestSurface();
+      const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+      if (hoverDuringPress) engine.configurePointerPolicy({ hoverDuringPress: true });
+      await engine.initialize({
+        instanceId: `pointer-hover-during-press-${hoverDuringPress}`,
+        width: 800,
+        height: 600,
+      });
+      engine.loadDataset(REGION_DATASET);
+      const hoverEvents: PatchMapPointerHoverEvent[] = [];
+      engine.pointer.onHover((event) => hoverEvents.push(event));
+
+      surface.emit(surfacePointer('move', 1, [90, 80], 0, { buttons: 0 }));
+      surface.emit(surfacePointer('down', 1, [90, 80], 16));
+      expect(hoverEvents.map(({ type }) => type)).toEqual(
+        hoverDuringPress ? ['hover'] : ['hover', 'leave'],
+      );
+      surface.emit(surfacePointer('up', 1, [90, 80], 32, { buttons: 0 }));
+      expect(engine.selection.ids).toEqual(['item-a']);
+
+      if (hoverDuringPress) {
+        surface.emit(surfacePointer('down', 2, [90, 80], 48));
+        surface.emit(surfacePointer('cancel', 2, [90, 80], 64, { buttons: 0 }));
+        expect(hoverEvents.map(({ type }) => type)).toEqual(['hover', 'leave']);
+      }
+      await expect(engine.destroy()).resolves.toBe(true);
+      expect(surface.pointerListener).toBeNull();
+    }
+
+    const engine = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PointerTestSurface()),
+    });
+    expect(() => engine.configurePointerPolicy({
+      hoverDuringPress: 'yes' as unknown as boolean,
+    })).toThrow('pointer.hoverDuringPress must be boolean');
   });
 
   it('latches shift-only box activation at pointer-down without taking ordinary pan drags', async () => {

@@ -103,6 +103,7 @@ targets and coordinates through two disposer-based subscriptions:
 const patchMap = await PatchMap.mount({
   container,
   data,
+  pointer: { hoverDuringPress: true },
   selection: {
     box: {
       activationModifier: 'shift',
@@ -139,6 +140,11 @@ const stopPointerSelection = patchMap.selection.onPointerChange((change) => {
   selectionPlugin.onSelectionChange(change.selected);
 });
 ```
+
+`pointer.hoverDuringPress` defaults to `false`. Opt into `true` when clicking
+the hovered selectable target must not publish a transient `leave` between
+pointer down and up. Actual pointer leave and cancel still publish `leave` and
+clear the package-owned hover projection.
 
 For a concrete grid component hover, the target is
 `{ id: '<grid>.<row>.<column>', componentId: '<template-component-id>' }`.

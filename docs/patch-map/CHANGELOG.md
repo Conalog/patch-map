@@ -37,6 +37,9 @@
   opt-in service policy keeps new-target and Shift-click response immediate,
   preserves multi-selection on the first selected-target click, and removes
   only that target on the paired second click.
+- Added opt-in `pointer.hoverDuringPress` so root-owned hover projection can
+  remain stable through a selectable-target click while preserving the
+  compatible pointer-down leave default and real leave/cancel cleanup.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.
