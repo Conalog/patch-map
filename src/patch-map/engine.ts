@@ -3787,14 +3787,16 @@ export class PatchMap {
       options.lockedIds ?? [],
     );
     const changed = surface.setSelectionOverlayPolicy?.({
-      visibleIds: visual.overlayTargets.map((target) => target.selectionId),
+      visibleIds: this.selectionGeometryIds(
+        visual.overlayTargets.map((target) => target.selectionId),
+      ),
       transformableIds: subset.transformableTargets.map((target) => target.selectionId),
       resizableIds: subset.resizableTargets.map((target) => target.selectionId),
       hidden: visual.mode === 'hidden',
       handleCssPx: visual.handleCssPx,
       strokeCssPx: visual.strokeCssPx,
       color: 0x2f80ed,
-      elementOnly: false,
+      displayMode: visual.mode,
     }) ?? false;
     if (changed) this.publication.advanceInteraction();
     return visual;
@@ -3804,10 +3806,10 @@ export class PatchMap {
     const surface = this.surface;
     if (surface === null || this.materialized === null) return false;
     const policy = this.pointerSelectionPolicy.visual;
-    const overlayIds = this.configuredSelectionOverlayIds(policy.mode);
+    const overlayIds = this.selectionGeometryIds(this.logicalSelectionIds);
     const subset = evaluatePatchMapTransformableSubset(
       this.logicalSceneSelectionIndex(),
-      overlayIds,
+      this.logicalSelectionIds,
     );
     return surface.setSelectionOverlayPolicy?.({
       visibleIds: overlayIds,
@@ -3817,31 +3819,21 @@ export class PatchMap {
       handleCssPx: 6,
       strokeCssPx: policy.strokeCssPx,
       color: policy.color,
-      elementOnly: policy.mode === 'element-only',
+      displayMode: policy.mode,
     }) ?? false;
   }
 
-  private configuredSelectionOverlayIds(
-    mode: PatchMapSelectionDisplayMode,
-  ): readonly string[] {
-    if (mode === 'hidden') return Object.freeze([]);
+  private selectionGeometryIds(selectionIds: readonly string[]): readonly string[] {
     const index = this.logicalSceneSelectionIndex();
     const ids: string[] = [];
     const seen = new Set<string>();
-    for (const selectionId of this.logicalSelectionIds) {
+    for (const selectionId of selectionIds) {
       let target = index.target(selectionId);
       if (target === null) continue;
-      if (mode === 'element-only' && target.kind === 'component') {
+      if (target.kind === 'component') {
         const ownerId = target.ownerId;
         target = ownerId === null ? null : index.target(ownerId);
         if (target === null) continue;
-      }
-      if (mode === 'group-only' && target.type !== 'group') continue;
-      if (
-        mode === 'element-only' &&
-        (target.kind !== 'element' || target.type === 'group' || target.type === 'relations')
-      ) {
-        continue;
       }
       if (!seen.has(target.selectionId)) {
         seen.add(target.selectionId);

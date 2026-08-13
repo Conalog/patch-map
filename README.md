@@ -84,7 +84,8 @@ Shift+primary drag for box selection with
 visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' } }`,
 observe stable hover targets through `pointer.onHover()`, and observe non-echo
 pointer selection through `selection.onPointerChange()`. Both subscriptions
-return disposers and are also cleared by `destroy()`.
+return disposers and are also cleared by `destroy()`. Selection display modes
+compose individual and aggregate bounds; they never filter selection identity.
 
 For repeated grid-instance updates, query one semantic target set and reuse it
 without JSONPath or per-update scene scans:

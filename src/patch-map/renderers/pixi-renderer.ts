@@ -103,7 +103,7 @@ import {
   DEFAULT_INTERACTION_OVERLAY_POLICY,
   interactionOverlayLabel,
   normalizeInteractionOverlayPolicy,
-  resolveAggregateOverlayVertices,
+  resolveOverlayPathPlan,
   sameInteractionOverlayPolicy,
 } from './pixi-renderer/interaction-overlay';
 import {
@@ -213,6 +213,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private readonly visibleOverlaySlots = new Set<number>();
   private readonly transformerOverlaySlots = new Set<number>();
   private readonly resizableOverlaySlots = new Set<number>();
+  private individualSelectionOutlineCount = 0;
+  private groupSelectionOutlineVisible = false;
+  private selectionOutlineCount = 0;
   private interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
   private selectionMarquee: Readonly<{
     readonly start: readonly [number, number];
@@ -1257,13 +1260,17 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   /** Exact scene-tail order and current visibility of aggregate editor overlays. */
   public overlayPaintProbe(): PatchMapOverlayPaintProbe {
     this.assertAlive();
-    const visible = this.visibleOverlaySlots.size > 0;
+    const visible = this.selectionOutlineCount > 0;
     return Object.freeze({
       order: Object.freeze(['selection', 'transformer'] as const),
       selection: visible,
       transformer: this.transformerOverlaySlots.size > 0,
       selectedEntityCount: this.visibleOverlaySlots.size,
       renderObjectCount: visible ? 2 : 0,
+      displayMode: this.interactionOverlayPolicy.displayMode,
+      individualOutlineCount: this.individualSelectionOutlineCount,
+      groupOutline: this.groupSelectionOutlineVisible,
+      outlineCount: this.selectionOutlineCount,
     });
   }
 
@@ -1561,6 +1568,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.visibleOverlaySlots.clear();
     this.transformerOverlaySlots.clear();
     this.resizableOverlaySlots.clear();
+    this.individualSelectionOutlineCount = 0;
+    this.groupSelectionOutlineVisible = false;
+    this.selectionOutlineCount = 0;
     this.interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
     this.selectionMarquee = null;
     this.application.stage.removeChild(this.world);
@@ -1764,13 +1774,17 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     const policy = this.interactionOverlayPolicy;
     this.selectionOverlay.clear();
     this.transformerOverlay.clear();
-    const overlayVertices = resolveAggregateOverlayVertices(
+    const pathPlan = resolveOverlayPathPlan(
       store,
       [...this.visibleOverlaySlots].sort((left, right) => left - right),
       this.projectionContext(),
+      policy.displayMode,
     );
+    for (const vertices of pathPlan.selectionPaths) {
+      appendOverlayOutline(this.selectionOverlay, vertices);
+    }
+    const overlayVertices = pathPlan.aggregateVertices;
     if (overlayVertices !== null) {
-      appendOverlayOutline(this.selectionOverlay, overlayVertices);
       if (this.resizableOverlaySlots.size > 0) {
         appendOverlayHandles(
           this.transformerOverlay,
@@ -1779,7 +1793,16 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         );
       }
     }
-    if (this.visibleOverlaySlots.size > 0) {
+    this.individualSelectionOutlineCount = policy.displayMode === 'element-only'
+      ? pathPlan.individualVertices.length
+      : policy.displayMode === 'all'
+        ? pathPlan.individualVertices.length
+        : 0;
+    this.groupSelectionOutlineVisible = policy.displayMode === 'group-only'
+      ? overlayVertices !== null
+      : policy.displayMode === 'all' && pathPlan.individualVertices.length > 1;
+    this.selectionOutlineCount = pathPlan.selectionPaths.length;
+    if (this.selectionOutlineCount > 0) {
       this.selectionOverlay.stroke({
         color: policy.color,
         width: policy.strokeCssPx / Math.max(this.view.scale, 0.001),

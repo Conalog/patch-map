@@ -92,10 +92,15 @@ export interface PatchMapSelectionVisualProbe {
   readonly selectedTargets: readonly PatchMapLogicalTargetSnapshot[];
   readonly overlayTargets: readonly PatchMapLogicalTargetSnapshot[];
   readonly transformableTargets: readonly PatchMapLogicalTargetSnapshot[];
-  readonly overlayCount: 0 | 1;
+  /** Individual frames selected by the bounds display mode. */
+  readonly individualFrames: readonly PatchMapSelectionFrameProbe[];
+  /** Aggregate frame painted by group-only/all, excluding all-mode single duplicates. */
+  readonly groupFrame: PatchMapSelectionFrameProbe | null;
+  readonly overlayCount: number;
   readonly explicitlyIndicatesTransformableSubset: boolean;
   readonly handleCssPx: number;
   readonly strokeCssPx: number;
+  /** Aggregate transformer/edit frame, independent from individual outline paint. */
   readonly frame: PatchMapSelectionFrameProbe | null;
 }
 

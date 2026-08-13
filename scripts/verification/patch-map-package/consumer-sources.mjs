@@ -120,6 +120,7 @@ const directImage = await verifyDirectImageLifecycle();
 const theme = await verifyThemeLifecycle();
 const builtins = await verifyBuiltinGlyphLifecycle();
 const pointerInteraction = await verifyPointerInteractionLifecycle();
+const selectionBoundsDisplay = await verifySelectionBoundsDisplayLifecycle();
 const renderObjects = initial.resources.rendering.commandCount;
 let constructorRejected = false;
 try {
@@ -174,6 +175,7 @@ window.__PACKAGE_RESULT__ = {
   theme,
   builtins,
   pointerInteraction,
+  selectionBoundsDisplay,
   internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
   constructorRejected,
   instanceInternalsAbsent,
@@ -748,6 +750,121 @@ async function verifyPointerInteractionLifecycle() {
     await map?.destroy().catch(() => undefined);
     pointerHost.remove();
   });
+}
+
+async function verifySelectionBoundsDisplayLifecycle() {
+  const host = document.createElement('div');
+  Object.assign(host.style, { width: '240px', height: '130px' });
+  document.body.appendChild(host);
+  const data = [{
+    type: 'grid',
+    id: 'bounds-grid',
+    attrs: { x: 20, y: 30 },
+    cells: [[1, 0, 1]],
+    item: {
+      size: { width: 60, height: 60 },
+      components: [{
+        type: 'bar',
+        id: 'bar',
+        source: { type: 'rect', fill: '#ffffff' },
+        size: { width: 60, height: 60 },
+        placement: 'center',
+        tint: '#2563eb',
+        animation: false,
+      }],
+    },
+  }];
+  const selectedComponents = [
+    'bounds-grid.0.0/bar',
+    'bounds-grid.0.2/bar',
+  ];
+  const results = {};
+  let map = null;
+  try {
+    for (const displayMode of ['element-only', 'group-only', 'all']) {
+      map = await PatchMap.mount({
+        container: host,
+        instanceId: 'packed-selection-bounds-' + displayMode,
+        width: 240,
+        height: 130,
+        pixelRatio: 1,
+        background: '#000000',
+        resizeMode: 'manual',
+        fit: false,
+        data,
+        selection: {
+          allowMultiple: true,
+          visual: { color: '#ef4444', strokeWidth: 3, displayMode },
+        },
+      });
+      map.selection.set(selectedComponents[0]);
+      const single = await captureSelectionBoundsRaster(map);
+      map.selection.set(selectedComponents);
+      const multiple = await captureSelectionBoundsRaster(map);
+      const selectionIds = [...map.selection.ids];
+      const renderCommandCount = map.debug.snapshot().resources.rendering.commandCount;
+      const destroy = await map.destroy();
+      map = null;
+      results[displayMode] = {
+        single,
+        multiple,
+        selectionIds,
+        renderCommandCount,
+        destroy,
+      };
+    }
+    return {
+      ...results,
+      canvasCountAfterDestroy: host.querySelectorAll('canvas').length,
+    };
+  } finally {
+    await map?.destroy().catch(() => undefined);
+    host.remove();
+  }
+}
+
+async function captureSelectionBoundsRaster(map) {
+  const capture = await map.capture.png();
+  const image = new Image();
+  image.src = capture.dataUrl;
+  await image.decode();
+  const canvas = document.createElement('canvas');
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(image, 0, 0);
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const isRed = (x, y) => {
+    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return false;
+    const offset = (Math.trunc(y) * canvas.width + Math.trunc(x)) * 4;
+    const red = pixels[offset];
+    const green = pixels[offset + 1];
+    const blue = pixels[offset + 2];
+    const alpha = pixels[offset + 3];
+    return red > 120 && red > green * 1.5 && red > blue * 1.5 && alpha > 180;
+  };
+  const near = (centerX, centerY) => {
+    let count = 0;
+    for (let y = centerY - 3; y <= centerY + 3; y += 1) {
+      for (let x = centerX - 3; x <= centerX + 3; x += 1) {
+        if (isRed(x, y)) count += 1;
+      }
+    }
+    return count;
+  };
+  let redPixelCount = 0;
+  for (let y = 0; y < canvas.height; y += 1) {
+    for (let x = 0; x < canvas.width; x += 1) {
+      if (isRed(x, y)) redPixelCount += 1;
+    }
+  }
+  return {
+    redPixelCount,
+    outerTopGap: near(110, 30),
+    firstInnerEdge: near(80, 60),
+    secondInnerEdge: near(140, 60),
+    gapCenter: near(110, 60),
+  };
 }
 
 async function captureGlyphMask(map, color) {

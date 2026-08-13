@@ -106,25 +106,28 @@ export function createPatchMapSelectionVisualProbe(
   const includedTypes = options.includeTypes === undefined
     ? null
     : new Set(options.includeTypes);
-  const overlayTargets = mode === 'hidden'
-    ? []
-    : selectedTargets.filter((target) => {
-        if (rejected.has(target.selectionId) || rejected.has(target.id)) return false;
-        if (includedTypes !== null && !includedTypes.has(target.type)) return false;
-        if (mode === 'group-only') return target.type === 'group';
-        if (mode === 'element-only') {
-          return target.kind === 'element' &&
-            target.type !== 'group' &&
-            target.type !== 'relations';
-        }
-        return true;
-      });
+  const overlayTargets = selectedTargets.filter((target) => {
+    if (rejected.has(target.selectionId) || rejected.has(target.id)) return false;
+    return includedTypes === null || includedTypes.has(target.type);
+  });
   const subset = evaluatePatchMapTransformableSubset(
     index,
     overlayTargets.map((target) => target.selectionId),
     options.lockedIds ?? [],
   );
-  const frame = selectionFrame(index, geometries, overlayTargets, viewportScale);
+  const aggregateFrame = selectionFrame(index, geometries, overlayTargets, viewportScale);
+  const individualFrames = mode === 'all' || mode === 'element-only'
+    ? Object.freeze(overlayTargets.flatMap((target) => {
+        const frame = selectionFrame(index, geometries, [target], viewportScale);
+        return frame === null ? [] : [frame];
+      }))
+    : Object.freeze([] as PatchMapSelectionFrameProbe[]);
+  const groupFrame = mode === 'group-only'
+    ? aggregateFrame
+    : mode === 'all' && individualFrames.length > 1
+      ? aggregateFrame
+      : null;
+  const frame = mode === 'hidden' ? null : aggregateFrame;
 
   return Object.freeze({
     schemaRevision: PATCH_MAP_SELECTION_TRANSFORMER_REVISION,
@@ -132,7 +135,9 @@ export function createPatchMapSelectionVisualProbe(
     selectedTargets: Object.freeze(selectedTargets),
     overlayTargets: Object.freeze(overlayTargets),
     transformableTargets: subset.transformableTargets,
-    overlayCount: frame === null ? 0 : 1,
+    individualFrames,
+    groupFrame,
+    overlayCount: individualFrames.length + (groupFrame === null ? 0 : 1),
     explicitlyIndicatesTransformableSubset:
       subset.transformableTargets.length !== selectedTargets.length,
     handleCssPx,

@@ -110,6 +110,8 @@ return disposers, and are also cleared by `destroy()`.
 Selection paint is configured only at the root mount boundary with
 `selection.visual`. Color, CSS-pixel stroke width, and `all`/`group-only`/
 `element-only`/`hidden` display mode apply equally to programmatic, click, and
-box selection. The package renders and cleans the transient drag marquee in
+box selection. Display mode composes individual bounds and their aggregate
+bound; it never filters the selected semantic target types or changes their
+identity. The package renders and cleans the transient drag marquee in
 the same canvas; it is intentionally absent from dataset, history, semantic
 hash, and debug state.

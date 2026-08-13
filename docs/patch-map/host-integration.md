@@ -58,8 +58,11 @@ host owns only the returned disposers and its plugin callbacks.
 
 Map an existing Transformer wireframe with
 `visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' }`.
-PatchMap applies it to programmatic and pointer selection and uses the same
-CSS-pixel stroke for its package-owned box marquee. Do not add a host canvas,
+This draws one bound per selected object, matching Transformer
+`boundsDisplayMode: 'elementOnly'`; use `group-only` for only the aggregate
+selection frame or `all` for both. PatchMap applies it to programmatic and
+pointer selection and uses the same CSS-pixel stroke for its package-owned box
+marquee. Do not add a host canvas,
 DOM overlay, pointer listener, coordinate conversion, or RAF for selection
 paint.
 

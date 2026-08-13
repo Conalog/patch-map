@@ -299,6 +299,7 @@ try {
     process.stderr.write(`${JSON.stringify({
       builtins: esm.builtins,
       pointerInteraction: esm.pointerInteraction,
+      selectionBoundsDisplay: esm.selectionBoundsDisplay,
       journey: {
         browserRemainingCanvasCount: journeyBrowser.remainingCanvasCount,
         journeyCount: journeyMatrix.journeyCount,

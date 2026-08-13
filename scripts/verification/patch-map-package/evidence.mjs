@@ -216,6 +216,38 @@ export function collectPackageFailures({
     pointer?.datasetImmutable !== true ||
     !pointer?.selectableTargets?.some(({ id }) => id === 'pointer-grid.0.2')
   ) failures.push('packed pointer hover/selection/box/capture/remount lifecycle failed');
+  const boundsDisplay = esm.selectionBoundsDisplay;
+  const elementBounds = boundsDisplay?.['element-only'];
+  const groupBounds = boundsDisplay?.['group-only'];
+  const allBounds = boundsDisplay?.all;
+  const expectedComponentSelection = JSON.stringify([
+    'bounds-grid.0.0/bar',
+    'bounds-grid.0.2/bar',
+  ]);
+  if (
+    JSON.stringify(elementBounds?.selectionIds) !== expectedComponentSelection ||
+    JSON.stringify(groupBounds?.selectionIds) !== expectedComponentSelection ||
+    JSON.stringify(allBounds?.selectionIds) !== expectedComponentSelection ||
+    elementBounds?.multiple?.outerTopGap !== 0 ||
+    !(elementBounds?.multiple?.firstInnerEdge > 0) ||
+    !(elementBounds?.multiple?.secondInnerEdge > 0) ||
+    elementBounds?.multiple?.gapCenter !== 0 ||
+    !(groupBounds?.multiple?.outerTopGap > 0) ||
+    groupBounds?.multiple?.firstInnerEdge !== 0 ||
+    groupBounds?.multiple?.secondInnerEdge !== 0 ||
+    groupBounds?.multiple?.gapCenter !== 0 ||
+    !(allBounds?.multiple?.outerTopGap > 0) ||
+    !(allBounds?.multiple?.firstInnerEdge > 0) ||
+    !(allBounds?.multiple?.secondInnerEdge > 0) ||
+    allBounds?.multiple?.gapCenter !== 0 ||
+    allBounds?.single?.redPixelCount !== elementBounds?.single?.redPixelCount ||
+    elementBounds?.renderCommandCount !== groupBounds?.renderCommandCount ||
+    elementBounds?.renderCommandCount !== allBounds?.renderCommandCount ||
+    elementBounds?.destroy !== true ||
+    groupBounds?.destroy !== true ||
+    allBounds?.destroy !== true ||
+    boundsDisplay?.canvasCountAfterDestroy !== 0
+  ) failures.push('packed selection bounds display raster or lifecycle failed');
   if (esm.backend !== 'webgl') failures.push('packed ESM did not use WebGL');
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
   if (esm.assetRuntimeCount !== 0) failures.push('packed ESM asset status was inconsistent');

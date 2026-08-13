@@ -193,7 +193,10 @@ return a disposer and `destroy()` clears any disposer the route did not call.
 Do not retain the old host pointer listeners, hit-test mirror, coordinate
 transform, tooltip RAF, transformer wireframe, or DOM drag rectangle. The
 package draws the configured selection frame and transient Shift-drag marquee
-in its canvas and clears both with the mounted lifecycle.
+in its canvas and clears both with the mounted lifecycle. Transformer
+`boundsDisplayMode` maps as `all` → `all`, `groupOnly` → `group-only`,
+`elementOnly` → `element-only`, and `none` → `hidden`; these modes compose
+individual and aggregate bounds rather than filter target types.
 
 ## Mutations, animation, and history
 

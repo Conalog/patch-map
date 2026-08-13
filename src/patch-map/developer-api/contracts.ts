@@ -78,7 +78,7 @@ export interface PatchMapSelectionVisualPolicy {
   readonly color?: number | string;
   /** Screen-space outline width in CSS pixels. Defaults to 2. */
   readonly strokeWidth?: number;
-  /** Which selected semantic targets receive an outline. Defaults to `all`. */
+  /** Individual/group bounds composition. Defaults to `all`. */
   readonly displayMode?: PatchMapSelectionDisplayMode;
 }
 

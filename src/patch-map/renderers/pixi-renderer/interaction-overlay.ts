@@ -17,35 +17,50 @@ export const DEFAULT_INTERACTION_OVERLAY_POLICY: PatchMapInteractionOverlayPolic
   handleCssPx: 6,
   strokeCssPx: 2,
   color: 0x2f80ed,
+  displayMode: 'all',
 });
 
-export function resolveAggregateOverlayVertices(
+export interface PatchMapOverlayPathPlan {
+  /** One oriented quad per selected semantic geometry. */
+  readonly individualVertices: readonly (readonly number[])[];
+  /** Axis-aligned union for multiple quads; the oriented quad for one. */
+  readonly aggregateVertices: readonly number[] | null;
+  /** Selection paths after applying the bounds display mode. */
+  readonly selectionPaths: readonly (readonly number[])[];
+}
+
+export function resolveOverlayPathPlan(
   store: RenderStoreView,
   slots: readonly number[],
   projectionContext: PatchMapProjectionRenderContext,
-): readonly number[] | null {
+  displayMode: PatchMapInteractionOverlayPolicy['displayMode'],
+): PatchMapOverlayPathPlan {
   const quads = slots.flatMap((slot) => {
     const quad = resolvePatchMapSlotQuad(store, slot, projectionContext);
     return quad.width > 0 && quad.height > 0 ? [quad] : [];
   });
-  if (quads.length === 0) return null;
-  if (quads.length === 1) return Object.freeze([...quads[0]!.vertices]);
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (const quad of quads) {
-    for (let index = 0; index < quad.vertices.length; index += 2) {
-      const x = quad.vertices[index];
-      const y = quad.vertices[index + 1];
-      if (x === undefined || y === undefined) continue;
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x);
-      maxY = Math.max(maxY, y);
-    }
+  const individualVertices = Object.freeze(quads.map((quad) =>
+    Object.freeze([...quad.vertices])));
+  const aggregateVertices = aggregateOverlayVertices(individualVertices);
+  const selectionPaths = composeOverlaySelectionPaths(
+    individualVertices,
+    aggregateVertices,
+    displayMode,
+  );
+  return Object.freeze({ individualVertices, aggregateVertices, selectionPaths });
+}
+
+export function composeOverlaySelectionPaths(
+  individualVertices: readonly (readonly number[])[],
+  aggregateVertices: readonly number[] | null,
+  displayMode: PatchMapInteractionOverlayPolicy['displayMode'],
+): readonly (readonly number[])[] {
+  if (displayMode === 'hidden' || aggregateVertices === null) return Object.freeze([]);
+  if (displayMode === 'group-only') return Object.freeze([aggregateVertices]);
+  if (displayMode === 'element-only' || individualVertices.length <= 1) {
+    return individualVertices;
   }
-  return Object.freeze([minX, minY, maxX, minY, maxX, maxY, minX, maxY]);
+  return Object.freeze([...individualVertices, aggregateVertices]);
 }
 
 export function appendOverlayOutline(
@@ -102,6 +117,7 @@ export function normalizeInteractionOverlayPolicy(
     handleCssPx: positive(policy.handleCssPx, 'handleCssPx'),
     strokeCssPx: positive(policy.strokeCssPx, 'strokeCssPx'),
     color: normalizeRgb(policy.color),
+    displayMode: normalizeDisplayMode(policy.displayMode),
   });
 }
 
@@ -113,9 +129,42 @@ export function sameInteractionOverlayPolicy(
     left.handleCssPx === right.handleCssPx &&
     left.strokeCssPx === right.strokeCssPx &&
     left.color === right.color &&
+    left.displayMode === right.displayMode &&
     sameNullableStringArray(left.visibleEntityIds, right.visibleEntityIds) &&
     sameNullableStringArray(left.transformableEntityIds, right.transformableEntityIds) &&
     sameNullableStringArray(left.resizableEntityIds, right.resizableEntityIds);
+}
+
+function aggregateOverlayVertices(
+  quads: readonly (readonly number[])[],
+): readonly number[] | null {
+  if (quads.length === 0) return null;
+  if (quads.length === 1) return quads[0]!;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const vertices of quads) {
+    for (let index = 0; index < vertices.length; index += 2) {
+      const x = vertices[index];
+      const y = vertices[index + 1];
+      if (x === undefined || y === undefined) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  return Object.freeze([minX, minY, maxX, minY, maxX, maxY, minX, maxY]);
+}
+
+function normalizeDisplayMode(
+  value: PatchMapInteractionOverlayPolicy['displayMode'],
+): PatchMapInteractionOverlayPolicy['displayMode'] {
+  if (!['all', 'group-only', 'element-only', 'hidden'].includes(value)) {
+    throw new TypeError('interaction overlay displayMode is unsupported');
+  }
+  return value;
 }
 
 function normalizeRgb(value: number): number {

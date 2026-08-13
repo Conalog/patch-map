@@ -506,11 +506,21 @@ describe('PatchMap root pointer and region-selection substrate', () => {
       color: 0xef4444,
       strokeCssPx: 3,
       hidden: false,
+      displayMode: 'element-only',
     });
     engine.selection.set(['item-a', 'text-c']);
     expect(surface.overlayPolicy?.visibleIds).toEqual(['item-a', 'text-c']);
-    engine.selection.set('item-a::text:label');
+    engine.selection.set('item-a/label');
+    expect(engine.selection.ids).toEqual(['item-a/label']);
     expect(surface.overlayPolicy?.visibleIds).toEqual(['item-a']);
+    engine.configurePointerSelectionPolicy({
+      box: { activationModifier: 'shift' },
+      visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'group-only' },
+    });
+    expect(surface.overlayPolicy).toMatchObject({
+      visibleIds: ['item-a'],
+      displayMode: 'group-only',
+    });
 
     surface.emit(surfacePointer('down', 10, [0, 0], 0, {
       modifiers: { shift: true, ctrl: false, alt: false, meta: false },

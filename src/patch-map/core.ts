@@ -125,7 +125,6 @@ import {
   resolvePresentationFillOverrides,
   semanticPresentationFillDenseIds,
   semanticSelectionDenseIds,
-  semanticSelectionElementDenseIds,
 } from './core/semantic-dense-planning';
 import {
   freezeReconcileResult,
@@ -1318,9 +1317,7 @@ export class PatchMapRuntime {
     const policy: PatchMapInteractionOverlayPolicy = Object.freeze({
       visibleEntityIds: input.visibleIds === null
         ? null
-        : input.elementOnly
-          ? semanticSelectionElementDenseIds(parse, input.visibleIds)
-          : semanticSelectionDenseIds(parse, input.visibleIds, this.componentTargets),
+        : semanticSelectionDenseIds(parse, input.visibleIds, this.componentTargets),
       transformableEntityIds: input.transformableIds === null
         ? null
         : semanticSelectionDenseIds(parse, input.transformableIds, this.componentTargets),
@@ -1331,6 +1328,7 @@ export class PatchMapRuntime {
       handleCssPx: input.handleCssPx,
       strokeCssPx: input.strokeCssPx,
       color: input.color,
+      displayMode: input.displayMode,
     });
     const changed = this.renderer.setInteractionOverlayPolicy(policy);
     if (changed) this.framePublication.invalidate('interaction-overlay-policy');

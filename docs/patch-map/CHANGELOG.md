@@ -25,8 +25,10 @@
   view boxes remove only the catalog artwork's transparent outer padding, so
   public icon `size` describes its visible glyph bounds.
 - Added root `selection.visual` color, CSS-pixel stroke, and display-mode
-  policy plus a package-owned transient box marquee, preserving one canvas,
-  pointer authority, frame loop, and destroy lifecycle.
+  policy plus a package-owned transient box marquee. Display modes preserve
+  Transformer bounds semantics: individual, aggregate, both, or hidden,
+  without filtering selection identity. One canvas, pointer authority, frame
+  loop, and destroy lifecycle remain preserved.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

@@ -6,7 +6,6 @@ import {
   resolvePresentationFillOverrides,
   semanticPresentationFillDenseIds,
   semanticSelectionDenseIds,
-  semanticSelectionElementDenseIds,
 } from '../../src/patch-map/core/semantic-dense-planning';
 import { indexPatchMapComponentProbeTargets } from '../../src/patch-map/core/product-probe-reader';
 import { parsePatchMapV010 } from '../../src/patch-map/parser';
@@ -30,7 +29,6 @@ describe('PatchMap semantic-to-dense planning', () => {
     expect(denseIds).toEqual([barId, 'rect-b']);
     expect(semanticIds).toEqual(['item-a/bar-a', 'rect-b', 'item-a/bar-a']);
     expect(Object.isFrozen(denseIds)).toBe(true);
-    expect(semanticSelectionElementDenseIds(parsed, ['item-a'])).toEqual(['item-a']);
     expect(() => semanticSelectionDenseIds(parsed, [''])).toThrow(
       'selectionIds[0] must be a non-empty string',
     );

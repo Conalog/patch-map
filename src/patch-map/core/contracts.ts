@@ -33,6 +33,7 @@ import type {
   PatchMapSceneImageProductProbe,
 } from '../scene-images';
 import type { FrameSchedulerDebug } from '../scheduler';
+import type { PatchMapSelectionVisualMode } from '../selection-transformer/contracts';
 import type { PatchMapBoundsTuple } from '../semantic/geometry';
 import type {
   PatchMapDenseReconcilePlan,
@@ -94,8 +95,8 @@ export interface PatchMapSelectionOverlayPolicyInput {
   readonly handleCssPx: number;
   readonly strokeCssPx: number;
   readonly color: number;
-  /** Resolve visible IDs as element-only identities without component expansion. */
-  readonly elementOnly?: boolean;
+  /** Main-compatible individual/group bounds composition. */
+  readonly displayMode: PatchMapSelectionVisualMode;
 }
 
 /** Transient screen-space box gesture paint. Never enters semantic state or probes. */

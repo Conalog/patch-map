@@ -63,6 +63,11 @@ export interface PatchMapOverlayPaintProbe {
   readonly transformer: boolean;
   readonly selectedEntityCount: number;
   readonly renderObjectCount: 0 | 2;
+  /** Present on the product renderer; optional only for injected contract surfaces. */
+  readonly displayMode?: 'all' | 'group-only' | 'element-only' | 'hidden';
+  readonly individualOutlineCount?: number;
+  readonly groupOutline?: boolean;
+  readonly outlineCount?: number;
 }
 
 export interface PatchMapInteractionOverlayPolicy {
@@ -77,6 +82,8 @@ export interface PatchMapInteractionOverlayPolicy {
   readonly strokeCssPx: number;
   /** Normalized 0xRRGGBB shared by selection, transformer, and marquee strokes. */
   readonly color: number;
+  /** Individual/group bounds composition; never a semantic target filter. */
+  readonly displayMode: 'all' | 'group-only' | 'element-only' | 'hidden';
 }
 
 export type PatchMapTextRendererKind = PatchMapTextRenderRoute | 'none';

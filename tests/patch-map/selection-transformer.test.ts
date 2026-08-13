@@ -82,11 +82,16 @@ describe('PatchMap aggregate selection and transformer substrate', () => {
     });
     expect(single.overlayTargets.map(({ selectionId }) => selectionId))
       .toEqual(['rect-b']);
+    expect(single).toMatchObject({ overlayCount: 1, groupFrame: null });
+    expect(single.individualFrames).toHaveLength(1);
 
     const multi = createPatchMapSelectionVisualProbe(index, GEOMETRIES, {
       selectionIds: ['item-a', 'rect-b'],
     });
     expect(multi.frame?.kind).toBe('axis-aligned-union');
+    expect(multi).toMatchObject({ overlayCount: 3 });
+    expect(multi.individualFrames).toHaveLength(2);
+    expect(multi.groupFrame?.kind).toBe('axis-aligned-union');
     expect(multi.handleCssPx).toBe(8);
     expect(multi.strokeCssPx).toBe(1);
 
@@ -95,14 +100,18 @@ describe('PatchMap aggregate selection and transformer substrate', () => {
       mode: 'group-only',
     });
     expect(groupOnly.overlayTargets.map(({ selectionId }) => selectionId))
-      .toEqual(['group-a']);
+      .toEqual(['group-a', 'rect-b']);
+    expect(groupOnly).toMatchObject({ overlayCount: 1, individualFrames: [] });
+    expect(groupOnly.groupFrame?.kind).toBe('axis-aligned-union');
 
     const elementOnly = createPatchMapSelectionVisualProbe(index, GEOMETRIES, {
       selectionIds: ['group-a', 'rect-b'],
       mode: 'element-only',
     });
     expect(elementOnly.overlayTargets.map(({ selectionId }) => selectionId))
-      .toEqual(['rect-b']);
+      .toEqual(['group-a', 'rect-b']);
+    expect(elementOnly).toMatchObject({ overlayCount: 2, groupFrame: null });
+    expect(elementOnly.individualFrames).toHaveLength(2);
 
     const mixed = createPatchMapSelectionVisualProbe(index, GEOMETRIES, {
       selectionIds: ['group-a', 'rect-b', 'text-c'],
@@ -256,7 +265,7 @@ describe('PatchMap aggregate selection and transformer substrate', () => {
       handleCssPx: 8,
       strokeCssPx: 1,
       color: 0x2f80ed,
-      elementOnly: false,
+      displayMode: 'all',
     });
     expect(engine.transformerHandleProbe()).toMatchObject({
       visibleCorners: ['nw', 'ne', 'sw', 'se'],

@@ -98,30 +98,6 @@ export function semanticSelectionDenseIds(
   return Object.freeze([...denseIds]);
 }
 
-/** Map only semantic element identities, keeping component selection ownership unchanged. */
-export function semanticSelectionElementDenseIds(
-  parse: ParsePatchMapResult,
-  semanticIds: readonly string[],
-): readonly string[] {
-  if (!Array.isArray(semanticIds)) throw new TypeError('selectionIds must be an array');
-  const denseIds = new Set<string>();
-  semanticIds.forEach((semanticId, index) => {
-    if (typeof semanticId !== 'string' || semanticId.length === 0) {
-      throw new TypeError(`selectionIds[${index}] must be a non-empty string`);
-    }
-    if (Object.hasOwn(parse.identity.entitySourceById, semanticId)) {
-      denseIds.add(semanticId);
-    }
-    for (const entityId of parse.identity.entityIdsBySourceId[semanticId] ?? []) {
-      const source = parse.identity.entitySourceById[entityId];
-      if (source?.sourceElementId === semanticId && source.componentId === undefined) {
-        denseIds.add(entityId);
-      }
-    }
-  });
-  return Object.freeze([...denseIds]);
-}
-
 /** Resolve semantic fill overrides to deterministic dense background targets. */
 export function resolvePresentationFillOverrides(
   parse: ParsePatchMapResult,

@@ -156,10 +156,15 @@ and reports a host-callback diagnostic.
 `selection.visual` is an instance-local package-owned paint policy. `color`
 accepts a `0xRRGGBB` number or PATCH MAP CSS color, `strokeWidth` is measured
 in CSS pixels at every zoom/resolution, and `displayMode` accepts `all`,
-`group-only`, `element-only`, or `hidden`. In `element-only` mode, a selected
-component projects its outline to its stable owner item without changing the
-selected component identity. Programmatic, click, and box changes all use the
-same outline. Once a Shift drag crosses the package threshold, PatchMap draws
+`group-only`, `element-only`, or `hidden`. These values compose bounds rather
+than filter selected target types: `all` draws every selected object's bound
+plus their aggregate bound, `group-only` draws only the aggregate bound,
+`element-only` draws only each selected object's bound, and `hidden` draws no
+selection bound. `all` does not duplicate the same path for a single target.
+A selected component projects its bound to its stable owner item or concrete
+grid cell without changing the selected component identity. Programmatic,
+click, and box changes all use the same outline. Once a Shift drag crosses the
+package threshold, PatchMap draws
 the start-to-current marquee above selection and transformer paint and removes
 it on up, up-outside, cancel, leave, policy replacement, or destroy. The
 marquee is capture-visible but never enters dataset, history, semantic hash,
