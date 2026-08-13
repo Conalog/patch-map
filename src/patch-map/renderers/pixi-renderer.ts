@@ -101,10 +101,14 @@ import {
   appendOverlayHandles,
   appendOverlayOutline,
   DEFAULT_INTERACTION_OVERLAY_POLICY,
+  interactionOverlayTransformNeedsRepaint,
   interactionOverlayLabel,
   normalizeInteractionOverlayPolicy,
+  resolveOverlayLocalCssLength,
+  resolveOverlayWorldScale,
   resolveOverlayPathPlan,
   sameInteractionOverlayPolicy,
+  type PatchMapOverlayWorldTransform,
 } from './pixi-renderer/interaction-overlay';
 import {
   freezeRendererTextProbe,
@@ -216,6 +220,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private individualSelectionOutlineCount = 0;
   private groupSelectionOutlineVisible = false;
   private selectionOutlineCount = 0;
+  private interactionOverlayRedrawCount = 0;
+  private interactionOverlayPaintTransform: PatchMapOverlayWorldTransform | null = null;
+  private interactionOverlaySelectionLocalStrokeWidth = 0;
+  private interactionOverlayMarqueeLocalStrokeWidth = 0;
   private interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
   private selectionMarquee: Readonly<{
     readonly start: readonly [number, number];
@@ -1271,6 +1279,12 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       individualOutlineCount: this.individualSelectionOutlineCount,
       groupOutline: this.groupSelectionOutlineVisible,
       outlineCount: this.selectionOutlineCount,
+      redrawCount: this.interactionOverlayRedrawCount,
+      worldScale: this.interactionOverlayPaintTransform === null
+        ? null
+        : resolveOverlayWorldScale(this.interactionOverlayPaintTransform),
+      selectionLocalStrokeWidth: this.interactionOverlaySelectionLocalStrokeWidth,
+      marqueeLocalStrokeWidth: this.interactionOverlayMarqueeLocalStrokeWidth,
     });
   }
 
@@ -1571,6 +1585,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.individualSelectionOutlineCount = 0;
     this.groupSelectionOutlineVisible = false;
     this.selectionOutlineCount = 0;
+    this.interactionOverlayRedrawCount = 0;
+    this.interactionOverlayPaintTransform = null;
+    this.interactionOverlaySelectionLocalStrokeWidth = 0;
+    this.interactionOverlayMarqueeLocalStrokeWidth = 0;
     this.interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
     this.selectionMarquee = null;
     this.application.stage.removeChild(this.world);
@@ -1737,7 +1755,16 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       else this.selectedSlots.delete(slot);
       if (before !== selected || (selected && !fullRebuild)) changed = true;
     }
-    if (!changed) return;
+    const transformNeedsRepaint = interactionOverlayTransformNeedsRepaint(
+      this.interactionOverlayPaintTransform,
+      this.worldMatrix,
+      this.selectionMarquee !== null,
+    );
+    if (!changed && !transformNeedsRepaint) return;
+    if (!changed) {
+      this.drawInteractionOverlays(store);
+      return;
+    }
     const policy = this.interactionOverlayPolicy;
     const transformableIds = policy.transformableEntityIds === null
       ? null
@@ -1772,6 +1799,15 @@ export class PatchMapPixiRenderer implements CoreRenderer {
 
   private drawInteractionOverlays(store: RenderStoreView): void {
     const policy = this.interactionOverlayPolicy;
+    const selectionLocalStrokeWidth = resolveOverlayLocalCssLength(
+      policy.strokeCssPx,
+      this.worldMatrix,
+    );
+    const marqueeLocalStrokeWidth = resolveOverlayLocalCssLength(
+      policy.marqueeStrokeCssPx,
+      this.worldMatrix,
+    );
+    const handleLocalSize = resolveOverlayLocalCssLength(policy.handleCssPx, this.worldMatrix);
     this.selectionOverlay.clear();
     this.transformerOverlay.clear();
     const pathPlan = resolveOverlayPathPlan(
@@ -1789,7 +1825,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         appendOverlayHandles(
           this.transformerOverlay,
           overlayVertices,
-          policy.handleCssPx / Math.max(this.view.scale, 0.001),
+          handleLocalSize,
         );
       }
     }
@@ -1805,7 +1841,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     if (this.selectionOutlineCount > 0) {
       this.selectionOverlay.stroke({
         color: policy.color,
-        width: policy.strokeCssPx / Math.max(this.view.scale, 0.001),
+        width: selectionLocalStrokeWidth,
         alpha: 1,
       });
     }
@@ -1813,7 +1849,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.transformerOverlay.fill({ color: 0xffffff, alpha: 1 });
       this.transformerOverlay.stroke({
         color: policy.color,
-        width: policy.strokeCssPx / Math.max(this.view.scale, 0.001),
+        width: selectionLocalStrokeWidth,
         alpha: 1,
       });
     }
@@ -1829,7 +1865,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       });
       this.transformerOverlay.stroke({
         color: policy.marqueeColor,
-        width: policy.marqueeStrokeCssPx / Math.max(this.view.scale, 0.001),
+        width: marqueeLocalStrokeWidth,
         alpha: 1,
       });
     }
@@ -1837,6 +1873,17 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       `PatchMap / selection overlay (${this.visibleOverlaySlots.size})`;
     this.transformerOverlay.label =
       `PatchMap / transformer overlay (${this.transformerOverlaySlots.size})`;
+    this.interactionOverlayRedrawCount += 1;
+    this.interactionOverlayPaintTransform = Object.freeze({
+      a: this.worldMatrix.a,
+      b: this.worldMatrix.b,
+      c: this.worldMatrix.c,
+      d: this.worldMatrix.d,
+      tx: this.worldMatrix.tx,
+      ty: this.worldMatrix.ty,
+    });
+    this.interactionOverlaySelectionLocalStrokeWidth = selectionLocalStrokeWidth;
+    this.interactionOverlayMarqueeLocalStrokeWidth = marqueeLocalStrokeWidth;
   }
 
   private emptyDebug(): PatchMapPixiRendererDebug {

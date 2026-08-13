@@ -68,6 +68,14 @@ export interface PatchMapOverlayPaintProbe {
   readonly individualOutlineCount?: number;
   readonly groupOutline?: boolean;
   readonly outlineCount?: number;
+  /** Renderer repaint count; optional only for injected contract surfaces. */
+  readonly redrawCount?: number;
+  /** Aggregate world scale used by the last interaction-overlay repaint. */
+  readonly worldScale?: number | null;
+  /** World-space width that projects to the configured persistent CSS width. */
+  readonly selectionLocalStrokeWidth?: number;
+  /** World-space width that projects to the configured marquee CSS width. */
+  readonly marqueeLocalStrokeWidth?: number;
 }
 
 export interface PatchMapInteractionOverlayPolicy {

@@ -32,6 +32,51 @@ export interface PatchMapOverlayPathPlan {
   readonly selectionPaths: readonly (readonly number[])[];
 }
 
+export interface PatchMapOverlayWorldTransform {
+  readonly a: number;
+  readonly b: number;
+  readonly c: number;
+  readonly d: number;
+  readonly tx: number;
+  readonly ty: number;
+}
+
+/** Convert a CSS-pixel overlay length into the current aggregate world's units. */
+export function resolveOverlayLocalCssLength(
+  cssPx: number,
+  world: Pick<PatchMapOverlayWorldTransform, 'a' | 'b'>,
+): number {
+  return cssPx / resolveOverlayWorldScale(world);
+}
+
+/** Uniform viewport scale derived from the renderer-owned world matrix. */
+export function resolveOverlayWorldScale(
+  world: Pick<PatchMapOverlayWorldTransform, 'a' | 'b'>,
+): number {
+  return Math.max(Math.hypot(world.a, world.b), 0.001);
+}
+
+/**
+ * Persistent paths need repaint only when scale changes; a screen-space
+ * marquee also needs repaint when translation or orientation changes.
+ */
+export function interactionOverlayTransformNeedsRepaint(
+  painted: PatchMapOverlayWorldTransform | null,
+  current: PatchMapOverlayWorldTransform,
+  marqueeVisible: boolean,
+): boolean {
+  if (painted === null) return true;
+  if (resolveOverlayWorldScale(painted) !== resolveOverlayWorldScale(current)) return true;
+  return marqueeVisible && (
+    painted.a !== current.a ||
+    painted.b !== current.b ||
+    painted.c !== current.c ||
+    painted.d !== current.d ||
+    painted.tx !== current.tx ||
+    painted.ty !== current.ty
+  );
+}
+
 export function resolveOverlayPathPlan(
   store: RenderStoreView,
   slots: readonly number[],

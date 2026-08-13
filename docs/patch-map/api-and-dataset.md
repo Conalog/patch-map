@@ -183,7 +183,9 @@ is cleared by drag, another target, policy replacement, or `destroy()`.
 
 `selection.visual` is an instance-local package-owned paint policy. `color`
 accepts a `0xRRGGBB` number or PATCH MAP CSS color, `strokeWidth` is measured
-in CSS pixels at every zoom/resolution, and `displayMode` accepts `all`,
+in CSS pixels at every viewport zoom and renderer DPR/resolution. PatchMap
+reprojects the fixed aggregate outline only when its geometry, policy, or
+effective viewport scale changes. `displayMode` accepts `all`,
 `group-only`, `element-only`, or `hidden`. These values compose bounds rather
 than filter selected target types: `all` draws every selected object's bound
 plus their aggregate bound, `group-only` draws only the aggregate bound,
@@ -195,7 +197,7 @@ click, and box changes all use the same persistent outline.
 
 Optional `selection.box.visual` independently configures only the transient
 marquee. Its `color` accepts the same CSS/`0xRRGGBB` inputs, `strokeWidth` is
-also a zoom/resolution-independent CSS-pixel width, and `fillAlpha` is between
+also a zoom/DPR/resolution-independent CSS-pixel width, and `fillAlpha` is between
 0 and 1. Omit `box.visual` to inherit `selection.visual.color` and
 `selection.visual.strokeWidth`; the compatible fill alpha remains `0.08`.
 Invalid visual input rejects the whole policy before the current gesture or

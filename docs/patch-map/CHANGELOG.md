@@ -40,6 +40,9 @@
 - Added opt-in `pointer.hoverDuringPress` so root-owned hover projection can
   remain stable through a selectable-target click while preserving the
   compatible pointer-down leave default and real leave/cancel cleanup.
+- Fixed persistent selection and active marquee stroke tessellation so their
+  configured CSS-pixel widths remain stable across viewport zoom and renderer
+  DPR changes without redrawing unchanged aggregate overlay frames.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.
