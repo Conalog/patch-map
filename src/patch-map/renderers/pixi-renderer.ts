@@ -1823,10 +1823,13 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.selectionMarquee,
         this.worldMatrix,
       );
-      this.transformerOverlay.fill({ color: policy.color, alpha: 0.08 });
+      this.transformerOverlay.fill({
+        color: policy.marqueeColor,
+        alpha: policy.marqueeFillAlpha,
+      });
       this.transformerOverlay.stroke({
-        color: policy.color,
-        width: policy.strokeCssPx / Math.max(this.view.scale, 0.001),
+        color: policy.marqueeColor,
+        width: policy.marqueeStrokeCssPx / Math.max(this.view.scale, 0.001),
         alpha: 1,
       });
     }

@@ -97,6 +97,10 @@ export interface PatchMapSelectionOverlayPolicyInput {
   readonly color: number;
   /** Main-compatible individual/group bounds composition. */
   readonly displayMode: PatchMapSelectionVisualMode;
+  /** Transient marquee paint, resolved independently from persistent bounds. */
+  readonly marqueeColor: number;
+  readonly marqueeStrokeCssPx: number;
+  readonly marqueeFillAlpha: number;
 }
 
 /** Transient screen-space box gesture paint. Never enters semantic state or probes. */

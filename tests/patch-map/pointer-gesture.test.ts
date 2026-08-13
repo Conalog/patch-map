@@ -491,7 +491,10 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
     engine.configurePointerSelectionPolicy({
       allowMultiple: true,
-      box: { activationModifier: 'shift' },
+      box: {
+        activationModifier: 'shift',
+        visual: { color: '#1099ff', strokeWidth: 1, fillAlpha: 0.08 },
+      },
       visual: {
         color: '#ef4444',
         strokeWidth: 3,
@@ -507,6 +510,9 @@ describe('PatchMap root pointer and region-selection substrate', () => {
       strokeCssPx: 3,
       hidden: false,
       displayMode: 'element-only',
+      marqueeColor: 0x1099ff,
+      marqueeStrokeCssPx: 1,
+      marqueeFillAlpha: 0.08,
     });
     engine.selection.set(['item-a', 'text-c']);
     expect(surface.overlayPolicy?.visibleIds).toEqual(['item-a', 'text-c']);
@@ -514,7 +520,10 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     expect(engine.selection.ids).toEqual(['item-a/label']);
     expect(surface.overlayPolicy?.visibleIds).toEqual(['item-a']);
     engine.configurePointerSelectionPolicy({
-      box: { activationModifier: 'shift' },
+      box: {
+        activationModifier: 'shift',
+        visual: { color: '#1099ff', strokeWidth: 1, fillAlpha: 0.08 },
+      },
       visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'group-only' },
     });
     expect(surface.overlayPolicy).toMatchObject({
@@ -536,11 +545,38 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     surface.emit(surfacePointer('move', 11, [100, 100], 64));
     expect(surface.selectionMarquee).not.toBeNull();
     engine.configurePointerSelectionPolicy({
-      box: { activationModifier: 'shift' },
+      box: {
+        activationModifier: 'shift',
+        visual: { color: '#1099ff', strokeWidth: 1, fillAlpha: 0.08 },
+      },
       visual: { color: 0x16a34a, strokeWidth: 4, displayMode: 'all' },
     });
     expect(surface.selectionMarquee).toBeNull();
     expect(surface.overlayPolicy).toMatchObject({ color: 0x16a34a, strokeCssPx: 4 });
+
+    surface.emit(surfacePointer('down', 12, [10, 10], 80, {
+      modifiers: { shift: true, ctrl: false, alt: false, meta: false },
+    }));
+    surface.emit(surfacePointer('move', 12, [100, 100], 96));
+    const activeMarquee = surface.selectionMarquee;
+    expect(activeMarquee).not.toBeNull();
+    const policyBeforeFailure = structuredClone(surface.overlayPolicy);
+    expect(() => engine.configurePointerSelectionPolicy({
+      box: {
+        activationModifier: 'shift',
+        visual: { fillAlpha: 1.01 },
+      },
+      visual: { color: '#ef4444', strokeWidth: 3 },
+    })).toThrow('selection.box.visual.fillAlpha must be between 0 and 1');
+    expect(surface.selectionMarquee).toEqual(activeMarquee);
+    expect(surface.overlayPolicy).toEqual(policyBeforeFailure);
+
+    expect(() => engine.configurePointerSelectionPolicy({
+      box: { visual: { color: '#not-a-color' } },
+    })).toThrow('selection.box.visual.color is not a supported CSS color');
+    expect(() => engine.configurePointerSelectionPolicy({
+      box: { visual: { strokeWidth: 0 } },
+    })).toThrow('selection.box.visual.strokeWidth must be positive and finite');
 
     expect(() => engine.configurePointerSelectionPolicy({
       visual: { color: '#not-a-color' },
@@ -548,6 +584,18 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     expect(() => engine.configurePointerSelectionPolicy({
       visual: { strokeWidth: 0 },
     })).toThrow('selection.visual.strokeWidth must be positive and finite');
+
+    engine.configurePointerSelectionPolicy({
+      box: { activationModifier: 'shift' },
+      visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' },
+    });
+    expect(surface.overlayPolicy).toMatchObject({
+      color: 0xef4444,
+      strokeCssPx: 3,
+      marqueeColor: 0xef4444,
+      marqueeStrokeCssPx: 3,
+      marqueeFillAlpha: 0.08,
+    });
     await expect(engine.destroy()).resolves.toBe(true);
     expect(surface.selectionMarquee).toBeNull();
   });

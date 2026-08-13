@@ -163,7 +163,10 @@ const patchMap = await PatchMap.mount({
   container,
   data,
   selection: {
-    box: { activationModifier: 'shift' },
+    box: {
+      activationModifier: 'shift',
+      visual: { color: '#1099ff', strokeWidth: 1, fillAlpha: 0.08 },
+    },
     allowMultiple: plugin.allowMultiple,
     isSelectable: (target) => plugin.isSelectable(target),
     visual: {
@@ -197,6 +200,10 @@ in its canvas and clears both with the mounted lifecycle. Transformer
 `boundsDisplayMode` maps as `all` → `all`, `groupOnly` → `group-only`,
 `elementOnly` → `element-only`, and `none` → `hidden`; these modes compose
 individual and aggregate bounds rather than filter target types.
+The persistent Transformer wireframe stays under `selection.visual`; the
+marquee-only color, CSS-pixel width, and fill alpha belong to
+`selection.box.visual`. Omit the latter to preserve the previous shared
+color/width behavior and `0.08` fill.
 
 ## Mutations, animation, and history
 

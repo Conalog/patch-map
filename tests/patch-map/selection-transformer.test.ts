@@ -266,6 +266,9 @@ describe('PatchMap aggregate selection and transformer substrate', () => {
       strokeCssPx: 1,
       color: 0x2f80ed,
       displayMode: 'all',
+      marqueeColor: 0x2f80ed,
+      marqueeStrokeCssPx: 1,
+      marqueeFillAlpha: 0.08,
     });
     expect(engine.transformerHandleProbe()).toMatchObject({
       visibleCorners: ['nw', 'ne', 'sw', 'se'],

@@ -1329,6 +1329,9 @@ export class PatchMapRuntime {
       strokeCssPx: input.strokeCssPx,
       color: input.color,
       displayMode: input.displayMode,
+      marqueeColor: input.marqueeColor,
+      marqueeStrokeCssPx: input.marqueeStrokeCssPx,
+      marqueeFillAlpha: input.marqueeFillAlpha,
     });
     const changed = this.renderer.setInteractionOverlayPolicy(policy);
     if (changed) this.framePublication.invalidate('interaction-overlay-policy');

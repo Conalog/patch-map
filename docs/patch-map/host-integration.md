@@ -61,8 +61,10 @@ Map an existing Transformer wireframe with
 This draws one bound per selected object, matching Transformer
 `boundsDisplayMode: 'elementOnly'`; use `group-only` for only the aggregate
 selection frame or `all` for both. PatchMap applies it to programmatic and
-pointer selection and uses the same CSS-pixel stroke for its package-owned box
-marquee. Do not add a host canvas,
+pointer selection. Configure the independently owned transient marquee with
+`box: { activationModifier: 'shift', visual: { color: '#1099ff', strokeWidth: 1,
+fillAlpha: 0.08 } }`. When `box.visual` is omitted, its color and width inherit
+from `selection.visual` for compatibility. Do not add a host canvas,
 DOM overlay, pointer listener, coordinate conversion, or RAF for selection
 paint.
 

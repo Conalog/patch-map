@@ -378,7 +378,7 @@ async function runPackedPointerInteractionProbe(page) {
   await move(45, 45);
   await page.mouse.click(bounds.x + 45, bounds.y + 45);
   const clickRed = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureRed(),
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
   );
   await page.evaluate((value) => {
     window.__PATCH_MAP_POINTER_PROBE__.clickRed = value;
@@ -419,6 +419,7 @@ async function runPackedPointerInteractionProbe(page) {
   await record('middlePanAfter');
 
   await record('boxViewportBefore');
+  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.ensureSelection());
   await move(5, 5);
   await page.keyboard.down('Shift');
   await page.mouse.down();
@@ -428,8 +429,11 @@ async function runPackedPointerInteractionProbe(page) {
     return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
   });
   await move(230, 150, 5);
-  const marqueeDuring = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureRed(),
+  const marqueeDuringBlue = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('blue'),
+  );
+  const marqueeDuringRed = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
   );
   await page.keyboard.up('Shift');
   await page.mouse.up();
@@ -444,15 +448,26 @@ async function runPackedPointerInteractionProbe(page) {
     probe.captureAfter = captureAfter;
   }, { captureDuring, captureAfter });
   await record('boxViewportAfter');
-  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.clearSelection());
-  const marqueeAfter = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureRed(),
+  const marqueeAfterBlue = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('blue'),
   );
-  await page.evaluate(({ marqueeDuring, marqueeAfter }) => {
+  const marqueeAfterRed = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
+  );
+  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.clearSelection());
+  const marqueeClearedRed = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
+  );
+  await page.evaluate((values) => {
     const probe = window.__PATCH_MAP_POINTER_PROBE__;
-    probe.marqueeDuring = marqueeDuring;
-    probe.marqueeAfter = marqueeAfter;
-  }, { marqueeDuring, marqueeAfter });
+    Object.assign(probe, values);
+  }, {
+    marqueeDuringBlue,
+    marqueeDuringRed,
+    marqueeAfterBlue,
+    marqueeAfterRed,
+    marqueeClearedRed,
+  });
   await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.markPostViewportHover());
   await move(75, 80);
   await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.finishFirst());
@@ -473,8 +488,11 @@ async function runPackedPointerInteractionProbe(page) {
     return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
   });
   await move(280, 190, 5);
-  const remountMarqueeDuring = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureRed(),
+  const remountMarqueeDuringBlue = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('blue'),
+  );
+  const remountMarqueeDuringRed = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
   );
   await page.keyboard.up('Shift');
   await page.mouse.up();
@@ -488,15 +506,21 @@ async function runPackedPointerInteractionProbe(page) {
     probe.remountCaptureDuring = remountCaptureDuring;
     probe.remountCaptureAfter = remountCaptureAfter;
   }, { remountCaptureDuring, remountCaptureAfter });
-  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.clearSelection());
-  const remountMarqueeAfter = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureRed(),
+  const remountMarqueeAfterBlue = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('blue'),
   );
-  await page.evaluate(({ remountMarqueeDuring, remountMarqueeAfter }) => {
+  const remountMarqueeAfterRed = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
+  );
+  await page.evaluate((values) => {
     const probe = window.__PATCH_MAP_POINTER_PROBE__;
-    probe.remountMarqueeDuring = remountMarqueeDuring;
-    probe.remountMarqueeAfter = remountMarqueeAfter;
-  }, { remountMarqueeDuring, remountMarqueeAfter });
+    Object.assign(probe, values);
+  }, {
+    remountMarqueeDuringRed,
+    remountMarqueeDuringBlue,
+    remountMarqueeAfterRed,
+    remountMarqueeAfterBlue,
+  });
   await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.finishRemount());
 }
 

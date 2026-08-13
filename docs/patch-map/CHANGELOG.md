@@ -29,6 +29,9 @@
   Transformer bounds semantics: individual, aggregate, both, or hidden,
   without filtering selection identity. One canvas, pointer authority, frame
   loop, and destroy lifecycle remain preserved.
+- Split transient marquee paint into optional `selection.box.visual` while
+  keeping `selection.visual` dedicated to persistent selected bounds. Omitting
+  the new policy preserves the prior shared color/width and `0.08` fill.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

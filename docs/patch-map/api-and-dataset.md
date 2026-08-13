@@ -107,6 +107,11 @@ const patchMap = await PatchMap.mount({
     box: {
       activationModifier: 'shift',
       partialIntersection: true,
+      visual: {
+        color: '#1099ff',
+        strokeWidth: 1,
+        fillAlpha: 0.08,
+      },
     },
     allowMultiple: selectionPlugin.allowMultiple,
     isSelectable: ({ id, componentId }) =>
@@ -163,8 +168,16 @@ plus their aggregate bound, `group-only` draws only the aggregate bound,
 selection bound. `all` does not duplicate the same path for a single target.
 A selected component projects its bound to its stable owner item or concrete
 grid cell without changing the selected component identity. Programmatic,
-click, and box changes all use the same outline. Once a Shift drag crosses the
-package threshold, PatchMap draws
+click, and box changes all use the same persistent outline.
+
+Optional `selection.box.visual` independently configures only the transient
+marquee. Its `color` accepts the same CSS/`0xRRGGBB` inputs, `strokeWidth` is
+also a zoom/resolution-independent CSS-pixel width, and `fillAlpha` is between
+0 and 1. Omit `box.visual` to inherit `selection.visual.color` and
+`selection.visual.strokeWidth`; the compatible fill alpha remains `0.08`.
+Invalid visual input rejects the whole policy before the current gesture or
+paint policy changes. Once a Shift drag crosses the package threshold,
+PatchMap draws
 the start-to-current marquee above selection and transformer paint and removes
 it on up, up-outside, cancel, leave, policy replacement, or destroy. The
 marquee is capture-visible but never enters dataset, history, semantic hash,

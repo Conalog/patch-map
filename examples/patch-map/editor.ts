@@ -26,6 +26,13 @@ export async function runEditorExample(host: HTMLElement): Promise<Readonly<{
     width: 360,
     height: 220,
     data: EDITOR_DATASET,
+    selection: {
+      visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' },
+      box: {
+        activationModifier: 'shift',
+        visual: { color: '#1099ff', strokeWidth: 1, fillAlpha: 0.08 },
+      },
+    },
   });
   const publications: string[][] = [];
   const releaseSelection = patchMap.selection.onChange((ids) => {

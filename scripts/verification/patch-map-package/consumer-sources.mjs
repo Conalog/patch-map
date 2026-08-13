@@ -596,7 +596,13 @@ async function verifyPointerInteractionLifecycle() {
     data: dataset,
     selection: {
       allowMultiple,
-      box: { partialIntersection: true, activationModifier: 'shift' },
+      box: instanceId.includes('remount')
+        ? { partialIntersection: true, activationModifier: 'shift' }
+        : {
+            partialIntersection: true,
+            activationModifier: 'shift',
+            visual: { color: '#1099ff', strokeWidth: 1, fillAlpha: 0.08 },
+          },
       isSelectable: (target) => {
         selectableTargets.push(target);
         return target.id !== 'pointer-grid.0.2';
@@ -649,7 +655,8 @@ async function verifyPointerInteractionLifecycle() {
         probe[label + 'SelectionCount'] = firstSelection.length;
       },
       clearSelection: () => map.selection.clear(),
-      captureRed: () => captureGlyphMask(map, 'red'),
+      ensureSelection: () => map.selection.set('pointer-grid.0.0'),
+      captureColor: (color) => captureGlyphMask(map, color),
       markPostViewportHover: () => {
         window.__PATCH_MAP_POINTER_PROBE__.postViewportHoverStart = firstHover.length;
       },
@@ -730,10 +737,15 @@ async function verifyPointerInteractionLifecycle() {
             multiRed,
             clearedRed,
             clickRed: probe.clickRed,
-            marqueeDuring: probe.marqueeDuring,
-            marqueeAfter: probe.marqueeAfter,
-            remountMarqueeDuring: probe.remountMarqueeDuring,
-            remountMarqueeAfter: probe.remountMarqueeAfter,
+            marqueeDuringBlue: probe.marqueeDuringBlue,
+            marqueeDuringRed: probe.marqueeDuringRed,
+            marqueeAfterBlue: probe.marqueeAfterBlue,
+            marqueeAfterRed: probe.marqueeAfterRed,
+            marqueeClearedRed: probe.marqueeClearedRed,
+            remountMarqueeDuringRed: probe.remountMarqueeDuringRed,
+            remountMarqueeDuringBlue: probe.remountMarqueeDuringBlue,
+            remountMarqueeAfterRed: probe.remountMarqueeAfterRed,
+            remountMarqueeAfterBlue: probe.remountMarqueeAfterBlue,
             selectableTargets,
             datasetImmutable: datasetBefore === JSON.stringify(dataset),
           };
@@ -888,7 +900,9 @@ async function captureGlyphMask(map, color) {
       const alpha = pixels[offset + 3];
       const matches = color === 'green'
         ? green > 110 && green > red * 1.3 && green > blue * 1.3 && alpha > 180
-        : red > 120 && red > green * 1.5 && red > blue * 1.5 && alpha > 180;
+        : color === 'blue'
+          ? blue > 120 && green > blue * 0.5 && red < green * 0.5 && alpha > 180
+          : red > 120 && red > green * 1.5 && red > blue * 1.5 && alpha > 180;
       if (matches) points.push([x, y]);
     }
   }

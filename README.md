@@ -80,12 +80,15 @@ icon, and text tint paths and by concrete bar/icon presentation overlays.
 Host tooltip and selection plugins use package-owned pointer projection rather
 than duplicating hit tests. Keep ordinary primary drag as viewport pan and use
 Shift+primary drag for box selection with
-`selection: { box: { activationModifier: 'shift' }, allowMultiple, isSelectable,
-visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' } }`,
+`selection: { box: { activationModifier: 'shift', visual: { color: '#1099ff',
+strokeWidth: 1, fillAlpha: 0.08 } }, allowMultiple, isSelectable, visual: {
+color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' } }`,
 observe stable hover targets through `pointer.onHover()`, and observe non-echo
 pointer selection through `selection.onPointerChange()`. Both subscriptions
 return disposers and are also cleared by `destroy()`. Selection display modes
 compose individual and aggregate bounds; they never filter selection identity.
+`selection.visual` paints persistent selected bounds; optional
+`selection.box.visual` independently paints only the transient drag marquee.
 
 For repeated grid-instance updates, query one semantic target set and reuse it
 without JSONPath or per-update scene scans:

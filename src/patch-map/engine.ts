@@ -574,6 +574,11 @@ interface NormalizedPointerSelectionPolicy {
   readonly box: Readonly<{
     readonly partialIntersection: boolean;
     readonly activationModifier: 'none' | 'shift';
+    readonly visual: Readonly<{
+      readonly color: number;
+      readonly strokeCssPx: number;
+      readonly fillAlpha: number;
+    }>;
   }> | null;
   readonly isSelectable: ((target: PatchMapTarget) => boolean) | null;
   readonly visual: Readonly<{
@@ -995,8 +1000,9 @@ export class PatchMap {
 
   /** @internal Root `PatchMap.mount()` owns this policy boundary. */
   public configurePointerSelectionPolicy(policy: PatchMapSelectionPolicy | undefined): void {
+    const normalized = normalizePointerSelectionPolicy(policy);
     this.clearPointerBoxGesture();
-    this.pointerSelectionPolicy = normalizePointerSelectionPolicy(policy);
+    this.pointerSelectionPolicy = normalized;
     this.syncConfiguredSelectionVisualPolicy();
   }
 
@@ -3797,6 +3803,9 @@ export class PatchMap {
       strokeCssPx: visual.strokeCssPx,
       color: 0x2f80ed,
       displayMode: visual.mode,
+      marqueeColor: 0x2f80ed,
+      marqueeStrokeCssPx: visual.strokeCssPx,
+      marqueeFillAlpha: 0.08,
     }) ?? false;
     if (changed) this.publication.advanceInteraction();
     return visual;
@@ -3806,6 +3815,11 @@ export class PatchMap {
     const surface = this.surface;
     if (surface === null || this.materialized === null) return false;
     const policy = this.pointerSelectionPolicy.visual;
+    const marquee = this.pointerSelectionPolicy.box?.visual ?? Object.freeze({
+      color: policy.color,
+      strokeCssPx: policy.strokeCssPx,
+      fillAlpha: 0.08,
+    });
     const overlayIds = this.selectionGeometryIds(this.logicalSelectionIds);
     const subset = evaluatePatchMapTransformableSubset(
       this.logicalSceneSelectionIndex(),
@@ -3820,6 +3834,9 @@ export class PatchMap {
       strokeCssPx: policy.strokeCssPx,
       color: policy.color,
       displayMode: policy.mode,
+      marqueeColor: marquee.color,
+      marqueeStrokeCssPx: marquee.strokeCssPx,
+      marqueeFillAlpha: marquee.fillAlpha,
     }) ?? false;
   }
 
@@ -6336,7 +6353,11 @@ function normalizePointerSelectionPolicy(
   const visual = normalizePointerSelectionVisualPolicy(value.visual);
   let box: NormalizedPointerSelectionPolicy['box'] = null;
   if (value.box === true) {
-    box = Object.freeze({ partialIntersection: true, activationModifier: 'none' });
+    box = Object.freeze({
+      partialIntersection: true,
+      activationModifier: 'none',
+      visual: normalizePointerBoxVisualPolicy(undefined, visual),
+    });
   } else if (value.box !== undefined && value.box !== false) {
     if (value.box === null || typeof value.box !== 'object' || Array.isArray(value.box)) {
       throw new TypeError('selection.box must be boolean or an object');
@@ -6357,6 +6378,7 @@ function normalizePointerSelectionPolicy(
     box = Object.freeze({
       partialIntersection: value.box.partialIntersection ?? true,
       activationModifier: value.box.activationModifier ?? 'none',
+      visual: normalizePointerBoxVisualPolicy(value.box.visual, visual),
     });
   }
   return Object.freeze({
@@ -6383,26 +6405,60 @@ function normalizePointerSelectionVisualPolicy(
     throw new RangeError('selection.visual.strokeWidth must be positive and finite');
   }
   return Object.freeze({
-    color: normalizePointerSelectionColor(value.color),
+    color: normalizePointerSelectionColor(value.color, 'selection.visual.color'),
     strokeCssPx,
     mode,
   });
 }
 
-function normalizePointerSelectionColor(value: number | string | undefined): number {
+function normalizePointerBoxVisualPolicy(
+  value: NonNullable<Extract<PatchMapSelectionPolicy['box'], object>>['visual'],
+  fallback: NormalizedPointerSelectionPolicy['visual'],
+): NonNullable<NormalizedPointerSelectionPolicy['box']>['visual'] {
+  if (value === undefined) {
+    return Object.freeze({
+      color: fallback.color,
+      strokeCssPx: fallback.strokeCssPx,
+      fillAlpha: 0.08,
+    });
+  }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('selection.box.visual must be an object');
+  }
+  const strokeCssPx = value.strokeWidth ?? fallback.strokeCssPx;
+  if (!(strokeCssPx > 0) || !Number.isFinite(strokeCssPx)) {
+    throw new RangeError('selection.box.visual.strokeWidth must be positive and finite');
+  }
+  const fillAlpha = value.fillAlpha ?? 0.08;
+  if (!Number.isFinite(fillAlpha) || fillAlpha < 0 || fillAlpha > 1) {
+    throw new RangeError('selection.box.visual.fillAlpha must be between 0 and 1');
+  }
+  return Object.freeze({
+    color: value.color === undefined
+      ? fallback.color
+      : normalizePointerSelectionColor(value.color, 'selection.box.visual.color'),
+    strokeCssPx,
+    fillAlpha,
+  });
+}
+
+function normalizePointerSelectionColor(
+  value: number | string | undefined,
+  path: 'selection.visual.color' | 'selection.box.visual.color',
+): number {
   if (value === undefined) return 0x2f80ed;
   if (typeof value === 'number') {
     if (!Number.isInteger(value) || value < 0 || value > 0xffffff) {
-      throw new RangeError('selection.visual.color number must be a 0xRRGGBB integer');
+      throw new RangeError(`${path} number must be a 0xRRGGBB integer`);
     }
     return value;
   }
   if (typeof value !== 'string') {
-    throw new TypeError('selection.visual.color must be a number or CSS color string');
+    throw new TypeError(`${path} must be a number or CSS color string`);
   }
   const packed = parsePatchMapCssColor(value);
   if (packed === undefined) {
-    throw new TypeError('selection.visual.color is not a supported CSS color');
+    throw new TypeError(`${path} is not a supported CSS color`);
   }
   return packed >>> 8;
 }

@@ -18,6 +18,9 @@ export const DEFAULT_INTERACTION_OVERLAY_POLICY: PatchMapInteractionOverlayPolic
   strokeCssPx: 2,
   color: 0x2f80ed,
   displayMode: 'all',
+  marqueeColor: 0x2f80ed,
+  marqueeStrokeCssPx: 2,
+  marqueeFillAlpha: 0.08,
 });
 
 export interface PatchMapOverlayPathPlan {
@@ -118,6 +121,9 @@ export function normalizeInteractionOverlayPolicy(
     strokeCssPx: positive(policy.strokeCssPx, 'strokeCssPx'),
     color: normalizeRgb(policy.color),
     displayMode: normalizeDisplayMode(policy.displayMode),
+    marqueeColor: normalizeRgb(policy.marqueeColor),
+    marqueeStrokeCssPx: positive(policy.marqueeStrokeCssPx, 'marqueeStrokeCssPx'),
+    marqueeFillAlpha: normalizeAlpha(policy.marqueeFillAlpha),
   });
 }
 
@@ -130,6 +136,9 @@ export function sameInteractionOverlayPolicy(
     left.strokeCssPx === right.strokeCssPx &&
     left.color === right.color &&
     left.displayMode === right.displayMode &&
+    left.marqueeColor === right.marqueeColor &&
+    left.marqueeStrokeCssPx === right.marqueeStrokeCssPx &&
+    left.marqueeFillAlpha === right.marqueeFillAlpha &&
     sameNullableStringArray(left.visibleEntityIds, right.visibleEntityIds) &&
     sameNullableStringArray(left.transformableEntityIds, right.transformableEntityIds) &&
     sameNullableStringArray(left.resizableEntityIds, right.resizableEntityIds);
@@ -170,6 +179,13 @@ function normalizeDisplayMode(
 function normalizeRgb(value: number): number {
   if (!Number.isInteger(value) || value < 0 || value > 0xffffff) {
     throw new RangeError('interaction overlay color must be a 0xRRGGBB integer');
+  }
+  return value;
+}
+
+function normalizeAlpha(value: number): number {
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new RangeError('interaction overlay marqueeFillAlpha must be between 0 and 1');
   }
   return value;
 }

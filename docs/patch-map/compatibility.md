@@ -113,5 +113,8 @@ Selection paint is configured only at the root mount boundary with
 box selection. Display mode composes individual bounds and their aggregate
 bound; it never filters the selected semantic target types or changes their
 identity. The package renders and cleans the transient drag marquee in
-the same canvas; it is intentionally absent from dataset, history, semantic
-hash, and debug state.
+the same canvas. `selection.box.visual` may give that marquee an independent
+color, CSS-pixel stroke, and 0..1 fill alpha; omitting it retains the legacy
+selection color/width fallback and `0.08` fill. Persistent bounds never inherit
+from `box.visual`. The marquee is intentionally absent from dataset, history,
+semantic hash, and debug state.

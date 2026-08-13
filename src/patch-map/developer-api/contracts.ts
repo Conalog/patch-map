@@ -64,6 +64,18 @@ export interface PatchMapBoxSelectionOptions {
   readonly partialIntersection?: boolean;
   /** Required modifier at primary pointer-down. Defaults to `none`. */
   readonly activationModifier?: 'none' | 'shift';
+  /** Transient marquee paint. Omit to inherit selection outline color/width. */
+  readonly visual?: PatchMapBoxSelectionVisualPolicy;
+}
+
+/** Package-owned transient box-marquee paint for one mounted instance. */
+export interface PatchMapBoxSelectionVisualPolicy {
+  /** Marquee color. Accepts 0xRRGGBB or PATCH MAP CSS colors. */
+  readonly color?: number | string;
+  /** Screen-space marquee width in CSS pixels. */
+  readonly strokeWidth?: number;
+  /** Marquee interior alpha from 0 through 1. Defaults to 0.08. */
+  readonly fillAlpha?: number;
 }
 
 export type PatchMapSelectionDisplayMode =
@@ -72,9 +84,9 @@ export type PatchMapSelectionDisplayMode =
   | 'element-only'
   | 'hidden';
 
-/** Package-owned selection and box-marquee paint for one mounted instance. */
+/** Package-owned persistent selection-bound paint for one mounted instance. */
 export interface PatchMapSelectionVisualPolicy {
-  /** Outline and marquee color. Accepts 0xRRGGBB or PATCH MAP CSS colors. */
+  /** Selection-bound color. Accepts 0xRRGGBB or PATCH MAP CSS colors. */
   readonly color?: number | string;
   /** Screen-space outline width in CSS pixels. Defaults to 2. */
   readonly strokeWidth?: number;
@@ -90,7 +102,7 @@ export interface PatchMapSelectionPolicy {
   readonly box?: boolean | PatchMapBoxSelectionOptions;
   /** Called with detached stable identity, never renderer objects. */
   readonly isSelectable?: (target: PatchMapTarget) => boolean;
-  /** Instance-local package-owned selection outline and box-marquee paint. */
+  /** Instance-local package-owned persistent selection-bound paint. */
   readonly visual?: PatchMapSelectionVisualPolicy;
 }
 

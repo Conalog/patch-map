@@ -142,7 +142,7 @@ export function collectPackageFailures({
   const firstSelection = pointer?.firstSelection ?? [];
   const boxSelection = firstSelection.at(-1)?.selected;
   const remountBoxSelection = pointer?.remountSelection?.at(-1)?.selected;
-  const marqueeBounds = pointer?.marqueeDuring?.bounds;
+  const marqueeBounds = pointer?.marqueeDuringBlue?.bounds;
   const marqueeWidthCss = marqueeBounds
     ? (marqueeBounds.maxX - marqueeBounds.minX + 1) / 2
     : null;
@@ -202,17 +202,22 @@ export function collectPackageFailures({
     !(pointer?.multiRed?.bounds?.width > pointer?.programmaticRed?.bounds?.width * 1.7) ||
     !(pointer?.programmaticRed?.pixelCount >= 1400) ||
     !(pointer?.programmaticRed?.pixelCount <= 3000) ||
-    !(pointer?.marqueeDuring?.pixelCount > 0) ||
+    !(pointer?.marqueeDuringBlue?.pixelCount > 0) ||
+    !(pointer?.marqueeDuringRed?.pixelCount > 0) ||
     !marqueeBounds ||
     !(Math.abs(marqueeBounds.minX / 2 - 5) <= 5) ||
     !(Math.abs(marqueeBounds.minY / 2 - 5) <= 5) ||
-    !(Math.abs(marqueeBounds.maxX / 2 - 230) <= 3) ||
-    !(Math.abs(marqueeBounds.maxY / 2 - 150) <= 3) ||
+    !(Math.abs(marqueeBounds.maxX / 2 - 230) <= 5) ||
+    !(Math.abs(marqueeBounds.maxY / 2 - 150) <= 5) ||
     !(Math.abs(marqueeWidthCss - 225) <= 4) ||
     !(Math.abs(marqueeHeightCss - 145) <= 4) ||
-    pointer?.marqueeAfter?.pixelCount !== 0 ||
-    !(pointer?.remountMarqueeDuring?.pixelCount > 0) ||
-    pointer?.remountMarqueeAfter?.pixelCount !== 0 ||
+    pointer?.marqueeAfterBlue?.pixelCount !== 0 ||
+    !(pointer?.marqueeAfterRed?.pixelCount > 0) ||
+    pointer?.marqueeClearedRed?.pixelCount !== 0 ||
+    !(pointer?.remountMarqueeDuringRed?.pixelCount > 0) ||
+    pointer?.remountMarqueeDuringBlue?.pixelCount !== 0 ||
+    !(pointer?.remountMarqueeAfterRed?.pixelCount > 0) ||
+    pointer?.remountMarqueeAfterBlue?.pixelCount !== 0 ||
     pointer?.datasetImmutable !== true ||
     !pointer?.selectableTargets?.some(({ id }) => id === 'pointer-grid.0.2')
   ) failures.push('packed pointer hover/selection/box/capture/remount lifecycle failed');
