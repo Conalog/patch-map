@@ -364,6 +364,29 @@ async function runPackedPointerInteractionProbe(page) {
       }; browserState=${JSON.stringify(browserState)}; errors=${JSON.stringify(errors)}`,
     );
   }
+  const exactBounds = await page.locator('#packed-concrete-cell-host').boundingBox();
+  if (!exactBounds) throw new Error('packed concrete cell interaction host has no bounds');
+  await page.mouse.click(exactBounds.x + 140, exactBounds.y + 130);
+  const exactCellPointRed = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureExactColor('red'),
+  );
+  const exactCellPointSelectionIds = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.exactSelectionIds(),
+  );
+  const exactCellPointDestroy = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.finishExact(),
+  );
+  const exactCellPointCanvasCountAfterDestroy = await page.locator(
+    '#packed-concrete-cell-host canvas',
+  ).count();
+  await page.evaluate((values) => {
+    Object.assign(window.__PATCH_MAP_POINTER_PROBE__, values);
+  }, {
+    exactCellPointRed,
+    exactCellPointSelectionIds,
+    exactCellPointDestroy,
+    exactCellPointCanvasCountAfterDestroy,
+  });
   const bounds = await page.locator('#packed-pointer-host').boundingBox();
   if (!bounds) throw new Error('packed pointer interaction host has no bounds');
   const move = (x, y, steps = 1) => page.mouse.move(bounds.x + x, bounds.y + y, { steps });
@@ -376,6 +399,17 @@ async function runPackedPointerInteractionProbe(page) {
   await move(48, 48);
   await move(225, 140);
   await move(45, 45);
+  await page.mouse.click(bounds.x + 23, bounds.y + 23);
+  const concreteBarClickRed = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
+  );
+  const concreteBarClickSelectionIds = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.selectionIds(),
+  );
+  await page.evaluate((values) => {
+    Object.assign(window.__PATCH_MAP_POINTER_PROBE__, values);
+    window.__PATCH_MAP_POINTER_PROBE__.clearSelection();
+  }, { concreteBarClickRed, concreteBarClickSelectionIds });
   await page.mouse.click(bounds.x + 45, bounds.y + 45);
   const clickRed = await page.evaluate(
     () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
@@ -387,6 +421,26 @@ async function runPackedPointerInteractionProbe(page) {
   await page.mouse.click(bounds.x + 95, bounds.y + 45);
   await page.keyboard.up('Shift');
   await page.mouse.click(bounds.x + 145, bounds.y + 45);
+
+  await page.mouse.click(bounds.x + 45, bounds.y + 45);
+  await page.mouse.click(bounds.x + 45, bounds.y + 45);
+  const targetDoubleSelectionIds = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.selectionIds(),
+  );
+  await record('targetDouble');
+  await page.mouse.click(bounds.x + 225, bounds.y + 140);
+  const blankSingleSelectionIds = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.selectionIds(),
+  );
+  await record('blankSingle');
+  await page.mouse.click(bounds.x + 225, bounds.y + 140);
+  const blankDoubleSelectionIds = await page.evaluate(
+    () => window.__PATCH_MAP_POINTER_PROBE__.selectionIds(),
+  );
+  await record('blankDouble');
+  await page.evaluate((values) => {
+    Object.assign(window.__PATCH_MAP_POINTER_PROBE__, values);
+  }, { targetDoubleSelectionIds, blankSingleSelectionIds, blankDoubleSelectionIds });
 
   await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.clearSelection());
   await record('plainPanBefore');

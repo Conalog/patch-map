@@ -156,13 +156,20 @@ export function collectPackageFailures({
     concreteHoverObserved !== true ||
     postViewportHoverObserved !== true ||
     JSON.stringify(firstSelection[0]?.selected) !== JSON.stringify([
-      { id: 'pointer-grid.0.0', componentId: 'status' },
+      { id: 'pointer-grid.0.0' },
     ]) ||
     JSON.stringify(firstSelection[1]?.selected) !== JSON.stringify([
-      { id: 'pointer-grid.0.0', componentId: 'status' },
-      { id: 'pointer-grid.0.1', componentId: 'status' },
+      { id: 'pointer-grid.0.0' },
     ]) ||
-    firstSelection.length !== 3 ||
+    JSON.stringify(firstSelection[2]?.selected) !== JSON.stringify([
+      { id: 'pointer-grid.0.0' },
+      { id: 'pointer-grid.0.1' },
+    ]) ||
+    JSON.stringify(firstSelection[3]?.selected) !== JSON.stringify([
+      { id: 'pointer-grid.0.1' },
+    ]) ||
+    JSON.stringify(firstSelection[4]?.selected) !== JSON.stringify([]) ||
+    firstSelection.length !== 6 ||
     JSON.stringify(boxSelection) !== JSON.stringify([
       { id: 'pointer-grid.0.0' },
       { id: 'pointer-grid.0.1' },
@@ -175,16 +182,26 @@ export function collectPackageFailures({
     !viewportPanMatches(pointer?.middlePanBefore, pointer?.middlePanAfter, [10, 10]) ||
     !(pointer?.wheelAfter?.scale > pointer?.wheelBefore?.scale) ||
     JSON.stringify(pointer?.boxViewportBefore) !== JSON.stringify(pointer?.boxViewportAfter) ||
-    pointer?.plainPanBeforeSelectionCount !== 2 ||
-    pointer?.plainPanAfterSelectionCount !== 2 ||
-    pointer?.lateShiftPanBeforeSelectionCount !== 2 ||
-    pointer?.lateShiftPanAfterSelectionCount !== 2 ||
-    pointer?.wheelBeforeSelectionCount !== 2 ||
-    pointer?.wheelAfterSelectionCount !== 2 ||
-    pointer?.middlePanBeforeSelectionCount !== 2 ||
-    pointer?.middlePanAfterSelectionCount !== 2 ||
-    pointer?.boxViewportBeforeSelectionCount !== 2 ||
-    pointer?.boxViewportAfterSelectionCount !== 3 ||
+    pointer?.targetDoubleSelectionCount !== 4 ||
+    pointer?.blankSingleSelectionCount !== 4 ||
+    pointer?.blankDoubleSelectionCount !== 5 ||
+    JSON.stringify(pointer?.targetDoubleSelectionIds) !== JSON.stringify([
+      'pointer-grid.0.1',
+    ]) ||
+    JSON.stringify(pointer?.blankSingleSelectionIds) !== JSON.stringify([
+      'pointer-grid.0.1',
+    ]) ||
+    JSON.stringify(pointer?.blankDoubleSelectionIds) !== JSON.stringify([]) ||
+    pointer?.plainPanBeforeSelectionCount !== 5 ||
+    pointer?.plainPanAfterSelectionCount !== 5 ||
+    pointer?.lateShiftPanBeforeSelectionCount !== 5 ||
+    pointer?.lateShiftPanAfterSelectionCount !== 5 ||
+    pointer?.wheelBeforeSelectionCount !== 5 ||
+    pointer?.wheelAfterSelectionCount !== 5 ||
+    pointer?.middlePanBeforeSelectionCount !== 5 ||
+    pointer?.middlePanAfterSelectionCount !== 5 ||
+    pointer?.boxViewportBeforeSelectionCount !== 5 ||
+    pointer?.boxViewportAfterSelectionCount !== 6 ||
     pointer?.captureDuring !== true ||
     pointer?.captureAfter !== false ||
     pointer?.remountCaptureDuring !== true ||
@@ -197,6 +214,23 @@ export function collectPackageFailures({
     pointer?.canvasCountAfterDestroy !== 0 ||
     pointer?.baselineRed?.pixelCount !== 0 ||
     pointer?.clearedRed?.pixelCount !== 0 ||
+    JSON.stringify(pointer?.exactCellPointSelectionIds) !== JSON.stringify([
+      'selectable-grid.0.0',
+    ]) ||
+    JSON.stringify(pointer?.exactSelectionChanges?.[0]?.selected) !== JSON.stringify([
+      { id: 'selectable-grid.0.0' },
+    ]) ||
+    JSON.stringify(pointer?.exactSelectableTargets?.[0]) !== JSON.stringify({
+      id: 'selectable-grid.0.0',
+    }) ||
+    pointer?.exactSelectionChanges?.length !== 1 ||
+    !(pointer?.exactCellPointRed?.pixelCount > 200) ||
+    pointer?.exactCellPointDestroy !== true ||
+    pointer?.exactCellPointCanvasCountAfterDestroy !== 0 ||
+    JSON.stringify(pointer?.concreteBarClickSelectionIds) !== JSON.stringify([
+      'pointer-grid.0.0',
+    ]) ||
+    !(pointer?.concreteBarClickRed?.pixelCount > 200) ||
     !(pointer?.programmaticRed?.pixelCount > 0) ||
     !(pointer?.clickRed?.pixelCount > 0) ||
     !(pointer?.multiRed?.bounds?.width > pointer?.programmaticRed?.bounds?.width * 1.7) ||

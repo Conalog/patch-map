@@ -383,6 +383,7 @@ import {
   type PatchMapSelectionSetOperation,
 } from './query-selection';
 import {
+  PATCH_MAP_POINTER_CLICK_WINDOW_MS,
   PATCH_MAP_POINTER_GESTURE_REVISION,
   PatchMapPointerGestureAuthority,
   hitPatchMapBoxRegion,
@@ -518,6 +519,8 @@ type PatchMapEngineListener<K extends PatchMapEngineEvent> = (event: PatchMapEng
 const DEFAULT_ZOOM_LIMITS = Object.freeze([0.5, 30] as const);
 const DEFAULT_POINTER_SELECTION_POLICY = Object.freeze({
   allowMultiple: true,
+  clearOnBlankClick: 'single' as const,
+  deselectOnTargetDoubleClick: false,
   box: null,
   isSelectable: null,
   visual: Object.freeze({
@@ -571,6 +574,8 @@ interface PreparedPatchMapEngineLoad {
 
 interface NormalizedPointerSelectionPolicy {
   readonly allowMultiple: boolean;
+  readonly clearOnBlankClick: 'single' | 'double' | 'never';
+  readonly deselectOnTargetDoubleClick: boolean;
   readonly box: Readonly<{
     readonly partialIntersection: boolean;
     readonly activationModifier: 'none' | 'shift';
@@ -593,6 +598,11 @@ interface PointerBoxGesture {
   readonly start: readonly [number, number];
   readonly additive: boolean;
   active: boolean;
+}
+
+interface ArmedPointerTargetDeselect {
+  readonly selectionId: string;
+  readonly timer: ReturnType<typeof globalThis.setTimeout>;
 }
 
 export class PatchMap {
@@ -671,6 +681,7 @@ export class PatchMap {
   private pointerSelectionPolicy: NormalizedPointerSelectionPolicy =
     DEFAULT_POINTER_SELECTION_POLICY;
   private pointerBoxGesture: PointerBoxGesture | null = null;
+  private armedPointerTargetDeselect: ArmedPointerTargetDeselect | null = null;
   private pointerHoverTarget: PatchMapTarget | null = null;
   private readonly cancelActiveTransformerBeforeSurfaceReconcile = (): void => {
     this.transformerSessions.cancelActive('redraw', true);
@@ -1001,6 +1012,7 @@ export class PatchMap {
   /** @internal Root `PatchMap.mount()` owns this policy boundary. */
   public configurePointerSelectionPolicy(policy: PatchMapSelectionPolicy | undefined): void {
     const normalized = normalizePointerSelectionPolicy(policy);
+    this.cancelArmedPointerTargetDeselect();
     this.clearPointerBoxGesture();
     this.pointerSelectionPolicy = normalized;
     this.syncConfiguredSelectionVisualPolicy();
@@ -4214,6 +4226,9 @@ export class PatchMap {
         this.publishPointerHover(event);
       }
     }
+    if (result.events.some((event) => event.type === 'drag-start')) {
+      this.cancelArmedPointerTargetDeselect();
+    }
     this.routePointerBoxGesture(input, result);
     const click = result.events.find((event) => event.type === 'click');
     if (
@@ -4320,15 +4335,78 @@ export class PatchMap {
 
   private applyPointerClickSelection(click: PatchMapSemanticPointerEvent): void {
     const rawTarget = click.payload.target?.id ?? null;
-    const target = this.pointerLogicalTargetAtScreen(click.payload.screen, rawTarget);
-    if (target !== null && this.pointerTargetSelectable(target) !== true) return;
+    const hitTarget = this.pointerLogicalTargetAtScreen(click.payload.screen, rawTarget);
+    const target = hitTarget === null
+      ? null
+      : this.logicalSceneSelectionIndex().resolveSelectionUnit(hitTarget.key, 'grid-cell');
+    if (target === null) {
+      this.cancelArmedPointerTargetDeselect();
+      if (!blankClickClearsSelection(
+        this.pointerSelectionPolicy.clearOnBlankClick,
+        click.payload.clickCount,
+      )) return;
+      this.applySelection({ op: 'replace', ids: [], source: 'canvas' });
+      return;
+    }
+    if (!this.pointerSelectionPolicy.deselectOnTargetDoubleClick) {
+      this.cancelArmedPointerTargetDeselect();
+      this.applyPointerTargetClick(click, target);
+      return;
+    }
+    if (click.payload.modifiers.shift) {
+      this.cancelArmedPointerTargetDeselect();
+      this.applyPointerTargetClick(click, target);
+      return;
+    }
+    const armed = this.armedPointerTargetDeselect;
+    if (
+      armed?.selectionId === target.selectionId &&
+      click.payload.clickCount % 2 === 0
+    ) {
+      this.cancelArmedPointerTargetDeselect();
+      if (this.pointerTargetSelectable(target) !== true) return;
+      this.applySelection({
+        op: 'remove',
+        ids: [target.selectionId],
+        source: 'canvas',
+      });
+      return;
+    }
+    this.cancelArmedPointerTargetDeselect();
+    if (this.logicalSelectionIds.includes(target.selectionId)) {
+      if (this.pointerTargetSelectable(target) !== true) return;
+      this.armPointerTargetDeselect(target.selectionId);
+      return;
+    }
+    this.applyPointerTargetClick(click, target);
+  }
+
+  private applyPointerTargetClick(
+    click: PatchMapSemanticPointerEvent,
+    target: PatchMapLogicalTargetSnapshot,
+  ): void {
+    if (this.pointerTargetSelectable(target) !== true) return;
     this.applySelection({
       op: this.pointerSelectionPolicy.allowMultiple && click.payload.modifiers.shift
         ? 'toggle'
         : 'replace',
-      ids: target === null ? [] : [target.selectionId],
+      ids: [target.selectionId],
       source: 'canvas',
     });
+  }
+
+  private armPointerTargetDeselect(selectionId: string): void {
+    const timer = globalThis.setTimeout(() => {
+      this.cancelArmedPointerTargetDeselect();
+    }, PATCH_MAP_POINTER_CLICK_WINDOW_MS);
+    this.armedPointerTargetDeselect = Object.freeze({ selectionId, timer });
+  }
+
+  private cancelArmedPointerTargetDeselect(): void {
+    const armed = this.armedPointerTargetDeselect;
+    if (armed === null) return;
+    globalThis.clearTimeout(armed.timer);
+    this.armedPointerTargetDeselect = null;
   }
 
   private pointerTargetSelectable(target: PatchMapLogicalTargetSnapshot): boolean | null {
@@ -4448,6 +4526,7 @@ export class PatchMap {
   }
 
   private resetPointerProjectionState(): void {
+    this.cancelArmedPointerTargetDeselect();
     this.clearPointerBoxGesture();
     this.pointerHoverTarget = null;
   }
@@ -6347,6 +6426,20 @@ function normalizePointerSelectionPolicy(
   if (value.allowMultiple !== undefined && typeof value.allowMultiple !== 'boolean') {
     throw new TypeError('selection.allowMultiple must be boolean');
   }
+  if (
+    value.clearOnBlankClick !== undefined &&
+    value.clearOnBlankClick !== 'single' &&
+    value.clearOnBlankClick !== 'double' &&
+    value.clearOnBlankClick !== 'never'
+  ) {
+    throw new TypeError('selection.clearOnBlankClick must be single, double, or never');
+  }
+  if (
+    value.deselectOnTargetDoubleClick !== undefined &&
+    typeof value.deselectOnTargetDoubleClick !== 'boolean'
+  ) {
+    throw new TypeError('selection.deselectOnTargetDoubleClick must be boolean');
+  }
   if (value.isSelectable !== undefined && typeof value.isSelectable !== 'function') {
     throw new TypeError('selection.isSelectable must be a function');
   }
@@ -6383,10 +6476,19 @@ function normalizePointerSelectionPolicy(
   }
   return Object.freeze({
     allowMultiple: value.allowMultiple ?? true,
+    clearOnBlankClick: value.clearOnBlankClick ?? 'single',
+    deselectOnTargetDoubleClick: value.deselectOnTargetDoubleClick ?? false,
     box,
     isSelectable: value.isSelectable ?? null,
     visual,
   });
+}
+
+function blankClickClearsSelection(
+  mode: NormalizedPointerSelectionPolicy['clearOnBlankClick'],
+  clickCount: number,
+): boolean {
+  return mode === 'single' || (mode === 'double' && clickCount === 2);
 }
 
 function normalizePointerSelectionVisualPolicy(

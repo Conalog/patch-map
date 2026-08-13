@@ -32,6 +32,11 @@
 - Split transient marquee paint into optional `selection.box.visual` while
   keeping `selection.visual` dedicated to persistent selected bounds. Omitting
   the new policy preserves the prior shared color/width and `0.08` fill.
+- Added independent blank-canvas clear and selected-target double-deselect
+  policies. Existing blank single-click clearing remains the default; the
+  opt-in service policy keeps new-target and Shift-click response immediate,
+  preserves multi-selection on the first selected-target click, and removes
+  only that target on the paired second click.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

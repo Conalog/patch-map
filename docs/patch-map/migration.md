@@ -168,6 +168,8 @@ const patchMap = await PatchMap.mount({
       visual: { color: '#1099ff', strokeWidth: 1, fillAlpha: 0.08 },
     },
     allowMultiple: plugin.allowMultiple,
+    clearOnBlankClick: 'double',
+    deselectOnTargetDoubleClick: true,
     isSelectable: (target) => plugin.isSelectable(target),
     visual: {
       color: '#ef4444',
@@ -190,8 +192,9 @@ With `activationModifier: 'shift'`, ordinary primary drag remains package-owned
 pan and Shift+primary drag becomes box selection. The modifier is latched at
 pointer-down; middle-pointer pan and wheel zoom remain package-owned viewport
 gestures. Pointer capture keeps drag completion outside the canvas
-deterministic. Concrete component targets use
-the cell ID plus the stable template `componentId`. Both subscription methods
+deterministic. Concrete hover targets use the cell ID plus the stable template
+`componentId`; pointer selection resolves the same hit to its stable cell ID,
+matching programmatic and box selection. Both subscription methods
 return a disposer and `destroy()` clears any disposer the route did not call.
 Do not retain the old host pointer listeners, hit-test mirror, coordinate
 transform, tooltip RAF, transformer wireframe, or DOM drag rectangle. The
@@ -204,6 +207,15 @@ The persistent Transformer wireframe stays under `selection.visual`; the
 marquee-only color, CSS-pixel width, and fill alpha belong to
 `selection.box.visual`. Omit the latter to preserve the previous shared
 color/width behavior and `0.08` fill.
+
+For the prior service deselection policy, `clearOnBlankClick: 'double'` keeps
+blank single clicks and clears on the second blank click, while
+`deselectOnTargetDoubleClick: true` removes only the selected target that was
+double-clicked. The first click on an unselected target still selects
+immediately; the first click on an already-selected target neither collapses a
+multi-selection nor emits a change. Shift click continues to toggle
+immediately. Both options are omitted by default to preserve existing package
+behavior.
 
 ## Mutations, animation, and history
 

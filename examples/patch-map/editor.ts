@@ -27,6 +27,8 @@ export async function runEditorExample(host: HTMLElement): Promise<Readonly<{
     height: 220,
     data: EDITOR_DATASET,
     selection: {
+      clearOnBlankClick: 'double',
+      deselectOnTargetDoubleClick: true,
       visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' },
       box: {
         activationModifier: 'shift',

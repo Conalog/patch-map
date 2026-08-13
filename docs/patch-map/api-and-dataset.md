@@ -114,6 +114,8 @@ const patchMap = await PatchMap.mount({
       },
     },
     allowMultiple: selectionPlugin.allowMultiple,
+    clearOnBlankClick: 'double',
+    deselectOnTargetDoubleClick: true,
     isSelectable: ({ id, componentId }) =>
       selectionPlugin.isSelectable({ id, componentId }),
     visual: {
@@ -138,9 +140,12 @@ const stopPointerSelection = patchMap.selection.onPointerChange((change) => {
 });
 ```
 
-For a concrete grid component, the target is
+For a concrete grid component hover, the target is
 `{ id: '<grid>.<row>.<column>', componentId: '<template-component-id>' }`.
-Element hits omit `componentId`. Hover publications include the current CSS
+Point and box selection resolve that hit to the stable grid-cell owner
+`{ id: '<grid>.<row>.<column>' }`, so programmatic, point, and box selection
+share one persistent-bound identity. Authored component hits retain their
+component identity. Hover publications include the current CSS
 pixel `anchor`, package-converted `world` point, `previousTarget`, pointer
 identity, and modifiers. Same-target motion publishes `move`; exiting the
 target publishes `leave` with `target: null`.
@@ -157,6 +162,18 @@ eligible target in deterministic paint/scene order; `true` keeps every
 eligible target and permits shift-add/toggle behavior. A thrown `isSelectable`
 callback aborts the entire pointer selection commit without changing selection
 and reports a host-callback diagnostic.
+
+Pointer deselection is an explicit mount policy. `clearOnBlankClick` accepts
+`single`, `double`, or `never` and defaults to the compatible `single`.
+`deselectOnTargetDoubleClick` defaults to `false`; when enabled, the first
+modifier-free click on an unselected target still selects/replaces
+immediately. A target already selected before the gesture keeps the current
+selection on its first click and only that target is removed by the paired
+second click. In a multi-selection the first click never collapses the other
+targets. Shift click retains its immediate add/toggle meaning and cancels any
+armed target. Blank and target double-click policies are independent, publish
+at most one selection callback for the deselection, and their instance timer
+is cleared by drag, another target, policy replacement, or `destroy()`.
 
 `selection.visual` is an instance-local package-owned paint policy. `color`
 accepts a `0xRRGGBB` number or PATCH MAP CSS color, `strokeWidth` is measured

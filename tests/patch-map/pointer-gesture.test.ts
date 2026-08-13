@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   PatchMap,
@@ -339,12 +339,12 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     emitClick(surface, 2, [45, 45], 100);
     expect(selectionEvents.at(-1)).toMatchObject({
       source: 'pointer',
-      selected: [{ id: 'rack-grid.0.0', componentId: 'status' }],
-      added: [{ id: 'rack-grid.0.0', componentId: 'status' }],
+      selected: [{ id: 'rack-grid.0.0' }],
+      added: [{ id: 'rack-grid.0.0' }],
       removed: [],
     });
     emitClick(surface, 3, [105, 45], 140);
-    expect(engine.selection.ids).toEqual(['rack-grid.0.0::icon:status']);
+    expect(engine.selection.ids).toEqual(['rack-grid.0.0']);
     expect(selectionEvents).toHaveLength(1);
 
     surface.emit(surfacePointer('down', 4, [5, 5], 200));
@@ -352,10 +352,11 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     surface.emit(surfacePointer('up', 4, [145, 90], 232, { buttons: 0 }));
     expect(surface.cancelViewportGestureCount).toBe(1);
     expect(engine.selection.ids).toEqual(['rack-grid.0.0']);
+    expect(selectionEvents).toHaveLength(1);
     expect(selectionEvents.at(-1)).toMatchObject({
       selected: [{ id: 'rack-grid.0.0' }],
       added: [{ id: 'rack-grid.0.0' }],
-      removed: [{ id: 'rack-grid.0.0', componentId: 'status' }],
+      removed: [],
     });
     expect(policyTargets).toContainEqual({ id: 'rack-grid.0.1' });
 
@@ -486,6 +487,109 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     await expect(engine.destroy()).resolves.toBe(true);
   });
 
+  it('owns configured blank and selected-target double-click deselection without delaying new targets', async () => {
+    const surface = new PointerTestSurface();
+    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    engine.configurePointerSelectionPolicy({
+      allowMultiple: true,
+      clearOnBlankClick: 'double',
+      deselectOnTargetDoubleClick: true,
+      box: { partialIntersection: true, activationModifier: 'shift' },
+      visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' },
+    });
+    await engine.initialize({ instanceId: 'pointer-blank-double-clear', width: 800, height: 600 });
+    engine.loadDataset(REGION_DATASET);
+    vi.useFakeTimers();
+    const pointerChanges: PatchMapPointerSelectionChange[] = [];
+    engine.selection.onPointerChange((change) => pointerChanges.push(change));
+    try {
+      engine.selection.set('item-a');
+      emitClick(surface, 20, [400, 400], 0);
+      expect(engine.selection.ids).toEqual(['item-a']);
+      expect(pointerChanges).toEqual([]);
+      expect(surface.overlayPolicy).toMatchObject({
+        visibleIds: ['item-a'],
+        displayMode: 'element-only',
+      });
+
+      emitClick(surface, 20, [400, 400], 100);
+      expect(engine.selection.ids).toEqual([]);
+      expect(pointerChanges).toHaveLength(1);
+      expect(pointerChanges[0]).toMatchObject({
+        selected: [],
+        added: [],
+        removed: [{ id: 'item-a' }],
+      });
+
+      // An unselected target paints immediately. Its second click is not
+      // allowed to reinterpret that new selection as a deselection gesture.
+      engine.selection.set('rect-b');
+      emitClick(surface, 21, [45, 45], 700);
+      expect(engine.selection.ids).toEqual(['item-a']);
+      expect(pointerChanges).toHaveLength(2);
+      emitClick(surface, 21, [45, 45], 800);
+      expect(engine.selection.ids).toEqual(['item-a']);
+      expect(pointerChanges).toHaveLength(2);
+
+      // A target selected before the gesture arms on the first click and only
+      // that target is removed by the paired second click.
+      engine.selection.set(['item-a', 'rect-b']);
+      emitClick(surface, 22, [45, 45], 1_400);
+      expect(engine.selection.ids).toEqual(['item-a', 'rect-b']);
+      expect(pointerChanges).toHaveLength(2);
+      emitClick(surface, 22, [45, 45], 1_500);
+      expect(engine.selection.ids).toEqual(['rect-b']);
+      expect(pointerChanges).toHaveLength(3);
+      expect(pointerChanges[2]).toMatchObject({
+        selected: [{ id: 'rect-b' }],
+        added: [],
+        removed: [{ id: 'item-a' }],
+      });
+
+      const shift = { shift: true, ctrl: false, alt: false, meta: false };
+      emitClick(surface, 23, [165, 45], 2_100, { modifiers: shift });
+      expect(engine.selection.ids).toEqual([]);
+      expect(pointerChanges).toHaveLength(4);
+      emitClick(surface, 24, [45, 45], 2_700, { modifiers: shift });
+      expect(engine.selection.ids).toEqual(['item-a']);
+      expect(pointerChanges).toHaveLength(5);
+
+      // A selected single click is a no-op but arms the package-owned second
+      // click. Starting a box drag cancels that arm and keeps Shift box rules.
+      emitClick(surface, 25, [45, 45], 3_300);
+      expect(engine.selection.ids).toEqual(['item-a']);
+      expect(pointerChanges).toHaveLength(5);
+      surface.emit(surfacePointer('down', 26, [0, 0], 3_400, { modifiers: shift }));
+      surface.emit(surfacePointer('move', 26, [210, 120], 3_416, { modifiers: shift }));
+      surface.emit(surfacePointer('up', 26, [210, 120], 3_432, { buttons: 0 }));
+      expect(engine.selection.ids).toEqual(['item-a', 'rect-b']);
+      expect(pointerChanges).toHaveLength(6);
+      expect(surface.selectionMarquee).toBeNull();
+      expect(surface.overlayPolicy?.visibleIds).toEqual(['item-a', 'rect-b']);
+
+      emitClick(surface, 27, [45, 45], 4_000);
+      const beforeDestroyCallbacks = pointerChanges.length;
+      await expect(engine.destroy()).resolves.toBe(true);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(pointerChanges).toHaveLength(beforeDestroyCallbacks);
+      expect(surface.pointerListener).toBeNull();
+    } finally {
+      await engine.destroy().catch(() => undefined);
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the compatible blank single-click clear default', async () => {
+    const surface = new PointerTestSurface();
+    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    await engine.initialize({ instanceId: 'pointer-blank-default-clear', width: 800, height: 600 });
+    engine.loadDataset(REGION_DATASET);
+    engine.selection.set('item-a');
+    emitClick(surface, 23, [400, 400], 0);
+    expect(engine.selection.ids).toEqual([]);
+    await expect(engine.destroy()).resolves.toBe(true);
+  });
+
   it('normalizes mount selection visuals and clears transient marquee on every cancel path', async () => {
     const surface = new PointerTestSurface();
     const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
@@ -584,6 +688,12 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     expect(() => engine.configurePointerSelectionPolicy({
       visual: { strokeWidth: 0 },
     })).toThrow('selection.visual.strokeWidth must be positive and finite');
+    expect(() => engine.configurePointerSelectionPolicy({
+      clearOnBlankClick: 'triple' as 'double',
+    })).toThrow('selection.clearOnBlankClick must be single, double, or never');
+    expect(() => engine.configurePointerSelectionPolicy({
+      deselectOnTargetDoubleClick: 'yes' as unknown as boolean,
+    })).toThrow('selection.deselectOnTargetDoubleClick must be boolean');
 
     engine.configurePointerSelectionPolicy({
       box: { activationModifier: 'shift' },

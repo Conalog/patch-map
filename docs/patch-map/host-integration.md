@@ -49,7 +49,8 @@ geometry, mutate normalized output, or retain Pixi display objects. Event
 callbacks and canvas ownership remain instance-local.
 
 Selection and tooltip plugins attach only to the public projections. Pass
-`selection: { box, allowMultiple, isSelectable, visual }` to `mount()`, subscribe to
+`selection: { box, allowMultiple, isSelectable, visual, clearOnBlankClick,
+deselectOnTargetDoubleClick }` to `mount()`, subscribe to
 `selection.onPointerChange()` for non-echo pointer changes, and subscribe to
 `pointer.onHover()` for stable target plus CSS/world anchors. PatchMap retains
 the root pointer listener, pointer capture, aggregate hit test, coordinate
@@ -67,6 +68,12 @@ fillAlpha: 0.08 } }`. When `box.visual` is omitted, its color and width inherit
 from `selection.visual` for compatibility. Do not add a host canvas,
 DOM overlay, pointer listener, coordinate conversion, or RAF for selection
 paint.
+
+To preserve selection on a blank single click, clear on blank double click,
+and remove only an already-selected target on its double click, set
+`clearOnBlankClick: 'double'` and `deselectOnTargetDoubleClick: true`.
+Unselected targets still select immediately and Shift click remains the
+immediate multi-selection toggle; no host click timer is needed.
 
 For live concrete grid state, send bar and icon columns in one
 `updateBatch()` call. Use `bar.height`, `bar.changes.tint/source/show`, and

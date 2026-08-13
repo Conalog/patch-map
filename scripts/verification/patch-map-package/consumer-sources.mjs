@@ -540,6 +540,17 @@ async function verifyBuiltinGlyphLifecycle() {
 }
 
 async function verifyPointerInteractionLifecycle() {
+  const exactHost = document.createElement('div');
+  exactHost.id = 'packed-concrete-cell-host';
+  Object.assign(exactHost.style, {
+    position: 'fixed',
+    left: '260px',
+    top: '0',
+    zIndex: '2147483647',
+    width: '640px',
+    height: '480px',
+  });
+  document.body.appendChild(exactHost);
   const pointerHost = document.createElement('div');
   pointerHost.id = 'packed-pointer-host';
   Object.assign(pointerHost.style, {
@@ -577,6 +588,8 @@ async function verifyPointerInteractionLifecycle() {
   }];
   const datasetBefore = JSON.stringify(dataset);
   let map = null;
+  let exactMap = null;
+  let releaseExactSelection = null;
   let releaseHover = null;
   let releaseSelection = null;
   const firstHover = [];
@@ -596,6 +609,8 @@ async function verifyPointerInteractionLifecycle() {
     data: dataset,
     selection: {
       allowMultiple,
+      clearOnBlankClick: 'double',
+      deselectOnTargetDoubleClick: true,
       box: instanceId.includes('remount')
         ? { partialIntersection: true, activationModifier: 'shift' }
         : {
@@ -630,6 +645,45 @@ async function verifyPointerInteractionLifecycle() {
     releaseSelection = null;
   };
   map = await mount('packed-pointer-first', true);
+  const exactSelectableTargets = [];
+  const exactSelectionChanges = [];
+  exactMap = await PatchMap.mount({
+    container: exactHost,
+    instanceId: 'packed-concrete-cell-point-selection',
+    width: 640,
+    height: 480,
+    pixelRatio: 1,
+    background: '#000000',
+    resizeMode: 'manual',
+    fit: false,
+    data: [{
+      type: 'grid',
+      id: 'selectable-grid',
+      attrs: { x: 100, y: 100, display: 'panelGroup' },
+      cells: [[1]],
+      item: {
+        size: { width: 80, height: 60 },
+        components: [{
+          type: 'bar',
+          id: 'usage',
+          show: true,
+          size: { width: 80, height: 60 },
+          source: { type: 'rect', fill: '#2563eb' },
+          animation: false,
+        }],
+      },
+    }],
+    selection: {
+      isSelectable: (target) => {
+        exactSelectableTargets.push(target);
+        return true;
+      },
+      visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' },
+    },
+  });
+  releaseExactSelection = exactMap.selection.onPointerChange((change) => {
+    exactSelectionChanges.push(change);
+  });
   const baselineRed = await captureGlyphMask(map, 'red');
   map.selection.set('pointer-grid.0.0');
   const programmaticRed = await captureGlyphMask(map, 'red');
@@ -657,6 +711,17 @@ async function verifyPointerInteractionLifecycle() {
       clearSelection: () => map.selection.clear(),
       ensureSelection: () => map.selection.set('pointer-grid.0.0'),
       captureColor: (color) => captureGlyphMask(map, color),
+      selectionIds: () => [...map.selection.ids],
+      captureExactColor: (color) => captureGlyphMask(exactMap, color),
+      exactSelectionIds: () => [...exactMap.selection.ids],
+      finishExact: async () => {
+        releaseExactSelection?.();
+        releaseExactSelection = null;
+        const destroyed = await exactMap.destroy();
+        exactMap = null;
+        exactHost.remove();
+        return destroyed;
+      },
       markPostViewportHover: () => {
         window.__PATCH_MAP_POINTER_PROBE__.postViewportHoverStart = firstHover.length;
       },
@@ -737,6 +802,21 @@ async function verifyPointerInteractionLifecycle() {
             multiRed,
             clearedRed,
             clickRed: probe.clickRed,
+            concreteBarClickRed: probe.concreteBarClickRed,
+            concreteBarClickSelectionIds: probe.concreteBarClickSelectionIds,
+            exactCellPointRed: probe.exactCellPointRed,
+            exactCellPointSelectionIds: probe.exactCellPointSelectionIds,
+            exactCellPointDestroy: probe.exactCellPointDestroy,
+            exactCellPointCanvasCountAfterDestroy:
+              probe.exactCellPointCanvasCountAfterDestroy,
+            exactSelectableTargets,
+            exactSelectionChanges,
+            targetDoubleSelectionIds: probe.targetDoubleSelectionIds,
+            targetDoubleSelectionCount: probe.targetDoubleSelectionCount,
+            blankSingleSelectionIds: probe.blankSingleSelectionIds,
+            blankSingleSelectionCount: probe.blankSingleSelectionCount,
+            blankDoubleSelectionIds: probe.blankDoubleSelectionIds,
+            blankDoubleSelectionCount: probe.blankDoubleSelectionCount,
             marqueeDuringBlue: probe.marqueeDuringBlue,
             marqueeDuringRed: probe.marqueeDuringRed,
             marqueeAfterBlue: probe.marqueeAfterBlue,
@@ -759,6 +839,9 @@ async function verifyPointerInteractionLifecycle() {
     };
   }).finally(async () => {
     release();
+    releaseExactSelection?.();
+    await exactMap?.destroy().catch(() => undefined);
+    exactHost.remove();
     await map?.destroy().catch(() => undefined);
     pointerHost.remove();
   });

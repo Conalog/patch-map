@@ -64,6 +64,7 @@ export type {
   PatchMapAssetsApi,
   PatchMapBarUpdate,
   PatchMapBarUpdateColumns,
+  PatchMapBlankClickClearMode,
   PatchMapBoxSelectionOptions,
   PatchMapBoxSelectionVisualPolicy,
   PatchMapCaptureApi,

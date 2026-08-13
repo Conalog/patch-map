@@ -103,8 +103,9 @@ available.
 `pointer.onHover()` publishes `hover/move/leave` with a CSS anchor, world point,
 and stable `{ id, componentId? }`. `selection.onPointerChange()` publishes only
 pointer-origin selection, while `selection.onChange()` retains its all-source
-ID contract. Grid components use `<grid>.<row>.<column>` as `id` and the
-template component identity as `componentId`. Subscriptions are instance-local,
+ID contract. Grid hover components use `<grid>.<row>.<column>` as `id` and the
+template component identity as `componentId`; point and box selection resolve
+to the stable grid-cell `id`. Subscriptions are instance-local,
 return disposers, and are also cleared by `destroy()`.
 
 Selection paint is configured only at the root mount boundary with
@@ -118,3 +119,11 @@ color, CSS-pixel stroke, and 0..1 fill alpha; omitting it retains the legacy
 selection color/width fallback and `0.08` fill. Persistent bounds never inherit
 from `box.visual`. The marquee is intentionally absent from dataset, history,
 semantic hash, and debug state.
+
+Blank-canvas and target double-click deselection are independently opt-in.
+`clearOnBlankClick` defaults to `single` for compatibility and additionally
+accepts `double` or `never`. `deselectOnTargetDoubleClick` defaults to `false`;
+when true it never delays a new target, never collapses a multi-selection on
+the first click of an already-selected target, and removes only that armed
+target on the paired second modifier-free click. Shift click keeps its
+immediate add/toggle semantics.

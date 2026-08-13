@@ -14,6 +14,8 @@ export type {
 } from './pointer-gesture/geometry';
 
 export const PATCH_MAP_POINTER_GESTURE_REVISION = 'core-v2-pointer-gesture/1' as const;
+/** Shared root click-decision window; not a public package configuration. */
+export const PATCH_MAP_POINTER_CLICK_WINDOW_MS = 500;
 
 export type PatchMapPointerInputType =
   | 'down'
@@ -190,7 +192,10 @@ export class PatchMapPointerGestureAuthority {
       options.clickThresholdCssPx ?? 4,
       'clickThresholdCssPx',
     );
-    this.clickWindowMs = positiveFinite(options.clickWindowMs ?? 500, 'clickWindowMs');
+    this.clickWindowMs = positiveFinite(
+      options.clickWindowMs ?? PATCH_MAP_POINTER_CLICK_WINDOW_MS,
+      'clickWindowMs',
+    );
     this.clickRadiusCssPx = positiveFinite(
       options.clickRadiusCssPx ?? 4,
       'clickRadiusCssPx',

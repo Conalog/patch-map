@@ -84,6 +84,9 @@ export type PatchMapSelectionDisplayMode =
   | 'element-only'
   | 'hidden';
 
+/** Pointer gesture that clears selection when it resolves on blank canvas. */
+export type PatchMapBlankClickClearMode = 'single' | 'double' | 'never';
+
 /** Package-owned persistent selection-bound paint for one mounted instance. */
 export interface PatchMapSelectionVisualPolicy {
   /** Selection-bound color. Accepts 0xRRGGBB or PATCH MAP CSS colors. */
@@ -98,6 +101,13 @@ export interface PatchMapSelectionVisualPolicy {
 export interface PatchMapSelectionPolicy {
   /** Preserve multi-target shift selection. Defaults to true. */
   readonly allowMultiple?: boolean;
+  /** Blank-canvas selection clearing. Defaults to the compatible `single`. */
+  readonly clearOnBlankClick?: PatchMapBlankClickClearMode;
+  /**
+   * Remove only a target selected before a modifier-free double click.
+   * New targets and Shift toggles remain immediate. Defaults to false.
+   */
+  readonly deselectOnTargetDoubleClick?: boolean;
   /** Enable root-owned pointer drag box selection. Disabled by default. */
   readonly box?: boolean | PatchMapBoxSelectionOptions;
   /** Called with detached stable identity, never renderer objects. */

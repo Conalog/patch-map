@@ -82,13 +82,19 @@ than duplicating hit tests. Keep ordinary primary drag as viewport pan and use
 Shift+primary drag for box selection with
 `selection: { box: { activationModifier: 'shift', visual: { color: '#1099ff',
 strokeWidth: 1, fillAlpha: 0.08 } }, allowMultiple, isSelectable, visual: {
-color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' } }`,
+color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' },
+clearOnBlankClick: 'double', deselectOnTargetDoubleClick: true }`,
 observe stable hover targets through `pointer.onHover()`, and observe non-echo
 pointer selection through `selection.onPointerChange()`. Both subscriptions
 return disposers and are also cleared by `destroy()`. Selection display modes
 compose individual and aggregate bounds; they never filter selection identity.
 `selection.visual` paints persistent selected bounds; optional
 `selection.box.visual` independently paints only the transient drag marquee.
+The compatible blank-click default is `single`; opt into `double` (or
+`never`) explicitly. Target double-deselect is also opt-in: an unselected
+target paints immediately, while only a target selected before the gesture is
+armed for removal by its second modifier-free click. Shift click remains the
+immediate multi-selection toggle.
 
 For repeated grid-instance updates, query one semantic target set and reuse it
 without JSONPath or per-update scene scans:
