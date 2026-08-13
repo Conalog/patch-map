@@ -1,20 +1,30 @@
 #!/usr/bin/env node
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { promisify } from 'node:util';
 
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
 const ROOT = process.cwd();
+const execute = promisify(execFile);
+const PACKAGE_SPECS = packageSpecs(
+  process.env.PATCH_MAP_PRODUCTION_PRESENTATION_PACKAGES ??
+    process.env.PATCH_MAP_PRODUCTION_PRESENTATION_PACKAGE ?? null,
+);
 const SIZES = integerList(
   process.env.PATCH_MAP_PRODUCTION_PRESENTATION_SIZES ?? '349,3332,5000,10000',
 );
 const MODES = stringList(
   process.env.PATCH_MAP_PRODUCTION_PRESENTATION_MODES
     ?? 'animated,immediate,static-presentation',
+);
+const SCENARIOS = stringList(
+  process.env.PATCH_MAP_PRODUCTION_PRESENTATION_SCENARIOS ?? 'fit,zoomed',
 );
 const WARMUPS = integer(
   process.env.PATCH_MAP_PRODUCTION_PRESENTATION_WARMUPS ?? '1',
@@ -31,6 +41,7 @@ const UPDATE_INTERVAL_MS = integer(
   true,
 );
 const PROFILE = process.env.PATCH_MAP_PRODUCTION_PRESENTATION_PROFILE === '1';
+const COVERAGE = process.env.PATCH_MAP_PRODUCTION_PRESENTATION_COVERAGE === '1';
 const OUTPUT = path.resolve(
   process.env.PATCH_MAP_PRODUCTION_PRESENTATION_OUTPUT
     ?? path.join(ROOT, '.perf-results/patch-map/production-presentation-latest.json'),
@@ -42,6 +53,11 @@ const ANIMATION_DURATION_MS = 200;
 for (const mode of MODES) {
   if (!['animated', 'immediate', 'static-presentation'].includes(mode)) {
     throw new TypeError(`unsupported mode: ${mode}`);
+  }
+}
+for (const scenario of SCENARIOS) {
+  if (!['fit', 'zoomed'].includes(scenario)) {
+    throw new TypeError(`unsupported scenario: ${scenario}`);
   }
 }
 
@@ -61,6 +77,29 @@ function stringList(value) {
   const result = value.split(',').map((entry) => entry.trim()).filter(Boolean);
   if (result.length === 0) throw new TypeError('performance modes must not be empty');
   return result;
+}
+
+function packageSpecs(input) {
+  if (input === null) return Object.freeze([{ label: 'source', path: null }]);
+  const parsed = input.trim().startsWith('[')
+    ? JSON.parse(input)
+    : [{ label: 'package', path: input }];
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new TypeError('performance package list must not be empty');
+  }
+  return Object.freeze(parsed.map((entry, index) => {
+    if (
+      entry === null ||
+      typeof entry !== 'object' ||
+      typeof entry.label !== 'string' ||
+      !/^[a-z0-9-]+$/u.test(entry.label) ||
+      typeof entry.path !== 'string' ||
+      !path.isAbsolute(entry.path)
+    ) {
+      throw new TypeError(`invalid performance package at index ${index}`);
+    }
+    return Object.freeze({ label: entry.label, path: entry.path });
+  }));
 }
 
 function percentile(values, quantile) {
@@ -166,8 +205,8 @@ async function installWebGlProbe(page) {
   });
 }
 
-async function mount(page, size, mode, trial) {
-  await page.goto('/scripts/verification/patch-map-public-animation-performance.html', {
+async function mount(page, fixturePath, size, mode, scenario, trial) {
+  await page.goto(fixturePath, {
     waitUntil: 'networkidle',
     timeout: 120_000,
   });
@@ -176,7 +215,7 @@ async function mount(page, size, mode, trial) {
     undefined,
     { timeout: 120_000 },
   );
-  return page.evaluate(async ({ recordCount, workloadMode, sequence }) => {
+  return page.evaluate(async ({ recordCount, workloadMode, viewportScenario, sequence }) => {
     const { PatchMap } = globalThis.__PATCH_MAP_PUBLIC_ANIMATION_MODULE__;
     const host = document.querySelector('#patch-map-performance-host');
     Object.assign(host.style, { width: '800px', height: '600px', overflow: 'hidden' });
@@ -233,6 +272,12 @@ async function mount(page, size, mode, trial) {
       scope: 'instances',
     });
     await map.capture.png();
+    if (viewportScenario === 'zoomed') {
+      for (let index = 0; index < 5; index += 1) {
+        map.viewport.zoomBy(1.25, [400, 300]);
+      }
+      await map.capture.png();
+    }
     const snapshot = map.debug.snapshot();
     globalThis.__PATCH_MAP_PRODUCTION_PRESENTATION__ = { map, targets };
     globalThis.__PATCH_MAP_WEBGL_PROBE__.reset();
@@ -247,15 +292,18 @@ async function mount(page, size, mode, trial) {
       devicePixelRatio: globalThis.devicePixelRatio,
       visiblePrimitiveCount: snapshot.resources.rendering.visiblePrimitiveCount,
     };
-  }, { recordCount: size, workloadMode: mode, sequence: trial });
+  }, { recordCount: size, workloadMode: mode, viewportScenario: scenario, sequence: trial });
 }
 
-async function runTrial(page, size, mode, trial, cdp) {
-  const mounted = await mount(page, size, mode, trial);
+async function runTrial(page, fixturePath, size, mode, scenario, trial, cdp) {
+  const mounted = await mount(page, fixturePath, size, mode, scenario, trial);
   await page.evaluate(() => {
-    const sample = { stopped: false, raf: [], longTasks: [], observer: null };
+    const sample = { stopped: false, raf: [], longTasks: [], actionEnds: [], observer: null };
     const observer = new PerformanceObserver((list) => {
-      sample.longTasks.push(...list.getEntries().map((entry) => entry.duration));
+      sample.longTasks.push(...list.getEntries().map((entry) => ({
+        startTime: entry.startTime,
+        duration: entry.duration,
+      })));
     });
     try {
       observer.observe({ type: 'longtask', buffered: false });
@@ -274,6 +322,9 @@ async function runTrial(page, size, mode, trial, cdp) {
     await cdp.send('Profiler.enable');
     await cdp.send('Profiler.setSamplingInterval', { interval: 100 });
     await cdp.send('Profiler.start');
+    if (COVERAGE) {
+      await cdp.send('Profiler.startPreciseCoverage', { callCount: true, detailed: true });
+    }
   }
 
   const actions = [];
@@ -322,6 +373,7 @@ async function runTrial(page, size, mode, trial, cdp) {
         actionSequence % 2 === 0 ? 1.004 : 1 / 1.004,
         [400, 300],
       );
+      globalThis.__PATCH_MAP_PRODUCTION_SAMPLE__.actionEnds.push(performance.now());
       return { result, updateMs, beforeGpu };
     }, { actionSequence: sequence + 1, workloadMode: mode }));
     if (UPDATE_INTERVAL_MS > 0) await page.waitForTimeout(UPDATE_INTERVAL_MS);
@@ -337,6 +389,7 @@ async function runTrial(page, size, mode, trial, cdp) {
     return {
       raf: current.raf,
       longTasks: current.longTasks,
+      actionEnds: current.actionEnds,
       gpu: globalThis.__PATCH_MAP_WEBGL_PROBE__.snapshot(),
       semanticHash: snapshot.semanticHash,
       sceneRevision: snapshot.revisions.sceneRevision,
@@ -346,6 +399,10 @@ async function runTrial(page, size, mode, trial, cdp) {
   const cpuProfile = cdp === null
     ? null
     : summarizeCpuProfile((await cdp.send('Profiler.stop')).profile);
+  const preciseCoverage = cdp === null || !COVERAGE
+    ? null
+    : summarizePreciseCoverage((await cdp.send('Profiler.takePreciseCoverage')).result);
+  if (cdp !== null && COVERAGE) await cdp.send('Profiler.stopPreciseCoverage');
   const cleanup = await page.evaluate(async () => {
     const { map } = globalThis.__PATCH_MAP_PRODUCTION_PRESENTATION__;
     await map.destroy();
@@ -353,11 +410,24 @@ async function runTrial(page, size, mode, trial, cdp) {
     return document.querySelectorAll('#patch-map-performance-host canvas').length;
   });
   const rafGapsMs = sample.raf.slice(1).map((time, index) => time - sample.raf[index]);
+  const finalActionEnd = sample.actionEnds.at(-1) ?? Number.POSITIVE_INFINITY;
+  const settlementWindowStart = finalActionEnd + ANIMATION_DURATION_MS - 50;
+  const settlementWindowEnd = finalActionEnd + ANIMATION_DURATION_MS + 100;
+  const settlementFrameGapsMs = sample.raf.slice(1).flatMap((time, index) => {
+    const previous = sample.raf[index] ?? time;
+    return time >= settlementWindowStart && previous <= settlementWindowEnd
+      ? [time - previous]
+      : [];
+  });
+  const settlementLongTasks = sample.longTasks.filter(({ startTime, duration }) =>
+    startTime + duration >= settlementWindowStart && startTime <= settlementWindowEnd);
   return Object.freeze({
     trial,
     mounted,
     actions: Object.freeze(actions),
     rafGapsMs: Object.freeze(rafGapsMs),
+    settlementFrameGapsMs: Object.freeze(settlementFrameGapsMs),
+    settlementLongTasks: Object.freeze(settlementLongTasks),
     longTasks: Object.freeze(sample.longTasks),
     gpu: Object.freeze(sample.gpu),
     semanticHash: sample.semanticHash,
@@ -365,7 +435,25 @@ async function runTrial(page, size, mode, trial, cdp) {
     frameRevision: sample.frameRevision,
     cleanupCanvasCount: cleanup,
     cpuProfile,
+    preciseCoverage,
   });
+}
+
+function summarizePreciseCoverage(scripts) {
+  const names = /^(advanceForReconcile|sampleAt|applyBarHeight|writeReconcileUpdate|retargetForReconcile|readActiveForReconcile|materializeDeferredSettlements)$/u;
+  const counts = {};
+  for (const script of scripts) {
+    if (
+      !script.url.includes('/src/patch-map/') &&
+      !script.url.includes('/node_modules/.vite/deps/@conalog_patch-map.js')
+    ) continue;
+    for (const fn of script.functions) {
+      if (!names.test(fn.functionName)) continue;
+      counts[fn.functionName] = (counts[fn.functionName] ?? 0) +
+        (fn.ranges[0]?.count ?? 0);
+    }
+  }
+  return Object.freeze(counts);
 }
 
 function validate(trial, size, mode) {
@@ -398,11 +486,19 @@ function validate(trial, size, mode) {
 function summarize(trials) {
   const updates = trials.flatMap((trial) => trial.actions.map(({ updateMs }) => updateMs));
   const gaps = trials.flatMap((trial) => trial.rafGapsMs);
-  const longTasks = trials.flatMap((trial) => trial.longTasks);
+  const longTasks = trials.flatMap((trial) => trial.longTasks.map(({ duration }) => duration));
+  const settlementGaps = trials.flatMap((trial) => trial.settlementFrameGapsMs);
+  const settlementLongTasks = trials.flatMap((trial) =>
+    trial.settlementLongTasks.map(({ duration }) => duration));
   return Object.freeze({
     mountMs: stats(trials.map(({ mounted }) => mounted.mountMs)),
     retargetMs: stats(updates),
     frameGapMs: stats(gaps),
+    settlementFrameGapMs: stats(settlementGaps),
+    settlementLongTasks: Object.freeze({
+      count: settlementLongTasks.length,
+      durationMs: stats(settlementLongTasks),
+    }),
     longTasks: Object.freeze({
       count: longTasks.length,
       durationMs: stats(longTasks),
@@ -418,47 +514,110 @@ function summarize(trials) {
   });
 }
 
-const server = await createServer({
-  root: ROOT,
-  configFile: path.join(ROOT, 'vite.patch-map-lab.config.ts'),
-  logLevel: 'error',
-  server: { host: '127.0.0.1', port: 0, strictPort: false },
-});
+const servers = [];
+const temporaryConsumers = [];
 let browser;
 try {
-  await server.listen();
-  const baseURL = server.resolvedUrls?.local?.[0];
-  if (!baseURL) throw new Error('missing local Vite URL');
+  const consumers = [];
+  for (const spec of PACKAGE_SPECS) {
+    let serverRoot = ROOT;
+    let serverConfig = path.join(ROOT, 'vite.patch-map-lab.config.ts');
+    let fixturePath = '/scripts/verification/patch-map-public-animation-performance.html';
+    if (spec.path !== null) {
+      const temporary = await mkdtemp(path.join(os.tmpdir(), 'patch-map-presentation-perf-'));
+      temporaryConsumers.push(temporary);
+      await writeFile(path.join(temporary, 'package.json'), `${JSON.stringify({
+        name: `patch-map-production-presentation-${spec.label}`,
+        private: true,
+        type: 'module',
+        dependencies: {
+          '@conalog/patch-map': `file:${spec.path}`,
+          'pixi.js': '8.19.0',
+        },
+      }, null, 2)}\n`);
+      await writeFile(path.join(temporary, 'index.html'), `<!doctype html>
+<html><body><div id="patch-map-performance-host"></div>
+<script type="module" src="/main.js"></script></body></html>\n`);
+      await writeFile(path.join(temporary, 'main.js'), `
+import { PatchMap } from '@conalog/patch-map';
+window.__PATCH_MAP_PUBLIC_ANIMATION_MODULE__ = Object.freeze({ PatchMap });
+`);
+      await execute('npm', [
+        'install',
+        '--prefer-offline',
+        '--ignore-scripts',
+        '--no-audit',
+        '--no-fund',
+      ], { cwd: temporary, maxBuffer: 20 * 1024 * 1024 });
+      serverRoot = temporary;
+      serverConfig = false;
+      fixturePath = '/index.html';
+    }
+    const server = await createServer({
+      root: serverRoot,
+      configFile: serverConfig,
+      logLevel: 'error',
+      server: { host: '127.0.0.1', port: 0, strictPort: false },
+    });
+    await server.listen();
+    servers.push(server);
+    const baseURL = server.resolvedUrls?.local?.[0];
+    if (!baseURL) throw new Error(`missing local Vite URL for ${spec.label}`);
+    consumers.push(Object.freeze({ ...spec, baseURL, fixturePath }));
+  }
   browser = await chromium.launch({ headless: true });
   const runs = [];
   const failures = [];
   for (const size of SIZES) {
-    for (const mode of MODES) {
-      const warmups = [];
-      const measured = [];
-      for (let trial = 0; trial < WARMUPS + MEASURED; trial += 1) {
-        const page = await browser.newPage({
-          baseURL,
-          viewport: { width: 900, height: 700 },
-          deviceScaleFactor: DEVICE_SCALE_FACTOR,
-        });
-        await installWebGlProbe(page);
-        const cdp = PROFILE && trial === WARMUPS
-          ? await page.context().newCDPSession(page)
-          : null;
-        const result = await runTrial(page, size, mode, trial, cdp);
-        await cdp?.detach();
-        failures.push(...validate(result, size, mode));
-        (trial < WARMUPS ? warmups : measured).push(result);
-        await page.close();
+    for (const scenario of SCENARIOS) {
+      for (const mode of MODES) {
+        const values = new Map(consumers.map(({ label }) => [label, {
+          warmups: [],
+          measured: [],
+        }]));
+        for (let trial = 0; trial < WARMUPS + MEASURED; trial += 1) {
+          const ordered = trial % 2 === 0 ? consumers : [...consumers].reverse();
+          for (const consumer of ordered) {
+            const page = await browser.newPage({
+              baseURL: consumer.baseURL,
+              viewport: { width: 900, height: 700 },
+              deviceScaleFactor: DEVICE_SCALE_FACTOR,
+            });
+            await installWebGlProbe(page);
+            const cdp = (PROFILE || COVERAGE) && trial === WARMUPS
+              ? await page.context().newCDPSession(page)
+              : null;
+            const result = await runTrial(
+              page,
+              consumer.fixturePath,
+              size,
+              mode,
+              scenario,
+              trial,
+              cdp,
+            );
+            await cdp?.detach();
+            failures.push(...validate(result, size, mode));
+            const bucket = values.get(consumer.label);
+            if (bucket === undefined) throw new Error('missing performance result bucket');
+            (trial < WARMUPS ? bucket.warmups : bucket.measured).push(result);
+            await page.close();
+          }
+        }
+        for (const consumer of consumers) {
+          const value = values.get(consumer.label);
+          if (value === undefined) throw new Error('missing performance result');
+          runs.push(Object.freeze({
+            artifact: consumer.label,
+            size,
+            scenario,
+            mode,
+            warmups: Object.freeze(value.warmups),
+            measured: Object.freeze(value.measured),
+            summary: summarize(value.measured),
+          }));
+        }
       }
-      runs.push(Object.freeze({
-        size,
-        mode,
-        warmups: Object.freeze(warmups),
-        measured: Object.freeze(measured),
-        summary: summarize(measured),
-      }));
     }
   }
   const output = Object.freeze({
@@ -469,6 +628,7 @@ try {
     protocol: Object.freeze({
       sizes: Object.freeze(SIZES),
       modes: Object.freeze(MODES),
+      scenarios: Object.freeze(SCENARIOS),
       warmups: WARMUPS,
       measured: MEASURED,
       updateCount: UPDATE_COUNT,
@@ -480,6 +640,9 @@ try {
       backend: 'webgl',
       publicApi: 'PatchMap.mount + targets.query + updateBatch + viewport + capture',
       cpuProfile: PROFILE,
+      preciseCoverage: COVERAGE,
+      packages: PACKAGE_SPECS,
+      order: PACKAGE_SPECS.length > 1 ? 'alternating-per-trial' : 'single',
       windowsNative: 'pending',
     }),
     environment: Object.freeze({
@@ -497,16 +660,28 @@ try {
   process.stdout.write(`${JSON.stringify({
     output: OUTPUT,
     status: output.status,
-    runs: runs.map(({ size, mode, summary }) => ({ size, mode, summary })),
-    profiles: runs.map(({ size, mode, measured }) => ({
+    runs: runs.map(({ artifact, size, scenario, mode, summary }) => ({
+      artifact,
       size,
+      scenario,
+      mode,
+      summary,
+    })),
+    profiles: runs.map(({ artifact, size, scenario, mode, measured }) => ({
+      artifact,
+      size,
+      scenario,
       mode,
       cpuProfile: measured.find((trial) => trial.cpuProfile !== null)?.cpuProfile ?? null,
+      preciseCoverage: measured.find((trial) => trial.preciseCoverage !== null)
+        ?.preciseCoverage ?? null,
     })),
     failures,
   }, null, 2)}\n`);
   if (failures.length > 0) process.exitCode = 1;
 } finally {
   await browser?.close().catch(() => undefined);
-  await server.close();
+  await Promise.all(servers.map((server) => server.close().catch(() => undefined)));
+  await Promise.all(temporaryConsumers.map((temporary) =>
+    rm(temporary, { recursive: true, force: true })));
 }

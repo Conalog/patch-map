@@ -299,6 +299,10 @@ describe('AggregateMeshLayer', () => {
     expect(layer.cull(new Matrix(), 70, 40, 0, false)).toBe(1);
     expect(firstBar.parent).toBe(layer.relationContainer);
     expect(distantBar.parent).toBe(layer.relationContainer);
+    expect([...layer.barPresentationVisibility()!.visibleChunks.slice(0, 1)])
+      .toEqual([1]);
+    expect([...layer.barPresentationVisibility()!.visibleSlots.slice(0, 4)])
+      .toEqual([1, 1, 0, 0]);
     layer.destroy();
   });
 
@@ -323,6 +327,10 @@ describe('AggregateMeshLayer', () => {
     const layer = new AggregateMeshLayer({ chunkSize: 2, label: 'deferred bars' });
     layer.sync(store, { fullRebuildEpoch: 1 });
     expect(layer.cull(new Matrix(), 80, 40, 0)).toBe(1);
+    expect([...layer.barPresentationVisibility()!.visibleChunks.slice(0, 2)])
+      .toEqual([1, 0]);
+    expect([...layer.barPresentationVisibility()!.visibleSlots.slice(0, 4)])
+      .toEqual([1, 1, 0, 0]);
 
     (store.value as Float32Array).set([80, 70, 60, 50]);
     (store as { revision: number }).revision = 2;
@@ -334,6 +342,10 @@ describe('AggregateMeshLayer', () => {
     expect(layer.hasVisibleDeferredBarUpdates()).toBe(false);
 
     expect(layer.cull(new Matrix(1, 0, 0, 1, -180, 0), 80, 40, 0)).toBe(1);
+    expect([...layer.barPresentationVisibility()!.visibleChunks.slice(0, 2)])
+      .toEqual([0, 1]);
+    expect([...layer.barPresentationVisibility()!.visibleSlots.slice(0, 4)])
+      .toEqual([0, 0, 1, 1]);
     expect(layer.hasVisibleDeferredBarUpdates()).toBe(true);
     const caughtUp = layer.sync(store, { changedRanges: [] });
     expect(caughtUp.uploadedChunks).toBe(1);

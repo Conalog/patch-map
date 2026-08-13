@@ -29,6 +29,7 @@ import {
   type AggregateQuad,
   type PackedMeshStyle,
 } from './geometry';
+import type { AggregateViewportBounds } from './viewport-culling';
 
 const RECT_PASS = 0;
 const BAR_TRACK_PASS = 1;
@@ -104,6 +105,43 @@ export interface BarSlotBinding {
   rotation: number;
   progress: number;
   projectionRevision: number;
+  readonly worldBounds: AggregateViewportBounds;
+}
+
+export function writeBarSlotBindingWorldBounds(
+  binding: Pick<BarSlotBinding, 'worldBounds'>,
+  vertices: ArrayLike<number>,
+): void {
+  binding.worldBounds.minX = Math.min(
+    vertices[0] ?? 0,
+    vertices[2] ?? 0,
+    vertices[4] ?? 0,
+    vertices[6] ?? 0,
+  );
+  binding.worldBounds.minY = Math.min(
+    vertices[1] ?? 0,
+    vertices[3] ?? 0,
+    vertices[5] ?? 0,
+    vertices[7] ?? 0,
+  );
+  binding.worldBounds.maxX = Math.max(
+    vertices[0] ?? 0,
+    vertices[2] ?? 0,
+    vertices[4] ?? 0,
+    vertices[6] ?? 0,
+  );
+  binding.worldBounds.maxY = Math.max(
+    vertices[1] ?? 0,
+    vertices[3] ?? 0,
+    vertices[5] ?? 0,
+    vertices[7] ?? 0,
+  );
+}
+
+function barSlotWorldBounds(vertices: ArrayLike<number>): BarSlotBinding['worldBounds'] {
+  const bounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+  writeBarSlotBindingWorldBounds({ worldBounds: bounds }, vertices);
+  return bounds;
 }
 
 export interface AggregateChunkLaneGeometry {
@@ -575,6 +613,7 @@ function appendStyledBarSlot(
   const progress = resolveBarProgress(store, slot);
   const entityId = store.ids[slot] ?? `@slot:${slot}`;
   const radius = Math.max(0, store.radius[slot] as number);
+  const trackQuad = resolvePatchMapSlotQuad(store, slot, projectionContext);
   bindings.set(slot, {
     entityId,
     track: null,
@@ -587,6 +626,7 @@ function appendStyledBarSlot(
     rotation,
     progress,
     projectionRevision: projectionContext?.revision ?? -1,
+    worldBounds: barSlotWorldBounds(trackQuad.vertices),
   });
   let count = 0;
   if (isDrawable(store, slot) && width > 0 && height > 0) {
@@ -601,7 +641,7 @@ function appendStyledBarSlot(
         radius,
         widthFraction: 1,
         entityId,
-        quad: resolvePatchMapSlotQuad(store, slot, projectionContext),
+        quad: trackQuad,
         paint: styledBarPaint(entityId, trackFill, radius),
         fill: trackFill,
         borderColor: 0,
@@ -702,6 +742,7 @@ function appendBarSlot(
     rotation,
     progress,
     projectionRevision: projectionContext?.revision ?? -1,
+    worldBounds: barSlotWorldBounds(trackQuad.vertices),
   });
   return (track === null ? 0 : 1) + (fill === null ? 0 : 1);
 }

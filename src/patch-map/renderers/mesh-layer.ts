@@ -9,6 +9,7 @@ import {
 } from 'pixi.js';
 
 import type { CoreView, SlotRange } from '../dense/contracts';
+import type { PatchMapPresentationSlotVisibility } from '../presentation';
 import {
   RenderKind,
   type RenderStoreView,
@@ -342,6 +343,17 @@ export class AggregateMeshLayer {
   #previousAlive = new Uint8Array(0);
   #previousKind = new Uint8Array(0);
   readonly #deferredBarChunks = new Set<number>();
+  #visibleChunkFlags = new Uint8Array(0);
+  #visibleBarSlotFlags = new Uint8Array(0);
+  #barEntityIdsBySlot: Array<string | undefined> = [];
+  #visibleBarSlotCount = 0;
+  #barSlotCount = 0;
+  readonly #barPresentationVisibility: {
+    chunkSize: number;
+    visibleChunks: Uint8Array;
+    visibleSlots: Uint8Array;
+    entityIdsBySlot: readonly (string | undefined)[];
+  };
   #destroyed = false;
   #debug: AggregateMeshLayerDebug;
   #view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
@@ -357,6 +369,12 @@ export class AggregateMeshLayer {
       throw new RangeError('chunkSize must be a positive safe integer');
     }
     this.chunkSize = chunkSize;
+    this.#barPresentationVisibility = {
+      chunkSize,
+      visibleChunks: this.#visibleChunkFlags,
+      visibleSlots: this.#visibleBarSlotFlags,
+      entityIdsBySlot: this.#barEntityIdsBySlot,
+    };
     this.#baseLabel = options.label ?? 'PatchMap aggregate mesh';
     this.#applyStoreView = options.applyStoreView ?? true;
     this.container = new Container({ label: this.#baseLabel });
@@ -393,6 +411,14 @@ export class AggregateMeshLayer {
 
   public entityPaintProbe(entityId: string): PatchMapEntityPaintProbe | null {
     return this.#paintProbesByEntityId.get(entityId) ?? null;
+  }
+
+  /** Null means all retained bar slots are visible, preserving the fit hot path. */
+  public barPresentationVisibility(): PatchMapPresentationSlotVisibility | null {
+    if (this.#viewportCull === null || this.#chunks.size === 0) return null;
+    return this.#visibleBarSlotCount === this.#barSlotCount
+      ? null
+      : this.#barPresentationVisibility;
   }
 
   public renderLaneProbe(): Readonly<{
@@ -481,9 +507,22 @@ export class AggregateMeshLayer {
     const precisionChanged = this.#preciseViewportCull !== precise;
     this.#viewportCull = viewport;
     this.#preciseViewportCull = precise;
+    this.#ensureVisibleChunkCapacity();
+    this.#visibleChunkFlags.fill(0);
+    this.#visibleBarSlotFlags.fill(0);
+    this.#visibleBarSlotCount = 0;
+    this.#barSlotCount = 0;
     let visibleChunks = 0;
-    for (const chunk of this.#chunks.values()) {
+    for (const [chunkIndex, chunk] of this.#chunks) {
       const visible = chunkIntersectsViewport(chunk, viewport);
+      this.#visibleChunkFlags[chunkIndex] = visible ? 1 : 0;
+      for (const [slot, binding] of chunk.barBindings) {
+        this.#barSlotCount += 1;
+        this.#barEntityIdsBySlot[slot] = binding.entityId;
+        const slotVisible = visible && boundsIntersectsViewport(binding.worldBounds, viewport);
+        this.#visibleBarSlotFlags[slot] = slotVisible ? 1 : 0;
+        if (slotVisible) this.#visibleBarSlotCount += 1;
+      }
       setChunkGeometryVisible(
         chunk,
         visible,
@@ -1216,7 +1255,42 @@ export class AggregateMeshLayer {
     for (const record of chunk.barGraphics.values()) destroyGraphicsRecord(record);
     for (const record of chunk.relationMeshes.values()) destroyMeshRecord(record);
     this.#deferredBarChunks.delete(chunkIndex);
+    if (chunkIndex < this.#visibleChunkFlags.length) {
+      this.#visibleChunkFlags[chunkIndex] = 0;
+    }
+    for (const slot of chunk.barSlots) {
+      if (slot < this.#visibleBarSlotFlags.length) this.#visibleBarSlotFlags[slot] = 0;
+      this.#barEntityIdsBySlot[slot] = undefined;
+    }
     this.#chunks.delete(chunkIndex);
+  }
+
+  #ensureVisibleChunkCapacity(): void {
+    let required = 0;
+    let requiredSlots = 0;
+    for (const chunkIndex of this.#chunks.keys()) {
+      required = Math.max(required, chunkIndex + 1);
+    }
+    for (const chunk of this.#chunks.values()) {
+      for (const slot of chunk.barSlots) requiredSlots = Math.max(requiredSlots, slot + 1);
+    }
+    if (required > this.#visibleChunkFlags.length) {
+      let capacity = Math.max(1, this.#visibleChunkFlags.length);
+      while (capacity < required) capacity *= 2;
+      const next = new Uint8Array(capacity);
+      next.set(this.#visibleChunkFlags);
+      this.#visibleChunkFlags = next;
+      this.#barPresentationVisibility.visibleChunks = next;
+    }
+    if (requiredSlots <= this.#visibleBarSlotFlags.length) return;
+    let slotCapacity = Math.max(1, this.#visibleBarSlotFlags.length);
+    while (slotCapacity < requiredSlots) slotCapacity *= 2;
+    const nextSlots = new Uint8Array(slotCapacity);
+    nextSlots.set(this.#visibleBarSlotFlags);
+    this.#visibleBarSlotFlags = nextSlots;
+    this.#barPresentationVisibility.visibleSlots = nextSlots;
+    this.#barEntityIdsBySlot.length = slotCapacity;
+    this.#barPresentationVisibility.entityIdsBySlot = this.#barEntityIdsBySlot;
   }
 }
 

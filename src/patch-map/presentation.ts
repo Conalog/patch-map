@@ -50,6 +50,15 @@ export interface PatchMapPresentationReconcileFrame {
   readonly slots: Uint32Array;
   readonly generations: Uint32Array;
   readonly values: Float64Array;
+  readonly deferredSettledCount: number;
+}
+
+/** Internal renderer-owned slot visibility used by the aggregate frame kernel. */
+export interface PatchMapPresentationSlotVisibility {
+  readonly chunkSize: number;
+  readonly visibleChunks: Uint8Array;
+  readonly visibleSlots: Uint8Array;
+  readonly entityIdsBySlot?: readonly (string | undefined)[];
 }
 
 type MutableReconcileFrame = {
@@ -89,6 +98,7 @@ export class PatchMapPresentationController {
   private reconcileSlots: Uint32Array;
   private reconcileGenerations: Uint32Array;
   private reconcileValues: Float64Array;
+  private settledFlags: Uint8Array;
   private readonly reconcileFrame: MutableReconcileFrame;
   private readonly indexById = new Map<string, number>();
   private clockMsValue = 0;
@@ -137,6 +147,7 @@ export class PatchMapPresentationController {
     this.reconcileSlots = new Uint32Array(this.capacity);
     this.reconcileGenerations = new Uint32Array(this.capacity);
     this.reconcileValues = new Float64Array(this.capacity);
+    this.settledFlags = new Uint8Array(this.capacity);
     this.reconcileFrame = {
       timeMs: 0,
       activeCount: 0,
@@ -148,6 +159,7 @@ export class PatchMapPresentationController {
       slots: this.reconcileSlots,
       generations: this.reconcileGenerations,
       values: this.reconcileValues,
+      deferredSettledCount: 0,
     };
   }
 
@@ -352,15 +364,32 @@ export class PatchMapPresentationController {
    * object per active bar. The returned view is valid only until the next call
    * that advances or destroys this controller.
    */
-  public advanceForReconcile(timeMs: number): PatchMapPresentationReconcileFrame {
+  public advanceForReconcile(
+    timeMs: number,
+    visibility?: PatchMapPresentationSlotVisibility,
+  ): PatchMapPresentationReconcileFrame {
     this.assertAlive('advance');
     this.assertMonotonic(timeMs, 'advance');
     this.clockMsValue = timeMs;
 
     let changedCount = 0;
     let settledCount = 0;
-    let index = 0;
-    while (index < this.countValue) {
+    let deferredSettledCount = 0;
+    const initialCount = this.countValue;
+    this.settledFlags.fill(0, 0, initialCount);
+    for (let index = 0; index < initialCount; index += 1) {
+      const settled = timeMs - (this.startTimes[index] ?? 0) >=
+        (this.durations[index] ?? 0);
+      const visible = visibility === undefined ||
+        (visibility.visibleSlots[this.slots[index] ?? 0] ?? 0) !== 0;
+      if (!visible) {
+        if (!settled) continue;
+        this.settledFlags[index] = 1;
+        deferredSettledCount += 1;
+        settledCount += 1;
+        this.totalSettlementCountValue += 1;
+        continue;
+      }
       const value = this.sampleAt(index, timeMs);
       let changedIndex = -1;
       if (!Object.is(value, this.currentValues[index])) {
@@ -369,12 +398,7 @@ export class PatchMapPresentationController {
         this.writeReconcileUpdate(changedCount, index, value);
         changedCount += 1;
       }
-      const settled = timeMs - (this.startTimes[index] ?? 0) >=
-        (this.durations[index] ?? 0);
-      if (!settled) {
-        index += 1;
-        continue;
-      }
+      if (!settled) continue;
       const destination = this.destinationValues[index] ?? 0;
       if (!Object.is(value, destination)) {
         this.currentValues[index] = destination;
@@ -385,9 +409,16 @@ export class PatchMapPresentationController {
           this.reconcileValues[changedIndex] = destination;
         }
       }
+      this.settledFlags[index] = 1;
       settledCount += 1;
       this.totalSettlementCountValue += 1;
-      this.removeAt(index);
+    }
+    if (settledCount === initialCount && initialCount > 0) {
+      this.indexById.clear();
+      this.ids.fill(undefined, 0, initialCount);
+      this.countValue = 0;
+    } else if (settledCount > 0) {
+      this.compactSettledRows(initialCount);
     }
 
     const frame = this.reconcileFrame;
@@ -395,6 +426,7 @@ export class PatchMapPresentationController {
     frame.activeCount = this.countValue;
     frame.changedCount = changedCount;
     frame.settledCount = settledCount;
+    frame.deferredSettledCount = deferredSettledCount;
     frame.totalSettlementCount = this.totalSettlementCountValue;
     frame.published = changedCount > 0;
     if (frame.published) {
@@ -545,6 +577,7 @@ export class PatchMapPresentationController {
     this.reconcileSlots = new Uint32Array(0);
     this.reconcileGenerations = new Uint32Array(0);
     this.reconcileValues = new Float64Array(0);
+    this.settledFlags = new Uint8Array(0);
     this.reconcileFrame.entityIds = this.reconcileEntityIds;
     this.reconcileFrame.slots = this.reconcileSlots;
     this.reconcileFrame.generations = this.reconcileGenerations;
@@ -552,6 +585,7 @@ export class PatchMapPresentationController {
     this.reconcileFrame.activeCount = 0;
     this.reconcileFrame.changedCount = 0;
     this.reconcileFrame.settledCount = 0;
+    this.reconcileFrame.deferredSettledCount = 0;
     this.reconcileFrame.published = false;
     this.destroyedValue = true;
     this.resetReconcileState(this.reconcileState);
@@ -744,6 +778,31 @@ export class PatchMapPresentationController {
     return index;
   }
 
+  private compactSettledRows(initialCount: number): void {
+    let writeIndex = 0;
+    for (let readIndex = 0; readIndex < initialCount; readIndex += 1) {
+      const entityId = this.requiredId(readIndex);
+      if ((this.settledFlags[readIndex] ?? 0) !== 0) {
+        this.indexById.delete(entityId);
+        continue;
+      }
+      if (writeIndex !== readIndex) {
+        this.ids[writeIndex] = entityId;
+        this.slots[writeIndex] = this.slots[readIndex] ?? 0;
+        this.generations[writeIndex] = this.generations[readIndex] ?? 0;
+        this.startValues[writeIndex] = this.startValues[readIndex] ?? 0;
+        this.destinationValues[writeIndex] = this.destinationValues[readIndex] ?? 0;
+        this.currentValues[writeIndex] = this.currentValues[readIndex] ?? 0;
+        this.startTimes[writeIndex] = this.startTimes[readIndex] ?? 0;
+        this.durations[writeIndex] = this.durations[readIndex] ?? 0;
+      }
+      this.indexById.set(entityId, writeIndex);
+      writeIndex += 1;
+    }
+    this.ids.fill(undefined, writeIndex, initialCount);
+    this.countValue = writeIndex;
+  }
+
   private removeAt(index: number): void {
     const removedId = this.requiredId(index);
     this.indexById.delete(removedId);
@@ -786,6 +845,7 @@ export class PatchMapPresentationController {
     this.reconcileSlots = growUint32(this.reconcileSlots, capacity);
     this.reconcileGenerations = growUint32(this.reconcileGenerations, capacity);
     this.reconcileValues = growFloat64(this.reconcileValues, capacity);
+    this.settledFlags = growUint8(this.settledFlags, capacity);
     this.reconcileFrame.entityIds = this.reconcileEntityIds;
     this.reconcileFrame.slots = this.reconcileSlots;
     this.reconcileFrame.generations = this.reconcileGenerations;
@@ -857,6 +917,12 @@ function updatesAreOrdered(updates: readonly PatchMapPresentationUpdate[]): bool
 
 function growUint32(values: Uint32Array, capacity: number): Uint32Array {
   const next = new Uint32Array(capacity);
+  next.set(values);
+  return next;
+}
+
+function growUint8(values: Uint8Array, capacity: number): Uint8Array {
+  const next = new Uint8Array(capacity);
   next.set(values);
   return next;
 }

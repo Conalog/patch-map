@@ -91,8 +91,8 @@ try {
           data,
           resizeMode: 'manual',
         });
-        const pixels = async () => {
-          const capture = await map.capture.png();
+        const pixels = async (targetMap = map) => {
+          const capture = await targetMap.capture.png();
           const image = new Image();
           image.src = capture.dataUrl;
           await image.decode();
@@ -126,6 +126,7 @@ try {
           return {
             purple: count(124, 58, 237),
             blue: count(37, 99, 235),
+            green: count(34, 197, 94),
             red: count(239, 68, 68),
             redDominant,
           };
@@ -168,11 +169,86 @@ try {
         await map.destroy();
         window.__PATCH_MAP_INSTANCE_PRESENTATION__.canvasCountAfterDestroy =
           document.querySelectorAll('#map canvas').length;
+
+        const animationHost = document.createElement('div');
+        animationHost.id = 'animation-map';
+        Object.assign(animationHost.style, { width: '320px', height: '220px' });
+        document.body.appendChild(animationHost);
+        const animationMap = await PatchMap.mount({
+          container: animationHost,
+          width: 320,
+          height: 220,
+          background: '#000000',
+          resizeMode: 'manual',
+          data: [{
+            type: 'grid',
+            id: 'animation-grid',
+            cells: [[1, 1]],
+            gap: 800,
+            item: {
+              size: { width: 120, height: 120 },
+              components: [{
+                type: 'bar',
+                id: 'level',
+                source: { type: 'rect', fill: '#ffffff' },
+                tint: '#22c55e',
+                size: { width: 100, height: 10 },
+                placement: 'bottom',
+                animation: true,
+                animationDuration: 200,
+              }],
+            },
+          }],
+        });
+        animationMap.viewport.fit({
+          targets: [{ id: 'animation-grid.0.0' }],
+          padding: 40,
+        });
+        const animationTargets = animationMap.targets.query({
+          within: 'animation-grid',
+          type: 'grid-cell',
+          scope: 'instances',
+        });
+        const animationSnapshot = animationMap.debug.snapshot();
+        const animationUpdate = animationMap.updateBatch({
+          targets: animationTargets,
+          bar: { componentId: 'level', height: Float64Array.of(100, 100) },
+        }, { animate: true });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const panIn = animationMap.viewport.fit({
+          targets: [{ id: 'animation-grid.0.1' }],
+          padding: 40,
+        });
+        const terminal = await pixels(animationMap);
+        const resized = animationMap.viewport.resize(400, 260, 1);
+        const reset = animationMap.viewport.reset({
+          targets: [{ id: 'animation-grid.0.1' }],
+          padding: 40,
+        });
+        const afterResizeReset = await pixels(animationMap);
+        window.__PATCH_MAP_INSTANCE_PRESENTATION__.animation = {
+          update: animationUpdate,
+          panIn,
+          terminal,
+          resized,
+          reset,
+          afterResizeReset,
+          semanticHashUnchanged:
+            animationMap.debug.snapshot().semanticHash === animationSnapshot.semanticHash,
+          sceneRevisionUnchanged:
+            animationMap.debug.snapshot().revisions.sceneRevision ===
+              animationSnapshot.revisions.sceneRevision,
+          canvasCount: document.querySelectorAll('#animation-map canvas').length,
+        };
+        await animationMap.destroy();
+        window.__PATCH_MAP_INSTANCE_PRESENTATION__.animation.canvasCountAfterDestroy =
+          document.querySelectorAll('#animation-map canvas').length;
+        window.__PATCH_MAP_INSTANCE_PRESENTATION__.finished = true;
       </script>
     </body></html>`);
   try {
     await page.waitForFunction(
-      () => window.__PATCH_MAP_INSTANCE_PRESENTATION__?.canvasCountAfterDestroy === 0,
+      () => window.__PATCH_MAP_INSTANCE_PRESENTATION__?.finished === true,
       undefined,
       { timeout: 60_000 },
     );
@@ -195,6 +271,33 @@ try {
   assert(result.historyUnchanged, 'history is unchanged', result);
   assert(result.semanticHashUnchanged, 'semantic hash is unchanged', result);
   assert(result.canvasCount === 1 && result.canvasCountAfterDestroy === 0, 'mount/destroy owns one canvas', result);
+  assert(
+    result.animation.update.status === 'committed' && result.animation.update.appliedCount === 2,
+    'offscreen animation batch committed',
+    result.animation,
+  );
+  assert(result.animation.panIn.status === 'applied', 'terminal bar entered view', result.animation);
+  assert(
+    result.animation.terminal.green > 5_000,
+    'terminal offscreen bar lazily materialized at its exact final height',
+    result.animation,
+  );
+  assert(
+    result.animation.resized && result.animation.reset.status === 'fallback:auto-fit' &&
+      result.animation.afterResizeReset.green > 5_000,
+    'resize/reset refreshed visibility and retained the exact terminal value',
+    result.animation,
+  );
+  assert(
+    result.animation.semanticHashUnchanged && result.animation.sceneRevisionUnchanged,
+    'renderer-only animation preserved semantic facts',
+    result.animation,
+  );
+  assert(
+    result.animation.canvasCount === 1 && result.animation.canvasCountAfterDestroy === 0,
+    'animation mount/destroy owns one canvas',
+    result.animation,
+  );
   assert(errors.length === 0, 'browser has no console/page/network errors', errors);
 
   process.stdout.write(`${JSON.stringify({

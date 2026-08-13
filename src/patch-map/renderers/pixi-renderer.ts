@@ -66,6 +66,7 @@ import type {
   PatchMapRendererPresentationEntityProbe,
   PatchMapResolvedPresentationPolicy,
 } from '../presentation-policy';
+import type { PatchMapPresentationSlotVisibility } from '../presentation';
 import {
   PatchMapPresentationStoreView,
   type PatchMapRendererEntityPresentationOverride,
@@ -278,6 +279,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     particleFullUploadCount: 0,
     uploadObservation: 'dirty-chunk-bytes',
   };
+  private barPresentationVisibilityRevision = 0;
+  private barPresentationVisibilityStale = true;
+  private barPresentationVisibilityConservative = true;
 
   private constructor(
     application: Application,
@@ -496,6 +500,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     // setWorldOrientation(). Preserve the orientation fast-path promise in
     // that case; any actual scene mutation or full rebuild revokes it.
     if (options.fullRebuild) {
+      this.barPresentationVisibilityConservative = true;
       const nextStoreEpoch = this.storeEpoch + 1;
       this.lastInvalidation = reason;
       this.pendingProjectionTransformOnly = nextProjectionTransformOnly;
@@ -506,6 +511,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       return;
     }
     const nextRanges = mergeRanges(this.pendingRanges ?? [], ranges);
+    if (ranges.length > 0 && options.domain !== 'bar-only') {
+      this.barPresentationVisibilityConservative = true;
+    }
     this.lastInvalidation = reason;
     this.pendingProjectionTransformOnly = nextProjectionTransformOnly;
     this.pendingBarPresentationOnly = nextBarPresentationOnly;
@@ -706,6 +714,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       : 'presentation-projection';
     const nextProjectionRevision = this.projectionRevision + 1;
     this.projectionIndex = index;
+    if (updateKind !== 'bar-presentation') {
+      this.barPresentationVisibilityConservative = true;
+    }
     this.pendingProjectionTransformOnly = false;
     this.staleProjectionEntityIds = nextStaleEntityIds;
     this.projectionRevision = nextProjectionRevision;
@@ -725,6 +736,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.pendingBarPresentationOnly = false;
     this.pendingTextOnly = false;
     this.applyWorldTransform();
+    this.barPresentationVisibilityStale = true;
     const transformOnlyEligible =
       this.pendingRanges !== undefined && this.pendingRanges.length === 0;
     if (this.lastStore) {
@@ -757,6 +769,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     this.application.renderer.resize(width, height);
     this.application.stage.hitArea = new Rectangle(0, 0, width, height);
+    this.barPresentationVisibilityStale = true;
     this.lastInvalidation = 'resize';
     return true;
   }
@@ -791,8 +804,36 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     if (scaleChanged) this.pendingOverlayRanges = undefined;
     this.applyWorldTransform();
+    this.barPresentationVisibilityStale = true;
     this.lastInvalidation = 'view';
     return true;
+  }
+
+  /** @internal Refresh aggregate culling before the presentation frame kernel. */
+  public prepareBarPresentationVisibility(view: CoreView): Readonly<{
+    revision: number;
+    visibility: PatchMapPresentationSlotVisibility | null;
+  }> {
+    this.assertAlive();
+    this.setView(view);
+    if (this.aggregate instanceof AggregateMeshLayer && this.barPresentationVisibilityStale) {
+      this.aggregate.cull(
+        this.worldMatrix,
+        this.widthValue,
+        this.heightValue,
+        48,
+        false,
+      );
+      this.barPresentationVisibilityStale = false;
+      this.barPresentationVisibilityRevision += 1;
+    }
+    return {
+      revision: this.barPresentationVisibilityRevision,
+      visibility: this.barPresentationVisibilityConservative ||
+          !(this.aggregate instanceof AggregateMeshLayer)
+        ? null
+        : this.aggregate.barPresentationVisibility(),
+    };
   }
 
   /**
@@ -916,6 +957,11 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         48,
         !barPresentationOnly,
       );
+      if (this.barPresentationVisibilityConservative || this.barPresentationVisibilityStale) {
+        this.barPresentationVisibilityRevision += 1;
+      }
+      this.barPresentationVisibilityConservative = false;
+      this.barPresentationVisibilityStale = false;
     }
     const leaves = this.leaves.sync(effectiveStore, {
       fullRebuildEpoch: this.storeEpoch,

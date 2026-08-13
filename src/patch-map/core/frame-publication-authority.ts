@@ -1,8 +1,10 @@
 import type {
   AdvanceResult,
+  CoreView,
   FrameReport,
 } from '../dense/contracts';
 import type { PatchMapProjectionIndex } from '../contracts';
+import type { PatchMapPresentationSlotVisibility } from '../presentation';
 import type { PatchMapPixiRenderer } from '../renderers/pixi-renderer';
 import {
   InvalidationScheduler,
@@ -60,6 +62,7 @@ export class PatchMapFramePublicationAuthority implements PatchMapFrameLoopTarge
   private componentRendererFactsPublishedValue = false;
   private textRendererFactsPublishedValue = false;
   private renderedSceneRevisionValue: number | null = null;
+  private barVisibilityRevision = -1;
 
   public constructor(
     private readonly renderer: PatchMapPixiRenderer,
@@ -396,7 +399,24 @@ export class PatchMapFramePublicationAuthority implements PatchMapFrameLoopTarge
   }
 
   private flushScene(): FrameReport {
-    const report = this.port.readScene().flush();
+    const scene = this.port.readScene();
+    const visibility = this.prepareBarPresentationVisibility(scene.view);
+    const visibilityChanged = visibility.revision !== this.barVisibilityRevision;
+    if (
+      (this.barPresentation.activeCount > 0 ||
+        this.barPresentation.hasDeferredSettlement) &&
+      visibilityChanged
+    ) {
+      this.barVisibilityRevision = visibility.revision;
+      this.publishBarPresentationFrame(this.barPresentation.advance(
+        this.barPresentation.clockMs,
+        scene,
+        this.port.readProjection(),
+        visibility.visibility ?? undefined,
+        true,
+      ));
+    }
+    const report = scene.flush();
     this.componentRendererFactsPublishedValue = true;
     if (report.rendered) {
       this.textRendererFactsPublishedValue = true;
@@ -408,13 +428,35 @@ export class PatchMapFramePublicationAuthority implements PatchMapFrameLoopTarge
   private advanceBarPresentation(
     timeMs: number,
   ): PatchMapBarPresentationPublicationFrame {
+    const scene = this.port.readScene();
+    const visibility = this.prepareBarPresentationVisibility(scene.view);
+    const visibilityChanged = visibility.revision !== this.barVisibilityRevision;
+    this.barVisibilityRevision = visibility.revision;
     return this.publishBarPresentationFrame(
       this.barPresentation.advance(
         timeMs,
-        this.port.readScene(),
+        scene,
         this.port.readProjection(),
+        visibility.visibility ?? undefined,
+        visibilityChanged,
       ),
     );
+  }
+
+  private prepareBarPresentationVisibility(view: CoreView): Readonly<{
+    revision: number;
+    visibility: PatchMapPresentationSlotVisibility | null;
+  }> {
+    const renderer = this.renderer as PatchMapPixiRenderer & Partial<{
+      prepareBarPresentationVisibility: (view: CoreView) => Readonly<{
+        revision: number;
+        visibility: PatchMapPresentationSlotVisibility | null;
+      }>;
+    }>;
+    return renderer.prepareBarPresentationVisibility?.(view) ?? {
+      revision: 0,
+      visibility: null,
+    };
   }
 
   private publishBarPresentationFrame(

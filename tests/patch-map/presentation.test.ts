@@ -419,6 +419,76 @@ describe('PatchMapPresentationController', () => {
     expect(internalController.probe('stable')).toEqual(beforeProbe);
   });
 
+  it('skips offscreen chunks, retargets from elapsed time, and defers terminal publication', () => {
+    const controller = new PatchMapPresentationController();
+    controller.retargetForReconcile('visible', 5, 1, 0, 100, 0);
+    controller.retargetForReconcile('offscreen', 513, 1, 0, 100, 0);
+    const visibility = {
+      chunkSize: 512,
+      visibleChunks: new Uint8Array([1, 0]),
+      visibleSlots: Uint8Array.from({ length: 514 }, (_value, slot) => slot === 5 ? 1 : 0),
+    };
+
+    const midpoint = controller.advanceForReconcile(100, visibility);
+    expect(midpoint).toMatchObject({
+      activeCount: 2,
+      changedCount: 1,
+      deferredSettledCount: 0,
+    });
+    expect(midpoint.entityIds[0]).toBe('visible');
+    expect(midpoint.values[0]).toBe(87.5);
+    expect(controller.probe('offscreen')?.currentValue).toBe(0);
+
+    const retargeted = controller.retargetForReconcile(
+      'offscreen',
+      513,
+      1,
+      0,
+      40,
+      120,
+    );
+    expect(retargeted.startValue).toBe(93.6);
+
+    controller.advanceForReconcile(200, visibility);
+    const terminal = controller.advanceForReconcile(320, visibility);
+    expect(terminal).toMatchObject({
+      activeCount: 0,
+      changedCount: 0,
+      settledCount: 1,
+      deferredSettledCount: 1,
+      published: false,
+    });
+    expect(controller.probe('offscreen')).toBeNull();
+  });
+
+  it('stably compacts mixed offscreen settlement times without losing active rows', () => {
+    const controller = new PatchMapPresentationController();
+    controller.retargetForReconcile('early', 5, 1, 0, 100, 0, 100);
+    controller.retargetForReconcile('late', 6, 1, 0, 100, 0, 200);
+    const visibility = {
+      chunkSize: 16,
+      visibleChunks: new Uint8Array([0]),
+      visibleSlots: new Uint8Array(16),
+    };
+
+    expect(controller.advanceForReconcile(150, visibility)).toMatchObject({
+      activeCount: 1,
+      settledCount: 1,
+      deferredSettledCount: 1,
+    });
+    expect(controller.probe('early')).toBeNull();
+    expect(controller.probe('late')).toMatchObject({
+      entityId: 'late',
+      currentValue: 0,
+      destinationValue: 100,
+    });
+    expect(controller.advanceForReconcile(200, visibility)).toMatchObject({
+      activeCount: 0,
+      settledCount: 1,
+      deferredSettledCount: 1,
+    });
+  });
+
   it('preserves public validation order and canonicalizes negative zero time', () => {
     const controller = new PatchMapPresentationController();
     const reads: string[] = [];

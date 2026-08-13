@@ -11,6 +11,7 @@ import {
 import {
   isDrawable,
   resolveBarProgress,
+  writeBarSlotBindingWorldBounds,
   writeRoundedBarPositionValues,
   type BarPrimitiveBinding,
   type BarSlotBinding,
@@ -269,6 +270,7 @@ export function updateBoundBarSlotPositions<
   const progress = resolveBarProgress(store, slot);
   writePatchMapSlotQuad(trackQuad, store, slot, projectionContext);
   writePatchMapSlotQuad(fillQuad, store, slot, projectionContext, progress);
+  writeBarSlotBindingWorldBounds(binding, trackQuad.vertices);
   const transformChanged =
     binding.x !== x ||
     binding.y !== y ||

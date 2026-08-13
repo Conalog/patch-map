@@ -1573,6 +1573,7 @@ export class PatchMapRuntime {
         presentation,
         dirtyRanges,
         this.spatialHit.staleProjectionIds,
+        'bar-presentation',
       );
       this.setRendererInstancePresentationOverrides(plan.rendererOverrides, dirtyRanges);
     } catch (error) {
@@ -1675,6 +1676,7 @@ export class PatchMapRuntime {
         presentation,
         dirtyRanges,
         this.spatialHit.staleProjectionIds,
+        'bar-presentation',
       );
     } catch (error) {
       this.markTerminalMutationFailure(error);

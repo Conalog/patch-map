@@ -10,6 +10,7 @@ import {
   type PatchMapPresentationFrame,
   type PatchMapPresentationProbe,
   type PatchMapPresentationReconcileFrame,
+  type PatchMapPresentationSlotVisibility,
   type PatchMapPresentationSnapshot,
 } from '../presentation';
 import type {
@@ -62,6 +63,7 @@ export interface PatchMapBarPresentationLoadState {
   readonly validatedEntityEpoch: number;
   readonly invalidEntityIds: Set<string>;
   readonly clockMs: number;
+  readonly hasDeferredSettlements: boolean;
 }
 
 const EMPTY_RANGES: readonly SlotRange[] = Object.freeze([]);
@@ -100,6 +102,7 @@ export class PatchMapBarPresentationAuthority {
   private publicationChangedCountValue = 0;
   private publicationDirtyRangesValue: readonly SlotRange[] = EMPTY_RANGES;
   private readonly publicationSlots: number[] = [];
+  private hasDeferredSettlements = false;
   private readonly publicationFrame: MutablePublicationFrame = {
     activeCount: 0,
     changedCount: 0,
@@ -115,6 +118,10 @@ export class PatchMapBarPresentationAuthority {
 
   public get activeCount(): number {
     return this.controller.activeCount;
+  }
+
+  public get hasDeferredSettlement(): boolean {
+    return this.hasDeferredSettlements;
   }
 
   public get presentationRevision(): number {
@@ -164,7 +171,13 @@ export class PatchMapBarPresentationAuthority {
   }
 
   public visibleHeight(entityId: string): number | null {
-    return this.projectionStore.visibleHeight(entityId);
+    const visible = this.projectionStore.visibleHeight(entityId);
+    if (
+      !this.hasDeferredSettlements ||
+      this.controller.readActiveForReconcile(entityId).found
+    ) return visible;
+    const semantic = this.projectionStore.semantic?.byEntityId[entityId]?.localBounds[3];
+    return semantic === undefined ? visible : semantic;
   }
 
   public prepareLoadedState(
@@ -183,6 +196,7 @@ export class PatchMapBarPresentationAuthority {
       validatedEntityEpoch: entityEpoch,
       invalidEntityIds: new Set(),
       clockMs: 0,
+      hasDeferredSettlements: false,
     };
   }
 
@@ -196,6 +210,7 @@ export class PatchMapBarPresentationAuthority {
       validatedEntityEpoch: this.validatedEntityEpoch,
       invalidEntityIds: this.invalidEntityIds,
       clockMs: this.clockMsValue,
+      hasDeferredSettlements: this.hasDeferredSettlements,
     };
   }
 
@@ -208,6 +223,7 @@ export class PatchMapBarPresentationAuthority {
     this.validatedEntityEpoch = state.validatedEntityEpoch;
     this.invalidEntityIds = state.invalidEntityIds;
     this.clockMsValue = state.clockMs;
+    this.hasDeferredSettlements = state.hasDeferredSettlements;
     this.resetPublication();
   }
 
@@ -293,7 +309,7 @@ export class PatchMapBarPresentationAuthority {
         }
         const entity = scene.get(entityId);
         const ref = entity?.ref ?? null;
-        const currentHeight = this.projectionStore.visibleHeight(entityId) ??
+        const currentHeight = this.visibleHeight(entityId) ??
           previous?.destinationHeight ??
           bar.destinationHeight;
         const canAnimate = animateBarChanges &&
@@ -387,7 +403,7 @@ export class PatchMapBarPresentationAuthority {
       const entity = scene.get(entityId);
       const ref = entity?.ref ?? null;
       const active = this.controller.readActiveForReconcile(entityId);
-      const currentHeight = this.projectionStore.visibleHeight(entityId) ??
+      const currentHeight = this.visibleHeight(entityId) ??
         previous?.destinationHeight ??
         bar.destinationHeight;
       const canAnimate = animateBarChanges &&
@@ -459,16 +475,26 @@ export class PatchMapBarPresentationAuthority {
     timeMs: number,
     scene: PatchMapScene,
     semanticProjection: PatchMapProjectionIndex | null,
+    visibility?: PatchMapPresentationSlotVisibility,
+    materializeDeferred = false,
   ): PatchMapBarPresentationPublicationFrame {
-    const source = this.controller.advanceForReconcile(timeMs);
-    this.applyReconcileFrame(source, scene, semanticProjection);
+    this.resetPublication();
+    const source = this.controller.advanceForReconcile(timeMs, visibility);
+    this.applyReconcileFrame(source, scene, semanticProjection, false);
+    if (source.deferredSettledCount > 0) this.hasDeferredSettlements = true;
+    if (materializeDeferred) {
+      this.materializeDeferredSettlements(visibility, scene, semanticProjection);
+    }
+    if (this.publicationSlots.length > 0) {
+      this.publicationDirtyRangesValue = contiguousSlotRangesInPlace(this.publicationSlots);
+    }
     this.clockMsValue = timeMs;
     const frame = this.publicationFrame;
     frame.activeCount = source.activeCount;
-    frame.changedCount = source.changedCount;
+    frame.changedCount = this.publicationChangedCountValue;
     frame.settledCount = source.settledCount;
     frame.totalSettlementCount = source.totalSettlementCount;
-    frame.published = source.published;
+    frame.published = this.publicationChangedCountValue > 0;
     frame.dirtyRanges = this.publicationDirtyRangesValue;
     return frame;
   }
@@ -478,11 +504,18 @@ export class PatchMapBarPresentationAuthority {
     scene: PatchMapScene,
     semanticProjection: PatchMapProjectionIndex | null,
   ): PatchMapPresentationFrame {
+    this.resetPublication();
     const frame = this.applyFrame(
       this.controller.settle(timeMs),
       scene,
       semanticProjection,
+      false,
     );
+    this.materializeDeferredSettlements(undefined, scene, semanticProjection);
+    this.hasDeferredSettlements = false;
+    if (this.publicationSlots.length > 0) {
+      this.publicationDirtyRangesValue = contiguousSlotRangesInPlace(this.publicationSlots);
+    }
     this.clockMsValue = timeMs;
     return frame;
   }
@@ -512,6 +545,7 @@ export class PatchMapBarPresentationAuthority {
     this.generation += 1;
     this.controller = this.createController(this.generation);
     this.projectionStore.clear();
+    this.hasDeferredSettlements = false;
     this.ghostPublicationCountValue = 0;
     this.resetPublication();
   }
@@ -520,6 +554,7 @@ export class PatchMapBarPresentationAuthority {
     this.controller.destroy();
     this.projectionStore.clear();
     this.invalidEntityIds.clear();
+    this.hasDeferredSettlements = false;
     this.logicalPolicyValue = null;
     this.resetPublication();
   }
@@ -528,8 +563,9 @@ export class PatchMapBarPresentationAuthority {
     frame: PatchMapPresentationFrame,
     scene: PatchMapScene,
     semanticProjection: PatchMapProjectionIndex | null,
+    reset = true,
   ): PatchMapPresentationFrame {
-    this.resetPublication();
+    if (reset) this.resetPublication();
     if (frame.updates.length === 0) return frame;
     const validateEntities = this.validatedEntityEpoch !== this.entityEpoch;
     if (validateEntities) this.invalidEntityIds.clear();
@@ -555,6 +591,7 @@ export class PatchMapBarPresentationAuthority {
       }
       if (this.projectionStore.applyBarHeight(update.entityId, update.value)) {
         this.publicationChangedCountValue += 1;
+        this.publicationSlots.push(update.slot);
       }
     }
     if (validateEntities) this.validatedEntityEpoch = this.entityEpoch;
@@ -570,13 +607,13 @@ export class PatchMapBarPresentationAuthority {
     frame: PatchMapPresentationReconcileFrame,
     scene: PatchMapScene,
     semanticProjection: PatchMapProjectionIndex | null,
+    reset = true,
   ): void {
-    this.resetPublication();
+    if (reset) this.resetPublication();
     if (frame.changedCount === 0) return;
     const validateEntities = this.validatedEntityEpoch !== this.entityEpoch;
     if (validateEntities) this.invalidEntityIds.clear();
     const validSlots = this.publicationSlots;
-    validSlots.length = 0;
     for (let index = 0; index < frame.changedCount; index += 1) {
       const entityId = frame.entityIds[index];
       if (entityId === undefined) {
@@ -613,15 +650,60 @@ export class PatchMapBarPresentationAuthority {
     this.publicationDirtyRangesValue = contiguousSlotRangesInPlace(validSlots);
   }
 
+  private materializeDeferredSettlements(
+    visibility: PatchMapPresentationSlotVisibility | undefined,
+    scene: PatchMapScene,
+    semanticProjection: PatchMapProjectionIndex | null,
+  ): void {
+    if (!this.hasDeferredSettlements || semanticProjection === null) return;
+    const entityIds = visibility?.entityIdsBySlot ?? Object.keys(
+      semanticProjection.barsByEntityId ?? {},
+    );
+    for (let index = 0; index < entityIds.length; index += 1) {
+      const entityId = entityIds[index];
+      if (entityId === undefined) continue;
+      const ref = scene.ref(entityId);
+      const slot = visibility?.entityIdsBySlot === undefined ? ref?.slot : index;
+      if (
+        slot === undefined ||
+        (visibility !== undefined && (visibility.visibleSlots[slot] ?? 0) === 0)
+      ) continue;
+      const active = this.controller.readActiveForReconcile(entityId);
+      if (active.found) continue;
+      const destination = semanticProjection.byEntityId[entityId];
+      const bar = semanticProjection.barsByEntityId?.[entityId];
+      if (
+        ref === null ||
+        ref.slot !== slot ||
+        destination === undefined ||
+        bar === undefined
+      ) {
+        continue;
+      }
+      if (this.projectionStore.applyBarHeight(entityId, destination.localBounds[3])) {
+        this.publicationChangedCountValue += 1;
+        this.publicationSlots.push(slot);
+      }
+    }
+    if (visibility === undefined) this.hasDeferredSettlements = false;
+  }
+
   private visibleBarHeights(
     semanticProjection: PatchMapProjectionIndex,
   ): ReadonlyMap<string, number> {
     const heights = new Map<string, number>();
     const bars = semanticProjection.barsByEntityId ?? {};
     for (const entityId of Object.keys(bars).sort()) {
-      if (this.controller.probe(entityId) === null) continue;
       const height = this.projectionStore.visibleHeight(entityId);
-      if (height !== null) heights.set(entityId, height);
+      if (height === null) continue;
+      const active = this.controller.readActiveForReconcile(entityId).found;
+      const destination = bars[entityId]?.destinationHeight;
+      if (
+        active ||
+        (this.hasDeferredSettlements && !Object.is(height, destination))
+      ) {
+        heights.set(entityId, height);
+      }
     }
     return heights;
   }

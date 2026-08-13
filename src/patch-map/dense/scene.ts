@@ -88,6 +88,12 @@ export class CoreScene {
     return this.animations.count;
   }
 
+  /** Internal zero-allocation view read for renderer-owned frame planning. */
+  public get view(): DenseStore['view'] {
+    this.assertAlive();
+    return this.store.view;
+  }
+
   /**
    * Seed a fresh private replacement so its first load advances the same
    * revision and EntityRef generation sequences as this scene would in place.

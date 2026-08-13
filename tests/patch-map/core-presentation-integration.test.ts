@@ -908,6 +908,40 @@ describe('PatchMap bar presentation integration', () => {
     expect(heights.every((height) => height >= 0 && height <= 80)).toBe(true);
   });
 
+  it('materializes an offscreen terminal bar only when its renderer chunk enters view', () => {
+    const { core, renderer } = createTestCore(allocated);
+    core.load(twoBarScene(10, 20));
+    core.publishFrame(0);
+    const refs = core.query({ kinds: ['bar'] });
+    const first = refs[0];
+    const second = refs[1];
+    if (first === undefined || second === undefined) throw new Error('missing bars');
+    renderer.setVisibleSlots([first.slot]);
+
+    core.reconcile(twoBarScene(40, 60));
+    core.publishFrame(100);
+    expect(renderer.projectionCalls.at(-1)?.ranges).toEqual([
+      { start: first.slot, end: first.slot + 1 },
+    ]);
+
+    core.publishFrame(200);
+    expect(core.activeAnimations).toBe(0);
+    expect(renderer.projectionCalls.at(-1)?.ranges).toEqual([
+      { start: first.slot, end: first.slot + 1 },
+    ]);
+    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'second' }))
+      .toMatchObject({ semanticHeight: 60, presentationHeight: 60, active: false });
+
+    renderer.setVisibleSlots([second.slot]);
+    core.flush('pan-in');
+    expect(renderer.projectionCalls.at(-1)?.ranges).toEqual([
+      { start: second.slot, end: second.slot + 1 },
+    ]);
+    expect(renderer.projectionCalls.at(-1)?.index.byEntityId[
+      core.get(second)?.id ?? ''
+    ]?.localBounds[3]).toBe(60);
+  });
+
   it('rejects ambiguous or out-of-range percentage animation options atomically', () => {
     const { core } = createTestCore(allocated);
     core.load(scene(10));
@@ -1028,6 +1062,12 @@ class RendererTestDouble {
   public destroyed = false;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   private rootInteractions: RootInteractionHandlers | null = null;
+  private visibilityRevision = 0;
+  private visibility: {
+    chunkSize: number;
+    visibleChunks: Uint8Array;
+    visibleSlots: Uint8Array;
+  } | null = null;
 
   public markChanges(): void {}
   public markOverlayChanges(): void {}
@@ -1076,6 +1116,27 @@ class RendererTestDouble {
   public setView(view: CoreView): boolean {
     this.view = Object.freeze({ ...view });
     return true;
+  }
+  public setVisibleSlots(slots: readonly number[]): void {
+    const maximum = Math.max(0, ...slots);
+    const visibleChunks = new Uint8Array(maximum + 1);
+    const visibleSlots = new Uint8Array(maximum + 1);
+    for (const slot of slots) {
+      visibleChunks[slot] = 1;
+      visibleSlots[slot] = 1;
+    }
+    this.visibility = { chunkSize: 1, visibleChunks, visibleSlots };
+    this.visibilityRevision += 1;
+  }
+  public prepareBarPresentationVisibility(): Readonly<{
+    revision: number;
+    visibility: {
+      chunkSize: number;
+      visibleChunks: Uint8Array;
+      visibleSlots: Uint8Array;
+    } | null;
+  }> {
+    return { revision: this.visibilityRevision, visibility: this.visibility };
   }
   public flush(_store: RenderStoreView): RendererFlushResult {
     return Object.freeze({ rendered: true, commandCount: 1 });
