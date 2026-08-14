@@ -41,7 +41,7 @@ export default [
     external: ['pixi.js', 'nanoid'],
   },
   {
-    input: 'dist/types/src/patch-map.d.ts',
+    input: 'dist/types/patch-map.d.ts',
     output: [
       {
         file: pkg.types,

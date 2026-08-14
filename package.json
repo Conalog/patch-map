@@ -38,8 +38,9 @@
   "types": "dist/index.d.ts",
   "sideEffects": true,
   "scripts": {
-    "build": "tsc && rollup -c",
+    "build": "npm run clean && tsc && rollup -c",
     "check": "biome check .",
+    "clean": "node scripts/clean.mjs",
     "format": "biome format",
     "lint": "biome check --staged",
     "lint:fix": "biome check --staged --write",
