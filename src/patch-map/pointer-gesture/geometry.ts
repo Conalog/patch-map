@@ -24,6 +24,47 @@ export interface PatchMapRegionHitResult {
   readonly nonFiniteCount: number;
 }
 
+/** Main-compatible root click slop in logical CSS pixels. */
+export const PATCH_MAP_POINTER_CLICK_SLOP_CSS_PX = 4;
+
+/** Largest per-axis displacement; diagonal movement does not inflate the slop. */
+export function pointAxisDistance(
+  start: readonly [number, number],
+  current: readonly [number, number],
+): number {
+  return Math.max(
+    Math.abs(current[0] - start[0]),
+    Math.abs(current[1] - start[1]),
+  );
+}
+
+/** Strict greater-than preserves clicks at the exact 4 CSS px boundary. */
+export function pointMovedBeyondCssSlop(
+  start: readonly [number, number],
+  current: readonly [number, number],
+  thresholdCssPx = PATCH_MAP_POINTER_CLICK_SLOP_CSS_PX,
+): boolean {
+  return coordinatesMovedBeyondCssSlop(
+    start[0],
+    start[1],
+    current[0],
+    current[1],
+    thresholdCssPx,
+  );
+}
+
+/** Numeric variant keeps the root pointer-move hot path allocation-free. */
+export function coordinatesMovedBeyondCssSlop(
+  startX: number,
+  startY: number,
+  currentX: number,
+  currentY: number,
+  thresholdCssPx = PATCH_MAP_POINTER_CLICK_SLOP_CSS_PX,
+): boolean {
+  return Math.abs(currentX - startX) > thresholdCssPx ||
+    Math.abs(currentY - startY) > thresholdCssPx;
+}
+
 export function hitPatchMapBoxRegion(
   entities: readonly PatchMapRegionEntityGeometry[],
   relations: readonly PatchMapRegionRelationGeometry[],

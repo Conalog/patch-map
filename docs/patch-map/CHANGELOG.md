@@ -60,6 +60,10 @@
   opt-in `control` semantics. Ctrl/Command wheel retains package cursor-anchor
   zoom and native consumption, while rejected plain/Shift/Alt wheel remains
   available to page or container scrolling without host listeners.
+- Restored the main-compatible point-selection slop: movement through 4 CSS px
+  per axis remains a click, while a strict excursion beyond 4px activates the
+  sticky primary-pan or Shift-box owner independently of viewport zoom,
+  renderer DPR/resolution, and pointer event cadence.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

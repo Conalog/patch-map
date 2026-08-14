@@ -80,6 +80,12 @@ wheel events are left unconsumed so their container or page can scroll.
 Programmatic `viewport.zoomBy()`, pan, pinch, and selection gestures are
 unchanged.
 
+Primary point selection keeps the pointer-down target while each CSS-pixel
+axis remains within 4px of its start. The boundary is strict: 4px is still a
+click, while 5px activates ordinary viewport pan or the Shift-latched box
+gesture. Once crossed, returning to the start remains a drag. Viewport zoom
+and renderer DPR/resolution do not change this package-owned slop.
+
 `theme` is a partial, instance-local palette override. Nested objects and
 dot-path keys are both accepted; omitted keys fall back to PatchMap's
 canonical default palette. Theme tokens are shared by authored rect, bar,

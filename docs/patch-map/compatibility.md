@@ -100,6 +100,12 @@ owner. `box: true` or `activationModifier: 'none'` explicitly assigns every
 primary drag to box selection. Middle-pointer pan and wheel zoom remain
 available.
 
+Point click versus primary pan/box arbitration matches the established
+per-axis 4 CSS px slop: 4px remains a click and an excursion strictly beyond
+4px starts the latched drag owner. Returning to the start after crossing the
+boundary does not restore click eligibility. Viewport scale, renderer DPR,
+and pointer event cadence do not alter this threshold.
+
 `pointer.onHover()` publishes `hover/move/leave` with a CSS anchor, world point,
 and stable `{ id, componentId? }`. `selection.onPointerChange()` publishes only
 pointer-origin selection, while `selection.onChange()` retains its all-source

@@ -1404,6 +1404,13 @@ export class PatchMap {
         const readySurface = candidateSurface;
         const pointerAuthority = new PatchMapPointerGestureAuthority({
           hitTest: (point) => readySurface.hitTestScreen(point),
+          clickTargetIdentity: (targetId, screen) => {
+            const hitTarget = this.pointerLogicalTargetAtScreen(screen, targetId);
+            if (hitTarget === null) return null;
+            return this.logicalSceneSelectionIndex()
+              .resolveSelectionUnit(hitTarget.key, 'grid-cell')
+              ?.selectionId ?? null;
+          },
           hoverDuringPress: this.pointerPolicy.hoverDuringPress,
         });
         try {
@@ -4302,10 +4309,9 @@ export class PatchMap {
   ): void {
     const gesture = this.pointerBoxGesture;
     if (gesture === null || gesture.pointerId !== input.pointerId) return;
-    if (input.type === 'move') {
+    const dragStarted = result.events.some((event) => event.type === 'drag-start');
+    if (dragStarted) {
       this.requireSurface('pointerBoxSelection').cancelViewportGestures?.();
-    }
-    if (result.events.some((event) => event.type === 'drag-start')) {
       gesture.active = true;
       this.hostInteractions.clearTooltip('drag');
     }

@@ -64,6 +64,11 @@ the root pointer listener, pointer capture, aggregate hit test, coordinate
 conversion, primary-drag versus pan arbitration, and frame invalidation. The
 host owns only the returned disposers and its plugin callbacks.
 
+Do not add a host click-distance timer or movement listener. PatchMap retains
+the pointer-down target through an axis-aligned 4 CSS px slop; 4px is still a
+point click and a strict excursion beyond 4px activates pan or the latched box
+owner. The decision is independent of zoom, DPR/resolution, and event cadence.
+
 Map an existing Transformer wireframe with
 `visual: { color: '#ef4444', strokeWidth: 3, strokeScale: 'viewport',
 minStrokeWidth: 1, strokeAlignment: 'outside', displayMode: 'element-only' }`.

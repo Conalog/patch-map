@@ -202,6 +202,12 @@ deterministic. Concrete hover targets use the cell ID plus the stable template
 matching programmatic and box selection. Both subscription methods
 return a disposer and `destroy()` clears any disposer the route did not call.
 
+Remove any host-side click-distance workaround. PatchMap keeps point selection
+eligible through 4 CSS px on each axis and starts primary pan or the
+Shift-latched box only after a strict `> 4px` excursion. Crossing is sticky
+even if the pointer returns to its start, and zoom/DPR do not rescale the
+boundary.
+
 Replace a host wheel plugin that starts only while Ctrl/Command is pressed with
 `viewport: { wheel: { activationModifier: 'control' } }`. Do not migrate its
 keydown/keyup or wheel listeners: PatchMap checks `ctrlKey || metaKey` on the

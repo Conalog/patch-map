@@ -113,6 +113,60 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     expect(viewChanged.map(({ type }) => type)).toEqual(['down', 'up']);
   });
 
+  it('keeps 0-4 CSS px per-axis jitter clickable and latches drag after 5px', () => {
+    const authority = authorityForTest();
+    const trace = (
+      pointerId: number,
+      points: readonly (readonly [number, number])[],
+      cadenceMs: number,
+    ) => dispatchSeries(authority, [
+      pointer('down', pointerId, [20, 30], pointerId * 100),
+      ...points.map((screen, index) => pointer(
+        'move',
+        pointerId,
+        screen,
+        pointerId * 100 + cadenceMs * (index + 1),
+      )),
+      pointer('up', pointerId, points.at(-1) ?? [20, 30], pointerId * 100 + 90, {
+        buttons: 0,
+      }),
+    ]).map(({ type }) => type);
+
+    expect(trace(10, [], 1)).toEqual(['down', 'up', 'click']);
+    expect(trace(11, [[21, 30]], 1)).toEqual(['down', 'up', 'click']);
+    expect(trace(12, [[24, 30]], 1)).toEqual(['down', 'up', 'click']);
+    expect(trace(13, [[20, 34]], 20)).toEqual(['down', 'up', 'click']);
+    expect(trace(14, [[24, 34]], 50)).toEqual(['down', 'up', 'click']);
+    expect(trace(15, [[25, 30]], 1)).toEqual([
+      'down', 'drag-start', 'drag-update', 'drag-end',
+    ]);
+    expect(trace(16, [[20, 35]], 50)).toEqual([
+      'down', 'drag-start', 'drag-update', 'drag-end',
+    ]);
+    expect(trace(17, [[21, 30], [20, 30]], 5)).toEqual(['down', 'up', 'click']);
+    expect(trace(18, [[25, 30], [20, 30]], 30)).toEqual([
+      'down',
+      'drag-start',
+      'drag-update',
+      'drag-update',
+      'drag-end',
+    ]);
+  });
+
+  it('compares click completion by stable owner without erasing raw component hits', () => {
+    const authority = new PatchMapPointerGestureAuthority({
+      hitTest: ({ x }) => x < 22 ? 'cell-a::bar:usage' : 'cell-a::icon:status',
+      clickTargetIdentity: (targetId) => targetId?.split('::')[0] ?? null,
+    });
+    const events = dispatchSeries(authority, [
+      pointer('down', 1, [20, 30], 0),
+      pointer('move', 1, [23, 30], 16),
+      pointer('up', 1, [23, 30], 32, { buttons: 0 }),
+    ]);
+    expect(events.map(({ type }) => type)).toEqual(['down', 'up', 'click']);
+    expect(events.at(-1)?.payload.target).toEqual({ id: 'cell-a::bar:usage' });
+  });
+
   it('keeps hover through press only when configured and publishes leave on cancel', () => {
     const compatible = authorityForTest();
     compatible.dispatch(pointer('move', 1, [20, 30], 0, { buttons: 0 }));
@@ -493,6 +547,43 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     expect(() => engine.configurePointerPolicy({
       hoverDuringPress: 'yes' as unknown as boolean,
     })).toThrow('pointer.hoverDuringPress must be boolean');
+  });
+
+  it('keeps Shift point selection through 4px and starts box ownership at 5px', async () => {
+    const surface = new PointerTestSurface();
+    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    engine.configurePointerSelectionPolicy({
+      allowMultiple: true,
+      box: { partialIntersection: true, activationModifier: 'shift' },
+    });
+    await engine.initialize({ instanceId: 'pointer-shift-box-slop', width: 800, height: 600 });
+    engine.loadDataset(REGION_DATASET);
+    const shift = { shift: true, ctrl: false, alt: false, meta: false };
+
+    surface.emit(surfacePointer('down', 1, [20, 30], 0, { modifiers: shift }));
+    surface.emit(surfacePointer('move', 1, [24, 34], 16, { modifiers: shift }));
+    surface.emit(surfacePointer('up', 1, [24, 34], 32, {
+      buttons: 0,
+      modifiers: shift,
+    }));
+    expect(engine.selection.ids).toEqual(['item-a']);
+    expect(surface.cancelViewportGestureCount).toBe(0);
+    expect(surface.selectionMarquee).toBeNull();
+
+    engine.selection.clear();
+    surface.emit(surfacePointer('down', 2, [0, 0], 48, { modifiers: shift }));
+    surface.emit(surfacePointer('move', 2, [5, 0], 64, { modifiers: shift }));
+    expect(surface.cancelViewportGestureCount).toBe(1);
+    expect(surface.selectionMarquee).toEqual({ start: [0, 0], current: [5, 0] });
+    surface.emit(surfacePointer('up', 2, [5, 0], 80, {
+      buttons: 0,
+      modifiers: shift,
+    }));
+    expect(engine.selection.ids).toEqual([]);
+    expect(surface.selectionMarquee).toBeNull();
+
+    await expect(engine.destroy()).resolves.toBe(true);
+    expect(surface.pointerListener).toBeNull();
   });
 
   it('latches shift-only box activation at pointer-down without taking ordinary pan drags', async () => {

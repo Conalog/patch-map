@@ -42,17 +42,18 @@ describe('PatchMapRootInteractionAuthority', () => {
     });
 
     binding.handlers().pointer(pointer('down', 10, 20, 1, 0));
-    expect(authority.activeGesture).toBe(true);
+    expect(authority.activeGesture).toBe(false);
     binding.handlers().pointer(pointer('move', 15, 26, 1, 0));
+    expect(authority.activeGesture).toBe(true);
     binding.handlers().pointer(pointer('up', 15, 26, 1, 0));
     expect(binding.handlers().wheel(wheel(-100))).toBe(true);
 
     expect(journal).toEqual([
       'pointer:down',
       'select:10,20',
+      'pointer:move',
       'request',
       'continuous:true:gesture',
-      'pointer:move',
       'pan:5,6',
       'viewport:pointer:5,6',
       'pointer:up',
@@ -83,12 +84,11 @@ describe('PatchMapRootInteractionAuthority', () => {
     expect(() => authority.setGesturePolicies(['unknown' as never])).toThrow('unsupported');
 
     binding.handlers().pointer(pointer('down', 1, 2, 4, 0));
-    expect(authority.activeGesture).toBe(true);
+    expect(authority.activeGesture).toBe(false);
     expect(authority.setGesturePolicies(['wheel'])).toEqual(['wheel']);
     expect(authority.activeGesture).toBe(false);
     expect(journal).toEqual([
       'pointer:down',
-      'request',
       'continuous:false:gesture-cancel',
     ]);
 
@@ -98,7 +98,52 @@ describe('PatchMapRootInteractionAuthority', () => {
     expect(authority.pointerListenerCount).toBe(0);
     binding.handlers().pointer(pointer('down', 3, 4, 5, 0));
     expect(binding.handlers().wheel(wheel(-100))).toBe(false);
-    expect(journal).toHaveLength(3);
+    expect(journal).toHaveLength(2);
+  });
+
+  it('activates primary pan only beyond the strict per-axis 4 CSS px slop', () => {
+    const journal: string[] = [];
+    const binding = rootBinding();
+    let view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
+    const authority = new PatchMapRootInteractionAuthority(
+      binding.binder,
+      {
+        ...staticPorts(journal),
+        readView: () => view,
+        panBy: (delta) => {
+          journal.push(`pan:${delta.x},${delta.y}`);
+          view = Object.freeze({ ...view, x: view.x + delta.x, y: view.y + delta.y });
+        },
+      },
+      { selectionMode: 'deferred', autoRender: true, wheelActivationModifier: 'none' },
+    );
+    authority.bindPointerInputs((input) => journal.push(`pointer:${input.type}`));
+
+    binding.handlers().pointer(pointer('down', 10, 20, 1, 0));
+    binding.handlers().pointer(pointer('move', 14, 24, 1, 0));
+    expect(authority.activeGesture).toBe(false);
+    expect(journal).toEqual(['pointer:down', 'pointer:move']);
+
+    binding.handlers().pointer(pointer('move', 15, 24, 1, 0));
+    expect(authority.activeGesture).toBe(true);
+    expect(journal.slice(2)).toEqual([
+      'pointer:move',
+      'request',
+      'continuous:true:gesture',
+      'pan:5,4',
+    ]);
+
+    binding.handlers().pointer(pointer('move', 10, 20, 1, 0));
+    expect(authority.activeGesture).toBe(true);
+    expect(journal.at(-1)).toBe('pan:-5,-4');
+    binding.handlers().pointer(pointer('up', 10, 20, 1, 0));
+    expect(authority.activeGesture).toBe(false);
+    expect(journal.slice(-3)).toEqual([
+      'pointer:up',
+      'request',
+      'continuous:false:gesture-end',
+    ]);
+    expect(authority.destroy()).toBe(true);
   });
 
   it('consumes control-policy wheel only from Ctrl or Meta and only when scale changes', () => {

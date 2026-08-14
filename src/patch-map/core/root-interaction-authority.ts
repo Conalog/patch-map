@@ -1,4 +1,8 @@
 import type { CorePoint, CoreView } from '../dense/contracts';
+import {
+  PATCH_MAP_POINTER_CLICK_SLOP_CSS_PX,
+  coordinatesMovedBeyondCssSlop,
+} from '../pointer-gesture/geometry';
 import type { RootInteractionHandlers, RootWheelInput } from '../renderers/types';
 import {
   PATCH_MAP_DEFAULT_VIEWPORT_POLICIES,
@@ -34,6 +38,9 @@ export interface PatchMapRootInteractionOptions {
 interface PanState {
   readonly pointerId: number;
   readonly source: Extract<PatchMapRootViewportChangeSource, 'pointer' | 'middle-pointer'>;
+  readonly startX: number;
+  readonly startY: number;
+  active: boolean;
   x: number;
   y: number;
 }
@@ -74,7 +81,7 @@ export class PatchMapRootInteractionAuthority {
   }
 
   public get activeGesture(): boolean {
-    return !this.destroyed && this.pan !== null;
+    return !this.destroyed && this.pan?.active === true;
   }
 
   public get pointerListenerCount(): number {
@@ -219,19 +226,32 @@ export class PatchMapRootInteractionAuthority {
       this.pan = {
         pointerId,
         source: button === 1 ? 'middle-pointer' : 'pointer',
+        startX: x,
+        startY: y,
+        active: button === 1,
         x,
         y,
       };
-      this.ports.requestGestureFrame();
-      if (this.options.autoRender) {
-        this.ports.setGestureContinuous(true, 'gesture');
-      }
+      if (this.pan.active) this.activatePanGesture();
     }
   }
 
   private onPointerMove(x: number, y: number, pointerId: number): void {
     const pan = this.pan;
     if (pan === null || pan.pointerId !== pointerId) return;
+    if (!pan.active) {
+      if (!coordinatesMovedBeyondCssSlop(
+        pan.startX,
+        pan.startY,
+        x,
+        y,
+        PATCH_MAP_POINTER_CLICK_SLOP_CSS_PX,
+      )) {
+        return;
+      }
+      pan.active = true;
+      this.activatePanGesture();
+    }
     const delta = { x: x - pan.x, y: y - pan.y };
     pan.x = x;
     pan.y = y;
@@ -242,10 +262,19 @@ export class PatchMapRootInteractionAuthority {
 
   private onPointerUp(pointerId: number): void {
     if (this.pan?.pointerId !== pointerId) return;
+    const active = this.pan.active;
     this.pan = null;
+    if (!active) return;
     this.ports.requestGestureFrame();
     if (this.options.autoRender) {
       this.ports.setGestureContinuous(false, 'gesture-end');
+    }
+  }
+
+  private activatePanGesture(): void {
+    this.ports.requestGestureFrame();
+    if (this.options.autoRender) {
+      this.ports.setGestureContinuous(true, 'gesture');
     }
   }
 

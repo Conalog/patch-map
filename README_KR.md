@@ -75,6 +75,12 @@ event의 Ctrl 또는 macOS Command가 눌린 경우에만 zoom하고, 일반/Shi
 Alt-only wheel은 소비하지 않아 container나 page scroll을 유지합니다.
 `viewport.zoomBy()`, pan, pinch, selection gesture에는 영향이 없습니다.
 
+primary point selection은 pointer-down 시작점에서 각 CSS-pixel 축의 이동이
+4px 이내인 동안 같은 click 후보를 유지합니다. 경계는 strict이므로 4px은
+click이고 5px부터 일반 viewport pan 또는 Shift-latched box gesture가
+시작됩니다. 한 번 경계를 넘으면 시작점으로 돌아와도 drag이며, viewport
+zoom과 renderer DPR/resolution은 이 package-owned slop을 바꾸지 않습니다.
+
 host tooltip과 selection plugin은 hit test를 복제하지 않고 package가 소유한
 pointer projection을 사용합니다. 일반 primary drag는 viewport pan으로
 유지하고 `selection: { box: { activationModifier: 'shift' }, allowMultiple,

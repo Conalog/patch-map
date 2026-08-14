@@ -1,4 +1,6 @@
 import {
+  PATCH_MAP_POINTER_CLICK_SLOP_CSS_PX,
+  pointAxisDistance,
   pointDistance,
   validateFiniteTuple,
 } from './pointer-gesture/geometry';
@@ -90,6 +92,10 @@ export interface PatchMapPointerGestureProbe {
 
 export interface PatchMapPointerGestureOptions {
   readonly hitTest: (point: Readonly<{ readonly x: number; readonly y: number }>) => string | null;
+  readonly clickTargetIdentity?: (
+    targetId: string | null,
+    screen: readonly [number, number],
+  ) => string | null;
   readonly clickThresholdCssPx?: number;
   readonly clickWindowMs?: number;
   readonly clickRadiusCssPx?: number;
@@ -141,9 +147,10 @@ interface ActivePointer {
   readonly pointerType: string;
   readonly button: number;
   readonly targetId: string | null;
+  readonly clickTargetIdentity: string | null;
   readonly startScreen: readonly [number, number];
   readonly startViewRevision: number;
-  maxDistance: number;
+  maxAxisMovementCssPx: number;
   dragging: boolean;
 }
 
@@ -175,6 +182,9 @@ const RELEASED_GESTURE_RESOURCES = Object.freeze({
  */
 export class PatchMapPointerGestureAuthority {
   private readonly hitTest: PatchMapPointerGestureOptions['hitTest'];
+  private readonly clickTargetIdentity: NonNullable<
+    PatchMapPointerGestureOptions['clickTargetIdentity']
+  >;
   private readonly clickThresholdCssPx: number;
   private readonly clickWindowMs: number;
   private readonly clickRadiusCssPx: number;
@@ -188,8 +198,9 @@ export class PatchMapPointerGestureAuthority {
 
   public constructor(options: PatchMapPointerGestureOptions) {
     this.hitTest = options.hitTest;
+    this.clickTargetIdentity = options.clickTargetIdentity ?? ((targetId) => targetId);
     this.clickThresholdCssPx = positiveFinite(
-      options.clickThresholdCssPx ?? 4,
+      options.clickThresholdCssPx ?? PATCH_MAP_POINTER_CLICK_SLOP_CSS_PX,
       'clickThresholdCssPx',
     );
     this.clickWindowMs = positiveFinite(
@@ -298,9 +309,10 @@ export class PatchMapPointerGestureAuthority {
       pointerType: input.pointerType,
       button: input.button,
       targetId,
+      clickTargetIdentity: this.clickTargetIdentity(targetId, input.screen),
       startScreen: input.screen,
       startViewRevision: input.viewRevision,
-      maxDistance: 0,
+      maxAxisMovementCssPx: 0,
       dragging: false,
     };
     this.activePointers.set(input.pointerId, pointer);
@@ -341,13 +353,13 @@ export class PatchMapPointerGestureAuthority {
       );
     }
 
-    active.maxDistance = Math.max(
-      active.maxDistance,
-      pointDistance(active.startScreen, input.screen),
+    active.maxAxisMovementCssPx = Math.max(
+      active.maxAxisMovementCssPx,
+      pointAxisDistance(active.startScreen, input.screen),
     );
     if (!this.hoverDuringPress) this.hoverTarget = null;
     const events: PatchMapSemanticPointerEvent[] = [];
-    if (!active.dragging && active.maxDistance > this.clickThresholdCssPx) {
+    if (!active.dragging && active.maxAxisMovementCssPx > this.clickThresholdCssPx) {
       active.dragging = true;
       events.push(semanticPointerEvent('drag-start', input, active.targetId, 0));
     }
@@ -364,11 +376,11 @@ export class PatchMapPointerGestureAuthority {
       return emptyDispatchResult(this.hoverTarget);
     }
     this.activePointers.delete(input.pointerId);
-    active.maxDistance = Math.max(
-      active.maxDistance,
-      pointDistance(active.startScreen, input.screen),
+    active.maxAxisMovementCssPx = Math.max(
+      active.maxAxisMovementCssPx,
+      pointAxisDistance(active.startScreen, input.screen),
     );
-    if (active.dragging || active.maxDistance > this.clickThresholdCssPx) {
+    if (active.dragging || active.maxAxisMovementCssPx > this.clickThresholdCssPx) {
       return dispatchResult(
         [semanticPointerEvent('drag-end', input, active.targetId, 0)],
         this.hoverTarget,
@@ -379,9 +391,10 @@ export class PatchMapPointerGestureAuthority {
       semanticPointerEvent('up', input, active.targetId, 0),
     ];
     const endTargetId = this.hit(input.screen);
+    const endClickTargetIdentity = this.clickTargetIdentity(endTargetId, input.screen);
     const clickSuppressed =
       active.startViewRevision !== input.viewRevision ||
-      endTargetId !== active.targetId;
+      endClickTargetIdentity !== active.clickTargetIdentity;
     if (clickSuppressed) return dispatchResult(events, this.hoverTarget, true);
     const clickCount = this.nextClickCount(active, input);
     events.push(semanticPointerEvent('click', input, active.targetId, clickCount));
@@ -421,7 +434,7 @@ export class PatchMapPointerGestureAuthority {
   private nextClickCount(active: ActivePointer, input: PatchMapPointerInput): number {
     const history = this.clickHistory;
     const repeated = history !== null &&
-      history.targetId === active.targetId &&
+      history.targetId === active.clickTargetIdentity &&
       history.pointerType === active.pointerType &&
       history.button === active.button &&
       input.timeMs >= history.timeMs &&
@@ -429,7 +442,7 @@ export class PatchMapPointerGestureAuthority {
       pointDistance(history.screen, input.screen) <= this.clickRadiusCssPx;
     const count = repeated ? history.count + 1 : 1;
     this.clickHistory = Object.freeze({
-      targetId: active.targetId,
+      targetId: active.clickTargetIdentity,
       pointerType: active.pointerType,
       button: active.button,
       screen: input.screen,

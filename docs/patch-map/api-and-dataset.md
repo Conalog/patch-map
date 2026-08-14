@@ -192,6 +192,14 @@ eligible target and permits shift-add/toggle behavior. A thrown `isSelectable`
 callback aborts the entire pointer selection commit without changing selection
 and reports a host-callback diagnostic.
 
+Point click, primary pan, and Shift box selection share one package-owned
+CSS-pixel slop. Pointer movement remains a click candidate while both axes are
+at most 4px from pointer-down; movement starts a drag only when either axis is
+strictly greater than 4px. Diagonal `(4, 4)` is therefore still a click. The
+maximum excursion is sticky, so a 5px out-and-back trace remains a drag. The
+same boundary applies at every viewport zoom and renderer DPR/resolution, and
+does not require a host timing, speed, or coordinate-conversion policy.
+
 Pointer deselection is an explicit mount policy. `clearOnBlankClick` accepts
 `single`, `double`, or `never` and defaults to the compatible `single`.
 `deselectOnTargetDoubleClick` defaults to `false`; when enabled, the first
