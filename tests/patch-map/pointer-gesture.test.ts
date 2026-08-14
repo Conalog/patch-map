@@ -674,6 +674,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
       visual: {
         color: '#ef4444',
         strokeWidth: 3,
+        strokeAlignment: 'outside',
         displayMode: 'element-only',
       },
     });
@@ -684,6 +685,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
       visibleIds: [],
       color: 0xef4444,
       strokeCssPx: 3,
+      strokeAlignment: 'outside',
       hidden: false,
       displayMode: 'element-only',
       marqueeColor: 0x1099ff,
@@ -761,6 +763,9 @@ describe('PatchMap root pointer and region-selection substrate', () => {
       visual: { strokeWidth: 0 },
     })).toThrow('selection.visual.strokeWidth must be positive and finite');
     expect(() => engine.configurePointerSelectionPolicy({
+      visual: { strokeAlignment: 'over' as 'outside' },
+    })).toThrow('selection.visual.strokeAlignment is unsupported');
+    expect(() => engine.configurePointerSelectionPolicy({
       clearOnBlankClick: 'triple' as 'double',
     })).toThrow('selection.clearOnBlankClick must be single, double, or never');
     expect(() => engine.configurePointerSelectionPolicy({
@@ -774,6 +779,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     expect(surface.overlayPolicy).toMatchObject({
       color: 0xef4444,
       strokeCssPx: 3,
+      strokeAlignment: 'center',
       marqueeColor: 0xef4444,
       marqueeStrokeCssPx: 3,
       marqueeFillAlpha: 0.08,

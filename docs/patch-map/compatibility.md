@@ -115,7 +115,8 @@ compatibility. A real leave or pointer cancel still publishes `leave` and
 clears the retained target.
 
 Selection paint is configured only at the root mount boundary with
-`selection.visual`. Color, CSS-pixel stroke width, and `all`/`group-only`/
+`selection.visual`. Color, CSS-pixel stroke width, outside/center/inside
+placement, and `all`/`group-only`/
 `element-only`/`hidden` display mode apply equally to programmatic, click, and
 box selection. Display mode composes individual bounds and their aggregate
 bound; it never filters the selected semantic target types or changes their
@@ -125,6 +126,9 @@ color, CSS-pixel stroke, and 0..1 fill alpha; omitting it retains the legacy
 selection color/width fallback and `0.08` fill. Persistent bounds never inherit
 from `box.visual`. The marquee is intentionally absent from dataset, history,
 semantic hash, and debug state.
+Alignment applies only to persistent selection bounds. The compatible omitted
+value is centered; `outside` preserves a target's own edge paint, while the
+transient marquee remains centered and continues to use `box.visual` only.
 
 Blank-canvas and target double-click deselection are independently opt-in.
 `clearOnBlankClick` defaults to `single` for compatibility and additionally

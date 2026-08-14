@@ -65,6 +65,7 @@ export interface PatchMapOverlayPaintProbe {
   readonly renderObjectCount: 0 | 2;
   /** Present on the product renderer; optional only for injected contract surfaces. */
   readonly displayMode?: 'all' | 'group-only' | 'element-only' | 'hidden';
+  readonly strokeAlignment?: 'outside' | 'center' | 'inside';
   readonly individualOutlineCount?: number;
   readonly groupOutline?: boolean;
   readonly outlineCount?: number;
@@ -88,6 +89,8 @@ export interface PatchMapInteractionOverlayPolicy {
   readonly hidden: boolean;
   readonly handleCssPx: number;
   readonly strokeCssPx: number;
+  /** Persistent selection placement; converted to Pixi alignment only at paint. */
+  readonly strokeAlignment: 'outside' | 'center' | 'inside';
   /** Normalized 0xRRGGBB used by persistent selection and transformer paint. */
   readonly color: number;
   /** Individual/group bounds composition; never a semantic target filter. */

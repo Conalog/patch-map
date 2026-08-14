@@ -105,6 +105,7 @@ import {
   interactionOverlayLabel,
   normalizeInteractionOverlayPolicy,
   resolveOverlayLocalCssLength,
+  resolveOverlayStrokeAlignment,
   resolveOverlayWorldScale,
   resolveOverlayPathPlan,
   sameInteractionOverlayPolicy,
@@ -1276,6 +1277,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       selectedEntityCount: this.visibleOverlaySlots.size,
       renderObjectCount: visible ? 2 : 0,
       displayMode: this.interactionOverlayPolicy.displayMode,
+      strokeAlignment: this.interactionOverlayPolicy.strokeAlignment,
       individualOutlineCount: this.individualSelectionOutlineCount,
       groupOutline: this.groupSelectionOutlineVisible,
       outlineCount: this.selectionOutlineCount,
@@ -1842,6 +1844,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.selectionOverlay.stroke({
         color: policy.color,
         width: selectionLocalStrokeWidth,
+        alignment: resolveOverlayStrokeAlignment(policy.strokeAlignment),
         alpha: 1,
       });
     }
@@ -1850,6 +1853,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.transformerOverlay.stroke({
         color: policy.color,
         width: selectionLocalStrokeWidth,
+        alignment: resolveOverlayStrokeAlignment(policy.strokeAlignment),
         alpha: 1,
       });
     }
@@ -1866,6 +1870,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.transformerOverlay.stroke({
         color: policy.marqueeColor,
         width: marqueeLocalStrokeWidth,
+        alignment: 0.5,
         alpha: 1,
       });
     }

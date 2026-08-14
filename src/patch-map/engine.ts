@@ -527,6 +527,7 @@ const DEFAULT_POINTER_SELECTION_POLICY = Object.freeze({
   visual: Object.freeze({
     color: 0x2f80ed,
     strokeCssPx: 2,
+    strokeAlignment: 'center' as const,
     mode: 'all' as const,
   }),
 } as const);
@@ -593,6 +594,7 @@ interface NormalizedPointerSelectionPolicy {
   readonly visual: Readonly<{
     readonly color: number;
     readonly strokeCssPx: number;
+    readonly strokeAlignment: 'outside' | 'center' | 'inside';
     readonly mode: PatchMapSelectionDisplayMode;
   }>;
 }
@@ -3829,6 +3831,7 @@ export class PatchMap {
       hidden: visual.mode === 'hidden',
       handleCssPx: visual.handleCssPx,
       strokeCssPx: visual.strokeCssPx,
+      strokeAlignment: 'center',
       color: 0x2f80ed,
       displayMode: visual.mode,
       marqueeColor: 0x2f80ed,
@@ -3860,6 +3863,7 @@ export class PatchMap {
       hidden: policy.mode === 'hidden',
       handleCssPx: 6,
       strokeCssPx: policy.strokeCssPx,
+      strokeAlignment: policy.strokeAlignment,
       color: policy.color,
       displayMode: policy.mode,
       marqueeColor: marquee.color,
@@ -6540,9 +6544,14 @@ function normalizePointerSelectionVisualPolicy(
   if (!(strokeCssPx > 0) || !Number.isFinite(strokeCssPx)) {
     throw new RangeError('selection.visual.strokeWidth must be positive and finite');
   }
+  const strokeAlignment = value.strokeAlignment ?? 'center';
+  if (!['outside', 'center', 'inside'].includes(strokeAlignment)) {
+    throw new TypeError('selection.visual.strokeAlignment is unsupported');
+  }
   return Object.freeze({
     color: normalizePointerSelectionColor(value.color, 'selection.visual.color'),
     strokeCssPx,
+    strokeAlignment,
     mode,
   });
 }

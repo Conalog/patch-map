@@ -85,7 +85,8 @@ ordinary primary drag as viewport pan and use
 Shift+primary drag for box selection with
 `selection: { box: { activationModifier: 'shift', visual: { color: '#1099ff',
 strokeWidth: 1, fillAlpha: 0.08 } }, allowMultiple, isSelectable, visual: {
-color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' },
+color: '#ef4444', strokeWidth: 3, strokeAlignment: 'outside',
+displayMode: 'element-only' },
 clearOnBlankClick: 'double', deselectOnTargetDoubleClick: true }`,
 observe stable hover targets through `pointer.onHover()`, and observe non-echo
 pointer selection through `selection.onPointerChange()`. Both subscriptions

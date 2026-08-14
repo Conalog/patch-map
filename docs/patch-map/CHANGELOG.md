@@ -43,6 +43,9 @@
 - Fixed persistent selection and active marquee stroke tessellation so their
   configured CSS-pixel widths remain stable across viewport zoom and renderer
   DPR changes without redrawing unchanged aggregate overlay frames.
+- Added `selection.visual.strokeAlignment` with outside/center/inside semantic
+  values. The compatible default remains centered; outside keeps the full
+  persistent bound beyond target paint without changing marquee placement.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

@@ -16,6 +16,7 @@ export const DEFAULT_INTERACTION_OVERLAY_POLICY: PatchMapInteractionOverlayPolic
   hidden: false,
   handleCssPx: 6,
   strokeCssPx: 2,
+  strokeAlignment: 'center',
   color: 0x2f80ed,
   displayMode: 'all',
   marqueeColor: 0x2f80ed,
@@ -54,6 +55,15 @@ export function resolveOverlayWorldScale(
   world: Pick<PatchMapOverlayWorldTransform, 'a' | 'b'>,
 ): number {
   return Math.max(Math.hypot(world.a, world.b), 0.001);
+}
+
+/** PixiJS v8: 0 outside, 0.5 centered, 1 inside. */
+export function resolveOverlayStrokeAlignment(
+  alignment: PatchMapInteractionOverlayPolicy['strokeAlignment'],
+): 0 | 0.5 | 1 {
+  if (alignment === 'outside') return 0;
+  if (alignment === 'inside') return 1;
+  return 0.5;
 }
 
 /**
@@ -164,6 +174,7 @@ export function normalizeInteractionOverlayPolicy(
     hidden: policy.hidden,
     handleCssPx: positive(policy.handleCssPx, 'handleCssPx'),
     strokeCssPx: positive(policy.strokeCssPx, 'strokeCssPx'),
+    strokeAlignment: normalizeStrokeAlignment(policy.strokeAlignment),
     color: normalizeRgb(policy.color),
     displayMode: normalizeDisplayMode(policy.displayMode),
     marqueeColor: normalizeRgb(policy.marqueeColor),
@@ -179,6 +190,7 @@ export function sameInteractionOverlayPolicy(
   return left.hidden === right.hidden &&
     left.handleCssPx === right.handleCssPx &&
     left.strokeCssPx === right.strokeCssPx &&
+    left.strokeAlignment === right.strokeAlignment &&
     left.color === right.color &&
     left.displayMode === right.displayMode &&
     left.marqueeColor === right.marqueeColor &&
@@ -217,6 +229,15 @@ function normalizeDisplayMode(
 ): PatchMapInteractionOverlayPolicy['displayMode'] {
   if (!['all', 'group-only', 'element-only', 'hidden'].includes(value)) {
     throw new TypeError('interaction overlay displayMode is unsupported');
+  }
+  return value;
+}
+
+function normalizeStrokeAlignment(
+  value: PatchMapInteractionOverlayPolicy['strokeAlignment'],
+): PatchMapInteractionOverlayPolicy['strokeAlignment'] {
+  if (!['outside', 'center', 'inside'].includes(value)) {
+    throw new TypeError('interaction overlay strokeAlignment is unsupported');
   }
   return value;
 }

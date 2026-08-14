@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { Matrix } from 'pixi.js';
+import { Graphics, Matrix } from 'pixi.js';
 
 import type { SlotRange } from '../../src/patch-map/dense/contracts';
 import type { RenderStoreView } from '../../src/patch-map/dense/renderer-types';
 import { PatchMapPixiRenderer } from '../../src/patch-map/renderers/pixi-renderer';
 import {
   composeOverlaySelectionPaths,
+  DEFAULT_INTERACTION_OVERLAY_POLICY,
+  appendOverlayOutline,
   interactionOverlayTransformNeedsRepaint,
+  normalizeInteractionOverlayPolicy,
   resolveOverlayLocalCssLength,
+  resolveOverlayStrokeAlignment,
+  sameInteractionOverlayPolicy,
   type PatchMapOverlayWorldTransform,
 } from '../../src/patch-map/renderers/pixi-renderer/interaction-overlay';
 
@@ -30,6 +35,56 @@ describe('PatchMap aggregate selection bounds display', () => {
   it('does not rasterize the same single geometry twice in all mode', () => {
     expect(composeOverlaySelectionPaths([first], first, 'all')).toEqual([first]);
     expect(composeOverlaySelectionPaths([first], first, 'hidden')).toEqual([]);
+  });
+
+  it.each([
+    ['outside', 0],
+    ['center', 0.5],
+    ['inside', 1],
+  ] as const)('maps public %s alignment only at the Pixi paint boundary', (alignment, pixi) => {
+    expect(resolveOverlayStrokeAlignment(alignment)).toBe(pixi);
+  });
+
+  it('places actual Pixi path stroke outside, centered, or inside the semantic quad', () => {
+    const bounds = (alignment: 'outside' | 'center' | 'inside') => {
+      const graphics = new Graphics();
+      appendOverlayOutline(graphics, first);
+      graphics.stroke({
+        color: 0xef4444,
+        width: 3,
+        alignment: resolveOverlayStrokeAlignment(alignment),
+      });
+      return graphics.bounds;
+    };
+    const outside = bounds('outside');
+    const center = bounds('center');
+    const inside = bounds('inside');
+    expect(outside.x).toBeLessThan(center.x);
+    expect(center.x).toBeLessThan(inside.x);
+    expect(outside.right).toBeGreaterThan(center.right);
+    expect(center.right).toBeGreaterThan(inside.right);
+    expect(inside).toMatchObject({ x: 0, y: 0, width: 10, height: 10 });
+  });
+
+  it('treats a stroke-alignment policy change as one aggregate repaint invalidation', () => {
+    const centered = normalizeInteractionOverlayPolicy(DEFAULT_INTERACTION_OVERLAY_POLICY);
+    const outside = normalizeInteractionOverlayPolicy({
+      ...DEFAULT_INTERACTION_OVERLAY_POLICY,
+      strokeAlignment: 'outside',
+    });
+    expect(sameInteractionOverlayPolicy(centered, centered)).toBe(true);
+    expect(sameInteractionOverlayPolicy(centered, outside)).toBe(false);
+  });
+
+  it.each([
+    ['element-only', 2],
+    ['group-only', 1],
+    ['all', 3],
+  ] as const)('keeps %s path composition independent from stroke placement', (mode, count) => {
+    for (const alignment of ['outside', 'center', 'inside'] as const) {
+      expect(resolveOverlayStrokeAlignment(alignment)).toBeGreaterThanOrEqual(0);
+      expect(composeOverlaySelectionPaths([first, second], group, mode)).toHaveLength(count);
+    }
   });
 
   it.each([0.5, 1, 2])(

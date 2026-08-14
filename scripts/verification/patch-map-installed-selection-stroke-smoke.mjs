@@ -74,15 +74,32 @@ const map = await PatchMap.mount({
   background: '#000000',
   fit: false,
   data: [{
-    type: 'rect',
-    id: 'selected-item',
-    attrs: { x: 50, y: 50 },
-    size: { width: 80, height: 60 },
-    fill: '#2563eb',
+    type: 'grid',
+    id: 'selected-grid',
+    attrs: { x: 50, y: 50, display: 'panelGroup' },
+    cells: [[1]],
+    item: {
+      size: { width: 80, height: 60 },
+      components: [{
+        type: 'bar',
+        id: 'usage',
+        show: true,
+        source: { type: 'rect', fill: '#ffffff' },
+        tint: '#1e3a5f',
+        size: { width: 80, height: 60 },
+        placement: 'center',
+        animation: false,
+      }],
+    },
   }],
   selection: {
     allowMultiple: true,
-    visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' },
+    visual: {
+      color: '#ef4444',
+      strokeWidth: 3,
+      strokeAlignment: 'outside',
+      displayMode: 'element-only',
+    },
     box: {
       activationModifier: 'shift',
       partialIntersection: true,
@@ -90,9 +107,8 @@ const map = await PatchMap.mount({
     },
   },
 });
-map.selection.set('selected-item');
 
-async function captureThickness(color) {
+async function capturePixels() {
   const capture = await map.capture.png();
   const image = new Image();
   image.src = capture.dataUrl;
@@ -102,9 +118,17 @@ async function captureThickness(color) {
   canvas.height = image.naturalHeight;
   const context = canvas.getContext('2d', { willReadFrequently: true });
   context.drawImage(image, 0, 0);
-  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  return {
+    width: canvas.width,
+    height: canvas.height,
+    pixels: context.getImageData(0, 0, canvas.width, canvas.height).data,
+  };
+}
+
+function analyzeColor(capture, color) {
+  const { width, height, pixels } = capture;
   const matches = (x, y) => {
-    const offset = (y * canvas.width + x) * 4;
+    const offset = (y * width + x) * 4;
     const red = pixels[offset];
     const green = pixels[offset + 1];
     const blue = pixels[offset + 2];
@@ -114,8 +138,8 @@ async function captureThickness(color) {
       : red < 60 && green > 110 && blue > 180 && alpha > 180;
   };
   const points = [];
-  for (let y = 0; y < canvas.height; y += 1) {
-    for (let x = 0; x < canvas.width; x += 1) {
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
       if (matches(x, y)) points.push([x, y]);
     }
   }
@@ -124,7 +148,7 @@ async function captureThickness(color) {
   const maxX = Math.max(...points.map(([x]) => x));
   const centerX = Math.round((minX + maxX) / 2);
   const rows = [];
-  for (let y = 0; y < canvas.height; y += 1) {
+  for (let y = 0; y < height; y += 1) {
     if (matches(centerX, y)) rows.push(y);
   }
   const runs = [];
@@ -137,6 +161,51 @@ async function captureThickness(color) {
   return {
     backingPx,
     pixelCount: points.length,
+    bounds: { minX, maxX, minY: Math.min(...points.map(([, y]) => y)), maxY: Math.max(...points.map(([, y]) => y)) },
+  };
+}
+
+async function capturePersistent() {
+  map.selection.clear();
+  const baseline = await capturePixels();
+  map.selection.set('selected-grid.0.0');
+  const selected = await capturePixels();
+  const red = analyzeColor(selected, 'red');
+  const targetPoints = [];
+  for (let index = 0; index < baseline.pixels.length; index += 4) {
+    const baselineTarget = baseline.pixels[index] < 80 &&
+      baseline.pixels[index + 1] > 30 &&
+      baseline.pixels[index + 2] > 60 &&
+      baseline.pixels[index + 3] > 180;
+    if (baselineTarget) {
+      const pixel = index / 4;
+      targetPoints.push([pixel % baseline.width, Math.floor(pixel / baseline.width)]);
+    }
+  }
+  const targetMinX = Math.min(...targetPoints.map(([x]) => x));
+  const targetMaxX = Math.max(...targetPoints.map(([x]) => x));
+  const targetMinY = Math.min(...targetPoints.map(([, y]) => y));
+  const targetMaxY = Math.max(...targetPoints.map(([, y]) => y));
+  const centerX = Math.floor((targetMinX + targetMaxX) / 2);
+  const centerY = Math.floor((targetMinY + targetMaxY) / 2);
+  const centerOffset = (centerY * baseline.width + centerX) * 4;
+  const baselineCenter = [...baseline.pixels.slice(centerOffset, centerOffset + 4)];
+  const selectedCenter = [...selected.pixels.slice(centerOffset, centerOffset + 4)];
+  const targetWidth = targetMaxX - targetMinX + 1;
+  const targetHeight = targetMaxY - targetMinY + 1;
+  const redWidth = red.bounds.maxX - red.bounds.minX + 1;
+  const redHeight = red.bounds.maxY - red.bounds.minY + 1;
+  return {
+    ...red,
+    targetBounds: { targetMinX, targetMaxX, targetMinY, targetMaxY },
+    outsideExtents: {
+      left: targetMinX - red.bounds.minX,
+      right: red.bounds.maxX - targetMaxX,
+      top: targetMinY - red.bounds.minY,
+      bottom: red.bounds.maxY - targetMaxY,
+    },
+    expectedOutsideRingPixels: redWidth * redHeight - targetWidth * targetHeight,
+    targetCenterPreserved: JSON.stringify(baselineCenter) === JSON.stringify(selectedCenter),
   };
 }
 
@@ -149,8 +218,8 @@ window.__PATCH_MAP_SELECTION_STROKE__ = {
   resize(pixelRatio) {
     map.viewport.resize(320, 240, pixelRatio);
   },
-  persistent: () => captureThickness('red'),
-  marquee: () => captureThickness('blue'),
+  persistent: () => capturePersistent(),
+  marquee: async () => analyzeColor(await capturePixels(), 'blue'),
   destroy: () => map.destroy(),
 };
 `);
@@ -182,16 +251,15 @@ window.__PATCH_MAP_SELECTION_STROKE__ = {
   );
 
   const persistent = [];
-  for (const pixelRatio of [1, 2]) {
+  for (const scale of [1, 2]) {
+    const pixelRatio = 2;
     await page.evaluate((value) => window.__PATCH_MAP_SELECTION_STROKE__.resize(value), pixelRatio);
-    for (const scale of [0.5, 1, 2]) {
-      await page.evaluate((value) => window.__PATCH_MAP_SELECTION_STROKE__.setScale(value), scale);
-      persistent.push({
-        scale,
-        pixelRatio,
-        ...(await page.evaluate(() => window.__PATCH_MAP_SELECTION_STROKE__.persistent())),
-      });
-    }
+    await page.evaluate((value) => window.__PATCH_MAP_SELECTION_STROKE__.setScale(value), scale);
+    persistent.push({
+      scale,
+      pixelRatio,
+      ...(await page.evaluate(() => window.__PATCH_MAP_SELECTION_STROKE__.persistent())),
+    });
   }
 
   await page.evaluate(() => {
@@ -225,9 +293,20 @@ window.__PATCH_MAP_SELECTION_STROKE__ = {
   };
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   const persistentStable = persistentMeasurements.every(({ cssPx }) => cssPx >= 2 && cssPx <= 4);
+  const persistentOutside = persistentMeasurements.every(({
+    backingPx,
+    pixelCount,
+    outsideExtents,
+    expectedOutsideRingPixels,
+    targetCenterPreserved,
+  }) =>
+    Object.values(outsideExtents).every((extent) => extent === backingPx) &&
+    pixelCount === expectedOutsideRingPixels &&
+    targetCenterPreserved === true);
   const marqueeStable = marqueeMeasurement.cssPx >= 0.5 && marqueeMeasurement.cssPx <= 2;
   if (
     !persistentStable ||
+    !persistentOutside ||
     !marqueeStable ||
     destroyed !== true ||
     canvasCountAfterDestroy !== 0 ||

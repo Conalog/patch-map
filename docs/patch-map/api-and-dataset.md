@@ -185,7 +185,11 @@ is cleared by drag, another target, policy replacement, or `destroy()`.
 accepts a `0xRRGGBB` number or PATCH MAP CSS color, `strokeWidth` is measured
 in CSS pixels at every viewport zoom and renderer DPR/resolution. PatchMap
 reprojects the fixed aggregate outline only when its geometry, policy, or
-effective viewport scale changes. `displayMode` accepts `all`,
+effective viewport scale changes. `strokeAlignment` accepts `outside`,
+`center`, or `inside` and defaults to the compatible `center`. `outside`
+places the full persistent stroke beyond the semantic bound so the selected
+target's own fill and stroke remain unobscured. The policy applies to every
+individual and aggregate path. `displayMode` accepts `all`,
 `group-only`, `element-only`, or `hidden`. These values compose bounds rather
 than filter selected target types: `all` draws every selected object's bound
 plus their aggregate bound, `group-only` draws only the aggregate bound,
@@ -200,6 +204,8 @@ marquee. Its `color` accepts the same CSS/`0xRRGGBB` inputs, `strokeWidth` is
 also a zoom/DPR/resolution-independent CSS-pixel width, and `fillAlpha` is between
 0 and 1. Omit `box.visual` to inherit `selection.visual.color` and
 `selection.visual.strokeWidth`; the compatible fill alpha remains `0.08`.
+Persistent `strokeAlignment` never changes the marquee's centered drag-bound
+stroke.
 Invalid visual input rejects the whole policy before the current gesture or
 paint policy changes. Once a Shift drag crosses the package threshold,
 PatchMap draws

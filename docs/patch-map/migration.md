@@ -175,6 +175,7 @@ const patchMap = await PatchMap.mount({
     visual: {
       color: '#ef4444',
       strokeWidth: 3,
+      strokeAlignment: 'outside',
       displayMode: 'element-only',
     },
   },
@@ -208,6 +209,10 @@ in its canvas and clears both with the mounted lifecycle. Transformer
 `boundsDisplayMode` maps as `all` → `all`, `groupOnly` → `group-only`,
 `elementOnly` → `element-only`, and `none` → `hidden`; these modes compose
 individual and aggregate bounds rather than filter target types.
+The prior Transformer wireframe occupies the outside of the selected bound;
+map that paint placement explicitly with `strokeAlignment: 'outside'`.
+Omitting alignment intentionally retains PatchMap's centered compatibility
+default, while `inside` places the full persistent stroke within the bound.
 The persistent Transformer wireframe stays under `selection.visual`; the
 marquee-only color, CSS-pixel width, and fill alpha belong to
 `selection.box.visual`. Omit the latter to preserve the previous shared

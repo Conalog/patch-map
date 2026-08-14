@@ -264,6 +264,7 @@ describe('PatchMap aggregate selection and transformer substrate', () => {
       hidden: false,
       handleCssPx: 8,
       strokeCssPx: 1,
+      strokeAlignment: 'center',
       color: 0x2f80ed,
       displayMode: 'all',
       marqueeColor: 0x2f80ed,

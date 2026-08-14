@@ -58,9 +58,11 @@ conversion, primary-drag versus pan arbitration, and frame invalidation. The
 host owns only the returned disposers and its plugin callbacks.
 
 Map an existing Transformer wireframe with
-`visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' }`.
+`visual: { color: '#ef4444', strokeWidth: 3, strokeAlignment: 'outside',
+displayMode: 'element-only' }`.
 This draws one bound per selected object, matching Transformer
-`boundsDisplayMode: 'elementOnly'`; use `group-only` for only the aggregate
+`boundsDisplayMode: 'elementOnly'`, while the explicit outside placement maps
+the prior wireframe beyond the selected element's edge. Use `group-only` for only the aggregate
 selection frame or `all` for both. PatchMap applies it to programmatic and
 pointer selection. Configure the independently owned transient marquee with
 `box: { activationModifier: 'shift', visual: { color: '#1099ff', strokeWidth: 1,

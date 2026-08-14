@@ -29,7 +29,12 @@ export async function runEditorExample(host: HTMLElement): Promise<Readonly<{
     selection: {
       clearOnBlankClick: 'double',
       deselectOnTargetDoubleClick: true,
-      visual: { color: '#ef4444', strokeWidth: 3, displayMode: 'element-only' },
+      visual: {
+        color: '#ef4444',
+        strokeWidth: 3,
+        strokeAlignment: 'outside',
+        displayMode: 'element-only',
+      },
       box: {
         activationModifier: 'shift',
         visual: { color: '#1099ff', strokeWidth: 1, fillAlpha: 0.08 },

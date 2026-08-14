@@ -96,6 +96,7 @@ export type {
   PatchMapSelectionDisplayMode,
   PatchMapSelectionInput,
   PatchMapSelectionPolicy,
+  PatchMapSelectionStrokeAlignment,
   PatchMapSelectionVisualPolicy,
   PatchMapTarget,
   PatchMapTargetMatch,

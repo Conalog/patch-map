@@ -1327,6 +1327,7 @@ export class PatchMapRuntime {
       hidden: input.hidden,
       handleCssPx: input.handleCssPx,
       strokeCssPx: input.strokeCssPx,
+      strokeAlignment: input.strokeAlignment,
       color: input.color,
       displayMode: input.displayMode,
       marqueeColor: input.marqueeColor,
