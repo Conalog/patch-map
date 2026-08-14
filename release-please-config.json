@@ -1,0 +1,18 @@
+{
+  "bootstrap-sha": "0aaaa98b479c86939b049581734a7fb0745ba70e",
+  "changelog-sections": [
+    { "type": "feat", "section": "Added" },
+    { "type": "fix", "section": "Fixed" },
+    { "type": "perf", "section": "Changed" },
+    { "type": "deps", "section": "Maintenance" }
+  ],
+  "include-component-in-tag": false,
+  "include-v-in-tag": true,
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "@conalog/patch-map"
+    }
+  },
+  "pull-request-title-pattern": "chore: release ${version}"
+}
