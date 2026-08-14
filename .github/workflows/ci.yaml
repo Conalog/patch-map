@@ -1,0 +1,103 @@
+name: ci
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static_checks:
+    name: Static checks
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting and lint rules
+        run: npm run check
+
+      - name: Build package
+        run: npm run build
+
+      - name: Check package exports and types
+        run: npm run pack:check
+
+  unit:
+    name: Unit tests (Node ${{ matrix.node }})
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+  browser:
+    name: Browser tests (advisory)
+    continue-on-error: true
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium headless shell
+        run: npx playwright install --with-deps --only-shell chromium
+
+      - name: Run browser tests
+        run: npm run test:headless
+
+  verify:
+    name: verify
+    if: ${{ always() }}
+    needs: [static_checks, unit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every validation job
+        env:
+          STATIC_RESULT: ${{ needs.static_checks.result }}
+          UNIT_RESULT: ${{ needs.unit.result }}
+        run: |
+          test "$STATIC_RESULT" = success
+          test "$UNIT_RESULT" = success
