@@ -1,6 +1,11 @@
 import type { Graphics } from 'pixi.js';
 
-import type { RenderStoreView } from '../../dense/renderer-types';
+import type { PatchMapProjectionIndex } from '../../contracts';
+import {
+  RenderFlags,
+  RenderKind,
+  type RenderStoreView,
+} from '../../dense/renderer-types';
 import { sameNullableStringArray } from '../../shared/string-array-values';
 import type { PatchMapInteractionOverlayPolicy } from '../types';
 import {
@@ -31,6 +36,14 @@ export interface PatchMapOverlayPathPlan {
   readonly aggregateVertices: readonly number[] | null;
   /** Selection paths after applying the bounds display mode. */
   readonly selectionPaths: readonly (readonly number[])[];
+}
+
+/** Parser-owned visual paint attached to a semantic owner. */
+export type PatchMapOverlayPaintBoundsIndex = ReadonlyMap<string, readonly string[]>;
+
+export interface PatchMapOverlayPaintBoundsContext {
+  readonly entityIdsByOwnerId: PatchMapOverlayPaintBoundsIndex;
+  readonly slotByEntityId: ReadonlyMap<string, number>;
 }
 
 export interface PatchMapOverlayWorldTransform {
@@ -92,13 +105,21 @@ export function resolveOverlayPathPlan(
   slots: readonly number[],
   projectionContext: PatchMapProjectionRenderContext,
   displayMode: PatchMapInteractionOverlayPolicy['displayMode'],
+  paintBoundsContext?: PatchMapOverlayPaintBoundsContext,
 ): PatchMapOverlayPathPlan {
-  const quads = slots.flatMap((slot) => {
+  const individualVertices = Object.freeze(slots.flatMap((slot) => {
     const quad = resolvePatchMapSlotQuad(store, slot, projectionContext);
-    return quad.width > 0 && quad.height > 0 ? [quad] : [];
-  });
-  const individualVertices = Object.freeze(quads.map((quad) =>
-    Object.freeze([...quad.vertices])));
+    if (!(quad.width > 0) || !(quad.height > 0)) return [];
+    return [resolveOverlayPaintBoundsVertices(
+      store,
+      slot,
+      quad.vertices,
+      quad.projection?.localBounds[2] ?? quad.width,
+      quad.projection?.localBounds[3] ?? quad.height,
+      projectionContext,
+      paintBoundsContext,
+    )];
+  }));
   const aggregateVertices = aggregateOverlayVertices(individualVertices);
   const selectionPaths = composeOverlaySelectionPaths(
     individualVertices,
@@ -106,6 +127,183 @@ export function resolveOverlayPathPlan(
     displayMode,
   );
   return Object.freeze({ individualVertices, aggregateVertices, selectionPaths });
+}
+
+/** Build once per immutable projection identity, never per unchanged frame. */
+export function indexOverlayPaintBounds(
+  projection: PatchMapProjectionIndex,
+): PatchMapOverlayPaintBoundsIndex {
+  const mutable = new Map<string, string[]>();
+  const append = (ownerId: string, entityId: string): void => {
+    const current = mutable.get(ownerId);
+    if (current === undefined) mutable.set(ownerId, [entityId]);
+    else if (!current.includes(entityId)) current.push(entityId);
+  };
+  for (const component of Object.values(projection.componentsByEntityId ?? {})) {
+    append(component.ownerId, component.entityId);
+  }
+  for (const bar of Object.values(projection.barsByEntityId ?? {})) {
+    append(bar.ownerId, bar.entityId);
+  }
+  for (const text of Object.values(projection.textsByEntityId ?? {})) {
+    if (text.ownerId !== undefined) append(text.ownerId, text.entityId);
+  }
+  return new Map([...mutable].map(([ownerId, entityIds]) => [
+    ownerId,
+    Object.freeze([...entityIds].sort()),
+  ]));
+}
+
+function resolveOverlayPaintBoundsVertices(
+  store: RenderStoreView,
+  slot: number,
+  semanticVertices: readonly number[],
+  semanticLocalWidth: number,
+  semanticLocalHeight: number,
+  projectionContext: PatchMapProjectionRenderContext,
+  paintBoundsContext?: PatchMapOverlayPaintBoundsContext,
+): readonly number[] {
+  const candidates: number[][] = [[...semanticVertices]];
+  const ownStrokeWidth = store.kind[slot] === RenderKind.Rect
+    && visiblePaintSlot(store, slot)
+    && packedRgbaAlpha(store.stroke[slot] as number) > 0
+    ? Math.max(0, store.strokeWidth[slot] as number)
+    : 0;
+  if (ownStrokeWidth > 0) {
+    candidates.push([...expandOverlayQuad(
+      semanticVertices,
+      semanticLocalWidth,
+      semanticLocalHeight,
+      ownStrokeWidth / 2,
+    )]);
+  }
+  const ownerId = store.ids[slot];
+  if (ownerId !== undefined && paintBoundsContext !== undefined) {
+    for (const paintEntityId of (
+      paintBoundsContext.entityIdsByOwnerId.get(ownerId) ?? []
+    )) {
+      const paintSlot = paintBoundsContext.slotByEntityId.get(paintEntityId);
+      const paint = projectionContext.index.backgroundsByEntityId?.[paintEntityId];
+      if (
+        paintSlot === undefined
+        || !visiblePaintSlot(store, paintSlot)
+      ) {
+        continue;
+      }
+      const paintQuad = resolvePatchMapSlotQuad(store, paintSlot, projectionContext);
+      if (!(paintQuad.width > 0) || !(paintQuad.height > 0)) continue;
+      const centeredStrokeOutset = paint?.sourceKind === 'rect'
+        && paint.borderWidth > 0
+        && packedRgbaAlpha(paint.borderColor) > 0
+        && packedRgbaAlpha(paint.tint) > 0
+        ? paint.borderWidth / 2
+        : 0;
+      candidates.push(centeredStrokeOutset > 0
+        ? [...expandOverlayQuad(
+            paintQuad.vertices,
+            paintQuad.projection?.localBounds[2] ?? paintQuad.width,
+            paintQuad.projection?.localBounds[3] ?? paintQuad.height,
+            centeredStrokeOutset,
+          )]
+        : [...paintQuad.vertices]);
+    }
+  }
+  return candidates.length === 1
+    ? Object.freeze(candidates[0]!)
+    : orientedOverlayUnion(semanticVertices, candidates);
+}
+
+/** Expand a projected affine quad by a centered local-space stroke outset. */
+function expandOverlayQuad(
+  vertices: readonly number[],
+  localWidth: number,
+  localHeight: number,
+  outset: number,
+): readonly number[] {
+  if (!(outset > 0) || !(localWidth > 0) || !(localHeight > 0)) {
+    return Object.freeze([...vertices]);
+  }
+  const left = vertices[0]!;
+  const top = vertices[1]!;
+  const edgeXx = vertices[2]! - left;
+  const edgeXy = vertices[3]! - top;
+  const edgeYx = vertices[6]! - left;
+  const edgeYy = vertices[7]! - top;
+  const x = outset / localWidth;
+  const y = outset / localHeight;
+  const topLeftX = left - edgeXx * x - edgeYx * y;
+  const topLeftY = top - edgeXy * x - edgeYy * y;
+  const expandedEdgeXx = edgeXx * (1 + 2 * x);
+  const expandedEdgeXy = edgeXy * (1 + 2 * x);
+  const expandedEdgeYx = edgeYx * (1 + 2 * y);
+  const expandedEdgeYy = edgeYy * (1 + 2 * y);
+  return Object.freeze([
+    topLeftX,
+    topLeftY,
+    topLeftX + expandedEdgeXx,
+    topLeftY + expandedEdgeXy,
+    topLeftX + expandedEdgeXx + expandedEdgeYx,
+    topLeftY + expandedEdgeXy + expandedEdgeYy,
+    topLeftX + expandedEdgeYx,
+    topLeftY + expandedEdgeYy,
+  ]);
+}
+
+/** Enclose paint quads in the selected semantic quad's oriented affine frame. */
+function orientedOverlayUnion(
+  reference: readonly number[],
+  candidates: readonly (readonly number[])[],
+): readonly number[] {
+  const originX = reference[0]!;
+  const originY = reference[1]!;
+  const edgeXx = reference[2]! - originX;
+  const edgeXy = reference[3]! - originY;
+  const edgeYx = reference[6]! - originX;
+  const edgeYy = reference[7]! - originY;
+  const determinant = edgeXx * edgeYy - edgeXy * edgeYx;
+  if (Math.abs(determinant) < Number.EPSILON) {
+    return aggregateOverlayVertices(candidates) ?? Object.freeze([...reference]);
+  }
+  let minU = Number.POSITIVE_INFINITY;
+  let minV = Number.POSITIVE_INFINITY;
+  let maxU = Number.NEGATIVE_INFINITY;
+  let maxV = Number.NEGATIVE_INFINITY;
+  for (const vertices of candidates) {
+    for (let index = 0; index < vertices.length; index += 2) {
+      const deltaX = vertices[index]! - originX;
+      const deltaY = vertices[index + 1]! - originY;
+      const u = (deltaX * edgeYy - deltaY * edgeYx) / determinant;
+      const v = (edgeXx * deltaY - edgeXy * deltaX) / determinant;
+      minU = Math.min(minU, u);
+      minV = Math.min(minV, v);
+      maxU = Math.max(maxU, u);
+      maxV = Math.max(maxV, v);
+    }
+  }
+  const point = (u: number, v: number): readonly [number, number] => Object.freeze([
+    originX + edgeXx * u + edgeYx * v,
+    originY + edgeXy * u + edgeYy * v,
+  ]);
+  const topLeft = point(minU, minV);
+  const topRight = point(maxU, minV);
+  const bottomRight = point(maxU, maxV);
+  const bottomLeft = point(minU, maxV);
+  return Object.freeze([
+    ...topLeft,
+    ...topRight,
+    ...bottomRight,
+    ...bottomLeft,
+  ]);
+}
+
+function visiblePaintSlot(store: RenderStoreView, slot: number): boolean {
+  return store.alive[slot] === 1
+    && ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0
+    && (store.opacity[slot] ?? 0) > 0;
+}
+
+function packedRgbaAlpha(value: number): number {
+  return (value >>> 0) & 0xff;
 }
 
 export function composeOverlaySelectionPaths(

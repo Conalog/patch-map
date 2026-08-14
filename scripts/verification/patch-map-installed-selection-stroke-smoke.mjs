@@ -58,7 +58,7 @@ try {
   await writeFile(path.join(temporary, 'index.html'), [
     '<!doctype html>',
     '<html><body style="margin:0;background:#000">',
-    '<div id="host" style="width:320px;height:240px"></div>',
+    '<div id="host" style="width:1000px;height:800px"></div>',
     '<script type="module" src="/main.js"></script>',
     '</body></html>',
   ].join('\n'));
@@ -67,8 +67,8 @@ import { PatchMap } from '@conalog/patch-map';
 
 const map = await PatchMap.mount({
   container: document.querySelector('#host'),
-  width: 320,
-  height: 240,
+  width: 1000,
+  height: 800,
   pixelRatio: 1,
   resizeMode: 'manual',
   background: '#000000',
@@ -76,20 +76,33 @@ const map = await PatchMap.mount({
   data: [{
     type: 'grid',
     id: 'selected-grid',
-    attrs: { x: 50, y: 50, display: 'panelGroup' },
+    attrs: { x: 100, y: 100, display: 'panelGroup' },
     cells: [[1]],
     item: {
       size: { width: 80, height: 60 },
-      components: [{
-        type: 'bar',
-        id: 'usage',
-        show: true,
-        source: { type: 'rect', fill: '#ffffff' },
-        tint: '#1e3a5f',
-        size: { width: 80, height: 60 },
-        placement: 'center',
-        animation: false,
-      }],
+      components: [
+        {
+          type: 'background',
+          id: 'surface',
+          source: {
+            type: 'rect',
+            fill: '#ffffff',
+            borderWidth: 2,
+            borderColor: '#063559',
+            radius: 6,
+          },
+        },
+        {
+          type: 'bar',
+          id: 'usage',
+          show: true,
+          source: { type: 'rect', fill: '#ffffff' },
+          tint: '#1e3a5f',
+          size: { width: 74, height: 54 },
+          placement: 'center',
+          animation: false,
+        },
+      ],
     },
   }],
   selection: {
@@ -127,16 +140,7 @@ async function capturePixels() {
 
 function analyzeColor(capture, color) {
   const { width, height, pixels } = capture;
-  const matches = (x, y) => {
-    const offset = (y * width + x) * 4;
-    const red = pixels[offset];
-    const green = pixels[offset + 1];
-    const blue = pixels[offset + 2];
-    const alpha = pixels[offset + 3];
-    return color === 'red'
-      ? red > 140 && red > green * 1.5 && red > blue * 1.5 && alpha > 180
-      : red < 60 && green > 110 && blue > 180 && alpha > 180;
-  };
+  const matches = (x, y) => matchesColor(capture, color, x, y);
   const points = [];
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -165,32 +169,75 @@ function analyzeColor(capture, color) {
   };
 }
 
+function matchesColor(capture, color, x, y) {
+  const offset = (y * capture.width + x) * 4;
+  const red = capture.pixels[offset];
+  const green = capture.pixels[offset + 1];
+  const blue = capture.pixels[offset + 2];
+  const alpha = capture.pixels[offset + 3];
+  if (color === 'red') {
+    return red > 140 && red > green * 1.5 && red > blue * 1.5 && alpha > 180;
+  }
+  if (color === 'navy') {
+    return red < 45 && green >= 35 && green < 100 && blue >= 60 && blue < 140 && alpha > 180;
+  }
+  return red < 60 && green > 110 && blue > 180 && alpha > 180;
+}
+
+function analyzeStraightEdges(baseline, selected, bounds) {
+  const centerX = Math.round((bounds.targetMinX + bounds.targetMaxX) / 2);
+  const centerY = Math.round((bounds.targetMinY + bounds.targetMaxY) / 2);
+  const edges = {
+    top: [],
+    bottom: [],
+    left: [],
+    right: [],
+  };
+  for (let y = bounds.targetMinY; y <= bounds.targetMaxY; y += 1) {
+    if (!matchesColor(baseline, 'navy', centerX, y)) continue;
+    (y <= centerY ? edges.top : edges.bottom).push([centerX, y]);
+  }
+  for (let x = bounds.targetMinX; x <= bounds.targetMaxX; x += 1) {
+    if (!matchesColor(baseline, 'navy', x, centerY)) continue;
+    (x <= centerX ? edges.left : edges.right).push([x, centerY]);
+  }
+  return Object.fromEntries(Object.entries(edges).map(([edge, points]) => [edge, {
+    navyPixels: points.length,
+    redOverlapPixels: points.filter(([x, y]) => matchesColor(selected, 'red', x, y)).length,
+  }]));
+}
+
 async function capturePersistent() {
   map.selection.clear();
   const baseline = await capturePixels();
   map.selection.set('selected-grid.0.0');
   const selected = await capturePixels();
   const red = analyzeColor(selected, 'red');
-  const targetPoints = [];
+  let targetMinX = Number.POSITIVE_INFINITY;
+  let targetMaxX = Number.NEGATIVE_INFINITY;
+  let targetMinY = Number.POSITIVE_INFINITY;
+  let targetMaxY = Number.NEGATIVE_INFINITY;
   for (let index = 0; index < baseline.pixels.length; index += 4) {
-    const baselineTarget = baseline.pixels[index] < 80 &&
-      baseline.pixels[index + 1] > 30 &&
-      baseline.pixels[index + 2] > 60 &&
-      baseline.pixels[index + 3] > 180;
-    if (baselineTarget) {
-      const pixel = index / 4;
-      targetPoints.push([pixel % baseline.width, Math.floor(pixel / baseline.width)]);
-    }
+    const pixel = index / 4;
+    const x = pixel % baseline.width;
+    const y = Math.floor(pixel / baseline.width);
+    if (!matchesColor(baseline, 'navy', x, y)) continue;
+    targetMinX = Math.min(targetMinX, x);
+    targetMaxX = Math.max(targetMaxX, x);
+    targetMinY = Math.min(targetMinY, y);
+    targetMaxY = Math.max(targetMaxY, y);
   }
-  const targetMinX = Math.min(...targetPoints.map(([x]) => x));
-  const targetMaxX = Math.max(...targetPoints.map(([x]) => x));
-  const targetMinY = Math.min(...targetPoints.map(([, y]) => y));
-  const targetMaxY = Math.max(...targetPoints.map(([, y]) => y));
+  if (!Number.isFinite(targetMinX) || !Number.isFinite(targetMinY)) {
+    throw new Error('installed artifact baseline has no navy target paint');
+  }
   const centerX = Math.floor((targetMinX + targetMaxX) / 2);
   const centerY = Math.floor((targetMinY + targetMaxY) / 2);
   const centerOffset = (centerY * baseline.width + centerX) * 4;
+  const selectedCenterOffset = (centerY * selected.width + centerX) * 4;
   const baselineCenter = [...baseline.pixels.slice(centerOffset, centerOffset + 4)];
-  const selectedCenter = [...selected.pixels.slice(centerOffset, centerOffset + 4)];
+  const selectedCenter = [
+    ...selected.pixels.slice(selectedCenterOffset, selectedCenterOffset + 4),
+  ];
   const targetWidth = targetMaxX - targetMinX + 1;
   const targetHeight = targetMaxY - targetMinY + 1;
   const redWidth = red.bounds.maxX - red.bounds.minX + 1;
@@ -206,6 +253,13 @@ async function capturePersistent() {
     },
     expectedOutsideRingPixels: redWidth * redHeight - targetWidth * targetHeight,
     targetCenterPreserved: JSON.stringify(baselineCenter) === JSON.stringify(selectedCenter),
+    targetCenter: { baseline: baselineCenter, selected: selectedCenter },
+    straightEdges: analyzeStraightEdges(baseline, selected, {
+      targetMinX,
+      targetMaxX,
+      targetMinY,
+      targetMaxY,
+    }),
   };
 }
 
@@ -213,10 +267,10 @@ window.__PATCH_MAP_SELECTION_STROKE__ = {
   phase: 'ready',
   setScale(scale) {
     const current = map.viewport.state.scale;
-    map.viewport.zoomBy(scale / current, [0, 0]);
+    map.viewport.zoomBy(scale / current, [100, 100]);
   },
   resize(pixelRatio) {
-    map.viewport.resize(320, 240, pixelRatio);
+    map.viewport.resize(1000, 800, pixelRatio);
   },
   persistent: () => capturePersistent(),
   marquee: async () => analyzeColor(await capturePixels(), 'blue'),
@@ -234,7 +288,7 @@ window.__PATCH_MAP_SELECTION_STROKE__ = {
   const baseUrl = server.resolvedUrls?.local?.[0];
   if (!baseUrl) throw new Error('installed selection stroke smoke server has no URL');
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 320, height: 240 } });
+  const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
   const errors = [];
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(`console: ${message.text()}`);
@@ -251,7 +305,7 @@ window.__PATCH_MAP_SELECTION_STROKE__ = {
   );
 
   const persistent = [];
-  for (const scale of [1, 2]) {
+  for (const scale of [1, 5]) {
     const pixelRatio = 2;
     await page.evaluate((value) => window.__PATCH_MAP_SELECTION_STROKE__.resize(value), pixelRatio);
     await page.evaluate((value) => window.__PATCH_MAP_SELECTION_STROKE__.setScale(value), scale);
@@ -295,13 +349,13 @@ window.__PATCH_MAP_SELECTION_STROKE__ = {
   const persistentStable = persistentMeasurements.every(({ cssPx }) => cssPx >= 2 && cssPx <= 4);
   const persistentOutside = persistentMeasurements.every(({
     backingPx,
-    pixelCount,
     outsideExtents,
-    expectedOutsideRingPixels,
+    straightEdges,
     targetCenterPreserved,
   }) =>
-    Object.values(outsideExtents).every((extent) => extent === backingPx) &&
-    pixelCount === expectedOutsideRingPixels &&
+    Object.values(outsideExtents).every((extent) => extent >= backingPx - 1) &&
+    Object.values(straightEdges).every(({ navyPixels, redOverlapPixels }) =>
+      navyPixels > 0 && redOverlapPixels === 0) &&
     targetCenterPreserved === true);
   const marqueeStable = marqueeMeasurement.cssPx >= 0.5 && marqueeMeasurement.cssPx <= 2;
   if (

@@ -46,6 +46,11 @@
 - Added `selection.visual.strokeAlignment` with outside/center/inside semantic
   values. The compatible default remains centered; outside keeps the full
   persistent bound beyond target paint without changing marquee placement.
+- Fixed persistent selection/transformer bounds to use cached visual paint
+  geometry rather than only the semantic owner quad. Centered rect/background
+  strokes now contribute their exact outward half-width, projected component
+  layout and negative margins participate in owner bounds, and unchanged
+  frames still perform no component scan or overlay retessellation.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

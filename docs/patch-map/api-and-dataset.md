@@ -187,9 +187,15 @@ in CSS pixels at every viewport zoom and renderer DPR/resolution. PatchMap
 reprojects the fixed aggregate outline only when its geometry, policy, or
 effective viewport scale changes. `strokeAlignment` accepts `outside`,
 `center`, or `inside` and defaults to the compatible `center`. `outside`
-places the full persistent stroke beyond the semantic bound so the selected
-target's own fill and stroke remain unobscured. The policy applies to every
-individual and aggregate path. `displayMode` accepts `all`,
+places the full persistent stroke beyond the target's package-computed visual
+paint bound so the selected target's own fill and stroke remain unobscured.
+The paint bound starts with the semantic owner quad, unions visible projected
+background/image, bar, icon, and text layout quads (including authored
+negative margins), and expands centered rect strokes by their exact outward
+half-width. Direct rect selection applies the same centered-stroke rule.
+Rotation and scale remain in the selected owner's oriented affine frame;
+multi-selection aggregate bounds union those visual frames. The policy applies
+to every individual and aggregate path. `displayMode` accepts `all`,
 `group-only`, `element-only`, or `hidden`. These values compose bounds rather
 than filter selected target types: `all` draws every selected object's bound
 plus their aggregate bound, `group-only` draws only the aggregate bound,
@@ -198,6 +204,16 @@ selection bound. `all` does not duplicate the same path for a single target.
 A selected component projects its bound to its stable owner item or concrete
 grid cell without changing the selected component identity. Programmatic,
 click, and box changes all use the same persistent outline.
+
+Paint bounds are deterministic geometry, not a raster-alpha scan. Transparent
+pixels inside an image/icon/background texture do not trim its projected quad;
+text uses its parser-owned layout quad, and an animated bar uses its full track
+layout rather than changing the selection frame every animation tick. PATCH MAP
+bar rect sources currently render fill/radius but no border stroke, so they add
+no stroke outset. This keeps bounds cached by immutable projection identity and
+repaints the two fixed aggregate Graphics objects only when geometry, policy, or
+effective viewport scale changes—never by walking Pixi display-object bounds
+per frame.
 
 Optional `selection.box.visual` independently configures only the transient
 marquee. Its `color` accepts the same CSS/`0xRRGGBB` inputs, `strokeWidth` is

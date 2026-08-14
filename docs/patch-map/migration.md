@@ -213,6 +213,13 @@ The prior Transformer wireframe occupies the outside of the selected bound;
 map that paint placement explicitly with `strokeAlignment: 'outside'`.
 Omitting alignment intentionally retains PatchMap's centered compatibility
 default, while `inside` places the full persistent stroke within the bound.
+The migration bound is the visual/client-style paint-layout bound, not only the
+semantic item rectangle: PatchMap unions the visible projected component boxes
+and expands centered rect borders by half their authored width before applying
+outside/center/inside. This covers authored items and concrete grid cells under
+rotation/scale without host padding constants. Image alpha is not trimmed,
+text uses its deterministic layout box, and animated bars retain their stable
+full-track box so selection paint does not retessellate every frame.
 The persistent Transformer wireframe stays under `selection.visual`; the
 marquee-only color, CSS-pixel width, and fill alpha belong to
 `selection.box.visual`. Omit the latter to preserve the previous shared

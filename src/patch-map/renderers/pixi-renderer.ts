@@ -101,6 +101,7 @@ import {
   appendOverlayHandles,
   appendOverlayOutline,
   DEFAULT_INTERACTION_OVERLAY_POLICY,
+  indexOverlayPaintBounds,
   interactionOverlayTransformNeedsRepaint,
   interactionOverlayLabel,
   normalizeInteractionOverlayPolicy,
@@ -109,6 +110,7 @@ import {
   resolveOverlayWorldScale,
   resolveOverlayPathPlan,
   sameInteractionOverlayPolicy,
+  type PatchMapOverlayPaintBoundsIndex,
   type PatchMapOverlayWorldTransform,
 } from './pixi-renderer/interaction-overlay';
 import {
@@ -254,6 +256,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private pixelRatioValue: number;
   private view: CoreView = DEFAULT_VIEW;
   private projectionIndex: PatchMapProjectionIndex = EMPTY_PROJECTION_INDEX;
+  private overlayPaintBoundsProjection: PatchMapProjectionIndex | null = null;
+  private overlayPaintBoundsIndex: PatchMapOverlayPaintBoundsIndex = new Map();
   private staleProjectionEntityIds: ReadonlySet<string> = new Set();
   private relationSlotsByEndpoint: ReadonlyMap<number, readonly number[]> = new Map();
   private relationSlots = new Set<number>();
@@ -744,7 +748,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.pendingTextOnly
       );
     const nextPendingRanges = mergeRanges(this.pendingRanges ?? [], ranges);
-    const nextPendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], ranges);
+    const paintBoundsProjectionChanged = previous !== index && updateKind !== 'bar-presentation';
+    const nextPendingOverlayRanges = paintBoundsProjectionChanged
+      ? undefined
+      : mergeRanges(this.pendingOverlayRanges ?? [], ranges);
     const nextInvalidation = changedRanges === undefined
       ? 'projection'
       : 'presentation-projection';
@@ -1607,6 +1614,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.canvas.remove();
     this.lastStore = null;
     this.lastSourceStore = null;
+    this.overlayPaintBoundsProjection = null;
+    this.overlayPaintBoundsIndex = new Map();
     this.presentationPolicy = null;
     this.presentationStore = null;
     this.presentationBaseStore = null;
@@ -1817,6 +1826,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       [...this.visibleOverlaySlots].sort((left, right) => left - right),
       this.projectionContext(),
       policy.displayMode,
+      {
+        entityIdsByOwnerId: this.resolveOverlayPaintBoundsIndex(),
+        slotByEntityId: this.slotByEntityId,
+      },
     );
     for (const vertices of pathPlan.selectionPaths) {
       appendOverlayOutline(this.selectionOverlay, vertices);
@@ -1889,6 +1902,14 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     });
     this.interactionOverlaySelectionLocalStrokeWidth = selectionLocalStrokeWidth;
     this.interactionOverlayMarqueeLocalStrokeWidth = marqueeLocalStrokeWidth;
+  }
+
+  private resolveOverlayPaintBoundsIndex(): PatchMapOverlayPaintBoundsIndex {
+    if (this.overlayPaintBoundsProjection !== this.projectionIndex) {
+      this.overlayPaintBoundsProjection = this.projectionIndex;
+      this.overlayPaintBoundsIndex = indexOverlayPaintBounds(this.projectionIndex);
+    }
+    return this.overlayPaintBoundsIndex;
   }
 
   private emptyDebug(): PatchMapPixiRendererDebug {

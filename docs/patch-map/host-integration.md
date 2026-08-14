@@ -62,7 +62,10 @@ Map an existing Transformer wireframe with
 displayMode: 'element-only' }`.
 This draws one bound per selected object, matching Transformer
 `boundsDisplayMode: 'elementOnly'`, while the explicit outside placement maps
-the prior wireframe beyond the selected element's edge. Use `group-only` for only the aggregate
+the prior wireframe beyond the selected element's visual/client edge. PatchMap
+computes that edge from the semantic owner plus its projected component layout
+and exact centered rect-stroke outset, so a panel background border is not
+covered by the selection wireframe. Use `group-only` for only the aggregate
 selection frame or `all` for both. PatchMap applies it to programmatic and
 pointer selection. Configure the independently owned transient marquee with
 `box: { activationModifier: 'shift', visual: { color: '#1099ff', strokeWidth: 1,

@@ -129,6 +129,13 @@ semantic hash, and debug state.
 Alignment applies only to persistent selection bounds. The compatible omitted
 value is centered; `outside` preserves a target's own edge paint, while the
 transient marquee remains centered and continues to use `box.visual` only.
+The persistent frame uses a package-computed visual paint bound: visible
+projected background/image, bar, icon, and text layout boxes are unioned with
+the semantic owner, negative margins are retained, and centered rect strokes
+contribute their exact outward half-width. Texture alpha is not scanned and an
+animated bar retains its stable full-track layout bound. The index is rebuilt
+only for a changed immutable projection, so unchanged frames add no component
+scan, Pixi `getBounds()`, or tessellation.
 
 Blank-canvas and target double-click deselection are independently opt-in.
 `clearOnBlankClick` defaults to `single` for compatibility and additionally

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Graphics, Matrix } from 'pixi.js';
 
+import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
 import type { SlotRange } from '../../src/patch-map/dense/contracts';
 import type { RenderStoreView } from '../../src/patch-map/dense/renderer-types';
 import { PatchMapPixiRenderer } from '../../src/patch-map/renderers/pixi-renderer';
@@ -148,7 +149,52 @@ describe('PatchMap aggregate selection bounds display', () => {
     renderer.syncSelectionOverlay(emptyStore, false, []);
     expect(renderer.redraws).toBe(2);
   });
+
+  it('indexes owner paint bounds once per immutable projection identity', () => {
+    const renderer = Object.create(PatchMapPixiRenderer.prototype) as OverlaySyncHarness;
+    const firstProjection = projection('first-background');
+    renderer.projectionIndex = firstProjection;
+    renderer.overlayPaintBoundsProjection = null;
+    renderer.overlayPaintBoundsIndex = new Map();
+
+    const first = renderer.resolveOverlayPaintBoundsIndex();
+    const retained = renderer.resolveOverlayPaintBoundsIndex();
+    expect(retained).toBe(first);
+    expect(first.get('owner')).toEqual(['first-background']);
+
+    renderer.projectionIndex = projection('replacement-background');
+    const replacement = renderer.resolveOverlayPaintBoundsIndex();
+    expect(replacement).not.toBe(first);
+    expect(replacement.get('owner')).toEqual(['replacement-background']);
+  });
 });
+
+function projection(entityId: string): PatchMapProjectionIndex {
+  return Object.freeze({
+    byEntityId: Object.freeze({}),
+    componentsByEntityId: Object.freeze({
+      [entityId]: Object.freeze({
+        entityId,
+        ownerId: 'owner',
+        componentId: 'background',
+        componentType: 'background' as const,
+        logicalIdentity: entityId,
+        renderRole: 'background-geometry' as const,
+      }),
+    }),
+    backgroundsByEntityId: Object.freeze({
+      [entityId]: Object.freeze({
+        entityId,
+        sourceKind: 'rect' as const,
+        fill: 0xffffffff,
+        borderWidth: 2,
+        borderColor: 0x063559ff,
+        radius: Object.freeze([0, 0, 0, 0] as const),
+        tint: 0xffffffff,
+      }),
+    }),
+  });
+}
 
 function transform(scale: number) {
   return Object.freeze({ a: scale, b: 0, c: 0, d: scale, tx: 0, ty: 0 });
@@ -174,6 +220,10 @@ interface OverlaySyncHarness {
     current: readonly [number, number];
   }> | null;
   redraws: number;
+  projectionIndex: PatchMapProjectionIndex;
+  overlayPaintBoundsProjection: PatchMapProjectionIndex | null;
+  overlayPaintBoundsIndex: ReadonlyMap<string, readonly string[]>;
+  resolveOverlayPaintBoundsIndex(): ReadonlyMap<string, readonly string[]>;
   drawInteractionOverlays(store: RenderStoreView): void;
   syncSelectionOverlay(
     store: RenderStoreView,
