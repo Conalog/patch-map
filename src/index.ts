@@ -97,6 +97,7 @@ export type {
   PatchMapSelectionInput,
   PatchMapSelectionPolicy,
   PatchMapSelectionStrokeAlignment,
+  PatchMapSelectionStrokeScale,
   PatchMapSelectionVisualPolicy,
   PatchMapTarget,
   PatchMapTargetMatch,

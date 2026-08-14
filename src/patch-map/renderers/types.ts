@@ -66,6 +66,7 @@ export interface PatchMapOverlayPaintProbe {
   /** Present on the product renderer; optional only for injected contract surfaces. */
   readonly displayMode?: 'all' | 'group-only' | 'element-only' | 'hidden';
   readonly strokeAlignment?: 'outside' | 'center' | 'inside';
+  readonly strokeScale?: 'fixed' | 'viewport';
   readonly individualOutlineCount?: number;
   readonly groupOutline?: boolean;
   readonly outlineCount?: number;
@@ -75,6 +76,8 @@ export interface PatchMapOverlayPaintProbe {
   readonly worldScale?: number | null;
   /** World-space width that projects to the configured persistent CSS width. */
   readonly selectionLocalStrokeWidth?: number;
+  /** Effective persistent screen width at the last repaint. */
+  readonly selectionScreenStrokeWidth?: number;
   /** World-space width that projects to the configured marquee CSS width. */
   readonly marqueeLocalStrokeWidth?: number;
 }
@@ -89,6 +92,10 @@ export interface PatchMapInteractionOverlayPolicy {
   readonly hidden: boolean;
   readonly handleCssPx: number;
   readonly strokeCssPx: number;
+  /** Fixed CSS width or viewport-linked low-zoom LOD. */
+  readonly strokeScale: 'fixed' | 'viewport';
+  /** CSS-pixel floor used only by viewport-linked persistent strokes. */
+  readonly minStrokeCssPx: number;
   /** Persistent selection placement; converted to Pixi alignment only at paint. */
   readonly strokeAlignment: 'outside' | 'center' | 'inside';
   /** Normalized 0xRRGGBB used by persistent selection and transformer paint. */

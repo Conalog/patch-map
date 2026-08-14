@@ -73,11 +73,13 @@ const map = await PatchMap.mount({
   resizeMode: 'manual',
   background: '#000000',
   fit: false,
+  zoomLimits: [0.05, 30],
   data: [{
     type: 'grid',
     id: 'selected-grid',
     attrs: { x: 100, y: 100, display: 'panelGroup' },
-    cells: [[1]],
+    cells: Array.from({ length: 5 }, () => Array(5).fill(1)),
+    gap: 20,
     item: {
       size: { width: 80, height: 60 },
       components: [
@@ -110,6 +112,8 @@ const map = await PatchMap.mount({
     visual: {
       color: '#ef4444',
       strokeWidth: 3,
+      strokeScale: 'viewport',
+      minStrokeWidth: 1,
       strokeAlignment: 'outside',
       displayMode: 'element-only',
     },
@@ -120,6 +124,7 @@ const map = await PatchMap.mount({
     },
   },
 });
+let rendererPixelRatio = 1;
 
 async function capturePixels() {
   const capture = await map.capture.png();
@@ -210,7 +215,7 @@ function analyzeStraightEdges(baseline, selected, bounds) {
 async function capturePersistent() {
   map.selection.clear();
   const baseline = await capturePixels();
-  map.selection.set('selected-grid.0.0');
+  map.selection.set('selected-grid.2.2');
   const selected = await capturePixels();
   const red = analyzeColor(selected, 'red');
   let targetMinX = Number.POSITIVE_INFINITY;
@@ -221,7 +226,11 @@ async function capturePersistent() {
     const pixel = index / 4;
     const x = pixel % baseline.width;
     const y = Math.floor(pixel / baseline.width);
-    if (!matchesColor(baseline, 'navy', x, y)) continue;
+    if (
+      x < red.bounds.minX || x > red.bounds.maxX ||
+      y < red.bounds.minY || y > red.bounds.maxY ||
+      !matchesColor(baseline, 'navy', x, y)
+    ) continue;
     targetMinX = Math.min(targetMinX, x);
     targetMaxX = Math.max(targetMaxX, x);
     targetMinY = Math.min(targetMinY, y);
@@ -263,6 +272,37 @@ async function capturePersistent() {
   };
 }
 
+async function captureLowZoomGrid() {
+  map.selection.clear();
+  const baseline = await capturePixels();
+  map.selection.set(Array.from({ length: 25 }, (_, index) =>
+    'selected-grid.' + Math.floor(index / 5) + '.' + (index % 5)));
+  const selected = await capturePixels();
+  const red = analyzeColor(selected, 'red');
+  const bboxArea = (red.bounds.maxX - red.bounds.minX + 1) *
+    (red.bounds.maxY - red.bounds.minY + 1);
+  let targetInteriorPixels = 0;
+  let baselineTargetPixels = 0;
+  for (let y = red.bounds.minY; y <= red.bounds.maxY; y += 1) {
+    for (let x = red.bounds.minX; x <= red.bounds.maxX; x += 1) {
+      if (matchesColor(baseline, 'navy', x, y)) baselineTargetPixels += 1;
+      if (matchesColor(selected, 'navy', x, y)) targetInteriorPixels += 1;
+    }
+  }
+  return {
+    ...red,
+    bboxArea,
+    projectedWidthCss: (red.bounds.maxX - red.bounds.minX + 1) / rendererPixelRatio,
+    projectedHeightCss: (red.bounds.maxY - red.bounds.minY + 1) / rendererPixelRatio,
+    redCoverage: red.pixelCount / bboxArea,
+    baselineTargetPixels,
+    targetInteriorPixels,
+    targetInteriorRetention: baselineTargetPixels === 0
+      ? 0
+      : targetInteriorPixels / baselineTargetPixels,
+  };
+}
+
 window.__PATCH_MAP_SELECTION_STROKE__ = {
   phase: 'ready',
   setScale(scale) {
@@ -270,9 +310,11 @@ window.__PATCH_MAP_SELECTION_STROKE__ = {
     map.viewport.zoomBy(scale / current, [100, 100]);
   },
   resize(pixelRatio) {
+    rendererPixelRatio = pixelRatio;
     map.viewport.resize(1000, 800, pixelRatio);
   },
   persistent: () => capturePersistent(),
+  lowZoomGrid: () => captureLowZoomGrid(),
   marquee: async () => analyzeColor(await capturePixels(), 'blue'),
   destroy: () => map.destroy(),
 };
@@ -305,14 +347,26 @@ window.__PATCH_MAP_SELECTION_STROKE__ = {
   );
 
   const persistent = [];
-  for (const scale of [1, 5]) {
-    const pixelRatio = 2;
+  for (const pixelRatio of [1, 2]) {
+    const scale = 5;
     await page.evaluate((value) => window.__PATCH_MAP_SELECTION_STROKE__.resize(value), pixelRatio);
     await page.evaluate((value) => window.__PATCH_MAP_SELECTION_STROKE__.setScale(value), scale);
     persistent.push({
       scale,
       pixelRatio,
       ...(await page.evaluate(() => window.__PATCH_MAP_SELECTION_STROKE__.persistent())),
+    });
+  }
+
+  const lowZoom = [];
+  for (const pixelRatio of [1, 2]) {
+    const scale = 0.1;
+    await page.evaluate((value) => window.__PATCH_MAP_SELECTION_STROKE__.resize(value), pixelRatio);
+    await page.evaluate((value) => window.__PATCH_MAP_SELECTION_STROKE__.setScale(value), scale);
+    lowZoom.push({
+      scale,
+      pixelRatio,
+      ...(await page.evaluate(() => window.__PATCH_MAP_SELECTION_STROKE__.lowZoomGrid())),
     });
   }
 
@@ -340,6 +394,7 @@ window.__PATCH_MAP_SELECTION_STROKE__ = {
     artifactSha256,
     installedEntry,
     persistent: persistentMeasurements,
+    lowZoom,
     marquee: marqueeMeasurement,
     destroyed,
     canvasCountAfterDestroy,
@@ -358,10 +413,21 @@ window.__PATCH_MAP_SELECTION_STROKE__ = {
       navyPixels > 0 && redOverlapPixels === 0) &&
     targetCenterPreserved === true);
   const marqueeStable = marqueeMeasurement.cssPx >= 0.5 && marqueeMeasurement.cssPx <= 2;
+  const lowZoomLegible = lowZoom.every(({
+    projectedWidthCss,
+    projectedHeightCss,
+    redCoverage,
+    targetInteriorPixels,
+    targetInteriorRetention,
+  }) =>
+    projectedWidthCss >= 35 && projectedWidthCss <= 60 &&
+    projectedHeightCss >= 25 && projectedHeightCss <= 50 &&
+    redCoverage < 0.9 && targetInteriorPixels > 0 && targetInteriorRetention > 0.5);
   if (
     !persistentStable ||
     !persistentOutside ||
     !marqueeStable ||
+    !lowZoomLegible ||
     destroyed !== true ||
     canvasCountAfterDestroy !== 0 ||
     errors.length !== 0

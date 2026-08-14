@@ -122,6 +122,9 @@ const patchMap = await PatchMap.mount({
     visual: {
       color: '#ef4444',
       strokeWidth: 3,
+      strokeScale: 'viewport',
+      minStrokeWidth: 1,
+      strokeAlignment: 'outside',
       displayMode: 'element-only',
     },
   },
@@ -182,10 +185,17 @@ at most one selection callback for the deselection, and their instance timer
 is cleared by drag, another target, policy replacement, or `destroy()`.
 
 `selection.visual` is an instance-local package-owned paint policy. `color`
-accepts a `0xRRGGBB` number or PATCH MAP CSS color, `strokeWidth` is measured
-in CSS pixels at every viewport zoom and renderer DPR/resolution. PatchMap
-reprojects the fixed aggregate outline only when its geometry, policy, or
-effective viewport scale changes. `strokeAlignment` accepts `outside`,
+accepts a `0xRRGGBB` number or PATCH MAP CSS color. `strokeWidth` is the CSS
+pixel width at 1x viewport scale. The compatible `strokeScale: 'fixed'`
+default keeps that screen width at every zoom and renderer DPR/resolution.
+Opt-in `strokeScale: 'viewport'` uses
+`clamp(strokeWidth * viewportScale, minStrokeWidth, strokeWidth)` for the
+effective screen width; `minStrokeWidth` defaults to 1 CSS px (or the smaller
+configured width). Thus a 3px/1px policy produces 3px at 1x, 1.5px at 0.5x,
+1px at 0.1x, and remains capped at 3px above 1x. PatchMap converts only that
+effective width to world units and reprojects the fixed aggregate outline
+only when its geometry, policy, or effective viewport scale changes.
+`strokeAlignment` accepts `outside`,
 `center`, or `inside` and defaults to the compatible `center`. `outside`
 places the full persistent stroke beyond the target's package-computed visual
 paint bound so the selected target's own fill and stroke remain unobscured.
@@ -219,7 +229,8 @@ Optional `selection.box.visual` independently configures only the transient
 marquee. Its `color` accepts the same CSS/`0xRRGGBB` inputs, `strokeWidth` is
 also a zoom/DPR/resolution-independent CSS-pixel width, and `fillAlpha` is between
 0 and 1. Omit `box.visual` to inherit `selection.visual.color` and
-`selection.visual.strokeWidth`; the compatible fill alpha remains `0.08`.
+the configured `selection.visual.strokeWidth`; it does not inherit persistent
+`strokeScale` or `minStrokeWidth`. The compatible fill alpha remains `0.08`.
 Persistent `strokeAlignment` never changes the marquee's centered drag-bound
 stroke.
 Invalid visual input rejects the whole policy before the current gesture or

@@ -106,6 +106,8 @@ import {
   interactionOverlayLabel,
   normalizeInteractionOverlayPolicy,
   resolveOverlayLocalCssLength,
+  resolveSelectionLocalStrokeWidth,
+  resolveSelectionScreenStrokeWidth,
   resolveOverlayStrokeAlignment,
   resolveOverlayWorldScale,
   resolveOverlayPathPlan,
@@ -226,6 +228,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private interactionOverlayRedrawCount = 0;
   private interactionOverlayPaintTransform: PatchMapOverlayWorldTransform | null = null;
   private interactionOverlaySelectionLocalStrokeWidth = 0;
+  private interactionOverlaySelectionScreenStrokeWidth = 0;
   private interactionOverlayMarqueeLocalStrokeWidth = 0;
   private interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
   private selectionMarquee: Readonly<{
@@ -1285,6 +1288,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       renderObjectCount: visible ? 2 : 0,
       displayMode: this.interactionOverlayPolicy.displayMode,
       strokeAlignment: this.interactionOverlayPolicy.strokeAlignment,
+      strokeScale: this.interactionOverlayPolicy.strokeScale,
       individualOutlineCount: this.individualSelectionOutlineCount,
       groupOutline: this.groupSelectionOutlineVisible,
       outlineCount: this.selectionOutlineCount,
@@ -1293,6 +1297,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         ? null
         : resolveOverlayWorldScale(this.interactionOverlayPaintTransform),
       selectionLocalStrokeWidth: this.interactionOverlaySelectionLocalStrokeWidth,
+      selectionScreenStrokeWidth: this.interactionOverlaySelectionScreenStrokeWidth,
       marqueeLocalStrokeWidth: this.interactionOverlayMarqueeLocalStrokeWidth,
     });
   }
@@ -1597,6 +1602,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.interactionOverlayRedrawCount = 0;
     this.interactionOverlayPaintTransform = null;
     this.interactionOverlaySelectionLocalStrokeWidth = 0;
+    this.interactionOverlaySelectionScreenStrokeWidth = 0;
     this.interactionOverlayMarqueeLocalStrokeWidth = 0;
     this.interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
     this.selectionMarquee = null;
@@ -1810,8 +1816,16 @@ export class PatchMapPixiRenderer implements CoreRenderer {
 
   private drawInteractionOverlays(store: RenderStoreView): void {
     const policy = this.interactionOverlayPolicy;
-    const selectionLocalStrokeWidth = resolveOverlayLocalCssLength(
+    const selectionLocalStrokeWidth = resolveSelectionLocalStrokeWidth(
       policy.strokeCssPx,
+      policy.strokeScale,
+      policy.minStrokeCssPx,
+      this.worldMatrix,
+    );
+    const selectionScreenStrokeWidth = resolveSelectionScreenStrokeWidth(
+      policy.strokeCssPx,
+      policy.strokeScale,
+      policy.minStrokeCssPx,
       this.worldMatrix,
     );
     const marqueeLocalStrokeWidth = resolveOverlayLocalCssLength(
@@ -1901,6 +1915,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ty: this.worldMatrix.ty,
     });
     this.interactionOverlaySelectionLocalStrokeWidth = selectionLocalStrokeWidth;
+    this.interactionOverlaySelectionScreenStrokeWidth = selectionScreenStrokeWidth;
     this.interactionOverlayMarqueeLocalStrokeWidth = marqueeLocalStrokeWidth;
   }
 

@@ -51,6 +51,11 @@
   strokes now contribute their exact outward half-width, projected component
   layout and negative margins participate in owner bounds, and unchanged
   frames still perform no component scan or overlay retessellation.
+- Added opt-in persistent selection stroke LOD with
+  `selection.visual.strokeScale: 'viewport'` and a CSS-pixel
+  `minStrokeWidth` floor. The compatible fixed-screen default, high-zoom cap,
+  visual paint bounds, outside alignment, and fixed marquee width remain
+  unchanged.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

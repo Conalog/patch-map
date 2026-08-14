@@ -76,6 +76,13 @@ isSelectable }`로 Shift+primary drag box selection을 켭니다.
 `selection.onPointerChange()`에서 pointer-origin selection을 구독합니다.
 두 구독은 disposer를 반환하며 `destroy()`에서도 자동 정리됩니다.
 
+극저배율에서 인접 선택선이 면처럼 겹치지 않게 하려면 persistent bound에
+`selection.visual: { strokeWidth: 3, strokeScale: 'viewport',
+minStrokeWidth: 1 }`을 사용합니다. 1배율에서는 3 CSS px, 축소 시에는
+viewport 비율만큼 줄되 1 CSS px 아래로 내려가지 않고, 확대 시에는 3 CSS
+px을 넘지 않습니다. 생략하면 기존 fixed-screen 폭을 유지하며 Shift
+marquee의 `selection.box.visual.strokeWidth`에는 이 정책이 적용되지 않습니다.
+
 grid instance를 반복 갱신할 때는 JSONPath나 갱신마다 scene scan을 쓰지
 않고 semantic target set을 한 번 조회해 재사용할 수 있습니다.
 

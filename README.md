@@ -86,6 +86,7 @@ Shift+primary drag for box selection with
 `selection: { box: { activationModifier: 'shift', visual: { color: '#1099ff',
 strokeWidth: 1, fillAlpha: 0.08 } }, allowMultiple, isSelectable, visual: {
 color: '#ef4444', strokeWidth: 3, strokeAlignment: 'outside',
+strokeScale: 'viewport', minStrokeWidth: 1,
 displayMode: 'element-only' },
 clearOnBlankClick: 'double', deselectOnTargetDoubleClick: true }`,
 observe stable hover targets through `pointer.onHover()`, and observe non-echo
@@ -94,6 +95,10 @@ return disposers and are also cleared by `destroy()`. Selection display modes
 compose individual and aggregate bounds; they never filter selection identity.
 `selection.visual` paints persistent selected bounds; optional
 `selection.box.visual` independently paints only the transient drag marquee.
+`strokeScale: 'viewport'` scales the persistent outline down below 1x with a
+`minStrokeWidth` CSS-pixel floor while capping it at `strokeWidth` above 1x.
+Omit it for the compatible fixed-screen-width policy. The marquee remains
+fixed-screen-width and independent.
 The compatible blank-click default is `single`; opt into `double` (or
 `never`) explicitly. Target double-deselect is also opt-in: an unselected
 target paints immediately, while only a target selected before the gesture is

@@ -32,6 +32,8 @@ export async function runEditorExample(host: HTMLElement): Promise<Readonly<{
       visual: {
         color: '#ef4444',
         strokeWidth: 3,
+        strokeScale: 'viewport',
+        minStrokeWidth: 1,
         strokeAlignment: 'outside',
         displayMode: 'element-only',
       },

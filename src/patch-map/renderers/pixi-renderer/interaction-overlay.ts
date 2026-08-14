@@ -21,6 +21,8 @@ export const DEFAULT_INTERACTION_OVERLAY_POLICY: PatchMapInteractionOverlayPolic
   hidden: false,
   handleCssPx: 6,
   strokeCssPx: 2,
+  strokeScale: 'fixed',
+  minStrokeCssPx: 1,
   strokeAlignment: 'center',
   color: 0x2f80ed,
   displayMode: 'all',
@@ -61,6 +63,33 @@ export function resolveOverlayLocalCssLength(
   world: Pick<PatchMapOverlayWorldTransform, 'a' | 'b'>,
 ): number {
   return cssPx / resolveOverlayWorldScale(world);
+}
+
+/** Resolve persistent selection LOD in CSS pixels before converting to world units. */
+export function resolveSelectionScreenStrokeWidth(
+  strokeCssPx: number,
+  strokeScale: PatchMapInteractionOverlayPolicy['strokeScale'],
+  minStrokeCssPx: number,
+  world: Pick<PatchMapOverlayWorldTransform, 'a' | 'b'>,
+): number {
+  if (strokeScale === 'fixed') return strokeCssPx;
+  const viewportScale = resolveOverlayWorldScale(world);
+  return Math.min(strokeCssPx, Math.max(minStrokeCssPx, strokeCssPx * viewportScale));
+}
+
+/** Convert the effective persistent selection width into aggregate world units. */
+export function resolveSelectionLocalStrokeWidth(
+  strokeCssPx: number,
+  strokeScale: PatchMapInteractionOverlayPolicy['strokeScale'],
+  minStrokeCssPx: number,
+  world: Pick<PatchMapOverlayWorldTransform, 'a' | 'b'>,
+): number {
+  return resolveSelectionScreenStrokeWidth(
+    strokeCssPx,
+    strokeScale,
+    minStrokeCssPx,
+    world,
+  ) / resolveOverlayWorldScale(world);
 }
 
 /** Uniform viewport scale derived from the renderer-owned world matrix. */
@@ -363,6 +392,11 @@ export function normalizeInteractionOverlayPolicy(
   const transformableEntityIds = policy.transformableEntityIds === null
     ? null
     : freezeEntityIds(policy.transformableEntityIds, 'transformableEntityIds');
+  const strokeCssPx = positive(policy.strokeCssPx, 'strokeCssPx');
+  const minStrokeCssPx = positive(policy.minStrokeCssPx, 'minStrokeCssPx');
+  if (minStrokeCssPx > strokeCssPx) {
+    throw new RangeError('minStrokeCssPx cannot exceed strokeCssPx');
+  }
   return Object.freeze({
     visibleEntityIds,
     transformableEntityIds,
@@ -371,7 +405,9 @@ export function normalizeInteractionOverlayPolicy(
       : freezeEntityIds(policy.resizableEntityIds, 'resizableEntityIds'),
     hidden: policy.hidden,
     handleCssPx: positive(policy.handleCssPx, 'handleCssPx'),
-    strokeCssPx: positive(policy.strokeCssPx, 'strokeCssPx'),
+    strokeCssPx,
+    strokeScale: normalizeStrokeScale(policy.strokeScale),
+    minStrokeCssPx,
     strokeAlignment: normalizeStrokeAlignment(policy.strokeAlignment),
     color: normalizeRgb(policy.color),
     displayMode: normalizeDisplayMode(policy.displayMode),
@@ -388,6 +424,8 @@ export function sameInteractionOverlayPolicy(
   return left.hidden === right.hidden &&
     left.handleCssPx === right.handleCssPx &&
     left.strokeCssPx === right.strokeCssPx &&
+    left.strokeScale === right.strokeScale &&
+    left.minStrokeCssPx === right.minStrokeCssPx &&
     left.strokeAlignment === right.strokeAlignment &&
     left.color === right.color &&
     left.displayMode === right.displayMode &&
@@ -397,6 +435,15 @@ export function sameInteractionOverlayPolicy(
     sameNullableStringArray(left.visibleEntityIds, right.visibleEntityIds) &&
     sameNullableStringArray(left.transformableEntityIds, right.transformableEntityIds) &&
     sameNullableStringArray(left.resizableEntityIds, right.resizableEntityIds);
+}
+
+function normalizeStrokeScale(
+  value: PatchMapInteractionOverlayPolicy['strokeScale'],
+): PatchMapInteractionOverlayPolicy['strokeScale'] {
+  if (value !== 'fixed' && value !== 'viewport') {
+    throw new TypeError('interaction overlay strokeScale is unsupported');
+  }
+  return value;
 }
 
 function aggregateOverlayVertices(

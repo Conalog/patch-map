@@ -94,6 +94,8 @@ export interface PatchMapSelectionOverlayPolicyInput {
   readonly hidden: boolean;
   readonly handleCssPx: number;
   readonly strokeCssPx: number;
+  readonly strokeScale: 'fixed' | 'viewport';
+  readonly minStrokeCssPx: number;
   readonly strokeAlignment: 'outside' | 'center' | 'inside';
   readonly color: number;
   /** Main-compatible individual/group bounds composition. */

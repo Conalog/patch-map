@@ -90,11 +90,14 @@ export type PatchMapSelectionDisplayMode =
   | 'element-only'
   | 'hidden';
 
-/** Persistent selection stroke placement relative to the semantic bound. */
+/** Persistent selection stroke placement relative to the visual paint bound. */
 export type PatchMapSelectionStrokeAlignment =
   | 'outside'
   | 'center'
   | 'inside';
+
+/** Persistent selection stroke response to viewport scale. */
+export type PatchMapSelectionStrokeScale = 'fixed' | 'viewport';
 
 /** Pointer gesture that clears selection when it resolves on blank canvas. */
 export type PatchMapBlankClickClearMode = 'single' | 'double' | 'never';
@@ -103,9 +106,13 @@ export type PatchMapBlankClickClearMode = 'single' | 'double' | 'never';
 export interface PatchMapSelectionVisualPolicy {
   /** Selection-bound color. Accepts 0xRRGGBB or PATCH MAP CSS colors. */
   readonly color?: number | string;
-  /** Screen-space outline width in CSS pixels. Defaults to 2. */
+  /** Outline width in CSS pixels at 1x viewport scale. Defaults to 2. */
   readonly strokeWidth?: number;
-  /** Stroke placement relative to the semantic bound. Defaults to `center`. */
+  /** Keep screen width fixed or scale it down with the viewport. Defaults to `fixed`. */
+  readonly strokeScale?: PatchMapSelectionStrokeScale;
+  /** Viewport-scaled screen-width floor in CSS pixels. Defaults to 1. */
+  readonly minStrokeWidth?: number;
+  /** Stroke placement relative to the visual paint bound. Defaults to `center`. */
   readonly strokeAlignment?: PatchMapSelectionStrokeAlignment;
   /** Individual/group bounds composition. Defaults to `all`. */
   readonly displayMode?: PatchMapSelectionDisplayMode;

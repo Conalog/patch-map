@@ -527,6 +527,8 @@ const DEFAULT_POINTER_SELECTION_POLICY = Object.freeze({
   visual: Object.freeze({
     color: 0x2f80ed,
     strokeCssPx: 2,
+    strokeScale: 'fixed' as const,
+    minStrokeCssPx: 1,
     strokeAlignment: 'center' as const,
     mode: 'all' as const,
   }),
@@ -594,6 +596,8 @@ interface NormalizedPointerSelectionPolicy {
   readonly visual: Readonly<{
     readonly color: number;
     readonly strokeCssPx: number;
+    readonly strokeScale: 'fixed' | 'viewport';
+    readonly minStrokeCssPx: number;
     readonly strokeAlignment: 'outside' | 'center' | 'inside';
     readonly mode: PatchMapSelectionDisplayMode;
   }>;
@@ -3831,6 +3835,8 @@ export class PatchMap {
       hidden: visual.mode === 'hidden',
       handleCssPx: visual.handleCssPx,
       strokeCssPx: visual.strokeCssPx,
+      strokeScale: 'fixed',
+      minStrokeCssPx: 1,
       strokeAlignment: 'center',
       color: 0x2f80ed,
       displayMode: visual.mode,
@@ -3863,6 +3869,8 @@ export class PatchMap {
       hidden: policy.mode === 'hidden',
       handleCssPx: 6,
       strokeCssPx: policy.strokeCssPx,
+      strokeScale: policy.strokeScale,
+      minStrokeCssPx: policy.minStrokeCssPx,
       strokeAlignment: policy.strokeAlignment,
       color: policy.color,
       displayMode: policy.mode,
@@ -6544,6 +6552,17 @@ function normalizePointerSelectionVisualPolicy(
   if (!(strokeCssPx > 0) || !Number.isFinite(strokeCssPx)) {
     throw new RangeError('selection.visual.strokeWidth must be positive and finite');
   }
+  const strokeScale = value.strokeScale ?? 'fixed';
+  if (strokeScale !== 'fixed' && strokeScale !== 'viewport') {
+    throw new TypeError('selection.visual.strokeScale must be fixed or viewport');
+  }
+  const minStrokeCssPx = value.minStrokeWidth ?? Math.min(1, strokeCssPx);
+  if (!(minStrokeCssPx > 0) || !Number.isFinite(minStrokeCssPx)) {
+    throw new RangeError('selection.visual.minStrokeWidth must be positive and finite');
+  }
+  if (minStrokeCssPx > strokeCssPx) {
+    throw new RangeError('selection.visual.minStrokeWidth cannot exceed strokeWidth');
+  }
   const strokeAlignment = value.strokeAlignment ?? 'center';
   if (!['outside', 'center', 'inside'].includes(strokeAlignment)) {
     throw new TypeError('selection.visual.strokeAlignment is unsupported');
@@ -6551,6 +6570,8 @@ function normalizePointerSelectionVisualPolicy(
   return Object.freeze({
     color: normalizePointerSelectionColor(value.color, 'selection.visual.color'),
     strokeCssPx,
+    strokeScale,
+    minStrokeCssPx,
     strokeAlignment,
     mode,
   });

@@ -12,6 +12,8 @@ import {
   interactionOverlayTransformNeedsRepaint,
   normalizeInteractionOverlayPolicy,
   resolveOverlayLocalCssLength,
+  resolveSelectionLocalStrokeWidth,
+  resolveSelectionScreenStrokeWidth,
   resolveOverlayStrokeAlignment,
   sameInteractionOverlayPolicy,
   type PatchMapOverlayWorldTransform,
@@ -77,6 +79,21 @@ describe('PatchMap aggregate selection bounds display', () => {
     expect(sameInteractionOverlayPolicy(centered, outside)).toBe(false);
   });
 
+  it('treats persistent stroke LOD changes as aggregate repaint invalidations', () => {
+    const fixed = normalizeInteractionOverlayPolicy(DEFAULT_INTERACTION_OVERLAY_POLICY);
+    const viewport = normalizeInteractionOverlayPolicy({
+      ...DEFAULT_INTERACTION_OVERLAY_POLICY,
+      strokeScale: 'viewport',
+      minStrokeCssPx: 1,
+    });
+    const viewportHalfFloor = normalizeInteractionOverlayPolicy({
+      ...viewport,
+      minStrokeCssPx: 0.5,
+    });
+    expect(sameInteractionOverlayPolicy(fixed, viewport)).toBe(false);
+    expect(sameInteractionOverlayPolicy(viewport, viewportHalfFloor)).toBe(false);
+  });
+
   it.each([
     ['element-only', 2],
     ['group-only', 1],
@@ -102,6 +119,34 @@ describe('PatchMap aggregate selection bounds display', () => {
       }
     },
   );
+
+  it.each([
+    [1, 3],
+    [0.5, 1.5],
+    [0.1, 1],
+    [5, 3],
+  ] as const)(
+    'scales viewport-linked persistent width at %sx to %s CSS px across DPR',
+    (scale, expectedCssPx) => {
+      const world = transform(scale);
+      const screen = resolveSelectionScreenStrokeWidth(3, 'viewport', 1, world);
+      const local = resolveSelectionLocalStrokeWidth(3, 'viewport', 1, world);
+      expect(screen).toBeCloseTo(expectedCssPx, 10);
+      expect(local * scale).toBeCloseTo(expectedCssPx, 10);
+      for (const pixelRatio of [1, 2]) {
+        expect(local * scale * pixelRatio / pixelRatio).toBeCloseTo(expectedCssPx, 10);
+      }
+    },
+  );
+
+  it('keeps the compatible fixed persistent width and fixed marquee width', () => {
+    for (const scale of [0.1, 0.5, 1, 5]) {
+      const world = transform(scale);
+      expect(resolveSelectionScreenStrokeWidth(3, 'fixed', 1, world)).toBe(3);
+      expect(resolveSelectionLocalStrokeWidth(3, 'fixed', 1, world) * scale).toBeCloseTo(3, 10);
+      expect(resolveOverlayLocalCssLength(1, world) * scale).toBeCloseTo(1, 10);
+    }
+  });
 
   it('invalidates tessellation only for a changed scale or an active marquee transform', () => {
     const painted = transform(1);

@@ -175,6 +175,8 @@ const patchMap = await PatchMap.mount({
     visual: {
       color: '#ef4444',
       strokeWidth: 3,
+      strokeScale: 'viewport',
+      minStrokeWidth: 1,
       strokeAlignment: 'outside',
       displayMode: 'element-only',
     },
@@ -211,6 +213,11 @@ in its canvas and clears both with the mounted lifecycle. Transformer
 individual and aggregate bounds rather than filter target types.
 The prior Transformer wireframe occupies the outside of the selected bound;
 map that paint placement explicitly with `strokeAlignment: 'outside'`.
+When the prior wireframe also thinned with viewport zoom, map that behavior to
+`strokeScale: 'viewport'` plus `minStrokeWidth: 1`. The configured
+`strokeWidth` is its 1x width and high-zoom cap. Omit `strokeScale` to retain
+PatchMap's existing fixed-screen-width behavior. This mapping applies only to
+persistent selected bounds; keep marquee width under `selection.box.visual`.
 Omitting alignment intentionally retains PatchMap's centered compatibility
 default, while `inside` places the full persistent stroke within the bound.
 The migration bound is the visual/client-style paint-layout bound, not only the

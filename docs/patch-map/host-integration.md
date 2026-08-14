@@ -58,8 +58,8 @@ conversion, primary-drag versus pan arbitration, and frame invalidation. The
 host owns only the returned disposers and its plugin callbacks.
 
 Map an existing Transformer wireframe with
-`visual: { color: '#ef4444', strokeWidth: 3, strokeAlignment: 'outside',
-displayMode: 'element-only' }`.
+`visual: { color: '#ef4444', strokeWidth: 3, strokeScale: 'viewport',
+minStrokeWidth: 1, strokeAlignment: 'outside', displayMode: 'element-only' }`.
 This draws one bound per selected object, matching Transformer
 `boundsDisplayMode: 'elementOnly'`, while the explicit outside placement maps
 the prior wireframe beyond the selected element's visual/client edge. PatchMap
@@ -73,6 +73,11 @@ fillAlpha: 0.08 } }`. When `box.visual` is omitted, its color and width inherit
 from `selection.visual` for compatibility. Do not add a host canvas,
 DOM overlay, pointer listener, coordinate conversion, or RAF for selection
 paint.
+The viewport-linked policy matches a Transformer wireframe that shrinks below
+1x: it uses 3 CSS px at 1x, scales continuously to a 1 CSS px floor, and never
+exceeds 3 CSS px when zoomed in. Omit `strokeScale` to retain PatchMap's
+compatible fixed-screen-width behavior. This policy is persistent-bound only;
+the blue marquee remains its configured fixed 1 CSS px.
 
 If clicking a selectable target should keep its tooltip visible, pass
 `pointer: { hoverDuringPress: true }` at mount. This preserves the current
