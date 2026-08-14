@@ -13,5 +13,6 @@
     "skipLibCheck": true,
     "lib": ["ES2020", "DOM"] // 불필요한 타입 제거,
   },
-  "exclude": ["dist"]
+  "include": ["src/**/*"],
+  "exclude": ["dist", "src/**/*.test.js", "src/**/*.spec.js", "src/tests/**"]
 }

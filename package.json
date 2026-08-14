@@ -13,7 +13,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Conalog/patch-map.git"
+    "url": "git+https://github.com/Conalog/patch-map.git"
   },
   "commitlint": {
     "extends": [
@@ -21,27 +21,43 @@
     ]
   },
   "exports": {
-    "import": "./dist/index.esm.js",
-    "require": "./dist/index.cjs.js",
-    "types": "./dist/types/src/patchmap.d.ts"
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.esm.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
   },
-  "main": "dist/index.cjs.js",
+  "main": "dist/index.cjs",
   "module": "dist/index.esm.js",
   "umd": "dist/index.umd.js",
-  "types": "dist/types/src/patchmap.d.ts",
+  "types": "dist/index.d.ts",
+  "sideEffects": true,
   "scripts": {
     "build": "tsc && rollup -c",
+    "check": "biome check .",
     "format": "biome format",
     "lint": "biome check --staged",
     "lint:fix": "biome check --staged --write",
-    "test:unit": "vitest --project unit",
-    "test:browser": "vitest --browser=chromium",
-    "test:headless": "vitest --browser.headless",
+    "pack:check": "node scripts/check-package.mjs",
+    "test": "npm run test:unit && npm run test:headless",
+    "test:unit": "vitest --run --project unit",
+    "test:browser": "vitest --run --project browser --browser=chromium",
+    "test:headless": "vitest --run --project browser --browser.headless --no-file-parallelism",
     "prepare": "husky",
-    "release": "standard-version"
+    "prepack": "npm run build"
   },
   "files": [
-    "dist"
+    "dist/index.cjs",
+    "dist/index.esm.js",
+    "dist/index.umd.js",
+    "dist/index.d.ts",
+    "dist/index.d.cts",
+    "dist/assets/fonts/OFL-1.1.txt"
   ],
   "dependencies": {
     "@pixi-essentials/bounds": "^3.0.0",
@@ -57,6 +73,7 @@
     "pixi.js": ">=8"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "^2.3.11",
     "@commitlint/cli": "^20.3.1",
     "@commitlint/config-conventional": "^20.3.1",
@@ -69,9 +86,10 @@
     "lint-staged": "^16.2.7",
     "pixi.js": "^8.15.0",
     "playwright": "^1.57.0",
+    "publint": "^0.3.23",
     "rollup": "^4.55.1",
     "rollup-plugin-copy": "^3.5.0",
-    "standard-version": "^9.5.0",
+    "rollup-plugin-dts": "^6.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"
   },
