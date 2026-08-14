@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 import { Assets, Cache } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
@@ -17,7 +18,9 @@ import {
   builtinImageSvg,
 } from '../../src/patch-map/assets/builtin-image-glyphs';
 import {
+  BUILTIN_FIRA_CODE_FACES,
   BUILTIN_IMAGE_ALIASES,
+  PATCH_MAP_BUILTIN_FONT_ASSETS,
   builtinImageDataUri,
 } from '../../src/patch-map/assets/registration-normalization';
 import { stableHash64Hex } from '../../src/patch-map/shared/stable-hash';
@@ -80,6 +83,35 @@ class FakeAssetBackend implements PatchMapAssetBackend {
 }
 
 describe('PatchMap shared asset runtime', () => {
+  it('binds every built-in Fira Code weight to its exact package-owned face', () => {
+    expect(BUILTIN_FIRA_CODE_FACES.map(({ fontWeight }) => fontWeight)).toEqual([
+      300, 400, 500, 600, 700,
+    ]);
+    expect(new Set(BUILTIN_FIRA_CODE_FACES.map(({ descriptorSource }) => descriptorSource)).size)
+      .toBe(BUILTIN_FIRA_CODE_FACES.length);
+
+    for (const [index, face] of BUILTIN_FIRA_CODE_FACES.entries()) {
+      const bytes = readFileSync(new URL(
+        `../../src/patch-map/assets/fonts/${face.fileName}`,
+        import.meta.url,
+      ));
+      const registration = PATCH_MAP_BUILTIN_FONT_ASSETS[index];
+      expect(bytes.byteLength).toBe(face.byteLength);
+      expect(createHash('sha256').update(bytes).digest('hex')).toBe(face.sha256);
+      expect(face.descriptorSource).toContain(`${face.fileName}?sha256=${face.sha256}`);
+      expect(registration).toMatchObject({
+        alias: `FiraCode-${face.fontWeight}`,
+        kind: 'font',
+        fontWeight: face.fontWeight,
+        descriptor: {
+          src: face.descriptorSource,
+          parser: 'web-font',
+          data: { family: 'Fira Code', weights: [String(face.fontWeight)] },
+        },
+      });
+    }
+  });
+
   it('owns the exact transparent PATCH MAP v0.10 filled glyph sources', () => {
     expect(BUILTIN_IMAGE_ALIASES).toEqual([
       'object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi',
@@ -642,28 +674,24 @@ describe('PatchMap shared asset runtime', () => {
     await backend.unload(builtinRequest.key);
     expect(unload).toHaveBeenCalledWith(imageLoad?.alias);
 
-    load.mockClear();
-    await backend.load(Object.freeze({
-      key: 'patch-map-asset:font',
-      descriptor: Object.freeze({
-        src: 'patch-map-builtin://fonts/FiraCode.woff2',
+    for (const [index, registration] of PATCH_MAP_BUILTIN_FONT_ASSETS.entries()) {
+      load.mockClear();
+      const descriptor = registration.descriptor;
+      if (typeof descriptor === 'string') throw new Error('font descriptor fixture must be structured');
+      await backend.load(Object.freeze({
+        key: `patch-map-asset:font-${registration.fontWeight}`,
+        descriptor,
+        cacheIdentity: `descriptor:font-${registration.fontWeight}`,
+        packageOwned: true,
+      }));
+      expect(load.mock.calls[0]?.[0]).toMatchObject({
+        alias: `patch-map-asset:font-${registration.fontWeight}`,
         parser: 'web-font',
-        data: Object.freeze({
-          family: 'Fira Code',
-          weights: Object.freeze(['300', '400', '500', '600', '700']),
-        }),
-      }),
-      cacheIdentity: 'descriptor:font',
-      packageOwned: true,
-    }));
-    const fontLoad = load.mock.calls[0]?.[0];
-    expect(fontLoad).toMatchObject({
-      alias: 'patch-map-asset:font',
-      parser: 'web-font',
-      src: 'blob:core-v2/builtin-2',
-      data: { family: 'Fira Code', weights: ['300', '400', '500', '600', '700'] },
-    });
-    expect(fetchedSources[1]).not.toContain('patch-map-builtin://');
+        src: `blob:core-v2/builtin-${index + 2}`,
+        data: { family: 'Fira Code', weights: [String(registration.fontWeight)] },
+      });
+      expect(fetchedSources[index + 1]).toMatch(/^file:.*FiraCode-[A-Za-z]+\.woff2$/u);
+    }
 
     load.mockClear();
     const rawHostSvg = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
@@ -676,10 +704,10 @@ describe('PatchMap shared asset runtime', () => {
       packageOwned: false,
     });
     await backend.load(hostRequest);
-    expect(fetchedSources[2]).toBe(rawHostSvg);
+    expect(fetchedSources[6]).toBe(rawHostSvg);
     expect(load.mock.calls[0]?.[0]).toMatchObject({
       alias: hostRequest.key,
-      src: 'blob:core-v2/builtin-3',
+      src: 'blob:core-v2/builtin-7',
     });
     await backend.unload(hostRequest.key);
     expect(unload).toHaveBeenLastCalledWith(hostRequest.key);

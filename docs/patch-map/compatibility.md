@@ -103,6 +103,17 @@ candidate before wrap, overflow, and line-count checks. Standalone text and
 item/grid text components publish the same resolved value to both Text and
 BitmapText routes.
 
+PATCH MAP v0.10 `FiraCode` is a supported spelling of the package-owned
+`Fira Code` browser family. Light 300, Regular 400, Medium 500, SemiBold 600,
+and Bold 700 are separate content-bound files and settle during mount before
+the first Text object or capture. No weight aliases Regular bytes as a heavier
+face. CJK continues through the browser fallback Text route at the requested
+weight; Latin and numeric runs use the exact Fira Code face. The package owns
+the leases and releases them on destroy. All five faces are eager because
+synchronous dataset replacement and live weight changes must not race a lazy
+font load; concurrent PatchMap instances share the five physical resources
+and FontFace entries rather than duplicating them.
+
 ## Pointer and selection compatibility
 
 `PatchMap.mount({ selection })` optionally enables package-owned drag box

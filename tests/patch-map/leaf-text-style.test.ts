@@ -90,6 +90,25 @@ describe('PatchMap leaf text style contract', () => {
     });
   });
 
+  it('maps the PATCH MAP v0.10 FiraCode spelling to the loaded browser family', () => {
+    const store = textStore({
+      fontFamily: 'FiraCode',
+      fontSize: 16,
+      fontWeight: 600,
+      align: RenderAlign.Left,
+    });
+    const projection = textProjection({
+      authoredStyle: { fontFamily: 'FiraCode', fontWeight: 600 },
+    });
+
+    const routeStyle = textRenderStyle(store, 0, projection);
+    expect(routeStyle).toMatchObject({ fontFamily: 'Fira Code', fontWeight: 600 });
+    expect(textStyle(store, 0, routeStyle, projection.authoredStyle)).toMatchObject({
+      fontFamily: 'Fira Code',
+      fontWeight: '600',
+    });
+  });
+
   it('falls back to dense font values while publishing invalid authored weight', () => {
     const store = textStore({
       fontFamily: 'Dense Sans',

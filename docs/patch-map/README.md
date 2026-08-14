@@ -11,6 +11,7 @@ provides a redesigned engine API; it does not emulate the previous package API.
 - [Migration from an older host adapter](./migration.md)
 - [Tested compatibility matrix and release policy](./compatibility.md)
 - [Troubleshooting and support ownership](./troubleshooting.md)
+- [Package font assets and provenance](./font-assets.md)
 - [Changelog](./CHANGELOG.md)
 
 Runnable TypeScript examples are packaged in `examples/patch-map`:
@@ -23,6 +24,10 @@ Package-owned PATCH MAP v0.10 icon aliases retain their original 72×72 source
 canvas and transparent padding. Public icon `size` is the source draw-box size,
 not an automatically trimmed visible-artwork size; direct and host-registered
 sources retain their authored view boxes as well.
+
+The default PATCH MAP font is package-owned Fira Code. PatchMap prepares exact
+Light, Regular, Medium, SemiBold, and Bold faces before the first text raster;
+legacy `FiraCode` family spelling continues to work without host registration.
 
 ## Release identity
 

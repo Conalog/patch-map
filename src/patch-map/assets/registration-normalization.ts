@@ -16,12 +16,58 @@ export const BUILTIN_IMAGE_ALIASES = Object.freeze(
   Object.keys(BUILTIN_IMAGE_SVGS) as BuiltinImageAlias[],
 );
 
-export const BUILTIN_FONT_WEIGHTS = Object.freeze([300, 400, 500, 600, 700] as const);
+export const BUILTIN_FIRA_CODE_FACES = Object.freeze([
+  builtinFiraCodeFace(
+    300,
+    'FiraCode-Light.woff2',
+    102_924,
+    'e3aa3db06cfb19dfc0b0f1f38355add3e8d1ef45d3af39ce95d9ca7d96114e6c',
+  ),
+  builtinFiraCodeFace(
+    400,
+    'FiraCode-Regular.woff2',
+    103_240,
+    'a6ce59520b90e15d7062ffef214f94c8add5a4085c0bbb1683602ef227a4d1fe',
+  ),
+  builtinFiraCodeFace(
+    500,
+    'FiraCode-Medium.woff2',
+    102_384,
+    '0e04bafb989ea46e840a581e49557b229662a00021493a5744c595d0882adf28',
+  ),
+  builtinFiraCodeFace(
+    600,
+    'FiraCode-SemiBold.woff2',
+    106_992,
+    'd16779aa6dfc7c4effe686ece5bdf4b1356a7352167e37fa256f596a9d428f11',
+  ),
+  builtinFiraCodeFace(
+    700,
+    'FiraCode-Bold.woff2',
+    107_788,
+    'd778c19803c672d294663e9283c7b752cc125ab266f0ddb8e53b039da92caf67',
+  ),
+]);
 
-export const BUILTIN_FIRA_CODE_URL = new URL(
-  '../../../docs/reference/core-v2-functional-contract/evidence/fonts/FiraCode-Regular.woff2',
-  import.meta.url,
-).href;
+export const BUILTIN_FONT_WEIGHTS = Object.freeze(
+  BUILTIN_FIRA_CODE_FACES.map(({ fontWeight }) => fontWeight),
+);
+
+export const PATCH_MAP_BUILTIN_FONT_ASSETS: readonly PatchMapAssetRegistration[] = Object.freeze(
+  BUILTIN_FIRA_CODE_FACES.map((face) => Object.freeze({
+    alias: `FiraCode-${face.fontWeight}`,
+    descriptor: Object.freeze({
+      src: face.descriptorSource,
+      parser: 'web-font',
+      data: Object.freeze({
+        family: 'Fira Code',
+        weights: Object.freeze([String(face.fontWeight)]),
+      }),
+    }),
+    kind: 'font' as const,
+    fontWeight: face.fontWeight,
+  })),
+);
 
 export const PATCH_MAP_BUILTIN_ASSETS: readonly PatchMapAssetRegistration[] = Object.freeze([
   ...BUILTIN_IMAGE_ALIASES.map((alias) => Object.freeze({
@@ -29,20 +75,23 @@ export const PATCH_MAP_BUILTIN_ASSETS: readonly PatchMapAssetRegistration[] = Ob
     descriptor: `patch-map-builtin://images/${alias}.svg`,
     kind: 'image' as const,
   })),
-  ...BUILTIN_FONT_WEIGHTS.map((fontWeight) => Object.freeze({
-    alias: `FiraCode-${fontWeight}`,
-    descriptor: Object.freeze({
-      src: 'patch-map-builtin://fonts/FiraCode.woff2',
-      parser: 'web-font',
-      data: Object.freeze({
-        family: 'Fira Code',
-        weights: Object.freeze(BUILTIN_FONT_WEIGHTS.map(String)),
-      }),
-    }),
-    kind: 'font' as const,
-    fontWeight,
-  })),
+  ...PATCH_MAP_BUILTIN_FONT_ASSETS,
 ]);
+
+function builtinFiraCodeFace(
+  fontWeight: 300 | 400 | 500 | 600 | 700,
+  fileName: string,
+  byteLength: number,
+  sha256: string,
+) {
+  return Object.freeze({
+    fontWeight,
+    fileName,
+    byteLength,
+    sha256,
+    descriptorSource: `patch-map-builtin://fonts/${fileName}?sha256=${sha256}`,
+  });
+}
 
 const PACKAGE_BUILTIN_SIGNATURES = new Map(PATCH_MAP_BUILTIN_ASSETS.map((registration) => {
   const normalized = normalizeRegistration(registration);

@@ -228,6 +228,61 @@ describe('PatchMap text render publication', () => {
     await layer.destroy();
   });
 
+  it('updates 400→600→700 face intent without reconstructing unrelated text', async () => {
+    const scene = (fontWeight: number) => [
+      standaloneText('0.8~3.2m', { fontFamily: 'FiraCode', fontWeight }),
+      { ...standaloneText('stable'), id: 'stable' },
+    ];
+    const regular = parsePatchMapV010(scene(400));
+    const semibold = parsePatchMapV010(scene(600));
+    const bold = parsePatchMapV010(scene(700));
+    const layer = new AggregateLeafLayer();
+
+    layer.sync(createRenderStore(regular.document.entities, 1), {
+      fullRebuildEpoch: 1,
+      projectionContext: projectionContext(regular.projection, 1),
+    });
+    const textObject = (text: string) => layer.textContainer.children.find(
+      (child) => child instanceof Text && child.text === text,
+    ) as Text | undefined;
+    const stableTextObject = textObject('stable');
+    const regularSignature = layer.textRendererProbe('text')?.attachedSignatures?.renderer;
+    expect(textObject('0.8~3.2m')?.style).toMatchObject({
+      fontFamily: 'Fira Code',
+      fontWeight: 'normal',
+    });
+
+    layer.sync(createRenderStore(semibold.document.entities, 2), {
+      fullRebuildEpoch: 1,
+      changedRanges: [{ start: 0, end: 1 }],
+      projectionContext: projectionContext(semibold.projection, 2),
+    });
+    const semiboldSignature = layer.textRendererProbe('text')?.attachedSignatures?.renderer;
+    expect(textObject('stable')).toBe(stableTextObject);
+    expect(textObject('0.8~3.2m')?.style).toMatchObject({
+      fontFamily: 'Fira Code',
+      fontWeight: '600',
+    });
+    expect(semiboldSignature).not.toBe(regularSignature);
+
+    layer.sync(createRenderStore(bold.document.entities, 3), {
+      fullRebuildEpoch: 1,
+      changedRanges: [{ start: 0, end: 1 }],
+      projectionContext: projectionContext(bold.projection, 3),
+    });
+    expect(textObject('stable')).toBe(stableTextObject);
+    expect(textObject('0.8~3.2m')?.style).toMatchObject({
+      fontFamily: 'Fira Code',
+      fontWeight: 'bold',
+    });
+    expect(layer.textRendererProbe('text')?.attachedSignatures?.renderer).not.toBe(
+      semiboldSignature,
+    );
+    expect(layer.debugSnapshot()).toMatchObject({ fallbackTextCount: 2 });
+
+    await layer.destroy();
+  });
+
   it('includes exact paint intent in the renderer signature when semantic layout is unchanged', async () => {
     const initial = parsePatchMapV010([standaloneText('paint', { fill: '#222222' })]);
     const changed = parsePatchMapV010([standaloneText('paint', { fill: '#ff0000' })]);

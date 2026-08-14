@@ -6,6 +6,7 @@ import {
   type RenderStoreView,
 } from '../dense/renderer-types';
 import { segmentPatchMapGraphemes } from '../semantic/text-layout';
+import { canonicalPatchMapTextFontFamily } from '../semantic/text-font-family';
 import type {
   PatchMapTextGlyphResolution,
   PatchMapTextRenderStyle,
@@ -109,14 +110,16 @@ function pixiTextStroke(
 }
 
 function textFontFamily(authored: unknown, dense: string | undefined): string {
-  if (typeof authored === 'string' && authored.length > 0) return authored;
+  if (typeof authored === 'string' && authored.length > 0) {
+    return canonicalPatchMapTextFontFamily(authored);
+  }
   if (Array.isArray(authored)) {
     const family = authored.find((value): value is string => (
       typeof value === 'string' && value.length > 0
     ));
-    if (family !== undefined) return family;
+    if (family !== undefined) return canonicalPatchMapTextFontFamily(family);
   }
-  return dense && dense.length > 0 ? dense : 'Arial';
+  return dense && dense.length > 0 ? canonicalPatchMapTextFontFamily(dense) : 'Arial';
 }
 
 function textFontWeight(authored: unknown, dense: number | undefined): number {

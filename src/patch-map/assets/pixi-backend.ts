@@ -15,8 +15,7 @@ import {
   normalizeMediaType,
 } from './ingestion-policy';
 import {
-  BUILTIN_FIRA_CODE_URL,
-  BUILTIN_FONT_WEIGHTS,
+  BUILTIN_FIRA_CODE_FACES,
   BUILTIN_IMAGE_ALIASES,
   builtinImageDataUri,
   deepFreeze,
@@ -51,7 +50,7 @@ export function createPatchMapPixiAssetBackend(
           packageOwned: false,
         }));
       }
-      const logicalDescriptor = pixiDescriptor(request);
+      const logicalDescriptor = await pixiDescriptor(request);
       const pixiKey = physicalPixiKey(request, logicalDescriptor);
       let objectUrl: string | null = null;
       try {
@@ -107,7 +106,9 @@ function externalBorrowKey(request: PatchMapAssetBackendRequest): string | null 
   return request.descriptor.src;
 }
 
-function pixiDescriptor(request: PatchMapAssetBackendRequest): PatchMapAssetDescriptor {
+async function pixiDescriptor(
+  request: PatchMapAssetBackendRequest,
+): Promise<PatchMapAssetDescriptor> {
   if (!request.packageOwned) return request.descriptor;
 
   const imageMatch = /^patch-map-builtin:\/\/images\/([a-z]+)\.svg$/.exec(
@@ -121,13 +122,17 @@ function pixiDescriptor(request: PatchMapAssetBackendRequest): PatchMapAssetDesc
     });
   }
 
-  if (request.descriptor.src === 'patch-map-builtin://fonts/FiraCode.woff2') {
+  const fontFace = BUILTIN_FIRA_CODE_FACES.find(
+    ({ descriptorSource }) => descriptorSource === request.descriptor.src,
+  );
+  if (fontFace !== undefined) {
+    const { builtinFiraCodeUrl } = await import('./builtin-font-payload');
     return deepFreeze({
-      src: BUILTIN_FIRA_CODE_URL,
+      src: builtinFiraCodeUrl(fontFace.fontWeight),
       parser: 'web-font',
       data: {
         family: 'Fira Code',
-        weights: BUILTIN_FONT_WEIGHTS.map(String),
+        weights: [String(fontFace.fontWeight)],
       },
     });
   }

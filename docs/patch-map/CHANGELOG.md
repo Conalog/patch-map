@@ -68,6 +68,10 @@
   size at the preserved 16px/20px ratio. Explicit authored line height remains
   exact, and automatic font fitting evaluates each candidate with its matching
   proportional line height before wrap and overflow decisions.
+- Restored exact Fira Code Light, Regular, Medium, SemiBold, and Bold package
+  faces for weights 300 through 700. Mount now settles these content-bound
+  resources before the first text raster, maps the legacy `FiraCode` spelling
+  without mutating input, and releases the instance leases during destroy.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

@@ -254,6 +254,28 @@ describe('PatchMap deterministic text projection', () => {
     });
   });
 
+  it('keeps authored FiraCode immutable while routing it to the exact built-in family', () => {
+    const style = { fontFamily: 'FiraCode', fontSize: 52, fontWeight: 600 };
+    const input = [{
+      type: 'text',
+      id: 'legacy-family',
+      text: '구조물 높이\n0.8~3.2m',
+      style,
+    }];
+    const parsed = parsePatchMapV010(input);
+    const text = parsed.projection.textsByEntityId?.['legacy-family'];
+
+    expect(input[0]?.style).toBe(style);
+    expect(style).toEqual({ fontFamily: 'FiraCode', fontSize: 52, fontWeight: 600 });
+    expect(text?.authoredStyle).toEqual(style);
+    expect(text?.authoredStyle).not.toBe(style);
+    expect(text).toMatchObject({
+      sourceFontRuns: [{ text: '구조물 높이\n0.8~3.2m', font: 'Fira Code' }],
+      fontSizePx: 52,
+      lineHeightPx: 65,
+    });
+  });
+
   it('shares omitted line-height resolution across standalone and component text', () => {
     const source = '구조물 높이\n0.8~3.2m';
     const parsed = parsePatchMapV010([{

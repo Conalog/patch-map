@@ -391,6 +391,15 @@ fit, wrapping, overflow, or `maxLines` is decided; it does not select a font
 against a temporary fixed 20px height. The resolved value is then shared by
 the Text and BitmapText renderer routes rather than being inferred again.
 
+The default v0.10 family spelling `FiraCode` resolves to the package browser
+family `Fira Code` without mutating the caller dataset. Weights 300, 400, 500,
+600, and 700 use distinct Light, Regular, Medium, SemiBold, and Bold WOFF2
+resources. `PatchMap.mount()` waits for those exact faces before constructing
+text render objects, so `await capture.png()` observes the requested weight on
+its first capture. Korean glyphs remain on Pixi Text's browser fallback path at
+the authored weight; Latin letters and digits use the matching Fira Code face.
+See [package font assets](./font-assets.md) for digests and fallback details.
+
 Display objects, Pixi renderer internals, dense slots, mutable live nodes, and
 command classes are not public identities. Use `targets.get()/query()` for
 application addressing and `debug.snapshot()` for detached diagnostics.

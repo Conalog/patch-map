@@ -84,6 +84,11 @@ path only needs `await patchMap.destroy()`. For the pinned legacy generic-item
 profile, materialize it before passing `data`; canonical PATCH MAP v0.10 arrays
 are passed directly.
 
+Do not register the default `FiraCode` family in the host. PatchMap ships and
+settles distinct 300/400/500/600/700 Fira Code faces during mount, maps the
+legacy family spelling internally, and releases its font leases on destroy.
+Host font registration is reserved for genuinely custom families.
+
 Do not translate theme tokens into direct colors in the host adapter. The
 mount-level `theme` is detached and remains local to that instance, while
 `data.replace()` / `replaceAsync()` and concrete presentation replay continue

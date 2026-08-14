@@ -49,6 +49,7 @@ import {
   type PatchMapAssetSession,
   type PatchMapAssetSessionProbe,
 } from './assets';
+import { PATCH_MAP_BUILTIN_FONT_ASSETS } from './assets/registration-normalization';
 import {
   PATCH_MAP_HOST_ASSET_INGESTION_REVISION,
   PatchMapHostAssetIngestionAuthority,
@@ -769,9 +770,9 @@ export class PatchMap {
     try {
       engine.configurePointerPolicy(options.pointer);
       engine.configurePointerSelectionPolicy(options.selection);
-      // Root PatchMap consumers receive the stable package catalog without
-      // eagerly acquiring every builtin. Scene reconciliation leases only the
-      // aliases that are actually authored or shown by presentation overlays.
+      // Root PatchMap consumers receive the stable package catalog. Images
+      // remain lazy, while the five exact text faces must settle before any
+      // Text object can cache a system-font fallback raster.
       engine.registerAssets(instanceId);
       await engine.initialize({
         instanceId,
@@ -791,7 +792,10 @@ export class PatchMap {
         ...(options.powerPreference === undefined
           ? {}
           : { powerPreference: options.powerPreference }),
-        ...(options.assets === undefined ? {} : { requiredAssets: options.assets }),
+        requiredAssets: [
+          ...PATCH_MAP_BUILTIN_FONT_ASSETS,
+          ...(options.assets ?? []),
+        ],
       });
       const frameLoop = engine.createFrameLoop();
       if (options.data !== undefined) {

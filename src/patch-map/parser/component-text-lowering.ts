@@ -23,6 +23,10 @@ import {
   type PatchMapTextLayout,
   type PatchMapTextLayoutOptions,
 } from '../semantic/text-layout';
+import {
+  PATCH_MAP_FIRA_CODE_FAMILY,
+  canonicalPatchMapTextFontFamily,
+} from '../semantic/text-font-family';
 import { resolvePatchMapPlacementBounds } from '../semantic/placement';
 import { multiplyPatchMapRgba } from './color';
 import { normalizePatchMapImageSource } from './image-source';
@@ -66,7 +70,7 @@ import {
   type PatchMapParserRecord as JsonRecord,
 } from './value-normalization';
 
-const AVAILABLE_TEXT_FONTS = Object.freeze(['Fira Code', 'Unifont']);
+const AVAILABLE_TEXT_FONTS = Object.freeze([PATCH_MAP_FIRA_CODE_FAMILY, 'Unifont']);
 const BASIC_TEXT_STYLE_KEYS = new Set([
   'fontFamily',
   'fontSize',
@@ -779,9 +783,14 @@ function textAutoFont(
 }
 
 function requestedFont(value: unknown): string | undefined {
-  if (typeof value === 'string' && value.length > 0) return value;
+  if (typeof value === 'string' && value.length > 0) {
+    return canonicalPatchMapTextFontFamily(value);
+  }
   if (Array.isArray(value)) {
-    return value.find((entry): entry is string => typeof entry === 'string' && entry.length > 0);
+    const family = value.find(
+      (entry): entry is string => typeof entry === 'string' && entry.length > 0,
+    );
+    return family === undefined ? undefined : canonicalPatchMapTextFontFamily(family);
   }
   return undefined;
 }
