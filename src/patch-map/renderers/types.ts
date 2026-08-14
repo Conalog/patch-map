@@ -263,9 +263,20 @@ export interface RootPointerInput {
   readonly metaKey: boolean;
 }
 
+export interface RootWheelInput {
+  readonly screenX: number;
+  readonly screenY: number;
+  readonly deltaY: number;
+  readonly shiftKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly altKey: boolean;
+  readonly metaKey: boolean;
+}
+
 export interface RootInteractionHandlers {
   readonly pointer: (input: RootPointerInput) => void;
-  readonly wheel: (screenX: number, screenY: number, deltaY: number) => void;
+  /** True only when the package committed zoom and owns native consumption. */
+  readonly wheel: (input: RootWheelInput) => boolean;
   readonly contextMenu: (screenX: number, screenY: number) => boolean;
 }
 

@@ -1,5 +1,5 @@
 import type { CorePoint, CoreView } from '../dense/contracts';
-import type { RootInteractionHandlers } from '../renderers/types';
+import type { RootInteractionHandlers, RootWheelInput } from '../renderers/types';
 import {
   PATCH_MAP_DEFAULT_VIEWPORT_POLICIES,
   PATCH_MAP_VIEWPORT_POLICIES,
@@ -28,6 +28,7 @@ export interface PatchMapRootInteractionPorts {
 export interface PatchMapRootInteractionOptions {
   readonly selectionMode: 'immediate' | 'deferred';
   readonly autoRender: boolean;
+  readonly wheelActivationModifier: 'none' | 'control';
 }
 
 interface PanState {
@@ -67,7 +68,7 @@ export class PatchMapRootInteractionAuthority {
   ) {
     this.unbind = binder.bindRootInteractions({
       pointer: (input) => this.onPointerInput(input),
-      wheel: (x, y, deltaY) => this.onWheel(x, y, deltaY),
+      wheel: (input) => this.onWheel(input),
       contextMenu: (x, y) => this.onContextMenu(x, y),
     });
   }
@@ -180,18 +181,27 @@ export class PatchMapRootInteractionAuthority {
     }
   }
 
-  private onWheel(x: number, y: number, deltaY: number): void {
-    if (this.destroyed || !this.viewportPolicies.has('wheel')) return;
+  private onWheel(input: RootWheelInput): boolean {
+    if (this.destroyed || !this.viewportPolicies.has('wheel')) return false;
+    if (
+      this.options.wheelActivationModifier === 'control' &&
+      !input.ctrlKey &&
+      !input.metaKey
+    ) {
+      return false;
+    }
     const before = this.ports.readView();
     const nextScale = Math.min(
       this.viewportZoomLimits[1],
       Math.max(
         this.viewportZoomLimits[0],
-        before.scale * Math.exp(-deltaY * 0.001),
+        before.scale * Math.exp(-input.deltaY * 0.001),
       ),
     );
-    this.ports.zoomAt({ x, y }, nextScale / before.scale);
+    if (nextScale === before.scale) return false;
+    this.ports.zoomAt({ x: input.screenX, y: input.screenY }, nextScale / before.scale);
     this.publishViewportChange('wheel', before);
+    return true;
   }
 
   private onContextMenu(x: number, y: number): boolean {

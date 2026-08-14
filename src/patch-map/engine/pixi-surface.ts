@@ -840,6 +840,7 @@ export async function createPixiSurface(options: PatchMapSurfaceOptions): Promis
     powerPreference: options.powerPreference,
     autoRender: false,
     rootSelectionMode: 'deferred',
+    rootWheelActivationModifier: options.wheelActivationModifier ?? 'none',
     internalStableRecordOverlays: true,
     ...(options.parse ? { parse: options.parse } : {}),
     ...(options.requestFrame ? { requestFrame: options.requestFrame } : {}),

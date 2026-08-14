@@ -354,6 +354,19 @@ export interface PatchMapFitOptions {
   readonly targets?: PatchMapTargetsInput;
 }
 
+/** Wheel modifier required before the package consumes and zooms a wheel event. */
+export type PatchMapWheelActivationModifier = 'none' | 'control';
+
+export interface PatchMapWheelOptions {
+  /** `control` accepts either Ctrl or macOS Command on each wheel event. */
+  readonly activationModifier?: PatchMapWheelActivationModifier;
+}
+
+/** Root-owned viewport gesture activation for one mounted instance. */
+export interface PatchMapViewportOptions {
+  readonly wheel?: PatchMapWheelOptions;
+}
+
 /** Nested or dot-path PixiJS-compatible color values for one mounted instance. */
 export type PatchMapTheme = Readonly<Record<string, unknown>>;
 
@@ -385,6 +398,8 @@ export interface PatchMapOptions {
   readonly selection?: PatchMapSelectionPolicy;
   /** Root pointer projection policy; listeners and hit testing remain package-owned. */
   readonly pointer?: PatchMapPointerPolicy;
+  /** Root viewport gesture activation; omitted wheel activation remains modifier-free. */
+  readonly viewport?: PatchMapViewportOptions;
 }
 
 export interface PatchMapDataApi {

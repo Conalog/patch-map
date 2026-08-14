@@ -46,6 +46,8 @@ export interface PatchMapRuntimeOptions extends PatchMapPixiRendererOptions, Cor
   readonly autoRender?: boolean;
   /** Defer semantic selection to an Engine-owned click authority. */
   readonly rootSelectionMode?: 'immediate' | 'deferred';
+  /** Root wheel consumption gate. Defaults to modifier-free compatibility. */
+  readonly rootWheelActivationModifier?: 'none' | 'control';
   /**
    * Engine-owned surface optimization. Public Core/parser callers retain
    * deeply frozen plain projection records.

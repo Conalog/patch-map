@@ -26,6 +26,7 @@ export async function runEditorExample(host: HTMLElement): Promise<Readonly<{
     width: 360,
     height: 220,
     data: EDITOR_DATASET,
+    viewport: { wheel: { activationModifier: 'control' } },
     selection: {
       clearOnBlankClick: 'double',
       deselectOnTargetDoubleClick: true,

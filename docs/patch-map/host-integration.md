@@ -48,6 +48,13 @@ The adapter must not import previous-runtime symbols, copy renderer behavior, re
 geometry, mutate normalized output, or retain Pixi display objects. Event
 callbacks and canvas ownership remain instance-local.
 
+Map a Ctrl/Command-gated legacy wheel plugin to
+`viewport: { wheel: { activationModifier: 'control' } }` at `mount()`. PatchMap
+checks the wheel event's own `ctrlKey || metaKey`, consumes only a wheel that
+actually changes scale, and leaves ordinary wheel available to host/page
+scroll. Do not retain the legacy key or wheel listeners. Zoom buttons continue
+to call public `viewport.zoomBy()` and bypass this pointer-gesture gate.
+
 Selection and tooltip plugins attach only to the public projections. Pass
 `selection: { box, allowMultiple, isSelectable, visual, clearOnBlankClick,
 deselectOnTargetDoubleClick }` to `mount()`, subscribe to

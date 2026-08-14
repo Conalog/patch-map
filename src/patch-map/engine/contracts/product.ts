@@ -40,6 +40,7 @@ export interface PatchMapInitializeOptions {
   readonly antialias?: boolean;
   readonly background?: number | string;
   readonly zoomLimits?: readonly [number, number];
+  readonly wheelActivationModifier?: 'none' | 'control';
   readonly strategy?: 'mesh' | 'particle';
   readonly preference?: 'webgl' | 'webgpu';
   /** Normative backend request. WebGL1 is an explicit unsupported fixture. */

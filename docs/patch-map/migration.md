@@ -163,6 +163,7 @@ const patchMap = await PatchMap.mount({
   container,
   data,
   pointer: { hoverDuringPress: true },
+  viewport: { wheel: { activationModifier: 'control' } },
   selection: {
     box: {
       activationModifier: 'shift',
@@ -200,6 +201,14 @@ deterministic. Concrete hover targets use the cell ID plus the stable template
 `componentId`; pointer selection resolves the same hit to its stable cell ID,
 matching programmatic and box selection. Both subscription methods
 return a disposer and `destroy()` clears any disposer the route did not call.
+
+Replace a host wheel plugin that starts only while Ctrl/Command is pressed with
+`viewport: { wheel: { activationModifier: 'control' } }`. Do not migrate its
+keydown/keyup or wheel listeners: PatchMap checks `ctrlKey || metaKey` on the
+owned wheel event. Plain wheel then remains available to the page/container;
+accepted wheel keeps the existing cursor anchor and zoom limits. Omit the
+option for the compatible modifier-free wheel zoom, and continue using public
+`viewport.zoomBy()` for zoom buttons.
 Set `pointer.hoverDuringPress` only when the existing tooltip contract keeps
 the current hover target through a selectable-target click. Omitted/false
 retains the compatible pointer-down leave, while actual leave and cancel clear

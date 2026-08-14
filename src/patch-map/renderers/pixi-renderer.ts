@@ -1420,17 +1420,21 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     };
     // Pixi v8 forwards wheel through a passive native listener in Chromium.
     // Keep pointer input federated, but own one non-passive root canvas wheel
-    // listener so preventing page scroll never emits a browser console error.
+    // listener so only a committed zoom prevents native scroll without a warning.
     const wheel = (event: WheelEvent): void => {
-      event.preventDefault();
       const bounds = this.canvas.getBoundingClientRect();
       const scaleX = bounds.width > 0 ? this.widthValue / bounds.width : 1;
       const scaleY = bounds.height > 0 ? this.heightValue / bounds.height : 1;
-      handlers.wheel(
-        (event.clientX - bounds.left) * scaleX,
-        (event.clientY - bounds.top) * scaleY,
-        event.deltaY,
-      );
+      const handled = handlers.wheel(Object.freeze({
+        screenX: (event.clientX - bounds.left) * scaleX,
+        screenY: (event.clientY - bounds.top) * scaleY,
+        deltaY: event.deltaY,
+        shiftKey: event.shiftKey,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        metaKey: event.metaKey,
+      }));
+      if (handled) event.preventDefault();
     };
     const contextMenu = (event: MouseEvent): void => {
       const bounds = this.canvas.getBoundingClientRect();

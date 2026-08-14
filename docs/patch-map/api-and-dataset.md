@@ -74,6 +74,25 @@ tints and concrete `icon.changes.tint` overlays use the same texture. Registrati
 does not eagerly load all eight resources: the active authored or overlay
 source owns the lease, and replacement or `destroy()` releases it.
 
+Mount-time wheel activation is package-owned:
+
+```ts
+const patchMap = await PatchMap.mount({
+  container,
+  data,
+  viewport: { wheel: { activationModifier: 'control' } },
+});
+```
+
+`activationModifier` accepts `none` or `control` and defaults to `none` for
+compatibility. `control` reads each native wheel event independently and
+accepts `ctrlKey || metaKey`, including browser trackpad pinch represented as
+Ctrl+wheel. A rejected wheel does not change view state and PatchMap does not
+call `preventDefault()` or stop propagation, so the nearest scroll owner keeps
+its native behavior. An accepted wheel preserves the package's cursor anchor
+and zoom limits and is prevented only when it changes scale. This policy does
+not gate `viewport.zoomBy()`, pointer/middle pan, pinch, or Shift box selection.
+
 `update()` remains the default mutation for one logical owner,
 `updateBatch()` is the columnar high-volume form, and `transaction()` is the
 ordered heterogeneous/structural atomic form. There are no parallel `load`,
@@ -165,8 +184,9 @@ activate box selection only when Shift is held at pointer-down. That decision
 is latched for the gesture: releasing Shift after the drag starts still
 completes the box, while pressing Shift after an ordinary pan starts does not
 switch owners. `box: true` and `activationModifier: 'none'` retain the explicit
-all-primary-drag box behavior. Middle-button pan and wheel zoom remain viewport
-gestures. `allowMultiple: false` keeps the first
+all-primary-drag box behavior. Middle-button pan remains a viewport gesture;
+wheel zoom follows the independent mount-time `viewport.wheel` activation
+policy. `allowMultiple: false` keeps the first
 eligible target in deterministic paint/scene order; `true` keeps every
 eligible target and permits shift-add/toggle behavior. A thrown `isSelectable`
 callback aborts the entire pointer selection commit without changing selection

@@ -34,6 +34,13 @@ export function validateInitializeOptions(options: PatchMapInitializeOptions): v
   if (options.pixelRatio !== undefined && (!(options.pixelRatio > 0) || !Number.isFinite(options.pixelRatio))) {
     throw new RangeError('pixelRatio must be positive and finite');
   }
+  if (
+    options.wheelActivationModifier !== undefined &&
+    options.wheelActivationModifier !== 'none' &&
+    options.wheelActivationModifier !== 'control'
+  ) {
+    throw new TypeError('wheelActivationModifier must be none or control');
+  }
 }
 
 export function normalizeBackground(value: number | string): number {

@@ -18,6 +18,7 @@ import type {
   PatchMapSelectionPolicy,
   PatchMapSelectionDisplayMode,
   PatchMapTarget,
+  PatchMapViewportOptions,
 } from './developer-api/contracts';
 import type {
   PatchMapPresentationPolicyInput,
@@ -755,6 +756,7 @@ export class PatchMap {
    * destroy() releases both without exposing deterministic Engine seams.
    */
   public static async mount(options: PatchMapOptions): Promise<PatchMapInstance> {
+    const viewportOptions = normalizeViewportOptions(options.viewport);
     const target = resolvePatchMapMountContainer(options.container);
     const [width, height] = resolvePatchMapMountSize(target, options.width, options.height);
     const instanceId = options.instanceId
@@ -781,6 +783,7 @@ export class PatchMap {
         ...(options.antialias === undefined ? {} : { antialias: options.antialias }),
         ...(options.background === undefined ? {} : { background: options.background }),
         ...(options.zoomLimits === undefined ? {} : { zoomLimits: options.zoomLimits }),
+        wheelActivationModifier: viewportOptions.wheel.activationModifier,
         strategy: 'mesh',
         preference: options.backend === 'webgpu' ? 'webgpu' : 'webgl',
         backend: options.backend === 'webgpu' ? 'webgpu' : 'webgl2',
@@ -1324,6 +1327,7 @@ export class PatchMap {
       requireWebGL2: backend === 'webgl2',
       devtools: options.devtools ?? false,
       powerPreference: options.powerPreference ?? 'high-performance',
+      wheelActivationModifier: options.wheelActivationModifier ?? 'none',
       ...(parseOptions === undefined ? {} : { parse: parseOptions }),
       assetSession,
       requestFrame: () => this.requestManagedFrameLoop(),
@@ -6527,6 +6531,32 @@ function normalizePointerPolicy(
   }
   return Object.freeze({
     hoverDuringPress: value.hoverDuringPress ?? false,
+  });
+}
+
+function normalizeViewportOptions(
+  value: PatchMapViewportOptions | undefined,
+): Readonly<{ readonly wheel: Readonly<{ readonly activationModifier: 'none' | 'control' }> }> {
+  if (value === undefined) {
+    return Object.freeze({
+      wheel: Object.freeze({ activationModifier: 'none' as const }),
+    });
+  }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('viewport options must be an object');
+  }
+  const wheel = value.wheel;
+  if (wheel !== undefined && (
+    wheel === null || typeof wheel !== 'object' || Array.isArray(wheel)
+  )) {
+    throw new TypeError('viewport.wheel must be an object');
+  }
+  const activationModifier = wheel?.activationModifier ?? 'none';
+  if (activationModifier !== 'none' && activationModifier !== 'control') {
+    throw new TypeError('viewport.wheel.activationModifier must be none or control');
+  }
+  return Object.freeze({
+    wheel: Object.freeze({ activationModifier }),
   });
 }
 

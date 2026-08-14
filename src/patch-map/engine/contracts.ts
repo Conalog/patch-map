@@ -78,6 +78,7 @@ export interface PatchMapSurfaceOptions {
   readonly requireWebGL2?: boolean;
   readonly devtools?: boolean;
   readonly powerPreference: 'high-performance' | 'low-power';
+  readonly wheelActivationModifier?: 'none' | 'control';
   readonly parse?: ParsePatchMapOptions;
   readonly assetSession?: PatchMapAssetSession;
   /** Internal bridge from async Pixi/Core invalidation to the product frame owner. */

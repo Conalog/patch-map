@@ -123,5 +123,8 @@ export type {
   PatchMapUpdateStatus,
   PatchMapUpdateTargetsInput,
   PatchMapViewportApi,
+  PatchMapViewportOptions,
+  PatchMapWheelActivationModifier,
+  PatchMapWheelOptions,
 } from './patch-map/developer-api/contracts';
 export type * from './patch-map/input';

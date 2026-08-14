@@ -7,7 +7,7 @@ import {
   type PatchMapRootInteractionPorts,
 } from '../../src/patch-map/core/root-interaction-authority';
 import type { PatchMapRootPointerInput } from '../../src/patch-map/core/contracts';
-import type { RootInteractionHandlers } from '../../src/patch-map/renderers/types';
+import type { RootInteractionHandlers, RootWheelInput } from '../../src/patch-map/renderers/types';
 
 describe('PatchMapRootInteractionAuthority', () => {
   it('preserves root pointer, selection, pan, viewport, and wheel publication order', () => {
@@ -34,7 +34,7 @@ describe('PatchMapRootInteractionAuthority', () => {
     const authority = new PatchMapRootInteractionAuthority(
       binding.binder,
       ports,
-      { selectionMode: 'immediate', autoRender: true },
+      { selectionMode: 'immediate', autoRender: true, wheelActivationModifier: 'none' },
     );
     authority.bindPointerInputs((input) => journal.push(`pointer:${input.type}`));
     authority.bindViewportChanges((change) => {
@@ -45,7 +45,7 @@ describe('PatchMapRootInteractionAuthority', () => {
     expect(authority.activeGesture).toBe(true);
     binding.handlers().pointer(pointer('move', 15, 26, 1, 0));
     binding.handlers().pointer(pointer('up', 15, 26, 1, 0));
-    binding.handlers().wheel(30, 40, -100);
+    expect(binding.handlers().wheel(wheel(-100))).toBe(true);
 
     expect(journal).toEqual([
       'pointer:down',
@@ -72,7 +72,7 @@ describe('PatchMapRootInteractionAuthority', () => {
     const authority = new PatchMapRootInteractionAuthority(
       binding.binder,
       staticPorts(journal),
-      { selectionMode: 'deferred', autoRender: false },
+      { selectionMode: 'deferred', autoRender: false, wheelActivationModifier: 'none' },
     );
     authority.bindPointerInputs((input) => journal.push(`pointer:${input.type}`));
     authority.bindViewportChanges((change) => journal.push(`viewport:${change.source}`));
@@ -97,7 +97,46 @@ describe('PatchMapRootInteractionAuthority', () => {
     expect(binding.unbindCount()).toBe(1);
     expect(authority.pointerListenerCount).toBe(0);
     binding.handlers().pointer(pointer('down', 3, 4, 5, 0));
+    expect(binding.handlers().wheel(wheel(-100))).toBe(false);
     expect(journal).toHaveLength(3);
+  });
+
+  it('consumes control-policy wheel only from Ctrl or Meta and only when scale changes', () => {
+    const journal: string[] = [];
+    const binding = rootBinding();
+    let view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
+    const authority = new PatchMapRootInteractionAuthority(
+      binding.binder,
+      {
+        ...staticPorts(journal),
+        readView: () => view,
+        zoomAt: (point, factor) => {
+          journal.push(`zoom:${point.x},${point.y}`);
+          view = Object.freeze({ ...view, scale: view.scale * factor });
+        },
+      },
+      { selectionMode: 'deferred', autoRender: false, wheelActivationModifier: 'control' },
+    );
+    authority.bindViewportChanges((change) => journal.push(`viewport:${change.source}`));
+
+    expect(binding.handlers().wheel(wheel(-100))).toBe(false);
+    expect(binding.handlers().wheel(wheel(-100, { shiftKey: true }))).toBe(false);
+    expect(binding.handlers().wheel(wheel(-100, { altKey: true }))).toBe(false);
+    expect(journal).toEqual([]);
+
+    expect(binding.handlers().wheel(wheel(-100, { ctrlKey: true }))).toBe(true);
+    expect(binding.handlers().wheel(wheel(-100, { metaKey: true }))).toBe(true);
+    expect(journal).toEqual([
+      'zoom:30,40',
+      'viewport:wheel',
+      'zoom:30,40',
+      'viewport:wheel',
+    ]);
+
+    authority.setZoomLimits([0.5, view.scale]);
+    expect(binding.handlers().wheel(wheel(-100, { ctrlKey: true }))).toBe(false);
+    expect(journal).toHaveLength(4);
+    expect(authority.destroy()).toBe(true);
   });
 
   it('retries a failed unbind without repeating successful teardown', () => {
@@ -115,7 +154,7 @@ describe('PatchMapRootInteractionAuthority', () => {
     const authority = new PatchMapRootInteractionAuthority(
       binder,
       staticPorts([]),
-      { selectionMode: 'deferred', autoRender: false },
+      { selectionMode: 'deferred', autoRender: false, wheelActivationModifier: 'none' },
     );
 
     expect(handlers).not.toBeNull();
@@ -147,6 +186,21 @@ function rootBinding(): Readonly<{
       return current;
     },
     unbindCount: () => unbound,
+  });
+}
+
+function wheel(
+  deltaY: number,
+  modifiers: Partial<Pick<RootWheelInput, 'shiftKey' | 'ctrlKey' | 'altKey' | 'metaKey'>> = {},
+): RootWheelInput {
+  return Object.freeze({
+    screenX: 30,
+    screenY: 40,
+    deltaY,
+    shiftKey: modifiers.shiftKey ?? false,
+    ctrlKey: modifiers.ctrlKey ?? false,
+    altKey: modifiers.altKey ?? false,
+    metaKey: modifiers.metaKey ?? false,
   });
 }
 

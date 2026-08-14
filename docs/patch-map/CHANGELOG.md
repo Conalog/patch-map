@@ -56,6 +56,10 @@
   `minStrokeWidth` floor. The compatible fixed-screen default, high-zoom cap,
   visual paint bounds, outside alignment, and fixed marquee width remain
   unchanged.
+- Added root `viewport.wheel.activationModifier` with compatible `none` and
+  opt-in `control` semantics. Ctrl/Command wheel retains package cursor-anchor
+  zoom and native consumption, while rejected plain/Shift/Alt wheel remains
+  available to page or container scrolling without host listeners.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

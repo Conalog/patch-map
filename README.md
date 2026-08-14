@@ -55,6 +55,7 @@ const patchMap = await PatchMap.mount({
     primary: { default: '#0c73bf', dark: '#063559' },
     gray: { light: '#9eb3c3' },
   },
+  viewport: { wheel: { activationModifier: 'control' } },
   fit: { padding: 24 },
 });
 
@@ -71,6 +72,13 @@ await patchMap.destroy();
 animation frame loop, observes the host size, fits the initial data, and
 releases those resources in `destroy()`. Use `backend: 'webgpu'` only for an
 explicit experimental session.
+
+Wheel zoom remains modifier-free when `viewport` is omitted. Set
+`viewport: { wheel: { activationModifier: 'control' } }` when only Ctrl+wheel
+or macOS Command+wheel should zoom the map. Plain, Shift-only, and Alt-only
+wheel events are left unconsumed so their container or page can scroll.
+Programmatic `viewport.zoomBy()`, pan, pinch, and selection gestures are
+unchanged.
 
 `theme` is a partial, instance-local palette override. Nested objects and
 dot-path keys are both accepted; omitted keys fall back to PatchMap's

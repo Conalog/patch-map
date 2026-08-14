@@ -114,6 +114,14 @@ the same selectable target is clicked. The option defaults to `false` for
 compatibility. A real leave or pointer cancel still publishes `leave` and
 clears the retained target.
 
+Wheel zoom remains modifier-free when the mount option is omitted. Consumers
+that previously enabled zoom only while Ctrl/Command was held map that behavior
+to `viewport: { wheel: { activationModifier: 'control' } }`. The package reads
+`ctrlKey || metaKey` directly from each wheel event; it adds no keyboard state
+listener. Rejected plain/Shift/Alt wheel is not prevented or propagation-
+stopped, while an accepted scale-changing wheel retains cursor anchoring and
+zoom clamping. Public `viewport.zoomBy()` is independent of this gesture gate.
+
 Selection paint is configured only at the root mount boundary with
 `selection.visual`. Color, 1x CSS-pixel stroke width, fixed or viewport-linked
 low-zoom scaling (with a CSS-pixel floor), outside/center/inside

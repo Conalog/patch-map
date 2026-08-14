@@ -51,6 +51,7 @@ const data = [{
 const patchMap = await PatchMap.mount({
   container: '#map',
   data,
+  viewport: { wheel: { activationModifier: 'control' } },
   fit: { padding: 24 },
 });
 
@@ -67,6 +68,12 @@ await patchMap.destroy();
 frame loop, host 크기 관찰, 최초 fit을 자동으로 소유합니다. `destroy()`만
 호출하면 이 자원도 함께 정리됩니다. `backend: 'webgpu'`는 실험 세션을
 명시적으로 실행할 때만 사용하세요.
+
+`viewport`를 생략하면 기존처럼 일반 wheel도 지도 zoom에 사용합니다.
+`viewport: { wheel: { activationModifier: 'control' } }`을 설정하면 각 wheel
+event의 Ctrl 또는 macOS Command가 눌린 경우에만 zoom하고, 일반/Shift-only/
+Alt-only wheel은 소비하지 않아 container나 page scroll을 유지합니다.
+`viewport.zoomBy()`, pan, pinch, selection gesture에는 영향이 없습니다.
 
 host tooltip과 selection plugin은 hit test를 복제하지 않고 package가 소유한
 pointer projection을 사용합니다. 일반 primary drag는 viewport pan으로
