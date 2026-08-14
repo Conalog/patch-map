@@ -42,13 +42,13 @@ import {
 import {
   DEFAULT_BASELINE,
   DEFAULT_FONT_SIZE,
-  DEFAULT_LINE_HEIGHT,
   MAX_SEMANTIC_ADVANCE,
   assertFinite,
   bounds,
   deepFreeze,
   freeze,
   maximum,
+  resolveLineHeightPx,
   saturatingMultiply,
 } from './text-layout/shared';
 
@@ -76,14 +76,14 @@ export function layoutPatchMapText(options: PatchMapTextLayoutOptions): PatchMap
   const breakWords = options.breakWords ?? false;
   const overflow = options.overflow ?? 'visible';
   const letterSpacingPx = options.letterSpacingPx ?? 0;
-  const lineHeightPx = options.lineHeightPx ?? DEFAULT_LINE_HEIGHT;
   const fontSizePx = chooseFontSize(
     options,
     layoutSource,
-    lineHeightPx,
+    options.lineHeightPx,
     letterSpacingPx,
     effectiveWordWrapWidthPx,
   );
+  const lineHeightPx = resolveLineHeightPx(fontSizePx, options.lineHeightPx);
   const alphabeticBaselinePx =
     options.alphabeticBaselinePx ?? (fontSizePx / DEFAULT_FONT_SIZE) * DEFAULT_BASELINE;
 

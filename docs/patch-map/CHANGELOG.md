@@ -64,6 +64,10 @@
   per axis remains a click, while a strict excursion beyond 4px activates the
   sticky primary-pan or Shift-box owner independently of viewport zoom,
   renderer DPR/resolution, and pointer event cadence.
+- Fixed omitted multiline text line height so it scales with the resolved font
+  size at the preserved 16px/20px ratio. Explicit authored line height remains
+  exact, and automatic font fitting evaluates each candidate with its matching
+  proportional line height before wrap and overflow decisions.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

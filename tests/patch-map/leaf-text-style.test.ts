@@ -70,6 +70,26 @@ describe('PatchMap leaf text style contract', () => {
     });
   });
 
+  it('publishes the resolved omitted multiline line height to both Pixi text routes', () => {
+    const store = textStore({
+      fontFamily: 'Fira Code',
+      fontSize: 52,
+      fontWeight: 400,
+      align: RenderAlign.Left,
+    });
+    const projection = textProjection({
+      fontSizePx: 52,
+      lineHeightPx: 65,
+    });
+
+    const routeStyle = textRenderStyle(store, 0, projection);
+    expect(routeStyle).toMatchObject({ fontSize: 52, lineHeight: 65 });
+    expect(textStyle(store, 0, routeStyle, projection.authoredStyle)).toMatchObject({
+      fontSize: 52,
+      lineHeight: 65,
+    });
+  });
+
   it('falls back to dense font values while publishing invalid authored weight', () => {
     const store = textStore({
       fontFamily: 'Dense Sans',

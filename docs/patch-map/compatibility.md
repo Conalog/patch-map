@@ -91,6 +91,18 @@ sizing; no source is implicitly trimmed.
 Distinct host aliases remain instance registrations and cannot replace a
 reserved built-in alias.
 
+## Text layout compatibility
+
+PATCH MAP v0.10 `style.lineHeight` remains optional. When supplied as a valid
+finite number, the authored value is exact and may intentionally overlap
+glyphs. When omitted, the deterministic semantic layout derives line height
+from the resolved font size using the preserved 16px-to-20px default ratio
+(`fontSize * 1.25`). Thus omitted `lineHeight` resolves to 20px at the default
+16px font and 65px at 52px. Automatic font fitting applies this ratio to every
+candidate before wrap, overflow, and line-count checks. Standalone text and
+item/grid text components publish the same resolved value to both Text and
+BitmapText routes.
+
 ## Pointer and selection compatibility
 
 `PatchMap.mount({ selection })` optionally enables package-owned drag box

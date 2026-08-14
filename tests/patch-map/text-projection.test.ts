@@ -253,4 +253,42 @@ describe('PatchMap deterministic text projection', () => {
       fontSize: 16,
     });
   });
+
+  it('shares omitted line-height resolution across standalone and component text', () => {
+    const source = '구조물 높이\n0.8~3.2m';
+    const parsed = parsePatchMapV010([{
+      type: 'text',
+      id: 'standalone-large',
+      text: source,
+      style: { fontFamily: 'Fira Code', fontSize: 52 },
+    }, {
+      type: 'item',
+      id: 'text-owner',
+      size: { width: 400, height: 200 },
+      components: [{
+        type: 'text',
+        id: 'component-large',
+        text: source,
+        style: { fontFamily: 'Fira Code', fontSize: 52 },
+      }],
+    }]);
+    const standalone = parsed.projection.textsByEntityId?.['standalone-large'];
+    const component = parsed.projection.textsByEntityId?.['text-owner::text:component-large'];
+
+    expect(standalone).toMatchObject({
+      fontSizePx: 52,
+      lineHeightPx: 65,
+      layoutBounds: { height: 130 },
+      rendererRoute: 'fallback-text',
+    });
+    expect(component).toMatchObject({
+      fontSizePx: 52,
+      lineHeightPx: 65,
+      layoutBounds: { height: 130 },
+      rendererRoute: 'fallback-text',
+    });
+    expect(component?.fontSizePx).toBe(standalone?.fontSizePx);
+    expect(component?.lineHeightPx).toBe(standalone?.lineHeightPx);
+    expect(component?.rendererRoute).toBe(standalone?.rendererRoute);
+  });
 });

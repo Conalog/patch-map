@@ -42,6 +42,29 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     expect(result.diagnostics).toEqual([]);
   });
 
+  it('scales omitted line height from the resolved font size without changing explicit input', () => {
+    const defaultSize = layoutPatchMapText({ source: 'A\nB' });
+    const largeOmitted = layoutPatchMapText({
+      source: '구조물 높이\n0.8~3.2m',
+      fontSizePx: 52,
+      requestedFont: 'Fira Code',
+      availableRequestedFonts: ['Fira Code'],
+      wordWrapWidthPx: null,
+    });
+    const largeExplicit = layoutPatchMapText({
+      source: 'A\nB',
+      fontSizePx: 52,
+      lineHeightPx: 20,
+    });
+
+    expect(defaultSize.lineHeightPx).toBe(20);
+    expect(defaultSize.layoutBounds.height).toBe(40);
+    expect(largeOmitted.lineHeightPx).toBe(65);
+    expect(largeOmitted.layoutBounds.height).toBe(130);
+    expect(largeExplicit.lineHeightPx).toBe(20);
+    expect(largeExplicit.layoutBounds.height).toBe(40);
+  });
+
   it('preserves exact source while normalizing CRLF and CR only for layout', () => {
     const crlf = layoutPatchMapText({ source: 'A\r\nB' });
     const cr = layoutPatchMapText({ source: 'A\rB' });
@@ -261,6 +284,49 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     expect(tie.fontSizePx).toBe(16);
     expect(noneFits.fontSizePx).toBe(8);
     expect(noneFits.layoutBounds.width).toBe(40);
+  });
+
+  it('resolves omitted line height for every automatic-font candidate', () => {
+    const omitted = layoutPatchMapText({
+      source: 'A\nB',
+      contentFrame: { width: 100, height: 100 },
+      autoFont: { minPx: 8, maxPx: 64 },
+    });
+    const explicit = layoutPatchMapText({
+      source: 'A\nB',
+      lineHeightPx: 20,
+      contentFrame: { width: 100, height: 100 },
+      autoFont: { minPx: 8, maxPx: 64 },
+    });
+
+    expect(omitted.fontSizePx).toBe(40);
+    expect(omitted.lineHeightPx).toBe(50);
+    expect(omitted.naturalLayoutBounds.height).toBe(100);
+    expect(explicit.fontSizePx).toBe(64);
+    expect(explicit.lineHeightPx).toBe(20);
+    expect(explicit.naturalLayoutBounds.height).toBe(40);
+  });
+
+  it('uses resolved omitted line height for overflow line limits', () => {
+    const omitted = layoutPatchMapText({
+      source: 'A\nB\nC',
+      fontSizePx: 52,
+      contentFrame: { width: 100, height: 129 },
+      overflow: 'hidden',
+    });
+    const explicit = layoutPatchMapText({
+      source: 'A\nB\nC',
+      fontSizePx: 52,
+      lineHeightPx: 20,
+      contentFrame: { width: 100, height: 129 },
+      overflow: 'hidden',
+    });
+
+    expect(omitted.lineHeightPx).toBe(65);
+    expect(omitted.visibleLines).toEqual(['A']);
+    expect(omitted.layoutBounds.height).toBe(65);
+    expect(explicit.visibleLines).toEqual(['A', 'B', 'C']);
+    expect(explicit.layoutBounds.height).toBe(60);
   });
 
   it('replaces declared missing glyphs while preserving exact source and run identity', () => {

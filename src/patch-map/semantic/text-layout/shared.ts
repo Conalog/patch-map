@@ -5,6 +5,7 @@ import {
 
 export const DEFAULT_FONT_SIZE = 16;
 export const DEFAULT_LINE_HEIGHT = 20;
+export const DEFAULT_LINE_HEIGHT_RATIO = DEFAULT_LINE_HEIGHT / DEFAULT_FONT_SIZE;
 export const DEFAULT_BASELINE = 16;
 export const ELLIPSIS = '…';
 export const MISSING_GLYPH_BOX = '□';
@@ -42,6 +43,11 @@ export function saturatingMultiply(left: number, right: number): number {
       : -MAX_SEMANTIC_ADVANCE;
   }
   return result;
+}
+
+/** Preserve the 16px/20px semantic default while scaling omitted line height. */
+export function resolveLineHeightPx(fontSizePx: number, explicit?: number): number {
+  return explicit ?? saturatingMultiply(fontSizePx, DEFAULT_LINE_HEIGHT_RATIO);
 }
 
 export function assertFinite(value: number, path: string): void {

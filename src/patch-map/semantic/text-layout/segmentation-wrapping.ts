@@ -20,6 +20,7 @@ import {
   assertFiniteNonNegative,
   freeze,
   maximum,
+  resolveLineHeightPx,
   saturatingAdd,
   saturatingMultiply,
   saturatingSubtract,
@@ -182,7 +183,7 @@ function isPrintableAscii(source: string): boolean {
 export function chooseFontSize(
   options: PatchMapTextLayoutOptions,
   layoutSource: string,
-  lineHeightPx: number,
+  explicitLineHeightPx: number | undefined,
   letterSpacingPx: number,
   effectiveWordWrapWidthPx: number | null,
 ): number {
@@ -192,7 +193,7 @@ export function chooseFontSize(
     !autoFontCandidateFits(
       options,
       layoutSource,
-      lineHeightPx,
+      explicitLineHeightPx,
       letterSpacingPx,
       effectiveWordWrapWidthPx,
       minPx,
@@ -208,7 +209,7 @@ export function chooseFontSize(
       autoFontCandidateFits(
         options,
         layoutSource,
-        lineHeightPx,
+        explicitLineHeightPx,
         letterSpacingPx,
         effectiveWordWrapWidthPx,
         candidate,
@@ -225,11 +226,12 @@ export function chooseFontSize(
 function autoFontCandidateFits(
   options: PatchMapTextLayoutOptions,
   layoutSource: string,
-  lineHeightPx: number,
+  explicitLineHeightPx: number | undefined,
   letterSpacingPx: number,
   effectiveWordWrapWidthPx: number | null,
   candidate: number,
 ): boolean {
+  const lineHeightPx = resolveLineHeightPx(candidate, explicitLineHeightPx);
   const core = produceLayoutCore({
     source: options.source,
     layoutSource,

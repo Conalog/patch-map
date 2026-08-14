@@ -381,6 +381,16 @@ the package types. Unsupported records or values produce structured
 diagnostics or an atomic error. PatchMap never claims successful loading after
 dropping unsupported required data.
 
+Text layout has one parser-owned line-height policy for standalone text and
+item/grid text components. An explicit finite `style.lineHeight` is preserved
+exactly, including values smaller than the font size. When `lineHeight` is
+omitted, PatchMap resolves it from the final font size at the established
+`20 / 16` ratio: a 16px font uses 20px and a 52px font uses 65px. `autoFont`
+evaluates each candidate with that candidate's proportional line height before
+fit, wrapping, overflow, or `maxLines` is decided; it does not select a font
+against a temporary fixed 20px height. The resolved value is then shared by
+the Text and BitmapText renderer routes rather than being inferred again.
+
 Display objects, Pixi renderer internals, dense slots, mutable live nodes, and
 command classes are not public identities. Use `targets.get()/query()` for
 application addressing and `debug.snapshot()` for detached diagnostics.
