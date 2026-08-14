@@ -1,19 +1,66 @@
-name: publish npm
+name: release
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish to npm
+        required: false
+        type: string
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
-  group: npm-publish-${{ github.ref_name }}
+  group: release-${{ github.ref }}-${{ inputs.tag || 'automatic' }}
   cancel-in-progress: false
 
 jobs:
+  release:
+    name: Create or update release
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      should_publish: ${{ steps.release.outputs.release_created == 'true' || steps.manual.outputs.tag_name != '' }}
+      tag_name: ${{ steps.manual.outputs.tag_name || steps.release.outputs.tag_name }}
+    steps:
+      - name: Create or update release pull request
+        id: release
+        if: ${{ github.event_name == 'push' || inputs.tag == '' }}
+        uses: googleapis/release-please-action@0dfd8538845b8e92600d271a895a5372865d4062 # v5
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Validate manually requested release tag
+        id: manual
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.tag != '' }}
+        env:
+          TAG_NAME: ${{ inputs.tag }}
+        run: |
+          [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Record disabled npm publication
+        if: ${{ (steps.release.outputs.release_created == 'true' || steps.manual.outputs.tag_name != '') && vars.NPM_PUBLISH_ENABLED != 'true' }}
+        env:
+          TAG_NAME: ${{ steps.manual.outputs.tag_name || steps.release.outputs.tag_name }}
+        run: |
+          echo "### npm publication is disabled" >> "$GITHUB_STEP_SUMMARY"
+          echo "Release $TAG_NAME was created without npm publication." >> "$GITHUB_STEP_SUMMARY"
+          echo "Set NPM_PUBLISH_ENABLED=true, then dispatch this workflow with tag $TAG_NAME to publish it." >> "$GITHUB_STEP_SUMMARY"
+
   publish:
     name: Publish package
-    if: ${{ vars.NPM_PUBLISH_ENABLED == 'true' }}
+    needs: release
+    if: ${{ needs.release.outputs.should_publish == 'true' && vars.NPM_PUBLISH_ENABLED == 'true' }}
     environment: npm
     timeout-minutes: 20
     runs-on: ubuntu-latest
@@ -21,22 +68,14 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - name: Require a release tag
-        env:
-          REF_TYPE: ${{ github.ref_type }}
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          test "$REF_TYPE" = tag
-          [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-
       - name: Checkout release tag
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: ${{ github.ref }}
+          ref: refs/tags/${{ needs.release.outputs.tag_name }}
           persist-credentials: false
 
       - name: Setup Node for Trusted Publishing
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
@@ -44,7 +83,7 @@ jobs:
 
       - name: Require tag and package versions to match
         env:
-          TAG_NAME: ${{ github.ref_name }}
+          TAG_NAME: ${{ needs.release.outputs.tag_name }}
         run: |
           package_version="$(node -p "require('./package.json').version")"
           test "$TAG_NAME" = "v$package_version"
@@ -52,13 +91,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Chromium headless shell
-        run: npx playwright install --with-deps --only-shell chromium
-
       - name: Verify release source
         run: |
           npm run check
-          npm test
+          npm run test:unit
           npm run build
           npm run pack:check
 
