@@ -73,6 +73,12 @@ have transparent backgrounds and white monochrome artwork so authored icon
 tints and concrete `icon.changes.tint` overlays use the same texture. Registration
 does not eagerly load all eight resources: the active authored or overlay
 source owns the lease, and replacement or `destroy()` releases it.
+Each built-in retains the exact PATCH MAP v0.10 `0 0 72 72` SVG view box and
+its transparent outer padding. Icon `size` sets the source canvas/draw box;
+visible artwork remains at its authored ratio inside that box. The inverter's
+54-unit artwork therefore renders at approximately 18×18 pixels inside a
+`size: 24` draw box. Host registrations and direct URLs follow their own
+authored view boxes and are never automatically trimmed.
 
 Mount-time wheel activation is package-owned:
 

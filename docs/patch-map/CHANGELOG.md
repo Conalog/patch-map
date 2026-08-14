@@ -22,8 +22,8 @@
   built-in SVG catalog without changing host-injected alias ownership. Built-in
   Pixi cache identities now include the exact SVG content so an older glyph
   cannot satisfy the same public alias after an artifact replacement. Runtime
-  view boxes remove only the catalog artwork's transparent outer padding, so
-  public icon `size` describes its visible glyph bounds.
+  textures preserve the catalog's exact 72×72 view boxes and transparent outer
+  padding, so public icon `size` describes the source canvas/draw box.
 - Added root `selection.visual` color, CSS-pixel stroke, and display-mode
   policy plus a package-owned transient box marquee. Display modes preserve
   Transformer bounds semantics: individual, aggregate, both, or hidden,

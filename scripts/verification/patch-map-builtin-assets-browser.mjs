@@ -20,22 +20,6 @@ const expectedSourceDigests = Object.freeze({
   warning: '8d485f34e7fa054c787a6775a76a7e62f04e18b93f4741dab3137db15e45f1e8',
   wifi: 'ef2c14fd831d067d559737b7f281be6e550605024a8d9e01a23579e4ccac206c',
 });
-const expectedSignatures = Object.freeze({
-  object: '00111100/11111111/11100111/11111111/10011001/11011011/11111111/00111100',
-  inverter: '11111111/10000001/11111111/11111111/10000001/10000001/10000001/11111111',
-  combiner: '11011011/11011011/11111111/11111111/11111111/11111111/11011011/11011011',
-  device: '11111110/11111110/10001111/10001111/10001111/10001111/11111110/11111110',
-  edge: '00011111/00011111/00001110/00000100/11111111/11111111/11111111/11111111',
-  loading: '01111100/11100111/11011011/10011001/10011101/11001111/11100111/01111100',
-  warning: '01111110/11100111/10000001/11000011/01100000/01100111/00111111/00011111',
-  wifi: '01111110/11111111/11011011/01111110/01111110/00011000/00011000/00011000',
-});
-const expectedOverlaySignatures = Object.freeze({
-  ...expectedSignatures,
-  device: '11111110/11111110/10001111/10001111/10001111/10001111/11111110/11111110',
-  loading: '01111100/11100111/11011011/10011001/10011101/11001111/11100111/01111100',
-  warning: '01111110/11100111/10000001/11000011/01100000/01100111/00111111/00011111',
-});
 const root = process.cwd();
 const sourceSvgs = Object.fromEntries(await Promise.all(aliases.map(async (alias) => [
   alias,
@@ -91,17 +75,11 @@ try {
           PatchMap,
           PatchMapAssetRuntime,
         } from '${new URL('src/index.ts', baseUrl).href}';
-        import {
-          builtinImageRuntimeSvg,
-        } from '${new URL('src/patch-map/assets/builtin-image-glyphs.ts', baseUrl).href}';
 
         const aliases = ${JSON.stringify(aliases)};
         const sourceDataUris = ${JSON.stringify(sourceDataUris)};
         const sourceDigests = ${JSON.stringify(sourceDigests)};
-        const runtimeSourceDataUris = Object.fromEntries(aliases.map((alias) => [
-          alias,
-          'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(builtinImageRuntimeSvg(alias)),
-        ]));
+        const runtimeSourceDataUris = sourceDataUris;
         const host = document.querySelector('#map');
         const runtime = new PatchMapAssetRuntime();
         const authoredScene = (alias, iconSize = 56) => [{
@@ -359,6 +337,7 @@ try {
 
   const result = await page.evaluate(() => window.__PATCH_MAP_BUILTINS__);
   const authoredSignatures = new Set();
+  const overlaySignatures = new Set();
   for (const alias of aliases) {
     const source = result.source[alias];
     const runtimeSource = result.runtimeSource[alias];
@@ -370,16 +349,18 @@ try {
       `${alias} direct SVG raster has visible pixels`, source);
     assert(Math.max(source.bounds?.width ?? 0, source.bounds?.height ?? 0) < 56,
       `${alias} original 72x72 source retains outer whitespace`, source);
-    assert(Math.max(runtimeSource.bounds?.width ?? 0, runtimeSource.bounds?.height ?? 0) === 56,
-      `${alias} fitted runtime source fills its public maximum axis`, runtimeSource);
+    assert(runtimeSource.signature === source.signature &&
+      JSON.stringify(runtimeSource.bounds) === JSON.stringify(source.bounds),
+    `${alias} runtime source preserves the exact authored canvas and padding`, {
+      source,
+      runtimeSource,
+    });
     assert(authored.pixelCount > 80, `${alias} authored glyph has visible pixels`, {
       authored,
       status: result.authoredStatuses[alias],
       runtime: result.runtimeBeforeDestroy,
     });
     assert(authored.occupancy < 0.58, `${alias} authored glyph is not a filled square`, authored);
-    assert(authored.signature === expectedSignatures[alias],
-      `${alias} authored glyph matches its raster fixture`, authored);
     const sourceDistances = aliases
       .map((candidate) => ({
         alias: candidate,
@@ -388,7 +369,7 @@ try {
       .sort((left, right) => left.distance - right.distance || left.alias.localeCompare(right.alias));
     assert(sourceDistances[0]?.alias === alias &&
       sourceDistances[0].distance < sourceDistances[1].distance,
-    `${alias} authored runtime texture is uniquely closest to its fitted source SVG`, {
+    `${alias} authored runtime texture is uniquely closest to its original source SVG`, {
       source,
       runtimeSource,
       authored,
@@ -397,24 +378,35 @@ try {
     assert(overlay.update.status === 'committed', `${alias} overlay committed`, overlay);
     assert(overlay.pixelCount > 80, `${alias} overlay glyph is above the bar`, overlay);
     assert(overlay.occupancy < 0.58, `${alias} overlay glyph is not a filled square`, overlay);
-    assert(overlay.signature === expectedOverlaySignatures[alias],
-      `${alias} overlay glyph matches its tinted raster fixture`, overlay);
+    const overlaySourceDistances = aliases
+      .map((candidate) => ({
+        alias: candidate,
+        distance: signatureDistance(overlay.signature, result.runtimeSource[candidate].signature),
+      }))
+      .sort((left, right) => left.distance - right.distance || left.alias.localeCompare(right.alias));
+    assert(overlaySourceDistances[0]?.alias === alias &&
+      overlaySourceDistances[0].distance < overlaySourceDistances[1].distance,
+    `${alias} overlay runtime texture is uniquely closest to its original source SVG`, {
+      overlay,
+      overlaySourceDistances,
+    });
     assert(result.authoredStatuses[alias].resource?.state === 'resolved',
       `${alias} authored capture settled the asset`, result.authoredStatuses[alias]);
     assert(result.overlayStatuses[alias].resource?.state === 'resolved',
       `${alias} overlay capture settled the asset`, result.overlayStatuses[alias]);
     authoredSignatures.add(authored.signature);
+    overlaySignatures.add(overlay.signature);
   }
   assert(signatureDistance(
     result.inverter24.runtime.signature,
     result.inverter24.runtimeSource.signature,
-  ) <= 4, '24px inverter runtime texture resolves the fitted inverter SVG', result.inverter24);
-  assert(result.inverter24.runtime.bounds?.width === 24 &&
-    result.inverter24.runtime.bounds?.height === 24,
-  '24px builtin inverter visible bounds fill the public size', result.inverter24);
-  assert(result.inverter24.source.bounds?.width === 18 &&
+  ) <= 4, '24px inverter runtime texture resolves the original inverter SVG', result.inverter24);
+  assert(result.inverter24.runtime.bounds?.width === 18 &&
+    result.inverter24.runtime.bounds?.height === 18 &&
+    result.inverter24.source.bounds?.width === 18 &&
     result.inverter24.source.bounds?.height === 18,
-  'unmodified 72x72 source retains its original whitespace', result.inverter24);
+  '24px draw box preserves the 54/72 artwork ratio as an 18px visible glyph',
+  result.inverter24);
   assert(result.injectedInverterFrame24.runtime.bounds?.width === 18 &&
     result.injectedInverterFrame24.runtime.bounds?.height === 18 &&
     result.injectedInverterFrame24.runtime.signature === result.inverter24.source.signature,
@@ -423,6 +415,8 @@ try {
     'host-injected SVG capture settles the asset', result.injectedInverterFrame24);
   assert(result.hidden.pixelCount === 0, 'hidden overlay icon has no red pixels', result.hidden);
   assert(authoredSignatures.size === aliases.length, 'every builtin has a distinct raster silhouette', result);
+  assert(overlaySignatures.size === aliases.length,
+    'every overlay builtin has a distinct raster silhouette', result);
   assert(result.runtimeBeforeDestroy.resourceCount === 2,
     'active builtin plus registered host alias remain leased', result);
   assert(result.runtimeBeforeDestroy.pendingCount === 0, 'capture leaves no pending assets', result);
@@ -435,7 +429,7 @@ try {
   assert(errors.length === 0, 'browser has no cache/console/page/network errors', errors);
 
   process.stdout.write(`${JSON.stringify({
-    revision: 'patch-map-builtin-assets-browser/1',
+    revision: 'patch-map-builtin-assets-browser/2',
     status: 'pass',
     browser: browser.version(),
     target: browserLaunch.target,

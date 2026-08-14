@@ -91,6 +91,11 @@ dot-path keys are both accepted; omitted keys fall back to PatchMap's
 canonical default palette. Theme tokens are shared by authored rect, bar,
 icon, and text tint paths and by concrete bar/icon presentation overlays.
 
+Package-owned PATCH MAP v0.10 icon aliases preserve their exact 72×72 SVG
+canvas and transparent padding. An icon `size` sets that source draw box; it
+does not crop the source to its visible artwork. Direct URLs and host-injected
+aliases follow the same authored view-box rule.
+
 Host tooltip and selection plugins use package-owned pointer projection rather
 than duplicating hit tests. Set `pointer: { hoverDuringPress: true }` when a
 tooltip should retain its current target through pointer down/up and click;

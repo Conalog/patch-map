@@ -19,6 +19,11 @@ Runnable TypeScript examples are packaged in `examples/patch-map`:
 surface for migration-oriented hosts; it does not implement rendering,
 selection, transformation, history, or extraction semantics itself.
 
+Package-owned PATCH MAP v0.10 icon aliases retain their original 72×72 source
+canvas and transparent padding. Public icon `size` is the source draw-box size,
+not an automatically trimmed visible-artwork size; direct and host-registered
+sources retain their authored view boxes as well.
+
 ## Release identity
 
 The package is identified by its package name, version, and SHA-256 of the
