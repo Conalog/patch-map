@@ -1,4 +1,5 @@
 import type { PatchMapAssetDescriptor, PatchMapAssetSource } from '../semantic/dataset';
+import { PATCH_MAP_FIRA_CODE_FAMILY } from '../semantic/text-font-family';
 import { isPlainRecord } from '../shared/plain-record';
 import { stableHash64Hex as stableHash } from '../shared/stable-hash';
 import {
@@ -60,7 +61,7 @@ export const PATCH_MAP_BUILTIN_FONT_ASSETS: readonly PatchMapAssetRegistration[]
       src: face.descriptorSource,
       parser: 'web-font',
       data: Object.freeze({
-        family: 'Fira Code',
+        family: PATCH_MAP_FIRA_CODE_FAMILY,
         weights: Object.freeze([String(face.fontWeight)]),
       }),
     }),

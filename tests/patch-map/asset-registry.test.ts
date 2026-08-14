@@ -106,7 +106,7 @@ describe('PatchMap shared asset runtime', () => {
         descriptor: {
           src: face.descriptorSource,
           parser: 'web-font',
-          data: { family: 'Fira Code', weights: [String(face.fontWeight)] },
+          data: { family: 'FiraCode', weights: [String(face.fontWeight)] },
         },
       });
     }
@@ -688,7 +688,7 @@ describe('PatchMap shared asset runtime', () => {
         alias: `patch-map-asset:font-${registration.fontWeight}`,
         parser: 'web-font',
         src: `blob:core-v2/builtin-${index + 2}`,
-        data: { family: 'Fira Code', weights: [String(registration.fontWeight)] },
+        data: { family: 'FiraCode', weights: [String(registration.fontWeight)] },
       });
       expect(fetchedSources[index + 1]).toMatch(/^file:.*FiraCode-[A-Za-z]+\.woff2$/u);
     }

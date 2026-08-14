@@ -32,8 +32,8 @@ The sources are the unmodified WOFF2 files from the
 Their license is packaged in
 [`FIRA-CODE-LICENSE.txt`](./FIRA-CODE-LICENSE.txt).
 
-PATCH MAP v0.10's `FiraCode` spelling is mapped internally to the browser
-family `Fira Code`; caller JSON remains detached and unchanged. Numeric 300,
+PATCH MAP v0.10's `FiraCode` and `Fira Code` spellings are mapped internally
+to the quote-stable browser family `FiraCode`; caller JSON remains detached and unchanged. Numeric 300,
 400, 500, 600, and 700 select distinct physical files. `normal` maps to 400,
 `bold` and `bolder` to 700, and `lighter` to 300. Values without a shipped
 face (100, 200, 800, and 900) retain CSS font matching, which deterministically

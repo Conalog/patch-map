@@ -102,9 +102,9 @@ describe('PatchMap leaf text style contract', () => {
     });
 
     const routeStyle = textRenderStyle(store, 0, projection);
-    expect(routeStyle).toMatchObject({ fontFamily: 'Fira Code', fontWeight: 600 });
+    expect(routeStyle).toMatchObject({ fontFamily: 'FiraCode', fontWeight: 600 });
     expect(textStyle(store, 0, routeStyle, projection.authoredStyle)).toMatchObject({
-      fontFamily: 'Fira Code',
+      fontFamily: 'FiraCode',
       fontWeight: '600',
     });
   });

@@ -1,6 +1,8 @@
-export const PATCH_MAP_FIRA_CODE_FAMILY = 'Fira Code';
+export const PATCH_MAP_FIRA_CODE_FAMILY = 'FiraCode';
 
-/** Preserve the v0.10 `FiraCode` spelling while using one browser family. */
+/** Preserve both accepted spellings while using one quote-stable browser family. */
 export function canonicalPatchMapTextFontFamily(value: string): string {
-  return value === 'FiraCode' ? PATCH_MAP_FIRA_CODE_FAMILY : value;
+  return value === 'FiraCode' || value === 'Fira Code'
+    ? PATCH_MAP_FIRA_CODE_FAMILY
+    : value;
 }

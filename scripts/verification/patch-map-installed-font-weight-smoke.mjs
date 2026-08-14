@@ -72,6 +72,19 @@ try {
   await writeFile(path.join(temporary, 'main.js'), `
 import { PatchMap } from '@conalog/patch-map';
 
+// Browsers are allowed to serialize a multi-word FontFace family as a quoted
+// CSS string. Force that valid representation so Pixi load/unload cache keys
+// must round-trip instead of only passing in Chromium builds that omit quotes.
+const nativeFontFamily = Object.getOwnPropertyDescriptor(FontFace.prototype, 'family');
+Object.defineProperty(FontFace.prototype, 'family', {
+  configurable: true,
+  enumerable: nativeFontFamily?.enumerable ?? true,
+  get() {
+    const family = nativeFontFamily?.get?.call(this) ?? '';
+    return family.includes(' ') ? '"' + family + '"' : family;
+  },
+});
+
 const ascii = '0.8~3.2m';
 const phrase = '구조물 높이\\n0.8~3.2m';
 const hostA = document.querySelector('#map-a');
@@ -90,7 +103,7 @@ const labelOwner = (id, x, y, width, height, text, fontWeight) => ({
 
 function fontFaces() {
   return [...document.fonts]
-    .filter((face) => face.family.replaceAll('"', '') === 'Fira Code')
+    .filter((face) => face.family.replaceAll('"', '').replaceAll(' ', '') === 'FiraCode')
     .map((face) => ({ family: face.family, weight: face.weight, status: face.status }))
     .sort((left, right) => Number(left.weight) - Number(right.weight));
 }
@@ -326,12 +339,17 @@ try {
     undefined,
     { timeout: 15_000 },
   );
+  // Pixi's asset teardown warning is delivered through the browser console
+  // after the final FontFace unload promise resolves. Keep the packed smoke
+  // alive long enough to observe that queue instead of racing page teardown.
+  await page.waitForTimeout(100);
   const observed = await page.evaluate(() => window.__PATCH_MAP_FONT_WEIGHT__);
   assert(observed.phase === 'complete', 'installed font-weight page completed', {
     observed,
     errors,
     assetTraffic,
   });
+  assert(errors.length === 0, 'fresh installed consumer has no browser/cache errors', errors);
   const { first, shared } = observed;
   const weights = first.facesAfterCapture.map(({ weight }) => weight);
 
@@ -390,8 +408,6 @@ try {
     assert(shared.facesAfterSecondDestroy.length === 0 && shared.canvasCountAfterDestroy === 0,
       'destroying the final instance releases faces and canvases', shared);
   }
-  assert(errors.length === 0, 'fresh installed consumer has no browser/cache errors', errors);
-
   process.stdout.write(`${JSON.stringify({
     revision: 'patch-map-installed-font-weight-smoke/1',
     status: 'pass',

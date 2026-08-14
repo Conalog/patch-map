@@ -620,7 +620,7 @@ export function semanticTextLayout(
   const wordWrapWidth = textWrapWidth(style, contentFrame, path, state);
   // Match the PATCH MAP v0.10 text-style default even when callers use the
   // lower-level parser directly instead of passing through the materializer.
-  const requestedFontValue = requestedFont(style.fontFamily) ?? 'Fira Code';
+  const requestedFontValue = requestedFont(style.fontFamily) ?? PATCH_MAP_FIRA_CODE_FAMILY;
   const autoFont = textAutoFont(style.autoFont, `${path}.style.autoFont`, state);
   const options: PatchMapTextLayoutOptions = {
     source,

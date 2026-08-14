@@ -1,6 +1,7 @@
 import { Assets, Cache } from 'pixi.js';
 
 import type { PatchMapAssetDescriptor } from '../semantic/dataset';
+import { PATCH_MAP_FIRA_CODE_FAMILY } from '../semantic/text-font-family';
 import { stableHash64Hex as stableHash } from '../shared/stable-hash';
 import {
   PatchMapAssetError,
@@ -131,7 +132,7 @@ async function pixiDescriptor(
       src: builtinFiraCodeUrl(fontFace.fontWeight),
       parser: 'web-font',
       data: {
-        family: 'Fira Code',
+        family: PATCH_MAP_FIRA_CODE_FAMILY,
         weights: [String(fontFace.fontWeight)],
       },
     });

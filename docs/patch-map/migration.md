@@ -85,8 +85,9 @@ profile, materialize it before passing `data`; canonical PATCH MAP v0.10 arrays
 are passed directly.
 
 Do not register the default `FiraCode` family in the host. PatchMap ships and
-settles distinct 300/400/500/600/700 Fira Code faces during mount, maps the
-legacy family spelling internally, and releases its font leases on destroy.
+settles distinct 300/400/500/600/700 Fira Code faces during mount, maps both
+accepted spellings to the quote-stable `FiraCode` browser family, and releases
+its font leases on destroy.
 Host font registration is reserved for genuinely custom families.
 
 Do not translate theme tokens into direct colors in the host adapter. The

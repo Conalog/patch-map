@@ -244,8 +244,8 @@ describe('PatchMap deterministic text projection', () => {
     const parsed = parsePatchMapV010([{ type: 'text', id: 'default-font', text: 'Ready' }]);
 
     expect(parsed.projection.textsByEntityId?.['default-font']).toMatchObject({
-      sourceFontRuns: [{ text: 'Ready', font: 'Fira Code' }],
-      visibleFontRuns: [{ text: 'Ready', font: 'Fira Code' }],
+      sourceFontRuns: [{ text: 'Ready', font: 'FiraCode' }],
+      visibleFontRuns: [{ text: 'Ready', font: 'FiraCode' }],
       rendererRoute: 'fallback-text',
     });
     expect(parsed.document.entities[0]).toMatchObject({
@@ -270,7 +270,7 @@ describe('PatchMap deterministic text projection', () => {
     expect(text?.authoredStyle).toEqual(style);
     expect(text?.authoredStyle).not.toBe(style);
     expect(text).toMatchObject({
-      sourceFontRuns: [{ text: '구조물 높이\n0.8~3.2m', font: 'Fira Code' }],
+      sourceFontRuns: [{ text: '구조물 높이\n0.8~3.2m', font: 'FiraCode' }],
       fontSizePx: 52,
       lineHeightPx: 65,
     });

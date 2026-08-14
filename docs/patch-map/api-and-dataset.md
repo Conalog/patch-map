@@ -391,8 +391,8 @@ fit, wrapping, overflow, or `maxLines` is decided; it does not select a font
 against a temporary fixed 20px height. The resolved value is then shared by
 the Text and BitmapText renderer routes rather than being inferred again.
 
-The default v0.10 family spelling `FiraCode` resolves to the package browser
-family `Fira Code` without mutating the caller dataset. Weights 300, 400, 500,
+The default v0.10 family spellings `FiraCode` and `Fira Code` resolve to the
+quote-stable package browser family `FiraCode` without mutating the caller dataset. Weights 300, 400, 500,
 600, and 700 use distinct Light, Regular, Medium, SemiBold, and Bold WOFF2
 resources. `PatchMap.mount()` waits for those exact faces before constructing
 text render objects, so `await capture.png()` observes the requested weight on

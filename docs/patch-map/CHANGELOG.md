@@ -72,6 +72,8 @@
   faces for weights 300 through 700. Mount now settles these content-bound
   resources before the first text raster, maps the legacy `FiraCode` spelling
   without mutating input, and releases the instance leases during destroy.
+- Made the built-in browser family cache identity quote-stable so Pixi web-font
+  teardown removes each face and object URL exactly once without cache warnings.
 
 WebGPU and native headed Windows release measurements remain separately
 reported experimental/pending evidence; they are not implied by this entry.

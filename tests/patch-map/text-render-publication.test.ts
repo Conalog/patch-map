@@ -248,7 +248,7 @@ describe('PatchMap text render publication', () => {
     const stableTextObject = textObject('stable');
     const regularSignature = layer.textRendererProbe('text')?.attachedSignatures?.renderer;
     expect(textObject('0.8~3.2m')?.style).toMatchObject({
-      fontFamily: 'Fira Code',
+      fontFamily: 'FiraCode',
       fontWeight: 'normal',
     });
 
@@ -260,7 +260,7 @@ describe('PatchMap text render publication', () => {
     const semiboldSignature = layer.textRendererProbe('text')?.attachedSignatures?.renderer;
     expect(textObject('stable')).toBe(stableTextObject);
     expect(textObject('0.8~3.2m')?.style).toMatchObject({
-      fontFamily: 'Fira Code',
+      fontFamily: 'FiraCode',
       fontWeight: '600',
     });
     expect(semiboldSignature).not.toBe(regularSignature);
@@ -272,7 +272,7 @@ describe('PatchMap text render publication', () => {
     });
     expect(textObject('stable')).toBe(stableTextObject);
     expect(textObject('0.8~3.2m')?.style).toMatchObject({
-      fontFamily: 'Fira Code',
+      fontFamily: 'FiraCode',
       fontWeight: 'bold',
     });
     expect(layer.textRendererProbe('text')?.attachedSignatures?.renderer).not.toBe(
