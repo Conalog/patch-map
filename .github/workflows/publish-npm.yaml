@@ -63,4 +63,12 @@ jobs:
           npm run pack:check
 
       - name: Publish package
-        run: npm publish --access public
+        run: |
+          package_spec="$(node -p "require('./package.json').name + '@' + require('./package.json').version")"
+
+          if npm view "$package_spec" version >/dev/null 2>&1; then
+            echo "$package_spec is already published; nothing to do."
+            exit 0
+          fi
+
+          npm publish --access public
