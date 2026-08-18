@@ -79,6 +79,8 @@ interface TextEntry {
   lastRenderedSignatures: PatchMapTextAttachedSignatures | null;
   lastRenderedFrame: number | null;
   lastRenderedVisibleGraphemeCount: number;
+  targetKind: PatchMapTextProjection['targetKind'] | null;
+  visualLocalOrigin: readonly [number, number];
   vertices: PatchMapQuadVertices;
 }
 
@@ -841,7 +843,7 @@ export class AggregateLeafLayer {
       const entry = this.texts.get(slot);
       if (entry !== undefined && entry.entityId === entityId) {
         const quad = resolvePatchMapSlotQuad(store, slot, projectionContext);
-        applyLeafProjection(entry.object, quad, this.transformMatrix);
+        applyTextProjection(entry, quad, this.transformMatrix);
         entry.vertices = quad.vertices;
         if (this.textChunking) this.dirtyTextChunkKeys.add(textChunkKey(slot));
         entry.object.visible = true;
@@ -946,12 +948,21 @@ export class AggregateLeafLayer {
         lastRenderedSignatures: previousPublication?.signatures ?? null,
         lastRenderedFrame: previousPublication?.frame ?? null,
         lastRenderedVisibleGraphemeCount: previousPublication?.visibleGraphemeCount ?? 0,
+        targetKind: projection?.targetKind ?? null,
+        visualLocalOrigin: measureStandaloneTextLocalOrigin(object, projection),
         vertices: EMPTY_QUAD_VERTICES,
       };
       this.texts.set(slot, entry);
       this.textParentForSlot(slot).addChild(object);
     } else if (entry.object.text !== value) {
       entry.object.text = value;
+      entry.visualLocalOrigin = measureStandaloneTextLocalOrigin(entry.object, projection);
+    }
+
+    const targetKind = projection?.targetKind ?? null;
+    if (entry.targetKind !== targetKind) {
+      entry.targetKind = targetKind;
+      entry.visualLocalOrigin = measureStandaloneTextLocalOrigin(entry.object, projection);
     }
 
     if (!sameTextAttachedSignatures(entry.attachedSignatures, attachedSignatures)) {
@@ -970,11 +981,7 @@ export class AggregateLeafLayer {
 
     const object = entry.object;
     const quad = resolvePatchMapSlotQuad(store, slot, projectionContext);
-    applyLeafProjection(
-      object,
-      quad,
-      this.transformMatrix,
-    );
+    applyTextProjection(entry, quad, this.transformMatrix);
     entry.vertices = quad.vertices;
     if (this.textChunking) this.dirtyTextChunkKeys.add(textChunkKey(slot));
     object.alpha = alpha;
@@ -1670,6 +1677,55 @@ function applyLeafProjection(
     quad.center[0],
     quad.center[1],
   ));
+}
+
+function applyTextProjection(
+  entry: TextEntry,
+  quad: PatchMapResolvedRenderQuad,
+  matrix: Matrix,
+): void {
+  if (entry.targetKind !== 'element') {
+    applyLeafProjection(entry.object, quad, matrix);
+    return;
+  }
+
+  const object = entry.object;
+  object.anchor.set(0);
+  const localWidth = quad.projection?.localBounds[2] ?? quad.width;
+  const localHeight = quad.projection?.localBounds[3] ?? quad.height;
+  const resolvedWidth = Math.max(Number.EPSILON, Math.abs(localWidth));
+  const resolvedHeight = Math.max(Number.EPSILON, Math.abs(localHeight));
+  const xScale = quad.width / resolvedWidth;
+  const yScale = quad.height / resolvedHeight;
+  const a = quad.basis[0] * xScale;
+  const b = quad.basis[1] * xScale;
+  const c = quad.basis[2] * yScale;
+  const d = quad.basis[3] * yScale;
+  const [originX, originY] = entry.visualLocalOrigin;
+  const topLeftX = quad.vertices[0];
+  const topLeftY = quad.vertices[1];
+  object.setFromMatrix(matrix.set(
+    a,
+    b,
+    c,
+    d,
+    topLeftX - a * originX - c * originY,
+    topLeftY - b * originX - d * originY,
+  ));
+}
+
+/** Cache the browser-measured Pixi origin only when text content/style is rebuilt. */
+function measureStandaloneTextLocalOrigin(
+  object: BitmapText | Text,
+  projection: PatchMapTextProjection | null,
+): readonly [number, number] {
+  if (projection?.targetKind !== 'element') return Object.freeze([0, 0] as const);
+  object.anchor.set(0);
+  if (typeof document === 'undefined') return Object.freeze([0, 0] as const);
+  const bounds = object.getLocalBounds();
+  const x = Number.isFinite(bounds.minX) ? bounds.minX : 0;
+  const y = Number.isFinite(bounds.minY) ? bounds.minY : 0;
+  return Object.freeze([x, y] as const);
 }
 
 function nonempty(value: unknown, label: string): string {

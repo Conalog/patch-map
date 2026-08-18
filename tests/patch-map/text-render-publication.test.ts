@@ -1,5 +1,5 @@
 import { BitmapText, Text } from 'pixi.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { EntityInput } from '../../src/patch-map/dense/contracts';
 import {
@@ -22,6 +22,116 @@ import type {
 import type { PatchMapBitmapTextCapabilityProof } from '../../src/patch-map/semantic/text-render-route';
 
 describe('PatchMap text render publication', () => {
+  it.each([
+    { angle: 0, label: 'unrotated', scaleX: 1, scaleY: 1 },
+    { angle: 37, label: 'rotated', scaleX: 1, scaleY: 1 },
+    { angle: 19, label: 'reflected', scaleX: -1, scaleY: 1 },
+  ])('anchors $label standalone text visual bounds at the authored top-left', async ({
+    angle,
+    scaleX,
+    scaleY,
+  }) => {
+    const parsed = parsePatchMapV010([{
+      type: 'text',
+      id: 'text',
+      text: '구조물 높이\n0.8~3.2m',
+      attrs: { x: 219, y: 135, angle, scaleX, scaleY },
+      style: {
+        fontFamily: 'FiraCode',
+        fontSize: 100,
+        fontWeight: 400,
+      },
+    }]);
+    const layer = new AggregateLeafLayer();
+
+    layer.sync(createRenderStore(parsed.document.entities), {
+      fullRebuildEpoch: 1,
+      projectionContext: projectionContext(parsed.projection, 1),
+    });
+
+    const object = layer.textContainer.children[0];
+    if (!(object instanceof Text)) throw new Error('expected guarded Pixi Text');
+    expect([object.anchor.x, object.anchor.y]).toEqual([0, 0]);
+    expect([object.position.x, object.position.y]).toEqual([
+      expect.closeTo(219, 6),
+      expect.closeTo(135, 6),
+    ]);
+
+    await layer.destroy();
+  });
+
+  it('measures a standalone Pixi local origin only on text rebuild and leaves components centered', async () => {
+    vi.stubGlobal('document', {});
+    const localBounds = vi.spyOn(Text.prototype, 'getLocalBounds').mockReturnValue({
+      minX: -2,
+      minY: -3,
+    } as never);
+    const scene = (text: string) => [{
+      type: 'text',
+      id: 'standalone',
+      text,
+      attrs: { x: 219, y: 135 },
+      style: { fontFamily: 'FiraCode', fontSize: 100 },
+    }, {
+      type: 'item',
+      id: 'owner',
+      attrs: { x: 400, y: 200 },
+      size: { width: 100, height: 60 },
+      components: [{
+        type: 'text',
+        id: 'label',
+        text: 'component',
+        style: { fontFamily: 'FiraCode', fontSize: 16 },
+      }],
+    }];
+    const initial = parsePatchMapV010(scene('first'));
+    const changed = parsePatchMapV010(scene('second'));
+    const layer = new AggregateLeafLayer();
+
+    try {
+      layer.sync(createRenderStore(initial.document.entities, 1), {
+        fullRebuildEpoch: 1,
+        projectionContext: projectionContext(initial.projection, 1),
+      });
+      expect(localBounds).toHaveBeenCalledTimes(1);
+      const standalone = layer.textContainer.children.find(
+        (child) => child instanceof Text && child.text === 'first',
+      ) as Text | undefined;
+      const component = layer.textContainer.children.find(
+        (child) => child instanceof Text && child.text === 'component',
+      ) as Text | undefined;
+      expect(standalone).toBeDefined();
+      expect(component).toBeDefined();
+      expect([standalone?.anchor.x, standalone?.anchor.y]).toEqual([0, 0]);
+      expect([
+        (standalone?.position.x ?? 0) - 2,
+        (standalone?.position.y ?? 0) - 3,
+      ]).toEqual([219, 135]);
+      expect([component?.anchor.x, component?.anchor.y]).toEqual([0.5, 0.5]);
+
+      layer.sync(createRenderStore(initial.document.entities, 1), {
+        fullRebuildEpoch: 1,
+        changedRanges: [],
+        projectionContext: projectionContext(initial.projection, 1),
+      });
+      expect(localBounds).toHaveBeenCalledTimes(1);
+
+      layer.sync(createRenderStore(changed.document.entities, 2), {
+        fullRebuildEpoch: 1,
+        changedRanges: [{ start: 0, end: 1 }],
+        projectionContext: projectionContext(changed.projection, 2),
+      });
+      expect(localBounds).toHaveBeenCalledTimes(2);
+      expect(layer.textContainer.children.find(
+        (child) => child instanceof Text && child.text === 'component',
+      )).toBe(component);
+    } finally {
+      await layer.destroy();
+      localBounds.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('uses the prewrapped semantic payload and defaults unclear atlas capability to guarded Text', async () => {
     const parsed = parsePatchMapV010([standaloneText('ABCDEFGHIJ', {
       wordWrap: true,
