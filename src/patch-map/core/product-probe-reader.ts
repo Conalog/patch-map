@@ -340,8 +340,8 @@ export function createPatchMapTextProductProbe(
   const retainedHiddenRenderer = !entity.visible &&
     !absent &&
     rendererProbe !== null &&
-    rendererProbe.route !== 'none' &&
-    rendererProbe.rendererKind !== 'none' &&
+    rendererProbe.attachedRoute !== 'none' &&
+    rendererProbe.objectKind !== 'none' &&
     rendererProbe.lastRenderedSignatures !== null &&
     rendererProbe.lastRenderedFrame !== null;
   const productRendererProbe = absent
@@ -571,9 +571,9 @@ function rendererTextProbeCorrelates(
     renderer.publicationStatus === 'current' &&
     renderer.objectCount === 1 &&
     renderer.staleGlyphCount === 0 &&
-    renderer.route !== 'none' &&
-    renderer.rendererKind !== 'none' &&
-    renderer.route === renderer.rendererKind &&
+    renderer.attachedRoute !== 'none' &&
+    renderer.objectKind !== 'none' &&
+    renderer.attachedRoute === renderer.objectKind &&
     sameTextSemanticSignatures(renderer.semanticSignatures, semantic) &&
     sameTextAttachedSemantic(renderer.attachedSignatures, semantic) &&
     sameTextAttachedSemantic(renderer.lastRenderedSignatures, semantic) &&
@@ -589,9 +589,9 @@ function rendererTextAbsenceCorrelates(
   return renderer !== null &&
     renderer.entityId === entityId &&
     renderer.publicationStatus === 'current' &&
-    renderer.route === 'none' &&
-    renderer.rendererKind === 'none' &&
-    renderer.routeReason === 'not-attached' &&
+    renderer.attachedRoute === 'none' &&
+    renderer.objectKind === 'none' &&
+    renderer.routeDecisionReason === 'not-attached' &&
     renderer.objectCount === 0 &&
     renderer.staleGlyphCount === 0 &&
     sameTextSemanticSignatures(renderer.semanticSignatures, semantic) &&
@@ -648,11 +648,16 @@ function freezeTextRendererProductProbe(
   semanticSignatures: PatchMapTextSemanticSignatures,
   renderer: PatchMapTextRendererProbe | null,
 ): PatchMapTextRendererProductProbe {
+  // The renderer decision owns the executable plan because BitmapText capability
+  // is renderer-local. The parser route remains the detached semantic heuristic.
+  const plannedRoute = renderer !== null && renderer.attachedRoute !== 'none'
+    ? renderer.attachedRoute
+    : semantic.rendererRoute;
   return Object.freeze({
-    semanticRoute: semantic.rendererRoute,
-    route: renderer?.route ?? null,
-    rendererKind: renderer?.rendererKind ?? 'none',
-    routeReason: renderer?.routeReason ?? 'not-attached',
+    plannedRoute,
+    attachedRoute: renderer?.attachedRoute ?? null,
+    objectKind: renderer?.objectKind ?? 'none',
+    routeDecisionReason: renderer?.routeDecisionReason ?? 'not-attached',
     objectCount: renderer?.objectCount ?? 0,
     semanticSignatures,
     attachedSignatures: renderer?.attachedSignatures ?? null,

@@ -206,7 +206,7 @@ class SceneImageRendererDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      fallbackTextCount: 0,
+      pixiTextCount: 0,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,

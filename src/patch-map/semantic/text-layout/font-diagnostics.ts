@@ -130,7 +130,7 @@ export function chooseRendererRoute(
   ) {
     return 'bitmap-text';
   }
-  return 'fallback-text';
+  return 'pixi-text';
 }
 
 export function resolveFontPolicy(options: PatchMapTextLayoutOptions): FontPolicy {

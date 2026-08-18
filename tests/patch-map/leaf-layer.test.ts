@@ -9,7 +9,7 @@ import {
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
 } from '../../src/patch-map/assets';
-import { AggregateLeafLayer, isBitmapTextSafe } from '../../src/patch-map/renderers/leaf-layer';
+import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
 
 let layerSequence = 0;
 
@@ -36,20 +36,12 @@ function mockOwnedAssetTransport(): void {
 }
 
 describe('PatchMap aggregate leaf policy', () => {
-  it('retains the legacy bounded-ASCII classifier without treating it as atlas proof', () => {
-    expect(isBitmapTextSafe('CPU 42%')).toBe(true);
-    expect(isBitmapTextSafe('line one\nline two')).toBe(true);
-    expect(isBitmapTextSafe('인버터 42')).toBe(false);
-    expect(isBitmapTextSafe('ready ✅')).toBe(false);
-    expect(isBitmapTextSafe('x'.repeat(129))).toBe(false);
-  });
-
   it('starts empty and has an idempotent asynchronous lifecycle', async () => {
     const layer = new AggregateLeafLayer();
     expect(layer.container.label).toBe('patch-map:text-and-assets');
     expect(layer.debugSnapshot()).toEqual({
       bitmapTextCount: 0,
-      fallbackTextCount: 0,
+      pixiTextCount: 0,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,
@@ -107,7 +99,7 @@ describe('PatchMap aggregate leaf policy', () => {
     await layer.destroy();
   });
 
-  it('chunks large fallback-text lanes so offscreen groups leave Pixi traversal', async () => {
+  it('chunks large Pixi Text lanes so offscreen groups leave Pixi traversal', async () => {
     const layer = new AggregateLeafLayer();
     const positions = Array.from({ length: 1_025 }, (_value, index) => index * 50);
     layer.sync(createTextStoreAt(positions), { fullRebuildEpoch: 1 });

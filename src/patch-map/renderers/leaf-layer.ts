@@ -65,15 +65,13 @@ import {
   textSemanticSignatures,
 } from './leaf-signatures';
 
-export { isBitmapTextSafe } from './leaf-text-style';
-
 interface TextEntry {
   readonly slot: number;
   readonly object: BitmapText | Text;
-  readonly route: PatchMapTextRenderRoute;
+  readonly attachedRoute: PatchMapTextRenderRoute;
   readonly entityId: string;
   readonly objectStyleSignature: string;
-  routeReason: PatchMapTextRenderRouteReason;
+  routeDecisionReason: PatchMapTextRenderRouteReason;
   attachedSignatures: PatchMapTextAttachedSignatures;
   attachedVisibleGraphemeCount: number;
   lastRenderedSignatures: PatchMapTextAttachedSignatures | null;
@@ -168,7 +166,8 @@ interface LeafAssetBinding {
 
 export interface LeafLayerDebug {
   readonly bitmapTextCount: number;
-  readonly fallbackTextCount: number;
+  /** Pixi Text objects; together with bitmapTextCount this is the text object total. */
+  readonly pixiTextCount: number;
   readonly imageCount: number;
   readonly loadedAssetCount: number;
   readonly unresolvedAssetCount: number;
@@ -625,7 +624,7 @@ export class AggregateLeafLayer {
     let failedAssetCount = 0;
     let staleAttachCount = 0;
     for (const entry of this.texts.values()) {
-      if (entry.route === 'bitmap-text') bitmapTextCount += 1;
+      if (entry.attachedRoute === 'bitmap-text') bitmapTextCount += 1;
     }
     for (const binding of this.bindings.values()) {
       if (binding.state === 'resolved') loadedAssetCount += 1;
@@ -645,7 +644,7 @@ export class AggregateLeafLayer {
     }
     this.debugCache = Object.freeze({
       bitmapTextCount,
-      fallbackTextCount: this.texts.size - bitmapTextCount,
+      pixiTextCount: this.texts.size - bitmapTextCount,
       imageCount: this.images.size,
       loadedAssetCount,
       unresolvedAssetCount,
@@ -920,7 +919,7 @@ export class AggregateLeafLayer {
     if (
       !entry ||
       entry.entityId !== entityId ||
-      entry.route !== route ||
+      entry.attachedRoute !== route ||
       entry.objectStyleSignature !== objectStyleSignature
     ) {
       const previousPublication = entry?.entityId === entityId
@@ -939,10 +938,10 @@ export class AggregateLeafLayer {
       entry = {
         slot,
         object,
-        route,
+        attachedRoute: route,
         entityId,
         objectStyleSignature,
-        routeReason: routeDecision.reason,
+        routeDecisionReason: routeDecision.reason,
         attachedSignatures,
         attachedVisibleGraphemeCount: visibleGraphemeCount,
         lastRenderedSignatures: previousPublication?.signatures ?? null,
@@ -969,7 +968,7 @@ export class AggregateLeafLayer {
       entry.attachedSignatures = attachedSignatures;
       entry.attachedVisibleGraphemeCount = visibleGraphemeCount;
     }
-    entry.routeReason = routeDecision.reason;
+    entry.routeDecisionReason = routeDecision.reason;
     if (
       entry.lastRenderedFrame === null ||
       !sameTextAttachedSignatures(entry.lastRenderedSignatures, entry.attachedSignatures)
@@ -1005,9 +1004,9 @@ export class AggregateLeafLayer {
       sameTextAttachedSignatures(entry.attachedSignatures, entry.lastRenderedSignatures);
     this.textProbesByEntityId.set(entry.entityId, freezeTextRendererProbe({
       entityId: entry.entityId,
-      route: entry.route,
-      rendererKind: entry.route,
-      routeReason: entry.routeReason,
+      attachedRoute: entry.attachedRoute,
+      objectKind: entry.attachedRoute,
+      routeDecisionReason: entry.routeDecisionReason,
       objectCount: 1,
       semanticSignatures: freezeTextSemanticSignatures(entry.attachedSignatures),
       attachedSignatures: entry.attachedSignatures,

@@ -508,7 +508,8 @@ function projectStandalone(actual, execution, captures) {
     visible: terminalPrimary.state.visible,
     zIndex: terminalPrimary.state.zIndex,
     objectCount: terminalPrimary.renderer.objectCount,
-    route: terminalPrimary.renderer.route,
+    // Historical normalized evidence keeps its approved pre-promotion route value.
+    route: historicalTextRoute(terminalPrimary.renderer.attachedRoute),
     publication: terminalPrimary.publication.status,
   };
   actual.geometry.text = {
@@ -1565,7 +1566,7 @@ function validateProjection(projection, target) {
   boundsRecord(projection.layoutBounds, `projection ${targetKey(target)} layout bounds`);
   boundsRecord(projection.ownerLocalBounds, `projection ${targetKey(target)} owner bounds`);
   assert(
-    projection.rendererRoute === 'bitmap-text' || projection.rendererRoute === 'fallback-text',
+    projection.rendererRoute === 'bitmap-text' || projection.rendererRoute === 'pixi-text',
     `projection ${targetKey(target)} semantic route`,
   );
   stringValue(projection.contentSignature, `projection ${targetKey(target)} content signature`);
@@ -1577,12 +1578,15 @@ function validateProjection(projection, target) {
 
 function validateRendererProbe(value, projection, requiredStatus, target) {
   const renderer = recordValue(value, `renderer ${targetKey(target)}`);
-  assert(renderer.semanticRoute === projection.rendererRoute, `renderer ${targetKey(target)} semantic route`);
   assert(
-    renderer.route === 'bitmap-text' || renderer.route === 'fallback-text',
-    `renderer ${targetKey(target)} route`,
+    renderer.attachedRoute === 'bitmap-text' || renderer.attachedRoute === 'pixi-text',
+    `renderer ${targetKey(target)} attached route`,
   );
-  assert(renderer.rendererKind === renderer.route, `renderer ${targetKey(target)} kind`);
+  assert(
+    renderer.plannedRoute === renderer.attachedRoute,
+    `renderer ${targetKey(target)} planned route`,
+  );
+  assert(renderer.objectKind === renderer.attachedRoute, `renderer ${targetKey(target)} object kind`);
   assert(renderer.objectCount === 1, `renderer ${targetKey(target)} object count`);
   const semantic = signatureValue(renderer.semanticSignatures, `renderer ${targetKey(target)} semantic signatures`);
   assert(semantic.content === projection.contentSignature, `renderer ${targetKey(target)} content signature`);
@@ -1627,7 +1631,7 @@ function stableTextSemantics(before, after) {
     sameJson(before.state, after.state) &&
     sameJson(before.transform, after.transform) &&
     sameJson(before.renderer.semanticSignatures, after.renderer.semanticSignatures) &&
-    before.renderer.route === after.renderer.route &&
+    before.renderer.attachedRoute === after.renderer.attachedRoute &&
     before.renderer.objectCount === after.renderer.objectCount;
 }
 
@@ -1972,6 +1976,13 @@ function uint32(value, label) {
 function normalizeNumber(value) {
   const rounded = Math.round(value * 1_000_000) / 1_000_000;
   return Object.is(rounded, -0) ? 0 : rounded;
+}
+
+function historicalTextRoute(route) {
+  if (route === 'bitmap-text') return route;
+  assert(route === 'pixi-text', 'historical text route source');
+  // Immutable Core v2 normalized evidence predates the unambiguous Pixi object name.
+  return 'fallback-text';
 }
 
 function assertExactKeys(value, keys, label) {

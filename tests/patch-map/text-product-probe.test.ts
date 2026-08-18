@@ -91,8 +91,8 @@ describe('PatchMap O(1) text product probe', () => {
         contentOrientation: 'follow-item',
       },
       renderer: {
-        route: null,
-        rendererKind: 'none',
+        attachedRoute: null,
+        objectKind: 'none',
         objectCount: 0,
         lastRenderedFrame: null,
         staleGlyphCount: 0,
@@ -108,9 +108,9 @@ describe('PatchMap O(1) text product probe', () => {
     const current = core.textProbe(elementTarget());
     expect(current).toMatchObject({
       renderer: {
-        route: 'fallback-text',
-        rendererKind: 'fallback-text',
-        routeReason: 'atlas-coverage-unproven',
+        attachedRoute: 'pixi-text',
+        objectKind: 'pixi-text',
+        routeDecisionReason: 'atlas-coverage-unproven',
         objectCount: 1,
         lastRenderedFrame: 1,
         staleGlyphCount: 0,
@@ -250,8 +250,8 @@ describe('PatchMap O(1) text product probe', () => {
       state: { visible: false },
       geometry: { visibleBounds: null },
       renderer: {
-        route: null,
-        rendererKind: 'none',
+        attachedRoute: null,
+        objectKind: 'none',
         objectCount: 0,
         attachedSignatures: null,
         lastRenderedSignatures: null,
@@ -264,8 +264,8 @@ describe('PatchMap O(1) text product probe', () => {
     core.flush('hidden');
     expect(core.textProbe(elementTarget())).toMatchObject({
       renderer: {
-        route: null,
-        rendererKind: 'none',
+        attachedRoute: null,
+        objectKind: 'none',
         objectCount: 0,
         attachedSignatures: null,
         lastRenderedSignatures: null,
@@ -281,7 +281,7 @@ describe('PatchMap O(1) text product probe', () => {
     const visible = core.textProbe(elementTarget());
     expect(visible).toMatchObject({
       state: { visible: true },
-      renderer: { route: 'fallback-text', rendererKind: 'fallback-text', objectCount: 1 },
+      renderer: { attachedRoute: 'pixi-text', objectKind: 'pixi-text', objectCount: 1 },
       publication: { status: 'current' },
     });
 
@@ -291,8 +291,8 @@ describe('PatchMap O(1) text product probe', () => {
       state: { visible: false },
       geometry: { visibleBounds: null },
       renderer: {
-        route: 'fallback-text',
-        rendererKind: 'fallback-text',
+        attachedRoute: 'pixi-text',
+        objectKind: 'pixi-text',
         objectCount: 1,
       },
       rendererPaint: { entityId: 'text', lane: 'text' },
@@ -310,8 +310,8 @@ describe('PatchMap O(1) text product probe', () => {
     expect(core.textProbe(elementTarget())).toMatchObject({
       state: { visible: false },
       renderer: {
-        route: null,
-        rendererKind: 'none',
+        attachedRoute: null,
+        objectKind: 'none',
         objectCount: 0,
         attachedSignatures: null,
         lastRenderedSignatures: null,
@@ -393,9 +393,9 @@ class TextRendererDouble {
       if (((store.flags[slot] ?? 0) & RenderFlags.Visible) === 0) {
         nextProbes.set(entityId, Object.freeze({
           entityId,
-          route: 'none',
-          rendererKind: 'none',
-          routeReason: 'not-attached',
+          attachedRoute: 'none',
+          objectKind: 'none',
+          routeDecisionReason: 'not-attached',
           objectCount: 0,
           semanticSignatures: signatures,
           attachedSignatures: null,
@@ -412,9 +412,9 @@ class TextRendererDouble {
       });
       nextProbes.set(entityId, Object.freeze({
         entityId,
-        route: 'fallback-text',
-        rendererKind: 'fallback-text',
-        routeReason: 'atlas-coverage-unproven',
+        attachedRoute: 'pixi-text',
+        objectKind: 'pixi-text',
+        routeDecisionReason: 'atlas-coverage-unproven',
         objectCount: 1,
         semanticSignatures: signatures,
         attachedSignatures: attached,
@@ -481,7 +481,7 @@ class TextRendererDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      fallbackTextCount: this.probes.size,
+      pixiTextCount: this.probes.size,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,

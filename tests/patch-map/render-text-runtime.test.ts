@@ -366,10 +366,10 @@ class HeadlessTextRenderer {
     this.lastRenderedTextProjectionRevision = this.projectionRevision;
     this.lastRenderedTextStoreRevision = store.revision;
     this.lastStoreRevision = store.revision;
-    const textObjectCount = debug.bitmapTextCount + debug.fallbackTextCount;
+    const textObjectCount = debug.bitmapTextCount + debug.pixiTextCount;
     this.maxTextObjectCount = Math.max(this.maxTextObjectCount, textObjectCount);
     this.maxBitmapTextCount = Math.max(this.maxBitmapTextCount, debug.bitmapTextCount);
-    this.maxFallbackTextCount = Math.max(this.maxFallbackTextCount, debug.fallbackTextCount);
+    this.maxFallbackTextCount = Math.max(this.maxFallbackTextCount, debug.pixiTextCount);
     return Object.freeze({ rendered: true, commandCount: textObjectCount });
   }
   public synchronizeNextFlush(): void {}
@@ -394,9 +394,9 @@ class HeadlessTextRenderer {
     if (leaf === null) {
       return Object.freeze({
         entityId,
-        route: 'none',
-        rendererKind: 'none',
-        routeReason: 'not-attached',
+        attachedRoute: 'none',
+        objectKind: 'none',
+        routeDecisionReason: 'not-attached',
         objectCount: 0,
         semanticSignatures,
         attachedSignatures: null,
@@ -450,7 +450,7 @@ class HeadlessTextRenderer {
   }
   public debugSnapshot(): PatchMapPixiRendererDebug {
     const leaves = this.leaves.debugSnapshot();
-    const textObjectCount = leaves.bitmapTextCount + leaves.fallbackTextCount;
+    const textObjectCount = leaves.bitmapTextCount + leaves.pixiTextCount;
     return Object.freeze({
       strategy: this.strategy,
       backend: 'webgl',
@@ -466,7 +466,7 @@ class HeadlessTextRenderer {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: leaves.bitmapTextCount,
-      fallbackTextCount: leaves.fallbackTextCount,
+      pixiTextCount: leaves.pixiTextCount,
       imageCount: leaves.imageCount,
       loadedAssetCount: leaves.loadedAssetCount,
       unresolvedAssetCount: leaves.unresolvedAssetCount,

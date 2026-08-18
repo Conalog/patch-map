@@ -26,7 +26,7 @@ const SIMPLE_STYLE: PatchMapTextRenderStyle = Object.freeze({
 
 const NO_GLYPH_FALLBACK: PatchMapTextGlyphResolution = Object.freeze({
   missingGlyphCount: 0,
-  fallbackGlyphCount: 0,
+  fontFallbackGlyphCount: 0,
 });
 
 const ASCII_GLYPHS = Object.freeze(Array.from(
@@ -64,7 +64,7 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
         styleCompatible: true,
         multilineSupported: true,
         noMissingGlyphs: true,
-        noFallbackGlyphs: true,
+        noFontFallbackGlyphs: true,
       },
     });
   });
@@ -76,7 +76,7 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
     }));
 
     expect(unproven).toMatchObject({
-      route: 'fallback-text',
+      route: 'pixi-text',
       reason: 'atlas-coverage-unproven',
       capabilities: {
         finiteAtlasProven: false,
@@ -85,7 +85,7 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
     });
     expect(unproven.atlas.uncoveredGlyphs).toEqual(['A', 'B']);
     expect(incomplete).toMatchObject({
-      route: 'fallback-text',
+      route: 'pixi-text',
       reason: 'atlas-glyph-missing',
       capabilities: {
         finiteAtlasProven: true,
@@ -95,13 +95,13 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
     expect(incomplete.atlas.uncoveredGlyphs).toEqual(['B']);
   });
 
-  it('keeps the 128-code-unit bound inclusive and routes longer content to fallback', () => {
+  it('keeps the 128-code-unit bound inclusive and routes longer content to Pixi Text', () => {
     const boundary = 'x'.repeat(PATCH_MAP_BITMAP_TEXT_MAX_CODE_UNITS);
     const overlong = `${boundary}x`;
 
     expect(selectPatchMapTextRenderRoute(input(boundary)).route).toBe('bitmap-text');
     expect(selectPatchMapTextRenderRoute(input(overlong))).toMatchObject({
-      route: 'fallback-text',
+      route: 'pixi-text',
       reason: 'content-over-limit',
       content: { codeUnitCount: PATCH_MAP_BITMAP_TEXT_MAX_CODE_UNITS + 1 },
       capabilities: { contentWithinLimit: false },
@@ -119,7 +119,7 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
     const decision = selectPatchMapTextRenderRoute(input('CPU 42', { style }));
 
     expect(decision).toMatchObject({
-      route: 'fallback-text',
+      route: 'pixi-text',
       reason: 'unsupported-style',
       capabilities: {
         styleCapabilityProven: true,
@@ -146,7 +146,7 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
     }));
 
     expect(denied).toMatchObject({
-      route: 'fallback-text',
+      route: 'pixi-text',
       reason: 'multiline-unsupported',
       capabilities: { multilineSupported: false },
     });
@@ -163,12 +163,12 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
     ['emoji', 'ready 😀', 'emoji-content', 'containsEmoji'],
     ['combining sequence', `e${String.fromCodePoint(0x0301)}`, 'combining-sequence', 'containsCombiningSequence'],
     ['unsupported script', 'Привет', 'unsupported-script', 'containsUnsupportedScript'],
-  ])('routes %s content through guarded fallback', (_label, text, reason, fact) => {
+  ])('routes %s content through Pixi Text', (_label, text, reason, fact) => {
     const decision = selectPatchMapTextRenderRoute(input(text, {
       bitmapCapability: capability({ glyphs: glyphsIn(text) }),
     }));
 
-    expect(decision.route).toBe('fallback-text');
+    expect(decision.route).toBe('pixi-text');
     expect(decision.reasons).toContain(reason);
     expect(decision.content[fact as keyof typeof decision.content]).toBe(true);
     expect(decision.capabilities.simpleContent).toBe(false);
@@ -190,23 +190,23 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
     });
   });
 
-  it('routes independently observed missing or fallback glyph runs to fallback', () => {
+  it('routes missing or font-family fallback glyph runs to Pixi Text', () => {
     const missing = selectPatchMapTextRenderRoute(input('CPU', {
-      glyphResolution: { missingGlyphCount: 1, fallbackGlyphCount: 0 },
+      glyphResolution: { missingGlyphCount: 1, fontFallbackGlyphCount: 0 },
     }));
-    const fallback = selectPatchMapTextRenderRoute(input('CPU', {
-      glyphResolution: { missingGlyphCount: 0, fallbackGlyphCount: 2 },
+    const fontFallbackDecision = selectPatchMapTextRenderRoute(input('CPU', {
+      glyphResolution: { missingGlyphCount: 0, fontFallbackGlyphCount: 2 },
     }));
 
     expect(missing).toMatchObject({
-      route: 'fallback-text',
+      route: 'pixi-text',
       reason: 'missing-glyphs',
       capabilities: { noMissingGlyphs: false },
     });
-    expect(fallback).toMatchObject({
-      route: 'fallback-text',
-      reason: 'fallback-glyphs',
-      capabilities: { noFallbackGlyphs: false },
+    expect(fontFallbackDecision).toMatchObject({
+      route: 'pixi-text',
+      reason: 'font-fallback-glyphs',
+      capabilities: { noFontFallbackGlyphs: false },
     });
   });
 
@@ -217,7 +217,7 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
     }));
 
     expect(decision).toMatchObject({
-      route: 'fallback-text',
+      route: 'pixi-text',
       reason: 'atlas-capability-invalid',
       capabilities: {
         finiteAtlasProven: false,
@@ -257,7 +257,7 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
     expect(Object.isFrozen(first.capabilities)).toBe(true);
   });
 
-  it('stays pure and independent from Pixi classes and the legacy coarse predicate', async () => {
+  it('stays pure and independent from Pixi classes', async () => {
     const source = await readFile(
       new URL('../../src/patch-map/semantic/text-render-route.ts', import.meta.url),
       'utf8',
@@ -266,7 +266,6 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
     expect(source).not.toMatch(/from ['"]pixi(?:\.js)?['"]/u);
     expect(source).not.toContain('new BitmapText');
     expect(source).not.toContain('new Text');
-    expect(source).not.toContain('isBitmapTextSafe');
   });
 });
 

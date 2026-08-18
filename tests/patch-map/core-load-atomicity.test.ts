@@ -525,7 +525,7 @@ class AtomicLoadRendererDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      fallbackTextCount: 0,
+      pixiTextCount: 0,
       imageCount: this.bindings.size,
       loadedAssetCount: 0,
       unresolvedAssetCount: this.bindings.size,

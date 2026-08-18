@@ -98,8 +98,8 @@ describe('PatchMap contract performance workload', () => {
       entityId: 'node-99::text:label',
       publication: { status: 'pending' },
       renderer: {
-        route: 'fallback-text',
-        rendererKind: 'fallback-text',
+        attachedRoute: 'pixi-text',
+        objectKind: 'pixi-text',
         objectCount: 1,
         semanticSignatures: { content: 'next', style: 'style', layout: 'layout' },
         attachedSignatures: {

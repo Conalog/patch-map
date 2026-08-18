@@ -12,10 +12,6 @@ import type {
   PatchMapTextRenderStyle,
 } from '../semantic/text-render-route';
 
-export function isBitmapTextSafe(value: string): boolean {
-  return value.length <= 128 && /^[\x20-\x7e\n\r\t]*$/.test(value);
-}
-
 export function textStyle(
   store: RenderStoreView,
   slot: number,
@@ -64,19 +60,19 @@ export function textGlyphResolution(
   projection: PatchMapTextProjection | null,
 ): PatchMapTextGlyphResolution {
   if (projection === null) {
-    return Object.freeze({ missingGlyphCount: 0, fallbackGlyphCount: 0 });
+    return Object.freeze({ missingGlyphCount: 0, fontFallbackGlyphCount: 0 });
   }
   const missingGlyphCount = projection.missingGlyphs.reduce(
     (count, missing) => count + missing.count,
     0,
   );
-  const fallbackGlyphCount = projection.visibleFontRuns.reduce(
+  const fontFallbackGlyphCount = projection.visibleFontRuns.reduce(
     (count, run) => count + (
       run.fallbackReason === undefined ? 0 : countVisibleGraphemes(run.text)
     ),
     0,
   );
-  return Object.freeze({ missingGlyphCount, fallbackGlyphCount });
+  return Object.freeze({ missingGlyphCount, fontFallbackGlyphCount });
 }
 
 export function countVisibleGraphemes(text: string): number {

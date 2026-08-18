@@ -23,7 +23,7 @@ import type {
   PatchMapPixiRendererDebug,
   PatchMapRenderLaneSnapshot,
   PatchMapTextAttachedSignatures,
-  PatchMapTextRendererKind,
+  PatchMapTextObjectKind,
   PatchMapTextRendererProbe,
   PatchMapTextSemanticSignatures,
   PatchMapWorldOrientation,
@@ -390,10 +390,10 @@ export type PatchMapTextProductPublicationStatus = 'absent' | 'pending' | 'curre
 
 /** Pixi-object-free renderer facts correlated against the current text sidecar. */
 export interface PatchMapTextRendererProductProbe {
-  readonly semanticRoute: PatchMapTextProjection['rendererRoute'];
-  readonly route: PatchMapTextRendererProbe['route'] | null;
-  readonly rendererKind: PatchMapTextRendererKind;
-  readonly routeReason: PatchMapTextRendererProbe['routeReason'];
+  readonly plannedRoute: PatchMapTextProjection['rendererRoute'];
+  readonly attachedRoute: PatchMapTextRendererProbe['attachedRoute'] | null;
+  readonly objectKind: PatchMapTextObjectKind;
+  readonly routeDecisionReason: PatchMapTextRendererProbe['routeDecisionReason'];
   readonly objectCount: 0 | 1;
   readonly semanticSignatures: PatchMapTextSemanticSignatures;
   readonly attachedSignatures: PatchMapTextAttachedSignatures | null;

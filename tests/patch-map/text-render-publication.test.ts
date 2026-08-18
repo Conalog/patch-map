@@ -153,15 +153,15 @@ describe('PatchMap text render publication', () => {
     expect((layer.textContainer.children[0] as Text).text).toBe(projection.visibleText);
     expect(layer.debugSnapshot()).toMatchObject({
       bitmapTextCount: 0,
-      fallbackTextCount: 1,
+      pixiTextCount: 1,
     });
 
     const pending = layer.textRendererProbe('text');
     expect(pending).toMatchObject({
       entityId: 'text',
-      route: 'fallback-text',
-      rendererKind: 'fallback-text',
-      routeReason: 'atlas-coverage-unproven',
+      attachedRoute: 'pixi-text',
+      objectKind: 'pixi-text',
+      routeDecisionReason: 'atlas-coverage-unproven',
       objectCount: 1,
       semanticSignatures: {
         content: projection.contentSignature,
@@ -207,9 +207,9 @@ describe('PatchMap text render publication', () => {
     expect(layer.textContainer.children).toHaveLength(1);
     expect(layer.textContainer.children[0]).toBeInstanceOf(BitmapText);
     expect(layer.textRendererProbe('text')).toMatchObject({
-      route: 'bitmap-text',
-      rendererKind: 'bitmap-text',
-      routeReason: 'bitmap-capability-proven',
+      attachedRoute: 'bitmap-text',
+      objectKind: 'bitmap-text',
+      routeDecisionReason: 'bitmap-capability-proven',
       objectCount: 1,
     });
     const bitmapObject = layer.textContainer.children[0];
@@ -230,9 +230,9 @@ describe('PatchMap text render publication', () => {
     expect(layer.textContainer.children).toHaveLength(1);
     expect(layer.textContainer.children[0]).toBeInstanceOf(Text);
     expect(layer.textRendererProbe('text')).toMatchObject({
-      route: 'fallback-text',
-      rendererKind: 'fallback-text',
-      routeReason: 'cjk-content',
+      attachedRoute: 'pixi-text',
+      objectKind: 'pixi-text',
+      routeDecisionReason: 'cjk-content',
     });
     expect(requests).toEqual(['text', 'text']);
 
@@ -256,8 +256,8 @@ describe('PatchMap text render publication', () => {
       });
       expect(proven.textContainer.children[0]).toBeInstanceOf(BitmapText);
       expect(proven.textRendererProbe('text')).toMatchObject({
-        route: 'bitmap-text',
-        routeReason: 'bitmap-capability-proven',
+        attachedRoute: 'bitmap-text',
+        routeDecisionReason: 'bitmap-capability-proven',
       });
       await proven.destroy();
     }
@@ -270,8 +270,8 @@ describe('PatchMap text render publication', () => {
     });
     expect(guarded.textContainer.children[0]).toBeInstanceOf(Text);
     expect(guarded.textRendererProbe('text')).toMatchObject({
-      route: 'fallback-text',
-      routeReason: 'atlas-coverage-unproven',
+      attachedRoute: 'pixi-text',
+      routeDecisionReason: 'atlas-coverage-unproven',
     });
     await guarded.destroy();
   });
@@ -388,7 +388,7 @@ describe('PatchMap text render publication', () => {
     expect(layer.textRendererProbe('text')?.attachedSignatures?.renderer).not.toBe(
       semiboldSignature,
     );
-    expect(layer.debugSnapshot()).toMatchObject({ fallbackTextCount: 2 });
+    expect(layer.debugSnapshot()).toMatchObject({ pixiTextCount: 2 });
 
     await layer.destroy();
   });
@@ -552,9 +552,9 @@ describe('PatchMap text render publication', () => {
     renderer.lastStore = hiddenStore;
     renderer.frame = 5;
     expect(renderer.textRendererProbe('text')).toMatchObject({
-      route: 'none',
-      rendererKind: 'none',
-      routeReason: 'not-attached',
+      attachedRoute: 'none',
+      objectKind: 'none',
+      routeDecisionReason: 'not-attached',
       objectCount: 0,
       attachedSignatures: null,
       lastRenderedSignatures: null,

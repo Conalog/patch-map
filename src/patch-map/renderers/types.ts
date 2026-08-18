@@ -108,8 +108,9 @@ export interface PatchMapInteractionOverlayPolicy {
   readonly marqueeFillAlpha: number;
 }
 
-export type PatchMapTextRendererKind = PatchMapTextRenderRoute | 'none';
-export type PatchMapTextRendererRouteReason = PatchMapTextRenderRouteReason | 'not-attached';
+/** Concrete Pixi text object kind attached to the aggregate text lane. */
+export type PatchMapTextObjectKind = PatchMapTextRenderRoute | 'none';
+export type PatchMapTextRouteDecisionReason = PatchMapTextRenderRouteReason | 'not-attached';
 export type PatchMapTextPublicationStatus = 'pending' | 'current';
 
 /** Semantic identities attached to one logical Pixi text leaf. */
@@ -135,9 +136,9 @@ export interface PatchMapTextAttachedSignatures extends PatchMapTextSemanticSign
  */
 export interface PatchMapTextRendererProbe {
   readonly entityId: string;
-  readonly route: PatchMapTextRendererKind;
-  readonly rendererKind: PatchMapTextRendererKind;
-  readonly routeReason: PatchMapTextRendererRouteReason;
+  readonly attachedRoute: PatchMapTextObjectKind;
+  readonly objectKind: PatchMapTextObjectKind;
+  readonly routeDecisionReason: PatchMapTextRouteDecisionReason;
   readonly objectCount: 0 | 1;
   readonly semanticSignatures: PatchMapTextSemanticSignatures;
   readonly attachedSignatures: PatchMapTextAttachedSignatures | null;
@@ -349,7 +350,8 @@ export interface PatchMapPixiRendererDebug {
   readonly particleFullUploadCount: number;
   readonly uploadObservation: 'dirty-chunk-bytes' | 'particle-full-upload-count';
   readonly bitmapTextCount: number;
-  readonly fallbackTextCount: number;
+  /** Pixi Text objects; together with bitmapTextCount this is the text object total. */
+  readonly pixiTextCount: number;
   readonly imageCount: number;
   readonly loadedAssetCount: number;
   readonly unresolvedAssetCount: number;

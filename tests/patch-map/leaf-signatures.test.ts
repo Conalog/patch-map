@@ -62,9 +62,9 @@ describe('PatchMap leaf render signatures', () => {
     const different = freezeTextAttachedSignatures(semantic, 'renderer-b');
     const probe = freezeTextRendererProbe({
       entityId: 'label',
-      route: 'fallback-text',
-      rendererKind: 'fallback-text',
-      routeReason: 'atlas-coverage-unproven',
+      attachedRoute: 'pixi-text',
+      objectKind: 'pixi-text',
+      routeDecisionReason: 'atlas-coverage-unproven',
       objectCount: 1,
       semanticSignatures: semantic,
       attachedSignatures: attached,
@@ -94,7 +94,7 @@ describe('PatchMap leaf render signatures', () => {
       advancedFeatures: Object.freeze(['stroke']),
     });
     const left = textRendererSignature(
-      'fallback-text',
+      'pixi-text',
       null,
       'label',
       style,
@@ -104,7 +104,7 @@ describe('PatchMap leaf render signatures', () => {
       1,
     );
     const right = textRendererSignature(
-      'fallback-text',
+      'pixi-text',
       null,
       'label',
       style,

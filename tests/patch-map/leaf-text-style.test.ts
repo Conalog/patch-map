@@ -8,22 +8,12 @@ import {
 import {
   alignName,
   countVisibleGraphemes,
-  isBitmapTextSafe,
   textGlyphResolution,
   textRenderStyle,
   textStyle,
 } from '../../src/patch-map/renderers/leaf-text-style';
 
 describe('PatchMap leaf text style contract', () => {
-  it('keeps the bounded ASCII BitmapText safety boundary', () => {
-    expect(isBitmapTextSafe('CPU 42%')).toBe(true);
-    expect(isBitmapTextSafe('line one\nline two')).toBe(true);
-    expect(isBitmapTextSafe('인버터 42')).toBe(false);
-    expect(isBitmapTextSafe('ready ✅')).toBe(false);
-    expect(isBitmapTextSafe('x'.repeat(128))).toBe(true);
-    expect(isBitmapTextSafe('x'.repeat(129))).toBe(false);
-  });
-
   it('resolves authored route style and preserves the exact Pixi stroke contract', () => {
     const store = textStore({
       fontFamily: 'Dense Sans',
@@ -157,12 +147,12 @@ describe('PatchMap leaf text style contract', () => {
     });
 
     const resolution = textGlyphResolution(projection);
-    expect(resolution).toEqual({ missingGlyphCount: 3, fallbackGlyphCount: 3 });
+    expect(resolution).toEqual({ missingGlyphCount: 3, fontFallbackGlyphCount: 3 });
     expect(Object.isFrozen(resolution)).toBe(true);
     expect(countVisibleGraphemes(fallbackText)).toBe(3);
     expect(textGlyphResolution(null)).toEqual({
       missingGlyphCount: 0,
-      fallbackGlyphCount: 0,
+      fontFallbackGlyphCount: 0,
     });
   });
 });

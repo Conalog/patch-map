@@ -22,7 +22,7 @@ export const PATCH_MAP_TEXT_PROFILE = Object.freeze({
 
 export type PatchMapTextOverflow = 'visible' | 'hidden' | 'ellipsis';
 export type PatchMapTextDirection = 'ltr' | 'rtl';
-export type PatchMapTextRendererRoute = 'bitmap-text' | 'fallback-text';
+export type PatchMapTextRendererRoute = 'bitmap-text' | 'pixi-text';
 export type PatchMapTextBounds = Readonly<{ x: number; y: number; width: number; height: number }>;
 
 export interface PatchMapTextFrame {
@@ -84,6 +84,7 @@ export interface PatchMapTextFontRun {
   readonly text: string;
   readonly font: string;
   readonly fontSizePx?: number;
+  /** Font-family fallback only; unrelated to the Pixi Text/BitmapText object route. */
   readonly fallbackReason?: 'requested-font-unavailable';
 }
 

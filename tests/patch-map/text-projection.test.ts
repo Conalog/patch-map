@@ -88,7 +88,7 @@ describe('PatchMap deterministic text projection', () => {
     });
     expect(texts['missing-font']).toMatchObject({
       source: 'fallback',
-      rendererRoute: 'fallback-text',
+      rendererRoute: 'pixi-text',
     });
     expect(texts['missing-font']?.visibleFontRuns).toEqual(expect.arrayContaining([
       expect.objectContaining({ fallbackReason: 'requested-font-unavailable' }),
@@ -147,7 +147,7 @@ describe('PatchMap deterministic text projection', () => {
       componentId: 'bidi',
       source: 'ABC مرحبا 😀',
       baseDirection: 'ltr',
-      rendererRoute: 'fallback-text',
+      rendererRoute: 'pixi-text',
     });
     expect(parsed.diagnostics).not.toContainEqual(expect.objectContaining({
       code: 'text-split-degraded',
@@ -246,7 +246,7 @@ describe('PatchMap deterministic text projection', () => {
     expect(parsed.projection.textsByEntityId?.['default-font']).toMatchObject({
       sourceFontRuns: [{ text: 'Ready', font: 'FiraCode' }],
       visibleFontRuns: [{ text: 'Ready', font: 'FiraCode' }],
-      rendererRoute: 'fallback-text',
+      rendererRoute: 'pixi-text',
     });
     expect(parsed.document.entities[0]).toMatchObject({
       id: 'default-font',
@@ -301,13 +301,13 @@ describe('PatchMap deterministic text projection', () => {
       fontSizePx: 52,
       lineHeightPx: 65,
       layoutBounds: { height: 130 },
-      rendererRoute: 'fallback-text',
+      rendererRoute: 'pixi-text',
     });
     expect(component).toMatchObject({
       fontSizePx: 52,
       lineHeightPx: 65,
       layoutBounds: { height: 130 },
-      rendererRoute: 'fallback-text',
+      rendererRoute: 'pixi-text',
     });
     expect(component?.fontSizePx).toBe(standalone?.fontSizePx);
     expect(component?.lineHeightPx).toBe(standalone?.lineHeightPx);

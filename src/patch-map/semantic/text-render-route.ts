@@ -44,7 +44,8 @@ const COMBINING_RANGES = Object.freeze([
   [0xe0100, 0xe01ef],
 ] as const);
 
-export type PatchMapTextRenderRoute = 'bitmap-text' | 'fallback-text';
+/** Pixi text object selected for one semantic text projection. */
+export type PatchMapTextRenderRoute = 'bitmap-text' | 'pixi-text';
 
 export type PatchMapTextRenderRouteReason =
   | 'bitmap-capability-proven'
@@ -56,7 +57,7 @@ export type PatchMapTextRenderRouteReason =
   | 'unsupported-control'
   | 'unsupported-script'
   | 'missing-glyphs'
-  | 'fallback-glyphs'
+  | 'font-fallback-glyphs'
   | 'atlas-coverage-unproven'
   | 'atlas-capability-invalid'
   | 'atlas-glyph-missing'
@@ -99,7 +100,8 @@ export interface PatchMapBitmapTextCapabilityProof {
 
 export interface PatchMapTextGlyphResolution {
   readonly missingGlyphCount: number;
-  readonly fallbackGlyphCount: number;
+  /** Graphemes assigned to a fallback font family, not a renderer fallback. */
+  readonly fontFallbackGlyphCount: number;
 }
 
 export interface PatchMapTextRenderRouteInput {
@@ -142,7 +144,7 @@ export interface PatchMapTextRenderRouteDecision {
     styleCompatible: boolean;
     multilineSupported: boolean;
     noMissingGlyphs: boolean;
-    noFallbackGlyphs: boolean;
+    noFontFallbackGlyphs: boolean;
   }>;
 }
 
@@ -194,42 +196,42 @@ export function selectPatchMapTextRenderRoute(
     && !content.containsUnsupportedControl
     && !content.containsUnsupportedScript;
   const noMissingGlyphs = input.glyphResolution.missingGlyphCount === 0;
-  const noFallbackGlyphs = input.glyphResolution.fallbackGlyphCount === 0;
+  const noFontFallbackGlyphs = input.glyphResolution.fontFallbackGlyphCount === 0;
   const atlasCoverageComplete = capability.coverageProven
     && capability.uncoveredGlyphs.length === 0;
 
-  const fallbackReasons: PatchMapTextRenderRouteReason[] = [];
-  if (!contentWithinLimit) fallbackReasons.push('content-over-limit');
-  if (content.containsCjk) fallbackReasons.push('cjk-content');
-  if (content.containsBidi) fallbackReasons.push('bidi-content');
-  if (content.containsEmoji) fallbackReasons.push('emoji-content');
-  if (content.containsCombiningSequence) fallbackReasons.push('combining-sequence');
-  if (content.containsUnsupportedControl) fallbackReasons.push('unsupported-control');
-  if (content.containsUnsupportedScript) fallbackReasons.push('unsupported-script');
-  if (!noMissingGlyphs) fallbackReasons.push('missing-glyphs');
-  if (!noFallbackGlyphs) fallbackReasons.push('fallback-glyphs');
+  const pixiTextReasons: PatchMapTextRenderRouteReason[] = [];
+  if (!contentWithinLimit) pixiTextReasons.push('content-over-limit');
+  if (content.containsCjk) pixiTextReasons.push('cjk-content');
+  if (content.containsBidi) pixiTextReasons.push('bidi-content');
+  if (content.containsEmoji) pixiTextReasons.push('emoji-content');
+  if (content.containsCombiningSequence) pixiTextReasons.push('combining-sequence');
+  if (content.containsUnsupportedControl) pixiTextReasons.push('unsupported-control');
+  if (content.containsUnsupportedScript) pixiTextReasons.push('unsupported-script');
+  if (!noMissingGlyphs) pixiTextReasons.push('missing-glyphs');
+  if (!noFontFallbackGlyphs) pixiTextReasons.push('font-fallback-glyphs');
   if (input.bitmapCapability === null) {
-    fallbackReasons.push('atlas-coverage-unproven');
+    pixiTextReasons.push('atlas-coverage-unproven');
   } else if (capability.coverageInvalid) {
-    fallbackReasons.push('atlas-capability-invalid');
+    pixiTextReasons.push('atlas-capability-invalid');
   } else if (!atlasCoverageComplete) {
-    fallbackReasons.push('atlas-glyph-missing');
+    pixiTextReasons.push('atlas-glyph-missing');
   }
   if (input.bitmapCapability !== null && !capability.styleProven) {
-    fallbackReasons.push('style-capability-invalid');
+    pixiTextReasons.push('style-capability-invalid');
   } else if (capability.styleProven && !capability.styleCompatible) {
-    fallbackReasons.push('unsupported-style');
+    pixiTextReasons.push('unsupported-style');
   }
   if (content.lineCount > 1 && !capability.multilineSupported) {
-    fallbackReasons.push('multiline-unsupported');
+    pixiTextReasons.push('multiline-unsupported');
   }
 
-  const route: PatchMapTextRenderRoute = fallbackReasons.length === 0
+  const route: PatchMapTextRenderRoute = pixiTextReasons.length === 0
     ? 'bitmap-text'
-    : 'fallback-text';
+    : 'pixi-text';
   const reasons = Object.freeze(route === 'bitmap-text'
     ? ['bitmap-capability-proven'] as const
-    : [...fallbackReasons]);
+    : [...pixiTextReasons]);
   const reason = reasons[0];
   if (reason === undefined) throw new Error('PatchMap text route must have one reason');
 
@@ -268,7 +270,7 @@ export function selectPatchMapTextRenderRoute(
       styleCompatible: capability.styleCompatible,
       multilineSupported: capability.multilineSupported,
       noMissingGlyphs,
-      noFallbackGlyphs,
+      noFontFallbackGlyphs,
     }),
   });
 }
@@ -450,7 +452,7 @@ function validateInput(input: PatchMapTextRenderRouteInput): void {
     throw new TypeError('text route glyphResolution must be an object');
   }
   if (!nonnegativeInteger(glyphResolution.missingGlyphCount)
-    || !nonnegativeInteger(glyphResolution.fallbackGlyphCount)) {
+    || !nonnegativeInteger(glyphResolution.fontFallbackGlyphCount)) {
     throw new TypeError('text route glyph counts must be nonnegative integers');
   }
 }

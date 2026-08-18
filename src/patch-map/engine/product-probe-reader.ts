@@ -285,10 +285,11 @@ export function readPatchMapEngineTextProbe(
     rendererFrame: visual?.publication.rendererFrame ?? null,
   });
   const rendererAvailable = visual !== null &&
-    visual.renderer.route !== null &&
-    visual.renderer.route !== 'none' &&
-    visual.renderer.rendererKind !== 'none' &&
-    visual.renderer.route === visual.renderer.rendererKind;
+    visual.renderer.attachedRoute !== null &&
+    visual.renderer.attachedRoute !== 'none' &&
+    visual.renderer.objectKind !== 'none' &&
+    visual.renderer.plannedRoute === visual.renderer.attachedRoute &&
+    visual.renderer.attachedRoute === visual.renderer.objectKind;
   return Object.freeze({
     target: normalizedTarget,
     semantic: semantic?.probe ?? null,

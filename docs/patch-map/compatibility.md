@@ -107,8 +107,9 @@ PATCH MAP v0.10 `FiraCode` and `Fira Code` are supported spellings of the
 package-owned, quote-stable `FiraCode` browser family. Light 300, Regular 400, Medium 500, SemiBold 600,
 and Bold 700 are separate content-bound files and settle during mount before
 the first Text object or capture. No weight aliases Regular bytes as a heavier
-face. CJK continues through the browser fallback Text route at the requested
-weight; Latin and numeric runs use the exact Fira Code face. The package owns
+face. CJK continues through the Pixi Text object route and uses the browser's
+font-family fallback at the requested weight; Latin and numeric runs use the
+exact Fira Code face. Font fallback is not a renderer fallback. The package owns
 the leases and releases them on destroy. All five faces are eager because
 synchronous dataset replacement and live weight changes must not race a lazy
 font load; concurrent PatchMap instances share the five physical resources

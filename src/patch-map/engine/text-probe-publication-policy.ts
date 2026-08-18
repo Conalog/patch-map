@@ -22,10 +22,11 @@ function surfaceTextProbeIsCurrent(probe: PatchMapTextProductProbe | null): bool
     probe.publication.status !== 'current' ||
     probe.publication.sceneRevision !== probe.publication.renderedSceneRevision ||
     probe.publication.rendererFrame === null ||
-    probe.renderer.route === null ||
-    probe.renderer.route === 'none' ||
-    probe.renderer.rendererKind === 'none' ||
-    probe.renderer.route !== probe.renderer.rendererKind ||
+    probe.renderer.attachedRoute === null ||
+    probe.renderer.attachedRoute === 'none' ||
+    probe.renderer.objectKind === 'none' ||
+    probe.renderer.plannedRoute !== probe.renderer.attachedRoute ||
+    probe.renderer.attachedRoute !== probe.renderer.objectKind ||
     probe.renderer.objectCount !== 1 ||
     probe.renderer.staleGlyphCount !== 0 ||
     probe.renderer.lastRenderedFrame !== probe.publication.rendererFrame ||
@@ -73,8 +74,8 @@ function surfaceTextProbeIsAbsent(probe: PatchMapTextProductProbe | null): boole
     !probe.state.visible &&
     probe.geometry.visibleBounds === null &&
     probe.publication.status === 'absent' &&
-    probe.renderer.route === null &&
-    probe.renderer.rendererKind === 'none' &&
+    probe.renderer.attachedRoute === null &&
+    probe.renderer.objectKind === 'none' &&
     probe.renderer.objectCount === 0 &&
     probe.renderer.staleGlyphCount === 0 &&
     probe.renderer.attachedSignatures === null &&

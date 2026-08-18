@@ -39,7 +39,7 @@ describe('PatchMap O(1) text product seam', () => {
       semantic: { source: 'old', show: true },
       entityId: 'text',
       projection: { source: 'old', visibleText: 'old' },
-      renderer: { rendererKind: 'none', objectCount: 0 },
+      renderer: { objectKind: 'none', objectCount: 0 },
       publication: {
         status: 'pending',
         revisions: {
@@ -64,8 +64,8 @@ describe('PatchMap O(1) text product seam', () => {
     const initial = engine.textProbe(elementTarget());
     expect(initial).toMatchObject({
       renderer: {
-        route: 'fallback-text',
-        rendererKind: 'fallback-text',
+        attachedRoute: 'pixi-text',
+        objectKind: 'pixi-text',
         objectCount: 1,
         staleGlyphCount: 0,
       },
@@ -183,8 +183,8 @@ describe('PatchMap O(1) text product seam', () => {
       semantic: { source: 'hidden', show: false },
       state: { visible: false },
       renderer: {
-        route: null,
-        rendererKind: 'none',
+        attachedRoute: null,
+        objectKind: 'none',
         objectCount: 0,
         attachedSignatures: null,
         lastRenderedSignatures: null,
@@ -440,9 +440,9 @@ function createSurfaceProbe(input: Readonly<{
     : null;
   const renderer: PatchMapTextRendererProbe = Object.freeze({
     entityId: input.entity.id,
-    route: current ? 'fallback-text' : 'none',
-    rendererKind: current ? 'fallback-text' : 'none',
-    routeReason: current ? 'atlas-coverage-unproven' : 'not-attached',
+    attachedRoute: current ? 'pixi-text' : 'none',
+    objectKind: current ? 'pixi-text' : 'none',
+    routeDecisionReason: current ? 'atlas-coverage-unproven' : 'not-attached',
     objectCount: current ? 1 : 0,
     semanticSignatures: signatures,
     attachedSignatures: attached,
@@ -500,10 +500,10 @@ function createSurfaceProbe(input: Readonly<{
       contentOrientation: input.projection.contentOrientation,
     }),
     renderer: Object.freeze({
-      semanticRoute: input.semantic.rendererRoute,
-      route: visible ? renderer.route : null,
-      rendererKind: visible ? renderer.rendererKind : 'none',
-      routeReason: visible ? renderer.routeReason : 'not-attached',
+      plannedRoute: visible ? renderer.attachedRoute : input.semantic.rendererRoute,
+      attachedRoute: visible ? renderer.attachedRoute : null,
+      objectKind: visible ? renderer.objectKind : 'none',
+      routeDecisionReason: visible ? renderer.routeDecisionReason : 'not-attached',
       objectCount: visible ? renderer.objectCount : 0,
       semanticSignatures: signatures,
       attachedSignatures: visible ? renderer.attachedSignatures : null,

@@ -168,7 +168,7 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     ]);
     expect(result.logicalToVisual).toEqual([10, 9, 8, 7, 6, 5, 0, 1, 2, 3, 4]);
     expect(result.layoutBounds).toEqual({ x: 0, y: 0, width: 88, height: 20 });
-    expect(result.rendererRoute).toBe('fallback-text');
+    expect(result.rendererRoute).toBe('pixi-text');
   });
 
   it('keeps European and Arabic-Indic digit graphemes in logical order inside RTL text', () => {
@@ -212,12 +212,12 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
       },
     ]);
     expect(unavailable.layoutBounds.width).toBe(64);
-    expect(unavailable.rendererRoute).toBe('fallback-text');
+    expect(unavailable.rendererRoute).toBe('pixi-text');
     expect(available.fontRuns).toEqual([
       { text: 'ASCII', font: 'FixtureFont' },
     ]);
     expect(available.visibleFontRuns).toEqual([{ text: 'ASCII', font: 'FixtureFont' }]);
-    expect(available.rendererRoute).toBe('fallback-text');
+    expect(available.rendererRoute).toBe('pixi-text');
   });
 
   it('applies visible, hidden, and ellipsis overflow without splitting a grapheme', () => {
@@ -400,7 +400,7 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     expect(result.ownerLocalBounds).toEqual({ x: 219, y: 135, width: 18, height: 20 });
     expect(international.lines).toEqual(['中😀é', 'مرحبا']);
     expect(international.layoutBounds).toEqual({ x: 0, y: 0, width: 40, height: 40 });
-    expect(international.rendererRoute).toBe('fallback-text');
+    expect(international.rendererRoute).toBe('pixi-text');
   });
 
   it('relocates a completed layout with the exact direct-origin signature', () => {

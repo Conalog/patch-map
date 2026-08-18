@@ -131,7 +131,7 @@ class HeadlessLeafRenderer {
     this.frame += 1;
     return Object.freeze({
       rendered: true,
-      commandCount: debug.imageCount + debug.bitmapTextCount + debug.fallbackTextCount,
+      commandCount: debug.imageCount + debug.bitmapTextCount + debug.pixiTextCount,
     });
   }
   public synchronizeNextFlush(): void {}
@@ -157,7 +157,7 @@ class HeadlessLeafRenderer {
       frame: this.frame,
       storeEpoch: 1,
       entityCount: 0,
-      aggregateRenderObjects: leaves.imageCount + leaves.bitmapTextCount + leaves.fallbackTextCount,
+      aggregateRenderObjects: leaves.imageCount + leaves.bitmapTextCount + leaves.pixiTextCount,
       visiblePrimitives: 0,
       uploadedChunks: 0,
       uploadedBytes: 0,
@@ -166,7 +166,7 @@ class HeadlessLeafRenderer {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: leaves.bitmapTextCount,
-      fallbackTextCount: leaves.fallbackTextCount,
+      pixiTextCount: leaves.pixiTextCount,
       imageCount: leaves.imageCount,
       loadedAssetCount: leaves.loadedAssetCount,
       unresolvedAssetCount: leaves.unresolvedAssetCount,

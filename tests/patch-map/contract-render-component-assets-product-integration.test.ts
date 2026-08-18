@@ -314,7 +314,7 @@ class HeadlessComponentAssetRenderer {
       commandCount: aggregate.meshCount
         + debug.imageCount
         + debug.bitmapTextCount
-        + debug.fallbackTextCount,
+        + debug.pixiTextCount,
     });
   }
   public synchronizeNextFlush(): void {}
@@ -356,7 +356,7 @@ class HeadlessComponentAssetRenderer {
       frame: this.frame,
       storeEpoch: 1,
       entityCount: 0,
-      aggregateRenderObjects: leaves.imageCount + leaves.bitmapTextCount + leaves.fallbackTextCount,
+      aggregateRenderObjects: leaves.imageCount + leaves.bitmapTextCount + leaves.pixiTextCount,
       visiblePrimitives: leaves.imageCount,
       uploadedChunks: 0,
       uploadedBytes: 0,
@@ -365,7 +365,7 @@ class HeadlessComponentAssetRenderer {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: leaves.bitmapTextCount,
-      fallbackTextCount: leaves.fallbackTextCount,
+      pixiTextCount: leaves.pixiTextCount,
       imageCount: leaves.imageCount,
       loadedAssetCount: leaves.loadedAssetCount,
       unresolvedAssetCount: leaves.unresolvedAssetCount,

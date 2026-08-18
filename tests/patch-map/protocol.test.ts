@@ -42,7 +42,7 @@ describe('PatchMap performance protocol', () => {
     expect(selectPatchMapTextRenderRoute({
       text: firstText.visibleText,
       style: routeStyle,
-      glyphResolution: { missingGlyphCount: 0, fallbackGlyphCount: 0 },
+      glyphResolution: { missingGlyphCount: 0, fontFallbackGlyphCount: 0 },
       bitmapCapability: resolveSyntheticBitmapTextCapability({
         entityId: firstText.entityId,
         text: firstText.visibleText,
