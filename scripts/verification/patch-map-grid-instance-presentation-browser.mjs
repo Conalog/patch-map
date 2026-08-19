@@ -40,6 +40,15 @@ try {
       <div id="map" style="width:240px;height:120px"></div>
       <script type="module">
         import { PatchMap } from '${new URL('src/index.ts', baseUrl).href}';
+        window.__PATCH_MAP_GRID_PRESENTATION__ = { phase: 'mounting' };
+
+        const assetCanvas = document.createElement('canvas');
+        assetCanvas.width = 16;
+        assetCanvas.height = 16;
+        const assetContext = assetCanvas.getContext('2d');
+        assetContext.fillStyle = '#d946ef';
+        assetContext.fillRect(0, 0, 16, 16);
+        const overlaySurface = assetCanvas.toDataURL('image/png');
 
         const data = [{
           type: 'grid',
@@ -77,6 +86,8 @@ try {
           resizeMode: 'manual',
           fit: false,
           background: '#000000',
+          assets: [{ alias: 'overlay-surface', descriptor: overlaySurface }],
+          assetPolicy: () => undefined,
           data,
         });
 
@@ -95,6 +106,11 @@ try {
                   ? green > 150 && green > red * 1.5 && green > blue * 1.15
                   : color === 'yellow'
                     ? red > 180 && green > 150 && blue < 100
+                    : color === 'magenta'
+                      ? red > 170 && blue > 170 && green < 120
+                      : color === 'cyan'
+                        ? red < 60 && green > 125 && blue > 140 && blue < 210 &&
+                          green > blue * 0.65
                     : red > 35 && red < 90 && green > 45 && green < 105 && blue > 60 && blue < 125;
             if (matches && alpha > 180) {
               const pixel = offset / 4;
@@ -125,13 +141,22 @@ try {
           const context = canvas.getContext('2d', { willReadFrequently: true });
           context.drawImage(image, 0, 0);
           const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-          return Object.fromEntries(['red', 'blue', 'green', 'yellow', 'authored'].map((color) => [
+          return Object.fromEntries([
+            'red',
+            'blue',
+            'green',
+            'yellow',
+            'magenta',
+            'cyan',
+            'authored',
+          ].map((color) => [
             color,
             colorMask(pixels, canvas.width, color),
           ]));
         };
 
         const initial = await capture();
+        window.__PATCH_MAP_GRID_PRESENTATION__.phase = 'authored-captured';
         const snapshotBefore = JSON.stringify(map.data.snapshot());
         const historyBefore = JSON.stringify(map.history.state);
         const hashBefore = map.debug.snapshot().semanticHash;
@@ -188,6 +213,26 @@ try {
           },
         });
         const overlay = await capture();
+        window.__PATCH_MAP_GRID_PRESENTATION__.phase = 'rect-overlay-captured';
+        const toAsset = map.update({
+          id: 'status-grid.0.0',
+          background: {
+            componentId: 'surface',
+            changes: { source: 'overlay-surface' },
+          },
+        });
+        const assetOverlay = await capture();
+        window.__PATCH_MAP_GRID_PRESENTATION__.phase = 'asset-overlay-captured';
+        const assetStatus = map.assets.status('overlay-surface');
+        const toRect = map.update({
+          id: 'status-grid.0.0',
+          background: {
+            componentId: 'surface',
+            changes: { source: { type: 'rect', fill: '#0891b2', radius: 6 } },
+          },
+        });
+        const rectOverlay = await capture();
+        window.__PATCH_MAP_GRID_PRESENTATION__.phase = 'rect-restored-captured';
         const immutable = {
           input: JSON.stringify(data) === beforeInput,
           snapshot: JSON.stringify(map.data.snapshot()) === snapshotBefore,
@@ -213,6 +258,7 @@ try {
           },
         });
         const restored = await capture();
+        window.__PATCH_MAP_GRID_PRESENTATION__.phase = 'authored-restored-captured';
         const destroy = await map.destroy();
         window.__PATCH_MAP_GRID_PRESENTATION__ = {
           phase: 'complete',
@@ -220,6 +266,11 @@ try {
           first,
           second,
           overlay,
+          toAsset,
+          assetOverlay,
+          assetStatus,
+          toRect,
+          rectOverlay,
           immutable,
           restore,
           restored,
@@ -229,11 +280,23 @@ try {
       </script>
     </body></html>`);
 
-  await page.waitForFunction(
-    () => window.__PATCH_MAP_GRID_PRESENTATION__?.phase === 'complete',
-    undefined,
-    { timeout: 60_000 },
-  );
+  try {
+    await page.waitForFunction(
+      () => window.__PATCH_MAP_GRID_PRESENTATION__?.phase === 'complete',
+      undefined,
+      { timeout: 60_000 },
+    );
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      result: window.__PATCH_MAP_GRID_PRESENTATION__ ?? null,
+      body: document.body.innerText,
+    })).catch(() => null);
+    throw new Error(`grid presentation page did not complete: ${JSON.stringify({
+      cause: error instanceof Error ? error.message : String(error),
+      errors,
+      state,
+    })}`);
+  }
   const result = await page.evaluate(() => window.__PATCH_MAP_GRID_PRESENTATION__);
   assert(result.initial.green.pixelCount === 0 && result.initial.yellow.pixelCount === 0,
     'authored hidden text stays hidden', result.initial);
@@ -251,6 +314,19 @@ try {
   assert(result.overlay.yellow.pixelCount > 80 &&
     result.overlay.yellow.bounds.minX > 110 && result.overlay.yellow.bounds.minY > 55,
   'second text keeps its font/style and right-bottom placement above the background', result.overlay.yellow);
+  assert(result.toAsset.status === 'committed' && result.toAsset.appliedCount === 1,
+    'rect background transitions to an asset through update()', result.toAsset);
+  assert(result.assetOverlay.magenta.pixelCount > 7_000 &&
+    result.assetOverlay.magenta.bounds.maxX < 110 && result.assetOverlay.blue.pixelCount > 7_000,
+  'asset background fills only the first cell without disturbing sibling order', result.assetOverlay);
+  assert(result.assetStatus.runtime.resource?.state === 'resolved' &&
+    result.assetStatus.runtime.pendingCount === 0,
+  'capture settles the concrete background asset', result.assetStatus);
+  assert(result.toRect.status === 'committed' && result.toRect.appliedCount === 1,
+    'asset background transitions back to aggregate rect presentation', result.toRect);
+  assert(result.rectOverlay.magenta.pixelCount === 0 &&
+    result.rectOverlay.cyan.pixelCount > 7_000 && result.rectOverlay.cyan.bounds.maxX < 110,
+  'asset-to-rect transition releases the image lane and preserves cell bounds', result.rectOverlay);
   assert(Object.values(result.immutable).every(Boolean),
     'overlay stays outside input, snapshot, history, and semantic hash', result.immutable);
   assert(result.restore.status === 'committed' && result.restore.appliedCount === 4,

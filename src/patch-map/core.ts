@@ -1575,6 +1575,7 @@ export class PatchMapRuntime {
       activeEntityIds: activeSceneImageIds(
         this.publishedScene.current(),
         plan.rendererOverrides,
+        plan.projection,
       ),
     });
     const presentation = this.barPresentation.reconcile(
@@ -2222,9 +2223,10 @@ function barPercentageHeight(
 function activeSceneImageIds(
   published: PatchMapPublishedSceneState,
   overrides?: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  projection: PatchMapProjectionIndex | null = published.projection,
 ): ReadonlySet<string> {
   const active = new Set<string>();
-  const images = published.projection?.imagesByEntityId ?? {};
+  const images = projection?.imagesByEntityId ?? {};
   for (const entityId of Object.keys(images)) {
     const entity = published.scene.get(entityId);
     const override = overrides?.get(entityId);
