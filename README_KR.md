@@ -116,12 +116,31 @@ patchMap.updateBatch({
     componentId: 'status',
     changes: { show: iconShows, source: iconSources, tint: iconTints },
   },
+  background: {
+    componentId: 'surface',
+    changes: { source: cellBackgrounds, show: cellBackgroundVisibility },
+  },
+  text: {
+    componentId: 'value',
+    text: cellLabels,
+    style: cellTextStyles,
+    changes: {
+      show: cellTextVisibility,
+      margin: cellTextMargins,
+      tint: cellTextTints,
+    },
+  },
 }, { animate: true });
 ```
 
 입력 객체는 내부 데이터와 분리되며 수정되지 않습니다. element ID와
 component의 owner/ID identity가 유지됩니다. strict load와 mutation 오류는
 부분 적용 없이 원자적으로 실패합니다.
+
+authored grid template 갱신은 모든 cell에 적용되고, concrete cell target의
+background/bar/icon/text 값은 renderer-only overlay로 독립 적용됩니다. 각
+필드에 `null`을 전달하면 현재 authored template 값으로 돌아가며 snapshot,
+semantic hash, history에는 overlay가 포함되지 않습니다.
 
 ## 지원 범위
 

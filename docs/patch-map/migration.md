@@ -439,7 +439,8 @@ validation shortcut.
 does not turn host timing into an asset-readiness signal. Use the first
 `await capture.png()` as the exact visible-publication barrier: it waits every
 active image binding in that tuple, publishes resolved textures, and captures
-without an adapter sleep or `assets.status()` poll.
+without an adapter sleep or `assets.status()` poll. This includes a concrete
+background that transitions from aggregate rect paint to an asset and back.
 
 If several maps share a `PatchMapAssetRuntime`, each `PatchMap` still owns its
 own session and leases. Destroying one engine releases only its leases; the

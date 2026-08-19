@@ -65,7 +65,8 @@ implements it:
 in that exact publication. It waits currently active direct-image and component
 image bindings, publishes their resolved textures through the owned frame loop,
 and then reads the canvas. Hosts do not need an asset-status polling loop or a
-sleep before capturing a just-replaced image or newly shown icon.
+sleep before capturing a just-replaced image, newly shown icon, or concrete
+background that changed from rect paint to an asset source.
 
 `PatchMap.mount()` registers the package-owned `object`, `inverter`, `combiner`,
 `device`, `edge`, `loading`, `warning`, and `wifi` image aliases. The glyphs
@@ -322,6 +323,9 @@ conveniences plus `changes.text/style/show/placement/margin/tint/split/attrs`.
 Passing `null` for any one field restores only that field from the current
 authored template. Background `size` keeps the v0.10 compatibility meaning:
 it is preserved, while background paint still covers the complete item frame.
+Selected column entries are read as data properties and deeply detached before
+commit; accessor-backed columns or nested values are rejected without invoking
+their getters. Validation remains atomic across every component column.
 Loading another dataset or destroying the engine clears the overlay. See the
 [migration guide](./migration.md#grid-template-values-versus-concrete-cell-values)
 for the persistence and unsupported-state boundary.

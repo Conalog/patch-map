@@ -158,13 +158,24 @@
   accepts v0.10 non-structural visual fields, reuses canonical projection and
   existing dense/text/aggregate ownership, and remains outside snapshots,
   semantic hashes, and history. Browser pixels verify distinct per-cell paint,
-  content, style, placement, order, visibility, and authored `null` restore.
+  content, style, placement, order, visibility, authored `null` restore, and
+  rect-to-asset-to-rect background transitions with settled resource ownership.
+  Column entries and nested values are descriptor-safe and deeply detached;
+  culled text publishes new geometry immediately while deferring only Pixi text
+  texture regeneration. The bar/icon and background/text WebGL verifiers now
+  share the standard `verify:instance-presentation` gate.
   The final-code 5,000/10,000-cell 2+7 WebGL proxy records first-overlay
-  update medians of 518.2/1,003.9ms, repeated-update p95 medians of
-  451.3/872.2ms, rAF-gap p95 medians of 485.3/885.3ms, and long-task-count
+  update medians of 433.8/753.1ms, repeated-update p95 medians of
+  468.9/846.9ms, rAF-gap p95 medians of 433.4/667.0ms, and long-task-count
   medians of 8/8. These all-cell background plus text content/style/layout
   costs remain unfavorable and are not substituted for the narrower bar-only
   checkpoint.
+- The follow-up typecheck, scoped lint, targeted mutation/leaf/engine-probe
+  tests, and combined bar/icon plus background/text WebGL gate pass. The branch-wide
+  unit gate still reports 10 render-text fold failures because retained
+  actual-only fixture rows publish a semantic `plannedRoute` that differs from
+  their synthetic `attachedRoute`; the immutable contract fixtures and fold
+  evidence were not changed by this checkpoint.
 
 # Next Step
 
