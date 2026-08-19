@@ -359,3 +359,32 @@
   errors. Package exports, renderer/resource ownership, lifecycle destroy, and
   hot paths were unchanged, so packed consumer, memory, and performance gates
   were intentionally not repeated.
+
+**2026-08-19**
+
+- **Batch: Text viewport demand materialization.** Preserved the existing
+  world-matrix text culler and 64-slot chunk ownership while splitting visible
+  semantic slot geometry from materialized Pixi text objects. Full rebuilds now
+  rasterize only viewport-near chunks; pan, zoom, and moved-in geometry
+  materialize through the central leaf lifecycle. Offscreen content/style
+  texture regeneration remains deferred, and renderer debug is refreshed after
+  culling materializes a chunk.
+- Added explicit 0.1x/4x culling coverage, bounded initial materialization,
+  lazy pan materialization, moved-in geometry, and destroy-retention checks.
+  Extended the public-path performance verifier with initial/final render-command
+  observations and fail-closed bounds without exposing a new runtime API.
+- The final 5,000/10,000-cell 2+7 WebGL proxy passed with mount medians of
+  721.9/1,054.3ms, first-overlay medians of 414.5/744.9ms, repeated-update p95
+  medians of 401.9/672.8ms, and initial/final render-command counts of
+  605/670 and 634/699. Against the preceding exact checkpoint, mount improved
+  from 1,090.6/1,469.4ms and repeated-update p95 from 468.9/846.9ms. The
+  rAF-gap p95 medians remain unfavorable at 400.3/666.6ms and long-task-count
+  medians remain 8/8; no low-zoom semantic label LOD is claimed.
+- Verification passed 42 focused leaf/publication tests, full lint/typecheck,
+  production build, canonical 38 decisions / 173 cases, combined bar/icon and
+  background/text WebGL pixels, the native release-readiness unit, and the 2+7
+  memory lifecycle over 5,099 entities plus nine ownership cycles. The broad
+  parallel unit gate passed 193 files / 1,851 tests and retained the same 10
+  known render-text fold failures across four files caused by immutable
+  actual-only `plannedRoute` versus synthetic `attachedRoute` rows; those
+  fixtures and fold evidence were not modified.

@@ -176,6 +176,22 @@
   actual-only fixture rows publish a semantic `plannedRoute` that differs from
   their synthetic `attachedRoute`; the immutable contract fixtures and fold
   evidence were not changed by this checkpoint.
+- The text viewport checkpoint keeps the existing zoom-aware quad/chunk culler
+  and adds initial demand materialization: full rebuilds retain dense slot
+  geometry for every visible semantic text while creating Pixi `Text` or
+  `BitmapText` objects only for viewport-near chunks. Pan and zoom materialize
+  newly visible chunks through the same central leaf lifecycle; offscreen
+  content/style updates remain deferred while geometry updates publish before
+  culling. No public API, dataset, semantic hash, history, accessibility,
+  listener, ticker, or per-cell closure contract changed.
+  The final 5,000/10,000-cell 2+7 WebGL proxy records mount medians of
+  721.9/1,054.3ms versus the preceding 1,090.6/1,469.4ms checkpoint, and
+  repeated-update p95 medians of 401.9/672.8ms versus 468.9/846.9ms. Initial
+  public render-command counts are bounded at 605/634 and rise only to 670/699
+  after the sampled pan sequence. First-overlay medians are 414.5/744.9ms,
+  rAF-gap p95 medians remain unfavorable at 400.3/666.6ms, and long-task-count
+  medians remain 8/8. The checkpoint therefore proves retained value without
+  claiming that all-cell text/style publication or frame stalls are solved.
 
 # Next Step
 
