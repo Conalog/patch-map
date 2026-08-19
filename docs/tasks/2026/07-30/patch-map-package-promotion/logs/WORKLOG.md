@@ -432,3 +432,9 @@
   the same 10 known immutable render-text fold failures. A current network
   audit independently reports one transitive `nanoid <3.3.18` high advisory;
   no dependency or lockfile change was included in this asset fix.
+- The final installed-package smoke passed against
+  `.perf-results/patch-map/asset-readiness/handoff/conalog-patch-map-0.10.0.tgz`
+  (`sha256:08fdd49bafdb34296f20a5e3a41dc35184a1004cc7786e2f58cecc72768f0716`).
+  It verified authored built-in, hidden, overlay-retargeted, and injected image
+  pixels from the installed CJS entry, then released the owned canvas on
+  destroy with no reported error.
