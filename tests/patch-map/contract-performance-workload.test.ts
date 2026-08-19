@@ -98,6 +98,7 @@ describe('PatchMap contract performance workload', () => {
       entityId: 'node-99::text:label',
       publication: { status: 'pending' },
       renderer: {
+        plannedRoute: 'pixi-text',
         attachedRoute: 'pixi-text',
         objectKind: 'pixi-text',
         objectCount: 1,
