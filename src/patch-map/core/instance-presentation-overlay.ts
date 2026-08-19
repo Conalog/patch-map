@@ -30,6 +30,10 @@ import {
   normalizeRectTexture,
 } from '../semantic/dataset/style-normalization';
 import {
+  detachPatchMapMutationJsonValue,
+  type PatchMapMutationJsonValue,
+} from '../semantic/transaction';
+import {
   patchPatchMapStableRecord,
   type PatchMapStableRecordStrategy,
 } from '../semantic/stable-record-overlay';
@@ -629,23 +633,32 @@ function normalizeColumns(
     if (column === null || typeof column !== 'object') {
       throw new TypeError(`instance ${type} ${name} must be array-like`);
     }
-    if (!Number.isSafeInteger(column.length) || column.length < 0) {
-      throw new TypeError(`instance ${type} ${name} length must be a non-negative safe integer`);
-    }
-    if (column.length !== columns.targets.length) {
+    const length = instanceColumnLength(column, `instance ${type} ${name}`);
+    if (length !== columns.targets.length) {
       throw new RangeError(`instance ${type} ${name} length must match targets length`);
     }
   }
   const seen = new Set<string>();
   for (let index = 0; index < columns.targets.length; index += 1) {
-    const target = normalizeTarget(columns.targets[index], `instance ${type} targets[${index}]`);
+    const target = normalizeTarget(
+      instanceColumnValue(columns.targets, index, `instance ${type} targets`),
+      `instance ${type} targets[${index}]`,
+    );
     const key = patchMapComponentTargetKey(target.id, target.componentId);
     if (seen.has(key)) throw new TypeError(`duplicate instance ${type} target: ${target.id}/${target.componentId}`);
     seen.add(key);
-    const height = columns.height?.[index];
-    const tint = columns.tint?.[index];
-    const source = columns.source?.[index];
-    const show = columns.show?.[index];
+    const height = columns.height === undefined
+      ? undefined
+      : detachedInstanceColumnValue(columns.height, index, `instance ${type} height`);
+    const tint = columns.tint === undefined
+      ? undefined
+      : detachedInstanceColumnValue(columns.tint, index, `instance ${type} tint`);
+    const source = columns.source === undefined
+      ? undefined
+      : detachedInstanceColumnValue(columns.source, index, `instance ${type} source`);
+    const show = columns.show === undefined
+      ? undefined
+      : detachedInstanceColumnValue(columns.show, index, `instance ${type} show`);
     if (type === 'icon' && height !== undefined) {
       throw new TypeError('instance icon presentation does not support height');
     }
@@ -703,10 +716,11 @@ function normalizeComponentColumns(
   const changes = columns.changes ?? {};
   const directText = type === 'text' && 'text' in columns ? columns.text : undefined;
   const directStyle = type === 'text' && 'style' in columns ? columns.style : undefined;
+  const changeEntries = instanceDataEntries(changes, `instance ${type} changes`);
   const allowed = type === 'background'
     ? new Set(['show', 'source', 'tint', 'size', 'attrs'])
     : new Set(['show', 'text', 'placement', 'margin', 'tint', 'style', 'split', 'attrs']);
-  const unknown = Object.keys(changes).find((name) => !allowed.has(name));
+  const unknown = changeEntries.find(([name]) => !allowed.has(name))?.[0];
   if (unknown !== undefined) {
     throw new TypeError(`instance ${type} presentation does not support ${unknown}`);
   }
@@ -717,7 +731,7 @@ function normalizeComponentColumns(
     throw new TypeError('instance text presentation cannot set style twice');
   }
   const valueColumns = [
-    ...Object.values(changes),
+    ...changeEntries.map(([, value]) => value),
     directText,
     directStyle,
   ].filter((value) => value !== undefined);
@@ -725,7 +739,7 @@ function normalizeComponentColumns(
     throw new TypeError(`instance ${type} presentation requires at least one value column`);
   }
   for (const [name, column] of [
-    ...Object.entries(changes),
+    ...changeEntries,
     ['text', directText],
     ['style', directStyle],
   ] as readonly (readonly [string, ArrayLike<unknown> | undefined])[]) {
@@ -733,33 +747,40 @@ function normalizeComponentColumns(
     if (column === null || typeof column !== 'object') {
       throw new TypeError(`instance ${type} ${name} must be array-like`);
     }
-    if (!Number.isSafeInteger(column.length) || column.length < 0) {
-      throw new TypeError(`instance ${type} ${name} length must be a non-negative safe integer`);
-    }
-    if (column.length !== columns.targets.length) {
+    const length = instanceColumnLength(column, `instance ${type} ${name}`);
+    if (length !== columns.targets.length) {
       throw new RangeError(`instance ${type} ${name} length must match targets length`);
     }
   }
 
   const seen = new Set<string>();
   for (let index = 0; index < columns.targets.length; index += 1) {
-    const target = normalizeTarget(columns.targets[index], `instance ${type} targets[${index}]`);
+    const target = normalizeTarget(
+      instanceColumnValue(columns.targets, index, `instance ${type} targets`),
+      `instance ${type} targets[${index}]`,
+    );
     const key = patchMapComponentTargetKey(target.id, target.componentId);
     if (seen.has(key)) {
       throw new TypeError(`duplicate instance ${type} target: ${target.id}/${target.componentId}`);
     }
     seen.add(key);
     const patch: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
-    for (const [name, column] of Object.entries(changes)) patch[name] = column[index];
+    for (const [name, column] of changeEntries) {
+      patch[name] = detachedInstanceColumnValue(
+        column,
+        index,
+        `instance ${type} ${name}`,
+      );
+    }
     if (directText !== undefined) {
-      const text = directText[index];
+      const text = detachedInstanceColumnValue(directText, index, 'instance text text');
       if (text !== null && typeof text !== 'string') {
         throw new TypeError(`instance text text[${index}] must be null or string`);
       }
       patch.text = text;
     }
     if (directStyle !== undefined) {
-      const style = directStyle[index];
+      const style = detachedInstanceColumnValue(directStyle, index, 'instance text style');
       if (style !== null && (typeof style !== 'object' || Array.isArray(style))) {
         throw new TypeError(`instance text style[${index}] must be null or a record`);
       }
@@ -773,18 +794,79 @@ function normalizeComponentColumns(
   }
 }
 
+function instanceColumnLength(column: ArrayLike<unknown>, path: string): number {
+  if (Array.isArray(column) || ArrayBuffer.isView(column)) return column.length;
+  const descriptor = Object.getOwnPropertyDescriptor(column, 'length');
+  if (descriptor === undefined || !('value' in descriptor)) {
+    throw new TypeError(`${path} length must be an own data property`);
+  }
+  if (!Number.isSafeInteger(descriptor.value) || descriptor.value < 0) {
+    throw new TypeError(`${path} length must be a non-negative safe integer`);
+  }
+  return descriptor.value as number;
+}
+
+function instanceColumnValue<T>(column: ArrayLike<T>, index: number, path: string): T {
+  const descriptor = Object.getOwnPropertyDescriptor(column, String(index));
+  if (descriptor === undefined || !('value' in descriptor)) {
+    throw new TypeError(`${path}[${index}] must be a present data property`);
+  }
+  return descriptor.value as T;
+}
+
+function detachedInstanceColumnValue(
+  column: ArrayLike<unknown>,
+  index: number,
+  path: string,
+): PatchMapMutationJsonValue {
+  return detachPatchMapMutationJsonValue(
+    instanceColumnValue(column, index, path),
+    `${path}[${index}]`,
+  );
+}
+
+function instanceDataEntries<T>(
+  record: Readonly<Record<string, T>>,
+  path: string,
+): readonly (readonly [string, T])[] {
+  const entries: (readonly [string, T])[] = [];
+  for (const key of Object.keys(record)) {
+    const descriptor = Object.getOwnPropertyDescriptor(record, key);
+    if (descriptor === undefined || !('value' in descriptor)) {
+      throw new TypeError(`${path}.${key} must be a data property`);
+    }
+    entries.push(Object.freeze([key, descriptor.value as T] as const));
+  }
+  return Object.freeze(entries);
+}
+
 function normalizeTarget(value: unknown, path: string): PatchMapInstanceBarTarget {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError(`${path} must be an object`);
   }
   const target = value as Readonly<Record<string, unknown>>;
-  if (typeof target.id !== 'string' || target.id.length === 0) {
+  const id = instanceDataProperty(target, 'id', path);
+  const componentId = instanceDataProperty(target, 'componentId', path);
+  if (typeof id !== 'string' || id.length === 0) {
     throw new TypeError(`${path.replace(/targets\[\d+\]$/u, 'target')} id must be a non-empty string`);
   }
-  if (typeof target.componentId !== 'string' || target.componentId.length === 0) {
+  if (typeof componentId !== 'string' || componentId.length === 0) {
     throw new TypeError(`${path} componentId must be a non-empty string`);
   }
-  return Object.freeze({ id: target.id, componentId: target.componentId });
+  return Object.freeze({ id, componentId });
+}
+
+function instanceDataProperty(
+  record: Readonly<Record<string, unknown>>,
+  name: string,
+  path: string,
+): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(record, name);
+  if (descriptor === undefined) return undefined;
+  if (!('value' in descriptor)) {
+    throw new TypeError(`${path}.${name} must be a data property`);
+  }
+  return descriptor.value;
 }
 
 function mergePresentation(

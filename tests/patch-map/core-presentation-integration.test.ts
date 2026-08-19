@@ -583,8 +583,12 @@ describe('PatchMap bar presentation integration', () => {
     expect(core.projection).toBe(projectionBeforeRejection);
     expect(renderer.presentationOverrides.at(-1)).toBe(overridesBeforeRejection);
 
+    let tintAccessorReads = 0;
     const throwingTint = Object.defineProperty({ length: 1 }, '0', {
-      get() { throw new Error('tint column accessor failed'); },
+      get() {
+        tintAccessorReads += 1;
+        throw new Error('tint column accessor failed');
+      },
     });
     expect(() => engine.updateInstanceBarHeights({
       bar: {
@@ -592,7 +596,27 @@ describe('PatchMap bar presentation integration', () => {
         tint: throwingTint,
       },
       animate: false,
-    })).toThrow('tint column accessor failed');
+    })).toThrow('instance bar tint[0] must be a present data property');
+    expect(tintAccessorReads).toBe(0);
+    expect(core.projection).toBe(projectionBeforeRejection);
+    expect(renderer.presentationOverrides.at(-1)).toBe(overridesBeforeRejection);
+
+    let styleAccessorReads = 0;
+    const accessorStyle = Object.defineProperty({}, 'fontSize', {
+      enumerable: true,
+      get() {
+        styleAccessorReads += 1;
+        return 18;
+      },
+    });
+    expect(() => engine.updateInstanceBarHeights({
+      text: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'label' }],
+        style: [accessorStyle],
+      },
+      animate: false,
+    })).toThrow('record fields must be own enumerable data properties');
+    expect(styleAccessorReads).toBe(0);
     expect(core.projection).toBe(projectionBeforeRejection);
     expect(renderer.presentationOverrides.at(-1)).toBe(overridesBeforeRejection);
 
@@ -630,16 +654,31 @@ describe('PatchMap bar presentation integration', () => {
     const backgroundId = 'grid-presentation.0.0::background:surface';
     const textId = 'grid-presentation.0.0::text:label';
     const authoredSiblingTextId = 'grid-presentation.0.1::text:label';
+    const callerBackgroundSource = {
+      type: 'rect',
+      fill: '#1d4ed8',
+      borderWidth: 3,
+      borderColor: '#f8fafc',
+      radius: [3, 4, 5, 6],
+    };
+    const callerBackgroundAttrs = { x: 3, alpha: 0.75 };
+    const callerTextAttrs = { y: 2, alpha: 0.9 };
+    const callerTextStyle = {
+      fontSize: 18,
+      fontWeight: 700,
+      align: 'right',
+      lineHeight: 20,
+    };
 
     expect(engine.updateInstanceBarHeights({
       background: {
         targets: [{ id: 'grid-presentation.0.0', componentId: 'surface' }],
         changes: {
-          source: [{ type: 'rect', fill: '#1d4ed8', borderWidth: 3, borderColor: '#f8fafc', radius: [3, 4, 5, 6] }],
+          source: [callerBackgroundSource],
           tint: ['#ffffff'],
           show: [true],
           size: [{ width: 50, height: 40 }],
-          attrs: [{ x: 3, alpha: 0.75 }],
+          attrs: [callerBackgroundAttrs],
         },
       },
       text: {
@@ -650,10 +689,10 @@ describe('PatchMap bar presentation integration', () => {
           placement: ['right-bottom'],
           tint: ['#fef08a'],
           split: [0],
-          attrs: [{ y: 2, alpha: 0.9 }],
+          attrs: [callerTextAttrs],
         },
         text: ['83\n%'],
-        style: [{ fontSize: 18, fontWeight: 700, align: 'right', lineHeight: 20 }],
+        style: [callerTextStyle],
       },
       animate: false,
     })).toMatchObject({
@@ -697,6 +736,26 @@ describe('PatchMap bar presentation integration', () => {
     });
     expect(core.projection?.byEntityId[backgroundId]?.affine[4]).toBe(3);
     expect(core.projection?.byEntityId[textId]?.affine[5]).toBeGreaterThan(2);
+
+    callerBackgroundSource.fill = '#000000';
+    callerBackgroundSource.radius[0] = 40;
+    callerBackgroundAttrs.x = 30;
+    callerTextAttrs.alpha = 0.1;
+    callerTextStyle.fontSize = 40;
+    expect(engine.updateInstanceBarHeights({
+      text: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'label' }],
+        changes: { show: [true] },
+      },
+      animate: false,
+    })).toMatchObject({ status: 'unchanged', changed: false, overlayCount: 2 });
+    expect(core.projection?.backgroundsByEntityId?.[backgroundId]).toMatchObject({
+      fill: 0x1d4ed8ff,
+      radius: [3, 4, 5, 6],
+    });
+    expect(core.projection?.textsByEntityId?.[textId]).toMatchObject({ fontSizePx: 18 });
+    expect(core.projection?.byEntityId[backgroundId]?.affine[4]).toBe(3);
+    expect(renderer.presentationOverrides.at(-1)?.get(textId)).toMatchObject({ opacity: 0.9 });
     expect(engine.exportDataset()).toBe(exported);
     expect(engine.historyState()).toEqual(history);
     expect(engine.snapshot().semanticHash).toBe(semanticHash);

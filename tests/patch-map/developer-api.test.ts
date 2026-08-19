@@ -807,6 +807,28 @@ describe('PatchMap high-level developer API', () => {
     expect(harness.lastTransactionRequest()).toBeNull();
   });
 
+  it('rejects accessor-backed concrete presentation column maps without evaluating them', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+    let reads = 0;
+    const changes = Object.create(null) as Record<string, unknown>;
+    Object.defineProperty(changes, 'source', {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        return ['#111827'];
+      },
+    });
+
+    expect(() => map.updateBatch({
+      targets: ['rack-grid.12.3'],
+      background: { componentId: 'surface', changes },
+    } as never)).toThrow('background.changes.source must be a data property');
+    expect(reads).toBe(0);
+    expect(harness.lastInstanceRequest()).toBeNull();
+    expect(harness.lastTransactionRequest()).toBeNull();
+  });
+
   it('lowers a heterogeneous columnar row into one strict commit', () => {
     const harness = createHost();
     const map = createPatchMapApi(harness.host);

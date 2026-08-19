@@ -348,10 +348,12 @@ export type PatchMapBackgroundPresentationColumns = Readonly<{
 
 export interface PatchMapBackgroundUpdateColumns
   extends PatchMapComponentUpdateColumns<
-    PatchMapComponentUpdateColumns['changes'] | PatchMapBackgroundPresentationColumns
+    NonNullable<PatchMapComponentUpdateColumns['changes']> |
+    PatchMapBackgroundPresentationColumns
   > {
   readonly changes?:
-    PatchMapComponentUpdateColumns['changes'] | PatchMapBackgroundPresentationColumns;
+    NonNullable<PatchMapComponentUpdateColumns['changes']> |
+    PatchMapBackgroundPresentationColumns;
 }
 
 export type PatchMapTextPresentationColumns = Readonly<{
@@ -367,12 +369,14 @@ export type PatchMapTextPresentationColumns = Readonly<{
 
 export interface PatchMapTextUpdateColumns
   extends PatchMapComponentUpdateColumns<
-    PatchMapComponentUpdateColumns['changes'] | PatchMapTextPresentationColumns
+    NonNullable<PatchMapComponentUpdateColumns['changes']> |
+    PatchMapTextPresentationColumns
   > {
   readonly text?: PatchMapUpdateColumn<string | null>;
   readonly style?: PatchMapUpdateColumn<PatchMapPresentationPatch<TextStyleInput> | null>;
   readonly changes?:
-    PatchMapComponentUpdateColumns['changes'] | PatchMapTextPresentationColumns;
+    NonNullable<PatchMapComponentUpdateColumns['changes']> |
+    PatchMapTextPresentationColumns;
 }
 
 /** Columnar, equal-length input for large homogeneous updates. */

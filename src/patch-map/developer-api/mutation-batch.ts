@@ -440,7 +440,10 @@ function instanceComponentChangeColumns(
   columnar: boolean,
 ): Readonly<Record<string, ArrayLike<unknown>>> | null {
   if (changes === undefined) return null;
-  const entries = Object.entries(changes);
+  const entries = dataEntries(
+    changes as Readonly<Record<string, unknown>>,
+    path,
+  );
   const supported = type === 'background'
     ? new Set(['show', 'source', 'tint', 'size', 'attrs'])
     : new Set(['show', 'text', 'placement', 'margin', 'tint', 'style', 'split', 'attrs']);
@@ -453,7 +456,7 @@ function instanceComponentChangeColumns(
   if (entries.length === 0) return null;
   return Object.freeze(Object.fromEntries(entries.map(([name, value]) => [
     name,
-    columnar && isArrayLikeColumn(value) ? value : [value],
+    columnar && isArrayLikeColumn(value, `${path}.${name}`) ? value : [value],
   ])));
 }
 
@@ -468,7 +471,10 @@ function instanceChangeColumns(
   readonly show?: ArrayLike<boolean | null>;
 }> | null {
   if (changes === undefined) return null;
-  const entries = Object.entries(changes);
+  const entries = dataEntries(
+    changes as Readonly<Record<string, unknown>>,
+    path,
+  );
   const supported = new Set(['tint', 'source', 'show']);
   const unsupported = entries.find(([name]) => !supported.has(name));
   if (unsupported) {
@@ -477,10 +483,11 @@ function instanceChangeColumns(
     );
   }
   if (entries.length === 0) return null;
+  const values = new Map(entries);
   const column = (name: 'tint' | 'source' | 'show'): ArrayLike<unknown> | undefined => {
-    const value = changes[name];
+    const value = values.get(name);
     if (value === undefined) return undefined;
-    return columnar && isArrayLikeColumn(value) ? value : [value];
+    return columnar && isArrayLikeColumn(value, `${path}.${name}`) ? value : [value];
   };
   const tint = column('tint');
   const source = column('source');
@@ -494,9 +501,15 @@ function instanceChangeColumns(
   });
 }
 
-function isArrayLikeColumn(value: unknown): value is ArrayLike<unknown> {
-  return value !== null && typeof value === 'object' &&
-    Number.isSafeInteger((value as ArrayLike<unknown>).length);
+function isArrayLikeColumn(value: unknown, path: string): value is ArrayLike<unknown> {
+  if (value === null || typeof value !== 'object') return false;
+  if (Array.isArray(value) || ArrayBuffer.isView(value)) return true;
+  const descriptor = Object.getOwnPropertyDescriptor(value, 'length');
+  if (descriptor === undefined) return false;
+  if (!('value' in descriptor)) {
+    throw new TypeError(`${path}.length must be a data property`);
+  }
+  return Number.isSafeInteger(descriptor.value);
 }
 
 function gridInstancePresentationUnsupported(detail: string): TypeError {
