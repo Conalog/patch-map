@@ -192,11 +192,25 @@
   rAF-gap p95 medians remain unfavorable at 400.3/666.6ms, and long-task-count
   medians remain 8/8. The checkpoint therefore proves retained value without
   claiming that all-cell text/style publication or frame stalls are solved.
+- The image-readiness publication checkpoint removes generic image placeholder
+  pixels without adding a public API or eager-loading the eight-image catalog.
+  Mount settles only active distinct initial bindings and publishes once;
+  retargets retain the last resolved texture until one authoritative swap, and
+  never-resolved pending/failed leaves remain pixel-transparent while geometry,
+  hit behavior, and diagnostics continue. A packed alternating 2+7 matrix over
+  3,000/10,000 entities, 300/3,000 image leaves, and 1/8 unique bindings records
+  first-complete medians improving from `431.8/618.6/668.6/670.1ms` to
+  `407.1/600.3/631.0/638.6ms`, publication count `2 -> 1`, exact unique-binding
+  acquire/decode/upload scaling, steady rAF parity, and zero lifecycle residue.
+  The full asset/browser/package/memory gates pass; the known 10 immutable
+  render-text fold failures and one current transitive nanoid audit advisory
+  remain reported rather than folded into this change.
 
 # Next Step
 
-- Review the completed concrete background/text checkpoint before any push or
-  Draft PR update. Integrating services should start
+- Review the completed image-readiness checkpoint and consume exact commit
+  `9eca705` plus its verification commits before any push or Draft PR update.
+  Integrating services should start
   with `PatchMap.mount()`, use `update()` for one owner, queried target sets
   plus columnar `updateBatch()` for repeated batches, and `transaction()` for
   heterogeneous or structural atomic work. Concrete background, bar, icon, and

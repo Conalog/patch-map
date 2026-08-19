@@ -93,6 +93,16 @@ sizing; no source is implicitly trimmed.
 Distinct host aliases remain instance registrations and cannot replace a
 reserved built-in alias.
 
+The registered catalog is not an eager image bundle. Initial mount acquires
+only distinct bindings referenced by the active authored or concrete
+presentation. During a source transition PatchMap retains the last resolved
+texture until the replacement is ready; without a resolved predecessor the
+image leaf stays visually absent instead of drawing a generic fallback tile.
+Failure still preserves target geometry, hit behavior, and structured
+diagnostics. The same policy applies to built-ins, direct URLs, and
+host-registered aliases, while `capture.png()` continues to require the exact
+active tuple.
+
 ## Text layout compatibility
 
 PATCH MAP v0.10 `style.lineHeight` remains optional. When supplied as a valid

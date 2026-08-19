@@ -388,3 +388,47 @@
   known render-text fold failures across four files caused by immutable
   actual-only `plannedRoute` versus synthetic `attachedRoute` rows; those
   fixtures and fold evidence were not modified.
+
+**2026-08-19**
+
+- **Batch: Visually atomic image readiness.** Moved initial active-image
+  settlement inside `PatchMap.mount()` before managed-loop creation and first
+  publication. The leaf renderer now keeps a last resolved texture across
+  source retarget, hides a never-resolved pending/failed leaf, rejects stale
+  completion, and releases the old acquisition only after a rendered swap.
+  Registered-but-unused built-in and host images remain lazy. Runtime commit:
+  `9eca705`; delayed-browser/performance coverage: `863ba04`; packed active
+  lease probes: `cdb6cb2`.
+- Added controlled browser decoder/network gates for delayed built-in and
+  custom initial sources, A-to-B retention and one-frame swap, rapid
+  A-to-B-to-C stale completion, exact capture, and zero resource/pending/lease/
+  canvas teardown. The initial pending screenshots contained zero non-black
+  and zero generic-square pixels; ready glyphs were exact. Existing built-in
+  and concrete bar/icon/background/text browser gates also passed.
+- A same-Chromium alternating packed 2+7 comparison used
+  `(entities, images, unique bindings)` of `(3000,300,1)`, `(10000,300,1)`,
+  `(10000,3000,1)`, and `(10000,3000,8)`. Median start-to-first-complete times
+  changed from `431.8/618.6/668.6/670.1ms` to
+  `407.1/600.3/631.0/638.6ms`; publication count changed from two to one in
+  every trial. Acquire-source/load/decode/unload counts were exactly
+  `1/1/1/1` or `8/8/8/8`, independent of entity and image-leaf count; texture
+  upload proxies were 3 or 10 on both artifacts. Steady rAF p95 medians were
+  `16.8/17.4/17.5/16.8ms` versus `16.8/17.4/16.9/17.2ms`, with long-task
+  count median 2 throughout. Forced-GC retained deltas were 62-69KB lower on
+  the candidate; GPU retained bytes are not portable, so exact backend
+  load/unload parity plus zero runtime/canvas residue is the recorded proxy.
+- The existing 3,000/10,000 bar-animation/pan/zoom packed 2+7 comparison
+  passed. At 10,000, repeated-action p95/rAF p95/long-task medians changed
+  `55.7ms/100.7ms/5` to `50.6ms/100.1ms/4`. The first 3,000 run observed an
+  unfavorable `19.4ms/50.4ms` to `20.4ms/66.6ms`; an immediate identical 2+7
+  repeat did not reproduce it and recorded `18.5ms/50.2ms/2` versus
+  `17.3ms/50.3ms/2`. Both outputs remain retained.
+- Verification passed 127 focused asset/load/capture tests, 33 resolved
+  orientation/lane tests, full lint/typecheck, production and Lab builds,
+  canonical 38 decisions / 173 cases, the dedicated and existing WebGL pixel
+  gates, packed ESM/CJS/types + 38 journeys + four examples with functional
+  lifecycle cleanup, and 2+7 memory over 5,099 entities plus nine ownership
+  cycles (119,003-byte retained-heap median). The full unit gate retains only
+  the same 10 known immutable render-text fold failures. A current network
+  audit independently reports one transitive `nanoid <3.3.18` high advisory;
+  no dependency or lockfile change was included in this asset fix.

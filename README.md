@@ -72,6 +72,8 @@ await patchMap.destroy();
 animation frame loop, observes the host size, fits the initial data, and
 releases those resources in `destroy()`. Use `backend: 'webgpu'` only for an
 explicit experimental session.
+Its first publication settles only the active distinct image bindings; later
+source changes retain the last resolved texture until an atomic replacement.
 
 Wheel zoom remains modifier-free when `viewport` is omitted. Set
 `viewport: { wheel: { activationModifier: 'control' } }` when only Ctrl+wheel

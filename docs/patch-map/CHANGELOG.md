@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Removed visible generic image placeholders. Mount now settles only active
+  distinct initial bindings before one coherent first publication, while live
+  retargets retain the last resolved texture and swap once the replacement is
+  ready; new unresolved leaves remain visually absent without changing the
+  exact-tuple capture contract.
+
 - Promoted the PixiJS WebGL PatchMap runtime to the package root with direct
   PATCH MAP v0.10 JSON input.
 - Added dense scene transactions, stable logical queries, selection,

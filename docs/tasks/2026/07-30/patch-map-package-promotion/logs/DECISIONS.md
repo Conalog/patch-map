@@ -206,3 +206,22 @@
 - **Decision:** Use `container`/`resizeMode`, `data.replace()`/`replaceAsync()`/`snapshot()`, `transform.*By()`, `viewport.panBy()`/`zoomBy()`, and typed `assets.status()`. Remove redundant `viewport.focus()` in favor of `fit({ targets })`, keep Mesh selection internal, and publish an explicit root value/type allowlist.
 - **Why:** Each name now states whether an operation replaces, snapshots, or applies a relative delta, while applications no longer choose an internal rendering strategy or discover verification machinery through the package barrel.
 - **Impact:** The shipping surface is intentionally breaking before promotion; docs, examples, Lab wiring, declarations, and packed negative checks move together. Aggregate rendering, scheduling, stable identity, atomic mutation, and resource ownership are unchanged.
+
+## 2026-08-19 — Publish image readiness without generic placeholder pixels
+
+- **Background:** Initial lazy built-in or direct image loads published
+  `Texture.WHITE` before the authoritative texture settled. Live source
+  retargets likewise replaced the last good texture with a generic square,
+  even though capture already owned a stricter exact-tuple readiness barrier.
+- **Decision:** Keep the catalog lazy and public API unchanged. Mount acquires
+  and settles only distinct image bindings referenced by the active initial
+  presentation before creating its managed loop and publishing once. Live
+  retargets keep the last resolved resource until the authoritative generation
+  is ready; a binding with no resolved predecessor contributes geometry, hit
+  behavior, semantic failure state, and diagnostics but no image pixels.
+  Superseded generations never attach. Resource release follows binding plus
+  rendered-entry ownership and waits a rendered frame after texture swap.
+- **Impact:** Built-ins, direct sources, authored images, and concrete grid
+  icon/background overlays share one visually atomic policy. No per-entity
+  listener, ticker, frame loop, or public readiness API was added.
+  `capture.png()` continues to wait and protect the exact accepted tuple.

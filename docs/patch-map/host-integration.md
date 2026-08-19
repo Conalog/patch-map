@@ -28,6 +28,12 @@ resources before the Pixi surface. Low-level deterministic publication is an
 internal verification concern, not a second consumer lifecycle. Never add a
 host RAF publisher alongside the package loop.
 
+Mount also owns image readiness for the first publication. It registers the
+catalog, acquires only distinct bindings used by the active initial
+presentation, and returns after that presentation has been published once.
+The host must not add a sleep, status poll, or capture workaround to hide an
+initial asset frame.
+
 The packaged examples demonstrate the intended high-level boundary.
 `examples/patch-map/host-adapter.ts` shows how a host can compose that same
 boundary without acquiring a second engine API:
@@ -115,6 +121,11 @@ visibility, icon, background, or text columns are present. Labels,
 identity/structural changes, and other component fields remain in the host
 under the structured `PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED`
 boundary.
+
+For an icon or asset-background source retarget, PatchMap retains the last
+resolved texture until the new binding is ready and swaps it in one owned
+frame. A new image with no resolved predecessor stays pixel-transparent while
+pending or failed; geometry, hit behavior, and diagnostics are not blocked.
 
 Canary and rollback selection stay in the host. PatchMap ships compatibility
 materialization and persistence guards, but does not expose renderer-choice or

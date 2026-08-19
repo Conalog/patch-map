@@ -435,12 +435,23 @@ configured ingestion policy, including origin, redirects, MIME type, encoded
 size, decoded size, and SVG checks. An existing Pixi global-cache key is not a
 validation shortcut.
 
+Registration and active readiness are separate. Mount registers the catalog
+but acquires only distinct image bindings referenced by the active initial
+presentation before its first publication. It does not eager-load all built-in
+or host registrations. A live source change retains the last resolved texture
+until its replacement is ready; a new pending or failed image with no prior
+texture draws no generic square. Target geometry, hit behavior, and diagnostic
+state continue to publish, so unrelated bars, text, backgrounds, pointers,
+pan, and zoom are not blocked.
+
 `data.replaceAsync()` validates and publishes the dataset asynchronously but
 does not turn host timing into an asset-readiness signal. Use the first
 `await capture.png()` as the exact visible-publication barrier: it waits every
 active image binding in that tuple, publishes resolved textures, and captures
 without an adapter sleep or `assets.status()` poll. This includes a concrete
 background that transitions from aggregate rect paint to an asset and back.
+The normal UI transition policy above is package-owned and likewise requires
+no host delay or poll; capture remains the stricter exact-tuple operation.
 
 If several maps share a `PatchMapAssetRuntime`, each `PatchMap` still owns its
 own session and leases. Destroying one engine releases only its leases; the

@@ -28,6 +28,15 @@ Release every acquisition or destroy its engine. Shared assets unload only
 after the final lease is released. Do not clear global Pixi caches from one
 instance. Inspect `assets.status()` for pending, lease, and cleanup counts.
 
+## An image is pending or failed
+
+PatchMap keeps the last resolved texture during a source retarget. If that
+leaf has never resolved, it remains visually absent rather than showing a
+generic rectangle; target geometry, hit behavior, and diagnostics still
+exist. Retry through the existing asset registration/replacement workflow
+after correcting the reported policy, load, decode, or upload failure. Do not
+add a host RAF, sleep, polling loop, or fallback square.
+
 ## Capture is stale
 
 Use `await patchMap.capture.png()`. It publishes through the owned frame loop

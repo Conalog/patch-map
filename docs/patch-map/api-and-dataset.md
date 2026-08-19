@@ -72,8 +72,17 @@ background that changed from rect paint to an asset source.
 `device`, `edge`, `loading`, `warning`, and `wifi` image aliases. The glyphs
 have transparent backgrounds and white monochrome artwork so authored icon
 tints and concrete `icon.changes.tint` overlays use the same texture. Registration
-does not eagerly load all eight resources: the active authored or overlay
+does not eagerly load all eight resources. Before returning, mount settles only
+the distinct image bindings referenced by the active initial presentation and
+publishes that completed presentation once. The active authored or overlay
 source owns the lease, and replacement or `destroy()` releases it.
+
+An image source retarget keeps the last resolved texture until the authoritative
+replacement is ready, then swaps it in one package-owned frame. A pending or
+failed image with no resolved predecessor contributes no generic rectangle
+pixels; its geometry, hit behavior, and diagnostic state remain available.
+Superseded completions never attach. This normal UI policy does not weaken the
+exact-tuple `capture.png()` barrier described above.
 Each built-in retains the exact PATCH MAP v0.10 `0 0 72 72` SVG view box and
 its transparent outer padding. Icon `size` sets the source canvas/draw box;
 visible artwork remains at its authored ratio inside that box. The inverter's
@@ -107,8 +116,9 @@ ordered heterogeneous/structural atomic form. There are no parallel `load`,
 surface.
 
 `mount()` selects WebGL2 + Mesh by default, derives the host size, owns one
-frame loop, observes later host resizes, publishes the first visible frame,
-and cleans those resources in `destroy()`. Pass `resizeMode: 'manual'` only when
+frame loop, observes later host resizes, publishes the first visible frame only
+after its active distinct image bindings settle, and cleans those resources in
+`destroy()`. Pass `resizeMode: 'manual'` only when
 the surrounding layout system calls `patchMap.viewport.resize(width, height)`
 itself.
 

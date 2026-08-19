@@ -68,6 +68,9 @@ await patchMap.destroy();
 frame loop, host 크기 관찰, 최초 fit을 자동으로 소유합니다. `destroy()`만
 호출하면 이 자원도 함께 정리됩니다. `backend: 'webgpu'`는 실험 세션을
 명시적으로 실행할 때만 사용하세요.
+첫 publication은 active distinct image binding만 준비하며, 이후 source
+변경은 새 texture가 준비될 때까지 마지막 resolved texture를 유지한 뒤
+한 프레임에서 교체합니다.
 
 `viewport`를 생략하면 기존처럼 일반 wheel도 지도 zoom에 사용합니다.
 `viewport: { wheel: { activationModifier: 'control' } }`을 설정하면 각 wheel
