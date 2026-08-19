@@ -165,6 +165,40 @@ describe('PatchMap aggregate leaf policy', () => {
     await layer.destroy();
   });
 
+  it('publishes deferred text geometry before culling a moved chunk into view', async () => {
+    const layer = new AggregateLeafLayer();
+    const positions = Array.from({ length: 1_025 }, (_value, index) => index * 50);
+    const initial = createTextStoreAt(positions);
+    layer.sync(initial, { fullRebuildEpoch: 1 });
+    layer.cull(new Matrix(), 120, 100, 0);
+    const retained = layer as unknown as {
+      readonly texts: Map<number, Readonly<{ readonly object: { readonly text: string } }>>;
+      readonly deferredTextSlots: ReadonlySet<number>;
+    };
+    const previous = retained.texts.get(1_024)?.object;
+    const updated = {
+      ...initial,
+      x: Float64Array.from(initial.x, (value, index) => index === 1_024 ? 0 : value),
+      text: initial.text.map((value, index) => index === 1_024 ? 'moved-in' : value),
+      fontSize: Float64Array.from(initial.fontSize, (value, index) =>
+        index === 1_024 ? 20 : value),
+    };
+
+    layer.sync(updated, {
+      fullRebuildEpoch: 1,
+      changedRanges: [{ start: 1_024, end: 1_025 }],
+    });
+    expect(retained.texts.get(1_024)?.object).toBe(previous);
+    expect(retained.texts.get(1_024)?.object.text).toBe('label-1024');
+    expect(retained.deferredTextSlots.has(1_024)).toBe(true);
+
+    expect(layer.cull(new Matrix(), 120, 100, 0)).toBe(4);
+    expect(retained.texts.get(1_024)?.object).not.toBe(previous);
+    expect(retained.texts.get(1_024)?.object.text).toBe('moved-in');
+    expect(retained.deferredTextSlots.has(1_024)).toBe(false);
+    await layer.destroy();
+  });
+
   it('reference-counts a concurrent shared URL across leaf layers', async () => {
     const url = 'core-v2-test://shared-texture.png';
     mockOwnedAssetTransport();

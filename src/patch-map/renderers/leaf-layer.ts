@@ -500,6 +500,9 @@ export class AggregateLeafLayer {
             this.deferredTextSlots.delete(slot);
             this.syncSlotProjectionOnly(store, slot, options.projectionContext);
           } else if (this.shouldDeferTextSync(store, slot)) {
+            // Publish the new quad before culling decides whether the deferred
+            // content/style texture is now needed on screen.
+            this.syncSlotProjectionOnly(store, slot, options.projectionContext);
             this.deferredTextSlots.add(slot);
           } else {
             this.deferredTextSlots.delete(slot);
@@ -1193,6 +1196,9 @@ export class AggregateLeafLayer {
       store.kind[slot] !== RenderKind.Text ||
       ((store.flags[slot] ?? 0) & RenderFlags.Visible) === 0
     ) return false;
+    const entry = this.texts.get(slot);
+    const entityId = store.ids[slot] ?? `@slot:${slot}`;
+    if (entry === undefined || entry.entityId !== entityId) return false;
     return this.textChunks.get(textChunkKey(slot))?.container.visible === false;
   }
 
