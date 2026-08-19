@@ -90,6 +90,13 @@ interface TextChunk {
   allChildrenVisible: boolean;
 }
 
+interface TextMaterializationViewport {
+  readonly worldMatrix: Matrix;
+  readonly width: number;
+  readonly height: number;
+  readonly padding?: number;
+}
+
 type LeafImageLane = 'standalone-assets' | 'background-assets' | 'content-assets';
 
 interface ImageEntry {
@@ -211,6 +218,9 @@ export class AggregateLeafLayer {
   public readonly textContainer = new Container({ label: 'PatchMap / text (0)' });
 
   private readonly texts = new Map<number, TextEntry>();
+  /** Visible semantic text slots, including those without a Pixi object yet. */
+  private readonly textEntityIdBySlot: Array<string | undefined> = [];
+  private readonly textVerticesBySlot: Array<PatchMapQuadVertices | undefined> = [];
   private readonly textProbesByEntityId = new Map<string, PatchMapTextRendererProbe>();
   private readonly textLastRenderedGraphemeCountByEntityId = new Map<string, number>();
   private readonly pendingTextEntries = new Set<TextEntry>();
@@ -466,14 +476,14 @@ export class AggregateLeafLayer {
       readonly fullRebuildEpoch?: number;
       readonly projectionContext?: PatchMapProjectionRenderContext;
       readonly projectionTransformOnly?: boolean;
+      /** Initial-view proof used to avoid rasterizing offscreen Pixi Text. */
+      readonly textMaterializationViewport?: TextMaterializationViewport;
     } = {},
   ): LeafLayerDebug {
     this.assertAlive();
     const epoch = options.fullRebuildEpoch ?? this.storeEpoch;
     const fullRebuild = epoch !== this.storeEpoch;
     const changedRanges = options.changedRanges;
-    this.deferredTextStore = store;
-    this.deferredTextProjectionContext = options.projectionContext;
     const hasLeafWork =
       fullRebuild ||
       changedRanges === undefined ||
@@ -486,10 +496,19 @@ export class AggregateLeafLayer {
       this.storeEpoch = epoch;
       this.textChunking = store.capacity >= TEXT_CHUNKING_CAPACITY_THRESHOLD;
     }
+    this.deferredTextStore = store;
+    this.deferredTextProjectionContext = options.projectionContext;
 
     if (fullRebuild || !options.changedRanges) {
       for (let slot = 0; slot < store.capacity; slot += 1) {
-        this.syncSlot(store, slot, options.projectionContext);
+        this.syncSlot(
+          store,
+          slot,
+          options.projectionContext,
+          fullRebuild && this.textChunking
+            ? options.textMaterializationViewport
+            : undefined,
+        );
       }
     } else {
       for (const range of options.changedRanges) {
@@ -637,6 +656,7 @@ export class AggregateLeafLayer {
       entry.object.visible = visible;
       if (visible) visibleCount += 1;
     }
+    this.textContainer.label = `PatchMap / text (${this.texts.size})`;
     return visibleCount;
   }
 
@@ -829,6 +849,7 @@ export class AggregateLeafLayer {
     store: RenderStoreView,
     slot: number,
     projectionContext?: PatchMapProjectionRenderContext,
+    textMaterializationViewport?: TextMaterializationViewport,
   ): void {
     const alive = store.alive[slot] === 1;
     const visible = alive && ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0;
@@ -850,7 +871,24 @@ export class AggregateLeafLayer {
       }
     }
     if (!visible) return;
-    if (kind === RenderKind.Text) this.syncText(store, slot, projectionContext);
+    if (kind === RenderKind.Text) {
+      let preparedQuad: PatchMapResolvedRenderQuad | undefined;
+      if (textMaterializationViewport !== undefined) {
+        preparedQuad = this.trackTextSlot(store, slot, projectionContext);
+        const padding = textMaterializationViewport.padding ?? 32;
+        if (!quadIntersectsViewport(
+          preparedQuad.vertices,
+          textMaterializationViewport.worldMatrix,
+          textMaterializationViewport.width,
+          textMaterializationViewport.height,
+          padding,
+        )) {
+          this.deferredTextSlots.add(slot);
+          return;
+        }
+      }
+      this.syncText(store, slot, projectionContext, preparedQuad);
+    }
   }
 
   private syncSlotProjectionOnly(
@@ -863,15 +901,14 @@ export class AggregateLeafLayer {
     const kind = store.kind[slot];
     const entityId = store.ids[slot] ?? `@slot:${slot}`;
     if (visible && kind === RenderKind.Text) {
+      const quad = this.trackTextSlot(store, slot, projectionContext);
       const entry = this.texts.get(slot);
       if (entry !== undefined && entry.entityId === entityId) {
-        const quad = resolvePatchMapSlotQuad(store, slot, projectionContext);
         applyTextProjection(entry, quad, this.transformMatrix);
         entry.vertices = quad.vertices;
-        if (this.textChunking) this.dirtyTextChunkKeys.add(textChunkKey(slot));
         entry.object.visible = true;
-        return;
       }
+      return;
     } else if (visible && kind === RenderKind.Image) {
       const entry = this.images.get(slot);
       if (entry !== undefined && entry.entityId === entityId) {
@@ -898,8 +935,11 @@ export class AggregateLeafLayer {
     store: RenderStoreView,
     slot: number,
     projectionContext?: PatchMapProjectionRenderContext,
+    preparedQuad?: PatchMapResolvedRenderQuad,
   ): void {
+    this.debugCache = null;
     const entityId = store.ids[slot] ?? `@slot:${slot}`;
+    const quad = preparedQuad ?? this.trackTextSlot(store, slot, projectionContext);
     const projection = projectionContext?.index.textsByEntityId?.[entityId] ?? null;
     const value = projection?.visibleText ?? store.text[slot] ?? '';
     const routeStyle = textRenderStyle(store, slot, projection);
@@ -953,7 +993,7 @@ export class AggregateLeafLayer {
             visibleGraphemeCount: entry.lastRenderedVisibleGraphemeCount,
           })
         : null;
-      this.removeText(slot);
+      this.removeMaterializedText(slot);
       const object = route === 'bitmap-text'
         ? new BitmapText({ text: value, style })
         : new Text({ text: value, style });
@@ -1003,7 +1043,6 @@ export class AggregateLeafLayer {
     }
 
     const object = entry.object;
-    const quad = resolvePatchMapSlotQuad(store, slot, projectionContext);
     applyTextProjection(entry, quad, this.transformMatrix);
     entry.vertices = quad.vertices;
     if (this.textChunking) this.dirtyTextChunkKeys.add(textChunkKey(slot));
@@ -1138,20 +1177,55 @@ export class AggregateLeafLayer {
   }
 
   private removeText(slot: number): void {
-    this.deferredTextSlots.delete(slot);
     const entry = this.texts.get(slot);
-    if (!entry) return;
-    this.texts.delete(slot);
-    this.pendingTextEntries.delete(entry);
-    this.textProbesByEntityId.delete(entry.entityId);
-    this.textLastRenderedGraphemeCountByEntityId.delete(entry.entityId);
-    this.paintProbesByEntityId.delete(entry.entityId);
+    if (this.textEntityIdBySlot[slot] === undefined && entry === undefined) return;
+    this.deferredTextSlots.delete(slot);
+    const entityId = this.textEntityIdBySlot[slot] ?? entry?.entityId;
+    this.textEntityIdBySlot[slot] = undefined;
+    this.textVerticesBySlot[slot] = undefined;
+    this.removeMaterializedText(slot);
+    if (entityId !== undefined) {
+      this.textProbesByEntityId.delete(entityId);
+      this.textLastRenderedGraphemeCountByEntityId.delete(entityId);
+      this.paintProbesByEntityId.delete(entityId);
+    }
     if (this.textChunking) {
       const key = textChunkKey(slot);
       this.textChunks.get(key)?.slots.delete(slot);
       this.dirtyTextChunkKeys.add(key);
     }
+  }
+
+  private removeMaterializedText(slot: number): void {
+    const entry = this.texts.get(slot);
+    if (!entry) return;
+    this.debugCache = null;
+    this.texts.delete(slot);
+    this.pendingTextEntries.delete(entry);
+    this.textProbesByEntityId.delete(entry.entityId);
+    this.textLastRenderedGraphemeCountByEntityId.delete(entry.entityId);
+    this.paintProbesByEntityId.delete(entry.entityId);
     entry.object.destroy();
+  }
+
+  private trackTextSlot(
+    store: RenderStoreView,
+    slot: number,
+    projectionContext?: PatchMapProjectionRenderContext,
+  ): PatchMapResolvedRenderQuad {
+    const entityId = store.ids[slot] ?? `@slot:${slot}`;
+    const previousEntityId = this.textEntityIdBySlot[slot];
+    if (previousEntityId !== undefined && previousEntityId !== entityId) {
+      this.removeText(slot);
+    }
+    const quad = resolvePatchMapSlotQuad(store, slot, projectionContext);
+    this.textEntityIdBySlot[slot] = entityId;
+    this.textVerticesBySlot[slot] = quad.vertices;
+    if (this.textChunking) {
+      if (previousEntityId === undefined) this.textParentForSlot(slot);
+      this.dirtyTextChunkKeys.add(textChunkKey(slot));
+    }
+    return quad;
   }
 
   private textParentForSlot(slot: number): Container {
@@ -1196,9 +1270,6 @@ export class AggregateLeafLayer {
       store.kind[slot] !== RenderKind.Text ||
       ((store.flags[slot] ?? 0) & RenderFlags.Visible) === 0
     ) return false;
-    const entry = this.texts.get(slot);
-    const entityId = store.ids[slot] ?? `@slot:${slot}`;
-    if (entry === undefined || entry.entityId !== entityId) return false;
     return this.textChunks.get(textChunkKey(slot))?.container.visible === false;
   }
 
@@ -1207,10 +1278,12 @@ export class AggregateLeafLayer {
     if (store === null) return false;
     let changed = false;
     for (const slot of [...chunk.slots]) {
-      if (!this.deferredTextSlots.delete(slot)) continue;
+      const deferred = this.deferredTextSlots.delete(slot);
+      if (!deferred && this.texts.has(slot)) continue;
       this.syncSlot(store, slot, this.deferredTextProjectionContext);
       changed = true;
     }
+    if (changed) this.debugCache = null;
     return changed;
   }
 
@@ -1224,7 +1297,7 @@ export class AggregateLeafLayer {
       let maxX = Number.NEGATIVE_INFINITY;
       let maxY = Number.NEGATIVE_INFINITY;
       for (const slot of chunk.slots) {
-        const vertices = this.texts.get(slot)?.vertices;
+        const vertices = this.textVerticesBySlot[slot];
         if (vertices === undefined) continue;
         for (let index = 0; index < vertices.length; index += 2) {
           const x = vertices[index];
@@ -1482,6 +1555,8 @@ export class AggregateLeafLayer {
     for (const entry of this.texts.values()) entry.object.destroy();
     for (const entry of this.images.values()) entry.object.destroy();
     this.texts.clear();
+    this.textEntityIdBySlot.length = 0;
+    this.textVerticesBySlot.length = 0;
     this.textProbesByEntityId.clear();
     this.textLastRenderedGraphemeCountByEntityId.clear();
     this.pendingTextEntries.clear();

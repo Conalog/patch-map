@@ -75,6 +75,25 @@ describe('PatchMap aggregate leaf policy', () => {
     await layer.destroy();
   });
 
+  it('includes zoom scale in text viewport culling', async () => {
+    const layer = new AggregateLeafLayer();
+    layer.sync(createTextStoreAt([0, 500, 2_000]), { fullRebuildEpoch: 1 });
+
+    expect(layer.cull(new Matrix(0.1, 0, 0, 0.1, 0, 0), 120, 100, 0)).toBe(2);
+    expect(layer.textContainer.children.map(({ visible }) => visible)).toEqual([
+      true,
+      true,
+      false,
+    ]);
+    expect(layer.cull(new Matrix(4, 0, 0, 4, 0, 0), 120, 100, 0)).toBe(1);
+    expect(layer.textContainer.children.map(({ visible }) => visible)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+    await layer.destroy();
+  });
+
   it('publishes a text frame only after the culled leaf becomes visible', async () => {
     const layer = new AggregateLeafLayer();
     layer.sync(createTextStoreAt([0, 500]), { fullRebuildEpoch: 1 });
@@ -127,6 +146,73 @@ describe('PatchMap aggregate leaf policy', () => {
       publicationStatus: 'current',
       lastRenderedFrame: 2,
     });
+    await layer.destroy();
+  });
+
+  it('materializes only viewport-near text chunks on initial sync', async () => {
+    const layer = new AggregateLeafLayer();
+    const positions = Array.from({ length: 1_025 }, (_value, index) => index * 50);
+    const initial = layer.sync(createTextStoreAt(positions), {
+      fullRebuildEpoch: 1,
+      textMaterializationViewport: {
+        worldMatrix: new Matrix(),
+        width: 120,
+        height: 100,
+        padding: 0,
+      },
+    });
+
+    expect(initial.pixiTextCount).toBe(3);
+    expect(layer.cull(new Matrix(), 120, 100, 0)).toBe(3);
+    expect(layer.debugSnapshot().pixiTextCount).toBe(64);
+    expect(layer.textRendererProbe('text-1024')).toBeNull();
+
+    expect(
+      layer.cull(new Matrix(1, 0, 0, 1, -positions[1_024]!, 0), 120, 100, 0),
+    ).toBe(1);
+    expect(layer.debugSnapshot().pixiTextCount).toBe(65);
+    expect(layer.textRendererProbe('text-1024')).toMatchObject({
+      publicationStatus: 'pending',
+      lastRenderedFrame: null,
+    });
+    await layer.destroy();
+  });
+
+  it('materializes an initially absent text object after deferred geometry moves into view', async () => {
+    const layer = new AggregateLeafLayer();
+    const positions = Array.from({ length: 1_025 }, (_value, index) => index * 50);
+    const initial = createTextStoreAt(positions);
+    layer.sync(initial, {
+      fullRebuildEpoch: 1,
+      textMaterializationViewport: {
+        worldMatrix: new Matrix(),
+        width: 120,
+        height: 100,
+        padding: 0,
+      },
+    });
+    layer.cull(new Matrix(), 120, 100, 0);
+    const retained = layer as unknown as {
+      readonly texts: Map<number, Readonly<{ readonly object: { readonly text: string } }>>;
+      readonly deferredTextSlots: ReadonlySet<number>;
+    };
+    expect(retained.texts.has(1_024)).toBe(false);
+
+    const updated = {
+      ...initial,
+      x: Float64Array.from(initial.x, (value, index) => index === 1_024 ? 0 : value),
+      text: initial.text.map((value, index) => index === 1_024 ? 'moved-in' : value),
+    };
+    layer.sync(updated, {
+      fullRebuildEpoch: 1,
+      changedRanges: [{ start: 1_024, end: 1_025 }],
+    });
+    expect(retained.texts.has(1_024)).toBe(false);
+    expect(retained.deferredTextSlots.has(1_024)).toBe(true);
+
+    expect(layer.cull(new Matrix(), 120, 100, 0)).toBe(4);
+    expect(retained.texts.get(1_024)?.object.text).toBe('moved-in');
+    expect(retained.deferredTextSlots.has(1_024)).toBe(false);
     await layer.destroy();
   });
 
@@ -1337,6 +1423,8 @@ function expectImageChildOrder(layer: AggregateLeafLayer, expectedCenters: reado
 
 interface LeafRetentionAccess {
   readonly texts: Map<unknown, unknown>;
+  readonly textEntityIdBySlot: readonly unknown[];
+  readonly textVerticesBySlot: readonly unknown[];
   readonly images: Map<unknown, unknown>;
   readonly imageBindingBySlot: Map<unknown, unknown>;
   readonly imageSlotsByBinding: Map<unknown, unknown>;
@@ -1361,6 +1449,8 @@ function leafRetentionAccess(layer: AggregateLeafLayer): LeafRetentionAccess {
 
 function expectLeafCollectionsEmpty(retained: LeafRetentionAccess): void {
   expect(retained.texts.size).toBe(0);
+  expect(retained.textEntityIdBySlot).toHaveLength(0);
+  expect(retained.textVerticesBySlot).toHaveLength(0);
   expect(retained.images.size).toBe(0);
   expect(retained.imageBindingBySlot.size).toBe(0);
   expect(retained.imageSlotsByBinding.size).toBe(0);

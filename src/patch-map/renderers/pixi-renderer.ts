@@ -1010,9 +1010,14 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.barPresentationVisibilityConservative = false;
       this.barPresentationVisibilityStale = false;
     }
-    const leaves = this.leaves.sync(effectiveStore, {
+    this.leaves.sync(effectiveStore, {
       fullRebuildEpoch: this.storeEpoch,
       projectionContext: this.projectionContext(),
+      textMaterializationViewport: {
+        worldMatrix: this.worldMatrix,
+        width: this.widthValue,
+        height: this.heightValue,
+      },
       ...(ranges === undefined
         ? {}
         : { changedRanges: barPresentationOnly ? [] : ranges }),
@@ -1024,6 +1029,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     if (!stableBarPresentationFrame) {
       this.leaves.cull(this.worldMatrix, this.widthValue, this.heightValue);
     }
+    const leaves = this.leaves.debugSnapshot();
     this.textProjectionSynchronizedRevision = this.projectionRevision;
     this.syncSelectionOverlay(
       effectiveStore,
