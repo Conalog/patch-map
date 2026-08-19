@@ -500,7 +500,9 @@ function createSurfaceProbe(input: Readonly<{
       contentOrientation: input.projection.contentOrientation,
     }),
     renderer: Object.freeze({
-      plannedRoute: visible ? renderer.attachedRoute : input.semantic.rendererRoute,
+      plannedRoute: visible && renderer.attachedRoute !== 'none'
+        ? renderer.attachedRoute
+        : input.semantic.rendererRoute,
       attachedRoute: visible ? renderer.attachedRoute : null,
       objectKind: visible ? renderer.objectKind : 'none',
       routeDecisionReason: visible ? renderer.routeDecisionReason : 'not-attached',

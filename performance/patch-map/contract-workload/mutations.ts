@@ -300,9 +300,10 @@ export function classifyPatchMapTextUpdatePublication(
   const attached = renderer?.attachedSignatures ?? null;
   const semantic = renderer?.semanticSignatures ?? null;
   const attachmentCurrent = renderer !== null &&
-    renderer.route !== null &&
-    renderer.route !== 'none' &&
-    renderer.rendererKind !== 'none' &&
+    renderer.attachedRoute !== null &&
+    renderer.attachedRoute !== 'none' &&
+    renderer.plannedRoute === renderer.attachedRoute &&
+    renderer.objectKind !== 'none' &&
     renderer.objectCount === 1 &&
     attached !== null &&
     semantic !== null &&
