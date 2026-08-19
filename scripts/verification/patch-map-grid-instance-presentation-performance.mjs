@@ -210,6 +210,8 @@ try {
             sceneRevisionStable:
               before.revisions.sceneRevision === after.revisions.sceneRevision,
             renderer: before.resources.renderer?.backend ?? null,
+            initialRenderCommandCount: before.resources.rendering.commandCount,
+            finalRenderCommandCount: after.resources.rendering.commandCount,
             visiblePrimitiveCount:
               after.resources.rendering.visiblePrimitiveCount,
             destroy,
@@ -243,6 +245,10 @@ try {
       rafGapP95Ms: stats(trials.map(({ rafGapsMs }) => percentile(rafGapsMs, 0.95))),
       rafGapMaxMs: stats(trials.map(({ rafGapsMs }) => Math.max(...rafGapsMs))),
       longTaskCount: stats(trials.map(({ longTasks }) => longTasks.length)),
+      initialRenderCommandCount: stats(trials.map(({ initialRenderCommandCount }) =>
+        initialRenderCommandCount)),
+      finalRenderCommandCount: stats(trials.map(({ finalRenderCommandCount }) =>
+        finalRenderCommandCount)),
       visiblePrimitiveCount: stats(trials.map(({ visiblePrimitiveCount }) => visiblePrimitiveCount)),
     })];
   }));
@@ -265,6 +271,8 @@ try {
       workload: 'all-cell background source/show plus text content/style/show/tint/placement/margin',
       offscreenObservation:
         'fit disabled; updates address the full grid while the 800x600 viewport shows only a subset',
+      textMaterializationObservation:
+        'public render-command counts plus leaf lifecycle tests prove bounded initial text ownership',
       windowsNative: 'pending',
     }),
     environment: Object.freeze({
@@ -306,6 +314,15 @@ function validate(record) {
   if (!record.semanticHashStable) failures.push(`${record.size}: semantic hash changed`);
   if (!record.sceneRevisionStable) failures.push(`${record.size}: scene revision changed`);
   if (record.renderer !== 'webgl') failures.push(`${record.size}: renderer was ${record.renderer}`);
+  if (record.initialRenderCommandCount <= 0 || record.initialRenderCommandCount >= record.size) {
+    failures.push(`${record.size}: initial render-command materialization was ineffective`);
+  }
+  if (
+    record.finalRenderCommandCount < record.initialRenderCommandCount ||
+    record.finalRenderCommandCount >= record.size
+  ) {
+    failures.push(`${record.size}: retained render-command materialization count was invalid`);
+  }
   if (record.destroy !== true || record.canvasCountAfterDestroy !== 0) {
     failures.push(`${record.size}: destroy cleanup failed`);
   }
