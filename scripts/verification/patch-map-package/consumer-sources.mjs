@@ -169,6 +169,7 @@ window.__PACKAGE_RESULT__ = {
   backend: initial.resources.renderer?.backend ?? null,
   renderObjects,
   assetRuntimeCount: assetStatus.runtime.resourceCount,
+  assetSessionLeaseCount: assetStatus.session?.leaseCount ?? null,
   capturePrefix: capture.dataUrl.slice(0, 22),
   captureLength: capture.dataUrl.length,
   directImage,
@@ -295,6 +296,7 @@ async function verifyDirectImageLifecycle() {
   directHost.style.height = '140px';
   document.body.appendChild(directHost);
   const runtime = new PatchMapAssetRuntime();
+  const resourceCountBeforeMount = runtime.probe().resourceCount;
   const assets = [
     { alias: '/icons/ess.svg', descriptor: '/icons/ess.svg' },
     { alias: '/icons/stick.svg', descriptor: '/icons/stick.svg' },
@@ -333,6 +335,8 @@ async function verifyDirectImageLifecycle() {
     const firstDestroy = await direct.destroy();
     direct = null;
     const firstCleanupResourceCount = runtime.probe().resourceCount;
+    const firstCleanupInitialResource =
+      runtime.probe('/icons/ess.svg').resource ?? null;
 
     direct = await PatchMap.mount({
       container: directHost,
@@ -359,10 +363,14 @@ async function verifyDirectImageLifecycle() {
       replacementCaptureLength: replacementCapture.dataUrl.length,
       firstDestroy,
       firstCleanupResourceCount,
+      resourceCountBeforeMount,
+      firstCleanupInitialResource,
       remountState,
       remountCaptureLength: remountCapture.dataUrl.length,
       remountDestroy,
       finalResourceCount: runtime.probe().resourceCount,
+      finalReplacementResource:
+        runtime.probe('/icons/stick.svg').resource ?? null,
       canvasCountAfterDestroy: directHost.querySelectorAll('canvas').length,
     };
   } finally {
@@ -395,6 +403,7 @@ async function verifyBuiltinGlyphLifecycle() {
   builtinHost.style.height = '128px';
   document.body.appendChild(builtinHost);
   const runtime = new PatchMapAssetRuntime();
+  const runtimeBeforeMount = runtime.probe();
   const authoredScene = (alias, iconSize = 56) => [{
     type: 'grid',
     id: 'packed-authored-' + alias,
@@ -528,6 +537,7 @@ async function verifyBuiltinGlyphLifecycle() {
       injectedResolved:
         injectedStatus.resource?.state === 'resolved' && injectedStatus.pendingCount === 0,
       hidden,
+      runtimeBeforeMount,
       runtimeBeforeDestroy,
       runtimeAfterDestroy: runtime.probe(),
       destroy,

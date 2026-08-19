@@ -50,11 +50,17 @@ export function collectPackageFailures({
     esm.directImage?.replacementState !== 'resolved' ||
     !(esm.directImage?.replacementCaptureLength > 100) ||
     esm.directImage?.firstDestroy !== true ||
-    esm.directImage?.firstCleanupResourceCount !== 0 ||
+    esm.directImage?.firstCleanupResourceCount !==
+      esm.directImage?.resourceCountBeforeMount ||
+    esm.directImage?.firstCleanupInitialResource?.state !== 'absent' ||
+    esm.directImage?.firstCleanupInitialResource?.resourceCount !== 0 ||
     esm.directImage?.remountState !== 'resolved' ||
     !(esm.directImage?.remountCaptureLength > 100) ||
     esm.directImage?.remountDestroy !== true ||
-    esm.directImage?.finalResourceCount !== 0 ||
+    esm.directImage?.finalResourceCount !==
+      esm.directImage?.resourceCountBeforeMount ||
+    esm.directImage?.finalReplacementResource?.state !== 'absent' ||
+    esm.directImage?.finalReplacementResource?.resourceCount !== 0 ||
     esm.directImage?.canvasCountAfterDestroy !== 0
   ) failures.push('packed direct-image replace/capture/remount lifecycle failed');
   if (
@@ -102,11 +108,15 @@ export function collectPackageFailures({
     builtinSignatures.size !== builtinAliases.length ||
     builtinOverlaySignatures.size !== builtinAliases.length ||
     esm.builtins?.hidden?.pixelCount !== 0 ||
-    esm.builtins?.runtimeBeforeDestroy?.resourceCount !== 7 ||
+    esm.builtins?.runtimeBeforeDestroy?.resourceCount !==
+      esm.builtins?.runtimeBeforeMount?.resourceCount + 1 ||
     esm.builtins?.runtimeBeforeDestroy?.pendingCount !== 0 ||
-    esm.builtins?.runtimeBeforeDestroy?.leaseCount !== 7 ||
-    esm.builtins?.runtimeAfterDestroy?.resourceCount !== 0 ||
-    esm.builtins?.runtimeAfterDestroy?.leaseCount !== 0 ||
+    esm.builtins?.runtimeBeforeDestroy?.leaseCount !==
+      esm.builtins?.runtimeBeforeMount?.leaseCount + 6 ||
+    esm.builtins?.runtimeAfterDestroy?.resourceCount !==
+      esm.builtins?.runtimeBeforeMount?.resourceCount ||
+    esm.builtins?.runtimeAfterDestroy?.leaseCount !==
+      esm.builtins?.runtimeBeforeMount?.leaseCount ||
     esm.builtins?.inverter24?.bounds?.width !== 18 ||
     esm.builtins?.inverter24?.bounds?.height !== 18 ||
     esm.builtins?.inverter24?.signature !==
@@ -287,7 +297,9 @@ export function collectPackageFailures({
   ) failures.push('packed selection bounds display raster or lifecycle failed');
   if (esm.backend !== 'webgl') failures.push('packed ESM did not use WebGL');
   if (!(esm.renderObjects > 0)) failures.push('packed ESM produced no aggregate render objects');
-  if (esm.assetRuntimeCount !== 0) failures.push('packed ESM asset status was inconsistent');
+  if (esm.assetRuntimeCount !== 5 || esm.assetSessionLeaseCount !== 5) {
+    failures.push('packed ESM asset status was inconsistent');
+  }
   if (
     esm.internalExportsAbsent !== true ||
     esm.constructorRejected !== true ||
@@ -380,8 +392,8 @@ export function collectPackageFailures({
     packageMatrix.multipleInstances?.B?.callbackCountFromA !== 0 ||
     packageMatrix.multipleInstances?.B?.assetLeaseCount !==
       packageMatrix.multipleInstances?.baselineB?.assetLeaseCount ||
-    packageMatrix.multipleInstances?.B?.sharedLeaseCount !== 1 ||
-    packageMatrix.multipleInstances?.sharedLeaseCountAfterRecreate !== 2 ||
+    packageMatrix.multipleInstances?.B?.sharedLeaseCount !== 0 ||
+    packageMatrix.multipleInstances?.sharedLeaseCountAfterRecreate !== 0 ||
     packageMatrix.multipleInstances?.hostSlots?.A?.canvasCount !== 1 ||
     packageMatrix.multipleInstances?.hostSlots?.B?.canvasCount !== 1 ||
     packageMatrix.multipleInstances?.unclassifiedErrorCount !== 0
