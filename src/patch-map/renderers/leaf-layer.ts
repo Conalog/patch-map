@@ -216,6 +216,9 @@ export class AggregateLeafLayer {
   private readonly pendingTextEntries = new Set<TextEntry>();
   private readonly textChunks = new Map<number, TextChunk>();
   private readonly dirtyTextChunkKeys = new Set<number>();
+  private readonly deferredTextSlots = new Set<number>();
+  private deferredTextStore: RenderStoreView | null = null;
+  private deferredTextProjectionContext: PatchMapProjectionRenderContext | undefined;
   private textChunkOrderDirty = false;
   private textChunking = false;
   private readonly images = new Map<number, ImageEntry>();
@@ -469,6 +472,8 @@ export class AggregateLeafLayer {
     const epoch = options.fullRebuildEpoch ?? this.storeEpoch;
     const fullRebuild = epoch !== this.storeEpoch;
     const changedRanges = options.changedRanges;
+    this.deferredTextStore = store;
+    this.deferredTextProjectionContext = options.projectionContext;
     const hasLeafWork =
       fullRebuild ||
       changedRanges === undefined ||
@@ -492,8 +497,12 @@ export class AggregateLeafLayer {
         const end = Math.min(store.capacity, range.end);
         for (let slot = start; slot < end; slot += 1) {
           if (options.projectionTransformOnly === true) {
+            this.deferredTextSlots.delete(slot);
             this.syncSlotProjectionOnly(store, slot, options.projectionContext);
+          } else if (this.shouldDeferTextSync(store, slot)) {
+            this.deferredTextSlots.add(slot);
           } else {
+            this.deferredTextSlots.delete(slot);
             this.syncSlot(store, slot, options.projectionContext);
           }
         }
@@ -546,14 +555,26 @@ export class AggregateLeafLayer {
     }
     let visibleCount = 0;
     if (this.textChunking) {
-      for (const chunk of this.textChunks.values()) {
-        const coverage = quadViewportCoverage(
+      for (const initialChunk of this.textChunks.values()) {
+        let chunk = initialChunk;
+        let coverage = quadViewportCoverage(
           chunk.vertices,
           worldMatrix,
           viewportWidth,
           viewportHeight,
           padding,
         );
+        if (coverage !== 'outside' && this.materializeDeferredTextChunk(chunk)) {
+          this.rebuildDirtyTextChunks();
+          chunk = this.textChunks.get(chunk.key) ?? chunk;
+          coverage = quadViewportCoverage(
+            chunk.vertices,
+            worldMatrix,
+            viewportWidth,
+            viewportHeight,
+            padding,
+          );
+        }
         const chunkVisible = coverage !== 'outside';
         if (chunk.container.visible !== chunkVisible) {
           chunk.container.visible = chunkVisible;
@@ -1114,6 +1135,7 @@ export class AggregateLeafLayer {
   }
 
   private removeText(slot: number): void {
+    this.deferredTextSlots.delete(slot);
     const entry = this.texts.get(slot);
     if (!entry) return;
     this.texts.delete(slot);
@@ -1156,6 +1178,34 @@ export class AggregateLeafLayer {
     this.textChunkOrderDirty = true;
     this.textContainer.addChild(container);
     return container;
+  }
+
+  /**
+   * Keep style/content texture regeneration out of already culled text chunks.
+   * Geometry-only publication is never deferred because it can move a chunk
+   * into the viewport. The latest columnar store remains the only source of
+   * truth and is consumed when culling makes the chunk visible again.
+   */
+  private shouldDeferTextSync(store: RenderStoreView, slot: number): boolean {
+    if (
+      !this.textChunking ||
+      store.alive[slot] !== 1 ||
+      store.kind[slot] !== RenderKind.Text ||
+      ((store.flags[slot] ?? 0) & RenderFlags.Visible) === 0
+    ) return false;
+    return this.textChunks.get(textChunkKey(slot))?.container.visible === false;
+  }
+
+  private materializeDeferredTextChunk(chunk: TextChunk): boolean {
+    const store = this.deferredTextStore;
+    if (store === null) return false;
+    let changed = false;
+    for (const slot of [...chunk.slots]) {
+      if (!this.deferredTextSlots.delete(slot)) continue;
+      this.syncSlot(store, slot, this.deferredTextProjectionContext);
+      changed = true;
+    }
+    return changed;
   }
 
   private rebuildDirtyTextChunks(): void {
@@ -1429,6 +1479,9 @@ export class AggregateLeafLayer {
     this.textProbesByEntityId.clear();
     this.textLastRenderedGraphemeCountByEntityId.clear();
     this.pendingTextEntries.clear();
+    this.deferredTextSlots.clear();
+    this.deferredTextStore = null;
+    this.deferredTextProjectionContext = undefined;
     for (const chunk of this.textChunks.values()) chunk.container.destroy();
     this.textChunks.clear();
     this.dirtyTextChunkKeys.clear();

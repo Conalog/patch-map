@@ -2,17 +2,28 @@ import type {
   PatchMapImageProjection,
   PatchMapProjectionIndex,
 } from '../contracts';
+import type { EntityInput } from '../dense/contracts';
+import {
+  RenderAlign,
+  RenderKind,
+  type RenderStoreView,
+} from '../dense/renderer-types';
 import { multiplyPatchMapRgba } from '../parser/color';
 import { normalizePatchMapImageSource } from '../parser/image-source';
+import { projectPatchMapInstanceComponentOverlay } from '../parser/instance-component-overlay';
 import { createPatchMapParseState } from '../parser/parse-state';
 import { resolveColor } from '../parser/value-normalization';
 import type { PatchMapRendererEntityPresentationOverride } from '../renderers/presentation-store';
 import type {
   PatchMapAssetSource,
   PatchMapBarComponent,
+  PatchMapComponent,
+  PatchMapGridItemTemplate,
   PatchMapIconComponent,
   PatchMapRectTexture,
 } from '../semantic/dataset';
+import { mergeRecords } from '../semantic/mutation/record-values';
+import { normalizePatchMapComponent } from '../semantic/dataset/root-normalization';
 import {
   normalizeAssetSource,
   normalizeColorLike,
@@ -42,6 +53,8 @@ export interface PatchMapStoredInstancePresentation {
   readonly tint?: unknown;
   readonly source?: PatchMapRectTexture | PatchMapAssetSource;
   readonly show?: boolean;
+  /** Sparse background/text fields, recursively merged over the current template. */
+  readonly changes?: Readonly<Record<string, unknown>>;
 }
 
 interface NormalizedPresentationPatch {
@@ -51,6 +64,7 @@ interface NormalizedPresentationPatch {
   readonly tint?: unknown;
   readonly source?: PatchMapRectTexture | PatchMapAssetSource | null;
   readonly show?: boolean | null;
+  readonly changes?: Readonly<Record<string, unknown>>;
 }
 
 export interface PatchMapInstancePresentationPlan {
@@ -80,8 +94,10 @@ export function isPatchMapInstanceBarHeightOnlyRequest(
 ): boolean {
   return request.targets !== undefined &&
     request.heights !== undefined &&
+    request.background === undefined &&
     request.bar === undefined &&
-    request.icon === undefined;
+    request.icon === undefined &&
+    request.text === undefined;
 }
 
 /** Keep the established height-only hot path out of general presentation planning. */
@@ -175,6 +191,7 @@ export function planPatchMapInstancePresentationOverlay(
   componentTargets: ReadonlyMap<string, PatchMapIndexedComponentTarget | null>,
   ownedDataset: readonly unknown[] | null,
   parseOptions: PatchMapRuntimeOptions['parse'],
+  store: RenderStoreView,
   presentations: ReadonlyMap<string, PatchMapStoredInstancePresentation>,
   rendererOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
   recordStrategy: PatchMapStableRecordStrategy,
@@ -186,13 +203,13 @@ export function planPatchMapInstancePresentationOverlay(
   const resolved: Array<Readonly<{
     patch: NormalizedPresentationPatch;
     indexed: PatchMapIndexedComponentTarget;
-    authoredComponent: PatchMapBarComponent | PatchMapIconComponent | null;
+    authoredComponent: PatchMapComponent | null;
   }>> = [];
   const appliedTargets: PatchMapInstanceBarTarget[] = [];
   const missingTargets: PatchMapInstanceBarTarget[] = [];
   const componentByPath = new Map<
     string | null,
-    PatchMapBarComponent | PatchMapIconComponent | null
+    PatchMapComponent | null
   >();
 
   for (const patch of patches) {
@@ -204,6 +221,7 @@ export function planPatchMapInstancePresentationOverlay(
       ? authored.componentsByEntityId?.[indexed.entityId]
       : undefined;
     const bar = indexed ? authored.barsByEntityId?.[indexed.entityId] : undefined;
+    const text = indexed ? authored.textsByEntityId?.[indexed.entityId] : undefined;
     const componentPath = indexed?.componentPath ?? null;
     let authoredComponent = componentByPath.get(componentPath);
     if (authoredComponent === undefined) {
@@ -212,15 +230,18 @@ export function planPatchMapInstancePresentationOverlay(
         : null;
       componentByPath.set(componentPath, authoredComponent);
     }
-    const needsAuthoredPresentation =
+    const needsAuthoredPresentation = patch.type === 'background' ||
+      patch.type === 'text' ||
       Object.hasOwn(patch, 'tint') ||
       Object.hasOwn(patch, 'source') ||
       Object.hasOwn(patch, 'show');
     const semanticMatches = patch.type === 'bar'
       ? bar?.ownerId === patch.target.id && bar.componentId === patch.target.componentId
-      : component?.ownerId === patch.target.id &&
-        component.componentId === patch.target.componentId &&
-        component.componentType === patch.type;
+      : patch.type === 'text'
+        ? text?.ownerId === patch.target.id && text.componentId === patch.target.componentId
+        : component?.ownerId === patch.target.id &&
+          component.componentId === patch.target.componentId &&
+          component.componentType === patch.type;
     if (
       !indexed ||
       !semanticMatches ||
@@ -250,11 +271,12 @@ export function planPatchMapInstancePresentationOverlay(
   const changedPresentations: Array<Readonly<{
     patch: NormalizedPresentationPatch;
     indexed: PatchMapIndexedComponentTarget;
-    authoredComponent: PatchMapBarComponent | PatchMapIconComponent | null;
+    authoredComponent: PatchMapComponent | null;
     stored: PatchMapStoredInstancePresentation | undefined;
     heightChanged: boolean;
     rendererChanged: boolean;
     sourceChanged: boolean;
+    componentChanged: boolean;
   }>> = [];
   for (const { patch, indexed, authoredComponent } of resolved) {
     const key = storedKey(patch.type, patch.target);
@@ -276,6 +298,7 @@ export function planPatchMapInstancePresentationOverlay(
         !sameNormalizedPresentationValue(previous?.source, next?.source) ||
         !Object.is(previous?.show, next?.show),
       sourceChanged: !sameNormalizedPresentationValue(previous?.source, next?.source),
+      componentChanged: !sameNormalizedPresentationValue(previous?.changes, next?.changes),
     }));
   }
 
@@ -296,10 +319,27 @@ export function planPatchMapInstancePresentationOverlay(
   );
   let projection = barPlan.projection;
   const changed = new Set(barPlan.changedEntityIds);
-  const imageSelections = Object.create(null) as Record<string, PatchMapImageProjection>;
+  const entitySelections = Object.create(null) as Record<string, PatchMapProjectionIndex['byEntityId'][string]>;
+  const componentSelections = Object.create(null) as Record<
+    string,
+    NonNullable<PatchMapProjectionIndex['componentsByEntityId']>[string]
+  >;
+  const backgroundSelections = Object.create(null) as Record<
+    string,
+    NonNullable<PatchMapProjectionIndex['backgroundsByEntityId']>[string]
+  >;
+  const textSelections = Object.create(null) as Record<
+    string,
+    NonNullable<PatchMapProjectionIndex['textsByEntityId']>[string]
+  >;
+  const projectionEntityIds: string[] = [];
+  const backgroundIds: string[] = [];
+  const textIds: string[] = [];
+  const imageSelections = new Map<string, PatchMapImageProjection | null>();
   const imageIds: string[] = [];
   const colorState = createPatchMapParseState(parseOptions ?? {});
   const resolvedColors = new Map<unknown, Map<number, number>>();
+  let ownerSlots: ReadonlyMap<string, number> | null = null;
 
   for (const {
     patch,
@@ -308,8 +348,104 @@ export function planPatchMapInstancePresentationOverlay(
     stored,
     rendererChanged,
     sourceChanged,
+    componentChanged,
   } of changedPresentations) {
+    if (patch.type === 'background' || patch.type === 'text') {
+      if (!componentChanged || authoredComponent === null || ownedDataset === null) continue;
+      const entityId = indexed.entityId;
+      projectionEntityIds.push(entityId);
+      if (stored === undefined) {
+        const authoredEntity = authored.byEntityId[entityId];
+        const authoredVisual = authored.componentsByEntityId?.[entityId];
+        if (
+          authoredEntity === undefined ||
+          (patch.type === 'background' && authoredVisual === undefined)
+        ) {
+          throw new Error(`authored instance presentation is missing ${entityId}`);
+        }
+        entitySelections[entityId] = authoredEntity;
+        if (authoredVisual !== undefined) componentSelections[entityId] = authoredVisual;
+        if (patch.type === 'background') {
+          const authoredBackground = authored.backgroundsByEntityId?.[entityId];
+          if (authoredBackground === undefined) {
+            throw new Error(`authored background presentation is missing ${entityId}`);
+          }
+          backgroundSelections[entityId] = authoredBackground;
+          backgroundIds.push(entityId);
+          selectImageProjection(imageSelections, imageIds, entityId, authored.imagesByEntityId?.[entityId]);
+        } else {
+          const authoredText = authored.textsByEntityId?.[entityId];
+          if (authoredText === undefined) {
+            throw new Error(`authored text presentation is missing ${entityId}`);
+          }
+          textSelections[entityId] = authoredText;
+          textIds.push(entityId);
+        }
+        nextRendererOverrides.delete(entityId);
+        changed.add(entityId);
+        continue;
+      }
+
+      const item = itemAtComponentPath(ownedDataset, indexed.componentPath);
+      const ownerProjection = authored.byEntityId[patch.target.id];
+      if (item === null || ownerProjection === undefined || indexed.componentPath === null) {
+        throw new Error(`instance presentation owner is unavailable for ${entityId}`);
+      }
+      ownerSlots ??= indexStoreSlots(store);
+      const ownerSlot = ownerSlots.get(patch.target.id);
+      if (ownerSlot === undefined) {
+        throw new Error(`instance presentation owner slot is unavailable for ${entityId}`);
+      }
+      const effective = effectiveOverlayComponent(
+        authoredComponent,
+        stored.changes ?? {},
+        indexed.componentPath,
+      );
+      if (effective.type !== patch.type) {
+        throw new TypeError('instance presentation component type does not match authored component');
+      }
+      const projected = projectPatchMapInstanceComponentOverlay(
+        effective,
+        indexed.componentPath,
+        item,
+        patch.target.id,
+        indexed.semanticOwnerId,
+        ownerProjection,
+        store,
+        ownerSlot,
+        parseOptions,
+      );
+      entitySelections[entityId] = projected.entityProjection;
+      if (projected.componentProjection !== undefined) {
+        componentSelections[entityId] = projected.componentProjection;
+      }
+      nextRendererOverrides.set(entityId, rendererOverrideFromEntity(projected.entity));
+      if (patch.type === 'background') {
+        if (projected.backgroundProjection === undefined) {
+          throw new Error(`background overlay did not publish paint for ${entityId}`);
+        }
+        backgroundSelections[entityId] = projected.backgroundProjection;
+        backgroundIds.push(entityId);
+        selectImageProjection(imageSelections, imageIds, entityId, projected.imageProjection);
+      } else {
+        if (projected.textProjection === undefined) {
+          throw new Error(`text overlay did not publish layout for ${entityId}`);
+        }
+        textSelections[entityId] = projected.textProjection;
+        textIds.push(entityId);
+      }
+      changed.add(entityId);
+      continue;
+    }
+
     if (!rendererChanged) continue;
+    if (
+      authoredComponent !== null &&
+      authoredComponent.type !== 'bar' &&
+      authoredComponent.type !== 'icon'
+    ) {
+      throw new TypeError('instance presentation component type does not match authored component');
+    }
     const nextOverride = authoredComponent === null
       ? null
       : presentationOverride(stored, authoredComponent, colorState, resolvedColors);
@@ -324,24 +460,30 @@ export function planPatchMapInstancePresentationOverlay(
     const nextImage = stored?.source === undefined
       ? authoredImage
       : imageProjection(indexed.entityId, stored.source as PatchMapAssetSource, authoredImage);
-    imageSelections[indexed.entityId] = nextImage;
+    imageSelections.set(indexed.entityId, nextImage);
     imageIds.push(indexed.entityId);
     if (!sameImageProjection(current.imagesByEntityId?.[indexed.entityId], nextImage)) {
       changed.add(indexed.entityId);
     }
   }
 
+  projection = patchInstanceComponentProjection(
+    projection,
+    entitySelections,
+    componentSelections,
+    backgroundSelections,
+    textSelections,
+    projectionEntityIds,
+    backgroundIds,
+    textIds,
+    recordStrategy,
+  );
   if (imageIds.length > 0) {
-    const imagesByEntityId = patchPatchMapStableRecord(
+    const imagesByEntityId = patchImageProjectionMembership(
       projection.imagesByEntityId,
       imageSelections,
       imageIds,
-      recordStrategy,
-      true,
     );
-    if (imagesByEntityId === null) {
-      throw new Error('instance icon overlay could not preserve projection membership');
-    }
     projection = Object.freeze({ ...projection, imagesByEntityId });
   }
 
@@ -360,8 +502,10 @@ export function instancePresentationRequestFromStored(
   values: readonly PatchMapStoredInstancePresentation[],
   animate: boolean,
 ): PatchMapInstanceBarHeightBatchRequest {
+  const backgrounds = values.filter((value) => value.type === 'background');
   const bars = values.filter((value) => value.type === 'bar');
   const icons = values.filter((value) => value.type === 'icon');
+  const texts = values.filter((value) => value.type === 'text');
   const columns = (entries: readonly PatchMapStoredInstancePresentation[]) => {
     const include = (name: 'height' | 'tint' | 'source' | 'show'): boolean =>
       entries.some((entry) => Object.hasOwn(entry, name));
@@ -373,9 +517,21 @@ export function instancePresentationRequestFromStored(
       ...(include('show') ? { show: entries.map((entry) => entry.show ?? null) } : {}),
     });
   };
+  const componentColumns = (entries: readonly PatchMapStoredInstancePresentation[]) => {
+    const names = [...new Set(entries.flatMap((entry) => Object.keys(entry.changes ?? {})))];
+    return Object.freeze({
+      targets: Object.freeze(entries.map((entry) => entry.target)),
+      changes: Object.freeze(Object.fromEntries(names.map((name) => [
+        name,
+        entries.map((entry) => entry.changes?.[name] ?? null),
+      ]))),
+    });
+  };
   return Object.freeze({
+    ...(backgrounds.length === 0 ? {} : { background: componentColumns(backgrounds) }),
     ...(bars.length === 0 ? {} : { bar: columns(bars) }),
     ...(icons.length === 0 ? {} : { icon: columns(icons) }),
+    ...(texts.length === 0 ? {} : { text: componentColumns(texts) }),
     animate,
   });
 }
@@ -409,6 +565,9 @@ function normalizePresentationPatches(
       normalizedIconSources,
     );
   }
+  if (request.background !== undefined) {
+    normalizeComponentColumns('background', request.background, result);
+  }
   if (request.bar !== undefined) {
     normalizeColumns(
       'bar',
@@ -429,6 +588,9 @@ function normalizePresentationPatches(
       normalizedIconSources,
     );
   }
+  if (request.text !== undefined) {
+    normalizeComponentColumns('text', request.text, result);
+  }
   if (result.length === 0) {
     throw new TypeError('instance presentation batch requires at least one value column');
   }
@@ -436,7 +598,7 @@ function normalizePresentationPatches(
 }
 
 function normalizeColumns(
-  type: PatchMapInstancePresentationComponentType,
+  type: 'bar' | 'icon',
   columns: Readonly<{
     readonly targets: readonly PatchMapInstanceBarTarget[];
     readonly height?: ArrayLike<number | null>;
@@ -527,6 +689,90 @@ function normalizeColumns(
   }
 }
 
+function normalizeComponentColumns(
+  type: 'background' | 'text',
+  columns: NonNullable<
+    PatchMapInstanceBarHeightBatchRequest['background'] |
+    PatchMapInstanceBarHeightBatchRequest['text']
+  >,
+  output: NormalizedPresentationPatch[],
+): void {
+  if (!Array.isArray(columns.targets)) {
+    throw new TypeError(`instance ${type} targets must be an array`);
+  }
+  const changes = columns.changes ?? {};
+  const directText = type === 'text' && 'text' in columns ? columns.text : undefined;
+  const directStyle = type === 'text' && 'style' in columns ? columns.style : undefined;
+  const allowed = type === 'background'
+    ? new Set(['show', 'source', 'tint', 'size', 'attrs'])
+    : new Set(['show', 'text', 'placement', 'margin', 'tint', 'style', 'split', 'attrs']);
+  const unknown = Object.keys(changes).find((name) => !allowed.has(name));
+  if (unknown !== undefined) {
+    throw new TypeError(`instance ${type} presentation does not support ${unknown}`);
+  }
+  if (directText !== undefined && Object.hasOwn(changes, 'text')) {
+    throw new TypeError('instance text presentation cannot set text twice');
+  }
+  if (directStyle !== undefined && Object.hasOwn(changes, 'style')) {
+    throw new TypeError('instance text presentation cannot set style twice');
+  }
+  const valueColumns = [
+    ...Object.values(changes),
+    directText,
+    directStyle,
+  ].filter((value) => value !== undefined);
+  if (valueColumns.length === 0) {
+    throw new TypeError(`instance ${type} presentation requires at least one value column`);
+  }
+  for (const [name, column] of [
+    ...Object.entries(changes),
+    ['text', directText],
+    ['style', directStyle],
+  ] as readonly (readonly [string, ArrayLike<unknown> | undefined])[]) {
+    if (column === undefined) continue;
+    if (column === null || typeof column !== 'object') {
+      throw new TypeError(`instance ${type} ${name} must be array-like`);
+    }
+    if (!Number.isSafeInteger(column.length) || column.length < 0) {
+      throw new TypeError(`instance ${type} ${name} length must be a non-negative safe integer`);
+    }
+    if (column.length !== columns.targets.length) {
+      throw new RangeError(`instance ${type} ${name} length must match targets length`);
+    }
+  }
+
+  const seen = new Set<string>();
+  for (let index = 0; index < columns.targets.length; index += 1) {
+    const target = normalizeTarget(columns.targets[index], `instance ${type} targets[${index}]`);
+    const key = patchMapComponentTargetKey(target.id, target.componentId);
+    if (seen.has(key)) {
+      throw new TypeError(`duplicate instance ${type} target: ${target.id}/${target.componentId}`);
+    }
+    seen.add(key);
+    const patch: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
+    for (const [name, column] of Object.entries(changes)) patch[name] = column[index];
+    if (directText !== undefined) {
+      const text = directText[index];
+      if (text !== null && typeof text !== 'string') {
+        throw new TypeError(`instance text text[${index}] must be null or string`);
+      }
+      patch.text = text;
+    }
+    if (directStyle !== undefined) {
+      const style = directStyle[index];
+      if (style !== null && (typeof style !== 'object' || Array.isArray(style))) {
+        throw new TypeError(`instance text style[${index}] must be null or a record`);
+      }
+      patch.style = style;
+    }
+    output.push(Object.freeze({
+      type,
+      target,
+      changes: Object.freeze(patch),
+    }));
+  }
+}
+
 function normalizeTarget(value: unknown, path: string): PatchMapInstanceBarTarget {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError(`${path} must be an object`);
@@ -560,7 +806,12 @@ function mergePresentation(
         patch.source === null ? undefined : patch.source,
       )) &&
     (!Object.hasOwn(patch, 'show') ||
-      Object.is(previous.show, patch.show === null ? undefined : patch.show))
+      Object.is(previous.show, patch.show === null ? undefined : patch.show)) &&
+    (!Object.hasOwn(patch, 'changes') ||
+      sameNormalizedPresentationValue(
+        previous.changes,
+        mergeOverlayChanges(previous.changes, patch.changes ?? {}),
+      ))
   ) {
     return previous;
   }
@@ -571,6 +822,7 @@ function mergePresentation(
     ...(previous?.tint === undefined ? {} : { tint: previous.tint }),
     ...(previous?.source === undefined ? {} : { source: previous.source }),
     ...(previous?.show === undefined ? {} : { show: previous.show }),
+    ...(previous?.changes === undefined ? {} : { changes: previous.changes }),
   };
   for (const name of ['height', 'tint', 'source', 'show'] as const) {
     if (!Object.hasOwn(patch, name)) continue;
@@ -578,7 +830,12 @@ function mergePresentation(
     if (value === null) delete next[name];
     else next[name] = value;
   }
-  if (!['height', 'tint', 'source', 'show'].some((name) => Object.hasOwn(next, name))) {
+  if (Object.hasOwn(patch, 'changes')) {
+    const changes = mergeOverlayChanges(previous?.changes, patch.changes ?? {});
+    if (changes === undefined) delete next.changes;
+    else next.changes = changes;
+  }
+  if (!['height', 'tint', 'source', 'show', 'changes'].some((name) => Object.hasOwn(next, name))) {
     return null;
   }
   return Object.freeze(next) as unknown as PatchMapStoredInstancePresentation;
@@ -596,6 +853,7 @@ function presentationWithHeight(
       previous.tint === undefined &&
       previous.source === undefined &&
       previous.show === undefined
+      && previous.changes === undefined
     ) return null;
     return Object.freeze({
       type: 'bar',
@@ -603,6 +861,7 @@ function presentationWithHeight(
       ...(previous.tint === undefined ? {} : { tint: previous.tint }),
       ...(previous.source === undefined ? {} : { source: previous.source }),
       ...(previous.show === undefined ? {} : { show: previous.show }),
+      ...(previous.changes === undefined ? {} : { changes: previous.changes }),
     });
   }
   if (previous !== undefined && Object.is(previous.height, height)) return previous;
@@ -613,6 +872,7 @@ function presentationWithHeight(
     ...(previous?.tint === undefined ? {} : { tint: previous.tint }),
     ...(previous?.source === undefined ? {} : { source: previous.source }),
     ...(previous?.show === undefined ? {} : { show: previous.show }),
+    ...(previous?.changes === undefined ? {} : { changes: previous.changes }),
   });
 }
 
@@ -701,7 +961,34 @@ function imageProjection(
 function componentAtPath(
   dataset: readonly unknown[],
   path: string | null,
-): PatchMapBarComponent | PatchMapIconComponent | null {
+): PatchMapComponent | null {
+  const value = valueAtDatasetPath(dataset, path);
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+  const component = value as Readonly<Record<string, unknown>>;
+  return component.type === 'background' ||
+      component.type === 'bar' ||
+      component.type === 'icon' ||
+      component.type === 'text'
+    ? component as unknown as PatchMapComponent
+    : null;
+}
+
+function itemAtComponentPath(
+  dataset: readonly unknown[],
+  componentPath: string | null,
+): PatchMapGridItemTemplate | null {
+  if (componentPath === null) return null;
+  const path = componentPath.replace(/\.components\[\d+\]$/u, '');
+  const value = valueAtDatasetPath(dataset, path);
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+  const item = value as Partial<PatchMapGridItemTemplate>;
+  return item.size !== undefined && item.padding !== undefined &&
+      item.contentOrientation !== undefined && Array.isArray(item.components)
+    ? item as PatchMapGridItemTemplate
+    : null;
+}
+
+function valueAtDatasetPath(dataset: readonly unknown[], path: string | null): unknown {
   if (path === null || !path.startsWith('$')) return null;
   let value: unknown = dataset;
   const tokens = path.slice(1).match(/(?:\.[A-Za-z]+|\[\d+\])/gu);
@@ -717,11 +1004,200 @@ function componentAtPath(
     if (!Object.hasOwn(value, key)) return null;
     value = (value as Readonly<Record<string, unknown>>)[key];
   }
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
-  const component = value as Readonly<Record<string, unknown>>;
-  return component.type === 'bar' || component.type === 'icon'
-    ? component as unknown as PatchMapBarComponent | PatchMapIconComponent
-    : null;
+  return value;
+}
+
+function effectiveOverlayComponent(
+  authored: PatchMapComponent,
+  changes: Readonly<Record<string, unknown>>,
+  path: string,
+): PatchMapComponent {
+  const candidate = mergeRecords(authored, changes);
+  return normalizePatchMapComponent(
+    candidate,
+    path,
+    `@instance-overlay:${authored.id}`,
+    0,
+    {
+      elementIds: new Set(),
+      componentIdsByOwner: new Map(),
+      elementTypes: new Set(),
+      componentTypes: new Set(),
+    },
+  );
+}
+
+function mergeOverlayChanges(
+  previous: Readonly<Record<string, unknown>> | undefined,
+  incoming: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> | undefined {
+  const next: Record<string, unknown> = Object.assign(
+    Object.create(null) as Record<string, unknown>,
+    previous ?? {},
+  );
+  for (const [name, value] of Object.entries(incoming)) {
+    if (value === null) {
+      delete next[name];
+      continue;
+    }
+    const current = next[name];
+    if (isOverlayRecord(current) && isOverlayRecord(value)) {
+      const nested = mergeOverlayChanges(current, value);
+      if (nested === undefined) delete next[name];
+      else next[name] = nested;
+      continue;
+    }
+    next[name] = value;
+  }
+  return Object.keys(next).length === 0 ? undefined : Object.freeze(next);
+}
+
+function isOverlayRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function rendererOverrideFromEntity(
+  entity: EntityInput,
+): PatchMapRendererEntityPresentationOverride {
+  const common = {
+    visible: entity.visible ?? true,
+    opacity: entity.opacity ?? 1,
+  };
+  if (entity.kind === 'rect') {
+    return Object.freeze({
+      ...common,
+      kind: RenderKind.Rect,
+      fill: entity.fill ?? 0x00000000,
+      stroke: entity.stroke ?? 0x00000000,
+      strokeWidth: entity.strokeWidth ?? 0,
+      radius: entity.radius ?? 0,
+    });
+  }
+  if (entity.kind === 'image') {
+    return Object.freeze({
+      ...common,
+      kind: RenderKind.Image,
+      source: entity.source,
+      tint: entity.tint ?? 0xffffffff,
+    });
+  }
+  if (entity.kind === 'text') {
+    return Object.freeze({
+      ...common,
+      kind: RenderKind.Text,
+      align: entity.align === 'center'
+        ? RenderAlign.Center
+        : entity.align === 'right'
+          ? RenderAlign.Right
+          : RenderAlign.Left,
+    });
+  }
+  throw new TypeError(`unsupported instance presentation entity kind: ${entity.kind}`);
+}
+
+function patchInstanceComponentProjection(
+  projection: PatchMapProjectionIndex,
+  entitySelections: Readonly<Record<string, PatchMapProjectionIndex['byEntityId'][string]>>,
+  componentSelections: Readonly<Record<
+    string,
+    NonNullable<PatchMapProjectionIndex['componentsByEntityId']>[string]
+  >>,
+  backgroundSelections: Readonly<Record<
+    string,
+    NonNullable<PatchMapProjectionIndex['backgroundsByEntityId']>[string]
+  >>,
+  textSelections: Readonly<Record<
+    string,
+    NonNullable<PatchMapProjectionIndex['textsByEntityId']>[string]
+  >>,
+  entityIds: readonly string[],
+  backgroundIds: readonly string[],
+  textIds: readonly string[],
+  strategy: PatchMapStableRecordStrategy,
+): PatchMapProjectionIndex {
+  if (entityIds.length === 0) return projection;
+  const byEntityId = patchPatchMapStableRecord(
+    projection.byEntityId,
+    entitySelections,
+    entityIds,
+    strategy,
+    true,
+  );
+  const componentsByEntityId = patchPatchMapStableRecord(
+    projection.componentsByEntityId,
+    componentSelections,
+    entityIds,
+    strategy,
+    true,
+  );
+  const backgroundsByEntityId = backgroundIds.length === 0
+    ? projection.backgroundsByEntityId
+    : patchPatchMapStableRecord(
+        projection.backgroundsByEntityId,
+        backgroundSelections,
+        backgroundIds,
+        strategy,
+        true,
+      );
+  const textsByEntityId = textIds.length === 0
+    ? projection.textsByEntityId
+    : patchPatchMapStableRecord(
+        projection.textsByEntityId,
+        textSelections,
+        textIds,
+        strategy,
+        true,
+      );
+  if (
+    byEntityId === null ||
+    componentsByEntityId === null ||
+    backgroundsByEntityId === null ||
+    textsByEntityId === null
+  ) {
+    throw new Error('instance component overlay could not preserve projection membership');
+  }
+  return Object.freeze({
+    ...projection,
+    byEntityId,
+    componentsByEntityId,
+    ...(backgroundsByEntityId === undefined ? {} : { backgroundsByEntityId }),
+    ...(textsByEntityId === undefined ? {} : { textsByEntityId }),
+  });
+}
+
+function selectImageProjection(
+  selections: Map<string, PatchMapImageProjection | null>,
+  ids: string[],
+  entityId: string,
+  projection: PatchMapImageProjection | undefined,
+): void {
+  selections.set(entityId, projection ?? null);
+  ids.push(entityId);
+}
+
+function patchImageProjectionMembership(
+  current: Readonly<Record<string, PatchMapImageProjection>> | undefined,
+  selections: ReadonlyMap<string, PatchMapImageProjection | null>,
+  ids: readonly string[],
+): Readonly<Record<string, PatchMapImageProjection>> {
+  const next = Object.assign(
+    Object.create(null) as Record<string, PatchMapImageProjection>,
+    current ?? {},
+  );
+  for (const entityId of ids) {
+    const selected = selections.get(entityId);
+    if (selected === undefined || selected === null) delete next[entityId];
+    else next[entityId] = selected;
+  }
+  return Object.freeze(next);
+}
+
+function indexStoreSlots(store: RenderStoreView): ReadonlyMap<string, number> {
+  const slots = new Map<string, number>();
+  for (let slot = 0; slot < store.capacity; slot += 1) {
+    if (store.alive[slot] === 1) slots.set(store.ids[slot] ?? '', slot);
+  }
+  return slots;
 }
 
 function storedKey(
@@ -742,7 +1218,8 @@ function sameStoredPresentation(
     Object.is(left.height, right.height) &&
     sameNormalizedPresentationValue(left.tint, right.tint) &&
     sameNormalizedPresentationValue(left.source, right.source) &&
-    Object.is(left.show, right.show);
+    Object.is(left.show, right.show) &&
+    sameNormalizedPresentationValue(left.changes, right.changes);
 }
 
 function sameNormalizedPresentationValue(left: unknown, right: unknown): boolean {
@@ -776,12 +1253,17 @@ function sameRendererOverride(
   right: PatchMapRendererEntityPresentationOverride | null,
 ): boolean {
   if (!left || !right) return left === undefined && right === null;
-  return Object.is(left.visible, right.visible) &&
+  return Object.is(left.kind, right.kind) &&
+    Object.is(left.visible, right.visible) &&
+    Object.is(left.opacity, right.opacity) &&
     Object.is(left.fill, right.fill) &&
+    Object.is(left.stroke, right.stroke) &&
+    Object.is(left.strokeWidth, right.strokeWidth) &&
     Object.is(left.radius, right.radius) &&
     Object.is(left.source, right.source) &&
     Object.is(left.tint, right.tint) &&
-    Object.is(left.trackFill, right.trackFill);
+    Object.is(left.trackFill, right.trackFill) &&
+    Object.is(left.align, right.align);
 }
 
 function sameImageProjection(

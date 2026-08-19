@@ -635,12 +635,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
             overrides,
           );
           this.presentationBaseStore = this.lastSourceStore;
-          this.pendingRanges = undefined;
         }
       } else if (overrides.size === 0 && this.presentationPolicy === null) {
         this.presentationStore = null;
         this.presentationBaseStore = null;
-        this.pendingRanges = undefined;
       } else {
         this.presentationStore.synchronize(
           this.lastSourceStore,
@@ -648,14 +646,14 @@ export class PatchMapPixiRenderer implements CoreRenderer {
           changedRanges,
           overrides,
         );
-        this.pendingRanges = changedRanges === undefined
-          ? undefined
-          : mergeRanges(this.pendingRanges ?? [], changedRanges);
       }
+      this.pendingRanges = changedRanges === undefined || this.pendingRanges === undefined
+        ? undefined
+        : mergeRanges(this.pendingRanges, changedRanges);
     }
-    this.pendingOverlayRanges = changedRanges === undefined
+    this.pendingOverlayRanges = changedRanges === undefined || this.pendingOverlayRanges === undefined
       ? undefined
-      : mergeRanges(this.pendingOverlayRanges ?? [], changedRanges);
+      : mergeRanges(this.pendingOverlayRanges, changedRanges);
     this.pendingProjectionTransformOnly = false;
     this.pendingBarPresentationOnly = false;
     this.pendingTextOnly = false;
@@ -909,7 +907,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   public flush(store: RenderStoreView): RendererFlushResult {
     this.assertAlive();
     const effectiveStore = this.presentationStoreFor(store);
-    const storeReplaced = this.lastStore !== effectiveStore;
+    // A presentation view is a sparse column wrapper over the same dense
+    // source store. Switching that wrapper on/off must retain aggregate and
+    // leaf topology so dirty ranges can update only the affected instances.
+    const storeReplaced = this.lastSourceStore !== store;
     if (storeReplaced) {
       this.storeEpoch += 1;
       this.pendingRanges = undefined;

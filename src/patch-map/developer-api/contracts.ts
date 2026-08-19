@@ -18,7 +18,15 @@ import type {
   PatchMapViewportState,
 } from '../engine/public-contracts';
 import type { PatchMapHistoryState } from '../history';
-import type { PatchMapTextStyle } from '../semantic/dataset';
+import type {
+  BaseComponentData,
+  ComponentSize,
+  DrawableSource,
+  ElementAttributes,
+  Placement,
+  Spacing,
+  TextStyleInput,
+} from '../input';
 import type {
   PatchMapMutationConflictPolicy,
   PatchMapMutationJsonValue,
@@ -195,6 +203,18 @@ export interface PatchMapDataReplaceResult {
 
 export type PatchMapUpdateRecord = Readonly<Record<string, PatchMapMutationJsonValue>>;
 
+/** Recursive presentation merge; nested `null` restores the authored field. */
+export type PatchMapPresentationPatch<T> =
+  T extends (...args: never[]) => unknown
+    ? T
+    : T extends readonly (infer U)[]
+      ? readonly PatchMapPresentationPatch<U>[]
+      : T extends object
+        ? Readonly<{
+            [K in keyof T]?: PatchMapPresentationPatch<T[K]> | null;
+          }>
+        : T;
+
 export interface PatchMapMutationOptions {
   readonly actionId?: string;
   readonly recordHistory?: boolean;
@@ -205,11 +225,13 @@ export interface PatchMapUpdateOptions extends PatchMapMutationOptions {
   readonly animate?: boolean;
 }
 
-export interface PatchMapComponentUpdate {
+export interface PatchMapComponentUpdate<
+  TChanges extends object = PatchMapUpdateRecord,
+> {
   /** Optional when the owner has exactly one component of this type. */
   readonly componentId?: string;
   /** PATCH MAP component fields merged recursively without changing identity. */
-  readonly changes?: PatchMapUpdateRecord;
+  readonly changes?: TChanges;
 }
 
 /**
@@ -222,19 +244,53 @@ export type PatchMapInstancePresentationChanges = PatchMapUpdateRecord & Readonl
   readonly tint?: PatchMapMutationJsonValue | null;
 }>;
 
-export interface PatchMapBarUpdate extends PatchMapComponentUpdate {
+/** Renderer-visible v0.10 background fields accepted for one concrete grid cell. */
+export interface PatchMapBackgroundPresentationChanges {
+  readonly show?: boolean | null;
+  readonly source?: PatchMapPresentationPatch<DrawableSource> | null;
+  readonly tint?: BaseComponentData['tint'] | null;
+  readonly size?: PatchMapPresentationPatch<ComponentSize> | null;
+  readonly attrs?: PatchMapPresentationPatch<ElementAttributes> | null;
+}
+
+/** Renderer-visible v0.10 text fields accepted for one concrete grid cell. */
+export interface PatchMapTextPresentationChanges {
+  readonly show?: boolean | null;
+  readonly text?: string | null;
+  readonly placement?: Placement | null;
+  readonly margin?: PatchMapPresentationPatch<Spacing> | null;
+  readonly tint?: BaseComponentData['tint'] | null;
+  readonly style?: PatchMapPresentationPatch<TextStyleInput> | null;
+  readonly split?: number | null;
+  readonly attrs?: PatchMapPresentationPatch<ElementAttributes> | null;
+}
+
+export interface PatchMapBarUpdate
+  extends PatchMapComponentUpdate<PatchMapInstancePresentationChanges> {
   /** Convenience alias for `size.height`. `null` restores an instance overlay. */
   readonly height?: number | null;
   readonly changes?: PatchMapInstancePresentationChanges;
 }
 
-export interface PatchMapIconUpdate extends PatchMapComponentUpdate {
+export interface PatchMapIconUpdate
+  extends PatchMapComponentUpdate<PatchMapInstancePresentationChanges> {
   readonly changes?: PatchMapInstancePresentationChanges;
 }
 
-export interface PatchMapTextUpdate extends PatchMapComponentUpdate {
-  readonly text?: string;
-  readonly style?: PatchMapTextStyle;
+export interface PatchMapBackgroundUpdate
+  extends PatchMapComponentUpdate<
+    PatchMapUpdateRecord | PatchMapBackgroundPresentationChanges
+  > {
+  readonly changes?: PatchMapUpdateRecord | PatchMapBackgroundPresentationChanges;
+}
+
+export interface PatchMapTextUpdate
+  extends PatchMapComponentUpdate<PatchMapUpdateRecord | PatchMapTextPresentationChanges> {
+  /** `null` restores concrete grid text from the current authored template. */
+  readonly text?: string | null;
+  /** `null` restores the complete authored style on a concrete grid text. */
+  readonly style?: PatchMapPresentationPatch<TextStyleInput> | null;
+  readonly changes?: PatchMapUpdateRecord | PatchMapTextPresentationChanges;
 }
 
 /** One logical owner update. Component IDs are optional when unambiguous. */
@@ -242,7 +298,7 @@ export interface PatchMapUpdate {
   readonly id: string;
   /** PATCH MAP element fields merged recursively without changing identity. */
   readonly changes?: PatchMapUpdateRecord;
-  readonly background?: PatchMapComponentUpdate;
+  readonly background?: PatchMapBackgroundUpdate;
   readonly bar?: PatchMapBarUpdate;
   readonly icon?: PatchMapIconUpdate;
   readonly text?: PatchMapTextUpdate;
@@ -255,10 +311,14 @@ export type PatchMapUpdateTargetsInput =
 
 export type PatchMapUpdateColumn<T> = ArrayLike<T>;
 
-export interface PatchMapComponentUpdateColumns {
+export interface PatchMapComponentUpdateColumns<
+  TChanges extends object = Readonly<
+    Record<string, PatchMapUpdateColumn<PatchMapMutationJsonValue>>
+  >,
+> {
   /** Shared component ID; omit when every owner has exactly one matching component. */
   readonly componentId?: string;
-  readonly changes?: Readonly<Record<string, PatchMapUpdateColumn<PatchMapMutationJsonValue>>>;
+  readonly changes?: TChanges;
 }
 
 export interface PatchMapBarUpdateColumns extends PatchMapComponentUpdateColumns {
@@ -278,16 +338,48 @@ export interface PatchMapIconUpdateColumns extends PatchMapComponentUpdateColumn
   }>;
 }
 
-export interface PatchMapTextUpdateColumns extends PatchMapComponentUpdateColumns {
-  readonly text?: PatchMapUpdateColumn<string>;
-  readonly style?: PatchMapUpdateColumn<PatchMapTextStyle>;
+export type PatchMapBackgroundPresentationColumns = Readonly<{
+    readonly show?: PatchMapUpdateColumn<boolean | null>;
+    readonly source?: PatchMapUpdateColumn<PatchMapPresentationPatch<DrawableSource> | null>;
+    readonly tint?: PatchMapUpdateColumn<BaseComponentData['tint'] | null>;
+    readonly size?: PatchMapUpdateColumn<PatchMapPresentationPatch<ComponentSize> | null>;
+    readonly attrs?: PatchMapUpdateColumn<PatchMapPresentationPatch<ElementAttributes> | null>;
+  }>;
+
+export interface PatchMapBackgroundUpdateColumns
+  extends PatchMapComponentUpdateColumns<
+    PatchMapComponentUpdateColumns['changes'] | PatchMapBackgroundPresentationColumns
+  > {
+  readonly changes?:
+    PatchMapComponentUpdateColumns['changes'] | PatchMapBackgroundPresentationColumns;
+}
+
+export type PatchMapTextPresentationColumns = Readonly<{
+    readonly show?: PatchMapUpdateColumn<boolean | null>;
+    readonly text?: PatchMapUpdateColumn<string | null>;
+    readonly placement?: PatchMapUpdateColumn<Placement | null>;
+    readonly margin?: PatchMapUpdateColumn<PatchMapPresentationPatch<Spacing> | null>;
+    readonly tint?: PatchMapUpdateColumn<BaseComponentData['tint'] | null>;
+    readonly style?: PatchMapUpdateColumn<PatchMapPresentationPatch<TextStyleInput> | null>;
+    readonly split?: PatchMapUpdateColumn<number | null>;
+    readonly attrs?: PatchMapUpdateColumn<PatchMapPresentationPatch<ElementAttributes> | null>;
+  }>;
+
+export interface PatchMapTextUpdateColumns
+  extends PatchMapComponentUpdateColumns<
+    PatchMapComponentUpdateColumns['changes'] | PatchMapTextPresentationColumns
+  > {
+  readonly text?: PatchMapUpdateColumn<string | null>;
+  readonly style?: PatchMapUpdateColumn<PatchMapPresentationPatch<TextStyleInput> | null>;
+  readonly changes?:
+    PatchMapComponentUpdateColumns['changes'] | PatchMapTextPresentationColumns;
 }
 
 /** Columnar, equal-length input for large homogeneous updates. */
 export interface PatchMapUpdateBatch {
   readonly targets: PatchMapUpdateTargetsInput;
   readonly changes?: Readonly<Record<string, PatchMapUpdateColumn<PatchMapMutationJsonValue>>>;
-  readonly background?: PatchMapComponentUpdateColumns;
+  readonly background?: PatchMapBackgroundUpdateColumns;
   readonly bar?: PatchMapBarUpdateColumns;
   readonly icon?: PatchMapIconUpdateColumns;
   readonly text?: PatchMapTextUpdateColumns;

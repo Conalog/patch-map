@@ -75,6 +75,15 @@ function createHost() {
     parentKey: cell.key,
     ancestorKeys: Object.freeze([root.key, cell.key]),
   });
+  const cellBackground = logicalTarget({
+    key: 'component:rack-grid.12.3/surface',
+    kind: 'component',
+    id: 'surface',
+    ownerId: cell.id,
+    type: 'background',
+    parentKey: cell.key,
+    ancestorKeys: Object.freeze([root.key, cell.key]),
+  });
   const statusIcon = logicalTarget({
     key: 'component:rack-grid.12.3/status',
     kind: 'component',
@@ -83,6 +92,41 @@ function createHost() {
     type: 'icon',
     parentKey: cell.key,
     ancestorKeys: Object.freeze([root.key, cell.key]),
+  });
+  const cellLabel = logicalTarget({
+    key: 'component:rack-grid.12.3/label',
+    kind: 'component',
+    id: 'label',
+    ownerId: cell.id,
+    type: 'text',
+    parentKey: cell.key,
+    ancestorKeys: Object.freeze([root.key, cell.key]),
+  });
+  const secondCell = logicalTarget({
+    key: 'element:rack-grid.12.4',
+    kind: 'element',
+    id: 'rack-grid.12.4',
+    type: 'grid-cell',
+    parentKey: root.key,
+    ancestorKeys: Object.freeze([root.key]),
+  });
+  const secondCellBackground = logicalTarget({
+    key: 'component:rack-grid.12.4/surface',
+    kind: 'component',
+    id: 'surface',
+    ownerId: secondCell.id,
+    type: 'background',
+    parentKey: secondCell.key,
+    ancestorKeys: Object.freeze([root.key, secondCell.key]),
+  });
+  const secondCellLabel = logicalTarget({
+    key: 'component:rack-grid.12.4/label',
+    kind: 'component',
+    id: 'label',
+    ownerId: secondCell.id,
+    type: 'text',
+    parentKey: secondCell.key,
+    ancestorKeys: Object.freeze([root.key, secondCell.key]),
   });
   const rack = logicalTarget({
     key: 'element:rack',
@@ -143,8 +187,13 @@ function createHost() {
     targets: Object.freeze([
       root,
       cell,
+      cellBackground,
       usage,
       statusIcon,
+      cellLabel,
+      secondCell,
+      secondCellBackground,
+      secondCellLabel,
       rack,
       rackUsage,
       rackLabel,
@@ -212,10 +261,23 @@ function createHost() {
     },
     updateInstanceBarHeights: (request: unknown) => {
       lastInstanceRequest = request;
+      const columns = request as Readonly<Record<
+        'background' | 'bar' | 'icon' | 'text',
+        Readonly<{
+          readonly targets?: readonly Readonly<{
+            readonly id: string;
+            readonly componentId: string;
+          }>[];
+        }>
+      >>;
+      const appliedTargets = (['background', 'bar', 'icon', 'text'] as const)
+        .flatMap((type) => columns[type]?.targets ?? []);
       return Object.freeze({
         status: 'committed',
         changed: true,
-        appliedTargets: Object.freeze([{ id: cell.id, componentId: 'usage' }]),
+        appliedTargets: Object.freeze(appliedTargets.length === 0
+          ? [{ id: cell.id, componentId: 'usage' }]
+          : appliedTargets),
         missingTargets: Object.freeze([]),
       }) as unknown as PatchMapEngineInstanceBarHeightResult;
     },
@@ -386,7 +448,116 @@ describe('PatchMap high-level developer API', () => {
     });
   });
 
-  it('rejects unsupported concrete-cell presentation before invoking the host', () => {
+  it('lowers concrete background and text presentation without authored mutation', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+
+    expect(map.update({
+      id: 'rack-grid.12.3',
+      background: {
+        componentId: 'surface',
+        changes: {
+          source: { type: 'rect', fill: '#0f172a', radius: 6 },
+          tint: '#ffffff',
+          show: true,
+          size: { width: 80, height: 60 },
+          attrs: { x: 2, alpha: 0.8 },
+        },
+      },
+      text: {
+        componentId: 'label',
+        text: '83\n%',
+        style: { fontSize: 18, align: 'center', fill: '#ffffff' },
+        changes: {
+          show: true,
+          placement: 'center',
+          margin: 4,
+          tint: '#ffffff',
+          split: 0,
+          attrs: { y: 1 },
+        },
+      },
+    })).toMatchObject({ status: 'committed', changed: true, appliedCount: 2 });
+
+    expect(harness.lastInstanceRequest()).toEqual({
+      background: {
+        targets: [{ id: 'rack-grid.12.3', componentId: 'surface' }],
+        changes: {
+          source: [{ type: 'rect', fill: '#0f172a', radius: 6 }],
+          tint: ['#ffffff'],
+          show: [true],
+          size: [{ width: 80, height: 60 }],
+          attrs: [{ x: 2, alpha: 0.8 }],
+        },
+      },
+      text: {
+        targets: [{ id: 'rack-grid.12.3', componentId: 'label' }],
+        changes: {
+          show: [true],
+          placement: ['center'],
+          margin: [4],
+          tint: ['#ffffff'],
+          split: [0],
+          attrs: [{ y: 1 }],
+        },
+        text: ['83\n%'],
+        style: [{ fontSize: 18, align: 'center', fill: '#ffffff' }],
+      },
+    });
+  });
+
+  it('validates concrete background and text batches before one atomic host commit', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+
+    expect(map.updateBatch({
+      targets: ['rack-grid.12.3', 'rack-grid.12.4'],
+      background: {
+        componentId: 'surface',
+        changes: { source: ['#111827', '#172554'], show: [true, false] },
+      },
+      text: {
+        componentId: 'label',
+        text: ['83\n%', '41\n%'],
+        style: [{ fontSize: 18 }, { fontSize: 14 }],
+        changes: { margin: [4, 8], placement: ['center', 'right-bottom'] },
+      },
+    })).toMatchObject({ status: 'committed', changed: true, appliedCount: 4 });
+    expect(harness.lastInstanceRequest()).toEqual({
+      background: {
+        targets: [
+          { id: 'rack-grid.12.3', componentId: 'surface' },
+          { id: 'rack-grid.12.4', componentId: 'surface' },
+        ],
+        changes: { source: ['#111827', '#172554'], show: [true, false] },
+      },
+      text: {
+        targets: [
+          { id: 'rack-grid.12.3', componentId: 'label' },
+          { id: 'rack-grid.12.4', componentId: 'label' },
+        ],
+        changes: { margin: [4, 8], placement: ['center', 'right-bottom'] },
+        text: ['83\n%', '41\n%'],
+        style: [{ fontSize: 18 }, { fontSize: 14 }],
+      },
+    });
+
+    expect(() => map.updateBatch({
+      targets: ['rack-grid.12.3', 'rack-grid.12.4'],
+      text: { componentId: 'label', text: ['only-one'] },
+    })).toThrow('text.text column length must match 2 targets');
+    expect(() => map.update({
+      id: 'rack-grid.12.3',
+      changes: { show: false },
+      text: { componentId: 'label', text: 'mixed' },
+    })).toThrow('does not support element changes');
+    expect(() => map.update({
+      id: 'rack-grid.12.3',
+      text: { componentId: 'missing', text: 'missing' },
+    })).toThrow('has no text component named missing');
+  });
+
+  it('rejects fields outside the concrete presentation contract before invoking the host', () => {
     const harness = createHost();
     const map = createPatchMapApi(harness.host);
 

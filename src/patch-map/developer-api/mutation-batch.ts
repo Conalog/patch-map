@@ -2,7 +2,9 @@ import type { PatchMapLogicalTargetSnapshot } from '../query-selection';
 import type {
   PatchMapInstanceBarHeightBatchRequest,
   PatchMapInstanceBarPresentationColumns,
+  PatchMapInstanceComponentPresentationColumns,
   PatchMapInstancePresentationColumns,
+  PatchMapInstanceTextPresentationColumns,
 } from '../core/contracts';
 import type { PatchMapMutationJsonValue } from '../semantic/transaction';
 import type {
@@ -99,17 +101,36 @@ export function fastInstancePresentationUpdate(
 ): ResolvedInstancePresentationBatch | null {
   if (
     input.changes !== undefined ||
-    input.background !== undefined ||
-    input.text !== undefined ||
-    (input.bar === undefined && input.icon === undefined)
+    (
+      input.background === undefined &&
+      input.bar === undefined &&
+      input.icon === undefined &&
+      input.text === undefined
+    )
   ) return null;
+  const background = input.background === undefined
+    ? undefined
+    : resolveComponent(
+        input.id,
+        'background',
+        input.background.componentId,
+        preferred,
+        context,
+      );
   const bar = input.bar === undefined
     ? undefined
     : resolveComponent(input.id, 'bar', input.bar.componentId, preferred, context);
   const icon = input.icon === undefined
     ? undefined
     : resolveComponent(input.id, 'icon', input.icon.componentId, preferred, context);
-  const components = [bar, icon].filter(
+  const directTextElement = input.text !== undefined &&
+    preferred?.kind === 'element' &&
+    preferred.type === 'text' &&
+    input.text.componentId === undefined;
+  const text = input.text === undefined || directTextElement
+    ? undefined
+    : resolveComponent(input.id, 'text', input.text.componentId, preferred, context);
+  const components = [background, bar, icon, text].filter(
     (component): component is ResolvedComponent => component !== undefined,
   );
   if (components.every((component) => !component.instance)) return null;
@@ -136,9 +157,29 @@ export function fastInstancePresentationUpdate(
         '$.icon.changes',
         false,
       );
+  const backgroundColumns = input.background === undefined || background === undefined
+    ? undefined
+    : instanceComponentColumns(
+        'background',
+        [Object.freeze({ id: background.ownerId, componentId: background.componentId })],
+        input.background.changes,
+        '$.background.changes',
+        false,
+      );
+  const textColumns = input.text === undefined || text === undefined
+    ? undefined
+    : instanceTextColumns(
+        [Object.freeze({ id: text.ownerId, componentId: text.componentId })],
+        input.text.changes,
+        input.text.text,
+        input.text.style,
+        false,
+      );
   return Object.freeze({
+    ...(backgroundColumns === undefined ? {} : { background: backgroundColumns }),
     ...(barColumns === undefined ? {} : { bar: barColumns }),
     ...(iconColumns === undefined ? {} : { icon: iconColumns }),
+    ...(textColumns === undefined ? {} : { text: textColumns }),
   });
 }
 
@@ -153,8 +194,9 @@ export function fastTextUpdate(
     input.background !== undefined ||
     input.bar !== undefined ||
     input.icon !== undefined ||
-    input.text.text === undefined ||
+    typeof input.text.text !== 'string' ||
     input.text.changes !== undefined ||
+    input.text.style === null ||
     preferred?.type === 'text'
   ) return null;
   const component = resolveComponent(
@@ -198,10 +240,26 @@ export function fastInstancePresentationBatch(
 ): ResolvedInstancePresentationBatch | null {
   if (
     input.changes !== undefined ||
-    input.background !== undefined ||
-    input.text !== undefined ||
-    (input.bar === undefined && input.icon === undefined)
+    (
+      input.background === undefined &&
+      input.bar === undefined &&
+      input.icon === undefined &&
+      input.text === undefined
+    ) ||
+    (
+      input.text !== undefined &&
+      targets.some((target) => target.kind === 'element' && target.type === 'text')
+    )
   ) return null;
+  const backgrounds = input.background === undefined
+    ? undefined
+    : targets.map((target) => resolveComponent(
+        ownerId(target),
+        'background',
+        input.background!.componentId,
+        target,
+        context,
+      ));
   const bars = input.bar === undefined
     ? undefined
     : targets.map((target) => resolveComponent(
@@ -220,7 +278,21 @@ export function fastInstancePresentationBatch(
         target,
         context,
       ));
-  const components = [...(bars ?? []), ...(icons ?? [])];
+  const texts = input.text === undefined
+    ? undefined
+    : targets.map((target) => resolveComponent(
+        ownerId(target),
+        'text',
+        input.text!.componentId,
+        target,
+        context,
+      ));
+  const components = [
+    ...(backgrounds ?? []),
+    ...(bars ?? []),
+    ...(icons ?? []),
+    ...(texts ?? []),
+  ];
   if (components.every((component) => !component.instance)) return null;
   if (components.some((component) => !component.instance)) {
     throw gridInstancePresentationUnsupported(
@@ -245,9 +317,29 @@ export function fastInstancePresentationBatch(
         '$.icon.changes',
         true,
       );
+  const backgroundColumns = input.background === undefined || backgrounds === undefined
+    ? undefined
+    : instanceComponentColumns(
+        'background',
+        backgrounds.map(({ ownerId: id, componentId }) => Object.freeze({ id, componentId })),
+        input.background.changes,
+        '$.background.changes',
+        true,
+      );
+  const textColumns = input.text === undefined || texts === undefined
+    ? undefined
+    : instanceTextColumns(
+        texts.map(({ ownerId: id, componentId }) => Object.freeze({ id, componentId })),
+        input.text.changes,
+        input.text.text,
+        input.text.style,
+        true,
+      );
   return Object.freeze({
+    ...(backgroundColumns === undefined ? {} : { background: backgroundColumns }),
     ...(barColumns === undefined ? {} : { bar: barColumns }),
     ...(iconColumns === undefined ? {} : { icon: iconColumns }),
+    ...(textColumns === undefined ? {} : { text: textColumns }),
   });
 }
 
@@ -285,6 +377,84 @@ function instanceColumns(
     );
   }
   return Object.freeze({ targets: Object.freeze([...targets]), ...columns });
+}
+
+function instanceComponentColumns(
+  type: 'background',
+  targets: PatchMapInstanceComponentPresentationColumns['targets'],
+  changes: object | undefined,
+  path: string,
+  columnar: boolean,
+): PatchMapInstanceComponentPresentationColumns {
+  const columns = instanceComponentChangeColumns(type, changes, path, columnar);
+  if (columns === null) {
+    throw gridInstancePresentationUnsupported(
+      'concrete grid-instance background update requires presentation changes',
+    );
+  }
+  return Object.freeze({ targets: Object.freeze([...targets]), changes: columns });
+}
+
+function instanceTextColumns(
+  targets: PatchMapInstanceTextPresentationColumns['targets'],
+  changes: object | undefined,
+  text: string | null | ArrayLike<string | null> | undefined,
+  style: Readonly<Record<string, unknown>> | null |
+    ArrayLike<Readonly<Record<string, unknown>> | null> | undefined,
+  columnar: boolean,
+): PatchMapInstanceTextPresentationColumns {
+  const columns = instanceComponentChangeColumns('text', changes, '$.text.changes', columnar);
+  if (text !== undefined && columns !== null && Object.hasOwn(columns, 'text')) {
+    throw gridInstancePresentationUnsupported(
+      'concrete grid-instance text cannot set text and changes.text together',
+    );
+  }
+  if (style !== undefined && columns !== null && Object.hasOwn(columns, 'style')) {
+    throw gridInstancePresentationUnsupported(
+      'concrete grid-instance text cannot set style and changes.style together',
+    );
+  }
+  if (columns === null && text === undefined && style === undefined) {
+    throw gridInstancePresentationUnsupported(
+      'concrete grid-instance text update requires text, style, or presentation changes',
+    );
+  }
+  return Object.freeze({
+    targets: Object.freeze([...targets]),
+    ...(columns === null ? {} : { changes: columns }),
+    ...(text === undefined ? {} : {
+      text: columnar ? text as ArrayLike<string | null> : [text as string | null],
+    }),
+    ...(style === undefined ? {} : {
+      style: columnar
+        ? style as ArrayLike<Readonly<Record<string, unknown>> | null>
+        : [style as Readonly<Record<string, unknown>> | null],
+    }),
+  });
+}
+
+function instanceComponentChangeColumns(
+  type: 'background' | 'text',
+  changes: object | undefined,
+  path: string,
+  columnar: boolean,
+): Readonly<Record<string, ArrayLike<unknown>>> | null {
+  if (changes === undefined) return null;
+  const entries = Object.entries(changes);
+  const supported = type === 'background'
+    ? new Set(['show', 'source', 'tint', 'size', 'attrs'])
+    : new Set(['show', 'text', 'placement', 'margin', 'tint', 'style', 'split', 'attrs']);
+  const unsupported = entries.find(([name]) => !supported.has(name));
+  if (unsupported) {
+    throw gridInstancePresentationUnsupported(
+      `${path}.${unsupported[0]} is not supported for concrete grid-instance ${type} presentation`,
+    );
+  }
+  if (entries.length === 0) return null;
+  return Object.freeze(Object.fromEntries(entries.map(([name, value]) => [
+    name,
+    columnar && isArrayLikeColumn(value) ? value : [value],
+  ])));
 }
 
 function instanceChangeColumns(
@@ -351,6 +521,13 @@ export function fastTextBatch(
     input.icon !== undefined ||
     input.text.changes !== undefined
   ) return null;
+  for (let index = 0; index < targets.length; index += 1) {
+    if (columnValue(input.text.text, index, 'text.text') === null) return null;
+    if (
+      input.text.style !== undefined &&
+      columnValue(input.text.style, index, 'text.style') === null
+    ) return null;
+  }
   const result = targets.map((target, index) => {
     if (target.kind === 'element' && target.type === 'text') return null;
     const component = resolveComponent(
@@ -363,10 +540,10 @@ export function fastTextBatch(
     if (component.instance) return null;
     return Object.freeze({
       ...component,
-      text: columnValue(input.text!.text!, index, 'text.text'),
+      text: columnValue(input.text!.text!, index, 'text.text') as string,
       ...(input.text!.style === undefined
         ? {}
-        : { style: columnValue(input.text!.style, index, 'text.style') }),
+        : { style: columnValue(input.text!.style, index, 'text.style') as Readonly<Record<string, unknown>> }),
     });
   });
   return result.some((entry) => entry === null)
@@ -437,7 +614,7 @@ export function validateBatchColumns(input: PatchMapUpdateBatch, count: number):
 }
 
 function componentBatchRow(
-  input: PatchMapComponentUpdateColumns,
+  input: PatchMapComponentUpdateColumns<object>,
   preferredComponentId: string | undefined,
   index: number,
   path: string,
@@ -447,7 +624,15 @@ function componentBatchRow(
     ...(componentId === undefined ? {} : { componentId }),
     ...(input.changes === undefined
       ? {}
-      : { changes: columnRecord(input.changes, index, `${path}.changes`) }),
+      : {
+          changes: columnRecord(
+            input.changes as Readonly<
+              Record<string, PatchMapUpdateColumn<PatchMapMutationJsonValue>>
+            >,
+            index,
+            `${path}.changes`,
+          ),
+        }),
   });
 }
 
@@ -466,9 +651,12 @@ function columnRecord(
 
 function componentColumns(
   name: ComponentType,
-  input: PatchMapComponentUpdateColumns | undefined,
+  input: PatchMapComponentUpdateColumns<object> | undefined,
 ): readonly (readonly [string, ArrayLike<unknown>])[] {
-  return recordColumns(`${name}.changes`, input?.changes);
+  return recordColumns(
+    `${name}.changes`,
+    input?.changes as Readonly<Record<string, ArrayLike<unknown>>> | undefined,
+  );
 }
 
 function recordColumns(

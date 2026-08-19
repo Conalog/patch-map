@@ -262,7 +262,17 @@ export interface PatchMapInstanceBarTarget {
   readonly componentId: string;
 }
 
-export type PatchMapInstancePresentationComponentType = 'bar' | 'icon';
+export type PatchMapInstancePresentationComponentType =
+  | 'background'
+  | 'bar'
+  | 'icon'
+  | 'text';
+
+export interface PatchMapInstanceComponentPresentationColumns {
+  readonly targets: readonly PatchMapInstanceBarTarget[];
+  /** Sparse PATCH MAP component field columns. `null` restores that authored field. */
+  readonly changes?: Readonly<Record<string, ArrayLike<unknown>>>;
+}
 
 export interface PatchMapInstancePresentationColumns {
   readonly targets: readonly PatchMapInstanceBarTarget[];
@@ -280,6 +290,14 @@ export interface PatchMapInstanceBarPresentationColumns
   readonly height?: ArrayLike<number | null>;
 }
 
+export interface PatchMapInstanceTextPresentationColumns
+  extends PatchMapInstanceComponentPresentationColumns {
+  /** Convenience column for `changes.text`. `null` restores authored text. */
+  readonly text?: ArrayLike<string | null>;
+  /** Convenience column recursively merged into `changes.style`. */
+  readonly style?: ArrayLike<Readonly<Record<string, unknown>> | null>;
+}
+
 /**
  * Runtime-only bar destinations for concrete item instances. Numeric entries
  * replace the renderer-visible destination; `null` restores the authored
@@ -290,8 +308,10 @@ export interface PatchMapInstanceBarHeightBatchRequest {
   /** Legacy internal height-only shape retained for existing verification tools. */
   readonly targets?: readonly PatchMapInstanceBarTarget[];
   readonly heights?: ArrayLike<number | null>;
+  readonly background?: PatchMapInstanceComponentPresentationColumns;
   readonly bar?: PatchMapInstanceBarPresentationColumns;
   readonly icon?: PatchMapInstancePresentationColumns;
+  readonly text?: PatchMapInstanceTextPresentationColumns;
   readonly animate?: boolean;
 }
 

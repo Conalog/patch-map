@@ -130,6 +130,41 @@ describe('PatchMap aggregate leaf policy', () => {
     await layer.destroy();
   });
 
+  it('defers offscreen text texture regeneration until its chunk becomes visible', async () => {
+    const layer = new AggregateLeafLayer();
+    const positions = Array.from({ length: 1_025 }, (_value, index) => index * 50);
+    const initial = createTextStoreAt(positions);
+    layer.sync(initial, { fullRebuildEpoch: 1 });
+    layer.cull(new Matrix(), 120, 100, 0);
+    const retained = layer as unknown as {
+      readonly texts: Map<number, Readonly<{ readonly object: { readonly text: string } }>>;
+      readonly deferredTextSlots: ReadonlySet<number>;
+    };
+    const previous = retained.texts.get(1_024)?.object;
+    const updated = {
+      ...initial,
+      text: initial.text.map((value, index) => index === 1_024 ? 'updated' : value),
+      fontSize: Float64Array.from(initial.fontSize, (value, index) =>
+        index === 1_024 ? 20 : value),
+    };
+
+    layer.sync(updated, {
+      fullRebuildEpoch: 1,
+      changedRanges: [{ start: 1_024, end: 1_025 }],
+    });
+    expect(retained.texts.get(1_024)?.object).toBe(previous);
+    expect(retained.texts.get(1_024)?.object.text).toBe('label-1024');
+    expect(retained.deferredTextSlots.has(1_024)).toBe(true);
+
+    expect(
+      layer.cull(new Matrix(1, 0, 0, 1, -positions[1_024]!, 0), 120, 100, 0),
+    ).toBe(1);
+    expect(retained.texts.get(1_024)?.object).not.toBe(previous);
+    expect(retained.texts.get(1_024)?.object.text).toBe('updated');
+    expect(retained.deferredTextSlots.has(1_024)).toBe(false);
+    await layer.destroy();
+  });
+
   it('reference-counts a concurrent shared URL across leaf layers', async () => {
     const url = 'core-v2-test://shared-texture.png';
     mockOwnedAssetTransport();

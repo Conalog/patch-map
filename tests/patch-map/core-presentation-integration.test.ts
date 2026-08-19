@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
-import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/dense/renderer-types';
+import {
+  RenderAlign,
+  RenderKind,
+  type RendererFlushResult,
+  type RenderStoreView,
+} from '../../src/patch-map/dense/renderer-types';
 import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
 import type { PatchMapSpatialHitAuthority } from '../../src/patch-map/core/spatial-hit-authority';
@@ -604,6 +609,250 @@ describe('PatchMap bar presentation integration', () => {
     })).toMatchObject({ status: 'unchanged', changed: false, overlayCount: 0 });
 
     await engine.destroy();
+  });
+
+  it('projects concrete background and text fields, restores current authored values, and stays atomic', async () => {
+    const { core, renderer } = createTestCore(allocated);
+    const engine = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    await engine.initialize({
+      instanceId: 'grid-instance-background-text-overlay',
+      width: 800,
+      height: 600,
+    });
+    const input = gridPresentationScene();
+    engine.loadDataset(input);
+    engine.publishFrame(0);
+    const exported = engine.exportDataset();
+    const history = engine.historyState();
+    const semanticHash = engine.snapshot().semanticHash;
+    const backgroundId = 'grid-presentation.0.0::background:surface';
+    const textId = 'grid-presentation.0.0::text:label';
+    const authoredSiblingTextId = 'grid-presentation.0.1::text:label';
+
+    expect(engine.updateInstanceBarHeights({
+      background: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'surface' }],
+        changes: {
+          source: [{ type: 'rect', fill: '#1d4ed8', borderWidth: 3, borderColor: '#f8fafc', radius: [3, 4, 5, 6] }],
+          tint: ['#ffffff'],
+          show: [true],
+          size: [{ width: 50, height: 40 }],
+          attrs: [{ x: 3, alpha: 0.75 }],
+        },
+      },
+      text: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'label' }],
+        changes: {
+          show: [true],
+          margin: [4],
+          placement: ['right-bottom'],
+          tint: ['#fef08a'],
+          split: [0],
+          attrs: [{ y: 2, alpha: 0.9 }],
+        },
+        text: ['83\n%'],
+        style: [{ fontSize: 18, fontWeight: 700, align: 'right', lineHeight: 20 }],
+      },
+      animate: false,
+    })).toMatchObject({
+      status: 'committed',
+      changed: true,
+      appliedTargets: [
+        { id: 'grid-presentation.0.0', componentId: 'surface' },
+        { id: 'grid-presentation.0.0', componentId: 'label' },
+      ],
+      missingTargets: [],
+      overlayCount: 2,
+    });
+
+    expect(core.projection?.backgroundsByEntityId?.[backgroundId]).toMatchObject({
+      sourceKind: 'rect',
+      fill: 0x1d4ed8ff,
+      borderWidth: 3,
+      borderColor: 0xf8fafcff,
+      radius: [3, 4, 5, 6],
+    });
+    expect(core.projection?.textsByEntityId?.[textId]).toMatchObject({
+      source: '83\n%',
+      visibleText: '83\n%',
+      placement: 'right-bottom',
+      margin: { top: 4, right: 4, bottom: 4, left: 4 },
+      color: 0xfef08aff,
+      fontSizePx: 18,
+      lineHeightPx: 20,
+    });
+    expect(renderer.presentationOverrides.at(-1)?.get(backgroundId)).toMatchObject({
+      kind: RenderKind.Rect,
+      visible: true,
+      opacity: 0.75,
+      strokeWidth: 3,
+    });
+    expect(renderer.presentationOverrides.at(-1)?.get(textId)).toMatchObject({
+      kind: RenderKind.Text,
+      visible: true,
+      opacity: 0.9,
+      align: RenderAlign.Right,
+    });
+    expect(core.projection?.byEntityId[backgroundId]?.affine[4]).toBe(3);
+    expect(core.projection?.byEntityId[textId]?.affine[5]).toBeGreaterThan(2);
+    expect(engine.exportDataset()).toBe(exported);
+    expect(engine.historyState()).toEqual(history);
+    expect(engine.snapshot().semanticHash).toBe(semanticHash);
+
+    expect(engine.updateInstanceBarHeights({
+      background: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'surface' }],
+        changes: { source: [{ type: 'rect', fill: '#7f1d1d', radius: 9 }] },
+      },
+      text: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'label' }],
+        text: ['91%'],
+        style: [{ fontSize: 20, fontWeight: 700, align: 'left' }],
+      },
+      animate: false,
+    })).toMatchObject({ status: 'committed', changed: true, overlayCount: 2 });
+    expect(core.projection?.backgroundsByEntityId?.[backgroundId]).toMatchObject({
+      fill: 0x7f1d1dff,
+      radius: [9, 9, 9, 9],
+    });
+    expect(core.projection?.textsByEntityId?.[textId]).toMatchObject({
+      source: '91%',
+      fontSizePx: 20,
+    });
+    expect(engine.updateInstanceBarHeights({
+      background: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'surface' }],
+        changes: { source: ['ess'] },
+      },
+      animate: false,
+    })).toMatchObject({ status: 'committed', changed: true, overlayCount: 2 });
+    expect(core.projection?.backgroundsByEntityId?.[backgroundId]).toMatchObject({
+      sourceKind: 'asset',
+    });
+    expect(core.projection?.imagesByEntityId?.[backgroundId]).toMatchObject({
+      authoredSource: 'ess',
+      bindingKey: 'alias:ess',
+    });
+    expect(renderer.presentationOverrides.at(-1)?.get(backgroundId)).toMatchObject({
+      kind: RenderKind.Image,
+      source: 'ess',
+    });
+
+    const projectionBeforeInvalid = core.projection;
+    const overridesBeforeInvalid = renderer.presentationOverrides.at(-1);
+    expect(() => engine.updateInstanceBarHeights({
+      text: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'label' }],
+        style: [{ fontSize: -1 }],
+      },
+      animate: false,
+    })).toThrow('INVALID_VALUE');
+    expect(core.projection).toBe(projectionBeforeInvalid);
+    expect(renderer.presentationOverrides.at(-1)).toBe(overridesBeforeInvalid);
+
+    expect(engine.updateInstanceBarHeights({
+      background: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'surface' }],
+        changes: { tint: ['#22c55e'] },
+      },
+      text: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'missing' }],
+        text: ['missing'],
+      },
+      animate: false,
+    })).toMatchObject({
+      status: 'rejected',
+      changed: false,
+      appliedTargets: [],
+      missingTargets: [{ id: 'grid-presentation.0.0', componentId: 'missing' }],
+    });
+    expect(core.projection).toBe(projectionBeforeInvalid);
+    expect(renderer.presentationOverrides.at(-1)).toBe(overridesBeforeInvalid);
+
+    expect(engine.transact({
+      strict: true,
+      operations: [{
+        op: 'merge',
+        target: { kind: 'component', ownerId: 'grid-presentation', id: 'label' },
+        changes: [
+          { path: ['text'], value: 'authored-next' },
+          { path: ['style', 'fontSize'], value: 22 },
+        ],
+      }],
+    })).toMatchObject({ status: 'committed', changed: true });
+    expect(core.projection?.textsByEntityId?.[textId]).toMatchObject({
+      source: '91%',
+      fontSizePx: 20,
+    });
+    expect(core.projection?.textsByEntityId?.[authoredSiblingTextId]).toMatchObject({
+      source: 'authored-next',
+      fontSizePx: 22,
+    });
+
+    expect(engine.updateInstanceBarHeights({
+      background: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'surface' }],
+        changes: {
+          source: [null],
+          tint: [null],
+          show: [null],
+          size: [null],
+          attrs: [null],
+        },
+      },
+      text: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'label' }],
+        changes: {
+          show: [null],
+          margin: [null],
+          placement: [null],
+          tint: [null],
+          split: [null],
+          attrs: [null],
+        },
+        text: [null],
+        style: [null],
+      },
+      animate: false,
+    })).toMatchObject({ status: 'committed', changed: true, overlayCount: 0 });
+    expect(core.projection?.textsByEntityId?.[textId]).toMatchObject({
+      source: 'authored-next',
+      fontSizePx: 22,
+    });
+    expect(renderer.presentationOverrides.at(-1)?.has(backgroundId)).toBe(false);
+    expect(renderer.presentationOverrides.at(-1)?.has(textId)).toBe(false);
+
+    expect(engine.updateInstanceBarHeights({
+      background: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'surface' }],
+        changes: { tint: ['#ef4444'] },
+      },
+      text: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'label' }],
+        text: ['replace-clears'],
+      },
+      animate: false,
+    })).toMatchObject({ status: 'committed', overlayCount: 2 });
+    engine.loadDataset(gridPresentationScene());
+    expect(renderer.presentationOverrides.at(-1)?.size).toBe(0);
+    expect(engine.updateInstanceBarHeights({
+      text: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'label' }],
+        text: ['destroy-clears'],
+      },
+      animate: false,
+    })).toMatchObject({ status: 'committed', overlayCount: 1 });
+
+    await engine.destroy();
+    expect((core as unknown as {
+      readonly instancePresentations: ReadonlyMap<string, unknown>;
+      readonly instancePresentationOverrides: ReadonlyMap<string, unknown>;
+    }).instancePresentations.size).toBe(0);
+    expect((core as unknown as {
+      readonly instancePresentationOverrides: ReadonlyMap<string, unknown>;
+    }).instancePresentationOverrides.size).toBe(0);
   });
 
   it('invalidates surface geometry only when a presentation frame advances', () => {
@@ -1287,10 +1536,16 @@ function gridPresentationScene(): readonly unknown[] {
   return materializePatchMapDataset([{
     type: 'grid',
     id: 'grid-presentation',
-    cells: [[1]],
+    cells: [[1, 1]],
     item: {
       size: { width: 100, height: 80 },
       components: [
+        {
+          type: 'background',
+          id: 'surface',
+          source: { type: 'rect', fill: '#111827', radius: 2 },
+          tint: '#ffffff',
+        },
         {
           type: 'bar',
           id: 'level',
@@ -1306,6 +1561,16 @@ function gridPresentationScene(): readonly unknown[] {
           size: { width: 24, height: 24 },
           placement: 'center',
           tint: '#ffffff',
+          show: false,
+        },
+        {
+          type: 'text',
+          id: 'label',
+          text: '0\n%',
+          placement: 'center',
+          margin: 2,
+          tint: '#e5e7eb',
+          style: { fontSize: 14, align: 'center' },
           show: false,
         },
       ],

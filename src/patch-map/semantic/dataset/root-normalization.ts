@@ -351,11 +351,17 @@ function normalizeComponents(
   state: NormalizationState,
 ): readonly PatchMapComponent[] {
   return Object.freeze(
-    values.map((value, index) => normalizeComponent(value, `${path}[${index}]`, ownerId, index, state)),
+    values.map((value, index) => normalizePatchMapComponent(
+      value,
+      `${path}[${index}]`,
+      ownerId,
+      index,
+      state,
+    )),
   );
 }
 
-function normalizeComponent(
+export function normalizePatchMapComponent(
   value: unknown,
   path: string,
   ownerId: string,

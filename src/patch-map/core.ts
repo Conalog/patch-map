@@ -15,6 +15,7 @@ import type {
   SelectionSnapshot,
   TransactionBatch,
 } from './dense/contracts';
+import { RenderKind } from './dense/renderer-types';
 import type {
   ParseDiagnostic,
   ParseIdentityIndex,
@@ -826,6 +827,7 @@ export class PatchMapRuntime {
           candidateComponentTargets,
           retainedInput.dataset,
           this.parseOptions,
+          this.scene.renderStore,
           new Map(),
           new Map(),
           this.stableRecordStrategy,
@@ -1537,6 +1539,7 @@ export class PatchMapRuntime {
       this.componentTargets,
       this.publishedScene.current().ownedInputDataset,
       this.parseOptions,
+      this.scene.renderStore,
       this.instancePresentations,
       this.instancePresentationOverrides,
       this.stableRecordStrategy,
@@ -2224,9 +2227,12 @@ function activeSceneImageIds(
   const images = published.projection?.imagesByEntityId ?? {};
   for (const entityId of Object.keys(images)) {
     const entity = published.scene.get(entityId);
+    const override = overrides?.get(entityId);
     if (
-      entity?.kind === 'image' &&
-      (overrides?.get(entityId)?.visible ?? entity.visible)
+      entity !== null &&
+      (override?.kind === RenderKind.Image ||
+        (override?.kind === undefined && entity?.kind === 'image')) &&
+      (override?.visible ?? entity.visible)
     ) {
       active.add(entityId);
     }

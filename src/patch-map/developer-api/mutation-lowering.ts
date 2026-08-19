@@ -357,12 +357,12 @@ function assertAuthoredTarget(
 
 function componentPathChanges(
   type: ComponentType,
-  patch: PatchMapComponentUpdate,
+  patch: PatchMapComponentUpdate<object>,
   path: string,
 ): readonly PatchMapMutationPathChange[] {
   const changes: PatchMapMutationPathChange[] = patch.changes === undefined
     ? []
-    : [...pathChanges(patch.changes, `${path}.changes`)];
+    : [...pathChanges(patch.changes as PatchMapUpdateRecord, `${path}.changes`)];
   if (type === 'bar') {
     const bar = patch as PatchMapBarUpdate;
     if (bar.height !== undefined) {
@@ -371,9 +371,15 @@ function componentPathChanges(
   } else if (type === 'text') {
     const text = patch as PatchMapTextUpdate;
     if (text.text !== undefined) {
+      if (typeof text.text !== 'string') {
+        throw new TypeError('null text only restores concrete grid-instance presentation values');
+      }
       changes.push(pathChange(['text'], text.text, `${path}.text`));
     }
     if (text.style !== undefined) {
+      if (text.style === null) {
+        throw new TypeError('null style only restores concrete grid-instance presentation values');
+      }
       const style = immutableRecord(text.style, `${path}.style`);
       flattenRecord(style, ['style'], changes);
     }

@@ -22,7 +22,7 @@ import type {
 } from './contracts';
 import { CoreDestroyedError, CoreValidationError } from './errors';
 import { NoopRenderer } from './noop-renderer';
-import type { CoreRenderer } from './renderer-types';
+import type { CoreRenderer, RenderStoreView } from './renderer-types';
 import { DenseStore } from './store';
 import {
   type PreparedTransaction,
@@ -92,6 +92,12 @@ export class CoreScene {
   public get view(): DenseStore['view'] {
     this.assertAlive();
     return this.store.view;
+  }
+
+  /** Internal zero-allocation renderer column view for transient presentation planning. */
+  public get renderStore(): RenderStoreView {
+    this.assertAlive();
+    return this.store;
   }
 
   /**

@@ -119,6 +119,7 @@ describe('PatchMap renderer presentation store', () => {
     expect(base.source).toEqual(before.source);
     expect(Array.from(base.tint)).toEqual(before.tint);
   });
+
 });
 
 function policy(

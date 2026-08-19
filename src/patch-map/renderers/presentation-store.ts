@@ -7,12 +7,17 @@ import type { PatchMapResolvedPresentationPolicy } from '../presentation-policy'
 
 /** Renderer-only sparse values projected into stable columnar arrays. */
 export interface PatchMapRendererEntityPresentationOverride {
+  readonly kind?: number;
   readonly visible?: boolean;
+  readonly opacity?: number;
   readonly fill?: number;
+  readonly stroke?: number;
+  readonly strokeWidth?: number;
   readonly radius?: number;
   readonly source?: string;
   readonly tint?: number;
   readonly trackFill?: number;
+  readonly align?: number;
 }
 
 /**
@@ -30,13 +35,17 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
   private readonly hidden = new Set<string>();
   private readonly fillOverrides = new Map<string, number>();
 
+  public readonly kind: Uint8Array;
   public readonly flags: Uint8Array;
   public readonly opacity: Float32Array;
   public readonly fill: Uint32Array;
+  public readonly stroke: Uint32Array;
+  public readonly strokeWidth: Float32Array;
   public readonly radius: Float32Array;
   public readonly source: string[];
   public readonly tint: Uint32Array;
   public readonly trackFill: Uint32Array;
+  public readonly align: Uint8Array;
 
   public constructor(
     base: RenderStoreView,
@@ -46,13 +55,17 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     this.base = base;
     this.policy = policy;
     this.overrides = overrides;
+    this.kind = new Uint8Array(base.capacity);
     this.flags = new Uint8Array(base.capacity);
     this.opacity = new Float32Array(base.capacity);
     this.fill = new Uint32Array(base.capacity);
+    this.stroke = new Uint32Array(base.capacity);
+    this.strokeWidth = new Float32Array(base.capacity);
     this.radius = new Float32Array(base.capacity);
     this.source = new Array<string>(base.capacity).fill('');
     this.tint = new Uint32Array(base.capacity);
     this.trackFill = new Uint32Array(base.capacity);
+    this.align = new Uint8Array(base.capacity);
     this.synchronize(base, policy, undefined, overrides);
   }
 
@@ -70,10 +83,6 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
 
   public get alive(): ArrayLike<number> {
     return this.base.alive;
-  }
-
-  public get kind(): ArrayLike<number> {
-    return this.base.kind;
   }
 
   public get zIndex(): ArrayLike<number> {
@@ -100,14 +109,6 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     return this.base.rotation;
   }
 
-  public get stroke(): ArrayLike<number> {
-    return this.base.stroke;
-  }
-
-  public get strokeWidth(): ArrayLike<number> {
-    return this.base.strokeWidth;
-  }
-
   public get text(): readonly string[] {
     return this.base.text;
   }
@@ -126,10 +127,6 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
 
   public get fontWeight(): ArrayLike<number> {
     return this.base.fontWeight;
-  }
-
-  public get align(): ArrayLike<number> {
-    return this.base.align;
   }
 
   public get maxLines(): ArrayLike<number> {
@@ -234,6 +231,7 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
       const override = this.overrides.get(id);
       const hidden = this.hidden.has(id);
       const flags = this.base.flags[slot] ?? 0;
+      this.kind[slot] = override?.kind ?? this.base.kind[slot] ?? 0;
       const presentationFlags = override?.visible === undefined
         ? flags
         : override.visible
@@ -242,12 +240,15 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
       this.flags[slot] = hidden
         ? presentationFlags & ~RenderFlags.Visible
         : presentationFlags;
-      this.opacity[slot] = (this.base.opacity[slot] ?? 0) * this.emphasis(id);
+      this.opacity[slot] = (override?.opacity ?? this.base.opacity[slot] ?? 0) * this.emphasis(id);
       this.fill[slot] = this.fillOverrides.get(id) ?? override?.fill ?? this.base.fill[slot] ?? 0;
+      this.stroke[slot] = override?.stroke ?? this.base.stroke[slot] ?? 0;
+      this.strokeWidth[slot] = override?.strokeWidth ?? this.base.strokeWidth[slot] ?? 0;
       this.radius[slot] = override?.radius ?? this.base.radius[slot] ?? 0;
       this.source[slot] = override?.source ?? this.base.source[slot] ?? '';
       this.tint[slot] = override?.tint ?? this.base.tint[slot] ?? 0xffffffff;
       this.trackFill[slot] = override?.trackFill ?? this.base.trackFill[slot] ?? 0;
+      this.align[slot] = override?.align ?? this.base.align[slot] ?? 0;
     }
   }
 
