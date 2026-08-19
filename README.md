@@ -89,7 +89,7 @@ and renderer DPR/resolution do not change this package-owned slop.
 `theme` is a partial, instance-local palette override. Nested objects and
 dot-path keys are both accepted; omitted keys fall back to PatchMap's
 canonical default palette. Theme tokens are shared by authored rect, bar,
-icon, and text tint paths and by concrete bar/icon presentation overlays.
+icon, and text tint paths and by concrete background/bar/icon/text presentation overlays.
 
 Package-owned PATCH MAP v0.10 icon aliases preserve their exact 72×72 SVG
 canvas and transparent padding. An icon `size` sets that source draw box; it
@@ -143,6 +143,20 @@ patchMap.updateBatch({
   icon: {
     componentId: 'status',
     changes: { show: iconShows, source: iconSources, tint: iconTints },
+  },
+  background: {
+    componentId: 'surface',
+    changes: { source: cellBackgrounds, show: cellBackgroundVisibility },
+  },
+  text: {
+    componentId: 'value',
+    text: cellLabels,
+    style: cellTextStyles,
+    changes: {
+      show: cellTextVisibility,
+      margin: cellTextMargins,
+      tint: cellTextTints,
+    },
   },
 }, { animate: true });
 ```

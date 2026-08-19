@@ -357,6 +357,21 @@ const result = patchMap.updateBatch({
       tint: iconTints,
     },
   },
+  background: {
+    componentId: 'surface',
+    changes: { source: cellBackgrounds, show: cellBackgroundVisibility },
+  },
+  text: {
+    componentId: 'value',
+    text: cellLabels,
+    style: cellTextStyles,
+    changes: {
+      show: cellTextVisibility,
+      placement: cellTextPlacements,
+      margin: cellTextMargins,
+      tint: cellTextTints,
+    },
+  },
 }, { animate: true });
 
 if (result.status === 'rejected') {
@@ -373,17 +388,21 @@ dirty Mesh ranges. It does not create a DisplayObject, listener, ticker, or
 closure per cell. One central presentation controller retargets animations,
 including repeated updates before the previous animation settles.
 Height-only `bar.height` batches retain their dedicated projection fast path;
-adding bar paint/visibility or icon columns selects the atomic general
-presentation path. Callers do not need a separate API or batching strategy.
+adding bar paint/visibility, icon, background, or text columns selects the
+atomic general presentation path. Callers do not need a separate API or
+batching strategy.
 
-The concrete presentation fields are `bar.height`,
-`bar.changes.tint/source/show`, and `icon.changes.show/source/tint`. Passing
-`null` for one entry removes only that field's overlay and restores its current
-authored template value. The optional `animate: false` applies the bar
-destination immediately. Height, paint, visibility, and icon source/tint are
-validated as one request before publication: a missing target rejects
-atomically, and duplicate targets, unequal columns, or invalid values throw
-without a partial update.
+The concrete presentation fields are
+`background.changes.source/tint/size/show/attrs`, `bar.height`,
+`bar.changes.tint/source/show`, `icon.changes.show/source/tint`, and text
+`text/style` plus `changes.text/style/show/placement/margin/tint/split/attrs`.
+Passing `null` for one entry removes only that field's overlay and restores its
+current authored template value; nested style/attrs fields use the same merge
+and restore rule. The optional `animate: false` applies a bar destination
+immediately. All component columns are validated as one request before
+publication: a missing target rejects atomically, and duplicate targets,
+unequal columns, unknown fields, or invalid v0.10 values throw without a
+partial update.
 
 Instance overlays deliberately do not change `data.snapshot()`, the semantic
 hash or scene revision, or undo/redo history. They survive later semantic
@@ -394,13 +413,12 @@ and replay them after loading if they must survive a remount. Use
 `update()` instead when the height is authored template state that
 must export and participate in history.
 
-Concrete text `show/text/style`, background presentation, arbitrary component
-fields, and structural per-cell state are not part of this tranche. They throw
-a `TypeError` with
-`code: "PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED"`; keep those values
-in the host until an explicit package contract exists, or materialize canonical
-item records when that is the approved dataset model. The supported bar/icon
-fields stay in renderer-only columnar overlays and do not introduce per-cell
+Component `label`, identity fields, arbitrary fields outside the lists above,
+and structural per-cell state remain unsupported. They throw a `TypeError`
+with `code: "PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED"`. Supported
+fields stay in renderer-only sparse/columnar overlays and reuse the authored
+component entity, dense slot, aggregate geometry, text/image leaf, central
+scheduler, and root interaction authority; they do not add overlay-owned
 DisplayObjects, listeners, tickers, or closures.
 
 Undo and redo operate on PatchMap history. Read `history.state` for button

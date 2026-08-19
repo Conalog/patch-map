@@ -29,9 +29,10 @@
 - Named mutation shortcuts are reserved for distinct optimized commit paths.
   `bar.height` remains public; bar width, fill, and other ordinary component
   fields use the single `bar.changes` merge shape.
-- Authored bar/text fast planners and the concrete grid-cell bar/icon
-  presentation overlay remain internal commit paths. `updateBatch()` selects
-  them without exposing `ownerId`, dense slots, or separate mutation domains.
+- Authored bar/text fast planners and the concrete grid-cell
+  background/bar/icon/text presentation overlay remain internal commit paths.
+  `updateBatch()` selects them without exposing `ownerId`, dense slots, or
+  separate mutation domains.
 - Repeated semantic addressing uses `targets.query()` and an opaque
   revision-bound `PatchMapTargetSet`. The internal one-time scene scan and
   WeakMap authority remain, while compilation terminology and revision
@@ -152,14 +153,26 @@
   still unfavorable against old 101.2ms and remains reported. The separate
   bar+tint+icon 2+7 proxy records 64.2/137.0ms repeated-update p95 medians for
   5,000/10,000 cells without changing the aggregate renderer or central loop.
+- Concrete grid background/text presentation now restores the materialized-cell
+  behavior required by percentage/number panels. The revision-bound overlay
+  accepts v0.10 non-structural visual fields, reuses canonical projection and
+  existing dense/text/aggregate ownership, and remains outside snapshots,
+  semantic hashes, and history. Browser pixels verify distinct per-cell paint,
+  content, style, placement, order, visibility, and authored `null` restore.
+  The final-code 5,000/10,000-cell 2+7 WebGL proxy records first-overlay
+  update medians of 518.2/1,003.9ms, repeated-update p95 medians of
+  451.3/872.2ms, rAF-gap p95 medians of 485.3/885.3ms, and long-task-count
+  medians of 8/8. These all-cell background plus text content/style/layout
+  costs remain unfavorable and are not substituted for the narrower bar-only
+  checkpoint.
 
 # Next Step
 
-- Push the reviewed branch and update the Draft PR, then observe remote CI and
-  address only actionable review findings. Integrating services should start
+- Review the completed concrete background/text checkpoint before any push or
+  Draft PR update. Integrating services should start
   with `PatchMap.mount()`, use `update()` for one owner, queried target sets
   plus columnar `updateBatch()` for repeated batches, and `transaction()` for
-  heterogeneous or structural atomic work. Concrete bar height/tint/source/show
-  and icon show/source/tint use the renderer-only overlay; retain concrete text,
-  background, and arbitrary fields until a separately approved package contract
-  exists. Increase the package version only after merge.
+  heterogeneous or structural atomic work. Concrete background, bar, icon, and
+  text presentation use the renderer-only overlay; retain labels,
+  identity/structural changes, and other arbitrary component fields in the
+  host. Increase the package version only after merge.

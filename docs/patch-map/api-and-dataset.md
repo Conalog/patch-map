@@ -40,7 +40,7 @@ invalid entry rejects the mount atomically at its `$.theme...` path. Missing
 keys fall back to the canonical palette, including `primary.default` =
 `#0C73BFFF`, `primary.dark` = `#083967FF`, and `gray.light` = `#9EB3C3FF`.
 The same active palette resolves authored rect fills, bar/icon/text tints, and
-concrete bar/icon overlay tints after replacement or replay.
+concrete background/bar/icon/text overlay colors after replacement or replay.
 
 ## Public naming map
 
@@ -314,10 +314,14 @@ to `update()` or `updateBatch()`. A concrete cell keeps the template component
 ID and uses `<grid-id>.<row>.<column>` as `id`.
 Instance batches are atomic, leave the caller dataset/history/semantic hash
 unchanged, reuse the central animation scheduler, and update aggregate Mesh
-dirty ranges without creating per-cell display objects. Concrete bar
-presentation supports `height` plus `changes.tint/source/show`; concrete icon
-presentation supports `changes.show/source/tint`. Passing `null` for any one
-of those fields restores only that field from the current authored template.
+dirty ranges without adding overlay-owned display objects. Concrete background
+presentation supports `changes.source/tint/size/show/attrs`; concrete bar
+supports `height` plus `changes.tint/source/show`; concrete icon supports
+`changes.show/source/tint`; and concrete text supports the `text` and `style`
+conveniences plus `changes.text/style/show/placement/margin/tint/split/attrs`.
+Passing `null` for any one field restores only that field from the current
+authored template. Background `size` keeps the v0.10 compatibility meaning:
+it is preserved, while background paint still covers the complete item frame.
 Loading another dataset or destroying the engine clears the overlay. See the
 [migration guide](./migration.md#grid-template-values-versus-concrete-cell-values)
 for the persistence and unsupported-state boundary.
@@ -350,19 +354,35 @@ patchMap.updateBatch({
       tint: iconTints,
     },
   },
+  background: {
+    componentId: 'surface',
+    changes: {
+      source: cellBackgrounds,
+      show: cellBackgroundVisibility,
+    },
+  },
+  text: {
+    componentId: 'value',
+    text: cellLabels,
+    style: cellTextStyles,
+    changes: {
+      show: cellTextVisibility,
+      margin: cellTextMargins,
+      placement: cellTextPlacements,
+      tint: cellTextTints,
+    },
+  },
 }, { animate: true });
 ```
 
 Every column must have `cells.count` entries. Validation covers the complete
-bar/icon request before publication, so a missing target, invalid source/color,
-or unequal column rejects without applying the other component. Presentation
-changes advance only the interaction revision and are not undoable authored
-data.
-
-Concrete text `show/text/style`, background presentation, and arbitrary
-component fields remain structured unsupported. They throw a `TypeError` whose
-`code` is `PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED`; adapters should
-retain those host values instead of silently dropping them.
+background/bar/icon/text request before publication, so a missing target,
+invalid field/value, duplicate target, or unequal column rejects without
+applying another component. Presentation changes advance only the interaction
+revision and are not undoable authored data. `label`, identity fields,
+structural collections, and component fields outside the lists above remain
+structured unsupported with
+`code: "PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED"`.
 
 Target sets are revision-bound. Loading a replacement dataset makes an old
 set fail with a direct instruction to query it again, preventing a

@@ -54,15 +54,17 @@ dataset snapshots, history, or semantic hashes.
 
 ## Concrete grid presentation compatibility
 
-The concrete-cell overlay is intentionally narrower than authored component
-mutation. It supports bar `height/tint/source/show` and icon
-`show/source/tint` through root `PatchMap.update()` / columnar
-`PatchMap.updateBatch()`. Overlay state is revision-bound, excluded from
-dataset snapshots, semantic hashes, and history, and cleared on dataset
-replacement or destroy.
+The concrete-cell overlay is narrower than authored component mutation. It
+supports background `source/tint/size/show/attrs`, bar
+`height/tint/source/show`, icon `show/source/tint`, and text
+`text/style/show/placement/margin/tint/split/attrs` through root
+`PatchMap.update()` / columnar `PatchMap.updateBatch()`. Overlay state is
+revision-bound, excluded from dataset snapshots, semantic hashes, and history,
+retained across compatible authored-template updates, and cleared on dataset
+replacement or destroy. `null` restores the current authored field.
 
-Concrete text `show/text/style`, background fields, and other component
-changes remain unsupported and report
+Component labels, identity/structural fields, and fields outside those lists
+remain unsupported and report
 `PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED`. This is an explicit
 compatibility boundary, not a best-effort drop policy.
 

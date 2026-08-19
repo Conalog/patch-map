@@ -103,16 +103,18 @@ and remove only an already-selected target on its double click, set
 Unselected targets still select immediately and Shift click remains the
 immediate multi-selection toggle; no host click timer is needed.
 
-For live concrete grid state, send bar and icon columns in one
-`updateBatch()` call. Use `bar.height`, `bar.changes.tint/source/show`, and
-`icon.changes.show/source/tint`; use `null` in a column to restore the authored
-field. Do not prefilter these fields or maintain a second animation loop.
+For live concrete grid state, send background, bar, icon, and text columns in
+one `updateBatch()` call. Background supports `source/tint/size/show/attrs`;
+bar supports `height/tint/source/show`; icon supports `show/source/tint`; text
+supports `text/style/show/placement/margin/tint/split/attrs`. Use `null` in a
+column to restore the current authored field. Do not prefilter these fields or
+maintain a second animation loop.
 Existing height-only batches keep the optimized concrete-bar path; the same
 public call automatically selects the broader atomic overlay only when paint,
-visibility, or icon columns are present.
-Concrete text presentation is still unsupported and should remain in the host
-under the structured
-`PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED` boundary.
+visibility, icon, background, or text columns are present. Labels,
+identity/structural changes, and other component fields remain in the host
+under the structured `PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED`
+boundary.
 
 Canary and rollback selection stay in the host. PatchMap ships compatibility
 materialization and persistence guards, but does not expose renderer-choice or
