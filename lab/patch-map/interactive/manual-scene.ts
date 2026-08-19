@@ -158,6 +158,33 @@ export function buildPatchMapManualScene(
       style: { color: '#334155', width: 3, opacity: 0.72 },
       attrs: { x: 0, y: 0, zIndex: 1 },
     },
+    {
+      type: 'grid',
+      id: 'manual-cell-presentation-grid',
+      label: 'Concrete cell presentation',
+      attrs: { x: 880, y: 38, zIndex: 6 },
+      cells: [[1, 1, 1, 1]],
+      gap: 6,
+      item: {
+        size: { width: 72, height: 72 },
+        components: [
+          {
+            type: 'background',
+            id: 'surface',
+            source: { type: 'rect', fill: '#e2e8f0', radius: 8 },
+          },
+          {
+            type: 'text',
+            id: 'value',
+            text: '—',
+            placement: 'center',
+            margin: 6,
+            tint: '#0f172a',
+            style: { fontFamily: 'Fira Code', fontSize: 16, fontWeight: 700 },
+          },
+        ],
+      },
+    },
     ...shifted,
   ];
   const barTargets = Array.from({ length: recordCount }, (_, index) => Object.freeze({

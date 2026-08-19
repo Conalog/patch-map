@@ -53,6 +53,7 @@ const MANUAL_COMMAND_HELP: Readonly<Record<string, string>> = Object.freeze({
   'animate-selected': '현재 선택한 항목의 막대만 애니메이션합니다.',
   'animation-duration': '입력한 재생 시간으로 사람 조작용 장면을 다시 만듭니다.',
   'random-text': '예제 라벨 텍스트를 시드 기반 값으로 바꿉니다.',
+  'cell-presentation': '네 개 grid cell의 배경·텍스트·정렬·스타일을 서로 다른 값으로 바꿉니다.',
   'frames-toggle': '자동 프레임 게시를 일시 정지하거나 다시 시작합니다.',
   'publish-frame': '현재 상태를 화면에 한 프레임 게시합니다.',
   'reduced-motion': '체크한 동작 줄이기 정책을 현재 세션에 적용합니다.',
@@ -398,6 +399,7 @@ function renderAnimationPanel(caseId: string): string {
       ${commandButton('animate-partial', '막대 10% 움직이기')}
       ${commandButton('animate-selected', '선택 막대 움직이기')}
       ${commandButton('random-text', '무작위 텍스트')}
+      ${commandButton('cell-presentation', '셀 배경·텍스트 바꾸기')}
       ${commandButton('frames-toggle', '프레임 일시 정지')}
       ${commandButton('publish-frame', '한 프레임 게시')}
     </div>

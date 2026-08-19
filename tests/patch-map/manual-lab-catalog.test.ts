@@ -135,6 +135,7 @@ describe('PatchMap human-operated Lab catalog', () => {
       expect(markup).toContain('초당 프레임 / 최대 간격');
       expect(markup).toContain('data-manual-command="undo"');
       expect(markup).toContain('data-manual-command="animate-all"');
+      expect(markup).toContain('data-manual-command="cell-presentation"');
       expect(markup).toContain('data-manual-command="scene-size"');
       expect(markup).toContain('data-manual-scene-size');
       expect(markup).toContain('<option value="10000">10,000개 · 탐색용</option>');
@@ -250,7 +251,7 @@ describe('PatchMap manual Lab scene', () => {
     expect(Object.isFrozen(first)).toBe(true);
     expect(Object.isFrozen(first.dataset)).toBe(true);
     expect(JSON.stringify(first.dataset)).toBe(before);
-    expect(materialized.rootIds).toHaveLength(105);
+    expect(materialized.rootIds).toHaveLength(106);
     expect(materialized.rootIds.slice(0, 5)).toEqual([
       'manual-rect-a',
       'manual-rect-b',

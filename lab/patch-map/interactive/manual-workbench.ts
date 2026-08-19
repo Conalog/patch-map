@@ -559,6 +559,9 @@ export function mountPatchMapManualWorkbench(
         case 'random-text':
           result = randomizeTexts();
           break;
+        case 'cell-presentation':
+          result = updateConcreteCellPresentation();
+          break;
         case 'frames-toggle':
           framesPaused = !framesPaused;
           if (framesPaused) {
@@ -868,6 +871,50 @@ export function mountPatchMapManualWorkbench(
       targets: targets.map(({ ownerId: id, componentId }) => ({ id, componentId })),
       text: { text: texts },
     }, { actionId: `manual-text-${animationSequence}` });
+  }
+
+  function updateConcreteCellPresentation(): unknown {
+    const next = requireEngine();
+    animationSequence += 1;
+    const targets = Array.from({ length: 4 }, (_, column) =>
+      `manual-cell-presentation-grid.0.${column}`);
+    const palettes = [
+      ['#fee2e2', '#991b1b'],
+      ['#dbeafe', '#1e40af'],
+      ['#dcfce7', '#166534'],
+      ['#fef3c7', '#92400e'],
+    ] as const;
+    const offset = animationSequence % palettes.length;
+    return next.updateBatch({
+      targets,
+      background: {
+        componentId: 'surface',
+        changes: {
+          source: targets.map((_target, index) => ({
+            type: 'rect',
+            fill: palettes[(index + offset) % palettes.length]?.[0] ?? '#e2e8f0',
+            radius: 8 + index * 2,
+          })),
+        },
+      },
+      text: {
+        componentId: 'value',
+        text: targets.map((_target, index) => `${(index + 1) * 20 + animationSequence}\n%`),
+        style: targets.map((_target, index) => ({
+          fontFamily: 'Fira Code',
+          fontSize: 14 + index,
+          fontWeight: 700,
+          align: index % 2 === 0 ? 'left' : 'right',
+        })),
+        changes: {
+          show: targets.map(() => true),
+          tint: targets.map((_target, index) =>
+            palettes[(index + offset) % palettes.length]?.[1] ?? '#0f172a'),
+          placement: ['left-top', 'right-top', 'left-bottom', 'right-bottom'],
+          margin: targets.map(() => 6),
+        },
+      },
+    });
   }
 
   function styleSelected(): unknown {
