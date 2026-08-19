@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Mesh, type MeshGeometry } from 'pixi.js';
+import { Mesh, Texture, type MeshGeometry } from 'pixi.js';
 import type { EntityInput } from '../../src/patch-map/dense/contracts';
 import {
   RenderFlags,
@@ -7,6 +7,11 @@ import {
   type RenderStoreView,
 } from '../../src/patch-map/dense/renderer-types';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+import {
+  PatchMapAssetRuntime,
+  type PatchMapAssetBackend,
+  type PatchMapAssetBackendRequest,
+} from '../../src/patch-map/assets';
 import { parsePatchMapV010 } from '../../src/patch-map/parser';
 import { projectPatchMapBarPresentationHeight } from '../../src/patch-map/presentation-projection';
 import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
@@ -504,7 +509,7 @@ describe('PatchMap orientation renderer lanes', () => {
     );
     const store = createRenderStore(entities);
     const context = projectionContext(parsed.projection, 1, 90, true, false);
-    const layer = new AggregateLeafLayer();
+    const layer = await createResolvedLeafLayer(parsed.projection, 'orientation-follow-icon');
     layer.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
     const imageSlot = entities.findIndex((entity) => entity.kind === 'image');
     const textSlot = entities.findIndex((entity) => entity.kind === 'text');
@@ -576,7 +581,7 @@ describe('PatchMap orientation renderer lanes', () => {
     const store = createRenderStore([entity]);
     const context = projectionContext(parsed.projection, 1, 0, false, false);
     const expected = resolvePatchMapSlotQuad(store, 0, context).basis;
-    const layer = new AggregateLeafLayer();
+    const layer = await createResolvedLeafLayer(parsed.projection, 'orientation-nested-icon');
     layer.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
     const image = layer.contentAssetContainer.children[0];
 
@@ -601,6 +606,62 @@ function item(
     contentOrientation,
     components,
   };
+}
+
+async function createResolvedLeafLayer(
+  projection: PatchMapProjectionIndex,
+  instanceId: string,
+): Promise<AggregateLeafLayer> {
+  const runtime = new PatchMapAssetRuntime(new ImmediateTextureBackend());
+  const session = runtime.createSession({ instanceId, policy: () => undefined });
+  const images = Object.values(projection.imagesByEntityId ?? {});
+  const aliases = [...new Set(images.map(({ authoredSource }) => fixtureImageAlias(authoredSource)))];
+  session.registerAssets(aliases.map((alias) => ({
+    alias,
+    descriptor: `https://assets.example.test/${alias}.png`,
+  })));
+  const layer = new AggregateLeafLayer(session, true);
+  const bound = new Set<string>();
+  for (const image of images) {
+    if (bound.has(image.bindingKey)) continue;
+    bound.add(image.bindingKey);
+    await layer.bindSceneAsset(image.bindingKey, {
+      kind: 'alias',
+      alias: fixtureImageAlias(image.authoredSource),
+    });
+  }
+  return layer;
+}
+
+function fixtureImageAlias(source: unknown): string {
+  if (typeof source !== 'string') throw new Error('fixture image alias must be a string');
+  return source;
+}
+
+class ImmediateTextureBackend implements PatchMapAssetBackend {
+  public readonly keyNamespace = 'orientation-renderer-lanes';
+
+  public get(): undefined {
+    return undefined;
+  }
+
+  public load(): Promise<unknown> {
+    return Promise.resolve(Texture.WHITE);
+  }
+
+  public describe(request: PatchMapAssetBackendRequest): Readonly<{
+    normalizedResourceIdentity: string;
+    cacheIdentity: string;
+  }> {
+    return Object.freeze({
+      normalizedResourceIdentity: `decoded:${request.descriptor.src}`,
+      cacheIdentity: `fixture:${request.descriptor.src}`,
+    });
+  }
+
+  public unload(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 function projectionContext(

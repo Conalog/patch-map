@@ -417,11 +417,11 @@ try {
   assert(authoredSignatures.size === aliases.length, 'every builtin has a distinct raster silhouette', result);
   assert(overlaySignatures.size === aliases.length,
     'every overlay builtin has a distinct raster silhouette', result);
-  assert(result.runtimeBeforeDestroy.resourceCount === 2,
-    'active builtin plus registered host alias remain leased', result);
+  assert(result.runtimeBeforeDestroy.resourceCount === 7,
+    'five required fonts plus active builtin and host alias remain leased', result);
   assert(result.runtimeBeforeDestroy.pendingCount === 0, 'capture leaves no pending assets', result);
-  assert(result.runtimeBeforeDestroy.leaseCount === 2,
-    'active builtin and host alias each have one lease', result);
+  assert(result.runtimeBeforeDestroy.leaseCount === 7,
+    'five required fonts plus active builtin and host alias each have one lease', result);
   assert(result.runtimeAfterDestroy.resourceCount === 0, 'destroy releases builtin texture', result);
   assert(result.runtimeAfterDestroy.leaseCount === 0, 'destroy releases builtin lease', result);
   assert(result.destroy === true && result.canvasCountAfterDestroy === 0,

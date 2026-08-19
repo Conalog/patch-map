@@ -405,7 +405,7 @@ describe('PatchMap aggregate leaf policy', () => {
       projectionContext,
     })).toMatchObject({
       unresolvedAssetCount: 1,
-      placeholderCount: 1,
+      placeholderCount: 0,
     });
 
     await layer.loadAsset('fixture-alias', 'core-v2-test://fixture-alias.png');
@@ -432,7 +432,7 @@ describe('PatchMap aggregate leaf policy', () => {
     })).toMatchObject({
       loadedAssetCount: 0,
       unresolvedAssetCount: 1,
-      placeholderCount: 1,
+      placeholderCount: 0,
     });
     await layer.finalizeAssetUnloads();
     await layer.destroy();
@@ -742,7 +742,7 @@ describe('PatchMap aggregate leaf policy', () => {
     layer.sync(store, { fullRebuildEpoch: 1 });
     expect(layer.sceneAssetBindingProbe('image')).toMatchObject({
       state: 'pending',
-      renderRole: 'asset-placeholder',
+      renderRole: 'none',
       staleAttachCount: 0,
     });
 
@@ -820,8 +820,8 @@ describe('PatchMap aggregate leaf policy', () => {
     await layer.unbindSceneAsset('shared');
     layer.sync(store, { fullRebuildEpoch: 1, changedRanges: [] });
     expect(layer.sceneImageProbe('image-0')).toMatchObject({
-      renderObjectCount: 1,
-      role: 'asset-placeholder',
+      renderObjectCount: 0,
+      role: 'none',
       bindingKey: 'shared',
     });
     await layer.finalizeAssetUnloads();
@@ -831,6 +831,144 @@ describe('PatchMap aggregate leaf policy', () => {
     expect(backend.unloadedSources).toEqual(['https://assets.example.test/shared.png']);
 
     await layer.destroy();
+  });
+
+  it('keeps a new pending image hidden and materializes exactly one resolved Sprite', async () => {
+    const backend = new DeferredTextureBackend();
+    const runtime = new PatchMapAssetRuntime(backend);
+    const session = runtime.createSession({ instanceId: 'pending-hidden', policy: () => undefined });
+    const layer = new AggregateLeafLayer(session, true);
+    const source = 'https://assets.example.test/pending-hidden.png';
+    const completion = layer.bindSceneAsset('pending-hidden', { kind: 'source', source });
+    await vi.waitFor(() => expect(backend.hasPending(source)).toBe(true));
+
+    layer.sync(createImageStore('pending-hidden'), { fullRebuildEpoch: 1 });
+    expect(layer.imageContainer.children).toHaveLength(0);
+    expect(layer.sceneImageProbe('image-0')).toMatchObject({
+      renderObjectCount: 0,
+      role: 'none',
+      bindingKey: 'pending-hidden',
+    });
+    expect(layer.debugSnapshot()).toMatchObject({
+      imageCount: 0,
+      pendingAssetCount: 1,
+      placeholderCount: 0,
+    });
+
+    backend.resolve(source, Texture.EMPTY);
+    await completion;
+    layer.sync(createImageStore('pending-hidden'), {
+      fullRebuildEpoch: 1,
+      changedRanges: [],
+    });
+    expect(layer.imageContainer.children).toHaveLength(1);
+    expect(layer.imageContainer.children[0]).toMatchObject({ texture: Texture.EMPTY });
+    expect(layer.sceneImageProbe('image-0')).toMatchObject({
+      renderObjectCount: 1,
+      role: 'image',
+    });
+    await layer.destroy();
+  });
+
+  it('retains the last resolved texture across a full-rebuild retarget and releases it after swap', async () => {
+    const backend = new DeferredTextureBackend();
+    const runtime = new PatchMapAssetRuntime(backend);
+    const session = runtime.createSession({ instanceId: 'full-rebuild-retarget', policy: () => undefined });
+    const layer = new AggregateLeafLayer(session, true);
+    const firstSource = 'https://assets.example.test/retarget-a.png';
+    const secondSource = 'https://assets.example.test/retarget-b.png';
+    const first = layer.bindSceneAsset('a', { kind: 'source', source: firstSource });
+    await vi.waitFor(() => expect(backend.hasPending(firstSource)).toBe(true));
+    backend.resolve(firstSource, Texture.EMPTY);
+    await first;
+    layer.sync(createImageStore('a'), { fullRebuildEpoch: 1 });
+    const sprite = layer.imageContainer.children[0];
+    expect(sprite).toMatchObject({ texture: Texture.EMPTY });
+
+    await layer.unbindSceneAsset('a');
+    const second = layer.bindSceneAsset('b', { kind: 'source', source: secondSource });
+    await vi.waitFor(() => expect(backend.hasPending(secondSource)).toBe(true));
+    layer.sync(createImageStore('b'), { fullRebuildEpoch: 2 });
+    expect(layer.imageContainer.children).toEqual([sprite]);
+    expect(sprite).toMatchObject({ texture: Texture.EMPTY });
+    expect(layer.sceneImageProbe('image-0')).toMatchObject({
+      bindingKey: 'b',
+      role: 'image',
+      renderObjectCount: 1,
+    });
+    expect(layer.sceneAssetBindingProbe('b')).toMatchObject({
+      state: 'pending',
+      renderRole: 'image',
+      placeholderCount: 0,
+    });
+    await layer.finalizeAssetUnloads();
+    expect(backend.unloadedSources).toEqual([]);
+
+    backend.resolve(secondSource, Texture.WHITE);
+    await second;
+    layer.sync(createImageStore('b'), { fullRebuildEpoch: 2, changedRanges: [] });
+    expect(layer.imageContainer.children).toEqual([sprite]);
+    expect(sprite).toMatchObject({ texture: Texture.WHITE });
+    await layer.finalizeAssetUnloads();
+    expect(backend.unloadedSources).toEqual([]);
+    layer.confirmRenderedFrame();
+    await layer.finalizeAssetUnloads();
+    expect(backend.unloadedSources).toEqual([firstSource]);
+
+    await layer.destroy();
+    expect(backend.unloadedSources).toEqual([firstSource, secondSource]);
+  });
+
+  it('keeps A visible through rapid A to B to C and ignores the stale B completion', async () => {
+    const backend = new DeferredTextureBackend();
+    const runtime = new PatchMapAssetRuntime(backend);
+    const session = runtime.createSession({ instanceId: 'rapid-retarget', policy: () => undefined });
+    const layer = new AggregateLeafLayer(session, true);
+    const sourceA = 'https://assets.example.test/rapid-a.png';
+    const sourceB = 'https://assets.example.test/rapid-b.png';
+    const sourceC = 'https://assets.example.test/rapid-c.png';
+    const completionA = layer.bindSceneAsset('rapid', { kind: 'source', source: sourceA });
+    await vi.waitFor(() => expect(backend.hasPending(sourceA)).toBe(true));
+    backend.resolve(sourceA, Texture.EMPTY);
+    await completionA;
+    const store = createImageStore('rapid');
+    layer.sync(store, { fullRebuildEpoch: 1 });
+    const sprite = layer.imageContainer.children[0];
+
+    const completionB = layer.bindSceneAsset('rapid', { kind: 'source', source: sourceB });
+    const completionC = layer.bindSceneAsset('rapid', { kind: 'source', source: sourceC });
+    await vi.waitFor(() => {
+      expect(backend.hasPending(sourceB)).toBe(true);
+      expect(backend.hasPending(sourceC)).toBe(true);
+    });
+    layer.sync(store, { fullRebuildEpoch: 1, changedRanges: [] });
+    expect(layer.imageContainer.children).toEqual([sprite]);
+    expect(sprite).toMatchObject({ texture: Texture.EMPTY });
+
+    backend.resolve(sourceB, Texture.WHITE);
+    await expect(completionB).resolves.toMatchObject({ status: 'stale' });
+    layer.sync(store, { fullRebuildEpoch: 1, changedRanges: [] });
+    expect(sprite).toMatchObject({ texture: Texture.EMPTY });
+    expect(layer.sceneAssetBindingProbe('rapid')).toMatchObject({
+      state: 'pending',
+      generation: 3,
+      staleCompletionCount: 1,
+    });
+
+    backend.resolve(sourceC, Texture.WHITE);
+    await expect(completionC).resolves.toMatchObject({ status: 'attached' });
+    layer.sync(store, { fullRebuildEpoch: 1, changedRanges: [] });
+    expect(layer.imageContainer.children).toEqual([sprite]);
+    expect(sprite).toMatchObject({ texture: Texture.WHITE });
+    expect(layer.sceneAssetBindingProbe('rapid')).toMatchObject({
+      state: 'resolved',
+      generation: 3,
+      staleCompletionCount: 1,
+    });
+    layer.confirmRenderedFrame();
+    await layer.finalizeAssetUnloads();
+    await layer.destroy();
+    expect(backend.unloadedSources).toEqual(expect.arrayContaining([sourceA, sourceB, sourceC]));
   });
 
   it('keeps equal-z image order stable through resolve, failure, and source replacement', async () => {
@@ -858,16 +996,14 @@ describe('PatchMap aggregate leaf policy', () => {
     });
 
     layer.sync(store, { fullRebuildEpoch: 1 });
-    expectImageChildOrder(layer, [5, 105]);
-    const firstPendingSprite = layer.imageContainer.children[0];
+    expectImageChildOrder(layer, []);
 
     // Resolving slot zero first recreates it after slot one in insertion time.
     // The explicit stable-slot tie-breaker must move it back in front.
     backend.resolve(firstSource, Texture.EMPTY);
     await firstCompletion;
     layer.sync(store, { fullRebuildEpoch: 1, changedRanges: [] });
-    expectImageChildOrder(layer, [5, 105]);
-    expect(layer.imageContainer.children[0]).not.toBe(firstPendingSprite);
+    expectImageChildOrder(layer, [5]);
 
     backend.resolve(secondSource);
     await secondCompletion;
@@ -882,7 +1018,7 @@ describe('PatchMap aggregate leaf policy', () => {
     layer.sync(store, { fullRebuildEpoch: 1, changedRanges: [] });
     expectImageChildOrder(layer, [5, 105]);
     expect(layer.sceneImageProbe('image-0')).toMatchObject({
-      role: 'asset-placeholder',
+      role: 'image',
       bindingGeneration: 3,
     });
     backend.reject(failedSource);
@@ -894,7 +1030,7 @@ describe('PatchMap aggregate leaf policy', () => {
     expectImageChildOrder(layer, [5, 105]);
     expect(layer.sceneAssetBindingProbe('first')).toMatchObject({
       state: 'failed',
-      renderRole: 'asset-placeholder',
+      renderRole: 'image',
     });
 
     const recoveredCompletion = layer.bindSceneAsset('first', {
@@ -1055,15 +1191,15 @@ describe('PatchMap aggregate leaf policy', () => {
     const retained = leafRetentionAccess(layer);
     expectBindingCounters(retained, 'shared-5000', {
       consumerCount: imageCount,
-      renderObjectCount: imageCount,
-      placeholderCount: imageCount,
+      renderObjectCount: 0,
+      placeholderCount: 0,
     });
     expect(probeWithoutImageScan(layer, retained, 'shared-5000')).toMatchObject({
       state: 'pending',
       consumerCount: imageCount,
-      renderObjectCount: imageCount,
-      placeholderCount: imageCount,
-      renderRole: 'asset-placeholder',
+      renderObjectCount: 0,
+      placeholderCount: 0,
+      renderRole: 'none',
     });
 
     backend.resolve(source, Texture.EMPTY);
@@ -1133,8 +1269,8 @@ describe('PatchMap aggregate leaf policy', () => {
       state: 'pending',
       consumerCount: visibleCount,
       renderObjectCount: visibleCount,
-      placeholderCount: visibleCount,
-      renderRole: 'asset-placeholder',
+      placeholderCount: 0,
+      renderRole: 'image',
     });
 
     backend.resolve(replacementSource);
@@ -1196,7 +1332,7 @@ describe('PatchMap aggregate leaf policy', () => {
     expectLeafCollectionsEmpty(retained);
   }, 15_000);
 
-  it('renders one explicit placeholder and failed probe for a failed binding', async () => {
+  it('keeps a failed image pixel-free while preserving its diagnostic placeholder role', async () => {
     const backend = new ImmediateTextureBackend();
     backend.failedSources.add('https://assets.example.test/fail.png');
     const runtime = new PatchMapAssetRuntime(backend);
@@ -1213,20 +1349,21 @@ describe('PatchMap aggregate leaf policy', () => {
       state: 'failed',
       attached: false,
       consumerCount: 1,
-      renderObjectCount: 1,
-      placeholderCount: 1,
-      renderRole: 'asset-placeholder',
+      renderObjectCount: 0,
+      placeholderCount: 0,
+      renderRole: 'none',
     });
     expect(layer.sceneImageProbe('image-0')).toMatchObject({
-      renderObjectCount: 1,
+      renderObjectCount: 0,
       role: 'asset-placeholder',
       bindingKey: 'failed',
     });
     expect(layer.debugSnapshot()).toMatchObject({
       failedAssetCount: 1,
-      placeholderCount: 1,
+      placeholderCount: 0,
       unresolvedAssetCount: 1,
     });
+    expect(layer.imageContainer.children).toHaveLength(0);
 
     await layer.destroy();
   });

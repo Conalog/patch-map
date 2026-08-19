@@ -66,6 +66,8 @@
     "verify:instance-presentation:grid": "node scripts/verification/patch-map-grid-instance-presentation-browser.mjs",
     "verify:theme": "node scripts/verification/patch-map-theme-browser.mjs",
     "verify:builtin-assets": "node scripts/verification/patch-map-builtin-assets-browser.mjs",
+    "verify:asset-readiness": "node scripts/verification/patch-map-asset-readiness-browser.mjs",
+    "perf:asset-readiness:packed-cross": "node scripts/verification/patch-map-packed-asset-readiness-performance.mjs",
     "verify:local": "npm test && npm run verify:contract && npm run build:lab && npm run verify:package && npm run verify:lab:all && npm run verify:memory",
     "perf": "node performance/patch-map/run.mjs",
     "perf:quick": "node performance/patch-map/run.mjs --quick",

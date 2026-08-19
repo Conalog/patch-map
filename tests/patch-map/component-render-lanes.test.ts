@@ -66,7 +66,7 @@ describe('PatchMap fixed component render lanes', () => {
     const store = createRenderStore(parsed.document.entities);
     const context = projectionContext(parsed.projection, 1);
     const mesh = new AggregateMeshLayer({ chunkSize: 8 });
-    const leaves = new AggregateLeafLayer();
+    const leaves = await createResolvedLeafLayer(parsed.projection, 'component-role-lanes');
     mesh.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
     leaves.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
 
@@ -218,7 +218,7 @@ describe('PatchMap fixed component render lanes', () => {
     const hidden = parsePatchMapV010([backgroundDataset('fixture-image', false)]);
     const entityId = 'item::background:bg';
     const mesh = new AggregateMeshLayer({ chunkSize: 8 });
-    const leaves = new AggregateLeafLayer();
+    const leaves = await createResolvedLeafLayer(replacement.projection, 'component-background-swap');
 
     mesh.sync(createRenderStore(initial.document.entities), {
       fullRebuildEpoch: 1,
@@ -379,6 +379,36 @@ function backgroundDataset(source: unknown, show = true): Record<string, unknown
     size: { width: 100, height: 80 },
     components: [{ type: 'background', id: 'bg', source, show }],
   };
+}
+
+async function createResolvedLeafLayer(
+  projection: PatchMapProjectionIndex,
+  instanceId: string,
+): Promise<AggregateLeafLayer> {
+  const runtime = new PatchMapAssetRuntime(new ImmediateTextureBackend());
+  const session = runtime.createSession({ instanceId, policy: () => undefined });
+  const images = Object.values(projection.imagesByEntityId ?? {});
+  const aliases = [...new Set(images.map(({ authoredSource }) => fixtureImageAlias(authoredSource)))];
+  session.registerAssets(aliases.map((alias) => ({
+    alias,
+    descriptor: `https://assets.example.test/${alias}.png`,
+  })));
+  const layer = new AggregateLeafLayer(session, true);
+  const bound = new Set<string>();
+  for (const image of images) {
+    if (bound.has(image.bindingKey)) continue;
+    bound.add(image.bindingKey);
+    await layer.bindSceneAsset(image.bindingKey, {
+      kind: 'alias',
+      alias: fixtureImageAlias(image.authoredSource),
+    });
+  }
+  return layer;
+}
+
+function fixtureImageAlias(source: unknown): string {
+  if (typeof source !== 'string') throw new Error('fixture image alias must be a string');
+  return source;
 }
 
 function projectionContext(
