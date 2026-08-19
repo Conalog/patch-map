@@ -774,6 +774,9 @@ export class PatchMap {
       // remain lazy, while the five exact text faces must settle before any
       // Text object can cache a system-font fallback raster.
       engine.registerAssets(instanceId);
+      if (options.assets !== undefined) {
+        engine.registerAssets(instanceId, options.assets);
+      }
       await engine.initialize({
         instanceId,
         target,
@@ -794,15 +797,18 @@ export class PatchMap {
           : { powerPreference: options.powerPreference }),
         requiredAssets: [
           ...PATCH_MAP_BUILTIN_FONT_ASSETS,
-          ...(options.assets ?? []),
         ],
       });
-      const frameLoop = engine.createFrameLoop();
       if (options.data !== undefined) {
         engine.data.replace(options.data, {
           fit: options.fit === undefined ? { padding: 24 } : options.fit,
         });
+        // No managed frame loop exists yet, so decoder completion can only
+        // update private aggregate state. Settle the active unique bindings
+        // before the first publication instead of exposing lazy placeholders.
+        await engine.settleSceneImages();
       }
+      const frameLoop = engine.createFrameLoop();
       frameLoop.publishNow();
       if (options.resizeMode !== 'manual') {
         engine.mountResizeCleanup = engine.observeMountSize(target, options.pixelRatio);

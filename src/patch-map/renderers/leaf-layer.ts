@@ -102,11 +102,21 @@ type LeafImageLane = 'standalone-assets' | 'background-assets' | 'content-assets
 interface ImageEntry {
   readonly object: Sprite;
   readonly entityId: string;
-  readonly bindingKey: string;
-  readonly bindingGeneration: number;
-  readonly role: Exclude<LeafAssetRenderRole, 'none'>;
-  readonly lane: LeafImageLane;
+  bindingKey: string;
+  bindingGeneration: number;
+  role: 'image';
+  lane: LeafImageLane;
+  resource: LeafAssetResource;
+  counted: boolean;
   vertices: PatchMapQuadVertices;
+}
+
+interface LeafAssetResource {
+  readonly acquisition: PatchMapAssetAcquisition;
+  readonly texture: Texture;
+  entryCount: number;
+  bindingOwned: boolean;
+  releaseQueued: boolean;
 }
 
 export type LeafAssetSourceKind = PatchMapSceneImageAssetSourceKind;
@@ -157,8 +167,7 @@ interface LeafAssetBinding {
   readonly sourceKind: LeafAssetSourceKind;
   state: LeafAssetBindingState;
   completion?: Promise<LeafAssetBindingObservation>;
-  acquisition?: PatchMapAssetAcquisition;
-  texture?: Texture;
+  resource?: LeafAssetResource;
   failure?: unknown;
   cacheIdentity: string | null;
   normalizedResourceIdentity: string | null;
@@ -185,7 +194,6 @@ export interface LeafLayerDebug {
   readonly staleCompletionCount: number;
 }
 
-const PLACEHOLDER_TINT = 0xc7ceda;
 const IMAGE_CHILD_APPEND_BATCH_SIZE = 1_024;
 const TEXT_CHUNKING_CAPACITY_THRESHOLD = 1_024;
 const TEXT_CHUNK_SLOT_SPAN = 64;
@@ -242,6 +250,7 @@ export class AggregateLeafLayer {
   private readonly framePendingAssetReleases: PatchMapAssetAcquisition[] = [];
   private readonly readyAssetReleases: PatchMapAssetAcquisition[] = [];
   private readonly dirtyAssetSlots = new Set<number>();
+  private retainedImagesByEntityId: Map<string, ImageEntry> | null = null;
   private readonly transformMatrix = new Matrix();
   private nextBindingGeneration = 0;
   private confirmedTextFrame = 0;
@@ -343,7 +352,7 @@ export class AggregateLeafLayer {
       request: binding.request,
       sourceKind: binding.sourceKind,
       state: binding.state,
-      attached: binding.state === 'resolved' && binding.acquisition !== undefined,
+      attached: binding.state === 'resolved' && binding.resource !== undefined,
       cacheIdentity: binding.cacheIdentity,
       normalizedResourceIdentity: binding.normalizedResourceIdentity,
       reusedResolvedResource: binding.reusedResolvedResource || binding.consumerCount > 1,
@@ -492,7 +501,7 @@ export class AggregateLeafLayer {
     if (!hasLeafWork) return this.debugSnapshot();
     this.debugCache = null;
     if (fullRebuild) {
-      this.clearDisplayObjects();
+      this.beginFullRebuild();
       this.storeEpoch = epoch;
       this.textChunking = store.capacity >= TEXT_CHUNKING_CAPACITY_THRESHOLD;
     }
@@ -539,6 +548,7 @@ export class AggregateLeafLayer {
         }
       }
     }
+    this.finishFullRebuild();
     this.rebuildDirtyTextChunks();
     this.sortTextChunks();
     this.sortImageChildren();
@@ -682,10 +692,6 @@ export class AggregateLeafLayer {
         unresolvedAssetCount += 1;
       }
     }
-    let placeholderCount = 0;
-    for (const image of this.images.values()) {
-      if (image.role === 'asset-placeholder') placeholderCount += 1;
-    }
     this.debugCache = Object.freeze({
       bitmapTextCount,
       pixiTextCount: this.texts.size - bitmapTextCount,
@@ -694,7 +700,7 @@ export class AggregateLeafLayer {
       unresolvedAssetCount,
       pendingAssetCount,
       failedAssetCount,
-      placeholderCount,
+      placeholderCount: 0,
       staleAttachCount,
       staleCompletionCount: this.staleCompletionCount,
     });
@@ -707,7 +713,7 @@ export class AggregateLeafLayer {
     this.clearDisplayObjects();
     const acquisitions = new Set<PatchMapAssetAcquisition>([
       ...[...this.bindings.values()]
-        .map(({ acquisition }) => acquisition)
+        .map(({ resource }) => resource?.acquisition)
         .filter((value): value is PatchMapAssetAcquisition => value !== undefined),
       ...this.framePendingAssetReleases,
       ...this.readyAssetReleases,
@@ -785,8 +791,13 @@ export class AggregateLeafLayer {
       await acquisition.release();
       return observation;
     }
-    binding.acquisition = acquisition;
-    binding.texture = texture;
+    binding.resource = {
+      acquisition,
+      texture,
+      entryCount: 0,
+      bindingOwned: true,
+      releaseQueued: false,
+    };
     binding.cacheIdentity = acquisition.describedCacheIdentity ?? acquisition.cacheIdentity;
     binding.normalizedResourceIdentity = acquisition.normalizedResourceIdentity;
     binding.reusedResolvedResource = reusedResolvedResource;
@@ -814,12 +825,11 @@ export class AggregateLeafLayer {
   private retireBinding(binding: LeafAssetBinding): void {
     if (this.bindings.get(binding.key) !== binding) return;
     this.bindings.delete(binding.key);
-    if (binding.acquisition) {
-      const stillRendered = binding.renderObjectCount > binding.placeholderCount;
-      if (stillRendered) this.framePendingAssetReleases.push(binding.acquisition);
-      else this.readyAssetReleases.push(binding.acquisition);
-      delete binding.acquisition;
-      delete binding.texture;
+    if (binding.resource) {
+      const resource = binding.resource;
+      resource.bindingOwned = false;
+      delete binding.resource;
+      this.queueResourceRelease(resource, false);
     }
     binding.consumerCount = 0;
     binding.renderObjectCount = 0;
@@ -1096,18 +1106,58 @@ export class AggregateLeafLayer {
   ): void {
     this.indexVisibleImageBinding(slot, bindingKey);
     const binding = this.bindings.get(bindingKey);
-    const resolved = binding?.state === 'resolved' && binding.texture !== undefined;
-    const texture = resolved ? binding.texture! : Texture.WHITE;
+    const resource = binding?.state === 'resolved' ? binding.resource : undefined;
     const bindingGeneration = binding?.generation ?? 0;
-    const role: ImageEntry['role'] = resolved ? 'image' : 'asset-placeholder';
-    let entry = this.images.get(slot);
+    let entry = this.images.get(slot) ?? this.takeRetainedImage(entityId);
+    if (entry !== undefined && entry.entityId !== entityId) {
+      this.discardImageEntry(entry);
+      entry = undefined;
+    }
+    if (binding === undefined) {
+      if (entry !== undefined) {
+        if (this.images.get(slot) === entry) this.images.delete(slot);
+        this.discardImageEntry(entry);
+      }
+      this.setImageProbe(slot, entityId, bindingKey, 0, 0, 'none');
+      this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
+        entityId,
+        lane: publicImageLane(lane),
+        rendererKind: 'none',
+        primitiveCount: 0,
+        renderObjectCount: 0,
+        packedTint: (store.tint[slot] ?? 0xffffffff) >>> 0,
+        rgbTint: null,
+        alpha: null,
+      }));
+      return;
+    }
+    if (resource === undefined) {
+      if (entry === undefined) {
+        const role: LeafAssetRenderRole = binding?.state === 'failed'
+          ? 'asset-placeholder'
+          : 'none';
+        this.setImageProbe(slot, entityId, bindingKey, bindingGeneration, 0, role);
+        this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
+          entityId,
+          lane: publicImageLane(lane),
+          rendererKind: 'none',
+          primitiveCount: 0,
+          renderObjectCount: 0,
+          packedTint: (store.tint[slot] ?? 0xffffffff) >>> 0,
+          rgbTint: null,
+          alpha: null,
+        }));
+        return;
+      }
+    }
+    const texture = resource?.texture ?? entry!.resource.texture;
     if (
       entry &&
       binding &&
       entry.entityId === entityId &&
       entry.bindingKey === bindingKey &&
       entry.bindingGeneration === bindingGeneration &&
-      entry.role === role &&
+      entry.resource === resource &&
       entry.object.texture !== texture
     ) {
       // Metadata still claims this is the current attachment, so a different
@@ -1119,27 +1169,53 @@ export class AggregateLeafLayer {
     }
     if (
       !entry ||
-      entry.entityId !== entityId ||
-      entry.bindingKey !== bindingKey ||
-      entry.bindingGeneration !== bindingGeneration ||
-      entry.role !== role ||
-      entry.lane !== lane ||
-      entry.object.texture !== texture
+      entry.entityId !== entityId
     ) {
       if (entry) this.removeImageEntry(slot);
       const object = new Sprite({ texture });
       object.eventMode = 'none';
-      object.label = `${lane}:${role === 'image' ? 'image' : 'placeholder'}`;
+      object.label = `${lane}:image`;
+      if (resource === undefined) {
+        throw new Error('PatchMap image entry requires a resolved resource');
+      }
       entry = {
         object,
         entityId,
         bindingKey,
         bindingGeneration,
-        role,
+        role: 'image',
         lane,
+        resource,
+        counted: false,
         vertices: EMPTY_QUAD_VERTICES,
       };
-      this.addImageEntry(slot, entry);
+      this.attachImageResource(resource);
+    } else {
+      this.uncountImageEntry(entry);
+      if (resource !== undefined && entry.resource !== resource) {
+        const previous = entry.resource;
+        this.attachImageResource(resource);
+        entry.resource = resource;
+        entry.object.texture = resource.texture;
+        this.detachImageResource(previous, true);
+      }
+      if (entry.lane !== lane) {
+        imageLaneContainer(this, entry.lane).removeChild(entry.object);
+        imageLaneContainer(this, lane).addChild(entry.object);
+        this.dirtyImageLanes.add(entry.lane);
+        entry.lane = lane;
+      }
+      entry.bindingKey = bindingKey;
+      entry.bindingGeneration = bindingGeneration;
+      entry.object.label = `${lane}:image`;
+      if (entry.object.texture !== texture) entry.object.texture = texture;
+    }
+    const attached = this.images.get(slot) === entry;
+    this.images.set(slot, entry);
+    this.countImageEntry(entry);
+    if (!attached && entry.object.parent === null) {
+      imageLaneContainer(this, entry.lane).addChild(entry.object);
+      this.dirtyImageLanes.add(entry.lane);
     }
     const sprite = entry.object;
     const quad = resolvePatchMapSlotQuad(store, slot, projectionContext);
@@ -1151,19 +1227,15 @@ export class AggregateLeafLayer {
       texture.height,
     );
     entry.vertices = quad.vertices;
-    sprite.tint = role === 'image'
-      ? packedRgb(store.tint[slot] ?? 0xffffffff)
-      : PLACEHOLDER_TINT;
-    sprite.alpha = role === 'image'
-      ? combinedAlpha(store.tint[slot] ?? 0xffffffff, store.opacity[slot] ?? 1)
-      : clampAlpha(store.opacity[slot] ?? 1);
+    sprite.tint = packedRgb(store.tint[slot] ?? 0xffffffff);
+    sprite.alpha = combinedAlpha(store.tint[slot] ?? 0xffffffff, store.opacity[slot] ?? 1);
     const zIndex = store.zIndex[slot] ?? 0;
     if (sprite.zIndex !== zIndex) {
       sprite.zIndex = zIndex;
       this.dirtyImageLanes.add(lane);
     }
     sprite.visible = true;
-    this.setImageProbe(slot, entityId, bindingKey, bindingGeneration, 1, role);
+    this.setImageProbe(slot, entityId, bindingKey, bindingGeneration, 1, 'image');
     this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
       entityId,
       lane: publicImageLane(lane),
@@ -1464,27 +1536,36 @@ export class AggregateLeafLayer {
     this.updateBindingConsumerCount(key);
   }
 
-  private addImageEntry(slot: number, entry: ImageEntry): void {
-    this.images.set(slot, entry);
-    this.adjustBindingRenderCounts(entry, 1);
-    imageLaneContainer(this, entry.lane).addChild(entry.object);
-    this.dirtyImageLanes.add(entry.lane);
-  }
-
   private removeImageEntry(slot: number): void {
     const entry = this.images.get(slot);
     if (!entry) return;
     this.images.delete(slot);
-    this.adjustBindingRenderCounts(entry, -1);
+    this.discardImageEntry(entry);
+  }
+
+  private discardImageEntry(entry: ImageEntry): void {
+    this.uncountImageEntry(entry);
+    this.detachImageResource(entry.resource, true);
     entry.object.destroy();
     this.dirtyImageLanes.add(entry.lane);
+  }
+
+  private countImageEntry(entry: ImageEntry): void {
+    if (entry.counted) return;
+    entry.counted = true;
+    this.adjustBindingRenderCounts(entry, 1);
+  }
+
+  private uncountImageEntry(entry: ImageEntry): void {
+    if (!entry.counted) return;
+    this.adjustBindingRenderCounts(entry, -1);
+    entry.counted = false;
   }
 
   private adjustBindingRenderCounts(entry: ImageEntry, delta: 1 | -1): void {
     const binding = this.bindings.get(entry.bindingKey);
     if (!binding || binding.generation !== entry.bindingGeneration) return;
     binding.renderObjectCount += delta;
-    if (entry.role === 'asset-placeholder') binding.placeholderCount += delta;
     if (binding.renderObjectCount < 0 || binding.placeholderCount < 0) {
       throw new Error('PatchMap image binding render counter underflow');
     }
@@ -1552,8 +1633,64 @@ export class AggregateLeafLayer {
 
   private clearDisplayObjects(): void {
     this.debugCache = null;
+    this.clearTextDisplayObjects();
+    for (const entry of this.images.values()) this.discardImageEntry(entry);
+    if (this.retainedImagesByEntityId !== null) {
+      for (const entry of this.retainedImagesByEntityId.values()) this.discardImageEntry(entry);
+      this.retainedImagesByEntityId = null;
+    }
+    this.images.clear();
+    this.imageBindingBySlot.clear();
+    this.imageSlotsByBinding.clear();
+    this.imageEntityIdBySlot.clear();
+    this.imageProbesByEntityId.clear();
+    this.paintProbesByEntityId.clear();
+    this.dirtyAssetSlots.clear();
+    for (const binding of this.bindings.values()) {
+      binding.consumerCount = 0;
+      binding.renderObjectCount = 0;
+      binding.placeholderCount = 0;
+    }
+    this.dirtyImageLanes.clear();
+    this.standaloneAssetContainer.removeChildren();
+    this.backgroundAssetContainer.removeChildren();
+    this.contentAssetContainer.removeChildren();
+  }
+
+  private beginFullRebuild(): void {
+    if (this.retainedImagesByEntityId !== null) {
+      throw new Error('PatchMap image full rebuild is already active');
+    }
+    const retained = new Map<string, ImageEntry>();
+    for (const entry of this.images.values()) {
+      this.uncountImageEntry(entry);
+      retained.set(entry.entityId, entry);
+    }
+    this.retainedImagesByEntityId = retained;
+    this.images.clear();
+    this.imageBindingBySlot.clear();
+    this.imageSlotsByBinding.clear();
+    this.imageEntityIdBySlot.clear();
+    this.imageProbesByEntityId.clear();
+    this.paintProbesByEntityId.clear();
+    this.clearTextDisplayObjects();
+  }
+
+  private finishFullRebuild(): void {
+    const retained = this.retainedImagesByEntityId;
+    if (retained === null) return;
+    this.retainedImagesByEntityId = null;
+    for (const entry of retained.values()) this.discardImageEntry(entry);
+  }
+
+  private takeRetainedImage(entityId: string): ImageEntry | undefined {
+    const entry = this.retainedImagesByEntityId?.get(entityId);
+    if (entry !== undefined) this.retainedImagesByEntityId?.delete(entityId);
+    return entry;
+  }
+
+  private clearTextDisplayObjects(): void {
     for (const entry of this.texts.values()) entry.object.destroy();
-    for (const entry of this.images.values()) entry.object.destroy();
     this.texts.clear();
     this.textEntityIdBySlot.length = 0;
     this.textVerticesBySlot.length = 0;
@@ -1568,23 +1705,28 @@ export class AggregateLeafLayer {
     this.dirtyTextChunkKeys.clear();
     this.textChunkOrderDirty = false;
     this.textChunking = false;
-    this.images.clear();
-    this.imageBindingBySlot.clear();
-    this.imageSlotsByBinding.clear();
-    this.imageEntityIdBySlot.clear();
-    this.imageProbesByEntityId.clear();
-    this.paintProbesByEntityId.clear();
-    this.dirtyAssetSlots.clear();
-    for (const binding of this.bindings.values()) {
-      binding.consumerCount = 0;
-      binding.renderObjectCount = 0;
-      binding.placeholderCount = 0;
-    }
-    this.dirtyImageLanes.clear();
     this.textContainer.removeChildren();
-    this.standaloneAssetContainer.removeChildren();
-    this.backgroundAssetContainer.removeChildren();
-    this.contentAssetContainer.removeChildren();
+  }
+
+  private attachImageResource(resource: LeafAssetResource): void {
+    resource.entryCount += 1;
+  }
+
+  private detachImageResource(resource: LeafAssetResource, afterFrame: boolean): void {
+    resource.entryCount -= 1;
+    if (resource.entryCount < 0) throw new Error('PatchMap image resource counter underflow');
+    this.queueResourceRelease(resource, afterFrame);
+  }
+
+  private queueResourceRelease(resource: LeafAssetResource, afterFrame: boolean): void {
+    if (
+      resource.bindingOwned ||
+      resource.entryCount > 0 ||
+      resource.releaseQueued
+    ) return;
+    resource.releaseQueued = true;
+    (afterFrame ? this.framePendingAssetReleases : this.readyAssetReleases)
+      .push(resource.acquisition);
   }
 
   private assertAlive(): void {
