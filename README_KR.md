@@ -71,6 +71,9 @@ frame loop, host 크기 관찰, 최초 fit을 자동으로 소유합니다. `des
 첫 publication은 active distinct image binding만 준비하며, 이후 source
 변경은 새 texture가 준비될 때까지 마지막 resolved texture를 유지한 뒤
 한 프레임에서 교체합니다.
+package가 생성한 canvas는 이 완성된 첫 frame을 render한 뒤에만 DOM에
+설치됩니다. 초기화되지 않은 WebGL drawing buffer를 가리기 위한 host의
+opacity, loading overlay, timeout, polling 우회는 필요하지 않습니다.
 
 `viewport`를 생략하면 기존처럼 일반 wheel도 지도 zoom에 사용합니다.
 `viewport: { wheel: { activationModifier: 'control' } }`을 설정하면 각 wheel

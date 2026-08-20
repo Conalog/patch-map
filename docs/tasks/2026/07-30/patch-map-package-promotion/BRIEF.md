@@ -205,11 +205,26 @@
   The full asset/browser/package/memory gates pass; the known 10 immutable
   render-text fold failures and one current transitive nanoid audit advisory
   remain reported rather than folded into this change.
+- The initial-canvas publication checkpoint keeps the package-created WebGL
+  canvas detached until frame revision 1 has rendered its complete geometry,
+  bar, text, configured background, and settled active images, then attaches it
+  once and activates surface bindings in the same task. Controlled Chromium
+  delays changed pending visible canvas `1 -> 0` and median uninitialized
+  exposure `110.4-303.8ms -> 0ms` across the 3,000/10,000 entity matrix without
+  adding a render, publication, RAF, ticker, API, or steady-frame readiness
+  lookup. Default/custom first pixels, rejection/loss/settlement abort, rapid
+  remount, injected-canvas style/parent restoration, shared leases, memory, and
+  packed functional cleanup pass. Final packed bar-animation medians remain at
+  parity: 5,000/10,000 repeated p95 `29.9/64.2ms -> 27.3/61.0ms` and rAF p95
+  `83.3/134.1ms -> 66.7/133.7ms`; the 10,000 long-task median `14 -> 16`, the 10
+  known immutable render-text fold failures, and the current transitive
+  `nanoid 3.3.16` audit advisory remain explicitly unfavorable.
 
 # Next Step
 
-- Review the completed image-readiness checkpoint and consume exact commit
-  `9eca705` plus its verification commits before any push or Draft PR update.
+- Review the completed initial-canvas checkpoint through runtime commits
+  `cc6220c`, `5c326e1`, and `f5cabe9` plus verification commit `900d04e` before any push or
+  Draft PR update.
   Integrating services should start
   with `PatchMap.mount()`, use `update()` for one owner, queried target sets
   plus columnar `updateBatch()` for repeated batches, and `transaction()` for

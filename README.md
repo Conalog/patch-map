@@ -74,6 +74,9 @@ releases those resources in `destroy()`. Use `backend: 'webgpu'` only for an
 explicit experimental session.
 Its first publication settles only the active distinct image bindings; later
 source changes retain the last resolved texture until an atomic replacement.
+The package-created canvas stays detached until that complete first frame has
+rendered, so hosts do not need an opacity, loading-overlay, timeout, or polling
+workaround to hide an uninitialized WebGL drawing buffer.
 
 Wheel zoom remains modifier-free when `viewport` is omitted. Set
 `viewport: { wheel: { activationModifier: 'control' } }` when only Ctrl+wheel

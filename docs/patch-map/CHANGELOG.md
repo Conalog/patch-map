@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Made the initial WebGL surface publication atomic. Package-created canvases
+  remain detached until the completed first frame has rendered; caller-owned
+  internal canvas injection preserves its parent and inline styles across
+  reveal, rejection, and destroy. No extra render, RAF, ticker, or public API
+  was added.
+
 - Removed visible generic image placeholders. Mount now settles only active
   distinct initial bindings before one coherent first publication, while live
   retargets retain the last resolved texture and swap once the replacement is

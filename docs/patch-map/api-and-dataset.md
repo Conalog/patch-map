@@ -116,9 +116,13 @@ ordered heterogeneous/structural atomic form. There are no parallel `load`,
 surface.
 
 `mount()` selects WebGL2 + Mesh by default, derives the host size, owns one
-frame loop, observes later host resizes, publishes the first visible frame only
-after its active distinct image bindings settle, and cleans those resources in
-`destroy()`. Pass `resizeMode: 'manual'` only when
+frame loop, observes later host resizes, and cleans those resources in
+`destroy()`. Its package-created canvas remains detached while active distinct
+image bindings settle and is installed only after geometry, bars, text,
+background, and resolved images have rendered together once. The first DOM-
+visible pixel therefore uses the configured default or custom background; an
+uninitialized clear buffer is never presented as a PatchMap frame. Pass
+`resizeMode: 'manual'` only when
 the surrounding layout system calls `patchMap.viewport.resize(width, height)`
 itself.
 

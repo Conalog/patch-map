@@ -225,3 +225,23 @@
   icon/background overlays share one visually atomic policy. No per-entity
   listener, ticker, frame loop, or public readiness API was added.
   `capture.png()` continues to wait and protect the exact accepted tuple.
+
+## 2026-08-20 — Install the WebGL canvas only after its first complete render
+
+- **Background:** Visually atomic initial image settlement extended the interval
+  between Pixi initialization and the first publication. The renderer attached
+  its canvas during construction, before any clear or render, so the browser
+  could composite an uninitialized WebGL drawing buffer while mount awaited an
+  active decoder.
+- **Decision:** Keep package-created canvases detached through initialization,
+  initial data projection, active-image settlement, and the first successful
+  render. Attach the rendered canvas once, then activate root interaction,
+  context-loss, and devtools ownership in the same task. Stage an internally
+  injected caller canvas with `visibility: hidden !important`, retain its
+  existing parent, and restore its complete inline style and product marker on
+  publication failure or destroy. Roll a failed activation back before paint.
+- **Impact:** The first DOM-visible surface is the same complete geometry/bar/
+  text/background/image tuple as frame revision 1. Mount failure, renderer loss,
+  and destroy during settlement leave no candidate canvas. No public API,
+  second render, second canvas, timeout, host poll, per-entity object/listener,
+  ticker, or extra RAF was added; steady frames bypass the readiness work.

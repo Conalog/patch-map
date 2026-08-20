@@ -127,6 +127,12 @@ resolved texture until the new binding is ready and swaps it in one owned
 frame. A new image with no resolved predecessor stays pixel-transparent while
 pending or failed; geometry, hit behavior, and diagnostics are not blocked.
 
+Initial surface publication is package-owned too. A package-created canvas is
+not attached to the host until the completed initial frame has rendered. Host
+adapters must not add an opacity toggle, loading canvas, timeout, sleep, or
+publication poll. Mount rejection, renderer loss before the first frame, or
+destroy during asset settlement leaves no candidate canvas in the host.
+
 Canary and rollback selection stay in the host. PatchMap ships compatibility
 materialization and persistence guards, but does not expose renderer-choice or
 shadow-runtime authorities as a competing product API.

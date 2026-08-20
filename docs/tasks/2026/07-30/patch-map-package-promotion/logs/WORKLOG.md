@@ -438,3 +438,53 @@
   It verified authored built-in, hidden, overlay-retargeted, and injected image
   pixels from the installed CJS entry, then released the owned canvas on
   destroy with no reported error.
+
+**2026-08-20**
+
+- **Batch: Atomic initial canvas publication.** Kept package-created Pixi
+  canvases detached until the first complete render, then attached once and
+  activated root interaction, context-loss, and devtools ownership in the same
+  task. Internal caller-canvas injection retains its parent, stages with hidden
+  visibility, and restores every inline declaration plus its prior product
+  marker on abort or destroy. Runtime commits: `cc6220c`, `5c326e1`,
+  `f5cabe9`; controlled browser/performance coverage: `900d04e`.
+- Chromium 143 controlled built-in decoder and direct-network delays observed
+  zero pending DOM canvases and zero black/generic-square pixels. Default and
+  `#123456` backgrounds were the first attach pixels (`250,250,250,255` and
+  `18,52,86,255`) after exactly one render/publication. Failure/retry, rejected
+  mount, forced pre-publication context loss, destroy during settlement, rapid
+  remount, caller canvas style/parent ownership, and two-instance shared leases
+  ended with zero canvas, RAF, observer target, pending resource, and lease
+  residue. Pixi owns one canvas observer; container resize mode adds one
+  package host observer only after publication, and both disconnect on destroy.
+- The final same-Chromium alternating packed 2+7 matrix used `(entities, image
+  leaves, unique bindings)` of `(3000,300,1)`, `(10000,300,1)`,
+  `(10000,3000,1)`, and `(10000,3000,8)`. Baseline-to-candidate median
+  uninitialized-visible time changed `110.4/240.1/261.7/303.8ms` to `0ms`;
+  mount total changed `189.7/319.3/338.9/397.8ms` to
+  `182.0/313.3/349.7/383.1ms`. The `(10000,3000,1)` mount median is the one
+  unfavorable cell at +10.8ms. Pending visible canvas changed `1 -> 0`, while
+  initial render/publication remained `1/1`. Acquire/decode counts remained
+  exactly `1` or `8`, upload proxies `3` or `10`, steady rAF medians stayed
+  `17.1-17.3ms` versus `16.8-17.6ms`, and every load/unload/runtime/canvas
+  cleanup check passed. Forced-GC retained deltas differed by only 1.5-2.1KB;
+  portable GPU retained bytes remain unavailable, so load/unload parity and
+  zero runtime/canvas residue are the ownership proxies.
+- The final existing 5,000/10,000 bar-animation 2+7 gate passed. Repeated-action
+  p95 medians changed `29.9/64.2ms -> 27.3/61.0ms`; rAF p95 medians changed
+  `83.3/134.1ms -> 66.7/133.7ms`. Long-task medians were `3/14 -> 3/16`; the
+  noisy unfavorable 10,000-cell count remains reported. An earlier candidate exposed
+  a steady-frame context lookup/readiness call and recorded an unfavorable
+  `53.4 -> 55.9ms` repeated p95 and `100 -> 116.6ms` rAF p95; the retained
+  output led to `5c326e1`. A final acceptance audit removed even the guarded
+  per-frame readiness branch in `f5cabe9`; the first Pixi render uses a one-shot
+  wrapper that restores the original method, so steady flush follows the exact
+  baseline render path.
+- Focused canvas/root/product tests (18/18), typecheck, scoped lint, production
+  build, dedicated delayed browser gate, and 2+7 memory over 5,099 entities
+  plus nine ownership cycles (116,135-byte retained-heap median) passed. The
+  packed ESM/CJS/types consumer completed 38/38 journeys and cleanup, then the
+  command failed only its already-recorded external audit because transitive
+  `nanoid 3.3.16` is below 3.3.18. The broad unit gate retained the same 10
+  immutable render-text fold failures across four files (194 files / 1,859
+  tests passed); no approved fixture or normalized evidence changed.

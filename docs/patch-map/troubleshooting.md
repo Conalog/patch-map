@@ -15,6 +15,15 @@
 updates. Do not add a second host RAF/ticker. Deterministic publication seams
 belong to package-internal verification and are not part of the consumer API.
 
+## A black canvas flashes during mount
+
+Current PatchMap keeps its package-created canvas detached until the complete
+initial frame has rendered, including the configured background and active
+initial images. Do not hide the host with CSS opacity, add a second canvas, or
+delay visibility with a timer. If an uninitialized clear buffer is visible,
+report the exact packed artifact digest and minimal dataset as a package
+lifecycle defect.
+
 ## Lookup or update is rejected
 
 Queried target sets are detached and revision-bound. Run `targets.query()`
