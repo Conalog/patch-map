@@ -97,6 +97,7 @@ import {
   type PatchMapOptions,
   type PatchMapPointerHoverEvent,
   type PatchMapPointerSelectionChange,
+  type PatchMapPresentationSetResult,
   type PatchMapTargetQuery,
   type PatchMapTheme,
 } from '${PACKAGE_NAME}';
@@ -134,6 +135,16 @@ const capabilities: readonly string[] = PATCH_MAP_HOST_ADAPTER_CAPABILITIES;
 const mount: typeof PatchMapHostAdapter.mount = PatchMapHostAdapter.mount;
 const snapshot: PatchMapDebugSnapshot | null = null;
 declare const mounted: Awaited<ReturnType<typeof PatchMap.mount>>;
+const presentationScope = mounted.targets.query({ type: 'item', scope: 'authored' });
+const presentationResult: PatchMapPresentationSetResult = mounted.presentation.set(
+  'strict:focus',
+  {
+    scope: presentationScope,
+    targets: ['strict-bar-fill'],
+    unmatched: { alphaMultiplier: 0.32 },
+  },
+);
+mounted.presentation.clear('strict:focus');
 const releaseHover = mounted.pointer.onHover((event: PatchMapPointerHoverEvent) => {
   const targetId: string | null = event.target?.id ?? null;
   void targetId;
@@ -183,6 +194,7 @@ void [
   capabilities,
   mount,
   snapshot,
+  presentationResult,
   PatchMapAdvanced,
   releaseHover,
   releasePointerSelection,

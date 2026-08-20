@@ -62,6 +62,18 @@ const map = await PatchMap.mount({
 
 const initial = map.debug.snapshot();
 const bars = map.targets.query({ type: 'bar', scope: 'authored' });
+const presentationDataBefore = map.data.serialize();
+const presentationSet = map.presentation.set('packed:focus', {
+  scope: bars,
+  targets: [],
+  unmatched: { alphaMultiplier: 0.5 },
+});
+const presentationSnapshot = map.debug.snapshot().presentation;
+const presentationCapture = await map.capture.png();
+const presentationClear = map.presentation.clear('packed:focus');
+const presentationClearSnapshot = map.debug.snapshot().presentation;
+const presentationClearCapture = await map.capture.png();
+const presentationDataStable = presentationDataBefore === map.data.serialize();
 const update = map.update({
   id: 'consumer-item',
   bar: { height: 64 },
@@ -152,6 +164,13 @@ window.__PACKAGE_RESULT__ = {
   immutable: before === JSON.stringify(input),
   rootCount: snapshot.length,
   barTargetCount: bars.count,
+  presentationSet,
+  presentationSnapshot,
+  presentationCaptureChanged:
+    presentationCapture.dataUrl !== presentationClearCapture.dataUrl,
+  presentationClear,
+  presentationClearSnapshot,
+  presentationDataStable,
   updateStatus: update.status,
   updatedBarHeight: updatedBar?.value?.size?.height ?? null,
   selection,

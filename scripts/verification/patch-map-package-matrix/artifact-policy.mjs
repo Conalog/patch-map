@@ -5,6 +5,7 @@ const EXAMPLES = Object.freeze(['minimal', 'dashboard', 'editor', 'report']);
 export const EXAMPLE_FILES = Object.freeze([
   'host-adapter.ts',
   ...EXAMPLES.map((name) => `${name}.ts`),
+  'presentation.ts',
 ]);
 
 const PUBLIC_DOCS = Object.freeze([

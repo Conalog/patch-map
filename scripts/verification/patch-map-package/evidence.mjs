@@ -28,6 +28,16 @@ export function collectPackageFailures({
     esm.transactionStatus !== 'committed'
   ) failures.push('packed ESM public mutation/selection/history boundary failed');
   if (
+    esm.presentationSet?.changed !== true ||
+    esm.presentationSet?.scopeCount !== 1 ||
+    esm.presentationSet?.unmatchedCount !== 1 ||
+    esm.presentationSnapshot?.layerCount !== 1 ||
+    esm.presentationCaptureChanged !== true ||
+    esm.presentationClear !== true ||
+    esm.presentationClearSnapshot?.layerCount !== 0 ||
+    esm.presentationDataStable !== true
+  ) failures.push('packed ESM keyed presentation/capture boundary failed');
+  if (
     esm.serializedMatches !== true ||
     esm.roundtripSemanticHashEqual !== true ||
     esm.legacySourceKind !== 'legacy-generic-item'
