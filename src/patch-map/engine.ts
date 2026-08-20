@@ -24,6 +24,10 @@ import type {
   PatchMapPresentationPolicyInput,
   PatchMapPresentationPolicyProductProbe,
 } from './presentation-policy';
+import type {
+  PatchMapLogicalPresentationLayerInput,
+  PatchMapPresentationLayerChange,
+} from './presentation-layers';
 import {
   PATCH_MAP_VIEWPORT_REVISION,
   patchMapBoundsCenter,
@@ -543,6 +547,7 @@ const PATCH_MAP_QUERY_REUSE_OPERATIONS = Object.freeze([
   'update',
   'event-bind',
   'focus',
+  'presentation',
   'transform',
   'select',
 ] as const satisfies readonly PatchMapQueryReuseOperation[]);
@@ -629,6 +634,7 @@ export class PatchMap {
   public readonly targets: PatchMapApi['targets'];
   public readonly pointer: PatchMapApi['pointer'];
   public readonly selection: PatchMapApi['selection'];
+  public readonly presentation: PatchMapApi['presentation'];
   public readonly transform: PatchMapApi['transform'];
   public readonly viewport: PatchMapApi['viewport'];
   public readonly history: PatchMapApi['history'];
@@ -945,6 +951,10 @@ export class PatchMap {
       materialized: () => this.materialized,
       datasetRef: () => this.datasetRef,
       selectionIds: () => this.logicalSelectionIds,
+      presentationSnapshot: () => this.surface?.presentationLayersSnapshot?.() ?? Object.freeze({
+        revision: 0,
+        layerCount: 0,
+      }),
       componentSemantic: (ownerId, componentId) => this.componentSemantics.get(
         componentSemanticKey(ownerId, componentId),
       ) ?? null,
@@ -995,6 +1005,7 @@ export class PatchMap {
     this.targets = api.targets;
     this.pointer = api.pointer;
     this.selection = api.selection;
+    this.presentation = api.presentation;
     this.transform = api.transform;
     this.viewport = api.viewport;
     this.history = api.history;
@@ -2758,6 +2769,34 @@ export class PatchMap {
       );
     }
     return surface.presentationPolicyProbe();
+  }
+
+  public setPresentationLayer(
+    input: PatchMapLogicalPresentationLayerInput,
+  ): PatchMapPresentationLayerChange {
+    const surface = this.requireSurface('setPresentationLayer');
+    if (!surface.setPresentationLayer) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'setPresentationLayer',
+        false,
+      );
+    }
+    return surface.setPresentationLayer(input);
+  }
+
+  public clearPresentationLayer(key: string): PatchMapPresentationLayerChange {
+    const surface = this.requireSurface('clearPresentationLayer');
+    if (!surface.clearPresentationLayer) {
+      throw this.operationError(
+        'UNSUPPORTED_RUNTIME',
+        'UNSUPPORTED_RUNTIME',
+        'clearPresentationLayer',
+        false,
+      );
+    }
+    return surface.clearPresentationLayer(key);
   }
 
   public applyLiveOverlay(input: PatchMapLiveOverlayInput): PatchMapLiveOverlayResult {
@@ -6300,6 +6339,7 @@ function publicPatchMapInstance(engine: PatchMap): PatchMapInstance {
     targets: engine.targets,
     pointer: engine.pointer,
     selection: engine.selection,
+    presentation: engine.presentation,
     transform: engine.transform,
     viewport: engine.viewport,
     history: engine.history,

@@ -9,6 +9,7 @@ import type { PatchMapComponentRenderRole } from '../contracts';
 import type { PatchMapHistoryState } from '../history';
 import type { PatchMapInteractionMode } from '../host-interaction';
 import type { PatchMapLogicalTargetSnapshot } from '../query-selection';
+import type { PatchMapPresentationLayerSnapshot } from '../presentation-layers';
 import type { PatchMapPixiRendererLossProbe, PatchMapRenderLaneRole } from '../renderers/types';
 import type { MaterializedPatchMapDataset } from '../semantic/dataset';
 import {
@@ -66,6 +67,7 @@ export interface PatchMapEngineProductProbeReadPort {
   materialized(): MaterializedPatchMapDataset | null;
   datasetRef(): string | null;
   selectionIds(): readonly string[];
+  presentationSnapshot(): PatchMapPresentationLayerSnapshot;
   componentSemantic(
     ownerId: string,
     componentId: string,
@@ -136,6 +138,7 @@ export function readPatchMapEngineSnapshot(
     zoomLimits: viewport.zoomLimits,
     viewport: viewport.viewport,
     selectionIds: state.selectionIds(),
+    presentation: state.presentationSnapshot(),
     interaction: Object.freeze({
       mode: state.interactionMode(),
       staleGestureCount: state.staleGestureCount(),

@@ -67,6 +67,7 @@ import type {
   PatchMapResolvedPresentationPolicy,
 } from '../presentation-policy';
 import type { PatchMapPresentationSlotVisibility } from '../presentation';
+import type { PatchMapPresentationLayerRenderUpdate } from '../presentation-layers';
 import {
   PatchMapPresentationStoreView,
   type PatchMapRendererEntityPresentationOverride,
@@ -252,6 +253,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private lastStore: RenderStoreView | null = null;
   private lastSourceStore: RenderStoreView | null = null;
   private presentationPolicy: PatchMapResolvedPresentationPolicy | null = null;
+  private presentationLayerRevision = 0;
+  private presentationLayerCount = 0;
+  private readonly presentationAlphaMultipliers = new Map<string, number>();
   private instancePresentationOverrides: ReadonlyMap<
     string,
     PatchMapRendererEntityPresentationOverride
@@ -623,13 +627,18 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     const normalized = policy === null ? null : normalizePresentationPolicy(policy);
     if (samePresentationPolicy(this.presentationPolicy, normalized)) return false;
     const nextPresentationStore =
-      (normalized === null && this.instancePresentationOverrides.size === 0) ||
+      (
+        normalized === null &&
+        this.instancePresentationOverrides.size === 0 &&
+        this.presentationAlphaMultipliers.size === 0
+      ) ||
       this.lastSourceStore === null
       ? null
       : new PatchMapPresentationStoreView(
           this.lastSourceStore,
           normalized,
           this.instancePresentationOverrides,
+          this.presentationAlphaMultipliers,
         );
     const nextPresentationBaseStore = nextPresentationStore === null
       ? null
@@ -648,6 +657,67 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     return true;
   }
 
+  /** @internal Apply one keyed-layer composition delta without rebuilding the view. */
+  public setPresentationLayerMultipliers(
+    update: PatchMapPresentationLayerRenderUpdate,
+  ): boolean {
+    this.assertAlive();
+    if (update.entityIds.length !== update.alphaMultipliers.length) {
+      throw new RangeError('presentation layer multiplier columns must have equal length');
+    }
+    if (update.full) this.presentationAlphaMultipliers.clear();
+    for (let index = 0; index < update.entityIds.length; index += 1) {
+      const entityId = update.entityIds[index]!;
+      const multiplier = update.alphaMultipliers[index]!;
+      if (Object.is(multiplier, 1)) this.presentationAlphaMultipliers.delete(entityId);
+      else this.presentationAlphaMultipliers.set(entityId, multiplier);
+    }
+    this.presentationLayerRevision = update.revision;
+    this.presentationLayerCount = update.layerCount;
+
+    const ranges = update.full ? undefined : update.dirtyRanges ?? [];
+    if (this.lastSourceStore !== null) {
+      const needsView = this.presentationPolicy !== null ||
+        this.instancePresentationOverrides.size > 0 ||
+        this.presentationAlphaMultipliers.size > 0;
+      if (!needsView) {
+        this.presentationStore = null;
+        this.presentationBaseStore = null;
+      } else if (
+        this.presentationStore === null ||
+        this.presentationBaseStore !== this.lastSourceStore ||
+        this.presentationStore.capacity !== this.lastSourceStore.capacity
+      ) {
+        this.presentationStore = new PatchMapPresentationStoreView(
+          this.lastSourceStore,
+          this.presentationPolicy,
+          this.instancePresentationOverrides,
+          this.presentationAlphaMultipliers,
+        );
+        this.presentationBaseStore = this.lastSourceStore;
+      } else {
+        this.presentationStore.synchronize(
+          this.lastSourceStore,
+          this.presentationPolicy,
+          ranges,
+          this.instancePresentationOverrides,
+          this.presentationAlphaMultipliers,
+        );
+      }
+    }
+    this.pendingRanges = ranges === undefined || this.pendingRanges === undefined
+      ? undefined
+      : mergeRanges(this.pendingRanges, ranges);
+    this.pendingOverlayRanges = ranges === undefined || this.pendingOverlayRanges === undefined
+      ? undefined
+      : mergeRanges(this.pendingOverlayRanges, ranges);
+    this.pendingProjectionTransformOnly = false;
+    this.pendingBarPresentationOnly = false;
+    this.pendingTextOnly = false;
+    this.lastInvalidation = `presentation-layer:${update.revision}`;
+    return true;
+  }
+
   /** @internal Publish sparse instance presentation values into aggregate columns. */
   public setInstancePresentationOverrides(
     overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
@@ -657,15 +727,24 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.instancePresentationOverrides = overrides;
     if (this.lastSourceStore !== null) {
       if (this.presentationStore === null) {
-        if (overrides.size > 0 || this.presentationPolicy !== null) {
+        if (
+          overrides.size > 0 ||
+          this.presentationPolicy !== null ||
+          this.presentationAlphaMultipliers.size > 0
+        ) {
           this.presentationStore = new PatchMapPresentationStoreView(
             this.lastSourceStore,
             this.presentationPolicy,
             overrides,
+            this.presentationAlphaMultipliers,
           );
           this.presentationBaseStore = this.lastSourceStore;
         }
-      } else if (overrides.size === 0 && this.presentationPolicy === null) {
+      } else if (
+        overrides.size === 0 &&
+        this.presentationPolicy === null &&
+        this.presentationAlphaMultipliers.size === 0
+      ) {
         this.presentationStore = null;
         this.presentationBaseStore = null;
       } else {
@@ -674,6 +753,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
           this.presentationPolicy,
           changedRanges,
           overrides,
+          this.presentationAlphaMultipliers,
         );
       }
       this.pendingRanges = changedRanges === undefined || this.pendingRanges === undefined
@@ -703,7 +783,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     if (active !== null && active !== undefined) {
       return Object.freeze({ entityId, ...active });
     }
-    const store = this.presentationPolicy === null
+    const store = this.presentationPolicy === null && this.presentationAlphaMultipliers.size === 0
       ? this.lastSourceStore ?? this.lastStore
       : this.presentationStore;
     if (store === null) return null;
@@ -1138,17 +1218,29 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private presentationStoreFor(store: RenderStoreView): RenderStoreView {
     const policy = this.presentationPolicy;
     const overrides = this.instancePresentationOverrides;
-    if (policy === null && overrides.size === 0) return store;
+    const alphaMultipliers = this.presentationAlphaMultipliers;
+    if (policy === null && overrides.size === 0 && alphaMultipliers.size === 0) return store;
     if (
       this.presentationStore === null ||
       this.presentationBaseStore !== store ||
       this.presentationStore.capacity !== store.capacity
     ) {
-      this.presentationStore = new PatchMapPresentationStoreView(store, policy, overrides);
+      this.presentationStore = new PatchMapPresentationStoreView(
+        store,
+        policy,
+        overrides,
+        alphaMultipliers,
+      );
       this.presentationBaseStore = store;
       return this.presentationStore;
     }
-    this.presentationStore.synchronize(store, policy, this.pendingRanges, overrides);
+    this.presentationStore.synchronize(
+      store,
+      policy,
+      this.pendingRanges,
+      overrides,
+      alphaMultipliers,
+    );
     return this.presentationStore;
   }
 
@@ -1594,6 +1686,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       lastInvalidation: this.lastInvalidation,
       storeEpoch: this.storeEpoch,
       presentationPolicy: this.presentationPolicy,
+      presentationLayerRevision: this.presentationLayerRevision,
+      presentationLayerCount: this.presentationLayerCount,
+      presentationAlphaMultipliers: new Map(this.presentationAlphaMultipliers),
       instancePresentationOverrides: this.instancePresentationOverrides,
       presentationStore: this.presentationStore,
       presentationBaseStore: this.presentationBaseStore,
@@ -1619,6 +1714,12 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.lastInvalidation = checkpoint.lastInvalidation;
     this.storeEpoch = checkpoint.storeEpoch;
     this.presentationPolicy = checkpoint.presentationPolicy;
+    this.presentationLayerRevision = checkpoint.presentationLayerRevision;
+    this.presentationLayerCount = checkpoint.presentationLayerCount;
+    this.presentationAlphaMultipliers.clear();
+    for (const [entityId, multiplier] of checkpoint.presentationAlphaMultipliers) {
+      this.presentationAlphaMultipliers.set(entityId, multiplier);
+    }
     this.instancePresentationOverrides = checkpoint.instancePresentationOverrides;
     this.presentationStore = checkpoint.presentationStore;
     this.presentationBaseStore = checkpoint.presentationBaseStore;
@@ -1699,6 +1800,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.overlayPaintBoundsProjection = null;
     this.overlayPaintBoundsIndex = new Map();
     this.presentationPolicy = null;
+    this.presentationLayerRevision = 0;
+    this.presentationLayerCount = 0;
+    this.presentationAlphaMultipliers.clear();
     this.presentationStore = null;
     this.presentationBaseStore = null;
     this.pendingRanges = [];

@@ -152,6 +152,10 @@ export interface PatchMapEngineSnapshot {
   readonly zoomLimits: readonly [number, number];
   readonly viewport: PatchMapViewportState;
   readonly selectionIds: readonly string[];
+  readonly presentation: Readonly<{
+    readonly revision: number;
+    readonly layerCount: number;
+  }>;
   readonly interaction: Readonly<{
     readonly mode: PatchMapInteractionMode;
     readonly staleGestureCount: number;

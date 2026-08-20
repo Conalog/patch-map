@@ -184,6 +184,40 @@ export type PatchMapTargetsInput =
   | readonly PatchMapTarget[]
   | PatchMapTargetSet;
 
+/** Existing logical target grammar reused by renderer-only presentation layers. */
+export type PatchMapPresentationTargetsInput =
+  | string
+  | readonly string[]
+  | PatchMapTargetsInput;
+
+/** MVP renderer-only paint. It never changes visibility or hit identity. */
+export interface PatchMapPresentationPaint {
+  readonly alphaMultiplier: number;
+}
+
+/** One atomic snapshot partitioning a queried logical scope into two paint branches. */
+export interface PatchMapPresentationLayer {
+  readonly scope: PatchMapTargetSet;
+  readonly targets: PatchMapPresentationTargetsInput;
+  readonly matched?: PatchMapPresentationPaint;
+  readonly unmatched?: PatchMapPresentationPaint;
+}
+
+export interface PatchMapPresentationSetResult {
+  readonly changed: boolean;
+  readonly revision: number;
+  readonly scopeCount: number;
+  readonly targetCount: number;
+  readonly matchedCount: number;
+  readonly unmatchedCount: number;
+  readonly ignoredTargetCount: number;
+}
+
+export interface PatchMapPresentationApi {
+  set(key: string, layer: PatchMapPresentationLayer): PatchMapPresentationSetResult;
+  clear(key: string): boolean;
+}
+
 export type PatchMapSelectionInput =
   | string
   | readonly string[]
@@ -618,6 +652,7 @@ export interface PatchMapApi {
   readonly targets: PatchMapTargetsApi;
   readonly pointer: PatchMapPointerApi;
   readonly selection: PatchMapSelectionApi;
+  readonly presentation: PatchMapPresentationApi;
   readonly transform: PatchMapTransformApi;
   readonly viewport: PatchMapViewportApi;
   readonly history: PatchMapHistoryApi;

@@ -57,6 +57,11 @@ import type {
   PatchMapUpdateTargetsInput,
 } from './developer-api/contracts';
 import { createPatchMapMutationApi } from './developer-api/mutations';
+import { createPatchMapPresentationApi } from './developer-api/presentation';
+import type {
+  PatchMapLogicalPresentationLayerInput,
+  PatchMapPresentationLayerChange,
+} from './presentation-layers';
 import type { PatchMapTransformerEditRequest } from './transformer-edit';
 import { normalizePatchMapViewportPadding } from './viewport';
 
@@ -77,7 +82,10 @@ interface PatchMapApiHost {
   ): PatchMapEngineInstanceBarHeightResult;
   updateTexts(request: PatchMapTextBatchRequest): PatchMapEngineTransactionResult;
   queryScene(input?: PatchMapSceneQuery): PatchMapEngineQueryResult;
-  reuseQueryResult(result: PatchMapEngineQueryResult, operation: 'update' | 'focus' | 'select'): {
+  reuseQueryResult(
+    result: PatchMapEngineQueryResult,
+    operation: 'update' | 'focus' | 'select' | 'presentation',
+  ): {
     readonly status: 'accepted' | 'rejected';
   };
   on(
@@ -120,11 +128,14 @@ interface PatchMapApiHost {
   }>;
   captureManagedPng(): Promise<PatchMapEngineExtractionResult>;
   snapshot(): PatchMapEngineSnapshot;
+  setPresentationLayer(input: PatchMapLogicalPresentationLayerInput): PatchMapPresentationLayerChange;
+  clearPresentationLayer(key: string): PatchMapPresentationLayerChange;
 }
 
 interface TargetSetAuthority {
   readonly query: PatchMapEngineQueryResult;
   readonly logical: readonly PatchMapLogicalTargetSnapshot[];
+  readonly logicalByKey: ReadonlyMap<string, PatchMapLogicalTargetSnapshot>;
 }
 
 interface LogicalTargetAddressIndex {
@@ -274,7 +285,7 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
 
   const assertReusable = (
     targets: PatchMapTargetSet,
-    operation: 'update' | 'focus' | 'select',
+    operation: 'update' | 'focus' | 'select' | 'presentation',
   ): TargetSetAuthority => {
     const authority = targetSets.get(targets);
     if (authority === undefined) {
@@ -418,8 +429,18 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
         matches: Object.freeze(logical.map(targetMatch)),
         count: logical.length,
       });
-      targetSets.set(result, Object.freeze({ query, logical }));
+      targetSets.set(result, Object.freeze({
+        query,
+        logical,
+        logicalByKey: new Map(logical.map((target) => [target.key, target])),
+      }));
       return result;
+    },
+  });
+
+  const presentation = createPatchMapPresentationApi(host, {
+    targetSetAuthority(targetSet) {
+      return assertReusable(targetSet, 'presentation');
     },
   });
 
@@ -585,6 +606,7 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     targets,
     pointer,
     selection,
+    presentation,
     transform,
     viewport,
     history,

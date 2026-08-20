@@ -31,6 +31,7 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
   private base: RenderStoreView;
   private policy: PatchMapResolvedPresentationPolicy | null;
   private overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+  private alphaMultipliers: ReadonlyMap<string, number>;
   private readonly highlighted = new Set<string>();
   private readonly hidden = new Set<string>();
   private readonly fillOverrides = new Map<string, number>();
@@ -51,10 +52,12 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     base: RenderStoreView,
     policy: PatchMapResolvedPresentationPolicy | null,
     overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride> = new Map(),
+    alphaMultipliers: ReadonlyMap<string, number> = new Map(),
   ) {
     this.base = base;
     this.policy = policy;
     this.overrides = overrides;
+    this.alphaMultipliers = alphaMultipliers;
     this.kind = new Uint8Array(base.capacity);
     this.flags = new Uint8Array(base.capacity);
     this.opacity = new Float32Array(base.capacity);
@@ -66,7 +69,7 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     this.tint = new Uint32Array(base.capacity);
     this.trackFill = new Uint32Array(base.capacity);
     this.align = new Uint8Array(base.capacity);
-    this.synchronize(base, policy, undefined, overrides);
+    this.synchronize(base, policy, undefined, overrides, alphaMultipliers);
   }
 
   public get capacity(): number {
@@ -186,6 +189,7 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     policy: PatchMapResolvedPresentationPolicy | null,
     ranges?: readonly Readonly<{ readonly start: number; readonly end: number }>[],
     overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride> = this.overrides,
+    alphaMultipliers: ReadonlyMap<string, number> = this.alphaMultipliers,
   ): void {
     if (base.capacity !== this.flags.length) {
       throw new RangeError('presentation store capacity changed');
@@ -193,6 +197,7 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     this.base = base;
     this.policy = policy;
     this.overrides = overrides;
+    this.alphaMultipliers = alphaMultipliers;
     replaceSet(this.highlighted, policy?.highlightedEntityIds ?? []);
     replaceSet(this.hidden, policy?.hiddenEntityIds ?? []);
     replaceFillOverrides(this.fillOverrides, policy?.fillOverrides ?? []);
@@ -253,11 +258,12 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
   }
 
   private emphasis(entityId: string): number {
-    return this.policy === null ||
+    const policyMultiplier = this.policy === null ||
       this.policy.highlightedEntityIds === null ||
       this.highlighted.has(entityId)
       ? 1
       : this.policy.deEmphasisAlpha;
+    return policyMultiplier * (this.alphaMultipliers.get(entityId) ?? 1);
   }
 }
 

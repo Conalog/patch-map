@@ -5,6 +5,7 @@ import { sameStringArray } from '../shared/string-array-values';
 import type { PatchMapReconcileOptions } from './contracts';
 import type { PatchMapIndexedComponentTarget } from './published-scene-state';
 import { patchMapComponentProbeTargetKey } from './product-probe-reader';
+import type { PatchMapMutationTarget } from '../semantic/transaction';
 
 /**
  * Project semantic reconcile permissions and selection onto dense store IDs.
@@ -96,6 +97,59 @@ export function semanticSelectionDenseIds(
     }
   });
   return Object.freeze([...denseIds]);
+}
+
+/** Resolve explicit element/component targets in one indexed pass. */
+export function semanticTargetsDenseIds(
+  parse: ParsePatchMapResult,
+  targets: readonly PatchMapMutationTarget[],
+  componentTargets?: ReadonlyMap<string, PatchMapIndexedComponentTarget | null>,
+): readonly string[] {
+  const elementIds = new Set<string>();
+  const componentKeys = new Set<string>();
+  for (const target of targets) {
+    if (target.kind === 'element') elementIds.add(target.id);
+    else componentKeys.add(patchMapComponentProbeTargetKey({
+      ownerId: target.ownerId,
+      componentId: target.id,
+    }));
+  }
+
+  const denseIds = new Set<string>();
+  for (const elementId of elementIds) {
+    if (Object.hasOwn(parse.identity.entitySourceById, elementId)) denseIds.add(elementId);
+    for (const entityId of parse.identity.entityIdsBySourceId[elementId] ?? []) {
+      if (Object.hasOwn(parse.identity.entitySourceById, entityId)) denseIds.add(entityId);
+    }
+  }
+  const unresolvedComponentKeys = new Set(componentKeys);
+  if (componentTargets !== undefined) {
+    for (const key of componentKeys) {
+      const indexed = componentTargets.get(key);
+      if (indexed) {
+        denseIds.add(indexed.entityId);
+        unresolvedComponentKeys.delete(key);
+      }
+    }
+  }
+  if (unresolvedComponentKeys.size > 0) {
+    for (const component of Object.values(parse.projection.componentsByEntityId ?? {})) {
+      const semanticOwnerId =
+        parse.identity.entitySourceById[component.entityId]?.sourceElementId ?? component.ownerId;
+      const directKey = patchMapComponentProbeTargetKey({
+        ownerId: component.ownerId,
+        componentId: component.componentId,
+      });
+      const semanticKey = patchMapComponentProbeTargetKey({
+        ownerId: semanticOwnerId,
+        componentId: component.componentId,
+      });
+      if (unresolvedComponentKeys.has(directKey) || unresolvedComponentKeys.has(semanticKey)) {
+        denseIds.add(component.entityId);
+      }
+    }
+  }
+  return Object.freeze([...denseIds].sort());
 }
 
 /** Resolve semantic fill overrides to deterministic dense background targets. */

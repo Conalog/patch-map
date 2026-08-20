@@ -61,6 +61,7 @@ export type PatchMapQueryReuseOperation =
   | 'update'
   | 'event-bind'
   | 'focus'
+  | 'presentation'
   | 'transform'
   | 'select';
 

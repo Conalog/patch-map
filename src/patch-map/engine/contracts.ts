@@ -22,6 +22,11 @@ import type {
   PatchMapPresentationPolicyInput,
   PatchMapPresentationPolicyProductProbe,
 } from '../presentation-policy';
+import type {
+  PatchMapLogicalPresentationLayerInput,
+  PatchMapPresentationLayerChange,
+  PatchMapPresentationLayerSnapshot,
+} from '../presentation-layers';
 import type { PatchMapPaintOrderProductProbe } from '../paint-order-product';
 import type { PatchMapPointerInput } from '../pointer-gesture';
 import type {
@@ -263,6 +268,11 @@ export interface PatchMapEngineSurface {
   ): PatchMapPresentationPolicyProductProbe;
   clearPresentationPolicy?(): PatchMapPresentationPolicyProductProbe;
   presentationPolicyProbe?(): PatchMapPresentationPolicyProductProbe;
+  setPresentationLayer?(
+    input: PatchMapLogicalPresentationLayerInput,
+  ): PatchMapPresentationLayerChange;
+  clearPresentationLayer?(key: string): PatchMapPresentationLayerChange;
+  presentationLayersSnapshot?(): PatchMapPresentationLayerSnapshot;
   refreshSemanticTargets?(
     targets: readonly PatchMapSemanticTarget[],
     options?: Readonly<{ readonly strict?: boolean }>,

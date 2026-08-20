@@ -10,8 +10,9 @@ import type {
 /**
  * CPU-only renderer publication state that a scene load may replace before
  * its authoritative publication succeeds. The checkpoint deliberately keeps
- * the exact retained references: none of these values are mutated in place by
- * the load-side publication methods.
+ * exact retained references where publication replaces state. The keyed
+ * multiplier map is the one mutable retained column, so its checkpoint is an
+ * owned copy that is replayed into the stable renderer map on rollback.
  *
  * This is an internal rollback seam, not a serialized or public package API.
  */
@@ -27,6 +28,9 @@ export interface PatchMapPixiRendererPublicationCheckpoint {
   readonly lastInvalidation: string;
   readonly storeEpoch: number;
   readonly presentationPolicy: PatchMapResolvedPresentationPolicy | null;
+  readonly presentationLayerRevision: number;
+  readonly presentationLayerCount: number;
+  readonly presentationAlphaMultipliers: ReadonlyMap<string, number>;
   readonly instancePresentationOverrides: ReadonlyMap<
     string,
     PatchMapRendererEntityPresentationOverride

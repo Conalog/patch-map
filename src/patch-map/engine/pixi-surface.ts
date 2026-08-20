@@ -19,6 +19,11 @@ import type {
   PatchMapPresentationPolicyInput,
   PatchMapPresentationPolicyProductProbe,
 } from '../presentation-policy';
+import type {
+  PatchMapLogicalPresentationLayerInput,
+  PatchMapPresentationLayerChange,
+  PatchMapPresentationLayerSnapshot,
+} from '../presentation-layers';
 import type { PatchMapPaintOrderProductProbe } from '../paint-order-product';
 import type { SceneSnapshot } from '../dense/contracts';
 import type {
@@ -454,6 +459,20 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
 
   public presentationPolicyProbe(): PatchMapPresentationPolicyProductProbe {
     return this.core.presentationPolicyProbe();
+  }
+
+  public setPresentationLayer(
+    input: PatchMapLogicalPresentationLayerInput,
+  ): PatchMapPresentationLayerChange {
+    return this.core.setPresentationLayer(input);
+  }
+
+  public clearPresentationLayer(key: string): PatchMapPresentationLayerChange {
+    return this.core.clearPresentationLayer(key);
+  }
+
+  public presentationLayersSnapshot(): PatchMapPresentationLayerSnapshot {
+    return this.core.presentationLayersSnapshot();
   }
 
   public refreshSemanticTargets(

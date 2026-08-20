@@ -163,6 +163,12 @@ import {
   type PatchMapStoredInstancePresentation,
 } from './core/instance-presentation-overlay';
 import type { PatchMapRendererEntityPresentationOverride } from './renderers/presentation-store';
+import {
+  PatchMapPresentationLayerAuthority,
+  type PatchMapLogicalPresentationLayerInput,
+  type PatchMapPresentationLayerChange,
+  type PatchMapPresentationLayerSnapshot,
+} from './presentation-layers';
 
 export { normalizePatchMapTextTarget } from './core/contracts';
 export type * from './core/contracts';
@@ -186,6 +192,7 @@ export class PatchMapRuntime {
   private readonly sceneImages: PatchMapSceneImageController;
   private readonly loadAuthority: PatchMapLoadAuthority;
   private readonly barPresentation = new PatchMapBarPresentationAuthority();
+  private readonly presentationLayers = new PatchMapPresentationLayerAuthority();
   private readonly parseOptions: ParsePatchMapOptions;
   private readonly onTerminalFailure: ((error: Error) => void) | undefined;
   private readonly stableRecordStrategy: PatchMapStableRecordStrategy;
@@ -527,6 +534,7 @@ export class PatchMapRuntime {
       imagePlan,
       rendererCheckpoint,
     } = prepared;
+    const presentationLayersCheckpoint = this.presentationLayers.capture();
     let previousPublished: PatchMapPublishedScenePrevious;
     try {
       previousPublished = this.publishedScene.publish(candidate);
@@ -538,6 +546,10 @@ export class PatchMapRuntime {
     this.installLoadedRuntimeState(nextRuntime);
     this.loadAuthority.beginPublicationSideEffects();
     try {
+      const clearedPresentationLayers = this.presentationLayers.clearAll();
+      if (clearedPresentationLayers.changed) {
+        this.renderer.setPresentationLayerMultipliers(clearedPresentationLayers.render);
+      }
       const presentation = this.barPresentation.visibleProjection;
       if (presentation === null) {
         throw new Error('PatchMap load candidate has no presentation projection');
@@ -553,6 +565,7 @@ export class PatchMapRuntime {
       nextRuntime.spatialHit.invalidate();
       this.renderer.markChanges(store.changedRanges, 'load', { fullRebuild: true });
     } catch (error) {
+      this.presentationLayers.restore(presentationLayersCheckpoint);
       const restored = this.rollbackLoadedProjection(
         previousPublished,
         previousRuntime,
@@ -567,6 +580,7 @@ export class PatchMapRuntime {
     try {
       this.sceneImages.commitReconcile(imagePlan);
     } catch (error) {
+      this.presentationLayers.restore(presentationLayersCheckpoint);
       this.rollbackLoadedProjection(
         previousPublished,
         previousRuntime,
@@ -864,6 +878,14 @@ export class PatchMapRuntime {
       }),
     );
     const publicationRanges = mergeSlotRanges(commit.changedRanges, overlayDirtyRanges);
+    const presentationLayerUpdate = mappingReusable ||
+      this.presentationLayers.snapshot().layerCount === 0
+      ? null
+      : this.presentationLayers.reproject(
+          parse,
+          candidateComponentTargets,
+          this.scene,
+        );
     this.updatePublishedScene({
       parse,
       transientIncrementalParse: null,
@@ -887,6 +909,9 @@ export class PatchMapRuntime {
       overlayPlan?.rendererOverrides ?? new Map(),
       publicationRanges,
     );
+    if (presentationLayerUpdate !== null) {
+      this.renderer.setPresentationLayerMultipliers(presentationLayerUpdate);
+    }
     if (isLargePatchMapAnimatedBarBatch(this.barPresentation.activeCount)) {
       this.renderer.setAggregateCullPrecision(false);
     }
@@ -1361,6 +1386,38 @@ export class PatchMapRuntime {
     this.spatialHit.invalidate();
     this.framePublication.invalidate('presentation-policy');
     return this.presentationPolicyProbe();
+  }
+
+  public setPresentationLayer(
+    input: PatchMapLogicalPresentationLayerInput,
+  ): PatchMapPresentationLayerChange {
+    this.assertAlive();
+    const parse = this.parseResultValue;
+    if (parse === null) throw new Error('presentation layers require a loaded PatchMap scene');
+    const change = this.presentationLayers.set(
+      input,
+      parse,
+      this.componentTargets,
+      this.scene,
+    );
+    if (!change.changed) return change;
+    this.renderer.setPresentationLayerMultipliers(change.render);
+    this.framePublication.invalidate(`presentation-layer:${input.key}`);
+    return change;
+  }
+
+  public clearPresentationLayer(key: string): PatchMapPresentationLayerChange {
+    this.assertAlive();
+    const change = this.presentationLayers.clear(key, this.scene);
+    if (!change.changed) return change;
+    this.renderer.setPresentationLayerMultipliers(change.render);
+    this.framePublication.invalidate(`presentation-layer:${key}:clear`);
+    return change;
+  }
+
+  public presentationLayersSnapshot(): PatchMapPresentationLayerSnapshot {
+    this.assertAlive();
+    return this.presentationLayers.snapshot();
   }
 
   public clearPresentationPolicy(): PatchMapPresentationPolicyProductProbe {
@@ -1958,6 +2015,7 @@ export class PatchMapRuntime {
     this.rootInteraction.destroy();
     this.spatialHit.destroy();
     this.barPresentation.destroy();
+    this.presentationLayers.destroy();
     const cleanupFailures: Error[] = [];
     try {
       await this.sceneImages.destroy();
