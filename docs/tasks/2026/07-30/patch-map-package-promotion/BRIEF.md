@@ -223,8 +223,11 @@
 # Next Step
 
 - Review the completed initial-canvas checkpoint through runtime commits
-  `cc6220c`, `5c326e1`, and `f5cabe9` plus verification commit `900d04e` before any push or
-  Draft PR update.
+  `cc6220c`, `5c326e1`, and `f5cabe9` plus verification commit `900d04e`
+  before any push or Draft PR update. The exact packed handoff is
+  `.perf-results/patch-map/canvas-readiness/handoff/conalog-patch-map-0.10.0.tgz`
+  with SHA-256
+  `59ccd87f853425f1ca1e7f1535b5dae0f5952ffd2fea757bebf44336f87e6c00`.
   Integrating services should start
   with `PatchMap.mount()`, use `update()` for one owner, queried target sets
   plus columnar `updateBatch()` for repeated batches, and `transaction()` for

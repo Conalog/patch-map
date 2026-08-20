@@ -488,3 +488,9 @@
   `nanoid 3.3.16` is below 3.3.18. The broad unit gate retained the same 10
   immutable render-text fold failures across four files (194 files / 1,859
   tests passed); no approved fixture or normalized evidence changed.
+- The final installed-package smoke passed against
+  `.perf-results/patch-map/canvas-readiness/handoff/conalog-patch-map-0.10.0.tgz`
+  (`sha256:59ccd87f853425f1ca1e7f1535b5dae0f5952ffd2fea757bebf44336f87e6c00`).
+  The fresh offline consumer resolved the packed CJS entry, verified authored,
+  hidden, retargeted, and injected image pixels, and destroyed its only canvas
+  with zero browser errors.
