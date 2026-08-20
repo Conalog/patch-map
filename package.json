@@ -78,6 +78,7 @@
     "perf:grid-instance-presentation": "node scripts/verification/patch-map-grid-instance-presentation-performance.mjs",
     "perf:public-animation": "node scripts/verification/patch-map-public-animation-performance.mjs",
     "perf:production-presentation": "node scripts/verification/patch-map-production-presentation-performance.mjs",
+    "perf:presentation": "node scripts/verification/patch-map-presentation-performance.mjs",
     "perf:instance-bars:packed-cross": "node scripts/verification/patch-map-packed-instance-performance.mjs",
     "perf:extraction": "node scripts/verification/patch-map-extraction-performance.mjs",
     "verify:performance-report": "node performance/patch-map/report/verify.mjs",

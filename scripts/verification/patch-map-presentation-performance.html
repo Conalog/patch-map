@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PatchMap keyed presentation performance fixture</title>
+  </head>
+  <body>
+    <div id="patch-map-presentation-performance-host"></div>
+    <script type="module">
+      import { PatchMap } from '/src/index.ts';
+
+      window.__PATCH_MAP_PRESENTATION_MODULE__ = Object.freeze({ PatchMap });
+    </script>
+  </body>
+</html>
