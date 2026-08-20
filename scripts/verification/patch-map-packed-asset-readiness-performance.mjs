@@ -120,7 +120,7 @@ try {
     }),
   ]));
   const output = Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: 2,
     checkpoint: 'patch-map-packed-asset-readiness-cross',
     generatedAt: new Date().toISOString(),
     protocol: Object.freeze({
@@ -134,6 +134,8 @@ try {
       pixelRatio: 1,
       antialias: false,
       gpuRetainedBytes: 'unavailable; load/unload parity and zero runtime/canvas are ownership proxies',
+      initialRenderCount: 'WebGL clear-call proxy sampled when mount returns',
+      attachPixel: 'raw RGBA only for pre-render append; candidate pixel correctness uses the small browser gate',
     }),
     environment: Object.freeze({
       platform: process.platform,
@@ -220,9 +222,21 @@ function caseId({ entities, images, bindings }) {
 function summarize(values) {
   return Object.freeze({
     mountReturnMs: stats(values.map(({ timing }) => timing.mountReturnMs)),
+    firstVisibleCompleteMs: stats(values.map(({ timing }) => timing.firstVisibleCompleteMs)),
     firstCompleteMs: stats(values.map(({ timing }) => timing.firstCompleteMs)),
     releaseToCompleteMs: stats(values.map(({ timing }) => timing.releaseToCompleteMs)),
+    uninitializedVisibleMs: stats(values.map(({ timing }) => timing.uninitializedVisibleMs)),
     publicationCount: stats(values.map(({ publication }) => publication.firstCompleteRevision)),
+    initialRenderCount: stats(values.map(({ publication }) => publication.initialRenderCount)),
+    attachCount: stats(values.map(({ surface }) => surface.attachCount)),
+    pendingCanvasCount: stats(values.map(({ pending }) => pending.canvasCount)),
+    pendingVisibleCanvasCount: stats(values.map(({ pending }) => pending.visibleCanvasCount)),
+    clearCountAtAttach: stats(values.map(({ surface }) => surface.clearCountAtAttach ?? -1)),
+    uninitializedPixelAtAttach: stats(values.map(({ surface }) =>
+      surface.firstAttachRgba === null
+        ? -1
+        : surface.firstAttachRgba.slice(0, 3).every((channel) => channel === 0) ? 1 : 0
+    )),
     acquireCalls: stats(values.map(({ counters }) => counters.acquireCalls)),
     acquireSourceCalls: stats(values.map(({ counters }) => counters.acquireSourceCalls)),
     imageLoadCount: stats(values.map(({ counters }) => counters.imageLoadStarted)),
@@ -262,6 +276,17 @@ function validate(value, label) {
     failures.push(`${prefix}: lifecycle cleanup mismatch`);
   }
   if (value.publication.firstCompleteRevision < 1) failures.push(`${prefix}: no complete publication`);
+  if (label === 'candidate') {
+    if (value.pending.canvasCount !== 0 || value.pending.visibleCanvasCount !== 0) {
+      failures.push(`${prefix}: candidate exposed an unpublished canvas`);
+    }
+    if (value.surface.attachCount !== 1 || value.surface.clearCountAtAttach !== 1) {
+      failures.push(`${prefix}: candidate did not attach after exactly one initial render`);
+    }
+    if (value.publication.firstCompleteRevision !== 1 || value.publication.initialRenderCount !== 1) {
+      failures.push(`${prefix}: candidate amplified initial publication or render count`);
+    }
+  }
   if (value.renderer !== 'webgl') failures.push(`${prefix}: renderer was ${value.renderer}`);
   return failures;
 }
@@ -313,7 +338,28 @@ window.__PATCH_MAP_ASSET_READY_PERF__ = async (input, run) => {
     };
   });
   const metric = createMeasuredRuntime();
-  const uploads = installUploadCounter();
+  const gpu = installWebGlCounter();
+  const originalAppend = host.appendChild.bind(host);
+  let attachCount = 0;
+  let firstAttachAt = null;
+  let firstAttachRgba = null;
+  let clearCountAtAttach = null;
+  host.appendChild = function (node) {
+    const appended = originalAppend(node);
+    if (node instanceof HTMLCanvasElement) {
+      attachCount += 1;
+      if (firstAttachAt === null) {
+        firstAttachAt = performance.now();
+        clearCountAtAttach = gpu.clearCount();
+        // A post-render readPixels() would serialize the full GPU workload and
+        // bias only the candidate. Sample raw pixels only for the pre-render
+        // baseline append; the small correctness browser verifies candidate
+        // background pixels without contaminating this timing harness.
+        firstAttachRgba = clearCountAtAttach === 0 ? readWebGlPixel(node) : null;
+      }
+    }
+    return appended;
+  };
   const mountFrames = [];
   let frameSampling = true;
   const sampleFrame = (time) => {
@@ -356,10 +402,20 @@ window.__PATCH_MAP_ASSET_READY_PERF__ = async (input, run) => {
       mountReturned: mountedMap !== null,
       frameRevision: mountedMap?.debug.snapshot().frameRevision ?? 0,
       pendingCount: metric.runtime.probe().pendingCount,
+      canvasCount: host.querySelectorAll('canvas').length,
+      visibleCanvasCount: [...host.querySelectorAll('canvas')].filter((canvas) => {
+        const style = getComputedStyle(canvas);
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+          style.visibility !== 'collapse' && Number.parseFloat(style.opacity) > 0;
+      }).length,
     };
     const releasedAt = performance.now();
     metric.release();
     map = await mountPromise;
+    const initialRenderCount = gpu.clearCount();
+    const firstVisibleCompleteAt = firstAttachAt !== null && clearCountAtAttach >= 1
+      ? firstAttachAt
+      : mountReturnAt;
     await waitUntil(() => map.assets.status().runtime.pendingCount === 0, 120000);
     await nextFrames(2);
     const completeAt = performance.now();
@@ -396,12 +452,22 @@ window.__PATCH_MAP_ASSET_READY_PERF__ = async (input, run) => {
       observed: { entities: data.length, images: input.images, bindings: new Set(sources).size },
       timing: {
         mountReturnMs: mountReturnAt - mountStarted,
+        firstVisibleCompleteMs: firstVisibleCompleteAt - mountStarted,
         firstCompleteMs: completeAt - mountStarted,
         releaseToCompleteMs: completeAt - releasedAt,
+        uninitializedVisibleMs: firstAttachAt === null || gpu.firstClearAt() === null
+          ? 0
+          : Math.max(0, gpu.firstClearAt() - firstAttachAt),
       },
       pending,
-      publication: { firstCompleteRevision },
-      counters: { ...metric.counters, textureUploads: uploads.count() },
+      publication: { firstCompleteRevision, initialRenderCount },
+      surface: {
+        attachCount,
+        firstAttachRgba,
+        clearCountAtAttach,
+        firstClearAt: gpu.firstClearAt(),
+      },
+      counters: { ...metric.counters, textureUploads: gpu.uploadCount() },
       frames: { mountGapsMs, steadyGapsMs: gaps(steadyFrames) },
       longTasks,
       renderer,
@@ -413,7 +479,7 @@ window.__PATCH_MAP_ASSET_READY_PERF__ = async (input, run) => {
     frameSampling = false;
     await map?.destroy().catch(() => undefined);
     await mountedMap?.destroy().catch(() => undefined);
-    uploads.restore();
+    gpu.restore();
     host.remove();
   }
 };
@@ -488,8 +554,10 @@ function createMeasuredRuntime() {
   };
 }
 
-function installUploadCounter() {
-  let count = 0;
+function installWebGlCounter() {
+  let uploads = 0;
+  let clears = 0;
+  let firstClearAt = null;
   const originals = [];
   for (const constructor of [globalThis.WebGLRenderingContext, globalThis.WebGL2RenderingContext]) {
     if (constructor === undefined) continue;
@@ -498,17 +566,36 @@ function installUploadCounter() {
       if (typeof original !== 'function') continue;
       originals.push([constructor.prototype, name, original]);
       constructor.prototype[name] = function (...args) {
-        count += 1;
+        uploads += 1;
         return original.apply(this, args);
+      };
+    }
+    const originalClear = constructor.prototype.clear;
+    if (typeof originalClear === 'function') {
+      originals.push([constructor.prototype, 'clear', originalClear]);
+      constructor.prototype.clear = function (...args) {
+        clears += 1;
+        firstClearAt ??= performance.now();
+        return originalClear.apply(this, args);
       };
     }
   }
   return {
-    count: () => count,
+    uploadCount: () => uploads,
+    clearCount: () => clears,
+    firstClearAt: () => firstClearAt,
     restore: () => {
       for (const [prototype, name, original] of originals) prototype[name] = original;
     },
   };
+}
+
+function readWebGlPixel(canvas) {
+  const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+  if (gl === null) return null;
+  const pixel = new Uint8Array(4);
+  gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+  return Array.from(pixel);
 }
 
 async function waitUntil(predicate, timeoutMs) {
