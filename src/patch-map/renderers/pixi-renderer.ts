@@ -419,6 +419,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.application.stage.addChild(this.world);
     this.application.ticker.stop();
     this.canvasLifecycle.applyRuntimeIdentity();
+    this.armInitialSurfacePublication();
 
     const rendererBuildMs = metrics.rendererBuildMs + (now() - buildStarted);
     this.initializationMetrics = Object.freeze({
@@ -1068,7 +1069,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.synchronizeOnly = false;
     if (rendered) {
       if (
-        (!this.surfacePublished || this.rendererLossState === 'lost') &&
+        this.rendererLossState === 'lost' &&
         publicGlContext(this.application)?.isLost === true
       ) {
         throw new PatchMapPixiRuntimeError(
@@ -1077,7 +1078,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         );
       }
       this.application.render();
-      if (!this.surfacePublished) this.publishSurfaceAfterSuccessfulRender();
       const renderedFrame = this.frame + 1;
       if (this.rendererLossState !== 'healthy') {
         if (publicGlContext(this.application)?.isLost === true) {
@@ -2136,6 +2136,23 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.canvasLifecycle.rollbackPublication();
       throw error;
     }
+  }
+
+  private armInitialSurfacePublication(): void {
+    const render = this.application.render;
+    this.application.render = () => {
+      if (publicGlContext(this.application)?.isLost === true) {
+        throw new PatchMapPixiRuntimeError(
+          'RENDERER_LOST',
+          'PixiJS WebGL2 context is lost before frame publication',
+        );
+      }
+      render.call(this.application);
+      this.publishSurfaceAfterSuccessfulRender();
+      // Restore Pixi's original method after the one-shot publication. Steady
+      // frames retain the exact baseline render path with no readiness check.
+      this.application.render = render;
+    };
   }
 
   private bindRendererLossEvents(): void {
