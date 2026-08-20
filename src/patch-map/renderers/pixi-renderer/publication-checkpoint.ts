@@ -38,4 +38,5 @@ export interface PatchMapPixiRendererPublicationCheckpoint {
   >;
   readonly presentationStore: PatchMapPresentationStoreView | null;
   readonly presentationBaseStore: RenderStoreView | null;
+  readonly pendingSourceStore: RenderStoreView | null;
 }

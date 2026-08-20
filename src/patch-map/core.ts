@@ -559,6 +559,8 @@ export class PatchMapRuntime {
         presentation,
         undefined,
         nextRuntime.spatialHit.staleProjectionIds,
+        undefined,
+        candidate.state.scene.renderStore,
       );
       this.applyPresentationPolicyToRenderer();
       nextRuntime.spatialHit.clearSpatialAnimations();

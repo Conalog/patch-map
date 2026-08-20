@@ -1387,7 +1387,7 @@ describe('PatchMap bar presentation integration', () => {
     expect(() => engine.loadDataset([{ type: 'item', id: '' }])).toThrow();
     expect(engine.snapshot().presentation).toEqual({ revision: 3, layerCount: 1 });
 
-    engine.loadDataset(scene(10));
+    engine.loadDataset(twoBarScene(30, 40));
     expect(engine.snapshot().presentation).toEqual({ revision: 4, layerCount: 0 });
     expect(renderer.presentationLayerUpdates.at(-1)).toMatchObject({
       revision: 4,
@@ -1395,6 +1395,22 @@ describe('PatchMap bar presentation integration', () => {
       full: true,
     });
     expect(renderer.presentationLayerUpdates.at(-1)?.alphaMultipliers).toHaveLength(0);
+
+    const sameCapacityScope = engine.targets.query({ type: 'bar', scope: 'authored' });
+    expect(engine.presentation.set('focus', {
+      scope: sameCapacityScope,
+      targets: [{ id: 'item-a', componentId: 'first' }],
+      unmatched: { alphaMultiplier: 0.4 },
+    })).toMatchObject({ changed: true, revision: 5, scopeCount: 2 });
+
+    engine.loadDataset(scene(10));
+    expect(engine.snapshot().presentation).toEqual({ revision: 6, layerCount: 0 });
+    const differentCapacityScope = engine.targets.query({ type: 'bar', scope: 'authored' });
+    expect(engine.presentation.set('focus', {
+      scope: differentCapacityScope,
+      targets: [{ id: 'item-a', componentId: 'level' }],
+      unmatched: { alphaMultiplier: 0.4 },
+    })).toMatchObject({ changed: true, revision: 7, scopeCount: 1 });
     await engine.destroy();
   });
 

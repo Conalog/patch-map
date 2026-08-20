@@ -21,6 +21,7 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
     const originalPresentationBaseStore = Object.freeze({
       capacity: 0,
     }) as unknown as RenderStoreView;
+    const originalPendingSourceStore = renderStore(2, 'pending-before');
     const renderer = rendererHarness({
       projectionIndex: originalProjection,
       staleProjectionEntityIds: originalStaleIds,
@@ -35,6 +36,7 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
       presentationPolicy: originalPolicy,
       presentationStore: originalPresentationStore,
       presentationBaseStore: originalPresentationBaseStore,
+      pendingSourceStore: originalPendingSourceStore,
     });
     const checkpoint = captureHarnessPublication(renderer);
 
@@ -44,6 +46,7 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
       [{ start: 8, end: 10 }],
       new Set(['stale-after']),
       'text',
+      renderStore(3, 'pending-after'),
     )).toBe(true);
     expect(renderer.setPresentationPolicy(policy(2))).toBe(true);
     renderer.markChanges([{ start: 0, end: 20 }], 'load', { fullRebuild: true });
@@ -59,6 +62,7 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
     expect(restored.presentationPolicy).toBe(originalPolicy);
     expect(restored.presentationStore).toBe(originalPresentationStore);
     expect(restored.presentationBaseStore).toBe(originalPresentationBaseStore);
+    expect(restored.pendingSourceStore).toBe(originalPendingSourceStore);
 
     renderer.destroyedValue = true;
     expect(() => restoreHarnessPublication(renderer, checkpoint)).not.toThrow();
@@ -134,6 +138,48 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
     expect(renderer.presentationAlphaMultipliers).toBe(owned);
     expect(Array.from(owned)).toEqual([expect.closeTo(0.4, 6), 1, 1]);
   });
+
+  it.each([
+    ['same', 2],
+    ['different', 3],
+  ] as const)(
+    'binds immediate presentation replay to a pending %s-capacity replacement store',
+    (_capacityKind, replacementCapacity) => {
+      const previousStore = renderStore(2, 'previous');
+      const replacementStore = renderStore(replacementCapacity, 'replacement');
+      const renderer = rendererHarness({
+        lastStore: previousStore,
+        lastSourceStore: previousStore,
+      });
+
+      expect(renderer.setProjection(
+        projection('replacement'),
+        undefined,
+        undefined,
+        undefined,
+        replacementStore,
+      )).toBe(true);
+      expect(renderer.pendingSourceStore).toBe(replacementStore);
+      expect(() => renderer.flush(previousStore)).toThrow(
+        'pending presentation source store changed before flush',
+      );
+      expect(() => renderer.setPresentationLayerMultipliers({
+        revision: 1,
+        layerCount: 1,
+        full: true,
+        alphaMultipliers: new Float32Array(replacementCapacity).fill(0.32),
+        dirtyRanges: undefined,
+      })).not.toThrow();
+      expect(renderer.presentationBaseStore).toBe(replacementStore);
+      expect(() => renderer.setPresentationLayerMultipliers({
+        revision: 2,
+        layerCount: 1,
+        full: true,
+        alphaMultipliers: new Float32Array(replacementCapacity + 1).fill(0.5),
+        dirtyRanges: undefined,
+      })).toThrow('presentation layer multiplier capacity changed');
+    },
+  );
 });
 
 interface RendererCheckpointHarness {
@@ -156,6 +202,7 @@ interface RendererCheckpointHarness {
   instancePresentationOverrides: ReadonlyMap<string, never>;
   presentationStore: PatchMapPresentationStoreView | null;
   presentationBaseStore: RenderStoreView | null;
+  pendingSourceStore: RenderStoreView | null;
   lastStore: RenderStoreView | null;
   lastSourceStore: RenderStoreView | null;
   slotByEntityId: Map<string, number>;
@@ -164,6 +211,7 @@ interface RendererCheckpointHarness {
     changedRanges?: readonly SlotRange[],
     staleEntityIds?: ReadonlySet<string>,
     updateKind?: 'bar-presentation' | 'text',
+    sourceStore?: RenderStoreView,
   ): boolean;
   setPresentationPolicy(policy: PatchMapResolvedPresentationPolicy | null): boolean;
   setPresentationLayerMultipliers(
@@ -175,6 +223,7 @@ interface RendererCheckpointHarness {
       readonly dirtyRanges: readonly SlotRange[] | undefined;
     }>,
   ): boolean;
+  flush(store: RenderStoreView): Readonly<{ rendered: boolean; commandCount: number }>;
   markChanges(
     ranges: readonly SlotRange[],
     reason: string,
@@ -222,6 +271,7 @@ function rendererHarness(
     instancePresentationOverrides: new Map<string, never>(),
     presentationStore: null,
     presentationBaseStore: null,
+    pendingSourceStore: null,
     lastStore: null,
     lastSourceStore: null,
     slotByEntityId: new Map<string, number>(),
@@ -246,4 +296,49 @@ function policy(revision: number): PatchMapResolvedPresentationPolicy {
     hiddenEntityIds: Object.freeze([]),
     fillOverrides: Object.freeze([]),
   });
+}
+
+function renderStore(capacity: number, idPrefix: string): RenderStoreView {
+  const ids = Array.from({ length: capacity }, (_, slot) => `${idPrefix}-${slot}`);
+  const order = Uint32Array.from(ids.map((_, slot) => slot));
+  return {
+    capacity,
+    liveCount: capacity,
+    revision: 1,
+    alive: new Uint8Array(capacity).fill(1),
+    kind: new Uint8Array(capacity).fill(1),
+    flags: new Uint8Array(capacity).fill(1),
+    zIndex: new Int32Array(capacity),
+    x: new Float64Array(capacity),
+    y: new Float64Array(capacity),
+    width: new Float64Array(capacity).fill(10),
+    height: new Float64Array(capacity).fill(10),
+    rotation: new Float32Array(capacity),
+    opacity: new Float32Array(capacity).fill(1),
+    fill: new Uint32Array(capacity),
+    stroke: new Uint32Array(capacity),
+    strokeWidth: new Float32Array(capacity),
+    radius: new Float32Array(capacity),
+    text: ids.map(() => ''),
+    color: new Uint32Array(capacity),
+    fontSize: new Float32Array(capacity),
+    fontFamily: ids.map(() => ''),
+    fontWeight: new Uint32Array(capacity),
+    align: new Uint8Array(capacity),
+    maxLines: new Uint32Array(capacity),
+    source: ids.map(() => ''),
+    tint: new Uint32Array(capacity),
+    fit: new Uint8Array(capacity),
+    value: new Float64Array(capacity),
+    min: new Float64Array(capacity),
+    max: new Float64Array(capacity),
+    trackFill: new Uint32Array(capacity),
+    relationFrom: new Int32Array(capacity),
+    relationTo: new Int32Array(capacity),
+    lineWidth: new Float32Array(capacity),
+    ids,
+    view: Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 }),
+    background: 0xffffffff,
+    renderOrder: () => order,
+  };
 }
