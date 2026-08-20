@@ -15,7 +15,6 @@ const PUBLIC_DOCS = Object.freeze([
   'docs/patch-map/migration.md',
   'docs/patch-map/compatibility.md',
   'docs/patch-map/troubleshooting.md',
-  'docs/patch-map/CHANGELOG.md',
 ]);
 
 const PUBLIC_EXAMPLES = Object.freeze(

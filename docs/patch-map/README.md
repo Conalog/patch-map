@@ -12,7 +12,6 @@ provides a redesigned engine API; it does not emulate the previous package API.
 - [Tested compatibility matrix and release policy](./compatibility.md)
 - [Troubleshooting and support ownership](./troubleshooting.md)
 - [Package font assets and provenance](./font-assets.md)
-- [Changelog](./CHANGELOG.md)
 
 Runnable TypeScript examples are packaged in `examples/patch-map`:
 `minimal`, `dashboard`, `editor`, and `report`. The compile-checked
