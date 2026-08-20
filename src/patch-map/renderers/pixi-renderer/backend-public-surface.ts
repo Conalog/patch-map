@@ -70,7 +70,7 @@ export function readPatchMapPixiPublicSurfaceProbe(
     manualRender: true,
     canvas: Object.freeze({
       authoritative: application.canvas === canvas,
-      attached: target?.contains(canvas) ?? canvas.isConnected,
+      attached: canvas.isConnected || target?.contains(canvas) === true,
       patchMapProduct: canvas.dataset.patchMapProduct === 'patch-map'
         ? 'patch-map'
         : null,
