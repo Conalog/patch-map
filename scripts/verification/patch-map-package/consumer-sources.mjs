@@ -128,6 +128,7 @@ try {
 const afterRejectedReplace = map.debug.snapshot();
 const assetStatus = map.assets.status();
 const capture = await map.capture.png();
+const presentationReplaceLifecycle = await verifyPresentationReplaceLifecycle();
 const directImage = await verifyDirectImageLifecycle();
 const theme = await verifyThemeLifecycle();
 const builtins = await verifyBuiltinGlyphLifecycle();
@@ -191,6 +192,7 @@ window.__PACKAGE_RESULT__ = {
   assetSessionLeaseCount: assetStatus.session?.leaseCount ?? null,
   capturePrefix: capture.dataUrl.slice(0, 22),
   captureLength: capture.dataUrl.length,
+  presentationReplaceLifecycle,
   directImage,
   theme,
   builtins,
@@ -203,6 +205,142 @@ window.__PACKAGE_RESULT__ = {
   destroyed: map.destroyed,
   canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
 };
+
+async function verifyPresentationReplaceLifecycle() {
+  const lifecycleHost = document.createElement('div');
+  lifecycleHost.style.width = '320px';
+  lifecycleHost.style.height = '180px';
+  document.body.appendChild(lifecycleHost);
+  const scene = (count, prefix) => Array.from({ length: count }, (_, index) => ({
+    type: 'item',
+    id: prefix + '-' + index,
+    show: true,
+    attrs: { x: 16 + index * 92, y: 24 },
+    size: { width: 72, height: 96 },
+    components: [{
+      type: 'background',
+      id: 'surface',
+      source: { type: 'rect', fill: '#2563eb' },
+    }],
+  }));
+  const initialData = scene(2, 'initial');
+  const sameCapacityData = scene(2, 'same');
+  const differentCapacityData = scene(3, 'different');
+  const asyncData = scene(1, 'async');
+  const immutableBefore = [
+    initialData,
+    sameCapacityData,
+    differentCapacityData,
+    asyncData,
+  ].map((value) => JSON.stringify(value));
+  let lifecycleMap = null;
+  try {
+    lifecycleMap = await PatchMap.mount({
+      container: lifecycleHost,
+      instanceId: 'packed-presentation-replace-lifecycle',
+      width: 320,
+      height: 180,
+      backend: 'webgl',
+      resizeMode: 'manual',
+      fit: false,
+      data: initialData,
+    });
+    const initialScope = lifecycleMap.targets.query({ type: 'item', scope: 'authored' });
+    lifecycleMap.presentation.set('packed:replace-focus', {
+      scope: initialScope,
+      targets: ['initial-0'],
+      unmatched: { alphaMultiplier: 0.32 },
+    });
+    const beforeFailedReplace = lifecycleMap.debug.snapshot();
+    const dataBeforeFailedReplace = lifecycleMap.data.serialize();
+    let failedReplaceRejected = false;
+    try {
+      lifecycleMap.data.replace([
+        ...structuredClone(initialData),
+        {
+          type: 'relations',
+          id: 'invalid-presentation-links',
+          links: [{ source: 'initial-0', target: 'missing-presentation-target' }],
+        },
+      ], { strict: true, fit: false });
+    } catch {
+      failedReplaceRejected = true;
+    }
+    const afterFailedReplace = lifecycleMap.debug.snapshot();
+    const dataAfterFailedReplace = lifecycleMap.data.serialize();
+    const failedReplacePreserved =
+      beforeFailedReplace.revisions.sceneRevision ===
+        afterFailedReplace.revisions.sceneRevision &&
+      afterFailedReplace.presentation.layerCount === 1 &&
+      dataBeforeFailedReplace === dataAfterFailedReplace;
+
+    lifecycleMap.data.replace(sameCapacityData, { strict: true, fit: false });
+    const sameCapacityCleared = lifecycleMap.debug.snapshot().presentation;
+    const sameCapacityScope = lifecycleMap.targets.query({ type: 'item', scope: 'authored' });
+    const sameCapacitySet = lifecycleMap.presentation.set('packed:replace-focus', {
+      scope: sameCapacityScope,
+      targets: ['same-0'],
+      unmatched: { alphaMultiplier: 0.32 },
+    });
+    const sameCapacityCapture = await lifecycleMap.capture.png();
+    lifecycleMap.presentation.clear('packed:replace-focus');
+    const sameCapacityClearCapture = await lifecycleMap.capture.png();
+
+    lifecycleMap.data.replace(differentCapacityData, { strict: true, fit: false });
+    const differentCapacityCleared = lifecycleMap.debug.snapshot().presentation;
+    const differentCapacityScope = lifecycleMap.targets.query({
+      type: 'item',
+      scope: 'authored',
+    });
+    const differentCapacitySet = lifecycleMap.presentation.set('packed:replace-focus', {
+      scope: differentCapacityScope,
+      targets: ['different-0'],
+      unmatched: { alphaMultiplier: 0.32 },
+    });
+    const differentCapacityCapture = await lifecycleMap.capture.png();
+
+    await lifecycleMap.data.replaceAsync(asyncData, { strict: true, fit: false });
+    const asyncCleared = lifecycleMap.debug.snapshot().presentation;
+    const asyncScope = lifecycleMap.targets.query({ type: 'item', scope: 'authored' });
+    const asyncSet = lifecycleMap.presentation.set('packed:replace-focus', {
+      scope: asyncScope,
+      targets: ['async-0'],
+      unmatched: { alphaMultiplier: 0.32 },
+    });
+    const asyncCapture = await lifecycleMap.capture.png();
+    const immutableAfter = [
+      initialData,
+      sameCapacityData,
+      differentCapacityData,
+      asyncData,
+    ].map((value) => JSON.stringify(value));
+    const firstDestroy = await lifecycleMap.destroy();
+    const secondDestroy = await lifecycleMap.destroy();
+    lifecycleMap = null;
+    return {
+      failedReplaceRejected,
+      failedReplacePreserved,
+      sameCapacityCleared,
+      sameCapacitySet,
+      sameCapacityCaptureChanged:
+        sameCapacityCapture.dataUrl !== sameCapacityClearCapture.dataUrl,
+      differentCapacityCleared,
+      differentCapacitySet,
+      differentCapacityCapturePrefix: differentCapacityCapture.dataUrl.slice(0, 22),
+      asyncCleared,
+      asyncSet,
+      asyncCapturePrefix: asyncCapture.dataUrl.slice(0, 22),
+      callerInputsImmutable:
+        JSON.stringify(immutableBefore) === JSON.stringify(immutableAfter),
+      firstDestroy,
+      secondDestroy,
+      canvasCountAfterDestroy: lifecycleHost.querySelectorAll('canvas').length,
+    };
+  } finally {
+    await lifecycleMap?.destroy().catch(() => undefined);
+    lifecycleHost.remove();
+  }
+}
 
 async function verifyThemeLifecycle() {
   const defaultHost = document.createElement('div');

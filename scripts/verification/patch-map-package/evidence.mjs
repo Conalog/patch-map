@@ -38,6 +38,25 @@ export function collectPackageFailures({
     esm.presentationDataStable !== true
   ) failures.push('packed ESM keyed presentation/capture boundary failed');
   if (
+    esm.presentationReplaceLifecycle?.failedReplaceRejected !== true ||
+    esm.presentationReplaceLifecycle?.failedReplacePreserved !== true ||
+    esm.presentationReplaceLifecycle?.sameCapacityCleared?.layerCount !== 0 ||
+    esm.presentationReplaceLifecycle?.sameCapacitySet?.scopeCount !== 2 ||
+    esm.presentationReplaceLifecycle?.sameCapacityCaptureChanged !== true ||
+    esm.presentationReplaceLifecycle?.differentCapacityCleared?.layerCount !== 0 ||
+    esm.presentationReplaceLifecycle?.differentCapacitySet?.scopeCount !== 3 ||
+    !String(esm.presentationReplaceLifecycle?.differentCapacityCapturePrefix)
+      .startsWith('data:image/png') ||
+    esm.presentationReplaceLifecycle?.asyncCleared?.layerCount !== 0 ||
+    esm.presentationReplaceLifecycle?.asyncSet?.scopeCount !== 1 ||
+    !String(esm.presentationReplaceLifecycle?.asyncCapturePrefix)
+      .startsWith('data:image/png') ||
+    esm.presentationReplaceLifecycle?.callerInputsImmutable !== true ||
+    esm.presentationReplaceLifecycle?.firstDestroy !== true ||
+    esm.presentationReplaceLifecycle?.secondDestroy !== false ||
+    esm.presentationReplaceLifecycle?.canvasCountAfterDestroy !== 0
+  ) failures.push('packed presentation replace/reapply lifecycle failed');
+  if (
     esm.serializedMatches !== true ||
     esm.roundtripSemanticHashEqual !== true ||
     esm.legacySourceKind !== 'legacy-generic-item'
