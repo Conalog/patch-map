@@ -1067,14 +1067,17 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     const rendered = !this.synchronizeOnly;
     this.synchronizeOnly = false;
     if (rendered) {
-      if (publicGlContext(this.application)?.isLost === true) {
+      if (
+        (!this.surfacePublished || this.rendererLossState === 'lost') &&
+        publicGlContext(this.application)?.isLost === true
+      ) {
         throw new PatchMapPixiRuntimeError(
           'RENDERER_LOST',
           'PixiJS WebGL2 context is lost before frame publication',
         );
       }
       this.application.render();
-      this.publishSurfaceAfterSuccessfulRender();
+      if (!this.surfacePublished) this.publishSurfaceAfterSuccessfulRender();
       const renderedFrame = this.frame + 1;
       if (this.rendererLossState !== 'healthy') {
         if (publicGlContext(this.application)?.isLost === true) {
