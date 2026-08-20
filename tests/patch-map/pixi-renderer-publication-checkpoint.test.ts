@@ -100,6 +100,40 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
     expect(() => renderer.setPresentationPolicy(policy(2))).toThrow();
     expect(captureHarnessPublication(renderer)).toEqual(checkpoint);
   });
+
+  it('owns a stable dense alpha column and restores its checkpointed values', () => {
+    const renderer = rendererHarness();
+    const initial = new Float32Array([0.4, 1, 1]);
+
+    expect(renderer.setPresentationLayerMultipliers({
+      revision: 1,
+      layerCount: 1,
+      full: true,
+      alphaMultipliers: initial,
+      dirtyRanges: undefined,
+    })).toBe(true);
+    const owned = renderer.presentationAlphaMultipliers;
+    expect(owned).not.toBe(initial);
+    expect(Array.from(owned)).toEqual(Array.from(initial));
+    initial[0] = 0.9;
+    expect(owned[0]).toBeCloseTo(0.4, 6);
+
+    const checkpoint = captureHarnessPublication(renderer);
+    const retargeted = new Float32Array([0.4, 0.25, 1]);
+    renderer.setPresentationLayerMultipliers({
+      revision: 2,
+      layerCount: 1,
+      full: false,
+      alphaMultipliers: retargeted,
+      dirtyRanges: [{ start: 1, end: 2 }],
+    });
+    expect(renderer.presentationAlphaMultipliers).toBe(owned);
+    expect(Array.from(owned)).toEqual(Array.from(retargeted));
+
+    restoreHarnessPublication(renderer, checkpoint);
+    expect(renderer.presentationAlphaMultipliers).toBe(owned);
+    expect(Array.from(owned)).toEqual([expect.closeTo(0.4, 6), 1, 1]);
+  });
 });
 
 interface RendererCheckpointHarness {
@@ -117,7 +151,8 @@ interface RendererCheckpointHarness {
   presentationPolicy: PatchMapResolvedPresentationPolicy | null;
   presentationLayerRevision: number;
   presentationLayerCount: number;
-  presentationAlphaMultipliers: Map<string, number>;
+  presentationAlphaMultipliers: Float32Array<ArrayBufferLike>;
+  presentationAlphaMultiplierValues?: Float32Array<ArrayBufferLike>;
   instancePresentationOverrides: ReadonlyMap<string, never>;
   presentationStore: PatchMapPresentationStoreView | null;
   presentationBaseStore: RenderStoreView | null;
@@ -131,6 +166,15 @@ interface RendererCheckpointHarness {
     updateKind?: 'bar-presentation' | 'text',
   ): boolean;
   setPresentationPolicy(policy: PatchMapResolvedPresentationPolicy | null): boolean;
+  setPresentationLayerMultipliers(
+    update: Readonly<{
+      readonly revision: number;
+      readonly layerCount: number;
+      readonly full: boolean;
+      readonly alphaMultipliers: Float32Array<ArrayBufferLike>;
+      readonly dirtyRanges: readonly SlotRange[] | undefined;
+    }>,
+  ): boolean;
   markChanges(
     ranges: readonly SlotRange[],
     reason: string,
@@ -174,7 +218,7 @@ function rendererHarness(
     presentationPolicy: null,
     presentationLayerRevision: 0,
     presentationLayerCount: 0,
-    presentationAlphaMultipliers: new Map<string, number>(),
+    presentationAlphaMultipliers: new Float32Array(0),
     instancePresentationOverrides: new Map<string, never>(),
     presentationStore: null,
     presentationBaseStore: null,

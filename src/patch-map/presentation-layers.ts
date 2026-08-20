@@ -28,8 +28,8 @@ export interface PatchMapPresentationLayerRenderUpdate {
   readonly revision: number;
   readonly layerCount: number;
   readonly full: boolean;
-  readonly entityIds: readonly string[];
-  readonly alphaMultipliers: readonly number[];
+  /** Stable dense column owned by the presentation authority. */
+  readonly alphaMultipliers: Float32Array<ArrayBufferLike>;
   readonly dirtyRanges: readonly SlotRange[] | undefined;
 }
 
@@ -57,8 +57,7 @@ export interface PatchMapPresentationLayerAuthorityCheckpoint {
   readonly effective: Float32Array<ArrayBufferLike>;
 }
 
-const EMPTY_IDS: readonly string[] = Object.freeze([]);
-const EMPTY_VALUES: readonly number[] = Object.freeze([]);
+const EMPTY_MULTIPLIERS = new Float32Array(0);
 const EMPTY_SLOTS: readonly number[] = Object.freeze([]);
 const EMPTY_RANGES: readonly SlotRange[] = Object.freeze([]);
 
@@ -203,8 +202,7 @@ export class PatchMapPresentationLayerAuthority {
         revision: this.revisionValue,
         layerCount: 0,
         full: true,
-        entityIds: EMPTY_IDS,
-        alphaMultipliers: EMPTY_VALUES,
+        alphaMultipliers: this.effective,
         dirtyRanges: undefined,
       }),
     });
@@ -263,8 +261,7 @@ export class PatchMapPresentationLayerAuthority {
         revision: this.revisionValue,
         layerCount: this.layers.size,
         full: false,
-        entityIds: EMPTY_IDS,
-        alphaMultipliers: EMPTY_VALUES,
+        alphaMultipliers: EMPTY_MULTIPLIERS,
         dirtyRanges: EMPTY_RANGES,
       }),
     });
@@ -275,8 +272,6 @@ export class PatchMapPresentationLayerAuthority {
     scene: PatchMapScene,
     full: boolean,
   ): PatchMapPresentationLayerChange {
-    const entityIds: string[] = [];
-    const values: number[] = [];
     const dirtySlots: number[] = [];
     const capacity = scene.renderStore.capacity;
     for (const slot of changedSlots) {
@@ -287,8 +282,6 @@ export class PatchMapPresentationLayerAuthority {
       this.effective[slot] = next;
       const entityId = scene.renderStore.ids[slot] ?? '';
       if (entityId.length === 0) continue;
-      entityIds.push(entityId);
-      values.push(next);
       dirtySlots.push(slot);
     }
     const ranges = dirtySlots.length === 0
@@ -302,30 +295,19 @@ export class PatchMapPresentationLayerAuthority {
         revision: this.revisionValue,
         layerCount: this.layers.size,
         full,
-        entityIds: Object.freeze(entityIds),
-        alphaMultipliers: Object.freeze(values),
+        alphaMultipliers: this.effective,
         dirtyRanges: ranges,
       }),
     });
   }
 
   private fullRenderUpdate(scene: PatchMapScene): PatchMapPresentationLayerRenderUpdate {
-    const entityIds: string[] = [];
-    const values: number[] = [];
-    for (let slot = 0; slot < this.effective.length; slot += 1) {
-      const value = this.effective[slot] ?? 1;
-      if (Object.is(value, 1)) continue;
-      const entityId = scene.renderStore.ids[slot] ?? '';
-      if (entityId.length === 0) continue;
-      entityIds.push(entityId);
-      values.push(value);
-    }
+    this.ensureCapacity(scene.renderStore.capacity);
     return Object.freeze({
       revision: this.revisionValue,
       layerCount: this.layers.size,
       full: true,
-      entityIds: Object.freeze(entityIds),
-      alphaMultipliers: Object.freeze(values),
+      alphaMultipliers: this.effective,
       dirtyRanges: undefined,
     });
   }

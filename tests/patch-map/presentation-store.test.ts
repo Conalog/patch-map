@@ -92,10 +92,7 @@ describe('PatchMap renderer presentation store', () => {
     const base = store();
     (base.opacity as Float32Array)[0] = 0.8;
     (base.opacity as Float32Array)[1] = 0.5;
-    const multipliers = new Map([
-      ['item-a', 0.5],
-      ['text-c', 0],
-    ]);
+    const multipliers = new Float32Array([0.5, 0, 1, 1]);
     const view = new PatchMapPresentationStoreView(
       base,
       policy({ highlightedEntityIds: ['item-a'] }),
@@ -110,8 +107,8 @@ describe('PatchMap renderer presentation store', () => {
     expect(base.opacity[0]).toBeCloseTo(0.8, 6);
     expect(base.opacity[1]).toBeCloseTo(0.5, 6);
 
-    multipliers.set('item-a', 0.25);
-    multipliers.set('text-c', 0.75);
+    multipliers[0] = 0.25;
+    multipliers[1] = 0.75;
     view.synchronize(
       base,
       policy({ highlightedEntityIds: ['item-a'] }),
@@ -121,6 +118,25 @@ describe('PatchMap renderer presentation store', () => {
     );
     expect(view.opacity[0]).toBeCloseTo(0.15, 6);
     expect(view.opacity[1]).toBe(0);
+  });
+
+  it('synchronizes keyed alpha without rewriting unrelated presentation columns', () => {
+    const base = store();
+    const multipliers = new Float32Array([0.5, 1, 1, 1]);
+    const view = new PatchMapPresentationStoreView(
+      base,
+      null,
+      new Map([['item-a', Object.freeze({ fill: 0x2563ebff })]]),
+      multipliers,
+    );
+    const fill = view.fill[0];
+    (base.fill as Uint32Array)[0] = 0xef4444ff;
+    multipliers[0] = 0.25;
+
+    view.synchronizeAlphaMultipliers(multipliers, [{ start: 0, end: 1 }]);
+
+    expect(view.opacity[0]).toBeCloseTo(0.25, 6);
+    expect(view.fill[0]).toBe(fill);
   });
 
   it('projects sparse instance bar and icon values without mutating dense columns', () => {

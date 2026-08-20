@@ -1332,9 +1332,9 @@ describe('PatchMap bar presentation integration', () => {
       revision: 1,
       layerCount: 1,
       full: false,
-      entityIds: ['item-a::bar:second'],
-      alphaMultipliers: [0.4000000059604645],
     });
+    expect(nonIdentityMultipliers(renderer.presentationLayerUpdates.at(-1)!))
+      .toEqual([0.4000000059604645]);
     const focusUpdateCount = renderer.presentationLayerUpdates.length;
     expect(engine.presentation.set('focus', {
       scope,
@@ -1364,9 +1364,9 @@ describe('PatchMap bar presentation integration', () => {
     });
     expect(renderer.presentationLayerUpdates.at(-1)).toMatchObject({
       layerCount: 2,
-      entityIds: ['item-a::bar:first', 'item-a::bar:second'],
-      alphaMultipliers: [0.5, 0.07999999821186066],
     });
+    expect(nonIdentityMultipliers(renderer.presentationLayerUpdates.at(-1)!))
+      .toEqual([0.5, 0.07999999821186066]);
     const updateCount = renderer.presentationLayerUpdates.length;
     expect(engine.presentation.set('alarm', overlay)).toMatchObject({
       changed: false,
@@ -1378,9 +1378,9 @@ describe('PatchMap bar presentation integration', () => {
     expect(renderer.presentationLayerUpdates.at(-1)).toMatchObject({
       revision: 3,
       layerCount: 1,
-      entityIds: ['item-a::bar:second'],
-      alphaMultipliers: [0.20000000298023224],
     });
+    expect(nonIdentityMultipliers(renderer.presentationLayerUpdates.at(-1)!))
+      .toEqual([0.5, 0.20000000298023224]);
     expect(engine.presentation.clear('missing')).toBe(false);
     expect(engine.snapshot().presentation).toEqual({ revision: 3, layerCount: 1 });
 
@@ -1393,9 +1393,8 @@ describe('PatchMap bar presentation integration', () => {
       revision: 4,
       layerCount: 0,
       full: true,
-      entityIds: [],
-      alphaMultipliers: [],
     });
+    expect(renderer.presentationLayerUpdates.at(-1)?.alphaMultipliers).toHaveLength(0);
     await engine.destroy();
   });
 
@@ -1426,11 +1425,7 @@ describe('PatchMap bar presentation integration', () => {
     });
     const reprojected = renderer.presentationLayerUpdates.at(-1)!;
     expect(reprojected.full).toBe(true);
-    expect(reprojected.entityIds.some((id) => id.includes('grid-a.1.1'))).toBe(false);
-    expect(reprojected.entityIds).toEqual(expect.arrayContaining([
-      'grid-a.0.1',
-      'grid-a.1.0',
-    ]));
+    expect(nonIdentityMultipliers(reprojected)).toHaveLength(2);
     await engine.destroy();
   });
 
@@ -1878,6 +1873,12 @@ function bottomLeft(index: PatchMapProjectionIndex, entityId: string): readonly 
   const projection = index.byEntityId[entityId];
   if (projection === undefined) throw new Error(`missing ${entityId}`);
   return applyPatchMapAffine(projection.affine, [0, projection.localBounds[3]]);
+}
+
+function nonIdentityMultipliers(
+  update: PatchMapPresentationLayerRenderUpdate,
+): readonly number[] {
+  return Array.from(update.alphaMultipliers).filter((value) => !Object.is(value, 1));
 }
 
 function roundGeometry(value: unknown): unknown {

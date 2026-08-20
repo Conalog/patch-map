@@ -255,7 +255,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private presentationPolicy: PatchMapResolvedPresentationPolicy | null = null;
   private presentationLayerRevision = 0;
   private presentationLayerCount = 0;
-  private readonly presentationAlphaMultipliers = new Map<string, number>();
+  private presentationAlphaMultipliers: Float32Array<ArrayBufferLike> = new Float32Array(0);
   private instancePresentationOverrides: ReadonlyMap<
     string,
     PatchMapRendererEntityPresentationOverride
@@ -630,7 +630,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       (
         normalized === null &&
         this.instancePresentationOverrides.size === 0 &&
-        this.presentationAlphaMultipliers.size === 0
+        this.presentationLayerCount === 0
       ) ||
       this.lastSourceStore === null
       ? null
@@ -662,15 +662,26 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     update: PatchMapPresentationLayerRenderUpdate,
   ): boolean {
     this.assertAlive();
-    if (update.entityIds.length !== update.alphaMultipliers.length) {
-      throw new RangeError('presentation layer multiplier columns must have equal length');
+    if (
+      update.layerCount > 0 &&
+      this.lastSourceStore !== null &&
+      update.alphaMultipliers.length !== this.lastSourceStore.capacity
+    ) {
+      throw new RangeError('presentation layer multiplier capacity changed');
     }
-    if (update.full) this.presentationAlphaMultipliers.clear();
-    for (let index = 0; index < update.entityIds.length; index += 1) {
-      const entityId = update.entityIds[index]!;
-      const multiplier = update.alphaMultipliers[index]!;
-      if (Object.is(multiplier, 1)) this.presentationAlphaMultipliers.delete(entityId);
-      else this.presentationAlphaMultipliers.set(entityId, multiplier);
+    if (update.layerCount === 0) {
+      this.presentationAlphaMultipliers = new Float32Array(0);
+    } else if (this.presentationAlphaMultipliers.length !== update.alphaMultipliers.length) {
+      this.presentationAlphaMultipliers = update.alphaMultipliers.slice();
+    } else if (update.full) {
+      this.presentationAlphaMultipliers.set(update.alphaMultipliers);
+    } else {
+      for (const { start, end } of update.dirtyRanges ?? []) {
+        this.presentationAlphaMultipliers.set(
+          update.alphaMultipliers.subarray(start, end),
+          start,
+        );
+      }
     }
     this.presentationLayerRevision = update.revision;
     this.presentationLayerCount = update.layerCount;
@@ -679,7 +690,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     if (this.lastSourceStore !== null) {
       const needsView = this.presentationPolicy !== null ||
         this.instancePresentationOverrides.size > 0 ||
-        this.presentationAlphaMultipliers.size > 0;
+        this.presentationLayerCount > 0;
       if (!needsView) {
         this.presentationStore = null;
         this.presentationBaseStore = null;
@@ -696,12 +707,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         );
         this.presentationBaseStore = this.lastSourceStore;
       } else {
-        this.presentationStore.synchronize(
-          this.lastSourceStore,
-          this.presentationPolicy,
-          ranges,
-          this.instancePresentationOverrides,
+        this.presentationStore.synchronizeAlphaMultipliers(
           this.presentationAlphaMultipliers,
+          ranges,
         );
       }
     }
@@ -730,7 +738,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         if (
           overrides.size > 0 ||
           this.presentationPolicy !== null ||
-          this.presentationAlphaMultipliers.size > 0
+          this.presentationLayerCount > 0
         ) {
           this.presentationStore = new PatchMapPresentationStoreView(
             this.lastSourceStore,
@@ -743,7 +751,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       } else if (
         overrides.size === 0 &&
         this.presentationPolicy === null &&
-        this.presentationAlphaMultipliers.size === 0
+        this.presentationLayerCount === 0
       ) {
         this.presentationStore = null;
         this.presentationBaseStore = null;
@@ -783,7 +791,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     if (active !== null && active !== undefined) {
       return Object.freeze({ entityId, ...active });
     }
-    const store = this.presentationPolicy === null && this.presentationAlphaMultipliers.size === 0
+    const store = this.presentationPolicy === null && this.presentationLayerCount === 0
       ? this.lastSourceStore ?? this.lastStore
       : this.presentationStore;
     if (store === null) return null;
@@ -1219,7 +1227,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     const policy = this.presentationPolicy;
     const overrides = this.instancePresentationOverrides;
     const alphaMultipliers = this.presentationAlphaMultipliers;
-    if (policy === null && overrides.size === 0 && alphaMultipliers.size === 0) return store;
+    if (policy === null && overrides.size === 0 && this.presentationLayerCount === 0) return store;
     if (
       this.presentationStore === null ||
       this.presentationBaseStore !== store ||
@@ -1688,7 +1696,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       presentationPolicy: this.presentationPolicy,
       presentationLayerRevision: this.presentationLayerRevision,
       presentationLayerCount: this.presentationLayerCount,
-      presentationAlphaMultipliers: new Map(this.presentationAlphaMultipliers),
+      presentationAlphaMultipliers: this.presentationAlphaMultipliers,
+      presentationAlphaMultiplierValues: this.presentationAlphaMultipliers.slice(),
       instancePresentationOverrides: this.instancePresentationOverrides,
       presentationStore: this.presentationStore,
       presentationBaseStore: this.presentationBaseStore,
@@ -1716,10 +1725,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.presentationPolicy = checkpoint.presentationPolicy;
     this.presentationLayerRevision = checkpoint.presentationLayerRevision;
     this.presentationLayerCount = checkpoint.presentationLayerCount;
-    this.presentationAlphaMultipliers.clear();
-    for (const [entityId, multiplier] of checkpoint.presentationAlphaMultipliers) {
-      this.presentationAlphaMultipliers.set(entityId, multiplier);
-    }
+    this.presentationAlphaMultipliers = checkpoint.presentationAlphaMultipliers;
+    this.presentationAlphaMultipliers.set(checkpoint.presentationAlphaMultiplierValues);
     this.instancePresentationOverrides = checkpoint.instancePresentationOverrides;
     this.presentationStore = checkpoint.presentationStore;
     this.presentationBaseStore = checkpoint.presentationBaseStore;
@@ -1802,7 +1809,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.presentationPolicy = null;
     this.presentationLayerRevision = 0;
     this.presentationLayerCount = 0;
-    this.presentationAlphaMultipliers.clear();
+    this.presentationAlphaMultipliers = new Float32Array(0);
     this.presentationStore = null;
     this.presentationBaseStore = null;
     this.pendingRanges = [];

@@ -324,8 +324,7 @@ function createHost() {
           revision: presentationRevision,
           layerCount: presentationKeys.size,
           full: false,
-          entityIds: Object.freeze([]),
-          alphaMultipliers: Object.freeze([]),
+          alphaMultipliers: new Float32Array(0),
           dirtyRanges: Object.freeze([]),
         }),
       });
@@ -341,8 +340,7 @@ function createHost() {
           revision: presentationRevision,
           layerCount: presentationKeys.size,
           full: false,
-          entityIds: Object.freeze([]),
-          alphaMultipliers: Object.freeze([]),
+          alphaMultipliers: new Float32Array(0),
           dirtyRanges: Object.freeze([]),
         }),
       });

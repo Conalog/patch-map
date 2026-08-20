@@ -20,6 +20,8 @@ export interface PatchMapRendererEntityPresentationOverride {
   readonly align?: number;
 }
 
+const EMPTY_ALPHA_MULTIPLIERS = new Float32Array(0);
+
 /**
  * Stable renderer-only view over the dense store.
  *
@@ -31,7 +33,7 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
   private base: RenderStoreView;
   private policy: PatchMapResolvedPresentationPolicy | null;
   private overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
-  private alphaMultipliers: ReadonlyMap<string, number>;
+  private alphaMultipliers: Float32Array<ArrayBufferLike>;
   private readonly highlighted = new Set<string>();
   private readonly hidden = new Set<string>();
   private readonly fillOverrides = new Map<string, number>();
@@ -52,7 +54,7 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     base: RenderStoreView,
     policy: PatchMapResolvedPresentationPolicy | null,
     overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride> = new Map(),
-    alphaMultipliers: ReadonlyMap<string, number> = new Map(),
+    alphaMultipliers: Float32Array<ArrayBufferLike> = EMPTY_ALPHA_MULTIPLIERS,
   ) {
     this.base = base;
     this.policy = policy;
@@ -189,11 +191,12 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     policy: PatchMapResolvedPresentationPolicy | null,
     ranges?: readonly Readonly<{ readonly start: number; readonly end: number }>[],
     overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride> = this.overrides,
-    alphaMultipliers: ReadonlyMap<string, number> = this.alphaMultipliers,
+    alphaMultipliers: Float32Array<ArrayBufferLike> = this.alphaMultipliers,
   ): void {
     if (base.capacity !== this.flags.length) {
       throw new RangeError('presentation store capacity changed');
     }
+    assertAlphaMultiplierCapacity(alphaMultipliers, base.capacity);
     this.base = base;
     this.policy = policy;
     this.overrides = overrides;
@@ -210,6 +213,22 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     }
   }
 
+  /** Keyed alpha layers change only the derived opacity column. */
+  public synchronizeAlphaMultipliers(
+    alphaMultipliers: Float32Array<ArrayBufferLike>,
+    ranges?: readonly Readonly<{ readonly start: number; readonly end: number }>[],
+  ): void {
+    assertAlphaMultiplierCapacity(alphaMultipliers, this.base.capacity);
+    this.alphaMultipliers = alphaMultipliers;
+    if (ranges === undefined) {
+      this.synchronizeOpacityRange(0, this.base.capacity);
+      return;
+    }
+    for (const range of ranges) {
+      this.synchronizeOpacityRange(range.start, range.end);
+    }
+  }
+
   public entityProbe(entityId: string): Readonly<{
     readonly emphasis: number;
     readonly visible: boolean;
@@ -221,7 +240,7 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     const visible = ((this.flags[slot] ?? 0) & RenderFlags.Visible) !== 0 &&
       (this.opacity[slot] ?? 0) > 0;
     return Object.freeze({
-      emphasis: this.emphasis(entityId),
+      emphasis: this.emphasis(entityId, slot),
       visible,
       renderObjectCount: visible ? 1 : 0,
       packedFill: this.fill[slot] ?? 0,
@@ -245,7 +264,8 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
       this.flags[slot] = hidden
         ? presentationFlags & ~RenderFlags.Visible
         : presentationFlags;
-      this.opacity[slot] = (override?.opacity ?? this.base.opacity[slot] ?? 0) * this.emphasis(id);
+      this.opacity[slot] = (override?.opacity ?? this.base.opacity[slot] ?? 0) *
+        this.emphasis(id, slot);
       this.fill[slot] = this.fillOverrides.get(id) ?? override?.fill ?? this.base.fill[slot] ?? 0;
       this.stroke[slot] = override?.stroke ?? this.base.stroke[slot] ?? 0;
       this.strokeWidth[slot] = override?.strokeWidth ?? this.base.strokeWidth[slot] ?? 0;
@@ -257,13 +277,32 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
     }
   }
 
-  private emphasis(entityId: string): number {
+  private synchronizeOpacityRange(startValue: number, endValue: number): void {
+    const start = Math.max(0, Math.min(this.base.capacity, Math.trunc(startValue)));
+    const end = Math.max(start, Math.min(this.base.capacity, Math.trunc(endValue)));
+    for (let slot = start; slot < end; slot += 1) {
+      const id = this.base.ids[slot] ?? '';
+      const opacity = this.overrides.get(id)?.opacity ?? this.base.opacity[slot] ?? 0;
+      this.opacity[slot] = opacity * this.emphasis(id, slot);
+    }
+  }
+
+  private emphasis(entityId: string, slot: number): number {
     const policyMultiplier = this.policy === null ||
       this.policy.highlightedEntityIds === null ||
       this.highlighted.has(entityId)
       ? 1
       : this.policy.deEmphasisAlpha;
-    return policyMultiplier * (this.alphaMultipliers.get(entityId) ?? 1);
+    return policyMultiplier * (this.alphaMultipliers[slot] ?? 1);
+  }
+}
+
+function assertAlphaMultiplierCapacity(
+  alphaMultipliers: Float32Array<ArrayBufferLike>,
+  capacity: number,
+): void {
+  if (alphaMultipliers.length !== 0 && alphaMultipliers.length !== capacity) {
+    throw new RangeError('presentation alpha multiplier capacity changed');
   }
 }
 
