@@ -88,6 +88,41 @@ describe('PatchMap renderer presentation store', () => {
     ]);
   });
 
+  it('multiplies keyed alpha after authored, live override, and existing policy alpha', () => {
+    const base = store();
+    (base.opacity as Float32Array)[0] = 0.8;
+    (base.opacity as Float32Array)[1] = 0.5;
+    const multipliers = new Map([
+      ['item-a', 0.5],
+      ['text-c', 0],
+    ]);
+    const view = new PatchMapPresentationStoreView(
+      base,
+      policy({ highlightedEntityIds: ['item-a'] }),
+      new Map([['item-a', Object.freeze({ opacity: 0.6 })]]),
+      multipliers,
+    );
+
+    expect(view.opacity[0]).toBeCloseTo(0.3, 6);
+    expect(view.opacity[1]).toBe(0);
+    expect(view.entityProbe('item-a')).toMatchObject({ emphasis: 0.5, visible: true });
+    expect(view.entityProbe('text-c')).toMatchObject({ emphasis: 0, visible: false });
+    expect(base.opacity[0]).toBeCloseTo(0.8, 6);
+    expect(base.opacity[1]).toBeCloseTo(0.5, 6);
+
+    multipliers.set('item-a', 0.25);
+    multipliers.set('text-c', 0.75);
+    view.synchronize(
+      base,
+      policy({ highlightedEntityIds: ['item-a'] }),
+      [{ start: 0, end: 1 }],
+      new Map([['item-a', Object.freeze({ opacity: 0.6 })]]),
+      multipliers,
+    );
+    expect(view.opacity[0]).toBeCloseTo(0.15, 6);
+    expect(view.opacity[1]).toBe(0);
+  });
+
   it('projects sparse instance bar and icon values without mutating dense columns', () => {
     const base = store();
     (base.kind as Uint8Array)[0] = RenderKind.Bar;

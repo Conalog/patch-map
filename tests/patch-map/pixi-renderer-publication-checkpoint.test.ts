@@ -115,6 +115,10 @@ interface RendererCheckpointHarness {
   lastInvalidation: string;
   storeEpoch: number;
   presentationPolicy: PatchMapResolvedPresentationPolicy | null;
+  presentationLayerRevision: number;
+  presentationLayerCount: number;
+  presentationAlphaMultipliers: Map<string, number>;
+  instancePresentationOverrides: ReadonlyMap<string, never>;
   presentationStore: PatchMapPresentationStoreView | null;
   presentationBaseStore: RenderStoreView | null;
   lastStore: RenderStoreView | null;
@@ -168,6 +172,10 @@ function rendererHarness(
     lastInvalidation: 'initial',
     storeEpoch: 0,
     presentationPolicy: null,
+    presentationLayerRevision: 0,
+    presentationLayerCount: 0,
+    presentationAlphaMultipliers: new Map<string, number>(),
+    instancePresentationOverrides: new Map<string, never>(),
     presentationStore: null,
     presentationBaseStore: null,
     lastStore: null,

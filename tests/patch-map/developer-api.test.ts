@@ -208,6 +208,9 @@ function createHost() {
   let lastTextRequest: unknown = null;
   let lastTransactionRequest: unknown = null;
   let lastTransformRequest: unknown = null;
+  let lastPresentationRequest: unknown = null;
+  let presentationRevision = 0;
+  const presentationKeys = new Set<string>();
   const fitViewport = vi.fn(() => Object.freeze({ status: 'applied' }));
   const resize = vi.fn(() => true);
   let selectionListener: ((change: Readonly<{
@@ -309,6 +312,41 @@ function createHost() {
       lastTransformRequest = request;
       return Object.freeze({ status: 'committed', changed: true });
     },
+    setPresentationLayer: (request: Readonly<{ readonly key: string }>) => {
+      lastPresentationRequest = request;
+      presentationKeys.add(request.key);
+      presentationRevision += 1;
+      return Object.freeze({
+        changed: true,
+        revision: presentationRevision,
+        layerCount: presentationKeys.size,
+        render: Object.freeze({
+          revision: presentationRevision,
+          layerCount: presentationKeys.size,
+          full: false,
+          entityIds: Object.freeze([]),
+          alphaMultipliers: Object.freeze([]),
+          dirtyRanges: Object.freeze([]),
+        }),
+      });
+    },
+    clearPresentationLayer: (key: string) => {
+      const changed = presentationKeys.delete(key);
+      if (changed) presentationRevision += 1;
+      return Object.freeze({
+        changed,
+        revision: presentationRevision,
+        layerCount: presentationKeys.size,
+        render: Object.freeze({
+          revision: presentationRevision,
+          layerCount: presentationKeys.size,
+          full: false,
+          entityIds: Object.freeze([]),
+          alphaMultipliers: Object.freeze([]),
+          dirtyRanges: Object.freeze([]),
+        }),
+      });
+    },
     fitViewport,
     focusViewport: vi.fn(),
     restoreViewport: vi.fn(),
@@ -357,6 +395,7 @@ function createHost() {
     lastTextRequest: () => lastTextRequest,
     lastTransactionRequest: () => lastTransactionRequest,
     lastTransformRequest: () => lastTransformRequest,
+    lastPresentationRequest: () => lastPresentationRequest,
     publishSelection: (ids: readonly string[]) => selectionListener?.(Object.freeze({ current: ids })),
     publishPointerHover: (event: PatchMapPointerHoverEvent) => pointerHoverListener?.(event),
     publishPointerSelection: (change: PatchMapPointerSelectionChange) =>
@@ -403,6 +442,133 @@ describe('PatchMap high-level developer API', () => {
       animate: true,
     });
     expect(map.selection.set(usage)).toEqual(['rack-grid.12.3']);
+  });
+
+  it('lowers one keyed presentation snapshot without materializing the unmatched complement', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+    const scope = map.targets.query({ type: 'item', scope: 'authored' });
+    const targets = ['rack', 'outside-scope'];
+    const layer = {
+      scope,
+      targets,
+      matched: { alphaMultiplier: 1 },
+      unmatched: { alphaMultiplier: 0.32 },
+    } as const;
+
+    expect(map.presentation.set('plant-map:focus', layer)).toEqual({
+      changed: true,
+      revision: 1,
+      scopeCount: 2,
+      targetCount: 2,
+      matchedCount: 1,
+      unmatchedCount: 1,
+      ignoredTargetCount: 1,
+    });
+    expect(harness.lastPresentationRequest()).toMatchObject({
+      key: 'plant-map:focus',
+      matchedAlphaMultiplier: 1,
+      unmatchedAlphaMultiplier: 0.32,
+    });
+    expect((harness.lastPresentationRequest() as {
+      readonly scope: readonly PatchMapLogicalTargetSnapshot[];
+      readonly matched: readonly PatchMapLogicalTargetSnapshot[];
+    }).scope.map(({ key }) => key)).toEqual(['element:rack', 'element:ambiguous']);
+    expect((harness.lastPresentationRequest() as {
+      readonly matched: readonly PatchMapLogicalTargetSnapshot[];
+    }).matched.map(({ key }) => key)).toEqual(['element:rack']);
+    expect(targets).toEqual(['rack', 'outside-scope']);
+    expect(Object.isFrozen(layer)).toBe(false);
+  });
+
+  it('reuses component target sets and rejects invalid presentation snapshots atomically', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+    const scope = map.targets.query({ type: 'bar', scope: 'instances' });
+    const targets = map.targets.query({
+      within: 'rack-grid',
+      componentId: 'usage',
+      type: 'bar',
+      scope: 'instances',
+    });
+
+    expect(map.presentation.set('search:results', {
+      scope,
+      targets,
+      unmatched: { alphaMultiplier: 0.2 },
+    })).toMatchObject({ targetCount: 1, matchedCount: 1, ignoredTargetCount: 0 });
+    expect((harness.lastPresentationRequest() as {
+      readonly matched: readonly PatchMapLogicalTargetSnapshot[];
+    }).matched.map(({ key }) => key)).toEqual(['component:rack-grid.12.3/usage']);
+
+    const invalidHarness = createHost();
+    const invalidMap = createPatchMapApi(invalidHarness.host);
+    const invalidScope = invalidMap.targets.query({ type: 'item', scope: 'authored' });
+    expect(() => invalidMap.presentation.set('', {
+      scope: invalidScope,
+      targets: [],
+      unmatched: { alphaMultiplier: 0.2 },
+    })).toThrow('presentation key must be a non-empty string');
+    expect(() => invalidMap.presentation.set('invalid', {
+      scope: invalidScope,
+      targets: [],
+      unmatched: { alphaMultiplier: -0.1 },
+    })).toThrow('layer.unmatched.alphaMultiplier must be between zero and one');
+    expect(() => invalidMap.presentation.set('invalid', {
+      scope: invalidScope,
+      targets: ['rack', { id: 'ambiguous' }] as never,
+      unmatched: { alphaMultiplier: 0.2 },
+    })).toThrow('layer.targets cannot mix strings and PatchMapTarget objects');
+    expect(() => invalidMap.presentation.set('invalid', {
+      scope: invalidScope,
+      targets: [],
+      unmatched: { alphaMultiplier: 0.2 },
+      priority: 10,
+    } as never)).toThrow('layer contains an unknown field');
+    expect(() => invalidMap.presentation.set('invalid', Object.defineProperty({
+      scope: invalidScope,
+      targets: [],
+      unmatched: { alphaMultiplier: 0.2 },
+    }, 'targets', {
+      enumerable: true,
+      get: () => ['rack'],
+    }) as never)).toThrow('layer.targets must be an enumerable data property');
+    expect(invalidHarness.lastPresentationRequest()).toBeNull();
+  });
+
+  it('rejects stale and cross-instance presentation target sets and clears only one key', () => {
+    const source = createHost();
+    const destination = createHost();
+    const sourceMap = createPatchMapApi(source.host);
+    const destinationMap = createPatchMapApi(destination.host);
+    const sourceScope = sourceMap.targets.query({ type: 'item', scope: 'authored' });
+    const destinationScope = destinationMap.targets.query({ type: 'item', scope: 'authored' });
+
+    expect(() => destinationMap.presentation.set('foreign', {
+      scope: sourceScope,
+      targets: [],
+      unmatched: { alphaMultiplier: 0.2 },
+    })).toThrow('target set belongs to another PatchMap instance');
+    destination.setReusable(false);
+    expect(() => destinationMap.presentation.set('stale', {
+      scope: destinationScope,
+      targets: [],
+      unmatched: { alphaMultiplier: 0.2 },
+    })).toThrow('target set is stale; run targets.query() again after loading data');
+    destination.setReusable(true);
+    destinationMap.presentation.set('one', {
+      scope: destinationScope,
+      targets: [],
+      unmatched: { alphaMultiplier: 0.2 },
+    });
+    destinationMap.presentation.set('two', {
+      scope: destinationScope,
+      targets: [],
+      unmatched: { alphaMultiplier: 0.4 },
+    });
+    expect(destinationMap.presentation.clear('one')).toBe(true);
+    expect(destinationMap.presentation.clear('one')).toBe(false);
+    expect(destinationMap.presentation.clear('two')).toBe(true);
   });
 
   it('lowers bar and icon concrete-cell presentation into one atomic columnar request', () => {
