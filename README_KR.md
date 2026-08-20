@@ -148,6 +148,27 @@ background/bar/icon/text 값은 renderer-only overlay로 독립 적용됩니다.
 필드에 `null`을 전달하면 현재 authored template 값으로 돌아가며 snapshot,
 semantic hash, history에는 overlay가 포함되지 않습니다.
 
+focus, 검색, 알람, time range 같은 임시 host 상태는 authored alpha를
+수정하지 않고 keyed renderer-only presentation layer로 표현합니다.
+
+```ts
+const scope = patchMap.targets.query({ type: 'item', scope: 'authored' });
+
+patchMap.presentation.set('dashboard:focus', {
+  scope,
+  targets: activeIds,
+  matched: { alphaMultiplier: 1 },
+  unmatched: { alphaMultiplier: 0.32 },
+});
+```
+
+같은 key의 호출은 원자적으로 교체되고 `presentation.clear(key)`는 해당
+layer만 제거합니다. 겹친 layer는 authored/live base alpha에 곱셈으로
+합성됩니다. 현재 capture에는 포함되지만 dataset snapshot, serialization,
+history, semantic hash에는 포함되지 않으며, 성공한 dataset replacement와
+destroy에서 모두 제거됩니다. 첫 API는 `[0, 1]`의 `alphaMultiplier`만
+지원합니다.
+
 ## 지원 범위
 
 - Node.js: 패키지 소비자는 `>=20`, 저장소 CI는 Node.js 22

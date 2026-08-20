@@ -10,8 +10,8 @@ The normal lifecycle is intentionally short:
 
 1. await `PatchMap.mount({ container, data })`;
 2. use `update()`, `transaction()`, the columnar `updateBatch()`, and the
-   `data`, `targets`, `pointer`, `selection`, `viewport`, `history`, `assets`, and `debug`
-   domains;
+   `data`, `targets`, `presentation`, `pointer`, `selection`, `viewport`, `history`,
+   `assets`, and `debug` domains;
 3. await `destroy()` when the host unmounts.
 
 ```ts
@@ -54,6 +54,7 @@ implements it:
 | Read a detached dataset copy | `data.snapshot()` |
 | Address one known object/component | `targets.get({ id, componentId? })` |
 | Reuse a semantic set | `targets.query(query)` |
+| Apply keyed renderer-only alpha | `presentation.set(key, layer)` / `presentation.clear(key)` |
 | Observe package-owned hover | `pointer.onHover()` |
 | Observe pointer-origin selection | `selection.onPointerChange()` |
 | Apply a relative transform | `transform.moveBy()` / `resizeBy()` / `rotateBy()` |
@@ -405,6 +406,46 @@ structured unsupported with
 Target sets are revision-bound. Loading a replacement dataset makes an old
 set fail with a direct instruction to query it again, preventing a
 stale batch from reaching unrelated IDs.
+
+## Keyed renderer-only presentation
+
+Use `presentation` when the host needs temporary focus, search, alarm, or
+time-range paint without turning that state into dataset mutation:
+
+```ts
+const scope = patchMap.targets.query({ type: 'item', scope: 'authored' });
+
+patchMap.presentation.set('dashboard:focus', {
+  scope,
+  targets: activeIds,
+  matched: { alphaMultiplier: 1 },
+  unmatched: { alphaMultiplier: 0.32 },
+});
+
+patchMap.presentation.clear('dashboard:focus');
+```
+
+The host owns what the key and target union mean. PatchMap captures the
+revision-bound logical `scope`, intersects `targets` with it, and composes
+overlapping layers as `baseAlpha × alphaMultiplier product`. Replacing the
+same key is atomic; clearing it leaves every other key intact. Targets may use
+string IDs, `{ id, componentId? }` addresses, or another current
+`PatchMapTargetSet`. Out-of-scope targets are ignored and counted in the set
+result; an invalid layer or stale/foreign target set changes nothing.
+
+The MVP deliberately accepts only finite `alphaMultiplier` values from 0 to 1.
+It does not accept tint, priority, callbacks, selectors, visibility, geometry,
+text, source, or structural changes. Alpha zero changes pixels, not hit
+identity. PatchMap stores sparse logical membership and projects it to packed
+dense bitsets, so callers never build the unmatched complement.
+
+Presentation is included in the currently visible frame and therefore in
+`capture.png()`. It is excluded from `data.snapshot()`, serialization,
+history, and semantic hashes. A successful `data.replace()` and `destroy()`
+clear every layer; a failed replacement preserves them. Structural commits
+reproject the captured logical addresses before their next visible frame, but
+logical IDs created after `set()` do not join the saved scope automatically.
+Debug output exposes only the bounded presentation revision and layer count.
 
 `data.replace()` detaches caller data. It preserves stable element IDs,
 component owner/ID identity, relation endpoints, and deterministic ordering

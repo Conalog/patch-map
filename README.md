@@ -169,6 +169,26 @@ patchMap.updateBatch({
 The input object is detached and never mutated. IDs and component owner/ID
 identity remain stable. Invalid strict loads and mutations fail atomically.
 
+For temporary host state such as focus, search, alarms, or time ranges, use a
+keyed renderer-only presentation layer instead of mutating authored alpha:
+
+```ts
+const scope = patchMap.targets.query({ type: 'item', scope: 'authored' });
+
+patchMap.presentation.set('dashboard:focus', {
+  scope,
+  targets: activeIds,
+  matched: { alphaMultiplier: 1 },
+  unmatched: { alphaMultiplier: 0.32 },
+});
+```
+
+Same-key calls replace atomically and `presentation.clear(key)` removes only
+that layer. Overlapping layers multiply with the authored/live base alpha.
+They affect visible captures but not dataset snapshots, serialization,
+history, or semantic hashes; successful dataset replacement and destroy clear
+them. The initial API intentionally supports only `alphaMultiplier` in `[0, 1]`.
+
 ## Runtime support
 
 - Node.js: `>=20` for package consumers; Node.js 22 for repository CI

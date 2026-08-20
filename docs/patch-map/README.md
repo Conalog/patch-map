@@ -15,7 +15,9 @@ provides a redesigned engine API; it does not emulate the previous package API.
 - [Changelog](./CHANGELOG.md)
 
 Runnable TypeScript examples are packaged in `examples/patch-map`:
-`minimal`, `dashboard`, `editor`, and `report`. All four use the preferred
+`minimal`, `dashboard`, `editor`, and `report`. The compile-checked
+`presentation.ts` snippet shows both application-specific focus and neutral
+search layers. All runnable examples use the preferred
 `PatchMap.mount()` and domain APIs. `host-adapter.ts` composes the same public
 surface for migration-oriented hosts; it does not implement rendering,
 selection, transformation, history, or extraction semantics itself.
