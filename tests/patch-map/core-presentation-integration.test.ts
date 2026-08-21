@@ -1432,6 +1432,7 @@ describe('PatchMap bar presentation integration', () => {
       targets: ['grid-a.0.0'],
       unmatched: { alphaMultiplier: 0.4 },
     });
+    expect(nonIdentityMultipliers(renderer.presentationLayerUpdates.at(-1)!)).toHaveLength(4);
     const logicalRevision = engine.snapshot().presentation.revision;
 
     expect(core.reconcile(gridSceneExpanded(10)).status).toBe('committed');
@@ -1441,7 +1442,7 @@ describe('PatchMap bar presentation integration', () => {
     });
     const reprojected = renderer.presentationLayerUpdates.at(-1)!;
     expect(reprojected.full).toBe(true);
-    expect(nonIdentityMultipliers(reprojected)).toHaveLength(2);
+    expect(nonIdentityMultipliers(reprojected)).toHaveLength(4);
     await engine.destroy();
   });
 
