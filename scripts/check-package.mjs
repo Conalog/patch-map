@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -47,6 +47,16 @@ try {
   if (missingFiles.length > 0) {
     throw new Error(
       `Package is missing required files: ${missingFiles.join(', ')}`,
+    );
+  }
+
+  const umdBundle = await readFile(
+    join(process.cwd(), 'dist/index.umd.js'),
+    'utf8',
+  );
+  if (!umdBundle.includes('global.PIXI, global.nanoid$1, global.vm')) {
+    throw new Error(
+      'UMD globals changed: existing CDN consumers require PIXI, nanoid$1, and vm',
     );
   }
 

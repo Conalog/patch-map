@@ -143,31 +143,30 @@ describe('Text Component Tests', () => {
       },
     ];
 
-    it.each(layoutTestCases)('should correctly position to $description', ({
-      itemSize,
-      textPlacement,
-      validate,
-    }) => {
-      const patchmap = getPatchmap();
-      const testItem = {
-        type: 'item',
-        id: 'test-item-layout',
-        size: itemSize,
-        components: [
-          {
-            type: 'text',
-            id: 'text-layout',
-            text: 'Layout', // 텍스트가 있어야 너비가 생김
-            placement: textPlacement,
-          },
-        ],
-      };
-      patchmap.draw([testItem]);
-      gsap.exportRoot().totalProgress(1);
+    it.each(layoutTestCases)(
+      'should correctly position to $description',
+      ({ itemSize, textPlacement, validate }) => {
+        const patchmap = getPatchmap();
+        const testItem = {
+          type: 'item',
+          id: 'test-item-layout',
+          size: itemSize,
+          components: [
+            {
+              type: 'text',
+              id: 'text-layout',
+              text: 'Layout', // 텍스트가 있어야 너비가 생김
+              placement: textPlacement,
+            },
+          ],
+        };
+        patchmap.draw([testItem]);
+        gsap.exportRoot().totalProgress(1);
 
-      const text = patchmap.selector('$..[?(@.id=="text-layout")]')[0];
-      validate(text, itemSize);
-    });
+        const text = patchmap.selector('$..[?(@.id=="text-layout")]')[0];
+        validate(text, itemSize);
+      },
+    );
   });
 
   it('should correctly split text based on the "split" property', () => {

@@ -135,14 +135,14 @@ describe('Component Schemas', () => {
           height: { value: 75, unit: '%' },
         },
       },
-    ])('should correctly parse and transform different valid size formats: $case', ({
-      input,
-      expected,
-    }) => {
-      const data = { ...baseBar, size: input };
-      const parsed = barSchema.parse(data);
-      expect(parsed.size).toEqual(expected);
-    });
+    ])(
+      'should correctly parse and transform different valid size formats: $case',
+      ({ input, expected }) => {
+        const data = { ...baseBar, size: input };
+        const parsed = barSchema.parse(data);
+        expect(parsed.size).toEqual(expected);
+      },
+    );
 
     it('should fail if required `size` or `source` is missing', () => {
       const dataWithoutSource = { type: 'bar', size: 100 };
@@ -201,14 +201,14 @@ describe('Component Schemas', () => {
           height: { value: 100, unit: '%' },
         },
       },
-    ])('should parse and transform correctly with different size properties: $case', ({
-      input,
-      expected,
-    }) => {
-      const data = { ...baseIcon, size: input };
-      const parsed = iconSchema.parse(data);
-      expect(parsed.size).toEqual(expected);
-    });
+    ])(
+      'should parse and transform correctly with different size properties: $case',
+      ({ input, expected }) => {
+        const data = { ...baseIcon, size: input };
+        const parsed = iconSchema.parse(data);
+        expect(parsed.size).toEqual(expected);
+      },
+    );
 
     it('should fail if required `source` or `size` is missing', () => {
       const dataWithoutSource = { type: 'icon', size: 50 };
@@ -294,7 +294,7 @@ describe('Component Schemas', () => {
       const data = { type: 'chart', value: 100 };
       const result = componentSchema.safeParse(data);
       expect(result.success).toBe(false);
-      expect(result.error.issues[0].code).toBe('invalid_union_discriminator');
+      expect(result.error.issues[0].code).toBe('invalid_union');
     });
   });
 

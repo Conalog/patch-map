@@ -304,25 +304,24 @@ describe('sizeBatchTween', () => {
       parentProps: { contentOrientation: 'upright' },
       resolvedPosition: { x: 555, y: 444 },
     },
-  ])('re-applies world transform and placement for $case', ({
-    view,
-    parentProps,
-    resolvedPosition,
-  }) => {
-    const { target, applyState } = renderCompensatedBatchUpdate({
-      view,
-      parentProps,
-      resolvedPosition,
-    });
+  ])(
+    're-applies world transform and placement for $case',
+    ({ view, parentProps, resolvedPosition }) => {
+      const { target, applyState } = renderCompensatedBatchUpdate({
+        view,
+        parentProps,
+        resolvedPosition,
+      });
 
-    expect(target.setSize).toHaveBeenLastCalledWith(50, 40);
-    expect(applyState).toHaveBeenCalledTimes(1);
-    expect(target.position.set).toHaveBeenLastCalledWith(
-      resolvedPosition.x,
-      resolvedPosition.y,
-    );
-    expect(target.position.set).not.toHaveBeenCalledWith(20, 10);
-  });
+      expect(target.setSize).toHaveBeenLastCalledWith(50, 40);
+      expect(applyState).toHaveBeenCalledTimes(1);
+      expect(target.position.set).toHaveBeenLastCalledWith(
+        resolvedPosition.x,
+        resolvedPosition.y,
+      );
+      expect(target.position.set).not.toHaveBeenCalledWith(20, 10);
+    },
+  );
 
   it('uses default target state application when job has no custom applyState', () => {
     const batcher = getSizeBatcher({

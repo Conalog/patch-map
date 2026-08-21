@@ -1,15 +1,15 @@
+const types = new WeakMap();
+
 export const Type = (superClass) => {
   return class extends superClass {
-    #type;
-
     constructor(options = {}) {
       const { type = null, ...rest } = options;
       super(rest);
-      this.#type = type;
+      types.set(this, type);
     }
 
     get type() {
-      return this.#type;
+      return types.get(this);
     }
   };
 };

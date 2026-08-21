@@ -4,6 +4,7 @@ import { deepMerge } from '../../utils/deepmerge/deepmerge';
 import { diffReplace } from '../../utils/diff/diff-replace';
 import { isSame } from '../../utils/diff/is-same';
 import { validate } from '../../utils/validator';
+import { deepPartial } from '../../utils/zod-deep-strict-partial';
 import { getSceneIndexKeys } from '../model/SceneIndex';
 import { normalizeChanges } from '../normalize';
 import { Type } from './Type';
@@ -21,6 +22,7 @@ const TRANSFORM_SYNC_KEYS = new Set([
   'pivot',
   'alpha',
 ]);
+const stores = new WeakMap();
 
 const getPatchDiff = (currentProps, changes) => {
   if (
@@ -50,17 +52,15 @@ export const Base = (superClass) => {
     static _handlerRegistry = new Map();
     static _handlerOrder = 0;
     static _handlerList = [];
-    #store;
-
     constructor(options = {}) {
       const { store = null, ...rest } = options;
       super(rest);
-      this.#store = store;
+      stores.set(this, store);
       this.props = rest?.type ? { type: rest.type } : {};
       this.onRender = () => {
         if (
-          this.#store?.viewport?.moving ||
-          this.#store?.viewport?._suspendObjectAfterRender
+          this.store?.viewport?.moving ||
+          this.store?.viewport?._suspendObjectAfterRender
         ) {
           return;
         }
@@ -69,7 +69,7 @@ export const Base = (superClass) => {
     }
 
     get store() {
-      return this.#store;
+      return stores.get(this);
     }
 
     _afterRender() {}
@@ -169,15 +169,24 @@ export const Base = (superClass) => {
         ? normalizeChanges(changes, this.type)
         : changes;
 
-      const mergedProps =
-        mergeStrategy === 'replace'
-          ? { ...this.props, ...normalizedChanges }
-          : deepMerge(this.props, normalizedChanges);
+      const validatedChanges = validateSchema
+        ? validate(normalizedChanges, deepPartial(schema))
+        : normalizedChanges;
+      if (isValidationError(validatedChanges)) {
+        throw validatedChanges;
+      }
 
-      const normalizedProps = mergedProps;
-      const validatedProps = validateSchema
-        ? validate(normalizedProps, schema)
-        : normalizedProps;
+      const nextProps =
+        mergeStrategy === 'replace'
+          ? { ...this.props, ...validatedChanges }
+          : deepMerge(this.props, validatedChanges);
+      // Merge updates preserve the historical patch contract: optional object
+      // state may be introduced one nested field at a time. Replace remains the
+      // boundary for validating a complete object definition.
+      const validatedProps =
+        validateSchema && mergeStrategy === 'replace'
+          ? validate(nextProps, schema)
+          : nextProps;
       if (isValidationError(validatedProps)) {
         throw validatedProps;
       }
@@ -191,7 +200,7 @@ export const Base = (superClass) => {
         this._syncStoreElementIndex(previousIndexKeys);
       }
 
-      const handlerChanges = options.changes ?? normalizedChanges;
+      const handlerChanges = options.changes ?? validatedChanges;
       this._applyHandlers(keysToProcess, {
         mergeStrategy,
         refresh,

@@ -185,7 +185,10 @@ describeInBrowser('perf: patchmap.update dashboard plant-map', () => {
     panelMixedA = createChangesList(panelItems, panelMixedChanges, 0);
     panelMixedB = createChangesList(panelItems, panelMixedChanges, 1);
 
-    runPanelInitUpdate(panelInitA);
+    // patch-service materializes the reusable panel component blueprint before
+    // drawing. The benchmark fixture is raw, so seed the same complete runtime
+    // component state through the trusted/default-materializing path first.
+    runPanelTrustedInitUpdate(panelInitA);
     runPanelInitUpdate(panelInitB);
     runPanelPerItemUpdate(panelChartA);
     runPanelPerItemUpdate(panelChartB);

@@ -46,7 +46,9 @@ export const Itemable = (superClass) => {
 };
 
 const resolveGridItemProps = (relevantChanges, options = {}) => {
-  const rawItemChanges = options.changes?.item;
+  const rawItemChanges = omitGridItemTemplateComponentIds(
+    options.changes?.item,
+  );
   if (!rawItemChanges || typeof rawItemChanges !== 'object') {
     return relevantChanges.item;
   }
@@ -56,3 +58,17 @@ const resolveGridItemProps = (relevantChanges, options = {}) => {
     ...rawItemChanges,
   };
 };
+
+export const omitGridItemTemplateComponentIds = (itemProps) => {
+  if (!Array.isArray(itemProps?.components)) return itemProps;
+  return {
+    ...itemProps,
+    components: itemProps.components.map((component) =>
+      component && typeof component === 'object'
+        ? omitComponentTemplateId(component)
+        : component,
+    ),
+  };
+};
+
+const omitComponentTemplateId = ({ id, ...component }) => component;

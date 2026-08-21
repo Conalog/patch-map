@@ -1294,25 +1294,25 @@ describe('Bar Component Tests', () => {
       },
     ];
 
-    it.each(testCases)('should correctly update to $description', ({
-      size,
-      expected,
-    }) => {
-      const patchmap = getPatchmap();
-      patchmap.draw([itemWithBar]);
-      gsap.exportRoot().totalProgress(1);
+    it.each(testCases)(
+      'should correctly update to $description',
+      ({ size, expected }) => {
+        const patchmap = getPatchmap();
+        patchmap.draw([itemWithBar]);
+        gsap.exportRoot().totalProgress(1);
 
-      const bar = patchmap.selector('$..[?(@.id=="bar-1")]')[0];
+        const bar = patchmap.selector('$..[?(@.id=="bar-1")]')[0];
 
-      patchmap.update({
-        path: '$..[?(@.id=="bar-1")]',
-        changes: { size },
-      });
-      gsap.exportRoot().totalProgress(1);
+        patchmap.update({
+          path: '$..[?(@.id=="bar-1")]',
+          changes: { size },
+        });
+        gsap.exportRoot().totalProgress(1);
 
-      expect(bar.width).toBe(expected.width);
-      expect(bar.height).toBe(expected.height);
-    });
+        expect(bar.width).toBe(expected.width);
+        expect(bar.height).toBe(expected.height);
+      },
+    );
   });
 
   describe('when parent item has padding', () => {
@@ -1492,40 +1492,43 @@ describe('Bar Component Tests', () => {
       },
     ];
 
-    it.each(layoutTestCases)('$description', ({
-      itemSize,
-      itemPadding,
-      barSize,
-      barPlacement,
-      barMargin,
-      expected,
-    }) => {
-      const patchmap = getPatchmap();
-      const testItem = {
-        type: 'item',
-        id: 'test-item',
-        size: itemSize,
-        padding: itemPadding,
-        components: [
-          {
-            type: 'bar',
-            id: 'test-bar',
-            source: { type: 'rect', fill: 'magenta' },
-            size: barSize,
-            placement: barPlacement,
-            margin: barMargin,
-          },
-        ],
-      };
+    it.each(layoutTestCases)(
+      '$description',
+      ({
+        itemSize,
+        itemPadding,
+        barSize,
+        barPlacement,
+        barMargin,
+        expected,
+      }) => {
+        const patchmap = getPatchmap();
+        const testItem = {
+          type: 'item',
+          id: 'test-item',
+          size: itemSize,
+          padding: itemPadding,
+          components: [
+            {
+              type: 'bar',
+              id: 'test-bar',
+              source: { type: 'rect', fill: 'magenta' },
+              size: barSize,
+              placement: barPlacement,
+              margin: barMargin,
+            },
+          ],
+        };
 
-      patchmap.draw([testItem]);
-      gsap.exportRoot().totalProgress(1);
+        patchmap.draw([testItem]);
+        gsap.exportRoot().totalProgress(1);
 
-      const bar = patchmap.selector('$..[?(@.id=="test-bar")]')[0];
-      expect(bar.width).toBeCloseTo(expected.width);
-      expect(bar.height).toBeCloseTo(expected.height);
-      expect(bar.x).toBeCloseTo(expected.x);
-      expect(bar.y).toBeCloseTo(expected.y);
-    });
+        const bar = patchmap.selector('$..[?(@.id=="test-bar")]')[0];
+        expect(bar.width).toBeCloseTo(expected.width);
+        expect(bar.height).toBeCloseTo(expected.height);
+        expect(bar.x).toBeCloseTo(expected.x);
+        expect(bar.y).toBeCloseTo(expected.y);
+      },
+    );
   });
 });

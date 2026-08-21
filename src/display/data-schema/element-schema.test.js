@@ -459,7 +459,7 @@ describe('Element Schemas', () => {
       const data = [{ type: 'rectangle', id: 'rect-1' }];
       const result = mapDataSchema.safeParse(data);
       expect(result.success).toBe(false);
-      expect(result.error.issues[0].code).toBe('invalid_union_discriminator');
+      expect(result.error.issues[0].code).toBe('invalid_union');
     });
 
     // --- ID uniqueness validation using superRefine ---

@@ -807,59 +807,60 @@ describe('patchmap test', () => {
       case: 'attrs.rotation',
       changes: { attrs: { rotation: Math.PI / 6 } },
     },
-  ])('re-applies component world transform when local $case changes', async ({
-    changes,
-  }) => {
-    const patchmap = getPatchmap();
-    patchmap.draw([
-      {
-        type: 'item',
-        id: 'probe-item',
-        label: 'Probe',
-        size: { width: 220, height: 120 },
-        padding: { x: 12, y: 10 },
-        attrs: { x: 240, y: 120 },
-        components: [
-          {
-            type: 'background',
-            id: 'bg-probe',
-            source: {
-              type: 'rect',
-              fill: 'white',
-              borderWidth: 2,
-              borderColor: 'primary.default',
-              radius: 12,
+  ])(
+    're-applies component world transform when local $case changes',
+    async ({ changes }) => {
+      const patchmap = getPatchmap();
+      patchmap.draw([
+        {
+          type: 'item',
+          id: 'probe-item',
+          label: 'Probe',
+          size: { width: 220, height: 120 },
+          padding: { x: 12, y: 10 },
+          attrs: { x: 240, y: 120 },
+          components: [
+            {
+              type: 'background',
+              id: 'bg-probe',
+              source: {
+                type: 'rect',
+                fill: 'white',
+                borderWidth: 2,
+                borderColor: 'primary.default',
+                radius: 12,
+              },
             },
-          },
-          {
-            type: 'bar',
-            id: 'bar-probe',
-            source: { type: 'rect', fill: 'primary.default', radius: 6 },
-            size: { width: '64%', height: 10 },
-            placement: 'bottom',
-            margin: { left: 14, right: 14, bottom: 16 },
-          },
-        ],
-      },
-    ]);
-    patchmap.rotation.set(180);
-    await waitForScene();
+            {
+              type: 'bar',
+              id: 'bar-probe',
+              source: { type: 'rect', fill: 'primary.default', radius: 6 },
+              size: { width: '64%', height: 10 },
+              placement: 'bottom',
+              margin: { left: 14, right: 14, bottom: 16 },
+            },
+          ],
+        },
+      ]);
+      patchmap.rotation.set(180);
+      await waitForScene();
 
-    patchmap.update({
-      path: '$..[?(@.id=="bar-probe")]',
-      changes,
-    });
-    await waitForScene();
+      patchmap.update({
+        path: '$..[?(@.id=="bar-probe")]',
+        changes,
+      });
+      await waitForScene();
 
-    const item = patchmap.selector('$..[?(@.id=="probe-item")]')[0];
-    const bar = patchmap.selector('$..[?(@.id=="bar-probe")]')[0];
+      const item = patchmap.selector('$..[?(@.id=="probe-item")]')[0];
+      const bar = patchmap.selector('$..[?(@.id=="bar-probe")]')[0];
 
-    expect(bar.angle).toBeCloseTo(210);
+      expect(bar.angle).toBeCloseTo(210);
 
-    expect(
-      getMaxBoundsOverflow(item.getBounds(), bar.getBounds()),
-    ).toBeLessThanOrEqual(1);
-  });
+      expect(
+        getMaxBoundsOverflow(item.getBounds(), bar.getBounds()),
+      ).toBeLessThanOrEqual(1);
+    },
+  );
 
   it('re-centers world when viewport resizes after rotation and flip', async () => {
     const patchmap = getPatchmap();
@@ -882,85 +883,88 @@ describe('patchmap test', () => {
     expect(world.position.y).toBeCloseTo(center.y, 3);
   });
 
-  it.each(
-    ROOT_TEXT_WORLD_SCENARIOS,
-  )('keeps standalone text visual upright across %s', async (_label, angle, flip, expectedOuter, expectedVisual) => {
-    const patchmap = getPatchmap();
-    patchmap.draw([
-      {
-        type: 'text',
-        id: 'standalone-text',
-        text: 'LABEL',
-        attrs: { x: 80, y: 80 },
-        style: { fontSize: 16 },
-      },
-      {
-        type: 'image',
-        id: 'standalone-image',
-        source: IMAGE_SOURCE,
-        size: { width: 48, height: 24 },
-        attrs: { x: 180, y: 80 },
-      },
-    ]);
+  it.each(ROOT_TEXT_WORLD_SCENARIOS)(
+    'keeps standalone text visual upright across %s',
+    async (_label, angle, flip, expectedOuter, expectedVisual) => {
+      const patchmap = getPatchmap();
+      patchmap.draw([
+        {
+          type: 'text',
+          id: 'standalone-text',
+          text: 'LABEL',
+          attrs: { x: 80, y: 80 },
+          style: { fontSize: 16 },
+        },
+        {
+          type: 'image',
+          id: 'standalone-image',
+          source: IMAGE_SOURCE,
+          size: { width: 48, height: 24 },
+          attrs: { x: 180, y: 80 },
+        },
+      ]);
 
-    await waitForScene();
+      await waitForScene();
 
-    const initialText = patchmap.selector('$..[?(@.id=="standalone-text")]')[0];
-    const initialVisual = initialText.bitmapText;
-    const initialLocalBounds = initialVisual.getLocalBounds();
-    const baselineCenter = {
-      x: initialLocalBounds.x + initialLocalBounds.width / 2,
-      y: initialLocalBounds.y + initialLocalBounds.height / 2,
-    };
-
-    patchmap.rotation.set(angle);
-    patchmap.flip.set(flip);
-
-    await waitForScene();
-
-    const text = patchmap.selector('$..[?(@.id=="standalone-text")]')[0];
-    const image = patchmap.selector('$..[?(@.id=="standalone-image")]')[0];
-    const textVisual = text.bitmapText;
-    const normalizeAngle = (angle) => ((angle % 360) + 360) % 360;
-    const angleDistance = (actual, expected) => {
-      const delta = normalizeAngle(actual) - normalizeAngle(expected);
-      const wrapped = ((delta + 540) % 360) - 180;
-      return Math.abs(wrapped);
-    };
-    const expectAngleClose = (actual, expected, epsilon = 0.5) => {
-      expect(angleDistance(actual, expected)).toBeLessThanOrEqual(epsilon);
-    };
-    const readRotation = (node) => {
-      const transform = node.getGlobalTransform();
-      return Math.atan2(transform.b, transform.a) * (180 / Math.PI);
-    };
-    const readDeterminant = (node) => {
-      const transform = node.getGlobalTransform();
-      return transform.a * transform.d - transform.b * transform.c;
-    };
-    const readBoundsCenter = (node) => {
-      const bounds = node.getBounds();
-      return {
-        x: bounds.x + bounds.width / 2,
-        y: bounds.y + bounds.height / 2,
+      const initialText = patchmap.selector(
+        '$..[?(@.id=="standalone-text")]',
+      )[0];
+      const initialVisual = initialText.bitmapText;
+      const initialLocalBounds = initialVisual.getLocalBounds();
+      const baselineCenter = {
+        x: initialLocalBounds.x + initialLocalBounds.width / 2,
+        y: initialLocalBounds.y + initialLocalBounds.height / 2,
       };
-    };
-    const applyMatrixToPoint = (matrix, point) => ({
-      x: matrix.a * point.x + matrix.c * point.y + matrix.tx,
-      y: matrix.b * point.x + matrix.d * point.y + matrix.ty,
-    });
-    expectAngleClose(readRotation(image), expectedOuter);
-    expectAngleClose(readRotation(text), expectedOuter);
-    expectAngleClose(readRotation(textVisual), expectedVisual);
-    expect(readDeterminant(textVisual)).toBeGreaterThan(0);
-    const expectedCenter = applyMatrixToPoint(
-      text.getGlobalTransform(),
-      baselineCenter,
-    );
-    const actualCenter = readBoundsCenter(textVisual);
-    expect(actualCenter.x).toBeCloseTo(expectedCenter.x, 2);
-    expect(actualCenter.y).toBeCloseTo(expectedCenter.y, 2);
-  });
+
+      patchmap.rotation.set(angle);
+      patchmap.flip.set(flip);
+
+      await waitForScene();
+
+      const text = patchmap.selector('$..[?(@.id=="standalone-text")]')[0];
+      const image = patchmap.selector('$..[?(@.id=="standalone-image")]')[0];
+      const textVisual = text.bitmapText;
+      const normalizeAngle = (angle) => ((angle % 360) + 360) % 360;
+      const angleDistance = (actual, expected) => {
+        const delta = normalizeAngle(actual) - normalizeAngle(expected);
+        const wrapped = ((delta + 540) % 360) - 180;
+        return Math.abs(wrapped);
+      };
+      const expectAngleClose = (actual, expected, epsilon = 0.5) => {
+        expect(angleDistance(actual, expected)).toBeLessThanOrEqual(epsilon);
+      };
+      const readRotation = (node) => {
+        const transform = node.getGlobalTransform();
+        return Math.atan2(transform.b, transform.a) * (180 / Math.PI);
+      };
+      const readDeterminant = (node) => {
+        const transform = node.getGlobalTransform();
+        return transform.a * transform.d - transform.b * transform.c;
+      };
+      const readBoundsCenter = (node) => {
+        const bounds = node.getBounds();
+        return {
+          x: bounds.x + bounds.width / 2,
+          y: bounds.y + bounds.height / 2,
+        };
+      };
+      const applyMatrixToPoint = (matrix, point) => ({
+        x: matrix.a * point.x + matrix.c * point.y + matrix.tx,
+        y: matrix.b * point.x + matrix.d * point.y + matrix.ty,
+      });
+      expectAngleClose(readRotation(image), expectedOuter);
+      expectAngleClose(readRotation(text), expectedOuter);
+      expectAngleClose(readRotation(textVisual), expectedVisual);
+      expect(readDeterminant(textVisual)).toBeGreaterThan(0);
+      const expectedCenter = applyMatrixToPoint(
+        text.getGlobalTransform(),
+        baselineCenter,
+      );
+      const actualCenter = readBoundsCenter(textVisual);
+      expect(actualCenter.x).toBeCloseTo(expectedCenter.x, 2);
+      expect(actualCenter.y).toBeCloseTo(expectedCenter.y, 2);
+    },
+  );
 
   it('keeps fit-to-content finite when rotation is set before draw', async () => {
     const patchmap = getPatchmap();
@@ -1259,31 +1263,31 @@ describe('patchmap test', () => {
             position: { x: 220, y: 280 },
             expectedId: 'relations-1',
           },
-        ])('should select the correct element when $case', async ({
-          position,
-          expectedId,
-        }) => {
-          const viewport = patchmap.viewport;
-          transform(viewport);
-          await vi.advanceTimersByTimeAsync(100);
+        ])(
+          'should select the correct element when $case',
+          async ({ position, expectedId }) => {
+            const viewport = patchmap.viewport;
+            transform(viewport);
+            await vi.advanceTimersByTimeAsync(100);
 
-          viewport.emit('click', {
-            global: viewport.toGlobal(position),
-            stopPropagation: () => {},
-          });
+            viewport.emit('click', {
+              global: viewport.toGlobal(position),
+              stopPropagation: () => {},
+            });
 
-          expect(onClick).toHaveBeenCalledTimes(1);
-          const receivedElement = onClick.mock.calls[0][0];
+            expect(onClick).toHaveBeenCalledTimes(1);
+            const receivedElement = onClick.mock.calls[0][0];
 
-          if (expectedId === null) {
-            expect(receivedElement).toBeNull();
-          } else {
-            expect(receivedElement).toBeDefined();
-            expect(receivedElement.id).toBe(expectedId);
-          }
+            if (expectedId === null) {
+              expect(receivedElement).toBeNull();
+            } else {
+              expect(receivedElement).toBeDefined();
+              expect(receivedElement.id).toBe(expectedId);
+            }
 
-          expect(onDrag).not.toHaveBeenCalled();
-        });
+            expect(onDrag).not.toHaveBeenCalled();
+          },
+        );
       });
     });
 
@@ -1324,38 +1328,39 @@ describe('patchmap test', () => {
           clickPosition: { x: 210, y: 310 },
           expectedId: 'group-2',
         },
-      ])('should return the correct object when selectUnit is "$selectUnit"', async ({
-        selectUnit,
-        clickPosition,
-        expectedId,
-      }) => {
-        patchmap.draw([{ type: 'group', id: 'group-2', children: sampleData }]);
-        await vi.advanceTimersByTimeAsync(100);
+      ])(
+        'should return the correct object when selectUnit is "$selectUnit"',
+        async ({ selectUnit, clickPosition, expectedId }) => {
+          patchmap.draw([
+            { type: 'group', id: 'group-2', children: sampleData },
+          ]);
+          await vi.advanceTimersByTimeAsync(100);
 
-        const onClick = vi.fn();
+          const onClick = vi.fn();
 
-        patchmap.stateManager.setState('selection', {
-          enabled: true,
-          selectUnit: selectUnit,
-          onClick: onClick,
-        });
+          patchmap.stateManager.setState('selection', {
+            enabled: true,
+            selectUnit: selectUnit,
+            onClick: onClick,
+          });
 
-        const viewport = patchmap.viewport;
-        viewport.emit('click', {
-          global: viewport.toGlobal(clickPosition),
-          stopPropagation: () => {},
-        });
+          const viewport = patchmap.viewport;
+          viewport.emit('click', {
+            global: viewport.toGlobal(clickPosition),
+            stopPropagation: () => {},
+          });
 
-        expect(onClick).toHaveBeenCalledTimes(1);
-        const selectedObject = onClick.mock.calls[0][0];
+          expect(onClick).toHaveBeenCalledTimes(1);
+          const selectedObject = onClick.mock.calls[0][0];
 
-        if (expectedId) {
-          expect(selectedObject).toBeDefined();
-          expect(selectedObject.id).toBe(expectedId);
-        } else {
-          expect(selectedObject).toBeNull();
-        }
-      });
+          if (expectedId) {
+            expect(selectedObject).toBeDefined();
+            expect(selectedObject.id).toBe(expectedId);
+          } else {
+            expect(selectedObject).toBeNull();
+          }
+        },
+      );
     });
 
     describe('drag and hover performance guards', () => {

@@ -3,7 +3,7 @@
 Thanks for contributing to `@conalog/patch-map`.
 
 ## Before You Start
-- Use Node.js `>=22` (`.nvmrc` selects Node.js 24 for local development).
+- Use Node.js `^22.22.1 || ^24 || >=26` (`.nvmrc` selects Node.js 24 for local development).
 - Install dependencies with `npm install`.
 - If your change is large, open an issue first to align on direction.
 
@@ -43,8 +43,7 @@ Chore PR: `https://github.com/Conalog/patch-map/compare/main...YOUR_BRANCH?expan
 
 When branch protection is enabled, require `ci / verify` and
 `pr title / validate`. The browser suite is available through the manually
-dispatched `browser tests` workflow and should become a required check after its
-existing failures are resolved.
+dispatched `browser tests` workflow and is not currently a required check.
 
 ## Release Process
 
@@ -70,8 +69,8 @@ running the `release` workflow from `main` and entering the existing `v<version>
 tag in its `tag` input.
 
 The browser suite is not currently an npm publication gate. Run the manual
-`browser tests` workflow while its existing render test failures are being
-resolved, then promote it to required CI when the suite is green.
+`browser tests` workflow for render coverage; promoting it to required CI is a
+separate repository-settings change.
 
 By default Release Please uses the repository `GITHUB_TOKEN`. Configure a
 `RELEASE_PLEASE_TOKEN` secret backed by a least-privilege GitHub App or token if

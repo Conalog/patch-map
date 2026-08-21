@@ -177,22 +177,21 @@ const readVerticalAnchor = (component) => {
   return topGap <= bottomGap ? 'top' : 'bottom';
 };
 
-const findGridComponent = (patchmap, componentId, angle) => {
+const findGridComponent = (patchmap, componentType, angle) => {
   const parentId = `ops-orientation-grid-${angle}.0.0`;
-  return patchmap
-    .selector(`$..[?(@.id=="${componentId}")]`)
-    .find((node) => node.parent?.id === parentId);
+  const parent = patchmap.selector(`$..[?(@.id=="${parentId}")]`)[0];
+  return parent?.children.find((node) => node.type === componentType);
 };
 
 const findCardComponent = (patchmap, componentId) =>
   patchmap.selector(`$..[?(@.id=="${componentId}")]`)[0];
 
-const readGridAnchors = (patchmap, componentId) =>
+const readGridAnchors = (patchmap, componentType) =>
   ANGLES.map((angle) => {
-    const component = findGridComponent(patchmap, componentId, angle);
+    const component = findGridComponent(patchmap, componentType, angle);
     expect(
       component,
-      `Missing grid component ${componentId} at angle ${angle}`,
+      `Missing grid component type ${componentType} at angle ${angle}`,
     ).toBeTruthy();
     return readVerticalAnchor(component);
   });
@@ -371,8 +370,8 @@ const assertCardComponentsInBounds = (patchmap, caseLabel) => {
 };
 
 const GRID_VISUAL_COMPONENTS = [
-  { key: 'bar', id: 'ops-orientation-panel-bar' },
-  { key: 'text', id: 'ops-orientation-panel-text' },
+  { key: 'bar', type: 'bar' },
+  { key: 'text', type: 'text' },
 ];
 
 const readGridVisualByAngle = (patchmap, angle) => {
@@ -385,10 +384,10 @@ const readGridVisualByAngle = (patchmap, angle) => {
   const layout = {};
 
   for (const component of GRID_VISUAL_COMPONENTS) {
-    const node = findGridComponent(patchmap, component.id, angle);
+    const node = findGridComponent(patchmap, component.type, angle);
     expect(
       node,
-      `Missing grid component ${component.id} at angle ${angle}`,
+      `Missing grid component type ${component.type} at angle ${angle}`,
     ).toBeTruthy();
     const bounds = node.getBounds();
     const centerX = bounds.x + bounds.width / 2;
@@ -593,20 +592,14 @@ describe('Orientation Matrix Contracts', () => {
       applyRotationAndFlip(patchmap, contract);
     }
 
-    const actualGridBar = readGridAnchors(
-      patchmap,
-      'ops-orientation-panel-bar',
-    );
+    const actualGridBar = readGridAnchors(patchmap, 'bar');
     const expectedGridBar = decodeAnchors(contract.gridBar);
     expect(
       actualGridBar,
       `grid bar expected [${formatAnchors(expectedGridBar)}], got [${formatAnchors(actualGridBar)}]`,
     ).toEqual(expectedGridBar);
 
-    const actualGridText = readGridAnchors(
-      patchmap,
-      'ops-orientation-panel-text',
-    );
+    const actualGridText = readGridAnchors(patchmap, 'text');
     const expectedGridText = decodeAnchors(contract.gridText);
     expect(
       actualGridText,

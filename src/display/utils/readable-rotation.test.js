@@ -14,12 +14,11 @@ describe('readable-rotation', () => {
     { angle: 229, readable: 49, compensation: 180 },
     { angle: 270, readable: 270, compensation: 0 },
     { angle: 315, readable: 315, compensation: 0 },
-  ])('resolves readable angle for $angle°', ({
-    angle,
-    readable,
-    compensation,
-  }) => {
-    expect(resolveReadableAngle(angle)).toBe(readable);
-    expect(getReadableRotationCompensation(angle)).toBe(compensation);
-  });
+  ])(
+    'resolves readable angle for $angle°',
+    ({ angle, readable, compensation }) => {
+      expect(resolveReadableAngle(angle)).toBe(readable);
+      expect(getReadableRotationCompensation(angle)).toBe(compensation);
+    },
+  );
 });
