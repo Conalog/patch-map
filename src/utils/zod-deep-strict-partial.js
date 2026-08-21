@@ -175,35 +175,3 @@ export function deepPartial(schema) {
   partialSchemaCache.set(schema, partialSchema);
   return partialSchema;
 }
-
-/**
- * Makes all object schemas strict (unknown keys fail), except those explicitly
- * marked with `.passthrough()`.
- *
- * @template {import('zod').ZodType} T
- * @param {T} schema
- * @returns {T}
- */
-export function deepStrict(schema) {
-  /* @ts-expect-error -- runtime cast only for developer hint */
-  return mapOnSchema(schema, (s) =>
-    s instanceof z.ZodObject && !(s._zod.def.catchall instanceof z.ZodUnknown)
-      ? s.strict()
-      : s,
-  );
-}
-
-/**
- * Makes all object schemas strict (unknown keys fail), regardless of
- * `.passthrough()`.
- *
- * @template {import('zod').ZodType} T
- * @param {T} schema
- * @returns {T}
- */
-export function deepStrictAll(schema) {
-  /* @ts-expect-error -- runtime cast only for developer hint */
-  return mapOnSchema(schema, (s) =>
-    s instanceof z.ZodObject ? s.strict() : s,
-  );
-}

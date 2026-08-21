@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import {
-  deepPartial,
-  deepStrict,
-  deepStrictAll,
-} from './zod-deep-strict-partial';
+import { deepPartial } from './zod-deep-strict-partial';
 
 describe('Zod schema traversal', () => {
   it('makes nested and recursive object properties optional without applying defaults', () => {
@@ -39,11 +35,6 @@ describe('Zod schema traversal', () => {
 
     expect(deepPartial(schema).parse({ nested: {} })).toEqual({ nested: {} });
     expect(deepPartial(schema).parse({})).toEqual({});
-    expect(
-      deepStrict(schema).safeParse({
-        nested: { value: 'ok', extra: true },
-      }).success,
-    ).toBe(false);
   });
 
   it('degrades discriminated unions so their discriminator can be omitted', () => {
@@ -65,21 +56,5 @@ describe('Zod schema traversal', () => {
     expect(deepPartial(schema).parse({ size: { width: 40 } })).toEqual({
       size: { width: 40 },
     });
-  });
-
-  it('preserves passthrough objects unless strict mode is forced', () => {
-    const schema = z.object({
-      nested: z.object({ value: z.string() }).passthrough(),
-    });
-
-    expect(
-      deepStrict(schema).safeParse({ nested: { value: 'ok', extra: true } })
-        .success,
-    ).toBe(true);
-    expect(
-      deepStrictAll(schema).safeParse({
-        nested: { value: 'ok', extra: true },
-      }).success,
-    ).toBe(false);
   });
 });
