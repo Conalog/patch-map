@@ -16,6 +16,7 @@ const warmups = integer(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_WARMUPS ?? 
 const measured = integer(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_MEASURED ?? '7');
 const updateCount = integer(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_UPDATES ?? '4');
 const viewport = viewportSize(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_VIEWPORT ?? '800x600');
+const pixelRatio = positiveNumber(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_DPR ?? '1');
 const viewportMotion = viewportMotionName(
   process.env.PATCH_MAP_GRID_PRESENTATION_PERF_VIEWPORT_MOTION ?? 'pan',
 );
@@ -65,32 +66,46 @@ try {
         sequenceCount,
         run,
         scenarioName,
+        targetPixelRatio,
         viewportMotionName,
         viewportSize: [viewportWidth, viewportHeight],
       }) => {
         const { PatchMap } = window.__PATCH_MAP_PUBLIC_ANIMATION_MODULE__;
-        const columns = 100;
-        const rows = Math.ceil(recordCount / columns);
+        const multiGrid = scenarioName === 'multi-grid-bar-height';
+        const columns = multiGrid ? 30 : 100;
+        const gridCount = multiGrid ? 26 : 1;
+        const cellsPerGrid = multiGrid ? 360 : recordCount;
+        const rows = Math.ceil(cellsPerGrid / columns);
         const cells = Array.from({ length: rows }, (_rowValue, row) =>
           Array.from({ length: columns }, (_columnValue, column) =>
-            row * columns + column < recordCount ? 1 : 0));
-        const dataset = [{
+            row * columns + column < cellsPerGrid ? 1 : 0));
+        const grid = (gridIndex) => ({
           type: 'grid',
-          id: 'presentation-grid',
+          id: multiGrid ? 'plant-grid-' + gridIndex : 'presentation-grid',
+          ...(multiGrid
+            ? {
+                attrs: {
+                  x: (gridIndex % 5) * 510,
+                  y: Math.floor(gridIndex / 5) * 215,
+                },
+              }
+            : {}),
           cells,
-          gap: 2,
+          gap: multiGrid ? 1 : 2,
           item: {
-            size: { width: 34, height: 46 },
+            size: multiGrid ? { width: 12, height: 16 } : { width: 34, height: 46 },
             components: [{
               type: 'background',
               id: 'surface',
               source: { type: 'rect', fill: '#e2e8f0', radius: 3 },
             }, ...(
-              scenarioName === 'bar-height' || scenarioName === 'mode-switch'
+              scenarioName === 'bar-height' ||
+              scenarioName === 'mode-switch' ||
+              scenarioName === 'multi-grid-bar-height'
                 ? [{
                     type: 'bar',
                     id: 'chart',
-                    size: { width: 24, height: 18 },
+                    size: multiGrid ? { width: 10, height: 12 } : { width: 24, height: 18 },
                     placement: 'bottom',
                     source: { type: 'rect', fill: '#2563eb', radius: 2 },
                   }]
@@ -99,14 +114,15 @@ try {
               type: 'text',
               id: 'value',
               text: '0%',
-              ...(scenarioName === 'mode-switch' ? { show: false } : {}),
+              ...(scenarioName === 'mode-switch' || multiGrid ? { show: false } : {}),
               placement: 'center',
               margin: 2,
               tint: '#0f172a',
               style: { fontFamily: 'Arial', fontSize: 11, fontWeight: 600 },
             }],
           },
-        }];
+        });
+        const dataset = Array.from({ length: gridCount }, (_value, index) => grid(index));
         const host = document.querySelector('#patch-map-performance-host');
         Object.assign(host.style, {
           width: viewportWidth + 'px',
@@ -121,7 +137,7 @@ try {
             instanceId: 'grid-presentation-perf-' + scenarioName + '-' + recordCount + '-' + run,
             width: viewportWidth,
             height: viewportHeight,
-            pixelRatio: 1,
+            pixelRatio: targetPixelRatio,
             antialias: false,
             backend: 'webgl',
             resizeMode: 'manual',
@@ -129,15 +145,26 @@ try {
             data: dataset,
           });
           const mountMs = performance.now() - mountStarted;
-          const targets = map.targets.query({
-            within: 'presentation-grid',
-            type: 'grid-cell',
-            scope: 'instances',
-          });
+          const queryStarted = performance.now();
+          const targetGroups = multiGrid
+            ? Array.from({ length: gridCount }, (_value, index) => map.targets.query({
+                within: 'plant-grid-' + index,
+                componentId: 'chart',
+                type: 'bar',
+                scope: 'instances',
+              }))
+            : [map.targets.query({
+                within: 'presentation-grid',
+                type: 'grid-cell',
+                scope: 'instances',
+              })];
+          const queryMs = performance.now() - queryStarted;
+          const targets = targetGroups[0];
+          const targetCount = targetGroups.reduce((sum, group) => sum + group.count, 0);
           const before = map.debug.snapshot();
           const backgroundSources = new Array(targets.count);
           const backgroundShows = new Array(targets.count).fill(true);
-          const barHeights = new Array(targets.count);
+          const barHeights = new Array(multiGrid ? cellsPerGrid : targets.count);
           const textShows = new Array(targets.count);
           const textValues = new Array(targets.count);
           const textStyles = new Array(targets.count);
@@ -147,6 +174,33 @@ try {
           const palette = ['#1d4ed8', '#7c3aed', '#0f766e', '#b45309'];
           const textPalette = ['#eff6ff', '#faf5ff', '#f0fdfa', '#fffbeb'];
           const publish = (sequence) => {
+            if (multiGrid) {
+              const callMs = [];
+              const results = [];
+              const started = performance.now();
+              for (let gridIndex = 0; gridIndex < targetGroups.length; gridIndex += 1) {
+                const group = targetGroups[gridIndex];
+                for (let index = 0; index < group.count; index += 1) {
+                  barHeights[index] = ((gridIndex * 29 + index * 13 + sequence * 19) % 13) + 1;
+                }
+                const callStarted = performance.now();
+                results.push(map.updateBatch({
+                  targets: group,
+                  bar: { componentId: 'chart', height: barHeights },
+                }));
+                callMs.push(performance.now() - callStarted);
+              }
+              return {
+                action: {
+                  status: results.every(({ status }) => status === 'committed')
+                    ? 'committed'
+                    : 'rejected',
+                  appliedCount: results.reduce((sum, result) => sum + result.appliedCount, 0),
+                },
+                updateMs: performance.now() - started,
+                callMs,
+              };
+            }
             for (let index = 0; index < targets.count; index += 1) {
               const state = index % palette.length;
               backgroundSources[index] = {
@@ -265,10 +319,14 @@ try {
           };
           requestAnimationFrame(tick);
           const actionMs = [];
+          const callMs = [];
+          const actionToFirstFrameMs = [];
           const actions = [];
           for (let sequence = 1; sequence <= sequenceCount; sequence += 1) {
+            const sequenceStarted = performance.now();
             const published = publish(sequence);
             actionMs.push(published.updateMs);
+            callMs.push(...(published.callMs ?? []));
             actions.push({
               status: published.action.status,
               appliedCount: published.action.appliedCount,
@@ -279,6 +337,10 @@ try {
                 sequence % 2 === 0 ? 1.01 : 1 / 1.01,
                 [viewportWidth / 2, viewportHeight / 2],
               );
+            }
+            if (multiGrid) {
+              actionToFirstFrameMs.push(await new Promise((resolve) =>
+                requestAnimationFrame(() => resolve(performance.now() - sequenceStarted))));
             }
             await new Promise((resolve) => setTimeout(resolve, 75));
           }
@@ -291,7 +353,8 @@ try {
           map = null;
           return {
             mountMs,
-            targetCount: targets.count,
+            targetCount,
+            queryMs,
             firstOverlay: {
               status: firstOverlay.action.status,
               appliedCount: firstOverlay.action.appliedCount,
@@ -299,6 +362,8 @@ try {
               settleMs: firstOverlaySettleMs,
             },
             actionMs,
+            callMs,
+            actionToFirstFrameMs,
             actions,
             rafGapsMs,
             longTasks: sample.longTasks,
@@ -322,6 +387,7 @@ try {
         run: trial,
         scenarioName: scenario,
         viewportMotionName: viewportMotion,
+        targetPixelRatio: pixelRatio,
         viewportSize: viewport,
       });
       result.errors = errors;
@@ -349,6 +415,10 @@ try {
       firstOverlayUpdateMs: stats(trials.map(({ firstOverlay }) => firstOverlay.updateMs)),
       firstOverlaySettleMs: stats(trials.map(({ firstOverlay }) => firstOverlay.settleMs)),
       updateMs: stats(trials.flatMap(({ actionMs }) => actionMs)),
+      perCallMs: stats(trials.flatMap(({ callMs }) => callMs)),
+      actionToFirstFrameMs: stats(trials.flatMap(({ actionToFirstFrameMs }) =>
+        actionToFirstFrameMs)),
+      queryMs: stats(trials.map(({ queryMs }) => queryMs)),
       repeatedUpdateP95Ms: stats(trials.map(({ actionMs }) => percentile(actionMs, 0.95))),
       rafGapP95Ms: stats(trials.map(({ rafGapsMs }) => percentile(rafGapsMs, 0.95))),
       rafGapMaxMs: stats(trials.map(({ rafGapsMs }) => Math.max(...rafGapsMs))),
@@ -379,7 +449,7 @@ try {
       settleMs: 250,
       viewport,
       viewportMotion,
-      pixelRatio: 1,
+      pixelRatio,
       backend: 'webgl',
       publicApi: 'PatchMap.mount + targets.query + updateBatch',
       workload: 'scenario-selected concrete bar/text/background updateBatch columns',
@@ -471,12 +541,21 @@ function scenarioList(value) {
     'text-content',
     'text-style',
     'mode-switch',
+    'multi-grid-bar-height',
   ]);
   const result = value.split(',').map((entry) => entry.trim());
   if (result.length === 0 || result.some((entry) => !allowed.has(entry))) {
     throw new TypeError('grid presentation performance scenario must be supported');
   }
   return result;
+}
+
+function positiveNumber(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new TypeError('performance number must be finite and positive');
+  }
+  return parsed;
 }
 
 function viewportSize(value) {
