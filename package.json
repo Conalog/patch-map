@@ -9,7 +9,7 @@
   "homepage": "https://github.com/Conalog/patch-map#readme",
   "bugs": "https://github.com/Conalog/patch-map/issues",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "repository": {
     "type": "git",
