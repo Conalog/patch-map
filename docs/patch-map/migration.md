@@ -39,13 +39,13 @@ assets, and cleanup to one `PatchMap` instance.
 | drive visible frames | automatic after `mount()` | remove the previous host RAF/ticker; explicit publication remains an advanced deterministic seam |
 | find logical objects | `targets.get()` or `targets.query()` | use `{ id, componentId? }`; target sets are detached and revision-bound |
 | update one logical owner | `update()` | change element fields and its bar/text/icon/background components in one atomic commit; omit `componentId` only when the component type is unique |
-| update many objects with equal-shaped values | columnar `updateBatch()` | column lengths must match target count; authored bar/text fast paths retain their compact planners |
-| compose heterogeneous or structural work | `transaction()` | one ordered validation, scene publication, selection companion, and history entry; one failure rejects the whole operation |
+| update many objects with equal-shaped values | columnar `updateBatch()` | column lengths must match target count; optional boolean `animate` column selects per-target bar-height animation |
+| compose heterogeneous or structural work | `transaction()` | one ordered validation, scene publication, selection companion, and history entry; operation-aligned `animate` preserves mixed owner policy in that same atomic commit |
 | external selection | `selection.set/add/remove/toggle/clear` and `selection.onChange()` | use stable IDs or target sets; this all-source observer preserves the existing programmatic API |
 | pointer selection plugin | mount `selection: { box, allowMultiple, isSelectable }` and subscribe with `selection.onPointerChange()` | remove host drag rectangles, coordinate conversion, hit tests, pointer capture, and RAF ownership |
-| hover tooltip plugin | `pointer.onHover()` | consume stable `{ id, componentId? }`, CSS `anchor`, package-converted `world`, and `hover/move/leave`; do not inspect Pixi objects |
+| hover tooltip plugin | `pointer.onHover()` / `pointer.onTooltip()` | consume stable targets and package anchors; optional context-menu pinning stays under the one pointer owner |
 | move, resize, or rotate | `transform.moveBy/resizeBy/rotateBy` | use stable IDs or target sets; all three methods apply relative deltas |
-| pan, zoom, reset, or fit | `viewport.panBy/zoomBy/reset/fit` | remove duplicate host coordinate transforms and viewport inertia |
+| pan, zoom, reset, fit, or persist | `viewport.panBy/zoomBy/reset/fit/snapshot/restore/onSettled` | remove duplicate host coordinate transforms, host RAF, and per-frame persistence writes |
 | undo and redo | `history.undo/redo` | the host may map shortcuts to these same public methods; do not create a second history owner |
 | load images or fonts | `assets.register()` | do not borrow Pixi global-cache state as proof of validation |
 | validate a save | `preparePatchMapPersistenceExport()` and semantic-hash roundtrip | write only after every guard passes |
@@ -168,7 +168,10 @@ boundary instead:
 const patchMap = await PatchMap.mount({
   container,
   data,
-  pointer: { hoverDuringPress: true },
+  pointer: {
+    hoverDuringPress: true,
+    tooltip: { pinOnContextMenu: true, preventDefault: true },
+  },
   viewport: { wheel: { activationModifier: 'control' } },
   selection: {
     box: {
@@ -179,6 +182,10 @@ const patchMap = await PatchMap.mount({
     clearOnBlankClick: 'double',
     deselectOnTargetDoubleClick: true,
     isSelectable: (target) => plugin.isSelectable(target),
+    resolveModifierSelection: ({ target, currentIds, modifiers }) =>
+      modifiers.ctrl || modifiers.meta
+        ? relationGraph.toggleRelated(currentIds, target.id)
+        : currentIds,
     visual: {
       color: '#ef4444',
       strokeWidth: 3,
@@ -196,6 +203,10 @@ const releasePointerSelection = patchMap.selection.onPointerChange(
 const releaseHover = patchMap.pointer.onHover(
   ({ type, target, anchor, world }) =>
     tooltip.resolveView({ type, target, anchor, world }),
+);
+const releaseTooltip = patchMap.pointer.onTooltip(
+  ({ type, target, anchor, world, pinned }) =>
+    tooltip.resolveView({ type, target, anchor, world, pinned }),
 );
 ```
 
@@ -225,6 +236,13 @@ Set `pointer.hoverDuringPress` only when the existing tooltip contract keeps
 the current hover target through a selectable-target click. Omitted/false
 retains the compatible pointer-down leave, while actual leave and cancel clear
 hover in either mode.
+Map a legacy right-click tooltip lock to
+`pointer.tooltip.pinOnContextMenu: true`; `pointer.onTooltip()` then publishes
+the stable pin/unpin lifecycle. Do not migrate the old canvas context-menu
+listener or coordinate conversion. Ctrl/Cmd relation expansion belongs in
+`selection.resolveModifierSelection`, which returns the complete stable ID set
+for the same point-selection commit; do not recreate pointer bookkeeping or a
+second history write in the host.
 Do not retain the old host pointer listeners, hit-test mirror, coordinate
 transform, tooltip RAF, transformer wireframe, or DOM drag rectangle. The
 package draws the configured selection frame and transient Shift-drag marquee
@@ -262,6 +280,13 @@ multi-selection nor emits a change. Shift click continues to toggle
 immediately. Both options are omitted by default to preserve existing package
 behavior.
 
+Persist the previous absolute viewport with `viewport.snapshot()`. Restore it
+at mount with `viewport: { initial: saved }` (which takes priority over initial
+fit) or later with `viewport.restore(saved)`. Subscribe once with
+`viewport.onSettled()` and save a fresh snapshot inside the coalesced callback.
+This replaces legacy per-frame viewport stores, key listeners, and host RAF;
+the returned disposer and `destroy()` own cleanup.
+
 ## Mutations, animation, and history
 
 Replace direct object edits and per-node commands with one of three mutation
@@ -291,6 +316,32 @@ patchMap.transaction([
   selectedIds: ['rack-01', 'rack-02'],
 });
 ```
+
+Mixed animation remains atomic in both public bulk forms. For a concrete
+columnar batch, align `animate` to target rows:
+
+```ts
+patchMap.updateBatch({
+  targets: cells,
+  bar: { componentId: 'usage', height: heights },
+  icon: { componentId: 'status', changes: { show: iconShows } },
+}, { animate: animateBars });
+```
+
+For non-grid logical owners, align it to heterogeneous public operations:
+
+```ts
+patchMap.transaction([
+  { type: 'update', id: 'owner-a', bar: { height: 20 }, text: { text: '즉시' } },
+  { type: 'update', id: 'owner-b', bar: { height: 80 } },
+], { animate: [false, true] });
+```
+
+False destinations snap and true destinations retarget through the central
+scheduler, while all companion writes remain one validation/publication/history
+commit. Remove `PATCH_MAP_OWNER_MIXED_ANIMATION_UNSUPPORTED` and equivalent
+host fallbacks. Use scalar `animate` for uniform policy; a target-column batch
+requires `bar.height`.
 
 `update()` deliberately rejects a top-level array. Use `transaction([...])`
 for heterogeneous changes or `updateBatch({ targets, ... })` for homogeneous

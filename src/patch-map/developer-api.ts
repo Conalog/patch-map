@@ -46,6 +46,7 @@ import type {
   PatchMapOneOrMany,
   PatchMapPointerHoverEvent,
   PatchMapPointerSelectionChange,
+  PatchMapPointerTooltipEvent,
   PatchMapSelectionInput,
   PatchMapDataReplaceOptions,
   PatchMapTarget,
@@ -54,6 +55,7 @@ import type {
   PatchMapTargetsInput,
   PatchMapTargetQuery,
   PatchMapTransformOptions,
+  PatchMapViewportSnapshot,
   PatchMapUpdateTargetsInput,
 } from './developer-api/contracts';
 import { createPatchMapMutationApi } from './developer-api/mutations';
@@ -96,6 +98,9 @@ interface PatchMapApiHost {
   onPointerSelectionChange(
     listener: (change: PatchMapPointerSelectionChange) => void,
   ): () => void;
+  onPointerTooltip(listener: (event: PatchMapPointerTooltipEvent) => void): () => void;
+  onViewportChange(listener: (change: PatchMapViewportChangeResult) => void): () => void;
+  onDestroyed(listener: () => void): () => void;
   applySelection(input: PatchMapSelectionSetOperation): PatchMapSelectionChange;
   applyTransformerEdit(
     request: PatchMapTransformerEditRequest,
@@ -107,6 +112,7 @@ interface PatchMapApiHost {
     fallback?: PatchMapViewportFitOptions,
   ): PatchMapViewportRestoreResult;
   panViewport(delta: readonly [number, number]): PatchMapViewportChangeResult;
+  setViewportAbsolute(input: PatchMapViewportSnapshot): PatchMapViewportChangeResult;
   zoomViewportAt(input: Readonly<{
     readonly factor: number;
     readonly anchorCss: readonly [number, number];
@@ -486,6 +492,9 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     onHover(listener: (event: PatchMapPointerHoverEvent) => void): () => void {
       return host.onPointerHover(listener);
     },
+    onTooltip(listener: (event: PatchMapPointerTooltipEvent) => void): () => void {
+      return host.onPointerTooltip(listener);
+    },
   });
 
   const transformIds = (selected: PatchMapTargetsInput): readonly string[] =>
@@ -542,6 +551,38 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     },
   });
 
+  const viewportSettledListeners = new Set<(state: PatchMapViewportState) => void>();
+  let viewportSettleTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
+  let releaseViewportChange: (() => void) | null = null;
+  let releaseViewportDestroy: (() => void) | null = null;
+  const clearViewportSettleTimer = (): void => {
+    if (viewportSettleTimer === null) return;
+    globalThis.clearTimeout(viewportSettleTimer);
+    viewportSettleTimer = null;
+  };
+  const releaseViewportObservers = (): void => {
+    clearViewportSettleTimer();
+    releaseViewportChange?.();
+    releaseViewportDestroy?.();
+    releaseViewportChange = null;
+    releaseViewportDestroy = null;
+    viewportSettledListeners.clear();
+  };
+  const scheduleViewportSettled = (): void => {
+    if (viewportSettledListeners.size === 0) return;
+    clearViewportSettleTimer();
+    viewportSettleTimer = globalThis.setTimeout(() => {
+      viewportSettleTimer = null;
+      const state = host.viewportProbe();
+      for (const listener of [...viewportSettledListeners]) listener(state);
+    }, 100);
+  };
+  const ensureViewportObservers = (): void => {
+    if (releaseViewportChange !== null) return;
+    releaseViewportChange = host.onViewportChange(scheduleViewportSettled);
+    releaseViewportDestroy = host.onDestroyed(releaseViewportObservers);
+  };
+
   const viewport = Object.freeze({
     fit,
     reset: (options: PatchMapFitOptions = {}) => host.restoreViewport(null, {
@@ -556,8 +597,38 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
       const resolvedAnchor = anchor ?? [size[0] / 2, size[1] / 2];
       return host.zoomViewportAt({ factor, anchorCss: resolvedAnchor, source: 'programmatic' });
     },
-    resize: (width: number, height: number, pixelRatio?: number) =>
-      host.resize(width, height, pixelRatio),
+    resize: (width: number, height: number, pixelRatio?: number) => {
+      const changed = host.resize(width, height, pixelRatio);
+      if (changed) scheduleViewportSettled();
+      return changed;
+    },
+    snapshot(): PatchMapViewportSnapshot {
+      const state = host.viewportProbe();
+      return Object.freeze({
+        centerWorld: Object.freeze([...state.centerWorld] as [number, number]),
+        scale: state.scale,
+      });
+    },
+    restore(snapshot: PatchMapViewportSnapshot): PatchMapViewportChangeResult {
+      if (snapshot === null || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+        throw new TypeError('viewport snapshot must be an object');
+      }
+      return host.setViewportAbsolute(Object.freeze({
+        centerWorld: finiteViewportPair(snapshot.centerWorld),
+        scale: positiveViewportScale(snapshot.scale),
+      }));
+    },
+    onSettled(listener: (state: PatchMapViewportState) => void): () => void {
+      if (typeof listener !== 'function') {
+        throw new TypeError('viewport settled listener must be a function');
+      }
+      viewportSettledListeners.add(listener);
+      ensureViewportObservers();
+      return () => {
+        viewportSettledListeners.delete(listener);
+        if (viewportSettledListeners.size === 0) releaseViewportObservers();
+      };
+    },
     get state(): PatchMapViewportState {
       return host.viewportProbe();
     },
@@ -614,4 +685,23 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     debug: Object.freeze({ snapshot: () => host.snapshot() }),
     capture,
   });
+}
+
+function finiteViewportPair(value: readonly [number, number]): readonly [number, number] {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 2 ||
+    !Number.isFinite(value[0]) ||
+    !Number.isFinite(value[1])
+  ) {
+    throw new RangeError('viewport snapshot centerWorld must contain two finite numbers');
+  }
+  return Object.freeze([value[0], value[1]] as const);
+}
+
+function positiveViewportScale(value: number): number {
+  if (!(value > 0) || !Number.isFinite(value)) {
+    throw new RangeError('viewport snapshot scale must be positive and finite');
+  }
+  return value;
 }

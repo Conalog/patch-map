@@ -4,6 +4,7 @@ import type {
   PatchMapEngineSurface,
   PatchMapEngineSurfaceFactory,
   PatchMapSurfaceOptions,
+  PatchMapSurfaceContextMenuInput,
   PatchMapSurfacePointerInput,
   PatchMapSurfaceViewportInput,
 } from './contracts';
@@ -11,6 +12,7 @@ import type {
 export interface PatchMapSurfaceInputCallbacks {
   readonly viewport: (input: PatchMapSurfaceViewportInput) => void;
   readonly pointer: (input: PatchMapSurfacePointerInput) => void;
+  readonly contextMenu?: (input: PatchMapSurfaceContextMenuInput) => boolean;
   readonly accessibility: (
     targetId: string,
     input: PatchMapAccessibilityActivationInput,
@@ -31,12 +33,14 @@ export interface PatchMapSurfaceCleanupResult {
 interface PatchMapSurfaceInputBindings {
   readonly viewport: (() => void) | null;
   readonly pointer: (() => void) | null;
+  readonly contextMenu: (() => void) | null;
   readonly accessibility: (() => void) | null;
 }
 
 const EMPTY_BINDINGS: PatchMapSurfaceInputBindings = Object.freeze({
   viewport: null,
   pointer: null,
+  contextMenu: null,
   accessibility: null,
 });
 
@@ -211,16 +215,21 @@ export class PatchMapSurfaceLifecycleAuthority<TInitialization> {
   ): PatchMapSurfaceInputBindings {
     let viewport: (() => void) | null = null;
     let pointer: (() => void) | null = null;
+    let contextMenu: (() => void) | null = null;
     let accessibility: (() => void) | null = null;
     try {
       viewport = surface.bindViewportInput?.(callbacks.viewport) ?? null;
       pointer = surface.bindPointerInput?.(callbacks.pointer) ?? null;
+      contextMenu = callbacks.contextMenu === undefined
+        ? null
+        : surface.bindContextMenuInput?.(callbacks.contextMenu) ?? null;
       accessibility = surface.bindAccessibilityActivation?.(
         callbacks.accessibility,
       ) ?? null;
-      return Object.freeze({ viewport, pointer, accessibility });
+      return Object.freeze({ viewport, pointer, contextMenu, accessibility });
     } catch (error) {
       safelyUnbind(accessibility);
+      safelyUnbind(contextMenu);
       safelyUnbind(pointer);
       safelyUnbind(viewport);
       throw error;
@@ -240,6 +249,11 @@ export class PatchMapSurfaceLifecycleAuthority<TInitialization> {
     error = unbindWithDiagnostic(
       bindings.pointer,
       'PatchMap pointer input cleanup failed',
+      error,
+    );
+    error = unbindWithDiagnostic(
+      bindings.contextMenu,
+      'PatchMap context-menu input cleanup failed',
       error,
     );
     return unbindWithDiagnostic(

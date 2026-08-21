@@ -199,6 +199,10 @@ describe('PatchMap viewport authority', () => {
     const { engine, surface } = await createEngine(engines, 'viewport-world-transform');
     engine.loadDataset(catalogProfiles.datasets['all-kinds-scene']);
     engine.setViewport({ centerWorld: [200, 150], scale: 1 });
+    const resizeEvents: string[] = [];
+    engine.on('viewChanged', ({ source }) => {
+      if (source === 'resize') resizeEvents.push(source);
+    });
 
     expect(engine.setWorldTransform({
       rotationDegrees: 90,
@@ -277,6 +281,7 @@ describe('PatchMap viewport authority', () => {
       blackFrameCount: 1,
       pendingResizeFrame: false,
     });
+    expect(resizeEvents).toEqual(['resize', 'resize']);
   });
 
   it('settles and serializes once, restores valid state, and falls back from invalid state', async () => {

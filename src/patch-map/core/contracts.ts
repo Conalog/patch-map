@@ -27,6 +27,7 @@ import type {
   PatchMapTextRendererProbe,
   PatchMapTextSemanticSignatures,
   PatchMapWorldOrientation,
+  RootContextMenuInput,
   RootPointerInput,
 } from '../renderers/types';
 import type {
@@ -70,6 +71,7 @@ export interface PatchMapRootViewportChange {
 }
 
 export type PatchMapRootPointerInput = RootPointerInput;
+export type PatchMapRootContextMenuInput = RootContextMenuInput;
 
 export interface PatchMapSemanticRefreshResult {
   readonly changed: boolean;
@@ -313,6 +315,8 @@ export interface PatchMapInstanceBarHeightBatchRequest {
   readonly icon?: PatchMapInstancePresentationColumns;
   readonly text?: PatchMapInstanceTextPresentationColumns;
   readonly animate?: boolean;
+  /** Optional changed-target subset used only when the public batch is mixed. */
+  readonly animatedBarTargets?: readonly PatchMapInstanceBarTarget[];
 }
 
 export interface PatchMapInstanceBarHeightBatchResult {

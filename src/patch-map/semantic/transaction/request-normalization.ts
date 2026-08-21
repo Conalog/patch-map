@@ -25,6 +25,10 @@ export interface NormalizedTransaction {
   readonly actionId?: string;
   readonly recordHistory?: boolean;
   readonly history?: PatchMapMutationJsonValue;
+  readonly animatedBarTargets?: readonly Readonly<{
+    readonly ownerId: string;
+    readonly componentId: string;
+  }>[];
 }
 
 const TRANSACTION_FIELDS = new Set([
@@ -34,11 +38,13 @@ const TRANSACTION_FIELDS = new Set([
   'conflictPolicy',
   'recordHistory',
   'history',
+  'animatedBarTargets',
 ]);
 const BULK_PATCH_FIELDS = new Set(['targets', 'changes', 'strict', 'actionId']);
 export const BAR_HEIGHT_BATCH_FIELDS = new Set([
   'targets',
   'heights',
+  'animate',
   'actionId',
   'recordHistory',
 ]);
@@ -221,6 +227,41 @@ export function normalizeTransaction(value: unknown): NormalizedTransaction {
   const recordHistory = typeof record.recordHistory === 'boolean'
     ? record.recordHistory
     : undefined;
+  const animatedBarTargets = record.animatedBarTargets === undefined
+    ? undefined
+    : Object.freeze(strictOrderedArray(
+        record.animatedBarTargets,
+        '$.animatedBarTargets',
+        'animatedBarTargets must be an ordered array',
+      ).map((value, index) => {
+        const target = strictRecord(
+          value,
+          `$.animatedBarTargets[${index}]`,
+          'animated bar target must be an object',
+        );
+        rejectUnknownFields(
+          target,
+          BAR_HEIGHT_BATCH_TARGET_FIELDS,
+          `$.animatedBarTargets[${index}]`,
+          index,
+        );
+        if (
+          typeof target.ownerId !== 'string' || target.ownerId.length === 0 ||
+          typeof target.componentId !== 'string' || target.componentId.length === 0
+        ) {
+          transactionFail(
+            'INVALID_VALUE',
+            'INVALID_INPUT',
+            `$.animatedBarTargets[${index}]`,
+            'animated bar target requires ownerId and componentId',
+            index,
+          );
+        }
+        return Object.freeze({
+          ownerId: target.ownerId,
+          componentId: target.componentId,
+        });
+      }));
 
   return Object.freeze({
     operations,
@@ -229,6 +270,7 @@ export function normalizeTransaction(value: unknown): NormalizedTransaction {
     ...(actionId === undefined ? {} : { actionId }),
     ...(recordHistory === undefined ? {} : { recordHistory }),
     ...(history === undefined ? {} : { history }),
+    ...(animatedBarTargets === undefined ? {} : { animatedBarTargets }),
   });
 }
 

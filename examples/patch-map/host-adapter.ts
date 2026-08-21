@@ -12,9 +12,12 @@ import {
   type PatchMapOptions,
   type PatchMapPersistenceExport,
   type PatchMapTargetsInput,
+  type PatchMapTransactionOptions,
   type PatchMapTransformOptions,
   type PatchMapTransactionOperation,
   type PatchMapUpdateResult,
+  type PatchMapViewportChangeResult,
+  type PatchMapViewportSnapshot,
 } from '@conalog/patch-map';
 
 export const PATCH_MAP_HOST_ADAPTER_REVISION = 'patch-map-host-adapter/2' as const;
@@ -79,8 +82,26 @@ export class PatchMapHostAdapter {
 
   public bulkUpdate(
     operations: readonly PatchMapTransactionOperation[],
+    options: PatchMapTransactionOptions = {},
   ): PatchMapUpdateResult {
-    return this.#map.transaction(operations);
+    return this.#map.transaction(operations, options);
+  }
+
+  public viewportSnapshot(): PatchMapViewportSnapshot {
+    return this.#map.viewport.snapshot();
+  }
+
+  public restoreViewport(snapshot: PatchMapViewportSnapshot): PatchMapViewportChangeResult {
+    return this.#map.viewport.restore(snapshot);
+  }
+
+  public observeViewportSettled(
+    listener: (snapshot: PatchMapViewportSnapshot) => void,
+  ): PatchMapHostAdapterDisposer {
+    const release = this.#map.viewport.onSettled(() => {
+      listener(this.#map.viewport.snapshot());
+    });
+    return this.#ownDisposer(release);
   }
 
   public selection(ids: readonly string[]): readonly string[] {
@@ -108,6 +129,10 @@ export class PatchMapHostAdapter {
     listener: (ids: readonly string[]) => void,
   ): PatchMapHostAdapterDisposer {
     const release = this.#map.selection.onChange(listener);
+    return this.#ownDisposer(release);
+  }
+
+  #ownDisposer(release: () => void): PatchMapHostAdapterDisposer {
     this.#disposers.add(release);
     let disposed = false;
     return {

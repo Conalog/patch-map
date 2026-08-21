@@ -94,6 +94,10 @@ isSelectable }`로 Shift+primary drag box selection을 켭니다.
 `pointer.onHover()`에서 stable hover target을,
 `selection.onPointerChange()`에서 pointer-origin selection을 구독합니다.
 두 구독은 disposer를 반환하며 `destroy()`에서도 자동 정리됩니다.
+`pointer: { tooltip: { pinOnContextMenu: true } }`를 설정하면 우클릭한 stable
+target을 pointer leave 중에도 유지하고 다음 primary click에서 해제합니다.
+host는 canvas listener 없이 `pointer.onTooltip()`의 `show/move/pin/hide`만
+구독합니다.
 
 극저배율에서 인접 선택선이 면처럼 겹치지 않게 하려면 persistent bound에
 `selection.visual: { strokeWidth: 3, strokeScale: 'viewport',
@@ -138,6 +142,24 @@ patchMap.updateBatch({
   },
 }, { animate: true });
 ```
+
+`animate`에는 `cells.count` 길이의 boolean column도 전달할 수 있습니다.
+false row는 bar height를 즉시 반영하고 true row만 중앙 scheduler에서
+retarget하며, tint/icon/background/text column은 같은 atomic commit으로
+발행됩니다. non-grid logical owner의 heterogeneous update도 operation 순서와
+같은 column으로 표현합니다.
+
+```ts
+patchMap.transaction([
+  { type: 'update', id: 'rack-01', bar: { height: 20 }, text: { text: '즉시' } },
+  { type: 'update', id: 'rack-02', bar: { height: 80 } },
+], { animate: [false, true] });
+```
+
+`viewport.snapshot()`은 absolute center/scale을 반환하고,
+`viewport.onSettled()`은 변화 burst가 끝난 뒤 한 번만 알립니다. 다음 mount의
+`viewport: { initial: saved }`는 initial `fit`보다 우선하며, disposer와
+`destroy()`가 observer를 정리합니다.
 
 입력 객체는 내부 데이터와 분리되며 수정되지 않습니다. element ID와
 component의 owner/ID identity가 유지됩니다. strict load와 mutation 오류는

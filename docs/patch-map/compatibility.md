@@ -68,6 +68,41 @@ remain unsupported and report
 `PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED`. This is an explicit
 compatibility boundary, not a best-effort drop policy.
 
+Mixed animation is supported without splitting atomic work. A scalar
+`updateBatch(..., { animate })` preserves the compatible uniform fast path; a
+boolean column aligns with concrete targets and requires `bar.height`.
+`transaction(operations, { animate })` aligns the boolean column with public
+operations, allowing different authored logical owners and their heterogeneous
+companion writes to commit once while only selected bar heights animate. The
+former `PATCH_MAP_OWNER_MIXED_ANIMATION_UNSUPPORTED` boundary is removed.
+Columns are detached, length/type validated before publication, and false
+destinations land immediately rather than entering the scheduler.
+
+## Viewport persistence compatibility
+
+`viewport.snapshot()` returns detached absolute world center and scale;
+`viewport.restore()` validates and commits both together. Mount-time
+`viewport.initial` takes precedence over initial fit and uses the same zoom
+limits/publication authority. `viewport.onSettled()` coalesces a viewport burst
+for 100ms and returns a disposer. Destroy clears pending timers and observers,
+so persistence needs no host RAF, pointer listener, or coordinate transform.
+
+## Tooltip pin and modifier-selection compatibility
+
+`pointer.tooltip.pinOnContextMenu` opts into package-owned right-click pinning.
+`pointer.onTooltip()` publishes detached `show/move/pin/hide` records with
+stable target, CSS anchor, world point, modifiers, and pin state. A pin survives
+pointer leave until the next primary click; actual leave after unpin clears it.
+Omission preserves the existing context-menu and hover behavior. The one root
+canvas listener remains the owner and destroy removes every subscription.
+
+`selection.resolveModifierSelection` is called only for Ctrl/Cmd point clicks
+when configured. It receives stable clicked identity plus current stable IDs
+and returns the complete replacement IDs for the same selection commit.
+Omission preserves built-in selection semantics. Invalid results or callback
+failure leave selection unchanged; Shift-only click/box, double-click policies,
+and `isSelectable` remain independent.
+
 ## Built-in image compatibility
 
 Root `PatchMap.mount()` always provides the package-owned `object`, `inverter`,

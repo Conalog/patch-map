@@ -71,6 +71,31 @@ export interface PatchMapPointerSelectionChange {
 export interface PatchMapPointerPolicy {
   /** Preserve the current hover target during press/click. Defaults to false. */
   readonly hoverDuringPress?: boolean;
+  /** Optional package-owned tooltip projection and context-menu pin policy. */
+  readonly tooltip?: PatchMapTooltipPolicy;
+}
+
+/** Package-owned tooltip pin behavior for one mounted instance. */
+export interface PatchMapTooltipPolicy {
+  /** Right-click the current target to pin it across pointer leave. Defaults to false. */
+  readonly pinOnContextMenu?: boolean;
+  /** Prevent the native context menu when a target is pinned. Defaults to true. */
+  readonly preventDefault?: boolean;
+}
+
+export type PatchMapPointerTooltipEventType = 'show' | 'move' | 'pin' | 'hide';
+
+/** Stable tooltip projection; no renderer object or live DOM event escapes. */
+export interface PatchMapPointerTooltipEvent {
+  readonly type: PatchMapPointerTooltipEventType;
+  readonly target: PatchMapTarget | null;
+  readonly previousTarget: PatchMapTarget | null;
+  readonly anchor: readonly [number, number];
+  readonly world: readonly [number, number];
+  readonly pointerId: number;
+  readonly pointerType: string;
+  readonly modifiers: PatchMapPointerEventModifiers;
+  readonly pinned: boolean;
 }
 
 export interface PatchMapBoxSelectionOptions {
@@ -141,9 +166,25 @@ export interface PatchMapSelectionPolicy {
   readonly box?: boolean | PatchMapBoxSelectionOptions;
   /** Called with detached stable identity, never renderer objects. */
   readonly isSelectable?: (target: PatchMapTarget) => boolean;
+  /**
+   * Resolve Ctrl/Cmd point selection from stable identities in the package's
+   * pointer commit. Omit to retain the built-in selection semantics.
+   */
+  readonly resolveModifierSelection?: PatchMapPointerSelectionResolver;
   /** Instance-local package-owned persistent selection-bound paint. */
   readonly visual?: PatchMapSelectionVisualPolicy;
 }
+
+export interface PatchMapPointerSelectionResolverInput {
+  readonly target: PatchMapTarget;
+  readonly currentIds: readonly string[];
+  readonly modifiers: PatchMapPointerEventModifiers;
+  readonly clickCount: number;
+}
+
+export type PatchMapPointerSelectionResolver = (
+  input: PatchMapPointerSelectionResolverInput,
+) => readonly string[];
 
 export type PatchMapTargetScope = 'all' | 'authored' | 'instances';
 
@@ -257,6 +298,14 @@ export interface PatchMapMutationOptions {
 export interface PatchMapUpdateOptions extends PatchMapMutationOptions {
   /** Applies to concrete grid-instance bar presentation updates. */
   readonly animate?: boolean;
+}
+
+export interface PatchMapUpdateBatchOptions extends PatchMapMutationOptions {
+  /**
+   * Uniform animation flag or one boolean per target. Mixed columns animate
+   * only true bar-height destinations while companion fields commit at once.
+   */
+  readonly animate?: boolean | PatchMapUpdateColumn<boolean>;
 }
 
 export interface PatchMapComponentUpdate<
@@ -462,6 +511,8 @@ export type PatchMapTransactionOperation =
 
 export interface PatchMapTransactionOptions extends PatchMapMutationOptions {
   readonly conflictPolicy?: PatchMapMutationConflictPolicy;
+  /** Uniform flag or one boolean per transaction operation for bar-height animation. */
+  readonly animate?: boolean | PatchMapUpdateColumn<boolean>;
   /** Selection published and restored atomically with the transaction history entry. */
   readonly selectedIds?: readonly string[];
 }
@@ -495,6 +546,14 @@ export interface PatchMapWheelOptions {
 /** Root-owned viewport gesture activation for one mounted instance. */
 export interface PatchMapViewportOptions {
   readonly wheel?: PatchMapWheelOptions;
+  /** Restored after initial data load and takes precedence over `fit`. */
+  readonly initial?: PatchMapViewportSnapshot;
+}
+
+/** Persistable absolute viewport state in PatchMap world coordinates. */
+export interface PatchMapViewportSnapshot {
+  readonly centerWorld: readonly [number, number];
+  readonly scale: number;
 }
 
 /** Nested or dot-path PixiJS-compatible color values for one mounted instance. */
@@ -560,6 +619,7 @@ export interface PatchMapSelectionApi {
 
 export interface PatchMapPointerApi {
   onHover(listener: (event: PatchMapPointerHoverEvent) => void): () => void;
+  onTooltip(listener: (event: PatchMapPointerTooltipEvent) => void): () => void;
 }
 
 export interface PatchMapTransformOptions {
@@ -600,6 +660,10 @@ export interface PatchMapViewportApi {
   panBy(delta: readonly [number, number]): PatchMapViewportChangeResult;
   zoomBy(factor: number, anchor?: readonly [number, number]): PatchMapViewportChangeResult;
   resize(width: number, height: number, pixelRatio?: number): boolean;
+  snapshot(): PatchMapViewportSnapshot;
+  restore(snapshot: PatchMapViewportSnapshot): PatchMapViewportChangeResult;
+  /** Coalesced once after a burst of pointer, wheel, fit, restore, or resize changes. */
+  onSettled(listener: (state: PatchMapViewportState) => void): () => void;
   readonly state: PatchMapViewportState;
 }
 
@@ -643,7 +707,7 @@ export interface PatchMapCaptureApi {
 
 export interface PatchMapApi {
   update(input: PatchMapUpdate, options?: PatchMapUpdateOptions): PatchMapUpdateResult;
-  updateBatch(input: PatchMapUpdateBatch, options?: PatchMapUpdateOptions): PatchMapUpdateResult;
+  updateBatch(input: PatchMapUpdateBatch, options?: PatchMapUpdateBatchOptions): PatchMapUpdateResult;
   transaction(
     operations: readonly PatchMapTransactionOperation[],
     options?: PatchMapTransactionOptions,

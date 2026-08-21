@@ -73,6 +73,53 @@ describe('PatchMap staged semantic transaction planner', () => {
     expect([...heights]).toEqual([42, 10]);
   });
 
+  it('plans an ordered mixed animation column only for changed true targets', () => {
+    const current = materializePatchMapDataset([
+      {
+        type: 'item',
+        id: 'item-a',
+        size: { width: 100, height: 80 },
+        components: [barComponent('bar-a', '#2563ebff')],
+      },
+      {
+        type: 'item',
+        id: 'item-b',
+        size: { width: 100, height: 80 },
+        components: [barComponent('bar-b', '#ef4444ff')],
+      },
+    ]);
+    const request = Object.freeze({
+      targets: Object.freeze([
+        Object.freeze({ ownerId: 'item-a', componentId: 'bar-a' }),
+        Object.freeze({ ownerId: 'item-b', componentId: 'bar-b' }),
+      ]),
+      heights: new Float64Array([42, 28]),
+      animate: Object.freeze([false, true]),
+    });
+
+    const result = planPatchMapBarHeightBatch(current, request);
+    expect(result).toMatchObject({
+      status: 'planned',
+      changed: true,
+      animatedBarTargets: [{ ownerId: 'item-b', componentId: 'bar-b' }],
+      directBarHeightUpdates: [
+        { ownerId: 'item-a', componentId: 'bar-a', height: 42 },
+        { ownerId: 'item-b', componentId: 'bar-b', height: 28 },
+      ],
+    });
+    expect(request.animate).toEqual([false, true]);
+
+    expect(planPatchMapBarHeightBatch(current, {
+      ...request,
+      animate: [true],
+    })).toMatchObject({
+      status: 'rejected',
+      changed: false,
+      candidate: null,
+      diagnostic: { path: '$.animate' },
+    });
+  });
+
   it('rejects a late missing or duplicate compact bar target atomically', () => {
     const current = materializePatchMapDataset([{
       type: 'item',

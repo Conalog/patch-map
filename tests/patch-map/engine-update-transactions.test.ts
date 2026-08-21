@@ -703,6 +703,58 @@ describe('PatchMap update transactions', () => {
     expect(itemById(engine, 'item-a').size.width).toBe(140);
   });
 
+  it('commits heterogeneous owner updates while animating only the requested authored bar', async () => {
+    const { engine, surface } = await createEngine(engines, 'mixed-owner-animation');
+    engine.loadDataset(twoOwnerBarScene());
+
+    expect(engine.transact({
+      strict: true,
+      actionId: 'mixed-owner-animation',
+      animatedBarTargets: [{ ownerId: 'item-b', componentId: 'bar' }],
+      operations: [
+        {
+          op: 'merge',
+          target: { kind: 'component', ownerId: 'item-a', id: 'bar' },
+          changes: [
+            { path: ['size', 'height'], value: 30 },
+            { path: ['source', 'fill'], value: '#2563eb' },
+          ],
+        },
+        {
+          op: 'merge',
+          target: { kind: 'component', ownerId: 'item-a', id: 'label' },
+          changes: [{ path: ['text'], value: 'Immediate' }],
+        },
+        {
+          op: 'merge',
+          target: { kind: 'component', ownerId: 'item-b', id: 'bar' },
+          changes: [
+            { path: ['size', 'height'], value: 50 },
+            { path: ['source', 'fill'], value: '#22c55e' },
+          ],
+        },
+      ],
+    })).toMatchObject({
+      status: 'committed',
+      changed: true,
+      history: { recorded: true, depthDelta: 1 },
+    });
+    expect(surface.reconcileCalls).toHaveLength(1);
+    expect(surface.reconcileCalls[0]?.options).toMatchObject({
+      animateBarChanges: true,
+      animatedBarTargets: [{ ownerId: 'item-b', componentId: 'bar' }],
+    });
+    expect(componentById(engine, 'item-a', 'bar')).toMatchObject({
+      size: { height: 30 },
+      source: { fill: '#2563eb' },
+    });
+    expect(componentById(engine, 'item-a', 'label')).toMatchObject({ text: 'Immediate' });
+    expect(componentById(engine, 'item-b', 'bar')).toMatchObject({
+      size: { height: 50 },
+      source: { fill: '#22c55e' },
+    });
+  });
+
   it('commits compact bar batches through direct projection and one history unit', async () => {
     const { engine, surface } = await createEngine(engines, 'compact-bar-batch');
     engine.loadDataset(updateScene());
@@ -1275,6 +1327,25 @@ function updateScene(): readonly unknown[] {
       ],
     },
     rectRecord('rect-b', 160, 40),
+  ];
+}
+
+function twoOwnerBarScene(): readonly unknown[] {
+  return [
+    {
+      type: 'item',
+      id: 'item-a',
+      size: { width: 100, height: 80 },
+      attrs: { x: 10, y: 20 },
+      components: [barComponent(), textComponent('label', 'Alpha')],
+    },
+    {
+      type: 'item',
+      id: 'item-b',
+      size: { width: 100, height: 80 },
+      attrs: { x: 130, y: 20 },
+      components: [barComponent(), textComponent('label', 'Beta')],
+    },
   ];
 }
 

@@ -63,8 +63,16 @@ describe('PatchMapRootInteractionAuthority', () => {
       'viewport:wheel:5,6',
     ]);
     expect(authority.activeGesture).toBe(false);
-    expect(binding.handlers().contextMenu(7, 9)).toBe(true);
-    expect(binding.handlers().contextMenu(0, 0)).toBe(false);
+    const contextMenu = (screenX: number, screenY: number) => Object.freeze({
+      screenX,
+      screenY,
+      shiftKey: false,
+      ctrlKey: false,
+      altKey: false,
+      metaKey: false,
+    });
+    expect(binding.handlers().contextMenu(contextMenu(7, 9))).toBe(true);
+    expect(binding.handlers().contextMenu(contextMenu(0, 0))).toBe(false);
   });
 
   it('owns gesture policy, listener cleanup, and one idempotent root unbind', () => {
@@ -99,6 +107,37 @@ describe('PatchMapRootInteractionAuthority', () => {
     binding.handlers().pointer(pointer('down', 3, 4, 5, 0));
     expect(binding.handlers().wheel(wheel(-100))).toBe(false);
     expect(journal).toHaveLength(2);
+  });
+
+  it('projects context menu through the single root binding and disposes listeners', () => {
+    const binding = rootBinding();
+    const authority = new PatchMapRootInteractionAuthority(
+      binding.binder,
+      staticPorts([]),
+      { selectionMode: 'deferred', autoRender: false, wheelActivationModifier: 'none' },
+    );
+    const inputs: unknown[] = [];
+    const release = authority.bindContextMenuInputs((input) => {
+      inputs.push(input);
+      return input.ctrlKey;
+    });
+    const input = Object.freeze({
+      screenX: 30,
+      screenY: 40,
+      shiftKey: false,
+      ctrlKey: true,
+      altKey: false,
+      metaKey: false,
+    });
+
+    expect(binding.handlers().contextMenu(input)).toBe(true);
+    expect(inputs).toEqual([input]);
+    release();
+    expect(binding.handlers().contextMenu(input)).toBe(false);
+    expect(inputs).toHaveLength(1);
+    authority.bindContextMenuInputs(() => true);
+    expect(authority.destroy()).toBe(true);
+    expect(binding.handlers().contextMenu(input)).toBe(false);
   });
 
   it('activates primary pan only beyond the strict per-axis 4 CSS px slop', () => {

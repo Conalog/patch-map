@@ -7,6 +7,7 @@ import {
   type PatchMapInstanceBarHeightBatchResult,
   type PatchMapPresentationLifecycleResult,
   type PatchMapRootPointerInput,
+  type PatchMapRootContextMenuInput,
   type PatchMapRuntimeOptions,
   type PatchMapSelectionMarqueeInput,
   type PatchMapSelectionOverlayPolicyInput,
@@ -64,6 +65,7 @@ import type {
   PatchMapSurfaceComponentVisualProbe,
   PatchMapSurfaceDebug,
   PatchMapSurfaceOptions,
+  PatchMapSurfaceContextMenuInput,
   PatchMapSurfacePointerInput,
   PatchMapSurfacePrepareResult,
   PatchMapSurfaceReconcileOptions,
@@ -97,11 +99,15 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
   private readonly renderer: PatchMapSurfaceRendererPort;
   private readonly unbindCoreViewportChanges: () => void;
   private readonly unbindCorePointerInputs: () => void;
+  private readonly unbindCoreContextMenuInputs: () => void;
   private viewportInputListener:
     | ((input: PatchMapSurfaceViewportInput) => void)
     | null = null;
   private pointerInputListener:
     | ((input: PatchMapSurfacePointerInput) => void)
+    | null = null;
+  private contextMenuInputListener:
+    | ((input: PatchMapSurfaceContextMenuInput) => boolean)
     | null = null;
   private canvasPresent = true;
   private geometryRevision = 0;
@@ -160,6 +166,10 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
       ? core.bindRootPointerInputs((input) => {
           this.pointerInputListener?.(surfacePointerInput(input));
         })
+      : () => {};
+    this.unbindCoreContextMenuInputs = typeof core.bindRootContextMenuInputs === 'function'
+      ? core.bindRootContextMenuInputs((input) =>
+          this.contextMenuInputListener?.(surfaceContextMenuInput(input)) ?? false)
       : () => {};
   }
 
@@ -396,6 +406,21 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
     this.pointerInputListener = listener;
     return () => {
       if (this.pointerInputListener === listener) this.pointerInputListener = null;
+    };
+  }
+
+  public bindContextMenuInput(
+    listener: (input: PatchMapSurfaceContextMenuInput) => boolean,
+  ): () => void {
+    if (typeof listener !== 'function') {
+      throw new TypeError('context-menu input listener must be a function');
+    }
+    if (this.contextMenuInputListener !== null) {
+      throw new Error('context-menu input listener is already bound');
+    }
+    this.contextMenuInputListener = listener;
+    return () => {
+      if (this.contextMenuInputListener === listener) this.contextMenuInputListener = null;
     };
   }
 
@@ -762,6 +787,8 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
   public async destroy(): Promise<boolean> {
     this.viewportInputListener = null;
     this.pointerInputListener = null;
+    this.contextMenuInputListener = null;
+    this.unbindCoreContextMenuInputs();
     this.unbindCorePointerInputs();
     this.unbindCoreViewportChanges();
     try {
@@ -882,6 +909,20 @@ function surfacePointerInput(input: PatchMapRootPointerInput): PatchMapSurfacePo
     buttons: input.buttons,
     screen: Object.freeze([input.screenX, input.screenY] as const),
     timeMs: input.timeMs,
+    modifiers: Object.freeze({
+      shift: input.shiftKey,
+      ctrl: input.ctrlKey,
+      alt: input.altKey,
+      meta: input.metaKey,
+    }),
+  });
+}
+
+function surfaceContextMenuInput(
+  input: PatchMapRootContextMenuInput,
+): PatchMapSurfaceContextMenuInput {
+  return Object.freeze({
+    screen: Object.freeze([input.screenX, input.screenY] as const),
     modifiers: Object.freeze({
       shift: input.shiftKey,
       ctrl: input.ctrlKey,

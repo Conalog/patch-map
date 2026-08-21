@@ -15,6 +15,7 @@ import {
   type PatchMapMutationOperation,
   type PatchMapMutationTarget,
   type PatchMapMutationTransactionPlan,
+  type PatchMapBarHeightBatchTarget,
   type PatchMapPlannedBarHeightUpdate,
   type PatchMapPlannedTextUpdate,
 } from './transaction/contracts';
@@ -98,6 +99,7 @@ export function planPatchMapBarHeightBatch(
   let record: Readonly<Record<string, unknown>>;
   let targets: readonly unknown[];
   let heights: readonly unknown[];
+  let animate: boolean | readonly unknown[] | undefined;
   try {
     record = strictRecord(
       requestInput,
@@ -118,6 +120,34 @@ export function planPatchMapBarHeightBatch(
         '$.heights',
         'heights length must match targets length',
       );
+    }
+    if (record.animate === undefined || typeof record.animate === 'boolean') {
+      animate = record.animate as boolean | undefined;
+    } else {
+      animate = strictOrderedArray(
+        record.animate,
+        '$.animate',
+        'animate must be a boolean or an ordered boolean array',
+      );
+      if (animate.length !== targets.length) {
+        transactionFail(
+          'INVALID_VALUE',
+          'INVALID_INPUT',
+          '$.animate',
+          'animate length must match targets length',
+        );
+      }
+      for (let index = 0; index < animate.length; index += 1) {
+        if (typeof animate[index] !== 'boolean') {
+          transactionFail(
+            'INVALID_VALUE',
+            'INVALID_INPUT',
+            `$.animate[${index}]`,
+            'animate entries must be booleans',
+            index,
+          );
+        }
+      }
     }
     if (
       Object.hasOwn(record, 'actionId') &&
@@ -167,6 +197,7 @@ export function planPatchMapBarHeightBatch(
       missing: EMPTY_TARGETS,
       unchanged: EMPTY_TARGETS,
       directBarHeightUpdates: Object.freeze([]),
+      animatedBarTargets: Object.freeze([]),
       summary: freezeSummary(0, 0, 0),
     });
   }
@@ -187,6 +218,7 @@ export function planPatchMapBarHeightBatch(
   const applied: PatchMapMutationTarget[] = [];
   const unchanged: PatchMapMutationTarget[] = [];
   const directUpdates: PatchMapPlannedBarHeightUpdate[] = [];
+  const animatedBarTargets: PatchMapBarHeightBatchTarget[] = [];
   const seenTargets = new Set<string>();
   let changed = false;
   try {
@@ -291,6 +323,12 @@ export function planPatchMapBarHeightBatch(
         height,
       });
       directUpdates.push(update);
+      if (animate !== false && (!Array.isArray(animate) || animate[index] === true)) {
+        animatedBarTargets.push(Object.freeze({
+          ownerId: target.ownerId,
+          componentId: target.id,
+        }));
+      }
       const replacement = replaceOwnedPatchMapBarHeightRoot(
         root,
         target.id,
@@ -335,6 +373,7 @@ export function planPatchMapBarHeightBatch(
     missing: EMPTY_TARGETS,
     unchanged: frozenUnchanged,
     directBarHeightUpdates: Object.freeze(directUpdates),
+    animatedBarTargets: Object.freeze(animatedBarTargets),
     summary: freezeSummary(frozenApplied.length, 0, frozenUnchanged.length),
   });
 }
@@ -897,6 +936,9 @@ function planNormalizedPatchMapMutationTransaction(
     ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
     ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
     ...(request.history === undefined ? {} : { history: request.history }),
+    ...(request.animatedBarTargets === undefined
+      ? {}
+      : { animatedBarTargets: request.animatedBarTargets }),
     ...(selectionIds === undefined ? {} : { selectionIds }),
     ...(allowedElementOrderIds.size === 0
       ? {}

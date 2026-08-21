@@ -62,6 +62,7 @@ try {
     '<html><body style="display:flex;margin:0">',
     '<div id="persistent-host" style="width:320px;height:240px"></div>',
     '<div id="compatible-host" style="width:320px;height:240px"></div>',
+    '<div id="initial-host" style="width:320px;height:240px"></div>',
     '<script type="module" src="/main.js"></script>',
     '</body></html>',
   ].join('\n'));
@@ -71,13 +72,56 @@ import { PatchMap } from '@conalog/patch-map';
 const changes = [];
 const persistentHover = [];
 const compatibleHover = [];
-const data = [{
-  type: 'rect',
-  id: 'selectable-item',
-  attrs: { x: 50, y: 50 },
-  size: { width: 80, height: 60 },
-  fill: '#2563eb',
-}];
+const tooltipEvents = [];
+const settledViewports = [];
+const data = [
+  {
+    type: 'rect',
+    id: 'selectable-item',
+    attrs: { x: 50, y: 50 },
+    size: { width: 80, height: 60 },
+    fill: '#2563eb',
+  },
+  {
+    type: 'rect',
+    id: 'related-item',
+    attrs: { x: 170, y: 50 },
+    size: { width: 40, height: 60 },
+    fill: '#22c55e',
+  },
+  ...['owner-a', 'owner-b'].map((id, index) => ({
+    type: 'item',
+    id,
+    attrs: { x: 500 + index * 120, y: 20 },
+    size: { width: 100, height: 100 },
+    components: [
+      {
+        type: 'bar',
+        id: 'usage',
+        source: { type: 'rect', fill: '#2563eb' },
+        size: { width: 80, height: 10 },
+        animation: true,
+      },
+      { type: 'text', id: 'label', text: id },
+    ],
+  })),
+  {
+    type: 'grid',
+    id: 'grid',
+    attrs: { x: 500, y: 150 },
+    cells: [[1, 1]],
+    item: {
+      size: { width: 40, height: 40 },
+      components: [{
+        type: 'bar',
+        id: 'usage',
+        source: { type: 'rect', fill: '#2563eb' },
+        size: { width: 32, height: 10 },
+        animation: true,
+      }],
+    },
+  },
+];
 const map = await PatchMap.mount({
   container: document.querySelector('#persistent-host'),
   width: 320,
@@ -85,12 +129,19 @@ const map = await PatchMap.mount({
   resizeMode: 'manual',
   fit: false,
   data,
-  pointer: { hoverDuringPress: true },
+  pointer: {
+    hoverDuringPress: true,
+    tooltip: { pinOnContextMenu: true, preventDefault: true },
+  },
   selection: {
     allowMultiple: true,
     clearOnBlankClick: 'double',
     deselectOnTargetDoubleClick: true,
     isSelectable: () => true,
+    resolveModifierSelection: ({ target }) =>
+      target.id === 'selectable-item'
+        ? ['selectable-item', 'related-item']
+        : [target.id],
   },
 });
 const compatibleMap = await PatchMap.mount({
@@ -101,9 +152,22 @@ const compatibleMap = await PatchMap.mount({
   fit: false,
   data,
 });
+const initialMap = await PatchMap.mount({
+  container: document.querySelector('#initial-host'),
+  width: 320,
+  height: 240,
+  resizeMode: 'manual',
+  data,
+  fit: { padding: 48 },
+  viewport: { initial: { centerWorld: [25, 35], scale: 2 } },
+});
 const release = map.selection.onPointerChange((change) => changes.push(change));
 const releasePersistentHover = map.pointer.onHover((event) => persistentHover.push(event.type));
 const releaseCompatibleHover = compatibleMap.pointer.onHover((event) => compatibleHover.push(event.type));
+const releaseTooltip = map.pointer.onTooltip((event) => tooltipEvents.push(event));
+const releaseViewport = map.viewport.onSettled(() => {
+  settledViewports.push(map.viewport.snapshot());
+});
 window.__PATCH_MAP_INSTALLED_SELECTION__ = {
   phase: 'ready',
   selectionIds: () => [...map.selection.ids],
@@ -112,11 +176,63 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
   changes: () => structuredClone(changes),
   persistentHover: () => [...persistentHover],
   compatibleHover: () => [...compatibleHover],
+  tooltipEvents: () => structuredClone(tooltipEvents),
+  initialViewport: () => initialMap.viewport.snapshot(),
+  mixedOwnerMutation: () => {
+    const beforeRevision = map.debug.snapshot().revisions.sceneRevision;
+    const result = map.transaction([
+      {
+        type: 'update',
+        id: 'owner-a',
+        bar: { height: 24, changes: { source: { fill: '#2563eb' } } },
+        text: { text: 'immediate' },
+      },
+      {
+        type: 'update',
+        id: 'owner-b',
+        bar: { height: 72, changes: { source: { fill: '#22c55e' } } },
+      },
+    ], { animate: [false, true], actionId: 'packed-mixed-owner' });
+    return {
+      status: result.status,
+      sceneRevisionDelta: map.debug.snapshot().revisions.sceneRevision - beforeRevision,
+      ownerAHeight: map.targets.get({ id: 'owner-a', componentId: 'usage' })?.value.size.height,
+      ownerBHeight: map.targets.get({ id: 'owner-b', componentId: 'usage' })?.value.size.height,
+    };
+  },
+  mixedGridMutation: () => {
+    const targets = map.targets.query({
+      within: 'grid',
+      scope: 'instances',
+      type: 'bar',
+      componentId: 'usage',
+    });
+    const result = map.updateBatch({
+      targets,
+      bar: {
+        componentId: 'usage',
+        height: new Float32Array([18, 34]),
+        changes: { tint: ['#2563eb', '#22c55e'] },
+      },
+    }, { animate: [false, true] });
+    return { status: result.status, appliedCount: result.appliedCount, targetCount: targets.count };
+  },
+  viewportBurst: async () => {
+    map.viewport.restore({ centerWorld: [150, 100], scale: 1.5 });
+    map.viewport.panBy([10, 0]);
+    await new Promise((resolve) => setTimeout(resolve, 140));
+    return {
+      snapshot: map.viewport.snapshot(),
+      settled: structuredClone(settledViewports),
+    };
+  },
   destroy: async () => {
     release();
     releasePersistentHover();
     releaseCompatibleHover();
-    const destroyed = await Promise.all([map.destroy(), compatibleMap.destroy()]);
+    releaseTooltip();
+    releaseViewport();
+    const destroyed = await Promise.all([map.destroy(), compatibleMap.destroy(), initialMap.destroy()]);
     return destroyed.every(Boolean);
   },
 };
@@ -132,7 +248,7 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
   const baseUrl = server.resolvedUrls?.local?.[0];
   if (!baseUrl) throw new Error('installed selection smoke server has no URL');
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 640, height: 480 } });
+  const page = await browser.newPage({ viewport: { width: 960, height: 480 } });
   const errors = [];
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(`console: ${message.text()}`);
@@ -157,6 +273,39 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
   const compatibleHoverBeforePress = await hoverState(page, 'compatibleHover');
   await pointerDownUp(page, 410, 80);
   const compatibleHoverAfterPress = await hoverState(page, 'compatibleHover');
+
+  await page.mouse.move(90, 80);
+  await page.mouse.click(90, 80, { button: 'right' });
+  const tooltipAfterPin = await page.evaluate(
+    () => window.__PATCH_MAP_INSTALLED_SELECTION__.tooltipEvents(),
+  );
+  await page.mouse.move(250, 200);
+  const tooltipDuringPinnedLeave = await page.evaluate(
+    () => window.__PATCH_MAP_INSTALLED_SELECTION__.tooltipEvents(),
+  );
+  await pointerDownUp(page, 190, 80);
+  const tooltipAfterPrimaryClick = await page.evaluate(
+    () => window.__PATCH_MAP_INSTALLED_SELECTION__.tooltipEvents(),
+  );
+
+  await page.keyboard.down('Control');
+  await pointerDownUp(page, 90, 80);
+  await page.keyboard.up('Control');
+  const modifierSelection = await selectionState(page);
+
+  const initialViewport = await page.evaluate(
+    () => window.__PATCH_MAP_INSTALLED_SELECTION__.initialViewport(),
+  );
+  const mixedOwner = await page.evaluate(
+    () => window.__PATCH_MAP_INSTALLED_SELECTION__.mixedOwnerMutation(),
+  );
+  const mixedGrid = await page.evaluate(
+    () => window.__PATCH_MAP_INSTALLED_SELECTION__.mixedGridMutation(),
+  );
+  const viewportBurst = await page.evaluate(
+    () => window.__PATCH_MAP_INSTALLED_SELECTION__.viewportBurst(),
+  );
+
   await page.evaluate(() => window.__PATCH_MAP_INSTALLED_SELECTION__.selectItem());
   await page.waitForTimeout(550);
   const selected = await selectionState(page);
@@ -183,6 +332,17 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
       compatibleBeforePress: compatibleHoverBeforePress,
       compatibleAfterPress: compatibleHoverAfterPress,
     },
+    tooltip: {
+      afterPin: tooltipAfterPin.at(-1),
+      eventCountAfterPin: tooltipAfterPin.length,
+      eventCountDuringPinnedLeave: tooltipDuringPinnedLeave.length,
+      afterPrimaryClick: tooltipAfterPrimaryClick.at(-1),
+    },
+    modifierSelection,
+    initialViewport,
+    mixedOwner,
+    mixedGrid,
+    viewportBurst,
     selected,
     afterBlankSingle,
     afterBlankDouble,
@@ -201,6 +361,25 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
     !valuesEqual(persistentHoverAfterLeave, ['hover', 'move', 'leave']) ||
     !valuesEqual(compatibleHoverBeforePress, ['hover']) ||
     !valuesEqual(compatibleHoverAfterPress, ['hover', 'move', 'leave']) ||
+    tooltipAfterPin.at(-1)?.type !== 'pin' ||
+    tooltipAfterPin.at(-1)?.target?.id !== 'selectable-item' ||
+    tooltipAfterPin.at(-1)?.pinned !== true ||
+    tooltipDuringPinnedLeave.length !== tooltipAfterPin.length ||
+    tooltipAfterPrimaryClick.at(-1)?.type !== 'show' ||
+    tooltipAfterPrimaryClick.at(-1)?.target?.id !== 'related-item' ||
+    tooltipAfterPrimaryClick.at(-1)?.pinned !== false ||
+    !selectionEquals(modifierSelection, ['selectable-item', 'related-item']) ||
+    !valuesEqual(initialViewport, { centerWorld: [25, 35], scale: 2 }) ||
+    mixedOwner.status !== 'committed' ||
+    mixedOwner.sceneRevisionDelta !== 1 ||
+    mixedOwner.ownerAHeight !== 24 ||
+    mixedOwner.ownerBHeight !== 72 ||
+    mixedGrid.status !== 'committed' ||
+    mixedGrid.targetCount !== 2 ||
+    mixedGrid.appliedCount !== 2 ||
+    viewportBurst.snapshot.scale !== 1.5 ||
+    viewportBurst.settled.length !== 1 ||
+    !valuesEqual(viewportBurst.settled[0], viewportBurst.snapshot) ||
     destroyed !== true ||
     canvasCountAfterDestroy !== 0 ||
     errors.length !== 0

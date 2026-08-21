@@ -56,9 +56,11 @@ implements it:
 | Reuse a semantic set | `targets.query(query)` |
 | Apply keyed renderer-only alpha | `presentation.set(key, layer)` / `presentation.clear(key)` |
 | Observe package-owned hover | `pointer.onHover()` |
+| Observe and pin package-owned tooltip intent | mount `pointer.tooltip` and use `pointer.onTooltip()` |
 | Observe pointer-origin selection | `selection.onPointerChange()` |
 | Apply a relative transform | `transform.moveBy()` / `resizeBy()` / `rotateBy()` |
 | Apply a relative viewport change | `viewport.panBy()` / `zoomBy()` |
+| Persist an absolute viewport | `viewport.snapshot()` / `restore()` / `onSettled()` |
 | Inspect loaded asset ownership | `assets.status()` |
 | Capture the visible result | `capture.png()` |
 
@@ -134,6 +136,32 @@ pointer/view events invalidate that loop automatically. The host does not
 create a second loop, duplicate bar thresholds, or mirror pointer bookkeeping.
 `destroy()` cancels the owned loop before releasing the Pixi surface.
 
+Absolute viewport persistence stays on the root facade:
+
+```ts
+const saved = patchMap.viewport.snapshot();
+patchMap.viewport.restore(saved);
+
+const releaseViewport = patchMap.viewport.onSettled(() => {
+  persistence.save(patchMap.viewport.snapshot());
+});
+
+const restored = await PatchMap.mount({
+  container,
+  data,
+  viewport: { initial: persistence.read() },
+  fit: { padding: 24 },
+});
+```
+
+`snapshot()` returns detached absolute world center plus scale. `restore()`
+validates and commits both together through the same clamp/publication owner.
+Mount-time `viewport.initial` takes precedence over initial `fit`; subsequent
+fit/reset calls remain explicit. `onSettled()` waits 100ms after the last
+pointer, wheel, fit, restore, programmatic zoom/pan, or resize change, so hosts
+persist once per burst rather than per frame. It returns a disposer and
+`destroy()` removes undisposed observers.
+
 ## Pointer projection and box selection
 
 Keep hit testing, screen/world conversion, pointer capture, and gesture timing
@@ -144,7 +172,10 @@ targets and coordinates through two disposer-based subscriptions:
 const patchMap = await PatchMap.mount({
   container,
   data,
-  pointer: { hoverDuringPress: true },
+  pointer: {
+    hoverDuringPress: true,
+    tooltip: { pinOnContextMenu: true, preventDefault: true },
+  },
   selection: {
     box: {
       activationModifier: 'shift',
@@ -160,6 +191,10 @@ const patchMap = await PatchMap.mount({
     deselectOnTargetDoubleClick: true,
     isSelectable: ({ id, componentId }) =>
       selectionPlugin.isSelectable({ id, componentId }),
+    resolveModifierSelection: ({ target, currentIds, modifiers }) =>
+      modifiers.ctrl || modifiers.meta
+        ? relationGraph.toggleRelated(currentIds, target.id)
+        : currentIds,
     visual: {
       color: '#ef4444',
       strokeWidth: 3,
@@ -184,6 +219,22 @@ const stopPointerSelection = patchMap.selection.onPointerChange((change) => {
   selectionPlugin.onSelectionChange(change.selected);
 });
 ```
+
+Set `pointer: { tooltip: { pinOnContextMenu: true } }` when right-click should
+pin the current stable tooltip target through pointer leave. Subscribe with
+`pointer.onTooltip()` for detached `show`, `move`, `pin`, and `hide` events.
+The next primary target click updates and unpins; a blank click clears. The
+optional `preventDefault` flag defaults to true and affects only the owned
+context-menu event. No renderer object, DOM event, or live coordinate
+transform escapes this API.
+
+`selection.resolveModifierSelection` is the synchronous Ctrl/Cmd point-click
+extension seam. It receives the clicked stable target, frozen current IDs,
+modifiers, and click count, then returns the complete stable ID set that
+PatchMap validates and applies in that same selection commit. Omit it for the
+existing built-in semantics. A thrown resolver or invalid ID leaves selection
+unchanged and reports a host-callback diagnostic; Shift-only click and Shift
+box selection do not invoke it.
 
 `pointer.hoverDuringPress` defaults to `false`. Opt into `true` when clicking
 the hovered selectable target must not publish a transient `leave` between
@@ -324,6 +375,33 @@ one history entry. Use `updateBatch()` only for equal-length columnar values on
 many targets. Both are atomic; transaction expresses workflow semantics while
 the batch expresses a high-volume data layout.
 
+Both forms accept target-specific bar-height animation without creating a
+second commit. `updateBatch(..., { animate })` aligns a boolean column with
+queried targets. `transaction(operations, { animate })` aligns it with the
+public operation array, so one `update` may lower to several component writes
+without changing the animation column index. False bar heights publish
+immediately, true bar heights retarget through the central scheduler, and
+companion source/tint/icon/background/text or structural work stays in the
+same atomic validation/history boundary. A per-target batch column requires
+`bar.height`; non-bar-only columns have no animation destination and reject.
+Use a scalar boolean for uniform policies to retain the uniform hot path.
+
+```ts
+patchMap.transaction([
+  {
+    type: 'update',
+    id: 'owner-a',
+    bar: { height: 20, changes: { source: { fill: '#2563eb' } } },
+    text: { text: '즉시' },
+  },
+  {
+    type: 'update',
+    id: 'owner-b',
+    bar: { height: 80, changes: { source: { fill: '#22c55e' } } },
+  },
+], { animate: [false, true], actionId: 'live-state' });
+```
+
 Updating an authored grid template bar changes every expanded cell. When
 concrete cells need independent runtime values, pass concrete instance targets
 to `update()` or `updateBatch()`. A concrete cell keeps the template component
@@ -391,7 +469,7 @@ patchMap.updateBatch({
       tint: cellTextTints,
     },
   },
-}, { animate: true });
+}, { animate: animateBars });
 ```
 
 Every column must have `cells.count` entries. Validation covers the complete
@@ -402,6 +480,11 @@ revision and are not undoable authored data. `label`, identity fields,
 structural collections, and component fields outside the lists above remain
 structured unsupported with
 `code: "PATCH_MAP_GRID_INSTANCE_PRESENTATION_UNSUPPORTED"`.
+
+`animateBars` is a boolean column with the same length as `cells`: false rows
+snap their bar height and true rows retarget. Every companion presentation
+column above still commits atomically. A scalar boolean remains the preferred
+uniform fast path. Caller arrays and typed value columns are never mutated.
 
 Target sets are revision-bound. Loading a replacement dataset makes an old
 set fail with a direct instruction to query it again, preventing a

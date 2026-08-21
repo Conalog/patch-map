@@ -28,7 +28,7 @@ import type {
   PatchMapPresentationLayerSnapshot,
 } from '../presentation-layers';
 import type { PatchMapPaintOrderProductProbe } from '../paint-order-product';
-import type { PatchMapPointerInput } from '../pointer-gesture';
+import type { PatchMapPointerInput, PatchMapPointerModifiers } from '../pointer-gesture';
 import type {
   PatchMapViewportGeometry,
   PatchMapViewportPolicy,
@@ -101,6 +101,11 @@ export interface PatchMapSurfaceViewportInput {
 export type PatchMapSurfacePointerInput = Readonly<
   Omit<PatchMapPointerInput, 'viewRevision'>
 >;
+
+export interface PatchMapSurfaceContextMenuInput {
+  readonly screen: readonly [number, number];
+  readonly modifiers: PatchMapPointerModifiers;
+}
 
 export interface PatchMapSurfaceDebug {
   readonly cssSize: readonly [number, number];
@@ -246,6 +251,9 @@ export interface PatchMapEngineSurface {
   ): () => void;
   bindPointerInput?(
     listener: (input: PatchMapSurfacePointerInput) => void,
+  ): () => void;
+  bindContextMenuInput?(
+    listener: (input: PatchMapSurfaceContextMenuInput) => boolean,
   ): () => void;
   bindAccessibilityActivation?(
     listener: (

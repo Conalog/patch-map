@@ -104,8 +104,12 @@ aliases follow the same authored view-box rule.
 Host tooltip and selection plugins use package-owned pointer projection rather
 than duplicating hit tests. Set `pointer: { hoverDuringPress: true }` when a
 tooltip should retain its current target through pointer down/up and click;
-the compatible omitted/false policy publishes leave on pointer down. Keep
-ordinary primary drag as viewport pan and use
+the compatible omitted/false policy publishes leave on pointer down.
+`pointer: { tooltip: { pinOnContextMenu: true } }` pins the current stable
+target on right-click, retains it across leave, and releases it on the next
+primary click. Subscribe with `pointer.onTooltip()` for detached
+`show/move/pin/hide` events; no canvas listener or coordinate conversion is
+needed in the host. Keep ordinary primary drag as viewport pan and use
 Shift+primary drag for box selection with
 `selection: { box: { activationModifier: 'shift', visual: { color: '#1099ff',
 strokeWidth: 1, fillAlpha: 0.08 } }, allowMultiple, isSelectable, visual: {
@@ -164,6 +168,28 @@ patchMap.updateBatch({
     },
   },
 }, { animate: true });
+```
+
+`animate` may instead be a boolean column with `cells.count` entries. A false
+row snaps its bar height while a true row retargets through the one central
+scheduler; tint/icon/background/text columns still publish in the same atomic
+commit. For heterogeneous authored owners, pass an operation-aligned boolean
+column to `transaction(operations, { animate })`:
+
+```ts
+patchMap.transaction([
+  { type: 'update', id: 'rack-01', bar: { height: 20 }, text: { text: '즉시' } },
+  { type: 'update', id: 'rack-02', bar: { height: 80 } },
+], { animate: [false, true] });
+```
+
+Persist an absolute view without a host RAF or coordinate transform:
+
+```ts
+const saved = patchMap.viewport.snapshot();
+const release = patchMap.viewport.onSettled(() => save(patchMap.viewport.snapshot()));
+// On the next mount, `viewport.initial` takes precedence over initial `fit`.
+await PatchMap.mount({ container, data, viewport: { initial: saved } });
 ```
 
 The input object is detached and never mutated. IDs and component owner/ID

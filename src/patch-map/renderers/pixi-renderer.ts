@@ -1627,10 +1627,14 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       const bounds = this.canvas.getBoundingClientRect();
       const scaleX = bounds.width > 0 ? this.widthValue / bounds.width : 1;
       const scaleY = bounds.height > 0 ? this.heightValue / bounds.height : 1;
-      if (handlers.contextMenu(
-        (event.clientX - bounds.left) * scaleX,
-        (event.clientY - bounds.top) * scaleY,
-      )) {
+      if (handlers.contextMenu(Object.freeze({
+        screenX: (event.clientX - bounds.left) * scaleX,
+        screenY: (event.clientY - bounds.top) * scaleY,
+        shiftKey: event.shiftKey,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        metaKey: event.metaKey,
+      }))) {
         event.preventDefault();
       }
     };

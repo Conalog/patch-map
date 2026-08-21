@@ -21,6 +21,7 @@ export type PatchMapViewportChangeSource =
   | 'deceleration'
   | 'focus'
   | 'fit'
+  | 'resize'
   | 'restore'
   | 'fallback-fit';
 

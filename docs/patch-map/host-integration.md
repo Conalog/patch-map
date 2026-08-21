@@ -43,10 +43,11 @@ boundary without acquiring a second engine API:
 - `prepareSave()` validates a detached array, strict references by default,
   and returns serialized data only after the guard succeeds;
 - `lookup()` delegates to `targets.get()`;
-- `bulkUpdate()` delegates to `transaction()`;
+- `bulkUpdate()` delegates operations and optional mixed animation policy to `transaction()`;
 - `selection()` and `transform()` delegate to their public domains;
 - `history()` delegates to state/undo/redo;
-- `observeSelection()` owns only the returned disposer;
+- `viewportSnapshot()` / `restoreViewport()` keep absolute view persistence on the root facade;
+- `observeSelection()` / `observeViewportSettled()` own only returned disposers;
 - `snapshot()` and `extract()` use `debug.snapshot()` and `capture.png()`;
 - `destroy()` disposes host subscriptions before engine teardown.
 
@@ -62,10 +63,13 @@ scroll. Do not retain the legacy key or wheel listeners. Zoom buttons continue
 to call public `viewport.zoomBy()` and bypass this pointer-gesture gate.
 
 Selection and tooltip plugins attach only to the public projections. Pass
-`selection: { box, allowMultiple, isSelectable, visual, clearOnBlankClick,
-deselectOnTargetDoubleClick }` to `mount()`, subscribe to
+`selection: { box, allowMultiple, isSelectable, resolveModifierSelection,
+visual, clearOnBlankClick, deselectOnTargetDoubleClick }` to `mount()`, subscribe to
 `selection.onPointerChange()` for non-echo pointer changes, and subscribe to
-`pointer.onHover()` for stable target plus CSS/world anchors. PatchMap retains
+`pointer.onHover()` for stable target plus CSS/world anchors. A synchronous
+`resolveModifierSelection({ target, currentIds, modifiers })` may use a host
+relation graph on Ctrl/Cmd target clicks and return the complete stable ID set
+for that same selection commit. PatchMap retains
 the root pointer listener, pointer capture, aggregate hit test, coordinate
 conversion, primary-drag versus pan arbitration, and frame invalidation. The
 host owns only the returned disposers and its plugin callbacks.
@@ -103,6 +107,14 @@ hover projection across pointer down/up without adding a host listener or hit
 test. Omit it, or set it to `false`, for the compatible pointer-down leave;
 real canvas leave and pointer cancel clear hover in both modes.
 
+For main-style tooltip pinning, pass
+`pointer: { tooltip: { pinOnContextMenu: true, preventDefault: true } }` and
+subscribe through `pointer.onTooltip()`. Right-click publishes `pin` for the
+stable target and keeps it through pointer leave; the next primary target
+click publishes the new target and unpins, while a blank click publishes
+`hide`. Set `preventDefault: false` only when the native context menu must
+remain. PatchMap reuses its one canvas listener, hit test, and transform.
+
 To preserve selection on a blank single click, clear on blank double click,
 and remove only an already-selected target on its double click, set
 `clearOnBlankClick: 'double'` and `deselectOnTargetDoubleClick: true`.
@@ -115,6 +127,26 @@ bar supports `height/tint/source/show`; icon supports `show/source/tint`; text
 supports `text/style/show/placement/margin/tint/split/attrs`. Use `null` in a
 column to restore the current authored field. Do not prefilter these fields or
 maintain a second animation loop.
+The `animate` option accepts one boolean or one boolean per queried target.
+The array form requires a `bar.height` column: false targets snap, true targets
+retarget, and every companion presentation column still validates and commits
+atomically. Use the uniform boolean form when every row has the same policy so
+the existing hot path remains allocation-free.
+
+For heterogeneous non-grid owners, align the column to public transaction
+operations, not lowered component writes:
+
+```ts
+patchMap.transaction([
+  { type: 'update', id: 'owner-a', bar: { height: 20 }, text: { text: '즉시' } },
+  { type: 'update', id: 'owner-b', bar: { height: 80 } },
+], { animate: [false, true] });
+```
+
+Both owner updates and their companion fields remain one validation,
+publication, and history commit. The previous
+`PATCH_MAP_OWNER_MIXED_ANIMATION_UNSUPPORTED` host boundary is therefore no
+longer valid.
 Existing height-only batches keep the optimized concrete-bar path; the same
 public call automatically selects the broader atomic overlay only when paint,
 visibility, icon, background, or text columns are present. Labels,
@@ -142,3 +174,11 @@ For extraction, publish the desired state, capture the exact
 waits the active image bindings, keeps the authoritative canvas mounted, and
 rejects stale tuples. Do not insert a host sleep or asset-status polling loop
 between `replaceAsync()` / `updateBatch()` and `await capture.png()`.
+
+Persist viewport state with `viewport.snapshot()` and restore it either with
+`viewport.restore(snapshot)` or mount-time `viewport: { initial: snapshot }`.
+Mount-time initial state wins over initial `fit`; scale is clamped through the
+same viewport authority, and resize retains the absolute center/scale.
+`viewport.onSettled()` coalesces pointer, wheel, fit, restore, zoom-button, and
+resize bursts before calling the host. Persist a fresh `snapshot()` inside the
+callback and release its disposer on route unmount; `destroy()` also cleans it.

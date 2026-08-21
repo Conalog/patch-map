@@ -4,6 +4,7 @@ import {
   createPatchMapApi,
   type PatchMapPointerHoverEvent,
   type PatchMapPointerSelectionChange,
+  type PatchMapPointerTooltipEvent,
 } from '../../src/patch-map/developer-api';
 import { PatchMap } from '../../src/patch-map/engine';
 import * as PublicPackage from '../../src/index';
@@ -12,6 +13,8 @@ import type {
   PatchMapEngineInstanceBarHeightResult,
   PatchMapEngineQueryResult,
   PatchMapEngineTransactionResult,
+  PatchMapViewportChangeResult,
+  PatchMapViewportState,
 } from '../../src/patch-map/engine/public-contracts';
 import type { PatchMapLogicalTargetSnapshot } from '../../src/patch-map/query-selection';
 import { createEngine } from './support/engine-update-transaction-surface';
@@ -119,6 +122,24 @@ function createHost() {
     parentKey: secondCell.key,
     ancestorKeys: Object.freeze([root.key, secondCell.key]),
   });
+  const secondUsage = logicalTarget({
+    key: 'component:rack-grid.12.4/usage',
+    kind: 'component',
+    id: 'usage',
+    ownerId: secondCell.id,
+    type: 'bar',
+    parentKey: secondCell.key,
+    ancestorKeys: Object.freeze([root.key, secondCell.key]),
+  });
+  const secondStatusIcon = logicalTarget({
+    key: 'component:rack-grid.12.4/status',
+    kind: 'component',
+    id: 'status',
+    ownerId: secondCell.id,
+    type: 'icon',
+    parentKey: secondCell.key,
+    ancestorKeys: Object.freeze([root.key, secondCell.key]),
+  });
   const secondCellLabel = logicalTarget({
     key: 'component:rack-grid.12.4/label',
     kind: 'component',
@@ -193,6 +214,8 @@ function createHost() {
       cellLabel,
       secondCell,
       secondCellBackground,
+      secondUsage,
+      secondStatusIcon,
       secondCellLabel,
       rack,
       rackUsage,
@@ -218,6 +241,34 @@ function createHost() {
   }>) => void) | null = null;
   let pointerHoverListener: ((event: PatchMapPointerHoverEvent) => void) | null = null;
   let pointerSelectionListener: ((change: PatchMapPointerSelectionChange) => void) | null = null;
+  let pointerTooltipListener: ((event: PatchMapPointerTooltipEvent) => void) | null = null;
+  let viewportChangeListener: ((change: PatchMapViewportChangeResult) => void) | null = null;
+  let destroyedListener: (() => void) | null = null;
+  let viewportState: PatchMapViewportState = Object.freeze({
+    centerWorld: Object.freeze([0, 0] as const),
+    scale: 1,
+    screenBounds: Object.freeze([0, 0, 640, 360] as const),
+  });
+  const setViewportAbsolute = vi.fn((input: Readonly<{
+    readonly centerWorld: readonly [number, number];
+    readonly scale: number;
+  }>) => {
+    const previous = viewportState;
+    viewportState = Object.freeze({
+      centerWorld: Object.freeze([...input.centerWorld] as [number, number]),
+      scale: input.scale,
+      screenBounds: previous.screenBounds,
+    });
+    return Object.freeze({
+      changed: true,
+      blocked: false,
+      source: 'programmatic' as const,
+      previous,
+      viewport: viewportState,
+      previousRevisions: REVISIONS,
+      revisions: REVISIONS,
+    });
+  });
   const applySelection = vi.fn((input: { readonly op: string; readonly ids?: readonly string[] }) =>
     Object.freeze({
       changed: true,
@@ -272,15 +323,23 @@ function createHost() {
             readonly componentId: string;
           }>[];
         }>
-      >>;
+      >> & Readonly<{
+        readonly targets?: readonly Readonly<{
+          readonly id: string;
+          readonly componentId: string;
+        }>[];
+      }>;
       const appliedTargets = (['background', 'bar', 'icon', 'text'] as const)
         .flatMap((type) => columns[type]?.targets ?? []);
+      const directTargets = columns.targets ?? [];
       return Object.freeze({
         status: 'committed',
         changed: true,
-        appliedTargets: Object.freeze(appliedTargets.length === 0
-          ? [{ id: cell.id, componentId: 'usage' }]
-          : appliedTargets),
+        appliedTargets: Object.freeze(appliedTargets.length > 0
+          ? appliedTargets
+          : directTargets.length > 0
+            ? directTargets
+            : [{ id: cell.id, componentId: 'usage' }]),
         missingTargets: Object.freeze([]),
       }) as unknown as PatchMapEngineInstanceBarHeightResult;
     },
@@ -306,6 +365,18 @@ function createHost() {
     onPointerSelectionChange: (listener: typeof pointerSelectionListener) => {
       pointerSelectionListener = listener;
       return () => { pointerSelectionListener = null; };
+    },
+    onPointerTooltip: (listener: typeof pointerTooltipListener) => {
+      pointerTooltipListener = listener;
+      return () => { pointerTooltipListener = null; };
+    },
+    onViewportChange: (listener: typeof viewportChangeListener) => {
+      viewportChangeListener = listener;
+      return () => { viewportChangeListener = null; };
+    },
+    onDestroyed: (listener: typeof destroyedListener) => {
+      destroyedListener = listener;
+      return () => { destroyedListener = null; };
     },
     applySelection,
     applyTransformerEdit: (request: unknown) => {
@@ -349,8 +420,9 @@ function createHost() {
     focusViewport: vi.fn(),
     restoreViewport: vi.fn(),
     panViewport: vi.fn(),
+    setViewportAbsolute,
     zoomViewportAt: vi.fn(),
-    viewportProbe: () => Object.freeze({ centerWorld: Object.freeze([0, 0]), scale: 1 }),
+    viewportProbe: () => viewportState,
     resize,
     historyState: () => Object.freeze({
       capacity: 20,
@@ -386,6 +458,7 @@ function createHost() {
     loadDatasetAsync,
     fitViewport,
     resize,
+    setViewportAbsolute,
     applySelection,
     setReusable: (value: boolean) => { reusable = value; },
     lastBarRequest: () => lastBarRequest,
@@ -398,6 +471,22 @@ function createHost() {
     publishPointerHover: (event: PatchMapPointerHoverEvent) => pointerHoverListener?.(event),
     publishPointerSelection: (change: PatchMapPointerSelectionChange) =>
       pointerSelectionListener?.(change),
+    publishPointerTooltip: (event: PatchMapPointerTooltipEvent) =>
+      pointerTooltipListener?.(event),
+    publishViewportChange: (state: PatchMapViewportState) => {
+      const previous = viewportState;
+      viewportState = state;
+      viewportChangeListener?.(Object.freeze({
+        changed: true,
+        blocked: false,
+        source: 'pointer',
+        previous,
+        viewport: state,
+        previousRevisions: REVISIONS,
+        revisions: REVISIONS,
+      }));
+    },
+    publishDestroyed: () => destroyedListener?.(),
   };
 }
 
@@ -419,27 +508,40 @@ describe('PatchMap high-level developer API', () => {
     });
 
     expect('compile' in map.targets).toBe(false);
-    expect(usage.count).toBe(1);
-    expect(usage.matches).toEqual([{
-      id: 'rack-grid.12.3',
-      componentId: 'usage',
-      kind: 'component',
-      type: 'bar',
-      label: null,
-      value: {},
-    }]);
+    expect(usage.count).toBe(2);
+    expect(usage.matches).toEqual([
+      {
+        id: 'rack-grid.12.3',
+        componentId: 'usage',
+        kind: 'component',
+        type: 'bar',
+        label: null,
+        value: {},
+      },
+      {
+        id: 'rack-grid.12.4',
+        componentId: 'usage',
+        kind: 'component',
+        type: 'bar',
+        label: null,
+        value: {},
+      },
+    ]);
     expect(map.updateBatch({
       targets: usage,
-      bar: { height: new Float32Array([72]) },
+      bar: { height: new Float32Array([72, 68]) },
     }, {
       animate: true,
-    })).toMatchObject({ status: 'committed', appliedCount: 1 });
+    })).toMatchObject({ status: 'committed', appliedCount: 2 });
     expect(harness.lastInstanceRequest()).toEqual({
-      targets: [{ id: 'rack-grid.12.3', componentId: 'usage' }],
-      heights: new Float32Array([72]),
+      targets: [
+        { id: 'rack-grid.12.3', componentId: 'usage' },
+        { id: 'rack-grid.12.4', componentId: 'usage' },
+      ],
+      heights: new Float32Array([72, 68]),
       animate: true,
     });
-    expect(map.selection.set(usage)).toEqual(['rack-grid.12.3']);
+    expect(map.selection.set(usage)).toEqual(['rack-grid.12.3', 'rack-grid.12.4']);
   });
 
   it('lowers one keyed presentation snapshot without materializing the unmatched complement', () => {
@@ -494,10 +596,13 @@ describe('PatchMap high-level developer API', () => {
       scope,
       targets,
       unmatched: { alphaMultiplier: 0.2 },
-    })).toMatchObject({ targetCount: 1, matchedCount: 1, ignoredTargetCount: 0 });
+    })).toMatchObject({ targetCount: 2, matchedCount: 2, ignoredTargetCount: 0 });
     expect((harness.lastPresentationRequest() as {
       readonly matched: readonly PatchMapLogicalTargetSnapshot[];
-    }).matched.map(({ key }) => key)).toEqual(['component:rack-grid.12.3/usage']);
+    }).matched.map(({ key }) => key)).toEqual([
+      'component:rack-grid.12.3/usage',
+      'component:rack-grid.12.4/usage',
+    ]);
 
     const invalidHarness = createHost();
     const invalidMap = createPatchMapApi(invalidHarness.host);
@@ -610,6 +715,66 @@ describe('PatchMap high-level developer API', () => {
       },
       animate: true,
     });
+  });
+
+  it('commits mixed concrete animation policy with companion presentation atomically', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+
+    expect(map.updateBatch({
+      targets: ['rack-grid.12.3', 'rack-grid.12.4'],
+      bar: {
+        componentId: 'usage',
+        height: new Float32Array([20, 80]),
+        changes: { tint: ['#2563eb', '#22c55e'], show: [true, true] },
+      },
+      icon: {
+        componentId: 'status',
+        changes: { show: [false, true], source: ['warning', 'ess'] },
+      },
+    }, { animate: [false, true] })).toMatchObject({ status: 'committed', changed: true });
+
+    expect(harness.lastInstanceRequest()).toEqual({
+      bar: {
+        targets: [
+          { id: 'rack-grid.12.3', componentId: 'usage' },
+          { id: 'rack-grid.12.4', componentId: 'usage' },
+        ],
+        height: new Float32Array([20, 80]),
+        tint: ['#2563eb', '#22c55e'],
+        show: [true, true],
+      },
+      icon: {
+        targets: [
+          { id: 'rack-grid.12.3', componentId: 'status' },
+          { id: 'rack-grid.12.4', componentId: 'status' },
+        ],
+        show: [false, true],
+        source: ['warning', 'ess'],
+      },
+      animate: true,
+      animatedBarTargets: [{ id: 'rack-grid.12.4', componentId: 'usage' }],
+    });
+  });
+
+  it('rejects malformed or meaningless batch animation columns before host commit', () => {
+    const malformed = createHost();
+    const malformedMap = createPatchMapApi(malformed.host);
+    expect(() => malformedMap.updateBatch({
+      targets: ['rack-grid.12.3', 'rack-grid.12.4'],
+      bar: { componentId: 'usage', height: [20, 80] },
+    }, { animate: [true] })).toThrow('options.animate column length must match 2 targets');
+    expect(malformed.lastInstanceRequest()).toBeNull();
+
+    const meaningless = createHost();
+    const meaninglessMap = createPatchMapApi(meaningless.host);
+    expect(() => meaninglessMap.updateBatch({
+      targets: ['rack-grid.12.3', 'rack-grid.12.4'],
+      icon: { componentId: 'status', changes: { show: [false, true] } },
+    }, { animate: [false, true] })).toThrow(
+      'options.animate columns require a direct bar-height batch',
+    );
+    expect(meaningless.lastInstanceRequest()).toBeNull();
   });
 
   it('lowers concrete background and text presentation without authored mutation', () => {
@@ -868,6 +1033,55 @@ describe('PatchMap high-level developer API', () => {
         { op: 'move', target: { kind: 'element', id: 'rack' }, parent: null, index: 0 },
       ],
     });
+  });
+
+  it('commits mixed authored-owner animation policy in one heterogeneous transaction', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+
+    expect(map.transaction([
+      {
+        type: 'update',
+        id: 'rack',
+        bar: { height: 28, changes: { source: { fill: '#2563eb' } } },
+        text: { text: '즉시' },
+      },
+      {
+        type: 'update',
+        id: 'ambiguous',
+        bar: {
+          componentId: 'primary',
+          height: 74,
+          changes: { source: { fill: '#22c55e' } },
+        },
+      },
+    ], {
+      animate: [false, true],
+      actionId: 'owner-live-state',
+    })).toMatchObject({ status: 'committed', changed: true });
+
+    expect(harness.lastTransactionRequest()).toMatchObject({
+      strict: true,
+      actionId: 'owner-live-state',
+      animatedBarTargets: [{ ownerId: 'ambiguous', componentId: 'primary' }],
+      operations: [
+        { op: 'merge', target: { kind: 'component', ownerId: 'rack', id: 'usage' } },
+        { op: 'merge', target: { kind: 'component', ownerId: 'rack', id: 'label' } },
+        { op: 'merge', target: { kind: 'component', ownerId: 'ambiguous', id: 'primary' } },
+      ],
+    });
+  });
+
+  it('rejects a malformed transaction animation policy before lowering or commit', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+    expect(() => map.transaction([
+      { type: 'update', id: 'rack', bar: { height: 28 } },
+      { type: 'update', id: 'ambiguous', bar: { componentId: 'primary', height: 74 } },
+    ], { animate: [true] })).toThrow(
+      'options.animate column length must match 2 targets',
+    );
+    expect(harness.lastTransactionRequest()).toBeNull();
   });
 
   it('rejects malformed batch columns before committing any mutation', () => {
@@ -1177,6 +1391,57 @@ describe('PatchMap high-level developer API', () => {
     });
   });
 
+  it('snapshots, restores, and coalesces absolute viewport settlement', () => {
+    vi.useFakeTimers();
+    try {
+      const harness = createHost();
+      const map = createPatchMapApi(harness.host);
+      expect(map.viewport.snapshot()).toEqual({ centerWorld: [0, 0], scale: 1 });
+      expect(Object.isFrozen(map.viewport.snapshot().centerWorld)).toBe(true);
+
+      map.viewport.restore({ centerWorld: [120, -40], scale: 2.5 });
+      expect(harness.setViewportAbsolute).toHaveBeenCalledWith({
+        centerWorld: [120, -40],
+        scale: 2.5,
+      });
+      expect(map.viewport.snapshot()).toEqual({ centerWorld: [120, -40], scale: 2.5 });
+
+      const settled: PatchMapViewportState[] = [];
+      const release = map.viewport.onSettled((state) => settled.push(state));
+      harness.publishViewportChange(Object.freeze({
+        centerWorld: Object.freeze([130, -30] as const),
+        scale: 2.5,
+        screenBounds: Object.freeze([0, 0, 640, 360] as const),
+      }));
+      vi.advanceTimersByTime(60);
+      harness.publishViewportChange(Object.freeze({
+        centerWorld: Object.freeze([140, -20] as const),
+        scale: 3,
+        screenBounds: Object.freeze([0, 0, 640, 360] as const),
+      }));
+      vi.advanceTimersByTime(99);
+      expect(settled).toEqual([]);
+      vi.advanceTimersByTime(1);
+      expect(settled).toEqual([{
+        centerWorld: [140, -20],
+        scale: 3,
+        screenBounds: [0, 0, 640, 360],
+      }]);
+
+      harness.publishViewportChange(Object.freeze({
+        centerWorld: Object.freeze([150, -10] as const),
+        scale: 3,
+        screenBounds: Object.freeze([0, 0, 640, 360] as const),
+      }));
+      harness.publishDestroyed();
+      vi.advanceTimersByTime(100);
+      expect(settled).toHaveLength(1);
+      release();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('projects root hover and pointer selection through disposer-based public domains', () => {
     const harness = createHost();
     const map = createPatchMapApi(harness.host);
@@ -1216,6 +1481,30 @@ describe('PatchMap high-level developer API', () => {
     harness.publishPointerSelection(selection);
     expect(hoverEvents).toHaveLength(1);
     expect(selectionEvents).toHaveLength(1);
+  });
+
+  it('projects package-owned tooltip pin events through a disposer', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+    const events: PatchMapPointerTooltipEvent[] = [];
+    const release = map.pointer.onTooltip((event) => events.push(event));
+    const event = Object.freeze({
+      type: 'pin' as const,
+      target: Object.freeze({ id: 'rack-grid.12.3', componentId: 'status' }),
+      previousTarget: null,
+      anchor: Object.freeze([44, 52] as const),
+      world: Object.freeze([22, 26] as const),
+      pointerId: 1,
+      pointerType: 'mouse',
+      modifiers: Object.freeze({ shift: false, ctrl: false, alt: false, meta: false }),
+      pinned: true,
+    });
+
+    harness.publishPointerTooltip(event);
+    expect(events).toEqual([event]);
+    release();
+    harness.publishPointerTooltip(event);
+    expect(events).toHaveLength(1);
   });
 
   it('ships one intentional package surface without low-level implementation exports', () => {

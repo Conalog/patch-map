@@ -94,6 +94,15 @@ export function fastBarUpdate(
   });
 }
 
+export function animatedBarTargetForUpdate(
+  input: PatchMapUpdate,
+  preferred: PatchMapLogicalTargetSnapshot | undefined,
+  context: MutationContext,
+): ResolvedComponent | null {
+  if (input.bar?.height === undefined) return null;
+  return resolveComponent(input.id, 'bar', input.bar.componentId, preferred, context);
+}
+
 export function fastInstancePresentationUpdate(
   input: PatchMapUpdate,
   preferred: PatchMapLogicalTargetSnapshot | undefined,
@@ -624,6 +633,25 @@ export function validateBatchColumns(input: PatchMapUpdateBatch, count: number):
     }
   }
   if (present === 0) throw new TypeError('updateBatch() requires at least one value column');
+}
+
+export function normalizeBatchAnimation(
+  value: boolean | PatchMapUpdateColumn<boolean> | undefined,
+  count: number,
+): boolean | readonly boolean[] | undefined {
+  if (value === undefined || typeof value === 'boolean') return value;
+  if (columnLength(value, 'options.animate') !== count) {
+    throw new RangeError(`options.animate column length must match ${count} targets`);
+  }
+  const result = new Array<boolean>(count);
+  for (let index = 0; index < count; index += 1) {
+    const entry = columnValue(value, index, 'options.animate');
+    if (typeof entry !== 'boolean') {
+      throw new TypeError(`options.animate[${index}] must be boolean`);
+    }
+    result[index] = entry;
+  }
+  return Object.freeze(result);
 }
 
 function componentBatchRow(

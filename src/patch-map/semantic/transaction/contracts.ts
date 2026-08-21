@@ -86,6 +86,8 @@ export interface PatchMapMutationTransactionRequest {
   readonly conflictPolicy?: PatchMapMutationConflictPolicy;
   readonly recordHistory?: boolean;
   readonly history?: PatchMapMutationJsonValue;
+  /** Optional direct bar subset allowed to animate in this atomic transaction. */
+  readonly animatedBarTargets?: readonly PatchMapBarHeightBatchTarget[];
 }
 
 /**
@@ -107,6 +109,8 @@ export interface PatchMapBarHeightBatchTarget {
 export interface PatchMapBarHeightBatchRequest {
   readonly targets: readonly PatchMapBarHeightBatchTarget[];
   readonly heights: ArrayLike<number>;
+  /** Uniform or target-aligned animation policy for direct bar destinations. */
+  readonly animate?: boolean | ArrayLike<boolean>;
   readonly actionId?: string;
   readonly recordHistory?: boolean;
 }
@@ -185,6 +189,8 @@ export type PatchMapMutationTransactionPlan =
       readonly actionId?: string;
       readonly recordHistory?: boolean;
       readonly history?: PatchMapMutationJsonValue;
+      /** Direct bar destinations selected for animation by the caller policy. */
+      readonly animatedBarTargets?: readonly PatchMapBarHeightBatchTarget[];
       /** Compact exact-height batch used by the aggregate bar hot path. */
       readonly directBarHeightUpdates?: readonly PatchMapPlannedBarHeightUpdate[];
       /** Compact owner-qualified text batch used by the editor text hot path. */

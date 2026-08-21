@@ -274,11 +274,20 @@ export interface RootWheelInput {
   readonly metaKey: boolean;
 }
 
+export interface RootContextMenuInput {
+  readonly screenX: number;
+  readonly screenY: number;
+  readonly shiftKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly altKey: boolean;
+  readonly metaKey: boolean;
+}
+
 export interface RootInteractionHandlers {
   readonly pointer: (input: RootPointerInput) => void;
   /** True only when the package committed zoom and owns native consumption. */
   readonly wheel: (input: RootWheelInput) => boolean;
-  readonly contextMenu: (screenX: number, screenY: number) => boolean;
+  readonly contextMenu: (input: RootContextMenuInput) => boolean;
 }
 
 export type PatchMapActiveRendererBackend =

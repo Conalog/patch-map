@@ -21,8 +21,29 @@ const SIZES = (process.env.PATCH_MAP_INSTANCE_BAR_SIZES ?? '5000,10000')
 if (SIZES.some((value) => !Number.isSafeInteger(value) || value <= 0)) {
   throw new Error('PATCH_MAP_INSTANCE_BAR_SIZES must contain positive integers');
 }
-const WARMUPS = SMOKE ? 0 : 2;
-const MEASURED = SMOKE ? 1 : 7;
+const ANIMATION_POLICIES = (
+  process.env.PATCH_MAP_INSTANCE_BAR_ANIMATION_POLICIES ?? 'uniform'
+).split(',');
+if (
+  ANIMATION_POLICIES.length === 0 ||
+  ANIMATION_POLICIES.some((value) => value !== 'uniform' && value !== 'mixed')
+) {
+  throw new Error(
+    'PATCH_MAP_INSTANCE_BAR_ANIMATION_POLICIES must contain uniform or mixed',
+  );
+}
+const WARMUPS = SMOKE
+  ? 0
+  : Number.parseInt(process.env.PATCH_MAP_INSTANCE_BAR_WARMUPS ?? '2', 10);
+const MEASURED = SMOKE
+  ? 1
+  : Number.parseInt(process.env.PATCH_MAP_INSTANCE_BAR_MEASURED ?? '7', 10);
+if (
+  !Number.isSafeInteger(WARMUPS) || WARMUPS < 0 ||
+  !Number.isSafeInteger(MEASURED) || MEASURED <= 0
+) {
+  throw new Error('performance warmups/measured counts must be non-negative/positive integers');
+}
 const UPDATE_COUNT = 6;
 const UPDATE_INTERVAL_MS = 75;
 const OUTPUT_PATH = path.resolve(
@@ -149,7 +170,7 @@ async function configure(page, size, trial) {
   return configured;
 }
 
-async function runTrial(page, size, trial, cdp) {
+async function runTrial(page, size, trial, cdp, animationPolicy) {
   const configured = await configure(page, size, trial);
   const canvas = page.locator('[data-testid="manual-canvas-host"] canvas');
   await canvas.scrollIntoViewIfNeeded();
@@ -187,7 +208,7 @@ async function runTrial(page, size, trial, cdp) {
 
   const actions = [];
   for (let iteration = 0; iteration < UPDATE_COUNT; iteration += 1) {
-    actions.push(await page.evaluate(({ sequence, workload }) => {
+    actions.push(await page.evaluate(({ sequence, workload, policy }) => {
       const engine = window.__PATCH_MAP_MANUAL_LAB__.engine();
       const targets = window.__PATCH_MAP_INSTANCE_BAR_PERF__.targets;
       const heights = new Float64Array(targets.count);
@@ -204,13 +225,17 @@ async function runTrial(page, size, trial, cdp) {
           iconTints[index] = (index + sequence) % 2 === 0 ? '#ef4444' : '#f97316';
         }
       }
+      const animate = policy === 'uniform'
+        ? true
+        : Array.from({ length: targets.count }, (_value, index) =>
+            (index + sequence) % 2 === 0);
       const before = engine.snapshot().revisions;
       const started = performance.now();
       const result = workload === 'height'
         ? engine.updateBatch({
             targets,
             bar: { componentId: 'level', height: heights },
-          }, { animate: true })
+          }, { animate })
         : engine.updateBatch({
             targets,
             bar: {
@@ -226,7 +251,7 @@ async function runTrial(page, size, trial, cdp) {
                 tint: iconTints,
               },
             },
-          }, { animate: true });
+          }, { animate });
       const after = engine.snapshot().revisions;
       return {
         wallMs: performance.now() - started,
@@ -235,8 +260,11 @@ async function runTrial(page, size, trial, cdp) {
         activeAnimations: engine.activeAnimations,
         sceneRevisionDelta:
           after.sceneRevision - before.sceneRevision,
+        requestedAnimationCount: policy === 'uniform'
+          ? targets.count
+          : Math.floor(targets.count / 2),
       };
-    }, { sequence: iteration + 1, workload: WORKLOAD }));
+    }, { sequence: iteration + 1, workload: WORKLOAD, policy: animationPolicy }));
     await page.mouse.move(
       startX + (iteration + 1) * 12,
       startY + (iteration + 1) * 7,
@@ -282,6 +310,7 @@ async function runTrial(page, size, trial, cdp) {
   });
   return Object.freeze({
     trial,
+    animationPolicy,
     actions: Object.freeze(actions),
     actionMs: Object.freeze(actions.map(({ wallMs }) => wallMs)),
     repeatedActionMs: Object.freeze(actions.slice(1).map(({ wallMs }) => wallMs)),
@@ -299,13 +328,19 @@ async function runTrial(page, size, trial, cdp) {
   });
 }
 
-function validateTrial(value, size) {
+function validateTrial(value, size, animationPolicy) {
   const failures = [];
   for (const action of value.actions) {
     if (action.status !== 'committed') failures.push(`${size}: update was not committed`);
     const expectedApplied = WORKLOAD === 'height' ? size : size * 2;
     if (action.appliedCount !== expectedApplied) failures.push(`${size}: applied count mismatch`);
-    if (action.activeAnimations < Math.floor(size * 0.95)) {
+    const minimumActive = animationPolicy === 'uniform'
+      ? Math.floor(size * 0.95)
+      : Math.floor(size * 0.45);
+    const maximumActive = animationPolicy === 'uniform'
+      ? size
+      : Math.ceil(size * 0.55);
+    if (action.activeAnimations < minimumActive || action.activeAnimations > maximumActive) {
       failures.push(`${size}: animation count mismatch`);
     }
     if (action.sceneRevisionDelta !== 0) failures.push(`${size}: authored scene revision changed`);
@@ -336,33 +371,40 @@ try {
   browser = await chromium.launch({ headless: true });
   const runs = [];
   const failures = [];
-  for (const size of SIZES) {
-    const warmupRaw = [];
-    const measuredRaw = [];
-    for (let trial = 0; trial < WARMUPS + MEASURED; trial += 1) {
-      const page = await browser.newPage({
-        baseURL,
-        viewport: { width: 1_440, height: 1_000 },
+  for (const [sizeIndex, size] of SIZES.entries()) {
+    const policies = sizeIndex % 2 === 0
+      ? ANIMATION_POLICIES
+      : [...ANIMATION_POLICIES].reverse();
+    for (const animationPolicy of policies) {
+      const warmupRaw = [];
+      const measuredRaw = [];
+      for (let trial = 0; trial < WARMUPS + MEASURED; trial += 1) {
+        const page = await browser.newPage({
+          baseURL,
+          viewport: { width: 1_440, height: 1_000 },
+        });
+        const cdp = PROFILE && trial >= WARMUPS
+          ? await page.context().newCDPSession(page)
+          : null;
+        const value = await runTrial(page, size, trial, cdp, animationPolicy);
+        await cdp?.detach();
+        failures.push(...validateTrial(value, size, animationPolicy));
+        (trial < WARMUPS ? warmupRaw : measuredRaw).push(value);
+        await page.close();
+      }
+      const summary = Object.freeze({
+        mountMs: stats(measuredRaw.map(({ configured }) => configured.mountMs)),
+        firstActionMs: stats(measuredRaw.map(({ actionMs }) => actionMs[0])),
+        repeatedActionP95Ms: stats(measuredRaw.map(({ repeatedActionMs }) =>
+          percentile(repeatedActionMs, 0.95))),
+        rafGapP50Ms: stats(measuredRaw.map(({ rafGapsMs }) => percentile(rafGapsMs, 0.5))),
+        rafGapP95Ms: stats(measuredRaw.map(({ rafGapsMs }) => percentile(rafGapsMs, 0.95))),
+        rafGapMaxMs: stats(measuredRaw.map(({ rafGapsMs }) => Math.max(0, ...rafGapsMs))),
+        longTaskCount: stats(measuredRaw.map(({ longTasks }) => longTasks.length)),
+        longTaskMaxMs: stats(measuredRaw.map(({ longTasks }) => Math.max(0, ...longTasks))),
       });
-      const cdp = PROFILE && trial >= WARMUPS
-        ? await page.context().newCDPSession(page)
-        : null;
-      const value = await runTrial(page, size, trial, cdp);
-      await cdp?.detach();
-      failures.push(...validateTrial(value, size));
-      (trial < WARMUPS ? warmupRaw : measuredRaw).push(value);
-      await page.close();
+      runs.push(Object.freeze({ size, animationPolicy, warmupRaw, measuredRaw, summary }));
     }
-    const summary = Object.freeze({
-      mountMs: stats(measuredRaw.map(({ configured }) => configured.mountMs)),
-      firstActionMs: stats(measuredRaw.map(({ actionMs }) => actionMs[0])),
-      repeatedActionP95Ms: stats(measuredRaw.map(({ repeatedActionMs }) =>
-        percentile(repeatedActionMs, 0.95))),
-      rafGapP95Ms: stats(measuredRaw.map(({ rafGapsMs }) => percentile(rafGapsMs, 0.95))),
-      rafGapMaxMs: stats(measuredRaw.map(({ rafGapsMs }) => Math.max(0, ...rafGapsMs))),
-      longTaskCount: stats(measuredRaw.map(({ longTasks }) => longTasks.length)),
-    });
-    runs.push(Object.freeze({ size, warmupRaw, measuredRaw, summary }));
   }
   const output = Object.freeze({
     schemaVersion: 1,
@@ -371,6 +413,7 @@ try {
     protocol: Object.freeze({
       sizes: SIZES,
       workload: WORKLOAD,
+      animationPolicies: ANIMATION_POLICIES,
       updateCount: UPDATE_COUNT,
       updateIntervalMs: UPDATE_INTERVAL_MS,
       animationDurationMs: 2_000,
@@ -396,7 +439,11 @@ try {
   process.stdout.write(`${JSON.stringify({
     output: OUTPUT_PATH,
     status: output.status,
-    runs: runs.map(({ size, summary }) => ({ size, summary })),
+    runs: runs.map(({ size, animationPolicy, summary }) => ({
+      size,
+      animationPolicy,
+      summary,
+    })),
     failures,
   }, null, 2)}\n`);
   if (failures.length > 0) process.exitCode = 1;

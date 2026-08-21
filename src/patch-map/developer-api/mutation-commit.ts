@@ -11,6 +11,7 @@ import type {
 } from '../semantic/transaction';
 import type {
   PatchMapTransactionOptions,
+  PatchMapUpdateBatchOptions,
   PatchMapUpdateOptions,
   PatchMapUpdateResult,
 } from './contracts';
@@ -37,7 +38,7 @@ export const EMPTY_UPDATE_RESULT: PatchMapUpdateResult = Object.freeze({
 export function commitBarUpdates(
   host: PatchMapMutationDeveloperHost,
   updates: readonly ResolvedBarMutation[],
-  options: PatchMapUpdateOptions,
+  options: PatchMapUpdateOptions | PatchMapUpdateBatchOptions,
   heightColumn?: ArrayLike<number | null>,
 ): PatchMapUpdateResult {
   const instanceCount = updates.filter((update) => update.instance).length;
@@ -48,7 +49,10 @@ export function commitBarUpdates(
     return projectInstanceResult(host.updateInstanceBarHeights({
       targets: updates.map(({ ownerId: id, componentId }) => ({ id, componentId })),
       heights: heightColumn ?? updates.map(({ height }) => height),
-      ...(options.animate === undefined ? {} : { animate: options.animate }),
+      ...instanceAnimationRequest(options.animate, updates.map(({ ownerId: id, componentId }) => ({
+        id,
+        componentId,
+      }))),
     }));
   }
   if (updates.some(({ height }) => height === null)) {
@@ -57,6 +61,7 @@ export function commitBarUpdates(
   return projectTransactionResult(host.updateBarHeights({
     targets: updates.map(({ ownerId, componentId }) => ({ ownerId, componentId })),
     heights: (heightColumn ?? updates.map(({ height }) => height)) as ArrayLike<number>,
+    ...(options.animate === undefined ? {} : { animate: options.animate }),
     ...(options.actionId === undefined ? {} : { actionId: options.actionId }),
     ...(options.recordHistory === undefined ? {} : { recordHistory: options.recordHistory }),
   }));
@@ -65,12 +70,37 @@ export function commitBarUpdates(
 export function commitInstancePresentation(
   host: PatchMapMutationDeveloperHost,
   request: ResolvedInstancePresentationBatch,
-  options: PatchMapUpdateOptions,
+  options: PatchMapUpdateOptions | PatchMapUpdateBatchOptions,
 ): PatchMapUpdateResult {
   return projectInstanceResult(host.updateInstanceBarHeights({
     ...request,
-    ...(options.animate === undefined ? {} : { animate: options.animate }),
+    ...instanceAnimationRequest(
+      options.animate,
+      request.bar?.targets ?? request.targets ?? Object.freeze([]),
+    ),
   }));
+}
+
+function instanceAnimationRequest(
+  animate: boolean | ArrayLike<boolean> | undefined,
+  targets: readonly Readonly<{ readonly id: string; readonly componentId: string }>[],
+): Readonly<{
+  readonly animate?: boolean;
+  readonly animatedBarTargets?: readonly Readonly<{
+    readonly id: string;
+    readonly componentId: string;
+  }>[];
+}> {
+  if (animate === undefined || typeof animate === 'boolean') {
+    return animate === undefined ? Object.freeze({}) : Object.freeze({ animate });
+  }
+  const animated = targets.filter((_target, index) => animate[index] === true);
+  if (animated.length === targets.length) return Object.freeze({ animate: true });
+  if (animated.length === 0) return Object.freeze({ animate: false });
+  return Object.freeze({
+    animate: true,
+    animatedBarTargets: Object.freeze(animated.map((target) => Object.freeze({ ...target }))),
+  });
 }
 
 export function commitTextUpdates(
@@ -106,6 +136,10 @@ export function commitTransactionOperations(
   host: PatchMapMutationDeveloperHost,
   operations: readonly PatchMapMutationOperation[],
   options: PatchMapTransactionOptions,
+  animatedBarTargets?: readonly Readonly<{
+    readonly ownerId: string;
+    readonly componentId: string;
+  }>[],
 ): PatchMapUpdateResult {
   if (operations.length === 0) return EMPTY_UPDATE_RESULT;
   return projectTransactionResult(host.transact({
@@ -117,6 +151,7 @@ export function commitTransactionOperations(
     ...(options.selectedIds === undefined
       ? {}
       : { history: Object.freeze({ selectedIds: Object.freeze([...options.selectedIds]) }) }),
+    ...(animatedBarTargets === undefined ? {} : { animatedBarTargets }),
   }));
 }
 

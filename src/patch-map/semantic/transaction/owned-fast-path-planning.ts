@@ -140,6 +140,9 @@ export function planOwnedElementAngleTransaction(
     ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
     ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
     ...(request.history === undefined ? {} : { history: request.history }),
+    ...(request.animatedBarTargets === undefined
+      ? {}
+      : { animatedBarTargets: request.animatedBarTargets }),
     candidate,
     applied: frozenApplied,
     missing: EMPTY_TRANSACTION_TARGETS,
@@ -234,6 +237,9 @@ export function planOwnedBarHeightTransaction(
     ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
     ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
     ...(request.history === undefined ? {} : { history: request.history }),
+    ...(request.animatedBarTargets === undefined
+      ? {}
+      : { animatedBarTargets: request.animatedBarTargets }),
     candidate,
     applied,
     missing,
@@ -359,6 +365,9 @@ export function planFlatOwnedMergeTransaction(
     ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
     ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
     ...(request.history === undefined ? {} : { history: request.history }),
+    ...(request.animatedBarTargets === undefined
+      ? {}
+      : { animatedBarTargets: request.animatedBarTargets }),
     candidate,
     applied,
     missing,

@@ -177,6 +177,9 @@ export function planOwnedTopLevelStructuralTransaction(
     ...(request.actionId === undefined ? {} : { actionId: request.actionId }),
     ...(request.recordHistory === undefined ? {} : { recordHistory: request.recordHistory }),
     ...(request.history === undefined ? {} : { history: request.history }),
+    ...(request.animatedBarTargets === undefined
+      ? {}
+      : { animatedBarTargets: request.animatedBarTargets }),
     ...(selectionIds === undefined ? {} : { selectionIds }),
     ...(allowedElementOrderIds.length === 0
       ? {}

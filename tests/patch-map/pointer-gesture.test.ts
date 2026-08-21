@@ -16,7 +16,9 @@ import {
 } from '../../src/patch-map';
 import type {
   PatchMapPointerHoverEvent,
+  PatchMapPointerSelectionResolverInput,
   PatchMapPointerSelectionChange,
+  PatchMapPointerTooltipEvent,
 } from '../../src/patch-map/developer-api';
 
 describe('PatchMap root pointer and region-selection substrate', () => {
@@ -547,6 +549,132 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     expect(() => engine.configurePointerPolicy({
       hoverDuringPress: 'yes' as unknown as boolean,
     })).toThrow('pointer.hoverDuringPress must be boolean');
+  });
+
+  it('pins package-owned tooltip projection on context menu until the next primary click', async () => {
+    const surface = new PointerTestSurface();
+    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    engine.configurePointerPolicy({
+      hoverDuringPress: true,
+      tooltip: { pinOnContextMenu: true, preventDefault: true },
+    });
+    await engine.initialize({ instanceId: 'pointer-tooltip-pin', width: 800, height: 600 });
+    engine.loadDataset(REGION_DATASET);
+    const tooltipEvents: PatchMapPointerTooltipEvent[] = [];
+    const release = engine.pointer.onTooltip((event) => tooltipEvents.push(event));
+
+    surface.emit(surfacePointer('move', 1, [90, 80], 0, { buttons: 0 }));
+    expect(tooltipEvents.at(-1)).toMatchObject({
+      type: 'show',
+      target: { id: 'item-a' },
+      pinned: false,
+    });
+    expect(engine.dispatchPointerContextMenu({
+      screen: [90, 80],
+      modifiers: { shift: false, ctrl: false, alt: false, meta: false },
+    })).toBe(true);
+    expect(tooltipEvents.at(-1)).toMatchObject({
+      type: 'pin',
+      target: { id: 'item-a' },
+      anchor: [90, 80],
+      world: [90, 80],
+      pinned: true,
+    });
+
+    surface.emit(surfacePointer('leave', 1, [900, 700], 16, { buttons: 0 }));
+    expect(tooltipEvents.at(-1)?.type).toBe('pin');
+    emitClick(surface, 2, [180, 55], 32);
+    expect(tooltipEvents.at(-1)).toMatchObject({
+      type: 'show',
+      target: { id: 'rect-b' },
+      previousTarget: { id: 'item-a' },
+      pinned: false,
+    });
+    surface.emit(surfacePointer('leave', 1, [900, 700], 64, { buttons: 0 }));
+    expect(tooltipEvents.at(-1)).toMatchObject({ type: 'hide', target: null });
+
+    release();
+    const beforeDestroy = tooltipEvents.length;
+    await expect(engine.destroy()).resolves.toBe(true);
+    expect(surface.pointerListener).toBeNull();
+    expect(tooltipEvents).toHaveLength(beforeDestroy);
+
+    const compatible = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PointerTestSurface()),
+    });
+    compatible.configurePointerPolicy({ tooltip: { pinOnContextMenu: false } });
+    await compatible.initialize({ instanceId: 'pointer-tooltip-compatible', width: 800, height: 600 });
+    compatible.loadDataset(REGION_DATASET);
+    expect(compatible.dispatchPointerContextMenu({
+      screen: [90, 80],
+      modifiers: { shift: false, ctrl: false, alt: false, meta: false },
+    })).toBe(true);
+    await compatible.destroy();
+  });
+
+  it('resolves Ctrl or Cmd point selection inside the package-owned selection commit', async () => {
+    const surface = new PointerTestSurface();
+    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    const resolver = vi.fn(({
+      target,
+      currentIds,
+    }: PatchMapPointerSelectionResolverInput): readonly string[] =>
+      Object.freeze([...currentIds, target.id]));
+    engine.configurePointerSelectionPolicy({
+      allowMultiple: true,
+      resolveModifierSelection: resolver,
+    });
+    await engine.initialize({ instanceId: 'pointer-modifier-resolver', width: 800, height: 600 });
+    engine.loadDataset(REGION_DATASET);
+    engine.selection.set('item-a');
+    const changes: PatchMapPointerSelectionChange[] = [];
+    const diagnostics: Array<Readonly<{ readonly code: string; readonly operation: string }>> = [];
+    engine.selection.onPointerChange((change) => changes.push(change));
+    engine.on('diagnostic', (diagnostic) => diagnostics.push(diagnostic));
+
+    emitClick(surface, 1, [180, 55], 0, {
+      modifiers: { shift: false, ctrl: true, alt: false, meta: false },
+    });
+    expect(resolver).toHaveBeenCalledOnce();
+    const resolverInput = resolver.mock.calls[0]?.[0];
+    expect(resolverInput).toMatchObject({
+      target: { id: 'rect-b' },
+      currentIds: ['item-a'],
+      modifiers: { ctrl: true, meta: false },
+      clickCount: 1,
+    });
+    if (resolverInput === undefined) throw new Error('expected modifier resolver input');
+    expect(Object.isFrozen(resolverInput.currentIds)).toBe(true);
+    expect(engine.selection.ids).toEqual(['item-a', 'rect-b']);
+    expect(changes).toHaveLength(1);
+
+    emitClick(surface, 2, [45, 45], 600, {
+      modifiers: { shift: false, ctrl: false, alt: false, meta: true },
+    });
+    expect(resolver).toHaveBeenCalledTimes(2);
+    expect(engine.selection.ids).toEqual(['item-a', 'rect-b']);
+    expect(changes).toHaveLength(1);
+
+    emitClick(surface, 3, [180, 55], 1_200, {
+      modifiers: { shift: true, ctrl: false, alt: false, meta: false },
+    });
+    expect(resolver).toHaveBeenCalledTimes(2);
+    expect(engine.selection.ids).toEqual(['item-a']);
+
+    engine.configurePointerSelectionPolicy({
+      resolveModifierSelection: () => ['missing'],
+    });
+    emitClick(surface, 4, [180, 55], 1_800, {
+      modifiers: { shift: false, ctrl: true, alt: false, meta: false },
+    });
+    expect(engine.selection.ids).toEqual(['item-a']);
+    expect(diagnostics.at(-1)).toMatchObject({
+      code: 'HOST_CALLBACK_FAILURE',
+      operation: 'selection.resolveModifierSelection',
+    });
+
+    await expect(engine.destroy()).resolves.toBe(true);
+    expect(surface.pointerListener).toBeNull();
   });
 
   it('keeps Shift point selection through 4px and starts box ownership at 5px', async () => {

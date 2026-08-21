@@ -869,7 +869,7 @@ export class PatchMapRuntime {
       effectiveProjection,
       this.scene,
       !this.barPresentation.reducedMotion && options.animateBarChanges !== false,
-      path === 'direct-bar' ? undefined : options.animatedBarTargets,
+      options.animatedBarTargets,
       presentationEntityIds,
       parse.identity.entitySourceById,
     );
@@ -1642,7 +1642,7 @@ export class PatchMapRuntime {
       plan.projection,
       this.scene,
       !this.barPresentation.reducedMotion && request.animate !== false,
-      undefined,
+      request.animatedBarTargets,
       plan.changedEntityIds,
       this.parseResultValue?.identity.entitySourceById,
     );
@@ -1745,7 +1745,7 @@ export class PatchMapRuntime {
       plan.projection,
       this.scene,
       !this.barPresentation.reducedMotion && request.animate !== false,
-      undefined,
+      request.animatedBarTargets,
       plan.changedEntityIds,
       this.parseResultValue?.identity.entitySourceById,
     );
@@ -1993,6 +1993,12 @@ export class PatchMapRuntime {
   ): () => void {
     this.assertAlive();
     return this.rootInteraction.bindPointerInputs(listener);
+  }
+
+  public bindRootContextMenuInputs(
+    listener: Parameters<PatchMapRootInteractionAuthority['bindContextMenuInputs']>[0],
+  ): () => void {
+    return this.rootInteraction.bindContextMenuInputs(listener);
   }
 
   public cancelViewportGestures(): void {

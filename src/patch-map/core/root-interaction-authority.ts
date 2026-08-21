@@ -3,7 +3,11 @@ import {
   PATCH_MAP_POINTER_CLICK_SLOP_CSS_PX,
   coordinatesMovedBeyondCssSlop,
 } from '../pointer-gesture/geometry';
-import type { RootInteractionHandlers, RootWheelInput } from '../renderers/types';
+import type {
+  RootContextMenuInput,
+  RootInteractionHandlers,
+  RootWheelInput,
+} from '../renderers/types';
 import {
   PATCH_MAP_DEFAULT_VIEWPORT_POLICIES,
   PATCH_MAP_VIEWPORT_POLICIES,
@@ -64,6 +68,9 @@ export class PatchMapRootInteractionAuthority {
   private readonly pointerListeners = new Set<
     (input: PatchMapRootPointerInput) => void
   >();
+  private readonly contextMenuListeners = new Set<
+    (input: RootContextMenuInput) => boolean
+  >();
   private readonly unbind: () => void;
   private destroyed = false;
   private bindingReleased = false;
@@ -76,7 +83,7 @@ export class PatchMapRootInteractionAuthority {
     this.unbind = binder.bindRootInteractions({
       pointer: (input) => this.onPointerInput(input),
       wheel: (input) => this.onWheel(input),
-      contextMenu: (x, y) => this.onContextMenu(x, y),
+      contextMenu: (input) => this.onContextMenu(input),
     });
   }
 
@@ -158,6 +165,19 @@ export class PatchMapRootInteractionAuthority {
     };
   }
 
+  public bindContextMenuInputs(
+    listener: (input: RootContextMenuInput) => boolean,
+  ): () => void {
+    this.assertAlive();
+    if (typeof listener !== 'function') {
+      throw new TypeError('root context-menu listener must be a function');
+    }
+    this.contextMenuListeners.add(listener);
+    return () => {
+      this.contextMenuListeners.delete(listener);
+    };
+  }
+
   public cancelGesture(): void {
     this.pan = null;
   }
@@ -169,6 +189,7 @@ export class PatchMapRootInteractionAuthority {
     this.viewportPolicies.clear();
     this.viewportListeners.clear();
     this.pointerListeners.clear();
+    this.contextMenuListeners.clear();
     if (!this.bindingReleased) {
       this.unbind();
       this.bindingReleased = true;
@@ -211,8 +232,16 @@ export class PatchMapRootInteractionAuthority {
     return true;
   }
 
-  private onContextMenu(x: number, y: number): boolean {
-    return !this.destroyed && this.ports.hitTestInteractive({ x, y });
+  private onContextMenu(input: RootContextMenuInput): boolean {
+    if (this.destroyed) return false;
+    if (this.contextMenuListeners.size === 0) {
+      return this.ports.hitTestInteractive({ x: input.screenX, y: input.screenY });
+    }
+    let handled = false;
+    for (const listener of [...this.contextMenuListeners]) {
+      handled = listener(input) || handled;
+    }
+    return handled;
   }
 
   private onPointerDown(x: number, y: number, pointerId: number, button: number): void {

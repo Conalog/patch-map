@@ -311,7 +311,11 @@ export class PatchMapTransactionCommitCoordinator {
 
     const animatedBarTargets = plannedElementAngleUpdates !== undefined
       ? EMPTY_COMPONENT_VISUAL_TARGETS
-      : plannedBarHeightUpdates ?? directAnimatedBarTargets(plan.operations, componentSemantics);
+      : plan.animatedBarTargets !== undefined
+        ? plan.animatedBarTargets
+        : plannedBarHeightUpdates !== undefined
+          ? plannedBarHeightUpdates
+          : directAnimatedBarTargets(plan.operations, componentSemantics);
     const directBarHeightUpdates = plannedElementAngleUpdates !== undefined
       ? undefined
       : plannedBarHeightUpdates ?? directBarHeightUpdatesFor(plan.operations, componentSemantics);
