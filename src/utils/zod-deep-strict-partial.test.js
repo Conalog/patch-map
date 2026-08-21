@@ -37,7 +37,7 @@ describe('Zod schema traversal', () => {
     expect(deepPartial(schema).parse({})).toEqual({});
   });
 
-  it('degrades discriminated unions so their discriminator can be omitted', () => {
+  it('keeps discriminated union routing while making option fields partial', () => {
     const schema = z.discriminatedUnion('type', [
       z
         .object({
@@ -53,8 +53,14 @@ describe('Zod schema traversal', () => {
         .strict(),
     ]);
 
-    expect(deepPartial(schema).parse({ size: { width: 40 } })).toEqual({
+    expect(
+      deepPartial(schema).parse({ type: 'image', size: { width: 40 } }),
+    ).toEqual({
+      type: 'image',
       size: { width: 40 },
     });
+    expect(deepPartial(schema).safeParse({ size: { width: 40 } }).success).toBe(
+      false,
+    );
   });
 });

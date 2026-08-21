@@ -87,7 +87,7 @@ const partialSchemaCases = [
   ],
   ['icon component', iconSchema, { size: { width: 24 } }],
   ['text component', componentTextSchema, { style: { autoFont: { max: 40 } } }],
-  ['component union', componentSchema, { size: { width: 24 } }],
+  ['component union', componentSchema, { type: 'icon', size: { width: 24 } }],
   [
     'component array',
     componentArraySchema,
@@ -147,7 +147,7 @@ const partialSchemaCases = [
       stroke: { width: 2 },
     },
   ],
-  ['element union', elementTypes, { size: { width: 40 } }],
+  ['element union', elementTypes, { type: 'image', size: { width: 40 } }],
   [
     'map data',
     mapDataSchema,
@@ -199,6 +199,15 @@ describe('deep partial public schema contract', () => {
       deepPartial(imageSchema).safeParse({
         source: { src: 'asset.png', unknown: true },
       }).success,
+    ).toBe(false);
+  });
+
+  it('keeps discriminators required like the Zod 3 implementation', () => {
+    expect(
+      deepPartial(componentSchema).safeParse({ size: { width: 24 } }).success,
+    ).toBe(false);
+    expect(
+      deepPartial(elementTypes).safeParse({ size: { width: 40 } }).success,
     ).toBe(false);
   });
 });

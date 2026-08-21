@@ -107,11 +107,34 @@ export function mapOnSchema(schema, fn) {
         rest: def.rest && mapElement(def.rest),
       });
     }
-    // Optional discriminators cannot be indexed by ZodDiscriminatedUnion.
-    // A partial update may omit `type`, so degrade it to a regular union just
-    // like Zod's proposed deepPartial implementation does.
     if (s instanceof z.ZodDiscriminatedUnion) {
-      return z.union(def.options.map(mapElement));
+      const discriminator = def.discriminator;
+      const options = def.options.map((option) => {
+        const mappedOption = mapElement(option);
+
+        // Zod 3 routed a discriminated union before parsing its option, so the
+        // discriminator stayed required even when the option objects were
+        // made partial. Restore that contract after mapping the option shape;
+        // optional discriminators cannot be indexed safely by Zod 4 and can
+        // make an otherwise invalid patch match the wrong union branch.
+        if (
+          option instanceof z.ZodObject &&
+          mappedOption instanceof z.ZodObject &&
+          option.shape[discriminator]
+        ) {
+          return mappedOption.clone({
+            ...mappedOption._zod.def,
+            shape: {
+              ...mappedOption.shape,
+              [discriminator]: mapElement(option.shape[discriminator]),
+            },
+          });
+        }
+
+        return mappedOption;
+      });
+
+      return s.clone({ ...def, options });
     }
     if (s instanceof z.ZodUnion) {
       return s.clone({ ...def, options: def.options.map(mapElement) });
