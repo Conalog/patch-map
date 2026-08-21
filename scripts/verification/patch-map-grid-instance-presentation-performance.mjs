@@ -16,6 +16,9 @@ const warmups = integer(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_WARMUPS ?? 
 const measured = integer(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_MEASURED ?? '7');
 const updateCount = integer(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_UPDATES ?? '4');
 const viewport = viewportSize(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_VIEWPORT ?? '800x600');
+const viewportMotion = viewportMotionName(
+  process.env.PATCH_MAP_GRID_PRESENTATION_PERF_VIEWPORT_MOTION ?? 'pan',
+);
 const artifactIdentity = process.env.PATCH_MAP_GRID_PRESENTATION_PERF_ARTIFACT ?? 'working-tree';
 const outputPath = path.resolve(
   process.env.PATCH_MAP_GRID_PRESENTATION_PERF_OUTPUT ??
@@ -62,6 +65,7 @@ try {
         sequenceCount,
         run,
         scenarioName,
+        viewportMotionName,
         viewportSize: [viewportWidth, viewportHeight],
       }) => {
         const { PatchMap } = window.__PATCH_MAP_PUBLIC_ANIMATION_MODULE__;
@@ -270,6 +274,12 @@ try {
               appliedCount: published.action.appliedCount,
             });
             map.viewport.panBy(sequence % 2 === 0 ? [8, 4] : [-7, -3]);
+            if (viewportMotionName === 'pan-zoom') {
+              map.viewport.zoomBy(
+                sequence % 2 === 0 ? 1.01 : 1 / 1.01,
+                [viewportWidth / 2, viewportHeight / 2],
+              );
+            }
             await new Promise((resolve) => setTimeout(resolve, 75));
           }
           await new Promise((resolve) => setTimeout(resolve, 250));
@@ -311,6 +321,7 @@ try {
         sequenceCount: updateCount,
         run: trial,
         scenarioName: scenario,
+        viewportMotionName: viewportMotion,
         viewportSize: viewport,
       });
       result.errors = errors;
@@ -367,6 +378,7 @@ try {
       updateIntervalMs: 75,
       settleMs: 250,
       viewport,
+      viewportMotion,
       pixelRatio: 1,
       backend: 'webgl',
       publicApi: 'PatchMap.mount + targets.query + updateBatch',
@@ -471,6 +483,13 @@ function viewportSize(value) {
   const match = /^(\d+)x(\d+)$/u.exec(value.trim());
   if (match === null) throw new TypeError('performance viewport must use WIDTHxHEIGHT');
   return Object.freeze([integer(match[1]), integer(match[2])]);
+}
+
+function viewportMotionName(value) {
+  if (value !== 'pan' && value !== 'pan-zoom') {
+    throw new TypeError('grid presentation viewport motion must be pan or pan-zoom');
+  }
+  return value;
 }
 
 function percentile(values, quantile) {
