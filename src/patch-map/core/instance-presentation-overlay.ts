@@ -25,6 +25,7 @@ import type {
   PatchMapGridItemTemplate,
   PatchMapIconComponent,
   PatchMapRectTexture,
+  PatchMapTextComponent,
 } from '../semantic/dataset';
 import { mergeRecords } from '../semantic/mutation/record-values';
 import { normalizePatchMapComponent } from '../semantic/dataset/root-normalization';
@@ -353,10 +354,14 @@ export function planPatchMapInstancePresentationOverlay(
   const colorState = createPatchMapParseState(parseOptions ?? {});
   const resolvedColors = new Map<unknown, Map<number, number>>();
   const effectiveComponents = new Map<string, PatchMapComponent>();
-  const componentProjectionCache: PatchMapInstanceComponentProjectionCache | undefined =
-    cacheRepeatedTextProjection
-      ? { textLayouts: new Map(), textComponents: new Map() }
-      : undefined;
+  const effectiveTextTemplates = new Map<string, PatchMapTextComponent>();
+  const componentProjectionCache: PatchMapInstanceComponentProjectionCache = {
+    state: createPatchMapParseState(
+      parseOptions ?? {},
+      cacheRepeatedTextProjection ? new Map() : undefined,
+    ),
+    ...(cacheRepeatedTextProjection ? { textComponents: new Map() } : {}),
+  };
   let ownerSlots: ReadonlyMap<string, number> | null = null;
 
   for (const {
@@ -434,16 +439,49 @@ export function planPatchMapInstancePresentationOverlay(
       if (ownerSlot === undefined) {
         throw new Error(`instance presentation owner slot is unavailable for ${entityId}`);
       }
-      const effectiveKey = cacheRepeatedTextProjection
-        ? `${indexed.componentPath}\u0000${JSON.stringify(stored.changes ?? {})}`
-        : null;
-      let effective = effectiveKey === null ? undefined : effectiveComponents.get(effectiveKey);
-      effective ??= effectiveOverlayComponent(
-        authoredComponent,
-        stored.changes ?? {},
-        indexed.componentPath,
-      );
-      if (effectiveKey !== null) effectiveComponents.set(effectiveKey, effective);
+      const storedChanges = stored.changes ?? {};
+      let effective: PatchMapComponent | undefined;
+      if (
+        patch.type === 'text' &&
+        Object.hasOwn(storedChanges, 'text') &&
+        typeof storedChanges.text === 'string'
+      ) {
+        const templateKey = `${indexed.componentPath}\u0000${textIndependentChangesSignature(
+          storedChanges,
+        )}`;
+        let template = effectiveTextTemplates.get(templateKey);
+        if (template === undefined) {
+          const normalized = effectiveOverlayComponent(
+            authoredComponent,
+            storedChanges,
+            indexed.componentPath,
+          );
+          if (normalized.type !== 'text') {
+            throw new TypeError('instance presentation component type does not match authored component');
+          }
+          template = normalized;
+          effectiveTextTemplates.set(templateKey, template);
+        }
+        const effectiveTextKey = cacheRepeatedTextProjection
+          ? `${templateKey}\u0000${JSON.stringify(storedChanges.text)}`
+          : null;
+        effective = effectiveTextKey === null
+          ? undefined
+          : effectiveComponents.get(effectiveTextKey);
+        effective ??= Object.freeze({ ...template, text: storedChanges.text });
+        if (effectiveTextKey !== null) effectiveComponents.set(effectiveTextKey, effective);
+      } else {
+        const effectiveKey = cacheRepeatedTextProjection
+          ? `${indexed.componentPath}\u0000${JSON.stringify(storedChanges)}`
+          : null;
+        effective = effectiveKey === null ? undefined : effectiveComponents.get(effectiveKey);
+        effective ??= effectiveOverlayComponent(
+          authoredComponent,
+          storedChanges,
+          indexed.componentPath,
+        );
+        if (effectiveKey !== null) effectiveComponents.set(effectiveKey, effective);
+      }
       if (effective.type !== patch.type) {
         throw new TypeError('instance presentation component type does not match authored component');
       }
@@ -595,6 +633,15 @@ function shouldCacheRepeatedTextProjection(
     if (sampled >= 256) break;
   }
   return sampled < 64 || signatures.size <= sampled * 0.9;
+}
+
+function textIndependentChangesSignature(changes: Readonly<Record<string, unknown>>): string {
+  let signature = '';
+  for (const name of Object.keys(changes)) {
+    if (name === 'text') continue;
+    signature += `${JSON.stringify(name)}:${JSON.stringify(changes[name])};`;
+  }
+  return signature;
 }
 
 function normalizePresentationPatches(

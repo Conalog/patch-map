@@ -14,12 +14,12 @@ import type {
   PatchMapGridItemTemplate,
   PatchMapTextComponent,
 } from '../semantic/dataset';
-import type { PatchMapTextLayout } from '../semantic/text-layout';
 import { parseComponent } from './component-text-lowering';
 import { createElementIdentity } from './lowering-state';
 import {
   createPatchMapParseState,
   type PatchMapMutableExpandedItemIdentity,
+  type PatchMapParseState,
 } from './parse-state';
 import type { PatchMapParserTransform } from './transform-projection';
 
@@ -39,8 +39,8 @@ interface PatchMapCachedTextComponentProjection {
 }
 
 export interface PatchMapInstanceComponentProjectionCache {
-  readonly textLayouts: Map<string, PatchMapTextLayout>;
-  readonly textComponents: Map<
+  readonly state: PatchMapParseState;
+  readonly textComponents?: Map<
     PatchMapTextComponent,
     Map<string, PatchMapCachedTextComponentProjection>
   >;
@@ -83,12 +83,12 @@ export function projectPatchMapInstanceComponentOverlay(
     : null;
   const cached = textCacheKey === null || component.type !== 'text'
     ? undefined
-    : cache?.textComponents.get(component)?.get(textCacheKey);
+    : cache?.textComponents?.get(component)?.get(textCacheKey);
   if (cached !== undefined) {
     return rebaseCachedTextComponentProjection(cached, entityId, ownerId, ownerProjection);
   }
 
-  const state = createPatchMapParseState(options, cache?.textLayouts);
+  const state = cache?.state ?? createPatchMapParseState(options);
   const sourcePath = sourceElementPath(componentPath);
   const element = createElementIdentity(
     { type: 'grid', id: semanticOwnerId },
@@ -109,6 +109,7 @@ export function projectPatchMapInstanceComponentOverlay(
     height: Math.max(0, item.size.height - item.padding.top - item.padding.bottom),
   };
 
+  const entityStart = state.entities.length;
   parseComponent(
     component,
     componentPath,
@@ -128,7 +129,7 @@ export function projectPatchMapInstanceComponentOverlay(
     state,
   );
 
-  const entity = state.entities.find((candidate) => candidate.id === entityId);
+  const entity = state.entities[entityStart];
   const entityProjection = state.projectionByEntityId[entityId];
   const componentProjection = state.componentVisualProjectionByEntityId[entityId];
   if (entity === undefined || entityProjection === undefined) {
@@ -149,19 +150,21 @@ export function projectPatchMapInstanceComponentOverlay(
       : { textProjection: state.textProjectionByEntityId[entityId] }),
   });
   if (textCacheKey !== null && component.type === 'text' && cache !== undefined) {
-    let componentCache = cache.textComponents.get(component);
+    let componentCache = cache.textComponents?.get(component);
     if (componentCache === undefined) {
       componentCache = new Map();
-      cache.textComponents.set(component, componentCache);
+      cache.textComponents?.set(component, componentCache);
     }
-    componentCache.set(textCacheKey, Object.freeze({
-      ownerId,
-      ownerTranslation: Object.freeze([
-        ownerProjection.affine[4],
-        ownerProjection.affine[5],
-      ] as const),
-      projected,
-    }));
+    if (cache.textComponents !== undefined) {
+      componentCache.set(textCacheKey, Object.freeze({
+        ownerId,
+        ownerTranslation: Object.freeze([
+          ownerProjection.affine[4],
+          ownerProjection.affine[5],
+        ] as const),
+        projected,
+      }));
+    }
   }
   return projected;
 }
