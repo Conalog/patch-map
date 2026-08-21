@@ -56,7 +56,10 @@ release pull request. Merging that pull request creates the corresponding
 npm publication uses Trusted Publishing and is gated by the repository variable
 `NPM_PUBLISH_ENABLED`. Enabling publication requires all of the following:
 
-1. Create a GitHub environment named `npm` and configure its deployment rules.
+1. Create a GitHub environment named `npm` and allow the `main` branch to
+   deploy. The workflow checks out the release tag, but the environment rule is
+   evaluated against the workflow run ref, which is `main` for both automatic
+   publication and the documented manual retry.
 2. Configure `@conalog/patch-map` on npm with `Conalog/patch-map`, workflow
    `publish-npm.yaml`, environment `npm`, and permission to run `npm publish`.
 3. Set the repository variable `NPM_PUBLISH_ENABLED` to `true`.
