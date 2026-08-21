@@ -2,6 +2,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import resolve from '@rollup/plugin-node-resolve';
 import url from '@rollup/plugin-url';
 import copy from 'rollup-plugin-copy';
+import { dts } from 'rollup-plugin-dts';
 import pkg from './package.json' with { type: 'json' };
 
 export default [
@@ -38,5 +39,19 @@ export default [
       }),
     ],
     external: ['pixi.js', 'nanoid'],
+  },
+  {
+    input: 'dist/types/patch-map.d.ts',
+    output: [
+      {
+        file: pkg.types,
+        format: 'es',
+      },
+      {
+        file: 'dist/index.d.cts',
+        format: 'es',
+      },
+    ],
+    plugins: [dts()],
   },
 ];

@@ -1,0 +1,26 @@
+name: pr title
+
+on:
+  pull_request_target:
+    branches:
+      - main
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate pull request title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          allowed_types='feat|fix|perf|deps|ci|docs|test|refactor|style|chore'
+          pattern="^(${allowed_types})(\\([^()[:space:]]([^()]*[^()[:space:]])?\\))?!?: [^[:space:]](.*[^[:space:]])?$"
+
+          if [[ ! "$PR_TITLE" =~ $pattern ]]; then
+            echo "::error title=Invalid pull request title::Expected '<type>: <summary>', '<type>(<scope>): <summary>', or either form with '!' before ':'. Allowed types: feat, fix, perf, deps, ci, docs, test, refactor, style, chore."
+            exit 1
+          fi
