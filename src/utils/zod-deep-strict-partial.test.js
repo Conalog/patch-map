@@ -46,6 +46,27 @@ describe('Zod schema traversal', () => {
     ).toBe(false);
   });
 
+  it('degrades discriminated unions so their discriminator can be omitted', () => {
+    const schema = z.discriminatedUnion('type', [
+      z
+        .object({
+          type: z.literal('image'),
+          size: z.object({ width: z.number(), height: z.number() }),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal('text'),
+          style: z.object({ fontSize: z.number() }),
+        })
+        .strict(),
+    ]);
+
+    expect(deepPartial(schema).parse({ size: { width: 40 } })).toEqual({
+      size: { width: 40 },
+    });
+  });
+
   it('preserves passthrough objects unless strict mode is forced', () => {
     const schema = z.object({
       nested: z.object({ value: z.string() }).passthrough(),

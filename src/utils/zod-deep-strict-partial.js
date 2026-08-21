@@ -107,6 +107,12 @@ export function mapOnSchema(schema, fn) {
         rest: def.rest && mapElement(def.rest),
       });
     }
+    // Optional discriminators cannot be indexed by ZodDiscriminatedUnion.
+    // A partial update may omit `type`, so degrade it to a regular union just
+    // like Zod's proposed deepPartial implementation does.
+    if (s instanceof z.ZodDiscriminatedUnion) {
+      return z.union(def.options.map(mapElement));
+    }
     if (s instanceof z.ZodUnion) {
       return s.clone({ ...def, options: def.options.map(mapElement) });
     }
@@ -134,13 +140,18 @@ export function mapOnSchema(schema, fn) {
 
 const partialSchemaCache = new WeakMap();
 
+const unwrapPatchPropertyDefaults = (schema) => {
+  let inner = schema;
+  while (inner instanceof z.ZodDefault || inner instanceof z.ZodPrefault) {
+    inner = inner._zod.def.innerType;
+  }
+  return inner;
+};
+
 const makeObjectPartial = (schema) => {
   const shape = {};
   for (const [key, value] of Object.entries(schema.shape)) {
-    const inner =
-      value instanceof z.ZodDefault || value instanceof z.ZodPrefault
-        ? value._zod.def.innerType
-        : value;
+    const inner = unwrapPatchPropertyDefaults(value);
     shape[key] = inner instanceof z.ZodOptional ? inner : inner.optional();
   }
   return schema.clone({ ...schema._zod.def, shape });

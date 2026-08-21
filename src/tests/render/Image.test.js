@@ -131,4 +131,24 @@ describe('Image Render', () => {
     expect(image.props.source).toBe('');
     expect(image.sprite.texture).toBe(Texture.EMPTY);
   });
+
+  it('supports a width-only update when optional size was initially absent', async () => {
+    const patchmap = getPatchmap();
+    vi.spyOn(Assets, 'load').mockResolvedValue(Texture.WHITE);
+    const image = drawImage(patchmap, {
+      id: 'natural-size-image',
+      size: undefined,
+    });
+    await flushPromises();
+    const initialHeight = image.sprite.height;
+
+    patchmap.update({
+      path: '$..[?(@.id=="natural-size-image")]',
+      changes: { size: { width: 64 } },
+    });
+
+    expect(image.props.size).toEqual({ width: 64 });
+    expect(image.sprite.width).toBe(64);
+    expect(image.sprite.height).toBe(initialHeight);
+  });
 });

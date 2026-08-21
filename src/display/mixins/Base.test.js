@@ -93,4 +93,64 @@ describe('Base mixin', () => {
       'merge',
     );
   });
+
+  it('validates merge changes as deep partial without requiring complete state', () => {
+    const instance = new StaticBaseElement({ type: 'image' });
+    const schema = z
+      .object({
+        type: z.literal('image'),
+        size: z.object({ width: z.number(), height: z.number() }).optional(),
+      })
+      .strict();
+
+    instance.apply({ size: { width: 64 } }, schema);
+
+    expect(instance.props).toEqual({
+      type: 'image',
+      size: { width: 64 },
+    });
+  });
+
+  it('still rejects invalid values in deep partial merge changes', () => {
+    const instance = new StaticBaseElement({ type: 'image' });
+    const schema = z
+      .object({
+        type: z.literal('image'),
+        size: z.object({ width: z.number(), height: z.number() }).optional(),
+      })
+      .strict();
+
+    expect(() => instance.apply({ size: { width: '64' } }, schema)).toThrow();
+  });
+
+  it('does not inject defaults omitted from merge changes', () => {
+    const instance = new StaticBaseElement({ type: 'text' });
+    const schema = z
+      .object({
+        type: z.literal('text'),
+        text: z.string().default(''),
+        style: z.object({ fontSize: z.number().default(16) }).prefault({}),
+      })
+      .strict();
+
+    instance.apply({ text: 'updated' }, schema);
+
+    expect(instance.props).toEqual({ type: 'text', text: 'updated' });
+  });
+
+  it('requires complete state for replace changes', () => {
+    const instance = new StaticBaseElement({ type: 'rect' });
+    const schema = z
+      .object({
+        type: z.literal('rect'),
+        size: z.object({ width: z.number(), height: z.number() }),
+      })
+      .strict();
+
+    expect(() =>
+      instance.apply({ size: { width: 64 } }, schema, {
+        mergeStrategy: 'replace',
+      }),
+    ).toThrow();
+  });
 });
