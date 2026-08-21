@@ -292,11 +292,14 @@ describe('AggregateMeshLayer', () => {
       throw new Error('expected near and distant bar records in one chunk');
     }
 
+    expect(layer.preciseViewportCull).toBe(true);
     expect(layer.cull(new Matrix(), 70, 40, 0, true)).toBe(1);
+    expect(layer.preciseViewportCull).toBe(true);
     expect(firstBar.parent).toBe(layer.relationContainer);
     expect(distantBar.parent).toBeNull();
 
     expect(layer.cull(new Matrix(), 70, 40, 0, false)).toBe(1);
+    expect(layer.preciseViewportCull).toBe(false);
     expect(firstBar.parent).toBe(layer.relationContainer);
     expect(distantBar.parent).toBe(layer.relationContainer);
     expect([...layer.barPresentationVisibility()!.visibleChunks.slice(0, 1)])

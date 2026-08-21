@@ -405,6 +405,11 @@ export class AggregateMeshLayer {
     return this.#debug;
   }
 
+  /** Current retained-record culling mode used by the central renderer. */
+  public get preciseViewportCull(): boolean {
+    return this.#preciseViewportCull;
+  }
+
   public getDebugStats(): AggregateMeshLayerDebug {
     return this.#debug;
   }

@@ -1021,6 +1021,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   public setAggregateCullPrecision(precise: boolean): number {
     this.assertAlive();
     if (!(this.aggregate instanceof AggregateMeshLayer)) return 0;
+    if (this.aggregate.preciseViewportCull === precise) return 0;
     const visibleChunks = this.aggregate.cull(
       this.worldMatrix,
       this.widthValue,
