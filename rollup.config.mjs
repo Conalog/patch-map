@@ -23,6 +23,11 @@ export default [
         format: 'umd',
         name: 'Patchmap',
         inlineDynamicImports: true,
+        globals: {
+          'pixi.js': 'PIXI',
+          nanoid: 'nanoid$1',
+          vm: 'vm',
+        },
       },
     ],
     plugins: [
@@ -38,7 +43,7 @@ export default [
         ],
       }),
     ],
-    external: ['pixi.js', 'nanoid'],
+    external: ['pixi.js', 'nanoid', 'vm'],
   },
   {
     input: 'dist/types/patch-map.d.ts',
