@@ -433,13 +433,14 @@ describe('PatchMap text render publication', () => {
     await layer.destroy();
   });
 
-  it('removes hidden text leaves and clears all publication state on destroy', async () => {
+  it('retains hidden text leaves for visibility-only reuse and clears them on destroy', async () => {
     const parsed = parsePatchMapV010([standaloneText('visible')]);
     const visible = createRenderStore(parsed.document.entities, 1);
     const layer = new AggregateLeafLayer();
     const context = projectionContext(parsed.projection, 1);
     layer.sync(visible, { fullRebuildEpoch: 1, projectionContext: context });
     layer.confirmRenderedFrame(1);
+    const retained = layer.textContainer.children[0];
 
     const hidden: RenderStoreView = {
       ...visible,
@@ -451,9 +452,12 @@ describe('PatchMap text render publication', () => {
       changedRanges: [{ start: 0, end: 1 }],
       projectionContext: context,
     });
-    expect(layer.textContainer.children).toHaveLength(0);
-    expect(layer.textRendererProbe('text')).toBeNull();
-    expect(layer.entityPaintProbe('text')).toBeNull();
+    expect(layer.textContainer.children).toEqual([retained]);
+    expect(retained?.visible).toBe(false);
+    expect(layer.textRendererProbe('text')).toMatchObject({
+      publicationStatus: 'current',
+      lastRenderedFrame: 1,
+    });
 
     const shown: RenderStoreView = {
       ...visible,
@@ -465,9 +469,11 @@ describe('PatchMap text render publication', () => {
       changedRanges: [{ start: 0, end: 1 }],
       projectionContext: context,
     });
+    expect(layer.textContainer.children).toEqual([retained]);
+    expect(retained?.visible).toBe(true);
     expect(layer.textRendererProbe('text')).toMatchObject({
-      publicationStatus: 'pending',
-      lastRenderedSignatures: null,
+      publicationStatus: 'current',
+      lastRenderedFrame: 1,
       staleGlyphCount: 0,
     });
 

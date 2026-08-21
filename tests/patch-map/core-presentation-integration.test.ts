@@ -761,6 +761,28 @@ describe('PatchMap bar presentation integration', () => {
     expect(engine.historyState()).toEqual(history);
     expect(engine.snapshot().semanticHash).toBe(semanticHash);
 
+    const projectionBeforeVisibilityOnly = core.projection;
+    const textProjectionBeforeVisibilityOnly = core.projection?.textsByEntityId?.[textId];
+    expect(engine.updateInstanceBarHeights({
+      text: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'label' }],
+        changes: { show: [false] },
+      },
+      animate: false,
+    })).toMatchObject({ status: 'committed', changed: true, overlayCount: 2 });
+    expect(core.projection).toBe(projectionBeforeVisibilityOnly);
+    expect(core.projection?.textsByEntityId?.[textId]).toBe(textProjectionBeforeVisibilityOnly);
+    expect(renderer.presentationOverrides.at(-1)?.get(textId)).toMatchObject({ visible: false });
+    expect(engine.updateInstanceBarHeights({
+      text: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'label' }],
+        changes: { show: [true] },
+      },
+      animate: false,
+    })).toMatchObject({ status: 'committed', changed: true, overlayCount: 2 });
+    expect(core.projection).toBe(projectionBeforeVisibilityOnly);
+    expect(renderer.presentationOverrides.at(-1)?.get(textId)).toMatchObject({ visible: true });
+
     expect(engine.updateInstanceBarHeights({
       background: {
         targets: [{ id: 'grid-presentation.0.0', componentId: 'surface' }],

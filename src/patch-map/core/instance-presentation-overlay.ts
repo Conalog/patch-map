@@ -5,12 +5,16 @@ import type {
 import type { EntityInput } from '../dense/contracts';
 import {
   RenderAlign,
+  RenderFlags,
   RenderKind,
   type RenderStoreView,
 } from '../dense/renderer-types';
 import { multiplyPatchMapRgba } from '../parser/color';
 import { normalizePatchMapImageSource } from '../parser/image-source';
-import { projectPatchMapInstanceComponentOverlay } from '../parser/instance-component-overlay';
+import {
+  projectPatchMapInstanceComponentOverlay,
+  type PatchMapInstanceComponentProjectionCache,
+} from '../parser/instance-component-overlay';
 import { createPatchMapParseState } from '../parser/parse-state';
 import { resolveColor } from '../parser/value-normalization';
 import type { PatchMapRendererEntityPresentationOverride } from '../renderers/presentation-store';
@@ -281,6 +285,7 @@ export function planPatchMapInstancePresentationOverlay(
     rendererChanged: boolean;
     sourceChanged: boolean;
     componentChanged: boolean;
+    componentProjectionChanged: boolean;
   }>> = [];
   for (const { patch, indexed, authoredComponent } of resolved) {
     const key = storedKey(patch.type, patch.target);
@@ -303,8 +308,12 @@ export function planPatchMapInstancePresentationOverlay(
         !Object.is(previous?.show, next?.show),
       sourceChanged: !sameNormalizedPresentationValue(previous?.source, next?.source),
       componentChanged: !sameNormalizedPresentationValue(previous?.changes, next?.changes),
+      componentProjectionChanged:
+        !sameNormalizedPresentationValue(previous?.changes, next?.changes) &&
+        Object.keys(patch.changes ?? {}).some((name) => name !== 'show'),
     }));
   }
+  const cacheRepeatedTextProjection = shouldCacheRepeatedTextProjection(changedPresentations);
 
   const barHeightUpdates: PatchMapInstanceBarOverlayUpdate[] = [];
   for (const { patch, stored, heightChanged } of changedPresentations) {
@@ -343,6 +352,11 @@ export function planPatchMapInstancePresentationOverlay(
   const imageIds: string[] = [];
   const colorState = createPatchMapParseState(parseOptions ?? {});
   const resolvedColors = new Map<unknown, Map<number, number>>();
+  const effectiveComponents = new Map<string, PatchMapComponent>();
+  const componentProjectionCache: PatchMapInstanceComponentProjectionCache | undefined =
+    cacheRepeatedTextProjection
+      ? { textLayouts: new Map(), textComponents: new Map() }
+      : undefined;
   let ownerSlots: ReadonlyMap<string, number> | null = null;
 
   for (const {
@@ -353,10 +367,30 @@ export function planPatchMapInstancePresentationOverlay(
     rendererChanged,
     sourceChanged,
     componentChanged,
+    componentProjectionChanged,
   } of changedPresentations) {
     if (patch.type === 'background' || patch.type === 'text') {
       if (!componentChanged || authoredComponent === null || ownedDataset === null) continue;
       const entityId = indexed.entityId;
+      if (patch.type === 'text' && !componentProjectionChanged && stored !== undefined) {
+        ownerSlots ??= indexStoreSlots(store);
+        const ownerSlot = ownerSlots.get(patch.target.id);
+        if (ownerSlot === undefined) {
+          throw new Error(`instance presentation owner slot is unavailable for ${entityId}`);
+        }
+        const ownerVisible = store.alive[ownerSlot] === 1 &&
+          ((store.flags[ownerSlot] ?? 0) & RenderFlags.Visible) !== 0;
+        const effectiveShow = stored.changes?.show ?? authoredComponent.show;
+        const previousOverride = nextRendererOverrides.get(entityId);
+        const nextOverride = Object.freeze({
+          ...previousOverride,
+          kind: RenderKind.Text,
+          visible: ownerVisible && effectiveShow !== false,
+        });
+        nextRendererOverrides.set(entityId, nextOverride);
+        if (!sameRendererOverride(previousOverride, nextOverride)) changed.add(entityId);
+        continue;
+      }
       projectionEntityIds.push(entityId);
       if (stored === undefined) {
         const authoredEntity = authored.byEntityId[entityId];
@@ -400,11 +434,16 @@ export function planPatchMapInstancePresentationOverlay(
       if (ownerSlot === undefined) {
         throw new Error(`instance presentation owner slot is unavailable for ${entityId}`);
       }
-      const effective = effectiveOverlayComponent(
+      const effectiveKey = cacheRepeatedTextProjection
+        ? `${indexed.componentPath}\u0000${JSON.stringify(stored.changes ?? {})}`
+        : null;
+      let effective = effectiveKey === null ? undefined : effectiveComponents.get(effectiveKey);
+      effective ??= effectiveOverlayComponent(
         authoredComponent,
         stored.changes ?? {},
         indexed.componentPath,
       );
+      if (effectiveKey !== null) effectiveComponents.set(effectiveKey, effective);
       if (effective.type !== patch.type) {
         throw new TypeError('instance presentation component type does not match authored component');
       }
@@ -418,6 +457,7 @@ export function planPatchMapInstancePresentationOverlay(
         store,
         ownerSlot,
         parseOptions,
+        componentProjectionCache,
       );
       entitySelections[entityId] = projected.entityProjection;
       if (projected.componentProjection !== undefined) {
@@ -470,7 +510,6 @@ export function planPatchMapInstancePresentationOverlay(
       changed.add(indexed.entityId);
     }
   }
-
   projection = patchInstanceComponentProjection(
     projection,
     entitySelections,
@@ -538,6 +577,24 @@ export function instancePresentationRequestFromStored(
     ...(texts.length === 0 ? {} : { text: componentColumns(texts) }),
     animate,
   });
+}
+
+function shouldCacheRepeatedTextProjection(
+  changes: readonly Readonly<{
+    readonly patch: NormalizedPresentationPatch;
+    readonly stored: PatchMapStoredInstancePresentation | undefined;
+    readonly componentProjectionChanged: boolean;
+  }>[],
+): boolean {
+  const signatures = new Set<string>();
+  let sampled = 0;
+  for (const change of changes) {
+    if (change.patch.type !== 'text' || !change.componentProjectionChanged) continue;
+    signatures.add(JSON.stringify(change.stored?.changes ?? {}));
+    sampled += 1;
+    if (sampled >= 256) break;
+  }
+  return sampled < 64 || signatures.size <= sampled * 0.9;
 }
 
 function normalizePresentationPatches(

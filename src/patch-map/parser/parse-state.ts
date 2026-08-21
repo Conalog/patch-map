@@ -22,6 +22,7 @@ import {
   type PatchMapTextProjection,
 } from '../contracts';
 import type { PatchMapParserTransform } from './transform-projection';
+import type { PatchMapTextLayout } from '../semantic/text-layout';
 
 export interface PatchMapMutableElementIdentity extends Omit<ElementIdentity, 'entityIds'> {
   entityIds: string[];
@@ -80,6 +81,8 @@ export interface PatchMapParseState {
   readonly pendingRelations: PatchMapPendingRelation[];
   readonly relationPairsBySourceId: Map<string, Set<string>>;
   readonly warned: Set<string>;
+  /** Request-scoped cache used only by concrete instance overlay projection. */
+  readonly textLayoutCache?: Map<string, PatchMapTextLayout>;
   sourceElements: number;
   relationLinks: number;
   gridCells: number;
@@ -93,7 +96,10 @@ export interface PatchMapElementContext {
   readonly ancestorIdentities: readonly PatchMapMutableElementIdentity[];
 }
 
-export function createPatchMapParseState(options: ParsePatchMapOptions): PatchMapParseState {
+export function createPatchMapParseState(
+  options: ParsePatchMapOptions,
+  textLayoutCache?: Map<string, PatchMapTextLayout>,
+): PatchMapParseState {
   return {
     options,
     entities: [],
@@ -125,6 +131,7 @@ export function createPatchMapParseState(options: ParsePatchMapOptions): PatchMa
     pendingRelations: [],
     relationPairsBySourceId: new Map(),
     warned: new Set(),
+    ...(textLayoutCache === undefined ? {} : { textLayoutCache }),
     sourceElements: 0,
     relationLinks: 0,
     gridCells: 0,

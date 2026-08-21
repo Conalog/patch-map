@@ -86,6 +86,7 @@ interface TextChunk {
   readonly key: number;
   readonly container: Container;
   readonly slots: Set<number>;
+  readonly visibleSlots: Set<number>;
   vertices: PatchMapQuadVertices;
   allChildrenVisible: boolean;
 }
@@ -229,6 +230,7 @@ export class AggregateLeafLayer {
   /** Visible semantic text slots, including those without a Pixi object yet. */
   private readonly textEntityIdBySlot: Array<string | undefined> = [];
   private readonly textVerticesBySlot: Array<PatchMapQuadVertices | undefined> = [];
+  private readonly textPresentationVisibleBySlot: boolean[] = [];
   private readonly textProbesByEntityId = new Map<string, PatchMapTextRendererProbe>();
   private readonly textLastRenderedGraphemeCountByEntityId = new Map<string, number>();
   private readonly pendingTextEntries = new Set<TextEntry>();
@@ -614,7 +616,7 @@ export class AggregateLeafLayer {
         if (!chunkVisible) continue;
         if (coverage === 'inside') {
           if (!chunk.allChildrenVisible) {
-            for (const slot of chunk.slots) {
+            for (const slot of chunk.visibleSlots) {
               const entry = this.texts.get(slot);
               if (entry !== undefined && !entry.object.visible) {
                 entry.object.visible = true;
@@ -622,11 +624,11 @@ export class AggregateLeafLayer {
             }
             chunk.allChildrenVisible = true;
           }
-          visibleCount += chunk.slots.size;
+          visibleCount += chunk.visibleSlots.size;
           continue;
         }
         let allChildrenVisible = true;
-        for (const slot of chunk.slots) {
+        for (const slot of chunk.visibleSlots) {
           const entry = this.texts.get(slot);
           if (entry === undefined) continue;
           const visible = quadIntersectsViewport(
@@ -644,7 +646,8 @@ export class AggregateLeafLayer {
       }
     } else {
       for (const entry of this.texts.values()) {
-        const visible = quadIntersectsViewport(
+        const visible = this.textPresentationVisibleBySlot[entry.slot] === true &&
+          quadIntersectsViewport(
           entry.vertices,
           worldMatrix,
           viewportWidth,
@@ -864,7 +867,8 @@ export class AggregateLeafLayer {
     const alive = store.alive[slot] === 1;
     const visible = alive && ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0;
     const kind = store.kind[slot];
-    if (!visible || kind !== RenderKind.Text) this.removeText(slot);
+    const textAlive = alive && kind === RenderKind.Text;
+    if (!textAlive) this.removeText(slot);
     if (!alive || kind !== RenderKind.Image) {
       this.clearImageSlot(slot);
     } else {
@@ -880,11 +884,20 @@ export class AggregateLeafLayer {
         this.removeVisibleImage(store, slot, entityId, bindingKey, lane);
       }
     }
-    if (!visible) return;
-    if (kind === RenderKind.Text) {
-      let preparedQuad: PatchMapResolvedRenderQuad | undefined;
+    if (textAlive) {
+      const preparedQuad = this.trackTextSlot(store, slot, projectionContext);
+      this.setTextPresentationVisible(slot, visible);
+      if (!visible) {
+        this.deferredTextSlots.add(slot);
+        const entry = this.texts.get(slot);
+        if (entry !== undefined) {
+          applyTextProjection(entry, preparedQuad, this.transformMatrix);
+          entry.vertices = preparedQuad.vertices;
+          entry.object.visible = false;
+        }
+        return;
+      }
       if (textMaterializationViewport !== undefined) {
-        preparedQuad = this.trackTextSlot(store, slot, projectionContext);
         const padding = textMaterializationViewport.padding ?? 32;
         if (!quadIntersectsViewport(
           preparedQuad.vertices,
@@ -898,7 +911,9 @@ export class AggregateLeafLayer {
         }
       }
       this.syncText(store, slot, projectionContext, preparedQuad);
+      return;
     }
+    if (!visible) return;
   }
 
   private syncSlotProjectionOnly(
@@ -910,13 +925,14 @@ export class AggregateLeafLayer {
     const visible = alive && ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0;
     const kind = store.kind[slot];
     const entityId = store.ids[slot] ?? `@slot:${slot}`;
-    if (visible && kind === RenderKind.Text) {
+    if (alive && kind === RenderKind.Text) {
       const quad = this.trackTextSlot(store, slot, projectionContext);
+      this.setTextPresentationVisible(slot, visible);
       const entry = this.texts.get(slot);
       if (entry !== undefined && entry.entityId === entityId) {
         applyTextProjection(entry, quad, this.transformMatrix);
         entry.vertices = quad.vertices;
-        entry.object.visible = true;
+        entry.object.visible = visible;
       }
       return;
     } else if (visible && kind === RenderKind.Image) {
@@ -1255,6 +1271,7 @@ export class AggregateLeafLayer {
     const entityId = this.textEntityIdBySlot[slot] ?? entry?.entityId;
     this.textEntityIdBySlot[slot] = undefined;
     this.textVerticesBySlot[slot] = undefined;
+    this.textPresentationVisibleBySlot[slot] = false;
     this.removeMaterializedText(slot);
     if (entityId !== undefined) {
       this.textProbesByEntityId.delete(entityId);
@@ -1263,7 +1280,9 @@ export class AggregateLeafLayer {
     }
     if (this.textChunking) {
       const key = textChunkKey(slot);
-      this.textChunks.get(key)?.slots.delete(slot);
+      const chunk = this.textChunks.get(key);
+      chunk?.slots.delete(slot);
+      chunk?.visibleSlots.delete(slot);
       this.dirtyTextChunkKeys.add(key);
     }
   }
@@ -1319,6 +1338,7 @@ export class AggregateLeafLayer {
       key,
       container,
       slots: new Set([slot]),
+      visibleSlots: new Set(),
       vertices: EMPTY_QUAD_VERTICES,
       allChildrenVisible: true,
     };
@@ -1327,6 +1347,16 @@ export class AggregateLeafLayer {
     this.textChunkOrderDirty = true;
     this.textContainer.addChild(container);
     return container;
+  }
+
+  private setTextPresentationVisible(slot: number, visible: boolean): void {
+    this.textPresentationVisibleBySlot[slot] = visible;
+    if (!this.textChunking) return;
+    const chunk = this.textChunks.get(textChunkKey(slot));
+    if (chunk === undefined) return;
+    if (visible) chunk.visibleSlots.add(slot);
+    else chunk.visibleSlots.delete(slot);
+    chunk.allChildrenVisible = false;
   }
 
   /**
@@ -1349,7 +1379,7 @@ export class AggregateLeafLayer {
     const store = this.deferredTextStore;
     if (store === null) return false;
     let changed = false;
-    for (const slot of [...chunk.slots]) {
+    for (const slot of [...chunk.visibleSlots]) {
       const deferred = this.deferredTextSlots.delete(slot);
       if (!deferred && this.texts.has(slot)) continue;
       this.syncSlot(store, slot, this.deferredTextProjectionContext);
@@ -1694,6 +1724,7 @@ export class AggregateLeafLayer {
     this.texts.clear();
     this.textEntityIdBySlot.length = 0;
     this.textVerticesBySlot.length = 0;
+    this.textPresentationVisibleBySlot.length = 0;
     this.textProbesByEntityId.clear();
     this.textLastRenderedGraphemeCountByEntityId.clear();
     this.pendingTextEntries.clear();

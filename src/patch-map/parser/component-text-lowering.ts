@@ -609,6 +609,11 @@ export function semanticTextLayout(
   path: string,
   state: ParseState,
 ): PatchMapTextLayout {
+  const cacheKey = state.textLayoutCache === undefined
+    ? null
+    : JSON.stringify([source, style, contentFrame ?? null, overflowValue ?? null, split, origin ?? null]);
+  const cached = cacheKey === null ? undefined : state.textLayoutCache?.get(cacheKey);
+  if (cached !== undefined) return cached;
   const fontSizePx = positiveTextMetric(style.fontSize, `${path}.style.fontSize`, state);
   const lineHeightPx = positiveTextMetric(style.lineHeight, `${path}.style.lineHeight`, state);
   const letterSpacingPx = textLetterSpacing(
@@ -652,6 +657,7 @@ export function semanticTextLayout(
       `${diagnostic.code}: ${diagnostic.detail}`,
     );
   }
+  if (cacheKey !== null) state.textLayoutCache?.set(cacheKey, layout);
   return layout;
 }
 
