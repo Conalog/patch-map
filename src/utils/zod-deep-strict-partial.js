@@ -79,6 +79,7 @@ export function mapOnSchema(schema, fn) {
       s instanceof z.ZodOptional ||
       s instanceof z.ZodNullable ||
       s instanceof z.ZodDefault ||
+      s instanceof z.ZodPrefault ||
       s instanceof z.ZodReadonly ||
       s instanceof z.ZodCatch ||
       s instanceof z.ZodPromise
@@ -137,7 +138,9 @@ const makeObjectPartial = (schema) => {
   const shape = {};
   for (const [key, value] of Object.entries(schema.shape)) {
     const inner =
-      value instanceof z.ZodDefault ? value._zod.def.innerType : value;
+      value instanceof z.ZodDefault || value instanceof z.ZodPrefault
+        ? value._zod.def.innerType
+        : value;
     shape[key] = inner instanceof z.ZodOptional ? inner : inner.optional();
   }
   return schema.clone({ ...schema._zod.def, shape });

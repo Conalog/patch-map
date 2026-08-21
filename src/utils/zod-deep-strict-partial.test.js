@@ -32,6 +32,20 @@ describe('Zod schema traversal', () => {
     });
   });
 
+  it('traverses objects inside prefault wrappers', () => {
+    const schema = z.object({
+      nested: z.object({ value: z.string() }).prefault({}),
+    });
+
+    expect(deepPartial(schema).parse({ nested: {} })).toEqual({ nested: {} });
+    expect(deepPartial(schema).parse({})).toEqual({});
+    expect(
+      deepStrict(schema).safeParse({
+        nested: { value: 'ok', extra: true },
+      }).success,
+    ).toBe(false);
+  });
+
   it('preserves passthrough objects unless strict mode is forced', () => {
     const schema = z.object({
       nested: z.object({ value: z.string() }).passthrough(),
