@@ -9,9 +9,14 @@ import { createServer } from 'vite';
 
 const root = process.cwd();
 const sizes = integerList(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_SIZES ?? '5000,10000');
+const scenarios = scenarioList(
+  process.env.PATCH_MAP_GRID_PRESENTATION_PERF_SCENARIOS ?? 'background-text',
+);
 const warmups = integer(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_WARMUPS ?? '2', true);
 const measured = integer(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_MEASURED ?? '7');
 const updateCount = integer(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_UPDATES ?? '4');
+const viewport = viewportSize(process.env.PATCH_MAP_GRID_PRESENTATION_PERF_VIEWPORT ?? '800x600');
+const artifactIdentity = process.env.PATCH_MAP_GRID_PRESENTATION_PERF_ARTIFACT ?? 'working-tree';
 const outputPath = path.resolve(
   process.env.PATCH_MAP_GRID_PRESENTATION_PERF_OUTPUT ??
     '.perf-results/patch-map/instance-background-text-latest.json',
@@ -32,9 +37,12 @@ try {
   const raw = [];
   const failures = [];
 
-  for (const size of sizes) {
-    for (let trial = 0; trial < warmups + measured; trial += 1) {
-      const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
+  for (const scenario of scenarios) {
+    for (const size of sizes) {
+      for (let trial = 0; trial < warmups + measured; trial += 1) {
+      const page = await browser.newPage({
+        viewport: { width: viewport[0] + 100, height: viewport[1] + 100 },
+      });
       const errors = [];
       page.on('console', (message) => {
         if (message.type() === 'error') errors.push(`console: ${message.text()}`);
@@ -49,7 +57,13 @@ try {
         undefined,
         { timeout: 120_000 },
       );
-      const result = await page.evaluate(async ({ recordCount, sequenceCount, run }) => {
+      const result = await page.evaluate(async ({
+        recordCount,
+        sequenceCount,
+        run,
+        scenarioName,
+        viewportSize: [viewportWidth, viewportHeight],
+      }) => {
         const { PatchMap } = window.__PATCH_MAP_PUBLIC_ANIMATION_MODULE__;
         const columns = 100;
         const rows = Math.ceil(recordCount / columns);
@@ -67,10 +81,21 @@ try {
               type: 'background',
               id: 'surface',
               source: { type: 'rect', fill: '#e2e8f0', radius: 3 },
-            }, {
+            }, ...(
+              scenarioName === 'bar-height' || scenarioName === 'mode-switch'
+                ? [{
+                    type: 'bar',
+                    id: 'chart',
+                    size: { width: 24, height: 18 },
+                    placement: 'bottom',
+                    source: { type: 'rect', fill: '#2563eb', radius: 2 },
+                  }]
+                : []
+            ), {
               type: 'text',
               id: 'value',
               text: '0%',
+              ...(scenarioName === 'mode-switch' ? { show: false } : {}),
               placement: 'center',
               margin: 2,
               tint: '#0f172a',
@@ -79,15 +104,19 @@ try {
           },
         }];
         const host = document.querySelector('#patch-map-performance-host');
-        Object.assign(host.style, { width: '800px', height: '600px', overflow: 'hidden' });
+        Object.assign(host.style, {
+          width: viewportWidth + 'px',
+          height: viewportHeight + 'px',
+          overflow: 'hidden',
+        });
         let map = null;
         try {
           const mountStarted = performance.now();
           map = await PatchMap.mount({
             container: host,
-            instanceId: 'grid-presentation-perf-' + recordCount + '-' + run,
-            width: 800,
-            height: 600,
+            instanceId: 'grid-presentation-perf-' + scenarioName + '-' + recordCount + '-' + run,
+            width: viewportWidth,
+            height: viewportHeight,
             pixelRatio: 1,
             antialias: false,
             backend: 'webgl',
@@ -104,6 +133,8 @@ try {
           const before = map.debug.snapshot();
           const backgroundSources = new Array(targets.count);
           const backgroundShows = new Array(targets.count).fill(true);
+          const barHeights = new Array(targets.count);
+          const textShows = new Array(targets.count);
           const textValues = new Array(targets.count);
           const textStyles = new Array(targets.count);
           const textTints = new Array(targets.count);
@@ -122,33 +153,88 @@ try {
               textValues[index] = String((index * 17 + sequence * 23) % 101) + '%';
               textStyles[index] = {
                 fontFamily: 'Arial',
-                fontSize: 10 + (state % 2),
-                fontWeight: state % 2 === 0 ? 600 : 700,
+                fontSize: 10 + ((state + sequence) % 2),
+                fontWeight: (state + sequence) % 2 === 0 ? 600 : 700,
                 align: state % 2 === 0 ? 'left' : 'right',
               };
               textTints[index] = textPalette[state];
               textPlacements[index] = state % 2 === 0 ? 'left-top' : 'right-bottom';
               textMargins[index] = 2 + (state % 2);
+              barHeights[index] = ((index * 13 + sequence * 19) % 91) + 5;
+              textShows[index] = scenarioName === 'mode-switch'
+                ? sequence % 3 !== 2
+                : sequence % 2 === 1;
+            }
+            let request;
+            if (scenarioName === 'bar-height') {
+              request = {
+                targets,
+                bar: { componentId: 'chart', height: barHeights },
+              };
+            } else if (scenarioName === 'text-show') {
+              request = {
+                targets,
+                text: { componentId: 'value', changes: { show: textShows } },
+              };
+            } else if (scenarioName === 'text-content') {
+              request = {
+                targets,
+                text: { componentId: 'value', text: textValues },
+              };
+            } else if (scenarioName === 'text-style') {
+              request = {
+                targets,
+                text: { componentId: 'value', style: textStyles },
+              };
+            } else if (scenarioName === 'mode-switch') {
+              const mode = sequence % 3;
+              if (mode === 0) {
+                for (let index = 0; index < targets.count; index += 1) {
+                  textValues[index] = String((index * 17 + sequence * 23) % 10_001);
+                  textShows[index] = true;
+                  barHeights[index] = 0;
+                }
+              } else if (mode === 1) {
+                for (let index = 0; index < targets.count; index += 1) {
+                  textValues[index] = String((index * 17 + sequence * 23) % 101) + '%';
+                  textShows[index] = true;
+                  barHeights[index] = 0;
+                }
+              } else {
+                textShows.fill(false);
+              }
+              request = {
+                targets,
+                bar: { componentId: 'chart', height: barHeights },
+                text: {
+                  componentId: 'value',
+                  text: textValues,
+                  style: textStyles,
+                  changes: { show: textShows },
+                },
+              };
+            } else {
+              request = {
+                targets,
+                background: {
+                  componentId: 'surface',
+                  changes: { source: backgroundSources, show: backgroundShows },
+                },
+                text: {
+                  componentId: 'value',
+                  text: textValues,
+                  style: textStyles,
+                  changes: {
+                    show: backgroundShows,
+                    tint: textTints,
+                    placement: textPlacements,
+                    margin: textMargins,
+                  },
+                },
+              };
             }
             const started = performance.now();
-            const action = map.updateBatch({
-              targets,
-              background: {
-                componentId: 'surface',
-                changes: { source: backgroundSources, show: backgroundShows },
-              },
-              text: {
-                componentId: 'value',
-                text: textValues,
-                style: textStyles,
-                changes: {
-                  show: backgroundShows,
-                  tint: textTints,
-                  placement: textPlacements,
-                  margin: textMargins,
-                },
-              },
-            });
+            const action = map.updateBatch(request);
             return {
               action,
               updateMs: performance.now() - started,
@@ -220,10 +306,17 @@ try {
         } finally {
           await map?.destroy().catch(() => undefined);
         }
-      }, { recordCount: size, sequenceCount: updateCount, run: trial });
+      }, {
+        recordCount: size,
+        sequenceCount: updateCount,
+        run: trial,
+        scenarioName: scenario,
+        viewportSize: viewport,
+      });
       result.errors = errors;
       const record = Object.freeze({
         size,
+        scenario,
         trial,
         warmup: trial < warmups,
         ...result,
@@ -231,11 +324,15 @@ try {
       raw.push(record);
       failures.push(...validate(record));
       await page.close();
+      }
     }
   }
 
-  const summaries = Object.fromEntries(sizes.map((size) => {
-    const trials = raw.filter((record) => record.size === size && !record.warmup);
+  const summaries = Object.fromEntries(scenarios.map((scenario) => [
+    scenario,
+    Object.fromEntries(sizes.map((size) => {
+    const trials = raw.filter((record) =>
+      record.scenario === scenario && record.size === size && !record.warmup);
     return [size, Object.freeze({
       mountMs: stats(trials.map(({ mountMs }) => mountMs)),
       firstOverlayUpdateMs: stats(trials.map(({ firstOverlay }) => firstOverlay.updateMs)),
@@ -245,32 +342,37 @@ try {
       rafGapP95Ms: stats(trials.map(({ rafGapsMs }) => percentile(rafGapsMs, 0.95))),
       rafGapMaxMs: stats(trials.map(({ rafGapsMs }) => Math.max(...rafGapsMs))),
       longTaskCount: stats(trials.map(({ longTasks }) => longTasks.length)),
+      longTaskDurationMs: stats(trials.flatMap(({ longTasks }) => longTasks)),
       initialRenderCommandCount: stats(trials.map(({ initialRenderCommandCount }) =>
         initialRenderCommandCount)),
       finalRenderCommandCount: stats(trials.map(({ finalRenderCommandCount }) =>
         finalRenderCommandCount)),
       visiblePrimitiveCount: stats(trials.map(({ visiblePrimitiveCount }) => visiblePrimitiveCount)),
     })];
-  }));
+  })),
+  ]));
   const output = Object.freeze({
-    schemaVersion: 1,
-    checkpoint: 'patch-map-concrete-grid-background-text-presentation',
+    schemaVersion: 2,
+    checkpoint: 'patch-map-concrete-grid-presentation-scenarios',
     generatedAt: new Date().toISOString(),
     protocol: Object.freeze({
       sizes,
+      scenarios,
       warmups,
       measured,
       updateCount,
-      firstOverlay: 'one comprehensive style/layout/content/background publication before sampling',
+      artifactIdentity,
+      trialOrder: 'scenario then ascending size; each trial uses a fresh page and fixed update order',
+      firstOverlay: 'one scenario publication before measured repeated updates',
       updateIntervalMs: 75,
       settleMs: 250,
-      viewport: [800, 600],
+      viewport,
       pixelRatio: 1,
       backend: 'webgl',
       publicApi: 'PatchMap.mount + targets.query + updateBatch',
-      workload: 'all-cell background source/show plus text content/style/show/tint/placement/margin',
+      workload: 'scenario-selected concrete bar/text/background updateBatch columns',
       offscreenObservation:
-        'fit disabled; updates address the full grid while the 800x600 viewport shows only a subset',
+        'fit disabled; updates address the full grid while the fixed viewport shows only a subset',
       textMaterializationObservation:
         'public render-command counts plus leaf lifecycle tests prove bounded initial text ownership',
       windowsNative: 'pending',
@@ -302,27 +404,35 @@ try {
 
 function validate(record) {
   const failures = [...record.errors];
+  const expectedAppliedCount = record.size * (
+    record.scenario === 'mode-switch' || record.scenario === 'background-text' ? 2 : 1
+  );
   if (record.targetCount !== record.size) failures.push(`${record.size}: target count mismatch`);
   if (record.actions.some(({ status, appliedCount }) =>
-    status !== 'committed' || appliedCount !== record.size * 2)) {
+    status !== 'committed' || appliedCount !== expectedAppliedCount)) {
     failures.push(`${record.size}: update result mismatch`);
   }
   if (
     record.firstOverlay.status !== 'committed' ||
-    record.firstOverlay.appliedCount !== record.size * 2
+    record.firstOverlay.appliedCount !== expectedAppliedCount
   ) failures.push(`${record.size}: first overlay result mismatch`);
   if (!record.semanticHashStable) failures.push(`${record.size}: semantic hash changed`);
   if (!record.sceneRevisionStable) failures.push(`${record.size}: scene revision changed`);
   if (record.renderer !== 'webgl') failures.push(`${record.size}: renderer was ${record.renderer}`);
-  if (record.initialRenderCommandCount <= 0 || record.initialRenderCommandCount >= record.size) {
+  if (record.initialRenderCommandCount <= 0) {
     failures.push(`${record.size}: initial render-command materialization was ineffective`);
   }
-  if (
-    record.finalRenderCommandCount < record.initialRenderCommandCount ||
-    record.finalRenderCommandCount >= record.size
-  ) {
+  if (record.finalRenderCommandCount <= 0) {
     failures.push(`${record.size}: retained render-command materialization count was invalid`);
   }
+  if (
+    record.size >= 1_024 &&
+    record.scenario !== 'bar-height' &&
+    (
+      record.initialRenderCommandCount >= record.size ||
+      record.finalRenderCommandCount >= record.size
+    )
+  ) failures.push(`${record.size}: text viewport materialization was ineffective`);
   if (record.destroy !== true || record.canvasCountAfterDestroy !== 0) {
     failures.push(`${record.size}: destroy cleanup failed`);
   }
@@ -341,12 +451,37 @@ function integerList(value) {
   return value.split(',').map((entry) => integer(entry.trim()));
 }
 
+function scenarioList(value) {
+  const allowed = new Set([
+    'background-text',
+    'bar-height',
+    'text-show',
+    'text-content',
+    'text-style',
+    'mode-switch',
+  ]);
+  const result = value.split(',').map((entry) => entry.trim());
+  if (result.length === 0 || result.some((entry) => !allowed.has(entry))) {
+    throw new TypeError('grid presentation performance scenario must be supported');
+  }
+  return result;
+}
+
+function viewportSize(value) {
+  const match = /^(\d+)x(\d+)$/u.exec(value.trim());
+  if (match === null) throw new TypeError('performance viewport must use WIDTHxHEIGHT');
+  return Object.freeze([integer(match[1]), integer(match[2])]);
+}
+
 function percentile(values, quantile) {
   const ordered = [...values].sort((left, right) => left - right);
   return ordered[Math.max(0, Math.ceil(ordered.length * quantile) - 1)] ?? 0;
 }
 
 function stats(values) {
+  if (values.length === 0) {
+    return Object.freeze({ samples: Object.freeze([]), min: 0, median: 0, p95: 0, max: 0 });
+  }
   return Object.freeze({
     samples: Object.freeze([...values]),
     min: Math.min(...values),
