@@ -1,6 +1,7 @@
 import { applyElementDefaults } from '../default-props';
 import { newElement } from '../elements/creator';
 import { UPDATE_STAGES } from './constants';
+import { omitGridItemTemplateComponentIds } from './Itemable';
 
 const KEYS = ['cells', 'inactiveCellStrategy'];
 
@@ -38,7 +39,7 @@ export const Cellsable = (superClass) => {
             const itemChanges = {
               type: 'item',
               id,
-              ...cloneGridItemTemplate(itemProps),
+              ...omitGridItemTemplateComponentIds(itemProps),
               label,
               attrs,
               show: !isInactive,
@@ -80,20 +81,6 @@ const canUseInitialFastPath = (options) =>
   options.mergeStrategy === 'replace' &&
   options.validateSchema === false &&
   options.normalize === false;
-
-const cloneGridItemTemplate = (itemProps) => {
-  if (!Array.isArray(itemProps?.components)) return itemProps;
-  return {
-    ...itemProps,
-    components: itemProps.components.map((component) =>
-      component && typeof component === 'object'
-        ? omitComponentTemplateId(component)
-        : component,
-    ),
-  };
-};
-
-const omitComponentTemplateId = ({ id, ...component }) => component;
 
 const applyInitialCellItem = (item, itemChanges, options) => {
   const applyOptions = {
