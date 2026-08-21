@@ -59,12 +59,12 @@ describe('parseCalcExpression', () => {
     },
   ];
 
-  it.each(testCases)('should correctly parse $name', ({
-    expression,
-    expected,
-  }) => {
-    expect(parseCalcExpression(expression, parentDimension)).toBe(expected);
-  });
+  it.each(testCases)(
+    'should correctly parse $name',
+    ({ expression, expected }) => {
+      expect(parseCalcExpression(expression, parentDimension)).toBe(expected);
+    },
+  );
 });
 
 describe('calcSize', () => {
@@ -197,19 +197,17 @@ describe('calcSize', () => {
     },
   ];
 
-  it.each(testCases)('should calculate size correctly $name', ({
-    props,
-    respectsPadding,
-    parent = mockParent,
-    expected,
-  }) => {
-    const mockComponent = {
-      constructor: { respectsPadding },
-      parent,
-    };
-    const result = calcSize(mockComponent, props);
-    expect(result).toEqual(expected);
-  });
+  it.each(testCases)(
+    'should calculate size correctly $name',
+    ({ props, respectsPadding, parent = mockParent, expected }) => {
+      const mockComponent = {
+        constructor: { respectsPadding },
+        parent,
+      };
+      const result = calcSize(mockComponent, props);
+      expect(result).toEqual(expected);
+    },
+  );
 });
 
 describe('validateAndPrepareChanges', () => {

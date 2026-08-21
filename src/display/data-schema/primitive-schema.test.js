@@ -56,15 +56,14 @@ describe('Primitive Schema Tests', () => {
       { case: 'HSVA object', value: { h: 0, s: 100, v: 100, a: 0.5 } },
     ];
 
-    it.each(
-      validColorSourceCases,
-    )('should correctly parse various color source types: $case', ({
-      value,
-    }) => {
-      expect(() => Color.parse(value)).not.toThrow();
-      const parsed = Color.parse(value);
-      expect(parsed).toEqual(value);
-    });
+    it.each(validColorSourceCases)(
+      'should correctly parse various color source types: $case',
+      ({ value }) => {
+        expect(() => Color.parse(value)).not.toThrow();
+        const parsed = Color.parse(value);
+        expect(parsed).toEqual(value);
+      },
+    );
   });
 
   describe('Base Schema', () => {
@@ -238,13 +237,12 @@ describe('Primitive Schema Tests', () => {
       expect(() => Placement.parse(placement)).not.toThrow();
     });
 
-    it.each([
-      'top-left',
-      'invalid-placement',
-      null,
-    ])('should reject invalid placement value: %s', (placement) => {
-      expect(() => Placement.parse(placement)).toThrow();
-    });
+    it.each(['top-left', 'invalid-placement', null])(
+      'should reject invalid placement value: %s',
+      (placement) => {
+        expect(() => Placement.parse(placement)).toThrow();
+      },
+    );
   });
 
   describe('Gap Schema', () => {
@@ -436,11 +434,12 @@ describe('Primitive Schema Tests', () => {
         { case: '', input: 'calc( 100% + -20px )' },
       ];
 
-      it.each(validCalcCases)('should parse valid calc expression: $case', ({
-        input,
-      }) => {
-        expect(pxOrPercentSchema.parse(input)).toBe(input);
-      });
+      it.each(validCalcCases)(
+        'should parse valid calc expression: $case',
+        ({ input }) => {
+          expect(pxOrPercentSchema.parse(input)).toBe(input);
+        },
+      );
     });
 
     describe('Invalid calc() Expressions', () => {
@@ -457,13 +456,12 @@ describe('Primitive Schema Tests', () => {
         { case: 'no spaces', input: 'calc(100%-20px)' },
       ];
 
-      it.each(
-        invalidCalcCases,
-      )('should throw an error for invalid calc expression: $case', ({
-        input,
-      }) => {
-        expect(() => pxOrPercentSchema.parse(input)).toThrow();
-      });
+      it.each(invalidCalcCases)(
+        'should throw an error for invalid calc expression: $case',
+        ({ input }) => {
+          expect(() => pxOrPercentSchema.parse(input)).toThrow();
+        },
+      );
     });
   });
 });

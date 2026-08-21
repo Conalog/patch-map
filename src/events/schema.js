@@ -26,8 +26,14 @@ export const focusFitIdsSchema = z
   .union([z.string(), z.array(z.string())])
   .nullish();
 
+const functionSchema = z
+  .unknown()
+  .refine((value) => typeof value === 'function', {
+    message: 'Expected a function',
+  });
+
 const focusFitOptionsBaseSchema = z.object({
-  filter: z.function().args(z.any()).returns(z.any()).optional(),
+  filter: functionSchema.optional(),
 });
 
 export const focusFitOptionsSchema = focusFitOptionsBaseSchema

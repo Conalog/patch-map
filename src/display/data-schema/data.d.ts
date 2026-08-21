@@ -8,13 +8,13 @@
  */
 
 import type {
-  HslColor,
   HslaColor,
-  HsvColor,
+  HslColor,
   HsvaColor,
+  HsvColor,
   Color as PixiColor,
-  RgbColor,
   RgbaColor,
+  RgbColor,
 } from './color';
 
 //================================================================================

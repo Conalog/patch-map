@@ -95,24 +95,20 @@ describe('placement-frame', () => {
       view: { angle: 180, flipX: false, flipY: false },
       expected: { x: 240, y: 484 },
     },
-  ])('follow-item contract: $case', ({
-    placement,
-    margin,
-    size,
-    scale,
-    view,
-    expected,
-  }) => {
-    const component = createComponent();
-    component.props.placement = placement;
-    component.props.margin = margin;
-    component.width = size.width;
-    component.height = size.height;
-    component.scale = scale;
-    component.store.view = view;
+  ])(
+    'follow-item contract: $case',
+    ({ placement, margin, size, scale, view, expected }) => {
+      const component = createComponent();
+      component.props.placement = placement;
+      component.props.margin = margin;
+      component.width = size.width;
+      component.height = size.height;
+      component.scale = scale;
+      component.store.view = view;
 
-    expect(place(component)).toEqual(expected);
-  });
+      expect(place(component)).toEqual(expected);
+    },
+  );
 
   it.each([
     {
@@ -153,26 +149,29 @@ describe('placement-frame', () => {
       view: { angle: 0, flipX: false, flipY: true },
       expected: { x: 6, y: 487 },
     },
-  ])('upright contract: $case', ({
-    placement = 'left-top',
-    margin = { left: 6, right: 8, top: 4, bottom: 10 },
-    size = { width: 20, height: 9 },
-    scale,
-    parentAngle,
-    view,
-    expected,
-  }) => {
-    const component = createComponent();
-    component.props.placement = placement;
-    component.props.margin = margin;
-    component.width = size.width;
-    component.height = size.height;
-    component.scale = scale;
-    setUprightContainer(component, parentAngle);
-    component.store.view = view;
+  ])(
+    'upright contract: $case',
+    ({
+      placement = 'left-top',
+      margin = { left: 6, right: 8, top: 4, bottom: 10 },
+      size = { width: 20, height: 9 },
+      scale,
+      parentAngle,
+      view,
+      expected,
+    }) => {
+      const component = createComponent();
+      component.props.placement = placement;
+      component.props.margin = margin;
+      component.width = size.width;
+      component.height = size.height;
+      component.scale = scale;
+      setUprightContainer(component, parentAngle);
+      component.store.view = view;
 
-    expect(place(component)).toEqual(expected);
-  });
+      expect(place(component)).toEqual(expected);
+    },
+  );
 
   it('treats attrs.rotation like attrs.angle when resolving placement remap', () => {
     const withAngle = createComponent();

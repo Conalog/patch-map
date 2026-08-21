@@ -21,6 +21,7 @@ const TRANSFORM_SYNC_KEYS = new Set([
   'pivot',
   'alpha',
 ]);
+const stores = new WeakMap();
 
 const getPatchDiff = (currentProps, changes) => {
   if (
@@ -50,17 +51,15 @@ export const Base = (superClass) => {
     static _handlerRegistry = new Map();
     static _handlerOrder = 0;
     static _handlerList = [];
-    #store;
-
     constructor(options = {}) {
       const { store = null, ...rest } = options;
       super(rest);
-      this.#store = store;
+      stores.set(this, store);
       this.props = rest?.type ? { type: rest.type } : {};
       this.onRender = () => {
         if (
-          this.#store?.viewport?.moving ||
-          this.#store?.viewport?._suspendObjectAfterRender
+          this.store?.viewport?.moving ||
+          this.store?.viewport?._suspendObjectAfterRender
         ) {
           return;
         }
@@ -69,7 +68,7 @@ export const Base = (superClass) => {
     }
 
     get store() {
-      return this.#store;
+      return stores.get(this);
     }
 
     _afterRender() {}

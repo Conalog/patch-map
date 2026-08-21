@@ -28,12 +28,11 @@ const RESOLVING = Symbol('mapOnSchema/resolving');
  * with the value returned by `fn`. Traversal is bottom‑up, so `fn` is called
  * on children before parents.
  *
- * @param {import('zod').ZodTypeAny} schema
- * @param {(s: import('zod').ZodTypeAny) => import('zod').ZodTypeAny} fn
- * @returns {import('zod').ZodTypeAny}
+ * @param {import('zod').ZodType} schema
+ * @param {(s: import('zod').ZodType) => import('zod').ZodType} fn
+ * @returns {import('zod').ZodType}
  */
 export function mapOnSchema(schema, fn) {
-  // Cache results to handle recursive schemas safely.
   const results = new Map();
 
   function mapElement(s) {
@@ -46,158 +45,107 @@ export function mapOnSchema(schema, fn) {
     }
 
     results.set(s, RESOLVING);
-    const result = mapOnSchema(s, fn);
+    const result = fn(mapInner(s));
     results.set(s, result);
     return result;
   }
 
-  function mapInner() {
-    if (schema instanceof z.ZodObject) {
-      /** @type {Record<string, import('zod').ZodTypeAny>} */
+  function mapInner(s) {
+    const def = s._zod.def;
+
+    if (s instanceof z.ZodObject) {
+      /** @type {Record<string, import('zod').ZodType>} */
       const newShape = {};
-      for (const [key, value] of Object.entries(schema.shape)) {
+      for (const [key, value] of Object.entries(s.shape)) {
         newShape[key] = mapElement(value);
       }
-      return new z.ZodObject({
-        ...schema._def,
-        shape: () => newShape,
-      });
+      return s.clone({ ...def, shape: newShape });
     }
 
-    if (schema instanceof z.ZodArray) {
-      return new z.ZodArray({
-        ...schema._def,
-        type: mapElement(schema._def.type),
+    if (s instanceof z.ZodArray) {
+      return s.clone({ ...def, element: mapElement(def.element) });
+    }
+    if (s instanceof z.ZodMap) {
+      return s.clone({
+        ...def,
+        keyType: mapElement(def.keyType),
+        valueType: mapElement(def.valueType),
       });
     }
-    if (schema instanceof z.ZodMap) {
-      return new z.ZodMap({
-        ...schema._def,
-        keyType: mapElement(schema._def.keyType),
-        valueType: mapElement(schema._def.valueType),
-      });
+    if (s instanceof z.ZodSet) {
+      return s.clone({ ...def, valueType: mapElement(def.valueType) });
     }
-    if (schema instanceof z.ZodSet) {
-      return new z.ZodSet({
-        ...schema._def,
-        valueType: mapElement(schema._def.valueType),
-      });
+    if (
+      s instanceof z.ZodOptional ||
+      s instanceof z.ZodNullable ||
+      s instanceof z.ZodDefault ||
+      s instanceof z.ZodReadonly ||
+      s instanceof z.ZodCatch ||
+      s instanceof z.ZodPromise
+    ) {
+      return s.clone({ ...def, innerType: mapElement(def.innerType) });
     }
-    if (schema instanceof z.ZodOptional) {
-      return new z.ZodOptional({
-        ...schema._def,
-        innerType: mapElement(schema._def.innerType),
-      });
-    }
-    if (schema instanceof z.ZodNullable) {
-      return new z.ZodNullable({
-        ...schema._def,
-        innerType: mapElement(schema._def.innerType),
-      });
-    }
-    if (schema instanceof z.ZodDefault) {
-      return new z.ZodDefault({
-        ...schema._def,
-        innerType: mapElement(schema._def.innerType),
-      });
-    }
-    if (schema instanceof z.ZodReadonly) {
-      return new z.ZodReadonly({
-        ...schema._def,
-        innerType: mapElement(schema._def.innerType),
-      });
-    }
-    if (schema instanceof z.ZodLazy) {
-      return new z.ZodLazy({
-        ...schema._def,
+    if (s instanceof z.ZodLazy) {
+      return s.clone({
+        ...def,
         // NB: This leaks `fn` into the schema, but it is necessary for recursion support.
-        getter: () => mapElement(schema._def.getter()),
+        getter: () => mapElement(def.getter()),
       });
     }
-    if (schema instanceof z.ZodBranded) {
-      return new z.ZodBranded({
-        ...schema._def,
-        type: mapElement(schema._def.type),
+    if (s instanceof z.ZodPipe) {
+      return s.clone({
+        ...def,
+        in: mapElement(def.in),
+        out: mapElement(def.out),
       });
     }
-    if (schema instanceof z.ZodEffects) {
-      return new z.ZodEffects({
-        ...schema._def,
-        schema: mapElement(schema._def.schema),
+    if (s instanceof z.ZodTuple) {
+      return s.clone({
+        ...def,
+        items: def.items.map(mapElement),
+        rest: def.rest && mapElement(def.rest),
       });
     }
-    if (schema instanceof z.ZodFunction) {
-      return new z.ZodFunction({
-        ...schema._def,
-        args: schema._def.args.map(mapElement),
-        returns: mapElement(schema._def.returns),
+    if (s instanceof z.ZodUnion) {
+      return s.clone({ ...def, options: def.options.map(mapElement) });
+    }
+    if (s instanceof z.ZodIntersection) {
+      return s.clone({
+        ...def,
+        left: mapElement(def.left),
+        right: mapElement(def.right),
       });
     }
-    if (schema instanceof z.ZodPromise) {
-      return new z.ZodPromise({
-        ...schema._def,
-        type: mapElement(schema._def.type),
-      });
-    }
-    if (schema instanceof z.ZodCatch) {
-      return new z.ZodCatch({
-        ...schema._def,
-        innerType: mapElement(schema._def.innerType),
-      });
-    }
-    if (schema instanceof z.ZodTuple) {
-      return new z.ZodTuple({
-        ...schema._def,
-        items: schema._def.items.map(mapElement),
-        rest: schema._def.rest && mapElement(schema._def.rest),
-      });
-    }
-    if (schema instanceof z.ZodDiscriminatedUnion) {
-      const optionsMap = new Map(
-        Array.from(schema.optionsMap.entries()).map(([k, v]) => [
-          k,
-          mapElement(v),
-        ]),
-      );
-      return new z.ZodDiscriminatedUnion({
-        ...schema._def,
-        options: Array.from(optionsMap.values()),
-        optionsMap,
-      });
-    }
-    if (schema instanceof z.ZodUnion) {
-      return new z.ZodUnion({
-        ...schema._def,
-        options: schema._def.options.map(mapElement),
-      });
-    }
-    if (schema instanceof z.ZodIntersection) {
-      return new z.ZodIntersection({
-        ...schema._def,
-        left: mapElement(schema._def.left),
-        right: mapElement(schema._def.right),
-      });
-    }
-    if (schema instanceof z.ZodRecord) {
-      return new z.ZodRecord({
-        ...schema._def,
-        keyType: mapElement(schema._def.keyType),
-        valueType: mapElement(schema._def.valueType),
+    if (s instanceof z.ZodRecord) {
+      return s.clone({
+        ...def,
+        keyType: mapElement(def.keyType),
+        valueType: mapElement(def.valueType),
       });
     }
 
     // Primitive / already‑handled types pass through untouched.
-    return schema;
+    return s;
   }
 
-  return fn(mapInner());
+  return mapElement(schema);
 }
 
 const partialSchemaCache = new WeakMap();
 
+const makeObjectPartial = (schema) => {
+  const shape = {};
+  for (const [key, value] of Object.entries(schema.shape)) {
+    const inner =
+      value instanceof z.ZodDefault ? value._zod.def.innerType : value;
+    shape[key] = inner instanceof z.ZodOptional ? inner : inner.optional();
+  }
+  return schema.clone({ ...schema._zod.def, shape });
+};
+
 /**
  * Deeply converts every object property in a Zod schema to optional.
- * @template {import('zod').ZodTypeAny} T
+ * @template {import('zod').ZodType} T
  * @param {T} schema
  * @returns {T}
  */
@@ -208,7 +156,7 @@ export function deepPartial(schema) {
 
   /* @ts-expect-error -- runtime cast only for developer hint */
   const partialSchema = mapOnSchema(schema, (s) =>
-    s instanceof z.ZodObject ? s.partial() : s,
+    s instanceof z.ZodObject ? makeObjectPartial(s) : s,
   );
   partialSchemaCache.set(schema, partialSchema);
   return partialSchema;
@@ -218,14 +166,14 @@ export function deepPartial(schema) {
  * Makes all object schemas strict (unknown keys fail), except those explicitly
  * marked with `.passthrough()`.
  *
- * @template {import('zod').ZodTypeAny} T
+ * @template {import('zod').ZodType} T
  * @param {T} schema
  * @returns {T}
  */
 export function deepStrict(schema) {
   /* @ts-expect-error -- runtime cast only for developer hint */
   return mapOnSchema(schema, (s) =>
-    s instanceof z.ZodObject && s._def.unknownKeys !== 'passthrough'
+    s instanceof z.ZodObject && !(s._zod.def.catchall instanceof z.ZodUnknown)
       ? s.strict()
       : s,
   );
@@ -235,7 +183,7 @@ export function deepStrict(schema) {
  * Makes all object schemas strict (unknown keys fail), regardless of
  * `.passthrough()`.
  *
- * @template {import('zod').ZodTypeAny} T
+ * @template {import('zod').ZodType} T
  * @param {T} schema
  * @returns {T}
  */

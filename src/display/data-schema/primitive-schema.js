@@ -179,7 +179,7 @@ export const Gap = z.preprocess(
       x: z.number().nonnegative().default(0),
       y: z.number().nonnegative().default(0),
     })
-    .default({}),
+    .prefault({}),
 );
 
 export const normalizeMarginInput = (val) => normalizeBoxSpacing(val);
@@ -191,14 +191,21 @@ const marginShape = z.object({
   left: z.number().default(0),
 });
 
+const partialMarginShape = z.object({
+  top: z.number().optional(),
+  right: z.number().optional(),
+  bottom: z.number().optional(),
+  left: z.number().optional(),
+});
+
 export const PartialMargin = z.preprocess(
   normalizeMarginInput,
-  marginShape.partial(),
+  partialMarginShape,
 );
 
 export const Margin = z.preprocess(
   normalizeMarginInput,
-  marginShape.default({}),
+  marginShape.prefault({}),
 );
 
 export const EachRadius = z.object({
@@ -208,15 +215,13 @@ export const EachRadius = z.object({
   bottomLeft: z.number().nonnegative().default(0),
 });
 
-export const TextureStyle = z
-  .object({
-    type: z.enum(['rect']),
-    fill: z.string().default('transparent'),
-    borderWidth: z.number().default(0),
-    borderColor: z.string().default('black'),
-    radius: z.union([z.number().nonnegative(), EachRadius]).default(0),
-  })
-  .partial();
+export const TextureStyle = z.object({
+  type: z.enum(['rect']).optional(),
+  fill: z.string().optional(),
+  borderWidth: z.number().optional(),
+  borderColor: z.string().optional(),
+  radius: z.union([z.number().nonnegative(), EachRadius]).optional(),
+});
 
 export const AssetSource = z
   .object({
@@ -265,10 +270,10 @@ export const LabelTextStyle = TextStyle.extend({
       min: z.number().positive().default(DEFAULT_AUTO_FONT_RANGE.min),
       max: z.number().positive().default(DEFAULT_AUTO_FONT_RANGE.max),
     })
-    .default({}),
+    .prefault({}),
   wordWrapWidth: z.union([z.number(), z.literal('auto')]).optional(),
   overflow: z.enum(['visible', 'hidden', 'ellipsis']).default('visible'),
-}).default({});
+}).prefault({});
 
 /**
  * Text style for standalone Text elements, following design tool behaviors.
@@ -277,4 +282,4 @@ export const ElementTextStyle = TextStyle.extend({
   wordWrap: z.boolean().default(true),
   lineHeight: z.number().optional(),
   letterSpacing: z.number().default(0),
-}).default({});
+}).prefault({});

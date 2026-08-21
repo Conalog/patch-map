@@ -52,7 +52,7 @@ export const gridSchema = ElementBase.extend({
   item: z.object({
     components: componentArraySchema.default([]),
     size: Size,
-    padding: Margin.default(0),
+    padding: Margin.prefault(0),
     contentOrientation: ContentOrientation,
   }),
 }).strict();
@@ -67,7 +67,7 @@ export const itemSchema = ElementBase.extend({
   type: z.literal('item'),
   components: componentArraySchema.default([]),
   size: Size,
-  padding: Margin.default(0),
+  padding: Margin.prefault(0),
   contentOrientation: ContentOrientation,
 }).strict();
 

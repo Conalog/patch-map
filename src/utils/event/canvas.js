@@ -5,13 +5,19 @@ import { selector } from '../selector/selector';
 import { uid } from '../uuid';
 import { validate } from '../validator';
 
+const functionSchema = z
+  .unknown()
+  .refine((value) => typeof value === 'function', {
+    message: 'Expected a function',
+  });
+
 const addEventSchema = z.object({
   id: z.string().default(''),
   path: z.string().default('$'),
   elements: z.unknown().optional(),
   action: z.string(),
-  fn: z.function(),
-  options: z.unknown(),
+  fn: functionSchema,
+  options: z.unknown().optional(),
 });
 
 export const addEvent = (viewport, opts, root = viewport) => {

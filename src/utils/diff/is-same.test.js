@@ -75,13 +75,12 @@ describe('isSame function', () => {
         v2: { a: undefined },
         expected: false,
       },
-    ])('should return $expected when comparing $name', ({
-      v1,
-      v2,
-      expected,
-    }) => {
-      expect(isSame(v1, v2)).toBe(expected);
-    });
+    ])(
+      'should return $expected when comparing $name',
+      ({ v1, v2, expected }) => {
+        expect(isSame(v1, v2)).toBe(expected);
+      },
+    );
   });
 
   describe('Non-Plain Object Handling (Arrays, Dates, Instances, Functions)', () => {

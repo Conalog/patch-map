@@ -47,7 +47,7 @@ export const barSchema = Base.extend({
   source: TextureStyle,
   size: PxOrPercentSize,
   placement: Placement.default('bottom'),
-  margin: Margin.default(0),
+  margin: Margin.prefault(0),
   tint: Color,
   animation: z.boolean().default(true),
   animationDuration: z.number().default(200),
@@ -64,7 +64,7 @@ export const iconSchema = Base.extend({
   source: z.union([z.string(), AssetSource]),
   size: PxOrPercentSize,
   placement: Placement.default('center'),
-  margin: Margin.default(0),
+  margin: Margin.prefault(0),
   tint: Color,
 }).strict();
 
@@ -76,7 +76,7 @@ export const iconSchema = Base.extend({
 export const textSchema = Base.extend({
   type: z.literal('text'),
   placement: Placement.default('center'),
-  margin: Margin.default(0),
+  margin: Margin.prefault(0),
   tint: Color,
   text: z.string().default(''),
   style: LabelTextStyle,
