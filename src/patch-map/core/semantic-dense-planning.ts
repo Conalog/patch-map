@@ -7,6 +7,11 @@ import type { PatchMapIndexedComponentTarget } from './published-scene-state';
 import { patchMapComponentProbeTargetKey } from './product-probe-reader';
 import type { PatchMapMutationTarget } from '../semantic/transaction';
 
+const EXPANDED_ITEM_ENTITY_IDS = new WeakMap<
+  ParsePatchMapResult,
+  ReadonlyMap<string, readonly string[]>
+>();
+
 /**
  * Project semantic reconcile permissions and selection onto dense store IDs.
  * Runtime publication remains the responsibility of PatchMapRuntime.
@@ -121,6 +126,9 @@ export function semanticTargetsDenseIds(
     for (const entityId of parse.identity.entityIdsBySourceId[elementId] ?? []) {
       if (Object.hasOwn(parse.identity.entitySourceById, entityId)) denseIds.add(entityId);
     }
+    for (const entityId of expandedItemEntityIds(parse).get(elementId) ?? []) {
+      if (Object.hasOwn(parse.identity.entitySourceById, entityId)) denseIds.add(entityId);
+    }
   }
   const unresolvedComponentKeys = new Set(componentKeys);
   if (componentTargets !== undefined) {
@@ -150,6 +158,19 @@ export function semanticTargetsDenseIds(
     }
   }
   return Object.freeze([...denseIds].sort());
+}
+
+function expandedItemEntityIds(
+  parse: ParsePatchMapResult,
+): ReadonlyMap<string, readonly string[]> {
+  const cached = EXPANDED_ITEM_ENTITY_IDS.get(parse);
+  if (cached !== undefined) return cached;
+  const indexed = new Map<string, readonly string[]>();
+  for (const item of parse.identity.expandedItems) {
+    indexed.set(item.instanceId, item.entityIds);
+  }
+  EXPANDED_ITEM_ENTITY_IDS.set(parse, indexed);
+  return indexed;
 }
 
 /** Resolve semantic fill overrides to deterministic dense background targets. */
