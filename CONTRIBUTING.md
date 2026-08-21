@@ -3,7 +3,7 @@
 Thanks for contributing to `@conalog/patch-map`.
 
 ## Before You Start
-- Use Node.js `>=20` (`.nvmrc` is provided).
+- Use Node.js `>=22` (`.nvmrc` selects Node.js 24 for local development).
 - Install dependencies with `npm install`.
 - If your change is large, open an issue first to align on direction.
 
@@ -42,8 +42,9 @@ Chore PR: `https://github.com/Conalog/patch-map/compare/main...YOUR_BRANCH?expan
 5. Ensure checks are green before requesting review.
 
 When branch protection is enabled, require `ci / verify` and
-`pr title / validate`. The advisory browser job is intentionally not a required
-check until its existing failures are resolved.
+`pr title / validate`. The browser suite is available through the manually
+dispatched `browser tests` workflow and should become a required check after its
+existing failures are resolved.
 
 ## Release Process
 
@@ -52,19 +53,22 @@ Releases. After releasable changes land on `main`, it creates or updates a
 release pull request. Merging that pull request creates the corresponding
 `v<version>` tag and GitHub Release.
 
-npm publication is intentionally disabled until Trusted Publishing is
-configured. Activation requires all of the following:
+npm publication uses Trusted Publishing and is gated by the repository variable
+`NPM_PUBLISH_ENABLED`. Enabling publication requires all of the following:
 
-1. Make `npm run test:headless` pass. The browser CI job remains advisory until
-   the existing render test failures are resolved.
-2. Create a GitHub environment named `npm` and configure its deployment rules.
-3. Configure `@conalog/patch-map` on npm with `Conalog/patch-map`, workflow
+1. Create a GitHub environment named `npm` and configure its deployment rules.
+2. Configure `@conalog/patch-map` on npm with `Conalog/patch-map`, workflow
    `publish-npm.yaml`, environment `npm`, and permission to run `npm publish`.
-4. Add the repository variable `NPM_PUBLISH_ENABLED` with the value `true`.
+3. Set the repository variable `NPM_PUBLISH_ENABLED` to `true`.
 
 Until the variable is enabled, releases are created without publishing to npm.
 After activation, a failed or previously skipped publication can be retried by
-manually dispatching the `publish npm` workflow at the release tag.
+running the `release` workflow from `main` and entering the existing `v<version>`
+tag in its `tag` input.
+
+The browser suite is not currently an npm publication gate. Run the manual
+`browser tests` workflow while its existing render test failures are being
+resolved, then promote it to required CI when the suite is green.
 
 By default Release Please uses the repository `GITHUB_TOKEN`. Configure a
 `RELEASE_PLEASE_TOKEN` secret backed by a least-privilege GitHub App or token if
