@@ -71,14 +71,21 @@ try {
         viewportSize: [viewportWidth, viewportHeight],
       }) => {
         const { PatchMap } = window.__PATCH_MAP_PUBLIC_ANIMATION_MODULE__;
-        const multiGrid = scenarioName === 'multi-grid-bar-height';
+        const multiGrid = scenarioName === 'multi-grid-bar-height' ||
+          scenarioName === 'multi-grid-bar-height-tint';
+        const multiGridTint = scenarioName === 'multi-grid-bar-height-tint';
         const columns = multiGrid ? 30 : 100;
         const gridCount = multiGrid ? 26 : 1;
-        const cellsPerGrid = multiGrid ? 360 : recordCount;
-        const rows = Math.ceil(cellsPerGrid / columns);
-        const cells = Array.from({ length: rows }, (_rowValue, row) =>
-          Array.from({ length: columns }, (_columnValue, column) =>
-            row * columns + column < cellsPerGrid ? 1 : 0));
+        const cellsInGrid = (gridIndex) => multiGrid
+          ? Math.max(0, Math.min(360, recordCount - gridIndex * 360))
+          : recordCount;
+        const cellsForGrid = (gridIndex) => {
+          const count = cellsInGrid(gridIndex);
+          const rows = Math.ceil(count / columns);
+          return Array.from({ length: rows }, (_rowValue, row) =>
+            Array.from({ length: columns }, (_columnValue, column) =>
+              row * columns + column < count ? 1 : 0));
+        };
         const grid = (gridIndex) => ({
           type: 'grid',
           id: multiGrid ? 'plant-grid-' + gridIndex : 'presentation-grid',
@@ -90,7 +97,7 @@ try {
                 },
               }
             : {}),
-          cells,
+          cells: cellsForGrid(gridIndex),
           gap: multiGrid ? 1 : 2,
           item: {
             size: multiGrid ? { width: 12, height: 16 } : { width: 34, height: 46 },
@@ -101,7 +108,8 @@ try {
             }, ...(
               scenarioName === 'bar-height' ||
               scenarioName === 'mode-switch' ||
-              scenarioName === 'multi-grid-bar-height'
+              scenarioName === 'multi-grid-bar-height' ||
+              scenarioName === 'multi-grid-bar-height-tint'
                 ? [{
                     type: 'bar',
                     id: 'chart',
@@ -164,7 +172,13 @@ try {
           const before = map.debug.snapshot();
           const backgroundSources = new Array(targets.count);
           const backgroundShows = new Array(targets.count).fill(true);
-          const barHeights = new Array(multiGrid ? cellsPerGrid : targets.count);
+          const barHeights = new Array(targets.count);
+          const multiGridBarHeights = multiGrid
+            ? targetGroups.map((group) => new Array(group.count))
+            : null;
+          const multiGridBarTints = multiGridTint
+            ? targetGroups.map((group) => new Array(group.count))
+            : null;
           const textShows = new Array(targets.count);
           const textValues = new Array(targets.count);
           const textStyles = new Array(targets.count);
@@ -180,14 +194,26 @@ try {
               const started = performance.now();
               for (let gridIndex = 0; gridIndex < targetGroups.length; gridIndex += 1) {
                 const group = targetGroups[gridIndex];
+                const groupBarHeights = multiGridBarHeights[gridIndex];
+                const groupBarTints = multiGridBarTints?.[gridIndex] ?? null;
                 for (let index = 0; index < group.count; index += 1) {
-                  barHeights[index] = ((gridIndex * 29 + index * 13 + sequence * 19) % 13) + 1;
+                  groupBarHeights[index] =
+                    ((gridIndex * 29 + index * 13 + sequence * 19) % 13) + 1;
+                  if (groupBarTints !== null) {
+                    groupBarTints[index] = (gridIndex + index + sequence) % 3 === 0
+                      ? '#16a34a'
+                      : '#2563eb';
+                  }
                 }
                 const callStarted = performance.now();
                 results.push(map.updateBatch({
                   targets: group,
-                  bar: { componentId: 'chart', height: barHeights },
-                }));
+                  bar: {
+                    componentId: 'chart',
+                    height: groupBarHeights,
+                    ...(groupBarTints === null ? {} : { changes: { tint: groupBarTints } }),
+                  },
+                }, { animate: true }));
                 callMs.push(performance.now() - callStarted);
               }
               return {
@@ -321,6 +347,7 @@ try {
           const actionMs = [];
           const callMs = [];
           const actionToFirstFrameMs = [];
+          const actionToSettleMs = [];
           const actions = [];
           for (let sequence = 1; sequence <= sequenceCount; sequence += 1) {
             const sequenceStarted = performance.now();
@@ -344,7 +371,21 @@ try {
             }
             await new Promise((resolve) => setTimeout(resolve, 75));
           }
-          await new Promise((resolve) => setTimeout(resolve, 250));
+          if (multiGrid) {
+            const settleStarted = performance.now();
+            let priorRevision = map.debug.snapshot().frameRevision;
+            let stableFrames = 0;
+            while (stableFrames < 2 && performance.now() - settleStarted < 2_000) {
+              await new Promise((resolve) => requestAnimationFrame(resolve));
+              const revision = map.debug.snapshot().frameRevision;
+              if (revision === priorRevision) stableFrames += 1;
+              else stableFrames = 0;
+              priorRevision = revision;
+            }
+            actionToSettleMs.push(performance.now() - settleStarted + 75);
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, 250));
+          }
           sample.stopped = true;
           observer.disconnect();
           const after = map.debug.snapshot();
@@ -364,6 +405,7 @@ try {
             actionMs,
             callMs,
             actionToFirstFrameMs,
+            actionToSettleMs,
             actions,
             rafGapsMs,
             longTasks: sample.longTasks,
@@ -375,6 +417,7 @@ try {
             finalRenderCommandCount: after.resources.rendering.commandCount,
             visiblePrimitiveCount:
               after.resources.rendering.visiblePrimitiveCount,
+            longTaskTotalMs: sample.longTasks.reduce((sum, duration) => sum + duration, 0),
             destroy,
             canvasCountAfterDestroy: host.querySelectorAll('canvas').length,
           };
@@ -418,12 +461,17 @@ try {
       perCallMs: stats(trials.flatMap(({ callMs }) => callMs)),
       actionToFirstFrameMs: stats(trials.flatMap(({ actionToFirstFrameMs }) =>
         actionToFirstFrameMs)),
+      actionToSettleMs: stats(trials.flatMap(({ actionToSettleMs }) =>
+        actionToSettleMs)),
       queryMs: stats(trials.map(({ queryMs }) => queryMs)),
       repeatedUpdateP95Ms: stats(trials.map(({ actionMs }) => percentile(actionMs, 0.95))),
       rafGapP95Ms: stats(trials.map(({ rafGapsMs }) => percentile(rafGapsMs, 0.95))),
       rafGapMaxMs: stats(trials.map(({ rafGapsMs }) => Math.max(...rafGapsMs))),
+      rafGapMedianMs: stats(trials.map(({ rafGapsMs }) => percentile(rafGapsMs, 0.5))),
       longTaskCount: stats(trials.map(({ longTasks }) => longTasks.length)),
       longTaskDurationMs: stats(trials.flatMap(({ longTasks }) => longTasks)),
+      longTaskMaxMs: stats(trials.map(({ longTasks }) => Math.max(0, ...longTasks))),
+      longTaskTotalMs: stats(trials.map(({ longTaskTotalMs }) => longTaskTotalMs)),
       initialRenderCommandCount: stats(trials.map(({ initialRenderCommandCount }) =>
         initialRenderCommandCount)),
       finalRenderCommandCount: stats(trials.map(({ finalRenderCommandCount }) =>
@@ -446,7 +494,7 @@ try {
       trialOrder: 'scenario then ascending size; each trial uses a fresh page and fixed update order',
       firstOverlay: 'one scenario publication before measured repeated updates',
       updateIntervalMs: 75,
-      settleMs: 250,
+      settleMs: 'two stable frame revisions for multi-grid; fixed 250ms otherwise',
       viewport,
       viewportMotion,
       pixelRatio,
@@ -542,6 +590,7 @@ function scenarioList(value) {
     'text-style',
     'mode-switch',
     'multi-grid-bar-height',
+    'multi-grid-bar-height-tint',
   ]);
   const result = value.split(',').map((entry) => entry.trim());
   if (result.length === 0 || result.some((entry) => !allowed.has(entry))) {
