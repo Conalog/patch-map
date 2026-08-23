@@ -1042,11 +1042,22 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     if (this.pendingSourceStore !== null && this.pendingSourceStore !== store) {
       throw new Error('pending presentation source store changed before flush');
     }
-    const effectiveStore = this.presentationStoreFor(store);
     // A presentation view is a sparse column wrapper over the same dense
     // source store. Switching that wrapper on/off must retain aggregate and
     // leaf topology so dirty ranges can update only the affected instances.
     const storeReplaced = this.lastSourceStore !== store;
+    const reusableBarPresentationStore =
+      this.pendingBarPresentationOnly &&
+      !storeReplaced &&
+      this.pendingRanges !== undefined;
+    // Bar animation frames mutate projection geometry only. Instance tint,
+    // visibility, and policy columns were already synchronized by the commit,
+    // so retaining the materialized wrapper avoids re-reading every animated
+    // slot on each frame.
+    const effectiveStore = this.presentationStoreFor(
+      store,
+      !reusableBarPresentationStore,
+    );
     if (storeReplaced) {
       this.storeEpoch += 1;
       this.pendingRanges = undefined;
@@ -1243,7 +1254,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     });
   }
 
-  private presentationStoreFor(store: RenderStoreView): RenderStoreView {
+  private presentationStoreFor(
+    store: RenderStoreView,
+    synchronize = true,
+  ): RenderStoreView {
     const policy = this.presentationPolicy;
     const overrides = this.instancePresentationOverrides;
     const alphaMultipliers = this.presentationAlphaMultipliers;
@@ -1262,13 +1276,15 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.presentationBaseStore = store;
       return this.presentationStore;
     }
-    this.presentationStore.synchronize(
-      store,
-      policy,
-      this.pendingRanges,
-      overrides,
-      alphaMultipliers,
-    );
+    if (synchronize) {
+      this.presentationStore.synchronize(
+        store,
+        policy,
+        this.pendingRanges,
+        overrides,
+        alphaMultipliers,
+      );
+    }
     return this.presentationStore;
   }
 

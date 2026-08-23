@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { SlotRange } from '../../src/patch-map/dense/contracts';
 import type { RenderStoreView } from '../../src/patch-map/dense/renderer-types';
@@ -180,6 +180,44 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
       })).toThrow('presentation layer multiplier capacity changed');
     },
   );
+
+  it('retains materialized presentation columns only for geometry-only bar frames', () => {
+    const sourceStore = renderStore(2, 'source');
+    const viewFailure = new Error('stop after presentation-store selection');
+    const synchronize = vi.fn();
+    const presentationStore = Object.create(null) as PatchMapPresentationStoreView;
+    Object.defineProperties(presentationStore, {
+      capacity: { value: sourceStore.capacity },
+      synchronize: { value: synchronize },
+      view: {
+        get(): never {
+          throw viewFailure;
+        },
+      },
+    });
+    const renderer = rendererHarness({
+      lastSourceStore: sourceStore,
+      presentationPolicy: policy(1),
+      presentationStore,
+      presentationBaseStore: sourceStore,
+      pendingRanges: [{ start: 0, end: 2 }],
+      pendingBarPresentationOnly: true,
+    });
+
+    expect(() => renderer.flush(sourceStore)).toThrow(viewFailure);
+    expect(synchronize).not.toHaveBeenCalled();
+
+    renderer.pendingBarPresentationOnly = false;
+    expect(() => renderer.flush(sourceStore)).toThrow(viewFailure);
+    expect(synchronize).toHaveBeenCalledTimes(1);
+    expect(synchronize).toHaveBeenCalledWith(
+      sourceStore,
+      renderer.presentationPolicy,
+      renderer.pendingRanges,
+      renderer.instancePresentationOverrides,
+      renderer.presentationAlphaMultipliers,
+    );
+  });
 });
 
 interface RendererCheckpointHarness {
