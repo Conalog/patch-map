@@ -31,6 +31,7 @@ transaction or publication owners.
 | engine/runtime | authority composition, lifecycle, atomic publication | duplicated semantic planners or renderer internals |
 | dataset replacement coordinator | sync, async, and submitted-load freshness; surface acceptance; authoritative replacement commit | semantic storage, surface implementation, or a second publication revision |
 | history application coordinator | host companion state; undo/redo surface application; history publication ordering | history stack/cursor storage, semantic storage, or renderer state |
+| Engine pointer interaction coordinator | pointer gesture authority lifecycle, normalized pointer/selection policy, box and click selection routing, hover/tooltip publication, and transient deselect timers | canonical selection, scene data, publication revisions, surface freshness, transformer sessions, or host interaction mode |
 | Core load authority | cooperative load freshness; reversible scene/runtime/renderer/image publication and rollback order | Engine lifecycle, parser policy, or a second scene/runtime state |
 | Core reconcile publication coordinator | candidate preparation, one semantic dense commit, ordered projection/image/presentation publication, refusal rollback, and post-commit terminal sealing | duplicate normalization or traversal, mirrored runtime state, stale load-replaceable authorities, or post-commit rollback |
 | semantic and dense core | interpretation, planning, identity, compact state | public facade policy, input events, or PixiJS objects |
@@ -88,6 +89,20 @@ It owns the detached host companion and the exact reconcile, scene commit,
 revision, and event sequence for undo and redo. The semantic history remains the
 only stack/cursor owner; the coordinator does not retain a second dataset or
 renderer state.
+
+`PatchMapPointerInteractionCoordinator` owns the Engine-level pointer state
+machine behind the public facade. It retains one live or pending gesture
+authority, normalized pointer and selection policies, box gesture state,
+hover/tooltip state, and the target-double-click timer. Candidate authorities
+must follow an exact create/adopt-or-discard transition and pending or live
+authority cleanup is idempotent. Engine ports continue to own canonical
+selection, logical scene reads, surface freshness, transformer sessions, host
+mode, and publication revisions. Dispatch preserves the fixed ordering from
+box preparation through transformer routing, gesture publication, tooltip
+release, and click selection without adding a cache, listener, ticker, RAF, or
+per-entity callback. Pure normalization and target/geometry values live in
+`pointer-interaction-values.ts`; `engine.ts` remains the composition and public
+delegate boundary.
 
 `PatchMapLoadAuthority` owns the complete Core load publication transaction:
 private candidate preparation, published-scene swap, runtime installation,
