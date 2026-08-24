@@ -19,18 +19,19 @@ remain mandatory even when a candidate is faster.
 
 | Changed boundary | Project-native owner |
 | --- | --- |
-| general runtime throughput or contract workload | `npm run perf` / `npm run perf:contract` |
-| bar animation, retargeting, or public animation | `perf:bar-pan`, `perf:bar-retarget`, `perf:public-animation` |
-| concrete grid or instance presentation | `perf:instance-bars`, `perf:grid-instance-presentation`, `perf:production-presentation` |
-| keyed presentation composition | `perf:presentation` |
-| asset acquisition, settlement, or publication | `perf:asset-readiness:packed-cross` |
-| package artifact comparison | `perf:instance-bars:packed-cross` and `verify:package` |
-| renderer/resource/destroy ownership | `verify:memory` before any performance conclusion |
-| retained report and release evidence | `verify:performance-report`, `verify:performance-contract`, and release-readiness tooling |
+| general runtime throughput or contract workload | `node performance/patch-map/run.mjs` / `node performance/patch-map/contract-run.mjs` |
+| bar animation, retargeting, or public animation | `patch-map-bar-animation-pan-performance.mjs`, `patch-map-bar-retarget-performance.mjs`, `patch-map-public-animation-performance.mjs` |
+| concrete grid or instance presentation | `patch-map-instance-bar-performance.mjs`, `patch-map-grid-instance-presentation-performance.mjs`, `patch-map-production-presentation-performance.mjs` |
+| keyed presentation composition | `patch-map-presentation-performance.mjs` |
+| asset acquisition, settlement, or publication | `patch-map-packed-asset-readiness-performance.mjs` |
+| package artifact comparison | `patch-map-packed-instance-performance.mjs` and `npm run verify:package` |
+| renderer/resource/destroy ownership | `npm run verify:memory` before any performance conclusion |
+| retained report evidence | `node performance/patch-map/report/verify.mjs` and `node performance/patch-map/report/verify-contract.mjs` |
 
-Exact scripts and current command composition are owned by `package.json` and
-the referenced harnesses under `performance/patch-map/` and
-`scripts/verification/`.
+Bare filenames in the table live under `scripts/verification/` and run with
+`node`. Exposed npm commands are owned by `package.json`; workload and report
+composition are owned by the referenced harnesses under
+`performance/patch-map/` and `scripts/verification/`.
 
 ## Evidence discipline
 
@@ -47,5 +48,4 @@ the referenced harnesses under `performance/patch-map/` and
   external-environment failures.
 
 See [CONTRIBUTING.md](../../CONTRIBUTING.md) for the overall verification cadence
-and the [product policy](../reference/patch-map-product-policy.md) for fixed
-runtime invariants.
+and [architecture ownership](architecture.md) for fixed runtime boundaries.

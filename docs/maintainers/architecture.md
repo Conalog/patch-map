@@ -1,9 +1,9 @@
 # PatchMap architecture
 
-This document owns maintainer-facing module boundaries and dependency direction.
-The [product policy](../reference/patch-map-product-policy.md) owns the public and
-runtime invariants; public API behavior remains in
-[`docs/patch-map/`](../patch-map/README.md).
+This document owns maintainer-facing module boundaries, dependency direction,
+and runtime ownership invariants. Public API behavior remains in
+[`docs/patch-map/`](../patch-map/README.md); immutable verification expectations
+remain in the [functional contract](../reference/core-v2-functional-contract/overview.md).
 
 ## Runtime flow
 

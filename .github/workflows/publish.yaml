@@ -1,4 +1,4 @@
-name: Release 1.0 npm
+name: Publish npm
 
 on:
   push:
@@ -36,6 +36,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Require release gate commands
+        if: ${{ github.event_name == 'push' || inputs.tag == '' }}
+        run: test "$(node .github/scripts/release-ready.mjs --require)" = true
 
       - name: Create or update release pull request
         id: release
@@ -215,6 +219,7 @@ jobs:
         with:
           name: npm-package-${{ needs.metadata.outputs.release-sha }}
           path: .release-artifact/*.tgz
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 7
           compression-level: 0

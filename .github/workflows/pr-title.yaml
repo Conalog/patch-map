@@ -1,0 +1,33 @@
+name: Pull Request Title
+
+on:
+  pull_request_target:
+    branches:
+      - release/1.0
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions: {}
+
+jobs:
+  validate:
+    name: Validate title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require a conventional title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        shell: bash
+        run: |
+          if [[ "$PR_TITLE" =~ ^(feat|fix|perf|deps|ci|docs|test|refactor|style|chore):\ .+ ]]; then
+            exit 0
+          fi
+
+          echo "Pull request titles must use 'type: summary'." >&2
+          echo "Allowed types: feat, fix, perf, deps, ci, docs, test, refactor, style, chore." >&2
+          exit 1

@@ -24,9 +24,8 @@ part of that publication surface.
 - [Performance evidence and no-regression workflow](maintainers/performance.md)
 - [Documentation structure and publication boundary](maintainers/documentation.md)
 
-## Product and verification contracts
+## Verification contracts
 
-- [Product policy](reference/patch-map-product-policy.md)
 - [Functional contract overview](reference/core-v2-functional-contract/overview.md)
 
 The `core-v2` name is retained only where immutable contract fixtures and

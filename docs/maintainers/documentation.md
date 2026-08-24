@@ -14,7 +14,6 @@ budgets owned elsewhere.
 | `examples/patch-map/**` | package consumers | yes | compile-checked runnable usage |
 | `CONTRIBUTING.md` | contributors | no | setup and risk-based verification |
 | `docs/maintainers/**` | maintainers | no | architecture, performance, and documentation ownership |
-| `docs/reference/patch-map-product-policy.md` | maintainers | no | fixed product and release policy |
 | `docs/reference/core-v2-functional-contract/**` | contract verifiers | no | immutable historical-identity verification inputs |
 | `docs/tasks/**` | release verifiers | no | retained digest-bound evidence only |
 
@@ -57,7 +56,7 @@ product owner and parity verification.
 | `docs/designs/patch-map-architecture-foundation.md` | deleted at refactor completion | durable ownership moved to `docs/maintainers/**`; commit history retains the work record |
 | `docs/patch-map/**` | kept and aligned | sole detailed package-consumer documentation set |
 | `docs/patch-map/FIRA-CODE-LICENSE.txt` and `font-assets.md` | kept and package-required | font license and provenance owner |
-| `docs/reference/patch-map-product-policy.md` | kept | fixed internal product policy |
+| legacy experimental product-policy record | deleted | current public docs, architecture ownership, executable CI, and immutable contracts own the durable facts |
 | `docs/reference/core-v2-functional-contract/**` | kept without path migration | immutable contract and generated evidence identity |
 | `docs/tasks/2026/07-15/performance-core-v2/**` | kept without path migration | retained digest-bound release evidence |
 
