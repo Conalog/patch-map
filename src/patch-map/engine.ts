@@ -17,8 +17,6 @@ import type {
   PatchMapPointerSelectionChange,
   PatchMapPointerTooltipEvent,
   PatchMapSelectionPolicy,
-  PatchMapSelectionDisplayMode,
-  PatchMapTarget,
   PatchMapViewportSnapshot,
   PatchMapViewportOptions,
 } from './developer-api/contracts';
@@ -167,7 +165,6 @@ export type {
 } from './engine/contracts';
 import { createPixiSurface } from './engine/pixi-surface';
 import { normalizePatchMapColorTheme } from './semantic/color';
-import { parsePatchMapCssColor } from './parser/color';
 export { PixiEngineSurface } from './engine/pixi-surface';
 export {
   buildPatchMapRelationHitIndex,
@@ -197,6 +194,10 @@ import { PatchMapSceneStateAuthority } from './engine/scene-state-authority';
 import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-authority';
 import { PatchMapAssetSessionAuthority } from './engine/asset-session-authority';
 import { PatchMapManagedFrameLoopAuthority } from './engine/managed-frame-loop-authority';
+import { PatchMapPointerInteractionCoordinator } from './engine/pointer-interaction-coordinator';
+import {
+  selectionGeometryIds,
+} from './engine/pointer-interaction-values';
 import {
   emptyPatchMapEngineSurfaceDebug,
   PATCH_MAP_ENGINE_FACILITIES as FACILITIES,
@@ -377,9 +378,7 @@ import {
   type PatchMapSelectionSetOperation,
 } from './query-selection';
 import {
-  PATCH_MAP_POINTER_CLICK_WINDOW_MS,
   PATCH_MAP_POINTER_GESTURE_REVISION,
-  PatchMapPointerGestureAuthority,
   hitPatchMapBoxRegion,
   hitPatchMapPaintRegion,
   type PatchMapGestureCancelReason,
@@ -512,29 +511,6 @@ type PatchMapEngineEvent = keyof PatchMapEngineEventMap;
 type PatchMapEngineListener<K extends PatchMapEngineEvent> = (event: PatchMapEngineEventMap[K]) => void;
 
 const DEFAULT_ZOOM_LIMITS = Object.freeze([0.5, 30] as const);
-const DEFAULT_POINTER_SELECTION_POLICY = Object.freeze({
-  allowMultiple: true,
-  clearOnBlankClick: 'single' as const,
-  deselectOnTargetDoubleClick: false,
-  box: null,
-  isSelectable: null,
-  resolveModifierSelection: null,
-  visual: Object.freeze({
-    color: 0x2f80ed,
-    strokeCssPx: 2,
-    strokeScale: 'fixed' as const,
-    minStrokeCssPx: 1,
-    strokeAlignment: 'center' as const,
-    mode: 'all' as const,
-  }),
-} as const);
-const DEFAULT_POINTER_POLICY = Object.freeze({
-  hoverDuringPress: false,
-  tooltip: Object.freeze({
-    pinOnContextMenu: false,
-    preventDefault: true,
-  }),
-} as const);
 const EMPTY_MATERIALIZED_DATASET = materializePatchMapDataset([]);
 const PATCH_MAP_QUERY_REUSE_OPERATIONS = Object.freeze([
   'update',
@@ -574,52 +550,6 @@ function resolvePatchMapMountSize(
   }
   return Object.freeze([resolvedWidth, resolvedHeight] as const);
 }
-interface NormalizedPointerSelectionPolicy {
-  readonly allowMultiple: boolean;
-  readonly clearOnBlankClick: 'single' | 'double' | 'never';
-  readonly deselectOnTargetDoubleClick: boolean;
-  readonly box: Readonly<{
-    readonly partialIntersection: boolean;
-    readonly activationModifier: 'none' | 'shift';
-    readonly visual: Readonly<{
-      readonly color: number;
-      readonly strokeCssPx: number;
-      readonly fillAlpha: number;
-    }>;
-  }> | null;
-  readonly isSelectable: ((target: PatchMapTarget) => boolean) | null;
-  readonly resolveModifierSelection:
-    NonNullable<PatchMapSelectionPolicy['resolveModifierSelection']> | null;
-  readonly visual: Readonly<{
-    readonly color: number;
-    readonly strokeCssPx: number;
-    readonly strokeScale: 'fixed' | 'viewport';
-    readonly minStrokeCssPx: number;
-    readonly strokeAlignment: 'outside' | 'center' | 'inside';
-    readonly mode: PatchMapSelectionDisplayMode;
-  }>;
-}
-
-interface NormalizedPointerPolicy {
-  readonly hoverDuringPress: boolean;
-  readonly tooltip: Readonly<{
-    readonly pinOnContextMenu: boolean;
-    readonly preventDefault: boolean;
-  }>;
-}
-
-interface PointerBoxGesture {
-  readonly pointerId: number;
-  readonly start: readonly [number, number];
-  readonly additive: boolean;
-  active: boolean;
-}
-
-interface ArmedPointerTargetDeselect {
-  readonly selectionId: string;
-  readonly timer: ReturnType<typeof globalThis.setTimeout>;
-}
-
 export class PatchMap {
   public readonly update: PatchMapApi['update'];
   public readonly updateBatch: PatchMapApi['updateBatch'];
@@ -647,6 +577,7 @@ export class PatchMap {
   private readonly editorWorkflows = new PatchMapEditorWorkflowAuthority();
   private readonly pageLifecycle = new PatchMapPageLifecycleAuthority();
   private readonly managedFrameLoop = new PatchMapManagedFrameLoopAuthority();
+  private readonly pointerInteractions: PatchMapPointerInteractionCoordinator;
   private readonly accessibility = new PatchMapAccessibilityAuthority();
   private readonly transactionCommit: PatchMapTransactionCommitCoordinator;
   private readonly transformerSessions: PatchMapTransformerSessionCoordinator;
@@ -692,15 +623,6 @@ export class PatchMap {
   private managedCaptureSettlement: Promise<void> = Promise.resolve();
   private deferredMountResize: readonly [number, number, number] | null = null;
   private readonly externalDependencyRevisions = new Map<string, string>();
-  private pointerGestureAuthority: PatchMapPointerGestureAuthority | null = null;
-  private pointerPolicy: NormalizedPointerPolicy = DEFAULT_POINTER_POLICY;
-  private pointerSelectionPolicy: NormalizedPointerSelectionPolicy =
-    DEFAULT_POINTER_SELECTION_POLICY;
-  private pointerBoxGesture: PointerBoxGesture | null = null;
-  private armedPointerTargetDeselect: ArmedPointerTargetDeselect | null = null;
-  private pointerHoverTarget: PatchMapTarget | null = null;
-  private pointerTooltipTarget: PatchMapTarget | null = null;
-  private pointerTooltipPinned = false;
   private readonly cancelActiveTransformerBeforeSurfaceReconcile = (): void => {
     this.transformerSessions.cancelActive('redraw', true);
   };
@@ -875,7 +797,7 @@ export class PatchMap {
         commitSceneMetadata: (hostCompanion) => {
           this.defaultViewportContributorsCache = null;
           this.historyApplication.replaceHostCompanion(hostCompanion);
-          this.syncConfiguredSelectionVisualPolicy();
+          this.pointerInteractions.syncSelectionVisualPolicy();
         },
         commitLifecycle: (lifecycle) => {
           this.lifecycle = lifecycle;
@@ -898,7 +820,7 @@ export class PatchMap {
     );
     this.transformerSessions = new PatchMapTransformerSessionCoordinator({
       requireSurface: (operation) => this.requireSurface(operation),
-      requirePointerGestures: (operation) => this.requirePointerGestureAuthority(operation),
+      requirePointerGestures: (operation) => this.pointerInteractions.requireAuthority(operation),
       materialized: () => this.materialized,
       selectionIds: () => this.logicalSelectionIds,
       historyState: () => this.historyAuthority.state(),
@@ -910,7 +832,7 @@ export class PatchMap {
       },
       replaceSelectionForRollback: (selectionIds) => {
         this.sceneState.replaceSelection(selectionIds);
-        this.syncConfiguredSelectionVisualPolicy();
+        this.pointerInteractions.syncSelectionVisualPolicy();
       },
       revisionStamp: () => this.revisionStamp(),
       applyPlannedTransaction: ({
@@ -937,6 +859,56 @@ export class PatchMap {
         this.operationError(code, code, operation, recoverable),
       sameSelection: sameStringArray,
     });
+    this.pointerInteractions = new PatchMapPointerInteractionCoordinator({
+      requireSurface: (operation) => this.requireSurface(operation),
+      liveSurface: () => this.surface,
+      hasMaterialized: () => this.materialized !== null,
+      logicalSelectionIndex: () => this.logicalSceneSelectionIndex(),
+      selectionIds: () => this.logicalSelectionIds,
+      transformerOwnsPointer: (pointerId) => this.transformerSessions.ownsPointer(pointerId),
+      routeTransformerInput: (pointerId) => {
+        this.transformerSessions.routeInput(pointerId, 'transform');
+      },
+      completeTransformerEdit: (pointerId) => {
+        this.completeTransformerEdit(pointerId);
+      },
+      cancelTransformerEdit: (pointerId) => {
+        this.cancelTransformerEdit(pointerId, 'pointer-cancel');
+      },
+      selectBox: (start, end, options) => this.selectBox(start, end, options),
+      applySelection: (input) => this.applySelection(input),
+      viewRevision: () => this.publication.viewRevision,
+      interactionRevision: () => this.publication.interactionRevision,
+      advanceInteraction: () => {
+        this.publication.advanceInteraction();
+      },
+      interactionMode: () => this.hostInteractions.modeProbe().activeState,
+      dispatchHostPointerEvent: (event) => {
+        this.hostInteractions.dispatchPointerEvent(event);
+      },
+      clearHostTooltip: (reason) => {
+        this.hostInteractions.clearTooltip(reason);
+      },
+      emitPointerEvent: (event) => {
+        this.emit('pointerEvent', event);
+      },
+      emitPointerHover: (event) => {
+        this.emit('pointerHover', event);
+      },
+      emitPointerTooltip: (event) => {
+        this.emit('pointerTooltip', event);
+      },
+      emitHostCallbackFailure: (operation) => {
+        this.emit('diagnostic', this.operationDiagnostic(
+          'HOST_CALLBACK_FAILURE',
+          'HOST_CALLBACK_FAILURE',
+          operation,
+          true,
+        ));
+      },
+      notReadyError: (operation) =>
+        this.operationError('NOT_READY', 'NOT_READY', operation, true),
+    });
     this.historyApplication = new PatchMapHistoryApplicationCoordinator(
       this.historyAuthority,
       this.sceneState,
@@ -956,7 +928,7 @@ export class PatchMap {
           this.restoreAuthoritativeSurfaceScene(surface, operation);
         },
         syncSelectionVisualPolicy: () => {
-          this.syncConfiguredSelectionVisualPolicy();
+          this.pointerInteractions.syncSelectionVisualPolicy();
         },
         invalidateViewportContributors: () => {
           this.defaultViewportContributorsCache = null;
@@ -1003,13 +975,13 @@ export class PatchMap {
           this.historyApplication.resetHostCompanion();
         },
         interruptPointerReplacement: () => {
-          this.pointerGestureAuthority?.interrupt('replace');
+          this.pointerInteractions.interruptIfPresent('replace');
         },
         resetPointerProjectionState: () => {
-          this.resetPointerProjectionState();
+          this.pointerInteractions.resetProjectionState();
         },
         syncSelectionVisualPolicy: () => {
-          this.syncConfiguredSelectionVisualPolicy();
+          this.pointerInteractions.syncSelectionVisualPolicy();
         },
         invalidateViewportContributors: () => {
           this.defaultViewportContributorsCache = null;
@@ -1063,7 +1035,7 @@ export class PatchMap {
       textSemantic: (target) => this.textSemantics.get(engineTextTargetKey(target)) ?? null,
       historyState: () => this.historyAuthority.state(),
       interactionMode: () => this.hostInteractions.modeProbe().activeState,
-      staleGestureCount: () => this.pointerGestureAuthority?.probe().staleGestureCount ?? 0,
+      staleGestureCount: () => this.pointerInteractions.staleGestureCount,
       pendingWork: () => this.pendingWork,
       rendererConfiguration: () => this.rendererConfiguration,
       assetProbe: () => this.assetSessions.sessionProbe(),
@@ -1153,16 +1125,12 @@ export class PatchMap {
 
   /** @internal Root `PatchMap.mount()` owns this policy boundary. */
   public configurePointerPolicy(policy: PatchMapPointerPolicy | undefined): void {
-    this.pointerPolicy = normalizePointerPolicy(policy);
+    this.pointerInteractions.configurePointerPolicy(policy);
   }
 
   /** @internal Root `PatchMap.mount()` owns this policy boundary. */
   public configurePointerSelectionPolicy(policy: PatchMapSelectionPolicy | undefined): void {
-    const normalized = normalizePointerSelectionPolicy(policy);
-    this.cancelArmedPointerTargetDeselect();
-    this.clearPointerBoxGesture();
-    this.pointerSelectionPolicy = normalized;
-    this.syncConfiguredSelectionVisualPolicy();
+    this.pointerInteractions.configureSelectionPolicy(policy);
   }
 
   public on<K extends PatchMapEngineEvent>(event: K, listener: PatchMapEngineListener<K>): () => void {
@@ -1341,7 +1309,7 @@ export class PatchMap {
   public get viewportGestureActive(): boolean {
     if (this.viewportAuthority.motionActive) return true;
     if (this.surface?.viewportGestureActive?.() === true) return true;
-    return (this.pointerGestureAuthority?.probe().activeGestureCount ?? 0) > 0;
+    return this.pointerInteractions.active;
   }
 
   /** Structural PatchMapFrameLoop target state without allocating a snapshot. */
@@ -1550,17 +1518,7 @@ export class PatchMap {
           throw this.operationError('DESTROYED', 'DESTROYED', 'initialize', false);
         }
         const readySurface = candidateSurface;
-        const pointerAuthority = new PatchMapPointerGestureAuthority({
-          hitTest: (point) => readySurface.hitTestScreen(point),
-          clickTargetIdentity: (targetId, screen) => {
-            const hitTarget = this.pointerLogicalTargetAtScreen(screen, targetId);
-            if (hitTarget === null) return null;
-            return this.logicalSceneSelectionIndex()
-              .resolveSelectionUnit(hitTarget.key, 'grid-cell')
-              ?.selectionId ?? null;
-          },
-          hoverDuringPress: this.pointerPolicy.hoverDuringPress,
-        });
+        const pointerAuthority = this.pointerInteractions.createCandidateAuthority(readySurface);
         try {
           this.surfaceLifecycle.installCandidate(readySurface, {
             viewport: (input: PatchMapSurfaceViewportInput) =>
@@ -1581,10 +1539,10 @@ export class PatchMap {
             },
           });
         } catch (error) {
-          pointerAuthority.destroy();
+          this.pointerInteractions.discardCandidateAuthority(pointerAuthority);
           throw error;
         }
-        this.pointerGestureAuthority = pointerAuthority;
+        this.pointerInteractions.adoptCandidateAuthority(pointerAuthority);
         this.publication.resetGeometryCorrelation();
         candidateSurface = null;
         this.assetSessions.adoptRequiredAcquisitions(attemptAcquisitions);
@@ -2974,7 +2932,7 @@ export class PatchMap {
     ) {
       throw new RangeError('page lifecycle time must be finite and monotonic');
     }
-    const pointerBefore = this.pointerGestureAuthority?.probe() ?? destroyedPointerGestureProbe();
+    const pointerBefore = this.pointerInteractions.probe();
     const motionBefore = this.viewportAuthority.motionActive;
     let presentation: PatchMapPresentationLifecycleResult | null = null;
     const changed = input.state !== before.state;
@@ -2993,8 +2951,7 @@ export class PatchMap {
       if (this.transformerSessions.cancelActive('blur', true) === null) {
         this.transformerSessions.interruptGestures();
       }
-      this.pointerGestureAuthority?.interrupt('blur');
-      this.resetPointerProjectionState();
+      this.pointerInteractions.interruptAndResetIfPresent('blur');
       this.hostInteractions.clearTooltip('redraw');
       if (
         motionBefore ||
@@ -3022,7 +2979,7 @@ export class PatchMap {
 
   public pageLifecycleProbe(): PatchMapEnginePageLifecycleProbe {
     const lifecycle = this.pageLifecycle.probe();
-    const pointer = this.pointerGestureAuthority?.probe() ?? destroyedPointerGestureProbe();
+    const pointer = this.pointerInteractions.probe();
     return Object.freeze({
       ...lifecycle,
       activeAnimationCount: this.activeAnimations,
@@ -3228,14 +3185,13 @@ export class PatchMap {
     if (this.transformerSessions.cancelActive('redraw', true) === null) {
       this.transformerSessions.interruptGestures();
     }
-    this.pointerGestureAuthority?.interrupt('redraw');
-    this.resetPointerProjectionState();
+    this.pointerInteractions.interruptAndResetIfPresent('redraw');
     if (this.logicalSelectionIds.length > 0) {
       surface.select([]);
       this.publication.advanceInteraction();
     }
     this.sceneState.rebindHostSelection(Object.freeze([]));
-    this.syncConfiguredSelectionVisualPolicy();
+    this.pointerInteractions.syncSelectionVisualPolicy();
     this.publication.commitLifecycleRebind(rebind);
     return Object.freeze({
       lifecycleGeneration: this.publication.lifecycleGeneration,
@@ -3768,7 +3724,8 @@ export class PatchMap {
       options.lockedIds ?? [],
     );
     const changed = surface.setSelectionOverlayPolicy?.({
-      visibleIds: this.selectionGeometryIds(
+      visibleIds: selectionGeometryIds(
+        this.logicalSceneSelectionIndex(),
         visual.overlayTargets.map((target) => target.selectionId),
       ),
       transformableIds: subset.transformableTargets.map((target) => target.selectionId),
@@ -3787,58 +3744,6 @@ export class PatchMap {
     }) ?? false;
     if (changed) this.publication.advanceInteraction();
     return visual;
-  }
-
-  private syncConfiguredSelectionVisualPolicy(): boolean {
-    const surface = this.surface;
-    if (surface === null || this.materialized === null) return false;
-    const policy = this.pointerSelectionPolicy.visual;
-    const marquee = this.pointerSelectionPolicy.box?.visual ?? Object.freeze({
-      color: policy.color,
-      strokeCssPx: policy.strokeCssPx,
-      fillAlpha: 0.08,
-    });
-    const overlayIds = this.selectionGeometryIds(this.logicalSelectionIds);
-    const subset = evaluatePatchMapTransformableSubset(
-      this.logicalSceneSelectionIndex(),
-      this.logicalSelectionIds,
-    );
-    return surface.setSelectionOverlayPolicy?.({
-      visibleIds: overlayIds,
-      transformableIds: subset.transformableTargets.map((target) => target.selectionId),
-      resizableIds: subset.resizableTargets.map((target) => target.selectionId),
-      hidden: policy.mode === 'hidden',
-      handleCssPx: 6,
-      strokeCssPx: policy.strokeCssPx,
-      strokeScale: policy.strokeScale,
-      minStrokeCssPx: policy.minStrokeCssPx,
-      strokeAlignment: policy.strokeAlignment,
-      color: policy.color,
-      displayMode: policy.mode,
-      marqueeColor: marquee.color,
-      marqueeStrokeCssPx: marquee.strokeCssPx,
-      marqueeFillAlpha: marquee.fillAlpha,
-    }) ?? false;
-  }
-
-  private selectionGeometryIds(selectionIds: readonly string[]): readonly string[] {
-    const index = this.logicalSceneSelectionIndex();
-    const ids: string[] = [];
-    const seen = new Set<string>();
-    for (const selectionId of selectionIds) {
-      let target = index.target(selectionId);
-      if (target === null) continue;
-      if (target.kind === 'component') {
-        const ownerId = target.ownerId;
-        target = ownerId === null ? null : index.target(ownerId);
-        if (target === null) continue;
-      }
-      if (!seen.has(target.selectionId)) {
-        seen.add(target.selectionId);
-        ids.push(target.selectionId);
-      }
-    }
-    return Object.freeze(ids);
   }
 
   public transformerHandleProbe(
@@ -4061,18 +3966,17 @@ export class PatchMap {
     }
     surface.select(change.current);
     this.sceneState.replaceSelection(change.current);
-    this.syncConfiguredSelectionVisualPolicy();
+    this.pointerInteractions.syncSelectionVisualPolicy();
     if (change.changed) {
       if (change.source !== 'canvas' && !preserveTransformerGesture) {
-        this.pointerGestureAuthority?.interrupt('selection-change');
-        this.resetPointerProjectionState();
+        this.pointerInteractions.interruptAndResetIfPresent('selection-change');
       }
       this.publication.advanceInteraction();
       this.emit('selectionChanged', change);
       if (change.source === 'canvas') {
         this.emit(
           'pointerSelectionChanged',
-          this.pointerSelectionPublication(change),
+          this.pointerInteractions.selectionPublication(change),
         );
       }
       const source = change.source === 'canvas' ? 'pointer' : change.source;
@@ -4169,535 +4073,41 @@ export class PatchMap {
   }
 
   public dispatchPointerInput(input: PatchMapEnginePointerInput): PatchMapPointerDispatchResult {
-    this.requireSurface('dispatchPointerInput');
-    const authority = this.requirePointerGestureAuthority('dispatchPointerInput');
-    const transformerOwned = this.transformerSessions.ownsPointer(input.pointerId);
-    this.preparePointerBoxGesture(input, transformerOwned);
-    if (transformerOwned) {
-      this.transformerSessions.routeInput(input.pointerId, 'transform');
-    }
-    const result = authority.dispatch(Object.freeze({
-      ...input,
-      viewRevision: input.viewRevision ?? this.publication.viewRevision,
-    }));
-    if (transformerOwned) {
-      if (input.type === 'up' || input.type === 'up-outside') {
-        this.completeTransformerEdit(input.pointerId);
-      } else if (input.type === 'cancel' || input.type === 'leave') {
-        this.cancelTransformerEdit(input.pointerId, 'pointer-cancel');
-      }
-    }
-    if (result.events.length > 0) this.publication.advanceInteraction();
-    for (const event of result.events) {
-      this.emit('pointerEvent', event);
-      this.hostInteractions.dispatchPointerEvent(event);
-      if (event.type === 'hover-change' || event.type === 'hover-move') {
-        this.publishPointerHover(event);
-      }
-    }
-    if (
-      (input.type === 'leave' || input.type === 'cancel') &&
-      !this.pointerTooltipPinned &&
-      this.pointerTooltipTarget !== null &&
-      !result.events.some((event) => event.type === 'hover-change')
-    ) {
-      this.publishUnpinnedPointerTooltipLeave(input);
-    }
-    if (result.events.some((event) => event.type === 'drag-start')) {
-      this.cancelArmedPointerTargetDeselect();
-    }
-    this.routePointerBoxGesture(input, result);
-    const click = result.events.find((event) => event.type === 'click');
-    if (click !== undefined && click.payload.button === 0) {
-      this.releasePinnedTooltipFromPrimaryClick(click);
-    }
-    if (
-      click !== undefined &&
-      click.payload.button === 0 &&
-      this.hostInteractions.modeProbe().activeState === 'select'
-    ) {
-      this.applyPointerClickSelection(click);
-    }
-    return result;
+    return this.pointerInteractions.dispatch(input);
   }
 
   public dispatchPointerContextMenu(input: PatchMapSurfaceContextMenuInput): boolean {
-    const target = this.pointerLogicalTargetAtScreen(input.screen, null);
-    if (!this.pointerPolicy.tooltip.pinOnContextMenu) return target !== null;
-    if (target === null) return false;
-    const next = publicPointerTarget(target);
-    const previous = this.pointerTooltipTarget;
-    const world = this.requireSurface('pointerContextMenu').screenToWorld({
-      x: input.screen[0],
-      y: input.screen[1],
-    });
-    this.pointerTooltipTarget = next;
-    this.pointerTooltipPinned = true;
-    this.emit('pointerTooltip', Object.freeze({
-      type: 'pin',
-      target: next,
-      previousTarget: previous,
-      anchor: Object.freeze([...input.screen] as [number, number]),
-      world: Object.freeze([world.x, world.y] as const),
-      pointerId: 1,
-      pointerType: 'mouse',
-      modifiers: Object.freeze({ ...input.modifiers }),
-      pinned: true,
-    } satisfies PatchMapPointerTooltipEvent));
-    return this.pointerPolicy.tooltip.preventDefault;
-  }
-
-  private releasePinnedTooltipFromPrimaryClick(
-    click: PatchMapSemanticPointerEvent,
-  ): void {
-    if (!this.pointerTooltipPinned) return;
-    const logical = this.pointerLogicalTargetAtScreen(
-      click.payload.screen,
-      click.payload.target?.id ?? null,
-    );
-    const next = logical === null ? null : publicPointerTarget(logical);
-    const previous = this.pointerTooltipTarget;
-    const world = this.requireSurface('pointerTooltipClick').screenToWorld({
-      x: click.payload.screen[0],
-      y: click.payload.screen[1],
-    });
-    this.pointerTooltipTarget = next;
-    this.pointerTooltipPinned = false;
-    this.emit('pointerTooltip', Object.freeze({
-      type: next === null ? 'hide' : 'show',
-      target: next,
-      previousTarget: previous,
-      anchor: Object.freeze([...click.payload.screen] as [number, number]),
-      world: Object.freeze([world.x, world.y] as const),
-      pointerId: click.payload.pointerId,
-      pointerType: click.payload.pointerType,
-      modifiers: Object.freeze({ ...click.payload.modifiers }),
-      pinned: false,
-    } satisfies PatchMapPointerTooltipEvent));
-  }
-
-  private publishUnpinnedPointerTooltipLeave(input: PatchMapEnginePointerInput): void {
-    const previous = this.pointerTooltipTarget;
-    if (previous === null) return;
-    const world = this.requireSurface('pointerTooltipLeave').screenToWorld({
-      x: input.screen[0],
-      y: input.screen[1],
-    });
-    this.pointerTooltipTarget = null;
-    this.emit('pointerTooltip', Object.freeze({
-      type: 'hide',
-      target: null,
-      previousTarget: previous,
-      anchor: Object.freeze([...input.screen] as [number, number]),
-      world: Object.freeze([world.x, world.y] as const),
-      pointerId: input.pointerId,
-      pointerType: input.pointerType,
-      modifiers: Object.freeze({ ...input.modifiers }),
-      pinned: false,
-    } satisfies PatchMapPointerTooltipEvent));
-  }
-
-  private preparePointerBoxGesture(
-    input: PatchMapEnginePointerInput,
-    transformerOwned: boolean,
-  ): void {
-    if (input.type !== 'down') return;
-    this.clearPointerBoxGesture();
-    if (
-      transformerOwned ||
-      input.button !== 0 ||
-      this.pointerSelectionPolicy.box === null ||
-      !pointerBoxActivationMatches(this.pointerSelectionPolicy.box, input) ||
-      this.hostInteractions.modeProbe().activeState !== 'select'
-    ) {
-      return;
-    }
-    this.pointerBoxGesture = {
-      pointerId: input.pointerId,
-      start: Object.freeze([input.screen[0], input.screen[1]] as const),
-      additive: this.pointerSelectionPolicy.allowMultiple && input.modifiers.shift,
-      active: false,
-    };
-  }
-
-  private routePointerBoxGesture(
-    input: PatchMapEnginePointerInput,
-    result: PatchMapPointerDispatchResult,
-  ): void {
-    const gesture = this.pointerBoxGesture;
-    if (gesture === null || gesture.pointerId !== input.pointerId) return;
-    const dragStarted = result.events.some((event) => event.type === 'drag-start');
-    if (dragStarted) {
-      this.requireSurface('pointerBoxSelection').cancelViewportGestures?.();
-      gesture.active = true;
-      this.hostInteractions.clearTooltip('drag');
-    }
-    if (gesture.active && input.type === 'move') {
-      this.requireSurface('pointerBoxSelection').setSelectionMarquee?.({
-        start: gesture.start,
-        current: input.screen,
-      });
-    }
-    if (result.events.some((event) => event.type === 'drag-end')) {
-      try {
-        if (gesture.active) this.commitPointerBoxSelection(gesture, input.screen);
-      } finally {
-        this.clearPointerBoxGesture();
-      }
-      return;
-    }
-    if (
-      input.type === 'cancel' ||
-      input.type === 'leave' ||
-      input.type === 'up' ||
-      input.type === 'up-outside'
-    ) {
-      this.clearPointerBoxGesture();
-    }
-  }
-
-  private clearPointerBoxGesture(): void {
-    const active = this.pointerBoxGesture?.active === true;
-    this.pointerBoxGesture = null;
-    if (active) this.surface?.setSelectionMarquee?.(null);
-  }
-
-  private commitPointerBoxSelection(
-    gesture: PointerBoxGesture,
-    end: readonly [number, number],
-  ): void {
-    const box = this.pointerSelectionPolicy.box;
-    if (box === null) return;
-    const hit = this.selectBox(gesture.start, end, {
-      commit: false,
-      partialIntersection: box.partialIntersection,
-    });
-    const eligible: PatchMapLogicalTargetSnapshot[] = [];
-    for (const target of hit.targets) {
-      const selectable = this.pointerTargetSelectable(target);
-      if (selectable === null) return;
-      if (selectable) eligible.push(target);
-    }
-    const targets = this.pointerSelectionPolicy.allowMultiple
-      ? eligible
-      : eligible.slice(0, 1);
-    this.applySelection({
-      op: gesture.additive ? 'add' : 'replace',
-      ids: targets.map((target) => target.selectionId),
-      source: 'canvas',
-    });
-  }
-
-  private applyPointerClickSelection(click: PatchMapSemanticPointerEvent): void {
-    const rawTarget = click.payload.target?.id ?? null;
-    const hitTarget = this.pointerLogicalTargetAtScreen(click.payload.screen, rawTarget);
-    const target = hitTarget === null
-      ? null
-      : this.logicalSceneSelectionIndex().resolveSelectionUnit(hitTarget.key, 'grid-cell');
-    if (target === null) {
-      this.cancelArmedPointerTargetDeselect();
-      if (!blankClickClearsSelection(
-        this.pointerSelectionPolicy.clearOnBlankClick,
-        click.payload.clickCount,
-      )) return;
-      this.applySelection({ op: 'replace', ids: [], source: 'canvas' });
-      return;
-    }
-    if (
-      (click.payload.modifiers.ctrl || click.payload.modifiers.meta) &&
-      this.applyModifierResolvedSelection(click, target)
-    ) {
-      this.cancelArmedPointerTargetDeselect();
-      return;
-    }
-    if (!this.pointerSelectionPolicy.deselectOnTargetDoubleClick) {
-      this.cancelArmedPointerTargetDeselect();
-      this.applyPointerTargetClick(click, target);
-      return;
-    }
-    if (click.payload.modifiers.shift) {
-      this.cancelArmedPointerTargetDeselect();
-      this.applyPointerTargetClick(click, target);
-      return;
-    }
-    const armed = this.armedPointerTargetDeselect;
-    if (
-      armed?.selectionId === target.selectionId &&
-      click.payload.clickCount % 2 === 0
-    ) {
-      this.cancelArmedPointerTargetDeselect();
-      if (this.pointerTargetSelectable(target) !== true) return;
-      this.applySelection({
-        op: 'remove',
-        ids: [target.selectionId],
-        source: 'canvas',
-      });
-      return;
-    }
-    this.cancelArmedPointerTargetDeselect();
-    if (this.logicalSelectionIds.includes(target.selectionId)) {
-      if (this.pointerTargetSelectable(target) !== true) return;
-      this.armPointerTargetDeselect(target.selectionId);
-      return;
-    }
-    this.applyPointerTargetClick(click, target);
-  }
-
-  private applyModifierResolvedSelection(
-    click: PatchMapSemanticPointerEvent,
-    target: PatchMapLogicalTargetSnapshot,
-  ): boolean {
-    const resolver = this.pointerSelectionPolicy.resolveModifierSelection;
-    if (resolver === null) return false;
-    try {
-      const resolved = resolver(Object.freeze({
-        target: publicPointerTarget(target),
-        currentIds: Object.freeze([...this.logicalSelectionIds]),
-        modifiers: Object.freeze({ ...click.payload.modifiers }),
-        clickCount: click.payload.clickCount,
-      }));
-      if (!Array.isArray(resolved)) {
-        throw new TypeError('selection.resolveModifierSelection must return an ID array');
-      }
-      const ids = Object.freeze([...new Set(resolved.map((id, index) => {
-        if (typeof id !== 'string' || id.length === 0) {
-          throw new TypeError(
-            `selection.resolveModifierSelection result[${index}] must be a non-empty ID`,
-          );
-        }
-        return id;
-      }))]);
-      const index = this.logicalSceneSelectionIndex();
-      for (const id of ids) {
-        const candidate = index.target(id);
-        if (candidate === null) {
-          throw new TypeError(`selection.resolveModifierSelection returned unknown ID ${id}`);
-        }
-        if (this.pointerTargetSelectable(candidate) !== true) return true;
-      }
-      this.applySelection({ op: 'replace', ids, source: 'canvas' });
-    } catch {
-      this.emit('diagnostic', this.operationDiagnostic(
-        'HOST_CALLBACK_FAILURE',
-        'HOST_CALLBACK_FAILURE',
-        'selection.resolveModifierSelection',
-        true,
-      ));
-    }
-    return true;
-  }
-
-  private applyPointerTargetClick(
-    click: PatchMapSemanticPointerEvent,
-    target: PatchMapLogicalTargetSnapshot,
-  ): void {
-    if (this.pointerTargetSelectable(target) !== true) return;
-    this.applySelection({
-      op: this.pointerSelectionPolicy.allowMultiple && click.payload.modifiers.shift
-        ? 'toggle'
-        : 'replace',
-      ids: [target.selectionId],
-      source: 'canvas',
-    });
-  }
-
-  private armPointerTargetDeselect(selectionId: string): void {
-    const timer = globalThis.setTimeout(() => {
-      this.cancelArmedPointerTargetDeselect();
-    }, PATCH_MAP_POINTER_CLICK_WINDOW_MS);
-    this.armedPointerTargetDeselect = Object.freeze({ selectionId, timer });
-  }
-
-  private cancelArmedPointerTargetDeselect(): void {
-    const armed = this.armedPointerTargetDeselect;
-    if (armed === null) return;
-    globalThis.clearTimeout(armed.timer);
-    this.armedPointerTargetDeselect = null;
-  }
-
-  private pointerTargetSelectable(target: PatchMapLogicalTargetSnapshot): boolean | null {
-    const predicate = this.pointerSelectionPolicy.isSelectable;
-    if (predicate === null) return true;
-    try {
-      return predicate(publicPointerTarget(target)) === true;
-    } catch {
-      this.emit('diagnostic', this.operationDiagnostic(
-        'HOST_CALLBACK_FAILURE',
-        'HOST_CALLBACK_FAILURE',
-        'selection.isSelectable',
-        true,
-      ));
-      return null;
-    }
-  }
-
-  private publishPointerHover(event: PatchMapSemanticPointerEvent): void {
-    const target = event.type === 'hover-change' && event.payload.target === null
-      ? null
-      : this.pointerLogicalTargetAtScreen(
-          event.payload.screen,
-          event.payload.target?.id ?? null,
-        );
-    const next = target === null ? null : publicPointerTarget(target);
-    const previous = this.pointerHoverTarget;
-    if (event.type === 'hover-move' && next === null) return;
-    if (event.type === 'hover-change' && samePublicPointerTarget(previous, next)) return;
-    const world = this.requireSurface('pointerHover').screenToWorld({
-      x: event.payload.screen[0],
-      y: event.payload.screen[1],
-    });
-    const publication = Object.freeze({
-      type: next === null
-        ? 'leave'
-        : samePublicPointerTarget(previous, next)
-          ? 'move'
-          : 'hover',
-      target: next,
-      previousTarget: previous,
-      anchor: Object.freeze([...event.payload.screen] as [number, number]),
-      world: Object.freeze([world.x, world.y] as const),
-      pointerId: event.payload.pointerId,
-      pointerType: event.payload.pointerType,
-      modifiers: Object.freeze({ ...event.payload.modifiers }),
-    } satisfies PatchMapPointerHoverEvent);
-    this.pointerHoverTarget = next;
-    this.emit('pointerHover', publication);
-    if (!this.pointerTooltipPinned) {
-      const tooltipPrevious = this.pointerTooltipTarget;
-      this.pointerTooltipTarget = next;
-      this.emit('pointerTooltip', Object.freeze({
-        type: next === null
-          ? 'hide'
-          : samePublicPointerTarget(tooltipPrevious, next)
-            ? 'move'
-            : 'show',
-        target: next,
-        previousTarget: tooltipPrevious,
-        anchor: publication.anchor,
-        world: publication.world,
-        pointerId: publication.pointerId,
-        pointerType: publication.pointerType,
-        modifiers: publication.modifiers,
-        pinned: false,
-      } satisfies PatchMapPointerTooltipEvent));
-    }
-  }
-
-  private pointerLogicalTargetAtScreen(
-    screen: readonly [number, number],
-    fallbackId: string | null,
-  ): PatchMapLogicalTargetSnapshot | null {
-    const surface = this.requireSurface('pointerTarget');
-    const candidates = surface.queryRegionGeometry?.(Object.freeze([
-      screen[0],
-      screen[1],
-      0,
-      0,
-    ] as const));
-    if (candidates !== undefined) {
-      const index = this.logicalSceneSelectionIndex();
-      let selected: PatchMapLogicalTargetSnapshot | null = null;
-      for (const geometry of candidates.entities) {
-        const componentCandidate =
-          geometry.ownerItemId !== undefined && geometry.componentId !== undefined;
-        if (
-          !geometry.visible ||
-          (
-            !geometry.interactive &&
-            (!componentCandidate || geometry.ownerItemId !== fallbackId)
-          ) ||
-          !screenBoundsContain(geometry.screenBounds, screen)
-        ) {
-          continue;
-        }
-        const target = componentCandidate
-          ? index.target({
-              kind: 'component',
-              ownerId: geometry.ownerItemId!,
-              id: geometry.componentId!,
-            })
-          : index.target(geometry.id);
-        if (
-          target !== null &&
-          (selected === null || pointerTargetPaintOrder(target, selected) < 0)
-        ) {
-          selected = target;
-        }
-      }
-      if (selected !== null) return selected;
-    }
-    return fallbackId === null
-      ? null
-      : this.logicalSceneSelectionIndex().target(fallbackId);
-  }
-
-  private pointerSelectionPublication(
-    change: PatchMapSelectionChange,
-  ): PatchMapPointerSelectionChange {
-    const index = this.logicalSceneSelectionIndex();
-    const targets = (ids: readonly string[]): readonly PatchMapTarget[] => Object.freeze(
-      ids.flatMap((id) => {
-        const target = index.target(id);
-        return target === null ? [] : [publicPointerTarget(target)];
-      }),
-    );
-    return Object.freeze({
-      source: 'pointer',
-      selected: targets(change.current),
-      added: targets(change.added),
-      removed: targets(change.removed),
-      interactionRevision: this.publication.interactionRevision,
-    });
-  }
-
-  private resetPointerProjectionState(): void {
-    this.cancelArmedPointerTargetDeselect();
-    this.clearPointerBoxGesture();
-    this.pointerHoverTarget = null;
-    this.pointerTooltipTarget = null;
-    this.pointerTooltipPinned = false;
+    return this.pointerInteractions.dispatchContextMenu(input);
   }
 
   public pointerGestureProbe(): PatchMapPointerGestureProbe {
-    return this.pointerGestureAuthority?.probe() ?? destroyedPointerGestureProbe();
+    return this.pointerInteractions.probe();
   }
 
   public ownsContextMenu(point: PatchMapPoint): boolean {
-    validatePoint(point, 'ownsContextMenu');
-    return this.requireSurface('ownsContextMenu').hitTestScreen(point) !== null;
+    return this.pointerInteractions.ownsContextMenu(point);
   }
 
   public interruptPointerGestures(
     reason: PatchMapGestureCancelReason,
   ): PatchMapOwnedGestureTermination | null {
-    this.requireSurface('interruptPointerGestures');
-    const termination = this.requirePointerGestureAuthority('interruptPointerGestures')
-      .interrupt(reason);
-    this.resetPointerProjectionState();
-    return termination;
+    return this.pointerInteractions.interrupt(reason);
   }
 
   public beginOwnedPointerGesture(kind: PatchMapOwnedGestureKind, pointerId: number): void {
-    this.requireSurface('beginOwnedPointerGesture');
-    this.hostInteractions.clearTooltip('drag');
-    this.requirePointerGestureAuthority('beginOwnedPointerGesture')
-      .beginOwnedGesture(kind, pointerId);
+    this.pointerInteractions.beginOwnedGesture(kind, pointerId);
   }
 
   public terminateOwnedPointerGesture(
     reason: PatchMapGestureTerminationReason,
   ): PatchMapOwnedGestureTermination | null {
-    this.requireSurface('terminateOwnedPointerGesture');
-    return this.requirePointerGestureAuthority('terminateOwnedPointerGesture')
-      .terminateOwnedGesture(reason);
+    return this.pointerInteractions.terminateOwnedGesture(reason);
   }
 
   public cancelOwnedPointerGesture(
     reason: PatchMapGestureCancelReason,
   ): PatchMapOwnedGestureTermination | null {
-    this.requireSurface('cancelOwnedPointerGesture');
-    return this.requirePointerGestureAuthority('cancelOwnedPointerGesture')
-      .cancelOwnedGesture(reason);
+    return this.pointerInteractions.cancelOwnedGesture(reason);
   }
 
   public selectBox(
@@ -5378,9 +4788,7 @@ export class PatchMap {
     const surface = this.surface;
     this.viewportAuthority.cancelMotion();
     surface?.cancelViewportGestures?.();
-    this.pointerGestureAuthority?.destroy();
-    this.pointerGestureAuthority = null;
-    this.resetPointerProjectionState();
+    this.pointerInteractions.destroy();
     this.transformerSessions.destroy();
     this.editorWorkflows.destroy();
     this.pageLifecycle.destroy();
@@ -5538,14 +4946,6 @@ export class PatchMap {
     this.refreshAccessibilityAuthority(operation);
   }
 
-  private requirePointerGestureAuthority(operation: string): PatchMapPointerGestureAuthority {
-    const authority = this.pointerGestureAuthority;
-    if (authority === null) {
-      throw this.operationError('NOT_READY', 'NOT_READY', operation, true);
-    }
-    return authority;
-  }
-
   private applyRegionSelection(
     hit: PatchMapRegionHitResult,
     options: PatchMapEngineRegionSelectionOptions,
@@ -5671,7 +5071,7 @@ export class PatchMap {
     try {
       surface.load(this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset);
       surface.select(this.logicalSelectionIds);
-      this.syncConfiguredSelectionVisualPolicy();
+      this.pointerInteractions.syncSelectionVisualPolicy();
     } catch (cause) {
       const terminal = this.operationError(
         'INTERNAL_FAILURE',
@@ -6177,18 +5577,6 @@ function targetAliasesMatch(
     (target.ownerId !== null && values.has(target.ownerId));
 }
 
-function destroyedPointerGestureProbe(): PatchMapPointerGestureProbe {
-  return Object.freeze({
-    activePointerCount: 0,
-    pointerCaptureCount: 0,
-    activeGestureCount: 0,
-    hoverTarget: null,
-    hoverListenerCount: 0,
-    staleGestureCount: 0,
-    destroyed: true,
-  });
-}
-
 function extractionFailureCode(
   error: unknown,
 ): 'EXTRACTION_TAINTED' | 'EXTRACTION_READBACK_FAILED' {
@@ -6241,121 +5629,6 @@ function selectionHitUsesSpatialFastPath(options: PatchMapSelectionHitOptions): 
     options.predicate === undefined;
 }
 
-function normalizePointerSelectionPolicy(
-  value: PatchMapSelectionPolicy | undefined,
-): NormalizedPointerSelectionPolicy {
-  if (value === undefined) return DEFAULT_POINTER_SELECTION_POLICY;
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError('selection policy must be an object');
-  }
-  if (value.allowMultiple !== undefined && typeof value.allowMultiple !== 'boolean') {
-    throw new TypeError('selection.allowMultiple must be boolean');
-  }
-  if (
-    value.clearOnBlankClick !== undefined &&
-    value.clearOnBlankClick !== 'single' &&
-    value.clearOnBlankClick !== 'double' &&
-    value.clearOnBlankClick !== 'never'
-  ) {
-    throw new TypeError('selection.clearOnBlankClick must be single, double, or never');
-  }
-  if (
-    value.deselectOnTargetDoubleClick !== undefined &&
-    typeof value.deselectOnTargetDoubleClick !== 'boolean'
-  ) {
-    throw new TypeError('selection.deselectOnTargetDoubleClick must be boolean');
-  }
-  if (value.isSelectable !== undefined && typeof value.isSelectable !== 'function') {
-    throw new TypeError('selection.isSelectable must be a function');
-  }
-  if (
-    value.resolveModifierSelection !== undefined &&
-    typeof value.resolveModifierSelection !== 'function'
-  ) {
-    throw new TypeError('selection.resolveModifierSelection must be a function');
-  }
-  const visual = normalizePointerSelectionVisualPolicy(value.visual);
-  let box: NormalizedPointerSelectionPolicy['box'] = null;
-  if (value.box === true) {
-    box = Object.freeze({
-      partialIntersection: true,
-      activationModifier: 'none',
-      visual: normalizePointerBoxVisualPolicy(undefined, visual),
-    });
-  } else if (value.box !== undefined && value.box !== false) {
-    if (value.box === null || typeof value.box !== 'object' || Array.isArray(value.box)) {
-      throw new TypeError('selection.box must be boolean or an object');
-    }
-    if (
-      value.box.partialIntersection !== undefined &&
-      typeof value.box.partialIntersection !== 'boolean'
-    ) {
-      throw new TypeError('selection.box.partialIntersection must be boolean');
-    }
-    if (
-      value.box.activationModifier !== undefined &&
-      value.box.activationModifier !== 'none' &&
-      value.box.activationModifier !== 'shift'
-    ) {
-      throw new TypeError('selection.box.activationModifier must be none or shift');
-    }
-    box = Object.freeze({
-      partialIntersection: value.box.partialIntersection ?? true,
-      activationModifier: value.box.activationModifier ?? 'none',
-      visual: normalizePointerBoxVisualPolicy(value.box.visual, visual),
-    });
-  }
-  return Object.freeze({
-    allowMultiple: value.allowMultiple ?? true,
-    clearOnBlankClick: value.clearOnBlankClick ?? 'single',
-    deselectOnTargetDoubleClick: value.deselectOnTargetDoubleClick ?? false,
-    box,
-    isSelectable: value.isSelectable ?? null,
-    resolveModifierSelection: value.resolveModifierSelection ?? null,
-    visual,
-  });
-}
-
-function normalizePointerPolicy(
-  value: PatchMapPointerPolicy | undefined,
-): NormalizedPointerPolicy {
-  if (value === undefined) return DEFAULT_POINTER_POLICY;
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError('pointer policy must be an object');
-  }
-  if (
-    value.hoverDuringPress !== undefined &&
-    typeof value.hoverDuringPress !== 'boolean'
-  ) {
-    throw new TypeError('pointer.hoverDuringPress must be boolean');
-  }
-  const tooltip = value.tooltip;
-  if (tooltip !== undefined && (
-    tooltip === null || typeof tooltip !== 'object' || Array.isArray(tooltip)
-  )) {
-    throw new TypeError('pointer.tooltip must be an object');
-  }
-  if (
-    tooltip?.pinOnContextMenu !== undefined &&
-    typeof tooltip.pinOnContextMenu !== 'boolean'
-  ) {
-    throw new TypeError('pointer.tooltip.pinOnContextMenu must be boolean');
-  }
-  if (
-    tooltip?.preventDefault !== undefined &&
-    typeof tooltip.preventDefault !== 'boolean'
-  ) {
-    throw new TypeError('pointer.tooltip.preventDefault must be boolean');
-  }
-  return Object.freeze({
-    hoverDuringPress: value.hoverDuringPress ?? false,
-    tooltip: Object.freeze({
-      pinOnContextMenu: tooltip?.pinOnContextMenu ?? false,
-      preventDefault: tooltip?.preventDefault ?? true,
-    }),
-  });
-}
-
 function normalizeViewportOptions(
   value: PatchMapViewportOptions | undefined,
 ): Readonly<{
@@ -6404,164 +5677,6 @@ function normalizeViewportOptions(
           scale: initial.scale,
         }),
   });
-}
-
-function blankClickClearsSelection(
-  mode: NormalizedPointerSelectionPolicy['clearOnBlankClick'],
-  clickCount: number,
-): boolean {
-  return mode === 'single' || (mode === 'double' && clickCount === 2);
-}
-
-function normalizePointerSelectionVisualPolicy(
-  value: PatchMapSelectionPolicy['visual'],
-): NormalizedPointerSelectionPolicy['visual'] {
-  if (value === undefined) return DEFAULT_POINTER_SELECTION_POLICY.visual;
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError('selection.visual must be an object');
-  }
-  const mode = value.displayMode ?? 'all';
-  if (!['all', 'group-only', 'element-only', 'hidden'].includes(mode)) {
-    throw new TypeError('selection.visual.displayMode is unsupported');
-  }
-  const strokeCssPx = value.strokeWidth ?? 2;
-  if (!(strokeCssPx > 0) || !Number.isFinite(strokeCssPx)) {
-    throw new RangeError('selection.visual.strokeWidth must be positive and finite');
-  }
-  const strokeScale = value.strokeScale ?? 'fixed';
-  if (strokeScale !== 'fixed' && strokeScale !== 'viewport') {
-    throw new TypeError('selection.visual.strokeScale must be fixed or viewport');
-  }
-  const minStrokeCssPx = value.minStrokeWidth ?? Math.min(1, strokeCssPx);
-  if (!(minStrokeCssPx > 0) || !Number.isFinite(minStrokeCssPx)) {
-    throw new RangeError('selection.visual.minStrokeWidth must be positive and finite');
-  }
-  if (minStrokeCssPx > strokeCssPx) {
-    throw new RangeError('selection.visual.minStrokeWidth cannot exceed strokeWidth');
-  }
-  const strokeAlignment = value.strokeAlignment ?? 'center';
-  if (!['outside', 'center', 'inside'].includes(strokeAlignment)) {
-    throw new TypeError('selection.visual.strokeAlignment is unsupported');
-  }
-  return Object.freeze({
-    color: normalizePointerSelectionColor(value.color, 'selection.visual.color'),
-    strokeCssPx,
-    strokeScale,
-    minStrokeCssPx,
-    strokeAlignment,
-    mode,
-  });
-}
-
-function normalizePointerBoxVisualPolicy(
-  value: NonNullable<Extract<PatchMapSelectionPolicy['box'], object>>['visual'],
-  fallback: NormalizedPointerSelectionPolicy['visual'],
-): NonNullable<NormalizedPointerSelectionPolicy['box']>['visual'] {
-  if (value === undefined) {
-    return Object.freeze({
-      color: fallback.color,
-      strokeCssPx: fallback.strokeCssPx,
-      fillAlpha: 0.08,
-    });
-  }
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError('selection.box.visual must be an object');
-  }
-  const strokeCssPx = value.strokeWidth ?? fallback.strokeCssPx;
-  if (!(strokeCssPx > 0) || !Number.isFinite(strokeCssPx)) {
-    throw new RangeError('selection.box.visual.strokeWidth must be positive and finite');
-  }
-  const fillAlpha = value.fillAlpha ?? 0.08;
-  if (!Number.isFinite(fillAlpha) || fillAlpha < 0 || fillAlpha > 1) {
-    throw new RangeError('selection.box.visual.fillAlpha must be between 0 and 1');
-  }
-  return Object.freeze({
-    color: value.color === undefined
-      ? fallback.color
-      : normalizePointerSelectionColor(value.color, 'selection.box.visual.color'),
-    strokeCssPx,
-    fillAlpha,
-  });
-}
-
-function normalizePointerSelectionColor(
-  value: number | string | undefined,
-  path: 'selection.visual.color' | 'selection.box.visual.color',
-): number {
-  if (value === undefined) return 0x2f80ed;
-  if (typeof value === 'number') {
-    if (!Number.isInteger(value) || value < 0 || value > 0xffffff) {
-      throw new RangeError(`${path} number must be a 0xRRGGBB integer`);
-    }
-    return value;
-  }
-  if (typeof value !== 'string') {
-    throw new TypeError(`${path} must be a number or CSS color string`);
-  }
-  const packed = parsePatchMapCssColor(value);
-  if (packed === undefined) {
-    throw new TypeError(`${path} is not a supported CSS color`);
-  }
-  return packed >>> 8;
-}
-
-function pointerBoxActivationMatches(
-  box: NonNullable<NormalizedPointerSelectionPolicy['box']>,
-  input: PatchMapEnginePointerInput,
-): boolean {
-  return box.activationModifier === 'none' || input.modifiers.shift;
-}
-
-function publicPointerTarget(target: PatchMapLogicalTargetSnapshot): PatchMapTarget {
-  return target.kind === 'element'
-    ? Object.freeze({ id: target.id })
-    : Object.freeze({ id: target.ownerId!, componentId: target.id });
-}
-
-function samePublicPointerTarget(
-  left: PatchMapTarget | null,
-  right: PatchMapTarget | null,
-): boolean {
-  return left === right || (
-    left !== null &&
-    right !== null &&
-    left.id === right.id &&
-    left.componentId === right.componentId
-  );
-}
-
-function screenBoundsContain(
-  bounds: readonly [number, number, number, number],
-  point: readonly [number, number],
-): boolean {
-  return bounds.every(Number.isFinite) &&
-    bounds[2] >= 0 &&
-    bounds[3] >= 0 &&
-    point[0] >= bounds[0] &&
-    point[0] <= bounds[0] + bounds[2] &&
-    point[1] >= bounds[1] &&
-    point[1] <= bounds[1] + bounds[3];
-}
-
-function pointerTargetPaintOrder(
-  left: PatchMapLogicalTargetSnapshot,
-  right: PatchMapLogicalTargetSnapshot,
-): number {
-  return pointerTargetZIndex(right) - pointerTargetZIndex(left) ||
-    right.depth - left.depth ||
-    right.sceneOrder - left.sceneOrder ||
-    left.key.localeCompare(right.key);
-}
-
-function pointerTargetZIndex(target: PatchMapLogicalTargetSnapshot): number {
-  const attrs = target.value.attrs;
-  const zIndex = attrs !== null &&
-    typeof attrs === 'object' &&
-    !Array.isArray(attrs) &&
-    typeof (attrs as Readonly<Record<string, unknown>>).zIndex === 'number'
-    ? (attrs as Readonly<{ readonly zIndex: number }>).zIndex
-    : null;
-  return zIndex !== null && Number.isFinite(zIndex) ? zIndex : target.zIndex;
 }
 
 function enginePerformanceNow(): number {
