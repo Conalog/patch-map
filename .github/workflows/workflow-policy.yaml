@@ -6,6 +6,7 @@ on:
       - release/1.0
     paths:
       - .github/workflows/**
+      - .github/scripts/**
       - .github/zizmor.yml
   workflow_dispatch:
 
