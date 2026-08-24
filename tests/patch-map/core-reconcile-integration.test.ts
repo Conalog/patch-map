@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   CoreView,
@@ -490,6 +490,43 @@ describe('PatchMap runtime dense reconcile', () => {
     expect(renderer.markCalls).toEqual([]);
   });
 
+  it('publishes through the spatial-hit authority installed by the latest load', () => {
+    const { core } = createTestCore(allocated);
+    const stale = spatialHitAuthority(core);
+    core.load([directRect('box')]);
+    const current = spatialHitAuthority(core);
+    expect(current).not.toBe(stale);
+    const staleInvalidate = vi.spyOn(stale, 'invalidate');
+    const currentInvalidate = vi.spyOn(current, 'invalidate');
+
+    expect(core.reconcile([directRect('box', { x: 12 })]).status).toBe('committed');
+
+    expect(currentInvalidate).toHaveBeenCalled();
+    expect(staleInvalidate).not.toHaveBeenCalled();
+  });
+
+  it('seals terminal publication once when renderer projection fails after dense commit', () => {
+    const failures: Error[] = [];
+    const { core, renderer } = createTestCore(allocated, {
+      onTerminalFailure: (error) => failures.push(error),
+    });
+    core.load([directRect('box')]);
+    const authority = publishedSceneAuthority(core);
+    const publishedBefore = authority.current();
+    const projectionFailure = new Error('reconcile projection failed');
+    renderer.projectionFailure = projectionFailure;
+
+    expect(() => core.reconcile([directRect('box', { fill: '#112233' })])).toThrow(
+      'reconcile projection failed',
+    );
+
+    expect(authority.current()).not.toBe(publishedBefore);
+    expect(authority.current().parse).not.toBe(publishedBefore.parse);
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.cause).toBe(projectionFailure);
+    expect(() => core.snapshot()).toThrow('terminal state');
+  });
+
   it('publishes sync load authorities with one immutable state reference', () => {
     const { core } = createTestCore(allocated);
     const authority = publishedSceneAuthority(core);
@@ -591,6 +628,14 @@ function publishedSceneAuthority(core: PatchMapRuntime): Readonly<{
   }).publishedScene;
 }
 
+function spatialHitAuthority(core: PatchMapRuntime): Readonly<{
+  invalidate(prewarmAnimatedBars?: boolean): void;
+}> {
+  return (core as unknown as {
+    spatialHit: Readonly<{ invalidate(prewarmAnimatedBars?: boolean): void }>;
+  }).spatialHit;
+}
+
 type RelationMatrixElement =
   | {
       type: 'group';
@@ -675,6 +720,7 @@ class RendererTestDouble {
   public readonly pixelRatio = 1;
   public destroyed = false;
   public worldOrientationFailure: Error | null = null;
+  public projectionFailure: Error | null = null;
   public worldOrientation: Readonly<{
     readonly rotationDegrees: number;
     readonly flipX: boolean;
@@ -701,6 +747,11 @@ class RendererTestDouble {
   public markOverlayChanges(): void {}
 
   public setProjection(): boolean {
+    if (this.projectionFailure !== null) {
+      const failure = this.projectionFailure;
+      this.projectionFailure = null;
+      throw failure;
+    }
     return true;
   }
 
@@ -798,7 +849,10 @@ class RendererTestDouble {
   }
 }
 
-function createTestCore(allocated: PatchMapRuntime[]): Readonly<{
+function createTestCore(
+  allocated: PatchMapRuntime[],
+  options: PatchMapRuntimeOptions = {},
+): Readonly<{
   core: PatchMapRuntime;
   renderer: RendererTestDouble;
 }> {
@@ -809,7 +863,7 @@ function createTestCore(allocated: PatchMapRuntime[]): Readonly<{
   ) => PatchMapRuntime;
   const core = new TestPatchMap(
     renderer as unknown as PatchMapPixiRenderer,
-    { autoRender: false, historyLimit: 8 },
+    { autoRender: false, historyLimit: 8, ...options },
   );
   allocated.push(core);
   return { core, renderer };

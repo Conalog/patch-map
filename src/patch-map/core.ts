@@ -110,28 +110,18 @@ import {
   createPatchMapComponentVisualProductProbe,
   createPatchMapRuntimePaintOrderProbe,
   createPatchMapTextProductProbe,
-  indexPatchMapComponentProbeTargets as indexComponentTargets,
-  indexPatchMapTextProbeTargets as indexTextTargets,
 } from './core/product-probe-reader';
 import { PatchMapRootInteractionAuthority } from './core/root-interaction-authority';
 import { PatchMapBarPresentationAuthority } from './core/bar-presentation-authority';
 import { PatchMapRendererLease } from './core/renderer-lease';
 import { PatchMapLoadAuthority } from './core/load-authority';
+import { PatchMapReconcilePublicationCoordinator } from './core/reconcile-publication-coordinator';
 import {
   resolvePresentationFillOverrides,
   semanticPresentationFillDenseIds,
   semanticSelectionDenseIds,
 } from './core/semantic-dense-planning';
-import {
-  freezeReconcileResult,
-  reconcileFacts,
-  reconcileFactStamp,
-  retainedOwnedInputDataset,
-} from './core/reconcile-planning';
-import {
-  preparePatchMapReconcileCandidate,
-  type PatchMapPreparedReconcileCandidate,
-} from './core/reconcile-candidate';
+import { retainedOwnedInputDataset } from './core/reconcile-planning';
 import {
   intrinsicImageProjectionUpdate,
   projectionWithResolvedIntrinsicSizes,
@@ -140,7 +130,6 @@ import {
 } from './core/intrinsic-image-projection';
 import {
   compactPatchMapProjectionStableRecords,
-  rollbackPatchMapProjectionStableRecords,
 } from './core/projection-records';
 import {
   preparePatchMapIncrementalPreview,
@@ -148,10 +137,9 @@ import {
   preparePatchMapTransientDirtyRanges,
 } from './core/transient-projection-planning';
 import { PatchMapFramePublicationAuthority } from './core/frame-publication-authority';
-import { contiguousSlotRanges, mergeSlotRanges } from './core/slot-ranges';
+import { contiguousSlotRanges } from './core/slot-ranges';
 import {
   applyPatchMapInstanceBarHeightStorageUpdates,
-  instancePresentationRequestFromStored,
   isPatchMapInstanceBarHeightOnlyRequest,
   planPatchMapInstanceBarHeightOnlyOverlay,
   planPatchMapInstancePresentationOverlay,
@@ -186,6 +174,7 @@ export class PatchMapRuntime {
   private readonly framePublication: PatchMapFramePublicationAuthority;
   private readonly sceneImages: PatchMapSceneImageController;
   private readonly loadAuthority: PatchMapLoadAuthority;
+  private readonly reconcilePublication: PatchMapReconcilePublicationCoordinator;
   private readonly barPresentation = new PatchMapBarPresentationAuthority();
   private readonly presentationLayers = new PatchMapPresentationLayerAuthority();
   private readonly parseOptions: ParsePatchMapOptions;
@@ -319,6 +308,38 @@ export class PatchMapRuntime {
         selectionMode: options.rootSelectionMode ?? 'immediate',
         autoRender,
         wheelActivationModifier: options.rootWheelActivationModifier ?? 'none',
+      },
+    );
+    this.reconcilePublication = new PatchMapReconcilePublicationCoordinator(
+      this.publishedScene,
+      this.barPresentation,
+      this.presentationLayers,
+      this.sceneImages,
+      this.renderer,
+      this.framePublication,
+      this.parseOptions,
+      this.stableRecordStrategy,
+      {
+        assertAlive: () => this.assertAlive(),
+        commitDenseBatch: (batch, rendererDomain) => this.commitWithRendererDomain(
+          batch,
+          rendererDomain,
+          'semantic-reconcile',
+        ),
+        markTerminalMutationFailure: (cause) => this.markTerminalMutationFailure(cause),
+        readSpatialHit: () => this.spatialHit,
+        readPointerListenerCount: () => this.rootInteraction.pointerListenerCount,
+        readInstancePresentations: () => this.instancePresentations,
+        replaceInstancePresentationState: (presentations, rendererOverrides) => {
+          this.instancePresentations = presentations;
+          this.instancePresentationOverrides = rendererOverrides;
+        },
+        setRendererInstancePresentationOverrides: (overrides, ranges) => {
+          this.setRendererInstancePresentationOverrides(overrides, ranges);
+        },
+        activeSceneImageIds: (overrides) => this.activeSceneImageIds(overrides),
+        reapplyResolvedIntrinsicSizes: () => this.reapplyResolvedIntrinsicSizes(),
+        applyPresentationPolicyToRenderer: () => this.applyPresentationPolicyToRenderer(),
       },
     );
   }
@@ -592,257 +613,7 @@ export class PatchMapRuntime {
     input: unknown,
     options: PatchMapReconcileOptions = {},
   ): PatchMapReconcileResult {
-    this.assertAlive();
-    const published = this.publishedScene.current();
-    const currentParse = published.parse;
-    if (currentParse === null) {
-      throw new Error('PatchMapRuntime.reconcile requires a loaded PATCH MAP dataset');
-    }
-
-    const totalStarted = now();
-    const before = reconcileFactStamp(published.scene);
-    const candidate = preparePatchMapReconcileCandidate(
-      input,
-      options,
-      this.parseOptions,
-      currentParse,
-      published,
-      published.scene,
-      this.stableRecordStrategy,
-      this.renderer.strategy,
-    );
-    const {
-      parse,
-      plan,
-      path,
-      semanticChanged,
-      parseMs,
-      planMs,
-    } = candidate;
-
-    if (!plan.safeToCommit) {
-      if (this.stableRecordStrategy === 'internal-overlay') {
-        rollbackPatchMapProjectionStableRecords(
-          parse.projection,
-          currentParse.projection,
-        );
-      }
-      const after = reconcileFactStamp(this.scene);
-      return freezeReconcileResult({
-        status: 'refused',
-        parse,
-        plan,
-        commit: null,
-        timings: {
-          parseMs,
-          planMs,
-          commitMs: 0,
-          totalMs: now() - totalStarted,
-        },
-        facts: reconcileFacts(plan, semanticChanged, before, after),
-      });
-    }
-
-    const commitStarted = now();
-    let commit: CommitResult;
-    try {
-      commit = this.commitWithRendererDomain(
-        plan.batch,
-        path === 'direct-text'
-          ? 'text-only'
-          : path === 'direct-bar'
-            ? 'bar-only'
-            : undefined,
-        'semantic-reconcile',
-      );
-    } catch (error) {
-      if (this.stableRecordStrategy === 'internal-overlay') {
-        rollbackPatchMapProjectionStableRecords(
-          parse.projection,
-          currentParse.projection,
-        );
-      }
-      throw error;
-    }
-    const commitMs = now() - commitStarted;
-    try {
-      this.publishReconcileCandidate(input, options, candidate, commit);
-    } catch (error) {
-      // The dense store has already committed. Its exact slot generations,
-      // animation table, and history cannot be reconstructed without changing
-      // stable identity. Seal the runtime instead of exposing a partially
-      // published scene through Engine's still-previous semantic authority.
-      this.markTerminalMutationFailure(error);
-      throw error;
-    }
-    const after = reconcileFactStamp(this.scene);
-    return freezeReconcileResult({
-      status: 'committed',
-      parse,
-      plan,
-      commit,
-      timings: {
-        parseMs,
-        planMs,
-        commitMs,
-        totalMs: now() - totalStarted,
-      },
-      facts: reconcileFacts(plan, semanticChanged, before, after),
-    });
-  }
-
-  private publishReconcileCandidate(
-    input: unknown,
-    options: PatchMapReconcileOptions,
-    candidate: PatchMapPreparedReconcileCandidate,
-    commit: CommitResult,
-  ): void {
-    const {
-      parse,
-      path,
-      incrementalEntityIds,
-      hierarchyOnlyTargetMapping,
-      structuralPresentationEntityIds,
-      parseOptions,
-    } = candidate;
-    const previousProjection = this.projectionValue;
-    const mappingReusable =
-      path === 'direct-bar' ||
-      path === 'direct-text' ||
-      path === 'direct-angle' ||
-      hierarchyOnlyTargetMapping;
-    const candidateComponentTargets = mappingReusable
-      ? this.componentTargets
-      : indexComponentTargets(parse);
-    const retainedInput = retainedOwnedInputDataset(input, parseOptions);
-    const overlayPlan = this.instancePresentations.size === 0
-      ? null
-      : planPatchMapInstancePresentationOverlay(
-          instancePresentationRequestFromStored(
-            [...this.instancePresentations.values()],
-            !this.barPresentation.reducedMotion && options.animateBarChanges !== false,
-          ),
-          parse.projection,
-          parse.projection,
-          candidateComponentTargets,
-          retainedInput.dataset,
-          this.parseOptions,
-          this.scene.renderStore,
-          new Map(),
-          new Map(),
-          this.stableRecordStrategy,
-          {
-            strictMissing: false,
-          },
-        );
-    const effectiveProjection = overlayPlan?.projection ?? parse.projection;
-    const basePresentationEntityIds = incrementalEntityIds ??
-      (
-        hierarchyOnlyTargetMapping
-          ? Object.freeze([])
-          : structuralPresentationEntityIds
-      );
-    const presentationEntityIds = basePresentationEntityIds === undefined
-      ? undefined
-      : Object.freeze([...new Set([
-          ...basePresentationEntityIds,
-          ...(overlayPlan?.changedEntityIds ?? []),
-        ])]);
-    const presentation = this.barPresentation.reconcile(
-      previousProjection,
-      effectiveProjection,
-      this.scene,
-      !this.barPresentation.reducedMotion && options.animateBarChanges !== false,
-      options.animatedBarTargets,
-      presentationEntityIds,
-      parse.identity.entitySourceById,
-    );
-    const overlayDirtyRanges = contiguousSlotRanges(
-      (overlayPlan?.changedEntityIds ?? []).flatMap((entityId) => {
-        const ref = this.scene.ref(entityId);
-        return ref === null ? [] : [ref.slot];
-      }),
-    );
-    const publicationRanges = mergeSlotRanges(commit.changedRanges, overlayDirtyRanges);
-    const presentationLayerUpdate = mappingReusable ||
-      this.presentationLayers.snapshot().layerCount === 0
-      ? null
-      : this.presentationLayers.reproject(
-          parse,
-          candidateComponentTargets,
-          this.scene,
-        );
-    this.updatePublishedScene({
-      parse,
-      transientIncrementalParse: null,
-      projection: effectiveProjection,
-      ownedInputDataset: retainedInput.dataset,
-      ownedParseOptionsKey: retainedInput.optionsKey,
-    });
-    this.spatialHit.setDenseGeometryCompatible(true);
-    this.spatialHit.clearStaleProjectionIds();
-    this.renderer.setProjection(
-      presentation,
-      publicationRanges,
-      this.spatialHit.staleProjectionIds,
-      path === 'direct-text'
-        ? 'text'
-        : path === 'direct-bar'
-          ? 'bar-presentation'
-          : undefined,
-    );
-    this.setRendererInstancePresentationOverrides(
-      overlayPlan?.rendererOverrides ?? new Map(),
-      publicationRanges,
-    );
-    if (presentationLayerUpdate !== null) {
-      this.renderer.setPresentationLayerMultipliers(presentationLayerUpdate);
-    }
-    if (isLargePatchMapAnimatedBarBatch(this.barPresentation.activeCount)) {
-      this.renderer.setAggregateCullPrecision(false);
-    }
-    if (
-      path !== 'direct-bar' &&
-      path !== 'direct-text' &&
-      path !== 'direct-angle'
-    ) {
-      this.sceneImages.reconcile(effectiveProjection, {
-        activeEntityIds: activeSceneImageIds(
-          this.publishedScene.current(),
-          overlayPlan?.rendererOverrides,
-        ),
-      });
-      this.reapplyResolvedIntrinsicSizes();
-      if (path !== 'incremental' && !hierarchyOnlyTargetMapping) {
-        this.updatePublishedScene({
-          componentTargets: candidateComponentTargets,
-          textTargets: indexTextTargets(parse),
-        });
-      }
-      this.applyPresentationPolicyToRenderer();
-    }
-    this.spatialHit.clearSpatialAnimations();
-    this.spatialHit.invalidate(
-      path === 'direct-bar' && this.barPresentation.activeCount > 0,
-    );
-    // Large animated batches must not make the first pointer event pay for
-    // the presentation envelope. Non-interactive consumers retain the lean
-    // update path and build no auxiliary index.
-    this.spatialHit.primeAnimatedBarsIfNeeded(
-      this.rootInteraction.pointerListenerCount,
-      this.scene,
-      this.projectionValue,
-      this.barPresentation.visibleProjection,
-      this.barPresentation,
-    );
-    if (this.barPresentation.activeCount > 0) {
-      this.framePublication.invalidate('presentation');
-    }
-    this.instancePresentations = new Map(overlayPlan?.presentations ?? []);
-    this.instancePresentationOverrides = new Map(overlayPlan?.rendererOverrides ?? []);
-    if (this.stableRecordStrategy === 'internal-overlay') {
-      compactPatchMapProjectionStableRecords(effectiveProjection);
-    }
+    return this.reconcilePublication.reconcile(input, options);
   }
 
   /** Build aggregate CPU/GPU resources without presenting a visible frame. */
@@ -1981,10 +1752,13 @@ export class PatchMapRuntime {
     this.renderer.setPresentationPolicy(resolved);
   }
 
-  private activeSceneImageIds(): ReadonlySet<string> {
+  private activeSceneImageIds(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride> =
+      this.instancePresentationOverrides,
+  ): ReadonlySet<string> {
     return activeSceneImageIds(
       this.publishedScene.current(),
-      this.instancePresentationOverrides,
+      overrides,
     );
   }
 
