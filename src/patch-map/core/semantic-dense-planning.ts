@@ -4,7 +4,7 @@ import type { PatchMapReconcileOptions as PatchMapDenseReconcileOptions } from '
 import { sameStringArray } from '../shared/string-array-values';
 import type { PatchMapReconcileOptions } from './contracts';
 import type { PatchMapIndexedComponentTarget } from './published-scene-state';
-import { patchMapComponentProbeTargetKey } from './product-probe-reader';
+import { patchMapComponentProbeTargetKey } from './component-target-key';
 import type { PatchMapMutationTarget } from '../semantic/transaction';
 
 const EXPANDED_ITEM_ENTITY_IDS = new WeakMap<

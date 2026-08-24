@@ -26,7 +26,7 @@ import {
   type PatchMapPublishedSceneState,
   type PatchMapTransientIncrementalParse,
 } from './published-scene-state';
-import { patchMapComponentProbeTargetKey } from './product-probe-reader';
+import { patchMapComponentProbeTargetKey } from './component-target-key';
 
 export interface PatchMapPreparedIncrementalPreview
   extends PatchMapTransientIncrementalParse {

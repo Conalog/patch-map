@@ -15,8 +15,8 @@ import {
 import {
   indexPatchMapComponentProbeTargets,
   indexPatchMapTextProbeTargets,
-  patchMapComponentProbeTargetKey,
 } from '../../src/patch-map/core/product-probe-reader';
+import { patchMapComponentProbeTargetKey } from '../../src/patch-map/core/component-target-key';
 import { incrementalParseOptionsKey } from '../../src/patch-map/core/reconcile-planning';
 import { semanticSelectionDenseIds } from '../../src/patch-map/core/semantic-dense-planning';
 import type { PatchMapPublishedSceneState } from '../../src/patch-map/core/published-scene-state';

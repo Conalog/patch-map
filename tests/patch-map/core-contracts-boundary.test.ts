@@ -16,6 +16,8 @@ describe('PatchMap Core contract boundary', () => {
     expect(contractsSource).not.toContain('export class PatchMapRuntime');
     expect(contractsSource).not.toContain('new PatchMapPixiRenderer');
     expect(contractsSource).not.toContain('new InvalidationScheduler');
+    expect(contractsSource).not.toContain("from '../renderers/pixi-renderer'");
+    expect(contractsSource).toContain("from '../renderers/contracts'");
     expect(coreSource).toContain(
       "export { normalizePatchMapTextTarget } from './core/contracts';",
     );

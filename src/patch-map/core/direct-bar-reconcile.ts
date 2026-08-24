@@ -16,7 +16,7 @@ import type { PatchMapDirectBarHeightUpdate } from './contracts';
 import type {
   PatchMapIndexedComponentTarget as IndexedComponentTarget,
 } from './published-scene-state';
-import { patchMapComponentProbeTargetKey as componentTargetKey } from './product-probe-reader';
+import { patchMapComponentProbeTargetKey as componentTargetKey } from './component-target-key';
 import { projectPatchMapBarDestinationHeight } from './instance-bar-overlay';
 
 export function reconcileDirectBarHeightParse(

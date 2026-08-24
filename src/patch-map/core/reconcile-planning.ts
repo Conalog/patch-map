@@ -26,9 +26,9 @@ import type {
   PatchMapPublishedSceneState,
 } from './published-scene-state';
 import {
-  patchMapComponentProbeTargetKey,
   patchMapTextProbeTargetKey,
 } from './product-probe-reader';
+import { patchMapComponentProbeTargetKey } from './component-target-key';
 
 /** Resolve owned incremental roots to the dense entities eligible for reuse. */
 export function incrementalDenseEntityIds(

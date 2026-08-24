@@ -1,5 +1,6 @@
 import type { ParsePatchMapResult } from './contracts';
 import type { SlotRange } from './dense/contracts';
+import type { PatchMapPresentationLayerRenderUpdate } from './presentation-layer-contracts';
 import type { PatchMapLogicalTargetSnapshot } from './query-selection';
 import type { PatchMapScene } from './scene';
 import type { PatchMapMutationTarget } from './semantic/transaction';
@@ -24,14 +25,7 @@ export interface PatchMapPresentationLayerSnapshot {
   readonly layerCount: number;
 }
 
-export interface PatchMapPresentationLayerRenderUpdate {
-  readonly revision: number;
-  readonly layerCount: number;
-  readonly full: boolean;
-  /** Stable dense column owned by the presentation authority. */
-  readonly alphaMultipliers: Float32Array<ArrayBufferLike>;
-  readonly dirtyRanges: readonly SlotRange[] | undefined;
-}
+export type { PatchMapPresentationLayerRenderUpdate } from './presentation-layer-contracts';
 
 export interface PatchMapPresentationLayerChange extends PatchMapPresentationLayerSnapshot {
   readonly changed: boolean;

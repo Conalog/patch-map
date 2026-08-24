@@ -34,6 +34,13 @@ import type {
   PatchMapIndexedComponentTarget,
   PatchMapIndexedTextTarget,
 } from './published-scene-state';
+import {
+  patchMapComponentProbeTargetKey,
+} from './component-target-key';
+export {
+  patchMapComponentProbeTargetKey,
+  patchMapComponentTargetKey,
+} from './component-target-key';
 
 export function indexPatchMapComponentProbeTargets(
   parse: ParsePatchMapResult,
@@ -145,19 +152,6 @@ export function indexPatchMapTextProbeTargets(
     }
   }
   return targets;
-}
-
-export function patchMapComponentProbeTargetKey(
-  target: PatchMapComponentVisualTarget,
-): string {
-  return patchMapComponentTargetKey(target.ownerId, target.componentId);
-}
-
-export function patchMapComponentTargetKey(
-  id: string,
-  componentId: string,
-): string {
-  return `${id.length}:${id}:${componentId}`;
 }
 
 export function createPatchMapComponentVisualProductProbe(

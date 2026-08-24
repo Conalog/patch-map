@@ -36,8 +36,9 @@ import {
   type PatchMapBitmapTextCapabilityProof,
   type PatchMapTextRenderRoute,
   type PatchMapTextRenderRouteReason,
-  type PatchMapTextRenderStyle,
 } from '../semantic/text-render-route';
+import type { PatchMapBitmapTextCapabilityRequest } from './contracts';
+export type { PatchMapBitmapTextCapabilityRequest } from './contracts';
 import {
   resolvePatchMapSlotQuad,
   type PatchMapEntityPaintProbe,
@@ -153,13 +154,6 @@ export interface AggregateLeafLayerOptions {
   readonly resolveBitmapTextCapability?: (
     request: PatchMapBitmapTextCapabilityRequest,
   ) => PatchMapBitmapTextCapabilityProof | null;
-}
-
-export interface PatchMapBitmapTextCapabilityRequest {
-  readonly entityId: string;
-  readonly text: string;
-  readonly style: PatchMapTextRenderStyle;
-  readonly projection: PatchMapTextProjection | null;
 }
 
 interface NormalizedLeafAssetBindingRequest {

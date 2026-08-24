@@ -17,7 +17,7 @@ import type { PatchMapDirectElementAngleParseUpdate } from '../incremental-parse
 import type { PatchMapPresentationSnapshot } from '../presentation';
 import type {
   PatchMapPixiRendererOptions,
-} from '../renderers/pixi-renderer';
+} from '../renderers/contracts';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapPixiRendererDebug,

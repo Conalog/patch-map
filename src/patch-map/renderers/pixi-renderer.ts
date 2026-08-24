@@ -21,7 +21,6 @@ import {
 } from '../dense/renderer-types';
 import {
   AggregateLeafLayer,
-  type PatchMapBitmapTextCapabilityRequest,
 } from './leaf-layer';
 import type {
   PatchMapSceneImageAssetBindingObservation as LeafAssetBindingObservation,
@@ -32,11 +31,8 @@ import type {
 import { AggregateMeshLayer } from './mesh-layer';
 import { ParticleGraphicsLayer } from './particle-layer';
 import type { PatchMapProjectionIndex } from '../contracts';
-import type { PatchMapBitmapTextCapabilityProof } from '../semantic/text-render-route';
 import {
   createPatchMapLeafAssetSession,
-  type PatchMapAssetPolicy,
-  type PatchMapAssetSession,
 } from '../assets';
 import type {
   PatchMapBackendPreference,
@@ -67,7 +63,8 @@ import type {
   PatchMapResolvedPresentationPolicy,
 } from '../presentation-policy';
 import type { PatchMapPresentationSlotVisibility } from '../presentation';
-import type { PatchMapPresentationLayerRenderUpdate } from '../presentation-layers';
+import type { PatchMapPresentationLayerRenderUpdate } from '../presentation-layer-contracts';
+import type { PatchMapPixiRendererOptions } from './contracts';
 import {
   PatchMapPresentationStoreView,
   type PatchMapRendererEntityPresentationOverride,
@@ -142,28 +139,7 @@ export {
   projectionChangedRanges,
 } from './renderer-reconcile-ranges';
 export type { PatchMapPixiRendererPublicationCheckpoint } from './pixi-renderer/publication-checkpoint';
-
-export interface PatchMapPixiRendererOptions {
-  readonly target?: HTMLElement;
-  readonly canvas?: HTMLCanvasElement;
-  readonly width?: number;
-  readonly height?: number;
-  readonly pixelRatio?: number;
-  readonly strategy?: PatchMapRendererStrategy;
-  readonly preference?: PatchMapBackendPreference;
-  readonly antialias?: boolean;
-  readonly background?: number;
-  readonly powerPreference?: 'high-performance' | 'low-power';
-  /** Reject a WebGL renderer unless Pixi reports a live WebGL2 context. */
-  readonly requireWebGL2?: boolean;
-  /** Register this Application with the official PixiJS DevTools hook. */
-  readonly devtools?: boolean;
-  readonly assetSession?: PatchMapAssetSession;
-  readonly assetPolicy?: PatchMapAssetPolicy;
-  readonly resolveBitmapTextCapability?: (
-    request: PatchMapBitmapTextCapabilityRequest,
-  ) => PatchMapBitmapTextCapabilityProof | null;
-}
+export type { PatchMapPixiRendererOptions } from './contracts';
 
 export interface PatchMapPixiInitializationMetrics {
   readonly applicationInitMs: number;

@@ -1,20 +1,12 @@
-import type { Matrix } from 'pixi.js';
-
 import type { AggregateChunkLaneGeometry } from './chunk-geometry';
-
-export interface AggregateViewportBounds {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-}
-
-export interface AggregateViewportCull {
-  readonly matrix: Matrix;
-  readonly width: number;
-  readonly height: number;
-  readonly padding: number;
-}
+import type {
+  AggregateViewportBounds,
+  AggregateViewportCull,
+} from './contracts';
+export type {
+  AggregateViewportBounds,
+  AggregateViewportCull,
+} from './contracts';
 
 interface AggregateViewportChunk {
   readonly geometryBounds: AggregateViewportBounds | null;

@@ -53,7 +53,7 @@ import {
   type PatchMapInstanceBarOverlayUpdate,
 } from './instance-bar-overlay';
 import type { PatchMapIndexedComponentTarget } from './published-scene-state';
-import { patchMapComponentTargetKey } from './product-probe-reader';
+import { patchMapComponentTargetKey } from './component-target-key';
 
 export interface PatchMapStoredInstancePresentation {
   readonly type: PatchMapInstancePresentationComponentType;

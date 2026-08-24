@@ -44,9 +44,11 @@ import {
   boundsIntersectsViewport,
   chunkIntersectsViewport,
   includePositionBounds,
-  type AggregateViewportBounds,
-  type AggregateViewportCull,
 } from './mesh/viewport-culling';
+import type {
+  AggregateViewportBounds,
+  AggregateViewportCull,
+} from './mesh/contracts';
 
 export {
   appendPatchMapRoundedRectPath,

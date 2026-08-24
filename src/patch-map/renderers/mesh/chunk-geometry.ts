@@ -29,7 +29,7 @@ import {
   type AggregateQuad,
   type PackedMeshStyle,
 } from './geometry';
-import type { AggregateViewportBounds } from './viewport-culling';
+import type { AggregateViewportBounds } from './contracts';
 
 const RECT_PASS = 0;
 const BAR_TRACK_PASS = 1;

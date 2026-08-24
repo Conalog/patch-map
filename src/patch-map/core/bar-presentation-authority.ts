@@ -31,7 +31,7 @@ import type {
 import {
   patchMapComponentProbeTargetKey,
   patchMapComponentTargetKey,
-} from './product-probe-reader';
+} from './component-target-key';
 import {
   contiguousSlotRanges,
   contiguousSlotRangesInPlace,

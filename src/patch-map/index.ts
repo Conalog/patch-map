@@ -214,8 +214,8 @@ export {
 } from './renderers/pixi-renderer';
 export type {
   PatchMapPixiInitializationMetrics,
-  PatchMapPixiRendererOptions,
 } from './renderers/pixi-renderer';
+export type { PatchMapPixiRendererOptions } from './renderers/contracts';
 export type {
   PatchMapActiveRendererBackend,
   PatchMapBackendPreference,

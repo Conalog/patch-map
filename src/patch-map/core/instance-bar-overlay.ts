@@ -19,7 +19,7 @@ import type {
 import type {
   PatchMapIndexedComponentTarget,
 } from './published-scene-state';
-import { patchMapComponentTargetKey } from './product-probe-reader';
+import { patchMapComponentTargetKey } from './component-target-key';
 
 export interface PatchMapInstanceBarOverlayUpdate {
   readonly target: PatchMapInstanceBarTarget;
