@@ -30,6 +30,7 @@ transaction or publication owners.
 | package entry and facade | public construction, domains, orchestration | dense storage or Pixi implementation state |
 | engine/runtime | authority composition, lifecycle, atomic publication | duplicated semantic planners or renderer internals |
 | dataset replacement coordinator | sync, async, and submitted-load freshness; surface acceptance; authoritative replacement commit | semantic storage, surface implementation, or a second publication revision |
+| history application coordinator | host companion state; undo/redo surface application; history publication ordering | history stack/cursor storage, semantic storage, or renderer state |
 | semantic and dense core | interpretation, planning, identity, compact state | public facade policy, input events, or PixiJS objects |
 | renderer contracts | neutral render views, updates, lifecycle capabilities | concrete PixiJS state |
 | PixiJS adapter | aggregate GPU resources, frame execution, surface lifecycle | semantic mutation, history, or public API policy |
@@ -72,6 +73,13 @@ through `PatchMapSceneStateAuthority`, advances revisions through
 candidate before committing authoritative Engine state. `engine.ts` remains the
 composition boundary and public delegate; it does not keep a parallel load
 sequence or replacement commit path.
+
+`PatchMapHistoryApplicationCoordinator` bridges the pure
+`PatchMapSemanticHistory` stack to the aggregate surface and Engine authorities.
+It owns the detached host companion and the exact reconcile, scene commit,
+revision, and event sequence for undo and redo. The semantic history remains the
+only stack/cursor owner; the coordinator does not retain a second dataset or
+renderer state.
 
 ## Verification
 

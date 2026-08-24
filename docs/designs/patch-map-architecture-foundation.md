@@ -32,9 +32,9 @@ work records.
 
 ## Current evidence
 
-- `src/patch-map` contains 231 TypeScript/JavaScript files and approximately
-  84,600 lines.
-- The largest orchestration files are `engine.ts` (6,818 lines),
+- `src/patch-map` contains 232 TypeScript/JavaScript files and approximately
+  84,800 lines.
+- The largest orchestration files are `engine.ts` (6,569 lines),
   `renderers/pixi-renderer.ts` (2,474), `core.ts` (2,394), and
   `renderers/leaf-layer.ts` (2,179).
 - A top-level import-owner analysis places the root modules, `engine`, `core`,
@@ -258,6 +258,16 @@ transformer authorities; `PatchMap` keeps only public delegates and composition
 callbacks. Independent review found no parallel writer or contract drift, and
 the full unit/build/38-decision/173-record gates passed without a performance
 claim because the render and mutation hot paths did not change.
+
+Engine history application movement is complete. The internal
+`PatchMapHistoryApplicationCoordinator` owns host companion state, shortcut
+routing, undo/redo surface application, clear boundaries, and restored-event
+ordering while `PatchMapSemanticHistory` remains the sole stack/cursor owner.
+The extraction preserves receiver-bound surface calls, stale reentrancy
+recovery, terminal-failure precedence, and replace/destroy clearing order.
+Focused history and reentrancy tests, the full unit/build/Lab/contract gates,
+and independent review passed without a performance claim because no frame or
+mutation algorithm changed.
 
 ### T3. Product facade and engine orchestration
 
