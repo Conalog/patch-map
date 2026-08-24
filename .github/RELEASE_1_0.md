@@ -1,15 +1,23 @@
 # Release 1.0 CI and npm setup
 
-## Bootstrap behavior
+## Pull request validation
 
-`Release 1.0 CI` runs for pull requests targeting `release/1.0` and pushes to
-that branch. Bootstrap includes a minimal matching `package.json` and
-`package-lock.json` without product scripts. The `Core`, `Package`, and
-`Browser` checks validate the bootstrap metadata without running product
-commands, and the aggregate `CI` check succeeds.
+`CI` runs for pull requests targeting `release/1.0`. It first verifies that
+every required release command exists, then classifies the pull-request diff.
+Only an internal documentation-only diff may skip the expensive product gates:
 
-When the product pull request adds all required release scripts, the same three
-checks require all of these release gates:
+- Markdown under `docs/reference/`, `docs/tasks/`, or `docs/designs/`;
+- the pull request template; and
+- issue templates.
+
+Any other path, an empty or unclassifiable diff, a rename involving a product
+path, and every workflow, package, verification, published-documentation, or
+example change fail closed to the full gate. This keeps the package-owned
+`README*`, `docs/patch-map/`, and `examples/patch-map/` under package
+verification.
+
+For a full gate, the `Core`, `Package`, and `Browser` checks require all of
+these release validations:
 
 - typecheck, lint, unit tests, and the production build;
 - canonical contract verification;
@@ -17,9 +25,12 @@ checks require all of these release gates:
 - every headless Lab route; and
 - lifecycle memory verification.
 
-Configure the `release/1.0` branch protection rule to require `CI` before
-merging. The feature branch's product code and history are not part of this
-bootstrap change; they arrive through their own pull request.
+The documentation-only path leaves `CI` present and successful while clearly
+marking the expensive steps as skipped; it does not use a workflow-level path
+filter. Configure the `release/1.0` branch protection rule to require `CI`
+before merging. After a merge, the publish workflow is the sole owner of
+tagged-source validation and publication, so the PR CI matrix is not run a
+second time.
 
 ## Publication policy
 
@@ -31,12 +42,10 @@ create the version tag and GitHub Release. The action's `release_created` and
 workflow run, so publication does not depend on the generated tag starting a
 second workflow.
 
-While the package lacks the required release scripts, the workflow records
-bootstrap state and does not call Release Please. Once the product pull request
-installs the shipping manifest and scripts, Release Please manages
-`package.json`, `package-lock.json`, `.release-please-manifest.json`, the
-changelog, the tag, and the GitHub Release. Pull-request events never run this
-workflow and therefore never publish.
+The workflow fails before Release Please when required release commands are
+missing. Release Please manages `package.json`, `package-lock.json`,
+`.release-please-manifest.json`, the changelog, the tag, and the GitHub Release.
+Pull-request events never run this workflow and therefore never publish.
 
 The package and release manifest value `1.0.0-alpha.0` is a Release Please
 baseline only; it is not an npm release or a tag. With the prerelease strategy
@@ -63,7 +72,7 @@ can start.
 A protected manual dispatch with an existing matching tag is the recovery path
 for a release that was created while npm publication was disabled. It applies
 the same ancestry, version, gate, artifact, and registry checks. Dispatch
-`publish-npm.yaml` from the `release/1.0` ref and supply the existing tag in the
+`publish.yaml` from the `release/1.0` ref and supply the existing tag in the
 `tag` input.
 
 During the alpha line, Release Please increments `alpha.N` automatically. Start
@@ -90,7 +99,7 @@ The existing `main` workflow publishes 0.x releases with npm's default
 `NPM_LATEST_ENABLED` for `1.0.0`, change or pause that external release path so
 a later 0.x publication cannot move `latest` back from 1.0.0. A dedicated
 legacy dist-tag or a registry monotonicity guard on `main` are both valid; that
-coordination is required for stable promotion and is outside this bootstrap PR.
+coordination is required for stable promotion and is outside this release workflow.
 
 Before merging a Release Please pull request, wait for `CI`,
 verify the proposed version and changelog, and enable only the applicable npm
@@ -118,12 +127,11 @@ repository plan permits. These protection changes affect the shared 0.10
 release environment, so coordinate them with that line before the first 1.0
 prerelease.
 
-The repository currently has no tag ruleset for this release line. Add an
-active tag ruleset targeting `v1.0.0*` that restricts tag updates and deletions,
-with no routine human or administrator bypass. Do not restrict creation unless
-the Release Please actor has the narrowly scoped bypass needed to create a new
-tag. The environment deployment policy controls who may publish, but it does
-not make a Git tag immutable.
+The active `Protect v1.0.0 tags` ruleset targets `v1.0.0*` and restricts tag
+updates and deletions with no routine human or administrator bypass. Do not
+restrict creation unless the Release Please actor has the narrowly scoped
+bypass needed to create a new tag. The environment deployment policy controls
+who may publish, but it does not make a Git tag immutable.
 
 The publish job intentionally has `id-token: write`, no `NPM_TOKEN`, and no
 credential cache. Product installation, build, and validation run without OIDC
@@ -134,7 +142,7 @@ Trusted Publishing for `@conalog/patch-map` with these exact values:
 
 - organization/user: `Conalog`
 - repository: `patch-map`
-- workflow filename: `publish-npm.yaml`
+- workflow filename: `publish.yaml`
 - environment: `npm`
 - allowed action: `npm publish`
 
@@ -144,6 +152,4 @@ the workflow fails closed if the runner does not provide it. Trusted
 Publishing then exchanges the GitHub OIDC identity for a short-lived npm
 credential and automatically records provenance for this public package.
 
-At bootstrap time, npm `latest` is `0.10.0`. Prerelease tags use only `next`,
-so that existing stable line is unchanged. This setup does not publish; the
-`1.0.0-alpha.0` value only seeds Release Please.
+Prerelease tags use only `next`, so the existing stable line remains unchanged.

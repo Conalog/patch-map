@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - release/1.0
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-1.0-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    name: Classify changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      full_validation: ${{ steps.changes.outputs.full_validation }}
+    steps:
+      - name: Checkout comparison base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Test change classifier
+        run: node --test .github/scripts/classify-ci-files.test.mjs
+
+      - name: Require release gate commands
+        run: test "$(node .github/scripts/release-ready.mjs --require)" = true
+
+      - name: Classify pull request changes
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          RESULT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          test "$(git rev-parse "$RESULT_SHA^1")" = "$BASE_SHA"
+          node .github/scripts/classify-ci-files.mjs "$BASE_SHA" "$RESULT_SHA" >> "$GITHUB_OUTPUT"
+
+  gate:
+    name: ${{ matrix.name }}
+    needs: classify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - gate: core
+            name: Core
+          - gate: package
+            name: Package
+          - gate: browser
+            name: Browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        if: ${{ needs.classify.outputs.full_validation == 'true' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        if: ${{ needs.classify.outputs.full_validation == 'true' }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        if: ${{ needs.classify.outputs.full_validation == 'true' }}
+        run: npm ci
+
+      - name: Typecheck
+        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run typecheck
+
+      - name: Lint
+        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run lint
+
+      - name: Unit
+        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run unit
+
+      - name: Build
+        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run build
+
+      - name: Contract
+        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run verify:contract
+
+      - name: Install Chromium
+        if: ${{ matrix.gate != 'core' && needs.classify.outputs.full_validation == 'true' }}
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify package
+        if: ${{ matrix.gate == 'package' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run verify:package -- --require-audit
+
+      - name: Build Lab
+        if: ${{ matrix.gate == 'browser' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run build:lab
+
+      - name: Verify Lab
+        if: ${{ matrix.gate == 'browser' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run verify:lab:all
+
+      - name: Verify memory
+        if: ${{ matrix.gate == 'browser' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run verify:memory
+
+  validation:
+    name: CI
+    if: ${{ always() }}
+    needs: [classify, gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require all gates
+        env:
+          CLASSIFIER_RESULT: ${{ needs.classify.result }}
+          FULL_VALIDATION: ${{ needs.classify.outputs.full_validation }}
+          GATES_RESULT: ${{ needs.gate.result }}
+        run: |
+          test "$CLASSIFIER_RESULT" = success
+          test "$GATES_RESULT" = success
+          test "$FULL_VALIDATION" = true || test "$FULL_VALIDATION" = false
