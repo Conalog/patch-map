@@ -392,4 +392,3 @@ function yieldPatchMapEngineTask(): Promise<void> {
     globalThis.setTimeout(resolve, 0);
   });
 }
-

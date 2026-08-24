@@ -9,4 +9,3 @@ export interface PatchMapPresentationLayerRenderUpdate {
   readonly alphaMultipliers: Float32Array<ArrayBufferLike>;
   readonly dirtyRanges: readonly SlotRange[] | undefined;
 }
-

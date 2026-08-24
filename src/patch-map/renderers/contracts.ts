@@ -41,4 +41,3 @@ export interface PatchMapPixiRendererOptions {
     request: PatchMapBitmapTextCapabilityRequest,
   ) => PatchMapBitmapTextCapabilityProof | null;
 }
-

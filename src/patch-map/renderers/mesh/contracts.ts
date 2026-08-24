@@ -13,4 +13,3 @@ export interface AggregateViewportCull {
   readonly height: number;
   readonly padding: number;
 }
-

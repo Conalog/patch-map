@@ -16,4 +16,3 @@ export function patchMapComponentProbeTargetKey(
 ): string {
   return patchMapComponentTargetKey(target.ownerId, target.componentId);
 }
-
