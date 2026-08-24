@@ -46,26 +46,11 @@ jobs:
         id: mode
         shell: bash
         run: |
-          node -e '
-            const manifest = require("./package.json");
-            const lock = require("./package-lock.json");
-            const root = lock.packages?.[""];
-            if (manifest.name !== "@conalog/patch-map") throw new Error("unexpected package name");
-            if (
-              lock.name !== manifest.name ||
-              lock.version !== manifest.version ||
-              root?.name !== manifest.name ||
-              root?.version !== manifest.version
-            ) {
-              throw new Error("package manifest and lockfile must match");
-            }
-          '
-
-          if [[ "$(node -p "require('./package.json').private === true")" = true ]]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Bootstrap package: product checks are waiting for the shipping manifest." >> "$GITHUB_STEP_SUMMARY"
-          else
+          if [[ "$(node .github/scripts/release-ready.mjs)" = true ]]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Bootstrap package: product checks are waiting for the release scripts." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Install dependencies

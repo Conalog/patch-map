@@ -4,12 +4,12 @@
 
 `Release 1.0 CI` runs for pull requests targeting `release/1.0` and pushes to
 that branch. Bootstrap includes a minimal matching `package.json` and
-`package-lock.json`. The package is marked `private: true`, so the `Core`,
-`Package`, and `Browser` checks validate the bootstrap metadata without running
-product commands, and the aggregate `CI` check succeeds.
+`package-lock.json` without product scripts. The `Core`, `Package`, and
+`Browser` checks validate the bootstrap metadata without running product
+commands, and the aggregate `CI` check succeeds.
 
-When the product pull request replaces the bootstrap manifest, it must remove
-`private: true`. The same three checks then require all of these release gates:
+When the product pull request adds all required release scripts, the same three
+checks require all of these release gates:
 
 - typecheck, lint, unit tests, and the production build;
 - canonical contract verification;
@@ -31,17 +31,17 @@ create the version tag and GitHub Release. The action's `release_created` and
 workflow run, so publication does not depend on the generated tag starting a
 second workflow.
 
-While the package is marked private, the workflow records bootstrap state and
-does not call Release Please. Once the product pull request installs the
-shipping manifest and removes `private: true`, Release Please manages
+While the package lacks the required release scripts, the workflow records
+bootstrap state and does not call Release Please. Once the product pull request
+installs the shipping manifest and scripts, Release Please manages
 `package.json`, `package-lock.json`, `.release-please-manifest.json`, the
 changelog, the tag, and the GitHub Release. Pull-request events never run this
 workflow and therefore never publish.
 
-The private package and release manifest value `1.0.0-alpha.0` is a Release
-Please baseline only; it is not an npm release or a tag. With the prerelease
-strategy set to `alpha`, the first release pull request proposes
-`1.0.0-alpha.1`. Supported releases map to npm channels as follows:
+The package and release manifest value `1.0.0-alpha.0` is a Release Please
+baseline only; it is not an npm release or a tag. With the prerelease strategy
+set to `alpha`, the first release pull request proposes `1.0.0-alpha.1`.
+Supported releases map to npm channels as follows:
 
 | Package version and matching Git tag | npm dist-tag |
 | --- | --- |
@@ -146,4 +146,4 @@ credential and automatically records provenance for this public package.
 
 At bootstrap time, npm `latest` is `0.10.0`. Prerelease tags use only `next`,
 so that existing stable line is unchanged. This setup does not publish; the
-private `1.0.0-alpha.0` value only seeds Release Please.
+`1.0.0-alpha.0` value only seeds Release Please.

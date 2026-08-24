@@ -42,32 +42,17 @@ jobs:
         if: ${{ github.event_name == 'push' || inputs.tag == '' }}
         shell: bash
         run: |
-          node -e '
-            const manifest = require("./package.json");
-            const lock = require("./package-lock.json");
-            const root = lock.packages?.[""];
-            if (manifest.name !== "@conalog/patch-map") throw new Error("unexpected package name");
-            if (
-              lock.name !== manifest.name ||
-              lock.version !== manifest.version ||
-              root?.name !== manifest.name ||
-              root?.version !== manifest.version
-            ) {
-              throw new Error("package manifest and lockfile must match");
-            }
-          '
-
-          if [[ "$(node -p "require('./package.json').private === true")" = true ]]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
+          if [[ "$(node .github/scripts/release-ready.mjs)" = true ]]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Record bootstrap state
         if: ${{ steps.mode.outputs.ready == 'false' }}
         run: |
           echo "### Release Please is waiting for the product files" >> "$GITHUB_STEP_SUMMARY"
-          echo "The package is private bootstrap metadata, so no release PR was created." >> "$GITHUB_STEP_SUMMARY"
+          echo "The bootstrap package does not have the release scripts, so no release PR was created." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create or update release pull request
         id: release
@@ -134,7 +119,7 @@ jobs:
           test -f package.json
           test -f package-lock.json
           test "$(node -p "require('./package.json').name")" = "@conalog/patch-map"
-          test "$(node -p "require('./package.json').private === true")" = false
+          test "$(node .github/scripts/release-ready.mjs --require)" = true
 
           package_version="$(node -p "require('./package.json').version")"
           test "$TAG_NAME" = "v$package_version"
