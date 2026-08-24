@@ -8,7 +8,6 @@ import {
   Matrix,
   Rectangle,
   type ApplicationOptions,
-  type FederatedPointerEvent,
 } from 'pixi.js';
 
 import type { CoreView, SlotRange } from '../dense/contracts';
@@ -50,7 +49,6 @@ import type {
   PatchMapPixiRendererDebug,
   PatchMapPixiRendererLossProbe,
   RootInteractionHandlers,
-  RootPointerInput,
 } from './types';
 import {
   createPatchMapProjectionQuadCache,
@@ -132,6 +130,7 @@ import {
 import type { PatchMapPixiRendererPublicationCheckpoint } from './pixi-renderer/publication-checkpoint';
 import { PatchMapAccessibilityOverlayAuthority } from './pixi-renderer/accessibility-overlay-authority';
 import { PatchMapCanvasSurfaceLifecycle } from './pixi-renderer/canvas-surface-lifecycle';
+import { PatchMapPixiRootInteractionBindingAuthority } from './pixi-renderer/root-interaction-binding-authority';
 
 export {
   buildPatchMapRelationAdjacency,
@@ -170,12 +169,6 @@ interface AggregateResult {
   readonly staticInvalidatedUploadCount: number;
   readonly particleFullUploadCount: number;
   readonly uploadObservation: PatchMapPixiRendererDebug['uploadObservation'];
-}
-
-interface PatchMapDeferredRootInteractionBinding {
-  readonly activate: () => void;
-  readonly deactivate: () => void;
-  readonly release: () => void;
 }
 
 const DEFAULT_VIEW: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
@@ -221,10 +214,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   }> | null = null;
   private readonly target: HTMLElement | undefined;
   private readonly canvasLifecycle: PatchMapCanvasSurfaceLifecycle;
+  private readonly rootInteractionBindings: PatchMapPixiRootInteractionBindingAuthority;
   private readonly devtoolsRequested: boolean;
   private cleanupPromise: Promise<void> = Promise.resolve();
-  private interactionUnbind: (() => void) | null = null;
-  private rootInteractionBinding: PatchMapDeferredRootInteractionBinding | null = null;
   private surfacePublished = false;
   private lastStore: RenderStoreView | null = null;
   private lastSourceStore: RenderStoreView | null = null;
@@ -322,6 +314,13 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.widthValue = options.width;
     this.heightValue = options.height;
     this.pixelRatioValue = options.pixelRatio;
+    this.rootInteractionBindings = new PatchMapPixiRootInteractionBindingAuthority({
+      stage: this.application.stage,
+      canvas: this.canvas,
+      readViewportWidth: () => this.widthValue,
+      readViewportHeight: () => this.heightValue,
+      isSurfacePublished: () => this.surfacePublished,
+    });
     this.world = new Container({ label: 'PatchMap / world', isRenderGroup: true });
     this.world.sortableChildren = true;
     this.world.eventMode = 'none';
@@ -1498,173 +1497,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
 
   public bindRootInteractions(handlers: RootInteractionHandlers): () => void {
     this.assertAlive();
-    this.rootInteractionBinding?.release();
-    let activeUnbind: (() => void) | null = null;
-    let released = false;
-    const binding: PatchMapDeferredRootInteractionBinding = Object.freeze({
-      activate: () => {
-        if (released || activeUnbind !== null) return;
-        activeUnbind = this.installRootInteractions(handlers);
-      },
-      deactivate: () => {
-        activeUnbind?.();
-        activeUnbind = null;
-      },
-      release: () => {
-        if (released) return;
-        released = true;
-        activeUnbind?.();
-        activeUnbind = null;
-        if (this.rootInteractionBinding === binding) {
-          this.rootInteractionBinding = null;
-        }
-      },
-    });
-    this.rootInteractionBinding = binding;
-    if (this.surfacePublished) binding.activate();
-    return binding.release;
-  }
-
-  private installRootInteractions(handlers: RootInteractionHandlers): () => void {
-    this.interactionUnbind?.();
-    const stage = this.application.stage;
-    const capturedPointerIds = new Set<number>();
-    const capturePointer = (pointerId: number): void => {
-      try {
-        this.canvas.setPointerCapture(pointerId);
-        capturedPointerIds.add(pointerId);
-      } catch {
-        // Synthetic/non-active pointer input cannot be captured. Federated
-        // pointerupoutside remains the fallback completion path.
-      }
-    };
-    const releasePointer = (pointerId: number): void => {
-      capturedPointerIds.delete(pointerId);
-      try {
-        if (this.canvas.hasPointerCapture(pointerId)) {
-          this.canvas.releasePointerCapture(pointerId);
-        }
-      } catch {
-        // The browser may implicitly release capture before this root cleanup.
-      }
-    };
-    const pointerInput = (
-      type: RootPointerInput['type'],
-      event: FederatedPointerEvent,
-    ): RootPointerInput => Object.freeze({
-      type,
-      screenX: event.global.x,
-      screenY: event.global.y,
-      pointerId: event.pointerId,
-      pointerType: event.pointerType,
-      button: event.button,
-      buttons: event.buttons,
-      timeMs: event.timeStamp,
-      shiftKey: event.shiftKey,
-      ctrlKey: event.ctrlKey,
-      altKey: event.altKey,
-      metaKey: event.metaKey,
-    });
-    const pointerDown = (event: FederatedPointerEvent): void => {
-      capturePointer(event.pointerId);
-      handlers.pointer(pointerInput('down', event));
-    };
-    const pointerMove = (event: FederatedPointerEvent): void => {
-      handlers.pointer(pointerInput('move', event));
-    };
-    const pointerUp = (event: FederatedPointerEvent): void => {
-      handlers.pointer(pointerInput('up', event));
-      releasePointer(event.pointerId);
-    };
-    const pointerUpOutside = (event: FederatedPointerEvent): void => {
-      handlers.pointer(pointerInput('up-outside', event));
-      releasePointer(event.pointerId);
-    };
-    const pointerCancel = (event: FederatedPointerEvent): void => {
-      handlers.pointer(pointerInput('cancel', event));
-      releasePointer(event.pointerId);
-    };
-    const pointerLeave = (event: PointerEvent): void => {
-      if (capturedPointerIds.has(event.pointerId)) return;
-      const bounds = this.canvas.getBoundingClientRect();
-      const scaleX = bounds.width > 0 ? this.widthValue / bounds.width : 1;
-      const scaleY = bounds.height > 0 ? this.heightValue / bounds.height : 1;
-      handlers.pointer(Object.freeze({
-        type: 'leave',
-        screenX: (event.clientX - bounds.left) * scaleX,
-        screenY: (event.clientY - bounds.top) * scaleY,
-        pointerId: event.pointerId,
-        pointerType: event.pointerType,
-        button: event.button,
-        buttons: event.buttons,
-        timeMs: event.timeStamp,
-        shiftKey: event.shiftKey,
-        ctrlKey: event.ctrlKey,
-        altKey: event.altKey,
-        metaKey: event.metaKey,
-      }));
-    };
-    // Pixi v8 forwards wheel through a passive native listener in Chromium.
-    // Keep pointer input federated, but own one non-passive root canvas wheel
-    // listener so only a committed zoom prevents native scroll without a warning.
-    const wheel = (event: WheelEvent): void => {
-      const bounds = this.canvas.getBoundingClientRect();
-      const scaleX = bounds.width > 0 ? this.widthValue / bounds.width : 1;
-      const scaleY = bounds.height > 0 ? this.heightValue / bounds.height : 1;
-      const handled = handlers.wheel(Object.freeze({
-        screenX: (event.clientX - bounds.left) * scaleX,
-        screenY: (event.clientY - bounds.top) * scaleY,
-        deltaY: event.deltaY,
-        shiftKey: event.shiftKey,
-        ctrlKey: event.ctrlKey,
-        altKey: event.altKey,
-        metaKey: event.metaKey,
-      }));
-      if (handled) event.preventDefault();
-    };
-    const contextMenu = (event: MouseEvent): void => {
-      const bounds = this.canvas.getBoundingClientRect();
-      const scaleX = bounds.width > 0 ? this.widthValue / bounds.width : 1;
-      const scaleY = bounds.height > 0 ? this.heightValue / bounds.height : 1;
-      if (handlers.contextMenu(Object.freeze({
-        screenX: (event.clientX - bounds.left) * scaleX,
-        screenY: (event.clientY - bounds.top) * scaleY,
-        shiftKey: event.shiftKey,
-        ctrlKey: event.ctrlKey,
-        altKey: event.altKey,
-        metaKey: event.metaKey,
-      }))) {
-        event.preventDefault();
-      }
-    };
-    const unbind = (): void => {
-      stage.off('pointerdown', pointerDown);
-      stage.off('pointermove', pointerMove);
-      stage.off('pointerup', pointerUp);
-      stage.off('pointerupoutside', pointerUpOutside);
-      stage.off('pointercancel', pointerCancel);
-      this.canvas.removeEventListener('wheel', wheel);
-      this.canvas.removeEventListener('pointerleave', pointerLeave);
-      this.canvas.removeEventListener('contextmenu', contextMenu);
-      for (const pointerId of capturedPointerIds) releasePointer(pointerId);
-      capturedPointerIds.clear();
-      if (this.interactionUnbind === unbind) this.interactionUnbind = null;
-    };
-    this.interactionUnbind = unbind;
-    try {
-      stage.on('pointerdown', pointerDown);
-      stage.on('pointermove', pointerMove);
-      stage.on('pointerup', pointerUp);
-      stage.on('pointerupoutside', pointerUpOutside);
-      stage.on('pointercancel', pointerCancel);
-      this.canvas.addEventListener('wheel', wheel, { passive: false });
-      this.canvas.addEventListener('pointerleave', pointerLeave);
-      this.canvas.addEventListener('contextmenu', contextMenu);
-    } catch (error) {
-      unbind();
-      throw error;
-    }
-    return unbind;
+    return this.rootInteractionBindings.bind(handlers);
   }
 
   public interactionOwnershipProbe(): Readonly<{
@@ -1672,11 +1505,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     readonly rootListenerCount: number;
     readonly entityCallbackCount: number;
   }> {
-    return Object.freeze({
-      rootBindingCount: this.interactionUnbind === null ? 0 : 6,
-      rootListenerCount: this.interactionUnbind === null ? 0 : 8,
-      entityCallbackCount: 0,
-    });
+    return this.rootInteractionBindings.probe();
   }
 
   public publicSurfaceProbe(): PatchMapPixiPublicSurfaceProbe {
@@ -1799,10 +1628,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ['text', this.leaves.textContainer.label],
       ['interaction-overlay', interactionOverlayLabel(this.selectionOverlay, this.transformerOverlay)],
     ]);
-    this.rootInteractionBinding?.release();
-    this.rootInteractionBinding = null;
-    this.interactionUnbind?.();
-    this.interactionUnbind = null;
+    this.rootInteractionBindings.destroy();
     this.selectedSlots.clear();
     this.visibleOverlaySlots.clear();
     this.transformerOverlaySlots.clear();
@@ -2259,7 +2085,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       // failed activation can be rolled back before the browser paints.
       this.canvasLifecycle.publish();
       this.bindRendererLossEvents();
-      this.rootInteractionBinding?.activate();
+      this.rootInteractionBindings.activate();
       if (this.devtoolsRequested) {
         registerPixiDevtools(this.devtoolsToken, this.application);
         this.devtoolsRegistered = true;
@@ -2270,7 +2096,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         unregisterPixiDevtools(this.devtoolsToken);
         this.devtoolsRegistered = false;
       }
-      this.rootInteractionBinding?.deactivate();
+      this.rootInteractionBindings.deactivate();
       this.contextLossUnbind?.();
       this.contextLossUnbind = null;
       this.canvasLifecycle.rollbackPublication();
