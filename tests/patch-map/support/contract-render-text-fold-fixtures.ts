@@ -481,6 +481,7 @@ function probe(options: Readonly<{
     : [ownerBounds[0], ownerBounds[1], ownerBounds[2], ownerBounds[3]] as const;
   const semanticSignatures = signatures(layout);
   const previousSignatures = signatures(previousLayout);
+  const attachedRoute = 'pixi-text';
   const attachedSignatures = options.status === 'current'
     ? { ...semanticSignatures, renderer: `renderer:${layout.contentSignature}` }
     : { ...previousSignatures, renderer: `renderer:${previousLayout.contentSignature}` };
@@ -558,9 +559,9 @@ function probe(options: Readonly<{
       contentOrientation,
     },
     renderer: {
-      plannedRoute: layout.rendererRoute,
-      attachedRoute: 'pixi-text',
-      objectKind: 'pixi-text',
+      plannedRoute: attachedRoute,
+      attachedRoute,
+      objectKind: attachedRoute,
       routeDecisionReason: 'atlas-coverage-unproven',
       objectCount: 1,
       semanticSignatures,
