@@ -188,6 +188,7 @@ import { PatchMapSceneStateAuthority } from './engine/scene-state-authority';
 import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-authority';
 import { PatchMapAssetSessionAuthority } from './engine/asset-session-authority';
 import { PatchMapManagedFrameLoopAuthority } from './engine/managed-frame-loop-authority';
+import { PatchMapCaptureExtractionAuthority } from './engine/capture-extraction-authority';
 import { PatchMapPointerInteractionCoordinator } from './engine/pointer-interaction-coordinator';
 import {
   selectionGeometryIds,
@@ -215,7 +216,6 @@ import {
   normalizeEngineMutationTarget,
   normalizeSnapshotTarget,
   positiveSafeInteger,
-  validateExtractionRequest,
   validateInitializeOptions,
   validateNonNegativeFinite,
   validatePoint,
@@ -556,6 +556,7 @@ export class PatchMap {
   private readonly editorWorkflows = new PatchMapEditorWorkflowAuthority();
   private readonly pageLifecycle = new PatchMapPageLifecycleAuthority();
   private readonly managedFrameLoop = new PatchMapManagedFrameLoopAuthority();
+  private readonly captureExtraction: PatchMapCaptureExtractionAuthority;
   private readonly pointerInteractions: PatchMapPointerInteractionCoordinator;
   private readonly accessibility = new PatchMapAccessibilityAuthority();
   private readonly transactionCommit: PatchMapTransactionCommitCoordinator;
@@ -598,10 +599,6 @@ export class PatchMap {
   }> | null = null;
   private pendingWork = 0;
   private destroySettlement: Promise<boolean> | null = null;
-  private mountResizeCleanup: (() => void) | null = null;
-  private managedCaptureDepth = 0;
-  private managedCaptureSettlement: Promise<void> = Promise.resolve();
-  private deferredMountResize: readonly [number, number, number] | null = null;
   private readonly externalDependencyRevisions = new Map<string, string>();
   private readonly cancelActiveTransformerBeforeSurfaceReconcile = (): void => {
     this.transformerSessions.cancelActive('redraw', true);
@@ -719,7 +716,7 @@ export class PatchMap {
       const frameLoop = engine.createFrameLoop();
       frameLoop.publishNow();
       if (options.resizeMode !== 'manual') {
-        engine.mountResizeCleanup = engine.observeMountSize(target, options.pixelRatio);
+        engine.observeMountSize(target, options.pixelRatio);
       }
       return publicPatchMapInstance(engine);
     } catch (error) {
@@ -739,6 +736,30 @@ export class PatchMap {
     this.operations = options.operations ?? new PatchMapOperationsAuthority();
     this.extractionSecurity = options.extractionSecurity
       ?? new PatchMapExtractionSecurityAuthority();
+    this.captureExtraction = new PatchMapCaptureExtractionAuthority(
+      this.extractionSecurity,
+      this.managedFrameLoop,
+      this.publication,
+      {
+        requireSurface: (operation) => this.requireSurface(operation),
+        liveSurface: () => this.surface,
+        authoritativeCanvas: () => this.authoritativeCanvas,
+        isDestroyingOrDestroyed: () => this.isDestroyingOrDestroyed(),
+        resize: (width, height, pixelRatio) => {
+          this.resize(width, height, pixelRatio);
+        },
+        adjustPendingWork: (delta) => {
+          this.pendingWork += delta;
+        },
+        operationError: (code, category, operation, recoverable) =>
+          this.operationError(code, category, operation, recoverable),
+        operationDiagnostic: (code, category, operation, recoverable) =>
+          this.operationDiagnostic(code, category, operation, recoverable),
+        emitDiagnostic: (diagnostic) => {
+          this.emit('diagnostic', diagnostic);
+        },
+      },
+    );
     this.historyAuthority = new PatchMapSemanticHistory({
       ...(options.historyLimit === undefined ? {} : { capacity: options.historyLimit }),
     });
@@ -1110,36 +1131,8 @@ export class PatchMap {
   private observeMountSize(
     target: HTMLElement,
     pixelRatio: number | undefined,
-  ): () => void {
-    let disposed = false;
-    const resize = (): void => {
-      if (disposed || this.destroyed) return;
-      const bounds = target.getBoundingClientRect();
-      if (!(bounds.width > 0) || !(bounds.height > 0)) return;
-      const resolution = pixelRatio ?? globalThis.devicePixelRatio ?? 1;
-      if (this.managedCaptureDepth > 0) {
-        this.deferredMountResize = Object.freeze([bounds.width, bounds.height, resolution]);
-        return;
-      }
-      this.resize(bounds.width, bounds.height, resolution);
-    };
-    const ownerWindow = target.ownerDocument?.defaultView;
-    const ResizeObserverConstructor = ownerWindow?.ResizeObserver ?? globalThis.ResizeObserver;
-    if (ResizeObserverConstructor !== undefined) {
-      const observer = new ResizeObserverConstructor(resize);
-      observer.observe(target);
-      return () => {
-        if (disposed) return;
-        disposed = true;
-        observer.disconnect();
-      };
-    }
-    ownerWindow?.addEventListener('resize', resize);
-    return () => {
-      if (disposed) return;
-      disposed = true;
-      ownerWindow?.removeEventListener('resize', resize);
-    };
+  ): void {
+    this.captureExtraction.observeMountSize(target, pixelRatio);
   }
 
   /** @internal Root `PatchMap.mount()` owns this policy boundary. */
@@ -1355,46 +1348,11 @@ export class PatchMap {
 
   /** Internal bridge used by high-level capture to keep one publication clock. */
   public publishManagedFrameNow(): void {
-    this.requireSurface('publishManagedFrameNow');
-    if (this.managedFrameLoop.publishNow() === null) {
-      throw this.operationError('NOT_READY', 'NOT_READY', 'publishManagedFrameNow', true);
-    }
+    this.captureExtraction.publishManagedFrameNow();
   }
 
-  /** Queue captures so one request cannot resume or supersede another request's frame tuple. */
   public captureManagedPng(): Promise<PatchMapEngineExtractionResult> {
-    const capture = this.managedCaptureSettlement.then(() => this.performManagedPngCapture());
-    this.managedCaptureSettlement = capture.then(
-      () => undefined,
-      () => undefined,
-    );
-    return capture;
-  }
-
-  private async performManagedPngCapture(): Promise<PatchMapEngineExtractionResult> {
-    this.publishManagedFrameNow();
-    const resume = this.managedFrameLoop.pause();
-    this.managedCaptureDepth += 1;
-    const snapshot = this.snapshot();
-    try {
-      return await this.extractPublishedScene({
-        targetTuple: snapshot.publishedTuple,
-        cssSize: snapshot.resources.canvas.cssSize,
-        mime: 'image/png',
-      });
-    } finally {
-      this.managedCaptureDepth -= 1;
-      if (
-        this.managedCaptureDepth === 0 &&
-        this.deferredMountResize !== null &&
-        !this.destroyed
-      ) {
-        const [width, height, pixelRatio] = this.deferredMountResize;
-        this.deferredMountResize = null;
-        this.resize(width, height, pixelRatio);
-      }
-      if (resume) this.managedFrameLoop.resume();
-    }
+    return this.captureExtraction.captureManagedPng();
   }
 
   public initialize(options: PatchMapInitializeOptions): Promise<PatchMapInitializeResult> {
@@ -4109,171 +4067,13 @@ export class PatchMap {
   }
 
   public canvasHandle(): PatchMapEngineCanvasHandle {
-    const surface = this.requireSurface('canvasHandle');
-    return this.canvasHandleForSurface(surface, 'canvasHandle');
-  }
-
-  private canvasHandleForSurface(
-    surface: PatchMapEngineSurface,
-    operation: string,
-  ): PatchMapEngineCanvasHandle {
-    const canvas = surface.canvasElement?.() ?? null;
-    if (canvas === null || this.authoritativeCanvas === null) {
-      throw this.operationError(
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        operation,
-        false,
-      );
-    }
-    if (canvas !== this.authoritativeCanvas) {
-      throw this.operationError(
-        'RENDERER_LOST',
-        'RENDERER_LOST',
-        operation,
-        true,
-      );
-    }
-    const debug = surface.debugSnapshot();
-    return Object.freeze({
-      element: canvas,
-      identity: 'initial-canvas',
-      cssSize: Object.freeze([...debug.cssSize] as [number, number]),
-      backingSize: Object.freeze([...debug.backingSize] as [number, number]),
-    });
+    return this.captureExtraction.canvasHandle();
   }
 
   public async extractPublishedScene(
     request: PatchMapEngineExtractionRequest,
   ): Promise<PatchMapEngineExtractionResult> {
-    validateExtractionRequest(request);
-    const surface = this.requireSurface('extractPublishedScene');
-    if (surface.captureBase64 === undefined) {
-      throw this.operationError(
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        'extractPublishedScene',
-        false,
-      );
-    }
-    const rendererLoss = surface.rendererLossProbe?.() ?? null;
-    if (rendererLoss?.contextLost === true || rendererLoss?.state === 'lost') {
-      throw this.operationError(
-        'RENDERER_LOST',
-        'RENDERER_LOST',
-        'extractPublishedScene',
-        true,
-      );
-    }
-    const extractionPreflight = this.extractionSecurity.preflight();
-    if (extractionPreflight.code !== null) {
-      const diagnostic = Object.freeze({
-        ...this.operationDiagnostic(
-          extractionPreflight.code,
-          'EXTRACTION_FAILURE',
-          'extractPublishedScene',
-          true,
-        ),
-        ...(extractionPreflight.sanitizedAssetId === null
-          ? {}
-          : { sanitizedAssetId: extractionPreflight.sanitizedAssetId }),
-      });
-      const failure = new PatchMapError(diagnostic);
-      this.emit('diagnostic', diagnostic);
-      throw failure;
-    }
-    if (!samePublishedTuple(this.publication.publishedTuple, request.targetTuple)) {
-      throw this.operationError(
-        'STALE_TARGET',
-        'STALE_TARGET',
-        'extractPublishedScene',
-        true,
-      );
-    }
-    const before = this.canvasHandleForSurface(surface, 'extractPublishedScene');
-    if (
-      before.cssSize[0] !== request.cssSize[0] ||
-      before.cssSize[1] !== request.cssSize[1]
-    ) {
-      throw this.operationError(
-        'INVALID_VALUE',
-        'INVALID_INPUT',
-        'extractPublishedScene',
-        true,
-      );
-    }
-
-    this.pendingWork += 1;
-    try {
-      const dataUrl = await surface.captureBase64();
-      if (this.surface !== surface || this.isDestroyingOrDestroyed()) {
-        throw this.operationError(
-          'DESTROYED',
-          'DESTROYED',
-          'extractPublishedScene',
-          false,
-        );
-      }
-      if (!samePublishedTuple(this.publication.publishedTuple, request.targetTuple)) {
-        throw this.operationError(
-          'SUPERSEDED',
-          'SUPERSEDED',
-          'extractPublishedScene',
-          true,
-        );
-      }
-      const after = this.canvasHandleForSurface(surface, 'extractPublishedScene');
-      if (before.element !== after.element) {
-        throw this.operationError(
-          'RENDERER_LOST',
-          'RENDERER_LOST',
-          'extractPublishedScene',
-          true,
-        );
-      }
-      if (!dataUrl.startsWith('data:image/png;base64,')) {
-        throw this.operationError(
-          'EXTRACTION_READBACK_FAILED',
-          'EXTRACTION_FAILURE',
-          'extractPublishedScene',
-          true,
-        );
-      }
-      return Object.freeze({
-        capturedTuple: Object.freeze({ ...request.targetTuple }),
-        cssSize: after.cssSize,
-        backingSize: after.backingSize,
-        mime: 'image/png',
-        dataUrl,
-        canvasIdentity: after.identity,
-        authoritativeCanvasRetained: true,
-        temporaryImageCount: 0,
-        renderTextureCount: 0,
-      });
-    } catch (error) {
-      const rendererLoss = surface.rendererLossProbe?.() ?? null;
-      const failure = error instanceof PatchMapError
-        ? error
-        : rendererLoss?.contextLost === true || rendererLoss?.state === 'lost'
-          ? this.operationError(
-              'RENDERER_LOST',
-              'RENDERER_LOST',
-              'extractPublishedScene',
-              true,
-            )
-        : this.operationError(
-            extractionFailureCode(error),
-            'EXTRACTION_FAILURE',
-            'extractPublishedScene',
-            true,
-          );
-      if (!this.isDestroyingOrDestroyed()) {
-        this.emit('diagnostic', failure.diagnostic);
-      }
-      throw failure;
-    } finally {
-      this.pendingWork -= 1;
-    }
+    return this.captureExtraction.extractPublishedScene(request);
   }
 
   public historyState(): PatchMapHistoryState {
@@ -4386,9 +4186,7 @@ export class PatchMap {
   }
 
   private async performDestroy(): Promise<boolean> {
-    this.mountResizeCleanup?.();
-    this.mountResizeCleanup = null;
-    this.deferredMountResize = null;
+    this.captureExtraction.destroy();
     this.managedFrameLoop.destroy();
     this.transformerSessions.cancelActive('destroy', false);
     this.lifecycle = 'destroying';
@@ -5114,29 +4912,6 @@ function targetAliasesMatch(
     values.has(target.id) ||
     values.has(target.selectionId) ||
     (target.ownerId !== null && values.has(target.ownerId));
-}
-
-function extractionFailureCode(
-  error: unknown,
-): 'EXTRACTION_TAINTED' | 'EXTRACTION_READBACK_FAILED' {
-  if (
-    error instanceof DOMException
-    && (error.name === 'SecurityError' || error.name === 'InvalidStateError')
-  ) {
-    return error.name === 'SecurityError'
-      ? 'EXTRACTION_TAINTED'
-      : 'EXTRACTION_READBACK_FAILED';
-  }
-  return 'EXTRACTION_READBACK_FAILED';
-}
-
-function samePublishedTuple(
-  left: PatchMapPublishedTuple,
-  right: PatchMapPublishedTuple,
-): boolean {
-  return left.scene === right.scene &&
-    left.view === right.view &&
-    left.interaction === right.interaction;
 }
 
 function countPatchMapRelationLinks(
