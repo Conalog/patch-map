@@ -234,15 +234,10 @@ frame loop, persistence, or teardown path.
 ## Development
 
 Use Node.js 22 (`.nvmrc`; package minimum is 20) and install the locked dependencies with `npm ci`.
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for the risk-based verification gates.
 
 ```sh
 npm run typecheck
 npm run lint
 npm run unit
 npm run build
-npm run verify:contract
 ```
-
-Version `0.10.0` is retained on this branch. The release version is bumped
-after merge.

@@ -209,16 +209,11 @@ teardown 경로를 바꾸기 전에 [마이그레이션 가이드](./docs/patch-
 
 ## 개발 검증
 
-Node.js 22(`.nvmrc`, 패키지 최소 20)에서 `npm ci`로 잠긴 의존성을 설치합니다. 변경 위험별
-검증 범위는 [CONTRIBUTING.md](./CONTRIBUTING.md)를 참고하세요.
+Node.js 22(`.nvmrc`, 패키지 최소 20)에서 `npm ci`로 잠긴 의존성을 설치합니다.
 
 ```sh
 npm run typecheck
 npm run lint
 npm run unit
 npm run build
-npm run verify:contract
 ```
-
-이 브랜치에서는 버전을 `0.10.0`으로 유지합니다. 배포 버전은 merge 후
-올립니다.
