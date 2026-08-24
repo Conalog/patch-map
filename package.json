@@ -1,6 +1,6 @@
 {
   "name": "@conalog/patch-map",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "PATCH MAP renderer powered by PixiJS",
   "license": "MIT",
   "author": "Conalog",
