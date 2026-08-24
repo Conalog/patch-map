@@ -11,7 +11,6 @@ import {
 } from '../paint-order-product';
 import { patchMapEntityWorldAabb } from '../semantic/entity-hit-index';
 import { freezePatchMapBounds } from '../semantic/geometry';
-import type { PatchMapPixiRenderer } from '../renderers/pixi-renderer';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapRenderLaneSnapshot,
@@ -37,6 +36,7 @@ import type {
 import {
   patchMapComponentProbeTargetKey,
 } from './component-target-key';
+import type { PatchMapRuntimeRendererPort } from './runtime-renderer-port';
 export {
   patchMapComponentProbeTargetKey,
   patchMapComponentTargetKey,
@@ -160,7 +160,7 @@ export function createPatchMapComponentVisualProductProbe(
   semanticProjection: PatchMapProjectionIndex | null,
   visibleProjection: PatchMapProjectionIndex | null,
   scene: PatchMapScene,
-  renderer: PatchMapPixiRenderer,
+  renderer: PatchMapRuntimeRendererPort,
   sceneImages: PatchMapSceneImageController,
   rendererFactsPublished: boolean,
 ): PatchMapComponentVisualProductProbe | null {
@@ -257,7 +257,7 @@ export function createPatchMapBarPresentationProductProbe(
 
 export function createPatchMapRuntimePaintOrderProbe(
   scene: PatchMapScene,
-  renderer: PatchMapPixiRenderer,
+  renderer: PatchMapRuntimeRendererPort,
   visibleProjection: PatchMapProjectionIndex | null,
   renderedSceneRevision: number | null,
 ): PatchMapPaintOrderProductProbe {
@@ -277,7 +277,7 @@ export function createPatchMapTextProductProbe(
   semanticProjection: PatchMapProjectionIndex | null,
   visibleProjection: PatchMapProjectionIndex | null,
   scene: PatchMapScene,
-  renderer: PatchMapPixiRenderer,
+  renderer: PatchMapRuntimeRendererPort,
   rendererFactsPublished: boolean,
   renderedSceneRevision: number | null,
 ): PatchMapTextProductProbe | null {

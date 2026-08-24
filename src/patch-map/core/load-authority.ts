@@ -9,10 +9,6 @@ import type {
   PatchMapSceneImageIntrinsicSize,
   PatchMapSceneImageReconcilePlan,
 } from '../scene-images';
-import {
-  PatchMapPixiRenderer,
-  type PatchMapPixiRendererPublicationCheckpoint,
-} from '../renderers/pixi-renderer';
 import type { PatchMapRendererEntityPresentationOverride } from '../renderers/presentation-store';
 import type { PatchMapPresentationLayerAuthority } from '../presentation-layers';
 import type {
@@ -30,6 +26,10 @@ import type {
   PatchMapPublishedSceneState,
 } from './published-scene-state';
 import { PatchMapSpatialHitAuthority } from './spatial-hit-authority';
+import type {
+  PatchMapRuntimeRendererPort,
+  PatchMapRuntimeRendererPublicationCheckpoint,
+} from './runtime-renderer-port';
 
 export interface PatchMapLoadRuntimeState {
   readonly barPresentation: PatchMapBarPresentationLoadState;
@@ -48,8 +48,8 @@ export interface PatchMapCurrentLoadRuntimeState {
 
 export type PatchMapLoadRendererCheckpoint =
   | Readonly<{
-      readonly kind: 'pixi';
-      readonly state: PatchMapPixiRendererPublicationCheckpoint;
+      readonly kind: 'exact';
+      readonly state: PatchMapRuntimeRendererPublicationCheckpoint;
     }>
   | Readonly<{
       readonly kind: 'compatibility';
@@ -107,7 +107,7 @@ export class PatchMapLoadAuthority {
     private readonly publishedScene: PatchMapPublishedSceneAuthority,
     private readonly barPresentation: PatchMapBarPresentationAuthority,
     private readonly sceneImages: PatchMapSceneImageController,
-    private readonly renderer: PatchMapPixiRenderer,
+    private readonly renderer: PatchMapRuntimeRendererPort,
     private readonly presentationLayers: PatchMapPresentationLayerAuthority,
     private readonly port: PatchMapLoadPublicationPort,
   ) {}
@@ -309,8 +309,10 @@ export class PatchMapLoadAuthority {
   private restoreRendererCheckpoint(
     checkpoint: PatchMapLoadRendererCheckpoint,
   ): boolean {
-    if (checkpoint.kind === 'pixi') {
-      this.renderer.restorePublicationCheckpoint(checkpoint.state);
+    if (checkpoint.kind === 'exact') {
+      const capability = this.renderer.publicationCheckpoint;
+      if (capability === undefined) return false;
+      capability.restore(checkpoint.state);
       return true;
     }
     if (checkpoint.presentation === null) return false;
@@ -330,10 +332,7 @@ export class PatchMapLoadAuthority {
   private setRendererInstancePresentationOverrides(
     overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
   ): void {
-    const renderer = this.renderer as PatchMapPixiRenderer & Readonly<{
-      setInstancePresentationOverrides?: PatchMapPixiRenderer['setInstancePresentationOverrides'];
-    }>;
-    renderer.setInstancePresentationOverrides?.(overrides);
+    this.renderer.setInstancePresentationOverrides?.(overrides);
   }
 
   private prepareRuntimeState(
@@ -365,10 +364,11 @@ export class PatchMapLoadAuthority {
     published: PatchMapPublishedSceneState,
     runtime: PatchMapLoadRuntimeState,
   ): PatchMapLoadRendererCheckpoint {
-    if (this.renderer instanceof PatchMapPixiRenderer) {
+    const capability = this.renderer.publicationCheckpoint;
+    if (capability !== undefined) {
       return Object.freeze({
-        kind: 'pixi',
-        state: this.renderer.capturePublicationCheckpoint(),
+        kind: 'exact',
+        state: capability.capture(),
       });
     }
     const presentation = runtime.barPresentation.projectionStore.presentation ??

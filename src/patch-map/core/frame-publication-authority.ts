@@ -5,7 +5,6 @@ import type {
 } from '../dense/contracts';
 import type { PatchMapProjectionIndex } from '../contracts';
 import type { PatchMapPresentationSlotVisibility } from '../presentation';
-import type { PatchMapPixiRenderer } from '../renderers/pixi-renderer';
 import {
   InvalidationScheduler,
   PatchMapAdaptiveFrameBudget,
@@ -25,6 +24,7 @@ import type {
 } from './bar-presentation-authority';
 import type { PatchMapSpatialHitAuthority } from './spatial-hit-authority';
 import { mergeSlotRanges } from './slot-ranges';
+import type { PatchMapRuntimeRendererPort } from './runtime-renderer-port';
 
 interface PatchMapFramePublicationPort {
   readonly assertAlive: () => void;
@@ -65,7 +65,7 @@ export class PatchMapFramePublicationAuthority implements PatchMapFrameLoopTarge
   private barVisibilityRevision = -1;
 
   public constructor(
-    private readonly renderer: PatchMapPixiRenderer,
+    private readonly renderer: PatchMapRuntimeRendererPort,
     private readonly barPresentation: PatchMapBarPresentationAuthority,
     private readonly port: PatchMapFramePublicationPort,
     private readonly options: PatchMapFramePublicationOptions,
@@ -447,13 +447,7 @@ export class PatchMapFramePublicationAuthority implements PatchMapFrameLoopTarge
     revision: number;
     visibility: PatchMapPresentationSlotVisibility | null;
   }> {
-    const renderer = this.renderer as PatchMapPixiRenderer & Partial<{
-      prepareBarPresentationVisibility: (view: CoreView) => Readonly<{
-        revision: number;
-        visibility: PatchMapPresentationSlotVisibility | null;
-      }>;
-    }>;
-    return renderer.prepareBarPresentationVisibility?.(view) ?? {
+    return this.renderer.prepareBarPresentationVisibility?.(view) ?? {
       revision: 0,
       visibility: null,
     };

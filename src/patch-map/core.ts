@@ -48,6 +48,7 @@ import {
 import {
   PatchMapPixiRenderer,
   type PatchMapPixiInitializationMetrics,
+  type PatchMapPixiRendererPublicationCheckpoint,
 } from './renderers/pixi-renderer';
 import type { PatchMapInteractionOverlayPolicy } from './renderers/types';
 import type { PatchMapSemanticTarget } from './semantic/probe';
@@ -137,6 +138,10 @@ import {
   preparePatchMapTransientDirtyRanges,
 } from './core/transient-projection-planning';
 import { PatchMapFramePublicationAuthority } from './core/frame-publication-authority';
+import type {
+  PatchMapRuntimeRendererPort,
+  PatchMapRuntimeRendererPublicationCheckpoint,
+} from './core/runtime-renderer-port';
 import { contiguousSlotRanges } from './core/slot-ranges';
 import {
   applyPatchMapInstanceBarHeightStorageUpdates,
@@ -169,6 +174,7 @@ export class PatchMapRuntime {
   public readonly renderer: PatchMapPixiRenderer;
   public readonly initializationMetrics: PatchMapPixiInitializationMetrics;
 
+  private readonly runtimeRenderer: PatchMapRuntimeRendererPort;
   private readonly publishedScene: PatchMapPublishedSceneAuthority;
   private readonly sceneOptions: CoreSceneOptions;
   private readonly framePublication: PatchMapFramePublicationAuthority;
@@ -196,6 +202,7 @@ export class PatchMapRuntime {
 
   private constructor(renderer: PatchMapPixiRenderer, options: PatchMapRuntimeOptions) {
     this.renderer = renderer;
+    this.runtimeRenderer = createPatchMapRuntimeRendererPort(renderer);
     this.initializationMetrics = renderer.initializationMetrics;
     this.parseOptions = options.parse ?? {};
     const autoRender = options.autoRender ?? true;
@@ -220,7 +227,7 @@ export class PatchMapRuntime {
       entityCount: 0,
     });
     this.framePublication = new PatchMapFramePublicationAuthority(
-      renderer,
+      this.runtimeRenderer,
       this.barPresentation,
       {
         assertAlive: () => this.assertAlive(),
@@ -253,7 +260,7 @@ export class PatchMapRuntime {
       this.publishedScene,
       this.barPresentation,
       this.sceneImages,
-      this.renderer,
+      this.runtimeRenderer,
       this.presentationLayers,
       {
         installRuntimeFields: (state) => {
@@ -315,7 +322,7 @@ export class PatchMapRuntime {
       this.barPresentation,
       this.presentationLayers,
       this.sceneImages,
-      this.renderer,
+      this.runtimeRenderer,
       this.framePublication,
       this.parseOptions,
       this.stableRecordStrategy,
@@ -898,7 +905,7 @@ export class PatchMapRuntime {
       this.projectionValue,
       this.barPresentation.visibleProjection,
       this.scene,
-      this.renderer,
+      this.runtimeRenderer,
       this.sceneImages,
       this.framePublication.componentRendererFactsPublished,
     );
@@ -921,7 +928,7 @@ export class PatchMapRuntime {
     this.assertAlive();
     return createPatchMapRuntimePaintOrderProbe(
       this.scene,
-      this.renderer,
+      this.runtimeRenderer,
       this.barPresentation.visibleProjection,
       this.framePublication.renderedSceneRevision,
     );
@@ -936,7 +943,7 @@ export class PatchMapRuntime {
       this.projectionValue,
       this.barPresentation.visibleProjection,
       this.scene,
-      this.renderer,
+      this.runtimeRenderer,
       this.framePublication.textRendererFactsPublished,
       this.framePublication.renderedSceneRevision,
     );
@@ -1967,6 +1974,70 @@ function activeSceneImageIds(
     }
   }
   return active;
+}
+
+function createPatchMapRuntimeRendererPort(
+  renderer: PatchMapPixiRenderer,
+): PatchMapRuntimeRendererPort {
+  const publicationCheckpoint = renderer instanceof PatchMapPixiRenderer
+    ? Object.freeze({
+        capture: (): PatchMapRuntimeRendererPublicationCheckpoint => Object.freeze({
+          opaqueState: renderer.capturePublicationCheckpoint(),
+        }),
+        restore: (checkpoint: PatchMapRuntimeRendererPublicationCheckpoint): void => {
+          renderer.restorePublicationCheckpoint(
+            checkpoint.opaqueState as PatchMapPixiRendererPublicationCheckpoint,
+          );
+        },
+      })
+    : undefined;
+  const instancePresentationRenderer = renderer as PatchMapPixiRenderer & Readonly<{
+    setInstancePresentationOverrides?: PatchMapPixiRenderer['setInstancePresentationOverrides'];
+  }>;
+  const barVisibilityRenderer = renderer as PatchMapPixiRenderer & Readonly<{
+    prepareBarPresentationVisibility?: PatchMapPixiRenderer['prepareBarPresentationVisibility'];
+  }>;
+  const port: PatchMapRuntimeRendererPort = {
+    strategy: renderer.strategy,
+    ...(publicationCheckpoint === undefined ? {} : { publicationCheckpoint }),
+    markChanges: (ranges, reason, options) => {
+      renderer.markChanges(ranges, reason, options);
+    },
+    setProjection: (projection, changedRanges, staleEntityIds, updateKind, sourceStore) =>
+      renderer.setProjection(
+        projection,
+        changedRanges,
+        staleEntityIds,
+        updateKind,
+        sourceStore,
+      ),
+    setPresentationLayerMultipliers: (update) =>
+      renderer.setPresentationLayerMultipliers(update),
+    ...(instancePresentationRenderer.setInstancePresentationOverrides === undefined
+      ? {}
+      : {
+          setInstancePresentationOverrides: (overrides, changedRanges) =>
+            instancePresentationRenderer.setInstancePresentationOverrides!(
+              overrides,
+              changedRanges,
+            ),
+        }),
+    setAggregateCullPrecision: (precise) => renderer.setAggregateCullPrecision(precise),
+    ...(barVisibilityRenderer.prepareBarPresentationVisibility === undefined
+      ? {}
+      : {
+          prepareBarPresentationVisibility: (view) =>
+            barVisibilityRenderer.prepareBarPresentationVisibility!(view),
+        }),
+    synchronizeNextFlush: () => renderer.synchronizeNextFlush(),
+    prepareGpu: () => renderer.prepareGpu(),
+    textRendererProbe: (entityId) => renderer.textRendererProbe(entityId),
+    renderLaneProbe: () => renderer.renderLaneProbe(),
+    entityPaintProbe: (entityId) => renderer.entityPaintProbe(entityId),
+    overlayPaintProbe: () => renderer.overlayPaintProbe(),
+    debugSnapshot: () => renderer.debugSnapshot(),
+  };
+  return Object.freeze(port);
 }
 
 function now(): number {

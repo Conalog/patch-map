@@ -44,37 +44,43 @@ describe('PatchMap architecture import graph', () => {
     expect(cycles).toEqual([]);
   });
 
-  it('keeps Engine support modules independent from the concrete Pixi adapter', async () => {
-    const files = await typescriptFiles(SOURCE_ROOT);
-    const knownFiles = new Set(files);
-    const violations: string[] = [];
+  it.each([
+    ['Engine', 'engine/'],
+    ['Core', 'core/'],
+  ] as const)(
+    'keeps %s support modules independent from the concrete Pixi adapter',
+    async (_owner, sourcePrefix) => {
+      const files = await typescriptFiles(SOURCE_ROOT);
+      const knownFiles = new Set(files);
+      const violations: string[] = [];
 
-    await Promise.all(files.map(async (file) => {
-      const source = await readFile(file, 'utf8');
-      const parsed = ts.createSourceFile(
-        file,
-        source,
-        ts.ScriptTarget.Latest,
-        true,
-        ts.ScriptKind.TS,
-      );
-      const sourcePath = relative(SOURCE_ROOT, file);
-      if (!sourcePath.startsWith('engine/')) return;
-      for (const specifier of moduleSpecifiers(parsed)) {
-        const target = resolveLocalModule(file, specifier, knownFiles);
-        if (target === null) continue;
-        const targetPath = relative(SOURCE_ROOT, target);
-        if (
-          targetPath === 'renderers/pixi-renderer.ts' ||
-          targetPath.startsWith('renderers/pixi-renderer/')
-        ) {
-          violations.push(`${sourcePath} -> ${targetPath}`);
+      await Promise.all(files.map(async (file) => {
+        const source = await readFile(file, 'utf8');
+        const parsed = ts.createSourceFile(
+          file,
+          source,
+          ts.ScriptTarget.Latest,
+          true,
+          ts.ScriptKind.TS,
+        );
+        const sourcePath = relative(SOURCE_ROOT, file);
+        if (!sourcePath.startsWith(sourcePrefix)) return;
+        for (const specifier of moduleSpecifiers(parsed)) {
+          const target = resolveLocalModule(file, specifier, knownFiles);
+          if (target === null) continue;
+          const targetPath = relative(SOURCE_ROOT, target);
+          if (
+            targetPath === 'renderers/pixi-renderer.ts' ||
+            targetPath.startsWith('renderers/pixi-renderer/')
+          ) {
+            violations.push(`${sourcePath} -> ${targetPath}`);
+          }
         }
-      }
-    }));
+      }));
 
-    expect(violations.sort()).toEqual([]);
-  });
+      expect(violations.sort()).toEqual([]);
+    },
+  );
 });
 
 async function typescriptFiles(directory: string): Promise<string[]> {

@@ -1,6 +1,5 @@
 import type { CommitResult, TransactionBatch } from '../dense/contracts';
 import type { ParsePatchMapOptions } from '../contracts';
-import type { PatchMapPixiRenderer } from '../renderers/pixi-renderer';
 import type { PatchMapRendererEntityPresentationOverride } from '../renderers/presentation-store';
 import type { PatchMapSceneImageController } from '../scene-images';
 import {
@@ -32,6 +31,7 @@ import type { PatchMapFramePublicationAuthority } from './frame-publication-auth
 import type { PatchMapStableRecordStrategy } from '../semantic/stable-record-overlay';
 import type { PatchMapPresentationLayerAuthority } from '../presentation-layers';
 import type { PatchMapReconcileOptions, PatchMapReconcileResult } from './contracts';
+import type { PatchMapRuntimeRendererPort } from './runtime-renderer-port';
 
 type PatchMapReconcileRendererDomain = 'bar-only' | 'text-only' | undefined;
 
@@ -74,7 +74,7 @@ export class PatchMapReconcilePublicationCoordinator {
     private readonly barPresentation: PatchMapBarPresentationAuthority,
     private readonly presentationLayers: PatchMapPresentationLayerAuthority,
     private readonly sceneImages: PatchMapSceneImageController,
-    private readonly renderer: PatchMapPixiRenderer,
+    private readonly renderer: PatchMapRuntimeRendererPort,
     private readonly framePublication: PatchMapFramePublicationAuthority,
     private readonly parseOptions: ParsePatchMapOptions,
     private readonly stableRecordStrategy: PatchMapStableRecordStrategy,
