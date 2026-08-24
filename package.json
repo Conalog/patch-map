@@ -30,7 +30,6 @@
     "docs/patch-map",
     "examples/patch-map",
     "LICENSE",
-    "README.md",
     "README_KR.md"
   ],
   "sideEffects": false,

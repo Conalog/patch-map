@@ -24,6 +24,9 @@ const PUBLIC_EXAMPLES = Object.freeze(
 );
 
 const RESTRICTED_PACKAGE_PATHS = Object.freeze([
+  /^docs\/README\.md$/u,
+  /^docs\/maintainers\//u,
+  /^docs\/designs\//u,
   /^docs\/reference\//u,
   /^docs\/tasks\//u,
   /^performance\//u,

@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -35,6 +36,14 @@ const fold = foldModule as unknown as PackageFoldRuntime;
 const packedProvenance = packageConsumerEvidence.provenance;
 
 describe('PatchMap packed integration automation substrate', () => {
+  it('pins the exact upstream Fira Code 6.2 license', async () => {
+    const license = await readFile(
+      new URL('../../docs/patch-map/FIRA-CODE-LICENSE.txt', import.meta.url),
+    );
+    expect(createHash('sha256').update(license).digest('hex'))
+      .toBe('1d41e10031ab125302780a05ec4c91d218e47db0c7e37cf315cce5e608cdc25c');
+  });
+
   it('keeps package verifier owned modules loadable and explicitly composed', async () => {
     const urls = [
       new URL('../../scripts/verification/patch-map-package.mjs', import.meta.url),

@@ -29,8 +29,9 @@ source out of the root entry while avoiding a consumer-specific binary URL or
 
 The sources are the unmodified WOFF2 files from the
 [official Fira Code 6.2 release](https://github.com/tonsky/FiraCode/releases/tag/6.2).
-Their license is packaged in
-[`FIRA-CODE-LICENSE.txt`](./FIRA-CODE-LICENSE.txt).
+Their license is the exact `LICENSE` file from upstream tag `6.2`, packaged as
+[`FIRA-CODE-LICENSE.txt`](./FIRA-CODE-LICENSE.txt), with SHA-256
+`1d41e10031ab125302780a05ec4c91d218e47db0c7e37cf315cce5e608cdc25c`.
 
 PATCH MAP v0.10's `FiraCode` and `Fira Code` spellings are mapped internally
 to the quote-stable browser family `FiraCode`; caller JSON remains detached and unchanged. Numeric 300,
