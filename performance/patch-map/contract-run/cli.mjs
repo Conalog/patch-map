@@ -92,7 +92,6 @@ function resolveFreshOutputDirectory(root, value) {
 const PROTECTED_EVIDENCE_ROOTS = Object.freeze([
   'performance/patch-map/results',
   'docs/reference/core-v2-functional-contract',
-  'docs/tasks/2026/07-16/core-v2-functional-spec',
 ]);
 
 function parseSize(value) {

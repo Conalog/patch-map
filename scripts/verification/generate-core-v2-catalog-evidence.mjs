@@ -21,7 +21,6 @@ const outputRoot = resolvePatchMapCandidateOutputPath({
   label: 'generated contract catalog output',
   prohibitedRoots: [
     'docs/reference/core-v2-functional-contract',
-    'docs/tasks/2026/07-16/core-v2-functional-spec',
     'performance/patch-map/results',
   ],
 });

@@ -101,7 +101,6 @@ describe('PatchMap candidate output boundaries', () => {
       'performance/patch-map/results',
       'performance/patch-map/results/nested',
       'docs/reference/core-v2-functional-contract/evidence',
-      'docs/tasks/2026/07-16/core-v2-functional-spec/evidence',
     ]) {
       expect(() => parse(output)).toThrow('protected evidence');
     }
