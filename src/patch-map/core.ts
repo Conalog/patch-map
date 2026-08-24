@@ -97,7 +97,6 @@ import {
   type PatchMapIndexedComponentTarget as IndexedComponentTarget,
   type PatchMapIndexedTextTarget as IndexedTextTarget,
   type PatchMapPublishedSceneCandidate,
-  type PatchMapPublishedScenePrevious,
   type PatchMapPublishedSceneState,
   type PatchMapPublishedSceneStateUpdate,
 } from './core/published-scene-state';
@@ -117,11 +116,7 @@ import {
 import { PatchMapRootInteractionAuthority } from './core/root-interaction-authority';
 import { PatchMapBarPresentationAuthority } from './core/bar-presentation-authority';
 import { PatchMapRendererLease } from './core/renderer-lease';
-import {
-  PatchMapLoadAuthority,
-  type PatchMapLoadRendererCheckpoint,
-  type PatchMapLoadRuntimeState,
-} from './core/load-authority';
+import { PatchMapLoadAuthority } from './core/load-authority';
 import {
   resolvePresentationFillOverrides,
   semanticPresentationFillDenseIds,
@@ -271,6 +266,33 @@ export class PatchMapRuntime {
       this.barPresentation,
       this.sceneImages,
       this.renderer,
+      this.presentationLayers,
+      {
+        installRuntimeFields: (state) => {
+          this.spatialHit = state.spatialHit;
+          this.currentView = state.currentView;
+          this.pendingIntrinsicImageSizes = state.pendingIntrinsicImageSizes;
+          this.framePublication.installAutomaticAnimationFramesActive(
+            state.automaticAnimationFramesActive,
+          );
+        },
+        applyPresentationPolicyToRenderer: () => {
+          this.applyPresentationPolicyToRenderer();
+        },
+        clearInstancePresentationState: () => {
+          this.instancePresentations.clear();
+          this.instancePresentationOverrides.clear();
+        },
+        markTerminalLoadFailure: (cause) => {
+          this.markTerminalLoadFailure(cause);
+        },
+        resetAdaptiveFrameBudget: () => {
+          this.framePublication.resetAdaptiveBudget();
+        },
+        invalidateLoadFrame: () => {
+          this.framePublication.invalidate('load');
+        },
+      },
     );
     this.rootInteraction = new PatchMapRootInteractionAuthority(
       renderer,
@@ -516,11 +538,12 @@ export class PatchMapRuntime {
     parse: ParsePatchMapResult,
     store: LoadResult,
   ): void {
-    const prepared = this.loadAuthority.preparePublication({
+    this.loadAuthority.publish({
       candidate,
       sourceProjection: parse.projection,
       view: parse.document.view,
       activeImageEntityIds: activeSceneImageIds(candidate.state),
+      changedRanges: store.changedRanges,
       currentRuntime: {
         spatialHit: this.spatialHit,
         currentView: this.currentView,
@@ -528,142 +551,6 @@ export class PatchMapRuntime {
         automaticAnimationFramesActive: this.framePublication.automaticAnimationFramesActive,
       },
     });
-    const {
-      previousRuntime,
-      nextRuntime,
-      imagePlan,
-      rendererCheckpoint,
-    } = prepared;
-    const presentationLayersCheckpoint = this.presentationLayers.capture();
-    let previousPublished: PatchMapPublishedScenePrevious;
-    try {
-      previousPublished = this.publishedScene.publish(candidate);
-    } catch (error) {
-      this.loadAuthority.disposeRuntimeState(nextRuntime);
-      throw error;
-    }
-
-    this.installLoadedRuntimeState(nextRuntime);
-    this.loadAuthority.beginPublicationSideEffects();
-    try {
-      const clearedPresentationLayers = this.presentationLayers.clearAll();
-      if (clearedPresentationLayers.changed) {
-        this.renderer.setPresentationLayerMultipliers(clearedPresentationLayers.render);
-      }
-      const presentation = this.barPresentation.visibleProjection;
-      if (presentation === null) {
-        throw new Error('PatchMap load candidate has no presentation projection');
-      }
-      this.setRendererInstancePresentationOverrides(new Map());
-      this.renderer.setProjection(
-        presentation,
-        undefined,
-        nextRuntime.spatialHit.staleProjectionIds,
-        undefined,
-        candidate.state.scene.renderStore,
-      );
-      this.applyPresentationPolicyToRenderer();
-      nextRuntime.spatialHit.clearSpatialAnimations();
-      nextRuntime.spatialHit.invalidate();
-      this.renderer.markChanges(store.changedRanges, 'load', { fullRebuild: true });
-    } catch (error) {
-      this.presentationLayers.restore(presentationLayersCheckpoint);
-      const restored = this.rollbackLoadedProjection(
-        previousPublished,
-        previousRuntime,
-        nextRuntime,
-        candidate.state,
-        rendererCheckpoint,
-      );
-      if (!restored) this.markTerminalLoadFailure(error);
-      throw error;
-    }
-
-    try {
-      this.sceneImages.commitReconcile(imagePlan);
-    } catch (error) {
-      this.presentationLayers.restore(presentationLayersCheckpoint);
-      this.rollbackLoadedProjection(
-        previousPublished,
-        previousRuntime,
-        nextRuntime,
-        candidate.state,
-        rendererCheckpoint,
-      );
-      // A valid prepared image plan is specified not to throw after mutation
-      // begins. If that invariant is violated, controller state is no longer
-      // provably reversible even when semantic and renderer state restore.
-      this.markTerminalLoadFailure(error);
-      throw error;
-    }
-
-    this.loadAuthority.endPublicationSideEffects();
-    this.loadAuthority.disposeRuntimeState(previousRuntime);
-    this.publishedScene.discard(previousPublished.previous);
-    this.instancePresentations.clear();
-    this.instancePresentationOverrides.clear();
-    this.framePublication.resetAdaptiveBudget();
-    this.framePublication.invalidate('load');
-  }
-
-  private installLoadedRuntimeState(state: PatchMapLoadRuntimeState): void {
-    this.barPresentation.installLoadedState(state.barPresentation);
-    this.spatialHit = state.spatialHit;
-    this.currentView = state.currentView;
-    this.pendingIntrinsicImageSizes = state.pendingIntrinsicImageSizes;
-    this.framePublication.installAutomaticAnimationFramesActive(
-      state.automaticAnimationFramesActive,
-    );
-  }
-
-  private rollbackLoadedProjection(
-    previousPublished: PatchMapPublishedScenePrevious,
-    previousRuntime: PatchMapLoadRuntimeState,
-    nextRuntime: PatchMapLoadRuntimeState,
-    failedState: PatchMapPublishedSceneState,
-    rendererCheckpoint: PatchMapLoadRendererCheckpoint,
-  ): boolean {
-    let restored = true;
-    try {
-      this.publishedScene.restore(previousPublished);
-    } catch {
-      restored = false;
-    }
-    this.installLoadedRuntimeState(previousRuntime);
-    restored = this.restoreLoadedRendererCheckpoint(rendererCheckpoint) && restored;
-    this.loadAuthority.endPublicationSideEffects();
-    try {
-      this.loadAuthority.disposeRuntimeState(nextRuntime);
-    } catch {
-      restored = false;
-    }
-    try {
-      this.publishedScene.discard(failedState);
-    } catch {
-      restored = false;
-    }
-    return restored;
-  }
-
-  private restoreLoadedRendererCheckpoint(
-    checkpoint: PatchMapLoadRendererCheckpoint,
-  ): boolean {
-    if (checkpoint.kind === 'pixi') {
-      this.renderer.restorePublicationCheckpoint(checkpoint.state);
-      return true;
-    }
-    if (checkpoint.presentation === null) return false;
-    try {
-      this.renderer.setProjection(
-        checkpoint.presentation,
-        undefined,
-        checkpoint.staleProjectionIds,
-      );
-      this.applyPresentationPolicyToRenderer();
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   private markTerminalLoadFailure(cause: unknown): void {

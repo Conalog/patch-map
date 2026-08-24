@@ -1,4 +1,4 @@
-import type { CoreView } from '../dense/contracts';
+import type { CoreView, SlotRange } from '../dense/contracts';
 import type {
   ParsePatchMapResult,
   PatchMapProjectionIndex,
@@ -13,6 +13,8 @@ import {
   PatchMapPixiRenderer,
   type PatchMapPixiRendererPublicationCheckpoint,
 } from '../renderers/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../renderers/presentation-store';
+import type { PatchMapPresentationLayerAuthority } from '../presentation-layers';
 import type {
   PatchMapBarPresentationAuthority,
   PatchMapBarPresentationLoadState,
@@ -24,6 +26,7 @@ import {
 import type {
   PatchMapPublishedSceneAuthority,
   PatchMapPublishedSceneCandidate,
+  PatchMapPublishedScenePrevious,
   PatchMapPublishedSceneState,
 } from './published-scene-state';
 import { PatchMapSpatialHitAuthority } from './spatial-hit-authority';
@@ -78,9 +81,23 @@ interface PatchMapLoadPublicationInput {
   readonly currentRuntime: PatchMapCurrentLoadRuntimeState;
 }
 
+interface PatchMapLoadCommitInput extends PatchMapLoadPublicationInput {
+  readonly changedRanges: readonly SlotRange[];
+}
+
+interface PatchMapLoadPublicationPort {
+  readonly installRuntimeFields: (state: PatchMapLoadRuntimeState) => void;
+  readonly applyPresentationPolicyToRenderer: () => void;
+  readonly clearInstancePresentationState: () => void;
+  readonly markTerminalLoadFailure: (cause: unknown) => void;
+  readonly resetAdaptiveFrameBudget: () => void;
+  readonly invalidateLoadFrame: () => void;
+}
+
 /**
- * Owns only private load candidates and reversible publication checkpoints.
- * The Core facade remains the sole writer for published and live runtime state.
+ * Owns load freshness plus the reversible publication transaction. Published
+ * scene, presentation, image, renderer, and runtime-field authorities remain
+ * the sole writers of their state and are composed here in one fixed order.
  */
 export class PatchMapLoadAuthority {
   private sequence = 0;
@@ -91,6 +108,8 @@ export class PatchMapLoadAuthority {
     private readonly barPresentation: PatchMapBarPresentationAuthority,
     private readonly sceneImages: PatchMapSceneImageController,
     private readonly renderer: PatchMapPixiRenderer,
+    private readonly presentationLayers: PatchMapPresentationLayerAuthority,
+    private readonly port: PatchMapLoadPublicationPort,
   ) {}
 
   public get publicationSideEffectsInProgress(): boolean {
@@ -160,6 +179,85 @@ export class PatchMapLoadAuthority {
     }
   }
 
+  public publish(input: PatchMapLoadCommitInput): void {
+    const prepared = this.preparePublication(input);
+    const {
+      previousRuntime,
+      nextRuntime,
+      imagePlan,
+      rendererCheckpoint,
+    } = prepared;
+    const presentationLayersCheckpoint = this.presentationLayers.capture();
+    let previousPublished: PatchMapPublishedScenePrevious;
+    try {
+      previousPublished = this.publishedScene.publish(input.candidate);
+    } catch (error) {
+      this.disposeRuntimeState(nextRuntime);
+      throw error;
+    }
+
+    this.installRuntimeState(nextRuntime);
+    this.beginPublicationSideEffects();
+    try {
+      const clearedPresentationLayers = this.presentationLayers.clearAll();
+      if (clearedPresentationLayers.changed) {
+        this.renderer.setPresentationLayerMultipliers(clearedPresentationLayers.render);
+      }
+      const presentation = this.barPresentation.visibleProjection;
+      if (presentation === null) {
+        throw new Error('PatchMap load candidate has no presentation projection');
+      }
+      this.setRendererInstancePresentationOverrides(new Map());
+      this.renderer.setProjection(
+        presentation,
+        undefined,
+        nextRuntime.spatialHit.staleProjectionIds,
+        undefined,
+        input.candidate.state.scene.renderStore,
+      );
+      this.port.applyPresentationPolicyToRenderer();
+      nextRuntime.spatialHit.clearSpatialAnimations();
+      nextRuntime.spatialHit.invalidate();
+      this.renderer.markChanges(input.changedRanges, 'load', { fullRebuild: true });
+    } catch (error) {
+      this.presentationLayers.restore(presentationLayersCheckpoint);
+      const restored = this.rollbackPublication(
+        previousPublished,
+        previousRuntime,
+        nextRuntime,
+        input.candidate.state,
+        rendererCheckpoint,
+      );
+      if (!restored) this.port.markTerminalLoadFailure(error);
+      throw error;
+    }
+
+    try {
+      this.sceneImages.commitReconcile(imagePlan);
+    } catch (error) {
+      this.presentationLayers.restore(presentationLayersCheckpoint);
+      this.rollbackPublication(
+        previousPublished,
+        previousRuntime,
+        nextRuntime,
+        input.candidate.state,
+        rendererCheckpoint,
+      );
+      // A valid prepared image plan is specified not to throw after mutation
+      // begins. If that invariant is violated, controller state is no longer
+      // provably reversible even when semantic and renderer state restore.
+      this.port.markTerminalLoadFailure(error);
+      throw error;
+    }
+
+    this.endPublicationSideEffects();
+    this.disposeRuntimeState(previousRuntime);
+    this.publishedScene.discard(previousPublished.previous);
+    this.port.clearInstancePresentationState();
+    this.port.resetAdaptiveFrameBudget();
+    this.port.invalidateLoadFrame();
+  }
+
   public beginPublicationSideEffects(): void {
     this.publicationSideEffectsInProgressValue = true;
   }
@@ -172,6 +270,70 @@ export class PatchMapLoadAuthority {
     this.barPresentation.disposeLoadedState(state.barPresentation);
     state.spatialHit.destroy();
     state.pendingIntrinsicImageSizes.clear();
+  }
+
+  private installRuntimeState(state: PatchMapLoadRuntimeState): void {
+    this.barPresentation.installLoadedState(state.barPresentation);
+    this.port.installRuntimeFields(state);
+  }
+
+  private rollbackPublication(
+    previousPublished: PatchMapPublishedScenePrevious,
+    previousRuntime: PatchMapLoadRuntimeState,
+    nextRuntime: PatchMapLoadRuntimeState,
+    failedState: PatchMapPublishedSceneState,
+    rendererCheckpoint: PatchMapLoadRendererCheckpoint,
+  ): boolean {
+    let restored = true;
+    try {
+      this.publishedScene.restore(previousPublished);
+    } catch {
+      restored = false;
+    }
+    this.installRuntimeState(previousRuntime);
+    restored = this.restoreRendererCheckpoint(rendererCheckpoint) && restored;
+    this.endPublicationSideEffects();
+    try {
+      this.disposeRuntimeState(nextRuntime);
+    } catch {
+      restored = false;
+    }
+    try {
+      this.publishedScene.discard(failedState);
+    } catch {
+      restored = false;
+    }
+    return restored;
+  }
+
+  private restoreRendererCheckpoint(
+    checkpoint: PatchMapLoadRendererCheckpoint,
+  ): boolean {
+    if (checkpoint.kind === 'pixi') {
+      this.renderer.restorePublicationCheckpoint(checkpoint.state);
+      return true;
+    }
+    if (checkpoint.presentation === null) return false;
+    try {
+      this.renderer.setProjection(
+        checkpoint.presentation,
+        undefined,
+        checkpoint.staleProjectionIds,
+      );
+      this.port.applyPresentationPolicyToRenderer();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private setRendererInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  ): void {
+    const renderer = this.renderer as PatchMapPixiRenderer & Readonly<{
+      setInstancePresentationOverrides?: PatchMapPixiRenderer['setInstancePresentationOverrides'];
+    }>;
+    renderer.setInstancePresentationOverrides?.(overrides);
   }
 
   private prepareRuntimeState(

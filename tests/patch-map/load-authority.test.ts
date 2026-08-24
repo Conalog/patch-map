@@ -16,6 +16,7 @@ import {
   type PatchMapPublishedSceneState,
 } from '../../src/patch-map/core/published-scene-state';
 import { PatchMapSpatialHitAuthority } from '../../src/patch-map/core/spatial-hit-authority';
+import { PatchMapPresentationLayerAuthority } from '../../src/patch-map/presentation-layers';
 
 describe('PatchMap load authority', () => {
   it('owns cooperative freshness and the balanced publication-side-effect guard', async () => {
@@ -107,6 +108,15 @@ function authorityFixture(): Readonly<{
     barPresentation,
     sceneImages,
     {} as PatchMapPixiRenderer,
+    new PatchMapPresentationLayerAuthority(),
+    {
+      installRuntimeFields: () => undefined,
+      applyPresentationPolicyToRenderer: () => undefined,
+      clearInstancePresentationState: () => undefined,
+      markTerminalLoadFailure: () => undefined,
+      resetAdaptiveFrameBudget: () => undefined,
+      invalidateLoadFrame: () => undefined,
+    },
   );
   return {
     authority,
