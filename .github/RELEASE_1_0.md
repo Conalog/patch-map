@@ -2,8 +2,7 @@
 
 ## Bootstrap behavior
 
-`Release 1.0 CI` runs for pull requests targeting `release/1.0` and pushes to
-that branch. Bootstrap includes a minimal matching `package.json` and
+`Release 1.0 CI` runs for pull requests targeting `release/1.0`. Bootstrap includes a minimal matching `package.json` and
 `package-lock.json` without product scripts. The `Core`, `Package`, and
 `Browser` checks validate the bootstrap metadata without running product
 commands, and the aggregate `CI` check succeeds.
@@ -19,7 +18,9 @@ checks require all of these release gates:
 
 Configure the `release/1.0` branch protection rule to require `CI` before
 merging. The feature branch's product code and history are not part of this
-bootstrap change; they arrive through their own pull request.
+bootstrap change; they arrive through their own pull request. After a merge,
+the release workflow is the sole owner of tagged-source validation and
+publication, so the PR CI matrix is not run a second time.
 
 ## Publication policy
 
