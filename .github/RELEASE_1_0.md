@@ -23,9 +23,25 @@ not part of this bootstrap change; they arrive through their own pull request.
 
 ## Publication policy
 
-Publication has no pull-request, branch-push, or manual-dispatch trigger. It
-can start only when one of these explicit tags is pushed and the tagged commit
-is already contained in `origin/release/1.0`:
+The release workflow follows the repository `main` release and patch-service
+patterns: a push to `release/1.0` asks Release Please to create or update a
+release pull request. Merging that release pull request makes Release Please
+create the version tag and GitHub Release. The action's `release_created` and
+`tag_name` outputs feed the validation and publication jobs in the same
+workflow run, so publication does not depend on the generated tag starting a
+second workflow.
+
+When both package files are absent, the workflow records bootstrap state and
+does not call Release Please. Introducing only one package file fails. Once the
+product pull request introduces both files, Release Please manages
+`package.json`, `package-lock.json`, `.release-please-manifest.json`, the
+changelog, the tag, and the GitHub Release. Pull-request events never run this
+workflow and therefore never publish.
+
+The manifest value `1.0.0-alpha.0` is a Release Please baseline only; it is not
+an npm release or a tag. With the prerelease strategy set to `alpha`, the first
+release pull request proposes `1.0.0-alpha.1`. Supported releases map to npm
+channels as follows:
 
 | Package version and matching Git tag | npm dist-tag |
 | --- | --- |
@@ -44,6 +60,21 @@ bytes fails. The workflow also refuses to move `next` or `latest` backward. All
 release gates run again from the tagged source before the protected publish job
 can start.
 
+A protected manual dispatch with an existing matching tag is the recovery path
+for a release that was created while npm publication was disabled. It applies
+the same ancestry, version, gate, artifact, and registry checks. Dispatch
+`publish-npm.yaml` from the `release/1.0` ref and supply the existing tag in the
+`tag` input.
+
+During the alpha line, Release Please increments `alpha.N` automatically. Start
+the beta and rc phases through reviewed phase-transition commits containing
+`Release-As: 1.0.0-beta.1` and `Release-As: 1.0.0-rc.1`, respectively; later
+commits increment the active suffix. Before stable promotion, merge a reviewed
+release-configuration change that sets `prerelease` to `false` and carries
+`Release-As: 1.0.0`. This produces the exact stable version and marks the GitHub
+Release as stable. Do not edit package versions or create release tags manually
+during the normal flow.
+
 Publication additionally requires repository variables. A missing variable
 is equivalent to disabled:
 
@@ -61,20 +92,38 @@ a later 0.x publication cannot move `latest` back from 1.0.0. A dedicated
 legacy dist-tag or a registry monotonicity guard on `main` are both valid; that
 coordination is required for stable promotion and is outside this bootstrap PR.
 
-Before creating a tag, merge the intended version-only release change into
-`release/1.0`, wait for `Release 1.0 validation`, verify the commit and package
-version locally, enable only the applicable channel variable, create the tag
-on that exact commit, and push that single tag. Creating versions or tags is
-outside the CI-bootstrap change itself.
+Before merging a Release Please pull request, wait for `Release 1.0 validation`,
+verify the proposed version and changelog, and enable only the applicable npm
+channel variable. The merge triggers the release workflow, which creates the
+tag and validates the tagged source before any protected publication can start.
+
+The workflow follows `main` by preferring `RELEASE_PLEASE_TOKEN` and otherwise
+using `github.token`. The repository already permits Actions to create pull
+requests, but currently has no secret with that name. With the fallback token,
+Release Please PR events create approval-required workflow runs; a maintainer
+with write access must select **Approve workflows to run** before merging. For
+unattended checks, store a narrowly scoped PAT with contents, pull-request, and
+issues write access as `RELEASE_PLEASE_TOKEN`. A GitHub App installation token
+must instead be minted during the workflow from an app ID and private key; do
+not store an expiring installation token as this long-lived secret.
 
 ## Required GitHub and npm configuration
 
 Use the existing GitHub environment named `npm`. Keep its `main` deployment
-branch rule for the maintained 0.10 release line, and narrow its current `v*`
-deployment-tag rule to `v1.0.0*` for this workflow. Require a reviewer, prevent
-self-review, and disallow administrator bypass where the repository plan
-permits. These protection changes affect the shared 0.10 release environment,
-so coordinate them with that line before the first 1.0 prerelease.
+branch rule for the maintained 0.10 release line and add `release/1.0` for the
+automatic and documented manual publication paths. If tag-ref dispatches remain
+allowed, replace the current broad `v*` policy with `v1.0.0*`. Require a
+reviewer, prevent self-review, and disallow administrator bypass where the
+repository plan permits. These protection changes affect the shared 0.10
+release environment, so coordinate them with that line before the first 1.0
+prerelease.
+
+The repository currently has no tag ruleset for this release line. Add an
+active tag ruleset targeting `v1.0.0*` that restricts tag updates and deletions,
+with no routine human or administrator bypass. Do not restrict creation unless
+the Release Please actor has the narrowly scoped bypass needed to create a new
+tag. The environment deployment policy controls who may publish, but it does
+not make a Git tag immutable.
 
 The publish job intentionally has `id-token: write`, no `NPM_TOKEN`, and no
 credential cache. Product installation, build, and validation run without OIDC
