@@ -93,11 +93,6 @@ import {
   type PatchMapSemanticTarget,
 } from './semantic/probe';
 import {
-  applyPatchMapSemanticPatch,
-  removePatchMapSemanticTarget,
-  type PatchMapSemanticMutationDiagnostic,
-} from './semantic/mutation';
-import {
   PATCH_MAP_MUTATION_TRANSACTION_REVISION,
   detachPatchMapMutationJsonValue,
   planPatchMapBarHeightBatch,
@@ -144,7 +139,6 @@ import type {
   PatchMapSurfaceOptions,
   PatchMapSurfaceContextMenuInput,
   PatchMapSurfacePointerInput,
-  PatchMapSurfaceReconcileResult,
   PatchMapSurfaceViewportInput,
 } from './engine/contracts';
 export type {
@@ -177,7 +171,6 @@ import {
   cloneDetachedEngineRecord,
   componentSemanticKey,
   engineTextTargetKey,
-  ownedStructuralRootDelta,
   type IndexedEngineTextSemantic,
   type PatchMapEngineComponentSemanticProbe,
 } from './engine/semantic-index';
@@ -189,6 +182,7 @@ import { PatchMapTransformerSessionCoordinator } from './engine/transformer-sess
 import { PatchMapTransactionCommitCoordinator } from './engine/transaction-commit-coordinator';
 import { PatchMapDatasetReplacementCoordinator } from './engine/dataset-replacement-coordinator';
 import { PatchMapHistoryApplicationCoordinator } from './engine/history-application-coordinator';
+import { PatchMapDirectMutationCoordinator } from './engine/direct-mutation-coordinator';
 import { PatchMapPublicationAuthority } from './engine/publication-authority';
 import { PatchMapSceneStateAuthority } from './engine/scene-state-authority';
 import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-authority';
@@ -228,31 +222,18 @@ import {
   validatePositiveFinite,
 } from './engine/input-contracts';
 import {
-  createPatchMapEngineHistorySnapshot,
-  validPatchMapEngineHistorySelection,
   type PatchMapEngineHistoryCompanion,
 } from './engine/history-planning';
 import {
-  EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS as EMPTY_RECONCILE_DIAGNOSTICS,
   EMPTY_PATCH_MAP_TARGETS as EMPTY_TARGETS,
   PatchMapError,
   createPatchMapAssetInitializationError,
   createPatchMapDiagnosticFromError,
   createPatchMapOperationDiagnostic,
   createPatchMapOperationError,
-  createPatchMapRefusedDestroyTargetResult,
-  createPatchMapRefusedPatchResult,
   createPatchMapRejectedPatchResult,
-  createPatchMapSemanticMutationDiagnostic,
-  freezePatchMapReconcileDiagnostics as freezeReconcileDiagnostics,
-  freezePatchMapTargets as freezeTargets,
 } from './engine/operation-outcomes';
 export { PatchMapError } from './engine/operation-outcomes';
-import {
-  incrementalOwnedRootIds,
-  reconcileComponentSemantics,
-  reconcileTextSemantics,
-} from './engine/reconcile-planning';
 export type {
   PatchMapEngineComponentSemanticProbe,
   PatchMapEngineTextSemanticProbe,
@@ -355,11 +336,9 @@ import type {
   PatchMapWorldTransformState,
 } from './engine/public-contracts';
 export type * from './engine/public-contracts';
-import type { PatchMapReconcileDiagnostic } from './semantic/reconcile';
 import {
   PatchMapSemanticHistory,
   type PatchMapHistoryInspection,
-  type PatchMapHistoryPreparedRecord,
   type PatchMapHistoryState,
 } from './history';
 import {
@@ -583,6 +562,7 @@ export class PatchMap {
   private readonly transformerSessions: PatchMapTransformerSessionCoordinator;
   private readonly datasetReplacement: PatchMapDatasetReplacementCoordinator;
   private readonly historyApplication: PatchMapHistoryApplicationCoordinator;
+  private readonly directMutation: PatchMapDirectMutationCoordinator;
   private readonly viewportAuthority = new PatchMapViewportAuthority();
   private readonly publication = new PatchMapPublicationAuthority();
   private readonly sceneState = new PatchMapSceneStateAuthority(
@@ -951,6 +931,45 @@ export class PatchMap {
         },
         emitHistoryCleared: (result) => {
           this.emit('historyCleared', result);
+        },
+      },
+    );
+    this.directMutation = new PatchMapDirectMutationCoordinator(
+      this.sceneState,
+      this.historyAuthority,
+      this.publication,
+      EMPTY_MATERIALIZED_DATASET,
+      {
+        requireSurface: (operation) => this.requireSurface(operation),
+        reducedMotion: () => this.accessibility.reducedMotion,
+        terminalSurfaceFailure: () => this.terminalSurfaceFailure,
+        historySnapshot: () => this.historyApplication.snapshot(),
+        historyCompanionForSelection: (selectionIds) =>
+          this.historyApplication.companionForSelection(selectionIds),
+        cancelActiveTransformer: () => {
+          this.transformerSessions.cancelActive('redraw', true);
+        },
+        isSurfaceSceneCurrent: (surface, revisions) =>
+          this.isSurfaceSceneCurrent(surface, revisions),
+        isSurfaceMutationCurrent: (surface, revisions) =>
+          this.isSurfaceMutationCurrent(surface, revisions),
+        restoreAuthoritativeSurfaceScene: (surface, operation) => {
+          this.restoreAuthoritativeSurfaceScene(surface, operation);
+        },
+        invalidateViewportContributors: () => {
+          this.defaultViewportContributorsCache = null;
+        },
+        commitLifecycle: (lifecycle) => {
+          this.lifecycle = lifecycle;
+        },
+        emitDiagnostic: (diagnostic) => {
+          this.emit('diagnostic', diagnostic);
+        },
+        emitChange: (result) => {
+          this.emit('change', result);
+        },
+        emitTargetDestroyed: (result) => {
+          this.emit('targetDestroyed', result);
         },
       },
     );
@@ -2193,211 +2212,7 @@ export class PatchMap {
    * successful incremental reconcile; no failure path substitutes a full load.
    */
   public patch(target: PatchMapSemanticTarget, patch: unknown): PatchMapEnginePatchResult {
-    const surface = this.requireSurface('patch');
-    const previousRevisions = this.revisionStamp();
-    const mutation = applyPatchMapSemanticPatch(
-      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
-      target,
-      patch,
-    );
-
-    if (mutation.status === 'rejected') {
-      const diagnostic = this.semanticMutationDiagnostic(mutation.diagnostic, mutation.target);
-      const result = Object.freeze({
-        status: 'rejected',
-        changed: false,
-        target: mutation.target,
-        previousRevisions,
-        revisions: this.revisionStamp(),
-        semanticHash: this.materialized?.semanticHash ?? null,
-        applied: EMPTY_TARGETS,
-        missing: mutation.diagnostic.reason === 'missing-target' && mutation.target
-          ? freezeTargets([mutation.target])
-          : EMPTY_TARGETS,
-        unchanged: EMPTY_TARGETS,
-        diagnostic,
-        mutationDiagnostic: mutation.diagnostic,
-      } satisfies PatchMapEnginePatchResult);
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-
-    if (mutation.status === 'unchanged') {
-      return Object.freeze({
-        status: 'unchanged',
-        changed: false,
-        target: mutation.target,
-        previousRevisions,
-        revisions: this.revisionStamp(),
-        semanticHash: this.materialized?.semanticHash ?? null,
-        applied: EMPTY_TARGETS,
-        missing: EMPTY_TARGETS,
-        unchanged: freezeTargets([mutation.target]),
-      } satisfies PatchMapEnginePatchResult);
-    }
-
-    if (!surface.reconcile) {
-      return this.refusedPatchResult(
-        mutation.target,
-        previousRevisions,
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        false,
-        EMPTY_RECONCILE_DIAGNOSTICS,
-      );
-    }
-
-    const currentDataset =
-      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset;
-    const incrementalRootIds = incrementalOwnedRootIds(
-      currentDataset,
-      mutation.candidate.dataset,
-    );
-    const componentSemantics = reconcileComponentSemantics(
-      this.componentSemantics,
-      currentDataset,
-      mutation.candidate.dataset,
-      incrementalRootIds,
-      null,
-    );
-    const textSemantics = reconcileTextSemantics(
-      this.textSemantics,
-      currentDataset,
-      mutation.candidate.dataset,
-      incrementalRootIds,
-      null,
-    );
-    const selectionBefore = this.logicalSelectionIds;
-    let preparedHistory: PatchMapHistoryPreparedRecord;
-    try {
-      preparedHistory = this.historyAuthority.prepareOwnedChangedRecord({
-        id: `patch:${this.publication.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
-        before: this.historyApplication.snapshot(),
-        after: createPatchMapEngineHistorySnapshot(
-          mutation.candidate.dataset,
-          this.historyApplication.companionForSelection(selectionBefore),
-        ),
-      });
-    } catch (error) {
-      const diagnostic = this.diagnosticFrom(error, 'patch');
-      const result = Object.freeze({
-        status: 'refused',
-        changed: false,
-        target: mutation.target,
-        previousRevisions,
-        revisions: this.revisionStamp(),
-        semanticHash: this.materialized?.semanticHash ?? null,
-        applied: EMPTY_TARGETS,
-        missing: EMPTY_TARGETS,
-        unchanged: EMPTY_TARGETS,
-        diagnostic,
-        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
-      } satisfies PatchMapEnginePatchResult);
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-    const scenePlan = this.sceneState.prepareMutation({
-      materialized: mutation.candidate,
-      componentSemantics,
-      textSemantics,
-    });
-    let reconcileBaseRevisions = previousRevisions;
-    let reconcile: PatchMapSurfaceReconcileResult;
-    try {
-      this.transformerSessions.cancelActive('redraw', true);
-      if (!this.isSurfaceSceneCurrent(surface, previousRevisions)) {
-        this.historyAuthority.cancelPrepared(preparedHistory);
-        return this.refusedPatchResult(
-          mutation.target,
-          previousRevisions,
-          'CONFLICT',
-          'CONFLICT',
-          true,
-          EMPTY_RECONCILE_DIAGNOSTICS,
-        );
-      }
-      reconcileBaseRevisions = this.revisionStamp();
-      reconcile = surface.reconcile(mutation.candidate.dataset, {
-        animateBarChanges:
-          !this.accessibility.reducedMotion &&
-          mutation.target.kind === 'component',
-        ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
-      });
-    } catch (error) {
-      this.historyAuthority.cancelPrepared(preparedHistory);
-      if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
-      const diagnostic = this.diagnosticFrom(error, 'patch');
-      const result = Object.freeze({
-        status: 'refused',
-        changed: false,
-        target: mutation.target,
-        previousRevisions,
-        revisions: this.revisionStamp(),
-        semanticHash: this.materialized?.semanticHash ?? null,
-        applied: EMPTY_TARGETS,
-        missing: EMPTY_TARGETS,
-        unchanged: EMPTY_TARGETS,
-        diagnostic,
-        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
-      } satisfies PatchMapEnginePatchResult);
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-
-    if (
-      !this.isSurfaceMutationCurrent(surface, reconcileBaseRevisions) ||
-      !this.historyAuthority.canCommitPrepared(preparedHistory)
-    ) {
-      this.historyAuthority.cancelPrepared(preparedHistory);
-      this.restoreAuthoritativeSurfaceScene(surface, 'patch');
-      return this.refusedPatchResult(
-        mutation.target,
-        previousRevisions,
-        'CONFLICT',
-        'CONFLICT',
-        true,
-        EMPTY_RECONCILE_DIAGNOSTICS,
-      );
-    }
-
-    const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
-    if (reconcile.status === 'refused') {
-      this.historyAuthority.cancelPrepared(preparedHistory);
-      return this.refusedPatchResult(
-        mutation.target,
-        previousRevisions,
-        'CONFLICT',
-        'CONFLICT',
-        true,
-        reconcileDiagnostics,
-      );
-    }
-
-    this.sceneState.commit(scenePlan);
-    this.defaultViewportContributorsCache = null;
-    this.publication.advanceScene();
-    this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-    const historyStatus = this.historyAuthority.commitPrepared(preparedHistory);
-    if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
-      throw new Error(`patch history preflight became ${historyStatus} after surface commit`);
-    }
-    const result = Object.freeze({
-      status: 'committed',
-      changed: true,
-      target: mutation.target,
-      previousRevisions,
-      revisions: this.revisionStamp(),
-      semanticHash: mutation.candidate.semanticHash,
-      applied: freezeTargets([mutation.target]),
-      missing: EMPTY_TARGETS,
-      unchanged: EMPTY_TARGETS,
-      publication: 'pending',
-      denseOperationCount: reconcile.operationCount,
-      denseChanged: reconcile.denseChanged,
-      reconcileDiagnostics,
-    } satisfies PatchMapEnginePatchResult);
-    this.emit('change', result);
-    return result;
+    return this.directMutation.patch(target, patch);
   }
 
   /**
@@ -2406,214 +2221,7 @@ export class PatchMap {
    * semantic authority, revisions, selection, and the current surface unchanged.
    */
   public destroyTarget(target: PatchMapSemanticTarget): PatchMapEngineDestroyTargetResult {
-    const surface = this.requireSurface('destroyTarget');
-    const previousRevisions = this.revisionStamp();
-    const mutation = removePatchMapSemanticTarget(
-      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
-      target,
-    );
-
-    if (mutation.status === 'rejected') {
-      const diagnostic = this.semanticMutationDiagnostic(
-        mutation.diagnostic,
-        mutation.target,
-        'destroyTarget',
-      );
-      const result = Object.freeze({
-        status: 'rejected',
-        changed: false,
-        target: mutation.target,
-        previousRevisions,
-        revisions: this.revisionStamp(),
-        semanticHash: this.materialized?.semanticHash ?? null,
-        applied: EMPTY_TARGETS,
-        missing: mutation.diagnostic.reason === 'missing-target' && mutation.target
-          ? freezeTargets([mutation.target])
-          : EMPTY_TARGETS,
-        unchanged: EMPTY_TARGETS,
-        diagnostic,
-        mutationDiagnostic: mutation.diagnostic,
-      } satisfies PatchMapEngineDestroyTargetResult);
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-
-    if (!surface.reconcile) {
-      return this.refusedDestroyTargetResult(
-        mutation.target,
-        previousRevisions,
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        false,
-        EMPTY_RECONCILE_DIAGNOSTICS,
-      );
-    }
-
-    const currentDataset =
-      this.materialized?.dataset ?? EMPTY_MATERIALIZED_DATASET.dataset;
-    const structuralRootDelta = ownedStructuralRootDelta(
-      currentDataset,
-      mutation.candidate.dataset,
-    );
-    const componentSemantics = reconcileComponentSemantics(
-      this.componentSemantics,
-      currentDataset,
-      mutation.candidate.dataset,
-      undefined,
-      structuralRootDelta,
-    );
-    const textSemantics = reconcileTextSemantics(
-      this.textSemantics,
-      currentDataset,
-      mutation.candidate.dataset,
-      undefined,
-      structuralRootDelta,
-    );
-    const selectionBefore = this.logicalSelectionIds;
-    const selectionAfter = validPatchMapEngineHistorySelection(
-      selectionBefore,
-      mutation.candidate,
-      false,
-      structuralRootDelta !== null,
-      this.sceneState,
-    );
-    let preparedHistory: PatchMapHistoryPreparedRecord;
-    try {
-      preparedHistory = this.historyAuthority.prepareOwnedChangedRecord({
-        id: `destroy:${this.publication.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
-        before: this.historyApplication.snapshot(),
-        after: createPatchMapEngineHistorySnapshot(
-          mutation.candidate.dataset,
-          this.historyApplication.companionForSelection(selectionAfter),
-        ),
-      });
-    } catch (error) {
-      const diagnostic = this.diagnosticFrom(error, 'destroyTarget');
-      const result = Object.freeze({
-        status: 'refused',
-        changed: false,
-        target: mutation.target,
-        previousRevisions,
-        revisions: this.revisionStamp(),
-        semanticHash: this.materialized?.semanticHash ?? null,
-        applied: EMPTY_TARGETS,
-        missing: EMPTY_TARGETS,
-        unchanged: EMPTY_TARGETS,
-        diagnostic,
-        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
-      } satisfies PatchMapEngineDestroyTargetResult);
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-    const scenePlan = this.sceneState.prepareMutation({
-      materialized: mutation.candidate,
-      componentSemantics,
-      textSemantics,
-      selectionIds: selectionAfter,
-    });
-    let reconcileBaseRevisions = previousRevisions;
-    let reconcile: PatchMapSurfaceReconcileResult;
-    try {
-      this.transformerSessions.cancelActive('redraw', true);
-      if (!this.isSurfaceSceneCurrent(surface, previousRevisions)) {
-        this.historyAuthority.cancelPrepared(preparedHistory);
-        return this.refusedDestroyTargetResult(
-          mutation.target,
-          previousRevisions,
-          'CONFLICT',
-          'CONFLICT',
-          true,
-          EMPTY_RECONCILE_DIAGNOSTICS,
-        );
-      }
-      reconcileBaseRevisions = this.revisionStamp();
-      reconcile = surface.reconcile(mutation.candidate.dataset, {
-        animateBarChanges: false,
-        ...(mutation.target.kind === 'element'
-          ? { structuralSharing: true }
-          : {}),
-        ...(!sameStringArray(selectionBefore, selectionAfter)
-          ? { selectionIds: selectionAfter }
-          : {}),
-      });
-    } catch (error) {
-      this.historyAuthority.cancelPrepared(preparedHistory);
-      if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
-      const diagnostic = this.diagnosticFrom(error, 'destroyTarget');
-      const result = Object.freeze({
-        status: 'refused',
-        changed: false,
-        target: mutation.target,
-        previousRevisions,
-        revisions: this.revisionStamp(),
-        semanticHash: this.materialized?.semanticHash ?? null,
-        applied: EMPTY_TARGETS,
-        missing: EMPTY_TARGETS,
-        unchanged: EMPTY_TARGETS,
-        diagnostic,
-        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
-      } satisfies PatchMapEngineDestroyTargetResult);
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-
-    if (
-      !this.isSurfaceMutationCurrent(surface, reconcileBaseRevisions) ||
-      !this.historyAuthority.canCommitPrepared(preparedHistory)
-    ) {
-      this.historyAuthority.cancelPrepared(preparedHistory);
-      this.restoreAuthoritativeSurfaceScene(surface, 'destroyTarget');
-      return this.refusedDestroyTargetResult(
-        mutation.target,
-        previousRevisions,
-        'CONFLICT',
-        'CONFLICT',
-        true,
-        EMPTY_RECONCILE_DIAGNOSTICS,
-      );
-    }
-
-    const reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
-    if (reconcile.status === 'refused') {
-      this.historyAuthority.cancelPrepared(preparedHistory);
-      return this.refusedDestroyTargetResult(
-        mutation.target,
-        previousRevisions,
-        'CONFLICT',
-        'CONFLICT',
-        true,
-        reconcileDiagnostics,
-      );
-    }
-
-    this.sceneState.commit(scenePlan);
-    this.defaultViewportContributorsCache = null;
-    this.publication.advanceScene();
-    this.lifecycle = mutation.candidate.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-    if (!sameStringArray(selectionBefore, selectionAfter)) {
-      this.publication.advanceInteraction();
-    }
-    const historyStatus = this.historyAuthority.commitPrepared(preparedHistory);
-    if (historyStatus === 'stale' || historyStatus === 'invalid' || historyStatus === 'cancelled') {
-      throw new Error(`destroy history preflight became ${historyStatus} after surface commit`);
-    }
-    const result = Object.freeze({
-      status: 'committed',
-      changed: true,
-      target: mutation.target,
-      previousRevisions,
-      revisions: this.revisionStamp(),
-      semanticHash: mutation.candidate.semanticHash,
-      applied: freezeTargets([mutation.target]),
-      missing: EMPTY_TARGETS,
-      unchanged: EMPTY_TARGETS,
-      publication: 'pending',
-      denseOperationCount: reconcile.operationCount,
-      denseChanged: reconcile.denseChanged,
-      reconcileDiagnostics,
-    } satisfies PatchMapEngineDestroyTargetResult);
-    this.emit('targetDestroyed', result);
-    return result;
+    return this.directMutation.destroyTarget(target);
   }
 
   public setPresentationPolicy(
@@ -5171,19 +4779,6 @@ export class PatchMap {
     return createPatchMapDiagnosticFromError(error, operation, this.revisionStamp());
   }
 
-  private semanticMutationDiagnostic(
-    diagnostic: PatchMapSemanticMutationDiagnostic,
-    target: PatchMapSemanticTarget | null,
-    operation = 'patch',
-  ): PatchMapEngineDiagnostic {
-    return createPatchMapSemanticMutationDiagnostic(
-      diagnostic,
-      target,
-      operation,
-      this.revisionStamp(),
-    );
-  }
-
   private rejectedGeometryPatchResult(
     target: Extract<PatchMapMutationTarget, { readonly kind: 'element' }>,
     failure: Readonly<{
@@ -5206,62 +4801,6 @@ export class PatchMap {
       this.revisionStamp(),
       this.materialized?.semanticHash ?? null,
       diagnostic,
-    );
-    this.emit('diagnostic', diagnostic);
-    return result;
-  }
-
-  private refusedPatchResult(
-    target: PatchMapSemanticTarget,
-    previousRevisions: PatchMapRevisionStamp,
-    code: string,
-    category: PatchMapDiagnosticCategory,
-    recoverable: boolean,
-    reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[],
-  ): Extract<PatchMapEnginePatchResult, { readonly status: 'refused' }> {
-    const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
-    const diagnostic = this.operationDiagnostic(
-      code,
-      category,
-      'patch',
-      recoverable,
-      datasetPath,
-    );
-    const result = createPatchMapRefusedPatchResult(
-      target,
-      previousRevisions,
-      this.revisionStamp(),
-      this.materialized?.semanticHash ?? null,
-      diagnostic,
-      reconcileDiagnostics,
-    );
-    this.emit('diagnostic', diagnostic);
-    return result;
-  }
-
-  private refusedDestroyTargetResult(
-    target: Extract<PatchMapSemanticTarget, { readonly kind: 'element' }>,
-    previousRevisions: PatchMapRevisionStamp,
-    code: string,
-    category: PatchMapDiagnosticCategory,
-    recoverable: boolean,
-    reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[],
-  ): Extract<PatchMapEngineDestroyTargetResult, { readonly status: 'refused' }> {
-    const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
-    const diagnostic = this.operationDiagnostic(
-      code,
-      category,
-      'destroyTarget',
-      recoverable,
-      datasetPath,
-    );
-    const result = createPatchMapRefusedDestroyTargetResult(
-      target,
-      previousRevisions,
-      this.revisionStamp(),
-      this.materialized?.semanticHash ?? null,
-      diagnostic,
-      reconcileDiagnostics,
     );
     this.emit('diagnostic', diagnostic);
     return result;
@@ -5598,12 +5137,6 @@ function samePublishedTuple(
   return left.scene === right.scene &&
     left.view === right.view &&
     left.interaction === right.interaction;
-}
-
-function semanticTargetIdentity(target: PatchMapSemanticTarget): string {
-  return target.kind === 'element'
-    ? `element:${target.id.length}:${target.id}`
-    : `component:${target.ownerId.length}:${target.ownerId}:${target.id.length}:${target.id}`;
 }
 
 function countPatchMapRelationLinks(
