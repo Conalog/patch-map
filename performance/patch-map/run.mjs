@@ -352,14 +352,20 @@ async function main() {
     operationFailure = error;
   }
 
-  const cleanup = await Promise.allSettled([
-    context?.close(),
-    browser?.close(),
-    server?.close(),
-  ]);
-  const cleanupFailures = cleanup
-    .filter((result) => result.status === 'rejected')
-    .map((result) => result.reason);
+  const cleanupFailures = [];
+  const cleanupSteps = [
+    ['browser context', context === undefined ? undefined : () => context.close()],
+    ['browser', browser === undefined ? undefined : () => browser.close()],
+    ['benchmark server', server === undefined ? undefined : () => server.close()],
+  ];
+  for (const [label, close] of cleanupSteps) {
+    if (close === undefined) continue;
+    try {
+      await close();
+    } catch (error) {
+      cleanupFailures.push(new Error(`${label} cleanup failed`, { cause: error }));
+    }
+  }
   if (operationFailure !== undefined && cleanupFailures.length > 0) {
     throw new AggregateError(
       [operationFailure, ...cleanupFailures],
