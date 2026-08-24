@@ -35,7 +35,7 @@ work records.
 - `src/patch-map` contains 232 TypeScript/JavaScript files and approximately
   84,800 lines.
 - The largest orchestration files are `engine.ts` (6,569 lines),
-  `renderers/pixi-renderer.ts` (2,474), `core.ts` (2,394), and
+  `renderers/pixi-renderer.ts` (2,474), `core.ts` (2,281), and
   `renderers/leaf-layer.ts` (2,179).
 - A top-level import-owner analysis places the root modules, `engine`, `core`,
   `semantic`, `renderers`, and thirteen adjacent areas in one bidirectional
@@ -296,6 +296,17 @@ mount, frame, or publication hot path changes.
 Verification: targeted parser/load/reconcile/transaction/history tests, full
 unit/build/contract at tranche completion, `perf:quick` and the matching mutation
 or contract checkpoint when hot paths change.
+
+Core load publication movement is complete. The existing
+`PatchMapLoadAuthority` now composes the published-scene swap, live runtime
+installation, presentation and renderer publication, image reconciliation,
+rollback, disposal, adaptive-budget reset, and final load invalidation in the
+same fixed order. `PatchMapRuntime` retains parser/cooperative-load entry points
+and its live field references through a constructor-stable port. Focused
+atomicity tests, the full unit/build/Lab/contract gates, and independent review
+passed. Matching 1,000-entity smoke checkpoints had zero browser or lifecycle
+failures before and after; the single-sample run is no basis for an improvement
+claim.
 
 ### T5. Pixi renderer control plane
 

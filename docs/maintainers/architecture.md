@@ -31,6 +31,7 @@ transaction or publication owners.
 | engine/runtime | authority composition, lifecycle, atomic publication | duplicated semantic planners or renderer internals |
 | dataset replacement coordinator | sync, async, and submitted-load freshness; surface acceptance; authoritative replacement commit | semantic storage, surface implementation, or a second publication revision |
 | history application coordinator | host companion state; undo/redo surface application; history publication ordering | history stack/cursor storage, semantic storage, or renderer state |
+| Core load authority | cooperative load freshness; reversible scene/runtime/renderer/image publication and rollback order | Engine lifecycle, parser policy, or a second scene/runtime state |
 | semantic and dense core | interpretation, planning, identity, compact state | public facade policy, input events, or PixiJS objects |
 | renderer contracts | neutral render views, updates, lifecycle capabilities | concrete PixiJS state |
 | PixiJS adapter | aggregate GPU resources, frame execution, surface lifecycle | semantic mutation, history, or public API policy |
@@ -80,6 +81,13 @@ It owns the detached host companion and the exact reconcile, scene commit,
 revision, and event sequence for undo and redo. The semantic history remains the
 only stack/cursor owner; the coordinator does not retain a second dataset or
 renderer state.
+
+`PatchMapLoadAuthority` owns the complete Core load publication transaction:
+private candidate preparation, published-scene swap, runtime installation,
+renderer and image side effects, rollback, disposal, and final frame
+invalidation. `PatchMapRuntime` still owns its live field references and parser
+entry points, but delegates the atomic publication order through a constructor-
+stable port instead of implementing a second load commit path.
 
 ## Verification
 
