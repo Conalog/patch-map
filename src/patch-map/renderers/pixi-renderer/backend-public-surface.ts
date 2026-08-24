@@ -103,7 +103,7 @@ export function readPatchMapPixiRendererLossProbe(
   rendererLossEventCount: number,
   rendererRestorationEventCount: number,
   recoveredRendererFrameCount: number,
-  contextLossUnbind: (() => void) | null,
+  rendererLossListenerCount: 0 | 2,
   lastRendererLossFrame: number | null,
   lastRendererRecoveryFrame: number | null,
 ): PatchMapPixiRendererLossProbe {
@@ -132,7 +132,7 @@ export function readPatchMapPixiRendererLossProbe(
     lossEventCount: rendererLossEventCount,
     restorationEventCount: rendererRestorationEventCount,
     recoveredFrameCount: recoveredRendererFrameCount,
-    listenerCount: contextLossUnbind === null ? 0 : 2,
+    listenerCount: rendererLossListenerCount,
     lastLossFrame: lastRendererLossFrame,
     lastRecoveryFrame: lastRendererRecoveryFrame,
     destroyed: false,

@@ -68,10 +68,6 @@ import {
   type PatchMapRendererEntityPresentationOverride,
 } from './presentation-store';
 import {
-  registerPixiDevtools,
-  unregisterPixiDevtools,
-} from './pixi-devtools-registration';
-import {
   buildPatchMapRelationAdjacency,
   contiguousRanges,
   expandPatchMapRelationDependencyRanges,
@@ -131,6 +127,7 @@ import type { PatchMapPixiRendererPublicationCheckpoint } from './pixi-renderer/
 import { PatchMapAccessibilityOverlayAuthority } from './pixi-renderer/accessibility-overlay-authority';
 import { PatchMapCanvasSurfaceLifecycle } from './pixi-renderer/canvas-surface-lifecycle';
 import { PatchMapPixiRootInteractionBindingAuthority } from './pixi-renderer/root-interaction-binding-authority';
+import { PatchMapPixiSurfacePublicationAuthority } from './pixi-renderer/surface-publication-authority';
 
 export {
   buildPatchMapRelationAdjacency,
@@ -213,11 +210,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     readonly current: readonly [number, number];
   }> | null = null;
   private readonly target: HTMLElement | undefined;
-  private readonly canvasLifecycle: PatchMapCanvasSurfaceLifecycle;
   private readonly rootInteractionBindings: PatchMapPixiRootInteractionBindingAuthority;
-  private readonly devtoolsRequested: boolean;
+  private readonly surfacePublication: PatchMapPixiSurfacePublicationAuthority;
   private cleanupPromise: Promise<void> = Promise.resolve();
-  private surfacePublished = false;
   private lastStore: RenderStoreView | null = null;
   private lastSourceStore: RenderStoreView | null = null;
   private presentationPolicy: PatchMapResolvedPresentationPolicy | null = null;
@@ -263,11 +258,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private lastInvalidation = 'init';
   private destroyedValue = false;
   private synchronizeOnly = false;
-  private readonly devtoolsToken = Object.freeze({});
   private readonly activeBackend: PatchMapActiveRendererBackend;
   private readonly initialWebGLVersion: 1 | 2 | null;
-  private devtoolsRegistered = false;
-  private contextLossUnbind: (() => void) | null = null;
   private rendererLossState: PatchMapRendererLossState = 'healthy';
   private rendererLossEventCount = 0;
   private rendererRestorationEventCount = 0;
@@ -307,8 +299,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.activeBackend = activeRendererBackend(application);
     this.initialWebGLVersion = publicGlContext(application)?.webGLVersion ?? null;
     this.target = options.target;
-    this.canvasLifecycle = canvasLifecycle;
-    this.devtoolsRequested = options.devtools === true;
     this.strategy = options.strategy;
     this.preference = options.preference;
     this.widthValue = options.width;
@@ -319,7 +309,35 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       canvas: this.canvas,
       readViewportWidth: () => this.widthValue,
       readViewportHeight: () => this.heightValue,
-      isSurfacePublished: () => this.surfacePublished,
+      isSurfacePublished: () => this.surfacePublication.published,
+    });
+    this.surfacePublication = new PatchMapPixiSurfacePublicationAuthority({
+      application: this.application,
+      canvas: this.canvas,
+      canvasLifecycle,
+      rootInteractionBindings: this.rootInteractionBindings,
+      devtoolsRequested: options.devtools === true,
+      assertInitialRenderAvailable: () => {
+        if (publicGlContext(this.application)?.isLost === true) {
+          throw new PatchMapPixiRuntimeError(
+            'RENDERER_LOST',
+            'PixiJS WebGL2 context is lost before frame publication',
+          );
+        }
+      },
+      onContextLost: () => {
+        if (this.destroyedValue) return;
+        this.rendererLossEventCount += 1;
+        this.rendererLossState = 'lost';
+        this.lastRendererLossFrame = this.frame;
+        this.lastInvalidation = 'renderer-context-lost';
+      },
+      onContextRestored: () => {
+        if (this.destroyedValue) return;
+        this.rendererRestorationEventCount += 1;
+        this.rendererLossState = 'restored-pending-frame';
+        this.lastInvalidation = 'renderer-context-restored';
+      },
     });
     this.world = new Container({ label: 'PatchMap / world', isRenderGroup: true });
     this.world.sortableChildren = true;
@@ -398,8 +416,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.application.stage.hitArea = new Rectangle(0, 0, this.widthValue, this.heightValue);
     this.application.stage.addChild(this.world);
     this.application.ticker.stop();
-    this.canvasLifecycle.applyRuntimeIdentity();
-    this.armInitialSurfacePublication();
+    canvasLifecycle.applyRuntimeIdentity();
+    this.surfacePublication.armInitialRender();
 
     const rendererBuildMs = metrics.rendererBuildMs + (now() - buildStarted);
     this.initializationMetrics = Object.freeze({
@@ -1528,7 +1546,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.rendererLossEventCount,
       this.rendererRestorationEventCount,
       this.recoveredRendererFrameCount,
-      this.contextLossUnbind,
+      this.surfacePublication.rendererLossListenerCount,
       this.lastRendererLossFrame,
       this.lastRendererRecoveryFrame,
     );
@@ -1613,12 +1631,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.accessibilityOverlay.destroy();
     this.destroyedValue = true;
     this.rendererLossState = 'destroyed';
-    this.contextLossUnbind?.();
-    this.contextLossUnbind = null;
-    if (this.devtoolsRegistered) {
-      unregisterPixiDevtools(this.devtoolsToken);
-      this.devtoolsRegistered = false;
-    }
+    this.surfacePublication.deactivate();
     this.lastLaneProbe = freezeLaneSnapshot([
       ['background-geometry', this.backgroundGeometryLane.label],
       ['background-assets', this.leaves.backgroundAssetContainer.label],
@@ -1654,8 +1667,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.cleanupPromise = this.leaves.destroy();
     this.world.destroy();
     this.application.destroy({ removeView: false }, { children: true });
-    this.canvasLifecycle.destroy();
-    this.surfacePublished = false;
+    this.surfacePublication.destroyCanvas();
     this.lastStore = null;
     this.lastSourceStore = null;
     this.overlayPaintBoundsProjection = null;
@@ -2075,81 +2087,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.view.x,
       this.view.y,
     ));
-  }
-
-  private publishSurfaceAfterSuccessfulRender(): void {
-    if (this.surfacePublished) return;
-    try {
-      // Rendering already completed. Install/reveal the surface before its
-      // bindings become active, then finish all work in the same JS task so a
-      // failed activation can be rolled back before the browser paints.
-      this.canvasLifecycle.publish();
-      this.bindRendererLossEvents();
-      this.rootInteractionBindings.activate();
-      if (this.devtoolsRequested) {
-        registerPixiDevtools(this.devtoolsToken, this.application);
-        this.devtoolsRegistered = true;
-      }
-      this.surfacePublished = true;
-    } catch (error) {
-      if (this.devtoolsRegistered) {
-        unregisterPixiDevtools(this.devtoolsToken);
-        this.devtoolsRegistered = false;
-      }
-      this.rootInteractionBindings.deactivate();
-      this.contextLossUnbind?.();
-      this.contextLossUnbind = null;
-      this.canvasLifecycle.rollbackPublication();
-      throw error;
-    }
-  }
-
-  private armInitialSurfacePublication(): void {
-    const render = this.application.render;
-    this.application.render = () => {
-      if (publicGlContext(this.application)?.isLost === true) {
-        throw new PatchMapPixiRuntimeError(
-          'RENDERER_LOST',
-          'PixiJS WebGL2 context is lost before frame publication',
-        );
-      }
-      render.call(this.application);
-      this.publishSurfaceAfterSuccessfulRender();
-      // Restore Pixi's original method after the one-shot publication. Steady
-      // frames retain the exact baseline render path with no readiness check.
-      this.application.render = render;
-    };
-  }
-
-  private bindRendererLossEvents(): void {
-    if (activeRendererBackend(this.application) !== 'webgl2') return;
-    const lost = (event: Event): void => {
-      event.preventDefault();
-      if (this.destroyedValue) return;
-      this.rendererLossEventCount += 1;
-      this.rendererLossState = 'lost';
-      this.lastRendererLossFrame = this.frame;
-      this.lastInvalidation = 'renderer-context-lost';
-    };
-    const restored = (): void => {
-      if (this.destroyedValue) return;
-      this.rendererRestorationEventCount += 1;
-      this.rendererLossState = 'restored-pending-frame';
-      this.lastInvalidation = 'renderer-context-restored';
-    };
-    const unbind = (): void => {
-      this.canvas.removeEventListener('webglcontextlost', lost);
-      this.canvas.removeEventListener('webglcontextrestored', restored);
-    };
-    this.contextLossUnbind = unbind;
-    try {
-      this.canvas.addEventListener('webglcontextlost', lost);
-      this.canvas.addEventListener('webglcontextrestored', restored);
-    } catch (error) {
-      unbind();
-      this.contextLossUnbind = null;
-      throw error;
-    }
   }
 
   private assertAlive(): void {
