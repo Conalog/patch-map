@@ -73,6 +73,26 @@ describe('PatchMapCaptureExtractionAuthority', () => {
     expect(harness.diagnostics).toHaveLength(1);
   });
 
+  it('recovers managed capture state when preparation fails and advances the queue', async () => {
+    const harness = captureHarness();
+    harness.surface.failNextDebugSnapshot = true;
+
+    const failed = harness.authority.captureManagedPng();
+    const queued = harness.authority.captureManagedPng();
+    await expect(failed).rejects.toThrow('capture debug preparation failed');
+    await Promise.resolve();
+    expect(harness.surface.captureCount).toBe(1);
+
+    harness.surface.resolveNextCapture();
+    await expect(queued).resolves.toMatchObject({
+      capturedTuple: { scene: 1, view: 0, interaction: 0 },
+      mime: 'image/png',
+    });
+    expect(harness.pendingWork).toBe(0);
+    expect(harness.frameLoop.pause()).toBe(true);
+    harness.frameLoop.resume();
+  });
+
   it('balances pending work across supersede and destroy settlements', async () => {
     const superseded = captureHarness();
     const supersededCapture = superseded.authority.extractPublishedScene(currentRequest());
@@ -236,6 +256,7 @@ function captureHarness(): {
 class DeferredCaptureSurface {
   public readonly canvas = {} as HTMLCanvasElement;
   public captureCount = 0;
+  public failNextDebugSnapshot = false;
   private readonly captureResolvers: Array<() => void> = [];
 
   public canvasElement(): HTMLCanvasElement {
@@ -259,6 +280,10 @@ class DeferredCaptureSurface {
     cssSize: readonly [number, number];
     backingSize: readonly [number, number];
   }> {
+    if (this.failNextDebugSnapshot) {
+      this.failNextDebugSnapshot = false;
+      throw new Error('capture debug preparation failed');
+    }
     return Object.freeze({
       cssSize: Object.freeze([320, 180] as const),
       backingSize: Object.freeze([640, 360] as const),

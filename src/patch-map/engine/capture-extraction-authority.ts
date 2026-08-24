@@ -270,10 +270,10 @@ export class PatchMapCaptureExtractionAuthority {
     this.publishManagedFrameNow();
     const resume = this.managedFrameLoop.pause();
     this.managedCaptureDepth += 1;
-    const surface = this.port.requireSurface('extractPublishedScene');
-    const targetTuple = this.publication.publishedTuple;
-    const cssSize = surface.debugSnapshot().cssSize;
     try {
+      const surface = this.port.requireSurface('extractPublishedScene');
+      const targetTuple = this.publication.publishedTuple;
+      const cssSize = surface.debugSnapshot().cssSize;
       return await this.extractPublishedScene({
         targetTuple,
         cssSize,
