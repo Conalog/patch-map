@@ -29,6 +29,7 @@ transaction or publication owners.
 | --- | --- | --- |
 | package entry and facade | public construction, domains, orchestration | dense storage or Pixi implementation state |
 | engine/runtime | authority composition, lifecycle, atomic publication | duplicated semantic planners or renderer internals |
+| dataset replacement coordinator | sync, async, and submitted-load freshness; surface acceptance; authoritative replacement commit | semantic storage, surface implementation, or a second publication revision |
 | semantic and dense core | interpretation, planning, identity, compact state | public facade policy, input events, or PixiJS objects |
 | renderer contracts | neutral render views, updates, lifecycle capabilities | concrete PixiJS state |
 | PixiJS adapter | aggregate GPU resources, frame execution, surface lifecycle | semantic mutation, history, or public API policy |
@@ -63,6 +64,14 @@ mutation/presentation, viewport/input, geometry/query, product observation, and
 diagnostic capability ports. `PixiEngineSurface` remains the single
 implementation and runtime authority. New consumers depend on the narrow port
 they use; existing injected surfaces may continue implementing the composite.
+
+`PatchMapDatasetReplacementCoordinator` owns Engine-level replacement
+freshness across direct, cooperative async, and deferred submissions. It plans
+through `PatchMapSceneStateAuthority`, advances revisions through
+`PatchMapPublicationAuthority`, and asks the existing surface to accept a
+candidate before committing authoritative Engine state. `engine.ts` remains the
+composition boundary and public delegate; it does not keep a parallel load
+sequence or replacement commit path.
 
 ## Verification
 

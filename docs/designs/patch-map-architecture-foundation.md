@@ -32,11 +32,11 @@ work records.
 
 ## Current evidence
 
-- `src/patch-map` contains 226 TypeScript/JavaScript files and approximately
-  84,000 lines.
-- The largest orchestration files are `engine.ts` (7,071 lines),
-  `renderers/pixi-renderer.ts` (2,498), `core.ts` (2,394), and
-  `renderers/leaf-layer.ts` (2,185).
+- `src/patch-map` contains 231 TypeScript/JavaScript files and approximately
+  84,600 lines.
+- The largest orchestration files are `engine.ts` (6,818 lines),
+  `renderers/pixi-renderer.ts` (2,474), `core.ts` (2,394), and
+  `renderers/leaf-layer.ts` (2,179).
 - A top-level import-owner analysis places the root modules, `engine`, `core`,
   `semantic`, `renderers`, and thirteen adjacent areas in one bidirectional
   dependency group. This is an ownership-cycle signal, not a claim that the
@@ -48,7 +48,7 @@ work records.
 - `PatchMapEngineSurface` is a roughly 50-capability port. It hides duplicate
   lifecycle, load, viewport, selection, asset, probe, and destroy boundaries
   between the product facade, Pixi surface adapter, and core runtime.
-- The repository has 199 PatchMap test files and project-native unit, contract,
+- The repository has 200 PatchMap test files and project-native unit, contract,
   package, Lab, memory, and performance gates.
 - `docs/patch-map` is package-distributed and is checked by the packed-artifact
   verifier. `docs/reference/core-v2-functional-contract/evidence` is imported by
@@ -58,9 +58,9 @@ work records.
 
 - This refactor runs on `refactor/patch-map-architecture` without
   branch-specific agent instructions or completed task records.
-- `package.json` declares `1.0.0-alpha.1`, while both root READMEs still mention
-  `0.10.0`. That documentation drift is resolved through the release/document
-  alignment work; this structural refactor does not infer a new package version.
+- `package.json` declares `1.0.0-alpha.1`. Merge-era root README version wording
+  has been removed; this structural refactor does not infer a new package
+  version.
 - No refactor tranche may rewrite the fixed product and evidence contracts above.
 
 ## Documentation foundation
@@ -248,6 +248,16 @@ strongly connected components. Capability-port splitting is also complete at
 the type boundary: the existing surface remains one compatibility composite and
 one implementation, while product observation consumes only its narrow ports.
 Implementation movement remains part of the later facade/runtime tranches.
+
+Engine dataset replacement movement is complete. The internal
+`PatchMapDatasetReplacementCoordinator` owns direct, cooperative async, and
+deferred submission freshness, surface acceptance, rollback eligibility,
+authoritative scene commit, and submission release balance. It reuses the
+existing scene, publication, host interaction, accessibility, editor, and
+transformer authorities; `PatchMap` keeps only public delegates and composition
+callbacks. Independent review found no parallel writer or contract drift, and
+the full unit/build/38-decision/173-record gates passed without a performance
+claim because the render and mutation hot paths did not change.
 
 ### T3. Product facade and engine orchestration
 
