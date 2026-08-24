@@ -218,7 +218,8 @@ export interface PatchMapSurfaceRendererPort {
   forceRendererLoss?(): boolean;
 }
 
-export interface PatchMapEngineSurface {
+/** Surface allocation, publication, resize, and teardown lifecycle. */
+export interface PatchMapSurfaceLifecyclePort {
   readonly canvasCount: number;
   readonly destroyed: boolean;
   canvasElement?(): HTMLCanvasElement | null;
@@ -226,6 +227,19 @@ export interface PatchMapEngineSurface {
   prepare?(): Promise<PatchMapSurfacePrepareResult>;
   load(input: unknown): void;
   loadAsync?(input: unknown, assertCurrent?: () => void): Promise<void>;
+  publishFrame(timeMs: number): void;
+  suspendPresentation?(
+    timeMs: number,
+  ): PatchMapPresentationLifecycleResult;
+  resumePresentation?(
+    timeMs: number,
+  ): PatchMapPresentationLifecycleResult;
+  resize(width: number, height: number, pixelRatio: number): boolean;
+  destroy(): Promise<boolean>;
+}
+
+/** Atomic mutation and renderer-only presentation capabilities. */
+export interface PatchMapSurfaceMutationPresentationPort {
   /**
    * Atomically reconcile a detached PATCH MAP candidate without replacing the
    * whole dense scene. Older injected surfaces may omit this capability; the
@@ -235,39 +249,7 @@ export interface PatchMapEngineSurface {
     input: unknown,
     options?: PatchMapSurfaceReconcileOptions,
   ): PatchMapSurfaceReconcileResult;
-  publishFrame(timeMs: number): void;
-  suspendPresentation?(
-    timeMs: number,
-  ): PatchMapPresentationLifecycleResult;
-  resumePresentation?(
-    timeMs: number,
-  ): PatchMapPresentationLifecycleResult;
-  resize(width: number, height: number, pixelRatio: number): boolean;
-  setView(view: PatchMapSurfaceView): void;
-  setViewportGesturePolicies?(policies: readonly PatchMapViewportPolicy[]): void;
-  setViewportZoomLimits?(limits: readonly [number, number]): void;
-  bindViewportInput?(
-    listener: (input: PatchMapSurfaceViewportInput) => void,
-  ): () => void;
-  bindPointerInput?(
-    listener: (input: PatchMapSurfacePointerInput) => void,
-  ): () => void;
-  bindContextMenuInput?(
-    listener: (input: PatchMapSurfaceContextMenuInput) => boolean,
-  ): () => void;
-  bindAccessibilityActivation?(
-    listener: (
-      targetId: string,
-      input: PatchMapAccessibilityActivationInput,
-    ) => void,
-  ): () => void;
-  cancelViewportGestures?(): void;
   select(ids: readonly string[]): void;
-  setAccessibilityTree?(
-    nodes: readonly PatchMapAccessibilityRenderNode[],
-  ): PatchMapAccessibilitySurfaceProbe | undefined;
-  focusAccessibilityTarget?(targetId: string): boolean;
-  accessibilitySurfaceProbe?(): PatchMapAccessibilitySurfaceProbe | undefined;
   setReducedMotion?(enabled: boolean): boolean;
   setSelectionOverlayPolicy?(input: PatchMapSelectionOverlayPolicyInput): boolean;
   setSelectionMarquee?(input: PatchMapSelectionMarqueeInput | null): boolean;
@@ -288,13 +270,40 @@ export interface PatchMapEngineSurface {
   updateInstanceBarHeights?(
     request: PatchMapInstanceBarHeightBatchRequest,
   ): PatchMapInstanceBarHeightBatchResult;
+}
+
+/** Root input, viewport, selection interaction, and accessibility bridge. */
+export interface PatchMapSurfaceViewportInputPort {
+  setView(view: PatchMapSurfaceView): void;
+  setViewportGesturePolicies?(policies: readonly PatchMapViewportPolicy[]): void;
+  setViewportZoomLimits?(limits: readonly [number, number]): void;
+  bindViewportInput?(
+    listener: (input: PatchMapSurfaceViewportInput) => void,
+  ): () => void;
+  bindPointerInput?(
+    listener: (input: PatchMapSurfacePointerInput) => void,
+  ): () => void;
+  bindContextMenuInput?(
+    listener: (input: PatchMapSurfaceContextMenuInput) => boolean,
+  ): () => void;
+  bindAccessibilityActivation?(
+    listener: (
+      targetId: string,
+      input: PatchMapAccessibilityActivationInput,
+    ) => void,
+  ): () => void;
+  cancelViewportGestures?(): void;
+  setAccessibilityTree?(
+    nodes: readonly PatchMapAccessibilityRenderNode[],
+  ): PatchMapAccessibilitySurfaceProbe | undefined;
+  focusAccessibilityTarget?(targetId: string): boolean;
+  accessibilitySurfaceProbe?(): PatchMapAccessibilitySurfaceProbe | undefined;
   hitTestScreen(point: PatchMapPoint): string | null;
   screenToWorld(point: PatchMapPoint): PatchMapPoint;
-  /** Optional allocation-free frame facts for current aggregate surfaces. */
-  frameLoopActiveAnimations?(): number;
-  frameLoopWorkloadSize?(): number;
-  viewportGestureActive?(): boolean;
-  debugSnapshot(): PatchMapSurfaceDebug;
+}
+
+/** View-independent and screen-space geometry query capabilities. */
+export interface PatchMapSurfaceGeometryQueryPort {
   /**
    * View-independent geometry for fit/focus. Implementations may retain this
    * across pan, zoom, and resize while invalidating screen-space geometry.
@@ -312,6 +321,14 @@ export interface PatchMapEngineSurface {
   queryRegionGeometry?(
     bounds: PatchMapScreenRegionBounds,
   ): PatchMapSurfaceRegionGeometryCandidates;
+  relationHitTestScreen?(
+    point: PatchMapPoint,
+    options?: PatchMapRelationHitOptions,
+  ): PatchMapRelationHit | null;
+}
+
+/** Asset settlement and detached product observation capabilities. */
+export interface PatchMapSurfaceProductObservationPort {
   sceneImageProbe?(): PatchMapEngineSceneImagesProbe;
   retrySceneImage?(entityId: string): PatchMapSceneImageRetryResult;
   componentVisualProbe?(
@@ -324,16 +341,32 @@ export interface PatchMapEngineSurface {
   textProbe?(target: PatchMapTextTarget): PatchMapTextProductProbe | null;
   settleSceneImages?(): Promise<void>;
   settleSceneImageBindings?(bindingKeys: readonly string[]): Promise<void>;
-  relationHitTestScreen?(
-    point: PatchMapPoint,
-    options?: PatchMapRelationHitOptions,
-  ): PatchMapRelationHit | null;
+}
+
+/** Allocation-free runtime and renderer diagnostics. */
+export interface PatchMapSurfaceDiagnosticsPort {
+  /** Optional allocation-free frame facts for current aggregate surfaces. */
+  frameLoopActiveAnimations?(): number;
+  frameLoopWorkloadSize?(): number;
+  viewportGestureActive?(): boolean;
+  debugSnapshot(): PatchMapSurfaceDebug;
   interactionOwnershipProbe?(): PatchMapInteractionOwnershipProbe;
   pixiPublicSurfaceProbe?(): PatchMapPixiPublicSurfaceProbe;
   rendererLossProbe?(): PatchMapPixiRendererLossProbe;
   forceRendererLoss?(): boolean;
-  destroy(): Promise<boolean>;
 }
+
+/**
+ * Compatibility composite for injected surfaces and the single Pixi adapter.
+ * Consumers should depend on the narrow capability port they actually use.
+ */
+export interface PatchMapEngineSurface
+  extends PatchMapSurfaceLifecyclePort,
+    PatchMapSurfaceMutationPresentationPort,
+    PatchMapSurfaceViewportInputPort,
+    PatchMapSurfaceGeometryQueryPort,
+    PatchMapSurfaceProductObservationPort,
+    PatchMapSurfaceDiagnosticsPort {}
 
 export interface PatchMapSurfacePrepareResult {
   readonly storeSyncMs: number;

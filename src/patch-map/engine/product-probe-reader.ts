@@ -18,9 +18,10 @@ import {
 } from '../semantic/probe';
 import type {
   PatchMapEngineSceneImagesProbe,
-  PatchMapEngineSurface,
   PatchMapInteractionOwnershipProbe,
   PatchMapSurfaceDebug,
+  PatchMapSurfaceDiagnosticsPort,
+  PatchMapSurfaceProductObservationPort,
 } from './contracts';
 import type {
   IndexedEngineTextSemantic,
@@ -89,23 +90,33 @@ export interface PatchMapEngineProductProbeReadPort {
   sceneImageProbe(): PatchMapEngineSceneImagesProbe | null;
   componentVisualProbe(
     target: PatchMapComponentVisualTarget,
-  ): ReturnType<NonNullable<PatchMapEngineSurface['componentVisualProbe']>>;
+  ): ReturnType<
+    NonNullable<PatchMapSurfaceProductObservationPort['componentVisualProbe']>
+  >;
   barPresentationProbe(
     target: PatchMapComponentVisualTarget,
-  ): ReturnType<NonNullable<PatchMapEngineSurface['barPresentationProbe']>>;
-  paintOrderProbe(): ReturnType<NonNullable<PatchMapEngineSurface['paintOrderProbe']>> | null;
+  ): ReturnType<
+    NonNullable<PatchMapSurfaceProductObservationPort['barPresentationProbe']>
+  >;
+  paintOrderProbe(): ReturnType<
+    NonNullable<PatchMapSurfaceProductObservationPort['paintOrderProbe']>
+  > | null;
   textProbe(
     target: PatchMapTextTarget,
-  ): ReturnType<NonNullable<PatchMapEngineSurface['textProbe']>>;
+  ): ReturnType<NonNullable<PatchMapSurfaceProductObservationPort['textProbe']>>;
   interactionOwnershipProbe(): ReturnType<
-    NonNullable<PatchMapEngineSurface['interactionOwnershipProbe']>
+    NonNullable<PatchMapSurfaceDiagnosticsPort['interactionOwnershipProbe']>
   > | null;
   pixiPublicSurfaceRead(): Readonly<{
-    probe: ReturnType<NonNullable<PatchMapEngineSurface['pixiPublicSurfaceProbe']>> | null;
+    probe: ReturnType<
+      NonNullable<PatchMapSurfaceDiagnosticsPort['pixiPublicSurfaceProbe']>
+    > | null;
     canvasCount: number;
   }>;
   rendererLossSurfaceRead(): Readonly<{
-    probe: ReturnType<NonNullable<PatchMapEngineSurface['rendererLossProbe']>> | null;
+    probe: ReturnType<
+      NonNullable<PatchMapSurfaceDiagnosticsPort['rendererLossProbe']>
+    > | null;
     canvasCount: number;
   }>;
   terminalRendererLossProbe(): PatchMapPixiRendererLossProbe | null;
