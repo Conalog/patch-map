@@ -35,6 +35,8 @@ describe('PatchMapCaptureExtractionAuthority', () => {
 
     resizeObserver.setSize(640, 360);
     resizeObserver.notify();
+    resizeObserver.setSize(680, 382.5);
+    resizeObserver.notify();
     expect(harness.resizes).toEqual([]);
 
     harness.surface.resolveNextCapture();
@@ -44,7 +46,7 @@ describe('PatchMapCaptureExtractionAuthority', () => {
     });
     await Promise.resolve();
     expect(harness.resizes).toEqual([
-      [640, 360, 2],
+      [680, 382.5, 2],
       [720, 405, 2],
     ]);
     expect(resizePausedStates).toEqual([true, true]);
