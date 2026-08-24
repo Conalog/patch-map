@@ -65,6 +65,7 @@
     "verify:instance-presentation:bar-icon": "node scripts/verification/patch-map-instance-presentation-browser.mjs",
     "verify:instance-presentation:grid": "node scripts/verification/patch-map-grid-instance-presentation-browser.mjs",
     "verify:keyed-presentation:grid": "node scripts/verification/patch-map-grid-keyed-presentation-browser.mjs",
+    "verify:grid-text-quality": "node scripts/verification/patch-map-grid-text-quality-browser.mjs",
     "verify:theme": "node scripts/verification/patch-map-theme-browser.mjs",
     "verify:builtin-assets": "node scripts/verification/patch-map-builtin-assets-browser.mjs",
     "verify:asset-readiness": "node scripts/verification/patch-map-asset-readiness-browser.mjs",
