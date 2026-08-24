@@ -85,11 +85,9 @@ import {
   type PatchMapAccessibilityProbe,
 } from './accessibility';
 import {
-  PatchMapDatasetError,
   materializePatchMapDataset,
   ownedPatchMapMaterialization,
   releasePatchMapSemanticHashScratch,
-  validatePatchMapDatasetReferences,
   type MaterializedPatchMapDataset,
   type NormalizedPatchMapElement,
 } from './semantic/dataset';
@@ -183,8 +181,6 @@ import {
   cloneDetachedEngineRecord,
   componentSemanticKey,
   engineTextTargetKey,
-  indexComponentSemantics,
-  indexTextSemantics,
   ownedStructuralRootDelta,
   type IndexedEngineTextSemantic,
   type PatchMapEngineComponentSemanticProbe,
@@ -195,11 +191,9 @@ import {
 } from './engine/viewport-authority';
 import { PatchMapTransformerSessionCoordinator } from './engine/transformer-session-coordinator';
 import { PatchMapTransactionCommitCoordinator } from './engine/transaction-commit-coordinator';
+import { PatchMapDatasetReplacementCoordinator } from './engine/dataset-replacement-coordinator';
 import { PatchMapPublicationAuthority } from './engine/publication-authority';
-import {
-  PatchMapSceneStateAuthority,
-  type PatchMapSceneStatePlan,
-} from './engine/scene-state-authority';
+import { PatchMapSceneStateAuthority } from './engine/scene-state-authority';
 import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-authority';
 import { PatchMapAssetSessionAuthority } from './engine/asset-session-authority';
 import { PatchMapManagedFrameLoopAuthority } from './engine/managed-frame-loop-authority';
@@ -224,7 +218,6 @@ import {
   nonEmptyValue,
   normalizeBackground,
   normalizeEngineMutationTarget,
-  normalizeOptionalSourceRevision,
   normalizeSnapshotTarget,
   positiveSafeInteger,
   resolvePatchMapHistoryShortcut,
@@ -590,11 +583,6 @@ function resolvePatchMapMountSize(
   }
   return Object.freeze([resolvedWidth, resolvedHeight] as const);
 }
-interface PreparedPatchMapEngineLoad {
-  readonly materialized: MaterializedPatchMapDataset;
-  readonly scenePlan: PatchMapSceneStatePlan;
-}
-
 interface NormalizedPointerSelectionPolicy {
   readonly allowMultiple: boolean;
   readonly clearOnBlankClick: 'single' | 'double' | 'never';
@@ -671,6 +659,7 @@ export class PatchMap {
   private readonly accessibility = new PatchMapAccessibilityAuthority();
   private readonly transactionCommit: PatchMapTransactionCommitCoordinator;
   private readonly transformerSessions: PatchMapTransformerSessionCoordinator;
+  private readonly datasetReplacement: PatchMapDatasetReplacementCoordinator;
   private readonly viewportAuthority = new PatchMapViewportAuthority();
   private readonly publication = new PatchMapPublicationAuthority();
   private readonly sceneState = new PatchMapSceneStateAuthority(
@@ -705,8 +694,6 @@ export class PatchMap {
     background: string;
     backend: 'webgl' | 'webgpu';
   }> | null = null;
-  private loadSequence = 0;
-  private activeAsyncSurfaceLoadSequence: number | null = null;
   private pendingWork = 0;
   private destroySettlement: Promise<boolean> | null = null;
   private mountResizeCleanup: (() => void) | null = null;
@@ -959,6 +946,63 @@ export class PatchMap {
         this.operationError(code, code, operation, recoverable),
       sameSelection: sameStringArray,
     });
+    this.datasetReplacement = new PatchMapDatasetReplacementCoordinator(
+      this.sceneState,
+      this.publication,
+      this.hostInteractions,
+      this.accessibility,
+      this.editorWorkflows,
+      this.transformerSessions,
+      {
+        lifecycle: () => this.lifecycle,
+        setLifecycle: (lifecycle) => {
+          this.lifecycle = lifecycle;
+        },
+        liveSurface: () => this.surface,
+        requireSurface: (operation) => this.requireSurface(operation),
+        adjustPendingWork: (delta) => {
+          this.pendingWork += delta;
+        },
+        resetHistoryHostCompanion: () => {
+          this.historyHostCompanion = null;
+        },
+        interruptPointerReplacement: () => {
+          this.pointerGestureAuthority?.interrupt('replace');
+        },
+        resetPointerProjectionState: () => {
+          this.resetPointerProjectionState();
+        },
+        syncSelectionVisualPolicy: () => {
+          this.syncConfiguredSelectionVisualPolicy();
+        },
+        invalidateViewportContributors: () => {
+          this.defaultViewportContributorsCache = null;
+        },
+        clearHistoryForReplacement: () => {
+          this.clearHistoryAuthority('replace');
+        },
+        resetLiveOverlay: () => {
+          this.resetLiveOverlayState();
+        },
+        restoreAuthoritativeSurfaceScene: (surface, operation) => {
+          this.restoreAuthoritativeSurfaceScene(surface, operation);
+        },
+        operationError: (code, operation, recoverable) =>
+          this.operationError(code, code, operation, recoverable),
+        operationDiagnostic: (code, operation, recoverable) =>
+          this.operationDiagnostic(code, code, operation, recoverable),
+        diagnosticFrom: (error, operation) => this.diagnosticFrom(error, operation),
+        emitDiagnostic: (diagnostic) => {
+          this.emit('diagnostic', diagnostic);
+        },
+        emitSceneCommitted: (result) => {
+          this.emit('sceneCommitted', result);
+        },
+        emitDrawComplete: (event) => {
+          this.emit('drawComplete', event);
+        },
+      },
+    );
     this.productProbeReadPort = Object.freeze({
       lifecycle: () => this.lifecycle,
       instanceId: () => this.instanceId,
@@ -1544,9 +1588,7 @@ export class PatchMap {
   }
 
   public loadDataset(input: unknown, options: PatchMapLoadOptions = {}): PatchMapEngineLoadResult {
-    const surface = this.requireSurface('loadDataset');
-    const prepared = this.prepareDatasetLoad(input, options);
-    return this.publishPreparedDatasetLoad(surface, prepared);
+    return this.datasetReplacement.load(input, options);
   }
 
   /**
@@ -1585,184 +1627,11 @@ export class PatchMap {
     }
   }
 
-  private publishPreparedDatasetLoad(
-    surface: PatchMapEngineSurface,
-    prepared: PreparedPatchMapEngineLoad,
-  ): PatchMapEngineLoadResult {
-    this.transformerSessions.cancelActive('replace', true);
-    const sequence = ++this.loadSequence;
-    this.activeAsyncSurfaceLoadSequence = null;
-    const lifecycleGeneration = this.publication.lifecycleGeneration;
-    const sceneRevision = this.publication.sceneRevision;
-    surface.load(prepared.materialized.dataset);
-    try {
-      this.assertCooperativeLoadCurrent(
-        surface,
-        sequence,
-        lifecycleGeneration,
-        sceneRevision,
-        'loadDataset',
-      );
-    } catch (error) {
-      this.restoreAuthoritativeSurfaceScene(surface, 'loadDataset');
-      throw error;
-    }
-    this.pointerGestureAuthority?.interrupt('replace');
-    this.resetPointerProjectionState();
-    this.transformerSessions.interruptGestures();
-    return this.commitPreparedDatasetLoad(prepared);
-  }
-
   public async loadDatasetAsync(
     input: unknown,
     options: PatchMapLoadOptions = {},
   ): Promise<PatchMapEngineLoadResult> {
-    const surface = this.requireSurface('loadDatasetAsync');
-    const materialized = materializePatchMapDataset(input);
-    this.validateStrictDatasetLoad(materialized, options);
-    const sequence = ++this.loadSequence;
-    const lifecycleGeneration = this.publication.lifecycleGeneration;
-    const sceneRevision = this.publication.sceneRevision;
-    this.pendingWork += 1;
-    try {
-      await yieldPatchMapEngineTask();
-      this.assertCooperativeLoadCurrent(
-        surface,
-        sequence,
-        lifecycleGeneration,
-        sceneRevision,
-      );
-      const componentSemantics = indexComponentSemantics(materialized.dataset);
-      await yieldPatchMapEngineTask();
-      this.assertCooperativeLoadCurrent(
-        surface,
-        sequence,
-        lifecycleGeneration,
-        sceneRevision,
-      );
-      const textSemantics = indexTextSemantics(materialized.dataset);
-      const prepared = Object.freeze({
-        materialized,
-        scenePlan: this.sceneState.prepareReplacement({
-          materialized,
-          componentSemantics,
-          textSemantics,
-          datasetRef: options.datasetRef ?? null,
-        }),
-      });
-      await yieldPatchMapEngineTask();
-      this.assertCooperativeLoadCurrent(
-        surface,
-        sequence,
-        lifecycleGeneration,
-        sceneRevision,
-      );
-      const assertCurrent = (): void => {
-        this.assertCooperativeLoadCurrent(
-          surface,
-          sequence,
-          lifecycleGeneration,
-          sceneRevision,
-        );
-      };
-      try {
-        this.transformerSessions.cancelActive('replace', true);
-        if (surface.loadAsync) {
-          this.activeAsyncSurfaceLoadSequence = sequence;
-          await surface.loadAsync(materialized.dataset, assertCurrent);
-        } else {
-          surface.load(materialized.dataset);
-        }
-        assertCurrent();
-      } catch (error) {
-        if (
-          this.activeAsyncSurfaceLoadSequence === null ||
-          this.activeAsyncSurfaceLoadSequence === sequence
-        ) {
-          this.restoreAuthoritativeSurfaceScene(surface, 'loadDatasetAsync');
-        }
-        throw error;
-      } finally {
-        if (this.activeAsyncSurfaceLoadSequence === sequence) {
-          this.activeAsyncSurfaceLoadSequence = null;
-        }
-      }
-      this.pointerGestureAuthority?.interrupt('replace');
-      this.resetPointerProjectionState();
-      this.transformerSessions.interruptGestures();
-      return this.commitPreparedDatasetLoad(prepared);
-    } finally {
-      this.pendingWork -= 1;
-    }
-  }
-
-  private prepareDatasetLoad(
-    input: unknown,
-    options: PatchMapLoadOptions = {},
-  ): PreparedPatchMapEngineLoad {
-    const materialized = materializePatchMapDataset(input);
-    this.validateStrictDatasetLoad(materialized, options);
-    const componentSemantics = indexComponentSemantics(materialized.dataset);
-    const textSemantics = indexTextSemantics(materialized.dataset);
-    return Object.freeze({
-      materialized,
-      scenePlan: this.sceneState.prepareReplacement({
-        materialized,
-        componentSemantics,
-        textSemantics,
-        datasetRef: options.datasetRef ?? null,
-      }),
-    });
-  }
-
-  private validateStrictDatasetLoad(
-    materialized: MaterializedPatchMapDataset,
-    options: PatchMapLoadOptions,
-  ): void {
-    if (options.strict !== undefined && typeof options.strict !== 'boolean') {
-      throw new PatchMapDatasetError(
-        'INVALID_VALUE',
-        '$.options.strict',
-        'strict must be a boolean',
-      );
-    }
-    if (options.strict === true) {
-      validatePatchMapDatasetReferences(materialized.dataset);
-    }
-  }
-
-  private commitPreparedDatasetLoad(
-    prepared: PreparedPatchMapEngineLoad,
-  ): PatchMapEngineLoadResult {
-    const { materialized, scenePlan } = prepared;
-    const selectionBefore = this.logicalSelectionIds;
-    const modeBefore = this.hostInteractions.modeProbe().activeState;
-    this.historyHostCompanion = null;
-    if (modeBefore !== 'select') {
-      this.hostInteractions.applyModeOperation({ op: 'replace', state: 'select' });
-    }
-    if (selectionBefore.length > 0 || modeBefore !== 'select') {
-      this.publication.advanceInteraction();
-    }
-    this.hostInteractions.clearTooltip('redraw');
-    this.hostInteractions.clearLogicalBindings();
-    this.accessibility.replaceScene();
-    this.sceneState.commit(scenePlan);
-    this.syncConfiguredSelectionVisualPolicy();
-    this.defaultViewportContributorsCache = null;
-    this.clearHistoryAuthority('replace');
-    this.resetLiveOverlayState();
-    this.publication.advanceScene();
-    this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-    this.editorWorkflows.onSceneReplaced();
-    const result: PatchMapEngineLoadResult = Object.freeze({
-      lifecycle: this.lifecycle,
-      sceneRevision: this.publication.sceneRevision,
-      semanticHash: materialized.semanticHash,
-      rootIds: materialized.rootIds,
-    });
-    this.emit('sceneCommitted', result);
-    return result;
+    return this.datasetReplacement.loadAsync(input, options);
   }
 
   /**
@@ -3039,96 +2908,7 @@ export class PatchMap {
   }
 
   public async submitDataset(submission: PatchMapDatasetSubmission): Promise<PatchMapDatasetSubmissionResult> {
-    let sourceFields: Readonly<{ readonly sourceRevision?: number }> = Object.freeze({});
-    let sequence = 0;
-    let inputResolved = false;
-    let outcome: PatchMapDatasetSubmissionResult | null = null;
-    this.pendingWork += 1;
-    try {
-      const sourceRevision = normalizeOptionalSourceRevision(submission.sourceRevision);
-      sourceFields = sourceRevision === undefined
-        ? Object.freeze({})
-        : Object.freeze({ sourceRevision });
-      if (!this.surface) {
-        outcome = Object.freeze({
-          status: 'rejected',
-          requestId: submission.requestId,
-          ...sourceFields,
-          diagnostic: this.operationDiagnostic('NOT_READY', 'NOT_READY', 'loadDataset', true),
-        } satisfies PatchMapDatasetSubmissionResult);
-        return outcome;
-      }
-      sequence = ++this.loadSequence;
-      const input = await submission.input;
-      inputResolved = true;
-      const prepared = this.prepareDatasetLoad(input, {
-        ...(submission.datasetRef ? { datasetRef: submission.datasetRef } : {}),
-      });
-      if (sequence !== this.loadSequence || this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
-        outcome = Object.freeze({
-          status: 'superseded',
-          requestId: submission.requestId,
-          ...sourceFields,
-          diagnostic: this.operationDiagnostic('SUPERSEDED', 'SUPERSEDED', 'loadDataset', true),
-        } satisfies PatchMapDatasetSubmissionResult);
-        return outcome;
-      }
-      const surface = this.requireSurface('loadDataset');
-      const result = this.publishPreparedDatasetLoad(surface, prepared);
-      this.emit('drawComplete', Object.freeze({
-        requestId: submission.requestId,
-        ...sourceFields,
-        sceneRevision: result.sceneRevision,
-        semanticHash: result.semanticHash,
-        datasetRef: submission.datasetRef ?? null,
-      }));
-      outcome = Object.freeze({
-        status: 'committed',
-        requestId: submission.requestId,
-        ...sourceFields,
-        sceneRevision: result.sceneRevision,
-        semanticHash: result.semanticHash,
-      } satisfies PatchMapDatasetSubmissionResult);
-      return outcome;
-    } catch (error) {
-      if (
-        !inputResolved &&
-        sequence !== 0 &&
-        (
-          sequence !== this.loadSequence ||
-          this.lifecycle === 'destroyed' ||
-          this.lifecycle === 'destroying'
-        )
-      ) {
-        outcome = Object.freeze({
-          status: 'superseded',
-          requestId: submission.requestId,
-          ...sourceFields,
-          diagnostic: this.operationDiagnostic(
-            'SUPERSEDED',
-            'SUPERSEDED',
-            'loadDataset',
-            true,
-          ),
-        } satisfies PatchMapDatasetSubmissionResult);
-        return outcome;
-      }
-      const diagnostic = this.diagnosticFrom(error, 'loadDataset');
-      if (!this.isDestroyingOrDestroyed()) this.emit('diagnostic', diagnostic);
-      outcome = Object.freeze({
-        status: 'rejected',
-        requestId: submission.requestId,
-        ...sourceFields,
-        diagnostic,
-      } satisfies PatchMapDatasetSubmissionResult);
-      return outcome;
-    } finally {
-      try {
-        if (outcome !== null) await releaseDatasetSubmission(submission, outcome);
-      } finally {
-        this.pendingWork -= 1;
-      }
-    }
+    return this.datasetReplacement.submit(submission);
   }
 
   public registerPageLifecycleWork(
@@ -3406,7 +3186,7 @@ export class PatchMap {
     const rebind = this.publication.planLifecycleRebind(requestedGeneration);
     const surface = this.requireSurface('rebindHostLifecycle');
     this.hostInteractions.clearTooltip('redraw');
-    this.loadSequence += 1;
+    this.datasetReplacement.invalidate();
     this.viewportAuthority.cancelMotion();
     surface.cancelViewportGestures?.();
     if (this.transformerSessions.cancelActive('redraw', true) === null) {
@@ -5599,7 +5379,7 @@ export class PatchMap {
     this.managedFrameLoop.destroy();
     this.transformerSessions.cancelActive('destroy', false);
     this.lifecycle = 'destroying';
-    this.loadSequence += 1;
+    this.datasetReplacement.invalidate();
     const surface = this.surface;
     this.viewportAuthority.cancelMotion();
     surface?.cancelViewportGestures?.();
@@ -6105,26 +5885,6 @@ export class PatchMap {
     return this.publication.correlateGeometryRevision(surfaceRevision);
   }
 
-  private assertCooperativeLoadCurrent(
-    surface: PatchMapEngineSurface,
-    sequence: number,
-    lifecycleGeneration: number,
-    sceneRevision: number,
-    operation = 'loadDatasetAsync',
-  ): void {
-    if (this.lifecycle === 'destroyed' || this.lifecycle === 'destroying') {
-      throw this.operationError('DESTROYED', 'DESTROYED', operation, false);
-    }
-    if (
-      this.surface !== surface ||
-      this.loadSequence !== sequence ||
-      this.publication.lifecycleGeneration !== lifecycleGeneration ||
-      this.publication.sceneRevision !== sceneRevision
-    ) {
-      throw this.operationError('SUPERSEDED', 'SUPERSEDED', operation, true);
-    }
-  }
-
   private isSurfaceMutationCurrent(
     surface: PatchMapEngineSurface,
     revisions: PatchMapRevisionStamp,
@@ -6600,19 +6360,6 @@ function rejectedReasons(
     if (settlement.status === 'rejected') reasons.push(settlement.reason as unknown);
   }
   return reasons;
-}
-
-async function releaseDatasetSubmission(
-  submission: PatchMapDatasetSubmission,
-  result: PatchMapDatasetSubmissionResult,
-): Promise<void> {
-  await submission.release?.(result);
-}
-
-function yieldPatchMapEngineTask(): Promise<void> {
-  return new Promise((resolve) => {
-    globalThis.setTimeout(resolve, 0);
-  });
 }
 
 function requireRegionGeometry(
