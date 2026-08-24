@@ -35,6 +35,7 @@ transaction or publication owners.
 | semantic and dense core | interpretation, planning, identity, compact state | public facade policy, input events, or PixiJS objects |
 | renderer contracts | neutral render views, updates, lifecycle capabilities | concrete PixiJS state |
 | PixiJS adapter | aggregate GPU resources, frame execution, surface lifecycle | semantic mutation, history, or public API policy |
+| Pixi root interaction binding authority | the fixed stage/canvas listener set, pointer capture, coordinate translation, activation rollback, and listener cleanup | gesture policy, selection, viewport mutation, or per-entity callbacks |
 | interaction and resources | their singular state machines and cleanup | independent tickers, per-entity listeners, or hidden publication paths |
 
 ## Dependency rules
@@ -88,6 +89,13 @@ renderer and image side effects, rollback, disposal, and final frame
 invalidation. `PatchMapRuntime` still owns its live field references and parser
 entry points, but delegates the atomic publication order through a constructor-
 stable port instead of implementing a second load commit path.
+
+`PatchMapPixiRootInteractionBindingAuthority` owns the Pixi stage and canvas DOM
+binding lifecycle behind the aggregate renderer. It installs five federated
+pointer listeners and three root canvas listeners only after surface publication,
+rolls back partial installation, releases pointer capture during deactivation,
+and reports zero per-entity callbacks. Gesture, selection, and viewport policy
+remain with the Core root interaction authority.
 
 ## Verification
 

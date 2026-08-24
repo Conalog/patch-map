@@ -32,10 +32,10 @@ work records.
 
 ## Current evidence
 
-- `src/patch-map` contains 232 TypeScript/JavaScript files and approximately
-  84,800 lines.
+- `src/patch-map` contains 233 TypeScript/JavaScript files and approximately
+  84,900 lines.
 - The largest orchestration files are `engine.ts` (6,569 lines),
-  `renderers/pixi-renderer.ts` (2,474), `core.ts` (2,281), and
+  `renderers/pixi-renderer.ts` (2,300), `core.ts` (2,281), and
   `renderers/leaf-layer.ts` (2,179).
 - A top-level import-owner analysis places the root modules, `engine`, `core`,
   `semantic`, `renderers`, and thirteen adjacent areas in one bidirectional
@@ -321,6 +321,16 @@ claim.
 
 Verification: renderer/leaf/asset focused tests, Lab, memory, relevant WebGL
 pixel gates, `perf:quick`, and lane-specific performance checkpoints.
+
+Root interaction binding movement is complete. The internal
+`PatchMapPixiRootInteractionBindingAuthority` owns deferred activation, the one
+fixed stage/canvas listener set, pointer capture, CSS-to-backing coordinate
+translation, partial-install rollback, and teardown. The aggregate renderer
+retains surface publication order and delegates activation or rollback without
+adding entity callbacks. Focused lifecycle tests, full unit/build/Lab/contract,
+packed and installed-consumer checks, the 173-route Lab browser pass, the 2+7
+memory lifecycle gate, interaction smoke, and independent review passed. This
+cold control-plane extraction makes no performance-improvement claim.
 
 ### T6. Aggregate text and image leaf lanes
 
