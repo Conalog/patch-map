@@ -49,4 +49,3 @@ the referenced harnesses under `performance/patch-map/` and
 See [CONTRIBUTING.md](../../CONTRIBUTING.md) for the overall verification cadence
 and the [product policy](../reference/patch-map-product-policy.md) for fixed
 runtime invariants.
-

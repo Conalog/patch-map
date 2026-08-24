@@ -30,25 +30,26 @@ work records.
 - Approved functional fixtures, normalized observations, review evidence, and
   retained digest-bound performance evidence are immutable.
 
-## Current evidence
+## Current inventory and initial baseline evidence
 
-- `src/patch-map` contains 233 TypeScript/JavaScript files and approximately
-  84,900 lines.
+- `src` contains 237 TypeScript/JavaScript files and 85,301 lines.
 - The largest orchestration files are `engine.ts` (6,569 lines),
   `renderers/pixi-renderer.ts` (2,300), `core.ts` (2,281), and
-  `renderers/leaf-layer.ts` (2,179).
-- A top-level import-owner analysis places the root modules, `engine`, `core`,
-  `semantic`, `renderers`, and thirteen adjacent areas in one bidirectional
+  `renderers/leaf-layer.ts` (1,380). The extracted aggregate text lane is 958
+  lines and remains a follow-up cohesion signal rather than a completed size
+  target.
+- The initial top-level import-owner analysis placed the root modules, `engine`,
+  `core`, `semantic`, `renderers`, and thirteen adjacent areas in one bidirectional
   dependency group. This is an ownership-cycle signal, not a claim that the
   runtime module graph necessarily has a JavaScript evaluation cycle. An
-  independent module-level audit then confirmed two concrete source SCCs:
+  independent module-level audit then confirmed two source SCCs that T2 removed:
   `core/contracts.ts -> renderers/pixi-renderer.ts -> presentation-layers.ts ->
   core/semantic-dense-planning.ts -> core/product-probe-reader.ts ->
   core/contracts.ts`, and `mesh/chunk-geometry.ts <-> mesh/viewport-culling.ts`.
-- `PatchMapEngineSurface` is a roughly 50-capability port. It hides duplicate
-  lifecycle, load, viewport, selection, asset, probe, and destroy boundaries
-  between the product facade, Pixi surface adapter, and core runtime.
-- The repository has 200 PatchMap test files and project-native unit, contract,
+- At baseline, `PatchMapEngineSurface` was a roughly 50-capability port hiding
+  duplicate lifecycle, load, viewport, selection, asset, probe, and destroy
+  boundaries between the product facade, Pixi surface adapter, and core runtime.
+- The repository has 202 PatchMap test files and project-native unit, contract,
   package, Lab, memory, and performance gates.
 - `docs/patch-map` is package-distributed and is checked by the packed-artifact
   verifier. `docs/reference/core-v2-functional-contract/evidence` is imported by
@@ -56,11 +57,9 @@ work records.
 
 ## Current truth
 
-- This refactor runs on `refactor/patch-map-architecture` without
-  branch-specific agent instructions or completed task records.
-- `package.json` declares `1.0.0-alpha.1`. Merge-era root README version wording
-  has been removed; this structural refactor does not infer a new package
-  version.
+- This refactor runs on `refactor/patch-map-architecture`.
+- `package.json` declares `1.0.0-alpha.1`; versioning is outside this structural
+  refactor.
 - No refactor tranche may rewrite the fixed product and evidence contracts above.
 
 ## Documentation foundation
@@ -118,8 +117,8 @@ owner and are linked rather than copied.
 | Migrate an existing host | `docs/patch-map/migration.md` | compatibility boundary | package journeys | current |
 | Understand support matrix | `docs/patch-map/compatibility.md` | package manifest and renderer backends | release readiness | current |
 | Contribute and select gates | `CONTRIBUTING.md` | package scripts | the selected project-native command | current |
-| Understand module boundaries | `docs/maintainers/architecture.md` | `src/patch-map/**` | lint, typecheck, architecture boundary checks | coverage gap until created |
-| Select performance checkpoint | `docs/maintainers/performance.md` | performance harnesses and verification scripts | relevant `perf:*` command | coverage gap until created |
+| Understand module boundaries | `docs/maintainers/architecture.md` | `src/patch-map/**` | lint, typecheck, architecture boundary checks | current |
+| Select performance checkpoint | `docs/maintainers/performance.md` | performance harnesses and verification scripts | relevant `perf:*` command | current |
 | Preserve 38/173 behavior | immutable functional contract corpus | evidence manifests and handlers | `verify:contract` | current verification input |
 | Preserve retained performance evidence | digest-bound result paths | release verifier | release readiness | historical evidence |
 | Track this refactor | this design until replaced by current owners | working tree and review results | tranche gates | temporary |
@@ -135,10 +134,9 @@ owner and are linked rather than copied.
 | product policy | preserve as internal canonical owner | explicit product-policy approval for semantic change |
 | completed feature design records | archive or delete candidate after current facts are owned elsewhere | separate destructive approval |
 
-The user approved removal of merge-era agent instructions and completed task or
-design records. Immutable verification inputs and retained digest-bound evidence
-remain in place. Any later authority transfer or broad path migration still
-requires a fresh manifest review.
+Immutable verification inputs and retained digest-bound evidence remain in
+place. Any later authority transfer or broad path migration still requires a
+fresh manifest review.
 
 ## Target source architecture
 
@@ -346,6 +344,32 @@ Verification: leaf/signature/style, asset and component-asset tests,
 `verify:asset-readiness`, `verify:grid-text-quality`,
 `verify:instance-presentation`, `verify:memory`, and only the matching packed
 asset or production-presentation performance checkpoint.
+
+Text-lane movement is complete. `AggregateLeafLayer` keeps the single store
+scan, image/resource work, cross-lane order, and asset release promotion.
+`AggregateTextLeafLane` owns text retention, chunk/deferred state, raster
+resolution, probes, and frame confirmation; `leaf-projection.ts` owns shared
+pure projection math. Invalid and reverse frame tests prove that text probes and
+both text and asset queues stay atomic, while normal revisions promote and
+release each resource once. Focused leaf, text, asset, component, architecture,
+and product-integration tests; typecheck; lint; full unit (202 files and 1,900
+tests including the serialized release test); production and Lab builds;
+contract 38/173; grid text quality; asset readiness; memory; and independent
+review passed.
+
+The matched grid checkpoint compared `8cf6a8d` with `85e839e` at 5,000 and
+10,000 entities using WebGL, DPR 1, 800×600, two warmups, and seven measured
+trials. Mount, first overlay update, repeated update, repeated-update p95, and
+RAF-gap p95 medians were lower at both scales, while long-task count remained
+eight. Matching 4×-CPU quick checkpoints also completed with zero browser
+errors. These runs support a no-regression decision and an improvement signal;
+they do not establish a causal or native-Windows improvement claim. The initial
+quick attempt whose concurrent cleanup failed is excluded from evidence rather
+than hidden or reclassified.
+
+Image/resource-lane movement remains open. Further text-lane subdivision must
+remove a cohesive state owner or pure transformation; it must not introduce a
+second dense-store traversal or split the lane solely to satisfy a line count.
 
 ### T7. Semantic ingestion and reconciliation
 
