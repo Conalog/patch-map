@@ -32,6 +32,7 @@ transaction or publication owners.
 | dataset replacement coordinator | sync, async, and submitted-load freshness; surface acceptance; authoritative replacement commit | semantic storage, surface implementation, or a second publication revision |
 | history application coordinator | host companion state; undo/redo surface application; history publication ordering | history stack/cursor storage, semantic storage, or renderer state |
 | Core load authority | cooperative load freshness; reversible scene/runtime/renderer/image publication and rollback order | Engine lifecycle, parser policy, or a second scene/runtime state |
+| Core reconcile publication coordinator | candidate preparation, one semantic dense commit, ordered projection/image/presentation publication, refusal rollback, and post-commit terminal sealing | duplicate normalization or traversal, mirrored runtime state, stale load-replaceable authorities, or post-commit rollback |
 | semantic and dense core | interpretation, planning, identity, compact state | public facade policy, input events, or PixiJS objects |
 | renderer contracts | neutral render views, updates, lifecycle capabilities | concrete PixiJS state |
 | PixiJS adapter | aggregate GPU resources, frame execution, surface lifecycle | semantic mutation, history, or public API policy |
@@ -94,6 +95,18 @@ renderer and image side effects, rollback, disposal, and final frame
 invalidation. `PatchMapRuntime` still owns its live field references and parser
 entry points, but delegates the atomic publication order through a constructor-
 stable port instead of implementing a second load commit path.
+
+`PatchMapReconcilePublicationCoordinator` owns the synchronous semantic
+reconcile state machine from candidate preparation through one dense commit and
+ordered renderer, image, presentation, hit-index, and frame publication. A
+refused candidate rolls back only internal stable-record overlays and performs
+no dense or renderer write. A failure after dense commit cannot reconstruct the
+same slot generations, animation table, and history, so the coordinator seals
+the runtime instead of attempting a false rollback. Direct bar, text, and angle
+paths retain their specialized skip behavior. The aggregate runtime passes an
+explicit `semantic-reconcile` publication mode and supplies fresh reads for the
+load-replaceable spatial-hit authority and instance-presentation state; the
+coordinator retains no mirrored scene, projection, or presentation maps.
 
 `PatchMapPixiRootInteractionBindingAuthority` owns the Pixi stage and canvas DOM
 binding lifecycle behind the aggregate renderer. It installs five federated

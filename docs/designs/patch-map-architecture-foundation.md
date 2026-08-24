@@ -32,13 +32,14 @@ work records.
 
 ## Current inventory and initial baseline evidence
 
-- `src` contains 240 TypeScript/JavaScript files and 85,575 lines.
+- `src` contains 241 TypeScript/JavaScript files and 85,692 lines.
 - The largest orchestration files are `engine.ts` (6,569 lines),
-  `renderers/pixi-renderer.ts` (1,901), `core.ts` (2,281), and
+  `core.ts` (2,055), `renderers/pixi-renderer.ts` (1,901), and
   `core/instance-presentation-overlay.ts` (1,462). The aggregate leaf
   coordinator is now 384 lines; the image lane is 1,132 lines and the text lane
-  is 958 lines. The interaction-overlay authority is 409 lines. These files
-  remain cohesion signals rather than completed size targets.
+  is 958 lines. The interaction-overlay authority is 409 lines and the Core
+  reconcile publication coordinator is 343 lines. These files remain cohesion
+  signals rather than completed size targets.
 - The initial top-level import-owner analysis placed the root modules, `engine`,
   `core`, `semantic`, `renderers`, and thirteen adjacent areas in one bidirectional
   dependency group. This is an ownership-cycle signal, not a claim that the
@@ -462,6 +463,44 @@ lane solely to satisfy a line count.
 
 Verification: parser/dataset/layout/reconcile/transaction tests, contract 38/173,
 and targeted parsing/update performance only when the hot path changes.
+
+Reconcile publication movement is complete. The hidden
+`sceneImageReconcileSuspended` flag was first replaced by an explicit
+`ordinary | semantic-reconcile` dense-publication mode. The subsequent
+`PatchMapReconcilePublicationCoordinator` extraction moved candidate refusal,
+the one dense commit, ordered projection/image/presentation/hit publication,
+and post-commit terminal sealing out of `PatchMapRuntime`. Direct bar, text,
+angle, structural, incremental, and full candidate planners remain distinct and
+unchanged. Load-replaceable spatial-hit state is read through a fresh port, and
+instance-presentation state still has one canonical Runtime write.
+
+The tranche passed typecheck, full lint, 202 regular test files and 1,907 tests,
+the serialized release test, production and Lab builds, contract 38/173, exact-
+commit packed packages with all 38 consumer journeys, all 173 Lab routes and
+192 checks, the memory ownership gate, the acyclic import graph, and independent
+review. Focused tests now prove that reconcile uses the spatial-hit authority
+installed by the latest load and that a fill-only post-dense renderer failure
+publishes the candidate authority before sealing terminal state exactly once.
+
+Matched contract checkpoints compared `73ab1e3` with `d44e129` using Chromium
+143 WebGL2, 4× CPU throttling, the 100/500/1,000/2,000/5,000 and production-
+shaped workloads, two warmups, and seven measured trials. Both exact-commit,
+package-bound reports completed with zero browser or lifecycle failures. The
+200-target bar action p95 was 31.9 versus 32.7 ms, the 666-target text p95 was
+173.6 versus 171.1 ms, and bulk action p95 was 895.4 versus 898.1 ms; the bulk
+complexity exponent was 1.0199 versus 1.0118. Bulk medians at 500 and 5,000
+targets were 334.8/881.8 versus 337.9/882.6 ms. These mixed small movements
+support no regression under the project contract, not an improvement claim.
+
+The dedicated memory gate passed 2+7 lifecycle and nine ownership cycles in
+both orders with all DOM, scheduler, and renderer resources released. Its
+unfavorable retained-heap observations were baseline 119,787/119,327 bytes and
+candidate 124,431/122,631 bytes, so they remain explicit instead of being used
+as improvement evidence. Identity-bound raw reports and memory outputs are
+retained under `.perf-results/patch-map/reconcile-publication/`. An initial
+baseline report attempt rejected stale protected package evidence and is
+excluded; the retained rerun used newly generated exact-commit package evidence.
+Chromium remains a development proxy, not native-Windows evidence.
 
 ### T8. Public documentation alignment and migration
 
