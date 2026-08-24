@@ -37,6 +37,7 @@ transaction or publication owners.
 | PixiJS adapter | aggregate GPU resources, frame execution, surface lifecycle | semantic mutation, history, or public API policy |
 | Pixi surface publication authority | first successful render publication, WebGL2 context listener ownership, root-binding activation, devtools registration, reverse-order rollback, and publication teardown | renderer-loss policy, frame scheduling, semantic state, or caller-canvas destruction order |
 | Pixi root interaction binding authority | the fixed stage/canvas listener set, pointer capture, coordinate translation, activation rollback, and listener cleanup | gesture policy, selection, viewport mutation, or per-entity callbacks |
+| Pixi interaction overlay authority | stable selection and transformer Graphics identities, scene-tail order, selected/visible/transformable/resizable slot state, overlay policy and marquee paint, dirty repaint, projection paint-bounds caching, probes, and cleanup | selection semantics, pointer gestures, store/projection ownership, frame scheduling, or a second dense-store traversal |
 | aggregate leaf coordinator | one dense-store traversal, shared paint/projection state, lane ordering, and confirmed-frame forwarding | text or image retention state, resource release queues, or a second store scan |
 | aggregate text leaf lane | text container ownership, chunk/deferred materialization, raster resolution, text probes, and text frame confirmation | image release queues, store traversal, or independent frame scheduling |
 | aggregate image leaf lane | three image container identities, Sprite projection and ordering, binding generations, stale completion, image probes, and confirmed-frame resource release | text publication, store traversal, or independent frame scheduling |
@@ -109,6 +110,17 @@ effects back in reverse order and leaves the one-shot render wrapper installed
 for retry; success restores the original render function, so steady frames do
 not pass through the publication authority. The aggregate renderer still owns
 loss/recovery state, frame eligibility, invalidation, and teardown composition.
+
+`PatchMapPixiInteractionOverlayAuthority` owns the stable selection and
+transformer `Graphics` leaves and attaches them at the scene tail in that fixed
+order. It retains the selected, visible, transformable, and resizable slot sets,
+normalized overlay policy, transient marquee, last paint transform, projection-
+identity paint-bounds cache, paint counters, probes, and destruction. The
+aggregate renderer still owns store replacement, dirty-range orchestration,
+world/projection state, slot indexing, and the single frame schedule. Unchanged
+frames do not resolve a projection context or rebuild Graphics geometry; scale
+changes and active-marquee transform changes repaint through the existing
+selection phase without adding a second dense-store traversal.
 
 `AggregateLeafLayer` remains the single aggregate leaf coordinator and performs
 the only dense-store traversal. It delegates text retention, chunking, deferred

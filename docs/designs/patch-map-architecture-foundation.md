@@ -32,13 +32,13 @@ work records.
 
 ## Current inventory and initial baseline evidence
 
-- `src` contains 239 TypeScript/JavaScript files and 85,502 lines.
+- `src` contains 240 TypeScript/JavaScript files and 85,575 lines.
 - The largest orchestration files are `engine.ts` (6,569 lines),
-  `renderers/pixi-renderer.ts` (2,237), `core.ts` (2,281), and
+  `renderers/pixi-renderer.ts` (1,901), `core.ts` (2,281), and
   `core/instance-presentation-overlay.ts` (1,462). The aggregate leaf
   coordinator is now 384 lines; the image lane is 1,132 lines and the text lane
-  is 958 lines. Both lanes remain cohesion signals rather than completed size
-  targets.
+  is 958 lines. The interaction-overlay authority is 409 lines. These files
+  remain cohesion signals rather than completed size targets.
 - The initial top-level import-owner analysis placed the root modules, `engine`,
   `core`, `semantic`, `renderers`, and thirteen adjacent areas in one bidirectional
   dependency group. This is an ownership-cycle signal, not a claim that the
@@ -350,6 +350,45 @@ cycles, and an
 independent re-audit. Because successful publication restores the original
 render identity and the steady `flush()` path is unchanged, this cold
 control-plane extraction makes no performance-improvement claim.
+
+Interaction-overlay movement is complete.
+`PatchMapPixiInteractionOverlayAuthority` owns the stable selection and
+transformer Graphics identities, fixed scene-tail order, selected/visible/
+transformable/resizable slot state, normalized policy, transient marquee,
+projection-identity paint-bounds cache, repaint state, probes, reset, and
+idempotent cleanup. The aggregate renderer retains store replacement,
+dirty-range and projection revision orchestration, the stable world matrix and
+slot index, and the flush schedule. The authority reads projection context
+lazily only when an actual repaint is required, so unchanged frames add neither
+a projection allocation nor a second store scan.
+
+The tranche passed typecheck, full lint, 202 regular test files and 1,905 tests
+plus the serialized release test, production and Lab builds, contract 38/173,
+an installed packed-selection consumer, all 173 Lab routes and 192 checks, the
+2+7 memory lifecycle and nine ownership cycles, and independent review. The
+production build transformed 220 modules and the Lab build 1,111 modules; the
+existing large-chunk warning remains.
+
+Matched quick checkpoints compared `6f88bb2` with `0fe11f8` in both
+baseline→candidate and candidate→baseline order. Each run used WebGL2 through
+Chromium, DPR 1, 1,280×720, 4× CPU throttling, 100 and 1,000 scales, two warmups,
+and seven measured trials. Across the pooled 14 selected-mesh samples, selection
+commit/render/total medians were 0.1/1.5/1.8 ms versus 0.1/1.5/1.7 ms at scale
+100, and 0.1/3.3/3.6 ms versus 0.1/3.2/3.6 ms at scale 1,000. All four retained
+runs had zero console, page, or network errors.
+
+The pooled selected scale-1,000 retained-JS-heap median was unfavorable at
+44,559 versus 29,127 bytes, including substantial between-run GC variance. The
+matched dedicated memory gate did not reproduce a lifecycle regression:
+baseline `6f88bb2` retained 125,323 bytes and candidate `0fe11f8` retained
+125,235 bytes while both released DOM, scheduler, and renderer ownership. The
+identity-prefixed raw outputs are retained under
+`.perf-results/patch-map/interaction-overlay/memory-6f88bb2.txt` and
+`.perf-results/patch-map/interaction-overlay/memory-0fe11f8.txt`. A mistakenly
+rooted duplicate baseline run carrying a candidate label was interrupted before
+artifact publication and is excluded from evidence. These results support a
+no-regression decision under the project gates, not a performance-improvement
+or native-Windows claim.
 
 ### T6. Aggregate text and image leaf lanes
 
