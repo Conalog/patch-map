@@ -12,7 +12,8 @@ assets, and cleanup to one `PatchMap` instance.
 
 ## Before changing code
 
-- Use Node.js 20 or newer. Repository CI uses Node.js 22.
+- Use Node.js 20 or newer. Local repository work uses Node.js 22; CI and release
+  verification use Node.js 24.
 - Install the package and its PixiJS v8 peer together:
 
   ```sh
@@ -25,9 +26,9 @@ assets, and cleanup to one `PatchMap` instance.
   selector/live-node lookup, command/history path, asset loader, capture path,
   persistence write, and unmount hook. Each must have one explicit owner after
   migration.
-- Do not publish this redesign under a semver that implies API compatibility.
-  The exact release version is chosen after merge, but the breaking public API
-  must follow the major-version rule in [compatibility.md](./compatibility.md).
+- Treat the 1.x API as the redesigned boundary rather than an API-compatible
+  wrapper for the previous runtime. Future breaking public API changes follow
+  the major-version rule in [compatibility.md](./compatibility.md).
 
 ## Responsibility mapping
 
