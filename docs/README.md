@@ -11,6 +11,7 @@ It is repository-internal and is not included in the published package.
 - [Compatibility](patch-map/compatibility.md)
 - [Migration](patch-map/migration.md)
 - [Troubleshooting](patch-map/troubleshooting.md)
+- [Package font assets and provenance](patch-map/font-assets.md)
 
 The published package contains `docs/patch-map/`, the root readmes, examples,
 license, and built artifacts. Maintainer and verification material below is not
@@ -21,7 +22,7 @@ part of that publication surface.
 - [Contribution and verification workflow](../CONTRIBUTING.md)
 - [Architecture ownership and dependency direction](maintainers/architecture.md)
 - [Performance evidence and no-regression workflow](maintainers/performance.md)
-- [Current architecture refactor design](designs/patch-map-architecture-foundation.md)
+- [Documentation structure and publication boundary](maintainers/documentation.md)
 
 ## Product and verification contracts
 
@@ -31,4 +32,3 @@ part of that publication surface.
 The `core-v2` name is retained only where immutable contract fixtures and
 digest-bound historical evidence require it. Those paths are verification
 inputs, not public product identities.
-

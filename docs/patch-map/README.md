@@ -1,6 +1,7 @@
-# PATCH MAP PatchMap
+# PatchMap documentation
 
-PatchMap is the PixiJS WebGL implementation published from
+This is the canonical detailed English documentation for the PixiJS WebGL
+implementation published from
 `@conalog/patch-map`. It accepts PATCH MAP v0.10 JSON directly and
 provides a redesigned engine API; it does not emulate the previous package API.
 
