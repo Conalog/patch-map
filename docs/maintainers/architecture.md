@@ -58,10 +58,11 @@ TypeScript import graph acyclic. Renderer options, keyed-presentation render
 updates, component target keys, and Mesh viewport DTOs have neutral contract
 owners instead of being owned by concrete adapters or product-probe readers.
 
-`PatchMapEngineSurface` still combines lifecycle, mutation, viewport, selection,
-asset, probe, and diagnostic capabilities. The next structural tranche splits
-that type surface into capability contracts while retaining one
-`PixiEngineSurface` implementation and one runtime authority.
+`PatchMapEngineSurface` is now a compatibility composite over lifecycle,
+mutation/presentation, viewport/input, geometry/query, product observation, and
+diagnostic capability ports. `PixiEngineSurface` remains the single
+implementation and runtime authority. New consumers depend on the narrow port
+they use; existing injected surfaces may continue implementing the composite.
 
 ## Verification
 

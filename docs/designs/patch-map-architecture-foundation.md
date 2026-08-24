@@ -244,7 +244,10 @@ Renderer flush and mutation behavior remain unchanged, so no performance claim.
 Cycle-removal status: complete. Renderer construction options,
 keyed-presentation render updates, component target keys, and Mesh viewport DTOs
 now have neutral owners. The production static import graph is guarded at zero
-strongly connected components. Capability-port splitting remains pending.
+strongly connected components. Capability-port splitting is also complete at
+the type boundary: the existing surface remains one compatibility composite and
+one implementation, while product observation consumes only its narrow ports.
+Implementation movement remains part of the later facade/runtime tranches.
 
 ### T3. Product facade and engine orchestration
 
