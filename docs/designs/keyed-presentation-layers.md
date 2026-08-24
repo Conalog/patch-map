@@ -434,9 +434,8 @@ Normative budgets:
 
 Ship through the existing `@conalog/patch-map` npm package and root declaration
 allowlist. Add public reference documentation and two usage examples. Use the
-existing package build, packed consumer, canonical contract, headless Lab,
-lifecycle memory, and release-readiness pipeline. No separate service or plugin
-artifact ships from this repository.
+existing package build, packed consumer, headless Lab, and lifecycle checks. No
+separate service or plugin artifact ships from this repository.
 
 ## Next Steps
 
