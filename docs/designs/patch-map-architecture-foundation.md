@@ -241,6 +241,11 @@ Verification: architecture SCC/boundary tests, core-contract tests,
 presentation/mesh tests, lifecycle/root-interaction tests, lint, and typecheck.
 Renderer flush and mutation behavior remain unchanged, so no performance claim.
 
+Cycle-removal status: complete. Renderer construction options,
+keyed-presentation render updates, component target keys, and Mesh viewport DTOs
+now have neutral owners. The production static import graph is guarded at zero
+strongly connected components. Capability-port splitting remains pending.
+
 ### T3. Product facade and engine orchestration
 
 - Reduce `engine.ts` by moving behavior into existing authorities and

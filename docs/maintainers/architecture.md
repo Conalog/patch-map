@@ -51,19 +51,17 @@ transaction or publication owners.
 8. Structural movement and behavior changes are reviewed and committed
    separately.
 
-## Current structural debt
+## Enforced boundaries and next debt
 
-The refactor starts with two confirmed source cycles:
+`tests/patch-map/architecture-import-graph.test.ts` keeps the production
+TypeScript import graph acyclic. Renderer options, keyed-presentation render
+updates, component target keys, and Mesh viewport DTOs have neutral contract
+owners instead of being owned by concrete adapters or product-probe readers.
 
-- `core/contracts.ts -> renderers/pixi-renderer.ts -> presentation-layers.ts ->
-  core/semantic-dense-planning.ts -> core/product-probe-reader.ts ->
-  core/contracts.ts`;
-- `mesh/chunk-geometry.ts <-> mesh/viewport-culling.ts`.
-
-`PatchMapEngineSurface` also combines lifecycle, mutation, viewport, selection,
-asset, probe, and diagnostic capabilities. The first structural tranche moves
-neutral DTOs to contract owners, removes both cycles, and splits that capability
-surface without adding a second runtime authority.
+`PatchMapEngineSurface` still combines lifecycle, mutation, viewport, selection,
+asset, probe, and diagnostic capabilities. The next structural tranche splits
+that type surface into capability contracts while retaining one
+`PixiEngineSurface` implementation and one runtime authority.
 
 ## Verification
 
@@ -72,4 +70,3 @@ changes require focused architecture tests plus lint and typecheck. A completed
 runtime tranche additionally runs unit, build, Lab build, and the canonical
 contract gate. Packaging, browser, memory, and performance gates are selected
 only when their ownership or hot path changed.
-
