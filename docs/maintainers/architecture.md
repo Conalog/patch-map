@@ -31,7 +31,10 @@ transaction or publication owners.
 | engine/runtime | authority composition, lifecycle, atomic publication | duplicated semantic planners or renderer internals |
 | dataset replacement coordinator | sync, async, and submitted-load freshness; surface acceptance; authoritative replacement commit | semantic storage, surface implementation, or a second publication revision |
 | history application coordinator | host companion state; undo/redo surface application; history publication ordering | history stack/cursor storage, semantic storage, or renderer state |
+| Engine direct mutation coordinator | single-target patch/destroy planning; surface acceptance and freshness; history preflight; canonical commit and event order | scene storage, history stack/cursor storage, publication revisions, or surface implementation |
+| Engine capture/extraction authority | managed-capture queue; frame pause/resume order; exact tuple and canvas freshness; security/readback classification; capture-time resize deferral | renderer, publication clock, frame loop, security registry, or canvas ownership |
 | Engine pointer interaction coordinator | pointer gesture authority lifecycle, normalized pointer/selection policy, box and click selection routing, hover/tooltip publication, and transient deselect timers | canonical selection, scene data, publication revisions, surface freshness, transformer sessions, or host interaction mode |
+| Core runtime renderer port | neutral semantic/frame/probe capabilities and optional opaque publication checkpoint rollback | concrete PixiJS classes, GPU state, or renderer-owned checkpoint interpretation |
 | Core load authority | cooperative load freshness; reversible scene/runtime/renderer/image publication and rollback order | Engine lifecycle, parser policy, or a second scene/runtime state |
 | Core reconcile publication coordinator | candidate preparation, one semantic dense commit, ordered projection/image/presentation publication, refusal rollback, and post-commit terminal sealing | duplicate normalization or traversal, mirrored runtime state, stale load-replaceable authorities, or post-commit rollback |
 | semantic and dense core | interpretation, planning, identity, compact state | public facade policy, input events, or PixiJS objects |
@@ -90,6 +93,25 @@ revision, and event sequence for undo and redo. The semantic history remains the
 only stack/cursor owner; the coordinator does not retain a second dataset or
 renderer state.
 
+`PatchMapDirectMutationCoordinator` owns direct single-target patch and destroy
+publication. It prepares semantic and history candidates, asks the current
+surface to accept the candidate, rechecks surface and prepared-history
+freshness, then commits through the existing scene, publication, and history
+authorities in the fixed event order. Stale or reentrant acceptance cancels the
+prepared history and restores the authoritative surface scene. The coordinator
+does not retain a dataset, selection, revision counter, or history cursor;
+`engine.ts` remains its composition and public delegate boundary.
+
+`PatchMapCaptureExtractionAuthority` owns the serialized managed-capture and
+exact extraction lifecycle. It publishes and pauses the existing managed frame
+loop, defers mount resize while a capture is active, applies the latest deferred
+resize before resuming, and balances pending work across success, supersession,
+renderer loss, and destroy. It also orders the canonical extraction-security
+preflight, published-tuple freshness, and authoritative-canvas identity checks.
+The renderer, publication counter, frame loop, security registry, and canvas
+remain in their existing authorities; `engine.ts` composes those owners and
+delegates its public capture, canvas, mount-observer, and destroy boundaries.
+
 `PatchMapPointerInteractionCoordinator` owns the Engine-level pointer state
 machine behind the public facade. It retains one live or pending gesture
 authority, normalized pointer and selection policies, box gesture state,
@@ -110,6 +132,15 @@ renderer and image side effects, rollback, disposal, and final frame
 invalidation. `PatchMapRuntime` still owns its live field references and parser
 entry points, but delegates the atomic publication order through a constructor-
 stable port instead of implementing a second load commit path.
+
+Core support modules depend on `PatchMapRuntimeRendererPort`, which exposes only
+the neutral publication, frame-preparation, product-probe, and rollback
+capabilities they consume. The concrete Pixi renderer is adapted once in
+`core.ts`. Its renderer-owned publication checkpoint crosses the port as opaque
+state and is restored only by the same capability; structural test renderers
+without that capability retain the compatibility projection rollback. The
+architecture import-graph test rejects direct concrete Pixi imports from both
+Core and Engine support directories.
 
 `PatchMapReconcilePublicationCoordinator` owns the synchronous semantic
 reconcile state machine from candidate preparation through one dense commit and
