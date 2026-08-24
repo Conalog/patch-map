@@ -127,12 +127,11 @@ repository plan permits. These protection changes affect the shared 0.10
 release environment, so coordinate them with that line before the first 1.0
 prerelease.
 
-The repository currently has no tag ruleset for this release line. Add an
-active tag ruleset targeting `v1.0.0*` that restricts tag updates and deletions,
-with no routine human or administrator bypass. Do not restrict creation unless
-the Release Please actor has the narrowly scoped bypass needed to create a new
-tag. The environment deployment policy controls who may publish, but it does
-not make a Git tag immutable.
+The active `Protect v1.0.0 tags` ruleset targets `v1.0.0*` and restricts tag
+updates and deletions with no routine human or administrator bypass. Do not
+restrict creation unless the Release Please actor has the narrowly scoped
+bypass needed to create a new tag. The environment deployment policy controls
+who may publish, but it does not make a Git tag immutable.
 
 The publish job intentionally has `id-token: write`, no `NPM_TOKEN`, and no
 credential cache. Product installation, build, and validation run without OIDC
