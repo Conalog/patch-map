@@ -27,9 +27,10 @@ import type {
   LeafAssetBindingRequest,
   LeafSceneImageProbe,
 } from '../../src/patch-map/renderers/leaf-layer';
-import type {
-  PatchMapPixiInitializationMetrics,
+import {
   PatchMapPixiRenderer,
+  type PatchMapPixiInitializationMetrics,
+  type PatchMapPixiRendererPublicationCheckpoint,
 } from '../../src/patch-map/renderers/pixi-renderer';
 import type {
   PatchMapPixiRendererDebug,
@@ -68,6 +69,23 @@ describe('PatchMap load and mutation publication atomicity', () => {
     expect(loaded.store.revision).toBe(before.snapshot.revision + 1);
     expect(core.ref(BAR_ID)?.generation).toBe(before.ref.generation + 1);
     expect(core.get(before.ref)).toBeNull();
+  });
+
+  it('forwards an exact Pixi publication checkpoint through the runtime adapter rollback', () => {
+    const { core, renderer } = createActiveCore(allocated, undefined, true);
+    const before = captureRuntime(core, renderer);
+    const boundaryError = new Error('exact projection boundary failed');
+    renderer.capturedPublicationCheckpoint = null;
+    renderer.restoredPublicationCheckpoint = null;
+    renderer.nextProjectionFailure = boundaryError;
+
+    expect(() => core.load(runtimeScene(70, 'new-image'))).toThrow(boundaryError);
+
+    expect(renderer).toBeInstanceOf(PatchMapPixiRenderer);
+    expect(renderer.capturedPublicationCheckpoint).not.toBeNull();
+    expect(renderer.restoredPublicationCheckpoint)
+      .toBe(renderer.capturedPublicationCheckpoint);
+    expectRuntimeRestored(core, renderer, before);
   });
 
   it('keeps scene-image ownership exact when prepared reconciliation fails', () => {
@@ -331,8 +349,14 @@ function runtimeInternals(core: PatchMapRuntime): RuntimeInternals {
 function createActiveCore(
   allocated: PatchMapRuntime[],
   onTerminalFailure?: (error: Error) => void,
+  exactPublicationCheckpoint = false,
 ): Readonly<{ core: PatchMapRuntime; renderer: AtomicLoadRendererDouble }> {
-  const renderer = new AtomicLoadRendererDouble();
+  const rendererDouble = new AtomicLoadRendererDouble();
+  const renderer = exactPublicationCheckpoint
+    ? new Proxy(rendererDouble, {
+        getPrototypeOf: () => PatchMapPixiRenderer.prototype,
+      })
+    : rendererDouble;
   const TestPatchMap = PatchMapRuntime as unknown as new (
     renderer: PatchMapPixiRenderer,
     options: PatchMapRuntimeOptions,
@@ -408,6 +432,8 @@ class AtomicLoadRendererDouble {
   public nextMarkFailure: Error | null = null;
   public rollbackProjectionIndex: PatchMapRuntime['visibleProjection'] = null;
   public rollbackProjectionFailure: Error | null = null;
+  public capturedPublicationCheckpoint: PatchMapPixiRendererPublicationCheckpoint | null = null;
+  public restoredPublicationCheckpoint: PatchMapPixiRendererPublicationCheckpoint | null = null;
   private readonly bindings = new Map<string, RendererBinding>();
   private readonly bindingGenerations = new Map<string, number>();
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
@@ -439,6 +465,25 @@ class AtomicLoadRendererDouble {
       throw this.rollbackProjectionFailure;
     }
     return true;
+  }
+
+  public capturePublicationCheckpoint(): PatchMapPixiRendererPublicationCheckpoint {
+    const checkpoint = Object.freeze({
+      currentProjection: this.currentProjection,
+    }) as unknown as PatchMapPixiRendererPublicationCheckpoint;
+    this.capturedPublicationCheckpoint = checkpoint;
+    return checkpoint;
+  }
+
+  public restorePublicationCheckpoint(
+    checkpoint: PatchMapPixiRendererPublicationCheckpoint,
+  ): void {
+    this.restoredPublicationCheckpoint = checkpoint;
+    this.currentProjection = (
+      checkpoint as unknown as Readonly<{
+        currentProjection: PatchMapRuntime['visibleProjection'];
+      }>
+    ).currentProjection;
   }
 
   public bindSceneAsset(
