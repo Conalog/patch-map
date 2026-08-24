@@ -4,7 +4,6 @@ import 'pixi.js/accessibility';
 import {
   Application,
   Container,
-  Graphics,
   Matrix,
   Rectangle,
   type ApplicationOptions,
@@ -90,24 +89,6 @@ import {
   readPatchMapPixiRendererLossProbe,
 } from './pixi-renderer/backend-public-surface';
 import {
-  appendOverlayHandles,
-  appendOverlayOutline,
-  DEFAULT_INTERACTION_OVERLAY_POLICY,
-  indexOverlayPaintBounds,
-  interactionOverlayTransformNeedsRepaint,
-  interactionOverlayLabel,
-  normalizeInteractionOverlayPolicy,
-  resolveOverlayLocalCssLength,
-  resolveSelectionLocalStrokeWidth,
-  resolveSelectionScreenStrokeWidth,
-  resolveOverlayStrokeAlignment,
-  resolveOverlayWorldScale,
-  resolveOverlayPathPlan,
-  sameInteractionOverlayPolicy,
-  type PatchMapOverlayPaintBoundsIndex,
-  type PatchMapOverlayWorldTransform,
-} from './pixi-renderer/interaction-overlay';
-import {
   freezeRendererTextProbe,
   freezeRendererTextSemanticSignatures,
   normalizePresentationPolicy,
@@ -128,6 +109,7 @@ import { PatchMapAccessibilityOverlayAuthority } from './pixi-renderer/accessibi
 import { PatchMapCanvasSurfaceLifecycle } from './pixi-renderer/canvas-surface-lifecycle';
 import { PatchMapPixiRootInteractionBindingAuthority } from './pixi-renderer/root-interaction-binding-authority';
 import { PatchMapPixiSurfacePublicationAuthority } from './pixi-renderer/surface-publication-authority';
+import { PatchMapPixiInteractionOverlayAuthority } from './pixi-renderer/interaction-overlay-authority';
 
 export {
   buildPatchMapRelationAdjacency,
@@ -189,26 +171,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private readonly aggregate: AggregateLayer;
   private readonly leaves: AggregateLeafLayer;
   private readonly backgroundGeometryLane: Container;
-  private readonly selectionOverlay: Graphics;
-  private readonly transformerOverlay: Graphics;
+  private readonly interactionOverlay: PatchMapPixiInteractionOverlayAuthority;
   private readonly accessibilityOverlay: PatchMapAccessibilityOverlayAuthority;
-  private readonly selectedSlots = new Set<number>();
-  private readonly visibleOverlaySlots = new Set<number>();
-  private readonly transformerOverlaySlots = new Set<number>();
-  private readonly resizableOverlaySlots = new Set<number>();
-  private individualSelectionOutlineCount = 0;
-  private groupSelectionOutlineVisible = false;
-  private selectionOutlineCount = 0;
-  private interactionOverlayRedrawCount = 0;
-  private interactionOverlayPaintTransform: PatchMapOverlayWorldTransform | null = null;
-  private interactionOverlaySelectionLocalStrokeWidth = 0;
-  private interactionOverlaySelectionScreenStrokeWidth = 0;
-  private interactionOverlayMarqueeLocalStrokeWidth = 0;
-  private interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
-  private selectionMarquee: Readonly<{
-    readonly start: readonly [number, number];
-    readonly current: readonly [number, number];
-  }> | null = null;
   private readonly target: HTMLElement | undefined;
   private readonly rootInteractionBindings: PatchMapPixiRootInteractionBindingAuthority;
   private readonly surfacePublication: PatchMapPixiSurfacePublicationAuthority;
@@ -238,8 +202,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private pixelRatioValue: number;
   private view: CoreView = DEFAULT_VIEW;
   private projectionIndex: PatchMapProjectionIndex = EMPTY_PROJECTION_INDEX;
-  private overlayPaintBoundsProjection: PatchMapProjectionIndex | null = null;
-  private overlayPaintBoundsIndex: PatchMapOverlayPaintBoundsIndex = new Map();
   private staleProjectionEntityIds: ReadonlySet<string> = new Set();
   private relationSlotsByEndpoint: ReadonlyMap<number, readonly number[]> = new Map();
   private relationSlots = new Set<number>();
@@ -373,12 +335,11 @@ export class PatchMapPixiRenderer implements CoreRenderer {
           : { resolveBitmapTextCapability: options.resolveBitmapTextCapability }),
       },
     );
-    this.selectionOverlay = new Graphics({ label: 'PatchMap / selection overlay (0)' });
-    this.selectionOverlay.eventMode = 'none';
-    this.selectionOverlay.zIndex = 1;
-    this.transformerOverlay = new Graphics({ label: 'PatchMap / transformer overlay (0)' });
-    this.transformerOverlay.eventMode = 'none';
-    this.transformerOverlay.zIndex = 2;
+    this.interactionOverlay = new PatchMapPixiInteractionOverlayAuthority({
+      worldMatrix: this.worldMatrix,
+      slotByEntityId: this.slotByEntityId,
+      readProjectionContext: () => this.projectionContext(),
+    });
     if (this.aggregate instanceof AggregateMeshLayer) {
       // Preserve aggregate batching while matching PATCH MAP's authored
       // underlay -> item frame -> component-content order. Standalone root
@@ -393,11 +354,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.leaves.contentAssetContainer,
         this.leaves.textContainer,
       );
-      this.world.addChild(
-        this.aggregate.container,
-        this.selectionOverlay,
-        this.transformerOverlay,
-      );
+      this.world.addChild(this.aggregate.container);
+      this.interactionOverlay.attachToTail(this.world);
     } else {
       this.world.addChild(
         this.leaves.standaloneAssetContainer,
@@ -406,9 +364,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.aggregate.container,
         this.leaves.contentAssetContainer,
         this.leaves.textContainer,
-        this.selectionOverlay,
-        this.transformerOverlay,
       );
+      this.interactionOverlay.attachToTail(this.world);
     }
     this.application.stage.label = 'PatchMap';
     this.application.stage.eventMode = 'static';
@@ -584,14 +541,11 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     policy: PatchMapInteractionOverlayPolicy,
   ): boolean {
     this.assertAlive();
-    const normalized = normalizeInteractionOverlayPolicy(policy);
-    if (sameInteractionOverlayPolicy(this.interactionOverlayPolicy, normalized)) {
-      return false;
-    }
-    this.interactionOverlayPolicy = normalized;
-    if (this.lastStore !== null) {
-      this.syncSelectionOverlay(this.lastStore, true, undefined);
-    }
+    const changed = this.interactionOverlay.setPolicy(
+      policy,
+      this.lastStore,
+    );
+    if (!changed) return false;
     this.pendingOverlayRanges = undefined;
     this.lastInvalidation = 'interaction-overlay-policy';
     return true;
@@ -603,10 +557,11 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     readonly current: readonly [number, number];
   }> | null): boolean {
     this.assertAlive();
-    const next = input === null ? null : normalizeSelectionMarquee(input);
-    if (sameSelectionMarquee(this.selectionMarquee, next)) return false;
-    this.selectionMarquee = next;
-    if (this.lastStore !== null) this.drawInteractionOverlays(this.lastStore);
+    const changed = this.interactionOverlay.setMarquee(
+      input,
+      this.lastStore,
+    );
+    if (!changed) return false;
     this.lastInvalidation = 'selection-marquee';
     return true;
   }
@@ -971,7 +926,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.pendingBarPresentationOnly = false;
       this.pendingTextOnly = false;
     }
-    if (scaleChanged || this.selectionMarquee !== null) this.pendingOverlayRanges = undefined;
+    if (scaleChanged || this.interactionOverlay.marqueeVisible) this.pendingOverlayRanges = undefined;
     this.applyWorldTransform();
     this.barPresentationVisibilityStale = true;
     this.lastInvalidation = 'view';
@@ -1058,10 +1013,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.pendingProjectionTransformOnly = false;
       this.pendingBarPresentationOnly = false;
       this.pendingTextOnly = false;
-      this.selectedSlots.clear();
-      this.visibleOverlaySlots.clear();
-      this.transformerOverlaySlots.clear();
-      this.resizableOverlaySlots.clear();
+      this.interactionOverlay.resetSelection();
     }
     // View rotation can change upright projection geometry. Resolve it before
     // consuming pending ranges so the first published frame cannot lag.
@@ -1177,7 +1129,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     const leaves = this.leaves.debugSnapshot();
     this.textProjectionSynchronizedRevision = this.projectionRevision;
-    this.syncSelectionOverlay(
+    this.interactionOverlay.synchronize(
       effectiveStore,
       storeReplaced,
       this.pendingOverlayRanges ?? ranges,
@@ -1221,7 +1173,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.pendingProjectionTransformOnly = false;
     this.pendingBarPresentationOnly = false;
     this.pendingTextOnly = false;
-    const overlayCount = this.visibleOverlaySlots.size > 0 ? 2 : 0;
+    const overlayCount = this.interactionOverlay.renderObjectCount;
     this.lastLaneProbe = this.buildLaneProbe(overlayCount);
     this.lastDebug = Object.freeze({
       strategy: this.strategy,
@@ -1454,27 +1406,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   /** Exact scene-tail order and current visibility of aggregate editor overlays. */
   public overlayPaintProbe(): PatchMapOverlayPaintProbe {
     this.assertAlive();
-    const visible = this.selectionOutlineCount > 0;
-    return Object.freeze({
-      order: Object.freeze(['selection', 'transformer'] as const),
-      selection: visible,
-      transformer: this.transformerOverlaySlots.size > 0,
-      selectedEntityCount: this.visibleOverlaySlots.size,
-      renderObjectCount: visible ? 2 : 0,
-      displayMode: this.interactionOverlayPolicy.displayMode,
-      strokeAlignment: this.interactionOverlayPolicy.strokeAlignment,
-      strokeScale: this.interactionOverlayPolicy.strokeScale,
-      individualOutlineCount: this.individualSelectionOutlineCount,
-      groupOutline: this.groupSelectionOutlineVisible,
-      outlineCount: this.selectionOutlineCount,
-      redrawCount: this.interactionOverlayRedrawCount,
-      worldScale: this.interactionOverlayPaintTransform === null
-        ? null
-        : resolveOverlayWorldScale(this.interactionOverlayPaintTransform),
-      selectionLocalStrokeWidth: this.interactionOverlaySelectionLocalStrokeWidth,
-      selectionScreenStrokeWidth: this.interactionOverlaySelectionScreenStrokeWidth,
-      marqueeLocalStrokeWidth: this.interactionOverlayMarqueeLocalStrokeWidth,
-    });
+    return this.interactionOverlay.probe();
   }
 
   public async captureBase64(): Promise<string> {
@@ -1639,39 +1571,22 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ['relations-dynamic', this.aggregate.container.label],
       ['content-assets', this.leaves.contentAssetContainer.label],
       ['text', this.leaves.textContainer.label],
-      ['interaction-overlay', interactionOverlayLabel(this.selectionOverlay, this.transformerOverlay)],
+      ['interaction-overlay', this.interactionOverlay.label],
     ]);
     this.rootInteractionBindings.destroy();
-    this.selectedSlots.clear();
-    this.visibleOverlaySlots.clear();
-    this.transformerOverlaySlots.clear();
-    this.resizableOverlaySlots.clear();
-    this.individualSelectionOutlineCount = 0;
-    this.groupSelectionOutlineVisible = false;
-    this.selectionOutlineCount = 0;
-    this.interactionOverlayRedrawCount = 0;
-    this.interactionOverlayPaintTransform = null;
-    this.interactionOverlaySelectionLocalStrokeWidth = 0;
-    this.interactionOverlaySelectionScreenStrokeWidth = 0;
-    this.interactionOverlayMarqueeLocalStrokeWidth = 0;
-    this.interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
-    this.selectionMarquee = null;
     this.application.stage.removeChild(this.world);
     this.world.removeChildren();
     this.aggregate.destroy();
     if (!(this.aggregate instanceof AggregateMeshLayer)) {
       this.backgroundGeometryLane.destroy();
     }
-    this.selectionOverlay.destroy();
-    this.transformerOverlay.destroy();
+    this.interactionOverlay.destroy();
     this.cleanupPromise = this.leaves.destroy();
     this.world.destroy();
     this.application.destroy({ removeView: false }, { children: true });
     this.surfacePublication.destroyCanvas();
     this.lastStore = null;
     this.lastSourceStore = null;
-    this.overlayPaintBoundsProjection = null;
-    this.overlayPaintBoundsIndex = new Map();
     this.presentationPolicy = null;
     this.presentationLayerRevision = 0;
     this.presentationLayerCount = 0;
@@ -1682,7 +1597,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.pendingRanges = [];
     this.pendingOverlayRanges = [];
     this.pendingProjectionTransformOnly = false;
-    this.selectedSlots.clear();
     this.relationSlotsByEndpoint = new Map();
     this.relationSlots.clear();
     this.relationEndpointsBySlot = new Map();
@@ -1807,180 +1721,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
   }
 
-  private syncSelectionOverlay(
-    store: RenderStoreView,
-    fullRebuild: boolean,
-    ranges: readonly SlotRange[] | undefined,
-  ): void {
-    let changed = fullRebuild || ranges === undefined;
-    const slots = fullRebuild || ranges === undefined
-      ? Array.from({ length: store.capacity }, (_, slot) => slot)
-      : slotsForRanges(store.capacity, ranges);
-    for (const slot of slots) {
-      const before = this.selectedSlots.has(slot);
-      const selected =
-        store.alive[slot] === 1 &&
-        ((store.flags[slot] ?? 0) & RenderFlags.Selected) !== 0 &&
-        store.kind[slot] !== RenderKind.Relation;
-      if (selected) this.selectedSlots.add(slot);
-      else this.selectedSlots.delete(slot);
-      if (before !== selected || (selected && !fullRebuild)) changed = true;
-    }
-    const transformNeedsRepaint = interactionOverlayTransformNeedsRepaint(
-      this.interactionOverlayPaintTransform,
-      this.worldMatrix,
-      this.selectionMarquee !== null,
-    );
-    if (!changed && !transformNeedsRepaint) return;
-    if (!changed) {
-      this.drawInteractionOverlays(store);
-      return;
-    }
-    const policy = this.interactionOverlayPolicy;
-    const transformableIds = policy.transformableEntityIds === null
-      ? null
-      : new Set(policy.transformableEntityIds);
-    const resizableIds = policy.resizableEntityIds === null
-      ? null
-      : new Set(policy.resizableEntityIds);
-    this.visibleOverlaySlots.clear();
-    this.transformerOverlaySlots.clear();
-    this.resizableOverlaySlots.clear();
-    if (!policy.hidden) {
-      const overlaySlots = policy.visibleEntityIds === null
-        ? this.selectedSlots
-        : policy.visibleEntityIds.flatMap((id) => {
-            const slot = this.slotByEntityId.get(id);
-            return slot === undefined ? [] : [slot];
-          });
-      for (const slot of overlaySlots) {
-        const id = store.ids[slot];
-        if (!id || store.alive[slot] !== 1) continue;
-        this.visibleOverlaySlots.add(slot);
-        if (transformableIds === null || transformableIds.has(id)) {
-          this.transformerOverlaySlots.add(slot);
-        }
-        if (resizableIds === null || resizableIds.has(id)) {
-          this.resizableOverlaySlots.add(slot);
-        }
-      }
-    }
-    this.drawInteractionOverlays(store);
-  }
-
-  private drawInteractionOverlays(store: RenderStoreView): void {
-    const policy = this.interactionOverlayPolicy;
-    const selectionLocalStrokeWidth = resolveSelectionLocalStrokeWidth(
-      policy.strokeCssPx,
-      policy.strokeScale,
-      policy.minStrokeCssPx,
-      this.worldMatrix,
-    );
-    const selectionScreenStrokeWidth = resolveSelectionScreenStrokeWidth(
-      policy.strokeCssPx,
-      policy.strokeScale,
-      policy.minStrokeCssPx,
-      this.worldMatrix,
-    );
-    const marqueeLocalStrokeWidth = resolveOverlayLocalCssLength(
-      policy.marqueeStrokeCssPx,
-      this.worldMatrix,
-    );
-    const handleLocalSize = resolveOverlayLocalCssLength(policy.handleCssPx, this.worldMatrix);
-    this.selectionOverlay.clear();
-    this.transformerOverlay.clear();
-    const pathPlan = resolveOverlayPathPlan(
-      store,
-      [...this.visibleOverlaySlots].sort((left, right) => left - right),
-      this.projectionContext(),
-      policy.displayMode,
-      {
-        entityIdsByOwnerId: this.resolveOverlayPaintBoundsIndex(),
-        slotByEntityId: this.slotByEntityId,
-      },
-    );
-    for (const vertices of pathPlan.selectionPaths) {
-      appendOverlayOutline(this.selectionOverlay, vertices);
-    }
-    const overlayVertices = pathPlan.aggregateVertices;
-    if (overlayVertices !== null) {
-      if (this.resizableOverlaySlots.size > 0) {
-        appendOverlayHandles(
-          this.transformerOverlay,
-          overlayVertices,
-          handleLocalSize,
-        );
-      }
-    }
-    this.individualSelectionOutlineCount = policy.displayMode === 'element-only'
-      ? pathPlan.individualVertices.length
-      : policy.displayMode === 'all'
-        ? pathPlan.individualVertices.length
-        : 0;
-    this.groupSelectionOutlineVisible = policy.displayMode === 'group-only'
-      ? overlayVertices !== null
-      : policy.displayMode === 'all' && pathPlan.individualVertices.length > 1;
-    this.selectionOutlineCount = pathPlan.selectionPaths.length;
-    if (this.selectionOutlineCount > 0) {
-      this.selectionOverlay.stroke({
-        color: policy.color,
-        width: selectionLocalStrokeWidth,
-        alignment: resolveOverlayStrokeAlignment(policy.strokeAlignment),
-        alpha: 1,
-      });
-    }
-    if (this.resizableOverlaySlots.size > 0) {
-      this.transformerOverlay.fill({ color: 0xffffff, alpha: 1 });
-      this.transformerOverlay.stroke({
-        color: policy.color,
-        width: selectionLocalStrokeWidth,
-        alignment: resolveOverlayStrokeAlignment(policy.strokeAlignment),
-        alpha: 1,
-      });
-    }
-    if (this.selectionMarquee !== null) {
-      appendScreenMarquee(
-        this.transformerOverlay,
-        this.selectionMarquee,
-        this.worldMatrix,
-      );
-      this.transformerOverlay.fill({
-        color: policy.marqueeColor,
-        alpha: policy.marqueeFillAlpha,
-      });
-      this.transformerOverlay.stroke({
-        color: policy.marqueeColor,
-        width: marqueeLocalStrokeWidth,
-        alignment: 0.5,
-        alpha: 1,
-      });
-    }
-    this.selectionOverlay.label =
-      `PatchMap / selection overlay (${this.visibleOverlaySlots.size})`;
-    this.transformerOverlay.label =
-      `PatchMap / transformer overlay (${this.transformerOverlaySlots.size})`;
-    this.interactionOverlayRedrawCount += 1;
-    this.interactionOverlayPaintTransform = Object.freeze({
-      a: this.worldMatrix.a,
-      b: this.worldMatrix.b,
-      c: this.worldMatrix.c,
-      d: this.worldMatrix.d,
-      tx: this.worldMatrix.tx,
-      ty: this.worldMatrix.ty,
-    });
-    this.interactionOverlaySelectionLocalStrokeWidth = selectionLocalStrokeWidth;
-    this.interactionOverlaySelectionScreenStrokeWidth = selectionScreenStrokeWidth;
-    this.interactionOverlayMarqueeLocalStrokeWidth = marqueeLocalStrokeWidth;
-  }
-
-  private resolveOverlayPaintBoundsIndex(): PatchMapOverlayPaintBoundsIndex {
-    if (this.overlayPaintBoundsProjection !== this.projectionIndex) {
-      this.overlayPaintBoundsProjection = this.projectionIndex;
-      this.overlayPaintBoundsIndex = indexOverlayPaintBounds(this.projectionIndex);
-    }
-    return this.overlayPaintBoundsIndex;
-  }
-
   private emptyDebug(): PatchMapPixiRendererDebug {
     return Object.freeze({
       strategy: this.strategy,
@@ -2015,7 +1755,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ['relations-dynamic', this.aggregate.container.label],
       ['content-assets', this.leaves.contentAssetContainer.label],
       ['text', this.leaves.textContainer.label],
-      ['interaction-overlay', interactionOverlayLabel(this.selectionOverlay, this.transformerOverlay)],
+      ['interaction-overlay', this.interactionOverlay.label],
     ]);
   }
 
@@ -2059,9 +1799,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       text: leaves.text,
       'interaction-overlay': freezeLane(
         'interaction-overlay',
-        interactionOverlayLabel(this.selectionOverlay, this.transformerOverlay),
+        this.interactionOverlay.label,
         overlayCount,
-        this.selectedSlots.size * 2,
+        this.interactionOverlay.visiblePrimitiveCount,
       ),
     });
   }
@@ -2092,82 +1832,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private assertAlive(): void {
     if (this.destroyedValue) throw new Error('PatchMapPixiRenderer is destroyed');
   }
-}
-
-function normalizeSelectionMarquee(input: Readonly<{
-  readonly start: readonly [number, number];
-  readonly current: readonly [number, number];
-}>): Readonly<{
-  readonly start: readonly [number, number];
-  readonly current: readonly [number, number];
-}> {
-  const point = (
-    value: readonly [number, number],
-    label: string,
-  ): readonly [number, number] => {
-    if (!Array.isArray(value) || value.length !== 2 || !value.every(Number.isFinite)) {
-      throw new TypeError(`selection marquee ${label} must be a finite [x, y] tuple`);
-    }
-    return Object.freeze([value[0], value[1]] as const);
-  };
-  return Object.freeze({
-    start: point(input.start, 'start'),
-    current: point(input.current, 'current'),
-  });
-}
-
-function sameSelectionMarquee(
-  left: Readonly<{
-    readonly start: readonly [number, number];
-    readonly current: readonly [number, number];
-  }> | null,
-  right: Readonly<{
-    readonly start: readonly [number, number];
-    readonly current: readonly [number, number];
-  }> | null,
-): boolean {
-  return left === right || (
-    left !== null &&
-    right !== null &&
-    left.start[0] === right.start[0] &&
-    left.start[1] === right.start[1] &&
-    left.current[0] === right.current[0] &&
-    left.current[1] === right.current[1]
-  );
-}
-
-function appendScreenMarquee(
-  graphics: Graphics,
-  marquee: Readonly<{
-    readonly start: readonly [number, number];
-    readonly current: readonly [number, number];
-  }>,
-  world: Matrix,
-): void {
-  const determinant = world.a * world.d - world.b * world.c;
-  if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-12) return;
-  const left = Math.min(marquee.start[0], marquee.current[0]);
-  const top = Math.min(marquee.start[1], marquee.current[1]);
-  const right = Math.max(marquee.start[0], marquee.current[0]);
-  const bottom = Math.max(marquee.start[1], marquee.current[1]);
-  const inverse = (x: number, y: number): readonly [number, number] => {
-    const translatedX = x - world.tx;
-    const translatedY = y - world.ty;
-    return [
-      (world.d * translatedX - world.c * translatedY) / determinant,
-      (-world.b * translatedX + world.a * translatedY) / determinant,
-    ];
-  };
-  const northWest = inverse(left, top);
-  const northEast = inverse(right, top);
-  const southEast = inverse(right, bottom);
-  const southWest = inverse(left, bottom);
-  graphics
-    .moveTo(northWest[0], northWest[1])
-    .lineTo(northEast[0], northEast[1])
-    .lineTo(southEast[0], southEast[1])
-    .lineTo(southWest[0], southWest[1])
-    .closePath();
 }
 
 function slotsForRanges(capacity: number, ranges: readonly SlotRange[]): readonly number[] {
