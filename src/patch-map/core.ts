@@ -193,7 +193,6 @@ export class PatchMapRuntime {
   private readonly stableRecordStrategy: PatchMapStableRecordStrategy;
   private readonly rootInteraction: PatchMapRootInteractionAuthority;
   private spatialHit = new PatchMapSpatialHitAuthority();
-  private sceneImageReconcileSuspended = false;
   private currentView: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   private worldFlipX = false;
   private worldFlipY = false;
@@ -645,7 +644,6 @@ export class PatchMapRuntime {
     }
 
     const commitStarted = now();
-    this.sceneImageReconcileSuspended = true;
     let commit: CommitResult;
     try {
       commit = this.commitWithRendererDomain(
@@ -655,6 +653,7 @@ export class PatchMapRuntime {
           : path === 'direct-bar'
             ? 'bar-only'
             : undefined,
+        'semantic-reconcile',
       );
     } catch (error) {
       if (this.stableRecordStrategy === 'internal-overlay') {
@@ -664,8 +663,6 @@ export class PatchMapRuntime {
         );
       }
       throw error;
-    } finally {
-      this.sceneImageReconcileSuspended = false;
     }
     const commitMs = now() - commitStarted;
     try {
@@ -895,10 +892,11 @@ export class PatchMapRuntime {
   private commitWithRendererDomain(
     batch: TransactionBatch,
     rendererDomain?: 'bar-only' | 'text-only',
+    publicationMode: 'ordinary' | 'semantic-reconcile' = 'ordinary',
   ): CommitResult {
     this.assertAlive();
-    if (!this.sceneImageReconcileSuspended) this.assertDirectImageProjectionMutationSafe(batch);
-    const directImageVisibilityIds = this.sceneImageReconcileSuspended
+    if (publicationMode === 'ordinary') this.assertDirectImageProjectionMutationSafe(batch);
+    const directImageVisibilityIds = publicationMode === 'semantic-reconcile'
       ? new Set<string>()
       : this.directImageVisibilityIds(batch);
     const hitImpact = this.spatialHit.planCommit(
@@ -914,6 +912,7 @@ export class PatchMapRuntime {
         directImageVisibilityIds,
         hitImpact,
         rendererDomain,
+        publicationMode,
       );
     } catch (error) {
       this.markTerminalMutationFailure(error);
@@ -928,9 +927,10 @@ export class PatchMapRuntime {
     directImageVisibilityIds: ReadonlySet<string>,
     hitImpact: PatchMapSpatialHitCommitImpact,
     rendererDomain?: 'bar-only' | 'text-only',
+    publicationMode: 'ordinary' | 'semantic-reconcile' = 'ordinary',
   ): void {
     if (
-      !this.sceneImageReconcileSuspended &&
+      publicationMode === 'ordinary' &&
       batch.operations.some((operation) =>
         operation.type !== 'view' && operation.type !== 'selection')
     ) {
