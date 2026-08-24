@@ -232,6 +232,7 @@ jobs:
         with:
           name: npm-package-${{ needs.metadata.outputs.release-sha }}
           path: .release-artifact/*.tgz
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
