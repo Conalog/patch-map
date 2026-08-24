@@ -833,6 +833,80 @@ describe('PatchMap aggregate leaf policy', () => {
     await layer.destroy();
   });
 
+  it('keeps text publication and asset release queues atomic across invalid frames', async () => {
+    const backend = new ImmediateTextureBackend();
+    const runtime = new PatchMapAssetRuntime(backend);
+    const session = runtime.createSession({
+      instanceId: 'invalid-frame-release',
+      policy: () => undefined,
+    });
+    const layer = new AggregateLeafLayer(session, true);
+    const retained = leafRetentionAccess(layer);
+    const firstSource = 'https://assets.example.test/invalid-frame-a.png';
+    const secondSource = 'https://assets.example.test/invalid-frame-b.png';
+
+    await layer.bindSceneAsset('first', { kind: 'source', source: firstSource });
+    const firstStore = createImageStore('first');
+    layer.sync(firstStore, { fullRebuildEpoch: 1 });
+    await layer.unbindSceneAsset('first');
+    layer.sync(firstStore, { fullRebuildEpoch: 1, changedRanges: [] });
+    layer.sync(createTextStoreAt([0]), { fullRebuildEpoch: 2 });
+
+    const firstPending = [...retained.framePendingAssetReleases];
+    const firstReady = [...retained.readyAssetReleases];
+    const firstTextProbe = layer.textRendererProbe('text-0');
+    expect(firstPending).toHaveLength(1);
+    expect(firstReady).toHaveLength(0);
+    expect(firstTextProbe).toMatchObject({
+      publicationStatus: 'pending',
+      lastRenderedFrame: null,
+    });
+    expect(() => layer.confirmRenderedFrame(0)).toThrow(
+      'rendered text frame must be a positive monotonic safe integer',
+    );
+    expect(layer.textRendererProbe('text-0')).toEqual(firstTextProbe);
+    expect(retained.framePendingAssetReleases).toEqual(firstPending);
+    expect(retained.readyAssetReleases).toEqual(firstReady);
+
+    layer.confirmRenderedFrame(3);
+    expect(layer.textRendererProbe('text-0')).toMatchObject({
+      publicationStatus: 'current',
+      lastRenderedFrame: 3,
+    });
+    expect(retained.framePendingAssetReleases).toHaveLength(0);
+    expect(retained.readyAssetReleases).toHaveLength(1);
+    await layer.finalizeAssetUnloads();
+    expect(backend.unloadedSources).toEqual([firstSource]);
+
+    await layer.bindSceneAsset('second', { kind: 'source', source: secondSource });
+    const secondStore = createImageStore('second');
+    layer.sync(secondStore, { fullRebuildEpoch: 3 });
+    await layer.unbindSceneAsset('second');
+    layer.sync(secondStore, { fullRebuildEpoch: 3, changedRanges: [] });
+    layer.sync(createTextStoreAt([0]), { fullRebuildEpoch: 4 });
+
+    const secondPending = [...retained.framePendingAssetReleases];
+    const secondReady = [...retained.readyAssetReleases];
+    const secondTextProbe = layer.textRendererProbe('text-0');
+    expect(secondPending).toHaveLength(1);
+    expect(secondReady).toHaveLength(0);
+    expect(secondTextProbe).toMatchObject({
+      publicationStatus: 'pending',
+      lastRenderedFrame: null,
+    });
+    expect(() => layer.confirmRenderedFrame(2)).toThrow(
+      'rendered text frame must be a positive monotonic safe integer',
+    );
+    expect(layer.textRendererProbe('text-0')).toEqual(secondTextProbe);
+    expect(retained.framePendingAssetReleases).toEqual(secondPending);
+    expect(retained.readyAssetReleases).toEqual(secondReady);
+
+    layer.confirmRenderedFrame(4);
+    await layer.finalizeAssetUnloads();
+    expect(backend.unloadedSources).toEqual([firstSource, secondSource]);
+    await layer.destroy();
+  });
+
   it('keeps a new pending image hidden and materializes exactly one resolved Sprite', async () => {
     const backend = new DeferredTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);

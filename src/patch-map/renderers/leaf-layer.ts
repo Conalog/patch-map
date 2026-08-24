@@ -1,15 +1,12 @@
 import {
-  BitmapText,
   Container,
   Matrix,
   Sprite,
-  Text,
   Texture,
 } from 'pixi.js';
 
 import type { SlotRange } from '../dense/contracts';
 import {
-  RenderAlign,
   RenderFlags,
   RenderKind,
   type RenderStoreView,
@@ -20,7 +17,6 @@ import {
   type PatchMapAssetAcquisition,
   type PatchMapAssetSession,
 } from '../assets';
-import type { PatchMapTextProjection } from '../contracts';
 import type { PatchMapAssetSource } from '../semantic/dataset';
 import type {
   PatchMapSceneImageAssetBindingObservation,
@@ -31,12 +27,7 @@ import type {
   PatchMapSceneImageAssetSourceKind,
   PatchMapSceneImageLeafProbe,
 } from '../scene-images/contracts';
-import {
-  selectPatchMapTextRenderRoute,
-  type PatchMapBitmapTextCapabilityProof,
-  type PatchMapTextRenderRoute,
-  type PatchMapTextRenderRouteReason,
-} from '../semantic/text-render-route';
+import type { PatchMapBitmapTextCapabilityProof } from '../semantic/text-render-route';
 import type { PatchMapBitmapTextCapabilityRequest } from './contracts';
 export type { PatchMapBitmapTextCapabilityRequest } from './contracts';
 import {
@@ -45,68 +36,18 @@ import {
   type PatchMapProjectionRenderContext,
   type PatchMapQuadVertices,
   type PatchMapRenderLaneProbe,
-  type PatchMapResolvedRenderQuad,
-  type PatchMapTextAttachedSignatures,
   type PatchMapTextRendererProbe,
 } from './types';
 import {
-  alignName,
-  countVisibleGraphemes,
-  textGlyphResolution,
-  textRenderStyle,
-  textStyle,
-} from './leaf-text-style';
+  AggregateTextLeafLane,
+  type AggregateTextLeafLaneRetentionProbe,
+  type TextMaterializationViewport,
+} from './aggregate-text-leaf-lane';
+import { stableSerializeLeafValue } from './leaf-signatures';
 import {
-  freezeTextAttachedSignatures,
-  freezeTextRendererProbe,
-  freezeTextSemanticSignatures,
-  sameTextAttachedSignatures,
-  stableSerializeLeafValue,
-  textRendererSignature,
-  textSemanticSignatures,
-} from './leaf-signatures';
-
-interface TextEntry {
-  readonly slot: number;
-  readonly object: BitmapText | Text;
-  readonly attachedRoute: PatchMapTextRenderRoute;
-  readonly entityId: string;
-  readonly objectStyleSignature: string;
-  routeDecisionReason: PatchMapTextRenderRouteReason;
-  attachedSignatures: PatchMapTextAttachedSignatures;
-  attachedVisibleGraphemeCount: number;
-  lastRenderedSignatures: PatchMapTextAttachedSignatures | null;
-  lastRenderedFrame: number | null;
-  lastRenderedVisibleGraphemeCount: number;
-  targetKind: PatchMapTextProjection['targetKind'] | null;
-  autoFont: boolean;
-  visualLocalBounds: TextVisualLocalBounds | null;
-  quad: PatchMapResolvedRenderQuad;
-  vertices: PatchMapQuadVertices;
-}
-
-interface TextVisualLocalBounds {
-  readonly minX: number;
-  readonly minY: number;
-  readonly width: number;
-  readonly height: number;
-}
-
-interface TextChunk {
-  readonly key: number;
-  readonly container: Container;
-  readonly slots: Set<number>;
-  readonly visibleSlots: Set<number>;
-  vertices: PatchMapQuadVertices;
-  allChildrenVisible: boolean;
-}
-
-interface TextMaterializationViewport {
-  readonly worldMatrix: Matrix;
-  readonly width: number;
-  readonly height: number;
-  readonly padding?: number;
-}
+  applyLeafProjection,
+  quadIntersectsViewport,
+} from './leaf-projection';
 
 type LeafImageLane = 'standalone-assets' | 'background-assets' | 'content-assets';
 
@@ -199,8 +140,6 @@ export interface LeafLayerDebug {
 }
 
 const IMAGE_CHILD_APPEND_BATCH_SIZE = 1_024;
-const TEXT_CHUNKING_CAPACITY_THRESHOLD = 1_024;
-const TEXT_CHUNK_SLOT_SPAN = 64;
 const EMPTY_QUAD_VERTICES: PatchMapQuadVertices = Object.freeze([
   0, 0,
   0, 0,
@@ -227,23 +166,8 @@ export class AggregateLeafLayer {
   });
   /** Compatibility alias for the original standalone-image leaf surface. */
   public readonly imageContainer = this.standaloneAssetContainer;
-  public readonly textContainer = new Container({ label: 'PatchMap / text (0)' });
+  public readonly textContainer: Container;
 
-  private readonly texts = new Map<number, TextEntry>();
-  /** Visible semantic text slots, including those without a Pixi object yet. */
-  private readonly textEntityIdBySlot: Array<string | undefined> = [];
-  private readonly textVerticesBySlot: Array<PatchMapQuadVertices | undefined> = [];
-  private readonly textPresentationVisibleBySlot: boolean[] = [];
-  private readonly textProbesByEntityId = new Map<string, PatchMapTextRendererProbe>();
-  private readonly textLastRenderedGraphemeCountByEntityId = new Map<string, number>();
-  private readonly pendingTextEntries = new Set<TextEntry>();
-  private readonly textChunks = new Map<number, TextChunk>();
-  private readonly dirtyTextChunkKeys = new Set<number>();
-  private readonly deferredTextSlots = new Set<number>();
-  private deferredTextStore: RenderStoreView | null = null;
-  private deferredTextProjectionContext: PatchMapProjectionRenderContext | undefined;
-  private textChunkOrderDirty = false;
-  private textChunking = false;
   private readonly images = new Map<number, ImageEntry>();
   private readonly imageBindingBySlot = new Map<number, string>();
   private readonly imageSlotsByBinding = new Map<string, Set<number>>();
@@ -257,9 +181,8 @@ export class AggregateLeafLayer {
   private readonly dirtyAssetSlots = new Set<number>();
   private retainedImagesByEntityId: Map<string, ImageEntry> | null = null;
   private readonly transformMatrix = new Matrix();
+  private readonly textLane: AggregateTextLeafLane;
   private nextBindingGeneration = 0;
-  private confirmedTextFrame = 0;
-  private textRasterResolution: number | undefined;
   private staleCompletionCount = 0;
   private storeEpoch = -1;
   private readonly dirtyImageLanes = new Set<LeafImageLane>();
@@ -271,10 +194,19 @@ export class AggregateLeafLayer {
     private readonly ownsAssetSession = true,
     private readonly options: AggregateLeafLayerOptions = {},
   ) {
+    this.textLane = new AggregateTextLeafLane({
+      paintProbesByEntityId: this.paintProbesByEntityId,
+      transformMatrix: this.transformMatrix,
+      onDebugChange: () => {
+        this.debugCache = null;
+      },
+      ...(this.options.resolveBitmapTextCapability === undefined
+        ? {}
+        : { resolveBitmapTextCapability: this.options.resolveBitmapTextCapability }),
+    });
+    this.textContainer = this.textLane.container;
     this.container.eventMode = 'none';
     this.container.interactiveChildren = false;
-    this.textContainer.eventMode = 'none';
-    this.textContainer.interactiveChildren = false;
     this.standaloneAssetContainer.eventMode = 'none';
     this.standaloneAssetContainer.interactiveChildren = false;
     this.standaloneAssetContainer.sortableChildren = false;
@@ -377,12 +309,12 @@ export class AggregateLeafLayer {
   }
 
   public textRendererProbe(entityId: string): PatchMapTextRendererProbe | null {
-    return this.textProbesByEntityId.get(entityId) ?? null;
+    return this.textLane.textRendererProbe(entityId);
   }
 
   /** Internal O(1) join fact used by the renderer when semantic state advances first. */
   public lastRenderedTextGraphemeCount(entityId: string): number {
-    return this.textLastRenderedGraphemeCountByEntityId.get(entityId) ?? 0;
+    return this.textLane.lastRenderedTextGraphemeCount(entityId);
   }
 
   public entityPaintProbe(entityId: string): PatchMapEntityPaintProbe | null {
@@ -406,11 +338,7 @@ export class AggregateLeafLayer {
         this.standaloneAssetContainer.children.length +
           this.contentAssetContainer.children.length,
       ),
-      text: freezeLaneProbe(
-        'text',
-        this.textContainer.label,
-        this.texts.size,
-      ),
+      text: this.textLane.renderLaneProbe(),
     });
   }
 
@@ -446,32 +374,7 @@ export class AggregateLeafLayer {
   /** Called only after Pixi has successfully rendered the attached leaves. */
   public confirmRenderedFrame(renderedFrame?: number): void {
     if (this.destroyed) return;
-    const frame = renderedFrame ?? this.confirmedTextFrame + 1;
-    if (!Number.isSafeInteger(frame) || frame <= 0 || frame < this.confirmedTextFrame) {
-      throw new TypeError('rendered text frame must be a positive monotonic safe integer');
-    }
-    this.confirmedTextFrame = frame;
-    if (this.textChunking) {
-      for (const chunk of this.textChunks.values()) {
-        if (!chunk.container.visible) continue;
-        for (const slot of chunk.slots) {
-          const entry = this.texts.get(slot);
-          if (
-            entry === undefined ||
-            !entry.object.visible ||
-            !this.pendingTextEntries.has(entry)
-          ) {
-            continue;
-          }
-          this.confirmPendingTextEntry(entry, frame);
-        }
-      }
-    } else {
-      for (const entry of this.pendingTextEntries) {
-        if (!entry.object.visible) continue;
-        this.confirmPendingTextEntry(entry, frame);
-      }
-    }
+    this.textLane.confirmRenderedFrame(renderedFrame);
     if (this.framePendingAssetReleases.length > 0) {
       this.readyAssetReleases.push(...this.framePendingAssetReleases.splice(0));
     }
@@ -507,12 +410,13 @@ export class AggregateLeafLayer {
     if (!hasLeafWork) return this.debugSnapshot();
     this.debugCache = null;
     if (fullRebuild) {
-      this.beginFullRebuild();
+      this.beginFullRebuild(store.capacity);
       this.storeEpoch = epoch;
-      this.textChunking = store.capacity >= TEXT_CHUNKING_CAPACITY_THRESHOLD;
     }
-    this.deferredTextStore = store;
-    this.deferredTextProjectionContext = options.projectionContext;
+    this.textLane.setDeferredSource(store, options.projectionContext);
+    const textMaterializationViewport = fullRebuild && this.textLane.usesChunking()
+      ? options.textMaterializationViewport
+      : undefined;
 
     if (fullRebuild || !options.changedRanges) {
       for (let slot = 0; slot < store.capacity; slot += 1) {
@@ -520,9 +424,7 @@ export class AggregateLeafLayer {
           store,
           slot,
           options.projectionContext,
-          fullRebuild && this.textChunking
-            ? options.textMaterializationViewport
-            : undefined,
+          textMaterializationViewport,
         );
       }
     } else {
@@ -531,15 +433,15 @@ export class AggregateLeafLayer {
         const end = Math.min(store.capacity, range.end);
         for (let slot = start; slot < end; slot += 1) {
           if (options.projectionTransformOnly === true) {
-            this.deferredTextSlots.delete(slot);
+            this.textLane.clearDeferred(slot);
             this.syncSlotProjectionOnly(store, slot, options.projectionContext);
-          } else if (this.shouldDeferTextSync(store, slot)) {
+          } else if (this.textLane.shouldDeferSync(store, slot)) {
             // Publish the new quad before culling decides whether the deferred
             // content/style texture is now needed on screen.
             this.syncSlotProjectionOnly(store, slot, options.projectionContext);
-            this.deferredTextSlots.add(slot);
+            this.textLane.defer(slot);
           } else {
-            this.deferredTextSlots.delete(slot);
+            this.textLane.clearDeferred(slot);
             this.syncSlot(store, slot, options.projectionContext);
           }
         }
@@ -555,8 +457,7 @@ export class AggregateLeafLayer {
       }
     }
     this.finishFullRebuild();
-    this.rebuildDirtyTextChunks();
-    this.sortTextChunks();
+    this.textLane.finishSync();
     this.sortImageChildren();
     this.dirtyAssetSlots.clear();
     this.backgroundAssetContainer.label =
@@ -565,7 +466,6 @@ export class AggregateLeafLayer {
       `PatchMap / standalone assets (${this.standaloneAssetContainer.children.length})`;
     this.contentAssetContainer.label =
       `PatchMap / content assets (${this.contentAssetContainer.children.length})`;
-    this.textContainer.label = `PatchMap / text (${this.texts.size})`;
     return this.debugSnapshot();
   }
 
@@ -595,108 +495,13 @@ export class AggregateLeafLayer {
     ) {
       throw new TypeError('leaf culling viewport and padding must be finite and positive');
     }
-    const textRasterResolutionChanged = textRasterResolution !== undefined &&
-      textRasterResolution !== this.textRasterResolution;
-    if (textRasterResolution !== undefined) {
-      this.textRasterResolution = textRasterResolution;
-    }
-    let visibleCount = 0;
-    if (this.textChunking) {
-      for (const initialChunk of this.textChunks.values()) {
-        let chunk = initialChunk;
-        let coverage = quadViewportCoverage(
-          chunk.vertices,
-          worldMatrix,
-          viewportWidth,
-          viewportHeight,
-          padding,
-        );
-        if (coverage !== 'outside' && this.materializeDeferredTextChunk(chunk)) {
-          this.rebuildDirtyTextChunks();
-          chunk = this.textChunks.get(chunk.key) ?? chunk;
-          coverage = quadViewportCoverage(
-            chunk.vertices,
-            worldMatrix,
-            viewportWidth,
-            viewportHeight,
-            padding,
-          );
-        }
-        const chunkVisible = coverage !== 'outside';
-        const chunkReentered = chunkVisible && !chunk.container.visible;
-        if (chunk.container.visible !== chunkVisible) {
-          chunk.container.visible = chunkVisible;
-        }
-        if (!chunkVisible) continue;
-        if (coverage === 'inside') {
-          if (chunkReentered || !chunk.allChildrenVisible || textRasterResolutionChanged) {
-            for (const slot of chunk.visibleSlots) {
-              const entry = this.texts.get(slot);
-              if (entry !== undefined) {
-                const becameVisible = !entry.object.visible;
-                if (becameVisible) entry.object.visible = true;
-                if (
-                  textRasterResolution !== undefined &&
-                  (textRasterResolutionChanged || chunkReentered || becameVisible)
-                ) {
-                  applyTextRasterResolution(entry, textRasterResolution, this.transformMatrix);
-                }
-              }
-            }
-          }
-          chunk.allChildrenVisible = true;
-          visibleCount += chunk.visibleSlots.size;
-          continue;
-        }
-        let allChildrenVisible = true;
-        for (const slot of chunk.visibleSlots) {
-          const entry = this.texts.get(slot);
-          if (entry === undefined) continue;
-          const visible = quadIntersectsViewport(
-            entry.vertices,
-            worldMatrix,
-            viewportWidth,
-            viewportHeight,
-            padding,
-          );
-          const becameVisible = visible && !entry.object.visible;
-          if (entry.object.visible !== visible) entry.object.visible = visible;
-          if (visible) {
-            if (
-              textRasterResolution !== undefined &&
-              (textRasterResolutionChanged || chunkReentered || becameVisible)
-            ) {
-              applyTextRasterResolution(entry, textRasterResolution, this.transformMatrix);
-            }
-            visibleCount += 1;
-          }
-          else allChildrenVisible = false;
-        }
-        chunk.allChildrenVisible = allChildrenVisible;
-      }
-    } else {
-      for (const entry of this.texts.values()) {
-        const visible = this.textPresentationVisibleBySlot[entry.slot] === true &&
-          quadIntersectsViewport(
-          entry.vertices,
-          worldMatrix,
-          viewportWidth,
-          viewportHeight,
-          padding,
-        );
-        const becameVisible = visible && !entry.object.visible;
-        entry.object.visible = visible;
-        if (visible) {
-          if (
-            textRasterResolution !== undefined &&
-            (textRasterResolutionChanged || becameVisible)
-          ) {
-            applyTextRasterResolution(entry, textRasterResolution, this.transformMatrix);
-          }
-          visibleCount += 1;
-        }
-      }
-    }
+    let visibleCount = this.textLane.cull(
+      worldMatrix,
+      viewportWidth,
+      viewportHeight,
+      padding,
+      textRasterResolution,
+    );
     for (const entry of this.images.values()) {
       const visible = quadIntersectsViewport(
         entry.vertices,
@@ -708,20 +513,16 @@ export class AggregateLeafLayer {
       entry.object.visible = visible;
       if (visible) visibleCount += 1;
     }
-    this.textContainer.label = `PatchMap / text (${this.texts.size})`;
     return visibleCount;
   }
 
   public debugSnapshot(): LeafLayerDebug {
     if (this.debugCache !== null) return this.debugCache;
-    let bitmapTextCount = 0;
     let loadedAssetCount = 0;
     let pendingAssetCount = 0;
     let failedAssetCount = 0;
     let staleAttachCount = 0;
-    for (const entry of this.texts.values()) {
-      if (entry.attachedRoute === 'bitmap-text') bitmapTextCount += 1;
-    }
+    const textCounts = this.textLane.debugCounts();
     for (const binding of this.bindings.values()) {
       if (binding.state === 'resolved') loadedAssetCount += 1;
       else if (binding.state === 'pending') pendingAssetCount += 1;
@@ -735,8 +536,8 @@ export class AggregateLeafLayer {
       }
     }
     this.debugCache = Object.freeze({
-      bitmapTextCount,
-      pixiTextCount: this.texts.size - bitmapTextCount,
+      bitmapTextCount: textCounts.bitmapTextCount,
+      pixiTextCount: textCounts.pixiTextCount,
       imageCount: this.images.size,
       loadedAssetCount,
       unresolvedAssetCount,
@@ -766,15 +567,13 @@ export class AggregateLeafLayer {
     this.readyAssetReleases.length = 0;
     this.dirtyAssetSlots.clear();
     this.nextBindingGeneration = 0;
-    this.confirmedTextFrame = 0;
-    this.textRasterResolution = undefined;
     this.staleCompletionCount = 0;
     this.storeEpoch = -1;
     this.dirtyImageLanes.clear();
     this.standaloneAssetContainer.destroy();
     this.backgroundAssetContainer.destroy();
     this.contentAssetContainer.destroy();
-    this.textContainer.destroy();
+    this.textLane.destroy();
     this.container.destroy();
     const settlements = await Promise.allSettled(
       [...acquisitions].map(async (acquisition) => acquisition.release()),
@@ -908,7 +707,7 @@ export class AggregateLeafLayer {
     const visible = alive && ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0;
     const kind = store.kind[slot];
     const textAlive = alive && kind === RenderKind.Text;
-    if (!textAlive) this.removeText(slot);
+    if (!textAlive) this.textLane.removeSlot(slot);
     if (!alive || kind !== RenderKind.Image) {
       this.clearImageSlot(slot);
     } else {
@@ -925,32 +724,13 @@ export class AggregateLeafLayer {
       }
     }
     if (textAlive) {
-      const preparedQuad = this.trackTextSlot(store, slot, projectionContext);
-      this.setTextPresentationVisible(slot, visible);
-      if (!visible) {
-        this.deferredTextSlots.add(slot);
-        const entry = this.texts.get(slot);
-        if (entry !== undefined) {
-          applyTextProjection(entry, preparedQuad, this.transformMatrix);
-          entry.vertices = preparedQuad.vertices;
-          entry.object.visible = false;
-        }
-        return;
-      }
-      if (textMaterializationViewport !== undefined) {
-        const padding = textMaterializationViewport.padding ?? 32;
-        if (!quadIntersectsViewport(
-          preparedQuad.vertices,
-          textMaterializationViewport.worldMatrix,
-          textMaterializationViewport.width,
-          textMaterializationViewport.height,
-          padding,
-        )) {
-          this.deferredTextSlots.add(slot);
-          return;
-        }
-      }
-      this.syncText(store, slot, projectionContext, preparedQuad);
+      this.textLane.syncSlot(
+        store,
+        slot,
+        visible,
+        projectionContext,
+        textMaterializationViewport,
+      );
       return;
     }
     if (!visible) return;
@@ -966,14 +746,7 @@ export class AggregateLeafLayer {
     const kind = store.kind[slot];
     const entityId = store.ids[slot] ?? `@slot:${slot}`;
     if (alive && kind === RenderKind.Text) {
-      const quad = this.trackTextSlot(store, slot, projectionContext);
-      this.setTextPresentationVisible(slot, visible);
-      const entry = this.texts.get(slot);
-      if (entry !== undefined && entry.entityId === entityId) {
-        applyTextProjection(entry, quad, this.transformMatrix);
-        entry.vertices = quad.vertices;
-        entry.object.visible = visible;
-      }
+      this.textLane.syncProjectionOnly(store, slot, visible, projectionContext);
       return;
     } else if (visible && kind === RenderKind.Image) {
       const entry = this.images.get(slot);
@@ -995,180 +768,6 @@ export class AggregateLeafLayer {
     }
     // Unexpected topology/visibility cannot use the transform-only promise.
     this.syncSlot(store, slot, projectionContext);
-  }
-
-  private syncText(
-    store: RenderStoreView,
-    slot: number,
-    projectionContext?: PatchMapProjectionRenderContext,
-    preparedQuad?: PatchMapResolvedRenderQuad,
-  ): void {
-    this.debugCache = null;
-    const entityId = store.ids[slot] ?? `@slot:${slot}`;
-    const quad = preparedQuad ?? this.trackTextSlot(store, slot, projectionContext);
-    const projection = projectionContext?.index.textsByEntityId?.[entityId] ?? null;
-    const value = projection?.visibleText ?? store.text[slot] ?? '';
-    const routeStyle = textRenderStyle(store, slot, projection);
-    const capability = this.options.resolveBitmapTextCapability?.(Object.freeze({
-      entityId,
-      text: value,
-      style: routeStyle,
-      projection,
-    })) ?? null;
-    const routeDecision = selectPatchMapTextRenderRoute({
-      text: value,
-      style: routeStyle,
-      glyphResolution: textGlyphResolution(projection),
-      bitmapCapability: capability,
-    });
-    const route = routeDecision.route;
-    const style = textStyle(store, slot, routeStyle, projection?.authoredStyle);
-    const objectStyleSignature = stableSerializeLeafValue({
-      style,
-      atlasId: routeDecision.atlas.atlasId,
-    });
-    const packedColor = (projection?.color ?? store.color[slot] ?? 0xffffffff) >>> 0;
-    const alpha = combinedAlpha(packedColor, store.opacity[slot] ?? 1);
-    const semanticSignatures = textSemanticSignatures(store, slot, projection);
-    const rendererSignature = textRendererSignature(
-      route,
-      routeDecision.atlas.atlasId,
-      value,
-      routeStyle,
-      alignName(store.align[slot] ?? RenderAlign.Left),
-      projection?.authoredStyle ?? null,
-      packedColor,
-      alpha,
-    );
-    const attachedSignatures = freezeTextAttachedSignatures(
-      semanticSignatures,
-      rendererSignature,
-    );
-    const visibleGraphemeCount = countVisibleGraphemes(value);
-    let entry = this.texts.get(slot);
-    let objectCreated = false;
-    if (
-      !entry ||
-      entry.entityId !== entityId ||
-      entry.attachedRoute !== route ||
-      entry.objectStyleSignature !== objectStyleSignature
-    ) {
-      const previousPublication = entry?.entityId === entityId
-        ? Object.freeze({
-            signatures: entry.lastRenderedSignatures,
-            frame: entry.lastRenderedFrame,
-            visibleGraphemeCount: entry.lastRenderedVisibleGraphemeCount,
-          })
-        : null;
-      this.removeMaterializedText(slot);
-      const object = route === 'bitmap-text'
-        ? new BitmapText({ text: value, style })
-        : new Text({ text: value, style });
-      objectCreated = true;
-      object.eventMode = 'none';
-      object.label = `patch-map:${route}`;
-      entry = {
-        slot,
-        object,
-        attachedRoute: route,
-        entityId,
-        objectStyleSignature,
-        routeDecisionReason: routeDecision.reason,
-        attachedSignatures,
-        attachedVisibleGraphemeCount: visibleGraphemeCount,
-        lastRenderedSignatures: previousPublication?.signatures ?? null,
-        lastRenderedFrame: previousPublication?.frame ?? null,
-        lastRenderedVisibleGraphemeCount: previousPublication?.visibleGraphemeCount ?? 0,
-        targetKind: projection?.targetKind ?? null,
-        autoFont: projection?.authoredStyle.autoFont !== undefined,
-        visualLocalBounds: measureTextLocalBounds(
-          object,
-          projection?.targetKind === 'element' ||
-            projection?.authoredStyle.autoFont !== undefined,
-        ),
-        quad,
-        vertices: EMPTY_QUAD_VERTICES,
-      };
-      this.texts.set(slot, entry);
-      this.textParentForSlot(slot).addChild(object);
-    } else if (entry.object.text !== value) {
-      entry.object.text = value;
-      entry.autoFont = projection?.authoredStyle.autoFont !== undefined;
-      entry.visualLocalBounds = measureTextLocalBounds(
-        entry.object,
-        entry.targetKind === 'element' || entry.autoFont,
-      );
-    }
-
-    const targetKind = projection?.targetKind ?? null;
-    if (entry.targetKind !== targetKind) {
-      entry.targetKind = targetKind;
-      entry.autoFont = projection?.authoredStyle.autoFont !== undefined;
-      entry.visualLocalBounds = measureTextLocalBounds(
-        entry.object,
-        entry.targetKind === 'element' || entry.autoFont,
-      );
-    }
-
-    if (!sameTextAttachedSignatures(entry.attachedSignatures, attachedSignatures)) {
-      entry.attachedSignatures = attachedSignatures;
-      entry.attachedVisibleGraphemeCount = visibleGraphemeCount;
-    }
-    entry.routeDecisionReason = routeDecision.reason;
-    if (
-      entry.lastRenderedFrame === null ||
-      !sameTextAttachedSignatures(entry.lastRenderedSignatures, entry.attachedSignatures)
-    ) {
-      this.pendingTextEntries.add(entry);
-    } else {
-      this.pendingTextEntries.delete(entry);
-    }
-
-    const object = entry.object;
-    applyTextProjection(entry, quad, this.transformMatrix);
-    if (objectCreated && this.textRasterResolution !== undefined) {
-      applyTextRasterResolution(entry, this.textRasterResolution, this.transformMatrix);
-    }
-    entry.vertices = quad.vertices;
-    if (this.textChunking) this.dirtyTextChunkKeys.add(textChunkKey(slot));
-    object.alpha = alpha;
-    object.tint = packedRgb(packedColor);
-    object.visible = true;
-    this.publishTextProbe(entry);
-    this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
-      entityId,
-      lane: 'text',
-      rendererKind: 'text',
-      primitiveCount: 1,
-      renderObjectCount: 1,
-      packedTint: packedColor,
-      rgbTint: packedRgb(packedColor),
-      alpha: object.alpha,
-    }));
-  }
-
-  private publishTextProbe(entry: TextEntry): void {
-    const current = entry.lastRenderedFrame !== null &&
-      sameTextAttachedSignatures(entry.attachedSignatures, entry.lastRenderedSignatures);
-    this.textProbesByEntityId.set(entry.entityId, freezeTextRendererProbe({
-      entityId: entry.entityId,
-      attachedRoute: entry.attachedRoute,
-      objectKind: entry.attachedRoute,
-      routeDecisionReason: entry.routeDecisionReason,
-      objectCount: 1,
-      semanticSignatures: freezeTextSemanticSignatures(entry.attachedSignatures),
-      attachedSignatures: entry.attachedSignatures,
-      lastRenderedSignatures: entry.lastRenderedSignatures,
-      publicationStatus: current ? 'current' : 'pending',
-      lastRenderedFrame: entry.lastRenderedFrame,
-      staleGlyphCount: !current && entry.lastRenderedSignatures !== null
-        ? entry.lastRenderedVisibleGraphemeCount
-        : 0,
-    }));
-    this.textLastRenderedGraphemeCountByEntityId.set(
-      entry.entityId,
-      entry.lastRenderedVisibleGraphemeCount,
-    );
   }
 
   private syncImage(
@@ -1321,187 +920,6 @@ export class AggregateLeafLayer {
       rgbTint: Number(sprite.tint) >>> 0,
       alpha: sprite.alpha,
     }));
-  }
-
-  private removeText(slot: number): void {
-    const entry = this.texts.get(slot);
-    if (this.textEntityIdBySlot[slot] === undefined && entry === undefined) return;
-    this.deferredTextSlots.delete(slot);
-    const entityId = this.textEntityIdBySlot[slot] ?? entry?.entityId;
-    this.textEntityIdBySlot[slot] = undefined;
-    this.textVerticesBySlot[slot] = undefined;
-    this.textPresentationVisibleBySlot[slot] = false;
-    this.removeMaterializedText(slot);
-    if (entityId !== undefined) {
-      this.textProbesByEntityId.delete(entityId);
-      this.textLastRenderedGraphemeCountByEntityId.delete(entityId);
-      this.paintProbesByEntityId.delete(entityId);
-    }
-    if (this.textChunking) {
-      const key = textChunkKey(slot);
-      const chunk = this.textChunks.get(key);
-      chunk?.slots.delete(slot);
-      chunk?.visibleSlots.delete(slot);
-      this.dirtyTextChunkKeys.add(key);
-    }
-  }
-
-  private removeMaterializedText(slot: number): void {
-    const entry = this.texts.get(slot);
-    if (!entry) return;
-    this.debugCache = null;
-    this.texts.delete(slot);
-    this.pendingTextEntries.delete(entry);
-    this.textProbesByEntityId.delete(entry.entityId);
-    this.textLastRenderedGraphemeCountByEntityId.delete(entry.entityId);
-    this.paintProbesByEntityId.delete(entry.entityId);
-    entry.object.destroy();
-  }
-
-  private trackTextSlot(
-    store: RenderStoreView,
-    slot: number,
-    projectionContext?: PatchMapProjectionRenderContext,
-  ): PatchMapResolvedRenderQuad {
-    const entityId = store.ids[slot] ?? `@slot:${slot}`;
-    const previousEntityId = this.textEntityIdBySlot[slot];
-    if (previousEntityId !== undefined && previousEntityId !== entityId) {
-      this.removeText(slot);
-    }
-    const quad = resolvePatchMapSlotQuad(store, slot, projectionContext);
-    this.textEntityIdBySlot[slot] = entityId;
-    this.textVerticesBySlot[slot] = quad.vertices;
-    if (this.textChunking) {
-      if (previousEntityId === undefined) this.textParentForSlot(slot);
-      this.dirtyTextChunkKeys.add(textChunkKey(slot));
-    }
-    return quad;
-  }
-
-  private textParentForSlot(slot: number): Container {
-    if (!this.textChunking) return this.textContainer;
-    const key = textChunkKey(slot);
-    const existing = this.textChunks.get(key);
-    if (existing !== undefined) {
-      existing.slots.add(slot);
-      this.dirtyTextChunkKeys.add(key);
-      return existing.container;
-    }
-    const container = new Container({
-      label: `PatchMap / text chunk ${key}`,
-      sortableChildren: false,
-    });
-    container.eventMode = 'none';
-    container.interactiveChildren = false;
-    const chunk: TextChunk = {
-      key,
-      container,
-      slots: new Set([slot]),
-      visibleSlots: new Set(),
-      vertices: EMPTY_QUAD_VERTICES,
-      allChildrenVisible: true,
-    };
-    this.textChunks.set(key, chunk);
-    this.dirtyTextChunkKeys.add(key);
-    this.textChunkOrderDirty = true;
-    this.textContainer.addChild(container);
-    return container;
-  }
-
-  private setTextPresentationVisible(slot: number, visible: boolean): void {
-    this.textPresentationVisibleBySlot[slot] = visible;
-    if (!this.textChunking) return;
-    const chunk = this.textChunks.get(textChunkKey(slot));
-    if (chunk === undefined) return;
-    if (visible) chunk.visibleSlots.add(slot);
-    else chunk.visibleSlots.delete(slot);
-    chunk.allChildrenVisible = false;
-  }
-
-  /**
-   * Keep style/content texture regeneration out of already culled text chunks.
-   * Geometry-only publication is never deferred because it can move a chunk
-   * into the viewport. The latest columnar store remains the only source of
-   * truth and is consumed when culling makes the chunk visible again.
-   */
-  private shouldDeferTextSync(store: RenderStoreView, slot: number): boolean {
-    if (
-      !this.textChunking ||
-      store.alive[slot] !== 1 ||
-      store.kind[slot] !== RenderKind.Text ||
-      ((store.flags[slot] ?? 0) & RenderFlags.Visible) === 0
-    ) return false;
-    return this.textChunks.get(textChunkKey(slot))?.container.visible === false;
-  }
-
-  private materializeDeferredTextChunk(chunk: TextChunk): boolean {
-    const store = this.deferredTextStore;
-    if (store === null) return false;
-    let changed = false;
-    for (const slot of [...chunk.visibleSlots]) {
-      const deferred = this.deferredTextSlots.delete(slot);
-      if (!deferred && this.texts.has(slot)) continue;
-      this.syncSlot(store, slot, this.deferredTextProjectionContext);
-      changed = true;
-    }
-    if (changed) this.debugCache = null;
-    return changed;
-  }
-
-  private rebuildDirtyTextChunks(): void {
-    if (!this.textChunking || this.dirtyTextChunkKeys.size === 0) return;
-    for (const key of this.dirtyTextChunkKeys) {
-      const chunk = this.textChunks.get(key);
-      if (chunk === undefined) continue;
-      let minX = Number.POSITIVE_INFINITY;
-      let minY = Number.POSITIVE_INFINITY;
-      let maxX = Number.NEGATIVE_INFINITY;
-      let maxY = Number.NEGATIVE_INFINITY;
-      for (const slot of chunk.slots) {
-        const vertices = this.textVerticesBySlot[slot];
-        if (vertices === undefined) continue;
-        for (let index = 0; index < vertices.length; index += 2) {
-          const x = vertices[index];
-          const y = vertices[index + 1];
-          if (x === undefined || y === undefined) continue;
-          minX = Math.min(minX, x);
-          minY = Math.min(minY, y);
-          maxX = Math.max(maxX, x);
-          maxY = Math.max(maxY, y);
-        }
-      }
-      if (!Number.isFinite(minX)) {
-        chunk.container.destroy();
-        this.textChunks.delete(key);
-        this.textChunkOrderDirty = true;
-        continue;
-      }
-      chunk.vertices = Object.freeze([
-        minX, minY,
-        maxX, minY,
-        maxX, maxY,
-        minX, maxY,
-      ] as const);
-    }
-    this.dirtyTextChunkKeys.clear();
-  }
-
-  private sortTextChunks(): void {
-    if (!this.textChunking || !this.textChunkOrderDirty) return;
-    const containers = [...this.textChunks.values()]
-      .sort((left, right) => left.key - right.key)
-      .map(({ container }) => container);
-    this.textContainer.removeChildren();
-    if (containers.length > 0) this.textContainer.addChild(...containers);
-    this.textChunkOrderDirty = false;
-  }
-
-  private confirmPendingTextEntry(entry: TextEntry, frame: number): void {
-    entry.lastRenderedSignatures = entry.attachedSignatures;
-    entry.lastRenderedFrame = frame;
-    entry.lastRenderedVisibleGraphemeCount = entry.attachedVisibleGraphemeCount;
-    this.publishTextProbe(entry);
-    this.pendingTextEntries.delete(entry);
   }
 
   private observeImageSlot(
@@ -1722,7 +1140,7 @@ export class AggregateLeafLayer {
 
   private clearDisplayObjects(): void {
     this.debugCache = null;
-    this.clearTextDisplayObjects();
+    this.textLane.clearDisplayObjects();
     for (const entry of this.images.values()) this.discardImageEntry(entry);
     if (this.retainedImagesByEntityId !== null) {
       for (const entry of this.retainedImagesByEntityId.values()) this.discardImageEntry(entry);
@@ -1746,7 +1164,7 @@ export class AggregateLeafLayer {
     this.contentAssetContainer.removeChildren();
   }
 
-  private beginFullRebuild(): void {
+  private beginFullRebuild(capacity: number): void {
     if (this.retainedImagesByEntityId !== null) {
       throw new Error('PatchMap image full rebuild is already active');
     }
@@ -1762,7 +1180,7 @@ export class AggregateLeafLayer {
     this.imageEntityIdBySlot.clear();
     this.imageProbesByEntityId.clear();
     this.paintProbesByEntityId.clear();
-    this.clearTextDisplayObjects();
+    this.textLane.beginFullRebuild(capacity);
   }
 
   private finishFullRebuild(): void {
@@ -1776,26 +1194,6 @@ export class AggregateLeafLayer {
     const entry = this.retainedImagesByEntityId?.get(entityId);
     if (entry !== undefined) this.retainedImagesByEntityId?.delete(entityId);
     return entry;
-  }
-
-  private clearTextDisplayObjects(): void {
-    for (const entry of this.texts.values()) entry.object.destroy();
-    this.texts.clear();
-    this.textEntityIdBySlot.length = 0;
-    this.textVerticesBySlot.length = 0;
-    this.textPresentationVisibleBySlot.length = 0;
-    this.textProbesByEntityId.clear();
-    this.textLastRenderedGraphemeCountByEntityId.clear();
-    this.pendingTextEntries.clear();
-    this.deferredTextSlots.clear();
-    this.deferredTextStore = null;
-    this.deferredTextProjectionContext = undefined;
-    for (const chunk of this.textChunks.values()) chunk.container.destroy();
-    this.textChunks.clear();
-    this.dirtyTextChunkKeys.clear();
-    this.textChunkOrderDirty = false;
-    this.textChunking = false;
-    this.textContainer.removeChildren();
   }
 
   private attachImageResource(resource: LeafAssetResource): void {
@@ -1819,13 +1217,26 @@ export class AggregateLeafLayer {
       .push(resource.acquisition);
   }
 
+  /** Compatibility-only retention seams for existing white-box lifecycle tests. */
+  private get texts(): AggregateTextLeafLaneRetentionProbe['texts'] {
+    return this.textLane.retentionProbe().texts;
+  }
+
+  private get textEntityIdBySlot(): AggregateTextLeafLaneRetentionProbe['textEntityIdBySlot'] {
+    return this.textLane.retentionProbe().textEntityIdBySlot;
+  }
+
+  private get textVerticesBySlot(): AggregateTextLeafLaneRetentionProbe['textVerticesBySlot'] {
+    return this.textLane.retentionProbe().textVerticesBySlot;
+  }
+
+  private get deferredTextSlots(): AggregateTextLeafLaneRetentionProbe['deferredTextSlots'] {
+    return this.textLane.retentionProbe().deferredTextSlots;
+  }
+
   private assertAlive(): void {
     if (this.destroyed) throw new Error('AggregateLeafLayer is destroyed');
   }
-}
-
-function textChunkKey(slot: number): number {
-  return Math.floor(slot / TEXT_CHUNK_SLOT_SPAN);
 }
 
 function imageLane(
@@ -1837,61 +1248,6 @@ function imageLane(
   if (component.renderRole === 'background-asset') return 'background-assets';
   if (component.renderRole === 'content-asset') return 'content-assets';
   return null;
-}
-
-function quadIntersectsViewport(
-  vertices: PatchMapQuadVertices,
-  matrix: Matrix,
-  width: number,
-  height: number,
-  padding: number,
-): boolean {
-  return quadViewportCoverage(
-    vertices,
-    matrix,
-    width,
-    height,
-    padding,
-  ) !== 'outside';
-}
-
-function quadViewportCoverage(
-  vertices: PatchMapQuadVertices,
-  matrix: Matrix,
-  width: number,
-  height: number,
-  padding: number,
-): 'outside' | 'partial' | 'inside' {
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (let index = 0; index < vertices.length; index += 2) {
-    const x = vertices[index]!;
-    const y = vertices[index + 1]!;
-    const screenX = matrix.a * x + matrix.c * y + matrix.tx;
-    const screenY = matrix.b * x + matrix.d * y + matrix.ty;
-    minX = Math.min(minX, screenX);
-    minY = Math.min(minY, screenY);
-    maxX = Math.max(maxX, screenX);
-    maxY = Math.max(maxY, screenY);
-  }
-  if (
-    maxX < -padding ||
-    minX > width + padding ||
-    maxY < -padding ||
-    minY > height + padding
-  ) {
-    return 'outside';
-  }
-  return (
-    minX >= -padding &&
-    maxX <= width + padding &&
-    minY >= -padding &&
-    maxY <= height + padding
-  )
-    ? 'inside'
-    : 'partial';
 }
 
 function imageLaneContainer(
@@ -2014,161 +1370,6 @@ function combinedAlpha(value: number, opacity: number): number {
 
 function clampAlpha(value: number): number {
   return Math.max(0, Math.min(1, value));
-}
-
-function applyLeafProjection(
-  object: Sprite | BitmapText | Text,
-  quad: PatchMapResolvedRenderQuad,
-  matrix: Matrix,
-  naturalWidth?: number,
-  naturalHeight?: number,
-): void {
-  object.anchor.set(0.5);
-
-  // Never assign DisplayObject.width/height: those accessors include current
-  // scale, erase reflection signs, and force text raster measurement. Feed the
-  // exact signed/sheared affine through Pixi's public Matrix API instead.
-  const localWidth = naturalWidth ?? quad.projection?.localBounds[2] ?? quad.width;
-  const localHeight = naturalHeight ?? quad.projection?.localBounds[3] ?? quad.height;
-  const resolvedWidth = Math.max(Number.EPSILON, Math.abs(localWidth));
-  const resolvedHeight = Math.max(Number.EPSILON, Math.abs(localHeight));
-  const xScale = quad.width / resolvedWidth;
-  const yScale = quad.height / resolvedHeight;
-  object.setFromMatrix(matrix.set(
-    quad.basis[0] * xScale,
-    quad.basis[1] * xScale,
-    quad.basis[2] * yScale,
-    quad.basis[3] * yScale,
-    quad.center[0],
-    quad.center[1],
-  ));
-}
-
-function applyTextProjection(
-  entry: TextEntry,
-  quad: PatchMapResolvedRenderQuad,
-  matrix: Matrix,
-): void {
-  entry.quad = quad;
-  const visualBounds = entry.visualLocalBounds;
-  if (visualBounds !== null && entry.targetKind !== 'element') {
-    applyContainedAutoFontTextProjection(entry.object, quad, visualBounds, matrix);
-    return;
-  }
-  if (entry.targetKind !== 'element') {
-    applyLeafProjection(entry.object, quad, matrix);
-    return;
-  }
-
-  const object = entry.object;
-  object.anchor.set(0);
-  const localWidth = quad.projection?.localBounds[2] ?? quad.width;
-  const localHeight = quad.projection?.localBounds[3] ?? quad.height;
-  const resolvedWidth = Math.max(Number.EPSILON, Math.abs(localWidth));
-  const resolvedHeight = Math.max(Number.EPSILON, Math.abs(localHeight));
-  const xScale = quad.width / resolvedWidth;
-  const yScale = quad.height / resolvedHeight;
-  const a = quad.basis[0] * xScale;
-  const b = quad.basis[1] * xScale;
-  const c = quad.basis[2] * yScale;
-  const d = quad.basis[3] * yScale;
-  const originX = visualBounds?.minX ?? 0;
-  const originY = visualBounds?.minY ?? 0;
-  const topLeftX = quad.vertices[0];
-  const topLeftY = quad.vertices[1];
-  object.setFromMatrix(matrix.set(
-    a,
-    b,
-    c,
-    d,
-    topLeftX - a * originX - c * originY,
-    topLeftY - b * originX - d * originY,
-  ));
-}
-
-function applyContainedAutoFontTextProjection(
-  object: BitmapText | Text,
-  quad: PatchMapResolvedRenderQuad,
-  visual: TextVisualLocalBounds,
-  matrix: Matrix,
-): void {
-  object.anchor.set(0);
-  const localWidth = Math.max(
-    Number.EPSILON,
-    Math.abs(quad.projection?.localBounds[2] ?? quad.width),
-  );
-  const localHeight = Math.max(
-    Number.EPSILON,
-    Math.abs(quad.projection?.localBounds[3] ?? quad.height),
-  );
-  const fitScale = Math.min(
-    1,
-    localWidth / Math.max(Number.EPSILON, visual.width),
-    localHeight / Math.max(Number.EPSILON, visual.height),
-  );
-  const xScale = quad.width / localWidth;
-  const yScale = quad.height / localHeight;
-  const localOffsetX = (localWidth - visual.width * fitScale) / 2 - visual.minX * fitScale;
-  const localOffsetY = (localHeight - visual.height * fitScale) / 2 - visual.minY * fitScale;
-  const a = quad.basis[0] * xScale;
-  const b = quad.basis[1] * xScale;
-  const c = quad.basis[2] * yScale;
-  const d = quad.basis[3] * yScale;
-  object.setFromMatrix(matrix.set(
-    a * fitScale,
-    b * fitScale,
-    c * fitScale,
-    d * fitScale,
-    quad.vertices[0] + a * localOffsetX + c * localOffsetY,
-    quad.vertices[1] + b * localOffsetX + d * localOffsetY,
-  ));
-}
-
-/** Cache browser raster bounds for element projection or autoFont containment. */
-function measureTextLocalBounds(
-  object: BitmapText | Text,
-  autoFont: boolean,
-): TextVisualLocalBounds | null {
-  if (!autoFont) return null;
-  object.anchor.set(0);
-  if (typeof document === 'undefined') return null;
-  const bounds = object.getLocalBounds();
-  const minX = Number.isFinite(bounds.minX) ? bounds.minX : 0;
-  const minY = Number.isFinite(bounds.minY) ? bounds.minY : 0;
-  const maxX = Number.isFinite(bounds.maxX) ? bounds.maxX : minX;
-  const maxY = Number.isFinite(bounds.maxY) ? bounds.maxY : minY;
-  return Object.freeze({
-    minX,
-    minY,
-    width: Math.max(Number.EPSILON, maxX - minX),
-    height: Math.max(Number.EPSILON, maxY - minY),
-  });
-}
-
-const MAX_ZOOM_AWARE_TEXT_TEXTURE_EDGE = 2_048;
-
-function applyTextRasterResolution(
-  entry: TextEntry,
-  requestedResolution: number,
-  matrix: Matrix,
-): void {
-  if (!(entry.object instanceof Text)) return;
-  if (Math.abs(entry.object.resolution - requestedResolution) <= Number.EPSILON) return;
-  const visual = entry.visualLocalBounds;
-  const maximumLogicalEdge = visual === null
-    ? Math.max(entry.object.width, entry.object.height, 1)
-    : Math.max(visual.width, visual.height, 1);
-  const resolution = Math.min(
-    requestedResolution,
-    MAX_ZOOM_AWARE_TEXT_TEXTURE_EDGE / maximumLogicalEdge,
-  );
-  if (Math.abs(entry.object.resolution - resolution) <= Number.EPSILON) return;
-  entry.object.resolution = resolution;
-  entry.visualLocalBounds = measureTextLocalBounds(
-    entry.object,
-    entry.targetKind === 'element' || entry.autoFont,
-  );
-  applyTextProjection(entry, entry.quad, matrix);
 }
 
 function nonempty(value: unknown, label: string): string {
