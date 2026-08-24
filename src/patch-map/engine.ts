@@ -86,7 +86,6 @@ import {
 } from './accessibility';
 import {
   materializePatchMapDataset,
-  ownedPatchMapMaterialization,
   releasePatchMapSemanticHashScratch,
   type MaterializedPatchMapDataset,
   type NormalizedPatchMapElement,
@@ -192,6 +191,7 @@ import {
 import { PatchMapTransformerSessionCoordinator } from './engine/transformer-session-coordinator';
 import { PatchMapTransactionCommitCoordinator } from './engine/transaction-commit-coordinator';
 import { PatchMapDatasetReplacementCoordinator } from './engine/dataset-replacement-coordinator';
+import { PatchMapHistoryApplicationCoordinator } from './engine/history-application-coordinator';
 import { PatchMapPublicationAuthority } from './engine/publication-authority';
 import { PatchMapSceneStateAuthority } from './engine/scene-state-authority';
 import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-authority';
@@ -220,7 +220,6 @@ import {
   normalizeEngineMutationTarget,
   normalizeSnapshotTarget,
   positiveSafeInteger,
-  resolvePatchMapHistoryShortcut,
   validateExtractionRequest,
   validateInitializeOptions,
   validateNonNegativeFinite,
@@ -228,15 +227,9 @@ import {
   validatePositiveFinite,
 } from './engine/input-contracts';
 import {
-  createPatchMapEngineHistoryCompanion,
   createPatchMapEngineHistorySnapshot,
-  planPatchMapEngineHistoryCompanion,
-  resolvePatchMapEngineHistoryTransitionMode,
-  resolvePatchMapEngineHistoryTransitionSelection,
   validPatchMapEngineHistorySelection,
   type PatchMapEngineHistoryCompanion,
-  type PatchMapEngineHistorySnapshot,
-  type PatchMapEngineHistoryTransition,
 } from './engine/history-planning';
 import {
   EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS as EMPTY_RECONCILE_DIAGNOSTICS,
@@ -255,7 +248,6 @@ import {
 } from './engine/operation-outcomes';
 export { PatchMapError } from './engine/operation-outcomes';
 import {
-  historyReconcileOrderScope,
   incrementalOwnedRootIds,
   reconcileComponentSemantics,
   reconcileTextSemantics,
@@ -365,7 +357,6 @@ export type * from './engine/public-contracts';
 import type { PatchMapReconcileDiagnostic } from './semantic/reconcile';
 import {
   PatchMapSemanticHistory,
-  type PatchMapHistoryDirection,
   type PatchMapHistoryInspection,
   type PatchMapHistoryPreparedRecord,
   type PatchMapHistoryState,
@@ -660,6 +651,7 @@ export class PatchMap {
   private readonly transactionCommit: PatchMapTransactionCommitCoordinator;
   private readonly transformerSessions: PatchMapTransformerSessionCoordinator;
   private readonly datasetReplacement: PatchMapDatasetReplacementCoordinator;
+  private readonly historyApplication: PatchMapHistoryApplicationCoordinator;
   private readonly viewportAuthority = new PatchMapViewportAuthority();
   private readonly publication = new PatchMapPublicationAuthority();
   private readonly sceneState = new PatchMapSceneStateAuthority(
@@ -687,7 +679,6 @@ export class PatchMap {
     readonly geometry: PatchMapViewportGeometry;
     readonly result: PatchMapViewportContributorResult;
   }> | null = null;
-  private historyHostCompanion: PatchMapMutationJsonValue | null = null;
   private rendererConfiguration: Readonly<{
     resolution: number;
     antialias: boolean;
@@ -865,7 +856,7 @@ export class PatchMap {
         liveSurface: () => this.surface,
         reducedMotion: () => this.accessibility.reducedMotion,
         terminalSurfaceFailure: () => this.terminalSurfaceFailure,
-        historySnapshot: () => this.historySnapshot(),
+        historySnapshot: () => this.historyApplication.snapshot(),
         planHistoryCompanion: (
           value,
           fallbackSelectionIds,
@@ -873,7 +864,7 @@ export class PatchMap {
           fallbackMode,
           stableIdentity,
           structuralIdentity,
-        ) => this.nextHistoryCompanion(
+        ) => this.historyApplication.planCompanion(
           value,
           fallbackSelectionIds,
           materialized,
@@ -883,7 +874,7 @@ export class PatchMap {
         ),
         commitSceneMetadata: (hostCompanion) => {
           this.defaultViewportContributorsCache = null;
-          this.historyHostCompanion = hostCompanion;
+          this.historyApplication.replaceHostCompanion(hostCompanion);
           this.syncConfiguredSelectionVisualPolicy();
         },
         commitLifecycle: (lifecycle) => {
@@ -946,6 +937,51 @@ export class PatchMap {
         this.operationError(code, code, operation, recoverable),
       sameSelection: sameStringArray,
     });
+    this.historyApplication = new PatchMapHistoryApplicationCoordinator(
+      this.historyAuthority,
+      this.sceneState,
+      this.publication,
+      this.hostInteractions,
+      this.transformerSessions,
+      EMPTY_MATERIALIZED_DATASET,
+      {
+        requireSurface: (operation) => this.requireSurface(operation),
+        terminalSurfaceFailure: () => this.terminalSurfaceFailure,
+        setLifecycle: (lifecycle) => {
+          this.lifecycle = lifecycle;
+        },
+        isSurfaceMutationCurrent: (surface, revisions) =>
+          this.isSurfaceMutationCurrent(surface, revisions),
+        restoreAuthoritativeSurfaceScene: (surface, operation) => {
+          this.restoreAuthoritativeSurfaceScene(surface, operation);
+        },
+        syncSelectionVisualPolicy: () => {
+          this.syncConfiguredSelectionVisualPolicy();
+        },
+        invalidateViewportContributors: () => {
+          this.defaultViewportContributorsCache = null;
+        },
+        diagnosticFrom: (error, operation) => this.diagnosticFrom(error, operation),
+        operationDiagnostic: (code, category, operation, recoverable, datasetPath) =>
+          this.operationDiagnostic(code, category, operation, recoverable, datasetPath),
+        revisionStamp: () => this.revisionStamp(),
+        emitDiagnostic: (diagnostic) => {
+          this.emit('diagnostic', diagnostic);
+        },
+        emitSemanticRestored: (event) => {
+          this.emit('semanticRestored', event);
+        },
+        emitSelectionReconciled: (event) => {
+          this.emit('selectionReconciled', event);
+        },
+        emitHistoryResult: (direction, result) => {
+          this.emit(direction === 'undo' ? 'historyUndone' : 'historyRedone', result);
+        },
+        emitHistoryCleared: (result) => {
+          this.emit('historyCleared', result);
+        },
+      },
+    );
     this.datasetReplacement = new PatchMapDatasetReplacementCoordinator(
       this.sceneState,
       this.publication,
@@ -964,7 +1000,7 @@ export class PatchMap {
           this.pendingWork += delta;
         },
         resetHistoryHostCompanion: () => {
-          this.historyHostCompanion = null;
+          this.historyApplication.resetHostCompanion();
         },
         interruptPointerReplacement: () => {
           this.pointerGestureAuthority?.interrupt('replace');
@@ -979,7 +1015,7 @@ export class PatchMap {
           this.defaultViewportContributorsCache = null;
         },
         clearHistoryForReplacement: () => {
-          this.clearHistoryAuthority('replace');
+          this.historyApplication.clear('replace');
         },
         resetLiveOverlay: () => {
           this.resetLiveOverlayState();
@@ -2278,10 +2314,10 @@ export class PatchMap {
     try {
       preparedHistory = this.historyAuthority.prepareOwnedChangedRecord({
         id: `patch:${this.publication.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
-        before: this.historySnapshot(),
+        before: this.historyApplication.snapshot(),
         after: createPatchMapEngineHistorySnapshot(
           mutation.candidate.dataset,
-          this.historyCompanionForSelection(selectionBefore),
+          this.historyApplication.companionForSelection(selectionBefore),
         ),
       });
     } catch (error) {
@@ -2487,10 +2523,10 @@ export class PatchMap {
     try {
       preparedHistory = this.historyAuthority.prepareOwnedChangedRecord({
         id: `destroy:${this.publication.sceneRevision + 1}:${semanticTargetIdentity(mutation.target)}`,
-        before: this.historySnapshot(),
+        before: this.historyApplication.snapshot(),
         after: createPatchMapEngineHistorySnapshot(
           mutation.candidate.dataset,
-          this.historyCompanionForSelection(selectionAfter),
+          this.historyApplication.companionForSelection(selectionAfter),
         ),
       });
     } catch (error) {
@@ -5236,8 +5272,7 @@ export class PatchMap {
   }
 
   public historyCompanionState(): PatchMapEngineHistoryCompanionState {
-    this.requireSurface('historyCompanionState');
-    return this.historyCompanionForSelection(this.logicalSelectionIds);
+    return this.historyApplication.companionState();
   }
 
   /**
@@ -5248,29 +5283,7 @@ export class PatchMap {
   public setHistoryCompanion(
     value: PatchMapMutationJsonValue,
   ): PatchMapEngineHistoryCompanionState {
-    const surface = this.requireSurface('setHistoryCompanion');
-    const detached = detachPatchMapMutationJsonValue(value, '$.historyCompanion');
-    const previousSelection = this.logicalSelectionIds;
-    const previousMode = this.hostInteractions.modeProbe().activeState;
-    const next = this.nextHistoryCompanion(
-      detached,
-      previousSelection,
-      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
-      previousMode,
-    );
-    surface.select(next.selectionIds);
-    this.sceneState.replaceSelection(next.selectionIds);
-    this.syncConfiguredSelectionVisualPolicy();
-    this.hostInteractions.applyModeOperation({ op: 'replace', state: next.mode });
-    this.historyHostCompanion = next.hostCompanion;
-    if (
-      !sameStringArray(previousSelection, next.selectionIds) ||
-      previousMode !== next.mode ||
-      next.hostCompanion !== null
-    ) {
-      this.publication.advanceInteraction();
-    }
-    return this.historyCompanionForSelection(this.logicalSelectionIds);
+    return this.historyApplication.setCompanion(value);
   }
 
   public setHistoryCapacity(capacity: number): PatchMapEngineHistoryCapacityResult {
@@ -5297,39 +5310,21 @@ export class PatchMap {
 
   public clearHistory(): PatchMapEngineHistoryClearResult {
     this.requireSurface('clearHistory');
-    return this.clearHistoryAuthority('host', true);
+    return this.historyApplication.clear('host', true);
   }
 
   public handleHistoryShortcut(
     input: PatchMapHistoryShortcutInput,
   ): PatchMapHistoryShortcutResult {
-    this.requireSurface('handleHistoryShortcut');
-    const action = resolvePatchMapHistoryShortcut(input);
-    if (action === null || !patchMapOwnsKeyboardInput(input.pathKind)) {
-      return Object.freeze({
-        action,
-        handled: false,
-        preventDefault: false,
-        result: null,
-      });
-    }
-    const result = action === 'undo' ? this.undo() : this.redo();
-    return Object.freeze({
-      action,
-      handled: true,
-      preventDefault: true,
-      result,
-    });
+    return this.historyApplication.handleShortcut(input);
   }
 
   public undo(): PatchMapEngineHistoryResult {
-    this.transformerSessions.cancelActive('redraw', true);
-    return this.applyHistory('undo');
+    return this.historyApplication.undo();
   }
 
   public redo(): PatchMapEngineHistoryResult {
-    this.transformerSessions.cancelActive('redraw', true);
-    return this.applyHistory('redo');
+    return this.historyApplication.redo();
   }
 
   public destroy(): Promise<boolean> {
@@ -5442,9 +5437,9 @@ export class PatchMap {
     this.resetLiveOverlayState();
     this.viewportAuthority.destroy();
     this.externalDependencyRevisions.clear();
-    this.clearHistoryAuthority('destroy', true);
+    this.historyApplication.clear('destroy', true);
     this.historyAuthority.destroy();
-    this.historyHostCompanion = null;
+    this.historyApplication.resetHostCompanion();
     this.publication.clearHistoryPublications();
     this.transactionCommit.reset();
     this.rendererConfiguration = null;
@@ -5482,255 +5477,11 @@ export class PatchMap {
     this.publication.resetOverlay();
   }
 
-  private applyHistory(direction: PatchMapHistoryDirection): PatchMapEngineHistoryResult {
-    const surface = this.requireSurface(direction);
-    const previousRevisions = this.revisionStamp();
-    if (!surface.reconcile) {
-      const diagnostic = this.operationDiagnostic(
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        direction,
-        false,
-      );
-      const result = Object.freeze({
-        status: 'refused',
-        changed: false,
-        direction,
-        previousRevisions,
-        revisions: this.revisionStamp(),
-        sceneRevision: this.publication.sceneRevision,
-        semanticHash: this.materialized?.semanticHash ?? null,
-        diagnostic,
-        reconcileDiagnostics: EMPTY_RECONCILE_DIAGNOSTICS,
-        history: this.historyAuthority.state(),
-      } satisfies PatchMapEngineHistoryResult);
-      this.emit('diagnostic', diagnostic);
-      return result;
-    }
-
-    let failure: PatchMapEngineDiagnostic | null = null;
-    let reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[] = EMPTY_RECONCILE_DIAGNOSTICS;
-    const modeBefore = this.hostInteractions.modeProbe().activeState;
-    const hostCompanionBefore = this.historyHostCompanion;
-    const currentMaterialized = this.materialized ?? EMPTY_MATERIALIZED_DATASET;
-    const apply = (transition: PatchMapEngineHistoryTransition): boolean => {
-      let materialized: MaterializedPatchMapDataset;
-      const selectionBefore = this.logicalSelectionIds;
-      try {
-        materialized = ownedPatchMapMaterialization(transition.snapshot.dataset) ??
-          materializePatchMapDataset(transition.snapshot.dataset);
-        const incrementalRootIds = incrementalOwnedRootIds(
-          currentMaterialized.dataset,
-          materialized.dataset,
-        );
-        const orderScope = historyReconcileOrderScope(
-          transition.command.before.dataset,
-          transition.command.after.dataset,
-        );
-        const structuralRootDelta =
-          incrementalRootIds === undefined &&
-          orderScope.allowedElementOrderIds.length > 0
-            ? ownedStructuralRootDelta(
-                currentMaterialized.dataset,
-                materialized.dataset,
-              )
-            : null;
-        const componentSemantics = reconcileComponentSemantics(
-          this.componentSemantics,
-          currentMaterialized.dataset,
-          materialized.dataset,
-          incrementalRootIds,
-          structuralRootDelta,
-        );
-        const textSemantics = reconcileTextSemantics(
-          this.textSemantics,
-          currentMaterialized.dataset,
-          materialized.dataset,
-          incrementalRootIds,
-          structuralRootDelta,
-        );
-        const companion = transition.snapshot.companion;
-        const mode = resolvePatchMapEngineHistoryTransitionMode(transition);
-        const selection = resolvePatchMapEngineHistoryTransitionSelection(
-          transition,
-          materialized,
-          incrementalRootIds !== undefined,
-          structuralRootDelta !== null,
-          this.sceneState,
-        );
-        const scenePlan = this.sceneState.prepareMutation({
-          materialized,
-          componentSemantics,
-          textSemantics,
-          selectionIds: selection,
-        });
-        const reconcile = surface.reconcile?.(materialized.dataset, {
-          animateBarChanges: false,
-          ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
-          ...(orderScope.allowedElementOrderIds.length === 0
-            ? {}
-            : { structuralSharing: true }),
-          ...(orderScope.allowedElementOrderIds.length === 0
-            ? {}
-            : { allowedElementOrderIds: orderScope.allowedElementOrderIds }),
-          ...(orderScope.allowedComponentOrderOwners.length === 0
-            ? {}
-            : { allowedComponentOrderOwners: orderScope.allowedComponentOrderOwners }),
-          ...(!sameStringArray(selectionBefore, selection)
-            ? { selectionIds: selection }
-            : {}),
-        });
-        if (reconcile === undefined) return false;
-        if (!this.isSurfaceMutationCurrent(surface, previousRevisions)) {
-          this.restoreAuthoritativeSurfaceScene(surface, direction);
-          failure = this.operationDiagnostic('CONFLICT', 'CONFLICT', direction, true);
-          return false;
-        }
-        reconcileDiagnostics = freezeReconcileDiagnostics(reconcile.diagnostics);
-        if (reconcile.status === 'refused') {
-          const datasetPath = reconcileDiagnostics.find((entry) => entry.severity === 'error')?.path;
-          failure = this.operationDiagnostic('CONFLICT', 'CONFLICT', direction, true, datasetPath);
-          return false;
-        }
-        this.hostInteractions.applyModeOperation({ op: 'replace', state: mode });
-        this.historyHostCompanion = companion?.hostCompanion ?? null;
-        this.sceneState.commit(scenePlan);
-      } catch (error) {
-        if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
-        failure = this.diagnosticFrom(error, direction);
-        return false;
-      }
-      this.defaultViewportContributorsCache = null;
-      this.publication.advanceScene();
-      this.lifecycle = materialized.rootIds.length > 0 ? 'scene-ready' : 'ready-empty';
-      if (
-        !sameStringArray(selectionBefore, this.logicalSelectionIds) ||
-        modeBefore !== this.hostInteractions.modeProbe().activeState ||
-        hostCompanionBefore !== this.historyHostCompanion
-      ) {
-        this.publication.advanceInteraction();
-      }
-      return true;
-    };
-
-    const transition = direction === 'undo'
-      ? this.historyAuthority.undo(apply)
-      : this.historyAuthority.redo(apply);
-    if (transition === null && failure !== null) {
-      const result = Object.freeze({
-        status: 'refused',
-        changed: false,
-        direction,
-        previousRevisions,
-        revisions: this.revisionStamp(),
-        sceneRevision: this.publication.sceneRevision,
-        semanticHash: this.materialized?.semanticHash ?? null,
-        diagnostic: failure,
-        reconcileDiagnostics,
-        history: this.historyAuthority.state(),
-      } satisfies PatchMapEngineHistoryResult);
-      this.emit('diagnostic', failure);
-      return result;
-    }
-    if (transition === null) {
-      return Object.freeze({
-        status: 'unavailable',
-        changed: false,
-        direction,
-        previousRevisions,
-        revisions: this.revisionStamp(),
-        sceneRevision: this.publication.sceneRevision,
-        semanticHash: this.materialized?.semanticHash ?? null,
-        history: this.historyAuthority.state(),
-      } satisfies PatchMapEngineHistoryResult);
-    }
-
-    const materialized = this.materialized;
-    if (materialized === null) throw new Error('history transition lost semantic authority');
-    const result = Object.freeze({
-      status: 'committed',
-      changed: true,
-      direction,
-      actionId: transition.command.id,
-      recordCount: transition.command.recordCount,
-      previousRevisions,
-      revisions: this.revisionStamp(),
-      sceneRevision: this.publication.sceneRevision,
-      semanticHash: materialized.semanticHash,
-      publication: 'pending',
-      history: this.historyAuthority.state(),
-    } satisfies PatchMapEngineHistoryResult);
-    const restored = Object.freeze({
-      direction,
-      sceneRevision: this.publication.sceneRevision,
-      selectionIds: Object.freeze([...this.logicalSelectionIds]),
-      mode: this.hostInteractions.modeProbe().activeState,
-      publication: 'pending',
-    } satisfies PatchMapEngineHistoryRestoredEvent);
-    this.emit('semanticRestored', restored);
-    this.emit('selectionReconciled', restored);
-    this.emit(direction === 'undo' ? 'historyUndone' : 'historyRedone', result);
-    this.publication.queueHistoryPublication(direction);
-    return result;
-  }
-
-  private historySnapshot(): PatchMapEngineHistorySnapshot {
-    return createPatchMapEngineHistorySnapshot(
-      this.materialized?.dataset ?? Object.freeze([]),
-      this.historyCompanionForSelection(this.logicalSelectionIds),
-    );
-  }
-
   private rememberCommandTargetState(state: PatchMapCommandTargetState): void {
     this.commandTargetAuthorities.set(state, Object.freeze({
       lifecycleGeneration: this.publication.lifecycleGeneration,
       targetIds: state.targetIds,
     }));
-  }
-
-  private historyCompanionForSelection(
-    selectionIds: readonly string[],
-  ): PatchMapEngineHistoryCompanion {
-    return createPatchMapEngineHistoryCompanion(
-      selectionIds,
-      this.hostInteractions.modeProbe().activeState,
-      this.historyHostCompanion,
-    );
-  }
-
-  private nextHistoryCompanion(
-    value: PatchMapMutationJsonValue | undefined,
-    fallbackSelectionIds: readonly string[],
-    materialized: MaterializedPatchMapDataset,
-    fallbackMode: PatchMapEngineHistoryCompanion['mode'],
-    stableIdentity = false,
-    structuralIdentity = false,
-  ): PatchMapEngineHistoryCompanion {
-    return planPatchMapEngineHistoryCompanion(
-      value,
-      fallbackSelectionIds,
-      materialized,
-      stableIdentity,
-      structuralIdentity,
-      fallbackMode,
-      this.historyHostCompanion,
-      this.sceneState,
-    );
-  }
-
-  private clearHistoryAuthority(
-    reason: PatchMapEngineHistoryClearResult['reason'],
-    emitEvenIfUnchanged = false,
-  ): PatchMapEngineHistoryClearResult {
-    const changed = this.historyAuthority.clear();
-    this.publication.clearHistoryPublications();
-    const result = Object.freeze({
-      changed,
-      reason,
-      history: this.historyAuthority.state(),
-    });
-    if (changed || emitEvenIfUnchanged) this.emit('historyCleared', result);
-    return result;
   }
 
   /**
