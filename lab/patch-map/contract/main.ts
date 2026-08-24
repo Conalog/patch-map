@@ -1,0 +1,663 @@
+import {
+  createNotImplementedPatchMapContractLabBridge,
+  type PatchMapContractLabBridgeV1,
+} from './bridge';
+import { createPatchMapExecutableLabBridge } from './executable-bridge';
+import { isPatchMapExecutableCaseId } from './executable-cases';
+import {
+  refreshComponentAssetInspector,
+  renderComponentAssetInspector,
+} from './inspectors/component-asset-inspector';
+import {
+  refreshRen005Inspector,
+  renderRen005Inspector,
+} from './inspectors/image-inspector';
+import {
+  escapeHtml,
+  isRecord,
+  setText,
+} from './inspectors/presentation-values';
+import {
+  refreshTextInspector,
+  renderTextInspector,
+} from './inspectors/text-inspector';
+import {
+  patchMapKoreanActionLabel,
+  patchMapKoreanCaseInstruction,
+  patchMapKoreanCaseTitle,
+  patchMapKoreanCaseType,
+  patchMapKoreanStatus,
+} from './korean-copy';
+import { PATCH_MAP_CONTRACT_PRESENTERS } from './presenters';
+import {
+  buildPatchMapContractRoute,
+  PATCH_MAP_CONTRACT_DATASET_SIZES,
+  PatchMapContractRouteError,
+  parsePatchMapContractSeed,
+  parsePatchMapContractRoute,
+  type PatchMapContractRoute,
+} from './route';
+import {
+  appendRunPerformance,
+  resetRunPerformance,
+  runObserverPrefix,
+  startUiRunObservation,
+  type PatchMapContractUiRunMetrics,
+} from './run-observer';
+import {
+  mountPatchMapManualWorkbench,
+  renderPatchMapManualWorkbench,
+  type PatchMapManualLabBridge,
+} from '../interactive/manual-workbench';
+import {
+  PATCH_MAP_MANUAL_SCENE_SIZE_OPTIONS,
+  type PatchMapManualSceneSize,
+} from '../interactive/manual-scene';
+
+declare global {
+  interface Window {
+    __PATCH_MAP_CONTRACT_LAB__?: PatchMapContractLabBridgeV1;
+  }
+}
+
+export interface PatchMapContractLabMount {
+  readonly route: PatchMapContractRoute | null;
+  readonly bridge: PatchMapContractLabBridgeV1 | null;
+  readonly manual: PatchMapManualLabBridge | null;
+  readonly routeError: PatchMapContractRouteError | null;
+  destroy(): Promise<void>;
+}
+
+function scenarioList(route: PatchMapContractRoute): string {
+  return PATCH_MAP_CONTRACT_PRESENTERS.map((presenter) => {
+    const href = buildPatchMapContractRoute(presenter.caseId, route.size, route.seed);
+    const selected = presenter.caseId === route.scenario;
+    const koreanTitle = patchMapKoreanCaseTitle(presenter.caseId);
+    const searchText = `${presenter.caseId} ${koreanTitle} ${presenter.title} ${presenter.priority}`.toLowerCase();
+    return `<a class="contract-scenario-link${selected ? ' is-selected' : ''}" href="${href}" data-scenario-index="${escapeHtml(searchText)}"${selected ? ' aria-current="page"' : ''}><span>${presenter.caseId}</span><strong>${escapeHtml(koreanTitle)}</strong><small title="계약 우선순위">우선순위 ${presenter.priority}</small></a>`;
+  }).join('');
+}
+
+function manualDatasetSizeLabel(size: PatchMapManualSceneSize): string {
+  if (size === 'production') return '운영 데이터 형태';
+  if (size === 'actual-production') return '실제 운영 데이터 · 605개 원본';
+  const exploratory = size === '10000' ? ' · 탐색용' : '';
+  return `${Number(size).toLocaleString('ko-KR')}개 객체${exploratory}`;
+}
+
+function actionControls(route: PatchMapContractRoute, executable: boolean): string {
+  return route.presenter.actions.map((action) => {
+    const primary = action.primaryTestId === null
+      ? ''
+      : ` data-testid="${action.primaryTestId}"`;
+    const actionStatus = executable ? 'queued' : 'not-implemented';
+    return `<div class="contract-case-action" data-testid="${action.actionTestId}" data-action-index="${action.index}" data-action-status="${actionStatus}"><span>${String(action.index + 1).padStart(2, '0')}</span><button type="button"${primary} disabled aria-disabled="true">${escapeHtml(patchMapKoreanActionLabel(action.index))}</button><code title="자동 실행기의 내부 작업 식별자">기술 ID · ${escapeHtml(action.handlerId)}</code><output data-action-result>${patchMapKoreanStatus(actionStatus)}</output></div>`;
+  }).join('');
+}
+
+export function renderPatchMapContractLab(route: PatchMapContractRoute): string {
+  const presenter = route.presenter;
+  const executable = presenter.executionStatus === 'actual-observable';
+  const initialStatus = executable ? 'armed' : 'not-implemented';
+  const statusLabel = executable ? '실행 준비' : '미구현';
+  const koreanTitle = patchMapKoreanCaseTitle(presenter.caseId);
+  const sizeOptions = PATCH_MAP_CONTRACT_DATASET_SIZES.map((size) =>
+    `<option value="${size}"${size === route.size ? ' selected' : ''}>${size === 'production' ? '운영 데이터 형태' : `${size}개 객체`}</option>`,
+  ).join('');
+  const manualSizeOptions = PATCH_MAP_MANUAL_SCENE_SIZE_OPTIONS.map((size) =>
+    `<option value="${size}"${size === route.size ? ' selected' : ''}>${manualDatasetSizeLabel(size)}</option>`,
+  ).join('');
+
+  return `<main class="contract-lab-shell" data-testid="${presenter.rootTestId}" data-contract-status="${initialStatus}">
+  <header class="contract-lab-header">
+    <div><span class="contract-kicker">PatchMap 기능 계약</span><h1>${presenter.caseId} · ${escapeHtml(koreanTitle)}</h1><p>${patchMapKoreanCaseType(presenter.caseType)} · 우선순위 ${presenter.priority} · 현재 케이스만 표시</p></div>
+    <strong class="contract-status" data-contract-status-label>${statusLabel}</strong>
+  </header>
+  <div class="contract-lab-layout">
+    <aside class="contract-catalog" aria-label="승인된 PatchMap 케이스">
+      <label for="patch-map-contract-search">173개 케이스 찾기</label>
+      <input id="patch-map-contract-search" type="search" data-testid="scenario-search" autocomplete="off" placeholder="ID 또는 한국어 제목">
+      <nav data-testid="scenario-list">${scenarioList(route)}</nav>
+    </aside>
+    <section class="contract-focus">
+      <div class="contract-route-controls">
+        <label>직접 조작 크기<select data-testid="manual-dataset-size">${manualSizeOptions}</select></label>
+        <label>정확 실행 크기<select data-testid="dataset-size">${sizeOptions}</select></label>
+        <label>무작위 시드<input data-testid="seed" inputmode="numeric" value="${route.seed}" pattern="(?:0|[1-9][0-9]*)"></label>
+        <button type="button" data-testid="load-dataset"${executable ? '' : ' disabled'} title="승인된 작업을 정확한 순서로 한 번 자동 실행합니다.">정확 실행 시작</button>
+        <button type="button" data-testid="reset-case" disabled title="자동 실행 결과를 지우고 처음 상태로 되돌립니다.">자동 실행 초기화</button>
+        <button type="button" data-testid="repeat-action" disabled title="같은 케이스를 같은 입력으로 한 번 더 실행합니다.">같은 실행 반복</button>
+        <button type="button" data-testid="destroy-case" disabled title="자동 실행기의 임시 런타임을 종료하고 자원을 정리합니다.">자동 런타임 종료</button>
+        <button type="button" data-testid="copy-url" title="현재 케이스·크기·시드 주소를 클립보드에 복사합니다.">현재 주소 복사</button>
+      </div>
+      <p class="contract-stub-notice">직접 조작 크기의 10,000개는 자유 실험용이고, 실제 운영 데이터는 등록된 605개 원본 JSON을 그대로 사용합니다. 아래 독립 정확 실행기는 승인된 정확 실행 크기를 별도로 유지합니다. ${executable
+        ? 'PixiJS WebGL 기준선에서 실제 제품만 실행합니다. 자동 실행기의 캔버스는 임시이며 정리 단계에서 제거됩니다. 이 화면은 예상값과 비교하지 않고 실제 관찰 또는 실패 정보만 보여줍니다.'
+        : '이 승인 경로는 명시적으로 미구현 상태입니다. 엔진 작업·의미 관찰·승격 결과를 만들지 않습니다.'}</p>
+      ${renderPatchMapManualWorkbench(presenter)}
+      <section class="contract-case-card" aria-labelledby="contract-case-title">
+        <span class="contract-kicker">독립 정확 증거 실행기</span>
+        <h2 id="contract-case-title">${escapeHtml(koreanTitle)}</h2>
+        <p class="contract-instruction">${escapeHtml(patchMapKoreanCaseInstruction(presenter.caseId))}</p>
+        <div class="contract-canvas" data-testid="canvas-host">
+          <div data-testid="${presenter.gestureSurfaceTestId}" data-contract-surface aria-label="PatchMap 계약 케이스 자동 실행 화면">
+            <p data-canvas-lifetime>${executable
+              ? '정확 실행기가 실제 엔진을 소유한 동안에만 PixiJS WebGL 캔버스가 붙습니다.'
+              : '미구현 경로에는 캔버스를 만들지 않습니다.'}</p>
+          </div>
+        </div>
+        <p class="contract-action-note">회색의 ‘기술 ID’는 자동 실행기가 사용하는 내부 작업 이름입니다. 직접 조작할 때는 위의 한국어 도구와 안내만 따라가면 됩니다.</p>
+        <div class="contract-actions" aria-label="현재 케이스의 승인 작업">${actionControls(route, executable)}</div>
+        ${renderRen005Inspector(route)}
+        ${renderTextInspector(route)}
+        ${renderComponentAssetInspector(route)}
+      </section>
+      <section class="contract-result-strip" data-testid="${presenter.resultTestId}" aria-live="polite">
+        <dl><div><dt>작업</dt><dd data-result-actions>${executable ? '대기 중' : '실행 전'}</dd></div><div><dt>이벤트</dt><dd data-result-events>관찰 전</dd></div><div><dt>정리</dt><dd data-result-cleanup>실행 전</dd></div><div><dt>관찰</dt><dd data-result-observation>${patchMapKoreanStatus(initialStatus)}</dd></div></dl>
+        <p data-testid="${presenter.firstFailureTestId}">${executable
+          ? '정확 실행을 시작하면 제품·이벤트·의미·자원 정리 정보를 확인할 수 있습니다.'
+          : '작업 실행기가 미구현이라 실제 관찰 결과가 없습니다.'}</p>
+        <pre data-testid="${presenter.traceTestId}" hidden>${initialStatus}</pre>
+      </section>
+    </section>
+  </div>
+</main>`;
+}
+
+export function renderPatchMapContractRouteError(error: PatchMapContractRouteError): string {
+  return `<main class="contract-lab-shell contract-route-error" data-testid="patch-map-contract-route-error" data-contract-status="invalid-route"><span class="contract-kicker">PatchMap 기능 계약</span><h1>이 주소는 실행할 수 없습니다</h1><p><strong>${error.code}</strong>: ${escapeHtml(error.message)}</p><p>주소의 케이스, 데이터셋 크기, 0~4,294,967,295 범위 무작위 시드 값을 확인하세요.</p></main>`;
+}
+
+function bindShell(
+  target: HTMLElement,
+  route: PatchMapContractRoute,
+  abortController: AbortController,
+  bridge: PatchMapContractLabBridgeV1,
+  manual: PatchMapManualLabBridge,
+  executable: boolean,
+): void {
+  const signal = abortController.signal;
+  let navigationRequested = false;
+  let uiRunSequence = 0;
+
+  async function navigate(href: string): Promise<void> {
+    if (navigationRequested) return;
+    navigationRequested = true;
+    try {
+      await bridge.destroyCase();
+    } finally {
+      window.location.assign(href);
+    }
+  }
+
+  const search = target.querySelector<HTMLInputElement>('[data-testid="scenario-search"]');
+  search?.addEventListener('input', () => {
+    const query = search.value.trim().toLowerCase();
+    for (const link of target.querySelectorAll<HTMLElement>('[data-scenario-index]')) {
+      link.hidden = query.length > 0 && !(link.dataset.scenarioIndex ?? '').includes(query);
+    }
+  }, { signal });
+
+  const copyUrl = target.querySelector<HTMLButtonElement>('[data-testid="copy-url"]');
+  copyUrl?.addEventListener('click', () => {
+    if (navigator.clipboard) {
+      void navigator.clipboard
+        .writeText(new URL(route.canonicalUrl, window.location.origin).href)
+        .catch(() => undefined);
+    }
+  }, { signal });
+
+  for (const link of target.querySelectorAll<HTMLAnchorElement>('[data-scenario-index]')) {
+    link.addEventListener('click', (event) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      void navigate(link.getAttribute('href') ?? link.href);
+    }, { signal });
+  }
+
+  const size = target.querySelector<HTMLSelectElement>('[data-testid="dataset-size"]');
+  size?.addEventListener('change', () => {
+    const next = PATCH_MAP_CONTRACT_DATASET_SIZES.find((candidate) => candidate === size.value);
+    if (next) void navigate(buildPatchMapContractRoute(route.scenario, next, route.seed));
+  }, { signal });
+
+  const manualSize = target.querySelector<HTMLSelectElement>(
+    '[data-testid="manual-dataset-size"]',
+  );
+  manualSize?.addEventListener('change', () => {
+    const next = PATCH_MAP_MANUAL_SCENE_SIZE_OPTIONS.find(
+      (candidate) => candidate === manualSize.value,
+    );
+    const workbenchSize = target.querySelector<HTMLSelectElement>(
+      '[data-manual-scene-size]',
+    );
+    if (next === undefined || workbenchSize === null) return;
+    workbenchSize.value = next;
+    manualSize.disabled = true;
+    void manual.ready
+      .then(() => manual.run('scene-size'))
+      .catch(() => {
+        manualSize.value = manual.state().sceneSize;
+      })
+      .finally(() => {
+        manualSize.disabled = false;
+      });
+  }, { signal });
+  target.addEventListener('patch-map-manual-scene-size-change', (event) => {
+    if (!(event instanceof CustomEvent) || manualSize === null) return;
+    const detail: unknown = (event as CustomEvent<unknown>).detail;
+    const next = isRecord(detail) ? detail.size : undefined;
+    if (typeof next === 'string') manualSize.value = next;
+  }, { signal });
+
+  const seed = target.querySelector<HTMLInputElement>('[data-testid="seed"]');
+  seed?.addEventListener('change', () => {
+    try {
+      const nextSeed = parsePatchMapContractSeed(seed.value);
+      seed.setCustomValidity('');
+      void navigate(buildPatchMapContractRoute(route.scenario, route.size, nextSeed));
+    } catch {
+      seed.setCustomValidity('무작위 시드는 0~4,294,967,295 범위의 정수로 입력하세요.');
+      seed.reportValidity();
+    }
+  }, { signal });
+
+  window.addEventListener('pagehide', () => {
+    void bridge.destroyCase().catch(() => undefined);
+  }, { signal });
+
+  if (!executable) return;
+  const run = target.querySelector<HTMLButtonElement>('[data-testid="load-dataset"]');
+  const reset = target.querySelector<HTMLButtonElement>('[data-testid="reset-case"]');
+  const repeat = target.querySelector<HTMLButtonElement>('[data-testid="repeat-action"]');
+  const destroy = target.querySelector<HTMLButtonElement>('[data-testid="destroy-case"]');
+
+  const imageChooser = target.querySelector<HTMLSelectElement>(
+    '[data-testid="ren-005-specimen-select"]',
+  );
+  imageChooser?.addEventListener('change', () => {
+    refreshRen005Inspector(target, bridge.execution());
+  }, { signal });
+
+  const textChooser = target.querySelector<HTMLSelectElement>(
+    '[data-testid="ren-006-text-choice-select"], [data-testid="ren-011-text-choice-select"]',
+  );
+  textChooser?.addEventListener('change', () => {
+    const status = bridge.state().status;
+    if (status !== 'observed' && status !== 'failed' && status !== 'destroyed') return;
+    void bridge.actualObservation().then((observation) => {
+      if (!signal.aborted) {
+        refreshTextInspector(target, route.scenario, observation, route.seed, false);
+      }
+    }).catch(() => undefined);
+  }, { signal });
+
+  const componentAssetChooser = target.querySelector<HTMLSelectElement>(
+    '[data-testid="ren-008-phase-select"], [data-testid="ren-010-phase-select"]',
+  );
+  componentAssetChooser?.addEventListener('change', () => {
+    refreshComponentAssetInspector(target, route.scenario, bridge.execution());
+  }, { signal });
+
+  async function perform(
+    operationKind: 'run' | 'reset' | 'repeat' | 'destroy',
+    operation: () => Promise<unknown>,
+  ): Promise<void> {
+    const performancePrefix = runObserverPrefix(route.scenario);
+    const performanceObservation = (
+      (operationKind !== 'run' && operationKind !== 'repeat')
+      || performancePrefix === null
+    )
+      ? null
+      : startUiRunObservation();
+    const pending = operation();
+    await refreshBridgeUi(target, route, bridge);
+    const operationResult: unknown = await pending.catch(() => null);
+    const runMetrics = performanceObservation
+      ? await performanceObservation.finish()
+      : null;
+    if (runMetrics) uiRunSequence += 1;
+    if (operationKind === 'reset') {
+      uiRunSequence = 0;
+      if (performancePrefix) resetRunPerformance(target, performancePrefix);
+    }
+    await refreshBridgeUi(target, route, bridge, runMetrics
+      ? {
+          runIndex: uiRunSequence,
+          runKind: operationKind === 'repeat' ? 'repeat' : 'run',
+          metrics: runMetrics,
+          runResult: operationResult,
+        }
+      : null);
+    const root = target.querySelector<HTMLElement>(
+      `[data-testid="${route.presenter.rootTestId}"]`,
+    );
+    if (root && (operationKind === 'run' || operationKind === 'repeat')) {
+      dispatchPatchMapContractRunComplete(root, operationKind, operationResult);
+    }
+    if (root && operationKind === 'destroy') {
+      dispatchPatchMapContractDestroyComplete(root, operationResult);
+    }
+  }
+
+  run?.addEventListener('click', () => {
+    void perform('run', () => bridge.runCase());
+  }, { signal });
+  reset?.addEventListener('click', () => {
+    void perform('reset', () => bridge.resetCase());
+  }, { signal });
+  repeat?.addEventListener('click', () => {
+    void perform('repeat', () => bridge.repeatCase());
+  }, { signal });
+  destroy?.addEventListener('click', () => {
+    void perform('destroy', () => bridge.destroyCase());
+  }, { signal });
+  void refreshBridgeUi(target, route, bridge);
+}
+
+async function refreshBridgeUi(
+  target: HTMLElement,
+  route: PatchMapContractRoute,
+  bridge: PatchMapContractLabBridgeV1,
+  runObservation: Readonly<{
+    readonly runIndex: number;
+    readonly runKind: 'run' | 'repeat';
+    readonly metrics: PatchMapContractUiRunMetrics;
+    readonly runResult: unknown;
+  }> | null = null,
+): Promise<void> {
+  const state = bridge.state();
+  const root = target.querySelector<HTMLElement>(`[data-testid="${route.presenter.rootTestId}"]`);
+  if (!root) return;
+  root.dataset.contractStatus = state.status;
+  setText(root.querySelector('[data-contract-status-label]'), statusLabel(state.status));
+
+  const run = root.querySelector<HTMLButtonElement>('[data-testid="load-dataset"]');
+  const reset = root.querySelector<HTMLButtonElement>('[data-testid="reset-case"]');
+  const repeat = root.querySelector<HTMLButtonElement>('[data-testid="repeat-action"]');
+  const destroy = root.querySelector<HTMLButtonElement>('[data-testid="destroy-case"]');
+  if (run) run.disabled = state.status === 'running' || state.status === 'observed' || state.status === 'destroyed';
+  if (reset) reset.disabled = state.status === 'armed' || state.status === 'running' || state.status === 'destroyed';
+  if (repeat) {
+    repeat.disabled = state.status === 'armed'
+      || state.status === 'running'
+      || state.status === 'destroyed';
+  }
+  if (destroy) {
+    destroy.disabled = state.status === 'armed'
+      || state.status === 'running'
+      || state.status === 'destroyed';
+  }
+
+  const execution = bridge.execution();
+  const results = execution && Array.isArray(execution.actionResults)
+    ? execution.actionResults as unknown as readonly unknown[]
+    : [];
+  for (const row of root.querySelectorAll<HTMLElement>(
+    '.contract-case-action[data-action-index]',
+  )) {
+    const index = Number(row.dataset.actionIndex);
+    const result = Number.isInteger(index) ? results[index] : undefined;
+    const resultStatus = isRecord(result) && typeof result.status === 'string'
+      ? result.status
+      : state.status === 'running'
+      ? 'executing-in-order'
+      : state.status === 'armed'
+        ? 'queued'
+        : state.status === 'failed'
+          ? 'not-run'
+        : state.status;
+    row.dataset.actionStatus = resultStatus;
+    setText(row.querySelector('[data-action-result]'), actionResultLabel(result, resultStatus));
+  }
+
+  const eventCount = execution && Array.isArray(execution.eventJournal)
+    ? execution.eventJournal.length
+    : 0;
+  const completedCount = results.filter((result) => isRecord(result) && result.status === 'completed').length;
+  const cleanup = bridge.cleanup();
+  setText(root.querySelector('[data-result-actions]'), `${completedCount}/${route.presenter.actions.length}개 완료`);
+  setText(root.querySelector('[data-result-events]'), `공개 이벤트 ${eventCount}개`);
+  setText(
+    root.querySelector('[data-result-cleanup]'),
+    typeof cleanup?.status === 'string' ? patchMapKoreanStatus(cleanup.status) : '실행 전',
+  );
+  setText(root.querySelector('[data-result-observation]'), patchMapKoreanStatus(state.status));
+
+  const resultMessage = root.querySelector<HTMLElement>(
+    `[data-testid="${route.presenter.firstFailureTestId}"]`,
+  );
+  setText(resultMessage, resultMessageFor(state.status, execution));
+
+  const lifetime = root.querySelector<HTMLElement>('[data-canvas-lifetime]');
+  setText(lifetime, canvasLifetimeFor(state.status));
+
+  const terminal = state.status === 'observed' || state.status === 'failed' || state.status === 'destroyed';
+  const observation = terminal ? await bridge.actualObservation() : null;
+  const trace = root.querySelector<HTMLPreElement>(`[data-testid="${route.presenter.traceTestId}"]`);
+  if (trace) {
+    trace.hidden = state.status !== 'failed';
+    trace.textContent = terminal
+      ? JSON.stringify(compactContractTrace(state, execution, observation, cleanup), null, 2)
+      : state.status;
+  }
+
+  refreshRen005Inspector(root, execution);
+  refreshTextInspector(root, route.scenario, observation, route.seed, runObservation !== null);
+  refreshComponentAssetInspector(root, route.scenario, execution);
+  const performancePrefix = runObserverPrefix(route.scenario);
+  if (runObservation && performancePrefix) {
+    appendRunPerformance(root, performancePrefix, runObservation);
+  }
+}
+
+function compactContractTrace(
+  state: ReturnType<PatchMapContractLabBridgeV1['state']>,
+  execution: Readonly<Record<string, unknown>> | null,
+  observation: Readonly<Record<string, unknown>> | null,
+  cleanup: Readonly<Record<string, unknown>> | null,
+): Readonly<Record<string, unknown>> {
+  const actionResults = execution && Array.isArray(execution.actionResults)
+    ? execution.actionResults
+    : [];
+  const eventCount = execution && Array.isArray(execution.eventJournal)
+    ? execution.eventJournal.length
+    : 0;
+  const error = execution && isRecord(execution.error) ? execution.error : null;
+  return Object.freeze({
+    state: Object.freeze({
+      caseId: state.caseId,
+      status: state.status,
+      actionIndex: state.actionIndex,
+      repeatIndex: state.repeatIndex,
+    }),
+    actions: Object.freeze(actionResults.map((result, index) => Object.freeze({
+      index,
+      status: isRecord(result) && typeof result.status === 'string'
+        ? result.status
+        : 'not-run',
+    }))),
+    eventCount,
+    observation: observation
+      ? Object.freeze({
+          schema: typeof observation.$schema === 'string' ? observation.$schema : null,
+          status: isRecord(observation.execution)
+            && typeof observation.execution.status === 'string'
+            ? observation.execution.status
+            : state.status,
+        })
+      : null,
+    error: error
+      ? Object.freeze({
+          name: typeof error.name === 'string' ? error.name : null,
+          code: typeof error.code === 'string' ? error.code : null,
+          message: typeof error.message === 'string' ? error.message : null,
+        })
+      : null,
+    cleanup: cleanup
+      ? Object.freeze({
+          status: typeof cleanup.status === 'string' ? cleanup.status : null,
+        })
+      : null,
+  });
+}
+
+function dispatchPatchMapContractRunComplete(
+  root: HTMLElement,
+  runKind: 'run' | 'repeat',
+  runResult: unknown,
+): void {
+  root.dispatchEvent(new CustomEvent('patch-map-contract-run-complete', {
+    bubbles: true,
+    detail: Object.freeze({
+      operation: runKind === 'repeat' ? 'repeatCase' : 'runCase',
+      run: runResult,
+    }),
+  }));
+}
+
+function dispatchPatchMapContractDestroyComplete(
+  root: HTMLElement,
+  cleanup: unknown,
+): void {
+  root.dispatchEvent(new CustomEvent('patch-map-contract-destroy-complete', {
+    bubbles: true,
+    detail: Object.freeze({
+      operation: 'destroyCase',
+      cleanup,
+    }),
+  }));
+}
+
+function actionResultLabel(result: unknown, fallback: string): string {
+  if (!isRecord(result)) return patchMapKoreanStatus(fallback);
+  const actual = isRecord(result.delta) && isRecord(result.delta.actual)
+    ? result.delta.actual
+    : null;
+  const error = actual && isRecord(actual.error) ? actual.error : null;
+  if (typeof error?.code === 'string') return `실패 · ${error.code}`;
+  return typeof result.status === 'string'
+    ? patchMapKoreanStatus(result.status)
+    : patchMapKoreanStatus(fallback);
+}
+
+function resultMessageFor(
+  status: ReturnType<PatchMapContractLabBridgeV1['state']>['status'],
+  execution: Readonly<Record<string, unknown>> | null,
+): string {
+  if (status === 'observed') {
+    return '제품 실행에서 실제 관찰 결과를 수집했습니다. 예상값 비교와 승격은 의도적으로 이 집중 Lab 실행과 분리되어 있습니다.';
+  }
+  if (status === 'failed') {
+    const error = execution && isRecord(execution.error) ? execution.error : null;
+    return `실행에 실패했으며 정리 기록은 보존했습니다${typeof error?.message === 'string' ? `: ${error.message}` : '.'}`;
+  }
+  if (status === 'running') return '임시 PixiJS WebGL 화면에서 승인된 작업을 정확한 순서로 실행하고 있습니다.';
+  if (status === 'destroyed') return '자동 실행기는 종료됐지만 마지막 실제 결과와 정리 기록은 계속 확인할 수 있습니다.';
+  return '정확 실행을 시작하면 제품·이벤트·의미·자원 정리 정보를 확인할 수 있습니다.';
+}
+
+function canvasLifetimeFor(status: ReturnType<PatchMapContractLabBridgeV1['state']>['status']): string {
+  if (status === 'running') return '현재 실행 세대가 임시 PixiJS WebGL 캔버스를 소유하고 있습니다.';
+  if (status === 'observed') return '실행기 정리로 캔버스를 제거했으며 의미·이벤트·자원 정보는 기록에 남아 있습니다.';
+  if (status === 'failed') return '실행에 실패했으며 실행기 정리 경계가 추적 중인 모든 캔버스를 제거했습니다.';
+  return '정확 실행기가 실제 엔진을 소유한 동안에만 PixiJS WebGL 캔버스가 붙습니다.';
+}
+
+function statusLabel(status: ReturnType<PatchMapContractLabBridgeV1['state']>['status']): string {
+  const labels = {
+    loading: '불러오는 중',
+    ready: '준비됨',
+    armed: '실행 준비',
+    running: '실행 중',
+    observed: '관찰 완료',
+    'not-implemented': '미구현',
+    failed: '실패',
+    destroyed: '종료됨',
+  } as const;
+  return labels[status];
+}
+
+export function mountPatchMapContractLab(
+  target: HTMLElement,
+  input: string | URL = window.location.href,
+): PatchMapContractLabMount {
+  let route: PatchMapContractRoute;
+  try {
+    route = parsePatchMapContractRoute(input);
+  } catch (error) {
+    const routeError = error instanceof PatchMapContractRouteError
+      ? error
+      : new PatchMapContractRouteError('INVALID_QUERY', String(error));
+    target.innerHTML = renderPatchMapContractRouteError(routeError);
+    return Object.freeze({
+      route: null,
+      bridge: null,
+      manual: null,
+      routeError,
+      destroy(): Promise<void> {
+        target.replaceChildren();
+        return Promise.resolve();
+      },
+    });
+  }
+
+  target.innerHTML = renderPatchMapContractLab(route);
+  const manual = mountPatchMapManualWorkbench(target, {
+    caseId: route.scenario,
+    title: route.presenter.title,
+    size: route.size,
+    seed: route.seed,
+  });
+  const surfaceHost = target.querySelector<HTMLElement>('[data-contract-surface]');
+  if (!surfaceHost) throw new Error(`PatchMap contract Lab surface is missing: ${route.scenario}`);
+  let executable = false;
+  let bridge: PatchMapContractLabBridgeV1;
+  if (isPatchMapExecutableCaseId(route.scenario)) {
+    if (route.presenter.executionStatus !== 'actual-observable') {
+      throw new Error(`PatchMap contract Lab execution-status drift: ${route.scenario}`);
+    }
+    executable = true;
+    bridge = createPatchMapExecutableLabBridge({
+        caseId: route.scenario,
+        rootTestId: route.presenter.rootTestId,
+        size: route.size,
+        seed: route.seed,
+        surfaceHost,
+      });
+  } else {
+    if (route.presenter.executionStatus !== 'not-implemented') {
+      throw new Error(`PatchMap contract Lab stub-status drift: ${route.scenario}`);
+    }
+    bridge = createNotImplementedPatchMapContractLabBridge({
+        caseId: route.scenario,
+        rootTestId: route.presenter.rootTestId,
+        actionCount: route.presenter.actions.length,
+      });
+  }
+  const abortController = new AbortController();
+  bindShell(target, route, abortController, bridge, manual, executable);
+  window.__PATCH_MAP_CONTRACT_LAB__ = bridge;
+
+  return Object.freeze({
+    route,
+    bridge,
+    manual,
+    routeError: null,
+    async destroy(): Promise<void> {
+      abortController.abort();
+      await Promise.all([
+        bridge.destroyCase(),
+        manual.destroy(),
+      ]);
+      if (window.__PATCH_MAP_CONTRACT_LAB__ === bridge) {
+        delete window.__PATCH_MAP_CONTRACT_LAB__;
+      }
+      target.replaceChildren();
+    },
+  });
+}
+
+if (typeof document !== 'undefined') {
+  const host = document.querySelector<HTMLElement>('[data-patch-map-contract-lab]');
+  if (host) mountPatchMapContractLab(host);
+}

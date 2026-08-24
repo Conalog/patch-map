@@ -1,0 +1,107 @@
+import eslint from '@eslint/js';
+import { defineConfig } from 'eslint/config';
+import { fileURLToPath } from 'node:url';
+import tseslint from 'typescript-eslint';
+
+const projectRoot = fileURLToPath(new URL('.', import.meta.url));
+const typescriptFiles = [
+  'src/**/*.ts',
+  'tests/**/*.ts',
+  'scripts/**/*.ts',
+  'lab/**/*.ts',
+  'performance/patch-map/**/*.ts',
+  'vite.config.ts',
+  'vite.patch-map-lab.config.ts',
+];
+
+export default defineConfig(
+  {
+    ignores: [
+      'artifacts/**',
+      'dist/**',
+      '.lab-dist/**',
+      '.patch-map-lab-dist/**',
+      'fixtures/**',
+      'lab/artifacts/**',
+      'lab/fixtures/**',
+      'node_modules/**',
+    ],
+  },
+  {
+    files: ['scripts/**/*.mjs', 'performance/patch-map/**/*.mjs'],
+    extends: [eslint.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    },
+    rules: {
+      'no-undef': 'off',
+      // ESLint 10 added these rules to the recommended JavaScript preset as
+      // well. Keep the same ownership/state-machine contract as the typed
+      // sources instead of forcing unrelated verification rewrites.
+      'no-useless-assignment': 'off',
+      'preserve-caught-error': 'off',
+      'no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+  {
+    // Public examples import the packed package name, so their strict type
+    // boundary belongs to verify:package. Keep them in the ordinary lint gate
+    // without making a fresh checkout depend on pre-existing dist output.
+    files: ['examples/patch-map/**/*.ts'],
+    extends: [eslint.configs.recommended, tseslint.configs.recommended],
+    rules: {
+      'no-undef': 'off',
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports' },
+      ],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+  {
+    files: typescriptFiles,
+    extends: [eslint.configs.recommended, tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: projectRoot,
+      },
+    },
+    rules: {
+      'no-undef': 'off',
+      // ESLint 10 and typescript-eslint 8.65 added these to their recommended
+      // presets. Keep the repository's pre-upgrade lint contract stable; the
+      // frozen baselines must not be mechanically rewritten by a tool update.
+      'no-useless-assignment': 'off',
+      'preserve-caught-error': 'off',
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports' },
+      ],
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+      '@typescript-eslint/unbound-method': 'off',
+    },
+  },
+);

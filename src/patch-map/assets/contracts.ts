@@ -1,0 +1,177 @@
+import type { PatchMapAssetDescriptor, PatchMapAssetSource } from '../semantic/dataset';
+
+export type PatchMapAssetDiagnosticCategory =
+  | 'INVALID_INPUT'
+  | 'CONFLICT'
+  | 'ASSET_FAILURE'
+  | 'CANCELLED'
+  | 'INTERNAL_FAILURE';
+
+export type PatchMapAssetDiagnosticCode =
+  | 'INVALID_VALUE'
+  | 'CONFLICT'
+  | 'ASSET_POLICY_REJECTED'
+  | 'ASSET_LOAD_FAILED'
+  | 'ASSET_DECODE_FAILED'
+  | 'ASSET_UPLOAD_FAILED'
+  | 'CANCELLED'
+  | 'INTERNAL_FAILURE';
+
+export class PatchMapAssetError extends Error {
+  public constructor(
+    public readonly code: PatchMapAssetDiagnosticCode,
+    public readonly category: PatchMapAssetDiagnosticCategory,
+    public readonly retryable: boolean,
+  ) {
+    super(`${code}: asset`);
+    this.name = 'PatchMapAssetError';
+  }
+}
+
+export interface PatchMapAssetRegistration {
+  readonly alias: string;
+  readonly descriptor: PatchMapAssetSource;
+  readonly kind?: 'image' | 'font';
+  readonly fontWeight?: number;
+}
+
+export interface PatchMapNormalizedAssetRegistration {
+  readonly alias: string;
+  readonly descriptor: PatchMapAssetDescriptor;
+  readonly kind: 'image' | 'font';
+  readonly fontWeight?: number;
+}
+
+export interface PatchMapAssetPolicyContext {
+  readonly instanceId: string;
+  readonly descriptor: PatchMapAssetDescriptor;
+  readonly cacheIdentity: string;
+  readonly packageOwned: boolean;
+}
+
+export type PatchMapAssetPolicy = (
+  context: PatchMapAssetPolicyContext,
+) => void | Promise<void>;
+
+export interface PatchMapAssetBackendRequest {
+  readonly key: string;
+  readonly descriptor: PatchMapAssetDescriptor;
+  readonly cacheIdentity: string;
+  readonly packageOwned: boolean;
+}
+
+export interface PatchMapAssetBackend {
+  readonly keyNamespace?: string;
+  get(request: PatchMapAssetBackendRequest): unknown;
+  load(request: PatchMapAssetBackendRequest): Promise<unknown>;
+  describe?(
+    request: PatchMapAssetBackendRequest,
+    resource: unknown,
+  ): Readonly<{
+    /** Stable decoded-resource identity, independent from physical Pixi keys. */
+    readonly normalizedResourceIdentity: string;
+    /** Optional sanitized semantic identity reported by the decoder/fixture. */
+    readonly cacheIdentity?: string;
+  }>;
+  unload(key: string): Promise<void>;
+}
+
+export interface PatchMapPixiAssetBackendOptions {
+  readonly fetchAsset?: (src: string) => Promise<Blob>;
+  readonly createObjectURL?: (blob: Blob) => string;
+  readonly revokeObjectURL?: (url: string) => void;
+  /**
+   * Optional defense-in-depth profile. The owning session must still install
+   * `createPatchMapAssetIngestionPolicy(profile)` so denied URLs cannot reach
+   * the backend lookup/fetch boundary.
+   */
+  readonly ingestionPolicy?: PatchMapAssetIngestionPolicyProfile;
+  /**
+   * Optional host override for decoded dimensions. When omitted, the browser
+   * backend uses `createImageBitmap`; runtimes without either path fail closed.
+   */
+  readonly inspectDecodedSize?: (
+    blob: Blob,
+  ) => Promise<Readonly<{ readonly width: number; readonly height: number }>>;
+}
+
+export interface PatchMapAssetIngestionPolicyProfile {
+  readonly protocols: readonly string[];
+  readonly origins: readonly string[];
+  readonly redirects: 'revalidate';
+  readonly credentials: 'omit';
+  readonly mediaTypes: readonly string[];
+  readonly maxEncodedBytes: number;
+  readonly maxDecodedWidth: number;
+  readonly maxDecodedHeight: number;
+}
+
+export interface PatchMapAssetResponseMetadata {
+  readonly requestUrl: string;
+  readonly finalUrl: string;
+  readonly redirectUrls?: readonly string[];
+  readonly mediaType: string;
+  readonly encodedBytes: number;
+  readonly decodedWidth?: number;
+  readonly decodedHeight?: number;
+  readonly svgText?: string;
+}
+
+export interface PatchMapAssetIngestionDecision {
+  readonly accepted: boolean;
+  readonly code: 'ASSET_POLICY_REJECTED' | null;
+  readonly stage:
+    | 'accepted'
+    | 'descriptor'
+    | 'redirect'
+    | 'media-type'
+    | 'encoded-bytes'
+    | 'decoded-size'
+    | 'svg-content';
+}
+
+export interface PatchMapAssetAcquisition {
+  /** Internal coordinator identity used for sharing and ownership. */
+  readonly cacheIdentity: string;
+  readonly normalizedResourceIdentity: string;
+  /** Optional backend-described semantic identity; never used as a coordinator key. */
+  readonly describedCacheIdentity?: string;
+  readonly resource: unknown;
+  release(): Promise<void>;
+}
+
+export interface PatchMapAssetRegistrationResult {
+  readonly registeredAliases: readonly string[];
+  readonly duplicateAliases: readonly string[];
+}
+
+export interface PatchMapAssetResourceProbe {
+  readonly cacheIdentity: string;
+  readonly resourceCount: number;
+  readonly pendingCount: number;
+  readonly leaseCount: number;
+  readonly ownership: 'patch-map' | 'external' | null;
+  readonly state: 'absent' | 'pending' | 'resolved' | 'releasing' | 'cleanup-failed';
+  readonly cleanupPending: boolean;
+  readonly cleanupRetryOwner: 'runtime' | null;
+}
+
+export interface PatchMapAssetRuntimeProbe {
+  readonly builtins: Readonly<{ readonly aliases: readonly string[] }>;
+  readonly fonts: Readonly<{ readonly weights: readonly number[] }>;
+  readonly aliasCount: number;
+  readonly resourceCount: number;
+  readonly pendingCount: number;
+  readonly leaseCount: number;
+  readonly cleanupPendingCount: number;
+  readonly resource: PatchMapAssetResourceProbe | null;
+}
+
+export interface PatchMapAssetSessionProbe {
+  readonly instanceId: string;
+  readonly destroyed: boolean;
+  readonly pendingCount: number;
+  readonly leaseCount: number;
+  readonly acquisitionCount: number;
+  readonly cleanupPendingCount: number;
+}

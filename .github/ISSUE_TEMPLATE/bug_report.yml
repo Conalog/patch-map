@@ -1,0 +1,41 @@
+name: Bug report
+description: Report incorrect PatchMap behavior or rendering.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not attach private production data, credentials, or restricted evidence.
+  - type: input
+    id: version
+    attributes:
+      label: Package version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal PATCH MAP JSON and reproduction steps
+      description: Remove private values while preserving the failing schema and operation order.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Runtime profile
+      description: Browser/OS, PixiJS version, WebGL or WebGPU, device/GPU, and structured diagnostics.
+    validations:
+      required: true
+  - type: checkboxes
+    id: lifecycle
+    attributes:
+      label: Lifecycle checks
+      options:
+        - label: I reproduced after a fresh initialize/load/destroy cycle.
+        - label: I checked the browser console and failed network requests.

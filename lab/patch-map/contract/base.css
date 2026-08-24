@@ -1,0 +1,18 @@
+:root {
+  color-scheme: light;
+  font-family: Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  color: #18243a;
+  background: #edf1f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: #edf1f5;
+}
+

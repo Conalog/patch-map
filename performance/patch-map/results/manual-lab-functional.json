@@ -1,0 +1,24 @@
+{
+  "revision": "core-v2-manual-lab-browser/1",
+  "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
+  "mode": "all-routes",
+  "routeCount": 173,
+  "checkCount": 192,
+  "passedCheckCount": 192,
+  "failedCheckCount": 0,
+  "failures": [],
+  "errors": {
+    "console": [],
+    "page": [],
+    "network": []
+  },
+  "environment": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "headed": false,
+    "browserTarget": "playwright-chromium",
+    "browserVersion": "143.0.7499.4",
+    "windowsNative": "pending",
+    "nativeCellId": null
+  }
+}

@@ -1,10 +1,109 @@
 {
   "name": "@conalog/patch-map",
-  "version": "1.0.0-alpha.0",
-  "description": "Bootstrap manifest for the PatchMap 1.0 release line",
+  "version": "0.10.0",
+  "description": "PixiJS GPU renderer and interaction runtime for PATCH MAP v0.10 datasets",
   "license": "MIT",
-  "type": "module",
+  "author": "Conalog",
+  "homepage": "https://github.com/Conalog/patch-map#readme",
+  "bugs": "https://github.com/Conalog/patch-map/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Conalog/patch-map.git"
+  },
   "engines": {
     "node": ">=20"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.map",
+    "docs/patch-map",
+    "examples/patch-map",
+    "LICENSE",
+    "README.md",
+    "README_KR.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly && node scripts/verification/finalize-declarations.mjs",
+    "build:lab": "vite build --config vite.patch-map-lab.config.ts",
+    "lab": "vite --config vite.patch-map-lab.config.ts --host 127.0.0.1 --port 4176 --open '/lab/patch-map/?scenario=LIF-001&size=100&seed=319'",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "unit": "npm run unit:parallel && npm run unit:release",
+    "unit:parallel": "vitest run --maxWorkers=2 --exclude tests/patch-map/native-release-readiness.test.ts",
+    "unit:release": "vitest run tests/patch-map/native-release-readiness.test.ts --maxWorkers=1",
+    "test": "npm run typecheck && npm run lint && npm run unit",
+    "generate:contract-catalog": "node scripts/verification/generate-core-v2-catalog-evidence.mjs",
+    "verify:contract:decisions": "node scripts/verification/verify-core-v2-decision-evidence.mjs",
+    "verify:contract:gates": "node scripts/verification/verify-core-v2-catalog-static-gates.mjs",
+    "verify:contract:catalog": "node scripts/verification/verify-core-v2-catalog.mjs",
+    "verify:contract": "npm run verify:contract:decisions && npm run verify:contract:gates && npm run verify:contract:catalog",
+    "verify:lab": "node scripts/verification/patch-map-manual-lab-browser.mjs",
+    "verify:lab:all": "node scripts/verification/patch-map-manual-lab-browser.mjs --all-routes",
+    "verify:lab:10000": "node scripts/verification/patch-map-exploratory-10000-browser.mjs --headless",
+    "verify:lab:actual-production": "node scripts/verification/patch-map-actual-production-browser.mjs --headless",
+    "verify:package": "npm run build && node scripts/verification/patch-map-package.mjs",
+    "verify:package:installed-selection": "node scripts/verification/patch-map-installed-selection-smoke.mjs",
+    "verify:package:installed-pointer": "node scripts/verification/patch-map-installed-selection-smoke.mjs",
+    "verify:package:installed-builtins": "node scripts/verification/patch-map-installed-builtin-assets-smoke.mjs",
+    "verify:memory": "node scripts/verification/patch-map-memory.mjs",
+    "verify:instance-presentation": "npm run verify:instance-presentation:bar-icon && npm run verify:instance-presentation:grid",
+    "verify:instance-presentation:bar-icon": "node scripts/verification/patch-map-instance-presentation-browser.mjs",
+    "verify:instance-presentation:grid": "node scripts/verification/patch-map-grid-instance-presentation-browser.mjs",
+    "verify:keyed-presentation:grid": "node scripts/verification/patch-map-grid-keyed-presentation-browser.mjs",
+    "verify:grid-text-quality": "node scripts/verification/patch-map-grid-text-quality-browser.mjs",
+    "verify:theme": "node scripts/verification/patch-map-theme-browser.mjs",
+    "verify:builtin-assets": "node scripts/verification/patch-map-builtin-assets-browser.mjs",
+    "verify:asset-readiness": "node scripts/verification/patch-map-asset-readiness-browser.mjs",
+    "perf:asset-readiness:packed-cross": "node scripts/verification/patch-map-packed-asset-readiness-performance.mjs",
+    "verify:local": "npm test && npm run verify:contract && npm run build:lab && npm run verify:package && npm run verify:lab:all && npm run verify:memory",
+    "perf": "node performance/patch-map/run.mjs",
+    "perf:quick": "node performance/patch-map/run.mjs --quick",
+    "perf:contract": "node performance/patch-map/contract-run.mjs",
+    "perf:bar-pan": "node scripts/verification/patch-map-bar-animation-pan-performance.mjs",
+    "perf:bar-retarget": "node scripts/verification/patch-map-bar-retarget-performance.mjs",
+    "perf:instance-bars": "node scripts/verification/patch-map-instance-bar-performance.mjs",
+    "perf:grid-instance-presentation": "node scripts/verification/patch-map-grid-instance-presentation-performance.mjs",
+    "perf:public-animation": "node scripts/verification/patch-map-public-animation-performance.mjs",
+    "perf:production-presentation": "node scripts/verification/patch-map-production-presentation-performance.mjs",
+    "perf:presentation": "node scripts/verification/patch-map-presentation-performance.mjs",
+    "perf:instance-bars:packed-cross": "node scripts/verification/patch-map-packed-instance-performance.mjs",
+    "perf:extraction": "node scripts/verification/patch-map-extraction-performance.mjs",
+    "verify:performance-report": "node performance/patch-map/report/verify.mjs",
+    "verify:performance-contract": "node performance/patch-map/report/verify-contract.mjs",
+    "generate:release-manifest": "node scripts/verification/patch-map-native-release-template.mjs",
+    "verify:native-release-probes": "node scripts/verification/patch-map-native-release-negative-probes.mjs",
+    "verify:release-readiness": "node scripts/verification/patch-map-release-readiness.mjs",
+    "verify:release-readiness:strict": "node scripts/verification/patch-map-release-readiness.mjs --require-release",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test && npm run verify:contract && npm run build:lab && npm run verify:package -- --require-audit && npm run verify:lab:all && npm run verify:memory"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.10.9",
+    "eslint": "10.7.0",
+    "pixi.js": "8.19.0",
+    "playwright": "1.57.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.65.0",
+    "vite": "7.3.6",
+    "vitest": "4.1.0"
+  },
+  "peerDependencies": {
+    "pixi.js": ">=8.0.0 <9"
   }
 }
