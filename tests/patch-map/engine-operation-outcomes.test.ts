@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { PatchMapError as FacadePatchMapError } from '../../src/patch-map/engine';
 import {
   PatchMapError,
+  createPatchMapAssetInitializationError,
   createPatchMapDiagnosticFromError,
   createPatchMapOperationDiagnostic,
   createPatchMapOperationError,
@@ -17,6 +18,8 @@ import { PatchMapDatasetError } from '../../src/patch-map/semantic/dataset';
 import type { MaterializedPatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import type { PatchMapHistoryState } from '../../src/patch-map/history';
 import type { PatchMapRevisionStamp } from '../../src/patch-map/engine/public-contracts';
+import { PatchMapRendererRuntimeError } from '../../src/patch-map/renderers/contracts';
+import { PatchMapPixiRuntimeError } from '../../src/patch-map/renderers/pixi-renderer';
 
 const REVISIONS: PatchMapRevisionStamp = Object.freeze({
   lifecycleGeneration: 2,
@@ -123,6 +126,54 @@ describe('PatchMap Engine immutable operation outcomes', () => {
     });
     expect(Object.isFrozen(datasetDiagnostic)).toBe(true);
     expect(Object.isFrozen(mutationDiagnostic)).toBe(true);
+  });
+
+  it('normalizes concrete renderer failures through the neutral renderer contract', () => {
+    const error = new PatchMapPixiRuntimeError(
+      'RENDERER_LOST',
+      'context lost',
+    );
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(PatchMapRendererRuntimeError);
+    expect(error).toBeInstanceOf(PatchMapPixiRuntimeError);
+    expect(error).toMatchObject({
+      name: 'PatchMapPixiRuntimeError',
+      message: 'context lost',
+      code: 'RENDERER_LOST',
+    });
+    expect(createPatchMapDiagnosticFromError(error, 'publishFrame', REVISIONS))
+      .toMatchObject({
+        code: 'RENDERER_LOST',
+        category: 'RENDERER_LOST',
+        operation: 'publishFrame',
+        recoverable: false,
+      });
+
+    const initialization = createPatchMapAssetInitializationError(
+      new PatchMapPixiRuntimeError('UNSUPPORTED_RUNTIME', 'WebGL2 unavailable'),
+      REVISIONS,
+    );
+    expect(initialization).toMatchObject({
+      code: 'UNSUPPORTED_RUNTIME',
+      operation: 'initialize',
+      recoverable: false,
+      hint: 'Use a browser with WebGL2 and hardware acceleration enabled. WebGPU is experimental.',
+      diagnostic: {
+        code: 'UNSUPPORTED_RUNTIME',
+        category: 'UNSUPPORTED_RUNTIME',
+        retryable: false,
+      },
+    });
+
+    const forged = Object.assign(new Error('not a renderer error'), {
+      code: 'RENDERER_LOST',
+    });
+    expect(createPatchMapDiagnosticFromError(forged, 'publishFrame', REVISIONS))
+      .toMatchObject({
+        code: 'INTERNAL_FAILURE',
+        category: 'INTERNAL_FAILURE',
+      });
   });
 
   it('detaches mutable targets and reconcile diagnostics while retaining frozen inputs', () => {

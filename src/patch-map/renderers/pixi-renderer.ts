@@ -61,7 +61,10 @@ import type {
 } from '../presentation-policy';
 import type { PatchMapPresentationSlotVisibility } from '../presentation';
 import type { PatchMapPresentationLayerRenderUpdate } from '../presentation-layer-contracts';
-import type { PatchMapPixiRendererOptions } from './contracts';
+import {
+  PatchMapRendererRuntimeError,
+  type PatchMapPixiRendererOptions,
+} from './contracts';
 import {
   PatchMapPresentationStoreView,
   type PatchMapRendererEntityPresentationOverride,
@@ -124,16 +127,13 @@ export interface PatchMapPixiInitializationMetrics {
   readonly rendererBuildMs: number;
 }
 
-export class PatchMapPixiRuntimeError extends Error {
-  public readonly code: 'UNSUPPORTED_RUNTIME' | 'RENDERER_LOST';
-
+export class PatchMapPixiRuntimeError extends PatchMapRendererRuntimeError {
   public constructor(
     code: 'UNSUPPORTED_RUNTIME' | 'RENDERER_LOST',
     message: string,
   ) {
-    super(message);
+    super(code, message);
     this.name = 'PatchMapPixiRuntimeError';
-    this.code = code;
   }
 }
 

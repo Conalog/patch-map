@@ -1,7 +1,7 @@
 import { PatchMapAssetError } from '../assets';
 import type { PatchMapHistoryState } from '../history';
 import { PatchMapPresentationError } from '../presentation';
-import { PatchMapPixiRuntimeError } from '../renderers/pixi-renderer';
+import { PatchMapRendererRuntimeError } from '../renderers/contracts';
 import {
   PatchMapDatasetError,
   type MaterializedPatchMapDataset,
@@ -143,7 +143,7 @@ export function createPatchMapAssetInitializationError(
   revisionStamp: PatchMapRevisionStamp,
 ): PatchMapError {
   if (error instanceof PatchMapError) return error;
-  if (error instanceof PatchMapPixiRuntimeError) {
+  if (error instanceof PatchMapRendererRuntimeError) {
     return createPatchMapOperationError(
       revisionStamp,
       error.code,
@@ -186,7 +186,7 @@ export function createPatchMapDiagnosticFromError(
     );
   }
   if (error instanceof PatchMapError) return error.diagnostic;
-  if (error instanceof PatchMapPixiRuntimeError) {
+  if (error instanceof PatchMapRendererRuntimeError) {
     return createPatchMapOperationDiagnostic(
       revisionStamp,
       error.code,
