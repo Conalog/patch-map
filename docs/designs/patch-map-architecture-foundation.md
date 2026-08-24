@@ -32,9 +32,9 @@ work records.
 
 ## Current inventory and initial baseline evidence
 
-- `src` contains 238 TypeScript/JavaScript files and 85,437 lines.
+- `src` contains 239 TypeScript/JavaScript files and 85,502 lines.
 - The largest orchestration files are `engine.ts` (6,569 lines),
-  `renderers/pixi-renderer.ts` (2,300), `core.ts` (2,281), and
+  `renderers/pixi-renderer.ts` (2,237), `core.ts` (2,281), and
   `core/instance-presentation-overlay.ts` (1,462). The aggregate leaf
   coordinator is now 384 lines; the image lane is 1,132 lines and the text lane
   is 958 lines. Both lanes remain cohesion signals rather than completed size
@@ -50,7 +50,8 @@ work records.
 - At baseline, `PatchMapEngineSurface` was a roughly 50-capability port hiding
   duplicate lifecycle, load, viewport, selection, asset, probe, and destroy
   boundaries between the product facade, Pixi surface adapter, and core runtime.
-- The repository has 202 PatchMap test files and project-native unit, contract,
+- The repository has 203 PatchMap test files: 202 regular files and one
+  serialized release-readiness file. It also has project-native contract,
   package, Lab, memory, and performance gates.
 - `docs/patch-map` is package-distributed and is checked by the packed-artifact
   verifier. `docs/reference/core-v2-functional-contract/evidence` is imported by
@@ -330,6 +331,25 @@ adding entity callbacks. Focused lifecycle tests, full unit/build/Lab/contract,
 packed and installed-consumer checks, the 173-route Lab browser pass, the 2+7
 memory lifecycle gate, interaction smoke, and independent review passed. This
 cold control-plane extraction makes no performance-improvement claim.
+
+First surface publication movement is complete.
+`PatchMapPixiSurfacePublicationAuthority` now owns the one-shot successful-render
+wrapper, canvas publication, the fixed pair of WebGL2 context listeners, root
+activation, optional devtools registration, reverse-order rollback, retry, and
+publication teardown. Renderer-loss policy, recovery-frame eligibility,
+invalidation, steady `flush()`, and final Pixi/caller-canvas destruction order
+remain with the aggregate renderer. Exact-order tests cover root-activation
+rollback and retry, and a failing underlying Pixi render proves that no
+publication effect occurs before rendering succeeds.
+
+The tranche passed typecheck, targeted lint, 202 regular test files and 1,904
+tests plus the serialized release test, production and Lab builds, contract
+38/173, all 173 Lab routes and 192 checks, asset readiness including context-loss
+publication refusal and cleanup, the 2+7 memory lifecycle and nine ownership
+cycles, and an
+independent re-audit. Because successful publication restores the original
+render identity and the steady `flush()` path is unchanged, this cold
+control-plane extraction makes no performance-improvement claim.
 
 ### T6. Aggregate text and image leaf lanes
 

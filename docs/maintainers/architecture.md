@@ -35,6 +35,7 @@ transaction or publication owners.
 | semantic and dense core | interpretation, planning, identity, compact state | public facade policy, input events, or PixiJS objects |
 | renderer contracts | neutral render views, updates, lifecycle capabilities | concrete PixiJS state |
 | PixiJS adapter | aggregate GPU resources, frame execution, surface lifecycle | semantic mutation, history, or public API policy |
+| Pixi surface publication authority | first successful render publication, WebGL2 context listener ownership, root-binding activation, devtools registration, reverse-order rollback, and publication teardown | renderer-loss policy, frame scheduling, semantic state, or caller-canvas destruction order |
 | Pixi root interaction binding authority | the fixed stage/canvas listener set, pointer capture, coordinate translation, activation rollback, and listener cleanup | gesture policy, selection, viewport mutation, or per-entity callbacks |
 | aggregate leaf coordinator | one dense-store traversal, shared paint/projection state, lane ordering, and confirmed-frame forwarding | text or image retention state, resource release queues, or a second store scan |
 | aggregate text leaf lane | text container ownership, chunk/deferred materialization, raster resolution, text probes, and text frame confirmation | image release queues, store traversal, or independent frame scheduling |
@@ -99,6 +100,15 @@ pointer listeners and three root canvas listeners only after surface publication
 rolls back partial installation, releases pointer capture during deactivation,
 and reports zero per-entity callbacks. Gesture, selection, and viewport policy
 remain with the Core root interaction authority.
+
+`PatchMapPixiSurfacePublicationAuthority` owns the cold first-render publication
+boundary. After the underlying Pixi render succeeds, it publishes the canvas,
+binds exactly the WebGL2 context-lost and context-restored listeners, activates
+the root binding, and optionally registers devtools. A failed step rolls those
+effects back in reverse order and leaves the one-shot render wrapper installed
+for retry; success restores the original render function, so steady frames do
+not pass through the publication authority. The aggregate renderer still owns
+loss/recovery state, frame eligibility, invalidation, and teardown composition.
 
 `AggregateLeafLayer` remains the single aggregate leaf coordinator and performs
 the only dense-store traversal. It delegates text retention, chunking, deferred
