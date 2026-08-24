@@ -1,15 +1,10 @@
 # Release 1.0 CI and npm setup
 
-## Bootstrap behavior
+## CI gates
 
 `Release 1.0 CI` runs for pull requests targeting `release/1.0` and pushes to
-that branch. Bootstrap includes a minimal matching `package.json` and
-`package-lock.json` without product scripts. The `Core`, `Package`, and
-`Browser` checks validate the bootstrap metadata without running product
-commands, and the aggregate `CI` check succeeds.
-
-When the product pull request adds all required release scripts, the same three
-checks require all of these release gates:
+that branch. The `Core`, `Package`, and `Browser` checks require all of these
+release gates:
 
 - typecheck, lint, unit tests, and the production build;
 - canonical contract verification;
@@ -18,8 +13,8 @@ checks require all of these release gates:
 - lifecycle memory verification.
 
 Configure the `release/1.0` branch protection rule to require `CI` before
-merging. The feature branch's product code and history are not part of this
-bootstrap change; they arrive through their own pull request.
+merging. Missing product scripts fail validation; no compatibility path skips
+product gates.
 
 ## Publication policy
 
@@ -31,16 +26,11 @@ create the version tag and GitHub Release. The action's `release_created` and
 workflow run, so publication does not depend on the generated tag starting a
 second workflow.
 
-While the package lacks the required release scripts, the workflow records
-bootstrap state and does not call Release Please. Once the product pull request
-installs the shipping manifest and scripts, Release Please manages
+Release Please manages
 `package.json`, `package-lock.json`, `.release-please-manifest.json`, the
 changelog, the tag, and the GitHub Release. Pull-request events never run this
 workflow and therefore never publish.
 
-The package and release manifest value `1.0.0-alpha.0` is a Release Please
-baseline only; it is not an npm release or a tag. With the prerelease strategy
-set to `alpha`, the first release pull request proposes `1.0.0-alpha.1`.
 Supported releases map to npm channels as follows:
 
 | Package version and matching Git tag | npm dist-tag |
@@ -90,7 +80,7 @@ The existing `main` workflow publishes 0.x releases with npm's default
 `NPM_LATEST_ENABLED` for `1.0.0`, change or pause that external release path so
 a later 0.x publication cannot move `latest` back from 1.0.0. A dedicated
 legacy dist-tag or a registry monotonicity guard on `main` are both valid; that
-coordination is required for stable promotion and is outside this bootstrap PR.
+coordination is required before stable promotion.
 
 Before merging a Release Please pull request, wait for `CI`,
 verify the proposed version and changelog, and enable only the applicable npm
@@ -143,7 +133,3 @@ The package's `repository.url` must continue to identify
 the workflow fails closed if the runner does not provide it. Trusted
 Publishing then exchanges the GitHub OIDC identity for a short-lived npm
 credential and automatically records provenance for this public package.
-
-At bootstrap time, npm `latest` is `0.10.0`. Prerelease tags use only `next`,
-so that existing stable line is unchanged. This setup does not publish; the
-`1.0.0-alpha.0` value only seeds Release Please.

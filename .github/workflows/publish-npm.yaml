@@ -37,26 +37,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Release mode
-        id: mode
-        if: ${{ github.event_name == 'push' || inputs.tag == '' }}
-        shell: bash
-        run: |
-          if [[ "$(node .github/scripts/release-ready.mjs)" = true ]]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Record bootstrap state
-        if: ${{ steps.mode.outputs.ready == 'false' }}
-        run: |
-          echo "### Release Please is waiting for the product files" >> "$GITHUB_STEP_SUMMARY"
-          echo "The bootstrap package does not have the release scripts, so no release PR was created." >> "$GITHUB_STEP_SUMMARY"
-
       - name: Create or update release pull request
         id: release
-        if: ${{ steps.mode.outputs.ready == 'true' }}
+        if: ${{ github.event_name == 'push' || inputs.tag == '' }}
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
@@ -119,7 +102,7 @@ jobs:
           test -f package.json
           test -f package-lock.json
           test "$(node -p "require('./package.json').name")" = "@conalog/patch-map"
-          test "$(node .github/scripts/release-ready.mjs --require)" = true
+          test "$(node .github/scripts/release-ready.mjs)" = true
 
           package_version="$(node -p "require('./package.json').version")"
           test "$TAG_NAME" = "v$package_version"

@@ -243,6 +243,3 @@ npm run unit
 npm run build
 npm run verify:contract
 ```
-
-Version `0.10.0` is retained on this branch. The release version is bumped
-after merge.

@@ -219,6 +219,3 @@ npm run unit
 npm run build
 npm run verify:contract
 ```
-
-이 브랜치에서는 버전을 `0.10.0`으로 유지합니다. 배포 버전은 merge 후
-올립니다.

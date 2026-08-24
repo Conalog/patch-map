@@ -32,8 +32,8 @@ const missingScripts = requiredScripts.filter(
   (name) => typeof manifest.scripts?.[name] !== 'string',
 );
 
-if (process.argv.includes('--require') && missingScripts.length > 0) {
+if (missingScripts.length > 0) {
   throw new Error(`missing release scripts: ${missingScripts.join(', ')}`);
 }
 
-process.stdout.write(String(missingScripts.length === 0));
+process.stdout.write('true');

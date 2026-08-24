@@ -22,10 +22,10 @@
 - WebGL is the production baseline. WebGPU remains experimental until the
   qualified adapter and target hardware are measured.
 
-## Cleanup boundary
+## Architecture and publication boundary
 
-- Dense-store, transaction, validation, and renderer-view code inherited from
-  the performance control may be retained only as neutral PatchMap internals.
+- Dense-store, transaction, validation, and renderer-view owners remain neutral
+  PatchMap internals rather than competing product surfaces.
 - Ship one user-facing Lab at `/lab/patch-map/`. It uses `PatchMap` and the
   package-owned frame loop. The 173 approved contracts retain exact automated
   routes, while direct manipulation is organized into explicit reusable
@@ -35,16 +35,9 @@
   consumers, examples, Labs, and packed verification use `PatchMap`.
 - Keep the low-level Engine constructor and deterministic publication/probe
   seams internal; do not expose a competing `PatchMapAdvanced` class alias.
-- Remove the unfinished Core v1 Canvas2D product surface, package export,
-  Lab, product tests, build configuration, and consumer verification.
-- Remove legacy root product code once the root package exports the completed
-  PixiJS implementation.
 - Do not modify immutable functional-contract fixtures, normalized expected
   observations, review evidence, or retained digest-bound performance
   evidence.
-- The obsolete clean-room export, Core v1 control, completed main-parity
-  harness/captures, and unreferenced timestamped performance outputs are not
-  release inputs and were removed with explicit user approval on 2026-07-30.
 - Active performance and release tooling lives under PatchMap-neutral paths.
 - Published files contain only the built package, current product
   documentation/examples, license, and readme files.
@@ -57,5 +50,6 @@
 - Run performance checkpoints only when a hot path changes. Pure naming and
   packaging changes reuse no performance claim but do not require a new full
   matrix.
-- Finish with intent-scoped commits and a clean worktree suitable for PR
-  review. Version changes happen after merge, not during this cleanup.
+- Finish with intent-scoped commits and a clean worktree suitable for review.
+- Version changes follow the release process and are not bundled into unrelated
+  refactors.

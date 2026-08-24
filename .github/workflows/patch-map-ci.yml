@@ -42,58 +42,50 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Mode
-        id: mode
-        shell: bash
-        run: |
-          if [[ "$(node .github/scripts/release-ready.mjs)" = true ]]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Bootstrap package: product checks are waiting for the release scripts." >> "$GITHUB_STEP_SUMMARY"
-          fi
+      - name: Validate release manifest
+        run: node .github/scripts/release-ready.mjs
 
       - name: Install dependencies
         run: npm ci
 
       - name: Typecheck
-        if: ${{ matrix.gate == 'core' && steps.mode.outputs.ready == 'true' }}
+        if: ${{ matrix.gate == 'core' }}
         run: npm run typecheck
 
       - name: Lint
-        if: ${{ matrix.gate == 'core' && steps.mode.outputs.ready == 'true' }}
+        if: ${{ matrix.gate == 'core' }}
         run: npm run lint
 
       - name: Unit
-        if: ${{ matrix.gate == 'core' && steps.mode.outputs.ready == 'true' }}
+        if: ${{ matrix.gate == 'core' }}
         run: npm run unit
 
       - name: Build
-        if: ${{ matrix.gate == 'core' && steps.mode.outputs.ready == 'true' }}
+        if: ${{ matrix.gate == 'core' }}
         run: npm run build
 
       - name: Contract
-        if: ${{ matrix.gate == 'core' && steps.mode.outputs.ready == 'true' }}
+        if: ${{ matrix.gate == 'core' }}
         run: npm run verify:contract
 
       - name: Install Chromium
-        if: ${{ matrix.gate != 'core' && steps.mode.outputs.ready == 'true' }}
+        if: ${{ matrix.gate != 'core' }}
         run: npx playwright install --with-deps chromium
 
       - name: Verify package
-        if: ${{ matrix.gate == 'package' && steps.mode.outputs.ready == 'true' }}
+        if: ${{ matrix.gate == 'package' }}
         run: npm run verify:package -- --require-audit
 
       - name: Build Lab
-        if: ${{ matrix.gate == 'browser' && steps.mode.outputs.ready == 'true' }}
+        if: ${{ matrix.gate == 'browser' }}
         run: npm run build:lab
 
       - name: Verify Lab
-        if: ${{ matrix.gate == 'browser' && steps.mode.outputs.ready == 'true' }}
+        if: ${{ matrix.gate == 'browser' }}
         run: npm run verify:lab:all
 
       - name: Verify memory
-        if: ${{ matrix.gate == 'browser' && steps.mode.outputs.ready == 'true' }}
+        if: ${{ matrix.gate == 'browser' }}
         run: npm run verify:memory
 
   validation:
