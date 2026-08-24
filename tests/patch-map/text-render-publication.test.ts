@@ -1,4 +1,4 @@
-import { BitmapText, Text } from 'pixi.js';
+import { BitmapText, Matrix, Text } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { EntityInput } from '../../src/patch-map/dense/contracts';
@@ -125,6 +125,70 @@ describe('PatchMap text render publication', () => {
       expect(layer.textContainer.children.find(
         (child) => child instanceof Text && child.text === 'component',
       )).toBe(component);
+    } finally {
+      await layer.destroy();
+      localBounds.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('contains autoFont raster bounds in the semantic component quad and raises visible Text resolution', async () => {
+    vi.stubGlobal('document', {});
+    const localBounds = vi.spyOn(Text.prototype, 'getLocalBounds').mockReturnValue({
+      minX: 0,
+      minY: 0,
+      maxX: 33,
+      maxY: 62,
+    } as never);
+    const parsed = parsePatchMapV010([{
+      type: 'grid',
+      id: 'quality-grid',
+      attrs: { x: 80, y: 80 },
+      cells: [[1]],
+      item: {
+        size: { width: 40, height: 80 },
+        components: [{
+          type: 'text',
+          id: 'value',
+          text: 'INV2\nDC2\nMPPT4\nSTR4\n7',
+          margin: 4,
+          style: {
+            fontFamily: 'FiraCode',
+            fontWeight: '600',
+            fontSize: 'auto',
+            autoFont: { min: 8, max: 14 },
+            align: 'center',
+            wordWrap: true,
+            breakWords: false,
+            wordWrapWidth: 'auto',
+          },
+        }],
+      },
+    }]);
+    const layer = new AggregateLeafLayer();
+
+    try {
+      layer.sync(createRenderStore(parsed.document.entities), {
+        fullRebuildEpoch: 1,
+        projectionContext: projectionContext(parsed.projection, 1),
+      });
+      const object = layer.textContainer.children[0];
+      if (!(object instanceof Text)) throw new Error('expected guarded Pixi Text');
+      expect([object.anchor.x, object.anchor.y]).toEqual([0, 0]);
+      expect(object.scale.x).toBeCloseTo(27.5 / 33, 6);
+      expect(object.scale.y).toBeCloseTo(27.5 / 33, 6);
+      expect(object.position.x).toBeCloseTo(86.25, 6);
+      expect(object.position.y).toBeCloseTo(94.17, 2);
+
+      layer.cull(new Matrix(), 1_000, 1_000, 32, 10);
+      expect(object.resolution).toBe(10);
+      expect(object.scale.x).toBeCloseTo(27.5 / 33, 6);
+      expect(object.scale.y).toBeCloseTo(27.5 / 33, 6);
+
+      layer.cull(new Matrix().translate(10_000, 10_000), 1_000, 1_000, 32, 20);
+      expect(object.resolution).toBe(10);
+      layer.cull(new Matrix(), 1_000, 1_000, 32, 20);
+      expect(object.resolution).toBe(20);
     } finally {
       await layer.destroy();
       localBounds.mockRestore();

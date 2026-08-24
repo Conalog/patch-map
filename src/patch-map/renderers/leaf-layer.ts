@@ -78,8 +78,17 @@ interface TextEntry {
   lastRenderedFrame: number | null;
   lastRenderedVisibleGraphemeCount: number;
   targetKind: PatchMapTextProjection['targetKind'] | null;
-  visualLocalOrigin: readonly [number, number];
+  autoFont: boolean;
+  visualLocalBounds: TextVisualLocalBounds | null;
+  quad: PatchMapResolvedRenderQuad;
   vertices: PatchMapQuadVertices;
+}
+
+interface TextVisualLocalBounds {
+  readonly minX: number;
+  readonly minY: number;
+  readonly width: number;
+  readonly height: number;
 }
 
 interface TextChunk {
@@ -256,6 +265,7 @@ export class AggregateLeafLayer {
   private readonly transformMatrix = new Matrix();
   private nextBindingGeneration = 0;
   private confirmedTextFrame = 0;
+  private textRasterResolution: number | undefined;
   private staleCompletionCount = 0;
   private storeEpoch = -1;
   private readonly dirtyImageLanes = new Set<LeafImageLane>();
@@ -575,6 +585,7 @@ export class AggregateLeafLayer {
     viewportWidth: number,
     viewportHeight: number,
     padding = 32,
+    textRasterResolution?: number,
   ): number {
     this.assertAlive();
     if (
@@ -583,9 +594,17 @@ export class AggregateLeafLayer {
       !Number.isFinite(viewportHeight) ||
       viewportHeight <= 0 ||
       !Number.isFinite(padding) ||
-      padding < 0
+      padding < 0 ||
+      (textRasterResolution !== undefined && (
+        !Number.isFinite(textRasterResolution) || textRasterResolution <= 0
+      ))
     ) {
       throw new TypeError('leaf culling viewport and padding must be finite and positive');
+    }
+    const textRasterResolutionChanged = textRasterResolution !== undefined &&
+      textRasterResolution !== this.textRasterResolution;
+    if (textRasterResolution !== undefined) {
+      this.textRasterResolution = textRasterResolution;
     }
     let visibleCount = 0;
     if (this.textChunking) {
@@ -610,20 +629,28 @@ export class AggregateLeafLayer {
           );
         }
         const chunkVisible = coverage !== 'outside';
+        const chunkReentered = chunkVisible && !chunk.container.visible;
         if (chunk.container.visible !== chunkVisible) {
           chunk.container.visible = chunkVisible;
         }
         if (!chunkVisible) continue;
         if (coverage === 'inside') {
-          if (!chunk.allChildrenVisible) {
+          if (chunkReentered || !chunk.allChildrenVisible || textRasterResolutionChanged) {
             for (const slot of chunk.visibleSlots) {
               const entry = this.texts.get(slot);
-              if (entry !== undefined && !entry.object.visible) {
-                entry.object.visible = true;
+              if (entry !== undefined) {
+                const becameVisible = !entry.object.visible;
+                if (becameVisible) entry.object.visible = true;
+                if (
+                  textRasterResolution !== undefined &&
+                  (textRasterResolutionChanged || chunkReentered || becameVisible)
+                ) {
+                  applyTextRasterResolution(entry, textRasterResolution, this.transformMatrix);
+                }
               }
             }
-            chunk.allChildrenVisible = true;
           }
+          chunk.allChildrenVisible = true;
           visibleCount += chunk.visibleSlots.size;
           continue;
         }
@@ -638,8 +665,17 @@ export class AggregateLeafLayer {
             viewportHeight,
             padding,
           );
+          const becameVisible = visible && !entry.object.visible;
           if (entry.object.visible !== visible) entry.object.visible = visible;
-          if (visible) visibleCount += 1;
+          if (visible) {
+            if (
+              textRasterResolution !== undefined &&
+              (textRasterResolutionChanged || chunkReentered || becameVisible)
+            ) {
+              applyTextRasterResolution(entry, textRasterResolution, this.transformMatrix);
+            }
+            visibleCount += 1;
+          }
           else allChildrenVisible = false;
         }
         chunk.allChildrenVisible = allChildrenVisible;
@@ -654,8 +690,17 @@ export class AggregateLeafLayer {
           viewportHeight,
           padding,
         );
+        const becameVisible = visible && !entry.object.visible;
         entry.object.visible = visible;
-        if (visible) visibleCount += 1;
+        if (visible) {
+          if (
+            textRasterResolution !== undefined &&
+            (textRasterResolutionChanged || becameVisible)
+          ) {
+            applyTextRasterResolution(entry, textRasterResolution, this.transformMatrix);
+          }
+          visibleCount += 1;
+        }
       }
     }
     for (const entry of this.images.values()) {
@@ -728,6 +773,7 @@ export class AggregateLeafLayer {
     this.dirtyAssetSlots.clear();
     this.nextBindingGeneration = 0;
     this.confirmedTextFrame = 0;
+    this.textRasterResolution = undefined;
     this.staleCompletionCount = 0;
     this.storeEpoch = -1;
     this.dirtyImageLanes.clear();
@@ -1006,6 +1052,7 @@ export class AggregateLeafLayer {
     );
     const visibleGraphemeCount = countVisibleGraphemes(value);
     let entry = this.texts.get(slot);
+    let objectCreated = false;
     if (
       !entry ||
       entry.entityId !== entityId ||
@@ -1023,6 +1070,7 @@ export class AggregateLeafLayer {
       const object = route === 'bitmap-text'
         ? new BitmapText({ text: value, style })
         : new Text({ text: value, style });
+      objectCreated = true;
       object.eventMode = 'none';
       object.label = `patch-map:${route}`;
       entry = {
@@ -1038,20 +1086,34 @@ export class AggregateLeafLayer {
         lastRenderedFrame: previousPublication?.frame ?? null,
         lastRenderedVisibleGraphemeCount: previousPublication?.visibleGraphemeCount ?? 0,
         targetKind: projection?.targetKind ?? null,
-        visualLocalOrigin: measureStandaloneTextLocalOrigin(object, projection),
+        autoFont: projection?.authoredStyle.autoFont !== undefined,
+        visualLocalBounds: measureTextLocalBounds(
+          object,
+          projection?.targetKind === 'element' ||
+            projection?.authoredStyle.autoFont !== undefined,
+        ),
+        quad,
         vertices: EMPTY_QUAD_VERTICES,
       };
       this.texts.set(slot, entry);
       this.textParentForSlot(slot).addChild(object);
     } else if (entry.object.text !== value) {
       entry.object.text = value;
-      entry.visualLocalOrigin = measureStandaloneTextLocalOrigin(entry.object, projection);
+      entry.autoFont = projection?.authoredStyle.autoFont !== undefined;
+      entry.visualLocalBounds = measureTextLocalBounds(
+        entry.object,
+        entry.targetKind === 'element' || entry.autoFont,
+      );
     }
 
     const targetKind = projection?.targetKind ?? null;
     if (entry.targetKind !== targetKind) {
       entry.targetKind = targetKind;
-      entry.visualLocalOrigin = measureStandaloneTextLocalOrigin(entry.object, projection);
+      entry.autoFont = projection?.authoredStyle.autoFont !== undefined;
+      entry.visualLocalBounds = measureTextLocalBounds(
+        entry.object,
+        entry.targetKind === 'element' || entry.autoFont,
+      );
     }
 
     if (!sameTextAttachedSignatures(entry.attachedSignatures, attachedSignatures)) {
@@ -1070,6 +1132,9 @@ export class AggregateLeafLayer {
 
     const object = entry.object;
     applyTextProjection(entry, quad, this.transformMatrix);
+    if (objectCreated && this.textRasterResolution !== undefined) {
+      applyTextRasterResolution(entry, this.textRasterResolution, this.transformMatrix);
+    }
     entry.vertices = quad.vertices;
     if (this.textChunking) this.dirtyTextChunkKeys.add(textChunkKey(slot));
     object.alpha = alpha;
@@ -1990,6 +2055,12 @@ function applyTextProjection(
   quad: PatchMapResolvedRenderQuad,
   matrix: Matrix,
 ): void {
+  entry.quad = quad;
+  const visualBounds = entry.visualLocalBounds;
+  if (visualBounds !== null && entry.targetKind !== 'element') {
+    applyContainedAutoFontTextProjection(entry.object, quad, visualBounds, matrix);
+    return;
+  }
   if (entry.targetKind !== 'element') {
     applyLeafProjection(entry.object, quad, matrix);
     return;
@@ -2007,7 +2078,8 @@ function applyTextProjection(
   const b = quad.basis[1] * xScale;
   const c = quad.basis[2] * yScale;
   const d = quad.basis[3] * yScale;
-  const [originX, originY] = entry.visualLocalOrigin;
+  const originX = visualBounds?.minX ?? 0;
+  const originY = visualBounds?.minY ?? 0;
   const topLeftX = quad.vertices[0];
   const topLeftY = quad.vertices[1];
   object.setFromMatrix(matrix.set(
@@ -2020,18 +2092,89 @@ function applyTextProjection(
   ));
 }
 
-/** Cache the browser-measured Pixi origin only when text content/style is rebuilt. */
-function measureStandaloneTextLocalOrigin(
+function applyContainedAutoFontTextProjection(
   object: BitmapText | Text,
-  projection: PatchMapTextProjection | null,
-): readonly [number, number] {
-  if (projection?.targetKind !== 'element') return Object.freeze([0, 0] as const);
+  quad: PatchMapResolvedRenderQuad,
+  visual: TextVisualLocalBounds,
+  matrix: Matrix,
+): void {
   object.anchor.set(0);
-  if (typeof document === 'undefined') return Object.freeze([0, 0] as const);
+  const localWidth = Math.max(
+    Number.EPSILON,
+    Math.abs(quad.projection?.localBounds[2] ?? quad.width),
+  );
+  const localHeight = Math.max(
+    Number.EPSILON,
+    Math.abs(quad.projection?.localBounds[3] ?? quad.height),
+  );
+  const fitScale = Math.min(
+    1,
+    localWidth / Math.max(Number.EPSILON, visual.width),
+    localHeight / Math.max(Number.EPSILON, visual.height),
+  );
+  const xScale = quad.width / localWidth;
+  const yScale = quad.height / localHeight;
+  const localOffsetX = (localWidth - visual.width * fitScale) / 2 - visual.minX * fitScale;
+  const localOffsetY = (localHeight - visual.height * fitScale) / 2 - visual.minY * fitScale;
+  const a = quad.basis[0] * xScale;
+  const b = quad.basis[1] * xScale;
+  const c = quad.basis[2] * yScale;
+  const d = quad.basis[3] * yScale;
+  object.setFromMatrix(matrix.set(
+    a * fitScale,
+    b * fitScale,
+    c * fitScale,
+    d * fitScale,
+    quad.vertices[0] + a * localOffsetX + c * localOffsetY,
+    quad.vertices[1] + b * localOffsetX + d * localOffsetY,
+  ));
+}
+
+/** Cache browser raster bounds for element projection or autoFont containment. */
+function measureTextLocalBounds(
+  object: BitmapText | Text,
+  autoFont: boolean,
+): TextVisualLocalBounds | null {
+  if (!autoFont) return null;
+  object.anchor.set(0);
+  if (typeof document === 'undefined') return null;
   const bounds = object.getLocalBounds();
-  const x = Number.isFinite(bounds.minX) ? bounds.minX : 0;
-  const y = Number.isFinite(bounds.minY) ? bounds.minY : 0;
-  return Object.freeze([x, y] as const);
+  const minX = Number.isFinite(bounds.minX) ? bounds.minX : 0;
+  const minY = Number.isFinite(bounds.minY) ? bounds.minY : 0;
+  const maxX = Number.isFinite(bounds.maxX) ? bounds.maxX : minX;
+  const maxY = Number.isFinite(bounds.maxY) ? bounds.maxY : minY;
+  return Object.freeze({
+    minX,
+    minY,
+    width: Math.max(Number.EPSILON, maxX - minX),
+    height: Math.max(Number.EPSILON, maxY - minY),
+  });
+}
+
+const MAX_ZOOM_AWARE_TEXT_TEXTURE_EDGE = 2_048;
+
+function applyTextRasterResolution(
+  entry: TextEntry,
+  requestedResolution: number,
+  matrix: Matrix,
+): void {
+  if (!(entry.object instanceof Text)) return;
+  if (Math.abs(entry.object.resolution - requestedResolution) <= Number.EPSILON) return;
+  const visual = entry.visualLocalBounds;
+  const maximumLogicalEdge = visual === null
+    ? Math.max(entry.object.width, entry.object.height, 1)
+    : Math.max(visual.width, visual.height, 1);
+  const resolution = Math.min(
+    requestedResolution,
+    MAX_ZOOM_AWARE_TEXT_TEXTURE_EDGE / maximumLogicalEdge,
+  );
+  if (Math.abs(entry.object.resolution - resolution) <= Number.EPSILON) return;
+  entry.object.resolution = resolution;
+  entry.visualLocalBounds = measureTextLocalBounds(
+    entry.object,
+    entry.targetKind === 'element' || entry.autoFont,
+  );
+  applyTextProjection(entry, entry.quad, matrix);
 }
 
 function nonempty(value: unknown, label: string): string {

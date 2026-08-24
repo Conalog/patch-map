@@ -553,6 +553,18 @@ fit, wrapping, overflow, or `maxLines` is decided; it does not select a font
 against a temporary fixed 20px height. The resolved value is then shared by
 the Text and BitmapText renderer routes rather than being inferred again.
 
+For an item/grid label with `autoFont`, the renderer measures the browser's
+final glyph raster after the deterministic semantic fit. If antialiasing,
+font weight, letter spacing, line height, or stroke makes that raster wider or
+taller than the margin-derived text quad, PatchMap uniformly scales it down
+and recenters it; it never scales the semantic result up. This keeps visual
+pixels inside all four margin edges without changing the authored value,
+semantic layout, snapshot, history, or hash. Visible Pixi Text leaves also use
+bounded DPR-aware raster-resolution tiers as the viewport zoom grows, capped
+at 10x zoom and a 2048px texture edge. Resolution changes occur only when a
+tier changes or an offscreen label enters the viewport. A capability-proven
+BitmapText atlas keeps its authored atlas resolution and route.
+
 The default v0.10 family spellings `FiraCode` and `Fira Code` resolve to the
 quote-stable package browser family `FiraCode` without mutating the caller dataset. Weights 300, 400, 500,
 600, and 700 use distinct Light, Regular, Medium, SemiBold, and Bold WOFF2

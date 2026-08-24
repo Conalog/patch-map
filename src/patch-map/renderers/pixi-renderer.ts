@@ -1174,7 +1174,13 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     // object-backed image/text bounds are unchanged and retaining their last
     // cull result avoids an O(all leaves) scan on every animation frame.
     if (!stableBarPresentationFrame) {
-      this.leaves.cull(this.worldMatrix, this.widthValue, this.heightValue);
+      this.leaves.cull(
+        this.worldMatrix,
+        this.widthValue,
+        this.heightValue,
+        32,
+        zoomAwareTextRasterResolution(this.pixelRatioValue, this.view.scale),
+      );
     }
     const leaves = this.leaves.debugSnapshot();
     this.textProjectionSynchronizedRevision = this.projectionRevision;
@@ -2454,6 +2460,21 @@ function freezeLaneSnapshot(
 
 function now(): number {
   return globalThis.performance?.now() ?? Date.now();
+}
+
+const MAX_ZOOM_AWARE_TEXT_SCALE = 10;
+
+function zoomAwareTextRasterResolution(pixelRatio: number, scale: number): number {
+  const tier = scale <= 1.5
+    ? 1
+    : scale <= 3
+      ? 2
+      : scale <= 6
+        ? 4
+        : scale <= 9
+          ? 8
+          : MAX_ZOOM_AWARE_TEXT_SCALE;
+  return pixelRatio * tier;
 }
 
 function idleAggregateResult(previous: AggregateResult): AggregateResult {

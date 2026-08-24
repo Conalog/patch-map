@@ -307,6 +307,23 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     expect(explicit.naturalLayoutBounds.height).toBe(40);
   });
 
+  it('fits the production multiline FiraCode autoFont fixture in both dimensions', () => {
+    const result = layoutPatchMapText({
+      source: 'INV2\nDC2\nMPPT4\nSTR4\n7',
+      requestedFont: 'FiraCode',
+      availableRequestedFonts: ['FiraCode'],
+      wordWrapWidthPx: 32,
+      breakWords: false,
+      contentFrame: { width: 32, height: 72 },
+      autoFont: { minPx: 8, maxPx: 14 },
+    });
+
+    expect(result.fontSizePx).toBe(11);
+    expect(result.lineHeightPx).toBe(13.75);
+    expect(result.visibleLines).toEqual(['INV2', 'DC2', 'MPPT4', 'STR4', '7']);
+    expect(result.layoutBounds).toEqual({ x: 0, y: 0, width: 27.5, height: 68.75 });
+  });
+
   it('uses resolved omitted line height for overflow line limits', () => {
     const omitted = layoutPatchMapText({
       source: 'A\nB\nC',
