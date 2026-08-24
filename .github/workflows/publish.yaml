@@ -1,4 +1,4 @@
-name: Release 1.0 npm
+name: Publish npm
 
 on:
   push:
