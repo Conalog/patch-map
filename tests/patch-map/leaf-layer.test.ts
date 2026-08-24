@@ -1655,7 +1655,34 @@ interface LeafRetentionAccess {
 }
 
 function leafRetentionAccess(layer: AggregateLeafLayer): LeafRetentionAccess {
-  return layer as unknown as LeafRetentionAccess;
+  const coordinator = layer as unknown as Readonly<{
+    texts: LeafRetentionAccess['texts'];
+    textEntityIdBySlot: LeafRetentionAccess['textEntityIdBySlot'];
+    textVerticesBySlot: LeafRetentionAccess['textVerticesBySlot'];
+    storeEpoch: number;
+    imageLane: Omit<
+      LeafRetentionAccess,
+      'texts' | 'textEntityIdBySlot' | 'textVerticesBySlot' | 'storeEpoch'
+    >;
+  }>;
+  const imageLane = coordinator.imageLane;
+  return {
+    get texts() { return coordinator.texts; },
+    get textEntityIdBySlot() { return coordinator.textEntityIdBySlot; },
+    get textVerticesBySlot() { return coordinator.textVerticesBySlot; },
+    images: imageLane.images,
+    imageBindingBySlot: imageLane.imageBindingBySlot,
+    imageSlotsByBinding: imageLane.imageSlotsByBinding,
+    imageEntityIdBySlot: imageLane.imageEntityIdBySlot,
+    imageProbesByEntityId: imageLane.imageProbesByEntityId,
+    bindings: imageLane.bindings,
+    framePendingAssetReleases: imageLane.framePendingAssetReleases,
+    readyAssetReleases: imageLane.readyAssetReleases,
+    dirtyAssetSlots: imageLane.dirtyAssetSlots,
+    get nextBindingGeneration() { return imageLane.nextBindingGeneration; },
+    get staleCompletionCount() { return imageLane.staleCompletionCount; },
+    get storeEpoch() { return coordinator.storeEpoch; },
+  };
 }
 
 function expectLeafCollectionsEmpty(retained: LeafRetentionAccess): void {
