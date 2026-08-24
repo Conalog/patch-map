@@ -1,0 +1,75 @@
+# PatchMap architecture
+
+This document owns maintainer-facing module boundaries and dependency direction.
+The [product policy](../reference/patch-map-product-policy.md) owns the public and
+runtime invariants; public API behavior remains in
+[`docs/patch-map/`](../patch-map/README.md).
+
+## Runtime flow
+
+```text
+package entry
+  -> PatchMap facade and public domains
+  -> engine orchestration
+  -> load / mutation / publication authorities
+  -> semantic planning and dense state
+  -> renderer contracts
+  -> aggregate PixiJS adapter and central frame scheduler
+```
+
+Input validation and planning finish before an atomic state commit. A committed
+revision is projected into dense renderer views, then published by the single
+frame authority. Interaction, assets, history, accessibility, and diagnostics
+join this flow through explicit capability contracts; they do not bypass the
+transaction or publication owners.
+
+## Ownership boundaries
+
+| Boundary | Owns | Must not own |
+| --- | --- | --- |
+| package entry and facade | public construction, domains, orchestration | dense storage or Pixi implementation state |
+| engine/runtime | authority composition, lifecycle, atomic publication | duplicated semantic planners or renderer internals |
+| semantic and dense core | interpretation, planning, identity, compact state | public facade policy, input events, or PixiJS objects |
+| renderer contracts | neutral render views, updates, lifecycle capabilities | concrete PixiJS state |
+| PixiJS adapter | aggregate GPU resources, frame execution, surface lifecycle | semantic mutation, history, or public API policy |
+| interaction and resources | their singular state machines and cleanup | independent tickers, per-entity listeners, or hidden publication paths |
+
+## Dependency rules
+
+1. `src/index.ts` imports only public contracts and the product facade.
+2. Lower layers never import the package entry, public facade, or root barrels.
+3. Semantic and dense modules do not import engine, interaction, developer API,
+   or concrete renderer implementations.
+4. Runtime orchestration depends on renderer contracts. Concrete PixiJS state
+   is reachable only at the composition boundary.
+5. PixiJS modules may consume semantic projection and dense render views but do
+   not own semantic mutation, history, or public policy.
+6. Shared modules contain stable primitives or neutral DTOs, not mixed-layer
+   convenience contracts.
+7. One file owns one cohesive state machine or pure transformation. File size
+   is a review signal; extraction must follow responsibility, not a line quota.
+8. Structural movement and behavior changes are reviewed and committed
+   separately.
+
+## Current structural debt
+
+The refactor starts with two confirmed source cycles:
+
+- `core/contracts.ts -> renderers/pixi-renderer.ts -> presentation-layers.ts ->
+  core/semantic-dense-planning.ts -> core/product-probe-reader.ts ->
+  core/contracts.ts`;
+- `mesh/chunk-geometry.ts <-> mesh/viewport-culling.ts`.
+
+`PatchMapEngineSurface` also combines lifecycle, mutation, viewport, selection,
+asset, probe, and diagnostic capabilities. The first structural tranche moves
+neutral DTOs to contract owners, removes both cycles, and splits that capability
+surface without adding a second runtime authority.
+
+## Verification
+
+Use the risk-based gates in [CONTRIBUTING.md](../../CONTRIBUTING.md). Boundary
+changes require focused architecture tests plus lint and typecheck. A completed
+runtime tranche additionally runs unit, build, Lab build, and the canonical
+contract gate. Packaging, browser, memory, and performance gates are selected
+only when their ownership or hot path changed.
+

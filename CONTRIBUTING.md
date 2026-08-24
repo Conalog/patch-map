@@ -7,8 +7,8 @@ contract, and explicit renderer/resource cleanup.
 
 ## Setup
 
-The package supports Node.js 20 or newer. Use Node.js 22 for repository work,
-matching `.nvmrc` and CI:
+The package supports Node.js 20 or newer. Use Node.js 22 for local repository
+work, matching `.nvmrc`. Release CI currently runs Node.js 24:
 
 ```sh
 nvm use
