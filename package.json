@@ -1,6 +1,6 @@
 {
   "name": "@conalog/patch-map",
-  "version": "0.10.0",
+  "version": "1.0.0-alpha.1",
   "description": "PixiJS GPU renderer and interaction runtime for PATCH MAP v0.10 datasets",
   "license": "MIT",
   "author": "Conalog",
