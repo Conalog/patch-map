@@ -12,7 +12,7 @@ import { createServer } from 'vite';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const DEFAULT_OUTPUT = path.join(
   ROOT,
-  'performance/patch-map/results/update-transactions.json',
+  '.perf-results/patch-map/update-transactions.json',
 );
 const METRICS = Object.freeze([
   'fullBulkPatchMs',
