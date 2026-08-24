@@ -2,10 +2,11 @@
 
 ## Bootstrap behavior
 
-`Release 1.0 CI` runs for pull requests targeting `release/1.0`. Bootstrap includes a minimal matching `package.json` and
-`package-lock.json` without product scripts. The `Core`, `Package`, and
-`Browser` checks validate the bootstrap metadata without running product
-commands, and the aggregate `CI` check succeeds.
+`Release 1.0 CI` runs for pull requests targeting `release/1.0`. Bootstrap
+includes a minimal matching `package.json` and `package-lock.json` without
+product scripts. The `Core`, `Package`, and `Browser` checks validate the
+bootstrap metadata without running product commands, and the aggregate `CI`
+check succeeds.
 
 When the product pull request adds all required release scripts, the same three
 checks require all of these release gates:
