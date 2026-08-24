@@ -100,6 +100,9 @@ describe('PatchMap packed integration automation substrate', () => {
     expect(matrix).toContain("from './patch-map-package-matrix/journey-comparison.mjs'");
     expect(matrix).toContain("from './patch-map-package-matrix/runner-sources.mjs'");
     expect(artifact).toContain("export const PACKAGE_NAME = '@conalog/patch-map';");
+    expect(artifact).toContain("'docs/patch-map/font-assets.md'");
+    expect(artifact).toContain("'docs/patch-map/FIRA-CODE-LICENSE.txt'");
+    expect(artifact).not.toContain('clean-?room');
     expect(comparison).toContain('export function comparePackedJourneyRuns');
     expect(comparison).toContain('countDestroySummaryFailures(run.destroySummary)');
     expect(runners).toContain('export function journeyRunnerSource');

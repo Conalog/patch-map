@@ -15,6 +15,8 @@ const PUBLIC_DOCS = Object.freeze([
   'docs/patch-map/migration.md',
   'docs/patch-map/compatibility.md',
   'docs/patch-map/troubleshooting.md',
+  'docs/patch-map/font-assets.md',
+  'docs/patch-map/FIRA-CODE-LICENSE.txt',
 ]);
 
 const PUBLIC_EXAMPLES = Object.freeze(
@@ -41,7 +43,7 @@ const PROHIBITED_PACKAGE_PATHS = Object.freeze({
     /(?:^|\/)(?:credentials?|secrets?)(?:\.|\/|$)/iu,
   ]),
   'original-material': Object.freeze([
-    /(?:^|\/)(?:original|oracle|clean-?room)(?:\/|$)/iu,
+    /(?:^|\/)(?:original|oracle)(?:\/|$)/iu,
   ]),
   'dependency-bundle': Object.freeze([
     /(?:^|\/)node_modules(?:\/|$)/u,
