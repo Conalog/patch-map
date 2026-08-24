@@ -3,13 +3,13 @@
 ## Bootstrap behavior
 
 `Release 1.0 CI` runs for pull requests targeting `release/1.0` and pushes to
-that branch. The branch may initially contain no `package.json` and no
-`package-lock.json`; in that exact bootstrap state the product jobs are skipped
-and `Release 1.0 validation` succeeds. Introducing only one of those two files
-is an error.
+that branch. Bootstrap includes a minimal matching `package.json` and
+`package-lock.json`. The package is marked `private: true`, so the `Core`,
+`Package`, and `Browser` checks validate the bootstrap metadata without running
+product commands, and the aggregate `CI` check succeeds.
 
-Once both files exist, the stable required check `Release 1.0 validation`
-requires all of these release gates:
+When the product pull request replaces the bootstrap manifest, it must remove
+`private: true`. The same three checks then require all of these release gates:
 
 - typecheck, lint, unit tests, and the production build;
 - canonical contract verification;
@@ -17,9 +17,9 @@ requires all of these release gates:
 - every headless Lab route; and
 - lifecycle memory verification.
 
-Configure the `release/1.0` branch protection rule to require `Release 1.0
-validation` before merging. The feature branch's product files and history are
-not part of this bootstrap change; they arrive through their own pull request.
+Configure the `release/1.0` branch protection rule to require `CI` before
+merging. The feature branch's product code and history are not part of this
+bootstrap change; they arrive through their own pull request.
 
 ## Publication policy
 
@@ -31,17 +31,17 @@ create the version tag and GitHub Release. The action's `release_created` and
 workflow run, so publication does not depend on the generated tag starting a
 second workflow.
 
-When both package files are absent, the workflow records bootstrap state and
-does not call Release Please. Introducing only one package file fails. Once the
-product pull request introduces both files, Release Please manages
+While the package is marked private, the workflow records bootstrap state and
+does not call Release Please. Once the product pull request installs the
+shipping manifest and removes `private: true`, Release Please manages
 `package.json`, `package-lock.json`, `.release-please-manifest.json`, the
 changelog, the tag, and the GitHub Release. Pull-request events never run this
 workflow and therefore never publish.
 
-The manifest value `1.0.0-alpha.0` is a Release Please baseline only; it is not
-an npm release or a tag. With the prerelease strategy set to `alpha`, the first
-release pull request proposes `1.0.0-alpha.1`. Supported releases map to npm
-channels as follows:
+The private package and release manifest value `1.0.0-alpha.0` is a Release
+Please baseline only; it is not an npm release or a tag. With the prerelease
+strategy set to `alpha`, the first release pull request proposes
+`1.0.0-alpha.1`. Supported releases map to npm channels as follows:
 
 | Package version and matching Git tag | npm dist-tag |
 | --- | --- |
@@ -92,7 +92,7 @@ a later 0.x publication cannot move `latest` back from 1.0.0. A dedicated
 legacy dist-tag or a registry monotonicity guard on `main` are both valid; that
 coordination is required for stable promotion and is outside this bootstrap PR.
 
-Before merging a Release Please pull request, wait for `Release 1.0 validation`,
+Before merging a Release Please pull request, wait for `CI`,
 verify the proposed version and changelog, and enable only the applicable npm
 channel variable. The merge triggers the release workflow, which creates the
 tag and validates the tagged source before any protected publication can start.
@@ -145,5 +145,5 @@ Publishing then exchanges the GitHub OIDC identity for a short-lived npm
 credential and automatically records provenance for this public package.
 
 At bootstrap time, npm `latest` is `0.10.0`. Prerelease tags use only `next`,
-so that existing stable line is unchanged. This setup does not publish or
-change any package version by itself.
+so that existing stable line is unchanged. This setup does not publish; the
+private `1.0.0-alpha.0` value only seeds Release Please.

@@ -16,109 +16,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  project-state:
-    name: Detect product files
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      ready: ${{ steps.detect.outputs.ready }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Detect bootstrapped or product state
-        id: detect
-        shell: bash
-        run: |
-          if [[ -f package.json && -f package-lock.json ]]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [[ ! -e package.json && ! -e package-lock.json ]]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            {
-              echo "### Bootstrap-only validation"
-              echo "No package manifest or lockfile exists yet; product gates are intentionally skipped."
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          echo "package.json and package-lock.json must be introduced together." >&2
-          exit 1
-
-  product:
-    name: Product and canonical contract
-    needs: project-state
-    if: ${{ needs.project-state.outputs.ready == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Require the shipping package identity
-        run: test "$(node -p "require('./package.json').name")" = "@conalog/patch-map"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Run unit tests
-        run: npm run unit
-
-      - name: Build package
-        run: npm run build
-
-      - name: Verify canonical contract
-        run: npm run verify:contract
-
-  packed-consumer:
-    name: Packed consumer
-    needs: project-state
-    if: ${{ needs.project-state.outputs.ready == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Verify packed ESM, CJS, types, and consumer audit
-        run: npm run verify:package -- --require-audit
-
-  browser-lifecycle:
-    name: Headless Lab and lifecycle memory
-    needs: project-state
-    if: ${{ needs.project-state.outputs.ready == 'true' }}
+  gate:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - gate: core
+            name: Core
+          - gate: package
+            name: Package
+          - gate: browser
+            name: Browser
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -133,51 +42,83 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Mode
+        id: mode
+        shell: bash
+        run: |
+          node -e '
+            const manifest = require("./package.json");
+            const lock = require("./package-lock.json");
+            const root = lock.packages?.[""];
+            if (manifest.name !== "@conalog/patch-map") throw new Error("unexpected package name");
+            if (
+              lock.name !== manifest.name ||
+              lock.version !== manifest.version ||
+              root?.name !== manifest.name ||
+              root?.version !== manifest.version
+            ) {
+              throw new Error("package manifest and lockfile must match");
+            }
+          '
+
+          if [[ "$(node -p "require('./package.json').private === true")" = true ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Bootstrap package: product checks are waiting for the shipping manifest." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
         run: npm ci
 
+      - name: Typecheck
+        if: ${{ matrix.gate == 'core' && steps.mode.outputs.ready == 'true' }}
+        run: npm run typecheck
+
+      - name: Lint
+        if: ${{ matrix.gate == 'core' && steps.mode.outputs.ready == 'true' }}
+        run: npm run lint
+
+      - name: Unit
+        if: ${{ matrix.gate == 'core' && steps.mode.outputs.ready == 'true' }}
+        run: npm run unit
+
+      - name: Build
+        if: ${{ matrix.gate == 'core' && steps.mode.outputs.ready == 'true' }}
+        run: npm run build
+
+      - name: Contract
+        if: ${{ matrix.gate == 'core' && steps.mode.outputs.ready == 'true' }}
+        run: npm run verify:contract
+
       - name: Install Chromium
+        if: ${{ matrix.gate != 'core' && steps.mode.outputs.ready == 'true' }}
         run: npx playwright install --with-deps chromium
 
+      - name: Verify package
+        if: ${{ matrix.gate == 'package' && steps.mode.outputs.ready == 'true' }}
+        run: npm run verify:package -- --require-audit
+
       - name: Build Lab
+        if: ${{ matrix.gate == 'browser' && steps.mode.outputs.ready == 'true' }}
         run: npm run build:lab
 
-      - name: Verify every headless Lab route
+      - name: Verify Lab
+        if: ${{ matrix.gate == 'browser' && steps.mode.outputs.ready == 'true' }}
         run: npm run verify:lab:all
 
-      - name: Verify lifecycle memory
+      - name: Verify memory
+        if: ${{ matrix.gate == 'browser' && steps.mode.outputs.ready == 'true' }}
         run: npm run verify:memory
 
   validation:
-    name: Release 1.0 validation
+    name: CI
     if: ${{ always() }}
-    needs:
-      - project-state
-      - product
-      - packed-consumer
-      - browser-lifecycle
+    needs: gate
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Require all applicable gates
+      - name: Require all gates
         env:
-          PROJECT_READY: ${{ needs.project-state.outputs.ready }}
-          PROJECT_RESULT: ${{ needs.project-state.result }}
-          PRODUCT_RESULT: ${{ needs.product.result }}
-          PACKED_RESULT: ${{ needs.packed-consumer.result }}
-          BROWSER_RESULT: ${{ needs.browser-lifecycle.result }}
-        shell: bash
-        run: |
-          test "$PROJECT_RESULT" = success
-
-          if [[ "$PROJECT_READY" = false ]]; then
-            test "$PRODUCT_RESULT" = skipped
-            test "$PACKED_RESULT" = skipped
-            test "$BROWSER_RESULT" = skipped
-            exit 0
-          fi
-
-          test "$PROJECT_READY" = true
-          test "$PRODUCT_RESULT" = success
-          test "$PACKED_RESULT" = success
-          test "$BROWSER_RESULT" = success
+          GATES_RESULT: ${{ needs.gate.result }}
+        run: test "$GATES_RESULT" = success
