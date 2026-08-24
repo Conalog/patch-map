@@ -32,12 +32,13 @@ work records.
 
 ## Current inventory and initial baseline evidence
 
-- `src` contains 237 TypeScript/JavaScript files and 85,301 lines.
+- `src` contains 238 TypeScript/JavaScript files and 85,437 lines.
 - The largest orchestration files are `engine.ts` (6,569 lines),
   `renderers/pixi-renderer.ts` (2,300), `core.ts` (2,281), and
-  `renderers/leaf-layer.ts` (1,380). The extracted aggregate text lane is 958
-  lines and remains a follow-up cohesion signal rather than a completed size
-  target.
+  `core/instance-presentation-overlay.ts` (1,462). The aggregate leaf
+  coordinator is now 384 lines; the image lane is 1,132 lines and the text lane
+  is 958 lines. Both lanes remain cohesion signals rather than completed size
+  targets.
 - The initial top-level import-owner analysis placed the root modules, `engine`,
   `core`, `semantic`, `renderers`, and thirteen adjacent areas in one bidirectional
   dependency group. This is an ownership-cycle signal, not a claim that the
@@ -345,17 +346,16 @@ Verification: leaf/signature/style, asset and component-asset tests,
 `verify:instance-presentation`, `verify:memory`, and only the matching packed
 asset or production-presentation performance checkpoint.
 
-Text-lane movement is complete. `AggregateLeafLayer` keeps the single store
-scan, image/resource work, cross-lane order, and asset release promotion.
-`AggregateTextLeafLane` owns text retention, chunk/deferred state, raster
-resolution, probes, and frame confirmation; `leaf-projection.ts` owns shared
-pure projection math. Invalid and reverse frame tests prove that text probes and
-both text and asset queues stay atomic, while normal revisions promote and
-release each resource once. Focused leaf, text, asset, component, architecture,
-and product-integration tests; typecheck; lint; full unit (202 files and 1,900
-tests including the serialized release test); production and Lab builds;
-contract 38/173; grid text quality; asset readiness; memory; and independent
-review passed.
+Text-lane movement is complete. `AggregateLeafLayer` kept the single store scan
+and cross-lane order while `AggregateTextLeafLane` took ownership of text
+retention, chunk/deferred state, raster resolution, probes, and frame
+confirmation; `leaf-projection.ts` owns shared pure projection math. Invalid and
+reverse frame tests prove that text probes and both text and asset queues stay
+atomic, while normal revisions promote and release each resource once. Focused
+leaf, text, asset, component, architecture, and product-integration tests;
+typecheck; lint; full unit (202 files and 1,900 tests including the serialized
+release test); production and Lab builds; contract 38/173; grid text quality;
+asset readiness; memory; and independent review passed.
 
 The matched grid checkpoint compared `8cf6a8d` with `85e839e` at 5,000 and
 10,000 entities using WebGL, DPR 1, 800×600, two warmups, and seven measured
@@ -367,9 +367,31 @@ they do not establish a causal or native-Windows improvement claim. The initial
 quick attempt whose concurrent cleanup failed is excluded from evidence rather
 than hidden or reclassified.
 
-Image/resource-lane movement remains open. Further text-lane subdivision must
-remove a cohesive state owner or pure transformation; it must not introduce a
-second dense-store traversal or split the lane solely to satisfy a line count.
+Image/resource-lane movement is complete. `AggregateImageLeafLane` owns the
+three image container identities, Sprite projection and stable ordering,
+binding/slot/entity indexes, asset-session generations, stale completion,
+retained images, and pending/ready release queues. `AggregateLeafLayer` owns the
+only capacity loop, shared paint map and matrix, store epoch, lane combination,
+and text-confirm-before-image-release order. Existing white-box tests now inspect
+the real image lane state instead of compatibility getters on the coordinator.
+
+The tranche passed typecheck, lint, 202 test files and 1,900 tests, production
+and Lab builds, contract 38/173, all 173 Lab routes and 192 checks, asset
+readiness, bar/icon presentation, the 2+7 memory lifecycle gate, and independent
+review. The matched packed-asset checkpoint compared `85e839e` with `e9f9ec1`
+in one alternating Chromium process over four 3,000/10,000-entity workloads,
+two warmups, and seven measured trials. It passed with lifecycle and resource
+counts unchanged; timing medians stayed within approximately ±5%, and retained
+heap medians increased by 0.06–0.16%. The 4× quick checkpoint had zero browser
+errors; its unfavorable observations were 100-scale destroy median 31.8 ms
+versus 28.7 ms and 1,000-scale retained heap 32,347 versus 28,803 bytes. The
+separate lifecycle memory gate retained 126,519 bytes and released DOM,
+scheduler, and renderer ownership. This supports a no-regression decision under
+the project gates, not a performance-improvement claim.
+
+Further text/image lane subdivision must remove a cohesive state owner or pure
+transformation; it must not introduce a second dense-store traversal or split a
+lane solely to satisfy a line count.
 
 ### T7. Semantic ingestion and reconciliation
 

@@ -36,8 +36,9 @@ transaction or publication owners.
 | renderer contracts | neutral render views, updates, lifecycle capabilities | concrete PixiJS state |
 | PixiJS adapter | aggregate GPU resources, frame execution, surface lifecycle | semantic mutation, history, or public API policy |
 | Pixi root interaction binding authority | the fixed stage/canvas listener set, pointer capture, coordinate translation, activation rollback, and listener cleanup | gesture policy, selection, viewport mutation, or per-entity callbacks |
-| aggregate leaf coordinator | one dense-store traversal, image/resource work, lane ordering, and confirmed-frame forwarding | text chunk state, raster resolution, or a second store scan |
+| aggregate leaf coordinator | one dense-store traversal, shared paint/projection state, lane ordering, and confirmed-frame forwarding | text or image retention state, resource release queues, or a second store scan |
 | aggregate text leaf lane | text container ownership, chunk/deferred materialization, raster resolution, text probes, and text frame confirmation | image release queues, store traversal, or independent frame scheduling |
+| aggregate image leaf lane | three image container identities, Sprite projection and ordering, binding generations, stale completion, image probes, and confirmed-frame resource release | text publication, store traversal, or independent frame scheduling |
 | interaction and resources | their singular state machines and cleanup | independent tickers, per-entity listeners, or hidden publication paths |
 
 ## Dependency rules
@@ -102,11 +103,14 @@ remain with the Core root interaction authority.
 `AggregateLeafLayer` remains the single aggregate leaf coordinator and performs
 the only dense-store traversal. It delegates text retention, chunking, deferred
 materialization, raster resolution, probes, and text frame confirmation to
-`AggregateTextLeafLane`; shared projection and viewport math lives in the pure
-`leaf-projection.ts` module. A frame is confirmed by the text lane before the
-coordinator promotes pending asset releases. Invalid or reverse revisions leave
-both text publication and asset release queues unchanged. The lane does not add
-per-entity listeners, tickers, callbacks, or a second scan.
+`AggregateTextLeafLane`. `AggregateImageLeafLane` owns the three image container
+identities, binding/slot/entity indexes, Sprite projection and ordering, asset
+session generations, stale completion, probes, and pending/ready release queues.
+Shared projection and viewport math lives in the pure `leaf-projection.ts`
+module. A frame is confirmed by the text lane before the image lane promotes
+pending releases. Invalid or reverse revisions leave both text publication and
+asset release queues unchanged. Neither lane adds per-entity listeners, tickers,
+callbacks, or a second scan.
 
 ## Verification
 
