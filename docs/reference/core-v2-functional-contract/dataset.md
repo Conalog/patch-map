@@ -41,7 +41,7 @@ private renderer objects:
 | `rotation` | finite local rotation in radians; when authored, updates retain this unit |
 | `scale`, `skew`, `pivot` | finite scalar or `{x,y}` local transform values supported by the dataset |
 | `alpha` | finite opacity intent; normal authored range is `0–1` |
-| `zIndex` | finite stacking value; equal values preserve sibling order |
+| `zIndex` | finite stacking value within the current owner; equal values preserve sibling order |
 
 `show` remains the semantic visibility field and `locked` remains the semantic editing
 lock. Host metadata must not change rendering unless a host update deliberately maps it
@@ -75,7 +75,10 @@ A grid materializes an item template over a two-dimensional `cells` matrix.
 An item is a sized visual container with ordered components. `size` is required.
 `padding` reduces the content box used by percentage-sized and placed components.
 `contentOrientation` controls whether inner content follows the item or stays readable
-relative to the screen.
+relative to the screen. An item is one atomic stacking unit among its element siblings:
+its `attrs.zIndex` and authored sibling order place the complete item composite. A
+component's `attrs.zIndex` cannot move that component across another item's background
+or content.
 
 ### Relations
 
@@ -106,7 +109,9 @@ radius, visibility, and world transform attributes.
 
 ## Item Components
 
-Components preserve their array order inside the item content box.
+Components preserve their array order inside the item content box when their local
+`attrs.zIndex` values are equal. A component `attrs.zIndex` changes only the component
+layer order inside its owning item (or materialized grid-cell item).
 
 ### Background
 
