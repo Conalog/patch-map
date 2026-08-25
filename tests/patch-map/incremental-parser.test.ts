@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  parsePatchMapV010IncrementalFlat,
-  parsePatchMapV010IncrementalStructure,
-  patchMapV010StructuralChangedEntityIds,
-  primePatchMapV010IncrementalFlat,
+  parsePatchMapIncrementalFlat,
+  parsePatchMapIncrementalStructure,
+  patchMapStructuralChangedEntityIds,
+  primePatchMapIncrementalFlat,
 } from '../../src/patch-map/incremental-parser';
 import {
-  parsePatchMapV010,
-  parsePatchMapV010DirectTextBatch,
+  parsePatchMap,
+  parsePatchMapDirectTextBatch,
 } from '../../src/patch-map/parser';
 import {
   assembleOwnedPatchMapDataset,
@@ -39,13 +39,13 @@ describe('PatchMap guarded incremental parser', () => {
       },
       flatRect('rect-1', 20),
     ]);
-    const parsed = parsePatchMapV010(current.dataset);
+    const parsed = parsePatchMap(current.dataset);
     const before = JSON.stringify(parsed);
 
-    expect(primePatchMapV010IncrementalFlat(parsed)).toBe(true);
-    expect(primePatchMapV010IncrementalFlat(parsed)).toBe(true);
+    expect(primePatchMapIncrementalFlat(parsed)).toBe(true);
+    expect(primePatchMapIncrementalFlat(parsed)).toBe(true);
     expect(JSON.stringify(parsed)).toBe(before);
-    expect(primePatchMapV010IncrementalFlat(parsePatchMapV010([]))).toBe(false);
+    expect(primePatchMapIncrementalFlat(parsePatchMap([]))).toBe(false);
   });
 
   it('is exact for dirty flat roots while reusing untouched parser records', () => {
@@ -74,13 +74,13 @@ describe('PatchMap guarded incremental parser', () => {
       materializePatchMapDataset(plan.candidate.dataset).semanticHash,
     );
 
-    const previous = parsePatchMapV010(current.dataset);
-    const incremental = parsePatchMapV010IncrementalFlat(
+    const previous = parsePatchMap(current.dataset);
+    const incremental = parsePatchMapIncrementalFlat(
       plan.candidate.dataset,
       previous,
       ['node-10', 'node-70'],
     );
-    const canonical = parsePatchMapV010(plan.candidate.dataset);
+    const canonical = parsePatchMap(plan.candidate.dataset);
 
     expect(incremental).not.toBeNull();
     expect(incremental).toEqual(canonical);
@@ -100,9 +100,9 @@ describe('PatchMap guarded incremental parser', () => {
     const flat = materializePatchMapDataset(
       buildPatchMapContractPerformanceDataset(100, 319),
     );
-    const parsedFlat = parsePatchMapV010(flat.dataset);
+    const parsedFlat = parsePatchMap(flat.dataset);
     expect(
-      parsePatchMapV010IncrementalFlat(flat.dataset, parsedFlat, ['missing-root']),
+      parsePatchMapIncrementalFlat(flat.dataset, parsedFlat, ['missing-root']),
     ).toBeNull();
 
     const nested = materializePatchMapDataset([{
@@ -116,9 +116,9 @@ describe('PatchMap guarded incremental parser', () => {
       }],
     }]).dataset;
     expect(
-      parsePatchMapV010IncrementalFlat(
+      parsePatchMapIncrementalFlat(
         nested,
-        parsePatchMapV010(nested),
+        parsePatchMap(nested),
         ['group'],
       ),
     ).toBeNull();
@@ -168,13 +168,13 @@ describe('PatchMap guarded incremental parser', () => {
     expect(plan.status).toBe('planned');
     if (plan.status !== 'planned') throw new Error('mixed flat plan rejected');
 
-    const previous = parsePatchMapV010(current.dataset);
-    const incremental = parsePatchMapV010IncrementalFlat(
+    const previous = parsePatchMap(current.dataset);
+    const incremental = parsePatchMapIncrementalFlat(
       plan.candidate.dataset,
       previous,
       ['item-1', 'rect-1', 'text-1'],
     );
-    const canonical = parsePatchMapV010(plan.candidate.dataset);
+    const canonical = parsePatchMap(plan.candidate.dataset);
 
     expect(incremental).toEqual(canonical);
     expect(JSON.stringify(incremental)).toBe(JSON.stringify(canonical));
@@ -215,13 +215,13 @@ describe('PatchMap guarded incremental parser', () => {
     expect(plan.status).toBe('planned');
     if (plan.status !== 'planned') throw new Error('mixed-root plan rejected');
 
-    const previous = parsePatchMapV010(current.dataset);
-    const incremental = parsePatchMapV010IncrementalFlat(
+    const previous = parsePatchMap(current.dataset);
+    const incremental = parsePatchMapIncrementalFlat(
       plan.candidate.dataset,
       previous,
       ['flat'],
     );
-    const canonical = parsePatchMapV010(plan.candidate.dataset);
+    const canonical = parsePatchMap(plan.candidate.dataset);
 
     expect(incremental).not.toBeNull();
     expect(incremental).toEqual(canonical);
@@ -255,7 +255,7 @@ describe('PatchMap guarded incremental parser', () => {
             margin: { x: 3, y: 5 },
             attrs: { x: 2, y: -1, angle: 7 },
             style: {
-              fontFamily: 'Fira Code',
+              fontFamily: 'FiraCode',
               fontSize: 15,
               lineHeight: 20,
               letterSpacing: 1,
@@ -278,13 +278,13 @@ describe('PatchMap guarded incremental parser', () => {
     });
     expect(plan.status).toBe('planned');
     if (plan.status !== 'planned') throw new Error('text batch plan rejected');
-    const previous = parsePatchMapV010(current.dataset);
-    const direct = parsePatchMapV010DirectTextBatch(
+    const previous = parsePatchMap(current.dataset);
+    const direct = parsePatchMapDirectTextBatch(
       plan.candidate.dataset,
       previous,
       plan.directTextUpdates ?? [],
     );
-    const canonical = parsePatchMapV010(plan.candidate.dataset);
+    const canonical = parsePatchMap(plan.candidate.dataset);
 
     expect(direct).not.toBeNull();
     expect(direct).toEqual(canonical);
@@ -313,13 +313,13 @@ describe('PatchMap guarded incremental parser', () => {
     expect(plan.status).toBe('planned');
     if (plan.status !== 'planned') throw new Error('manual scene plan rejected');
 
-    const previous = parsePatchMapV010(current.dataset);
-    const incremental = parsePatchMapV010IncrementalFlat(
+    const previous = parsePatchMap(current.dataset);
+    const incremental = parsePatchMapIncrementalFlat(
       plan.candidate.dataset,
       previous,
       ['node-0'],
     );
-    const canonical = parsePatchMapV010(plan.candidate.dataset);
+    const canonical = parsePatchMap(plan.candidate.dataset);
 
     expect(incremental).not.toBeNull();
     expect(incremental).toEqual(canonical);
@@ -336,7 +336,7 @@ describe('PatchMap guarded incremental parser', () => {
       flatRect('rect-b', 40),
       flatRect('rect-c', 70),
     ]);
-    let previous = parsePatchMapV010(current.dataset);
+    let previous = parsePatchMap(current.dataset);
     const requests = [
       {
         strict: true,
@@ -391,12 +391,12 @@ describe('PatchMap guarded incremental parser', () => {
       const plan = planPatchMapMutationTransaction(current, request);
       expect(plan.status).toBe('planned');
       if (plan.status !== 'planned') throw new Error('structural plan rejected');
-      const incremental = parsePatchMapV010IncrementalStructure(
+      const incremental = parsePatchMapIncrementalStructure(
         plan.candidate.dataset,
         current.dataset,
         previous,
       );
-      const canonical = parsePatchMapV010(plan.candidate.dataset);
+      const canonical = parsePatchMap(plan.candidate.dataset);
 
       expect(incremental).not.toBeNull();
       expect(incremental).toEqual(canonical);
@@ -409,7 +409,7 @@ describe('PatchMap guarded incremental parser', () => {
         previous.projection.byEntityId[entityId] !==
           incremental!.projection.byEntityId[entityId]);
       expect(
-        new Set(patchMapV010StructuralChangedEntityIds(incremental!)),
+        new Set(patchMapStructuralChangedEntityIds(incremental!)),
       ).toEqual(new Set(expectedChangedIds));
       const reconcileOptions = {
         ...(plan.selectionIds === undefined
@@ -454,12 +454,12 @@ describe('PatchMap guarded incremental parser', () => {
     });
     expect(plan.status).toBe('planned');
     if (plan.status !== 'planned') throw new Error('remove plan rejected');
-    const incremental = parsePatchMapV010IncrementalStructure(
+    const incremental = parsePatchMapIncrementalStructure(
       plan.candidate.dataset,
       current.dataset,
-      parsePatchMapV010(current.dataset),
+      parsePatchMap(current.dataset),
     );
-    const canonical = parsePatchMapV010(plan.candidate.dataset);
+    const canonical = parsePatchMap(plan.candidate.dataset);
     expect(incremental).toEqual(canonical);
     expect(JSON.stringify(incremental)).toBe(JSON.stringify(canonical));
   });

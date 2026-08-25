@@ -1,4 +1,4 @@
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import { CoreScene } from '../../src/patch-map/dense/scene';
@@ -11,7 +11,7 @@ import {
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileResult,
 } from '../../src/patch-map/engine';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import { removePatchMapSemanticTarget } from '../../src/patch-map/semantic/mutation';
 import { planPatchMapSceneReconcile } from '../../src/patch-map/semantic/reconcile';
@@ -22,7 +22,7 @@ const boundsDataset = catalogProfiles.datasets.bounds;
 describe('PatchMap LAY-005 bounds product contract', () => {
   it('publishes exact local, world, screen, visibility, and signed-scale geometry', () => {
     const materialized = materializePatchMapDataset(boundsDataset);
-    const parsed = parsePatchMapV010(materialized.dataset);
+    const parsed = parsePatchMap(materialized.dataset);
     const scene = new CoreScene();
     scene.load(parsed.document);
     const geometry = createPatchMapSurfaceGeometrySnapshot(scene.snapshot(), parsed.projection);
@@ -83,7 +83,7 @@ describe('PatchMap LAY-005 bounds product contract', () => {
   });
 
   it('uses transformed dense hit testing for transparent interactive targets only', () => {
-    const parsed = parsePatchMapV010(
+    const parsed = parsePatchMap(
       materializePatchMapDataset(boundsDataset).dataset,
     );
     const scene = new CoreScene();
@@ -103,8 +103,8 @@ describe('PatchMap LAY-005 bounds product contract', () => {
     const inputBefore = JSON.stringify(boundsDataset);
     const removal = removePatchMapSemanticTarget(current, { kind: 'element', id: 'rotated' });
     if (removal.status !== 'changed') throw new Error('expected removal candidate');
-    const currentParsed = parsePatchMapV010(current.dataset);
-    const candidateParsed = parsePatchMapV010(removal.candidate.dataset);
+    const currentParsed = parsePatchMap(current.dataset);
+    const candidateParsed = parsePatchMap(removal.candidate.dataset);
     const plan = planPatchMapSceneReconcile(currentParsed.document, candidateParsed.document);
     const scene = new CoreScene();
     scene.load(currentParsed.document);
@@ -122,29 +122,6 @@ describe('PatchMap LAY-005 bounds product contract', () => {
 });
 
 describe('PatchMap atomic destroyTarget seam', () => {
-  it('does not fabricate omitted local geometry or surface freshness', async () => {
-    const surface = new LegacyGeometrySurface({ width: 640, height: 480, pixelRatio: 1 });
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
-    await engine.initialize({ instanceId: 'bounds-legacy-geometry', width: 640, height: 480 });
-    engine.loadDataset(boundsDataset);
-
-    const geometry = engine.geometryProbe();
-
-    expect(geometry).toMatchObject({ revision: null, revisionLag: null });
-    expect(geometry?.entities[0]).toEqual({
-      id: 'legacy-rotated',
-      kind: 'rect',
-      worldBounds: [0, 0, 42.426407, 42.426407],
-      screenBounds: [0, 0, 42.426407, 42.426407],
-      visible: true,
-      interactive: true,
-    });
-    expect(geometry?.entities[0]).not.toHaveProperty('localBounds');
-    expect(geometry?.entities[0]).not.toHaveProperty('visibleBounds');
-    expect(geometry?.entities[0]).not.toHaveProperty('scaleX');
-    await engine.destroy();
-  });
-
   it('advances semantic authority only after one incremental surface reconcile', async () => {
     const surface = new ReconcileSurface({ width: 640, height: 480, pixelRatio: 1 });
     const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
@@ -208,7 +185,7 @@ describe('PatchMap atomic destroyTarget seam', () => {
     await engine.destroy();
   });
 
-  it('rejects missing targets and refuses legacy surfaces without full-load fallback', async () => {
+  it('rejects missing targets without reconciling the surface', async () => {
     const surface = new ReconcileSurface({ width: 640, height: 480, pixelRatio: 1 });
     const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
     await engine.initialize({ instanceId: 'bounds-missing', width: 640, height: 480 });
@@ -221,24 +198,10 @@ describe('PatchMap atomic destroyTarget seam', () => {
     });
     expect(surface).toMatchObject({ loadCount: 1, reconcileCount: 0 });
     await engine.destroy();
-
-    const legacySurface = new LegacySurface({ width: 640, height: 480, pixelRatio: 1 });
-    const legacy = new PatchMap({ surfaceFactory: () => Promise.resolve(legacySurface) });
-    await legacy.initialize({ instanceId: 'bounds-legacy', width: 640, height: 480 });
-    legacy.loadDataset(boundsDataset);
-    const authorityBefore = legacy.exportDataset();
-    const refused = legacy.destroyTarget({ kind: 'element', id: 'rotated' });
-    expect(refused).toMatchObject({
-      status: 'refused',
-      diagnostic: { code: 'UNSUPPORTED_RUNTIME', category: 'UNSUPPORTED_RUNTIME' },
-    });
-    expect(legacySurface.loadCount).toBe(1);
-    expect(legacy.exportDataset()).toBe(authorityBefore);
-    await legacy.destroy();
   });
 });
 
-class SurfaceBase implements PatchMapEngineSurface {
+abstract class SurfaceBase implements PatchMapEngineSurface {
   public canvasCount = 1;
   public destroyed = false;
   public loadCount = 0;
@@ -257,6 +220,8 @@ class SurfaceBase implements PatchMapEngineSurface {
   public load(): void {
     this.loadCount += 1;
   }
+
+  public abstract reconcile(input: unknown): PatchMapSurfaceReconcileResult;
 
   public publishFrame(): void {
     this.frameCount += 1;
@@ -315,26 +280,6 @@ class ReconcileSurface extends SurfaceBase {
       operationCount: this.mode === 'committed' ? 1 : 0,
       denseChanged: this.mode === 'committed',
       diagnostics: Object.freeze([]),
-    });
-  }
-}
-
-class LegacySurface extends SurfaceBase {}
-
-class LegacyGeometrySurface extends SurfaceBase {
-  public geometrySnapshot() {
-    const bounds = Object.freeze([0, 0, 42.426407, 42.426407] as const);
-    return Object.freeze({
-      entities: Object.freeze([Object.freeze({
-        id: 'legacy-rotated',
-        kind: 'rect',
-        worldBounds: bounds,
-        screenBounds: bounds,
-        visible: true,
-        interactive: true,
-      })]),
-      relations: Object.freeze([]),
-      selectionOverlay: null,
     });
   }
 }

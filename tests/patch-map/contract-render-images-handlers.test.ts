@@ -96,12 +96,12 @@ interface WorkerRuntime {
 }
 
 const [catalogRuntime, materializeRuntime, handlerRuntime, workerRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<HandlerRuntime>(
-    '../../scripts/verification/core-v2-contract/handlers/render-images.mjs',
+    '../../scripts/verification/patch-map-contract/handlers/render-images.mjs',
   ),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -121,14 +121,14 @@ describe('PatchMap REN-005 render-images actual-only handlers', () => {
     const entries = createRenderImageHandlerEntries(harness.product);
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/render-images.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/render-images.mjs',
         import.meta.url,
       )),
       'utf8',
     );
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
 
-    expect(RENDER_IMAGES_HANDLER_REVISION).toBe('core-v2-render-images-handlers/1');
+    expect(RENDER_IMAGES_HANDLER_REVISION).toBe('patch-map-render-images-handlers/1');
     expect(entries.map(([handlerId]) => handlerId)).toEqual([
       'contract/loadDataset',
       'contract/resolveAsset',

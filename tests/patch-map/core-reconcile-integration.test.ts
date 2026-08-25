@@ -17,6 +17,7 @@ import { PatchMapParseError } from '../../src/patch-map/contracts';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
+  PatchMapPixiRendererPublicationCheckpoint,
 } from '../../src/patch-map/renderers/pixi-renderer';
 import type {
   PatchMapPixiRendererDebug,
@@ -662,7 +663,7 @@ type RelationMatrixElement =
       type: 'relations';
       id: string;
       links: Array<{ source: string; target: string }>;
-      style: { color: string; width: number; opacity: number };
+      style: { color: string; width: number; alpha: number };
       attrs: { x: number; y: number; angle: number; zIndex: number };
       show?: boolean;
     };
@@ -695,7 +696,7 @@ function relationMatrixScene(): RelationMatrixElement[] {
         { source: 'nested-item', target: 'grid.0.0' },
         { source: 'grid.0.0', target: 'nested-item' },
       ],
-      style: { color: '#123456', width: 3, opacity: 0.75 },
+      style: { color: '#123456', width: 3, alpha: 0.75 },
       attrs: { x: 30, y: -10, angle: 90, zIndex: -4 },
     },
   ];
@@ -745,6 +746,26 @@ class RendererTestDouble {
   }
 
   public markOverlayChanges(): void {}
+
+  public setInstancePresentationOverrides(): boolean { return false; }
+
+  public capturePublicationCheckpoint(): PatchMapPixiRendererPublicationCheckpoint {
+    return Object.freeze({
+      view: this.view,
+      worldOrientation: this.worldOrientation,
+    }) as unknown as PatchMapPixiRendererPublicationCheckpoint;
+  }
+
+  public restorePublicationCheckpoint(
+    checkpoint: PatchMapPixiRendererPublicationCheckpoint,
+  ): void {
+    const state = checkpoint as unknown as Readonly<{
+      readonly view: CoreView;
+      readonly worldOrientation: RendererTestDouble['worldOrientation'];
+    }>;
+    this.view = state.view;
+    this.worldOrientation = state.worldOrientation;
+  }
 
   public setProjection(): boolean {
     if (this.projectionFailure !== null) {

@@ -4,18 +4,35 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { PatchMapParseError } from '../../src/patch-map/contracts';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 
 const fixturePath = fileURLToPath(
   new URL('../../lab/fixtures/production-like.json', import.meta.url),
 );
 
-describe('PatchMap PATCH MAP v0.10 parser', () => {
+describe('PatchMap PatchMap parser', () => {
+  it('publishes a complete frozen projection index for an empty dataset', () => {
+    const projection = parsePatchMap([]).projection;
+
+    expect(projection).toEqual({
+      byEntityId: {},
+      componentsByEntityId: {},
+      backgroundsByEntityId: {},
+      imagesByEntityId: {},
+      textsByEntityId: {},
+      barsByEntityId: {},
+      relationsByEntityId: {},
+      omittedRelations: [],
+    });
+    expect(Object.isFrozen(projection)).toBe(true);
+    expect(Object.values(projection).every(Object.isFrozen)).toBe(true);
+  });
+
   it('loads the production JSON directly with stable expansion counts', () => {
     const input = JSON.parse(readFileSync(fixturePath, 'utf8')) as unknown;
     const before = JSON.stringify(input);
 
-    const result = parsePatchMapV010(input);
+    const result = parsePatchMap(input);
 
     expect(JSON.stringify(input)).toBe(before);
     expect(result.identity.counts).toEqual({
@@ -41,6 +58,7 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
       {
         type: 'grid',
         id: 'rack',
+        metadata: { owner: 'root-metadata-ignored' },
         attrs: { x: 10, y: 20, metadata: { owner: 'ops' } },
         cells: [[1, 1]],
         gap: { x: 5, y: 0 },
@@ -51,8 +69,8 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
             {
               type: 'background',
               id: 'panel',
+              metadata: { role: 'component-metadata-ignored' },
               attrs: { metadata: { role: 'track' } },
-              size: { width: '100%', height: { value: 100, unit: '%' } },
               source: { type: 'rect', fill: 'white', radius: 4 },
             },
             {
@@ -70,12 +88,12 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
         type: 'relations',
         id: 'links',
         attrs: { metadata: { parent: 'rack' } },
-        links: [{ source: 'rack.0.0', target: { id: 'rack.0.1' } }],
+        links: [{ source: 'rack.0.0', target: 'rack.0.1' }],
         style: { color: 'hsl(210, 100%, 50%)', width: 2 },
       },
     ];
 
-    const result = parsePatchMapV010(input);
+    const result = parsePatchMap(input);
 
     expect(result.identity.entityIds).toEqual([
       'rack.0.0',
@@ -127,8 +145,8 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
     ];
     const before = structuredClone(input);
 
-    const first = parsePatchMapV010(input);
-    const second = parsePatchMapV010(input);
+    const first = parsePatchMap(input);
+    const second = parsePatchMap(input);
 
     expect(input).toEqual(before);
     expect(first).toEqual(second);
@@ -144,7 +162,7 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
   });
 
   it('supports nested groups and direct rect/image/text records', () => {
-    const result = parsePatchMapV010([
+    const result = parsePatchMap([
       {
         type: 'group',
         id: 'group-a',
@@ -210,8 +228,8 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
 
   it('warns and deterministically hashes unknown color aliases', () => {
     const input = [{ type: 'rect', id: 'x', size: 10, fill: 'brand.unknown' }];
-    const first = parsePatchMapV010(input);
-    const second = parsePatchMapV010(input);
+    const first = parsePatchMap(input);
+    const second = parsePatchMap(input);
 
     expect(first.document.entities[0]).toEqual(second.document.entities[0]);
     expect(first.diagnostics).toContainEqual(
@@ -219,8 +237,8 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
     );
   });
 
-  it('diagnoses known v0.10 fields that are retained-only or unsupported', () => {
-    const result = parsePatchMapV010([
+  it('diagnoses known current fields that are retained-only or unsupported', () => {
+    const result = parsePatchMap([
       {
         type: 'item',
         id: 'item-a',
@@ -241,7 +259,7 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
         id: 'links',
         attrs: { x: 10 },
         links: [{ source: 'item-a', target: 'item-a' }],
-        style: { cap: 'round', join: 'round' },
+        style: { color: '#123456', width: 2, alpha: 0.4 },
       },
       {
         type: 'grid',
@@ -259,7 +277,6 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
       code: 'component-animation-unsupported',
     }));
     expect(result.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'relation-style-degraded' }),
       expect.objectContaining({ code: 'inactive-cell-strategy-unsupported' }),
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.display' }),
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.opacity' }),
@@ -279,6 +296,11 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
     expect(result.projection.relationsByEntityId?.['@relation:5:links6:item-a6:item-a']?.affine).toEqual([
       1, 0, 0, 1, 10, 0,
     ]);
+    expect(result.document.entities.find(({ id }) => id.startsWith('@relation:'))).toMatchObject({
+      color: 0x123456ff,
+      lineWidth: 2,
+      opacity: 0.4,
+    });
     expect(result.projection.barsByEntityId?.['item-a::bar:bar-a']).toMatchObject({
       ownerId: 'item-a',
       componentId: 'bar-a',
@@ -288,8 +310,66 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
     });
   });
 
+  it.each([
+    ['cap', 'round'],
+    ['join', 'round'],
+    ['miterLimit', 10],
+    ['alignment', 0.5],
+    ['pixelLine', false],
+    ['textureSpace', 'local'],
+    ['fill', '#ffffff'],
+    ['texture', { source: '/stroke.png' }],
+    ['matrix', [1, 0, 0, 1, 0, 0]],
+  ] as const)('strictly rejects relation-only unsupported stroke key %s', (key, fieldValue) => {
+    const input = [{
+      type: 'relations',
+      id: 'links',
+      links: [{ source: 'links', target: 'links' }],
+      style: { [key]: fieldValue },
+    }];
+    const before = structuredClone(input);
+
+    try {
+      parsePatchMap(input);
+      throw new Error('expected parser failure');
+    } catch (error) {
+      expect(error).toBeInstanceOf(PatchMapParseError);
+      expect((error as PatchMapParseError).diagnostics).toContainEqual(expect.objectContaining({
+        level: 'error',
+        code: 'unknown-relation-style-field',
+        path: `$[0].style.${key}`,
+      }));
+    }
+    expect(input).toEqual(before);
+  });
+
+  it.each([
+    ['width', 'bad'],
+    ['width', -1],
+    ['width', Number.POSITIVE_INFINITY],
+    ['alpha', 'bad'],
+    ['alpha', -0.1],
+    ['alpha', 1.1],
+  ] as const)('strictly rejects invalid relation style %s value', (key, fieldValue) => {
+    const input = [{
+      type: 'relations',
+      id: 'links',
+      links: [{ source: 'links', target: 'links' }],
+      style: { [key]: fieldValue },
+    }];
+    expect(() => parsePatchMap(input)).toThrowError(PatchMapParseError);
+    try {
+      parsePatchMap(input);
+    } catch (error) {
+      expect((error as PatchMapParseError).diagnostics).toContainEqual(expect.objectContaining({
+        level: 'error',
+        path: `$[0].style.${key}`,
+      }));
+    }
+  });
+
   it('multiplies attrs alpha through groups, items, components, and local text style', () => {
-    const result = parsePatchMapV010([
+    const result = parsePatchMap([
       {
         type: 'group',
         id: 'group',
@@ -332,18 +412,23 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
 
   it('fails atomically for duplicate visible IDs and explicitly omits dangling endpoints', () => {
     expect(() =>
-      parsePatchMapV010([
+      parsePatchMap([
         { type: 'rect', id: 'duplicate', size: 10 },
         { type: 'text', id: 'duplicate', text: 'x' },
       ]),
     ).toThrow(PatchMapParseError);
+    expect(() => parsePatchMap([{
+      type: 'relations',
+      id: 'object-endpoint',
+      links: [{ source: { id: 'known' }, target: 'missing' }],
+    }] as never)).toThrow(PatchMapParseError);
 
-    const result = parsePatchMapV010([
+    const result = parsePatchMap([
       { type: 'rect', id: 'known', size: 10 },
       {
         type: 'relations',
         id: 'relations',
-        links: [{ source: 'known', target: { id: 'missing' } }],
+        links: [{ source: 'known', target: 'missing' }],
       },
     ]);
     expect(result.document.entities.map((entity) => entity.id)).toEqual(['known']);
@@ -388,7 +473,7 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
     const before = structuredClone(elements);
 
     try {
-      parsePatchMapV010(elements);
+      parsePatchMap(elements);
       throw new Error('expected parser failure');
     } catch (error) {
       expect(error).toBeInstanceOf(PatchMapParseError);
@@ -410,7 +495,7 @@ describe('PatchMap PATCH MAP v0.10 parser', () => {
       id: 'shared-component',
       source: { type: 'rect', fill: 'white' },
     };
-    const result = parsePatchMapV010([
+    const result = parsePatchMap([
       { type: 'item', id: 'item-a', size: 10, components: [component] },
       { type: 'item', id: 'item-b', size: 10, components: [component] },
     ]);

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import { createPatchMapExecutableLabBridge } from '../../lab/patch-map/contract/executable-bridge';
@@ -23,9 +23,9 @@ import type {
 } from '../../src/patch-map/engine';
 import type { PatchMapPixiRendererLossProbe } from '../../src/patch-map/renderers/types';
 // @ts-expect-error -- browser-safe contract handlers are authored as ESM JavaScript.
-import * as handlerModule from '../../scripts/verification/core-v2-contract/handlers/security-operations.mjs';
+import * as handlerModule from '../../scripts/verification/patch-map-contract/handlers/security-operations.mjs';
 // @ts-expect-error -- browser-safe contract folds are authored as ESM JavaScript.
-import * as foldModule from '../../scripts/verification/core-v2-contract/fold-security-operations.mjs';
+import * as foldModule from '../../scripts/verification/patch-map-contract/fold-security-operations.mjs';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -66,7 +66,7 @@ const handlers = handlerModule as unknown as HandlerRuntime;
 const fold = foldModule as unknown as FoldRuntime;
 const compareRuntime = await import(
   /* @vite-ignore */ new URL(
-    '../../scripts/verification/core-v2-contract/compare.mjs',
+    '../../scripts/verification/patch-map-contract/compare.mjs',
     import.meta.url,
   ).href
 ) as CompareRuntime;
@@ -79,8 +79,8 @@ describe('PatchMap security and operations automation substrate', () => {
     );
     const sources = await Promise.all([
       '../../lab/patch-map/contract/security-operations-runtime.ts',
-      '../../scripts/verification/core-v2-contract/handlers/security-operations.mjs',
-      '../../scripts/verification/core-v2-contract/fold-security-operations.mjs',
+      '../../scripts/verification/patch-map-contract/handlers/security-operations.mjs',
+      '../../scripts/verification/patch-map-contract/fold-security-operations.mjs',
     ].map(async (relativePath) => readFile(
       fileURLToPath(new URL(relativePath, import.meta.url)),
       'utf8',
@@ -88,7 +88,7 @@ describe('PatchMap security and operations automation substrate', () => {
     const source = sources.join('\n');
 
     expect(PATCH_MAP_SECURITY_OPERATIONS_RUNTIME_REVISION)
-      .toBe('core-v2-security-operations-runtime/1');
+      .toBe('patch-map-security-operations-runtime/1');
     expect(PATCH_MAP_SECURITY_OPERATIONS_CASE_IDS).toEqual([
       'SEC-002',
       'SEC-003',
@@ -97,11 +97,11 @@ describe('PatchMap security and operations automation substrate', () => {
       'OPS-002',
     ]);
     expect(handlers.SECURITY_OPERATIONS_HANDLER_REVISION)
-      .toBe('core-v2-security-operations-handlers/1');
+      .toBe('patch-map-security-operations-handlers/1');
     expect(handlers.SECURITY_OPERATIONS_CASE_IDS)
       .toEqual(PATCH_MAP_SECURITY_OPERATIONS_CASE_IDS);
     expect(fold.SECURITY_OPERATIONS_FOLD_REVISION)
-      .toBe('core-v2-security-operations-fold/1');
+      .toBe('patch-map-security-operations-fold/1');
     expect(entries.map(([id]) => id)).toEqual(
       handlers.SECURITY_OPERATIONS_ACTION_TYPES.map((type) => `contract/${type}`),
     );
@@ -139,7 +139,7 @@ describe('PatchMap security and operations automation substrate', () => {
     expect(serialized).not.toContain('Bearer ');
     expect(serialized).not.toContain('data:');
     expect(runtime.postDestroyProductProbe()).toEqual({
-      revision: 'core-v2-security-operations-cleanup/1',
+      revision: 'patch-map-security-operations-cleanup/1',
       caseId: 'SEC-003',
       callbackRegistrations: 0,
       queuedActionCount: 0,

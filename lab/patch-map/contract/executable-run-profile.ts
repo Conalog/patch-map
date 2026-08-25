@@ -5,7 +5,7 @@ import {
 } from './executable-cases';
 import { deepFreezePatchMapLabValue as deepFreeze } from './runtime-values';
 
-const EXECUTABLE_RUNNER_REVISION = 'core-v2-executable-lab-runner/1';
+const EXECUTABLE_RUNNER_REVISION = 'patch-map-executable-lab-runner/1';
 
 export class ExecutableLabClock {
   private current = PATCH_MAP_EXECUTABLE_CLOCK_PROFILE.startMs;

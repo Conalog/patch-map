@@ -1,9 +1,9 @@
 import type { PatchMap } from '../../../src/patch-map';
 
 export const PATCH_MAP_HISTORY_RUNTIME_REVISION =
-  'core-v2-history-runtime/1' as const;
+  'patch-map-history-runtime/1' as const;
 export const PATCH_MAP_HISTORY_CLEANUP_REVISION =
-  'core-v2-history-cleanup/1' as const;
+  'patch-map-history-cleanup/1' as const;
 
 export const PATCH_MAP_HISTORY_CASE_IDS = Object.freeze([
   'HIS-001',

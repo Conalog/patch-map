@@ -47,16 +47,16 @@ async function readTypeScriptTreeSources(directory: URL): Promise<readonly strin
 }
 
 describe('PatchMap focused contract Lab presenters', () => {
-  it('owns 173 exact, independent presenter and root identities', () => {
-    expect(PATCH_MAP_CONTRACT_PRESENTERS).toHaveLength(173);
-    expect(new Set(PATCH_MAP_CONTRACT_PRESENTERS.map((entry) => entry.caseId)).size).toBe(173);
-    expect(new Set(PATCH_MAP_CONTRACT_PRESENTERS.map((entry) => entry.presenterKey)).size).toBe(173);
-    expect(new Set(PATCH_MAP_CONTRACT_PRESENTERS.map((entry) => entry.rootTestId)).size).toBe(173);
+  it('owns the exact, independent presenter and root identities', () => {
+    expect(PATCH_MAP_CONTRACT_PRESENTERS).toHaveLength(PATCH_MAP_EXECUTABLE_COUNT);
+    expect(new Set(PATCH_MAP_CONTRACT_PRESENTERS.map((entry) => entry.caseId)).size).toBe(PATCH_MAP_EXECUTABLE_COUNT);
+    expect(new Set(PATCH_MAP_CONTRACT_PRESENTERS.map((entry) => entry.presenterKey)).size).toBe(PATCH_MAP_EXECUTABLE_COUNT);
+    expect(new Set(PATCH_MAP_CONTRACT_PRESENTERS.map((entry) => entry.rootTestId)).size).toBe(PATCH_MAP_EXECUTABLE_COUNT);
 
     for (const presenter of PATCH_MAP_CONTRACT_PRESENTERS) {
       expect(presenter.rootTestId).toBe(`scenario-${presenter.caseId.toLowerCase()}`);
       expect(presenter.routeTemplate).toBe(
-        `/lab/core-v2?scenario=${presenter.caseId}&size=<SIZE>&seed=<SEED>`,
+        `/lab/patch-map?scenario=${presenter.caseId}&size=<SIZE>&seed=<SEED>`,
       );
       expect(presenter.executionStatus).toBe(
         PATCH_MAP_EXECUTABLE_CASE_IDS.some((caseId) => caseId === presenter.caseId)
@@ -94,19 +94,19 @@ describe('PatchMap focused contract Lab presenters', () => {
   });
 
   it('materializes only exact selected fixtures, actions, size, and seed without expected evidence', () => {
-    expect(PATCH_MAP_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(381);
-    expect(PATCH_MAP_EXECUTABLE_CASE_IDS).toHaveLength(173);
+    expect(PATCH_MAP_EXECUTABLE_ACTION_DEFINITIONS).toHaveLength(370);
+    expect(PATCH_MAP_EXECUTABLE_CASE_IDS).toHaveLength(PATCH_MAP_EXECUTABLE_COUNT);
     expect(PATCH_MAP_CONTRACT_STUB_COUNT).toBe(0);
     expect(PATCH_MAP_EXECUTABLE_CASE_IDS.reduce((count, caseId) => (
       count + materializePatchMapExecutableCase(caseId, '100', 319).actionTrace.length
-    ), 0)).toBe(646);
+    ), 0)).toBe(631);
     for (const caseId of PATCH_MAP_EXECUTABLE_CASE_IDS) {
       const first = materializePatchMapExecutableCase(caseId, 'production', 4_294_967_295);
       const second = materializePatchMapExecutableCase(caseId, 'production', 4_294_967_295);
       expect(first.id).toBe(caseId);
       expect(first.rootTestId).toBe(`scenario-${caseId.toLowerCase()}`);
       expect(first.route).toBe(
-        `/lab/core-v2?scenario=${caseId}&size=production&seed=4294967295`,
+        `/lab/patch-map?scenario=${caseId}&size=production&seed=4294967295`,
       );
       expect(first.routeParams).toEqual({ size: 'production', seed: 4_294_967_295 });
       expect(first.actionTrace).toEqual(first.fixture.actionTrace);
@@ -153,24 +153,24 @@ describe('PatchMap focused contract Lab routes', () => {
         expect(route.seed).toBe(4_294_967_295);
       }
     }
-    expect(parsePatchMapContractRoute('/lab/core-v2?scenario=LIF-001&size=100&seed=0').seed).toBe(0);
+    expect(parsePatchMapContractRoute('/lab/patch-map?scenario=LIF-001&size=100&seed=0').seed).toBe(0);
   });
 
   it.each([
-    ['/lab/core-v2', 'MISSING_PARAMETER'],
-    ['/lab/core-v2?scenario=LIF-001&size=100', 'MISSING_PARAMETER'],
-    ['/lab/core-v2?scenario=LIF-001&scenario=LIF-002&size=100&seed=1', 'DUPLICATE_PARAMETER'],
-    ['/lab/core-v2?scenario=LIF-001&size=100&seed=1&extra=x', 'UNKNOWN_PARAMETER'],
-    ['/lab/core-v2?scenario=lif-001&size=100&seed=1', 'INVALID_SCENARIO'],
-    ['/lab/core-v2?scenario=LIF-000&size=100&seed=1', 'INVALID_SCENARIO'],
-    ['/lab/core-v2?scenario=LIF-001&size=0100&seed=1', 'INVALID_SIZE'],
-    ['/lab/core-v2?scenario=LIF-001&size=10000&seed=1', 'INVALID_SIZE'],
-    ['/lab/core-v2?scenario=LIF-001&size=100&seed=01', 'INVALID_SEED'],
-    ['/lab/core-v2?scenario=LIF-001&size=100&seed=+1', 'INVALID_QUERY'],
-    ['/lab/core-v2?scenario=LIF-001&size=100&seed=4294967296', 'INVALID_SEED'],
-    ['/lab/core-v2?scenario=%4cIF-001&size=100&seed=1', 'INVALID_QUERY'],
-    ['/lab/core-v2/?scenario=LIF-001&size=100&seed=1', 'INVALID_PATH'],
-    ['/lab/core-v2?scenario=LIF-001&size=100&seed=1#trace', 'INVALID_QUERY'],
+    ['/lab/patch-map', 'MISSING_PARAMETER'],
+    ['/lab/patch-map?scenario=LIF-001&size=100', 'MISSING_PARAMETER'],
+    ['/lab/patch-map?scenario=LIF-001&scenario=LIF-002&size=100&seed=1', 'DUPLICATE_PARAMETER'],
+    ['/lab/patch-map?scenario=LIF-001&size=100&seed=1&extra=x', 'UNKNOWN_PARAMETER'],
+    ['/lab/patch-map?scenario=lif-001&size=100&seed=1', 'INVALID_SCENARIO'],
+    ['/lab/patch-map?scenario=LIF-000&size=100&seed=1', 'INVALID_SCENARIO'],
+    ['/lab/patch-map?scenario=LIF-001&size=0100&seed=1', 'INVALID_SIZE'],
+    ['/lab/patch-map?scenario=LIF-001&size=10000&seed=1', 'INVALID_SIZE'],
+    ['/lab/patch-map?scenario=LIF-001&size=100&seed=01', 'INVALID_SEED'],
+    ['/lab/patch-map?scenario=LIF-001&size=100&seed=+1', 'INVALID_QUERY'],
+    ['/lab/patch-map?scenario=LIF-001&size=100&seed=4294967296', 'INVALID_SEED'],
+    ['/lab/patch-map?scenario=%4cIF-001&size=100&seed=1', 'INVALID_QUERY'],
+    ['/lab/patch-map/?scenario=LIF-001&size=100&seed=1', 'INVALID_PATH'],
+    ['/lab/patch-map?scenario=LIF-001&size=100&seed=1#trace', 'INVALID_QUERY'],
   ])('rejects non-executable route %s', (raw, expectedCode) => {
     expect.assertions(2);
     try {
@@ -185,7 +185,7 @@ describe('PatchMap focused contract Lab routes', () => {
 describe('PatchMap focused contract Lab shell', () => {
   it('renders an actual-only armed shell for a selected foundation case', () => {
     const route = parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=LIF-001&size=500&seed=319',
+      '/lab/patch-map?scenario=LIF-001&size=500&seed=319',
     );
     const nearby = selectPatchMapContractPresenter('LIF-002');
     const markup = renderPatchMapContractLab(route);
@@ -253,7 +253,7 @@ describe('PatchMap focused contract Lab shell', () => {
 
     for (const { caseId, runtimeKey, actions } of cases) {
       const route = parsePatchMapContractRoute(
-        `/lab/core-v2?scenario=${caseId}&size=100&seed=319`,
+        `/lab/patch-map?scenario=${caseId}&size=100&seed=319`,
       );
       const plan = materializePatchMapExecutableCase(caseId, '100', 319);
       const markup = renderPatchMapContractLab(route);
@@ -309,7 +309,7 @@ describe('PatchMap focused contract Lab shell', () => {
 
     for (const [caseId, actions] of cases) {
       const route = parsePatchMapContractRoute(
-        `/lab/core-v2?scenario=${caseId}&size=100&seed=319`,
+        `/lab/patch-map?scenario=${caseId}&size=100&seed=319`,
       );
       const plan = materializePatchMapExecutableCase(caseId, '100', 319);
       const markup = renderPatchMapContractLab(route);
@@ -337,7 +337,7 @@ describe('PatchMap focused contract Lab shell', () => {
 
     for (const [caseId, actionCount] of cases) {
       const route = parsePatchMapContractRoute(
-        `/lab/core-v2?scenario=${caseId}&size=100&seed=319`,
+        `/lab/patch-map?scenario=${caseId}&size=100&seed=319`,
       );
       const plan = materializePatchMapExecutableCase(caseId, '100', 319);
       const markup = renderPatchMapContractLab(route);
@@ -447,7 +447,7 @@ describe('PatchMap focused contract Lab shell', () => {
 
     for (const [caseId, actions] of cases) {
       const route = parsePatchMapContractRoute(
-        `/lab/core-v2?scenario=${caseId}&size=100&seed=319`,
+        `/lab/patch-map?scenario=${caseId}&size=100&seed=319`,
       );
       const plan = materializePatchMapExecutableCase(caseId, '100', 319);
       const markup = renderPatchMapContractLab(route);
@@ -499,7 +499,7 @@ describe('PatchMap focused contract Lab shell', () => {
 
     for (const [caseId, actions] of cases) {
       const route = parsePatchMapContractRoute(
-        `/lab/core-v2?scenario=${caseId}&size=100&seed=319`,
+        `/lab/patch-map?scenario=${caseId}&size=100&seed=319`,
       );
       const plan = materializePatchMapExecutableCase(caseId, '100', 319);
       const markup = renderPatchMapContractLab(route);
@@ -517,14 +517,14 @@ describe('PatchMap focused contract Lab shell', () => {
 
   it('renders the exact REN-007 relation route as an actual-observable focused case', () => {
     const route = parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=REN-007&size=100&seed=319',
+      '/lab/patch-map?scenario=REN-007&size=100&seed=319',
     );
     const plan = materializePatchMapExecutableCase('REN-007', '100', 319);
     const markup = renderPatchMapContractLab(route);
 
     expect(route.presenter.executionStatus).toBe('actual-observable');
     expect(route.presenter.rootTestId).toBe('scenario-ren-007');
-    expect(plan.route).toBe('/lab/core-v2?scenario=REN-007&size=100&seed=319');
+    expect(plan.route).toBe('/lab/patch-map?scenario=REN-007&size=100&seed=319');
     expect(plan.actionTrace.map(({ type }) => type)).toEqual([
       'loadDataset',
       'observeRelationPath',
@@ -541,7 +541,7 @@ describe('PatchMap focused contract Lab shell', () => {
 
   it('renders REN-005 in canonical order with its exact expected-blind image action trace', () => {
     const route = parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=REN-005&size=100&seed=319',
+      '/lab/patch-map?scenario=REN-005&size=100&seed=319',
     );
     const plan = materializePatchMapExecutableCase('REN-005', '100', 319);
     const markup = renderPatchMapContractLab(route);
@@ -552,7 +552,7 @@ describe('PatchMap focused contract Lab shell', () => {
     expect(resolvePatchMapExecutableRuntime('REN-005').key).toBe('render-images');
     expect(route.presenter.executionStatus).toBe('actual-observable');
     expect(route.presenter.rootTestId).toBe('scenario-ren-005');
-    expect(plan.route).toBe('/lab/core-v2?scenario=REN-005&size=100&seed=319');
+    expect(plan.route).toBe('/lab/patch-map?scenario=REN-005&size=100&seed=319');
     expect(plan.actionTrace).toEqual([
       {
         index: 0,
@@ -618,7 +618,7 @@ describe('PatchMap focused contract Lab shell', () => {
 
   it('renders REN-008 with four actual background phases and one immutable capture row', () => {
     const route = parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=REN-008&size=100&seed=319',
+      '/lab/patch-map?scenario=REN-008&size=100&seed=319',
     );
     const plan = materializePatchMapExecutableCase('REN-008', '100', 319);
     const markup = renderPatchMapContractLab(route);
@@ -629,7 +629,7 @@ describe('PatchMap focused contract Lab shell', () => {
     expect(resolvePatchMapExecutableRuntime('REN-008').key).toBe('render-component-assets');
     expect(route.presenter.executionStatus).toBe('actual-observable');
     expect(route.presenter.rootTestId).toBe('scenario-ren-008');
-    expect(plan.route).toBe('/lab/core-v2?scenario=REN-008&size=100&seed=319');
+    expect(plan.route).toBe('/lab/patch-map?scenario=REN-008&size=100&seed=319');
     expect(plan.actionTrace).toEqual([
       {
         index: 0,
@@ -700,7 +700,7 @@ describe('PatchMap focused contract Lab shell', () => {
 
   it('renders REN-010 with three actual icon phases and renderer-owned tint facts', () => {
     const route = parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=REN-010&size=100&seed=319',
+      '/lab/patch-map?scenario=REN-010&size=100&seed=319',
     );
     const plan = materializePatchMapExecutableCase('REN-010', '100', 319);
     const markup = renderPatchMapContractLab(route);
@@ -711,7 +711,7 @@ describe('PatchMap focused contract Lab shell', () => {
     expect(resolvePatchMapExecutableRuntime('REN-010').key).toBe('render-component-assets');
     expect(route.presenter.executionStatus).toBe('actual-observable');
     expect(route.presenter.rootTestId).toBe('scenario-ren-010');
-    expect(plan.route).toBe('/lab/core-v2?scenario=REN-010&size=100&seed=319');
+    expect(plan.route).toBe('/lab/patch-map?scenario=REN-010&size=100&seed=319');
     expect(plan.actionTrace).toEqual([
       {
         index: 0,
@@ -780,7 +780,7 @@ describe('PatchMap focused contract Lab shell', () => {
 
   it('renders AST-001 in canonical order with its exact asset action trace', () => {
     const route = parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=AST-001&size=100&seed=319',
+      '/lab/patch-map?scenario=AST-001&size=100&seed=319',
     );
     const plan = materializePatchMapExecutableCase('AST-001', '100', 319);
     const markup = renderPatchMapContractLab(route);
@@ -790,7 +790,7 @@ describe('PatchMap focused contract Lab shell', () => {
     expect(PATCH_MAP_EXECUTABLE_CASE_IDS[assetIndex + 1]).toBe('AST-002');
     expect(route.presenter.executionStatus).toBe('actual-observable');
     expect(route.presenter.rootTestId).toBe('scenario-ast-001');
-    expect(plan.route).toBe('/lab/core-v2?scenario=AST-001&size=100&seed=319');
+    expect(plan.route).toBe('/lab/patch-map?scenario=AST-001&size=100&seed=319');
     expect(plan.actionTrace.map(({ type }) => type)).toEqual([
       'registerAssets',
       'registerAssets',
@@ -809,7 +809,7 @@ describe('PatchMap focused contract Lab shell', () => {
 
   it('renders PIX-001 as an actual-observable focused Lab route', () => {
     const route = parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=PIX-001&size=500&seed=319',
+      '/lab/patch-map?scenario=PIX-001&size=500&seed=319',
     );
     const markup = renderPatchMapContractLab(route);
 
@@ -824,7 +824,7 @@ describe('PatchMap focused contract Lab shell', () => {
 
   it('renders PKG-001 as an actual-observable packed-proof Lab route', () => {
     const route = parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=PKG-001&size=500&seed=319',
+      '/lab/patch-map?scenario=PKG-001&size=500&seed=319',
     );
     const markup = renderPatchMapContractLab(route);
 
@@ -895,7 +895,7 @@ describe('PatchMap actual-only Lab bridge', () => {
 
     const observation = await bridge.actualObservation();
     expect(observation).toMatchObject({
-      $schema: 'core-v2-contract-lab-actual-stub/1',
+      $schema: 'patch-map-contract-lab-actual-stub/1',
       execution: { status: 'not-implemented' },
     });
     expect(JSON.stringify(observation)).not.toContain('"status":"pass"');
@@ -909,12 +909,12 @@ describe('PatchMap actual-only Lab bridge', () => {
       readTypeScriptTreeSources(new URL('../../lab/patch-map/interactive/', import.meta.url)),
     ]);
     const automationSources = await Promise.all([
-      '../../scripts/verification/core-v2-contract/handlers/replacement-recovery.mjs',
-      '../../scripts/verification/core-v2-contract/fold-replacement-recovery.mjs',
-      '../../scripts/verification/core-v2-contract/handlers/lifecycle-interruption.mjs',
-      '../../scripts/verification/core-v2-contract/fold-lifecycle-interruption.mjs',
-      '../../scripts/verification/core-v2-contract/handlers/authoring.mjs',
-      '../../scripts/verification/core-v2-contract/fold-authoring.mjs',
+      '../../scripts/verification/patch-map-contract/handlers/replacement-recovery.mjs',
+      '../../scripts/verification/patch-map-contract/fold-replacement-recovery.mjs',
+      '../../scripts/verification/patch-map-contract/handlers/lifecycle-interruption.mjs',
+      '../../scripts/verification/patch-map-contract/fold-lifecycle-interruption.mjs',
+      '../../scripts/verification/patch-map-contract/handlers/authoring.mjs',
+      '../../scripts/verification/patch-map-contract/fold-authoring.mjs',
     ].map((file) => readFile(new URL(file, import.meta.url), 'utf8')));
     const contractJoined = contractSources.join('\n');
     const interactiveJoined = interactiveSources.join('\n');

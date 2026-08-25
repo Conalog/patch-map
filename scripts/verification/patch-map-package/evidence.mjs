@@ -1,3 +1,15 @@
+export function collectPackagePublicationFailures(packageArtifact) {
+  const failures = [];
+  if (
+    packageArtifact.missingDocs.length !== 0 ||
+    packageArtifact.missingExamples.length !== 0
+  ) failures.push('packed artifact is missing public PatchMap docs or examples');
+  if (packageArtifact.unexpectedDocs.length !== 0) {
+    failures.push('packed artifact contains unexpected public documentation');
+  }
+  return Object.freeze(failures);
+}
+
 export function collectPackageFailures({
   cjs,
   errors,
@@ -57,10 +69,10 @@ export function collectPackageFailures({
     esm.presentationReplaceLifecycle?.canvasCountAfterDestroy !== 0
   ) failures.push('packed presentation replace/reapply lifecycle failed');
   if (
-    esm.serializedMatches !== true ||
-    esm.roundtripSemanticHashEqual !== true ||
-    esm.legacySourceKind !== 'legacy-generic-item'
-  ) failures.push('packed ESM persistence compatibility boundary failed');
+    esm.serializedRootIsArray !== true ||
+    esm.serializedRootCount !== 2 ||
+    esm.serializedAddedId !== 'packed-added'
+  ) failures.push('packed ESM canonical persistence boundary failed');
   if (
     esm.strictFailure?.code !== 'MISSING_TARGET' ||
     esm.strictFailure?.category !== 'MISSING_TARGET' ||
@@ -94,7 +106,6 @@ export function collectPackageFailures({
   ) failures.push('packed direct-image replace/capture/remount lifecycle failed');
   if (
     !(esm.theme?.defaultCapture?.canonicalDefault > 8_000) ||
-    esm.theme?.defaultCapture?.legacyPurple !== 0 ||
     !(esm.theme?.customCapture?.custom > 8_000) ||
     !(esm.theme?.isolatedDefaultCapture?.canonicalDefault > 8_000) ||
     esm.theme?.isolatedDefaultCapture?.custom !== 0 ||
@@ -341,10 +352,6 @@ export function collectPackageFailures({
   ) failures.push('packed ESM lifecycle leaked a canvas or live runtime');
   if (
     cjs.mountType !== 'function' ||
-    cjs.compatibilityType !== 'function' ||
-    cjs.persistenceType !== 'function' ||
-    cjs.rootKind !== 'array' ||
-    cjs.id !== 'cjs-rect' ||
     cjs.internalExportsAbsent !== true ||
     cjs.constructorRejected !== true
   ) failures.push('packed CJS public surface failed');
@@ -369,10 +376,7 @@ export function collectPackageFailures({
   if (supplyChain.sbom.packageDigest !== packageArtifact.sha256) {
     failures.push('packed SBOM is not bound to the package digest');
   }
-  if (
-    packageArtifact.missingDocs.length !== 0 ||
-    packageArtifact.missingExamples.length !== 0
-  ) failures.push('packed artifact is missing public PatchMap docs or examples');
+  failures.push(...collectPackagePublicationFailures(packageArtifact));
   if (types.strict !== true || types.exitCode !== 0) {
     failures.push('packed strict TypeScript consumer failed');
   }
@@ -407,7 +411,6 @@ export function collectPackageFailures({
         'extract',
         'destroy',
       ]) ||
-    hostAdapterAudit.originalImportCount !== 0 ||
     hostAdapterAudit.restrictedImportCount !== 0 ||
     hostAdapterAudit.adapterReimplementedEngineBehaviorCount !== 0 ||
     packageMatrix.hostAdapter?.invalidNodeCount !== 0 ||

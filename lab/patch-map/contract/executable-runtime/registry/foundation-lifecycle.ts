@@ -21,7 +21,6 @@ import {
   PATCH_MAP_HANDLER_MODULES,
 } from '../script-modules';
 import {
-  PATCH_MAP_DATA_CLOSURE_PRODUCT,
   PATCH_MAP_DATA_FOUNDATION_PRODUCT,
   PATCH_MAP_LIFECYCLE_DESTROY_PRODUCT,
 } from '../foundation-products';
@@ -67,7 +66,7 @@ const DATA_CLOSURE_DESCRIPTOR = createDescriptor({
   createEntries: () => requireFactory(
     PATCH_MAP_HANDLER_MODULES.dataClosure.createDataClosureHandlerEntries,
     'data-closure handlers',
-  )(PATCH_MAP_DATA_CLOSURE_PRODUCT),
+  )(),
   fold: requireFold(
     PATCH_MAP_FOLD_MODULES.dataClosure.foldDataClosureExecution,
     'data-closure fold',

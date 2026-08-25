@@ -13,7 +13,9 @@ import {
 } from '../../src/patch-map/engine/history-planning';
 import { PatchMapPublicationAuthority } from '../../src/patch-map/engine/publication-authority';
 import { PatchMapSceneStateAuthority } from '../../src/patch-map/engine/scene-state-authority';
-import type { PatchMapLifecycle } from '../../src/patch-map/engine/public-contracts';
+import type {
+  PatchMapLifecycle,
+} from '../../src/patch-map/engine/contracts/lifecycle';
 
 describe('PatchMapDirectMutationCoordinator', () => {
   it('commits a patch through canonical scene, history, and publication authorities', () => {

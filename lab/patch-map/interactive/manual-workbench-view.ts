@@ -106,7 +106,7 @@ export function renderPatchMapManualWorkbench(
       <div>
         <span class="contract-kicker">직접 조작하는 제품 실험실</span>
         <h2>엔진을 켜둔 채, 원하는 동작을 직접 시험하세요.</h2>
-        <p>아래 캔버스는 ${PATCH_MAP_MANUAL_WORKFLOW_COUNT}개 공통 조작 흐름을 자유롭게 시험하는 PixiJS WebGL 세션입니다. 173개 계약의 정확 실행기는 화면 아래에 별도로 있습니다.</p>
+        <p>아래 캔버스는 ${PATCH_MAP_MANUAL_WORKFLOW_COUNT}개 공통 조작 흐름을 자유롭게 시험하는 PixiJS WebGL 세션입니다. ${PATCH_MAP_CONTRACT_CASE_COUNT}개 계약의 정확 실행기는 화면 아래에 별도로 있습니다.</p>
       </div>
       <div class="manual-coverage-stamp">
         <strong>${PATCH_MAP_MANUAL_WORKFLOW_COUNT}</strong>
@@ -420,7 +420,7 @@ function renderAnimationPanel(caseId: string): string {
 
 function renderDataPanel(): string {
   return toolPanel('data', 'PATCH MAP JSON 직접 입력과 원자적 갱신', `
-    <p>현재 장면과 같은 v0.10 JSON을 직접 편집해 다시 불러올 수 있습니다. 실패하면 일부만 반영하지 않고 기존 장면을 유지합니다.</p>
+    <p>현재 장면과 같은 current JSON을 직접 편집해 다시 불러올 수 있습니다. 실패하면 일부만 반영하지 않고 기존 장면을 유지합니다.</p>
     <div class="manual-field-action">
       <label>예제 데이터 크기
         <select data-manual-scene-size aria-label="예제 데이터 크기">

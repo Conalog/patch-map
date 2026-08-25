@@ -1,5 +1,5 @@
-export const PATCH_MAP_LAYOUT_ORDER_RUNTIME_REVISION = 'core-v2-layout-order-runtime/1';
-export const PATCH_MAP_LAYOUT_ORDER_CLEANUP_REVISION = 'core-v2-layout-order-cleanup/1';
+export const PATCH_MAP_LAYOUT_ORDER_RUNTIME_REVISION = 'patch-map-layout-order-runtime/1';
+export const PATCH_MAP_LAYOUT_ORDER_CLEANUP_REVISION = 'patch-map-layout-order-cleanup/1';
 
 export const PATCH_MAP_LAYOUT_ORDER_ACTIVE_CASE_IDS = Object.freeze([
   'LAY-002',
@@ -68,7 +68,6 @@ const PLACEMENTS = Object.freeze([
   'right-bottom',
   'bottom',
   'center',
-  'none',
 ] as const);
 
 /**

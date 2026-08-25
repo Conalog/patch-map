@@ -7,9 +7,9 @@ import {
 } from '../../../src/patch-map';
 
 export const PATCH_MAP_EXPORT_EXTRACTION_RUNTIME_REVISION =
-  'core-v2-export-extraction-runtime/1';
+  'patch-map-export-extraction-runtime/1';
 export const PATCH_MAP_EXPORT_EXTRACTION_CLEANUP_REVISION =
-  'core-v2-export-extraction-cleanup/1';
+  'patch-map-export-extraction-cleanup/1';
 
 export const PATCH_MAP_EXPORT_EXTRACTION_CASE_IDS = Object.freeze([
   'DET-004',

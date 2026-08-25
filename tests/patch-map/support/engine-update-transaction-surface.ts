@@ -6,6 +6,7 @@ import {
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileOptions,
   type PatchMapSurfaceReconcileResult,
+  type PatchMapSurfaceViewportInput,
 } from '../../../src/patch-map/engine';
 
 export interface RecordedReconcile {
@@ -47,6 +48,7 @@ export class TransactionSurface implements PatchMapEngineSurface {
   private width: number;
   private height: number;
   private pixelRatio: number;
+  private viewportInputListener: ((input: PatchMapSurfaceViewportInput) => void) | null = null;
   private view: Readonly<{ x: number; y: number; scale: number; rotation: number }> =
     Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 
@@ -152,6 +154,19 @@ export class TransactionSurface implements PatchMapEngineSurface {
 
   public setView(view: Readonly<{ x: number; y: number; scale: number; rotation: number }>): void {
     this.view = Object.freeze({ ...view });
+  }
+
+  public bindViewportInput(
+    listener: (input: PatchMapSurfaceViewportInput) => void,
+  ): () => void {
+    this.viewportInputListener = listener;
+    return () => {
+      if (this.viewportInputListener === listener) this.viewportInputListener = null;
+    };
+  }
+
+  public emitViewportInput(input: PatchMapSurfaceViewportInput): void {
+    this.viewportInputListener?.(input);
   }
 
   public select(ids: readonly string[]): void {

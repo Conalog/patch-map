@@ -117,7 +117,7 @@ export function createPatchMapRenderImagesRuntime(): PatchMapRenderImagesRuntime
 }
 
 class RenderImagesFixtureBackend implements PatchMapAssetBackend {
-  public readonly keyNamespace = 'core-v2-ren-005-fixture-assets/1';
+  public readonly keyNamespace = 'patch-map-ren-005-fixture-assets/1';
 
   private readonly recordsByKey = new Map<string, FixtureRequestRecord>();
   private readonly recordsByToken = new Map<string, FixtureRequestRecord>();
@@ -684,7 +684,7 @@ function projectPostDestroyProductProbe(
   invariant(controlledRequests.length === 1, 'one controlled request cleanup record');
 
   return deepFreeze({
-    revision: 'core-v2-ren-005-product-cleanup/1',
+    revision: 'patch-map-ren-005-product-cleanup/1',
     assetRuntime: runtime,
     backend: {
       requestCount: requests.length,

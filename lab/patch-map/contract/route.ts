@@ -4,8 +4,7 @@ import {
   type PatchMapContractPresenterDescriptor,
 } from './presenters';
 
-export const PATCH_MAP_CONTRACT_ROUTE_PATH = '/lab/patch-map/';
-export const PATCH_MAP_CONTRACT_LEGACY_ROUTE_PATH = '/lab/core-v2';
+export const PATCH_MAP_CONTRACT_ROUTE_PATH = '/lab/patch-map';
 export const PATCH_MAP_CONTRACT_DATASET_SIZES = [
   '100',
   '500',
@@ -27,9 +26,7 @@ export type PatchMapContractRouteErrorCode =
   | 'INVALID_SEED';
 
 export interface PatchMapContractRoute {
-  readonly path:
-    | typeof PATCH_MAP_CONTRACT_ROUTE_PATH
-    | typeof PATCH_MAP_CONTRACT_LEGACY_ROUTE_PATH;
+  readonly path: typeof PATCH_MAP_CONTRACT_ROUTE_PATH;
   readonly scenario: string;
   readonly size: PatchMapContractDatasetSize;
   readonly seed: number;
@@ -125,10 +122,7 @@ export function buildPatchMapContractRoute(
 
 export function parsePatchMapContractRoute(input: string | URL): PatchMapContractRoute {
   const url = asUrl(input);
-  if (
-    url.pathname !== PATCH_MAP_CONTRACT_ROUTE_PATH &&
-    url.pathname !== PATCH_MAP_CONTRACT_LEGACY_ROUTE_PATH
-  ) {
+  if (url.pathname !== PATCH_MAP_CONTRACT_ROUTE_PATH) {
     return fail('INVALID_PATH', `PatchMap contract route path must be ${PATCH_MAP_CONTRACT_ROUTE_PATH}`);
   }
   if (url.hash !== '' || (typeof input === 'string' && input.includes('#'))) {

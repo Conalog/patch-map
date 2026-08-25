@@ -1,26 +1,26 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import {
   PatchMapDatasetError,
   materializePatchMapDataset,
 } from '../../src/patch-map/semantic/dataset';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 
 const productionFixturePath = fileURLToPath(
   new URL('../../lab/fixtures/production-like.json', import.meta.url),
 );
 
-const intentionallyRejectedProfiles = new Set(['legacy-root', 'legacy', 'malformed']);
+const invalidDatasetProfiles = new Set(['malformed']);
 
 describe('PatchMap rendering schema support inventory', () => {
-  it('materializes every approved canonical dataset while rejecting compatibility roots', () => {
+  it('materializes every approved dataset while rejecting invalid profiles', () => {
     const failures: Record<string, string> = {};
     for (const [id, dataset] of Object.entries(catalogProfiles.datasets)) {
-      if (intentionallyRejectedProfiles.has(id)) continue;
+      if (invalidDatasetProfiles.has(id)) continue;
       try {
         materializePatchMapDataset(dataset);
       } catch (error) {
@@ -32,7 +32,7 @@ describe('PatchMap rendering schema support inventory', () => {
 
     expect(failures).toEqual({});
 
-    for (const id of intentionallyRejectedProfiles) {
+    for (const id of invalidDatasetProfiles) {
       expect(() => materializePatchMapDataset(
         catalogProfiles.datasets[id as keyof typeof catalogProfiles.datasets],
       )).toThrowError(
@@ -61,7 +61,7 @@ describe('PatchMap rendering schema support inventory', () => {
 
     expect(rect).toMatchObject({
       type: 'rect',
-      radius: [4, 6, 8, 10],
+      radius: 10,
     });
     expect(images[3]).toMatchObject({ type: 'image', id: 'data-uri', opacity: 0.5 });
     expect(images[5]).toMatchObject({ type: 'image', id: 'hidden-image', opacity: 0.25 });
@@ -71,14 +71,13 @@ describe('PatchMap rendering schema support inventory', () => {
       id: 'transparent-interactive',
       eventMode: 'static',
     });
-    expect(Object.isFrozen(rect?.type === 'rect' ? rect.radius : null)).toBe(true);
     expect(JSON.stringify({ rectInput, imageInput, boundsInput })).toBe(before);
   });
 
   it('projects opacity, standalone overflow, and root hit-test participation', () => {
-    const imageResult = parsePatchMapV010(catalogProfiles.datasets['image-specimens']);
-    const boundsResult = parsePatchMapV010(catalogProfiles.datasets.bounds);
-    const eventModes = parsePatchMapV010([
+    const imageResult = parsePatchMap(catalogProfiles.datasets['image-specimens']);
+    const boundsResult = parsePatchMap(catalogProfiles.datasets.bounds);
+    const eventModes = parsePatchMap([
       { type: 'rect', id: 'none', size: 10, eventMode: 'none' },
       { type: 'rect', id: 'dynamic', size: 10, eventMode: 'dynamic' },
     ]);
@@ -101,18 +100,17 @@ describe('PatchMap rendering schema support inventory', () => {
     ]);
   });
 
-  it('keeps per-corner radius loss explicit at the current scalar dense seam', () => {
-    const result = parsePatchMapV010(catalogProfiles.datasets['rect-specimen']);
+  it('publishes the exact standalone scalar radius without a degradation diagnostic', () => {
+    const result = parsePatchMap(catalogProfiles.datasets['rect-specimen']);
 
     expect(result.document.entities[0]).toMatchObject({ radius: 10 });
-    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
       code: 'corner-radius-degraded',
-      path: '$[0].radius',
     }));
   });
 
   it('retains existing rectangular-texture border aliases as dense paint', () => {
-    const result = parsePatchMapV010(catalogProfiles.datasets.background);
+    const result = parsePatchMap(catalogProfiles.datasets.background);
 
     expect(result.document.entities.find((entity) => entity.id === 'item::background:bg')).toMatchObject({
       kind: 'rect',
@@ -120,6 +118,22 @@ describe('PatchMap rendering schema support inventory', () => {
       strokeWidth: 2,
       radius: 8,
     });
+  });
+
+  it.each([
+    ['negative', -1],
+    ['NaN', Number.NaN],
+    ['positive infinity', Number.POSITIVE_INFINITY],
+    ['negative infinity', Number.NEGATIVE_INFINITY],
+  ])('rejects %s standalone radius at both admission boundaries', (_label, radius) => {
+    const input = [{ type: 'rect', id: 'invalid-radius', size: 10, radius }];
+    expect(() => materializePatchMapDataset(input)).toThrowError(
+      expect.objectContaining<Partial<PatchMapDatasetError>>({
+        code: 'INVALID_VALUE',
+        datasetPath: '$[0].radius',
+      }),
+    );
+    expect(() => parsePatchMap(input)).toThrow('Standalone rect radius must be a nonnegative finite number');
   });
 
   it('does not widen closed records beyond the inventoried approved fields', () => {
@@ -135,6 +149,22 @@ describe('PatchMap rendering schema support inventory', () => {
       code: 'INVALID_VALUE',
       datasetPath: '$[0].radius',
     }));
+    for (const radius of [[1, 2, 3, 4], {
+      topLeft: 1,
+      topRight: 2,
+      bottomRight: 3,
+      bottomLeft: 4,
+    }]) {
+      expect(() => materializePatchMapDataset([
+        { type: 'rect', id: 'radius', size: 10, radius },
+      ])).toThrowError(expect.objectContaining<Partial<PatchMapDatasetError>>({
+        code: 'INVALID_VALUE',
+        datasetPath: '$[0].radius',
+      }));
+      expect(() => parsePatchMap([
+        { type: 'rect', id: 'radius', size: 10, radius },
+      ])).toThrow('Standalone rect radius must be a nonnegative finite number');
+    }
     expect(() => materializePatchMapDataset([
       { type: 'image', id: 'opacity', source: 'asset', opacity: 2 },
     ])).toThrowError(expect.objectContaining<Partial<PatchMapDatasetError>>({

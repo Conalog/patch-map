@@ -15,7 +15,7 @@ import type {
 } from '../../src/patch-map/semantic/text-render-route';
 
 const SIMPLE_STYLE: PatchMapTextRenderStyle = Object.freeze({
-  fontFamily: 'Fira Code',
+  fontFamily: 'FiraCode',
   fontSize: 16,
   fontWeight: 400,
   fontStyle: 'normal',

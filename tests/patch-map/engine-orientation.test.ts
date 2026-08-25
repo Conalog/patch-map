@@ -85,6 +85,14 @@ class OrientationSurface implements PatchMapEngineSurface {
   public view: PatchMapSurfaceView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 
   public load(): void {}
+  public reconcile(_input: unknown) {
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 0,
+      denseChanged: false,
+      diagnostics: Object.freeze([]),
+    });
+  }
   public publishFrame(): void {}
   public resize(): boolean { return false; }
   public setView(view: PatchMapSurfaceView): void {

@@ -6,7 +6,7 @@ import {
   RenderKind,
   type RenderStoreView,
 } from '../../src/patch-map/dense/renderer-types';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import {
   indexOverlayPaintBounds,
   resolveOverlayPathPlan,
@@ -39,7 +39,7 @@ describe('PatchMap selection visual paint bounds', () => {
   });
 
   it('preserves an authored rotated/scaled owner frame while including paint outset', () => {
-    const fixture = parsePatchMapV010([{
+    const fixture = parsePatchMap([{
       type: 'item',
       id: 'rotated-item',
       attrs: { x: 20, y: 30, angle: 30, scaleX: 2, scaleY: 1.5 },
@@ -105,7 +105,7 @@ describe('PatchMap selection visual paint bounds', () => {
   });
 
   it('includes a selected authored rect own centered stroke without component traversal', () => {
-    const fixture = parsePatchMapV010([{
+    const fixture = parsePatchMap([{
       type: 'rect',
       id: 'authored-rect',
       attrs: { x: 10, y: 20 },
@@ -128,8 +128,8 @@ describe('PatchMap selection visual paint bounds', () => {
     ]]);
   });
 
-  it('unions visible icon/text/bar layout boxes including negative margins into the owner bound', () => {
-    const fixture = parsePatchMapV010([{
+  it('rejects negative component margins before paint-bound projection', () => {
+    expect(() => parsePatchMap([{
       type: 'item',
       id: 'content-owner',
       attrs: { x: 40, y: 50 },
@@ -158,33 +158,12 @@ describe('PatchMap selection visual paint bounds', () => {
           style: { fontSize: 12 },
         },
       ],
-    }]);
-    const store = createRenderStore(fixture.document.entities);
-    const ownerSlot = requireSlot(store, 'content-owner');
-    const iconSlot = requireSlot(store, 'content-owner::icon:overflow-icon');
-    const projectionContext = context(fixture.projection);
-    const icon = resolvePatchMapSlotQuad(store, iconSlot, projectionContext);
-    const visual = resolveOverlayPathPlan(
-      store,
-      [ownerSlot],
-      projectionContext,
-      'element-only',
-      paintContext(store, fixture.projection),
-    ).individualVertices[0]!;
-
-    expect(Math.min(visual[0]!, visual[2]!, visual[4]!, visual[6]!))
-      .toBeLessThan(40);
-    expect(Math.min(visual[1]!, visual[3]!, visual[5]!, visual[7]!))
-      .toBeLessThan(50);
-    expect(Math.min(...icon.vertices.filter((_value, index) => index % 2 === 0)))
-      .toBeGreaterThanOrEqual(Math.min(visual[0]!, visual[2]!, visual[4]!, visual[6]!));
-    expect(Math.min(...icon.vertices.filter((_value, index) => index % 2 === 1)))
-      .toBeGreaterThanOrEqual(Math.min(visual[1]!, visual[3]!, visual[5]!, visual[7]!));
+    }])).toThrow('Spacing must be a nonnegative finite number');
   });
 });
 
 function parseFixture(cells: readonly (readonly number[])[]) {
-  return parsePatchMapV010([{
+  return parsePatchMap([{
     type: 'grid',
     id: 'selectable-grid',
     attrs: { x: 100, y: 100, display: 'panelGroup' },
@@ -210,7 +189,7 @@ function parseFixture(cells: readonly (readonly number[])[]) {
 }
 
 function context(
-  projection: ReturnType<typeof parsePatchMapV010>['projection'],
+  projection: ReturnType<typeof parsePatchMap>['projection'],
 ): PatchMapProjectionRenderContext {
   return {
     index: projection,
@@ -221,7 +200,7 @@ function context(
 
 function paintContext(
   store: RenderStoreView,
-  projection: ReturnType<typeof parsePatchMapV010>['projection'],
+  projection: ReturnType<typeof parsePatchMap>['projection'],
 ) {
   return {
     entityIdsByOwnerId: indexOverlayPaintBounds(projection),

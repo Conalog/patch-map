@@ -9,6 +9,7 @@ import {
 } from '../../src/patch-map/dense/renderer-types';
 import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
 import {
   PatchMap,
   PixiEngineSurface,
@@ -25,6 +26,7 @@ import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
 } from '../../src/patch-map/renderers/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapRenderLaneRole,
@@ -69,6 +71,11 @@ class ComponentAssetRendererDouble {
   private imageProbes = new Map<string, LeafSceneImageProbe>();
   private paintProbes = new Map<string, PatchMapEntityPaintProbe>();
   private projection: PatchMapProjectionIndex | null = null;
+  private presentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  > = new Map();
+  private presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null = null;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   private laneSnapshot = emptyLaneSnapshot();
 
@@ -171,8 +178,40 @@ class ComponentAssetRendererDouble {
 
   public markChanges(_ranges: readonly SlotRange[], _reason: string): void {}
   public markOverlayChanges(): void {}
+  public capturePublicationCheckpoint(): Readonly<{
+    projection: PatchMapProjectionIndex | null;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }> {
+    return Object.freeze({
+      projection: this.projection,
+      presentationOverrides: this.presentationOverrides,
+      presentationLayerUpdate: this.presentationLayerUpdate,
+    });
+  }
+  public restorePublicationCheckpoint(checkpoint: Readonly<{
+    projection: PatchMapProjectionIndex | null;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }>): void {
+    this.projection = checkpoint.projection;
+    this.presentationOverrides = checkpoint.presentationOverrides;
+    this.presentationLayerUpdate = checkpoint.presentationLayerUpdate;
+  }
   public setProjection(projection: PatchMapProjectionIndex | null): boolean {
     this.projection = projection;
+    return true;
+  }
+  public setInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  ): boolean {
+    this.presentationOverrides = overrides;
+    return true;
+  }
+  public setPresentationLayerMultipliers(
+    update: PatchMapPresentationLayerRenderUpdate,
+  ): boolean {
+    this.presentationLayerUpdate = update;
     return true;
   }
   public setWorldOrientation(): boolean { return true; }
@@ -344,7 +383,6 @@ describe('PatchMap component asset product/controller', () => {
         type: 'background',
         id: 'bg',
         source: { type: 'rect', fill: '#ff0000', borderWidth: 2, radius: 8 },
-        size: { width: 20, height: 10 },
       }],
     }];
     const before = structuredClone(input);
@@ -374,7 +412,7 @@ describe('PatchMap component asset product/controller', () => {
       semantic: {
         componentId: 'bg',
         componentType: 'background',
-        authoredSize: { width: 20, height: 10 },
+        authoredSize: null,
         show: true,
       },
       geometry: {
@@ -535,11 +573,11 @@ describe('PatchMap component asset product/controller', () => {
     expect(second.renderer.paintProbeCount).toBe(0);
   });
 
-  it('keeps missing legacy surface facts explicitly unavailable', async () => {
-    const surface = new LegacySurface();
+  it('keeps unavailable optional surface facts explicit', async () => {
+    const surface = new MinimalProbeSurface();
     const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
     engines.push(engine);
-    await engine.initialize({ instanceId: 'legacy-component-probe', width: 100, height: 80 });
+    await engine.initialize({ instanceId: 'minimal-component-probe', width: 100, height: 80 });
     engine.loadDataset([{
       type: 'item',
       id: 'item',
@@ -679,7 +717,7 @@ function stableIconActual(
   });
 }
 
-class LegacySurface implements PatchMapEngineSurface {
+class MinimalProbeSurface implements PatchMapEngineSurface {
   public canvasCount = 1;
   public destroyed = false;
   public load(): void {}
@@ -747,7 +785,7 @@ function lane(
   const count = counts.get(role) ?? 0;
   return Object.freeze({
     role,
-    label: `core-v2:${role}`,
+    label: `patch-map:${role}`,
     renderObjectCount: count,
     visiblePrimitiveCount: count,
   });

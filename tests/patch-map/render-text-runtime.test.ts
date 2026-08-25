@@ -1,8 +1,10 @@
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { describe, expect, it, vi } from 'vitest';
 
+import { createTestProjectionIndex } from './support/projection-index';
+
 // @ts-expect-error -- the independent comparator is an authored ESM JavaScript module.
-import * as compareModule from '../../scripts/verification/core-v2-contract/compare.mjs';
+import * as compareModule from '../../scripts/verification/patch-map-contract/compare.mjs';
 
 import { createPatchMapExecutableLabBridge } from '../../lab/patch-map/contract/executable-bridge';
 import {
@@ -24,11 +26,13 @@ import {
   type PatchMapSurfaceOptions,
 } from '../../src/patch-map/engine';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
 import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
 } from '../../src/patch-map/renderers/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
 import type {
   PatchMapProjectionRenderContext,
   PatchMapRenderLaneProbe,
@@ -156,9 +160,10 @@ describe('PatchMap REN-006 / REN-011 expected-blind runtime', () => {
     {
       caseId: 'REN-011' as const,
       actionCount: 4,
-      assertionCount: 20,
+      assertionCount: 17,
       engineCountPerRun: 1,
       expectedConflictPaths: [
+        '/paint/commandCount',
         '/text/contractMatrix',
         '/geometry/texts/upright/screenAngle',
         '/outcome/textContractMatrix/allRowsExact',
@@ -207,7 +212,7 @@ describe('PatchMap REN-006 / REN-011 expected-blind runtime', () => {
           });
           expect(run.execution.actionResults).toHaveLength(actionCount);
           expect(run.actualObservation).toMatchObject({
-            $schema: 'core-v2-semantic-observation/1',
+            $schema: 'patch-map-semantic-observation/1',
             case: { id: caseId, params: { size: '100', seed: 319 } },
             text: {
               _availability: {
@@ -307,8 +312,13 @@ class HeadlessTextRenderer {
   public maxFallbackTextCount = 0;
 
   private readonly leaves: AggregateLeafLayer;
-  private projection: PatchMapProjectionIndex = Object.freeze({ byEntityId: Object.freeze({}) });
+  private projection: PatchMapProjectionIndex = createTestProjectionIndex();
   private projectionRevision = 0;
+  private presentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  > = new Map();
+  private presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null = null;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   private world: PatchMapWorldOrientation = Object.freeze({
     rotationDegrees: 0,
@@ -334,10 +344,46 @@ class HeadlessTextRenderer {
 
   public markChanges(_ranges: readonly SlotRange[], _reason: string): void {}
   public markOverlayChanges(): void {}
+  public capturePublicationCheckpoint(): Readonly<{
+    projection: PatchMapProjectionIndex;
+    projectionRevision: number;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }> {
+    return Object.freeze({
+      projection: this.projection,
+      projectionRevision: this.projectionRevision,
+      presentationOverrides: this.presentationOverrides,
+      presentationLayerUpdate: this.presentationLayerUpdate,
+    });
+  }
+  public restorePublicationCheckpoint(checkpoint: Readonly<{
+    projection: PatchMapProjectionIndex;
+    projectionRevision: number;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }>): void {
+    this.projection = checkpoint.projection;
+    this.projectionRevision = checkpoint.projectionRevision;
+    this.presentationOverrides = checkpoint.presentationOverrides;
+    this.presentationLayerUpdate = checkpoint.presentationLayerUpdate;
+  }
   public setProjection(projection: PatchMapProjectionIndex): boolean {
     if (projection === this.projection) return false;
     this.projection = projection;
     this.projectionRevision += 1;
+    return true;
+  }
+  public setInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  ): boolean {
+    this.presentationOverrides = overrides;
+    return true;
+  }
+  public setPresentationLayerMultipliers(
+    update: PatchMapPresentationLayerRenderUpdate,
+  ): boolean {
+    this.presentationLayerUpdate = update;
     return true;
   }
   public setWorldOrientation(world: PatchMapWorldOrientation): boolean {
@@ -502,7 +548,7 @@ class HeadlessTextRenderer {
 function emptyLane(role: PatchMapRenderLaneRole): PatchMapRenderLaneProbe {
   return Object.freeze({
     role,
-    label: `core-v2:${role}`,
+    label: `patch-map:${role}`,
     renderObjectCount: 0,
     visiblePrimitiveCount: 0,
   });

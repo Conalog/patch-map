@@ -344,7 +344,7 @@ try {
     const authored = result.authored[alias];
     const overlay = result.overlay[alias];
     assert(result.sourceDigests[alias] === expectedSourceDigests[alias],
-      `${alias} source digest matches PATCH MAP v0.10`, result.sourceDigests);
+      `${alias} source digest matches PatchMap`, result.sourceDigests);
     assert(source.pixelCount > 80,
       `${alias} direct SVG raster has visible pixels`, source);
     assert(Math.max(source.bounds?.width ?? 0, source.bounds?.height ?? 0) < 56,

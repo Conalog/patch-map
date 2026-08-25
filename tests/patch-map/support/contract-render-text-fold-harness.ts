@@ -82,9 +82,9 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [catalogRuntime, materializeRuntime, foldRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../../scripts/verification/core-v2-contract/materialize.mjs'),
-  loadRuntime<FoldRuntime>('../../../scripts/verification/core-v2-contract/fold-render-text.mjs'),
+  loadRuntime<CatalogRuntime>('../../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../../scripts/verification/patch-map-contract/materialize.mjs'),
+  loadRuntime<FoldRuntime>('../../../scripts/verification/patch-map-contract/fold-render-text.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -130,7 +130,7 @@ export function fold(plan: MaterializedCase, execution: JsonRecord): FoldResult 
     provenance: {
       codeCommit: 'test-commit',
       packedPackageSha256: 'test-package',
-      contractRevision: 'core-v2-functional-contract/2026-07-16.2',
+      contractRevision: 'patch-map-contract/1',
     },
     environment: {
       browserVersion: 'unit-test',

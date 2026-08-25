@@ -27,10 +27,10 @@ import type {
   LeafAssetBindingRequest,
   LeafSceneImageProbe,
 } from '../../src/patch-map/renderers/leaf-layer';
-import {
+import type {
   PatchMapPixiRenderer,
-  type PatchMapPixiInitializationMetrics,
-  type PatchMapPixiRendererPublicationCheckpoint,
+  PatchMapPixiInitializationMetrics,
+  PatchMapPixiRendererPublicationCheckpoint,
 } from '../../src/patch-map/renderers/pixi-renderer';
 import type {
   PatchMapPixiRendererDebug,
@@ -71,8 +71,8 @@ describe('PatchMap load and mutation publication atomicity', () => {
     expect(core.get(before.ref)).toBeNull();
   });
 
-  it('forwards an exact Pixi publication checkpoint through the runtime adapter rollback', () => {
-    const { core, renderer } = createActiveCore(allocated, undefined, true);
+  it('forwards the renderer publication checkpoint through the runtime adapter rollback', () => {
+    const { core, renderer } = createActiveCore(allocated);
     const before = captureRuntime(core, renderer);
     const boundaryError = new Error('exact projection boundary failed');
     renderer.capturedPublicationCheckpoint = null;
@@ -81,7 +81,6 @@ describe('PatchMap load and mutation publication atomicity', () => {
 
     expect(() => core.load(runtimeScene(70, 'new-image'))).toThrow(boundaryError);
 
-    expect(renderer).toBeInstanceOf(PatchMapPixiRenderer);
     expect(renderer.capturedPublicationCheckpoint).not.toBeNull();
     expect(renderer.restoredPublicationCheckpoint)
       .toBe(renderer.capturedPublicationCheckpoint);
@@ -166,46 +165,6 @@ describe('PatchMap load and mutation publication atomicity', () => {
       .toThrow('PatchMapRuntime entered a terminal state after mutation publication failed');
     expect(() => core.publishFrame(100))
       .toThrow('PatchMapRuntime entered a terminal state after mutation publication failed');
-  });
-
-  it('keeps the original async failure and terminates an unprovable compatibility rollback', async () => {
-    const onTerminalFailure = vi.fn();
-    const { core, renderer } = createActiveCore(allocated, onTerminalFailure);
-    const before = captureRuntime(core, renderer);
-    const boundaryError = new Error('mark boundary failed');
-    renderer.nextMarkFailure = boundaryError;
-    renderer.rollbackProjectionFailure = new Error('projection rollback failed');
-    renderer.rollbackProjectionIndex = before.visibleProjection;
-
-    let failure: unknown;
-    try {
-      await core.loadAsync(runtimeScene(70, 'new-image'));
-    } catch (error) {
-      failure = error;
-    }
-
-    expect(failure).toBe(boundaryError);
-    const internals = runtimeInternals(core);
-    expect(internals.publishedScene.current()).toBe(before.published);
-    expect(internals.sceneImages.probe()).toEqual(before.sceneImagesProbe);
-    expect(renderer.boundBindingKeys).toEqual(before.boundBindingKeys);
-    expect(internals.framePublication.suspended).toBe(true);
-    expect(onTerminalFailure).toHaveBeenCalledTimes(1);
-    expect(onTerminalFailure).toHaveBeenCalledWith(expect.objectContaining({
-      message: 'PatchMapRuntime entered a terminal state after load rollback failed',
-    }));
-    expect(() => core.visibleProjection)
-      .toThrow('PatchMapRuntime entered a terminal state after load rollback failed');
-    expect(() => core.snapshot())
-      .toThrow('PatchMapRuntime entered a terminal state after load rollback failed');
-    expect(() => core.debugSnapshot())
-      .toThrow('PatchMapRuntime entered a terminal state after load rollback failed');
-    expect(() => core.textProbe({ kind: 'element', id: 'missing' }))
-      .toThrow('PatchMapRuntime entered a terminal state after load rollback failed');
-    expect(() => core.publishFrame(100))
-      .toThrow('PatchMapRuntime entered a terminal state after load rollback failed');
-    expect(() => core.load(runtimeScene(70, 'new-image')))
-      .toThrow('PatchMapRuntime entered a terminal state after load rollback failed');
   });
 
   it('keeps a non-first async replacement private until the final publication', async () => {
@@ -349,20 +308,14 @@ function runtimeInternals(core: PatchMapRuntime): RuntimeInternals {
 function createActiveCore(
   allocated: PatchMapRuntime[],
   onTerminalFailure?: (error: Error) => void,
-  exactPublicationCheckpoint = false,
 ): Readonly<{ core: PatchMapRuntime; renderer: AtomicLoadRendererDouble }> {
   const rendererDouble = new AtomicLoadRendererDouble();
-  const renderer = exactPublicationCheckpoint
-    ? new Proxy(rendererDouble, {
-        getPrototypeOf: () => PatchMapPixiRenderer.prototype,
-      })
-    : rendererDouble;
   const TestPatchMap = PatchMapRuntime as unknown as new (
     renderer: PatchMapPixiRenderer,
     options: PatchMapRuntimeOptions,
   ) => PatchMapRuntime;
   const core = new TestPatchMap(
-    renderer as unknown as PatchMapPixiRenderer,
+    rendererDouble as unknown as PatchMapPixiRenderer,
     {
       autoRender: false,
       ...(onTerminalFailure ? { onTerminalFailure } : {}),
@@ -380,7 +333,7 @@ function createActiveCore(
     naturalSize: Object.freeze([23, 17] as const),
   }));
   expect(core.activeAnimations).toBe(1);
-  return { core, renderer };
+  return { core, renderer: rendererDouble };
 }
 
 const BAR_ID = 'item-a::bar:level';
@@ -430,8 +383,6 @@ class AtomicLoadRendererDouble {
   public currentProjection: PatchMapRuntime['visibleProjection'] = null;
   public nextProjectionFailure: Error | null = null;
   public nextMarkFailure: Error | null = null;
-  public rollbackProjectionIndex: PatchMapRuntime['visibleProjection'] = null;
-  public rollbackProjectionFailure: Error | null = null;
   public capturedPublicationCheckpoint: PatchMapPixiRendererPublicationCheckpoint | null = null;
   public restoredPublicationCheckpoint: PatchMapPixiRendererPublicationCheckpoint | null = null;
   private readonly bindings = new Map<string, RendererBinding>();
@@ -453,17 +404,13 @@ class AtomicLoadRendererDouble {
 
   public markOverlayChanges(): void {}
 
+  public setInstancePresentationOverrides(): boolean { return false; }
+
   public setProjection(index: NonNullable<PatchMapRuntime['visibleProjection']>): boolean {
     this.currentProjection = index;
     const nextFailure = this.nextProjectionFailure;
     this.nextProjectionFailure = null;
     if (nextFailure) throw nextFailure;
-    if (
-      index === this.rollbackProjectionIndex &&
-      this.rollbackProjectionFailure !== null
-    ) {
-      throw this.rollbackProjectionFailure;
-    }
     return true;
   }
 

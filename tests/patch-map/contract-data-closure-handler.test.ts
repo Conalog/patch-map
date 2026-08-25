@@ -1,14 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import fixtureProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
 
 import {
   PatchMap,
-  materializePatchMapCompatibilityDataset,
   type PatchMapEngineSurface,
   type PatchMapPoint,
   type PatchMapSurfaceDebug,
@@ -94,7 +93,6 @@ interface HandlerRuntime {
   readonly DATA_CLOSURE_ACTION_TYPES: readonly string[];
   createDataClosureHandlerEntries(
     this: void,
-    product: Readonly<JsonRecord>,
   ): readonly HandlerEntry[];
 }
 
@@ -120,12 +118,12 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [catalogRuntime, materializeRuntime, handlerRuntime, workerRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<HandlerRuntime>(
-    '../../scripts/verification/core-v2-contract/handlers/data-closure.mjs',
+    '../../scripts/verification/patch-map-contract/handlers/data-closure.mjs',
   ),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -143,17 +141,15 @@ describe('PatchMap data-closure actual-only handlers', () => {
   it('registers the exact browser-safe action surface behind the dependency firewall', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/data-closure.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/data-closure.mjs',
         import.meta.url,
       )),
       'utf8',
     );
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
-    const entries = createDataClosureHandlerEntries(productAdapter());
+    const entries = createDataClosureHandlerEntries();
 
     expect(DATA_CLOSURE_ACTION_TYPES).toEqual([
-      'ingestLegacyRoot',
-      'snapshot',
       'loadDataset',
       'select',
       'applyInvalidCases',
@@ -172,34 +168,6 @@ describe('PatchMap data-closure actual-only handlers', () => {
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
     expect(source).not.toMatch(/node:/u);
     await assertCommittedVerifierEntryImportFirewall('handlers/data-closure.mjs', 'handler');
-  });
-
-  it('observes product-owned legacy compatibility and exact malformed diagnostics', async () => {
-    const { execution, engines, surfaces } = await runCase('DAT-006');
-
-    expectCompleted(execution, [
-      'ingestLegacyRoot',
-      'snapshot',
-      'loadDataset',
-      'snapshot',
-      'ingestLegacyRoot',
-    ]);
-    expect(actualAt(execution, 0, 'accepted')).toBe(true);
-    expect(actualAt(execution, 0, 'canonical')).toEqual([{
-      type: 'item',
-      id: 'legacy-a',
-      label: 'Legacy A',
-      size: { width: 100, height: 80 },
-      attrs: { x: 10, y: 20 },
-    }]);
-    expect(actualAt(execution, 0, 'diagnostic')).toBeNull();
-    expect(actualAt(execution, 0, 'inputObservation.unchanged')).toBe(true);
-    expect(actualAt(execution, 2, 'canonical.0.id')).toBe('legacy-a');
-    expect(actualAt(execution, 2, 'sceneRevision')).toBe(1);
-    expect(actualAt(execution, 4, 'diagnostic.code')).toBe('INVALID_LEGACY_ROOT');
-    expect(actualAt(execution, 4, 'diagnostic.datasetPath')).toBe('$.height');
-    expect(engines).toHaveLength(1);
-    expect(surfaces.every(({ destroyed }) => destroyed)).toBe(true);
   });
 
   it('rejects the complete DAT-007 invalid matrix without partial publication', async () => {
@@ -264,7 +232,7 @@ async function runDirectData008(): Promise<{
   const engines: PatchMap[] = [];
   const datasetMap = datasets();
   const clock = new ManualClock();
-  const entries = new Map(createDataClosureHandlerEntries(productAdapter()));
+  const entries = new Map(createDataClosureHandlerEntries());
   const resolveDataset = (reference: string): Promise<unknown> => {
     if (!datasetMap.has(reference)) throw new Error(`Missing dataset ${reference}`);
     return Promise.resolve(structuredClone(datasetMap.get(reference)));
@@ -340,7 +308,7 @@ async function runCase(caseId: string): Promise<{
     },
     datasets: datasets(),
     clock: new ManualClock(),
-    handlerEntries: createDataClosureHandlerEntries(productAdapter()),
+    handlerEntries: createDataClosureHandlerEntries(),
   });
   expect(JSON.stringify(plan)).toBe(before);
   return { execution, engines, surfaces };
@@ -350,18 +318,6 @@ function selectedCase(id: string): MaterializedCase {
   const selected = selectCatalogCases(catalog, { caseIds: [id] })[0];
   if (selected === undefined) throw new Error(`Missing approved case ${id}`);
   return materializeCase(selected, { size: '100', seed: '319' });
-}
-
-function productAdapter(): Readonly<JsonRecord> {
-  return Object.freeze({
-    materializeDataset(input: unknown): Readonly<JsonRecord> {
-      const compatible = materializePatchMapCompatibilityDataset(input);
-      return Object.freeze({
-        dataset: compatible.canonicalDataset,
-        semanticHash: compatible.semanticHash,
-      });
-    },
-  });
 }
 
 function datasets(): ReadonlyMap<string, unknown> {
@@ -428,6 +384,18 @@ class TestSurface implements PatchMapEngineSurface {
       isRecord(value) && typeof value.id === 'string' ? [value.id] : []
     )));
     this.#selectionIds = [];
+  }
+
+  public reconcile(input: unknown) {
+    const selection = this.#selectionIds;
+    this.load(input);
+    this.#selectionIds = Object.freeze(selection.filter((id) => this.#rootIds.has(id)));
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 1,
+      denseChanged: true,
+      diagnostics: Object.freeze([]),
+    });
   }
 
   public publishFrame(_timeMs: number): void {}

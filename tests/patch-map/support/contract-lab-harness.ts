@@ -7,7 +7,7 @@ import {
   type PatchMapExecutableLabBridgeOptions,
 } from '../../../lab/patch-map/contract/executable-bridge';
 import type { SlotRange } from '../../../src/patch-map/dense/contracts';
-import { parsePatchMapV010 } from '../../../src/patch-map';
+import { parsePatchMap } from '../../../src/patch-map';
 import type {
   PatchMapBarPresentationProductProbe,
   PatchMapComponentVisualTarget,
@@ -477,7 +477,7 @@ export class FakeSurface implements PatchMapEngineSurface {
 
   public geometrySnapshot(): PatchMapSurfaceGeometrySnapshot {
     if (this.geometryMode === 'projection') {
-      const parsed = parsePatchMapV010(this.dataset);
+      const parsed = parsePatchMap(this.dataset);
       const projected = createPatchMapSurfaceGeometrySnapshot(
         fakeSceneSnapshot(parsed.document, this.geometryRevision, this.selectionIds),
         parsed.projection,
@@ -487,6 +487,7 @@ export class FakeSurface implements PatchMapEngineSurface {
     }
     return Object.freeze({
       revision: this.geometryRevision,
+      sceneRevision: this.geometryRevision,
       entities: Object.freeze(this.geometryEntities()),
       relations: Object.freeze([]),
       selectionOverlay: null,
@@ -545,7 +546,7 @@ function fakeRenderLanes(): PatchMapRenderLaneSnapshot {
 }
 
 function fakeSceneSnapshot(
-  document: ReturnType<typeof parsePatchMapV010>['document'],
+  document: ReturnType<typeof parsePatchMap>['document'],
   revision: number,
   selectionIds: readonly string[],
 ): Parameters<typeof createPatchMapSurfaceGeometrySnapshot>[0] {

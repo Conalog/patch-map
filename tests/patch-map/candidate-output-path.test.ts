@@ -100,7 +100,7 @@ describe('PatchMap candidate output boundaries', () => {
     for (const output of [
       'performance/patch-map/results',
       'performance/patch-map/results/nested',
-      'docs/reference/core-v2-functional-contract/evidence',
+      'contracts/patch-map/evidence',
     ]) {
       expect(() => parse(output)).toThrow('protected evidence');
     }

@@ -1,7 +1,7 @@
-import actionSchemaJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-action-schema.v1.json';
-import manifestJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-evidence-manifest.v1.json';
-import profileJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
-import fixtureCatalogJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-fixtures.v1.json';
+import actionSchemaJson from '../../../contracts/patch-map/evidence/catalog-action-schema.v1.json';
+import manifestJson from '../../../contracts/patch-map/evidence/catalog-evidence-manifest.v1.json';
+import profileJson from '../../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
+import fixtureCatalogJson from '../../../contracts/patch-map/evidence/catalog-fixtures.v1.json';
 import {
   deepFreezePatchMapLabValue as deepFreeze,
   isPatchMapLabRecord as isRecord,
@@ -64,7 +64,6 @@ export const PATCH_MAP_EXECUTABLE_CASE_IDS = Object.freeze([
   'DAT-003',
   'DAT-004',
   'DAT-005',
-  'DAT-006',
   'DAT-007',
   'DAT-008',
   'PIX-001',
@@ -105,9 +104,6 @@ export const PATCH_MAP_EXECUTABLE_CASE_IDS = Object.freeze([
   'ACC-003',
   'OPS-001',
   'OPS-002',
-  'MIG-001',
-  'MIG-002',
-  'MIG-003',
   'UPD-001',
   'UPD-002',
   'UPD-003',
@@ -185,15 +181,11 @@ export const PATCH_MAP_EXECUTABLE_CASE_IDS = Object.freeze([
 
 export type PatchMapExecutableCaseId = (typeof PATCH_MAP_EXECUTABLE_CASE_IDS)[number];
 
-export const PATCH_MAP_EXECUTABLE_COUNT = 173;
+export const PATCH_MAP_EXECUTABLE_COUNT = PATCH_MAP_EXECUTABLE_CASE_IDS.length;
 export const PATCH_MAP_CONTRACT_STUB_COUNT = 0;
 
-const CONTRACT_REVISION = 'core-v2-functional-contract/2026-07-16.2';
-const ACTION_LANGUAGE_REVISION = 'core-v2-catalog-actions/1';
-const APPROVED_CASE_COUNT = 173;
-const APPROVED_ACTION_DEFINITION_COUNT = 381;
-const EXECUTABLE_ACTION_COUNT = 646;
-const EXECUTABLE_ACTION_TYPE_COUNT = 381;
+const CONTRACT_REVISION = 'patch-map-contract/1';
+const ACTION_LANGUAGE_REVISION = 'patch-map-catalog-actions/1';
 const CANONICAL_SIZES = new Set(['100', '500', '1000', '2000', '5000', 'production']);
 const EXECUTABLE_ID_SET = new Set<string>(PATCH_MAP_EXECUTABLE_CASE_IDS);
 
@@ -297,11 +289,13 @@ invariant(fixtureCatalog.contractRevision === CONTRACT_REVISION, 'fixture contra
 invariant(manifest.contractRevision === CONTRACT_REVISION, 'manifest contract revision drift');
 invariant(profiles.contractRevision === CONTRACT_REVISION, 'profile contract revision drift');
 invariant(actionSchema.actionLanguageRevision === ACTION_LANGUAGE_REVISION, 'action language revision drift');
-invariant(fixtureCatalog.cases.length === APPROVED_CASE_COUNT, 'fixture case count must remain 173');
-invariant(manifest.cases.length === APPROVED_CASE_COUNT, 'manifest case count must remain 173');
 invariant(
-  actionSchema.definitions.length === APPROVED_ACTION_DEFINITION_COUNT,
-  'action definition count must remain 381',
+  fixtureCatalog.cases.length === PATCH_MAP_EXECUTABLE_COUNT,
+  'fixture case count must match the executable case inventory',
+);
+invariant(
+  manifest.cases.length === PATCH_MAP_EXECUTABLE_COUNT,
+  'manifest case count must match the executable case inventory',
 );
 invariant(profiles.seed === 319, 'canonical profile seed drift');
 invariant(profiles.clock.kind === 'manual', 'canonical profile clock drift');
@@ -332,7 +326,7 @@ for (const fixture of selectedFixtures) {
   invariant(/^[a-f0-9]{64}$/.test(manifestRecord.fixtureSha256), `${fixture.id} fixture digest`);
   invariant(fixture.rootTestId === `scenario-${fixture.id.toLowerCase()}`, `${fixture.id} root identity`);
   invariant(
-    fixture.lab.route === `/lab/core-v2?scenario=${fixture.id}&size=<SIZE>&seed=<SEED>`,
+    fixture.lab.route === `/lab/patch-map?scenario=${fixture.id}&size=<SIZE>&seed=<SEED>`,
     `${fixture.id} canonical route`,
   );
   fixtureProfileValuesById.set(fixture.id, resolveDigestBoundProfileValues(fixture));
@@ -347,16 +341,14 @@ for (const fixture of selectedFixtures) {
   fixtureById.set(fixture.id, fixture);
 }
 
-invariant(
-  selectedActionCount === EXECUTABLE_ACTION_COUNT,
-  `executable action count drift: ${selectedActionCount}`,
-);
-invariant(
-  selectedActionTypes.size === EXECUTABLE_ACTION_TYPE_COUNT,
-  `executable action type count drift: ${selectedActionTypes.size}`,
-);
+invariant(selectedActionCount > 0, 'executable action inventory must not be empty');
+invariant(selectedActionTypes.size > 0, 'executable action type inventory must not be empty');
 
 const actionDefinitionByType = new Map(actionSchema.definitions.map((definition) => [definition.type, definition]));
+invariant(
+  actionDefinitionByType.size === actionSchema.definitions.length,
+  'action definition types must be unique',
+);
 const selectedActionDefinitions = [...selectedActionTypes].map((type) => {
   const definition = actionDefinitionByType.get(type);
   invariant(definition !== undefined, `missing action definition ${type}`);

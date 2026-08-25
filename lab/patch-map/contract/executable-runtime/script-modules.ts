@@ -8,144 +8,140 @@ import type {
 // boundary; normalized expected evidence is intentionally never imported.
 
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as foundationHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/foundation.mjs';
+import * as foundationHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/foundation.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as emptyStateHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/empty-state.mjs';
+import * as emptyStateHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/empty-state.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as dataFoundationHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/data-foundation.mjs';
+import * as dataFoundationHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/data-foundation.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as dataClosureHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/data-closure.mjs';
+import * as dataClosureHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/data-closure.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as lifecycleResizeHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/lifecycle-resize.mjs';
+import * as lifecycleResizeHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/lifecycle-resize.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as lifecycleDestroyHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/lifecycle-destroy.mjs';
+import * as lifecycleDestroyHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/lifecycle-destroy.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as lifecycleInterruptionHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/lifecycle-interruption.mjs';
+import * as lifecycleInterruptionHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/lifecycle-interruption.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as determinismLifecycleHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/determinism-lifecycle.mjs';
+import * as determinismLifecycleHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/determinism-lifecycle.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as renderFoundationHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/render-foundation.mjs';
+import * as renderFoundationHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/render-foundation.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as renderBoundsHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/render-bounds.mjs';
+import * as renderBoundsHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/render-bounds.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as renderOrientationHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/render-orientation.mjs';
+import * as renderOrientationHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/render-orientation.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as renderRelationsHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/render-relations.mjs';
+import * as renderRelationsHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/render-relations.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as renderImagesHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/render-images.mjs';
+import * as renderImagesHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/render-images.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as renderComponentAssetsHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/render-component-assets.mjs';
+import * as renderComponentAssetsHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/render-component-assets.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as renderTextHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/render-text.mjs';
+import * as renderTextHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/render-text.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as layoutOrderHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/layout-order.mjs';
+import * as layoutOrderHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/layout-order.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as presentationDynamicsHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/presentation-dynamics.mjs';
+import * as presentationDynamicsHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/presentation-dynamics.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as updateTransactionsHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/update-transactions.mjs';
+import * as updateTransactionsHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/update-transactions.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as viewportHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/viewport.mjs';
+import * as viewportHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/viewport.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as querySelectionHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/query-selection.mjs';
+import * as querySelectionHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/query-selection.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as pointerSelectionHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/pointer-selection.mjs';
+import * as pointerSelectionHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/pointer-selection.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as interactionEditorHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/interaction-editor.mjs';
+import * as interactionEditorHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/interaction-editor.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as authoringHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/authoring.mjs';
+import * as authoringHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/authoring.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as editorWorkflowHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/editor-workflow.mjs';
+import * as editorWorkflowHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/editor-workflow.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as assetHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/assets.mjs';
+import * as assetHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/assets.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as assetIngestionHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/asset-ingestion.mjs';
+import * as assetIngestionHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/asset-ingestion.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as securityOperationsHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/security-operations.mjs';
+import * as securityOperationsHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/security-operations.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as accessibilityHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/accessibility.mjs';
+import * as accessibilityHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/accessibility.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as migrationHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/migration.mjs';
+import * as historyHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/history.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as historyHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/history.mjs';
+import * as replacementRecoveryHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/replacement-recovery.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as replacementRecoveryHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/replacement-recovery.mjs';
+import * as exportExtractionHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/export-extraction.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as exportExtractionHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/export-extraction.mjs';
+import * as pixijsIntegrationHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/pixijs-integration.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as pixijsIntegrationHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/pixijs-integration.mjs';
+import * as packageIntegrationHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/package-integration.mjs';
 // @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as packageIntegrationHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/package-integration.mjs';
-// @ts-expect-error -- committed browser-safe action modules are authored as ESM JavaScript.
-import * as performanceHandlersModule from '../../../../scripts/verification/core-v2-contract/handlers/performance.mjs';
+import * as performanceHandlersModule from '../../../../scripts/verification/patch-map-contract/handlers/performance.mjs';
 
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as foundationFoldModule from '../../../../scripts/verification/core-v2-contract/fold-foundation.mjs';
+import * as foundationFoldModule from '../../../../scripts/verification/patch-map-contract/fold-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as dataFoundationFoldModule from '../../../../scripts/verification/core-v2-contract/fold-data-foundation.mjs';
+import * as dataFoundationFoldModule from '../../../../scripts/verification/patch-map-contract/fold-data-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as dataClosureFoldModule from '../../../../scripts/verification/core-v2-contract/fold-data-closure.mjs';
+import * as dataClosureFoldModule from '../../../../scripts/verification/patch-map-contract/fold-data-closure.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as lifecycleResizeFoldModule from '../../../../scripts/verification/core-v2-contract/fold-lifecycle-resize.mjs';
+import * as lifecycleResizeFoldModule from '../../../../scripts/verification/patch-map-contract/fold-lifecycle-resize.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as lifecycleDestroyFoldModule from '../../../../scripts/verification/core-v2-contract/fold-lifecycle-destroy.mjs';
+import * as lifecycleDestroyFoldModule from '../../../../scripts/verification/patch-map-contract/fold-lifecycle-destroy.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as lifecycleInterruptionFoldModule from '../../../../scripts/verification/core-v2-contract/fold-lifecycle-interruption.mjs';
+import * as lifecycleInterruptionFoldModule from '../../../../scripts/verification/patch-map-contract/fold-lifecycle-interruption.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as determinismLifecycleFoldModule from '../../../../scripts/verification/core-v2-contract/fold-determinism-lifecycle.mjs';
+import * as determinismLifecycleFoldModule from '../../../../scripts/verification/patch-map-contract/fold-determinism-lifecycle.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as renderFoundationFoldModule from '../../../../scripts/verification/core-v2-contract/fold-render-foundation.mjs';
+import * as renderFoundationFoldModule from '../../../../scripts/verification/patch-map-contract/fold-render-foundation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as renderBoundsFoldModule from '../../../../scripts/verification/core-v2-contract/fold-render-bounds.mjs';
+import * as renderBoundsFoldModule from '../../../../scripts/verification/patch-map-contract/fold-render-bounds.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as renderOrientationFoldModule from '../../../../scripts/verification/core-v2-contract/fold-render-orientation.mjs';
+import * as renderOrientationFoldModule from '../../../../scripts/verification/patch-map-contract/fold-render-orientation.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as renderRelationsFoldModule from '../../../../scripts/verification/core-v2-contract/fold-render-relations.mjs';
+import * as renderRelationsFoldModule from '../../../../scripts/verification/patch-map-contract/fold-render-relations.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as renderImagesFoldModule from '../../../../scripts/verification/core-v2-contract/fold-render-images.mjs';
+import * as renderImagesFoldModule from '../../../../scripts/verification/patch-map-contract/fold-render-images.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as renderComponentAssetsFoldModule from '../../../../scripts/verification/core-v2-contract/fold-render-component-assets.mjs';
+import * as renderComponentAssetsFoldModule from '../../../../scripts/verification/patch-map-contract/fold-render-component-assets.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as renderTextFoldModule from '../../../../scripts/verification/core-v2-contract/fold-render-text.mjs';
+import * as renderTextFoldModule from '../../../../scripts/verification/patch-map-contract/fold-render-text.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as layoutOrderFoldModule from '../../../../scripts/verification/core-v2-contract/fold-layout-order.mjs';
+import * as layoutOrderFoldModule from '../../../../scripts/verification/patch-map-contract/fold-layout-order.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as presentationDynamicsFoldModule from '../../../../scripts/verification/core-v2-contract/fold-presentation-dynamics.mjs';
+import * as presentationDynamicsFoldModule from '../../../../scripts/verification/patch-map-contract/fold-presentation-dynamics.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as updateTransactionsFoldModule from '../../../../scripts/verification/core-v2-contract/fold-update-transactions.mjs';
+import * as updateTransactionsFoldModule from '../../../../scripts/verification/patch-map-contract/fold-update-transactions.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as viewportFoldModule from '../../../../scripts/verification/core-v2-contract/fold-viewport.mjs';
+import * as viewportFoldModule from '../../../../scripts/verification/patch-map-contract/fold-viewport.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as querySelectionFoldModule from '../../../../scripts/verification/core-v2-contract/fold-query-selection.mjs';
+import * as querySelectionFoldModule from '../../../../scripts/verification/patch-map-contract/fold-query-selection.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as pointerSelectionFoldModule from '../../../../scripts/verification/core-v2-contract/fold-pointer-selection.mjs';
+import * as pointerSelectionFoldModule from '../../../../scripts/verification/patch-map-contract/fold-pointer-selection.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as interactionEditorFoldModule from '../../../../scripts/verification/core-v2-contract/fold-interaction-editor.mjs';
+import * as interactionEditorFoldModule from '../../../../scripts/verification/patch-map-contract/fold-interaction-editor.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as authoringFoldModule from '../../../../scripts/verification/core-v2-contract/fold-authoring.mjs';
+import * as authoringFoldModule from '../../../../scripts/verification/patch-map-contract/fold-authoring.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as editorWorkflowFoldModule from '../../../../scripts/verification/core-v2-contract/fold-editor-workflow.mjs';
+import * as editorWorkflowFoldModule from '../../../../scripts/verification/patch-map-contract/fold-editor-workflow.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as assetFoldModule from '../../../../scripts/verification/core-v2-contract/fold-assets.mjs';
+import * as assetFoldModule from '../../../../scripts/verification/patch-map-contract/fold-assets.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as assetIngestionFoldModule from '../../../../scripts/verification/core-v2-contract/fold-asset-ingestion.mjs';
+import * as assetIngestionFoldModule from '../../../../scripts/verification/patch-map-contract/fold-asset-ingestion.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as securityOperationsFoldModule from '../../../../scripts/verification/core-v2-contract/fold-security-operations.mjs';
+import * as securityOperationsFoldModule from '../../../../scripts/verification/patch-map-contract/fold-security-operations.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as accessibilityFoldModule from '../../../../scripts/verification/core-v2-contract/fold-accessibility.mjs';
+import * as accessibilityFoldModule from '../../../../scripts/verification/patch-map-contract/fold-accessibility.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as migrationFoldModule from '../../../../scripts/verification/core-v2-contract/fold-migration.mjs';
+import * as historyFoldModule from '../../../../scripts/verification/patch-map-contract/fold-history.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as historyFoldModule from '../../../../scripts/verification/core-v2-contract/fold-history.mjs';
+import * as replacementRecoveryFoldModule from '../../../../scripts/verification/patch-map-contract/fold-replacement-recovery.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as replacementRecoveryFoldModule from '../../../../scripts/verification/core-v2-contract/fold-replacement-recovery.mjs';
+import * as exportExtractionFoldModule from '../../../../scripts/verification/patch-map-contract/fold-export-extraction.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as exportExtractionFoldModule from '../../../../scripts/verification/core-v2-contract/fold-export-extraction.mjs';
+import * as pixijsIntegrationFoldModule from '../../../../scripts/verification/patch-map-contract/fold-pixijs-integration.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as pixijsIntegrationFoldModule from '../../../../scripts/verification/core-v2-contract/fold-pixijs-integration.mjs';
+import * as packageIntegrationFoldModule from '../../../../scripts/verification/patch-map-contract/fold-package-integration.mjs';
 // @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as packageIntegrationFoldModule from '../../../../scripts/verification/core-v2-contract/fold-package-integration.mjs';
-// @ts-expect-error -- committed browser-safe folds are authored as ESM JavaScript.
-import * as performanceFoldModule from '../../../../scripts/verification/core-v2-contract/fold-performance.mjs';
+import * as performanceFoldModule from '../../../../scripts/verification/patch-map-contract/fold-performance.mjs';
 
 export const PATCH_MAP_HANDLER_MODULES = bindHandlerModules(Object.freeze({
   foundation: foundationHandlersModule as unknown,
@@ -176,7 +172,6 @@ export const PATCH_MAP_HANDLER_MODULES = bindHandlerModules(Object.freeze({
   assetIngestion: assetIngestionHandlersModule as unknown,
   securityOperations: securityOperationsHandlersModule as unknown,
   accessibility: accessibilityHandlersModule as unknown,
-  migration: migrationHandlersModule as unknown,
   history: historyHandlersModule as unknown,
   replacementRecovery: replacementRecoveryHandlersModule as unknown,
   exportExtraction: exportExtractionHandlersModule as unknown,
@@ -213,7 +208,6 @@ export const PATCH_MAP_FOLD_MODULES = bindFoldModules(Object.freeze({
   assetIngestion: assetIngestionFoldModule as unknown,
   securityOperations: securityOperationsFoldModule as unknown,
   accessibility: accessibilityFoldModule as unknown,
-  migration: migrationFoldModule as unknown,
   history: historyFoldModule as unknown,
   replacementRecovery: replacementRecoveryFoldModule as unknown,
   exportExtraction: exportExtractionFoldModule as unknown,

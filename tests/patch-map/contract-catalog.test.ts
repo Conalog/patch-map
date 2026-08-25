@@ -126,9 +126,9 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [catalogRuntime, registryRuntime, materializeRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<RegistryRuntime>('../../scripts/verification/core-v2-contract/action-registry.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<RegistryRuntime>('../../scripts/verification/patch-map-contract/action-registry.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
 ]);
 
 const {
@@ -153,7 +153,7 @@ const {
 
 const EXPECTED_T1_IDS = [
   'LIF-001', 'LIF-002', 'LIF-003', 'LIF-004', 'LIF-005', 'LIF-006',
-  'DAT-001', 'DAT-002', 'DAT-003', 'DAT-004', 'DAT-005', 'DAT-006', 'DAT-007', 'DAT-008',
+  'DAT-001', 'DAT-002', 'DAT-003', 'DAT-004', 'DAT-005', 'DAT-007', 'DAT-008',
   'DET-001', 'DET-002', 'DET-003', 'DET-004',
 ];
 
@@ -166,22 +166,22 @@ beforeAll(async () => {
 describe('executor-safe PatchMap catalog', () => {
   it('validates the approved inventory without loading expected contents', () => {
     expect(catalog.inventory).toEqual({
-      cases: 173,
-      capabilityCases: 135,
+      cases: 169,
+      capabilityCases: 131,
       consumerJourneys: 38,
-      priorities: { P0: 121, P1: 52 },
-      actionDefinitions: 381,
-      actionSteps: 646,
-      routes: 173,
-      rootTestIds: 173,
+      priorities: { P0: 121, P1: 48 },
+      actionDefinitions: 370,
+      actionSteps: 631,
+      routes: 169,
+      rootTestIds: 169,
     });
-    expect(catalog.cases).toHaveLength(173);
-    expect(catalog.actionDefinitions).toHaveLength(381);
-    expect(new Set(catalog.cases.map((record) => record.labRoute)).size).toBe(173);
-    expect(new Set(catalog.cases.map((record) => record.rootTestId)).size).toBe(173);
+    expect(catalog.cases).toHaveLength(169);
+    expect(catalog.actionDefinitions).toHaveLength(370);
+    expect(new Set(catalog.cases.map((record) => record.labRoute)).size).toBe(169);
+    expect(new Set(catalog.cases.map((record) => record.rootTestId)).size).toBe(169);
 
     for (const record of catalog.cases) {
-      expect(record.labRoute).toBe(`/lab/core-v2?scenario=${record.id}&size=<SIZE>&seed=<SEED>`);
+      expect(record.labRoute).toBe(`/lab/patch-map?scenario=${record.id}&size=<SIZE>&seed=<SEED>`);
       expect(record.rootTestId).toBe(`scenario-${record.id.toLowerCase()}`);
       expect(Object.keys(record.expected).sort()).toEqual(['ref', 'sha256']);
     }
@@ -194,7 +194,7 @@ describe('executor-safe PatchMap catalog', () => {
     expect(
       selectCatalogCases(catalog, { caseIds: ['PIX-001', 'LIF-001'] }).map((record) => record.id),
     ).toEqual(['PIX-001', 'LIF-001']);
-    expect(selectCatalogCases(catalog)).toHaveLength(173);
+    expect(selectCatalogCases(catalog)).toHaveLength(169);
   });
 
   it('rejects ambiguous, duplicate, malformed, and unknown selections', () => {
@@ -215,9 +215,9 @@ describe('executor-safe PatchMap catalog', () => {
     expect(catalog.opaqueBindings.expectedFile.sha256).toMatch(/^[a-f0-9]{64}$/);
 
     const executorSources = await Promise.all([
-      '../../scripts/verification/core-v2-contract/catalog.mjs',
-      '../../scripts/verification/core-v2-contract/materialize.mjs',
-      '../../scripts/verification/core-v2-contract/action-registry.mjs',
+      '../../scripts/verification/patch-map-contract/catalog.mjs',
+      '../../scripts/verification/patch-map-contract/materialize.mjs',
+      '../../scripts/verification/patch-map-contract/action-registry.mjs',
     ].map(async (relativePath) => readFile(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf8')));
 
     for (const source of executorSources) {
@@ -252,10 +252,10 @@ describe('executor-safe route materialization', () => {
     const plan = createExecutorPlan(catalog, { tranche: 'T1', size: '500', seed: '319' });
     expect(plan.selection).toEqual({ tranche: 'T1', caseIds: EXPECTED_T1_IDS });
     expect(plan.routeParams).toEqual({ size: '500', seed: 319 });
-    expect(plan.routes).toHaveLength(18);
+    expect(plan.routes).toHaveLength(17);
     expect(plan.routes[0]).toEqual({
       id: 'LIF-001',
-      route: '/lab/core-v2?scenario=LIF-001&size=500&seed=319',
+      route: '/lab/patch-map?scenario=LIF-001&size=500&seed=319',
       rootTestId: 'scenario-lif-001',
     });
     expect(Object.isFrozen(plan)).toBe(true);
@@ -283,16 +283,16 @@ describe('executor-safe route materialization', () => {
 });
 
 describe('exact selected action-handler coverage', () => {
-  it('requires all 55 exact T1 handler IDs', () => {
+  it('requires all 54 exact T1 handler IDs', () => {
     const selectedCases = selectCatalogCases(catalog, { tranche: 'T1' });
     const required = requiredHandlerIds(catalog.actionDefinitions, selectedCases);
     const handlers = new Map(required.map((handlerId) => [handlerId, () => undefined]));
     const coverage = assertExactHandlerCoverage(catalog.actionDefinitions, selectedCases, handlers);
 
-    expect(required).toHaveLength(55);
+    expect(required).toHaveLength(54);
     expect(coverage).toEqual({
-      requiredCount: 55,
-      registeredCount: 55,
+      requiredCount: 54,
+      registeredCount: 54,
       handlerIds: required,
     });
 

@@ -1,10 +1,10 @@
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import { PatchMapParseError } from '../../src/patch-map/contracts';
 import {
-  parsePatchMapV010,
-  parsePatchMapV010Async,
+  parsePatchMap,
+  parsePatchMapAsync,
 } from '../../src/patch-map/parser';
 
 describe('PatchMap cooperative parser', () => {
@@ -12,8 +12,8 @@ describe('PatchMap cooperative parser', () => {
     const input = structuredClone(catalogProfiles.datasets['all-kinds-scene']);
     const before = JSON.stringify(input);
 
-    const synchronous = parsePatchMapV010(input);
-    const cooperative = await parsePatchMapV010Async(input);
+    const synchronous = parsePatchMap(input);
+    const cooperative = await parsePatchMapAsync(input);
 
     expect(cooperative).toEqual(synchronous);
     expect(JSON.stringify(input)).toBe(before);
@@ -23,14 +23,14 @@ describe('PatchMap cooperative parser', () => {
   it('preserves the canonical fatal diagnostic for invalid roots', async () => {
     let synchronousError: PatchMapParseError | null = null;
     try {
-      parsePatchMapV010(null);
+      parsePatchMap(null);
     } catch (error) {
       if (error instanceof PatchMapParseError) synchronousError = error;
       else throw error;
     }
     expect(synchronousError).not.toBeNull();
 
-    await expect(parsePatchMapV010Async(null)).rejects.toMatchObject({
+    await expect(parsePatchMapAsync(null)).rejects.toMatchObject({
       name: 'PatchMapParseError',
       diagnostics: synchronousError?.diagnostics,
     });

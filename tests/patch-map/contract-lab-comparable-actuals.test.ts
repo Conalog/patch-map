@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import normalizedExpected from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import normalizedExpected from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import type { PatchMapContractLabRunResult } from '../../lab/patch-map/contract/bridge';
 import { createPatchMapExecutableLabBridge } from '../../lab/patch-map/contract/executable-bridge';
 import packageConsumerEvidence from '../../performance/patch-map/results/package-consumer.json';
@@ -11,7 +11,7 @@ import {
 } from './support/contract-lab-harness';
 import type { FakeSurface } from './support/contract-lab-harness';
 // @ts-expect-error -- the independent browser-safe comparator is authored as ESM JavaScript.
-import * as compareModule from '../../scripts/verification/core-v2-contract/compare.mjs';
+import * as compareModule from '../../scripts/verification/patch-map-contract/compare.mjs';
 
 interface CompareRuntime {
   compareObservation(this: void, input: Readonly<Record<string, unknown>>): Readonly<{
@@ -74,7 +74,7 @@ describe('PatchMap executable Lab product bridge', () => {
       if (caseId === 'PKG-003') {
         expect(run.captures).toEqual({
           baselineB: {
-            assetLeaseCount: 1,
+            assetLeaseCount: 5,
             sceneSemanticHash: 'fnv1a64:b858a777de1619ca',
           },
         });

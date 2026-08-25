@@ -1,4 +1,4 @@
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -480,6 +480,7 @@ class ViewportSurface implements PatchMapEngineSurface {
   }
 
   public load(): void {}
+  public reconcile(_input: unknown) { return committedReconcile(); }
   public publishFrame(): void {}
 
   public resize(width: number, height: number, pixelRatio: number): boolean {
@@ -645,6 +646,15 @@ class ViewportSurface implements PatchMapEngineSurface {
     this.viewportInputListener = null;
     return Promise.resolve(true);
   }
+}
+
+function committedReconcile() {
+  return Object.freeze({
+    status: 'committed' as const,
+    operationCount: 0,
+    denseChanged: false,
+    diagnostics: Object.freeze([]),
+  });
 }
 
 class CooperativeViewportSurface extends ViewportSurface {

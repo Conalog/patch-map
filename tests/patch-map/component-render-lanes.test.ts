@@ -13,7 +13,7 @@ import {
   type PatchMapAssetBackendRequest,
 } from '../../src/patch-map/assets';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
 import {
   AggregateMeshLayer,
@@ -27,7 +27,7 @@ import type { PatchMapProjectionRenderContext } from '../../src/patch-map/render
 
 describe('PatchMap fixed component render lanes', () => {
   it('backs every production role with a fixed aggregate container in exact paint order', async () => {
-    const parsed = parsePatchMapV010([
+    const parsed = parsePatchMap([
       {
         type: 'image',
         id: 'site-underlay',
@@ -138,7 +138,7 @@ describe('PatchMap fixed component render lanes', () => {
   });
 
   it('uses one chunk GraphicsContext for transparent-fill styled backgrounds and tints the border', () => {
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'item',
       id: 'item',
       size: { width: 100, height: 80 },
@@ -208,14 +208,14 @@ describe('PatchMap fixed component render lanes', () => {
   });
 
   it('removes a rect background lane before publishing its same-ID background Sprite', async () => {
-    const initial = parsePatchMapV010([backgroundDataset({
+    const initial = parsePatchMap([backgroundDataset({
       type: 'rect',
       fill: '#ff0000',
       borderWidth: 2,
       radius: 8,
     })]);
-    const replacement = parsePatchMapV010([backgroundDataset('fixture-image')]);
-    const hidden = parsePatchMapV010([backgroundDataset('fixture-image', false)]);
+    const replacement = parsePatchMap([backgroundDataset('fixture-image')]);
+    const hidden = parsePatchMap([backgroundDataset('fixture-image', false)]);
     const entityId = 'item::background:bg';
     const mesh = new AggregateMeshLayer({ chunkSize: 8 });
     const leaves = await createResolvedLeafLayer(replacement.projection, 'component-background-swap');
@@ -273,7 +273,7 @@ describe('PatchMap fixed component render lanes', () => {
   });
 
   it('reports semantic packed tint and the applied Sprite tint without reacquiring', async () => {
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'item',
       id: 'item-a',
       size: { width: 100, height: 80 },
@@ -334,7 +334,7 @@ describe('PatchMap fixed component render lanes', () => {
   });
 
   it('dirties the exact slot for component-role and background-paint-only projection changes', () => {
-    const parsed = parsePatchMapV010([backgroundDataset({
+    const parsed = parsePatchMap([backgroundDataset({
       type: 'rect',
       fill: '#ff0000',
       radius: [1, 2, 3, 4],

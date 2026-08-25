@@ -413,7 +413,7 @@ function scene(): readonly unknown[] {
         type: 'text',
         id: 'label',
         text: 'Status',
-        style: { fontFamily: 'Fira Code', fontSize: 14 },
+        style: { fontFamily: 'FiraCode', fontSize: 14 },
       }],
     },
     {
@@ -428,7 +428,7 @@ function scene(): readonly unknown[] {
       id: 'text-c',
       text: 'Telemetry',
       attrs: { x: 0, y: 100 },
-      style: { fontFamily: 'Fira Code', fontSize: 14 },
+      style: { fontFamily: 'FiraCode', fontSize: 14 },
     },
     {
       type: 'relations',

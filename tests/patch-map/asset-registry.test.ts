@@ -9,6 +9,7 @@ import {
   PatchMapAssetError,
   PatchMapAssetRuntime,
   createPatchMapPixiAssetBackend,
+  normalizePatchMapAssetDescriptor,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
   type PatchMapAssetPolicyContext,
@@ -25,7 +26,7 @@ import {
 } from '../../src/patch-map/assets/registration-normalization';
 import { stableHash64Hex } from '../../src/patch-map/shared/stable-hash';
 
-const PATCH_MAP_V010_BUILTIN_SHA256 = Object.freeze({
+const PATCH_MAP_BUILTIN_SHA256 = Object.freeze({
   object: 'e87c2ae562c7a3941a0c79249aa4c37494ef6222de31e57779d2aaa31d79e4d4',
   inverter: 'd7527c15410edb84e560a9dcd763edf4914be13494c5a99509c373dff803992d',
   combiner: '2965f5e1c28bd8779d7f02e967cefa43893d4171046708243b1ab03451ed1ee5',
@@ -112,7 +113,7 @@ describe('PatchMap shared asset runtime', () => {
     }
   });
 
-  it('owns the exact transparent PATCH MAP v0.10 filled glyph sources', () => {
+  it('owns the exact transparent PatchMap filled glyph sources', () => {
     expect(BUILTIN_IMAGE_ALIASES).toEqual([
       'object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi',
     ]);
@@ -125,7 +126,7 @@ describe('PatchMap shared asset runtime', () => {
       expect(svg).toMatch(/fill="#(?:FFF|FFFFFF)"/u);
       expect(svg).not.toContain('<rect');
       expect(createHash('sha256').update(svg).digest('hex')).toBe(
-        PATCH_MAP_V010_BUILTIN_SHA256[alias],
+        PATCH_MAP_BUILTIN_SHA256[alias],
       );
       expect(decodeURIComponent(builtinImageDataUri(alias).split(',', 2)[1] ?? '')).toBe(svg);
     }
@@ -266,6 +267,24 @@ describe('PatchMap shared asset runtime', () => {
 
     await acquired.release();
     expect(backend.unloadKeys).toHaveLength(1);
+  });
+
+  it('rejects unknown descriptor fields while preserving the parser descriptor', () => {
+    expect(normalizePatchMapAssetDescriptor({
+      src: 'https://assets.example.test/current.svg',
+      parser: 'svg',
+    })).toEqual({
+      src: 'https://assets.example.test/current.svg',
+      parser: 'svg',
+    });
+    const unknownDescriptorField = 'unsupportedLoader';
+    expect(() => normalizePatchMapAssetDescriptor({
+      src: 'https://assets.example.test/unknown-field.svg',
+      [unknownDescriptorField]: 'loadSvg',
+    } as never)).toThrowError(expect.objectContaining({
+      code: 'INVALID_VALUE',
+      category: 'INVALID_INPUT',
+    }));
   });
 
   it('deduplicates pending work, revalidates each instance, and unloads after the final lease', async () => {
@@ -600,7 +619,7 @@ describe('PatchMap shared asset runtime', () => {
           type: src.includes('FiraCode') ? 'font/woff2' : 'image/svg+xml',
         }));
       },
-      createObjectURL: () => `blob:core-v2/builtin-${++objectUrlSequence}`,
+      createObjectURL: () => `blob:patch-map/builtin-${++objectUrlSequence}`,
       revokeObjectURL: () => undefined,
     });
     const pixiAssets = Assets as unknown as {
@@ -651,7 +670,7 @@ describe('PatchMap shared asset runtime', () => {
     const imageLoad = load.mock.calls[0]?.[0] as { readonly alias?: unknown } | undefined;
     expect(imageLoad).toMatchObject({
       parser: 'svg',
-      src: 'blob:core-v2/builtin-1',
+      src: 'blob:patch-map/builtin-1',
     });
     expect(imageLoad?.alias).toEqual(expect.stringMatching(
       /^patch-map-asset:device:content:[0-9a-f]{16}$/u,
@@ -687,7 +706,7 @@ describe('PatchMap shared asset runtime', () => {
       expect(load.mock.calls[0]?.[0]).toMatchObject({
         alias: `patch-map-asset:font-${registration.fontWeight}`,
         parser: 'web-font',
-        src: `blob:core-v2/builtin-${index + 2}`,
+        src: `blob:patch-map/builtin-${index + 2}`,
         data: { family: 'FiraCode', weights: [String(registration.fontWeight)] },
       });
       expect(fetchedSources[index + 1]).toMatch(/^file:.*FiraCode-[A-Za-z]+\.woff2$/u);
@@ -707,7 +726,7 @@ describe('PatchMap shared asset runtime', () => {
     expect(fetchedSources[6]).toBe(rawHostSvg);
     expect(load.mock.calls[0]?.[0]).toMatchObject({
       alias: hostRequest.key,
-      src: 'blob:core-v2/builtin-7',
+      src: 'blob:patch-map/builtin-7',
     });
     await backend.unload(hostRequest.key);
     expect(unload).toHaveBeenLastCalledWith(hostRequest.key);
@@ -822,7 +841,7 @@ describe('PatchMap shared asset runtime', () => {
         return Promise.resolve(new Blob(['fixture'], { type: 'image/svg+xml' }));
       },
       createObjectURL: () => {
-        const url = `blob:core-v2/${created.length + 1}`;
+        const url = `blob:patch-map/${created.length + 1}`;
         created.push(url);
         return url;
       },
@@ -849,10 +868,10 @@ describe('PatchMap shared asset runtime', () => {
 
     await Promise.all([backend.load(first), backend.load(second)]);
     expect(fetched).toEqual([first.descriptor.src, second.descriptor.src]);
-    expect(created).toEqual(['blob:core-v2/1', 'blob:core-v2/2']);
+    expect(created).toEqual(['blob:patch-map/1', 'blob:patch-map/2']);
     expect(load.mock.calls.map(([descriptor]) => descriptor)).toMatchObject([
-      { alias: first.key, src: 'blob:core-v2/1', parser: 'svg', data: { resolution: 1 } },
-      { alias: second.key, src: 'blob:core-v2/2', parser: 'svg', data: { resolution: 2 } },
+      { alias: first.key, src: 'blob:patch-map/1', parser: 'svg', data: { resolution: 1 } },
+      { alias: second.key, src: 'blob:patch-map/2', parser: 'svg', data: { resolution: 2 } },
     ]);
 
     unload.mockRejectedValueOnce(new Error('fixture Pixi unload failure'));
@@ -860,8 +879,8 @@ describe('PatchMap shared asset runtime', () => {
     expect(revoked).toEqual([]);
     await backend.unload(first.key);
     expect(unload).toHaveBeenCalledWith(first.key);
-    expect(revoked).toEqual(['blob:core-v2/1']);
+    expect(revoked).toEqual(['blob:patch-map/1']);
     await backend.unload(second.key);
-    expect(revoked).toEqual(['blob:core-v2/1', 'blob:core-v2/2']);
+    expect(revoked).toEqual(['blob:patch-map/1', 'blob:patch-map/2']);
   });
 });

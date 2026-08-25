@@ -1,7 +1,7 @@
 export const PATCH_MAP_PRESENTATION_DYNAMICS_RUNTIME_REVISION =
-  'core-v2-presentation-dynamics-runtime/1';
+  'patch-map-presentation-dynamics-runtime/1';
 export const PATCH_MAP_PRESENTATION_DYNAMICS_CLEANUP_REVISION =
-  'core-v2-presentation-dynamics-cleanup/1';
+  'patch-map-presentation-dynamics-cleanup/1';
 
 export const PATCH_MAP_PRESENTATION_DYNAMICS_CASE_IDS = Object.freeze([
   'UPD-005',

@@ -115,7 +115,7 @@ export function renderPatchMapContractLab(route: PatchMapContractRoute): string 
   </header>
   <div class="contract-lab-layout">
     <aside class="contract-catalog" aria-label="승인된 PatchMap 케이스">
-      <label for="patch-map-contract-search">173개 케이스 찾기</label>
+      <label for="patch-map-contract-search">${PATCH_MAP_CONTRACT_PRESENTERS.length}개 케이스 찾기</label>
       <input id="patch-map-contract-search" type="search" data-testid="scenario-search" autocomplete="off" placeholder="ID 또는 한국어 제목">
       <nav data-testid="scenario-list">${scenarioList(route)}</nav>
     </aside>

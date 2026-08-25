@@ -240,7 +240,7 @@ export class PatchMapExecutableLiveGestureController {
     }
 
     return deepFreeze({
-      revision: 'core-v2-contract-gesture-plan/1',
+      revision: 'patch-map-contract-gesture-plan/1',
       actionIndex,
       driverId: 'trusted-pointer-wheel',
       ownerQualifiedTarget:
@@ -333,7 +333,7 @@ export class PatchMapExecutableLiveGestureController {
       ? [{ x: 20, y: 30 }, { x: 400, y: 400 }]
       : [{ x: 170, y: 50 }, { x: 400, y: 400 }];
     return deepFreeze({
-      revision: 'core-v2-contract-gesture-plan/1',
+      revision: 'patch-map-contract-gesture-plan/1',
       actionIndex,
       driverId: this.casePlan.id === 'EVT-003'
         ? 'trusted-pointer-hover-leave'
@@ -384,7 +384,7 @@ export class PatchMapExecutableLiveGestureController {
     const snapshot = engine.snapshot();
     const anchorWorld = engine.screenToWorld({ x: 400, y: 300 });
     return deepFreeze({
-      $schema: 'core-v2-contract-gesture-observation/1',
+      $schema: 'patch-map-contract-gesture-observation/1',
       case: {
         id: this.casePlan.id,
         actionIndex: session.actionIndex,
@@ -412,7 +412,7 @@ export class PatchMapExecutableLiveGestureController {
   ): Readonly<Record<string, unknown>> {
     const snapshot = session.engine.snapshot();
     return deepFreeze({
-      $schema: 'core-v2-contract-pointer-input-observation/1',
+      $schema: 'patch-map-contract-pointer-input-observation/1',
       case: {
         id: this.casePlan.id,
         actionIndex: session.actionIndex,

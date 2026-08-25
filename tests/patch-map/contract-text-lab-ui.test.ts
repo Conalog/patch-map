@@ -16,19 +16,19 @@ const runObserverUrl = new URL(
   import.meta.url,
 );
 const browserScriptUrl = new URL(
-  '../../scripts/verification/core-v2-contract-render-browser.mjs',
+  '../../scripts/verification/patch-map-contract-render-browser.mjs',
   import.meta.url,
 );
 const browserCatalogUrl = new URL(
-  '../../scripts/verification/core-v2-contract-render-browser/catalog.mjs',
+  '../../scripts/verification/patch-map-contract-render-browser/catalog.mjs',
   import.meta.url,
 );
 const browserAssertionsUrl = new URL(
-  '../../scripts/verification/core-v2-contract-render-browser/assertions.mjs',
+  '../../scripts/verification/patch-map-contract-render-browser/assertions.mjs',
   import.meta.url,
 );
 const browserRunUrl = new URL(
-  '../../scripts/verification/core-v2-contract-render-browser/browser-run.mjs',
+  '../../scripts/verification/patch-map-contract-render-browser/browser-run.mjs',
   import.meta.url,
 );
 
@@ -47,7 +47,7 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
 
   it('renders six seeded REN-006 actual phases without changing its six canonical actions', () => {
     const route = parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=REN-006&size=100&seed=319',
+      '/lab/patch-map?scenario=REN-006&size=100&seed=319',
     );
     const plan = materializePatchMapExecutableCase('REN-006', '100', 319);
     const markup = renderPatchMapContractLab(route);
@@ -98,7 +98,7 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
 
   it('renders the exact seven REN-011 matrix choices without changing its four canonical actions', () => {
     const route = parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=REN-011&size=100&seed=319',
+      '/lab/patch-map?scenario=REN-011&size=100&seed=319',
     );
     const plan = materializePatchMapExecutableCase('REN-011', '100', 319);
     const markup = renderPatchMapContractLab(route);
@@ -146,13 +146,13 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
 
   it('uses the route seed only for deterministic display selection and omits text inspectors elsewhere', () => {
     const ren006SeedZero = renderPatchMapContractLab(parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=REN-006&size=100&seed=0',
+      '/lab/patch-map?scenario=REN-006&size=100&seed=0',
     ));
     const ren011SeedZero = renderPatchMapContractLab(parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=REN-011&size=100&seed=0',
+      '/lab/patch-map?scenario=REN-011&size=100&seed=0',
     ));
     const nearby = renderPatchMapContractLab(parsePatchMapContractRoute(
-      '/lab/core-v2?scenario=REN-010&size=100&seed=319',
+      '/lab/patch-map?scenario=REN-010&size=100&seed=319',
     ));
 
     expect(ren006SeedZero).toContain('data-seeded-choice="initial"');
@@ -212,12 +212,12 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
 
     expect(records.filter(({ id }) => id === 'REN-006' || id === 'REN-011')).toEqual([
       { id: 'REN-006', expectedAssertions: 30 },
-      { id: 'REN-011', expectedAssertions: 20 },
+      { id: 'REN-011', expectedAssertions: 17 },
     ]);
     expect(catalogSource).toContain(
       "const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);",
     );
-    expect(source).toContain("from './core-v2-contract-render-browser/browser-run.mjs'");
+    expect(source).toContain("from './patch-map-contract-render-browser/browser-run.mjs'");
     expect(browserRunSource).toContain('async function collectTextFocusedUi');
     expect(browserRunSource).toContain("inspectorTestId: 'ren-006-text-inspector'");
     expect(browserRunSource).toContain("inspectorTestId: 'ren-011-text-inspector'");

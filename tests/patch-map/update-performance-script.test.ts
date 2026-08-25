@@ -242,7 +242,7 @@ function validOutput(): UpdatePerformanceOutput {
   });
   return {
     schemaVersion: 1,
-    checkpoint: 'core-v2-update-transactions',
+    checkpoint: 'patch-map-update-transactions',
     protocol: {
       warmups: 2,
       measured: 7,

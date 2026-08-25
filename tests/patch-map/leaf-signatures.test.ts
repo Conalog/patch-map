@@ -116,4 +116,39 @@ describe('PatchMap leaf render signatures', () => {
 
     expect(left).toBe(right);
   });
+
+  it('attaches justify to the exact dense and renderer signatures', () => {
+    const store = {
+      text: ['A B\nC D'],
+      fontFamily: ['FiraCode'],
+      fontSize: [16],
+      fontWeight: [400],
+      align: [RenderAlign.Justify],
+      width: [80],
+      height: [40],
+    } as unknown as RenderStoreView;
+    const dense = textSemanticSignatures(store, 0, null);
+    const style: PatchMapTextRenderStyle = Object.freeze({
+      fontFamily: 'FiraCode',
+      fontSize: 16,
+      fontWeight: 400,
+      fontStyle: 'normal',
+      lineHeight: 20,
+      letterSpacing: 0,
+      advancedFeatures: Object.freeze(['align:justify']),
+    });
+    const renderer = textRendererSignature(
+      'pixi-text',
+      null,
+      'A B\nC D',
+      style,
+      'justify',
+      { align: 'justify' },
+      0xffffffff,
+      1,
+    );
+
+    expect(dense.style).toContain(',3]');
+    expect(renderer).toContain('"align":"justify"');
+  });
 });

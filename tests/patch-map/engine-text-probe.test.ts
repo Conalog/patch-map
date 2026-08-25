@@ -11,7 +11,7 @@ import {
   type PatchMapSurfaceView,
 } from '../../src/patch-map/engine';
 import { readPatchMapEngineTextProbe } from '../../src/patch-map/engine/product-probe-reader';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapRenderLaneRole,
@@ -203,9 +203,9 @@ describe('PatchMap O(1) text product seam', () => {
     expect(engine.textProbe(elementTarget())).toBeNull();
   });
 
-  it('truthfully exposes semantic-only availability for a legacy injected surface', async () => {
-    const surface = new LegacyTextSurface();
-    const engine = await createEngine(engines, surface, 'text-legacy');
+  it('truthfully exposes semantic-only availability for a minimal surface', async () => {
+    const surface = new MinimalTextSurface();
+    const engine = await createEngine(engines, surface, 'semantic-text-probe');
     engine.loadDataset([
       ...directTextDataset('semantic only'),
       ...itemTextDataset(),
@@ -273,13 +273,22 @@ describe('PatchMap O(1) text product seam', () => {
   });
 });
 
-class LegacyTextSurface implements PatchMapEngineSurface {
+class MinimalTextSurface implements PatchMapEngineSurface {
   public canvasCount = 1;
   public destroyed = false;
   protected view: PatchMapSurfaceView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   protected selectionIds: readonly string[] = Object.freeze([]);
 
   public load(_input: unknown): void {}
+  public reconcile(input: unknown): PatchMapSurfaceReconcileResult {
+    this.load(input);
+    return Object.freeze({
+      status: 'committed',
+      operationCount: 1,
+      denseChanged: true,
+      diagnostics: Object.freeze([]),
+    });
+  }
   public publishFrame(): void {}
   public resize(): boolean { return false; }
   public setView(view: PatchMapSurfaceView): void { this.view = Object.freeze({ ...view }); }
@@ -302,7 +311,7 @@ class LegacyTextSurface implements PatchMapEngineSurface {
   }
 }
 
-class IndexedTextSurface extends LegacyTextSurface {
+class IndexedTextSurface extends MinimalTextSurface {
   public readonly reconciledSources: string[] = [];
   public readonly publishedSources: string[] = [];
 
@@ -313,13 +322,13 @@ class IndexedTextSurface extends LegacyTextSurface {
   private frame = 0;
 
   public override load(input: unknown): void {
-    this.parsed = parsePatchMapV010(input);
+    this.parsed = parsePatchMap(input);
     this.surfaceSceneRevision += 1;
     this.rebuildProbes();
   }
 
-  public reconcile(input: unknown): PatchMapSurfaceReconcileResult {
-    this.parsed = parsePatchMapV010(input);
+  public override reconcile(input: unknown): PatchMapSurfaceReconcileResult {
+    this.parsed = parsePatchMap(input);
     this.surfaceSceneRevision += 1;
     this.reconciledSources.push(...this.currentSources());
     this.rebuildProbes();

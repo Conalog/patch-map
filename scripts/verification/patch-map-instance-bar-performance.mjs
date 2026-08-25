@@ -96,7 +96,7 @@ function summarizeCpuProfile(profile) {
 
 async function configure(page, size, trial) {
   await page.goto(
-    `lab/patch-map/?scenario=REN-009&size=100&seed=${319 + trial}`,
+    `lab/patch-map?scenario=REN-009&size=100&seed=${319 + trial}`,
     { waitUntil: 'networkidle', timeout: 120_000 },
   );
   await page.waitForFunction(

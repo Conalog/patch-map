@@ -166,7 +166,7 @@ describe('PatchMap executable bridge failure cleanup', () => {
     expect(execution.status).toBe('failed');
     expect(cleanup).toMatchObject({ status: 'completed', errors: [] });
     expect(productResources).toMatchObject({
-      revision: 'core-v2-text-runtime-cleanup/1',
+      revision: 'patch-map-text-runtime-cleanup/1',
       caseId: 'REN-006',
       runtimeCounts: {
         activeSessionCount: 0,

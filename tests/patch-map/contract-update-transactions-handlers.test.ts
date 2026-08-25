@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
 
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import {
   UPDATE_TRANSACTIONS_ACTION_TYPES,
   UPDATE_TRANSACTIONS_CASE_IDS,
@@ -53,7 +53,7 @@ describe('PatchMap shared update transaction action handlers', () => {
       'update-transactions/mutation-actions.mjs',
       'update-transactions/support.mjs',
     ].map(async (relativePath) => readFile(fileURLToPath(new URL(
-      `../../scripts/verification/core-v2-contract/handlers/${relativePath}`,
+      `../../scripts/verification/patch-map-contract/handlers/${relativePath}`,
       import.meta.url,
     )), 'utf8')))).join('\n');
     const adapter = createProductAdapter();

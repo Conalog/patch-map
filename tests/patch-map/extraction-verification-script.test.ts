@@ -68,6 +68,9 @@ describe('PatchMap extraction verification scripts', () => {
     expect(packageSource).toContain('canvasCountAfterDestroy:');
     expect(memorySource).toContain('PATCH_MAP_MEMORY_ARTIFACT_DIR');
     expect(memorySource).toContain('engine.extractPublishedScene({');
+    expect(memorySource).toContain("bar: {\n            targets: [{ id: 'item-a', componentId: 'level' }],");
+    expect(memorySource).toContain('height: new Float64Array([42]),');
+    expect(memorySource).not.toContain('heights: new Float64Array([42]),');
     expect(memorySource).toContain('tooltipSubscription = engine.bindTooltipHost(');
     expect(memorySource).toContain(
       "JSON.stringify(['hover', 'pin', 'drag', 'redraw', 'destroy'])",

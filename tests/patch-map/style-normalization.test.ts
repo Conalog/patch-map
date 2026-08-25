@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { parsePatchMap } from '../../src/patch-map/parser';
 import {
   normalizePatchMapTextStylePatch,
   type PatchMapDatasetError,
@@ -52,7 +53,7 @@ describe('PatchMap authored style normalization', () => {
     expect(Object.isFrozen(stroke.texture)).toBe(true);
     expect(Object.isFrozen(stroke.matrix)).toBe(true);
     expect(style).toMatchObject({
-      fontFamily: 'Fira Code',
+      fontFamily: 'FiraCode',
       fontSize: 16,
       fontWeight: 400,
       fill: 'primary.default',
@@ -67,13 +68,30 @@ describe('PatchMap authored style normalization', () => {
   });
 
   it('preserves defaults and exact closed-schema diagnostic precedence', () => {
-    expect(normalizeRectTexture({}, '$.source')).toEqual({
+    expect(normalizeRectTexture({ type: 'rect' }, '$.source')).toEqual({
       type: 'rect',
       fill: '#00000000',
       borderWidth: 0,
       borderColor: '#1a1a1aff',
       radius: 0,
     });
+    expect(() => normalizeRectTexture({}, '$.source')).toThrowError(
+      expect.objectContaining<Partial<PatchMapDatasetError>>({
+        code: 'INVALID_VALUE',
+        datasetPath: '$.source.type',
+      }),
+    );
+    expect(() => parsePatchMap([{
+      type: 'item',
+      id: 'item',
+      size: 20,
+      components: [{
+        type: 'bar',
+        id: 'bar',
+        source: { fill: '#ffffff' },
+        size: 10,
+      }],
+    }])).toThrow("Rect texture source must declare type 'rect'");
     expect(normalizeStrokeStyle(undefined, '$.style')).toEqual({
       color: '#1a1a1aff',
       alpha: 1,
@@ -92,6 +110,16 @@ describe('PatchMap authored style normalization', () => {
       expect.objectContaining<Partial<PatchMapDatasetError>>({
         code: 'UNKNOWN_FIELD',
         datasetPath: '$.source.aUnknown',
+      }),
+    );
+    const unknownDescriptorField = 'unsupportedLoader';
+    expect(() => normalizeAssetSource({
+      src: '/unknown-descriptor-field',
+      [unknownDescriptorField]: 'loadTextures',
+    }, '$.source')).toThrowError(
+      expect.objectContaining<Partial<PatchMapDatasetError>>({
+        code: 'UNKNOWN_FIELD',
+        datasetPath: `$.source.${unknownDescriptorField}`,
       }),
     );
     expect(() => normalizeTextStyle({

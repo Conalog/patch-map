@@ -1,8 +1,8 @@
-import productionShapedWorkloadJson from '../../../docs/reference/core-v2-functional-contract/evidence/production-shaped-workload.v1.json';
+import productionShapedWorkloadJson from '../../../contracts/patch-map/evidence/production-shaped-workload.v1.json';
 import type { PatchMap } from '../../../src/patch-map';
 
-export const PATCH_MAP_VIEWPORT_RUNTIME_REVISION = 'core-v2-viewport-runtime/1';
-export const PATCH_MAP_VIEWPORT_CLEANUP_REVISION = 'core-v2-viewport-cleanup/1';
+export const PATCH_MAP_VIEWPORT_RUNTIME_REVISION = 'patch-map-viewport-runtime/1';
+export const PATCH_MAP_VIEWPORT_CLEANUP_REVISION = 'patch-map-viewport-cleanup/1';
 
 export const PATCH_MAP_VIEWPORT_CASE_IDS = Object.freeze([
   'VIE-001',

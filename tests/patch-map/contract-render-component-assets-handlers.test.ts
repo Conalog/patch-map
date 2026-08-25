@@ -97,12 +97,12 @@ interface WorkerRuntime {
 }
 
 const [catalogRuntime, materializeRuntime, handlerRuntime, workerRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<HandlerRuntime>(
-    '../../scripts/verification/core-v2-contract/handlers/render-component-assets.mjs',
+    '../../scripts/verification/patch-map-contract/handlers/render-component-assets.mjs',
   ),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -127,7 +127,7 @@ describe('PatchMap REN-008 / REN-010 component-asset actual-only handlers', () =
     const entries = createRenderComponentAssetHandlerEntries(harness.product);
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/render-component-assets.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/render-component-assets.mjs',
         import.meta.url,
       )),
       'utf8',
@@ -135,7 +135,7 @@ describe('PatchMap REN-008 / REN-010 component-asset actual-only handlers', () =
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
 
     expect(RENDER_COMPONENT_ASSETS_HANDLER_REVISION)
-      .toBe('core-v2-render-component-assets-handlers/2');
+      .toBe('patch-map-render-component-assets-handlers/2');
     expect(RENDER_COMPONENT_ASSETS_CASE_IDS).toEqual(['REN-008', 'REN-010']);
     expect(RENDER_COMPONENT_ASSETS_ACTION_TYPES).toEqual([
       'loadDataset',
@@ -466,7 +466,7 @@ function createHarness(
       if (request.caseId !== caseId) throw new Error('Resource case drift');
       const engine = currentEngine;
       return {
-        revision: 'core-v2-component-assets-resource-probe/1',
+        revision: 'patch-map-component-assets-resource-probe/1',
         caseId,
         counts: resourceCounts(engine),
         journal: structuredClone(journal),
@@ -619,7 +619,7 @@ class FakeComponentAssetEngine {
     const geometry = requireRecord(component.geometry, 'component geometry');
     return {
       revision: this.sceneRevision,
-      revisionLag: 0,
+      revisionLags: { scene: 0, view: 0, interaction: 0 },
       entities: [{
         id: component.entityId,
         kind: component.entityKind,
@@ -837,7 +837,6 @@ function backgroundDataset(): JsonRecord[] {
       type: 'background',
       id: 'bg',
       source: { type: 'rect', fill: '#ff0000', borderWidth: 2, radius: 8 },
-      size: { width: 20, height: 10 },
     }],
   }];
 }

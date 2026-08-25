@@ -11,7 +11,6 @@ import type {
   PatchMap,
   PatchMapEngineSurface,
   PatchMapSurfacePointerInput,
-  PatchMapSurfaceViewportInput,
 } from '../../src/patch-map/engine';
 import { createEngine } from './support/engine-update-transaction-surface';
 
@@ -622,10 +621,6 @@ describe('PatchMap update transactions', () => {
     const selectionBefore = engine.selectionIds;
     const internals = engine as unknown as {
       readonly materialized: Readonly<{ dataset: readonly unknown[] }> | null;
-      acceptSurfaceViewportInput(
-        owner: PatchMapEngineSurface,
-        input: PatchMapSurfaceViewportInput,
-      ): void;
       acceptSurfacePointerInput(
         owner: PatchMapEngineSurface,
         input: PatchMapSurfacePointerInput,
@@ -645,7 +640,7 @@ describe('PatchMap update transactions', () => {
     expect(() => engine.panViewport([10, 5]))
       .toThrow('terminal surface mutation failure');
 
-    internals.acceptSurfaceViewportInput(surface, {
+    surface.emitViewportInput({
       source: 'pointer',
       centerWorld: [999, 999],
       scale: 2,

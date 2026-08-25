@@ -165,7 +165,6 @@ try {
           };
           return {
             canonicalDefault: count(12, 115, 191),
-            legacyPurple: count(79, 70, 229),
             customBar: count(22, 163, 74),
             customRect: count(245, 158, 11),
             customIcon: count(239, 68, 68),
@@ -256,7 +255,6 @@ try {
 
   const result = await page.evaluate(() => window.__PATCH_MAP_THEME__);
   assert(result.defaultCapture.canonicalDefault > 8_000, 'canonical default bar captured', result);
-  assert(result.defaultCapture.legacyPurple === 0, 'legacy purple default absent', result);
   assert(result.customBefore.customBar > 8_000, 'custom bar theme captured', result);
   assert(result.customBefore.customRect > 5_000, 'custom rect theme captured', result);
   assert(result.customBefore.customText > 10, 'custom text theme captured', result);

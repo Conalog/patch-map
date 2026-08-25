@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CoreScene } from '../../src/patch-map/dense/scene';
 import { createPatchMapSurfaceGeometrySnapshot } from '../../src/patch-map/engine';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import {
   applyPatchMapAffine,
   patchMapAffineBasis,
@@ -41,7 +41,7 @@ describe('PatchMap signed affine orientation projection', () => {
   });
 
   it('publishes follow and upright facts from the parser sidecar under world rotation and flip', () => {
-    const parsed = parsePatchMapV010([
+    const parsed = parsePatchMap([
       item('follow', 'follow-item'),
       item('upright', 'upright'),
     ]);
@@ -80,7 +80,7 @@ describe('PatchMap signed affine orientation projection', () => {
   });
 
   it('applies screen-axis flips after rotation for canonical endpoint projection', () => {
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'rect',
       id: 'endpoint',
       size: { width: 20, height: 20 },
@@ -109,7 +109,7 @@ describe('PatchMap signed affine orientation projection', () => {
   });
 
   it('keeps a full-frame background attached to the item while inner content stays upright', () => {
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'item',
       id: 'equipment',
       size: { width: 100, height: 50 },
@@ -146,7 +146,7 @@ describe('PatchMap signed affine orientation projection', () => {
   });
 
   it('publishes readable bar geometry at the visible bottom without leaving its owner', () => {
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'item',
       id: 'meter',
       size: { width: 120, height: 80 },
@@ -205,7 +205,7 @@ describe('PatchMap signed affine orientation projection', () => {
   ])(
     'moves a bottom bar with its readable frame at $rotation° [flipY=$flipY]',
     ({ rotation, flipY }) => {
-      const parsed = parsePatchMapV010([{
+      const parsed = parsePatchMap([{
         type: 'item',
         id: 'flipped-meter',
         size: { width: 120, height: 80 },

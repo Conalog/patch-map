@@ -32,12 +32,12 @@ import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset
 
 describe('PatchMap human-operated Lab catalog', () => {
   it('partitions exact contract routes from reusable manual workflows', () => {
-    expect(PATCH_MAP_CONTRACT_CASE_COUNT).toBe(173);
-    expect(PATCH_MAP_EXACT_ACTION_COUNT).toBe(646);
+    expect(PATCH_MAP_CONTRACT_CASE_COUNT).toBe(169);
+    expect(PATCH_MAP_EXACT_ACTION_COUNT).toBe(631);
     expect(PATCH_MAP_MANUAL_WORKFLOW_COUNT).toBe(11);
     expect(PATCH_MAP_MANUAL_DEDICATED_CASE_COUNT).toBe(18);
-    expect(PATCH_MAP_MANUAL_SHARED_CASE_COUNT).toBe(134);
-    expect(PATCH_MAP_AUTOMATED_ONLY_CASE_COUNT).toBe(21);
+    expect(PATCH_MAP_MANUAL_SHARED_CASE_COUNT).toBe(133);
+    expect(PATCH_MAP_AUTOMATED_ONLY_CASE_COUNT).toBe(18);
     expect(PATCH_MAP_MANUAL_CASE_CATALOG.map(({ caseId }) => caseId))
       .toEqual(PATCH_MAP_CONTRACT_PRESENTERS.map(({ caseId }) => caseId));
 
@@ -67,7 +67,7 @@ describe('PatchMap human-operated Lab catalog', () => {
         /normalizedExpected|approvedExpected|comparisonResult/u,
       );
     }
-    expect(Object.keys(PATCH_MAP_KOREAN_CASE_TITLES)).toHaveLength(173);
+    expect(Object.keys(PATCH_MAP_KOREAN_CASE_TITLES)).toHaveLength(PATCH_MAP_CONTRACT_CASE_COUNT);
   });
 
   it('uses explicit workflow ownership instead of action-name guessing', () => {
@@ -127,7 +127,7 @@ describe('PatchMap human-operated Lab catalog', () => {
         `data-manual-exact-action-count="${presenter.actions.length}"`,
       );
       expect(markup).toContain('11개 공통 조작 흐름');
-      expect(markup).toContain('전용 안내 18 · 정확 자동화 173');
+      expect(markup).toContain('전용 안내 18 · 정확 자동화 169');
       expect(markup).toContain('처음이라면 여기부터');
       expect(markup).toContain('<details open>');
       expect(markup).toContain('화면 구성과 검증 범위를 빠르게 이해하기');
@@ -336,11 +336,10 @@ describe('PatchMap manual Lab scene', () => {
     ]);
 
     expect(markup).toContain('data-patch-map-contract-lab');
-    expect(markup).toContain('./contract/main.ts');
+    expect(markup).toContain('/lab/patch-map/contract/main.ts');
     expect(markup).not.toContain('Aggregate GPU renderer lab');
     expect(viteConfig).toContain("lab: fileURLToPath(new URL('./lab/patch-map/index.html'");
     expect(viteConfig).not.toContain('performance:');
-    expect(viteConfig).not.toContain('/lab/core-v2');
     expect(packageJson).not.toContain('lab:contract');
     expect(packageJson).not.toContain('verify:lab:webgpu');
     expect(publicEntry).not.toContain('createPatchMapRuntime');

@@ -12,9 +12,9 @@ import {
 } from './runtime-values';
 
 export const PATCH_MAP_EDITOR_WORKFLOW_RUNTIME_REVISION =
-  'core-v2-editor-workflow-runtime/1' as const;
+  'patch-map-editor-workflow-runtime/1' as const;
 export const PATCH_MAP_EDITOR_WORKFLOW_CLEANUP_REVISION =
-  'core-v2-editor-workflow-cleanup/1' as const;
+  'patch-map-editor-workflow-cleanup/1' as const;
 
 export const PATCH_MAP_EDITOR_WORKFLOW_CASE_IDS = Object.freeze([
   'CSM-025',

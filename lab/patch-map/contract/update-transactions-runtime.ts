@@ -2,9 +2,9 @@ import type { PatchMap } from '../../../src/patch-map';
 import { buildPatchMapSeededScenarioScene } from './seeded-scene';
 
 export const PATCH_MAP_UPDATE_TRANSACTIONS_RUNTIME_REVISION =
-  'core-v2-update-transactions-runtime/1';
+  'patch-map-update-transactions-runtime/1';
 export const PATCH_MAP_UPDATE_TRANSACTIONS_CLEANUP_REVISION =
-  'core-v2-update-transactions-cleanup/1';
+  'patch-map-update-transactions-cleanup/1';
 
 export const PATCH_MAP_UPDATE_TRANSACTIONS_CASE_IDS = Object.freeze([
   'ERR-001',

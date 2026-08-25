@@ -15,7 +15,7 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     const result = layoutPatchMapText({ source: 'ASCII' });
 
     expect(result.profile).toEqual({
-      id: 'core-v2-unicode-cell-fonts/1',
+      id: 'patch-map-unicode-cell-fonts/1',
       unicodeVersion: '16.0.0',
       grapheme: 'UAX-29-revision-45',
       lineBreak: 'UAX-14-revision-53-default-with-CJ-as-NS',
@@ -24,14 +24,14 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
       baseDirection: 'auto',
       sourceNormalization: 'none',
       layoutLineEndingNormalization: 'CRLF-and-CR-to-LF',
-      semanticCoverage: 'core-v2-contract-declared-subset/1',
+      semanticCoverage: 'patch-map-contract-declared-subset/1',
       scalarFallback: 'valid-scalars-default-to-atomic-other',
       lineBreakCoverage: 'hard-break-preserved-space-ideographic-and-explicit-breakWords',
       supplementaryAdvanceUnit: 'per-nonzero-scalar-inside-grapheme',
       baseFont: 'unifont-base-16.0.04',
       upperFont: 'unifont-upper-16.0.04',
-      missingGlyph: 'core-v2-missing-glyph-box/1',
-      ellipsisMarker: 'core-v2-ellipsis-marker/1',
+      missingGlyph: 'patch-map-missing-glyph-box/1',
+      ellipsisMarker: 'patch-map-ellipsis-marker/1',
     });
     expect(result.graphemes).toEqual(['A', 'S', 'C', 'I', 'I']);
     expect(result.lines).toEqual(['ASCII']);
@@ -47,8 +47,8 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     const largeOmitted = layoutPatchMapText({
       source: '구조물 높이\n0.8~3.2m',
       fontSizePx: 52,
-      requestedFont: 'Fira Code',
-      availableRequestedFonts: ['Fira Code'],
+      requestedFont: 'FiraCode',
+      availableRequestedFonts: ['FiraCode'],
       wordWrapWidthPx: null,
     });
     const largeExplicit = layoutPatchMapText({
@@ -245,7 +245,7 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     expect(ellipsis.visibleText).toBe('ABC…');
     expect(ellipsis.fontRuns).toEqual([
       { text: 'ABC', font: 'unifont-base-16.0.04' },
-      { text: '…', font: 'core-v2-ellipsis-marker/1' },
+      { text: '…', font: 'patch-map-ellipsis-marker/1' },
     ]);
     expect(ellipsis.layoutBounds).toEqual({ x: 0, y: 0, width: 32, height: 20 });
     expect(emojiHidden.visibleText).toBe('A');
@@ -355,25 +355,25 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     expect(result.visibleText).toBe('missing:□');
     expect(result.fontRuns).toEqual([
       { text: 'missing:', font: 'unifont-base-16.0.04' },
-      { text: '\u{10ffff}', font: 'core-v2-missing-glyph-box/1' },
+      { text: '\u{10ffff}', font: 'patch-map-missing-glyph-box/1' },
     ]);
     expect(result.missingGlyphs).toEqual([
-      { codePoint: 'U+10FFFF', identity: 'core-v2-missing-glyph-box/1', count: 1 },
+      { codePoint: 'U+10FFFF', identity: 'patch-map-missing-glyph-box/1', count: 1 },
     ]);
     expect(result.layoutBounds).toEqual({ x: 0, y: 0, width: 80, height: 20 });
   });
 
-  it('implements positive split by grapheme and makes zero and negative split finite no-ops', () => {
+  it('implements nonnegative split by grapheme and rejects negative split', () => {
     const zero = layoutPatchMapText({ source: 'AB😀CD', split: 0 });
     const positive = layoutPatchMapText({ source: 'AB😀CD', split: 2 });
-    const negative = layoutPatchMapText({ source: 'AB😀CD', split: -1 });
 
     expect(zero.lines).toEqual(['AB😀CD']);
     expect(zero.layoutBounds).toEqual({ x: 0, y: 0, width: 48, height: 20 });
     expect(positive.lines).toEqual(['AB', '😀C', 'D']);
     expect(positive.layoutBounds).toEqual({ x: 0, y: 0, width: 24, height: 60 });
-    expect(negative.lines).toEqual(['AB😀CD']);
-    expect(negative.lineCount).toBe(1);
+    expect(() => layoutPatchMapText({ source: 'AB😀CD', split: -1 })).toThrow(
+      'UNSUPPORTED_TEXT_OPTION at $.split',
+    );
   });
 
   it('matches standalone and patched international product specimens', () => {
@@ -492,7 +492,7 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     });
 
     expect(supportedDefaultOther.profile.semanticCoverage).toBe(
-      'core-v2-contract-declared-subset/1',
+      'patch-map-contract-declared-subset/1',
     );
     expect(supportedDefaultOther.diagnostics).toEqual([]);
     expect(unsupportedLineBreak.diagnostics).toContainEqual({

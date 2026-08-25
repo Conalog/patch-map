@@ -62,7 +62,7 @@ describe('PatchMap leaf text style contract', () => {
 
   it('publishes the resolved omitted multiline line height to both Pixi text routes', () => {
     const store = textStore({
-      fontFamily: 'Fira Code',
+      fontFamily: 'FiraCode',
       fontSize: 52,
       fontWeight: 400,
       align: RenderAlign.Left,
@@ -80,7 +80,7 @@ describe('PatchMap leaf text style contract', () => {
     });
   });
 
-  it('maps the PATCH MAP v0.10 FiraCode spelling to the loaded browser family', () => {
+  it('maps the PatchMap FiraCode spelling to the loaded browser family', () => {
     const store = textStore({
       fontFamily: 'FiraCode',
       fontSize: 16,
@@ -126,15 +126,36 @@ describe('PatchMap leaf text style contract', () => {
     expect(alignName(RenderAlign.Left)).toBe('left');
     expect(alignName(RenderAlign.Center)).toBe('center');
     expect(alignName(RenderAlign.Right)).toBe('right');
+    expect(alignName(RenderAlign.Justify)).toBe('justify');
     expect(alignName(99)).toBe('left');
+  });
+
+  it('publishes visible multiline justify through Pixi Text style semantics', () => {
+    const store = textStore({
+      fontFamily: 'FiraCode',
+      fontSize: 16,
+      fontWeight: 400,
+      align: RenderAlign.Justify,
+    });
+    const projection = textProjection({
+      authoredStyle: { align: 'justify', wordWrap: true },
+    });
+
+    const routeStyle = textRenderStyle(store, 0, projection);
+    expect(routeStyle.advancedFeatures).toContain('align:justify');
+    expect(textStyle(store, 0, routeStyle, projection.authoredStyle)).toMatchObject({
+      align: 'justify',
+      wordWrap: true,
+      wordWrapWidth: 100,
+    });
   });
 
   it('counts missing and visible fallback graphemes without counting hard breaks', () => {
     const fallbackText = 'A\r\n👩‍🚀e\u0301';
     const projection = textProjection({
       missingGlyphs: [
-        { codePoint: 'A', identity: 'core-v2-missing-glyph-box/1', count: 2 },
-        { codePoint: 'B', identity: 'core-v2-missing-glyph-box/1', count: 1 },
+        { codePoint: 'A', identity: 'patch-map-missing-glyph-box/1', count: 2 },
+        { codePoint: 'B', identity: 'patch-map-missing-glyph-box/1', count: 1 },
       ],
       visibleFontRuns: [
         { text: 'ignored', font: 'Primary' },
@@ -168,6 +189,7 @@ function textStore(options: {
     fontSize: [options.fontSize],
     fontWeight: [options.fontWeight],
     align: [options.align],
+    width: [100],
   } as unknown as RenderStoreView;
 }
 

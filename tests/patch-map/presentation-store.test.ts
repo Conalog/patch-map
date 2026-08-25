@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  RenderAlign,
   RenderFlags,
   RenderKind,
   type RenderStoreView,
@@ -169,6 +170,73 @@ describe('PatchMap renderer presentation store', () => {
     expect(Array.from(base.fill)).toEqual(before.fill);
     expect(base.source).toEqual(before.source);
     expect(Array.from(base.tint)).toEqual(before.tint);
+  });
+
+  it('restores every owned column and retained presentation input from a checkpoint', () => {
+    const base = store();
+    const originalPolicy = policy({
+      highlightedEntityIds: ['item-a'],
+      fillOverrides: [{ id: 'item-a', packedColor: 0x2563ebff }],
+    });
+    const originalOverrides = new Map<string, PatchMapRendererEntityPresentationOverride>([
+      ['item-a', Object.freeze({ source: 'before', radius: 3 })],
+    ]);
+    const originalAlpha = new Float32Array([0.4, 1, 1, 1]);
+    const view = new PatchMapPresentationStoreView(
+      base,
+      originalPolicy,
+      originalOverrides,
+      originalAlpha,
+    );
+    const checkpoint = view.captureCheckpoint();
+
+    const replacement = store();
+    const replacementOverrides = new Map<string, PatchMapRendererEntityPresentationOverride>([
+      ['item-a', Object.freeze({
+        kind: RenderKind.Bar,
+        visible: false,
+        opacity: 0.75,
+        fill: 0xef4444ff,
+        stroke: 0x111111ff,
+        strokeWidth: 7,
+        radius: 9,
+        source: 'after',
+        tint: 0xabcdef12,
+        trackFill: 0x12345678,
+        align: RenderAlign.Justify,
+      })],
+    ]);
+    view.synchronize(
+      replacement,
+      policy({ revision: 2, hiddenEntityIds: ['item-a'] }),
+      undefined,
+      replacementOverrides,
+      new Float32Array([1, 0.5, 0.25, 1]),
+    );
+    expect(view.source[0]).toBe('after');
+    expect(view.align[0]).toBe(RenderAlign.Justify);
+    expect(view.opacity[0]).not.toBeCloseTo(checkpoint.opacity[0] ?? 0, 6);
+
+    view.restoreCheckpoint(checkpoint);
+    const restored = view.captureCheckpoint();
+    expect(restored.base).toBe(base);
+    expect(restored.policy).toBe(originalPolicy);
+    expect(restored.overrides).toBe(originalOverrides);
+    expect(restored.alphaMultipliers).toBe(originalAlpha);
+    expect(restored.highlighted).toEqual(checkpoint.highlighted);
+    expect(restored.hidden).toEqual(checkpoint.hidden);
+    expect(restored.fillOverrides).toEqual(checkpoint.fillOverrides);
+    expect(restored.kind).toEqual(checkpoint.kind);
+    expect(restored.flags).toEqual(checkpoint.flags);
+    expect(restored.opacity).toEqual(checkpoint.opacity);
+    expect(restored.fill).toEqual(checkpoint.fill);
+    expect(restored.stroke).toEqual(checkpoint.stroke);
+    expect(restored.strokeWidth).toEqual(checkpoint.strokeWidth);
+    expect(restored.radius).toEqual(checkpoint.radius);
+    expect(restored.source).toEqual(checkpoint.source);
+    expect(restored.tint).toEqual(checkpoint.tint);
+    expect(restored.trackFill).toEqual(checkpoint.trackFill);
+    expect(restored.align).toEqual(checkpoint.align);
   });
 
 });

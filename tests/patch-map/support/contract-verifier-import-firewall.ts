@@ -7,13 +7,13 @@ interface VerifierImportFirewallModule {
 }
 
 const contractRoot = new URL(
-  '../../../scripts/verification/core-v2-contract/',
+  '../../../scripts/verification/patch-map-contract/',
   import.meta.url,
 );
 
 const firewallNamespace: unknown = await import(
   /* @vite-ignore */ new URL(
-    '../../../scripts/verification/core-v2-contract/verifier-import-firewall.mjs',
+    '../../../scripts/verification/patch-map-contract/verifier-import-firewall.mjs',
     import.meta.url,
   ).href
 );

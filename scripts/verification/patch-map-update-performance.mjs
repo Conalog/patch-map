@@ -67,7 +67,7 @@ export async function runPatchMapUpdatePerformanceCheckpoint({
     const cpus = os.cpus();
     const output = Object.freeze({
       schemaVersion: 1,
-      checkpoint: 'core-v2-update-transactions',
+      checkpoint: 'patch-map-update-transactions',
       generatedAt: startedAt,
       durationMs: performance.now() - started,
       protocol: Object.freeze({
@@ -141,7 +141,7 @@ export function summarizeUpdateSamples(samples) {
 
 export function validatePatchMapUpdatePerformanceOutput(output) {
   assert(output?.schemaVersion === 1, 'schemaVersion must be 1');
-  assert(output?.checkpoint === 'core-v2-update-transactions', 'checkpoint name mismatch');
+  assert(output?.checkpoint === 'patch-map-update-transactions', 'checkpoint name mismatch');
   assert(output?.protocol?.warmups === 2, 'checkpoint requires exactly two warmups');
   assert(output?.protocol?.measured === 7, 'checkpoint requires exactly seven measured trials');
   assert(

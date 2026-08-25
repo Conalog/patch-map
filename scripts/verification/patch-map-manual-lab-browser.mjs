@@ -25,7 +25,7 @@ const outputPath = process.env.PATCH_MAP_MANUAL_LAB_OUTPUT
   : null;
 const catalogPath = path.join(
   ROOT,
-  'docs/reference/core-v2-functional-contract/evidence/catalog-fixtures.v1.json',
+  'contracts/patch-map/evidence/catalog-fixtures.v1.json',
 );
 const catalog = JSON.parse(await readFile(catalogPath, 'utf8'));
 const cases = catalog.cases.map((record) => ({
@@ -428,7 +428,7 @@ function observePage(targetPage) {
 
 async function openCase(caseId, targetPage = page) {
   const url = new URL(
-    `lab/patch-map/?scenario=${caseId}&size=100&seed=319`,
+    `lab/patch-map?scenario=${caseId}&size=100&seed=319`,
     server.resolvedUrls.local[0],
   ).href;
   await targetPage.goto(url, { waitUntil: 'domcontentloaded' });

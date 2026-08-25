@@ -4,11 +4,11 @@ import type { SlotRange } from '../../src/patch-map/dense/contracts';
 import type { RenderStoreView } from '../../src/patch-map/dense/renderer-types';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
 import type { PatchMapResolvedPresentationPolicy } from '../../src/patch-map/presentation-policy';
-import {
-  PatchMapPixiRenderer,
-  type PatchMapPixiRendererPublicationCheckpoint,
-} from '../../src/patch-map/renderers/pixi-renderer';
-import type { PatchMapPresentationStoreView } from '../../src/patch-map/renderers/presentation-store';
+import { PatchMapPixiRenderer } from '../../src/patch-map/renderers/pixi-renderer';
+import { PatchMapPresentationStoreView } from '../../src/patch-map/renderers/presentation-store';
+import { PatchMapPixiCpuPublicationAuthority } from '../../src/patch-map/renderers/pixi-renderer/cpu-publication-authority';
+import type { PatchMapPixiRendererPublicationCheckpoint } from '../../src/patch-map/renderers/pixi-renderer/publication-checkpoint';
+import { createTestProjectionIndex } from './support/projection-index';
 
 describe('PatchMap Pixi renderer publication checkpoint', () => {
   it('restores exact retained CPU state after load-side projection, policy, and rebuild mutations', () => {
@@ -17,12 +17,13 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
     const originalRanges: SlotRange[] = [{ start: 1, end: 3 }];
     const originalOverlayRanges: SlotRange[] = [{ start: 4, end: 5 }];
     const originalPolicy = policy(1);
-    const originalPresentationStore = Object.create(null) as PatchMapPresentationStoreView;
-    const originalPresentationBaseStore = Object.freeze({
-      capacity: 0,
-    }) as unknown as RenderStoreView;
+    const originalPresentationBaseStore = renderStore(2, 'base-before');
+    const originalPresentationStore = new PatchMapPresentationStoreView(
+      originalPresentationBaseStore,
+      originalPolicy,
+    );
     const originalPendingSourceStore = renderStore(2, 'pending-before');
-    const renderer = rendererHarness({
+    const renderer = publicationHarness({
       projectionIndex: originalProjection,
       staleProjectionEntityIds: originalStaleIds,
       projectionRevision: 7,
@@ -64,13 +65,12 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
     expect(restored.presentationBaseStore).toBe(originalPresentationBaseStore);
     expect(restored.pendingSourceStore).toBe(originalPendingSourceStore);
 
-    renderer.destroyedValue = true;
     expect(() => restoreHarnessPublication(renderer, checkpoint)).not.toThrow();
-    expect(renderer.projectionIndex).toBe(originalProjection);
+    expect(captureHarnessPublication(renderer).projectionIndex).toBe(originalProjection);
   });
 
   it('leaves the checkpointed state exact when projection diff calculation throws', () => {
-    const renderer = rendererHarness({
+    const renderer = publicationHarness({
       lastStore: Object.freeze({
         capacity: 1,
         ids: Object.freeze(['entity-a']),
@@ -79,23 +79,46 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
     });
     const checkpoint = captureHarnessPublication(renderer);
     const failure = new Error('projection getter failed');
-    const throwingByEntityId: Record<string, unknown> = {};
+    const throwingByEntityId = {} as Record<
+      string,
+      PatchMapProjectionIndex['byEntityId'][string]
+    >;
     Object.defineProperty(throwingByEntityId, 'entity-a', {
       enumerable: true,
       get(): never {
         throw failure;
       },
     });
-    const throwingProjection = Object.freeze({
+    const throwingProjection = createTestProjectionIndex({
       byEntityId: throwingByEntityId,
-    }) as PatchMapProjectionIndex;
+    });
 
     expect(() => renderer.setProjection(throwingProjection)).toThrow(failure);
     expect(captureHarnessPublication(renderer)).toEqual(checkpoint);
   });
 
+  it('restores renderer-local conservative bar visibility with the CPU checkpoint tuple', () => {
+    const renderer = Object.create(PatchMapPixiRenderer.prototype) as RendererOuterCheckpointHarness;
+    Object.assign(renderer, {
+      destroyedValue: false,
+      cpuPublication: publicationHarness({ projectionIndex: projection('original') }),
+      barPresentationVisibilityConservative: false,
+    });
+    const checkpoint = renderer.capturePublicationCheckpoint();
+    expect(checkpoint.barPresentationVisibilityConservative).toBe(false);
+
+    expect(renderer.setProjection(projection('replacement'))).toBe(true);
+    expect(renderer.barPresentationVisibilityConservative).toBe(true);
+
+    renderer.restorePublicationCheckpoint(checkpoint);
+    expect(renderer.barPresentationVisibilityConservative).toBe(false);
+    expect(renderer.capturePublicationCheckpoint().projectionIndex).toBe(
+      checkpoint.projectionIndex,
+    );
+  });
+
   it('does not publish a policy before its presentation store is constructed', () => {
-    const renderer = rendererHarness({
+    const renderer = publicationHarness({
       presentationPolicy: policy(1),
       lastSourceStore: Object.freeze({ capacity: 1 }) as RenderStoreView,
     });
@@ -106,7 +129,7 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
   });
 
   it('owns a stable dense alpha column and restores its checkpointed values', () => {
-    const renderer = rendererHarness();
+    const renderer = publicationHarness();
     const initial = new Float32Array([0.4, 1, 1]);
 
     expect(renderer.setPresentationLayerMultipliers({
@@ -116,7 +139,7 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
       alphaMultipliers: initial,
       dirtyRanges: undefined,
     })).toBe(true);
-    const owned = renderer.presentationAlphaMultipliers;
+    const owned = captureHarnessPublication(renderer).presentationAlphaMultipliers;
     expect(owned).not.toBe(initial);
     expect(Array.from(owned)).toEqual(Array.from(initial));
     initial[0] = 0.9;
@@ -131,12 +154,51 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
       alphaMultipliers: retargeted,
       dirtyRanges: [{ start: 1, end: 2 }],
     });
-    expect(renderer.presentationAlphaMultipliers).toBe(owned);
+    expect(captureHarnessPublication(renderer).presentationAlphaMultipliers).toBe(owned);
     expect(Array.from(owned)).toEqual(Array.from(retargeted));
 
     restoreHarnessPublication(renderer, checkpoint);
-    expect(renderer.presentationAlphaMultipliers).toBe(owned);
+    expect(captureHarnessPublication(renderer).presentationAlphaMultipliers).toBe(owned);
     expect(Array.from(owned)).toEqual([expect.closeTo(0.4, 6), 1, 1]);
+  });
+
+  it('restores presentation store columns after a staged layer clear mutates them in place', () => {
+    const sourceStore = renderStore(1, 'source');
+    const renderer = publicationHarness({
+      lastStore: sourceStore,
+      lastSourceStore: sourceStore,
+    });
+    renderer.setPresentationPolicy(policy(1));
+    renderer.setPresentationLayerMultipliers({
+      revision: 1,
+      layerCount: 1,
+      full: true,
+      alphaMultipliers: new Float32Array([0.4]),
+      dirtyRanges: undefined,
+    });
+    const checkpoint = captureHarnessPublication(renderer);
+    const presentationStore = checkpoint.presentationStore;
+    expect(presentationStore).not.toBeNull();
+    expect(presentationStore?.opacity[0]).toBeCloseTo(0.4, 6);
+
+    renderer.setPresentationLayerMultipliers({
+      revision: 2,
+      layerCount: 0,
+      full: true,
+      alphaMultipliers: new Float32Array(0),
+      dirtyRanges: undefined,
+    });
+    expect(presentationStore?.opacity[0]).toBeCloseTo(1, 6);
+
+    restoreHarnessPublication(renderer, checkpoint);
+    const restored = captureHarnessPublication(renderer);
+    expect(restored.presentationStore).toBe(presentationStore);
+    expect(restored.presentationStore?.opacity[0]).toBeCloseTo(0.4, 6);
+    expect(restored.presentationStoreState?.base).toBe(sourceStore);
+    expect(restored.presentationStoreState?.policy).toBe(checkpoint.presentationPolicy);
+    expect(restored.presentationStoreState?.overrides).toBe(
+      checkpoint.instancePresentationOverrides,
+    );
   });
 
   it.each([
@@ -147,7 +209,7 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
     (_capacityKind, replacementCapacity) => {
       const previousStore = renderStore(2, 'previous');
       const replacementStore = renderStore(replacementCapacity, 'replacement');
-      const renderer = rendererHarness({
+      const renderer = publicationHarness({
         lastStore: previousStore,
         lastSourceStore: previousStore,
       });
@@ -159,8 +221,8 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
         undefined,
         replacementStore,
       )).toBe(true);
-      expect(renderer.pendingSourceStore).toBe(replacementStore);
-      expect(() => renderer.flush(previousStore)).toThrow(
+      expect(captureHarnessPublication(renderer).pendingSourceStore).toBe(replacementStore);
+      expect(() => renderer.beginFlush(previousStore)).toThrow(
         'pending presentation source store changed before flush',
       );
       expect(() => renderer.setPresentationLayerMultipliers({
@@ -170,7 +232,7 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
         alphaMultipliers: new Float32Array(replacementCapacity).fill(0.32),
         dirtyRanges: undefined,
       })).not.toThrow();
-      expect(renderer.presentationBaseStore).toBe(replacementStore);
+      expect(captureHarnessPublication(renderer).presentationBaseStore).toBe(replacementStore);
       expect(() => renderer.setPresentationLayerMultipliers({
         revision: 2,
         layerCount: 1,
@@ -181,21 +243,41 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
     },
   );
 
+  it('owns flush begin and commit transitions without a per-frame plan object', () => {
+    const previousStore = renderStore(1, 'previous');
+    const replacementStore = renderStore(2, 'replacement');
+    const renderer = publicationHarness({
+      lastStore: previousStore,
+      lastSourceStore: previousStore,
+      storeEpoch: 4,
+      pendingRanges: [{ start: 0, end: 1 }],
+      pendingOverlayRanges: [{ start: 0, end: 1 }],
+      pendingProjectionTransformOnly: true,
+    });
+
+    const effectiveStore = renderer.beginFlush(replacementStore);
+    expect(effectiveStore).toBe(replacementStore);
+    expect(renderer.flushStoreReplaced).toBe(true);
+    expect(renderer.storeEpoch).toBe(5);
+    expect(renderer.pendingRanges).toBeUndefined();
+
+    renderer.commitFlush(replacementStore, effectiveStore);
+    expect(renderer.flushStoreReplaced).toBe(false);
+    expect(renderer.lastStore).toBe(replacementStore);
+    expect(renderer.pendingRanges).toEqual([]);
+    expect(renderer.pendingOverlayRanges).toEqual([]);
+    expect(renderer.beginFlush(replacementStore)).toBe(replacementStore);
+    expect(renderer.flushStoreReplaced).toBe(false);
+  });
+
   it('retains materialized presentation columns only for geometry-only bar frames', () => {
     const sourceStore = renderStore(2, 'source');
-    const viewFailure = new Error('stop after presentation-store selection');
-    const synchronize = vi.fn();
-    const presentationStore = Object.create(null) as PatchMapPresentationStoreView;
-    Object.defineProperties(presentationStore, {
-      capacity: { value: sourceStore.capacity },
-      synchronize: { value: synchronize },
-      view: {
-        get(): never {
-          throw viewFailure;
-        },
-      },
-    });
-    const renderer = rendererHarness({
+    const presentationStore = new PatchMapPresentationStoreView(
+      sourceStore,
+      policy(1),
+    );
+    const synchronize = vi.spyOn(presentationStore, 'synchronize');
+    const renderer = publicationHarness({
       lastSourceStore: sourceStore,
       presentationPolicy: policy(1),
       presentationStore,
@@ -203,25 +285,26 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
       pendingRanges: [{ start: 0, end: 2 }],
       pendingBarPresentationOnly: true,
     });
+    const checkpoint = captureHarnessPublication(renderer);
 
-    expect(() => renderer.flush(sourceStore)).toThrow(viewFailure);
+    expect(renderer.beginFlush(sourceStore)).toBe(presentationStore);
     expect(synchronize).not.toHaveBeenCalled();
 
-    renderer.pendingBarPresentationOnly = false;
-    expect(() => renderer.flush(sourceStore)).toThrow(viewFailure);
+    restoreHarnessPublication(renderer, checkpoint);
+    renderer.markChanges([{ start: 0, end: 1 }], 'content');
+    expect(renderer.beginFlush(sourceStore)).toBe(presentationStore);
     expect(synchronize).toHaveBeenCalledTimes(1);
     expect(synchronize).toHaveBeenCalledWith(
       sourceStore,
-      renderer.presentationPolicy,
+      checkpoint.presentationPolicy,
       renderer.pendingRanges,
-      renderer.instancePresentationOverrides,
-      renderer.presentationAlphaMultipliers,
+      checkpoint.instancePresentationOverrides,
+      checkpoint.presentationAlphaMultipliers,
     );
   });
 });
 
-interface RendererCheckpointHarness {
-  destroyedValue: boolean;
+interface PublicationSeed {
   projectionIndex: PatchMapProjectionIndex;
   staleProjectionEntityIds: ReadonlySet<string>;
   projectionRevision: number;
@@ -243,87 +326,91 @@ interface RendererCheckpointHarness {
   pendingSourceStore: RenderStoreView | null;
   lastStore: RenderStoreView | null;
   lastSourceStore: RenderStoreView | null;
-  slotByEntityId: Map<string, number>;
-  setProjection(
-    index: PatchMapProjectionIndex,
-    changedRanges?: readonly SlotRange[],
-    staleEntityIds?: ReadonlySet<string>,
-    updateKind?: 'bar-presentation' | 'text',
-    sourceStore?: RenderStoreView,
-  ): boolean;
-  setPresentationPolicy(policy: PatchMapResolvedPresentationPolicy | null): boolean;
-  setPresentationLayerMultipliers(
-    update: Readonly<{
-      readonly revision: number;
-      readonly layerCount: number;
-      readonly full: boolean;
-      readonly alphaMultipliers: Float32Array<ArrayBufferLike>;
-      readonly dirtyRanges: readonly SlotRange[] | undefined;
-    }>,
-  ): boolean;
-  flush(store: RenderStoreView): Readonly<{ rendered: boolean; commandCount: number }>;
-  markChanges(
-    ranges: readonly SlotRange[],
-    reason: string,
-    options?: Readonly<{ fullRebuild?: boolean; domain?: 'bar-only' | 'text-only' }>,
-  ): void;
+}
+
+interface RendererOuterCheckpointHarness {
+  destroyedValue: boolean;
+  cpuPublication: PatchMapPixiCpuPublicationAuthority;
+  barPresentationVisibilityConservative: boolean;
+  setProjection(index: PatchMapProjectionIndex): boolean;
   capturePublicationCheckpoint(): PatchMapPixiRendererPublicationCheckpoint;
-  restorePublicationCheckpoint(
-    checkpoint: PatchMapPixiRendererPublicationCheckpoint,
-  ): void;
+  restorePublicationCheckpoint(checkpoint: PatchMapPixiRendererPublicationCheckpoint): void;
 }
 
 function captureHarnessPublication(
-  renderer: RendererCheckpointHarness,
+  renderer: PatchMapPixiCpuPublicationAuthority,
 ): PatchMapPixiRendererPublicationCheckpoint {
-  return renderer.capturePublicationCheckpoint();
+  return renderer.captureCheckpoint();
 }
 
 function restoreHarnessPublication(
-  renderer: RendererCheckpointHarness,
+  renderer: PatchMapPixiCpuPublicationAuthority,
   checkpoint: PatchMapPixiRendererPublicationCheckpoint,
 ): void {
-  renderer.restorePublicationCheckpoint(checkpoint);
+  renderer.rollback(checkpoint);
 }
 
-function rendererHarness(
-  overrides: Partial<RendererCheckpointHarness> = {},
-): RendererCheckpointHarness {
-  const renderer = Object.create(PatchMapPixiRenderer.prototype) as RendererCheckpointHarness;
-  Object.assign(renderer, {
-    destroyedValue: false,
-    projectionIndex: projection('initial'),
-    staleProjectionEntityIds: new Set<string>(),
-    projectionRevision: 0,
-    pendingRanges: [],
-    pendingOverlayRanges: [],
-    pendingProjectionTransformOnly: false,
-    pendingBarPresentationOnly: false,
-    pendingTextOnly: false,
-    lastInvalidation: 'initial',
-    storeEpoch: 0,
-    presentationPolicy: null,
-    presentationLayerRevision: 0,
-    presentationLayerCount: 0,
-    presentationAlphaMultipliers: new Float32Array(0),
-    instancePresentationOverrides: new Map<string, never>(),
-    presentationStore: null,
-    presentationBaseStore: null,
-    pendingSourceStore: null,
-    lastStore: null,
-    lastSourceStore: null,
-    slotByEntityId: new Map<string, number>(),
-    ...overrides,
+interface PublicationStateHarness {
+  projectionIndexValue: PatchMapProjectionIndex;
+  staleProjectionEntityIdsValue: ReadonlySet<string>;
+  projectionRevisionValue: number;
+  pendingRangesValue: SlotRange[] | undefined;
+  pendingOverlayRangesValue: SlotRange[] | undefined;
+  pendingProjectionTransformOnlyValue: boolean;
+  pendingBarPresentationOnlyValue: boolean;
+  pendingTextOnlyValue: boolean;
+  lastInvalidationValue: string;
+  storeEpochValue: number;
+  presentationPolicyValue: PatchMapResolvedPresentationPolicy | null;
+  presentationLayerRevisionValue: number;
+  presentationLayerCountValue: number;
+  presentationAlphaMultipliersValue: Float32Array<ArrayBufferLike>;
+  instancePresentationOverridesValue: ReadonlyMap<string, never>;
+  presentationStoreValue: PatchMapPresentationStoreView | null;
+  presentationBaseStoreValue: RenderStoreView | null;
+  pendingSourceStoreValue: RenderStoreView | null;
+  lastStoreValue: RenderStoreView | null;
+  lastSourceStoreValue: RenderStoreView | null;
+}
+
+function publicationHarness(
+  overrides: Partial<PublicationSeed> = {},
+): PatchMapPixiCpuPublicationAuthority {
+  const authority = new PatchMapPixiCpuPublicationAuthority(new Map());
+  const state = authority as unknown as PublicationStateHarness;
+  Object.assign(state, {
+    projectionIndexValue: overrides.projectionIndex ?? projection('initial'),
+    staleProjectionEntityIdsValue: overrides.staleProjectionEntityIds ?? new Set<string>(),
+    projectionRevisionValue: overrides.projectionRevision ?? 0,
+    pendingRangesValue: overrides.pendingRanges ?? [],
+    pendingOverlayRangesValue: overrides.pendingOverlayRanges ?? [],
+    pendingProjectionTransformOnlyValue: overrides.pendingProjectionTransformOnly ?? false,
+    pendingBarPresentationOnlyValue: overrides.pendingBarPresentationOnly ?? false,
+    pendingTextOnlyValue: overrides.pendingTextOnly ?? false,
+    lastInvalidationValue: overrides.lastInvalidation ?? 'initial',
+    storeEpochValue: overrides.storeEpoch ?? 0,
+    presentationPolicyValue: overrides.presentationPolicy ?? null,
+    presentationLayerRevisionValue: overrides.presentationLayerRevision ?? 0,
+    presentationLayerCountValue: overrides.presentationLayerCount ?? 0,
+    presentationAlphaMultipliersValue:
+      overrides.presentationAlphaMultipliers ?? new Float32Array(0),
+    instancePresentationOverridesValue:
+      overrides.instancePresentationOverrides ?? new Map<string, never>(),
+    presentationStoreValue: overrides.presentationStore ?? null,
+    presentationBaseStoreValue: overrides.presentationBaseStore ?? null,
+    pendingSourceStoreValue: overrides.pendingSourceStore ?? null,
+    lastStoreValue: overrides.lastStore ?? null,
+    lastSourceStoreValue: overrides.lastSourceStore ?? null,
   });
-  return renderer;
+  return authority;
 }
 
 function projection(marker: string): PatchMapProjectionIndex {
-  return Object.freeze({
+  return createTestProjectionIndex({
     byEntityId: Object.freeze({
       [marker]: Object.freeze({ marker }),
-    }),
-  }) as unknown as PatchMapProjectionIndex;
+    }) as unknown as PatchMapProjectionIndex['byEntityId'],
+  });
 }
 
 function policy(revision: number): PatchMapResolvedPresentationPolicy {

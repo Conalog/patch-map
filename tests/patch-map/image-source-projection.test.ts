@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 
 describe('PatchMap image source projection', () => {
   it('classifies every supported source form and gives dense rows canonical bindings', () => {
     const dataUri = 'data:image/svg+xml,%3Csvg width=%2216%22 height=%228%22/%3E';
-    const result = parsePatchMapV010([
+    const result = parsePatchMap([
       { type: 'image', id: 'alias', source: 'fixture-image', size: 10 },
       { type: 'image', id: 'url', source: 'https://assets.example.test/image.png', size: 10 },
       { type: 'image', id: 'fixture-url', source: 'fixture://failed-image.png', size: 10 },
@@ -75,7 +75,7 @@ describe('PatchMap image source projection', () => {
     };
     const input = [{ type: 'image', id: 'image', source, size: 16 }];
     const before = JSON.stringify(input);
-    const result = parsePatchMapV010(input);
+    const result = parsePatchMap(input);
     const projected = result.projection.imagesByEntityId?.image;
 
     expect(JSON.stringify(input)).toBe(before);
@@ -95,7 +95,7 @@ describe('PatchMap image source projection', () => {
   });
 
   it('distinguishes descriptor options even when src is unchanged', () => {
-    const result = parsePatchMapV010([
+    const result = parsePatchMap([
       {
         type: 'image',
         id: 'one-x',
@@ -117,8 +117,32 @@ describe('PatchMap image source projection', () => {
     expect(two?.cacheIdentity).toBe('descriptor:https://assets.example.test/image.svg?resolution=2');
   });
 
+  it('preserves current parser identity without compatibility aliases', () => {
+    const result = parsePatchMap([
+      {
+        type: 'image',
+        id: 'texture-parser',
+        source: { src: '/extensionless', parser: 'texture' },
+        size: 10,
+      },
+      {
+        type: 'image',
+        id: 'svg-parser',
+        source: { src: '/extensionless', parser: 'svg' },
+        size: 10,
+      },
+    ]);
+    const texture = result.projection.imagesByEntityId?.['texture-parser'];
+    const svg = result.projection.imagesByEntityId?.['svg-parser'];
+
+    expect(texture?.authoredSource).toEqual({ src: '/extensionless', parser: 'texture' });
+    expect(texture?.cacheIdentity).toBe('descriptor:/extensionless?parser=texture');
+    expect(svg?.cacheIdentity).toBe('descriptor:/extensionless?parser=svg');
+    expect(texture?.bindingKey).not.toBe(svg?.bindingKey);
+  });
+
   it('frames ambiguous descriptor identities instead of flattening query and option channels', () => {
-    const result = parsePatchMapV010([
+    const result = parsePatchMap([
       {
         type: 'image',
         id: 'query-src',
@@ -162,7 +186,7 @@ describe('PatchMap image source projection', () => {
   });
 
   it('uses the standalone 32 by 32 fallback and records whether size was authored', () => {
-    const result = parsePatchMapV010([
+    const result = parsePatchMap([
       { type: 'image', id: 'fallback', source: 'fixture://failed-image.png' },
       { type: 'image', id: 'sized', source: 'fixture-image', size: { width: 8, height: 4 } },
     ]);
@@ -180,7 +204,7 @@ describe('PatchMap image source projection', () => {
   });
 
   it('keeps ordinary authored standalone image rotation on the Sprite center pivot', () => {
-    const result = parsePatchMapV010([{
+    const result = parsePatchMap([{
       type: 'image',
       id: 'transformed',
       source: 'fixture-image',
@@ -198,8 +222,8 @@ describe('PatchMap image source projection', () => {
     expect(result.projection.byEntityId.transformed?.visibleCenter).toEqual([150, 125]);
   });
 
-  it('aligns legacy display-image records with same-transform v0.10 geometry', () => {
-    const result = parsePatchMapV010([
+  it('ignores preserved display metadata instead of changing image geometry', () => {
+    const result = parsePatchMap([
       {
         type: 'image',
         id: 'site-image',
@@ -208,17 +232,18 @@ describe('PatchMap image source projection', () => {
         attrs: { x: -25, y: 40, angle: 36.5, display: 'image' },
       },
       {
-        type: 'rect',
-        id: 'site-overlay',
+        type: 'image',
+        id: 'current-image',
+        source: 'fixture-image',
         size: { width: 200, height: 120 },
         attrs: { x: -25, y: 40, angle: 36.5 },
       },
     ]);
 
     const image = result.document.entities[0];
-    const overlay = result.document.entities[1];
-    if (!image || image.kind === 'relation' || !overlay || overlay.kind === 'relation') {
-      throw new Error('expected projected image and rect geometry');
+    const current = result.document.entities[1];
+    if (!image || image.kind === 'relation' || !current || current.kind === 'relation') {
+      throw new Error('expected projected image geometry');
     }
     expect([
       image?.x,
@@ -227,24 +252,24 @@ describe('PatchMap image source projection', () => {
       image?.height,
       image?.rotation,
     ]).toEqual([
-      overlay?.x,
-      overlay?.y,
-      overlay?.width,
-      overlay?.height,
-      overlay?.rotation,
+      current?.x,
+      current?.y,
+      current?.width,
+      current?.height,
+      current?.rotation,
     ]);
     expect(result.projection.byEntityId['site-image']?.affine)
-      .toEqual(result.projection.byEntityId['site-overlay']?.affine);
+      .toEqual(result.projection.byEntityId['current-image']?.affine);
     expect(result.projection.byEntityId['site-image']?.visibleCenter)
-      .toEqual(result.projection.byEntityId['site-overlay']?.visibleCenter);
-    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      .toEqual(result.projection.byEntityId['current-image']?.visibleCenter);
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
       code: 'attribute-preserved-only',
       path: '$[0].attrs.display',
     }));
   });
 
   it('projects image components into the same lossless source table', () => {
-    const result = parsePatchMapV010([
+    const result = parsePatchMap([
       {
         type: 'item',
         id: 'item',

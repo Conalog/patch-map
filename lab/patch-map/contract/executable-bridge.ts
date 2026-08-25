@@ -1,7 +1,7 @@
 import type { PatchMapEngineSurfaceFactory } from '../../../src/patch-map/engine';
 
 // @ts-expect-error -- the committed browser-safe executor is authored as an ESM JavaScript module.
-import * as workerModule from '../../../scripts/verification/core-v2-contract/execute-worker.mjs';
+import * as workerModule from '../../../scripts/verification/patch-map-contract/execute-worker.mjs';
 
 import {
   PATCH_MAP_CONTRACT_LAB_BRIDGE_REVISION,

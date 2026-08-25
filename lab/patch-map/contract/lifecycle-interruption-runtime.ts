@@ -1,10 +1,10 @@
-import productionShapedWorkloadJson from '../../../docs/reference/core-v2-functional-contract/evidence/production-shaped-workload.v1.json';
+import productionShapedWorkloadJson from '../../../contracts/patch-map/evidence/production-shaped-workload.v1.json';
 import type { PatchMap } from '../../../src/patch-map';
 
 export const PATCH_MAP_LIFECYCLE_INTERRUPTION_RUNTIME_REVISION =
-  'core-v2-lifecycle-interruption-runtime/1';
+  'patch-map-lifecycle-interruption-runtime/1';
 export const PATCH_MAP_LIFECYCLE_INTERRUPTION_CLEANUP_REVISION =
-  'core-v2-lifecycle-interruption-cleanup/1';
+  'patch-map-lifecycle-interruption-cleanup/1';
 
 export const PATCH_MAP_LIFECYCLE_INTERRUPTION_CASE_IDS = Object.freeze([
   'ERR-004',

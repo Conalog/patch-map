@@ -78,7 +78,7 @@ async function verifyManualLab(activePage, baseUrl) {
   const started = performance.now();
   await activePage.goto(
     new URL(
-      'lab/patch-map/?scenario=REN-009&size=5000&seed=319',
+      'lab/patch-map?scenario=REN-009&size=5000&seed=319',
       baseUrl,
     ).href,
     { waitUntil: 'networkidle', timeout: 60_000 },

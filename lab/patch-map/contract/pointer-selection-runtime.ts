@@ -4,9 +4,9 @@ import type {
 } from '../../../src/patch-map';
 
 export const PATCH_MAP_POINTER_SELECTION_RUNTIME_REVISION =
-  'core-v2-pointer-selection-runtime/1' as const;
+  'patch-map-pointer-selection-runtime/1' as const;
 export const PATCH_MAP_POINTER_SELECTION_CLEANUP_REVISION =
-  'core-v2-pointer-selection-cleanup/1' as const;
+  'patch-map-pointer-selection-cleanup/1' as const;
 
 export const PATCH_MAP_POINTER_SELECTION_CASE_IDS = Object.freeze([
   'EVT-001',

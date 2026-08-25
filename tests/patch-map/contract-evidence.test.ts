@@ -72,10 +72,10 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [evidenceRuntime, observerRuntime, comparatorRuntime, verifierRuntime] = await Promise.all([
-  loadRuntime<EvidenceRuntime>('../../scripts/verification/core-v2-contract/evidence.mjs'),
-  loadRuntime<ObserverRuntime>('../../scripts/verification/core-v2-contract/observe.mjs'),
-  loadRuntime<ComparatorRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
-  loadRuntime<VerifierRuntime>('../../scripts/verification/core-v2-contract/verify-results.mjs'),
+  loadRuntime<EvidenceRuntime>('../../scripts/verification/patch-map-contract/evidence.mjs'),
+  loadRuntime<ObserverRuntime>('../../scripts/verification/patch-map-contract/observe.mjs'),
+  loadRuntime<ComparatorRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
+  loadRuntime<VerifierRuntime>('../../scripts/verification/patch-map-contract/verify-results.mjs'),
 ]);
 
 const { canonicalSha256, sha256Bytes, writeExecutionEvidenceRun } = evidenceRuntime;
@@ -95,8 +95,8 @@ const HASHES = {
 };
 
 const catalog = {
-  contractRevision: 'core-v2-functional-contract/2026-07-16.2',
-  observationRevision: 'core-v2-semantic-observation/1',
+  contractRevision: 'patch-map-contract/1',
+  observationRevision: 'patch-map-semantic-observation/1',
   catalogManifestSha256: HASHES.catalog,
   reviewRegistrySha256: HASHES.review,
   actionSchemaSha256: HASHES.action,
@@ -105,7 +105,7 @@ const catalog = {
 
 const packageBinding = {
   name: '@conalog/patch-map',
-  subpath: '@conalog/patch-map/core-v2',
+  subpath: '@conalog/patch-map',
   version: '0.10.0',
   packedPackageSha256: HASHES.package,
   implementationCommit: '0123456789abcdef',
@@ -128,7 +128,7 @@ const environment = {
 let temporaryRoot = '';
 
 beforeEach(async () => {
-  temporaryRoot = await mkdtemp(path.join(tmpdir(), 'core-v2-evidence-'));
+  temporaryRoot = await mkdtemp(path.join(tmpdir(), 'patch-map-evidence-'));
 });
 
 afterEach(async () => {
@@ -145,7 +145,7 @@ function expectedCase(caseId = 'LIF-001'): Record<string, unknown> {
         { path: '/resources/leakDelta', operator: 'zero', value: 0 },
       ],
       observationDomains: ['outcome', 'resources'],
-      semanticObservationRevision: 'core-v2-semantic-observation/1',
+      semanticObservationRevision: 'patch-map-semantic-observation/1',
       implementationNeutral: true,
     },
     volatileFields: ['provenance.codeCommit'],
@@ -159,7 +159,7 @@ function observation(
   packedPackageSha256 = HASHES.package,
 ): Record<string, unknown> {
   return {
-    $schema: 'core-v2-semantic-observation/1',
+    $schema: 'patch-map-semantic-observation/1',
     case: { id: caseId, caseType: 'capability', params: { size: '100', seed: 319 } },
     provenance: {
       catalogManifestSha256: HASHES.catalog,
@@ -190,16 +190,16 @@ function observation(
 function catalogBinding(caseIndex: number, expectedRecordSha256: string): Record<string, unknown> {
   return {
     ...catalog,
-    fixtureRef: `core-v2-contract-catalog-fixtures/1#/cases/${caseIndex}`,
+    fixtureRef: `patch-map-contract-catalog-fixtures/1#/cases/${caseIndex}`,
     fixtureSha256: HASHES.fixture,
-    expectedRef: `core-v2-contract-catalog-normalized-expected/1#/cases/${caseIndex}`,
+    expectedRef: `patch-map-contract-catalog-normalized-expected/1#/cases/${caseIndex}`,
     expectedRecordSha256,
   };
 }
 
 function caseInput(caseId: string): Record<string, unknown> {
   return {
-    route: `/lab/core-v2?scenario=${caseId}&size=100&seed=319`,
+    route: `/lab/patch-map?scenario=${caseId}&size=100&seed=319`,
     size: '100',
     seed: 319,
     repeatIndex: 0,
@@ -258,7 +258,7 @@ function passOptions(
     catalog,
     package: { ...packageBinding, packedPackageSha256 },
     runner: {
-      id: 'core-v2-contract-runner',
+      id: 'patch-map-contract-runner',
       version: '1',
       command: ['node', 'run.mjs', '--headed'],
       headed: true,
@@ -316,8 +316,8 @@ function verificationOptionsFor(
 describe('append-only PatchMap execution evidence', () => {
   it('loads the checked-in canonical catalog as an external read-only trust anchor', async () => {
     const binding = await loadCanonicalCatalogBinding();
-    expect(binding.contractRevision).toBe('core-v2-functional-contract/2026-07-16.2');
-    expect(Object.keys(binding.cases as Record<string, unknown>)).toHaveLength(173);
+    expect(binding.contractRevision).toBe('patch-map-contract/1');
+    expect(Object.keys(binding.cases as Record<string, unknown>)).toHaveLength(169);
     expect(Object.isFrozen(binding)).toBe(true);
   });
 
@@ -526,7 +526,7 @@ describe('append-only PatchMap execution evidence', () => {
     const sidecarPath = path.join(written.runDirectory, 'cases/lif-001/evidence.json.sha256');
     const overlayPath = path.join(written.runDirectory, 'execution-manifest.json');
     const evidence = JSON.parse(await readFile(evidencePath, 'utf8')) as Record<string, unknown>;
-    (evidence.input as Record<string, unknown>).route = '/lab/core-v2?scenario=LIF-001&size=500&seed=319';
+    (evidence.input as Record<string, unknown>).route = '/lab/patch-map?scenario=LIF-001&size=500&seed=319';
     const evidenceBytes = `${JSON.stringify(evidence, null, 2)}\n`;
     const evidenceSha256 = sha256Bytes(evidenceBytes);
     await writeFile(evidencePath, evidenceBytes, 'utf8');
@@ -546,9 +546,9 @@ describe('append-only PatchMap execution evidence', () => {
 
   it('keeps the offline verifier free of implementation launch dependencies', async () => {
     const source = await readFile(
-      fileURLToPath(new URL('../../scripts/verification/core-v2-contract/verify-results.mjs', import.meta.url)),
+      fileURLToPath(new URL('../../scripts/verification/patch-map-contract/verify-results.mjs', import.meta.url)),
       'utf8',
     );
-    expect(source).not.toMatch(/node:child_process|playwright|execute-worker|src\/core-v2|run\.mjs/);
+    expect(source).not.toMatch(/node:child_process|playwright|execute-worker|src\/patch-map|run\.mjs/);
   });
 });

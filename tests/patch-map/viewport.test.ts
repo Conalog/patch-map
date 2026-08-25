@@ -1,4 +1,4 @@
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';

@@ -171,13 +171,13 @@ describe('PatchMap executable Lab product bridge', () => {
         ? run.execution.actionResults.length - 1
         : -1);
       expect(run.execution).toMatchObject({
-        $schema: 'core-v2-contract-case-execution/1',
+        $schema: 'patch-map-contract-case-execution/1',
         caseId,
         status: 'completed',
         cleanup: { status: 'completed', errors: [] },
       });
       expect(run.actualObservation).toMatchObject({
-        $schema: 'core-v2-semantic-observation/1',
+        $schema: 'patch-map-semantic-observation/1',
         case: { id: caseId },
       });
       if (caseId.startsWith('PKG-')) {
@@ -223,20 +223,20 @@ describe('PatchMap executable Lab product bridge', () => {
       }
       if (caseId === 'VIE-001') {
         await expect(bridge.armGesture(0)).resolves.toMatchObject({
-          revision: 'core-v2-contract-gesture-plan/1',
+          revision: 'patch-map-contract-gesture-plan/1',
           actionIndex: 0,
           driverId: 'trusted-pointer-wheel',
           button: 0,
         });
         await expect(bridge.actualObservation()).resolves.toMatchObject({
-          $schema: 'core-v2-contract-gesture-observation/1',
+          $schema: 'patch-map-contract-gesture-observation/1',
           case: { id: 'VIE-001', actionIndex: 0 },
           resources: { canvasCount: 1, pendingWork: 0 },
         });
         await expect(bridge.awaitMilestone(0, 'released')).resolves.toBeUndefined();
       } else if (caseId === 'EVT-003' || caseId === 'EVT-008' || caseId === 'ACC-002') {
         await expect(bridge.armGesture(0)).resolves.toMatchObject({
-          revision: 'core-v2-contract-gesture-plan/1',
+          revision: 'patch-map-contract-gesture-plan/1',
           actionIndex: 0,
           driverId: caseId === 'EVT-003'
             ? 'trusted-pointer-hover-leave'
@@ -246,7 +246,7 @@ describe('PatchMap executable Lab product bridge', () => {
           button: caseId === 'EVT-008' ? 2 : 0,
         });
         await expect(bridge.actualObservation()).resolves.toMatchObject({
-          $schema: 'core-v2-contract-pointer-input-observation/1',
+          $schema: 'patch-map-contract-pointer-input-observation/1',
           case: { id: caseId, actionIndex: 0 },
           resources: { canvasCount: 1, pendingWork: 0 },
         });
@@ -490,7 +490,7 @@ describe('PatchMap executable Lab product bridge', () => {
     expect(bridge.cleanup()).toMatchObject({ status: 'completed', errors: [] });
     const actual = await bridge.actualObservation();
     expect(actual).toMatchObject({
-      $schema: 'core-v2-contract-lab-failure/1',
+      $schema: 'patch-map-contract-lab-failure/1',
       case: { id: 'LIF-001', params: { size: '100', seed: 319 } },
       outcome: { status: 'failed', promotionEligible: false },
     });
@@ -569,7 +569,7 @@ describe('PatchMap executable Lab product bridge', () => {
     expect(bridge.cleanup()).toMatchObject({ status: 'completed', errors: [] });
     const actual = await bridge.actualObservation();
     expect(actual).toMatchObject({
-      $schema: 'core-v2-contract-lab-failure/1',
+      $schema: 'patch-map-contract-lab-failure/1',
       case: { id: 'DAT-008' },
       outcome: {
         status: 'failed',

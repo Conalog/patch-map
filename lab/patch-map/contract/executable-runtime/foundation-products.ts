@@ -2,7 +2,6 @@ import { Color, type ColorSource } from 'pixi.js';
 
 import {
   createPatchMapColorResolver,
-  materializePatchMapCompatibilityDataset,
   materializePatchMapGrid,
   resolvePatchMapComponentSize,
   resolvePatchMapContentBox,
@@ -27,16 +26,6 @@ export const PATCH_MAP_DATA_FOUNDATION_PRODUCT = Object.freeze({
   resolveContentBox: resolvePatchMapContentBox,
   materializeGrid: materializePatchMapGrid,
   setGridCell: setPatchMapGridCell,
-});
-
-export const PATCH_MAP_DATA_CLOSURE_PRODUCT = Object.freeze({
-  materializeDataset(input: unknown): Readonly<Record<string, unknown>> {
-    const compatible = materializePatchMapCompatibilityDataset(input);
-    return deepFreeze({
-      dataset: structuredClone(compatible.canonicalDataset),
-      semanticHash: compatible.semanticHash,
-    });
-  },
 });
 
 export const PATCH_MAP_LIFECYCLE_DESTROY_PRODUCT = Object.freeze({

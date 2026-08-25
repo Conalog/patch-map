@@ -48,7 +48,7 @@ describe('PatchMap contract performance workload', () => {
       'production-shaped-workload-v1',
     ]);
     expect(await canonicalPatchMapDatasetSha256(production)).toBe(
-      '4bc16c65500b4f305114162fdc4472b45997eea7498020496072ca0b741e95c3',
+      'e9d91e96f239663a88f54ce54a8dcb933f813d5b156d734a99c20d1ae2a749fa',
     );
     expect(validatePatchMapContractPerformanceDataset(production)).toMatchObject({
       rootCount: 21,

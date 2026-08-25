@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { createTestProjectionIndex } from './support/projection-index';
+
 import type { PatchMapEntityProjection, PatchMapProjectionIndex } from '../../src/patch-map/contracts';
 import {
   PatchMapPresentationProjectionStore,
@@ -149,5 +151,5 @@ function projection(
 function index(
   byEntityId: Readonly<Record<string, PatchMapEntityProjection>>,
 ): PatchMapProjectionIndex {
-  return Object.freeze({ byEntityId: Object.freeze({ ...byEntityId }) });
+  return createTestProjectionIndex({ byEntityId: Object.freeze({ ...byEntityId }) });
 }

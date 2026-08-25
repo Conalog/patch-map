@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { createTestProjectionIndex } from './support/projection-index';
+
 import type {
   PatchMapImageDimensionMode,
   PatchMapImageProjection,
@@ -932,12 +934,12 @@ describe('PatchMapSceneImageController', () => {
     const before = controller.probe();
     const operationsBefore = [...renderer.operations];
 
-    const invalid: PatchMapProjectionIndex = {
+    const invalid: PatchMapProjectionIndex = createTestProjectionIndex({
       byEntityId: Object.freeze({}),
       imagesByEntityId: Object.freeze({
         wrong: image('right', 'fixture-image', 'alias'),
       }),
-    };
+    });
     expect(() => controller.prepareReconcile(invalid)).toThrow(
       'image projection identity mismatch',
     );
@@ -1087,10 +1089,9 @@ function projection(
 }
 
 function imageIndex(images: readonly PatchMapImageProjection[]): PatchMapProjectionIndex {
-  return {
-    byEntityId: Object.freeze({}),
+  return createTestProjectionIndex({
     imagesByEntityId: Object.fromEntries(images.map((entry) => [entry.entityId, entry])),
-  };
+  });
 }
 
 function sourceKind(request: LeafAssetBindingRequest): PatchMapImageSourceKind {

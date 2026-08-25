@@ -1,6 +1,8 @@
 import { Assets, Cache, Matrix, Texture } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createTestProjectionIndex } from './support/projection-index';
+
 import type { RenderStoreView } from '../../src/patch-map/dense/renderer-types';
 import { RenderFlags, RenderKind } from '../../src/patch-map/dense/renderer-types';
 import {
@@ -31,7 +33,7 @@ function mockOwnedAssetTransport(): void {
     new Blob(['fixture'], { type: 'image/png' }),
     { status: 200 },
   ))));
-  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:core-v2/leaf-fixture');
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:patch-map/leaf-fixture');
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
 }
 
@@ -286,7 +288,7 @@ describe('PatchMap aggregate leaf policy', () => {
   });
 
   it('reference-counts a concurrent shared URL across leaf layers', async () => {
-    const url = 'core-v2-test://shared-texture.png';
+    const url = 'patch-map-test://shared-texture.png';
     mockOwnedAssetTransport();
     vi.spyOn(Assets, 'get').mockReturnValue(undefined as never);
     let resolveLoad: ((texture: Texture) => void) | undefined;
@@ -320,7 +322,7 @@ describe('PatchMap aggregate leaf policy', () => {
   });
 
   it('invalidates an in-flight alias when it is unloaded before resolution', async () => {
-    const url = 'core-v2-test://pending-unload.png';
+    const url = 'patch-map-test://pending-unload.png';
     mockOwnedAssetTransport();
     vi.spyOn(Assets, 'get').mockReturnValue(undefined as never);
     let resolveLoad: ((texture: Texture) => void) | undefined;
@@ -353,7 +355,7 @@ describe('PatchMap aggregate leaf policy', () => {
     const store = createImageStoreForSources(['target', 'other-a', 'target', 'other-b']);
 
     layer.sync(store, { fullRebuildEpoch: 1 });
-    await layer.loadAsset('target', 'core-v2-test://indexed-target.png');
+    await layer.loadAsset('target', 'patch-map-test://indexed-target.png');
 
     const afterLoadReads: number[] = [];
     layer.sync(trackAliveReads(store, afterLoadReads), {
@@ -382,7 +384,7 @@ describe('PatchMap aggregate leaf policy', () => {
     const layer = createAssetLayer();
     const store = createImageStore('fixture-alias');
     const projectionContext = {
-      index: {
+      index: createTestProjectionIndex({
         byEntityId: Object.freeze({}),
         imagesByEntityId: Object.freeze({
           'image-0': Object.freeze({
@@ -395,7 +397,7 @@ describe('PatchMap aggregate leaf policy', () => {
             dimensionMode: 'authored' as const,
           }),
         }),
-      },
+      }),
       revision: 1,
       world: { rotationDegrees: 0, flipX: false, flipY: false },
     };
@@ -408,7 +410,7 @@ describe('PatchMap aggregate leaf policy', () => {
       placeholderCount: 0,
     });
 
-    await layer.loadAsset('fixture-alias', 'core-v2-test://fixture-alias.png');
+    await layer.loadAsset('fixture-alias', 'patch-map-test://fixture-alias.png');
     expect(layer.sync(store, {
       fullRebuildEpoch: 1,
       changedRanges: [],
@@ -439,7 +441,7 @@ describe('PatchMap aggregate leaf policy', () => {
   });
 
   it('borrows a texture already present in the external Assets cache', async () => {
-    const url = 'core-v2-test://external-texture.png';
+    const url = 'patch-map-test://external-texture.png';
     vi.spyOn(Cache, 'has').mockReturnValue(true);
     vi.spyOn(Cache, 'get').mockReturnValue(Texture.WHITE as never);
     const load = vi.spyOn(Assets, 'load').mockRejectedValue(new Error('must not reload') as never);
@@ -1457,7 +1459,7 @@ describe('PatchMap aggregate leaf policy', () => {
     layer.sync(createImageStore('fixture.svg'), {
       fullRebuildEpoch: 1,
       projectionContext: {
-        index: {
+        index: createTestProjectionIndex({
           byEntityId: Object.freeze({}),
           imagesByEntityId: Object.freeze({
             'image-0': Object.freeze({
@@ -1470,7 +1472,7 @@ describe('PatchMap aggregate leaf policy', () => {
               dimensionMode: 'authored',
             }),
           }),
-        },
+        }),
         revision: 1,
         world: { rotationDegrees: 0, flipX: false, flipY: false },
       },

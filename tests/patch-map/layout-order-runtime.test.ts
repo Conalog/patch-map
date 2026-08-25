@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import catalogTypedCases from '../../docs/reference/core-v2-functional-contract/evidence/catalog-typed-cases.v1.json';
+import catalogTypedCases from '../../contracts/patch-map/evidence/catalog-typed-cases.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -60,7 +60,7 @@ describe('PatchMap layout-order runtime', () => {
       attrs: { x: 10, y: 20 },
       contentOrientation: 'follow-item',
     });
-    expect(components).toHaveLength(10);
+    expect(components).toHaveLength(9);
     expect(components.map((component) => requireRecord(component, 'component').id)).toEqual(
       params.placements,
     );

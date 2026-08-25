@@ -8,7 +8,7 @@ import {
   semanticSelectionDenseIds,
 } from '../../src/patch-map/core/semantic-dense-planning';
 import { indexPatchMapComponentProbeTargets } from '../../src/patch-map/core/product-probe-reader';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 
 describe('PatchMap semantic-to-dense planning', () => {
   it('maps caller-visible component and element identities without mutating selection input', () => {
@@ -91,7 +91,7 @@ describe('PatchMap semantic-to-dense planning', () => {
 });
 
 function parseFixture(): ParsePatchMapResult {
-  return parsePatchMapV010([
+  return parsePatchMap([
     {
       type: 'item',
       id: 'item-a',

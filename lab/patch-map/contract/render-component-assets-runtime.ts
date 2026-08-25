@@ -12,10 +12,10 @@ import {
   type PatchMapAssetRegistrationResult,
 } from '../../../src/patch-map';
 
-const RESOURCE_PROBE_REVISION = 'core-v2-component-assets-resource-probe/1';
-const PRODUCT_CLEANUP_REVISION = 'core-v2-component-assets-product-cleanup/1';
-const REGISTRATION_REVISION = 'core-v2-component-assets-registration/1';
-const SETTLEMENT_REVISION = 'core-v2-component-assets-settlement/1';
+const RESOURCE_PROBE_REVISION = 'patch-map-component-assets-resource-probe/1';
+const PRODUCT_CLEANUP_REVISION = 'patch-map-component-assets-product-cleanup/1';
+const REGISTRATION_REVISION = 'patch-map-component-assets-registration/1';
+const SETTLEMENT_REVISION = 'patch-map-component-assets-settlement/1';
 
 type ComponentAssetCaseId = 'REN-008' | 'REN-010';
 type FixtureState = 'resolved' | 'releasing' | 'unloaded';
@@ -50,17 +50,17 @@ interface ComponentAssetEngine {
 const FIXTURES = Object.freeze({
   'fixture-image': Object.freeze({
     alias: 'fixture-image',
-    src: 'fixture://core-v2/component-assets/fixture-image.svg',
+    src: 'fixture://patch-map/component-assets/fixture-image.svg',
     normalizedResourceIdentity: 'fixture-image@1',
   }),
   'fixture-icon': Object.freeze({
     alias: 'fixture-icon',
-    src: 'fixture://core-v2/component-assets/fixture-icon.svg',
+    src: 'fixture://patch-map/component-assets/fixture-icon.svg',
     normalizedResourceIdentity: 'fixture-icon@1',
   }),
   'fixture-icon-2': Object.freeze({
     alias: 'fixture-icon-2',
-    src: 'fixture://core-v2/component-assets/fixture-icon-2.svg',
+    src: 'fixture://patch-map/component-assets/fixture-icon-2.svg',
     normalizedResourceIdentity: 'fixture-icon-2@1',
   }),
 } satisfies Record<string, FixtureDefinition>);
@@ -240,7 +240,7 @@ export function createPatchMapRenderComponentAssetsRuntime(): PatchMapRenderComp
 }
 
 class ComponentAssetFixtureBackend implements PatchMapAssetBackend {
-  public readonly keyNamespace = 'core-v2-component-assets-local-textures/1';
+  public readonly keyNamespace = 'patch-map-component-assets-local-textures/1';
 
   private readonly resources = new Map<string, FixtureResource>();
   private requestSequence = 0;

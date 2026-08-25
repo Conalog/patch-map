@@ -49,7 +49,7 @@ const CAPABILITY_KEYS = Object.freeze({
 
 const OPTIONAL_KEYS = Object.freeze([
   'canvasElement', 'captureBase64', 'prepare', 'loadAsync',
-  'suspendPresentation', 'resumePresentation', 'reconcile',
+  'suspendPresentation', 'resumePresentation',
   'setReducedMotion', 'setSelectionOverlayPolicy', 'setSelectionMarquee',
   'setPresentationPolicy', 'clearPresentationPolicy',
   'presentationPolicyProbe', 'setPresentationLayer',

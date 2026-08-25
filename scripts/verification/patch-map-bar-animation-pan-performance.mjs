@@ -212,7 +212,7 @@ async function runTrial(page, trialIndex) {
       ? '100'
       : SCENE_SIZE;
   await page.goto(
-    `lab/patch-map/?scenario=REN-009&size=${initialSceneSize}&seed=${SEED}`,
+    `lab/patch-map?scenario=REN-009&size=${initialSceneSize}&seed=${SEED}`,
     { waitUntil: 'networkidle', timeout: LOAD_TIMEOUT_MS },
   );
   await page.waitForFunction(

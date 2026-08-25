@@ -10,10 +10,12 @@ import {
 import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
 import { PatchMap, PixiEngineSurface } from '../../src/patch-map/engine';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
 } from '../../src/patch-map/renderers/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapOverlayPaintProbe,
@@ -92,14 +94,55 @@ class PaintRendererTestDouble {
   private selectedCount = 0;
   private entityCount = 0;
   private readonly paintById = new Map<string, PatchMapEntityPaintProbe>();
+  private projection: PatchMapProjectionIndex | null = null;
+  private presentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  > = new Map();
+  private presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null = null;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 
   public markChanges(): void {}
   public markOverlayChanges(): void {}
+  public capturePublicationCheckpoint(): Readonly<{
+    projection: PatchMapProjectionIndex | null;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }> {
+    return Object.freeze({
+      projection: this.projection,
+      presentationOverrides: this.presentationOverrides,
+      presentationLayerUpdate: this.presentationLayerUpdate,
+    });
+  }
+  public restorePublicationCheckpoint(checkpoint: Readonly<{
+    projection: PatchMapProjectionIndex | null;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }>): void {
+    this.projection = checkpoint.projection;
+    this.presentationOverrides = checkpoint.presentationOverrides;
+    this.presentationLayerUpdate = checkpoint.presentationLayerUpdate;
+  }
   public setProjection(
-    _index: PatchMapProjectionIndex,
+    index: PatchMapProjectionIndex,
     _ranges?: readonly SlotRange[],
-  ): boolean { return true; }
+  ): boolean {
+    this.projection = index;
+    return true;
+  }
+  public setInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  ): boolean {
+    this.presentationOverrides = overrides;
+    return true;
+  }
+  public setPresentationLayerMultipliers(
+    update: PatchMapPresentationLayerRenderUpdate,
+  ): boolean {
+    this.presentationLayerUpdate = update;
+    return true;
+  }
   public setWorldOrientation(): boolean { return true; }
   public resize(): boolean { return false; }
   public setView(view: CoreView): boolean {

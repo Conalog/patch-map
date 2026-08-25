@@ -30,6 +30,15 @@ class ProbeSurface implements PatchMapEngineSurface {
     this.selectionIds = Object.freeze([]);
   }
 
+  public reconcile(_input: unknown) {
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 0,
+      denseChanged: false,
+      diagnostics: Object.freeze([]),
+    });
+  }
+
   public publishFrame(): void {}
 
   public resize(width: number, height: number, pixelRatio: number): boolean {
@@ -108,7 +117,7 @@ describe('PatchMap actual-only semantic product probe', () => {
       {
         type: 'group',
         id: 'root',
-        attrs: { x: 5, scale: { x: 1, y: 1 } },
+        attrs: { x: 5, scaleX: 1, scaleY: 1 },
         children: [
           {
             type: 'item',

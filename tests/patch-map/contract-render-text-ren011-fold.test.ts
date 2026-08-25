@@ -9,7 +9,7 @@ import {
 import { itemTextExecution } from './support/contract-render-text-fold-fixtures';
 
 describe('PatchMap REN-011 actual-only fold', () => {
-  it('folds four canonical and seven independently observed REN-011 rows', () => {
+  it('folds three canonical and seven independently observed REN-011 rows', () => {
     const plan = selectedCase('REN-011');
     const folded = fold(plan, itemTextExecution());
     const text = requireRecord(folded.actual.text, 'text');
@@ -17,7 +17,7 @@ describe('PatchMap REN-011 actual-only fold', () => {
 
     expect(folded.actual).toMatchObject({
       case: { id: 'REN-011', caseType: 'capability' },
-      scene: { itemText: { logicalCount: 4, renderObjectCount: 4, publication: 'current' } },
+      scene: { itemText: { logicalCount: 3, renderObjectCount: 3, publication: 'current' } },
       text: {
         texts: {
           zero: {
@@ -27,11 +27,6 @@ describe('PatchMap REN-011 actual-only fold', () => {
           positive: {
             lines: ['AB', '😀C', 'D'],
             layoutBounds: { x: 0, y: 0, width: 24, height: 60 },
-          },
-          negative: {
-            visibleText: 'AB😀CD',
-            lineCount: 1,
-            layoutBounds: { x: 0, y: 0, width: 48, height: 20 },
           },
           bidi: {
             visibleText: '中😀é\nمرحبا',
@@ -79,4 +74,3 @@ describe('PatchMap REN-011 actual-only fold', () => {
     expect(folded.fixtures).not.toHaveProperty('itemTextContractMatrix');
   });
 });
-

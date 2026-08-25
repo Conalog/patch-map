@@ -32,10 +32,6 @@ import {
   type PatchMapLifecycleInterruptionCaseId,
 } from '../lifecycle-interruption-runtime';
 import {
-  PATCH_MAP_MIGRATION_CASE_IDS,
-  type PatchMapMigrationCaseId,
-} from '../migration-runtime';
-import {
   PATCH_MAP_PACKAGE_INTEGRATION_CASE_IDS,
   type PatchMapPackageIntegrationCaseId,
 } from '../package-integration-runtime';
@@ -104,7 +100,6 @@ export type PatchMapExecutableRoute =
   | 'asset-ingestion'
   | 'security-operations'
   | 'accessibility'
-  | 'migration'
   | 'assets';
 
 const FOUNDATION_CASE_IDS = new Set<PatchMapExecutableCaseId>([
@@ -121,7 +116,6 @@ const DATA_FOUNDATION_CASE_IDS = new Set<PatchMapExecutableCaseId>([
   'DAT-005',
 ]);
 const DATA_CLOSURE_CASE_IDS = new Set<PatchMapExecutableCaseId>([
-  'DAT-006',
   'DAT-007',
   'DAT-008',
 ]);
@@ -177,7 +171,6 @@ const ASSET_INGESTION_CASE_IDS = new Set<PatchMapExecutableCaseId>([
 ]);
 const SECURITY_OPERATIONS_CASE_IDS = new Set(PATCH_MAP_SECURITY_OPERATIONS_CASE_IDS);
 const ACCESSIBILITY_CASE_IDS = new Set(PATCH_MAP_ACCESSIBILITY_CASE_IDS);
-const MIGRATION_CASE_IDS = new Set(PATCH_MAP_MIGRATION_CASE_IDS);
 
 export function routePatchMapExecutableCase(
   caseId: PatchMapExecutableCaseId,
@@ -225,7 +218,6 @@ export function routePatchMapExecutableCase(
   }
   if (isViewportCaseId(caseId)) return 'viewport';
   if (isAccessibilityCaseId(caseId)) return 'accessibility';
-  if (isMigrationCaseId(caseId)) return 'migration';
   if (isSecurityOperationsCaseId(caseId)) return 'security-operations';
   if (ASSET_INGESTION_CASE_IDS.has(caseId)) return 'asset-ingestion';
   if (caseId === 'AST-001') return 'assets';
@@ -340,10 +332,4 @@ export function isAccessibilityCaseId(
   caseId: PatchMapExecutableCaseId,
 ): caseId is PatchMapAccessibilityCaseId {
   return ACCESSIBILITY_CASE_IDS.has(caseId as PatchMapAccessibilityCaseId);
-}
-
-export function isMigrationCaseId(
-  caseId: PatchMapExecutableCaseId,
-): caseId is PatchMapMigrationCaseId {
-  return MIGRATION_CASE_IDS.has(caseId as PatchMapMigrationCaseId);
 }

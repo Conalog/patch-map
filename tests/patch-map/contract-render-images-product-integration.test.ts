@@ -1,13 +1,16 @@
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { describe, expect, it } from 'vitest';
 
+import { createTestProjectionIndex } from './support/projection-index';
+
 // @ts-expect-error -- the independent comparator is an authored ESM JavaScript module.
-import * as compareModule from '../../scripts/verification/core-v2-contract/compare.mjs';
+import * as compareModule from '../../scripts/verification/patch-map-contract/compare.mjs';
 
 import { createPatchMapExecutableLabBridge } from '../../lab/patch-map/contract/executable-bridge';
 import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
 import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/dense/renderer-types';
 import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
 import {
   PixiEngineSurface,
   type PatchMapEngineSurface,
@@ -19,6 +22,7 @@ import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
 } from '../../src/patch-map/renderers/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
 import type {
   PatchMapProjectionRenderContext,
   PatchMapWorldOrientation,
@@ -79,8 +83,13 @@ class HeadlessLeafRenderer {
   public pixelRatio: number;
 
   private readonly leaves: AggregateLeafLayer;
-  private projection: PatchMapProjectionIndex = Object.freeze({ byEntityId: Object.freeze({}) });
+  private projection: PatchMapProjectionIndex = createTestProjectionIndex();
   private projectionRevision = 0;
+  private presentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  > = new Map();
+  private presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null = null;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   private world: PatchMapWorldOrientation = Object.freeze({
     rotationDegrees: 0,
@@ -101,10 +110,46 @@ class HeadlessLeafRenderer {
 
   public markChanges(_ranges: readonly SlotRange[], _reason: string): void {}
   public markOverlayChanges(): void {}
+  public capturePublicationCheckpoint(): Readonly<{
+    projection: PatchMapProjectionIndex;
+    projectionRevision: number;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }> {
+    return Object.freeze({
+      projection: this.projection,
+      projectionRevision: this.projectionRevision,
+      presentationOverrides: this.presentationOverrides,
+      presentationLayerUpdate: this.presentationLayerUpdate,
+    });
+  }
+  public restorePublicationCheckpoint(checkpoint: Readonly<{
+    projection: PatchMapProjectionIndex;
+    projectionRevision: number;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }>): void {
+    this.projection = checkpoint.projection;
+    this.projectionRevision = checkpoint.projectionRevision;
+    this.presentationOverrides = checkpoint.presentationOverrides;
+    this.presentationLayerUpdate = checkpoint.presentationLayerUpdate;
+  }
   public setProjection(projection: PatchMapProjectionIndex): boolean {
     if (this.projection === projection) return false;
     this.projection = projection;
     this.projectionRevision += 1;
+    return true;
+  }
+  public setInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  ): boolean {
+    this.presentationOverrides = overrides;
+    return true;
+  }
+  public setPresentationLayerMultipliers(
+    update: PatchMapPresentationLayerRenderUpdate,
+  ): boolean {
+    this.presentationLayerUpdate = update;
     return true;
   }
   public setWorldOrientation(world: PatchMapWorldOrientation): boolean {
@@ -311,7 +356,7 @@ describe('PatchMap REN-005 product integration', () => {
       if (!isRecord(executionCleanup)) throw new Error('Missing REN-005 cleanup');
       expect(run.cleanup.productResources).toBe(executionCleanup.productResources);
       expect(executionCleanup.productResources).toMatchObject({
-        revision: 'core-v2-ren-005-product-cleanup/1',
+        revision: 'patch-map-ren-005-product-cleanup/1',
         assetRuntime: {
           resourceCount: 0,
           pendingCount: 0,

@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import fixtureProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
@@ -12,6 +12,7 @@ import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/d
 import { createPatchMapExecutableLabBridge } from '../../lab/patch-map/contract/executable-bridge';
 import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
 import {
   PatchMap,
   PixiEngineSurface,
@@ -23,6 +24,7 @@ import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
 } from '../../src/patch-map/renderers/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
 import type {
   LeafAssetBindingObservation,
   LeafAssetBindingProbe,
@@ -130,16 +132,16 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 
 const [catalogRuntime, materializeRuntime, handlerRuntime, workerRuntime, foldRuntime, compareRuntime] =
   await Promise.all([
-    loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-    loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+    loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+    loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
     loadRuntime<HandlerRuntime>(
-      '../../scripts/verification/core-v2-contract/handlers/presentation-dynamics.mjs',
+      '../../scripts/verification/patch-map-contract/handlers/presentation-dynamics.mjs',
     ),
-    loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+    loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
     loadRuntime<FoldRuntime>(
-      '../../scripts/verification/core-v2-contract/fold-presentation-dynamics.mjs',
+      '../../scripts/verification/patch-map-contract/fold-presentation-dynamics.mjs',
     ),
-    loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+    loadRuntime<CompareRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
   ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -168,12 +170,12 @@ describe('PatchMap shared presentation dynamics contract runtime', () => {
     const moduleSources = await Promise.all([
       {
         relativePath:
-          '../../scripts/verification/core-v2-contract/handlers/presentation-dynamics.mjs',
+          '../../scripts/verification/patch-map-contract/handlers/presentation-dynamics.mjs',
         verifierEntry: ['handlers/presentation-dynamics.mjs', 'handler'] as const,
       },
       {
         relativePath:
-          '../../scripts/verification/core-v2-contract/fold-presentation-dynamics.mjs',
+          '../../scripts/verification/patch-map-contract/fold-presentation-dynamics.mjs',
         verifierEntry: ['fold-presentation-dynamics.mjs', 'fold'] as const,
       },
       {
@@ -270,7 +272,7 @@ describe('PatchMap shared presentation dynamics contract runtime', () => {
         provenance: {
           codeCommit: 'test-commit',
           packedPackageSha256: 'test-package',
-          contractRevision: 'core-v2-functional-contract/2026-07-16.2',
+          contractRevision: 'patch-map-contract/1',
         },
         environment: {
           browserVersion: 'unit-test',
@@ -537,7 +539,7 @@ function foldObservedCase(caseId: CaseId, execution: JsonRecord): Readonly<JsonR
     provenance: {
       codeCommit: 'test-commit',
       packedPackageSha256: 'test-package',
-      contractRevision: 'core-v2-functional-contract/2026-07-16.2',
+      contractRevision: 'patch-map-contract/1',
     },
     environment: {
       browserVersion: 'unit-test',
@@ -628,6 +630,12 @@ class RendererTestDouble {
     request: LeafAssetBindingRequest;
     probe: LeafAssetBindingProbe;
   }>>();
+  private projection: PatchMapProjectionIndex | null = null;
+  private presentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  > = new Map();
+  private presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null = null;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 
   public constructor(
@@ -638,6 +646,26 @@ class RendererTestDouble {
 
   public markChanges(): void {}
   public markOverlayChanges(): void {}
+  public capturePublicationCheckpoint(): Readonly<{
+    projection: PatchMapProjectionIndex | null;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }> {
+    return Object.freeze({
+      projection: this.projection,
+      presentationOverrides: this.presentationOverrides,
+      presentationLayerUpdate: this.presentationLayerUpdate,
+    });
+  }
+  public restorePublicationCheckpoint(checkpoint: Readonly<{
+    projection: PatchMapProjectionIndex | null;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }>): void {
+    this.projection = checkpoint.projection;
+    this.presentationOverrides = checkpoint.presentationOverrides;
+    this.presentationLayerUpdate = checkpoint.presentationLayerUpdate;
+  }
   public bindSceneAsset(
     key: string,
     request: LeafAssetBindingRequest,
@@ -699,9 +727,24 @@ class RendererTestDouble {
     });
   }
   public setProjection(
-    _index: PatchMapProjectionIndex,
+    index: PatchMapProjectionIndex,
     _ranges?: readonly SlotRange[],
-  ): boolean { return true; }
+  ): boolean {
+    this.projection = index;
+    return true;
+  }
+  public setInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  ): boolean {
+    this.presentationOverrides = overrides;
+    return true;
+  }
+  public setPresentationLayerMultipliers(
+    update: PatchMapPresentationLayerRenderUpdate,
+  ): boolean {
+    this.presentationLayerUpdate = update;
+    return true;
+  }
   public setWorldOrientation(): boolean { return true; }
   public resize(width: number, height: number, pixelRatio: number): boolean {
     const changed = width !== this.width || height !== this.height || pixelRatio !== this.pixelRatio;

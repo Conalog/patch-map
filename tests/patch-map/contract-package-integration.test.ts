@@ -12,9 +12,13 @@ import {
   createPatchMapPackageIntegrationRuntime,
 } from '../../lab/patch-map/contract/package-integration-runtime';
 // @ts-expect-error -- browser-safe contract handlers are authored as ESM JavaScript.
-import * as handlerModule from '../../scripts/verification/core-v2-contract/handlers/package-integration.mjs';
+import * as handlerModule from '../../scripts/verification/patch-map-contract/handlers/package-integration.mjs';
 // @ts-expect-error -- browser-safe contract folds are authored as ESM JavaScript.
-import * as foldModule from '../../scripts/verification/core-v2-contract/fold-package-integration.mjs';
+import * as foldModule from '../../scripts/verification/patch-map-contract/fold-package-integration.mjs';
+// @ts-expect-error -- package artifact policy is authored as ESM JavaScript.
+import * as artifactPolicyModule from '../../scripts/verification/patch-map-package-matrix/artifact-policy.mjs';
+// @ts-expect-error -- package evidence collectors are authored as ESM JavaScript.
+import * as packageEvidenceModule from '../../scripts/verification/patch-map-package/evidence.mjs';
 
 interface PackageHandlerRuntime {
   readonly PACKAGE_INTEGRATION_HANDLER_REVISION: string;
@@ -31,14 +35,48 @@ interface PackageFoldRuntime {
   foldPackageIntegrationExecution(this: void, options: unknown): unknown;
 }
 
+interface ArtifactPolicyRuntime {
+  readonly PUBLIC_DOCS: readonly string[];
+  projectPackedArtifactPolicy(
+    this: void,
+    options: Readonly<{
+      packRecord: Readonly<{
+        filename: string;
+        size: number;
+        unpackedSize: number;
+      }>;
+      files: readonly string[];
+      sha256: string;
+    }>,
+  ): Readonly<{
+    publicDocs: readonly string[];
+    missingDocs: readonly string[];
+    unexpectedDocs: readonly string[];
+    restrictedEvidence: readonly string[];
+  }>;
+}
+
+interface PackageEvidenceRuntime {
+  collectPackagePublicationFailures(
+    this: void,
+    packageArtifact: Readonly<{
+      missingDocs: readonly string[];
+      missingExamples: readonly string[];
+      unexpectedDocs: readonly string[];
+    }>,
+  ): readonly string[];
+}
+
 const handlers = handlerModule as unknown as PackageHandlerRuntime;
 const fold = foldModule as unknown as PackageFoldRuntime;
+const artifactPolicy = artifactPolicyModule as unknown as ArtifactPolicyRuntime;
+const packageEvidence = packageEvidenceModule as unknown as PackageEvidenceRuntime;
 const packedProvenance = packageConsumerEvidence.provenance;
 
 describe('PatchMap packed integration automation substrate', () => {
   it('pins the exact upstream Fira Code 6.2 license', async () => {
     const license = await readFile(
-      new URL('../../docs/patch-map/FIRA-CODE-LICENSE.txt', import.meta.url),
+      new URL('../../docs/assets/fira-code-6.2-license.txt', import.meta.url),
     );
     expect(createHash('sha256').update(license).digest('hex'))
       .toBe('1d41e10031ab125302780a05ec4c91d218e47db0c7e37cf315cce5e608cdc25c');
@@ -104,17 +142,143 @@ describe('PatchMap packed integration automation substrate', () => {
     expect(evidence).toContain('export function createPackageConsumerEvidence');
     expect(supplyChain).toContain('export function createSupplyChainEvidence');
     expect(supplyChain).toContain("format: 'patch-map-spdx-lite/1'");
-    expect(supplyChain).not.toContain("format: 'core-v2-spdx-lite/1'");
     expect(matrix).toContain("from './patch-map-package-matrix/artifact-policy.mjs'");
     expect(matrix).toContain("from './patch-map-package-matrix/journey-comparison.mjs'");
     expect(matrix).toContain("from './patch-map-package-matrix/runner-sources.mjs'");
     expect(artifact).toContain("export const PACKAGE_NAME = '@conalog/patch-map';");
-    expect(artifact).toContain("'docs/patch-map/font-assets.md'");
-    expect(artifact).toContain("'docs/patch-map/FIRA-CODE-LICENSE.txt'");
+    expect(artifact).toContain("'docs/assets/fonts.md'");
+    expect(artifact).toContain("'docs/assets/fira-code-6.2-license.txt'");
     expect(artifact).not.toContain('clean-?room');
     expect(comparison).toContain('export function comparePackedJourneyRuns');
     expect(comparison).toContain('countDestroySummaryFailures(run.destroySummary)');
     expect(runners).toContain('export function journeyRunnerSource');
+  });
+
+  it('owns an exact public documentation package manifest', () => {
+    expect(artifactPolicy.PUBLIC_DOCS).toEqual([
+      'docs/README.md',
+      'docs/getting-started.md',
+      'docs/api/data-and-targets.md',
+      'docs/api/mutations-and-history.md',
+      'docs/api/pointer-and-selection.md',
+      'docs/api/viewport-and-transform.md',
+      'docs/api/presentation.md',
+      'docs/api/assets-and-capture.md',
+      'docs/api/text.md',
+      'docs/integration/host.md',
+      'docs/compatibility.md',
+      'docs/assets/fonts.md',
+      'docs/assets/fira-code-6.2-license.txt',
+    ]);
+
+    const files = [
+      'dist/index.js',
+      ...artifactPolicy.PUBLIC_DOCS,
+      'examples/patch-map/host-adapter.ts',
+      'examples/patch-map/minimal.ts',
+      'examples/patch-map/dashboard.ts',
+      'examples/patch-map/editor.ts',
+      'examples/patch-map/report.ts',
+      'examples/patch-map/presentation.ts',
+      'docs/internal.md',
+      'contracts/patch-map/contract.json',
+      'docs/engineering/private.md',
+      'fixtures/private.json',
+      'verification/evidence/extraction/result.json',
+    ];
+    const projected = artifactPolicy.projectPackedArtifactPolicy({
+      packRecord: {
+        filename: 'conalog-patch-map-1.0.0-alpha.2.tgz',
+        size: 1,
+        unpackedSize: 1,
+      },
+      files,
+      sha256: 'a'.repeat(64),
+    });
+
+    expect(projected.publicDocs).toEqual(artifactPolicy.PUBLIC_DOCS);
+    expect(projected.missingDocs).toEqual([]);
+    expect(projected.unexpectedDocs).toEqual([
+      'docs/internal.md',
+      'docs/engineering/private.md',
+    ]);
+    expect(projected.restrictedEvidence).toEqual([
+      'contracts/patch-map/contract.json',
+      'docs/engineering/private.md',
+      'fixtures/private.json',
+      'verification/evidence/extraction/result.json',
+    ]);
+  });
+
+  it('fails package publication for missing or unexpected documentation', () => {
+    expect(packageEvidence.collectPackagePublicationFailures({
+      missingDocs: [],
+      missingExamples: [],
+      unexpectedDocs: [],
+    })).toEqual([]);
+    expect(packageEvidence.collectPackagePublicationFailures({
+      missingDocs: ['docs/api/text.md'],
+      missingExamples: [],
+      unexpectedDocs: ['docs/engineering/private.md'],
+    })).toEqual([
+      'packed artifact is missing public PatchMap docs or examples',
+      'packed artifact contains unexpected public documentation',
+    ]);
+  });
+
+  it('withholds the documentation digest when the package contains an unowned doc', async () => {
+    const digest = 'a'.repeat(64);
+    const evidence = {
+      schemaVersion: 2,
+      status: 'pass',
+      failures: [],
+      package: '@conalog/patch-map',
+      pixi: '8.19.0',
+      provenance: { packedPackageSha256: digest },
+      environment: {},
+      errors: { console: [], page: [], network: [] },
+      artifact: {
+        sha256: digest,
+        sourceMapCount: 0,
+        restrictedEvidenceCount: 0,
+        missingDocs: [],
+        unexpectedDocs: ['docs/private.md'],
+        publicDocs: artifactPolicy.PUBLIC_DOCS,
+        missingExamples: [],
+      },
+      examples: {
+        compiledExamples: ['minimal'],
+        executedExamples: ['minimal'],
+        results: [{ name: 'minimal', status: 'pass' }],
+      },
+      types: { strict: true, exactOptionalPropertyTypes: true, exitCode: 0 },
+    };
+    const entries = new Map(handlers.createPackageIntegrationHandlerEntries({
+      readPackedConsumerEvidence: () => evidence,
+    }));
+    const validateDocumentation = entries.get('contract/validate-documentation-digest');
+    expect(validateDocumentation).toBeTypeOf('function');
+    const resolveDataset = () => Promise.reject(new Error('must not resolve'));
+    const result = await validateDocumentation!(
+      {
+        caseId: 'PKG-005',
+        actionIndex: 2,
+        createEngine: () => Promise.reject(new Error('must not create engine')),
+        releaseEngine: () => Promise.resolve(),
+        resolveDataset,
+        fingerprint: () => '',
+        fixtureParams: {},
+        signal: { aborted: false },
+        clock: { now: () => 0 },
+      },
+      {
+        index: 2,
+        type: 'validate-documentation-digest',
+        operands: { expectedPackageDigest: 'provenance.packedPackageSha256' },
+      },
+    ) as Readonly<{ actual: Readonly<{ documentationDigest: string | null }> }>;
+
+    expect(result.actual.documentationDigest).toBeNull();
   });
 
   it('registers five cases through one collision-free shared handler family', () => {
@@ -158,6 +322,33 @@ describe('PatchMap packed integration automation substrate', () => {
     expect(new Set(entries.map(([id]) => id)).size).toBe(entries.length);
   });
 
+  it('rejects undeclared host-adapter operands at the handler boundary', async () => {
+    const runtime = createPatchMapPackageIntegrationRuntime();
+    const entries = new Map(handlers.createPackageIntegrationHandlerEntries(
+      runtime.product as unknown as Readonly<Record<string, unknown>>,
+    ));
+    const runAdapter = entries.get('contract/run-redesigned-host-adapter');
+    expect(runAdapter).toBeTypeOf('function');
+    await expect(runAdapter!(
+      {
+        caseId: 'PKG-002',
+        actionIndex: 0,
+        createEngine: () => Promise.reject(new Error('must not create engine')),
+        releaseEngine: () => Promise.resolve(),
+        resolveDataset: () => Promise.reject(new Error('must not resolve dataset')),
+        fingerprint: () => '',
+        fixtureParams: {},
+        signal: { aborted: false },
+        clock: { now: () => 0 },
+      },
+      {
+        index: 0,
+        type: 'run-redesigned-host-adapter',
+        operands: { capabilities: ['load'], removedAlias: [] },
+      },
+    )).rejects.toThrow('run-redesigned-host-adapter operands keys');
+  });
+
   it('returns detached immutable packed proof snapshots', () => {
     const runtime = createPatchMapPackageIntegrationRuntime();
     const first = runtime.product.readPackedConsumerEvidence();
@@ -176,8 +367,8 @@ describe('PatchMap packed integration automation substrate', () => {
         promotionEligible: false,
         evidenceClassification: 'retained-historical-package-proof',
         shippingPackageName: '@conalog/patch-map',
-        evidencePackageName: '@conalog/patch-map/core-v2',
-        packageIdentityMatchesShipping: false,
+        evidencePackageName: '@conalog/patch-map',
+        packageIdentityMatchesShipping: true,
       },
       packageMatrix: {
         remainingCanvasCount: 0,
@@ -198,11 +389,11 @@ describe('PatchMap packed integration automation substrate', () => {
         import.meta.url,
       ),
       new URL(
-        '../../scripts/verification/core-v2-contract/handlers/package-integration.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/package-integration.mjs',
         import.meta.url,
       ),
       new URL(
-        '../../scripts/verification/core-v2-contract/fold-package-integration.mjs',
+        '../../scripts/verification/patch-map-contract/fold-package-integration.mjs',
         import.meta.url,
       ),
     ];

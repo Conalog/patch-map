@@ -5,7 +5,7 @@ import {
   createSyntheticPatchMap,
   resolveSyntheticBitmapTextCapability,
 } from '../../performance/patch-map/workloads';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import { selectPatchMapTextRenderRoute } from '../../src/patch-map/semantic/text-render-route';
 
 describe('PatchMap performance protocol', () => {
@@ -23,7 +23,7 @@ describe('PatchMap performance protocol', () => {
     expect(left).toHaveLength(101);
     expect(left[0]).toMatchObject({ type: 'item', id: 'item-00000' });
     expect(left.at(-1)).toMatchObject({ type: 'relations', id: 'synthetic-relations' });
-    const parsed = parsePatchMapV010(left);
+    const parsed = parsePatchMap(left);
     expect(Object.values(parsed.projection.textsByEntityId ?? {}).every(
       (text) => text.rendererRoute === 'bitmap-text' &&
         text.visibleFontRuns.every((run) => run.fallbackReason === undefined),
@@ -69,7 +69,7 @@ describe('PatchMap performance protocol', () => {
     };
     expect(resolveSyntheticBitmapTextCapability(request)).toMatchObject({
       coverage: 'proven',
-      atlasId: 'core-v2-benchmark-unifont-ascii-11-600',
+      atlasId: 'patch-map-benchmark-unifont-ascii-11-600',
       multiline: false,
     });
     expect(resolveSyntheticBitmapTextCapability({ ...request, text: '상태 42' })).toBeNull();

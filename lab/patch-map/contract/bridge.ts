@@ -1,4 +1,4 @@
-export const PATCH_MAP_CONTRACT_LAB_BRIDGE_REVISION = 'core-v2-contract-lab-bridge/1' as const;
+export const PATCH_MAP_CONTRACT_LAB_BRIDGE_REVISION = 'patch-map-contract-lab-bridge/1' as const;
 
 export type PatchMapContractLabMilestone = 'semantic' | 'published' | 'settled' | 'released';
 export type PatchMapContractLabStatus =
@@ -27,7 +27,7 @@ export interface PatchMapContractLabState {
 }
 
 export interface PatchMapContractGesturePlan {
-  readonly revision: 'core-v2-contract-gesture-plan/1';
+  readonly revision: 'patch-map-contract-gesture-plan/1';
   readonly actionIndex: number;
   readonly driverId: string;
   readonly ownerQualifiedTarget: string;
@@ -139,7 +139,7 @@ export function createNotImplementedPatchMapContractLabBridge(
     },
     actualObservation(): Promise<Readonly<Record<string, unknown>>> {
       return Promise.resolve(Object.freeze({
-        $schema: 'core-v2-contract-lab-actual-stub/1',
+        $schema: 'patch-map-contract-lab-actual-stub/1',
         case: Object.freeze({ id: options.caseId, rootTestId: options.rootTestId }),
         execution: Object.freeze({
           status: 'not-implemented',

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+
+import { createTestProjectionIndex } from './support/projection-index';
 import { Graphics, Matrix, Mesh } from 'pixi.js';
 import type { MeshGeometry } from 'pixi.js';
 
@@ -105,7 +107,7 @@ describe('aggregate mesh geometry builders', () => {
         Object.freeze({ id: 'rect', packedColor: 0x00aa66ff }),
       ]),
     }));
-    const projection: PatchMapProjectionIndex = Object.freeze({
+    const projection: PatchMapProjectionIndex = createTestProjectionIndex({
       byEntityId: Object.freeze({}),
       componentsByEntityId: Object.freeze({
         rect: Object.freeze({
@@ -145,7 +147,7 @@ describe('aggregate mesh geometry builders', () => {
   it('expands one logical self relation into four aggregate Mesh segments', () => {
     const store = createStore();
     (store.relationTo as Int32Array)[3] = 0;
-    const projection: PatchMapProjectionIndex = Object.freeze({
+    const projection: PatchMapProjectionIndex = createTestProjectionIndex({
       byEntityId: Object.freeze({}),
       relationsByEntityId: Object.freeze({
         relation: Object.freeze({
@@ -182,7 +184,7 @@ describe('aggregate mesh geometry builders', () => {
   it('uses relation-affine normal scale for aggregate Mesh stroke width', () => {
     const store = createStore();
     (store.flags as Uint8Array)[2] = RenderFlags.Visible;
-    const projection: PatchMapProjectionIndex = Object.freeze({
+    const projection: PatchMapProjectionIndex = createTestProjectionIndex({
       byEntityId: Object.freeze({}),
       relationsByEntityId: Object.freeze({
         relation: Object.freeze({
@@ -246,10 +248,10 @@ describe('AggregateMeshLayer', () => {
     (store.flags as Uint8Array)[2] = RenderFlags.Visible;
     const layer = new AggregateMeshLayer({ chunkSize: 2, label: 'viewport chunks' });
     layer.sync(store, { fullRebuildEpoch: 1 });
-    const firstRect = layer.quadContainer.children.find((child) =>
+    const firstRect = layer.ordinaryGeometryContainer.children.find((child) =>
       child.label.includes(': rect chunk 0')
     );
-    const secondRect = layer.quadContainer.children.find((child) =>
+    const secondRect = layer.ordinaryGeometryContainer.children.find((child) =>
       child.label.includes(': rect chunk 1')
     );
     if (firstRect === undefined || secondRect === undefined) {
@@ -258,11 +260,11 @@ describe('AggregateMeshLayer', () => {
 
     expect(layer.cull(new Matrix(), 70, 40, 0)).toBe(1);
     expect(firstRect.visible).toBe(true);
-    expect(firstRect.parent).toBe(layer.quadContainer);
+    expect(firstRect.parent).toBe(layer.ordinaryGeometryContainer);
     expect(secondRect.visible).toBe(false);
     expect(secondRect.parent).toBeNull();
     expect(
-      layer.relationContainer.children.find(
+      layer.relationsDynamicContainer.children.find(
         (child) => child.label.includes(': relation chunk 1'),
       )?.visible,
     ).toBe(true);
@@ -271,7 +273,7 @@ describe('AggregateMeshLayer', () => {
     expect(firstRect.visible).toBe(false);
     expect(firstRect.parent).toBeNull();
     expect(secondRect.visible).toBe(true);
-    expect(secondRect.parent).toBe(layer.quadContainer);
+    expect(secondRect.parent).toBe(layer.ordinaryGeometryContainer);
     layer.destroy();
   });
 
@@ -279,7 +281,7 @@ describe('AggregateMeshLayer', () => {
     const store = createBarChunkStore();
     const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'adaptive chunks' });
     layer.sync(store, { fullRebuildEpoch: 1 });
-    const barMeshes = layer.relationContainer.children.filter(
+    const barMeshes = layer.relationsDynamicContainer.children.filter(
       (child): child is Mesh<MeshGeometry> =>
         child instanceof Mesh && child.label.includes(': bar chunk 0'),
     );
@@ -295,13 +297,13 @@ describe('AggregateMeshLayer', () => {
     expect(layer.preciseViewportCull).toBe(true);
     expect(layer.cull(new Matrix(), 70, 40, 0, true)).toBe(1);
     expect(layer.preciseViewportCull).toBe(true);
-    expect(firstBar.parent).toBe(layer.relationContainer);
+    expect(firstBar.parent).toBe(layer.relationsDynamicContainer);
     expect(distantBar.parent).toBeNull();
 
     expect(layer.cull(new Matrix(), 70, 40, 0, false)).toBe(1);
     expect(layer.preciseViewportCull).toBe(false);
-    expect(firstBar.parent).toBe(layer.relationContainer);
-    expect(distantBar.parent).toBe(layer.relationContainer);
+    expect(firstBar.parent).toBe(layer.relationsDynamicContainer);
+    expect(distantBar.parent).toBe(layer.relationsDynamicContainer);
     expect([...layer.barPresentationVisibility()!.visibleChunks.slice(0, 1)])
       .toEqual([1]);
     expect([...layer.barPresentationVisibility()!.visibleSlots.slice(0, 4)])
@@ -360,7 +362,7 @@ describe('AggregateMeshLayer', () => {
   it('expands endpoint-only dirtiness to a relation in another Mesh chunk', () => {
     const store = createStore();
     (store.flags as Uint8Array)[2] = RenderFlags.Visible;
-    const projection: PatchMapProjectionIndex = Object.freeze({
+    const projection: PatchMapProjectionIndex = createTestProjectionIndex({
       byEntityId: Object.freeze({}),
       relationsByEntityId: Object.freeze({
         relation: Object.freeze({
@@ -392,7 +394,7 @@ describe('AggregateMeshLayer', () => {
     expect(hidden.visibleRelations).toBe(0);
     expect(hidden.uploadedChunks).toBe(2);
     expect(
-      layer.relationContainer.children.filter((child) =>
+      layer.relationsDynamicContainer.children.filter((child) =>
         child.label.includes(': relation chunk')
       ),
     ).toHaveLength(0);
@@ -435,15 +437,15 @@ describe('AggregateMeshLayer', () => {
     const store = createStore();
     const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'mesh fast path' });
     const initial = layer.sync(store, { fullRebuildEpoch: 1 });
-    const rectCandidate = layer.quadContainer.children.find((child) =>
+    const rectCandidate = layer.ordinaryGeometryContainer.children.find((child) =>
       child.label.includes(': rect chunk 0'),
     );
-    const barsBefore = layer.relationContainer.children.filter(
+    const barsBefore = layer.relationsDynamicContainer.children.filter(
       (child): child is Mesh<MeshGeometry> =>
         child instanceof Mesh && child.label.includes(': bar chunk 0'),
     );
     expect(barsBefore.every((mesh) => mesh.geometry.batchMode === 'auto')).toBe(true);
-    const relationCandidate = layer.relationContainer.children.find((child) =>
+    const relationCandidate = layer.relationsDynamicContainer.children.find((child) =>
       child.label.includes(': relation chunk 0'),
     );
     if (!(rectCandidate instanceof Mesh) || !(relationCandidate instanceof Mesh)) {
@@ -460,14 +462,14 @@ describe('AggregateMeshLayer', () => {
     (store as { revision: number }).revision = 2;
     const updated = layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
 
-    const rectAfter = layer.quadContainer.children.find((child) =>
+    const rectAfter = layer.ordinaryGeometryContainer.children.find((child) =>
       child.label.includes(': rect chunk 0'),
     );
-    const barsAfter = layer.relationContainer.children.filter(
+    const barsAfter = layer.relationsDynamicContainer.children.filter(
       (child): child is Mesh<MeshGeometry> =>
         child instanceof Mesh && child.label.includes(': bar chunk 0'),
     );
-    const relationAfter = layer.relationContainer.children.find((child) =>
+    const relationAfter = layer.relationsDynamicContainer.children.find((child) =>
       child.label.includes(': relation chunk 0'),
     );
 
@@ -499,19 +501,19 @@ describe('AggregateMeshLayer', () => {
     (store.fill as Uint32Array)[1] = 0x8844ccff;
     (store as { revision: number }).revision = 3;
     const styleUpdated = layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
-    const fillAfter = layer.relationContainer.children.find(
+    const fillAfter = layer.relationsDynamicContainer.children.find(
       (child) => child instanceof Mesh && child.zIndex === 6,
     );
     expect(styleUpdated.geometrySlotsVisited).toBe(1);
     expect(fillAfter).not.toBe(fillBefore);
     expect(fillBefore.destroyed).toBe(true);
     expect(
-      layer.quadContainer.children.find((child) =>
+      layer.ordinaryGeometryContainer.children.find((child) =>
         child.label.includes(': rect chunk 0'),
       ),
     ).toBe(rectBefore);
     expect(
-      layer.relationContainer.children.find((child) =>
+      layer.relationsDynamicContainer.children.find((child) =>
         child.label.includes(': relation chunk 0'),
       ),
     ).toBe(relationBefore);
@@ -556,10 +558,10 @@ describe('AggregateMeshLayer', () => {
     const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'rounded bars' });
 
     const initial = layer.sync(store, { fullRebuildEpoch: 1 });
-    const rounded = layer.relationContainer.children.filter((child) =>
+    const rounded = layer.relationsDynamicContainer.children.filter((child) =>
       child instanceof Graphics && child.label.includes(': styled bar chunk 0'),
     );
-    const roundedMeshes = layer.relationContainer.children.filter((child) =>
+    const roundedMeshes = layer.relationsDynamicContainer.children.filter((child) =>
       child instanceof Mesh && child.label.includes(': bar chunk 0'),
     ) as Mesh<MeshGeometry>[];
     expect(rounded).toHaveLength(0);
@@ -588,7 +590,7 @@ describe('AggregateMeshLayer', () => {
     (store.value as Float32Array)[1] = 75;
     (store as { revision: number }).revision = 2;
     const animated = layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
-    const roundedMeshesAfter = layer.relationContainer.children.filter((child) =>
+    const roundedMeshesAfter = layer.relationsDynamicContainer.children.filter((child) =>
       child instanceof Mesh && child.label.includes(': bar chunk 0'),
     ) as Mesh<MeshGeometry>[];
     const freshFill = buildAggregateChunkGeometry(
@@ -605,7 +607,7 @@ describe('AggregateMeshLayer', () => {
     expect(fillBefore.geometry.uvs).toBe(fillUvsBefore);
     expect(fillBefore.geometry.indices).toBe(fillIndicesBefore);
     expect([...fillBefore.geometry.positions]).toEqual([...(freshFill?.positions ?? [])]);
-    expect(layer.relationContainer.children.filter((child) =>
+    expect(layer.relationsDynamicContainer.children.filter((child) =>
       child instanceof Graphics && child.label.includes(': styled bar chunk 0'),
     )).toHaveLength(0);
 
@@ -613,10 +615,10 @@ describe('AggregateMeshLayer', () => {
     (store as { revision: number }).revision = 3;
     layer.sync(store, { changedRanges: [{ start: 1, end: 2 }] });
     expect(roundedMeshes.every((mesh) => mesh.destroyed)).toBe(true);
-    expect(layer.relationContainer.children.filter((child) =>
+    expect(layer.relationsDynamicContainer.children.filter((child) =>
       child instanceof Graphics && child.label.includes(': styled bar chunk 0'),
     )).toHaveLength(0);
-    expect(layer.relationContainer.children.filter((child) =>
+    expect(layer.relationsDynamicContainer.children.filter((child) =>
       child instanceof Mesh && child.label.includes(': bar chunk 0'),
     )).toHaveLength(2);
     expect(layer.entityPaintProbe('bar')).toMatchObject({
@@ -633,7 +635,7 @@ describe('AggregateMeshLayer', () => {
     (store.radius as Float64Array).fill(4);
     const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'rounded group' });
     layer.sync(store, { fullRebuildEpoch: 1 });
-    const meshes = layer.relationContainer.children.filter(
+    const meshes = layer.relationsDynamicContainer.children.filter(
       (child): child is Mesh<MeshGeometry> =>
         child instanceof Mesh && child.label.includes(': bar chunk 0'),
     );
@@ -652,7 +654,7 @@ describe('AggregateMeshLayer', () => {
 
     expect(updated.geometrySlotsVisited).toBe(1);
     expect(updated.uploadedBytes).toBe(fill.geometry.positions.byteLength);
-    expect(layer.relationContainer.children).toContain(fill);
+    expect(layer.relationsDynamicContainer.children).toContain(fill);
     expect([...fill.geometry.positions]).not.toEqual(fillPositionsBefore);
     expect([...fill.geometry.positions]).toEqual([...(freshFill?.positions ?? [])]);
     layer.destroy();
@@ -664,10 +666,10 @@ describe('AggregateMeshLayer', () => {
     (store.flags as Uint8Array)[2] = RenderFlags.Visible;
     const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'mixed presentation' });
     layer.sync(store, { fullRebuildEpoch: 1 });
-    const rectBefore = layer.quadContainer.children.find((child) =>
+    const rectBefore = layer.ordinaryGeometryContainer.children.find((child) =>
       child.label.includes(': rect chunk 0'),
     );
-    const barsBefore = layer.relationContainer.children.filter((child) =>
+    const barsBefore = layer.relationsDynamicContainer.children.filter((child) =>
       child instanceof Mesh && child.label.includes(': bar chunk 0'),
     );
 
@@ -678,10 +680,10 @@ describe('AggregateMeshLayer', () => {
 
     expect(mixed.geometrySlotsVisited).toBe(1);
     expect(mixed.uploadedChunks).toBe(1);
-    expect(layer.quadContainer.children.find((child) =>
+    expect(layer.ordinaryGeometryContainer.children.find((child) =>
       child.label.includes(': rect chunk 0'),
     )).toBe(rectBefore);
-    expect(layer.relationContainer.children.filter((child) =>
+    expect(layer.relationsDynamicContainer.children.filter((child) =>
       child instanceof Mesh && child.label.includes(': bar chunk 0'),
     )).toEqual(barsBefore);
 
@@ -699,10 +701,10 @@ describe('AggregateMeshLayer', () => {
     const store = createStore();
     const layer = new AggregateMeshLayer({ chunkSize: 4, label: 'mesh replacement' });
     layer.sync(store, { fullRebuildEpoch: 1 });
-    const rectBefore = layer.quadContainer.children.find((child) =>
+    const rectBefore = layer.ordinaryGeometryContainer.children.find((child) =>
       child.label.includes(': rect chunk 0'),
     );
-    const relationBefore = layer.relationContainer.children.find((child) =>
+    const relationBefore = layer.relationsDynamicContainer.children.find((child) =>
       child.label.includes(': relation chunk 0'),
     );
     if (!(rectBefore instanceof Mesh) || !(relationBefore instanceof Mesh)) {
@@ -720,13 +722,13 @@ describe('AggregateMeshLayer', () => {
     (store as { revision: number }).revision = 2;
 
     const updated = layer.sync(store, { changedRanges: [{ start: 0, end: 1 }] });
-    const rectAfter = layer.quadContainer.children.find((child) =>
+    const rectAfter = layer.ordinaryGeometryContainer.children.find((child) =>
       child.label.includes(': rect chunk 0'),
     );
-    const relationAfter = layer.relationContainer.children.find((child) =>
+    const relationAfter = layer.relationsDynamicContainer.children.find((child) =>
       child.label.includes(': relation chunk 0'),
     );
-    const barsAfter = layer.relationContainer.children.filter((child) =>
+    const barsAfter = layer.relationsDynamicContainer.children.filter((child) =>
       child.label.includes(': bar chunk 0'),
     );
 

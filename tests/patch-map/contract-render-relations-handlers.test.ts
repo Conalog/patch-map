@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+import { createTestProjectionIndex } from './support/projection-index';
 
 import type { SceneDocument } from '../../src/patch-map/dense/contracts';
 import { CoreScene } from '../../src/patch-map/dense/scene';
@@ -23,7 +24,7 @@ import {
   type PatchMapSurfaceReconcileResult,
   type PatchMapSurfaceView,
 } from '../../src/patch-map/engine';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import { planPatchMapSceneReconcile } from '../../src/patch-map/semantic/reconcile';
 
@@ -131,10 +132,10 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [catalogRuntime, materializeRuntime, handlerRuntime, workerRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
-  loadRuntime<HandlerRuntime>('../../scripts/verification/core-v2-contract/handlers/render-relations.mjs'),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
+  loadRuntime<HandlerRuntime>('../../scripts/verification/patch-map-contract/handlers/render-relations.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -156,7 +157,7 @@ describe('PatchMap REN-007 render-relations actual-only handlers', () => {
   it('registers five exact browser-safe handlers without consuming answer evidence', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/render-relations.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/render-relations.mjs',
         import.meta.url,
       )),
       'utf8',
@@ -358,7 +359,7 @@ class RelationSurface implements PatchMapEngineSurface {
   private height: number;
   private pixelRatio: number;
   private document: SceneDocument = Object.freeze({ version: 1, entities: Object.freeze([]) });
-  private projection: PatchMapProjectionIndex = Object.freeze({ byEntityId: Object.freeze({}) });
+  private projection: PatchMapProjectionIndex = createTestProjectionIndex();
   private geometryRevision = 0;
   private surfaceView: PatchMapSurfaceView = Object.freeze({
     x: 0,
@@ -467,7 +468,7 @@ class RelationSurface implements PatchMapEngineSurface {
     this.destroyed = true;
     this.canvasCount = 0;
     this.document = Object.freeze({ version: 1, entities: Object.freeze([]) });
-    this.projection = Object.freeze({ byEntityId: Object.freeze({}) });
+    this.projection = createTestProjectionIndex();
     return Promise.resolve(true);
   }
 }
@@ -477,7 +478,7 @@ function parseDataset(input: unknown): Readonly<{
   projection: PatchMapProjectionIndex;
 }> {
   const materialized = materializePatchMapDataset(input);
-  const parsed = parsePatchMapV010(materialized.dataset);
+  const parsed = parsePatchMap(materialized.dataset);
   return Object.freeze({ document: parsed.document, projection: parsed.projection });
 }
 

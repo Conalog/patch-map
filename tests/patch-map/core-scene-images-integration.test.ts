@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
 import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/dense/renderer-types';
 import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
 import type {
   LeafAssetBindingObservation,
   LeafAssetBindingProbe,
@@ -13,6 +14,7 @@ import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
 } from '../../src/patch-map/renderers/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
 import type {
   PatchMapPixiRendererDebug,
   RootInteractionHandlers,
@@ -60,6 +62,11 @@ class SceneImageRendererDouble {
 
   private readonly current = new Map<string, Binding>();
   private readonly history = new Map<string, Binding[]>();
+  private presentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  > = new Map();
+  private presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null = null;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 
   public bindSceneAsset(
@@ -165,8 +172,40 @@ class SceneImageRendererDouble {
 
   public markChanges(_ranges: readonly SlotRange[], _reason: string): void {}
   public markOverlayChanges(): void {}
+  public capturePublicationCheckpoint(): Readonly<{
+    projectionCount: number;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }> {
+    return Object.freeze({
+      projectionCount: this.projections.length,
+      presentationOverrides: this.presentationOverrides,
+      presentationLayerUpdate: this.presentationLayerUpdate,
+    });
+  }
+  public restorePublicationCheckpoint(checkpoint: Readonly<{
+    projectionCount: number;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }>): void {
+    this.projections.length = checkpoint.projectionCount;
+    this.presentationOverrides = checkpoint.presentationOverrides;
+    this.presentationLayerUpdate = checkpoint.presentationLayerUpdate;
+  }
   public setProjection(value: unknown): boolean {
     this.projections.push(value);
+    return true;
+  }
+  public setInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  ): boolean {
+    this.presentationOverrides = overrides;
+    return true;
+  }
+  public setPresentationLayerMultipliers(
+    update: PatchMapPresentationLayerRenderUpdate,
+  ): boolean {
+    this.presentationLayerUpdate = update;
     return true;
   }
   public setWorldOrientation(): boolean { return true; }

@@ -3,9 +3,9 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 // @ts-expect-error -- browser-safe contract handlers are authored as ESM JavaScript.
-import * as handlerModule from '../../scripts/verification/core-v2-contract/handlers/pixijs-integration.mjs';
+import * as handlerModule from '../../scripts/verification/patch-map-contract/handlers/pixijs-integration.mjs';
 // @ts-expect-error -- browser-safe contract folds are authored as ESM JavaScript.
-import * as foldModule from '../../scripts/verification/core-v2-contract/fold-pixijs-integration.mjs';
+import * as foldModule from '../../scripts/verification/patch-map-contract/fold-pixijs-integration.mjs';
 
 interface PixiHandlerRuntime {
   readonly PIXIJS_INTEGRATION_HANDLER_REVISION: string;
@@ -27,7 +27,7 @@ const fold = foldModule as unknown as PixiFoldRuntime;
 describe('PatchMap PixiJS integration automation substrate', () => {
   it('registers four cases through one collision-free shared handler family', () => {
     expect(handlers.PIXIJS_INTEGRATION_HANDLER_REVISION)
-      .toBe('core-v2-pixijs-integration-handlers/1');
+      .toBe('patch-map-pixijs-integration-handlers/1');
     expect(handlers.PIXIJS_INTEGRATION_CASE_IDS).toEqual([
       'PIX-001',
       'PIX-002',
@@ -54,14 +54,14 @@ describe('PatchMap PixiJS integration automation substrate', () => {
   it('keeps handler and fold browser-safe and outside the expected/comparator boundary', async () => {
     const handlerSource = await readFile(
       new URL(
-        '../../scripts/verification/core-v2-contract/handlers/pixijs-integration.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/pixijs-integration.mjs',
         import.meta.url,
       ),
       'utf8',
     );
     const foldSource = await readFile(
       new URL(
-        '../../scripts/verification/core-v2-contract/fold-pixijs-integration.mjs',
+        '../../scripts/verification/patch-map-contract/fold-pixijs-integration.mjs',
         import.meta.url,
       ),
       'utf8',
@@ -69,7 +69,7 @@ describe('PatchMap PixiJS integration automation substrate', () => {
     const source = `${handlerSource}\n${foldSource}`;
 
     expect(fold.PIXIJS_INTEGRATION_FOLD_REVISION)
-      .toBe('core-v2-pixijs-integration-fold/1');
+      .toBe('patch-map-pixijs-integration-fold/1');
     expect(typeof fold.foldPixijsIntegrationExecution).toBe('function');
     expect(source).not.toMatch(
       /catalog-normalized-expected|normalizedExpected|approvedExpected|compareObservation|expectedCase|node:fs|readFile/u,

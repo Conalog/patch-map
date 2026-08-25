@@ -1,5 +1,5 @@
-import fixtureCatalogJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-fixtures.v1.json';
-import manifestJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-evidence-manifest.v1.json';
+import fixtureCatalogJson from '../../../contracts/patch-map/evidence/catalog-fixtures.v1.json';
+import manifestJson from '../../../contracts/patch-map/evidence/catalog-evidence-manifest.v1.json';
 
 import { isPatchMapExecutableCaseId } from './executable-cases';
 
@@ -49,7 +49,7 @@ export interface PatchMapContractActionPresenter {
 
 export interface PatchMapContractPresenterDescriptor {
   readonly caseId: string;
-  readonly presenterKey: `core-v2-contract/${string}`;
+  readonly presenterKey: `patch-map-contract/${string}`;
   readonly caseType: PatchMapContractCaseType;
   readonly priority: PatchMapContractPriority;
   readonly title: string;
@@ -64,7 +64,6 @@ export interface PatchMapContractPresenterDescriptor {
   readonly executionStatus: 'actual-observable' | 'not-implemented';
 }
 
-const APPROVED_CASE_COUNT = 173;
 const fixtureCatalog = fixtureCatalogJson as unknown as FixtureCatalog;
 const contractManifest = manifestJson as unknown as ContractManifest;
 
@@ -107,7 +106,7 @@ function createPresenter(
   manifest: ManifestCaseRecord,
 ): PatchMapContractPresenterDescriptor {
   const expectedRootTestId = `scenario-${fixture.id.toLowerCase()}`;
-  const expectedRoute = `/lab/core-v2?scenario=${fixture.id}&size=<SIZE>&seed=<SEED>`;
+  const expectedRoute = `/lab/patch-map?scenario=${fixture.id}&size=<SIZE>&seed=<SEED>`;
 
   invariant(fixture.id === manifest.id, `${fixture.id} manifest identity`);
   invariant(fixture.caseType === manifest.caseType, `${fixture.id} case type`);
@@ -124,7 +123,7 @@ function createPresenter(
 
   return Object.freeze({
     caseId: fixture.id,
-    presenterKey: `core-v2-contract/${fixture.id}` as const,
+    presenterKey: `patch-map-contract/${fixture.id}` as const,
     caseType: fixture.caseType,
     priority: fixture.priority,
     title: fixture.title,
@@ -142,8 +141,11 @@ function createPresenter(
   });
 }
 
-invariant(fixtureCatalog.cases.length === APPROVED_CASE_COUNT, 'fixture count must be 173');
-invariant(contractManifest.cases.length === APPROVED_CASE_COUNT, 'manifest count must be 173');
+invariant(fixtureCatalog.cases.length > 0, 'fixture catalog must not be empty');
+invariant(
+  contractManifest.cases.length === fixtureCatalog.cases.length,
+  'fixture and manifest case counts must match',
+);
 
 export const PATCH_MAP_CONTRACT_PRESENTERS: readonly PatchMapContractPresenterDescriptor[] =
   Object.freeze(

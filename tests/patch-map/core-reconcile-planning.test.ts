@@ -17,7 +17,7 @@ import {
   indexPatchMapComponentProbeTargets,
   indexPatchMapTextProbeTargets,
 } from '../../src/patch-map/core/product-probe-reader';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 
 describe('PatchMap core reconcile target planning', () => {
   it('resolves indexed bar and text updates without changing update order or identity', () => {
@@ -86,8 +86,8 @@ describe('PatchMap core reconcile target planning', () => {
 
   it('keeps structural target reuse separate from referential presentation deltas', () => {
     const current = parseFixture();
-    const reordered = parsePatchMapV010([...fixtureInput()].reverse());
-    const replacement = parsePatchMapV010([
+    const reordered = parsePatchMap([...fixtureInput()].reverse());
+    const replacement = parsePatchMap([
       fixtureInput()[0],
       { type: 'rect', id: 'rect-c', size: { width: 20, height: 10 } },
     ]);
@@ -108,7 +108,7 @@ describe('PatchMap core reconcile target planning', () => {
 });
 
 function parseFixture(): ParsePatchMapResult {
-  return parsePatchMapV010(fixtureInput());
+  return parsePatchMap(fixtureInput());
 }
 
 function fixtureInput(): readonly Readonly<Record<string, unknown>>[] {

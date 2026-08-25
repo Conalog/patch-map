@@ -11,7 +11,7 @@ import {
   type CoreRenderer,
   type RenderStoreView,
 } from '../../src/patch-map/dense/renderer-types';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import {
   planPatchMapDatasetReconcile,
@@ -70,7 +70,7 @@ describe('PatchMap dense reconcile planner', () => {
   });
 
   it('plans an identity-stable dirty row exactly and rejects undeclared row changes', () => {
-    const current = parsePatchMapV010(materializePatchMapDataset([
+    const current = parsePatchMap(materializePatchMapDataset([
       { type: 'rect', id: 'a', size: { width: 20, height: 10 }, attrs: { x: 0 } },
       { type: 'rect', id: 'b', size: { width: 20, height: 10 }, attrs: { x: 30 } },
       { type: 'rect', id: 'c', size: { width: 20, height: 10 }, attrs: { x: 60 } },
@@ -110,7 +110,7 @@ describe('PatchMap dense reconcile planner', () => {
     const candidate = materializePatchMapDataset([
       itemWithText('Ready', 160),
     ]);
-    const currentDocument = parsePatchMapV010(current.dataset).document;
+    const currentDocument = parsePatchMap(current.dataset).document;
     const scene = new CoreScene();
     scene.load(currentDocument);
     const entityId = 'item-a::text:caption';

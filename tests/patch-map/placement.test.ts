@@ -1,12 +1,13 @@
-import catalogTypedCases from '../../docs/reference/core-v2-functional-contract/evidence/catalog-typed-cases.v1.json';
+import catalogTypedCases from '../../contracts/patch-map/evidence/catalog-typed-cases.v1.json';
 import { describe, expect, it } from 'vitest';
 
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import type {
   PatchMapDatasetError,
   PatchMapEdges,
   PatchMapPlacement,
 } from '../../src/patch-map/semantic/dataset';
+import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import { resolvePatchMapContentBox } from '../../src/patch-map/semantic/layout';
 import {
   resolvePatchMapPlacementBounds,
@@ -46,10 +47,13 @@ const reference: PatchMapPlacementReference = Object.freeze({
 });
 const componentSize = Object.freeze({ width: componentWidth, height: componentHeight });
 const ITEM_WORLD_ORIGIN = Object.freeze([10, 20] as const);
+const currentPlacements = lay002.placements.filter(
+  (placement) => placement !== ('none' as string),
+);
 
 describe('PatchMap LAY-002 semantic placement', () => {
   it('resolves the exact approved local and world matrix for every placement', () => {
-    for (const placement of lay002.placements) {
+    for (const placement of currentPlacements) {
       const bounds = resolvePatchMapPlacementBounds(
         reference,
         componentSize,
@@ -77,12 +81,23 @@ describe('PatchMap LAY-002 semantic placement', () => {
     expect(tuple(resolve('center'))).toEqual([38, 32, 30, 10]);
   });
 
-  it('keeps none distinct by bypassing the padded reference origin and all margins', () => {
-    const none = resolve('none');
-
-    expect(reference).toEqual({ x: 17, y: 7, width: 72, height: 60 });
-    expect(lay002.margin).toEqual({ top: 3, right: 5, bottom: 7, left: 9 });
-    expect(tuple(none)).toEqual([0, 0, 30, 10]);
+  it('rejects placements outside the current closed placement set', () => {
+    expectInvalidValue(
+      () => resolve('none' as unknown as PatchMapPlacement),
+      '$.placement',
+    );
+    expect(() => parsePatchMap([{
+      type: 'item',
+      id: 'item',
+      size: 20,
+      components: [{
+        type: 'bar',
+        id: 'bar',
+        source: { type: 'rect' },
+        size: 10,
+        placement: 'none',
+      }],
+    }])).toThrow('Placement must be a supported PatchMap placement');
   });
 
   it('fails closed for unsupported, non-finite, negative-size, and overflowing profiles', () => {
@@ -128,6 +143,24 @@ describe('PatchMap LAY-002 semantic placement', () => {
     );
     expectInvalidValue(
       () => resolvePatchMapPlacementBounds(
+        reference,
+        componentSize,
+        'center',
+        { ...lay002.margin, left: -1 },
+        '$.negative-margin',
+      ),
+      '$.negative-margin.margin.left',
+    );
+    expectInvalidValue(
+      () => resolvePatchMapContentBox(
+        { width: itemWidth, height: itemHeight },
+        { ...lay002.item.padding, top: -1 },
+        '$.negative-padding',
+      ),
+      '$.negative-padding.padding.top',
+    );
+    expectInvalidValue(
+      () => resolvePatchMapPlacementBounds(
         { x: Number.MAX_VALUE, y: 0, width: Number.MAX_VALUE, height: 10 },
         { width: 0, height: 0 },
         'center',
@@ -136,6 +169,35 @@ describe('PatchMap LAY-002 semantic placement', () => {
       ),
       '$.overflow.result.x',
     );
+  });
+
+  it('rejects negative authored margin and padding edges at materialization', () => {
+    expect(() => materializePatchMapDataset([{
+      type: 'item',
+      id: 'negative-margin',
+      size: 20,
+      components: [{
+        type: 'icon',
+        id: 'icon',
+        source: 'icon',
+        size: 10,
+        margin: { left: -1 },
+      }],
+    }])).toThrowError(expect.objectContaining<Partial<PatchMapDatasetError>>({
+      code: 'INVALID_VALUE',
+      datasetPath: '$[0].components[0].margin.left',
+    }));
+
+    expect(() => materializePatchMapDataset([{
+      type: 'item',
+      id: 'negative-padding',
+      size: 20,
+      padding: { top: -1 },
+      components: [],
+    }])).toThrowError(expect.objectContaining<Partial<PatchMapDatasetError>>({
+      code: 'INVALID_VALUE',
+      datasetPath: '$[0].padding.top',
+    }));
   });
 
   it('is deterministic, immutable, and does not mutate caller-owned inputs', () => {
@@ -173,7 +235,7 @@ describe('PatchMap LAY-002 semantic placement', () => {
       size: { width: itemWidth, height: itemHeight },
       padding: lay002.item.padding,
       attrs: { x: ITEM_WORLD_ORIGIN[0], y: ITEM_WORLD_ORIGIN[1] },
-      components: lay002.placements.map((placement) => ({
+      components: currentPlacements.map((placement) => ({
         type: 'bar',
         id: placement,
         source: { type: 'rect', fill: '#336699' },
@@ -183,9 +245,9 @@ describe('PatchMap LAY-002 semantic placement', () => {
       })),
     }];
     const before = structuredClone(input);
-    const parsed = parsePatchMapV010(input);
+    const parsed = parsePatchMap(input);
 
-    for (const placement of lay002.placements) {
+    for (const placement of currentPlacements) {
       const id = `item::bar:${placement}`;
       const entity = parsed.document.entities.find((candidate) => candidate.id === id);
       const projection = parsed.projection.byEntityId[id];

@@ -141,13 +141,13 @@ const [
   dataFoundationRuntime,
   workerRuntime,
 ] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
-  loadRuntime<ActionRegistryRuntime>('../../scripts/verification/core-v2-contract/action-registry.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
+  loadRuntime<ActionRegistryRuntime>('../../scripts/verification/patch-map-contract/action-registry.mjs'),
   loadRuntime<DataFoundationRuntime>(
-    '../../scripts/verification/core-v2-contract/handlers/data-foundation.mjs',
+    '../../scripts/verification/patch-map-contract/handlers/data-foundation.mjs',
   ),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -195,7 +195,7 @@ describe('PatchMap data-foundation actual-only registry', () => {
 
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/data-foundation.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/data-foundation.mjs',
         import.meta.url,
       )),
       'utf8',

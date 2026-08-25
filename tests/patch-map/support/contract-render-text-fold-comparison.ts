@@ -1,4 +1,4 @@
-import normalizedExpectedCatalog from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import normalizedExpectedCatalog from '../../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 
 import type { JsonRecord } from './contract-render-text-values';
 
@@ -39,7 +39,7 @@ interface CompareRuntime {
 
 const compareRuntime: CompareRuntime = await import(
   /* @vite-ignore */ new URL(
-    '../../../scripts/verification/core-v2-contract/compare.mjs',
+    '../../../scripts/verification/patch-map-contract/compare.mjs',
     import.meta.url,
   ).href
 ) as CompareRuntime;

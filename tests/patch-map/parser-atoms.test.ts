@@ -7,7 +7,7 @@ import {
 } from '../../src/patch-map/parser/color';
 import { normalizePatchMapImageSource } from '../../src/patch-map/parser/image-source';
 
-describe('PATCH MAP v0.10 parser atoms', () => {
+describe('PatchMap parser atoms', () => {
   it.each([
     ['#abc', 0xaabbccff],
     ['#abcd', 0xaabbccdd],

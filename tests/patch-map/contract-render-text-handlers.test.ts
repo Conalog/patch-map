@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import fixtureProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
@@ -127,12 +127,12 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [catalogRuntime, materializeRuntime, handlerRuntime, workerRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<HandlerRuntime>(
-    '../../scripts/verification/core-v2-contract/handlers/render-text.mjs',
+    '../../scripts/verification/patch-map-contract/handlers/render-text.mjs',
   ),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -155,14 +155,14 @@ describe('PatchMap REN-006 / REN-011 actual-only handlers', () => {
   it('exports the exact browser-safe handler family without answer-evidence imports', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/render-text.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/render-text.mjs',
         import.meta.url,
       )),
       'utf8',
     );
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
 
-    expect(RENDER_TEXT_HANDLER_REVISION).toBe('core-v2-render-text-handlers/1');
+    expect(RENDER_TEXT_HANDLER_REVISION).toBe('patch-map-render-text-handlers/1');
     expect(RENDER_TEXT_CASE_IDS).toEqual(['REN-006', 'REN-011']);
     expect(RENDER_TEXT_ACTION_TYPES).toEqual([
       'loadDataset',
@@ -244,9 +244,9 @@ describe('PatchMap REN-006 / REN-011 actual-only handlers', () => {
       requireRecord(observedSpecimens[0], 'placed specimen').authored,
       'placed authored facts',
     )).toMatchObject({
-      revision: 'core-v2-render-text-authored-facts/1',
-      datasetId: 'core-v2-ren011-specimen-placed',
-      ownerId: 'core-v2-ren011-placed',
+      revision: 'patch-map-render-text-authored-facts/1',
+      datasetId: 'patch-map-ren011-specimen-placed',
+      ownerId: 'patch-map-ren011-placed',
       componentId: 'placed',
       source: 'AB',
       frame: [240, 160],
@@ -309,7 +309,7 @@ describe('PatchMap REN-006 / REN-011 actual-only handlers', () => {
 
     expect(combined).toBeInstanceOf(AggregateError);
     expect((combined as AggregateError).errors.map(String)).toEqual([
-      expect.stringContaining('core-v2-ren011-specimen-wrap'),
+      expect.stringContaining('patch-map-ren011-specimen-wrap'),
       expect.stringContaining('item-text-corpus'),
     ]);
     expect(failure.message).toContain('observation failed');
@@ -409,7 +409,7 @@ function createHarness(options: Readonly<{ failLoadAttempts?: readonly number[] 
     resourceProbe(input: unknown) {
       const request = requireRecord(input, 'resource probe request');
       return {
-        revision: 'core-v2-text-runtime-probe/1',
+        revision: 'patch-map-text-runtime-probe/1',
         caseId: request.caseId,
         counts: {
           liveEngineCount: engines.filter(({ destroyed }) => !destroyed).length,

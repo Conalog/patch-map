@@ -1,4 +1,4 @@
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -84,6 +84,16 @@ class FakeSurface implements PatchMapEngineSurface {
     this.loadCount += 1;
     this.lastInput = input;
     this.selectionIds = Object.freeze([]);
+  }
+
+  public reconcile(input: unknown) {
+    this.lastInput = input;
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 1,
+      denseChanged: true,
+      diagnostics: Object.freeze([]),
+    });
   }
 
   public prepare(): Promise<Readonly<{ storeSyncMs: number; gpuPrepareMs: number }>> {

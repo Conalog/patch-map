@@ -1,10 +1,8 @@
 import { createPatchMapAccessibilityRuntime } from '../../accessibility-runtime';
 import { createPatchMapAssetIngestionRuntime } from '../../asset-ingestion-runtime';
-import { createPatchMapMigrationRuntime } from '../../migration-runtime';
 import { createPatchMapSecurityOperationsRuntime } from '../../security-operations-runtime';
 import {
   isAccessibilityCaseId,
-  isMigrationCaseId,
   isSecurityOperationsCaseId,
   type PatchMapExecutableRoute,
 } from '../case-routing';
@@ -84,24 +82,6 @@ const ACCESSIBILITY_DESCRIPTOR = createPatchMapProductRuntimeDescriptor({
   ),
 });
 
-const MIGRATION_DESCRIPTOR = createPatchMapProductRuntimeDescriptor({
-  key: 'migration',
-  needsSupplementalWebGLLease: false,
-  handlerFactory:
-    PATCH_MAP_HANDLER_MODULES.migration.createMigrationHandlerEntries,
-  handlerLabel: 'migration handlers',
-  fold: PATCH_MAP_FOLD_MODULES.migration.foldMigrationExecution,
-  foldLabel: 'migration fold',
-  createRuntime(plan) {
-    invariant(isMigrationCaseId(plan.id), 'migration case identity');
-    return createPatchMapMigrationRuntime(plan.id);
-  },
-  actionTimeoutMs: 120_000,
-  postDestroyProductProbe: (runtime) => (
-    () => runtime.postDestroyProductProbe()
-  ),
-});
-
 const ASSET_DESCRIPTOR = createPatchMapProductRuntimeDescriptor({
   key: 'assets',
   needsSupplementalWebGLLease: true,
@@ -120,7 +100,6 @@ export const PATCH_MAP_ASSET_OPERATION_DESCRIPTORS = Object.freeze({
   'asset-ingestion': ASSET_INGESTION_DESCRIPTOR,
   'security-operations': SECURITY_OPERATIONS_DESCRIPTOR,
   accessibility: ACCESSIBILITY_DESCRIPTOR,
-  migration: MIGRATION_DESCRIPTOR,
   assets: ASSET_DESCRIPTOR,
 }) satisfies Readonly<
   Partial<Record<PatchMapExecutableRoute, PatchMapExecutableRuntimeDescriptor>>

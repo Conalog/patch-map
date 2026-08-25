@@ -249,7 +249,7 @@ try {
   const result = await page.evaluate(() => window.__PATCH_MAP_INSTALLED_BUILTIN__);
 
   assert(sourceDigest === 'd7527c15410edb84e560a9dcd763edf4914be13494c5a99509c373dff803992d',
-    'inverter source digest is exact PATCH MAP v0.10', sourceDigest);
+    'inverter source digest is exact PatchMap', sourceDigest);
   assert(sourceSvg.includes('width="72" height="72" viewBox="0 0 72 72"'),
     'inverter source keeps its 72x72 canvas', sourceSvg.slice(0, 160));
   assert(result.configured.iconDrawBox.width === 24 && result.configured.iconDrawBox.height === 24,

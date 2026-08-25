@@ -40,14 +40,14 @@ describe('PatchMap host interaction substrate', () => {
 
   it('blocks editor plants before allocating an Engine or canvas', () => {
     expect(resolvePatchMapEditorMount(false)).toEqual({
-      schemaRevision: 'core-v2-editor-mount/1',
+      schemaRevision: 'patch-map-editor-mount/1',
       status: 'allowed',
       blockedPlant: false,
       createsEngine: true,
       canvasBudget: 1,
     });
     expect(resolvePatchMapEditorMount(true)).toEqual({
-      schemaRevision: 'core-v2-editor-mount/1',
+      schemaRevision: 'patch-map-editor-mount/1',
       status: 'blocked',
       blockedPlant: true,
       createsEngine: false,
@@ -388,7 +388,7 @@ describe('PatchMap host interaction substrate', () => {
       { reason: 'destroy', targetId: null },
     ]);
     expect(engine.hostTooltipProbe()).toEqual({
-      schemaRevision: 'core-v2-host-tooltip/1',
+      schemaRevision: 'patch-map-host-tooltip/1',
       targetId: null,
       anchorCss: null,
       boundsCss: null,
@@ -475,7 +475,7 @@ describe('PatchMap host interaction substrate', () => {
 
     const opened = engine.snapshotCommandTargets('command-1');
     expect(opened).toEqual({
-      schemaRevision: 'core-v2-command-target/1',
+      schemaRevision: 'patch-map-command-target/1',
       commandId: 'command-1',
       targetIds: ['item-a', 'rect-b'],
       status: null,
@@ -604,6 +604,15 @@ class HostInteractionSurface implements PatchMapEngineSurface {
     this.selectionIds = Object.freeze([]);
   }
 
+  public reconcile(_input: unknown) {
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 0,
+      denseChanged: false,
+      diagnostics: Object.freeze([]),
+    });
+  }
+
   public publishFrame(_timeMs: number): void {}
 
   public resize(_width: number, _height: number, _pixelRatio: number): boolean {
@@ -633,6 +642,7 @@ class HostInteractionSurface implements PatchMapEngineSurface {
   public geometrySnapshot(): PatchMapSurfaceGeometrySnapshot {
     return Object.freeze({
       revision: 1,
+      sceneRevision: 1,
       entities: Object.freeze([
         geometry('item-a', [10, 20, 100, 80]),
         geometry('item-a::text:label', [20, 30, 60, 40], 'item-a', 'label'),

@@ -12,36 +12,25 @@ import type {
   PatchMapViewportState as RootViewportState,
 } from '../../src/patch-map';
 import type {
-  PatchMapEngineExtractionResult as OwnedExtractionResult,
-  PatchMapEngineGeometryProbe as OwnedGeometryProbe,
   PatchMapEngineHistoryResult as OwnedHistoryResult,
-  PatchMapEngineQueryResult as OwnedQueryResult,
-  PatchMapEngineSnapshot as OwnedSnapshot,
-  PatchMapEngineTransactionResult as OwnedTransactionResult,
   PatchMapEngineTransformerCompletionResult as OwnedTransformerCompletionResult,
-  PatchMapEngineOptions as OwnedOptions,
-  PatchMapViewportState as OwnedViewportState,
-} from '../../src/patch-map/engine/public-contracts';
-import type {
-  PatchMapEngineHistoryResult as DownwardHistoryResult,
-  PatchMapEngineTransformerCompletionResult as DownwardTransformerCompletionResult,
 } from '../../src/patch-map/engine/contracts/history-transformer';
 import type {
-  PatchMapEngineTransactionResult as DownwardTransactionResult,
+  PatchMapEngineTransactionResult as OwnedTransactionResult,
 } from '../../src/patch-map/engine/contracts/mutation';
 import type {
-  PatchMapEngineSnapshot as DownwardSnapshot,
-  PatchMapEngineOptions as DownwardOptions,
+  PatchMapEngineSnapshot as OwnedSnapshot,
+  PatchMapEngineOptions as OwnedOptions,
 } from '../../src/patch-map/engine/contracts/product';
 import type {
-  PatchMapEngineQueryResult as DownwardQueryResult,
-} from '../../src/patch-map/engine/contracts/query-selection';
+  PatchMapEngineExtractionResult as OwnedExtractionResult,
+} from '../../src/patch-map/engine/contracts/extraction';
 import type {
-  PatchMapEngineGeometryProbe as DownwardGeometryProbe,
-} from '../../src/patch-map/engine/contracts/rendering';
+  PatchMapViewportState as OwnedViewportState,
+} from '../../src/patch-map/engine/contracts/viewport';
 
 describe('PatchMap Engine public contract boundary', () => {
-  it('keeps the contract owner type-only and the Engine facade runtime-owned', async () => {
+  it('publishes every type-only contract owner directly from Engine', async () => {
     const contractsDirectory = new URL(
       '../../src/patch-map/engine/contracts/',
       import.meta.url,
@@ -49,11 +38,7 @@ describe('PatchMap Engine public contract boundary', () => {
     const contractModuleNames = (await readdir(contractsDirectory))
       .filter((name) => name.endsWith('.ts'))
       .sort();
-    const [contractsSource, engineSource, ...ownedContractSources] = await Promise.all([
-      readFile(
-        new URL('../../src/patch-map/engine/public-contracts.ts', import.meta.url),
-        'utf8',
-      ),
+    const [engineSource, ...ownedContractSources] = await Promise.all([
       readFile(new URL('../../src/patch-map/engine.ts', import.meta.url), 'utf8'),
       ...contractModuleNames.map((name) => (
         readFile(new URL(name, contractsDirectory), 'utf8')
@@ -71,19 +56,16 @@ describe('PatchMap Engine public contract boundary', () => {
       'rendering.ts',
       'viewport.ts',
     ]);
-    for (const source of [contractsSource, ...ownedContractSources]) {
+    for (const source of ownedContractSources) {
       expect(source).not.toMatch(/^import(?!\s+type\b)/mu);
       expect(source).not.toMatch(
         /^(?:export\s+)?(?:class|function|const|let|var|enum)\b/mu,
       );
-      expect(source).not.toContain("from '../public-contracts'");
     }
-    expect(contractsSource).not.toContain("from '../engine'");
-    expect(contractsSource).not.toContain('type PatchMapEngineEventMap');
-    expect(contractsSource).toContain("export type * from './contracts/rendering';");
-    expect(contractsSource).toContain("export type * from './contracts/product';");
-    expect(contractsSource).toContain("export type * from './contracts/mutation';");
-    expect(engineSource).toContain("export type * from './engine/public-contracts';");
+    const exportedOwnerModules = [...engineSource.matchAll(
+      /^export type \* from '\.\/engine\/contracts\/([^']+)';$/gmu,
+    )].map((match) => `${match[1]}.ts`);
+    expect(exportedOwnerModules).toEqual(contractModuleNames);
     expect(engineSource).toContain('type PatchMapEngineEventMap = {');
     expect(engineSource).toContain('export class PatchMap {');
   });
@@ -97,14 +79,5 @@ describe('PatchMap Engine public contract boundary', () => {
     expectTypeOf<RootTransformerCompletionResult>()
       .toEqualTypeOf<OwnedTransformerCompletionResult>();
     expectTypeOf<RootExtractionResult>().toEqualTypeOf<OwnedExtractionResult>();
-    expectTypeOf<OwnedOptions>().toEqualTypeOf<DownwardOptions>();
-    expectTypeOf<OwnedSnapshot>().toEqualTypeOf<DownwardSnapshot>();
-    expectTypeOf<OwnedTransactionResult>()
-      .toEqualTypeOf<DownwardTransactionResult>();
-    expectTypeOf<OwnedHistoryResult>().toEqualTypeOf<DownwardHistoryResult>();
-    expectTypeOf<OwnedTransformerCompletionResult>()
-      .toEqualTypeOf<DownwardTransformerCompletionResult>();
-    expectTypeOf<OwnedGeometryProbe>().toEqualTypeOf<DownwardGeometryProbe>();
-    expectTypeOf<OwnedQueryResult>().toEqualTypeOf<DownwardQueryResult>();
   });
 });

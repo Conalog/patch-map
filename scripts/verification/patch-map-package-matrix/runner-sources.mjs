@@ -103,25 +103,17 @@ async function runHostAdapter() {
       backend: 'webgl',
       resizeMode: 'manual',
     });
-    const legacyLoad = adapter.load({
-      kind: 'generic-item',
-      id: 'legacy-a',
-      x: 10,
-      y: 20,
-      width: 100,
-      height: 80,
-      label: 'Legacy A',
-    }, { datasetRef: 'package:legacy-host-adapter' });
-    if (legacyLoad.rootIds[0] !== 'legacy-a') throw new Error('adapter legacy load');
     const load = adapter.load(DATASET, { datasetRef: 'package:host-adapter' });
     if (load.rootIds.length !== 2) throw new Error('adapter load root count');
     reachedCapabilities.push('load');
 
     const save = adapter.prepareSave(true);
+    const savedDataset = JSON.parse(save);
     if (
-      save.rootKind !== 'array'
-      || !Array.isArray(JSON.parse(save.serialized))
-      || save.semanticHash !== load.semanticHash
+      !Array.isArray(savedDataset)
+      || savedDataset.length !== load.rootIds.length
+      || JSON.stringify(savedDataset.map(({ id }) => id))
+        !== JSON.stringify(load.rootIds)
     ) throw new Error('adapter persistence guard');
 
     const lookup = adapter.lookup('rect-b');
@@ -179,7 +171,6 @@ async function runHostAdapter() {
       : 1;
   const result = {
     reachedCapabilities,
-    originalImportCount: 0,
     adapterReimplementedEngineBehaviorCount: 0,
     selectionPublicationCount: publications.length,
     invalidNodeCount: snapshot.rootIds.length === 2 ? 0 : 1,
@@ -328,7 +319,7 @@ export function journeyRunnerSource({ root, packageDigest, codeCommit }) {
   const casesPath = path.resolve(root, 'lab/patch-map/contract/executable-cases.ts');
   const foundationFoldPath = path.resolve(
     root,
-    'scripts/verification/core-v2-contract/fold-foundation.mjs',
+    'scripts/verification/patch-map-contract/fold-foundation.mjs',
   );
   return `
 import { PatchMap } from '${PACKAGE_NAME}';
@@ -422,7 +413,7 @@ async function runPackedFoundationProbe(caseId, plan, host) {
       const history = map.history.state;
       return {
         hostProbe: {
-          $schema: 'core-v2-packed-host-probe/1',
+          $schema: 'patch-map-packed-host-probe/1',
           caseId,
           promotionEligible: true,
           engineReturns: {
@@ -488,7 +479,7 @@ async function runPackedFoundationProbe(caseId, plan, host) {
     const history = map.history.state;
     return {
       hostProbe: {
-        $schema: 'core-v2-packed-host-probe/1',
+        $schema: 'patch-map-packed-host-probe/1',
         caseId,
         promotionEligible: true,
         engineReturns: {
@@ -551,7 +542,7 @@ async function runJourney(caseId) {
     codeCommit,
     packedPackageSha256: packageDigest,
     fixtureSha256: plan.fixtureSha256,
-    runnerRevision: 'core-v2-packed-host-journeys/1',
+    runnerRevision: 'patch-map-packed-host-journeys/1',
     expectedEvidenceBound: true,
     promotionEligible: true,
   };

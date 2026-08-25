@@ -3,9 +3,9 @@ import {
 } from '../../../src/patch-map';
 
 export const PATCH_MAP_ACCESSIBILITY_RUNTIME_REVISION =
-  'core-v2-accessibility-runtime/1' as const;
+  'patch-map-accessibility-runtime/1' as const;
 export const PATCH_MAP_ACCESSIBILITY_CLEANUP_REVISION =
-  'core-v2-accessibility-cleanup/1' as const;
+  'patch-map-accessibility-cleanup/1' as const;
 
 export const PATCH_MAP_ACCESSIBILITY_CASE_IDS = Object.freeze([
   'ACC-001',

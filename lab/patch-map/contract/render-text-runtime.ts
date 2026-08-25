@@ -1,7 +1,7 @@
 import { createPatchMapRenderTextSpecimens } from './render-text-fixtures';
 
-export const PATCH_MAP_RENDER_TEXT_RUNTIME_REVISION = 'core-v2-text-runtime-probe/1';
-export const PATCH_MAP_RENDER_TEXT_CLEANUP_REVISION = 'core-v2-text-runtime-cleanup/1';
+export const PATCH_MAP_RENDER_TEXT_RUNTIME_REVISION = 'patch-map-text-runtime-probe/1';
+export const PATCH_MAP_RENDER_TEXT_CLEANUP_REVISION = 'patch-map-text-runtime-cleanup/1';
 
 type RenderTextCaseId = 'REN-006' | 'REN-011';
 

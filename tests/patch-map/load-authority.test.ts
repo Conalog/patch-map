@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import {
   PatchMapSceneImageController,
   type PatchMapSceneImageIntrinsicSize,
 } from '../../src/patch-map/scene-images';
 import type { PatchMapSceneImageRendererBridge } from '../../src/patch-map/scene-images/contracts';
-import type { PatchMapPixiRenderer } from '../../src/patch-map/renderers/pixi-renderer';
 import { PatchMapScene } from '../../src/patch-map/scene';
 import { NoopRenderer } from '../../src/patch-map/dense/noop-renderer';
 import { PatchMapBarPresentationAuthority } from '../../src/patch-map/core/bar-presentation-authority';
 import { PatchMapLoadAuthority } from '../../src/patch-map/core/load-authority';
+import type { PatchMapRuntimeRendererPort } from '../../src/patch-map/core/runtime-renderer-port';
 import {
   PatchMapPublishedSceneAuthority,
   type PatchMapPublishedSceneState,
@@ -46,7 +46,7 @@ describe('PatchMap load authority', () => {
       size: { width: 20, height: 10 },
       fill: '#336699',
     }];
-    const parse = parsePatchMapV010(input);
+    const parse = parsePatchMap(input);
     const candidateScene = scene();
     candidateScene.seedReplacementFrom(fixture.initial.scene);
     const store = candidateScene.load(parse.document);
@@ -82,7 +82,7 @@ describe('PatchMap load authority', () => {
     expect(prepared.previousRuntime.pendingIntrinsicImageSizes).toBe(currentPendingSizes);
     expect(prepared.nextRuntime.spatialHit).not.toBe(currentSpatialHit);
     expect(prepared.nextRuntime.currentView).toEqual({ x: 0, y: 0, scale: 1, rotation: 0 });
-    expect(prepared.rendererCheckpoint).toMatchObject({ kind: 'compatibility' });
+    expect(prepared.rendererCheckpoint.state).toEqual({ opaqueState: 'initial' });
 
     fixture.authority.disposeRuntimeState(prepared.nextRuntime);
     currentSpatialHit.destroy();
@@ -103,11 +103,17 @@ function authorityFixture(): Readonly<{
   const sceneImages = new PatchMapSceneImageController(
     {} as PatchMapSceneImageRendererBridge,
   );
+  const rendererCheckpoint = Object.freeze({ opaqueState: 'initial' });
   const authority = new PatchMapLoadAuthority(
     publishedScene,
     barPresentation,
     sceneImages,
-    {} as PatchMapPixiRenderer,
+    {
+      publicationCheckpoint: {
+        capture: () => rendererCheckpoint,
+        restore: () => undefined,
+      },
+    } as unknown as PatchMapRuntimeRendererPort,
     new PatchMapPresentationLayerAuthority(),
     {
       installRuntimeFields: () => undefined,
@@ -116,6 +122,19 @@ function authorityFixture(): Readonly<{
       markTerminalLoadFailure: () => undefined,
       resetAdaptiveFrameBudget: () => undefined,
       invalidateLoadFrame: () => undefined,
+    },
+    {
+      assertAlive: () => undefined,
+      createScene: () => scene(),
+      readScene: () => initial.scene,
+      readEntityCount: () => 0,
+      readCurrentRuntime: () => ({
+        spatialHit: new PatchMapSpatialHitAuthority(),
+        currentView: Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 }),
+        pendingIntrinsicImageSizes: new Map(),
+        automaticAnimationFramesActive: false,
+      }),
+      activeImageEntityIds: () => new Set(),
     },
   );
   return {

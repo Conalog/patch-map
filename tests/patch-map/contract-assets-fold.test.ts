@@ -84,10 +84,10 @@ interface NormalizedEvidence {
 }
 
 const [catalogRuntime, materializeRuntime, foldRuntime, compareRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
-  loadRuntime<FoldRuntime>('../../scripts/verification/core-v2-contract/fold-assets.mjs'),
-  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
+  loadRuntime<FoldRuntime>('../../scripts/verification/patch-map-contract/fold-assets.mjs'),
+  loadRuntime<CompareRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -109,7 +109,7 @@ describe('AST-001 actual-only asset fold', () => {
   it('is import-free and projects all stage-specific product facts into fourteen domains', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/fold-assets.mjs',
+        '../../scripts/verification/patch-map-contract/fold-assets.mjs',
         import.meta.url,
       )),
       'utf8',
@@ -247,7 +247,7 @@ function normalizedCase(): JsonRecord {
 async function readNormalizedEvidence(): Promise<NormalizedEvidence> {
   const source = await readFile(
     fileURLToPath(new URL(
-      '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json',
+      '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json',
       import.meta.url,
     )),
     'utf8',
@@ -267,7 +267,7 @@ function foldOptions(overrides: Readonly<{
     casePlan: overrides.casePlan ?? selectedCase(),
     execution: overrides.execution ?? executionFixture(),
     provenance: {
-      implementation: 'core-v2',
+      implementation: 'patch-map',
       codeCommit: 'working-tree',
       packedPackageSha256: 'not-packed',
     },
@@ -288,7 +288,7 @@ function executionFixture(): JsonRecord {
     aliasConflict(),
   ];
   return {
-    $schema: 'core-v2-contract-case-execution/1',
+    $schema: 'patch-map-contract-case-execution/1',
     caseId: 'AST-001',
     caseType: 'capability',
     status: 'completed',
@@ -300,7 +300,7 @@ function executionFixture(): JsonRecord {
       startedAtMs: index,
       completedAtMs: index,
       delta: {
-        $schema: 'core-v2-semantic-observation-delta/1',
+        $schema: 'patch-map-semantic-observation-delta/1',
         caseId: 'AST-001',
         actionIndex: index,
         actionType: action.type,

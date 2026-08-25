@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { createTestProjectionIndex } from './support/projection-index';
+
 import {
   PARTICLE_GRAPHICS_LIMITATIONS,
   ParticleGraphicsLayer,
@@ -126,7 +128,7 @@ describe('buildParticleGraphicsDescriptors', () => {
   it('keeps self-link segments aggregate while reporting one logical relation', () => {
     const store = createStore();
     (store.relationTo as Int32Array)[3] = 0;
-    const index: PatchMapProjectionIndex = Object.freeze({
+    const index: PatchMapProjectionIndex = createTestProjectionIndex({
       byEntityId: Object.freeze({}),
       relationsByEntityId: Object.freeze({
         relation: Object.freeze({
@@ -163,7 +165,7 @@ describe('buildParticleGraphicsDescriptors', () => {
     (store.flags as Uint8Array)[2] = RenderFlags.Visible;
     (store.y as Float64Array)[2] = 15;
     (store.relationTo as Int32Array)[3] = 2;
-    const index: PatchMapProjectionIndex = Object.freeze({
+    const index: PatchMapProjectionIndex = createTestProjectionIndex({
       byEntityId: Object.freeze({}),
       relationsByEntityId: Object.freeze({
         relation: Object.freeze({
@@ -391,7 +393,7 @@ function projectionIndex(
     scaleY: 1,
     contentOrientation,
   });
-  return Object.freeze({
+  return createTestProjectionIndex({
     byEntityId: Object.freeze({ rect: projection }),
   });
 }

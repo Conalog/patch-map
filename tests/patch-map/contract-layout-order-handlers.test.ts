@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+import { createTestProjectionIndex } from './support/projection-index';
 
 import { createPatchMapLayoutOrderRuntime } from '../../lab/patch-map/contract/layout-order-runtime';
 import { createPatchMapExecutableLabBridge } from '../../lab/patch-map/contract/executable-bridge';
@@ -18,6 +19,7 @@ import {
 import { CoreScene } from '../../src/patch-map/dense/scene';
 import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
 import {
   PatchMap,
   PixiEngineSurface,
@@ -35,11 +37,12 @@ import {
   createPatchMapPaintOrderProductProbe,
   type PatchMapPaintOrderProductProbe,
 } from '../../src/patch-map/paint-order-product';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
 } from '../../src/patch-map/renderers/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapOverlayPaintProbe,
@@ -208,12 +211,12 @@ const [
   foldRuntime,
   compareRuntime,
 ] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
-  loadRuntime<HandlerRuntime>('../../scripts/verification/core-v2-contract/handlers/layout-order.mjs'),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
-  loadRuntime<FoldRuntime>('../../scripts/verification/core-v2-contract/fold-layout-order.mjs'),
-  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
+  loadRuntime<HandlerRuntime>('../../scripts/verification/patch-map-contract/handlers/layout-order.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
+  loadRuntime<FoldRuntime>('../../scripts/verification/patch-map-contract/fold-layout-order.mjs'),
+  loadRuntime<CompareRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -238,7 +241,7 @@ describe('PatchMap LAY-002 layout-order actual-only handlers', () => {
   it('registers one shared descriptor without importing answer evidence', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/layout-order.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/layout-order.mjs',
         import.meta.url,
       )),
       'utf8',
@@ -325,7 +328,7 @@ describe('PatchMap LAY-002 layout-order actual-only handlers', () => {
     expect(actualAt(execution, 0)).toMatchObject({
       caseId: 'LAY-002',
       itemId: 'item',
-      componentCount: 10,
+      componentCount: 9,
       input: { unchanged: true },
     });
     const bounds = requireRecord(actualAt(execution, 1).placements, 'bounds placements');
@@ -351,10 +354,6 @@ describe('PatchMap LAY-002 layout-order actual-only handlers', () => {
     expect(row(placements, 'center')).toMatchObject({
       localBounds: [38, 32, 30, 10],
       center: [53, 37],
-    });
-    expect(row(placements, 'none')).toMatchObject({
-      localBounds: [0, 0, 30, 10],
-      worldBounds: [10, 20, 30, 10],
     });
     expect(observed).toMatchObject({
       valueRef: 'placementMatrix',
@@ -386,7 +385,7 @@ describe('PatchMap LAY-002 layout-order actual-only handlers', () => {
       casePlan: plan,
       execution: foldExecution,
       provenance: {
-        contractRevision: 'core-v2-functional-contract/2026-07-16.2',
+        contractRevision: 'patch-map-contract/1',
         codeCommit: 'unit',
         packedPackageSha256: 'unit',
       },
@@ -406,8 +405,8 @@ describe('PatchMap LAY-002 layout-order actual-only handlers', () => {
       fixtures: folded.fixtures,
       captures: folded.captures,
     });
-    expect(expectedCase.expected.assertions).toHaveLength(28);
-    expect(comparison).toMatchObject({ passed: 28, failed: 0 });
+    expect(expectedCase.expected.assertions).toHaveLength(24);
+    expect(comparison).toMatchObject({ passed: 24, failed: 0 });
     expect(comparison.assertions.every(({ passed }) => passed)).toBe(true);
     expect(runtime.postDestroyProductProbe()).toBe(productCleanup);
   });
@@ -496,7 +495,7 @@ describe('PatchMap LAY-002 layout-order actual-only handlers', () => {
       casePlan: plan,
       execution: foldExecution,
       provenance: {
-        contractRevision: 'core-v2-functional-contract/2026-07-16.2',
+        contractRevision: 'patch-map-contract/1',
         codeCommit: 'unit',
         packedPackageSha256: 'unit',
       },
@@ -619,7 +618,6 @@ function placementOrder(): readonly string[] {
     'right-bottom',
     'bottom',
     'center',
-    'none',
   ];
 }
 
@@ -645,7 +643,7 @@ class LayoutSurface implements PatchMapEngineSurface {
   private readonly height: number;
   private readonly pixelRatio: number;
   private document: SceneDocument = Object.freeze({ version: 1, entities: Object.freeze([]) });
-  private projection: PatchMapProjectionIndex = Object.freeze({ byEntityId: Object.freeze({}) });
+  private projection: PatchMapProjectionIndex = createTestProjectionIndex();
   private geometryRevision = 0;
   private renderedSceneRevision: number | null = null;
   private selectionIds: readonly string[] = Object.freeze([]);
@@ -764,7 +762,7 @@ class LayoutSurface implements PatchMapEngineSurface {
     this.destroyed = true;
     this.canvasCount = 0;
     this.document = Object.freeze({ version: 1, entities: Object.freeze([]) });
-    this.projection = Object.freeze({ byEntityId: Object.freeze({}) });
+    this.projection = createTestProjectionIndex();
     this.selectionIds = Object.freeze([]);
     return Promise.resolve(true);
   }
@@ -804,6 +802,12 @@ class LayoutOrderRendererTestDouble {
   private selectedCount = 0;
   private entityCount = 0;
   private readonly paintById = new Map<string, PatchMapEntityPaintProbe>();
+  private projection: PatchMapProjectionIndex | null = null;
+  private presentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  > = new Map();
+  private presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null = null;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 
   public constructor(
@@ -814,10 +818,45 @@ class LayoutOrderRendererTestDouble {
 
   public markChanges(): void {}
   public markOverlayChanges(): void {}
+  public capturePublicationCheckpoint(): Readonly<{
+    projection: PatchMapProjectionIndex | null;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }> {
+    return Object.freeze({
+      projection: this.projection,
+      presentationOverrides: this.presentationOverrides,
+      presentationLayerUpdate: this.presentationLayerUpdate,
+    });
+  }
+  public restorePublicationCheckpoint(checkpoint: Readonly<{
+    projection: PatchMapProjectionIndex | null;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }>): void {
+    this.projection = checkpoint.projection;
+    this.presentationOverrides = checkpoint.presentationOverrides;
+    this.presentationLayerUpdate = checkpoint.presentationLayerUpdate;
+  }
   public setProjection(
-    _index: PatchMapProjectionIndex,
+    index: PatchMapProjectionIndex,
     _ranges?: readonly SlotRange[],
-  ): boolean { return true; }
+  ): boolean {
+    this.projection = index;
+    return true;
+  }
+  public setInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  ): boolean {
+    this.presentationOverrides = overrides;
+    return true;
+  }
+  public setPresentationLayerMultipliers(
+    update: PatchMapPresentationLayerRenderUpdate,
+  ): boolean {
+    this.presentationLayerUpdate = update;
+    return true;
+  }
   public setWorldOrientation(): boolean { return true; }
   public resize(): boolean { return false; }
   public setView(view: CoreView): boolean {
@@ -925,7 +964,7 @@ function parseDataset(input: unknown): Readonly<{
   projection: PatchMapProjectionIndex;
 }> {
   const materialized = materializePatchMapDataset(input);
-  const parsed = parsePatchMapV010(materialized.dataset);
+  const parsed = parsePatchMap(materialized.dataset);
   return Object.freeze({ document: parsed.document, projection: parsed.projection });
 }
 

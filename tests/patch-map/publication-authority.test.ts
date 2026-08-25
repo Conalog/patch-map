@@ -117,7 +117,6 @@ describe('PatchMapPublicationAuthority', () => {
       surfaceRevision: 10,
       representedRevisions: { scene: 1, view: 0, interaction: 0 },
       revisionLags: { scene: 0, view: 0, interaction: 0 },
-      revisionLag: 0,
     });
 
     authority.advanceScene();
@@ -125,7 +124,6 @@ describe('PatchMapPublicationAuthority', () => {
     expect(authority.correlateGeometryRevision(10)).toMatchObject({
       representedRevisions: { scene: 1, view: 0, interaction: 0 },
       revisionLags: { scene: 1, view: 0, interaction: 1 },
-      revisionLag: 1,
     });
     expect(authority.correlateGeometryRevision(11)).toMatchObject({
       representedRevisions: { scene: 2, view: 0, interaction: 1 },

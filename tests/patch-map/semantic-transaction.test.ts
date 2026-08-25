@@ -302,7 +302,7 @@ describe('PatchMap staged semantic transaction planner', () => {
       id: 'bar',
       type: 'bar',
       size: { width: 70, height: 30 },
-      source: { fill: '#2563ebff' },
+      source: { type: 'rect', fill: '#2563ebff' },
       attrs: { telemetry: { enabled: true, sample: 2 }, tags: ['next'] },
     });
     expect(result.history).toEqual({ selectedIds: ['item-a'] });

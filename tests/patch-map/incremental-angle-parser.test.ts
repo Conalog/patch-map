@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  parsePatchMapV010DirectElementAngleBatch,
+  parsePatchMapDirectElementAngleBatch,
 } from '../../src/patch-map/incremental-parser';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import { planPatchMapBulkPatch } from '../../src/patch-map/semantic/transaction';
 
@@ -12,7 +12,7 @@ describe('PatchMap direct element-angle projection', () => {
     const source = angleScene();
     const before = JSON.stringify(source);
     const current = materializePatchMapDataset(source);
-    const parsed = parsePatchMapV010(current.dataset);
+    const parsed = parsePatchMap(current.dataset);
     const firstPlan = planPatchMapBulkPatch(current, {
       strict: true,
       actionId: 'angle-17',
@@ -27,7 +27,7 @@ describe('PatchMap direct element-angle projection', () => {
       throw new Error('Expected a direct angle plan');
     }
 
-    const first = parsePatchMapV010DirectElementAngleBatch(
+    const first = parsePatchMapDirectElementAngleBatch(
       firstPlan.candidate.dataset,
       current.dataset,
       parsed,
@@ -36,7 +36,7 @@ describe('PatchMap direct element-angle projection', () => {
     expect(first).not.toBeNull();
     assertCanonicalAngleProjection(
       first!,
-      parsePatchMapV010(firstPlan.candidate.dataset),
+      parsePatchMap(firstPlan.candidate.dataset),
     );
 
     const secondPlan = planPatchMapBulkPatch(firstPlan.candidate, {
@@ -55,7 +55,7 @@ describe('PatchMap direct element-angle projection', () => {
     ) {
       throw new Error('Expected a repeated direct angle plan');
     }
-    const second = parsePatchMapV010DirectElementAngleBatch(
+    const second = parsePatchMapDirectElementAngleBatch(
       secondPlan.candidate.dataset,
       firstPlan.candidate.dataset,
       first!,
@@ -64,7 +64,7 @@ describe('PatchMap direct element-angle projection', () => {
     expect(second).not.toBeNull();
     assertCanonicalAngleProjection(
       second!,
-      parsePatchMapV010(secondPlan.candidate.dataset),
+      parsePatchMap(secondPlan.candidate.dataset),
     );
     expect(JSON.stringify(source)).toBe(before);
   });
@@ -78,7 +78,7 @@ describe('PatchMap direct element-angle projection', () => {
         links: [{ source: 'item-a', target: 'item-b' }],
       },
     ]);
-    const parsed = parsePatchMapV010(current.dataset);
+    const parsed = parsePatchMap(current.dataset);
     const plan = planPatchMapBulkPatch(current, {
       strict: true,
       targets: [{ kind: 'element', id: 'item-a' }],
@@ -91,7 +91,7 @@ describe('PatchMap direct element-angle projection', () => {
     ) {
       throw new Error('Expected a direct angle plan');
     }
-    expect(parsePatchMapV010DirectElementAngleBatch(
+    expect(parsePatchMapDirectElementAngleBatch(
       plan.candidate.dataset,
       current.dataset,
       parsed,
@@ -101,18 +101,18 @@ describe('PatchMap direct element-angle projection', () => {
     const unrelated = structuredClone(plan.candidate.dataset);
     const first = unrelated[0] as Record<string, unknown>;
     first.label = 'changed outside the angle batch';
-    expect(parsePatchMapV010DirectElementAngleBatch(
+    expect(parsePatchMapDirectElementAngleBatch(
       unrelated,
       current.dataset,
-      parsePatchMapV010(current.dataset.slice(0, -1)),
+      parsePatchMap(current.dataset.slice(0, -1)),
       plan.directElementAngleUpdates,
     )).toBeNull();
   });
 });
 
 function assertCanonicalAngleProjection(
-  actual: ReturnType<typeof parsePatchMapV010>,
-  expected: ReturnType<typeof parsePatchMapV010>,
+  actual: ReturnType<typeof parsePatchMap>,
+  expected: ReturnType<typeof parsePatchMap>,
 ): void {
   expect(actual.diagnostics).toEqual(expected.diagnostics);
   expect(actual.identity).toEqual(expected.identity);

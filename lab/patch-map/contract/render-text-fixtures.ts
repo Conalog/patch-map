@@ -30,7 +30,7 @@ const BASE_TEXT_STYLE = Object.freeze({
 });
 
 /**
- * Build runtime-owned PATCH MAP v0.10 specimens from authored inputs only.
+ * Build runtime-owned PatchMap specimens from authored inputs only.
  * Each call returns a detached immutable graph so one execution cannot retain
  * aliases into another execution.
  */
@@ -99,8 +99,8 @@ function specimen(
   id: PatchMapRenderTextSpecimenId,
   input: SpecimenInput,
 ): PatchMapRenderTextSpecimen {
-  const ownerId = `core-v2-ren011-${id}`;
-  const datasetId = `core-v2-ren011-specimen-${id}`;
+  const ownerId = `patch-map-ren011-${id}`;
+  const datasetId = `patch-map-ren011-specimen-${id}`;
   const component: Record<string, unknown> = {
     type: 'text',
     id,

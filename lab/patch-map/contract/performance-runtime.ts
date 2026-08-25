@@ -1,4 +1,4 @@
-import manifestJson from '../../../docs/reference/core-v2-functional-contract/evidence/catalog-evidence-manifest.v1.json';
+import manifestJson from '../../../contracts/patch-map/evidence/catalog-evidence-manifest.v1.json';
 import {
   applyPatchMapPerformanceBulkPatch,
   buildPatchMapContractPerformanceDataset,
@@ -17,9 +17,9 @@ import type { PatchMap } from '../../../src/patch-map';
 import { deepFreezePatchMapLabValue as deepFreeze } from './runtime-values';
 
 export const PATCH_MAP_PERFORMANCE_RUNTIME_REVISION =
-  'core-v2-performance-runtime/1' as const;
+  'patch-map-performance-runtime/1' as const;
 export const PATCH_MAP_PERFORMANCE_CLEANUP_REVISION =
-  'core-v2-performance-runtime-cleanup/1' as const;
+  'patch-map-performance-runtime-cleanup/1' as const;
 export const PATCH_MAP_PERFORMANCE_EVIDENCE_PATH =
   '/performance/patch-map/results/contract-performance.json' as const;
 
@@ -477,7 +477,7 @@ async function defaultEvidenceReader(): Promise<unknown> {
 function validateEvidence(value: unknown): Readonly<Record<string, unknown>> {
   const evidence = recordValue(value, 'performance evidence');
   invariant(
-    evidence.revision === 'core-v2-contract-performance-evidence/1',
+    evidence.revision === 'patch-map-contract-performance-evidence/1',
     'performance evidence revision',
   );
   const protocol = recordValue(evidence.protocol, 'performance evidence protocol');

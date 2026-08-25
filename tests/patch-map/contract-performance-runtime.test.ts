@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import expectedJson from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import expectedJson from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -13,11 +13,11 @@ import {
   materializePatchMapExecutableCase,
 } from '../../lab/patch-map/contract/executable-cases';
 // @ts-expect-error -- browser-safe contract handlers are authored as ESM JavaScript.
-import * as handlerModule from '../../scripts/verification/core-v2-contract/handlers/performance.mjs';
+import * as handlerModule from '../../scripts/verification/patch-map-contract/handlers/performance.mjs';
 // @ts-expect-error -- browser-safe contract folds are authored as ESM JavaScript.
-import * as foldModule from '../../scripts/verification/core-v2-contract/fold-performance.mjs';
+import * as foldModule from '../../scripts/verification/patch-map-contract/fold-performance.mjs';
 // @ts-expect-error -- independent comparison is authored as ESM JavaScript.
-import * as compareModule from '../../scripts/verification/core-v2-contract/compare.mjs';
+import * as compareModule from '../../scripts/verification/patch-map-contract/compare.mjs';
 
 interface HandlerRuntime {
   readonly PERFORMANCE_HANDLER_REVISION: string;
@@ -62,7 +62,7 @@ const RAW_DIGEST = 'a'.repeat(64);
 describe('PatchMap performance contract automation substrate', () => {
   it('shares one collision-free handler family across seven cases', () => {
     expect(PATCH_MAP_PERFORMANCE_RUNTIME_REVISION)
-      .toBe('core-v2-performance-runtime/1');
+      .toBe('patch-map-performance-runtime/1');
     expect(PATCH_MAP_PERFORMANCE_CASE_IDS).toEqual([
       'PRF-001',
       'PRF-002',
@@ -73,7 +73,7 @@ describe('PatchMap performance contract automation substrate', () => {
       'PRF-009',
     ]);
     expect(handlers.PERFORMANCE_HANDLER_REVISION)
-      .toBe('core-v2-performance-handlers/1');
+      .toBe('patch-map-performance-handlers/1');
     expect(handlers.PERFORMANCE_CASE_IDS).toEqual(PATCH_MAP_PERFORMANCE_CASE_IDS);
     expect(handlers.PERFORMANCE_ACTION_TYPES).toHaveLength(13);
 
@@ -271,17 +271,17 @@ describe('PatchMap performance contract automation substrate', () => {
         import.meta.url,
       ),
       new URL(
-        '../../scripts/verification/core-v2-contract/handlers/performance.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/performance.mjs',
         import.meta.url,
       ),
       new URL(
-        '../../scripts/verification/core-v2-contract/fold-performance.mjs',
+        '../../scripts/verification/patch-map-contract/fold-performance.mjs',
         import.meta.url,
       ),
     ];
     const source = (await Promise.all(urls.map((url) => readFile(url, 'utf8')))).join('\n');
 
-    expect(fold.PERFORMANCE_FOLD_REVISION).toBe('core-v2-performance-fold/1');
+    expect(fold.PERFORMANCE_FOLD_REVISION).toBe('patch-map-performance-fold/1');
     expect(source).not.toMatch(
       /catalog-normalized-expected|normalizedExpected|approvedExpected|compareObservation|expectedCase/u,
     );
@@ -297,7 +297,7 @@ function evidence(): Readonly<Record<string, unknown>> {
     samples: [1, 1, 1, 1, 1, 1, 1],
   }));
   return {
-    revision: 'core-v2-contract-performance-evidence/1',
+    revision: 'patch-map-contract-performance-evidence/1',
     status: 'pass',
     generatedAt: '2026-07-27T00:00:00.000Z',
     protocol: {
@@ -347,7 +347,7 @@ function evidence(): Readonly<Record<string, unknown>> {
         firstUsefulFrame: {
           maxP95Ms: 120,
           semanticHash:
-            '4bc16c65500b4f305114162fdc4472b45997eea7498020496072ca0b741e95c3',
+            'e9d91e96f239663a88f54ce54a8dcb933f813d5b156d734a99c20d1ae2a749fa',
         },
         longTaskAtLeast100Ms: 0,
         valuesFinite: true,

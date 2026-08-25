@@ -22,7 +22,7 @@ interface ValueAtomsModule {
 
 const valueAtomsNamespace: unknown = await import(
   /* @vite-ignore */ new URL(
-    '../../scripts/verification/core-v2-contract/value-atoms.mjs',
+    '../../scripts/verification/patch-map-contract/value-atoms.mjs',
     import.meta.url,
   ).href
 );
@@ -35,7 +35,7 @@ const {
   createOrderedExactKeyAssertion,
 } = valueAtomsNamespace as ValueAtomsModule;
 
-describe('core-v2 verifier value atoms', () => {
+describe('patch-map verifier value atoms', () => {
   it('clones detached values without mutating the source', () => {
     const source = {
       nested: { value: 1 },

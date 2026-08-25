@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import fixtureProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
@@ -122,13 +122,13 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 
 const [catalogRuntime, materializeRuntime, foldRuntime, observationRuntime, comparisonRuntime] =
   await Promise.all([
-    loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-    loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+    loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+    loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
     loadRuntime<FoldRuntime>(
-      '../../scripts/verification/core-v2-contract/fold-lifecycle-resize.mjs',
+      '../../scripts/verification/patch-map-contract/fold-lifecycle-resize.mjs',
     ),
-    loadRuntime<ObservationRuntime>('../../scripts/verification/core-v2-contract/observe.mjs'),
-    loadRuntime<ComparisonRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+    loadRuntime<ObservationRuntime>('../../scripts/verification/patch-map-contract/observe.mjs'),
+    loadRuntime<ComparisonRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
   ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -172,14 +172,14 @@ describe('LIF-004 actual-only lifecycle resize fold', () => {
   it('is import-free and browser-safe behind the verifier dependency firewall', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/fold-lifecycle-resize.mjs',
+        '../../scripts/verification/patch-map-contract/fold-lifecycle-resize.mjs',
         import.meta.url,
       )),
       'utf8',
     );
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
 
-    expect(LIFECYCLE_RESIZE_FOLD_REVISION).toBe('core-v2-lifecycle-resize-fold/1');
+    expect(LIFECYCLE_RESIZE_FOLD_REVISION).toBe('patch-map-lifecycle-resize-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/from\s+['"][^'"]*compare\.mjs['"]/u);
     expect(source).not.toMatch(/from\s+['"][^'"]*observe\.mjs['"]/u);
@@ -289,7 +289,7 @@ function compare(folded: FoldResult): ReturnType<ComparisonRuntime['compareObser
 
 function provenance(): JsonRecord {
   return {
-    implementation: 'core-v2',
+    implementation: 'patch-map',
     codeCommit: 'test-code-commit',
     packedPackageSha256: 'test-packed-package-sha256',
   };
@@ -308,7 +308,7 @@ function normalizedCase(): JsonRecord {
 async function readNormalizedEvidence(): Promise<NormalizedEvidence> {
   const source = await readFile(
     fileURLToPath(new URL(
-      '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json',
+      '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json',
       import.meta.url,
     )),
     'utf8',
@@ -380,7 +380,7 @@ function makeExecution(): JsonRecord {
     }),
   ];
   return {
-    $schema: 'core-v2-contract-case-execution/1',
+    $schema: 'patch-map-contract-case-execution/1',
     caseId: plan.id,
     caseType: plan.caseType,
     status: 'completed',
@@ -408,7 +408,7 @@ function actionResult(index: number, actual: JsonRecord): JsonRecord {
     startedAtMs: 0,
     completedAtMs: numberOrZero(action.operands.timeMs),
     delta: {
-      $schema: 'core-v2-semantic-observation-delta/1',
+      $schema: 'patch-map-semantic-observation-delta/1',
       caseId: plan.id,
       actionIndex: index,
       actionType: action.type,

@@ -1,4 +1,4 @@
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -54,6 +54,14 @@ class PixiProbeSurface implements PatchMapEngineSurface {
   private readonly lanes = renderLanes();
 
   public load(): void {}
+  public reconcile(_input: unknown) {
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 0,
+      denseChanged: false,
+      diagnostics: Object.freeze([]),
+    });
+  }
 
   public publishFrame(): void {
     if (this.lossState === 'lost' || this.lossState === 'restored-pending-frame') {

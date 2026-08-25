@@ -56,10 +56,10 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [catalogRuntime, materializeRuntime, foundationRuntime, workerRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
-  loadRuntime<FoundationRuntime>('../../scripts/verification/core-v2-contract/handlers/foundation.mjs'),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
+  loadRuntime<FoundationRuntime>('../../scripts/verification/patch-map-contract/handlers/foundation.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -109,8 +109,8 @@ describe('foundation actual-only handler registry', () => {
 
     const forbiddenFile = 'catalog-normalized-expected.v1.json';
     const sources = await Promise.all([
-      '../../scripts/verification/core-v2-contract/execute-worker.mjs',
-      '../../scripts/verification/core-v2-contract/handlers/foundation.mjs',
+      '../../scripts/verification/patch-map-contract/execute-worker.mjs',
+      '../../scripts/verification/patch-map-contract/handlers/foundation.mjs',
     ].map(async (relativePath) => readFile(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf8')));
     for (const source of sources) {
       expect(source).not.toContain(forbiddenFile);
@@ -134,8 +134,8 @@ describe('foundation capability execution', () => {
       { index: 1, type: 'initialize', status: 'completed' },
     ]);
     expect(execution.actionResults.map((result) => valueAt(result.delta, '$schema'))).toEqual([
-      'core-v2-semantic-observation-delta/1',
-      'core-v2-semantic-observation-delta/1',
+      'patch-map-semantic-observation-delta/1',
+      'patch-map-semantic-observation-delta/1',
     ]);
     expect(harness.engines).toHaveLength(1);
     expect(harness.engines[0]?.initializeCalls).toBe(2);
@@ -450,7 +450,7 @@ describe('foundation consumer host seam', () => {
       [2, 'await-first-useful-frame'],
       [3, 'probe-declared-failure'],
     ]);
-    expect(valueAt(execution.hostSeamDelta, '$schema')).toBe('core-v2-host-seam-delta/1');
+    expect(valueAt(execution.hostSeamDelta, '$schema')).toBe('patch-map-host-seam-delta/1');
     expect(valueAt(execution.hostSeamDelta, 'capabilityPassInherited')).toBe(false);
     expect(valueAt(execution.hostSeamDelta, 'actions')).toHaveLength(4);
     expect(valueAt(execution, 'actionResults.3.delta.actual.diagnostic.code')).toBe('DECLARED_FAILURE');

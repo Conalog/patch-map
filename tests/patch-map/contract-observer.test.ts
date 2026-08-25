@@ -59,8 +59,8 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [observerRuntime, comparatorRuntime] = await Promise.all([
-  loadRuntime<ObserverRuntime>('../../scripts/verification/core-v2-contract/observe.mjs'),
-  loadRuntime<ComparatorRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+  loadRuntime<ObserverRuntime>('../../scripts/verification/patch-map-contract/observe.mjs'),
+  loadRuntime<ComparatorRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
 ]);
 
 const { createSemanticObservation } = observerRuntime;
@@ -68,7 +68,7 @@ const { compareObservation } = comparatorRuntime;
 
 function actualObservation(): Record<string, unknown> {
   return {
-    $schema: 'core-v2-semantic-observation/1',
+    $schema: 'patch-map-semantic-observation/1',
     case: { params: { seed: 319 }, id: 'TST-001' },
     provenance: {
       expectedEvidenceOpaqueBinding: 'opaque-a',
@@ -115,7 +115,7 @@ function expectedCase(
     expected: {
       assertions,
       observationDomains: ['scene', 'outcome', 'resources'],
-      semanticObservationRevision: 'core-v2-semantic-observation/1',
+      semanticObservationRevision: 'patch-map-semantic-observation/1',
       implementationNeutral: true,
     },
     volatileFields,
@@ -203,10 +203,10 @@ describe('actual-only PatchMap semantic observer', () => {
   it('keeps executor control sources behind the expected-evidence dependency firewall', async () => {
     const forbiddenStem = ['normalized', 'expected'].join('-');
     const controlSources = await Promise.all([
-      '../../scripts/verification/core-v2-contract/observe.mjs',
-      '../../scripts/verification/core-v2-contract/catalog.mjs',
-      '../../scripts/verification/core-v2-contract/materialize.mjs',
-      '../../scripts/verification/core-v2-contract/action-registry.mjs',
+      '../../scripts/verification/patch-map-contract/observe.mjs',
+      '../../scripts/verification/patch-map-contract/catalog.mjs',
+      '../../scripts/verification/patch-map-contract/materialize.mjs',
+      '../../scripts/verification/patch-map-contract/action-registry.mjs',
     ].map(async (relativePath) => readFile(
       fileURLToPath(new URL(relativePath, import.meta.url)),
       'utf8',

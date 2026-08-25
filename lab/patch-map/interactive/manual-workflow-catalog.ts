@@ -266,9 +266,6 @@ export const PATCH_MAP_AUTOMATED_ONLY_CASE_IDS = Object.freeze([
   'SEC-003',
   'SEC-004',
   'OPS-002',
-  'MIG-001',
-  'MIG-002',
-  'MIG-003',
 ]);
 
 const AUTOMATED_ONLY_CASES = new Set(PATCH_MAP_AUTOMATED_ONLY_CASE_IDS);
@@ -293,7 +290,6 @@ const PREFIX_WORKFLOWS: Readonly<
   SEC: ['assets', 'diagnostics'],
   ACC: ['accessibility'],
   OPS: ['diagnostics'],
-  MIG: ['diagnostics', 'lifecycle', 'data'],
   UPD: ['data', 'history'],
   ANI: ['animation', 'history'],
   VIE: ['view', 'selection'],

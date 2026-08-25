@@ -12,7 +12,7 @@ import {
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
 } from '../../src/patch-map/assets';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import { projectPatchMapBarPresentationHeight } from '../../src/patch-map/presentation-projection';
 import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
 import {
@@ -35,7 +35,7 @@ import {
 
 describe('PatchMap orientation renderer lanes', () => {
   it('caches readable bases across animation frames and invalidates on world revision', () => {
-    const parsed = parsePatchMapV010([item('cache-meter', 'upright', [{
+    const parsed = parsePatchMap([item('cache-meter', 'upright', [{
       type: 'bar',
       id: 'cache-level',
       size: { width: 18, height: 6 },
@@ -73,7 +73,7 @@ describe('PatchMap orientation renderer lanes', () => {
   });
 
   it('reuses one numeric quad target across animated width writes', () => {
-    const parsed = parsePatchMapV010([item('scratch-meter', 'follow-item', [{
+    const parsed = parsePatchMap([item('scratch-meter', 'follow-item', [{
       type: 'bar',
       id: 'scratch-level',
       size: { width: 18, height: 6 },
@@ -114,7 +114,7 @@ describe('PatchMap orientation renderer lanes', () => {
   });
 
   it('feeds exact affine vertices and reflected leading-edge fill to Mesh', () => {
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'item',
       id: 'meter',
       size: { width: 20, height: 20 },
@@ -144,7 +144,7 @@ describe('PatchMap orientation renderer lanes', () => {
   });
 
   it('keeps projected rounded bar radii stable across partial build and update', () => {
-    const parsed = parsePatchMapV010([item('rounded-meter', 'follow-item', [{
+    const parsed = parsePatchMap([item('rounded-meter', 'follow-item', [{
       type: 'bar',
       id: 'rounded-level',
       size: { width: 20, height: 8 },
@@ -165,7 +165,7 @@ describe('PatchMap orientation renderer lanes', () => {
 
     const layer = new AggregateMeshLayer({ chunkSize: 8 });
     layer.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
-    const fillMesh = layer.relationContainer.children.reduce<Mesh<MeshGeometry> | null>(
+    const fillMesh = layer.relationsDynamicContainer.children.reduce<Mesh<MeshGeometry> | null>(
       (latest, child) => child instanceof Mesh &&
         (latest === null || child.zIndex > latest.zIndex)
         ? child as Mesh<MeshGeometry>
@@ -232,7 +232,7 @@ describe('PatchMap orientation renderer lanes', () => {
   ])(
     'keeps readable content inside its background at $rotationDegrees° [$flipX,$flipY]',
     ({ rotationDegrees, flipX, flipY, expectedAngle }) => {
-      const parsed = parsePatchMapV010([{
+      const parsed = parsePatchMap([{
         type: 'item',
         id: 'contained-meter',
         size: { width: 120, height: 80 },
@@ -311,7 +311,7 @@ describe('PatchMap orientation renderer lanes', () => {
   );
 
   it('keeps the readable bottom edge fixed during a vertically flipped bar animation', () => {
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'item',
       id: 'animated-meter',
       size: { width: 120, height: 80 },
@@ -375,7 +375,7 @@ describe('PatchMap orientation renderer lanes', () => {
   ])(
     'chooses the readable half-plane for an authored $angle° item',
     ({ angle, expectedAngle }) => {
-      const parsed = parsePatchMapV010([item('readable-meter', 'upright', [{
+      const parsed = parsePatchMap([item('readable-meter', 'upright', [{
         type: 'text',
         id: 'readable-label',
         text: '42',
@@ -394,7 +394,7 @@ describe('PatchMap orientation renderer lanes', () => {
   );
 
   it('breaks Mesh same-store early return when upright projection revision changes', () => {
-    const parsed = parsePatchMapV010([item('upright-meter', 'upright', [{
+    const parsed = parsePatchMap([item('upright-meter', 'upright', [{
       type: 'bar',
       id: 'upright-level',
       size: { width: 16, height: 6 },
@@ -419,7 +419,7 @@ describe('PatchMap orientation renderer lanes', () => {
   });
 
   it('limits a projection-transform-only Mesh sync to upright bar slots', () => {
-    const parsed = parsePatchMapV010([item('upright-mixed', 'upright', [
+    const parsed = parsePatchMap([item('upright-mixed', 'upright', [
       {
         type: 'bar',
         id: 'upright-level',
@@ -456,7 +456,7 @@ describe('PatchMap orientation renderer lanes', () => {
   });
 
   it('uploads direct dense bar geometry while its parser projection is stale', () => {
-    const parsed = parsePatchMapV010([item('direct-meter', 'follow-item', [{
+    const parsed = parsePatchMap([item('direct-meter', 'follow-item', [{
       type: 'bar',
       id: 'direct-level',
       size: { width: 16, height: 8 },
@@ -490,7 +490,7 @@ describe('PatchMap orientation renderer lanes', () => {
   });
 
   it('applies signed follow basis and readable upright basis to Sprite/Text leaves', async () => {
-    const parsed = parsePatchMapV010([
+    const parsed = parsePatchMap([
       item('follow-icon-item', 'follow-item', [{
         type: 'icon',
         id: 'follow-icon',
@@ -529,7 +529,7 @@ describe('PatchMap orientation renderer lanes', () => {
   });
 
   it('repositions an existing upright Text leaf without rebuilding it', async () => {
-    const parsed = parsePatchMapV010([item('upright-text-item', 'upright', [{
+    const parsed = parsePatchMap([item('upright-text-item', 'upright', [{
       type: 'text',
       id: 'upright-text',
       text: '42',
@@ -565,7 +565,7 @@ describe('PatchMap orientation renderer lanes', () => {
   });
 
   it('preserves the exact Leaf shear induced by nested non-uniform affine transforms', async () => {
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'group',
       id: 'scaled-parent',
       attrs: { scaleX: 2, scaleY: 1 },

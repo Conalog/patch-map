@@ -25,8 +25,8 @@ interface ObserverRuntime {
 }
 
 const [foldRuntime, observerRuntime] = await Promise.all([
-  loadRuntime<FoldRuntime>('../../scripts/verification/core-v2-contract/fold-foundation.mjs'),
-  loadRuntime<ObserverRuntime>('../../scripts/verification/core-v2-contract/observe.mjs'),
+  loadRuntime<FoldRuntime>('../../scripts/verification/patch-map-contract/fold-foundation.mjs'),
+  loadRuntime<ObserverRuntime>('../../scripts/verification/patch-map-contract/observe.mjs'),
 ]);
 
 const { FOUNDATION_FOLD_REVISION, foldFoundationExecution } = foldRuntime;
@@ -132,9 +132,9 @@ const DOMAINS = [
 
 describe('PatchMap actual-only foundation observation fold', () => {
   it('is a browser-safe pure projector behind the verifier dependency firewall', async () => {
-    expect(FOUNDATION_FOLD_REVISION).toBe('core-v2-foundation-fold/1');
+    expect(FOUNDATION_FOLD_REVISION).toBe('patch-map-foundation-fold/1');
     const source = await readFile(
-      fileURLToPath(new URL('../../scripts/verification/core-v2-contract/fold-foundation.mjs', import.meta.url)),
+      fileURLToPath(new URL('../../scripts/verification/patch-map-contract/fold-foundation.mjs', import.meta.url)),
       'utf8',
     );
     const forbiddenCatalog = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
@@ -303,7 +303,7 @@ describe('PatchMap actual-only foundation observation fold', () => {
 
   it('promotes host facts only from an explicit packed-host probe', () => {
     const hostProbe = {
-      $schema: 'core-v2-packed-host-probe/1',
+      $schema: 'patch-map-packed-host-probe/1',
       caseId: 'CSM-001',
       promotionEligible: true,
       engineReturns: { lifecycle: 'scene-ready' },
@@ -423,7 +423,7 @@ function makeExecution(
     startedAtMs: index,
     completedAtMs: index + 1,
     delta: {
-      $schema: 'core-v2-semantic-observation-delta/1',
+      $schema: 'patch-map-semantic-observation-delta/1',
       caseId,
       actionIndex: index,
       actionType: type,
@@ -433,7 +433,7 @@ function makeExecution(
   }));
   const journey = caseId.startsWith('CSM');
   return {
-    $schema: 'core-v2-contract-case-execution/1',
+    $schema: 'patch-map-contract-case-execution/1',
     caseId,
     caseType: journey ? 'consumer-journey' : 'capability',
     status: 'completed',
@@ -448,7 +448,7 @@ function makeExecution(
     eventJournal: [event(1, 'ready', { lifecycle: terminal.lifecycle })],
     hostSeamDelta: journey
       ? {
-          $schema: 'core-v2-host-seam-delta/1',
+          $schema: 'patch-map-host-seam-delta/1',
           caseId,
           capabilityPassInherited: false,
           status: 'completed',
@@ -585,7 +585,7 @@ function semanticProbe(caseId: FoundationCaseId): JsonRecord {
     semanticNode(2, { kind: 'component', ownerId: 'item-a', id: 'hidden-label' }, 'text', 1, false),
   ];
   return {
-    revision: 'core-v2-semantic-probe/1',
+    revision: 'patch-map-semantic-probe/1',
     lifecycle: empty ? 'ready-empty' : 'scene-ready',
     dataset: {
       state: empty ? 'empty' : 'loaded',

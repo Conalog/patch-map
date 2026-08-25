@@ -112,13 +112,13 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 
 const [catalogRuntime, materializeRuntime, foldRuntime, observationRuntime, comparisonRuntime] =
   await Promise.all([
-    loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-    loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+    loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+    loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
     loadRuntime<FoldRuntime>(
-      '../../scripts/verification/core-v2-contract/fold-lifecycle-destroy.mjs',
+      '../../scripts/verification/patch-map-contract/fold-lifecycle-destroy.mjs',
     ),
-    loadRuntime<ObservationRuntime>('../../scripts/verification/core-v2-contract/observe.mjs'),
-    loadRuntime<ComparisonRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+    loadRuntime<ObservationRuntime>('../../scripts/verification/patch-map-contract/observe.mjs'),
+    loadRuntime<ComparisonRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
   ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -162,14 +162,14 @@ describe('LIF-005 actual-only lifecycle fold', () => {
   it('is import-free and browser-safe behind the verifier dependency firewall', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/fold-lifecycle-destroy.mjs',
+        '../../scripts/verification/patch-map-contract/fold-lifecycle-destroy.mjs',
         import.meta.url,
       )),
       'utf8',
     );
     const forbiddenEvidenceStem = ['normalized', 'expected'].join('-');
 
-    expect(LIFECYCLE_DESTROY_FOLD_REVISION).toBe('core-v2-lifecycle-destroy-fold/1');
+    expect(LIFECYCLE_DESTROY_FOLD_REVISION).toBe('patch-map-lifecycle-destroy-fold/1');
     expect(source).not.toContain(forbiddenEvidenceStem);
     expect(source).not.toMatch(/from\s+['"][^'"]*compare\.mjs['"]/u);
     expect(source).not.toMatch(/from\s+['"][^'"]*observe\.mjs['"]/u);
@@ -333,7 +333,7 @@ function fold(execution: JsonRecord): FoldResult {
 
 function provenance(): JsonRecord {
   return {
-    implementation: 'core-v2',
+    implementation: 'patch-map',
     codeCommit: 'test-code-commit',
     packedPackageSha256: 'test-packed-package-sha256',
   };
@@ -410,7 +410,7 @@ function makeExecution(): JsonRecord {
     });
   }
   return {
-    $schema: 'core-v2-contract-case-execution/1',
+    $schema: 'patch-map-contract-case-execution/1',
     caseId: 'LIF-005',
     caseType: 'capability',
     status: 'completed',
@@ -422,7 +422,7 @@ function makeExecution(): JsonRecord {
     datasetObservations: {},
     hostSeamDelta: null,
     terminalSnapshot: snapshot('scene-ready', 1),
-    terminalSemanticProbe: { revision: 'core-v2-semantic-probe/1' },
+    terminalSemanticProbe: { revision: 'patch-map-semantic-probe/1' },
     cleanup: { status: 'completed', declaredActions: ['destroy-case'], releases: [], errors: [] },
     error: null,
   };
@@ -437,7 +437,7 @@ function actionResult(index: number, type: string, actual: JsonRecord): JsonReco
     startedAtMs: index,
     completedAtMs: index,
     delta: {
-      $schema: 'core-v2-semantic-observation-delta/1',
+      $schema: 'patch-map-semantic-observation-delta/1',
       caseId: 'LIF-005',
       actionIndex: index,
       actionType: type,
@@ -496,7 +496,7 @@ function normalizedCase(): JsonRecord {
 async function readNormalizedEvidence(): Promise<NormalizedEvidence> {
   const source = await readFile(
     fileURLToPath(new URL(
-      '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json',
+      '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json',
       import.meta.url,
     )),
     'utf8',

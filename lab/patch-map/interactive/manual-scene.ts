@@ -1,6 +1,6 @@
 import { buildPatchMapSeededScenarioScene } from '../contract/seeded-scene';
 
-export const PATCH_MAP_MANUAL_SCENE_REVISION = 'core-v2-manual-scene/1' as const;
+export const PATCH_MAP_MANUAL_SCENE_REVISION = 'patch-map-manual-scene/1' as const;
 export const PATCH_MAP_MANUAL_SCENE_SIZE_OPTIONS = Object.freeze([
   '100',
   '500',
@@ -118,7 +118,7 @@ export function buildPatchMapManualScene(
       text: '직접 편집하세요',
       size: { width: 220, height: 46 },
       style: {
-        fontFamily: 'Fira Code',
+        fontFamily: 'FiraCode',
         fontSize: 19,
         fill: '#172033',
         align: 'left',
@@ -143,7 +143,7 @@ export function buildPatchMapManualScene(
           id: 'manual-group-label',
           text: '그룹',
           size: { width: 110, height: 28 },
-          style: { fontFamily: 'Fira Code', fontSize: 18, fill: '#172033' },
+          style: { fontFamily: 'FiraCode', fontSize: 18, fill: '#172033' },
           attrs: { x: 22, y: 40, zIndex: 1 },
         },
       ],
@@ -155,7 +155,7 @@ export function buildPatchMapManualScene(
         { source: 'manual-rect-a', target: 'manual-rect-b' },
         { source: 'manual-rect-b', target: 'manual-text' },
       ],
-      style: { color: '#334155', width: 3, opacity: 0.72 },
+      style: { color: '#334155', width: 3, alpha: 0.72 },
       attrs: { x: 0, y: 0, zIndex: 1 },
     },
     {
@@ -180,7 +180,7 @@ export function buildPatchMapManualScene(
             placement: 'center',
             margin: 6,
             tint: '#0f172a',
-            style: { fontFamily: 'Fira Code', fontSize: 16, fontWeight: 700 },
+            style: { fontFamily: 'FiraCode', fontSize: 16, fontWeight: 700 },
           },
         ],
       },

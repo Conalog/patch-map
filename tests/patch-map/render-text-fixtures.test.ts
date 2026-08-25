@@ -40,7 +40,7 @@ describe('PatchMap REN-011 supplemental text specimens', () => {
 
     expect(authoredItem(specimens, 'placed')).toEqual({
       type: 'item',
-      id: 'core-v2-ren011-placed',
+      id: 'patch-map-ren011-placed',
       size: { width: 240, height: 160 },
       components: [{
         type: 'text',
@@ -54,7 +54,7 @@ describe('PatchMap REN-011 supplemental text specimens', () => {
     });
     expect(authoredItem(specimens, 'auto')).toEqual({
       type: 'item',
-      id: 'core-v2-ren011-auto',
+      id: 'patch-map-ren011-auto',
       size: { width: 32, height: 20 },
       components: [{
         type: 'text',
@@ -65,7 +65,7 @@ describe('PatchMap REN-011 supplemental text specimens', () => {
     });
     expect(authoredItem(specimens, 'wrap')).toEqual({
       type: 'item',
-      id: 'core-v2-ren011-wrap',
+      id: 'patch-map-ren011-wrap',
       size: { width: 240, height: 160 },
       components: [{
         type: 'text',
@@ -84,7 +84,7 @@ describe('PatchMap REN-011 supplemental text specimens', () => {
       const id = `overflow-${overflow}` as const;
       expect(authoredItem(specimens, id)).toEqual({
         type: 'item',
-        id: `core-v2-ren011-${id}`,
+        id: `patch-map-ren011-${id}`,
         size: { width: 32, height: 20 },
         components: [{
           type: 'text',
@@ -97,7 +97,7 @@ describe('PatchMap REN-011 supplemental text specimens', () => {
 
     expect(authoredItem(specimens, 'upright')).toEqual({
       type: 'item',
-      id: 'core-v2-ren011-upright',
+      id: 'patch-map-ren011-upright',
       size: { width: 240, height: 160 },
       components: [{
         type: 'text',

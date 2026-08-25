@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
@@ -109,12 +109,12 @@ interface CompareRuntime {
 }
 
 const [catalogRuntime, materializeRuntime, foldRuntime, compareRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<FoldRuntime>(
-    '../../scripts/verification/core-v2-contract/fold-render-component-assets.mjs',
+    '../../scripts/verification/patch-map-contract/fold-render-component-assets.mjs',
   ),
-  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+  loadRuntime<CompareRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -149,7 +149,7 @@ describe('PatchMap REN-008 / REN-010 component-asset actual-only fold', () => {
   it('is import-free, browser-safe, expected-blind, and revisioned', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/fold-render-component-assets.mjs',
+        '../../scripts/verification/patch-map-contract/fold-render-component-assets.mjs',
         import.meta.url,
       )),
       'utf8',
@@ -157,7 +157,7 @@ describe('PatchMap REN-008 / REN-010 component-asset actual-only fold', () => {
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
 
     expect(RENDER_COMPONENT_ASSETS_FOLD_REVISION)
-      .toBe('core-v2-render-component-assets-fold/1');
+      .toBe('patch-map-render-component-assets-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/\.expected\b/u);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
@@ -173,7 +173,7 @@ describe('PatchMap REN-008 / REN-010 component-asset actual-only fold', () => {
       expect(Object.keys(folded.actual)).toEqual(['$schema', ...DOMAIN_NAMES]);
       for (const domain of DOMAIN_NAMES) expect(folded.actual[domain]).toBeTypeOf('object');
       expect(folded.actual).toMatchObject({
-        $schema: 'core-v2-semantic-observation/1',
+        $schema: 'patch-map-semantic-observation/1',
         case: { id: caseId, caseType: 'capability' },
         geometry: { finiteValueCount: 12 },
         paint: { commandCount: 3 },
@@ -191,7 +191,6 @@ describe('PatchMap REN-008 / REN-010 component-asset actual-only fold', () => {
           },
           paint: {
             background: {
-              data: { size: [20, 10] },
               visibleBounds: [0, 0, 100, 80],
               source: 'fixture-image',
               staleTextureCount: 0,
@@ -234,14 +233,14 @@ describe('PatchMap REN-008 / REN-010 component-asset actual-only fold', () => {
       });
       total += expected.expected.assertions.length;
       expect(comparison).toMatchObject({
-        passed: caseId === 'REN-008' ? 10 : 11,
+        passed: caseId === 'REN-008' ? 9 : 11,
         failed: 0,
       });
       expect(comparison.assertions.every(({ passed, failure }) => passed && failure === null))
         .toBe(true);
       expect(parentChildOverlaps(expected.expected.assertions.map(({ path }) => path))).toEqual([]);
     }
-    expect(total).toBe(21);
+    expect(total).toBe(20);
   });
 
   it('lets the independent comparator expose internally consistent background and icon mutations', () => {
@@ -268,12 +267,7 @@ describe('PatchMap REN-008 / REN-010 component-asset actual-only fold', () => {
     expect(failedPaths(iconComparison)).toEqual(['/paint/icon/bounds/right']);
   });
 
-  it('fails closed on missing authored facts, source disagreement, hidden objects, and tint disagreement', () => {
-    const missingSize = createExecution('REN-008');
-    const initial = productAt(missingSize, 0, 'product');
-    delete requireRecord(requireRecord(initial.component, 'component').semantic, 'semantic').authoredSize;
-    expect(() => fold('REN-008', missingSize)).toThrow(/authored size cross-link/u);
-
+  it('fails closed on source disagreement, hidden objects, and tint disagreement', () => {
     const sourceDrift = createExecution('REN-008');
     const sourceTerminal = productAt(sourceDrift, 3, 'after');
     requireRecord(
@@ -426,7 +420,7 @@ function fold(caseId: CaseId, execution: JsonRecord): FoldResult {
     provenance: {
       codeCommit: 'test-commit',
       packedPackageSha256: 'test-package',
-      contractRevision: 'core-v2-functional-contract/2026-07-16.2',
+      contractRevision: 'patch-map-contract/1',
     },
     environment: {
       browserVersion: 'unit-test',
@@ -530,7 +524,7 @@ function createExecution(caseId: CaseId): JsonRecord {
       ];
   const times = caseId === 'REN-008' ? [0, 20, 20, 20] : [0, 20, 20];
   return {
-    $schema: 'core-v2-contract-case-execution/1',
+    $schema: 'patch-map-contract-case-execution/1',
     caseId,
     caseType: 'capability',
     status: 'completed',
@@ -542,7 +536,7 @@ function createExecution(caseId: CaseId): JsonRecord {
       startedAtMs: times[index],
       completedAtMs: times[index],
       delta: {
-        $schema: 'core-v2-semantic-observation-delta/1',
+        $schema: 'patch-map-semantic-observation-delta/1',
         caseId,
         actionIndex: index,
         actionType: type,
@@ -666,9 +660,7 @@ function product(
     ownerId,
     componentId,
     componentType,
-    authoredSize: caseId === 'REN-008'
-      ? { width: 20, height: 10 }
-      : { width: '50%', height: '25%' },
+    authoredSize: caseId === 'REN-008' ? null : { width: '50%', height: '25%' },
     source: structuredClone(options.source),
     tint: options.tint ?? null,
     show: options.show,
@@ -744,7 +736,7 @@ function product(
     },
     geometry: {
       revision: options.revision,
-      revisionLag: 0,
+      revisionLags: { scene: 0, view: 0, interaction: 0 },
       entities: [{
         id: entityId,
         kind: isImage ? 'image' : 'rect',
@@ -760,7 +752,7 @@ function product(
     dataset: dataset(caseId, options.source, options.show, options.tint),
     component,
     resources: {
-      revision: 'core-v2-component-assets-resource-probe/1',
+      revision: 'patch-map-component-assets-resource-probe/1',
       caseId,
       counts: {
         canvasCount: 1,
@@ -794,7 +786,7 @@ function cleanup(caseId: CaseId, terminalValue: JsonRecord | undefined): JsonRec
       remainingResources: { canvasCount: 0, subscriptions: 0, pendingWork: 0 },
     }],
     productResources: {
-      revision: 'core-v2-component-assets-product-cleanup/1',
+      revision: 'patch-map-component-assets-product-cleanup/1',
       caseId,
       runtimeCounts: zeroCounts([
         'canvasCount',
@@ -844,7 +836,6 @@ function dataset(
         type: 'background',
         id: 'bg',
         source: structuredClone(source),
-        size: { width: 20, height: 10 },
         show,
       }],
     }];

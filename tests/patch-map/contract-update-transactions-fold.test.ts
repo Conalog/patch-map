@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
@@ -107,12 +107,12 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [catalogRuntime, materializeRuntime, foldRuntime, compareRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<FoldRuntime>(
-    '../../scripts/verification/core-v2-contract/fold-update-transactions.mjs',
+    '../../scripts/verification/patch-map-contract/fold-update-transactions.mjs',
   ),
-  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+  loadRuntime<CompareRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -177,14 +177,14 @@ describe('PatchMap update-transaction actual-only fold', () => {
   it('is import-free, browser-safe, expected-blind, and revisioned', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/fold-update-transactions.mjs',
+        '../../scripts/verification/patch-map-contract/fold-update-transactions.mjs',
         import.meta.url,
       )),
       'utf8',
     );
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
 
-    expect(UPDATE_TRANSACTIONS_FOLD_REVISION).toBe('core-v2-update-transactions-fold/1');
+    expect(UPDATE_TRANSACTIONS_FOLD_REVISION).toBe('patch-map-update-transactions-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/\.expected\b/u);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
@@ -209,7 +209,7 @@ describe('PatchMap update-transaction actual-only fold', () => {
 
       expect(Object.keys(folded.actual)).toEqual(['$schema', ...DOMAIN_NAMES]);
       expect(folded.actual).toMatchObject({
-        $schema: 'core-v2-semantic-observation/1',
+        $schema: 'patch-map-semantic-observation/1',
         case: { id: caseId, caseType: 'capability', executionStatus: 'completed' },
         outcome: { recorded: true, inputUnchanged: true },
         resources: { cleanup: { status: 'completed', errors: [] } },
@@ -351,7 +351,7 @@ function executionFor(plan: CatalogCase): JsonRecord {
     startedAtMs: index,
     completedAtMs: index + 0.5,
     delta: {
-      $schema: 'core-v2-semantic-observation-delta/1',
+      $schema: 'patch-map-semantic-observation-delta/1',
       caseId: plan.id,
       actionIndex: index,
       actionType: action.type,
@@ -363,7 +363,7 @@ function executionFor(plan: CatalogCase): JsonRecord {
   }));
   const finalProduct = requireRecord(shape.actuals.at(-1)?.product, 'final product');
   return {
-    $schema: 'core-v2-contract-case-execution/1',
+    $schema: 'patch-map-contract-case-execution/1',
     caseId: plan.id,
     caseType: plan.caseType,
     status: 'completed',
@@ -919,7 +919,7 @@ function hostPresentationShape() {
     historyDepth: 0,
   });
   const active = {
-    schemaRevision: 'core-v2-presentation-policy/1',
+    schemaRevision: 'patch-map-presentation-policy/1',
     revision: 2,
     status: 'active',
     highlightIds: ['item-a', 'rect-b'],
@@ -954,7 +954,7 @@ function hostPresentationShape() {
       }),
       actual(productValue, {
         presentation: {
-          schemaRevision: 'core-v2-presentation-policy/1',
+          schemaRevision: 'patch-map-presentation-policy/1',
           revision: 3,
           status: 'normal',
           highlightIds: null,
@@ -1190,7 +1190,7 @@ function product(
       },
     },
     semantic: {
-      revision: 'core-v2-semantic-product-probe/1',
+      revision: 'patch-map-semantic-product-probe/1',
       lifecycle: 'ready',
       dataset: { state: 'loaded', ref: null, semanticHash: overrides.semanticHash ?? `sha256:scene-${sceneRevision}`, rootIds, graphDeepFrozen: true },
       scene: {
@@ -1245,7 +1245,6 @@ function geometry(
     surfaceRevision: 1,
     representedRevisions: { scene: 1, view: 0, interaction: 0 },
     revisionLags: { scene: 0, view: 0, interaction: 0 },
-    revisionLag: 0,
     entities: [{ id, kind: 'rect', worldBounds, screenBounds: worldBounds, visibleCenter, visible: true, interactive: true }],
     relations: [],
     omittedRelations: [],
@@ -1259,7 +1258,6 @@ function relations(rows: readonly unknown[], omitted: readonly unknown[]): JsonR
     surfaceRevision: 1,
     representedRevisions: { scene: 1, view: 0, interaction: 0 },
     revisionLags: { scene: 0, view: 0, interaction: 0 },
-    revisionLag: 0,
     relations: structuredClone(rows),
     omittedRelations: structuredClone(omitted),
   };

@@ -15,7 +15,7 @@ describe('PatchMap REN-006 actual-only fold', () => {
 
     expect(Object.keys(folded.actual)).toEqual(['$schema', ...DOMAIN_NAMES]);
     expect(folded.actual).toMatchObject({
-      $schema: 'core-v2-semantic-observation/1',
+      $schema: 'patch-map-semantic-observation/1',
       case: { id: 'REN-006', caseType: 'capability' },
       geometry: {
         text: {

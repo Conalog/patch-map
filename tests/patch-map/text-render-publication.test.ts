@@ -9,12 +9,13 @@ import {
   type RenderStoreView,
 } from '../../src/patch-map/dense/renderer-types';
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
 import {
   PatchMapPixiRenderer,
   projectionChangedRanges,
 } from '../../src/patch-map/renderers/pixi-renderer';
+import { PatchMapPixiCpuPublicationAuthority } from '../../src/patch-map/renderers/pixi-renderer/cpu-publication-authority';
 import type {
   PatchMapProjectionRenderContext,
   PatchMapTextRendererProbe,
@@ -31,7 +32,7 @@ describe('PatchMap text render publication', () => {
     scaleX,
     scaleY,
   }) => {
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'text',
       id: 'text',
       text: '구조물 높이\n0.8~3.2m',
@@ -84,8 +85,8 @@ describe('PatchMap text render publication', () => {
         style: { fontFamily: 'FiraCode', fontSize: 16 },
       }],
     }];
-    const initial = parsePatchMapV010(scene('first'));
-    const changed = parsePatchMapV010(scene('second'));
+    const initial = parsePatchMap(scene('first'));
+    const changed = parsePatchMap(scene('second'));
     const layer = new AggregateLeafLayer();
 
     try {
@@ -140,7 +141,7 @@ describe('PatchMap text render publication', () => {
       maxX: 33,
       maxY: 62,
     } as never);
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'grid',
       id: 'quality-grid',
       attrs: { x: 80, y: 80 },
@@ -197,7 +198,7 @@ describe('PatchMap text render publication', () => {
   });
 
   it('uses the prewrapped semantic payload and defaults unclear atlas capability to guarded Text', async () => {
-    const parsed = parsePatchMapV010([standaloneText('ABCDEFGHIJ', {
+    const parsed = parsePatchMap([standaloneText('ABCDEFGHIJ', {
       wordWrap: true,
       breakWords: true,
       wordWrapWidth: 32,
@@ -253,8 +254,8 @@ describe('PatchMap text render publication', () => {
   });
 
   it('constructs BitmapText only from an explicit exact finite proof and still rejects CJK', async () => {
-    const ascii = parsePatchMapV010([standaloneText('CPU 42', { fontWeight: '600' })]);
-    const cjk = parsePatchMapV010([standaloneText('CPU 中', { fontWeight: '600' })]);
+    const ascii = parsePatchMap([standaloneText('CPU 42', { fontWeight: '600' })]);
+    const cjk = parsePatchMap([standaloneText('CPU 中', { fontWeight: '600' })]);
     const requests: string[] = [];
     const layer = new AggregateLeafLayer(undefined, true, {
       resolveBitmapTextCapability: (request) => {
@@ -303,9 +304,49 @@ describe('PatchMap text render publication', () => {
     await layer.destroy();
   });
 
+  it('publishes visible multiline justify through guarded Pixi Text with an exact signature', async () => {
+    const parsed = parsePatchMap([standaloneText('A B\nC D E', {
+      align: 'justify',
+      wordWrap: true,
+      wordWrapWidth: 80,
+    })]);
+    const projection = requireTextProjection(parsed.projection, 'text');
+    const layer = new AggregateLeafLayer(undefined, true, {
+      resolveBitmapTextCapability: (request) => bitmapProof(
+        request.text,
+        request.style.fontWeight,
+      ),
+    });
+
+    layer.sync(createRenderStore(parsed.document.entities), {
+      fullRebuildEpoch: 1,
+      projectionContext: projectionContext(parsed.projection, 1),
+    });
+
+    const object = layer.textContainer.children[0];
+    expect(object).toBeInstanceOf(Text);
+    if (!(object instanceof Text)) throw new Error('expected guarded Pixi Text');
+    expect(projection.visibleText).toContain('\n');
+    expect(object.text).toBe(projection.visibleText);
+    expect(object.style).toMatchObject({
+      align: 'justify',
+      wordWrap: true,
+      wordWrapWidth: projection.layoutBounds.width,
+    });
+    const probe = layer.textRendererProbe('text');
+    expect(probe).toMatchObject({
+      attachedRoute: 'pixi-text',
+      objectKind: 'pixi-text',
+      routeDecisionReason: 'unsupported-style',
+    });
+    expect(probe?.attachedSignatures?.renderer).toContain('"align":"justify"');
+
+    await layer.destroy();
+  });
+
   it('treats italic and oblique as exact bitmap style fields while unproven atlases stay guarded', async () => {
     for (const fontStyle of ['italic', 'oblique'] as const) {
-      const parsed = parsePatchMapV010([standaloneText('CPU 42', { fontStyle })]);
+      const parsed = parsePatchMap([standaloneText('CPU 42', { fontStyle })]);
       const proven = new AggregateLeafLayer(undefined, true, {
         resolveBitmapTextCapability: (request) => bitmapProof(
           request.text,
@@ -326,7 +367,7 @@ describe('PatchMap text render publication', () => {
       await proven.destroy();
     }
 
-    const unproven = parsePatchMapV010([standaloneText('CPU 42', { fontStyle: 'oblique' })]);
+    const unproven = parsePatchMap([standaloneText('CPU 42', { fontStyle: 'oblique' })]);
     const guarded = new AggregateLeafLayer();
     guarded.sync(createRenderStore(unproven.document.entities), {
       fullRebuildEpoch: 1,
@@ -341,9 +382,9 @@ describe('PatchMap text render publication', () => {
   });
 
   it('publishes only the final rapid replacement after a confirmed render frame', async () => {
-    const initial = parsePatchMapV010([standaloneText('old')]);
-    const intermediate = parsePatchMapV010([standaloneText('intermediate')]);
-    const final = parsePatchMapV010([standaloneText('final中')]);
+    const initial = parsePatchMap([standaloneText('old')]);
+    const intermediate = parsePatchMap([standaloneText('intermediate')]);
+    const final = parsePatchMap([standaloneText('final中')]);
     const layer = new AggregateLeafLayer();
 
     layer.sync(createRenderStore(initial.document.entities, 1), {
@@ -407,9 +448,9 @@ describe('PatchMap text render publication', () => {
       standaloneText('0.8~3.2m', { fontFamily: 'FiraCode', fontWeight }),
       { ...standaloneText('stable'), id: 'stable' },
     ];
-    const regular = parsePatchMapV010(scene(400));
-    const semibold = parsePatchMapV010(scene(600));
-    const bold = parsePatchMapV010(scene(700));
+    const regular = parsePatchMap(scene(400));
+    const semibold = parsePatchMap(scene(600));
+    const bold = parsePatchMap(scene(700));
     const layer = new AggregateLeafLayer();
 
     layer.sync(createRenderStore(regular.document.entities, 1), {
@@ -458,8 +499,8 @@ describe('PatchMap text render publication', () => {
   });
 
   it('includes exact paint intent in the renderer signature when semantic layout is unchanged', async () => {
-    const initial = parsePatchMapV010([standaloneText('paint', { fill: '#222222' })]);
-    const changed = parsePatchMapV010([standaloneText('paint', { fill: '#ff0000' })]);
+    const initial = parsePatchMap([standaloneText('paint', { fill: '#222222' })]);
+    const changed = parsePatchMap([standaloneText('paint', { fill: '#ff0000' })]);
     const layer = new AggregateLeafLayer();
     layer.sync(createRenderStore(initial.document.entities, 1), {
       fullRebuildEpoch: 1,
@@ -498,7 +539,7 @@ describe('PatchMap text render publication', () => {
   });
 
   it('retains hidden text leaves for visibility-only reuse and clears them on destroy', async () => {
-    const parsed = parsePatchMapV010([standaloneText('visible')]);
+    const parsed = parsePatchMap([standaloneText('visible')]);
     const visible = createRenderStore(parsed.document.entities, 1);
     const layer = new AggregateLeafLayer();
     const context = projectionContext(parsed.projection, 1);
@@ -548,7 +589,7 @@ describe('PatchMap text render publication', () => {
   });
 
   it('dirties only the text slot when the semantic text sidecar changes', () => {
-    const parsed = parsePatchMapV010([standaloneText('stable')]);
+    const parsed = parsePatchMap([standaloneText('stable')]);
     const store = createRenderStore(parsed.document.entities);
     const projection = requireTextProjection(parsed.projection, 'text');
     const changed: PatchMapProjectionIndex = Object.freeze({
@@ -565,8 +606,8 @@ describe('PatchMap text render publication', () => {
   });
 
   it('joins current semantic and attached renderer facts without scanning Pixi children', async () => {
-    const initial = parsePatchMapV010([standaloneText('old')]);
-    const changed = parsePatchMapV010([standaloneText('final中')]);
+    const initial = parsePatchMap([standaloneText('old')]);
+    const changed = parsePatchMap([standaloneText('final中')]);
     const initialStore = createRenderStore(initial.document.entities, 1);
     const layer = new AggregateLeafLayer();
     layer.sync(initialStore, {
@@ -590,8 +631,7 @@ describe('PatchMap text render publication', () => {
     });
     renderer.lastRenderedTextStoreRevision = initialStore.revision;
 
-    renderer.projectionIndex = changed.projection;
-    renderer.projectionRevision = 2;
+    renderer.cpuPublication.setProjection(changed.projection, [{ start: 0, end: 1 }]);
     const pending = renderer.textRendererProbe('text');
     expect(pending).toMatchObject({
       publicationStatus: 'pending',
@@ -619,7 +659,8 @@ describe('PatchMap text render publication', () => {
     renderer.textProjectionSynchronizedRevision = 2;
     renderer.lastRenderedTextProjectionRevision = 2;
     renderer.lastRenderedTextStoreRevision = 2;
-    renderer.lastStore = hiddenStore;
+    const effectiveStore = renderer.cpuPublication.beginFlush(hiddenStore);
+    renderer.cpuPublication.commitFlush(hiddenStore, effectiveStore);
     renderer.frame = 5;
     expect(renderer.textRendererProbe('text')).toMatchObject({
       attachedRoute: 'none',
@@ -746,7 +787,9 @@ function createRenderStore(
         ? RenderAlign.Center
         : record.align === 'right'
           ? RenderAlign.Right
-          : RenderAlign.Left
+          : record.align === 'justify'
+            ? RenderAlign.Justify
+            : RenderAlign.Left
     ))),
     maxLines: new Uint16Array(capacity),
     source: strings('source'),
@@ -767,13 +810,11 @@ function createRenderStore(
 }
 
 interface RendererProbeHarness {
-  projectionIndex: PatchMapProjectionIndex;
-  projectionRevision: number;
+  cpuPublication: PatchMapPixiCpuPublicationAuthority;
   textProjectionSynchronizedRevision: number;
   lastRenderedTextProjectionRevision: number | null;
   lastRenderedTextStoreRevision: number | null;
   textVisibilityByEntityId: Map<string, boolean>;
-  lastStore: RenderStoreView | null;
   frame: number;
   destroyedValue: boolean;
   textRendererProbe(entityId: string): PatchMapTextRendererProbe | null;
@@ -788,15 +829,17 @@ function rendererProbeHarness(
   const renderer = Object.create(PatchMapPixiRenderer.prototype) as RendererProbeHarness & {
     leaves: AggregateLeafLayer;
   };
+  const cpuPublication = new PatchMapPixiCpuPublicationAuthority(new Map([['text', 0]]));
+  cpuPublication.setProjection(projectionIndex, []);
+  const effectiveStore = cpuPublication.beginFlush(store);
+  cpuPublication.commitFlush(store, effectiveStore);
   Object.assign(renderer, {
     leaves,
-    projectionIndex,
-    projectionRevision: revision,
+    cpuPublication,
     textProjectionSynchronizedRevision: revision,
     lastRenderedTextProjectionRevision: revision,
     lastRenderedTextStoreRevision: store.revision,
     textVisibilityByEntityId: new Map([['text', true]]),
-    lastStore: store,
     frame: 4,
     destroyedValue: false,
   });

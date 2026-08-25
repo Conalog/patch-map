@@ -173,21 +173,21 @@ const [
   foldRuntime,
   compareRuntime,
 ] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../../scripts/verification/core-v2-contract/catalog.mjs'),
+  loadRuntime<CatalogRuntime>('../../../scripts/verification/patch-map-contract/catalog.mjs'),
   loadRuntime<MaterializeRuntime>(
-    '../../../scripts/verification/core-v2-contract/materialize.mjs',
+    '../../../scripts/verification/patch-map-contract/materialize.mjs',
   ),
   loadRuntime<HandlerRuntime>(
-    '../../../scripts/verification/core-v2-contract/handlers/update-transactions.mjs',
+    '../../../scripts/verification/patch-map-contract/handlers/update-transactions.mjs',
   ),
   loadRuntime<WorkerRuntime>(
-    '../../../scripts/verification/core-v2-contract/execute-worker.mjs',
+    '../../../scripts/verification/patch-map-contract/execute-worker.mjs',
   ),
   loadRuntime<FoldRuntime>(
-    '../../../scripts/verification/core-v2-contract/fold-update-transactions.mjs',
+    '../../../scripts/verification/patch-map-contract/fold-update-transactions.mjs',
   ),
   loadRuntime<CompareRuntime>(
-    '../../../scripts/verification/core-v2-contract/compare.mjs',
+    '../../../scripts/verification/patch-map-contract/compare.mjs',
   ),
 ]);
 

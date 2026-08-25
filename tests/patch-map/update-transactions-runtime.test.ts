@@ -31,6 +31,15 @@ class RuntimeProbeSurface implements PatchMapEngineSurface {
 
   public load(): void {}
 
+  public reconcile(_input: unknown) {
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 0,
+      denseChanged: false,
+      diagnostics: Object.freeze([]),
+    });
+  }
+
   public publishFrame(): void {}
 
   public resize(width: number, height: number, pixelRatio: number): boolean {

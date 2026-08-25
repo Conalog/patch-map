@@ -76,7 +76,7 @@ function stats(values, label) {
 async function configure(page, trial) {
   const initialSceneSize = SCENE_SIZE === '5000' ? SCENE_SIZE : '100';
   await page.goto(
-    `lab/patch-map/?scenario=REN-009&size=${initialSceneSize}&seed=${SEED + trial}`,
+    `lab/patch-map?scenario=REN-009&size=${initialSceneSize}&seed=${SEED + trial}`,
     { waitUntil: 'networkidle', timeout: LOAD_TIMEOUT_MS },
   );
   await page.waitForFunction(

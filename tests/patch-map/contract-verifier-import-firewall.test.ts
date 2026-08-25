@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 interface VerifierImportFirewallModule {
-  assertCoreV2ContractImportFirewall(
+  assertPatchMapContractImportFirewall(
     contractRoot?: string | URL,
   ): Promise<Readonly<{ handlerCount: number; foldCount: number }>>;
   assertVerifierEntryImportFirewall(options: Readonly<{
@@ -17,13 +17,13 @@ interface VerifierImportFirewallModule {
 
 const firewallNamespace: unknown = await import(
   /* @vite-ignore */ new URL(
-    '../../scripts/verification/core-v2-contract/verifier-import-firewall.mjs',
+    '../../scripts/verification/patch-map-contract/verifier-import-firewall.mjs',
     import.meta.url,
   ).href
 );
 
 const {
-  assertCoreV2ContractImportFirewall,
+  assertPatchMapContractImportFirewall,
   assertVerifierEntryImportFirewall,
 } = firewallNamespace as VerifierImportFirewallModule;
 
@@ -35,11 +35,11 @@ afterEach(async () => {
   ));
 });
 
-describe('core-v2 committed verifier source policy firewall', () => {
-  it('covers exactly 35 committed handlers and 34 folds under the static source policy', async () => {
-    await expect(assertCoreV2ContractImportFirewall()).resolves.toEqual({
-      handlerCount: 35,
-      foldCount: 34,
+describe('patch-map committed verifier source policy firewall', () => {
+  it('covers exactly 34 committed handlers and 33 folds under the static source policy', async () => {
+    await expect(assertPatchMapContractImportFirewall()).resolves.toEqual({
+      handlerCount: 34,
+      foldCount: 33,
     });
   });
 
@@ -254,7 +254,7 @@ describe('core-v2 committed verifier source policy firewall', () => {
       foldSource: '',
       valueAtomsSource: 'export const value = process.env.NODE_ENV;\n',
     });
-    await expect(assertCoreV2ContractImportFirewall(root)).rejects.toMatchObject({
+    await expect(assertPatchMapContractImportFirewall(root)).rejects.toMatchObject({
       code: 'NODE_GLOBAL',
     });
   });

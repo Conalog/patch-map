@@ -36,7 +36,6 @@ export type PatchMapExecutableRuntimeKey =
   | 'asset-ingestion'
   | 'security-operations'
   | 'accessibility'
-  | 'migration'
   | 'assets';
 
 export type PatchMapExecutableHandler = (

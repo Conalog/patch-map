@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   PatchMapSemanticHistory,
+  type PatchMapHistoryCommitOutcome,
+  type PatchMapHistoryPreparedCommitStatus,
   type PatchMapSemanticHistoryCommandInput,
 } from '../../src/patch-map/history';
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
@@ -36,7 +38,7 @@ describe('PatchMap semantic history', () => {
       'selection',
       'transformer',
     ]);
-    expect(history.record(command(
+    expect(prepareAndCommit(history, command(
       'lay-003-z-order',
       initial,
       patched,
@@ -102,7 +104,7 @@ describe('PatchMap semantic history', () => {
     const history = new PatchMapSemanticHistory<StackDataset>();
     const before = singleDataset('box', 0);
     const after = singleDataset('box', 1);
-    history.record({ id: 'move', before: { dataset: before }, after: { dataset: after } });
+    prepareAndCommit(history, { id: 'move', before: { dataset: before }, after: { dataset: after } });
 
     expect(history.undo(() => false)).toBeNull();
     expect(history.state()).toMatchObject({ cursor: 1, undoDepth: 1, redoDepth: 0 });
@@ -128,17 +130,17 @@ describe('PatchMap semantic history', () => {
     const one = singleDataset('box', 1);
     const two = singleDataset('box', 2);
     const branch = singleDataset('box', 20);
-    history.record(simpleCommand('one', zero, one));
-    history.record(simpleCommand('two', one, two));
+    prepareAndCommit(history, simpleCommand('one', zero, one));
+    prepareAndCommit(history, simpleCommand('two', one, two));
     history.undo(() => true);
 
     expect(history.state()).toMatchObject({ depth: 2, cursor: 1, redoDepth: 1 });
-    expect(history.record(simpleCommand('declared-no-op', one, branch), 'no-op')).toBe('no-op');
-    expect(history.record(simpleCommand('refused', one, branch), 'refused')).toBe('refused');
-    expect(history.record(simpleCommand('equal', one, structuredClone(one)))).toBe('no-op');
+    expect(prepareAndCommit(history, simpleCommand('declared-no-op', one, branch), 'no-op')).toBe('no-op');
+    expect(prepareAndCommit(history, simpleCommand('refused', one, branch), 'refused')).toBe('refused');
+    expect(prepareAndCommit(history, simpleCommand('equal', one, structuredClone(one)))).toBe('no-op');
     expect(history.state()).toMatchObject({ depth: 2, cursor: 1, redoDepth: 1 });
 
-    expect(history.record(simpleCommand('branch', one, branch))).toBe('recorded');
+    expect(prepareAndCommit(history, simpleCommand('branch', one, branch))).toBe('recorded');
     expect(history.state()).toMatchObject({ depth: 2, cursor: 2, redoDepth: 0 });
     expect(history.canRedo).toBe(false);
     expect(history.redo(() => true)).toBeNull();
@@ -242,8 +244,8 @@ describe('PatchMap semantic history', () => {
     const one = singleDataset('box', 1);
     const two = singleDataset('box', 2);
     const branch = singleDataset('box', 20);
-    history.record(simpleCommand('one', zero, one));
-    history.record(simpleCommand('two', one, two));
+    prepareAndCommit(history, simpleCommand('one', zero, one));
+    prepareAndCommit(history, simpleCommand('two', one, two));
     history.undo(() => true);
 
     const preparedBranch = history.prepareRecord(simpleCommand('branch', one, branch));
@@ -279,7 +281,7 @@ describe('PatchMap semantic history', () => {
     const invalidCommand = null as unknown as PatchMapSemanticHistoryCommandInput<StackDataset>;
     const refused = history.prepareRecord(invalidCommand, 'refused');
     expect(history.commitPrepared(refused)).toBe('refused');
-    expect(history.record(invalidCommand, 'no-op')).toBe('no-op');
+    expect(prepareAndCommit(history, invalidCommand, 'no-op')).toBe('no-op');
   });
 
   it('keeps terminal token status while releasing every retained command branch', () => {
@@ -478,8 +480,8 @@ describe('PatchMap semantic history', () => {
     const one = singleDataset('box', 1);
     const two = singleDataset('box', 2);
     const three = singleDataset('box', 3);
-    history.record(simpleCommand('one', zero, one));
-    history.record(simpleCommand('two', one, two));
+    prepareAndCommit(history, simpleCommand('one', zero, one));
+    prepareAndCommit(history, simpleCommand('two', one, two));
     const atCapacity = history.prepareRecord(simpleCommand('three', two, three));
 
     expect(history.inspect().commands.map((entry) => entry.id)).toEqual(['one', 'two']);
@@ -497,9 +499,9 @@ describe('PatchMap semantic history', () => {
     const one = singleDataset('box', 1);
     const two = singleDataset('box', 2);
     const three = singleDataset('box', 3);
-    history.record(simpleCommand('one', zero, one));
-    history.record(simpleCommand('two', one, two));
-    history.record(simpleCommand('three', two, three));
+    prepareAndCommit(history, simpleCommand('one', zero, one));
+    prepareAndCommit(history, simpleCommand('two', one, two));
+    prepareAndCommit(history, simpleCommand('three', two, three));
 
     expect(history.inspect().commands.map((entry) => entry.id)).toEqual(['two', 'three']);
     expect(history.state()).toEqual({
@@ -525,7 +527,7 @@ describe('PatchMap semantic history', () => {
     expect(history.undo(() => true)).toBeNull();
 
     const disabled = new PatchMapSemanticHistory<StackDataset>({ capacity: 0 });
-    expect(disabled.record(simpleCommand('ignored', zero, one))).toBe('disabled');
+    expect(prepareAndCommit(disabled, simpleCommand('ignored', zero, one))).toBe('disabled');
     expect(disabled.state()).toMatchObject({ capacity: 0, depth: 0, canUndo: false });
     expect(() => new PatchMapSemanticHistory({ capacity: -1 })).toThrow(RangeError);
   });
@@ -537,8 +539,8 @@ describe('PatchMap semantic history', () => {
     const two = singleDataset('box', 2);
     const three = singleDataset('box', 3);
 
-    expect(history.record(simpleCommand('drag-1', zero, one))).toBe('recorded');
-    expect(history.record(simpleCommand('drag-1', one, two))).toBe('recorded');
+    expect(prepareAndCommit(history, simpleCommand('drag-1', zero, one))).toBe('recorded');
+    expect(prepareAndCommit(history, simpleCommand('drag-1', one, two))).toBe('recorded');
     expect(history.inspect().commands).toMatchObject([
       {
         id: 'drag-1',
@@ -561,7 +563,7 @@ describe('PatchMap semantic history', () => {
 
     expect(history.closeActionGroup()).toBe(true);
     expect(history.closeActionGroup()).toBe(false);
-    expect(history.record(simpleCommand('drag-1', two, three))).toBe('recorded');
+    expect(prepareAndCommit(history, simpleCommand('drag-1', two, three))).toBe('recorded');
     expect(history.inspect().commands.map(({ id, recordCount }) => ({
       id,
       recordCount,
@@ -581,7 +583,7 @@ describe('PatchMap semantic history', () => {
   it('reconfigures retention atomically with exact oldest-action eviction', () => {
     const history = new PatchMapSemanticHistory<StackDataset>();
     for (let index = 0; index < 52; index += 1) {
-      history.record(simpleCommand(
+      prepareAndCommit(history, simpleCommand(
         `a-${String(index).padStart(2, '0')}`,
         singleDataset('box', index),
         singleDataset('box', index + 1),
@@ -628,7 +630,7 @@ describe('PatchMap semantic history', () => {
     const history = new PatchMapSemanticHistory<StackDataset>();
     const before = singleDataset('box', 0);
     const after = singleDataset('box', 1);
-    history.record(simpleCommand('one', before, after));
+    prepareAndCommit(history, simpleCommand('one', before, after));
     const retained = history.inspect();
 
     expect(Object.isFrozen(retained)).toBe(true);
@@ -647,7 +649,7 @@ describe('PatchMap semantic history', () => {
       destroyed: true,
     });
     expect(history.inspect().commands).toEqual([]);
-    expect(() => history.record(simpleCommand('late', before, after))).toThrow('is destroyed');
+    expect(() => prepareAndCommit(history, simpleCommand('late', before, after))).toThrow('is destroyed');
     expect(() => history.undo(() => true)).toThrow('is destroyed');
   });
 });
@@ -688,6 +690,15 @@ function simpleCommand(
   after: StackDataset,
 ): PatchMapSemanticHistoryCommandInput<StackDataset> {
   return { id, before: { dataset: before }, after: { dataset: after } };
+}
+
+function prepareAndCommit<TDataset extends readonly unknown[], TCompanion = never>(
+  history: PatchMapSemanticHistory<TDataset, TCompanion>,
+  command: PatchMapSemanticHistoryCommandInput<TDataset, TCompanion>,
+  outcome: PatchMapHistoryCommitOutcome = 'accepted',
+): PatchMapHistoryPreparedCommitStatus {
+  const prepared = history.prepareRecord(command, outcome);
+  return history.commitPrepared(prepared);
 }
 
 function command(

@@ -1,11 +1,14 @@
 import { readFileSync } from 'node:fs';
 
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import { createPatchMapRenderTextSpecimens } from '../../lab/patch-map/contract/render-text-fixtures';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
+import { parsePatchMap } from '../../src/patch-map/parser';
+import {
+  materializePatchMapDataset,
+  type PatchMapDatasetError,
+} from '../../src/patch-map/semantic/dataset';
 
 describe('PatchMap deterministic text projection', () => {
   it('keeps component text on one semantic-layout pass followed by signature-safe relocation', () => {
@@ -26,7 +29,7 @@ describe('PatchMap deterministic text projection', () => {
   it('keeps the standalone authored frame separate from natural geometry and affine inputs', () => {
     const input = catalogProfiles.datasets['standalone-text'];
     const before = structuredClone(input);
-    const parsed = parsePatchMapV010(materializePatchMapDataset(input).dataset);
+    const parsed = parsePatchMap(materializePatchMapDataset(input).dataset);
     const text = parsed.projection.textsByEntityId?.text;
     const entity = parsed.document.entities.find(({ id }) => id === 'text');
     const geometry = parsed.projection.byEntityId.text;
@@ -67,8 +70,8 @@ describe('PatchMap deterministic text projection', () => {
 
   it('projects empty, wrapped, requested-font fallback, and rapid text as distinct stable shapes', () => {
     const materialized = materializePatchMapDataset(catalogProfiles.datasets['standalone-text']);
-    const first = parsePatchMapV010(materialized.dataset);
-    const second = parsePatchMapV010(materialized.dataset);
+    const first = parsePatchMap(materialized.dataset);
+    const second = parsePatchMap(materialized.dataset);
     const texts = first.projection.textsByEntityId ?? {};
 
     expect(first.identity.entityIds).toEqual(second.identity.entityIds);
@@ -102,7 +105,7 @@ describe('PatchMap deterministic text projection', () => {
     const rapid = patched.find(({ id }) => id === 'rapid-text');
     if (!rapid) throw new Error('rapid text fixture missing');
     rapid.text = 'final中';
-    const next = parsePatchMapV010(patched);
+    const next = parsePatchMap(patched);
     expect(next.identity.entityIds).toEqual(first.identity.entityIds);
     expect(next.identity.entitySourceById['rapid-text']).toEqual(
       first.identity.entitySourceById['rapid-text'],
@@ -112,14 +115,13 @@ describe('PatchMap deterministic text projection', () => {
     );
   });
 
-  it('preserves zero, positive, and negative grapheme split plus bidi component identity', () => {
-    const parsed = parsePatchMapV010(
+  it('preserves zero and positive grapheme split plus bidi component identity', () => {
+    const parsed = parsePatchMap(
       materializePatchMapDataset(catalogProfiles.datasets['item-text-corpus']).dataset,
     );
     const texts = parsed.projection.textsByEntityId ?? {};
     const zero = texts['item-a::text:zero'];
     const positive = texts['item-a::text:positive'];
-    const negative = texts['item-a::text:negative'];
     const bidi = texts['item-a::text:bidi'];
 
     expect(zero).toMatchObject({
@@ -137,12 +139,6 @@ describe('PatchMap deterministic text projection', () => {
       splitLines: ['AB', '😀C', 'D'],
       layoutBounds: { x: 0, y: 0, width: 24, height: 60 },
     });
-    expect(negative).toMatchObject({
-      componentId: 'negative',
-      split: -1,
-      splitLines: ['AB😀CD'],
-      layoutBounds: { x: 0, y: 0, width: 48, height: 20 },
-    });
     expect(bidi).toMatchObject({
       componentId: 'bidi',
       source: 'ABC مرحبا 😀',
@@ -155,14 +151,35 @@ describe('PatchMap deterministic text projection', () => {
     expect(Object.keys(texts)).toEqual([
       'item-a::text:zero',
       'item-a::text:positive',
-      'item-a::text:negative',
       'item-a::text:bidi',
     ]);
   });
 
+  it('rejects negative text split at materialization and direct parsing', () => {
+    const input = [{
+      type: 'item',
+      id: 'item-a',
+      size: 100,
+      components: [{
+        type: 'text',
+        id: 'label',
+        text: 'AB',
+        split: -1,
+      }],
+    }];
+
+    expect(() => materializePatchMapDataset(input)).toThrowError(
+      expect.objectContaining<Partial<PatchMapDatasetError>>({
+        code: 'INVALID_VALUE',
+        datasetPath: '$[0].components[0].split',
+      }),
+    );
+    expect(() => parsePatchMap(input)).toThrow('Text split must be a nonnegative safe integer');
+  });
+
   it('derives all supplemental placement, auto-font, wrap, overflow, and upright facts from product input', () => {
     const results = new Map(createPatchMapRenderTextSpecimens().map((specimen) => {
-      const parsed = parsePatchMapV010(materializePatchMapDataset(specimen.dataset).dataset);
+      const parsed = parsePatchMap(materializePatchMapDataset(specimen.dataset).dataset);
       const text = parsed.projection.textsByEntityId?.[
         `${specimen.target.ownerId}::text:${specimen.target.id}`
       ];
@@ -210,7 +227,7 @@ describe('PatchMap deterministic text projection', () => {
       layoutBounds: { x: 0, y: 0, width: 16, height: 20 },
     });
     expect(results.get('upright')?.parsed.projection.byEntityId[
-      'core-v2-ren011-upright::text:upright'
+      'patch-map-ren011-upright::text:upright'
     ]).toMatchObject({
       rotationDegrees: 37,
       contentOrientation: 'upright',
@@ -226,7 +243,7 @@ describe('PatchMap deterministic text projection', () => {
       text: `A${String.fromCharCode(0xd800)}B`,
       style,
     }];
-    const parsed = parsePatchMapV010(input);
+    const parsed = parsePatchMap(input);
     const text = parsed.projection.textsByEntityId?.unsupported;
 
     expect(Object.isFrozen(input)).toBe(false);
@@ -240,8 +257,8 @@ describe('PatchMap deterministic text projection', () => {
     }));
   });
 
-  it('applies the v0.10 default font when the direct parser receives no style object', () => {
-    const parsed = parsePatchMapV010([{ type: 'text', id: 'default-font', text: 'Ready' }]);
+  it('applies the current default font when the direct parser receives no style object', () => {
+    const parsed = parsePatchMap([{ type: 'text', id: 'default-font', text: 'Ready' }]);
 
     expect(parsed.projection.textsByEntityId?.['default-font']).toMatchObject({
       sourceFontRuns: [{ text: 'Ready', font: 'FiraCode' }],
@@ -258,12 +275,12 @@ describe('PatchMap deterministic text projection', () => {
     const style = { fontFamily: 'FiraCode', fontSize: 52, fontWeight: 600 };
     const input = [{
       type: 'text',
-      id: 'legacy-family',
+      id: 'authored-font-family',
       text: '구조물 높이\n0.8~3.2m',
       style,
     }];
-    const parsed = parsePatchMapV010(input);
-    const text = parsed.projection.textsByEntityId?.['legacy-family'];
+    const parsed = parsePatchMap(input);
+    const text = parsed.projection.textsByEntityId?.['authored-font-family'];
 
     expect(input[0]?.style).toBe(style);
     expect(style).toEqual({ fontFamily: 'FiraCode', fontSize: 52, fontWeight: 600 });
@@ -278,11 +295,11 @@ describe('PatchMap deterministic text projection', () => {
 
   it('shares omitted line-height resolution across standalone and component text', () => {
     const source = '구조물 높이\n0.8~3.2m';
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'text',
       id: 'standalone-large',
       text: source,
-      style: { fontFamily: 'Fira Code', fontSize: 52 },
+      style: { fontFamily: 'FiraCode', fontSize: 52 },
     }, {
       type: 'item',
       id: 'text-owner',
@@ -291,7 +308,7 @@ describe('PatchMap deterministic text projection', () => {
         type: 'text',
         id: 'component-large',
         text: source,
-        style: { fontFamily: 'Fira Code', fontSize: 52 },
+        style: { fontFamily: 'FiraCode', fontSize: 52 },
       }],
     }]);
     const standalone = parsed.projection.textsByEntityId?.['standalone-large'];

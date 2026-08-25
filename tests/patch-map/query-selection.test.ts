@@ -432,6 +432,15 @@ class TestSurface implements PatchMapEngineSurface {
     this.selectionIds = Object.freeze([]);
   }
 
+  public reconcile(_input: unknown) {
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 0,
+      denseChanged: false,
+      diagnostics: Object.freeze([]),
+    });
+  }
+
   public publishFrame(_timeMs: number): void {}
 
   public resize(_width: number, _height: number, _pixelRatio: number): boolean {

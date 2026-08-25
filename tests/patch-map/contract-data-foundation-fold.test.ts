@@ -207,17 +207,17 @@ const [
   observationRuntime,
   compareRuntime,
 ] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<HandlerRuntime>(
-    '../../scripts/verification/core-v2-contract/handlers/data-foundation.mjs',
+    '../../scripts/verification/patch-map-contract/handlers/data-foundation.mjs',
   ),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
   loadRuntime<FoldRuntime>(
-    '../../scripts/verification/core-v2-contract/fold-data-foundation.mjs',
+    '../../scripts/verification/patch-map-contract/fold-data-foundation.mjs',
   ),
-  loadRuntime<ObservationRuntime>('../../scripts/verification/core-v2-contract/observe.mjs'),
-  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+  loadRuntime<ObservationRuntime>('../../scripts/verification/patch-map-contract/observe.mjs'),
+  loadRuntime<CompareRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -259,14 +259,14 @@ describe('PatchMap data-foundation actual-only fold', () => {
   it('is import-free and browser-safe behind the verifier dependency firewall', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/fold-data-foundation.mjs',
+        '../../scripts/verification/patch-map-contract/fold-data-foundation.mjs',
         import.meta.url,
       )),
       'utf8',
     );
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
 
-    expect(DATA_FOUNDATION_FOLD_REVISION).toBe('core-v2-data-foundation-fold/1');
+    expect(DATA_FOUNDATION_FOLD_REVISION).toBe('patch-map-data-foundation-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/from\s+['"][^'"]*compare\.mjs['"]/u);
     expect(source).not.toMatch(/from\s+['"][^'"]*observe\.mjs['"]/u);
@@ -586,7 +586,7 @@ function normalizedCase(caseId: string): JsonRecord {
 async function readNormalizedEvidence(): Promise<NormalizedEvidence> {
   const content = await readFile(
     fileURLToPath(new URL(
-      '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json',
+      '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json',
       import.meta.url,
     )),
     'utf8',

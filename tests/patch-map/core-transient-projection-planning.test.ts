@@ -6,7 +6,7 @@ import {
   assembleOwnedPatchMapSparsePreviewDataset,
   materializePatchMapDataset,
 } from '../../src/patch-map/semantic/dataset';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import {
   preparePatchMapIncrementalPreview,
   preparePatchMapSemanticRefresh,
@@ -31,7 +31,7 @@ describe('PatchMap transient projection planning', () => {
     const preview = assembleOwnedPatchMapSparsePreviewDataset(current, [
       { index: 1, root: replacement },
     ]);
-    const parse = parsePatchMapV010(current.dataset);
+    const parse = parsePatchMap(current.dataset);
     const published = publishedState(parse, current.dataset);
     const before = published.transientIncrementalParse;
 
@@ -79,7 +79,7 @@ describe('PatchMap transient projection planning', () => {
   });
 
   it('prepares ordered semantic refresh facts and refuses strict misses before slot reads', () => {
-    const parse = parsePatchMapV010(fixtureInput());
+    const parse = parsePatchMap(fixtureInput());
     const componentTargets = indexPatchMapComponentProbeTargets(parse);
     const component = componentTargets.get(patchMapComponentProbeTargetKey({
       ownerId: 'item-a',
@@ -150,7 +150,7 @@ describe('PatchMap transient projection planning', () => {
     const preview = assembleOwnedPatchMapSparsePreviewDataset(current, [
       { index: 1, root: replacement },
     ]);
-    let published = publishedState(parsePatchMapV010(current.dataset), current.dataset);
+    let published = publishedState(parsePatchMap(current.dataset), current.dataset);
     const order: string[] = [];
     const facade = {
       parseOptions: {},
@@ -231,7 +231,7 @@ describe('PatchMap transient projection planning', () => {
 });
 
 function publishedState(
-  parse: ReturnType<typeof parsePatchMapV010>,
+  parse: ReturnType<typeof parsePatchMap>,
   dataset: readonly unknown[],
 ): PatchMapPublishedSceneState {
   const optionsKey = incrementalParseOptionsKey({});

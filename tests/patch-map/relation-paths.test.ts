@@ -9,7 +9,7 @@ import {
   queryPatchMapRelationHitIndex,
   type PatchMapSurfaceRelationGeometry,
 } from '../../src/patch-map/engine';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import { applyPatchMapSemanticPatch } from '../../src/patch-map/semantic/mutation';
 import {
@@ -19,7 +19,7 @@ import {
 
 describe('PatchMap aggregate relation paths', () => {
   it('deduplicates ordered pairs, preserves reverse links, and builds a finite self loop', () => {
-    const parse = parsePatchMapV010([
+    const parse = parsePatchMap([
       { type: 'rect', id: 'a', size: 20, fill: '#ff0000', attrs: { x: 0, y: 0 } },
       { type: 'rect', id: 'b', size: 20, fill: '#00ff00', attrs: { x: 100, y: 40 } },
       {
@@ -57,7 +57,7 @@ describe('PatchMap aggregate relation paths', () => {
   });
 
   it('keeps collision-safe pair identity separate from ambiguous display keys', () => {
-    const parse = parsePatchMapV010([
+    const parse = parsePatchMap([
       { type: 'rect', id: 'a>b', size: 10 },
       { type: 'rect', id: 'c', size: 10, attrs: { x: 20 } },
       { type: 'rect', id: 'a', size: 10, attrs: { x: 40 } },
@@ -78,7 +78,7 @@ describe('PatchMap aggregate relation paths', () => {
   });
 
   it('projects nested endpoint centers through relation-local inverse and F*R screen space', () => {
-    const parse = parsePatchMapV010(relationMatrixDataset());
+    const parse = parsePatchMap(relationMatrixDataset());
     const view = {
       x: 10,
       y: 20,
@@ -122,7 +122,7 @@ describe('PatchMap aggregate relation paths', () => {
   });
 
   it('scales stroke normals once, applies zoom in CSS space, and preserves the 4 CSS px floor', () => {
-    const parse = parsePatchMapV010([
+    const parse = parsePatchMap([
       { type: 'rect', id: 'a', size: 10 },
       { type: 'rect', id: 'b', size: 10, attrs: { x: 100 } },
       {
@@ -142,7 +142,7 @@ describe('PatchMap aggregate relation paths', () => {
     expect(hitTestPatchMapSurfaceRelations(geometry.relations, { x: 100, y: 15.5 })).not.toBeNull();
     expect(hitTestPatchMapSurfaceRelations(geometry.relations, { x: 100, y: 16.5 })).toBeNull();
 
-    const thinParse = parsePatchMapV010([
+    const thinParse = parsePatchMap([
       { type: 'rect', id: 'a', size: 10 },
       { type: 'rect', id: 'b', size: 10, attrs: { x: 100 } },
       { type: 'relations', id: 'thin', links: [{ source: 'a', target: 'b' }], style: { width: 0 } },
@@ -179,7 +179,7 @@ describe('PatchMap aggregate relation paths', () => {
   });
 
   it('hides incident paths with retained endpoint geometry and surfaces omitted links', () => {
-    const parse = parsePatchMapV010([
+    const parse = parsePatchMap([
       {
         type: 'grid',
         id: 'grid',
@@ -211,7 +211,7 @@ describe('PatchMap aggregate relation paths', () => {
     expect(hitTestPatchMapSurfaceRelations(geometry.relations, { x: 50, y: 10 })).toBeNull();
   });
 
-  it('normalizes compatibility opacity and atomically stages structural relation links', () => {
+  it('rejects unknown opacity and atomically stages structural relation links', () => {
     const initial = materializePatchMapDataset(relationMatrixDataset());
     const mutation = applyPatchMapSemanticPatch(
       initial,
@@ -240,8 +240,8 @@ describe('PatchMap aggregate relation paths', () => {
         links: [],
         style: { alpha: 0.5, opacity: 0.5 },
       },
-    ])).toThrow('alpha and compatibility opacity are mutually exclusive');
-    expect(() => parsePatchMapV010([
+    ])).toThrow('$[0].style.opacity');
+    expect(() => parsePatchMap([
       { type: 'rect', id: 'a', size: 10 },
       {
         type: 'relations',
@@ -249,9 +249,9 @@ describe('PatchMap aggregate relation paths', () => {
         links: [{ source: 'a', target: 'a' }],
         style: { alpha: 0.5, opacity: 0.5 },
       },
-    ])).toThrow('alpha and opacity cannot both be authored');
+    ])).toThrow('unknown field "opacity"');
     try {
-      parsePatchMapV010([
+      parsePatchMap([
         { type: 'rect', id: 'a', size: 10 },
         {
           type: 'relations',
@@ -297,7 +297,7 @@ function relationMatrixDataset(): readonly unknown[] {
         { source: 'nested-item', target: 'grid.0.0' },
         { source: 'grid.0.0', target: 'nested-item' },
       ],
-      style: { color: '#123456', width: 3, opacity: 0.75 },
+      style: { color: '#123456', width: 3, alpha: 0.75 },
       attrs: { x: 30, y: -10, angle: 90, zIndex: -4 },
     },
   ];

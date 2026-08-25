@@ -1,7 +1,7 @@
 import { resolvePatchMapExecutableDataset } from '../../../lab/patch-map/contract/executable-cases';
 import { createPatchMapRenderTextSpecimens } from '../../../lab/patch-map/contract/render-text-fixtures';
 import type { PatchMapTextProjection } from '../../../src/patch-map/contracts';
-import { parsePatchMapV010 } from '../../../src/patch-map/parser';
+import { parsePatchMap } from '../../../src/patch-map/parser';
 import { materializePatchMapDataset } from '../../../src/patch-map/semantic/dataset';
 import { layoutPatchMapText, type PatchMapTextLayout } from '../../../src/patch-map/semantic/text-layout';
 
@@ -105,16 +105,14 @@ export function itemTextExecution(): JsonRecord {
   const canonicalTargets = [
     componentTarget('item-a', 'zero'),
     componentTarget('item-a', 'positive'),
-    componentTarget('item-a', 'negative'),
     componentTarget('item-a', 'bidi'),
   ];
   const initialSources: Readonly<Record<string, string>> = {
     zero: 'AB😀CD',
     positive: 'AB😀CD',
-    negative: 'AB😀CD',
     bidi: 'ABC مرحبا 😀',
   };
-  const splitById: Readonly<Record<string, number>> = { zero: 0, positive: 2, negative: -1, bidi: 0 };
+  const splitById: Readonly<Record<string, number>> = { zero: 0, positive: 2, bidi: 0 };
   const canonical = product(canonicalTargets.map((target) => probe({
     target,
     source: initialSources[target.id] ?? '',
@@ -122,10 +120,10 @@ export function itemTextExecution(): JsonRecord {
     sceneRevision: 1,
     frameRevision: 1,
     status: 'current',
-  })), 1, 1, 'REN-011');
+  })), 1, 1, 'REN-011', [], 4);
   const supplemental = createPatchMapRenderTextSpecimens().map((specimen, index) => {
     const exportedDataset = materializePatchMapDataset(specimen.dataset).dataset;
-    const parsed = parsePatchMapV010(exportedDataset);
+    const parsed = parsePatchMap(exportedDataset);
     const entityId = `${specimen.target.ownerId}::text:${specimen.id}`;
     const projection = parsed.projection.textsByEntityId?.[entityId];
     const entityProjection = parsed.projection.byEntityId[entityId];
@@ -183,7 +181,7 @@ export function itemTextExecution(): JsonRecord {
     sceneRevision: 2,
     frameRevision: 2,
     status: 'current',
-  })), 2, 2, 'REN-011');
+  })), 2, 2, 'REN-011', [], 4);
   const trace = [
     actionResult(0, 'loadDataset', {
       input: inputEvidence('item-text-corpus'),
@@ -233,7 +231,7 @@ function authoredFactsForSpecimen(
     : null;
   const attrs = isRecord(owner.attrs) ? owner.attrs : null;
   return {
-    revision: 'core-v2-render-text-authored-facts/1',
+    revision: 'patch-map-render-text-authored-facts/1',
     datasetId: specimen.datasetId,
     ownerId: specimen.target.ownerId,
     componentId: specimen.id,
@@ -273,7 +271,7 @@ function execution(
     delta.caseId = caseId;
   }
   return {
-    $schema: 'core-v2-contract-case-execution/1',
+    $schema: 'patch-map-contract-case-execution/1',
     caseId,
     caseType: 'capability',
     status: 'completed',
@@ -312,7 +310,7 @@ function actionResult(index: number, type: string, actual: JsonRecord): JsonReco
     startedAtMs: index,
     completedAtMs: index,
     delta: {
-      $schema: 'core-v2-semantic-observation-delta/1',
+      $schema: 'patch-map-semantic-observation-delta/1',
       caseId: type === 'observeItemTextMatrix' || type === 'publishFrame' && index === 3
         ? 'REN-011'
         : 'REN-006',
@@ -372,10 +370,10 @@ function productForDataset(
   previousDataset?: JsonRecord[],
 ): JsonRecord {
   const exportedDataset = materializePatchMapDataset(dataset).dataset;
-  const parsed = parsePatchMapV010(exportedDataset);
+  const parsed = parsePatchMap(exportedDataset);
   const previousParsed = previousDataset === undefined
     ? null
-    : parsePatchMapV010(materializePatchMapDataset(previousDataset).dataset);
+    : parsePatchMap(materializePatchMapDataset(previousDataset).dataset);
   const probes = targets.map((target) => {
     const entityId = target.kind === 'element'
       ? target.id
@@ -414,16 +412,17 @@ function product(
   frameRevision: number,
   caseId: 'REN-006' | 'REN-011' = 'REN-006',
   exportedDataset: JsonRecord[] = [],
+  renderCommandCount = probes.length,
 ): JsonRecord {
   const publishedScene = probes.every((entry) => (
     requireRecord(entry.publication, 'probe publication').status === 'current'
   )) ? sceneRevision : sceneRevision - 1;
   return {
-    snapshot: snapshot(sceneRevision, frameRevision, publishedScene, probes.length),
+    snapshot: snapshot(sceneRevision, frameRevision, publishedScene, renderCommandCount),
     semanticProbe: semanticProbe(probes.length),
     geometryProbe: {
       revision: sceneRevision,
-      revisionLag: 0,
+      revisionLags: { scene: 0, view: 0, interaction: 0 },
       entities: probes.map(surfaceGeometry),
       relations: [],
       omittedRelations: [],
@@ -789,7 +788,7 @@ function resourceProbe(caseId: 'REN-006' | 'REN-011'): JsonRecord {
     ? { factoryCallCount: 1, specimenCount: 7 }
     : { factoryCallCount: 0, specimenCount: 0 };
   return {
-    revision: 'core-v2-text-runtime-probe/1',
+    revision: 'patch-map-text-runtime-probe/1',
     caseId,
     fontRuntime: {
       mode: 'semantic-profile-only',
@@ -808,7 +807,7 @@ function cleanupProductResources(caseId: 'REN-006' | 'REN-011'): JsonRecord {
   const journal = resourceJournal(caseId);
   const factoryCallCount = caseId === 'REN-011' ? 1 : 0;
   return {
-    revision: 'core-v2-text-runtime-cleanup/1',
+    revision: 'patch-map-text-runtime-cleanup/1',
     caseId,
     runtimeCounts: {
       activeSessionCount: 0,
@@ -938,7 +937,7 @@ export function rebuildSupplementalProductFromExport(execution: JsonRecord, id: 
   const exportedDataset = structuredClone(
     arrayValue(priorProduct.exportedDataset, `${id} exported dataset`),
   ) as JsonRecord[];
-  const parsed = parsePatchMapV010(exportedDataset);
+  const parsed = parsePatchMap(exportedDataset);
   if (target.kind !== 'component') {
     throw new Error(`Expected rebuilt ${id} target to be a component`);
   }

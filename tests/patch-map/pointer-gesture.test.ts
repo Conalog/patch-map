@@ -1215,6 +1215,15 @@ class PointerTestSurface implements PatchMapEngineSurface {
     this.selectionIds = Object.freeze([]);
   }
 
+  public reconcile(_input: unknown) {
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 0,
+      denseChanged: false,
+      diagnostics: Object.freeze([]),
+    });
+  }
+
   public publishFrame(_timeMs: number): void {}
 
   public resize(_width: number, _height: number, _pixelRatio: number): boolean {
@@ -1264,6 +1273,7 @@ class PointerTestSurface implements PatchMapEngineSurface {
   public geometrySnapshot(): PatchMapSurfaceGeometrySnapshot {
     return Object.freeze({
       revision: 1,
+      sceneRevision: 1,
       entities: this.geometryEntities,
       relations: Object.freeze([{
         id: 'links:0',

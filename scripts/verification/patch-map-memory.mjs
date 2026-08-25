@@ -98,13 +98,8 @@ try {
   );
   const hostInteractionLifecycle = await page.evaluate(async (spec) => {
     const {
-      PATCH_MAP_MIGRATION_BLOCKERS,
-      PATCH_MAP_MIGRATION_COHORTS,
       PatchMap,
-      PatchMapMigrationAuthority,
       PatchMapOperationsAuthority,
-      materializePatchMapCompatibilityDataset,
-      preparePatchMapPersistenceExport,
     } = await import('/src/patch-map/index.ts');
     const trials = [];
     for (let index = 0; index < spec.cycles; index += 1) {
@@ -134,8 +129,6 @@ try {
       let pageLifecycleAfterDestroy = null;
       let accessibilityBeforeDestroy = null;
       let accessibilityAfterDestroy = null;
-      let migrationBeforeDestroy = null;
-      let migrationAfterDestroy = null;
       let runtimeDiagnosticsBeforeDestroy = null;
       let runtimeDiagnosticsAfterDestroy = null;
       let snapshot = null;
@@ -181,8 +174,10 @@ try {
           },
         ]);
         const instanceBarResult = engine.updateInstanceBarHeights({
-          targets: [{ id: 'item-a', componentId: 'level' }],
-          heights: new Float64Array([42]),
+          bar: {
+            targets: [{ id: 'item-a', componentId: 'level' }],
+            height: new Float64Array([42]),
+          },
           animate: false,
         });
         instanceBarBeforeDestroy = {
@@ -346,43 +341,8 @@ try {
           ...engine.pageLifecycleProbe(),
         };
         accessibilityBeforeDestroy = engine.accessibilityProbe();
-        const legacy = materializePatchMapCompatibilityDataset({
-          kind: 'generic-item',
-          id: `memory-legacy-${index}`,
-          width: 100,
-          height: 80,
-        });
-        const persistence = preparePatchMapPersistenceExport(
-          engine.exportDataset(),
-        );
-        const migration = new PatchMapMigrationAuthority('core-v2');
-        migration.mountSession(`memory-canary-${index}`, {
-          authoritative: 'core-v2',
-          shadow: 'comparison',
-          shadowMode: 'read-only',
-        });
-        migration.recordEffect('authoritative', 'persistence');
-        migration.recordEffect('shadow', 'persistence');
-        const cohort = migration.evaluateCanary({
-          cohortsPercent: PATCH_MAP_MIGRATION_COHORTS,
-          guardedBlockers: PATCH_MAP_MIGRATION_BLOCKERS,
-        });
-        migration.requestRollback({
-          from: 'core-v2',
-          to: 'previous',
-          effectiveAt: 'next-remount',
-        });
-        migration.remountSession(`memory-rollback-${index}`);
-        migrationBeforeDestroy = {
-          ...migration.probe(),
-          legacyId: legacy.canonicalDataset[0]?.id ?? null,
-          persistenceRootKind: persistence.rootKind,
-          cohortCompleted: cohort.completedCohorts,
-        };
         runtimeDiagnosticsBeforeDestroy = engine.runtimeDiagnostics().current;
         await engine.destroy();
-        migration.destroy();
-        migrationAfterDestroy = migration.probe();
         tooltipSubscriptionDisposeAfterDestroy = tooltipSubscription.dispose();
         afterDestroy = engine.hostInteractionProbe();
         transformerAfterDestroy = engine.transformerGestureProbe();
@@ -418,8 +378,6 @@ try {
         pageLifecycleAfterDestroy,
         accessibilityBeforeDestroy,
         accessibilityAfterDestroy,
-        migrationBeforeDestroy,
-        migrationAfterDestroy,
         runtimeDiagnosticsBeforeDestroy,
         runtimeDiagnosticsAfterDestroy,
         snapshot,
@@ -560,20 +518,6 @@ try {
       trial.accessibilityAfterDestroy?.surface !== null ||
       JSON.stringify(trial.accessibilityAfterDestroy?.orderedIds) !==
         JSON.stringify([]) ||
-      trial.migrationBeforeDestroy?.activeEngine !== 'previous' ||
-      trial.migrationBeforeDestroy?.activeLifecycleCount !== 1 ||
-      trial.migrationBeforeDestroy?.canvasCount !== 1 ||
-      trial.migrationBeforeDestroy?.shadowEffectCount !== 0 ||
-      trial.migrationBeforeDestroy?.replayedGestureCount !== 0 ||
-      trial.migrationBeforeDestroy?.legacyId !==
-        `memory-legacy-${trial.index}` ||
-      trial.migrationBeforeDestroy?.persistenceRootKind !== 'array' ||
-      JSON.stringify(trial.migrationBeforeDestroy?.cohortCompleted) !==
-        JSON.stringify([1, 10, 50, 100]) ||
-      trial.migrationAfterDestroy?.destroyed !== true ||
-      trial.migrationAfterDestroy?.activeLifecycleCount !== 0 ||
-      trial.migrationAfterDestroy?.canvasCount !== 0 ||
-      trial.migrationAfterDestroy?.retainedCallbackCount !== 0 ||
       trial.runtimeDiagnosticsAfterDestroy?.activeWork?.gestures !== 0 ||
       trial.runtimeDiagnosticsAfterDestroy?.activeWork?.animations !== 0 ||
       trial.runtimeDiagnosticsAfterDestroy?.activeWork?.pendingAssets !== 0 ||

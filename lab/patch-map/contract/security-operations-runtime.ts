@@ -7,9 +7,9 @@ import {
 } from '../../../src/patch-map';
 
 export const PATCH_MAP_SECURITY_OPERATIONS_RUNTIME_REVISION =
-  'core-v2-security-operations-runtime/1' as const;
+  'patch-map-security-operations-runtime/1' as const;
 export const PATCH_MAP_SECURITY_OPERATIONS_CLEANUP_REVISION =
-  'core-v2-security-operations-cleanup/1' as const;
+  'patch-map-security-operations-cleanup/1' as const;
 
 export const PATCH_MAP_SECURITY_OPERATIONS_CASE_IDS = Object.freeze([
   'SEC-002',

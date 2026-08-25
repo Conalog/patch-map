@@ -841,7 +841,7 @@ let testAssetBackendSequence = 0;
 
 export function createTestAssetRuntime(): PatchMapAssetRuntime {
   const backend: PatchMapAssetBackend = Object.freeze({
-    keyNamespace: `core-v2-update-handler-test-${++testAssetBackendSequence}`,
+    keyNamespace: `patch-map-update-handler-test-${++testAssetBackendSequence}`,
     get(_request: PatchMapAssetBackendRequest) {
       return undefined;
     },

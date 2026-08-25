@@ -1,5 +1,5 @@
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -107,11 +107,11 @@ interface CompareRuntime {
 }
 
 const [catalogRuntime, materializeRuntime, workerRuntime, foldRuntime, compareRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
-  loadRuntime<FoldRuntime>('../../scripts/verification/core-v2-contract/fold-foundation.mjs'),
-  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
+  loadRuntime<FoldRuntime>('../../scripts/verification/patch-map-contract/fold-foundation.mjs'),
+  loadRuntime<CompareRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -150,7 +150,7 @@ describe('PatchMap approved foundation executor against the product engine', () 
         provenance: {
           codeCommit: 'working-tree',
           packedPackageSha256: 'not-packed-unit-product-source',
-          runnerRevision: 'core-v2-foundation-fold/1',
+          runnerRevision: 'patch-map-foundation-fold/1',
         },
         environment: { browser: 'vitest', browserVersion: 'unit', os: 'unit', backend: 'webgl2' },
       });
@@ -327,6 +327,15 @@ class ContractProductSurface implements PatchMapEngineSurface {
 
   public load(_input: unknown): void {
     this.selectionIds = Object.freeze([]);
+  }
+
+  public reconcile(_input: unknown) {
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 0,
+      denseChanged: false,
+      diagnostics: Object.freeze([]),
+    });
   }
 
   public publishFrame(_timeMs: number): void {}

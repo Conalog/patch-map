@@ -31,9 +31,6 @@ import * as packageApi from '@conalog/patch-map';
 import {
   PatchMap,
   PatchMapAssetRuntime,
-  assertPatchMapSemanticRoundtrip,
-  materializePatchMapCompatibilityDataset,
-  preparePatchMapPersistenceExport,
 } from '@conalog/patch-map';
 
 const input = [{
@@ -99,14 +96,7 @@ const transaction = map.transaction([{
 
 const snapshot = map.data.snapshot();
 const serialized = map.data.serialize();
-const persistence = preparePatchMapPersistenceExport(snapshot);
-const reloaded = materializePatchMapCompatibilityDataset(
-  JSON.parse(persistence.serialized),
-);
-assertPatchMapSemanticRoundtrip(persistence, reloaded);
-const legacy = materializePatchMapCompatibilityDataset({
-  kind: 'generic-item', id: 'legacy-packed', width: 100, height: 80,
-});
+const serializedDataset = JSON.parse(serialized);
 
 const beforeRejectedReplace = map.debug.snapshot();
 let strictFailure = null;
@@ -156,8 +146,7 @@ const destroyResult = await map.destroy();
 const internalNames = [
   'PatchMapFrameLoop',
   'PatchMapPixiRenderer',
-  'PatchMapMigrationAuthority',
-  'parsePatchMapV010',
+  'parsePatchMap',
   'planPatchMapMutationTransaction',
 ];
 
@@ -179,9 +168,9 @@ window.__PACKAGE_RESULT__ = {
   undoStatus: undo.status,
   redoStatus: redo.status,
   transactionStatus: transaction.status,
-  serializedMatches: serialized === persistence.serialized,
-  roundtripSemanticHashEqual: persistence.semanticHash === reloaded.semanticHash,
-  legacySourceKind: legacy.sourceKind,
+  serializedRootIsArray: Array.isArray(serializedDataset),
+  serializedRootCount: serializedDataset.length,
+  serializedAddedId: serializedDataset[1]?.id ?? null,
   strictFailure,
   rejectedReplaceAtomic:
     beforeRejectedReplace.revisions.sceneRevision === afterRejectedReplace.revisions.sceneRevision
@@ -442,7 +431,6 @@ async function captureColorCounts(map) {
   };
   return {
     canonicalDefault: count(12, 115, 191),
-    legacyPurple: count(79, 70, 229),
     custom: count(22, 163, 74),
   };
 }
@@ -1184,15 +1172,7 @@ async function captureGlyphMask(map, color) {
 
 export const PACKED_CONSUMER_CJS_SOURCE = `
 const packageApi = require('@conalog/patch-map');
-const {
-  PatchMap,
-  materializePatchMapCompatibilityDataset,
-  preparePatchMapPersistenceExport,
-} = packageApi;
-const canonical = materializePatchMapCompatibilityDataset([
-  { type: 'rect', id: 'cjs-rect', size: 10, fill: '#ff0000' },
-]);
-const persistence = preparePatchMapPersistenceExport(canonical.canonicalDataset);
+const { PatchMap } = packageApi;
 let constructorRejected = false;
 try {
   Reflect.construct(PatchMap, []);
@@ -1202,16 +1182,11 @@ try {
 const internalNames = [
   'PatchMapFrameLoop',
   'PatchMapPixiRenderer',
-  'PatchMapMigrationAuthority',
-  'parsePatchMapV010',
+  'parsePatchMap',
   'planPatchMapMutationTransaction',
 ];
 process.stdout.write(JSON.stringify({
   mountType: typeof PatchMap.mount,
-  compatibilityType: typeof materializePatchMapCompatibilityDataset,
-  persistenceType: typeof preparePatchMapPersistenceExport,
-  rootKind: persistence.rootKind,
-  id: persistence.dataset[0]?.id ?? null,
   internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
   constructorRejected,
 }));

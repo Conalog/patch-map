@@ -23,7 +23,7 @@ describe('PatchMap REN-006 / REN-011 actual-only fold', () => {
   it('is browser-safe, import-free, and independent of answer evidence', async () => {
     const [source, actualSupport] = await Promise.all([
       readFile(fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/fold-render-text.mjs',
+        '../../scripts/verification/patch-map-contract/fold-render-text.mjs',
         import.meta.url,
       )), 'utf8'),
       Promise.all([
@@ -35,7 +35,7 @@ describe('PatchMap REN-006 / REN-011 actual-only fold', () => {
     ]);
     const forbiddenEvidenceName = ['catalog-normalized-expected', 'v1', 'json'].join('.');
 
-    expect(RENDER_TEXT_FOLD_REVISION).toBe('core-v2-render-text-fold/1');
+    expect(RENDER_TEXT_FOLD_REVISION).toBe('patch-map-render-text-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
     await assertCommittedVerifierEntryImportFirewall('fold-render-text.mjs', 'fold');
@@ -47,7 +47,7 @@ describe('PatchMap REN-006 / REN-011 actual-only fold', () => {
   it('matches the immutable approved REN-006 and REN-011 catalogs exactly', () => {
     const cases = [
       ['REN-006', standaloneExecution(), 30],
-      ['REN-011', itemTextExecution(), 20],
+      ['REN-011', itemTextExecution(), 17],
     ] as const;
     for (const [caseId, execution, count] of cases) {
       const folded = fold(selectedCase(caseId), execution);

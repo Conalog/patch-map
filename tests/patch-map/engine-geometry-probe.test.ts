@@ -328,7 +328,6 @@ describe('PatchMap renderer-aligned geometry probe', () => {
       surfaceRevision: 1,
       representedRevisions: { scene: 1, view: 0, interaction: 0 },
       revisionLags: { scene: 0, view: 0, interaction: 0 },
-      revisionLag: 0,
     });
     expect(loaded).not.toHaveProperty('sceneRevision');
 
@@ -339,7 +338,6 @@ describe('PatchMap renderer-aligned geometry probe', () => {
       surfaceRevision: 2,
       representedRevisions: { scene: 1, view: 1, interaction: 0 },
       revisionLags: { scene: 0, view: 0, interaction: 0 },
-      revisionLag: 0,
     });
 
     engine.select(['rect-a']);
@@ -349,10 +347,9 @@ describe('PatchMap renderer-aligned geometry probe', () => {
       surfaceRevision: 3,
       representedRevisions: { scene: 1, view: 1, interaction: 1 },
       revisionLags: { scene: 0, view: 0, interaction: 0 },
-      revisionLag: 0,
     });
     expect(selected?.surfaceRevision).toBeGreaterThan(viewed?.surfaceRevision ?? -1);
-    expect(selected?.revisionLag).toBeGreaterThanOrEqual(0);
+    expect(selected?.revisionLags?.scene).toBeGreaterThanOrEqual(0);
     await engine.destroy();
   });
 

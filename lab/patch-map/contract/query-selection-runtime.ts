@@ -1,9 +1,9 @@
 import type { PatchMap } from '../../../src/patch-map';
 
 export const PATCH_MAP_QUERY_SELECTION_RUNTIME_REVISION =
-  'core-v2-query-selection-runtime/1' as const;
+  'patch-map-query-selection-runtime/1' as const;
 export const PATCH_MAP_QUERY_SELECTION_CLEANUP_REVISION =
-  'core-v2-query-selection-cleanup/1' as const;
+  'patch-map-query-selection-cleanup/1' as const;
 
 export const PATCH_MAP_QUERY_SELECTION_CASE_IDS = Object.freeze([
   'QRY-001',

@@ -12,7 +12,7 @@ describe('PatchMap viewport actual-only runtime', () => {
       const cleanup = runtime.postDestroyProductProbe();
 
       expect(cleanup).toMatchObject({
-        revision: 'core-v2-viewport-cleanup/1',
+        revision: 'patch-map-viewport-cleanup/1',
         caseId,
         runtimeCounts: {
           activeSessionCount: 0,

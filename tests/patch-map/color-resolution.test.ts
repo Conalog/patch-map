@@ -1,7 +1,7 @@
 import { Color } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import fixtureCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixtures.v1.json';
+import fixtureCatalog from '../../contracts/patch-map/evidence/catalog-fixtures.v1.json';
 import {
   createPatchMapColorResolver,
   normalizePatchMapColorTheme,

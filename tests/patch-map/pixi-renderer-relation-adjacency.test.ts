@@ -10,7 +10,7 @@ import {
   projectionStalenessChangedRanges,
   rangesTouchPatchMapRelationTopology,
 } from '../../src/patch-map/renderers/renderer-reconcile-ranges';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 
 describe('PatchMap Pixi relation adjacency', () => {
   it('merges dirty ranges and maps staleness changes without mutating inputs', () => {
@@ -40,13 +40,13 @@ describe('PatchMap Pixi relation adjacency', () => {
   });
 
   it('dirties an image slot when only descriptor options change', () => {
-    const before = parsePatchMapV010([{
+    const before = parsePatchMap([{
       type: 'image',
       id: 'image',
       source: { src: 'fixture.svg', data: { resolution: 1 } },
       size: 16,
     }]);
-    const after = parsePatchMapV010([{
+    const after = parsePatchMap([{
       type: 'image',
       id: 'image',
       source: { src: 'fixture.svg', data: { resolution: 2 } },

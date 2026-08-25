@@ -71,7 +71,7 @@ const rect = (id, x, y) => ({
 const text = (id, x, y, fill, explicit = false) => ({
   type: 'text', id, attrs: { x, y }, text: source,
   style: {
-    fontFamily: 'Fira Code', fontSize: 52, fill,
+    fontFamily: 'FiraCode', fontSize: 52, fill,
     ...(explicit ? { lineHeight: 20 } : {}),
   },
 });
@@ -101,7 +101,7 @@ try {
         }, {
           type: 'text', id: 'component-omitted', text: source,
           placement: 'left-top', margin: 10, tint: '#16a34a',
-          style: { fontFamily: 'Fira Code', fontSize: 52 },
+          style: { fontFamily: 'FiraCode', fontSize: 52 },
         }],
       },
     ],

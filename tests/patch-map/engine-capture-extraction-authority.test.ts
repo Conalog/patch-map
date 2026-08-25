@@ -8,7 +8,9 @@ import {
   createPatchMapOperationError,
 } from '../../src/patch-map/engine/operation-outcomes';
 import { PatchMapPublicationAuthority } from '../../src/patch-map/engine/publication-authority';
-import type { PatchMapEngineDiagnostic } from '../../src/patch-map/engine/public-contracts';
+import type {
+  PatchMapEngineDiagnostic,
+} from '../../src/patch-map/engine/contracts/lifecycle';
 import { PatchMapExtractionSecurityAuthority } from '../../src/patch-map/operations';
 
 describe('PatchMapCaptureExtractionAuthority', () => {

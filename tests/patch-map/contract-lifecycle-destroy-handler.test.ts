@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import fixtureProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
@@ -174,16 +174,16 @@ const [
   comparisonRuntime,
   workerRuntime,
 ] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<LifecycleRuntime>(
-    '../../scripts/verification/core-v2-contract/handlers/lifecycle-destroy.mjs',
+    '../../scripts/verification/patch-map-contract/handlers/lifecycle-destroy.mjs',
   ),
   loadRuntime<LifecycleFoldRuntime>(
-    '../../scripts/verification/core-v2-contract/fold-lifecycle-destroy.mjs',
+    '../../scripts/verification/patch-map-contract/fold-lifecycle-destroy.mjs',
   ),
-  loadRuntime<ComparisonRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<ComparisonRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -209,7 +209,7 @@ describe('LIF-005 actual-only lifecycle handler', () => {
     const entries = createLifecycleDestroyHandlerEntries(harness.product);
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/lifecycle-destroy.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/lifecycle-destroy.mjs',
         import.meta.url,
       )),
       'utf8',
@@ -310,7 +310,7 @@ describe('LIF-005 actual-only lifecycle handler', () => {
       casePlan: plan,
       execution: execution as unknown as JsonRecord,
       provenance: {
-        implementation: 'core-v2',
+        implementation: 'patch-map',
         codeCommit: 'test-code-commit',
         packedPackageSha256: 'test-packed-package-sha256',
       },
@@ -383,7 +383,7 @@ function normalizedCase(): JsonRecord {
 async function readNormalizedEvidence(): Promise<NormalizedEvidence> {
   const source = await readFile(
     fileURLToPath(new URL(
-      '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json',
+      '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json',
       import.meta.url,
     )),
     'utf8',
@@ -475,6 +475,15 @@ class InstrumentedSurface implements PatchMapEngineSurface {
 
   public load(_input: unknown): void {
     this.selectionIds = Object.freeze([]);
+  }
+
+  public reconcile(_input: unknown) {
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 0,
+      denseChanged: false,
+      diagnostics: Object.freeze([]),
+    });
   }
 
   public publishFrame(_timeMs: number): void {}

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   PATCH_MAP_EXECUTABLE_CASE_IDS,
+  PATCH_MAP_EXECUTABLE_COUNT,
 } from '../../lab/patch-map/contract/executable-cases';
 import {
   resolvePatchMapExecutableRuntime,
@@ -15,9 +16,9 @@ const REGISTRY_ROOT = new URL(
 );
 
 describe('PatchMap executable runtime registry composition', () => {
-  it('resolves all 173 approved cases deterministically through one descriptor', () => {
-    expect(PATCH_MAP_EXECUTABLE_CASE_IDS).toHaveLength(173);
-    expect(new Set(PATCH_MAP_EXECUTABLE_CASE_IDS).size).toBe(173);
+  it('resolves all approved cases deterministically through one descriptor', () => {
+    expect(PATCH_MAP_EXECUTABLE_CASE_IDS).toHaveLength(PATCH_MAP_EXECUTABLE_COUNT);
+    expect(new Set(PATCH_MAP_EXECUTABLE_CASE_IDS).size).toBe(PATCH_MAP_EXECUTABLE_COUNT);
 
     const firstPass = PATCH_MAP_EXECUTABLE_CASE_IDS.map((caseId) => (
       resolvePatchMapExecutableRuntime(caseId)

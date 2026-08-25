@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
@@ -112,10 +112,10 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [catalogRuntime, materializeRuntime, foldRuntime, compareRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
-  loadRuntime<FoldRuntime>('../../scripts/verification/core-v2-contract/fold-layout-order.mjs'),
-  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
+  loadRuntime<FoldRuntime>('../../scripts/verification/patch-map-contract/fold-layout-order.mjs'),
+  loadRuntime<CompareRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -150,7 +150,6 @@ const LOCAL_BOUNDS: Readonly<Record<string, readonly [number, number, number, nu
   'right-bottom': [54, 50, 30, 10],
   bottom: [38, 50, 30, 10],
   center: [38, 32, 30, 10],
-  none: [0, 0, 30, 10],
 };
 
 let catalog: ExecutorCatalog;
@@ -163,14 +162,14 @@ describe('PatchMap LAY-002 actual-only layout-order fold', () => {
   it('is browser-safe, import-free, and independent of answer evidence', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/fold-layout-order.mjs',
+        '../../scripts/verification/patch-map-contract/fold-layout-order.mjs',
         import.meta.url,
       )),
       'utf8',
     );
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
 
-    expect(LAYOUT_ORDER_FOLD_REVISION).toBe('core-v2-layout-order-fold/1');
+    expect(LAYOUT_ORDER_FOLD_REVISION).toBe('patch-map-layout-order-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
     await assertCommittedVerifierEntryImportFirewall('fold-layout-order.mjs', 'fold');
@@ -193,16 +192,12 @@ describe('PatchMap LAY-002 actual-only layout-order fold', () => {
 
     expect(Object.keys(folded.actual)).toEqual(['$schema', ...DOMAIN_NAMES]);
     expect(folded.actual).toMatchObject({
-      $schema: 'core-v2-semantic-observation/1',
+      $schema: 'patch-map-semantic-observation/1',
       case: { id: 'LAY-002', caseType: 'capability' },
       scene: { revision: 1 },
       geometry: {
         placements: {
           order: placementOrder(),
-          none: {
-            localBounds: [0, 0, 30, 10],
-            worldBounds: [10, 20, 30, 10],
-          },
           center: {
             localBounds: [38, 32, 30, 10],
             worldBounds: [48, 52, 30, 10],
@@ -228,8 +223,8 @@ describe('PatchMap LAY-002 actual-only layout-order fold', () => {
         },
       },
     });
-    expect(expectedCase.expected.assertions).toHaveLength(28);
-    expect(comparison).toMatchObject({ passed: 28, failed: 0 });
+    expect(expectedCase.expected.assertions).toHaveLength(24);
+    expect(comparison).toMatchObject({ passed: 24, failed: 0 });
     expect(comparison.assertions.every(({ passed }) => passed)).toBe(true);
     expect(folded.fixtures).not.toHaveProperty('placementMatrix');
     expect(folded.captures).toEqual({});
@@ -318,7 +313,7 @@ describe('PatchMap LAY-002 actual-only layout-order fold', () => {
 
   it('fails closed when action metadata or cross-action fingerprints drift', () => {
     const metadataDrift = execution();
-    requireActionActual(metadataDrift, 0).componentCount = 9;
+    requireActionActual(metadataDrift, 0).componentCount = 10;
     expect(() => fold(selectedCase(), metadataDrift)).toThrow(/component count correlation/u);
 
     const fingerprintDrift = execution();
@@ -415,7 +410,7 @@ function fold(plan: MaterializedCase, value: JsonRecord): FoldResult {
     casePlan: plan,
     execution: value,
     provenance: {
-      contractRevision: 'core-v2-functional-contract/2026-07-16.2',
+      contractRevision: 'patch-map-contract/1',
       codeCommit: 'unit',
       packedPackageSha256: 'unit',
     },
@@ -438,12 +433,12 @@ function selectedCase(caseId: 'LAY-002' | 'LAY-003' = 'LAY-002'): MaterializedCa
 function execution(): JsonRecord {
   const placements = placementEvidence();
   const terminalSnapshot = terminalSnapshotEvidence();
-  const semanticProbe = { scene: { nodeCount: 11, revision: 1 } };
+  const semanticProbe = { scene: { nodeCount: 10, revision: 1 } };
   const actionActuals = [
     {
       caseId: 'LAY-002',
       itemId: 'item',
-      componentCount: 10,
+      componentCount: 9,
       input: inputEvidence(),
       product: productEvidence(placements, terminalSnapshot, semanticProbe, 1),
     },
@@ -466,7 +461,7 @@ function execution(): JsonRecord {
   ];
   const types = ['loadPlacementMatrix', 'observeBounds', 'observePlacementMatrix'];
   return {
-    $schema: 'core-v2-contract-case-execution/1',
+    $schema: 'patch-map-contract-case-execution/1',
     caseId: 'LAY-002',
     caseType: 'capability',
     status: 'completed',
@@ -478,7 +473,7 @@ function execution(): JsonRecord {
       startedAtMs: index,
       completedAtMs: index,
       delta: {
-        $schema: 'core-v2-semantic-observation-delta/1',
+        $schema: 'patch-map-semantic-observation-delta/1',
         caseId: 'LAY-002',
         actionIndex: index,
         actionType: type,
@@ -502,7 +497,7 @@ function execution(): JsonRecord {
       }],
       errors: [],
       productResources: {
-        revision: 'core-v2-layout-order-cleanup/1',
+        revision: 'patch-map-layout-order-cleanup/1',
         caseId: 'LAY-002',
         runtimeCounts: zeroOwnership(),
         stats: { datasetBuildCount: 1, resourceProbeCount: 3 },
@@ -550,7 +545,7 @@ function productEvidence(
     semanticProbe: structuredClone(semanticProbe),
     geometryProbe: {
       revision: 1,
-      revisionLag: 0,
+      revisionLags: { scene: 0, view: 0, interaction: 0 },
       entities: [{
         id: 'item',
         kind: 'rect',
@@ -568,7 +563,7 @@ function productEvidence(
       unchanged: true,
     },
     runtime: {
-      revision: 'core-v2-layout-order-runtime/1',
+      revision: 'patch-map-layout-order-runtime/1',
       caseId: 'LAY-002',
       ownership: zeroOwnership(),
       stats: { datasetBuildCount: 1, resourceProbeCount },
@@ -593,7 +588,7 @@ function terminalSnapshotEvidence(): JsonRecord {
     resources: {
       canvasCount: 1,
       subscriptions: { active: 6 },
-      rendering: { visiblePrimitiveCount: 11 },
+      rendering: { visiblePrimitiveCount: 10 },
     },
   };
 }
@@ -654,7 +649,7 @@ function stackingExecution(): JsonRecord {
   const finalState = states[3];
   if (finalState === undefined) throw new Error('Missing final stacking state');
   return {
-    $schema: 'core-v2-contract-case-execution/1',
+    $schema: 'patch-map-contract-case-execution/1',
     caseId: 'LAY-003',
     caseType: 'capability',
     status: 'completed',
@@ -670,7 +665,7 @@ function stackingExecution(): JsonRecord {
         startedAtMs: timing[0],
         completedAtMs: timing[1],
         delta: {
-          $schema: 'core-v2-semantic-observation-delta/1',
+          $schema: 'patch-map-semantic-observation-delta/1',
           caseId: 'LAY-003',
           actionIndex: index,
           actionType: type,
@@ -695,7 +690,7 @@ function stackingExecution(): JsonRecord {
       }],
       errors: [],
       productResources: {
-        revision: 'core-v2-layout-order-cleanup/1',
+        revision: 'patch-map-layout-order-cleanup/1',
         caseId: 'LAY-003',
         runtimeCounts: zeroOwnership(),
         stats: { datasetBuildCount: 0, stackingDatasetBuildCount: 1, resourceProbeCount: 4 },
@@ -813,7 +808,7 @@ function stackingState(
       unchanged: true,
     },
     runtime: {
-      revision: 'core-v2-layout-order-runtime/1',
+      revision: 'patch-map-layout-order-runtime/1',
       caseId: 'LAY-003',
       ownership: zeroOwnership(),
       stats: { datasetBuildCount: 0, stackingDatasetBuildCount: 1, resourceProbeCount: frameRevision },
@@ -848,7 +843,7 @@ function placementEvidence(): JsonRecord {
   const order = placementOrder();
   return {
     revision: 1,
-    revisionLag: 0,
+    revisionLags: { scene: 0, view: 0, interaction: 0 },
     owner: {
       id: 'item',
       kind: 'rect',
@@ -888,7 +883,6 @@ function placementOrder(): string[] {
     'right-bottom',
     'bottom',
     'center',
-    'none',
   ];
 }
 

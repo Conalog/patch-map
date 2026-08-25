@@ -168,7 +168,6 @@ describe('PatchMap accessibility product authority', () => {
           focused: true,
           focusVisible: true,
           selected: true,
-          actions: ['focus', 'activate', 'select'],
           supportedActions: ['focus', 'activate', 'select'],
           performedActions: ['focus', 'activate', 'select'],
           children: [],
@@ -230,7 +229,7 @@ describe('PatchMap accessibility product authority', () => {
       focusedId: null,
       targets: {
         'rect-b': {
-          actions: ['focus', 'activate', 'select'],
+          supportedActions: ['focus', 'activate', 'select'],
           performedActions: [],
         },
       },
@@ -336,7 +335,7 @@ describe('PatchMap Engine accessibility integration', () => {
       activationId: 'surface-1',
     });
     expect(engine.snapshot().selectionIds).toEqual(['item-a']);
-    expect(engine.accessibilityProbe().targets['item-a']?.actions)
+    expect(engine.accessibilityProbe().targets['item-a']?.supportedActions)
       .toEqual(['focus', 'activate', 'select']);
 
     expect(engine.setReducedMotion(true)).toEqual({

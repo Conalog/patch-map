@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 const scriptUrl = new URL(
-  '../../scripts/verification/core-v2-contract-assets-browser.mjs',
+  '../../scripts/verification/patch-map-contract-assets-browser.mjs',
   import.meta.url,
 );
 const scriptPath = fileURLToPath(scriptUrl);
@@ -30,7 +30,7 @@ describe('PatchMap AST-001 browser checkpoint script', () => {
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
     expect(source).toContain(
-      "const ROUTE = '/lab/patch-map/?scenario=AST-001&size=100&seed=319';",
+      "const ROUTE = '/lab/patch-map?scenario=AST-001&size=100&seed=319';",
     );
     expect(source).toContain('const EXPECTED_ASSERTION_COUNT = 18;');
     expect(source).toContain('const EXPECTED_PASSED_COUNT = 17;');
@@ -63,7 +63,7 @@ describe('PatchMap AST-001 browser checkpoint script', () => {
 
   it('keeps canonical expected data outside the browser-side executor', () => {
     expect(source.match(/catalog-normalized-expected\.v1\.json/gu)).toHaveLength(1);
-    expect(source).toContain("import { compareObservation } from './core-v2-contract/compare.mjs';");
+    expect(source).toContain("import { compareObservation } from './patch-map-contract/compare.mjs';");
     expect(source).toContain('actual: browserRun.actualObservation');
     expect(source).toContain('fixtures: browserRun.fixtures');
     expect(source).toContain('captures: browserRun.captures');
@@ -110,7 +110,7 @@ describe('PatchMap AST-001 browser checkpoint script', () => {
     expect(source).toContain('chromium.launch({ headless: !headed })');
     expect(source).toContain("process.stdout.write(`${JSON.stringify(report, null, 2)}\\n`)");
     expect(source).not.toMatch(
-      /execute-worker|handlers\/|fold-[a-z]|src\/core-v2|performance\/core-v1|lab\/engine-comparison/u,
+      /execute-worker|handlers\/|fold-[a-z]|src\/patch-map|performance\/core-v1|lab\/engine-comparison/u,
     );
     expect(source).not.toMatch(/writeFile|mkdir|results\//u);
   });

@@ -1,5 +1,5 @@
 export const PATCH_MAP_SEEDED_SCENE_REVISION =
-  'core-v2-seeded-scenario-scene/1' as const;
+  'patch-map-seeded-scenario-scene/1' as const;
 
 /**
  * Deterministic Lab input generator shared by update, determinism, animation,

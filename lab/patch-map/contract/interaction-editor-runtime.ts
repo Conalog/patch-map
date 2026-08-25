@@ -1,4 +1,4 @@
-import productionShapedWorkloadJson from '../../../docs/reference/core-v2-functional-contract/evidence/production-shaped-workload.v1.json';
+import productionShapedWorkloadJson from '../../../contracts/patch-map/evidence/production-shaped-workload.v1.json';
 import {
   resolvePatchMapEditorMount,
   type PatchMapEditorMountDecision,
@@ -13,9 +13,9 @@ import {
 } from './runtime-values';
 
 export const PATCH_MAP_INTERACTION_EDITOR_RUNTIME_REVISION =
-  'core-v2-interaction-editor-runtime/1' as const;
+  'patch-map-interaction-editor-runtime/1' as const;
 export const PATCH_MAP_INTERACTION_EDITOR_CLEANUP_REVISION =
-  'core-v2-interaction-editor-cleanup/1' as const;
+  'patch-map-interaction-editor-cleanup/1' as const;
 
 export const PATCH_MAP_INTERACTION_EDITOR_CASE_IDS = Object.freeze([
   'CSM-013',

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import fixtureProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
@@ -132,12 +132,12 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [catalogRuntime, materializeRuntime, handlerRuntime, workerRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<HandlerRuntime>(
-    '../../scripts/verification/core-v2-contract/handlers/render-foundation.mjs',
+    '../../scripts/verification/patch-map-contract/handlers/render-foundation.mjs',
   ),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -159,7 +159,7 @@ describe('PatchMap render-foundation actual-only handlers', () => {
   it('registers the six exact browser-safe action handlers for five exact cases', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/render-foundation.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/render-foundation.mjs',
         import.meta.url,
       )),
       'utf8',
@@ -403,6 +403,8 @@ class ProjectionSurface implements PatchMapEngineSurface {
 
   public geometrySnapshot(): PatchMapSurfaceGeometrySnapshot {
     return Object.freeze({
+      revision: 1,
+      sceneRevision: 1,
       entities: Object.freeze(this.dataset.flatMap((element) => (
         this.elementGeometry(element, { x: 0, y: 0, visible: true, interactive: true })
       ))),

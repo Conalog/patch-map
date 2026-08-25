@@ -1,9 +1,9 @@
 import { Color, type ColorSource } from 'pixi.js';
 
 export const PATCH_MAP_REPLACEMENT_RECOVERY_RUNTIME_REVISION =
-  'core-v2-replacement-recovery-runtime/1';
+  'patch-map-replacement-recovery-runtime/1';
 export const PATCH_MAP_REPLACEMENT_RECOVERY_CLEANUP_REVISION =
-  'core-v2-replacement-recovery-cleanup/1';
+  'patch-map-replacement-recovery-cleanup/1';
 
 export const PATCH_MAP_REPLACEMENT_RECOVERY_CASE_IDS = Object.freeze([
   'ERR-002',

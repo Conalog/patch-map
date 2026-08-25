@@ -1,7 +1,7 @@
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import { buildQuadGeometry } from '../../src/patch-map/renderers/mesh-layer';
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import {
@@ -11,14 +11,13 @@ import {
 } from '../../src/patch-map/semantic/geometry';
 
 describe('PatchMap approved render projection closure', () => {
-  it('keeps authored background size inert while painting the complete item frame', () => {
+  it('paints a background across the complete item frame', () => {
     const materialized = materializePatchMapDataset(catalogProfiles.datasets.background);
     const item = materialized.dataset[0];
-    const result = parsePatchMapV010(materialized.dataset);
+    const result = parsePatchMap(materialized.dataset);
 
     expect(item?.type === 'item' ? item.components[0] : undefined).toMatchObject({
       type: 'background',
-      size: { width: 20, height: 10 },
     });
     expect(result.document.entities.find((entity) => entity.id === 'item::background:bg')).toMatchObject({
       kind: 'rect',
@@ -30,10 +29,10 @@ describe('PatchMap approved render projection closure', () => {
   });
 
   it('does not diagnose materializer defaults whose initial projection is exact or inert', () => {
-    const itemResult = parsePatchMapV010(
+    const itemResult = parsePatchMap(
       materializePatchMapDataset(catalogProfiles.datasets['item-components']).dataset,
     );
-    const relationResult = parsePatchMapV010(materializePatchMapDataset([
+    const relationResult = parsePatchMap(materializePatchMapDataset([
       { type: 'rect', id: 'a', size: 10 },
       { type: 'relations', id: 'links', links: [{ source: 'a', target: 'a' }] },
     ]).dataset);
@@ -49,8 +48,8 @@ describe('PatchMap approved render projection closure', () => {
     }));
   });
 
-  it('projects split while keeping unrelated animation and relation degradation explicit', () => {
-    const result = parsePatchMapV010(materializePatchMapDataset([
+  it('projects split, animation metadata, and canonical relation style exactly', () => {
+    const result = parsePatchMap(materializePatchMapDataset([
       {
         type: 'item',
         id: 'item',
@@ -71,16 +70,21 @@ describe('PatchMap approved render projection closure', () => {
         type: 'relations',
         id: 'links',
         links: [{ source: 'item', target: 'item' }],
-        style: { cap: 'round', join: 'round' },
+        style: { color: '#123456', width: 3, alpha: 0.6 },
       },
     ]).dataset);
 
     expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
       code: 'component-animation-unsupported',
     }));
-    expect(result.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'relation-style-degraded' }),
-    ]));
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'relation-style-degraded',
+    }));
+    expect(result.document.entities.find(({ kind }) => kind === 'relation')).toMatchObject({
+      color: 0x123456ff,
+      lineWidth: 3,
+      opacity: 0.6,
+    });
     expect(result.projection.barsByEntityId?.['item::bar:bar']).toMatchObject({
       animation: false,
       animationDuration: 350,
@@ -93,7 +97,7 @@ describe('PatchMap approved render projection closure', () => {
   });
 
   it('keeps descriptor options lossless and represents deterministic text layout fields', () => {
-    const result = parsePatchMapV010(materializePatchMapDataset([
+    const result = parsePatchMap(materializePatchMapDataset([
       {
         type: 'image',
         id: 'image',
@@ -152,28 +156,28 @@ describe('PatchMap approved render projection closure', () => {
     });
   });
 
-  it('retains honest text diagnostics for semantics that the dense compatibility row still degrades', () => {
-    const result = parsePatchMapV010(materializePatchMapDataset([{
+  it('lowers justify into the dense renderer without a degradation diagnostic', () => {
+    const result = parsePatchMap(materializePatchMapDataset([{
       type: 'text',
       id: 'justify',
       text: 'AB',
       style: { align: 'justify' },
     }]).dataset);
 
-    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
       code: 'text-align-degraded',
-      path: '$[0].style.align',
     }));
+    expect(result.document.entities[0]).toMatchObject({ align: 'justify' });
     expect(result.projection.textsByEntityId?.justify?.authoredStyle).toMatchObject({
       align: 'justify',
     });
   });
 
   it('projects standalone text zIndex and accepts item affine orientation semantics', () => {
-    const textResult = parsePatchMapV010(materializePatchMapDataset([
+    const textResult = parsePatchMap(materializePatchMapDataset([
       { type: 'text', id: 'text', text: 'label', attrs: { zIndex: 7 } },
     ]).dataset);
-    const itemResult = parsePatchMapV010(materializePatchMapDataset([
+    const itemResult = parsePatchMap(materializePatchMapDataset([
       {
         type: 'item',
         id: 'item',
@@ -203,7 +207,7 @@ describe('PatchMap approved render projection closure', () => {
   });
 
   it('converts authored-origin rotation into the dense center-pivot representation', () => {
-    const parsed = parsePatchMapV010(materializePatchMapDataset([
+    const parsed = parsePatchMap(materializePatchMapDataset([
       {
         type: 'rect',
         id: 'rect',
@@ -247,7 +251,7 @@ describe('PatchMap approved render projection closure', () => {
   });
 
   it('keeps exact ancestor and local affine authority for an unsized image pivot', () => {
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'group',
       id: 'parent',
       attrs: { x: 30, y: 20, angle: 25, scaleX: 2, scaleY: 0.5 },

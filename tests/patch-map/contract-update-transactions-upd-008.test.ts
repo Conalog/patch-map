@@ -58,7 +58,7 @@ describe('PatchMap UPD-008 component reconcile and resource lifecycle contract',
     ['renderer resource', 'missing-rendering'],
   ] as const)('fails closed when the %s probe is missing', async (_label, surfaceFault) => {
     await expect(executeCase(selectedCase('UPD-008'), { surfaceFault }))
-      .rejects.toThrow(/Invalid Core v2 update transaction handler/u);
+      .rejects.toThrow(/Invalid PatchMap update transaction handler/u);
   });
 
   it('reports retained image target, renderer, binding, consumer, and lease facts', async () => {
@@ -154,6 +154,6 @@ describe('PatchMap UPD-008 component reconcile and resource lifecycle contract',
     ['asset render lane orphan', { surfaceFault: 'lane-orphan' }],
   ] as const)('fails closed for %s', async (_label, options) => {
     await expect(executeCase(selectedCase('UPD-008'), options))
-      .rejects.toThrow(/Invalid Core v2 update transaction handler/u);
+      .rejects.toThrow(/Invalid PatchMap update transaction handler/u);
   });
 });

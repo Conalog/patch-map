@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { PatchMapParseError } from '../../src/patch-map/contracts';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 
 describe('PatchMap bar projection sidecar', () => {
   it('retains exact stable identity, placement policy, and semantic destination without aliases', () => {
@@ -25,7 +25,7 @@ describe('PatchMap bar projection sidecar', () => {
     }];
     const before = structuredClone(input);
 
-    const parsed = parsePatchMapV010(input);
+    const parsed = parsePatchMap(input);
     const bars = parsed.projection.barsByEntityId;
     const projection = bars?.['meter::bar:level'];
 
@@ -75,8 +75,8 @@ describe('PatchMap bar projection sidecar', () => {
     }];
     const before = structuredClone(input);
 
-    const first = parsePatchMapV010(input);
-    const second = parsePatchMapV010(input);
+    const first = parsePatchMap(input);
+    const second = parsePatchMap(input);
 
     expect(first.projection.barsByEntityId).toEqual({
       'rack.0.0::bar:level': {
@@ -112,7 +112,7 @@ describe('PatchMap bar projection sidecar', () => {
   });
 
   it('accepts disabled and zero-duration bar presentation as explicit immediate policy', () => {
-    const parsed = parsePatchMapV010([itemWithBar({
+    const parsed = parsePatchMap([itemWithBar({
       animation: false,
       animationDuration: 0,
     })]);
@@ -163,7 +163,7 @@ describe('PatchMap bar projection sidecar', () => {
     const before = structuredClone(input);
 
     try {
-      parsePatchMapV010(input);
+      parsePatchMap(input);
       throw new Error('expected bar animation validation failure');
     } catch (error) {
       expect(error).toBeInstanceOf(PatchMapParseError);
@@ -178,7 +178,7 @@ describe('PatchMap bar projection sidecar', () => {
   });
 
   it('keeps animation fields on non-bar components explicitly unsupported', () => {
-    const parsed = parsePatchMapV010([{
+    const parsed = parsePatchMap([{
       type: 'item',
       id: 'item',
       size: 20,

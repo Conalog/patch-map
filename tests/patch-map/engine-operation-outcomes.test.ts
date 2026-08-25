@@ -17,7 +17,9 @@ import {
 import { PatchMapDatasetError } from '../../src/patch-map/semantic/dataset';
 import type { MaterializedPatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import type { PatchMapHistoryState } from '../../src/patch-map/history';
-import type { PatchMapRevisionStamp } from '../../src/patch-map/engine/public-contracts';
+import type {
+  PatchMapRevisionStamp,
+} from '../../src/patch-map/engine/contracts/lifecycle';
 import { PatchMapRendererRuntimeError } from '../../src/patch-map/renderers/contracts';
 import { PatchMapPixiRuntimeError } from '../../src/patch-map/renderers/pixi-renderer';
 
@@ -76,13 +78,13 @@ describe('PatchMap Engine immutable operation outcomes', () => {
     expect(error).toBeInstanceOf(PatchMapError);
     expect(error.message).toBe(
       'PatchMap received invalid input [INVALID_VALUE: patch]. ' +
-      'Check the operation arguments and PATCH MAP v0.10 input shape.',
+      'Check the operation arguments and PatchMap input shape.',
     );
     expect(error).toMatchObject({
       code: 'INVALID_VALUE',
       operation: 'patch',
       recoverable: true,
-      hint: 'Check the operation arguments and PATCH MAP v0.10 input shape.',
+      hint: 'Check the operation arguments and PatchMap input shape.',
     });
     expect(error.diagnostic).toMatchObject({
       code: 'INVALID_VALUE',

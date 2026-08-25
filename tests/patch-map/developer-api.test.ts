@@ -11,11 +11,15 @@ import * as PublicPackage from '../../src/index';
 import { PatchMap as PublicPatchMap } from '../../src/index';
 import type {
   PatchMapEngineInstanceBarHeightResult,
-  PatchMapEngineQueryResult,
   PatchMapEngineTransactionResult,
+} from '../../src/patch-map/engine/contracts/mutation';
+import type {
+  PatchMapEngineQueryResult,
+} from '../../src/patch-map/engine/contracts/query-selection';
+import type {
   PatchMapViewportChangeResult,
   PatchMapViewportState,
-} from '../../src/patch-map/engine/public-contracts';
+} from '../../src/patch-map/engine/contracts/viewport';
 import type { PatchMapLogicalTargetSnapshot } from '../../src/patch-map/query-selection';
 import { createEngine } from './support/engine-update-transaction-surface';
 
@@ -200,7 +204,7 @@ function createHost() {
     ancestorKeys: Object.freeze([ambiguous.key]),
   });
   const query = Object.freeze({
-    schemaRevision: 'core-v2-query-selection/1',
+    schemaRevision: 'patch-map-query-selection/1',
     status: 'matched',
     code: null,
     lifecycleGeneration: 1,
@@ -323,23 +327,15 @@ function createHost() {
             readonly componentId: string;
           }>[];
         }>
-      >> & Readonly<{
-        readonly targets?: readonly Readonly<{
-          readonly id: string;
-          readonly componentId: string;
-        }>[];
-      }>;
+      >>;
       const appliedTargets = (['background', 'bar', 'icon', 'text'] as const)
         .flatMap((type) => columns[type]?.targets ?? []);
-      const directTargets = columns.targets ?? [];
       return Object.freeze({
         status: 'committed',
         changed: true,
         appliedTargets: Object.freeze(appliedTargets.length > 0
           ? appliedTargets
-          : directTargets.length > 0
-            ? directTargets
-            : [{ id: cell.id, componentId: 'usage' }]),
+          : [{ id: cell.id, componentId: 'usage' }]),
         missingTargets: Object.freeze([]),
       }) as unknown as PatchMapEngineInstanceBarHeightResult;
     },
@@ -534,11 +530,13 @@ describe('PatchMap high-level developer API', () => {
       animate: true,
     })).toMatchObject({ status: 'committed', appliedCount: 2 });
     expect(harness.lastInstanceRequest()).toEqual({
-      targets: [
-        { id: 'rack-grid.12.3', componentId: 'usage' },
-        { id: 'rack-grid.12.4', componentId: 'usage' },
-      ],
-      heights: new Float32Array([72, 68]),
+      bar: {
+        targets: [
+          { id: 'rack-grid.12.3', componentId: 'usage' },
+          { id: 'rack-grid.12.4', componentId: 'usage' },
+        ],
+        height: new Float32Array([72, 68]),
+      },
       animate: true,
     });
     expect(map.selection.set(usage)).toEqual(['rack-grid.12.3', 'rack-grid.12.4']);
@@ -789,7 +787,6 @@ describe('PatchMap high-level developer API', () => {
           source: { type: 'rect', fill: '#0f172a', radius: 6 },
           tint: '#ffffff',
           show: true,
-          size: { width: 80, height: 60 },
           attrs: { x: 2, alpha: 0.8 },
         },
       },
@@ -815,7 +812,6 @@ describe('PatchMap high-level developer API', () => {
           source: [{ type: 'rect', fill: '#0f172a', radius: 6 }],
           tint: ['#ffffff'],
           show: [true],
-          size: [{ width: 80, height: 60 }],
           attrs: [{ x: 2, alpha: 0.8 }],
         },
       },
@@ -1517,8 +1513,7 @@ describe('PatchMap high-level developer API', () => {
       'PatchMapAdvanced',
       'PatchMapFrameLoop',
       'PatchMapPixiRenderer',
-      'PatchMapMigrationAuthority',
-      'parsePatchMapV010',
+      'parsePatchMap',
       'planPatchMapMutationTransaction',
     ]) {
       expect(internalName in PublicPackage).toBe(false);

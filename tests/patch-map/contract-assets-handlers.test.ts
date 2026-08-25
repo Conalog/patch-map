@@ -74,10 +74,10 @@ interface WorkerRuntime {
 }
 
 const [catalogRuntime, materializeRuntime, assetRuntime, workerRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
-  loadRuntime<AssetRuntime>('../../scripts/verification/core-v2-contract/handlers/assets.mjs'),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
+  loadRuntime<AssetRuntime>('../../scripts/verification/patch-map-contract/handlers/assets.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -97,7 +97,7 @@ describe('AST-001 actual-only asset handlers', () => {
     const entries = createAssetHandlerEntries(harness.product);
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/assets.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/assets.mjs',
         import.meta.url,
       )),
       'utf8',
@@ -234,7 +234,7 @@ describe('AST-001 actual-only asset handlers', () => {
       category: 'ASSET_FAILURE',
       retryable: true,
       operation: 'initialize',
-      message: 'Core v2 asset operation failed',
+      message: 'PatchMap asset operation failed',
     });
     expect(error.fingerprint).toMatch(/^fnv1a64:/u);
     expect(error).not.toHaveProperty('diagnostic');

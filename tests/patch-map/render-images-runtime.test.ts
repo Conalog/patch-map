@@ -218,7 +218,7 @@ describe('PatchMap REN-005 deterministic Pixi asset runtime', () => {
         backend: { pendingCount: 0, unloadedCount: 4 },
       });
       expect(runtime.postDestroyProductProbe()).toMatchObject({
-        revision: 'core-v2-ren-005-product-cleanup/1',
+        revision: 'patch-map-ren-005-product-cleanup/1',
         assetRuntime: {
           resourceCount: 0,
           pendingCount: 0,

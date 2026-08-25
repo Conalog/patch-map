@@ -8,15 +8,20 @@ export const EXAMPLE_FILES = Object.freeze([
   'presentation.ts',
 ]);
 
-const PUBLIC_DOCS = Object.freeze([
-  'docs/patch-map/README.md',
-  'docs/patch-map/api-and-dataset.md',
-  'docs/patch-map/host-integration.md',
-  'docs/patch-map/migration.md',
-  'docs/patch-map/compatibility.md',
-  'docs/patch-map/troubleshooting.md',
-  'docs/patch-map/font-assets.md',
-  'docs/patch-map/FIRA-CODE-LICENSE.txt',
+export const PUBLIC_DOCS = Object.freeze([
+  'docs/README.md',
+  'docs/getting-started.md',
+  'docs/api/data-and-targets.md',
+  'docs/api/mutations-and-history.md',
+  'docs/api/pointer-and-selection.md',
+  'docs/api/viewport-and-transform.md',
+  'docs/api/presentation.md',
+  'docs/api/assets-and-capture.md',
+  'docs/api/text.md',
+  'docs/integration/host.md',
+  'docs/compatibility.md',
+  'docs/assets/fonts.md',
+  'docs/assets/fira-code-6.2-license.txt',
 ]);
 
 const PUBLIC_EXAMPLES = Object.freeze(
@@ -24,11 +29,9 @@ const PUBLIC_EXAMPLES = Object.freeze(
 );
 
 const RESTRICTED_PACKAGE_PATHS = Object.freeze([
-  /^docs\/README\.md$/u,
-  /^docs\/maintainers\//u,
-  /^docs\/designs\//u,
-  /^docs\/reference\//u,
-  /^docs\/tasks\//u,
+  /^docs\/engineering\//u,
+  /^contracts\//u,
+  /^verification\//u,
   /^performance\//u,
   /^tests?\//u,
   /^lab\//u,
@@ -45,9 +48,6 @@ const PROHIBITED_PACKAGE_PATHS = Object.freeze({
     /(?:^|\/)\.env(?:\.|$)/iu,
     /(?:^|\/)(?:credentials?|secrets?)(?:\.|\/|$)/iu,
   ]),
-  'original-material': Object.freeze([
-    /(?:^|\/)(?:original|oracle)(?:\/|$)/iu,
-  ]),
   'dependency-bundle': Object.freeze([
     /(?:^|\/)node_modules(?:\/|$)/u,
     /(?:^|\/)vendor(?:\/|$)/iu,
@@ -60,6 +60,8 @@ export function projectPackedArtifactPolicy({ packRecord, files, sha256 }) {
   const restrictedEvidence = files.filter((file) =>
     RESTRICTED_PACKAGE_PATHS.some((pattern) => pattern.test(file)));
   const missingDocs = PUBLIC_DOCS.filter((file) => !files.includes(file));
+  const unexpectedDocs = files.filter((file) =>
+    file.startsWith('docs/') && !PUBLIC_DOCS.includes(file));
   const missingExamples = PUBLIC_EXAMPLES.filter((file) => !files.includes(file));
   const prohibitedEntries = Object.entries(PROHIBITED_PACKAGE_PATHS)
     .flatMap(([category, patterns]) => files
@@ -81,6 +83,7 @@ export function projectPackedArtifactPolicy({ packRecord, files, sha256 }) {
     publicDocs: PUBLIC_DOCS,
     publicExamples: PUBLIC_EXAMPLES,
     missingDocs,
+    unexpectedDocs,
     missingExamples,
     prohibitedEntryCount: prohibitedEntries.length,
     prohibitedEntries: Object.freeze(prohibitedEntries),
@@ -91,9 +94,6 @@ export function auditPackedHostAdapterSource(source) {
   const imports = [...source.matchAll(
     /import[\s\S]*?\sfrom\s+['"]([^'"]+)['"];?/gu,
   )].map((match) => match[1]);
-  const originalImports = imports.filter((specifier) =>
-    /original/iu.test(specifier)
-  );
   const restrictedImports = imports.filter((specifier) => specifier !== PACKAGE_NAME);
   const requiredDelegations = Object.freeze({
     load: '.data.replace(',
@@ -123,8 +123,6 @@ export function auditPackedHostAdapterSource(source) {
   return Object.freeze({
     filename: 'examples/patch-map/host-adapter.ts',
     imports: Object.freeze(imports),
-    originalImportCount: originalImports.length,
-    originalImports: Object.freeze(originalImports),
     restrictedImportCount: restrictedImports.length,
     restrictedImports: Object.freeze(restrictedImports),
     missingDelegations: Object.freeze(missingDelegations),

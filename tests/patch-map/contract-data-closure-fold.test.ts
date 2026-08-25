@@ -1,14 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import fixtureProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
 
 import {
   PatchMap,
-  materializePatchMapCompatibilityDataset,
   type PatchMapEngineSurface,
   type PatchMapPoint,
   type PatchMapSurfaceDebug,
@@ -114,7 +113,6 @@ interface MaterializeRuntime {
 interface HandlerRuntime {
   createDataClosureHandlerEntries(
     this: void,
-    product: Readonly<JsonRecord>,
   ): readonly HandlerEntry[];
 }
 
@@ -195,15 +193,15 @@ const [
   compareRuntime,
   observationRuntime,
 ] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<HandlerRuntime>(
-    '../../scripts/verification/core-v2-contract/handlers/data-closure.mjs',
+    '../../scripts/verification/patch-map-contract/handlers/data-closure.mjs',
   ),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
-  loadRuntime<FoldRuntime>('../../scripts/verification/core-v2-contract/fold-data-closure.mjs'),
-  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
-  loadRuntime<ObservationRuntime>('../../scripts/verification/core-v2-contract/observe.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
+  loadRuntime<FoldRuntime>('../../scripts/verification/patch-map-contract/fold-data-closure.mjs'),
+  loadRuntime<CompareRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
+  loadRuntime<ObservationRuntime>('../../scripts/verification/patch-map-contract/observe.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -228,14 +226,14 @@ describe('PatchMap data-closure actual-only fold', () => {
   it('is import-free and browser-safe behind the verifier dependency firewall', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/fold-data-closure.mjs',
+        '../../scripts/verification/patch-map-contract/fold-data-closure.mjs',
         import.meta.url,
       )),
       'utf8',
     );
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
 
-    expect(DATA_CLOSURE_FOLD_REVISION).toBe('core-v2-data-closure-fold/1');
+    expect(DATA_CLOSURE_FOLD_REVISION).toBe('patch-map-data-closure-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
     expect(source).not.toMatch(/node:/u);
@@ -243,7 +241,6 @@ describe('PatchMap data-closure actual-only fold', () => {
   });
 
   it.each([
-    ['DAT-006', 9, 0],
     ['DAT-007', 10, 0],
     ['DAT-008', 13, 3],
   ] as const)(
@@ -269,27 +266,6 @@ describe('PatchMap data-closure actual-only fold', () => {
       expect(JSON.stringify(run.folded.actual)).not.toContain('"status":"pass"');
     },
   );
-
-  it('projects DAT-006 product compatibility without fold-side normalization', async () => {
-    const { folded } = await executeAndFold('DAT-006');
-    const comparison = compareObservation({
-      expectedCase: normalizedCase('DAT-006'),
-      actual: folded.actual,
-      fixtures: folded.fixtures,
-      captures: folded.captures,
-    });
-
-    expect(valueAt(folded.actual, 'scene.legacy.input')).toEqual(
-      valueAt(folded.fixtures, 'legacyRoot'),
-    );
-    expect(valueAt(folded.actual, 'scene.legacy.accepted')).toBe(true);
-    expect(valueAt(folded.actual, 'scene.legacy.canonical')).toEqual(
-      valueAt(folded.fixtures, 'canonicalDataset'),
-    );
-    expect(valueAt(folded.actual, 'outcome.malformed.code')).toBe('INVALID_LEGACY_ROOT');
-    expect(valueAt(folded.actual, 'outcome.malformed.path')).toBe('$.height');
-    expect(failedPaths(comparison)).toEqual([]);
-  });
 
   it('projects DAT-007 atomic rejection with preserved authority', async () => {
     const { folded } = await executeAndFold('DAT-007');
@@ -352,7 +328,7 @@ describe('PatchMap data-closure actual-only fold', () => {
       engineFactory: engineFactory([]),
       datasets: datasets(),
       clock: new ManualClock(),
-      handlerEntries: createDataClosureHandlerEntries(productAdapter()),
+      handlerEntries: createDataClosureHandlerEntries(),
     })).rejects.toThrow(/retainTarget binding operand as/u);
   });
 });
@@ -372,7 +348,7 @@ async function executeAndFold(caseId: string): Promise<{
         engineFactory: engineFactory(engines),
         datasets: datasets(),
         clock: new ManualClock(),
-        handlerEntries: createDataClosureHandlerEntries(productAdapter()),
+        handlerEntries: createDataClosureHandlerEntries(),
       });
   const folded = foldDataClosureExecution({
     casePlan: plan,
@@ -396,7 +372,7 @@ async function executeData008Direct(
   plan: MaterializedCase,
   engines: PatchMap[],
 ): Promise<CaseExecution> {
-  const entries = new Map(createDataClosureHandlerEntries(productAdapter()));
+  const entries = new Map(createDataClosureHandlerEntries());
   const datasetMap = datasets();
   const clock = new ManualClock();
   const resolveDataset = (reference: string): Promise<unknown> => {
@@ -437,7 +413,7 @@ async function executeData008Direct(
       startedAtMs: clock.now(),
       completedAtMs: clock.now(),
       delta: {
-        $schema: 'core-v2-semantic-observation-delta/1',
+        $schema: 'patch-map-semantic-observation-delta/1',
         caseId: plan.id,
         actionIndex: action.index,
         actionType: action.type,
@@ -453,7 +429,7 @@ async function executeData008Direct(
   const terminalSemanticProbe = structuredClone(terminalEngine.semanticProbe());
   await Promise.all(engines.map((engine) => engine.destroy()));
   return {
-    $schema: 'core-v2-contract-case-execution/1',
+    $schema: 'patch-map-contract-case-execution/1',
     caseId: plan.id,
     caseType: plan.caseType,
     status: 'completed',
@@ -486,18 +462,6 @@ function selectedCase(id: string): MaterializedCase {
   return materializeCase(selected, { size: '100', seed: '319' });
 }
 
-function productAdapter(): Readonly<JsonRecord> {
-  return Object.freeze({
-    materializeDataset(input: unknown): Readonly<JsonRecord> {
-      const compatible = materializePatchMapCompatibilityDataset(input);
-      return Object.freeze({
-        dataset: compatible.canonicalDataset,
-        semanticHash: compatible.semanticHash,
-      });
-    },
-  });
-}
-
 function engineFactory(engines: PatchMap[]): (_metadata: Readonly<JsonRecord>) => PatchMap {
   return (_metadata) => {
     const engine = new PatchMap({
@@ -528,7 +492,7 @@ function normalizedCase(caseId: string): JsonRecord {
 async function readNormalizedEvidence(): Promise<NormalizedEvidence> {
   const content = await readFile(
     fileURLToPath(new URL(
-      '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json',
+      '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json',
       import.meta.url,
     )),
     'utf8',
@@ -595,6 +559,13 @@ class TestSurface implements PatchMapEngineSurface {
     this.#selectionIds = [];
   }
 
+  public reconcile(input: unknown) {
+    const selection = this.#selectionIds;
+    this.load(input);
+    this.#selectionIds = Object.freeze(selection.filter((id) => this.#rootIds.has(id)));
+    return committedReconcile();
+  }
+
   public publishFrame(_timeMs: number): void {}
   public resize(_width: number, _height: number, _pixelRatio: number): boolean { return false; }
   public setView(_view: Readonly<{ x: number; y: number; scale: number; rotation: number }>): void {}
@@ -624,6 +595,15 @@ class TestSurface implements PatchMapEngineSurface {
     this.canvasCount = 0;
     return Promise.resolve(true);
   }
+}
+
+function committedReconcile() {
+  return Object.freeze({
+    status: 'committed' as const,
+    operationCount: 1,
+    denseChanged: true,
+    diagnostics: Object.freeze([]),
+  });
 }
 
 class ManualClock implements ManualClockContract {

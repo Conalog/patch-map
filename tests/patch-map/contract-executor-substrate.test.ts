@@ -54,7 +54,7 @@ interface WorkerRuntime {
 }
 
 const worker = await import(
-  /* @vite-ignore */ new URL('../../scripts/verification/core-v2-contract/execute-worker.mjs', import.meta.url).href
+  /* @vite-ignore */ new URL('../../scripts/verification/patch-map-contract/execute-worker.mjs', import.meta.url).href
 ) as WorkerRuntime;
 
 describe('PatchMap contract executor shared capture substrate', () => {

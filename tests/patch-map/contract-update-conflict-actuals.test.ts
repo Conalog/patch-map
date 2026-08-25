@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 // @ts-expect-error -- comparison-only verifier module is authored as ESM JavaScript.
-import * as updateConflictActualsModule from '../../scripts/verification/core-v2-contract/update-conflict-actuals.mjs';
+import * as updateConflictActualsModule from '../../scripts/verification/patch-map-contract/update-conflict-actuals.mjs';
 
 const {
   PATCH_MAP_UPDATE_CONFLICT_ACTUALS_REVISION,
@@ -17,7 +17,7 @@ const {
 describe('PatchMap immutable-conflict actual pins', () => {
   it('accepts only the exact product diagnostics, revisions, and readable orientations disclosed', () => {
     expect(PATCH_MAP_UPDATE_CONFLICT_ACTUALS_REVISION)
-      .toBe('core-v2-update-conflict-actuals/2');
+      .toBe('patch-map-update-conflict-actuals/2');
     expect(inspectPatchMapUpdateConflictActuals('LAY-004', {
       text: { upright: { screenAngle: { at90: 270 } } },
       geometry: {

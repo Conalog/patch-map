@@ -178,7 +178,7 @@ describe('PatchMap owned transaction fast-path planning', () => {
     expect(plan).toEqual({
       status: 'rejected',
       changed: false,
-      schemaRevision: 'core-v2-mutation-transaction/1',
+      schemaRevision: 'patch-map-mutation-transaction/1',
       actionId: 'invalid-flat-path',
       candidate: null,
       applied: [],

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import fixtureProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
@@ -125,12 +125,12 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [catalogRuntime, materializeRuntime, lifecycleRuntime, workerRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<LifecycleRuntime>(
-    '../../scripts/verification/core-v2-contract/handlers/lifecycle-resize.mjs',
+    '../../scripts/verification/patch-map-contract/handlers/lifecycle-resize.mjs',
   ),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -149,7 +149,7 @@ describe('LIF-004 actual-only lifecycle resize handler', () => {
     const entries = createLifecycleResizeHandlerEntries();
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/lifecycle-resize.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/lifecycle-resize.mjs',
         import.meta.url,
       )),
       'utf8',
@@ -327,6 +327,17 @@ class GeometrySurface implements PatchMapEngineSurface {
     this.selectionIds = Object.freeze([]);
   }
 
+  public reconcile(input: unknown) {
+    if (!Array.isArray(input)) throw new Error('GeometrySurface requires an array dataset');
+    this.dataset = input as readonly JsonRecord[];
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 1,
+      denseChanged: true,
+      diagnostics: Object.freeze([]),
+    });
+  }
+
   public publishFrame(_timeMs: number): void {}
 
   public resize(width: number, height: number, pixelRatio: number): boolean {
@@ -406,6 +417,8 @@ class GeometrySurface implements PatchMapEngineSurface {
       .map(({ screenBounds }) => screenBounds);
     const selectionBounds = unionBounds(selectedBounds);
     return Object.freeze({
+      revision: 1,
+      sceneRevision: 1,
       entities: Object.freeze(entities),
       relations: Object.freeze(relations),
       selectionOverlay: selectionBounds === null

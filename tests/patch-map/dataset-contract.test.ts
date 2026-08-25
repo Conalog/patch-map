@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -17,6 +17,9 @@ import type { PatchMapDatasetError } from '../../src/patch-map/semantic/dataset'
 
 const productionFixturePath = fileURLToPath(
   new URL('../../lab/fixtures/production-like.json', import.meta.url),
+);
+const actualProductionFixturePath = fileURLToPath(
+  new URL('../../lab/fixtures/actual-production.json', import.meta.url),
 );
 
 describe('PatchMap approved dataset foundation', () => {
@@ -60,6 +63,61 @@ describe('PatchMap approved dataset foundation', () => {
     expect(result.elementTypes).toContain('grid');
     expect(result.componentTypes).toEqual(['background', 'bar', 'icon']);
     expect(JSON.stringify(input)).toBe(before);
+  });
+
+  it('materializes the canonical actual-production fixture without retaining mutable aliases', () => {
+    const input = JSON.parse(readFileSync(actualProductionFixturePath, 'utf8')) as unknown[];
+    const before = JSON.stringify(input);
+
+    const result = materializePatchMapDataset(input);
+
+    expect(result.rootIds).toHaveLength(605);
+    expect(result.dataset).not.toBe(input);
+    expect(Object.isFrozen(result.dataset)).toBe(true);
+    expect(result.dataset.every(Object.isFrozen)).toBe(true);
+    expect(JSON.stringify(input)).toBe(before);
+  });
+
+  it('normalizes only the relation style fields that rendering projects', () => {
+    const input = [{
+      type: 'relations',
+      id: 'links',
+      links: [{ source: 'links', target: 'links' }],
+      style: { color: '#123456', width: 2, alpha: 0.4 },
+    }];
+    const before = structuredClone(input);
+
+    const relation = materializePatchMapDataset(input).dataset[0];
+
+    expect(relation?.type === 'relations' ? relation.style : null).toEqual({
+      color: '#123456',
+      width: 2,
+      alpha: 0.4,
+    });
+    expect(relation?.type === 'relations' && Object.isFrozen(relation.style)).toBe(true);
+    expect(input).toEqual(before);
+  });
+
+  it.each([
+    ['cap', 'round'],
+    ['join', 'round'],
+    ['miterLimit', 10],
+    ['alignment', 0.5],
+    ['pixelLine', false],
+    ['textureSpace', 'local'],
+    ['fill', '#ffffff'],
+    ['texture', { source: '/stroke.png' }],
+    ['matrix', [1, 0, 0, 1, 0, 0]],
+  ] as const)('rejects unsupported relation stroke key %s during materialization', (key, fieldValue) => {
+    expect(() => materializePatchMapDataset([{
+      type: 'relations',
+      id: 'links',
+      links: [],
+      style: { [key]: fieldValue },
+    }])).toThrowError(expect.objectContaining<Partial<PatchMapDatasetError>>({
+      code: 'UNKNOWN_FIELD',
+      datasetPath: `$[0].style.${key}`,
+    }));
   });
 
   it('applies approved defaults without mutating caller data and is fresh-session deterministic', () => {

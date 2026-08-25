@@ -901,7 +901,7 @@ export function mountPatchMapManualWorkbench(
         componentId: 'value',
         text: targets.map((_target, index) => `${(index + 1) * 20 + animationSequence}\n%`),
         style: targets.map((_target, index) => ({
-          fontFamily: 'Fira Code',
+          fontFamily: 'FiraCode',
           fontSize: 14 + index,
           fontWeight: 700,
           align: index % 2 === 0 ? 'left' : 'right',

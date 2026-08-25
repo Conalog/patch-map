@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 
 describe('PatchMap component visual projection', () => {
-  it('keeps stable background ownership, full-item geometry, and detached authored size', () => {
-    const authoredSize = { width: 20, height: 10 };
+  it('keeps stable background ownership and full-item geometry', () => {
     const source = {
       type: 'rect',
       fill: '#ff000080',
@@ -21,12 +20,11 @@ describe('PatchMap component visual projection', () => {
         id: 'bg',
         source,
         tint: '#80ffffff',
-        size: authoredSize,
       }],
     }];
     const before = JSON.stringify(input);
 
-    const result = parsePatchMapV010(input);
+    const result = parsePatchMap(input);
     const entityId = 'item::background:bg';
     const visual = result.projection.componentsByEntityId?.[entityId];
     const paint = result.projection.backgroundsByEntityId?.[entityId];
@@ -39,7 +37,6 @@ describe('PatchMap component visual projection', () => {
       componentType: 'background',
       logicalIdentity: entityId,
       renderRole: 'background-geometry',
-      authoredSize: { width: 20, height: 10 },
     });
     expect(paint).toEqual({
       entityId,
@@ -61,18 +58,28 @@ describe('PatchMap component visual projection', () => {
     expect(Object.isFrozen(result.projection.componentsByEntityId)).toBe(true);
     expect(Object.isFrozen(result.projection.backgroundsByEntityId)).toBe(true);
     expect(Object.isFrozen(visual)).toBe(true);
-    expect(Object.isFrozen(visual?.authoredSize)).toBe(true);
     expect(Object.isFrozen(paint)).toBe(true);
     expect(Object.isFrozen(paint?.radius)).toBe(true);
 
-    authoredSize.width = 999;
     source.radius = 99;
-    expect(visual?.authoredSize).toEqual({ width: 20, height: 10 });
     expect(paint?.radius).toEqual([8, 8, 8, 8]);
   });
 
+  it('rejects background size instead of retaining an inert input', () => {
+    expect(() => parsePatchMap([{
+      type: 'item',
+      id: 'item',
+      size: 100,
+      components: [{
+        type: 'background',
+        source: { type: 'rect' },
+        size: 20,
+      }],
+    }])).toThrow('unknown field "size"');
+  });
+
   it('retains scalar, tuple, and named-corner background radii without maximum reduction', () => {
-    const result = parsePatchMapV010([{
+    const result = parsePatchMap([{
       type: 'item',
       id: 'item',
       size: 40,
@@ -141,7 +148,6 @@ describe('PatchMap component visual projection', () => {
           type: 'background',
           id: 'surface',
           source: { src: 'fixture-background', data: { resolution: 2 } },
-          size: { width: 20, height: 10 },
           tint: '#ffffff80',
         },
         {
@@ -155,8 +161,8 @@ describe('PatchMap component visual projection', () => {
       ],
     }];
 
-    const first = parsePatchMapV010(input);
-    const second = parsePatchMapV010(input);
+    const first = parsePatchMap(input);
+    const second = parsePatchMap(input);
     const backgroundId = 'item-a::background:surface';
     const iconId = 'item-a::icon:icon';
     const background = first.projection.componentsByEntityId?.[backgroundId];
@@ -171,7 +177,6 @@ describe('PatchMap component visual projection', () => {
       componentType: 'background',
       logicalIdentity: backgroundId,
       renderRole: 'background-asset',
-      authoredSize: { width: 20, height: 10 },
     });
     expect(first.projection.backgroundsByEntityId?.[backgroundId]).toEqual({
       entityId: backgroundId,

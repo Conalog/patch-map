@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import fixtureProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
@@ -159,14 +159,14 @@ const [
   foldRuntime,
   compareRuntime,
 ] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
   loadRuntime<HandlerRuntime>(
-    '../../scripts/verification/core-v2-contract/handlers/render-foundation.mjs',
+    '../../scripts/verification/patch-map-contract/handlers/render-foundation.mjs',
   ),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
-  loadRuntime<FoldRuntime>('../../scripts/verification/core-v2-contract/fold-render-foundation.mjs'),
-  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
+  loadRuntime<FoldRuntime>('../../scripts/verification/patch-map-contract/fold-render-foundation.mjs'),
+  loadRuntime<CompareRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -211,14 +211,14 @@ describe('PatchMap render-foundation actual-only fold', () => {
   it('is browser-safe, expected-blind, and declares a durable revision', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/fold-render-foundation.mjs',
+        '../../scripts/verification/patch-map-contract/fold-render-foundation.mjs',
         import.meta.url,
       )),
       'utf8',
     );
     const forbiddenEvidenceName = ['catalog', 'normalized', 'expected', 'v1', 'json'].join('-');
 
-    expect(RENDER_FOUNDATION_FOLD_REVISION).toBe('core-v2-render-foundation-fold/1');
+    expect(RENDER_FOUNDATION_FOLD_REVISION).toBe('patch-map-render-foundation-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toMatch(/from\s+['"][^'"]*(?:compare|observe)\.mjs['"]/u);
     expect(source).not.toMatch(/node:/u);
@@ -232,7 +232,7 @@ describe('PatchMap render-foundation actual-only fold', () => {
     expect(Object.keys(folded.actual)).toEqual(['$schema', ...DOMAIN_NAMES]);
     for (const domain of DOMAIN_NAMES) expect(folded.actual[domain]).toBeTypeOf('object');
     expect(folded.actual).toMatchObject({
-      $schema: 'core-v2-semantic-observation/1',
+      $schema: 'patch-map-semantic-observation/1',
       case: { id: caseId, caseType: 'capability' },
       resources: { cleanup: { status: 'completed', errors: [] } },
     });
@@ -477,6 +477,8 @@ class ProjectionSurface implements PatchMapEngineSurface {
 
   public geometrySnapshot(): PatchMapSurfaceGeometrySnapshot {
     return Object.freeze({
+      revision: 1,
+      sceneRevision: 1,
       entities: Object.freeze(this.dataset.flatMap((element) => (
         this.elementGeometry(element, { x: 0, y: 0, visible: true, interactive: true })
       ))),

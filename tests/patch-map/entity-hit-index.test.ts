@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { createTestProjectionIndex } from './support/projection-index';
+
 import type {
   EntityKind,
   EntityRef,
@@ -12,6 +14,8 @@ import type {
 } from '../../src/patch-map/contracts';
 import { PatchMapRuntime } from '../../src/patch-map/core';
 import type { PatchMapSpatialHitAuthority } from '../../src/patch-map/core/spatial-hit-authority';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
 import {
   PatchMapEntityHitIndex,
   patchMapEntityContainsWorldPoint,
@@ -71,7 +75,7 @@ describe('PatchMap bounded entity hit index', () => {
     )).toBe(true);
     expect(patchMapEntityContainsWorldPoint(dense, { x: 5, y: 5 }, projection)).toBe(false);
 
-    const projectionIndex: PatchMapProjectionIndex = Object.freeze({
+    const projectionIndex: PatchMapProjectionIndex = createTestProjectionIndex({
       byEntityId: Object.freeze({ affine: projection }),
     });
     const projectedIndex = PatchMapEntityHitIndex.build(snapshot([dense]), projectionIndex);
@@ -354,17 +358,26 @@ function projectionIndex(
     scaleY: 1,
     contentOrientation: 'follow-item',
   });
-  return Object.freeze({
+  return createTestProjectionIndex({
     byEntityId: Object.freeze({ [source.id]: projection }),
     barsByEntityId: Object.freeze({}),
     textsByEntityId: Object.freeze({}),
     imagesByEntityId: Object.freeze({}),
     relationsByEntityId: Object.freeze({}),
+    componentsByEntityId: Object.freeze({}),
+    backgroundsByEntityId: Object.freeze({}),
+    omittedRelations: Object.freeze([]),
   });
 }
 
 function fakeRenderer(): object {
   let destroyed = false;
+  let projection: PatchMapProjectionIndex | null = null;
+  let presentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  > = new Map();
+  let presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null = null;
   return {
     width: 800,
     height: 600,
@@ -375,7 +388,34 @@ function fakeRenderer(): object {
       return destroyed;
     },
     bindRootInteractions: () => () => {},
-    setProjection: () => {},
+    capturePublicationCheckpoint: () => Object.freeze({
+      projection,
+      presentationOverrides,
+      presentationLayerUpdate,
+    }),
+    restorePublicationCheckpoint: (checkpoint: Readonly<{
+      projection: PatchMapProjectionIndex | null;
+      presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+      presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+    }>) => {
+      projection = checkpoint.projection;
+      presentationOverrides = checkpoint.presentationOverrides;
+      presentationLayerUpdate = checkpoint.presentationLayerUpdate;
+    },
+    setProjection: (value: PatchMapProjectionIndex) => {
+      projection = value;
+      return true;
+    },
+    setInstancePresentationOverrides: (
+      value: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+    ) => {
+      presentationOverrides = value;
+      return true;
+    },
+    setPresentationLayerMultipliers: (value: PatchMapPresentationLayerRenderUpdate) => {
+      presentationLayerUpdate = value;
+      return true;
+    },
     setWorldOrientation: () => {},
     markChanges: () => {},
     markOverlayChanges: () => {},

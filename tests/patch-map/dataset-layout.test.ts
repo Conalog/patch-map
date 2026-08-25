@@ -1,4 +1,4 @@
-import catalogTypedCases from '../../docs/reference/core-v2-functional-contract/evidence/catalog-typed-cases.v1.json';
+import catalogTypedCases from '../../contracts/patch-map/evidence/catalog-typed-cases.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import type {

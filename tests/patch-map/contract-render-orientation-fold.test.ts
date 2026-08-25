@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import normalizedExpectedCatalog from '../../docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json';
+import normalizedExpectedCatalog from '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
+import { createTestProjectionIndex } from './support/projection-index';
 
 import type { SceneDocument } from '../../src/patch-map/dense/contracts';
 import { CoreScene } from '../../src/patch-map/dense/scene';
@@ -21,7 +22,7 @@ import {
   type PatchMapSurfaceReconcileResult,
   type PatchMapSurfaceView,
 } from '../../src/patch-map/engine';
-import { parsePatchMapV010 } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/patch-map/parser';
 import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
 import { planPatchMapSceneReconcile } from '../../src/patch-map/semantic/reconcile';
 
@@ -165,12 +166,12 @@ const [
   foldRuntime,
   compareRuntime,
 ] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
-  loadRuntime<HandlerRuntime>('../../scripts/verification/core-v2-contract/handlers/render-orientation.mjs'),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
-  loadRuntime<FoldRuntime>('../../scripts/verification/core-v2-contract/fold-render-orientation.mjs'),
-  loadRuntime<CompareRuntime>('../../scripts/verification/core-v2-contract/compare.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
+  loadRuntime<HandlerRuntime>('../../scripts/verification/patch-map-contract/handlers/render-orientation.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
+  loadRuntime<FoldRuntime>('../../scripts/verification/patch-map-contract/fold-render-orientation.mjs'),
+  loadRuntime<CompareRuntime>('../../scripts/verification/patch-map-contract/compare.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -207,7 +208,7 @@ describe('PatchMap LAY-004 render-orientation actual-only fold', () => {
   it('is import-free, browser-safe, expected-blind, and revisioned', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/fold-render-orientation.mjs',
+        '../../scripts/verification/patch-map-contract/fold-render-orientation.mjs',
         import.meta.url,
       )),
       'utf8',
@@ -216,7 +217,7 @@ describe('PatchMap LAY-004 render-orientation actual-only fold', () => {
     const forbiddenBasisField = ['expected', 'Basis'].join('');
     const forbiddenCenterField = ['expected', 'Visible', 'Center'].join('');
 
-    expect(RENDER_ORIENTATION_FOLD_REVISION).toBe('core-v2-render-orientation-fold/1');
+    expect(RENDER_ORIENTATION_FOLD_REVISION).toBe('patch-map-render-orientation-fold/1');
     expect(source).not.toContain(forbiddenEvidenceName);
     expect(source).not.toContain(forbiddenBasisField);
     expect(source).not.toContain(forbiddenCenterField);
@@ -232,7 +233,7 @@ describe('PatchMap LAY-004 render-orientation actual-only fold', () => {
     expect(Object.keys(folded.actual)).toEqual(['$schema', ...DOMAIN_NAMES]);
     for (const domain of DOMAIN_NAMES) expect(folded.actual[domain]).toBeTypeOf('object');
     expect(folded.actual).toMatchObject({
-      $schema: 'core-v2-semantic-observation/1',
+      $schema: 'patch-map-semantic-observation/1',
       case: { id: 'LAY-004', caseType: 'capability' },
       scene: { revision: 2 },
       geometry: {
@@ -392,7 +393,7 @@ function fold(plan: MaterializedCase, execution: ContractExecution): FoldResult 
     provenance: {
       codeCommit: 'test-commit',
       packedPackageSha256: 'test-package',
-      contractRevision: 'core-v2-functional-contract/2026-07-16.2',
+      contractRevision: 'patch-map-contract/1',
     },
     environment: {
       browserVersion: 'unit-test',
@@ -427,7 +428,7 @@ class OrientationSurface implements PatchMapEngineSurface {
   private readonly height: number;
   private readonly pixelRatio: number;
   private document: SceneDocument = Object.freeze({ version: 1, entities: Object.freeze([]) });
-  private projection: PatchMapProjectionIndex = Object.freeze({ byEntityId: Object.freeze({}) });
+  private projection: PatchMapProjectionIndex = createTestProjectionIndex();
   private geometryRevision = 0;
   private surfaceView: PatchMapSurfaceView = Object.freeze({
     x: 0,
@@ -513,7 +514,7 @@ class OrientationSurface implements PatchMapEngineSurface {
     this.destroyed = true;
     this.canvasCount = 0;
     this.document = Object.freeze({ version: 1, entities: Object.freeze([]) });
-    this.projection = Object.freeze({ byEntityId: Object.freeze({}) });
+    this.projection = createTestProjectionIndex();
     return Promise.resolve(true);
   }
 }
@@ -523,7 +524,7 @@ function parseDataset(input: unknown): Readonly<{
   projection: PatchMapProjectionIndex;
 }> {
   const materialized = materializePatchMapDataset(input);
-  const parsed = parsePatchMapV010(materialized.dataset);
+  const parsed = parsePatchMap(materialized.dataset);
   return Object.freeze({ document: parsed.document, projection: parsed.projection });
 }
 

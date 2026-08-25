@@ -7,7 +7,7 @@ import {
   isPatchMapLabRecord as isRecord,
 } from './runtime-values';
 
-const EXECUTABLE_FAILURE_SCHEMA = 'core-v2-contract-lab-failure/1';
+const EXECUTABLE_FAILURE_SCHEMA = 'patch-map-contract-lab-failure/1';
 
 export function mergeCleanup(
   executionCleanup: Readonly<Record<string, unknown>> | null,

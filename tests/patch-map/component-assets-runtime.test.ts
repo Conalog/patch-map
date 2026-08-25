@@ -1,6 +1,8 @@
 import { Texture } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
+import { createTestProjectionIndex } from './support/projection-index';
+
 import {
   createPatchMapRenderComponentAssetsRuntime,
   type PatchMapRenderComponentAssetsRuntime,
@@ -8,6 +10,7 @@ import {
 import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
 import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/dense/renderer-types';
 import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
 import {
   PatchMap,
   PixiEngineSurface,
@@ -19,6 +22,7 @@ import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
 } from '../../src/patch-map/renderers/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
 import type {
   PatchMapProjectionRenderContext,
   PatchMapRenderLaneProbe,
@@ -42,7 +46,7 @@ describe('PatchMap REN-008 / REN-010 local Pixi runtime adapter', () => {
 
     try {
       expect(runtime.product.registerFixtureAssets(engine, { caseId: 'REN-010' })).toEqual({
-        revision: 'core-v2-component-assets-registration/1',
+        revision: 'patch-map-component-assets-registration/1',
         caseId: 'REN-010',
         registeredAliases: ['fixture-icon', 'fixture-icon-2'],
         duplicateAliases: [],
@@ -108,7 +112,7 @@ describe('PatchMap REN-008 / REN-010 local Pixi runtime adapter', () => {
       await engine.destroy();
       const cleanup = runtime.postDestroyProductProbe();
       expect(cleanup).toMatchObject({
-        revision: 'core-v2-component-assets-product-cleanup/1',
+        revision: 'patch-map-component-assets-product-cleanup/1',
         caseId: 'REN-010',
         runtimeCounts: zeroRuntimeCounts(),
         backendCounts: {
@@ -267,8 +271,13 @@ class HeadlessPixiWebGLRenderer {
   public pixelRatio: number;
 
   private readonly leaves: AggregateLeafLayer;
-  private projection: PatchMapProjectionIndex = Object.freeze({ byEntityId: Object.freeze({}) });
+  private projection: PatchMapProjectionIndex = createTestProjectionIndex();
   private projectionRevision = 0;
+  private presentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  > = new Map();
+  private presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null = null;
   private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
   private world: PatchMapWorldOrientation = Object.freeze({
     rotationDegrees: 0,
@@ -289,10 +298,46 @@ class HeadlessPixiWebGLRenderer {
 
   public markChanges(_ranges: readonly SlotRange[], _reason: string): void {}
   public markOverlayChanges(): void {}
+  public capturePublicationCheckpoint(): Readonly<{
+    projection: PatchMapProjectionIndex;
+    projectionRevision: number;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }> {
+    return Object.freeze({
+      projection: this.projection,
+      projectionRevision: this.projectionRevision,
+      presentationOverrides: this.presentationOverrides,
+      presentationLayerUpdate: this.presentationLayerUpdate,
+    });
+  }
+  public restorePublicationCheckpoint(checkpoint: Readonly<{
+    projection: PatchMapProjectionIndex;
+    projectionRevision: number;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }>): void {
+    this.projection = checkpoint.projection;
+    this.projectionRevision = checkpoint.projectionRevision;
+    this.presentationOverrides = checkpoint.presentationOverrides;
+    this.presentationLayerUpdate = checkpoint.presentationLayerUpdate;
+  }
   public setProjection(projection: PatchMapProjectionIndex): boolean {
     if (projection === this.projection) return false;
     this.projection = projection;
     this.projectionRevision += 1;
+    return true;
+  }
+  public setInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  ): boolean {
+    this.presentationOverrides = overrides;
+    return true;
+  }
+  public setPresentationLayerMultipliers(
+    update: PatchMapPresentationLayerRenderUpdate,
+  ): boolean {
+    this.presentationLayerUpdate = update;
     return true;
   }
   public setWorldOrientation(world: PatchMapWorldOrientation): boolean {
@@ -403,7 +448,7 @@ class HeadlessPixiWebGLRenderer {
 function emptyLane(role: PatchMapRenderLaneRole): PatchMapRenderLaneProbe {
   return Object.freeze({
     role,
-    label: `core-v2:${role}`,
+    label: `patch-map:${role}`,
     renderObjectCount: 0,
     visiblePrimitiveCount: 0,
   });
@@ -436,7 +481,6 @@ function backgroundDataset(): JsonRecord[] {
       type: 'background',
       id: 'bg',
       source: { type: 'rect', fill: '#ff0000', borderWidth: 2, radius: 8 },
-      size: { width: 20, height: 10 },
     }],
   }];
 }

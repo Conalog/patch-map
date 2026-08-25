@@ -7,9 +7,9 @@ import {
 } from './seeded-scene';
 
 export const PATCH_MAP_DETERMINISM_LIFECYCLE_RUNTIME_REVISION =
-  'core-v2-determinism-lifecycle-runtime/1' as const;
+  'patch-map-determinism-lifecycle-runtime/1' as const;
 export const PATCH_MAP_DETERMINISM_LIFECYCLE_CLEANUP_REVISION =
-  'core-v2-determinism-lifecycle-cleanup/1' as const;
+  'patch-map-determinism-lifecycle-cleanup/1' as const;
 
 export const PATCH_MAP_DETERMINISM_LIFECYCLE_CASE_IDS = Object.freeze([
   'DET-001',

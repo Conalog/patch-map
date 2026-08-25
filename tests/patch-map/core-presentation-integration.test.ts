@@ -293,11 +293,13 @@ describe('PatchMap bar presentation integration', () => {
     const revisions = engine.snapshot().revisions;
 
     expect(engine.updateInstanceBarHeights({
-      targets: [
-        { id: 'grid-a.0.0', componentId: 'level' },
-        { id: 'grid-a.0.1', componentId: 'level' },
-      ],
-      heights: new Float64Array([54, 27]),
+      bar: {
+        targets: [
+          { id: 'grid-a.0.0', componentId: 'level' },
+          { id: 'grid-a.0.1', componentId: 'level' },
+        ],
+        height: new Float64Array([54, 27]),
+      },
       animate: false,
     })).toMatchObject({
       status: 'committed',
@@ -324,11 +326,13 @@ describe('PatchMap bar presentation integration', () => {
 
     const beforeRejected = core.projection;
     expect(engine.updateInstanceBarHeights({
-      targets: [
-        { id: 'grid-a.0.0', componentId: 'level' },
-        { id: 'missing.0.0', componentId: 'level' },
-      ],
-      heights: [70, 80],
+      bar: {
+        targets: [
+          { id: 'grid-a.0.0', componentId: 'level' },
+          { id: 'missing.0.0', componentId: 'level' },
+        ],
+        height: [70, 80],
+      },
       animate: false,
     })).toMatchObject({
       status: 'rejected',
@@ -338,28 +342,36 @@ describe('PatchMap bar presentation integration', () => {
     });
     expect(core.projection).toBe(beforeRejected);
     expect(() => engine.updateInstanceBarHeights({
-      targets: [
-        { id: 'grid-a.0.0', componentId: 'level' },
-        { id: 'grid-a.0.0', componentId: 'level' },
-      ],
-      heights: [30, 40],
+      bar: {
+        targets: [
+          { id: 'grid-a.0.0', componentId: 'level' },
+          { id: 'grid-a.0.0', componentId: 'level' },
+        ],
+        height: [30, 40],
+      },
       animate: false,
     })).toThrow(/duplicate instance bar target/);
     expect(() => engine.updateInstanceBarHeights({
-      targets: [{ id: 'grid-a.0.0', componentId: 'level' }],
-      heights: [-1],
+      bar: {
+        targets: [{ id: 'grid-a.0.0', componentId: 'level' }],
+        height: [-1],
+      },
       animate: false,
     })).toThrow(/finite and non-negative/);
     expect(() => engine.updateInstanceBarHeights({
-      targets: [{ ownerId: 'grid-a.0.0', componentId: 'level' }] as never,
-      heights: [30],
+      bar: {
+        targets: [{ ownerId: 'grid-a.0.0', componentId: 'level' }] as never,
+        height: [30],
+      },
       animate: false,
     })).toThrow(/target id must be a non-empty string/);
     expect(core.projection).toBe(beforeRejected);
 
     expect(engine.updateInstanceBarHeights({
-      targets: [{ id: 'grid-a.0.0', componentId: 'level' }],
-      heights: [null],
+      bar: {
+        targets: [{ id: 'grid-a.0.0', componentId: 'level' }],
+        height: [null],
+      },
       animate: false,
     })).toMatchObject({ status: 'committed', overlayCount: 1 });
     expect(core.projection?.byEntityId['grid-a.0.0::bar:level']?.localBounds[3]).toBe(10);
@@ -377,8 +389,10 @@ describe('PatchMap bar presentation integration', () => {
     engine.publishFrame(250);
     expect(core.projection?.byEntityId['grid-a.0.1::bar:level']?.localBounds[3]).toBe(15);
     expect(engine.updateInstanceBarHeights({
-      targets: [{ id: 'grid-a.0.1', componentId: 'level' }],
-      heights: [null],
+      bar: {
+        targets: [{ id: 'grid-a.0.1', componentId: 'level' }],
+        height: [null],
+      },
       animate: false,
     })).toMatchObject({ status: 'unchanged', changed: false, overlayCount: 0 });
 
@@ -403,16 +417,14 @@ describe('PatchMap bar presentation integration', () => {
     ];
 
     expect(engine.updateInstanceBarHeights({
-      targets,
-      heights: new Float64Array([50, 30]),
+      bar: { targets, height: new Float64Array([50, 30]) },
     })).toMatchObject({ status: 'committed', activeAnimationCount: 2 });
     engine.publishFrame(50);
     const firstVisible = targets.map(({ id, componentId }) =>
       engine.barPresentationProbe({ ownerId: id, componentId })?.presentationHeight);
 
     expect(engine.updateInstanceBarHeights({
-      targets,
-      heights: new Float64Array([25, 60]),
+      bar: { targets, height: new Float64Array([25, 60]) },
     })).toMatchObject({ status: 'committed', activeAnimationCount: 2 });
     expect(targets.map(({ id, componentId }) =>
       engine.barPresentationProbe({ ownerId: id, componentId })?.presentationHeight))
@@ -524,8 +536,10 @@ describe('PatchMap bar presentation integration', () => {
 
     const overridesBeforeHeightOnly = renderer.presentationOverrides.at(-1);
     expect(engine.updateInstanceBarHeights({
-      targets: [{ id: 'grid-presentation.0.0', componentId: 'level' }],
-      heights: new Float64Array([52]),
+      bar: {
+        targets: [{ id: 'grid-presentation.0.0', componentId: 'level' }],
+        height: new Float64Array([52]),
+      },
       animate: false,
     })).toMatchObject({
       status: 'committed',
@@ -678,7 +692,6 @@ describe('PatchMap bar presentation integration', () => {
           source: [callerBackgroundSource],
           tint: ['#ffffff'],
           show: [true],
-          size: [{ width: 50, height: 40 }],
           attrs: [callerBackgroundAttrs],
         },
       },
@@ -880,7 +893,6 @@ describe('PatchMap bar presentation integration', () => {
           source: [null],
           tint: [null],
           show: [null],
-          size: [null],
           attrs: [null],
         },
       },
@@ -928,13 +940,14 @@ describe('PatchMap bar presentation integration', () => {
     })).toMatchObject({ status: 'committed', overlayCount: 1 });
 
     await engine.destroy();
-    expect((core as unknown as {
-      readonly instancePresentations: ReadonlyMap<string, unknown>;
-      readonly instancePresentationOverrides: ReadonlyMap<string, unknown>;
-    }).instancePresentations.size).toBe(0);
-    expect((core as unknown as {
-      readonly instancePresentationOverrides: ReadonlyMap<string, unknown>;
-    }).instancePresentationOverrides.size).toBe(0);
+    const coordinator = (core as unknown as {
+      readonly instancePresentation: Readonly<{
+        readonly presentations: ReadonlyMap<string, unknown>;
+        readonly rendererOverrides: ReadonlyMap<string, unknown>;
+      }>;
+    }).instancePresentation;
+    expect(coordinator.presentations.size).toBe(0);
+    expect(coordinator.rendererOverrides.size).toBe(0);
   });
 
   it('invalidates surface geometry only when a presentation frame advances', () => {
@@ -1535,6 +1548,32 @@ class RendererTestDouble {
 
   public markChanges(): void {}
   public markOverlayChanges(): void {}
+
+  public capturePublicationCheckpoint(): Readonly<{
+    projectionCallCount: number;
+    presentationPolicyCount: number;
+    presentationOverrideCount: number;
+    presentationLayerUpdateCount: number;
+  }> {
+    return Object.freeze({
+      projectionCallCount: this.projectionCalls.length,
+      presentationPolicyCount: this.presentationPolicies.length,
+      presentationOverrideCount: this.presentationOverrides.length,
+      presentationLayerUpdateCount: this.presentationLayerUpdates.length,
+    });
+  }
+
+  public restorePublicationCheckpoint(checkpoint: Readonly<{
+    projectionCallCount: number;
+    presentationPolicyCount: number;
+    presentationOverrideCount: number;
+    presentationLayerUpdateCount: number;
+  }>): void {
+    this.projectionCalls.length = checkpoint.projectionCallCount;
+    this.presentationPolicies.length = checkpoint.presentationPolicyCount;
+    this.presentationOverrides.length = checkpoint.presentationOverrideCount;
+    this.presentationLayerUpdates.length = checkpoint.presentationLayerUpdateCount;
+  }
 
   public setProjection(
     index: PatchMapProjectionIndex,

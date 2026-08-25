@@ -10,9 +10,9 @@ import {
 } from './runtime-values';
 
 export const PATCH_MAP_AUTHORING_RUNTIME_REVISION =
-  'core-v2-authoring-runtime/1' as const;
+  'patch-map-authoring-runtime/1' as const;
 export const PATCH_MAP_AUTHORING_CLEANUP_REVISION =
-  'core-v2-authoring-cleanup/1' as const;
+  'patch-map-authoring-cleanup/1' as const;
 
 export const PATCH_MAP_AUTHORING_CASE_IDS = Object.freeze([
   'CSM-019',

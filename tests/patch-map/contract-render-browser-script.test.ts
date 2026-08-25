@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 // @ts-expect-error -- the committed verifier ledger is authored as an ESM JavaScript module.
-import { PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS } from '../../scripts/verification/core-v2-contract/immutable-conflicts.mjs';
+import { PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS } from '../../scripts/verification/patch-map-contract/immutable-conflicts.mjs';
 
 interface ImmutableConflict {
   readonly path: string;
@@ -18,16 +18,16 @@ const declaredCsmConflicts = PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS as unkno
 >;
 
 const scriptUrl = new URL(
-  '../../scripts/verification/core-v2-contract-render-browser.mjs',
+  '../../scripts/verification/patch-map-contract-render-browser.mjs',
   import.meta.url,
 );
 const scriptPath = fileURLToPath(scriptUrl);
 const catalogPath = fileURLToPath(new URL(
-  '../../scripts/verification/core-v2-contract-render-browser/catalog.mjs',
+  '../../scripts/verification/patch-map-contract-render-browser/catalog.mjs',
   import.meta.url,
 ));
 const assertionsPath = fileURLToPath(new URL(
-  '../../scripts/verification/core-v2-contract-render-browser/assertions.mjs',
+  '../../scripts/verification/patch-map-contract-render-browser/assertions.mjs',
   import.meta.url,
 ));
 const ownedModulePaths = [
@@ -35,19 +35,19 @@ const ownedModulePaths = [
   catalogPath,
   assertionsPath,
   fileURLToPath(new URL(
-    '../../scripts/verification/core-v2-contract-render-browser/browser-run.mjs',
+    '../../scripts/verification/patch-map-contract-render-browser/browser-run.mjs',
     import.meta.url,
   )),
   fileURLToPath(new URL(
-    '../../scripts/verification/core-v2-contract-render-browser/expected-cases.mjs',
+    '../../scripts/verification/patch-map-contract-render-browser/expected-cases.mjs',
     import.meta.url,
   )),
   fileURLToPath(new URL(
-    '../../scripts/verification/core-v2-contract-render-browser/focused-input.mjs',
+    '../../scripts/verification/patch-map-contract-render-browser/focused-input.mjs',
     import.meta.url,
   )),
   fileURLToPath(new URL(
-    '../../scripts/verification/core-v2-contract-render-browser/webgl-probe.mjs',
+    '../../scripts/verification/patch-map-contract-render-browser/webgl-probe.mjs',
     import.meta.url,
   )),
 ] as const;
@@ -85,13 +85,13 @@ describe('PatchMap render browser checkpoint script', () => {
   });
 
   it('keeps catalog and assertions acyclic, fixture-blind, and free of checkpoint ownership', () => {
-    expect(rootSource).toContain("from './core-v2-contract-render-browser/catalog.mjs'");
-    expect(rootSource).toContain("from './core-v2-contract-render-browser/assertions.mjs'");
-    expect(rootSource).toContain("from './core-v2-contract-render-browser/browser-run.mjs'");
-    expect(rootSource).toContain("from './core-v2-contract-render-browser/expected-cases.mjs'");
-    expect(rootSource).toContain("from './core-v2-contract-render-browser/focused-input.mjs'");
-    expect(rootSource).toContain("from './core-v2-contract-render-browser/webgl-probe.mjs'");
-    expect(catalogSource).not.toMatch(/core-v2-contract-render-browser\.mjs|assertions\.mjs/u);
+    expect(rootSource).toContain("from './patch-map-contract-render-browser/catalog.mjs'");
+    expect(rootSource).toContain("from './patch-map-contract-render-browser/assertions.mjs'");
+    expect(rootSource).toContain("from './patch-map-contract-render-browser/browser-run.mjs'");
+    expect(rootSource).toContain("from './patch-map-contract-render-browser/expected-cases.mjs'");
+    expect(rootSource).toContain("from './patch-map-contract-render-browser/focused-input.mjs'");
+    expect(rootSource).toContain("from './patch-map-contract-render-browser/webgl-probe.mjs'");
+    expect(catalogSource).not.toMatch(/patch-map-contract-render-browser\.mjs|assertions\.mjs/u);
     expect(assertionsSource).toContain("from './catalog.mjs'");
     for (const childSource of [catalogSource, assertionsSource]) {
       expect(childSource).not.toMatch(
@@ -101,7 +101,7 @@ describe('PatchMap render browser checkpoint script', () => {
     }
   });
 
-  it('pins exactly the one-hundred-fifty-eight selected routes and their 2028 canonical assertions', () => {
+  it('pins exactly the one-hundred-fifty-five selected routes and their 1991 canonical assertions', () => {
     const caseBlock = source.match(
       /const RENDER_CASES = Object\.freeze\(\[(?<body>[\s\S]*?)\]\);/u,
     )?.groups?.body;
@@ -115,7 +115,7 @@ describe('PatchMap render browser checkpoint script', () => {
 
     expect(records).toEqual([
       { id: 'LAY-001', expectedAssertions: 9 },
-      { id: 'LAY-002', expectedAssertions: 28 },
+      { id: 'LAY-002', expectedAssertions: 24 },
       { id: 'LAY-003', expectedAssertions: 9 },
       { id: 'REN-001', expectedAssertions: 9 },
       { id: 'REN-004', expectedAssertions: 10 },
@@ -126,10 +126,10 @@ describe('PatchMap render browser checkpoint script', () => {
       { id: 'LAY-005', expectedAssertions: 14 },
       { id: 'LAY-004', expectedAssertions: 11 },
       { id: 'REN-007', expectedAssertions: 26 },
-      { id: 'REN-008', expectedAssertions: 10 },
+      { id: 'REN-008', expectedAssertions: 9 },
       { id: 'REN-009', expectedAssertions: 13 },
       { id: 'REN-010', expectedAssertions: 11 },
-      { id: 'REN-011', expectedAssertions: 20 },
+      { id: 'REN-011', expectedAssertions: 17 },
       { id: 'ERR-001', expectedAssertions: 6 },
       { id: 'UPD-001', expectedAssertions: 8 },
       { id: 'UPD-002', expectedAssertions: 11 },
@@ -265,34 +265,31 @@ describe('PatchMap render browser checkpoint script', () => {
       { id: 'ACC-003', expectedAssertions: 6 },
       { id: 'OPS-001', expectedAssertions: 9 },
       { id: 'OPS-002', expectedAssertions: 6 },
-      { id: 'MIG-001', expectedAssertions: 10 },
-      { id: 'MIG-002', expectedAssertions: 9 },
-      { id: 'MIG-003', expectedAssertions: 10 },
       { id: 'CSM-032', expectedAssertions: 21 },
       { id: 'CSM-033', expectedAssertions: 20 },
       { id: 'CSM-034', expectedAssertions: 23 },
       { id: 'LIF-006', expectedAssertions: 17 },
     ]);
-    expect(records).toHaveLength(158);
-    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(2_028);
-    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 2_028;');
-    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_988;');
+    expect(records).toHaveLength(155);
+    expect(records.reduce((total, record) => total + record.expectedAssertions, 0)).toBe(1_991);
+    expect(source).toContain('const EXPECTED_ASSERTION_TOTAL = 1_991;');
+    expect(source).toContain('const EXPECTED_ASSERTION_PASS_TOTAL = 1_951;');
     expect(source).toContain('const EXPECTED_ASSERTION_FAILURE_TOTAL = 26;');
     expect(source).toContain('const EXPECTED_PERFORMANCE_DEFICIT_TOTAL = 14;');
     expect(source).toContain('const DECLARED_IMMUTABLE_CONFLICT_TOTAL = 28;');
     expect(source).toContain(
-      "'canonical comparison must be exactly 1988 pass, 26 immutable conflicts, and 14 performance deficits'",
+      "'canonical comparison must be exactly 1951 pass, 26 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'repeat comparison must be exactly 1988 pass, 26 immutable conflicts, and 14 performance deficits'",
+      "'repeat comparison must be exactly 1951 pass, 26 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain(
-      "'fresh comparison must be exactly 1988 pass, 26 immutable conflicts, and 14 performance deficits'",
+      "'fresh comparison must be exactly 1951 pass, 26 immutable conflicts, and 14 performance deficits'",
     );
     expect(source).toContain("const DATASET_SIZE = '100';");
     expect(source).toContain('const SEED = 319;');
     expect(source).toContain(
-      '/lab/patch-map/?scenario=${caseSpec.id}&size=${DATASET_SIZE}&seed=${SEED}',
+      '/lab/patch-map?scenario=${caseSpec.id}&size=${DATASET_SIZE}&seed=${SEED}',
     );
     expect(source).toContain("new URL(page.url()).pathname + new URL(page.url()).search === route");
   });
@@ -445,7 +442,7 @@ describe('PatchMap render browser checkpoint script', () => {
     expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 28'");
     expect(source).toContain('latentCases: selectedRenderCases');
     expect(source).toContain(".filter((record) => (record.latentConflicts?.length ?? 0) > 0)");
-    expect(source).toContain("import { inspectPatchMapUpdateConflictActuals } from '../core-v2-contract/update-conflict-actuals.mjs';");
+    expect(source).toContain("import { inspectPatchMapUpdateConflictActuals } from '../patch-map-contract/update-conflict-actuals.mjs';");
     expect(source).toContain('assertImmutableConflictActuals(caseSpec.id, run.actualObservation, runLabel)');
     expect(source).toContain('inspectPatchMapUpdateConflictActuals(caseId, actualObservation)');
   });
@@ -479,13 +476,13 @@ describe('PatchMap render browser checkpoint script', () => {
       "'render checkpoint measured performance deficit inventory must remain 14'",
     );
     expect(source).toContain(
-      "'render checkpoint passing assertion inventory must remain 1988'",
+      "'render checkpoint passing assertion inventory must remain 1951'",
     );
   });
 
   it('keeps canonical expected data outside the public Lab bridge executor', () => {
     expect(source.match(/catalog-normalized-expected\.v1\.json/gu)).toHaveLength(1);
-    expect(source).toContain("import { compareObservation } from '../core-v2-contract/compare.mjs';");
+    expect(source).toContain("import { compareObservation } from '../patch-map-contract/compare.mjs';");
     expect(source).toContain('actual: browserRun.actualObservation');
     expect(source).toContain('fixtures: browserRun.fixtures');
     expect(source).toContain('captures: browserRun.captures');
@@ -508,7 +505,7 @@ describe('PatchMap render browser checkpoint script', () => {
     expect(source).toContain('headless: !headed');
     expect(source).toContain("process.stdout.write(`${JSON.stringify(report, null, 2)}\\n`)");
     expect(source).not.toMatch(
-      /execute-worker|handlers\/|fold-[a-z]|src\/core-v2|performance\/core-v1|lab\/engine-comparison/u,
+      /execute-worker|handlers\/|fold-[a-z]|src\/patch-map|performance\/core-v1|lab\/engine-comparison/u,
     );
     expect(source).not.toMatch(/writeFile|mkdir|results\//u);
   });
@@ -527,8 +524,8 @@ describe('PatchMap render browser checkpoint script', () => {
     expect(source).toContain('await closeOwnedResources()');
     expect(source).toContain('await ownedBrowser.close().catch(() => undefined)');
     expect(source).toContain('await ownedServer.close().catch(() => undefined)');
-    expect(source).toContain('[core-v2-render-browser] ${caseSpec.id} start');
-    expect(source).toContain('[core-v2-render-browser] ${caseSpec.id} complete');
+    expect(source).toContain('[patch-map-render-browser] ${caseSpec.id} start');
+    expect(source).toContain('[patch-map-render-browser] ${caseSpec.id} complete');
     expect(source).toContain("traceCasePhase(caseSpec.id, 'fresh session destroyed')");
   });
 
@@ -809,7 +806,7 @@ describe('PatchMap render browser checkpoint script', () => {
     expect(source).toContain('${config.prefix}-resource-journal-row');
     expect(source).toContain('assertComponentAssetFocusedUi(caseSpec.id, run.ui, runLabel)');
     expect(source).toContain("facts['entity-id'] === 'item::background:bg'");
-    expect(source).toContain("facts['authored-size'] === '{\"width\":20,\"height\":10}'");
+    expect(source).toContain("facts['authored-size'] === 'null'");
     expect(source).toContain("ui.phases.hidden['render-object-count'] === '0'");
     expect(source).toContain("facts['entity-id'] === 'item-a::icon:icon'");
     expect(source).toContain("facts['icon-bounds'] === '[47,12,40,15]'");

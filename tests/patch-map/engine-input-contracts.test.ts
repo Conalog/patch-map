@@ -21,8 +21,28 @@ import {
   validatePoint,
   validatePositiveFinite,
 } from '../../src/patch-map/engine/input-contracts';
+import type {
+  RectangleTextureStyle,
+  TextStyleInput,
+} from '../../src/patch-map/input';
 
 describe('PatchMap Engine input contracts', () => {
+  it('exposes justify and exact component corner radii in the public input types', () => {
+    const textStyle = { align: 'justify' } satisfies TextStyleInput;
+    const tupleTexture = {
+      type: 'rect',
+      radius: [1, 2, 3, 4],
+    } as const satisfies RectangleTextureStyle;
+    const namedTexture = {
+      type: 'rect',
+      radius: { topLeft: 1, topRight: 2, bottomRight: 3, bottomLeft: 4 },
+    } as const satisfies RectangleTextureStyle;
+
+    expect(textStyle.align).toBe('justify');
+    expect(tupleTexture.radius).toEqual([1, 2, 3, 4]);
+    expect(namedTexture.radius.bottomLeft).toBe(4);
+  });
+
   it('normalizes submission scalars without weakening their exact failures', () => {
     expect(normalizeOptionalSourceRevision(undefined)).toBeUndefined();
     expect(normalizeOptionalSourceRevision(4)).toBe(4);

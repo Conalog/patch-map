@@ -37,6 +37,8 @@ abstract class SurfaceBase implements PatchMapEngineSurface {
     this.selectionIds = Object.freeze([]);
   }
 
+  public abstract reconcile(input: unknown): PatchMapSurfaceReconcileResult;
+
   public publishFrame(): void {
     this.frameCount += 1;
   }
@@ -105,8 +107,6 @@ class MutationSurface extends SurfaceBase {
     };
   }
 }
-
-class LegacySurface extends SurfaceBase {}
 
 describe('PatchMap authoritative semantic mutation', () => {
   it('validates relation hit operands before delegating to an injected surface', async () => {
@@ -343,33 +343,6 @@ describe('PatchMap authoritative semantic mutation', () => {
     await engine.destroy();
   });
 
-  it('refuses a legacy surface without replacing the scene through load', async () => {
-    const surface = new LegacySurface({ width: 640, height: 480, pixelRatio: 1 });
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
-    await engine.initialize({ instanceId: 'legacy', width: 640, height: 480 });
-    engine.loadDataset(scene('Before'));
-    const authorityBefore = engine.exportDataset();
-
-    const result = engine.patch(
-      { kind: 'component', ownerId: 'item-a', id: 'caption' },
-      { text: 'No fallback' },
-    );
-
-    expect(result).toMatchObject({
-      status: 'refused',
-      changed: false,
-      revisions: { sceneRevision: 1 },
-      diagnostic: {
-        code: 'UNSUPPORTED_RUNTIME',
-        category: 'UNSUPPORTED_RUNTIME',
-      },
-    });
-    expect(surface.loadCount).toBe(1);
-    expect(engine.exportDataset()).toBe(authorityBefore);
-    expect(readCaption(engine).text).toBe('Before');
-    await engine.destroy();
-  });
-
   it('reports the rendered rotated AABB in world and screen geometry', () => {
     const snapshot: SceneSnapshot = {
       revision: 1,
@@ -443,7 +416,7 @@ function relationScene(): readonly unknown[] {
         { source: 'nested-item', target: 'grid.0.0' },
         { source: 'grid.0.0', target: 'nested-item' },
       ],
-      style: { color: '#123456', width: 3, opacity: 0.75 },
+      style: { color: '#123456', width: 3, alpha: 0.75 },
       attrs: { x: 30, y: -10, angle: 90, zIndex: -4 },
     },
   ];

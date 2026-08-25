@@ -69,7 +69,7 @@ describe('PatchMap production operations authority', () => {
   it('keeps runtime snapshots bounded, immutable, instance-local, and cheap when disabled', () => {
     const disabled = new PatchMapOperationsAuthority();
     expect(disabled.captureRuntimeDiagnostics(runtimeState('disabled'))).toEqual({
-      revision: 'core-v2-runtime-diagnostics/1',
+      revision: 'patch-map-runtime-diagnostics/1',
       enabled: false,
       capacity: 0,
       records: [],

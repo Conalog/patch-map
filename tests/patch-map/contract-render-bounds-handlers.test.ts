@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import fixtureProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import fixtureProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from './support/contract-verifier-import-firewall';
@@ -134,10 +134,10 @@ async function loadRuntime<T>(relativePath: string): Promise<T> {
 }
 
 const [catalogRuntime, materializeRuntime, handlerRuntime, workerRuntime] = await Promise.all([
-  loadRuntime<CatalogRuntime>('../../scripts/verification/core-v2-contract/catalog.mjs'),
-  loadRuntime<MaterializeRuntime>('../../scripts/verification/core-v2-contract/materialize.mjs'),
-  loadRuntime<HandlerRuntime>('../../scripts/verification/core-v2-contract/handlers/render-bounds.mjs'),
-  loadRuntime<WorkerRuntime>('../../scripts/verification/core-v2-contract/execute-worker.mjs'),
+  loadRuntime<CatalogRuntime>('../../scripts/verification/patch-map-contract/catalog.mjs'),
+  loadRuntime<MaterializeRuntime>('../../scripts/verification/patch-map-contract/materialize.mjs'),
+  loadRuntime<HandlerRuntime>('../../scripts/verification/patch-map-contract/handlers/render-bounds.mjs'),
+  loadRuntime<WorkerRuntime>('../../scripts/verification/patch-map-contract/execute-worker.mjs'),
 ]);
 
 const { loadExecutorCatalog, selectCatalogCases } = catalogRuntime;
@@ -159,7 +159,7 @@ describe('PatchMap LAY-005 render-bounds actual-only handlers', () => {
   it('registers four exact browser-safe handlers without expected evidence', async () => {
     const source = await readFile(
       fileURLToPath(new URL(
-        '../../scripts/verification/core-v2-contract/handlers/render-bounds.mjs',
+        '../../scripts/verification/patch-map-contract/handlers/render-bounds.mjs',
         import.meta.url,
       )),
       'utf8',
@@ -242,7 +242,10 @@ describe('PatchMap LAY-005 render-bounds actual-only handlers', () => {
       visible: false,
       visibleBounds: null,
     });
-    expect(queried).toMatchObject({ geometryRevision: 1, revisionLag: 0 });
+    expect(queried).toMatchObject({
+      geometryRevision: 1,
+      revisionLags: { scene: 0, view: 0, interaction: 0 },
+    });
 
     expect(actualAt(execution, 2).probes).toEqual([
       { point: [10, 10], targetId: null },
@@ -363,7 +366,6 @@ class BoundsSurface implements PatchMapEngineSurface {
   public geometrySnapshot(): PatchMapSurfaceGeometrySnapshot {
     return Object.freeze({
       revision: this.geometryRevision,
-      revisionLag: 0,
       entities: Object.freeze(this.entities()),
       relations: Object.freeze([]),
       selectionOverlay: null,

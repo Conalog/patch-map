@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+
+import { createTestProjectionIndex } from './support/projection-index';
 import { Container, Graphics, Matrix } from 'pixi.js';
 
 import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
@@ -83,6 +85,18 @@ describe('PatchMap aggregate selection bounds display', () => {
     });
     expect(sameInteractionOverlayPolicy(centered, centered)).toBe(true);
     expect(sameInteractionOverlayPolicy(centered, outside)).toBe(false);
+  });
+
+  it('requires an explicit resize eligibility list', () => {
+    const normalized = normalizeInteractionOverlayPolicy(
+      DEFAULT_INTERACTION_OVERLAY_POLICY,
+    );
+    expect(normalized.resizableEntityIds).toEqual([]);
+    expect(Object.isFrozen(normalized.resizableEntityIds)).toBe(true);
+    expect(() => normalizeInteractionOverlayPolicy({
+      ...DEFAULT_INTERACTION_OVERLAY_POLICY,
+      resizableEntityIds: null,
+    } as never)).toThrow('resizableEntityIds must be an array');
   });
 
   it('treats persistent stroke LOD changes as aggregate repaint invalidations', () => {
@@ -295,7 +309,7 @@ describe('PatchMap aggregate selection bounds display', () => {
 });
 
 function projection(entityId: string): PatchMapProjectionIndex {
-  return Object.freeze({
+  return createTestProjectionIndex({
     byEntityId: Object.freeze({}),
     componentsByEntityId: Object.freeze({
       [entityId]: Object.freeze({
@@ -326,7 +340,7 @@ function transform(scale: number) {
 }
 
 function emptyProjection(): PatchMapProjectionIndex {
-  return Object.freeze({ byEntityId: Object.freeze({}) });
+  return createTestProjectionIndex();
 }
 
 function overlayAuthority(worldMatrix: Matrix, index: PatchMapProjectionIndex) {

@@ -1,4 +1,4 @@
-import catalogProfiles from '../../docs/reference/core-v2-functional-contract/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../../contracts/patch-map/evidence/catalog-fixture-profiles.v1.json';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -204,6 +204,14 @@ class PageLifecycleSurface implements PatchMapEngineSurface {
   });
 
   public load(_input: unknown): void {}
+  public reconcile(_input: unknown) {
+    return Object.freeze({
+      status: 'committed' as const,
+      operationCount: 0,
+      denseChanged: false,
+      diagnostics: Object.freeze([]),
+    });
+  }
   public publishFrame(_timeMs: number): void {}
   public resize(_width: number, _height: number, _pixelRatio: number): boolean {
     return false;

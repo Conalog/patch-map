@@ -167,8 +167,8 @@ mounted.transform.move({ id: 'strict-bar-fill' }, [1, 1]);
 mounted.viewport.pan(1, 1);
 // @ts-expect-error asset diagnostics use a typed status result.
 mounted.assets.inspect();
-// @ts-expect-error mount uses container, not the legacy target option.
-PatchMap.mount({ target: '#legacy' });
+// @ts-expect-error mount rejects unknown options.
+PatchMap.mount({ container: '#strict-types-only', unsupportedOption: true });
 // @ts-expect-error mount owns the aggregate renderer strategy.
 PatchMap.mount({ container: '#strict-types-only', strategy: 'particle' });
 mounted.update({
@@ -371,7 +371,7 @@ export async function comparePackedJourneys({ root, browserResult, packageDigest
   const expectedDocument = JSON.parse(await readFile(
     path.join(
       root,
-      'docs/reference/core-v2-functional-contract/evidence/catalog-normalized-expected.v1.json',
+      'contracts/patch-map/evidence/catalog-normalized-expected.v1.json',
     ),
     'utf8',
   ));
