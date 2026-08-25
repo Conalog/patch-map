@@ -147,6 +147,13 @@ try {
                 size: 20,
                 tint: '#22c55e',
                 show: false,
+              }, {
+                type: 'text',
+                id: 'panel-label',
+                text: 'P',
+                placement: 'center',
+                tint: '#f97316',
+                style: { fontFamily: 'Arial', fontSize: 14, fill: '#f97316' },
               }],
             },
           },
@@ -240,6 +247,10 @@ try {
 
         window.__PATCH_MAP_ASYNC_ITEM_ICONS_UPDATES__ = true;
         window.__PATCH_MAP_ASYNC_ITEM_ICONS_STATUS__ = () => map.assets.status().runtime;
+        window.__PATCH_MAP_ASYNC_ITEM_ICONS_PAN__ = async () => {
+          map.viewport.restore({ centerWorld: [900, 700], scale: 1 });
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+        };
         while (window.__PATCH_MAP_ASYNC_ITEM_ICONS_FINISH__ !== true) {
           await new Promise((resolve) => setTimeout(resolve, 10));
         }
@@ -272,8 +283,19 @@ try {
   await page.waitForTimeout(500);
   const allReady = await captureCompositedPixels(page);
   const allReadyScene = await captureSceneGraph(page);
+  await page.evaluate(() => globalThis.__PATCH_MAP_ASYNC_ITEM_ICONS_PAN__());
+  const afterPan = await captureCompositedPixels(page);
+  const afterPanScene = await captureSceneGraph(page);
   const assets = await page.evaluate(() => globalThis.__PATCH_MAP_ASYNC_ITEM_ICONS_STATUS__());
-  const result = { initiallyReady, initiallyReadyScene, allReady, allReadyScene, assets };
+  const result = {
+    initiallyReady,
+    initiallyReadyScene,
+    allReady,
+    allReadyScene,
+    afterPan,
+    afterPanScene,
+    assets,
+  };
   assert(result.initiallyReadyScene.renderLayerSpriteWidths['20'] === 75
     && result.initiallyReadyScene.renderLayerSpriteWidths['24'] === 4
     && result.initiallyReadyScene.renderLayerSpriteWidths['476'] === 1,
@@ -284,6 +306,11 @@ try {
     'all root-item and grid icons remain after reverse-order settlement', result);
   assert(result.allReady.red > 0 && result.allReady.blue > 0 && result.allReady.green > 0,
     'root-item and grid icons contribute visible pixels', result);
+  assert(result.afterPanScene.visibleTextCount > 0
+    && result.afterPanScene.visibleUnattachedTextCount === 0,
+    'deferred grid text materialized by viewport culling joins the hierarchical render layer', result);
+  assert(result.afterPan.orange > 0,
+    'deferred grid text contributes visible pixels after viewport movement', result);
   assert(result.assets.pendingCount === 0, 'all asset work settled', result);
   assert(errors.length === 0, 'browser emitted no errors', errors);
   console.log(JSON.stringify({ browser: browserLaunch.target, result }, null, 2));
@@ -342,7 +369,7 @@ async function captureCompositedPixels(targetPage) {
     const context = canvas.getContext('2d', { willReadFrequently: true });
     context.drawImage(image, 0, 0);
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    const counts = { red: 0, blue: 0, green: 0, white: 0, nonBlack: 0 };
+    const counts = { red: 0, blue: 0, green: 0, orange: 0, white: 0, nonBlack: 0 };
     for (let offset = 0; offset < pixels.length; offset += 4) {
       const red = pixels[offset];
       const green = pixels[offset + 1];
@@ -354,6 +381,7 @@ async function captureCompositedPixels(targetPage) {
       if (red > 160 && red > green * 1.6 && red > blue * 1.6) counts.red += 1;
       if (blue > 150 && blue > red * 1.4 && blue > green * 1.2) counts.blue += 1;
       if (green > 120 && green > red * 1.25 && green > blue * 1.1) counts.green += 1;
+      if (red > 180 && green > 70 && green < red * 0.75 && blue < 80) counts.orange += 1;
     }
     return counts;
   }, screenshot.toString('base64'));
@@ -366,10 +394,14 @@ async function captureSceneGraph(targetPage) {
     const stack = [...app.stage.children];
     let renderLayer = null;
     const sprites = [];
+    const texts = [];
     while (stack.length > 0) {
       const object = stack.pop();
       if (object.label === 'PatchMap / hierarchical scene paint') renderLayer = object;
       if (object.constructor?.name === 'Sprite') sprites.push(object);
+      if (object.constructor?.name === 'Text' || object.constructor?.name === 'BitmapText') {
+        texts.push(object);
+      }
       stack.push(...(object.children ?? []));
     }
     const spriteWidths = {};
@@ -382,6 +414,9 @@ async function captureSceneGraph(targetPage) {
       spriteCount: sprites.length,
       spriteWidths,
       renderLayerChildCount: renderLayer?.renderLayerChildren?.length ?? null,
+      visibleTextCount: texts.filter((text) => text.visible && text.renderable).length,
+      visibleUnattachedTextCount: texts.filter((text) =>
+        text.visible && text.renderable && text.parentRenderLayer !== renderLayer).length,
       renderLayerSpriteWidths: (renderLayer?.renderLayerChildren ?? []).reduce((counts, child) => {
         const type = child.constructor?.name ?? 'unknown';
         renderLayerChildTypes[type] = (renderLayerChildTypes[type] ?? 0) + 1;

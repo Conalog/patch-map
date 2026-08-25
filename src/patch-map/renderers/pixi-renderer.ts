@@ -1205,7 +1205,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         : { changedRanges: barPresentationOnly ? [] : ranges }),
       ...(projectionTransformOnly ? { projectionTransformOnly: true } : {}),
     });
-    this.syncScenePaintLayer();
     // Bar presentation mutates only aggregate geometry. With a stable view,
     // object-backed image/text bounds are unchanged and retaining their last
     // cull result avoids an O(all leaves) scan on every animation frame.
@@ -1218,6 +1217,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         zoomAwareTextRasterResolution(this.pixelRatioValue, this.view.scale),
       );
     }
+    // Culling can materialize deferred text when it enters the viewport. Reconcile
+    // the paint layer afterward so those new leaves render in this same frame.
+    this.syncScenePaintLayer();
     const leaves = this.leaves.debugSnapshot();
     this.textProjectionSynchronizedRevision = this.projectionRevision;
     this.syncSelectionOverlay(
