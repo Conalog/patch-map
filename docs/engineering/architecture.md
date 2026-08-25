@@ -25,6 +25,7 @@ frame owner. Events and diagnostics describe that same accepted publication.
 
 | Root | Single owner |
 | --- | --- |
+| `.github/` | pull-request, release, dependency, and workflow policy automation |
 | `src/` | shipped product and package surface |
 | `docs/` | public usage contracts and repository-internal engineering routes |
 | `examples/` | packed public consumer examples |

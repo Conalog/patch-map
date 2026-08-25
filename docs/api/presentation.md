@@ -66,5 +66,5 @@ fields:
 | --- | --- | --- |
 | keyed composition and lifecycle | `src/core/presentation-layers.ts` | `tests/semantic/presentation.test.ts` |
 | sparse-to-dense projection | `src/presentation/projection.ts` | `tests/rendering/presentation-projection.test.ts` |
-| concrete field overlay | `src/core/instance-presentation-overlay.ts` | `tests/core/core-presentation-integration.test.ts` |
+| concrete field overlay | `src/core/instance-presentation-overlay.ts` | `tests/core/core-instance-component-presentation-integration.test.ts` |
 | column validation and mixed animation | `src/public/presentation.ts` | `tests/engine/engine-update-transactions.test.ts` |

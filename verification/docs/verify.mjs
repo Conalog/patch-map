@@ -53,30 +53,19 @@ async function verifyLinks(file, source) {
 }
 
 async function verifyInlineRepositoryPaths(file, source) {
-  const systemMap = relative(file) === 'docs/engineering/system-map.md';
-  const paths = source.matchAll(systemMap ? /`([^`]+)`/gu : /`(src\/[^`]+)`/gu);
+  const paths = source.matchAll(
+    /`((?:(?:src|tests|performance|verification|examples|docs|\.github)\/)[^`]+|(?:package\.json|package-lock\.json|vite\.config\.ts|tsconfig(?:\.build)?\.json|eslint\.config\.js|\.nvmrc))`/gu,
+  );
   for (const match of paths) {
     const destination = match[1];
-    if (systemMap && !looksLikeSystemMapPath(destination)) continue;
-    if (/[*?[]/u.test(destination)) continue;
-    const candidates = [
-      path.resolve(root, destination),
-      path.resolve(root, 'src', destination),
-      path.resolve(root, 'tests', destination),
-    ];
-    const exists = await Promise.any(candidates.map((candidate) => stat(candidate)))
+    if (/[*?[\]<>]/u.test(destination)) continue;
+    const exists = await stat(path.resolve(root, destination))
       .then(() => true)
       .catch(() => false);
     if (!exists) {
       failures.push(`${relative(file)} names missing ${destination}`);
     }
   }
-}
-
-function looksLikeSystemMapPath(value) {
-  return !/\s/u.test(value)
-    && !value.startsWith('-')
-    && (value.endsWith('/') || /\.(?:ts|mjs)$/u.test(value));
 }
 
 function verifyDocumentSize(file, source) {

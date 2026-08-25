@@ -4,7 +4,7 @@
 - Audience: package consumers and release owners
 - Owner: supported environments, backend policy, and versioning
 
-Read when: qualifying an environment, upgrading the package, or publishing an
+Read when: checking an environment, upgrading the package, or publishing an
 artifact. Feature behavior belongs to its API page and is not repeated here.
 
 ## Supported environments
@@ -12,13 +12,13 @@ artifact. Feature behavior belongs to its API page and is not repeated here.
 | Surface | Supported policy |
 | --- | --- |
 | Node.js | Node 20 or newer for consumers; the repository uses `.nvmrc` for local work |
-| Browsers | Current Chromium, Firefox, and Safari with WebGL2 |
+| Browsers | Current Chromium with WebGL2 is release-verified; Firefox and Safari are expected-compatible but not qualified |
 | Renderer | WebGL2 aggregate renderer is the supported default |
 | Package formats | ESM and CommonJS through declared package exports |
 | TypeScript | Declarations are built and checked with the package artifact |
 
-WebGPU is not a qualified consumer backend. Chromium-only observations are
-development evidence, not Windows-native or cross-browser qualification.
+WebGPU is not a qualified consumer backend. Firefox, Safari, Windows-native,
+and cross-browser behavior remain unqualified until a repeatable gate exists.
 
 ## Versioning
 
@@ -44,4 +44,4 @@ excluded. The package verifier checks both required and prohibited paths.
 | --- | --- | --- |
 | Runtime and toolchain | `package.json`, `.nvmrc`, CI workflows | typecheck, build, CI classification |
 | Export formats and declarations | `package.json`, build configuration | package integration |
-| Included documentation and licenses | package artifact policy | `verify:package` and installed packed-consumer smoke |
+| Included documentation and licenses | package artifact policy | `verify:package` |

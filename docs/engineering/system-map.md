@@ -18,7 +18,7 @@ every helper involved.
 | Pointer, selection, transformer | `src/pointer-gesture/`, `src/query-selection/`, `src/selection-transformer/` | `tests/semantic/pointer-gesture.test.ts`, `tests/semantic/query-selection.test.ts`, `tests/semantic/selection-transformer.test.ts` | package gate for public interaction changes |
 | Editor workflows | `src/editor-workflow/`, `src/public/editor.ts` | `tests/semantic/editor-workflow.test.ts`, `tests/integration/developer-api.test.ts` | package gate |
 | Viewport and orientation | `src/viewport/`, `src/engine/viewport-authority.ts` | `tests/semantic/viewport.test.ts`, `tests/engine/engine-viewport.test.ts` | benchmark for interaction hot-path changes |
-| Presentation and animation | `src/presentation/`, `src/core/instance-presentation-coordinator.ts` | `tests/core/core-presentation-integration.test.ts` | matching performance probe or benchmark |
+| Presentation and animation | `src/presentation/`, `src/core/instance-presentation-coordinator.ts` | `tests/core/core-bar-presentation-integration.test.ts`, `tests/core/core-instance-component-presentation-integration.test.ts` | matching performance probe or benchmark |
 | Capture and extraction | `src/engine/capture-extraction-authority.ts`, `src/operations/extraction-security-authority.ts` | `tests/engine/engine-capture-extraction-authority.test.ts` | extraction probe and memory gate |
 | Accessibility and diagnostics | `src/accessibility/`, `src/operations/` | `tests/integration/accessibility-product.test.ts`, `tests/integration/operations.test.ts` | package gate for public output changes |
 | Package contents and installed consumers | `package.json`, `verification/package/`, `examples/` | package verifier | `npm run verify:package -- --require-audit` |
