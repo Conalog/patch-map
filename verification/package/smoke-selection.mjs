@@ -14,7 +14,7 @@ import { createServer } from 'vite';
 const execute = promisify(execFile);
 const artifactArgument = process.argv[2];
 if (artifactArgument === undefined || !path.isAbsolute(artifactArgument)) {
-  throw new Error('usage: patch-map-installed-selection-smoke.mjs /absolute/artifact.tgz');
+  throw new Error('usage: node verification/package/smoke-selection.mjs /absolute/artifact.tgz');
 }
 const artifact = artifactArgument;
 

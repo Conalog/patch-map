@@ -14,7 +14,7 @@ import { createServer } from 'vite';
 const execute = promisify(execFile);
 const artifact = process.argv[2];
 if (artifact === undefined || !path.isAbsolute(artifact)) {
-  throw new Error('usage: patch-map-installed-builtin-assets-smoke.mjs /absolute/artifact.tgz');
+  throw new Error('usage: node verification/package/smoke-builtins.mjs /absolute/artifact.tgz');
 }
 
 const root = process.cwd();
