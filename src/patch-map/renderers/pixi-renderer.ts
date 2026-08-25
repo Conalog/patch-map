@@ -232,7 +232,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private readonly selectionOverlay: Graphics;
   private readonly transformerOverlay: Graphics;
   private readonly scenePaintLayer: RenderLayer | null;
-  private readonly attachedScenePaintObjects = new Set<Container>();
   private readonly accessibilityOverlay: PatchMapAccessibilityOverlayAuthority;
   private readonly selectedSlots = new Set<number>();
   private readonly visibleOverlaySlots = new Set<number>();
@@ -1885,7 +1884,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.selectionMarquee = null;
     this.application.stage.removeChild(this.world);
     this.scenePaintLayer?.detachAll();
-    this.attachedScenePaintObjects.clear();
     this.world.removeChildren();
     this.aggregate.destroy();
     if (!(this.aggregate instanceof AggregateMeshLayer)) {
@@ -2313,22 +2311,20 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     const layer = this.scenePaintLayer;
     if (layer === null || !(this.aggregate instanceof AggregateMeshLayer)) return;
     if (!this.hierarchicalScenePaint) {
-      if (this.attachedScenePaintObjects.size > 0) layer.detachAll();
-      this.attachedScenePaintObjects.clear();
+      if (layer.renderLayerChildren.length > 0) layer.detachAll();
       return;
     }
     const current = new Set<Container>([
       ...this.aggregate.paintObjects(),
       ...this.leaves.paintObjects(),
     ]);
-    for (const object of this.attachedScenePaintObjects) {
+    const attached = new Set(layer.renderLayerChildren);
+    for (const object of attached) {
       if (!current.has(object)) layer.detach(object);
     }
     for (const object of current) {
-      if (!this.attachedScenePaintObjects.has(object)) layer.attach(object);
+      if (!attached.has(object)) layer.attach(object);
     }
-    this.attachedScenePaintObjects.clear();
-    for (const object of current) this.attachedScenePaintObjects.add(object);
     layer.sortRenderLayerChildren();
   }
 
@@ -2507,6 +2503,9 @@ function analyzePatchMapScenePaint(
   let entityCount = 0;
   for (const entity of Object.values(projection.byEntityId)) {
     entityCount += 1;
+    if (entity.affine === undefined || entity.localBounds === undefined) {
+      return hierarchical();
+    }
     if (entity.componentType === undefined) {
       if (entity.ownerItemId === entity.entityId) {
         let state = ownerStates.get(entity.entityId);

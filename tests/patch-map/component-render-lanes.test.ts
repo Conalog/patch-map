@@ -1,5 +1,5 @@
 import { Container, Graphics, RenderLayer, Texture } from 'pixi.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { EntityInput } from '../../src/patch-map/dense/contracts';
 import {
@@ -23,6 +23,7 @@ import {
   type PatchMapRoundedRectPathSink,
 } from '../../src/patch-map/renderers/mesh-layer';
 import {
+  PatchMapPixiRenderer,
   projectionChangedRanges,
   requiresPatchMapHierarchicalScenePaint,
 } from '../../src/patch-map/renderers/pixi-renderer';
@@ -145,6 +146,108 @@ describe('PatchMap component render destinations', () => {
       (order?.['front::background:front-background'] ?? -1) * 4,
       (order?.['front::icon:front-icon'] ?? -1) * 4,
     ]);
+
+    layer.detachAll();
+    layer.destroy();
+    mesh.destroy();
+    await leaves.destroy();
+  });
+
+  it('reattaches existing hierarchical icons when later assets settle and reorder their lane', async () => {
+    const parsed = parsePatchMapV010([
+      overlappingItemWithIcon('inverter', 'fixture-inverter-icon', 0),
+      overlappingItemWithIcon('edge', 'fixture-edge-icon', 0),
+      {
+        type: 'grid',
+        id: 'panels',
+        cells: [[1]],
+        attrs: { x: 120 },
+        item: {
+          size: { width: 40, height: 40 },
+          components: [
+            {
+              type: 'background',
+              id: 'panel-background',
+              source: { type: 'rect', fill: '#ffffffff', radius: 4 },
+            },
+            {
+              type: 'icon',
+              id: 'panel-icon',
+              source: 'fixture-edge-icon',
+              size: 20,
+            },
+          ],
+        },
+      },
+    ]);
+    expect(requiresPatchMapHierarchicalScenePaint(parsed.projection)).toBe(true);
+
+    const backend = new DeferredTextureBackend();
+    const runtime = new PatchMapAssetRuntime(backend);
+    const session = runtime.createSession({
+      instanceId: 'async-hierarchical-item-icons',
+      policy: () => undefined,
+    });
+    session.registerAssets([
+      {
+        alias: 'fixture-inverter-icon',
+        descriptor: 'https://assets.example.test/inverter.png',
+      },
+      {
+        alias: 'fixture-edge-icon',
+        descriptor: 'https://assets.example.test/edge.png',
+      },
+    ]);
+    const leaves = new AggregateLeafLayer(session, true);
+    const bindings = Object.values(parsed.projection.imagesByEntityId ?? {})
+      .filter((image, index, images) =>
+        images.findIndex(({ bindingKey }) => bindingKey === image.bindingKey) === index)
+      .map((image) => {
+        const alias = fixtureImageAlias(image.authoredSource);
+        return {
+          alias,
+          completion: leaves.bindSceneAsset(image.bindingKey, { kind: 'alias', alias }),
+        };
+      });
+    const store = createRenderStore(parsed.document.entities);
+    const context = projectionContext(parsed.projection, 1);
+    const mesh = new AggregateMeshLayer({ chunkSize: 16 });
+    const layer = new RenderLayer({ sortableChildren: false });
+    const renderer = scenePaintLayerHarness(mesh, leaves, layer);
+    mesh.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
+    leaves.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
+    renderer.syncScenePaintLayer();
+    expect(leaves.paintObjects()).toHaveLength(0);
+
+    await vi.waitFor(() => {
+      expect(backend.hasPending('https://assets.example.test/inverter.png')).toBe(true);
+      expect(backend.hasPending('https://assets.example.test/edge.png')).toBe(true);
+    });
+    backend.resolve('https://assets.example.test/edge.png');
+    await Promise.all(bindings
+      .filter(({ alias }) => alias === 'fixture-edge-icon')
+      .map(({ completion }) => completion));
+    leaves.sync(store, { changedRanges: [], projectionContext: context });
+    renderer.syncScenePaintLayer();
+
+    const edgeOrder = (context.paintOrderByEntityId?.[
+      'edge::icon:edge-icon'
+    ] ?? -1) * 4;
+    expect(layer.renderLayerChildren.map(({ zIndex }) => zIndex)).toContain(edgeOrder);
+
+    backend.resolve('https://assets.example.test/inverter.png');
+    await Promise.all(bindings.map(({ completion }) => completion));
+    leaves.sync(store, { changedRanges: [], projectionContext: context });
+    renderer.syncScenePaintLayer();
+
+    const expectedIconOrder = [
+      'inverter::icon:inverter-icon',
+      'edge::icon:edge-icon',
+      'panels.0.0::icon:panel-icon',
+    ].map((entityId) => (context.paintOrderByEntityId?.[entityId] ?? -1) * 4);
+    expect(layer.renderLayerChildren
+      .filter(({ zIndex }) => expectedIconOrder.includes(zIndex))
+      .map(({ zIndex }) => zIndex)).toEqual(expectedIconOrder);
 
     layer.detachAll();
     layer.destroy();
@@ -531,6 +634,22 @@ function overlappingItem(id: string, zIndex: number, x = 0): Record<string, unkn
   };
 }
 
+function overlappingItemWithIcon(
+  id: string,
+  source: string,
+  zIndex: number,
+): Record<string, unknown> {
+  const item = overlappingItem(id, zIndex);
+  const components = item.components as Array<Record<string, unknown>>;
+  return {
+    ...item,
+    components: [
+      components[0],
+      { ...components[1], source },
+    ],
+  };
+}
+
 async function createResolvedLeafLayer(
   projection: PatchMapProjectionIndex,
   instanceId: string,
@@ -653,7 +772,7 @@ class ImmediateTextureBackend implements PatchMapAssetBackend {
     return undefined;
   }
 
-  public load(): Promise<unknown> {
+  public load(_request: PatchMapAssetBackendRequest): Promise<unknown> {
     this.loadCount += 1;
     return Promise.resolve(Texture.WHITE);
   }
@@ -671,4 +790,49 @@ class ImmediateTextureBackend implements PatchMapAssetBackend {
   public unload(): Promise<void> {
     return Promise.resolve();
   }
+}
+
+class DeferredTextureBackend extends ImmediateTextureBackend {
+  private readonly pending = new Map<string, (texture: Texture) => void>();
+
+  public override load(request: PatchMapAssetBackendRequest): Promise<unknown> {
+    this.loadCount += 1;
+    return new Promise<Texture>((resolve) => {
+      this.pending.set(request.descriptor.src, resolve);
+    });
+  }
+
+  public hasPending(source: string): boolean {
+    return this.pending.has(source);
+  }
+
+  public resolve(source: string, texture: Texture = Texture.WHITE): void {
+    const resolve = this.pending.get(source);
+    if (resolve === undefined) throw new Error(`missing deferred source ${source}`);
+    this.pending.delete(source);
+    resolve(texture);
+  }
+}
+
+interface ScenePaintLayerHarness {
+  aggregate: AggregateMeshLayer;
+  leaves: AggregateLeafLayer;
+  scenePaintLayer: RenderLayer;
+  hierarchicalScenePaint: boolean;
+  syncScenePaintLayer(): void;
+}
+
+function scenePaintLayerHarness(
+  aggregate: AggregateMeshLayer,
+  leaves: AggregateLeafLayer,
+  scenePaintLayer: RenderLayer,
+): ScenePaintLayerHarness {
+  const renderer = Object.create(
+    PatchMapPixiRenderer.prototype,
+  ) as ScenePaintLayerHarness;
+  renderer.aggregate = aggregate;
+  renderer.leaves = leaves;
+  renderer.scenePaintLayer = scenePaintLayer;
+  renderer.hierarchicalScenePaint = true;
+  return renderer;
 }
