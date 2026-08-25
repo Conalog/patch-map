@@ -31,11 +31,8 @@ import {
   type MutableJsonRecord,
   type MutableJsonValue,
 } from './json-values';
-import {
-  requireAt,
-  targetKey,
-  type NormalizedTransaction,
-} from './request-normalization';
+import type { NormalizedTransaction } from './request-normalization';
+import { requireAt, targetKey } from './request-values';
 
 export type TargetOutcome = 'missing' | 'unchanged' | 'applied';
 

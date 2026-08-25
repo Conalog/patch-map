@@ -34,7 +34,7 @@ import {
   strictRecord,
   targetKey,
   targetLabel,
-} from './request-normalization';
+} from './request-values';
 
 /**
  * Validate one ordered owner-qualified text batch without allocating a merge

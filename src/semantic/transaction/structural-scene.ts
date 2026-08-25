@@ -13,7 +13,7 @@ import {
   type MutableJsonRecord,
   type MutableJsonValue,
 } from './json-values';
-import { targetKey, targetLabel } from './request-normalization';
+import { targetKey, targetLabel } from './request-values';
 
 export interface StagedLocation {
   readonly kind: PatchMapMutationTarget['kind'];

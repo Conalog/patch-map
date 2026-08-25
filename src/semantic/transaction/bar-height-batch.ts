@@ -32,7 +32,7 @@ import {
   strictRecord,
   targetKey,
   targetLabel,
-} from './request-normalization';
+} from './request-values';
 
 /**
  * Validate one compact, ordered bar-height batch without materializing the
