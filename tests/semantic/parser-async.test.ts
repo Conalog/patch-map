@@ -1,4 +1,4 @@
-import datasets from '../fixtures/datasets.json';
+import datasets from '../fixtures/datasets/index';
 import { describe, expect, it } from 'vitest';
 
 import { PatchMapParseError } from '../../src/parsing/contracts';

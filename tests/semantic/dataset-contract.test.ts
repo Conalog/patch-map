@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import datasets from '../fixtures/datasets.json';
+import datasets from '../fixtures/datasets/index';
 import { describe, expect, it } from 'vitest';
 
 import {
