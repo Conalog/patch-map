@@ -7,9 +7,9 @@ import {
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceView,
-} from '../../src/patch-map/engine';
-import { PatchMapOperationsAuthority } from '../../src/patch-map/operations';
-import type { PatchMapPixiRendererLossProbe } from '../../src/patch-map/renderers/types';
+} from '../../src/engine';
+import { PatchMapOperationsAuthority } from '../../src/operations';
+import type { PatchMapRendererLossProbe } from '../../src/rendering-port';
 
 class OperationsSurface implements PatchMapEngineSurface {
   public canvasCount = 1;
@@ -74,7 +74,7 @@ class OperationsSurface implements PatchMapEngineSurface {
     });
   }
 
-  public rendererLossProbe(): PatchMapPixiRendererLossProbe {
+  public rendererLossProbe(): PatchMapRendererLossProbe {
     return Object.freeze({
       backend: 'webgl2',
       webGLVersion: 2,

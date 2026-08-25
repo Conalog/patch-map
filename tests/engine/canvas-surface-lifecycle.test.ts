@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapCanvasSurfaceLifecycle } from '../../src/patch-map/renderers/pixi-renderer/canvas-surface-lifecycle';
+import { PatchMapCanvasSurfaceLifecycle } from '../../src/rendering/pixi-renderer/canvas-surface-lifecycle';
 
 describe('PatchMapCanvasSurfaceLifecycle', () => {
   it('keeps a package-created canvas detached until one publication and removes it on destroy', () => {

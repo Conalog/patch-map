@@ -1,7 +1,6 @@
-import {
-  PatchMap,
-  materializePatchMapDataset,
-} from '../../src/patch-map';
+import { PatchMap } from '../../src/engine';
+import { createPixiSurface } from '../../src/composition/pixi-engine-surface';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
 import {
   buildPatchMapContractPerformanceDataset,
   canonicalPatchMapDatasetSha256,
@@ -50,7 +49,7 @@ async function runContractTrial(
   const serializedBefore = JSON.stringify(input);
   const longTaskDurationsMs: number[] = [];
   const observer = createLongTaskObserver(longTaskDurationsMs);
-  const engine = new PatchMap();
+  const engine = new PatchMap({ surfaceFactory: createPixiSurface });
   let destroyed = false;
   const visible = createContractVisibleMetrics();
 

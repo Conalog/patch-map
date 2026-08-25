@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { DenseStore } from '../../src/patch-map/dense/store';
-import { normalizeEntity } from '../../src/patch-map/dense/validation';
-import { RenderAlign } from '../../src/patch-map/dense/renderer-types';
+import { DenseStore } from '../../src/dense/store';
+import { normalizeEntity } from '../../src/dense/validation';
+import { RenderAlign } from '../../src/dense/renderer-types';
 
 describe('PatchMap dense text alignment', () => {
   it('round-trips justify through the Uint8 code 3 column', () => {

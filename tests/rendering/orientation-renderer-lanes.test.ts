@@ -1,37 +1,45 @@
-import { describe, expect, it } from 'vitest';
-import { Mesh, Texture, type MeshGeometry } from 'pixi.js';
-import type { EntityInput } from '../../src/patch-map/dense/contracts';
+import {
+  describe,
+  expect,
+  it } from 'vitest';
+import { Mesh,
+  Texture,
+  type MeshGeometry } from 'pixi.js';
+import type { EntityInput } from '../../src/dense/contracts';
 import {
   RenderFlags,
   RenderKind,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+  } from '../../src/dense/renderer-types';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
 import {
   PatchMapAssetRuntime,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-} from '../../src/patch-map/assets';
-import { parsePatchMap } from '../../src/patch-map/parser';
-import { projectPatchMapBarPresentationHeight } from '../../src/patch-map/presentation-projection';
-import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
+  } from '../../src/assets';
+import { parsePatchMap } from '../../src/parsing';
+import { projectPatchMapBarPresentationHeight } from '../../src/presentation/projection';
+import { AggregateLeafLayer } from '../../src/rendering/leaf-layer';
 import {
   AggregateMeshLayer,
   buildAggregateChunkGeometry,
-} from '../../src/patch-map/renderers/mesh-layer';
+  } from '../../src/rendering/mesh-layer';
 import {
   applyPatchMapAffine,
   invertPatchMapAffine,
   multiplyPatchMapAffine,
-} from '../../src/patch-map/semantic/geometry';
+  } from '../../src/semantic/geometry';
 import {
   createPatchMapProjectionQuadCache,
   createPatchMapWorldAffine,
   createPatchMapResolvedRenderQuadScratch,
   resolvePatchMapSlotQuad,
   writePatchMapSlotQuad,
-  type PatchMapProjectionRenderContext,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/geometry/render-quads';
+import type {
+  PatchMapProjectionRenderContext,
+} from '../../src/geometry/render-quads';
+
 
 describe('PatchMap orientation renderer lanes', () => {
   it('caches readable bases across animation frames and invalidates on world revision', () => {

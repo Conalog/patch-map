@@ -1,14 +1,14 @@
 import catalogProfiles from '../../contracts/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
-import { parsePatchMap } from '../../src/patch-map/parser';
-import { buildQuadGeometry } from '../../src/patch-map/renderers/mesh-layer';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
+import { parsePatchMap } from '../../src/parsing';
+import { buildQuadGeometry } from '../../src/rendering/mesh-layer';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
 import {
   patchMapAffineHasSkew,
   createPatchMapAffine,
   multiplyPatchMapAffine,
-} from '../../src/patch-map/semantic/geometry';
+} from '../../src/semantic/geometry';
 
 describe('PatchMap approved render projection closure', () => {
   it('paints a background across the complete item frame', () => {

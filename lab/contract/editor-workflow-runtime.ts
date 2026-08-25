@@ -1,11 +1,13 @@
-import {
-  type PatchMapEditorWorkflowAction,
-  type PatchMapEditorMutationKind,
-  type PatchMap,
-  type PatchMapEngineEditorMutationMatrixResult,
-  type PatchMapEngineEditorWorkflowResult,
-  type PatchMapMutationJsonValue,
-} from '../../src/patch-map';
+import type {
+  PatchMapEditorWorkflowAction,
+  PatchMapEditorMutationKind,
+} from '../../src/editor-workflow/contracts';
+import type { PatchMap } from '../../src/engine';
+import type {
+  PatchMapEngineEditorMutationMatrixResult,
+  PatchMapEngineEditorWorkflowResult,
+} from '../../src/engine/contracts/editor';
+import type { PatchMapMutationJsonValue } from '../../src/semantic/transaction/contracts';
 import {
   deepFreezePatchMapLabValue as deepFreeze,
   detachPatchMapLabValue as detach,

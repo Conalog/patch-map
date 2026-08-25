@@ -1,5 +1,5 @@
 import productionShapedWorkloadJson from '../../contracts/evidence/production-shaped-workload.v1.json';
-import type { PatchMap } from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
 
 export const PATCH_MAP_VIEWPORT_RUNTIME_REVISION = 'patch-map-viewport-runtime/1';
 export const PATCH_MAP_VIEWPORT_CLEANUP_REVISION = 'patch-map-viewport-cleanup/1';

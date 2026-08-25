@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapError as FacadePatchMapError } from '../../src/patch-map/engine';
+import { PatchMapError as FacadePatchMapError } from '../../src/engine';
 import {
   PatchMapError,
   createPatchMapAssetInitializationError,
@@ -13,15 +13,15 @@ import {
   freezePatchMapMutationTargets,
   freezePatchMapReconcileDiagnostics,
   freezePatchMapTransactionHistory,
-} from '../../src/patch-map/engine/operation-outcomes';
-import { PatchMapDatasetError } from '../../src/patch-map/semantic/dataset';
-import type { MaterializedPatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import type { PatchMapHistoryState } from '../../src/patch-map/history';
+} from '../../src/engine/operation-outcomes';
+import { PatchMapDatasetError } from '../../src/semantic/dataset';
+import type { MaterializedPatchMapDataset } from '../../src/semantic/dataset';
+import type { PatchMapHistoryState } from '../../src/history';
 import type {
   PatchMapRevisionStamp,
-} from '../../src/patch-map/engine/contracts/lifecycle';
-import { PatchMapRendererRuntimeError } from '../../src/patch-map/renderers/contracts';
-import { PatchMapPixiRuntimeError } from '../../src/patch-map/renderers/pixi-renderer';
+} from '../../src/engine/contracts/lifecycle';
+import { PatchMapRendererRuntimeError } from '../../src/rendering/contracts/options';
+import { PatchMapPixiRuntimeError } from '../../src/rendering/pixi-renderer';
 
 const REVISIONS: PatchMapRevisionStamp = Object.freeze({
   lifecycleGeneration: 2,

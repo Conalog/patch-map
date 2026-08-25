@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ParsePatchMapResult } from '../../src/patch-map/contracts';
-import { parsePatchMap } from '../../src/patch-map/parser';
+import type { ParsePatchMapResult } from '../../src/parsing/contracts';
+import { parsePatchMap } from '../../src/parsing';
 import {
   directTextParseIndexes,
   directTextTargetKey,
-} from '../../src/patch-map/parser/direct-text-index';
+} from '../../src/parsing/direct-text-index';
 
 const TEXT_SCENE = [
   {

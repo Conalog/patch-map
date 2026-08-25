@@ -1,6 +1,4 @@
-import {
-  type PatchMap,
-} from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
 
 export const PATCH_MAP_ACCESSIBILITY_RUNTIME_REVISION =
   'patch-map-accessibility-runtime/1' as const;

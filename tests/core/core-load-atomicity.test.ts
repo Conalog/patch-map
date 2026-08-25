@@ -3,43 +3,43 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   CoreView,
   SlotRange,
-} from '../../src/patch-map/dense/contracts';
+} from '../../src/dense/contracts';
 import type {
   RendererFlushResult,
   RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
+} from '../../src/dense/renderer-types';
 import {
   PatchMapRuntime,
   type PatchMapRuntimeOptions,
-} from '../../src/patch-map/core';
+} from '../../src/core';
 import type {
   PatchMapPublishedSceneAuthority,
   PatchMapPublishedSceneState,
-} from '../../src/patch-map/core/published-scene-state';
-import type { PatchMapSpatialHitAuthority } from '../../src/patch-map/core/spatial-hit-authority';
+} from '../../src/core/published-scene-state';
+import type { PatchMapSpatialHitAuthority } from '../../src/core/spatial-hit-authority';
 import type {
   PatchMapBarPresentationAuthority,
   PatchMapBarPresentationLoadState,
-} from '../../src/patch-map/core/bar-presentation-authority';
+} from '../../src/core/bar-presentation-authority';
 import type {
   LeafAssetBindingObservation,
   LeafAssetBindingProbe,
   LeafAssetBindingRequest,
   LeafSceneImageProbe,
-} from '../../src/patch-map/renderers/leaf-layer';
+} from '../../src/rendering/leaf-layer';
 import type {
   PatchMapPixiRenderer,
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRendererPublicationCheckpoint,
-} from '../../src/patch-map/renderers/pixi-renderer';
+} from '../../src/rendering/pixi-renderer';
 import type {
-  PatchMapPixiRendererDebug,
+  PatchMapRendererDebug,
   RootInteractionHandlers,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/rendering-port';
 import type {
   PatchMapSceneImageController,
   PatchMapSceneImageIntrinsicSize,
-} from '../../src/patch-map/scene-images';
+} from '../../src/scene-images';
 
 describe('PatchMap load and mutation publication atomicity', () => {
   const allocated: PatchMapRuntime[] = [];
@@ -501,7 +501,7 @@ class AtomicLoadRendererDouble {
   public bindRootInteractions(_handlers: RootInteractionHandlers): () => void {
     return () => undefined;
   }
-  public debugSnapshot(): PatchMapPixiRendererDebug {
+  public debugSnapshot(): PatchMapRendererDebug {
     return Object.freeze({
       strategy: this.strategy,
       backend: 'webgl',
@@ -517,7 +517,7 @@ class AtomicLoadRendererDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      pixiTextCount: 0,
+      fallbackTextCount: 0,
       imageCount: this.bindings.size,
       loadedAssetCount: 0,
       unresolvedAssetCount: this.bindings.size,

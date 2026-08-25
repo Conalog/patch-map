@@ -1,4 +1,4 @@
-import type { PatchMap } from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
 
 export const PATCH_MAP_HISTORY_RUNTIME_REVISION =
   'patch-map-history-runtime/1' as const;

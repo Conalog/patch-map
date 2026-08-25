@@ -5,7 +5,7 @@ import {
   pixiDevtoolsOwnsApplication,
   registerPixiDevtools,
   unregisterPixiDevtools,
-} from '../../src/patch-map/renderers/pixi-devtools-registration';
+} from '../../src/rendering/pixi-devtools-registration';
 
 type DevtoolsRoot = typeof globalThis & {
   __PIXI_DEVTOOLS__?: Readonly<{ readonly app: Application }>;

@@ -2,44 +2,46 @@ import { readdir, readFile } from 'node:fs/promises';
 
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
+import type { PatchMapEngineExtractionResult as RootExtractionResult } from '../../src/engine/contracts/extraction';
 import type {
-  PatchMapEngineExtractionResult as RootExtractionResult,
   PatchMapEngineHistoryResult as RootHistoryResult,
-  PatchMapEngineSnapshot as RootSnapshot,
-  PatchMapEngineTransactionResult as RootTransactionResult,
   PatchMapEngineTransformerCompletionResult as RootTransformerCompletionResult,
+} from '../../src/engine/contracts/history-transformer';
+import type {
+  PatchMapEngineSnapshot as RootSnapshot,
   PatchMapEngineOptions as RootOptions,
-  PatchMapViewportState as RootViewportState,
-} from '../../src/patch-map';
+} from '../../src/engine/contracts/product';
+import type { PatchMapEngineTransactionResult as RootTransactionResult } from '../../src/engine/contracts/mutation';
+import type { PatchMapViewportState as RootViewportState } from '../../src/engine/contracts/viewport';
 import type {
   PatchMapEngineHistoryResult as OwnedHistoryResult,
   PatchMapEngineTransformerCompletionResult as OwnedTransformerCompletionResult,
-} from '../../src/patch-map/engine/contracts/history-transformer';
+} from '../../src/engine/contracts/history-transformer';
 import type {
   PatchMapEngineTransactionResult as OwnedTransactionResult,
-} from '../../src/patch-map/engine/contracts/mutation';
+} from '../../src/engine/contracts/mutation';
 import type {
   PatchMapEngineSnapshot as OwnedSnapshot,
   PatchMapEngineOptions as OwnedOptions,
-} from '../../src/patch-map/engine/contracts/product';
+} from '../../src/engine/contracts/product';
 import type {
   PatchMapEngineExtractionResult as OwnedExtractionResult,
-} from '../../src/patch-map/engine/contracts/extraction';
+} from '../../src/engine/contracts/extraction';
 import type {
   PatchMapViewportState as OwnedViewportState,
-} from '../../src/patch-map/engine/contracts/viewport';
+} from '../../src/engine/contracts/viewport';
 
 describe('PatchMap Engine public contract boundary', () => {
   it('publishes every type-only contract owner directly from Engine', async () => {
     const contractsDirectory = new URL(
-      '../../src/patch-map/engine/contracts/',
+      '../../src/engine/contracts/',
       import.meta.url,
     );
     const contractModuleNames = (await readdir(contractsDirectory))
       .filter((name) => name.endsWith('.ts'))
       .sort();
     const [engineSource, ...ownedContractSources] = await Promise.all([
-      readFile(new URL('../../src/patch-map/engine.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../src/engine/index.ts', import.meta.url), 'utf8'),
       ...contractModuleNames.map((name) => (
         readFile(new URL(name, contractsDirectory), 'utf8')
       )),
@@ -63,7 +65,7 @@ describe('PatchMap Engine public contract boundary', () => {
       );
     }
     const exportedOwnerModules = [...engineSource.matchAll(
-      /^export type \* from '\.\/engine\/contracts\/([^']+)';$/gmu,
+      /^export type \* from '\.\/contracts\/([^']+)';$/gmu,
     )].map((match) => `${match[1]}.ts`);
     expect(exportedOwnerModules).toEqual(contractModuleNames);
     expect(engineSource).toContain('type PatchMapEngineEventMap = {');

@@ -3,13 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   PatchMapSpatialHitAuthority,
   isLargePatchMapAnimatedBarBatch,
-} from '../../src/patch-map/core/spatial-hit-authority';
+} from '../../src/core/spatial-hit-authority';
 import type {
   SceneDocument,
   TransactionBatch,
-} from '../../src/patch-map/dense/contracts';
-import { NoopRenderer } from '../../src/patch-map/dense/noop-renderer';
-import { PatchMapScene } from '../../src/patch-map/scene';
+} from '../../src/dense/contracts';
+import { NoopRenderer } from '../../src/dense/noop-renderer';
+import { PatchMapScene } from '../../src/core/scene';
 
 const IDLE_PRESENTATION = Object.freeze({
   activeCount: 0,

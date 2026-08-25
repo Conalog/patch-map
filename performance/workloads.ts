@@ -1,6 +1,6 @@
-import type { MapData } from '../src/patch-map/input';
-import type { PatchMapBitmapTextCapabilityRequest } from '../src/patch-map/renderers/leaf-layer';
-import type { PatchMapBitmapTextCapabilityProof } from '../src/patch-map/semantic/text-render-route';
+import type { MapData } from '../src/public/input';
+import type { PatchMapBitmapTextCapabilityRequest } from '../src/rendering/leaf-layer';
+import type { PatchMapBitmapTextCapabilityProof } from '../src/semantic/text-render-route';
 
 export const PATCH_MAP_SYNTHETIC_ASSET_ALIAS = 'patch-map-synthetic-dot';
 export const PATCH_MAP_SYNTHETIC_ASSET_DATA_URL =

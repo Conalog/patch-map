@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   PatchMapPersistenceError,
   serializePatchMapDataset,
-} from '../../src/patch-map/persistence';
+} from '../../src/semantic/persistence';
 
 describe('PatchMap persistence', () => {
   it('serializes a detached canonical array without retaining caller values', () => {

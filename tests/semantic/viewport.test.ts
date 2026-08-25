@@ -1,7 +1,7 @@
 import catalogProfiles from '../../contracts/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
 import {
   patchMapBoundsCenter,
   patchMapViewportFitScale,
@@ -9,7 +9,7 @@ import {
   resolvePatchMapViewportContributors,
   type PatchMapViewportGeometry,
   type PatchMapViewportGeometryEntity,
-} from '../../src/patch-map/viewport';
+} from '../../src/viewport';
 
 describe('PatchMap viewport substrate', () => {
   const dataset = materializePatchMapDataset(

@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import { PatchMapSemanticHistory } from '../../src/patch-map/history';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import { PatchMapSemanticHistory } from '../../src/history';
 import type {
   PatchMapEngineSurface,
   PatchMapSurfaceReconcileOptions,
-} from '../../src/patch-map/engine/contracts';
-import { PatchMapDirectMutationCoordinator } from '../../src/patch-map/engine/direct-mutation-coordinator';
+} from '../../src/engine/contracts';
+import { PatchMapDirectMutationCoordinator } from '../../src/engine/direct-mutation-coordinator';
 import {
   createPatchMapEngineHistorySnapshot,
   type PatchMapEngineHistoryCompanion,
-} from '../../src/patch-map/engine/history-planning';
-import { PatchMapPublicationAuthority } from '../../src/patch-map/engine/publication-authority';
-import { PatchMapSceneStateAuthority } from '../../src/patch-map/engine/scene-state-authority';
+} from '../../src/engine/history-planning';
+import { PatchMapPublicationAuthority } from '../../src/engine/publication-authority';
+import { PatchMapSceneStateAuthority } from '../../src/engine/scene-state-authority';
 import type {
   PatchMapLifecycle,
-} from '../../src/patch-map/engine/contracts/lifecycle';
+} from '../../src/engine/contracts/lifecycle';
 
 describe('PatchMapDirectMutationCoordinator', () => {
   it('commits a patch through canonical scene, history, and publication authorities', () => {

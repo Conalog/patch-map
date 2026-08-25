@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PatchMapTextProjection } from '../../src/patch-map/contracts';
+import type { PatchMapTextProjection } from '../../src/parsing/contracts';
 import {
   RenderAlign,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
+} from '../../src/dense/renderer-types';
 import {
   alignName,
   countVisibleGraphemes,
   textGlyphResolution,
   textRenderStyle,
   textStyle,
-} from '../../src/patch-map/renderers/leaf-text-style';
+} from '../../src/rendering/leaf-text-style';
 
 describe('PatchMap leaf text style contract', () => {
   it('resolves authored route style and preserves the exact Pixi stroke contract', () => {

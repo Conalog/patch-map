@@ -3,16 +3,16 @@ import { describe, expect, it } from 'vitest';
 import {
   materializePatchMapDataset,
   type PatchMapElement,
-} from '../../src/patch-map/semantic/dataset';
+} from '../../src/semantic/dataset';
 import {
   ownedRootIndexById,
   planFlatOwnedMergeTransaction,
   planOwnedBarHeightTransaction,
   planOwnedElementAngleTransaction,
-} from '../../src/patch-map/semantic/transaction/owned-fast-path-planning';
+} from '../../src/semantic/transaction/owned-fast-path-planning';
 import {
   normalizeTransaction,
-} from '../../src/patch-map/semantic/transaction/request-normalization';
+} from '../../src/semantic/transaction/request-normalization';
 
 describe('PatchMap owned transaction fast-path planning', () => {
   it('caches root identity and plans only changed direct element angles', () => {

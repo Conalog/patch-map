@@ -9,7 +9,7 @@ import {
   type PatchMapPoint,
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 
 interface ContractAction {
   readonly index: number;

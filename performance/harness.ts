@@ -1,4 +1,4 @@
-import type { PatchMapRendererStrategy } from '../src/patch-map';
+import type { PatchMapRendererStrategy } from '../src/rendering-port';
 import {
   createSyntheticPatchMap,
 } from './workloads';

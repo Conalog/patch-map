@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CoreView } from '../../src/patch-map/dense/contracts';
+import type { CoreView } from '../../src/dense/contracts';
 import type {
   CoreRenderer,
   RendererFlushResult,
   RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
-import { PatchMapRendererLease } from '../../src/patch-map/core/renderer-lease';
+} from '../../src/dense/renderer-types';
+import { PatchMapRendererLease } from '../../src/core/renderer-lease';
 
 describe('PatchMap renderer lease', () => {
   it('forwards renderer reads and writes in caller order while active', () => {

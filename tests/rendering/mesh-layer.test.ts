@@ -4,12 +4,14 @@ import { createTestProjectionIndex } from '../support/projection-index';
 import { Graphics, Matrix, Mesh } from 'pixi.js';
 import type { MeshGeometry } from 'pixi.js';
 
-import type { RenderStoreView } from '../../src/patch-map/dense/renderer-types';
-import { RenderFlags, RenderKind } from '../../src/patch-map/dense/renderer-types';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import { createPatchMapAffine } from '../../src/patch-map/semantic/geometry';
-import type { PatchMapProjectionRenderContext } from '../../src/patch-map/renderers/types';
-import { expandPatchMapRelationDependencyRanges } from '../../src/patch-map/renderers/pixi-renderer';
+import type { RenderStoreView } from '../../src/dense/renderer-types';
+import { RenderFlags, RenderKind } from '../../src/dense/renderer-types';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import { createPatchMapAffine } from '../../src/semantic/geometry';
+import type {
+  PatchMapProjectionRenderContext,
+} from '../../src/geometry/render-quads';
+import { expandPatchMapRelationDependencyRanges } from '../../src/rendering/pixi-renderer';
 import {
   AggregateMeshLayer,
   buildAggregateChunkGeometry,
@@ -17,8 +19,8 @@ import {
   buildQuadGeometry,
   dirtyChunkIndices,
   packedRgbaToMeshStyle,
-} from '../../src/patch-map/renderers/mesh-layer';
-import { PatchMapPresentationStoreView } from '../../src/patch-map/renderers/presentation-store';
+} from '../../src/rendering/mesh-layer';
+import { PatchMapPresentationStoreView } from '../../src/rendering/contracts/presentation-store';
 
 describe('aggregate mesh geometry builders', () => {
   it('converts packed 0xRRGGBBAA into a Pixi tint and composed alpha', () => {

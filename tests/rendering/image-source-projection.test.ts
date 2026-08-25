@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parsePatchMap } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/parsing';
 
 describe('PatchMap image source projection', () => {
   it('classifies every supported source form and gives dense rows canonical bindings', () => {

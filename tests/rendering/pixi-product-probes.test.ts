@@ -9,13 +9,13 @@ import {
   type PatchMapSurfaceComponentVisualProbe,
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 import type {
   PatchMapRenderLaneRole,
   PatchMapRenderLaneSnapshot,
-  PatchMapPixiPublicSurfaceProbe,
-  PatchMapPixiRendererLossProbe,
-} from '../../src/patch-map/renderers/types';
+  PatchMapRendererPublicSurfaceProbe,
+  PatchMapRendererLossProbe,
+} from '../../src/rendering-port';
 
 const RENDER_LANE_ROLES: readonly PatchMapRenderLaneRole[] = [
   'background-geometry',
@@ -46,7 +46,7 @@ function renderLanes(): PatchMapRenderLaneSnapshot {
 class PixiProbeSurface implements PatchMapEngineSurface {
   public canvasCount = 1;
   public destroyed = false;
-  public lossState: PatchMapPixiRendererLossProbe['state'] = 'healthy';
+  public lossState: PatchMapRendererLossProbe['state'] = 'healthy';
   public forceLossCount = 0;
   public destroyFailureCount = 0;
   public onPixiPublicSurfaceProbe: (() => void) | null = null;
@@ -129,7 +129,7 @@ class PixiProbeSurface implements PatchMapEngineSurface {
     });
   }
 
-  public pixiPublicSurfaceProbe(): PatchMapPixiPublicSurfaceProbe {
+  public rendererPublicSurfaceProbe(): PatchMapRendererPublicSurfaceProbe {
     const callback = this.onPixiPublicSurfaceProbe;
     this.onPixiPublicSurfaceProbe = null;
     callback?.();
@@ -155,7 +155,7 @@ class PixiProbeSurface implements PatchMapEngineSurface {
     });
   }
 
-  public rendererLossProbe(): PatchMapPixiRendererLossProbe {
+  public rendererLossProbe(): PatchMapRendererLossProbe {
     const callback = this.onRendererLossProbe;
     this.onRendererLossProbe = null;
     callback?.();
@@ -277,7 +277,7 @@ describe('PatchMap public PixiJS product probes', () => {
       requireWebGL2: true,
       devtools: true,
     });
-    expect(engine.pixiPublicSurfaceProbe()).toMatchObject({
+    expect(engine.rendererPublicSurfaceProbe()).toMatchObject({
       rendererLibrary: 'pixi.js-v8',
       backend: 'webgl2',
       applicationInitialized: true,
@@ -309,7 +309,7 @@ describe('PatchMap public PixiJS product probes', () => {
       destroyPromises.push(engine.destroy());
     };
 
-    expect(engine.pixiPublicSurfaceProbe()).toMatchObject({
+    expect(engine.rendererPublicSurfaceProbe()).toMatchObject({
       lifecycle: 'destroying',
       canvasCount: 1,
     });

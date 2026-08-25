@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ParsePatchMapResult } from '../../src/patch-map/contracts';
+import type { ParsePatchMapResult } from '../../src/parsing/contracts';
 import {
   denseReconcileOptions,
   resolvePresentationFillOverrides,
   semanticPresentationFillDenseIds,
   semanticSelectionDenseIds,
-} from '../../src/patch-map/core/semantic-dense-planning';
-import { indexPatchMapComponentProbeTargets } from '../../src/patch-map/core/product-probe-reader';
-import { parsePatchMap } from '../../src/patch-map/parser';
+} from '../../src/core/semantic-dense-planning';
+import { indexPatchMapComponentProbeTargets } from '../../src/core/product-probe-reader';
+import { parsePatchMap } from '../../src/parsing';
 
 describe('PatchMap semantic-to-dense planning', () => {
   it('maps caller-visible component and element identities without mutating selection input', () => {

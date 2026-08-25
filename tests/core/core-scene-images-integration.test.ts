@@ -1,30 +1,30 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
-import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/dense/renderer-types';
-import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
-import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
+import type { CoreView, SlotRange } from '../../src/dense/contracts';
+import type { RendererFlushResult, RenderStoreView } from '../../src/dense/renderer-types';
+import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/core';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/presentation/layer-contracts';
 import type {
   LeafAssetBindingObservation,
   LeafAssetBindingProbe,
   LeafAssetBindingRequest,
   LeafSceneImageProbe,
-} from '../../src/patch-map/renderers/leaf-layer';
+} from '../../src/rendering/leaf-layer';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
-} from '../../src/patch-map/renderers/pixi-renderer';
-import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
+} from '../../src/rendering/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/rendering/contracts/presentation-store';
 import type {
-  PatchMapPixiRendererDebug,
+  PatchMapRendererDebug,
   RootInteractionHandlers,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/rendering-port';
 import {
   patchMapAffineCorners,
   patchMapAffineHasSkew,
   createPatchMapAffine,
   multiplyPatchMapAffine,
-} from '../../src/patch-map/semantic/geometry';
+} from '../../src/semantic/geometry';
 
 interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -229,7 +229,7 @@ class SceneImageRendererDouble {
   public bindRootInteractions(_handlers: RootInteractionHandlers): () => void {
     return () => undefined;
   }
-  public debugSnapshot(): PatchMapPixiRendererDebug {
+  public debugSnapshot(): PatchMapRendererDebug {
     return Object.freeze({
       strategy: this.strategy,
       backend: 'webgl',
@@ -245,7 +245,7 @@ class SceneImageRendererDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      pixiTextCount: 0,
+      fallbackTextCount: 0,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,

@@ -5,7 +5,7 @@ import {
   isPatchMapStableRecordOverlay,
   patchPatchMapStableRecord,
   rollbackPatchMapStableRecord,
-} from '../../src/patch-map/semantic/stable-record-overlay';
+} from '../../src/semantic/stable-record-overlay';
 
 describe('PatchMap internal stable-record overlay', () => {
   it('preserves ordinary record access, ownership, order, JSON, and write rejection', () => {

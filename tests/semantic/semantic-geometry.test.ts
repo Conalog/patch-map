@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { projectPatchMapSignedRect } from '../../src/patch-map/semantic/geometry';
+import { projectPatchMapSignedRect } from '../../src/semantic/geometry';
 
 describe('PatchMap signed rectangular projection', () => {
   it('encodes a horizontal flip as the equivalent positive dense footprint', () => {

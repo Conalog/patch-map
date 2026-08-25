@@ -1,25 +1,31 @@
 import { describe, expect, it } from 'vitest';
 
+import { PatchMap } from '../../src/engine';
+import { PatchMapLogicalSceneIndex } from '../../src/query-selection';
+import { PatchMapTransformerGestureAuthority } from '../../src/selection-transformer/gesture-authority';
 import {
-  PatchMap,
-  PatchMapLogicalSceneIndex,
-  PatchMapTransformerGestureAuthority,
   createPatchMapSelectionVisualProbe,
   createPatchMapTransformerHandleProbe,
   evaluatePatchMapTransformableSubset,
   hitPatchMapTransformerHandle,
-  materializePatchMapDataset,
   resolvePatchMapRelationEndpoints,
-  type PatchMapSelectionFrameProbe,
-  type PatchMapSelectionOverlayPolicyInput,
-  type PatchMapEnginePointerInput,
-  type PatchMapEngineSurface,
-  type PatchMapPoint,
-  type PatchMapSurfaceDebug,
-  type PatchMapSurfaceGeometrySnapshot,
-  type PatchMapSurfaceView,
-  type PatchMapTransformerTargetGeometry,
-} from '../../src/patch-map';
+} from '../../src/selection-transformer';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import type {
+  PatchMapSelectionFrameProbe,
+  PatchMapTransformerTargetGeometry,
+} from '../../src/selection-transformer/contracts';
+import type { PatchMapSelectionOverlayPolicyInput } from '../../src/core/contracts';
+import type { PatchMapEnginePointerInput } from '../../src/engine/contracts/rendering';
+import type {
+  PatchMapEngineSurface,
+  PatchMapSurfaceDebug,
+} from '../../src/engine/contracts';
+import type {
+  PatchMapPoint,
+  PatchMapSurfaceGeometrySnapshot,
+  PatchMapSurfaceView,
+} from '../../src/engine/surface-contract';
 
 describe('PatchMap aggregate selection and transformer substrate', () => {
   it('classifies the current logical transformable subset without renderer objects', () => {

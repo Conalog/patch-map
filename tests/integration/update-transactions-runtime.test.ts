@@ -12,7 +12,7 @@ import {
   type PatchMapPoint,
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 
 class RuntimeProbeSurface implements PatchMapEngineSurface {
   public canvasCount = 1;

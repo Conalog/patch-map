@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type {
   PatchMapEngineSurface,
   PatchMapSurfaceOptions,
-} from '../../src/patch-map/engine/contracts';
-import { PatchMapSurfaceLifecycleAuthority } from '../../src/patch-map/engine/surface-lifecycle-authority';
+} from '../../src/engine/contracts';
+import { PatchMapSurfaceLifecycleAuthority } from '../../src/engine/surface-lifecycle-authority';
 
 const SURFACE_OPTIONS: PatchMapSurfaceOptions = Object.freeze({
   width: 800,

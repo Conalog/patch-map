@@ -1,27 +1,27 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
+import type { CoreView, SlotRange } from '../../src/dense/contracts';
 import {
   RenderFlags,
   RenderKind,
   type RendererFlushResult,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
-import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
+} from '../../src/dense/renderer-types';
+import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/core';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/presentation/layer-contracts';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
-} from '../../src/patch-map/renderers/pixi-renderer';
-import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
+} from '../../src/rendering/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/rendering/contracts/presentation-store';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapRenderLaneRole,
   PatchMapRenderLaneSnapshot,
-  PatchMapPixiRendererDebug,
+  PatchMapRendererDebug,
   RootInteractionHandlers,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/rendering-port';
 
 describe('PatchMap component visual product kinds', () => {
   const allocated: PatchMapRuntime[] = [];
@@ -264,7 +264,7 @@ class ComponentVisualRendererDouble {
     return this.paints.get(entityId) ?? null;
   }
   public renderLaneProbe(): PatchMapRenderLaneSnapshot { return this.lanes; }
-  public debugSnapshot(): PatchMapPixiRendererDebug {
+  public debugSnapshot(): PatchMapRendererDebug {
     const visiblePrimitives = [...this.paints.values()].reduce(
       (sum, paint) => sum + paint.primitiveCount,
       0,
@@ -284,7 +284,7 @@ class ComponentVisualRendererDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      pixiTextCount: 0,
+      fallbackTextCount: 0,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,

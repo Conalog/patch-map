@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { SceneSnapshot } from '../../src/patch-map/dense/contracts';
+import type { SceneSnapshot } from '../../src/dense/contracts';
 import {
   PatchMap,
   createPatchMapSurfaceGeometrySnapshot,
-  PixiEngineSurface,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
+import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
 
 describe('PatchMap renderer-aligned geometry probe', () => {
   it('keeps empty selection geometry valid before the first dataset load', () => {

@@ -1,22 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
-import { parsePatchMap } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/parsing';
 import {
   PatchMapSceneImageController,
   type PatchMapSceneImageIntrinsicSize,
-} from '../../src/patch-map/scene-images';
-import type { PatchMapSceneImageRendererBridge } from '../../src/patch-map/scene-images/contracts';
-import { PatchMapScene } from '../../src/patch-map/scene';
-import { NoopRenderer } from '../../src/patch-map/dense/noop-renderer';
-import { PatchMapBarPresentationAuthority } from '../../src/patch-map/core/bar-presentation-authority';
-import { PatchMapLoadAuthority } from '../../src/patch-map/core/load-authority';
-import type { PatchMapRuntimeRendererPort } from '../../src/patch-map/core/runtime-renderer-port';
+} from '../../src/scene-images';
+import type { PatchMapSceneImageRendererBridge } from '../../src/scene-images/contracts';
+import { PatchMapScene } from '../../src/core/scene';
+import { NoopRenderer } from '../../src/dense/noop-renderer';
+import { PatchMapBarPresentationAuthority } from '../../src/core/bar-presentation-authority';
+import { PatchMapLoadAuthority } from '../../src/core/load-authority';
+import type { PatchMapRuntimeRendererPort } from '../../src/core/runtime-renderer-port';
 import {
   PatchMapPublishedSceneAuthority,
   type PatchMapPublishedSceneState,
-} from '../../src/patch-map/core/published-scene-state';
-import { PatchMapSpatialHitAuthority } from '../../src/patch-map/core/spatial-hit-authority';
-import { PatchMapPresentationLayerAuthority } from '../../src/patch-map/presentation-layers';
+} from '../../src/core/published-scene-state';
+import { PatchMapSpatialHitAuthority } from '../../src/core/spatial-hit-authority';
+import { PatchMapPresentationLayerAuthority } from '../../src/core/presentation-layers';
 
 describe('PatchMap load authority', () => {
   it('owns cooperative freshness and the balanced publication-side-effect guard', async () => {

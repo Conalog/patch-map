@@ -1,7 +1,5 @@
-import type {
-  PatchMap,
-  PatchMapPointerGestureProbe,
-} from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
+import type { PatchMapPointerGestureProbe } from '../../src/pointer-gesture';
 
 export const PATCH_MAP_POINTER_SELECTION_RUNTIME_REVISION =
   'patch-map-pointer-selection-runtime/1' as const;

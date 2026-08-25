@@ -1,4 +1,4 @@
-import type { PatchMap } from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
 
 export const PATCH_MAP_QUERY_SELECTION_RUNTIME_REVISION =
   'patch-map-query-selection-runtime/1' as const;

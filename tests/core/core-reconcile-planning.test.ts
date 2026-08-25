@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type {
   ParsePatchMapResult,
   PatchMapProjectionIndex,
-} from '../../src/patch-map/contracts';
+} from '../../src/parsing/contracts';
 import {
   changedProjectionEntityIds,
   directBarEntityIds,
@@ -12,12 +12,12 @@ import {
   directTextParseTargetHints,
   incrementalDenseEntityIds,
   structuralTargetMappingsReusable,
-} from '../../src/patch-map/core/reconcile-planning';
+} from '../../src/core/reconcile-planning';
 import {
   indexPatchMapComponentProbeTargets,
   indexPatchMapTextProbeTargets,
-} from '../../src/patch-map/core/product-probe-reader';
-import { parsePatchMap } from '../../src/patch-map/parser';
+} from '../../src/core/product-probe-reader';
+import { parsePatchMap } from '../../src/parsing';
 
 describe('PatchMap core reconcile target planning', () => {
   it('resolves indexed bar and text updates without changing update order or identity', () => {

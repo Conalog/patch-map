@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import type {
   EntityInput,
   SceneDocument,
-} from '../../src/patch-map/dense/contracts';
-import { NoopRenderer } from '../../src/patch-map/dense/noop-renderer';
-import { PatchMapScene } from '../../src/patch-map/scene';
+} from '../../src/dense/contracts';
+import { NoopRenderer } from '../../src/dense/noop-renderer';
+import { PatchMapScene } from '../../src/core/scene';
 
 describe('PatchMapScene cooperative candidate load', () => {
   it('preserves authored slot order and logical revisions across bounded chunks', async () => {

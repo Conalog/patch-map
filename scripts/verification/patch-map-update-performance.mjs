@@ -185,15 +185,15 @@ async function loadRuntime() {
     server: { middlewareMode: true },
   });
   try {
-    const core = await vite.ssrLoadModule('/src/patch-map/index.ts');
+    const engine = await vite.ssrLoadModule('/src/engine/index.ts');
     const workloads = await vite.ssrLoadModule('/performance/workloads.ts');
-    assert(typeof core.PatchMap === 'function', 'PatchMap public export is unavailable');
+    assert(typeof engine.PatchMap === 'function', 'PatchMap engine export is unavailable');
     assert(
       typeof workloads.createSyntheticPatchMap === 'function',
       'PatchMap synthetic workload factory is unavailable',
     );
     return Object.freeze({
-      PatchMap: core.PatchMap,
+      PatchMap: engine.PatchMap,
       createSyntheticPatchMap: workloads.createSyntheticPatchMap,
       close: () => vite.close(),
     });

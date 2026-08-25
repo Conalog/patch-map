@@ -1,4 +1,4 @@
-import type { PatchMapEngineOptions } from '../../../src/patch-map';
+import type { PatchMapEngineOptions } from '../../../src/engine/contracts/product';
 import type {
   PatchMapExecutableCasePlan,
 } from '../executable-cases';

@@ -1,5 +1,5 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
-import { extname, join, resolve } from 'node:path';
+import { dirname, extname, join, resolve } from 'node:path';
 
 const declarationRoot = resolve('dist');
 const relativeSpecifier =
@@ -19,14 +19,25 @@ const declarationsIn = async (directory) => {
   return output;
 };
 
-for (const path of await declarationsIn(declarationRoot)) {
+const declarations = await declarationsIn(declarationRoot);
+const declarationPaths = new Set(declarations.map((path) => resolve(path)));
+
+const runtimeSpecifier = (declarationPath, specifier) => {
+  if (hasRuntimeExtension(specifier)) return specifier;
+  const target = resolve(dirname(declarationPath), specifier);
+  if (declarationPaths.has(resolve(join(target, 'index.d.ts')))) {
+    return `${specifier}/index.js`;
+  }
+  return `${specifier}.js`;
+};
+
+for (const path of declarations) {
   const source = await readFile(path, 'utf8');
   const finalized = source
     .replace(
       relativeSpecifier,
-      (match, prefix, specifier, suffix) => hasRuntimeExtension(specifier)
-        ? match
-        : `${prefix}${specifier}.js${suffix}`,
+      (_match, prefix, specifier, suffix) =>
+        `${prefix}${runtimeSpecifier(path, specifier)}${suffix}`,
     )
     .replace(sourceMapDirective, '');
   if (finalized !== source) await writeFile(path, finalized);

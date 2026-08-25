@@ -28,7 +28,7 @@ import {
   PATCH_MAP_MANUAL_SCENE_SIZE_OPTIONS,
 } from '../../lab/interactive/manual-scene';
 import { PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS } from '../../lab/lab-settings';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
 
 describe('PatchMap human-operated Lab catalog', () => {
   it('partitions exact contract routes from reusable manual workflows', () => {
@@ -166,7 +166,11 @@ describe('PatchMap human-operated Lab catalog', () => {
     expect(sessionSource).toContain(
       "export { renderPatchMapManualWorkbench } from './manual-workbench-view';",
     );
-    expect(sessionSource).toContain('const next = new PatchMap({');
+    expect(sessionSource).toContain('const engineHost = new PatchMap({');
+    expect(sessionSource).toContain('surfaceFactory: createPixiSurface');
+    expect(sessionSource).toContain(
+      'const next = Object.assign(engineHost, createPatchMapApi(engineHost));',
+    );
     expect(sessionSource).not.toContain('function renderSelectionPanel(');
     expect(viewSource).toContain('export function renderPatchMapManualWorkbench(');
     expect(viewSource).toContain('function renderSelectionPanel(');
@@ -191,7 +195,7 @@ describe('PatchMap human-operated Lab catalog', () => {
         'utf8',
       ),
       readFile(new URL(
-        '../../src/patch-map/scheduler/adaptive-frame-budget.ts',
+        '../../src/scheduler/adaptive-frame-budget.ts',
         import.meta.url,
       ), 'utf8'),
     ]);
@@ -209,10 +213,12 @@ describe('PatchMap human-operated Lab catalog', () => {
     );
     const stateSnapshot = source.slice(
       source.indexOf('  function stateSnapshot(): PatchMapManualLabState {'),
-      source.indexOf('  function requireEngine(): PatchMap {'),
+      source.indexOf('  function requireEngine(): PatchMapManualEngine {'),
     );
     const animationProbe = source.slice(
-      source.indexOf('  function activeAnimationCount(next: PatchMap | null): number {'),
+      source.indexOf(
+        '  function activeAnimationCount(next: PatchMapManualEngine | null): number {',
+      ),
       source.indexOf('  async function destroyEngine(): Promise<void> {'),
     );
 
@@ -332,7 +338,7 @@ describe('PatchMap manual Lab scene', () => {
       readFile(new URL('../../lab/index.html', import.meta.url), 'utf8'),
       readFile(new URL('../../vite.lab.config.ts', import.meta.url), 'utf8'),
       readFile(new URL('../../package.json', import.meta.url), 'utf8'),
-      readFile(new URL('../../src/patch-map/index.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../src/index.ts', import.meta.url), 'utf8'),
     ]);
 
     expect(markup).toContain('data-patch-map-contract-lab');

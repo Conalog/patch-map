@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { PatchMapTextProductProbe, PatchMapTextTarget } from '../../src/patch-map/core';
-import type { ParsePatchMapResult } from '../../src/patch-map/contracts';
+import type { PatchMapTextProductProbe, PatchMapTextTarget } from '../../src/core';
+import type { ParsePatchMapResult } from '../../src/parsing/contracts';
 import {
   PatchMap,
   type PatchMapEngineSurface,
@@ -9,15 +9,15 @@ import {
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceReconcileResult,
   type PatchMapSurfaceView,
-} from '../../src/patch-map/engine';
-import { readPatchMapEngineTextProbe } from '../../src/patch-map/engine/product-probe-reader';
-import { parsePatchMap } from '../../src/patch-map/parser';
+} from '../../src/engine';
+import { readPatchMapEngineTextProbe } from '../../src/engine/product-probe-reader';
+import { parsePatchMap } from '../../src/parsing';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapRenderLaneRole,
   PatchMapRenderLaneSnapshot,
   PatchMapTextRendererProbe,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/rendering-port';
 
 describe('PatchMap O(1) text product seam', () => {
   const engines: PatchMap[] = [];

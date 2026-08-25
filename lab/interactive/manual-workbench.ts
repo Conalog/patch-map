@@ -1,15 +1,20 @@
-import {
-  PatchMap,
-  PatchMapAssetRuntime,
-  createPatchMapAssetIngestionPolicy,
-  createPatchMapPixiAssetBackend,
-  type PatchMapAssetAcquisition,
-  type PatchMapAssetIngestionPolicyProfile,
-  type PatchMapFrameLoop,
-  type PatchMapEngineHistoryResult,
-  type PatchMapTargetSet,
-  type PatchMapUpdateTargetsInput,
-} from '../../src/patch-map/index';
+import { PatchMap } from '../../src/engine';
+import { createPixiSurface } from '../../src/composition/pixi-engine-surface';
+import { PatchMapAssetRuntime } from '../../src/assets';
+import { createPatchMapAssetIngestionPolicy } from '../../src/assets/ingestion-policy';
+import { createPatchMapPixiAssetBackend } from '../../src/assets/pixi-backend';
+import type {
+  PatchMapAssetAcquisition,
+  PatchMapAssetIngestionPolicyProfile,
+} from '../../src/assets/contracts';
+import type { PatchMapFrameLoop } from '../../src/scheduler';
+import type { PatchMapEngineHistoryResult } from '../../src/engine/contracts/history-transformer';
+import type {
+  PatchMapApi,
+  PatchMapTargetSet,
+  PatchMapUpdateTargetsInput,
+} from '../../src/public/contracts';
+import { createPatchMapApi } from '../../src/public';
 import {
   patchMapKoreanStatus,
 } from '../contract/korean-copy';
@@ -51,6 +56,8 @@ import { PATCH_MAP_MANUAL_LAB_ZOOM_LIMITS } from '../lab-settings';
 
 export { renderPatchMapManualWorkbench } from './manual-workbench-view';
 
+type PatchMapManualEngine = PatchMap & PatchMapApi;
+
 export interface PatchMapManualLabState {
   readonly caseId: string;
   readonly sceneSize: string;
@@ -71,7 +78,7 @@ export interface PatchMapManualLabState {
 export interface PatchMapManualLabBridge {
   readonly ready: Promise<void>;
   state(): PatchMapManualLabState;
-  engine(): PatchMap | null;
+  engine(): PatchMapManualEngine | null;
   run(command: string): Promise<unknown>;
   destroy(): Promise<void>;
 }
@@ -133,7 +140,7 @@ export function mountPatchMapManualWorkbench(
   const descriptor = selectPatchMapManualCase(options.caseId);
   const abortController = new AbortController();
   const { signal } = abortController;
-  let engine: PatchMap | null = null;
+  let engine: PatchMapManualEngine | null = null;
   let manualSceneSize: PatchMapManualSceneSize = requireManualSceneSize(options.size);
   let scene: PatchMapManualScene = buildPatchMapManualScene(
     manualSceneSize,
@@ -218,16 +225,18 @@ export function mountPatchMapManualWorkbench(
     }
   }
 
-  async function createSession(loadScene: boolean): Promise<PatchMap> {
+  async function createSession(loadScene: boolean): Promise<PatchMapManualEngine> {
     status = 'busy';
     await destroyEngine();
     surfaceHost.replaceChildren();
     const size = surfaceSize(canvasFrame);
-    const next = new PatchMap({
+    const engineHost = new PatchMap({
       historyLimit: 100,
       assetPolicy,
       assetRuntime,
+      surfaceFactory: createPixiSurface,
     });
+    const next = Object.assign(engineHost, createPatchMapApi(engineHost));
     const instanceId = `manual-${options.caseId.toLowerCase()}-${generation + 1}`;
     lastLiveRefreshWallTime = 0;
     generation += 1;
@@ -383,7 +392,7 @@ export function mountPatchMapManualWorkbench(
     }
   }
 
-  function bindEngine(next: PatchMap): void {
+  function bindEngine(next: PatchMapManualEngine): void {
     engineUnbinds = [
       next.on('sceneCommitted', (event) => recordEvent('sceneCommitted', event)),
       next.on('frame', (event) => recordEvent('frame', event, false)),
@@ -845,7 +854,7 @@ export function mountPatchMapManualWorkbench(
     return result;
   }
 
-  function currentAnimatedBarTargets(next: PatchMap): PatchMapTargetSet {
+  function currentAnimatedBarTargets(next: PatchMapManualEngine): PatchMapTargetSet {
     const sceneRevision = next.snapshot().revisions.sceneRevision;
     if (
       animatedBarTargets === null ||
@@ -1054,7 +1063,7 @@ export function mountPatchMapManualWorkbench(
   }
 
   function loadManualScene(
-    next: PatchMap,
+    next: PatchMapManualEngine,
     nextScene: PatchMapManualScene,
     size: PatchMapManualSceneSize = manualSceneSize,
   ): unknown {
@@ -1294,7 +1303,7 @@ export function mountPatchMapManualWorkbench(
   }
 
   function publishEngineFrame(
-    next: PatchMap,
+    next: PatchMapManualEngine,
   ): void {
     if (next !== liveEngine()) {
       throw new Error('PatchMap frame loop target no longer owns the active engine');
@@ -1375,14 +1384,14 @@ export function mountPatchMapManualWorkbench(
     return value || requireEngine().snapshot().selectionIds[0] || 'manual-rect-a';
   }
 
-  function selectedIdsOrDefault(next: PatchMap): readonly string[] {
+  function selectedIdsOrDefault(next: PatchMapManualEngine): readonly string[] {
     const selected = next.snapshot().selectionIds;
     if (selected.length > 0) return selected;
     next.select(['manual-rect-a']);
     return ['manual-rect-a'];
   }
 
-  function selectedElementIds(next: PatchMap): readonly string[] {
+  function selectedElementIds(next: PatchMapManualEngine): readonly string[] {
     return selectedIdsOrDefault(next).filter((id) => !id.includes('::'));
   }
 
@@ -1429,7 +1438,7 @@ export function mountPatchMapManualWorkbench(
     });
   }
 
-  function requireEngine(): PatchMap {
+  function requireEngine(): PatchMapManualEngine {
     const next = liveEngine();
     if (next === null) {
       throw new Error('PatchMap 직접 조작 세션이 종료되었습니다. ‘다시 초기화’를 누르세요.');
@@ -1437,18 +1446,18 @@ export function mountPatchMapManualWorkbench(
     return next;
   }
 
-  function liveEngine(): PatchMap | null {
+  function liveEngine(): PatchMapManualEngine | null {
     if (engine === null) return null;
     return engine.destroyed ? null : engine;
   }
 
-  function probeableEngine(): PatchMap | null {
+  function probeableEngine(): PatchMapManualEngine | null {
     return destroyRequested || status === 'booting' || status === 'busy'
       ? null
       : liveEngine();
   }
 
-  function activeAnimationCount(next: PatchMap | null): number {
+  function activeAnimationCount(next: PatchMapManualEngine | null): number {
     return next?.activeAnimations ?? 0;
   }
 

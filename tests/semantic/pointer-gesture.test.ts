@@ -1,25 +1,31 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  PatchMap,
   PatchMapPointerGestureAuthority,
+  type PatchMapPointerInput,
+} from '../../src/pointer-gesture';
+import {
   hitPatchMapBoxRegion,
   hitPatchMapPaintRegion,
-  type PatchMapEngineSurface,
-  type PatchMapPoint,
-  type PatchMapPointerInput,
-  type PatchMapSurfaceDebug,
-  type PatchMapSurfaceGeometrySnapshot,
-  type PatchMapSurfacePointerInput,
-  type PatchMapSurfaceView,
-  type PatchMapSelectionOverlayPolicyInput,
-} from '../../src/patch-map';
+} from '../../src/pointer-gesture/geometry';
+import type {
+  PatchMapEngineSurface,
+  PatchMapSurfaceDebug,
+  PatchMapSurfacePointerInput,
+} from '../../src/engine/contracts';
+import type {
+  PatchMapPoint,
+  PatchMapSurfaceGeometrySnapshot,
+  PatchMapSurfaceView,
+} from '../../src/engine/surface-contract';
+import type { PatchMapSelectionOverlayPolicyInput } from '../../src/core/contracts';
 import type {
   PatchMapPointerHoverEvent,
   PatchMapPointerSelectionResolverInput,
   PatchMapPointerSelectionChange,
   PatchMapPointerTooltipEvent,
-} from '../../src/patch-map/developer-api';
+} from '../../src/public';
+import { createPublicApiEngine } from '../support/public-api-engine';
 
 describe('PatchMap root pointer and region-selection substrate', () => {
   it('normalizes click, drag, secondary, and touch traces without duplicate completion', () => {
@@ -290,7 +296,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
 
   it('connects one surface root input to Engine events, deferred selection, and region selection', async () => {
     const surface = new PointerTestSurface();
-    const engine = new PatchMap({
+    const engine = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(surface),
     });
     await engine.initialize({
@@ -370,7 +376,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
       { ...geometry('authored::text:label', [200, 20, 60, 20], 'authored', 'label'), interactive: false },
     ]);
     const policyTargets: Array<Readonly<{ id: string; componentId?: string }>> = [];
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
     engine.configurePointerSelectionPolicy({
       allowMultiple: true,
       box: { partialIntersection: true },
@@ -515,7 +521,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
   it('projects mount-owned hover persistence without changing the compatible default', async () => {
     for (const hoverDuringPress of [false, true]) {
       const surface = new PointerTestSurface();
-      const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+      const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
       if (hoverDuringPress) engine.configurePointerPolicy({ hoverDuringPress: true });
       await engine.initialize({
         instanceId: `pointer-hover-during-press-${hoverDuringPress}`,
@@ -543,7 +549,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
       expect(surface.pointerListener).toBeNull();
     }
 
-    const engine = new PatchMap({
+    const engine = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(new PointerTestSurface()),
     });
     expect(() => engine.configurePointerPolicy({
@@ -553,7 +559,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
 
   it('pins package-owned tooltip projection on context menu until the next primary click', async () => {
     const surface = new PointerTestSurface();
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
     engine.configurePointerPolicy({
       hoverDuringPress: true,
       tooltip: { pinOnContextMenu: true, preventDefault: true },
@@ -599,7 +605,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     expect(surface.pointerListener).toBeNull();
     expect(tooltipEvents).toHaveLength(beforeDestroy);
 
-    const compatible = new PatchMap({
+    const compatible = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(new PointerTestSurface()),
     });
     compatible.configurePointerPolicy({ tooltip: { pinOnContextMenu: false } });
@@ -614,7 +620,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
 
   it('resolves Ctrl or Cmd point selection inside the package-owned selection commit', async () => {
     const surface = new PointerTestSurface();
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
     const resolver = vi.fn(({
       target,
       currentIds,
@@ -679,7 +685,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
 
   it('keeps Shift point selection through 4px and starts box ownership at 5px', async () => {
     const surface = new PointerTestSurface();
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
     engine.configurePointerSelectionPolicy({
       allowMultiple: true,
       box: { partialIntersection: true, activationModifier: 'shift' },
@@ -716,7 +722,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
 
   it('latches shift-only box activation at pointer-down without taking ordinary pan drags', async () => {
     const surface = new PointerTestSurface();
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
     engine.configurePointerSelectionPolicy({
       allowMultiple: true,
       box: { partialIntersection: true, activationModifier: 'shift' },
@@ -780,7 +786,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
 
   it('owns configured blank and selected-target double-click deselection without delaying new targets', async () => {
     const surface = new PointerTestSurface();
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
     engine.configurePointerSelectionPolicy({
       allowMultiple: true,
       clearOnBlankClick: 'double',
@@ -872,7 +878,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
 
   it('keeps the compatible blank single-click clear default', async () => {
     const surface = new PointerTestSurface();
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
     await engine.initialize({ instanceId: 'pointer-blank-default-clear', width: 800, height: 600 });
     engine.loadDataset(REGION_DATASET);
     engine.selection.set('item-a');
@@ -883,7 +889,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
 
   it('normalizes mount selection visuals and clears transient marquee on every cancel path', async () => {
     const surface = new PointerTestSurface();
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
     engine.configurePointerSelectionPolicy({
       allowMultiple: true,
       box: {

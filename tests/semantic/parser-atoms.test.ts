@@ -4,8 +4,8 @@ import {
   deterministicPatchMapTokenColor,
   multiplyPatchMapRgba,
   parsePatchMapCssColor,
-} from '../../src/patch-map/parser/color';
-import { normalizePatchMapImageSource } from '../../src/patch-map/parser/image-source';
+} from '../../src/parsing/color';
+import { normalizePatchMapImageSource } from '../../src/parsing/image-source';
 
 describe('PatchMap parser atoms', () => {
   it.each([

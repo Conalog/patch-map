@@ -1,4 +1,4 @@
-import type { PatchMap } from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
 import { buildPatchMapSeededScenarioScene } from '../../verification/scenarios/seeded-scene';
 
 export const PATCH_MAP_UPDATE_TRANSACTIONS_RUNTIME_REVISION =

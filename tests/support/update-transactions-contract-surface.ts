@@ -4,7 +4,7 @@ import {
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
   type PatchMapAssetSession,
-} from '../../src/patch-map/assets';
+} from '../../src/assets';
 import type {
   PatchMapEngineSceneImageRecord,
   PatchMapEngineSceneImagesProbe,
@@ -16,20 +16,20 @@ import type {
   PatchMapSurfaceOptions,
   PatchMapSurfaceReconcileOptions,
   PatchMapSurfaceReconcileResult,
-} from '../../src/patch-map/engine';
-import type { SlotRange } from '../../src/patch-map/dense/contracts';
-import type { PatchMapSemanticRefreshResult } from '../../src/patch-map/core';
-import type { PatchMapComponentRenderRole } from '../../src/patch-map/contracts';
+} from '../../src/engine';
+import type { SlotRange } from '../../src/dense/contracts';
+import type { PatchMapSemanticRefreshResult } from '../../src/core';
+import type { PatchMapComponentRenderRole } from '../../src/parsing/contracts';
 import {
   PATCH_MAP_PRESENTATION_POLICY_REVISION,
   type PatchMapPresentationPolicyInput,
   type PatchMapPresentationPolicyProductProbe,
-} from '../../src/patch-map/presentation-policy';
+} from '../../src/presentation/policy';
 import type {
   PatchMapRenderLaneRole,
   PatchMapRenderLaneSnapshot,
-} from '../../src/patch-map/renderers/types';
-import type { PatchMapSemanticTarget } from '../../src/patch-map/semantic/probe';
+} from '../../src/rendering-port';
+import type { PatchMapSemanticTarget } from '../../src/semantic/probe';
 
 export type JsonRecord = Record<string, unknown>;
 

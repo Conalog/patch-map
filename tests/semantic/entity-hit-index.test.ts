@@ -7,24 +7,24 @@ import type {
   EntityRef,
   EntitySnapshot,
   SceneSnapshot,
-} from '../../src/patch-map/dense/contracts';
+} from '../../src/dense/contracts';
 import type {
   PatchMapEntityProjection,
   PatchMapProjectionIndex,
-} from '../../src/patch-map/contracts';
-import { PatchMapRuntime } from '../../src/patch-map/core';
-import type { PatchMapSpatialHitAuthority } from '../../src/patch-map/core/spatial-hit-authority';
-import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
-import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
+} from '../../src/parsing/contracts';
+import { PatchMapRuntime } from '../../src/core';
+import type { PatchMapSpatialHitAuthority } from '../../src/core/spatial-hit-authority';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/presentation/layer-contracts';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/rendering/contracts/presentation-store';
 import {
   PatchMapEntityHitIndex,
   patchMapEntityContainsWorldPoint,
   hitTestPatchMapEntityIndex,
-} from '../../src/patch-map/semantic/entity-hit-index';
+} from '../../src/geometry/entity-hit-index';
 import {
   applyPatchMapAffine,
   freezePatchMapAffine,
-} from '../../src/patch-map/semantic/geometry';
+} from '../../src/semantic/geometry';
 
 describe('PatchMap bounded entity hit index', () => {
   it('bounds huge finite AABBs in overflow and merges candidates in topmost order', () => {

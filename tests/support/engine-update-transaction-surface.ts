@@ -1,13 +1,14 @@
-import {
+import type {
   PatchMap,
-  type PatchMapEngineSurface,
-  type PatchMapPoint,
-  type PatchMapSurfaceDebug,
-  type PatchMapSurfaceOptions,
-  type PatchMapSurfaceReconcileOptions,
-  type PatchMapSurfaceReconcileResult,
-  type PatchMapSurfaceViewportInput,
-} from '../../src/patch-map/engine';
+  PatchMapEngineSurface,
+  PatchMapPoint,
+  PatchMapSurfaceDebug,
+  PatchMapSurfaceOptions,
+  PatchMapSurfaceReconcileOptions,
+  PatchMapSurfaceReconcileResult,
+  PatchMapSurfaceViewportInput,
+} from '../../src/engine';
+import { createPublicApiEngine } from './public-api-engine';
 
 export interface RecordedReconcile {
   readonly input: unknown;
@@ -210,9 +211,12 @@ export class TransactionSurface implements PatchMapEngineSurface {
 export async function createEngine(
   engines: PatchMap[],
   instanceId: string,
-): Promise<Readonly<{ engine: PatchMap; surface: TransactionSurface }>> {
+): Promise<Readonly<{
+  engine: ReturnType<typeof createPublicApiEngine>;
+  surface: TransactionSurface;
+}>> {
   const surface = new TransactionSurface({ width: 800, height: 600, pixelRatio: 1 });
-  const engine = new PatchMap({
+  const engine = createPublicApiEngine({
     surfaceFactory: (options) => {
       surface.onTerminalFailure = options.onTerminalFailure ?? null;
       return Promise.resolve(surface);

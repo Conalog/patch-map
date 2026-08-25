@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   normalizePatchMapComponentVisualTarget,
-} from '../../src/patch-map/core/contracts';
+} from '../../src/core/contracts';
 import {
   assertTransformerHandleKind,
   finiteTuple,
@@ -20,11 +20,11 @@ import {
   validateNonNegativeFinite,
   validatePoint,
   validatePositiveFinite,
-} from '../../src/patch-map/engine/input-contracts';
+} from '../../src/engine/input-contracts';
 import type {
   RectangleTextureStyle,
   TextStyleInput,
-} from '../../src/patch-map/input';
+} from '../../src/public/input';
 
 describe('PatchMap Engine input contracts', () => {
   it('exposes justify and exact component corner radii in the public input types', () => {

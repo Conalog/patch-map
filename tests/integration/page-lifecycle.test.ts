@@ -3,15 +3,19 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   PATCH_MAP_PAGE_LIFECYCLE_REVISION,
-  PatchMap,
   PatchMapPageLifecycleAuthority,
-  type PatchMapEngineSurface,
-  type PatchMapPoint,
-  type PatchMapPresentationLifecycleResult,
-  type PatchMapSurfaceDebug,
-  type PatchMapSurfaceOptions,
-  type PatchMapSurfaceView,
-} from '../../src/patch-map';
+} from '../../src/engine/page-lifecycle';
+import { PatchMap } from '../../src/engine';
+import type {
+  PatchMapEngineSurface,
+  PatchMapSurfaceDebug,
+  PatchMapSurfaceOptions,
+} from '../../src/engine/contracts';
+import type {
+  PatchMapPoint,
+  PatchMapSurfaceView,
+} from '../../src/engine/surface-contract';
+import type { PatchMapPresentationLifecycleResult } from '../../src/core/contracts';
 
 describe('PatchMap page lifecycle authority', () => {
   const engines: PatchMap[] = [];

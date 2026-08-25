@@ -7,8 +7,8 @@ import {
 import type {
   PatchMapAssetRegistration,
   PatchMapAssetRegistrationResult,
-  PatchMapAssetSession,
-} from '../../src/patch-map';
+} from '../../src/assets/contracts';
+import type { PatchMapAssetSession } from '../../src/assets';
 
 const DIRECT_URL = 'https://assets.example.test/image.png';
 const DESCRIPTOR_URL = 'https://assets.example.test/image.svg';

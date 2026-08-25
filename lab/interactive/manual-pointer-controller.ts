@@ -1,7 +1,5 @@
-import type {
-  PatchMap,
-  PatchMapGestureCancelReason,
-} from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
+import type { PatchMapGestureCancelReason } from '../../src/pointer-gesture';
 import {
   angleDegrees,
   canvasPoint,

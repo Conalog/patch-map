@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   parsePatchMapDirectElementAngleBatch,
-} from '../../src/patch-map/incremental-parser';
-import { parsePatchMap } from '../../src/patch-map/parser';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import { planPatchMapBulkPatch } from '../../src/patch-map/semantic/transaction';
+} from '../../src/parsing/incremental';
+import { parsePatchMap } from '../../src/parsing';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import { planPatchMapBulkPatch } from '../../src/semantic/transaction';
 
 describe('PatchMap direct element-angle projection', () => {
   it('matches canonical flat-root geometry across repeated owned batches', () => {

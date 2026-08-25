@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Application } from 'pixi.js';
 
-import { pixiDevtoolsOwnsApplication } from '../../src/patch-map/renderers/pixi-devtools-registration';
-import type { PatchMapCanvasSurfaceLifecycle } from '../../src/patch-map/renderers/pixi-renderer/canvas-surface-lifecycle';
-import type { PatchMapPixiRootInteractionBindingAuthority } from '../../src/patch-map/renderers/pixi-renderer/root-interaction-binding-authority';
-import { PatchMapPixiSurfacePublicationAuthority } from '../../src/patch-map/renderers/pixi-renderer/surface-publication-authority';
+import { pixiDevtoolsOwnsApplication } from '../../src/rendering/pixi-devtools-registration';
+import type { PatchMapCanvasSurfaceLifecycle } from '../../src/rendering/pixi-renderer/canvas-surface-lifecycle';
+import type { PatchMapPixiRootInteractionBindingAuthority } from '../../src/rendering/pixi-renderer/root-interaction-binding-authority';
+import { PatchMapPixiSurfacePublicationAuthority } from '../../src/rendering/pixi-renderer/surface-publication-authority';
 
 describe('PatchMap Pixi surface publication authority', () => {
   it('publishes once, restores the original render, and owns loss/devtools cleanup', () => {

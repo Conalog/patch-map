@@ -4,7 +4,8 @@ import {
   type PatchMapInitializeOptions,
   type PatchMapInitializeResult,
   type PatchMapEngineOptions,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
+import { createPixiSurface } from '../../src/composition/pixi-engine-surface';
 
 import { isPatchMapLabRecord as isRecord } from './runtime-values';
 
@@ -18,7 +19,7 @@ export class TargetedWebGLPatchMapEngine extends PatchMap {
   ) {
     super({
       ...engineOptions,
-      ...(surfaceFactory ? { surfaceFactory } : {}),
+      surfaceFactory: surfaceFactory ?? createPixiSurface,
     });
     this.surfaceHost = surfaceHost;
   }

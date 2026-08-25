@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { PatchMap } from '../../src/patch-map/engine';
+import { PatchMap } from '../../src/engine';
 import {
   actualAt,
   executeCase,

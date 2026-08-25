@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  PatchMap,
-  createPatchMapSemanticProbe,
-  materializePatchMapDataset,
-  type PatchMapEngineSurface,
-  type PatchMapEngineSurfaceFactory,
-  type PatchMapPoint,
-  type PatchMapSurfaceDebug,
-  type PatchMapSurfaceOptions,
-} from '../../src/patch-map/index';
+import { PatchMap } from '../../src/engine';
+import { createPatchMapSemanticProbe } from '../../src/semantic/probe';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import type {
+  PatchMapEngineSurface,
+  PatchMapEngineSurfaceFactory,
+  PatchMapSurfaceDebug,
+  PatchMapSurfaceOptions,
+} from '../../src/engine/contracts';
+import type { PatchMapPoint } from '../../src/engine/surface-contract';
 
 class ProbeSurface implements PatchMapEngineSurface {
   public canvasCount = 1;

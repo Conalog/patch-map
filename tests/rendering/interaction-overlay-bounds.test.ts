@@ -1,19 +1,27 @@
-import { describe, expect, it } from 'vitest';
+import {
+  describe,
+  expect,
+  it } from 'vitest';
 
 import { createTestProjectionIndex } from '../support/projection-index';
-import { Container, Graphics, Matrix } from 'pixi.js';
+import { Container,
+  Graphics,
+  Matrix } from 'pixi.js';
 
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
 import {
   RenderFlags,
   RenderKind,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
+  } from '../../src/dense/renderer-types';
 import {
   createPatchMapProjectionQuadCache,
-  type PatchMapProjectionRenderContext,
-} from '../../src/patch-map/renderers/types';
-import { PatchMapPixiInteractionOverlayAuthority } from '../../src/patch-map/renderers/pixi-renderer/interaction-overlay-authority';
+} from '../../src/geometry/render-quads';
+import type {
+  PatchMapProjectionRenderContext,
+} from '../../src/geometry/render-quads';
+
+import { PatchMapPixiInteractionOverlayAuthority } from '../../src/rendering/pixi-renderer/interaction-overlay-authority';
 import {
   composeOverlaySelectionPaths,
   DEFAULT_INTERACTION_OVERLAY_POLICY,
@@ -25,7 +33,7 @@ import {
   resolveSelectionScreenStrokeWidth,
   resolveOverlayStrokeAlignment,
   sameInteractionOverlayPolicy,
-} from '../../src/patch-map/renderers/pixi-renderer/interaction-overlay';
+} from '../../src/rendering/pixi-renderer/interaction-overlay';
 
 describe('PatchMap aggregate selection bounds display', () => {
   const first = Object.freeze([0, 0, 10, 0, 10, 10, 0, 10]);

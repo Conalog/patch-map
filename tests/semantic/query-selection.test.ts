@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  PatchMap,
-  PatchMapLogicalSceneIndex,
-  applyPatchMapSelectionOperation,
-  materializePatchMapDataset,
-  type PatchMapEngineSurface,
-  type PatchMapEngineSurfaceFactory,
-  type PatchMapPoint,
-  type PatchMapSurfaceDebug,
-  type PatchMapSurfaceView,
-} from '../../src/patch-map';
+import { PatchMap } from '../../src/engine';
+import { PatchMapLogicalSceneIndex } from '../../src/query-selection';
+import { applyPatchMapSelectionOperation } from '../../src/query-selection/selection-values';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import type {
+  PatchMapEngineSurface,
+  PatchMapEngineSurfaceFactory,
+  PatchMapSurfaceDebug,
+} from '../../src/engine/contracts';
+import type {
+  PatchMapPoint,
+  PatchMapSurfaceView,
+} from '../../src/engine/surface-contract';
 
 const QUERY_DATASET = [
   {

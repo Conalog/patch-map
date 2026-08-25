@@ -6,13 +6,13 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from '../support/contract-verifier-import-firewall';
 
-import {
-  PatchMap,
-  type PatchMapEngineSurface,
-  type PatchMapPoint,
-  type PatchMapSurfaceDebug,
-  type PatchMapSurfaceOptions,
-} from '../../src/patch-map';
+import { PatchMap } from '../../src/engine';
+import type {
+  PatchMapEngineSurface,
+  PatchMapSurfaceDebug,
+  PatchMapSurfaceOptions,
+} from '../../src/engine/contracts';
+import type { PatchMapPoint } from '../../src/engine/surface-contract';
 
 type JsonRecord = Record<string, unknown>;
 type Handler = (context: unknown, action: unknown) => unknown;

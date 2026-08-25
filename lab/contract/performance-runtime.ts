@@ -13,7 +13,7 @@ import {
   type PatchMapPerformanceBarState,
   type PatchMapPerformanceSemanticProjection,
 } from '../../performance/contract-workload';
-import type { PatchMap } from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
 import { deepFreezePatchMapLabValue as deepFreeze } from './runtime-values';
 
 export const PATCH_MAP_PERFORMANCE_RUNTIME_REVISION =

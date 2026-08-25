@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import type { EntityInput, EntitySnapshot, SceneSnapshot } from '../../src/patch-map/dense/contracts';
-import type { ParsePatchMapResult } from '../../src/patch-map/contracts';
+import type { EntityInput, EntitySnapshot, SceneSnapshot } from '../../src/dense/contracts';
+import type { ParsePatchMapResult } from '../../src/parsing/contracts';
 import {
   buildPatchMapRelationHitIndex,
   createPatchMapSurfaceGeometrySnapshot,
   hitTestPatchMapSurfaceRelations,
   queryPatchMapRelationHitIndex,
   type PatchMapSurfaceRelationGeometry,
-} from '../../src/patch-map/engine';
-import { parsePatchMap } from '../../src/patch-map/parser';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import { applyPatchMapSemanticPatch } from '../../src/patch-map/semantic/mutation';
+} from '../../src/engine';
+import { parsePatchMap } from '../../src/parsing';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import { applyPatchMapSemanticPatch } from '../../src/semantic/mutation';
 import {
   relationPathHitScreen,
   selfLinkWorldPoints,
-} from '../../src/patch-map/semantic/relations';
+} from '../../src/geometry/relation-paths';
 
 describe('PatchMap aggregate relation paths', () => {
   it('deduplicates ordered pairs, preserves reverse links, and builds a finite self loop', () => {

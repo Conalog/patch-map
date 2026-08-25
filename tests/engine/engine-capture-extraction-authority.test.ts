@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapCaptureExtractionAuthority } from '../../src/patch-map/engine/capture-extraction-authority';
-import type { PatchMapEngineSurface } from '../../src/patch-map/engine/contracts';
-import { PatchMapManagedFrameLoopAuthority } from '../../src/patch-map/engine/managed-frame-loop-authority';
+import { PatchMapCaptureExtractionAuthority } from '../../src/engine/capture-extraction-authority';
+import type { PatchMapEngineSurface } from '../../src/engine/contracts';
+import { PatchMapManagedFrameLoopAuthority } from '../../src/engine/managed-frame-loop-authority';
 import {
   createPatchMapOperationDiagnostic,
   createPatchMapOperationError,
-} from '../../src/patch-map/engine/operation-outcomes';
-import { PatchMapPublicationAuthority } from '../../src/patch-map/engine/publication-authority';
+} from '../../src/engine/operation-outcomes';
+import { PatchMapPublicationAuthority } from '../../src/engine/publication-authority';
 import type {
   PatchMapEngineDiagnostic,
-} from '../../src/patch-map/engine/contracts/lifecycle';
-import { PatchMapExtractionSecurityAuthority } from '../../src/patch-map/operations';
+} from '../../src/engine/contracts/lifecycle';
+import { PatchMapExtractionSecurityAuthority } from '../../src/operations';
 
 describe('PatchMapCaptureExtractionAuthority', () => {
   it('serializes managed captures and applies deferred reentrant resize before resume', async () => {

@@ -12,8 +12,8 @@ import {
   ownedPatchMapExactPatchIndices,
   ownedPatchMapMaterialization,
   ownedPatchMapPreviewPatchIndices,
-} from '../../src/patch-map/semantic/dataset';
-import type { PatchMapDatasetError } from '../../src/patch-map/semantic/dataset';
+} from '../../src/semantic/dataset';
+import type { PatchMapDatasetError } from '../../src/semantic/dataset';
 
 const productionFixturePath = fileURLToPath(
   new URL('../../lab/fixtures/production-like.json', import.meta.url),

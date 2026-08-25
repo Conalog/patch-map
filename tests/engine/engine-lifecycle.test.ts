@@ -8,8 +8,8 @@ import {
   type PatchMapPoint,
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
-} from '../../src/patch-map/engine';
-import type { FrameDriver } from '../../src/patch-map/scheduler';
+} from '../../src/engine';
+import type { FrameDriver } from '../../src/scheduler';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

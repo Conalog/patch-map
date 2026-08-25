@@ -2,15 +2,15 @@ import { Texture } from 'pixi.js';
 
 import {
   PatchMapAssetError,
-  PatchMapAssetRuntime,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-  type PatchMapAssetDescriptor,
   type PatchMapAssetPolicy,
   type PatchMapAssetPolicyContext,
   type PatchMapAssetRegistration,
   type PatchMapAssetRegistrationResult,
-} from '../../src/patch-map';
+} from '../../src/assets/contracts';
+import { PatchMapAssetRuntime } from '../../src/assets';
+import type { PatchMapAssetDescriptor } from '../../src/semantic/dataset/contracts';
 
 const RESOURCE_PROBE_REVISION = 'patch-map-component-assets-resource-probe/1';
 const PRODUCT_CLEANUP_REVISION = 'patch-map-component-assets-product-cleanup/1';

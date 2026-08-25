@@ -2,15 +2,15 @@ import { Texture } from 'pixi.js';
 
 import {
   PatchMapAssetError,
-  PatchMapAssetRuntime,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-  type PatchMapAssetDescriptor,
   type PatchMapAssetPolicy,
   type PatchMapAssetPolicyContext,
   type PatchMapAssetRegistration,
   type PatchMapAssetRegistrationResult,
-} from '../../src/patch-map';
+} from '../../src/assets/contracts';
+import { PatchMapAssetRuntime } from '../../src/assets';
+import type { PatchMapAssetDescriptor } from '../../src/semantic/dataset/contracts';
 
 const INSTANCE_ID = 'ren-005-images-engine';
 const FIXTURE_ALIAS = 'fixture-image';

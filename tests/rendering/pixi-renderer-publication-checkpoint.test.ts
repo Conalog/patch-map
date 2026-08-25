@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { SlotRange } from '../../src/patch-map/dense/contracts';
-import type { RenderStoreView } from '../../src/patch-map/dense/renderer-types';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import type { PatchMapResolvedPresentationPolicy } from '../../src/patch-map/presentation-policy';
-import { PatchMapPixiRenderer } from '../../src/patch-map/renderers/pixi-renderer';
-import { PatchMapPresentationStoreView } from '../../src/patch-map/renderers/presentation-store';
-import { PatchMapPixiCpuPublicationAuthority } from '../../src/patch-map/renderers/pixi-renderer/cpu-publication-authority';
-import type { PatchMapPixiRendererPublicationCheckpoint } from '../../src/patch-map/renderers/pixi-renderer/publication-checkpoint';
+import type { SlotRange } from '../../src/dense/contracts';
+import type { RenderStoreView } from '../../src/dense/renderer-types';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import type { PatchMapResolvedPresentationPolicy } from '../../src/presentation/policy';
+import { PatchMapPixiRenderer } from '../../src/rendering/pixi-renderer';
+import { PatchMapPresentationStoreView } from '../../src/rendering/contracts/presentation-store';
+import { PatchMapPixiCpuPublicationAuthority } from '../../src/rendering/pixi-renderer/cpu-publication-authority';
+import type { PatchMapPixiRendererPublicationCheckpoint } from '../../src/rendering/pixi-renderer/publication-checkpoint';
 import { createTestProjectionIndex } from '../support/projection-index';
 
 describe('PatchMap Pixi renderer publication checkpoint', () => {

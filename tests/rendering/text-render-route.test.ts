@@ -6,13 +6,13 @@ import {
   PATCH_MAP_BITMAP_TEXT_MAX_CODE_UNITS,
   PATCH_MAP_TEXT_RENDER_ROUTE_REVISION,
   selectPatchMapTextRenderRoute,
-} from '../../src/patch-map/semantic/text-render-route';
+} from '../../src/semantic/text-render-route';
 import type {
   PatchMapBitmapTextCapabilityProof,
   PatchMapTextGlyphResolution,
   PatchMapTextRenderRouteInput,
   PatchMapTextRenderStyle,
-} from '../../src/patch-map/semantic/text-render-route';
+} from '../../src/semantic/text-render-route';
 
 const SIMPLE_STYLE: PatchMapTextRenderStyle = Object.freeze({
   fontFamily: 'FiraCode',
@@ -259,7 +259,7 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
 
   it('stays pure and independent from Pixi classes', async () => {
     const source = await readFile(
-      new URL('../../src/patch-map/semantic/text-render-route.ts', import.meta.url),
+      new URL('../../src/semantic/text-render-route.ts', import.meta.url),
       'utf8',
     );
 

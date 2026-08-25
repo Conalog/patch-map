@@ -5,7 +5,7 @@ import {
   PatchMapAssetRuntime,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-} from '../../src/patch-map/assets';
+} from '../../src/assets';
 import {
   PatchMap,
   type PatchMapEngineSurface,
@@ -14,8 +14,8 @@ import {
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceView,
-} from '../../src/patch-map/engine';
-import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
+} from '../../src/engine';
+import { AggregateLeafLayer } from '../../src/rendering/leaf-layer';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

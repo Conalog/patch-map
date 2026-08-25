@@ -4,9 +4,9 @@ import {
   PatchMapPublishedSceneAuthority,
   freezePatchMapPublishedSceneState,
   type PatchMapPublishedSceneState,
-} from '../../src/patch-map/core/published-scene-state';
-import { NoopRenderer } from '../../src/patch-map/dense/noop-renderer';
-import { PatchMapScene } from '../../src/patch-map/scene';
+} from '../../src/core/published-scene-state';
+import { NoopRenderer } from '../../src/dense/noop-renderer';
+import { PatchMapScene } from '../../src/core/scene';
 
 describe('PatchMap published scene authority', () => {
   it('prepares privately and publishes all scene fields with one frozen reference swap', () => {

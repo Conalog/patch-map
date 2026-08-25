@@ -2,18 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import { createTestProjectionIndex } from '../support/projection-index';
 
-import type { PatchMapEntityProjection, PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+import type { PatchMapEntityProjection, PatchMapProjectionIndex } from '../../src/parsing/contracts';
 import {
   PatchMapPresentationProjectionStore,
   projectPatchMapBarPresentationHeight,
-} from '../../src/patch-map/presentation-projection';
+} from '../../src/presentation/projection';
 import {
   applyPatchMapAffine,
   patchMapAffineBasis,
   patchMapAffineCenter,
   createPatchMapAffine,
   freezePatchMapBounds,
-} from '../../src/patch-map/semantic/geometry';
+} from '../../src/semantic/geometry';
 
 describe('PatchMap presentation projection', () => {
   it('keeps the semantic bottom edge fixed while height changes under affine transforms', () => {

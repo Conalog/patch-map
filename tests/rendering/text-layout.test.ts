@@ -8,7 +8,7 @@ import {
   relocatePatchMapTextLayout,
   segmentPatchMapGraphemes,
   type PatchMapTextLayoutOptions,
-} from '../../src/patch-map/semantic/text-layout';
+} from '../../src/semantic/text-layout';
 
 describe('PatchMap deterministic Unicode semantic layout', () => {
   it('pins the approved Unicode profile and ASCII semantic advance frame', () => {

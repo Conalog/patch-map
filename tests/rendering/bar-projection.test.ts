@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapParseError } from '../../src/patch-map/contracts';
-import { parsePatchMap } from '../../src/patch-map/parser';
+import { PatchMapParseError } from '../../src/parsing/contracts';
+import { parsePatchMap } from '../../src/parsing';
 
 describe('PatchMap bar projection sidecar', () => {
   it('retains exact stable identity, placement policy, and semantic destination without aliases', () => {

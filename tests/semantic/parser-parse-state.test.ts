@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapParseError } from '../../src/patch-map/contracts';
+import { PatchMapParseError } from '../../src/parsing/contracts';
 import {
   createPatchMapParseState,
   fatalPatchMapParse,
   finishPatchMapParseState,
   warnPatchMapParse,
   warnPatchMapParseOnce,
-} from '../../src/patch-map/parser/parse-state';
+} from '../../src/parsing/parse-state';
 
 describe('PatchMap parser state', () => {
   it('finishes one frozen empty result with deterministic indexes and counts', () => {

@@ -27,7 +27,7 @@ test('published documentation remains a full release-gate change', () => {
 
 test('product, package, verification, and workflow changes require the full release gate', () => {
   for (const path of [
-    'src/patch-map/index.ts',
+    'src/index.ts',
     'package.json',
     'package-lock.json',
     'scripts/verification/patch-map-package.mjs',

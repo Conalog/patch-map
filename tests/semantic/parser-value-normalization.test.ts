@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { PATCH_MAP_IDENTITY_AFFINE } from '../../src/patch-map/semantic/geometry';
-import { deterministicPatchMapTokenColor } from '../../src/patch-map/parser/color';
-import { createPatchMapParseState } from '../../src/patch-map/parser/parse-state';
+import { PATCH_MAP_IDENTITY_AFFINE } from '../../src/semantic/geometry';
+import { deterministicPatchMapTokenColor } from '../../src/parsing/color';
+import { createPatchMapParseState } from '../../src/parsing/parse-state';
 import {
   barAnimationDuration,
   elementTransform,
@@ -10,7 +10,7 @@ import {
   inspectAttributes,
   resolveColor,
   resolveComponentSize,
-} from '../../src/patch-map/parser/value-normalization';
+} from '../../src/parsing/value-normalization';
 
 describe('PatchMap parser value normalization', () => {
   it('normalizes fixed and component lengths while preserving warning order', () => {

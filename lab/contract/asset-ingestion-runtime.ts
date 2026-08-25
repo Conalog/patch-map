@@ -2,21 +2,25 @@ import { Texture } from 'pixi.js';
 
 import {
   PatchMapAssetError,
-  PatchMapAssetRuntime,
-  createPatchMapAssetIngestionPolicy,
-  evaluatePatchMapAssetResponsePolicy,
-  normalizePatchMapAssetDescriptor,
   type PatchMapAssetAcquisition,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-  type PatchMapAssetDescriptor,
   type PatchMapAssetIngestionPolicyProfile,
   type PatchMapAssetPolicy,
   type PatchMapAssetPolicyContext,
+} from '../../src/assets/contracts';
+import {
+  PatchMapAssetRuntime,
   type PatchMapAssetSession,
-  type PatchMap,
-  type PatchMapHostAssetIngestionInput,
-} from '../../src/patch-map';
+} from '../../src/assets';
+import {
+  createPatchMapAssetIngestionPolicy,
+  evaluatePatchMapAssetResponsePolicy,
+} from '../../src/assets/ingestion-policy';
+import { normalizePatchMapAssetDescriptor } from '../../src/assets/registration-normalization';
+import type { PatchMapAssetDescriptor } from '../../src/semantic/dataset/contracts';
+import type { PatchMap } from '../../src/engine';
+import type { PatchMapHostAssetIngestionInput } from '../../src/assets/host-ingestion';
 
 const REQUIRED_ALIAS = 'required-fixture';
 const REQUIRED_SOURCE = 'fixture://required-fixture.png';

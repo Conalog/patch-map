@@ -5,8 +5,8 @@ import {
   createSyntheticPatchMap,
   resolveSyntheticBitmapTextCapability,
 } from '../../performance/workloads';
-import { parsePatchMap } from '../../src/patch-map/parser';
-import { selectPatchMapTextRenderRoute } from '../../src/patch-map/semantic/text-render-route';
+import { parsePatchMap } from '../../src/parsing';
+import { selectPatchMapTextRenderRoute } from '../../src/semantic/text-render-route';
 
 describe('PatchMap performance protocol', () => {
   it('retains raw sample order and reports deterministic nearest-rank statistics', () => {

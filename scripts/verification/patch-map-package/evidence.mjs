@@ -383,8 +383,13 @@ export function collectPackageFailures({
   if (
     productionBuild.productionBundler !== 'vite' ||
     productionBuild.sourceMap !== false ||
-    productionAliasProbe.sourceImportResolutionCount === 0
+    productionAliasProbe.packageImportResolutionCount === 0
   ) failures.push('packed production host harness did not bind imports to the tarball');
+  if (productionAliasProbe.sourceImportResolutionCount !== 0) {
+    failures.push(
+      'packed actual-host journeys imported the source product instead of the tarball product',
+    );
+  }
   if (
     JSON.stringify(examples.compiledExamples) !==
       JSON.stringify(['minimal', 'dashboard', 'editor', 'report']) ||

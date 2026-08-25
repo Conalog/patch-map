@@ -1,26 +1,26 @@
 import { describe, expect, it } from 'vitest';
 
-import type { EntityRef } from '../../src/patch-map/dense/contracts';
-import type { PatchMapScene } from '../../src/patch-map/scene';
+import type { EntityRef } from '../../src/dense/contracts';
+import type { PatchMapScene } from '../../src/core/scene';
 import {
   assembleOwnedPatchMapSparsePreviewDataset,
   materializePatchMapDataset,
-} from '../../src/patch-map/semantic/dataset';
-import { parsePatchMap } from '../../src/patch-map/parser';
+} from '../../src/semantic/dataset';
+import { parsePatchMap } from '../../src/parsing';
 import {
   preparePatchMapIncrementalPreview,
   preparePatchMapSemanticRefresh,
   preparePatchMapTransientDirtyRanges,
-} from '../../src/patch-map/core/transient-projection-planning';
+} from '../../src/core/transient-projection-planning';
 import {
   indexPatchMapComponentProbeTargets,
   indexPatchMapTextProbeTargets,
-} from '../../src/patch-map/core/product-probe-reader';
-import { patchMapComponentProbeTargetKey } from '../../src/patch-map/core/component-target-key';
-import { incrementalParseOptionsKey } from '../../src/patch-map/core/reconcile-planning';
-import { semanticSelectionDenseIds } from '../../src/patch-map/core/semantic-dense-planning';
-import type { PatchMapPublishedSceneState } from '../../src/patch-map/core/published-scene-state';
-import { PatchMapRuntime } from '../../src/patch-map/core';
+} from '../../src/core/product-probe-reader';
+import { patchMapComponentProbeTargetKey } from '../../src/core/component-target-key';
+import { incrementalParseOptionsKey } from '../../src/core/reconcile-planning';
+import { semanticSelectionDenseIds } from '../../src/core/semantic-dense-planning';
+import type { PatchMapPublishedSceneState } from '../../src/core/published-scene-state';
+import { PatchMapRuntime } from '../../src/core';
 
 describe('PatchMap transient projection planning', () => {
   it('prepares one frozen sparse preview candidate without publishing state', () => {

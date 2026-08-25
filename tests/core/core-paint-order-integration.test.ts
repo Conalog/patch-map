@@ -1,27 +1,28 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
+import type { CoreView, SlotRange } from '../../src/dense/contracts';
 import {
   RenderFlags,
   RenderKind,
   type RendererFlushResult,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
-import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import { PatchMap, PixiEngineSurface } from '../../src/patch-map/engine';
-import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
+} from '../../src/dense/renderer-types';
+import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/core';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import { PatchMap } from '../../src/engine';
+import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/presentation/layer-contracts';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
-} from '../../src/patch-map/renderers/pixi-renderer';
-import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
+} from '../../src/rendering/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/rendering/contracts/presentation-store';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapOverlayPaintProbe,
-  PatchMapPixiRendererDebug,
+  PatchMapRendererDebug,
   RootInteractionHandlers,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/rendering-port';
 
 describe('PatchMap aggregate paint-order product seam', () => {
   const allocated: PatchMap[] = [];
@@ -196,7 +197,7 @@ class PaintRendererTestDouble {
   public bindRootInteractions(_handlers: RootInteractionHandlers): () => void {
     return () => undefined;
   }
-  public debugSnapshot(): PatchMapPixiRendererDebug {
+  public debugSnapshot(): PatchMapRendererDebug {
     return Object.freeze({
       strategy: this.strategy,
       backend: 'webgl',
@@ -212,7 +213,7 @@ class PaintRendererTestDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      pixiTextCount: 0,
+      fallbackTextCount: 0,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,

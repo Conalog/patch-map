@@ -7,9 +7,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { assertCommittedVerifierEntryImportFirewall } from '../support/contract-verifier-import-firewall';
 import { createTestProjectionIndex } from '../support/projection-index';
 
-import type { SceneDocument } from '../../src/patch-map/dense/contracts';
-import { CoreScene } from '../../src/patch-map/dense/scene';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+import type { SceneDocument } from '../../src/dense/contracts';
+import { CoreScene } from '../../src/dense/scene';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
 import {
   PatchMap,
   createPatchMapSurfaceGeometrySnapshot,
@@ -24,10 +24,10 @@ import {
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileResult,
   type PatchMapSurfaceView,
-} from '../../src/patch-map/engine';
-import { parsePatchMap } from '../../src/patch-map/parser';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import { planPatchMapSceneReconcile } from '../../src/patch-map/semantic/reconcile';
+} from '../../src/engine';
+import { parsePatchMap } from '../../src/parsing';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import { planPatchMapSceneReconcile } from '../../src/core/reconcile';
 
 type JsonRecord = Record<string, unknown>;
 type HandlerEntry = readonly [string, (context: unknown, action: unknown) => unknown];

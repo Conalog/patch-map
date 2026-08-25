@@ -314,7 +314,42 @@ window.__PATCH_MAP_PACKAGE_MATRIX__ = result;
 `;
 }
 
-export function journeyRunnerSource({ root, packageDigest, codeCommit }) {
+export function journeyRunnerSource({ root, packageDigest }) {
+  const suitePath = path.resolve(root, 'lab/contract/packed-public-journeys.ts');
+  return `
+import { PatchMap } from '${PACKAGE_NAME}';
+import {
+  PATCH_MAP_PACKED_PUBLIC_JOURNEY_IDS,
+  runPackedPublicJourney,
+} from ${JSON.stringify(suitePath)};
+
+const packageDigest = ${JSON.stringify(packageDigest)};
+
+async function runJourney(caseId) {
+  if (!PATCH_MAP_PACKED_PUBLIC_JOURNEY_IDS.includes(caseId)) {
+    throw new Error('unknown packed public journey ' + caseId);
+  }
+  const host = document.createElement('div');
+  host.style.width = '800px';
+  host.style.height = '600px';
+  document.body.appendChild(host);
+  try {
+    return await runPackedPublicJourney({ caseId, PatchMap, host, packageDigest });
+  } finally {
+    host.remove();
+  }
+}
+
+window.__PATCH_MAP_PACKAGE_JOURNEY_RUNNER__ = {
+  packageDigest,
+  journeyIds: PATCH_MAP_PACKED_PUBLIC_JOURNEY_IDS,
+  runJourney,
+};
+`;
+}
+
+/** Retained only as the source-Engine contract runner; package verification does not call it. */
+export function engineContractJourneyRunnerSource({ root, packageDigest, codeCommit }) {
   const bridgePath = path.resolve(root, 'lab/contract/executable-bridge.ts');
   const casesPath = path.resolve(root, 'lab/contract/executable-cases.ts');
   const foundationFoldPath = path.resolve(

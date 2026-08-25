@@ -1,4 +1,4 @@
-import { createPatchMapRuntime } from '../../src/patch-map/core';
+import { createPatchMapRuntime } from '../../src/composition/runtime';
 import type { PatchMapTrial } from '../protocol';
 import {
   PATCH_MAP_SYNTHETIC_ASSET_ALIAS,
@@ -165,11 +165,11 @@ export async function runRendererTrial(
         diagnosticsCount: load.parse.diagnostics.length,
         bitmapTextCount: finalDebug.renderer.bitmapTextCount,
         // Historical evidence schema keeps this key; the active renderer count is Pixi Text.
-        fallbackTextCount: finalDebug.renderer.pixiTextCount,
+        fallbackTextCount: finalDebug.renderer.fallbackTextCount,
         cjkFallbackFirstRenderCount: firstText.renderedCount,
         randomTextChangeCount: randomText.changedCount,
         initialBitmapTextCount: initialTextDebug.bitmapTextCount,
-        initialFallbackTextCount: initialTextDebug.pixiTextCount,
+        initialFallbackTextCount: initialTextDebug.fallbackTextCount,
         runtimeDestroyed: destroyedDebug.destroyed,
         rendererDestroyed: destroyedDebug.renderer.destroyed,
         schedulerDestroyed: destroyedDebug.scheduler.destroyed,

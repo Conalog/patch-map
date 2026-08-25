@@ -1,4 +1,4 @@
-import type { PatchMapEngineSurfaceFactory } from '../../src/patch-map/engine';
+import type { PatchMapEngineSurfaceFactory } from '../../src/engine';
 
 import {
   PatchMapContractExecutionNotImplementedError,

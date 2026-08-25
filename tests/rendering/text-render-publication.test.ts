@@ -1,26 +1,28 @@
 import { BitmapText, Matrix, Text } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { EntityInput } from '../../src/patch-map/dense/contracts';
+import type { EntityInput } from '../../src/dense/contracts';
 import {
   RenderAlign,
   RenderFlags,
   RenderKind,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import { parsePatchMap } from '../../src/patch-map/parser';
-import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
+} from '../../src/dense/renderer-types';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import { parsePatchMap } from '../../src/parsing';
+import { AggregateLeafLayer } from '../../src/rendering/leaf-layer';
 import {
   PatchMapPixiRenderer,
   projectionChangedRanges,
-} from '../../src/patch-map/renderers/pixi-renderer';
-import { PatchMapPixiCpuPublicationAuthority } from '../../src/patch-map/renderers/pixi-renderer/cpu-publication-authority';
+} from '../../src/rendering/pixi-renderer';
+import { PatchMapPixiCpuPublicationAuthority } from '../../src/rendering/pixi-renderer/cpu-publication-authority';
+import type {
+  PatchMapTextRendererProbe,
+} from '../../src/rendering-port';
 import type {
   PatchMapProjectionRenderContext,
-  PatchMapTextRendererProbe,
-} from '../../src/patch-map/renderers/types';
-import type { PatchMapBitmapTextCapabilityProof } from '../../src/patch-map/semantic/text-render-route';
+} from '../../src/geometry/render-quads';
+import type { PatchMapBitmapTextCapabilityProof } from '../../src/semantic/text-render-route';
 
 describe('PatchMap text render publication', () => {
   it.each([
@@ -218,7 +220,7 @@ describe('PatchMap text render publication', () => {
     expect((layer.textContainer.children[0] as Text).text).toBe(projection.visibleText);
     expect(layer.debugSnapshot()).toMatchObject({
       bitmapTextCount: 0,
-      pixiTextCount: 1,
+      fallbackTextCount: 1,
     });
 
     const pending = layer.textRendererProbe('text');
@@ -493,7 +495,7 @@ describe('PatchMap text render publication', () => {
     expect(layer.textRendererProbe('text')?.attachedSignatures?.renderer).not.toBe(
       semiboldSignature,
     );
-    expect(layer.debugSnapshot()).toMatchObject({ pixiTextCount: 2 });
+    expect(layer.debugSnapshot()).toMatchObject({ fallbackTextCount: 2 });
 
     await layer.destroy();
   });

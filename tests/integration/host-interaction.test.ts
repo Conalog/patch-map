@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
+import { PatchMap } from '../../src/engine';
 import {
-  PatchMap,
   PatchMapHostInteractionAuthority,
   resolvePatchMapEditorMount,
-  type PatchMapEnginePointerInput,
-  type PatchMapEngineSurface,
-  type PatchMapPoint,
-  type PatchMapSurfaceDebug,
-  type PatchMapSurfaceGeometrySnapshot,
-  type PatchMapSurfaceView,
-} from '../../src/patch-map';
+} from '../../src/host-interaction';
+import type { PatchMapEnginePointerInput } from '../../src/engine/contracts/rendering';
+import type {
+  PatchMapEngineSurface,
+  PatchMapSurfaceDebug,
+} from '../../src/engine/contracts';
+import type {
+  PatchMapPoint,
+  PatchMapSurfaceGeometrySnapshot,
+  PatchMapSurfaceView,
+} from '../../src/engine/surface-contract';
 
 describe('PatchMap host interaction substrate', () => {
   it('makes standalone destroy reentrancy idempotent before notifying tooltip hosts', () => {

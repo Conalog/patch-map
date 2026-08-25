@@ -7,20 +7,20 @@ import type {
   PatchMapImageProjection,
   PatchMapImageSourceKind,
   PatchMapProjectionIndex,
-} from '../../src/patch-map/contracts';
+} from '../../src/parsing/contracts';
 import type {
   LeafAssetBindingObservation,
   LeafAssetBindingProbe,
   LeafAssetBindingRequest,
   LeafAssetBindingState,
   LeafSceneImageProbe,
-} from '../../src/patch-map/renderers/leaf-layer';
+} from '../../src/rendering/leaf-layer';
 import {
   PATCH_MAP_SCENE_IMAGE_ATTEMPT_LIMIT,
   PatchMapSceneImageController,
   type PatchMapSceneImageRendererBridge,
-} from '../../src/patch-map/scene-images';
-import type { PatchMapAssetSource } from '../../src/patch-map/semantic/dataset';
+} from '../../src/scene-images';
+import type { PatchMapAssetSource } from '../../src/semantic/dataset';
 
 interface Deferred<T> {
   readonly promise: Promise<T>;

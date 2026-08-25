@@ -1,5 +1,8 @@
 import normalizedExpectedCatalog from '../../contracts/evidence/catalog-normalized-expected.v1.json';
-import { describe, expect, it } from 'vitest';
+import {
+  describe,
+  expect,
+  it } from 'vitest';
 
 import { createTestProjectionIndex } from '../support/projection-index';
 
@@ -7,29 +10,35 @@ import { createTestProjectionIndex } from '../support/projection-index';
 import * as compareModule from '../../verification/contract/compare.mjs';
 
 import { createPatchMapExecutableLabBridge } from '../../lab/contract/executable-bridge';
-import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
-import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/dense/renderer-types';
-import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
-import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
+import type { CoreView,
+  SlotRange } from '../../src/dense/contracts';
+import type { RendererFlushResult,
+  RenderStoreView } from '../../src/dense/renderer-types';
+import { PatchMapRuntime,
+  type PatchMapRuntimeOptions } from '../../src/core';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/presentation/layer-contracts';
 import {
-  PixiEngineSurface,
   type PatchMapEngineSurface,
   type PatchMapEngineSurfaceFactory,
   type PatchMapSurfaceOptions,
-} from '../../src/patch-map/engine';
-import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
+  } from '../../src/engine';
+import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
+import { AggregateLeafLayer } from '../../src/rendering/leaf-layer';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
-} from '../../src/patch-map/renderers/pixi-renderer';
-import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
+  } from '../../src/rendering/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/rendering/contracts/presentation-store';
+import type {
+  PatchMapRendererDebug,
+  RootInteractionHandlers,
+} from '../../src/rendering-port';
 import type {
   PatchMapProjectionRenderContext,
   PatchMapWorldOrientation,
-  PatchMapPixiRendererDebug,
-  RootInteractionHandlers,
-} from '../../src/patch-map/renderers/types';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+} from '../../src/geometry/render-quads';
+
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
 
 interface ExpectedCase {
   readonly id: string;
@@ -176,7 +185,7 @@ class HeadlessLeafRenderer {
     this.frame += 1;
     return Object.freeze({
       rendered: true,
-      commandCount: debug.imageCount + debug.bitmapTextCount + debug.pixiTextCount,
+      commandCount: debug.imageCount + debug.bitmapTextCount + debug.fallbackTextCount,
     });
   }
   public synchronizeNextFlush(): void {}
@@ -194,7 +203,7 @@ class HeadlessLeafRenderer {
   public bindRootInteractions(_handlers: RootInteractionHandlers): () => void {
     return () => undefined;
   }
-  public debugSnapshot(): PatchMapPixiRendererDebug {
+  public debugSnapshot(): PatchMapRendererDebug {
     const leaves = this.leaves.debugSnapshot();
     return Object.freeze({
       strategy: this.strategy,
@@ -202,7 +211,7 @@ class HeadlessLeafRenderer {
       frame: this.frame,
       storeEpoch: 1,
       entityCount: 0,
-      aggregateRenderObjects: leaves.imageCount + leaves.bitmapTextCount + leaves.pixiTextCount,
+      aggregateRenderObjects: leaves.imageCount + leaves.bitmapTextCount + leaves.fallbackTextCount,
       visiblePrimitives: 0,
       uploadedChunks: 0,
       uploadedBytes: 0,
@@ -211,7 +220,7 @@ class HeadlessLeafRenderer {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: leaves.bitmapTextCount,
-      pixiTextCount: leaves.pixiTextCount,
+      fallbackTextCount: leaves.fallbackTextCount,
       imageCount: leaves.imageCount,
       loadedAssetCount: leaves.loadedAssetCount,
       unresolvedAssetCount: leaves.unresolvedAssetCount,

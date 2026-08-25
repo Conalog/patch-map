@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PatchMapTextProjection } from '../../src/patch-map/contracts';
+import type { PatchMapTextProjection } from '../../src/parsing/contracts';
 import {
   RenderAlign,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
+} from '../../src/dense/renderer-types';
 import {
   freezeTextAttachedSignatures,
   freezeTextRendererProbe,
@@ -12,8 +12,8 @@ import {
   stableSerializeLeafValue,
   textRendererSignature,
   textSemanticSignatures,
-} from '../../src/patch-map/renderers/leaf-signatures';
-import type { PatchMapTextRenderStyle } from '../../src/patch-map/semantic/text-render-route';
+} from '../../src/rendering/leaf-signatures';
+import type { PatchMapTextRenderStyle } from '../../src/semantic/text-render-route';
 
 describe('PatchMap leaf render signatures', () => {
   it('serializes JSON records by stable key order and rejects non-JSON objects', () => {

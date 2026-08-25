@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapPublicationAuthority } from '../../src/patch-map/engine/publication-authority';
+import { PatchMapPublicationAuthority } from '../../src/engine/publication-authority';
 
 describe('PatchMapPublicationAuthority', () => {
   it('owns monotonic lifecycle and product revision stamps', () => {

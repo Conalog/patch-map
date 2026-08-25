@@ -1,4 +1,4 @@
-import type { PatchMap } from '../../src/patch-map/index';
+import type { PatchMap } from '../../src/engine';
 
 /** Execute the advanced console's deliberately narrow public product action set. */
 export function runPatchMapManualAdvancedAction(

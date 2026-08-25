@@ -5,7 +5,7 @@ import {
   PATCH_MAP_RENDER_TEXT_SPECIMEN_IDS,
   createPatchMapRenderTextSpecimens,
 } from '../../lab/contract/render-text-fixtures';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
 
 describe('PatchMap REN-011 supplemental text specimens', () => {
   it('creates seven deterministic deep-frozen fresh PATCH MAP arrays with stable identities', () => {

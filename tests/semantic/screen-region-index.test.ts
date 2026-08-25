@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PatchMapScreenRegionIndex,
-} from '../../src/patch-map/semantic/screen-region-index';
+} from '../../src/semantic/screen-region-index';
 
 describe('PatchMapScreenRegionIndex', () => {
   it('returns nearby screen buckets in original geometry order', () => {

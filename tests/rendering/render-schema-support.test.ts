@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest';
 import {
   PatchMapDatasetError,
   materializePatchMapDataset,
-} from '../../src/patch-map/semantic/dataset';
-import { parsePatchMap } from '../../src/patch-map/parser';
+} from '../../src/semantic/dataset';
+import { parsePatchMap } from '../../src/parsing';
 
 const productionFixturePath = fileURLToPath(
   new URL('../../lab/fixtures/production-like.json', import.meta.url),

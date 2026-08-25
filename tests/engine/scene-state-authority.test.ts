@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapSceneStateAuthority } from '../../src/patch-map/engine/scene-state-authority';
+import { PatchMapSceneStateAuthority } from '../../src/engine/scene-state-authority';
 import {
   indexComponentSemantics,
   indexTextSemantics,
-} from '../../src/patch-map/engine/semantic-index';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
+} from '../../src/engine/semantic-index';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
 
 const FIRST_SCENE = [{
   type: 'item',

@@ -1,29 +1,31 @@
 import { Container, Graphics, Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import type { EntityInput } from '../../src/patch-map/dense/contracts';
+import type { EntityInput } from '../../src/dense/contracts';
 import {
   RenderFlags,
   RenderKind,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
+} from '../../src/dense/renderer-types';
 import {
   PatchMapAssetRuntime,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-} from '../../src/patch-map/assets';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import { parsePatchMap } from '../../src/patch-map/parser';
-import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
+} from '../../src/assets';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import { parsePatchMap } from '../../src/parsing';
+import { AggregateLeafLayer } from '../../src/rendering/leaf-layer';
 import {
   AggregateMeshLayer,
   appendPatchMapRoundedRectPath,
   fitPatchMapCornerRadii,
   multiplyPackedRgba,
   type PatchMapRoundedRectPathSink,
-} from '../../src/patch-map/renderers/mesh-layer';
-import { projectionChangedRanges } from '../../src/patch-map/renderers/pixi-renderer';
-import type { PatchMapProjectionRenderContext } from '../../src/patch-map/renderers/types';
+} from '../../src/rendering/mesh-layer';
+import { projectionChangedRanges } from '../../src/rendering/pixi-renderer';
+import type {
+  PatchMapProjectionRenderContext,
+} from '../../src/geometry/render-quads';
 
 describe('PatchMap fixed component render lanes', () => {
   it('backs every production role with a fixed aggregate container in exact paint order', async () => {

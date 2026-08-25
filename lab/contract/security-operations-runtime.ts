@@ -1,10 +1,8 @@
 import packageConsumerResultJson from '../../contracts/evidence/qualification/package-consumer.json';
 import { retainedPatchMapPackageEvidence } from './package-evidence';
-import {
-  PatchMapOperationsAuthority,
-  type PatchMap,
-  type PatchMapOperationalSubscription,
-} from '../../src/patch-map';
+import { PatchMapOperationsAuthority } from '../../src/operations';
+import type { PatchMap } from '../../src/engine';
+import type { PatchMapOperationalSubscription } from '../../src/operations/contracts';
 
 export const PATCH_MAP_SECURITY_OPERATIONS_RUNTIME_REVISION =
   'patch-map-security-operations-runtime/1' as const;

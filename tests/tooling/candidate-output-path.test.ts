@@ -55,8 +55,8 @@ describe('PatchMap candidate output boundaries', () => {
       'node_modules/evidence.json',
       '.artifacts/performance/candidate.map',
       '.artifacts/performance/candidate.bundle.js',
-      'src/patch-map',
-      'lab/patch-map',
+      'src',
+      'lab',
       '.github/workflows',
       'scripts/verification',
     ]) {
@@ -91,8 +91,8 @@ describe('PatchMap candidate output boundaries', () => {
     expect(parse('.artifacts/performance/fresh-contract').resultsRoot)
       .toBe(path.join(root, '.artifacts/performance/fresh-contract'));
     for (const output of [
-      'src/patch-map',
-      'lab/patch-map',
+      'src',
+      'lab',
       '.github/workflows',
     ]) {
       expect(() => parse(output)).toThrow('.artifacts/performance');

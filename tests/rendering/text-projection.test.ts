@@ -4,16 +4,16 @@ import catalogProfiles from '../../contracts/evidence/catalog-fixture-profiles.v
 import { describe, expect, it } from 'vitest';
 
 import { createPatchMapRenderTextSpecimens } from '../../lab/contract/render-text-fixtures';
-import { parsePatchMap } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/parsing';
 import {
   materializePatchMapDataset,
   type PatchMapDatasetError,
-} from '../../src/patch-map/semantic/dataset';
+} from '../../src/semantic/dataset';
 
 describe('PatchMap deterministic text projection', () => {
   it('keeps component text on one semantic-layout pass followed by signature-safe relocation', () => {
     const componentSource = readFileSync(
-      new URL('../../src/patch-map/parser/component-text-lowering.ts', import.meta.url),
+      new URL('../../src/parsing/component-text-lowering.ts', import.meta.url),
       'utf8',
     );
     const branchStart = componentSource.indexOf("  if (type === 'text') {");

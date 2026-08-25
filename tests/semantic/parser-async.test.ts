@@ -1,11 +1,11 @@
 import catalogProfiles from '../../contracts/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapParseError } from '../../src/patch-map/contracts';
+import { PatchMapParseError } from '../../src/parsing/contracts';
 import {
   parsePatchMap,
   parsePatchMapAsync,
-} from '../../src/patch-map/parser';
+} from '../../src/parsing';
 
 describe('PatchMap cooperative parser', () => {
   it('is expected-equivalent, deeply frozen, and input-immutable', async () => {

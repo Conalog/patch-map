@@ -3,30 +3,30 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   CoreView,
   SlotRange,
-} from '../../src/patch-map/dense/contracts';
+} from '../../src/dense/contracts';
 import type {
   RendererFlushResult,
   RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
+} from '../../src/dense/renderer-types';
 import {
   PatchMapRuntime,
   type PatchMapRuntimeOptions,
-} from '../../src/patch-map/core';
-import type { PatchMapPublishedSceneState } from '../../src/patch-map/core/published-scene-state';
-import { PatchMapParseError } from '../../src/patch-map/contracts';
+} from '../../src/core';
+import type { PatchMapPublishedSceneState } from '../../src/core/published-scene-state';
+import { PatchMapParseError } from '../../src/parsing/contracts';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
   PatchMapPixiRendererPublicationCheckpoint,
-} from '../../src/patch-map/renderers/pixi-renderer';
+} from '../../src/rendering/pixi-renderer';
 import type {
-  PatchMapPixiRendererDebug,
+  PatchMapRendererDebug,
   RootInteractionHandlers,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/rendering-port';
 import {
   assembleOwnedPatchMapDataset,
   materializePatchMapDataset,
-} from '../../src/patch-map/semantic/dataset';
+} from '../../src/semantic/dataset';
 
 describe('PatchMap runtime dense reconcile', () => {
   const allocated: PatchMapRuntime[] = [];
@@ -833,7 +833,7 @@ class RendererTestDouble {
     return () => undefined;
   }
 
-  public debugSnapshot(): PatchMapPixiRendererDebug {
+  public debugSnapshot(): PatchMapRendererDebug {
     return Object.freeze({
       strategy: this.strategy,
       backend: 'webgl',
@@ -849,7 +849,7 @@ class RendererTestDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      pixiTextCount: 0,
+      fallbackTextCount: 0,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,

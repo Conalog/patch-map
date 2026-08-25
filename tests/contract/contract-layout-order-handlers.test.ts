@@ -9,20 +9,19 @@ import { createTestProjectionIndex } from '../support/projection-index';
 
 import { createPatchMapLayoutOrderRuntime } from '../../lab/contract/layout-order-runtime';
 import { createPatchMapExecutableLabBridge } from '../../lab/contract/executable-bridge';
-import type { CoreView, SceneDocument, SlotRange } from '../../src/patch-map/dense/contracts';
+import type { CoreView, SceneDocument, SlotRange } from '../../src/dense/contracts';
 import {
   RenderFlags,
   RenderKind,
   type RendererFlushResult,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
-import { CoreScene } from '../../src/patch-map/dense/scene';
-import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
+} from '../../src/dense/renderer-types';
+import { CoreScene } from '../../src/dense/scene';
+import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/core';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/presentation/layer-contracts';
 import {
   PatchMap,
-  PixiEngineSurface,
   createPatchMapSurfaceGeometrySnapshot,
   type PatchMapEngineSurface,
   type PatchMapEngineSurfaceFactory,
@@ -32,25 +31,26 @@ import {
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileResult,
   type PatchMapSurfaceView,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
+import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
 import {
   createPatchMapPaintOrderProductProbe,
   type PatchMapPaintOrderProductProbe,
-} from '../../src/patch-map/paint-order-product';
-import { parsePatchMap } from '../../src/patch-map/parser';
+} from '../../src/core/paint-order-product';
+import { parsePatchMap } from '../../src/parsing';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
-} from '../../src/patch-map/renderers/pixi-renderer';
-import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
+} from '../../src/rendering/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/rendering/contracts/presentation-store';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapOverlayPaintProbe,
-  PatchMapPixiRendererDebug,
+  PatchMapRendererDebug,
   RootInteractionHandlers,
-} from '../../src/patch-map/renderers/types';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import { planPatchMapSceneReconcile } from '../../src/patch-map/semantic/reconcile';
+} from '../../src/rendering-port';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import { planPatchMapSceneReconcile } from '../../src/core/reconcile';
 
 type JsonRecord = Record<string, unknown>;
 type HandlerEntry = readonly [string, (context: unknown, action: unknown) => unknown];
@@ -910,7 +910,7 @@ class LayoutOrderRendererTestDouble {
   public bindRootInteractions(_handlers: RootInteractionHandlers): () => void {
     return () => undefined;
   }
-  public debugSnapshot(): PatchMapPixiRendererDebug {
+  public debugSnapshot(): PatchMapRendererDebug {
     return Object.freeze({
       strategy: this.strategy,
       backend: 'webgl',
@@ -926,7 +926,7 @@ class LayoutOrderRendererTestDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      pixiTextCount: 0,
+      fallbackTextCount: 0,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,

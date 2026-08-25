@@ -1,7 +1,7 @@
 import catalogProfiles from '../../contracts/evidence/catalog-fixture-profiles.v1.json';
 import { describe, expect, it } from 'vitest';
 
-import { CoreScene } from '../../src/patch-map/dense/scene';
+import { CoreScene } from '../../src/dense/scene';
 import {
   PatchMap,
   createPatchMapSurfaceGeometrySnapshot,
@@ -10,12 +10,12 @@ import {
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileResult,
-} from '../../src/patch-map/engine';
-import { parsePatchMap } from '../../src/patch-map/parser';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import { removePatchMapSemanticTarget } from '../../src/patch-map/semantic/mutation';
-import { planPatchMapSceneReconcile } from '../../src/patch-map/semantic/reconcile';
-import { screenToWorld } from '../../src/patch-map/view';
+} from '../../src/engine';
+import { parsePatchMap } from '../../src/parsing';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import { removePatchMapSemanticTarget } from '../../src/semantic/mutation';
+import { planPatchMapSceneReconcile } from '../../src/core/reconcile';
+import { screenToWorld } from '../../src/viewport/view';
 
 const boundsDataset = catalogProfiles.datasets.bounds;
 

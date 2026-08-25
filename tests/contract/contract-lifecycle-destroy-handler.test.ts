@@ -13,7 +13,7 @@ import {
   type PatchMapPoint,
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 
 type JsonRecord = Record<string, unknown>;
 type Handler = (context: unknown, action: unknown) => unknown;

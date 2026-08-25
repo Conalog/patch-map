@@ -5,12 +5,12 @@ import {
   RenderFlags,
   RenderKind,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
+} from '../../src/dense/renderer-types';
 import {
   PatchMapPresentationStoreView,
   type PatchMapRendererEntityPresentationOverride,
-} from '../../src/patch-map/renderers/presentation-store';
-import type { PatchMapResolvedPresentationPolicy } from '../../src/patch-map/presentation-policy';
+} from '../../src/rendering/contracts/presentation-store';
+import type { PatchMapResolvedPresentationPolicy } from '../../src/presentation/policy';
 
 describe('PatchMap renderer presentation store', () => {
   it('applies highlight emphasis and hidden-layer visibility without mutating dense input', () => {

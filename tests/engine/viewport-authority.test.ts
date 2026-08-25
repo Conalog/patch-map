@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapViewportAuthority } from '../../src/patch-map/engine/viewport-authority';
+import { PatchMapViewportAuthority } from '../../src/engine/viewport-authority';
 
 describe('PatchMapViewportAuthority', () => {
   it('keeps planned view and resize candidates private until the facade commits them', () => {

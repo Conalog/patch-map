@@ -6,7 +6,7 @@ import {
   type PatchMapPoint,
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceView,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 
 describe('PatchMap world orientation API', () => {
   it('keeps the viewport center stable while preserving observable authored angles', async () => {

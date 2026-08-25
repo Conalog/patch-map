@@ -578,7 +578,7 @@ async function verifyInjectedCanvasLifecycle(browserContext, baseUrl) {
         visibilityPriority: canvas.style.getPropertyPriority('visibility'),
         interaction: engine.interactionOwnershipProbe(),
         loss: engine.rendererLossProbe(),
-        publicSurface: engine.pixiPublicSurfaceProbe(),
+        publicSurface: engine.rendererPublicSurfaceProbe(),
       };
       engine.loadDataset([{
         type: 'rect', id: 'rect', show: true,
@@ -600,7 +600,7 @@ async function verifyInjectedCanvasLifecycle(browserContext, baseUrl) {
         rgba: Array.from(pixel),
         interaction: engine.interactionOwnershipProbe(),
         loss: engine.rendererLossProbe(),
-        publicSurface: engine.pixiPublicSurfaceProbe(),
+        publicSurface: engine.rendererPublicSurfaceProbe(),
         frameRevision: engine.snapshot().frameRevision,
       };
       const destroy = await engine.destroy();

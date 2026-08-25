@@ -1,14 +1,14 @@
 import { Color, type ColorSource } from 'pixi.js';
 
+import { createPatchMapColorResolver } from '../../../src/semantic/color';
 import {
-  createPatchMapColorResolver,
   materializePatchMapGrid,
   resolvePatchMapComponentSize,
   resolvePatchMapContentBox,
   setPatchMapGridCell,
-  type PatchMapEngineSnapshot,
-  type PatchMapSemanticProductProbe,
-} from '../../../src/patch-map';
+} from '../../../src/semantic/layout';
+import type { PatchMapEngineSnapshot } from '../../../src/engine/contracts/product';
+import type { PatchMapSemanticProductProbe } from '../../../src/semantic/probe/contracts';
 import {
   deepFreezePatchMapLabValue as deepFreeze,
   isPatchMapLabRecord as isRecord,

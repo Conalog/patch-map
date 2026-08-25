@@ -1,4 +1,4 @@
-import type { PatchMap } from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
 
 export interface PatchMapPerformanceSemanticProjection {
   readonly scene: Readonly<{

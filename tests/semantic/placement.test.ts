@@ -1,19 +1,19 @@
 import catalogTypedCases from '../../contracts/evidence/catalog-typed-cases.v1.json';
 import { describe, expect, it } from 'vitest';
 
-import { parsePatchMap } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/parsing';
 import type {
   PatchMapDatasetError,
   PatchMapEdges,
   PatchMapPlacement,
-} from '../../src/patch-map/semantic/dataset';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import { resolvePatchMapContentBox } from '../../src/patch-map/semantic/layout';
+} from '../../src/semantic/dataset';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import { resolvePatchMapContentBox } from '../../src/semantic/layout';
 import {
   resolvePatchMapPlacementBounds,
   type PatchMapPlacementBounds,
   type PatchMapPlacementReference,
-} from '../../src/patch-map/semantic/placement';
+} from '../../src/semantic/placement';
 
 interface PlacementObservation {
   readonly localBounds: readonly [number, number, number, number];

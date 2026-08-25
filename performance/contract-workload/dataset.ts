@@ -1,10 +1,10 @@
 import productionShapedWorkloadJson from '../../contracts/evidence/production-shaped-workload.v1.json';
+import { PatchMapDatasetError } from '../../src/semantic/dataset/contracts';
+import { createPatchMapSemanticProbe } from '../../src/semantic/probe';
 import {
-  PatchMapDatasetError,
-  createPatchMapSemanticProbe,
   materializePatchMapDataset,
   validatePatchMapDatasetReferences,
-} from '../../src/patch-map';
+} from '../../src/semantic/dataset';
 import { buildPatchMapSeededScenarioScene } from '../../verification/scenarios/seeded-scene';
 
 import { deepFreeze, sortJson } from './semantics';

@@ -5,26 +5,26 @@ import {
   parsePatchMapIncrementalStructure,
   patchMapStructuralChangedEntityIds,
   primePatchMapIncrementalFlat,
-} from '../../src/patch-map/incremental-parser';
+} from '../../src/parsing/incremental';
 import {
   parsePatchMap,
   parsePatchMapDirectTextBatch,
-} from '../../src/patch-map/parser';
+} from '../../src/parsing';
 import {
   assembleOwnedPatchMapDataset,
   materializePatchMapDataset,
-} from '../../src/patch-map/semantic/dataset';
+} from '../../src/semantic/dataset';
 import {
   planPatchMapParsedSceneReconcile,
   planPatchMapParsedSceneReconcileStructuralWindow,
   planPatchMapSceneReconcile,
-} from '../../src/patch-map/semantic/reconcile';
+} from '../../src/core/reconcile';
 import {
   PATCH_MAP_MUTATION_TRANSACTION_REVISION,
   planPatchMapBulkPatch,
   planPatchMapMutationTransaction,
   planPatchMapTextBatch,
-} from '../../src/patch-map/semantic/transaction';
+} from '../../src/semantic/transaction';
 import { buildPatchMapContractPerformanceDataset } from '../../performance/contract-workload';
 import { buildPatchMapManualScene } from '../../lab/interactive/manual-scene';
 

@@ -1,35 +1,35 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
+import type { CoreView, SlotRange } from '../../src/dense/contracts';
 import {
   RenderFlags,
   RenderKind,
   type RendererFlushResult,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
+} from '../../src/dense/renderer-types';
 import {
   PatchMapRuntime,
   normalizePatchMapTextTarget,
   type PatchMapRuntimeOptions,
   type PatchMapTextTarget,
-} from '../../src/patch-map/core';
-import { createPatchMapTextProductProbe } from '../../src/patch-map/core/product-probe-reader';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
+} from '../../src/core';
+import { createPatchMapTextProductProbe } from '../../src/core/product-probe-reader';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/presentation/layer-contracts';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
-} from '../../src/patch-map/renderers/pixi-renderer';
-import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
+} from '../../src/rendering/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/rendering/contracts/presentation-store';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapRenderLaneRole,
   PatchMapRenderLaneSnapshot,
   PatchMapTextAttachedSignatures,
   PatchMapTextRendererProbe,
-  PatchMapPixiRendererDebug,
+  PatchMapRendererDebug,
   RootInteractionHandlers,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/rendering-port';
 
 describe('PatchMap O(1) text product probe', () => {
   const allocated: PatchMapRuntime[] = [];
@@ -504,7 +504,7 @@ class TextRendererDouble {
     }));
   }
   public renderLaneProbe(): PatchMapRenderLaneSnapshot { return this.lanes; }
-  public debugSnapshot(): PatchMapPixiRendererDebug {
+  public debugSnapshot(): PatchMapRendererDebug {
     return Object.freeze({
       strategy: this.strategy,
       backend: 'webgl',
@@ -520,7 +520,7 @@ class TextRendererDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      pixiTextCount: this.probes.size,
+      fallbackTextCount: this.probes.size,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,

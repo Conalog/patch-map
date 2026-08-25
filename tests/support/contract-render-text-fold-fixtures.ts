@@ -1,9 +1,9 @@
 import { resolvePatchMapExecutableDataset } from '../../lab/contract/executable-cases';
 import { createPatchMapRenderTextSpecimens } from '../../lab/contract/render-text-fixtures';
-import type { PatchMapTextProjection } from '../../src/patch-map/contracts';
-import { parsePatchMap } from '../../src/patch-map/parser';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import { layoutPatchMapText, type PatchMapTextLayout } from '../../src/patch-map/semantic/text-layout';
+import type { PatchMapTextProjection } from '../../src/parsing/contracts';
+import { parsePatchMap } from '../../src/parsing';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import { layoutPatchMapText, type PatchMapTextLayout } from '../../src/semantic/text-layout';
 
 import {
   arrayValue, isRecord, numberValue, requireRecord, stringValue, type JsonRecord,

@@ -5,13 +5,13 @@ import { Color } from 'pixi.js';
 import type { ColorSource } from 'pixi.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { createPatchMapColorResolver } from '../../src/semantic/color';
 import {
-  createPatchMapColorResolver,
   materializePatchMapGrid,
   resolvePatchMapComponentSize,
   resolvePatchMapContentBox,
   setPatchMapGridCell,
-} from '../../src/patch-map';
+} from '../../src/semantic/layout';
 
 interface ContractAction {
   readonly index: number;

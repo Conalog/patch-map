@@ -4,19 +4,19 @@ import { describe, expect, it } from 'vitest';
 import type {
   PatchMapDatasetError,
   PatchMapGridElement,
-} from '../../src/patch-map/semantic/dataset';
+} from '../../src/semantic/dataset';
 import {
   materializePatchMapGrid,
   resolvePatchMapComponentSize,
   resolvePatchMapContentBox,
   resolvePatchMapDimension,
   setPatchMapGridCell,
-} from '../../src/patch-map/semantic/layout';
+} from '../../src/semantic/layout';
 import type {
   PatchMapGridCellValue,
   PatchMapGridLayout,
   PatchMapMaterializedGridCell,
-} from '../../src/patch-map/semantic/layout';
+} from '../../src/semantic/layout';
 
 interface Dat003Params {
   readonly itemSize: readonly [number, number];

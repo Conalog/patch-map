@@ -9,12 +9,12 @@ import {
   PatchMapPresentationError,
   type PatchMapPresentationFrame,
   type PatchMapPresentationRetargetInput,
-} from '../../src/patch-map/presentation';
+} from '../../src/presentation';
 
 describe('PatchMapPresentationController', () => {
   it('uses one manual flat controller without Pixi ticker or entity event ownership', async () => {
     const source = await readFile(
-      fileURLToPath(new URL('../../src/patch-map/presentation.ts', import.meta.url)),
+      fileURLToPath(new URL('../../src/presentation/index.ts', import.meta.url)),
       'utf8',
     );
 

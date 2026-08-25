@@ -1,9 +1,7 @@
-import type {
-  PatchMap,
-  PatchMapEngineTextProbe,
-  PatchMapEngineTransactionPerformanceProbe,
-  PatchMapSurfaceEntityGeometry,
-} from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
+import type { PatchMapEngineTextProbe } from '../../src/engine/contracts/rendering';
+import type { PatchMapEngineTransactionPerformanceProbe } from '../../src/engine/contracts/mutation';
+import type { PatchMapSurfaceEntityGeometry } from '../../src/engine/surface-contract';
 
 import { measurePatchMapVisibleAction } from './measurement';
 import {

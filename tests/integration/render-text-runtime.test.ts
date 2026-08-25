@@ -1,5 +1,9 @@
 import normalizedExpectedCatalog from '../../contracts/evidence/catalog-normalized-expected.v1.json';
-import { describe, expect, it, vi } from 'vitest';
+import {
+  describe,
+  expect,
+  it,
+  vi } from 'vitest';
 
 import { createTestProjectionIndex } from '../support/projection-index';
 
@@ -9,42 +13,48 @@ import * as compareModule from '../../verification/contract/compare.mjs';
 import { createPatchMapExecutableLabBridge } from '../../lab/contract/executable-bridge';
 import {
   materializePatchMapExecutableCase,
-} from '../../lab/contract/executable-cases';
+  } from '../../lab/contract/executable-cases';
 import { resolvePatchMapExecutableRuntime } from '../../lab/contract/executable-runtime';
 import {
   PATCH_MAP_RENDER_TEXT_CLEANUP_REVISION,
   PATCH_MAP_RENDER_TEXT_RUNTIME_REVISION,
   createPatchMapRenderTextRuntime,
-} from '../../lab/contract/render-text-runtime';
-import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
-import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/dense/renderer-types';
-import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
+  } from '../../lab/contract/render-text-runtime';
+import type { CoreView,
+  SlotRange } from '../../src/dense/contracts';
+import type { RendererFlushResult,
+  RenderStoreView } from '../../src/dense/renderer-types';
+import { PatchMapRuntime,
+  type PatchMapRuntimeOptions } from '../../src/core';
 import {
-  PixiEngineSurface,
   type PatchMapEngineSurface,
   type PatchMapEngineSurfaceFactory,
   type PatchMapSurfaceOptions,
-} from '../../src/patch-map/engine';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
-import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
+  } from '../../src/engine';
+import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/presentation/layer-contracts';
+import { AggregateLeafLayer } from '../../src/rendering/leaf-layer';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
-} from '../../src/patch-map/renderers/pixi-renderer';
-import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
+  } from '../../src/rendering/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/rendering/contracts/presentation-store';
 import type {
-  PatchMapProjectionRenderContext,
   PatchMapRenderLaneProbe,
   PatchMapRenderLaneRole,
   PatchMapRenderLaneSnapshot,
   PatchMapTextAttachedSignatures,
   PatchMapTextRendererProbe,
   PatchMapTextSemanticSignatures,
-  PatchMapWorldOrientation,
-  PatchMapPixiRendererDebug,
+  PatchMapRendererDebug,
   RootInteractionHandlers,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/rendering-port';
+import type {
+  PatchMapProjectionRenderContext,
+  PatchMapWorldOrientation,
+} from '../../src/geometry/render-quads';
+
 
 interface ExpectedCase {
   readonly id: string;
@@ -412,10 +422,10 @@ class HeadlessTextRenderer {
     this.lastRenderedTextProjectionRevision = this.projectionRevision;
     this.lastRenderedTextStoreRevision = store.revision;
     this.lastStoreRevision = store.revision;
-    const textObjectCount = debug.bitmapTextCount + debug.pixiTextCount;
+    const textObjectCount = debug.bitmapTextCount + debug.fallbackTextCount;
     this.maxTextObjectCount = Math.max(this.maxTextObjectCount, textObjectCount);
     this.maxBitmapTextCount = Math.max(this.maxBitmapTextCount, debug.bitmapTextCount);
-    this.maxFallbackTextCount = Math.max(this.maxFallbackTextCount, debug.pixiTextCount);
+    this.maxFallbackTextCount = Math.max(this.maxFallbackTextCount, debug.fallbackTextCount);
     return Object.freeze({ rendered: true, commandCount: textObjectCount });
   }
   public synchronizeNextFlush(): void {}
@@ -494,9 +504,9 @@ class HeadlessTextRenderer {
   public bindRootInteractions(_handlers: RootInteractionHandlers): () => void {
     return () => undefined;
   }
-  public debugSnapshot(): PatchMapPixiRendererDebug {
+  public debugSnapshot(): PatchMapRendererDebug {
     const leaves = this.leaves.debugSnapshot();
-    const textObjectCount = leaves.bitmapTextCount + leaves.pixiTextCount;
+    const textObjectCount = leaves.bitmapTextCount + leaves.fallbackTextCount;
     return Object.freeze({
       strategy: this.strategy,
       backend: 'webgl',
@@ -512,7 +522,7 @@ class HeadlessTextRenderer {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: leaves.bitmapTextCount,
-      pixiTextCount: leaves.pixiTextCount,
+      fallbackTextCount: leaves.fallbackTextCount,
       imageCount: leaves.imageCount,
       loadedAssetCount: leaves.loadedAssetCount,
       unresolvedAssetCount: leaves.unresolvedAssetCount,

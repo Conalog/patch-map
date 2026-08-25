@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PatchMapEngineSurface } from '../../src/patch-map/engine/contracts';
-import { PatchMapPublicationAuthority } from '../../src/patch-map/engine/publication-authority';
-import { PatchMapSurfaceMutationGuard } from '../../src/patch-map/engine/surface-mutation-guard';
-import type { PatchMapLifecycle } from '../../src/patch-map/engine/contracts/lifecycle';
+import type { PatchMapEngineSurface } from '../../src/engine/contracts';
+import { PatchMapPublicationAuthority } from '../../src/engine/publication-authority';
+import { PatchMapSurfaceMutationGuard } from '../../src/engine/surface-mutation-guard';
+import type { PatchMapLifecycle } from '../../src/engine/contracts/lifecycle';
 
 describe('PatchMapSurfaceMutationGuard', () => {
   it('permits an interaction-only revision change for scene freshness only', () => {

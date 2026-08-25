@@ -6,8 +6,8 @@ import {
   createPatchMapColorResolver,
   normalizePatchMapColorTheme,
   PATCH_MAP_DEFAULT_COLOR_THEME,
-} from '../../src/patch-map/semantic/color';
-import type { PatchMapColorResolutionError } from '../../src/patch-map/semantic/color';
+} from '../../src/semantic/color';
+import type { PatchMapColorResolutionError } from '../../src/semantic/color';
 
 interface Dat004Params {
   readonly themeA: Readonly<Record<string, unknown>>;

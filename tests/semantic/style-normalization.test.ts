@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { parsePatchMap } from '../../src/patch-map/parser';
+import { parsePatchMap } from '../../src/parsing';
 import {
   normalizePatchMapTextStylePatch,
   type PatchMapDatasetError,
-} from '../../src/patch-map/semantic/dataset';
+} from '../../src/semantic/dataset';
 import {
   normalizeAssetSource,
   normalizeRectTexture,
   normalizeStrokeStyle,
   normalizeTextStyle,
-} from '../../src/patch-map/semantic/dataset/style-normalization';
+} from '../../src/semantic/dataset/style-normalization';
 
 describe('PatchMap authored style normalization', () => {
   it('detaches and freezes authored asset, stroke, and nested text-style values', () => {

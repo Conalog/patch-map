@@ -28,7 +28,7 @@ import {
   viewportPanOperationForManualMode,
   type ManualPointerMode,
 } from '../../lab/interactive/manual-workbench-input';
-import type { PatchMap } from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
 
 const MODES = Object.freeze([
   'select',

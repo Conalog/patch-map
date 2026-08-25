@@ -97,10 +97,15 @@ try {
     'JSHeapUsedSize',
   );
   const hostInteractionLifecycle = await page.evaluate(async (spec) => {
-    const {
-      PatchMap,
-      PatchMapOperationsAuthority,
-    } = await import('/src/patch-map/index.ts');
+    const [
+      { PatchMap },
+      { PatchMapOperationsAuthority },
+      { createPixiSurface },
+    ] = await Promise.all([
+      import('/src/engine/index.ts'),
+      import('/src/operations/index.ts'),
+      import('/src/composition/pixi-engine-surface.ts'),
+    ]);
     const trials = [];
     for (let index = 0; index < spec.cycles; index += 1) {
       const host = document.createElement('div');
@@ -114,6 +119,7 @@ try {
           capacity: 16,
           instanceId,
         }),
+        surfaceFactory: createPixiSurface,
       });
       let error = null;
       let beforeDestroy = null;

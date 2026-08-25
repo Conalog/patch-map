@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import {
   PatchMapAssetError,
-  PatchMapAssetRuntime,
-  createPatchMapAssetIngestionPolicy,
-  evaluatePatchMapAssetResponsePolicy,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
   type PatchMapAssetIngestionPolicyProfile,
-} from '../../src/patch-map';
+} from '../../src/assets/contracts';
+import { PatchMapAssetRuntime } from '../../src/assets';
+import {
+  createPatchMapAssetIngestionPolicy,
+  evaluatePatchMapAssetResponsePolicy,
+} from '../../src/assets/ingestion-policy';
 
 const PROFILE: PatchMapAssetIngestionPolicyProfile = Object.freeze({
   protocols: Object.freeze(['https']),

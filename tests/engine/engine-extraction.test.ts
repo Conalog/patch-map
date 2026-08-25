@@ -8,9 +8,9 @@ import {
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceView,
-} from '../../src/patch-map/engine';
-import type { PatchMapPixiRendererLossProbe } from '../../src/patch-map/renderers/types';
-import { PatchMapExtractionSecurityAuthority } from '../../src/patch-map/operations';
+} from '../../src/engine';
+import type { PatchMapRendererLossProbe } from '../../src/rendering-port';
+import { PatchMapExtractionSecurityAuthority } from '../../src/operations';
 
 class ExtractionSurface implements PatchMapEngineSurface {
   public canvasCount = 1;
@@ -56,7 +56,7 @@ class ExtractionSurface implements PatchMapEngineSurface {
     resolve();
   }
 
-  public rendererLossProbe(): PatchMapPixiRendererLossProbe {
+  public rendererLossProbe(): PatchMapRendererLossProbe {
     return Object.freeze({
       backend: 'webgl2',
       webGLVersion: 2,

@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   assembleOwnedPatchMapDataset,
   materializePatchMapDataset,
-} from '../../src/patch-map/semantic/dataset';
-import type { PatchMapMutationOperation } from '../../src/patch-map/semantic/transaction';
+} from '../../src/semantic/dataset';
+import type { PatchMapMutationOperation } from '../../src/semantic/transaction';
 import {
   componentOrderOwners,
   directAnimatedBarTargets,
@@ -16,8 +16,8 @@ import {
   operationsMayChangeElementStructure,
   operationsOnlyUpdateBarSize,
   operationsOnlyUpdateElementGeometry,
-} from '../../src/patch-map/engine/reconcile-planning';
-import { indexComponentSemantics } from '../../src/patch-map/engine/semantic-index';
+} from '../../src/engine/reconcile-planning';
+import { indexComponentSemantics } from '../../src/engine/semantic-index';
 
 describe('incremental reconcile planning', () => {
   it('authorizes only root and component orders changed across history boundaries', () => {

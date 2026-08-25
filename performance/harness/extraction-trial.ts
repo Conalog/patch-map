@@ -1,4 +1,5 @@
-import { PatchMap } from '../../src/patch-map';
+import { PatchMap } from '../../src/engine';
+import { createPixiSurface } from '../../src/composition/pixi-engine-surface';
 import {
   PATCH_MAP_SYNTHETIC_ASSET_ALIAS,
   PATCH_MAP_SYNTHETIC_ASSET_DATA_URL,
@@ -18,6 +19,7 @@ export async function runExtractionTrial(
   const input = structuredClone(source);
   const serializedBefore = JSON.stringify(input);
   const engine = new PatchMap({
+    surfaceFactory: createPixiSurface,
     assetPolicy: ({ descriptor, packageOwned }) => {
       if (
         !packageOwned

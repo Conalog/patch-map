@@ -8,7 +8,7 @@ import type {
   PatchMapSurfaceMutationPresentationPort,
   PatchMapSurfaceProductObservationPort,
   PatchMapSurfaceViewportInputPort,
-} from '../../src/patch-map/engine/contracts';
+} from '../../src/engine/contracts';
 
 const CAPABILITY_KEYS = Object.freeze({
   lifecycle: Object.freeze([
@@ -43,7 +43,7 @@ const CAPABILITY_KEYS = Object.freeze({
   diagnostics: Object.freeze([
     'frameLoopActiveAnimations', 'frameLoopWorkloadSize',
     'viewportGestureActive', 'debugSnapshot', 'interactionOwnershipProbe',
-    'pixiPublicSurfaceProbe', 'rendererLossProbe', 'forceRendererLoss',
+    'rendererPublicSurfaceProbe', 'rendererLossProbe', 'forceRendererLoss',
   ] as const),
 });
 
@@ -66,7 +66,7 @@ const OPTIONAL_KEYS = Object.freeze([
   'paintOrderProbe', 'textProbe', 'settleSceneImages',
   'settleSceneImageBindings', 'frameLoopActiveAnimations',
   'frameLoopWorkloadSize', 'viewportGestureActive',
-  'interactionOwnershipProbe', 'pixiPublicSurfaceProbe',
+  'interactionOwnershipProbe', 'rendererPublicSurfaceProbe',
   'rendererLossProbe', 'forceRendererLoss',
 ] as const);
 

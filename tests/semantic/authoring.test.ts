@@ -5,13 +5,13 @@ import {
   planPatchMapAuthoringAction,
   type PatchMapAuthoringAction,
   type PatchMapAuthoringPlan,
-} from '../../src/patch-map/authoring';
+} from '../../src/authoring';
 import {
   materializePatchMapDataset,
   type MaterializedPatchMapDataset,
   type NormalizedPatchMapElement,
-} from '../../src/patch-map/semantic/dataset';
-import { planPatchMapMutationTransaction } from '../../src/patch-map/semantic/transaction';
+} from '../../src/semantic/dataset';
+import { planPatchMapMutationTransaction } from '../../src/semantic/transaction';
 
 describe('PatchMap authoring product planner', () => {
   it('creates every supported element at one world center with detached unique identities', () => {

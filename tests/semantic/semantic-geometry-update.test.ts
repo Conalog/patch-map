@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PatchMapElement, PatchMapRectElement } from '../../src/patch-map/semantic/dataset';
+import type { PatchMapElement, PatchMapRectElement } from '../../src/semantic/dataset';
 import {
   applyPatchMapRelativeGeometryUpdate,
   resizePatchMapGeometryAroundOrigin,
-} from '../../src/patch-map/semantic/geometry-update';
+} from '../../src/semantic/geometry-update';
 import {
   applyPatchMapAffine,
   createPatchMapAffine,
   multiplyPatchMapAffine,
   type PatchMapAffineMatrix,
-} from '../../src/patch-map/semantic/geometry';
+} from '../../src/semantic/geometry';
 
 describe('PatchMap pure geometry updates', () => {
   it('composes the approved relative x/y/angle action from current absolute geometry', () => {

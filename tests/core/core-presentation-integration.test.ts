@@ -1,43 +1,43 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
+import type { CoreView, SlotRange } from '../../src/dense/contracts';
 import {
   RenderAlign,
   RenderKind,
   type RendererFlushResult,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
-import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import type { PatchMapSpatialHitAuthority } from '../../src/patch-map/core/spatial-hit-authority';
-import type { PatchMapBarPresentationAuthority } from '../../src/patch-map/core/bar-presentation-authority';
+} from '../../src/dense/renderer-types';
+import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/core';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import type { PatchMapSpatialHitAuthority } from '../../src/core/spatial-hit-authority';
+import type { PatchMapBarPresentationAuthority } from '../../src/core/bar-presentation-authority';
 import {
-  PatchMap,
   PatchMapError,
-  PixiEngineSurface,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
+import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
 import {
   PatchMapPresentationController,
   PatchMapPresentationError,
-} from '../../src/patch-map/presentation';
+} from '../../src/presentation';
 import type {
   PatchMapRendererPresentationEntityProbe,
   PatchMapResolvedPresentationPolicy,
-} from '../../src/patch-map/presentation-policy';
+} from '../../src/presentation/policy';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
-} from '../../src/patch-map/renderers/pixi-renderer';
-import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
-import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layers';
+} from '../../src/rendering/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/rendering/contracts/presentation-store';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/core/presentation-layers';
 import type {
-  PatchMapPixiRendererDebug,
+  PatchMapRendererDebug,
   RootInteractionHandlers,
   RootPointerInput,
-} from '../../src/patch-map/renderers/types';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import { applyPatchMapAffine } from '../../src/patch-map/semantic/geometry';
-import { planPatchMapBarHeightBatch } from '../../src/patch-map/semantic/transaction';
+} from '../../src/rendering-port';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import { applyPatchMapAffine } from '../../src/semantic/geometry';
+import { planPatchMapBarHeightBatch } from '../../src/semantic/transaction';
+import { createPublicApiEngine } from '../support/public-api-engine';
 
 describe('PatchMap bar presentation integration', () => {
   const allocated: PatchMapRuntime[] = [];
@@ -189,7 +189,7 @@ describe('PatchMap bar presentation integration', () => {
 
   it('reuses the animated-bar hit envelope across direct mid-animation retargets', async () => {
     const { core } = createTestCore(allocated);
-    const engine = new PatchMap({
+    const engine = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
     });
     await engine.initialize({
@@ -235,7 +235,7 @@ describe('PatchMap bar presentation integration', () => {
 
   it('animates every expanded grid bar from one template batch target', async () => {
     const { core } = createTestCore(allocated);
-    const engine = new PatchMap({
+    const engine = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
     });
     await engine.initialize({
@@ -276,7 +276,7 @@ describe('PatchMap bar presentation integration', () => {
 
   it('updates expanded grid bars independently without mutating authored data or history', async () => {
     const { core } = createTestCore(allocated);
-    const engine = new PatchMap({
+    const engine = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
     });
     await engine.initialize({
@@ -401,7 +401,7 @@ describe('PatchMap bar presentation integration', () => {
 
   it('retargets independent grid bars through one central animation controller', async () => {
     const { core } = createTestCore(allocated);
-    const engine = new PatchMap({
+    const engine = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
     });
     await engine.initialize({
@@ -442,7 +442,7 @@ describe('PatchMap bar presentation integration', () => {
 
   it('publishes bar tint and hidden icon presentation atomically without semantic changes', async () => {
     const { core, renderer } = createTestCore(allocated);
-    const engine = new PatchMap({
+    const engine = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
     });
     await engine.initialize({
@@ -652,7 +652,7 @@ describe('PatchMap bar presentation integration', () => {
 
   it('projects concrete background and text fields, restores current authored values, and stays atomic', async () => {
     const { core, renderer } = createTestCore(allocated);
-    const engine = new PatchMap({
+    const engine = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
     });
     await engine.initialize({
@@ -1306,7 +1306,7 @@ describe('PatchMap bar presentation integration', () => {
   it('publishes through Engine and maps backward clock conflicts without advancing revisions', async () => {
     const { core } = createTestCore(allocated);
     const surface = new PixiEngineSurface(core);
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
     await engine.initialize({ instanceId: 'presentation-engine', width: 800, height: 600 });
     engine.loadDataset(scene(10));
     engine.publishFrame(0);
@@ -1351,7 +1351,7 @@ describe('PatchMap bar presentation integration', () => {
 
   it('composes keyed presentation layers by product and clears them on dataset replacement', async () => {
     const { core, renderer } = createTestCore(allocated);
-    const engine = new PatchMap({
+    const engine = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
     });
     await engine.initialize({ instanceId: 'keyed-presentation-engine', width: 800, height: 600 });
@@ -1451,7 +1451,7 @@ describe('PatchMap bar presentation integration', () => {
 
   it('reprojects the logical scope snapshot without admitting later grid instances', async () => {
     const { core, renderer } = createTestCore(allocated);
-    const engine = new PatchMap({
+    const engine = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
     });
     await engine.initialize({ instanceId: 'presentation-scope-snapshot', width: 800, height: 600 });
@@ -1483,7 +1483,7 @@ describe('PatchMap bar presentation integration', () => {
 
   it('keeps Engine ancestor layout patches atomic while direct bar patches animate', async () => {
     const { core } = createTestCore(allocated);
-    const engine = new PatchMap({
+    const engine = createPublicApiEngine({
       surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
     });
     await engine.initialize({ instanceId: 'presentation-layout-engine', width: 800, height: 600 });
@@ -1708,7 +1708,7 @@ class RendererTestDouble {
       metaKey: false,
     }));
   }
-  public debugSnapshot(): PatchMapPixiRendererDebug {
+  public debugSnapshot(): PatchMapRendererDebug {
     return Object.freeze({
       strategy: this.strategy,
       backend: 'webgl',
@@ -1724,7 +1724,7 @@ class RendererTestDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      pixiTextCount: 0,
+      fallbackTextCount: 0,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,

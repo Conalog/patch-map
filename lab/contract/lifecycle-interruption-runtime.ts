@@ -1,5 +1,5 @@
 import productionShapedWorkloadJson from '../../contracts/evidence/production-shaped-workload.v1.json';
-import type { PatchMap } from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
 
 export const PATCH_MAP_LIFECYCLE_INTERRUPTION_RUNTIME_REVISION =
   'patch-map-lifecycle-interruption-runtime/1';

@@ -8,7 +8,7 @@ import {
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileResult,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

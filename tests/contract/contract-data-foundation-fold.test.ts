@@ -7,13 +7,13 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from '../support/contract-verifier-import-firewall';
 
+import { createPatchMapColorResolver } from '../../src/semantic/color';
 import {
-  createPatchMapColorResolver,
   materializePatchMapGrid,
   resolvePatchMapComponentSize,
   resolvePatchMapContentBox,
   setPatchMapGridCell,
-} from '../../src/patch-map';
+} from '../../src/semantic/layout';
 
 interface JsonRecord {
   [key: string]: unknown;

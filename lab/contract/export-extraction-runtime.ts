@@ -1,10 +1,10 @@
-import {
-  materializePatchMapDataset,
-  type PatchMap,
-  type PatchMapEngineExtractionRequest,
-  type PatchMapEngineExtractionResult,
-  type PatchMapPublishedTuple,
-} from '../../src/patch-map';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import type { PatchMap } from '../../src/engine';
+import type {
+  PatchMapEngineExtractionRequest,
+  PatchMapEngineExtractionResult,
+} from '../../src/engine/contracts/extraction';
+import type { PatchMapPublishedTuple } from '../../src/engine/contracts/lifecycle';
 
 export const PATCH_MAP_EXPORT_EXTRACTION_RUNTIME_REVISION =
   'patch-map-export-extraction-runtime/1';

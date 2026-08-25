@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapTransformerEditAuthority } from '../../src/patch-map/engine/transformer-edit-authority';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import { planPatchMapPreviewMutationTransaction } from '../../src/patch-map/semantic/transaction';
-import { planPatchMapTransformerEdit } from '../../src/patch-map/transformer-edit';
+import { PatchMapTransformerEditAuthority } from '../../src/engine/transformer-edit-authority';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import { planPatchMapPreviewMutationTransaction } from '../../src/semantic/transaction';
+import { planPatchMapTransformerEdit } from '../../src/selection-transformer/edit';
 
 describe('PatchMap transformer edit session authority', () => {
   it('owns one frozen session and records preview state without cloning its datasets', () => {

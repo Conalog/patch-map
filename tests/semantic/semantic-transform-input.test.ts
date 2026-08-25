@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapParseError } from '../../src/patch-map/contracts';
-import type { ElementAttributes } from '../../src/patch-map/input';
-import { parsePatchMap } from '../../src/patch-map/parser';
+import { PatchMapParseError } from '../../src/parsing/contracts';
+import type { ElementAttributes } from '../../src/public/input';
+import { parsePatchMap } from '../../src/parsing';
 import {
   materializePatchMapDataset,
   PatchMapDatasetError,
-} from '../../src/patch-map/semantic/dataset';
+} from '../../src/semantic/dataset';
 
 const RESERVED_TRANSFORM_ATTRS = [
   'scale',

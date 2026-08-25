@@ -16,7 +16,7 @@ import {
   type PatchMapSurfaceGeometrySnapshot,
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileResult,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 
 type JsonRecord = Record<string, unknown>;
 type Bounds = readonly [number, number, number, number];

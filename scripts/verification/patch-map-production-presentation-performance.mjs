@@ -444,7 +444,7 @@ function summarizePreciseCoverage(scripts) {
   const counts = {};
   for (const script of scripts) {
     if (
-      !script.url.includes('/src/patch-map/') &&
+      !script.url.includes('/src/') &&
       !script.url.includes('/node_modules/.vite/deps/@conalog_patch-map.js')
     ) continue;
     for (const fn of script.functions) {

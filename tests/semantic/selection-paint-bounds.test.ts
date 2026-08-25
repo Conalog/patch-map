@@ -1,20 +1,26 @@
-import { describe, expect, it } from 'vitest';
+import {
+  describe,
+  expect,
+  it } from 'vitest';
 
-import type { EntityInput } from '../../src/patch-map/dense/contracts';
+import type { EntityInput } from '../../src/dense/contracts';
 import {
   RenderFlags,
   RenderKind,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
-import { parsePatchMap } from '../../src/patch-map/parser';
+  } from '../../src/dense/renderer-types';
+import { parsePatchMap } from '../../src/parsing';
 import {
   indexOverlayPaintBounds,
   resolveOverlayPathPlan,
-} from '../../src/patch-map/renderers/pixi-renderer/interaction-overlay';
+  } from '../../src/rendering/pixi-renderer/interaction-overlay';
 import {
   resolvePatchMapSlotQuad,
-  type PatchMapProjectionRenderContext,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/geometry/render-quads';
+import type {
+  PatchMapProjectionRenderContext,
+} from '../../src/geometry/render-quads';
+
 
 describe('PatchMap selection visual paint bounds', () => {
   it('expands all four straight edges beyond a concrete grid background centered stroke', () => {

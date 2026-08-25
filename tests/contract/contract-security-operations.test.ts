@@ -20,8 +20,8 @@ import type {
   PatchMapSurfaceReconcileOptions,
   PatchMapSurfaceReconcileResult,
   PatchMapSurfaceView,
-} from '../../src/patch-map/engine';
-import type { PatchMapPixiRendererLossProbe } from '../../src/patch-map/renderers/types';
+} from '../../src/engine';
+import type { PatchMapRendererLossProbe } from '../../src/rendering-port';
 // @ts-expect-error -- browser-safe contract handlers are authored as ESM JavaScript.
 import * as handlerModule from '../../verification/contract/handlers/security-operations.mjs';
 // @ts-expect-error -- browser-safe contract folds are authored as ESM JavaScript.
@@ -310,7 +310,7 @@ class OperationsContractSurface implements PatchMapEngineSurface {
     });
   }
 
-  public rendererLossProbe(): PatchMapPixiRendererLossProbe {
+  public rendererLossProbe(): PatchMapRendererLossProbe {
     return Object.freeze({
       backend: 'webgl2',
       webGLVersion: 2,

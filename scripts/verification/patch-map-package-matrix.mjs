@@ -231,19 +231,23 @@ export async function verifyPackedConsumerTypes(consumer) {
 }
 
 export function createPackedProductAlias({ root, consumer }) {
-  const sourceRoot = path.resolve(root, 'src/patch-map');
+  const sourceRoot = path.resolve(root, 'src');
   const sourceEntry = path.join(sourceRoot, 'index.ts');
   const packedEntry = path.resolve(
     consumer,
     'node_modules/@conalog/patch-map/dist/index.js',
   );
-  const boundaryId = '\0patch-map-packed-product-boundary';
   const resolutions = [];
+  const packageImports = [];
   return Object.freeze({
     plugin: {
       name: 'patch-map-packed-product-boundary',
       enforce: 'pre',
       resolveId(source, importer) {
+        if (source === PACKAGE_NAME) {
+          packageImports.push(Object.freeze({ source, importer: importer ?? null }));
+          return null;
+        }
         if (typeof importer !== 'string' || !source.startsWith('.')) return null;
         const cleanImporter = importer.split('?', 1)[0];
         const resolved = path.resolve(path.dirname(cleanImporter), source);
@@ -255,14 +259,7 @@ export function createPackedProductAlias({ root, consumer }) {
           return null;
         }
         resolutions.push(Object.freeze({ source, importer: cleanImporter }));
-        return boundaryId;
-      },
-      load(id) {
-        if (id !== boundaryId) return null;
-        return [
-          `export { PatchMap } from ${JSON.stringify(packedEntry)};`,
-          `export * from ${JSON.stringify(sourceEntry)};`,
-        ].join('\n');
+        return null;
       },
     },
     probe() {
@@ -271,7 +268,7 @@ export function createPackedProductAlias({ root, consumer }) {
         resolutionCount: resolutions.length,
         sourceImportResolutionCount: resolutions.filter(({ importer }) =>
           typeof importer === 'string' && !importer.startsWith(consumer)).length,
-        packageImportResolutionCount: 0,
+        packageImportResolutionCount: packageImports.length,
       });
     },
   });

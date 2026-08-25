@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CoreView } from '../../src/patch-map/dense/contracts';
+import type { CoreView } from '../../src/dense/contracts';
 import {
   PatchMapRootInteractionAuthority,
   type PatchMapRootInteractionBinder,
   type PatchMapRootInteractionPorts,
-} from '../../src/patch-map/core/root-interaction-authority';
-import type { PatchMapRootPointerInput } from '../../src/patch-map/core/contracts';
-import type { RootInteractionHandlers, RootWheelInput } from '../../src/patch-map/renderers/types';
+} from '../../src/core/root-interaction-authority';
+import type { PatchMapRootPointerInput } from '../../src/core/contracts';
+import type { RootInteractionHandlers, RootWheelInput } from '../../src/rendering-port';
 
 describe('PatchMapRootInteractionAuthority', () => {
   it('preserves root pointer, selection, pan, viewport, and wheel publication order', () => {

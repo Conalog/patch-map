@@ -1,9 +1,7 @@
-import {
-  createPatchMapColorResolver,
-  type PatchMapAuthoringAction,
-  type PatchMap,
-  type PatchMapEngineAuthoringResult,
-} from '../../src/patch-map';
+import { createPatchMapColorResolver } from '../../src/semantic/color';
+import type { PatchMapAuthoringAction } from '../../src/authoring/contracts';
+import type { PatchMap } from '../../src/engine';
+import type { PatchMapEngineAuthoringResult } from '../../src/engine/contracts/editor';
 import {
   deepFreezePatchMapLabValue as deepFreeze,
   detachPatchMapLabValue as detach,

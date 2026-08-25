@@ -8,7 +8,7 @@ import {
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileOptions,
   type PatchMapSurfaceReconcileResult,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 
 class HistorySurface implements PatchMapEngineSurface {
   public canvasCount = 1;

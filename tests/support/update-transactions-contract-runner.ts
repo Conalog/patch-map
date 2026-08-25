@@ -1,6 +1,6 @@
 import { expect } from 'vitest';
 
-import { PatchMap } from '../../src/patch-map/engine';
+import { PatchMap } from '../../src/engine';
 import {
   UpdateContractSurface,
   createTestAssetRuntime,

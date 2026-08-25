@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapParseError } from '../../src/patch-map/contracts';
-import { parsePatchMap } from '../../src/patch-map/parser';
+import { PatchMapParseError } from '../../src/parsing/contracts';
+import { parsePatchMap } from '../../src/parsing';
 
 const fixturePath = fileURLToPath(
   new URL('../../lab/fixtures/production-like.json', import.meta.url),

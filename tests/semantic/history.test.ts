@@ -5,9 +5,9 @@ import {
   type PatchMapHistoryCommitOutcome,
   type PatchMapHistoryPreparedCommitStatus,
   type PatchMapSemanticHistoryCommandInput,
-} from '../../src/patch-map/history';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
-import { planPatchMapPaintOrder } from '../../src/patch-map/semantic/paint-order';
+} from '../../src/history';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import { planPatchMapPaintOrder } from '../../src/semantic/paint-order';
 
 interface StackNode {
   id: string;

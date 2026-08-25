@@ -6,20 +6,20 @@ import {
   type PatchMapElement,
   type PatchMapItemElement,
   type MaterializedPatchMapDataset,
-} from '../../src/patch-map/semantic/dataset';
+} from '../../src/semantic/dataset';
 import {
   PATCH_MAP_MUTATION_TRANSACTION_REVISION,
   planPatchMapBarHeightBatch,
   planPatchMapBulkPatch,
   planPatchMapMutationTransaction,
   planPatchMapTextBatch,
-} from '../../src/patch-map/semantic/transaction';
+} from '../../src/semantic/transaction';
 import {
   PATCH_MAP_IDENTITY_AFFINE,
   createPatchMapAffine,
   multiplyPatchMapAffine,
   type PatchMapAffineMatrix,
-} from '../../src/patch-map/semantic/geometry';
+} from '../../src/semantic/geometry';
 
 describe('PatchMap staged semantic transaction planner', () => {
   it('plans a compact typed-array bar batch without mutating caller input', () => {

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
 import {
   planPatchMapMoveTransform,
   planPatchMapResizeTransform,
   planPatchMapRotateTransform,
   resolvePatchMapEdgeAutoPan,
   resolvePatchMapRotationSnap,
-} from '../../src/patch-map/transformer-edit';
+} from '../../src/selection-transformer/edit';
 
 describe('PatchMap transformer edit planning', () => {
   it('plans integer move, dominant-axis lock, and atomic mixed-set refusal', () => {

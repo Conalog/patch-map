@@ -3,15 +3,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProjectionIndex } from '../support/projection-index';
 
-import type { RenderStoreView } from '../../src/patch-map/dense/renderer-types';
-import { RenderFlags, RenderKind } from '../../src/patch-map/dense/renderer-types';
+import type { RenderStoreView } from '../../src/dense/renderer-types';
+import { RenderFlags, RenderKind } from '../../src/dense/renderer-types';
 import {
   PATCH_MAP_ASSET_RUNTIME,
   PatchMapAssetRuntime,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-} from '../../src/patch-map/assets';
-import { AggregateLeafLayer } from '../../src/patch-map/renderers/leaf-layer';
+} from '../../src/assets';
+import { AggregateLeafLayer } from '../../src/rendering/leaf-layer';
 
 let layerSequence = 0;
 
@@ -43,7 +43,7 @@ describe('PatchMap aggregate leaf policy', () => {
     expect(layer.container.label).toBe('patch-map:text-and-assets');
     expect(layer.debugSnapshot()).toEqual({
       bitmapTextCount: 0,
-      pixiTextCount: 0,
+      fallbackTextCount: 0,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,
@@ -164,15 +164,15 @@ describe('PatchMap aggregate leaf policy', () => {
       },
     });
 
-    expect(initial.pixiTextCount).toBe(3);
+    expect(initial.fallbackTextCount).toBe(3);
     expect(layer.cull(new Matrix(), 120, 100, 0)).toBe(3);
-    expect(layer.debugSnapshot().pixiTextCount).toBe(64);
+    expect(layer.debugSnapshot().fallbackTextCount).toBe(64);
     expect(layer.textRendererProbe('text-1024')).toBeNull();
 
     expect(
       layer.cull(new Matrix(1, 0, 0, 1, -positions[1_024]!, 0), 120, 100, 0),
     ).toBe(1);
-    expect(layer.debugSnapshot().pixiTextCount).toBe(65);
+    expect(layer.debugSnapshot().fallbackTextCount).toBe(65);
     expect(layer.textRendererProbe('text-1024')).toMatchObject({
       publicationStatus: 'pending',
       lastRenderedFrame: null,

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { SlotRange } from '../../src/patch-map/dense/contracts';
+import type { SlotRange } from '../../src/dense/contracts';
 import type {
   PatchMapSemanticRefreshResult,
-} from '../../src/patch-map/core';
+} from '../../src/core';
 import {
   PatchMap,
   type PatchMapEngineSurface,
@@ -11,13 +11,13 @@ import {
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileResult,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 import {
   PATCH_MAP_PRESENTATION_POLICY_REVISION,
   type PatchMapPresentationPolicyInput,
   type PatchMapPresentationPolicyProductProbe,
-} from '../../src/patch-map/presentation-policy';
-import type { PatchMapSemanticTarget } from '../../src/patch-map/semantic/probe';
+} from '../../src/presentation/policy';
+import type { PatchMapSemanticTarget } from '../../src/semantic/probe';
 
 describe('PatchMap async and transient presentation substrate', () => {
   const engines: PatchMap[] = [];

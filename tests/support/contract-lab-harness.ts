@@ -6,17 +6,17 @@ import {
   createPatchMapExecutableLabBridge,
   type PatchMapExecutableLabBridgeOptions,
 } from '../../lab/contract/executable-bridge';
-import type { SlotRange } from '../../src/patch-map/dense/contracts';
-import { parsePatchMap } from '../../src/patch-map';
+import type { SlotRange } from '../../src/dense/contracts';
+import { parsePatchMap } from '../../src/parsing';
 import type {
   PatchMapBarPresentationProductProbe,
   PatchMapComponentVisualTarget,
   PatchMapSemanticRefreshResult,
-} from '../../src/patch-map/core/contracts';
+} from '../../src/core/contracts';
 import {
   createPatchMapSurfaceGeometrySnapshot,
   hitTestPatchMapSurfaceRelations,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 import type {
   PatchMapEngineSurface,
   PatchMapEngineSurfaceFactory,
@@ -30,19 +30,19 @@ import type {
   PatchMapSurfaceReconcileOptions,
   PatchMapSurfaceReconcileResult,
   PatchMapSurfaceView,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 import {
   PATCH_MAP_PRESENTATION_POLICY_REVISION,
   type PatchMapPresentationPolicyInput,
   type PatchMapPresentationPolicyProductProbe,
-} from '../../src/patch-map/presentation-policy';
+} from '../../src/presentation/policy';
 import type {
-  PatchMapPixiPublicSurfaceProbe,
-  PatchMapPixiRendererLossProbe,
+  PatchMapRendererPublicSurfaceProbe,
+  PatchMapRendererLossProbe,
   PatchMapRenderLaneRole,
   PatchMapRenderLaneSnapshot,
-} from '../../src/patch-map/renderers/types';
-import type { PatchMapSemanticTarget } from '../../src/patch-map/semantic/probe';
+} from '../../src/rendering-port';
+import type { PatchMapSemanticTarget } from '../../src/semantic/probe';
 
 export interface PatchMapContractCaseHarnessRun {
   readonly bridge: PatchMapContractLabBridgeV1;
@@ -101,7 +101,7 @@ export class FakeSurface implements PatchMapEngineSurface {
   private geometryRevision = 0;
   private presentationInput: PatchMapPresentationPolicyInput | null = null;
   private presentationRevision = 0;
-  private rendererLossState: PatchMapPixiRendererLossProbe['state'] = 'healthy';
+  private rendererLossState: PatchMapRendererLossProbe['state'] = 'healthy';
   private rendererLossEventCount = 0;
   private rendererRestorationEventCount = 0;
   private recoveredRendererFrameCount = 0;
@@ -411,7 +411,7 @@ export class FakeSurface implements PatchMapEngineSurface {
     });
   }
 
-  public pixiPublicSurfaceProbe(): PatchMapPixiPublicSurfaceProbe {
+  public rendererPublicSurfaceProbe(): PatchMapRendererPublicSurfaceProbe {
     return Object.freeze({
       rendererLibrary: 'pixi.js-v8',
       rendererVersion: '8.test',
@@ -436,7 +436,7 @@ export class FakeSurface implements PatchMapEngineSurface {
     });
   }
 
-  public rendererLossProbe(): PatchMapPixiRendererLossProbe {
+  public rendererLossProbe(): PatchMapRendererLossProbe {
     return Object.freeze({
       backend: 'webgl2',
       webGLVersion: 2,

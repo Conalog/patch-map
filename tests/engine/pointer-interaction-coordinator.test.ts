@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { PatchMapPointerInteractionCoordinator } from
-  '../../src/patch-map/engine/pointer-interaction-coordinator';
+  '../../src/engine/pointer-interaction-coordinator';
 import type { PatchMapPointerInteractionPort } from
-  '../../src/patch-map/engine/pointer-interaction-coordinator';
-import type { PatchMapEngineSurface } from '../../src/patch-map/engine/contracts';
-import { PatchMapPointerGestureAuthority } from '../../src/patch-map/pointer-gesture';
+  '../../src/engine/pointer-interaction-coordinator';
+import type { PatchMapEngineSurface } from '../../src/engine/contracts';
+import { PatchMapPointerGestureAuthority } from '../../src/pointer-gesture';
 
 const SURFACE = {
   hitTestScreen: () => null,

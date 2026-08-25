@@ -2,19 +2,19 @@ import { describe, expect, it } from 'vitest';
 
 import {
   projectPatchMapIntrinsicImageAffine as publicIntrinsicImageAffine,
-} from '../../src/patch-map/parser';
+} from '../../src/parsing';
 import {
   composePatchMapParserTransform,
   projectPatchMapIntrinsicImageAffine,
   projectPatchMapParserImage,
   projectPatchMapParserTopLeft,
   type PatchMapParserTransform,
-} from '../../src/patch-map/parser/transform-projection';
+} from '../../src/parsing/transform-projection';
 import {
   createPatchMapAffine,
   multiplyPatchMapAffine,
   projectPatchMapSignedRect,
-} from '../../src/patch-map/semantic/geometry';
+} from '../../src/semantic/geometry';
 
 describe('PatchMap parser transform projection', () => {
   it('composes inherited translation, handed rotation, scale, and affine state once', () => {

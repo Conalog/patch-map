@@ -1,15 +1,15 @@
+import { PATCH_MAP_BUILTIN_ASSETS } from '../../../src/assets/registration-normalization';
 import {
-  PATCH_MAP_BUILTIN_ASSETS,
   PatchMapAssetError,
-  PatchMapAssetRuntime,
-  createPatchMapPixiAssetBackend,
-  type PatchMap,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-  type PatchMapAssetDescriptor,
   type PatchMapAssetPolicy,
   type PatchMapAssetPolicyContext,
-} from '../../../src/patch-map';
+} from '../../../src/assets/contracts';
+import { PatchMapAssetRuntime } from '../../../src/assets';
+import { createPatchMapPixiAssetBackend } from '../../../src/assets/pixi-backend';
+import type { PatchMap } from '../../../src/engine';
+import type { PatchMapAssetDescriptor } from '../../../src/semantic/dataset/contracts';
 import {
   deepFreezePatchMapLabValue as deepFreeze,
   isPatchMapLabRecord as isRecord,

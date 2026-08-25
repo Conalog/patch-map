@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { CoreScene } from '../../src/patch-map/dense/scene';
-import { createPatchMapSurfaceGeometrySnapshot } from '../../src/patch-map/engine';
-import { parsePatchMap } from '../../src/patch-map/parser';
+import { CoreScene } from '../../src/dense/scene';
+import { createPatchMapSurfaceGeometrySnapshot } from '../../src/engine';
+import { parsePatchMap } from '../../src/parsing';
 import {
   applyPatchMapAffine,
   patchMapAffineBasis,
   createPatchMapAffine,
   invertPatchMapAffine,
   multiplyPatchMapAffine,
-} from '../../src/patch-map/semantic/geometry';
+} from '../../src/semantic/geometry';
 
 describe('PatchMap signed affine orientation projection', () => {
   it('composes and inverts generic finite signed 2D transforms', () => {

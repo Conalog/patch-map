@@ -6,11 +6,9 @@ import {
   InvalidationScheduler,
   type PatchMapFrameLoopTarget,
   type FrameDriver,
-} from '../../src/patch-map/scheduler';
-import {
-  PatchMapAdaptiveFrameBudget as RootPatchMapAdaptiveFrameBudget,
-  PatchMapFrameLoop as RootPatchMapFrameLoop,
-} from '../../src/patch-map';
+} from '../../src/scheduler';
+import { PatchMapAdaptiveFrameBudget as RootPatchMapAdaptiveFrameBudget } from '../../src/scheduler/adaptive-frame-budget';
+import { PatchMapFrameLoop as RootPatchMapFrameLoop } from '../../src/scheduler';
 
 describe('scheduler facade exports', () => {
   it('preserves root and facade class identity', () => {

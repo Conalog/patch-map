@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   PATCH_MAP_EDITOR_MUTATION_KINDS,
   PatchMapEditorWorkflowAuthority,
-} from '../../src/patch-map/editor-workflow';
+} from '../../src/editor-workflow';
 import {
   PatchMap,
   type PatchMapEngineSurface,
@@ -12,8 +12,8 @@ import {
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileOptions,
   type PatchMapSurfaceReconcileResult,
-} from '../../src/patch-map/engine';
-import type { NormalizedPatchMapElement } from '../../src/patch-map/semantic/dataset';
+} from '../../src/engine';
+import type { NormalizedPatchMapElement } from '../../src/semantic/dataset';
 
 class EditorSurface implements PatchMapEngineSurface {
   public canvasCount = 1;

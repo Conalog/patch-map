@@ -5,7 +5,7 @@ import {
   PatchMapExtractionSecurityAuthority,
   PatchMapOperationsAuthority,
   redactPatchMapOperationalDiagnostic,
-} from '../../src/patch-map/operations';
+} from '../../src/operations';
 
 const REVISIONS = Object.freeze({
   lifecycleGeneration: 1,

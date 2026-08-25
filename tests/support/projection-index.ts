@@ -1,4 +1,4 @@
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
 
 export function createTestProjectionIndex(
   overrides: Partial<PatchMapProjectionIndex> = {},

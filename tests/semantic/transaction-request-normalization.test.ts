@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { TransactionValidationFailure } from '../../src/patch-map/semantic/transaction/diagnostics';
+import { TransactionValidationFailure } from '../../src/semantic/transaction/diagnostics';
 import {
   EMPTY_OPERATIONS,
   normalizeBulkPatch,
   normalizeTransaction,
   targetKey,
   targetLabel,
-} from '../../src/patch-map/semantic/transaction/request-normalization';
+} from '../../src/semantic/transaction/request-normalization';
 
 describe('PatchMap transaction request normalization', () => {
   it('detaches and freezes operation, target, path, value, and history inputs', () => {

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createPatchMapExecutableLabBridge } from '../../lab/contract/executable-bridge';
 import { TargetedWebGLPatchMapEngine } from '../../lab/contract/targeted-webgl-engine';
-import type { PatchMapSurfaceOptions } from '../../src/patch-map/engine';
+import type { PatchMapSurfaceOptions } from '../../src/engine';
 import { FakeSurface } from '../support/contract-lab-harness';
 
 describe('PatchMap executable bridge failure cleanup', () => {

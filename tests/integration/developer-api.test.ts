@@ -5,22 +5,22 @@ import {
   type PatchMapPointerHoverEvent,
   type PatchMapPointerSelectionChange,
   type PatchMapPointerTooltipEvent,
-} from '../../src/patch-map/developer-api';
-import { PatchMap } from '../../src/patch-map/engine';
-import * as PublicPackage from '../../src/index';
-import { PatchMap as PublicPatchMap } from '../../src/index';
+} from '../../src/public';
+import { PatchMap } from '../../src/engine';
+import * as PublicPackage from '../../src';
+import { PatchMap as PublicPatchMap } from '../../src';
 import type {
   PatchMapEngineInstanceBarHeightResult,
   PatchMapEngineTransactionResult,
-} from '../../src/patch-map/engine/contracts/mutation';
+} from '../../src/engine/contracts/mutation';
 import type {
   PatchMapEngineQueryResult,
-} from '../../src/patch-map/engine/contracts/query-selection';
+} from '../../src/engine/contracts/query-selection';
 import type {
   PatchMapViewportChangeResult,
   PatchMapViewportState,
-} from '../../src/patch-map/engine/contracts/viewport';
-import type { PatchMapLogicalTargetSnapshot } from '../../src/patch-map/query-selection';
+} from '../../src/engine/contracts/viewport';
+import type { PatchMapLogicalTargetSnapshot } from '../../src/query-selection';
 import { createEngine } from '../support/engine-update-transaction-surface';
 
 const REVISIONS = Object.freeze({
@@ -1315,6 +1315,144 @@ describe('PatchMap high-level developer API', () => {
     });
   });
 
+  it('exposes editor workflow, previewable transform sessions, and history companion state', async () => {
+    const { engine } = await createEngine(engines, 'developer-api-editor-sessions');
+    engine.data.replace([{
+      type: 'grid',
+      id: 'grid',
+      cells: [[1, 'B'], [0, 1]],
+      item: { size: 10, components: [] },
+    }], { fit: false });
+
+    expect(engine.editor.execute({
+      type: 'enter-grid-edit',
+      target: 'grid',
+      linkedCellIds: ['grid.0.1'],
+    })).toMatchObject({
+      status: 'committed',
+      state: { mode: 'grid-edit', activeTargetId: 'grid' },
+    });
+    expect(engine.editor.state).toMatchObject({
+      mode: 'grid-edit',
+      activeTargetId: 'grid',
+    });
+
+    engine.data.replace([{
+      type: 'rect',
+      id: 'rect',
+      attrs: { x: 10, y: 20 },
+      size: { width: 80, height: 40 },
+    }], { fit: false });
+    const session = engine.transform.beginSession({
+      targets: { id: 'rect' },
+      kind: 'move',
+      actionId: 'drag-rect',
+    });
+    const preview = session.preview({ kind: 'move', delta: [12, -4] });
+    expect(preview).toMatchObject({
+      status: 'previewed',
+      changed: true,
+    });
+    expect(Object.keys(preview).sort()).toEqual(['changed', 'status']);
+    const edgePan = session.edgePan([799, 300], [4, 0]);
+    expect(edgePan.pointerWorldBefore).toHaveLength(2);
+    expect(edgePan.pointerWorldAfter).toHaveLength(2);
+    const committedSession = session.commit();
+    expect(committedSession).toMatchObject({
+      status: 'committed',
+      historyDepthDelta: 1,
+    });
+    expect(Object.keys(committedSession).sort()).toEqual([
+      'changed',
+      'historyDepthDelta',
+      'mutationCount',
+      'status',
+    ]);
+
+    const historyStates: number[] = [];
+    const release = engine.history.onChange((state) => historyStates.push(state.undoDepth));
+    expect(engine.transaction([{
+      type: 'update',
+      id: 'rect',
+      changes: { attrs: { x: 40 } },
+    }], {
+      actionId: 'host-editor-state',
+      selectedIds: ['rect'],
+      companion: { panel: 'properties', draft: 2 },
+    })).toMatchObject({ status: 'committed' });
+    const undone = engine.history.undo();
+    expect(undone).toMatchObject({
+      status: 'committed',
+      companion: null,
+    });
+    expect(Object.keys(undone).sort()).toEqual([
+      'changed',
+      'companion',
+      'direction',
+      'history',
+      'previousRevisions',
+      'revisions',
+      'sceneRevision',
+      'semanticHash',
+      'status',
+    ]);
+    const redone = engine.history.redo();
+    expect(redone).toMatchObject({
+      status: 'committed',
+      companion: { panel: 'properties', draft: 2 },
+    });
+    expect(historyStates).toEqual([2, 1, 2]);
+    release();
+  });
+
+  it('refuses edge-pan through a public session token after replacement cancels ownership', async () => {
+    const { engine } = await createEngine(engines, 'developer-api-stale-transform');
+    const scene = [{
+      type: 'rect',
+      id: 'rect',
+      attrs: { x: 0, y: 0 },
+      size: { width: 20, height: 20 },
+    }];
+    engine.data.replace(scene, { fit: false });
+    const session = engine.transform.beginSession({
+      targets: { id: 'rect' },
+      kind: 'move',
+      actionId: 'stale-drag',
+    });
+    engine.data.replace(scene, { fit: false });
+    const before = engine.viewport.snapshot();
+
+    expect(() => session.edgePan([799, 300], [4, 0])).toThrow('CONFLICT');
+    expect(engine.viewport.snapshot()).toEqual(before);
+  });
+
+  it('invalidates a public transform token before commit change callbacks run', async () => {
+    const { engine } = await createEngine(engines, 'developer-api-transform-reentrancy');
+    engine.data.replace([{
+      type: 'rect',
+      id: 'rect',
+      attrs: { x: 0, y: 0 },
+      size: { width: 20, height: 20 },
+    }], { fit: false });
+    const session = engine.transform.beginSession({
+      targets: { id: 'rect' },
+      kind: 'move',
+      actionId: 'reentrant-drag',
+    });
+    session.preview({ kind: 'move', delta: [8, 0] });
+    const before = engine.viewport.snapshot();
+    let callbackObserved = false;
+    const release = engine.on('change', () => {
+      callbackObserved = true;
+      expect(() => session.edgePan([799, 300], [4, 0])).toThrow('CONFLICT');
+    });
+
+    expect(session.commit()).toMatchObject({ status: 'committed' });
+    expect(callbackObserved).toBe(true);
+    expect(engine.viewport.snapshot()).toEqual(before);
+    release();
+  });
+
   it('loads and fits through one high-level call', () => {
     const harness = createHost();
     const map = createPatchMapApi(harness.host);
@@ -1503,12 +1641,21 @@ describe('PatchMap high-level developer API', () => {
     expect(events).toHaveLength(1);
   });
 
-  it('ships one intentional package surface without low-level implementation exports', () => {
+  it('ships one product surface plus the named asset-runtime extension', () => {
     expect(PublicPatchMap).not.toBe(PatchMap);
     expect(() => Reflect.construct(PublicPatchMap as unknown as new () => object, [])).toThrow(
       'PatchMap cannot be constructed directly; use PatchMap.mount(...)',
     );
     expect(typeof PublicPatchMap.mount).toBe('function');
+    expect(Object.keys(PublicPackage).sort()).toEqual([
+      'PATCH_MAP_BUILTIN_ASSETS',
+      'PatchMap',
+      'PatchMapAssetError',
+      'PatchMapAssetRuntime',
+      'PatchMapError',
+      'createPatchMapAssetIngestionPolicy',
+      'createPatchMapPixiAssetBackend',
+    ]);
     for (const internalName of [
       'PatchMapAdvanced',
       'PatchMapFrameLoop',
@@ -1521,7 +1668,7 @@ describe('PatchMap high-level developer API', () => {
   });
 
   it('explains a missing mount target before allocating renderer resources', async () => {
-    await expect(PatchMap.mount({ container: '#missing-patch-map-host' })).rejects.toThrow(
+    await expect(PublicPatchMap.mount({ container: '#missing-patch-map-host' })).rejects.toThrow(
       'Create the container element before mounting',
     );
   });

@@ -10,8 +10,8 @@ import {
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceViewportInput,
   type PatchMapSurfaceView,
-} from '../../src/patch-map/engine';
-import type { PatchMapViewportPolicy } from '../../src/patch-map/viewport';
+} from '../../src/engine';
+import type { PatchMapViewportPolicy } from '../../src/viewport';
 
 describe('PatchMap viewport authority', () => {
   const engines: PatchMap[] = [];

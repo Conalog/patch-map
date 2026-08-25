@@ -4,7 +4,7 @@ import {
   PatchMapAssetRuntime,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-} from '../../src/patch-map/assets';
+} from '../../src/assets';
 
 function deferred<T>(): Readonly<{
   promise: Promise<T>;

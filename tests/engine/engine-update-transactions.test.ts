@@ -5,13 +5,13 @@ import type {
   PatchMapGridElement,
   PatchMapItemElement,
   PatchMapRectElement,
-} from '../../src/patch-map/semantic/dataset';
-import type { PatchMapMutationJsonValue } from '../../src/patch-map/semantic/transaction';
+} from '../../src/semantic/dataset';
+import type { PatchMapMutationJsonValue } from '../../src/semantic/transaction';
 import type {
   PatchMap,
   PatchMapEngineSurface,
   PatchMapSurfacePointerInput,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
 import { createEngine } from '../support/engine-update-transaction-surface';
 
 describe('PatchMap update transactions', () => {

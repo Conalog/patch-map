@@ -10,7 +10,7 @@ import {
   measurePatchMapVisibleAction,
   validatePatchMapContractPerformanceDataset,
 } from '../../performance/contract-workload';
-import type { PatchMap } from '../../src/patch-map/engine';
+import type { PatchMap } from '../../src/engine';
 
 afterEach(() => {
   vi.restoreAllMocks();

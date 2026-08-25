@@ -6,23 +6,25 @@ import {
   PARTICLE_GRAPHICS_LIMITATIONS,
   ParticleGraphicsLayer,
   buildParticleGraphicsDescriptors,
-} from '../../src/patch-map/renderers/particle-layer';
+} from '../../src/rendering/particle-layer';
 import {
   RenderFlags,
   RenderKind,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
+} from '../../src/dense/renderer-types';
 import type {
   PatchMapEntityProjection,
   PatchMapProjectionIndex,
-} from '../../src/patch-map/contracts';
+} from '../../src/parsing/contracts';
 import {
   patchMapAffineBasis,
   patchMapAffineCenter,
   createPatchMapAffine,
   type PatchMapAffineMatrix,
-} from '../../src/patch-map/semantic/geometry';
-import type { PatchMapProjectionRenderContext } from '../../src/patch-map/renderers/types';
+} from '../../src/semantic/geometry';
+import type {
+  PatchMapProjectionRenderContext,
+} from '../../src/geometry/render-quads';
 
 describe('buildParticleGraphicsDescriptors', () => {
   it('builds deterministic particles with packed color alpha and center rotation', () => {

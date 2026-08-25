@@ -8,8 +8,8 @@ import {
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileOptions,
   type PatchMapSurfaceReconcileResult,
-} from '../../src/patch-map/engine';
-import type { PatchMapElement } from '../../src/patch-map/semantic/dataset';
+} from '../../src/engine';
+import type { PatchMapElement } from '../../src/semantic/dataset';
 
 class TransformerSurface implements PatchMapEngineSurface {
   public canvasCount = 1;

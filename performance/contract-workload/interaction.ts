@@ -1,8 +1,6 @@
-import type {
-  PatchMap,
-  PatchMapEngineGeometryProbe,
-  PatchMapEngineTransactionPerformanceProbe,
-} from '../../src/patch-map';
+import type { PatchMap } from '../../src/engine';
+import type { PatchMapEngineGeometryProbe } from '../../src/engine/contracts/rendering';
+import type { PatchMapEngineTransactionPerformanceProbe } from '../../src/engine/contracts/mutation';
 
 import { measurePatchMapVisibleAction } from './measurement';
 import { countNonFinite, deepFreeze, staleGestureCount } from './semantics';

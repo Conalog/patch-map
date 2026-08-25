@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   planPatchMapPaintOrder,
   type PatchMapPaintPrimitiveInput,
-} from '../../src/patch-map/semantic/paint-order';
+} from '../../src/semantic/paint-order';
 
 describe('PatchMap semantic paint-order planner', () => {
   it('matches the exact LAY-003 initial and patched stacking orders', () => {

@@ -1,12 +1,12 @@
 import productionShapedWorkloadJson from '../../contracts/evidence/production-shaped-workload.v1.json';
-import {
-  resolvePatchMapEditorMount,
-  type PatchMapEditorMountDecision,
-  type PatchMap,
-  type PatchMapHostTooltipPublication,
-  type PatchMapHostTooltipState,
-  type PatchMapHostTooltipSubscription,
-} from '../../src/patch-map';
+import { resolvePatchMapEditorMount } from '../../src/host-interaction';
+import type {
+  PatchMapEditorMountDecision,
+  PatchMapHostTooltipPublication,
+  PatchMapHostTooltipState,
+  PatchMapHostTooltipSubscription,
+} from '../../src/host-interaction/contracts';
+import type { PatchMap } from '../../src/engine';
 import {
   deepFreezePatchMapLabValue as deepFreeze,
   detachPatchMapLabValue as detach,

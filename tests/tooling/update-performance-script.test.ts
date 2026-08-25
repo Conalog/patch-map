@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { createSyntheticPatchMap } from '../../performance/workloads';
-import { PatchMap } from '../../src/patch-map/engine';
+import { PatchMap } from '../../src/engine';
 
 // @ts-expect-error -- verification runner is authored as ESM JavaScript.
 import * as updatePerformanceSource from '../../scripts/verification/patch-map-update-performance.mjs';
@@ -192,7 +192,7 @@ describe('PatchMap update transaction performance checkpoint', () => {
     );
     expect(source).toContain('public PatchMap transaction validation');
     expect(source).toContain('PixiJS renderer reconciliation');
-    expect(source).toContain("vite.ssrLoadModule('/src/patch-map/index.ts')");
+    expect(source).toContain("vite.ssrLoadModule('/src/engine/index.ts')");
     expect(source).not.toMatch(/normalized-expected|catalog-evidence-manifest|review-registry/u);
     expect(source).not.toMatch(/from 'playwright'|chromium\.launch/u);
   });

@@ -1,13 +1,13 @@
 import { Container, type FederatedPointerEvent } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import { PatchMapPixiRootInteractionBindingAuthority } from '../../src/patch-map/renderers/pixi-renderer/root-interaction-binding-authority';
+import { PatchMapPixiRootInteractionBindingAuthority } from '../../src/rendering/pixi-renderer/root-interaction-binding-authority';
 import type {
   RootContextMenuInput,
   RootInteractionHandlers,
   RootPointerInput,
   RootWheelInput,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/rendering-port';
 
 describe('PatchMap Pixi root interaction binding authority', () => {
   it('defers listeners until publication and preserves pointer and scaled DOM input', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RenderStoreView } from '../../src/patch-map/dense/renderer-types';
-import { RenderKind } from '../../src/patch-map/dense/renderer-types';
+import type { RenderStoreView } from '../../src/dense/renderer-types';
+import { RenderKind } from '../../src/dense/renderer-types';
 import {
   buildPatchMapRelationAdjacency,
   expandPatchMapRelationDependencyRanges,
@@ -9,8 +9,8 @@ import {
   projectionChangedRanges,
   projectionStalenessChangedRanges,
   rangesTouchPatchMapRelationTopology,
-} from '../../src/patch-map/renderers/renderer-reconcile-ranges';
-import { parsePatchMap } from '../../src/patch-map/parser';
+} from '../../src/rendering/renderer-reconcile-ranges';
+import { parsePatchMap } from '../../src/parsing';
 
 describe('PatchMap Pixi relation adjacency', () => {
   it('merges dirty ranges and maps staleness changes without mutating inputs', () => {

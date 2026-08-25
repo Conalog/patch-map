@@ -6,7 +6,7 @@ import {
   screenToWorld,
   worldToScreen,
   zoomViewAt,
-} from '../../src/patch-map/view';
+} from '../../src/viewport/view';
 
 describe('PatchMap view transforms', () => {
   it('round-trips translated, scaled, and rotated coordinates', () => {

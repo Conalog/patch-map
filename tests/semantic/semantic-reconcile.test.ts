@@ -1,25 +1,25 @@
 import { describe, expect, it } from 'vitest';
 
-import { CoreScene } from '../../src/patch-map/dense/scene';
+import { CoreScene } from '../../src/dense/scene';
 import type {
   EntityInput,
   RectEntityInput,
   SceneDocument,
-} from '../../src/patch-map/dense/contracts';
+} from '../../src/dense/contracts';
 import {
   RenderFlags,
   type CoreRenderer,
   type RenderStoreView,
-} from '../../src/patch-map/dense/renderer-types';
-import { parsePatchMap } from '../../src/patch-map/parser';
-import { materializePatchMapDataset } from '../../src/patch-map/semantic/dataset';
+} from '../../src/dense/renderer-types';
+import { parsePatchMap } from '../../src/parsing';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
 import {
   planPatchMapDatasetReconcile,
   planPatchMapParsedSceneReconcile,
   planPatchMapParsedSceneReconcileIncremental,
   planPatchMapParsedSceneReconcileStructuralWindow,
   planPatchMapSceneReconcile,
-} from '../../src/patch-map/semantic/reconcile';
+} from '../../src/core/reconcile';
 
 describe('PatchMap dense reconcile planner', () => {
   it('returns an immutable empty transaction for an unchanged scene', () => {

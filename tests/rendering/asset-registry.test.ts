@@ -13,18 +13,18 @@ import {
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
   type PatchMapAssetPolicyContext,
-} from '../../src/patch-map/assets';
+} from '../../src/assets';
 import {
   BUILTIN_IMAGE_SVGS,
   builtinImageSvg,
-} from '../../src/patch-map/assets/builtin-image-glyphs';
+} from '../../src/assets/builtin-image-glyphs';
 import {
   BUILTIN_FIRA_CODE_FACES,
   BUILTIN_IMAGE_ALIASES,
   PATCH_MAP_BUILTIN_FONT_ASSETS,
   builtinImageDataUri,
-} from '../../src/patch-map/assets/registration-normalization';
-import { stableHash64Hex } from '../../src/patch-map/shared/stable-hash';
+} from '../../src/assets/registration-normalization';
+import { stableHash64Hex } from '../../src/shared/stable-hash';
 
 const PATCH_MAP_BUILTIN_SHA256 = Object.freeze({
   object: 'e87c2ae562c7a3941a0c79249aa4c37494ef6222de31e57779d2aaa31d79e4d4',
@@ -93,7 +93,7 @@ describe('PatchMap shared asset runtime', () => {
 
     for (const [index, face] of BUILTIN_FIRA_CODE_FACES.entries()) {
       const bytes = readFileSync(new URL(
-        `../../src/patch-map/assets/fonts/${face.fileName}`,
+        `../../src/resources/fonts/${face.fileName}`,
         import.meta.url,
       ));
       const registration = PATCH_MAP_BUILTIN_FONT_ASSETS[index];

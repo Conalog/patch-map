@@ -7,34 +7,34 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { assertCommittedVerifierEntryImportFirewall } from '../support/contract-verifier-import-firewall';
 
-import type { CoreView, SlotRange } from '../../src/patch-map/dense/contracts';
-import type { RendererFlushResult, RenderStoreView } from '../../src/patch-map/dense/renderer-types';
+import type { CoreView, SlotRange } from '../../src/dense/contracts';
+import type { RendererFlushResult, RenderStoreView } from '../../src/dense/renderer-types';
 import { createPatchMapExecutableLabBridge } from '../../lab/contract/executable-bridge';
-import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/patch-map/core';
-import type { PatchMapProjectionIndex } from '../../src/patch-map/contracts';
-import type { PatchMapPresentationLayerRenderUpdate } from '../../src/patch-map/presentation-layer-contracts';
+import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/core';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/presentation/layer-contracts';
 import {
   PatchMap,
-  PixiEngineSurface,
   type PatchMapEngineSurfaceFactory,
   type PatchMapSurfaceOptions,
-} from '../../src/patch-map/engine';
+} from '../../src/engine';
+import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
 import { createPatchMapPresentationDynamicsRuntime } from '../../lab/contract/presentation-dynamics-runtime';
 import type {
   PatchMapPixiInitializationMetrics,
   PatchMapPixiRenderer,
-} from '../../src/patch-map/renderers/pixi-renderer';
-import type { PatchMapRendererEntityPresentationOverride } from '../../src/patch-map/renderers/presentation-store';
+} from '../../src/rendering/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/rendering/contracts/presentation-store';
 import type {
   LeafAssetBindingObservation,
   LeafAssetBindingProbe,
   LeafAssetBindingRequest,
   LeafSceneImageProbe,
-} from '../../src/patch-map/renderers/leaf-layer';
+} from '../../src/rendering/leaf-layer';
 import type {
-  PatchMapPixiRendererDebug,
+  PatchMapRendererDebug,
   RootInteractionHandlers,
-} from '../../src/patch-map/renderers/types';
+} from '../../src/rendering-port';
 
 type CaseId = 'UPD-005' | 'REN-009' | 'ANI-001' | 'ANI-002';
 type JsonRecord = Record<string, unknown>;
@@ -771,7 +771,7 @@ class RendererTestDouble {
   public bindRootInteractions(_handlers: RootInteractionHandlers): () => void {
     return () => undefined;
   }
-  public debugSnapshot(): PatchMapPixiRendererDebug {
+  public debugSnapshot(): PatchMapRendererDebug {
     return Object.freeze({
       strategy: this.strategy,
       backend: 'webgl',
@@ -787,7 +787,7 @@ class RendererTestDouble {
       particleFullUploadCount: 0,
       uploadObservation: 'dirty-chunk-bytes',
       bitmapTextCount: 0,
-      pixiTextCount: 0,
+      fallbackTextCount: 0,
       imageCount: 0,
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,

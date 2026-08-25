@@ -2,23 +2,27 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   PATCH_MAP_ACCESSIBILITY_REVISION,
-  PatchMapAccessibilityAuthority,
-  PatchMap,
-  PatchMapLogicalSceneIndex,
-  derivePatchMapAccessibilityTargets,
-  materializePatchMapDataset,
   type PatchMapAccessibilityActivationInput,
   type PatchMapAccessibilityRenderNode,
   type PatchMapAccessibilitySurfaceProbe,
   type PatchMapAccessibilityTargetInput,
-  type PatchMapEngineSurface,
-  type PatchMapSurfaceDebug,
-  type PatchMapSurfaceEntityGeometry,
-  type PatchMapSurfaceReconcileOptions,
-  type PatchMapSurfaceReconcileResult,
-  type PatchMapSurfaceView,
-} from '../../src/patch-map';
-import { PatchMapAccessibilityOverlayAuthority } from '../../src/patch-map/renderers/pixi-renderer/accessibility-overlay-authority';
+} from '../../src/accessibility/contracts';
+import { PatchMapAccessibilityAuthority } from '../../src/accessibility';
+import { PatchMap } from '../../src/engine';
+import { PatchMapLogicalSceneIndex } from '../../src/query-selection';
+import { derivePatchMapAccessibilityTargets } from '../../src/accessibility/semantic-tree-values';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
+import type {
+  PatchMapEngineSurface,
+  PatchMapSurfaceDebug,
+  PatchMapSurfaceReconcileOptions,
+  PatchMapSurfaceReconcileResult,
+} from '../../src/engine/contracts';
+import type {
+  PatchMapSurfaceEntityGeometry,
+  PatchMapSurfaceView,
+} from '../../src/engine/surface-contract';
+import { PatchMapAccessibilityOverlayAuthority } from '../../src/rendering/pixi-renderer/accessibility-overlay-authority';
 
 describe('PatchMap accessibility product authority', () => {
   it('probes an inactive Pixi accessibility system without dereferencing its released DOM root', () => {

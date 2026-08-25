@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { SceneSnapshot } from '../../src/patch-map/dense/contracts';
+import type { SceneSnapshot } from '../../src/dense/contracts';
 import {
   PatchMap,
   createPatchMapSurfaceGeometrySnapshot,
@@ -9,8 +9,8 @@ import {
   type PatchMapSurfaceDebug,
   type PatchMapSurfaceOptions,
   type PatchMapSurfaceReconcileResult,
-} from '../../src/patch-map/engine';
-import type { PatchMapReconcileDiagnostic } from '../../src/patch-map/semantic/reconcile';
+} from '../../src/engine';
+import type { PatchMapReconcileDiagnostic } from '../../src/core/reconcile';
 
 abstract class SurfaceBase implements PatchMapEngineSurface {
   public canvasCount = 1;

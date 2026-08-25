@@ -6,8 +6,8 @@ import {
   type PatchMapElement,
   type PatchMapItemElement,
   type MaterializedPatchMapDataset,
-} from '../../src/patch-map/semantic/dataset';
-import { applyPatchMapSemanticPatch } from '../../src/patch-map/semantic/mutation';
+} from '../../src/semantic/dataset';
+import { applyPatchMapSemanticPatch } from '../../src/semantic/mutation';
 
 describe('PatchMap pure semantic mutation candidate', () => {
   it('patches a nested element by stable ID while retaining hierarchy and sibling values', () => {

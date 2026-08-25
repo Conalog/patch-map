@@ -1,8 +1,6 @@
-import {
-  worldToScreen,
-  type EntitySnapshot,
-} from '../../src/patch-map';
-import type { PatchMapRuntime } from '../../src/patch-map/core';
+import { worldToScreen } from '../../src/viewport/view';
+import type { EntitySnapshot } from '../../src/dense/contracts';
+import type { PatchMapRuntime } from '../../src/core';
 import { percentile } from '../protocol';
 import { seededRandom } from '../workloads';
 
