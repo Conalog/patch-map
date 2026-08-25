@@ -107,7 +107,7 @@ export async function runPatchMapUpdatePerformanceCheckpoint({
         logicalCpuCount: cpus.length,
         timer: 'node:perf_hooks performance.now',
         chromium4x: 'not-run; tranche reuses existing surface reconciliation and this checkpoint isolates new Engine staging/orchestration',
-        windowsNative: 'pending; this CPU-isolation checkpoint is not native target evidence',
+        windowsNative: false,
       }),
       runs: Object.freeze(runs),
     });
@@ -186,7 +186,7 @@ async function loadRuntime() {
   });
   try {
     const engine = await vite.ssrLoadModule('/src/engine/index.ts');
-    const workloads = await vite.ssrLoadModule('/performance/workloads.ts');
+    const workloads = await vite.ssrLoadModule('/performance/probes/update/fixture.ts');
     assert(typeof engine.PatchMap === 'function', 'PatchMap engine export is unavailable');
     assert(
       typeof workloads.createSyntheticPatchMap === 'function',

@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  PATCH_MAP_CONTRACT_PERFORMANCE_SIZES,
-  buildPatchMapContractPerformanceDataset,
+  PATCH_MAP_BENCHMARK_SIZES,
+  buildPatchMapBenchmarkDataset,
   canonicalPatchMapDatasetSha256,
   classifyPatchMapTextUpdatePublication,
   patchMapPerformancePercentile,
   countPatchMapLongTasksAtLeast,
   measurePatchMapVisibleAction,
-  validatePatchMapContractPerformanceDataset,
-} from '../../performance/contract-workload';
+  validatePatchMapBenchmarkDataset,
+} from '../../performance/benchmark/workload';
 import type { PatchMap } from '../../src/engine';
 
 afterEach(() => {
@@ -17,16 +17,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('PatchMap contract performance workload', () => {
+describe('PatchMap benchmark workload', () => {
   it('builds deterministic detached frozen synthetic PATCH MAP input', () => {
-    const first = buildPatchMapContractPerformanceDataset(100, 319);
-    const second = buildPatchMapContractPerformanceDataset(100, 319);
+    const first = buildPatchMapBenchmarkDataset(100, 319);
+    const second = buildPatchMapBenchmarkDataset(100, 319);
 
     expect(first).toEqual(second);
     expect(first).not.toBe(second);
     expect(Object.isFrozen(first)).toBe(true);
     expect(Object.isFrozen(first[0])).toBe(true);
-    expect(validatePatchMapContractPerformanceDataset(first)).toMatchObject({
+    expect(validatePatchMapBenchmarkDataset(first)).toMatchObject({
       rootCount: 100,
       elementCount: 100,
       componentCount: 300,
@@ -34,12 +34,12 @@ describe('PatchMap contract performance workload', () => {
   });
 
   it('binds the approved production-shaped matrix row to its canonical SHA-256', async () => {
-    const production = buildPatchMapContractPerformanceDataset(
+    const production = buildPatchMapBenchmarkDataset(
       'production-shaped-workload-v1',
       319,
     );
 
-    expect(PATCH_MAP_CONTRACT_PERFORMANCE_SIZES).toEqual([
+    expect(PATCH_MAP_BENCHMARK_SIZES).toEqual([
       100,
       500,
       1_000,
@@ -50,7 +50,7 @@ describe('PatchMap contract performance workload', () => {
     expect(await canonicalPatchMapDatasetSha256(production)).toBe(
       'e9d91e96f239663a88f54ce54a8dcb933f813d5b156d734a99c20d1ae2a749fa',
     );
-    expect(validatePatchMapContractPerformanceDataset(production)).toMatchObject({
+    expect(validatePatchMapBenchmarkDataset(production)).toMatchObject({
       rootCount: 21,
       strictReferenceDiagnostics: [{
         code: 'MISSING_TARGET',

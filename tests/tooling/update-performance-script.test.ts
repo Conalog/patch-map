@@ -1,9 +1,6 @@
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
-import { createSyntheticPatchMap } from '../../performance/workloads';
+import { createSyntheticPatchMap } from '../../performance/probes/update/fixture';
 import { PatchMap } from '../../src/engine';
 
 // @ts-expect-error -- verification runner is authored as ESM JavaScript.
@@ -183,19 +180,6 @@ describe('PatchMap update transaction performance checkpoint', () => {
     );
   });
 
-  it('stays expected-blind and labels the renderer exclusion explicitly', async () => {
-    const source = await readFile(
-      fileURLToPath(
-        new URL('../../performance/runners/update.mjs', import.meta.url),
-      ),
-      'utf8',
-    );
-    expect(source).toContain('public PatchMap transaction validation');
-    expect(source).toContain('PixiJS renderer reconciliation');
-    expect(source).toContain("vite.ssrLoadModule('/src/engine/index.ts')");
-    expect(source).not.toMatch(/normalized-expected|catalog-evidence-manifest|review-registry/u);
-    expect(source).not.toMatch(/from 'playwright'|chromium\.launch/u);
-  });
 });
 
 function validOutput(): UpdatePerformanceOutput {

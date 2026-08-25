@@ -25,7 +25,7 @@ import {
   planPatchMapMutationTransaction,
   planPatchMapTextBatch,
 } from '../../src/semantic/transaction';
-import { buildPatchMapContractPerformanceDataset } from '../../performance/contract-workload';
+import { buildPatchMapBenchmarkDataset } from '../../performance/benchmark/workload';
 import { buildPatchMapSeededScenarioScene } from '../../performance/fixtures/seeded-scene';
 
 describe('PatchMap guarded incremental parser', () => {
@@ -50,7 +50,7 @@ describe('PatchMap guarded incremental parser', () => {
 
   it('is exact for dirty flat roots while reusing untouched parser records', () => {
     const current = materializePatchMapDataset(
-      buildPatchMapContractPerformanceDataset(100, 319),
+      buildPatchMapBenchmarkDataset(100, 319),
     );
     const plan = planPatchMapBulkPatch(
       current,
@@ -98,7 +98,7 @@ describe('PatchMap guarded incremental parser', () => {
 
   it('falls back when a dirty root is missing or the scene is not flat', () => {
     const flat = materializePatchMapDataset(
-      buildPatchMapContractPerformanceDataset(100, 319),
+      buildPatchMapBenchmarkDataset(100, 319),
     );
     const parsedFlat = parsePatchMap(flat.dataset);
     expect(
@@ -466,7 +466,7 @@ describe('PatchMap guarded incremental parser', () => {
 
   it('rejects shallow-frozen roots that do not come from the materializer', () => {
     const current = materializePatchMapDataset(
-      buildPatchMapContractPerformanceDataset(100, 319),
+      buildPatchMapBenchmarkDataset(100, 319),
     );
     const spoofed = Object.freeze({
       ...current.dataset[0]!,

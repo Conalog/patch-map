@@ -15,7 +15,7 @@ const CPU_THROTTLE_RATE = 4;
 const SEED_BASE = 0xe7ac_7000;
 const ARTIFACT_DIRECTORY = path.resolve(
   process.env.PATCH_MAP_EXTRACTION_PERF_ARTIFACT_DIR
-    ?? path.join(ROOT, 'contracts/evidence/qualification'),
+    ?? path.join(ROOT, '.artifacts/performance/extraction'),
 );
 
 function percentile(values, quantile) {
@@ -140,7 +140,7 @@ async function main() {
     await server.listen();
     const baseUrl = server.resolvedUrls?.local?.[0];
     if (!baseUrl) throw new Error('PatchMap extraction performance server has no URL');
-    const pageUrl = new URL('performance/index.html', baseUrl);
+    const pageUrl = new URL('performance/probes/extraction/index.html', baseUrl);
 
     browser = await chromium.launch({
       headless: true,
@@ -183,7 +183,7 @@ async function main() {
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: CPU_THROTTLE_RATE });
     await page.goto(pageUrl.href, { waitUntil: 'networkidle' });
     await page.waitForFunction(
-      () => typeof window.__PATCH_MAP_BENCHMARK__?.runExtraction === 'function',
+      () => typeof window.__PATCH_MAP_EXTRACTION__?.run === 'function',
       undefined,
       { timeout: 30_000 },
     );
@@ -195,9 +195,8 @@ async function main() {
         + `${WARMUPS}+${MEASURED} x ${EXTRACTIONS_PER_TRIAL}\n`,
       );
       const result = await page.evaluate(
-        (spec) => window.__PATCH_MAP_BENCHMARK__.runExtraction(spec),
+        (spec) => window.__PATCH_MAP_EXTRACTION__.run(spec),
         {
-          strategy: 'mesh',
           scale,
           seed: SEED_BASE + index,
           warmups: WARMUPS,
@@ -243,7 +242,7 @@ async function main() {
         headed: false,
         viewport: { width: 1_280, height: 720, deviceScaleFactor: 1 },
         gpu,
-        windowsNative: 'pending',
+        windowsNative: false,
       },
       comparison: {
         webgpu: 'experimental-not-run',
