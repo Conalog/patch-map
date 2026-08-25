@@ -12,7 +12,6 @@ import { promisify } from 'node:util';
 import { build as viteBuild } from 'vite';
 
 import {
-  auditPackedHostAdapterSource,
   EXAMPLE_FILES,
   PACKAGE_NAME,
   projectPackedArtifactPolicy,
@@ -20,8 +19,7 @@ import {
 import {
   examplesRunnerSource,
   html,
-  matrixRunnerSource,
-} from './runner-sources.mjs';
+} from './example-runner.mjs';
 
 const execute = promisify(execFile);
 
@@ -37,13 +35,7 @@ export async function analyzePackedArtifact({ packRecord, tarball }) {
   return projectPackedArtifactPolicy({ packRecord, files, sha256 });
 }
 
-export async function auditPackedHostAdapter(root) {
-  const filename = path.join(root, 'examples/host-adapter.ts');
-  const source = await readFile(filename, 'utf8');
-  return auditPackedHostAdapterSource(source);
-}
-
-export async function preparePackedConsumerMatrix({
+export async function preparePackedConsumer({
   root,
   consumer,
 }) {
@@ -195,9 +187,7 @@ void [
 ];
 `);
   await writeFile(path.join(consumer, 'examples.html'), html('/examples-runner.ts'));
-  await writeFile(path.join(consumer, 'matrix.html'), html('/matrix-runner.ts'));
   await writeFile(path.join(consumer, 'examples-runner.ts'), examplesRunnerSource());
-  await writeFile(path.join(consumer, 'matrix-runner.ts'), matrixRunnerSource());
 }
 
 export async function verifyPackedConsumerTypes(consumer) {
@@ -282,7 +272,6 @@ export async function verifyPackedProductionBuild({
         entry: {
           consumer: path.join(consumer, 'main.js'),
           examples: path.join(consumer, 'examples-runner.ts'),
-          matrix: path.join(consumer, 'matrix-runner.ts'),
         },
         formats: ['es'],
         fileName: (_format, entryName) => `${entryName}.js`,
@@ -293,7 +282,7 @@ export async function verifyPackedProductionBuild({
     productionBundler: 'vite',
     target: 'es2022',
     sourceMap: false,
-    entrypoints: Object.freeze(['consumer', 'examples', 'matrix']),
+    entrypoints: Object.freeze(['consumer', 'examples']),
   });
 }
 

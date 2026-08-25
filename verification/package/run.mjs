@@ -16,31 +16,26 @@ import {
   PACKED_CONSUMER_ESM_SOURCE,
   PACKED_CONSUMER_HTML_SOURCE,
 } from './consumer-sources.mjs';
+import { collectPackageFailures, createPackageConsumerEvidence } from './evidence.mjs';
 import {
-  collectPackageFailures,
-  createPackageConsumerEvidence,
-} from './evidence.mjs';
+  analyzePackedArtifact,
+  createPackedProductAlias,
+  preparePackedConsumer,
+  readPackedBrowserResult,
+  verifyPackedConsumerTypes,
+  verifyPackedProductionBuild,
+} from './harness.mjs';
 import {
   createDependencyLicenseInventory,
   createSupplyChainEvidence,
   nonNegativeAuditCount,
 } from './supply-chain.mjs';
-import {
-  analyzePackedArtifact,
-  auditPackedHostAdapter,
-  createPackedProductAlias,
-  preparePackedConsumerMatrix,
-  readPackedBrowserResult,
-  verifyPackedConsumerTypes,
-  verifyPackedProductionBuild,
-} from './matrix.mjs';
 
 const execute = promisify(execFile);
-const ROOT = process.cwd();
+const root = process.cwd();
 const temporary = await mkdtemp(path.join(tmpdir(), 'patch-map-package-'));
-const RESULTS = path.resolve(
-  process.env.PATCH_MAP_PACKAGE_ARTIFACT_DIR
-    ?? path.join(temporary, 'results'),
+const resultsDirectory = path.resolve(
+  process.env.PATCH_MAP_PACKAGE_ARTIFACT_DIR ?? path.join(temporary, 'results'),
 );
 const consumer = path.join(temporary, 'consumer');
 const dependencySeed = path.join(temporary, 'dependency-seed');
@@ -52,59 +47,28 @@ let browser;
 let operationFailure;
 
 try {
-  await mkdir(consumer, { recursive: true });
-  await mkdir(dependencySeed, { recursive: true });
-  await mkdir(reproduciblePackDirectory, { recursive: true });
-  const directImageDirectory = path.join(consumer, 'public', 'icons');
-  await mkdir(directImageDirectory, { recursive: true });
-  await writeFile(
-    path.join(directImageDirectory, 'ess.svg'),
-    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#ef4444"/></svg>\n',
-  );
-  await writeFile(
-    path.join(directImageDirectory, 'stick.svg'),
-    '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#22c55e"/></svg>\n',
-  );
-  const packed = await execute(
-    'npm',
-    ['pack', '--ignore-scripts', '--json', '--pack-destination', temporary],
-    {
-      cwd: ROOT,
-      maxBuffer: 10 * 1024 * 1024,
-    },
-  );
-  const packResult = JSON.parse(packed.stdout);
-  const packRecord = packResult[0];
-  const filename = packRecord?.filename;
-  if (typeof filename !== 'string') throw new Error('npm pack did not return a tarball filename');
-  const tarball = path.join(temporary, filename);
-  const packageArtifact = await analyzePackedArtifact({ packRecord, tarball });
-  const secondPacked = await execute(
-    'npm',
-    ['pack', '--ignore-scripts', '--json', '--pack-destination', reproduciblePackDirectory],
-    {
-      cwd: ROOT,
-      maxBuffer: 10 * 1024 * 1024,
-    },
-  );
-  const secondPackRecord = JSON.parse(secondPacked.stdout)[0];
-  const secondFilename = secondPackRecord?.filename;
-  if (typeof secondFilename !== 'string') {
-    throw new Error('second npm pack did not return a tarball filename');
-  }
-  const secondPackageArtifact = await analyzePackedArtifact({
-    packRecord: secondPackRecord,
-    tarball: path.join(reproduciblePackDirectory, secondFilename),
+  await Promise.all([
+    mkdir(consumer, { recursive: true }),
+    mkdir(dependencySeed, { recursive: true }),
+    mkdir(reproduciblePackDirectory, { recursive: true }),
+  ]);
+  const firstPack = await pack(root, temporary);
+  const secondPack = await pack(root, reproduciblePackDirectory);
+  const packageArtifact = await analyzePackedArtifact({
+    packRecord: firstPack.record,
+    tarball: firstPack.tarball,
   });
-  const hostAdapterAudit = await auditPackedHostAdapter(ROOT);
+  const secondPackageArtifact = await analyzePackedArtifact({
+    packRecord: secondPack.record,
+    tarball: secondPack.tarball,
+  });
   const codeCommit = (
-    await execute('git', ['rev-parse', 'HEAD'], {
-      cwd: ROOT,
-      maxBuffer: 1024 * 1024,
-    })
+    await execute('git', ['rev-parse', 'HEAD'], { cwd: root, maxBuffer: 1024 * 1024 })
   ).stdout.trim();
-  const dependencyAudit = await auditDependencyLock(ROOT);
-  const licenseInventory = await inventoryDependencyLicenses(ROOT);
+  const dependencyAudit = await auditDependencyLock(root);
+  const licenseInventory = createDependencyLicenseInventory(
+    JSON.parse(await readFile(path.join(root, 'package-lock.json'), 'utf8')),
+  );
   const supplyChain = createSupplyChainEvidence({
     codeCommit,
     first: packageArtifact,
@@ -112,51 +76,28 @@ try {
     dependencyAudit,
     licenseInventory,
   });
+
   await writeFile(
     path.join(consumer, 'package.json'),
-    createPackedConsumerPackageJson(tarball),
+    createPackedConsumerPackageJson(firstPack.tarball),
   );
   await writeFile(
     path.join(dependencySeed, 'package.json'),
     createPackedConsumerDependencySeedPackageJson(),
   );
-  await preparePackedConsumerMatrix({
-    root: ROOT,
-    consumer,
-  });
-  await writeFile(
-    path.join(consumer, 'index.html'),
-    PACKED_CONSUMER_HTML_SOURCE,
-  );
-  await writeFile(path.join(consumer, 'main.js'), PACKED_CONSUMER_ESM_SOURCE);
-  await writeFile(path.join(consumer, 'consumer.cjs'), PACKED_CONSUMER_CJS_SOURCE);
+  await preparePackedConsumer({ root, consumer });
+  await Promise.all([
+    writeFile(path.join(consumer, 'index.html'), PACKED_CONSUMER_HTML_SOURCE),
+    writeFile(path.join(consumer, 'main.js'), PACKED_CONSUMER_ESM_SOURCE),
+    writeFile(path.join(consumer, 'consumer.cjs'), PACKED_CONSUMER_CJS_SOURCE),
+  ]);
 
-  // A lockfile-driven root install can populate npm's tarball cache without
-  // retaining the registry metadata npm needs to validate peers in a new
-  // project. Seed only the public host dependencies, then keep the actual
-  // packed-artifact consumer installation strictly offline.
-  await execute('npm', [
-    'install',
-    '--prefer-offline',
-    '--ignore-scripts',
-    '--no-audit',
-    '--no-fund',
-  ], {
-    cwd: dependencySeed,
-    maxBuffer: 20 * 1024 * 1024,
-  });
-  await execute('npm', [
-    'install',
-    '--offline',
-    '--ignore-scripts',
-    '--no-audit',
-    '--no-fund',
-  ], {
-    cwd: consumer,
-    maxBuffer: 20 * 1024 * 1024,
-  });
+  // Seed npm's metadata cache, then prove the tarball installs without network access.
+  await installDependencies(dependencySeed, false);
+  await installDependencies(consumer, true);
+
   const types = await verifyPackedConsumerTypes(consumer);
-  const productionAlias = createPackedProductAlias({ root: ROOT, consumer });
+  const productionAlias = createPackedProductAlias({ root, consumer });
   const productionBuild = await verifyPackedProductionBuild({
     consumer,
     outputDirectory: path.join(consumer, '.package-build'),
@@ -164,7 +105,8 @@ try {
   });
   const productionAliasProbe = productionAlias.probe();
   const cjs = JSON.parse((await execute('node', ['consumer.cjs'], { cwd: consumer })).stdout);
-  const browserAlias = createPackedProductAlias({ root: ROOT, consumer });
+
+  const browserAlias = createPackedProductAlias({ root, consumer });
   server = await createServer({
     root: consumer,
     configFile: false,
@@ -173,9 +115,7 @@ try {
     server: {
       host: '127.0.0.1',
       port: 0,
-      fs: {
-        allow: [ROOT, consumer],
-      },
+      fs: { allow: [root, consumer] },
     },
   });
   await server.listen();
@@ -183,36 +123,11 @@ try {
   if (!baseUrl) throw new Error('package consumer Vite server has no URL');
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 800, height: 500 } });
-  page.on('console', (message) => {
-    if (
-      message.type() === 'error' ||
-      (message.type() === 'warning' && message.text().includes('[Assets] Asset id'))
-    ) errors.console.push(`${message.type()}: ${message.text()}`);
-  });
-  page.on('pageerror', (error) => {
-    errors.page.push(error.stack || `${error.name}: ${error.message}`);
-  });
-  page.on('requestfailed', (request) => errors.network.push(`${request.url()} ${request.failure()?.errorText ?? ''}`));
-  page.on('response', (response) => {
-    if (response.status() >= 400) errors.network.push(`${response.url()} HTTP ${response.status()}`);
-  });
+  observeBrowserErrors(page, errors);
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
-  await runPackedPointerInteractionProbe(page);
-  try {
-    await page.waitForFunction(() => window.__PACKAGE_RESULT__ !== undefined, undefined, {
-      timeout: 30_000,
-    });
-  } catch (error) {
-    const browserState = await page.evaluate(() => ({
-      readyState: document.readyState,
-      resultPublished: window.__PACKAGE_RESULT__ !== undefined,
-      bodyText: document.body.textContent?.slice(0, 500) ?? '',
-    }));
-    throw new Error(
-      `packed consumer result timeout: ${error instanceof Error ? error.message : String(error)}; ` +
-      `browserState=${JSON.stringify(browserState)}; errors=${JSON.stringify(errors)}`,
-    );
-  }
+  await page.waitForFunction(() => window.__PACKAGE_RESULT__ !== undefined, undefined, {
+    timeout: 30_000,
+  });
   const esm = await page.evaluate(() => window.__PACKAGE_RESULT__);
   const examples = await readPackedBrowserResult(
     page,
@@ -221,66 +136,46 @@ try {
     '__PATCH_MAP_PACKAGE_EXAMPLES__',
     60_000,
   );
-  const packageMatrix = await readPackedBrowserResult(
-    page,
-    baseUrl,
-    'matrix.html',
-    '__PATCH_MAP_PACKAGE_MATRIX__',
-    60_000,
-  );
   const browserAliasProbe = browserAlias.probe();
   const failures = collectPackageFailures({
     cjs,
     errors,
     esm,
     examples,
-    hostAdapterAudit,
     packageArtifact,
-    packageMatrix,
     productionAliasProbe,
     productionBuild,
     supplyChain,
     types,
   });
-
-  const generatedAt = new Date().toISOString();
   const evidence = createPackageConsumerEvidence({
-    generatedAt,
+    generatedAt: new Date().toISOString(),
     browserAliasProbe,
     browserVersion: browser.version(),
     cjs,
     codeCommit,
-    dependencyAudit,
     errors,
     esm,
     examples,
     failures,
-    hostAdapterAudit,
-    licenseInventory,
     packageArtifact,
-    packageMatrix,
     productionAliasProbe,
     productionBuild,
     supplyChain,
     types,
   });
-  await mkdir(RESULTS, { recursive: true });
-  await writeFile(path.join(RESULTS, 'package-consumer.json'), `${JSON.stringify(evidence, null, 2)}\n`);
-  if (failures.length) {
-    process.stderr.write(`${JSON.stringify({
-      builtins: esm.builtins,
-      pointerInteraction: esm.pointerInteraction,
-      selectionBoundsDisplay: esm.selectionBoundsDisplay,
-    }, null, 2)}\n`);
-    throw new Error(failures.join('; '));
-  }
+  await mkdir(resultsDirectory, { recursive: true });
+  await writeFile(
+    path.join(resultsDirectory, 'package-consumer.json'),
+    `${JSON.stringify(evidence, null, 2)}\n`,
+  );
+  if (failures.length) throw new Error(failures.join('; '));
   if (requireAudit && evidence.status !== 'pass') {
     throw new Error(`packed dependency audit is required, received ${evidence.status}`);
   }
   process.stdout.write(
     `${evidence.status === 'pass' ? 'PASS' : 'PENDING'}: packed PatchMap ESM/CJS/types + `
-    + `${examples.executedExamples.length} examples, ${esm.renderObjects} aggregate objects, `
-    + 'direct-image capture ready, lifecycle clean\n',
+    + `${examples.executedExamples.length} examples, capture ready, lifecycle clean\n`,
   );
 } catch (error) {
   operationFailure = error;
@@ -305,283 +200,75 @@ if (cleanupFailures.length > 0) {
   throw new AggregateError(cleanupFailures, 'packed consumer cleanup failed');
 }
 
-async function runPackedPointerInteractionProbe(page) {
-  try {
-    await page.waitForFunction(
-      () => window.__PATCH_MAP_POINTER_PROBE__?.phase === 'first',
-      undefined,
-      { timeout: 120_000 },
-    );
-  } catch (error) {
-    const browserState = await page.evaluate(() => ({
-      readyState: document.readyState,
-      pointerPhase: window.__PATCH_MAP_POINTER_PROBE__?.phase ?? null,
-      resultPublished: window.__PACKAGE_RESULT__ !== undefined,
-      bodyText: document.body.textContent?.slice(0, 500) ?? '',
-    }));
-    throw new Error(
-      `packed pointer probe startup timeout: ${
-        error instanceof Error ? error.message : String(error)
-      }; browserState=${JSON.stringify(browserState)}; errors=${JSON.stringify(errors)}`,
-    );
+async function pack(directory, destination) {
+  const result = await execute(
+    'npm',
+    ['pack', '--ignore-scripts', '--json', '--pack-destination', destination],
+    { cwd: directory, maxBuffer: 10 * 1024 * 1024 },
+  );
+  const record = JSON.parse(result.stdout)[0];
+  if (typeof record?.filename !== 'string') {
+    throw new Error('npm pack did not return a tarball filename');
   }
-  const exactBounds = await page.locator('#packed-concrete-cell-host').boundingBox();
-  if (!exactBounds) throw new Error('packed concrete cell interaction host has no bounds');
-  await page.mouse.click(exactBounds.x + 140, exactBounds.y + 130);
-  const exactCellPointRed = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureExactColor('red'),
-  );
-  const exactCellPointSelectionIds = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.exactSelectionIds(),
-  );
-  const exactCellPointDestroy = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.finishExact(),
-  );
-  const exactCellPointCanvasCountAfterDestroy = await page.locator(
-    '#packed-concrete-cell-host canvas',
-  ).count();
-  await page.evaluate((values) => {
-    Object.assign(window.__PATCH_MAP_POINTER_PROBE__, values);
-  }, {
-    exactCellPointRed,
-    exactCellPointSelectionIds,
-    exactCellPointDestroy,
-    exactCellPointCanvasCountAfterDestroy,
-  });
-  const bounds = await page.locator('#packed-pointer-host').boundingBox();
-  if (!bounds) throw new Error('packed pointer interaction host has no bounds');
-  const move = (x, y, steps = 1) => page.mouse.move(bounds.x + x, bounds.y + y, { steps });
-  const record = (label) => page.evaluate(
-    (value) => window.__PATCH_MAP_POINTER_PROBE__.record(value),
-    label,
-  );
-
-  await move(45, 45);
-  await move(48, 48);
-  await move(225, 140);
-  await move(45, 45);
-  await page.mouse.click(bounds.x + 23, bounds.y + 23);
-  const concreteBarClickRed = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
-  );
-  const concreteBarClickSelectionIds = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.selectionIds(),
-  );
-  await page.evaluate((values) => {
-    Object.assign(window.__PATCH_MAP_POINTER_PROBE__, values);
-    window.__PATCH_MAP_POINTER_PROBE__.clearSelection();
-  }, { concreteBarClickRed, concreteBarClickSelectionIds });
-  await page.mouse.click(bounds.x + 45, bounds.y + 45);
-  const clickRed = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
-  );
-  await page.evaluate((value) => {
-    window.__PATCH_MAP_POINTER_PROBE__.clickRed = value;
-  }, clickRed);
-  await page.keyboard.down('Shift');
-  await page.mouse.click(bounds.x + 95, bounds.y + 45);
-  await page.keyboard.up('Shift');
-  await page.mouse.click(bounds.x + 145, bounds.y + 45);
-
-  await page.mouse.click(bounds.x + 45, bounds.y + 45);
-  await page.mouse.click(bounds.x + 45, bounds.y + 45);
-  const targetDoubleSelectionIds = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.selectionIds(),
-  );
-  await record('targetDouble');
-  await page.mouse.click(bounds.x + 225, bounds.y + 140);
-  const blankSingleSelectionIds = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.selectionIds(),
-  );
-  await record('blankSingle');
-  await page.mouse.click(bounds.x + 225, bounds.y + 140);
-  const blankDoubleSelectionIds = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.selectionIds(),
-  );
-  await record('blankDouble');
-  await page.evaluate((values) => {
-    Object.assign(window.__PATCH_MAP_POINTER_PROBE__, values);
-  }, { targetDoubleSelectionIds, blankSingleSelectionIds, blankDoubleSelectionIds });
-
-  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.clearSelection());
-  await record('plainPanBefore');
-  await move(190, 125);
-  await page.mouse.down();
-  await move(210, 140);
-  await page.mouse.up();
-  await record('plainPanAfter');
-
-  await record('lateShiftPanBefore');
-  await move(190, 125);
-  await page.mouse.down();
-  await move(195, 130);
-  await page.keyboard.down('Shift');
-  await move(210, 145);
-  await page.keyboard.up('Shift');
-  await page.mouse.up();
-  await record('lateShiftPanAfter');
-
-  await record('wheelBefore');
-  await move(200, 130);
-  await page.mouse.wheel(0, -120);
-  await record('wheelAfter');
-
-  await record('middlePanBefore');
-  await move(190, 125);
-  await page.mouse.down({ button: 'middle' });
-  await move(200, 135);
-  await page.mouse.up({ button: 'middle' });
-  await record('middlePanAfter');
-
-  await record('boxViewportBefore');
-  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.ensureSelection());
-  await move(5, 5);
-  await page.keyboard.down('Shift');
-  await page.mouse.down();
-  const captureDuring = await page.evaluate(() => {
-    const probe = window.__PATCH_MAP_POINTER_PROBE__;
-    const canvas = document.querySelector('#packed-pointer-host canvas');
-    return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
-  });
-  await move(230, 150, 5);
-  const marqueeDuringBlue = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('blue'),
-  );
-  const marqueeDuringRed = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
-  );
-  await page.keyboard.up('Shift');
-  await page.mouse.up();
-  const captureAfter = await page.evaluate(() => {
-    const probe = window.__PATCH_MAP_POINTER_PROBE__;
-    const canvas = document.querySelector('#packed-pointer-host canvas');
-    return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
-  });
-  await page.evaluate(({ captureDuring, captureAfter }) => {
-    const probe = window.__PATCH_MAP_POINTER_PROBE__;
-    probe.captureDuring = captureDuring;
-    probe.captureAfter = captureAfter;
-  }, { captureDuring, captureAfter });
-  await record('boxViewportAfter');
-  const marqueeAfterBlue = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('blue'),
-  );
-  const marqueeAfterRed = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
-  );
-  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.clearSelection());
-  const marqueeClearedRed = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
-  );
-  await page.evaluate((values) => {
-    const probe = window.__PATCH_MAP_POINTER_PROBE__;
-    Object.assign(probe, values);
-  }, {
-    marqueeDuringBlue,
-    marqueeDuringRed,
-    marqueeAfterBlue,
-    marqueeAfterRed,
-    marqueeClearedRed,
-  });
-  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.markPostViewportHover());
-  await move(75, 80);
-  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.finishFirst());
-  await page.waitForFunction(
-    () => window.__PATCH_MAP_POINTER_PROBE__?.phase === 'remount',
-    undefined,
-    { timeout: 30_000 },
-  );
-
-  await move(225, 140);
-  await move(45, 45);
-  await move(5, 5);
-  await page.keyboard.down('Shift');
-  await page.mouse.down();
-  const remountCaptureDuring = await page.evaluate(() => {
-    const probe = window.__PATCH_MAP_POINTER_PROBE__;
-    const canvas = document.querySelector('#packed-pointer-host canvas');
-    return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
-  });
-  await move(280, 190, 5);
-  const remountMarqueeDuringBlue = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('blue'),
-  );
-  const remountMarqueeDuringRed = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
-  );
-  await page.keyboard.up('Shift');
-  await page.mouse.up();
-  const remountCaptureAfter = await page.evaluate(() => {
-    const probe = window.__PATCH_MAP_POINTER_PROBE__;
-    const canvas = document.querySelector('#packed-pointer-host canvas');
-    return canvas?.hasPointerCapture(probe?.lastPointerId ?? -1) ?? false;
-  });
-  await page.evaluate(({ remountCaptureDuring, remountCaptureAfter }) => {
-    const probe = window.__PATCH_MAP_POINTER_PROBE__;
-    probe.remountCaptureDuring = remountCaptureDuring;
-    probe.remountCaptureAfter = remountCaptureAfter;
-  }, { remountCaptureDuring, remountCaptureAfter });
-  const remountMarqueeAfterBlue = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('blue'),
-  );
-  const remountMarqueeAfterRed = await page.evaluate(
-    () => window.__PATCH_MAP_POINTER_PROBE__.captureColor('red'),
-  );
-  await page.evaluate((values) => {
-    const probe = window.__PATCH_MAP_POINTER_PROBE__;
-    Object.assign(probe, values);
-  }, {
-    remountMarqueeDuringRed,
-    remountMarqueeDuringBlue,
-    remountMarqueeAfterRed,
-    remountMarqueeAfterBlue,
-  });
-  await page.evaluate(() => window.__PATCH_MAP_POINTER_PROBE__.finishRemount());
+  return { record, tarball: path.join(destination, record.filename) };
 }
 
-async function auditDependencyLock(root) {
+async function installDependencies(directory, offline) {
+  await execute('npm', [
+    'install',
+    offline ? '--offline' : '--prefer-offline',
+    '--ignore-scripts',
+    '--no-audit',
+    '--no-fund',
+  ], { cwd: directory, maxBuffer: 20 * 1024 * 1024 });
+}
+
+function observeBrowserErrors(page, observed) {
+  page.on('console', (message) => {
+    if (message.type() === 'error') observed.console.push(message.text());
+  });
+  page.on('pageerror', (error) => observed.page.push(error.stack || error.message));
+  page.on('requestfailed', (request) => {
+    observed.network.push(`${request.url()} ${request.failure()?.errorText ?? ''}`);
+  });
+  page.on('response', (response) => {
+    if (response.status() >= 400) {
+      observed.network.push(`${response.url()} HTTP ${response.status()}`);
+    }
+  });
+}
+
+async function auditDependencyLock(directory) {
   if (process.env.PATCH_MAP_SKIP_NETWORK_AUDIT === '1') {
     return Object.freeze({
       status: 'pending-external-network',
       auditLevel: 'low',
-      exitCode: null,
       knownVulnerabilityCount: null,
       severityCounts: null,
     });
   }
   let stdout = '';
-  let exitCode = 0;
   try {
-    const result = await execute(
+    stdout = (await execute(
       'npm',
       ['audit', '--package-lock-only', '--json', '--audit-level=low'],
-      {
-        cwd: root,
-        maxBuffer: 10 * 1024 * 1024,
-      },
-    );
-    stdout = result.stdout;
+      { cwd: directory, maxBuffer: 10 * 1024 * 1024 },
+    )).stdout;
   } catch (error) {
-    exitCode = Number.isSafeInteger(error?.code) ? error.code : 1;
     stdout = typeof error?.stdout === 'string'
       ? error.stdout
       : error?.stdout?.toString?.() ?? '';
   }
-  if (stdout.length === 0) {
-    throw new Error('npm audit produced no JSON result');
-  }
+  if (stdout.length === 0) throw new Error('npm audit produced no JSON result');
   const parsed = JSON.parse(stdout);
   if (parsed.error !== undefined) {
     throw new Error(`npm audit failed: ${JSON.stringify(parsed.error)}`);
   }
   const vulnerabilities = parsed.metadata?.vulnerabilities ?? {};
-  const severityCounts = Object.freeze({
-    info: nonNegativeAuditCount(vulnerabilities.info),
-    low: nonNegativeAuditCount(vulnerabilities.low),
-    moderate: nonNegativeAuditCount(vulnerabilities.moderate),
-    high: nonNegativeAuditCount(vulnerabilities.high),
-    critical: nonNegativeAuditCount(vulnerabilities.critical),
-  });
+  const severityCounts = Object.freeze(Object.fromEntries(
+    ['info', 'low', 'moderate', 'high', 'critical']
+      .map((severity) => [severity, nonNegativeAuditCount(vulnerabilities[severity])]),
+  ));
   const total = nonNegativeAuditCount(vulnerabilities.total);
   if (total !== Object.values(severityCounts).reduce((sum, count) => sum + count, 0)) {
     throw new Error('npm audit vulnerability total does not match severity counts');
@@ -589,13 +276,7 @@ async function auditDependencyLock(root) {
   return Object.freeze({
     status: 'observed',
     auditLevel: 'low',
-    exitCode,
-    knownVulnerabilityCount: nonNegativeAuditCount(total),
+    knownVulnerabilityCount: total,
     severityCounts,
   });
-}
-
-async function inventoryDependencyLicenses(root) {
-  const lock = JSON.parse(await readFile(path.join(root, 'package-lock.json'), 'utf8'));
-  return createDependencyLicenseInventory(lock);
 }

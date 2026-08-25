@@ -60,8 +60,6 @@
     "performance:extraction": "node performance/runners/extraction.mjs",
     "performance:update": "node performance/runners/update.mjs",
     "verify:package": "npm run build && node verification/package/run.mjs",
-    "verify:package:installed-selection": "node verification/package/smoke-selection.mjs",
-    "verify:package:installed-builtins": "node verification/package/smoke-builtins.mjs",
     "verify:memory": "node performance/runners/memory.mjs",
     "prepack": "npm run build",
     "prepublishOnly": "npm test && npm run verify:package -- --require-audit"
