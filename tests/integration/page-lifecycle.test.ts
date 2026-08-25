@@ -1,4 +1,4 @@
-import catalogProfiles from '../fixtures/product-datasets.json';
+import datasets from '../fixtures/datasets.json';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -79,7 +79,7 @@ describe('PatchMap page lifecycle authority', () => {
       height: 600,
       pixelRatio: 1,
     });
-    engine.loadDataset(catalogProfiles.datasets['interactive-scene'], {
+    engine.loadDataset(datasets['interactive-scene'], {
       datasetRef: 'interactive-scene',
     });
     engine.publishFrame(0);

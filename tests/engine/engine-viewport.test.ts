@@ -1,4 +1,4 @@
-import catalogProfiles from '../fixtures/product-datasets.json';
+import datasets from '../fixtures/datasets.json';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
@@ -118,7 +118,7 @@ describe('PatchMap viewport authority', () => {
 
   it('refreshes active accessibility geometry for programmatic and root-surface view commits', async () => {
     const { engine, surface } = await createEngine(engines, 'viewport-accessibility');
-    engine.loadDataset(catalogProfiles.datasets['all-kinds-scene']);
+    engine.loadDataset(datasets['all-kinds-scene']);
     engine.accessibilityTree();
     const before = surface.accessibilityRefreshCount;
 
@@ -139,7 +139,7 @@ describe('PatchMap viewport authority', () => {
 
   it('focuses and fits hierarchy-aware contributors without moving on empty or invalid input', async () => {
     const { engine, surface } = await createEngine(engines, 'viewport-targets');
-    engine.loadDataset(catalogProfiles.datasets['all-kinds-scene']);
+    engine.loadDataset(datasets['all-kinds-scene']);
     engine.setViewport({ centerWorld: [0, 0], scale: 2 });
 
     const explicit = engine.focusViewport({ targets: ['rect-b'] });
@@ -197,7 +197,7 @@ describe('PatchMap viewport authority', () => {
 
   it('preserves authored world angles and correlates each changed resize to one current pointer transform', async () => {
     const { engine, surface } = await createEngine(engines, 'viewport-world-transform');
-    engine.loadDataset(catalogProfiles.datasets['all-kinds-scene']);
+    engine.loadDataset(datasets['all-kinds-scene']);
     engine.setViewport({ centerWorld: [200, 150], scale: 1 });
     const resizeEvents: string[] = [];
     engine.on('viewChanged', ({ source }) => {
@@ -286,7 +286,7 @@ describe('PatchMap viewport authority', () => {
 
   it('settles and serializes once, restores valid state, and falls back from invalid state', async () => {
     const first = await createEngine(engines, 'viewport-persist-1');
-    first.engine.loadDataset(catalogProfiles.datasets['all-kinds-scene']);
+    first.engine.loadDataset(datasets['all-kinds-scene']);
     first.engine.setViewport({ centerWorld: [200, 150], scale: 1.5 });
     expect(first.engine.settleViewport().changed).toBe(true);
     expect(first.engine.settleViewport().changed).toBe(false);
@@ -300,7 +300,7 @@ describe('PatchMap viewport authority', () => {
     });
 
     const second = await createEngine(engines, 'viewport-persist-2');
-    second.engine.loadDataset(catalogProfiles.datasets['all-kinds-scene']);
+    second.engine.loadDataset(datasets['all-kinds-scene']);
     expect(second.engine.restoreViewport(saved)).toMatchObject({
       status: 'restored',
       viewport: { centerWorld: [200, 150], scale: 1.5 },
@@ -357,7 +357,7 @@ describe('PatchMap viewport authority', () => {
 
   it('rebinds a host lifecycle without rebuilding the GPU surface and invalidates old target authority', async () => {
     const { engine, surface } = await createEngine(engines, 'viewport-host-rebind');
-    engine.loadDataset(catalogProfiles.datasets['all-kinds-scene']);
+    engine.loadDataset(datasets['all-kinds-scene']);
     const resolved = engine.resolveTarget({ kind: 'element', id: 'item-a' });
     expect(resolved).not.toBeNull();
     if (resolved === null) throw new Error('expected item-a target authority');
@@ -429,7 +429,7 @@ describe('PatchMap viewport authority', () => {
     });
 
     const pending = engine.loadDatasetAsync(
-      catalogProfiles.datasets['all-kinds-scene'],
+      datasets['all-kinds-scene'],
     );
     await loadEntered;
     expect(engine.snapshot().pendingWork).toBe(1);

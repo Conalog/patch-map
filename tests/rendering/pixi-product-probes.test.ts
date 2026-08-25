@@ -1,4 +1,4 @@
-import catalogProfiles from '../fixtures/product-datasets.json';
+import datasets from '../fixtures/datasets.json';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -353,7 +353,7 @@ describe('PatchMap public PixiJS product probes', () => {
       height: 600,
       backend: 'webgl2',
     });
-    engine.loadDataset(catalogProfiles.datasets['interactive-scene'], {
+    engine.loadDataset(datasets['interactive-scene'], {
       datasetRef: 'interactive-scene',
     });
 

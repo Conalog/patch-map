@@ -1,4 +1,4 @@
-import catalogProfiles from '../fixtures/product-datasets.json';
+import datasets from '../fixtures/datasets.json';
 import { describe, expect, it } from 'vitest';
 
 import { parsePatchMap } from '../../src/parsing';
@@ -12,7 +12,7 @@ import {
 
 describe('PatchMap approved render projection closure', () => {
   it('paints a background across the complete item frame', () => {
-    const materialized = materializePatchMapDataset(catalogProfiles.datasets.background);
+    const materialized = materializePatchMapDataset(datasets.background);
     const item = materialized.dataset[0];
     const result = parsePatchMap(materialized.dataset);
 
@@ -30,7 +30,7 @@ describe('PatchMap approved render projection closure', () => {
 
   it('does not diagnose materializer defaults whose initial projection is exact or inert', () => {
     const itemResult = parsePatchMap(
-      materializePatchMapDataset(catalogProfiles.datasets['item-components']).dataset,
+      materializePatchMapDataset(datasets['item-components']).dataset,
     );
     const relationResult = parsePatchMap(materializePatchMapDataset([
       { type: 'rect', id: 'a', size: 10 },

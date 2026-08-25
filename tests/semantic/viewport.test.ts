@@ -1,4 +1,4 @@
-import catalogProfiles from '../fixtures/product-datasets.json';
+import datasets from '../fixtures/datasets.json';
 import { describe, expect, it } from 'vitest';
 
 import { materializePatchMapDataset } from '../../src/semantic/dataset';
@@ -13,7 +13,7 @@ import {
 
 describe('PatchMap viewport substrate', () => {
   const dataset = materializePatchMapDataset(
-    catalogProfiles.datasets['all-kinds-scene'],
+    datasets['all-kinds-scene'],
   ).dataset;
   const geometry = viewportGeometry();
 

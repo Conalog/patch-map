@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import catalogProfiles from '../fixtures/product-datasets.json';
+import datasets from '../fixtures/datasets.json';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -18,13 +18,9 @@ import type { PatchMapDatasetError } from '../../src/semantic/dataset';
 const largeGridFixturePath = fileURLToPath(
   new URL('../fixtures/large-grid-scene.json', import.meta.url),
 );
-const largeSceneFixturePath = fileURLToPath(
-  new URL('../fixtures/large-scene.json', import.meta.url),
-);
-
-describe('PatchMap approved dataset foundation', () => {
-  it('materializes every approved element and component discriminator in authored order', () => {
-    const input = catalogProfiles.datasets['all-kinds-scene'];
+describe('PatchMap dataset foundation', () => {
+  it('materializes every element and component discriminator in authored order', () => {
+    const input = datasets['all-kinds-scene'];
     const before = JSON.stringify(input);
 
     const result = materializePatchMapDataset(input);
@@ -66,7 +62,11 @@ describe('PatchMap approved dataset foundation', () => {
   });
 
   it('materializes a large flat dataset without retaining mutable aliases', () => {
-    const input = JSON.parse(readFileSync(largeSceneFixturePath, 'utf8')) as unknown[];
+    const input = Array.from({ length: 605 }, (_, index) => ({
+      type: 'rect',
+      id: `rect-${index}`,
+      size: { width: 10, height: 10 },
+    }));
     const before = JSON.stringify(input);
 
     const result = materializePatchMapDataset(input);
@@ -120,7 +120,7 @@ describe('PatchMap approved dataset foundation', () => {
     }));
   });
 
-  it('applies approved defaults without mutating caller data and is fresh-session deterministic', () => {
+  it('applies defaults without mutating caller data and is fresh-session deterministic', () => {
     const input = [
       {
         type: 'item',

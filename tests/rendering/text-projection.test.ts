@@ -1,4 +1,4 @@
-import catalogProfiles from '../fixtures/product-datasets.json';
+import datasets from '../fixtures/datasets.json';
 import { describe, expect, it } from 'vitest';
 
 import { createPatchMapRenderTextSpecimens } from '../fixtures/render-text-specimens';
@@ -10,7 +10,7 @@ import {
 
 describe('PatchMap deterministic text projection', () => {
   it('keeps the standalone authored frame separate from natural geometry and affine inputs', () => {
-    const input = catalogProfiles.datasets['standalone-text'];
+    const input = datasets['standalone-text'];
     const before = structuredClone(input);
     const parsed = parsePatchMap(materializePatchMapDataset(input).dataset);
     const text = parsed.projection.textsByEntityId?.text;
@@ -52,7 +52,7 @@ describe('PatchMap deterministic text projection', () => {
   });
 
   it('projects empty, wrapped, requested-font fallback, and rapid text as distinct stable shapes', () => {
-    const materialized = materializePatchMapDataset(catalogProfiles.datasets['standalone-text']);
+    const materialized = materializePatchMapDataset(datasets['standalone-text']);
     const first = parsePatchMap(materialized.dataset);
     const second = parsePatchMap(materialized.dataset);
     const texts = first.projection.textsByEntityId ?? {};
@@ -100,7 +100,7 @@ describe('PatchMap deterministic text projection', () => {
 
   it('preserves zero and positive grapheme split plus bidi component identity', () => {
     const parsed = parsePatchMap(
-      materializePatchMapDataset(catalogProfiles.datasets['item-text-corpus']).dataset,
+      materializePatchMapDataset(datasets['item-text-corpus']).dataset,
     );
     const texts = parsed.projection.textsByEntityId ?? {};
     const zero = texts['item-a::text:zero'];

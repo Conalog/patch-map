@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import catalogProfiles from '../fixtures/product-datasets.json';
+import datasets from '../fixtures/datasets.json';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -19,7 +19,7 @@ const invalidDatasetProfiles = new Set(['malformed']);
 describe('PatchMap rendering schema support inventory', () => {
   it('materializes every approved dataset while rejecting invalid profiles', () => {
     const failures: Record<string, string> = {};
-    for (const [id, dataset] of Object.entries(catalogProfiles.datasets)) {
+    for (const [id, dataset] of Object.entries(datasets)) {
       if (invalidDatasetProfiles.has(id)) continue;
       try {
         materializePatchMapDataset(dataset);
@@ -34,7 +34,7 @@ describe('PatchMap rendering schema support inventory', () => {
 
     for (const id of invalidDatasetProfiles) {
       expect(() => materializePatchMapDataset(
-        catalogProfiles.datasets[id as keyof typeof catalogProfiles.datasets],
+        datasets[id as keyof typeof datasets],
       )).toThrowError(
         expect.objectContaining<Partial<PatchMapDatasetError>>({
           code: 'INVALID_VALUE',
@@ -50,9 +50,9 @@ describe('PatchMap rendering schema support inventory', () => {
   });
 
   it('preserves the exact approved rendering-only fields without caller aliases', () => {
-    const rectInput = catalogProfiles.datasets['rect-specimen'];
-    const imageInput = catalogProfiles.datasets['image-specimens'];
-    const boundsInput = catalogProfiles.datasets.bounds;
+    const rectInput = datasets['rect-specimen'];
+    const imageInput = datasets['image-specimens'];
+    const boundsInput = datasets.bounds;
     const before = JSON.stringify({ rectInput, imageInput, boundsInput });
 
     const rect = materializePatchMapDataset(rectInput).dataset[0];
@@ -75,8 +75,8 @@ describe('PatchMap rendering schema support inventory', () => {
   });
 
   it('projects opacity, standalone overflow, and root hit-test participation', () => {
-    const imageResult = parsePatchMap(catalogProfiles.datasets['image-specimens']);
-    const boundsResult = parsePatchMap(catalogProfiles.datasets.bounds);
+    const imageResult = parsePatchMap(datasets['image-specimens']);
+    const boundsResult = parsePatchMap(datasets.bounds);
     const eventModes = parsePatchMap([
       { type: 'rect', id: 'none', size: 10, eventMode: 'none' },
       { type: 'rect', id: 'dynamic', size: 10, eventMode: 'dynamic' },
@@ -101,7 +101,7 @@ describe('PatchMap rendering schema support inventory', () => {
   });
 
   it('publishes the exact standalone scalar radius without a degradation diagnostic', () => {
-    const result = parsePatchMap(catalogProfiles.datasets['rect-specimen']);
+    const result = parsePatchMap(datasets['rect-specimen']);
 
     expect(result.document.entities[0]).toMatchObject({ radius: 10 });
     expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
@@ -110,7 +110,7 @@ describe('PatchMap rendering schema support inventory', () => {
   });
 
   it('retains existing rectangular-texture border aliases as dense paint', () => {
-    const result = parsePatchMap(catalogProfiles.datasets.background);
+    const result = parsePatchMap(datasets.background);
 
     expect(result.document.entities.find((entity) => entity.id === 'item::background:bg')).toMatchObject({
       kind: 'rect',

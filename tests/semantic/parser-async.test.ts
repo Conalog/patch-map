@@ -1,4 +1,4 @@
-import catalogProfiles from '../fixtures/product-datasets.json';
+import datasets from '../fixtures/datasets.json';
 import { describe, expect, it } from 'vitest';
 
 import { PatchMapParseError } from '../../src/parsing/contracts';
@@ -9,7 +9,7 @@ import {
 
 describe('PatchMap cooperative parser', () => {
   it('is expected-equivalent, deeply frozen, and input-immutable', async () => {
-    const input = structuredClone(catalogProfiles.datasets['all-kinds-scene']);
+    const input = structuredClone(datasets['all-kinds-scene']);
     const before = JSON.stringify(input);
 
     const synchronous = parsePatchMap(input);

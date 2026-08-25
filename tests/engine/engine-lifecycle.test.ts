@@ -1,4 +1,4 @@
-import catalogProfiles from '../fixtures/product-datasets.json';
+import datasets from '../fixtures/datasets.json';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -289,7 +289,7 @@ describe('PatchMap lifecycle authority', () => {
     await engine.initialize({ instanceId: 'managed-frames', width: 800, height: 600 });
 
     const loop = engine.createFrameLoop({ driver });
-    engine.loadDataset(catalogProfiles.datasets['interactive-scene']);
+    engine.loadDataset(datasets['interactive-scene']);
     expect(driver.pending()).toBe(1);
     expect(() => engine.createFrameLoop({ driver })).toThrow();
 
@@ -420,16 +420,16 @@ describe('PatchMap lifecycle authority', () => {
       datasetRef: 'interactive-scene-revision-2',
       input: second.promise,
     });
-    second.resolve(catalogProfiles.datasets['interactive-scene-revision-2']);
+    second.resolve(datasets['interactive-scene-revision-2']);
     expect(await drawB).toMatchObject({ status: 'committed', requestId: 'draw-b', sceneRevision: 1 });
-    first.resolve(catalogProfiles.datasets['all-kinds-scene']);
+    first.resolve(datasets['all-kinds-scene']);
     expect(await drawA).toMatchObject({ status: 'superseded', requestId: 'draw-a' });
 
     const beforeFailure = engine.snapshot();
     const failed = await engine.submitDataset({
       requestId: 'draw-invalid',
       datasetRef: 'malformed',
-      input: Promise.resolve(catalogProfiles.datasets.malformed),
+      input: Promise.resolve(datasets.malformed),
     });
     expect(failed).toMatchObject({ status: 'rejected', diagnostic: { category: 'INVALID_INPUT' } });
     expect(engine.snapshot().semanticHash).toBe(beforeFailure.semanticHash);
@@ -458,10 +458,10 @@ describe('PatchMap lifecycle authority', () => {
       datasetRef: 'all-kinds-scene',
       input: staleInput.promise,
     });
-    engine.loadDataset(catalogProfiles.datasets['interactive-scene-revision-2'], {
+    engine.loadDataset(datasets['interactive-scene-revision-2'], {
       datasetRef: 'direct-replacement',
     });
-    staleInput.resolve(catalogProfiles.datasets['all-kinds-scene']);
+    staleInput.resolve(datasets['all-kinds-scene']);
 
     await expect(staleSubmission).resolves.toMatchObject({
       status: 'superseded',
@@ -474,13 +474,13 @@ describe('PatchMap lifecycle authority', () => {
     expect(surfaces[0]?.loadCount).toBe(1);
 
     const staleDirectLoad = engine.loadDatasetAsync(
-      catalogProfiles.datasets['all-kinds-scene'],
+      datasets['all-kinds-scene'],
       { datasetRef: 'stale-direct-async' },
     );
     const latestSubmission = engine.submitDataset({
       requestId: 'latest-submission',
       datasetRef: 'interactive-scene',
-      input: Promise.resolve(catalogProfiles.datasets['interactive-scene']),
+      input: Promise.resolve(datasets['interactive-scene']),
     });
 
     await expect(latestSubmission).resolves.toMatchObject({
@@ -503,7 +503,7 @@ describe('PatchMap lifecycle authority', () => {
     const { factory, surfaces } = createSurfaceFactory();
     const engine = new PatchMap({ surfaceFactory: factory });
     await engine.initialize({ instanceId: 'prepare-scene', width: 800, height: 600 });
-    engine.loadDataset(catalogProfiles.datasets['interactive-scene']);
+    engine.loadDataset(datasets['interactive-scene']);
     const before = engine.snapshot();
 
     await expect(engine.prepareScene()).resolves.toEqual({
@@ -523,7 +523,7 @@ describe('PatchMap lifecycle authority', () => {
     const { factory } = createSurfaceFactory();
     const engine = new PatchMap({ surfaceFactory: factory });
     await engine.initialize({ instanceId: 'map-async-classification', width: 800, height: 600 });
-    engine.loadDataset(catalogProfiles.datasets['interactive-scene'], {
+    engine.loadDataset(datasets['interactive-scene'], {
       datasetRef: 'interactive-scene',
     });
 
@@ -540,13 +540,13 @@ describe('PatchMap lifecycle authority', () => {
       datasetRef: 'interactive-scene-revision-2',
       input: validB.promise,
     });
-    invalidA.resolve(catalogProfiles.datasets.malformed);
+    invalidA.resolve(datasets.malformed);
     await expect(requestA).resolves.toMatchObject({
       status: 'rejected',
       requestId: 'A',
       diagnostic: { code: 'INVALID_VALUE' },
     });
-    validB.resolve(catalogProfiles.datasets['interactive-scene-revision-2']);
+    validB.resolve(datasets['interactive-scene-revision-2']);
     await expect(requestB).resolves.toMatchObject({
       status: 'committed',
       requestId: 'B',
@@ -567,7 +567,7 @@ describe('PatchMap lifecycle authority', () => {
       datasetRef: 'interactive-scene',
       input: validD.promise,
     });
-    validD.resolve(catalogProfiles.datasets['interactive-scene']);
+    validD.resolve(datasets['interactive-scene']);
     await expect(requestD).resolves.toMatchObject({
       status: 'committed',
       requestId: 'D',
@@ -624,13 +624,13 @@ describe('PatchMap lifecycle authority', () => {
       release: release('C'),
     });
 
-    second.resolve(catalogProfiles.datasets['all-kinds-scene']);
+    second.resolve(datasets['all-kinds-scene']);
     await expect(drawB).resolves.toMatchObject({
       status: 'superseded',
       requestId: 'B',
       sourceRevision: 3,
     });
-    third.resolve(catalogProfiles.datasets['interactive-scene-revision-2']);
+    third.resolve(datasets['interactive-scene-revision-2']);
     await expect(drawC).resolves.toMatchObject({
       status: 'committed',
       requestId: 'C',
@@ -642,7 +642,7 @@ describe('PatchMap lifecycle authority', () => {
     ]);
 
     await engine.destroy();
-    first.resolve(catalogProfiles.datasets['interactive-scene']);
+    first.resolve(datasets['interactive-scene']);
     await expect(drawA).resolves.toMatchObject({
       status: 'superseded',
       requestId: 'A',
@@ -710,7 +710,7 @@ describe('PatchMap lifecycle authority', () => {
     const committed = engine.submitDataset({
       requestId: 'committed',
       sourceRevision: 2,
-      input: Promise.resolve(catalogProfiles.datasets['interactive-scene']),
+      input: Promise.resolve(datasets['interactive-scene']),
       release: async (result) => {
         releases.push(Object.freeze({ requestId: 'committed', status: result.status }));
         releaseStarted.resolve();
@@ -753,7 +753,7 @@ describe('PatchMap lifecycle authority', () => {
     const { factory, surfaces } = createSurfaceFactory();
     const engine = new PatchMap({ surfaceFactory: factory });
     await engine.initialize({ instanceId: 'map-strict-references', width: 800, height: 600 });
-    const baseline = structuredClone(catalogProfiles.datasets['interactive-scene']);
+    const baseline = structuredClone(datasets['interactive-scene']);
     engine.loadDataset(baseline, { datasetRef: 'baseline', strict: true });
     const before = engine.snapshot();
     const beforeDataset = engine.exportDataset();
@@ -790,7 +790,7 @@ describe('PatchMap lifecycle authority', () => {
     const { factory, surfaces } = createSurfaceFactory();
     const engine = new PatchMap({ surfaceFactory: factory });
     await engine.initialize({ instanceId: 'map-strict-async', width: 800, height: 600 });
-    const baseline = structuredClone(catalogProfiles.datasets['interactive-scene']);
+    const baseline = structuredClone(datasets['interactive-scene']);
     engine.loadDataset(baseline, { datasetRef: 'baseline', strict: true });
     const before = engine.snapshot();
     const beforeDataset = engine.exportDataset();
@@ -826,8 +826,8 @@ describe('PatchMap lifecycle authority', () => {
     const { factory, surfaces } = createSurfaceFactory();
     const engine = new PatchMap({ surfaceFactory: factory });
     await engine.initialize({ instanceId: 'map-invalid-does-not-supersede', width: 800, height: 600 });
-    const valid = structuredClone(catalogProfiles.datasets['lifecycle-scene-b']);
-    const dangling = structuredClone(catalogProfiles.datasets['interactive-scene']);
+    const valid = structuredClone(datasets['lifecycle-scene-b']);
+    const dangling = structuredClone(datasets['interactive-scene']);
     const relation = dangling.find((element) => element.type === 'relations');
     if (relation?.type !== 'relations') throw new Error('Missing relation fixture');
     relation.links = [{ source: 'item-a', target: 'absent' }];
@@ -858,12 +858,12 @@ describe('PatchMap lifecycle authority', () => {
     const { factory } = createSurfaceFactory();
     const engine = new PatchMap({ surfaceFactory: factory });
     await engine.initialize({ instanceId: 'map-replacement', width: 800, height: 600 });
-    engine.loadDataset(catalogProfiles.datasets['interactive-scene'], { datasetRef: 'interactive-scene' });
+    engine.loadDataset(datasets['interactive-scene'], { datasetRef: 'interactive-scene' });
 
     expect(engine.select(['item-a'])).toEqual(['item-a']);
     expect(engine.snapshot()).toMatchObject({ selectionIds: ['item-a'], revisions: { interactionRevision: 1 } });
 
-    engine.loadDataset(catalogProfiles.datasets['lifecycle-scene-b'], { datasetRef: 'lifecycle-scene-b' });
+    engine.loadDataset(datasets['lifecycle-scene-b'], { datasetRef: 'lifecycle-scene-b' });
     expect(engine.snapshot()).toMatchObject({
       datasetRef: 'lifecycle-scene-b',
       selectionIds: [],

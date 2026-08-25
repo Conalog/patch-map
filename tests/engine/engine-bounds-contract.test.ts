@@ -1,4 +1,4 @@
-import catalogProfiles from '../fixtures/product-datasets.json';
+import datasets from '../fixtures/datasets.json';
 import { describe, expect, it } from 'vitest';
 
 import { CoreScene } from '../../src/dense/scene';
@@ -17,7 +17,7 @@ import { removePatchMapSemanticTarget } from '../../src/semantic/mutation';
 import { planPatchMapSceneReconcile } from '../../src/core/reconcile';
 import { screenToWorld } from '../../src/viewport/view';
 
-const boundsDataset = catalogProfiles.datasets.bounds;
+const boundsDataset = datasets.bounds;
 
 describe('PatchMap LAY-005 bounds product contract', () => {
   it('publishes exact local, world, screen, visibility, and signed-scale geometry', () => {
