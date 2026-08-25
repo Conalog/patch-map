@@ -17,7 +17,7 @@ export type * from './contracts';
 export { browserFrameDriver } from './frame-driver';
 
 /**
- * One reusable, lifecycle-owned frame loop for PatchMapRuntime and PatchMap. Labs
+ * One reusable, lifecycle-owned frame loop for PatchMapRuntime and PatchMap. Hosts
  * and package consumers supply only activity signals; cadence and animation
  * budgeting stay inside the published library.
  */

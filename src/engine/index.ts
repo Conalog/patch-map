@@ -1260,7 +1260,7 @@ export class PatchMap {
     return this.assetSessions.probe(alias);
   }
 
-  /** O(1) frame-loop seam shared by browser hosts and the PatchMap Labs. */
+  /** O(1) frame-loop seam shared by browser hosts and performance probes. */
   public get activeAnimations(): number {
     if (this.terminalSurfaceFailure !== null) return 0;
     const surface = this.surface;
@@ -1291,7 +1291,7 @@ export class PatchMap {
     return this.publication.frameClockMs;
   }
 
-  /** Product-owned pointer/motion state; Lab hosts do not mirror it. */
+  /** Product-owned pointer/motion state; hosts must not mirror it. */
   public get viewportGestureActive(): boolean {
     if (this.viewportRuntime.motionActive) return true;
     if (this.surface?.viewportGestureActive?.() === true) return true;

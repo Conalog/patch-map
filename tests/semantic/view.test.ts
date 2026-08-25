@@ -40,7 +40,7 @@ describe('PatchMap view transforms', () => {
     expect(worldToScreen({ x: 200, y: 100 }, fitted)).toEqual({ x: 250, y: 150 });
   });
 
-  it('keeps the product fit floor by default and accepts a lower explicit Lab floor', () => {
+  it('keeps the default fit floor and accepts an explicit lower scale limit', () => {
     const bounds = { x: 0, y: 0, width: 10_000, height: 5_000 };
     const viewport = { width: 500, height: 300 };
 
