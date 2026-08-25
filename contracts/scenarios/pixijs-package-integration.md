@@ -97,8 +97,10 @@ visual: PatchMap is a consumable package and its renderer is genuinely PixiJS-ba
 - **Goal:** Prove the redesigned engine can replace the production package rather than
   only pass a mock adapter.
 - **Action:** Install the packed artifact in the production host integration harness,
-  compile with its strict TypeScript/bundler settings, and run every CSM journey with
-  real mount/remount layout, envelopes, disposal, save guard, and report extraction.
+  compile with its strict TypeScript/bundler settings, and run every CSM intention
+  through documented public APIs with real mount/remount layout, browser events,
+  envelopes, disposal, save guard, and report extraction. The packed runner must not
+  reuse or emulate the source Engine action/probe transcript.
 - **Result:** All journeys pass against the same package digest; host/Core revisions and
   cleanup are traceable; the adapter remains orchestration and does not recreate missing
   engine behavior or import restricted package internals.

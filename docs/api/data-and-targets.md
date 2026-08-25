@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing dataset admission or logical lookup
-- Source: [`developer-api/contracts.ts`](../../src/patch-map/developer-api/contracts.ts), [`semantic/dataset`](../../src/patch-map/semantic/dataset), [`query-selection`](../../src/patch-map/query-selection)
+- Source: [`public/contracts.ts`](../../src/public/contracts.ts), [`semantic/dataset`](../../src/semantic/dataset), [`query-selection`](../../src/query-selection)
 
 ## Scope
 
@@ -59,7 +59,7 @@ public identities.
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| validation, detachment, semantic hash | [`semantic/dataset`](../../src/patch-map/semantic/dataset) | [`dataset-contract.test.ts`](../../tests/semantic/dataset-contract.test.ts) |
-| replacement freshness and atomic publication | [`dataset-replacement-coordinator.ts`](../../src/patch-map/engine/dataset-replacement-coordinator.ts) | [`engine-lifecycle.test.ts`](../../tests/engine/engine-lifecycle.test.ts) |
-| target grammar and revision binding | [`query-selection`](../../src/patch-map/query-selection) | [`query-selection.test.ts`](../../tests/semantic/query-selection.test.ts) |
-| facade shapes | [`developer-api/contracts.ts`](../../src/patch-map/developer-api/contracts.ts) | [`developer-api.test.ts`](../../tests/integration/developer-api.test.ts) |
+| validation, detachment, semantic hash | [`semantic/dataset`](../../src/semantic/dataset) | [`dataset-contract.test.ts`](../../tests/semantic/dataset-contract.test.ts) |
+| replacement freshness and atomic publication | [`dataset-replacement-coordinator.ts`](../../src/engine/dataset-replacement-coordinator.ts) | [`engine-lifecycle.test.ts`](../../tests/engine/engine-lifecycle.test.ts) |
+| target grammar and revision binding | [`query-selection`](../../src/query-selection) | [`query-selection.test.ts`](../../tests/semantic/query-selection.test.ts) |
+| facade shapes | [`public/contracts.ts`](../../src/public/contracts.ts) | [`developer-api.test.ts`](../../tests/integration/developer-api.test.ts) |

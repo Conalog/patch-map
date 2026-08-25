@@ -42,5 +42,5 @@ artifact gate. The license SHA-256 is
 
 | Claim | Code | Focused evidence |
 | --- | --- | --- |
-| Payload and weight mapping | `src/patch-map/assets/builtin-font-payload.ts` | asset registry and leaf text style tests |
+| Payload and weight mapping | `src/assets/builtin-font-payload.ts` | asset registry and leaf text style tests |
 | License inclusion | package artifact policy | `verify:package` |

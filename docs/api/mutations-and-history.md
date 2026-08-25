@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing atomic edits, commits, or undo/redo
-- Source: [`developer-api/mutations.ts`](../../src/patch-map/developer-api/mutations.ts), [`engine`](../../src/patch-map/engine), [`history`](../../src/patch-map/history)
+- Source: [`public/mutations.ts`](../../src/public/mutations.ts), [`engine`](../../src/engine), [`history`](../../src/history)
 
 ## Scope
 
@@ -36,10 +36,13 @@ owned by [`presentation.md`](presentation.md) and
   related work for history coalescing; `historyLimit: 0` disables retained
   entries. Concrete overlay behavior is defined in
   [`presentation.md`](presentation.md).
-- `transaction(operations, { selectedIds })` publishes and restores the requested
-  selection with the same history entry.
+- `transaction(operations, { selectedIds, companion })` publishes and restores
+  selection plus detached host JSON with the same history entry. Companion data
+  is opaque to PatchMap and must not contain live DOM, renderer, or class objects.
 - `history.undo()` and `history.redo()` apply scene and companion selection state
-  atomically. `history.clear()` removes both stacks without changing the scene.
+  atomically and return the restored host `companion`, or `null` when absent.
+  `history.onChange()` observes committed stack changes and returns a disposer.
+  `history.clear()` removes both stacks without changing the scene.
 
 `PatchMapUpdateResult.status` has four values:
 
@@ -68,7 +71,7 @@ owned by [`presentation.md`](presentation.md) and
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| public lowering and batch validation | [`developer-api/mutations.ts`](../../src/patch-map/developer-api/mutations.ts) | [`engine-update-transactions.test.ts`](../../tests/engine/engine-update-transactions.test.ts) |
-| authored commit ordering and atomicity | [`transaction-commit-coordinator.ts`](../../src/patch-map/engine/transaction-commit-coordinator.ts) | [`engine-semantic-mutation.test.ts`](../../tests/engine/engine-semantic-mutation.test.ts) |
-| history cursor and companion state | [`history-application-coordinator.ts`](../../src/patch-map/engine/history-application-coordinator.ts) | [`engine-history-integration.test.ts`](../../tests/engine/engine-history-integration.test.ts) |
-| refusal and reentrancy | [`operation-outcomes.ts`](../../src/patch-map/engine/operation-outcomes.ts) | [`engine-reentrancy-lifecycle.test.ts`](../../tests/engine/engine-reentrancy-lifecycle.test.ts) |
+| public lowering and batch validation | [`public/mutations.ts`](../../src/public/mutations.ts) | [`engine-update-transactions.test.ts`](../../tests/engine/engine-update-transactions.test.ts) |
+| authored commit ordering and atomicity | [`transaction-commit-coordinator.ts`](../../src/engine/transaction-commit-coordinator.ts) | [`engine-semantic-mutation.test.ts`](../../tests/engine/engine-semantic-mutation.test.ts) |
+| history cursor and companion state | [`history-application-coordinator.ts`](../../src/engine/history-application-coordinator.ts) | [`engine-history-integration.test.ts`](../../tests/engine/engine-history-integration.test.ts) |
+| refusal and reentrancy | [`operation-outcomes.ts`](../../src/engine/operation-outcomes.ts) | [`engine-reentrancy-lifecycle.test.ts`](../../tests/engine/engine-reentrancy-lifecycle.test.ts) |

@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing camera state or relative object transforms
-- Source: [`viewport-authority.ts`](../../src/patch-map/engine/viewport-authority.ts), [`transformer-edit-authority.ts`](../../src/patch-map/engine/transformer-edit-authority.ts)
+- Source: [`viewport-authority.ts`](../../src/engine/viewport-authority.ts), [`transformer-edit-authority.ts`](../../src/engine/transformer-edit-authority.ts)
 
 ## Scope
 
@@ -43,12 +43,16 @@ Transform APIs apply relative semantic edits to logical targets:
 | `transform.moveBy(targets, delta, options?)` | world-space `[dx, dy]` |
 | `transform.resizeBy(targets, resize, options?)` | handle, delta, optional aspect lock and minimum size |
 | `transform.rotateBy(targets, degrees, options?)` | relative degrees |
+| `transform.beginSession(input)` | one move, resize, or rotate preview session |
 
 Each transform validates the complete target set and commits once. Its
 `actionId` and `recordHistory` behavior follows
 [`mutations-and-history.md`](mutations-and-history.md). Interactive transformer
 sessions preview through package-owned presentation and commit only their final
-semantic delta.
+semantic delta. A session exposes `preview()`, `edgePan()`, `commit()`, and
+`cancel()`. Only one session may be active per mounted instance; move uses the
+frame handle, rotate uses the rotate handle, and resize requires an explicit
+resize handle.
 
 ## Failure semantics
 
@@ -64,7 +68,7 @@ semantic delta.
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| viewport state, clamp, persistence, settle | [`viewport-authority.ts`](../../src/patch-map/engine/viewport-authority.ts) | [`viewport-authority.test.ts`](../../tests/engine/viewport-authority.test.ts) |
-| public viewport integration | [`developer-api.ts`](../../src/patch-map/developer-api.ts) | [`engine-viewport.test.ts`](../../tests/engine/engine-viewport.test.ts) |
-| relative transform semantics | [`transformer-edit-authority.ts`](../../src/patch-map/engine/transformer-edit-authority.ts) | [`engine-transformer-edit.test.ts`](../../tests/engine/engine-transformer-edit.test.ts) |
-| gesture ownership and preview cleanup | [`transformer-session-coordinator.ts`](../../src/patch-map/engine/transformer-session-coordinator.ts) | [`engine-transformer-edit.test.ts`](../../tests/engine/engine-transformer-edit.test.ts) |
+| viewport state, clamp, persistence, settle | [`viewport-authority.ts`](../../src/engine/viewport-authority.ts) | [`viewport-authority.test.ts`](../../tests/engine/viewport-authority.test.ts) |
+| public viewport integration | [`public/index.ts`](../../src/public/index.ts) | [`engine-viewport.test.ts`](../../tests/engine/engine-viewport.test.ts) |
+| relative transform semantics | [`transformer-edit-authority.ts`](../../src/engine/transformer-edit-authority.ts) | [`engine-transformer-edit.test.ts`](../../tests/engine/engine-transformer-edit.test.ts) |
+| gesture ownership and preview cleanup | [`transformer-session-coordinator.ts`](../../src/engine/transformer-session-coordinator.ts) | [`engine-transformer-edit.test.ts`](../../tests/engine/engine-transformer-edit.test.ts) |

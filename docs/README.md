@@ -11,6 +11,7 @@ repeat feature contracts.
 | Install, mount, resize, and destroy | [Getting started](getting-started.md) |
 | Load data or find stable targets | [Data and targets](api/data-and-targets.md) |
 | Update state, transact, animate, or use history | [Mutations and history](api/mutations-and-history.md) |
+| Run grid, relation, text, or delete editor workflows | [Editor workflows](api/editor-workflows.md) |
 | Handle hover, tooltip, click, box selection, or transformer paint | [Pointer and selection](api/pointer-and-selection.md) |
 | Pan, zoom, fit, persist a viewport, or transform a target | [Viewport and transforms](api/viewport-and-transform.md) |
 | Apply transient grid or keyed presentation | [Presentation](api/presentation.md) |

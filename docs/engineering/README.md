@@ -28,7 +28,7 @@ locate owner -> state invariant -> focused test -> implementation
 ```
 
 Prefer a narrow port into an existing owner over a second state machine. Keep
-`engine.ts` and `core.ts` as composition boundaries: move cohesive lifecycle or
+`engine/index.ts` and `core/index.ts` as orchestration boundaries: move cohesive lifecycle or
 transaction ownership into their support modules, while leaving public methods
 as delegates.
 

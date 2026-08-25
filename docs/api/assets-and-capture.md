@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing resource admission, image readiness, fonts, or PNG extraction
-- Source: [`assets`](../../src/patch-map/assets), [`asset-session-authority.ts`](../../src/patch-map/engine/asset-session-authority.ts), [`capture-extraction-authority.ts`](../../src/patch-map/engine/capture-extraction-authority.ts)
+- Source: [`assets`](../../src/assets), [`asset-session-authority.ts`](../../src/engine/asset-session-authority.ts), [`capture-extraction-authority.ts`](../../src/engine/capture-extraction-authority.ts)
 
 ## Scope
 
@@ -29,6 +29,12 @@ Font byte identity and licensing are owned by [`fonts.md`](../assets/fonts.md).
   `assetRuntime` deduplicates physical resources across engines and unloads a
   resource after its final lease. `assets.status(alias?)` reports session and
   runtime state; it is diagnostic, not a capture-readiness poll.
+- `PatchMapAssetRuntime`, its backend contracts, and
+  `createPatchMapPixiAssetBackend()` form the one intentional advanced asset
+  extension. Use them only to share leases across mounted maps or to supply an
+  equivalent resource backend; they do not expose renderer, scene, or Engine
+  ownership. `createPatchMapAssetIngestionPolicy()` remains the supported
+  admission-policy helper.
 - The package eagerly acquires the five Fira Code weights documented in
   [`fonts.md`](../assets/fonts.md)
   before creating text objects. The payload is an async package chunk shared by
@@ -57,9 +63,9 @@ the latest deferred size is applied before the frame loop resumes. The result is
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| admission policy | [`ingestion-policy.ts`](../../src/patch-map/assets/ingestion-policy.ts) | [`asset-ingestion-policy.test.ts`](../../tests/rendering/asset-ingestion-policy.test.ts) |
-| sessions, leases, and cleanup | [`asset-session-authority.ts`](../../src/patch-map/engine/asset-session-authority.ts) | [`engine-asset-lifecycle.test.ts`](../../tests/engine/engine-asset-lifecycle.test.ts) |
-| built-in image projection | [`builtin-image-glyphs.ts`](../../src/patch-map/assets/builtin-image-glyphs.ts) | [`component-assets-product.test.ts`](../../tests/rendering/component-assets-product.test.ts) |
-| font leases and first-frame readiness | [`builtin-font-payload.ts`](../../src/patch-map/assets/builtin-font-payload.ts) | [`asset-registry.test.ts`](../../tests/rendering/asset-registry.test.ts) |
-| capture queue, freshness, resize, cleanup | [`capture-extraction-authority.ts`](../../src/patch-map/engine/capture-extraction-authority.ts) | [`engine-capture-extraction-authority.test.ts`](../../tests/engine/engine-capture-extraction-authority.test.ts) |
-| extraction security and PNG result | [`extraction-security-authority.ts`](../../src/patch-map/operations/extraction-security-authority.ts) | [`engine-extraction.test.ts`](../../tests/engine/engine-extraction.test.ts) |
+| admission policy | [`ingestion-policy.ts`](../../src/assets/ingestion-policy.ts) | [`asset-ingestion-policy.test.ts`](../../tests/rendering/asset-ingestion-policy.test.ts) |
+| sessions, leases, and cleanup | [`asset-session-authority.ts`](../../src/engine/asset-session-authority.ts) | [`engine-asset-lifecycle.test.ts`](../../tests/engine/engine-asset-lifecycle.test.ts) |
+| built-in image projection | [`builtin-image-glyphs.ts`](../../src/assets/builtin-image-glyphs.ts) | [`component-assets-product.test.ts`](../../tests/rendering/component-assets-product.test.ts) |
+| font leases and first-frame readiness | [`builtin-font-payload.ts`](../../src/assets/builtin-font-payload.ts) | [`asset-registry.test.ts`](../../tests/rendering/asset-registry.test.ts) |
+| capture queue, freshness, resize, cleanup | [`capture-extraction-authority.ts`](../../src/engine/capture-extraction-authority.ts) | [`engine-capture-extraction-authority.test.ts`](../../tests/engine/engine-capture-extraction-authority.test.ts) |
+| extraction security and PNG result | [`extraction-security-authority.ts`](../../src/operations/extraction-security-authority.ts) | [`engine-extraction.test.ts`](../../tests/engine/engine-extraction.test.ts) |

@@ -83,10 +83,12 @@ datasets, stable IDs, update payloads, predicates, companion history state, and 
 callbacks. PatchMap guarantees deterministic execution, rendering, interaction,
 snapshot/export, PixiJS extraction, and cleanup.
 
-The production integration gate installs the packed artifact in the real host adapter
-and executes all 38 rows. A mock host remains a pull-request aid and cannot substitute
-for this digest-bound integration result. Save guards and release qualification follow
-`production-readiness.md`.
+The production integration gate installs the packed artifact and executes all 38
+user intentions through a packed-public journey suite. That suite uses documented
+package APIs, browser/DOM observations, and host-owned orchestration; it does not
+reuse the source Engine method/probe transcript. Source Engine conformance remains
+a separate lower-level gate. A mock host cannot substitute for the digest-bound
+packed result. Save guards and release qualification follow `production-readiness.md`.
 
 All consumer product choices and seam contract records are resolved. The production
 fixture digest/counts and canonical group/ungroup/history expectations are frozen.

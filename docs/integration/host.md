@@ -59,5 +59,5 @@ The packaged `examples/host-adapter.ts` is the integration reference:
 | Claim | Code | Focused evidence |
 | --- | --- | --- |
 | Public adapter boundary | `examples/host-adapter.ts`, `src/index.ts` | package integration and public example compilation |
-| Instance resource ownership | `src/patch-map/engine.ts`, `src/patch-map/assets.ts` | engine lifecycle and asset lifecycle tests |
-| Persistence guards | `src/patch-map/persistence.ts` | `tests/persistence.test.ts` |
+| Instance resource ownership | `src/engine/index.ts`, `src/assets/index.ts` | engine lifecycle and asset lifecycle tests |
+| Persistence guards | `src/semantic/persistence.ts` | `tests/semantic/persistence.test.ts` |

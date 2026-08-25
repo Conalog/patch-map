@@ -46,6 +46,10 @@ npm run verify:memory
   improvement.
 - Use the matching workload under `performance/` or
   `scripts/verification/patch-map-*-performance.mjs`.
+- Internal phase harnesses may assemble Engine/Core with the real renderer to
+  isolate hot-path timing. They do not measure public mount composition; use an
+  installed-package or `PatchMap.mount()` probe for facade, built-in asset,
+  resize-observer, and public lifecycle cost.
 - Hold workload, environment, cache state, sampling, and concurrency constant.
 - Preserve slow samples and failed trials. Do not relax a budget after seeing a
   result.
@@ -74,6 +78,13 @@ npm run verify:memory
   present in the tarball.
 - A local build is not package proof; verify the produced tarball through the
   installed-consumer matrix.
+- A source Engine contract matrix is useful regression evidence but cannot
+  satisfy a digest-bound packed-host journey. Package evidence must record the
+  implementation boundary actually executed.
+- Source conformance and packed integration may share fixtures and CSM IDs, but
+  not an Engine-shaped product adapter. Packed journeys express the same user
+  intention directly in the documented public API and browser observation
+  vocabulary.
 
 ## Evidence policy
 

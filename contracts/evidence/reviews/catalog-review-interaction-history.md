@@ -1,43 +1,31 @@
-# PatchMap interaction and history catalog review
+# Interaction, editor, transform, and history catalog review
 
-## Reviewed surface
+## Scope
 
-The review covers pointer input, query and selection, viewport, transformer,
-updates, history, lifecycle, and their consumer journeys in the current
-169-case candidate.
+- `contracts/consumer-journeys.md` and the packed-public wording in the
+  production/package contract owners
+- `docs/api/editor-workflows.md`, `mutations-and-history.md`,
+  `pointer-and-selection.md`, and `viewport-and-transform.md`
+- candidate `catalog-fixtures.v1.json` against the canonical fixture and
+  normalized expected evidence
 
-| Binding | SHA-256 |
-| --- | --- |
-| manifest | `4301c7289e2df417e7a80244bb2c685a8dca005fda62a3d4ac9fc5de15990d91` |
-| fixtures | `7ddb0f54dbaf5dd9e509b739b01160240c5cbb6a4ec4bfefced94359a562397f` |
-| normalized expected | `2033efb7d64254d8696f5414ebe4bced9ce3e5431b322740a3d9ac99c8bb4f93` |
-| typed cases | `3a221cbc5dd479063863cfabbad459c728760ac0de4fe7fc908e68cda966437f` |
+## Evidence
+
+- The 38 CSM rows and their editor, interaction, transformer, and history
+  intentions are unchanged; the new wording only separates packed-public
+  journeys from source Engine conformance.
+- Editor workflow, transform-session, companion-history, and history-change
+  documentation matches the current public contracts and facade projections.
+- `contracts/evidence/catalog-normalized-expected.v1.json` has no working-tree
+  diff and is byte-identical to the candidate normalized expected JSON.
+- Canonical-to-candidate fixture comparison found 85 changed scalar paths, all
+  named `sha256`; no IDs, actions, observations, setup, or expected semantics
+  changed. Updated source-reference hashes match the current contract Markdown.
 
 ## Findings
 
-- Manifest, fixtures, expected records, typed cases, and executable routes have
-  the same ordered 169 IDs.
-- The 631 actions use the closed 370-opcode action schema; Lab routes every case
-  to one current handler/fold owner.
-- View and resize actions preserve surface, authority, publication, accessibility,
-  and event ordering. Transformer edits plan before a strict transaction and
-  derive history depth from committed state.
-- History recording uses the explicit `prepareRecord` and `commitPrepared`
-  transaction boundary. Undo and redo move the cursor only after apply accepts.
-- Replacement, interruption, destroy, async supersession, and lifecycle folds
-  enforce their declared atomicity and publication rules.
-- Geometry and relation freshness use `revisionLags.scene` from the domain tuple;
-  no separate scene-lag projection participates in the contract.
-- The standalone-radius and production-workload cleanup changes no interaction,
-  history, lifecycle, relation-endpoint, or case-routing expectation.
-- Verifier import-firewall coverage matches the current handler and fold registry.
-
-## Reproduction
-
-```sh
-npm run verify:contract:gates
-npm run verify:contract:decisions
-npx vitest run --maxWorkers=2 tests/history.test.ts tests/engine-viewport.test.ts tests/query-selection.test.ts tests/contract-verifier-import-firewall.test.ts
-```
+No meaning distortion, missing interaction/editor/history behavior, or derived
+fixture mismatch was found in the reviewed scope. This was a read-only review;
+no tests were run.
 
 Verdict: PASS

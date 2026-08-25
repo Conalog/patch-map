@@ -109,7 +109,7 @@
       ]
     },
     "asset-policy-matrix": {
-      "sha256": "29d185db00dd1b4484e6ea149eec64f01c5a0a714d8815682c23d46ad690dab7",
+      "sha256": "b2b0d75b227474d98cb02adb56590a0cf0d121d52ae207cff92941d96f6279b9",
       "datasetRef": "interactive-scene",
       "allowedOrigins": [
         "https://assets.example.test"
@@ -121,7 +121,7 @@
       "sourceRefs": [
         {
           "path": "production-readiness.md",
-          "sha256": "30d99def000a0dc906745cfb5a79bda30410c1478241afe6b0c28acdb03fd25f"
+          "sha256": "73d4efd1d0629829403934d5a46919e497c447fec5d52a23fac991a222525fe3"
         },
         {
           "path": "scenarios/rendering-layout-assets.md",
@@ -342,7 +342,7 @@
       ]
     },
     "synthetic-and-production-performance-matrix": {
-      "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3",
+      "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e",
       "generatorRefs": [
         "synthetic-scene",
         "production-shaped"
@@ -353,7 +353,7 @@
       "sourceRefs": [
         {
           "path": "production-readiness.md",
-          "sha256": "30d99def000a0dc906745cfb5a79bda30410c1478241afe6b0c28acdb03fd25f"
+          "sha256": "73d4efd1d0629829403934d5a46919e497c447fec5d52a23fac991a222525fe3"
         },
         {
           "path": "evidence/production-shaped-workload.v1.json",
@@ -362,7 +362,7 @@
       ]
     },
     "pixijs-public-integration-matrix": {
-      "sha256": "b88f696f1134eacce650a0b76ffbc6cd98b70509f919ee7a83cfe2af803ae5f8",
+      "sha256": "55588c36edab81a3e8cc1470dfbfa5d8b91e1a5e484ad8bb0d2dd9b7d75acc6a",
       "datasetRef": "interactive-scene",
       "renderer": "pixi.js-v8",
       "backend": "webgl2",
@@ -374,12 +374,12 @@
         },
         {
           "path": "scenarios/pixijs-package-integration.md",
-          "sha256": "14206b9ec275250057acc5cbcc40def0c984931d4dadcf625d5a76be9cf878db"
+          "sha256": "b5b344a7680b2837b4350e02171fb745e57240a590b6309a3323af178dfe1847"
         }
       ]
     },
     "packed-consumer-matrix": {
-      "sha256": "c9da5ad934f24918e21021f747277c6ed80d21bede1691c43ae8b574bdb2fbda",
+      "sha256": "88cda973c3b68de1a01bd4c2cb54692b99d22bd721823b5703a0c1bdd765eb00",
       "datasetRef": "interactive-scene",
       "moduleTargets": [
         "esm",
@@ -391,23 +391,23 @@
       "sourceRefs": [
         {
           "path": "production-readiness.md",
-          "sha256": "30d99def000a0dc906745cfb5a79bda30410c1478241afe6b0c28acdb03fd25f"
+          "sha256": "73d4efd1d0629829403934d5a46919e497c447fec5d52a23fac991a222525fe3"
         },
         {
           "path": "scenarios/pixijs-package-integration.md",
-          "sha256": "14206b9ec275250057acc5cbcc40def0c984931d4dadcf625d5a76be9cf878db"
+          "sha256": "b5b344a7680b2837b4350e02171fb745e57240a590b6309a3323af178dfe1847"
         }
       ]
     },
     "hostile-asset-and-package-matrix": {
-      "sha256": "e7f612777086ad074cf5d6e6b60fe773580f68a4ae9fab8bf4b570062405b893",
+      "sha256": "4a49f22982ae42adedbc49574b48d50e4dcf895ff848438e5a66249306deaee3",
       "datasetRef": "interactive-scene",
       "redactionMarker": "fixture-sensitive-value",
       "actionIndexStartsAt": 0,
       "sourceRefs": [
         {
           "path": "production-readiness.md",
-          "sha256": "30d99def000a0dc906745cfb5a79bda30410c1478241afe6b0c28acdb03fd25f"
+          "sha256": "73d4efd1d0629829403934d5a46919e497c447fec5d52a23fac991a222525fe3"
         },
         {
           "path": "scenarios/security-accessibility-operations.md",
@@ -456,7 +456,7 @@
       ]
     },
     "packed-host-seam": {
-      "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616",
+      "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101",
       "datasetRef": "interactive-scene",
       "hostRevision": 1,
       "companionState": {
@@ -468,7 +468,7 @@
       "sourceRefs": [
         {
           "path": "consumer-journeys.md",
-          "sha256": "f1dba944beb51aac607eb09aff881c439a404f77e20d53ccfaa4d8bea85bfc07"
+          "sha256": "5881ca072f109fc411eed6a24710c7848e3cc1f296c1afab52a8803bce79dba1"
         },
         {
           "path": "engine-boundary.md",
@@ -476,7 +476,7 @@
         },
         {
           "path": "production-readiness.md",
-          "sha256": "30d99def000a0dc906745cfb5a79bda30410c1478241afe6b0c28acdb03fd25f"
+          "sha256": "73d4efd1d0629829403934d5a46919e497c447fec5d52a23fac991a222525fe3"
         }
       ]
     }
@@ -4854,7 +4854,7 @@
       "fixtureProfiles": [
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -4934,7 +4934,7 @@
       "fixtureProfiles": [
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -5078,7 +5078,7 @@
       "fixtureProfiles": [
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -5178,7 +5178,7 @@
       "fixtureProfiles": [
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -5277,7 +5277,7 @@
       "fixtureProfiles": [
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -5360,7 +5360,7 @@
       "fixtureProfiles": [
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -5454,7 +5454,7 @@
       "fixtureProfiles": [
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -5531,7 +5531,7 @@
       "fixtureProfiles": [
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -5632,7 +5632,7 @@
       "fixtureProfiles": [
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -7447,7 +7447,7 @@
       "fixtureProfiles": [
         {
           "id": "pixijs-public-integration-matrix",
-          "sha256": "b88f696f1134eacce650a0b76ffbc6cd98b70509f919ee7a83cfe2af803ae5f8"
+          "sha256": "55588c36edab81a3e8cc1470dfbfa5d8b91e1a5e484ad8bb0d2dd9b7d75acc6a"
         }
       ],
       "setup": {
@@ -7526,7 +7526,7 @@
       "fixtureProfiles": [
         {
           "id": "pixijs-public-integration-matrix",
-          "sha256": "b88f696f1134eacce650a0b76ffbc6cd98b70509f919ee7a83cfe2af803ae5f8"
+          "sha256": "55588c36edab81a3e8cc1470dfbfa5d8b91e1a5e484ad8bb0d2dd9b7d75acc6a"
         }
       ],
       "setup": {
@@ -7596,7 +7596,7 @@
       "fixtureProfiles": [
         {
           "id": "pixijs-public-integration-matrix",
-          "sha256": "b88f696f1134eacce650a0b76ffbc6cd98b70509f919ee7a83cfe2af803ae5f8"
+          "sha256": "55588c36edab81a3e8cc1470dfbfa5d8b91e1a5e484ad8bb0d2dd9b7d75acc6a"
         }
       ],
       "setup": {
@@ -7684,7 +7684,7 @@
       "fixtureProfiles": [
         {
           "id": "pixijs-public-integration-matrix",
-          "sha256": "b88f696f1134eacce650a0b76ffbc6cd98b70509f919ee7a83cfe2af803ae5f8"
+          "sha256": "55588c36edab81a3e8cc1470dfbfa5d8b91e1a5e484ad8bb0d2dd9b7d75acc6a"
         }
       ],
       "setup": {
@@ -7771,7 +7771,7 @@
       "fixtureProfiles": [
         {
           "id": "pixijs-public-integration-matrix",
-          "sha256": "b88f696f1134eacce650a0b76ffbc6cd98b70509f919ee7a83cfe2af803ae5f8"
+          "sha256": "55588c36edab81a3e8cc1470dfbfa5d8b91e1a5e484ad8bb0d2dd9b7d75acc6a"
         }
       ],
       "setup": {
@@ -7850,7 +7850,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-consumer-matrix",
-          "sha256": "c9da5ad934f24918e21021f747277c6ed80d21bede1691c43ae8b574bdb2fbda"
+          "sha256": "88cda973c3b68de1a01bd4c2cb54692b99d22bd721823b5703a0c1bdd765eb00"
         }
       ],
       "setup": {
@@ -7940,7 +7940,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-consumer-matrix",
-          "sha256": "c9da5ad934f24918e21021f747277c6ed80d21bede1691c43ae8b574bdb2fbda"
+          "sha256": "88cda973c3b68de1a01bd4c2cb54692b99d22bd721823b5703a0c1bdd765eb00"
         }
       ],
       "setup": {
@@ -8016,7 +8016,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-consumer-matrix",
-          "sha256": "c9da5ad934f24918e21021f747277c6ed80d21bede1691c43ae8b574bdb2fbda"
+          "sha256": "88cda973c3b68de1a01bd4c2cb54692b99d22bd721823b5703a0c1bdd765eb00"
         }
       ],
       "setup": {
@@ -8105,7 +8105,7 @@
       "title": "Integrate the Packed Artifact in the Actual Host Boundary",
       "source": {
         "path": "scenarios/pixijs-package-integration.md",
-        "sha256": "4e442578f65386f17b50bc3351af3a9957d14ef4da08b1ac087d1fb4d8d76626"
+        "sha256": "f350eb60fdf4a754ad3f29ebd09d8325d535ed88bff714d9ef57ae3ecf3fe21e"
       },
       "priority": "P1",
       "lab": {
@@ -8118,7 +8118,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-consumer-matrix",
-          "sha256": "c9da5ad934f24918e21021f747277c6ed80d21bede1691c43ae8b574bdb2fbda"
+          "sha256": "88cda973c3b68de1a01bd4c2cb54692b99d22bd721823b5703a0c1bdd765eb00"
         }
       ],
       "setup": {
@@ -8264,7 +8264,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-consumer-matrix",
-          "sha256": "c9da5ad934f24918e21021f747277c6ed80d21bede1691c43ae8b574bdb2fbda"
+          "sha256": "88cda973c3b68de1a01bd4c2cb54692b99d22bd721823b5703a0c1bdd765eb00"
         }
       ],
       "setup": {
@@ -10801,7 +10801,7 @@
       "fixtureProfiles": [
         {
           "id": "asset-policy-matrix",
-          "sha256": "29d185db00dd1b4484e6ea149eec64f01c5a0a714d8815682c23d46ad690dab7"
+          "sha256": "b2b0d75b227474d98cb02adb56590a0cf0d121d52ae207cff92941d96f6279b9"
         }
       ],
       "setup": {
@@ -10933,7 +10933,7 @@
       "fixtureProfiles": [
         {
           "id": "asset-policy-matrix",
-          "sha256": "29d185db00dd1b4484e6ea149eec64f01c5a0a714d8815682c23d46ad690dab7"
+          "sha256": "b2b0d75b227474d98cb02adb56590a0cf0d121d52ae207cff92941d96f6279b9"
         }
       ],
       "setup": {
@@ -11059,7 +11059,7 @@
       "fixtureProfiles": [
         {
           "id": "asset-policy-matrix",
-          "sha256": "29d185db00dd1b4484e6ea149eec64f01c5a0a714d8815682c23d46ad690dab7"
+          "sha256": "b2b0d75b227474d98cb02adb56590a0cf0d121d52ae207cff92941d96f6279b9"
         }
       ],
       "setup": {
@@ -11164,7 +11164,7 @@
       "fixtureProfiles": [
         {
           "id": "hostile-asset-and-package-matrix",
-          "sha256": "e7f612777086ad074cf5d6e6b60fe773580f68a4ae9fab8bf4b570062405b893"
+          "sha256": "4a49f22982ae42adedbc49574b48d50e4dcf895ff848438e5a66249306deaee3"
         }
       ],
       "setup": {
@@ -11259,7 +11259,7 @@
       "fixtureProfiles": [
         {
           "id": "hostile-asset-and-package-matrix",
-          "sha256": "e7f612777086ad074cf5d6e6b60fe773580f68a4ae9fab8bf4b570062405b893"
+          "sha256": "4a49f22982ae42adedbc49574b48d50e4dcf895ff848438e5a66249306deaee3"
         }
       ],
       "setup": {
@@ -11332,7 +11332,7 @@
       "fixtureProfiles": [
         {
           "id": "hostile-asset-and-package-matrix",
-          "sha256": "e7f612777086ad074cf5d6e6b60fe773580f68a4ae9fab8bf4b570062405b893"
+          "sha256": "4a49f22982ae42adedbc49574b48d50e4dcf895ff848438e5a66249306deaee3"
         }
       ],
       "setup": {
@@ -11412,7 +11412,7 @@
       "fixtureProfiles": [
         {
           "id": "hostile-asset-and-package-matrix",
-          "sha256": "e7f612777086ad074cf5d6e6b60fe773580f68a4ae9fab8bf4b570062405b893"
+          "sha256": "4a49f22982ae42adedbc49574b48d50e4dcf895ff848438e5a66249306deaee3"
         }
       ],
       "setup": {
@@ -16058,7 +16058,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "all-kinds-scene",
@@ -16253,7 +16253,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "all-kinds-scene",
@@ -16461,7 +16461,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "all-kinds-scene",
@@ -16657,7 +16657,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "mutation-transaction-matrix",
@@ -16880,7 +16880,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "mutation-transaction-matrix",
@@ -17102,7 +17102,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "mutation-transaction-matrix",
@@ -17356,7 +17356,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "mutation-transaction-matrix",
@@ -17629,7 +17629,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "mutation-transaction-matrix",
@@ -17830,7 +17830,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "viewport-transform-matrix",
@@ -18039,7 +18039,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "viewport-transform-matrix",
@@ -18047,7 +18047,7 @@
         },
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -18274,7 +18274,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "selection-and-hit-matrix",
@@ -18525,7 +18525,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "selection-and-hit-matrix",
@@ -18715,7 +18715,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "input-device-and-gesture-matrix",
@@ -18952,7 +18952,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "mutation-transaction-matrix",
@@ -19209,7 +19209,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "input-device-and-gesture-matrix",
@@ -19392,7 +19392,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "selection-and-hit-matrix",
@@ -19610,7 +19610,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "viewport-transform-matrix",
@@ -19618,7 +19618,7 @@
         },
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -19803,7 +19803,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "all-kinds-scene",
@@ -19995,7 +19995,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "dataset-schema-matrix",
@@ -20206,7 +20206,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "input-device-and-gesture-matrix",
@@ -20464,7 +20464,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "selection-and-hit-matrix",
@@ -20684,7 +20684,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "transformer-gesture-matrix",
@@ -20940,7 +20940,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "transformer-gesture-matrix",
@@ -21188,7 +21188,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "viewport-transform-matrix",
@@ -21408,7 +21408,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "dataset-schema-matrix",
@@ -21699,7 +21699,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "mutation-transaction-matrix",
@@ -21943,7 +21943,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "all-kinds-scene",
@@ -22176,7 +22176,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "mutation-transaction-matrix",
@@ -22419,7 +22419,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "all-kinds-scene",
@@ -22644,7 +22644,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "mutation-transaction-matrix",
@@ -22873,7 +22873,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "dataset-schema-matrix",
@@ -23157,11 +23157,11 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "asset-policy-matrix",
-          "sha256": "29d185db00dd1b4484e6ea149eec64f01c5a0a714d8815682c23d46ad690dab7"
+          "sha256": "b2b0d75b227474d98cb02adb56590a0cf0d121d52ae207cff92941d96f6279b9"
         },
         {
           "id": "input-device-and-gesture-matrix",
@@ -23424,7 +23424,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "mutation-transaction-matrix",
@@ -23661,7 +23661,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "history-and-companion-state",
@@ -23891,7 +23891,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "fresh-session-semantic-snapshot",
@@ -24096,7 +24096,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "diagnostic-and-rollback-matrix",
@@ -24104,7 +24104,7 @@
         },
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         }
       ],
       "setup": {
@@ -24281,7 +24281,7 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "all-kinds-scene",
@@ -24508,15 +24508,15 @@
       "fixtureProfiles": [
         {
           "id": "packed-host-seam",
-          "sha256": "a13574532ef9789b42f8f78528978c9ecc93afd785a22f07f57941d93fe3a616"
+          "sha256": "952496699195567280917faae3819f4ac31ad532957c389639c06fda69589101"
         },
         {
           "id": "pixijs-public-integration-matrix",
-          "sha256": "b88f696f1134eacce650a0b76ffbc6cd98b70509f919ee7a83cfe2af803ae5f8"
+          "sha256": "55588c36edab81a3e8cc1470dfbfa5d8b91e1a5e484ad8bb0d2dd9b7d75acc6a"
         },
         {
           "id": "synthetic-and-production-performance-matrix",
-          "sha256": "f854a5ab21664ae62a7e651724ce8c215dade7fd9ef7f6e14b1ec217dbfaecc3"
+          "sha256": "cbadbbf47c630cf05abb7d03db026888069f8f06d01e924a9a2a0c434d71f17e"
         },
         {
           "id": "diagnostic-and-rollback-matrix",

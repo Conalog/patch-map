@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing non-authoritative visual state
-- Source: [`presentation-layers.ts`](../../src/patch-map/presentation-layers.ts), [`instance-presentation-overlay.ts`](../../src/patch-map/core/instance-presentation-overlay.ts)
+- Source: [`core/presentation-layers.ts`](../../src/core/presentation-layers.ts), [`instance-presentation-overlay.ts`](../../src/core/instance-presentation-overlay.ts)
 
 ## Scope
 
@@ -64,7 +64,7 @@ fields:
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| keyed composition and lifecycle | [`presentation-layers.ts`](../../src/patch-map/presentation-layers.ts) | [`presentation.test.ts`](../../tests/semantic/presentation.test.ts) |
-| sparse-to-dense projection | [`presentation-projection.ts`](../../src/patch-map/presentation-projection.ts) | [`presentation-projection.test.ts`](../../tests/rendering/presentation-projection.test.ts) |
-| concrete field overlay | [`instance-presentation-overlay.ts`](../../src/patch-map/core/instance-presentation-overlay.ts) | [`core-presentation-integration.test.ts`](../../tests/core/core-presentation-integration.test.ts) |
-| column validation and mixed animation | [`developer-api/presentation.ts`](../../src/patch-map/developer-api/presentation.ts) | [`engine-update-transactions.test.ts`](../../tests/engine/engine-update-transactions.test.ts) |
+| keyed composition and lifecycle | [`core/presentation-layers.ts`](../../src/core/presentation-layers.ts) | [`presentation.test.ts`](../../tests/semantic/presentation.test.ts) |
+| sparse-to-dense projection | [`presentation/projection.ts`](../../src/presentation/projection.ts) | [`presentation-projection.test.ts`](../../tests/rendering/presentation-projection.test.ts) |
+| concrete field overlay | [`instance-presentation-overlay.ts`](../../src/core/instance-presentation-overlay.ts) | [`core-presentation-integration.test.ts`](../../tests/core/core-presentation-integration.test.ts) |
+| column validation and mixed animation | [`public/presentation.ts`](../../src/public/presentation.ts) | [`engine-update-transactions.test.ts`](../../tests/engine/engine-update-transactions.test.ts) |

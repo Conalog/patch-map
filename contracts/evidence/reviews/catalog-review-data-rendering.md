@@ -1,47 +1,20 @@
-# PatchMap data and rendering catalog review
+Verdict: PASS
 
-## Reviewed surface
+## Scope
 
-The review covers the current 169-case catalog, with detailed ownership of
-`DAT-001..005,007..008`, `REN-001..011`, `LAY-001..005`, and `AST-001..003`.
-The generated candidate is bound to these SHA-256 values:
+- Reviewed the current contract Markdown diff affecting packed-host, rendering/PixiJS, performance, and asset fixture provenance.
+- Compared `.artifacts/performance/contract-catalog-candidate/catalog-fixtures.v1.json` with the canonical `contracts/evidence/catalog-fixtures.v1.json`.
+- Confirmed the candidate normalized expected output against `contracts/evidence/catalog-normalized-expected.v1.json`.
 
-| Binding | SHA-256 |
-| --- | --- |
-| manifest | `4301c7289e2df417e7a80244bb2c685a8dca005fda62a3d4ac9fc5de15990d91` |
-| fixtures | `7ddb0f54dbaf5dd9e509b739b01160240c5cbb6a4ec4bfefced94359a562397f` |
-| normalized expected | `2033efb7d64254d8696f5414ebe4bced9ce3e5431b322740a3d9ac99c8bb4f93` |
-| typed cases | `3a221cbc5dd479063863cfabbad459c728760ac0de4fe7fc908e68cda966437f` |
+## Evidence
+
+- The Markdown changes consistently require all 38 CSM intentions to run through documented packed-package APIs and host/browser observations, while keeping source Engine conformance as a separate lower-level gate.
+- The candidate fixture retains 169 unique cases, including 26 data/update/layout cases, 21 rendering/PixiJS/package cases, 9 performance cases, 7 asset/image/security cases, and all 38 CSM cases.
+- The fixture comparison contains 85 differences, all confined to `sha256` provenance fields. No setup, action, expected binding, case ID, ordering, or profile membership changed.
+- Updated source-reference hashes match the current `consumer-journeys.md`, `production-readiness.md`, and `scenarios/pixijs-package-integration.md` bytes.
+- Candidate and canonical normalized expected JSON are byte-identical: SHA-256 `2033efb7d64254d8696f5414ebe4bced9ce3e5431b322740a3d9ac99c8bb4f93`.
 
 ## Findings
 
-- Typed cases, fixtures, expected records, and manifest contain the same 169
-  unique ordered IDs: 131 capabilities and 38 journeys.
-- Fixture action order and typed action operands match for all 631 actions.
-- The data-rendering owner contains 26 cases, 108 actions, and 380 assertions.
-- Rendering inputs use the canonical background, relation-alpha, placement,
-  text-split, spacing, and rect-source forms defined by the current schemas.
-- `REN-004` and its `rect-specimen` profile use scalar radius `10`, then patch
-  to scalar radius `30`; the expected size, rotated world bounds, hit bounds,
-  paint, and z-index assertions are unchanged.
-- Candidate fixtures, typed cases, fixture profiles, and the production-shaped
-  workload contain no array/object radius on a standalone rect. Rectangular
-  component textures retain scalar, tuple, and named-corner normalization.
-- Removing relation `cap`/`join` from the production-shaped workload preserves
-  its 21 roots, ordered 336 typed IDs, 55 relation records, and 327 links.
-- Geometry assertions address the domain tuple directly through
-  `/geometry/bounds/revisionLags/scene`.
-- `ACC-001` binds `supportedActions`; `PKG-002` binds
-  `restrictedImportCount`; their referenced assertion domains are closed.
-- Static validation accepts every source, profile, action, observation, and
-  assertion binding and rejects all 32 drift probes.
-
-## Reproduction
-
-```sh
-node scripts/verification/generate-patch-map-catalog-evidence.mjs --pending-review --output-dir .artifacts/performance/contract-catalog-current
-npm run verify:contract:gates
-npx vitest run --maxWorkers=2 tests/placement.test.ts tests/text-layout.test.ts tests/style-normalization.test.ts tests/render-schema-support.test.ts tests/parser.test.ts tests/dataset-contract.test.ts
-```
-
-Verdict: PASS
+- No semantic distortion, domain omission, or fixture mismatch found in the reviewed data/rendering/performance/assets scope.
+- No code or contract files were modified, and no tests were run as required.

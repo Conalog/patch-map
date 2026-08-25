@@ -153,10 +153,11 @@ instance-local, redacted, disposable, and exception-isolated according to
 ## Actual Host Integration Gate
 
 The real integration harness installs the packed artifact into the production host's
-strict TypeScript and bundler boundary. It executes all 38 CSM routes with production
-mount/remount layout, dataset/update envelopes, event disposal, save/export guard, and
-report extraction. Results bind host revision, PatchMap revision, host commit, and
-package digest.
+strict TypeScript and bundler boundary. It executes all 38 CSM intentions with a
+public-product vocabulary: mount/remount layout, documented dataset/update envelopes,
+browser events, event disposal, save/export guard, and report extraction. It must not
+adapt the source Engine's private method/probe vocabulary into a fake public product.
+Results bind host revision, PatchMap revision, host commit, and package digest.
 
 The adapter is orchestration only. A case fails if it recreates engine geometry,
 selection, transformer, history, asset lifetime, extraction, or cleanup semantics. A

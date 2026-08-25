@@ -8,10 +8,11 @@ publication or cleanup path.
 
 ```text
 src/index.ts
-  -> PatchMap Engine composition and public delegates
+  -> composition/ (mount, public facade, Pixi runtime and surface assembly)
+  -> public/ (application contracts and stateless facade factories)
   -> Engine authorities and coordinators
   -> Core semantic runtime
-  -> dense state and neutral renderer ports
+  -> dense state, geometry utilities, and rendering-port/ contracts
   -> aggregate PixiJS renderer
   -> canvas, browser input, and GPU resources
 ```
@@ -41,14 +42,15 @@ verification imports no Lab, performance, scripts, or tests; performance imports
 
 | Owner | Owns | Does not own |
 | --- | --- | --- |
-| `src/index.ts` and developer API | package surface, public domains, construction entry | runtime state or PixiJS objects |
-| `engine.ts` | dependency composition and public delegation | duplicate lifecycle, transaction, capture, or pointer state machines |
+| `src/index.ts` and `composition/` | package construction, public facade assembly, and concrete Pixi assembly | semantic or lifecycle policy |
+| `public/` | application and host contracts plus stateless facade mapping | Engine state, Core types, or renderer objects |
+| `engine/index.ts` | product orchestration and authority delegation | public facade construction or duplicate lifecycle, transaction, capture, or pointer state machines |
 | Engine lifecycle and scene authorities | surface generation, lifecycle, accepted scene, publication revision | renderer internals or semantic planning |
 | Engine coordinators | replacement, mutation, history, selection, pointer, viewport, transformer, asset, and capture ordering | a second canonical scene, revision clock, or renderer |
 | Core load and reconcile authorities | candidate parsing, dense construction, semantic publication, exact rollback | public facade policy, DOM input, or frame scheduling |
 | Core instance-presentation coordinator | instance presentation maps, full and height-only updates, reconcile replay, and projection-to-frame ordering | public Engine policy or a second semantic scene |
-| Semantic and dense layers | normalization, identity, geometry, planning, compact state, transactions | Engine lifecycle or concrete GPU state |
-| Neutral renderer ports | capabilities and immutable transfer values | concrete adapter ownership |
+| Semantic, geometry, and dense layers | normalization, identity, exact render quads, planning, compact state, transactions | Engine lifecycle or concrete GPU state |
+| `rendering-port/` | backend-neutral capabilities and immutable transfer values | geometry algorithms or concrete adapter ownership |
 | PixiJS CPU publication authority | projection revision, presentation inputs, dirty ranges, flush transition, and exact publication checkpoint | GPU objects, scene submission, or renderer-loss policy |
 | Aggregate PixiJS renderer | GPU resources, scene synchronization, surface rendering, aggregate interaction paint, and renderer-loss state | product mutation, history, or public API decisions |
 | Surface publication authority | canvas publication, context listeners, root binding activation, rollback and teardown | renderer-loss policy or frame eligibility |
@@ -60,8 +62,8 @@ verification imports no Lab, performance, scripts, or tests; performance imports
 ## Dependency rules
 
 1. `src/index.ts` is the public entry. Lower layers never import it.
-2. Engine and Core support modules depend on neutral ports, not the concrete
-   PixiJS adapter.
+2. Engine and Core support modules depend on `rendering-port/`, not concrete
+   files under `rendering/` or `composition/`.
 3. Semantic and dense modules do not import Engine, developer API, DOM, or
    concrete renderer modules.
 4. Renderer modules consume committed projections; they do not decide product
@@ -74,7 +76,9 @@ verification imports no Lab, performance, scripts, or tests; performance imports
    boundary.
 8. The production import graph remains acyclic. Enforce this with
    `architecture-import-graph.test.ts`.
-9. Shared verification logic belongs in `verification/`; `scripts/` owns only
+9. The same test enforces forbidden one-way imports; a cycle-free edge can still
+   violate ownership.
+10. Shared verification logic belongs in `verification/`; `scripts/` owns only
    commands that compose existing owners.
 
 ## Resource and performance invariants
