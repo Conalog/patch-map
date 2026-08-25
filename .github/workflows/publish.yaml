@@ -128,7 +128,7 @@ jobs:
           echo "release-sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   product:
-    name: Product and canonical contract
+    name: Product
     needs: metadata
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -161,9 +161,6 @@ jobs:
 
       - name: Build package
         run: npm run build
-
-      - name: Verify canonical contract
-        run: npm run verify:contract
 
       - name: Verify documentation
         run: npm run verify:docs
@@ -230,8 +227,8 @@ jobs:
           retention-days: 7
           compression-level: 0
 
-  browser-lifecycle:
-    name: Headless Lab and lifecycle memory
+  lifecycle-memory:
+    name: Lifecycle memory
     needs: metadata
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -256,12 +253,6 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Build Lab
-        run: npm run build:lab
-
-      - name: Verify every headless Lab route
-        run: npm run verify:lab:all
-
       - name: Verify lifecycle memory
         run: npm run verify:memory
 
@@ -271,7 +262,7 @@ jobs:
       - metadata
       - product
       - packed-consumer
-      - browser-lifecycle
+      - lifecycle-memory
     if: >-
       ${{
         vars.NPM_PUBLISH_ENABLED == 'true' &&

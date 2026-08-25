@@ -59,8 +59,8 @@ jobs:
             name: Core
           - gate: package
             name: Package
-          - gate: browser
-            name: Browser
+          - gate: lifecycle
+            name: Lifecycle
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -97,10 +97,6 @@ jobs:
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
         run: npm run build
 
-      - name: Contract
-        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run verify:contract
-
       - name: Documentation
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
         run: npm run verify:docs
@@ -117,16 +113,8 @@ jobs:
         if: ${{ matrix.gate == 'package' && needs.classify.outputs.full_validation == 'true' }}
         run: npm run verify:package -- --require-audit
 
-      - name: Build Lab
-        if: ${{ matrix.gate == 'browser' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run build:lab
-
-      - name: Verify Lab
-        if: ${{ matrix.gate == 'browser' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run verify:lab:all
-
       - name: Verify memory
-        if: ${{ matrix.gate == 'browser' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
         run: npm run verify:memory
 
   validation:

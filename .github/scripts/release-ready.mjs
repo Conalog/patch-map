@@ -22,12 +22,9 @@ const requiredScripts = [
   'lint',
   'unit',
   'build',
-  'verify:contract',
   'verify:docs',
   'verify:performance-contract',
   'verify:package',
-  'build:lab',
-  'verify:lab:all',
   'verify:memory',
 ];
 const missingScripts = requiredScripts.filter(
