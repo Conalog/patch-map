@@ -23,12 +23,12 @@ recursively key-sorted JSON; file digests bind stored bytes.
 ## Change sequence
 
 1. Change the authored contract or fixture profile.
-2. Run `node scripts/verification/generate-patch-map-catalog-evidence.mjs` and
+2. Run `node verification/catalog/generate-evidence.mjs` and
    inspect the candidate output.
 3. Obtain independent data/rendering, interaction/history, and release/DSL
    reviews for the exact candidate.
 4. Bind the three PASS reports with
-   `node scripts/verification/approve-patch-map-catalog-review.mjs` and its
+   `node verification/catalog/approve-review.mjs` and its
    explicit acknowledgement, reviewer, and report arguments.
 5. Promote the generated catalog files and run `npm run verify:contract`.
 

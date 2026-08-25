@@ -29,14 +29,14 @@ frame owner. Events and diagnostics describe that same accepted publication.
 | `contracts/` | authored semantics, schemas, fixtures, and promoted qualification evidence |
 | `examples/` | packed public consumer examples |
 | `lab/` | interactive browser application for contract and manual journeys |
-| `performance/` | benchmark pages, workloads, protocols, and runners |
-| `verification/` | reusable contract evaluators, browser policy, and deterministic scenarios |
-| `scripts/` | repository command entrypoints and orchestration only |
+| `performance/` | benchmark pages, workloads, protocols, and executable runners |
+| `verification/` | contract evaluators, browser and package gates, shared fixtures, and deterministic scenarios |
 | `tests/` | automated checks grouped by owning boundary |
 | `.artifacts/` | ignored, reproducible Lab builds and candidate measurements |
 
 The package name is not repeated below these roots. Product imports no tooling;
-verification imports no Lab, performance, scripts, or tests; performance imports no Lab or scripts; Lab imports no scripts. The boundary test enforces this.
+verification imports no Lab, performance, or tests; performance imports no Lab
+or tests; Lab imports no tests. The boundary test enforces this.
 
 ## Ownership map
 
@@ -78,8 +78,8 @@ verification imports no Lab, performance, scripts, or tests; performance imports
    `architecture-import-graph.test.ts`.
 9. The same test enforces forbidden one-way imports; a cycle-free edge can still
    violate ownership.
-10. Shared verification logic belongs in `verification/`; `scripts/` owns only
-   commands that compose existing owners.
+10. Verification commands live with their owner under `verification/` or
+    `performance/runners/`; there is no generic script ownership layer.
 
 ## Resource and performance invariants
 

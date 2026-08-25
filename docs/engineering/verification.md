@@ -44,8 +44,7 @@ npm run verify:memory
 
 - Treat refactors as no-regression work until comparable measurements prove an
   improvement.
-- Use the matching workload under `performance/` or
-  `scripts/verification/patch-map-*-performance.mjs`.
+- Use the matching workload or executable runner under `performance/`.
 - Internal phase harnesses may assemble Engine/Core with the real renderer to
   isolate hot-path timing. They do not measure public mount composition; use an
   installed-package or `PatchMap.mount()` probe for facade, built-in asset,
