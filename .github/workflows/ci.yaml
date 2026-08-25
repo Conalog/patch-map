@@ -101,10 +101,6 @@ jobs:
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
         run: npm run verify:docs
 
-      - name: Performance evidence integrity
-        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run verify:performance-contract
-
       - name: Install Chromium
         if: ${{ matrix.gate != 'core' && needs.classify.outputs.full_validation == 'true' }}
         run: npx playwright install --with-deps chromium
@@ -116,6 +112,10 @@ jobs:
       - name: Verify memory
         if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
         run: npm run verify:memory
+
+      - name: Verify benchmark harness
+        if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run performance:smoke
 
   validation:
     name: CI

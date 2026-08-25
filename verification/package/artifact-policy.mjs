@@ -12,6 +12,7 @@ export const PUBLIC_DOCS = Object.freeze([
   'docs/README.md',
   'docs/getting-started.md',
   'docs/api/data-and-targets.md',
+  'docs/api/editor-workflows.md',
   'docs/api/mutations-and-history.md',
   'docs/api/pointer-and-selection.md',
   'docs/api/viewport-and-transform.md',
@@ -30,13 +31,10 @@ const PUBLIC_EXAMPLES = Object.freeze(
 
 const RESTRICTED_PACKAGE_PATHS = Object.freeze([
   /^docs\/engineering\//u,
-  /^contracts\//u,
   /^verification\//u,
   /^performance\//u,
   /^tests?\//u,
-  /^lab\//u,
   /^fixtures?\//u,
-  /(?:^|\/)evidence(?:\/|$)/u,
   /\.(?:test|spec)\.[cm]?[jt]sx?$/u,
 ]);
 

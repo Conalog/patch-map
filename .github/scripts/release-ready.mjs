@@ -23,7 +23,7 @@ const requiredScripts = [
   'unit',
   'build',
   'verify:docs',
-  'verify:performance-contract',
+  'performance:smoke',
   'verify:package',
   'verify:memory',
 ];

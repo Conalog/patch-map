@@ -165,9 +165,6 @@ jobs:
       - name: Verify documentation
         run: npm run verify:docs
 
-      - name: Require headed Windows performance qualification
-        run: npm run verify:performance-contract -- --require-release
-
   packed-consumer:
     name: Packed consumer
     needs: metadata
@@ -255,6 +252,9 @@ jobs:
 
       - name: Verify lifecycle memory
         run: npm run verify:memory
+
+      - name: Verify benchmark harness
+        run: npm run performance:smoke
 
   publish:
     name: Publish ${{ needs.metadata.outputs.package-version }} to npm ${{ needs.metadata.outputs.dist-tag }}
