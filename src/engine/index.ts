@@ -39,13 +39,11 @@ import {
   type PatchMapAssetSessionProbe,
 } from '../assets';
 import {
-  PATCH_MAP_HOST_ASSET_INGESTION_REVISION,
   PatchMapHostAssetIngestionAuthority,
   type PatchMapHostAssetIngestionInput,
   type PatchMapHostAssetIngestionProbe,
 } from '../assets/host-ingestion';
 import {
-  PATCH_MAP_EDITOR_WORKFLOW_REVISION,
   PatchMapEditorWorkflowAuthority,
   type PatchMapEditorWorkflowAction,
   type PatchMapEditorWorkflowProbe,
@@ -86,7 +84,7 @@ import {
   type PatchMapMutationTransactionPlan,
   type PatchMapMutationTransactionRequest,
 } from '../semantic/transaction';
-import { runPatchMapEditorMutationMatrix } from './editor-mutation-matrix';
+import { PatchMapEditorOperations } from './editor-operations';
 import {
   applyPatchMapRelativeGeometryUpdate,
   resizePatchMapGeometryAroundOrigin,
@@ -409,10 +407,6 @@ import {
   type PatchMapTransformerEditRequest,
 } from '../selection-transformer/edit';
 import {
-  PATCH_MAP_AUTHORING_REVISION,
-  planPatchMapAuthoringAction,
-} from '../authoring';
-import {
   PatchMapExtractionSecurityAuthority,
   PatchMapOperationsAuthority,
   type PatchMapOperationalCallback,
@@ -503,6 +497,7 @@ export class PatchMap {
   private readonly hostInteractions: PatchMapHostInteractionAuthority;
   private readonly hostAssetIngestion = new PatchMapHostAssetIngestionAuthority();
   private readonly editorWorkflows = new PatchMapEditorWorkflowAuthority();
+  private readonly editorOperations: PatchMapEditorOperations;
   private readonly pageLifecycle: PatchMapPageLifecycleCoordinator;
   private readonly managedFrameLoop = new PatchMapManagedFrameLoopAuthority();
   private readonly captureExtraction: PatchMapCaptureExtractionAuthority;
@@ -1081,6 +1076,28 @@ export class PatchMap {
         emitDocumentVisibilityChanged: (result) => {
           this.emit('documentVisibilityChanged', result);
         },
+      },
+    );
+    this.editorOperations = new PatchMapEditorOperations(
+      this.hostAssetIngestion,
+      this.editorWorkflows,
+      {
+        requireReady: (operation) => {
+          this.requireSurface(operation);
+        },
+        materialized: () => this.materialized,
+        materializedOrEmpty: () => this.materialized ?? EMPTY_MATERIALIZED_DATASET,
+        selectionIds: () => this.logicalSelectionIds,
+        historyState: () => this.historyAuthority.state(),
+        transact: (request) => this.transact(request),
+        select: (ids) => this.select(ids),
+        closeHistoryGroup: () => {
+          this.historyAuthority.closeActionGroup();
+        },
+        setHistoryCompanion: (value) => {
+          this.setHistoryCompanion(value);
+        },
+        historyCompanion: () => this.historyCompanionState().hostCompanion,
       },
     );
   }
@@ -1765,58 +1782,7 @@ export class PatchMap {
    * lower-level semantic updates.
    */
   public author(action: unknown): PatchMapEngineAuthoringResult {
-    this.requireSurface('author');
-    const plan = planPatchMapAuthoringAction(
-      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
-      action,
-      { selectionIds: this.logicalSelectionIds },
-    );
-    if (plan.status === 'rejected') {
-      return Object.freeze({
-        schemaRevision: PATCH_MAP_AUTHORING_REVISION,
-        actionType: plan.actionType,
-        status: 'rejected',
-        changed: false,
-        code: plan.diagnostic.code,
-        plan,
-        facts: plan.facts,
-        transaction: null,
-        diagnostic: plan.diagnostic,
-        history: this.historyAuthority.state(),
-      });
-    }
-    if (plan.status === 'unchanged') {
-      return Object.freeze({
-        schemaRevision: PATCH_MAP_AUTHORING_REVISION,
-        actionType: plan.actionType,
-        status: 'unchanged',
-        changed: false,
-        code: null,
-        plan,
-        facts: plan.facts,
-        transaction: null,
-        diagnostic: null,
-        history: this.historyAuthority.state(),
-      });
-    }
-
-    const transaction = this.transact(plan.transaction);
-    const diagnostic =
-      transaction.status === 'rejected' || transaction.status === 'refused'
-        ? transaction.diagnostic
-        : null;
-    return Object.freeze({
-      schemaRevision: PATCH_MAP_AUTHORING_REVISION,
-      actionType: plan.actionType,
-      status: transaction.status,
-      changed: transaction.changed,
-      code: diagnostic?.code ?? null,
-      plan,
-      facts: plan.facts,
-      transaction,
-      diagnostic,
-      history: transaction.history.state,
-    });
+    return this.editorOperations.author(action);
   }
 
   /**
@@ -1826,61 +1792,11 @@ export class PatchMap {
   public ingestHostAsset(
     input: PatchMapHostAssetIngestionInput,
   ): PatchMapEngineHostAssetIngestionResult {
-    this.requireSurface('ingestHostAsset');
-    const plan = this.hostAssetIngestion.plan(
-      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
-      input,
-    );
-    if (plan.status === 'ignored') {
-      return Object.freeze({
-        schemaRevision: PATCH_MAP_HOST_ASSET_INGESTION_REVISION,
-        status: 'ignored',
-        changed: false,
-        code: null,
-        createdTextId: null,
-        createdImageIds: Object.freeze([]),
-        plan,
-        transaction: null,
-        probe: this.hostAssetIngestion.probe(),
-      });
-    }
-    if (plan.status === 'failed') {
-      return Object.freeze({
-        schemaRevision: PATCH_MAP_HOST_ASSET_INGESTION_REVISION,
-        status: 'failed',
-        changed: false,
-        code: plan.code,
-        createdTextId: null,
-        createdImageIds: Object.freeze([]),
-        plan,
-        transaction: null,
-        probe: this.hostAssetIngestion.probe(),
-      });
-    }
-    const transaction = this.transact(plan.transaction);
-    if (transaction.status === 'committed') this.hostAssetIngestion.commit(plan);
-    const code =
-      transaction.status === 'rejected' || transaction.status === 'refused'
-        ? transaction.diagnostic.code
-        : null;
-    return Object.freeze({
-      schemaRevision: PATCH_MAP_HOST_ASSET_INGESTION_REVISION,
-      status: transaction.status,
-      changed: transaction.changed,
-      code,
-      createdTextId: transaction.status === 'committed' ? plan.createdTextId : null,
-      createdImageIds: transaction.status === 'committed'
-        ? plan.createdImageIds
-        : Object.freeze([]),
-      plan,
-      transaction,
-      probe: this.hostAssetIngestion.probe(),
-    });
+    return this.editorOperations.ingestHostAsset(input);
   }
 
   public hostAssetIngestionProbe(): PatchMapHostAssetIngestionProbe {
-    this.requireSurface('hostAssetIngestionProbe');
-    return this.hostAssetIngestion.probe();
+    return this.editorOperations.hostAssetIngestionProbe();
   }
 
   /**
@@ -1891,80 +1807,11 @@ export class PatchMap {
   public editorWorkflow(
     action: PatchMapEditorWorkflowAction,
   ): PatchMapEngineEditorWorkflowResult {
-    this.requireSurface('editorWorkflow');
-    const plan = this.editorWorkflows.plan(
-      this.materialized ?? EMPTY_MATERIALIZED_DATASET,
-      action,
-    );
-    if (plan.status === 'rejected') {
-      return Object.freeze({
-        schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
-        actionType: plan.actionType,
-        status: 'rejected',
-        changed: false,
-        code: plan.diagnostic.code,
-        plan,
-        facts: plan.facts,
-        transaction: null,
-        diagnostic: plan.diagnostic,
-        history: this.historyAuthority.state(),
-        selectionIds: Object.freeze([...this.logicalSelectionIds]),
-        probe: this.editorWorkflows.probe(),
-      });
-    }
-
-    if (plan.transaction === null) {
-      if (plan.selectionIds !== undefined) this.select(plan.selectionIds);
-      this.editorWorkflows.commit(plan);
-      if (plan.closeHistoryGroup) this.historyAuthority.closeActionGroup();
-      return Object.freeze({
-        schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
-        actionType: plan.actionType,
-        status: plan.status === 'unchanged' ? 'unchanged' : 'committed',
-        changed: plan.changed,
-        code: null,
-        plan,
-        facts: plan.facts,
-        transaction: null,
-        diagnostic: null,
-        history: this.historyAuthority.state(),
-        selectionIds: Object.freeze([...this.logicalSelectionIds]),
-        probe: this.editorWorkflows.probe(),
-      });
-    }
-
-    const transaction = this.transact(plan.transaction);
-    const accepted = transaction.status === 'committed' || transaction.status === 'unchanged';
-    if (accepted) {
-      if (plan.selectionIds !== undefined) this.select(plan.selectionIds);
-      this.editorWorkflows.commit(plan);
-      if (plan.closeHistoryGroup) this.historyAuthority.closeActionGroup();
-    } else {
-      this.editorWorkflows.discard(plan);
-    }
-    const diagnostic =
-      transaction.status === 'rejected' || transaction.status === 'refused'
-        ? transaction.diagnostic
-        : null;
-    return Object.freeze({
-      schemaRevision: PATCH_MAP_EDITOR_WORKFLOW_REVISION,
-      actionType: plan.actionType,
-      status: transaction.status,
-      changed: transaction.changed,
-      code: diagnostic?.code ?? null,
-      plan,
-      facts: plan.facts,
-      transaction,
-      diagnostic,
-      history: transaction.history.state,
-      selectionIds: Object.freeze([...this.logicalSelectionIds]),
-      probe: this.editorWorkflows.probe(),
-    });
+    return this.editorOperations.editorWorkflow(action);
   }
 
   public editorWorkflowProbe(): PatchMapEditorWorkflowProbe {
-    this.requireSurface('editorWorkflowProbe');
-    return this.editorWorkflows.probe();
+    return this.editorOperations.editorWorkflowProbe();
   }
 
   /**
@@ -1975,17 +1822,7 @@ export class PatchMap {
   public runEditorMutationMatrix(
     input: PatchMapEngineEditorMutationMatrixInput,
   ): PatchMapEngineEditorMutationMatrixResult {
-    this.requireSurface('runEditorMutationMatrix');
-    return runPatchMapEditorMutationMatrix({
-      materialized: () => this.materialized,
-      transact: (request) => this.transact(request),
-      historyState: () => this.historyAuthority.state(),
-      closeHistoryGroup: () => this.historyAuthority.closeActionGroup(),
-      setHistoryCompanion: (value) => {
-        this.setHistoryCompanion(value);
-      },
-      historyCompanion: () => this.historyCompanionState().hostCompanion,
-    }, input);
+    return this.editorOperations.runEditorMutationMatrix(input);
   }
 
   private planMutationRequest(
