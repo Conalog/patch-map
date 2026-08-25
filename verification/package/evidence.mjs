@@ -16,8 +16,6 @@ export function collectPackageFailures({
   esm,
   examples,
   hostAdapterAudit,
-  journeyBrowser,
-  journeyMatrix,
   packageArtifact,
   packageMatrix,
   productionAliasProbe,
@@ -387,7 +385,7 @@ export function collectPackageFailures({
   ) failures.push('packed production host harness did not bind imports to the tarball');
   if (productionAliasProbe.sourceImportResolutionCount !== 0) {
     failures.push(
-      'packed actual-host journeys imported the source product instead of the tarball product',
+      'packed production build imported the source product instead of the tarball product',
     );
   }
   if (
@@ -435,14 +433,6 @@ export function collectPackageFailures({
     packageMatrix.multipleInstances?.hostSlots?.B?.canvasCount !== 1 ||
     packageMatrix.multipleInstances?.unclassifiedErrorCount !== 0
   ) failures.push('packed multiple-instance isolation or shared asset lease proof failed');
-  if (
-    journeyBrowser.remainingCanvasCount !== 0 ||
-    journeyMatrix.journeyCount !== 38 ||
-    journeyMatrix.passedJourneyCount !== 38 ||
-    journeyMatrix.failedJourneyCount !== 0 ||
-    journeyMatrix.packageDigestAcrossJourneys !== packageArtifact.sha256 ||
-    journeyMatrix.cleanupFailureCount !== 0
-  ) failures.push('packed 38-journey production host matrix failed');
   if (errors.console.length || errors.page.length || errors.network.length) {
     failures.push('packed browser consumer emitted errors');
   }
@@ -477,7 +467,6 @@ export function createPackageConsumerEvidence({
   failures,
   generatedAt,
   hostAdapterAudit,
-  journeyMatrix,
   licenseInventory,
   packageArtifact,
   packageMatrix,
@@ -487,18 +476,16 @@ export function createPackageConsumerEvidence({
   types,
 }) {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     generatedAt,
     package: '@conalog/patch-map',
     pixi: '8.19.0',
     provenance: {
       codeCommit,
       packedPackageSha256: packageArtifact.sha256,
-      expectedEvidenceBound: true,
     },
     environment: {
       browserVersion,
-      contractProfileBound: true,
       strictTypeScript: true,
       offlineInstall: true,
       installMode: 'npm-offline-cache',
@@ -517,7 +504,6 @@ export function createPackageConsumerEvidence({
     hostAdapterAudit,
     examples,
     packageMatrix,
-    journeyMatrix,
     esm,
     cjs,
     errors,

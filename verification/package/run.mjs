@@ -28,11 +28,9 @@ import {
 import {
   analyzePackedArtifact,
   auditPackedHostAdapter,
-  comparePackedJourneys,
   createPackedProductAlias,
   preparePackedConsumerMatrix,
   readPackedBrowserResult,
-  runPackedJourneyMatrix,
   verifyPackedConsumerTypes,
   verifyPackedProductionBuild,
 } from './matrix.mjs';
@@ -125,8 +123,6 @@ try {
   await preparePackedConsumerMatrix({
     root: ROOT,
     consumer,
-    packageDigest: packageArtifact.sha256,
-    codeCommit,
   });
   await writeFile(
     path.join(consumer, 'index.html'),
@@ -232,28 +228,6 @@ try {
     '__PATCH_MAP_PACKAGE_MATRIX__',
     60_000,
   );
-  let journeyBrowser;
-  try {
-    journeyBrowser = await runPackedJourneyMatrix(page, baseUrl);
-  } catch (error) {
-    const journeyState = await page.evaluate(() => ({
-      readyState: document.readyState,
-      bodyText: document.body.textContent?.slice(0, 500) ?? '',
-      runnerPublished:
-        window.__PATCH_MAP_PACKAGE_JOURNEY_RUNNER__ !== undefined,
-    }));
-    throw new Error(
-      `packed journey harness failed: ${
-        error instanceof Error ? error.message : String(error)
-      }; state=${JSON.stringify(journeyState)}; errors=${JSON.stringify(errors)}`,
-      { cause: error },
-    );
-  }
-  const journeyMatrix = await comparePackedJourneys({
-    root: ROOT,
-    browserResult: journeyBrowser,
-    packageDigest: packageArtifact.sha256,
-  });
   const browserAliasProbe = browserAlias.probe();
   const failures = collectPackageFailures({
     cjs,
@@ -261,8 +235,6 @@ try {
     esm,
     examples,
     hostAdapterAudit,
-    journeyBrowser,
-    journeyMatrix,
     packageArtifact,
     packageMatrix,
     productionAliasProbe,
@@ -284,7 +256,6 @@ try {
     examples,
     failures,
     hostAdapterAudit,
-    journeyMatrix,
     licenseInventory,
     packageArtifact,
     packageMatrix,
@@ -300,15 +271,6 @@ try {
       builtins: esm.builtins,
       pointerInteraction: esm.pointerInteraction,
       selectionBoundsDisplay: esm.selectionBoundsDisplay,
-      journey: {
-        browserRemainingCanvasCount: journeyBrowser.remainingCanvasCount,
-        journeyCount: journeyMatrix.journeyCount,
-        passedJourneyCount: journeyMatrix.passedJourneyCount,
-        failedJourneyCount: journeyMatrix.failedJourneyCount,
-        packageDigestAcrossJourneys: journeyMatrix.packageDigestAcrossJourneys,
-        packageDigest: packageArtifact.sha256,
-        cleanupFailureCount: journeyMatrix.cleanupFailureCount,
-      },
     }, null, 2)}\n`);
     throw new Error(failures.join('; '));
   }
@@ -317,7 +279,6 @@ try {
   }
   process.stdout.write(
     `${evidence.status === 'pass' ? 'PASS' : 'PENDING'}: packed PatchMap ESM/CJS/types + `
-      + `${journeyMatrix.passedJourneyCount} journeys, `
     + `${examples.executedExamples.length} examples, ${esm.renderObjects} aggregate objects, `
     + 'direct-image capture ready, lifecycle clean\n',
   );

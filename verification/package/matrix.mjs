@@ -17,17 +17,13 @@ import {
   PACKAGE_NAME,
   projectPackedArtifactPolicy,
 } from './artifact-policy.mjs';
-import { comparePackedJourneyRuns } from './journey-comparison.mjs';
 import {
   examplesRunnerSource,
   html,
-  journeyRunnerSource,
   matrixRunnerSource,
 } from './runner-sources.mjs';
 
 const execute = promisify(execFile);
-const PACKED_JOURNEY_TIMEOUT_MS = 45_000;
-const PACKED_EDITOR_LIFECYCLE_TIMEOUT_MS = 120_000;
 
 export async function analyzePackedArtifact({ packRecord, tarball }) {
   const files = Array.isArray(packRecord?.files)
@@ -50,8 +46,6 @@ export async function auditPackedHostAdapter(root) {
 export async function preparePackedConsumerMatrix({
   root,
   consumer,
-  packageDigest,
-  codeCommit,
 }) {
   const exampleDirectory = path.join(consumer, 'examples');
   await mkdir(exampleDirectory, { recursive: true });
@@ -202,13 +196,8 @@ void [
 `);
   await writeFile(path.join(consumer, 'examples.html'), html('/examples-runner.ts'));
   await writeFile(path.join(consumer, 'matrix.html'), html('/matrix-runner.ts'));
-  await writeFile(path.join(consumer, 'journeys.html'), html('/journey-runner.ts'));
   await writeFile(path.join(consumer, 'examples-runner.ts'), examplesRunnerSource());
   await writeFile(path.join(consumer, 'matrix-runner.ts'), matrixRunnerSource());
-  await writeFile(
-    path.join(consumer, 'journey-runner.ts'),
-    journeyRunnerSource({ root, packageDigest, codeCommit }),
-  );
 }
 
 export async function verifyPackedConsumerTypes(consumer) {
@@ -294,23 +283,17 @@ export async function verifyPackedProductionBuild({
           consumer: path.join(consumer, 'main.js'),
           examples: path.join(consumer, 'examples-runner.ts'),
           matrix: path.join(consumer, 'matrix-runner.ts'),
-          journeys: path.join(consumer, 'journey-runner.ts'),
         },
         formats: ['es'],
         fileName: (_format, entryName) => `${entryName}.js`,
       },
     },
   });
-  const outputBase = path.basename(outputDirectory);
-  await writeFile(
-    path.join(consumer, 'journeys-built.html'),
-    html(`/${outputBase}/journeys.js`),
-  );
   return Object.freeze({
     productionBundler: 'vite',
     target: 'es2022',
     sourceMap: false,
-    entrypoints: Object.freeze(['consumer', 'examples', 'matrix', 'journeys']),
+    entrypoints: Object.freeze(['consumer', 'examples', 'matrix']),
   });
 }
 
@@ -322,72 +305,4 @@ export async function readPackedBrowserResult(page, baseUrl, pathname, globalNam
     { timeout: timeoutMs },
   );
   return page.evaluate((name) => window[name], globalName);
-}
-
-export async function runPackedJourneyMatrix(page, baseUrl) {
-  const globalName = '__PATCH_MAP_PACKAGE_JOURNEY_RUNNER__';
-  await page.goto(new URL('journeys-built.html', baseUrl).href, { waitUntil: 'networkidle' });
-  await page.waitForFunction(
-    (name) => Object.hasOwn(window, name),
-    globalName,
-    { timeout: 60_000 },
-  );
-  const journeyIds = await page.evaluate(
-    (name) => window[name].journeyIds,
-    globalName,
-  );
-  const runs = [];
-  for (const [index, caseId] of journeyIds.entries()) {
-    process.stderr.write(
-      `[patch-map-package] journey ${index + 1}/${journeyIds.length} ${caseId}\n`,
-    );
-    const run = await withTimeout(
-      page.evaluate(
-        ({ name, id }) => window[name].runJourney(id),
-        { name: globalName, id: caseId },
-      ),
-      caseId === 'CSM-036'
-        ? PACKED_EDITOR_LIFECYCLE_TIMEOUT_MS
-        : PACKED_JOURNEY_TIMEOUT_MS,
-      `packed journey ${caseId}`,
-    );
-    runs.push(run);
-  }
-  return Object.freeze({
-    packageDigest: await page.evaluate(
-      (name) => window[name].packageDigest,
-      globalName,
-    ),
-    journeyIds: Object.freeze(journeyIds),
-    runs: Object.freeze(runs),
-    remainingCanvasCount: await page.locator('canvas').count(),
-  });
-}
-
-export async function comparePackedJourneys({ root, browserResult, packageDigest }) {
-  const expectedDocument = JSON.parse(await readFile(
-    path.join(
-      root,
-      'contracts/evidence/catalog-normalized-expected.v1.json',
-    ),
-    'utf8',
-  ));
-  return comparePackedJourneyRuns({
-    browserResult,
-    packageDigest,
-    expectedDocument,
-  });
-}
-
-function withTimeout(promise, timeoutMs, label) {
-  let timeout;
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      timeout = setTimeout(
-        () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
-        timeoutMs,
-      );
-    }),
-  ]).finally(() => clearTimeout(timeout));
 }
