@@ -153,6 +153,44 @@ describe('PatchMap component render destinations', () => {
     await leaves.destroy();
   });
 
+  it('recovers projected image slots when a binding settles before leaf observation', () => {
+    const parsed = parsePatchMapV010([
+      overlappingItemWithIcon('inverter-a', 'fixture-inverter-icon', 0),
+      overlappingItemWithIcon('inverter-b', 'fixture-inverter-icon', 0),
+    ]);
+    const store = createRenderStore(parsed.document.entities);
+    const renderer = Object.create(
+      PatchMapPixiRenderer.prototype,
+    ) as SceneAssetTransitionHarness;
+    renderer.projectionIndex = parsed.projection;
+    renderer.slotByEntityId = new Map(
+      store.ids.flatMap((entityId, slot) => entityId === undefined ? [] : [[entityId, slot]]),
+    );
+    const bindingKey = parsed.projection.imagesByEntityId?.[
+      'inverter-a::icon:inverter-a-icon'
+    ]?.bindingKey;
+    if (!bindingKey) throw new Error('inverter binding key missing');
+    const expectedSlots = [
+      store.ids.indexOf('inverter-a::icon:inverter-a-icon'),
+      store.ids.indexOf('inverter-b::icon:inverter-b-icon'),
+    ];
+
+    expect(renderer.sceneAssetTransitionRanges(bindingKey, [])).toEqual(
+      expectedSlots.map((slot) => ({ start: slot, end: slot + 1 })),
+    );
+    renderer.pendingRanges = undefined;
+    renderer.pendingProjectionTransformOnly = true;
+    renderer.recordSceneAssetTransition(bindingKey, 'resolved', []);
+    expect(renderer.pendingRanges).toBeUndefined();
+    expect(renderer.pendingProjectionTransformOnly).toBe(false);
+
+    renderer.pendingRanges = [];
+    renderer.recordSceneAssetTransition(bindingKey, 'resolved', []);
+    expect(renderer.pendingRanges).toEqual(
+      expectedSlots.map((slot) => ({ start: slot, end: slot + 1 })),
+    );
+  });
+
   it('reattaches existing hierarchical icons when later assets settle and reorder their lane', async () => {
     const parsed = parsePatchMapV010([
       overlappingItemWithIcon('inverter', 'fixture-inverter-icon', 0),
@@ -820,6 +858,22 @@ interface ScenePaintLayerHarness {
   scenePaintLayer: RenderLayer;
   hierarchicalScenePaint: boolean;
   syncScenePaintLayer(): void;
+}
+
+interface SceneAssetTransitionHarness {
+  projectionIndex: PatchMapProjectionIndex;
+  slotByEntityId: Map<string, number>;
+  pendingRanges: readonly { readonly start: number; readonly end: number }[] | undefined;
+  pendingProjectionTransformOnly: boolean;
+  sceneAssetTransitionRanges(
+    key: string,
+    dirtySlots: readonly number[],
+  ): readonly { readonly start: number; readonly end: number }[] | undefined;
+  recordSceneAssetTransition(
+    key: string,
+    state: string,
+    dirtySlots: readonly number[],
+  ): void;
 }
 
 function scenePaintLayerHarness(

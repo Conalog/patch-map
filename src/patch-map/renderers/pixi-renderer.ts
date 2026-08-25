@@ -378,12 +378,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       {
         onBindingTransition: ({ key, state, dirtySlots }) => {
           if (this.destroyedValue) return;
-          this.lastInvalidation = `scene-asset:${key}:${state}`;
-          this.pendingProjectionTransformOnly = false;
-          this.pendingRanges = mergeRanges(
-            this.pendingRanges ?? [],
-            contiguousRanges(dirtySlots),
-          );
+          this.recordSceneAssetTransition(key, state, dirtySlots);
         },
         ...(options.resolveBitmapTextCapability === undefined
           ? {}
@@ -2305,6 +2300,36 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       staleEntityIds: this.staleProjectionEntityIds,
       quadCache: this.projectionQuadCache,
     });
+  }
+
+  private sceneAssetTransitionRanges(
+    key: string,
+    dirtySlots: readonly number[],
+  ): readonly SlotRange[] | undefined {
+    const slots = new Set(dirtySlots);
+    for (const [entityId, image] of Object.entries(
+      this.projectionIndex.imagesByEntityId ?? {},
+    )) {
+      if (image.bindingKey !== key) continue;
+      const slot = this.slotByEntityId.get(entityId);
+      if (slot === undefined) return undefined;
+      slots.add(slot);
+    }
+    return contiguousRanges([...slots]);
+  }
+
+  private recordSceneAssetTransition(
+    key: string,
+    state: string,
+    dirtySlots: readonly number[],
+  ): void {
+    this.lastInvalidation = `scene-asset:${key}:${state}`;
+    this.pendingProjectionTransformOnly = false;
+    if (this.pendingRanges === undefined) return;
+    const transitionRanges = this.sceneAssetTransitionRanges(key, dirtySlots);
+    this.pendingRanges = transitionRanges === undefined
+      ? undefined
+      : mergeRanges(this.pendingRanges, transitionRanges);
   }
 
   private syncScenePaintLayer(): void {
