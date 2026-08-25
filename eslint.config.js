@@ -8,10 +8,8 @@ const typescriptFiles = [
   'src/**/*.ts',
   'tests/**/*.ts',
   'verification/**/*.ts',
-  'lab/**/*.ts',
   'performance/**/*.ts',
   'vite.config.ts',
-  'vite.lab.config.ts',
 ];
 
 export default defineConfig(

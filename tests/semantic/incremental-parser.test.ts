@@ -26,7 +26,7 @@ import {
   planPatchMapTextBatch,
 } from '../../src/semantic/transaction';
 import { buildPatchMapContractPerformanceDataset } from '../../performance/contract-workload';
-import { buildPatchMapManualScene } from '../../lab/interactive/manual-scene';
+import { buildPatchMapSeededScenarioScene } from '../../performance/fixtures/seeded-scene';
 
 describe('PatchMap guarded incremental parser', () => {
   it('primes the stable flat indexes without changing parser output', () => {
@@ -294,9 +294,9 @@ describe('PatchMap guarded incremental parser', () => {
       .toBe(previous.projection.componentsByEntityId);
   });
 
-  it('stays exact for the 5,000-record manual Lab scene', () => {
+  it('stays exact for a 5,000-record seeded scene', () => {
     const current = materializePatchMapDataset(
-      buildPatchMapManualScene('5000', 319).dataset,
+      buildPatchMapSeededScenarioScene(5_000, 319),
     );
     const plan = planPatchMapMutationTransaction(current, {
       strict: true,
@@ -311,7 +311,7 @@ describe('PatchMap guarded incremental parser', () => {
       }],
     });
     expect(plan.status).toBe('planned');
-    if (plan.status !== 'planned') throw new Error('manual scene plan rejected');
+    if (plan.status !== 'planned') throw new Error('seeded scene plan rejected');
 
     const previous = parsePatchMap(current.dataset);
     const incremental = parsePatchMapIncrementalFlat(

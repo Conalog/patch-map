@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import catalogProfiles from '../../contracts/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../fixtures/product-datasets.json';
 import { describe, expect, it } from 'vitest';
 
 import {

@@ -1,4 +1,3 @@
-import catalogTypedCases from '../../contracts/evidence/catalog-typed-cases.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import type {
@@ -12,6 +11,10 @@ import {
   resolvePatchMapDimension,
   setPatchMapGridCell,
 } from '../../src/semantic/layout';
+import {
+  dimensionFixture,
+  gridFixture as gridCaseFixture,
+} from '../fixtures/semantic-cases';
 import type {
   PatchMapGridCellValue,
   PatchMapGridLayout,
@@ -42,8 +45,8 @@ interface Dat005Params {
   }>;
 }
 
-const dat003 = getCaseParams<Dat003Params>('DAT-003');
-const dat005 = getCaseParams<Dat005Params>('DAT-005');
+const dat003 = dimensionFixture as unknown as Dat003Params;
+const dat005 = gridCaseFixture as unknown as Dat005Params;
 
 describe('PatchMap DAT-003 semantic dimensions', () => {
   it('resolves the approved padded content box and equivalent dimension forms', () => {
@@ -203,18 +206,6 @@ describe('PatchMap DAT-005 deterministic grid materialization', () => {
     expect(duplicateLabels.identityCollisionCount).toBe(0);
   });
 });
-
-function getCaseParams<T>(id: string): T {
-  const cases = catalogTypedCases.cases as readonly Readonly<{
-    id: string;
-    fixture: Readonly<{ params: unknown }>;
-  }>[];
-  const selected = cases.find((entry) => entry.id === id);
-  if (selected === undefined) {
-    throw new Error(`Missing approved case ${id}`);
-  }
-  return selected.fixture.params as T;
-}
 
 function makeGrid(fixture: GridFixture): PatchMapGridElement {
   const [width, height] = fixture.itemSize;

@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 
-import catalogProfiles from '../../contracts/evidence/catalog-fixture-profiles.v1.json';
+import catalogProfiles from '../fixtures/product-datasets.json';
 import { describe, expect, it } from 'vitest';
 
-import { createPatchMapRenderTextSpecimens } from '../../lab/contract/render-text-fixtures';
+import { createPatchMapRenderTextSpecimens } from '../fixtures/render-text-specimens';
 import { parsePatchMap } from '../../src/parsing';
 import {
   materializePatchMapDataset,

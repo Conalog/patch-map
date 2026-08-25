@@ -1,4 +1,3 @@
-import catalogTypedCases from '../../contracts/evidence/catalog-typed-cases.v1.json';
 import { describe, expect, it } from 'vitest';
 
 import { parsePatchMap } from '../../src/parsing';
@@ -14,6 +13,7 @@ import {
   type PatchMapPlacementBounds,
   type PatchMapPlacementReference,
 } from '../../src/semantic/placement';
+import { placementFixture } from '../fixtures/semantic-cases';
 
 interface PlacementObservation {
   readonly localBounds: readonly [number, number, number, number];
@@ -31,7 +31,7 @@ interface Lay002Params {
   readonly placementMatrix: Readonly<Record<PatchMapPlacement, PlacementObservation>>;
 }
 
-const lay002 = getCaseParams<Lay002Params>('LAY-002');
+const lay002 = placementFixture as unknown as Lay002Params;
 const [itemWidth, itemHeight] = lay002.item.size;
 const [componentWidth, componentHeight] = lay002.componentSize;
 const contentTuple = resolvePatchMapContentBox(
@@ -274,18 +274,6 @@ function resolve(placement: PatchMapPlacement): PatchMapPlacementBounds {
 
 function tuple(bounds: PatchMapPlacementBounds): readonly [number, number, number, number] {
   return [bounds.x, bounds.y, bounds.width, bounds.height];
-}
-
-function getCaseParams<T>(id: string): T {
-  const cases = catalogTypedCases.cases as readonly Readonly<{
-    id: string;
-    fixture: Readonly<{ params: unknown }>;
-  }>[];
-  const selected = cases.find((entry) => entry.id === id);
-  if (selected === undefined) {
-    throw new Error(`Missing approved case ${id}`);
-  }
-  return selected.fixture.params as T;
 }
 
 function expectInvalidValue(operation: () => unknown, datasetPath: string): void {

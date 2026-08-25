@@ -1,13 +1,13 @@
 import { Color } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
-import fixtureCatalog from '../../contracts/evidence/catalog-fixtures.v1.json';
 import {
   createPatchMapColorResolver,
   normalizePatchMapColorTheme,
   PATCH_MAP_DEFAULT_COLOR_THEME,
 } from '../../src/semantic/color';
 import type { PatchMapColorResolutionError } from '../../src/semantic/color';
+import { colorFixture } from '../fixtures/semantic-cases';
 
 interface Dat004Params {
   readonly themeA: Readonly<Record<string, unknown>>;
@@ -22,9 +22,7 @@ interface Dat004Params {
   }>[];
 }
 
-const dat004Case = fixtureCatalog.cases.find((candidate) => candidate.id === 'DAT-004');
-if (!dat004Case) throw new Error('approved DAT-004 fixture is unavailable');
-const approved = dat004Case.setup.params as unknown as Dat004Params;
+const approved = colorFixture as unknown as Dat004Params;
 
 describe('PatchMap PixiJS color resolution', () => {
   it('matches the canonical default palette and flattens partial public overrides', () => {

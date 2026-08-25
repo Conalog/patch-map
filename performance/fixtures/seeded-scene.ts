@@ -2,8 +2,8 @@ export const PATCH_MAP_SEEDED_SCENE_REVISION =
   'patch-map-seeded-scenario-scene/1' as const;
 
 /**
- * Deterministic Lab input generator shared by update, determinism, animation,
- * text, and performance journeys. It owns plain frozen PATCH MAP JSON only.
+ * Deterministic benchmark input generator. It owns plain frozen PATCH MAP JSON
+ * and is also reused by parser stress tests.
  */
 export function buildPatchMapSeededScenarioScene(
   sizeValue: number,

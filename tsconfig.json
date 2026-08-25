@@ -26,10 +26,8 @@
     "src",
     "tests",
     "verification",
-    "lab",
     "performance",
-    "vite.config.ts",
-    "vite.lab.config.ts"
+    "vite.config.ts"
   ],
   "exclude": [".artifacts", "dist", "node_modules"]
 }
