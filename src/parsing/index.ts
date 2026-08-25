@@ -5,14 +5,16 @@ import type {
 } from './contracts';
 import type { PatchMapEdges } from '../semantic/dataset';
 import {
-  addTextProjection,
   imageEntity,
   imageSourceProjection,
-  parseComponent,
+  withEntityOpacity,
+} from './image-lowering';
+import { parseComponent } from './component-lowering';
+import {
+  addTextProjection,
   semanticTextLayout,
   textEntity,
-  withEntityOpacity,
-} from './component-text-lowering';
+} from './text-lowering';
 import type { PatchMapDirectTextParseTargetIndex } from './direct-text-index';
 import {
   ROOT_CONTEXT,

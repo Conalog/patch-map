@@ -12,7 +12,7 @@ import {
   directTextTargetKey,
   type PatchMapDirectTextParseTargetIndex,
 } from './direct-text-index';
-import { parseComponent } from './component-text-lowering';
+import { parseComponent } from './component-lowering';
 import {
   ROOT_CONTEXT,
   createElementIdentity,
