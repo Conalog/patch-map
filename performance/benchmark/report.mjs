@@ -143,7 +143,6 @@ export async function summarizeBenchmark(raw, runInfo) {
       browserTarget: raw.environment.browserTarget,
       runtimeResourceIds: [],
       measurementClass: raw.environment.measurementClass,
-      requestedHeaded: runInfo.requestedHeaded,
       actualMode: runInfo.actualMode,
       osRelease: raw.environment.osRelease,
       cpuModel: raw.environment.cpuModel,
@@ -154,7 +153,6 @@ export async function summarizeBenchmark(raw, runInfo) {
     rawArtifact: null,
     browser: {
       actualMode: runInfo.actualMode,
-      requestedHeaded: runInfo.requestedHeaded,
       errorCount: browserErrorCount,
       consoleErrorCount: raw.browser.consoleErrors.length,
       pageErrorCount: raw.browser.pageErrors.length,

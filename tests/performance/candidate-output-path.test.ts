@@ -1,8 +1,17 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// @ts-expect-error -- benchmark options are authored as ESM JavaScript.
-import { parseBenchmarkOptions, resolveBenchmarkOutput } from '../../performance/benchmark/options.mjs';
+interface BenchmarkOptionsRuntime {
+  parseBenchmarkOptions(
+    argv: readonly string[],
+    paths: Readonly<{ root: string; resultsRoot: string }>,
+  ): Readonly<Record<string, unknown>>;
+  resolveBenchmarkOutput(root: string, value: string): string;
+}
+
+const { parseBenchmarkOptions, resolveBenchmarkOutput } = await import(
+  /* @vite-ignore */ new URL('../../performance/benchmark/options.mjs', import.meta.url).href
+) as BenchmarkOptionsRuntime;
 
 const root = '/workspace/patch-map';
 const resultsRoot = path.join(root, '.artifacts/performance/benchmark');
@@ -22,7 +31,7 @@ describe('PatchMap benchmark output boundary', () => {
       'node',
       'benchmark.mjs',
       '--smoke',
-      '--request-headless',
+      '--headless',
       '--output-dir',
       '.artifacts/performance/fresh-benchmark',
     ], { root, resultsRoot });

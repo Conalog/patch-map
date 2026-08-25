@@ -25,7 +25,6 @@ export function parseBenchmarkOptions(arguments_, { root, resultsRoot }) {
     cpuThrottleRate: PROXY_CPU_THROTTLE_RATE,
     externalUrl: argumentValue(argv, '--url'),
     headed: browserLaunch.headed,
-    requestedHeaded: !argv.includes('--request-headless'),
     resultsRoot: outputDirectory
       ? resolveBenchmarkOutput(root, outputDirectory)
       : resultsRoot,

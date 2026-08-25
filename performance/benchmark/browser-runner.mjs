@@ -77,7 +77,6 @@ export async function executeBenchmarkBrowserRun(root, options) {
         seed: SEED,
         backend: 'webgl2',
         cpuThrottleRate: options.cpuThrottleRate,
-        requestedHeaded: options.requestedHeaded,
         actualMode: options.headed ? 'headed' : 'headless',
       },
       environment: {

@@ -70,7 +70,6 @@ async function main() {
   const summary = await summarizeBenchmark(rawOutput, {
     browserErrorCount,
     codeCommit: options.codeCommit,
-    requestedHeaded: options.requestedHeaded,
     actualMode: options.headed ? 'headed' : 'headless',
   });
   summary.provenance.rawArtifactSha256 = rawDigest;
