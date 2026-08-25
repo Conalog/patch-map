@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing semantic text layout or raster publication
-- Source: [`semantic/text-layout`](../../src/semantic/text-layout), [`text-render-route.ts`](../../src/semantic/text-render-route.ts), [`aggregate-text-leaf-lane.ts`](../../src/rendering/aggregate-text-leaf-lane.ts)
+- Source: `src/semantic/text-layout`, `src/semantic/text-render-route.ts`, `src/rendering/aggregate-text-leaf-lane.ts`
 
 ## Scope
 
@@ -55,8 +55,8 @@ identity and licensing are owned by [`fonts.md`](../assets/fonts.md).
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| line height, wrapping, fitting | [`semantic/text-layout`](../../src/semantic/text-layout) | [`text-layout.test.ts`](../../tests/rendering/text-layout.test.ts) |
-| route capability and fallback | [`text-render-route.ts`](../../src/semantic/text-render-route.ts) | [`text-render-route.test.ts`](../../tests/rendering/text-render-route.test.ts) |
-| published route/object agreement | [`aggregate-text-leaf-lane.ts`](../../src/rendering/aggregate-text-leaf-lane.ts) | [`text-render-publication.test.ts`](../../tests/rendering/text-render-publication.test.ts) |
-| raster tiers and visual fit | [`leaf-text-style.ts`](../../src/rendering/leaf-text-style.ts) | [`leaf-text-style.test.ts`](../../tests/rendering/leaf-text-style.test.ts) |
-| engine text probes | [`text-probe-publication-policy.ts`](../../src/engine/text-probe-publication-policy.ts) | [`engine-text-probe.test.ts`](../../tests/engine/engine-text-probe.test.ts) |
+| line height, wrapping, fitting | `src/semantic/text-layout` | `tests/rendering/text-layout.test.ts` |
+| route capability and fallback | `src/semantic/text-render-route.ts` | `tests/rendering/text-render-route.test.ts` |
+| published route/object agreement | `src/rendering/aggregate-text-leaf-lane.ts` | `tests/rendering/text-render-publication.test.ts` |
+| raster tiers and visual fit | `src/rendering/leaf-text-style.ts` | `tests/rendering/leaf-text-style.test.ts` |
+| engine text probes | `src/engine/text-probe-publication-policy.ts` | `tests/engine/engine-text-probe.test.ts` |

@@ -1,9 +1,10 @@
 # Verification policy
 
-Choose gates from the behavior and resources that changed. Focused tests guide
-development; final gates prove the affected boundary and its integration.
+Choose checks from changed behavior and resources. Tests verify product
+semantics directly; release tooling verifies the package and current browser
+resource lifecycle.
 
-## Fast path
+## Default loop
 
 ```bash
 npx vitest run tests/<owner>/<focused>.test.ts --maxWorkers=2
@@ -11,90 +12,49 @@ npm run typecheck
 npm run lint
 ```
 
-Run `npm test` when the change crosses modules or affects shared behavior. Run
-the full CI-equivalent set for runtime, release, or broad architecture changes:
+Use `npm test` for cross-module behavior. Broad runtime or release changes add:
 
 ```bash
-npm run typecheck
-npm run lint
-npm run unit
 npm run build
-npm run verify:contract
+npm run verify:docs
 npm run verify:package -- --require-audit
-npm run build:lab
-npm run verify:lab:all
+npm run performance:smoke
 npm run verify:memory
 ```
 
 ## Risk routing
 
-| Changed risk | Required evidence |
+| Changed risk | Evidence |
 | --- | --- |
-| Pure internal documentation | link and command inspection; no runtime claim |
-| Public documentation or packaged examples | owning content review plus `npm run verify:package` |
-| Types, exports, public API | focused API tests, typecheck, lint, build, package verification |
-| Semantic state, ordering, failure meaning | focused unit tests, `npm test`, contract verification |
+| Documentation only | owning page review and `npm run verify:docs` |
+| Types, exports, examples, public API | focused API tests, typecheck, build, package verification |
+| Semantic state, ordering, failure meaning | focused product tests and full unit suite |
 | Import or ownership boundary | architecture boundary tests, typecheck, lint, unit, build |
-| PixiJS, canvas, input, resize, renderer loss | focused tests, Lab build, browser verification, memory verification |
-| Asset, font, package, or supply chain | focused tests, build, package verification with audit |
-| Destroy, listener, timer, pending work, retained resource | focused lifecycle tests and memory verification |
-| Measured hot path | correctness gates plus a controlled baseline/candidate performance run |
+| PixiJS, canvas, frame scheduling, renderer loss | focused rendering tests, benchmark smoke, memory verification |
+| Asset, font, capture, package contents | focused tests, package verification; memory for retained resources |
+| Destroy, listener, timer, pending work | lifecycle tests and memory verification |
+| Measured hot path | correctness checks plus comparable baseline/candidate measurements |
 
-## Performance policy
+## Performance
 
-- Treat refactors as no-regression work until comparable measurements prove an
-  improvement.
-- Use the matching workload or executable runner under `performance/`.
-- Internal phase harnesses may assemble Engine/Core with the real renderer to
-  isolate hot-path timing. They do not measure public mount composition; use an
-  installed-package or `PatchMap.mount()` probe for facade, built-in asset,
-  resize-observer, and public lifecycle cost.
-- Hold workload, environment, cache state, sampling, and concurrency constant.
-- Preserve slow samples and failed trials. Do not relax a budget after seeing a
-  result.
-- Use `npm run verify:memory` for renderer, capture, asset, listener, and destroy
-  ownership changes even when throughput improves.
-- Put exploratory results under ignored `.artifacts/performance/`; promote only reviewed evidence.
+- A refactor has no performance claim unless environment, workload, warmup,
+  sampling, and concurrency are held constant against a baseline.
+- `performance:smoke` proves the benchmark path and lifecycle, not speed.
+- Use `performance:benchmark` for renderer, animation, text, or interaction hot
+  paths; `performance:update` for transaction work; and
+  `performance:extraction` for capture/readback changes.
+- `verify:memory` is the release gate for retained heap and resource cleanup.
+- Results are current-run artifacts under ignored `.artifacts/performance/`.
+  Historical result files are not source-controlled release authority.
 
-## Documentation policy
+## Documentation and package boundaries
 
-- Public behavior, ordering, failure meaning, runtime support, and package usage
-  are documented under `docs/` and must change with the owning code.
-- Internal ownership, dependency direction, and gate routing are documented in
-  `docs/engineering/`.
-- Keep one canonical owner for each fact. Routers link to owners instead of
-  copying their content.
-- Commands and paths must exist in the current tree. Remove stale routes rather
-  than documenting compatibility for internal process artifacts.
-
-## Package policy
-
-- `npm run verify:package -- --require-audit` is the authority for packed files,
-  exports, installed ESM/CJS consumers, examples, and audit requirements.
-- Internal engineering docs, tests, Lab code, performance harnesses, fixtures,
-  and evidence must not enter the package.
-- Public documentation and examples required by the package policy must be
-  present in the tarball.
-- A local build is not package proof; verify the produced tarball through the
-  installed-consumer matrix.
-- A source Engine contract matrix is useful regression evidence but cannot
-  satisfy a digest-bound packed-host journey. Package evidence must record the
-  implementation boundary actually executed.
-- Source conformance and packed integration may share fixtures and CSM IDs, but
-  not an Engine-shaped product adapter. Packed journeys express the same user
-  intention directly in the documented public API and browser observation
-  vocabulary.
-
-## Evidence policy
-
-- Authored fixtures, normalized expectations, generated manifests, browser
-  output, and performance results have distinct owners. Promoted qualification
-  evidence belongs under `contracts/evidence/qualification/`; candidates and
-  Lab builds belong only under `.artifacts/`.
-- Never edit generated or digest-bound evidence to make a gate pass. Change the
-  authored input, regenerate, then review the resulting diff.
-- Keep artifact identity, environment, workload, and command provenance with
-  retained evidence.
-- A browser or operating-system limitation is an environment result, not a
-  product pass or failure. Report it separately.
-- Do not claim completion for missing, stale, or mismatched evidence.
+- Public behavior and failure meaning live under `docs/`; exact shapes come from
+  exported TypeScript declarations.
+- Internal ownership and gate routing live under `docs/engineering/` and are not
+  published in the package.
+- Routers link to one owner instead of copying contracts.
+- `verify:package` installs the generated tarball and checks ESM, CommonJS,
+  declarations, examples, assets, interaction, capture, and teardown.
+- Tests, source, engineering docs, performance tooling, verification code, and
+  generated artifacts must not enter the published tarball.

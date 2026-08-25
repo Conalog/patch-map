@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing hover, tooltip, pointer gestures, or selection
-- Source: [`pointer-interaction-coordinator.ts`](../../src/engine/pointer-interaction-coordinator.ts), [`pointer-gesture`](../../src/pointer-gesture), [`query-selection`](../../src/query-selection)
+- Source: `src/engine/pointer-interaction-coordinator.ts`, `src/pointer-gesture`, `src/query-selection`
 
 ## Scope
 
@@ -58,8 +58,8 @@ are owned by [`viewport-and-transform.md`](viewport-and-transform.md).
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| coordinator lifecycle and dispatch order | [`pointer-interaction-coordinator.ts`](../../src/engine/pointer-interaction-coordinator.ts) | [`pointer-interaction-coordinator.test.ts`](../../tests/engine/pointer-interaction-coordinator.test.ts) |
-| slop, capture, click/drag arbitration | [`pointer-gesture`](../../src/pointer-gesture) | [`pointer-gesture.test.ts`](../../tests/semantic/pointer-gesture.test.ts) |
-| logical selection and resolver behavior | [`query-selection`](../../src/query-selection) | [`query-selection.test.ts`](../../tests/semantic/query-selection.test.ts) |
-| root event integration | [`host-interaction/index.ts`](../../src/host-interaction/index.ts) | [`host-interaction.test.ts`](../../tests/integration/host-interaction.test.ts) |
-| persistent and marquee paint bounds | [`interaction-overlay-authority.ts`](../../src/rendering/pixi-renderer/interaction-overlay-authority.ts) | [`selection-paint-bounds.test.ts`](../../tests/semantic/selection-paint-bounds.test.ts) |
+| coordinator lifecycle and dispatch order | `src/engine/pointer-interaction-coordinator.ts` | `tests/engine/pointer-interaction-coordinator.test.ts` |
+| slop, capture, click/drag arbitration | `src/pointer-gesture` | `tests/semantic/pointer-gesture.test.ts` |
+| logical selection and resolver behavior | `src/query-selection` | `tests/semantic/query-selection.test.ts` |
+| root event integration | `src/host-interaction/index.ts` | `tests/integration/host-interaction.test.ts` |
+| persistent and marquee paint bounds | `src/rendering/pixi-renderer/interaction-overlay-authority.ts` | `tests/semantic/selection-paint-bounds.test.ts` |

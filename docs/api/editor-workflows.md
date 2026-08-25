@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: host applications implementing structured editors
-- Source: [`editor-workflow`](../../src/editor-workflow), [`public/editor.ts`](../../src/public/editor.ts)
+- Source: `src/editor-workflow`, `src/public/editor.ts`
 
 ## Scope
 
@@ -45,6 +45,6 @@ shortcut choice, and persistence transport. Commit detached host state with
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| workflow state and invariants | [`editor-workflow/index.ts`](../../src/editor-workflow/index.ts) | [`editor-workflow.test.ts`](../../tests/semantic/editor-workflow.test.ts) |
-| public result projection | [`public/editor.ts`](../../src/public/editor.ts) | [`developer-api.test.ts`](../../tests/integration/developer-api.test.ts) |
-| atomic semantic history | [`history-application-coordinator.ts`](../../src/engine/history-application-coordinator.ts) | [`engine-history-integration.test.ts`](../../tests/engine/engine-history-integration.test.ts) |
+| workflow state and invariants | `src/editor-workflow/index.ts` | `tests/semantic/editor-workflow.test.ts` |
+| public result projection | `src/public/editor.ts` | `tests/integration/developer-api.test.ts` |
+| atomic semantic history | `src/engine/history-application-coordinator.ts` | `tests/engine/engine-history-integration.test.ts` |

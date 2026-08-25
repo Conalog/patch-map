@@ -10,8 +10,6 @@ nvm use
 npm ci
 ```
 
-Start the Korean manual Lab with `npm run lab`.
-
 ## Find the owner
 
 Start with the [engineering fast path](docs/engineering/README.md). Its

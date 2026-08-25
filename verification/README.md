@@ -1,16 +1,14 @@
 # Verification
 
-This root owns reusable conformance logic and executable non-performance gates.
+This root owns deterministic repository and release gates that are not unit
+tests or performance measurements.
 
-| Area | Purpose |
-| --- | --- |
-| `contract/` | contract folds, handlers, comparison, and observation logic |
-| `browser/` | browser gates for Lab and rendered contract cases |
-| `catalog/` | catalog generation, approval, and static verification |
-| `package/` | tarball, installed-consumer, supply-chain, and declaration gates |
-| `docs/` | documentation integrity checks |
-| `fixtures/` | datasets shared by Lab, performance, and tests |
-| `scenarios/` | deterministic scenario builders |
+| Owner | Purpose | Command |
+| --- | --- | --- |
+| `package/` | Build, pack, install, audit, and exercise the public package | `npm run verify:package` |
+| `docs/` | Check documentation links, named paths, and page budgets | `npm run verify:docs` |
+| `browser-launch.mjs` | Shared Chromium launch option parsing for executable gates | imported by package and performance runners |
 
-Prefer npm commands from `package.json`; invoke a file directly only when its
-arguments are not exposed there.
+Product behavior belongs in `tests/`; measurements and lifecycle resource
+budgets belong in `performance/`. Generated output stays under ignored
+`.artifacts/` or an explicitly configured release artifact directory.

@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing camera state or relative object transforms
-- Source: [`viewport-authority.ts`](../../src/engine/viewport-authority.ts), [`transformer-edit-authority.ts`](../../src/engine/transformer-edit-authority.ts)
+- Source: `src/engine/viewport-authority.ts`, `src/engine/transformer-edit-authority.ts`
 
 ## Scope
 
@@ -68,7 +68,7 @@ resize handle.
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| viewport state, clamp, persistence, settle | [`viewport-authority.ts`](../../src/engine/viewport-authority.ts) | [`viewport-authority.test.ts`](../../tests/engine/viewport-authority.test.ts) |
-| public viewport integration | [`public/index.ts`](../../src/public/index.ts) | [`engine-viewport.test.ts`](../../tests/engine/engine-viewport.test.ts) |
-| relative transform semantics | [`transformer-edit-authority.ts`](../../src/engine/transformer-edit-authority.ts) | [`engine-transformer-edit.test.ts`](../../tests/engine/engine-transformer-edit.test.ts) |
-| gesture ownership and preview cleanup | [`transformer-session-coordinator.ts`](../../src/engine/transformer-session-coordinator.ts) | [`engine-transformer-edit.test.ts`](../../tests/engine/engine-transformer-edit.test.ts) |
+| viewport state, clamp, persistence, settle | `src/engine/viewport-authority.ts` | `tests/engine/viewport-authority.test.ts` |
+| public viewport integration | `src/public/index.ts` | `tests/engine/engine-viewport.test.ts` |
+| relative transform semantics | `src/engine/transformer-edit-authority.ts` | `tests/engine/engine-transformer-edit.test.ts` |
+| gesture ownership and preview cleanup | `src/engine/transformer-session-coordinator.ts` | `tests/engine/engine-transformer-edit.test.ts` |

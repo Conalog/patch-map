@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing dataset admission or logical lookup
-- Source: [`public/contracts.ts`](../../src/public/contracts.ts), [`semantic/dataset`](../../src/semantic/dataset), [`query-selection`](../../src/query-selection)
+- Source: `src/public/contracts.ts`, `src/semantic/dataset`, `src/query-selection`
 
 ## Scope
 
@@ -59,7 +59,7 @@ public identities.
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| validation, detachment, semantic hash | [`semantic/dataset`](../../src/semantic/dataset) | [`dataset-contract.test.ts`](../../tests/semantic/dataset-contract.test.ts) |
-| replacement freshness and atomic publication | [`dataset-replacement-coordinator.ts`](../../src/engine/dataset-replacement-coordinator.ts) | [`engine-lifecycle.test.ts`](../../tests/engine/engine-lifecycle.test.ts) |
-| target grammar and revision binding | [`query-selection`](../../src/query-selection) | [`query-selection.test.ts`](../../tests/semantic/query-selection.test.ts) |
-| facade shapes | [`public/contracts.ts`](../../src/public/contracts.ts) | [`developer-api.test.ts`](../../tests/integration/developer-api.test.ts) |
+| validation, detachment, semantic hash | `src/semantic/dataset` | `tests/semantic/dataset-contract.test.ts` |
+| replacement freshness and atomic publication | `src/engine/dataset-replacement-coordinator.ts` | `tests/engine/engine-lifecycle.test.ts` |
+| target grammar and revision binding | `src/query-selection` | `tests/semantic/query-selection.test.ts` |
+| facade shapes | `src/public/contracts.ts` | `tests/integration/developer-api.test.ts` |

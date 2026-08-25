@@ -35,9 +35,8 @@ development evidence, not Windows-native or cross-browser qualification.
 
 The package contains built output, the root README, public documents, public
 examples, and required third-party licenses. Engineering documents, tests,
-contract fixtures, retained evidence, performance output, and source maps are
-excluded. The package verifier checks both required and prohibited paths and
-binds the resulting documentation set into the artifact evidence.
+performance tooling and output, verification code, and source maps are
+excluded. The package verifier checks both required and prohibited paths.
 
 ## Verification map
 

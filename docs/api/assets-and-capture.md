@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing resource admission, image readiness, fonts, or PNG extraction
-- Source: [`assets`](../../src/assets), [`asset-session-authority.ts`](../../src/engine/asset-session-authority.ts), [`capture-extraction-authority.ts`](../../src/engine/capture-extraction-authority.ts)
+- Source: `src/assets`, `src/engine/asset-session-authority.ts`, `src/engine/capture-extraction-authority.ts`
 
 ## Scope
 
@@ -63,9 +63,9 @@ the latest deferred size is applied before the frame loop resumes. The result is
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| admission policy | [`ingestion-policy.ts`](../../src/assets/ingestion-policy.ts) | [`asset-ingestion-policy.test.ts`](../../tests/rendering/asset-ingestion-policy.test.ts) |
-| sessions, leases, and cleanup | [`asset-session-authority.ts`](../../src/engine/asset-session-authority.ts) | [`engine-asset-lifecycle.test.ts`](../../tests/engine/engine-asset-lifecycle.test.ts) |
-| built-in image projection | [`builtin-image-glyphs.ts`](../../src/assets/builtin-image-glyphs.ts) | [`component-assets-product.test.ts`](../../tests/rendering/component-assets-product.test.ts) |
-| font leases and first-frame readiness | [`builtin-font-payload.ts`](../../src/assets/builtin-font-payload.ts) | [`asset-registry.test.ts`](../../tests/rendering/asset-registry.test.ts) |
-| capture queue, freshness, resize, cleanup | [`capture-extraction-authority.ts`](../../src/engine/capture-extraction-authority.ts) | [`engine-capture-extraction-authority.test.ts`](../../tests/engine/engine-capture-extraction-authority.test.ts) |
-| extraction security and PNG result | [`extraction-security-authority.ts`](../../src/operations/extraction-security-authority.ts) | [`engine-extraction.test.ts`](../../tests/engine/engine-extraction.test.ts) |
+| admission policy | `src/assets/ingestion-policy.ts` | `tests/rendering/asset-ingestion-policy.test.ts` |
+| sessions, leases, and cleanup | `src/engine/asset-session-authority.ts` | `tests/engine/engine-asset-lifecycle.test.ts` |
+| built-in image projection | `src/assets/builtin-image-glyphs.ts` | `tests/rendering/component-assets-product.test.ts` |
+| font leases and first-frame readiness | `src/assets/builtin-font-payload.ts` | `tests/rendering/asset-registry.test.ts` |
+| capture queue, freshness, resize, cleanup | `src/engine/capture-extraction-authority.ts` | `tests/engine/engine-capture-extraction-authority.test.ts` |
+| extraction security and PNG result | `src/operations/extraction-security-authority.ts` | `tests/engine/engine-extraction.test.ts` |

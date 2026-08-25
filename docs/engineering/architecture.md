@@ -26,17 +26,17 @@ frame owner. Events and diagnostics describe that same accepted publication.
 | Root | Single owner |
 | --- | --- |
 | `src/` | shipped product and package surface |
-| `contracts/` | authored semantics, schemas, fixtures, and promoted qualification evidence |
+| `docs/` | public usage contracts and repository-internal engineering routes |
 | `examples/` | packed public consumer examples |
-| `lab/` | interactive browser application for contract and manual journeys |
-| `performance/` | benchmark pages, workloads, protocols, and executable runners |
-| `verification/` | contract evaluators, browser and package gates, shared fixtures, and deterministic scenarios |
-| `tests/` | automated checks grouped by owning boundary |
-| `.artifacts/` | ignored, reproducible Lab builds and candidate measurements |
+| `performance/` | current-run benchmarks, fixtures, targeted probes, and runners |
+| `tests/` | direct product checks grouped by owning boundary |
+| `verification/` | package, documentation, and repository release gates |
+| `.artifacts/` | ignored build and measurement output |
 
 The package name is not repeated below these roots. Product imports no tooling;
-verification imports no Lab, performance, or tests; performance imports no Lab
-or tests; Lab imports no tests. The boundary test enforces this.
+verification and performance can import product code but production never
+imports either. Tests may import product and explicitly owned fixtures. The
+boundary test enforces these directions.
 
 ## Ownership map
 
