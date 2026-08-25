@@ -1,8 +1,8 @@
 # Data and targets
 
-Status: current  
-Audience: package consumers and agents changing dataset admission or logical lookup  
-Source: [`developer-api/contracts.ts`](../../src/patch-map/developer-api/contracts.ts), [`semantic/dataset`](../../src/patch-map/semantic/dataset), [`query-selection`](../../src/patch-map/query-selection)
+- Status: current
+- Audience: package consumers and agents changing dataset admission or logical lookup
+- Source: [`developer-api/contracts.ts`](../../src/patch-map/developer-api/contracts.ts), [`semantic/dataset`](../../src/patch-map/semantic/dataset), [`query-selection`](../../src/patch-map/query-selection)
 
 ## Scope
 

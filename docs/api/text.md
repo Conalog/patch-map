@@ -1,8 +1,8 @@
 # Text
 
-Status: current  
-Audience: package consumers and agents changing semantic text layout or raster publication  
-Source: [`semantic/text-layout`](../../src/patch-map/semantic/text-layout), [`text-render-route.ts`](../../src/patch-map/semantic/text-render-route.ts), [`aggregate-text-leaf-lane.ts`](../../src/patch-map/renderers/aggregate-text-leaf-lane.ts)
+- Status: current
+- Audience: package consumers and agents changing semantic text layout or raster publication
+- Source: [`semantic/text-layout`](../../src/patch-map/semantic/text-layout), [`text-render-route.ts`](../../src/patch-map/semantic/text-render-route.ts), [`aggregate-text-leaf-lane.ts`](../../src/patch-map/renderers/aggregate-text-leaf-lane.ts)
 
 ## Scope
 

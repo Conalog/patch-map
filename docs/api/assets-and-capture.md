@@ -1,8 +1,8 @@
 # Assets and capture
 
-Status: current  
-Audience: package consumers and agents changing resource admission, image readiness, fonts, or PNG extraction  
-Source: [`assets`](../../src/patch-map/assets), [`asset-session-authority.ts`](../../src/patch-map/engine/asset-session-authority.ts), [`capture-extraction-authority.ts`](../../src/patch-map/engine/capture-extraction-authority.ts)
+- Status: current
+- Audience: package consumers and agents changing resource admission, image readiness, fonts, or PNG extraction
+- Source: [`assets`](../../src/patch-map/assets), [`asset-session-authority.ts`](../../src/patch-map/engine/asset-session-authority.ts), [`capture-extraction-authority.ts`](../../src/patch-map/engine/capture-extraction-authority.ts)
 
 ## Scope
 

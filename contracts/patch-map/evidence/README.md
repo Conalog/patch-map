@@ -34,4 +34,3 @@ recursively key-sorted JSON; file digests bind stored bytes.
 Generation never approves semantics. Do not edit a digest or normalized
 expectation to make a verifier pass. Execution, environment qualification, and
 release approval remain separate from contract approval.
-

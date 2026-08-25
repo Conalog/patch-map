@@ -1,8 +1,8 @@
 # Packaged fonts
 
-Status: current  
-Audience: package consumers and release owners  
-Owner: packaged font byte identity, provenance, and license inclusion
+- Status: current
+- Audience: package consumers and release owners
+- Owner: packaged font byte identity, provenance, and license inclusion
 
 Read when: a release changes font bytes, package font digests, or license files.
 

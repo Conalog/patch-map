@@ -1,8 +1,8 @@
 # Presentation
 
-Status: current  
-Audience: package consumers and agents changing non-authoritative visual state  
-Source: [`presentation-layers.ts`](../../src/patch-map/presentation-layers.ts), [`instance-presentation-overlay.ts`](../../src/patch-map/core/instance-presentation-overlay.ts)
+- Status: current
+- Audience: package consumers and agents changing non-authoritative visual state
+- Source: [`presentation-layers.ts`](../../src/patch-map/presentation-layers.ts), [`instance-presentation-overlay.ts`](../../src/patch-map/core/instance-presentation-overlay.ts)
 
 ## Scope
 

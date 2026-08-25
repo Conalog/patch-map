@@ -1,8 +1,8 @@
 # Viewport and transform
 
-Status: current  
-Audience: package consumers and agents changing camera state or relative object transforms  
-Source: [`viewport-authority.ts`](../../src/patch-map/engine/viewport-authority.ts), [`transformer-edit-authority.ts`](../../src/patch-map/engine/transformer-edit-authority.ts)
+- Status: current
+- Audience: package consumers and agents changing camera state or relative object transforms
+- Source: [`viewport-authority.ts`](../../src/patch-map/engine/viewport-authority.ts), [`transformer-edit-authority.ts`](../../src/patch-map/engine/transformer-edit-authority.ts)
 
 ## Scope
 

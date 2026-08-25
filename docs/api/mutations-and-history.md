@@ -1,8 +1,8 @@
 # Mutations and history
 
-Status: current  
-Audience: package consumers and agents changing atomic edits, commits, or undo/redo  
-Source: [`developer-api/mutations.ts`](../../src/patch-map/developer-api/mutations.ts), [`engine`](../../src/patch-map/engine), [`history`](../../src/patch-map/history)
+- Status: current
+- Audience: package consumers and agents changing atomic edits, commits, or undo/redo
+- Source: [`developer-api/mutations.ts`](../../src/patch-map/developer-api/mutations.ts), [`engine`](../../src/patch-map/engine), [`history`](../../src/patch-map/history)
 
 ## Scope
 

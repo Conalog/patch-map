@@ -1,8 +1,8 @@
 # Compatibility and releases
 
-Status: current  
-Audience: package consumers and release owners  
-Owner: supported environments, backend policy, and versioning
+- Status: current
+- Audience: package consumers and release owners
+- Owner: supported environments, backend policy, and versioning
 
 Read when: qualifying an environment, upgrading the package, or publishing an
 artifact. Feature behavior belongs to its API page and is not repeated here.
@@ -46,4 +46,3 @@ binds the resulting documentation set into the artifact evidence.
 | Runtime and toolchain | `package.json`, `.nvmrc`, CI workflows | typecheck, build, CI classification |
 | Export formats and declarations | `package.json`, build configuration | package integration |
 | Included documentation and licenses | package artifact policy | `verify:package` and installed packed-consumer smoke |
-

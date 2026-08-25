@@ -1,8 +1,8 @@
 # Host integration
 
-Status: current  
-Audience: application integrators  
-Owner: the boundary between a host application and one PatchMap instance
+- Status: current
+- Audience: application integrators
+- Owner: the boundary between a host application and one PatchMap instance
 
 Read when: wiring PatchMap into a page, editor, dashboard, report, persistence
 layer, or application lifecycle.

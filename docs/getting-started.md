@@ -1,8 +1,8 @@
 # Getting started
 
-Status: current  
-Audience: package consumers  
-Owner: construction, mount, resize, and teardown
+- Status: current
+- Audience: package consumers
+- Owner: construction, mount, resize, and teardown
 
 Read when: installing PatchMap or creating a map instance.
 
@@ -67,4 +67,3 @@ authority; the host must not add another render loop or a sleep before first use
 | Public construction | `src/index.ts`, `src/patch-map/developer-api/contracts.ts` | `tests/patch-map/developer-api.test.ts` |
 | Initial canvas publication | `src/patch-map/engine/surface-lifecycle-authority.ts`, `src/patch-map/renderers/pixi-renderer/surface-publication-authority.ts` | `tests/patch-map/canvas-surface-lifecycle.test.ts` |
 | Resize and teardown | `src/patch-map/engine.ts`, `src/patch-map/page-lifecycle.ts` | `tests/patch-map/engine-lifecycle.test.ts`, `tests/patch-map/page-lifecycle.test.ts` |
-

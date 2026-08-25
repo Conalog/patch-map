@@ -1,8 +1,8 @@
 # Pointer and selection
 
-Status: current  
-Audience: package consumers and agents changing hover, tooltip, pointer gestures, or selection  
-Source: [`pointer-interaction-coordinator.ts`](../../src/patch-map/engine/pointer-interaction-coordinator.ts), [`pointer-gesture`](../../src/patch-map/pointer-gesture), [`query-selection`](../../src/patch-map/query-selection)
+- Status: current
+- Audience: package consumers and agents changing hover, tooltip, pointer gestures, or selection
+- Source: [`pointer-interaction-coordinator.ts`](../../src/patch-map/engine/pointer-interaction-coordinator.ts), [`pointer-gesture`](../../src/patch-map/pointer-gesture), [`query-selection`](../../src/patch-map/query-selection)
 
 ## Scope
 
