@@ -13,7 +13,7 @@ import {
 } from '../../src/semantic/geometry';
 
 describe('PatchMap pure geometry updates', () => {
-  it('composes the approved relative x/y/angle action from current absolute geometry', () => {
+  it('composes a relative x/y/angle action from current absolute geometry', () => {
     const target = rect({
       attrs: { x: 200, y: 100, zIndex: 2 },
       size: { width: 40, height: 30 },
@@ -48,7 +48,7 @@ describe('PatchMap pure geometry updates', () => {
     expect(target.attrs?.rotation).toBe(Math.PI / 6);
   });
 
-  it('preserves the approved visible center while authoring the resized rect', () => {
+  it('preserves the visible center while authoring the resized rect', () => {
     const relative = applyPatchMapRelativeGeometryUpdate(
       rect({ attrs: { x: 200, y: 100 }, size: { width: 40, height: 30 } }),
       { attrs: { x: 10, y: -5 }, angle: 45 },
@@ -109,7 +109,7 @@ describe('PatchMap pure geometry updates', () => {
     expect(parentAffine).toEqual(parentSnapshot);
   });
 
-  it('returns structured unsupported results outside the approved origin and rect profile', () => {
+  it('returns structured unsupported results for other origins and target types', () => {
     const unsupportedOrigin = resizePatchMapGeometryAroundOrigin(rect(), {
       origin: 'top-left',
       size: { width: 80, height: 50 },

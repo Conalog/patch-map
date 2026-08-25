@@ -146,8 +146,6 @@ export class PatchMapAssetRuntime {
         existing.kind !== normalized.kind ||
         existing.fontWeight !== normalized.fontWeight
       ) {
-        // The closed diagnostic registry is authoritative. The immutable
-        // AST-001 expected name remains a known contract mismatch.
         throw new PatchMapAssetError('CONFLICT', 'CONFLICT', false);
       }
       return Object.freeze({

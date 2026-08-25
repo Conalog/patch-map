@@ -10,7 +10,7 @@ import {
   multiplyPatchMapAffine,
 } from '../../src/semantic/geometry';
 
-describe('PatchMap approved render projection closure', () => {
+describe('PatchMap render projection closure', () => {
   it('paints a background across the complete item frame', () => {
     const materialized = materializePatchMapDataset(datasets.background);
     const item = materialized.dataset[0];

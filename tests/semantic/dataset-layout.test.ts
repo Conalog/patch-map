@@ -21,7 +21,7 @@ import type {
   PatchMapMaterializedGridCell,
 } from '../../src/semantic/layout';
 
-interface Dat003Params {
+interface DimensionFixture {
   readonly itemSize: readonly [number, number];
   readonly padding: Readonly<{ x: number; y: number; top: number }>;
   readonly componentSizes: readonly unknown[];
@@ -36,7 +36,7 @@ interface GridFixture {
   readonly inactiveCellStrategy: 'destroy' | 'hide';
 }
 
-interface Dat005Params {
+interface GridCasesFixture {
   readonly grid: GridFixture;
   readonly edgeMatrices: Readonly<{
     ragged: readonly (readonly PatchMapGridCellValue[])[];
@@ -45,40 +45,40 @@ interface Dat005Params {
   }>;
 }
 
-const dat003 = dimensionFixture as unknown as Dat003Params;
-const dat005 = gridCaseFixture as unknown as Dat005Params;
+const dimensionCase = dimensionFixture as unknown as DimensionFixture;
+const gridCases = gridCaseFixture as unknown as GridCasesFixture;
 
-describe('PatchMap DAT-003 semantic dimensions', () => {
-  it('resolves the approved padded content box and equivalent dimension forms', () => {
-    const [width, height] = dat003.itemSize;
+describe('PatchMap semantic dimensions', () => {
+  it('resolves the padded content box and equivalent dimension forms', () => {
+    const [width, height] = dimensionCase.itemSize;
     const contentBox = resolvePatchMapContentBox(
       { width, height },
       {
-        top: dat003.padding.top,
-        right: dat003.padding.x,
-        bottom: dat003.padding.y,
-        left: dat003.padding.x,
+        top: dimensionCase.padding.top,
+        right: dimensionCase.padding.x,
+        bottom: dimensionCase.padding.y,
+        left: dimensionCase.padding.x,
       },
       '$.item-size-matrix',
     );
     const available = { width: contentBox[2], height: contentBox[3] };
     const numeric = resolvePatchMapComponentSize(
-      requireAt(dat003.componentSizes, 0),
+      requireAt(dimensionCase.componentSizes, 0),
       available,
       '$.components.numeric',
     );
     const percentageString = resolvePatchMapComponentSize(
-      requireAt(dat003.componentSizes, 1),
+      requireAt(dimensionCase.componentSizes, 1),
       available,
       '$.components.pct-string',
     );
     const percentageObject = resolvePatchMapComponentSize(
-      requireAt(dat003.componentSizes, 2),
+      requireAt(dimensionCase.componentSizes, 2),
       available,
       '$.components.pct-object',
     );
     const calc = resolvePatchMapComponentSize(
-      requireAt(dat003.componentSizes, 3),
+      requireAt(dimensionCase.componentSizes, 3),
       available,
       '$.components.calc',
     );
@@ -134,9 +134,9 @@ describe('PatchMap DAT-003 semantic dimensions', () => {
   });
 });
 
-describe('PatchMap DAT-005 deterministic grid materialization', () => {
-  it('uses row and column identity with the approved positions and labels', () => {
-    const input = makeGrid(dat005.grid);
+describe('PatchMap deterministic grid materialization', () => {
+  it('uses row and column identity with stable positions and labels', () => {
+    const input = makeGrid(gridCases.grid);
     const before = JSON.stringify(input);
     const layout = materializePatchMapGrid(input, '$.grid');
 
@@ -155,7 +155,7 @@ describe('PatchMap DAT-005 deterministic grid materialization', () => {
   });
 
   it('keeps hidden cells logical across activation and deactivation', () => {
-    const initial = materializePatchMapGrid(makeGrid(dat005.grid));
+    const initial = materializePatchMapGrid(makeGrid(gridCases.grid));
     const hidden = requireCell(initial, 'grid.0.1');
     const activated = setPatchMapGridCell(initial, 0, 1, 1);
     const deactivated = setPatchMapGridCell(activated, 0, 1, 0);
@@ -171,7 +171,7 @@ describe('PatchMap DAT-005 deterministic grid materialization', () => {
   });
 
   it('destroys inactive logical cells while preserving their deterministic identity on recreation', () => {
-    const destroyInput = makeGrid({ ...dat005.grid, inactiveCellStrategy: 'destroy' });
+    const destroyInput = makeGrid({ ...gridCases.grid, inactiveCellStrategy: 'destroy' });
     const initial = materializePatchMapGrid(destroyInput);
     const activated = setPatchMapGridCell(initial, 0, 1, 1);
     const deactivated = setPatchMapGridCell(activated, 0, 1, 0);
@@ -184,13 +184,13 @@ describe('PatchMap DAT-005 deterministic grid materialization', () => {
 
   it('handles ragged, empty, and duplicate-label matrices without padding or identity collisions', () => {
     const ragged = materializePatchMapGrid(
-      makeGrid({ ...dat005.grid, cells: dat005.edgeMatrices.ragged }),
+      makeGrid({ ...gridCases.grid, cells: gridCases.edgeMatrices.ragged }),
     );
     const empty = materializePatchMapGrid(
-      makeGrid({ ...dat005.grid, cells: dat005.edgeMatrices.empty }),
+      makeGrid({ ...gridCases.grid, cells: gridCases.edgeMatrices.empty }),
     );
     const duplicateLabels = materializePatchMapGrid(
-      makeGrid({ ...dat005.grid, cells: dat005.edgeMatrices.duplicateLabels }),
+      makeGrid({ ...gridCases.grid, cells: gridCases.edgeMatrices.duplicateLabels }),
     );
 
     expect(ragged.activeIds).toEqual(['grid.0.0', 'grid.0.2', 'grid.1.0']);

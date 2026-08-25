@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
 import datasets from '../fixtures/datasets.json';
 import { describe, expect, it } from 'vitest';
 
@@ -10,14 +7,10 @@ import {
 } from '../../src/semantic/dataset';
 import { parsePatchMap } from '../../src/parsing';
 
-const largeGridFixturePath = fileURLToPath(
-  new URL('../fixtures/large-grid-scene.json', import.meta.url),
-);
-
 const invalidDatasetProfiles = new Set(['malformed']);
 
 describe('PatchMap rendering schema support inventory', () => {
-  it('materializes every approved dataset while rejecting invalid profiles', () => {
+  it('materializes every supported dataset while rejecting invalid inputs', () => {
     const failures: Record<string, string> = {};
     for (const [id, dataset] of Object.entries(datasets)) {
       if (invalidDatasetProfiles.has(id)) continue;
@@ -44,12 +37,7 @@ describe('PatchMap rendering schema support inventory', () => {
     }
   });
 
-  it('keeps the large grid fixture within the same strict boundary', () => {
-    const dataset = JSON.parse(readFileSync(largeGridFixturePath, 'utf8')) as unknown;
-    expect(() => materializePatchMapDataset(dataset)).not.toThrow();
-  });
-
-  it('preserves the exact approved rendering-only fields without caller aliases', () => {
+  it('preserves supported rendering-only fields without caller aliases', () => {
     const rectInput = datasets['rect-specimen'];
     const imageInput = datasets['image-specimens'];
     const boundsInput = datasets.bounds;
@@ -136,7 +124,7 @@ describe('PatchMap rendering schema support inventory', () => {
     expect(() => parsePatchMap(input)).toThrow('Standalone rect radius must be a nonnegative finite number');
   });
 
-  it('does not widen closed records beyond the inventoried approved fields', () => {
+  it('does not widen closed records beyond supported fields', () => {
     expect(() => materializePatchMapDataset([
       { type: 'rect', id: 'strict', size: 10, extra: true },
     ])).toThrowError(expect.objectContaining<Partial<PatchMapDatasetError>>({

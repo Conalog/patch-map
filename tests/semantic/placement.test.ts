@@ -20,7 +20,7 @@ interface PlacementObservation {
   readonly worldBounds: readonly [number, number, number, number];
 }
 
-interface Lay002Params {
+interface PlacementFixture {
   readonly item: Readonly<{
     size: readonly [number, number];
     padding: PatchMapEdges;
@@ -31,13 +31,13 @@ interface Lay002Params {
   readonly placementMatrix: Readonly<Record<PatchMapPlacement, PlacementObservation>>;
 }
 
-const lay002 = placementFixture as unknown as Lay002Params;
-const [itemWidth, itemHeight] = lay002.item.size;
-const [componentWidth, componentHeight] = lay002.componentSize;
+const fixture = placementFixture as unknown as PlacementFixture;
+const [itemWidth, itemHeight] = fixture.item.size;
+const [componentWidth, componentHeight] = fixture.componentSize;
 const contentTuple = resolvePatchMapContentBox(
   { width: itemWidth, height: itemHeight },
-  lay002.item.padding,
-  '$.LAY-002.item',
+  fixture.item.padding,
+  '$.placement.item',
 );
 const reference: PatchMapPlacementReference = Object.freeze({
   x: contentTuple[0],
@@ -47,21 +47,21 @@ const reference: PatchMapPlacementReference = Object.freeze({
 });
 const componentSize = Object.freeze({ width: componentWidth, height: componentHeight });
 const ITEM_WORLD_ORIGIN = Object.freeze([10, 20] as const);
-const currentPlacements = lay002.placements.filter(
+const currentPlacements = fixture.placements.filter(
   (placement) => placement !== ('none' as string),
 );
 
-describe('PatchMap LAY-002 semantic placement', () => {
-  it('resolves the exact approved local and world matrix for every placement', () => {
+describe('PatchMap placement semantic placement', () => {
+  it('resolves the exact local and world matrix for every placement', () => {
     for (const placement of currentPlacements) {
       const bounds = resolvePatchMapPlacementBounds(
         reference,
         componentSize,
         placement,
-        lay002.margin,
-        `$.LAY-002.placements.${placement}`,
+        fixture.margin,
+        `$.placement.placements.${placement}`,
       );
-      const expected = lay002.placementMatrix[placement];
+      const expected = fixture.placementMatrix[placement];
 
       expect(tuple(bounds), placement).toEqual(expected.localBounds);
       expect([
@@ -106,7 +106,7 @@ describe('PatchMap LAY-002 semantic placement', () => {
         reference,
         componentSize,
         'diagonal' as PatchMapPlacement,
-        lay002.margin,
+        fixture.margin,
         '$.invalid-placement',
       ),
       '$.invalid-placement.placement',
@@ -116,7 +116,7 @@ describe('PatchMap LAY-002 semantic placement', () => {
         { ...reference, x: Number.NaN },
         componentSize,
         'center',
-        lay002.margin,
+        fixture.margin,
         '$.non-finite',
       ),
       '$.non-finite.reference.x',
@@ -126,7 +126,7 @@ describe('PatchMap LAY-002 semantic placement', () => {
         reference,
         { ...componentSize, width: -1 },
         'center',
-        lay002.margin,
+        fixture.margin,
         '$.negative-size',
       ),
       '$.negative-size.size.width',
@@ -136,7 +136,7 @@ describe('PatchMap LAY-002 semantic placement', () => {
         reference,
         componentSize,
         'center',
-        { ...lay002.margin, bottom: Number.POSITIVE_INFINITY },
+        { ...fixture.margin, bottom: Number.POSITIVE_INFINITY },
         '$.non-finite-margin',
       ),
       '$.non-finite-margin.margin.bottom',
@@ -146,7 +146,7 @@ describe('PatchMap LAY-002 semantic placement', () => {
         reference,
         componentSize,
         'center',
-        { ...lay002.margin, left: -1 },
+        { ...fixture.margin, left: -1 },
         '$.negative-margin',
       ),
       '$.negative-margin.margin.left',
@@ -154,7 +154,7 @@ describe('PatchMap LAY-002 semantic placement', () => {
     expectInvalidValue(
       () => resolvePatchMapContentBox(
         { width: itemWidth, height: itemHeight },
-        { ...lay002.item.padding, top: -1 },
+        { ...fixture.item.padding, top: -1 },
         '$.negative-padding',
       ),
       '$.negative-padding.padding.top',
@@ -203,7 +203,7 @@ describe('PatchMap LAY-002 semantic placement', () => {
   it('is deterministic, immutable, and does not mutate caller-owned inputs', () => {
     const callerReference = { ...reference };
     const callerSize = { ...componentSize };
-    const callerMargin = { ...lay002.margin };
+    const callerMargin = { ...fixture.margin };
     const before = structuredClone({ callerReference, callerSize, callerMargin });
 
     const first = resolvePatchMapPlacementBounds(
@@ -233,7 +233,7 @@ describe('PatchMap LAY-002 semantic placement', () => {
       type: 'item',
       id: 'item',
       size: { width: itemWidth, height: itemHeight },
-      padding: lay002.item.padding,
+      padding: fixture.item.padding,
       attrs: { x: ITEM_WORLD_ORIGIN[0], y: ITEM_WORLD_ORIGIN[1] },
       components: currentPlacements.map((placement) => ({
         type: 'bar',
@@ -241,7 +241,7 @@ describe('PatchMap LAY-002 semantic placement', () => {
         source: { type: 'rect', fill: '#336699' },
         size: { width: componentWidth, height: componentHeight },
         placement,
-        margin: lay002.margin,
+        margin: fixture.margin,
       })),
     }];
     const before = structuredClone(input);
@@ -251,9 +251,9 @@ describe('PatchMap LAY-002 semantic placement', () => {
       const id = `item::bar:${placement}`;
       const entity = parsed.document.entities.find((candidate) => candidate.id === id);
       const projection = parsed.projection.byEntityId[id];
-      const expected = lay002.placementMatrix[placement];
+      const expected = fixture.placementMatrix[placement];
       if (entity?.kind !== 'bar' || projection === undefined) {
-        throw new Error(`Missing parsed LAY-002 bar ${id}`);
+        throw new Error(`Missing parsed placement bar ${id}`);
       }
 
       expect([entity.x, entity.y, entity.width, entity.height], placement).toEqual(
@@ -269,7 +269,7 @@ describe('PatchMap LAY-002 semantic placement', () => {
 });
 
 function resolve(placement: PatchMapPlacement): PatchMapPlacementBounds {
-  return resolvePatchMapPlacementBounds(reference, componentSize, placement, lay002.margin);
+  return resolvePatchMapPlacementBounds(reference, componentSize, placement, fixture.margin);
 }
 
 function tuple(bounds: PatchMapPlacementBounds): readonly [number, number, number, number] {

@@ -58,7 +58,7 @@ describe('PatchMap bar projection sidecar', () => {
     expect(projection?.animationDuration).toBe(350);
   });
 
-  it('applies approved direct-load defaults and deterministic grid component identity', () => {
+  it('applies direct-load defaults and deterministic grid component identity', () => {
     const input = [{
       type: 'grid',
       id: 'rack',

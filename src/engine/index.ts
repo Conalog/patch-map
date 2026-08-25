@@ -1968,7 +1968,7 @@ export class PatchMap {
   }
 
   /**
-   * Run the approved editor mutation taxonomy as twelve real, separately
+   * Run the supported editor mutation set as twelve real, separately
    * reversible semantic transactions. This is deliberately not a synthetic
    * counter: every entry publishes through the current aggregate surface.
    */

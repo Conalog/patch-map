@@ -458,7 +458,7 @@ export function replaceOwnedPatchMapElementAngleRoot(
   return next;
 }
 
-/** Normalize the approved item-text style patch profile without defaults. */
+/** Normalize the supported item-text style patch fields without defaults. */
 export function normalizePatchMapTextStylePatch(
   value: unknown,
   path = '$.style',

@@ -29,7 +29,7 @@ export async function runMeasuredBenchmarkTrial(
 ): Promise<Readonly<Record<string, unknown>>> {
   await forceGc();
   const heapBefore = usedHeap();
-  const trialResult = await runContractTrial(spec, trial, warmup, surface);
+  const trialResult = await runBenchmarkTrial(spec, trial, warmup, surface);
   await forceGc();
   return deepFreeze({
     ...trialResult,
@@ -37,7 +37,7 @@ export async function runMeasuredBenchmarkTrial(
   });
 }
 
-async function runContractTrial(
+async function runBenchmarkTrial(
   spec: BenchmarkSpec,
   trial: number,
   warmup: boolean,

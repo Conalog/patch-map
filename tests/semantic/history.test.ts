@@ -22,7 +22,7 @@ interface CompanionState {
 type StackDataset = readonly StackNode[];
 
 describe('PatchMap semantic history', () => {
-  it('restores the exact LAY-003 initial, patched, undo, and redo paint order', () => {
+  it('restores the initial, patched, undo, and redo paint order exactly', () => {
     const initial = stackingDataset();
     const patched = initial.map((entry) => (
       entry.id === 'low' ? { ...entry, zIndex: 6 } : { ...entry }
@@ -39,7 +39,7 @@ describe('PatchMap semantic history', () => {
       'transformer',
     ]);
     expect(prepareAndCommit(history, command(
-      'lay-003-z-order',
+      'paint-order-change',
       initial,
       patched,
       { selection: ['first'], mode: 'select' },

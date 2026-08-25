@@ -19,7 +19,7 @@ import { screenToWorld } from '../../src/viewport/view';
 
 const boundsDataset = datasets.bounds;
 
-describe('PatchMap LAY-005 bounds product contract', () => {
+describe('PatchMap transformed bounds', () => {
   it('publishes exact local, world, screen, visibility, and signed-scale geometry', () => {
     const materialized = materializePatchMapDataset(boundsDataset);
     const parsed = parsePatchMap(materialized.dataset);

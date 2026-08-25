@@ -69,14 +69,14 @@ export interface PatchMapOverlayPaintProbe {
   readonly transformer: boolean;
   readonly selectedEntityCount: number;
   readonly renderObjectCount: 0 | 2;
-  /** Present on the product renderer; optional only for injected contract surfaces. */
+  /** Present on the product renderer; optional only for deterministic renderer adapters. */
   readonly displayMode?: 'all' | 'group-only' | 'element-only' | 'hidden';
   readonly strokeAlignment?: 'outside' | 'center' | 'inside';
   readonly strokeScale?: 'fixed' | 'viewport';
   readonly individualOutlineCount?: number;
   readonly groupOutline?: boolean;
   readonly outlineCount?: number;
-  /** Renderer repaint count; optional only for injected contract surfaces. */
+  /** Renderer repaint count; optional only for deterministic renderer adapters. */
   readonly redrawCount?: number;
   /** Aggregate world scale used by the last interaction-overlay repaint. */
   readonly worldScale?: number | null;

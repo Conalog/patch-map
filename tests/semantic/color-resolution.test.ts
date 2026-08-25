@@ -9,7 +9,7 @@ import {
 import type { PatchMapColorResolutionError } from '../../src/semantic/color';
 import { colorFixture } from '../fixtures/semantic-cases';
 
-interface Dat004Params {
+interface ColorFixture {
   readonly themeA: Readonly<Record<string, unknown>>;
   readonly themeB: Readonly<Record<string, unknown>>;
   readonly colors: readonly unknown[];
@@ -22,7 +22,7 @@ interface Dat004Params {
   }>[];
 }
 
-const approved = colorFixture as unknown as Dat004Params;
+const fixture = colorFixture as unknown as ColorFixture;
 
 describe('PatchMap PixiJS color resolution', () => {
   it('matches the canonical default palette and flattens partial public overrides', () => {
@@ -53,23 +53,23 @@ describe('PatchMap PixiJS color resolution', () => {
     expect(Object.isFrozen(normalized)).toBe(true);
   });
 
-  it('resolves approved direct inputs and isolates active themes by instance', () => {
-    const themeA = structuredClone(approved.themeA);
-    const themeB = structuredClone(approved.themeB);
+  it('resolves fixture direct inputs and isolates active themes by instance', () => {
+    const themeA = structuredClone(fixture.themeA);
+    const themeB = structuredClone(fixture.themeB);
     const themeABefore = JSON.stringify(themeA);
     const themeBBefore = JSON.stringify(themeB);
     const resolverA = createPatchMapColorResolver(themeA);
     const resolverB = createPatchMapColorResolver(themeB);
 
-    expect(resolverA.resolve(approved.colors[0], '$[0].fill')).toMatchObject({
+    expect(resolverA.resolve(fixture.colors[0], '$[0].fill')).toMatchObject({
       source: 'theme',
       themePath: 'primary.default',
       rgba: '#0c73bfff',
     });
-    expect(resolverB.resolve(approved.colors[0], '$[0].fill').rgba).toBe('#112233ff');
-    expect(resolverA.resolve(approved.colors[1], '$[1].fill').rgba).toBe('#ff0000ff');
-    expect(resolverA.resolve(approved.colors[2], '$[2].fill').rgba).toBe('#00ff00ff');
-    expect(resolverA.resolve(approved.colors[3], '$[3].fill').rgba).toBe('#0000ff80');
+    expect(resolverB.resolve(fixture.colors[0], '$[0].fill').rgba).toBe('#112233ff');
+    expect(resolverA.resolve(fixture.colors[1], '$[1].fill').rgba).toBe('#ff0000ff');
+    expect(resolverA.resolve(fixture.colors[2], '$[2].fill').rgba).toBe('#00ff00ff');
+    expect(resolverA.resolve(fixture.colors[3], '$[3].fill').rgba).toBe('#0000ff80');
 
     expect(resolverA.setTheme({ 'primary.default': '#445566ff' })).toBe(2);
     expect(resolverA.resolve('primary.default', '$[0].fill').rgba).toBe('#445566ff');
@@ -94,8 +94,8 @@ describe('PatchMap PixiJS color resolution', () => {
 
   it('normalizes string, number, normalized-array, and byte-array color sources', () => {
     const resolver = createPatchMapColorResolver();
-    const typedFixture = approved.colorInputMatrix.find((entry) => entry.id === 'typed-array');
-    if (!typedFixture?.values) throw new Error('approved typed-array fixture is unavailable');
+    const typedFixture = fixture.colorInputMatrix.find((entry) => entry.id === 'typed-array');
+    if (!typedFixture?.values) throw new Error('fixture typed-array fixture is unavailable');
     const byteInput = new Uint8Array(typedFixture.values.map(Number));
     const byteBefore = [...byteInput];
     const floatInput = new Float32Array([0, 0.5, 1, 0.25]);
@@ -116,10 +116,10 @@ describe('PatchMap PixiJS color resolution', () => {
 
   it('normalizes Pixi Color and RGB, HSL, and HSV object families with alpha', () => {
     const resolver = createPatchMapColorResolver();
-    const objectFixture = approved.colorInputMatrix.find(
+    const objectFixture = fixture.colorInputMatrix.find(
       (entry) => entry.id === 'pixijs-color-object',
     );
-    if (!objectFixture?.value) throw new Error('approved Pixi Color fixture is unavailable');
+    if (!objectFixture?.value) throw new Error('fixture Pixi Color fixture is unavailable');
     const pixiInput = new Color({
       r: Number(objectFixture.value.r),
       g: Number(objectFixture.value.g),
@@ -161,14 +161,14 @@ describe('PatchMap PixiJS color resolution', () => {
 
   it('rejects missing theme paths and invalid direct inputs with exact input paths', () => {
     const resolver = createPatchMapColorResolver({ 'primary.default': '#0c73bfff' });
-    const invalidTyped = approved.colorInputMatrix.find(
+    const invalidTyped = fixture.colorInputMatrix.find(
       (entry) => entry.id === 'non-finite-typed-array',
     );
-    const invalidObject = approved.colorInputMatrix.find(
+    const invalidObject = fixture.colorInputMatrix.find(
       (entry) => entry.id === 'infinite-color-object',
     );
     if (!invalidTyped?.values || !invalidTyped.datasetPath || !invalidObject?.datasetPath) {
-      throw new Error('approved invalid color fixtures are unavailable');
+      throw new Error('fixture invalid color fixtures are unavailable');
     }
     const nonFinite = new Float32Array(
       invalidTyped.values.map((value) => (value === 'NaN' ? Number.NaN : Number(value))),

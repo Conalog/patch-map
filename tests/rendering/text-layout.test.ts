@@ -11,7 +11,7 @@ import {
 } from '../../src/semantic/text-layout';
 
 describe('PatchMap deterministic Unicode semantic layout', () => {
-  it('pins the approved Unicode profile and ASCII semantic advance frame', () => {
+  it('pins the supported Unicode profile and ASCII semantic advance frame', () => {
     const result = layoutPatchMapText({ source: 'ASCII' });
 
     expect(result.profile).toEqual({
@@ -24,7 +24,7 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
       baseDirection: 'auto',
       sourceNormalization: 'none',
       layoutLineEndingNormalization: 'CRLF-and-CR-to-LF',
-      semanticCoverage: 'patch-map-contract-declared-subset/1',
+      semanticCoverage: 'patch-map-supported-unicode-subset/1',
       scalarFallback: 'valid-scalars-default-to-atomic-other',
       lineBreakCoverage: 'hard-break-preserved-space-ideographic-and-explicit-breakWords',
       supplementaryAdvanceUnit: 'per-nonzero-scalar-inside-grapheme',
@@ -492,7 +492,7 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     });
 
     expect(supportedDefaultOther.profile.semanticCoverage).toBe(
-      'patch-map-contract-declared-subset/1',
+      'patch-map-supported-unicode-subset/1',
     );
     expect(supportedDefaultOther.diagnostics).toEqual([]);
     expect(unsupportedLineBreak.diagnostics).toContainEqual({

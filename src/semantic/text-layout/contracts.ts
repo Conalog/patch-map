@@ -10,7 +10,7 @@ export const PATCH_MAP_TEXT_PROFILE = Object.freeze({
   baseDirection: 'auto',
   sourceNormalization: 'none',
   layoutLineEndingNormalization: 'CRLF-and-CR-to-LF',
-  semanticCoverage: 'patch-map-contract-declared-subset/1',
+  semanticCoverage: 'patch-map-supported-unicode-subset/1',
   scalarFallback: 'valid-scalars-default-to-atomic-other',
   lineBreakCoverage: 'hard-break-preserved-space-ideographic-and-explicit-breakWords',
   supplementaryAdvanceUnit: 'per-nonzero-scalar-inside-grapheme',

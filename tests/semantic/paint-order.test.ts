@@ -6,7 +6,7 @@ import {
 } from '../../src/semantic/paint-order';
 
 describe('PatchMap semantic paint-order planner', () => {
-  it('matches the exact LAY-003 initial and patched stacking orders', () => {
+  it('matches the exact initial and patched stacking orders', () => {
     const initial = stackingPrimitives();
     const callerBefore = structuredClone(initial);
 

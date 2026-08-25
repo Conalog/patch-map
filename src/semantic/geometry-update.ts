@@ -156,7 +156,7 @@ export function resizePatchMapGeometryAroundOrigin(
       unsupported(
         'UNSUPPORTED_GEOMETRY_ORIGIN',
         '$.origin',
-        `geometry resize origin ${JSON.stringify(request.origin)} is outside the approved profile`,
+        `geometry resize origin ${JSON.stringify(request.origin)} is unsupported`,
       );
     }
     const geometry = validateRectGeometry(target);
@@ -278,7 +278,7 @@ function validateRectGeometry(target: PatchMapElement): ValidatedRectGeometry {
     unsupported(
       'UNSUPPORTED_GEOMETRY_TARGET_TYPE',
       '$.target.type',
-      `geometry updates currently support the approved rect profile, received ${JSON.stringify(target.type)}`,
+      `geometry updates currently support rect targets, received ${JSON.stringify(target.type)}`,
     );
   }
   if (typeof target.id !== 'string') {

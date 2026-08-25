@@ -33,7 +33,7 @@ describe('PatchMap benchmark workload', () => {
     });
   });
 
-  it('binds the approved production-shaped matrix row to its canonical SHA-256', async () => {
+  it('binds the production-shaped workload to its deterministic SHA-256', async () => {
     const production = buildPatchMapBenchmarkDataset(
       'production-shaped-workload-v1',
       319,
