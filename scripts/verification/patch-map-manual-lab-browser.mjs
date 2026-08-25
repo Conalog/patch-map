@@ -9,7 +9,7 @@ import { createServer } from 'vite';
 import {
   parsePatchMapBrowserLaunch,
   parsePatchMapNativeWindowsCell,
-} from './patch-map-browser-launch.mjs';
+} from '../../verification/browser-launch.mjs';
 
 const ROOT = process.cwd();
 const allRoutes = process.argv.includes('--all-routes');
@@ -25,7 +25,7 @@ const outputPath = process.env.PATCH_MAP_MANUAL_LAB_OUTPUT
   : null;
 const catalogPath = path.join(
   ROOT,
-  'contracts/patch-map/evidence/catalog-fixtures.v1.json',
+  'contracts/evidence/catalog-fixtures.v1.json',
 );
 const catalog = JSON.parse(await readFile(catalogPath, 'utf8'));
 const cases = catalog.cases.map((record) => ({
@@ -64,7 +64,7 @@ const errors = {
 try {
   server = await createServer({
     root: ROOT,
-    configFile: path.join(ROOT, 'vite.patch-map-lab.config.ts'),
+    configFile: path.join(ROOT, 'vite.lab.config.ts'),
     logLevel: 'error',
   });
   await server.listen();

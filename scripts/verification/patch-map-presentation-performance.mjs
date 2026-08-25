@@ -13,7 +13,7 @@ const SIZES = [5_000, 10_000];
 const WARMUPS = Number.parseInt(process.env.PATCH_MAP_PRESENTATION_WARMUPS ?? '2', 10);
 const MEASURED = Number.parseInt(process.env.PATCH_MAP_PRESENTATION_MEASURED ?? '7', 10);
 const OUTPUT = path.resolve(process.env.PATCH_MAP_PRESENTATION_OUTPUT
-  ?? path.join(ROOT, '.perf-results/patch-map/presentation-latest.json'));
+  ?? path.join(ROOT, '.artifacts/performance/presentation-latest.json'));
 const BUDGETS = Object.freeze({
   5_000: Object.freeze({ sparseSyncMs: 5, fullSyncMs: 25, sparseVisibleMs: 50 }),
   10_000: Object.freeze({ sparseSyncMs: 10, fullSyncMs: 50, sparseVisibleMs: 100 }),
@@ -255,7 +255,7 @@ function summarize(trials) {
 
 const server = await createServer({
   root: ROOT,
-  configFile: path.join(ROOT, 'vite.patch-map-lab.config.ts'),
+  configFile: path.join(ROOT, 'vite.lab.config.ts'),
   logLevel: 'error',
   server: { host: '127.0.0.1', port: 0, strictPort: false },
 });

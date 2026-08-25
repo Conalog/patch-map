@@ -315,11 +315,11 @@ window.__PATCH_MAP_PACKAGE_MATRIX__ = result;
 }
 
 export function journeyRunnerSource({ root, packageDigest, codeCommit }) {
-  const bridgePath = path.resolve(root, 'lab/patch-map/contract/executable-bridge.ts');
-  const casesPath = path.resolve(root, 'lab/patch-map/contract/executable-cases.ts');
+  const bridgePath = path.resolve(root, 'lab/contract/executable-bridge.ts');
+  const casesPath = path.resolve(root, 'lab/contract/executable-cases.ts');
   const foundationFoldPath = path.resolve(
     root,
-    'scripts/verification/patch-map-contract/fold-foundation.mjs',
+    'verification/contract/fold-foundation.mjs',
   );
   return `
 import { PatchMap } from '${PACKAGE_NAME}';

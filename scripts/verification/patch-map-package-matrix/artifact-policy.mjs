@@ -25,7 +25,7 @@ export const PUBLIC_DOCS = Object.freeze([
 ]);
 
 const PUBLIC_EXAMPLES = Object.freeze(
-  EXAMPLE_FILES.map((name) => `examples/patch-map/${name}`),
+  EXAMPLE_FILES.map((name) => `examples/${name}`),
 );
 
 const RESTRICTED_PACKAGE_PATHS = Object.freeze([
@@ -121,7 +121,7 @@ export function auditPackedHostAdapterSource(source) {
   const semanticReimplementationMarkersFound = semanticReimplementationMarkers
     .filter((marker) => source.includes(marker));
   return Object.freeze({
-    filename: 'examples/patch-map/host-adapter.ts',
+    filename: 'examples/host-adapter.ts',
     imports: Object.freeze(imports),
     restrictedImportCount: restrictedImports.length,
     restrictedImports: Object.freeze(restrictedImports),

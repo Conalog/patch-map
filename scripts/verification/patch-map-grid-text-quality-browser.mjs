@@ -8,7 +8,7 @@ import { createServer } from 'vite';
 
 const root = process.cwd();
 const outputPath = path.resolve(process.env.PATCH_MAP_GRID_TEXT_QUALITY_OUTPUT ??
-  '.perf-results/patch-map/grid-text-quality/latest.json');
+  '.artifacts/performance/grid-text-quality/latest.json');
 const zooms = [1, 10];
 const pixelRatios = [1, 2];
 let server;
@@ -17,7 +17,7 @@ let browser;
 try {
   server = await createServer({
     root,
-    configFile: path.join(root, 'vite.patch-map-lab.config.ts'),
+    configFile: path.join(root, 'vite.lab.config.ts'),
     logLevel: 'error',
   });
   await server.listen();

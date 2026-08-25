@@ -42,7 +42,7 @@ export async function analyzePackedArtifact({ packRecord, tarball }) {
 }
 
 export async function auditPackedHostAdapter(root) {
-  const filename = path.join(root, 'examples/patch-map/host-adapter.ts');
+  const filename = path.join(root, 'examples/host-adapter.ts');
   const source = await readFile(filename, 'utf8');
   return auditPackedHostAdapterSource(source);
 }
@@ -57,7 +57,7 @@ export async function preparePackedConsumerMatrix({
   await mkdir(exampleDirectory, { recursive: true });
   for (const filename of EXAMPLE_FILES) {
     await copyFile(
-      path.join(root, 'examples/patch-map', filename),
+      path.join(root, 'examples', filename),
       path.join(exampleDirectory, filename),
     );
   }
@@ -371,7 +371,7 @@ export async function comparePackedJourneys({ root, browserResult, packageDigest
   const expectedDocument = JSON.parse(await readFile(
     path.join(
       root,
-      'contracts/patch-map/evidence/catalog-normalized-expected.v1.json',
+      'contracts/evidence/catalog-normalized-expected.v1.json',
     ),
     'utf8',
   ));

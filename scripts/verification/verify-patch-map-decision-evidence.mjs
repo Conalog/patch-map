@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const contractRoot = 'contracts/patch-map/';
+const contractRoot = 'contracts/';
 const manifestPath = `${contractRoot}evidence/decision-evidence-manifest.v1.json`;
 const decisionOwnerPath = `${contractRoot}decisions.md`;
 

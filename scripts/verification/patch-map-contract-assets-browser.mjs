@@ -7,14 +7,14 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-import { compareObservation } from './patch-map-contract/compare.mjs';
+import { compareObservation } from '../../verification/contract/compare.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const EXPECTED_PATH = fileURLToPath(new URL(
-  '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json',
+  '../../contracts/evidence/catalog-normalized-expected.v1.json',
   import.meta.url,
 ));
-const VITE_CONFIG_PATH = path.join(ROOT, 'vite.patch-map-lab.config.ts');
+const VITE_CONFIG_PATH = path.join(ROOT, 'vite.lab.config.ts');
 const BRIDGE_NAME = '__PATCH_MAP_CONTRACT_LAB__';
 const CASE_ID = 'AST-001';
 const DATASET_SIZE = '100';

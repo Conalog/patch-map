@@ -8,27 +8,25 @@ const typescriptFiles = [
   'src/**/*.ts',
   'tests/**/*.ts',
   'scripts/**/*.ts',
+  'verification/**/*.ts',
   'lab/**/*.ts',
-  'performance/patch-map/**/*.ts',
+  'performance/**/*.ts',
   'vite.config.ts',
-  'vite.patch-map-lab.config.ts',
+  'vite.lab.config.ts',
 ];
 
 export default defineConfig(
   {
     ignores: [
-      'artifacts/**',
+      '.artifacts/**',
       'dist/**',
-      '.lab-dist/**',
-      '.patch-map-lab-dist/**',
       'fixtures/**',
-      'lab/artifacts/**',
       'lab/fixtures/**',
       'node_modules/**',
     ],
   },
   {
-    files: ['scripts/**/*.mjs', 'performance/patch-map/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'verification/**/*.mjs', 'performance/**/*.mjs'],
     extends: [eslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 'latest',
@@ -54,7 +52,7 @@ export default defineConfig(
     // Public examples import the packed package name, so their strict type
     // boundary belongs to verify:package. Keep them in the ordinary lint gate
     // without making a fresh checkout depend on pre-existing dist output.
-    files: ['examples/patch-map/**/*.ts'],
+    files: ['examples/**/*.ts'],
     extends: [eslint.configs.recommended, tseslint.configs.recommended],
     rules: {
       'no-undef': 'off',

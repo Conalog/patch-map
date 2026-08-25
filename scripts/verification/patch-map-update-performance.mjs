@@ -12,7 +12,7 @@ import { createServer } from 'vite';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const DEFAULT_OUTPUT = path.join(
   ROOT,
-  '.perf-results/patch-map/update-transactions.json',
+  '.artifacts/performance/update-transactions.json',
 );
 const METRICS = Object.freeze([
   'fullBulkPatchMs',
@@ -186,7 +186,7 @@ async function loadRuntime() {
   });
   try {
     const core = await vite.ssrLoadModule('/src/patch-map/index.ts');
-    const workloads = await vite.ssrLoadModule('/performance/patch-map/workloads.ts');
+    const workloads = await vite.ssrLoadModule('/performance/workloads.ts');
     assert(typeof core.PatchMap === 'function', 'PatchMap public export is unavailable');
     assert(
       typeof workloads.createSyntheticPatchMap === 'function',

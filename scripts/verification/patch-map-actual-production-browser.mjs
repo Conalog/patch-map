@@ -5,7 +5,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-import { parsePatchMapBrowserLaunch } from './patch-map-browser-launch.mjs';
+import { parsePatchMapBrowserLaunch } from '../../verification/browser-launch.mjs';
 
 const ROOT = process.cwd();
 const browserLaunch = parsePatchMapBrowserLaunch(process.argv.slice(2));
@@ -23,7 +23,7 @@ let page;
 try {
   server = await createServer({
     root: ROOT,
-    configFile: path.join(ROOT, 'vite.patch-map-lab.config.ts'),
+    configFile: path.join(ROOT, 'vite.lab.config.ts'),
     logLevel: 'error',
   });
   await server.listen();

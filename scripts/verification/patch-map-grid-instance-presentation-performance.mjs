@@ -23,7 +23,7 @@ const viewportMotion = viewportMotionName(
 const artifactIdentity = process.env.PATCH_MAP_GRID_PRESENTATION_PERF_ARTIFACT ?? 'working-tree';
 const outputPath = path.resolve(
   process.env.PATCH_MAP_GRID_PRESENTATION_PERF_OUTPUT ??
-    '.perf-results/patch-map/instance-background-text-latest.json',
+    '.artifacts/performance/instance-background-text-latest.json',
 );
 let server;
 let browser;
@@ -31,7 +31,7 @@ let browser;
 try {
   server = await createServer({
     root,
-    configFile: path.join(root, 'vite.patch-map-lab.config.ts'),
+    configFile: path.join(root, 'vite.lab.config.ts'),
     logLevel: 'error',
   });
   await server.listen();

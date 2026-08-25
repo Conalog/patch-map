@@ -1,5 +1,5 @@
-import { compareObservation } from '../patch-map-contract/compare.mjs';
-import { patchMapDeclaredCsmConflicts } from '../patch-map-contract/immutable-conflicts.mjs';
+import { compareObservation } from '../../../verification/contract/compare.mjs';
+import { patchMapDeclaredCsmConflicts } from '../../../verification/contract/immutable-conflicts.mjs';
 
 export function comparePackedJourneyRuns({
   browserResult,

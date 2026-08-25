@@ -15,7 +15,7 @@ const CPU_THROTTLE_RATE = 4;
 const SEED_BASE = 0xe7ac_7000;
 const ARTIFACT_DIRECTORY = path.resolve(
   process.env.PATCH_MAP_EXTRACTION_PERF_ARTIFACT_DIR
-    ?? path.join(ROOT, 'performance/patch-map/results'),
+    ?? path.join(ROOT, 'contracts/evidence/qualification'),
 );
 
 function percentile(values, quantile) {
@@ -140,7 +140,7 @@ async function main() {
     await server.listen();
     const baseUrl = server.resolvedUrls?.local?.[0];
     if (!baseUrl) throw new Error('PatchMap extraction performance server has no URL');
-    const pageUrl = new URL('performance/patch-map/index.html', baseUrl);
+    const pageUrl = new URL('performance/index.html', baseUrl);
 
     browser = await chromium.launch({
       headless: true,

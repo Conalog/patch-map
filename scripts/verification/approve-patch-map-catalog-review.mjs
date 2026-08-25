@@ -100,9 +100,9 @@ const approvedCandidate = await buildCatalog({
 if (approvedCandidate.manifest.reviewSummary.contractApproved !== reviews.length) {
   throw new Error('Refusing to record a review registry that does not approve the full catalog');
 }
-await mkdir(`${root}contracts/patch-map/evidence/reviews`, { recursive: true });
+await mkdir(`${root}contracts/evidence/reviews`, { recursive: true });
 for (const report of reviewReports) {
-  await writeFile(`${root}contracts/patch-map/${report.reportPath}`, report.bytes);
+  await writeFile(`${root}contracts/${report.reportPath}`, report.bytes);
 }
 await writeFile(`${root}${catalogReviewPath}`, registryBytes);
 console.log(`Recorded ${reviews.length} independent analysis-owner catalog reviews`);

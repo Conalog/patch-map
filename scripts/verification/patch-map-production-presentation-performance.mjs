@@ -44,7 +44,7 @@ const PROFILE = process.env.PATCH_MAP_PRODUCTION_PRESENTATION_PROFILE === '1';
 const COVERAGE = process.env.PATCH_MAP_PRODUCTION_PRESENTATION_COVERAGE === '1';
 const OUTPUT = path.resolve(
   process.env.PATCH_MAP_PRODUCTION_PRESENTATION_OUTPUT
-    ?? path.join(ROOT, '.perf-results/patch-map/production-presentation-latest.json'),
+    ?? path.join(ROOT, '.artifacts/performance/production-presentation-latest.json'),
 );
 const PIXEL_RATIO = 1.5;
 const DEVICE_SCALE_FACTOR = 2;
@@ -521,7 +521,7 @@ try {
   const consumers = [];
   for (const spec of PACKAGE_SPECS) {
     let serverRoot = ROOT;
-    let serverConfig = path.join(ROOT, 'vite.patch-map-lab.config.ts');
+    let serverConfig = path.join(ROOT, 'vite.lab.config.ts');
     let fixturePath = '/scripts/verification/patch-map-public-animation-performance.html';
     if (spec.path !== null) {
       const temporary = await mkdtemp(path.join(os.tmpdir(), 'patch-map-presentation-perf-'));

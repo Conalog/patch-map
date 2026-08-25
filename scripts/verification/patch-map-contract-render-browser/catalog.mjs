@@ -1,4 +1,4 @@
-import { PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS } from '../patch-map-contract/immutable-conflicts.mjs';
+import { PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS } from '../../../verification/contract/immutable-conflicts.mjs';
 
 export const EXPECTED_ASSERTION_TOTAL = 1_991;
 export const EXPECTED_ASSERTION_PASS_TOTAL = 1_951;

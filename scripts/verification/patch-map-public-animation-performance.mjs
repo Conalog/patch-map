@@ -44,7 +44,7 @@ const ANTIALIAS = process.env.PATCH_MAP_PUBLIC_ANIMATION_ANTIALIAS !== '0';
 const PROFILE = process.env.PATCH_MAP_PUBLIC_ANIMATION_PROFILE === '1';
 const OUTPUT_PATH = path.resolve(
   process.env.PATCH_MAP_PUBLIC_ANIMATION_OUTPUT
-    ?? path.join(ROOT, '.perf-results/patch-map/public-animation-latest.json'),
+    ?? path.join(ROOT, '.artifacts/performance/public-animation-latest.json'),
 );
 
 function positiveInteger(value, name, allowZero = false) {
@@ -362,7 +362,7 @@ function summarizeTrials(trials) {
 
 const server = await createServer({
   root: ROOT,
-  configFile: path.join(ROOT, 'vite.patch-map-lab.config.ts'),
+  configFile: path.join(ROOT, 'vite.lab.config.ts'),
   logLevel: 'error',
   server: { host: '127.0.0.1', port: 0, strictPort: false },
 });

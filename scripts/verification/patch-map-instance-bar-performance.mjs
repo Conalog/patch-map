@@ -50,7 +50,7 @@ const OUTPUT_PATH = path.resolve(
   process.env.PATCH_MAP_INSTANCE_BAR_OUTPUT
     ?? path.join(
       ROOT,
-      `.perf-results/patch-map/instance-${WORKLOAD}-latest.json`,
+      `.artifacts/performance/instance-${WORKLOAD}-latest.json`,
     ),
 );
 
@@ -359,7 +359,7 @@ function validateTrial(value, size, animationPolicy) {
 
 const server = await createServer({
   root: ROOT,
-  configFile: path.join(ROOT, 'vite.patch-map-lab.config.ts'),
+  configFile: path.join(ROOT, 'vite.lab.config.ts'),
   logLevel: 'error',
   server: { host: '127.0.0.1', port: 0, strictPort: false },
 });

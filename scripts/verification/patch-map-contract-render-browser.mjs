@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-import { maskVolatile } from './patch-map-contract/evidence.mjs';
+import { maskVolatile } from '../../verification/contract/evidence.mjs';
 import {
   assertCaseRun,
   assertDestroyControl,
@@ -41,10 +41,10 @@ import { installWebGlCanvasProbe } from './patch-map-contract-render-browser/web
 
 const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const EXPECTED_PATH = fileURLToPath(new URL(
-  '../../contracts/patch-map/evidence/catalog-normalized-expected.v1.json',
+  '../../contracts/evidence/catalog-normalized-expected.v1.json',
   import.meta.url,
 ));
-const VITE_CONFIG_PATH = path.join(ROOT, 'vite.patch-map-lab.config.ts');
+const VITE_CONFIG_PATH = path.join(ROOT, 'vite.lab.config.ts');
 const DATASET_SIZE = '100';
 const SEED = 319;
 const options = parseArguments(process.argv.slice(2));

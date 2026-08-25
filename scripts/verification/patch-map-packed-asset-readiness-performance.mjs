@@ -17,7 +17,7 @@ const cases = parseCases(process.env.PATCH_MAP_ASSET_READY_CASES);
 const artifacts = parseArtifacts(process.env.PATCH_MAP_ASSET_READY_ARTIFACTS);
 const outputPath = path.resolve(
   process.env.PATCH_MAP_ASSET_READY_OUTPUT ??
-    '.perf-results/patch-map/asset-readiness/final.json',
+    '.artifacts/performance/asset-readiness/final.json',
 );
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'patch-map-asset-ready-'));
 const servers = [];

@@ -32,7 +32,7 @@ const OUTPUT_PATH = path.resolve(
   process.env.PATCH_MAP_INTERACTION_PERF_OUTPUT
     ?? path.join(
       ROOT,
-      '.perf-results/patch-map/interaction-performance-5000.json',
+      '.artifacts/performance/interaction-performance-5000.json',
     ),
 );
 
@@ -718,7 +718,7 @@ function functionalViolations(trial, label) {
 async function main() {
   const server = await createServer({
     root: ROOT,
-    configFile: path.join(ROOT, 'vite.patch-map-lab.config.ts'),
+    configFile: path.join(ROOT, 'vite.lab.config.ts'),
     logLevel: 'error',
     server: { host: '127.0.0.1', port: 0, strictPort: false },
   });

@@ -2,8 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
-import { argumentValue } from './patch-map-browser-launch.mjs';
-import { resolvePatchMapCandidateOutputPath } from './patch-map-candidate-path.mjs';
+import { argumentValue } from '../../verification/browser-launch.mjs';
+import { resolvePatchMapCandidateOutputPath } from '../../verification/candidate-path.mjs';
 
 import {
   buildCatalog,
@@ -22,11 +22,11 @@ const { fixtures, expected, manifest } = await buildCatalog(
 );
 const outputRoot = resolvePatchMapCandidateOutputPath({
   root,
-  value: argumentValue(process.argv.slice(2), '--output-dir') ?? '.perf-results/contract-catalog',
+  value: argumentValue(process.argv.slice(2), '--output-dir') ?? '.artifacts/performance/contract-catalog',
   label: 'generated contract catalog output',
   prohibitedRoots: [
-    'contracts/patch-map',
-    'performance/patch-map/results',
+    'contracts',
+    'contracts/evidence/qualification',
   ],
 });
 await mkdir(outputRoot, { recursive: true });

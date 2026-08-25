@@ -19,7 +19,7 @@ const SIZES = (process.env.PATCH_MAP_PACKED_PERF_SIZES ?? '5000,10000')
 const artifacts = parseArtifacts(process.env.PATCH_MAP_PACKED_PERF_ARTIFACTS);
 const outputPath = path.resolve(
   process.env.PATCH_MAP_PACKED_PERF_OUTPUT ??
-    '.perf-results/patch-map/packed-instance-height-cross.json',
+    '.artifacts/performance/packed-instance-height-cross.json',
 );
 const temporary = await mkdtemp(path.join(os.tmpdir(), 'patch-map-packed-perf-'));
 const servers = [];

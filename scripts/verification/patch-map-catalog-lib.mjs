@@ -3,7 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 export const root = fileURLToPath(new URL('../../', import.meta.url));
-export const contractRoot = 'contracts/patch-map/';
+export const contractRoot = 'contracts/';
 export const catalogFixturePath = `${contractRoot}evidence/catalog-fixtures.v1.json`;
 export const catalogExpectedPath = `${contractRoot}evidence/catalog-normalized-expected.v1.json`;
 export const catalogManifestPath = `${contractRoot}evidence/catalog-evidence-manifest.v1.json`;

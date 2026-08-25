@@ -40,7 +40,7 @@
     "docs/compatibility.md",
     "docs/assets/fonts.md",
     "docs/assets/fira-code-6.2-license.txt",
-    "examples/patch-map",
+    "examples",
     "LICENSE"
   ],
   "sideEffects": false,
@@ -49,8 +49,8 @@
   },
   "scripts": {
     "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly && node scripts/verification/finalize-declarations.mjs",
-    "build:lab": "vite build --config vite.patch-map-lab.config.ts",
-    "lab": "vite --config vite.patch-map-lab.config.ts --host 127.0.0.1 --port 4176 --open '/lab/patch-map?scenario=LIF-001&size=100&seed=319'",
+    "build:lab": "vite build --config vite.lab.config.ts",
+    "lab": "vite --config vite.lab.config.ts --host 127.0.0.1 --port 4176 --open '/lab/patch-map?scenario=LIF-001&size=100&seed=319'",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "unit": "vitest run --maxWorkers=2",
@@ -60,7 +60,7 @@
     "verify:contract:catalog": "node scripts/verification/verify-patch-map-catalog.mjs",
     "verify:contract": "npm run verify:contract:decisions && npm run verify:contract:gates && npm run verify:contract:catalog",
     "verify:docs": "node scripts/verification/verify-docs.mjs",
-    "verify:performance-contract": "node performance/patch-map/report/verify-contract.mjs",
+    "verify:performance-contract": "node performance/report/verify-contract.mjs",
     "verify:lab": "node scripts/verification/patch-map-manual-lab-browser.mjs",
     "verify:lab:all": "node scripts/verification/patch-map-manual-lab-browser.mjs --all-routes",
     "verify:lab:10000": "node scripts/verification/patch-map-exploratory-10000-browser.mjs --headless",

@@ -26,10 +26,11 @@
     "src",
     "tests",
     "scripts",
+    "verification",
     "lab",
-    "performance/patch-map",
+    "performance",
     "vite.config.ts",
-    "vite.patch-map-lab.config.ts"
+    "vite.lab.config.ts"
   ],
-  "exclude": ["artifacts", "dist", "node_modules"]
+  "exclude": [".artifacts", "dist", "node_modules"]
 }

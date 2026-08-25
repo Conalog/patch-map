@@ -1,5 +1,5 @@
-import { compareObservation } from '../patch-map-contract/compare.mjs';
-import { inspectPatchMapUpdateConflictActuals } from '../patch-map-contract/update-conflict-actuals.mjs';
+import { compareObservation } from '../../../verification/contract/compare.mjs';
+import { inspectPatchMapUpdateConflictActuals } from '../../../verification/contract/update-conflict-actuals.mjs';
 
 import {
   ACCESSIBILITY_TRANCHE_CASES,
