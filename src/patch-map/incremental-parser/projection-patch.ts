@@ -83,7 +83,7 @@ export function patchStableProjection(
     textsByEntityId,
     barsByEntityId,
     relationsByEntityId,
-    omittedRelations: previous.omittedRelations ?? Object.freeze([]),
+    omittedRelations: previous.omittedRelations,
   });
 }
 

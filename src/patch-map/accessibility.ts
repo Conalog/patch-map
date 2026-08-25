@@ -189,7 +189,6 @@ export class PatchMapAccessibilityAuthority {
         focusVisible:
           target.id === this.focusedIdValue && this.focusVisibleValue,
         selected: selected.has(target.id),
-        actions: target.actions,
         supportedActions: target.actions,
         performedActions: Object.freeze([
           ...(this.performedActionsByTarget.get(target.id) ?? new Set()),

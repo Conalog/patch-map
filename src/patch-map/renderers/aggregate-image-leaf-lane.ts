@@ -339,7 +339,7 @@ export class AggregateImageLeafLane {
       return;
     }
     const entityId = store.ids[slot] ?? `@slot:${slot}`;
-    const bindingKey = projectionContext?.index.imagesByEntityId?.[entityId]?.bindingKey ??
+    const bindingKey = projectionContext?.index.imagesByEntityId[entityId]?.bindingKey ??
       store.source[slot] ??
       '';
     const lane = imageLane(entityId, projectionContext);
@@ -1001,7 +1001,7 @@ function imageLane(
   entityId: string,
   projectionContext?: PatchMapProjectionRenderContext,
 ): LeafImageLane | null {
-  const component = projectionContext?.index.componentsByEntityId?.[entityId];
+  const component = projectionContext?.index.componentsByEntityId[entityId];
   if (component === undefined) return 'standalone-assets';
   if (component.renderRole === 'background-asset') return 'background-assets';
   if (component.renderRole === 'content-asset') return 'content-assets';

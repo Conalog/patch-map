@@ -4,7 +4,7 @@ import type {
   ParsePatchMapOptions,
   ParsePatchMapResult,
 } from './contracts';
-import { parsePatchMapV010SelectedRoots } from './parser';
+import { parsePatchMapSelectedRoots } from './parser';
 import {
   PATCH_MAP_IDENTITY_AFFINE,
   patchMapAffineBasis,
@@ -48,8 +48,7 @@ import type {
 } from './incremental-parser/contracts';
 
 export {
-  inheritPatchMapV010IncrementalParserCaches,
-  patchMapV010StructuralChangedEntityIds,
+  patchMapStructuralChangedEntityIds,
 } from './incremental-parser/cache-indexes';
 
 const EMPTY_RECORD = Object.freeze({}) as JsonRecord;
@@ -72,7 +71,7 @@ const DIRECT_ANGLE_ELEMENT_TYPES = new Set([
  * commit pays the O(scene) index construction cost on pointer-up even though
  * every subsequent edit uses the incremental path.
  */
-export function primePatchMapV010IncrementalFlat(
+export function primePatchMapIncrementalFlat(
   parsed: ParsePatchMapResult,
 ): boolean {
   const rootCount = parsedRootCount(parsed);
@@ -87,7 +86,7 @@ export function primePatchMapV010IncrementalFlat(
  * new or structurally changed roots still go through the canonical selected
  * parser. Relations fall back whenever an endpoint could have changed.
  */
-export function parsePatchMapV010IncrementalStructure(
+export function parsePatchMapIncrementalStructure(
   input: unknown,
   previousInput: unknown,
   previous: ParsePatchMapResult,
@@ -163,7 +162,7 @@ export function parsePatchMapV010IncrementalStructure(
 
   let selected: ParsePatchMapResult | null = null;
   const parseDirtyFragments = (knownTargetIds: readonly string[] = []): boolean => {
-    selected = parsePatchMapV010SelectedRoots(
+    selected = parsePatchMapSelectedRoots(
       input,
       dirtyIndices,
       options,
@@ -272,7 +271,7 @@ export function parsePatchMapV010IncrementalStructure(
  * own detached candidate. Direct caller input must continue through the full
  * parser unless every unchanged root is covered by that transaction authority.
  */
-export function parsePatchMapV010IncrementalFlat(
+export function parsePatchMapIncrementalFlat(
   input: unknown,
   previous: ParsePatchMapResult,
   dirtyRootIds: readonly string[],
@@ -324,7 +323,7 @@ export function parsePatchMapV010IncrementalFlat(
     return null;
   }
   const selected = selectedParse ??
-    parsePatchMapV010SelectedRoots(roots, dirtyIndices, options);
+    parsePatchMapSelectedRoots(roots, dirtyIndices, options);
   if (
     selected.diagnostics.length !== 0 ||
     selected.identity.counts.relationLinks !== 0 ||
@@ -361,7 +360,7 @@ export interface PatchMapDirectElementAngleParseUpdate {
  * ambiguity returns `null` before publication so PatchMapRuntime can run the canonical
  * selected-root parser unchanged.
  */
-export function parsePatchMapV010DirectElementAngleBatch(
+export function parsePatchMapDirectElementAngleBatch(
   input: unknown,
   previousInput: unknown,
   previous: ParsePatchMapResult,
@@ -374,8 +373,8 @@ export function parsePatchMapV010DirectElementAngleBatch(
     input.length === 0 ||
     input.length !== previousInput.length ||
     updates.length === 0 ||
-    Object.keys(previous.projection.relationsByEntityId ?? {}).length > 0 ||
-    (previous.projection.omittedRelations?.length ?? 0) > 0
+    Object.keys(previous.projection.relationsByEntityId).length > 0 ||
+    previous.projection.omittedRelations.length > 0
   ) {
     return null;
   }

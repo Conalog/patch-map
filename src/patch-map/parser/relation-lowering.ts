@@ -6,13 +6,11 @@ import { addEntity } from './lowering-state';
 import {
   deepFreezePatchMapParserValue as deepFreeze,
   fatalPatchMapParse as fatal,
-  warnPatchMapParseOnce as warnOnce,
   type PatchMapParseState as ParseState,
   type PatchMapParserEntityOwner as EntityOwner,
 } from './parse-state';
 import type { PatchMapParserTransform as Transform } from './transform-projection';
 import {
-  clamp01,
   finiteNumber,
   isParserRecord as isRecord,
   relationEndpoint,
@@ -20,6 +18,8 @@ import {
   zIndex,
   type PatchMapParserRecord as JsonRecord,
 } from './value-normalization';
+
+const RELATION_STYLE_FIELDS = new Set(['color', 'alpha', 'width']);
 
 export function parseRelations(
   value: JsonRecord,
@@ -33,16 +33,38 @@ export function parseRelations(
   if (!Array.isArray(value.links)) {
     fatal(state, `${path}.links`, 'invalid-relations', 'Relations links must be an array', sourceId);
   }
-  const style = isRecord(value.style) ? value.style : {};
-  if (style.alpha !== undefined && style.opacity !== undefined) {
+  const style = relationStyle(value.style, `${path}.style`, sourceId, state);
+  const unknownStyleField = Object.keys(style)
+    .sort()
+    .find((key) => !RELATION_STYLE_FIELDS.has(key));
+  if (unknownStyleField !== undefined) {
     fatal(
       state,
-      `${path}.style`,
-      'relation-opacity-conflict',
-      'Relation style alpha and opacity cannot both be authored',
+      `${path}.style.${unknownStyleField}`,
+      'unknown-relation-style-field',
+      `Relation style contains unknown field ${JSON.stringify(unknownStyleField)}`,
       sourceId,
     );
   }
+  const lineWidth = relationStyleNumber(
+    style.width,
+    `${path}.style.width`,
+    'invalid-relation-width',
+    sourceId,
+    state,
+    (value) => value >= 0,
+    'Relation width must be a nonnegative finite number',
+  );
+  const styleAlpha = relationStyleNumber(
+    style.alpha,
+    `${path}.style.alpha`,
+    'invalid-relation-alpha',
+    sourceId,
+    state,
+    (value) => value >= 0 && value <= 1,
+    'Relation alpha must be a finite number in the range 0..1',
+  );
+  const color = resolveColor(style.color, 0x000000ff, `${path}.style.color`, state);
   const determinant = transform.affine[0] * transform.affine[3] -
     transform.affine[1] * transform.affine[2];
   if (!Number.isFinite(determinant) || Math.abs(determinant) <= Number.EPSILON) {
@@ -53,14 +75,6 @@ export function parseRelations(
       'Relations transform must remain invertible for relation-local projection',
       sourceId,
     );
-  }
-  // Aggregate relation geometry is a sequence of independent butt-capped
-  // segments, so the materializer defaults are exact and need no warning.
-  if (
-    (style.cap !== undefined && style.cap !== 'butt') ||
-    (style.join !== undefined && style.join !== 'miter')
-  ) {
-    warnOnce(state, 'relation-cap-join', `${path}.style`, 'relation-style-degraded', 'Relation cap/join are not retained or projected; basic line geometry is used', sourceId);
   }
   value.links.forEach((linkValue, index) => {
     const linkPath = `${path}.links[${index}]`;
@@ -81,10 +95,9 @@ export function parseRelations(
         id: entityId,
         from,
         to,
-        color: resolveColor(style.color, 0x000000ff, `${path}.style.color`, state),
-        lineWidth: Math.max(0, finiteNumber(style.width) ?? 1),
-        opacity: owner.opacity *
-          clamp01(finiteNumber(style.alpha) ?? finiteNumber(style.opacity) ?? 1),
+        color,
+        lineWidth,
+        opacity: owner.opacity * styleAlpha,
         visible,
         interactive: false,
         zIndex: zIndex(value.attrs),
@@ -102,6 +115,34 @@ export function parseRelations(
       entity,
     });
   });
+}
+
+function relationStyleNumber(
+  value: unknown,
+  path: string,
+  code: string,
+  sourceId: string,
+  state: ParseState,
+  accepts: (value: number) => boolean,
+  message: string,
+): number {
+  if (value === undefined) return 1;
+  const parsed = finiteNumber(value);
+  if (parsed !== undefined && accepts(parsed)) return parsed;
+  fatal(state, path, code, message, sourceId);
+}
+
+function relationStyle(
+  value: unknown,
+  path: string,
+  sourceId: string,
+  state: ParseState,
+): JsonRecord {
+  if (value === undefined) return {};
+  if (!isRecord(value)) {
+    fatal(state, path, 'invalid-relation-style', 'Relation style must be an object', sourceId);
+  }
+  return value;
 }
 
 export function validateRelationEndpoints(state: ParseState): void {
@@ -140,7 +181,7 @@ export function validateRelationEndpoints(state: ParseState): void {
   const failures = state.diagnostics.filter((entry) => entry.level === 'error');
   if (failures.length > 0) {
     throw new PatchMapParseError(
-      `PATCH MAP v0.10 parse failed with ${failures.length} error${failures.length === 1 ? '' : 's'}`,
+      `PatchMap parse failed with ${failures.length} error${failures.length === 1 ? '' : 's'}`,
       deepFreeze([...state.diagnostics]),
     );
   }

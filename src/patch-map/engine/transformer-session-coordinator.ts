@@ -38,9 +38,13 @@ import type {
   PatchMapEngineTransformerPreviewResult,
   PatchMapEngineTransformerSessionBeginInput,
   PatchMapEngineTransformerSessionProbe,
+} from './contracts/history-transformer';
+import type {
   PatchMapEngineTransactionResult,
+} from './contracts/mutation';
+import type {
   PatchMapRevisionStamp,
-} from './public-contracts';
+} from './contracts/lifecycle';
 import { PatchMapTransformerEditAuthority } from './transformer-edit-authority';
 
 export interface PatchMapTransformerSessionPort {
@@ -222,16 +226,6 @@ export class PatchMapTransformerSessionCoordinator {
         probe: this.editProbe(),
       });
     }
-    if (!surface.reconcile) {
-      return Object.freeze({
-        status: 'refused',
-        changed: false,
-        plan,
-        reconcileDiagnostics: EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS,
-        probe: this.editProbe(),
-      });
-    }
-
     let previewMaterialized = active.startMaterialized;
     let mutationPlan: PatchMapMutationTransactionPlan | null = null;
     if (plan.status === 'planned') {
@@ -454,13 +448,6 @@ export class PatchMapTransformerSessionCoordinator {
     const active = this.edits.current();
     if (active === null || active.previewMaterialized === null) return;
     const surface = this.port.requireSurface('restoreTransformerPreview');
-    if (!surface.reconcile) {
-      throw this.port.operationFailure(
-        'UNSUPPORTED_RUNTIME',
-        'restoreTransformerPreview',
-        false,
-      );
-    }
     if (active.transientPreview && surface.clearIncrementalPreview !== undefined) {
       surface.clearIncrementalPreview();
       if (!this.port.sameSelection(this.port.selectionIds(), active.startSelectionIds)) {
@@ -502,9 +489,9 @@ export class PatchMapTransformerSessionCoordinator {
       return;
     }
     const authoritative = this.port.materialized();
-    if (authoritative === null || !surface.reconcile) {
+    if (authoritative === null) {
       throw this.port.operationFailure(
-        'UNSUPPORTED_RUNTIME',
+        'NOT_READY',
         'restoreTransformerPreview',
         false,
       );

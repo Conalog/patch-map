@@ -95,7 +95,7 @@ export function previousRootFragments(
     projection: projectionForEntities(
       previous.projection,
       entities[index]!,
-      (previous.projection.omittedRelations ?? []).filter(
+      previous.projection.omittedRelations.filter(
         ({ relationId }) => relationId === element!.sourceId,
       ),
     ),
@@ -324,7 +324,7 @@ export function selectedRootFragments(
       projection: projectionForEntities(
         parsed.projection,
         entities.get(index)!,
-        (parsed.projection.omittedRelations ?? []).filter(
+        parsed.projection.omittedRelations.filter(
           ({ relationId }) => relationId === rootElements.get(index)!.sourceId,
         ),
       ),

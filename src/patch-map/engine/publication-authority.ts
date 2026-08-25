@@ -1,12 +1,18 @@
 import type {
   PatchMapEngineHistoryVisibleEvent,
+} from './contracts/history-transformer';
+import type {
   PatchMapGeometryRevisionTuple,
+} from './contracts/rendering';
+import type {
   PatchMapLiveOverlayProbe,
   PatchMapLiveOverlayPublishedTuple,
   PatchMapLiveOverlayTuple,
+} from './contracts/mutation';
+import type {
   PatchMapPublishedTuple,
   PatchMapRevisionStamp,
-} from './public-contracts';
+} from './contracts/lifecycle';
 
 export type PatchMapPublicationHistoryDirection = 'undo' | 'redo';
 
@@ -161,7 +167,6 @@ export class PatchMapPublicationAuthority {
     readonly surfaceRevision: number | null;
     readonly representedRevisions: PatchMapGeometryRevisionTuple | null;
     readonly revisionLags: PatchMapGeometryRevisionTuple | null;
-    readonly revisionLag: number | null;
   }> {
     if (surfaceRevision === null || !Number.isFinite(surfaceRevision)) {
       return Object.freeze({
@@ -169,7 +174,6 @@ export class PatchMapPublicationAuthority {
         surfaceRevision: null,
         representedRevisions: null,
         revisionLags: null,
-        revisionLag: null,
       });
     }
     if (this.geometryRevisionCorrelation?.surfaceRevision !== surfaceRevision) {
@@ -193,7 +197,6 @@ export class PatchMapPublicationAuthority {
       surfaceRevision,
       representedRevisions,
       revisionLags,
-      revisionLag: revisionLags.scene,
     });
   }
 

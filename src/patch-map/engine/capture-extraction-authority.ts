@@ -1,12 +1,14 @@
 import type { PatchMapExtractionSecurityAuthority } from '../operations/extraction-security-authority';
 import type {
   PatchMapDiagnosticCategory,
-  PatchMapEngineCanvasHandle,
   PatchMapEngineDiagnostic,
+  PatchMapPublishedTuple,
+} from './contracts/lifecycle';
+import type {
+  PatchMapEngineCanvasHandle,
   PatchMapEngineExtractionRequest,
   PatchMapEngineExtractionResult,
-  PatchMapPublishedTuple,
-} from './public-contracts';
+} from './contracts/extraction';
 import type { PatchMapEngineSurface } from './contracts';
 import { validateExtractionRequest } from './input-contracts';
 import { PatchMapError } from './operation-outcomes';

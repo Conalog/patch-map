@@ -39,6 +39,7 @@ import {
 import {
   clonePatchMapParserJson as cloneJson,
   deepFreezePatchMapParserValue as deepFreeze,
+  fatalPatchMapParse as fatal,
   warnPatchMapParse as warn,
   warnPatchMapParseOnce as warnOnce,
   type PatchMapParseState as ParseState,
@@ -127,10 +128,30 @@ export function parseComponent(
   const opacity = owner.opacity * attributeAlpha(attrs, `${path}.attrs.alpha`, state);
 
   if (type === 'background') {
+    if (value.size !== undefined) {
+      fatal(
+        state,
+        `${path}.size`,
+        'unknown-component-field',
+        'Background component contains unknown field "size"',
+        sourceElementId,
+      );
+    }
     const source = value.source;
     const sourceRecord = isRecord(source) ? source : undefined;
-    // Approved v0.10 compatibility semantics preserve authored background size
-    // in the semantic dataset, but always paint the complete item frame.
+    if (
+      sourceRecord !== undefined &&
+      !Object.hasOwn(sourceRecord, 'src') &&
+      sourceRecord.type !== 'rect'
+    ) {
+      fatal(
+        state,
+        `${path}.source.type`,
+        'invalid-rect-texture',
+        "Rect texture source must declare type 'rect'",
+        sourceElementId,
+      );
+    }
     const local: Box = { x: 0, y: 0, width: itemSize.width, height: itemSize.height };
     const transform = componentTransform(itemTransform, local, attrs, path, state);
     if (sourceRecord?.type === 'rect') {
@@ -155,7 +176,7 @@ export function parseComponent(
         componentId,
         type,
         'background-geometry',
-        value.size,
+        undefined,
         state,
       );
       state.backgroundPaintProjectionByEntityId[entityId] = Object.freeze({
@@ -206,7 +227,7 @@ export function parseComponent(
       componentId,
       type,
       'background-asset',
-      value.size,
+      undefined,
       state,
     );
     state.backgroundPaintProjectionByEntityId[entityId] = Object.freeze({
@@ -223,7 +244,7 @@ export function parseComponent(
       source,
       `${path}.source`,
       'layout',
-      value.size !== undefined,
+      false,
       state,
     );
     addEntity(
@@ -260,8 +281,14 @@ export function parseComponent(
       state,
     );
     const source = isRecord(value.source) ? value.source : undefined;
-    if (value.source !== undefined && source?.type !== 'rect') {
-      warn(state, `${path}.source`, 'bar-source-degraded', 'Non-rect bar source is rendered as a tinted aggregate bar', sourceElementId);
+    if (source?.type !== 'rect') {
+      fatal(
+        state,
+        `${path}.source.type`,
+        'invalid-rect-texture',
+        "Rect texture source must declare type 'rect'",
+        sourceElementId,
+      );
     }
     const trackFill = resolveColor(source?.fill, 0x00000000, `${path}.source.fill`, state);
     const fill = value.tint === undefined
@@ -361,7 +388,7 @@ export function parseComponent(
       height: Math.max(0, content.height - margins.top - margins.bottom),
     };
     const source = typeof value.text === 'string' ? value.text : '';
-    const split = textSplit(value.split, `${path}.split`, state);
+    const split = textSplit(value.split, `${path}.split`, sourceElementId, state);
     const placement = textPlacement(value.placement, `${path}.placement`, state);
     const initialLayout = semanticTextLayout(
       source,
@@ -410,8 +437,6 @@ export function parseComponent(
         componentVisible,
         false,
         30,
-        path,
-        state,
       ), opacity),
       { ...owner, component },
       state,
@@ -566,14 +591,13 @@ export function textEntity(
   visible: boolean,
   interactive: boolean,
   layer: number,
-  path: string,
-  state: ParseState,
 ): EntityInput {
   const alignValue = style.align;
-  const align: AlignSetting = alignValue === 'center' || alignValue === 'right' ? alignValue : 'left';
-  if (alignValue !== undefined && alignValue !== 'left' && alignValue !== 'center' && alignValue !== 'right') {
-    warn(state, `${path}.style.align`, 'text-align-degraded', 'Unsupported text alignment fell back to left');
-  }
+  const align: AlignSetting = alignValue === 'center' ||
+      alignValue === 'right' ||
+      alignValue === 'justify'
+    ? alignValue
+    : 'left';
   const denseTransform = projectPatchMapParserTopLeft(transform, box);
   return {
     kind: 'text',
@@ -623,7 +647,7 @@ export function semanticTextLayout(
   );
   const overflow = textOverflow(overflowValue, `${path}.overflow`, state);
   const wordWrapWidth = textWrapWidth(style, contentFrame, path, state);
-  // Match the PATCH MAP v0.10 text-style default even when callers use the
+  // Match the PatchMap text-style default even when callers use the
   // lower-level parser directly instead of passing through the materializer.
   const requestedFontValue = requestedFont(style.fontFamily) ?? PATCH_MAP_FIRA_CODE_FAMILY;
   const autoFont = textAutoFont(style.autoFont, `${path}.style.autoFont`, state);
@@ -714,11 +738,21 @@ function textLetterSpacing(
   return undefined;
 }
 
-function textSplit(value: unknown, path: string, state: ParseState): number {
+function textSplit(
+  value: unknown,
+  path: string,
+  sourceId: string,
+  state: ParseState,
+): number {
   if (value === undefined) return 0;
-  if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
-  warn(state, path, 'invalid-text-split', 'Invalid split fell back to zero');
-  return 0;
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return value;
+  fatal(
+    state,
+    path,
+    'invalid-text-split',
+    'Text split must be a nonnegative safe integer',
+    sourceId,
+  );
 }
 
 function textPlacement(
@@ -730,8 +764,12 @@ function textPlacement(
   if (typeof value === 'string' && TEXT_PLACEMENTS.has(value as PatchMapPlacement)) {
     return value as PatchMapPlacement;
   }
-  warn(state, path, 'invalid-placement', 'Invalid placement fell back to center');
-  return 'center';
+  fatal(
+    state,
+    path,
+    'invalid-placement',
+    'Placement must be a supported PatchMap placement',
+  );
 }
 
 function textOverflow(

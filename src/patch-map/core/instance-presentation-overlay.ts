@@ -76,6 +76,15 @@ interface NormalizedPresentationPatch {
   readonly changes?: Readonly<Record<string, unknown>>;
 }
 
+const INSTANCE_PRESENTATION_BATCH_FIELDS = new Set([
+  'background',
+  'bar',
+  'icon',
+  'text',
+  'animate',
+  'animatedBarTargets',
+]);
+
 export interface PatchMapInstancePresentationPlan {
   readonly projection: PatchMapProjectionIndex;
   readonly presentations: ReadonlyMap<string, PatchMapStoredInstancePresentation>;
@@ -101,12 +110,13 @@ export interface PatchMapInstanceBarHeightOnlyPlan {
 export function isPatchMapInstanceBarHeightOnlyRequest(
   request: PatchMapInstanceBarHeightBatchRequest,
 ): boolean {
-  return request.targets !== undefined &&
-    request.heights !== undefined &&
+  return request.bar?.height !== undefined &&
     request.background === undefined &&
-    request.bar === undefined &&
     request.icon === undefined &&
-    request.text === undefined;
+    request.text === undefined &&
+    request.bar.tint === undefined &&
+    request.bar.source === undefined &&
+    request.bar.show === undefined;
 }
 
 /** Keep the established height-only hot path out of general presentation planning. */
@@ -121,24 +131,25 @@ export function planPatchMapInstanceBarHeightOnlyOverlay(
   if (request.animate !== undefined && typeof request.animate !== 'boolean') {
     throw new TypeError('instance presentation animate must be a boolean');
   }
-  if (!Array.isArray(request.targets)) {
+  const columns = request.bar;
+  if (columns === undefined || !Array.isArray(columns.targets)) {
     throw new TypeError('instance bar targets must be an array');
   }
-  const heights = request.heights;
-  if (heights === undefined || heights === null || typeof heights !== 'object') {
+  const heightColumn = columns.height;
+  if (heightColumn === undefined || heightColumn === null || typeof heightColumn !== 'object') {
     throw new TypeError('instance bar height must be array-like');
   }
-  if (!Number.isSafeInteger(heights.length) || heights.length < 0) {
+  if (!Number.isSafeInteger(heightColumn.length) || heightColumn.length < 0) {
     throw new TypeError('instance bar height length must be a non-negative safe integer');
   }
-  if (heights.length !== request.targets.length) {
+  if (heightColumn.length !== columns.targets.length) {
     throw new RangeError('instance bar height length must match targets length');
   }
 
   const updates: PatchMapInstanceBarOverlayUpdate[] = [];
-  for (let index = 0; index < request.targets.length; index += 1) {
-    const target = normalizeTarget(request.targets[index], `instance bar targets[${index}]`);
-    const height = heights[index];
+  for (let index = 0; index < columns.targets.length; index += 1) {
+    const target = normalizeTarget(columns.targets[index], `instance bar targets[${index}]`);
+    const height = heightColumn[index];
     if (height !== null &&
       (typeof height !== 'number' || !Number.isFinite(height) || height < 0)) {
       throw new RangeError(`instance bar height[${index}] must be null or finite and non-negative`);
@@ -227,10 +238,10 @@ export function planPatchMapInstancePresentationOverlay(
       patch.target.componentId,
     ));
     const component = indexed
-      ? authored.componentsByEntityId?.[indexed.entityId]
+      ? authored.componentsByEntityId[indexed.entityId]
       : undefined;
-    const bar = indexed ? authored.barsByEntityId?.[indexed.entityId] : undefined;
-    const text = indexed ? authored.textsByEntityId?.[indexed.entityId] : undefined;
+    const bar = indexed ? authored.barsByEntityId[indexed.entityId] : undefined;
+    const text = indexed ? authored.textsByEntityId[indexed.entityId] : undefined;
     const componentPath = indexed?.componentPath ?? null;
     let authoredComponent = componentByPath.get(componentPath);
     if (authoredComponent === undefined) {
@@ -399,7 +410,7 @@ export function planPatchMapInstancePresentationOverlay(
       projectionEntityIds.push(entityId);
       if (stored === undefined) {
         const authoredEntity = authored.byEntityId[entityId];
-        const authoredVisual = authored.componentsByEntityId?.[entityId];
+        const authoredVisual = authored.componentsByEntityId[entityId];
         if (
           authoredEntity === undefined ||
           (patch.type === 'background' && authoredVisual === undefined)
@@ -409,15 +420,15 @@ export function planPatchMapInstancePresentationOverlay(
         entitySelections[entityId] = authoredEntity;
         if (authoredVisual !== undefined) componentSelections[entityId] = authoredVisual;
         if (patch.type === 'background') {
-          const authoredBackground = authored.backgroundsByEntityId?.[entityId];
+          const authoredBackground = authored.backgroundsByEntityId[entityId];
           if (authoredBackground === undefined) {
             throw new Error(`authored background presentation is missing ${entityId}`);
           }
           backgroundSelections[entityId] = authoredBackground;
           backgroundIds.push(entityId);
-          selectImageProjection(imageSelections, imageIds, entityId, authored.imagesByEntityId?.[entityId]);
+          selectImageProjection(imageSelections, imageIds, entityId, authored.imagesByEntityId[entityId]);
         } else {
-          const authoredText = authored.textsByEntityId?.[entityId];
+          const authoredText = authored.textsByEntityId[entityId];
           if (authoredText === undefined) {
             throw new Error(`authored text presentation is missing ${entityId}`);
           }
@@ -537,14 +548,14 @@ export function planPatchMapInstancePresentationOverlay(
     if (!sameRendererOverride(previousOverride, nextOverride)) changed.add(indexed.entityId);
 
     if (patch.type !== 'icon' || !sourceChanged) continue;
-    const authoredImage = authored.imagesByEntityId?.[indexed.entityId];
+    const authoredImage = authored.imagesByEntityId[indexed.entityId];
     if (!authoredImage) continue;
     const nextImage = stored?.source === undefined
       ? authoredImage
       : imageProjection(indexed.entityId, stored.source as PatchMapAssetSource, authoredImage);
     imageSelections.set(indexed.entityId, nextImage);
     imageIds.push(indexed.entityId);
-    if (!sameImageProjection(current.imagesByEntityId?.[indexed.entityId], nextImage)) {
+    if (!sameImageProjection(current.imagesByEntityId[indexed.entityId], nextImage)) {
       changed.add(indexed.entityId);
     }
   }
@@ -653,26 +664,16 @@ function normalizePresentationPatches(
   if (request.animate !== undefined && typeof request.animate !== 'boolean') {
     throw new TypeError('instance presentation animate must be a boolean');
   }
-  if ((request.targets === undefined) !== (request.heights === undefined)) {
-    throw new TypeError('legacy instance bar targets and heights must be provided together');
-  }
-  if (request.targets !== undefined && request.bar !== undefined) {
-    throw new TypeError('legacy and columnar instance bar inputs cannot be mixed');
+  const unknownField = Object.keys(request).find(
+    (field) => !INSTANCE_PRESENTATION_BATCH_FIELDS.has(field),
+  );
+  if (unknownField !== undefined) {
+    throw new TypeError(`instance presentation batch does not support ${unknownField}`);
   }
   const result: NormalizedPresentationPatch[] = [];
   const normalizedColors = new Map<unknown, unknown>();
   const normalizedBarSources = new Map<unknown, PatchMapRectTexture>();
   const normalizedIconSources = new Map<unknown, PatchMapAssetSource>();
-  if (request.targets !== undefined && request.heights !== undefined) {
-    normalizeColumns(
-      'bar',
-      { targets: request.targets, height: request.heights },
-      result,
-      normalizedColors,
-      normalizedBarSources,
-      normalizedIconSources,
-    );
-  }
   if (request.background !== undefined) {
     normalizeComponentColumns('background', request.background, result);
   }
@@ -822,7 +823,7 @@ function normalizeComponentColumns(
   const directStyle = type === 'text' && 'style' in columns ? columns.style : undefined;
   const changeEntries = instanceDataEntries(changes, `instance ${type} changes`);
   const allowed = type === 'background'
-    ? new Set(['show', 'source', 'tint', 'size', 'attrs'])
+    ? new Set(['show', 'source', 'tint', 'attrs'])
     : new Set(['show', 'text', 'placement', 'margin', 'tint', 'style', 'split', 'attrs']);
   const unknown = changeEntries.find(([name]) => !allowed.has(name))?.[0];
   if (unknown !== undefined) {
@@ -1275,7 +1276,9 @@ function rendererOverrideFromEntity(
         ? RenderAlign.Center
         : entity.align === 'right'
           ? RenderAlign.Right
-          : RenderAlign.Left,
+          : entity.align === 'justify'
+            ? RenderAlign.Justify
+            : RenderAlign.Left,
     });
   }
   throw new TypeError(`unsupported instance presentation entity kind: ${entity.kind}`);

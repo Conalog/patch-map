@@ -112,7 +112,7 @@ export interface PatchMapSurfaceDebug {
   readonly backingSize: readonly [number, number];
   readonly selectionIds: readonly string[];
   readonly activeAnimationCount: number;
-  /** Public aggregate renderer facts. Injected legacy surfaces may omit them. */
+  /** Public aggregate renderer facts available when the surface publishes them. */
   readonly activeGestureCount?: number;
   readonly renderCommandCount?: number;
   readonly visiblePrimitiveCount?: number;
@@ -240,12 +240,8 @@ export interface PatchMapSurfaceLifecyclePort {
 
 /** Atomic mutation and renderer-only presentation capabilities. */
 export interface PatchMapSurfaceMutationPresentationPort {
-  /**
-   * Atomically reconcile a detached PATCH MAP candidate without replacing the
-   * whole dense scene. Older injected surfaces may omit this capability; the
-   * Engine then refuses partial mutation instead of falling back to `load`.
-   */
-  reconcile?(
+  /** Atomically reconcile a detached PatchMap candidate. */
+  reconcile(
     input: unknown,
     options?: PatchMapSurfaceReconcileOptions,
   ): PatchMapSurfaceReconcileResult;

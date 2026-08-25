@@ -70,7 +70,6 @@ function descriptorCacheIdentity(
   }
   if (source.format !== undefined) query.push(['format', source.format]);
   if (source.parser !== undefined) query.push(['parser', source.parser]);
-  if (source.loadParser !== undefined) query.push(['loadParser', source.loadParser]);
   query.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
   const suffix = query.length === 0
     ? ''
@@ -84,7 +83,7 @@ function descriptorNeedsFramedIdentity(
   source: Exclude<PatchMapImageProjection['authoredSource'], string>,
 ): boolean {
   if (/[?#]/u.test(source.src)) return true;
-  const topLevelOptionNames = new Set(['data', 'format', 'parser', 'loadParser']);
+  const topLevelOptionNames = new Set(['data', 'format', 'parser']);
   return Object.keys(source.data ?? {}).some((key) => topLevelOptionNames.has(key));
 }
 

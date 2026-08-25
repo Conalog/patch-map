@@ -80,7 +80,7 @@ export function planPatchMapInstanceBarOverlay(
     seen.add(key);
     const indexed = componentTargets.get(key);
     const bar = indexed
-      ? authored.barsByEntityId?.[indexed.entityId]
+      ? authored.barsByEntityId[indexed.entityId]
       : undefined;
     const entity = indexed
       ? authored.byEntityId[indexed.entityId]
@@ -105,7 +105,7 @@ export function planPatchMapInstanceBarOverlay(
       bar,
       height,
     );
-    const currentBar = current.barsByEntityId?.[indexed.entityId];
+    const currentBar = current.barsByEntityId[indexed.entityId];
     if (!currentBar || !Object.is(currentBar.destinationHeight, height)) {
       selectedEntities[indexed.entityId] = destination;
       selectedBars[indexed.entityId] = Object.freeze({
@@ -117,7 +117,7 @@ export function planPatchMapInstanceBarOverlay(
     const comparison = options.comparison ?? current;
     if (!sameBarDestination(
       comparison.byEntityId[indexed.entityId],
-      comparison.barsByEntityId?.[indexed.entityId],
+      comparison.barsByEntityId[indexed.entityId],
       destination,
       height,
     )) {

@@ -28,13 +28,6 @@ export {
   createPatchMapAssetIngestionPolicy,
   createPatchMapPixiAssetBackend,
 } from './patch-map/assets';
-export {
-  PatchMapMigrationError,
-  assertPatchMapSemanticRoundtrip,
-  materializePatchMapCompatibilityDataset,
-  preparePatchMapPersistenceExport,
-} from './patch-map/migration';
-
 export type {
   PatchMapAssetPolicy,
   PatchMapAssetPolicyContext,
@@ -48,17 +41,13 @@ export type {
   PatchMapAssetSessionProbe,
   PatchMapPixiAssetBackendOptions,
 } from './patch-map/assets';
-export type {
-  PatchMapCompatibilityMaterialization,
-  PatchMapPersistenceExport,
-} from './patch-map/migration';
 export type { PatchMapHistoryState } from './patch-map/history';
 export type {
   PatchMapViewportChangeResult,
   PatchMapViewportFitResult,
   PatchMapViewportRestoreResult,
   PatchMapViewportState,
-} from './patch-map/engine/public-contracts';
+} from './patch-map/engine/contracts/viewport';
 export type {
   PatchMapAssetStatus,
   PatchMapAssetsApi,

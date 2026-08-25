@@ -20,7 +20,7 @@ export interface PatchMapRuntimeRendererPublicationCheckpoint {
   readonly opaqueState: unknown;
 }
 
-/** Optional exact-checkpoint capability supplied by a concrete renderer adapter. */
+/** Exact renderer publication checkpoint used by the load transaction. */
 export interface PatchMapRuntimeRendererPublicationCheckpointCapability {
   readonly capture: () => PatchMapRuntimeRendererPublicationCheckpoint;
   readonly restore: (
@@ -40,7 +40,7 @@ export interface PatchMapRuntimeRendererDebugProbe {
  */
 export interface PatchMapRuntimeRendererPort {
   readonly strategy: PatchMapRendererStrategy;
-  readonly publicationCheckpoint?: PatchMapRuntimeRendererPublicationCheckpointCapability;
+  readonly publicationCheckpoint: PatchMapRuntimeRendererPublicationCheckpointCapability;
   markChanges(
     ranges: readonly SlotRange[],
     reason: string,
@@ -59,7 +59,7 @@ export interface PatchMapRuntimeRendererPort {
   setPresentationLayerMultipliers(
     update: PatchMapPresentationLayerRenderUpdate,
   ): boolean;
-  setInstancePresentationOverrides?(
+  setInstancePresentationOverrides(
     overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
     changedRanges?: readonly SlotRange[],
   ): boolean;

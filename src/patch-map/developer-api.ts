@@ -8,25 +8,35 @@ import type { PatchMapInstanceBarHeightBatchRequest } from './core/contracts';
 import type { PatchMapHistoryState } from './history';
 import type {
   PatchMapEngineInstanceBarHeightResult,
-  PatchMapEngineExtractionResult,
-  PatchMapEngineLoadResult,
-  PatchMapEngineQueryResult,
   PatchMapEngineTransactionResult,
+} from './engine/contracts/mutation';
+import type {
+  PatchMapEngineExtractionResult,
+} from './engine/contracts/extraction';
+import type {
+  PatchMapEngineLoadResult,
   PatchMapLoadOptions as PatchMapEngineLoadOptions,
+} from './engine/contracts/product';
+import type {
+  PatchMapEngineQueryResult,
+} from './engine/contracts/query-selection';
+import type {
   PatchMapViewportChangeResult,
   PatchMapViewportFitOptions,
   PatchMapViewportFitResult,
   PatchMapViewportRestoreResult,
   PatchMapViewportState,
-} from './engine/public-contracts';
+} from './engine/contracts/viewport';
 import type {
   PatchMapEngineHistoryClearResult,
   PatchMapEngineHistoryResult,
-  PatchMapEngineSnapshot,
   PatchMapEngineTransformerEditOptions,
   PatchMapEngineTransformerEditResult,
-} from './engine/public-contracts';
-import { preparePatchMapPersistenceExport } from './migration';
+} from './engine/contracts/history-transformer';
+import type {
+  PatchMapEngineSnapshot,
+} from './engine/contracts/product';
+import { serializePatchMapDataset } from './persistence';
 import type {
   PatchMapLogicalTargetSnapshot,
   PatchMapSceneQuery,
@@ -399,7 +409,7 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
       return host.exportDataset();
     },
     serialize(strictReferences = true): string {
-      return preparePatchMapPersistenceExport(host.exportDataset(), { strictReferences }).serialized;
+      return serializePatchMapDataset(host.exportDataset(), { strictReferences });
     },
   });
 

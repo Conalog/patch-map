@@ -25,36 +25,8 @@ export const STRUCTURAL_CHANGED_ENTITY_IDS_CACHE = new WeakMap<
   readonly string[]
 >();
 
-/**
- * Renderer-only diagnostic shells retain the same parser identity graph.
- * Preserve the private fragment/index accelerators across that immutable
- * wrapper so a sequence of structural editor commands remains incremental.
- */
-export function inheritPatchMapV010IncrementalParserCaches(
-  source: ParsePatchMapResult,
-  target: ParsePatchMapResult,
-): void {
-  if (source === target) return;
-  const fragments = ROOT_FRAGMENTS_CACHE.get(source);
-  if (fragments !== undefined) ROOT_FRAGMENTS_CACHE.set(target, fragments);
-  const indexes = STABLE_PARSE_INDEX_CACHE.get(source);
-  if (indexes !== undefined) STABLE_PARSE_INDEX_CACHE.set(target, indexes);
-  const localAffines = DIRECT_ANGLE_LOCAL_AFFINE_CACHE.get(source);
-  if (localAffines !== undefined) {
-    DIRECT_ANGLE_LOCAL_AFFINE_CACHE.set(target, localAffines);
-  }
-  const structuralChangedEntityIds =
-    STRUCTURAL_CHANGED_ENTITY_IDS_CACHE.get(source);
-  if (structuralChangedEntityIds !== undefined) {
-    STRUCTURAL_CHANGED_ENTITY_IDS_CACHE.set(
-      target,
-      structuralChangedEntityIds,
-    );
-  }
-}
-
 /** Exact projection membership/value delta retained by a structural parse. */
-export function patchMapV010StructuralChangedEntityIds(
+export function patchMapStructuralChangedEntityIds(
   parsed: ParsePatchMapResult,
 ): readonly string[] | null {
   return STRUCTURAL_CHANGED_ENTITY_IDS_CACHE.get(parsed) ?? null;

@@ -329,9 +329,6 @@ export class AggregateMeshLayer {
   public readonly backgroundGeometryContainer: Container;
   public readonly ordinaryGeometryContainer: Container;
   public readonly relationsDynamicContainer: Container;
-  /** Compatibility aliases retained for existing renderer tests and consumers. */
-  public readonly quadContainer: Container;
-  public readonly relationContainer: Container;
   public readonly chunkSize: number;
 
   readonly #baseLabel: string;
@@ -385,17 +382,15 @@ export class AggregateMeshLayer {
     });
     this.ordinaryGeometryContainer = new Container({ label: `${this.#baseLabel}: rect/bar` });
     this.relationsDynamicContainer = new Container({ label: `${this.#baseLabel}: relations` });
-    this.quadContainer = this.ordinaryGeometryContainer;
-    this.relationContainer = this.relationsDynamicContainer;
     this.container.eventMode = 'none';
     this.backgroundGeometryContainer.eventMode = 'none';
-    this.quadContainer.eventMode = 'none';
-    this.relationContainer.eventMode = 'none';
+    this.ordinaryGeometryContainer.eventMode = 'none';
+    this.relationsDynamicContainer.eventMode = 'none';
     this.backgroundGeometryContainer.interactiveChildren = false;
-    this.quadContainer.sortableChildren = true;
-    this.relationContainer.sortableChildren = true;
+    this.ordinaryGeometryContainer.sortableChildren = true;
+    this.relationsDynamicContainer.sortableChildren = true;
     this.backgroundGeometryContainer.sortableChildren = true;
-    this.container.addChild(this.quadContainer, this.relationContainer);
+    this.container.addChild(this.ordinaryGeometryContainer, this.relationsDynamicContainer);
     this.#debug = Object.freeze({ ...EMPTY_DEBUG, chunkSize });
   }
 
@@ -719,9 +714,9 @@ export class AggregateMeshLayer {
       `${this.#baseLabel} (${ordinaryMeshCount + relationMeshCount} meshes, ${ordinaryGraphicsObjectCount} graphics)`;
     this.backgroundGeometryContainer.label =
       `PatchMap / background geometry (${visibleBackgroundPrimitives})`;
-    this.quadContainer.label =
+    this.ordinaryGeometryContainer.label =
       `${this.#baseLabel}: rect/bar (${visibleOrdinaryPrimitives})`;
-    this.relationContainer.label =
+    this.relationsDynamicContainer.label =
       `${this.#baseLabel}: relations/dynamic (${visibleRelationsDynamicPrimitives})`;
     return this.#debug;
   }
@@ -764,8 +759,8 @@ export class AggregateMeshLayer {
     if (this.#destroyed) return false;
     this.clear();
     this.backgroundGeometryContainer.destroy();
-    this.quadContainer.destroy();
-    this.relationContainer.destroy();
+    this.ordinaryGeometryContainer.destroy();
+    this.relationsDynamicContainer.destroy();
     this.container.destroy();
     this.#destroyed = true;
     return true;
@@ -856,7 +851,7 @@ export class AggregateMeshLayer {
     );
 
     const rectDelta = this.#syncGroups(
-      this.quadContainer,
+      this.ordinaryGeometryContainer,
       chunk.rectMeshes,
       built.rectGroups,
       chunkIndex,
@@ -870,7 +865,7 @@ export class AggregateMeshLayer {
       'rect',
     );
     const barDelta = this.#syncGroups(
-      this.relationContainer,
+      this.relationsDynamicContainer,
       chunk.barMeshes,
       built.barGroups,
       chunkIndex,
@@ -884,7 +879,7 @@ export class AggregateMeshLayer {
       'bar',
     );
     const relationDelta = this.#syncGroups(
-      this.relationContainer,
+      this.relationsDynamicContainer,
       chunk.relationMeshes,
       built.relationGroups,
       chunkIndex,
@@ -1030,7 +1025,7 @@ export class AggregateMeshLayer {
       this.#projectionContext,
     );
     const delta = this.#syncGroups(
-      this.relationContainer,
+      this.relationsDynamicContainer,
       chunk.barMeshes,
       built.groups,
       chunkIndex,

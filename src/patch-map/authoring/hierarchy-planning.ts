@@ -58,7 +58,7 @@ export function planHierarchyMove(
       fail(
         'INVALID_MUTATION',
         ['parentId'],
-        'PATCH MAP v0.10 hierarchy parents must be group elements',
+        'PatchMap hierarchy parents must be group elements',
       );
     }
     if (isDescendant(index, action.parentId, action.target)) {

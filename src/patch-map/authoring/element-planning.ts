@@ -157,7 +157,7 @@ function createElementRecord(
             text: 'Item',
             placement: 'center',
             style: Object.freeze({
-              fontFamily: 'Fira Code',
+              fontFamily: 'FiraCode',
               fontSize: 14,
               fill: '#111827',
             }),
@@ -188,7 +188,7 @@ function createElementRecord(
         id,
         text: 'Text',
         style: Object.freeze({
-          fontFamily: 'Fira Code',
+          fontFamily: 'FiraCode',
           fontSize: 16,
           fill: '#111827',
         }),
@@ -268,7 +268,7 @@ function destinationForParent(
     fail(
       'INVALID_MUTATION',
       ['parentId'],
-      'PATCH MAP v0.10 hierarchy parents must be group elements',
+      'PatchMap hierarchy parents must be group elements',
     );
   }
   return Object.freeze({

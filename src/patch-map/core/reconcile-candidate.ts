@@ -3,23 +3,15 @@ import type {
   ParsePatchMapResult,
 } from '../contracts';
 import {
-  inheritPatchMapV010DirectParseIndexes,
-  parsePatchMapV010,
-  parsePatchMapV010DirectTextBatch,
+  parsePatchMap,
+  parsePatchMapDirectTextBatch,
 } from '../parser';
 import {
-  inheritPatchMapV010IncrementalParserCaches,
-  parsePatchMapV010DirectElementAngleBatch,
-  parsePatchMapV010IncrementalFlat,
-  parsePatchMapV010IncrementalStructure,
-  patchMapV010StructuralChangedEntityIds,
+  parsePatchMapDirectElementAngleBatch,
+  parsePatchMapIncrementalFlat,
+  parsePatchMapIncrementalStructure,
+  patchMapStructuralChangedEntityIds,
 } from '../incremental-parser';
-import {
-  inheritRendererDegradationDiagnostics,
-  inheritRendererDegradationDiagnosticsIncremental,
-  withRendererDegradationDiagnostics,
-} from '../renderers/degradation';
-import type { PatchMapRendererStrategy } from '../renderers/types';
 import type { PatchMapScene } from '../scene';
 import {
   planPatchMapParsedSceneReconcile,
@@ -46,7 +38,7 @@ import {
 } from './reconcile-planning';
 import { denseReconcileOptions } from './semantic-dense-planning';
 
-type PatchMapReconcileCandidatePath =
+export type PatchMapReconcileCandidatePath =
   | 'direct-bar'
   | 'direct-text'
   | 'direct-angle'
@@ -76,7 +68,6 @@ export function preparePatchMapReconcileCandidate(
   published: PatchMapPublishedSceneState,
   scene: PatchMapScene,
   stableRecordStrategy: PatchMapStableRecordStrategy,
-  rendererStrategy: PatchMapRendererStrategy,
 ): PatchMapPreparedReconcileCandidate {
   const parseStarted = now();
   const parseOptions = options.parse ?? defaultParseOptions;
@@ -105,7 +96,7 @@ export function preparePatchMapReconcileCandidate(
       published,
     )
       ? null
-      : parsePatchMapV010DirectTextBatch(
+      : parsePatchMapDirectTextBatch(
           input,
           currentParse,
           options.directTextUpdates,
@@ -128,7 +119,7 @@ export function preparePatchMapReconcileCandidate(
       published,
     )
       ? null
-      : parsePatchMapV010DirectElementAngleBatch(
+      : parsePatchMapDirectElementAngleBatch(
           input,
           published.ownedInputDataset,
           currentParse,
@@ -142,7 +133,7 @@ export function preparePatchMapReconcileCandidate(
     options.structuralSharing !== true ||
     !matchesOwnedStructuralInput(input, parseOptions, published)
       ? null
-      : parsePatchMapV010IncrementalStructure(
+      : parsePatchMapIncrementalStructure(
           input,
           published.ownedInputDataset,
           currentParse,
@@ -171,7 +162,7 @@ export function preparePatchMapReconcileCandidate(
       );
   const incrementalParse = !incrementalInputMatches
     ? null
-    : parsePatchMapV010IncrementalFlat(
+    : parsePatchMapIncrementalFlat(
         input,
         currentParse,
         options.incrementalRootIds ?? [],
@@ -185,7 +176,7 @@ export function preparePatchMapReconcileCandidate(
       directElementAngleParse ??
       structuralParse ??
       incrementalParse ??
-      parsePatchMapV010(input, parseOptions);
+      parsePatchMap(input, parseOptions);
   const incrementalEntityIds = directBarParse !== null
     ? directBarEntityIds(
         options.directBarHeightUpdates ?? [],
@@ -209,31 +200,12 @@ export function preparePatchMapReconcileCandidate(
     structuralTargetMappingsReusable(currentParse, parserResult, options);
   const structuralPresentationEntityIds = structuralParse === null
     ? undefined
-    : patchMapV010StructuralChangedEntityIds(parserResult) ??
+    : patchMapStructuralChangedEntityIds(parserResult) ??
       changedProjectionEntityIds(
         currentParse.projection,
         parserResult.projection,
       );
-  if (
-    directBarParse !== null ||
-    directTextParse !== null ||
-    directElementAngleParse !== null ||
-    hierarchyOnlyTargetMapping
-  ) {
-    inheritRendererDegradationDiagnostics(currentParse, parserResult);
-  } else if (
-    incrementalParse !== null &&
-    incrementalEntityIds !== undefined
-  ) {
-    inheritRendererDegradationDiagnosticsIncremental(
-      currentParse,
-      parserResult,
-      incrementalEntityIds,
-    );
-  }
-  const parse = withRendererDegradationDiagnostics(parserResult, rendererStrategy);
-  inheritPatchMapV010DirectParseIndexes(parserResult, parse);
-  inheritPatchMapV010IncrementalParserCaches(parserResult, parse);
+  const parse = parserResult;
   const parseMs = now() - parseStarted;
 
   const planStarted = now();

@@ -1,4 +1,4 @@
-export const PATCH_MAP_TEXT_RENDER_ROUTE_REVISION = 'core-v2-text-render-route/1';
+export const PATCH_MAP_TEXT_RENDER_ROUTE_REVISION = 'patch-map-text-render-route/1';
 export const PATCH_MAP_BITMAP_TEXT_MAX_CODE_UNITS = 128;
 const CJK_RANGES = Object.freeze([
   [0x1100, 0x11ff],

@@ -28,15 +28,6 @@ import type {
   PatchMapLogicalPresentationLayerInput,
   PatchMapPresentationLayerChange,
 } from './presentation-layers';
-import {
-  PATCH_MAP_VIEWPORT_REVISION,
-  patchMapBoundsCenter,
-  patchMapViewportFitScale,
-  normalizePatchMapViewportPadding,
-  resolvePatchMapViewportContributors,
-  type PatchMapViewportContributorResult,
-  type PatchMapViewportGeometry,
-} from './viewport';
 import type { SlotRange } from './dense/contracts';
 import type {
   PatchMapPixiRendererLossProbe,
@@ -113,12 +104,10 @@ import {
   type PatchMapRelativeGeometryChanges,
   type PatchMapVisibleCenterResize,
 } from './semantic/geometry-update';
-import type { PatchMapScreenRegionBounds } from './semantic/screen-region-index';
 import type {
   PatchMapPoint,
   PatchMapRelationHit,
   PatchMapRelationHitOptions,
-  PatchMapSurfaceGeometrySnapshot,
 } from './engine/surface-contract';
 export type {
   PatchMapPoint,
@@ -174,25 +163,22 @@ import {
   type IndexedEngineTextSemantic,
   type PatchMapEngineComponentSemanticProbe,
 } from './engine/semantic-index';
-import {
-  PatchMapViewportAuthority,
-  type PatchMapViewportViewEffect,
-} from './engine/viewport-authority';
+import { PatchMapViewportAuthority } from './engine/viewport-authority';
+import { PatchMapViewportRuntimeCoordinator } from './engine/viewport-runtime-coordinator';
 import { PatchMapTransformerSessionCoordinator } from './engine/transformer-session-coordinator';
 import { PatchMapTransactionCommitCoordinator } from './engine/transaction-commit-coordinator';
 import { PatchMapDatasetReplacementCoordinator } from './engine/dataset-replacement-coordinator';
 import { PatchMapHistoryApplicationCoordinator } from './engine/history-application-coordinator';
 import { PatchMapDirectMutationCoordinator } from './engine/direct-mutation-coordinator';
 import { PatchMapPublicationAuthority } from './engine/publication-authority';
+import { PatchMapSurfaceMutationGuard } from './engine/surface-mutation-guard';
 import { PatchMapSceneStateAuthority } from './engine/scene-state-authority';
 import { PatchMapSurfaceLifecycleAuthority } from './engine/surface-lifecycle-authority';
 import { PatchMapAssetSessionAuthority } from './engine/asset-session-authority';
 import { PatchMapManagedFrameLoopAuthority } from './engine/managed-frame-loop-authority';
 import { PatchMapCaptureExtractionAuthority } from './engine/capture-extraction-authority';
 import { PatchMapPointerInteractionCoordinator } from './engine/pointer-interaction-coordinator';
-import {
-  selectionGeometryIds,
-} from './engine/pointer-interaction-values';
+import { PatchMapSelectionRuntimeCoordinator } from './engine/selection-runtime-coordinator';
 import {
   emptyPatchMapEngineSurfaceDebug,
   PATCH_MAP_ENGINE_FACILITIES as FACILITIES,
@@ -210,7 +196,6 @@ import {
   type PatchMapEngineProductProbeReadPort,
 } from './engine/product-probe-reader';
 import {
-  finiteTuple,
   nonEmptyValue,
   normalizeBackground,
   normalizeEngineMutationTarget,
@@ -219,7 +204,6 @@ import {
   validateInitializeOptions,
   validateNonNegativeFinite,
   validatePoint,
-  validatePositiveFinite,
 } from './engine/input-contracts';
 import {
   type PatchMapEngineHistoryCompanion,
@@ -240,55 +224,88 @@ export type {
 } from './engine/semantic-index';
 import type {
   PatchMapAggregateRenderOwnerProbe,
+  PatchMapEngineBarPresentationProbe,
+  PatchMapEngineComponentVisualProbe,
+  PatchMapEngineGeometryProbe,
+  PatchMapEnginePaintOrderProbe,
+  PatchMapEnginePixiPublicSurfaceProbe,
+  PatchMapEnginePointerInput,
+  PatchMapEngineRelationProbe,
+  PatchMapEngineRendererLossProbe,
+  PatchMapEngineTextProbe,
+  PatchMapGeometryRevisionTuple,
+} from './engine/contracts/rendering';
+import type {
   PatchMapCommandTargetStatusResult,
+  PatchMapEnginePointSelectionResult,
+  PatchMapEngineQueryResult,
+  PatchMapEngineQueryReuseResult,
+  PatchMapEngineRegionSelectionOptions,
+  PatchMapEngineRegionSelectionResult,
+  PatchMapEngineRelationEndpointSelectionResult,
+  PatchMapEngineSelectionHit,
+  PatchMapExternalSelectionResult,
+  PatchMapResolvedTargetSnapshot,
+} from './engine/contracts/query-selection';
+import type {
   PatchMapDatasetSubmission,
   PatchMapDatasetSubmissionResult,
+  PatchMapEngineLoadResult,
+  PatchMapEnginePrepareResult,
+  PatchMapEnginePresentationResult,
+  PatchMapEngineSnapshot,
+  PatchMapExternalDependencyResult,
+  PatchMapInitializeOptions,
+  PatchMapInitializeResult,
+  PatchMapLoadOptions,
+  PatchMapEngineOptions,
+} from './engine/contracts/product';
+import type {
   PatchMapDiagnosticCategory,
-  PatchMapEngineAuthoringResult,
-  PatchMapEngineBarPresentationProbe,
-  PatchMapEngineCanvasHandle,
-  PatchMapEngineComponentVisualProbe,
-  PatchMapEngineDestroyTargetResult,
   PatchMapEngineDiagnostic,
   PatchMapEngineDocumentVisibilityInput,
   PatchMapEngineDocumentVisibilityResult,
+  PatchMapEnginePageLifecycleProbe,
+  PatchMapEnginePageLifecycleWorkInput,
+  PatchMapHostLifecycleRebindResult,
+  PatchMapLifecycle,
+  PatchMapPublishedTuple,
+  PatchMapRevisionStamp,
+} from './engine/contracts/lifecycle';
+import type {
+  PatchMapEngineAuthoringResult,
   PatchMapEngineEditorMutationMatrixInput,
   PatchMapEngineEditorMutationMatrixResult,
   PatchMapEngineEditorWorkflowResult,
+  PatchMapEngineHostAssetIngestionResult,
+} from './engine/contracts/editor';
+import type {
+  PatchMapEngineCanvasHandle,
   PatchMapEngineExtractionRequest,
   PatchMapEngineExtractionResult,
-  PatchMapEngineGeometryProbe,
+} from './engine/contracts/extraction';
+import type {
+  PatchMapEngineDestroyTargetResult,
+  PatchMapEngineInstanceBarHeightResult,
+  PatchMapEnginePatchResult,
+  PatchMapEngineSemanticRefreshResult,
+  PatchMapEngineTransactionPerformanceProbe,
+  PatchMapEngineTransactionResult,
+  PatchMapInstanceBarHeightRequest,
+  PatchMapLiveOverlayInput,
+  PatchMapLiveOverlayProbe,
+  PatchMapLiveOverlayPublishedTuple,
+  PatchMapLiveOverlayResult,
+  PatchMapLiveOverlayTuple,
+  PatchMapSemanticRefreshInput,
+} from './engine/contracts/mutation';
+import type {
   PatchMapEngineHistoryCapacityResult,
   PatchMapEngineHistoryClearResult,
   PatchMapEngineHistoryCompanionState,
   PatchMapEngineHistoryRestoredEvent,
   PatchMapEngineHistoryResult,
   PatchMapEngineHistoryVisibleEvent,
-  PatchMapEngineHostAssetIngestionResult,
-  PatchMapEngineInstanceBarHeightResult,
-  PatchMapEngineLoadResult,
-  PatchMapEnginePageLifecycleProbe,
-  PatchMapEnginePageLifecycleWorkInput,
-  PatchMapEnginePaintOrderProbe,
-  PatchMapEnginePatchResult,
-  PatchMapEnginePixiPublicSurfaceProbe,
-  PatchMapEnginePointSelectionResult,
-  PatchMapEnginePointerInput,
-  PatchMapEnginePrepareResult,
-  PatchMapEnginePresentationResult,
-  PatchMapEngineQueryResult,
-  PatchMapEngineQueryReuseResult,
-  PatchMapEngineRegionSelectionOptions,
-  PatchMapEngineRegionSelectionResult,
-  PatchMapEngineRelationEndpointSelectionResult,
-  PatchMapEngineRelationProbe,
-  PatchMapEngineRendererLossProbe,
-  PatchMapEngineSelectionHit,
-  PatchMapEngineSemanticRefreshResult,
-  PatchMapEngineSnapshot,
-  PatchMapEngineTextProbe,
-  PatchMapEngineTransactionPerformanceProbe,
-  PatchMapEngineTransactionResult,
   PatchMapEngineTransformerCancelResult,
   PatchMapEngineTransformerCompletionResult,
   PatchMapEngineTransformerEdgePanResult,
@@ -297,27 +314,10 @@ import type {
   PatchMapEngineTransformerPreviewResult,
   PatchMapEngineTransformerSessionBeginInput,
   PatchMapEngineTransformerSessionProbe,
-  PatchMapExternalDependencyResult,
-  PatchMapExternalSelectionResult,
-  PatchMapGeometryRevisionTuple,
   PatchMapHistoryShortcutInput,
   PatchMapHistoryShortcutResult,
-  PatchMapHostLifecycleRebindResult,
-  PatchMapInitializeOptions,
-  PatchMapInitializeResult,
-  PatchMapInstanceBarHeightRequest,
-  PatchMapLifecycle,
-  PatchMapLiveOverlayInput,
-  PatchMapLiveOverlayProbe,
-  PatchMapLiveOverlayPublishedTuple,
-  PatchMapLiveOverlayResult,
-  PatchMapLiveOverlayTuple,
-  PatchMapLoadOptions,
-  PatchMapEngineOptions,
-  PatchMapPublishedTuple,
-  PatchMapResolvedTargetSnapshot,
-  PatchMapRevisionStamp,
-  PatchMapSemanticRefreshInput,
+} from './engine/contracts/history-transformer';
+import type {
   PatchMapSerializedViewportState,
   PatchMapViewportChangeResult,
   PatchMapViewportChangeSource,
@@ -334,8 +334,16 @@ import type {
   PatchMapViewportTransformProbe,
   PatchMapWorldTransformInput,
   PatchMapWorldTransformState,
-} from './engine/public-contracts';
-export type * from './engine/public-contracts';
+} from './engine/contracts/viewport';
+export type * from './engine/contracts/editor';
+export type * from './engine/contracts/extraction';
+export type * from './engine/contracts/history-transformer';
+export type * from './engine/contracts/lifecycle';
+export type * from './engine/contracts/mutation';
+export type * from './engine/contracts/product';
+export type * from './engine/contracts/query-selection';
+export type * from './engine/contracts/rendering';
+export type * from './engine/contracts/viewport';
 import {
   PatchMapSemanticHistory,
   type PatchMapHistoryInspection,
@@ -343,7 +351,6 @@ import {
 } from './history';
 import {
   PATCH_MAP_QUERY_SELECTION_REVISION,
-  applyPatchMapSelectionOperation,
   patchMapLogicalTargetKey,
   type PatchMapLogicalSceneIndex,
   type PatchMapLogicalTargetSnapshot,
@@ -357,16 +364,12 @@ import {
   type PatchMapSelectionSetOperation,
 } from './query-selection';
 import {
-  PATCH_MAP_POINTER_GESTURE_REVISION,
-  hitPatchMapBoxRegion,
-  hitPatchMapPaintRegion,
   type PatchMapGestureCancelReason,
   type PatchMapGestureTerminationReason,
   type PatchMapOwnedGestureKind,
   type PatchMapOwnedGestureTermination,
   type PatchMapPointerDispatchResult,
   type PatchMapPointerGestureProbe,
-  type PatchMapRegionHitResult,
   type PatchMapSemanticPointerEvent,
 } from './pointer-gesture';
 import {
@@ -396,11 +399,8 @@ import {
   type PatchMapTooltipClearReason,
 } from './host-interaction';
 import {
-  createPatchMapSelectionVisualProbe,
   createPatchMapTransformerHandleProbe,
-  evaluatePatchMapTransformableSubset,
   hitPatchMapTransformerHandle,
-  resolvePatchMapRelationEndpoints,
   type PatchMapTransformerGestureAuthority,
   type PatchMapSelectionVisualOptions,
   type PatchMapSelectionVisualProbe,
@@ -558,14 +558,16 @@ export class PatchMap {
   private readonly managedFrameLoop = new PatchMapManagedFrameLoopAuthority();
   private readonly captureExtraction: PatchMapCaptureExtractionAuthority;
   private readonly pointerInteractions: PatchMapPointerInteractionCoordinator;
+  private readonly selectionRuntime: PatchMapSelectionRuntimeCoordinator;
   private readonly accessibility = new PatchMapAccessibilityAuthority();
   private readonly transactionCommit: PatchMapTransactionCommitCoordinator;
   private readonly transformerSessions: PatchMapTransformerSessionCoordinator;
   private readonly datasetReplacement: PatchMapDatasetReplacementCoordinator;
   private readonly historyApplication: PatchMapHistoryApplicationCoordinator;
   private readonly directMutation: PatchMapDirectMutationCoordinator;
-  private readonly viewportAuthority = new PatchMapViewportAuthority();
+  private readonly viewportRuntime: PatchMapViewportRuntimeCoordinator;
   private readonly publication = new PatchMapPublicationAuthority();
+  private readonly surfaceMutationGuard: PatchMapSurfaceMutationGuard;
   private readonly sceneState = new PatchMapSceneStateAuthority(
     EMPTY_MATERIALIZED_DATASET,
   );
@@ -586,11 +588,6 @@ export class PatchMap {
       readonly targetIds: readonly string[];
     }>
   >();
-  private defaultViewportContributorsCache: Readonly<{
-    readonly dataset: readonly NormalizedPatchMapElement[];
-    readonly geometry: PatchMapViewportGeometry;
-    readonly result: PatchMapViewportContributorResult;
-  }> | null = null;
   private rendererConfiguration: Readonly<{
     resolution: number;
     antialias: boolean;
@@ -729,11 +726,54 @@ export class PatchMap {
     this.surfaceLifecycle = new PatchMapSurfaceLifecycleAuthority(
       options.surfaceFactory ?? createPixiSurface,
     );
+    this.surfaceMutationGuard = new PatchMapSurfaceMutationGuard(
+      this.publication,
+      {
+        lifecycle: () => this.lifecycle,
+        liveSurface: () => this.surface,
+      },
+    );
     this.assetSessions = new PatchMapAssetSessionAuthority(
       options.assetRuntime,
       options.assetPolicy,
     );
     this.operations = options.operations ?? new PatchMapOperationsAuthority();
+    this.viewportRuntime = new PatchMapViewportRuntimeCoordinator(
+      new PatchMapViewportAuthority(),
+      {
+        requireSurface: (operation) => this.requireSurface(operation),
+        liveSurface: () => this.surface,
+        isSurfaceInputCurrent: (surface) =>
+          this.surface === surface &&
+          this.terminalSurfaceFailure === null &&
+          !this.isDestroyingOrDestroyed(),
+        materialized: () => this.materialized,
+        revisionStamp: () => this.revisionStamp(),
+        viewRevision: () => this.publication.viewRevision,
+        advanceView: () => {
+          this.publication.advanceView();
+        },
+        refreshAccessibilitySurface: (operation) => {
+          this.refreshAccessibilitySurfaceIfActive(operation);
+        },
+        emitViewChanged: (result) => {
+          this.emit('viewChanged', result);
+        },
+        emitViewSettled: (result) => {
+          this.emit('viewSettled', result);
+        },
+        emitViewportPolicyChanged: (probe) => {
+          this.emit('viewportPolicyChanged', probe);
+        },
+        isDestroyingOrDestroyed: () => this.isDestroyingOrDestroyed(),
+        unsupportedRuntimeError: (operation) => this.operationError(
+          'UNSUPPORTED_RUNTIME',
+          'UNSUPPORTED_RUNTIME',
+          operation,
+          false,
+        ),
+      },
+    );
     this.extractionSecurity = options.extractionSecurity
       ?? new PatchMapExtractionSecurityAuthority();
     this.captureExtraction = new PatchMapCaptureExtractionAuthority(
@@ -769,14 +809,43 @@ export class PatchMap {
         return evaluated.status === 'rejected' ? Object.freeze([]) : evaluated.targets;
       },
     });
+    this.selectionRuntime = new PatchMapSelectionRuntimeCoordinator(
+      this.sceneState,
+      this.publication,
+      this.hostInteractions,
+      {
+        requireSurface: (operation) => this.requireSurface(operation),
+        viewportScale: () => this.viewportRuntime.snapshot().scale,
+        cancelActiveTransformer: (reason, restorePreview) =>
+          this.transformerSessions.cancelActive(reason, restorePreview) !== null,
+        interruptTransformerGestures: () => {
+          this.transformerSessions.interruptGestures();
+        },
+        syncPointerOverlay: () => {
+          this.pointerInteractions.syncSelectionVisualPolicy();
+        },
+        interruptPointerSelection: (reason) => {
+          this.pointerInteractions.interruptAndResetIfPresent(reason);
+        },
+        pointerSelectionPublication: (change) =>
+          this.pointerInteractions.selectionPublication(change),
+        emitSelectionChanged: (change) => {
+          this.emit('selectionChanged', change);
+        },
+        emitPointerSelectionChanged: (publication) => {
+          this.emit('pointerSelectionChanged', publication);
+        },
+        notReadyError: (operation) =>
+          this.operationError('NOT_READY', 'NOT_READY', operation, true),
+      },
+    );
     this.transactionCommit = new PatchMapTransactionCommitCoordinator(
       this.sceneState,
       this.historyAuthority,
       this.hostInteractions,
       this.publication,
+      this.surfaceMutationGuard,
       {
-        lifecycle: () => this.lifecycle,
-        liveSurface: () => this.surface,
         reducedMotion: () => this.accessibility.reducedMotion,
         terminalSurfaceFailure: () => this.terminalSurfaceFailure,
         historySnapshot: () => this.historyApplication.snapshot(),
@@ -796,7 +865,7 @@ export class PatchMap {
           structuralIdentity,
         ),
         commitSceneMetadata: (hostCompanion) => {
-          this.defaultViewportContributorsCache = null;
+          this.viewportRuntime.invalidateContributors();
           this.historyApplication.replaceHostCompanion(hostCompanion);
           this.pointerInteractions.syncSelectionVisualPolicy();
         },
@@ -828,8 +897,8 @@ export class PatchMap {
       clearTooltipForDrag: () => {
         this.hostInteractions.clearTooltip('drag');
       },
-        applySelectionForTransformerStart: (operation) => {
-          this.applySelectionWithPolicy(operation, true);
+      applySelectionForTransformerStart: (operation) => {
+        this.selectionRuntime.apply(operation, true);
       },
       replaceSelectionForRollback: (selectionIds) => {
         this.sceneState.replaceSelection(selectionIds);
@@ -924,7 +993,7 @@ export class PatchMap {
           this.lifecycle = lifecycle;
         },
         isSurfaceMutationCurrent: (surface, revisions) =>
-          this.isSurfaceMutationCurrent(surface, revisions),
+          this.surfaceMutationGuard.mutationCurrent(surface, revisions),
         restoreAuthoritativeSurfaceScene: (surface, operation) => {
           this.restoreAuthoritativeSurfaceScene(surface, operation);
         },
@@ -932,7 +1001,7 @@ export class PatchMap {
           this.pointerInteractions.syncSelectionVisualPolicy();
         },
         invalidateViewportContributors: () => {
-          this.defaultViewportContributorsCache = null;
+          this.viewportRuntime.invalidateContributors();
         },
         diagnosticFrom: (error, operation) => this.diagnosticFrom(error, operation),
         operationDiagnostic: (code, category, operation, recoverable, datasetPath) =>
@@ -971,14 +1040,14 @@ export class PatchMap {
           this.transformerSessions.cancelActive('redraw', true);
         },
         isSurfaceSceneCurrent: (surface, revisions) =>
-          this.isSurfaceSceneCurrent(surface, revisions),
+          this.surfaceMutationGuard.sceneCurrent(surface, revisions),
         isSurfaceMutationCurrent: (surface, revisions) =>
-          this.isSurfaceMutationCurrent(surface, revisions),
+          this.surfaceMutationGuard.mutationCurrent(surface, revisions),
         restoreAuthoritativeSurfaceScene: (surface, operation) => {
           this.restoreAuthoritativeSurfaceScene(surface, operation);
         },
         invalidateViewportContributors: () => {
-          this.defaultViewportContributorsCache = null;
+          this.viewportRuntime.invalidateContributors();
         },
         commitLifecycle: (lifecycle) => {
           this.lifecycle = lifecycle;
@@ -1024,7 +1093,7 @@ export class PatchMap {
           this.pointerInteractions.syncSelectionVisualPolicy();
         },
         invalidateViewportContributors: () => {
-          this.defaultViewportContributorsCache = null;
+          this.viewportRuntime.invalidateContributors();
         },
         clearHistoryForReplacement: () => {
           this.historyApplication.clear('replace');
@@ -1054,7 +1123,7 @@ export class PatchMap {
     this.productProbeReadPort = Object.freeze({
       lifecycle: () => this.lifecycle,
       instanceId: () => this.instanceId,
-      viewportSnapshot: () => this.viewportAuthority.snapshot(),
+      viewportSnapshot: () => this.viewportRuntime.snapshot(),
       surfaceDebug: () => this.surface?.debugSnapshot() ?? null,
       revisionStamp: () => this.revisionStamp(),
       publishedTuple: () => this.publication.publishedTuple,
@@ -1319,7 +1388,7 @@ export class PatchMap {
 
   /** Product-owned pointer/motion state; Lab hosts do not mirror it. */
   public get viewportGestureActive(): boolean {
-    if (this.viewportAuthority.motionActive) return true;
+    if (this.viewportRuntime.motionActive) return true;
     if (this.surface?.viewportGestureActive?.() === true) return true;
     return this.pointerInteractions.active;
   }
@@ -1428,7 +1497,7 @@ export class PatchMap {
       ...(options.target ? { target: options.target } : {}),
       ...(options.canvas ? { canvas: options.canvas } : {}),
     };
-    this.viewportAuthority.initialize({
+    this.viewportRuntime.initialize({
       width: surfaceOptions.width,
       height: surfaceOptions.height,
       pixelRatio: surfaceOptions.pixelRatio,
@@ -1468,10 +1537,10 @@ export class PatchMap {
         });
         candidateSurface = await this.surfaceLifecycle.allocateCandidate(surfaceOptions);
         candidateSurface.setViewportGesturePolicies?.(
-          this.viewportAuthority.orderedEnabledPolicies(),
+          this.viewportRuntime.orderedEnabledPolicies(),
         );
         candidateSurface.setViewportZoomLimits?.(
-          this.viewportAuthority.snapshot().zoomLimits,
+          this.viewportRuntime.snapshot().zoomLimits,
         );
         if (this.isDestroyingOrDestroyed()) {
           if (this.initializationMustCleanLateSurface) {
@@ -1499,7 +1568,7 @@ export class PatchMap {
         try {
           this.surfaceLifecycle.installCandidate(readySurface, {
             viewport: (input: PatchMapSurfaceViewportInput) =>
-              this.acceptSurfaceViewportInput(readySurface, input),
+              this.viewportRuntime.acceptSurfaceInput(readySurface, input),
             pointer: (input: PatchMapSurfacePointerInput) =>
               this.acceptSurfacePointerInput(readySurface, input),
             contextMenu: (input) =>
@@ -1564,8 +1633,8 @@ export class PatchMap {
 
   /**
    * Synchronize aggregate resources and ask PixiJS PrepareSystem to upload
-   * them without publishing a visible frame. Legacy injected surfaces report
-   * explicit unsupported status instead of fabricated upload timing.
+   * them without publishing a visible frame. Surfaces without a prepare phase
+   * report explicit unsupported status instead of fabricated upload timing.
    */
   public async prepareScene(): Promise<PatchMapEnginePrepareResult> {
     const surface = this.requireSurface('prepareScene');
@@ -2175,7 +2244,7 @@ export class PatchMap {
 
   /**
    * Remove one stable logical element through the same incremental reconcile
-   * authority as patch(). A missing reconcile seam or refused dense plan leaves
+   * authority as patch(). A refused dense plan leaves
    * semantic authority, revisions, selection, and the current surface unchanged.
    */
   public destroyTarget(target: PatchMapSemanticTarget): PatchMapEngineDestroyTargetResult {
@@ -2499,7 +2568,7 @@ export class PatchMap {
       throw new RangeError('page lifecycle time must be finite and monotonic');
     }
     const pointerBefore = this.pointerInteractions.probe();
-    const motionBefore = this.viewportAuthority.motionActive;
+    const motionBefore = this.viewportRuntime.motionActive;
     let presentation: PatchMapPresentationLifecycleResult | null = null;
     const changed = input.state !== before.state;
     this.managedFrameLoop.discardDestroyed();
@@ -2512,8 +2581,7 @@ export class PatchMap {
     const transition = this.pageLifecycle.transition(input.state, input.timeMs);
     if (changed) this.publication.setFrameClock(input.timeMs);
     if (transition.changed && transition.state === 'hidden') {
-      this.viewportAuthority.cancelMotion();
-      surface.cancelViewportGestures?.();
+      this.viewportRuntime.cancelMotion();
       if (this.transformerSessions.cancelActive('blur', true) === null) {
         this.transformerSessions.interruptGestures();
       }
@@ -2549,7 +2617,7 @@ export class PatchMap {
     return Object.freeze({
       ...lifecycle,
       activeAnimationCount: this.activeAnimations,
-      decelerationActive: this.viewportAuthority.motionActive,
+      decelerationActive: this.viewportRuntime.motionActive,
       activeGestureCount: pointer.activeGestureCount,
       pointerCaptureCount: pointer.pointerCaptureCount,
     });
@@ -2569,12 +2637,7 @@ export class PatchMap {
       this.emit('diagnostic', diagnostic);
       throw new PatchMapError(diagnostic);
     }
-    if (this.viewportAuthority.resizeFramePending) {
-      this.viewportAuthority.completeResizeFrame(
-        (this.materialized?.rootIds.length ?? 0) > 0,
-        surface.debugSnapshot().visiblePrimitiveCount,
-      );
-    }
+    this.viewportRuntime.completePendingResizeFrame(surface);
     const publication = this.publication.commitFrame();
     this.emit('frame', publication);
     for (const visible of this.publication.publishPendingHistory()) {
@@ -2587,77 +2650,27 @@ export class PatchMap {
     this.pageLifecycle.publishedFrame();
   }
 
-  public resize(width: number, height: number, pixelRatio = globalThis.devicePixelRatio ?? 1): boolean {
-    validatePositiveFinite('width', width);
-    validatePositiveFinite('height', height);
-    validatePositiveFinite('pixelRatio', pixelRatio);
-    const surface = this.requireSurface('resize');
-    const previous = this.viewportAuthority.snapshot().viewport;
-    const previousRevisions = this.revisionStamp();
-    const effect = this.viewportAuthority.planResize(width, height, pixelRatio);
-    const changed = surface.resize(width, height, pixelRatio);
-    if (!changed) return false;
-    surface.setView(effect.surfaceView);
-    const nextViewRevision = this.publication.viewRevision + 1;
-    this.viewportAuthority.commitResize(effect, nextViewRevision);
-    this.publication.advanceView();
-    this.emit('viewChanged', Object.freeze({
-      changed: true,
-      blocked: false,
-      source: 'resize',
-      previous,
-      viewport: this.viewportAuthority.snapshot().viewport,
-      previousRevisions,
-      revisions: this.revisionStamp(),
-    } satisfies PatchMapViewportChangeResult));
-    return true;
+  public resize(
+    width: number,
+    height: number,
+    pixelRatio = globalThis.devicePixelRatio ?? 1,
+  ): boolean {
+    return this.viewportRuntime.resize(width, height, pixelRatio);
   }
 
   public viewportProbe(): PatchMapViewportState {
-    return this.viewportAuthority.snapshot().viewport;
+    return this.viewportRuntime.viewportProbe();
   }
 
   public viewportTransformProbe(): PatchMapViewportTransformProbe {
-    const surface = this.requireSurface('viewportTransformProbe');
-    const debug = surface.debugSnapshot();
-    const viewport = this.viewportAuthority.snapshot();
-    const resize = this.viewportAuthority.resizeProbe();
-    return Object.freeze({
-      schemaRevision: PATCH_MAP_VIEWPORT_REVISION,
-      world: viewport.world,
-      ...resize,
-      surface: Object.freeze({
-        canvasCount: surface.canvasCount,
-        cssSize: debug.cssSize,
-        backingSize: debug.backingSize,
-      }),
-    });
+    return this.viewportRuntime.viewportTransformProbe();
   }
 
   public panViewport(
     deltaCss: readonly [number, number],
     source: PatchMapViewportChangeSource = 'pointer',
   ): PatchMapViewportChangeResult {
-    const delta = finiteTuple(deltaCss, 'deltaCss');
-    const surface = this.requireSurface('panViewport');
-    const viewport = this.viewportAuthority.snapshot();
-    if (
-      (source === 'pointer' || source === 'middle-pointer') &&
-      !this.viewportAuthority.hasPolicy('pan')
-    ) {
-      return this.blockedViewportResult(source);
-    }
-    if (
-      source === 'deceleration' &&
-      !this.viewportAuthority.hasPolicy('deceleration')
-    ) {
-      return this.blockedViewportResult(source);
-    }
-    const center = surface.screenToWorld({
-      x: viewport.width / 2 - delta[0],
-      y: viewport.height / 2 - delta[1],
-    });
-    return this.commitViewport([center.x, center.y], viewport.scale, source);
+    return this.viewportRuntime.panViewport(deltaCss, source);
   }
 
   public zoomViewportAt(input: Readonly<{
@@ -2665,72 +2678,33 @@ export class PatchMap {
     readonly anchorCss: readonly [number, number];
     readonly source?: 'wheel' | 'modifier-wheel' | 'pinch' | 'programmatic';
   }>): PatchMapViewportChangeResult {
-    if (!Number.isFinite(input.factor) || !(input.factor > 0)) {
-      throw new RangeError('zoom factor must be positive and finite');
-    }
-    const anchor = finiteTuple(input.anchorCss, 'anchorCss');
-    const source = input.source ?? 'wheel';
-    const policy = source === 'pinch' ? 'pinch' : source === 'programmatic' ? null : 'wheel';
-    const surface = this.requireSurface('zoomViewportAt');
-    if (policy !== null && !this.viewportAuthority.hasPolicy(policy)) {
-      return this.blockedViewportResult(source);
-    }
-    const viewport = this.viewportAuthority.snapshot();
-    const worldUnderAnchor = surface.screenToWorld({ x: anchor[0], y: anchor[1] });
-    const nextScale = Math.min(
-      viewport.zoomLimits[1],
-      Math.max(viewport.zoomLimits[0], viewport.scale * input.factor),
-    );
-    const ratio = viewport.scale / nextScale;
-    const center: readonly [number, number] = Object.freeze([
-      worldUnderAnchor.x -
-        (worldUnderAnchor.x - viewport.centerWorld[0]) * ratio,
-      worldUnderAnchor.y -
-        (worldUnderAnchor.y - viewport.centerWorld[1]) * ratio,
-    ]);
-    return this.commitViewport(center, nextScale, source);
+    return this.viewportRuntime.zoomViewportAt(input);
   }
 
   public startViewportDeceleration(
     velocityCssPxPerMs: readonly [number, number],
   ): boolean {
-    const velocity = finiteTuple(velocityCssPxPerMs, 'velocityCssPxPerMs');
-    this.requireSurface('startViewportDeceleration');
-    return this.viewportAuthority.startMotion(velocity);
+    return this.viewportRuntime.startDeceleration(velocityCssPxPerMs);
   }
 
   public advanceViewportMotion(deltaMs: number): PatchMapViewportChangeResult {
-    const effect = this.viewportAuthority.planMotionAdvance(deltaMs);
-    if (effect.blocked) {
-      this.viewportAuthority.commitMotion(effect);
-      return this.blockedViewportResult('deceleration');
-    }
-    const result = this.panViewport(effect.displacementCss, 'deceleration');
-    this.viewportAuthority.commitMotion(effect);
-    return result;
+    return this.viewportRuntime.advanceMotion(deltaMs);
   }
 
   public cancelViewportMotion(): boolean {
-    const changed = this.viewportAuthority.cancelMotion();
-    this.surface?.cancelViewportGestures?.();
-    return changed;
+    return this.viewportRuntime.cancelMotion();
   }
 
   public settleViewport(): PatchMapViewportSettleResult {
-    this.requireSurface('settleViewport');
-    this.cancelViewportMotion();
-    const result = this.viewportAuthority.settle();
-    if (result.changed) this.emit('viewSettled', result);
-    return result;
+    return this.viewportRuntime.settle();
   }
 
   public serializeViewport(): PatchMapSerializedViewportState {
-    this.requireSurface('serializeViewport');
-    return this.viewportAuthority.serialize();
+    return this.viewportRuntime.serialize();
   }
 
   public viewportPersistenceProbe(): PatchMapViewportPersistenceProbe {
-    return this.viewportAuthority.persistenceProbe();
+    return this.viewportRuntime.persistenceProbe();
   }
 
   /**
@@ -2746,8 +2720,7 @@ export class PatchMap {
     const surface = this.requireSurface('rebindHostLifecycle');
     this.hostInteractions.clearTooltip('redraw');
     this.datasetReplacement.invalidate();
-    this.viewportAuthority.cancelMotion();
-    surface.cancelViewportGestures?.();
+    this.viewportRuntime.cancelMotion();
     if (this.transformerSessions.cancelActive('redraw', true) === null) {
       this.transformerSessions.interruptGestures();
     }
@@ -2772,129 +2745,46 @@ export class PatchMap {
     input: unknown,
     fallback: PatchMapViewportFitOptions = {},
   ): PatchMapViewportRestoreResult {
-    const restored = this.viewportAuthority.normalizeSerialized(input);
-    if (restored !== null) {
-      const result = this.commitViewport(
-        restored.centerWorld,
-        restored.scale,
-        'restore',
-      );
-      return Object.freeze({
-        status: 'restored',
-        changed: result.changed,
-        viewport: result.viewport,
-        fit: null,
-      });
-    }
-    const fit = this.fitViewport(fallback, 'fallback-fit');
-    return Object.freeze({
-      status: 'fallback:auto-fit',
-      changed: fit.changed,
-      viewport: fit.viewport,
-      fit,
-    });
+    return this.viewportRuntime.restore(input, fallback);
   }
 
   public focusViewport(
     options: PatchMapViewportTargetOptions = {},
   ): PatchMapViewportFocusResult {
-    const contributors = this.resolveViewportContributors(options);
-    const viewport = this.viewportAuthority.snapshot();
-    if (contributors.worldBounds === null) {
-      return Object.freeze({
-        ...contributors,
-        status: 'empty',
-        changed: false,
-        viewport: viewport.viewport,
-      });
-    }
-    const center = patchMapBoundsCenter(contributors.worldBounds);
-    const change = this.commitViewport(center, viewport.scale, 'focus');
-    return Object.freeze({
-      ...contributors,
-      status: 'applied',
-      changed: change.changed,
-      viewport: change.viewport,
-    });
+    return this.viewportRuntime.focus(options);
   }
 
   public fitViewport(
     options: PatchMapViewportFitOptions = {},
     source: 'fit' | 'fallback-fit' = 'fit',
   ): PatchMapViewportFitResult {
-    const padding = normalizePatchMapViewportPadding(options.paddingCssPx);
-    const contributors = this.resolveViewportContributors(options);
-    const viewport = this.viewportAuthority.snapshot();
-    const paddingCssPx = Object.freeze([padding.x, padding.y] as const);
-    if (contributors.worldBounds === null) {
-      return Object.freeze({
-        ...contributors,
-        status: 'empty',
-        changed: false,
-        paddingCssPx,
-        viewport: viewport.viewport,
-      });
-    }
-    const scale = patchMapViewportFitScale(
-      contributors.worldBounds,
-      [viewport.width, viewport.height],
-      padding,
-      viewport.world.rotationDegrees,
-      viewport.zoomLimits,
-    );
-    const center = patchMapBoundsCenter(contributors.worldBounds);
-    const change = this.commitViewport(center, scale, source);
-    return Object.freeze({
-      ...contributors,
-      status: 'applied',
-      changed: change.changed,
-      paddingCssPx,
-      viewport: change.viewport,
-    });
+    return this.viewportRuntime.fit(options, source);
   }
 
   public configureViewportPolicy(
     operation: PatchMapViewportPolicyOperation,
   ): PatchMapViewportPolicyProbe {
-    const surface = this.requireSurface('configureViewportPolicy');
-    const effect = this.viewportAuthority.planPolicy(operation);
-    if (effect.cancelGestures) surface.cancelViewportGestures?.();
-    surface.setViewportGesturePolicies?.(effect.enabledPolicies);
-    this.viewportAuthority.commitPolicy(effect);
-    const probe = this.viewportPolicyProbe();
-    this.emit('viewportPolicyChanged', probe);
-    return probe;
+    return this.viewportRuntime.configurePolicy(operation);
   }
 
   public viewportPolicyProbe(): PatchMapViewportPolicyProbe {
-    return this.viewportAuthority.policyProbe(this.isDestroyingOrDestroyed());
+    return this.viewportRuntime.policyProbe();
   }
 
   public setViewport(input: Readonly<{
     centerWorld: readonly [number, number];
     scale: number;
   }>): PatchMapViewportState {
-    return this.commitViewport(
-      input.centerWorld,
-      input.scale,
-      'programmatic',
-    ).viewport;
+    return this.viewportRuntime.setViewport(input);
   }
 
   /** @internal Root public facade uses the full change result for absolute restore. */
   public setViewportAbsolute(input: PatchMapViewportSnapshot): PatchMapViewportChangeResult {
-    return this.commitViewport(input.centerWorld, input.scale, 'restore');
+    return this.viewportRuntime.setViewportAbsolute(input);
   }
 
   public setWorldTransform(input: PatchMapWorldTransformInput): PatchMapWorldTransformState {
-    const effect = this.viewportAuthority.planWorldTransform(input);
-    const surface = this.requireSurface('setWorldTransform');
-    if (!effect.changed) return effect.world;
-    surface.setView(effect.surfaceView);
-    const nextViewRevision = this.publication.viewRevision + 1;
-    this.viewportAuthority.commitWorldTransform(effect, nextViewRevision);
-    this.publication.advanceView();
-    return effect.world;
+    return this.viewportRuntime.setWorldTransform(input);
   }
 
   public queryScene(input: PatchMapSceneQuery = {}): PatchMapEngineQueryResult {
@@ -2956,7 +2846,7 @@ export class PatchMap {
   }
 
   public select(ids: readonly string[]): readonly string[] {
-    return this.applySelection({
+    return this.selectionRuntime.apply({
       op: 'replace',
       ids,
       source: 'programmatic',
@@ -3162,7 +3052,7 @@ export class PatchMap {
     if (hit.target === null) {
       return this.hostInteractions.clearTooltip('empty-target');
     }
-    const viewport = this.viewportAuthority.snapshot();
+    const viewport = this.viewportRuntime.snapshot();
     const input = Object.freeze({
       targetId: hit.target.ownerId ?? hit.target.selectionId,
       anchorCss: Object.freeze([point.x, point.y] as const),
@@ -3181,18 +3071,7 @@ export class PatchMap {
   }
 
   public setExternalSelection(ids: readonly string[]): PatchMapExternalSelectionResult {
-    const change = this.applySelection({
-      op: 'replace',
-      ids,
-      source: 'external',
-    });
-    const requestedIds = Object.freeze([...new Set(ids)]);
-    const currentIds = new Set(change.current);
-    return Object.freeze({
-      requestedIds,
-      missingIds: Object.freeze(requestedIds.filter((id) => !currentIds.has(id))),
-      change,
-    });
+    return this.selectionRuntime.external(ids);
   }
 
   /**
@@ -3245,12 +3124,7 @@ export class PatchMap {
     selectionIds: readonly string[] = this.logicalSelectionIds,
     lockedIds: readonly string[] = [],
   ): PatchMapTransformableSubsetProbe {
-    this.requireSurface('transformableSubset');
-    return evaluatePatchMapTransformableSubset(
-      this.logicalSceneSelectionIndex(),
-      selectionIds,
-      lockedIds,
-    );
+    return this.selectionRuntime.transformableSubset(selectionIds, lockedIds);
   }
 
   public selectionVisualProbe(
@@ -3258,22 +3132,7 @@ export class PatchMap {
       readonly selectionIds?: readonly string[];
     }> = {},
   ): PatchMapSelectionVisualProbe | null {
-    const surface = this.requireSurface('selectionVisualProbe');
-    const selectionIds = options.selectionIds ?? this.logicalSelectionIds;
-    const geometries = surface.selectionGeometries?.(selectionIds) ??
-      surface.geometrySnapshot?.().entities ??
-      null;
-    if (geometries === null) return null;
-    const viewport = this.viewportAuthority.snapshot();
-    return createPatchMapSelectionVisualProbe(
-      this.logicalSceneSelectionIndex(),
-      geometries,
-      {
-        ...options,
-        selectionIds,
-        viewportScale: options.viewportScale ?? viewport.scale,
-      },
-    );
+    return this.selectionRuntime.visualProbe(options);
   }
 
   public setSelectionVisualPolicy(
@@ -3281,35 +3140,7 @@ export class PatchMap {
       readonly selectionIds?: readonly string[];
     }> = {},
   ): PatchMapSelectionVisualProbe | null {
-    const surface = this.requireSurface('setSelectionVisualPolicy');
-    const visual = this.selectionVisualProbe(options);
-    if (visual === null) return null;
-    const subset = evaluatePatchMapTransformableSubset(
-      this.logicalSceneSelectionIndex(),
-      visual.overlayTargets.map((target) => target.selectionId),
-      options.lockedIds ?? [],
-    );
-    const changed = surface.setSelectionOverlayPolicy?.({
-      visibleIds: selectionGeometryIds(
-        this.logicalSceneSelectionIndex(),
-        visual.overlayTargets.map((target) => target.selectionId),
-      ),
-      transformableIds: subset.transformableTargets.map((target) => target.selectionId),
-      resizableIds: subset.resizableTargets.map((target) => target.selectionId),
-      hidden: visual.mode === 'hidden',
-      handleCssPx: visual.handleCssPx,
-      strokeCssPx: visual.strokeCssPx,
-      strokeScale: 'fixed',
-      minStrokeCssPx: 1,
-      strokeAlignment: 'center',
-      color: 0x2f80ed,
-      displayMode: visual.mode,
-      marqueeColor: 0x2f80ed,
-      marqueeStrokeCssPx: visual.strokeCssPx,
-      marqueeFillAlpha: 0.08,
-    }) ?? false;
-    if (changed) this.publication.advanceInteraction();
-    return visual;
+    return this.selectionRuntime.setVisualPolicy(options);
   }
 
   public transformerHandleProbe(
@@ -3348,22 +3179,7 @@ export class PatchMap {
     mode: 'replace' | 'add' | 'toggle' = 'replace',
     source: 'canvas' | 'external' | 'programmatic' = 'programmatic',
   ): PatchMapEngineRelationEndpointSelectionResult {
-    this.requireSurface('selectRelationEndpoints');
-    const materialized = this.materialized;
-    if (materialized === null) {
-      throw this.operationError('NOT_READY', 'NOT_READY', 'selectRelationEndpoints', true);
-    }
-    const resolution = resolvePatchMapRelationEndpoints(
-      materialized.dataset,
-      this.logicalSceneIndex(),
-      relationIds,
-    );
-    const change = this.applySelection({
-      op: mode,
-      ids: resolution.targets.map((target) => target.selectionId),
-      source,
-    });
-    return Object.freeze({ ...resolution, change });
+    return this.selectionRuntime.selectRelationEndpoints(relationIds, mode, source);
   }
 
   public beginTransformerHandleGesture(
@@ -3487,7 +3303,7 @@ export class PatchMap {
     deltaCss: readonly [number, number],
   ): PatchMapEngineTransformerEdgePanResult {
     this.requireSurface('edgeAutoPanTransformer');
-    const viewport = this.viewportAuthority.snapshot();
+    const viewport = this.viewportRuntime.snapshot();
     const resolved = resolvePatchMapEdgeAutoPan(
       pointerScreen,
       deltaCss,
@@ -3507,116 +3323,21 @@ export class PatchMap {
   }
 
   public applySelection(input: PatchMapSelectionSetOperation): PatchMapSelectionChange {
-    return this.applySelectionWithPolicy(input, false);
-  }
-
-  private applySelectionWithPolicy(
-    input: PatchMapSelectionSetOperation,
-    preserveTransformerGesture: boolean,
-  ): PatchMapSelectionChange {
-    const surface = this.requireSurface('select');
-    const materialized = this.materialized;
-    const change = applyPatchMapSelectionOperation(
-      this.logicalSelectionIds,
-      input,
-      (id) => {
-        if (materialized === null) return false;
-        const owned = this.ownedSelectionTargetExists(id, materialized);
-        return owned ?? this.logicalSceneIndex().target(id) !== null;
-      },
-    );
-    if (change.changed && !preserveTransformerGesture) {
-      if (this.transformerSessions.cancelActive('selection-change', true) === null) {
-        this.transformerSessions.interruptGestures();
-      }
-    }
-    surface.select(change.current);
-    this.sceneState.replaceSelection(change.current);
-    this.pointerInteractions.syncSelectionVisualPolicy();
-    if (change.changed) {
-      if (change.source !== 'canvas' && !preserveTransformerGesture) {
-        this.pointerInteractions.interruptAndResetIfPresent('selection-change');
-      }
-      this.publication.advanceInteraction();
-      this.emit('selectionChanged', change);
-      if (change.source === 'canvas') {
-        this.emit(
-          'pointerSelectionChanged',
-          this.pointerInteractions.selectionPublication(change),
-        );
-      }
-      const source = change.source === 'canvas' ? 'pointer' : change.source;
-      this.hostInteractions.publish(
-        'selection',
-        'changed',
-        Object.freeze({
-          source,
-          target: change.current.at(-1) ?? null,
-          selectedIds: change.current,
-        }),
-        this.publication.interactionRevision,
-      );
-      if (change.source === 'canvas') {
-        this.hostInteractions.publishSelectionToHost(
-          change.current,
-          this.publication.interactionRevision,
-        );
-      }
-    }
-    return change;
+    return this.selectionRuntime.apply(input);
   }
 
   public filterSelectionTargets(
     targetIds: readonly string[],
     options: PatchMapSelectionEligibilityOptions = {},
   ): readonly PatchMapLogicalTargetSnapshot[] {
-    this.requireSurface('filterSelectionTargets');
-    return this.logicalSceneIndex().filterSelection(targetIds, options);
+    return this.selectionRuntime.filterTargets(targetIds, options);
   }
 
   public selectionHitTestScreen(
     point: PatchMapPoint,
     options: PatchMapSelectionHitOptions = {},
   ): PatchMapEngineSelectionHit {
-    validatePoint(point, 'selectionHitTestScreen');
-    const surface = this.requireSurface('selectionHitTestScreen');
-    const worldPoint = surface.screenToWorld(point);
-    if (selectionHitUsesSpatialFastPath(options)) {
-      const logicalIndex = this.logicalSceneSelectionIndex();
-      const id = surface.hitTestScreen(point);
-      const hit = id === null
-        ? Object.freeze({ target: null, candidates: Object.freeze([]) })
-        : logicalIndex.hitFromTarget(id);
-      return Object.freeze({ ...hit, worldPoint });
-    }
-    const logicalIndex = this.logicalSceneIndex();
-    const geometry = surface.geometrySnapshot?.();
-    if (geometry === undefined) {
-      const id = surface.hitTestScreen(point);
-      const target = id === null
-        ? null
-        : logicalIndex.filterSelection([id], options)[0] ?? null;
-      return Object.freeze({
-        target,
-        candidates: Object.freeze(target === null ? [] : [target]),
-        worldPoint,
-      });
-    }
-    const hit = logicalIndex.hitTest(
-      geometry.entities.map((entity) => Object.freeze({
-        id: entity.id,
-        ...(entity.ownerItemId === undefined ? {} : { ownerItemId: entity.ownerItemId }),
-        ...(entity.componentId === undefined ? {} : { componentId: entity.componentId }),
-        screenBounds: entity.screenBounds,
-        visible: entity.visible,
-      })),
-      point,
-      options,
-    );
-    return Object.freeze({
-      ...hit,
-      worldPoint,
-    });
+    return this.selectionRuntime.hitTestScreen(point, options);
   }
 
   public selectPoint(
@@ -3625,17 +3346,7 @@ export class PatchMap {
       readonly mode?: 'replace' | 'add' | 'toggle';
     }> = {},
   ): PatchMapEnginePointSelectionResult {
-    const hit = this.selectionHitTestScreen(point, options);
-    const ids = hit.target === null
-      ? Object.freeze([] as string[])
-      : Object.freeze([hit.target.selectionId]);
-    const mode = options.mode ?? 'replace';
-    const change = this.applySelection({
-      op: mode,
-      ids,
-      source: 'canvas',
-    });
-    return Object.freeze({ ...hit, change });
+    return this.selectionRuntime.selectPoint(point, options);
   }
 
   public dispatchPointerInput(input: PatchMapEnginePointerInput): PatchMapPointerDispatchResult {
@@ -3681,22 +3392,7 @@ export class PatchMap {
     end: readonly [number, number],
     options: PatchMapEngineRegionSelectionOptions = {},
   ): PatchMapEngineRegionSelectionResult {
-    const surface = this.requireSurface('selectBox');
-    const geometry = requireRegionGeometry(surface, 'selectBox');
-    const queryBounds = boxRegionQueryBounds(start, end);
-    const candidates = queryBounds === null
-      ? geometry
-      : surface.queryRegionGeometry?.(queryBounds) ?? geometry;
-    const hit = hitPatchMapBoxRegion(
-      candidates.entities,
-      candidates.relations,
-      start,
-      end,
-      options.partialIntersection === undefined
-        ? {}
-        : { partialIntersection: options.partialIntersection },
-    );
-    return this.applyRegionSelection(hit, options, 1);
+    return this.selectionRuntime.selectBox(start, end, options);
   }
 
   public selectPaint(
@@ -3706,32 +3402,14 @@ export class PatchMap {
     ])[],
     options: PatchMapEngineRegionSelectionOptions = {},
   ): PatchMapEngineRegionSelectionResult {
-    const surface = this.requireSurface('selectPaint');
-    const geometry = requireRegionGeometry(surface, 'selectPaint');
-    const queryBounds = paintRegionQueryBounds(
-      segments,
-      options.toleranceCssPx ?? 0,
-    );
-    const candidates = queryBounds === null
-      ? geometry
-      : surface.queryRegionGeometry?.(queryBounds) ?? geometry;
-    const hit = hitPatchMapPaintRegion(
-      candidates.entities,
-      candidates.relations,
-      segments,
-      options.toleranceCssPx === undefined
-        ? {}
-        : { toleranceCssPx: options.toleranceCssPx },
-    );
-    return this.applyRegionSelection(hit, options, segments.length);
+    return this.selectionRuntime.selectPaint(segments, options);
   }
 
   public resolveSelectionInteraction(
     targetOrId: string,
     options: PatchMapSelectionInteractionOptions,
   ): PatchMapSelectionInteraction | null {
-    this.requireSurface('resolveSelectionInteraction');
-    return this.logicalSceneIndex().resolveSelectionInteraction(targetOrId, options);
+    return this.selectionRuntime.resolveInteraction(targetOrId, options);
   }
 
   public hitTest(point: PatchMapPoint): string | null {
@@ -3848,7 +3526,7 @@ export class PatchMap {
       });
     }
     const semantic = this.semanticProbe();
-    const viewport = this.viewportAuthority.snapshot();
+    const viewport = this.viewportRuntime.snapshot();
     const surfaceDebug = this.surface?.debugSnapshot() ?? emptyPatchMapEngineSurfaceDebug(
       viewport.width,
       viewport.height,
@@ -3942,11 +3620,7 @@ export class PatchMap {
     return surface.retrySceneImage(entityId);
   }
 
-  /**
-   * Join the detached semantic component index with an optional renderer
-   * surface probe. Legacy/injected surfaces stay observable as unavailable;
-   * no fixture values or scene-wide scans are used as fallbacks.
-   */
+  /** Join the detached semantic component index with the renderer surface probe. */
   public componentVisualProbe(
     target: PatchMapComponentVisualTarget,
   ): PatchMapEngineComponentVisualProbe | null {
@@ -3993,8 +3667,8 @@ export class PatchMap {
     const surface = this.requireSurface('geometryProbe');
     const geometry = surface.geometrySnapshot?.() ?? null;
     if (geometry === null) return null;
-    const { revision: _surfaceRevision, sceneRevision: _denseRevision, ...facts } = geometry;
-    const correlation = this.correlateGeometryRevision(geometry.revision ?? null);
+    const { revision: _surfaceRevision, sceneRevision: _sceneRevision, ...facts } = geometry;
+    const correlation = this.correlateGeometryRevision(geometry.revision);
     return Object.freeze({
       ...facts,
       ...correlation,
@@ -4005,7 +3679,7 @@ export class PatchMap {
     const surface = this.requireSurface('relationProbe');
     const geometry = surface.geometrySnapshot?.() ?? null;
     if (geometry === null) return null;
-    const correlation = this.correlateGeometryRevision(geometry.revision ?? null);
+    const correlation = this.correlateGeometryRevision(geometry.revision);
     return Object.freeze({
       ...correlation,
       relations: geometry.relations,
@@ -4192,8 +3866,7 @@ export class PatchMap {
     this.lifecycle = 'destroying';
     this.datasetReplacement.invalidate();
     const surface = this.surface;
-    this.viewportAuthority.cancelMotion();
-    surface?.cancelViewportGestures?.();
+    this.viewportRuntime.cancelMotion();
     this.pointerInteractions.destroy();
     this.transformerSessions.destroy();
     this.editorWorkflows.destroy();
@@ -4247,9 +3920,8 @@ export class PatchMap {
       releasePatchMapSemanticHashScratch(this.materialized.dataset);
     }
     this.sceneState.destroy();
-    this.defaultViewportContributorsCache = null;
     this.resetLiveOverlayState();
-    this.viewportAuthority.destroy();
+    this.viewportRuntime.destroy();
     this.externalDependencyRevisions.clear();
     this.historyApplication.clear('destroy', true);
     this.historyAuthority.destroy();
@@ -4298,19 +3970,6 @@ export class PatchMap {
     }));
   }
 
-  /**
-   * Validate the stable element/component selection forms without rebuilding
-   * the full logical query snapshot after an otherwise small structural edit.
-   * Grid instance aliases remain on the canonical index fallback because they
-   * are expanded query identities rather than owned dataset element IDs.
-   */
-  private ownedSelectionTargetExists(
-    id: string,
-    materialized: MaterializedPatchMapDataset,
-  ): boolean | null {
-    return this.sceneState.ownedSelectionTargetExists(id, materialized);
-  }
-
   private logicalSceneIndex(): PatchMapLogicalSceneIndex {
     return this.sceneState.logicalSceneIndex();
   }
@@ -4352,59 +4011,6 @@ export class PatchMap {
     this.refreshAccessibilityAuthority(operation);
   }
 
-  private applyRegionSelection(
-    hit: PatchMapRegionHitResult,
-    options: PatchMapEngineRegionSelectionOptions,
-    liveChangeCount: number,
-  ): PatchMapEngineRegionSelectionResult {
-    const index = this.logicalSceneIndex();
-    const rejected = new Set(options.rejectIds ?? []);
-    const locked = new Set(options.lockedIds ?? []);
-    const filteredIds: string[] = [];
-    const lockedIds: string[] = [];
-    for (const id of hit.candidateIds) {
-      const target = index.target(id);
-      if (target === null) continue;
-      if (
-        target.locked ||
-        target.ancestorLocked ||
-        targetAliasesMatch(target, locked)
-      ) {
-        lockedIds.push(target.id);
-      } else if (
-        targetAliasesMatch(target, rejected) ||
-        (options.predicate !== undefined && !options.predicate(target))
-      ) {
-        filteredIds.push(target.id);
-      }
-    }
-    const targets = index.filterSelection(hit.candidateIds, {
-      ...(options.rejectIds === undefined ? {} : { rejectIds: options.rejectIds }),
-      ...(options.lockedIds === undefined ? {} : { lockedIds: options.lockedIds }),
-      ...(options.predicate === undefined ? {} : { predicate: options.predicate }),
-    });
-    const change = options.commit === false
-      ? null
-      : this.applySelection({
-          op: options.mode ?? 'replace',
-          ids: targets.map((target) => target.selectionId),
-          source: 'canvas',
-        });
-    return Object.freeze({
-      schemaRevision: PATCH_MAP_POINTER_GESTURE_REVISION,
-      targets,
-      candidateIds: hit.candidateIds,
-      filteredIds: Object.freeze(filteredIds),
-      lockedIds: Object.freeze(lockedIds),
-      relationIds: hit.relationIds,
-      duplicateCount: hit.duplicateCount,
-      nonFiniteCount: hit.nonFiniteCount,
-      liveChangeCount,
-      strokeCssPx: 1,
-      change,
-    });
-  }
-
   private async cleanupSurface(
     surface: PatchMapEngineSurface,
   ): Promise<Readonly<{ released: boolean; error: Error | null }>> {
@@ -4437,30 +4043,8 @@ export class PatchMap {
     readonly surfaceRevision: number | null;
     readonly representedRevisions: PatchMapGeometryRevisionTuple | null;
     readonly revisionLags: PatchMapGeometryRevisionTuple | null;
-    readonly revisionLag: number | null;
   }> {
     return this.publication.correlateGeometryRevision(surfaceRevision);
-  }
-
-  private isSurfaceMutationCurrent(
-    surface: PatchMapEngineSurface,
-    revisions: PatchMapRevisionStamp,
-  ): boolean {
-    return !this.isDestroyingOrDestroyed() &&
-      this.surface === surface &&
-      this.publication.lifecycleGeneration === revisions.lifecycleGeneration &&
-      this.publication.sceneRevision === revisions.sceneRevision &&
-      this.publication.interactionRevision === revisions.interactionRevision;
-  }
-
-  private isSurfaceSceneCurrent(
-    surface: PatchMapEngineSurface,
-    revisions: PatchMapRevisionStamp,
-  ): boolean {
-    return !this.isDestroyingOrDestroyed() &&
-      this.surface === surface &&
-      this.publication.lifecycleGeneration === revisions.lifecycleGeneration &&
-      this.publication.sceneRevision === revisions.sceneRevision;
   }
 
   private restoreAuthoritativeSurfaceScene(
@@ -4489,25 +4073,6 @@ export class PatchMap {
       this.handleSurfaceTerminalFailure(terminal);
       throw terminal;
     }
-  }
-
-  private acceptSurfaceViewportInput(
-    surface: PatchMapEngineSurface,
-    input: PatchMapSurfaceViewportInput,
-  ): void {
-    if (
-      this.surface !== surface ||
-      this.terminalSurfaceFailure !== null ||
-      this.lifecycle === 'destroyed' ||
-      this.lifecycle === 'destroying'
-    ) {
-      return;
-    }
-    const effect = this.viewportAuthority.planSurfaceAppliedView(
-      input.centerWorld,
-      input.scale,
-    );
-    this.commitViewportEffect(surface, effect, input.source);
   }
 
   private acceptSurfacePointerInput(
@@ -4608,112 +4173,6 @@ export class PatchMap {
     let count = 0;
     for (const listeners of this.listeners.values()) count += listeners.size;
     return count;
-  }
-
-  private commitViewport(
-    centerWorldValue: readonly [number, number],
-    scale: number,
-    source: PatchMapViewportChangeSource,
-  ): PatchMapViewportChangeResult {
-    const effect = this.viewportAuthority.planView(centerWorldValue, scale);
-    const surface = this.requireSurface('setViewport');
-    return this.commitViewportEffect(surface, effect, source);
-  }
-
-  private commitViewportEffect(
-    surface: PatchMapEngineSurface,
-    effect: PatchMapViewportViewEffect,
-    source: PatchMapViewportChangeSource,
-  ): PatchMapViewportChangeResult {
-    const previousRevisions = this.revisionStamp();
-    if (effect.changed) {
-      if (!effect.surfaceAlreadyApplied) surface.setView(effect.surfaceView);
-      const nextViewRevision = this.publication.viewRevision + 1;
-      this.viewportAuthority.commitView(effect, nextViewRevision);
-      this.publication.advanceView();
-      this.refreshAccessibilitySurfaceIfActive('setViewport');
-    }
-    const result = Object.freeze({
-      changed: effect.changed,
-      blocked: false,
-      source,
-      previous: effect.previous,
-      viewport: effect.viewport,
-      previousRevisions,
-      revisions: this.revisionStamp(),
-    } satisfies PatchMapViewportChangeResult);
-    if (effect.changed) this.emit('viewChanged', result);
-    return result;
-  }
-
-  private blockedViewportResult(
-    source: PatchMapViewportChangeSource,
-  ): PatchMapViewportChangeResult {
-    const viewport = this.viewportAuthority.snapshot().viewport;
-    const revisions = this.revisionStamp();
-    return Object.freeze({
-      changed: false,
-      blocked: true,
-      source,
-      previous: viewport,
-      viewport,
-      previousRevisions: revisions,
-      revisions,
-    });
-  }
-
-  private resolveViewportContributors(
-    options: PatchMapViewportTargetOptions,
-  ): PatchMapViewportContributorResult {
-    const surface = this.requireSurface('resolveViewportContributors');
-    const materialized = this.materialized;
-    if (materialized === null) {
-      return Object.freeze({
-        contributors: Object.freeze([]),
-        applied: Object.freeze([]),
-        missing: Object.freeze([...(options.targets ?? [])]),
-        excluded: Object.freeze([]),
-        duplicateCount: 0,
-        worldBounds: null,
-      });
-    }
-    const geometry = surface.worldGeometrySnapshot?.() ?? surface.geometrySnapshot?.();
-    if (!geometry) {
-      throw this.operationError(
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        'resolveViewportContributors',
-        false,
-      );
-    }
-    const defaultRequest =
-      (options.targets === undefined || options.targets === null) &&
-      options.rejectIds === undefined &&
-      options.relationEndpointsAvailable === undefined;
-    const cached = this.defaultViewportContributorsCache;
-    if (
-      defaultRequest &&
-      cached !== null &&
-      cached.dataset === materialized.dataset &&
-      cached.geometry === geometry
-    ) {
-      return cached.result;
-    }
-    const result = resolvePatchMapViewportContributors(materialized.dataset, geometry, {
-      targets: options.targets ?? null,
-      ...(options.rejectIds === undefined ? {} : { rejectIds: options.rejectIds }),
-      ...(options.relationEndpointsAvailable === undefined
-        ? {}
-        : { relationEndpointsAvailable: options.relationEndpointsAvailable }),
-    });
-    if (defaultRequest) {
-      this.defaultViewportContributorsCache = Object.freeze({
-        dataset: materialized.dataset,
-        geometry,
-        result,
-      });
-    }
-    return result;
   }
 
   private operationError(
@@ -4850,70 +4309,6 @@ function rejectedReasons(
   return reasons;
 }
 
-function requireRegionGeometry(
-  surface: PatchMapEngineSurface,
-  operation: string,
-): PatchMapSurfaceGeometrySnapshot {
-  const geometry = surface.geometrySnapshot?.();
-  if (geometry === undefined) {
-    throw new Error(`${operation} requires aggregate surface geometry`);
-  }
-  return geometry;
-}
-
-function boxRegionQueryBounds(
-  start: readonly [number, number],
-  end: readonly [number, number],
-): PatchMapScreenRegionBounds | null {
-  if (![...start, ...end].every(Number.isFinite)) return null;
-  const x = Math.min(start[0], end[0]);
-  const y = Math.min(start[1], end[1]);
-  return Object.freeze([
-    x,
-    y,
-    Math.max(start[0], end[0]) - x,
-    Math.max(start[1], end[1]) - y,
-  ]);
-}
-
-function paintRegionQueryBounds(
-  segments: readonly (readonly [
-    readonly [number, number],
-    readonly [number, number],
-  ])[],
-  toleranceCssPx: number,
-): PatchMapScreenRegionBounds | null {
-  if (!Number.isFinite(toleranceCssPx) || toleranceCssPx < 0) return null;
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  for (const segment of segments) {
-    if (![...segment[0], ...segment[1]].every(Number.isFinite)) continue;
-    minX = Math.min(minX, segment[0][0], segment[1][0]);
-    minY = Math.min(minY, segment[0][1], segment[1][1]);
-    maxX = Math.max(maxX, segment[0][0], segment[1][0]);
-    maxY = Math.max(maxY, segment[0][1], segment[1][1]);
-  }
-  if (![minX, minY, maxX, maxY].every(Number.isFinite)) return null;
-  return Object.freeze([
-    minX - toleranceCssPx,
-    minY - toleranceCssPx,
-    maxX - minX + toleranceCssPx * 2,
-    maxY - minY + toleranceCssPx * 2,
-  ]);
-}
-
-function targetAliasesMatch(
-  target: PatchMapLogicalTargetSnapshot,
-  values: ReadonlySet<string>,
-): boolean {
-  return values.has(target.key) ||
-    values.has(target.id) ||
-    values.has(target.selectionId) ||
-    (target.ownerId !== null && values.has(target.ownerId));
-}
-
 function countPatchMapRelationLinks(
   dataset: readonly NormalizedPatchMapElement[],
 ): number {
@@ -4929,13 +4324,6 @@ function countPatchMapRelationLinks(
 }
 
 export type { PatchMapComponentVisualTarget } from './core/contracts';
-
-function selectionHitUsesSpatialFastPath(options: PatchMapSelectionHitOptions): boolean {
-  return options.candidateIds === undefined &&
-    options.rejectIds === undefined &&
-    options.lockedIds === undefined &&
-    options.predicate === undefined;
-}
 
 function normalizeViewportOptions(
   value: PatchMapViewportOptions | undefined,

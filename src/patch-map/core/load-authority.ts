@@ -1,8 +1,12 @@
-import type { CoreView, SlotRange } from '../dense/contracts';
+import type { CoreView, LoadResult, SlotRange } from '../dense/contracts';
 import type {
   ParsePatchMapResult,
+  ParsePatchMapOptions,
   PatchMapProjectionIndex,
 } from '../contracts';
+import { parsePatchMap, parsePatchMapAsync } from '../parser';
+import { primePatchMapIncrementalFlat } from '../incremental-parser';
+import { primePatchMapParsedSceneReconcileIncremental } from '../semantic/reconcile';
 import type { PatchMapScene } from '../scene';
 import type {
   PatchMapSceneImageController,
@@ -11,6 +15,9 @@ import type {
 } from '../scene-images';
 import type { PatchMapRendererEntityPresentationOverride } from '../renderers/presentation-store';
 import type { PatchMapPresentationLayerAuthority } from '../presentation-layers';
+import type { PatchMapLoadResult } from './contracts';
+import { projectionWithResolvedIntrinsicSizes } from './intrinsic-image-projection';
+import { retainedOwnedInputDataset } from './reconcile-planning';
 import type {
   PatchMapBarPresentationAuthority,
   PatchMapBarPresentationLoadState,
@@ -46,16 +53,14 @@ export interface PatchMapCurrentLoadRuntimeState {
   readonly automaticAnimationFramesActive: boolean;
 }
 
+export interface PatchMapCooperativeLoadHooks {
+  readonly assertCurrent?: () => void;
+}
+
 export type PatchMapLoadRendererCheckpoint =
-  | Readonly<{
-      readonly kind: 'exact';
-      readonly state: PatchMapRuntimeRendererPublicationCheckpoint;
-    }>
-  | Readonly<{
-      readonly kind: 'compatibility';
-      readonly presentation: PatchMapProjectionIndex | null;
-      readonly staleProjectionIds: ReadonlySet<string>;
-    }>;
+  Readonly<{
+    readonly state: PatchMapRuntimeRendererPublicationCheckpoint;
+  }>;
 
 export interface PatchMapPreparedLoadPublication {
   readonly previousRuntime: PatchMapLoadRuntimeState;
@@ -94,6 +99,17 @@ interface PatchMapLoadPublicationPort {
   readonly invalidateLoadFrame: () => void;
 }
 
+interface PatchMapLoadExecutionPort {
+  readonly assertAlive: () => void;
+  readonly createScene: (minimumCapacity: number) => PatchMapScene;
+  readonly readScene: () => PatchMapScene;
+  readonly readEntityCount: () => number;
+  readonly readCurrentRuntime: () => PatchMapCurrentLoadRuntimeState;
+  readonly activeImageEntityIds: (
+    candidate: PatchMapPublishedSceneState,
+  ) => ReadonlySet<string>;
+}
+
 /**
  * Owns load freshness plus the reversible publication transaction. Published
  * scene, presentation, image, renderer, and runtime-field authorities remain
@@ -110,6 +126,7 @@ export class PatchMapLoadAuthority {
     private readonly renderer: PatchMapRuntimeRendererPort,
     private readonly presentationLayers: PatchMapPresentationLayerAuthority,
     private readonly port: PatchMapLoadPublicationPort,
+    private readonly execution: PatchMapLoadExecutionPort,
   ) {}
 
   public get publicationSideEffectsInProgress(): boolean {
@@ -119,6 +136,80 @@ export class PatchMapLoadAuthority {
   public beginLoad(): number {
     this.sequence += 1;
     return this.sequence;
+  }
+
+  public load(
+    input: unknown,
+    options: ParsePatchMapOptions,
+  ): PatchMapLoadResult {
+    this.execution.assertAlive();
+    this.beginLoad();
+    const normalizeStarted = now();
+    const parse = parsePatchMap(input, options);
+    const normalizeMs = now() - normalizeStarted;
+    let candidateScene: PatchMapScene | null = this.execution.createScene(
+      parse.document.entities.length,
+    );
+    try {
+      candidateScene.seedReplacementFrom(this.execution.readScene());
+      const storeStarted = now();
+      const store = candidateScene.load(parse.document);
+      const storeLoadMs = now() - storeStarted;
+      this.primeCandidate(parse);
+      const candidate = this.prepareLoadedCandidate(input, options, parse, candidateScene, store);
+      this.publishLoadedCandidate(candidate, parse, store);
+      candidateScene = null;
+      return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
+    } finally {
+      candidateScene?.destroy();
+    }
+  }
+
+  public async loadAsync(
+    input: unknown,
+    options: ParsePatchMapOptions,
+    hooks: PatchMapCooperativeLoadHooks = {},
+  ): Promise<PatchMapLoadResult> {
+    this.execution.assertAlive();
+    const sequence = this.beginLoad();
+    const sceneRevision = this.execution.readScene().revision;
+    const assertCurrent = (): void => {
+      this.execution.assertAlive();
+      this.assertCurrent(sequence, sceneRevision, this.execution.readScene().revision);
+      hooks.assertCurrent?.();
+    };
+    assertCurrent();
+    const normalizeStarted = now();
+    const parse = await parsePatchMapAsync(input, options);
+    const normalizeMs = now() - normalizeStarted;
+    await yieldPatchMapMainTask();
+    assertCurrent();
+
+    let candidateScene: PatchMapScene | null = this.execution.createScene(
+      parse.document.entities.length,
+    );
+    try {
+      candidateScene.seedReplacementFrom(this.execution.readScene());
+      const storeStarted = now();
+      const cooperativeFirstLoad = sceneRevision === 0 && this.execution.readEntityCount() === 0;
+      const store = cooperativeFirstLoad
+        ? await candidateScene.loadCooperatively(parse.document, assertCurrent)
+        : candidateScene.load(parse.document);
+      const storeLoadMs = now() - storeStarted;
+      if (cooperativeFirstLoad) {
+        await yieldPatchMapMainTask();
+        assertCurrent();
+      }
+
+      this.primeCandidate(parse);
+      const candidate = this.prepareLoadedCandidate(input, options, parse, candidateScene, store);
+      assertCurrent();
+      this.publishLoadedCandidate(candidate, parse, store);
+      candidateScene = null;
+      return Object.freeze({ parse, store, normalizeMs, storeLoadMs });
+    } finally {
+      candidateScene?.destroy();
+    }
   }
 
   public assertCurrent(
@@ -272,6 +363,44 @@ export class PatchMapLoadAuthority {
     state.pendingIntrinsicImageSizes.clear();
   }
 
+  private primeCandidate(parse: ParsePatchMapResult): void {
+    primePatchMapIncrementalFlat(parse);
+    primePatchMapParsedSceneReconcileIncremental(parse.document);
+  }
+
+  private prepareLoadedCandidate(
+    input: unknown,
+    options: ParsePatchMapOptions,
+    parse: ParsePatchMapResult,
+    scene: PatchMapScene,
+    store: LoadResult,
+  ): PatchMapPublishedSceneCandidate {
+    const retainedInput = retainedOwnedInputDataset(input, options);
+    return this.prepareCandidate({
+      scene,
+      parse,
+      projection: projectionWithResolvedIntrinsicSizes(parse.projection, this.sceneImages),
+      ownedInputDataset: retainedInput.dataset,
+      ownedParseOptionsKey: retainedInput.optionsKey,
+      entityCount: store.entityCount,
+    });
+  }
+
+  private publishLoadedCandidate(
+    candidate: PatchMapPublishedSceneCandidate,
+    parse: ParsePatchMapResult,
+    store: LoadResult,
+  ): void {
+    this.publish({
+      candidate,
+      sourceProjection: parse.projection,
+      view: parse.document.view,
+      activeImageEntityIds: this.execution.activeImageEntityIds(candidate.state),
+      changedRanges: store.changedRanges,
+      currentRuntime: this.execution.readCurrentRuntime(),
+    });
+  }
+
   private installRuntimeState(state: PatchMapLoadRuntimeState): void {
     this.barPresentation.installLoadedState(state.barPresentation);
     this.port.installRuntimeFields(state);
@@ -309,20 +438,8 @@ export class PatchMapLoadAuthority {
   private restoreRendererCheckpoint(
     checkpoint: PatchMapLoadRendererCheckpoint,
   ): boolean {
-    if (checkpoint.kind === 'exact') {
-      const capability = this.renderer.publicationCheckpoint;
-      if (capability === undefined) return false;
-      capability.restore(checkpoint.state);
-      return true;
-    }
-    if (checkpoint.presentation === null) return false;
     try {
-      this.renderer.setProjection(
-        checkpoint.presentation,
-        undefined,
-        checkpoint.staleProjectionIds,
-      );
-      this.port.applyPresentationPolicyToRenderer();
+      this.renderer.publicationCheckpoint.restore(checkpoint.state);
       return true;
     } catch {
       return false;
@@ -332,7 +449,7 @@ export class PatchMapLoadAuthority {
   private setRendererInstancePresentationOverrides(
     overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
   ): void {
-    this.renderer.setInstancePresentationOverrides?.(overrides);
+    this.renderer.setInstancePresentationOverrides(overrides);
   }
 
   private prepareRuntimeState(
@@ -361,22 +478,21 @@ export class PatchMapLoadAuthority {
   }
 
   private captureRendererCheckpoint(
-    published: PatchMapPublishedSceneState,
-    runtime: PatchMapLoadRuntimeState,
+    _published: PatchMapPublishedSceneState,
+    _runtime: PatchMapLoadRuntimeState,
   ): PatchMapLoadRendererCheckpoint {
-    const capability = this.renderer.publicationCheckpoint;
-    if (capability !== undefined) {
-      return Object.freeze({
-        kind: 'exact',
-        state: capability.capture(),
-      });
-    }
-    const presentation = runtime.barPresentation.projectionStore.presentation ??
-      published.projection;
     return Object.freeze({
-      kind: 'compatibility',
-      presentation,
-      staleProjectionIds: runtime.spatialHit.staleProjectionIds,
+      state: this.renderer.publicationCheckpoint.capture(),
     });
   }
+}
+
+function now(): number {
+  return globalThis.performance?.now() ?? Date.now();
+}
+
+function yieldPatchMapMainTask(): Promise<void> {
+  return new Promise((resolve) => {
+    globalThis.setTimeout(resolve, 0);
+  });
 }

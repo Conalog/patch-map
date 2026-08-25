@@ -6,21 +6,26 @@ import type {
   PatchMapAssetRuntimeProbe,
   PatchMapAssetSessionProbe,
 } from '../assets';
-import type { PatchMapEngineDiagnostic } from '../engine/public-contracts';
+import type {
+  PatchMapEngineDiagnostic,
+} from '../engine/contracts/lifecycle';
 import type {
   PatchMapEngineHistoryClearResult,
   PatchMapEngineHistoryResult,
   PatchMapEngineTransformerEditResult,
+} from '../engine/contracts/history-transformer';
+import type {
   PatchMapEngineSnapshot,
+} from '../engine/contracts/product';
+import type {
   PatchMapViewportChangeResult,
   PatchMapViewportFitResult,
   PatchMapViewportRestoreResult,
   PatchMapViewportState,
-} from '../engine/public-contracts';
+} from '../engine/contracts/viewport';
 import type { PatchMapHistoryState } from '../history';
 import type {
   BaseComponentData,
-  ComponentSize,
   DrawableSource,
   ElementAttributes,
   Placement,
@@ -327,16 +332,15 @@ export type PatchMapInstancePresentationChanges = PatchMapUpdateRecord & Readonl
   readonly tint?: PatchMapMutationJsonValue | null;
 }>;
 
-/** Renderer-visible v0.10 background fields accepted for one concrete grid cell. */
+/** Renderer-visible current background fields accepted for one concrete grid cell. */
 export interface PatchMapBackgroundPresentationChanges {
   readonly show?: boolean | null;
   readonly source?: PatchMapPresentationPatch<DrawableSource> | null;
   readonly tint?: BaseComponentData['tint'] | null;
-  readonly size?: PatchMapPresentationPatch<ComponentSize> | null;
   readonly attrs?: PatchMapPresentationPatch<ElementAttributes> | null;
 }
 
-/** Renderer-visible v0.10 text fields accepted for one concrete grid cell. */
+/** Renderer-visible current text fields accepted for one concrete grid cell. */
 export interface PatchMapTextPresentationChanges {
   readonly show?: boolean | null;
   readonly text?: string | null;
@@ -425,7 +429,6 @@ export type PatchMapBackgroundPresentationColumns = Readonly<{
     readonly show?: PatchMapUpdateColumn<boolean | null>;
     readonly source?: PatchMapUpdateColumn<PatchMapPresentationPatch<DrawableSource> | null>;
     readonly tint?: PatchMapUpdateColumn<BaseComponentData['tint'] | null>;
-    readonly size?: PatchMapUpdateColumn<PatchMapPresentationPatch<ComponentSize> | null>;
     readonly attrs?: PatchMapUpdateColumn<PatchMapPresentationPatch<ElementAttributes> | null>;
   }>;
 

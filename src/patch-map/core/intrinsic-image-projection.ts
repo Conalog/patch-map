@@ -49,7 +49,7 @@ export function intrinsicImageProjectionUpdate(
   >;
 
   for (const resolution of resolutions) {
-    const image = base.imagesByEntityId?.[resolution.entityId];
+    const image = base.imagesByEntityId[resolution.entityId];
     if (
       !image ||
       image.dimensionMode !== 'intrinsic' ||
@@ -100,7 +100,7 @@ export function resolvedIntrinsicImageSizes(
   projection: PatchMapProjectionIndex,
   sceneImages: PatchMapSceneImageController,
 ): readonly PatchMapIntrinsicImageGeometry[] {
-  const images = projection.imagesByEntityId ?? {};
+  const images = projection.imagesByEntityId;
   const resolutions: PatchMapIntrinsicImageGeometry[] = [];
   for (const entityId of Object.keys(images).sort()) {
     const image = images[entityId];

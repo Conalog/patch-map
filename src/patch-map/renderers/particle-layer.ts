@@ -630,7 +630,7 @@ function createRelations(
   const resolved = isAlive(store, from) && isAlive(store, to);
   const color = unpackColor(store.color[slot] as number, visibleOpacity);
   const entityId = store.ids[slot] ?? `@slot:${slot}`;
-  const relationProjection = projectionContext?.index.relationsByEntityId?.[entityId];
+  const relationProjection = projectionContext?.index.relationsByEntityId[entityId];
   if (!resolved) {
     return Object.freeze([Object.freeze({
       key: `relation:${slot}:0`,

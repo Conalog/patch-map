@@ -61,8 +61,6 @@ export type PatchMapEngineGeometryProbe = Readonly<
     readonly representedRevisions: PatchMapGeometryRevisionTuple | null;
     /** Per-domain lag from the current Engine tuple. */
     readonly revisionLags: PatchMapGeometryRevisionTuple | null;
-    /** Scene-domain compatibility projection of `revisionLags.scene`. */
-    readonly revisionLag: number | null;
   }
 >;
 
@@ -71,7 +69,6 @@ export interface PatchMapEngineRelationProbe {
   readonly surfaceRevision: number | null;
   readonly representedRevisions: PatchMapGeometryRevisionTuple | null;
   readonly revisionLags: PatchMapGeometryRevisionTuple | null;
-  readonly revisionLag: number | null;
   readonly relations: readonly PatchMapSurfaceRelationGeometry[];
   readonly omittedRelations: readonly PatchMapSurfaceOmittedRelationGeometry[];
 }

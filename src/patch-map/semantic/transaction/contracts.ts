@@ -5,7 +5,7 @@ import type {
 } from '../dataset';
 
 export const PATCH_MAP_MUTATION_TRANSACTION_REVISION =
-  'core-v2-mutation-transaction/1' as const;
+  'patch-map-mutation-transaction/1' as const;
 
 export type PatchMapMutationConflictPolicy = 'reject' | 'cancel-active' | 'queue-after';
 export type PatchMapMutationPathSegment = string | number;

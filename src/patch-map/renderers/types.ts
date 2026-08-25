@@ -87,8 +87,8 @@ export interface PatchMapInteractionOverlayPolicy {
   readonly visibleEntityIds: readonly string[] | null;
   /** Null keeps the transformer eligible wherever the selection outline is visible. */
   readonly transformableEntityIds: readonly string[] | null;
-  /** Null preserves the legacy all-selected handle policy. */
-  readonly resizableEntityIds: readonly string[] | null;
+  /** Explicit dense entity ids eligible for resize handles. */
+  readonly resizableEntityIds: readonly string[];
   readonly hidden: boolean;
   readonly handleCssPx: number;
   readonly strokeCssPx: number;

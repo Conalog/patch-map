@@ -843,10 +843,10 @@ export function buildAggregateChunkLaneGeometry(
     }
     if (
       kind === RenderKind.Rect &&
-      projectionContext?.index.componentsByEntityId?.[entityId]?.renderRole ===
+      projectionContext?.index.componentsByEntityId[entityId]?.renderRole ===
         'background-geometry'
     ) {
-      const paint = projectionContext.index.backgroundsByEntityId?.[entityId];
+      const paint = projectionContext.index.backgroundsByEntityId[entityId];
       const opacity = store.opacity[slot] as number;
       const presentationFill = presentationFillOverride(store, entityId);
       const packedFill = presentationFill ?? (
@@ -1000,7 +1000,7 @@ export function buildAggregateChunkLaneGeometry(
     const width = store.lineWidth[slot] as number;
     if (!isEndpoint(store, from) || !isEndpoint(store, to) || width <= 0) continue;
     const relationId = store.ids[slot] ?? '';
-    const relationProjection = projectionContext?.index.relationsByEntityId?.[relationId];
+    const relationProjection = projectionContext?.index.relationsByEntityId[relationId];
     const fromQuad = resolvePatchMapSlotQuad(store, from, projectionContext);
     const toQuad = resolvePatchMapSlotQuad(store, to, projectionContext);
     const lines: AggregateLine[] = [];

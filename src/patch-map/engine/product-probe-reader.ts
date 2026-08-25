@@ -35,13 +35,17 @@ import type {
   PatchMapEnginePaintOrderProbe,
   PatchMapEnginePixiPublicSurfaceProbe,
   PatchMapEngineRendererLossProbe,
-  PatchMapEngineSnapshot,
   PatchMapEngineTextProbe,
   PatchMapEngineTextRevisionTuple,
+} from './contracts/rendering';
+import type {
+  PatchMapEngineSnapshot,
+} from './contracts/product';
+import type {
   PatchMapLifecycle,
   PatchMapPublishedTuple,
   PatchMapRevisionStamp,
-} from './public-contracts';
+} from './contracts/lifecycle';
 import type { PatchMapViewportAuthoritySnapshot } from './viewport-authority';
 
 export const PATCH_MAP_ENGINE_FACILITIES = Object.freeze([

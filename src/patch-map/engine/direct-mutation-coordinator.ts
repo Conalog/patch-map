@@ -36,12 +36,14 @@ import {
 } from './operation-outcomes';
 import type {
   PatchMapDiagnosticCategory,
-  PatchMapEngineDestroyTargetResult,
   PatchMapEngineDiagnostic,
-  PatchMapEnginePatchResult,
   PatchMapLifecycle,
   PatchMapRevisionStamp,
-} from './public-contracts';
+} from './contracts/lifecycle';
+import type {
+  PatchMapEngineDestroyTargetResult,
+  PatchMapEnginePatchResult,
+} from './contracts/mutation';
 import {
   incrementalOwnedRootIds,
   reconcileComponentSemantics,
@@ -149,17 +151,6 @@ export class PatchMapDirectMutationCoordinator {
         missing: EMPTY_PATCH_MAP_TARGETS,
         unchanged: freezePatchMapTargets([mutation.target]),
       } satisfies PatchMapEnginePatchResult);
-    }
-
-    if (!surface.reconcile) {
-      return this.refusedPatch(
-        mutation.target,
-        previousRevisions,
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        false,
-        EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS,
-      );
     }
 
     const currentDataset = this.sceneState.materialized?.dataset
@@ -321,17 +312,6 @@ export class PatchMapDirectMutationCoordinator {
       } satisfies PatchMapEngineDestroyTargetResult);
       this.port.emitDiagnostic(diagnostic);
       return result;
-    }
-
-    if (!surface.reconcile) {
-      return this.refusedDestroyTarget(
-        mutation.target,
-        previousRevisions,
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        false,
-        EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS,
-      );
     }
 
     const currentDataset = this.sceneState.materialized?.dataset

@@ -36,11 +36,19 @@ export const PATCH_MAP_PLACEMENTS = new Set<PatchMapPlacement>([
   'right-bottom',
   'bottom',
   'center',
-  'none',
 ]);
 
 const TRANSFORM_ATTRIBUTE_KEYS = new Set(['x', 'y', 'angle', 'rotation']);
 const SIGNED_SCALE_ATTRIBUTE_KEYS = new Set(['scaleX', 'scaleY']);
+const RESERVED_TRANSFORM_ATTRIBUTE_KEYS = new Set([
+  'scale',
+  'skew',
+  'pivot',
+  'skewX',
+  'skewY',
+  'pivotX',
+  'pivotY',
+]);
 const SIGNED_SCALE_ATTRIBUTE_TYPES = new Set([
   'group',
   'grid',
@@ -168,10 +176,12 @@ export function barPlacement(
   if (typeof value === 'string' && PATCH_MAP_PLACEMENTS.has(value as PatchMapPlacement)) {
     return value as PatchMapPlacement;
   }
-  if (typeof value === 'string') {
-    warnPatchMapParse(state, path, 'invalid-placement', 'Invalid placement fell back to center');
-  }
-  return 'center';
+  fatalPatchMapParse(
+    state,
+    path,
+    'invalid-placement',
+    'Placement must be a supported PatchMap placement',
+  );
 }
 
 export function barAnimation(
@@ -252,12 +262,12 @@ export function placeBox(
     PATCH_MAP_PLACEMENTS.has(placementValue as PatchMapPlacement)
   ) {
     placement = placementValue as PatchMapPlacement;
-  } else if (typeof placementValue === 'string') {
-    warnPatchMapParse(
+  } else {
+    fatalPatchMapParse(
       state,
       `${path}.placement`,
       'invalid-placement',
-      'Invalid placement fell back to center',
+      'Placement must be a supported PatchMap placement',
     );
   }
   return resolvePatchMapPlacementBounds(reference, size, placement, margin, path);
@@ -270,21 +280,53 @@ export function boxSpacing(
 ): Readonly<{ top: number; right: number; bottom: number; left: number }> {
   const uniform = finiteNumber(value);
   if (uniform !== undefined) {
-    return { top: uniform, right: uniform, bottom: uniform, left: uniform };
+    const spacing = requiredNonnegativeSpacing(uniform, path, state);
+    return { top: spacing, right: spacing, bottom: spacing, left: spacing };
   }
   if (value === undefined) return { top: 0, right: 0, bottom: 0, left: 0 };
   if (!isParserRecord(value)) {
     warnPatchMapParse(state, path, 'invalid-spacing', 'Invalid spacing fell back to zero');
     return { top: 0, right: 0, bottom: 0, left: 0 };
   }
-  const x = finiteNumber(value.x) ?? 0;
-  const y = finiteNumber(value.y) ?? 0;
+  const x = optionalNonnegativeSpacing(value.x, `${path}.x`, state);
+  const y = optionalNonnegativeSpacing(value.y, `${path}.y`, state);
   return {
-    top: finiteNumber(value.top) ?? y,
-    right: finiteNumber(value.right) ?? x,
-    bottom: finiteNumber(value.bottom) ?? y,
-    left: finiteNumber(value.left) ?? x,
+    top: value.top === undefined
+      ? y
+      : requiredNonnegativeSpacing(value.top, `${path}.top`, state),
+    right: value.right === undefined
+      ? x
+      : requiredNonnegativeSpacing(value.right, `${path}.right`, state),
+    bottom: value.bottom === undefined
+      ? y
+      : requiredNonnegativeSpacing(value.bottom, `${path}.bottom`, state),
+    left: value.left === undefined
+      ? x
+      : requiredNonnegativeSpacing(value.left, `${path}.left`, state),
   };
+}
+
+function optionalNonnegativeSpacing(
+  value: unknown,
+  path: string,
+  state: PatchMapParseState,
+): number {
+  return value === undefined ? 0 : requiredNonnegativeSpacing(value, path, state);
+}
+
+function requiredNonnegativeSpacing(
+  value: unknown,
+  path: string,
+  state: PatchMapParseState,
+): number {
+  const spacing = finiteNumber(value);
+  if (spacing !== undefined && spacing >= 0) return spacing;
+  fatalPatchMapParse(
+    state,
+    path,
+    'invalid-spacing',
+    'Spacing must be a nonnegative finite number',
+  );
 }
 
 export function axisSpacing(
@@ -309,14 +351,11 @@ export function relationEndpoint(
   sourceId: string,
 ): string {
   if (typeof value === 'string' && value.length > 0) return value;
-  if (isParserRecord(value) && typeof value.id === 'string' && value.id.length > 0) {
-    return value.id;
-  }
   fatalPatchMapParse(
     state,
     path,
     'invalid-relation-endpoint',
-    'Relation endpoint must be a string or { id }',
+    'Relation endpoint must be a non-empty string',
     sourceId,
   );
 }
@@ -390,29 +429,46 @@ export function inspectAttributes(
   state: PatchMapParseState,
 ): void {
   if (!attrs) return;
+  if (Object.hasOwn(attrs, 'angle') && Object.hasOwn(attrs, 'rotation')) {
+    fatalPatchMapParse(
+      state,
+      path,
+      'transform-rotation-conflict',
+      'angle and rotation are mutually exclusive',
+    );
+  }
   for (const key of Object.keys(attrs)) {
-    if (key === 'skew' || key === 'skewX' || key === 'skewY') {
-      warnPatchMapParseOnce(
+    if (RESERVED_TRANSFORM_ATTRIBUTE_KEYS.has(key)) {
+      fatalPatchMapParse(
         state,
-        `affine-skew:${type}:${key}`,
         `${path}.${key}`,
-        'affine-skew-unsupported',
-        'Authored skew is preserved in identity but is outside the orthogonal PatchMap projection contract',
+        'unsupported-transform-attribute',
+        `${key} is not a supported PatchMap transform attribute`,
       );
-      continue;
     }
-    if (key === 'pivot' || key === 'pivotX' || key === 'pivotY') {
-      warnPatchMapParseOnce(
+    if (
+      (TRANSFORM_ATTRIBUTE_KEYS.has(key) || SIGNED_SCALE_ATTRIBUTE_KEYS.has(key) || key === 'zIndex') &&
+      finiteNumber(attrs[key]) === undefined
+    ) {
+      fatalPatchMapParse(
         state,
-        `affine-pivot:${type}:${key}`,
         `${path}.${key}`,
-        'affine-pivot-unsupported',
-        'Authored pivot is preserved in identity but PatchMap uses the PATCH MAP top-left origin',
+        'invalid-transform-attribute',
+        `${key} must be a finite number`,
       );
-      continue;
+    }
+    if (key === 'alpha') {
+      const alpha = finiteNumber(attrs[key]);
+      if (alpha === undefined || alpha < 0 || alpha > 1) {
+        fatalPatchMapParse(
+          state,
+          `${path}.${key}`,
+          'invalid-transform-attribute',
+          'alpha must be a finite number in the range 0..1',
+        );
+      }
     }
     const projected = key === 'alpha' ||
-      (key === 'display' && type === 'image') ||
       (TRANSFORM_ATTRIBUTE_KEYS.has(key) && TRANSFORM_ATTRIBUTE_TYPES.has(type)) ||
       (SIGNED_SCALE_ATTRIBUTE_KEYS.has(key) && SIGNED_SCALE_ATTRIBUTE_TYPES.has(type)) ||
       (key === 'zIndex' && Z_INDEX_ATTRIBUTE_TYPES.has(type));
@@ -432,12 +488,10 @@ function numericAttribute(
   path: string,
   state: PatchMapParseState,
 ): number {
+  if (value === undefined) return 0;
   const parsed = finiteNumber(value);
   if (parsed !== undefined) return parsed;
-  if (value !== undefined) {
-    warnPatchMapParse(state, path, 'invalid-number', 'Invalid numeric attribute fell back to zero');
-  }
-  return 0;
+  fatalPatchMapParse(state, path, 'invalid-transform-attribute', 'Transform value must be finite');
 }
 
 function scaleAttribute(
@@ -448,8 +502,7 @@ function scaleAttribute(
   if (value === undefined) return 1;
   const parsed = finiteNumber(value);
   if (parsed !== undefined) return parsed;
-  warnPatchMapParse(state, path, 'invalid-scale', 'Invalid signed scale fell back to one');
-  return 1;
+  fatalPatchMapParse(state, path, 'invalid-transform-attribute', 'Scale value must be finite');
 }
 
 export function zIndex(attrs: unknown): number {
@@ -481,13 +534,12 @@ export function projectedOpacity(
 ): number {
   const opacity = finiteNumber(value);
   if (opacity === undefined) {
-    warnPatchMapParse(state, path, 'invalid-opacity', 'Invalid opacity fell back to fully opaque');
-    return 1;
+    fatalPatchMapParse(state, path, 'invalid-opacity', 'Opacity must be a finite number in 0..1');
   }
   if (opacity < 0 || opacity > 1) {
-    warnPatchMapParse(state, path, 'opacity-clamped', 'Opacity outside 0..1 was clamped');
+    fatalPatchMapParse(state, path, 'invalid-opacity', 'Opacity must be a finite number in 0..1');
   }
-  return clamp01(opacity);
+  return opacity;
 }
 
 export function attributeAlpha(
@@ -503,35 +555,15 @@ export function projectedRadius(
   path: string,
   state: PatchMapParseState,
 ): number | undefined {
+  if (value === undefined) return undefined;
   const scalar = finiteNumber(value);
-  if (scalar !== undefined) return Math.max(0, scalar);
-  const corners = Array.isArray(value)
-    ? value.map((entry) => finiteNumber(entry))
-    : isParserRecord(value)
-      ? [
-          finiteNumber(value.topLeft) ?? 0,
-          finiteNumber(value.topRight) ?? 0,
-          finiteNumber(value.bottomRight) ?? 0,
-          finiteNumber(value.bottomLeft) ?? 0,
-        ]
-      : undefined;
-  if (
-    corners !== undefined &&
-    corners.length === 4 &&
-    corners.every((entry) => entry !== undefined)
-  ) {
-    warnPatchMapParse(
-      state,
-      path,
-      'corner-radius-degraded',
-      'Per-corner radius is preserved by the semantic dataset and uses the maximum corner in the scalar dense renderer',
-    );
-    return Math.max(0, ...corners);
-  }
-  if (value !== undefined) {
-    warnPatchMapParse(state, path, 'invalid-radius', 'Invalid radius was omitted from dense rendering');
-  }
-  return undefined;
+  if (scalar !== undefined && scalar >= 0) return scalar;
+  fatalPatchMapParse(
+    state,
+    path,
+    'invalid-radius',
+    'Standalone rect radius must be a nonnegative finite number',
+  );
 }
 
 export function fontWeight(value: unknown): number | undefined {
@@ -560,7 +592,12 @@ function rotationDegrees(
   const rotation = finiteNumber(attrs?.rotation);
   if (rotation !== undefined) return rotation * 180 / Math.PI;
   if (attrs?.angle !== undefined || attrs?.rotation !== undefined) {
-    warnPatchMapParse(state, path, 'invalid-rotation', 'Invalid angle/rotation fell back to zero');
+    fatalPatchMapParse(
+      state,
+      path,
+      'invalid-transform-attribute',
+      'angle and rotation must be finite numbers',
+    );
   }
   return 0;
 }

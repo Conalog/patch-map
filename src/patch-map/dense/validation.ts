@@ -220,8 +220,8 @@ export function normalizeEntity(entity: EntityInput, path: string): CanonicalEnt
         fail(`${path}.fontFamily`, 'expected a non-empty string');
       }
       const align = entity.align ?? 'left';
-      if (!['left', 'center', 'right'].includes(align)) {
-        fail(`${path}.align`, 'expected left, center, or right');
+      if (!['left', 'center', 'right', 'justify'].includes(align)) {
+        fail(`${path}.align`, 'expected left, center, right, or justify');
       }
       return {
         ...base,
@@ -338,8 +338,8 @@ export function validatePatch(patch: EntityPatch, kind: EntityKind, path: string
   if (patch.fontSize !== undefined) nonNegative(patch.fontSize, `${path}.fontSize`);
   if (patch.fontFamily !== undefined) identifier(patch.fontFamily, `${path}.fontFamily`);
   if (patch.fontWeight !== undefined) integer(patch.fontWeight, `${path}.fontWeight`, 400);
-  if (patch.align !== undefined && !['left', 'center', 'right'].includes(patch.align)) {
-    fail(`${path}.align`, 'expected left, center, or right');
+  if (patch.align !== undefined && !['left', 'center', 'right', 'justify'].includes(patch.align)) {
+    fail(`${path}.align`, 'expected left, center, right, or justify');
   }
   if (patch.maxLines !== undefined) integer(patch.maxLines, `${path}.maxLines`, 0);
   if (patch.source !== undefined) identifier(patch.source, `${path}.source`);

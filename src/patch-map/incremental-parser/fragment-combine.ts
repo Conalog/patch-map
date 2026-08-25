@@ -34,8 +34,8 @@ export function relationEndpointsIntersect(
 ): boolean {
   if (ids.size === 0) return false;
   const relations = [
-    ...Object.values(projection.relationsByEntityId ?? {}),
-    ...(projection.omittedRelations ?? []),
+    ...Object.values(projection.relationsByEntityId),
+    ...projection.omittedRelations,
   ];
   return relations.some(({ sourceId, targetId }) =>
     ids.has(sourceId) || ids.has(targetId));
@@ -46,7 +46,7 @@ export function addedElementsActivateOmittedRelation(
   previousElementIds: ReadonlySet<string>,
   fragments: readonly RootFragment[],
 ): boolean {
-  const omitted = previous.projection.omittedRelations ?? [];
+  const omitted = previous.projection.omittedRelations;
   if (omitted.length === 0) return false;
   const added = new Set<string>();
   for (const fragment of fragments) {
@@ -195,7 +195,7 @@ export function combineStructuralRootFragments(
     PatchMapProjectionIndex['omittedRelations']
   >[number][] = [];
   for (const fragment of fragments) {
-    omittedRelations.push(...(fragment.projection.omittedRelations ?? []));
+    omittedRelations.push(...fragment.projection.omittedRelations);
   }
   projection.omittedRelations.push(...omittedRelations);
   freezeRecordArrays(entityIdsBySourceId);
@@ -299,7 +299,7 @@ export function combineRootFragments(
       appendProjectionEntity(projection, fragment.projection, entity.id);
     }
   }
-  projection.omittedRelations.push(...(previous.projection.omittedRelations ?? []));
+  projection.omittedRelations.push(...previous.projection.omittedRelations);
   if (entityById.size !== previous.document.entities.length) return null;
   for (const previousEntity of previous.document.entities) {
     const entity = entityById.get(previousEntity.id);

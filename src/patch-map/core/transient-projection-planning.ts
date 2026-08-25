@@ -6,7 +6,7 @@ import type {
   ParsePatchMapOptions,
   ParsePatchMapResult,
 } from '../contracts';
-import { parsePatchMapV010SelectedRoots } from '../parser';
+import { parsePatchMapSelectedRoots } from '../parser';
 import { ownedPatchMapPreviewPatchIndices } from '../semantic/dataset';
 import { isPlainRecord } from '../shared/plain-record';
 import { sameStringArray } from '../shared/string-array-values';
@@ -85,7 +85,7 @@ export function preparePatchMapIncrementalPreview(
   }
   if (dirty.size !== 0) return null;
 
-  const selected = parsePatchMapV010SelectedRoots(
+  const selected = parsePatchMapSelectedRoots(
     roots,
     dirtyIndices,
     parseOptions,

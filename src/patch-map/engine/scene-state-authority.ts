@@ -17,7 +17,7 @@ import {
 import type {
   PatchMapEngineQueryResult,
   PatchMapResolvedTargetSnapshot,
-} from './public-contracts';
+} from './contracts/query-selection';
 
 export interface PatchMapSceneStatePlan {
   readonly materialized: MaterializedPatchMapDataset;

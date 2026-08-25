@@ -12,7 +12,7 @@ import {
 import { isPlainRecord } from './shared/plain-record';
 
 export const PATCH_MAP_HOST_ASSET_INGESTION_REVISION =
-  'core-v2-host-asset-ingestion/1' as const;
+  'patch-map-host-asset-ingestion/1' as const;
 
 export interface PatchMapHostPreparedImage {
   readonly name: string;
@@ -234,7 +234,7 @@ function textElement(
     id,
     text,
     style: Object.freeze({
-      fontFamily: 'Fira Code',
+      fontFamily: 'FiraCode',
       fontSize: 16,
       fill: '#111827',
     }),

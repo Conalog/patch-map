@@ -7,7 +7,7 @@ import {
   normalizeDocument,
 } from '../dense/validation';
 import type { ParsePatchMapOptions } from '../contracts';
-import { parsePatchMapV010 } from '../parser';
+import { parsePatchMap } from '../parser';
 import type { MaterializedPatchMapDataset } from './dataset';
 import type {
   PatchMapDenseReconcilePlan,
@@ -70,7 +70,7 @@ export function planPatchMapSceneReconcile(
 /**
  * Reconcile parser-produced documents without normalizing the same canonical
  * entity rows a second time. Callers must own both results from
- * `parsePatchMapV010`; arbitrary SceneDocument input belongs in the validating
+ * `parsePatchMap`; arbitrary SceneDocument input belongs in the validating
  * `planPatchMapSceneReconcile` entry point above.
  */
 export function planPatchMapParsedSceneReconcile(
@@ -631,8 +631,8 @@ export function planPatchMapDatasetReconcile(
   parseOptions: ParsePatchMapOptions = {},
   options: PatchMapReconcileOptions = {},
 ): PatchMapDenseReconcilePlan {
-  const currentProjection = parsePatchMapV010(current.dataset, parseOptions);
-  const candidateProjection = parsePatchMapV010(candidate.dataset, parseOptions);
+  const currentProjection = parsePatchMap(current.dataset, parseOptions);
+  const candidateProjection = parsePatchMap(candidate.dataset, parseOptions);
   const planned = planPatchMapSceneReconcile(
     currentProjection.document,
     candidateProjection.document,

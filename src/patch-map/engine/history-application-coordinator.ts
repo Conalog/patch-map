@@ -35,15 +35,17 @@ import {
 import type {
   PatchMapDiagnosticCategory,
   PatchMapEngineDiagnostic,
+  PatchMapLifecycle,
+  PatchMapRevisionStamp,
+} from './contracts/lifecycle';
+import type {
   PatchMapEngineHistoryClearResult,
   PatchMapEngineHistoryCompanionState,
   PatchMapEngineHistoryRestoredEvent,
   PatchMapEngineHistoryResult,
   PatchMapHistoryShortcutInput,
   PatchMapHistoryShortcutResult,
-  PatchMapLifecycle,
-  PatchMapRevisionStamp,
-} from './public-contracts';
+} from './contracts/history-transformer';
 import {
   historyReconcileOrderScope,
   incrementalOwnedRootIds,
@@ -241,28 +243,6 @@ export class PatchMapHistoryApplicationCoordinator {
   private apply(direction: PatchMapHistoryDirection): PatchMapEngineHistoryResult {
     const surface = this.port.requireSurface(direction);
     const previousRevisions = this.port.revisionStamp();
-    if (!surface.reconcile) {
-      const diagnostic = this.port.operationDiagnostic(
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        direction,
-        false,
-      );
-      const result = Object.freeze({
-        status: 'refused',
-        changed: false,
-        direction,
-        previousRevisions,
-        revisions: this.port.revisionStamp(),
-        sceneRevision: this.publication.sceneRevision,
-        semanticHash: this.sceneState.materialized?.semanticHash ?? null,
-        diagnostic,
-        reconcileDiagnostics: EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS,
-        history: this.history.state(),
-      } satisfies PatchMapEngineHistoryResult);
-      this.port.emitDiagnostic(diagnostic);
-      return result;
-    }
     let failure: PatchMapEngineDiagnostic | null = null;
     let reconcileDiagnostics: readonly PatchMapReconcileDiagnostic[] =
       EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS;
@@ -320,7 +300,7 @@ export class PatchMapHistoryApplicationCoordinator {
           textSemantics,
           selectionIds: selection,
         });
-        const reconcile = surface.reconcile!(materialized.dataset, {
+        const reconcile = surface.reconcile(materialized.dataset, {
           animateBarChanges: false,
           ...(incrementalRootIds === undefined ? {} : { incrementalRootIds }),
           ...(orderScope.allowedElementOrderIds.length === 0

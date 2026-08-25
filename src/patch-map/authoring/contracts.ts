@@ -7,7 +7,7 @@ import type {
   PatchMapMutationTransactionRequest,
 } from '../semantic/transaction';
 
-export const PATCH_MAP_AUTHORING_REVISION = 'core-v2-authoring/1' as const;
+export const PATCH_MAP_AUTHORING_REVISION = 'patch-map-authoring/1' as const;
 
 export type PatchMapAuthoringAction =
   | Readonly<{

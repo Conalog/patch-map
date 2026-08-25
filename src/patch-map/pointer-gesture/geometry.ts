@@ -24,7 +24,7 @@ export interface PatchMapRegionHitResult {
   readonly nonFiniteCount: number;
 }
 
-/** Main-compatible root click slop in logical CSS pixels. */
+/** Root click slop in logical CSS pixels. */
 export const PATCH_MAP_POINTER_CLICK_SLOP_CSS_PX = 4;
 
 /** Largest per-axis displacement; diagonal movement does not inflate the slop. */

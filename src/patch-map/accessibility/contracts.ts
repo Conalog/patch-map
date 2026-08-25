@@ -1,5 +1,5 @@
 export const PATCH_MAP_ACCESSIBILITY_REVISION =
-  'core-v2-accessibility/1' as const;
+  'patch-map-accessibility/1' as const;
 
 export type PatchMapAccessibilityAction = 'focus' | 'activate' | 'select';
 
@@ -41,8 +41,6 @@ export interface PatchMapAccessibilityTargetProbe {
   readonly focused: boolean;
   readonly focusVisible: boolean;
   readonly selected: boolean;
-  /** Backward-readable alias for the actions this node supports. */
-  readonly actions: readonly PatchMapAccessibilityAction[];
   readonly supportedActions: readonly PatchMapAccessibilityAction[];
   readonly performedActions: readonly PatchMapAccessibilityAction[];
   readonly children: readonly string[];

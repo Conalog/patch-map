@@ -18,7 +18,6 @@ const PLACEMENTS = new Set<string>([
   'right-bottom',
   'bottom',
   'center',
-  'none',
 ]);
 
 /**
@@ -26,8 +25,6 @@ const PLACEMENTS = new Set<string>([
  *
  * Named placements anchor each named edge with its corresponding margin while
  * leaving an unanchored axis centered in the unmodified reference frame.
- * Historical `none` placement is deliberately not an anchor: it bypasses the
- * content-frame origin and margins and preserves the component at local 0,0.
  */
 export function resolvePatchMapPlacementBounds(
   reference: PatchMapPlacementReference,
@@ -42,16 +39,12 @@ export function resolvePatchMapPlacementBounds(
   assertFiniteNonNegative(reference.height, `${path}.reference.height`, 'reference height');
   assertFiniteNonNegative(size.width, `${path}.size.width`, 'component width');
   assertFiniteNonNegative(size.height, `${path}.size.height`, 'component height');
-  assertFinite(margin.top, `${path}.margin.top`, 'top margin');
-  assertFinite(margin.right, `${path}.margin.right`, 'right margin');
-  assertFinite(margin.bottom, `${path}.margin.bottom`, 'bottom margin');
-  assertFinite(margin.left, `${path}.margin.left`, 'left margin');
+  assertFiniteNonNegative(margin.top, `${path}.margin.top`, 'top margin');
+  assertFiniteNonNegative(margin.right, `${path}.margin.right`, 'right margin');
+  assertFiniteNonNegative(margin.bottom, `${path}.margin.bottom`, 'bottom margin');
+  assertFiniteNonNegative(margin.left, `${path}.margin.left`, 'left margin');
   if (!PLACEMENTS.has(placement)) {
     invalid(`${path}.placement`, 'placement must be a supported PatchMap placement');
-  }
-
-  if (placement === 'none') {
-    return Object.freeze({ x: 0, y: 0, width: size.width, height: size.height });
   }
 
   const left = reference.x + margin.left;

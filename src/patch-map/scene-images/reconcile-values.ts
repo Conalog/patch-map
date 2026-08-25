@@ -45,7 +45,7 @@ export function normalizeDesiredImages(
 ): ReadonlyMap<string, DesiredImage> {
   const result = new Map<string, DesiredImage>();
   const bindingSignatures = new Map<string, string>();
-  const images = index.imagesByEntityId ?? {};
+  const images = index.imagesByEntityId;
   for (const entityId of Object.keys(images).sort()) {
     const projection = cloneProjection(entityId, images[entityId]!);
     const request = requestFor(projection);

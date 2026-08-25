@@ -7,7 +7,7 @@ import {
   type PatchMapStableRecordStrategy,
 } from '../semantic/stable-record-overlay';
 import {
-  cachePatchMapV010DirectParseIndexes,
+  cachePatchMapDirectParseIndexes,
   directTextParseIndexes,
   directTextTargetKey,
   type PatchMapDirectTextParseTargetIndex,
@@ -47,7 +47,7 @@ export interface PatchMapDirectTextParseUpdate {
  * diagnostic-bearing or identity-ambiguous input returns `null` so the caller
  * can use the canonical selected-root parser.
  */
-export function parsePatchMapV010DirectTextBatch(
+export function parsePatchMapDirectTextBatch(
   input: unknown,
   previous: ParsePatchMapResult,
   updates: readonly PatchMapDirectTextParseUpdate[],
@@ -188,7 +188,7 @@ export function parsePatchMapV010DirectTextBatch(
       textsByEntityId: textProjections,
     }),
   });
-  if (indexes !== null) cachePatchMapV010DirectParseIndexes(result, indexes);
+  if (indexes !== null) cachePatchMapDirectParseIndexes(result, indexes);
   return result;
 }
 

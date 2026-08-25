@@ -3,6 +3,7 @@ import {
   type PatchMapComponentType,
   type PatchMapElement,
   type PatchMapElementType,
+  type PatchMapRelationStyle,
   type PatchMapRectTexture,
   type PatchMapTextStyle,
   type MaterializedPatchMapDataset,
@@ -147,7 +148,7 @@ function visitElement(
       });
       break;
     case 'relations':
-      collectStrokeStyle(element.style, `${path}.style`, accumulator);
+      collectRelationStyle(element.style, `${path}.style`, accumulator);
       break;
     case 'image':
       if (element.size) collectGeometryValue(element.size, accumulator);
@@ -202,7 +203,6 @@ function visitComponent(
       if (isRectTexture(component.source)) {
         collectRectTexture(component.source, `${path}.source`, accumulator);
       }
-      if (component.size !== undefined) collectGeometryValue(component.size, accumulator);
       break;
     case 'bar':
       collectRectTexture(component.source, `${path}.source`, accumulator);
@@ -244,6 +244,15 @@ function collectStrokeStyle(
   for (const field of ['width', 'miterLimit', 'alignment', 'matrix'] as const) {
     if (field in style) collectGeometryValue(style[field], accumulator);
   }
+}
+
+function collectRelationStyle(
+  style: PatchMapRelationStyle,
+  path: string,
+  accumulator: ProbeAccumulator,
+): void {
+  collectPaint(style.color, `${path}.color`, 'stroke', accumulator);
+  collectGeometryValue(style.width, accumulator);
 }
 
 function collectTextStyle(

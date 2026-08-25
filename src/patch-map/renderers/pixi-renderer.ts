@@ -65,18 +65,11 @@ import {
   PatchMapRendererRuntimeError,
   type PatchMapPixiRendererOptions,
 } from './contracts';
-import {
-  PatchMapPresentationStoreView,
-  type PatchMapRendererEntityPresentationOverride,
-} from './presentation-store';
+import type { PatchMapRendererEntityPresentationOverride } from './presentation-store';
 import {
   buildPatchMapRelationAdjacency,
   contiguousRanges,
   expandPatchMapRelationDependencyRanges,
-  mergeRanges,
-  projectionChangedRanges,
-  projectionOrientationRanges,
-  projectionStalenessChangedRanges,
   rangesTouchPatchMapRelationTopology,
 } from './renderer-reconcile-ranges';
 import type {
@@ -94,8 +87,6 @@ import {
 import {
   freezeRendererTextProbe,
   freezeRendererTextSemanticSignatures,
-  normalizePresentationPolicy,
-  samePresentationPolicy,
   sameRendererTextAttachedSignatures,
   sameRendererTextSemanticSignatures,
 } from './pixi-renderer/presentation-values';
@@ -103,7 +94,6 @@ import {
   packedAlpha,
   packedRgb,
   positive,
-  sameStringSet,
   sameView,
   sameWorldOrientation,
 } from './pixi-renderer/value-atoms';
@@ -113,6 +103,7 @@ import { PatchMapCanvasSurfaceLifecycle } from './pixi-renderer/canvas-surface-l
 import { PatchMapPixiRootInteractionBindingAuthority } from './pixi-renderer/root-interaction-binding-authority';
 import { PatchMapPixiSurfacePublicationAuthority } from './pixi-renderer/surface-publication-authority';
 import { PatchMapPixiInteractionOverlayAuthority } from './pixi-renderer/interaction-overlay-authority';
+import { PatchMapPixiCpuPublicationAuthority } from './pixi-renderer/cpu-publication-authority';
 
 export {
   buildPatchMapRelationAdjacency,
@@ -156,10 +147,6 @@ const DEFAULT_WORLD_ORIENTATION: PatchMapWorldOrientation = Object.freeze({
   flipX: false,
   flipY: false,
 });
-const EMPTY_PROJECTION_INDEX: PatchMapProjectionIndex = Object.freeze({
-  byEntityId: Object.freeze({}),
-});
-
 export class PatchMapPixiRenderer implements CoreRenderer {
   public readonly application: Application;
   public readonly canvas: HTMLCanvasElement;
@@ -176,37 +163,16 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private readonly target: HTMLElement | undefined;
   private readonly rootInteractionBindings: PatchMapPixiRootInteractionBindingAuthority;
   private readonly surfacePublication: PatchMapPixiSurfacePublicationAuthority;
+  private readonly cpuPublication: PatchMapPixiCpuPublicationAuthority;
   private cleanupPromise: Promise<void> = Promise.resolve();
-  private lastStore: RenderStoreView | null = null;
-  private lastSourceStore: RenderStoreView | null = null;
-  private presentationPolicy: PatchMapResolvedPresentationPolicy | null = null;
-  private presentationLayerRevision = 0;
-  private presentationLayerCount = 0;
-  private presentationAlphaMultipliers: Float32Array<ArrayBufferLike> = new Float32Array(0);
-  private instancePresentationOverrides: ReadonlyMap<
-    string,
-    PatchMapRendererEntityPresentationOverride
-  > = new Map();
-  private presentationStore: PatchMapPresentationStoreView | null = null;
-  private presentationBaseStore: RenderStoreView | null = null;
-  private pendingSourceStore: RenderStoreView | null = null;
-  private pendingRanges: SlotRange[] | undefined;
-  private pendingOverlayRanges: SlotRange[] | undefined;
-  private pendingProjectionTransformOnly = false;
-  private pendingBarPresentationOnly = false;
-  private pendingTextOnly = false;
-  private storeEpoch = 0;
   private frame = 0;
   private widthValue: number;
   private heightValue: number;
   private pixelRatioValue: number;
   private view: CoreView = DEFAULT_VIEW;
-  private projectionIndex: PatchMapProjectionIndex = EMPTY_PROJECTION_INDEX;
-  private staleProjectionEntityIds: ReadonlySet<string> = new Set();
   private relationSlotsByEndpoint: ReadonlyMap<number, readonly number[]> = new Map();
   private relationSlots = new Set<number>();
   private relationEndpointsBySlot: ReadonlyMap<number, readonly [number, number]> = new Map();
-  private projectionRevision = 0;
   private readonly projectionQuadCache = createPatchMapProjectionQuadCache();
   private textProjectionSynchronizedRevision = -1;
   private lastRenderedTextProjectionRevision: number | null = null;
@@ -217,9 +183,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private readonly textVisibilityByEntityId = new Map<string, boolean>();
   private worldOrientation: PatchMapWorldOrientation = DEFAULT_WORLD_ORIENTATION;
   private readonly worldMatrix = new Matrix();
-  private lastInvalidation = 'init';
   private destroyedValue = false;
-  private synchronizeOnly = false;
   private readonly activeBackend: PatchMapActiveRendererBackend;
   private readonly initialWebGLVersion: 1 | 2 | null;
   private rendererLossState: PatchMapRendererLossState = 'healthy';
@@ -266,6 +230,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.widthValue = options.width;
     this.heightValue = options.height;
     this.pixelRatioValue = options.pixelRatio;
+    this.cpuPublication = new PatchMapPixiCpuPublicationAuthority(this.slotByEntityId);
     this.rootInteractionBindings = new PatchMapPixiRootInteractionBindingAuthority({
       stage: this.application.stage,
       canvas: this.canvas,
@@ -292,13 +257,13 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.rendererLossEventCount += 1;
         this.rendererLossState = 'lost';
         this.lastRendererLossFrame = this.frame;
-        this.lastInvalidation = 'renderer-context-lost';
+        this.cpuPublication.invalidate('renderer-context-lost');
       },
       onContextRestored: () => {
         if (this.destroyedValue) return;
         this.rendererRestorationEventCount += 1;
         this.rendererLossState = 'restored-pending-frame';
-        this.lastInvalidation = 'renderer-context-restored';
+        this.cpuPublication.invalidate('renderer-context-restored');
       },
     });
     this.world = new Container({ label: 'PatchMap / world', isRenderGroup: true });
@@ -323,11 +288,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       {
         onBindingTransition: ({ key, state, dirtySlots }) => {
           if (this.destroyedValue) return;
-          this.lastInvalidation = `scene-asset:${key}:${state}`;
-          this.pendingProjectionTransformOnly = false;
-          this.pendingRanges = mergeRanges(
-            this.pendingRanges ?? [],
+          this.cpuPublication.markRetainedLeafRanges(
             contiguousRanges(dirtySlots),
+            `scene-asset:${key}:${state}`,
           );
         },
         ...(options.resolveBitmapTextCapability === undefined
@@ -487,54 +450,14 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     } = {},
   ): void {
     this.assertAlive();
-    const previousIdle =
-      this.pendingRanges !== undefined &&
-      this.pendingRanges.length === 0;
-    const barOnly =
-      options.domain === 'bar-only' &&
-      (previousIdle || this.pendingBarPresentationOnly);
-    const textOnly =
-      options.domain === 'text-only' &&
-      (previousIdle || this.pendingTextOnly);
-    const invalidatesProjectionTransform = options.fullRebuild || ranges.length > 0;
-    const nextProjectionTransformOnly = invalidatesProjectionTransform
-      ? false
-      : this.pendingProjectionTransformOnly;
-    const nextBarPresentationOnly = invalidatesProjectionTransform
-      ? barOnly
-      : this.pendingBarPresentationOnly;
-    const nextTextOnly = invalidatesProjectionTransform
-      ? textOnly
-      : this.pendingTextOnly;
-    // A view-only commit intentionally publishes an empty range after
-    // setWorldOrientation(). Preserve the orientation fast-path promise in
-    // that case; any actual scene mutation or full rebuild revokes it.
-    if (options.fullRebuild) {
-      this.barPresentationVisibilityConservative = true;
-      const nextStoreEpoch = this.storeEpoch + 1;
-      this.lastInvalidation = reason;
-      this.pendingProjectionTransformOnly = nextProjectionTransformOnly;
-      this.pendingBarPresentationOnly = nextBarPresentationOnly;
-      this.pendingTextOnly = nextTextOnly;
-      this.storeEpoch = nextStoreEpoch;
-      this.pendingRanges = undefined;
-      return;
-    }
-    const nextRanges = mergeRanges(this.pendingRanges ?? [], ranges);
-    if (ranges.length > 0 && options.domain !== 'bar-only') {
+    if (this.cpuPublication.markChanges(ranges, reason, options)) {
       this.barPresentationVisibilityConservative = true;
     }
-    this.lastInvalidation = reason;
-    this.pendingProjectionTransformOnly = nextProjectionTransformOnly;
-    this.pendingBarPresentationOnly = nextBarPresentationOnly;
-    this.pendingTextOnly = nextTextOnly;
-    this.pendingRanges = nextRanges;
   }
 
   public markOverlayChanges(ranges: readonly SlotRange[], reason: string): void {
     this.assertAlive();
-    this.lastInvalidation = reason;
-    this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], ranges);
+    this.cpuPublication.markOverlayChanges(ranges, reason);
   }
 
   public setInteractionOverlayPolicy(
@@ -543,11 +466,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.assertAlive();
     const changed = this.interactionOverlay.setPolicy(
       policy,
-      this.lastStore,
+      this.cpuPublication.lastStore,
     );
     if (!changed) return false;
-    this.pendingOverlayRanges = undefined;
-    this.lastInvalidation = 'interaction-overlay-policy';
+    this.cpuPublication.invalidateOverlay('interaction-overlay-policy');
     return true;
   }
 
@@ -559,10 +481,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.assertAlive();
     const changed = this.interactionOverlay.setMarquee(
       input,
-      this.lastStore,
+      this.cpuPublication.lastStore,
     );
     if (!changed) return false;
-    this.lastInvalidation = 'selection-marquee';
+    this.cpuPublication.invalidate('selection-marquee');
     return true;
   }
 
@@ -573,46 +495,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
    */
   public setPresentationPolicy(policy: PatchMapResolvedPresentationPolicy | null): boolean {
     this.assertAlive();
-    const normalized = policy === null ? null : normalizePresentationPolicy(policy);
-    const sourceStore = this.presentationSourceStore();
-    const needsView = normalized !== null ||
-      this.instancePresentationOverrides.size > 0 ||
-      this.presentationLayerCount > 0;
-    if (
-      samePresentationPolicy(this.presentationPolicy, normalized) &&
-      (
-        !needsView ||
-        sourceStore === null ||
-        (
-          this.presentationStore !== null &&
-          this.presentationBaseStore === sourceStore
-        )
-      )
-    ) return false;
-    const nextPresentationStore =
-      !needsView || sourceStore === null
-      ? null
-      : new PatchMapPresentationStoreView(
-          sourceStore,
-          normalized,
-          this.instancePresentationOverrides,
-          this.presentationAlphaMultipliers,
-        );
-    const nextPresentationBaseStore = nextPresentationStore === null
-      ? null
-      : sourceStore;
-    this.presentationPolicy = normalized;
-    this.presentationStore = nextPresentationStore;
-    this.presentationBaseStore = nextPresentationBaseStore;
-    this.pendingRanges = undefined;
-    this.pendingOverlayRanges = undefined;
-    this.pendingProjectionTransformOnly = false;
-    this.pendingBarPresentationOnly = false;
-    this.pendingTextOnly = false;
-    this.lastInvalidation = normalized === null
-      ? 'presentation-policy:clear'
-      : `presentation-policy:${normalized.revision}`;
-    return true;
+    return this.cpuPublication.setPresentationPolicy(policy);
   }
 
   /** @internal Apply one keyed-layer composition delta without rebuilding the view. */
@@ -620,69 +503,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     update: PatchMapPresentationLayerRenderUpdate,
   ): boolean {
     this.assertAlive();
-    const sourceStore = this.presentationSourceStore();
-    if (
-      update.layerCount > 0 &&
-      sourceStore !== null &&
-      update.alphaMultipliers.length !== sourceStore.capacity
-    ) {
-      throw new RangeError('presentation layer multiplier capacity changed');
-    }
-    if (update.layerCount === 0) {
-      this.presentationAlphaMultipliers = new Float32Array(0);
-    } else if (this.presentationAlphaMultipliers.length !== update.alphaMultipliers.length) {
-      this.presentationAlphaMultipliers = update.alphaMultipliers.slice();
-    } else if (update.full) {
-      this.presentationAlphaMultipliers.set(update.alphaMultipliers);
-    } else {
-      for (const { start, end } of update.dirtyRanges ?? []) {
-        this.presentationAlphaMultipliers.set(
-          update.alphaMultipliers.subarray(start, end),
-          start,
-        );
-      }
-    }
-    this.presentationLayerRevision = update.revision;
-    this.presentationLayerCount = update.layerCount;
-
-    const ranges = update.full ? undefined : update.dirtyRanges ?? [];
-    if (sourceStore !== null) {
-      const needsView = this.presentationPolicy !== null ||
-        this.instancePresentationOverrides.size > 0 ||
-        this.presentationLayerCount > 0;
-      if (!needsView) {
-        this.presentationStore = null;
-        this.presentationBaseStore = null;
-      } else if (
-        this.presentationStore === null ||
-        this.presentationBaseStore !== sourceStore ||
-        this.presentationStore.capacity !== sourceStore.capacity
-      ) {
-        this.presentationStore = new PatchMapPresentationStoreView(
-          sourceStore,
-          this.presentationPolicy,
-          this.instancePresentationOverrides,
-          this.presentationAlphaMultipliers,
-        );
-        this.presentationBaseStore = sourceStore;
-      } else {
-        this.presentationStore.synchronizeAlphaMultipliers(
-          this.presentationAlphaMultipliers,
-          ranges,
-        );
-      }
-    }
-    this.pendingRanges = ranges === undefined || this.pendingRanges === undefined
-      ? undefined
-      : mergeRanges(this.pendingRanges, ranges);
-    this.pendingOverlayRanges = ranges === undefined || this.pendingOverlayRanges === undefined
-      ? undefined
-      : mergeRanges(this.pendingOverlayRanges, ranges);
-    this.pendingProjectionTransformOnly = false;
-    this.pendingBarPresentationOnly = false;
-    this.pendingTextOnly = false;
-    this.lastInvalidation = `presentation-layer:${update.revision}`;
-    return true;
+    return this.cpuPublication.setPresentationLayerMultipliers(update);
   }
 
   /** @internal Publish sparse instance presentation values into aggregate columns. */
@@ -691,53 +512,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     changedRanges?: readonly SlotRange[],
   ): boolean {
     this.assertAlive();
-    this.instancePresentationOverrides = overrides;
-    const sourceStore = this.presentationSourceStore();
-    if (sourceStore !== null) {
-      if (this.presentationStore === null) {
-        if (
-          overrides.size > 0 ||
-          this.presentationPolicy !== null ||
-          this.presentationLayerCount > 0
-        ) {
-          this.presentationStore = new PatchMapPresentationStoreView(
-            sourceStore,
-            this.presentationPolicy,
-            overrides,
-            this.presentationAlphaMultipliers,
-          );
-          this.presentationBaseStore = sourceStore;
-        }
-      } else if (
-        overrides.size === 0 &&
-        this.presentationPolicy === null &&
-        this.presentationLayerCount === 0
-      ) {
-        this.presentationStore = null;
-        this.presentationBaseStore = null;
-      } else {
-        this.presentationStore.synchronize(
-          sourceStore,
-          this.presentationPolicy,
-          changedRanges,
-          overrides,
-          this.presentationAlphaMultipliers,
-        );
-      }
-      this.pendingRanges = changedRanges === undefined || this.pendingRanges === undefined
-        ? undefined
-        : mergeRanges(this.pendingRanges, changedRanges);
-    }
-    this.pendingOverlayRanges = changedRanges === undefined || this.pendingOverlayRanges === undefined
-      ? undefined
-      : mergeRanges(this.pendingOverlayRanges, changedRanges);
-    this.pendingProjectionTransformOnly = false;
-    this.pendingBarPresentationOnly = false;
-    this.pendingTextOnly = false;
-    this.lastInvalidation = overrides.size === 0
-      ? 'instance-presentation:clear'
-      : 'instance-presentation';
-    return true;
+    return this.cpuPublication.setInstancePresentationOverrides(overrides, changedRanges);
   }
 
   public presentationEntityProbe(
@@ -747,25 +522,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     if (typeof entityId !== 'string' || entityId.length === 0) {
       throw new TypeError('entityId must be a non-empty string');
     }
-    const active = this.presentationStore?.entityProbe(entityId);
-    if (active !== null && active !== undefined) {
-      return Object.freeze({ entityId, ...active });
-    }
-    const store = this.presentationPolicy === null && this.presentationLayerCount === 0
-      ? this.presentationSourceStore() ?? this.lastStore
-      : this.presentationStore;
-    if (store === null) return null;
-    const slot = this.slotByEntityId.get(entityId);
-    if (slot === undefined || (store.alive[slot] ?? 0) === 0) return null;
-    const visible = ((store.flags[slot] ?? 0) & RenderFlags.Visible) !== 0 &&
-      (store.opacity[slot] ?? 0) > 0;
-    return Object.freeze({
-      entityId,
-      emphasis: 1,
-      visible,
-      renderObjectCount: visible ? 1 : 0,
-      packedFill: (store.fill[slot] ?? 0) >>> 0,
-    });
+    return this.cpuPublication.presentationEntityProbe(entityId);
   }
 
   /**
@@ -781,95 +538,26 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     sourceStore?: RenderStoreView,
   ): boolean {
     this.assertAlive();
-    const nextStaleEntityIds = staleEntityIds === undefined
-      ? this.staleProjectionEntityIds
-      : new Set(staleEntityIds);
-    const stalenessChanged = !sameStringSet(
-      this.staleProjectionEntityIds,
-      nextStaleEntityIds,
+    const changed = this.cpuPublication.setProjection(
+      index,
+      changedRanges,
+      staleEntityIds,
+      updateKind,
+      sourceStore,
     );
-    if (
-      this.projectionIndex === index &&
-      changedRanges === undefined &&
-      !stalenessChanged &&
-      (sourceStore === undefined || this.pendingSourceStore === sourceStore)
-    ) {
-      return false;
-    }
-    const previous = this.projectionIndex;
-    const previousStaleEntityIds = this.staleProjectionEntityIds;
-    const projectionRanges = changedRanges === undefined
-      ? this.lastStore
-        ? projectionChangedRanges(this.lastStore, previous, index)
-        : []
-      : mergeRanges([], changedRanges);
-    const stalenessRanges = stalenessChanged && this.lastStore
-      ? projectionStalenessChangedRanges(
-          previousStaleEntityIds,
-          nextStaleEntityIds,
-          this.slotByEntityId,
-        )
-      : [];
-    const ranges = mergeRanges(projectionRanges, stalenessRanges);
-    const barPresentationOnly =
-      updateKind === 'bar-presentation' &&
-      changedRanges !== undefined &&
-      this.pendingRanges !== undefined &&
-      (
-        this.pendingRanges.length === 0 ||
-        this.pendingBarPresentationOnly
-      );
-    const textOnly =
-      updateKind === 'text' &&
-      changedRanges !== undefined &&
-      this.pendingRanges !== undefined &&
-      (
-        this.pendingRanges.length === 0 ||
-        this.pendingTextOnly
-      );
-    const nextPendingRanges = mergeRanges(this.pendingRanges ?? [], ranges);
-    const paintBoundsProjectionChanged = previous !== index && updateKind !== 'bar-presentation';
-    const nextPendingOverlayRanges = paintBoundsProjectionChanged
-      ? undefined
-      : mergeRanges(this.pendingOverlayRanges ?? [], ranges);
-    const nextInvalidation = changedRanges === undefined
-      ? 'projection'
-      : 'presentation-projection';
-    const nextProjectionRevision = this.projectionRevision + 1;
-    this.projectionIndex = index;
-    if (updateKind !== 'bar-presentation') {
+    if (changed && updateKind !== 'bar-presentation') {
       this.barPresentationVisibilityConservative = true;
     }
-    this.pendingProjectionTransformOnly = false;
-    this.staleProjectionEntityIds = nextStaleEntityIds;
-    this.projectionRevision = nextProjectionRevision;
-    this.pendingRanges = nextPendingRanges;
-    this.pendingOverlayRanges = nextPendingOverlayRanges;
-    this.pendingBarPresentationOnly = barPresentationOnly;
-    this.pendingTextOnly = textOnly;
-    if (sourceStore !== undefined) this.pendingSourceStore = sourceStore;
-    this.lastInvalidation = nextInvalidation;
-    return true;
+    return changed;
   }
 
   public setWorldOrientation(world: PatchMapWorldOrientation): boolean {
     this.assertAlive();
     if (sameWorldOrientation(this.worldOrientation, world)) return false;
     this.worldOrientation = Object.freeze({ ...world });
-    this.projectionRevision += 1;
-    this.pendingBarPresentationOnly = false;
-    this.pendingTextOnly = false;
+    this.cpuPublication.markProjectionOrientationChanged();
     this.applyWorldTransform();
     this.barPresentationVisibilityStale = true;
-    const transformOnlyEligible =
-      this.pendingRanges !== undefined && this.pendingRanges.length === 0;
-    if (this.lastStore) {
-      const upright = projectionOrientationRanges(this.lastStore, this.projectionIndex, 'upright');
-      this.pendingRanges = mergeRanges(this.pendingRanges ?? [], upright);
-      this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], upright);
-    }
-    this.pendingProjectionTransformOnly = transformOnlyEligible;
-    this.lastInvalidation = 'world-orientation';
     return true;
   }
 
@@ -894,7 +582,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.application.renderer.resize(width, height);
     this.application.stage.hitArea = new Rectangle(0, 0, width, height);
     this.barPresentationVisibilityStale = true;
-    this.lastInvalidation = 'resize';
+    this.cpuPublication.invalidate('resize');
     return true;
   }
 
@@ -914,22 +602,14 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         ...this.worldOrientation,
         rotationDegrees: this.view.rotation ?? 0,
       });
-      this.projectionRevision += 1;
-      const transformOnlyEligible =
-        this.pendingRanges !== undefined && this.pendingRanges.length === 0;
-      if (this.lastStore) {
-        const upright = projectionOrientationRanges(this.lastStore, this.projectionIndex, 'upright');
-        this.pendingRanges = mergeRanges(this.pendingRanges ?? [], upright);
-        this.pendingOverlayRanges = mergeRanges(this.pendingOverlayRanges ?? [], upright);
-      }
-      this.pendingProjectionTransformOnly = transformOnlyEligible;
-      this.pendingBarPresentationOnly = false;
-      this.pendingTextOnly = false;
+      this.cpuPublication.markProjectionOrientationChanged();
     }
-    if (scaleChanged || this.interactionOverlay.marqueeVisible) this.pendingOverlayRanges = undefined;
+    if (scaleChanged || this.interactionOverlay.marqueeVisible) {
+      this.cpuPublication.invalidateOverlayForView();
+    }
     this.applyWorldTransform();
     this.barPresentationVisibilityStale = true;
-    this.lastInvalidation = 'view';
+    this.cpuPublication.invalidate('view');
     return true;
   }
 
@@ -979,51 +659,29 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     );
     if (!precise) {
       this.aggregate.backgroundGeometryContainer.sortChildren();
-      this.aggregate.quadContainer.sortChildren();
-      this.aggregate.relationContainer.sortChildren();
+      this.aggregate.ordinaryGeometryContainer.sortChildren();
+      this.aggregate.relationsDynamicContainer.sortChildren();
     }
     return visibleChunks;
   }
 
   public flush(store: RenderStoreView): RendererFlushResult {
     this.assertAlive();
-    if (this.pendingSourceStore !== null && this.pendingSourceStore !== store) {
-      throw new Error('pending presentation source store changed before flush');
-    }
-    // A presentation view is a sparse column wrapper over the same dense
-    // source store. Switching that wrapper on/off must retain aggregate and
-    // leaf topology so dirty ranges can update only the affected instances.
-    const storeReplaced = this.lastSourceStore !== store;
-    const reusableBarPresentationStore =
-      this.pendingBarPresentationOnly &&
-      !storeReplaced &&
-      this.pendingRanges !== undefined;
-    // Bar animation frames mutate projection geometry only. Instance tint,
-    // visibility, and policy columns were already synchronized by the commit,
-    // so retaining the materialized wrapper avoids re-reading every animated
-    // slot on each frame.
-    const effectiveStore = this.presentationStoreFor(
-      store,
-      !reusableBarPresentationStore,
-    );
+    const effectiveStore = this.cpuPublication.beginFlush(store);
+    const storeReplaced = this.cpuPublication.flushStoreReplaced;
     if (storeReplaced) {
-      this.storeEpoch += 1;
-      this.pendingRanges = undefined;
-      this.pendingOverlayRanges = undefined;
-      this.pendingProjectionTransformOnly = false;
-      this.pendingBarPresentationOnly = false;
-      this.pendingTextOnly = false;
       this.interactionOverlay.resetSelection();
     }
     // View rotation can change upright projection geometry. Resolve it before
     // consuming pending ranges so the first published frame cannot lag.
     const viewChanged = this.setView(effectiveStore.view);
+    const pendingRanges = this.cpuPublication.pendingRanges;
     if (
       storeReplaced ||
-      this.pendingRanges === undefined ||
+      pendingRanges === undefined ||
       rangesTouchPatchMapRelationTopology(
         store,
-        this.pendingRanges,
+        pendingRanges,
         this.relationSlots,
         this.relationEndpointsBySlot,
       )
@@ -1034,25 +692,25 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.relationEndpointsBySlot = adjacency.endpointsByRelation;
     }
     const projectionTransformOnly =
-      this.pendingProjectionTransformOnly &&
+      this.cpuPublication.pendingProjectionTransformOnly &&
       !storeReplaced &&
-      this.pendingRanges !== undefined;
+      pendingRanges !== undefined;
     const barPresentationOnly =
-      this.pendingBarPresentationOnly &&
+      this.cpuPublication.pendingBarPresentationOnly &&
       !storeReplaced &&
-      this.pendingRanges !== undefined;
+      pendingRanges !== undefined;
     const textOnly =
-      this.pendingTextOnly &&
+      this.cpuPublication.pendingTextOnly &&
       !storeReplaced &&
-      this.pendingRanges !== undefined;
+      pendingRanges !== undefined;
     const stableBarPresentationFrame = barPresentationOnly && !viewChanged;
-    const ranges = this.pendingRanges === undefined ||
+    const ranges = pendingRanges === undefined ||
       this.relationSlotsByEndpoint.size === 0 ||
       projectionTransformOnly
-      ? this.pendingRanges
+      ? pendingRanges
       : expandPatchMapRelationDependencyRanges(
           effectiveStore,
-          this.pendingRanges,
+          pendingRanges,
           this.relationSlotsByEndpoint,
         );
     if (!projectionTransformOnly && !barPresentationOnly) {
@@ -1103,7 +761,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.barPresentationVisibilityStale = false;
     }
     this.leaves.sync(effectiveStore, {
-      fullRebuildEpoch: this.storeEpoch,
+      fullRebuildEpoch: this.cpuPublication.storeEpoch,
       projectionContext: this.projectionContext(),
       textMaterializationViewport: {
         worldMatrix: this.worldMatrix,
@@ -1128,14 +786,13 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       );
     }
     const leaves = this.leaves.debugSnapshot();
-    this.textProjectionSynchronizedRevision = this.projectionRevision;
+    this.textProjectionSynchronizedRevision = this.cpuPublication.projectionRevision;
     this.interactionOverlay.synchronize(
       effectiveStore,
       storeReplaced,
-      this.pendingOverlayRanges ?? ranges,
+      this.cpuPublication.pendingOverlayRanges ?? ranges,
     );
-    const rendered = !this.synchronizeOnly;
-    this.synchronizeOnly = false;
+    const rendered = this.cpuPublication.consumeSynchronizedRender();
     if (rendered) {
       if (
         this.rendererLossState === 'lost' &&
@@ -1158,28 +815,21 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.rendererLossState = 'healthy';
         this.recoveredRendererFrameCount += 1;
         this.lastRendererRecoveryFrame = renderedFrame;
-        this.lastInvalidation = 'renderer-context-recovered';
+        this.cpuPublication.invalidate('renderer-context-recovered');
       }
       this.leaves.confirmRenderedFrame(renderedFrame);
       this.frame = renderedFrame;
-      this.lastRenderedTextProjectionRevision = this.projectionRevision;
+      this.lastRenderedTextProjectionRevision = this.cpuPublication.projectionRevision;
       this.lastRenderedTextStoreRevision = effectiveStore.revision;
     }
-    this.lastStore = effectiveStore;
-    this.lastSourceStore = store;
-    this.pendingSourceStore = null;
-    this.pendingRanges = [];
-    this.pendingOverlayRanges = [];
-    this.pendingProjectionTransformOnly = false;
-    this.pendingBarPresentationOnly = false;
-    this.pendingTextOnly = false;
+    this.cpuPublication.commitFlush(store, effectiveStore);
     const overlayCount = this.interactionOverlay.renderObjectCount;
     this.lastLaneProbe = this.buildLaneProbe(overlayCount);
     this.lastDebug = Object.freeze({
       strategy: this.strategy,
       backend: backendName(this.application),
       frame: this.frame,
-      storeEpoch: this.storeEpoch,
+      storeEpoch: this.cpuPublication.storeEpoch,
       entityCount: effectiveStore.liveCount,
       aggregateRenderObjects: aggregate.renderObjects + leaves.bitmapTextCount + leaves.pixiTextCount + leaves.imageCount + overlayCount,
       visiblePrimitives: aggregate.visiblePrimitives,
@@ -1195,7 +845,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       loadedAssetCount: leaves.loadedAssetCount,
       unresolvedAssetCount: leaves.unresolvedAssetCount,
       view: this.view,
-      lastInvalidation: this.lastInvalidation,
+      lastInvalidation: this.cpuPublication.lastInvalidation,
       destroyed: false,
     });
     this.world.label = `PatchMap / world (${effectiveStore.liveCount} entities)`;
@@ -1205,48 +855,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     });
   }
 
-  private presentationStoreFor(
-    store: RenderStoreView,
-    synchronize = true,
-  ): RenderStoreView {
-    const policy = this.presentationPolicy;
-    const overrides = this.instancePresentationOverrides;
-    const alphaMultipliers = this.presentationAlphaMultipliers;
-    if (policy === null && overrides.size === 0 && this.presentationLayerCount === 0) return store;
-    if (
-      this.presentationStore === null ||
-      this.presentationBaseStore !== store ||
-      this.presentationStore.capacity !== store.capacity
-    ) {
-      this.presentationStore = new PatchMapPresentationStoreView(
-        store,
-        policy,
-        overrides,
-        alphaMultipliers,
-      );
-      this.presentationBaseStore = store;
-      return this.presentationStore;
-    }
-    if (synchronize) {
-      this.presentationStore.synchronize(
-        store,
-        policy,
-        this.pendingRanges,
-        overrides,
-        alphaMultipliers,
-      );
-    }
-    return this.presentationStore;
-  }
-
-  private presentationSourceStore(): RenderStoreView | null {
-    return this.pendingSourceStore ?? this.lastSourceStore;
-  }
-
   public synchronizeNextFlush(): void {
     this.assertAlive();
-    this.synchronizeOnly = true;
-    this.lastInvalidation = 'synchronize';
+    this.cpuPublication.synchronizeNextFlush();
   }
 
   public async prepareGpu(): Promise<void> {
@@ -1269,17 +880,13 @@ export class PatchMapPixiRenderer implements CoreRenderer {
 
   public async loadAsset(alias: string, url: string): Promise<void> {
     await this.leaves.loadAsset(alias, url);
-    this.lastInvalidation = `asset:${alias}:load`;
-    this.pendingProjectionTransformOnly = false;
-    this.pendingRanges ??= [];
+    this.cpuPublication.markRetainedLeafChange(`asset:${alias}:load`);
   }
 
   public async unloadAsset(alias: string): Promise<boolean> {
     const unloaded = await this.leaves.unloadAsset(alias);
     if (unloaded) {
-      this.lastInvalidation = `asset:${alias}:unload`;
-      this.pendingProjectionTransformOnly = false;
-      this.pendingRanges ??= [];
+      this.cpuPublication.markRetainedLeafChange(`asset:${alias}:unload`);
     }
     return unloaded;
   }
@@ -1294,9 +901,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   ): Promise<LeafAssetBindingObservation> {
     this.assertAlive();
     const completion = this.leaves.bindSceneAsset(key, request);
-    this.lastInvalidation = `scene-asset:${key}:bind`;
-    this.pendingProjectionTransformOnly = false;
-    this.pendingRanges ??= [];
+    this.cpuPublication.markRetainedLeafChange(`scene-asset:${key}:bind`);
     return completion;
   }
 
@@ -1304,9 +909,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.assertAlive();
     const unbound = await this.leaves.unbindSceneAsset(key);
     if (unbound) {
-      this.lastInvalidation = `scene-asset:${key}:unbind`;
-      this.pendingProjectionTransformOnly = false;
-      this.pendingRanges ??= [];
+      this.cpuPublication.markRetainedLeafChange(`scene-asset:${key}:unbind`);
     }
     return unbound;
   }
@@ -1322,7 +925,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   public textRendererProbe(entityId: string): PatchMapTextRendererProbe | null {
     if (this.destroyedValue) return null;
     const leaf = this.leaves.textRendererProbe(entityId);
-    const textIndex = this.projectionIndex.textsByEntityId;
+    const textIndex = this.cpuPublication.projectionIndex.textsByEntityId;
     if (textIndex === undefined) return leaf;
     const semantic = textIndex[entityId];
     if (semantic === undefined) return null;
@@ -1333,9 +936,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     });
     const expectedObjectCount = this.textVisibilityByEntityId.get(entityId) === true ? 1 : 0;
     if (expectedObjectCount === 0) {
-      const current = this.textProjectionSynchronizedRevision === this.projectionRevision &&
-        this.lastRenderedTextProjectionRevision === this.projectionRevision &&
-        this.lastRenderedTextStoreRevision === this.lastStore?.revision;
+      const current = this.textProjectionSynchronizedRevision === this.cpuPublication.projectionRevision &&
+        this.lastRenderedTextProjectionRevision === this.cpuPublication.projectionRevision &&
+        this.lastRenderedTextStoreRevision === this.cpuPublication.lastStore?.revision;
       return freezeRendererTextProbe({
         entityId,
         attachedRoute: 'none',
@@ -1373,9 +976,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       leaf.attachedSignatures,
       leaf.lastRenderedSignatures,
     );
-    const current = this.textProjectionSynchronizedRevision === this.projectionRevision &&
-      this.lastRenderedTextProjectionRevision === this.projectionRevision &&
-      this.lastRenderedTextStoreRevision === this.lastStore?.revision &&
+    const current = this.textProjectionSynchronizedRevision === this.cpuPublication.projectionRevision &&
+      this.lastRenderedTextProjectionRevision === this.cpuPublication.projectionRevision &&
+      this.lastRenderedTextStoreRevision === this.cpuPublication.lastStore?.revision &&
       leaf.objectCount === expectedObjectCount &&
       attachedMatchesSemantic &&
       renderedMatchesAttached &&
@@ -1487,27 +1090,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   /** @internal Capture exact load-side CPU publication state without touching Pixi/GPU state. */
   public capturePublicationCheckpoint(): PatchMapPixiRendererPublicationCheckpoint {
     if (this.destroyed) throw new Error('PatchMapPixiRenderer is destroyed');
-    return Object.freeze({
-      projectionIndex: this.projectionIndex,
-      staleProjectionEntityIds: this.staleProjectionEntityIds,
-      projectionRevision: this.projectionRevision,
-      pendingRanges: this.pendingRanges,
-      pendingOverlayRanges: this.pendingOverlayRanges,
-      pendingProjectionTransformOnly: this.pendingProjectionTransformOnly,
-      pendingBarPresentationOnly: this.pendingBarPresentationOnly,
-      pendingTextOnly: this.pendingTextOnly,
-      lastInvalidation: this.lastInvalidation,
-      storeEpoch: this.storeEpoch,
-      presentationPolicy: this.presentationPolicy,
-      presentationLayerRevision: this.presentationLayerRevision,
-      presentationLayerCount: this.presentationLayerCount,
-      presentationAlphaMultipliers: this.presentationAlphaMultipliers,
-      presentationAlphaMultiplierValues: this.presentationAlphaMultipliers.slice(),
-      instancePresentationOverrides: this.instancePresentationOverrides,
-      presentationStore: this.presentationStore,
-      presentationBaseStore: this.presentationBaseStore,
-      pendingSourceStore: this.pendingSourceStore,
-    });
+    return this.cpuPublication.captureCheckpoint(
+      this.barPresentationVisibilityConservative,
+    );
   }
 
   /**
@@ -1518,25 +1103,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   public restorePublicationCheckpoint(
     checkpoint: PatchMapPixiRendererPublicationCheckpoint,
   ): void {
-    this.projectionIndex = checkpoint.projectionIndex;
-    this.staleProjectionEntityIds = checkpoint.staleProjectionEntityIds;
-    this.projectionRevision = checkpoint.projectionRevision;
-    this.pendingRanges = checkpoint.pendingRanges;
-    this.pendingOverlayRanges = checkpoint.pendingOverlayRanges;
-    this.pendingProjectionTransformOnly = checkpoint.pendingProjectionTransformOnly;
-    this.pendingBarPresentationOnly = checkpoint.pendingBarPresentationOnly;
-    this.pendingTextOnly = checkpoint.pendingTextOnly;
-    this.lastInvalidation = checkpoint.lastInvalidation;
-    this.storeEpoch = checkpoint.storeEpoch;
-    this.presentationPolicy = checkpoint.presentationPolicy;
-    this.presentationLayerRevision = checkpoint.presentationLayerRevision;
-    this.presentationLayerCount = checkpoint.presentationLayerCount;
-    this.presentationAlphaMultipliers = checkpoint.presentationAlphaMultipliers;
-    this.presentationAlphaMultipliers.set(checkpoint.presentationAlphaMultiplierValues);
-    this.instancePresentationOverrides = checkpoint.instancePresentationOverrides;
-    this.presentationStore = checkpoint.presentationStore;
-    this.presentationBaseStore = checkpoint.presentationBaseStore;
-    this.pendingSourceStore = checkpoint.pendingSourceStore;
+    this.barPresentationVisibilityConservative = this.cpuPublication.rollback(checkpoint);
   }
 
   /**
@@ -1549,7 +1116,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     if (typeof context?.forceContextLoss !== 'function') return false;
     this.rendererLossState = 'lost';
     this.lastRendererLossFrame = this.frame;
-    this.lastInvalidation = 'renderer-context-lost';
+    this.cpuPublication.invalidate('renderer-context-lost');
     context.forceContextLoss();
     return true;
   }
@@ -1585,18 +1152,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.world.destroy();
     this.application.destroy({ removeView: false }, { children: true });
     this.surfacePublication.destroyCanvas();
-    this.lastStore = null;
-    this.lastSourceStore = null;
-    this.presentationPolicy = null;
-    this.presentationLayerRevision = 0;
-    this.presentationLayerCount = 0;
-    this.presentationAlphaMultipliers = new Float32Array(0);
-    this.presentationStore = null;
-    this.presentationBaseStore = null;
-    this.pendingSourceStore = null;
-    this.pendingRanges = [];
-    this.pendingOverlayRanges = [];
-    this.pendingProjectionTransformOnly = false;
+    this.cpuPublication.destroy();
     this.relationSlotsByEndpoint = new Map();
     this.relationSlots.clear();
     this.relationEndpointsBySlot = new Map();
@@ -1604,7 +1160,6 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.slotByEntityId.clear();
     this.textEntityIdBySlot.clear();
     this.textVisibilityByEntityId.clear();
-    this.staleProjectionEntityIds = new Set();
     this.projectionQuadCache.readableFrames.clear();
     this.projectionQuadCache.index = null;
     this.projectionQuadCache.revision = -1;
@@ -1626,7 +1181,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   ): AggregateResult {
     if (this.aggregate instanceof AggregateMeshLayer) {
       const debug = this.aggregate.sync(store, {
-        fullRebuildEpoch: this.storeEpoch,
+        fullRebuildEpoch: this.cpuPublication.storeEpoch,
         projectionContext: this.projectionContext(),
         ...(ranges === undefined ? {} : { changedRanges: ranges }),
         ...(projectionTransformOnly ? { projectionTransformOnly: true } : {}),
@@ -1643,7 +1198,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       };
     }
     const debug = this.aggregate.sync(store, {
-      fullRebuildEpoch: this.storeEpoch,
+      fullRebuildEpoch: this.cpuPublication.storeEpoch,
       projectionContext: this.projectionContext(),
       ...(ranges === undefined ? {} : { changedRanges: ranges }),
       ...(projectionTransformOnly ? { projectionTransformOnly: true } : {}),
@@ -1742,7 +1297,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       loadedAssetCount: 0,
       unresolvedAssetCount: 0,
       view: this.view,
-      lastInvalidation: this.lastInvalidation,
+      lastInvalidation: this.cpuPublication.lastInvalidation,
       destroyed: false,
     });
   }
@@ -1807,13 +1362,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   }
 
   private projectionContext(): PatchMapProjectionRenderContext {
-    return Object.freeze({
-      index: this.projectionIndex,
-      revision: this.projectionRevision,
-      world: this.worldOrientation,
-      staleEntityIds: this.staleProjectionEntityIds,
-      quadCache: this.projectionQuadCache,
-    });
+    return this.cpuPublication.projectionContext(
+      this.worldOrientation,
+      this.projectionQuadCache,
+    );
   }
 
   private applyWorldTransform(): void {

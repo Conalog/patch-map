@@ -1,7 +1,7 @@
 import { PATCH_MAP_UNICODE_VERSION } from '../unicode-text-data';
 
 export const PATCH_MAP_TEXT_PROFILE = Object.freeze({
-  id: 'core-v2-unicode-cell-fonts/1',
+  id: 'patch-map-unicode-cell-fonts/1',
   unicodeVersion: PATCH_MAP_UNICODE_VERSION,
   grapheme: 'UAX-29-revision-45',
   lineBreak: 'UAX-14-revision-53-default-with-CJ-as-NS',
@@ -10,14 +10,14 @@ export const PATCH_MAP_TEXT_PROFILE = Object.freeze({
   baseDirection: 'auto',
   sourceNormalization: 'none',
   layoutLineEndingNormalization: 'CRLF-and-CR-to-LF',
-  semanticCoverage: 'core-v2-contract-declared-subset/1',
+  semanticCoverage: 'patch-map-contract-declared-subset/1',
   scalarFallback: 'valid-scalars-default-to-atomic-other',
   lineBreakCoverage: 'hard-break-preserved-space-ideographic-and-explicit-breakWords',
   supplementaryAdvanceUnit: 'per-nonzero-scalar-inside-grapheme',
   baseFont: 'unifont-base-16.0.04',
   upperFont: 'unifont-upper-16.0.04',
-  missingGlyph: 'core-v2-missing-glyph-box/1',
-  ellipsisMarker: 'core-v2-ellipsis-marker/1',
+  missingGlyph: 'patch-map-missing-glyph-box/1',
+  ellipsisMarker: 'patch-map-ellipsis-marker/1',
 } as const);
 
 export type PatchMapTextOverflow = 'visible' | 'hidden' | 'ellipsis';
@@ -90,7 +90,7 @@ export interface PatchMapTextFontRun {
 
 export interface PatchMapMissingGlyphObservation {
   readonly codePoint: string;
-  readonly identity: 'core-v2-missing-glyph-box/1';
+  readonly identity: 'patch-map-missing-glyph-box/1';
   readonly count: number;
 }
 

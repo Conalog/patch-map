@@ -1,7 +1,5 @@
 import {
   PatchMap,
-  materializePatchMapCompatibilityDataset,
-  preparePatchMapPersistenceExport,
   type PatchMap as PatchMapInstance,
   type PatchMapDataReplaceOptions,
   type PatchMapDataReplaceResult,
@@ -10,7 +8,6 @@ import {
   type PatchMapTransformResult,
   type PatchMapHistoryState,
   type PatchMapOptions,
-  type PatchMapPersistenceExport,
   type PatchMapTargetsInput,
   type PatchMapTransactionOptions,
   type PatchMapTransformOptions,
@@ -63,17 +60,14 @@ export class PatchMapHostAdapter {
   }
 
   public load(
-    input: unknown,
+    input: readonly unknown[],
     options: PatchMapDataReplaceOptions = {},
   ): PatchMapDataReplaceResult {
-    const compatible = materializePatchMapCompatibilityDataset(input);
-    return this.#map.data.replace(compatible.canonicalDataset, options);
+    return this.#map.data.replace(input, options);
   }
 
-  public prepareSave(strictReferences = true): PatchMapPersistenceExport {
-    return preparePatchMapPersistenceExport(this.#map.data.snapshot(), {
-      strictReferences,
-    });
+  public prepareSave(strictReferences = true): string {
+    return this.#map.data.serialize(strictReferences);
   }
 
   public lookup(id: string) {

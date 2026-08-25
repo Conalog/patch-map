@@ -148,21 +148,9 @@ export {
   derivePatchMapAccessibilityTargets,
 } from './accessibility';
 export type * from './accessibility';
-export {
-  PATCH_MAP_MIGRATION_BLOCKERS,
-  PATCH_MAP_MIGRATION_COHORTS,
-  PATCH_MAP_MIGRATION_EFFECTS,
-  PATCH_MAP_MIGRATION_REVISION,
-  PatchMapMigrationAuthority,
-  PatchMapMigrationError,
-  assertPatchMapSemanticRoundtrip,
-  materializePatchMapCompatibilityDataset,
-  preparePatchMapPersistenceExport,
-} from './migration';
-export type * from './migration';
 export { PatchMapParseError } from './contracts';
 export type * from './contracts';
-export { parsePatchMapV010 } from './parser';
+export { parsePatchMap } from './parser';
 export {
   PATCH_MAP_COMPONENT_TYPES,
   PATCH_MAP_ELEMENT_TYPES,

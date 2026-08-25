@@ -1,5 +1,5 @@
 export const PATCH_MAP_PAGE_LIFECYCLE_REVISION =
-  'core-v2-page-lifecycle/1' as const;
+  'patch-map-page-lifecycle/1' as const;
 
 export type PatchMapDocumentVisibilityState = 'visible' | 'hidden';
 export type PatchMapPageLifecycleWorkKind = 'asset' | 'extraction';

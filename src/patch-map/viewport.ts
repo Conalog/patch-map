@@ -1,6 +1,6 @@
 import type { NormalizedPatchMapElement } from './semantic/dataset';
 
-export const PATCH_MAP_VIEWPORT_REVISION = 'core-v2-viewport/1';
+export const PATCH_MAP_VIEWPORT_REVISION = 'patch-map-viewport/1';
 
 export type PatchMapViewportPolicy =
   | 'pan'

@@ -1077,12 +1077,12 @@ function geometryPatch(patch: EntityPatch): boolean {
   );
 }
 
-function alignCode(value: 'left' | 'center' | 'right'): number {
-  return value === 'center' ? 1 : value === 'right' ? 2 : 0;
+function alignCode(value: 'left' | 'center' | 'right' | 'justify'): number {
+  return value === 'center' ? 1 : value === 'right' ? 2 : value === 'justify' ? 3 : 0;
 }
 
-function alignName(value: number): 'left' | 'center' | 'right' {
-  return value === 1 ? 'center' : value === 2 ? 'right' : 'left';
+function alignName(value: number): 'left' | 'center' | 'right' | 'justify' {
+  return value === 1 ? 'center' : value === 2 ? 'right' : value === 3 ? 'justify' : 'left';
 }
 
 function fitCode(value: 'contain' | 'cover' | 'stretch'): number {

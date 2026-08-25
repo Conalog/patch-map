@@ -140,7 +140,7 @@ export function normalizeBulkPatch(value: unknown): NormalizedTransaction {
     // returned, indexed, queried, or applied.
     normalizeOperation({
       op: 'merge',
-      target: { kind: 'element', id: '__core_v2_empty_bulk_validation__' },
+      target: { kind: 'element', id: '__patch_map_empty_bulk_validation__' },
       changes: changeValues,
     }, 0);
     return Object.freeze({

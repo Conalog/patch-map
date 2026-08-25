@@ -240,26 +240,6 @@ export class PatchMapSemanticHistory<
   }
 
   /**
-   * Compatibility wrapper for callers that have no separate surface commit.
-   * Refused and declared no-op attempts still do not inspect their command.
-   */
-  public record(
-    command: PatchMapSemanticHistoryCommandInput<TDataset, TCompanion>,
-    outcome: PatchMapHistoryCommitOutcome = 'accepted',
-  ): PatchMapHistoryRecordStatus {
-    const prepared = this.prepareRecord(command, outcome);
-    const status = this.commitPrepared(prepared);
-    if (
-      status === 'cancelled' ||
-      status === 'stale' ||
-      status === 'invalid'
-    ) {
-      throw new Error(`history record preflight unexpectedly became ${status}`);
-    }
-    return status;
-  }
-
-  /**
    * Reconcile the prior semantic snapshot. A false result or thrown error leaves
    * the history cursor unchanged; thrown errors propagate with their provenance.
    */

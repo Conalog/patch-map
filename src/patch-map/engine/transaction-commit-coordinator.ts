@@ -39,12 +39,15 @@ import {
 import type {
   PatchMapDiagnosticCategory,
   PatchMapEngineDiagnostic,
-  PatchMapEngineTransactionPerformanceProbe,
-  PatchMapEngineTransactionResult,
   PatchMapLifecycle,
   PatchMapRevisionStamp,
-} from './public-contracts';
+} from './contracts/lifecycle';
+import type {
+  PatchMapEngineTransactionPerformanceProbe,
+  PatchMapEngineTransactionResult,
+} from './contracts/mutation';
 import type { PatchMapPublicationAuthority } from './publication-authority';
+import type { PatchMapSurfaceMutationGuard } from './surface-mutation-guard';
 import {
   componentOrderOwners,
   directAnimatedBarTargets,
@@ -66,8 +69,6 @@ import {
 } from './semantic-index';
 
 export interface PatchMapTransactionCommitPort {
-  readonly lifecycle: () => PatchMapLifecycle;
-  readonly liveSurface: () => PatchMapEngineSurface | null;
   readonly reducedMotion: () => boolean;
   readonly terminalSurfaceFailure: () => Error | null;
   readonly historySnapshot: () => PatchMapEngineHistorySnapshot;
@@ -121,6 +122,7 @@ export class PatchMapTransactionCommitCoordinator {
     >,
     private readonly hostInteractions: PatchMapHostInteractionAuthority,
     private readonly publication: PatchMapPublicationAuthority,
+    private readonly surfaceMutationGuard: PatchMapSurfaceMutationGuard,
     private readonly port: PatchMapTransactionCommitPort,
   ) {}
 
@@ -179,22 +181,6 @@ export class PatchMapTransactionCommitCoordinator {
         ),
       } satisfies PatchMapEngineTransactionResult);
     }
-    if (!surface.reconcile) {
-      const diagnostic = this.port.operationDiagnostic(
-        'UNSUPPORTED_RUNTIME',
-        'UNSUPPORTED_RUNTIME',
-        operation,
-        false,
-      );
-      return this.publishRefused(
-        actionId,
-        previousRevisions,
-        diagnostic,
-        previousHistory,
-        EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS,
-      );
-    }
-
     const currentDataset = this.sceneState.materialized?.dataset ?? EMPTY_DATASET;
     const plannedBarHeightUpdates = plan.directBarHeightUpdates;
     const plannedTextUpdates = plan.directTextUpdates;
@@ -332,7 +318,7 @@ export class PatchMapTransactionCommitCoordinator {
     let reconcileCompleted = 0;
     let reconcileBaseRevisions = previousRevisions;
     let reconcile: PatchMapSurfaceReconcileResult;
-    if (!this.isSurfaceMutationCurrent(surface, previousRevisions)) {
+    if (!this.surfaceMutationGuard.mutationCurrent(surface, previousRevisions)) {
       if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
       const diagnostic = this.port.operationDiagnostic(
         'CONFLICT',
@@ -350,7 +336,7 @@ export class PatchMapTransactionCommitCoordinator {
     }
     try {
       beforeSurfaceReconcile?.();
-      if (!this.isSurfaceSceneCurrent(surface, previousRevisions)) {
+      if (!this.surfaceMutationGuard.sceneCurrent(surface, previousRevisions)) {
         if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
         const diagnostic = this.port.operationDiagnostic(
           'CONFLICT',
@@ -403,7 +389,7 @@ export class PatchMapTransactionCommitCoordinator {
     reconcileCompleted = this.port.now();
 
     if (
-      !this.isSurfaceMutationCurrent(surface, reconcileBaseRevisions) ||
+      !this.surfaceMutationGuard.mutationCurrent(surface, reconcileBaseRevisions) ||
       (preparedHistory !== null && !this.history.canCommitPrepared(preparedHistory))
     ) {
       if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
@@ -574,30 +560,6 @@ export class PatchMapTransactionCommitCoordinator {
     return result;
   }
 
-  private isSurfaceMutationCurrent(
-    surface: PatchMapEngineSurface,
-    revisions: PatchMapRevisionStamp,
-  ): boolean {
-    const lifecycle = this.port.lifecycle();
-    return lifecycle !== 'destroyed' &&
-      lifecycle !== 'destroying' &&
-      this.port.liveSurface() === surface &&
-      this.publication.lifecycleGeneration === revisions.lifecycleGeneration &&
-      this.publication.sceneRevision === revisions.sceneRevision &&
-      this.publication.interactionRevision === revisions.interactionRevision;
-  }
-
-  private isSurfaceSceneCurrent(
-    surface: PatchMapEngineSurface,
-    revisions: PatchMapRevisionStamp,
-  ): boolean {
-    const lifecycle = this.port.lifecycle();
-    return lifecycle !== 'destroyed' &&
-      lifecycle !== 'destroying' &&
-      this.port.liveSurface() === surface &&
-      this.publication.lifecycleGeneration === revisions.lifecycleGeneration &&
-      this.publication.sceneRevision === revisions.sceneRevision;
-  }
 }
 
 const EMPTY_DATASET = Object.freeze([] as NormalizedPatchMapElement[]);

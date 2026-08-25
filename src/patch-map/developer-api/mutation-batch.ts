@@ -454,7 +454,7 @@ function instanceComponentChangeColumns(
     path,
   );
   const supported = type === 'background'
-    ? new Set(['show', 'source', 'tint', 'size', 'attrs'])
+    ? new Set(['show', 'source', 'tint', 'attrs'])
     : new Set(['show', 'text', 'placement', 'margin', 'tint', 'style', 'split', 'attrs']);
   const unsupported = entries.find(([name]) => !supported.has(name));
   if (unsupported) {

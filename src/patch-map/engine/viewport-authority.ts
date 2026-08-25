@@ -12,7 +12,7 @@ import type {
   PatchMapViewportState,
   PatchMapWorldTransformInput,
   PatchMapWorldTransformState,
-} from './public-contracts';
+} from './contracts/viewport';
 import { finiteTuple } from './input-contracts';
 import type { PatchMapSurfaceView } from './surface-contract';
 

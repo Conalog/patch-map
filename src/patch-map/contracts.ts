@@ -231,30 +231,27 @@ export interface PatchMapBarProjection {
   readonly animation: boolean;
   readonly animationDuration: number;
   readonly destinationHeight: number;
-  /**
-   * Parser-owned reference used to resolve an authored percentage height.
-   * Present on parser projections; optional only for legacy injected fixtures.
-   */
-  readonly percentageReferenceHeight?: number;
+  /** Parser-owned reference used to resolve an authored percentage height. */
+  readonly percentageReferenceHeight: number;
 }
 
 /** Immutable numeric metadata omitted by the compact dense rows. */
 export interface PatchMapProjectionIndex {
   readonly byEntityId: Readonly<Record<string, PatchMapEntityProjection>>;
   /** Stable component ownership and fixed render-role classification. */
-  readonly componentsByEntityId?: Readonly<Record<string, PatchMapComponentVisualProjection>>;
+  readonly componentsByEntityId: Readonly<Record<string, PatchMapComponentVisualProjection>>;
   /** Lossless item-background paint intent, including all four radii. */
-  readonly backgroundsByEntityId?: Readonly<Record<string, PatchMapBackgroundPaintProjection>>;
-  /** Present on parser-produced indexes; optional for older injected test surfaces. */
-  readonly imagesByEntityId?: Readonly<Record<string, PatchMapImageProjection>>;
+  readonly backgroundsByEntityId: Readonly<Record<string, PatchMapBackgroundPaintProjection>>;
+  /** Stable image source and binding metadata for every image entity. */
+  readonly imagesByEntityId: Readonly<Record<string, PatchMapImageProjection>>;
   /** Deterministic semantic layout and stable target identity for every text entity. */
-  readonly textsByEntityId?: Readonly<Record<string, PatchMapTextProjection>>;
+  readonly textsByEntityId: Readonly<Record<string, PatchMapTextProjection>>;
   /** Authored animation policy and semantic destination for every bar entity. */
-  readonly barsByEntityId?: Readonly<Record<string, PatchMapBarProjection>>;
-  /** Present on parser-produced indexes; optional for older injected test surfaces. */
-  readonly relationsByEntityId?: Readonly<Record<string, PatchMapRelationProjection>>;
+  readonly barsByEntityId: Readonly<Record<string, PatchMapBarProjection>>;
+  /** Stable endpoint and path semantics for every relation entity. */
+  readonly relationsByEntityId: Readonly<Record<string, PatchMapRelationProjection>>;
   /** Syntactically valid links with unresolved endpoints are explicit, not fatal. */
-  readonly omittedRelations?: readonly PatchMapOmittedRelationProjection[];
+  readonly omittedRelations: readonly PatchMapOmittedRelationProjection[];
 }
 
 export interface ParsePatchMapOptions {

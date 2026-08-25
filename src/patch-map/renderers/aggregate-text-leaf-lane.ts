@@ -503,7 +503,7 @@ export class AggregateTextLeafLane {
   ): void {
     const entityId = store.ids[slot] ?? `@slot:${slot}`;
     const quad = preparedQuad ?? this.trackTextSlot(store, slot, projectionContext);
-    const projection = projectionContext?.index.textsByEntityId?.[entityId] ?? null;
+    const projection = projectionContext?.index.textsByEntityId[entityId] ?? null;
     const value = projection?.visibleText ?? store.text[slot] ?? '';
     const routeStyle = textRenderStyle(store, slot, projection);
     const capability = this.options.resolveBitmapTextCapability?.(Object.freeze({

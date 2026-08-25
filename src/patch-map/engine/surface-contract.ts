@@ -99,10 +99,10 @@ export interface PatchMapSurfaceOmittedRelationGeometry {
 }
 
 export interface PatchMapSurfaceGeometrySnapshot {
-  /** Surface geometry generation; legacy injected surfaces may use the dense scene revision. */
-  readonly revision?: number;
-  /** Dense scene revision used to derive the snapshot, when independently available. */
-  readonly sceneRevision?: number;
+  /** Surface geometry generation used to correlate engine revision domains. */
+  readonly revision: number;
+  /** Dense scene revision used to derive the geometry snapshot. */
+  readonly sceneRevision: number;
   readonly entities: readonly PatchMapSurfaceEntityGeometry[];
   readonly relations: readonly PatchMapSurfaceRelationGeometry[];
   readonly omittedRelations?: readonly PatchMapSurfaceOmittedRelationGeometry[];

@@ -1,7 +1,7 @@
 import type { PatchMapLogicalTargetSnapshot } from '../query-selection';
 
 export const PATCH_MAP_SELECTION_TRANSFORMER_REVISION =
-  'core-v2-selection-transformer/1' as const;
+  'patch-map-selection-transformer/1' as const;
 
 export type PatchMapSelectionVisualMode =
   | 'all'

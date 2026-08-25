@@ -14,7 +14,9 @@ import {
   isPatchMapHistoryCompanionRecord,
   isPatchMapInteractionMode,
 } from './input-contracts';
-import type { PatchMapEngineHistoryCompanionState } from './public-contracts';
+import type {
+  PatchMapEngineHistoryCompanionState,
+} from './contracts/history-transformer';
 import type { PatchMapSceneStateAuthority } from './scene-state-authority';
 
 export type PatchMapEngineHistoryCompanion = PatchMapEngineHistoryCompanionState;

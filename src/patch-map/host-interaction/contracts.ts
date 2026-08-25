@@ -6,10 +6,10 @@ import type {
 import type { PatchMapSemanticPointerEvent } from '../pointer-gesture';
 import type { PatchMapMutationTarget } from '../semantic/transaction';
 
-export const PATCH_MAP_HOST_INTERACTION_REVISION = 'core-v2-host-interaction/1' as const;
-export const PATCH_MAP_COMMAND_TARGET_REVISION = 'core-v2-command-target/1' as const;
-export const PATCH_MAP_HOST_TOOLTIP_REVISION = 'core-v2-host-tooltip/1' as const;
-export const PATCH_MAP_EDITOR_MOUNT_REVISION = 'core-v2-editor-mount/1' as const;
+export const PATCH_MAP_HOST_INTERACTION_REVISION = 'patch-map-host-interaction/1' as const;
+export const PATCH_MAP_COMMAND_TARGET_REVISION = 'patch-map-command-target/1' as const;
+export const PATCH_MAP_HOST_TOOLTIP_REVISION = 'patch-map-host-tooltip/1' as const;
+export const PATCH_MAP_EDITOR_MOUNT_REVISION = 'patch-map-editor-mount/1' as const;
 
 export type PatchMapCommandTargetStatus = 'pending' | 'active' | 'released';
 

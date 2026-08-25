@@ -17,7 +17,7 @@ import type {
 } from './semantic/transaction';
 
 export const PATCH_MAP_TRANSFORMER_EDIT_REVISION =
-  'core-v2-transformer-edit/1' as const;
+  'patch-map-transformer-edit/1' as const;
 
 export type PatchMapTransformerEditKind = 'move' | 'resize' | 'rotate';
 export type PatchMapResizeHandle = 'nw' | 'ne' | 'sw' | 'se' | 'n' | 'e' | 's' | 'w';

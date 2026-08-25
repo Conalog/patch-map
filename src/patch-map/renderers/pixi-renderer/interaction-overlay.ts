@@ -6,7 +6,10 @@ import {
   RenderKind,
   type RenderStoreView,
 } from '../../dense/renderer-types';
-import { sameNullableStringArray } from '../../shared/string-array-values';
+import {
+  sameNullableStringArray,
+  sameStringArray,
+} from '../../shared/string-array-values';
 import type { PatchMapInteractionOverlayPolicy } from '../types';
 import {
   resolvePatchMapSlotQuad,
@@ -17,7 +20,7 @@ import { positive } from './value-atoms';
 export const DEFAULT_INTERACTION_OVERLAY_POLICY: PatchMapInteractionOverlayPolicy = Object.freeze({
   visibleEntityIds: null,
   transformableEntityIds: null,
-  resizableEntityIds: null,
+  resizableEntityIds: Object.freeze([]),
   hidden: false,
   handleCssPx: 6,
   strokeCssPx: 2,
@@ -168,13 +171,13 @@ export function indexOverlayPaintBounds(
     if (current === undefined) mutable.set(ownerId, [entityId]);
     else if (!current.includes(entityId)) current.push(entityId);
   };
-  for (const component of Object.values(projection.componentsByEntityId ?? {})) {
+  for (const component of Object.values(projection.componentsByEntityId)) {
     append(component.ownerId, component.entityId);
   }
-  for (const bar of Object.values(projection.barsByEntityId ?? {})) {
+  for (const bar of Object.values(projection.barsByEntityId)) {
     append(bar.ownerId, bar.entityId);
   }
-  for (const text of Object.values(projection.textsByEntityId ?? {})) {
+  for (const text of Object.values(projection.textsByEntityId)) {
     if (text.ownerId !== undefined) append(text.ownerId, text.entityId);
   }
   return new Map([...mutable].map(([ownerId, entityIds]) => [
@@ -212,7 +215,7 @@ function resolveOverlayPaintBoundsVertices(
       paintBoundsContext.entityIdsByOwnerId.get(ownerId) ?? []
     )) {
       const paintSlot = paintBoundsContext.slotByEntityId.get(paintEntityId);
-      const paint = projectionContext.index.backgroundsByEntityId?.[paintEntityId];
+      const paint = projectionContext.index.backgroundsByEntityId[paintEntityId];
       if (
         paintSlot === undefined
         || !visiblePaintSlot(store, paintSlot)
@@ -400,9 +403,7 @@ export function normalizeInteractionOverlayPolicy(
   return Object.freeze({
     visibleEntityIds,
     transformableEntityIds,
-    resizableEntityIds: policy.resizableEntityIds === null
-      ? null
-      : freezeEntityIds(policy.resizableEntityIds, 'resizableEntityIds'),
+    resizableEntityIds: freezeEntityIds(policy.resizableEntityIds, 'resizableEntityIds'),
     hidden: policy.hidden,
     handleCssPx: positive(policy.handleCssPx, 'handleCssPx'),
     strokeCssPx,
@@ -434,7 +435,7 @@ export function sameInteractionOverlayPolicy(
     left.marqueeFillAlpha === right.marqueeFillAlpha &&
     sameNullableStringArray(left.visibleEntityIds, right.visibleEntityIds) &&
     sameNullableStringArray(left.transformableEntityIds, right.transformableEntityIds) &&
-    sameNullableStringArray(left.resizableEntityIds, right.resizableEntityIds);
+    sameStringArray(left.resizableEntityIds, right.resizableEntityIds);
 }
 
 function normalizeStrokeScale(

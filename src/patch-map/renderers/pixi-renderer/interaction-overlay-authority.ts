@@ -150,9 +150,7 @@ export class PatchMapPixiInteractionOverlayAuthority {
     const transformableIds = this.policy.transformableEntityIds === null
       ? null
       : new Set(this.policy.transformableEntityIds);
-    const resizableIds = this.policy.resizableEntityIds === null
-      ? null
-      : new Set(this.policy.resizableEntityIds);
+    const resizableIds = new Set(this.policy.resizableEntityIds);
     this.visibleOverlaySlots.clear();
     this.transformerOverlaySlots.clear();
     this.resizableOverlaySlots.clear();
@@ -170,7 +168,7 @@ export class PatchMapPixiInteractionOverlayAuthority {
         if (transformableIds === null || transformableIds.has(id)) {
           this.transformerOverlaySlots.add(slot);
         }
-        if (resizableIds === null || resizableIds.has(id)) {
+        if (resizableIds.has(id)) {
           this.resizableOverlaySlots.add(slot);
         }
       }

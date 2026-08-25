@@ -13,10 +13,7 @@ import {
   textEntity,
   withEntityOpacity,
 } from './parser/component-text-lowering';
-import {
-  inheritPatchMapV010DirectParseIndexes,
-  type PatchMapDirectTextParseTargetIndex,
-} from './parser/direct-text-index';
+import type { PatchMapDirectTextParseTargetIndex } from './parser/direct-text-index';
 import {
   ROOT_CONTEXT,
   addEntity,
@@ -70,10 +67,9 @@ import {
   type PatchMapParserRecord as JsonRecord,
 } from './parser/value-normalization';
 
-export { inheritPatchMapV010DirectParseIndexes };
 export type { PatchMapDirectTextParseTargetIndex };
 export { projectPatchMapIntrinsicImageAffine };
-export { parsePatchMapV010DirectTextBatch } from './parser/direct-text-batch';
+export { parsePatchMapDirectTextBatch } from './parser/direct-text-batch';
 export type { PatchMapDirectTextParseUpdate } from './parser/direct-text-batch';
 
 type Transform = PatchMapParserTransform;
@@ -81,13 +77,13 @@ type Size = PatchMapParserSize;
 
 const ZERO_EDGES: PatchMapEdges = Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
 
-export function parsePatchMapV010(
+export function parsePatchMap(
   input: unknown,
   options: ParsePatchMapOptions = {},
 ): ParsePatchMapResult {
   const state = createParseState(options);
   if (!Array.isArray(input)) {
-    fatal(state, '$', 'invalid-root', 'PATCH MAP v0.10 input must be an array');
+    fatal(state, '$', 'invalid-root', 'PatchMap input must be an array');
   }
 
   parseElements(input, '$', ROOT_CONTEXT, state);
@@ -100,7 +96,7 @@ export function parsePatchMapV010(
  * guarded incremental reconciler owns whole-dataset identity validation and
  * combines these fragments with unchanged parser-owned roots.
  */
-export function parsePatchMapV010SelectedRoots(
+export function parsePatchMapSelectedRoots(
   input: unknown,
   rootIndices: readonly number[],
   options: ParsePatchMapOptions = {},
@@ -108,7 +104,7 @@ export function parsePatchMapV010SelectedRoots(
 ): ParsePatchMapResult {
   const state = createParseState(options);
   if (!Array.isArray(input)) {
-    fatal(state, '$', 'invalid-root', 'PATCH MAP v0.10 input must be an array');
+    fatal(state, '$', 'invalid-root', 'PatchMap input must be an array');
   }
   for (const targetId of knownTargetIds) state.targetIds.add(targetId);
   const seen = new Set<number>();
@@ -134,13 +130,13 @@ export function parsePatchMapV010SelectedRoots(
  * top-level records remain atomic, while the shared identity/relation state is
  * retained across bounded main-thread tasks.
  */
-export async function parsePatchMapV010Async(
+export async function parsePatchMapAsync(
   input: unknown,
   options: ParsePatchMapOptions = {},
 ): Promise<ParsePatchMapResult> {
   const state = createParseState(options);
   if (!Array.isArray(input)) {
-    fatal(state, '$', 'invalid-root', 'PATCH MAP v0.10 input must be an array');
+    fatal(state, '$', 'invalid-root', 'PatchMap input must be an array');
   }
 
   let sliceStarted = parserNow();
@@ -491,10 +487,7 @@ function parseDirectImage(
   const size = !authoredSize
     ? { width: 32, height: 32 }
     : fixedSize(value.size, `${path}.size`, state);
-  const attrs = isRecord(value.attrs) ? value.attrs : undefined;
-  const denseTransform = authoredSize && attrs?.display === 'image'
-    ? projectPatchMapParserTopLeft(transform, size)
-    : projectPatchMapParserImage(transform, size);
+  const denseTransform = projectPatchMapParserImage(transform, size);
   const projected = imageEntity(
     sourceId,
     transform,
@@ -591,8 +584,6 @@ function parseDirectText(
       visible,
       interactive,
       zIndex(value.attrs),
-      path,
-      state,
     ), owner.opacity),
     owner,
     state,

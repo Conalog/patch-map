@@ -15,7 +15,7 @@ export type {
   PatchMapRegionRelationGeometry,
 } from './pointer-gesture/geometry';
 
-export const PATCH_MAP_POINTER_GESTURE_REVISION = 'core-v2-pointer-gesture/1' as const;
+export const PATCH_MAP_POINTER_GESTURE_REVISION = 'patch-map-pointer-gesture/1' as const;
 /** Shared root click-decision window; not a public package configuration. */
 export const PATCH_MAP_POINTER_CLICK_WINDOW_MS = 500;
 

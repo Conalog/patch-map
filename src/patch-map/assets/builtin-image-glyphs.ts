@@ -8,7 +8,7 @@ import warningSvg from '../../assets/icons/warning.svg?raw';
 import wifiSvg from '../../assets/icons/wifi.svg?raw';
 
 /**
- * PATCH MAP v0.10 package glyphs. The original 72x72 white artwork keeps
+ * PatchMap package glyphs. The original 72x72 white artwork keeps
  * Pixi Sprite.tint multiplicative and the transparent canvas preserves the
  * production silhouette without a fallback tile.
  */

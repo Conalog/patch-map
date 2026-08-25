@@ -25,18 +25,18 @@ import {
   normalizeEdges,
   normalizeFixedSize,
   normalizeGap,
-  normalizeRadius,
+  normalizeStandaloneRadius,
   rangedNumber,
   recordValue,
   requiredField,
   stringValue,
-  validateVector,
 } from './value-normalization';
 import {
   normalizeAssetSource,
   normalizeBackgroundSource,
   normalizeColorLike,
   normalizeRectTexture,
+  normalizeRelationStyle,
   normalizeStrokeStyle,
   normalizeTextStyle,
 } from './style-normalization';
@@ -75,7 +75,7 @@ const ELEMENT_FIELDS: Readonly<Record<PatchMapElementType, ReadonlySet<string>>>
   rect: new Set([...ELEMENT_BASE_FIELDS, 'size', 'fill', 'stroke', 'radius', 'eventMode']),
 };
 const COMPONENT_FIELDS: Readonly<Record<PatchMapComponentType, ReadonlySet<string>>> = {
-  background: new Set([...COMPONENT_BASE_FIELDS, 'source', 'tint', 'size']),
+  background: new Set([...COMPONENT_BASE_FIELDS, 'source', 'tint']),
   bar: new Set([
     ...COMPONENT_BASE_FIELDS,
     'source',
@@ -111,12 +111,20 @@ const PLACEMENTS = new Set<string>([
   'right-bottom',
   'bottom',
   'center',
-  'none',
 ]);
 const CONTENT_ORIENTATIONS = new Set<string>(['follow-item', 'upright']);
 const EVENT_MODES = new Set<string>(['none', 'passive', 'auto', 'static', 'dynamic']);
 const TEXT_OVERFLOWS = new Set<string>(['visible', 'hidden', 'ellipsis']);
 const WHITE = '#ffffffff';
+const RESERVED_TRANSFORM_ATTRS = new Set([
+  'scale',
+  'skew',
+  'pivot',
+  'skewX',
+  'skewY',
+  'pivotX',
+  'pivotY',
+]);
 export function inventoryOwnedStructuralElement(
   element: PatchMapElement,
   path: string,
@@ -238,7 +246,7 @@ export function normalizeElement(
         type,
         ...base,
         links: normalizeLinks(requiredArray(record, 'links', path), `${path}.links`),
-        style: normalizeStrokeStyle(optionalField(record, 'style'), `${path}.style`, true),
+        style: normalizeRelationStyle(optionalField(record, 'style'), `${path}.style`),
       });
     case 'image':
       return Object.freeze({
@@ -282,7 +290,7 @@ export function normalizeElement(
         ...(Object.hasOwn(record, 'stroke')
           ? { stroke: normalizeStrokeStyle(record.stroke, `${path}.stroke`) }
           : {}),
-        radius: normalizeRadius(optionalField(record, 'radius'), `${path}.radius`),
+        radius: normalizeStandaloneRadius(optionalField(record, 'radius'), `${path}.radius`),
         ...(Object.hasOwn(record, 'eventMode')
           ? {
               eventMode: enumValue(
@@ -381,9 +389,6 @@ export function normalizePatchMapComponent(
         ...base,
         source: normalizeBackgroundSource(requiredField(record, 'source', path), `${path}.source`),
         tint: Object.hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
-        ...(Object.hasOwn(record, 'size')
-          ? { size: normalizeComponentSize(record.size, `${path}.size`) }
-          : {}),
       });
     case 'bar':
       return Object.freeze({
@@ -421,7 +426,7 @@ export function normalizePatchMapComponent(
         margin: normalizeEdges(optionalField(record, 'margin'), `${path}.margin`),
         tint: Object.hasOwn(record, 'tint') ? normalizeColorLike(record.tint, `${path}.tint`) : WHITE,
         style: normalizeTextStyle(optionalField(record, 'style'), `${path}.style`, true, true),
-        split: optionalInteger(record, 'split', path, 0),
+        split: optionalNonnegativeInteger(record, 'split', path, 0),
       });
   }
 }
@@ -504,6 +509,14 @@ function normalizeLinks(values: readonly unknown[], path: string): readonly Patc
 
 function normalizeAttrs(value: unknown, path: string): PatchMapAttrs {
   const record = recordValue(value, path, 'attrs must be a string-keyed object');
+  for (const key of RESERVED_TRANSFORM_ATTRS) {
+    if (Object.hasOwn(record, key)) {
+      invalidValue(
+        `${path}.${key}`,
+        `${key} is not a supported PatchMap transform attribute`,
+      );
+    }
+  }
   if (Object.hasOwn(record, 'angle') && Object.hasOwn(record, 'rotation')) {
     invalidValue(path, 'angle and rotation are mutually exclusive');
   }
@@ -512,10 +525,6 @@ function normalizeAttrs(value: unknown, path: string): PatchMapAttrs {
     if (Object.hasOwn(record, key)) finiteNumber(record[key], `${path}.${key}`);
   }
   if (Object.hasOwn(record, 'alpha')) rangedNumber(record.alpha, `${path}.alpha`, 0, 1);
-  for (const key of ['scale', 'skew', 'pivot'] as const) {
-    if (Object.hasOwn(record, key)) validateVector(record[key], `${path}.${key}`);
-  }
-
   return cloneJsonRecord(record, path);
 }
 
@@ -611,7 +620,7 @@ function optionalBoolean(
   return Object.hasOwn(record, key) ? booleanValue(record[key], `${path}.${key}`) : fallback;
 }
 
-function optionalInteger(
+function optionalNonnegativeInteger(
   record: Readonly<Record<string, unknown>>,
   key: string,
   path: string,
@@ -619,8 +628,8 @@ function optionalInteger(
 ): number {
   if (!Object.hasOwn(record, key)) return fallback;
   const value = record[key];
-  if (typeof value !== 'number' || !Number.isInteger(value)) {
-    invalidValue(`${path}.${key}`, 'field must be an integer');
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    invalidValue(`${path}.${key}`, 'field must be a nonnegative safe integer');
   }
   return value;
 }

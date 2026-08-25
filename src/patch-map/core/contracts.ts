@@ -94,7 +94,7 @@ export interface PatchMapTransientProjectionResult {
 export interface PatchMapSelectionOverlayPolicyInput {
   readonly visibleIds: readonly string[] | null;
   readonly transformableIds: readonly string[] | null;
-  readonly resizableIds: readonly string[] | null;
+  readonly resizableIds: readonly string[];
   readonly hidden: boolean;
   readonly handleCssPx: number;
   readonly strokeCssPx: number;
@@ -102,7 +102,7 @@ export interface PatchMapSelectionOverlayPolicyInput {
   readonly minStrokeCssPx: number;
   readonly strokeAlignment: 'outside' | 'center' | 'inside';
   readonly color: number;
-  /** Main-compatible individual/group bounds composition. */
+  /** Individual or group bounds composition for the active selection. */
   readonly displayMode: PatchMapSelectionVisualMode;
   /** Transient marquee paint, resolved independently from persistent bounds. */
   readonly marqueeColor: number;
@@ -307,9 +307,6 @@ export interface PatchMapInstanceTextPresentationColumns
  * untouched.
  */
 export interface PatchMapInstanceBarHeightBatchRequest {
-  /** Legacy internal height-only shape retained for existing verification tools. */
-  readonly targets?: readonly PatchMapInstanceBarTarget[];
-  readonly heights?: ArrayLike<number | null>;
   readonly background?: PatchMapInstanceComponentPresentationColumns;
   readonly bar?: PatchMapInstanceBarPresentationColumns;
   readonly icon?: PatchMapInstancePresentationColumns;

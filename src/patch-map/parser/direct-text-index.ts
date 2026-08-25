@@ -21,21 +21,7 @@ const DIRECT_TEXT_PARSE_INDEX_CACHE = new WeakMap<
   DirectTextParseIndexes
 >();
 
-/**
- * Renderer diagnostics may wrap an otherwise unchanged parser result. Carry
- * private direct-update indexes across that immutable shell so repeat text
- * edits do not rebuild the 5,000-root/component/entity lookup catalog.
- */
-export function inheritPatchMapV010DirectParseIndexes(
-  source: ParsePatchMapResult,
-  target: ParsePatchMapResult,
-): void {
-  if (source === target) return;
-  const indexes = DIRECT_TEXT_PARSE_INDEX_CACHE.get(source);
-  if (indexes !== undefined) DIRECT_TEXT_PARSE_INDEX_CACHE.set(target, indexes);
-}
-
-export function cachePatchMapV010DirectParseIndexes(
+export function cachePatchMapDirectParseIndexes(
   target: ParsePatchMapResult,
   indexes: DirectTextParseIndexes,
 ): void {
@@ -83,7 +69,7 @@ export function directTextParseIndexes(
   if (entityIndices.size !== previous.document.entities.length) return null;
 
   const targets = new Map<string, PatchMapDirectTextParseTargetIndex>();
-  for (const projection of Object.values(previous.projection.textsByEntityId ?? {})) {
+  for (const projection of Object.values(previous.projection.textsByEntityId)) {
     if (
       projection.targetKind !== 'component' ||
       projection.ownerId === undefined ||

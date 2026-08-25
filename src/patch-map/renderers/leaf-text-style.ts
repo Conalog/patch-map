@@ -19,6 +19,7 @@ export function textStyle(
   authoredStyle: PatchMapTextProjection['authoredStyle'] | undefined,
 ): TextStyleOptions {
   const stroke = pixiTextStroke(authoredStyle);
+  const align = alignName(store.align[slot] ?? RenderAlign.Left);
   return {
     fontFamily: routeStyle.fontFamily,
     fontSize: routeStyle.fontSize,
@@ -27,11 +28,16 @@ export function textStyle(
     lineHeight: routeStyle.lineHeight,
     letterSpacing: routeStyle.letterSpacing,
     // Semantic layout already supplied explicit line breaks and clipping text.
-    wordWrap: false,
+    // Pixi's canvas Text expands justified word gaps only when wordWrap is on;
+    // the dense semantic width is the exact publication boundary.
+    wordWrap: align === 'justify',
+    ...(align === 'justify'
+      ? { wordWrapWidth: Math.max(0, store.width[slot] ?? 0) }
+      : {}),
     // Keep the raster white and apply exact packed paint through leaf tint.
     fill: 0xffffff,
     ...(stroke === undefined ? {} : { stroke }),
-    align: alignName(store.align[slot] ?? RenderAlign.Left),
+    align,
   };
 }
 
@@ -83,9 +89,10 @@ export function countVisibleGraphemes(text: string): number {
   return count;
 }
 
-export function alignName(value: number): 'left' | 'center' | 'right' {
+export function alignName(value: number): 'left' | 'center' | 'right' | 'justify' {
   if (value === RenderAlign.Center) return 'center';
   if (value === RenderAlign.Right) return 'right';
+  if (value === RenderAlign.Justify) return 'justify';
   return 'left';
 }
 
@@ -162,7 +169,7 @@ const TEXT_SEMANTIC_STYLE_KEYS = new Set([
 
 function textAdvancedFeatures(
   authored: PatchMapTextProjection['authoredStyle'] | undefined,
-  align: 'left' | 'center' | 'right',
+  align: 'left' | 'center' | 'right' | 'justify',
 ): readonly string[] {
   const features = authored === undefined
     ? []

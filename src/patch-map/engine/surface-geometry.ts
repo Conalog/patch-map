@@ -49,7 +49,7 @@ export function createPatchMapSurfaceGeometrySnapshot(
     const source = geometryById.get(sourceId);
     const target = geometryById.get(targetId);
     if (!source || !target) return [];
-    const relationProjection = projection?.relationsByEntityId?.[entity.id];
+    const relationProjection = projection?.relationsByEntityId[entity.id];
     const fallbackProjection = Object.freeze({
       entityId: entity.id,
       relationId: relationSourceId(entity),
@@ -246,7 +246,7 @@ export function createPatchMapSurfaceWorldGeometrySnapshot(
     const source = resolvedById.get(sourceId);
     const target = resolvedById.get(targetId);
     if (!source || !target) return [];
-    const relationProjection = projection?.relationsByEntityId?.[entity.id];
+    const relationProjection = projection?.relationsByEntityId[entity.id];
     const fallbackProjection = Object.freeze({
       entityId: entity.id,
       relationId: relationSourceId(entity),

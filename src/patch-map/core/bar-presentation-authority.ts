@@ -281,7 +281,7 @@ export class PatchMapBarPresentationAuthority {
     entitySourceById?: ParseIdentityIndex['entitySourceById'],
   ): PatchMapProjectionIndex {
     const previousBars = previousSemantic?.barsByEntityId ?? {};
-    const nextBars = next.barsByEntityId ?? {};
+    const nextBars = next.barsByEntityId;
     const visibleHeights = new Map<string, number>();
     const timeMs = this.clockMsValue;
     const animatedTargetKeys = animatedBarTargets === undefined
@@ -572,7 +572,7 @@ export class PatchMapBarPresentationAuthority {
     let filteredRanges = false;
     for (const update of frame.updates) {
       const ref = scene.ref(update.entityId);
-      const bar = semanticProjection?.barsByEntityId?.[update.entityId];
+      const bar = semanticProjection?.barsByEntityId[update.entityId];
       let invalid =
         ref === null ||
         ref.slot !== update.slot ||
@@ -624,7 +624,7 @@ export class PatchMapBarPresentationAuthority {
       if (!invalid && validateEntities) {
         const generation = frame.generations[index] ?? 0;
         const ref = scene.ref(entityId);
-        const bar = semanticProjection?.barsByEntityId?.[entityId];
+        const bar = semanticProjection?.barsByEntityId[entityId];
         invalid =
           ref === null ||
           ref.slot !== slot ||
@@ -657,7 +657,7 @@ export class PatchMapBarPresentationAuthority {
   ): void {
     if (!this.hasDeferredSettlements || semanticProjection === null) return;
     const entityIds = visibility?.entityIdsBySlot ?? Object.keys(
-      semanticProjection.barsByEntityId ?? {},
+      semanticProjection.barsByEntityId,
     );
     for (let index = 0; index < entityIds.length; index += 1) {
       const entityId = entityIds[index];
@@ -671,7 +671,7 @@ export class PatchMapBarPresentationAuthority {
       const active = this.controller.readActiveForReconcile(entityId);
       if (active.found) continue;
       const destination = semanticProjection.byEntityId[entityId];
-      const bar = semanticProjection.barsByEntityId?.[entityId];
+      const bar = semanticProjection.barsByEntityId[entityId];
       if (
         ref === null ||
         ref.slot !== slot ||
@@ -692,7 +692,7 @@ export class PatchMapBarPresentationAuthority {
     semanticProjection: PatchMapProjectionIndex,
   ): ReadonlyMap<string, number> {
     const heights = new Map<string, number>();
-    const bars = semanticProjection.barsByEntityId ?? {};
+    const bars = semanticProjection.barsByEntityId;
     for (const entityId of Object.keys(bars).sort()) {
       const height = this.projectionStore.visibleHeight(entityId);
       if (height === null) continue;

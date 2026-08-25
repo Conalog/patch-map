@@ -20,6 +20,7 @@ export const RenderAlign = Object.freeze({
   Left: 0,
   Center: 1,
   Right: 2,
+  Justify: 3,
 } as const);
 
 /**

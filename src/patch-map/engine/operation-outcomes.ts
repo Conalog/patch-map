@@ -15,13 +15,15 @@ import type {
 } from '../semantic/transaction';
 import type {
   PatchMapDiagnosticCategory,
-  PatchMapEngineDestroyTargetResult,
   PatchMapEngineDiagnostic,
+  PatchMapRevisionStamp,
+} from './contracts/lifecycle';
+import type {
+  PatchMapEngineDestroyTargetResult,
   PatchMapEnginePatchResult,
   PatchMapEngineTransactionHistory,
   PatchMapEngineTransactionResult,
-  PatchMapRevisionStamp,
-} from './public-contracts';
+} from './contracts/mutation';
 
 export const EMPTY_PATCH_MAP_TARGETS = Object.freeze([] as PatchMapSemanticTarget[]);
 export const EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS = Object.freeze(
@@ -67,7 +69,7 @@ function patchMapErrorHint(diagnostic: PatchMapEngineDiagnostic): string {
   }
   if (diagnostic.code === 'INVALID_VALUE' || diagnostic.code === 'INVALID_INPUT') {
     return diagnostic.datasetPath === undefined
-      ? 'Check the operation arguments and PATCH MAP v0.10 input shape.'
+      ? 'Check the operation arguments and PatchMap input shape.'
       : `Check the value at ${diagnostic.datasetPath}.`;
   }
   if (diagnostic.code === 'RENDERER_LOST') {

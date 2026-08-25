@@ -26,9 +26,11 @@ import type {
 import { evaluatePatchMapTransformableSubset } from '../selection-transformer';
 import type {
   PatchMapEnginePointerInput,
+} from './contracts/rendering';
+import type {
   PatchMapEngineRegionSelectionOptions,
   PatchMapEngineRegionSelectionResult,
-} from './public-contracts';
+} from './contracts/query-selection';
 import type {
   PatchMapEngineSurface,
   PatchMapSurfaceContextMenuInput,

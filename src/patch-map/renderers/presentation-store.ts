@@ -20,6 +20,32 @@ export interface PatchMapRendererEntityPresentationOverride {
   readonly align?: number;
 }
 
+/**
+ * Mutable columns and retained inputs owned by one presentation store.
+ * Captured only at the load publication boundary; dense base columns and
+ * immutable policy/override values remain retained references.
+ */
+export interface PatchMapPresentationStoreCheckpoint {
+  readonly base: RenderStoreView;
+  readonly policy: PatchMapResolvedPresentationPolicy | null;
+  readonly overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+  readonly alphaMultipliers: Float32Array<ArrayBufferLike>;
+  readonly highlighted: readonly string[];
+  readonly hidden: readonly string[];
+  readonly fillOverrides: readonly (readonly [string, number])[];
+  readonly kind: Uint8Array;
+  readonly flags: Uint8Array;
+  readonly opacity: Float32Array;
+  readonly fill: Uint32Array;
+  readonly stroke: Uint32Array;
+  readonly strokeWidth: Float32Array;
+  readonly radius: Float32Array;
+  readonly source: readonly string[];
+  readonly tint: Uint32Array;
+  readonly trackFill: Uint32Array;
+  readonly align: Uint8Array;
+}
+
 const EMPTY_ALPHA_MULTIPLIERS = new Float32Array(0);
 
 /**
@@ -184,6 +210,57 @@ export class PatchMapPresentationStoreView implements RenderStoreView {
 
   public presentationFillOverride(entityId: string): number | null {
     return this.fillOverrides.get(entityId) ?? null;
+  }
+
+  /** Capture only state this view can mutate in place during staged load. */
+  public captureCheckpoint(): PatchMapPresentationStoreCheckpoint {
+    return Object.freeze({
+      base: this.base,
+      policy: this.policy,
+      overrides: this.overrides,
+      alphaMultipliers: this.alphaMultipliers,
+      highlighted: Object.freeze([...this.highlighted]),
+      hidden: Object.freeze([...this.hidden]),
+      fillOverrides: Object.freeze([...this.fillOverrides]),
+      kind: this.kind.slice(),
+      flags: this.flags.slice(),
+      opacity: this.opacity.slice(),
+      fill: this.fill.slice(),
+      stroke: this.stroke.slice(),
+      strokeWidth: this.strokeWidth.slice(),
+      radius: this.radius.slice(),
+      source: Object.freeze(this.source.slice()),
+      tint: this.tint.slice(),
+      trackFill: this.trackFill.slice(),
+      align: this.align.slice(),
+    });
+  }
+
+  /** Restore retained inputs and mutable columns without recomputing policy. */
+  public restoreCheckpoint(checkpoint: PatchMapPresentationStoreCheckpoint): void {
+    this.base = checkpoint.base;
+    this.policy = checkpoint.policy;
+    this.overrides = checkpoint.overrides;
+    this.alphaMultipliers = checkpoint.alphaMultipliers;
+    replaceSet(this.highlighted, checkpoint.highlighted);
+    replaceSet(this.hidden, checkpoint.hidden);
+    this.fillOverrides.clear();
+    for (const [id, packedColor] of checkpoint.fillOverrides) {
+      this.fillOverrides.set(id, packedColor);
+    }
+    this.kind.set(checkpoint.kind);
+    this.flags.set(checkpoint.flags);
+    this.opacity.set(checkpoint.opacity);
+    this.fill.set(checkpoint.fill);
+    this.stroke.set(checkpoint.stroke);
+    this.strokeWidth.set(checkpoint.strokeWidth);
+    this.radius.set(checkpoint.radius);
+    for (let slot = 0; slot < checkpoint.source.length; slot += 1) {
+      this.source[slot] = checkpoint.source[slot] ?? '';
+    }
+    this.tint.set(checkpoint.tint);
+    this.trackFill.set(checkpoint.trackFill);
+    this.align.set(checkpoint.align);
   }
 
   public synchronize(

@@ -51,13 +51,13 @@ export function textRendererSignature(
   atlasId: string | null,
   text: string,
   style: PatchMapTextRenderStyle,
-  align: 'left' | 'center' | 'right',
+  align: 'left' | 'center' | 'right' | 'justify',
   authoredStyle: PatchMapTextProjection['authoredStyle'] | null,
   packedColor: number,
   alpha: number,
 ): string {
   return stableSerializeLeafValue({
-    revision: 'core-v2-text-renderer/1',
+    revision: 'patch-map-text-renderer/1',
     route,
     atlasId,
     text,

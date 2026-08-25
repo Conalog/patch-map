@@ -5,7 +5,9 @@ import type {
   PatchMapTarget,
 } from '../developer-api/contracts';
 import { parsePatchMapCssColor } from '../parser/color';
-import type { PatchMapEnginePointerInput } from './public-contracts';
+import type {
+  PatchMapEnginePointerInput,
+} from './contracts/rendering';
 import type {
   PatchMapLogicalSceneIndex,
   PatchMapLogicalTargetSnapshot,

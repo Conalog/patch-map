@@ -2,7 +2,7 @@ import type { PatchMapInstanceBarHeightBatchRequest } from '../core/contracts';
 import type {
   PatchMapEngineInstanceBarHeightResult,
   PatchMapEngineTransactionResult,
-} from '../engine/public-contracts';
+} from '../engine/contracts/mutation';
 import type {
   PatchMapBarHeightBatchRequest,
   PatchMapMutationOperation,
@@ -47,8 +47,10 @@ export function commitBarUpdates(
   }
   if (instanceCount === updates.length) {
     return projectInstanceResult(host.updateInstanceBarHeights({
-      targets: updates.map(({ ownerId: id, componentId }) => ({ id, componentId })),
-      heights: heightColumn ?? updates.map(({ height }) => height),
+      bar: {
+        targets: updates.map(({ ownerId: id, componentId }) => ({ id, componentId })),
+        height: heightColumn ?? updates.map(({ height }) => height),
+      },
       ...instanceAnimationRequest(options.animate, updates.map(({ ownerId: id, componentId }) => ({
         id,
         componentId,
@@ -76,7 +78,7 @@ export function commitInstancePresentation(
     ...request,
     ...instanceAnimationRequest(
       options.animate,
-      request.bar?.targets ?? request.targets ?? Object.freeze([]),
+      request.bar?.targets ?? Object.freeze([]),
     ),
   }));
 }

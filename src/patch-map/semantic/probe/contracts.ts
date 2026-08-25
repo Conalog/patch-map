@@ -3,7 +3,7 @@ import type {
   PatchMapElementType,
 } from '../dataset/contracts';
 
-export const PATCH_MAP_SEMANTIC_PROBE_REVISION = 'core-v2-semantic-probe/1' as const;
+export const PATCH_MAP_SEMANTIC_PROBE_REVISION = 'patch-map-semantic-probe/1' as const;
 
 export type PatchMapSemanticProbeLifecycle =
   | 'new'

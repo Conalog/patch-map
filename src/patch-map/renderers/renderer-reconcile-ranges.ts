@@ -52,23 +52,23 @@ export function projectionChangedRanges(
     if (!id) continue;
     const entityChanged = before.byEntityId[id] !== after.byEntityId[id] &&
       JSON.stringify(before.byEntityId[id]) !== JSON.stringify(after.byEntityId[id]);
-    const relationChanged = before.relationsByEntityId?.[id] !== after.relationsByEntityId?.[id] &&
-      JSON.stringify(before.relationsByEntityId?.[id]) !==
-        JSON.stringify(after.relationsByEntityId?.[id]);
-    const imageChanged = before.imagesByEntityId?.[id] !== after.imagesByEntityId?.[id] &&
-      JSON.stringify(before.imagesByEntityId?.[id]) !==
-        JSON.stringify(after.imagesByEntityId?.[id]);
+    const relationChanged = before.relationsByEntityId[id] !== after.relationsByEntityId[id] &&
+      JSON.stringify(before.relationsByEntityId[id]) !==
+        JSON.stringify(after.relationsByEntityId[id]);
+    const imageChanged = before.imagesByEntityId[id] !== after.imagesByEntityId[id] &&
+      JSON.stringify(before.imagesByEntityId[id]) !==
+        JSON.stringify(after.imagesByEntityId[id]);
     const componentChanged =
-      before.componentsByEntityId?.[id] !== after.componentsByEntityId?.[id] &&
-      JSON.stringify(before.componentsByEntityId?.[id]) !==
-        JSON.stringify(after.componentsByEntityId?.[id]);
+      before.componentsByEntityId[id] !== after.componentsByEntityId[id] &&
+      JSON.stringify(before.componentsByEntityId[id]) !==
+        JSON.stringify(after.componentsByEntityId[id]);
     const backgroundChanged =
-      before.backgroundsByEntityId?.[id] !== after.backgroundsByEntityId?.[id] &&
-      JSON.stringify(before.backgroundsByEntityId?.[id]) !==
-        JSON.stringify(after.backgroundsByEntityId?.[id]);
+      before.backgroundsByEntityId[id] !== after.backgroundsByEntityId[id] &&
+      JSON.stringify(before.backgroundsByEntityId[id]) !==
+        JSON.stringify(after.backgroundsByEntityId[id]);
     const textChanged = textProjectionChanged(
-      before.textsByEntityId?.[id],
-      after.textsByEntityId?.[id],
+      before.textsByEntityId[id],
+      after.textsByEntityId[id],
     );
     if (entityChanged) changedEndpointIds.add(id);
     if (
@@ -85,7 +85,7 @@ export function projectionChangedRanges(
   if (changedEndpointIds.size > 0) {
     for (let slot = 0; slot < store.capacity; slot += 1) {
       const id = store.ids[slot];
-      const relation = id ? after.relationsByEntityId?.[id] : undefined;
+      const relation = id ? after.relationsByEntityId[id] : undefined;
       if (
         relation &&
         (changedEndpointIds.has(relation.sourceId) || changedEndpointIds.has(relation.targetId))

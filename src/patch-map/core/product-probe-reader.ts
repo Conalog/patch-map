@@ -67,7 +67,7 @@ export function indexPatchMapComponentProbeTargets(
     indexedByEntityId.set(entityId, indexed);
     return indexed;
   };
-  const components = parse.projection.componentsByEntityId ?? {};
+  const components = parse.projection.componentsByEntityId;
   for (const entityId of Object.keys(components)) {
     const component = components[entityId];
     if (!component) continue;
@@ -80,7 +80,7 @@ export function indexPatchMapComponentProbeTargets(
       indexComponentTarget(targets, semanticOwnerId, component.componentId, indexed);
     }
   }
-  const bars = parse.projection.barsByEntityId ?? {};
+  const bars = parse.projection.barsByEntityId;
   for (const entityId of Object.keys(bars)) {
     if (components[entityId] !== undefined) continue;
     const bar = bars[entityId];
@@ -94,7 +94,7 @@ export function indexPatchMapComponentProbeTargets(
       indexComponentTarget(targets, semanticOwnerId, bar.componentId, indexed);
     }
   }
-  const texts = parse.projection.textsByEntityId ?? {};
+  const texts = parse.projection.textsByEntityId;
   for (const entityId of Object.keys(texts)) {
     if (components[entityId] !== undefined) continue;
     const text = texts[entityId];
@@ -121,7 +121,7 @@ export function indexPatchMapTextProbeTargets(
   parse: ParsePatchMapResult,
 ): Map<string, PatchMapIndexedTextTarget | null> {
   const targets = new Map<string, PatchMapIndexedTextTarget | null>();
-  const texts = parse.projection.textsByEntityId ?? {};
+  const texts = parse.projection.textsByEntityId;
   for (const entityId of Object.keys(texts)) {
     const text = texts[entityId];
     if (!text) continue;
@@ -224,7 +224,7 @@ export function createPatchMapBarPresentationProductProbe(
   const normalizedTarget = normalizePatchMapComponentVisualTarget(target);
   const indexed = targets.get(patchMapComponentProbeTargetKey(normalizedTarget));
   if (!indexed) return null;
-  const bar = semanticProjection?.barsByEntityId?.[indexed.entityId];
+  const bar = semanticProjection?.barsByEntityId[indexed.entityId];
   if (
     bar === undefined ||
     (bar.ownerId !== normalizedTarget.ownerId &&
@@ -284,7 +284,7 @@ export function createPatchMapTextProductProbe(
   const normalizedTarget = normalizePatchMapTextTarget(target);
   const indexed = textTargets.get(patchMapTextProbeTargetKey(normalizedTarget));
   if (!indexed) return null;
-  const semantic = semanticProjection?.textsByEntityId?.[indexed.entityId];
+  const semantic = semanticProjection?.textsByEntityId[indexed.entityId];
   const projection = visibleProjection?.byEntityId[indexed.entityId];
   const entity = scene.get(indexed.entityId);
   if (
@@ -459,10 +459,10 @@ function componentVisualProjection(
   entityId: string,
 ): PatchMapComponentVisualProjection | null {
   if (projection === null) return null;
-  const component = projection.componentsByEntityId?.[entityId];
+  const component = projection.componentsByEntityId[entityId];
   if (component !== undefined) return component;
 
-  const bar = projection.barsByEntityId?.[entityId];
+  const bar = projection.barsByEntityId[entityId];
   if (bar !== undefined) {
     return Object.freeze({
       entityId,
@@ -474,7 +474,7 @@ function componentVisualProjection(
     });
   }
 
-  const text = projection.textsByEntityId?.[entityId];
+  const text = projection.textsByEntityId[entityId];
   if (
     text?.targetKind === 'component' &&
     text.ownerId !== undefined &&

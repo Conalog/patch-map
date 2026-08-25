@@ -1,5 +1,5 @@
 export type EntityKind = 'rect' | 'text' | 'image' | 'bar' | 'relation';
-export type AlignSetting = 'left' | 'center' | 'right';
+export type AlignSetting = 'left' | 'center' | 'right' | 'justify';
 export type FitSetting = 'contain' | 'cover' | 'stretch';
 
 /** Packed as 0xRRGGBBAA. */

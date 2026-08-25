@@ -1,5 +1,5 @@
 export const PATCH_MAP_PRESENTATION_POLICY_REVISION =
-  'core-v2-presentation-policy/1';
+  'patch-map-presentation-policy/1';
 
 /** One detached logical or dense fill override in packed `0xRRGGBBAA` form. */
 export interface PatchMapPresentationFillOverride {

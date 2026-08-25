@@ -74,7 +74,7 @@ export function reconcileDirectBarHeightParse(
 
     const entityIndex = indexed.entityIndex;
     const entity = previous.document.entities[entityIndex];
-    const bar = previous.projection.barsByEntityId?.[indexed.entityId];
+    const bar = previous.projection.barsByEntityId[indexed.entityId];
     const projection = previous.projection.byEntityId[indexed.entityId];
     const ownerProjection = bar === undefined
       ? undefined
@@ -119,7 +119,7 @@ export function reconcileDirectBarHeightParse(
       destinationHeight: update.height,
     });
     const componentProjection =
-      previous.projection.componentsByEntityId?.[indexed.entityId];
+      previous.projection.componentsByEntityId[indexed.entityId];
     if (componentProjection !== undefined) {
       selectedComponentProjections[indexed.entityId] = Object.freeze({
         ...componentProjection,

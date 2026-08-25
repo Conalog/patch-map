@@ -1,5 +1,7 @@
 import type { ColorSource } from 'pixi.js';
 
+import type { PatchMapRadius } from './semantic/dataset';
+
 /** Recursively optional data used by update and theme overrides. */
 export type DeepPartial<T> = T extends (...args: never[]) => unknown
   ? T
@@ -61,15 +63,21 @@ export type Placement =
 export type ContentOrientation = 'upright' | 'follow-item';
 export type InactiveCellStrategy = 'destroy' | 'hide';
 
-/**
- * The approved contract names x/y/angle/rotation explicitly. Other public
- * attrs remain open until their exact accepted values are captured.
- */
+/** Canonical transforms plus host-owned metadata attributes. */
 export interface ElementAttributes {
   x?: number;
   y?: number;
   angle?: number;
   rotation?: number;
+  scaleX?: number;
+  scaleY?: number;
+  scale?: never;
+  skew?: never;
+  pivot?: never;
+  skewX?: never;
+  skewY?: never;
+  pivotX?: never;
+  pivotY?: never;
   [attribute: string]: unknown;
 }
 
@@ -78,6 +86,7 @@ export interface TextStyleInput {
   fontSize?: number;
   fontWeight?: string | number;
   fill?: ColorSource;
+  align?: 'left' | 'center' | 'right' | 'justify';
   letterSpacing?: number;
   wordWrap?: boolean;
   wordWrapWidth?: number;
@@ -96,12 +105,19 @@ export interface StrokeStyleInput {
   [styleProperty: string]: unknown;
 }
 
+/** The complete style surface projected by relation rendering. */
+export interface RelationStyleInput {
+  color?: ColorSource;
+  width?: number;
+  alpha?: number;
+}
+
 export interface RectangleTextureStyle {
   type: 'rect';
   fill?: ColorSource;
   borderWidth?: number;
   borderColor?: ColorSource;
-  radius?: number;
+  radius?: PatchMapRadius;
 }
 
 /** A strict inline source descriptor; public aliases belong in init assets. */
@@ -110,8 +126,6 @@ export interface AssetSourceDescriptor {
   data?: unknown;
   format?: string;
   parser?: string;
-  /** @deprecated Accepted for PATCH MAP v0.10 compatibility. */
-  loadParser?: string;
 }
 
 export type AssetSource = string | AssetSourceDescriptor;
@@ -155,7 +169,7 @@ export interface ItemElementData extends BaseElementData {
   contentOrientation?: ContentOrientation;
 }
 
-export type RelationEndpoint = string | { id: string };
+export type RelationEndpoint = string;
 
 export interface RelationLink {
   source: RelationEndpoint;
@@ -165,7 +179,7 @@ export interface RelationLink {
 export interface RelationsElementData extends BaseElementData {
   type: 'relations';
   links: RelationLink[];
-  style?: StrokeStyleInput;
+  style?: RelationStyleInput;
 }
 
 export interface ImageElementData extends BaseElementData {

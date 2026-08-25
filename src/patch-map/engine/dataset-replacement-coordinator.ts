@@ -14,11 +14,13 @@ import { normalizeOptionalSourceRevision } from './input-contracts';
 import type {
   PatchMapDatasetSubmission,
   PatchMapDatasetSubmissionResult,
-  PatchMapEngineDiagnostic,
   PatchMapEngineLoadResult,
-  PatchMapLifecycle,
   PatchMapLoadOptions,
-} from './public-contracts';
+} from './contracts/product';
+import type {
+  PatchMapEngineDiagnostic,
+  PatchMapLifecycle,
+} from './contracts/lifecycle';
 import type { PatchMapPublicationAuthority } from './publication-authority';
 import type {
   PatchMapSceneStateAuthority,

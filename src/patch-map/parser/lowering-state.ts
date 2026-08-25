@@ -129,7 +129,7 @@ export function createElementIdentity(
   type: string,
 ): MutableElementIdentity {
   const attrs = isRecord(value.attrs) ? cloneJson(value.attrs) as Readonly<Record<string, unknown>> : undefined;
-  const metadata = value.metadata ?? (isRecord(value.attrs) ? value.attrs.metadata : undefined);
+  const metadata = isRecord(value.attrs) ? value.attrs.metadata : undefined;
   return {
     sourceId,
     sourcePath,
@@ -152,7 +152,7 @@ export function componentIdentity(
   const existing = state.componentIdentityByPath.get(componentPath);
   if (existing) return existing;
   const attrs = isRecord(value.attrs) ? cloneJson(value.attrs) as Readonly<Record<string, unknown>> : undefined;
-  const metadata = value.metadata ?? (isRecord(value.attrs) ? value.attrs.metadata : undefined);
+  const metadata = isRecord(value.attrs) ? value.attrs.metadata : undefined;
   const identity: MutableComponentIdentity = {
     componentId,
     componentPath,

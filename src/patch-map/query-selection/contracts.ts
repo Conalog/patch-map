@@ -1,6 +1,6 @@
 import type { PatchMapMutationTarget } from '../semantic/transaction';
 
-export const PATCH_MAP_QUERY_SELECTION_REVISION = 'core-v2-query-selection/1' as const;
+export const PATCH_MAP_QUERY_SELECTION_REVISION = 'patch-map-query-selection/1' as const;
 
 export type PatchMapLogicalTargetKey =
   | `element:${string}`

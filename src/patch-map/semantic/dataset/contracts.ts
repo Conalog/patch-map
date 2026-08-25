@@ -56,15 +56,13 @@ export type PatchMapPlacement =
   | 'right-top'
   | 'right-bottom'
   | 'bottom'
-  | 'center'
-  | 'none';
+  | 'center';
 
 export interface PatchMapAssetDescriptor {
   readonly src: string;
   readonly data?: Readonly<Record<string, unknown>>;
   readonly format?: string;
   readonly parser?: string;
-  readonly loadParser?: string;
 }
 
 export interface PatchMapRectTexture {
@@ -87,9 +85,31 @@ export type PatchMapRadius =
       bottomLeft: number;
     }>;
 
-export type PatchMapAttrs = Readonly<Record<string, unknown>>;
+export type PatchMapAttrs = Readonly<Record<string, unknown> & {
+  readonly x?: number;
+  readonly y?: number;
+  readonly angle?: number;
+  readonly rotation?: number;
+  readonly scaleX?: number;
+  readonly scaleY?: number;
+  readonly alpha?: number;
+  readonly zIndex?: number;
+  readonly scale?: never;
+  readonly skew?: never;
+  readonly pivot?: never;
+  readonly skewX?: never;
+  readonly skewY?: never;
+  readonly pivotX?: never;
+  readonly pivotY?: never;
+}>;
 export type PatchMapStrokeStyle = Readonly<Record<string, unknown>>;
 export type PatchMapTextStyle = Readonly<Record<string, unknown>>;
+
+export interface PatchMapRelationStyle {
+  readonly color: unknown;
+  readonly alpha: number;
+  readonly width: number;
+}
 
 interface PatchMapElementBase {
   readonly [key: string]: unknown;
@@ -143,7 +163,7 @@ export interface PatchMapRelationLink {
 export interface PatchMapRelationsElement extends PatchMapElementBase {
   readonly type: 'relations';
   readonly links: readonly PatchMapRelationLink[];
-  readonly style: PatchMapStrokeStyle;
+  readonly style: PatchMapRelationStyle;
 }
 
 export interface PatchMapImageElement extends PatchMapElementBase {
@@ -166,7 +186,7 @@ export interface PatchMapRectElement extends PatchMapElementBase {
   readonly size: PatchMapFixedSize;
   readonly fill?: unknown;
   readonly stroke?: PatchMapStrokeStyle;
-  readonly radius: PatchMapRadius;
+  readonly radius: number;
   readonly eventMode?: PatchMapEventMode;
 }
 
@@ -183,7 +203,6 @@ export interface PatchMapBackgroundComponent extends PatchMapComponentBase {
   readonly type: 'background';
   readonly source: PatchMapBackgroundSource;
   readonly tint: unknown;
-  readonly size?: PatchMapComponentSize;
 }
 
 export interface PatchMapBarComponent extends PatchMapComponentBase {

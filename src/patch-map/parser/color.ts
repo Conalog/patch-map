@@ -1,7 +1,7 @@
 import type { Rgba } from '../dense/contracts';
 
 /**
- * Parse the CSS color subset accepted by PATCH MAP v0.10.
+ * Parse the CSS color subset accepted by PatchMap.
  *
  * The product intentionally keeps this parser independent from PixiJS color
  * conversion so canonical dataset interpretation stays deterministic in

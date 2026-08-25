@@ -130,16 +130,13 @@ export function normalizeDescriptor(source: PatchMapAssetSource): PatchMapAssetD
   if (typeof source === 'string') return Object.freeze({ src: nonempty(source, 'asset src') });
   if (!isPlainRecord(source)) invalidAsset('asset descriptor must be a plain object');
   const keys = Object.keys(source);
-  const allowed = new Set(['src', 'data', 'format', 'parser', 'loadParser']);
+  const allowed = new Set(['src', 'data', 'format', 'parser']);
   if (keys.some((key) => !allowed.has(key))) invalidAsset('asset descriptor has an unknown field');
   const descriptor: PatchMapAssetDescriptor = {
     src: nonempty(source.src, 'asset src'),
     ...(source.data === undefined ? {} : { data: cloneJsonRecord(source.data, 'asset data') }),
     ...(source.format === undefined ? {} : { format: nonempty(source.format, 'asset format') }),
     ...(source.parser === undefined ? {} : { parser: nonempty(source.parser, 'asset parser') }),
-    ...(source.loadParser === undefined
-      ? {}
-      : { loadParser: nonempty(source.loadParser, 'asset loadParser') }),
   };
   return deepFreeze(descriptor);
 }

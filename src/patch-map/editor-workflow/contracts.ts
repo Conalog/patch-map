@@ -4,7 +4,7 @@ import type {
 } from '../semantic/transaction';
 
 export const PATCH_MAP_EDITOR_WORKFLOW_REVISION =
-  'core-v2-editor-workflow/1' as const;
+  'patch-map-editor-workflow/1' as const;
 
 export const PATCH_MAP_EDITOR_MUTATION_KINDS = Object.freeze([
   'create',

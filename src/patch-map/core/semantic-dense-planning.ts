@@ -66,7 +66,7 @@ export function semanticSelectionDenseIds(
       denseIds.add(semanticId);
       return;
     }
-    const components = parse.projection.componentsByEntityId ?? {};
+    const components = parse.projection.componentsByEntityId;
     const separator = semanticId.indexOf('/');
     if (
       separator > 0 &&
@@ -141,7 +141,7 @@ export function semanticTargetsDenseIds(
     }
   }
   if (unresolvedComponentKeys.size > 0) {
-    for (const component of Object.values(parse.projection.componentsByEntityId ?? {})) {
+    for (const component of Object.values(parse.projection.componentsByEntityId)) {
       const semanticOwnerId =
         parse.identity.entitySourceById[component.entityId]?.sourceElementId ?? component.ownerId;
       const directKey = patchMapComponentProbeTargetKey({
@@ -193,7 +193,7 @@ export function semanticPresentationFillDenseIds(
   parse: ParsePatchMapResult,
   semanticId: string,
 ): readonly string[] {
-  const backgroundIds = Object.values(parse.projection.componentsByEntityId ?? {})
+  const backgroundIds = Object.values(parse.projection.componentsByEntityId)
     .filter((component) =>
       component.ownerId === semanticId &&
       component.renderRole === 'background-geometry'
@@ -239,7 +239,7 @@ function componentOrderDenseIds(
     if (!ownerSet.has(component.sourceElementId)) continue;
     for (const entityId of component.entityIds) ids.add(entityId);
   }
-  const components = parse.projection.componentsByEntityId ?? {};
+  const components = parse.projection.componentsByEntityId;
   for (const entityId of Object.keys(components).sort()) {
     const component = components[entityId];
     if (component === undefined) continue;

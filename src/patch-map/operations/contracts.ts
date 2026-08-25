@@ -1,8 +1,8 @@
-export const PATCH_MAP_OPERATIONS_REVISION = 'core-v2-operations/1' as const;
+export const PATCH_MAP_OPERATIONS_REVISION = 'patch-map-operations/1' as const;
 export const PATCH_MAP_RUNTIME_DIAGNOSTICS_REVISION =
-  'core-v2-runtime-diagnostics/1' as const;
+  'patch-map-runtime-diagnostics/1' as const;
 export const PATCH_MAP_EXTRACTION_SECURITY_REVISION =
-  'core-v2-extraction-security/1' as const;
+  'patch-map-extraction-security/1' as const;
 
 export interface PatchMapOperationsRevisionStamp {
   readonly lifecycleGeneration: number;
