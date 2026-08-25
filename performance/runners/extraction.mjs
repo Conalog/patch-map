@@ -242,7 +242,6 @@ async function main() {
         headed: false,
         viewport: { width: 1_280, height: 720, deviceScaleFactor: 1 },
         gpu,
-        windowsNative: false,
       },
       comparison: {
         webgpu: 'experimental-not-run',

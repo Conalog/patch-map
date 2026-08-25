@@ -34,8 +34,8 @@ export const UPDATE_PERFORMANCE_PROTOCOL = Object.freeze({
  * transaction CPU path only: request validation, detached candidate creation,
  * semantic indexing, history preparation, and publication bookkeeping. The
  * injected surface accepts the already-built candidate but performs no PixiJS
- * renderer or GPU work. The canonical Chromium 4x matrix remains the source of
- * truth for aggregate rendering and upload performance.
+ * renderer or GPU work. Use `performance:benchmark` for aggregate rendering
+ * and upload measurements.
  */
 export async function runPatchMapUpdatePerformanceCheckpoint({
   outputPath = DEFAULT_OUTPUT,
@@ -96,8 +96,8 @@ export async function runPatchMapUpdatePerformanceCheckpoint({
           'retained heap',
         ]),
         surface: 'injected deterministic no-render surface',
-        rendererEvidence: 'canonical PatchMap Chromium 4x matrix; not rerun by this checkpoint',
-        productionDataset: 'covered by canonical full matrix; this isolated scale checkpoint uses seeded synthetic input',
+        rendererMeasurement: 'run performance:benchmark separately',
+        dataset: 'seeded synthetic input for isolated transaction scaling',
       }),
       environment: Object.freeze({
         runtime: `node ${process.versions.node}`,
@@ -106,8 +106,7 @@ export async function runPatchMapUpdatePerformanceCheckpoint({
         cpuModel: cpus[0]?.model ?? 'unknown',
         logicalCpuCount: cpus.length,
         timer: 'node:perf_hooks performance.now',
-        chromium4x: 'not-run; tranche reuses existing surface reconciliation and this checkpoint isolates new Engine staging/orchestration',
-        windowsNative: false,
+        browser: 'not run; this probe isolates Engine transaction CPU work',
       }),
       runs: Object.freeze(runs),
     });

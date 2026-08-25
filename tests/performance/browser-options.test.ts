@@ -14,26 +14,16 @@ interface BrowserLaunchRuntime {
     target: string;
     launchOptions: Readonly<Record<string, unknown>>;
   }>;
-  parsePatchMapNativeWindowsCell(
-    argv: readonly string[],
-    browserLaunch: ReturnType<BrowserLaunchRuntime['parsePatchMapBrowserLaunch']>,
-    platform?: string,
-  ): Readonly<{
-    requested: boolean;
-    cellId: string | null;
-    evidenceStatus: string;
-  }>;
 }
 
 const runtime: BrowserLaunchRuntime = await import(
   /* @vite-ignore */ new URL(
-    '../../verification/browser-launch.mjs',
+    '../../performance/browser-options.mjs',
     import.meta.url,
   ).href
 ) as BrowserLaunchRuntime;
 
 const { parsePatchMapBrowserLaunch } = runtime;
-const { parsePatchMapNativeWindowsCell } = runtime;
 
 describe('PatchMap browser launch options', () => {
   it('keeps the existing headless Playwright Chromium default', () => {
@@ -91,7 +81,7 @@ describe('PatchMap browser launch options', () => {
     });
   });
 
-  it('rejects ambiguous or unapproved browser targets', () => {
+  it('rejects ambiguous or unsupported browser targets', () => {
     expect(() =>
       parsePatchMapBrowserLaunch([
         '--channel=chrome',
@@ -113,34 +103,5 @@ describe('PatchMap browser launch options', () => {
       '--channel=chrome',
       '--channel=msedge',
     ])).toThrow(/at most once/u);
-  });
-
-  it('accepts native evidence only for an exact headed Windows browser cell', () => {
-    const launch = parsePatchMapBrowserLaunch([
-      '--headed',
-      '--channel=msedge',
-    ]);
-    expect(
-      parsePatchMapNativeWindowsCell(
-        [
-          '--native-windows',
-          '--headed',
-          '--channel=msedge',
-          '--cell-id=windows-11-edge-latest',
-        ],
-        launch,
-        'win32',
-      ),
-    ).toEqual({
-      requested: true,
-      cellId: 'windows-11-edge-latest',
-      evidenceStatus: 'measured-candidate-unreviewed',
-    });
-    expect(() =>
-      parsePatchMapNativeWindowsCell(
-        ['--native-windows', '--headed', '--channel=msedge'],
-        launch,
-        'darwin',
-      )).toThrow(/actual Windows host/u);
   });
 });

@@ -145,8 +145,6 @@ export async function summarizeBenchmark(raw, runInfo) {
       measurementClass: raw.environment.measurementClass,
       requestedHeaded: runInfo.requestedHeaded,
       actualMode: runInfo.actualMode,
-      windowsNative: runInfo.nativeWindows,
-      cellId: raw.environment.cellId,
       osRelease: raw.environment.osRelease,
       cpuModel: raw.environment.cpuModel,
       logicalCpuCount: raw.environment.logicalCpuCount,

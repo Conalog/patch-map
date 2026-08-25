@@ -88,11 +88,7 @@ export async function executeBenchmarkBrowserRun(root, options) {
         browserTarget: options.browserLaunch.target,
         gpu,
         cpuProfile: CPU_PROFILE,
-        measurementClass: options.nativeWindows
-          ? 'native-windows'
-          : 'chromium-4x-development-proxy',
-        windowsNative: options.nativeWindows,
-        cellId: options.cellId ?? null,
+        measurementClass: 'chromium-development-proxy',
         osRelease: os.release(),
         cpuModel: os.cpus()[0]?.model ?? 'unknown',
         logicalCpuCount: os.cpus().length,

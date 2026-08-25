@@ -72,7 +72,6 @@ async function main() {
     codeCommit: options.codeCommit,
     requestedHeaded: options.requestedHeaded,
     actualMode: options.headed ? 'headed' : 'headless',
-    nativeWindows: options.nativeWindows,
   });
   summary.provenance.rawArtifactSha256 = rawDigest;
   summary.rawArtifact = {

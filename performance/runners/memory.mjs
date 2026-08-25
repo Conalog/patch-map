@@ -7,19 +7,15 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-import {
-  parsePatchMapBrowserLaunch,
-  parsePatchMapNativeWindowsCell,
-} from '../../verification/browser-launch.mjs';
+import { parsePatchMapBrowserLaunch } from '../browser-options.mjs';
 
 const ROOT = process.cwd();
 const browserLaunch = parsePatchMapBrowserLaunch(process.argv.slice(2), {
   extraArgs: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
 });
-const nativeWindows = parsePatchMapNativeWindowsCell(process.argv.slice(2), browserLaunch);
 const protocol = Object.freeze({
-  warmups: nativeWindows.requested ? 0 : 2,
-  measured: nativeWindows.requested ? 10 : 7,
+  warmups: 2,
+  measured: 7,
   size: 1_000,
   seed: 0x4d454d,
 });
@@ -82,8 +78,6 @@ try {
     || trial.inputUnchanged !== true
     || trial.backend !== 'webgl'
   ));
-  const gpuIdentity = [gpu.renderer, gpu.unmaskedRenderer].filter(Boolean).join(' ');
-  const softwareGpu = /swiftshader|llvmpipe|software raster/iu.test(gpuIdentity);
   const failures = [
     ...(errors.length > 0 ? ['browser errors are not empty'] : []),
     ...(lifecycleFailures.length > 0 ? ['mount/load/destroy did not release resources'] : []),
@@ -93,12 +87,6 @@ try {
     ...(maximum > 50 * 1024 * 1024 ? [`retained heap max ${maximum} exceeds 50 MiB`] : []),
     ...(trend > 10 * 1024 * 1024 ? [`retained heap trend ${trend} exceeds 10 MiB`] : []),
     ...(processDelta > 20 * 1024 * 1024 ? [`post-GC process delta ${processDelta} exceeds 20 MiB`] : []),
-    ...(nativeWindows.requested && processDelta > 2 * 1024 * 1024
-      ? [`native post-GC process delta ${processDelta} exceeds 2 MiB`] : []),
-    ...(nativeWindows.requested && gpu.context !== 'webgl2'
-      ? ['native memory run did not acquire WebGL2'] : []),
-    ...(nativeWindows.requested && softwareGpu
-      ? [`native memory run used a software GPU: ${gpuIdentity}`] : []),
   ];
   const result = {
     schemaVersion: 2,
@@ -111,7 +99,6 @@ try {
       browserVersion: browser.version(),
       browserTarget: browserLaunch.target,
       headed: browserLaunch.headed,
-      windowsNative: nativeWindows.requested,
       osRelease: os.release(),
       cpuModel: os.cpus()[0]?.model ?? 'unknown',
       gpu,

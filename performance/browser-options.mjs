@@ -71,36 +71,3 @@ export function argumentValue(argv, name) {
   }
   return value;
 }
-
-export function parsePatchMapNativeWindowsCell(
-  argv,
-  browserLaunch,
-  platform = process.platform,
-) {
-  const requested = argv.includes('--native-windows');
-  const cellId = argumentValue(argv, '--cell-id') ?? null;
-  if (!requested) {
-    return Object.freeze({
-      requested: false,
-      cellId,
-      evidenceStatus: 'pending',
-    });
-  }
-  if (platform !== 'win32') {
-    throw new Error('--native-windows requires an actual Windows host');
-  }
-  if (!browserLaunch.headed) {
-    throw new Error('--native-windows requires --headed');
-  }
-  if (browserLaunch.channel === null && browserLaunch.executablePath === null) {
-    throw new Error('--native-windows requires --channel or --executable-path');
-  }
-  if (cellId === null || !/^[a-z0-9-]+$/u.test(cellId)) {
-    throw new Error('--native-windows requires a stable --cell-id');
-  }
-  return Object.freeze({
-    requested: true,
-    cellId,
-    evidenceStatus: 'measured-candidate-unreviewed',
-  });
-}

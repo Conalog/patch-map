@@ -6,6 +6,7 @@ fixtures.
 
 | Owner | Purpose | Command |
 | --- | --- | --- |
+| `browser-options.mjs` | Shared headed/headless Chromium launch options for executable measurements | imported by benchmark and memory runners |
 | `benchmark/` | Browser workload, visible milestones, and current-run summary | `node performance/runners/benchmark.mjs --smoke` or full without `--smoke` |
 | `fixtures/` | Deterministic synthetic and production-shaped inputs | imported by benchmark and focused tests |
 | `probes/memory/` | Mount/load/render/destroy heap and resource release | `node performance/runners/memory.mjs` |

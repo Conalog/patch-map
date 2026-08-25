@@ -3,8 +3,7 @@ import path from 'node:path';
 import {
   argumentValue,
   parsePatchMapBrowserLaunch,
-  parsePatchMapNativeWindowsCell,
-} from '../../verification/browser-launch.mjs';
+} from '../browser-options.mjs';
 import {
   MEASURED,
   PROXY_CPU_THROTTLE_RATE,
@@ -18,23 +17,14 @@ export function parseBenchmarkOptions(arguments_, { root, resultsRoot }) {
   const browserLaunch = parsePatchMapBrowserLaunch(argv, {
     extraArgs: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
   });
-  const nativeWindows = argv.includes('--native-windows');
-  const nativeCell = parsePatchMapNativeWindowsCell(argv, browserLaunch);
   const smoke = argv.includes('--smoke');
   const outputDirectory = argumentValue(argv, '--output-dir');
-  const cellId = argumentValue(argv, '--cell-id');
-  if (nativeWindows) {
-    assert(nativeCell.requested, '--native-windows cell validation');
-    assert(cellId === nativeCell.cellId, '--native-windows cell identity');
-  }
   return {
     browserLaunch,
-    cellId,
     codeCommit: argumentValue(argv, '--code-commit') ?? 'uncommitted',
-    cpuThrottleRate: nativeWindows ? 1 : PROXY_CPU_THROTTLE_RATE,
+    cpuThrottleRate: PROXY_CPU_THROTTLE_RATE,
     externalUrl: argumentValue(argv, '--url'),
     headed: browserLaunch.headed,
-    nativeWindows,
     requestedHeaded: !argv.includes('--request-headless'),
     resultsRoot: outputDirectory
       ? resolveBenchmarkOutput(root, outputDirectory)
