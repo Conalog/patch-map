@@ -63,6 +63,7 @@ try {
     '<div id="persistent-host" style="width:320px;height:240px"></div>',
     '<div id="compatible-host" style="width:320px;height:240px"></div>',
     '<div id="initial-host" style="width:320px;height:240px"></div>',
+    '<button id="host-overlay" style="position:fixed;left:60px;top:50px;width:80px;height:60px;z-index:10">Host overlay</button>',
     '<script type="module" src="/main.js"></script>',
     '</body></html>',
   ].join('\n'));
@@ -178,6 +179,8 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
   compatibleHover: () => [...compatibleHover],
   tooltipEvents: () => structuredClone(tooltipEvents),
   initialViewport: () => initialMap.viewport.snapshot(),
+  viewportSnapshot: () => map.viewport.snapshot(),
+  restoreViewport: (snapshot) => map.viewport.restore(snapshot),
   mixedOwnerMutation: () => {
     const beforeRevision = map.debug.snapshot().revisions.sceneRevision;
     const result = map.transaction([
@@ -264,6 +267,12 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
     { timeout: 30_000 },
   );
   await page.mouse.move(90, 80);
+  const overlayHover = await hoverState(page, 'persistentHover');
+  await page.evaluate(() => {
+    document.querySelector('#host-overlay').hidden = true;
+  });
+  await page.mouse.move(20, 200);
+  await page.mouse.move(90, 80);
   const persistentHoverBeforePress = await hoverState(page, 'persistentHover');
   await pointerDownUp(page, 90, 80);
   const persistentHoverAfterPress = await hoverState(page, 'persistentHover');
@@ -287,6 +296,27 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
   const tooltipAfterPrimaryClick = await page.evaluate(
     () => window.__PATCH_MAP_INSTALLED_SELECTION__.tooltipEvents(),
   );
+
+  const overlayDragBefore = await page.evaluate(
+    () => window.__PATCH_MAP_INSTALLED_SELECTION__.viewportSnapshot(),
+  );
+  await page.mouse.move(250, 200);
+  await page.mouse.down({ button: 'left' });
+  await page.evaluate(() => {
+    const overlay = document.querySelector('#host-overlay');
+    overlay.style.left = '240px';
+    overlay.style.top = '190px';
+    overlay.hidden = false;
+  });
+  await page.mouse.move(270, 220);
+  await page.mouse.up({ button: 'left' });
+  const overlayDragAfter = await page.evaluate(
+    () => window.__PATCH_MAP_INSTALLED_SELECTION__.viewportSnapshot(),
+  );
+  await page.evaluate((snapshot) => {
+    document.querySelector('#host-overlay').hidden = true;
+    window.__PATCH_MAP_INSTALLED_SELECTION__.restoreViewport(snapshot);
+  }, overlayDragBefore);
 
   await page.keyboard.down('Control');
   await pointerDownUp(page, 90, 80);
@@ -326,6 +356,7 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
     artifactSha256,
     installedEntry,
     hover: {
+      overlay: overlayHover,
       persistentBeforePress: persistentHoverBeforePress,
       persistentAfterPress: persistentHoverAfterPress,
       persistentAfterLeave: persistentHoverAfterLeave,
@@ -337,6 +368,10 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
       eventCountAfterPin: tooltipAfterPin.length,
       eventCountDuringPinnedLeave: tooltipDuringPinnedLeave.length,
       afterPrimaryClick: tooltipAfterPrimaryClick.at(-1),
+    },
+    overlayDrag: {
+      before: overlayDragBefore,
+      after: overlayDragAfter,
     },
     modifierSelection,
     initialViewport,
@@ -356,6 +391,7 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
     !selectionEquals(selected, ['selectable-item']) ||
     !selectionEquals(afterBlankSingle, ['selectable-item']) ||
     !selectionEquals(afterBlankDouble, []) ||
+    !valuesEqual(overlayHover, []) ||
     !valuesEqual(persistentHoverBeforePress, ['hover']) ||
     !valuesEqual(persistentHoverAfterPress, ['hover', 'move']) ||
     !valuesEqual(persistentHoverAfterLeave, ['hover', 'move', 'leave']) ||
@@ -368,6 +404,7 @@ window.__PATCH_MAP_INSTALLED_SELECTION__ = {
     tooltipAfterPrimaryClick.at(-1)?.type !== 'show' ||
     tooltipAfterPrimaryClick.at(-1)?.target?.id !== 'related-item' ||
     tooltipAfterPrimaryClick.at(-1)?.pinned !== false ||
+    valuesEqual(overlayDragAfter, overlayDragBefore) ||
     !selectionEquals(modifierSelection, ['selectable-item', 'related-item']) ||
     !valuesEqual(initialViewport, { centerWorld: [25, 35], scale: 2 }) ||
     mixedOwner.status !== 'committed' ||
