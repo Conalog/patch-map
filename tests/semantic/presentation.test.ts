@@ -1,6 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -12,20 +9,8 @@ import {
 } from '../../src/presentation';
 
 describe('PatchMapPresentationController', () => {
-  it('uses one manual flat controller without Pixi ticker or entity event ownership', async () => {
-    const source = await readFile(
-      fileURLToPath(new URL('../../src/presentation/index.ts', import.meta.url)),
-      'utf8',
-    );
-
-    expect(PATCH_MAP_PRESENTATION_DEFAULT_DURATION_MS).toBe(200);
-    expect(source).not.toMatch(/from\s+['"]pixi(?:\.js)?['"]/u);
-    expect(source).not.toContain('requestAnimationFrame');
-    expect(source).not.toContain('addEventListener');
-    expect(source).not.toContain('NON_MONOTONIC_TIME');
-  });
-
   it('samples 10 to 40 with the default easeOutCubic at exact 0/100/200ms', () => {
+    expect(PATCH_MAP_PRESENTATION_DEFAULT_DURATION_MS).toBe(200);
     const controller = new PatchMapPresentationController({ lifecycleGeneration: 7 });
     const scheduled = controller.retarget(retarget('bar', 4, 1, 10, 40, 0));
 

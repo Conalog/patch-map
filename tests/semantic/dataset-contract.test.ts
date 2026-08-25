@@ -15,11 +15,11 @@ import {
 } from '../../src/semantic/dataset';
 import type { PatchMapDatasetError } from '../../src/semantic/dataset';
 
-const productionFixturePath = fileURLToPath(
-  new URL('../../verification/fixtures/datasets/production-like.json', import.meta.url),
+const largeGridFixturePath = fileURLToPath(
+  new URL('../fixtures/large-grid-scene.json', import.meta.url),
 );
-const actualProductionFixturePath = fileURLToPath(
-  new URL('../../verification/fixtures/datasets/actual-production.json', import.meta.url),
+const largeSceneFixturePath = fileURLToPath(
+  new URL('../fixtures/large-scene.json', import.meta.url),
 );
 
 describe('PatchMap approved dataset foundation', () => {
@@ -52,8 +52,8 @@ describe('PatchMap approved dataset foundation', () => {
     expect(JSON.stringify(input)).toBe(before);
   });
 
-  it('accepts the existing production PATCH MAP JSON directly without caller mutation', () => {
-    const input = JSON.parse(readFileSync(productionFixturePath, 'utf8')) as unknown;
+  it('accepts a large grid-heavy dataset without caller mutation', () => {
+    const input = JSON.parse(readFileSync(largeGridFixturePath, 'utf8')) as unknown;
     const before = JSON.stringify(input);
 
     const result = materializePatchMapDataset(input);
@@ -65,8 +65,8 @@ describe('PatchMap approved dataset foundation', () => {
     expect(JSON.stringify(input)).toBe(before);
   });
 
-  it('materializes the canonical actual-production fixture without retaining mutable aliases', () => {
-    const input = JSON.parse(readFileSync(actualProductionFixturePath, 'utf8')) as unknown[];
+  it('materializes a large flat dataset without retaining mutable aliases', () => {
+    const input = JSON.parse(readFileSync(largeSceneFixturePath, 'utf8')) as unknown[];
     const before = JSON.stringify(input);
 
     const result = materializePatchMapDataset(input);

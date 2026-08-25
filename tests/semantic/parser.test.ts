@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { PatchMapParseError } from '../../src/parsing/contracts';
 import { parsePatchMap } from '../../src/parsing';
 
-const fixturePath = fileURLToPath(
-  new URL('../../verification/fixtures/datasets/production-like.json', import.meta.url),
+const largeGridFixturePath = fileURLToPath(
+  new URL('../fixtures/large-grid-scene.json', import.meta.url),
 );
 
 describe('PatchMap PatchMap parser', () => {
@@ -28,8 +28,8 @@ describe('PatchMap PatchMap parser', () => {
     expect(Object.values(projection).every(Object.isFrozen)).toBe(true);
   });
 
-  it('loads the production JSON directly with stable expansion counts', () => {
-    const input = JSON.parse(readFileSync(fixturePath, 'utf8')) as unknown;
+  it('loads a large grid dataset with stable expansion counts', () => {
+    const input = JSON.parse(readFileSync(largeGridFixturePath, 'utf8')) as unknown;
     const before = JSON.stringify(input);
 
     const result = parsePatchMap(input);

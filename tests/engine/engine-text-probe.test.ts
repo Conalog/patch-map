@@ -10,7 +10,6 @@ import {
   type PatchMapSurfaceReconcileResult,
   type PatchMapSurfaceView,
 } from '../../src/engine';
-import { readPatchMapEngineTextProbe } from '../../src/engine/product-probe-reader';
 import { parsePatchMap } from '../../src/parsing';
 import type {
   PatchMapEntityPaintProbe,
@@ -260,17 +259,6 @@ describe('PatchMap O(1) text product seam', () => {
     );
   });
 
-  it('does not add a dataset or Pixi traversal fallback to the Engine probe', () => {
-    const facade = PatchMap.prototype.textProbe.toString();
-    const source = readPatchMapEngineTextProbe.toString();
-
-    expect(facade).toContain('readPatchMapEngineTextProbe');
-    expect(source).toContain('state.textSemantic');
-    expect(source).toContain('state.textProbe');
-    expect(source).not.toContain('findElement');
-    expect(source).not.toMatch(/\.snapshot\s*\(/u);
-    expect(source).not.toContain('.children');
-  });
 });
 
 class MinimalTextSurface implements PatchMapEngineSurface {

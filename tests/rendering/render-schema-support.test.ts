@@ -10,8 +10,8 @@ import {
 } from '../../src/semantic/dataset';
 import { parsePatchMap } from '../../src/parsing';
 
-const productionFixturePath = fileURLToPath(
-  new URL('../../verification/fixtures/datasets/production-like.json', import.meta.url),
+const largeGridFixturePath = fileURLToPath(
+  new URL('../fixtures/large-grid-scene.json', import.meta.url),
 );
 
 const invalidDatasetProfiles = new Set(['malformed']);
@@ -44,8 +44,8 @@ describe('PatchMap rendering schema support inventory', () => {
     }
   });
 
-  it('keeps the production fixture within the same strict boundary', () => {
-    const dataset = JSON.parse(readFileSync(productionFixturePath, 'utf8')) as unknown;
+  it('keeps the large grid fixture within the same strict boundary', () => {
+    const dataset = JSON.parse(readFileSync(largeGridFixturePath, 'utf8')) as unknown;
     expect(() => materializePatchMapDataset(dataset)).not.toThrow();
   });
 

@@ -1,13 +1,12 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
-const SOURCE_ROOT = fileURLToPath(
-  new URL('../../src/', import.meta.url),
-);
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+const SOURCE_ROOT = resolve(ROOT, 'src');
 
 describe('PatchMap architecture import graph', () => {
   it('keeps production TypeScript modules acyclic', async () => {
@@ -169,6 +168,37 @@ describe('PatchMap architecture import graph', () => {
       'Owner dependencies must point toward neutral contracts and lower-level domains.',
     ).toEqual([]);
   });
+
+  it('keeps repository support dependencies one-way', async () => {
+    const rules = {
+      src: new Set(['examples', 'performance', 'tests', 'verification']),
+      verification: new Set(['examples', 'performance', 'tests']),
+      performance: new Set(['tests']),
+    } as const;
+    const violations: string[] = [];
+
+    for (const [owner, prohibited] of Object.entries(rules)) {
+      for (const file of await repositorySourceFiles(resolve(ROOT, owner))) {
+        const source = await readFile(file, 'utf8');
+        const parsed = ts.createSourceFile(
+          file,
+          source,
+          ts.ScriptTarget.Latest,
+          true,
+          file.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS,
+        );
+        for (const specifier of moduleSpecifiers(parsed)) {
+          if (!specifier.startsWith('.')) continue;
+          const targetRoot = relative(ROOT, resolve(dirname(file), specifier)).split(sep)[0];
+          if (targetRoot !== undefined && prohibited.has(targetRoot)) {
+            violations.push(`${relative(ROOT, file)} -> ${specifier}`);
+          }
+        }
+      }
+    }
+
+    expect(violations.sort()).toEqual([]);
+  });
 });
 
 const FORBIDDEN_OWNER_DEPENDENCIES: Readonly<
@@ -233,6 +263,16 @@ async function typescriptFiles(directory: string): Promise<string[]> {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) return typescriptFiles(path);
     return entry.isFile() && entry.name.endsWith('.ts') ? [path] : [];
+  }));
+  return nested.flat().sort();
+}
+
+async function repositorySourceFiles(directory: string): Promise<string[]> {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const nested = await Promise.all(entries.map(async (entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return repositorySourceFiles(path);
+    return entry.isFile() && /\.(?:mjs|ts)$/u.test(entry.name) ? [path] : [];
   }));
   return nested.flat().sort();
 }

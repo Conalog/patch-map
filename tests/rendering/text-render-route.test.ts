@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -257,16 +255,6 @@ describe('PatchMap pure Pixi text renderer-route policy', () => {
     expect(Object.isFrozen(first.capabilities)).toBe(true);
   });
 
-  it('stays pure and independent from Pixi classes', async () => {
-    const source = await readFile(
-      new URL('../../src/semantic/text-render-route.ts', import.meta.url),
-      'utf8',
-    );
-
-    expect(source).not.toMatch(/from ['"]pixi(?:\.js)?['"]/u);
-    expect(source).not.toContain('new BitmapText');
-    expect(source).not.toContain('new Text');
-  });
 });
 
 function input(

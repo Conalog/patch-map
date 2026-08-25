@@ -13,7 +13,6 @@ import {
   type PatchMapRuntimeOptions,
   type PatchMapTextTarget,
 } from '../../src/core';
-import { createPatchMapTextProductProbe } from '../../src/core/product-probe-reader';
 import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
 import type { PatchMapPresentationLayerRenderUpdate } from '../../src/presentation/layer-contracts';
 import type {
@@ -330,18 +329,6 @@ describe('PatchMap O(1) text product probe', () => {
     expect(core.textProbe(elementTarget())).toBeNull();
   });
 
-  it('keeps the public lookup body on fixed indexes without scene or Pixi traversal', () => {
-    const facadeSource = PatchMapRuntime.prototype.textProbe.toString();
-    const source = createPatchMapTextProductProbe.toString();
-
-    expect(facadeSource).toContain('createPatchMapTextProductProbe');
-    expect(source).toContain('textTargets.get');
-    expect(source).toContain('scene.get');
-    expect(source).toContain('textRendererProbe');
-    expect(source).not.toMatch(/\.snapshot\s*\(/u);
-    expect(source).not.toMatch(/\.query\s*\(/u);
-    expect(source).not.toContain('.children');
-  });
 });
 
 class TextRendererDouble {

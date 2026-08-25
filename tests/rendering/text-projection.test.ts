@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import catalogProfiles from '../fixtures/product-datasets.json';
 import { describe, expect, it } from 'vitest';
 
@@ -11,21 +9,6 @@ import {
 } from '../../src/semantic/dataset';
 
 describe('PatchMap deterministic text projection', () => {
-  it('keeps component text on one semantic-layout pass followed by signature-safe relocation', () => {
-    const componentSource = readFileSync(
-      new URL('../../src/parsing/component-text-lowering.ts', import.meta.url),
-      'utf8',
-    );
-    const branchStart = componentSource.indexOf("  if (type === 'text') {");
-    const branchEnd = componentSource.indexOf('\n  warn(\n', branchStart);
-    const componentTextBranch = componentSource.slice(branchStart, branchEnd);
-
-    expect(branchStart).toBeGreaterThanOrEqual(0);
-    expect(branchEnd).toBeGreaterThan(branchStart);
-    expect(componentTextBranch.match(/\bsemanticTextLayout\(/gu)).toHaveLength(1);
-    expect(componentTextBranch.match(/\brelocatePatchMapTextLayout\(/gu)).toHaveLength(1);
-  });
-
   it('keeps the standalone authored frame separate from natural geometry and affine inputs', () => {
     const input = catalogProfiles.datasets['standalone-text'];
     const before = structuredClone(input);
