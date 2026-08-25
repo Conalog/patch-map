@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const root = process.cwd();
 const ignoredDirectories = new Set([
-  '.git', '.artifacts/lab', '.artifacts/performance', 'dist', 'node_modules', 'coverage',
+  '.artifacts', '.git', 'coverage', 'dist', 'node_modules',
 ]);
 
 const files = await walk(root);
