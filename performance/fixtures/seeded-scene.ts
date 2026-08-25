@@ -1,11 +1,11 @@
 export const PATCH_MAP_SEEDED_SCENE_REVISION =
-  'patch-map-seeded-scenario-scene/1' as const;
+  'patch-map-seeded-scene/1' as const;
 
 /**
  * Deterministic benchmark input generator. It owns plain frozen PATCH MAP JSON
  * and is also reused by parser stress tests.
  */
-export function buildPatchMapSeededScenarioScene(
+export function buildPatchMapSeededScene(
   sizeValue: number,
   seedValue: number,
   actionIndexValue = 0,

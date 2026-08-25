@@ -1,5 +1,5 @@
 import productionShapedWorkload from '../../fixtures/production-shaped.json';
-import { buildPatchMapSeededScenarioScene } from '../../fixtures/seeded-scene';
+import { buildPatchMapSeededScene } from '../../fixtures/seeded-scene';
 import { runExtractionTrial } from './trial';
 import type { ExtractionResult, ExtractionSpec, ExtractionTrial } from './types';
 
@@ -17,7 +17,7 @@ window.__PATCH_MAP_EXTRACTION__ = Object.freeze({
   async run(spec) {
     const source = spec.scale === 'production'
       ? productionShapedWorkload
-      : buildPatchMapSeededScenarioScene(spec.scale, spec.seed);
+      : buildPatchMapSeededScene(spec.scale, spec.seed);
     const warmupRaw: ExtractionTrial[] = [];
     const measuredRaw: ExtractionTrial[] = [];
     for (let index = 0; index < spec.warmups + spec.measured; index += 1) {

@@ -26,7 +26,7 @@ import {
   planPatchMapTextBatch,
 } from '../../src/semantic/transaction';
 import { buildPatchMapBenchmarkDataset } from '../../performance/benchmark/workload';
-import { buildPatchMapSeededScenarioScene } from '../../performance/fixtures/seeded-scene';
+import { buildPatchMapSeededScene } from '../../performance/fixtures/seeded-scene';
 
 describe('PatchMap guarded incremental parser', () => {
   it('primes the stable flat indexes without changing parser output', () => {
@@ -296,7 +296,7 @@ describe('PatchMap guarded incremental parser', () => {
 
   it('stays exact for a 5,000-record seeded scene', () => {
     const current = materializePatchMapDataset(
-      buildPatchMapSeededScenarioScene(5_000, 319),
+      buildPatchMapSeededScene(5_000, 319),
     );
     const plan = planPatchMapMutationTransaction(current, {
       strict: true,

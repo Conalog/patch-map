@@ -5,7 +5,7 @@ import {
   materializePatchMapDataset,
   validatePatchMapDatasetReferences,
 } from '../../../src/semantic/dataset';
-import { buildPatchMapSeededScenarioScene } from '../../fixtures/seeded-scene';
+import { buildPatchMapSeededScene } from '../../fixtures/seeded-scene';
 
 import { deepFreeze, sortJson } from './semantics';
 
@@ -29,7 +29,7 @@ export function buildPatchMapBenchmarkDataset(
 ): readonly Readonly<Record<string, unknown>>[] {
   const dataset = size === 'production-shaped-workload-v1'
     ? structuredClone(productionShapedWorkloadJson)
-    : structuredClone(buildPatchMapSeededScenarioScene(size, seed, actionIndex));
+    : structuredClone(buildPatchMapSeededScene(size, seed, actionIndex));
   return deepFreeze(dataset) as readonly Readonly<Record<string, unknown>>[];
 }
 export async function canonicalPatchMapDatasetSha256(input: unknown): Promise<string> {

@@ -1,6 +1,6 @@
 import { createPixiSurface } from '../../../src/composition/pixi-engine-surface';
 import { PatchMap } from '../../../src/engine';
-import { buildPatchMapSeededScenarioScene } from '../../fixtures/seeded-scene';
+import { buildPatchMapSeededScene } from '../../fixtures/seeded-scene';
 
 declare global {
   interface Window {
@@ -60,7 +60,7 @@ async function runTrial(
   seed: number,
 ): Promise<Omit<MemoryTrial, 'retainedJsHeapBytes'>> {
   surface.replaceChildren();
-  const input = structuredClone(buildPatchMapSeededScenarioScene(size, seed));
+  const input = structuredClone(buildPatchMapSeededScene(size, seed));
   const serializedBefore = JSON.stringify(input);
   const engine = new PatchMap({ surfaceFactory: createPixiSurface });
   try {
