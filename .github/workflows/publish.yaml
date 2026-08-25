@@ -165,6 +165,12 @@ jobs:
       - name: Verify canonical contract
         run: npm run verify:contract
 
+      - name: Verify documentation
+        run: npm run verify:docs
+
+      - name: Require headed Windows performance qualification
+        run: npm run verify:performance-contract -- --require-release
+
   packed-consumer:
     name: Packed consumer
     needs: metadata

@@ -9,9 +9,8 @@ import {
 test('internal Markdown documentation only skips the full release gate', () => {
   assert.deepEqual(
     classifyChangedPaths([
-      'docs/reference/core-v2-functional-contract/overview.md',
-      'docs/maintainers/architecture.md',
-      'docs/README.md',
+      'docs/engineering/architecture.md',
+      'docs/engineering/system-map.md',
     ]),
     { fullValidation: false },
   );
@@ -19,9 +18,9 @@ test('internal Markdown documentation only skips the full release gate', () => {
 
 test('published documentation remains a full release-gate change', () => {
   assert.equal(isLightweightValidationPath('README.md'), false);
-  assert.equal(isLightweightValidationPath('docs/patch-map/README.md'), false);
+  assert.equal(isLightweightValidationPath('docs/README.md'), false);
   assert.equal(
-    classifyChangedPaths(['docs/patch-map/README.md']).fullValidation,
+    classifyChangedPaths(['docs/api/data-and-targets.md']).fullValidation,
     true,
   );
 });
@@ -42,7 +41,7 @@ test('empty and mixed diffs fail closed to full validation', () => {
   assert.equal(classifyChangedPaths([]).fullValidation, true);
   assert.equal(
     classifyChangedPaths([
-      'docs/maintainers/documentation.md',
+      'docs/engineering/verification.md',
       'src/index.ts',
     ]).fullValidation,
     true,

@@ -23,6 +23,8 @@ const requiredScripts = [
   'unit',
   'build',
   'verify:contract',
+  'verify:docs',
+  'verify:performance-contract',
   'verify:package',
   'build:lab',
   'verify:lab:all',

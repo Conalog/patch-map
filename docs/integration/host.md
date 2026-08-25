@@ -1,0 +1,63 @@
+# Host integration
+
+Status: current  
+Audience: application integrators  
+Owner: the boundary between a host application and one PatchMap instance
+
+Read when: wiring PatchMap into a page, editor, dashboard, report, persistence
+layer, or application lifecycle.
+
+## Ownership
+
+| Host owns | PatchMap owns |
+| --- | --- |
+| Layout slot and route lifecycle | Canvas and Pixi surface lifecycle |
+| Application commands and persistence | Normalized scene state and history |
+| Accessibility DOM and product labels | Rendering, hit testing, selection, and transforms |
+| Business relation graph and selection extension callback | Pointer capture, gesture arbitration, and coordinate conversion |
+| Release qualification and package selection | Frame cadence, animation, assets, and capture readiness |
+
+The host mounts one instance, calls public domains, owns only returned
+subscription disposers, and awaits destruction. It must not import renderer
+internals, retain display objects, rebuild geometry, add per-entity listeners,
+or publish a second RAF loop.
+
+## Adapter shape
+
+The packaged `examples/patch-map/host-adapter.ts` is the integration reference:
+
+| Host task | Public owner |
+| --- | --- |
+| Load canonical input | `data.replace()` |
+| Validate and serialize persistence data | `data.serialize()` |
+| Address or reuse targets | `targets.get()` and `targets.query()` |
+| Apply state | `update()`, `updateBatch()`, or `transaction()` |
+| Observe pointer intent | `pointer`, `selection`, and their returned disposers |
+| Persist viewport | `viewport.snapshot()`, `restore()`, and `onSettled()` |
+| Capture or diagnose | `capture.png()` and `debug.snapshot()` |
+| Unmount | dispose host subscriptions, then `destroy()` |
+
+## State and ordering
+
+1. Create the host slot and load application data.
+2. Pass canonical dataset arrays to mount or `data.replace()`.
+3. Await `PatchMap.mount()`; do not poll canvas or asset state.
+4. Attach public subscriptions and retain their disposers.
+5. Persist detached dataset and viewport snapshots, never Pixi state.
+6. On unmount, release host subscriptions and await `destroy()`.
+
+## Failure decisions
+
+| Symptom | Meaning | Action and evidence |
+| --- | --- | --- |
+| Duplicate canvases, listeners, or frames | The adapter owns package resources | Remove the duplicate owner and capture lifecycle probes |
+| Save validation rejects | The detached data is not a strict semantic round trip | Fix the reported path; do not rewrite normalized output |
+| A host callback fails | Package state remains authoritative and reports a callback diagnostic | Fix the callback and attach the bounded diagnostic |
+
+## Verification map
+
+| Claim | Code | Focused evidence |
+| --- | --- | --- |
+| Public adapter boundary | `examples/patch-map/host-adapter.ts`, `src/index.ts` | package integration and public example compilation |
+| Instance resource ownership | `src/patch-map/engine.ts`, `src/patch-map/assets.ts` | engine lifecycle and asset lifecycle tests |
+| Persistence guards | `src/patch-map/persistence.ts` | `tests/patch-map/persistence.test.ts` |

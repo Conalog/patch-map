@@ -1,0 +1,1066 @@
+{
+  "$schema": "patch-map-decision-evidence-manifest/1",
+  "contractRevision": "patch-map-contract/1",
+  "observationRevision": "patch-map-semantic-observation/1",
+  "generatedAt": "2026-08-25",
+  "scope": "32 owner-resolved product decisions; contract evidence only",
+  "fixtureFile": {
+    "path": "evidence/decision-fixtures.v1.json",
+    "sha256": "d6ea629c9d20b0925c3ce5b35f6ab32a64dbeb34908cc8d83cc6d539322bcf7a"
+  },
+  "expectedFile": {
+    "path": "evidence/decision-normalized-expected.v1.json",
+    "sha256": "c742b016a87124ad3154784850dfa8cc148560e9aaa61569939f3edb2e55fba0"
+  },
+  "reviewSummary": {
+    "decisionCount": 32,
+    "contractApproved": 32,
+    "pendingExternalEvidence": 0,
+    "executionStatus": "not-run",
+    "readinessLevel": "spec-ready"
+  },
+  "statusRules": {
+    "decisionStatus": "resolved closes product choice only",
+    "contractReview": "approves fixture/action/expected semantics only",
+    "execution": "runner result and external prerequisites; never implies review or release approval",
+    "executionReview": "digest and provenance review of actual evidence",
+    "releaseVerification": "computed aggregate outside an individual decision record"
+  },
+  "cases": [
+    {
+      "id": "DEC-OQ-002-PRODUCTION-WORKLOAD",
+      "decision": "OQ-002",
+      "scenarios": [
+        "PRF-001",
+        "PRF-002",
+        "PRF-003",
+        "PRF-004",
+        "PRF-005",
+        "PRF-006",
+        "PRF-007"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/0",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/0",
+      "fixtureSha256": "a7b3a2958e6a54aeb0a44dfe28a63506d6242321e5d771516e2f901380f2e2d1",
+      "expectedRecordSha256": "04b1d231cf7d0662eac54bdb1f894c77438ab6359fa55760e2bf289fa7faea5c",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "04b1d231cf7d0662eac54bdb1f894c77438ab6359fa55760e2bf289fa7faea5c"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": [
+          "raw 2-warmup/7-sample performance results"
+        ]
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-003-GROUP-UNGROUP",
+      "decision": "OQ-003",
+      "scenarios": [
+        "CSM-031",
+        "HIS-006",
+        "UPD-009"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/1",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/1",
+      "fixtureSha256": "9a2438a0a39dd523408329012dbba4ad3099d007cd49c6462ac8e059a134104d",
+      "expectedRecordSha256": "38d823a9ad49c06dbd8d16fdd7fff6abd30e7758f03c04fabdbe1b34cff3dc23",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "38d823a9ad49c06dbd8d16fdd7fff6abd30e7758f03c04fabdbe1b34cff3dc23"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-004-RESIZE-ELIGIBILITY",
+      "decision": "OQ-004",
+      "scenarios": [
+        "TRN-003",
+        "TRN-004",
+        "CSM-023"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/2",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/2",
+      "fixtureSha256": "93e958df0b7700ef3e442411b8d7198f59497a641493b6b0554a327062d1905a",
+      "expectedRecordSha256": "92a9ccbbb83479bd1c0566649989c653efa3cc64388aba7574dde4a51a698732",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "92a9ccbbb83479bd1c0566649989c653efa3cc64388aba7574dde4a51a698732"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-005-IDENTITY-SCOPE",
+      "decision": "OQ-005",
+      "scenarios": [
+        "DAT-005",
+        "DAT-008",
+        "UPD-001",
+        "QRY-001"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/3",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/3",
+      "fixtureSha256": "ae885817b5fea485a5a6f87b79c30201271f131b7f484fe5b195d654fffca220",
+      "expectedRecordSha256": "27d42ab27ed5bc7ccd0e25fa62ff4338d7dedb7f9b88c56cc55df66086a8940f",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "27d42ab27ed5bc7ccd0e25fa62ff4338d7dedb7f9b88c56cc55df66086a8940f"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-006-COLOR-SOURCE",
+      "decision": "OQ-006",
+      "scenarios": [
+        "DAT-004",
+        "DET-001",
+        "DET-004"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/4",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/4",
+      "fixtureSha256": "4abaa074d40e16a6f96fb4ecac4b8bc4828f22fe20d5a5bc8bb896b500d6e697",
+      "expectedRecordSha256": "0f42f13c2628a44b665fefeb71b51a95c47eccdf0893bc229cfdbab80d7d3696",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "0f42f13c2628a44b665fefeb71b51a95c47eccdf0893bc229cfdbab80d7d3696"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-009-HIDDEN-GRID-RELATION",
+      "decision": "OQ-009",
+      "scenarios": [
+        "DAT-005",
+        "REN-007",
+        "UPD-010"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/5",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/5",
+      "fixtureSha256": "4add16f7f48331423ee494177e2ceca752a2bdded6159b0400b7d8528ef5366b",
+      "expectedRecordSha256": "97dd8830fba453521de4b6c1e21a9f4a90594e346d08552004252b02e5925d10",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "97dd8830fba453521de4b6c1e21a9f4a90594e346d08552004252b02e5925d10"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-010-SHARED-ASSET-LEASE",
+      "decision": "OQ-010",
+      "scenarios": [
+        "AST-001",
+        "AST-003",
+        "PRF-007"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/6",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/6",
+      "fixtureSha256": "5214e2b709d7e4f364cf09ddb01031fecbe5d0b2cf05ad8888163ad044212043",
+      "expectedRecordSha256": "68c426221d8baa818e87ae1161b9542206b615aa5b539d3d81d3edaa4db39dad",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "68c426221d8baa818e87ae1161b9542206b615aa5b539d3d81d3edaa4db39dad"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-011-REQUIRED-INIT-ASSET",
+      "decision": "OQ-011",
+      "scenarios": [
+        "LIF-001",
+        "AST-001",
+        "AST-003",
+        "ERR-003",
+        "ERR-006"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/7",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/7",
+      "fixtureSha256": "18906b6c6ee7391bf844d0fb32487a3f47086f6c4365ef56161dde9ad825c4c8",
+      "expectedRecordSha256": "e65fe7e86a56f7ab22bc883ba049e1eb24a903ea0fae40cb17691500556a82fa",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "e65fe7e86a56f7ab22bc883ba049e1eb24a903ea0fae40cb17691500556a82fa"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-012-HISTORY-CAPACITY",
+      "decision": "OQ-012",
+      "scenarios": [
+        "HIS-002",
+        "HIS-004",
+        "CSM-034"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/8",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/8",
+      "fixtureSha256": "1eb23d79e91f0fc09284e0ddedf055a443b0877f20aec2321bb6033ccd5331c8",
+      "expectedRecordSha256": "34d27b4b8ba99f6d4fbf0f325274dbcd64c8da69164018a8698f5e8325e47471",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "34d27b4b8ba99f6d4fbf0f325274dbcd64c8da69164018a8698f5e8325e47471"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-013-CLICK-COUNT",
+      "decision": "OQ-013",
+      "scenarios": [
+        "EVT-002",
+        "SEL-002"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/9",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/9",
+      "fixtureSha256": "49d331a708f7fd9519f5a18c2edc8f66375877e4e7e401d9b08b59b0e164cb1b",
+      "expectedRecordSha256": "3ef5b4eb2b3a77e138eee24eb9f33e0583b1490535f2205970a4889d409747d6",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "3ef5b4eb2b3a77e138eee24eb9f33e0583b1490535f2205970a4889d409747d6"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-014-POINTER-ALIAS-DEDUPE",
+      "decision": "OQ-014",
+      "scenarios": [
+        "EVT-001",
+        "EVT-002"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/10",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/10",
+      "fixtureSha256": "6db74f7490c8a5fa5e608982010836baca3666815554c0fd14f6a3f9f692cda5",
+      "expectedRecordSha256": "47d79533b46771976ad238af645cfca8f54d317b7f495008d7f5937ec19ef969",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "47d79533b46771976ad238af645cfca8f54d317b7f495008d7f5937ec19ef969"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-015-OVERLAPPING-BINDINGS",
+      "decision": "OQ-015",
+      "scenarios": [
+        "EVT-005"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/11",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/11",
+      "fixtureSha256": "935d2c034f6867b79cdaef4731dce23198bfa5ae5ff2d60af281716786888efc",
+      "expectedRecordSha256": "493a75d3230c8ce8c9b781db4bd678ca4366b7dd6884aff4eaf17fb7ac107ba4",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "493a75d3230c8ce8c9b781db4bd678ca4366b7dd6884aff4eaf17fb7ac107ba4"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-016-EVENT-PROPAGATION",
+      "decision": "OQ-016",
+      "scenarios": [
+        "EVT-005",
+        "EVT-006"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/12",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/12",
+      "fixtureSha256": "e8c3ba3828e4799c99508683326d7c7f3d6dfa771cc32597074363f96f13d524",
+      "expectedRecordSha256": "e2e3e7dc4c655f8d6127838ac1bbdb6b3f6fa0dbb03e3874d480ad582bdc2156",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "e2e3e7dc4c655f8d6127838ac1bbdb6b3f6fa0dbb03e3874d480ad582bdc2156"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-017-SELECTION-WITHOUT-OVERLAY",
+      "decision": "OQ-017",
+      "scenarios": [
+        "SEL-001",
+        "SEL-002",
+        "SEL-003",
+        "SEL-004",
+        "SEL-005",
+        "SEL-006",
+        "TRN-001"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/13",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/13",
+      "fixtureSha256": "d9a3b36c187f710960bf9d1ef4ccfffb1ca5825a14cd4353dd97f1fc9b37a7b9",
+      "expectedRecordSha256": "150b3ac7f064ec0eaf973b6869cf93b480f203e5c164eeabbe71c71ad5e149bf",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "150b3ac7f064ec0eaf973b6869cf93b480f203e5c164eeabbe71c71ad5e149bf"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-018-TRANSFORM-SELECTION-LOCK-CANCEL",
+      "decision": "OQ-018",
+      "scenarios": [
+        "TRN-003",
+        "TRN-009"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/14",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/14",
+      "fixtureSha256": "2b0f3a08589b6a96056d732d8b317dbbdea153251197667705b8283eb80367bf",
+      "expectedRecordSha256": "dbc1211a4f70b540acf6983e1c78b7db4df99a47ad4bba579576603fefddfc4f",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "dbc1211a4f70b540acf6983e1c78b7db4df99a47ad4bba579576603fefddfc4f"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-019-REDRAW-SELECTION-REBIND",
+      "decision": "OQ-019",
+      "scenarios": [
+        "LIF-003",
+        "SEL-008"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/15",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/15",
+      "fixtureSha256": "457d88997fa73717715075b75c4560161afc48ce10655741d228e9a43c29a41c",
+      "expectedRecordSha256": "6d748181d553eb3f389be3d4a80a6c1e50b8a3e3abe8c35c8091de32459c95a2",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "6d748181d553eb3f389be3d4a80a6c1e50b8a3e3abe8c35c8091de32459c95a2"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-020-EDITABLE-SHORTCUT-SUPPRESSION",
+      "decision": "OQ-020",
+      "scenarios": [
+        "HIS-004",
+        "EVT-006"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/16",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/16",
+      "fixtureSha256": "ebc592a0372ee006074d9919fea7184b532323bb3a759091b60b4198eed35ecb",
+      "expectedRecordSha256": "8f904eef4caa9d9de3851d3e6fc1f9b8e9329b63019eb3f682787f766ab3f14b",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "8f904eef4caa9d9de3851d3e6fc1f9b8e9329b63019eb3f682787f766ab3f14b"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-021-HIDDEN-COMPONENT-IDENTITY",
+      "decision": "OQ-021",
+      "scenarios": [
+        "REN-003",
+        "REN-008",
+        "REN-009",
+        "REN-010",
+        "REN-011",
+        "UPD-008"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/17",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/17",
+      "fixtureSha256": "7d57f15c2ffe63bd64ba3e526ed361d5ed0015a7907665b75b1744c62a32aeb5",
+      "expectedRecordSha256": "94f4f65f7f095eb82f33d10f1709da066cb266e571c3d7e1ea9bf391ab13356f",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "94f4f65f7f095eb82f33d10f1709da066cb266e571c3d7e1ea9bf391ab13356f"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-022-DIMENSION-AND-NEGATIVE-VALUES",
+      "decision": "OQ-022",
+      "scenarios": [
+        "DAT-003",
+        "REN-004",
+        "REN-009"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/18",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/18",
+      "fixtureSha256": "1d81e1793c0eca29f91160752121fe958569c18af57bab1b686e40e4f9634d21",
+      "expectedRecordSha256": "9191856d55b16f92952b9ca9c5a8a52720a6c487303e72d6bd371df31805f108",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "9191856d55b16f92952b9ca9c5a8a52720a6c487303e72d6bd371df31805f108"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-023-RELATION-DUPLICATES",
+      "decision": "OQ-023",
+      "scenarios": [
+        "REN-007",
+        "UPD-010"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/19",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/19",
+      "fixtureSha256": "d89f172ab009b6f5d62a93328937ad00d430c03e335fe170ea22fbb759d61ba7",
+      "expectedRecordSha256": "aa56f59d755e74fd4caac2d384327d596e03fe6d24d78efc5bac8ae5aa14d974",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "aa56f59d755e74fd4caac2d384327d596e03fe6d24d78efc5bac8ae5aa14d974"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-024-RUNTIME-BACKEND-MATRIX",
+      "decision": "OQ-024",
+      "scenarios": [
+        "PIX-003",
+        "PIX-005",
+        "PKG-001",
+        "PKG-004",
+        "PKG-005",
+        "PRF-001",
+        "PRF-002",
+        "PRF-003",
+        "PRF-004",
+        "PRF-005",
+        "PRF-006",
+        "PRF-007",
+        "PRF-008",
+        "PRF-009"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/20",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/20",
+      "fixtureSha256": "7a470b1f07f1e16f292f9b647b59e29bc2942e6a03730d1cbe100afba19a20d5",
+      "expectedRecordSha256": "23aaf78138486d6db61cf925ea8730529b394511eb5c03403b1096a44764379d",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "23aaf78138486d6db61cf925ea8730529b394511eb5c03403b1096a44764379d"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": [
+          "exact release browser versions",
+          "PixiJS version",
+          "DPR",
+          "CSP",
+          "TypeScript",
+          "bundler",
+          "package digest"
+        ]
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-025-PERFORMANCE-BUDGET",
+      "decision": "OQ-025",
+      "scenarios": [
+        "PRF-001",
+        "PRF-002",
+        "PRF-003",
+        "PRF-004",
+        "PRF-005",
+        "PRF-006",
+        "PRF-007",
+        "PRF-008",
+        "PRF-009"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/21",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/21",
+      "fixtureSha256": "afc2207fb14cf2bcb2b0dfb09e7765069fac562bec03e404c8e873491ecf20e4",
+      "expectedRecordSha256": "e5462819f58f61cc93016eb7aadaf8a46cf26b309b2b10a684c0f1ee3e8b9556",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "e5462819f58f61cc93016eb7aadaf8a46cf26b309b2b10a684c0f1ee3e8b9556"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": [
+          "raw 2-warmup/7-sample target-Windows evidence"
+        ]
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-026-ASSET-SECURITY-POLICY",
+      "decision": "OQ-026",
+      "scenarios": [
+        "AST-001",
+        "AST-002",
+        "AST-003",
+        "SEC-001",
+        "SEC-002",
+        "SEC-003",
+        "OPS-001",
+        "OPS-002",
+        "PIX-004"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/22",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/22",
+      "fixtureSha256": "ac97a0b4c6df6e54c7b324522d3ba4ae8415749714725f63ca42b93a85cf231a",
+      "expectedRecordSha256": "a7f0145903d258845baf507a5380b6a81f2633e46e630df1f832aeda0fa77b8f",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "a7f0145903d258845baf507a5380b6a81f2633e46e630df1f832aeda0fa77b8f"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-028-ACCESSIBILITY-OWNERSHIP",
+      "decision": "OQ-028",
+      "scenarios": [
+        "ACC-001",
+        "ACC-002",
+        "ACC-003",
+        "EVT-006",
+        "SEL-004",
+        "HIS-004"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/23",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/23",
+      "fixtureSha256": "0132bf00df3c1ef1acf92f940afc7adc5feeebaaf2377609f08ddddf9cbe75b3",
+      "expectedRecordSha256": "99dd4e10aa70c0ffc99c4b35308db18bda2d21aff45d94dbacdc3328600a6c68",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "99dd4e10aa70c0ffc99c4b35308db18bda2d21aff45d94dbacdc3328600a6c68"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-029-INPUT-DEVICE-MATRIX",
+      "decision": "OQ-029",
+      "scenarios": [
+        "EVT-001",
+        "EVT-002",
+        "EVT-003",
+        "EVT-004",
+        "EVT-005",
+        "EVT-006",
+        "EVT-007",
+        "EVT-008",
+        "VIE-001",
+        "VIE-007",
+        "VIE-008",
+        "ACC-001",
+        "ACC-002",
+        "LIF-006"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/24",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/24",
+      "fixtureSha256": "50013610205aa152afe94ec06c393f45b1bedd715b5a0ade62065a39b9692844",
+      "expectedRecordSha256": "be745b98e7fae8b462395d9f9b061e1212b06ca838d5e899b33d4ec9abe9b619",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "be745b98e7fae8b462395d9f9b061e1212b06ca838d5e899b33d4ec9abe9b619"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": [
+          "real capable Windows device for touch/pen/multi-pointer",
+          "headed traces",
+          "exact runtime matrix"
+        ]
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-030-ANGLE-ROTATION-CONFLICT",
+      "decision": "OQ-030",
+      "scenarios": [
+        "DAT-001",
+        "DAT-003",
+        "DAT-007",
+        "LAY-004",
+        "LAY-005",
+        "VIE-005",
+        "DET-004"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/25",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/25",
+      "fixtureSha256": "3e12ef6617761531d0b99af21e66b8f2854a9a0a2305b116c460b3f1f443d4e8",
+      "expectedRecordSha256": "c4eeb637a8ff20b17c0f55ec35fb1376224d543dd1e9934d82d2368deeb86869",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "c4eeb637a8ff20b17c0f55ec35fb1376224d543dd1e9934d82d2368deeb86869"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-031-INTERNATIONAL-TEXT",
+      "decision": "OQ-031",
+      "scenarios": [
+        "REN-006",
+        "REN-011",
+        "PRF-004",
+        "DET-002"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/26",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/26",
+      "fixtureSha256": "f45b2db6ff80220cec0722c3c38d2fb854dbb93878f7508129e2100de3ade916",
+      "expectedRecordSha256": "f2b945c0a3a641e3e8db266d46ab753889a7031d0c3f587690fad70ba9993071",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "f2b945c0a3a641e3e8db266d46ab753889a7031d0c3f587690fad70ba9993071"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-032-GESTURE-TERMINALS",
+      "decision": "OQ-032",
+      "scenarios": [
+        "EVT-004",
+        "TRN-009",
+        "ERR-004"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/27",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/27",
+      "fixtureSha256": "8cc363ea0bc427b06fed02106977a489a2b0fe75e4a019d7a226494918d63a4b",
+      "expectedRecordSha256": "b7dbac01e439e8a2ccf4aa672a3ed287e83b1eb1c06dc46cdb069f4475cc3508",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "b7dbac01e439e8a2ccf4aa672a3ed287e83b1eb1c06dc46cdb069f4475cc3508"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-033-BAR-ANIMATION",
+      "decision": "OQ-033",
+      "scenarios": [
+        "ANI-001",
+        "ANI-002",
+        "ANI-003",
+        "REN-009",
+        "PRF-003"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/28",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/28",
+      "fixtureSha256": "069a4b9a166867d2b92e3c425e4e3fdeef3914fc5b2c8014e4ae79e40120e967",
+      "expectedRecordSha256": "f4c8a5584d085703cf629af6965a7d275ac3d07d176f90b00e6970d087badd40",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "f4c8a5584d085703cf629af6965a7d275ac3d07d176f90b00e6970d087badd40"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-034-SCENE-ASSET-PLACEHOLDER",
+      "decision": "OQ-034",
+      "scenarios": [
+        "LIF-001",
+        "LIF-002",
+        "AST-001",
+        "AST-002",
+        "AST-003",
+        "ERR-003",
+        "REN-005",
+        "REN-008",
+        "REN-010"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/29",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/29",
+      "fixtureSha256": "f308686790087aebba134934b434e4c1bd9dd40ceb421d4d6b4b91322101b312",
+      "expectedRecordSha256": "b3789d702810f3b1552a72bb07a0780a80a9b75e838ea2aa67507aa8df4912f2",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "b3789d702810f3b1552a72bb07a0780a80a9b75e838ea2aa67507aa8df4912f2"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-035-UNVERSIONED-DATASET",
+      "decision": "OQ-035",
+      "scenarios": [
+        "DET-004",
+        "PKG-004",
+        "PKG-005"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/30",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/30",
+      "fixtureSha256": "767bd1cd4ef2662f7c5ff7477e386abe23b004a8ec165f8ea407d7943990402b",
+      "expectedRecordSha256": "9c79cbe59eeb6596aaf99a972a13ce487d13ebc498d22762ccd72c2056ab4882",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "9c79cbe59eeb6596aaf99a972a13ce487d13ebc498d22762ccd72c2056ab4882"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    },
+    {
+      "id": "DEC-OQ-036-RELATION-HIT-TOLERANCE",
+      "decision": "OQ-036",
+      "scenarios": [
+        "REN-007",
+        "SEL-001",
+        "SEL-005",
+        "SEL-006",
+        "CSM-013",
+        "CSM-020",
+        "CSM-026"
+      ],
+      "fixtureRef": "patch-map-decision-fixtures/1#/cases/31",
+      "expectedRef": "patch-map-decision-normalized-expected/1#/cases/31",
+      "fixtureSha256": "6cc628f450919f3f63151a015ff0ed475959ccff0a1a4158e5cd954a60d7e477",
+      "expectedRecordSha256": "75b7eedf667c676399f9706379edc5b335f1c72b75da87ad42f2be88fde6b408",
+      "decisionStatus": "resolved",
+      "contractReview": {
+        "status": "analysis-owner-contract-approved",
+        "reviewerRole": "analysis-owner",
+        "reviewedAt": "2026-08-25",
+        "expectedEvidenceSha256": "75b7eedf667c676399f9706379edc5b335f1c72b75da87ad42f2be88fde6b408"
+      },
+      "execution": {
+        "status": "not-run",
+        "actualEvidenceSha256": null,
+        "prerequisites": []
+      },
+      "executionReview": {
+        "status": "not-reviewed"
+      },
+      "readinessLevel": "spec-ready",
+      "blockers": []
+    }
+  ]
+}

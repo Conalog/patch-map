@@ -101,6 +101,14 @@ jobs:
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
         run: npm run verify:contract
 
+      - name: Documentation
+        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run verify:docs
+
+      - name: Performance evidence integrity
+        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run verify:performance-contract
+
       - name: Install Chromium
         if: ${{ matrix.gate != 'core' && needs.classify.outputs.full_validation == 'true' }}
         run: npx playwright install --with-deps chromium
