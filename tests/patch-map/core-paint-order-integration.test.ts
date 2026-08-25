@@ -20,6 +20,12 @@ import type {
   PatchMapPixiRendererDebug,
   RootInteractionHandlers,
 } from '../../src/patch-map/renderers/types';
+import type {
+  PatchMapSceneImageAssetBindingObservation,
+  PatchMapSceneImageAssetBindingProbe,
+  PatchMapSceneImageAssetBindingRequest,
+  PatchMapSceneImageLeafProbe,
+} from '../../src/patch-map/scene-images/contracts';
 
 describe('PatchMap aggregate paint-order product seam', () => {
   const allocated: PatchMap[] = [];
@@ -75,7 +81,125 @@ describe('PatchMap aggregate paint-order product seam', () => {
       historyDepth: 1,
     });
   });
+
+  it('keeps component zIndex local to each overlapping item stacking unit', async () => {
+    const renderer = new PaintRendererTestDouble();
+    const TestPatchMap = PatchMapRuntime as unknown as new (
+      renderer: PatchMapPixiRenderer,
+      options: PatchMapRuntimeOptions,
+    ) => PatchMapRuntime;
+    const core = new TestPatchMap(renderer as unknown as PatchMapPixiRenderer, {
+      autoRender: false,
+    });
+    const engine = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    allocated.push(engine);
+    await engine.initialize({ instanceId: 'item-paint-order', width: 800, height: 600 });
+    engine.loadDataset(overlappingItems());
+    engine.publishFrame(0);
+
+    const componentOrder = engine.paintOrderProbe()?.plan.renderOrder.filter((id) =>
+      id.includes('::')
+    );
+    expect(componentOrder).toEqual([
+      'rear::background:rear-background',
+      'rear::icon:rear-icon',
+      'front::background:front-background',
+      'front::icon:front-icon',
+    ]);
+
+    expect(engine.patch(
+      { kind: 'element', id: 'rear' },
+      { attrs: { zIndex: 2 } },
+    )).toMatchObject({ status: 'committed' });
+    engine.publishFrame(1);
+    expect(componentPaintOrder(engine)).toEqual([
+      'front::background:front-background',
+      'front::icon:front-icon',
+      'rear::background:rear-background',
+      'rear::icon:rear-icon',
+    ]);
+  });
+
+  it('preserves authored component order inside general items and grid cells', async () => {
+    const engine = await createPaintEngine(allocated, 'component-authored-order');
+    engine.loadDataset([
+      componentStackItem('general'),
+      {
+        type: 'grid',
+        id: 'grid',
+        cells: [[1, 1]],
+        item: {
+          size: { width: 40, height: 40 },
+          components: componentStack('cell'),
+        },
+        attrs: { zIndex: 1 },
+      },
+    ]);
+    engine.publishFrame(0);
+
+    expect(componentPaintOrder(engine)).toEqual([
+      'general::background:general-background',
+      'general::bar:general-bar',
+      'general::icon:general-icon',
+      'general::text:general-text',
+      'grid.0.0::background:cell-background',
+      'grid.0.0::bar:cell-bar',
+      'grid.0.0::icon:cell-icon',
+      'grid.0.0::text:cell-text',
+      'grid.0.1::background:cell-background',
+      'grid.0.1::bar:cell-bar',
+      'grid.0.1::icon:cell-icon',
+      'grid.0.1::text:cell-text',
+    ]);
+  });
+
+  it('keeps nested groups atomic against sibling items', async () => {
+    const engine = await createPaintEngine(allocated, 'nested-item-paint-order');
+    engine.loadDataset([
+      {
+        type: 'group',
+        id: 'rear-group',
+        attrs: { zIndex: 0 },
+        children: [item('nested-rear', 100)],
+      },
+      item('front-sibling', 1),
+    ]);
+    engine.publishFrame(0);
+
+    expect(componentPaintOrder(engine)).toEqual([
+      'nested-rear::background:nested-rear-background',
+      'nested-rear::icon:nested-rear-icon',
+      'front-sibling::background:front-sibling-background',
+      'front-sibling::icon:front-sibling-icon',
+    ]);
+  });
 });
+
+async function createPaintEngine(
+  allocated: PatchMap[],
+  instanceId: string,
+): Promise<PatchMap> {
+  const renderer = new PaintRendererTestDouble();
+  const TestPatchMap = PatchMapRuntime as unknown as new (
+    renderer: PatchMapPixiRenderer,
+    options: PatchMapRuntimeOptions,
+  ) => PatchMapRuntime;
+  const core = new TestPatchMap(renderer as unknown as PatchMapPixiRenderer, {
+    autoRender: false,
+  });
+  const engine = new PatchMap({
+    surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+  });
+  allocated.push(engine);
+  await engine.initialize({ instanceId, width: 800, height: 600 });
+  return engine;
+}
+
+function componentPaintOrder(engine: PatchMap): readonly string[] | undefined {
+  return engine.paintOrderProbe()?.plan.renderOrder.filter((id) => id.includes('::'));
+}
 
 class PaintRendererTestDouble {
   public readonly strategy = 'mesh' as const;
@@ -146,6 +270,25 @@ class PaintRendererTestDouble {
   }
   public synchronizeNextFlush(): void {}
   public prepareGpu(): Promise<void> { return Promise.resolve(); }
+  public bindSceneAsset(
+    key: string,
+    _request: PatchMapSceneImageAssetBindingRequest,
+  ): Promise<PatchMapSceneImageAssetBindingObservation> {
+    return Promise.resolve(Object.freeze({
+      key,
+      generation: 1,
+      status: 'attached',
+      cacheIdentity: key,
+      normalizedResourceIdentity: key,
+      reusedResolvedResource: false,
+      naturalSize: Object.freeze([16, 16] as const),
+    }));
+  }
+  public unbindSceneAsset(_key: string): Promise<boolean> { return Promise.resolve(true); }
+  public sceneAssetBindingProbe(_key: string): PatchMapSceneImageAssetBindingProbe | null {
+    return null;
+  }
+  public sceneImageProbe(_entityId: string): PatchMapSceneImageLeafProbe | null { return null; }
   public loadAsset(): Promise<void> { return Promise.resolve(); }
   public unloadAsset(): Promise<boolean> { return Promise.resolve(false); }
   public finalizeAssetUnloads(): Promise<void> { return Promise.resolve(); }
@@ -222,6 +365,78 @@ function stacking(): readonly unknown[] {
     rect('second', 4, '#333399'),
     rect('high', 10, '#999933'),
   ];
+}
+
+function overlappingItems(): readonly unknown[] {
+  return [
+    item('rear', 0),
+    item('front', 0),
+  ];
+}
+
+function item(id: string, zIndex: number): Readonly<Record<string, unknown>> {
+  return Object.freeze({
+    type: 'item',
+    id,
+    size: Object.freeze({ width: 40, height: 40 }),
+    components: Object.freeze([
+      Object.freeze({
+        type: 'background',
+        id: `${id}-background`,
+        source: Object.freeze({ type: 'rect', fill: '#ffffffff' }),
+        attrs: Object.freeze({ zIndex: 0 }),
+      }),
+      Object.freeze({
+        type: 'icon',
+        id: `${id}-icon`,
+        source: 'fixture-icon',
+        size: 20,
+        attrs: Object.freeze({ zIndex: 10 }),
+      }),
+    ]),
+    attrs: Object.freeze({ x: 0, y: 0, zIndex }),
+  });
+}
+
+function componentStackItem(id: string): Readonly<Record<string, unknown>> {
+  return Object.freeze({
+    type: 'item',
+    id,
+    size: Object.freeze({ width: 40, height: 40 }),
+    components: componentStack(id),
+    attrs: Object.freeze({ zIndex: 0 }),
+  });
+}
+
+function componentStack(id: string): readonly unknown[] {
+  return Object.freeze([
+    Object.freeze({
+      type: 'icon',
+      id: `${id}-icon`,
+      source: 'fixture-icon',
+      size: 20,
+      attrs: Object.freeze({ zIndex: 10 }),
+    }),
+    Object.freeze({
+      type: 'background',
+      id: `${id}-background`,
+      source: Object.freeze({ type: 'rect', fill: '#ffffffff' }),
+      attrs: Object.freeze({ zIndex: 0 }),
+    }),
+    Object.freeze({
+      type: 'text',
+      id: `${id}-text`,
+      text: id,
+      attrs: Object.freeze({ zIndex: 10 }),
+    }),
+    Object.freeze({
+      type: 'bar',
+      id: `${id}-bar`,
+      source: Object.freeze({ type: 'rect', fill: '#333333ff' }),
+      size: Object.freeze({ width: 20, height: 4 }),
+      attrs: Object.freeze({ zIndex: 5 }),
+    }),
+  ]);
 }
 
 function rect(id: string, zIndex: number, fill: string): Readonly<Record<string, unknown>> {

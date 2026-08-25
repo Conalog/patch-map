@@ -1,3 +1,8 @@
+import {
+  comparePatchMapStackingPaths,
+  type PatchMapStackingPath,
+} from './stacking';
+
 /**
  * Semantic paint kinds understood by the aggregate PatchMap renderer. A kind
  * describes the primitive contract, while a lane describes its aggregate Pixi
@@ -36,6 +41,13 @@ export interface PatchMapPaintPrimitiveInput {
   readonly zIndex: number;
   /** Stable pre-order assigned by the semantic hierarchy traversal. */
   readonly authoredOrder: number;
+  /**
+   * Root-to-leaf sibling decisions. Each frame is resolved before the next,
+   * making every ancestor (including an item) an atomic stacking unit.
+   * Omission means this primitive is a root sibling described by zIndex and
+   * authoredOrder.
+   */
+  readonly stackingPath?: PatchMapStackingPath;
   /** Intra-identity pass, for example bar track before bar fill. */
   readonly pass: number;
   readonly visible: boolean;
@@ -64,6 +76,7 @@ export interface PatchMapPaintPlanEntry {
   readonly lane: PatchMapPaintLane;
   readonly zIndex: number;
   readonly authoredOrder: number;
+  readonly stackingPath: PatchMapStackingPath;
   readonly pass: number;
   readonly visible: boolean;
   readonly phase: PatchMapPaintPhase;
@@ -127,6 +140,7 @@ interface IndexedSceneEntry {
   readonly lane: PatchMapPaintLane;
   readonly zIndex: number;
   readonly authoredOrder: number;
+  readonly stackingPath: PatchMapStackingPath;
   readonly pass: number;
   readonly visible: boolean;
   readonly compatibilityKey: string;
@@ -134,9 +148,10 @@ interface IndexedSceneEntry {
 
 /**
  * Build an immutable semantic plan without mutating or retaining the caller's
- * input array. Scene entries use ascending zIndex (back to front), then stable
- * authored order, then intra-identity pass. Selection and transformer overlays
- * are always represented and are appended in that fixed order.
+ * input array. Scene entries resolve each root-to-leaf stacking frame before
+ * the next frame, then intra-identity pass. This keeps descendant component
+ * zIndex local to its item/group unit. Selection and transformer overlays are
+ * always represented and are appended in that fixed order.
  */
 export function planPatchMapPaintOrder(
   primitives: readonly PatchMapPaintPrimitiveInput[],
@@ -157,6 +172,7 @@ export function planPatchMapPaintOrder(
       lane: entry.lane,
       zIndex: entry.zIndex,
       authoredOrder: entry.authoredOrder,
+      stackingPath: entry.stackingPath,
       pass: entry.pass,
       visible: entry.visible,
       phase: 'scene' as const,
@@ -197,6 +213,13 @@ function validateAndDetachPrimitive(
     primitive.authoredOrder,
     `primitives[${sourceIndex}].authoredOrder`,
   );
+  const stackingPath = detachStackingPath(
+    primitive.stackingPath ?? [{
+      zIndex: primitive.zIndex,
+      authoredOrder: primitive.authoredOrder,
+    }],
+    `primitives[${sourceIndex}].stackingPath`,
+  );
   assertNonNegativeSafeInteger(primitive.pass, `primitives[${sourceIndex}].pass`);
   if (typeof primitive.visible !== 'boolean') {
     throw new TypeError(`primitives[${sourceIndex}].visible must be boolean`);
@@ -216,6 +239,7 @@ function validateAndDetachPrimitive(
     lane: primitive.lane,
     zIndex: primitive.zIndex,
     authoredOrder: primitive.authoredOrder,
+    stackingPath,
     pass: primitive.pass,
     visible: primitive.visible,
     compatibilityKey: primitive.compatibilityKey ?? '',
@@ -223,8 +247,7 @@ function validateAndDetachPrimitive(
 }
 
 function compareSceneEntries(left: IndexedSceneEntry, right: IndexedSceneEntry): number {
-  return left.zIndex - right.zIndex ||
-    left.authoredOrder - right.authoredOrder ||
+  return comparePatchMapStackingPaths(left.stackingPath, right.stackingPath) ||
     left.pass - right.pass ||
     left.sourceIndex - right.sourceIndex;
 }
@@ -241,11 +264,43 @@ function overlayEntry(
     lane: 'interaction-overlay',
     zIndex: Number.MAX_SAFE_INTEGER,
     authoredOrder,
+    stackingPath: Object.freeze([Object.freeze({
+      zIndex: Number.MAX_SAFE_INTEGER,
+      authoredOrder,
+    })]),
     pass: authoredOrder,
     visible,
     phase: 'overlay',
     compatibilityKey: `overlay:${kind}`,
   };
+}
+
+function detachStackingPath(
+  path: PatchMapStackingPath,
+  label: string,
+): PatchMapStackingPath {
+  if (!Array.isArray(path) || path.length === 0) {
+    throw new TypeError(`${label} must be a non-empty array`);
+  }
+  return Object.freeze((path as readonly unknown[]).map((value, index) => {
+    if (value === null || typeof value !== 'object') {
+      throw new TypeError(`${label}[${index}] must be an object`);
+    }
+    const frame = value as Readonly<Record<string, unknown>>;
+    const zIndex = frame.zIndex;
+    const authoredOrder = frame.authoredOrder;
+    if (typeof zIndex !== 'number' || !Number.isFinite(zIndex)) {
+      throw new RangeError(`${label}[${index}].zIndex must be finite`);
+    }
+    assertNonNegativeSafeInteger(
+      authoredOrder as number,
+      `${label}[${index}].authoredOrder`,
+    );
+    return Object.freeze({
+      zIndex,
+      authoredOrder: authoredOrder as number,
+    });
+  }));
 }
 
 function buildRuns(
@@ -311,3 +366,4 @@ function assertPositiveSafeInteger(value: number, path: string): void {
     throw new RangeError(`${path} must be a positive safe integer`);
   }
 }
+export type { PatchMapStackingFrame, PatchMapStackingPath } from './stacking';

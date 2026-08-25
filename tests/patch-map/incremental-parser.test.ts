@@ -404,10 +404,14 @@ describe('PatchMap guarded incremental parser', () => {
       const projectionIds = new Set([
         ...Object.keys(previous.projection.byEntityId),
         ...Object.keys(incremental!.projection.byEntityId),
+        ...Object.keys(previous.projection.relationsByEntityId ?? {}),
+        ...Object.keys(incremental!.projection.relationsByEntityId ?? {}),
       ]);
       const expectedChangedIds = [...projectionIds].filter((entityId) =>
-        previous.projection.byEntityId[entityId] !==
-          incremental!.projection.byEntityId[entityId]);
+        (previous.projection.byEntityId[entityId] ??
+          previous.projection.relationsByEntityId?.[entityId]) !==
+        (incremental!.projection.byEntityId[entityId] ??
+          incremental!.projection.relationsByEntityId?.[entityId]));
       expect(
         new Set(patchMapV010StructuralChangedEntityIds(incremental!)),
       ).toEqual(new Set(expectedChangedIds));

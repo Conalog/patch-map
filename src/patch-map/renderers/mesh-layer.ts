@@ -133,9 +133,7 @@ interface GraphicsRecord {
 
 interface ChunkRecord {
   readonly backgroundMeshes: Map<string, MeshRecord>;
-  backgroundGraphics: Graphics | null;
-  backgroundGraphicsContext: GraphicsContext | null;
-  backgroundGraphicsBounds: AggregateViewportBounds | null;
+  readonly backgroundGraphics: Map<number, GraphicsRecord>;
   readonly rectMeshes: Map<string, MeshRecord>;
   readonly rectGraphics: Map<number, GraphicsRecord>;
   readonly barMeshes: Map<string, MeshRecord>;
@@ -199,9 +197,7 @@ function destroyGraphicsRecord(record: GraphicsRecord): void {
 function createChunkRecord(): ChunkRecord {
   return {
     backgroundMeshes: new Map(),
-    backgroundGraphics: null,
-    backgroundGraphicsContext: null,
-    backgroundGraphicsBounds: null,
+    backgroundGraphics: new Map(),
     rectMeshes: new Map(),
     rectGraphics: new Map(),
     barMeshes: new Map(),
@@ -262,14 +258,16 @@ function setChunkGeometryVisible(
       }
     }
   }
-  if (chunk.backgroundGraphics !== null) {
-    chunk.backgroundGraphics.visible = visible;
-    if (visible) {
-      if (chunk.backgroundGraphics.parent !== backgroundParent) {
-        backgroundParent.addChild(chunk.backgroundGraphics);
+  for (const record of chunk.backgroundGraphics.values()) {
+    const recordVisible =
+      visible && (!precise || boundsIntersectsViewport(record.bounds, viewport));
+    record.graphics.visible = recordVisible;
+    if (recordVisible) {
+      if (record.graphics.parent !== backgroundParent) {
+        backgroundParent.addChild(record.graphics);
       }
-    } else if (chunk.backgroundGraphics.parent === backgroundParent) {
-      backgroundParent.removeChild(chunk.backgroundGraphics);
+    } else if (record.graphics.parent === backgroundParent) {
+      backgroundParent.removeChild(record.graphics);
     }
   }
   chunk.geometryVisible = visible;
@@ -453,6 +451,26 @@ export class AggregateMeshLayer {
         visiblePrimitiveCount: this.#debug.visibleRelationsDynamicPrimitives,
       }),
     });
+  }
+
+  /** Exact aggregate render objects attached to the resolved scene RenderLayer. */
+  public paintObjects(): readonly Container[] {
+    const objects: Container[] = [];
+    for (const chunk of this.#chunks.values()) {
+      for (const { graphics } of chunk.backgroundGraphics.values()) objects.push(graphics);
+      for (const records of [
+        chunk.backgroundMeshes,
+        chunk.rectMeshes,
+        chunk.barMeshes,
+        chunk.relationMeshes,
+      ]) {
+        for (const { mesh } of records.values()) objects.push(mesh);
+      }
+      for (const records of [chunk.rectGraphics, chunk.barGraphics]) {
+        for (const { graphics } of records.values()) objects.push(graphics);
+      }
+    }
+    return objects;
   }
 
   public setView(view: CoreView): boolean {
@@ -674,7 +692,7 @@ export class AggregateMeshLayer {
     let visibleRelations = 0;
     for (const chunk of this.#chunks.values()) {
       backgroundMeshCount += chunk.backgroundMeshes.size;
-      backgroundGraphicsObjectCount += chunk.backgroundGraphics === null ? 0 : 1;
+      backgroundGraphicsObjectCount += chunk.backgroundGraphics.size;
       ordinaryMeshCount += chunk.rectMeshes.size;
       ordinaryGraphicsObjectCount += chunk.rectGraphics.size;
       relationMeshCount +=
@@ -1073,45 +1091,20 @@ export class AggregateMeshLayer {
     primitives: readonly StyledBackgroundPrimitive[],
     chunkIndex: number,
   ): boolean {
-    if (primitives.length === 0) {
-      if (chunk.backgroundGraphics === null) return false;
-      chunk.backgroundGraphics.destroy({ context: false });
-      chunk.backgroundGraphicsContext?.destroy();
-      chunk.backgroundGraphics = null;
-      chunk.backgroundGraphicsContext = null;
-      chunk.backgroundGraphicsBounds = null;
-      return true;
-    }
-
-    const context = new GraphicsContext();
-    context.batchMode = 'auto';
-    let bounds: AggregateViewportBounds | null = null;
-    for (const primitive of primitives) {
-      appendStyledBackground(context, primitive);
-      bounds = includePositionBounds(bounds, primitive.quad.vertices);
-    }
-
-    if (chunk.backgroundGraphics === null) {
-      const graphics = new Graphics({ context });
-      graphics.label = `${this.#baseLabel}: styled background chunk ${chunkIndex}`;
-      graphics.eventMode = 'none';
-      graphics.zIndex = chunkIndex;
-      this.backgroundGeometryContainer.addChild(graphics);
-      chunk.backgroundGraphics = graphics;
-    } else {
-      chunk.backgroundGraphics.context = context;
-    }
-    chunk.backgroundGraphicsContext?.destroy();
-    chunk.backgroundGraphicsContext = context;
-    chunk.backgroundGraphicsBounds = bounds;
-    return true;
+    return this.#syncStyledGraphics(
+      chunk.backgroundGraphics,
+      this.backgroundGeometryContainer,
+      primitives,
+      chunkIndex,
+      'background',
+    );
   }
 
   #recomputeChunkGeometryBounds(chunk: ChunkRecord): void {
     let bounds: AggregateViewportBounds | null = null;
-    bounds = includeAggregateBounds(bounds, chunk.backgroundGraphicsBounds);
     for (const records of [
       chunk.backgroundMeshes,
+      chunk.backgroundGraphics,
       chunk.rectMeshes,
       chunk.barMeshes,
       chunk.rectGraphics,
@@ -1129,7 +1122,7 @@ export class AggregateMeshLayer {
     parent: Container,
     primitives: readonly StyledBackgroundPrimitive[],
     chunkIndex: number,
-    lane: 'rect' | 'bar',
+    lane: 'background' | 'rect' | 'bar',
   ): boolean {
     const grouped = new Map<number, StyledBackgroundPrimitive[]>();
     for (const primitive of primitives) {
@@ -1252,8 +1245,7 @@ export class AggregateMeshLayer {
     if (chunk === undefined) return;
     for (const entityId of chunk.paintEntityIds) this.#paintProbesByEntityId.delete(entityId);
     for (const record of chunk.backgroundMeshes.values()) destroyMeshRecord(record);
-    chunk.backgroundGraphics?.destroy({ context: false });
-    chunk.backgroundGraphicsContext?.destroy();
+    for (const record of chunk.backgroundGraphics.values()) destroyGraphicsRecord(record);
     for (const record of chunk.rectMeshes.values()) destroyMeshRecord(record);
     for (const record of chunk.rectGraphics.values()) destroyGraphicsRecord(record);
     for (const record of chunk.barMeshes.values()) destroyMeshRecord(record);

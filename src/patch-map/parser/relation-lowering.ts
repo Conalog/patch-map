@@ -3,6 +3,7 @@ import {
   type PatchMapRelationProjection,
 } from '../contracts';
 import { addEntity } from './lowering-state';
+import { appendPatchMapStackingFrame } from '../semantic/stacking';
 import {
   deepFreezePatchMapParserValue as deepFreeze,
   fatalPatchMapParse as fatal,
@@ -98,7 +99,14 @@ export function parseRelations(
       from,
       to,
       transform,
-      owner,
+      owner: {
+        ...owner,
+        stackingPath: appendPatchMapStackingFrame(
+          owner.stackingPath,
+          0,
+          index,
+        ),
+      },
       entity,
     });
   });
@@ -117,6 +125,7 @@ export function validateRelationEndpoints(state: ParseState): void {
       identityKey: relationPairKey(relation.from, relation.to),
       authoredIndex: relation.authoredIndex,
       affine: relation.transform.affine,
+      stackingPath: relation.owner.stackingPath,
     } satisfies PatchMapRelationProjection);
     if (sourceExists && targetExists) {
       state.relationProjectionByEntityId[relation.entityId] = projection;

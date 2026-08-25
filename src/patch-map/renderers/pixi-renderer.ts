@@ -7,6 +7,7 @@ import {
   Graphics,
   Matrix,
   Rectangle,
+  RenderLayer,
   type ApplicationOptions,
   type FederatedPointerEvent,
 } from 'pixi.js';
@@ -33,6 +34,11 @@ import { AggregateMeshLayer } from './mesh-layer';
 import { ParticleGraphicsLayer } from './particle-layer';
 import type { PatchMapProjectionIndex } from '../contracts';
 import type { PatchMapBitmapTextCapabilityProof } from '../semantic/text-render-route';
+import {
+  comparePatchMapStackingPaths,
+  rankPatchMapStackingPaths,
+  type PatchMapStackingPath,
+} from '../semantic/stacking';
 import {
   createPatchMapLeafAssetSession,
   type PatchMapAssetPolicy,
@@ -225,6 +231,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private readonly backgroundGeometryLane: Container;
   private readonly selectionOverlay: Graphics;
   private readonly transformerOverlay: Graphics;
+  private readonly scenePaintLayer: RenderLayer | null;
+  private readonly attachedScenePaintObjects = new Set<Container>();
   private readonly accessibilityOverlay: PatchMapAccessibilityOverlayAuthority;
   private readonly selectedSlots = new Set<number>();
   private readonly visibleOverlaySlots = new Set<number>();
@@ -275,6 +283,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private pixelRatioValue: number;
   private view: CoreView = DEFAULT_VIEW;
   private projectionIndex: PatchMapProjectionIndex = EMPTY_PROJECTION_INDEX;
+  private paintOrderByEntityId: Readonly<Record<string, number>> = Object.freeze({});
+  private hierarchicalScenePaint = true;
+  private aggregateLaneOwnerBoundsById: ReadonlyMap<string, PatchMapPaintBounds> = new Map();
   private overlayPaintBoundsProjection: PatchMapProjectionIndex | null = null;
   private overlayPaintBoundsIndex: PatchMapOverlayPaintBoundsIndex = new Map();
   private staleProjectionEntityIds: ReadonlySet<string> = new Set();
@@ -386,11 +397,17 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.transformerOverlay = new Graphics({ label: 'PatchMap / transformer overlay (0)' });
     this.transformerOverlay.eventMode = 'none';
     this.transformerOverlay.zIndex = 2;
+    this.scenePaintLayer = this.aggregate instanceof AggregateMeshLayer
+      ? new RenderLayer({ sortableChildren: false })
+      : null;
+    if (this.scenePaintLayer !== null) {
+      this.scenePaintLayer.label = 'PatchMap / hierarchical scene paint';
+      this.scenePaintLayer.eventMode = 'none';
+    }
     if (this.aggregate instanceof AggregateMeshLayer) {
-      // Preserve aggregate batching while matching PATCH MAP's authored
-      // underlay -> item frame -> component-content order. Standalone root
-      // images cannot share the component-asset lane: doing so either covers
-      // the complete scene or hides every item icon behind the root overlay.
+      // Keep backend-role containers for retained-object ownership and probes.
+      // Their renderable descendants are attached to scenePaintLayer, which
+      // resolves the public hierarchical order across aggregate/leaf roles.
       this.aggregate.container.addChild(
         this.leaves.standaloneAssetContainer,
         this.aggregate.ordinaryGeometryContainer,
@@ -402,6 +419,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       );
       this.world.addChild(
         this.aggregate.container,
+        this.scenePaintLayer!,
         this.selectionOverlay,
         this.transformerOverlay,
       );
@@ -888,14 +906,37 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ? 'projection'
       : 'presentation-projection';
     const nextProjectionRevision = this.projectionRevision + 1;
+    let nextOwnerBoundsById = this.aggregateLaneOwnerBoundsById;
+    let nextHierarchicalScenePaint: boolean;
+    if (updateKind === 'bar-presentation') {
+      nextHierarchicalScenePaint = this.hierarchicalScenePaint ||
+        barPresentationEscapesAggregateLaneOwners(
+          index,
+          changedRanges,
+          sourceStore ?? this.pendingSourceStore ?? this.lastStore,
+          this.aggregateLaneOwnerBoundsById,
+        );
+      if (nextHierarchicalScenePaint) nextOwnerBoundsById = new Map();
+    } else {
+      const analysis = analyzePatchMapScenePaint(index);
+      nextHierarchicalScenePaint = analysis.hierarchical;
+      nextOwnerBoundsById = analysis.ownerBoundsById;
+    }
+    const scenePaintModeChanged =
+      nextHierarchicalScenePaint !== this.hierarchicalScenePaint;
     this.projectionIndex = index;
+    this.hierarchicalScenePaint = nextHierarchicalScenePaint;
+    this.aggregateLaneOwnerBoundsById = nextOwnerBoundsById;
+    this.paintOrderByEntityId = nextHierarchicalScenePaint
+      ? resolveProjectionPaintOrder(index)
+      : Object.freeze({});
     if (updateKind !== 'bar-presentation') {
       this.barPresentationVisibilityConservative = true;
     }
     this.pendingProjectionTransformOnly = false;
     this.staleProjectionEntityIds = nextStaleEntityIds;
     this.projectionRevision = nextProjectionRevision;
-    this.pendingRanges = nextPendingRanges;
+    this.pendingRanges = scenePaintModeChanged ? undefined : nextPendingRanges;
     this.pendingOverlayRanges = nextPendingOverlayRanges;
     this.pendingBarPresentationOnly = barPresentationOnly;
     this.pendingTextOnly = textOnly;
@@ -1170,6 +1211,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         : { changedRanges: barPresentationOnly ? [] : ranges }),
       ...(projectionTransformOnly ? { projectionTransformOnly: true } : {}),
     });
+    this.syncScenePaintLayer();
     // Bar presentation mutates only aggregate geometry. With a stable view,
     // object-backed image/text bounds are unchanged and retaining their last
     // cull result avoids an O(all leaves) scan on every animation frame.
@@ -1842,6 +1884,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.interactionOverlayPolicy = DEFAULT_INTERACTION_OVERLAY_POLICY;
     this.selectionMarquee = null;
     this.application.stage.removeChild(this.world);
+    this.scenePaintLayer?.detachAll();
+    this.attachedScenePaintObjects.clear();
     this.world.removeChildren();
     this.aggregate.destroy();
     if (!(this.aggregate instanceof AggregateMeshLayer)) {
@@ -2255,11 +2299,37 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private projectionContext(): PatchMapProjectionRenderContext {
     return Object.freeze({
       index: this.projectionIndex,
+      ...(this.hierarchicalScenePaint
+        ? { paintOrderByEntityId: this.paintOrderByEntityId }
+        : {}),
       revision: this.projectionRevision,
       world: this.worldOrientation,
       staleEntityIds: this.staleProjectionEntityIds,
       quadCache: this.projectionQuadCache,
     });
+  }
+
+  private syncScenePaintLayer(): void {
+    const layer = this.scenePaintLayer;
+    if (layer === null || !(this.aggregate instanceof AggregateMeshLayer)) return;
+    if (!this.hierarchicalScenePaint) {
+      if (this.attachedScenePaintObjects.size > 0) layer.detachAll();
+      this.attachedScenePaintObjects.clear();
+      return;
+    }
+    const current = new Set<Container>([
+      ...this.aggregate.paintObjects(),
+      ...this.leaves.paintObjects(),
+    ]);
+    for (const object of this.attachedScenePaintObjects) {
+      if (!current.has(object)) layer.detach(object);
+    }
+    for (const object of current) {
+      if (!this.attachedScenePaintObjects.has(object)) layer.attach(object);
+    }
+    this.attachedScenePaintObjects.clear();
+    for (const object of current) this.attachedScenePaintObjects.add(object);
+    layer.sortRenderLayerChildren();
   }
 
   private applyWorldTransform(): void {
@@ -2375,6 +2445,250 @@ function normalizeSelectionMarquee(input: Readonly<{
     start: point(input.start, 'start'),
     current: point(input.current, 'current'),
   });
+}
+
+function resolveProjectionPaintOrder(
+  projection: PatchMapProjectionIndex,
+): Readonly<Record<string, number>> {
+  const paths = Object.create(null) as Record<
+    string,
+    NonNullable<PatchMapProjectionIndex['byEntityId'][string]['stackingPath']>
+  >;
+  for (const [entityId, value] of Object.entries(projection.byEntityId)) {
+    if (value.stackingPath !== undefined) paths[entityId] = value.stackingPath;
+  }
+  for (const [entityId, value] of Object.entries(
+    projection.relationsByEntityId ?? {},
+  )) {
+    if (value.stackingPath !== undefined) paths[entityId] = value.stackingPath;
+  }
+  return rankPatchMapStackingPaths(paths);
+}
+
+interface PatchMapPaintBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+interface PatchMapOwnerPaintState {
+  componentBounds: PatchMapPaintBounds | null;
+  itemBounds: PatchMapPaintBounds | null;
+  readonly pathsByRole: Array<PatchMapStackingPath | undefined>;
+}
+
+interface PatchMapScenePaintAnalysis {
+  readonly hierarchical: boolean;
+  readonly ownerBoundsById: ReadonlyMap<string, PatchMapPaintBounds>;
+}
+
+/**
+ * Preserve the aggregate lane fast path when item composites commute: every
+ * item owns a legacy-compatible component order and no two item paint bounds
+ * overlap. Any uncertain scene stays on the exact hierarchical RenderLayer.
+ */
+export function requiresPatchMapHierarchicalScenePaint(
+  projection: PatchMapProjectionIndex,
+): boolean {
+  return analyzePatchMapScenePaint(projection).hierarchical;
+}
+
+function analyzePatchMapScenePaint(
+  projection: PatchMapProjectionIndex,
+): PatchMapScenePaintAnalysis {
+  const hierarchical = (): PatchMapScenePaintAnalysis => ({
+    hierarchical: true,
+    ownerBoundsById: new Map(),
+  });
+  if (Object.keys(projection.relationsByEntityId ?? {}).length > 0) return hierarchical();
+  const ownerStates = new Map<string, PatchMapOwnerPaintState>();
+  let ownerCount = 0;
+  let entityCount = 0;
+  for (const entity of Object.values(projection.byEntityId)) {
+    entityCount += 1;
+    if (entity.componentType === undefined) {
+      if (entity.ownerItemId === entity.entityId) {
+        let state = ownerStates.get(entity.entityId);
+        if (state === undefined) {
+          state = { componentBounds: null, itemBounds: null, pathsByRole: [] };
+          ownerStates.set(entity.entityId, state);
+        }
+        if (state.itemBounds !== null) return hierarchical();
+        state.itemBounds = includeProjectionPaintBounds(null, entity);
+        ownerCount += 1;
+        continue;
+      }
+      return hierarchical();
+    }
+    const ownerItemId = entity.ownerItemId;
+    const stackingPath = entity.stackingPath;
+    if (ownerItemId === undefined || stackingPath === undefined) return hierarchical();
+    const role = componentLegacyPaintRole(entity, projection);
+    if (role === null) return hierarchical();
+    let state = ownerStates.get(ownerItemId);
+    if (state === undefined) {
+      state = { componentBounds: null, itemBounds: null, pathsByRole: [] };
+      ownerStates.set(ownerItemId, state);
+    }
+    if (state.pathsByRole[role] !== undefined) return hierarchical();
+    state.pathsByRole[role] = stackingPath;
+    state.componentBounds = includeProjectionPaintBounds(state.componentBounds, entity);
+  }
+  if (entityCount === 0) return { hierarchical: false, ownerBoundsById: new Map() };
+  if (ownerCount === 0 || ownerStates.size !== ownerCount) return hierarchical();
+
+  const ownerBoundsById = new Map<string, PatchMapPaintBounds>();
+  for (const [ownerId, { componentBounds, itemBounds, pathsByRole }] of ownerStates) {
+    let previousPath: PatchMapStackingPath | undefined;
+    for (const path of pathsByRole) {
+      if (path === undefined) continue;
+      if (
+        previousPath !== undefined &&
+        comparePatchMapStackingPaths(previousPath, path) > 0
+      ) {
+        return hierarchical();
+      }
+      previousPath = path;
+    }
+    if (
+      componentBounds === null ||
+      itemBounds === null ||
+      !paintBoundsContains(itemBounds, componentBounds)
+    ) {
+      return hierarchical();
+    }
+    ownerBoundsById.set(ownerId, itemBounds);
+  }
+  return paintBoundsOverlap([...ownerBoundsById.values()])
+    ? hierarchical()
+    : { hierarchical: false, ownerBoundsById };
+}
+
+function componentLegacyPaintRole(
+  component: PatchMapProjectionIndex['byEntityId'][string],
+  projection: PatchMapProjectionIndex,
+): number | null {
+  switch (component.componentType) {
+    case 'background':
+      return projection.backgroundsByEntityId?.[component.entityId]?.sourceKind === 'asset'
+        ? 1
+        : 0;
+    case 'bar': return 2;
+    case 'icon': return 3;
+    case 'text': return 4;
+    default: return null;
+  }
+}
+
+function includeProjectionPaintBounds(
+  current: PatchMapPaintBounds | null,
+  projection: PatchMapProjectionIndex['byEntityId'][string],
+): PatchMapPaintBounds {
+  const [a, b, c, d, tx, ty] = projection.affine;
+  const [localX, localY, width, height] = projection.localBounds;
+  const right = localX + width;
+  const bottom = localY + height;
+  const x0 = a * localX + c * localY + tx;
+  const y0 = b * localX + d * localY + ty;
+  const x1 = a * right + c * localY + tx;
+  const y1 = b * right + d * localY + ty;
+  const x2 = a * right + c * bottom + tx;
+  const y2 = b * right + d * bottom + ty;
+  const x3 = a * localX + c * bottom + tx;
+  const y3 = b * localX + d * bottom + ty;
+  const minX = Math.min(x0, x1, x2, x3);
+  const minY = Math.min(y0, y1, y2, y3);
+  const maxX = Math.max(x0, x1, x2, x3);
+  const maxY = Math.max(y0, y1, y2, y3);
+  const next = { minX, minY, maxX, maxY };
+  return current === null
+    ? next
+    : {
+        minX: Math.min(current.minX, next.minX),
+        minY: Math.min(current.minY, next.minY),
+        maxX: Math.max(current.maxX, next.maxX),
+        maxY: Math.max(current.maxY, next.maxY),
+      };
+}
+
+function paintBoundsOverlap(bounds: readonly PatchMapPaintBounds[]): boolean {
+  if (bounds.length < 2) return false;
+  let totalWidth = 0;
+  let totalHeight = 0;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const value of bounds) {
+    totalWidth += value.maxX - value.minX;
+    totalHeight += value.maxY - value.minY;
+    minX = Math.min(minX, value.minX);
+    minY = Math.min(minY, value.minY);
+    maxX = Math.max(maxX, value.maxX);
+    maxY = Math.max(maxY, value.maxY);
+  }
+  const xSeparation = (maxX - minX) / Math.max(totalWidth / bounds.length, 1);
+  const ySeparation = (maxY - minY) / Math.max(totalHeight / bounds.length, 1);
+  const horizontal = xSeparation >= ySeparation;
+  const ordered = [...bounds].sort((left, right) =>
+    (horizontal ? left.minX - right.minX : left.minY - right.minY));
+  let active: PatchMapPaintBounds[] = [];
+  for (const current of ordered) {
+    const start = horizontal ? current.minX : current.minY;
+    active = active.filter((candidate) =>
+      (horizontal ? candidate.maxX : candidate.maxY) > start);
+    if (active.length > 512) return true;
+    for (const candidate of active) {
+      if (
+        candidate.minX < current.maxX && current.minX < candidate.maxX &&
+        candidate.minY < current.maxY && current.minY < candidate.maxY
+      ) {
+        return true;
+      }
+    }
+    active.push(current);
+  }
+  return false;
+}
+
+function paintBoundsContains(
+  outer: PatchMapPaintBounds,
+  inner: PatchMapPaintBounds,
+): boolean {
+  const epsilon = 1e-9;
+  return inner.minX >= outer.minX - epsilon &&
+    inner.minY >= outer.minY - epsilon &&
+    inner.maxX <= outer.maxX + epsilon &&
+    inner.maxY <= outer.maxY + epsilon;
+}
+
+function barPresentationEscapesAggregateLaneOwners(
+  projection: PatchMapProjectionIndex,
+  changedRanges: readonly SlotRange[] | undefined,
+  store: RenderStoreView | null | undefined,
+  ownerBoundsById: ReadonlyMap<string, PatchMapPaintBounds>,
+): boolean {
+  if (ownerBoundsById.size === 0) return true;
+  const escapes = (entityId: string): boolean => {
+    const entity = projection.byEntityId[entityId];
+    if (entity?.componentType !== 'bar' || entity.ownerItemId === undefined) return false;
+    const ownerBounds = ownerBoundsById.get(entity.ownerItemId);
+    return ownerBounds === undefined ||
+      !paintBoundsContains(ownerBounds, includeProjectionPaintBounds(null, entity));
+  };
+  if (changedRanges !== undefined && store !== null && store !== undefined) {
+    for (const range of changedRanges) {
+      const start = Math.max(0, Math.min(store.capacity, range.start));
+      const end = Math.max(start, Math.min(store.capacity, range.end));
+      for (let slot = start; slot < end; slot += 1) {
+        const entityId = store.ids[slot];
+        if (entityId !== undefined && escapes(entityId)) return true;
+      }
+    }
+    return false;
+  }
+  return Object.keys(projection.barsByEntityId ?? {}).some(escapes);
 }
 
 function sameSelectionMarquee(

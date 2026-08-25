@@ -6,6 +6,7 @@ import {
   patchPatchMapStableRecord,
   type PatchMapStableRecordStrategy,
 } from '../semantic/stable-record-overlay';
+import { appendPatchMapStackingFrame } from '../semantic/stacking';
 import {
   cachePatchMapV010DirectParseIndexes,
   directTextParseIndexes,
@@ -31,6 +32,7 @@ import {
   inspectAttributes,
   isParserRecord as isRecord,
   parseContentOrientation,
+  zIndex,
   type PatchMapParserBox as Box,
   type PatchMapParserRecord as JsonRecord,
 } from './value-normalization';
@@ -249,6 +251,11 @@ function appendDirectTextComponent(
       element,
       ancestors: [],
       opacity: attributeAlpha(attrs, `${rootPath}.attrs.alpha`, state),
+      stackingPath: appendPatchMapStackingFrame(
+        appendPatchMapStackingFrame(ROOT_CONTEXT.stackingPath, zIndex(attrs), rootIndex),
+        zIndex(isRecord(component.attrs) ? component.attrs : undefined),
+        componentIndex,
+      ),
       instance,
     },
     state,

@@ -1,4 +1,4 @@
-import { Container, Graphics, Texture } from 'pixi.js';
+import { Container, Graphics, RenderLayer, Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 
 import type { EntityInput } from '../../src/patch-map/dense/contracts';
@@ -22,11 +22,137 @@ import {
   multiplyPackedRgba,
   type PatchMapRoundedRectPathSink,
 } from '../../src/patch-map/renderers/mesh-layer';
-import { projectionChangedRanges } from '../../src/patch-map/renderers/pixi-renderer';
+import {
+  projectionChangedRanges,
+  requiresPatchMapHierarchicalScenePaint,
+} from '../../src/patch-map/renderers/pixi-renderer';
 import type { PatchMapProjectionRenderContext } from '../../src/patch-map/renderers/types';
+import { rankPatchMapStackingPaths } from '../../src/patch-map/semantic/stacking';
 
-describe('PatchMap fixed component render lanes', () => {
-  it('backs every production role with a fixed aggregate container in exact paint order', async () => {
+describe('PatchMap component render destinations', () => {
+  it('keeps aggregate lanes for disjoint items with compatible local component order', () => {
+    const disjoint = parsePatchMapV010([
+      overlappingItem('left', 0, 0),
+      overlappingItem('right', 0, 80),
+    ]);
+    expect(requiresPatchMapHierarchicalScenePaint(disjoint.projection)).toBe(false);
+
+    const overlapping = parsePatchMapV010([
+      overlappingItem('rear', 0),
+      overlappingItem('front', 0),
+    ]);
+    expect(requiresPatchMapHierarchicalScenePaint(overlapping.projection)).toBe(true);
+  });
+
+  it('keeps the production-shaped grid-cell workload on aggregate lanes', () => {
+    const parsed = parsePatchMapV010([{
+      type: 'grid',
+      id: 'production-grid',
+      cells: [[1, 1], [1, 1]],
+      gap: 2,
+      item: {
+        size: { width: 34, height: 46 },
+        components: [
+          {
+            type: 'bar',
+            id: 'level',
+            source: { type: 'rect', fill: '#ffffffff', radius: 3 },
+            size: { width: 24, height: 8 },
+            placement: 'bottom',
+          },
+          {
+            type: 'icon',
+            id: 'status',
+            source: 'wifi',
+            size: { width: 12, height: 12 },
+            attrs: { zIndex: 10 },
+          },
+        ],
+      },
+    }]);
+
+    expect(requiresPatchMapHierarchicalScenePaint(parsed.projection)).toBe(false);
+  });
+
+  it('retains hierarchy for a local component order that conflicts with aggregate lanes', () => {
+    const parsed = parsePatchMapV010([{
+      type: 'item',
+      id: 'inverted',
+      size: { width: 40, height: 40 },
+      components: [
+        { type: 'icon', id: 'icon', source: 'fixture-icon', attrs: { zIndex: 0 } },
+        {
+          type: 'background',
+          id: 'background',
+          source: { type: 'rect', fill: '#ffffffff' },
+          attrs: { zIndex: 10 },
+        },
+      ],
+    }]);
+    expect(requiresPatchMapHierarchicalScenePaint(parsed.projection)).toBe(true);
+  });
+
+  it('retains hierarchy when a component escapes its item safety bounds', () => {
+    const parsed = parsePatchMapV010([
+      {
+        type: 'item',
+        id: 'left',
+        size: { width: 40, height: 40 },
+        components: [{
+          type: 'bar',
+          id: 'overflow',
+          source: { type: 'rect', fill: '#ffffffff' },
+          size: { width: 20, height: 80 },
+          placement: 'bottom',
+        }],
+      },
+      {
+        type: 'item',
+        id: 'right',
+        size: { width: 40, height: 40 },
+        attrs: { x: 80 },
+        components: [{
+          type: 'background',
+          id: 'background',
+          source: { type: 'rect', fill: '#ffffffff' },
+        }],
+      },
+    ]);
+
+    expect(requiresPatchMapHierarchicalScenePaint(parsed.projection)).toBe(true);
+  });
+
+  it('interleaves aggregate backgrounds and icon leaves by atomic item order', async () => {
+    const parsed = parsePatchMapV010([
+      overlappingItem('rear', 0),
+      overlappingItem('front', 0),
+    ]);
+    const store = createRenderStore(parsed.document.entities);
+    const context = projectionContext(parsed.projection, 1);
+    const mesh = new AggregateMeshLayer({ chunkSize: 16 });
+    const leaves = await createResolvedLeafLayer(parsed.projection, 'hierarchical-item-order');
+    mesh.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
+    leaves.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
+
+    const layer = new RenderLayer({ sortableChildren: false });
+    const objects = [...mesh.paintObjects(), ...leaves.paintObjects()];
+    layer.attach(...objects);
+    layer.sortRenderLayerChildren();
+    const order = context.paintOrderByEntityId;
+    expect(layer.renderLayerChildren.map(({ zIndex }) => zIndex)).toEqual([
+      (order?.['rear::background:rear-background'] ?? -1) * 4,
+      (order?.['rear::icon:rear-icon'] ?? -1) * 4,
+      (order?.['front::background:front-background'] ?? -1) * 4,
+      (order?.['front::icon:front-icon'] ?? -1) * 4,
+    ]);
+
+    layer.detachAll();
+    layer.destroy();
+    mesh.destroy();
+    await leaves.destroy();
+  });
+
+  it('backs every production role with a stable aggregate destination', async () => {
     const parsed = parsePatchMapV010([
       {
         type: 'image',
@@ -381,6 +507,30 @@ function backgroundDataset(source: unknown, show = true): Record<string, unknown
   };
 }
 
+function overlappingItem(id: string, zIndex: number, x = 0): Record<string, unknown> {
+  return {
+    type: 'item',
+    id,
+    size: { width: 40, height: 40 },
+    components: [
+      {
+        type: 'background',
+        id: `${id}-background`,
+        source: { type: 'rect', fill: '#ffffffff', radius: 4 },
+        attrs: { zIndex: 0 },
+      },
+      {
+        type: 'icon',
+        id: `${id}-icon`,
+        source: 'fixture-icon',
+        size: 20,
+        attrs: { zIndex: 10 },
+      },
+    ],
+    attrs: { x, y: 0, zIndex },
+  };
+}
+
 async function createResolvedLeafLayer(
   projection: PatchMapProjectionIndex,
   instanceId: string,
@@ -415,8 +565,19 @@ function projectionContext(
   index: PatchMapProjectionIndex,
   revision: number,
 ): PatchMapProjectionRenderContext {
+  const paths = Object.fromEntries([
+    ...Object.entries(index.byEntityId)
+      .filter((entry): entry is [string, typeof entry[1] & { stackingPath: NonNullable<typeof entry[1]['stackingPath']> }] =>
+        entry[1].stackingPath !== undefined)
+      .map(([entityId, projection]) => [entityId, projection.stackingPath] as const),
+    ...Object.entries(index.relationsByEntityId ?? {})
+      .filter((entry): entry is [string, typeof entry[1] & { stackingPath: NonNullable<typeof entry[1]['stackingPath']> }] =>
+        entry[1].stackingPath !== undefined)
+      .map(([entityId, projection]) => [entityId, projection.stackingPath] as const),
+  ]);
   return Object.freeze({
     index,
+    paintOrderByEntityId: rankPatchMapStackingPaths(paths),
     revision,
     world: Object.freeze({ rotationDegrees: 0, flipX: false, flipY: false }),
   });

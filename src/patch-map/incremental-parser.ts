@@ -254,6 +254,18 @@ export function parsePatchMapV010IncrementalStructure(
     if (!reusedPreviousIndices.has(index)) appendChanged(previousFragments[index]);
   }
   for (const index of dirtyIndices) appendChanged(completed[index]);
+  for (const entity of combined.document.entities) {
+    const before = previous.projection.byEntityId[entity.id] ??
+      previous.projection.relationsByEntityId?.[entity.id];
+    const after = combined.projection.byEntityId[entity.id] ??
+      combined.projection.relationsByEntityId?.[entity.id];
+    if (before !== after && JSON.stringify(before) !== JSON.stringify(after)) {
+      if (!changedEntityIdSet.has(entity.id)) {
+        changedEntityIdSet.add(entity.id);
+        changedEntityIds.push(entity.id);
+      }
+    }
+  }
   STRUCTURAL_CHANGED_ENTITY_IDS_CACHE.set(
     combined,
     Object.freeze(changedEntityIds),

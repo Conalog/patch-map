@@ -39,6 +39,7 @@ export const ROOT_CONTEXT: ElementContext = {
   visible: true,
   interactive: true,
   opacity: 1,
+  stackingPath: Object.freeze([]),
   ancestorIdentities: [],
 };
 
@@ -88,6 +89,7 @@ export function addEntity(
       scaleX: projection?.scaleX ?? 1,
       scaleY: projection?.scaleY ?? 1,
       contentOrientation: projection?.contentOrientation ?? 'follow-item',
+      stackingPath: owner.stackingPath,
       ...(owner.instance ? { ownerItemId: owner.instance.instanceId } : {}),
       ...(owner.component
         ? {

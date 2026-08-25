@@ -43,7 +43,13 @@ export function createPatchMapPaintOrderProductProbe(
   const primitives = input.snapshot.entities.map((entity, authoredOrder) => {
     const projection = input.projection?.byEntityId[entity.id];
     const paint = input.paintForEntity(entity.id);
-    return primitiveFor(entity, projection, paint, authoredOrder);
+    return primitiveFor(
+      entity,
+      projection,
+      input.projection?.relationsByEntityId?.[entity.id]?.stackingPath,
+      paint,
+      authoredOrder,
+    );
   });
   const plan = planPatchMapPaintOrder(primitives, {
     overlays: {
@@ -67,18 +73,25 @@ export function createPatchMapPaintOrderProductProbe(
 function primitiveFor(
   entity: EntitySnapshot,
   projection: PatchMapEntityProjection | undefined,
+  relationStackingPath: PatchMapPaintPrimitiveInput['stackingPath'],
   paint: PatchMapEntityPaintProbe | null,
   authoredOrder: number,
 ): PatchMapPaintPrimitiveInput {
   const kind = paintKind(entity, projection);
   const lane = paint?.lane ?? defaultLane(kind);
+  const stackingPath = projection?.stackingPath ?? relationStackingPath;
   return Object.freeze({
     publicId: entity.id,
     entityId: entity.id,
     kind,
     lane,
-    zIndex: entity.zIndex,
+    zIndex: entity.kind === 'relation'
+      ? entity.zIndex
+      : stackingPath?.at(-1)?.zIndex ?? entity.zIndex,
     authoredOrder,
+    ...(stackingPath === undefined
+      ? {}
+      : { stackingPath }),
     pass: 0,
     visible: entity.visible,
     compatibilityKey: paint === null

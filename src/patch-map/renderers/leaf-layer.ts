@@ -22,6 +22,7 @@ import {
 } from '../assets';
 import type { PatchMapTextProjection } from '../contracts';
 import type { PatchMapAssetSource } from '../semantic/dataset';
+import { patchMapDisplayObjectZIndex } from '../semantic/stacking';
 import type {
   PatchMapSceneImageAssetBindingObservation,
   PatchMapSceneImageAssetBindingProbe,
@@ -418,6 +419,14 @@ export class AggregateLeafLayer {
         this.texts.size,
       ),
     });
+  }
+
+  /** Exact scene leaves attached to the hierarchy-resolved Pixi RenderLayer. */
+  public paintObjects(): readonly Container[] {
+    return [
+      ...[...this.images.values()].map(({ object }) => object),
+      ...[...this.texts.values()].map(({ object }) => object),
+    ];
   }
 
   /** Compatibility seam for host-driven alias-to-URL preloads. */
@@ -1139,6 +1148,7 @@ export class AggregateLeafLayer {
     if (this.textChunking) this.dirtyTextChunkKeys.add(textChunkKey(slot));
     object.alpha = alpha;
     object.tint = packedRgb(packedColor);
+    object.zIndex = entityDisplayObjectZIndex(store, slot, projectionContext);
     object.visible = true;
     this.publishTextProbe(entry);
     this.paintProbesByEntityId.set(entityId, freezeEntityPaintProbe({
@@ -1310,7 +1320,7 @@ export class AggregateLeafLayer {
     entry.vertices = quad.vertices;
     sprite.tint = packedRgb(store.tint[slot] ?? 0xffffffff);
     sprite.alpha = combinedAlpha(store.tint[slot] ?? 0xffffffff, store.opacity[slot] ?? 1);
-    const zIndex = store.zIndex[slot] ?? 0;
+    const zIndex = entityDisplayObjectZIndex(store, slot, projectionContext);
     if (sprite.zIndex !== zIndex) {
       sprite.zIndex = zIndex;
       this.dirtyImageLanes.add(lane);
@@ -1828,6 +1838,20 @@ export class AggregateLeafLayer {
   private assertAlive(): void {
     if (this.destroyed) throw new Error('AggregateLeafLayer is destroyed');
   }
+}
+
+function entityDisplayObjectZIndex(
+  store: RenderStoreView,
+  slot: number,
+  projectionContext?: PatchMapProjectionRenderContext,
+): number {
+  const entityId = store.ids[slot];
+  const paintOrder = entityId === undefined
+    ? undefined
+    : projectionContext?.paintOrderByEntityId?.[entityId];
+  return paintOrder === undefined
+    ? store.zIndex[slot] ?? 0
+    : patchMapDisplayObjectZIndex(paintOrder);
 }
 
 function textChunkKey(slot: number): number {

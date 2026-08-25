@@ -5,7 +5,9 @@ import type {
   EntitySourceIdentity,
   ExpandedItemIdentity,
   ParsePatchMapResult,
+  PatchMapProjectionIndex,
 } from '../contracts';
+import type { PatchMapStackingPath } from '../semantic/stacking';
 
 import { ROOT_FRAGMENTS_CACHE } from './cache-indexes';
 import type { JsonRecord, RootFragment } from './contracts';
@@ -157,8 +159,68 @@ export function rebaseRootFragment(
     expandedItems,
     entities: fragment.entities,
     entitySources: Object.freeze(entitySources),
-    projection: fragment.projection,
+    projection: rebaseProjectionRootOrder(fragment.projection, nextIndex),
   });
+}
+
+function rebaseProjectionRootOrder(
+  projection: PatchMapProjectionIndex,
+  authoredOrder: number,
+): PatchMapProjectionIndex {
+  const byEntityId = Object.freeze(Object.fromEntries(
+    Object.entries(projection.byEntityId).map(([entityId, value]) => [
+      entityId,
+      value.stackingPath === undefined
+        ? value
+        : Object.freeze({
+            ...value,
+            stackingPath: rebaseRootStackingPath(value.stackingPath, authoredOrder),
+          }),
+    ]),
+  ));
+  const relationsByEntityId = projection.relationsByEntityId === undefined
+    ? undefined
+    : Object.freeze(Object.fromEntries(
+        Object.entries(projection.relationsByEntityId).map(([entityId, value]) => [
+          entityId,
+          value.stackingPath === undefined
+            ? value
+            : Object.freeze({
+                ...value,
+                stackingPath: rebaseRootStackingPath(
+                  value.stackingPath,
+                  authoredOrder,
+                ),
+              }),
+        ]),
+      ));
+  const omittedRelations = projection.omittedRelations?.map((value) =>
+    value.stackingPath === undefined
+      ? value
+      : Object.freeze({
+          ...value,
+          stackingPath: rebaseRootStackingPath(value.stackingPath, authoredOrder),
+        }));
+  return Object.freeze({
+    ...projection,
+    byEntityId,
+    ...(relationsByEntityId === undefined ? {} : { relationsByEntityId }),
+    ...(omittedRelations === undefined
+      ? {}
+      : { omittedRelations: Object.freeze(omittedRelations) }),
+  });
+}
+
+function rebaseRootStackingPath(
+  path: PatchMapStackingPath,
+  authoredOrder: number,
+): PatchMapStackingPath {
+  const root = path[0];
+  if (root === undefined || root.authoredOrder === authoredOrder) return path;
+  return Object.freeze([
+    Object.freeze({ ...root, authoredOrder }),
+    ...path.slice(1),
+  ]);
 }
 
 function rebaseElementIdentity(

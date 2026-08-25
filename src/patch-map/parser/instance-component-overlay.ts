@@ -9,6 +9,7 @@ import type {
   PatchMapTextProjection,
 } from '../contracts';
 import { PATCH_MAP_IDENTITY_AFFINE } from '../semantic/geometry';
+import { appendPatchMapStackingFrame } from '../semantic/stacking';
 import type {
   PatchMapBackgroundComponent,
   PatchMapGridItemTemplate,
@@ -124,6 +125,11 @@ export function projectPatchMapInstanceComponentOverlay(
       element,
       ancestors: [],
       opacity: ownerOpacity,
+      stackingPath: appendPatchMapStackingFrame(
+        ownerProjection.stackingPath ?? Object.freeze([]),
+        componentZIndex(component),
+        componentAuthoredOrder(componentPath),
+      ),
       instance,
     },
     state,
@@ -250,4 +256,16 @@ function itemPath(componentPath: string): string {
 function sourceElementPath(componentPath: string): string {
   const match = /^\$\[\d+\]/u.exec(componentPath);
   return match?.[0] ?? '$';
+}
+
+function componentAuthoredOrder(componentPath: string): number {
+  const match = /\.components\[(\d+)\]$/u.exec(componentPath);
+  return match?.[1] === undefined ? 0 : Number(match[1]);
+}
+
+function componentZIndex(
+  component: PatchMapBackgroundComponent | PatchMapTextComponent,
+): number {
+  const value = component.attrs?.zIndex;
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }

@@ -30,6 +30,7 @@ import {
   type PackedMeshStyle,
 } from './geometry';
 import type { AggregateViewportBounds } from './viewport-culling';
+import { patchMapDisplayObjectZIndex } from '../../semantic/stacking';
 
 const RECT_PASS = 0;
 const BAR_TRACK_PASS = 1;
@@ -184,6 +185,7 @@ interface StyledBarPrimitive extends StyledBackgroundPrimitive {
   readonly part: 'track' | 'fill';
   readonly radius: number;
   readonly widthFraction: number;
+  readonly zIndex: number;
 }
 
 function buildRoundedBarGeometry(
@@ -511,7 +513,7 @@ function buildRoundedBarGroups(
         geometryKind: 'rounded',
         packed: primitive.fill >>> 0,
         opacity: primitive.opacity,
-        zIndex: Math.floor(primitive.drawOrder / PASSES_PER_Z_INDEX),
+        zIndex: primitive.zIndex,
       };
       if (primitive.part === 'track') binding.track = primitiveBinding;
       else binding.fill = primitiveBinding;
@@ -554,6 +556,7 @@ function appendBarPrimitive(
   zIndex: number,
   pass: number,
   quad: AggregateQuad,
+  bindingZIndex = zIndex,
 ): BarPrimitiveBinding | null {
   if (!isFiniteQuad(quad)) return null;
   const group = getQuadGroup(groups, packed, opacity, zIndex, pass);
@@ -566,7 +569,7 @@ function appendBarPrimitive(
     geometryKind: 'quad',
     packed: packed >>> 0,
     opacity,
-    zIndex,
+    zIndex: bindingZIndex,
   };
 }
 
@@ -632,6 +635,7 @@ function appendStyledBarSlot(
   if (isDrawable(store, slot) && width > 0 && height > 0) {
     const opacity = store.opacity[slot] as number;
     const zIndex = store.zIndex[slot] as number;
+    const paintOrder = entityPaintOrder(store, slot, projectionContext);
     const trackFill = (store.trackFill[slot] as number) >>> 0;
     const trackStyle = packedRgbaToMeshStyle(trackFill, opacity);
     if (trackStyle.alpha > 0) {
@@ -646,7 +650,8 @@ function appendStyledBarSlot(
         fill: trackFill,
         borderColor: 0,
         opacity,
-        drawOrder: zIndex * PASSES_PER_Z_INDEX + BAR_TRACK_PASS,
+        drawOrder: patchMapDisplayObjectZIndex(paintOrder, BAR_TRACK_PASS),
+        zIndex,
       });
       count += 1;
     }
@@ -667,7 +672,8 @@ function appendStyledBarSlot(
         fill,
         borderColor: 0,
         opacity,
-        drawOrder: zIndex * PASSES_PER_Z_INDEX + BAR_FILL_PASS,
+        drawOrder: patchMapDisplayObjectZIndex(paintOrder, BAR_FILL_PASS),
+        zIndex,
       });
       count += 1;
     }
@@ -697,15 +703,17 @@ function appendBarSlot(
     if (width > 0 && height > 0) {
       const opacity = store.opacity[slot] as number;
       const zIndex = store.zIndex[slot] as number;
+      const paintOrder = entityPaintOrder(store, slot, projectionContext);
       const pivotX = x + width / 2;
       const pivotY = y + height / 2;
       track = appendBarPrimitive(
         groups,
         store.trackFill[slot] as number,
         opacity,
-        zIndex,
+        paintOrder,
         BAR_TRACK_PASS,
         { x, y, width, height, rotation, pivotX, pivotY, vertices: trackQuad.vertices },
+        zIndex,
       );
 
       const fillWidth = width * progress;
@@ -714,7 +722,7 @@ function appendBarSlot(
           groups,
           store.fill[slot] as number,
           opacity,
-          zIndex,
+          paintOrder,
           BAR_FILL_PASS,
           {
             x,
@@ -726,6 +734,7 @@ function appendBarSlot(
             pivotY,
             vertices: fillQuad.vertices,
           },
+          zIndex,
         );
       }
     }
@@ -881,7 +890,10 @@ export function buildAggregateChunkLaneGeometry(
             fill: packedFill,
             borderColor: packedBorder,
             opacity,
-            drawOrder: (store.zIndex[slot] as number) * PASSES_PER_Z_INDEX + RECT_PASS,
+            drawOrder: patchMapDisplayObjectZIndex(
+              entityPaintOrder(store, slot, projectionContext),
+              RECT_PASS,
+            ),
           });
           rendererKind = 'graphics';
           visibleBackgrounds += 1;
@@ -890,7 +902,7 @@ export function buildAggregateChunkLaneGeometry(
             backgroundGroups,
             packedFill,
             opacity,
-            store.zIndex[slot] as number,
+            entityPaintOrder(store, slot, projectionContext),
             RECT_PASS,
           );
           if (group !== null) {
@@ -922,6 +934,7 @@ export function buildAggregateChunkLaneGeometry(
     if (!isDrawable(store, slot)) continue;
     const opacity = store.opacity[slot] as number;
     const zIndex = store.zIndex[slot] as number;
+    const paintOrder = entityPaintOrder(store, slot, projectionContext);
 
     if (kind === RenderKind.Rect) {
       const width = store.width[slot] as number;
@@ -953,7 +966,7 @@ export function buildAggregateChunkLaneGeometry(
           fill: packedFill,
           borderColor: packedBorder,
           opacity,
-          drawOrder: zIndex * PASSES_PER_Z_INDEX + RECT_PASS,
+          drawOrder: patchMapDisplayObjectZIndex(paintOrder, RECT_PASS),
         });
         visibleRects += 1;
         paintProbes.set(entityId, freezeEntityPaintProbe({
@@ -967,7 +980,7 @@ export function buildAggregateChunkLaneGeometry(
           alpha: fillStyle.alpha,
         }));
       } else if (visiblePaint) {
-        const group = getQuadGroup(rectGroups, packedFill, opacity, zIndex, RECT_PASS);
+        const group = getQuadGroup(rectGroups, packedFill, opacity, paintOrder, RECT_PASS);
         if (group !== null) {
           const quad = resolvePatchMapSlotQuad(store, slot, projectionContext);
           group.primitives.push({
@@ -1047,7 +1060,7 @@ export function buildAggregateChunkLaneGeometry(
       relationGroups,
       store.color[slot] as number,
       opacity,
-      zIndex,
+      paintOrder,
     );
     if (group === null) continue;
     group.primitives.push(...lines);
@@ -1092,6 +1105,18 @@ export function buildAggregateChunkLaneGeometry(
     visibleBars,
     visibleRelations,
   };
+}
+
+function entityPaintOrder(
+  store: RenderStoreView,
+  slot: number,
+  projectionContext?: PatchMapProjectionRenderContext,
+): number {
+  const entityId = store.ids[slot];
+  return entityId === undefined
+    ? store.zIndex[slot] as number
+    : projectionContext?.paintOrderByEntityId?.[entityId] ??
+      store.zIndex[slot] as number;
 }
 
 function presentationFillOverride(

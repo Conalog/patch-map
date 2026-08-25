@@ -194,12 +194,10 @@ describe('PatchMap approved render projection closure', () => {
     expect(itemResult.diagnostics).not.toContainEqual(expect.objectContaining({
       path: '$[0].contentOrientation',
     }));
-    expect(itemResult.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        code: 'attribute-preserved-only',
-        path: '$[0].attrs.zIndex',
-      }),
-    ]));
+    expect(itemResult.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'attribute-preserved-only',
+      path: '$[0].attrs.zIndex',
+    }));
   });
 
   it('converts authored-origin rotation into the dense center-pivot representation', () => {

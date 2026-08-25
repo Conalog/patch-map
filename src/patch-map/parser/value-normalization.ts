@@ -65,7 +65,18 @@ const TRANSFORM_ATTRIBUTE_TYPES = new Set([
   'icon',
   'relations',
 ]);
-const Z_INDEX_ATTRIBUTE_TYPES = new Set(['rect', 'image', 'text', 'relations']);
+const Z_INDEX_ATTRIBUTE_TYPES = new Set([
+  'group',
+  'grid',
+  'item',
+  'rect',
+  'image',
+  'text',
+  'relations',
+  'background',
+  'bar',
+  'icon',
+]);
 
 export function elementTransform(
   attrs: PatchMapParserRecord | undefined,
