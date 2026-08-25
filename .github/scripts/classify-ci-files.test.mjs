@@ -6,23 +6,21 @@ import {
   parseNullDelimitedPaths,
 } from './classify-ci-files.mjs';
 
-test('internal Markdown documentation only skips the full release gate', () => {
+test('documentation-only changes skip the full release gate', () => {
   assert.deepEqual(
     classifyChangedPaths([
       'docs/engineering/architecture.md',
-      'docs/engineering/system-map.md',
+      'docs/api/data-and-targets.md',
+      'README.md',
     ]),
     { fullValidation: false },
   );
 });
 
-test('published documentation remains a full release-gate change', () => {
-  assert.equal(isLightweightValidationPath('README.md'), false);
-  assert.equal(isLightweightValidationPath('docs/README.md'), false);
-  assert.equal(
-    classifyChangedPaths(['docs/api/data-and-targets.md']).fullValidation,
-    true,
-  );
+test('repository documentation uses lightweight validation', () => {
+  assert.equal(isLightweightValidationPath('README.md'), true);
+  assert.equal(isLightweightValidationPath('CONTRIBUTING.md'), true);
+  assert.equal(isLightweightValidationPath('docs/README.md'), true);
 });
 
 test('product, package, verification, and workflow changes require the full release gate', () => {
