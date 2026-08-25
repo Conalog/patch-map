@@ -64,7 +64,7 @@ fields:
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| keyed composition and lifecycle | [`presentation-layers.ts`](../../src/patch-map/presentation-layers.ts) | [`presentation.test.ts`](../../tests/patch-map/presentation.test.ts) |
-| sparse-to-dense projection | [`presentation-projection.ts`](../../src/patch-map/presentation-projection.ts) | [`presentation-projection.test.ts`](../../tests/patch-map/presentation-projection.test.ts) |
-| concrete field overlay | [`instance-presentation-overlay.ts`](../../src/patch-map/core/instance-presentation-overlay.ts) | [`core-presentation-integration.test.ts`](../../tests/patch-map/core-presentation-integration.test.ts) |
-| column validation and mixed animation | [`developer-api/presentation.ts`](../../src/patch-map/developer-api/presentation.ts) | [`engine-update-transactions.test.ts`](../../tests/patch-map/engine-update-transactions.test.ts) |
+| keyed composition and lifecycle | [`presentation-layers.ts`](../../src/patch-map/presentation-layers.ts) | [`presentation.test.ts`](../../tests/semantic/presentation.test.ts) |
+| sparse-to-dense projection | [`presentation-projection.ts`](../../src/patch-map/presentation-projection.ts) | [`presentation-projection.test.ts`](../../tests/rendering/presentation-projection.test.ts) |
+| concrete field overlay | [`instance-presentation-overlay.ts`](../../src/patch-map/core/instance-presentation-overlay.ts) | [`core-presentation-integration.test.ts`](../../tests/core/core-presentation-integration.test.ts) |
+| column validation and mixed animation | [`developer-api/presentation.ts`](../../src/patch-map/developer-api/presentation.ts) | [`engine-update-transactions.test.ts`](../../tests/engine/engine-update-transactions.test.ts) |

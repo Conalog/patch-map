@@ -48,4 +48,4 @@ await patchMap.destroy();
 - [Getting started](./docs/getting-started.md)
 - [Host integration](./docs/integration/host.md)
 - [Compatibility](./docs/compatibility.md)
-- [Runnable examples](./examples/patch-map)
+- [Runnable examples](./examples)

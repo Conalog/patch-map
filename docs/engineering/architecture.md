@@ -20,6 +20,23 @@ Validation and planning happen before authoritative state changes. Accepted
 state is committed once, projected to renderer inputs, and published by the
 frame owner. Events and diagnostics describe that same accepted publication.
 
+## Repository roots
+
+| Root | Single owner |
+| --- | --- |
+| `src/` | shipped product and package surface |
+| `contracts/` | authored semantics, schemas, fixtures, and promoted qualification evidence |
+| `examples/` | packed public consumer examples |
+| `lab/` | interactive browser application for contract and manual journeys |
+| `performance/` | benchmark pages, workloads, protocols, and runners |
+| `verification/` | reusable contract evaluators, browser policy, and deterministic scenarios |
+| `scripts/` | repository command entrypoints and orchestration only |
+| `tests/` | automated checks grouped by owning boundary |
+| `.artifacts/` | ignored, reproducible Lab builds and candidate measurements |
+
+The package name is not repeated below these roots. Product imports no tooling;
+verification imports no Lab, performance, scripts, or tests; performance imports no Lab or scripts; Lab imports no scripts. The boundary test enforces this.
+
 ## Ownership map
 
 | Owner | Owns | Does not own |
@@ -57,6 +74,8 @@ frame owner. Events and diagnostics describe that same accepted publication.
    boundary.
 8. The production import graph remains acyclic. Enforce this with
    `architecture-import-graph.test.ts`.
+9. Shared verification logic belongs in `verification/`; `scripts/` owns only
+   commands that compose existing owners.
 
 ## Resource and performance invariants
 
@@ -67,5 +86,4 @@ frame owner. Events and diagnostics describe that same accepted publication.
   destroy.
 - Listener and resource activation is reversible until publication succeeds;
   teardown is idempotent.
-- Capture uses the authoritative canvas and published tuple, and defers resize
-  through its owning coordinator while readback is active.
+- Capture uses the authoritative canvas and defers resize while readback is active.

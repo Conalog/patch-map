@@ -68,7 +68,7 @@ owned by [`presentation.md`](presentation.md) and
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| public lowering and batch validation | [`developer-api/mutations.ts`](../../src/patch-map/developer-api/mutations.ts) | [`engine-update-transactions.test.ts`](../../tests/patch-map/engine-update-transactions.test.ts) |
-| authored commit ordering and atomicity | [`transaction-commit-coordinator.ts`](../../src/patch-map/engine/transaction-commit-coordinator.ts) | [`engine-semantic-mutation.test.ts`](../../tests/patch-map/engine-semantic-mutation.test.ts) |
-| history cursor and companion state | [`history-application-coordinator.ts`](../../src/patch-map/engine/history-application-coordinator.ts) | [`engine-history-integration.test.ts`](../../tests/patch-map/engine-history-integration.test.ts) |
-| refusal and reentrancy | [`operation-outcomes.ts`](../../src/patch-map/engine/operation-outcomes.ts) | [`engine-reentrancy-lifecycle.test.ts`](../../tests/patch-map/engine-reentrancy-lifecycle.test.ts) |
+| public lowering and batch validation | [`developer-api/mutations.ts`](../../src/patch-map/developer-api/mutations.ts) | [`engine-update-transactions.test.ts`](../../tests/engine/engine-update-transactions.test.ts) |
+| authored commit ordering and atomicity | [`transaction-commit-coordinator.ts`](../../src/patch-map/engine/transaction-commit-coordinator.ts) | [`engine-semantic-mutation.test.ts`](../../tests/engine/engine-semantic-mutation.test.ts) |
+| history cursor and companion state | [`history-application-coordinator.ts`](../../src/patch-map/engine/history-application-coordinator.ts) | [`engine-history-integration.test.ts`](../../tests/engine/engine-history-integration.test.ts) |
+| refusal and reentrancy | [`operation-outcomes.ts`](../../src/patch-map/engine/operation-outcomes.ts) | [`engine-reentrancy-lifecycle.test.ts`](../../tests/engine/engine-reentrancy-lifecycle.test.ts) |

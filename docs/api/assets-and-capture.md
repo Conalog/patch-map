@@ -57,9 +57,9 @@ the latest deferred size is applied before the frame loop resumes. The result is
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| admission policy | [`ingestion-policy.ts`](../../src/patch-map/assets/ingestion-policy.ts) | [`asset-ingestion-policy.test.ts`](../../tests/patch-map/asset-ingestion-policy.test.ts) |
-| sessions, leases, and cleanup | [`asset-session-authority.ts`](../../src/patch-map/engine/asset-session-authority.ts) | [`engine-asset-lifecycle.test.ts`](../../tests/patch-map/engine-asset-lifecycle.test.ts) |
-| built-in image projection | [`builtin-image-glyphs.ts`](../../src/patch-map/assets/builtin-image-glyphs.ts) | [`component-assets-product.test.ts`](../../tests/patch-map/component-assets-product.test.ts) |
-| font leases and first-frame readiness | [`builtin-font-payload.ts`](../../src/patch-map/assets/builtin-font-payload.ts) | [`asset-registry.test.ts`](../../tests/patch-map/asset-registry.test.ts) |
-| capture queue, freshness, resize, cleanup | [`capture-extraction-authority.ts`](../../src/patch-map/engine/capture-extraction-authority.ts) | [`engine-capture-extraction-authority.test.ts`](../../tests/patch-map/engine-capture-extraction-authority.test.ts) |
-| extraction security and PNG result | [`extraction-security-authority.ts`](../../src/patch-map/operations/extraction-security-authority.ts) | [`engine-extraction.test.ts`](../../tests/patch-map/engine-extraction.test.ts) |
+| admission policy | [`ingestion-policy.ts`](../../src/patch-map/assets/ingestion-policy.ts) | [`asset-ingestion-policy.test.ts`](../../tests/rendering/asset-ingestion-policy.test.ts) |
+| sessions, leases, and cleanup | [`asset-session-authority.ts`](../../src/patch-map/engine/asset-session-authority.ts) | [`engine-asset-lifecycle.test.ts`](../../tests/engine/engine-asset-lifecycle.test.ts) |
+| built-in image projection | [`builtin-image-glyphs.ts`](../../src/patch-map/assets/builtin-image-glyphs.ts) | [`component-assets-product.test.ts`](../../tests/rendering/component-assets-product.test.ts) |
+| font leases and first-frame readiness | [`builtin-font-payload.ts`](../../src/patch-map/assets/builtin-font-payload.ts) | [`asset-registry.test.ts`](../../tests/rendering/asset-registry.test.ts) |
+| capture queue, freshness, resize, cleanup | [`capture-extraction-authority.ts`](../../src/patch-map/engine/capture-extraction-authority.ts) | [`engine-capture-extraction-authority.test.ts`](../../tests/engine/engine-capture-extraction-authority.test.ts) |
+| extraction security and PNG result | [`extraction-security-authority.ts`](../../src/patch-map/operations/extraction-security-authority.ts) | [`engine-extraction.test.ts`](../../tests/engine/engine-extraction.test.ts) |

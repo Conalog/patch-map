@@ -19,8 +19,8 @@ repeat feature contracts.
 | Audit packaged font bytes, provenance, or license | [Packaged fonts](assets/fonts.md) |
 | Integrate PatchMap into a host application | [Host integration](integration/host.md) |
 | Check supported runtimes and release policy | [Compatibility](compatibility.md) |
-| Inspect exact product semantics and executable scenarios | [PatchMap contract](../contracts/patch-map/README.md) |
+| Inspect exact product semantics and executable scenarios | [PatchMap contract](../contracts/README.md) |
 
-Runnable examples live in [`examples/patch-map/`](../examples/patch-map/).
+Runnable examples live in [`examples/`](../examples/).
 Exact TypeScript shapes are exported by `@conalog/patch-map`; these pages own
 behavior, state ordering, failure meaning, and the shortest route to evidence.

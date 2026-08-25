@@ -58,8 +58,8 @@ are owned by [`viewport-and-transform.md`](viewport-and-transform.md).
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| coordinator lifecycle and dispatch order | [`pointer-interaction-coordinator.ts`](../../src/patch-map/engine/pointer-interaction-coordinator.ts) | [`pointer-interaction-coordinator.test.ts`](../../tests/patch-map/pointer-interaction-coordinator.test.ts) |
-| slop, capture, click/drag arbitration | [`pointer-gesture`](../../src/patch-map/pointer-gesture) | [`pointer-gesture.test.ts`](../../tests/patch-map/pointer-gesture.test.ts) |
-| logical selection and resolver behavior | [`query-selection`](../../src/patch-map/query-selection) | [`query-selection.test.ts`](../../tests/patch-map/query-selection.test.ts) |
-| root event integration | [`host-interaction.ts`](../../src/patch-map/host-interaction.ts) | [`host-interaction.test.ts`](../../tests/patch-map/host-interaction.test.ts) |
-| persistent and marquee paint bounds | [`interaction-overlay-authority.ts`](../../src/patch-map/renderers/pixi-renderer/interaction-overlay-authority.ts) | [`selection-paint-bounds.test.ts`](../../tests/patch-map/selection-paint-bounds.test.ts) |
+| coordinator lifecycle and dispatch order | [`pointer-interaction-coordinator.ts`](../../src/patch-map/engine/pointer-interaction-coordinator.ts) | [`pointer-interaction-coordinator.test.ts`](../../tests/engine/pointer-interaction-coordinator.test.ts) |
+| slop, capture, click/drag arbitration | [`pointer-gesture`](../../src/patch-map/pointer-gesture) | [`pointer-gesture.test.ts`](../../tests/semantic/pointer-gesture.test.ts) |
+| logical selection and resolver behavior | [`query-selection`](../../src/patch-map/query-selection) | [`query-selection.test.ts`](../../tests/semantic/query-selection.test.ts) |
+| root event integration | [`host-interaction.ts`](../../src/patch-map/host-interaction.ts) | [`host-interaction.test.ts`](../../tests/integration/host-interaction.test.ts) |
+| persistent and marquee paint bounds | [`interaction-overlay-authority.ts`](../../src/patch-map/renderers/pixi-renderer/interaction-overlay-authority.ts) | [`selection-paint-bounds.test.ts`](../../tests/semantic/selection-paint-bounds.test.ts) |

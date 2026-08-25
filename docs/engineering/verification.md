@@ -6,7 +6,7 @@ development; final gates prove the affected boundary and its integration.
 ## Fast path
 
 ```bash
-npx vitest run tests/patch-map/<focused>.test.ts --maxWorkers=2
+npx vitest run tests/<owner>/<focused>.test.ts --maxWorkers=2
 npm run typecheck
 npm run lint
 ```
@@ -44,15 +44,14 @@ npm run verify:memory
 
 - Treat refactors as no-regression work until comparable measurements prove an
   improvement.
-- Use the matching workload under `performance/patch-map/` or
+- Use the matching workload under `performance/` or
   `scripts/verification/patch-map-*-performance.mjs`.
 - Hold workload, environment, cache state, sampling, and concurrency constant.
 - Preserve slow samples and failed trials. Do not relax a budget after seeing a
   result.
 - Use `npm run verify:memory` for renderer, capture, asset, listener, and destroy
   ownership changes even when throughput improves.
-- Exploratory results belong under ignored `.perf-results/`. Promote evidence
-  only through the repository's review process.
+- Put exploratory results under ignored `.artifacts/performance/`; promote only reviewed evidence.
 
 ## Documentation policy
 
@@ -79,12 +78,13 @@ npm run verify:memory
 ## Evidence policy
 
 - Authored fixtures, normalized expectations, generated manifests, browser
-  output, and performance results have distinct owners.
+  output, and performance results have distinct owners. Promoted qualification
+  evidence belongs under `contracts/evidence/qualification/`; candidates and
+  Lab builds belong only under `.artifacts/`.
 - Never edit generated or digest-bound evidence to make a gate pass. Change the
   authored input, regenerate, then review the resulting diff.
 - Keep artifact identity, environment, workload, and command provenance with
   retained evidence.
 - A browser or operating-system limitation is an environment result, not a
   product pass or failure. Report it separately.
-- Do not claim completion while required evidence is missing, stale, or produced
-  from a different package artifact.
+- Do not claim completion for missing, stale, or mismatched evidence.

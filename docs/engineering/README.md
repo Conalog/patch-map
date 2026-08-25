@@ -8,7 +8,7 @@ directory owns internal structure and engineering policy.
 
 1. Find the feature row in [System map](system-map.md).
 2. When behavior or failure meaning is exact, follow the
-   [PatchMap contract router](../../contracts/patch-map/README.md) to its owning
+   [PatchMap contract router](../../contracts/README.md) to its owning
    schema or executable scenario.
 3. Read the owning source before its callers. Keep state with the named
    authority or coordinator.
