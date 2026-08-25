@@ -112,12 +112,7 @@ The full record is copied and preserved, while these keys additionally affect vi
 | `skew` | finite scalar or strict `{x,y}` | scalar expands to equal axes |
 | `pivot` | finite scalar or strict `{x,y}` | scalar expands to equal axes |
 | `alpha` | finite `0..1` | default render value `1` |
-| `zIndex` | finite number | default render value `0`; resolved only among siblings owned by the same element/item; equal values keep authored sibling order |
-
-For an item component, `attrs.zIndex` is local to that item's component stack. For an
-item, grid, group, or standalone element, `attrs.zIndex` places the complete element
-unit among siblings in its owning array. Descendant/component values never participate
-in another sibling unit's stacking comparison.
+| `zIndex` | finite number | default render value `0`; equal values keep sibling order |
 
 An invalid recognized visual key rejects the enclosing operation with its `attrs`
 path; it is not preserved as inert metadata. `null`, incomplete `{x,y}`, and non-finite

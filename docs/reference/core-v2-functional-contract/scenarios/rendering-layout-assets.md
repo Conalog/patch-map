@@ -156,7 +156,7 @@
 - **User goal:** Keep backgrounds, equipment, relations, aggregate content, selection overlays, and editing handles in the intended visual order.
 - **Given:** Nested elements with equal and different stacking values and runtime source/visibility changes.
 - **When:** The scene draws, updates, redraws, or restores history.
-- **Then:** Higher stacking values render above lower siblings and equal values preserve stable authored sibling order. Each item (including a grid-cell item) and group is an atomic stacking unit; component stacking is resolved only inside its owning item. Relations keep their declared element order, selection remains above scene paint, transformer remains above selection, and optimized rendering paths do not change public order.
+- **Then:** Higher stacking values render above lower ones; equal values preserve stable sibling order; overlays remain usable; optimized rendering paths do not change public order.
 - **Lab:** `layout/stacking` uses overlapping color-coded objects with order mutation controls.
 
 ## LAY-004 — Keep content readable or follow its item

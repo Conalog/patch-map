@@ -54,7 +54,8 @@ fails atomically; neither field silently wins.
 
 A group owns an ordered `children` array and applies its transform, visibility, and
 interaction lock to the descendant hierarchy. Empty groups remain valid hierarchy
-nodes but contribute no visible geometry.
+nodes but contribute no visible geometry. The group is one stacking unit among its
+parent's children; descendant `zIndex` values are resolved only inside the group.
 
 ### Grid
 
@@ -69,6 +70,9 @@ A grid materializes an item template over a two-dimensional `cells` matrix.
 - `gap` accepts one number or `{ x, y }`.
 - `item.size` is required.
 - `item.components`, `item.padding`, and `item.contentOrientation` apply to every cell.
+
+The grid is one stacking unit among its element siblings. Each materialized cell is an
+item whose component stacking remains local to that cell.
 
 ### Item
 
@@ -88,7 +92,8 @@ stroke fields in the shared style table below. An omitted relation
 style resolves to a black stroke with PixiJS v8 public defaults: width `1`, cap `butt`,
 join `miter`, miter limit `10`, alignment `0.5`, and `pixelLine=false`. Link geometry
 follows endpoint movement, hierarchy transforms, viewport orientation, redraw, and
-history.
+history. The relations element keeps its authored sibling position; links preserve
+their authored order inside it.
 
 ### Image
 
