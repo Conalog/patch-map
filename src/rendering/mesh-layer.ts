@@ -664,7 +664,6 @@ export class AggregateMeshLayer {
     this.#lastRevision = store.revision;
     if (this.#applyStoreView) this.setView(store.view);
 
-    let meshCount = 0;
     let backgroundMeshCount = 0;
     let backgroundGraphicsObjectCount = 0;
     let ordinaryMeshCount = 0;
@@ -688,7 +687,7 @@ export class AggregateMeshLayer {
       visibleQuads += chunk.visibleBackgrounds + chunk.visibleRects + chunk.visibleBars;
       visibleRelations += chunk.visibleRelations;
     }
-    meshCount =
+    const meshCount =
       backgroundMeshCount +
       backgroundGraphicsObjectCount +
       ordinaryMeshCount +

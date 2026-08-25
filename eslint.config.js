@@ -30,11 +30,6 @@ export default defineConfig(
     },
     rules: {
       'no-undef': 'off',
-      // ESLint 10 added these rules to the recommended JavaScript preset as
-      // well. Keep the same ownership/state-machine contract as the typed
-      // sources instead of forcing unrelated verification rewrites.
-      'no-useless-assignment': 'off',
-      'preserve-caught-error': 'off',
       'no-unused-vars': [
         'error',
         {
@@ -77,11 +72,6 @@ export default defineConfig(
     },
     rules: {
       'no-undef': 'off',
-      // ESLint 10 and typescript-eslint 8.65 added these to their recommended
-      // presets. Keep the repository's pre-upgrade lint contract stable; the
-      // frozen baselines must not be mechanically rewritten by a tool update.
-      'no-useless-assignment': 'off',
-      'preserve-caught-error': 'off',
       '@typescript-eslint/consistent-type-imports': [
         'error',
         { prefer: 'type-imports' },

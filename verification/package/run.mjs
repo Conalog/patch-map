@@ -247,7 +247,7 @@ async function auditDependencyLock(directory) {
       severityCounts: null,
     });
   }
-  let stdout = '';
+  let stdout;
   try {
     stdout = (await execute(
       'npm',

@@ -192,7 +192,7 @@ export class PatchMapDirectMutationCoordinator {
       componentSemantics,
       textSemantics,
     });
-    let reconcileBaseRevisions = previousRevisions;
+    let reconcileBaseRevisions: PatchMapRevisionStamp;
     let reconcile: PatchMapSurfaceReconcileResult;
     try {
       this.port.cancelActiveTransformer();
@@ -365,7 +365,7 @@ export class PatchMapDirectMutationCoordinator {
       textSemantics,
       selectionIds: selectionAfter,
     });
-    let reconcileBaseRevisions = previousRevisions;
+    let reconcileBaseRevisions: PatchMapRevisionStamp;
     let reconcile: PatchMapSurfaceReconcileResult;
     try {
       this.port.cancelActiveTransformer();

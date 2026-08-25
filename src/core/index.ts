@@ -598,6 +598,7 @@ export class PatchMapRuntime {
         throw new AggregateError(
           [error, rollbackError],
           'world transform and renderer-orientation rollback both failed',
+          { cause: rollbackError },
         );
       }
       throw error;

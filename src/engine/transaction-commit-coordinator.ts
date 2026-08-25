@@ -314,9 +314,8 @@ export class PatchMapTransactionCommitCoordinator {
       textSemantics,
       selectionIds: selectionAfter,
     });
-    let reconcileStarted = 0;
-    let reconcileCompleted = 0;
-    let reconcileBaseRevisions = previousRevisions;
+    let reconcileStarted: number;
+    let reconcileBaseRevisions: PatchMapRevisionStamp;
     let reconcile: PatchMapSurfaceReconcileResult;
     if (!this.surfaceMutationGuard.mutationCurrent(surface, previousRevisions)) {
       if (preparedHistory !== null) this.history.cancelPrepared(preparedHistory);
@@ -386,7 +385,7 @@ export class PatchMapTransactionCommitCoordinator {
         EMPTY_PATCH_MAP_RECONCILE_DIAGNOSTICS,
       );
     }
-    reconcileCompleted = this.port.now();
+    const reconcileCompleted = this.port.now();
 
     if (
       !this.surfaceMutationGuard.mutationCurrent(surface, reconcileBaseRevisions) ||
