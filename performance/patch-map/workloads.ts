@@ -2,7 +2,7 @@ import type { MapData } from '../../src/patch-map/input';
 import type { PatchMapBitmapTextCapabilityRequest } from '../../src/patch-map/renderers/leaf-layer';
 import type { PatchMapBitmapTextCapabilityProof } from '../../src/patch-map/semantic/text-render-route';
 
-export const PATCH_MAP_SYNTHETIC_ASSET_ALIAS = 'core-v2-synthetic-dot';
+export const PATCH_MAP_SYNTHETIC_ASSET_ALIAS = 'patch-map-synthetic-dot';
 export const PATCH_MAP_SYNTHETIC_ASSET_DATA_URL =
   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="8" height="8"%3E%3Ccircle cx="4" cy="4" r="3" fill="white"/%3E%3C/svg%3E';
 
@@ -30,7 +30,7 @@ export function resolveSyntheticBitmapTextCapability(
   }
   return Object.freeze({
     coverage: 'proven',
-    atlasId: 'core-v2-benchmark-unifont-ascii-11-600',
+    atlasId: 'patch-map-benchmark-unifont-ascii-11-600',
     glyphs: PATCH_MAP_SYNTHETIC_BITMAP_GLYPHS,
     style: Object.freeze({
       fontFamily: style.fontFamily,

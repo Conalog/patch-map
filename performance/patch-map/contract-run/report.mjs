@@ -15,7 +15,7 @@ import {
 } from './protocol.mjs';
 
 const MANIFEST_PATH = fileURLToPath(new URL(
-  '../../../docs/reference/core-v2-functional-contract/evidence/catalog-evidence-manifest.v1.json',
+  '../../../contracts/patch-map/evidence/catalog-evidence-manifest.v1.json',
   import.meta.url,
 ));
 function percentile(values, quantile) {
@@ -167,7 +167,7 @@ export async function summarizeEvidence(raw, runInfo) {
   );
   const browserErrorCount = runInfo.browserErrorCount;
   return {
-    revision: 'core-v2-contract-performance-evidence/1',
+    revision: 'patch-map-contract-performance-evidence/1',
     status:
       browserErrorCount === 0 && lifecycleFailures === 0
         ? 'complete'

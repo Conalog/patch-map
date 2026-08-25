@@ -48,7 +48,7 @@ async function main() {
     const smokeTrial = smokeRun?.measuredRaw[0];
     assert(smokeRun !== undefined && smokeTrial !== undefined, 'smoke measured trial');
     process.stdout.write(
-      `[core-v2-contract-perf] smoke metrics ${JSON.stringify({
+      `[patch-map-contract-perf] smoke metrics ${JSON.stringify({
         size: smokeRun.size,
         phases: smokeTrial.phases,
         visible: smokeTrial.visible,
@@ -56,7 +56,7 @@ async function main() {
       })}\n`,
     );
     process.stdout.write(
-      '[core-v2-contract-perf] smoke passed; browser errors 0; lifecycle failures 0\n',
+      '[patch-map-contract-perf] smoke passed; browser errors 0; lifecycle failures 0\n',
     );
     return;
   }
@@ -93,10 +93,10 @@ async function main() {
     `${JSON.stringify(summary, null, 2)}\n`,
   );
   process.stdout.write(
-    `[core-v2-contract-perf] wrote ${rawFilename} (${rawDigest})\n`,
+    `[patch-map-contract-perf] wrote ${rawFilename} (${rawDigest})\n`,
   );
   process.stdout.write(
-    `[core-v2-contract-perf] browser errors ${browserErrorCount}; `
+    `[patch-map-contract-perf] browser errors ${browserErrorCount}; `
       + `contract status ${summary.status}\n`,
   );
 }

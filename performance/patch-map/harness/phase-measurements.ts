@@ -118,7 +118,7 @@ export function measureFirstText(
   core: PatchMapRuntime,
   seed: number,
 ): { readonly entityId: string; readonly renderedCount: number; readonly phase: SplitPhase } {
-  const entityId = `__core_v2_benchmark_cjk_${seed}`;
+  const entityId = `__patch_map_benchmark_cjk_${seed}`;
   const started = performance.now();
   const commitStarted = performance.now();
   const committed = core.commit({
@@ -167,7 +167,7 @@ export function measureRandomText(
     updates[entity.id] = `v2-${seed}-${ordinal}`;
     ordinal += 1;
   }
-  // Production v0.10 currently contains no source text. Always mutate the
+  // The current production dataset contains no source text. Always mutate the
   // freshly inserted CJK fallback so this phase can never become a no-op.
   updates[requiredEntityId] = `변경 ${seed}`;
   const started = performance.now();

@@ -61,13 +61,13 @@ export async function executeContractBrowserRun(root, options) {
     const runs = [];
     for (const size of options.runSizes) {
       process.stdout.write(
-        `[core-v2-contract-perf] ${String(size)}: `
+        `[patch-map-contract-perf] ${String(size)}: `
           + `${options.runWarmups}+${options.runMeasured}\n`,
       );
       runs.push(await runHarness(page, size, options.smoke));
     }
     return {
-      revision: 'core-v2-contract-performance-raw/1',
+      revision: 'patch-map-contract-performance-raw/1',
       generatedAt: new Date().toISOString(),
       codeCommit: options.codeCommit,
       protocol: {

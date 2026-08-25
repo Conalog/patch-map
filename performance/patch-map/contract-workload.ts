@@ -1,5 +1,5 @@
 export const PATCH_MAP_CONTRACT_PERFORMANCE_WORKLOAD_REVISION =
-  'core-v2-contract-performance-workload/1' as const;
+  'patch-map-contract-performance-workload/1' as const;
 export const PATCH_MAP_CONTRACT_PERFORMANCE_WARMUPS = 2;
 export const PATCH_MAP_CONTRACT_PERFORMANCE_SAMPLES = 7;
 

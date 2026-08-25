@@ -17,7 +17,7 @@ const LATEST_RAW_PATH = path.join(
 );
 const MANIFEST_PATH = path.join(
   ROOT,
-  'docs/reference/core-v2-functional-contract/evidence/catalog-evidence-manifest.v1.json',
+  'contracts/patch-map/evidence/catalog-evidence-manifest.v1.json',
 );
 const SIZES = Object.freeze([
   100,
@@ -37,9 +37,10 @@ const CASE_IDS = Object.freeze([
   'PRF-009',
 ]);
 const PRODUCTION_DATASET_SHA256 =
-  '4bc16c65500b4f305114162fdc4472b45997eea7498020496072ca0b741e95c3';
+  'e9d91e96f239663a88f54ce54a8dcb933f813d5b156d734a99c20d1ae2a749fa';
 
 async function main() {
+  const requireReleaseQualification = process.argv.includes('--require-release');
   const summary = JSON.parse(await readFile(SUMMARY_PATH, 'utf8'));
   const rawPath = path.join(
     path.dirname(LATEST_RAW_PATH),
@@ -54,9 +55,9 @@ async function main() {
   const manifest = JSON.parse(manifestText);
   const rawDigest = createHash('sha256').update(rawText).digest('hex');
 
-  assert(summary.revision === 'core-v2-contract-performance-evidence/1', 'summary revision');
+  assert(summary.revision === 'patch-map-contract-performance-evidence/1', 'summary revision');
   assert(summary.status === 'complete', 'summary completion status');
-  assert(raw.revision === 'core-v2-contract-performance-raw/1', 'raw revision');
+  assert(raw.revision === 'patch-map-contract-performance-raw/1', 'raw revision');
   assert(rawDigest === summary.rawArtifact.sha256, 'raw artifact digest');
   assert(rawDigest === summary.provenance.rawArtifactSha256, 'provenance raw digest');
   assert(latestText === rawText, 'latest raw byte identity');
@@ -64,9 +65,17 @@ async function main() {
   assert(summary.provenance.expectedEvidenceBound === true, 'expected evidence binding');
   assert(summary.environment.contractProfileBound === true, 'contract profile binding');
   assert(summary.environment.backend === 'webgl2', 'summary WebGL2 backend');
-  assert(summary.environment.actualMode === 'headless', 'headless checkpoint mode');
-  assert(summary.environment.headedReleaseStatus === 'pending', 'headed release pending');
-  assert(summary.environment.windowsNative === 'pending', 'Windows native pending');
+  assert(['headless', 'headed'].includes(summary.environment.actualMode), 'known browser mode');
+  assert(['pending', 'passed'].includes(summary.environment.headedReleaseStatus), 'headed release status');
+  assert(['pending', 'passed'].includes(summary.environment.windowsNative), 'Windows native status');
+  if (summary.environment.actualMode === 'headless') {
+    assert(summary.environment.headedReleaseStatus === 'pending', 'headless checkpoint is not release qualification');
+  }
+  if (requireReleaseQualification) {
+    assert(summary.environment.actualMode === 'headed', 'headed release evidence');
+    assert(summary.environment.headedReleaseStatus === 'passed', 'headed release qualification');
+    assert(summary.environment.windowsNative === 'passed', 'Windows native qualification');
+  }
   assert(summary.browser.errorCount === 0, 'browser error count');
   assert(summary.browser.lifecycleFailureCount === 0, 'lifecycle failure count');
   assert(raw.browser.consoleErrors.length === 0, 'raw console errors');

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-29T13:55:20.858Z",
-  "package": "@conalog/patch-map/core-v2",
+  "generatedAt": "2026-08-25T05:41:52.955Z",
+  "package": "@conalog/patch-map",
   "pixi": "8.19.0",
   "provenance": {
-    "codeCommit": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
-    "packedPackageSha256": "6aa7c9a109386616feef93d174d62051c7637d5b1523a4b63c89e24d24a9e03e",
+    "codeCommit": "caf4d27e701a97d0ff118369f63e1dd6a13a6b18",
+    "packedPackageSha256": "eb2c0a706bcfee0cf2e3559d637ef8b9838117b003886c457adaa023383f7218",
     "expectedEvidenceBound": true
   },
   "environment": {
@@ -13,58 +13,67 @@
     "contractProfileBound": true,
     "strictTypeScript": true,
     "offlineInstall": true,
+    "installMode": "npm-offline-cache",
     "productionBundler": "vite"
   },
   "artifact": {
-    "sha256": "6aa7c9a109386616feef93d174d62051c7637d5b1523a4b63c89e24d24a9e03e",
-    "filename": "conalog-patch-map-0.10.0.tgz",
-    "size": 1132990,
-    "unpackedSize": 3972261,
-    "fileCount": 115,
+    "sha256": "eb2c0a706bcfee0cf2e3559d637ef8b9838117b003886c457adaa023383f7218",
+    "filename": "conalog-patch-map-1.0.0-alpha.2.tgz",
+    "size": 1847197,
+    "unpackedSize": 4732960,
+    "fileCount": 272,
     "sourceMapCount": 0,
     "sourceMaps": [],
     "restrictedEvidenceCount": 0,
     "restrictedEvidence": [],
     "publicDocs": [
-      "docs/core-v2/README.md",
-      "docs/core-v2/api-and-dataset.md",
-      "docs/core-v2/host-integration.md",
-      "docs/core-v2/migration.md",
-      "docs/core-v2/compatibility.md",
-      "docs/core-v2/troubleshooting.md",
-      "docs/core-v2/CHANGELOG.md"
+      "docs/README.md",
+      "docs/getting-started.md",
+      "docs/api/data-and-targets.md",
+      "docs/api/mutations-and-history.md",
+      "docs/api/pointer-and-selection.md",
+      "docs/api/viewport-and-transform.md",
+      "docs/api/presentation.md",
+      "docs/api/assets-and-capture.md",
+      "docs/api/text.md",
+      "docs/integration/host.md",
+      "docs/compatibility.md",
+      "docs/assets/fonts.md",
+      "docs/assets/fira-code-6.2-license.txt"
     ],
     "publicExamples": [
-      "examples/core-v2/host-adapter.ts",
-      "examples/core-v2/minimal.ts",
-      "examples/core-v2/dashboard.ts",
-      "examples/core-v2/editor.ts",
-      "examples/core-v2/report.ts"
+      "examples/patch-map/host-adapter.ts",
+      "examples/patch-map/minimal.ts",
+      "examples/patch-map/dashboard.ts",
+      "examples/patch-map/editor.ts",
+      "examples/patch-map/report.ts",
+      "examples/patch-map/presentation.ts"
     ],
     "missingDocs": [],
+    "unexpectedDocs": [],
     "missingExamples": [],
     "prohibitedEntryCount": 0,
     "prohibitedEntries": []
   },
   "supplyChain": {
     "schemaVersion": 1,
-    "sourceRevision": "8d285dbf738f27fb36ae9bd96492210dd515cb81",
+    "sourceRevision": "caf4d27e701a97d0ff118369f63e1dd6a13a6b18",
     "builds": [
       {
         "index": 0,
-        "sha256": "6aa7c9a109386616feef93d174d62051c7637d5b1523a4b63c89e24d24a9e03e",
-        "filename": "conalog-patch-map-0.10.0.tgz",
-        "size": 1132990,
-        "unpackedSize": 3972261,
-        "fileCount": 115
+        "sha256": "eb2c0a706bcfee0cf2e3559d637ef8b9838117b003886c457adaa023383f7218",
+        "filename": "conalog-patch-map-1.0.0-alpha.2.tgz",
+        "size": 1847197,
+        "unpackedSize": 4732960,
+        "fileCount": 272
       },
       {
         "index": 1,
-        "sha256": "6aa7c9a109386616feef93d174d62051c7637d5b1523a4b63c89e24d24a9e03e",
-        "filename": "conalog-patch-map-0.10.0.tgz",
-        "size": 1132990,
-        "unpackedSize": 3972261,
-        "fileCount": 115
+        "sha256": "eb2c0a706bcfee0cf2e3559d637ef8b9838117b003886c457adaa023383f7218",
+        "filename": "conalog-patch-map-1.0.0-alpha.2.tgz",
+        "size": 1847197,
+        "unpackedSize": 4732960,
+        "fileCount": 272
       }
     ],
     "reproducible": true,
@@ -75,6 +84,7 @@
       "restrictedEvidenceCount": 0
     },
     "audit": {
+      "status": "observed",
       "auditLevel": "low",
       "knownVulnerabilityCount": 0,
       "severityCounts": {
@@ -95,10 +105,10 @@
         "MIT",
         "Python-2.0"
       ],
-      "packageCount": 198,
+      "packageCount": 192,
       "unapprovedLicenseCount": 0,
       "licenseCounts": {
-        "MIT": 163,
+        "MIT": 157,
         "Apache-2.0": 16,
         "BSD-3-Clause": 4,
         "ISC": 8,
@@ -107,9 +117,9 @@
       }
     },
     "sbom": {
-      "format": "core-v2-spdx-lite/1",
-      "packageDigest": "6aa7c9a109386616feef93d174d62051c7637d5b1523a4b63c89e24d24a9e03e",
-      "packageCount": 198,
+      "format": "patch-map-spdx-lite/1",
+      "packageDigest": "eb2c0a706bcfee0cf2e3559d637ef8b9838117b003886c457adaa023383f7218",
+      "packageCount": 192,
       "packages": [
         {
           "name": "@esbuild/aix-ppc64",
@@ -348,18 +358,6 @@
         {
           "name": "@jridgewell/sourcemap-codec",
           "version": "1.5.5",
-          "license": "MIT",
-          "direct": false
-        },
-        {
-          "name": "@jsep-plugin/assignment",
-          "version": "1.3.0",
-          "license": "MIT",
-          "direct": false
-        },
-        {
-          "name": "@jsep-plugin/regex",
-          "version": "1.0.4",
           "license": "MIT",
           "direct": false
         },
@@ -713,7 +711,7 @@
         },
         {
           "name": "brace-expansion",
-          "version": "5.0.8",
+          "version": "5.0.9",
           "license": "MIT",
           "direct": false
         },
@@ -835,7 +833,7 @@
           "name": "eventemitter3",
           "version": "5.0.1",
           "license": "MIT",
-          "direct": true
+          "direct": false
         },
         {
           "name": "expect-type",
@@ -964,12 +962,6 @@
           "direct": false
         },
         {
-          "name": "jsep",
-          "version": "1.4.0",
-          "license": "MIT",
-          "direct": false
-        },
-        {
           "name": "json-buffer",
           "version": "3.0.1",
           "license": "MIT",
@@ -986,12 +978,6 @@
           "version": "1.0.1",
           "license": "MIT",
           "direct": false
-        },
-        {
-          "name": "jsonpath-plus",
-          "version": "10.4.0",
-          "license": "MIT",
-          "direct": true
         },
         {
           "name": "keyv",
@@ -1031,7 +1017,7 @@
         },
         {
           "name": "nanoid",
-          "version": "3.3.16",
+          "version": "3.3.18",
           "license": "MIT",
           "direct": false
         },
@@ -1102,12 +1088,6 @@
           "direct": false
         },
         {
-          "name": "pixi-viewport",
-          "version": "6.0.3",
-          "license": "MIT",
-          "direct": true
-        },
-        {
           "name": "pixi.js",
           "version": "8.19.0",
           "license": "MIT",
@@ -1127,7 +1107,7 @@
         },
         {
           "name": "postcss",
-          "version": "8.5.22",
+          "version": "8.5.25",
           "license": "MIT",
           "direct": false
         },
@@ -1292,18 +1272,13 @@
           "version": "0.1.0",
           "license": "MIT",
           "direct": false
-        },
-        {
-          "name": "zod",
-          "version": "4.4.3",
-          "license": "MIT",
-          "direct": true
         }
       ]
     },
     "status": "pass"
   },
   "dependencyAudit": {
+    "status": "observed",
     "auditLevel": "low",
     "exitCode": 0,
     "knownVulnerabilityCount": 0,
@@ -1325,11 +1300,11 @@
       "MIT",
       "Python-2.0"
     ],
-    "packageCount": 198,
+    "packageCount": 192,
     "unapprovedLicenseCount": 0,
     "unapproved": [],
     "licenseCounts": {
-      "MIT": 163,
+      "MIT": 157,
       "Apache-2.0": 16,
       "BSD-3-Clause": 4,
       "ISC": 8,
@@ -1574,18 +1549,6 @@
       {
         "name": "@jridgewell/sourcemap-codec",
         "version": "1.5.5",
-        "license": "MIT",
-        "direct": false
-      },
-      {
-        "name": "@jsep-plugin/assignment",
-        "version": "1.3.0",
-        "license": "MIT",
-        "direct": false
-      },
-      {
-        "name": "@jsep-plugin/regex",
-        "version": "1.0.4",
         "license": "MIT",
         "direct": false
       },
@@ -1939,7 +1902,7 @@
       },
       {
         "name": "brace-expansion",
-        "version": "5.0.8",
+        "version": "5.0.9",
         "license": "MIT",
         "direct": false
       },
@@ -2061,7 +2024,7 @@
         "name": "eventemitter3",
         "version": "5.0.1",
         "license": "MIT",
-        "direct": true
+        "direct": false
       },
       {
         "name": "expect-type",
@@ -2190,12 +2153,6 @@
         "direct": false
       },
       {
-        "name": "jsep",
-        "version": "1.4.0",
-        "license": "MIT",
-        "direct": false
-      },
-      {
         "name": "json-buffer",
         "version": "3.0.1",
         "license": "MIT",
@@ -2212,12 +2169,6 @@
         "version": "1.0.1",
         "license": "MIT",
         "direct": false
-      },
-      {
-        "name": "jsonpath-plus",
-        "version": "10.4.0",
-        "license": "MIT",
-        "direct": true
       },
       {
         "name": "keyv",
@@ -2257,7 +2208,7 @@
       },
       {
         "name": "nanoid",
-        "version": "3.3.16",
+        "version": "3.3.18",
         "license": "MIT",
         "direct": false
       },
@@ -2328,12 +2279,6 @@
         "direct": false
       },
       {
-        "name": "pixi-viewport",
-        "version": "6.0.3",
-        "license": "MIT",
-        "direct": true
-      },
-      {
         "name": "pixi.js",
         "version": "8.19.0",
         "license": "MIT",
@@ -2353,7 +2298,7 @@
       },
       {
         "name": "postcss",
-        "version": "8.5.22",
+        "version": "8.5.25",
         "license": "MIT",
         "direct": false
       },
@@ -2518,12 +2463,6 @@
         "version": "0.1.0",
         "license": "MIT",
         "direct": false
-      },
-      {
-        "name": "zod",
-        "version": "4.4.3",
-        "license": "MIT",
-        "direct": true
       }
     ]
   },
@@ -2548,25 +2487,23 @@
   },
   "packageBoundary": {
     "production": {
-      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-core-v2-package-jhwLr0/consumer/node_modules/@conalog/patch-map/dist/core-v2.js",
-      "resolutionCount": 14,
-      "sourceImportResolutionCount": 14,
+      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-package-AqXyrx/consumer/node_modules/@conalog/patch-map/dist/index.js",
+      "resolutionCount": 13,
+      "sourceImportResolutionCount": 13,
       "packageImportResolutionCount": 0
     },
     "browser": {
-      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-core-v2-package-jhwLr0/consumer/node_modules/@conalog/patch-map/dist/core-v2.js",
+      "packedEntry": "/var/folders/wv/2zqlsrz10lv73mczw_5wsm8w0000gn/T/patch-map-package-AqXyrx/consumer/node_modules/@conalog/patch-map/dist/index.js",
       "resolutionCount": 0,
       "sourceImportResolutionCount": 0,
       "packageImportResolutionCount": 0
     }
   },
   "hostAdapterAudit": {
-    "filename": "examples/core-v2/host-adapter.ts",
+    "filename": "examples/patch-map/host-adapter.ts",
     "imports": [
-      "@conalog/patch-map/core-v2"
+      "@conalog/patch-map"
     ],
-    "originalImportCount": 0,
-    "originalImports": [],
     "restrictedImportCount": 0,
     "restrictedImports": [],
     "missingDelegations": [],
@@ -2605,7 +2542,7 @@
         "result": {
           "example": "dashboard",
           "updateStatus": "committed",
-          "barHeight": null,
+          "barHeight": 72,
           "canvasCountAfterDestroy": 0
         }
       },
@@ -2619,7 +2556,7 @@
           ],
           "transformStatus": "committed",
           "undoStatus": "committed",
-          "selectionPublicationCount": 0,
+          "selectionPublicationCount": 1,
           "disposedSelectionHosts": 1,
           "canvasCountAfterDestroy": 0
         }
@@ -2652,9 +2589,8 @@
         "extract",
         "destroy"
       ],
-      "originalImportCount": 0,
       "adapterReimplementedEngineBehaviorCount": 0,
-      "selectionPublicationCount": 0,
+      "selectionPublicationCount": 1,
       "invalidNodeCount": 0,
       "staleGestureCount": 0,
       "corruptEntryCount": 0,
@@ -2666,14 +2602,14 @@
     },
     "multipleInstances": {
       "baselineB": {
-        "assetLeaseCount": 1,
+        "assetLeaseCount": 5,
         "sceneSemanticHash": "fnv1a64:b858a777de1619ca"
       },
       "B": {
         "semanticHash": "fnv1a64:b858a777de1619ca",
-        "assetLeaseCount": 1,
+        "assetLeaseCount": 5,
         "callbackCountFromA": 0,
-        "sharedLeaseCount": 1
+        "sharedLeaseCount": 0
       },
       "hostSlots": {
         "A": {
@@ -2683,7 +2619,7 @@
           "canvasCount": 1
         }
       },
-      "sharedLeaseCountAfterRecreate": 2,
+      "sharedLeaseCountAfterRecreate": 0,
       "unclassifiedErrorCount": 0
     },
     "failure": null,
@@ -2733,7 +2669,7 @@
     "journeyCount": 38,
     "passedJourneyCount": 38,
     "failedJourneyCount": 0,
-    "packageDigestAcrossJourneys": "6aa7c9a109386616feef93d174d62051c7637d5b1523a4b63c89e24d24a9e03e",
+    "packageDigestAcrossJourneys": "eb2c0a706bcfee0cf2e3559d637ef8b9838117b003886c457adaa023383f7218",
     "cleanupFailureCount": 0,
     "rows": [
       {
@@ -2746,6 +2682,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2758,6 +2696,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2770,6 +2710,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2782,6 +2724,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2794,6 +2738,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2806,6 +2752,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2818,6 +2766,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2830,6 +2780,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2842,6 +2794,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2854,6 +2808,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2866,6 +2822,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2878,6 +2836,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2890,6 +2850,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2902,6 +2864,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2914,6 +2878,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2926,6 +2892,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2938,6 +2906,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2950,6 +2920,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2962,6 +2934,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2974,6 +2948,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -2986,6 +2962,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3030,6 +3008,8 @@
         ],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3042,6 +3022,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3076,6 +3058,8 @@
         ],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3088,6 +3072,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3100,6 +3086,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3112,6 +3100,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3146,6 +3136,8 @@
         ],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3158,6 +3150,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3212,6 +3206,8 @@
         ],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3224,6 +3220,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3236,6 +3234,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3248,6 +3248,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3260,6 +3262,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3272,6 +3276,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3284,6 +3290,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3296,6 +3304,8 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       },
       {
@@ -3308,445 +3318,1381 @@
         "declaredConflicts": [],
         "exactDeclaredConflicts": true,
         "cleanupFailureCount": 0,
+        "executionCleanupFailureCount": 0,
+        "destroyCleanupFailureCount": 0,
         "digestBound": true
       }
     ]
   },
   "esm": {
     "immutable": true,
-    "hierarchyImmutable": true,
-    "parsedEntities": 4,
-    "loadedEntities": 4,
-    "capturePrefix": "data:image/png;base64,",
-    "captureLength": 9438,
-    "backend": "webgl",
-    "strategy": "mesh",
-    "renderObjects": 4,
-    "canvasCountAfterDestroy": 0,
-    "destroyed": true,
-    "authoringRevision": "core-v2-authoring/1",
-    "transactionRevision": "core-v2-mutation-transaction/1",
-    "commandTargetRevision": "core-v2-command-target/1",
-    "editorMountRevision": "core-v2-editor-mount/1",
-    "hostInteractionRevision": "core-v2-host-interaction/1",
-    "hostTooltipRevision": "core-v2-host-tooltip/1",
-    "migrationRevision": "core-v2-migration/1",
-    "pointerRevision": "core-v2-pointer-gesture/1",
-    "pageLifecycleRevision": "core-v2-page-lifecycle/1",
-    "presentationRevision": "core-v2-presentation-policy/1",
-    "selectionTransformerRevision": "core-v2-selection-transformer/1",
-    "transformerEditRevision": "core-v2-transformer-edit/1",
-    "strictReferenceValidation": {
-      "validatorType": "function",
-      "diagnostic": {
-        "code": "MISSING_TARGET",
-        "category": "MISSING_TARGET",
-        "datasetPath": "$[1].links[0].target"
-      },
-      "sceneRevisionUnchanged": true,
-      "semanticHashUnchanged": true,
-      "datasetRefUnchanged": true
+    "rootCount": 2,
+    "barTargetCount": 1,
+    "presentationSet": {
+      "changed": true,
+      "revision": 1,
+      "scopeCount": 1,
+      "targetCount": 0,
+      "matchedCount": 0,
+      "unmatchedCount": 1,
+      "ignoredTargetCount": 0
     },
-    "migrationPackage": {
-      "compatibilitySourceKind": "canonical-array",
-      "legacySourceKind": "legacy-generic-item",
-      "legacyId": "legacy-packed",
-      "roundtripSemanticHashEqual": true,
-      "exportRootKind": "array",
-      "nonserializable": {
-        "code": "NON_SERIALIZABLE_VALUE",
-        "path": "$[0].attrs.bad"
-      },
-      "authoritativeEffectPublished": true,
-      "shadowEffectPublished": false,
-      "shadowEffectCount": 0,
-      "activeCanvasesPerHostSlot": 1,
-      "completedCohorts": [
-        1,
-        10,
-        50,
-        100
-      ],
-      "rollbackActiveBeforeRemount": "core-v2",
-      "rollbackDesiredBeforeRemount": "previous",
-      "rollbackActiveAfterRemount": "previous",
-      "canaryDestroyed": true,
-      "rollbackDestroyed": true
+    "presentationSnapshot": {
+      "revision": 1,
+      "layerCount": 1
     },
-    "authoringPackage": {
-      "plannerType": "function",
-      "engineMethodType": "function",
-      "status": "committed",
-      "createdId": "packed-author-rect",
-      "recordId": "packed-author-rect"
+    "presentationCaptureChanged": true,
+    "presentationClear": true,
+    "presentationClearSnapshot": {
+      "revision": 2,
+      "layerCount": 0
     },
-    "pointerPackage": {
-      "eventTypes": [
-        "up",
-        "click"
-      ],
-      "clickTarget": "consumer-item",
-      "boxTargets": [
-        "consumer-item"
-      ],
-      "paintTargets": [
-        "consumer-item"
-      ],
-      "destroyed": true
-    },
-    "pageLifecyclePackage": {
-      "authorityType": "function",
-      "hiddenState": "hidden",
-      "hiddenCancelledAssetCount": 1,
-      "hiddenCancelledExtractionCount": 1,
-      "obsoleteStatus": "obsolete",
-      "rejectedStatus": "rejected",
-      "visibleState": "visible",
-      "resumeFramePendingBeforePublication": true,
-      "resumeFramePendingAfterPublication": false,
-      "resumePublishedFrameCount": 1
-    },
-    "hostInteractionPackage": {
-      "authorityType": "function",
-      "bindingDeliveries": [
-        "consumer-item"
-      ],
-      "eventCount": 1,
-      "hostPublicationCount": 1,
-      "missingIds": [
-        "missing"
-      ],
-      "propagationTarget": "component:consumer-item/label",
-      "propagationPhases": [
-        "capture:surface",
-        "capture:consumer-item",
-        "target:component:consumer-item/label",
-        "bubble:consumer-item",
-        "bubble:surface"
-      ],
-      "activeState": "select",
-      "liveResources": {
-        "bindings": 0,
-        "subscriptions": 0,
-        "selectionHosts": 0,
-        "tooltipHosts": 1
-      },
-      "destroyed": true,
-      "destroyedOwnerCount": 0,
-      "destroyedTooltipHosts": 0
-    },
-    "editorMountPackage": {
-      "resolverType": "function",
-      "allowed": {
-        "schemaRevision": "core-v2-editor-mount/1",
-        "status": "allowed",
-        "blockedPlant": false,
-        "createsEngine": true,
-        "canvasBudget": 1
-      },
-      "blocked": {
-        "schemaRevision": "core-v2-editor-mount/1",
-        "status": "blocked",
-        "blockedPlant": true,
-        "createsEngine": false,
-        "canvasBudget": 0
-      }
-    },
-    "hostTooltipPackage": {
-      "hoverTarget": "consumer-item",
-      "hoverAnchor": [
-        20,
-        30
-      ],
-      "pinned": true,
-      "publicationReasons": [
-        "hover",
-        "pin",
-        "redraw",
-        "drag",
-        "drag",
-        "redraw",
-        "destroy"
-      ],
-      "finalTarget": null,
-      "clearTrace": [
-        "redraw",
-        "drag",
-        "drag",
-        "redraw",
-        "destroy"
-      ],
-      "disposeAfterDestroy": "disposed"
-    },
-    "commandTargetPackage": {
-      "factoryType": "function",
-      "componentAliasSelection": [
-        "consumer-item/bar"
-      ],
-      "openedTargets": [
-        "consumer-item/bar"
-      ],
-      "releasedStatus": "released",
-      "statusTrace": [
-        "pending",
-        "active",
-        "released"
-      ]
-    },
-    "selectionTransformerPackage": {
-      "authorityType": "function",
-      "subsetIndicator": {
-        "selected": 1,
-        "transformable": 1,
-        "resizable": 1
-      },
-      "activeResizeHandles": true,
-      "overlayCount": 1,
-      "visibleCorners": [
-        "nw",
-        "ne",
-        "sw",
-        "se"
-      ],
-      "selectionRoute": {
-        "owner": "transformer",
-        "deliveryCount": 0
-      },
-      "transformRoute": {
-        "owner": "transformer",
-        "deliveryCount": 1
-      },
-      "completed": true,
-      "settledActiveGestureCount": 0,
-      "destroyed": true,
-      "destroyedActiveGestureCount": 0
-    },
-    "transformerEditPackage": {
-      "plannerType": "function",
-      "snapType": "function",
-      "planStatus": "planned",
-      "plannedSize": [
-        50,
-        40
-      ],
-      "snapAppliedDegrees": 0,
-      "sessionActiveCount": 1,
-      "previewStatus": "previewed",
-      "cancelStatus": "cancelled",
-      "settledActiveCount": 0,
-      "settledOverlayCount": 0,
-      "settledCaptureCount": 0
-    },
-    "emptyBulkStatus": "unchanged",
-    "emptyBulkSceneRevision": 1,
+    "presentationDataStable": true,
+    "updateStatus": "committed",
+    "updatedBarHeight": 64,
+    "selection": [
+      "consumer-item"
+    ],
+    "transformStatus": "committed",
+    "undoStatus": "committed",
+    "redoStatus": "committed",
     "transactionStatus": "committed",
-    "transactionSceneRevision": 2,
-    "transactionBarHeight": 30,
-    "presentation": {
-      "setChanged": true,
-      "status": "active",
-      "itemEmphasis": 1,
-      "clearChanged": true,
-      "clearedStatus": "normal"
+    "serializedRootIsArray": true,
+    "serializedRootCount": 2,
+    "serializedAddedId": "packed-added",
+    "strictFailure": {
+      "code": "MISSING_TARGET",
+      "category": "MISSING_TARGET",
+      "path": "$[2].links[0].target"
     },
-    "liveOverlay": {
-      "status": "accepted",
-      "latestAcceptedRevision": 2,
-      "latestPublishedRevision": 2,
-      "pendingPublicationCount": 0,
-      "historyUnchanged": true
+    "rejectedReplaceAtomic": true,
+    "backend": "webgl",
+    "renderObjects": 4,
+    "assetRuntimeCount": 5,
+    "assetSessionLeaseCount": 5,
+    "capturePrefix": "data:image/png;base64,",
+    "captureLength": 8682,
+    "presentationReplaceLifecycle": {
+      "failedReplaceRejected": true,
+      "failedReplacePreserved": true,
+      "sameCapacityCleared": {
+        "revision": 2,
+        "layerCount": 0
+      },
+      "sameCapacitySet": {
+        "changed": true,
+        "revision": 3,
+        "scopeCount": 2,
+        "targetCount": 1,
+        "matchedCount": 1,
+        "unmatchedCount": 1,
+        "ignoredTargetCount": 0
+      },
+      "sameCapacityCaptureChanged": true,
+      "differentCapacityCleared": {
+        "revision": 4,
+        "layerCount": 0
+      },
+      "differentCapacitySet": {
+        "changed": true,
+        "revision": 5,
+        "scopeCount": 3,
+        "targetCount": 1,
+        "matchedCount": 1,
+        "unmatchedCount": 2,
+        "ignoredTargetCount": 0
+      },
+      "differentCapacityCapturePrefix": "data:image/png;base64,",
+      "asyncCleared": {
+        "revision": 6,
+        "layerCount": 0
+      },
+      "asyncSet": {
+        "changed": true,
+        "revision": 7,
+        "scopeCount": 1,
+        "targetCount": 1,
+        "matchedCount": 1,
+        "unmatchedCount": 0,
+        "ignoredTargetCount": 0
+      },
+      "asyncCapturePrefix": "data:image/png;base64,",
+      "callerInputsImmutable": true,
+      "firstDestroy": true,
+      "secondDestroy": false,
+      "canvasCountAfterDestroy": 0
     },
-    "semanticRefresh": {
-      "dependencyChanged": true,
-      "status": "committed",
-      "recomputedTargets": [
-        "consumer-item/label"
+    "directImage": {
+      "initialState": "resolved",
+      "initialCaptureLength": 878,
+      "replacementRootId": "replacement-direct-image",
+      "replacementSceneRevision": 2,
+      "replacementState": "resolved",
+      "replacementCaptureLength": 878,
+      "firstDestroy": true,
+      "firstCleanupResourceCount": 5,
+      "resourceCountBeforeMount": 5,
+      "firstCleanupInitialResource": {
+        "cacheIdentity": "descriptor:544a34534d1e79f0",
+        "resourceCount": 0,
+        "pendingCount": 0,
+        "leaseCount": 0,
+        "ownership": null,
+        "state": "absent",
+        "cleanupPending": false,
+        "cleanupRetryOwner": null
+      },
+      "remountState": "resolved",
+      "remountCaptureLength": 878,
+      "remountDestroy": true,
+      "finalResourceCount": 5,
+      "finalReplacementResource": {
+        "cacheIdentity": "descriptor:6496afb070abbbf9",
+        "resourceCount": 0,
+        "pendingCount": 0,
+        "leaseCount": 0,
+        "ownership": null,
+        "state": "absent",
+        "cleanupPending": false,
+        "cleanupRetryOwner": null
+      },
+      "canvasCountAfterDestroy": 0
+    },
+    "theme": {
+      "defaultCapture": {
+        "canonicalDefault": 10000,
+        "custom": 0
+      },
+      "customCapture": {
+        "canonicalDefault": 0,
+        "custom": 10000
+      },
+      "isolatedDefaultCapture": {
+        "canonicalDefault": 10000,
+        "custom": 0
+      },
+      "themeImmutable": true,
+      "defaultDestroy": true,
+      "customDestroy": true,
+      "canvasCountAfterDestroy": 0
+    },
+    "builtins": {
+      "aliases": [
+        "object",
+        "inverter",
+        "combiner",
+        "device",
+        "edge",
+        "loading",
+        "warning",
+        "wifi"
       ],
-      "dataDiffCount": 0,
-      "revisionDelta": 1,
-      "representedSceneRevision": 4
-    },
-    "hierarchy": {
-      "moveStatus": "committed",
-      "groupStatus": "committed",
-      "ungroupStatus": "committed",
-      "unrecordedStatus": "committed",
-      "cycleStatus": "rejected",
-      "cycleCode": "CONFLICT",
-      "cycleRevisionDelta": 0,
-      "rectParentId": "group-b",
-      "rectLocalPosition": [
-        -80,
-        40
-      ],
-      "selectionIds": [
-        "rect-b"
-      ],
-      "historyDepth": 3,
-      "relationRevisionLag": 0
-    },
-    "historyPackage": {
-      "companionBefore": {
-        "selectionIds": [
-          "rect-b"
-        ],
-        "mode": "select",
-        "hostCompanion": {
-          "selectedIds": [
-            "rect-b"
-          ],
-          "mode": "select",
-          "dirty": false
+      "authored": {
+        "object": {
+          "pixelCount": 746,
+          "bounds": {
+            "minX": 35,
+            "maxX": 76,
+            "minY": 33,
+            "maxY": 78,
+            "width": 42,
+            "height": 46
+          },
+          "occupancy": 0.386128364389234,
+          "signature": "00111100/11101111/11100111/11111101/10011001/11011011/11111111/00111100"
+        },
+        "inverter": {
+          "pixelCount": 728,
+          "bounds": {
+            "minX": 35,
+            "maxX": 76,
+            "minY": 35,
+            "maxY": 76,
+            "width": 42,
+            "height": 42
+          },
+          "occupancy": 0.4126984126984127,
+          "signature": "11111111/10000001/11111111/10000001/10000001/10000001/10000001/11111111"
+        },
+        "combiner": {
+          "pixelCount": 966,
+          "bounds": {
+            "minX": 33,
+            "maxX": 78,
+            "minY": 33,
+            "maxY": 78,
+            "width": 46,
+            "height": 46
+          },
+          "occupancy": 0.45652173913043476,
+          "signature": "11011011/11011011/11111111/11111111/11011011/11111111/11011011/11011011"
+        },
+        "device": {
+          "pixelCount": 729,
+          "bounds": {
+            "minX": 40,
+            "maxX": 71,
+            "minY": 33,
+            "maxY": 78,
+            "width": 32,
+            "height": 46
+          },
+          "occupancy": 0.4952445652173913,
+          "signature": "11111110/11111110/10001101/10000111/10001111/10000111/11111110/11111110"
+        },
+        "edge": {
+          "pixelCount": 720,
+          "bounds": {
+            "minX": 34,
+            "maxX": 76,
+            "minY": 34,
+            "maxY": 77,
+            "width": 43,
+            "height": 44
+          },
+          "occupancy": 0.38054968287526425,
+          "signature": "00011111/00011111/00001110/00000100/11111111/11111111/11111101/11111111"
+        },
+        "loading": {
+          "pixelCount": 467,
+          "bounds": {
+            "minX": 33,
+            "maxX": 78,
+            "minY": 33,
+            "maxY": 78,
+            "width": 46,
+            "height": 46
+          },
+          "occupancy": 0.22069943289224953,
+          "signature": "01111100/11100011/10011011/10011001/10011101/11001111/11100110/01111100"
+        },
+        "warning": {
+          "pixelCount": 528,
+          "bounds": {
+            "minX": 31,
+            "maxX": 81,
+            "minY": 38,
+            "maxY": 74,
+            "width": 51,
+            "height": 37
+          },
+          "occupancy": 0.27980922098569155,
+          "signature": "01111110/11000111/10000001/11000011/01100101/01100111/00111111/00011111"
+        },
+        "wifi": {
+          "pixelCount": 653,
+          "bounds": {
+            "minX": 30,
+            "maxX": 81,
+            "minY": 38,
+            "maxY": 76,
+            "width": 52,
+            "height": 39
+          },
+          "occupancy": 0.3219921104536489,
+          "signature": "01111110/11111111/11011011/01111110/01111110/00011000/00011000/00011000"
         }
       },
-      "transactionStatus": "committed",
-      "transactionActionId": "packed-history",
-      "inspectedDepth": 4,
-      "inspectedLastActionId": "packed-history",
-      "inspectedLastRecordCount": 1,
-      "undoStatus": "committed",
-      "undoDirection": "undo",
-      "undoActionId": "packed-history",
-      "companionAfterUndo": {
-        "selectionIds": [
-          "rect-b"
-        ],
-        "mode": "select",
-        "hostCompanion": {
-          "selectedIds": [
-            "rect-b"
-          ],
-          "mode": "select",
-          "dirty": false
+      "overlay": {
+        "object": {
+          "updateStatus": "committed",
+          "pixelCount": 792,
+          "bounds": {
+            "minX": 35,
+            "maxX": 76,
+            "minY": 33,
+            "maxY": 78,
+            "width": 42,
+            "height": 46
+          },
+          "occupancy": 0.40993788819875776,
+          "signature": "00111100/11101111/11100111/11111101/10011001/11011011/11111111/00111100"
+        },
+        "inverter": {
+          "updateStatus": "committed",
+          "pixelCount": 844,
+          "bounds": {
+            "minX": 35,
+            "maxX": 76,
+            "minY": 35,
+            "maxY": 76,
+            "width": 42,
+            "height": 42
+          },
+          "occupancy": 0.47845804988662133,
+          "signature": "11111111/10000001/11111111/10000001/10000001/10000001/10000001/11111111"
+        },
+        "combiner": {
+          "updateStatus": "committed",
+          "pixelCount": 966,
+          "bounds": {
+            "minX": 33,
+            "maxX": 78,
+            "minY": 33,
+            "maxY": 78,
+            "width": 46,
+            "height": 46
+          },
+          "occupancy": 0.45652173913043476,
+          "signature": "11011011/11011011/11111111/11111111/11011011/11111111/11011011/11011011"
+        },
+        "device": {
+          "updateStatus": "committed",
+          "pixelCount": 740,
+          "bounds": {
+            "minX": 40,
+            "maxX": 71,
+            "minY": 33,
+            "maxY": 78,
+            "width": 32,
+            "height": 46
+          },
+          "occupancy": 0.5027173913043478,
+          "signature": "11111110/11111110/10001101/10001111/10001111/10000111/11111110/11111110"
+        },
+        "edge": {
+          "updateStatus": "committed",
+          "pixelCount": 725,
+          "bounds": {
+            "minX": 34,
+            "maxX": 76,
+            "minY": 34,
+            "maxY": 77,
+            "width": 43,
+            "height": 44
+          },
+          "occupancy": 0.3831923890063425,
+          "signature": "00011111/00011111/00001110/00000100/11111111/11111111/11111101/11111111"
+        },
+        "loading": {
+          "updateStatus": "committed",
+          "pixelCount": 478,
+          "bounds": {
+            "minX": 33,
+            "maxX": 78,
+            "minY": 33,
+            "maxY": 78,
+            "width": 46,
+            "height": 46
+          },
+          "occupancy": 0.22589792060491493,
+          "signature": "01111100/11100011/11011011/10011001/10011101/11001111/11100110/01111100"
+        },
+        "warning": {
+          "updateStatus": "committed",
+          "pixelCount": 544,
+          "bounds": {
+            "minX": 30,
+            "maxX": 81,
+            "minY": 37,
+            "maxY": 74,
+            "width": 52,
+            "height": 38
+          },
+          "occupancy": 0.27530364372469635,
+          "signature": "01111110/11100111/10000011/11000011/01100000/01100111/00111111/00011111"
+        },
+        "wifi": {
+          "updateStatus": "committed",
+          "pixelCount": 673,
+          "bounds": {
+            "minX": 30,
+            "maxX": 81,
+            "minY": 37,
+            "maxY": 76,
+            "width": 52,
+            "height": 40
+          },
+          "occupancy": 0.3235576923076923,
+          "signature": "01111110/11111111/11011011/01111110/01111110/00011000/00011000/00011000"
         }
       },
-      "addedPresentAfterUndo": false,
-      "redoStatus": "committed",
-      "redoDirection": "redo",
-      "redoActionId": "packed-history",
-      "companionAfterRedo": {
-        "selectionIds": [
-          "rect-b"
-        ],
-        "mode": "transform",
-        "hostCompanion": {
-          "selectedIds": [
-            "rect-b"
-          ],
-          "mode": "transform",
-          "dirty": true
+      "authoredResolved": {
+        "object": true,
+        "inverter": true,
+        "combiner": true,
+        "device": true,
+        "edge": true,
+        "loading": true,
+        "warning": true,
+        "wifi": true
+      },
+      "overlayResolved": {
+        "object": true,
+        "inverter": true,
+        "combiner": true,
+        "device": true,
+        "edge": true,
+        "loading": true,
+        "warning": true,
+        "wifi": true
+      },
+      "inverter24": {
+        "pixelCount": 152,
+        "bounds": {
+          "minX": 47,
+          "maxX": 64,
+          "minY": 47,
+          "maxY": 64,
+          "width": 18,
+          "height": 18
+        },
+        "occupancy": 0.4691358024691358,
+        "signature": "11111111/10000001/11111111/10000001/10000001/10000001/10000001/11111111"
+      },
+      "inverter24Resolved": true,
+      "injectedAliases": [
+        "cloudAlert",
+        "inverterFrame",
+        "ess",
+        "stick",
+        "wiringPrimary",
+        "wiringSecondary",
+        "wiringTertiary"
+      ],
+      "injectedCapture": {
+        "pixelCount": 220,
+        "bounds": {
+          "minX": 46,
+          "maxX": 65,
+          "minY": 46,
+          "maxY": 65,
+          "width": 20,
+          "height": 20
+        },
+        "occupancy": 0.55,
+        "signature": "00011000/00111100/01111110/11111111/11111111/01111110/00111100/00011000"
+      },
+      "injectedResolved": true,
+      "hidden": {
+        "pixelCount": 0,
+        "signature": "",
+        "occupancy": 0
+      },
+      "runtimeBeforeMount": {
+        "builtins": {
+          "aliases": [
+            "object",
+            "inverter",
+            "combiner",
+            "device",
+            "edge",
+            "loading",
+            "warning",
+            "wifi"
+          ]
+        },
+        "fonts": {
+          "weights": [
+            300,
+            400,
+            500,
+            600,
+            700
+          ]
+        },
+        "aliasCount": 0,
+        "resourceCount": 5,
+        "pendingCount": 0,
+        "leaseCount": 5,
+        "cleanupPendingCount": 0,
+        "resource": null
+      },
+      "runtimeBeforeDestroy": {
+        "builtins": {
+          "aliases": [
+            "object",
+            "inverter",
+            "combiner",
+            "device",
+            "edge",
+            "loading",
+            "warning",
+            "wifi"
+          ]
+        },
+        "fonts": {
+          "weights": [
+            300,
+            400,
+            500,
+            600,
+            700
+          ]
+        },
+        "aliasCount": 20,
+        "resourceCount": 6,
+        "pendingCount": 0,
+        "leaseCount": 11,
+        "cleanupPendingCount": 0,
+        "resource": null
+      },
+      "runtimeAfterDestroy": {
+        "builtins": {
+          "aliases": [
+            "object",
+            "inverter",
+            "combiner",
+            "device",
+            "edge",
+            "loading",
+            "warning",
+            "wifi"
+          ]
+        },
+        "fonts": {
+          "weights": [
+            300,
+            400,
+            500,
+            600,
+            700
+          ]
+        },
+        "aliasCount": 20,
+        "resourceCount": 5,
+        "pendingCount": 0,
+        "leaseCount": 5,
+        "cleanupPendingCount": 0,
+        "resource": null
+      },
+      "destroy": true,
+      "canvasCountAfterDestroy": 0
+    },
+    "pointerInteraction": {
+      "firstHover": [
+        {
+          "type": "hover",
+          "target": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "previousTarget": null,
+          "anchor": [
+            45,
+            45
+          ]
+        },
+        {
+          "type": "move",
+          "target": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "previousTarget": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "anchor": [
+            48,
+            48
+          ]
+        },
+        {
+          "type": "leave",
+          "target": null,
+          "previousTarget": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "anchor": [
+            225,
+            140
+          ]
+        },
+        {
+          "type": "hover",
+          "target": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "previousTarget": null,
+          "anchor": [
+            45,
+            45
+          ]
+        },
+        {
+          "type": "hover",
+          "target": {
+            "id": "pointer-grid.0.0",
+            "componentId": "bar"
+          },
+          "previousTarget": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "anchor": [
+            23,
+            23
+          ]
+        },
+        {
+          "type": "leave",
+          "target": null,
+          "previousTarget": {
+            "id": "pointer-grid.0.0",
+            "componentId": "bar"
+          },
+          "anchor": [
+            23,
+            23
+          ]
+        },
+        {
+          "type": "hover",
+          "target": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "previousTarget": null,
+          "anchor": [
+            45,
+            45
+          ]
+        },
+        {
+          "type": "leave",
+          "target": null,
+          "previousTarget": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "anchor": [
+            45,
+            45
+          ]
+        },
+        {
+          "type": "hover",
+          "target": {
+            "id": "pointer-grid.0.1",
+            "componentId": "status"
+          },
+          "previousTarget": null,
+          "anchor": [
+            95,
+            45
+          ]
+        },
+        {
+          "type": "leave",
+          "target": null,
+          "previousTarget": {
+            "id": "pointer-grid.0.1",
+            "componentId": "status"
+          },
+          "anchor": [
+            95,
+            45
+          ]
+        },
+        {
+          "type": "hover",
+          "target": {
+            "id": "pointer-grid.0.2",
+            "componentId": "status"
+          },
+          "previousTarget": null,
+          "anchor": [
+            145,
+            45
+          ]
+        },
+        {
+          "type": "leave",
+          "target": null,
+          "previousTarget": {
+            "id": "pointer-grid.0.2",
+            "componentId": "status"
+          },
+          "anchor": [
+            145,
+            45
+          ]
+        },
+        {
+          "type": "hover",
+          "target": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "previousTarget": null,
+          "anchor": [
+            45,
+            45
+          ]
+        },
+        {
+          "type": "leave",
+          "target": null,
+          "previousTarget": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "anchor": [
+            45,
+            45
+          ]
+        },
+        {
+          "type": "hover",
+          "target": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "previousTarget": null,
+          "anchor": [
+            45,
+            45
+          ]
+        },
+        {
+          "type": "leave",
+          "target": null,
+          "previousTarget": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "anchor": [
+            45,
+            45
+          ]
+        },
+        {
+          "type": "hover",
+          "target": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          },
+          "previousTarget": null,
+          "anchor": [
+            75,
+            80
+          ]
         }
-      },
-      "addedTypeAfterRedo": "rect",
-      "invalidCapacityStatus": "rejected",
-      "invalidCapacityCode": "INVALID_VALUE",
-      "protectedShortcut": {
-        "action": "undo",
-        "handled": false,
-        "preventDefault": false,
-        "result": null
-      },
-      "clearChanged": true,
-      "clearReason": "host",
-      "clearedDepth": 0
-    },
-    "engineExtraction": {
-      "requestedTuple": {
-        "scene": 12,
-        "view": 0,
-        "interaction": 21
-      },
-      "capturedTuple": {
-        "scene": 12,
-        "view": 0,
-        "interaction": 21
-      },
-      "cssSize": [
-        640,
-        360
       ],
-      "backingSize": [
-        640,
-        360
+      "firstSelection": [
+        {
+          "source": "pointer",
+          "selected": [
+            {
+              "id": "pointer-grid.0.0"
+            }
+          ],
+          "added": [
+            {
+              "id": "pointer-grid.0.0"
+            }
+          ],
+          "removed": [],
+          "interactionRevision": 11
+        },
+        {
+          "source": "pointer",
+          "selected": [
+            {
+              "id": "pointer-grid.0.0"
+            }
+          ],
+          "added": [
+            {
+              "id": "pointer-grid.0.0"
+            }
+          ],
+          "removed": [],
+          "interactionRevision": 16
+        },
+        {
+          "source": "pointer",
+          "selected": [
+            {
+              "id": "pointer-grid.0.0"
+            },
+            {
+              "id": "pointer-grid.0.1"
+            }
+          ],
+          "added": [
+            {
+              "id": "pointer-grid.0.1"
+            }
+          ],
+          "removed": [],
+          "interactionRevision": 20
+        },
+        {
+          "source": "pointer",
+          "selected": [
+            {
+              "id": "pointer-grid.0.1"
+            }
+          ],
+          "added": [],
+          "removed": [
+            {
+              "id": "pointer-grid.0.0"
+            }
+          ],
+          "interactionRevision": 30
+        },
+        {
+          "source": "pointer",
+          "selected": [],
+          "added": [],
+          "removed": [
+            {
+              "id": "pointer-grid.0.1"
+            }
+          ],
+          "interactionRevision": 35
+        },
+        {
+          "source": "pointer",
+          "selected": [
+            {
+              "id": "pointer-grid.0.0"
+            },
+            {
+              "id": "pointer-grid.0.1"
+            }
+          ],
+          "added": [
+            {
+              "id": "pointer-grid.0.1"
+            }
+          ],
+          "removed": [],
+          "interactionRevision": 54
+        }
       ],
-      "mime": "image/png",
-      "dataUrlPrefix": "data:image/png;base64,",
-      "dataUrlLength": 1054,
-      "canvasIdentity": "initial-canvas",
-      "sameCanvasObject": true,
-      "authoritativeCanvasRetained": true,
-      "temporaryImageCount": 0,
-      "renderTextureCount": 0,
-      "pendingWorkAfter": 0
-    },
-    "interactionOwnership": {
-      "rootBindingCount": 6,
-      "rootListenerCount": 8,
-      "entityCallbackCount": 0
-    },
-    "engineDestroyResult": true,
-    "engineAfterDestroy": {
-      "lifecycle": "destroyed",
-      "rootIds": [],
-      "datasetRef": null,
-      "semanticHash": null,
-      "historyDepth": 0,
-      "pendingWork": 0,
-      "canvasCount": 0,
-      "subscriptions": {
-        "active": 0,
-        "duplicates": 0
+      "firstViewportBefore": {
+        "centerWorld": [
+          120,
+          80
+        ],
+        "scale": 1,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
       },
-      "renderer": null,
-      "assets": null
-    }
+      "firstViewportAfter": {
+        "centerWorld": [
+          80.17716069545583,
+          41.78477379697055
+        ],
+        "scale": 1.1274968515793757,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
+      },
+      "plainPanBefore": {
+        "centerWorld": [
+          120,
+          80
+        ],
+        "scale": 1,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
+      },
+      "plainPanAfter": {
+        "centerWorld": [
+          100,
+          65
+        ],
+        "scale": 1,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
+      },
+      "plainPanBeforeSelectionCount": 5,
+      "plainPanAfterSelectionCount": 5,
+      "lateShiftPanBefore": {
+        "centerWorld": [
+          100,
+          65
+        ],
+        "scale": 1,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
+      },
+      "lateShiftPanAfter": {
+        "centerWorld": [
+          80,
+          45
+        ],
+        "scale": 1,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
+      },
+      "lateShiftPanBeforeSelectionCount": 5,
+      "lateShiftPanAfterSelectionCount": 5,
+      "wheelBefore": {
+        "centerWorld": [
+          80,
+          45
+        ],
+        "scale": 1,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
+      },
+      "wheelAfter": {
+        "centerWorld": [
+          89.0463650626274,
+          50.653978164142124
+        ],
+        "scale": 1.1274968515793757,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
+      },
+      "wheelBeforeSelectionCount": 5,
+      "wheelAfterSelectionCount": 5,
+      "middlePanBefore": {
+        "centerWorld": [
+          89.0463650626274,
+          50.653978164142124
+        ],
+        "scale": 1.1274968515793757,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
+      },
+      "middlePanAfter": {
+        "centerWorld": [
+          80.17716069545583,
+          41.78477379697055
+        ],
+        "scale": 1.1274968515793757,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
+      },
+      "middlePanBeforeSelectionCount": 5,
+      "middlePanAfterSelectionCount": 5,
+      "boxViewportBefore": {
+        "centerWorld": [
+          80.17716069545583,
+          41.78477379697055
+        ],
+        "scale": 1.1274968515793757,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
+      },
+      "boxViewportAfter": {
+        "centerWorld": [
+          80.17716069545583,
+          41.78477379697055
+        ],
+        "scale": 1.1274968515793757,
+        "screenBounds": [
+          0,
+          0,
+          240,
+          160
+        ]
+      },
+      "boxViewportBeforeSelectionCount": 5,
+      "boxViewportAfterSelectionCount": 6,
+      "postViewportHoverStart": 16,
+      "firstSubscriptionCount": 2,
+      "captureDuring": true,
+      "captureAfter": false,
+      "remountCaptureDuring": true,
+      "remountCaptureAfter": false,
+      "firstDestroy": true,
+      "firstCanvasCountAfterDestroy": 0,
+      "remountHover": [
+        {
+          "type": "hover",
+          "target": {
+            "id": "pointer-grid.0.0",
+            "componentId": "status"
+          }
+        },
+        {
+          "type": "leave",
+          "target": null
+        }
+      ],
+      "remountSelection": [
+        {
+          "source": "pointer",
+          "selected": [
+            {
+              "id": "pointer-grid.0.0"
+            }
+          ],
+          "added": [
+            {
+              "id": "pointer-grid.0.0"
+            }
+          ],
+          "removed": [],
+          "interactionRevision": 9
+        }
+      ],
+      "remountSubscriptionCount": 2,
+      "remountDestroy": true,
+      "canvasCountAfterDestroy": 0,
+      "baselineRed": {
+        "pixelCount": 0,
+        "signature": "",
+        "occupancy": 0
+      },
+      "programmaticRed": {
+        "pixelCount": 2640,
+        "bounds": {
+          "minX": 37,
+          "maxX": 142,
+          "minY": 37,
+          "maxY": 162,
+          "width": 106,
+          "height": 126
+        },
+        "occupancy": 0.1976639712488769,
+        "signature": "11111111/10000001/10000001/10000001/10000001/10000001/10000001/11111111"
+      },
+      "multiRed": {
+        "pixelCount": 4524,
+        "bounds": {
+          "minX": 37,
+          "maxX": 242,
+          "minY": 37,
+          "maxY": 162,
+          "width": 206,
+          "height": 126
+        },
+        "occupancy": 0.17429496070272768,
+        "signature": "11111111/10011001/10011001/10011001/10011001/10011001/10011001/11111111"
+      },
+      "clearedRed": {
+        "pixelCount": 0,
+        "signature": "",
+        "occupancy": 0
+      },
+      "clickRed": {
+        "pixelCount": 2640,
+        "bounds": {
+          "minX": 37,
+          "maxX": 142,
+          "minY": 37,
+          "maxY": 162,
+          "width": 106,
+          "height": 126
+        },
+        "occupancy": 0.1976639712488769,
+        "signature": "11111111/10000001/10000001/10000001/10000001/10000001/10000001/11111111"
+      },
+      "concreteBarClickRed": {
+        "pixelCount": 2640,
+        "bounds": {
+          "minX": 37,
+          "maxX": 142,
+          "minY": 37,
+          "maxY": 162,
+          "width": 106,
+          "height": 126
+        },
+        "occupancy": 0.1976639712488769,
+        "signature": "11111111/10000001/10000001/10000001/10000001/10000001/10000001/11111111"
+      },
+      "concreteBarClickSelectionIds": [
+        "pointer-grid.0.0"
+      ],
+      "exactCellPointRed": {
+        "pixelCount": 564,
+        "bounds": {
+          "minX": 99,
+          "maxX": 180,
+          "minY": 99,
+          "maxY": 160,
+          "width": 82,
+          "height": 62
+        },
+        "occupancy": 0.1109362706530291,
+        "signature": "11111111/10000001/10000001/10000001/10000001/10000001/10000001/11111111"
+      },
+      "exactCellPointSelectionIds": [
+        "selectable-grid.0.0"
+      ],
+      "exactCellPointDestroy": true,
+      "exactCellPointCanvasCountAfterDestroy": 0,
+      "exactSelectableTargets": [
+        {
+          "id": "selectable-grid.0.0"
+        }
+      ],
+      "exactSelectionChanges": [
+        {
+          "source": "pointer",
+          "selected": [
+            {
+              "id": "selectable-grid.0.0"
+            }
+          ],
+          "added": [
+            {
+              "id": "selectable-grid.0.0"
+            }
+          ],
+          "removed": [],
+          "interactionRevision": 4
+        }
+      ],
+      "targetDoubleSelectionIds": [
+        "pointer-grid.0.1"
+      ],
+      "targetDoubleSelectionCount": 4,
+      "blankSingleSelectionIds": [
+        "pointer-grid.0.1"
+      ],
+      "blankSingleSelectionCount": 4,
+      "blankDoubleSelectionIds": [],
+      "blankDoubleSelectionCount": 5,
+      "marqueeDuringBlue": {
+        "pixelCount": 1544,
+        "bounds": {
+          "minX": 1,
+          "maxX": 451,
+          "minY": 1,
+          "maxY": 291,
+          "width": 451,
+          "height": 291
+        },
+        "occupancy": 0.01176461624035172,
+        "signature": "11111111/10000001/10000001/10000001/10101011/10000011/10000001/11111111"
+      },
+      "marqueeDuringRed": {
+        "pixelCount": 2598,
+        "bounds": {
+          "minX": 93,
+          "maxX": 210,
+          "minY": 99,
+          "maxY": 239,
+          "width": 118,
+          "height": 141
+        },
+        "occupancy": 0.1561485755499459,
+        "signature": "11111111/10000001/10000001/10000001/10000001/10000001/10000001/11111111"
+      },
+      "marqueeAfterBlue": {
+        "pixelCount": 0,
+        "signature": "",
+        "occupancy": 0
+      },
+      "marqueeAfterRed": {
+        "pixelCount": 4965,
+        "bounds": {
+          "minX": 42,
+          "maxX": 272,
+          "minY": 42,
+          "maxY": 182,
+          "width": 231,
+          "height": 141
+        },
+        "occupancy": 0.1524362162660035,
+        "signature": "11111111/10011001/10011001/10011001/10011001/10011001/10011001/11111111"
+      },
+      "marqueeClearedRed": {
+        "pixelCount": 0,
+        "signature": "",
+        "occupancy": 0
+      },
+      "remountMarqueeDuringRed": {
+        "pixelCount": 8832,
+        "bounds": {
+          "minX": 7,
+          "maxX": 452,
+          "minY": 7,
+          "maxY": 308,
+          "width": 446,
+          "height": 302
+        },
+        "occupancy": 0.06557182312238292,
+        "signature": "11111111/10000001/10000001/10000001/10000001/10000001/10000001/11111111"
+      },
+      "remountMarqueeDuringBlue": {
+        "pixelCount": 0,
+        "signature": "",
+        "occupancy": 0
+      },
+      "remountMarqueeAfterRed": {
+        "pixelCount": 2640,
+        "bounds": {
+          "minX": 37,
+          "maxX": 142,
+          "minY": 37,
+          "maxY": 162,
+          "width": 106,
+          "height": 126
+        },
+        "occupancy": 0.1976639712488769,
+        "signature": "11111111/10000001/10000001/10000001/10000001/10000001/10000001/11111111"
+      },
+      "remountMarqueeAfterBlue": {
+        "pixelCount": 0,
+        "signature": "",
+        "occupancy": 0
+      },
+      "selectableTargets": [
+        {
+          "id": "pointer-grid.0.0"
+        },
+        {
+          "id": "pointer-grid.0.0"
+        },
+        {
+          "id": "pointer-grid.0.1"
+        },
+        {
+          "id": "pointer-grid.0.2"
+        },
+        {
+          "id": "pointer-grid.0.0"
+        },
+        {
+          "id": "pointer-grid.0.0"
+        },
+        {
+          "id": "pointer-grid.0.0"
+        },
+        {
+          "id": "pointer-grid.0.1"
+        },
+        {
+          "id": "pointer-grid.0.2"
+        },
+        {
+          "id": "pointer-grid.0.0"
+        },
+        {
+          "id": "pointer-grid.0.1"
+        },
+        {
+          "id": "pointer-grid.0.2"
+        }
+      ],
+      "datasetImmutable": true
+    },
+    "selectionBoundsDisplay": {
+      "element-only": {
+        "single": {
+          "redPixelCount": 484,
+          "outerTopGap": 0,
+          "firstInnerEdge": 14,
+          "secondInnerEdge": 0,
+          "gapCenter": 0
+        },
+        "multiple": {
+          "redPixelCount": 968,
+          "outerTopGap": 0,
+          "firstInnerEdge": 14,
+          "secondInnerEdge": 14,
+          "gapCenter": 0
+        },
+        "selectionIds": [
+          "bounds-grid.0.0/bar",
+          "bounds-grid.0.2/bar"
+        ],
+        "renderCommandCount": 4,
+        "destroy": true
+      },
+      "group-only": {
+        "single": {
+          "redPixelCount": 484,
+          "outerTopGap": 0,
+          "firstInnerEdge": 14,
+          "secondInnerEdge": 0,
+          "gapCenter": 0
+        },
+        "multiple": {
+          "redPixelCount": 964,
+          "outerTopGap": 14,
+          "firstInnerEdge": 0,
+          "secondInnerEdge": 0,
+          "gapCenter": 0
+        },
+        "selectionIds": [
+          "bounds-grid.0.0/bar",
+          "bounds-grid.0.2/bar"
+        ],
+        "renderCommandCount": 4,
+        "destroy": true
+      },
+      "all": {
+        "single": {
+          "redPixelCount": 484,
+          "outerTopGap": 0,
+          "firstInnerEdge": 14,
+          "secondInnerEdge": 0,
+          "gapCenter": 0
+        },
+        "multiple": {
+          "redPixelCount": 1204,
+          "outerTopGap": 14,
+          "firstInnerEdge": 14,
+          "secondInnerEdge": 14,
+          "gapCenter": 0
+        },
+        "selectionIds": [
+          "bounds-grid.0.0/bar",
+          "bounds-grid.0.2/bar"
+        ],
+        "renderCommandCount": 4,
+        "destroy": true
+      },
+      "canvasCountAfterDestroy": 0
+    },
+    "internalExportsAbsent": true,
+    "constructorRejected": true,
+    "instanceInternalsAbsent": true,
+    "destroyResult": true,
+    "destroyed": true,
+    "canvasCountAfterDestroy": 0
   },
   "cjs": {
-    "entities": 1,
-    "id": "cjs-rect",
-    "authoringRevision": "core-v2-authoring/1",
-    "authoringPlannerType": "function",
-    "authoringEngineMethodType": "function",
-    "transactionRevision": "core-v2-mutation-transaction/1",
-    "commandTargetRevision": "core-v2-command-target/1",
-    "commandTargetFactoryType": "function",
-    "commandTargetSnapshotType": "function",
-    "commandTargetStatusType": "function",
-    "editorMountRevision": "core-v2-editor-mount/1",
-    "editorMountResolverType": "function",
-    "tooltipRevision": "core-v2-host-tooltip/1",
-    "migrationRevision": "core-v2-migration/1",
-    "migrationAuthorityType": "function",
-    "migrationCompatibilityType": "function",
-    "migrationPersistenceType": "function",
-    "tooltipBindingType": "function",
-    "tooltipHoverType": "function",
-    "tooltipPinType": "function",
-    "tooltipClearType": "function",
-    "pointerRevision": "core-v2-pointer-gesture/1",
-    "pageLifecycleRevision": "core-v2-page-lifecycle/1",
-    "pageLifecycleAuthorityType": "function",
-    "pageLifecycleVisibilityType": "function",
-    "pageLifecycleProbeType": "function",
-    "pointerAuthorityType": "function",
-    "hostInteractionRevision": "core-v2-host-interaction/1",
-    "hostInteractionAuthorityType": "function",
-    "selectionTransformerRevision": "core-v2-selection-transformer/1",
-    "selectionTransformerAuthorityType": "function",
-    "transformerEditRevision": "core-v2-transformer-edit/1",
-    "transformerEditPlannerType": "function",
-    "transformerSnapType": "function",
-    "transformerSessionType": "function",
-    "presentationRevision": "core-v2-presentation-policy/1",
-    "plannerType": "function",
-    "historyEngineType": "function",
-    "historyInspectionType": "function",
-    "historyCompanionType": "function",
-    "historyCapacityType": "function",
-    "historyShortcutType": "function",
-    "historyClearType": "function",
-    "extractionType": "function",
-    "strictReferenceValidatorType": "function"
+    "mountType": "function",
+    "internalExportsAbsent": true,
+    "constructorRejected": true
   },
   "errors": {
     "console": [],

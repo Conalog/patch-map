@@ -30,7 +30,7 @@ export async function runExtractionTrial(
   let destroyed = false;
   try {
     await engine.initialize({
-      instanceId: `core-v2-extraction-${String(spec.scale)}-${trial}-${seed}`,
+      instanceId: `patch-map-extraction-${String(spec.scale)}-${trial}-${seed}`,
       target,
       width: 960,
       height: 540,

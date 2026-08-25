@@ -1,4 +1,4 @@
-import productionShapedWorkloadJson from '../../../docs/reference/core-v2-functional-contract/evidence/production-shaped-workload.v1.json';
+import productionShapedWorkloadJson from '../../../contracts/patch-map/evidence/production-shaped-workload.v1.json';
 import {
   PatchMapDatasetError,
   createPatchMapSemanticProbe,
