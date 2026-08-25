@@ -56,7 +56,6 @@ import {
   resolveColor,
   resolveComponentSize,
   type PatchMapParserBox as Box,
-  type PatchMapParserRecord as JsonRecord,
 } from './value-normalization';
 
 export function parseComponent(

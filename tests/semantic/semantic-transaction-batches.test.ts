@@ -383,13 +383,7 @@ describe('PatchMap staged semantic transaction planner', () => {
       undefined,
     ]);
   });
-
-
 });
-
-function elementTarget(id: string): Readonly<{ kind: 'element'; id: string }> {
-  return { kind: 'element', id };
-}
 
 function textComponent(id: string, text: string): {
   type: 'text';
