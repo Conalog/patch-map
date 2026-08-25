@@ -29,8 +29,8 @@ import {
 import type { PatchMapRuntimeOptions } from './contracts';
 import type {
   NormalizedPresentationPatch,
+  PatchMapStoredInstancePresentation,
 } from './instance-presentation-request';
-import type { PatchMapStoredInstancePresentation } from './instance-presentation-overlay';
 import type { PatchMapIndexedComponentTarget } from './published-scene-state';
 
 export interface PatchMapChangedInstancePresentation {

@@ -16,6 +16,7 @@ import {
   projectionChangedRanges,
 } from '../../src/rendering/pixi-renderer';
 import { PatchMapPixiCpuPublicationAuthority } from '../../src/rendering/pixi-renderer/cpu-publication-authority';
+import { PatchMapPixiEntitySlotIndexAuthority } from '../../src/rendering/pixi-renderer/entity-slot-index';
 import type {
   PatchMapTextRendererProbe,
 } from '../../src/rendering-port';
@@ -657,7 +658,7 @@ describe('PatchMap text render publication', () => {
       changedRanges: [{ start: 0, end: 1 }],
       projectionContext: projectionContext(changed.projection, 2),
     });
-    renderer.textVisibilityByEntityId.set('text', false);
+    renderer.entitySlotIndex.textVisibilityByEntityId.set('text', false);
     renderer.textProjectionSynchronizedRevision = 2;
     renderer.lastRenderedTextProjectionRevision = 2;
     renderer.lastRenderedTextStoreRevision = 2;
@@ -813,10 +814,10 @@ function createRenderStore(
 
 interface RendererProbeHarness {
   cpuPublication: PatchMapPixiCpuPublicationAuthority;
+  entitySlotIndex: PatchMapPixiEntitySlotIndexAuthority;
   textProjectionSynchronizedRevision: number;
   lastRenderedTextProjectionRevision: number | null;
   lastRenderedTextStoreRevision: number | null;
-  textVisibilityByEntityId: Map<string, boolean>;
   frame: number;
   destroyedValue: boolean;
   textRendererProbe(entityId: string): PatchMapTextRendererProbe | null;
@@ -835,13 +836,15 @@ function rendererProbeHarness(
   cpuPublication.setProjection(projectionIndex, []);
   const effectiveStore = cpuPublication.beginFlush(store);
   cpuPublication.commitFlush(store, effectiveStore);
+  const entitySlotIndex = new PatchMapPixiEntitySlotIndexAuthority();
+  entitySlotIndex.syncTextVisibility(store, undefined);
   Object.assign(renderer, {
     leaves,
     cpuPublication,
+    entitySlotIndex,
     textProjectionSynchronizedRevision: revision,
     lastRenderedTextProjectionRevision: revision,
     lastRenderedTextStoreRevision: store.revision,
-    textVisibilityByEntityId: new Map([['text', true]]),
     frame: 4,
     destroyedValue: false,
   });

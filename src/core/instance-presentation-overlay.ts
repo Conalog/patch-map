@@ -30,6 +30,7 @@ import {
   normalizePresentationPatches,
   normalizeTarget,
   type NormalizedPresentationPatch,
+  type PatchMapStoredInstancePresentation,
 } from './instance-presentation-request';
 import {
   createPatchMapInstanceComponentPresentationProjector,
@@ -41,16 +42,7 @@ import {
 import type { PatchMapIndexedComponentTarget } from './published-scene-state';
 import { patchMapComponentTargetKey } from './component-target-key';
 
-export interface PatchMapStoredInstancePresentation {
-  readonly type: PatchMapInstancePresentationComponentType;
-  readonly target: PatchMapInstanceBarTarget;
-  readonly height?: number;
-  readonly tint?: unknown;
-  readonly source?: PatchMapRectTexture | PatchMapAssetSource;
-  readonly show?: boolean;
-  /** Sparse background/text fields, recursively merged over the current template. */
-  readonly changes?: Readonly<Record<string, unknown>>;
-}
+export type { PatchMapStoredInstancePresentation } from './instance-presentation-request';
 
 export interface PatchMapInstancePresentationPlan {
   readonly projection: PatchMapProjectionIndex;

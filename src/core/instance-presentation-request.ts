@@ -28,6 +28,17 @@ export interface NormalizedPresentationPatch {
   readonly changes?: Readonly<Record<string, unknown>>;
 }
 
+export interface PatchMapStoredInstancePresentation {
+  readonly type: PatchMapInstancePresentationComponentType;
+  readonly target: PatchMapInstanceBarTarget;
+  readonly height?: number;
+  readonly tint?: unknown;
+  readonly source?: PatchMapRectTexture | PatchMapAssetSource;
+  readonly show?: boolean;
+  /** Sparse background/text fields, recursively merged over the current template. */
+  readonly changes?: Readonly<Record<string, unknown>>;
+}
+
 const INSTANCE_PRESENTATION_BATCH_FIELDS = new Set([
   'background',
   'bar',
