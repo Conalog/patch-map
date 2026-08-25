@@ -114,6 +114,9 @@ stable target and keeps it through pointer leave; the next primary target
 click publishes the new target and unpins, while a blank click publishes
 `hide`. Set `preventDefault: false` only when the native context menu must
 remain. PatchMap reuses its one canvas listener, hit test, and transform.
+Document-captured pointer movement from a host-owned DOM overlay does not
+become idle canvas hover. A pointer sequence already owned from canvas down
+continues through capture so pan and selection drags remain uninterrupted.
 
 To preserve selection on a blank single click, clear on blank double click,
 and remove only an already-selected target on its double click, set
