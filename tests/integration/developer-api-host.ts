@@ -2,9 +2,9 @@ import { vi } from 'vitest';
 
 import type {
   createPatchMapApi,
-  type PatchMapPointerHoverEvent,
-  type PatchMapPointerSelectionChange,
-  type PatchMapPointerTooltipEvent,
+  PatchMapPointerHoverEvent,
+  PatchMapPointerSelectionChange,
+  PatchMapPointerTooltipEvent,
 } from '../../src/public';
 import type {
   PatchMapEngineInstanceBarHeightResult,
