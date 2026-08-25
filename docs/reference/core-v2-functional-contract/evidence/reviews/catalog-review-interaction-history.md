@@ -43,6 +43,12 @@ review used only the sanitized contract and verification artifacts under
 - History and gesture branches have concrete actions and exact normalized
   outcomes; interruption, stale generation, replacement, undo/redo companion
   state, and cleanup are executable rather than prose-only.
+- `EVT-003` keeps host-overlay pointer ownership at the renderer boundary: an
+  idle document-captured move is rejected before core dispatch, while a pointer
+  sequence already owned from canvas down continues normally. The focused unit
+  regression and packed Chromium selection smoke cover that boundary, so the
+  implementation-neutral core action trace and normalized semantic assertions
+  remain unchanged.
 
 # Consumer journeys and source/generated drift
 

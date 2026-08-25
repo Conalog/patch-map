@@ -172,7 +172,7 @@
       ]
     },
     "input-device-and-gesture-matrix": {
-      "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc",
+      "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2",
       "datasetRef": "all-kinds-scene",
       "inputRefs": [
         "pointer",
@@ -186,12 +186,12 @@
         },
         {
           "path": "scenarios/events-selection.md",
-          "sha256": "0f6c1dd5e0c1879a6c7ebe88d383d96b6b05d1f398a8a66dbe593b86d50245d8"
+          "sha256": "0f727122c043a77c1f9656abae281bbf0b72ae447afb14b81ed299fd208e0d9a"
         }
       ]
     },
     "owner-qualified-scene-query": {
-      "sha256": "75b90badf1a6e7f50d672bc3ed9111487523706c8aea41e4e0ef9c2863421e01",
+      "sha256": "46cb42e47905a91b79f53cf12a65d23e071f0596cfc056d1e7b57843444aac27",
       "datasetRef": "query-scene",
       "targets": [
         {
@@ -210,12 +210,12 @@
         },
         {
           "path": "scenarios/events-selection.md",
-          "sha256": "0f6c1dd5e0c1879a6c7ebe88d383d96b6b05d1f398a8a66dbe593b86d50245d8"
+          "sha256": "0f727122c043a77c1f9656abae281bbf0b72ae447afb14b81ed299fd208e0d9a"
         }
       ]
     },
     "selection-and-hit-matrix": {
-      "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9",
+      "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86",
       "datasetRef": "all-kinds-scene",
       "pointsWorld": [
         [
@@ -245,7 +245,7 @@
         },
         {
           "path": "scenarios/events-selection.md",
-          "sha256": "0f6c1dd5e0c1879a6c7ebe88d383d96b6b05d1f398a8a66dbe593b86d50245d8"
+          "sha256": "0f727122c043a77c1f9656abae281bbf0b72ae447afb14b81ed299fd208e0d9a"
         }
       ]
     },
@@ -540,7 +540,7 @@
       "fixtureProfiles": [
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         }
       ],
       "setup": {
@@ -734,7 +734,7 @@
       "fixtureProfiles": [
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         }
       ],
       "setup": {
@@ -826,7 +826,7 @@
       "title": "Hover and Pointer Exit",
       "source": {
         "path": "scenarios/events-selection.md",
-        "sha256": "f6cc3c3dda444a421516646a9706888a4e5cd1746bc49e4c38fdf287dee44cb4"
+        "sha256": "3f3859f11eedd9d6ede5507520ea0f2be8020325c35ab6586f4664dbda716f01"
       },
       "priority": "P0",
       "lab": {
@@ -839,7 +839,7 @@
       "fixtureProfiles": [
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         }
       ],
       "setup": {
@@ -984,7 +984,7 @@
       "fixtureProfiles": [
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         },
         {
           "id": "history-and-companion-state",
@@ -1096,11 +1096,11 @@
       "fixtureProfiles": [
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         },
         {
           "id": "owner-qualified-scene-query",
-          "sha256": "75b90badf1a6e7f50d672bc3ed9111487523706c8aea41e4e0ef9c2863421e01"
+          "sha256": "46cb42e47905a91b79f53cf12a65d23e071f0596cfc056d1e7b57843444aac27"
         }
       ],
       "setup": {
@@ -1274,7 +1274,7 @@
       "fixtureProfiles": [
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         }
       ],
       "setup": {
@@ -1389,7 +1389,7 @@
       "fixtureProfiles": [
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         }
       ],
       "setup": {
@@ -1523,7 +1523,7 @@
       "fixtureProfiles": [
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         },
         {
           "id": "viewport-transform-matrix",
@@ -1672,7 +1672,7 @@
       "fixtureProfiles": [
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         }
       ],
       "setup": {
@@ -1751,7 +1751,7 @@
       "fixtureProfiles": [
         {
           "id": "owner-qualified-scene-query",
-          "sha256": "75b90badf1a6e7f50d672bc3ed9111487523706c8aea41e4e0ef9c2863421e01"
+          "sha256": "46cb42e47905a91b79f53cf12a65d23e071f0596cfc056d1e7b57843444aac27"
         }
       ],
       "setup": {
@@ -1886,7 +1886,7 @@
       "fixtureProfiles": [
         {
           "id": "owner-qualified-scene-query",
-          "sha256": "75b90badf1a6e7f50d672bc3ed9111487523706c8aea41e4e0ef9c2863421e01"
+          "sha256": "46cb42e47905a91b79f53cf12a65d23e071f0596cfc056d1e7b57843444aac27"
         }
       ],
       "setup": {
@@ -2015,7 +2015,7 @@
       "fixtureProfiles": [
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         },
         {
           "id": "viewport-transform-matrix",
@@ -2180,7 +2180,7 @@
       "fixtureProfiles": [
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         }
       ],
       "setup": {
@@ -2272,7 +2272,7 @@
       "fixtureProfiles": [
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         }
       ],
       "setup": {
@@ -2343,7 +2343,7 @@
       "fixtureProfiles": [
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         }
       ],
       "setup": {
@@ -2436,7 +2436,7 @@
       "fixtureProfiles": [
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         }
       ],
       "setup": {
@@ -2601,7 +2601,7 @@
       "fixtureProfiles": [
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         }
       ],
       "setup": {
@@ -2713,7 +2713,7 @@
       "fixtureProfiles": [
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         },
         {
           "id": "transformer-gesture-matrix",
@@ -2829,7 +2829,7 @@
       "fixtureProfiles": [
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         }
       ],
       "setup": {
@@ -2936,7 +2936,7 @@
       "fixtureProfiles": [
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         }
       ],
       "setup": {
@@ -18741,11 +18741,11 @@
         },
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         },
         {
           "id": "owner-qualified-scene-query",
-          "sha256": "75b90badf1a6e7f50d672bc3ed9111487523706c8aea41e4e0ef9c2863421e01"
+          "sha256": "46cb42e47905a91b79f53cf12a65d23e071f0596cfc056d1e7b57843444aac27"
         },
         {
           "id": "all-kinds-scene",
@@ -18992,7 +18992,7 @@
         },
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         }
       ],
       "setup": {
@@ -19182,11 +19182,11 @@
         },
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         },
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         }
       ],
       "setup": {
@@ -19676,7 +19676,7 @@
         },
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         }
       ],
       "setup": {
@@ -19859,7 +19859,7 @@
         },
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         },
         {
           "id": "mutation-transaction-matrix",
@@ -20278,7 +20278,7 @@
         },
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         },
         {
           "id": "viewport-transform-matrix",
@@ -20673,11 +20673,11 @@
         },
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         },
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         }
       ],
       "setup": {
@@ -20931,7 +20931,7 @@
         },
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         },
         {
           "id": "transformer-gesture-matrix",
@@ -21659,7 +21659,7 @@
         },
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         }
       ],
       "setup": {
@@ -22170,7 +22170,7 @@
         },
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         },
         {
           "id": "history-and-companion-state",
@@ -23115,7 +23115,7 @@
         },
         {
           "id": "selection-and-hit-matrix",
-          "sha256": "78667e4ca329178e99560ca61fcc5d1e2dd51b251f9ad716e18538693d439ac9"
+          "sha256": "717c8cd1e23b6dbe7e60a488a1d6cd094cc0b7842abf3a1e55909137dbd6ea86"
         },
         {
           "id": "history-and-companion-state",
@@ -23628,7 +23628,7 @@
         },
         {
           "id": "input-device-and-gesture-matrix",
-          "sha256": "169d9a1045340c64985ccf7bbbde3dc4fb86a70c57698d9e58bffc6b601a4bdc"
+          "sha256": "47e7518baf71fcc622718264d6d0dafc9ad7a94df844b8e1d4a00e1f9a16b7e2"
         },
         {
           "id": "diagnostic-and-rollback-matrix",

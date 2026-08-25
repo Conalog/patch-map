@@ -38,7 +38,9 @@ express every flow below and observe the declared ordering and logical targets.
   drag, leave the canvas, and return.
 - **Result:** Hover identifies the highest eligible visible target or null. Press/drag
   suppresses hover where configured. Leave clears transient hover, tooltip, and cursor
-  state; no stale callback appears after redraw or destroy.
+  state; no stale callback appears after redraw or destroy. A document-level move whose
+  native target is a host-owned DOM overlay is not canvas hover, while a pointer sequence
+  already owned by the canvas continues through capture and completes normally.
 - **Lab:** `events/hover-exit` includes corner tooltip clamping and pinned/unpinned host
   examples.
 

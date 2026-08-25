@@ -139,6 +139,7 @@ import {
   sameWorldOrientation,
 } from './pixi-renderer/value-atoms';
 import type { PatchMapPixiRendererPublicationCheckpoint } from './pixi-renderer/publication-checkpoint';
+import { ownsPatchMapPixiPointerMove } from './pixi-renderer/root-pointer-move-ownership';
 import { PatchMapAccessibilityOverlayAuthority } from './pixi-renderer/accessibility-overlay-authority';
 import { PatchMapCanvasSurfaceLifecycle } from './pixi-renderer/canvas-surface-lifecycle';
 
@@ -1590,6 +1591,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private installRootInteractions(handlers: RootInteractionHandlers): () => void {
     this.interactionUnbind?.();
     const stage = this.application.stage;
+    const activePointerIds = new Set<number>();
     const capturedPointerIds = new Set<number>();
     const capturePointer = (pointerId: number): void => {
       try {
@@ -1601,6 +1603,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       }
     };
     const releasePointer = (pointerId: number): void => {
+      activePointerIds.delete(pointerId);
       capturedPointerIds.delete(pointerId);
       try {
         if (this.canvas.hasPointerCapture(pointerId)) {
@@ -1628,10 +1631,12 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       metaKey: event.metaKey,
     });
     const pointerDown = (event: FederatedPointerEvent): void => {
+      activePointerIds.add(event.pointerId);
       capturePointer(event.pointerId);
       handlers.pointer(pointerInput('down', event));
     };
     const pointerMove = (event: FederatedPointerEvent): void => {
+      if (!ownsPatchMapPixiPointerMove(this.canvas, activePointerIds, event)) return;
       handlers.pointer(pointerInput('move', event));
     };
     const pointerUp = (event: FederatedPointerEvent): void => {
@@ -1709,6 +1714,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.canvas.removeEventListener('pointerleave', pointerLeave);
       this.canvas.removeEventListener('contextmenu', contextMenu);
       for (const pointerId of capturedPointerIds) releasePointer(pointerId);
+      activePointerIds.clear();
       capturedPointerIds.clear();
       if (this.interactionUnbind === unbind) this.interactionUnbind = null;
     };
