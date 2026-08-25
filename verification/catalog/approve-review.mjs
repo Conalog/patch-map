@@ -13,7 +13,7 @@ import {
   root,
   serialized,
   sha256,
-} from './patch-map-catalog-lib.mjs';
+} from './lib.mjs';
 
 const acknowledgement = '--acknowledge-independent-analysis-owner-review';
 if (!process.argv.includes(acknowledgement)) {

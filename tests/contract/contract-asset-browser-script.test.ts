@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 const scriptUrl = new URL(
-  '../../scripts/verification/patch-map-contract-assets-browser.mjs',
+  '../../verification/browser/contract-assets.mjs',
   import.meta.url,
 );
 const scriptPath = fileURLToPath(scriptUrl);
@@ -63,7 +63,7 @@ describe('PatchMap AST-001 browser checkpoint script', () => {
 
   it('keeps canonical expected data outside the browser-side executor', () => {
     expect(source.match(/catalog-normalized-expected\.v1\.json/gu)).toHaveLength(1);
-    expect(source).toContain("import { compareObservation } from '../../verification/contract/compare.mjs';");
+    expect(source).toContain("import { compareObservation } from '../contract/compare.mjs';");
     expect(source).toContain('actual: browserRun.actualObservation');
     expect(source).toContain('fixtures: browserRun.fixtures');
     expect(source).toContain('captures: browserRun.captures');

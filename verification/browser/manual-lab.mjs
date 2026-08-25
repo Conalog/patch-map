@@ -9,7 +9,7 @@ import { createServer } from 'vite';
 import {
   parsePatchMapBrowserLaunch,
   parsePatchMapNativeWindowsCell,
-} from '../../verification/browser-launch.mjs';
+} from '../browser-launch.mjs';
 
 const ROOT = process.cwd();
 const allRoutes = process.argv.includes('--all-routes');

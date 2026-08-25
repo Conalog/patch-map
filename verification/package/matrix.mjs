@@ -16,14 +16,14 @@ import {
   EXAMPLE_FILES,
   PACKAGE_NAME,
   projectPackedArtifactPolicy,
-} from './patch-map-package-matrix/artifact-policy.mjs';
-import { comparePackedJourneyRuns } from './patch-map-package-matrix/journey-comparison.mjs';
+} from './artifact-policy.mjs';
+import { comparePackedJourneyRuns } from './journey-comparison.mjs';
 import {
   examplesRunnerSource,
   html,
   journeyRunnerSource,
   matrixRunnerSource,
-} from './patch-map-package-matrix/runner-sources.mjs';
+} from './runner-sources.mjs';
 
 const execute = promisify(execFile);
 const PACKED_JOURNEY_TIMEOUT_MS = 45_000;

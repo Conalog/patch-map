@@ -15,16 +15,16 @@ import {
   PACKED_CONSUMER_CJS_SOURCE,
   PACKED_CONSUMER_ESM_SOURCE,
   PACKED_CONSUMER_HTML_SOURCE,
-} from './patch-map-package/consumer-sources.mjs';
+} from './consumer-sources.mjs';
 import {
   collectPackageFailures,
   createPackageConsumerEvidence,
-} from './patch-map-package/evidence.mjs';
+} from './evidence.mjs';
 import {
   createDependencyLicenseInventory,
   createSupplyChainEvidence,
   nonNegativeAuditCount,
-} from './patch-map-package/supply-chain.mjs';
+} from './supply-chain.mjs';
 import {
   analyzePackedArtifact,
   auditPackedHostAdapter,
@@ -35,7 +35,7 @@ import {
   runPackedJourneyMatrix,
   verifyPackedConsumerTypes,
   verifyPackedProductionBuild,
-} from './patch-map-package-matrix.mjs';
+} from './matrix.mjs';
 
 const execute = promisify(execFile);
 const ROOT = process.cwd();

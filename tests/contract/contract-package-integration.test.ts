@@ -16,9 +16,9 @@ import * as handlerModule from '../../verification/contract/handlers/package-int
 // @ts-expect-error -- browser-safe contract folds are authored as ESM JavaScript.
 import * as foldModule from '../../verification/contract/fold-package-integration.mjs';
 // @ts-expect-error -- package artifact policy is authored as ESM JavaScript.
-import * as artifactPolicyModule from '../../scripts/verification/patch-map-package-matrix/artifact-policy.mjs';
+import * as artifactPolicyModule from '../../verification/package/artifact-policy.mjs';
 // @ts-expect-error -- package evidence collectors are authored as ESM JavaScript.
-import * as packageEvidenceModule from '../../scripts/verification/patch-map-package/evidence.mjs';
+import * as packageEvidenceModule from '../../verification/package/evidence.mjs';
 
 interface PackageHandlerRuntime {
   readonly PACKAGE_INTEGRATION_HANDLER_REVISION: string;
@@ -84,30 +84,30 @@ describe('PatchMap packed integration automation substrate', () => {
 
   it('keeps package verifier owned modules loadable and explicitly composed', async () => {
     const urls = [
-      new URL('../../scripts/verification/patch-map-package.mjs', import.meta.url),
+      new URL('../../verification/package/run.mjs', import.meta.url),
       new URL(
-        '../../scripts/verification/patch-map-package/consumer-sources.mjs',
+        '../../verification/package/consumer-sources.mjs',
         import.meta.url,
       ),
       new URL(
-        '../../scripts/verification/patch-map-package/evidence.mjs',
+        '../../verification/package/evidence.mjs',
         import.meta.url,
       ),
       new URL(
-        '../../scripts/verification/patch-map-package/supply-chain.mjs',
+        '../../verification/package/supply-chain.mjs',
         import.meta.url,
       ),
-      new URL('../../scripts/verification/patch-map-package-matrix.mjs', import.meta.url),
+      new URL('../../verification/package/matrix.mjs', import.meta.url),
       new URL(
-        '../../scripts/verification/patch-map-package-matrix/artifact-policy.mjs',
-        import.meta.url,
-      ),
-      new URL(
-        '../../scripts/verification/patch-map-package-matrix/journey-comparison.mjs',
+        '../../verification/package/artifact-policy.mjs',
         import.meta.url,
       ),
       new URL(
-        '../../scripts/verification/patch-map-package-matrix/runner-sources.mjs',
+        '../../verification/package/journey-comparison.mjs',
+        import.meta.url,
+      ),
+      new URL(
+        '../../verification/package/runner-sources.mjs',
         import.meta.url,
       ),
     ];
@@ -127,12 +127,12 @@ describe('PatchMap packed integration automation substrate', () => {
     const artifact = sources[5]!;
     const comparison = sources[6]!;
     const runners = sources[7]!;
-    expect(root).toContain("from './patch-map-package/consumer-sources.mjs'");
+    expect(root).toContain("from './consumer-sources.mjs'");
     expect(root).toContain('createPackedConsumerDependencySeedPackageJson');
     expect(root).toContain("'--prefer-offline'");
     expect(root).toContain("'--offline'");
-    expect(root).toContain("from './patch-map-package/evidence.mjs'");
-    expect(root).toContain("from './patch-map-package/supply-chain.mjs'");
+    expect(root).toContain("from './evidence.mjs'");
+    expect(root).toContain("from './supply-chain.mjs'");
     expect(consumers).toContain('export const PACKED_CONSUMER_ESM_SOURCE = `');
     expect(consumers).toContain('export const PACKED_CONSUMER_CJS_SOURCE = `');
     expect(consumers).toContain(
@@ -142,9 +142,9 @@ describe('PatchMap packed integration automation substrate', () => {
     expect(evidence).toContain('export function createPackageConsumerEvidence');
     expect(supplyChain).toContain('export function createSupplyChainEvidence');
     expect(supplyChain).toContain("format: 'patch-map-spdx-lite/1'");
-    expect(matrix).toContain("from './patch-map-package-matrix/artifact-policy.mjs'");
-    expect(matrix).toContain("from './patch-map-package-matrix/journey-comparison.mjs'");
-    expect(matrix).toContain("from './patch-map-package-matrix/runner-sources.mjs'");
+    expect(matrix).toContain("from './artifact-policy.mjs'");
+    expect(matrix).toContain("from './journey-comparison.mjs'");
+    expect(matrix).toContain("from './runner-sources.mjs'");
     expect(artifact).toContain("export const PACKAGE_NAME = '@conalog/patch-map';");
     expect(artifact).toContain("'docs/assets/fonts.md'");
     expect(artifact).toContain("'docs/assets/fira-code-6.2-license.txt'");

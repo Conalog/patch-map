@@ -171,7 +171,7 @@ async function runMeasuredTrial(
 
 async function sourceFor(scale: PatchMapScale, seed: number): Promise<unknown> {
   if (scale !== 'production') return createSyntheticPatchMap(scale, seed);
-  productionInputPromise ??= fetch('/lab/fixtures/production-like.json').then(async (response) => {
+  productionInputPromise ??= fetch('/verification/fixtures/datasets/production-like.json').then(async (response) => {
     if (!response.ok) throw new Error(`production fixture failed with HTTP ${response.status}`);
     return response.json() as Promise<unknown>;
   });

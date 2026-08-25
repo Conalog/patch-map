@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const performanceSource = readFileSync(
   new URL(
-    '../../scripts/verification/patch-map-extraction-performance.mjs',
+    '../../performance/runners/extraction.mjs',
     import.meta.url,
   ),
   'utf8',
@@ -24,12 +24,12 @@ const ownedHarnessSource = [
     readFileSync(new URL(relativePath, import.meta.url), 'utf8')),
 ].join('\n');
 const packageSource = [
-  '../../scripts/verification/patch-map-package.mjs',
-  '../../scripts/verification/patch-map-package/consumer-sources.mjs',
+  '../../verification/package/run.mjs',
+  '../../verification/package/consumer-sources.mjs',
 ].map((relativePath) =>
   readFileSync(new URL(relativePath, import.meta.url), 'utf8')).join('\n');
 const memorySource = readFileSync(
-  new URL('../../scripts/verification/patch-map-memory.mjs', import.meta.url),
+  new URL('../../performance/runners/memory.mjs', import.meta.url),
   'utf8',
 );
 

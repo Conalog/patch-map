@@ -10,7 +10,7 @@ import {
   root,
   serialized,
   sha256,
-} from './patch-map-catalog-lib.mjs';
+} from './lib.mjs';
 
 const generated = await buildCatalog();
 const stored = {

@@ -16,10 +16,10 @@ import {
 import type { PatchMapDatasetError } from '../../src/semantic/dataset';
 
 const productionFixturePath = fileURLToPath(
-  new URL('../../lab/fixtures/production-like.json', import.meta.url),
+  new URL('../../verification/fixtures/datasets/production-like.json', import.meta.url),
 );
 const actualProductionFixturePath = fileURLToPath(
-  new URL('../../lab/fixtures/actual-production.json', import.meta.url),
+  new URL('../../verification/fixtures/datasets/actual-production.json', import.meta.url),
 );
 
 describe('PatchMap approved dataset foundation', () => {

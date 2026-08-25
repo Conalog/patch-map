@@ -7,7 +7,6 @@ const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 const typescriptFiles = [
   'src/**/*.ts',
   'tests/**/*.ts',
-  'scripts/**/*.ts',
   'verification/**/*.ts',
   'lab/**/*.ts',
   'performance/**/*.ts',
@@ -21,12 +20,11 @@ export default defineConfig(
       '.artifacts/**',
       'dist/**',
       'fixtures/**',
-      'lab/fixtures/**',
       'node_modules/**',
     ],
   },
   {
-    files: ['scripts/**/*.mjs', 'verification/**/*.mjs', 'performance/**/*.mjs'],
+    files: ['verification/**/*.mjs', 'performance/**/*.mjs'],
     extends: [eslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 'latest',

@@ -9,7 +9,7 @@ import {
   validateActionContract,
   validateExecutionBindings,
   validateTypedAssertions,
-} from './patch-map-catalog-lib.mjs';
+} from './lib.mjs';
 
 const typed = await readJson(catalogTypedCasePath);
 const profiles = await readJson(catalogProfilePath);

@@ -11,7 +11,7 @@ import {
 import { parsePatchMap } from '../../src/parsing';
 
 const productionFixturePath = fileURLToPath(
-  new URL('../../lab/fixtures/production-like.json', import.meta.url),
+  new URL('../../verification/fixtures/datasets/production-like.json', import.meta.url),
 );
 
 const invalidDatasetProfiles = new Set(['malformed']);

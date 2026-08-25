@@ -225,7 +225,7 @@ export async function buildPatchMapManualSceneAsync(
     return buildPatchMapManualScene(size, seed, animationDurationMs);
   }
   if (actualProductionDataset === null) {
-    const module = await import('../fixtures/actual-production.json');
+    const module = await import('../../verification/fixtures/datasets/actual-production.json');
     actualProductionDataset = deepFreeze(
       revealActualProductionBars(
         module.default as unknown as readonly Readonly<Record<string, unknown>>[],

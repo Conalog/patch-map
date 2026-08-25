@@ -16,19 +16,19 @@ const runObserverUrl = new URL(
   import.meta.url,
 );
 const browserScriptUrl = new URL(
-  '../../scripts/verification/patch-map-contract-render-browser.mjs',
+  '../../verification/browser/contract-render.mjs',
   import.meta.url,
 );
 const browserCatalogUrl = new URL(
-  '../../scripts/verification/patch-map-contract-render-browser/catalog.mjs',
+  '../../verification/browser/contract-render/catalog.mjs',
   import.meta.url,
 );
 const browserAssertionsUrl = new URL(
-  '../../scripts/verification/patch-map-contract-render-browser/assertions.mjs',
+  '../../verification/browser/contract-render/assertions.mjs',
   import.meta.url,
 );
 const browserRunUrl = new URL(
-  '../../scripts/verification/patch-map-contract-render-browser/browser-run.mjs',
+  '../../verification/browser/contract-render/browser-run.mjs',
   import.meta.url,
 );
 
@@ -217,7 +217,7 @@ describe('PatchMap REN-006 / REN-011 focused text Lab UI', () => {
     expect(catalogSource).toContain(
       "const FOCUSED_UI_CASES = new Set(['REN-005', 'REN-006', 'REN-008', 'REN-010', 'REN-011']);",
     );
-    expect(source).toContain("from './patch-map-contract-render-browser/browser-run.mjs'");
+    expect(source).toContain("from './contract-render/browser-run.mjs'");
     expect(browserRunSource).toContain('async function collectTextFocusedUi');
     expect(browserRunSource).toContain("inspectorTestId: 'ren-006-text-inspector'");
     expect(browserRunSource).toContain("inspectorTestId: 'ren-011-text-inspector'");

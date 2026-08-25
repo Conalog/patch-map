@@ -124,7 +124,7 @@ function summarizeCpuProfile(profile) {
 }
 
 async function mountFixture(page, size, trial) {
-  await page.goto('/scripts/verification/patch-map-public-animation-performance.html', {
+  await page.goto('/performance/runners/public-animation.html', {
     waitUntil: 'networkidle',
     timeout: 120_000,
   });

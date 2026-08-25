@@ -2,8 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 
-import { argumentValue } from '../../verification/browser-launch.mjs';
-import { resolvePatchMapCandidateOutputPath } from '../../verification/candidate-path.mjs';
+import { argumentValue } from '../browser-launch.mjs';
+import { resolvePatchMapCandidateOutputPath } from '../candidate-path.mjs';
 
 import {
   buildCatalog,
@@ -12,7 +12,7 @@ import {
   catalogManifestPath,
   root,
   serialized,
-} from './patch-map-catalog-lib.mjs';
+} from './lib.mjs';
 
 const pendingReview = process.argv.includes('--pending-review');
 const { fixtures, expected, manifest } = await buildCatalog(

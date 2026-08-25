@@ -18,16 +18,16 @@ const declaredCsmConflicts = PATCH_MAP_CSM_DECLARED_IMMUTABLE_CONFLICTS as unkno
 >;
 
 const scriptUrl = new URL(
-  '../../scripts/verification/patch-map-contract-render-browser.mjs',
+  '../../verification/browser/contract-render.mjs',
   import.meta.url,
 );
 const scriptPath = fileURLToPath(scriptUrl);
 const catalogPath = fileURLToPath(new URL(
-  '../../scripts/verification/patch-map-contract-render-browser/catalog.mjs',
+  '../../verification/browser/contract-render/catalog.mjs',
   import.meta.url,
 ));
 const assertionsPath = fileURLToPath(new URL(
-  '../../scripts/verification/patch-map-contract-render-browser/assertions.mjs',
+  '../../verification/browser/contract-render/assertions.mjs',
   import.meta.url,
 ));
 const ownedModulePaths = [
@@ -35,19 +35,19 @@ const ownedModulePaths = [
   catalogPath,
   assertionsPath,
   fileURLToPath(new URL(
-    '../../scripts/verification/patch-map-contract-render-browser/browser-run.mjs',
+    '../../verification/browser/contract-render/browser-run.mjs',
     import.meta.url,
   )),
   fileURLToPath(new URL(
-    '../../scripts/verification/patch-map-contract-render-browser/expected-cases.mjs',
+    '../../verification/browser/contract-render/expected-cases.mjs',
     import.meta.url,
   )),
   fileURLToPath(new URL(
-    '../../scripts/verification/patch-map-contract-render-browser/focused-input.mjs',
+    '../../verification/browser/contract-render/focused-input.mjs',
     import.meta.url,
   )),
   fileURLToPath(new URL(
-    '../../scripts/verification/patch-map-contract-render-browser/webgl-probe.mjs',
+    '../../verification/browser/contract-render/webgl-probe.mjs',
     import.meta.url,
   )),
 ] as const;
@@ -85,12 +85,12 @@ describe('PatchMap render browser checkpoint script', () => {
   });
 
   it('keeps catalog and assertions acyclic, fixture-blind, and free of checkpoint ownership', () => {
-    expect(rootSource).toContain("from './patch-map-contract-render-browser/catalog.mjs'");
-    expect(rootSource).toContain("from './patch-map-contract-render-browser/assertions.mjs'");
-    expect(rootSource).toContain("from './patch-map-contract-render-browser/browser-run.mjs'");
-    expect(rootSource).toContain("from './patch-map-contract-render-browser/expected-cases.mjs'");
-    expect(rootSource).toContain("from './patch-map-contract-render-browser/focused-input.mjs'");
-    expect(rootSource).toContain("from './patch-map-contract-render-browser/webgl-probe.mjs'");
+    expect(rootSource).toContain("from './contract-render/catalog.mjs'");
+    expect(rootSource).toContain("from './contract-render/assertions.mjs'");
+    expect(rootSource).toContain("from './contract-render/browser-run.mjs'");
+    expect(rootSource).toContain("from './contract-render/expected-cases.mjs'");
+    expect(rootSource).toContain("from './contract-render/focused-input.mjs'");
+    expect(rootSource).toContain("from './contract-render/webgl-probe.mjs'");
     expect(catalogSource).not.toMatch(/patch-map-contract-render-browser\.mjs|assertions\.mjs/u);
     expect(assertionsSource).toContain("from './catalog.mjs'");
     for (const childSource of [catalogSource, assertionsSource]) {
@@ -442,7 +442,7 @@ describe('PatchMap render browser checkpoint script', () => {
     expect(source).toContain("'render checkpoint declared immutable conflict inventory must remain 28'");
     expect(source).toContain('latentCases: selectedRenderCases');
     expect(source).toContain(".filter((record) => (record.latentConflicts?.length ?? 0) > 0)");
-    expect(source).toContain("import { inspectPatchMapUpdateConflictActuals } from '../../../verification/contract/update-conflict-actuals.mjs';");
+    expect(source).toContain("import { inspectPatchMapUpdateConflictActuals } from '../../contract/update-conflict-actuals.mjs';");
     expect(source).toContain('assertImmutableConflictActuals(caseSpec.id, run.actualObservation, runLabel)');
     expect(source).toContain('inspectPatchMapUpdateConflictActuals(caseId, actualObservation)');
   });
@@ -482,7 +482,7 @@ describe('PatchMap render browser checkpoint script', () => {
 
   it('keeps canonical expected data outside the public Lab bridge executor', () => {
     expect(source.match(/catalog-normalized-expected\.v1\.json/gu)).toHaveLength(1);
-    expect(source).toContain("import { compareObservation } from '../../../verification/contract/compare.mjs';");
+    expect(source).toContain("import { compareObservation } from '../../contract/compare.mjs';");
     expect(source).toContain('actual: browserRun.actualObservation');
     expect(source).toContain('fixtures: browserRun.fixtures');
     expect(source).toContain('captures: browserRun.captures');

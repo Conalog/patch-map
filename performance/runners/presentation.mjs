@@ -45,7 +45,7 @@ function stats(values) {
 }
 
 async function runTrial(page, size, sequence) {
-  await page.goto('/scripts/verification/patch-map-presentation-performance.html', {
+  await page.goto('/performance/runners/presentation.html', {
     waitUntil: 'networkidle',
     timeout: 120_000,
   });

@@ -18,7 +18,7 @@ if (artifact === undefined || !path.isAbsolute(artifact)) {
 }
 
 const root = process.cwd();
-const sourceSvg = await readFile(path.join(root, 'src/assets/icons/inverter.svg'), 'utf8');
+const sourceSvg = await readFile(path.join(root, 'src/resources/icons/inverter.svg'), 'utf8');
 const sourceDigest = createHash('sha256').update(sourceSvg).digest('hex');
 const artifactBytes = await readFile(artifact);
 const artifactSha256 = createHash('sha256').update(artifactBytes).digest('hex');

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-import { compareObservation } from '../../verification/contract/compare.mjs';
+import { compareObservation } from '../contract/compare.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const EXPECTED_PATH = fileURLToPath(new URL(

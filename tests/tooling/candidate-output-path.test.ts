@@ -58,7 +58,7 @@ describe('PatchMap candidate output boundaries', () => {
       'src',
       'lab',
       '.github/workflows',
-      'scripts/verification',
+      'verification/catalog',
     ]) {
       expect(() => resolvePatchMapCandidateOutputPath({ root, value, label: 'candidate' }))
         .toThrow();

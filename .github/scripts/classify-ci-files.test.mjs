@@ -30,7 +30,7 @@ test('product, package, verification, and workflow changes require the full rele
     'src/index.ts',
     'package.json',
     'package-lock.json',
-    'scripts/verification/patch-map-package.mjs',
+    'verification/package/run.mjs',
     '.github/workflows/ci.yaml',
   ]) {
     assert.equal(classifyChangedPaths([path]).fullValidation, true, path);

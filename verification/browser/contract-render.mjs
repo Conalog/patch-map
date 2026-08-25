@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-import { maskVolatile } from '../../verification/contract/evidence.mjs';
+import { maskVolatile } from '../contract/evidence.mjs';
 import {
   assertCaseRun,
   assertDestroyControl,
@@ -15,7 +15,7 @@ import {
   firstJsonDifference,
   invariant,
   summarizeComparison,
-} from './patch-map-contract-render-browser/assertions.mjs';
+} from './contract-render/assertions.mjs';
 import {
   CASE_TIMEOUT_MS,
   CHECKPOINT_TIMEOUT_MS,
@@ -25,19 +25,19 @@ import {
   PERFORMANCE_CASE_TIMEOUT_MS,
   PERFORMANCE_TRANCHE_CASES,
   RENDER_CASES,
-} from './patch-map-contract-render-browser/catalog.mjs';
+} from './contract-render/catalog.mjs';
 import {
   BRIDGE_NAME,
   executeBrowserRun,
   executeBrowserUiRun,
   GPU_PROBE_NAME,
-} from './patch-map-contract-render-browser/browser-run.mjs';
+} from './contract-render/browser-run.mjs';
 import {
   verifyPointerRootInput,
   verifyViewportRootInput,
-} from './patch-map-contract-render-browser/focused-input.mjs';
-import { loadExpectedCases } from './patch-map-contract-render-browser/expected-cases.mjs';
-import { installWebGlCanvasProbe } from './patch-map-contract-render-browser/webgl-probe.mjs';
+} from './contract-render/focused-input.mjs';
+import { loadExpectedCases } from './contract-render/expected-cases.mjs';
+import { installWebGlCanvasProbe } from './contract-render/webgl-probe.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const EXPECTED_PATH = fileURLToPath(new URL(

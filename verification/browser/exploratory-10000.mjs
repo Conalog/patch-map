@@ -5,7 +5,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
 
-import { parsePatchMapBrowserLaunch } from '../../verification/browser-launch.mjs';
+import { parsePatchMapBrowserLaunch } from '../browser-launch.mjs';
 
 const ROOT = process.cwd();
 const browserLaunch = parsePatchMapBrowserLaunch(process.argv.slice(2));

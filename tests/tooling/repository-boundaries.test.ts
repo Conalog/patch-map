@@ -7,10 +7,10 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const RULES = Object.freeze({
-  src: new Set(['contracts', 'examples', 'lab', 'performance', 'scripts', 'tests', 'verification']),
-  verification: new Set(['examples', 'lab', 'performance', 'scripts', 'tests']),
-  performance: new Set(['lab', 'scripts', 'tests']),
-  lab: new Set(['scripts', 'tests']),
+  src: new Set(['contracts', 'examples', 'lab', 'performance', 'tests', 'verification']),
+  verification: new Set(['examples', 'lab', 'performance', 'tests']),
+  performance: new Set(['lab', 'tests']),
+  lab: new Set(['tests']),
 });
 
 describe('repository source boundaries', () => {
@@ -28,6 +28,15 @@ describe('repository source boundaries', () => {
           }
         }
       }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it('keeps shared performance datasets outside the Lab owner', async () => {
+    const violations: string[] = [];
+    for (const file of await sourceFiles(resolve(ROOT, 'performance'))) {
+      const source = await readFile(file, 'utf8');
+      if (/lab\/fixtures\//u.test(source)) violations.push(relative(ROOT, file));
     }
     expect(violations).toEqual([]);
   });

@@ -7,7 +7,7 @@ import { PatchMapParseError } from '../../src/parsing/contracts';
 import { parsePatchMap } from '../../src/parsing';
 
 const fixturePath = fileURLToPath(
-  new URL('../../lab/fixtures/production-like.json', import.meta.url),
+  new URL('../../verification/fixtures/datasets/production-like.json', import.meta.url),
 );
 
 describe('PatchMap PatchMap parser', () => {

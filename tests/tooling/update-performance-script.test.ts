@@ -7,7 +7,7 @@ import { createSyntheticPatchMap } from '../../performance/workloads';
 import { PatchMap } from '../../src/engine';
 
 // @ts-expect-error -- verification runner is authored as ESM JavaScript.
-import * as updatePerformanceSource from '../../scripts/verification/patch-map-update-performance.mjs';
+import * as updatePerformanceSource from '../../performance/runners/update.mjs';
 
 interface UpdateProtocol {
   warmups: number;
@@ -186,7 +186,7 @@ describe('PatchMap update transaction performance checkpoint', () => {
   it('stays expected-blind and labels the renderer exclusion explicitly', async () => {
     const source = await readFile(
       fileURLToPath(
-        new URL('../../scripts/verification/patch-map-update-performance.mjs', import.meta.url),
+        new URL('../../performance/runners/update.mjs', import.meta.url),
       ),
       'utf8',
     );
