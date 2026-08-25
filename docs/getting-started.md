@@ -64,6 +64,6 @@ authority; the host must not add another render loop or a sleep before first use
 
 | Claim | Code | Focused evidence |
 | --- | --- | --- |
-| Public construction | `src/index.ts`, `src/public/contracts.ts` | `tests/integration/developer-api.test.ts` |
+| Public construction | `src/index.ts`, `src/public/contracts.ts` | `tests/integration/developer-api-workflows.test.ts` |
 | Initial canvas publication | `src/engine/surface-lifecycle-authority.ts`, `src/rendering/pixi-renderer/surface-publication-authority.ts` | `tests/engine/canvas-surface-lifecycle.test.ts` |
 | Resize and teardown | `src/engine/index.ts`, `src/engine/page-lifecycle.ts` | `tests/engine/engine-lifecycle.test.ts`, `tests/integration/page-lifecycle.test.ts` |

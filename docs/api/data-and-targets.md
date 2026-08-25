@@ -62,4 +62,4 @@ public identities.
 | validation, detachment, semantic hash | `src/semantic/dataset` | `tests/semantic/dataset-contract.test.ts` |
 | replacement freshness and atomic publication | `src/engine/dataset-replacement-coordinator.ts` | `tests/engine/engine-lifecycle.test.ts` |
 | target grammar and revision binding | `src/query-selection` | `tests/semantic/query-selection.test.ts` |
-| facade shapes | `src/public/contracts.ts` | `tests/integration/developer-api.test.ts` |
+| facade shapes | `src/public/contracts.ts` | `tests/integration/developer-api-targets-presentation.test.ts` |

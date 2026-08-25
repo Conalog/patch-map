@@ -46,5 +46,5 @@ shortcut choice, and persistence transport. Commit detached host state with
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
 | workflow state and invariants | `src/editor-workflow/index.ts` | `tests/semantic/editor-workflow.test.ts` |
-| public result projection | `src/public/editor.ts` | `tests/integration/developer-api.test.ts` |
+| public result projection | `src/public/editor.ts` | `tests/integration/developer-api-workflows.test.ts` |
 | atomic semantic history | `src/engine/history-application-coordinator.ts` | `tests/engine/engine-history-integration.test.ts` |
