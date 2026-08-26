@@ -525,4 +525,36 @@ describe('PatchMap instance component presentation integration', () => {
     expect(coordinator.presentations.size).toBe(0);
     expect(coordinator.rendererOverrides.size).toBe(0);
   });
+
+  it('keeps cached repeated text projections inside each grid item stacking path', async () => {
+    const { core } = createTestCore(allocated);
+    const engine = createPublicApiEngine({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    await engine.initialize({
+      instanceId: 'grid-instance-repeated-text-stacking',
+      width: 800,
+      height: 600,
+    });
+    engine.loadDataset(gridPresentationScene());
+
+    expect(engine.updateInstanceBarHeights({
+      text: {
+        targets: [
+          { id: 'grid-presentation.0.0', componentId: 'label' },
+          { id: 'grid-presentation.0.1', componentId: 'label' },
+        ],
+        text: ['91%', '91%'],
+      },
+      animate: false,
+    })).toMatchObject({ status: 'committed', changed: true, overlayCount: 2 });
+
+    for (const ownerId of ['grid-presentation.0.0', 'grid-presentation.0.1']) {
+      const ownerPath = core.projection?.byEntityId[ownerId]?.stackingPath;
+      const textPath = core.projection?.byEntityId[`${ownerId}::text:label`]?.stackingPath;
+      expect(textPath?.slice(0, -1)).toEqual(ownerPath);
+    }
+
+    await engine.destroy();
+  });
 });

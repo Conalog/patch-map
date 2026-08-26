@@ -191,6 +191,7 @@ function rebaseCachedTextComponentProjection(
   const deltaY = ownerProjection.affine[5] - cached.ownerTranslation[1];
   const projection = cached.projected.entityProjection;
   const componentProjection = cached.projected.componentProjection;
+  const componentStackingFrame = projection.stackingPath?.at(-1);
   return Object.freeze({
     entity: Object.freeze({
       ...entity,
@@ -213,6 +214,15 @@ function rebaseCachedTextComponentProjection(
         projection.visibleCenter[0] + deltaX,
         projection.visibleCenter[1] + deltaY,
       ] as const),
+      ...(componentStackingFrame === undefined
+        ? {}
+        : {
+            stackingPath: appendPatchMapStackingFrame(
+              ownerProjection.stackingPath ?? Object.freeze([]),
+              componentStackingFrame.zIndex,
+              componentStackingFrame.authoredOrder,
+            ),
+          }),
       ...(projection.ownerItemId === undefined ? {} : { ownerItemId: ownerId }),
     }),
     ...(componentProjection === undefined
