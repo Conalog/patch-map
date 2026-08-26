@@ -54,15 +54,41 @@ function scenePaintOrderForOwners(
   exactOwnerIds: ReadonlySet<string>,
   analysis: PatchMapScenePaintOrderAnalysis,
 ): PatchMapScenePaintOrder {
-  const paths = Object.create(null) as Record<string, PatchMapStackingPath>;
+  let earliestExactPath: PatchMapStackingPath | undefined;
+  const considerExactPath = (entityId: string): void => {
+    const path = index.byEntityId[entityId]?.stackingPath;
+    if (path === undefined) return;
+    if (
+      earliestExactPath === undefined ||
+      comparePatchMapStackingPaths(path, earliestExactPath) < 0
+    ) earliestExactPath = path;
+  };
   for (const ownerId of exactOwnerIds) {
-    const owner = index.byEntityId[ownerId];
-    if (owner?.stackingPath !== undefined) paths[ownerId] = owner.stackingPath;
+    considerExactPath(ownerId);
   }
   for (const ownerId of exactOwnerIds) {
     for (const entityId of analysis.componentIdsByOwnerId.get(ownerId) ?? []) {
-      const projection = index.byEntityId[entityId];
-      if (projection?.stackingPath !== undefined) paths[entityId] = projection.stackingPath;
+      considerExactPath(entityId);
+    }
+  }
+  const paths = Object.create(null) as Record<string, PatchMapStackingPath>;
+  if (earliestExactPath !== undefined) {
+    // The shared exact container is the final aggregate lane. Keep the
+    // compatible prefix batched, but route the complete stacking suffix so a
+    // later normal sibling cannot be painted behind an earlier exact item.
+    for (const projection of Object.values(index.byEntityId)) {
+      const path = projection.stackingPath;
+      if (
+        path !== undefined &&
+        comparePatchMapStackingPaths(path, earliestExactPath) >= 0
+      ) paths[projection.entityId] = path;
+    }
+    for (const projection of Object.values(index.relationsByEntityId)) {
+      const path = projection.stackingPath;
+      if (
+        path !== undefined &&
+        comparePatchMapStackingPaths(path, earliestExactPath) >= 0
+      ) paths[projection.entityId] = path;
     }
   }
   const ranks = rankPatchMapStackingPaths(paths);

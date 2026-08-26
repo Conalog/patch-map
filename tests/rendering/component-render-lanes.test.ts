@@ -64,6 +64,72 @@ describe('PatchMap fixed component render lanes', () => {
     paint.destroy();
   });
 
+  it('keeps a higher root sibling above an exact item in the shared paint container', async () => {
+    const parsed = parsePatchMap([
+      {
+        type: 'rect',
+        id: 'prefix',
+        size: { width: 100, height: 80 },
+        attrs: { zIndex: -10 },
+      },
+      {
+        type: 'item',
+        id: 'owner',
+        size: { width: 100, height: 80 },
+        attrs: { x: 20, zIndex: 0 },
+        components: [
+          { type: 'text', id: 'first', text: 'first', attrs: { zIndex: 100 } },
+          { type: 'text', id: 'second', text: 'second', attrs: { zIndex: 0 } },
+        ],
+      },
+      {
+        type: 'text',
+        id: 'foreground',
+        text: 'foreground',
+        size: { width: 100, height: 80 },
+        attrs: { zIndex: 100 },
+      },
+      {
+        type: 'relations',
+        id: 'links',
+        links: [{ source: 'prefix', target: 'owner' }],
+        attrs: { zIndex: 200 },
+      },
+    ]);
+    const relationEntityId = Object.keys(parsed.projection.relationsByEntityId)[0]!;
+    const store = createRenderStore(parsed.document.entities);
+    const relationSlot = store.ids.indexOf(relationEntityId);
+    if (!(store.relationFrom instanceof Int32Array) || !(store.relationTo instanceof Int32Array)) {
+      throw new Error('expected mutable relation endpoint arrays');
+    }
+    store.relationFrom[relationSlot] = store.ids.indexOf('prefix');
+    store.relationTo[relationSlot] = store.ids.indexOf('owner');
+    const order = resolvePatchMapScenePaintOrder(parsed.projection);
+    const context = projectionContext(parsed.projection, 1, order.rankByEntityId);
+    const mesh = new AggregateMeshLayer({ chunkSize: 8 });
+    const leaves = await createResolvedLeafLayer(parsed.projection, 'mixed-root-order');
+    const paint = new Container({ sortableChildren: true });
+    mesh.setPaintContainer(paint);
+    leaves.setPaintContainer(paint, order.rankByEntityId);
+
+    mesh.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
+    leaves.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
+    paint.sortChildren();
+
+    expect(order.exact).toBe(true);
+    expect(order.rankByEntityId.prefix).toBeUndefined();
+    expect(order.rankByEntityId.foreground).toBeDefined();
+    expect(order.rankByEntityId[relationEntityId]).toBeDefined();
+    expect(paint.children.at(-1)?.zIndex).toBeGreaterThanOrEqual(
+      order.rankByEntityId[relationEntityId]! * 4,
+    );
+    expect(mesh.ordinaryGeometryContainer.children).toHaveLength(1);
+
+    mesh.destroy();
+    await leaves.destroy();
+    paint.destroy();
+  });
+
   it('recovers every projected asset consumer when settlement precedes leaf observation', () => {
     const parsed = parsePatchMap([
       paintItem('rear', 0, 10),
