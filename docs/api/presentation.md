@@ -4,7 +4,8 @@
 - Audience: package consumers and agents changing non-authoritative visual state
 - Source: `src/public/presentation.ts`, `src/public/mutations.ts`,
   `src/core/presentation-layers.ts`, `src/core/instance-presentation-overlay.ts`,
-  `src/core/instance-presentation-request.ts`, and
+  `src/core/instance-presentation-request.ts`,
+  `src/core/bar-presentation-authority.ts`, and
   `src/core/instance-component-presentation-projection.ts`
 
 ## Scope
@@ -50,7 +51,15 @@ fields:
 - Concrete overlays are excluded from the caller dataset, semantic hash, and
   authored history. They use the interaction revision and central renderer and
   animation scheduler; no overlay-owned display object or frame loop is created.
-- Updating the authored grid template instead changes every expanded cell.
+- A semantic update reapplies concrete overlays to surviving targets against
+  the current authored template. Stored overlay fields remain in effect while
+  fields outside the overlay follow the new authored values.
+- An active bar animation continues when that replay preserves its effective
+  destination. When the destination changes and the caller supplies an
+  animation target set, only an included target transitions; a non-target bar
+  lands on the new value immediately.
+- Updating the authored grid template changes every expanded cell except fields
+  still owned by a concrete overlay.
 - A dataset replacement or destroy clears concrete overlays.
 
 ## Failure semantics
@@ -75,4 +84,5 @@ Runnable keyed-layer reference:
 | sparse-to-dense projection | `src/presentation/projection.ts` | `tests/rendering/presentation-projection.test.ts` |
 | concrete request normalization | `src/core/instance-presentation-request.ts` | `tests/core/core-instance-component-presentation-integration.test.ts` |
 | concrete overlay planning and projection | `src/core/instance-presentation-overlay.ts`, `src/core/instance-component-presentation-projection.ts` | `tests/core/core-instance-component-presentation-integration.test.ts` |
+| reconcile replay and bar animation continuity | `src/core/instance-presentation-overlay.ts`, `src/core/bar-presentation-authority.ts` | `tests/core/core-instance-bar-presentation-integration.test.ts`, `tests/core/core-bar-presentation-integration.test.ts` |
 | public column validation and mixed animation | `src/public/mutations.ts` | `tests/integration/developer-api-updates.test.ts` |
