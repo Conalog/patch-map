@@ -58,7 +58,7 @@ resize handle.
 
 - Non-finite viewport or transform values reject without changing state.
 - Invalid snapshots, unknown targets, unsupported transforms, and geometry below
-  policy limits return structured rejection details; no subset commits.
+  policy limits return a rejected or refused status; no subset commits.
 - A viewport command that clamps to the current state is unchanged rather than a
   new publication.
 - Cancel, target change, pointer termination, or refused surface acceptance
