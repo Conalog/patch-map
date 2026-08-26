@@ -17,12 +17,18 @@ are owned by their respective API pages.
   allowing replacement work to yield.
 - Input is detached before it becomes authoritative. PatchMap does not retain or
   mutate caller arrays, records, query objects, or returned snapshots.
-- `attrs` remains the host extension point. PatchMap transforms only `x`, `y`,
-  `angle` or `rotation`, and signed `scaleX`/`scaleY`; `scale`, `skew`, `pivot`,
-  and their axis aliases are reserved and reject at their exact input path.
+- `attrs` remains the host extension point. PatchMap transforms `x`, `y`,
+  `angle` or `rotation`, signed `scaleX`/`scaleY`, and `zIndex` on supported
+  elements and components; `scale`, `skew`, `pivot`, and their axis aliases are
+  reserved and reject at their exact input path.
 - Supported root elements are `group`, `grid`, `item`, `relations`, `image`,
   `text`, and `rect`. Item and grid templates may contain `background`, `bar`,
   `icon`, and `text` components.
+- `zIndex` orders siblings within their current scope. With the default mesh
+  renderer, overlapping item descendants paint as item-scoped composite units,
+  so a component's high `zIndex` cannot cross in front of a later sibling item.
+  Equal values keep authored order; component order is resolved inside the
+  owning item.
 - `{ strict: true }` rejects dangling relations and invalid required values before
   publication. Without strict mode, a dangling relation is omitted and reported;
   its endpoint is never silently changed.
@@ -63,4 +69,5 @@ public identities.
 | validation, detachment, semantic hash | `src/semantic/dataset` | `tests/semantic/dataset-contract.test.ts` |
 | replacement freshness and atomic publication | `src/engine/dataset-replacement-coordinator.ts` | `tests/engine/engine-lifecycle.test.ts` |
 | target grammar and revision binding | `src/query-selection` | `tests/semantic/query-selection.test.ts` |
+| hierarchical zIndex and authored tie order | `src/parsing/`, `src/semantic/paint-order.ts` | `tests/semantic/paint-order.test.ts`, `tests/rendering/component-render-lanes.test.ts` |
 | facade shapes | `src/public/contracts.ts` | `tests/integration/developer-api-targets-presentation.test.ts` |

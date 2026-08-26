@@ -88,6 +88,10 @@ boundary test enforces these directions.
 
 - One managed frame schedule; no feature-specific RAF or ticker.
 - Aggregate rendering does not add per-entity listeners or callbacks.
+- Hierarchical paint order is resolved during structural or geometry projection
+  publication, not during view-only or animation frames. Non-overlapping compatible items keep
+  the fixed aggregate lanes; exact cross-lane ordering uses one shared scene
+  container rather than a container or render group per item.
 - Dense traversal is shared; lanes must not rescan the full store independently.
 - Pending work is acquired and released on success, failure, supersession, and
   destroy.
