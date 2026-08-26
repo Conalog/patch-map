@@ -26,4 +26,4 @@ Exact TypeScript shapes are exported by `@conalog/patch-map`; these pages own
 behavior, state ordering, failure meaning, and the shortest verification route.
 
 Repository contributors start with the
-[engineering fast path](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/README.md).
+[engineering fast path](engineering/README.md).
