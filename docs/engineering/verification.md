@@ -30,7 +30,8 @@ npm run verify:memory
 
 | Changed risk | Evidence |
 | --- | --- |
-| Documentation only | owning page review and `npm run verify:docs` |
+| Internal engineering documentation only | owning page review and `npm run verify:docs` |
+| Packaged public documentation or license assets | owning page review, `npm run verify:docs`, and package verification |
 | Types, exports, examples, public API | focused API tests, typecheck, build, package verification |
 | Semantic state, ordering, failure meaning | focused product tests; full unit only when shared ordering crosses owners |
 | Import or ownership boundary | architecture boundary tests, typecheck, lint, and build |

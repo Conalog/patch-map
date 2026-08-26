@@ -6,21 +6,31 @@ import {
   parseNullDelimitedPaths,
 } from './classify-ci-files.mjs';
 
-test('documentation-only changes skip the full release gate', () => {
+test('internal documentation-only changes skip the full release gate', () => {
   assert.deepEqual(
     classifyChangedPaths([
       'docs/engineering/architecture.md',
-      'docs/api/data-and-targets.md',
-      'README.md',
+      'docs/engineering/verification.md',
+      'CONTRIBUTING.md',
     ]),
     { fullValidation: false },
   );
 });
 
-test('repository documentation uses lightweight validation', () => {
-  assert.equal(isLightweightValidationPath('README.md'), true);
+test('only non-packaged engineering documentation uses lightweight validation', () => {
   assert.equal(isLightweightValidationPath('CONTRIBUTING.md'), true);
-  assert.equal(isLightweightValidationPath('docs/README.md'), true);
+  assert.equal(isLightweightValidationPath('docs/engineering/README.md'), true);
+});
+
+test('packaged public documentation and assets require the full release gate', () => {
+  for (const path of [
+    'README.md',
+    'docs/README.md',
+    'docs/api/data-and-targets.md',
+    'docs/assets/fira-code-6.2-license.txt',
+  ]) {
+    assert.equal(classifyChangedPaths([path]).fullValidation, true, path);
+  }
 });
 
 test('product, package, verification, and workflow changes require the full release gate', () => {

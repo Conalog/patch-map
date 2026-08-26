@@ -5,9 +5,8 @@ import { fileURLToPath } from 'node:url';
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 export function isLightweightValidationPath(path) {
-  return path === 'README.md'
-    || path === 'CONTRIBUTING.md'
-    || path.startsWith('docs/');
+  return path === 'CONTRIBUTING.md'
+    || path.startsWith('docs/engineering/');
 }
 
 export function parseNullDelimitedPaths(output) {
