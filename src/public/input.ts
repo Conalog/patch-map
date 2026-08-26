@@ -236,6 +236,12 @@ export interface BaseComponentData {
 export interface BackgroundComponentData extends BaseComponentData {
   type: 'background';
   source: DrawableSource;
+  /**
+   * Accepted for v0.10/1.0 input compatibility but ignored. Backgrounds always
+   * fill their owning item.
+   * @deprecated Omit this field.
+   */
+  size?: ComponentSize;
 }
 
 export interface BarComponentData extends BaseComponentData {

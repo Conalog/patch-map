@@ -78,6 +78,29 @@ describe('PatchMap dataset foundation', () => {
     expect(JSON.stringify(input)).toBe(before);
   });
 
+  it('accepts but discards compatibility background size', () => {
+    const input = [{
+      type: 'item',
+      id: 'item',
+      size: 100,
+      components: [{
+        type: 'background',
+        id: 'bg',
+        source: { type: 'rect' },
+        size: { width: 40, height: 80 },
+      }],
+    }];
+    const before = structuredClone(input);
+
+    const result = materializePatchMapDataset(input);
+    const item = result.dataset[0];
+    const background = item?.type === 'item' ? item.components[0] : undefined;
+
+    expect(background).toMatchObject({ type: 'background', id: 'bg' });
+    expect(background).not.toHaveProperty('size');
+    expect(input).toEqual(before);
+  });
+
   it('normalizes only the relation style fields that rendering projects', () => {
     const input = [{
       type: 'relations',

@@ -24,6 +24,9 @@ are owned by their respective API pages.
 - Supported root elements are `group`, `grid`, `item`, `relations`, `image`,
   `text`, and `rect`. Item and grid templates may contain `background`, `bar`,
   `icon`, and `text` components.
+- `background.size` is accepted only for v0.10/1.0 input compatibility and is
+  discarded during normalization. A background always fills its owning item;
+  omit `size` from new data.
 - `zIndex` orders siblings within their current scope. With the default mesh
   renderer, overlapping item descendants paint as item-scoped composite units,
   so a component's high `zIndex` cannot cross in front of a later sibling item.

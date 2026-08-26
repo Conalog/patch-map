@@ -75,7 +75,7 @@ const ELEMENT_FIELDS: Readonly<Record<PatchMapElementType, ReadonlySet<string>>>
   rect: new Set([...ELEMENT_BASE_FIELDS, 'size', 'fill', 'stroke', 'radius', 'eventMode']),
 };
 const COMPONENT_FIELDS: Readonly<Record<PatchMapComponentType, ReadonlySet<string>>> = {
-  background: new Set([...COMPONENT_BASE_FIELDS, 'source', 'tint']),
+  background: new Set([...COMPONENT_BASE_FIELDS, 'source', 'tint', 'size']),
   bar: new Set([
     ...COMPONENT_BASE_FIELDS,
     'source',

@@ -65,17 +65,23 @@ describe('PatchMap component visual projection', () => {
     expect(paint?.radius).toEqual([8, 8, 8, 8]);
   });
 
-  it('rejects background size instead of retaining an inert input', () => {
-    expect(() => parsePatchMap([{
+  it('accepts and ignores compatibility background size', () => {
+    const result = parsePatchMap([{
       type: 'item',
       id: 'item',
-      size: 100,
+      size: { width: 100, height: 80 },
       components: [{
         type: 'background',
+        id: 'bg',
         source: { type: 'rect' },
         size: 20,
       }],
-    }])).toThrow('unknown field "size"');
+    }]);
+
+    expect(result.document.entities.find((entity) => entity.id === 'item::background:bg'))
+      .toMatchObject({ width: 100, height: 80 });
+    expect(result.projection.componentsByEntityId?.['item::background:bg']?.authoredSize)
+      .toBeUndefined();
   });
 
   it('retains scalar, tuple, and named-corner background radii without maximum reduction', () => {

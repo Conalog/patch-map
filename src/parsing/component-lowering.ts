@@ -98,15 +98,6 @@ export function parseComponent(
   const opacity = owner.opacity * attributeAlpha(attrs, `${path}.attrs.alpha`, state);
 
   if (type === 'background') {
-    if (value.size !== undefined) {
-      fatal(
-        state,
-        `${path}.size`,
-        'unknown-component-field',
-        'Background component contains unknown field "size"',
-        sourceElementId,
-      );
-    }
     const source = value.source;
     const sourceRecord = isRecord(source) ? source : undefined;
     if (
