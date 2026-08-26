@@ -126,6 +126,30 @@ describe('PatchMap transaction request normalization', () => {
     expect(Object.isFrozen(normalized.operations)).toBe(true);
   });
 
+  it('normalizes and detaches one shared change list for a non-empty bulk patch', () => {
+    const value = { status: 'ready' };
+    const normalized = normalizeBulkPatch({
+      targets: [
+        { kind: 'element', id: 'first' },
+        { kind: 'element', id: 'second' },
+      ],
+      changes: [{ path: ['attrs', 'metadata'], value }],
+      strict: true,
+    });
+    const first = normalized.operations[0];
+    const second = normalized.operations[1];
+    if (first?.op !== 'merge' || second?.op !== 'merge') {
+      throw new Error('expected normalized merge operations');
+    }
+
+    value.status = 'tampered';
+
+    expect(first.changes).toBe(second.changes);
+    expect(first.changes[0]?.value).toEqual({ status: 'ready' });
+    expect([first, second, first.changes, first.changes[0]?.value].every(Object.isFrozen))
+      .toBe(true);
+  });
+
   it('rejects request, operation, and array-index accessors without invoking them', () => {
     let reads = 0;
     const requestAccessor = Object.defineProperty({ strict: true }, 'operations', {

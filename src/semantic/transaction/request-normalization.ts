@@ -146,8 +146,18 @@ export function normalizeBulkPatch(value: unknown): NormalizedTransaction {
     });
   }
 
-  const operations = Object.freeze(targets.map((target, index) =>
-    normalizeOperation({ op: 'merge', target, changes: changeValues }, index)));
+  const firstTarget = requireAt(targets, 0);
+  const changes = Object.freeze(
+    changeValues.map((change, changeIndex) =>
+      normalizeChange(change, 0, changeIndex, firstTarget),
+    ),
+  );
+  assertNoOverlappingPaths(changes, 0, firstTarget);
+  const operations = Object.freeze(targets.map((target) => Object.freeze({
+    op: 'merge' as const,
+    target,
+    changes,
+  })));
   return Object.freeze({
     operations,
     strict: record.strict,

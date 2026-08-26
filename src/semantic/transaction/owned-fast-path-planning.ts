@@ -59,6 +59,8 @@ export function planOwnedElementAngleTransaction(
   request: NormalizedTransaction,
 ): PatchMapMutationTransactionPlan | null {
   if (current.dataset.length === 0 || request.operations.length === 0) return null;
+  const firstOperation = request.operations[0];
+  if (firstOperation === undefined || !isElementAngleOperation(firstOperation)) return null;
   const rootIndexById = ownedRootIndexById(current.dataset);
   if (rootIndexById === null) return null;
   const roots: PatchMapElement[] = [...current.dataset];
@@ -154,10 +156,10 @@ export function planOwnedBarHeightTransaction(
   request: NormalizedTransaction,
 ): PatchMapMutationTransactionPlan | null {
   if (current.dataset.length === 0 || request.operations.length === 0) return null;
-  const rootIndexById = new Map(
-    current.dataset.map((root, index) => [root.id, index] as const),
-  );
-  if (rootIndexById.size !== current.dataset.length) return null;
+  const firstOperation = request.operations[0];
+  if (firstOperation === undefined || !isBarHeightOperation(firstOperation)) return null;
+  const rootIndexById = ownedRootIndexById(current.dataset);
+  if (rootIndexById === null) return null;
   const roots: PatchMapElement[] = [...current.dataset];
   const journal = new Map<string, TargetJournalEntry>();
   let changed = false;
@@ -263,7 +265,6 @@ export function planFlatOwnedMergeTransaction(
   }
   const rootIndexById = ownedRootIndexById(current.dataset);
   if (rootIndexById === null) return null;
-  const dirtyRootIds = new Set<string>();
   for (const operation of request.operations) {
     if (operation.op !== 'merge') return null;
     if (operation.changes.some((change) =>
@@ -277,7 +278,6 @@ export function planFlatOwnedMergeTransaction(
     if (rootIndex === undefined) return null;
     const root = current.dataset[rootIndex];
     if (root === undefined || !FAST_FLAT_ROOT_TYPES.has(root.type)) return null;
-    dirtyRootIds.add(rootId);
   }
   const mutableRoots = new Map<number, MutableJsonRecord>();
   const journal = new Map<string, TargetJournalEntry>();
@@ -503,6 +503,41 @@ function fastFlatMergePathSupported(
   if (typeof root !== 'string' || root === 'id' || root === 'type') return false;
   return target.kind === 'component' ||
     !['children', 'components', 'item', 'cells', 'links'].includes(root);
+}
+
+function isElementAngleOperation(
+  operation: NormalizedTransaction['operations'][number],
+): boolean {
+  if (
+    operation.op !== 'merge' ||
+    operation.target.kind !== 'element' ||
+    operation.changes.length !== 1
+  ) return false;
+  const change = operation.changes[0];
+  return change !== undefined &&
+    change.path.length === 2 &&
+    change.path[0] === 'attrs' &&
+    change.path[1] === 'angle' &&
+    typeof change.value === 'number' &&
+    Number.isFinite(change.value);
+}
+
+function isBarHeightOperation(
+  operation: NormalizedTransaction['operations'][number],
+): boolean {
+  if (
+    operation.op !== 'merge' ||
+    operation.target.kind !== 'component' ||
+    operation.changes.length !== 1
+  ) return false;
+  const change = operation.changes[0];
+  return change !== undefined &&
+    change.path.length === 2 &&
+    change.path[0] === 'size' &&
+    change.path[1] === 'height' &&
+    typeof change.value === 'number' &&
+    Number.isFinite(change.value) &&
+    change.value >= 0;
 }
 
 function flatRootTarget(
