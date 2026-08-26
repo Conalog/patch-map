@@ -18,7 +18,7 @@ repeat feature contracts.
 | Register images, inspect readiness, or capture PNG | [Assets and capture](api/assets-and-capture.md) |
 | Understand text layout, font matching, or fallback | [Text](api/text.md) |
 | Audit packaged font bytes, provenance, or license | [Packaged fonts](assets/fonts.md) |
-| Integrate PatchMap into a host application | [Host integration](integration/host.md) |
+| Integrate PatchMap or define its accessibility boundary | [Host integration](integration/host.md) |
 | Check supported runtimes and release policy | [Compatibility](compatibility.md) |
 
 Runnable examples live in [`examples/`](../examples/).

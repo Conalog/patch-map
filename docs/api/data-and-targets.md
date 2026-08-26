@@ -20,8 +20,9 @@ are owned by their respective API pages.
 - `attrs` remains the host extension point. PatchMap transforms only `x`, `y`,
   `angle` or `rotation`, and signed `scaleX`/`scaleY`; `scale`, `skew`, `pivot`,
   and their axis aliases are reserved and reject at their exact input path.
-- Supported semantic records include `item`, `grid`, `relations`, `group`,
-  `rect`, `text`, `image`, `icon`, and their component forms.
+- Supported root elements are `group`, `grid`, `item`, `relations`, `image`,
+  `text`, and `rect`. Item and grid templates may contain `background`, `bar`,
+  `icon`, and `text` components.
 - `{ strict: true }` rejects dangling relations and invalid required values before
   publication. Without strict mode, a dangling relation is omitted and reported;
   its endpoint is never silently changed.

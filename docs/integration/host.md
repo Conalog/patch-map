@@ -13,7 +13,7 @@ layer, or application lifecycle.
 | --- | --- |
 | Layout slot and route lifecycle | Canvas and Pixi surface lifecycle |
 | Application commands and persistence | Normalized scene state and history |
-| Accessibility DOM and product labels | Rendering, hit testing, selection, and transforms |
+| Application-shell accessibility and authored semantic labels | Canvas-aligned accessibility tree, focus and activation lifecycle |
 | Business relation graph and selection extension callback | Pointer capture, gesture arbitration, and coordinate conversion |
 | Release qualification and package selection | Frame cadence, animation, assets, and capture readiness |
 
@@ -21,6 +21,11 @@ The host mounts one instance, calls public domains, owns only returned
 subscription disposers, and awaits destruction. It must not import renderer
 internals, retain display objects, rebuild geometry, add per-entity listeners,
 or publish a second RAF loop.
+
+PatchMap derives its accessible buttons from visible logical targets and their
+renderer-aligned bounds. The host supplies meaningful dataset `label` or text
+values and owns accessibility outside the map; it must not add a parallel
+per-entity DOM overlay over the canvas.
 
 ## Adapter shape
 
@@ -60,4 +65,5 @@ The packaged `examples/host-adapter.ts` is the integration reference:
 | --- | --- | --- |
 | Public adapter boundary | `examples/host-adapter.ts`, `src/index.ts` | package integration and public example compilation |
 | Instance resource ownership | `src/engine/index.ts`, `src/assets/index.ts` | engine lifecycle and asset lifecycle tests |
+| Canvas-aligned accessibility | `src/accessibility`, `src/rendering/pixi-renderer/accessibility-overlay-authority.ts` | `tests/integration/accessibility-product.test.ts` |
 | Persistence guards | `src/semantic/persistence.ts` | `tests/semantic/persistence.test.ts` |
