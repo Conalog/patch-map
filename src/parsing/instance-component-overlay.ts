@@ -9,6 +9,7 @@ import type {
   PatchMapTextProjection,
 } from './contracts';
 import { PATCH_MAP_IDENTITY_AFFINE } from '../semantic/geometry';
+import { appendPatchMapStackingFrame } from '../semantic/stacking';
 import type {
   PatchMapBackgroundComponent,
   PatchMapGridItemTemplate,
@@ -22,6 +23,7 @@ import {
   type PatchMapParseState,
 } from './parse-state';
 import type { PatchMapParserTransform } from './transform-projection';
+import { zIndex } from './value-normalization';
 
 export interface PatchMapProjectedInstanceComponentOverlay {
   readonly entity: EntityInput;
@@ -125,6 +127,11 @@ export function projectPatchMapInstanceComponentOverlay(
       ancestors: [],
       opacity: ownerOpacity,
       instance,
+      stackingPath: appendPatchMapStackingFrame(
+        ownerProjection.stackingPath ?? Object.freeze([]),
+        zIndex(component.attrs),
+        componentIndexFromPath(componentPath),
+      ),
     },
     state,
   );
@@ -250,4 +257,9 @@ function itemPath(componentPath: string): string {
 function sourceElementPath(componentPath: string): string {
   const match = /^\$\[\d+\]/u.exec(componentPath);
   return match?.[0] ?? '$';
+}
+
+function componentIndexFromPath(componentPath: string): number {
+  const match = /\.components\[(\d+)\]$/u.exec(componentPath);
+  return match === null ? 0 : Number(match[1]);
 }

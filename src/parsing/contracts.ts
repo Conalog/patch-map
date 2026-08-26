@@ -14,6 +14,7 @@ import type {
   PatchMapTextStyle,
 } from '../semantic/dataset';
 import type { PatchMapTextLayout } from '../semantic/text-layout';
+import type { PatchMapStackingPath } from '../semantic/stacking';
 
 export type PatchMapContentOrientation = 'follow-item' | 'upright';
 
@@ -104,6 +105,8 @@ export interface PatchMapEntityProjection {
   readonly scaleX: number;
   readonly scaleY: number;
   readonly contentOrientation: PatchMapContentOrientation;
+  /** Root-to-entity authored stacking decisions; descendants cannot escape an earlier frame. */
+  readonly stackingPath?: PatchMapStackingPath;
   readonly ownerItemId?: string;
   readonly componentId?: string;
   readonly componentType?: string;
@@ -121,6 +124,7 @@ export interface PatchMapRelationProjection {
   readonly authoredIndex: number;
   /** Exact relations-local to world transform. */
   readonly affine: PatchMapAffineMatrix;
+  readonly stackingPath?: PatchMapStackingPath;
 }
 
 export type PatchMapOmittedRelationReason =

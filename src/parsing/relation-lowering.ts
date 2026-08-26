@@ -18,6 +18,7 @@ import {
   zIndex,
   type PatchMapParserRecord as JsonRecord,
 } from './value-normalization';
+import { appendPatchMapStackingFrame } from '../semantic/stacking';
 
 const RELATION_STYLE_FIELDS = new Set(['color', 'alpha', 'width']);
 
@@ -111,7 +112,10 @@ export function parseRelations(
       from,
       to,
       transform,
-      owner,
+      owner: {
+        ...owner,
+        stackingPath: appendPatchMapStackingFrame(owner.stackingPath, 0, index),
+      },
       entity,
     });
   });
@@ -158,6 +162,7 @@ export function validateRelationEndpoints(state: ParseState): void {
       identityKey: relationPairKey(relation.from, relation.to),
       authoredIndex: relation.authoredIndex,
       affine: relation.transform.affine,
+      stackingPath: relation.owner.stackingPath,
     } satisfies PatchMapRelationProjection);
     if (sourceExists && targetExists) {
       state.relationProjectionByEntityId[relation.entityId] = projection;

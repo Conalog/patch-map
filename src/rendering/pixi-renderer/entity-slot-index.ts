@@ -11,6 +11,16 @@ export class PatchMapPixiEntitySlotIndexAuthority {
   private readonly textEntityIdBySlot = new Map<number, string>();
   public readonly textVisibilityByEntityId = new Map<string, boolean>();
 
+  public entityIdsForRanges(ranges: readonly SlotRange[]): ReadonlySet<string> | null {
+    const entityIds = new Set<string>();
+    for (const slot of slotsForRanges(Number.MAX_SAFE_INTEGER, ranges)) {
+      const entityId = this.entityIdBySlot.get(slot);
+      if (entityId === undefined) return null;
+      entityIds.add(entityId);
+    }
+    return entityIds;
+  }
+
   public syncTextVisibility(
     store: RenderStoreView,
     ranges: readonly SlotRange[] | undefined,

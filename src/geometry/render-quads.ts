@@ -16,6 +16,8 @@ export interface PatchMapWorldOrientation {
 
 export interface PatchMapProjectionRenderContext {
   readonly index: PatchMapProjectionIndex;
+  /** Dense entity ID to hierarchy-resolved back-to-front ordinal. */
+  readonly paintOrderByEntityId?: Readonly<Record<string, number>>;
   readonly revision: number;
   readonly world: PatchMapWorldOrientation;
   /**

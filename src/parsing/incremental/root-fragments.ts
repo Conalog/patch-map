@@ -5,6 +5,7 @@ import type {
   EntitySourceIdentity,
   ExpandedItemIdentity,
   ParsePatchMapResult,
+  PatchMapProjectionIndex,
 } from '../contracts';
 
 import { ROOT_FRAGMENTS_CACHE } from './cache-indexes';
@@ -157,8 +158,43 @@ export function rebaseRootFragment(
     expandedItems,
     entities: fragment.entities,
     entitySources: Object.freeze(entitySources),
-    projection: fragment.projection,
+    projection: rebaseProjectionRootOrder(fragment.projection, nextIndex),
   });
+}
+
+function rebaseProjectionRootOrder(
+  projection: PatchMapProjectionIndex,
+  rootIndex: number,
+): PatchMapProjectionIndex {
+  const byEntityId = Object.fromEntries(Object.entries(projection.byEntityId).map(
+    ([entityId, entry]) => [entityId, rebaseProjectionEntry(entry, rootIndex)],
+  ));
+  const relationsByEntityId = Object.fromEntries(Object.entries(projection.relationsByEntityId).map(
+    ([entityId, entry]) => [entityId, rebaseProjectionEntry(entry, rootIndex)],
+  ));
+  const omittedRelations = projection.omittedRelations.map((entry) =>
+    rebaseProjectionEntry(entry, rootIndex));
+  return Object.freeze({
+    ...projection,
+    byEntityId: Object.freeze(byEntityId),
+    relationsByEntityId: Object.freeze(relationsByEntityId),
+    omittedRelations: Object.freeze(omittedRelations),
+  });
+}
+
+function rebaseProjectionEntry<
+  Entry extends { readonly stackingPath?: readonly Readonly<{ zIndex: number; authoredOrder: number }>[] },
+>(entry: Entry, rootIndex: number): Entry {
+  const path = entry.stackingPath;
+  if (path === undefined || path.length === 0 || path[0]?.authoredOrder === rootIndex) {
+    return entry;
+  }
+  return Object.freeze({
+    ...entry,
+    stackingPath: Object.freeze(path.map((frame, index) => index === 0
+      ? Object.freeze({ ...frame, authoredOrder: rootIndex })
+      : frame)),
+  }) as Entry;
 }
 
 function rebaseElementIdentity(

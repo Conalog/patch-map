@@ -16,6 +16,7 @@ import {
   type PatchMapParserEntityOwner as EntityOwner,
 } from './parse-state';
 import type { PatchMapEntityProjectionDraft as EntityProjectionDraft } from './transform-projection';
+import { PATCH_MAP_ROOT_STACKING_PATH } from '../semantic/stacking';
 import {
   isParserRecord as isRecord,
   type PatchMapParserRecord as JsonRecord,
@@ -40,6 +41,7 @@ export const ROOT_CONTEXT: ElementContext = {
   interactive: true,
   opacity: 1,
   ancestorIdentities: [],
+  stackingPath: PATCH_MAP_ROOT_STACKING_PATH,
 };
 
 export function addEntity(
@@ -88,6 +90,7 @@ export function addEntity(
       scaleX: projection?.scaleX ?? 1,
       scaleY: projection?.scaleY ?? 1,
       contentOrientation: projection?.contentOrientation ?? 'follow-item',
+      stackingPath: owner.stackingPath,
       ...(owner.instance ? { ownerItemId: owner.instance.instanceId } : {}),
       ...(owner.component
         ? {

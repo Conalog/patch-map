@@ -4,6 +4,7 @@ import type {
   ParsePatchMapResult,
 } from './contracts';
 import type { PatchMapEdges } from '../semantic/dataset';
+import { appendPatchMapStackingFrame } from '../semantic/stacking';
 import {
   imageEntity,
   imageSourceProjection,
@@ -120,7 +121,7 @@ export function parsePatchMapSelectedRoots(
       throw new RangeError('selected parser root indices must be unique in-range integers');
     }
     seen.add(index);
-    parseElement(input[index], `$[${index}]`, ROOT_CONTEXT, state);
+    parseElement(input[index], `$[${index}]`, ROOT_CONTEXT, state, index);
   }
   validateRelationEndpoints(state);
   return finishParseState(state);
@@ -143,7 +144,7 @@ export async function parsePatchMapAsync(
 
   let sliceStarted = parserNow();
   for (const [index, value] of input.entries()) {
-    parseElement(value, `$[${index}]`, ROOT_CONTEXT, state);
+    parseElement(value, `$[${index}]`, ROOT_CONTEXT, state, index);
     if (parserNow() - sliceStarted < 8 || index === input.length - 1) continue;
     await yieldParserTask();
     sliceStarted = parserNow();
@@ -161,7 +162,7 @@ function parseElements(
   context: ElementContext,
   state: ParseState,
 ): void {
-  values.forEach((value, index) => parseElement(value, `${path}[${index}]`, context, state));
+  values.forEach((value, index) => parseElement(value, `${path}[${index}]`, context, state, index));
 }
 
 function parseElement(
@@ -169,6 +170,7 @@ function parseElement(
   path: string,
   context: ElementContext,
   state: ParseState,
+  authoredOrder: number,
 ): void {
   state.sourceElements += 1;
   if (!isRecord(value)) {
@@ -184,6 +186,11 @@ function parseElement(
 
   const attrs = isRecord(value.attrs) ? value.attrs : undefined;
   inspectAttributes(attrs, `${path}.attrs`, type, state);
+  const stackingPath = appendPatchMapStackingFrame(
+    context.stackingPath,
+    zIndex(attrs),
+    authoredOrder,
+  );
   const localTransform = elementTransform(attrs, path, context.transform, type, state);
   const visible = context.visible && value.show !== false;
   const interactive = context.interactive && value.locked !== true;
@@ -192,6 +199,7 @@ function parseElement(
     element: identity,
     ancestors: context.ancestorIdentities,
     opacity,
+    stackingPath,
   };
 
   switch (type) {
@@ -208,6 +216,7 @@ function parseElement(
           interactive,
           opacity,
           ancestorIdentities: [...context.ancestorIdentities, identity],
+          stackingPath,
         },
         state,
       );
@@ -271,6 +280,7 @@ function parseGrid(
   }
 
   const cells = value.cells as unknown[];
+  let cellAuthoredOrder = 0;
   cells.forEach((rowValue, row) => {
     if (!Array.isArray(rowValue)) {
       warn(state, `${path}.cells[${row}]`, 'unsupported-grid-row', 'Non-array grid row was skipped', sourceId);
@@ -278,6 +288,8 @@ function parseGrid(
     }
     const rowValues = rowValue as unknown[];
     rowValues.forEach((cellValue, column) => {
+      const authoredOrder = cellAuthoredOrder;
+      cellAuthoredOrder += 1;
       if (cellValue !== 0 && cellValue !== 1 && typeof cellValue !== 'string') {
         warn(
           state,
@@ -301,6 +313,11 @@ function parseGrid(
       inspectAttributes(itemAttrs, `${path}.item.attrs`, 'item', state);
       const itemOpacity = owner.opacity *
         attributeAlpha(itemAttrs, `${path}.item.attrs.alpha`, state);
+      const itemStackingPath = appendPatchMapStackingFrame(
+        owner.stackingPath,
+        zIndex(itemAttrs),
+        authoredOrder,
+      );
       const itemTransform = elementTransform(
         itemAttrs,
         `${path}.item`,
@@ -318,7 +335,7 @@ function parseGrid(
         visible && cellValue !== 0,
         interactive && cellValue !== 0,
         itemSize,
-        { ...owner, opacity: itemOpacity },
+        { ...owner, opacity: itemOpacity, stackingPath: itemStackingPath },
         { row, column, cell: cellValue },
         state,
       );
@@ -415,6 +432,9 @@ function parseItemInstance(
     height: Math.max(0, size.height - padding.top - padding.bottom),
   };
   item.components.forEach((component, index) => {
+    const componentAttrs = isRecord(component) && isRecord(component.attrs)
+      ? component.attrs
+      : undefined;
     parseComponent(
       component,
       `${itemPath}.components[${index}]`,
@@ -425,7 +445,15 @@ function parseItemInstance(
       content,
       contentOrientation,
       visible,
-      { ...owner, instance },
+      {
+        ...owner,
+        instance,
+        stackingPath: appendPatchMapStackingFrame(
+          owner.stackingPath,
+          zIndex(componentAttrs),
+          index,
+        ),
+      },
       state,
     );
   });

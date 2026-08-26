@@ -83,6 +83,35 @@ describe('PatchMap semantic paint-order planner', () => {
     });
   });
 
+  it('keeps descendant zIndex inside its owning item', () => {
+    const path = (itemOrder: number, componentZ: number, componentOrder: number) =>
+      Object.freeze([
+        Object.freeze({ zIndex: 0, authoredOrder: itemOrder }),
+        Object.freeze({ zIndex: componentZ, authoredOrder: componentOrder }),
+      ]);
+    const plan = planPatchMapPaintOrder([
+      primitive('front-background', 2, 0, 'background', 'background-geometry', {
+        stackingPath: path(1, 0, 0),
+      }),
+      primitive('rear-icon', 1, 100, 'icon', 'content-assets', {
+        stackingPath: path(0, 100, 1),
+      }),
+      primitive('rear-background', 0, 0, 'background', 'background-geometry', {
+        stackingPath: path(0, 0, 0),
+      }),
+      primitive('front-icon', 3, 100, 'icon', 'content-assets', {
+        stackingPath: path(1, 100, 1),
+      }),
+    ]);
+
+    expect(plan.renderOrder).toEqual([
+      'rear-background',
+      'rear-icon',
+      'front-background',
+      'front-icon',
+    ]);
+  });
+
   it('forms only consecutive cross-kind-safe runs and splits every run at the bound', () => {
     const plan = planPatchMapPaintOrder([
       primitive('rect-a', 0, 0),

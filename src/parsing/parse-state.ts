@@ -23,6 +23,7 @@ import {
 } from './contracts';
 import type { PatchMapParserTransform } from './transform-projection';
 import type { PatchMapTextLayout } from '../semantic/text-layout';
+import type { PatchMapStackingPath } from '../semantic/stacking';
 
 export interface PatchMapMutableElementIdentity extends Omit<ElementIdentity, 'entityIds'> {
   entityIds: string[];
@@ -40,6 +41,7 @@ export interface PatchMapParserEntityOwner {
   readonly element: PatchMapMutableElementIdentity;
   readonly ancestors: readonly PatchMapMutableElementIdentity[];
   readonly opacity: number;
+  readonly stackingPath: PatchMapStackingPath;
   readonly instance?: PatchMapMutableExpandedItemIdentity;
   readonly component?: PatchMapMutableComponentIdentity;
 }
@@ -94,6 +96,7 @@ export interface PatchMapElementContext {
   readonly interactive: boolean;
   readonly opacity: number;
   readonly ancestorIdentities: readonly PatchMapMutableElementIdentity[];
+  readonly stackingPath: PatchMapStackingPath;
 }
 
 export function createPatchMapParseState(

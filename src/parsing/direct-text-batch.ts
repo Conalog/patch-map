@@ -31,9 +31,11 @@ import {
   inspectAttributes,
   isParserRecord as isRecord,
   parseContentOrientation,
+  zIndex,
   type PatchMapParserBox as Box,
   type PatchMapParserRecord as JsonRecord,
 } from './value-normalization';
+import { appendPatchMapStackingFrame } from '../semantic/stacking';
 
 export interface PatchMapDirectTextParseUpdate {
   readonly ownerId: string;
@@ -250,6 +252,11 @@ function appendDirectTextComponent(
       ancestors: [],
       opacity: attributeAlpha(attrs, `${rootPath}.attrs.alpha`, state),
       instance,
+      stackingPath: appendPatchMapStackingFrame(
+        appendPatchMapStackingFrame(ROOT_CONTEXT.stackingPath, zIndex(attrs), rootIndex),
+        zIndex(isRecord(component.attrs) ? component.attrs : undefined),
+        componentIndex,
+      ),
     },
     state,
   );

@@ -158,6 +158,15 @@ export class AggregateLeafLayer {
     return this.paintProbesByEntityId.get(entityId) ?? null;
   }
 
+  public setPaintContainer(
+    container: Container | null,
+    paintOrderByEntityId: Readonly<Record<string, number>> = Object.freeze({}),
+  ): void {
+    this.assertAlive();
+    this.imageLane.setPaintContainer(container, paintOrderByEntityId);
+    this.textLane.setPaintContainer(container, paintOrderByEntityId);
+  }
+
   public renderLaneProbe(): Readonly<{
     readonly backgroundAssets: PatchMapRenderLaneProbe;
     readonly contentAssets: PatchMapRenderLaneProbe;

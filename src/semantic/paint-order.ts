@@ -26,6 +26,9 @@ export type PatchMapPaintLane =
 
 export type PatchMapPaintPhase = 'scene' | 'overlay';
 
+import type { PatchMapStackingPath } from './stacking';
+import { comparePatchMapStackingPaths } from './stacking';
+
 export interface PatchMapPaintPrimitiveInput {
   /** Stable PATCH MAP element/component identity exposed to consumers. */
   readonly publicId: string;
@@ -34,6 +37,7 @@ export interface PatchMapPaintPrimitiveInput {
   readonly kind: PatchMapScenePaintKind;
   readonly lane: PatchMapPaintLane;
   readonly zIndex: number;
+  readonly stackingPath?: PatchMapStackingPath;
   /** Stable pre-order assigned by the semantic hierarchy traversal. */
   readonly authoredOrder: number;
   /** Intra-identity pass, for example bar track before bar fill. */
@@ -68,6 +72,7 @@ export interface PatchMapPaintPlanEntry {
   readonly visible: boolean;
   readonly phase: PatchMapPaintPhase;
   readonly compatibilityKey: string;
+  readonly stackingPath: PatchMapStackingPath;
   /** Index in the complete plan, including invisible entries. */
   readonly paintIndex: number;
 }
@@ -130,6 +135,7 @@ interface IndexedSceneEntry {
   readonly pass: number;
   readonly visible: boolean;
   readonly compatibilityKey: string;
+  readonly stackingPath: PatchMapStackingPath;
 }
 
 /**
@@ -156,6 +162,7 @@ export function planPatchMapPaintOrder(
       kind: entry.kind,
       lane: entry.lane,
       zIndex: entry.zIndex,
+      stackingPath: entry.stackingPath,
       authoredOrder: entry.authoredOrder,
       pass: entry.pass,
       visible: entry.visible,
@@ -214,7 +221,12 @@ function validateAndDetachPrimitive(
     entityId: primitive.entityId,
     kind: primitive.kind,
     lane: primitive.lane,
-    zIndex: primitive.zIndex,
+    zIndex: primitive.stackingPath?.at(-1)?.zIndex ?? primitive.zIndex,
+    stackingPath: Object.freeze(
+      primitive.stackingPath?.map((frame) => Object.freeze({ ...frame })) ?? [
+        Object.freeze({ zIndex: primitive.zIndex, authoredOrder: primitive.authoredOrder }),
+      ],
+    ),
     authoredOrder: primitive.authoredOrder,
     pass: primitive.pass,
     visible: primitive.visible,
@@ -223,8 +235,7 @@ function validateAndDetachPrimitive(
 }
 
 function compareSceneEntries(left: IndexedSceneEntry, right: IndexedSceneEntry): number {
-  return left.zIndex - right.zIndex ||
-    left.authoredOrder - right.authoredOrder ||
+  return comparePatchMapStackingPaths(left.stackingPath, right.stackingPath) ||
     left.pass - right.pass ||
     left.sourceIndex - right.sourceIndex;
 }
@@ -245,6 +256,9 @@ function overlayEntry(
     visible,
     phase: 'overlay',
     compatibilityKey: `overlay:${kind}`,
+    stackingPath: Object.freeze([
+      Object.freeze({ zIndex: Number.MAX_SAFE_INTEGER, authoredOrder }),
+    ]),
   };
 }
 

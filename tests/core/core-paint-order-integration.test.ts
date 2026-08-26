@@ -78,6 +78,47 @@ describe('PatchMap aggregate paint-order product seam', () => {
       historyDepth: 1,
     });
   });
+
+  it('moves every item descendant as one zIndex unit', async () => {
+    const renderer = new PaintRendererTestDouble();
+    const TestPatchMap = PatchMapRuntime as unknown as new (
+      renderer: PatchMapPixiRenderer,
+      options: PatchMapRuntimeOptions,
+    ) => PatchMapRuntime;
+    const core = new TestPatchMap(renderer as unknown as PatchMapPixiRenderer, {
+      autoRender: false,
+    });
+    const engine = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    allocated.push(engine);
+    await engine.initialize({ instanceId: 'item-paint-order', width: 800, height: 600 });
+    engine.loadDataset(itemStacking());
+    engine.publishFrame(0);
+
+    expect(engine.paintOrderProbe()?.plan.renderOrder).toEqual([
+      'rear',
+      'rear::background:bg',
+      'rear::text:label',
+      'front',
+      'front::background:bg',
+      'front::text:label',
+    ]);
+
+    expect(engine.patch(
+      { kind: 'element', id: 'rear' },
+      { attrs: { zIndex: 2 } },
+    )).toMatchObject({ status: 'committed' });
+    engine.publishFrame(1);
+    expect(engine.paintOrderProbe()?.plan.renderOrder).toEqual([
+      'front',
+      'front::background:bg',
+      'front::text:label',
+      'rear',
+      'rear::background:bg',
+      'rear::text:label',
+    ]);
+  });
 });
 
 class PaintRendererTestDouble {
@@ -266,6 +307,29 @@ function stacking(): readonly unknown[] {
     rect('second', 4, '#333399'),
     rect('high', 10, '#999933'),
   ];
+}
+
+function itemStacking(): readonly unknown[] {
+  return ['rear', 'front'].map((id, index) => ({
+    type: 'item',
+    id,
+    attrs: { x: index * 20, zIndex: 0 },
+    size: { width: 100, height: 80 },
+    components: [
+      {
+        type: 'background',
+        id: 'bg',
+        attrs: { zIndex: 0 },
+        source: { type: 'rect', fill: '#123456' },
+      },
+      {
+        type: 'text',
+        id: 'label',
+        attrs: { zIndex: 100 },
+        text: id,
+      },
+    ],
+  }));
 }
 
 function rect(id: string, zIndex: number, fill: string): Readonly<Record<string, unknown>> {

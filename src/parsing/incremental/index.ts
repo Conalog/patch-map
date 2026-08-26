@@ -253,6 +253,20 @@ export function parsePatchMapIncrementalStructure(
     if (!reusedPreviousIndices.has(index)) appendChanged(previousFragments[index]);
   }
   for (const index of dirtyIndices) appendChanged(completed[index]);
+  for (const entityId of new Set([
+    ...Object.keys(previous.projection.byEntityId),
+    ...Object.keys(combined.projection.byEntityId),
+    ...Object.keys(previous.projection.relationsByEntityId),
+    ...Object.keys(combined.projection.relationsByEntityId),
+  ])) {
+    const before = previous.projection.byEntityId[entityId] ??
+      previous.projection.relationsByEntityId[entityId];
+    const after = combined.projection.byEntityId[entityId] ??
+      combined.projection.relationsByEntityId[entityId];
+    if (before === after || changedEntityIdSet.has(entityId)) continue;
+    changedEntityIdSet.add(entityId);
+    changedEntityIds.push(entityId);
+  }
   STRUCTURAL_CHANGED_ENTITY_IDS_CACHE.set(
     combined,
     Object.freeze(changedEntityIds),

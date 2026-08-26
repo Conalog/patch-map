@@ -105,6 +105,11 @@ import { PatchMapPixiSurfacePublicationAuthority } from './pixi-renderer/surface
 import { PatchMapPixiInteractionOverlayAuthority } from './pixi-renderer/interaction-overlay-authority';
 import { PatchMapPixiCpuPublicationAuthority } from './pixi-renderer/cpu-publication-authority';
 import { PatchMapPixiEntitySlotIndexAuthority } from './pixi-renderer/entity-slot-index';
+import {
+  patchMapSceneAssetTransitionSlots,
+  resolvePatchMapScenePaintOrder,
+  type PatchMapScenePaintOrder,
+} from './scene-paint-order';
 
 export {
   buildPatchMapRelationAdjacency,
@@ -159,6 +164,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private readonly aggregate: AggregateLayer;
   private readonly leaves: AggregateLeafLayer;
   private readonly backgroundGeometryLane: Container;
+  private readonly scenePaintContainer: Container;
   private readonly interactionOverlay: PatchMapPixiInteractionOverlayAuthority;
   private readonly accessibilityOverlay: PatchMapAccessibilityOverlayAuthority;
   private readonly target: HTMLElement | undefined;
@@ -192,6 +198,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private lastRendererRecoveryFrame: number | null = null;
   private lastDebug: PatchMapRendererDebug;
   private lastLaneProbe: PatchMapRenderLaneSnapshot;
+  private scenePaintOrder: PatchMapScenePaintOrder = Object.freeze({
+    exact: false,
+    rankByEntityId: Object.freeze({}),
+  });
   private lastAggregateResult: AggregateResult = {
     renderObjects: 0,
     visiblePrimitives: 0,
@@ -281,6 +291,12 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       : new Container({ label: 'PatchMap / background geometry unsupported (0)' });
     this.backgroundGeometryLane.eventMode = 'none';
     this.backgroundGeometryLane.interactiveChildren = false;
+    this.scenePaintContainer = new Container({
+      label: 'PatchMap / exact scene paint',
+      sortableChildren: true,
+    });
+    this.scenePaintContainer.eventMode = 'none';
+    this.scenePaintContainer.interactiveChildren = false;
     const leafSession = options.assetSession ?? createPatchMapLeafAssetSession(options.assetPolicy);
     this.leaves = new AggregateLeafLayer(
       leafSession,
@@ -288,10 +304,18 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       {
         onBindingTransition: ({ key, state, dirtySlots }) => {
           if (this.destroyedValue) return;
-          this.cpuPublication.markRetainedLeafRanges(
-            contiguousRanges(dirtySlots),
-            `scene-asset:${key}:${state}`,
+          const slots = patchMapSceneAssetTransitionSlots(
+            this.cpuPublication.projectionIndex,
+            this.entitySlotIndex.slotByEntityId,
+            key,
+            dirtySlots,
           );
+          const reason = `scene-asset:${key}:${state}`;
+          if (slots === null) {
+            this.cpuPublication.markChanges([], reason, { fullRebuild: true });
+          } else {
+            this.cpuPublication.markRetainedLeafRanges(contiguousRanges(slots), reason);
+          }
         },
         ...(options.resolveBitmapTextCapability === undefined
           ? {}
@@ -316,6 +340,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.aggregate.relationsDynamicContainer,
         this.leaves.contentAssetContainer,
         this.leaves.textContainer,
+        this.scenePaintContainer,
       );
       this.world.addChild(this.aggregate.container);
       this.interactionOverlay.attachToTail(this.world);
@@ -545,6 +570,42 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       updateKind,
       sourceStore,
     );
+    if (changed && updateKind === undefined) {
+      const previousPaintOrder = this.scenePaintOrder ?? Object.freeze({
+        exact: false,
+        rankByEntityId: Object.freeze({}),
+      });
+      const changedEntityIds = changedRanges === undefined
+        ? undefined
+        : this.entitySlotIndex.entityIdsForRanges(changedRanges);
+      const nextPaintOrder = resolvePatchMapScenePaintOrder(
+        index,
+        previousPaintOrder,
+        changedEntityIds,
+      );
+      const paintOrderChanged = previousPaintOrder.exact !== nextPaintOrder.exact ||
+        !sameNumberRecord(
+          previousPaintOrder.rankByEntityId,
+          nextPaintOrder.rankByEntityId,
+        );
+      this.scenePaintOrder = nextPaintOrder;
+      this.applyScenePaintOrder();
+      if (paintOrderChanged && this.cpuPublication.lastStore !== null) {
+        const slots = changedScenePaintOrderSlots(
+          previousPaintOrder,
+          nextPaintOrder,
+          this.entitySlotIndex.slotByEntityId,
+        );
+        if (slots === null) {
+          this.cpuPublication.markChanges([], 'scene-paint-order', { fullRebuild: true });
+        } else {
+          this.cpuPublication.markChanges(
+            contiguousRanges(slots),
+            'scene-paint-order',
+          );
+        }
+      }
+    }
     if (changed && updateKind !== 'bar-presentation') {
       this.barPresentationVisibilityConservative = true;
     }
@@ -1091,9 +1152,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   /** @internal Capture exact load-side CPU publication state without touching Pixi/GPU state. */
   public capturePublicationCheckpoint(): PatchMapPixiRendererPublicationCheckpoint {
     if (this.destroyed) throw new Error('PatchMapPixiRenderer is destroyed');
-    return this.cpuPublication.captureCheckpoint(
-      this.barPresentationVisibilityConservative,
-    );
+    return Object.freeze({
+      ...this.cpuPublication.captureCheckpoint(this.barPresentationVisibilityConservative),
+      scenePaintOrder: this.scenePaintOrder,
+    });
   }
 
   /**
@@ -1105,6 +1167,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     checkpoint: PatchMapPixiRendererPublicationCheckpoint,
   ): void {
     this.barPresentationVisibilityConservative = this.cpuPublication.rollback(checkpoint);
+    this.scenePaintOrder = checkpoint.scenePaintOrder ??
+      resolvePatchMapScenePaintOrder(checkpoint.projectionIndex);
+    this.applyScenePaintOrder();
   }
 
   /**
@@ -1305,10 +1370,27 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   }
 
   private projectionContext(): PatchMapProjectionRenderContext {
-    return this.cpuPublication.projectionContext(
+    const context = this.cpuPublication.projectionContext(
       this.worldOrientation,
       this.projectionQuadCache,
     );
+    return this.scenePaintOrder.exact
+      ? Object.freeze({
+          ...context,
+          paintOrderByEntityId: this.scenePaintOrder.rankByEntityId,
+        })
+      : context;
+  }
+
+  private applyScenePaintOrder(): void {
+    const target = this.scenePaintOrder.exact && this.scenePaintContainer !== undefined
+      ? this.scenePaintContainer
+      : null;
+    const exactTarget = this.aggregate instanceof AggregateMeshLayer ? target : null;
+    if (this.aggregate instanceof AggregateMeshLayer) {
+      this.aggregate.setPaintContainer(exactTarget);
+    }
+    this.leaves?.setPaintContainer(exactTarget, this.scenePaintOrder.rankByEntityId);
   }
 
   private applyWorldTransform(): void {
@@ -1348,6 +1430,34 @@ function freezeLaneSnapshot(
 
 function now(): number {
   return globalThis.performance?.now() ?? Date.now();
+}
+
+function sameNumberRecord(
+  left: Readonly<Record<string, number>>,
+  right: Readonly<Record<string, number>>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => left[key] === right[key]);
+}
+
+function changedScenePaintOrderSlots(
+  previous: PatchMapScenePaintOrder,
+  next: PatchMapScenePaintOrder,
+  slotByEntityId: ReadonlyMap<string, number>,
+): readonly number[] | null {
+  const slots = new Set<number>();
+  for (const entityId of new Set([
+    ...Object.keys(previous.rankByEntityId),
+    ...Object.keys(next.rankByEntityId),
+  ])) {
+    if (previous.rankByEntityId[entityId] === next.rankByEntityId[entityId]) continue;
+    const slot = slotByEntityId.get(entityId);
+    if (slot === undefined) return null;
+    slots.add(slot);
+  }
+  return Object.freeze([...slots].sort((left, right) => left - right));
 }
 
 const MAX_ZOOM_AWARE_TEXT_SCALE = 10;

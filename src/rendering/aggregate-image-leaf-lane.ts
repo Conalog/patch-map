@@ -41,6 +41,7 @@ import type {
   PatchMapProjectionRenderContext,
   PatchMapQuadVertices,
 } from '../geometry/render-quads';
+import { patchMapDisplayObjectZIndex } from '../semantic/stacking';
 
 
 type LeafImageLane = 'standalone-assets' | 'background-assets' | 'content-assets';
@@ -165,6 +166,8 @@ export class AggregateImageLeafLane {
   private nextBindingGeneration = 0;
   private staleCompletionCount = 0;
   private readonly dirtyImageLanes = new Set<LeafImageLane>();
+  private paintContainer: Container | null = null;
+  private paintOrderByEntityId: Readonly<Record<string, number>> = Object.freeze({});
   private destroyed = false;
 
   private readonly assetSession: PatchMapAssetSession;
@@ -260,6 +263,24 @@ export class AggregateImageLeafLane {
     });
   }
 
+  public setPaintContainer(
+    container: Container | null,
+    paintOrderByEntityId: Readonly<Record<string, number>> = Object.freeze({}),
+  ): void {
+    this.assertAlive();
+    if (this.paintContainer === container &&
+      this.paintOrderByEntityId === paintOrderByEntityId) return;
+    this.paintContainer = container;
+    this.paintOrderByEntityId = paintOrderByEntityId;
+    if (container !== null) return;
+    for (const entry of this.images.values()) {
+      const target = imageLaneContainer(this, entry.lane);
+      if (entry.object.parent !== target) target.addChild(entry.object);
+      this.dirtyImageLanes.add(entry.lane);
+    }
+    if (container === null) this.sortImageChildren();
+  }
+
   public sceneImageProbe(entityId: string): LeafSceneImageProbe | null {
     return this.imageProbesByEntityId.get(entityId) ?? null;
   }
@@ -268,17 +289,22 @@ export class AggregateImageLeafLane {
     readonly backgroundAssets: PatchMapRenderLaneProbe;
     readonly contentAssets: PatchMapRenderLaneProbe;
   }> {
+    let backgroundAssetCount = 0;
+    let contentAssetCount = 0;
+    for (const entry of this.images.values()) {
+      if (entry.lane === 'background-assets') backgroundAssetCount += 1;
+      else contentAssetCount += 1;
+    }
     return Object.freeze({
       backgroundAssets: freezeLaneProbe(
         'background-assets',
         this.backgroundAssetContainer.label,
-        this.backgroundAssetContainer.children.length,
+        backgroundAssetCount,
       ),
       contentAssets: freezeLaneProbe(
         'content-assets',
         this.contentAssetContainer.label,
-        this.standaloneAssetContainer.children.length +
-          this.contentAssetContainer.children.length,
+        contentAssetCount,
       ),
     });
   }
@@ -692,8 +718,8 @@ export class AggregateImageLeafLane {
         this.detachImageResource(previous, true);
       }
       if (entry.lane !== lane) {
-        imageLaneContainer(this, entry.lane).removeChild(entry.object);
-        imageLaneContainer(this, lane).addChild(entry.object);
+        entry.object.parent?.removeChild(entry.object);
+        this.imageParent(entityId, lane).addChild(entry.object);
         this.dirtyImageLanes.add(entry.lane);
         entry.lane = lane;
       }
@@ -705,8 +731,9 @@ export class AggregateImageLeafLane {
     const attached = this.images.get(slot) === entry;
     this.images.set(slot, entry);
     this.countImageEntry(entry);
-    if (!attached && entry.object.parent === null) {
-      imageLaneContainer(this, entry.lane).addChild(entry.object);
+    const target = this.imageParent(entityId, entry.lane);
+    if ((!attached && entry.object.parent === null) || entry.object.parent !== target) {
+      target.addChild(entry.object);
       this.dirtyImageLanes.add(entry.lane);
     }
     const sprite = entry.object;
@@ -721,7 +748,10 @@ export class AggregateImageLeafLane {
     entry.vertices = quad.vertices;
     sprite.tint = packedRgb(store.tint[slot] ?? 0xffffffff);
     sprite.alpha = combinedAlpha(store.tint[slot] ?? 0xffffffff, store.opacity[slot] ?? 1);
-    const zIndex = store.zIndex[slot] ?? 0;
+    const paintOrder = projectionContext?.paintOrderByEntityId?.[entityId];
+    const zIndex = paintOrder === undefined
+      ? store.zIndex[slot] ?? 0
+      : patchMapDisplayObjectZIndex(paintOrder);
     if (sprite.zIndex !== zIndex) {
       sprite.zIndex = zIndex;
       this.dirtyImageLanes.add(lane);
@@ -924,7 +954,14 @@ export class AggregateImageLeafLane {
     this.dirtyImageLanes.clear();
   }
 
+  private imageParent(entityId: string, lane: LeafImageLane): Container {
+    return this.paintContainer !== null && this.paintOrderByEntityId[entityId] !== undefined
+      ? this.paintContainer
+      : imageLaneContainer(this, lane);
+  }
+
   private sortImageLaneChildren(lane: LeafImageLane): void {
+    if (this.paintContainer !== null) return;
     const container = imageLaneContainer(this, lane);
     const ordered = [...this.images.entries()]
       .filter(([, entry]) => entry.lane === lane)

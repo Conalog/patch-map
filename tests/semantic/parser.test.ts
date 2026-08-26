@@ -281,8 +281,11 @@ describe('PatchMap PatchMap parser', () => {
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.display' }),
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.opacity' }),
       expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.tags' }),
-      expect.objectContaining({ code: 'attribute-preserved-only', path: '$[0].attrs.zIndex' }),
     ]));
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
+      code: 'attribute-preserved-only',
+      path: '$[0].attrs.zIndex',
+    }));
     expect(result.diagnostics).not.toContainEqual(expect.objectContaining({
       code: 'attribute-preserved-only',
       path: '$[0].attrs.alpha',

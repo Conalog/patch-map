@@ -1,5 +1,9 @@
 import type { EntitySnapshot, SceneSnapshot } from '../dense/contracts';
-import type { PatchMapEntityProjection, PatchMapProjectionIndex } from '../parsing/contracts';
+import type {
+  PatchMapEntityProjection,
+  PatchMapProjectionIndex,
+  PatchMapRelationProjection,
+} from '../parsing/contracts';
 import type {
   PatchMapEntityPaintProbe,
   PatchMapOverlayPaintProbe,
@@ -41,7 +45,8 @@ export function createPatchMapPaintOrderProductProbe(
   input: PatchMapPaintOrderProductInput,
 ): PatchMapPaintOrderProductProbe {
   const primitives = input.snapshot.entities.map((entity, authoredOrder) => {
-    const projection = input.projection?.byEntityId[entity.id];
+    const projection = input.projection?.byEntityId[entity.id] ??
+      input.projection?.relationsByEntityId[entity.id];
     const paint = input.paintForEntity(entity.id);
     return primitiveFor(entity, projection, paint, authoredOrder);
   });
@@ -66,7 +71,7 @@ export function createPatchMapPaintOrderProductProbe(
 
 function primitiveFor(
   entity: EntitySnapshot,
-  projection: PatchMapEntityProjection | undefined,
+  projection: PatchMapEntityProjection | PatchMapRelationProjection | undefined,
   paint: PatchMapEntityPaintProbe | null,
   authoredOrder: number,
 ): PatchMapPaintPrimitiveInput {
@@ -78,6 +83,9 @@ function primitiveFor(
     kind,
     lane,
     zIndex: entity.zIndex,
+    ...(projection?.stackingPath === undefined
+      ? {}
+      : { stackingPath: projection.stackingPath }),
     authoredOrder,
     pass: 0,
     visible: entity.visible,
@@ -93,10 +101,12 @@ function primitiveFor(
 
 function paintKind(
   entity: EntitySnapshot,
-  projection: PatchMapEntityProjection | undefined,
+  projection: PatchMapEntityProjection | PatchMapRelationProjection | undefined,
 ): PatchMapScenePaintKind {
-  if (projection?.componentType === 'background') return 'background';
-  if (projection?.componentType === 'icon') return 'icon';
+  if (projection !== undefined && 'componentType' in projection && projection.componentType === 'background') {
+    return 'background';
+  }
+  if (projection !== undefined && 'componentType' in projection && projection.componentType === 'icon') return 'icon';
   return entity.kind;
 }
 

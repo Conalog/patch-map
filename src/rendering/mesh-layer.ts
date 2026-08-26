@@ -55,7 +55,7 @@ import type {
   AggregateViewportBounds,
   AggregateViewportCull,
 } from './mesh/contracts';
-
+import { PATCH_MAP_EXACT_PAINT_ORDER_OFFSET } from './scene-paint-order';
 export {
   appendPatchMapRoundedRectPath,
   buildLineGeometry,
@@ -141,9 +141,7 @@ interface GraphicsRecord {
 
 interface ChunkRecord {
   readonly backgroundMeshes: Map<string, MeshRecord>;
-  backgroundGraphics: Graphics | null;
-  backgroundGraphicsContext: GraphicsContext | null;
-  backgroundGraphicsBounds: AggregateViewportBounds | null;
+  readonly backgroundGraphics: Map<number, GraphicsRecord>;
   readonly rectMeshes: Map<string, MeshRecord>;
   readonly rectGraphics: Map<number, GraphicsRecord>;
   readonly barMeshes: Map<string, MeshRecord>;
@@ -207,9 +205,7 @@ function destroyGraphicsRecord(record: GraphicsRecord): void {
 function createChunkRecord(): ChunkRecord {
   return {
     backgroundMeshes: new Map(),
-    backgroundGraphics: null,
-    backgroundGraphicsContext: null,
-    backgroundGraphicsBounds: null,
+    backgroundGraphics: new Map(),
     rectMeshes: new Map(),
     rectGraphics: new Map(),
     barMeshes: new Map(),
@@ -231,6 +227,7 @@ function setChunkGeometryVisible(
   chunk: ChunkRecord,
   visible: boolean,
   backgroundParent: Container,
+  paintContainer: Container | null,
   viewport: AggregateViewportCull,
   precise: boolean,
   force = false,
@@ -252,9 +249,12 @@ function setChunkGeometryVisible(
         visible && (!precise || boundsIntersectsViewport(bounds, viewport));
       mesh.visible = recordVisible;
       if (recordVisible) {
-        if (mesh.parent !== parent) parent.addChild(mesh);
-      } else if (mesh.parent === parent) {
-        parent.removeChild(mesh);
+        const target = paintContainer !== null && isExactDrawOrder(mesh.zIndex)
+          ? paintContainer
+          : parent;
+        if (mesh.parent !== target) target.addChild(mesh);
+      } else if (mesh.parent !== null) {
+        mesh.parent.removeChild(mesh);
       }
     }
   }
@@ -264,20 +264,25 @@ function setChunkGeometryVisible(
         visible && (!precise || boundsIntersectsViewport(record.bounds, viewport));
       record.graphics.visible = recordVisible;
       if (recordVisible) {
-        if (record.graphics.parent !== record.parent) record.parent.addChild(record.graphics);
-      } else if (record.graphics.parent === record.parent) {
-        record.parent.removeChild(record.graphics);
+        const target = paintContainer !== null && isExactDrawOrder(record.graphics.zIndex)
+          ? paintContainer
+          : record.parent;
+        if (record.graphics.parent !== target) target.addChild(record.graphics);
+      } else if (record.graphics.parent !== null) {
+        record.graphics.parent.removeChild(record.graphics);
       }
     }
   }
-  if (chunk.backgroundGraphics !== null) {
-    chunk.backgroundGraphics.visible = visible;
-    if (visible) {
-      if (chunk.backgroundGraphics.parent !== backgroundParent) {
-        backgroundParent.addChild(chunk.backgroundGraphics);
-      }
-    } else if (chunk.backgroundGraphics.parent === backgroundParent) {
-      backgroundParent.removeChild(chunk.backgroundGraphics);
+  for (const record of chunk.backgroundGraphics.values()) {
+    const recordVisible = visible && (!precise || boundsIntersectsViewport(record.bounds, viewport));
+    record.graphics.visible = recordVisible;
+    if (recordVisible) {
+      const target = paintContainer !== null && isExactDrawOrder(record.graphics.zIndex)
+        ? paintContainer
+        : backgroundParent;
+      if (record.graphics.parent !== target) target.addChild(record.graphics);
+    } else if (record.graphics.parent !== null) {
+      record.graphics.parent.removeChild(record.graphics);
     }
   }
   chunk.geometryVisible = visible;
@@ -367,6 +372,7 @@ export class AggregateMeshLayer {
   #preciseViewportCull = true;
   readonly #trackQuadScratch = createPatchMapResolvedRenderQuadScratch();
   readonly #fillQuadScratch = createPatchMapResolvedRenderQuadScratch();
+  #paintContainer: Container | null = null;
 
   public constructor(options: AggregateMeshLayerOptions = {}) {
     const chunkSize = options.chunkSize ?? DEFAULT_AGGREGATE_MESH_CHUNK_SIZE;
@@ -415,6 +421,38 @@ export class AggregateMeshLayer {
 
   public getDebugStats(): AggregateMeshLayerDebug {
     return this.#debug;
+  }
+
+  public setPaintContainer(container: Container | null): void {
+    this.#assertAlive();
+    if (this.#paintContainer === container) return;
+    this.#paintContainer = container;
+    if (container !== null) return;
+    for (const chunk of this.#chunks.values()) {
+      for (const records of [
+        chunk.backgroundMeshes,
+        chunk.rectMeshes,
+        chunk.barMeshes,
+        chunk.relationMeshes,
+      ]) {
+        for (const record of records.values()) {
+          if (!record.mesh.visible) continue;
+          const target = record.parent;
+          if (record.mesh.parent !== target) target.addChild(record.mesh);
+        }
+      }
+      for (const records of [
+        chunk.backgroundGraphics,
+        chunk.rectGraphics,
+        chunk.barGraphics,
+      ]) {
+        for (const record of records.values()) {
+          if (!record.graphics.visible) continue;
+          const target = record.parent;
+          if (record.graphics.parent !== target) target.addChild(record.graphics);
+        }
+      }
+    }
   }
 
   public entityPaintProbe(entityId: string): PatchMapEntityPaintProbe | null {
@@ -535,6 +573,7 @@ export class AggregateMeshLayer {
         chunk,
         visible,
         this.backgroundGeometryContainer,
+        this.#paintContainer,
         viewport,
         precise,
         precisionChanged,
@@ -676,7 +715,7 @@ export class AggregateMeshLayer {
     let visibleRelations = 0;
     for (const chunk of this.#chunks.values()) {
       backgroundMeshCount += chunk.backgroundMeshes.size;
-      backgroundGraphicsObjectCount += chunk.backgroundGraphics === null ? 0 : 1;
+      backgroundGraphicsObjectCount += chunk.backgroundGraphics.size;
       ordinaryMeshCount += chunk.rectMeshes.size;
       ordinaryGraphicsObjectCount += chunk.rectGraphics.size;
       relationMeshCount +=
@@ -849,10 +888,12 @@ export class AggregateMeshLayer {
       chunkIndex,
       'background',
     );
-    const backgroundGraphicsChanged = this.#syncBackgroundGraphics(
-      chunk,
+    const backgroundGraphicsChanged = this.#syncStyledGraphics(
+      chunk.backgroundGraphics,
+      this.backgroundGeometryContainer,
       built.styledBackgrounds,
       chunkIndex,
+      'rect',
     );
 
     const rectDelta = this.#syncGroups(
@@ -910,6 +951,7 @@ export class AggregateMeshLayer {
         chunk,
         chunkIntersectsViewport(chunk, this.#viewportCull),
         this.backgroundGeometryContainer,
+        this.#paintContainer,
         this.#viewportCull,
         this.#preciseViewportCull,
         true,
@@ -1003,6 +1045,7 @@ export class AggregateMeshLayer {
         chunk,
         chunkIntersectsViewport(chunk, this.#viewportCull),
         this.backgroundGeometryContainer,
+        this.#paintContainer,
         this.#viewportCull,
         this.#preciseViewportCull,
         this.#preciseViewportCull,
@@ -1058,6 +1101,7 @@ export class AggregateMeshLayer {
         chunk,
         chunkIntersectsViewport(chunk, this.#viewportCull),
         this.backgroundGeometryContainer,
+        this.#paintContainer,
         this.#viewportCull,
         this.#preciseViewportCull,
         true,
@@ -1070,50 +1114,11 @@ export class AggregateMeshLayer {
     };
   }
 
-  #syncBackgroundGraphics(
-    chunk: ChunkRecord,
-    primitives: readonly StyledBackgroundPrimitive[],
-    chunkIndex: number,
-  ): boolean {
-    if (primitives.length === 0) {
-      if (chunk.backgroundGraphics === null) return false;
-      chunk.backgroundGraphics.destroy({ context: false });
-      chunk.backgroundGraphicsContext?.destroy();
-      chunk.backgroundGraphics = null;
-      chunk.backgroundGraphicsContext = null;
-      chunk.backgroundGraphicsBounds = null;
-      return true;
-    }
-
-    const context = new GraphicsContext();
-    context.batchMode = 'auto';
-    let bounds: AggregateViewportBounds | null = null;
-    for (const primitive of primitives) {
-      appendStyledBackground(context, primitive);
-      bounds = includePositionBounds(bounds, primitive.quad.vertices);
-    }
-
-    if (chunk.backgroundGraphics === null) {
-      const graphics = new Graphics({ context });
-      graphics.label = `${this.#baseLabel}: styled background chunk ${chunkIndex}`;
-      graphics.eventMode = 'none';
-      graphics.zIndex = chunkIndex;
-      this.backgroundGeometryContainer.addChild(graphics);
-      chunk.backgroundGraphics = graphics;
-    } else {
-      chunk.backgroundGraphics.context = context;
-    }
-    chunk.backgroundGraphicsContext?.destroy();
-    chunk.backgroundGraphicsContext = context;
-    chunk.backgroundGraphicsBounds = bounds;
-    return true;
-  }
-
   #recomputeChunkGeometryBounds(chunk: ChunkRecord): void {
     let bounds: AggregateViewportBounds | null = null;
-    bounds = includeAggregateBounds(bounds, chunk.backgroundGraphicsBounds);
     for (const records of [
       chunk.backgroundMeshes,
+      chunk.backgroundGraphics,
       chunk.rectMeshes,
       chunk.barMeshes,
       chunk.rectGraphics,
@@ -1163,7 +1168,9 @@ export class AggregateMeshLayer {
           `${this.#baseLabel}: styled ${lane} chunk ${chunkIndex} order ${drawOrder}`;
         graphics.eventMode = 'none';
         graphics.zIndex = drawOrder;
-        parent.addChild(graphics);
+        (this.#paintContainer !== null && isExactDrawOrder(drawOrder)
+          ? this.#paintContainer
+          : parent).addChild(graphics);
         records.set(drawOrder, {
           graphics,
           context,
@@ -1235,7 +1242,9 @@ export class AggregateMeshLayer {
       mesh.tint = group.tint;
       mesh.alpha = group.alpha;
       mesh.zIndex = group.drawOrder;
-      parent.addChild(mesh);
+      (this.#paintContainer !== null && isExactDrawOrder(group.drawOrder)
+        ? this.#paintContainer
+        : parent).addChild(mesh);
       records.set(group.key, {
         mesh,
         geometry,
@@ -1254,8 +1263,7 @@ export class AggregateMeshLayer {
     if (chunk === undefined) return;
     for (const entityId of chunk.paintEntityIds) this.#paintProbesByEntityId.delete(entityId);
     for (const record of chunk.backgroundMeshes.values()) destroyMeshRecord(record);
-    chunk.backgroundGraphics?.destroy({ context: false });
-    chunk.backgroundGraphicsContext?.destroy();
+    for (const record of chunk.backgroundGraphics.values()) destroyGraphicsRecord(record);
     for (const record of chunk.rectMeshes.values()) destroyMeshRecord(record);
     for (const record of chunk.rectGraphics.values()) destroyGraphicsRecord(record);
     for (const record of chunk.barMeshes.values()) destroyMeshRecord(record);
@@ -1312,4 +1320,8 @@ function includeAggregateBounds(
   bounds.maxX = Math.max(bounds.maxX, included.maxX);
   bounds.maxY = Math.max(bounds.maxY, included.maxY);
   return bounds;
+}
+
+function isExactDrawOrder(drawOrder: number): boolean {
+  return drawOrder >= PATCH_MAP_EXACT_PAINT_ORDER_OFFSET * 4;
 }

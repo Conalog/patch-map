@@ -44,6 +44,17 @@ const BAR_TRACK_PASS = 1;
 const BAR_FILL_PASS = 2;
 const RELATION_PASS = 0;
 const PASSES_PER_Z_INDEX = 4;
+
+function entityPaintOrder(
+  store: RenderStoreView,
+  slot: number,
+  projectionContext?: PatchMapProjectionRenderContext,
+): number {
+  const entityId = store.ids[slot];
+  return entityId === undefined
+    ? store.zIndex[slot] as number
+    : projectionContext?.paintOrderByEntityId?.[entityId] ?? store.zIndex[slot] as number;
+}
 export interface AggregateGeometryGroup extends AggregateGeometryData {
   readonly key: string;
   readonly tint: number;
@@ -382,7 +393,7 @@ function appendStyledBarSlot(
   let count = 0;
   if (isDrawable(store, slot) && width > 0 && height > 0) {
     const opacity = store.opacity[slot] as number;
-    const zIndex = store.zIndex[slot] as number;
+    const zIndex = entityPaintOrder(store, slot, projectionContext);
     const trackFill = (store.trackFill[slot] as number) >>> 0;
     const trackStyle = packedRgbaToMeshStyle(trackFill, opacity);
     if (trackStyle.alpha > 0) {
@@ -447,7 +458,7 @@ function appendBarSlot(
   if (isDrawable(store, slot)) {
     if (width > 0 && height > 0) {
       const opacity = store.opacity[slot] as number;
-      const zIndex = store.zIndex[slot] as number;
+      const zIndex = entityPaintOrder(store, slot, projectionContext);
       const pivotX = x + width / 2;
       const pivotY = y + height / 2;
       track = appendBarPrimitive(
@@ -632,7 +643,7 @@ export function buildAggregateChunkLaneGeometry(
             fill: packedFill,
             borderColor: packedBorder,
             opacity,
-            drawOrder: (store.zIndex[slot] as number) * PASSES_PER_Z_INDEX + RECT_PASS,
+            drawOrder: entityPaintOrder(store, slot, projectionContext) * PASSES_PER_Z_INDEX + RECT_PASS,
           });
           rendererKind = 'graphics';
           visibleBackgrounds += 1;
@@ -641,7 +652,7 @@ export function buildAggregateChunkLaneGeometry(
             backgroundGroups,
             packedFill,
             opacity,
-            store.zIndex[slot] as number,
+            entityPaintOrder(store, slot, projectionContext),
             RECT_PASS,
           );
           if (group !== null) {
@@ -672,7 +683,7 @@ export function buildAggregateChunkLaneGeometry(
     }
     if (!isDrawable(store, slot)) continue;
     const opacity = store.opacity[slot] as number;
-    const zIndex = store.zIndex[slot] as number;
+    const zIndex = entityPaintOrder(store, slot, projectionContext);
 
     if (kind === RenderKind.Rect) {
       const width = store.width[slot] as number;

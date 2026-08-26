@@ -23,11 +23,181 @@ import {
   type PatchMapRoundedRectPathSink,
 } from '../../src/rendering/mesh-layer';
 import { projectionChangedRanges } from '../../src/rendering/pixi-renderer';
+import {
+  patchMapSceneAssetTransitionSlots,
+  resolvePatchMapScenePaintOrder,
+} from '../../src/rendering/scene-paint-order';
 import type {
   PatchMapProjectionRenderContext,
 } from '../../src/geometry/render-quads';
 
 describe('PatchMap fixed component render lanes', () => {
+  it('interleaves actual mesh and Sprite objects without letting a rear icon escape its item', async () => {
+    const parsed = parsePatchMap([
+      paintItem('rear', 0, 100),
+      paintItem('front', 20, 100),
+    ]);
+    const store = createRenderStore(parsed.document.entities);
+    const order = resolvePatchMapScenePaintOrder(parsed.projection);
+    const context = projectionContext(parsed.projection, 1, order.rankByEntityId);
+    const mesh = new AggregateMeshLayer({ chunkSize: 8 });
+    const leaves = await createResolvedLeafLayer(parsed.projection, 'item-scoped-order');
+    const paint = new Container({ sortableChildren: true });
+    mesh.setPaintContainer(paint);
+    leaves.setPaintContainer(paint, order.rankByEntityId);
+
+    mesh.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
+    leaves.sync(store, { fullRebuildEpoch: 1, projectionContext: context });
+    paint.sortChildren();
+
+    expect(order.exact).toBe(true);
+    expect(paint.children.map(({ zIndex }) => zIndex)).toEqual([
+      order.rankByEntityId['rear::background:bg']! * 4,
+      order.rankByEntityId['rear::icon:icon']! * 4,
+      order.rankByEntityId['front::background:bg']! * 4,
+      order.rankByEntityId['front::icon:icon']! * 4,
+    ]);
+    expect(paint.children).toHaveLength(4);
+
+    mesh.destroy();
+    await leaves.destroy();
+    paint.destroy();
+  });
+
+  it('recovers every projected asset consumer when settlement precedes leaf observation', () => {
+    const parsed = parsePatchMap([
+      paintItem('rear', 0, 10),
+      paintItem('front', 20, 10),
+    ]);
+    const slots = new Map(parsed.document.entities.map((entity, slot) => [entity.id, slot]));
+    const bindingKey = parsed.projection.imagesByEntityId['rear::icon:icon']!.bindingKey;
+
+    expect(patchMapSceneAssetTransitionSlots(
+      parsed.projection,
+      slots,
+      bindingKey,
+      [],
+    )).toEqual([
+      slots.get('rear::icon:icon'),
+      slots.get('front::icon:icon'),
+    ]);
+  });
+
+  it('retains the aggregate fast path until a changed item starts overlapping', () => {
+    const initial = parsePatchMap([
+      paintItem('rear', 0, 100),
+      paintItem('front', 120, 100),
+    ]);
+    const initialOrder = resolvePatchMapScenePaintOrder(initial.projection);
+    const separated = parsePatchMap([
+      paintItem('rear', 1, 100),
+      paintItem('front', 120, 100),
+    ]);
+    const separatedOrder = resolvePatchMapScenePaintOrder(
+      separated.projection,
+      initialOrder,
+      new Set(['rear', 'rear::background:bg', 'rear::icon:icon']),
+    );
+    const overlapping = parsePatchMap([
+      paintItem('rear', 21, 100),
+      paintItem('front', 120, 100),
+    ]);
+
+    expect(initialOrder.exact).toBe(false);
+    expect(separatedOrder.exact).toBe(false);
+    expect(resolvePatchMapScenePaintOrder(
+      overlapping.projection,
+      separatedOrder,
+      new Set(['rear', 'rear::background:bg', 'rear::icon:icon']),
+    ).exact).toBe(true);
+  });
+
+  it('uses exact order when zIndex reverses components in the same render lane', () => {
+    const parsed = parsePatchMap([{
+      type: 'item',
+      id: 'owner',
+      size: { width: 100, height: 80 },
+      components: [
+        { type: 'text', id: 'first', text: 'first', attrs: { zIndex: 100 } },
+        { type: 'text', id: 'second', text: 'second', attrs: { zIndex: 0 } },
+      ],
+    }]);
+
+    expect(resolvePatchMapScenePaintOrder(parsed.projection).exact).toBe(true);
+  });
+
+  it('detects incremental text zIndex and component membership changes', () => {
+    const initial = parsePatchMap([{
+      type: 'item',
+      id: 'owner',
+      size: { width: 100, height: 80 },
+      components: [
+        { type: 'background', id: 'bg', source: { type: 'rect', fill: '#123456' } },
+        { type: 'text', id: 'label', text: 'label' },
+      ],
+    }]);
+    const initialOrder = resolvePatchMapScenePaintOrder(initial.projection);
+    const changedText = parsePatchMap([{
+      type: 'item',
+      id: 'owner',
+      size: { width: 100, height: 80 },
+      components: [
+        { type: 'background', id: 'bg', source: { type: 'rect', fill: '#123456' } },
+        { type: 'text', id: 'label', text: 'label', attrs: { zIndex: -10 } },
+      ],
+    }]);
+    const changedTextOrder = resolvePatchMapScenePaintOrder(
+      changedText.projection,
+      initialOrder,
+      new Set(['owner::text:label']),
+    );
+    const addedIcon = parsePatchMap([{
+      type: 'item',
+      id: 'owner',
+      size: { width: 100, height: 80 },
+      components: [
+        { type: 'background', id: 'bg', source: { type: 'rect', fill: '#123456' } },
+        { type: 'text', id: 'label', text: 'label' },
+        { type: 'icon', id: 'icon', source: 'icon', size: 20, attrs: { zIndex: -10 } },
+      ],
+    }]);
+
+    expect(initialOrder.exact).toBe(false);
+    expect(changedTextOrder.exact).toBe(true);
+    expect(resolvePatchMapScenePaintOrder(
+      addedIcon.projection,
+      initialOrder,
+      new Set(['owner::icon:icon']),
+    ).exact).toBe(true);
+  });
+
+  it('includes bar components in item-scoped zIndex ordering', () => {
+    const parsed = parsePatchMap([{
+      type: 'item',
+      id: 'owner',
+      size: { width: 100, height: 80 },
+      components: [
+        {
+          type: 'bar',
+          id: 'first',
+          attrs: { zIndex: 100 },
+          source: { type: 'rect', fill: '#123456' },
+        },
+        {
+          type: 'bar',
+          id: 'second',
+          attrs: { zIndex: 0 },
+          source: { type: 'rect', fill: '#654321' },
+        },
+      ],
+    }]);
+    const order = resolvePatchMapScenePaintOrder(parsed.projection);
+
+    expect(order.exact).toBe(true);
+    expect(order.rankByEntityId['owner::bar:first']).toBeDefined();
+    expect(order.rankByEntityId['owner::bar:second']).toBeDefined();
+  });
+
   it('backs every production role with a fixed aggregate container in exact paint order', async () => {
     const parsed = parsePatchMap([
       {
@@ -383,6 +553,30 @@ function backgroundDataset(source: unknown, show = true): Record<string, unknown
   };
 }
 
+function paintItem(id: string, x: number, iconZ: number): Record<string, unknown> {
+  return {
+    type: 'item',
+    id,
+    attrs: { x },
+    size: { width: 100, height: 80 },
+    components: [
+      {
+        type: 'background',
+        id: 'bg',
+        attrs: { zIndex: 0 },
+        source: { type: 'rect', fill: '#123456' },
+      },
+      {
+        type: 'icon',
+        id: 'icon',
+        attrs: { zIndex: iconZ },
+        source: 'shared-icon',
+        size: 20,
+      },
+    ],
+  };
+}
+
 async function createResolvedLeafLayer(
   projection: PatchMapProjectionIndex,
   instanceId: string,
@@ -416,11 +610,13 @@ function fixtureImageAlias(source: unknown): string {
 function projectionContext(
   index: PatchMapProjectionIndex,
   revision: number,
+  paintOrderByEntityId?: Readonly<Record<string, number>>,
 ): PatchMapProjectionRenderContext {
   return Object.freeze({
     index,
     revision,
     world: Object.freeze({ rotationDegrees: 0, flipX: false, flipY: false }),
+    ...(paintOrderByEntityId === undefined ? {} : { paintOrderByEntityId }),
   });
 }
 

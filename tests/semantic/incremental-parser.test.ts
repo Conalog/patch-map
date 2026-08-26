@@ -29,6 +29,28 @@ import { buildPatchMapBenchmarkDataset } from '../../performance/benchmark/workl
 import { buildPatchMapSeededScene } from '../../performance/fixtures/seeded-scene';
 
 describe('PatchMap guarded incremental parser', () => {
+  it('rebases hierarchical paint paths when unchanged roots move', () => {
+    const current = materializePatchMapDataset([
+      flatItem('rear', 'Rear'),
+      flatItem('front', 'Front'),
+    ]);
+    const previous = parsePatchMap(current.dataset);
+    const reordered = Object.freeze([current.dataset[1]!, current.dataset[0]!]);
+    const incremental = parsePatchMapIncrementalStructure(
+      reordered,
+      current.dataset,
+      previous,
+    );
+    const canonical = parsePatchMap(reordered);
+
+    expect(incremental).toEqual(canonical);
+    expect(incremental?.projection.byEntityId['front']?.stackingPath?.[0]?.authoredOrder).toBe(0);
+    expect(incremental?.projection.byEntityId['rear']?.stackingPath?.[0]?.authoredOrder).toBe(1);
+    expect(new Set(patchMapStructuralChangedEntityIds(incremental!))).toEqual(new Set([
+      ...previous.identity.entityIds,
+    ]));
+  });
+
   it('primes the stable flat indexes without changing parser output', () => {
     const current = materializePatchMapDataset([
       flatItem('item-1', 'Alpha'),
@@ -404,10 +426,14 @@ describe('PatchMap guarded incremental parser', () => {
       const projectionIds = new Set([
         ...Object.keys(previous.projection.byEntityId),
         ...Object.keys(incremental!.projection.byEntityId),
+        ...Object.keys(previous.projection.relationsByEntityId),
+        ...Object.keys(incremental!.projection.relationsByEntityId),
       ]);
       const expectedChangedIds = [...projectionIds].filter((entityId) =>
-        previous.projection.byEntityId[entityId] !==
-          incremental!.projection.byEntityId[entityId]);
+        (previous.projection.byEntityId[entityId] ??
+          previous.projection.relationsByEntityId[entityId]) !==
+        (incremental!.projection.byEntityId[entityId] ??
+          incremental!.projection.relationsByEntityId[entityId]));
       expect(
         new Set(patchMapStructuralChangedEntityIds(incremental!)),
       ).toEqual(new Set(expectedChangedIds));

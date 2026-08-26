@@ -54,6 +54,7 @@ import type {
   PatchMapQuadVertices,
   PatchMapResolvedRenderQuad,
 } from '../geometry/render-quads';
+import { patchMapDisplayObjectZIndex } from '../semantic/stacking';
 
 
 interface TextEntry {
@@ -148,6 +149,8 @@ export class AggregateTextLeafLane {
   private textChunking = false;
   private confirmedTextFrame = 0;
   private textRasterResolution: number | undefined;
+  private paintContainer: Container | null = null;
+  private paintOrderByEntityId: Readonly<Record<string, number>> = Object.freeze({});
   private destroyed = false;
 
   public constructor(
@@ -195,6 +198,22 @@ export class AggregateTextLeafLane {
       textVerticesBySlot: this.textVerticesBySlot,
       deferredTextSlots: this.deferredTextSlots,
     });
+  }
+
+  public setPaintContainer(
+    container: Container | null,
+    paintOrderByEntityId: Readonly<Record<string, number>> = Object.freeze({}),
+  ): void {
+    this.assertAlive();
+    if (this.paintContainer === container &&
+      this.paintOrderByEntityId === paintOrderByEntityId) return;
+    this.paintContainer = container;
+    this.paintOrderByEntityId = paintOrderByEntityId;
+    if (container !== null) return;
+    for (const [slot, entry] of this.texts) {
+      const target = this.textParentForSlot(slot, entry.entityId);
+      if (entry.object.parent !== target) target.addChild(entry.object);
+    }
   }
 
   public beginFullRebuild(capacity: number): void {
@@ -603,6 +622,12 @@ export class AggregateTextLeafLane {
     }
 
     const targetKind = projection?.targetKind ?? null;
+    const paintOrder = projectionContext?.paintOrderByEntityId?.[entityId];
+    entry.object.zIndex = paintOrder === undefined
+      ? store.zIndex[slot] ?? 0
+      : patchMapDisplayObjectZIndex(paintOrder);
+    const paintParent = this.textParentForSlot(slot, entityId);
+    if (entry.object.parent !== paintParent) paintParent.addChild(entry.object);
     if (entry.targetKind !== targetKind) {
       entry.targetKind = targetKind;
       entry.autoFont = projection?.authoredStyle.autoFont !== undefined;
@@ -704,7 +729,9 @@ export class AggregateTextLeafLane {
     return quad;
   }
 
-  private textParentForSlot(slot: number): Container {
+  private textParentForSlot(slot: number, entityId?: string): Container {
+    if (this.paintContainer !== null && entityId !== undefined &&
+      this.paintOrderByEntityId[entityId] !== undefined) return this.paintContainer;
     if (!this.textChunking) return this.container;
     const key = textChunkKey(slot);
     const existing = this.textChunks.get(key);

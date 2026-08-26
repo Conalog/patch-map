@@ -2,6 +2,7 @@ import type { PatchMapProjectionIndex } from '../../parsing/contracts';
 import type { SlotRange } from '../../dense/contracts';
 import type { RenderStoreView } from '../../dense/renderer-types';
 import type { PatchMapResolvedPresentationPolicy } from '../../presentation/policy';
+import type { PatchMapScenePaintOrder } from '../scene-paint-order';
 import type {
   PatchMapPresentationStoreCheckpoint,
   PatchMapPresentationStoreView,
@@ -19,6 +20,7 @@ import type {
  * This is an internal rollback seam, not a serialized or public package API.
  */
 export interface PatchMapPixiRendererPublicationCheckpoint {
+  readonly scenePaintOrder?: PatchMapScenePaintOrder;
   readonly projectionIndex: PatchMapProjectionIndex;
   readonly staleProjectionEntityIds: ReadonlySet<string>;
   readonly projectionRevision: number;
