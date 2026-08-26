@@ -18,9 +18,12 @@ repeat feature contracts.
 | Register images, inspect readiness, or capture PNG | [Assets and capture](api/assets-and-capture.md) |
 | Understand text layout, font matching, or fallback | [Text](api/text.md) |
 | Audit packaged font bytes, provenance, or license | [Packaged fonts](assets/fonts.md) |
-| Integrate PatchMap or define its accessibility boundary | [Host integration](integration/host.md) |
+| Integrate, diagnose, handle errors, or define the accessibility boundary | [Host integration](integration/host.md) |
 | Check supported runtimes and release policy | [Compatibility](compatibility.md) |
 
 Runnable examples live in [`examples/`](../examples/).
 Exact TypeScript shapes are exported by `@conalog/patch-map`; these pages own
 behavior, state ordering, failure meaning, and the shortest verification route.
+
+Repository contributors start with the
+[engineering fast path](engineering/README.md).

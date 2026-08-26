@@ -42,6 +42,22 @@ The packaged `examples/host-adapter.ts` is the integration reference:
 | Capture or diagnose | `capture.png()` and `debug.snapshot()` |
 | Unmount | dispose host subscriptions, then `destroy()` |
 
+## Diagnostics and errors
+
+`debug.snapshot()` synchronously returns a detached current product snapshot:
+lifecycle and revisions, published scene tuple, dataset identity, viewport,
+selection, presentation, pending work, and bounded renderer, asset, canvas, and
+subscription counts. Use it for support evidence and invariant checks, not as
+persistence data, telemetry, asset readiness, or a frame-settlement barrier.
+
+Public mutation and history decisions report `status` and, when applicable, a
+structured `diagnostic` without partial publication. Invalid call envelopes may
+throw `TypeError` or `RangeError` before an operation starts. Async lifecycle,
+renderer, asset, and capture failures may reject with the exported
+`PatchMapError`; inspect its `code`, `operation`, `hint`, `recoverable`, and
+frozen `diagnostic` instead of parsing its message. Preserve the diagnostic when
+reporting a non-recoverable failure.
+
 ## State and ordering
 
 1. Create the host slot and load application data.
@@ -66,4 +82,6 @@ The packaged `examples/host-adapter.ts` is the integration reference:
 | Public adapter boundary | `examples/host-adapter.ts`, `src/index.ts` | package integration and public example compilation |
 | Instance resource ownership | `src/engine/index.ts`, `src/assets/index.ts` | engine lifecycle and asset lifecycle tests |
 | Canvas-aligned accessibility | `src/accessibility`, `src/rendering/pixi-renderer/accessibility-overlay-authority.ts` | `tests/integration/accessibility-product.test.ts` |
+| public debug snapshot | `src/public/index.ts`, `src/engine/product-probe-reader.ts` | `tests/engine/engine-lifecycle.test.ts` |
+| public failure projection | `src/engine/operation-outcomes.ts` | `tests/engine/engine-operation-outcomes.test.ts` |
 | Persistence guards | `src/semantic/persistence.ts` | `tests/semantic/persistence.test.ts` |

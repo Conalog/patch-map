@@ -58,6 +58,7 @@ boundary test enforces these directions.
 | Root interaction binding authority | fixed stage/canvas bindings, pointer capture, coordinate translation, cleanup | gesture and selection policy |
 | Interaction overlay authority | stable overlay objects, paint bounds cache, dirty repaint, teardown | canonical selection or transformer sessions |
 | Accessibility authorities | derived logical focus order, activation, reduced motion, canvas-aligned accessibility nodes, and teardown | application-shell accessibility or a second semantic selection owner |
+| Product probe and failure projection | detached public snapshots, structured operation errors, redaction, and bounded operational evidence | state transitions, persistence, or a second lifecycle owner |
 | Text and image leaf lanes | lane resources, projection, settlement, release after confirmed frames | a second store traversal or frame scheduler |
 | Scheduler and frame authorities | invalidation, frame eligibility, budget, publication confirmation | semantic mutation or per-feature tickers |
 
