@@ -461,10 +461,14 @@ export class PatchMapPixiCpuPublicationAuthority {
     this.pendingProjectionTransformOnlyValue = false;
     this.staleProjectionEntityIdsValue = nextStaleEntityIds;
     this.projectionRevisionValue += 1;
-    this.pendingRangesValue = mergeRanges(this.pendingRangesValue ?? [], ranges);
+    this.pendingRangesValue = this.pendingRangesValue === undefined
+      ? undefined
+      : mergeRanges(this.pendingRangesValue, ranges);
     this.pendingOverlayRangesValue = paintBoundsProjectionChanged
       ? undefined
-      : mergeRanges(this.pendingOverlayRangesValue ?? [], ranges);
+      : this.pendingOverlayRangesValue === undefined
+        ? undefined
+        : mergeRanges(this.pendingOverlayRangesValue, ranges);
     this.pendingBarPresentationOnlyValue = barPresentationOnly;
     this.pendingTextOnlyValue = textOnly;
     if (sourceStore !== undefined) this.pendingSourceStoreValue = sourceStore;

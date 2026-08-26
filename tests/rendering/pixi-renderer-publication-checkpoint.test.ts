@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { SlotRange } from '../../src/dense/contracts';
-import type { RenderStoreView } from '../../src/dense/renderer-types';
+import { RenderFlags, type RenderStoreView } from '../../src/dense/renderer-types';
 import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
 import type { PatchMapResolvedPresentationPolicy } from '../../src/presentation/policy';
 import { PatchMapPixiRenderer } from '../../src/rendering/pixi-renderer';
@@ -357,6 +357,53 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
     expect(renderer.beginFlush(sourceStore)).toBe(presentationStore);
     expect(synchronize).toHaveBeenCalledTimes(1);
     expect(presentationStore.opacity[0]).toBeCloseTo(0.6, 6);
+  });
+
+  it('keeps a full keyed publication dirty through the first sparse bar frame', () => {
+    const sourceStore = renderStore(3, 'source');
+    (sourceStore.ids as string[]).splice(0, 3, 'owner', 'bar', 'value-text');
+    const renderer = publicationHarness({
+      lastStore: sourceStore,
+      lastSourceStore: sourceStore,
+      presentationLayerCount: 1,
+      presentationAlphaMultipliers: new Float32Array([1, 1, 1]),
+      slotByEntityId: new Map([
+        ['owner', 0],
+        ['bar', 1],
+        ['value-text', 2],
+      ]),
+    });
+
+    renderer.setInstancePresentationOverrides(new Map([
+      ['value-text', Object.freeze({ visible: true })],
+    ]));
+    const initial = renderer.beginFlush(sourceStore);
+    renderer.commitFlush(sourceStore, initial);
+
+    renderer.setInstancePresentationOverrides(new Map([
+      ['value-text', Object.freeze({ visible: false })],
+    ]), [{ start: 2, end: 3 }]);
+    renderer.setPresentationLayerMultipliers({
+      revision: 2,
+      layerCount: 1,
+      full: true,
+      alphaMultipliers: new Float32Array([1, 0.32, 0.32]),
+      dirtyRanges: undefined,
+    });
+    expect(renderer.pendingRanges).toBeUndefined();
+    expect(renderer.pendingOverlayRanges).toBeUndefined();
+
+    renderer.setProjection(
+      projection('bar-frame'),
+      [{ start: 1, end: 2 }],
+      undefined,
+      'bar-presentation',
+    );
+
+    expect(renderer.pendingRanges).toBeUndefined();
+    expect(renderer.pendingOverlayRanges).toBeUndefined();
+    const effectiveStore = renderer.beginFlush(sourceStore);
+    expect((effectiveStore.flags[2] ?? 0) & RenderFlags.Visible).toBe(0);
   });
 
   it('publishes a settled keyed bar with its logical owner range', () => {
