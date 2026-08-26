@@ -3,6 +3,7 @@ import {
   assembleOwnedPatchMapSparsePreviewDataset,
   PatchMapDatasetError,
   materializePatchMapDataset,
+  patchMapBarHeight,
   replaceOwnedPatchMapBarHeightRoot,
   replaceOwnedPatchMapElementAngleRoot,
   type MaterializedPatchMapDataset,
@@ -195,17 +196,8 @@ export function planOwnedBarHeightTransaction(
       : root.item.components;
     const matches = rootComponents.filter(({ id }) => id === operation.target.id);
     const component = matches.length === 1 ? matches[0] : undefined;
-    if (
-      component?.type !== 'bar' ||
-      typeof component.size !== 'object' ||
-      component.size === null ||
-      Array.isArray(component.size) ||
-      !('width' in component.size) ||
-      !('height' in component.size)
-    ) {
-      return null;
-    }
-    if (component.size.height === change.value) {
+    if (component?.type !== 'bar') return null;
+    if (patchMapBarHeight(component.size) === change.value) {
       noteTargetOutcome(journal, operation.target, 'unchanged');
       continue;
     }
@@ -397,6 +389,7 @@ export function applyPatchMapMutationPathChange(
   operationIndex: number,
   logicalTarget: PatchMapMutationTarget,
 ): void {
+  promoteScalarBarSizeForHeightChange(target, change, logicalTarget);
   let parent: MutableJsonValue = target;
   const lastIndex = change.path.length - 1;
   for (let index = 0; index < lastIndex; index += 1) {
@@ -444,6 +437,30 @@ export function applyPatchMapMutationPathChange(
     leaf,
     previous === undefined ? incoming : mergedValue(previous, incoming),
   );
+}
+
+function promoteScalarBarSizeForHeightChange(
+  target: MutableJsonRecord,
+  change: PatchMapMutationPathChange,
+  logicalTarget: PatchMapMutationTarget,
+): void {
+  if (
+    logicalTarget.kind !== 'component' ||
+    target.type !== 'bar' ||
+    change.path.length !== 2 ||
+    change.path[0] !== 'size' ||
+    change.path[1] !== 'height'
+  ) return;
+  const size = target.size;
+  if (
+    size === undefined ||
+    (
+      isMutableJsonRecord(size) &&
+      Object.hasOwn(size, 'width') &&
+      Object.hasOwn(size, 'height')
+    )
+  ) return;
+  defineMutableProperty(target, 'size', { width: size });
 }
 
 export function noteTargetOutcome(

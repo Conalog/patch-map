@@ -1,5 +1,6 @@
 import {
   assembleOwnedPatchMapDataset,
+  patchMapBarHeight,
   replaceOwnedPatchMapBarHeightRoot,
   type MaterializedPatchMapDataset,
   type PatchMapElement,
@@ -245,13 +246,7 @@ export function planPatchMapBarHeightBatch(
       const component = componentIndex < 0
         ? undefined
         : rootComponents[componentIndex];
-      if (
-        component?.type !== 'bar' ||
-        typeof component.size !== 'object' ||
-        component.size === null ||
-        Array.isArray(component.size) ||
-        !('height' in component.size)
-      ) {
+      if (component?.type !== 'bar') {
         transactionFail(
           'INVALID_MUTATION',
           'INVALID_INPUT',
@@ -261,7 +256,7 @@ export function planPatchMapBarHeightBatch(
           target,
         );
       }
-      if (component.size.height === height) {
+      if (patchMapBarHeight(component.size) === height) {
         unchanged.push(target);
         continue;
       }

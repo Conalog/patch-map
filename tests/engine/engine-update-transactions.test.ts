@@ -750,6 +750,80 @@ describe('PatchMap update transactions', () => {
     });
   });
 
+  it('promotes a scalar bar size when a mixed transaction updates its height', async () => {
+    const { engine, surface } = await createEngine(engines, 'scalar-bar-height');
+    engine.loadDataset([{
+      type: 'item',
+      id: 'inverter',
+      size: { width: 100, height: 80 },
+      components: [
+        { ...barComponent(), size: '100%' },
+        textComponent('value', '2900 Wh'),
+      ],
+    }]);
+
+    const result = engine.transact({
+      strict: true,
+      actionId: 'chart-presentation',
+      operations: [
+        {
+          op: 'merge',
+          target: { kind: 'component', ownerId: 'inverter', id: 'bar' },
+          changes: [
+            { path: ['size', 'height'], value: 62 },
+            { path: ['source', 'fill'], value: '#2563eb' },
+          ],
+        },
+        {
+          op: 'merge',
+          target: { kind: 'component', ownerId: 'inverter', id: 'value' },
+          changes: [{ path: ['show'], value: false }],
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({ status: 'committed', changed: true });
+    expect(surface.reconcileCalls).toHaveLength(1);
+    expect(componentById(engine, 'inverter', 'bar')).toMatchObject({
+      size: { width: '100%', height: 62 },
+      source: { fill: '#2563eb' },
+    });
+    expect(componentById(engine, 'inverter', 'value')).toMatchObject({ show: false });
+  });
+
+  it('preserves scalar width semantics in direct bar-height mutation paths', async () => {
+    const { engine } = await createEngine(engines, 'scalar-bar-direct-height');
+    engine.loadDataset([{
+      type: 'item',
+      id: 'inverter',
+      size: { width: 100, height: 80 },
+      components: [
+        { ...barComponent(), id: 'direct', size: '100%' },
+        { ...barComponent(), id: 'batch', size: { value: 75, unit: '%' } },
+      ],
+    }]);
+
+    expect(engine.transact({
+      strict: true,
+      operations: [{
+        op: 'merge',
+        target: { kind: 'component', ownerId: 'inverter', id: 'direct' },
+        changes: [{ path: ['size', 'height'], value: 48 }],
+      }],
+    })).toMatchObject({ status: 'committed' });
+    expect(engine.updateBarHeights({
+      targets: [{ ownerId: 'inverter', componentId: 'batch' }],
+      heights: new Float64Array([36]),
+    })).toMatchObject({ status: 'committed' });
+
+    expect(componentById(engine, 'inverter', 'direct')).toMatchObject({
+      size: { width: '100%', height: 48 },
+    });
+    expect(componentById(engine, 'inverter', 'batch')).toMatchObject({
+      size: { width: { value: 75, unit: '%' }, height: 36 },
+    });
+  });
+
   it('commits compact bar batches through direct projection and one history unit', async () => {
     const { engine, surface } = await createEngine(engines, 'compact-bar-batch');
     engine.loadDataset(updateScene());

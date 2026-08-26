@@ -31,6 +31,9 @@ owned by [`presentation.md`](presentation.md) and
   Per-entry animation requires a bar-height destination. False heights publish
   immediately; true heights use the single scheduler while companion changes
   stay in the same commit.
+- A bar-height update accepts bars authored with a scalar `size`. It preserves
+  that scalar as the width and promotes the size to `{ width, height }`, matching
+  the pre-1.0 behavior where a scalar initially supplies both axes.
 - Authored semantic commits record history by default. Set `recordHistory` to
   `false` for a commit that must not create an undo entry. `actionId` identifies
   related work for history coalescing; `historyLimit` defaults to 50 and zero

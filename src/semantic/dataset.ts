@@ -4,6 +4,8 @@ import {
   PatchMapDatasetError,
   type MaterializedPatchMapDataset,
   type PatchMapDatasetMaterialization,
+  type PatchMapComponentSize,
+  type PatchMapDimension,
   type PatchMapElement,
   type PatchMapGridElement,
   type PatchMapItemElement,
@@ -364,17 +366,10 @@ export function replaceOwnedPatchMapBarHeightRoot(
     ? componentIndexHint!
     : rootComponents.findIndex(({ id }) => id === componentId);
   const component = componentIndex < 0 ? undefined : rootComponents[componentIndex];
-  if (
-    component?.type !== 'bar' ||
-    typeof component.size !== 'object' ||
-    component.size === null ||
-    Array.isArray(component.size) ||
-    !('width' in component.size) ||
-    !('height' in component.size)
-  ) {
-    return null;
-  }
-  const size = Object.freeze({ ...component.size, height });
+  if (component?.type !== 'bar') return null;
+  const size = isAxisComponentSize(component.size)
+    ? Object.freeze({ ...component.size, height })
+    : Object.freeze({ width: component.size, height });
   const replacement = Object.freeze({ ...component, size });
   const components = [...rootComponents];
   components[componentIndex] = replacement;
@@ -387,6 +382,20 @@ export function replaceOwnedPatchMapBarHeightRoot(
       });
   OWNED_PATCH_MAP_ROOTS.add(next);
   return next;
+}
+
+export function patchMapBarHeight(size: PatchMapComponentSize): PatchMapDimension {
+  return isAxisComponentSize(size) ? size.height : size;
+}
+
+function isAxisComponentSize(
+  size: PatchMapComponentSize,
+): size is Readonly<{ width: PatchMapDimension; height: PatchMapDimension }> {
+  return typeof size === 'object' &&
+    size !== null &&
+    !Array.isArray(size) &&
+    'width' in size &&
+    'height' in size;
 }
 
 /**
