@@ -65,8 +65,8 @@ npm publication uses Trusted Publishing and is gated by the repository variable
 
 Until the variable is enabled, releases are created without publishing to npm.
 After activation, a failed or previously skipped publication can be retried by
-running the `Publish npm` workflow from `main` and entering the existing `v<version>`
-tag in its `tag` input.
+running the `Publish npm` workflow from `main` and entering the existing
+`v<version>` tag in its `tag` input.
 
 The browser suite is not currently an npm publication gate. Run the manual
 `browser tests` workflow for render coverage; promoting it to required CI is a
