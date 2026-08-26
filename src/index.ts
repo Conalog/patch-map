@@ -1,10 +1,11 @@
 /** Intentional public entry for `@conalog/patch-map`. */
-import { PatchMap as PatchMapImplementation } from './patch-map/engine';
+import { createPixiSurface } from './composition/pixi-engine-surface';
+import { mountPatchMap } from './composition/mount';
 import type {
   PatchMapInstance,
   PatchMapOptions,
   PatchMapStatic,
-} from './patch-map/developer-api';
+} from './public';
 
 const PublicPatchMap = class PatchMap {
   private constructor() {
@@ -12,7 +13,7 @@ const PublicPatchMap = class PatchMap {
   }
 
   public static mount(options: PatchMapOptions): Promise<PatchMapInstance> {
-    return PatchMapImplementation.mount(options);
+    return mountPatchMap(options, createPixiSurface);
   }
 };
 
@@ -20,21 +21,14 @@ const PublicPatchMap = class PatchMap {
 export const PatchMap: PatchMapStatic = Object.freeze(PublicPatchMap);
 export type PatchMap = PatchMapInstance;
 
-export { PatchMapError } from './patch-map/engine/operation-outcomes';
+export { PatchMapError } from './engine/operation-outcomes';
 export {
   PATCH_MAP_BUILTIN_ASSETS,
   PatchMapAssetError,
   PatchMapAssetRuntime,
   createPatchMapAssetIngestionPolicy,
   createPatchMapPixiAssetBackend,
-} from './patch-map/assets';
-export {
-  PatchMapMigrationError,
-  assertPatchMapSemanticRoundtrip,
-  materializePatchMapCompatibilityDataset,
-  preparePatchMapPersistenceExport,
-} from './patch-map/migration';
-
+} from './assets';
 export type {
   PatchMapAssetPolicy,
   PatchMapAssetPolicyContext,
@@ -47,103 +41,7 @@ export type {
   PatchMapAssetRuntimeProbe,
   PatchMapAssetSessionProbe,
   PatchMapPixiAssetBackendOptions,
-} from './patch-map/assets';
-export type {
-  PatchMapCompatibilityMaterialization,
-  PatchMapPersistenceExport,
-} from './patch-map/migration';
-export type { PatchMapHistoryState } from './patch-map/history';
-export type {
-  PatchMapViewportChangeResult,
-  PatchMapViewportFitResult,
-  PatchMapViewportRestoreResult,
-  PatchMapViewportState,
-} from './patch-map/engine/public-contracts';
-export type {
-  PatchMapAssetStatus,
-  PatchMapAssetsApi,
-  PatchMapBackgroundPresentationChanges,
-  PatchMapBackgroundPresentationColumns,
-  PatchMapBackgroundUpdate,
-  PatchMapBackgroundUpdateColumns,
-  PatchMapBarUpdate,
-  PatchMapBarUpdateColumns,
-  PatchMapBlankClickClearMode,
-  PatchMapBoxSelectionOptions,
-  PatchMapBoxSelectionVisualPolicy,
-  PatchMapCaptureApi,
-  PatchMapCaptureResult,
-  PatchMapComponentUpdate,
-  PatchMapComponentUpdateColumns,
-  PatchMapDataApi,
-  PatchMapDataReplaceOptions,
-  PatchMapDataReplaceResult,
-  PatchMapDebugApi,
-  PatchMapDebugSnapshot,
-  PatchMapDiagnostic,
-  PatchMapFitOptions,
-  PatchMapHistoryApi,
-  PatchMapHistoryClearResult,
-  PatchMapHistoryResult,
-  PatchMapIconUpdate,
-  PatchMapIconUpdateColumns,
-  PatchMapInstancePresentationChanges,
-  PatchMapMutationOptions,
-  PatchMapOptions,
-  PatchMapPointerApi,
-  PatchMapPointerHoverEvent,
-  PatchMapPointerPolicy,
-  PatchMapPointerTooltipEvent,
-  PatchMapPointerTooltipEventType,
-  PatchMapTooltipPolicy,
-  PatchMapPointerEventModifiers,
-  PatchMapPointerSelectionChange,
-  PatchMapPointerSelectionResolver,
-  PatchMapPointerSelectionResolverInput,
-  PatchMapPresentationApi,
-  PatchMapPresentationLayer,
-  PatchMapPresentationPaint,
-  PatchMapPresentationSetResult,
-  PatchMapPresentationTargetsInput,
-  PatchMapPresentationPatch,
-  PatchMapResizeByOptions,
-  PatchMapSelectionApi,
-  PatchMapSelectionDisplayMode,
-  PatchMapSelectionInput,
-  PatchMapSelectionPolicy,
-  PatchMapSelectionStrokeAlignment,
-  PatchMapSelectionStrokeScale,
-  PatchMapSelectionVisualPolicy,
-  PatchMapTarget,
-  PatchMapTargetMatch,
-  PatchMapTargetQuery,
-  PatchMapTargetScope,
-  PatchMapTargetSet,
-  PatchMapTargetsApi,
-  PatchMapTargetsInput,
-  PatchMapTheme,
-  PatchMapTextUpdate,
-  PatchMapTextUpdateColumns,
-  PatchMapTextPresentationChanges,
-  PatchMapTextPresentationColumns,
-  PatchMapTransactionOperation,
-  PatchMapTransactionOptions,
-  PatchMapTransformApi,
-  PatchMapTransformOptions,
-  PatchMapTransformResult,
-  PatchMapUpdate,
-  PatchMapUpdateBatch,
-  PatchMapUpdateBatchOptions,
-  PatchMapUpdateColumn,
-  PatchMapUpdateOptions,
-  PatchMapUpdateRecord,
-  PatchMapUpdateResult,
-  PatchMapUpdateStatus,
-  PatchMapUpdateTargetsInput,
-  PatchMapViewportApi,
-  PatchMapViewportOptions,
-  PatchMapViewportSnapshot,
-  PatchMapWheelActivationModifier,
-  PatchMapWheelOptions,
-} from './patch-map/developer-api/contracts';
-export type * from './patch-map/input';
+} from './assets';
+export type { PatchMapHistoryState } from './history';
+export type * from './public/contracts';
+export type * from './public/input';

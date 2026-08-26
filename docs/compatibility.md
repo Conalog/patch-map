@@ -1,0 +1,47 @@
+# Compatibility and releases
+
+- Status: current
+- Audience: package consumers and release owners
+- Owner: supported environments, backend policy, and versioning
+
+Read when: checking an environment, upgrading the package, or publishing an
+artifact. Feature behavior belongs to its API page and is not repeated here.
+
+## Supported environments
+
+| Surface | Supported policy |
+| --- | --- |
+| Node.js | Node 20 or newer for consumers; the repository uses `.nvmrc` for local work |
+| Browsers | Current Chromium with WebGL2 is release-verified; Firefox and Safari are expected-compatible but not qualified |
+| Renderer | WebGL2 aggregate renderer is the supported default |
+| Package formats | ESM and CommonJS through declared package exports |
+| TypeScript | Declarations are built and checked with the package artifact |
+
+WebGPU is not a qualified consumer backend. Firefox, Safari, Windows-native,
+and cross-browser behavior remain unqualified until a repeatable gate exists.
+
+## Versioning
+
+- Public exports, dataset acceptance, visible behavior, event ordering, and
+  documented defaults follow semver.
+- Removing or changing a public capability requires a major release once the
+  package leaves prerelease status.
+- Internal renderer classes, dense slots, Pixi display objects, diagnostics
+  implementation, and verification fixtures are not public identities.
+- A deprecation must name the replacement and removal release. Compatibility
+  aliases without a scheduled removal are not added.
+
+## Published artifact
+
+The package contains built output, the root README, public documents, public
+examples, and required third-party licenses. Engineering documents, tests,
+performance tooling and output, verification code, and source maps are
+excluded. The package verifier checks both required and prohibited paths.
+
+## Verification map
+
+| Claim | Owner | Gate |
+| --- | --- | --- |
+| Runtime and toolchain | `package.json`, `.nvmrc`, CI workflows | typecheck, build, CI classification |
+| Export formats and declarations | `package.json`, build configuration | package integration |
+| Included documentation and licenses | package artifact policy | `verify:package` |

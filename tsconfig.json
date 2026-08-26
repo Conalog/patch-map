@@ -25,11 +25,9 @@
   "include": [
     "src",
     "tests",
-    "scripts",
-    "lab",
-    "performance/patch-map",
-    "vite.config.ts",
-    "vite.patch-map-lab.config.ts"
+    "verification",
+    "performance",
+    "vite.config.ts"
   ],
-  "exclude": ["artifacts", "dist", "node_modules"]
+  "exclude": [".artifacts", "dist", "node_modules"]
 }

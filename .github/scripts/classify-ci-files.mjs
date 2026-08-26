@@ -5,16 +5,8 @@ import { fileURLToPath } from 'node:url';
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 
 export function isLightweightValidationPath(path) {
-  if (path.startsWith('docs/patch-map/')) return false;
-
-  return (
-    (path.startsWith('docs/reference/') ||
-      path.startsWith('docs/tasks/') ||
-      path.startsWith('docs/designs/')) &&
-      path.endsWith('.md')
-  ) ||
-    path === '.github/PULL_REQUEST_TEMPLATE.md' ||
-    path.startsWith('.github/ISSUE_TEMPLATE/');
+  return path === 'CONTRIBUTING.md'
+    || path.startsWith('docs/engineering/');
 }
 
 export function parseNullDelimitedPaths(output) {

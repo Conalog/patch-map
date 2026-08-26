@@ -1,9 +1,5 @@
 node_modules/
 dist/
-.lab-dist/
-.patch-map-lab-dist/
-.perf-results/
-artifacts/raw/
-lab/artifacts/
+.artifacts/
 *.log
 .gstack/

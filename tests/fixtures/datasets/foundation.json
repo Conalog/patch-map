@@ -1,0 +1,532 @@
+{
+  "query-scene": [
+    {
+      "type": "item",
+      "id": "item-a",
+      "label": "Item A",
+      "size": {
+        "width": 100,
+        "height": 80
+      },
+      "components": [
+        {
+          "type": "bar",
+          "id": "bar",
+          "source": {
+            "type": "rect",
+            "fill": "#00aa66"
+          },
+          "size": {
+            "width": 60,
+            "height": 10
+          }
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "text": "Alpha"
+        }
+      ],
+      "attrs": {
+        "x": 10,
+        "y": 20
+      }
+    },
+    {
+      "type": "item",
+      "id": "item-d",
+      "label": "Item D",
+      "size": {
+        "width": 100,
+        "height": 80
+      },
+      "components": [
+        {
+          "type": "bar",
+          "id": "bar",
+          "source": {
+            "type": "rect",
+            "fill": "#4488ff"
+          },
+          "size": {
+            "width": 60,
+            "height": 20
+          }
+        }
+      ],
+      "attrs": {
+        "x": 220,
+        "y": 20
+      }
+    },
+    {
+      "type": "rect",
+      "id": "rect-b",
+      "size": {
+        "width": 40,
+        "height": 30
+      },
+      "fill": "#ff8800",
+      "attrs": {
+        "x": 160,
+        "y": 40,
+        "zIndex": 2
+      }
+    },
+    {
+      "type": "text",
+      "id": "text-c",
+      "text": "Bravo",
+      "size": {
+        "width": 80,
+        "height": 20
+      },
+      "attrs": {
+        "x": 40,
+        "y": 140
+      }
+    },
+    {
+      "type": "relations",
+      "id": "links",
+      "links": [
+        {
+          "source": "item-a",
+          "target": "rect-b"
+        }
+      ],
+      "style": {
+        "color": "#222222",
+        "width": 2
+      }
+    }
+  ],
+  "relation-variants-scene": [
+    {
+      "type": "rect",
+      "id": "a",
+      "size": {
+        "width": 20,
+        "height": 20
+      },
+      "fill": "#336699",
+      "attrs": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "type": "rect",
+      "id": "b",
+      "size": {
+        "width": 20,
+        "height": 20
+      },
+      "fill": "#ff8800",
+      "attrs": {
+        "x": 100,
+        "y": 0
+      }
+    },
+    {
+      "type": "relations",
+      "id": "links",
+      "links": [
+        {
+          "source": "a",
+          "target": "a"
+        },
+        {
+          "source": "a",
+          "target": "b"
+        },
+        {
+          "source": "a",
+          "target": "b"
+        },
+        {
+          "source": "b",
+          "target": "a"
+        }
+      ],
+      "style": {
+        "color": "#222222",
+        "width": 2
+      }
+    }
+  ],
+  "minimal": [
+    {
+      "type": "item",
+      "size": {
+        "width": 100,
+        "height": 80
+      },
+      "components": [
+        {
+          "type": "bar",
+          "source": {
+            "type": "rect"
+          },
+          "size": {
+            "width": 30,
+            "height": 10
+          }
+        },
+        {
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "malformed": {
+    "kind": "generic-item",
+    "id": "broken",
+    "width": 100
+  },
+  "identity-order": [
+    {
+      "type": "rect",
+      "id": "explicit-a",
+      "size": 10,
+      "fill": "#ff0000",
+      "attrs": {
+        "zIndex": 4
+      }
+    },
+    {
+      "type": "rect",
+      "size": 10,
+      "fill": "#00ff00",
+      "attrs": {
+        "zIndex": 4
+      }
+    },
+    {
+      "type": "rect",
+      "id": "duplicate",
+      "size": 10,
+      "fill": "#0000ff",
+      "attrs": {
+        "zIndex": 4
+      }
+    }
+  ],
+  "nested-groups": [
+    {
+      "type": "group",
+      "id": "outer",
+      "show": true,
+      "locked": false,
+      "attrs": {
+        "x": 10,
+        "y": 20
+      },
+      "children": [
+        {
+          "type": "group",
+          "id": "inner",
+          "show": true,
+          "locked": false,
+          "attrs": {
+            "x": 5,
+            "y": 7
+          },
+          "children": [
+            {
+              "type": "rect",
+              "id": "rect-b",
+              "size": {
+                "width": 40,
+                "height": 30
+              },
+              "fill": "#ff8800",
+              "attrs": {
+                "x": 2,
+                "y": 3
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "item-components": [
+    {
+      "type": "item",
+      "id": "item",
+      "size": {
+        "width": 100,
+        "height": 80
+      },
+      "padding": 10,
+      "components": [
+        {
+          "type": "background",
+          "id": "background",
+          "source": {
+            "type": "rect",
+            "fill": "#336699"
+          }
+        },
+        {
+          "type": "bar",
+          "id": "bar",
+          "source": {
+            "type": "rect",
+            "fill": "#00aa66"
+          },
+          "size": {
+            "width": 80,
+            "height": 10
+          }
+        },
+        {
+          "type": "icon",
+          "id": "icon",
+          "source": "fixture-icon",
+          "size": 20
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "text": "Component text"
+        }
+      ]
+    }
+  ],
+  "rect-specimen": [
+    {
+      "type": "rect",
+      "id": "rect",
+      "size": {
+        "width": 40,
+        "height": 30
+      },
+      "fill": "#ff000080",
+      "stroke": {
+        "color": "#000000ff",
+        "width": 2
+      },
+      "radius": 10,
+      "attrs": {
+        "x": -20,
+        "y": 15,
+        "angle": 45,
+        "zIndex": 3
+      }
+    }
+  ],
+  "relations": [
+    {
+      "type": "rect",
+      "id": "a",
+      "size": {
+        "width": 20,
+        "height": 20
+      },
+      "fill": "#336699",
+      "attrs": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "type": "rect",
+      "id": "b",
+      "size": {
+        "width": 20,
+        "height": 20
+      },
+      "fill": "#ff8800",
+      "attrs": {
+        "x": 100,
+        "y": 40
+      }
+    },
+    {
+      "type": "relations",
+      "id": "links",
+      "links": [
+        {
+          "source": "a",
+          "target": "a"
+        },
+        {
+          "source": "a",
+          "target": "b"
+        },
+        {
+          "source": "a",
+          "target": "b"
+        },
+        {
+          "source": "b",
+          "target": "a"
+        }
+      ],
+      "style": {
+        "color": "#222222",
+        "width": 2
+      }
+    }
+  ],
+  "content-box": [
+    {
+      "type": "item",
+      "id": "item",
+      "size": {
+        "width": 100,
+        "height": 80
+      },
+      "padding": {
+        "x": 10,
+        "y": 5,
+        "top": 7
+      },
+      "components": [
+        {
+          "type": "bar",
+          "id": "bar",
+          "source": {
+            "type": "rect",
+            "fill": "#00aa66"
+          },
+          "size": {
+            "width": "50%",
+            "height": "25%"
+          }
+        },
+        {
+          "type": "icon",
+          "id": "icon",
+          "source": "fixture-icon",
+          "size": {
+            "width": "25%",
+            "height": "50%"
+          }
+        }
+      ]
+    }
+  ],
+  "stacking": [
+    {
+      "type": "rect",
+      "id": "low",
+      "size": 20,
+      "fill": "#111111",
+      "attrs": {
+        "zIndex": -1
+      }
+    },
+    {
+      "type": "rect",
+      "id": "first",
+      "size": 20,
+      "fill": "#222222",
+      "attrs": {
+        "zIndex": 4
+      }
+    },
+    {
+      "type": "rect",
+      "id": "second",
+      "size": 20,
+      "fill": "#333333",
+      "attrs": {
+        "zIndex": 4
+      }
+    },
+    {
+      "type": "rect",
+      "id": "high",
+      "size": 20,
+      "fill": "#444444",
+      "attrs": {
+        "zIndex": 10
+      }
+    }
+  ],
+  "bounds": [
+    {
+      "type": "rect",
+      "id": "rotated",
+      "size": {
+        "width": 40,
+        "height": 20
+      },
+      "fill": "#ff8800",
+      "attrs": {
+        "x": 0,
+        "y": 0,
+        "angle": 45
+      }
+    },
+    {
+      "type": "rect",
+      "id": "flipped",
+      "size": {
+        "width": 40,
+        "height": 20
+      },
+      "fill": "#00aa66",
+      "attrs": {
+        "x": 80,
+        "y": 0,
+        "scaleX": -1
+      }
+    },
+    {
+      "type": "text",
+      "id": "overflow-text",
+      "text": "Overflow text measurement specimen",
+      "size": {
+        "width": 100,
+        "height": 20
+      },
+      "attrs": {
+        "x": 0,
+        "y": 80
+      },
+      "style": {
+        "fontFamily": "Unifont",
+        "fontSize": 16,
+        "lineHeight": 20,
+        "letterSpacing": 0
+      },
+      "overflow": "visible"
+    },
+    {
+      "type": "rect",
+      "id": "hidden",
+      "show": false,
+      "size": 20,
+      "fill": "#333333",
+      "attrs": {
+        "x": 160,
+        "y": 0
+      }
+    },
+    {
+      "type": "rect",
+      "id": "transparent-interactive",
+      "size": 20,
+      "fill": "#00000000",
+      "eventMode": "static",
+      "attrs": {
+        "x": 200,
+        "y": 0
+      }
+    },
+    {
+      "type": "rect",
+      "id": "zero-size",
+      "size": 0,
+      "fill": "#000000",
+      "attrs": {
+        "x": 240,
+        "y": 0
+      }
+    }
+  ]
+}

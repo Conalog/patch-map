@@ -7,28 +7,22 @@ const projectRoot = fileURLToPath(new URL('.', import.meta.url));
 const typescriptFiles = [
   'src/**/*.ts',
   'tests/**/*.ts',
-  'scripts/**/*.ts',
-  'lab/**/*.ts',
-  'performance/patch-map/**/*.ts',
+  'verification/**/*.ts',
+  'performance/**/*.ts',
   'vite.config.ts',
-  'vite.patch-map-lab.config.ts',
 ];
 
 export default defineConfig(
   {
     ignores: [
-      'artifacts/**',
+      '.artifacts/**',
       'dist/**',
-      '.lab-dist/**',
-      '.patch-map-lab-dist/**',
       'fixtures/**',
-      'lab/artifacts/**',
-      'lab/fixtures/**',
       'node_modules/**',
     ],
   },
   {
-    files: ['scripts/**/*.mjs', 'performance/patch-map/**/*.mjs'],
+    files: ['verification/**/*.mjs', 'performance/**/*.mjs'],
     extends: [eslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 'latest',
@@ -36,11 +30,6 @@ export default defineConfig(
     },
     rules: {
       'no-undef': 'off',
-      // ESLint 10 added these rules to the recommended JavaScript preset as
-      // well. Keep the same ownership/state-machine contract as the typed
-      // sources instead of forcing unrelated verification rewrites.
-      'no-useless-assignment': 'off',
-      'preserve-caught-error': 'off',
       'no-unused-vars': [
         'error',
         {
@@ -54,7 +43,7 @@ export default defineConfig(
     // Public examples import the packed package name, so their strict type
     // boundary belongs to verify:package. Keep them in the ordinary lint gate
     // without making a fresh checkout depend on pre-existing dist output.
-    files: ['examples/patch-map/**/*.ts'],
+    files: ['examples/**/*.ts'],
     extends: [eslint.configs.recommended, tseslint.configs.recommended],
     rules: {
       'no-undef': 'off',
@@ -83,11 +72,6 @@ export default defineConfig(
     },
     rules: {
       'no-undef': 'off',
-      // ESLint 10 and typescript-eslint 8.65 added these to their recommended
-      // presets. Keep the repository's pre-upgrade lint contract stable; the
-      // frozen baselines must not be mechanically rewritten by a tool update.
-      'no-useless-assignment': 'off',
-      'preserve-caught-error': 'off',
       '@typescript-eslint/consistent-type-imports': [
         'error',
         { prefer: 'type-imports' },

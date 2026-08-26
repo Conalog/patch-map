@@ -48,6 +48,10 @@ jobs:
           test "$(git rev-parse "$RESULT_SHA^1")" = "$BASE_SHA"
           node .github/scripts/classify-ci-files.mjs "$BASE_SHA" "$RESULT_SHA" >> "$GITHUB_OUTPUT"
 
+      - name: Verify documentation-only change
+        if: ${{ steps.changes.outputs.full_validation == 'false' }}
+        run: node verification/docs/verify.mjs
+
   gate:
     name: ${{ matrix.name }}
     needs: classify
@@ -59,8 +63,8 @@ jobs:
             name: Core
           - gate: package
             name: Package
-          - gate: browser
-            name: Browser
+          - gate: lifecycle
+            name: Lifecycle
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -97,9 +101,9 @@ jobs:
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
         run: npm run build
 
-      - name: Contract
+      - name: Documentation
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run verify:contract
+        run: npm run verify:docs
 
       - name: Install Chromium
         if: ${{ matrix.gate != 'core' && needs.classify.outputs.full_validation == 'true' }}
@@ -109,17 +113,13 @@ jobs:
         if: ${{ matrix.gate == 'package' && needs.classify.outputs.full_validation == 'true' }}
         run: npm run verify:package -- --require-audit
 
-      - name: Build Lab
-        if: ${{ matrix.gate == 'browser' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run build:lab
-
-      - name: Verify Lab
-        if: ${{ matrix.gate == 'browser' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run verify:lab:all
-
       - name: Verify memory
-        if: ${{ matrix.gate == 'browser' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
         run: npm run verify:memory
+
+      - name: Verify benchmark harness
+        if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run performance:smoke
 
   validation:
     name: CI

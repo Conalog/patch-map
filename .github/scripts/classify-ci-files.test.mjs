@@ -6,32 +6,39 @@ import {
   parseNullDelimitedPaths,
 } from './classify-ci-files.mjs';
 
-test('internal Markdown documentation only skips the full release gate', () => {
+test('internal documentation-only changes skip the full release gate', () => {
   assert.deepEqual(
     classifyChangedPaths([
-      'docs/reference/patch-map-product-policy.md',
-      'docs/tasks/2026/07-30/patch-map-package-promotion/BRIEF.md',
-      '.github/PULL_REQUEST_TEMPLATE.md',
+      'docs/engineering/architecture.md',
+      'docs/engineering/verification.md',
+      'CONTRIBUTING.md',
     ]),
     { fullValidation: false },
   );
 });
 
-test('published documentation remains a full release-gate change', () => {
-  assert.equal(isLightweightValidationPath('README.md'), false);
-  assert.equal(isLightweightValidationPath('docs/patch-map/README.md'), false);
-  assert.equal(
-    classifyChangedPaths(['docs/patch-map/README.md']).fullValidation,
-    true,
-  );
+test('only non-packaged engineering documentation uses lightweight validation', () => {
+  assert.equal(isLightweightValidationPath('CONTRIBUTING.md'), true);
+  assert.equal(isLightweightValidationPath('docs/engineering/README.md'), true);
+});
+
+test('packaged public documentation and assets require the full release gate', () => {
+  for (const path of [
+    'README.md',
+    'docs/README.md',
+    'docs/api/data-and-targets.md',
+    'docs/assets/fira-code-6.2-license.txt',
+  ]) {
+    assert.equal(classifyChangedPaths([path]).fullValidation, true, path);
+  }
 });
 
 test('product, package, verification, and workflow changes require the full release gate', () => {
   for (const path of [
-    'src/patch-map/index.ts',
+    'src/index.ts',
     'package.json',
     'package-lock.json',
-    'scripts/verification/patch-map-package.mjs',
+    'verification/package/run.mjs',
     '.github/workflows/ci.yaml',
   ]) {
     assert.equal(classifyChangedPaths([path]).fullValidation, true, path);
@@ -42,7 +49,7 @@ test('empty and mixed diffs fail closed to full validation', () => {
   assert.equal(classifyChangedPaths([]).fullValidation, true);
   assert.equal(
     classifyChangedPaths([
-      'docs/reference/patch-map-product-policy.md',
+      'docs/engineering/verification.md',
       'src/index.ts',
     ]).fullValidation,
     true,

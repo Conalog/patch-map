@@ -1,0 +1,343 @@
+import { afterEach, describe, expect, it } from 'vitest';
+
+import type { CoreView, SlotRange } from '../../src/dense/contracts';
+import {
+  RenderFlags,
+  RenderKind,
+  type RendererFlushResult,
+  type RenderStoreView,
+} from '../../src/dense/renderer-types';
+import { PatchMapRuntime, type PatchMapRuntimeOptions } from '../../src/core';
+import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
+import { PatchMap } from '../../src/engine';
+import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
+import type { PatchMapPresentationLayerRenderUpdate } from '../../src/presentation/layer-contracts';
+import type {
+  PatchMapPixiInitializationMetrics,
+  PatchMapPixiRenderer,
+} from '../../src/rendering/pixi-renderer';
+import type { PatchMapRendererEntityPresentationOverride } from '../../src/rendering/contracts/presentation-store';
+import type {
+  PatchMapEntityPaintProbe,
+  PatchMapOverlayPaintProbe,
+  PatchMapRendererDebug,
+  RootInteractionHandlers,
+} from '../../src/rendering-port';
+
+describe('PatchMap aggregate paint-order product seam', () => {
+  const allocated: PatchMap[] = [];
+
+  afterEach(async () => {
+    await Promise.all(allocated.splice(0).map((engine) => engine.destroy()));
+  });
+
+  it('publishes exact stable sibling order through patch, undo, and redo', async () => {
+    const renderer = new PaintRendererTestDouble();
+    const TestPatchMap = PatchMapRuntime as unknown as new (
+      renderer: PatchMapPixiRenderer,
+      options: PatchMapRuntimeOptions,
+    ) => PatchMapRuntime;
+    const core = new TestPatchMap(renderer as unknown as PatchMapPixiRenderer, {
+      autoRender: false,
+    });
+    const engine = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    allocated.push(engine);
+    await engine.initialize({ instanceId: 'paint-order', width: 800, height: 600 });
+    engine.loadDataset(stacking());
+    engine.select(['first']);
+    engine.publishFrame(0);
+
+    expectPaint(engine, ['low', 'first', 'second', 'high', 'selection', 'transformer'], {
+      sceneRevision: 2,
+      historyDepth: 0,
+    });
+
+    expect(engine.patch(
+      { kind: 'element', id: 'low' },
+      { attrs: { zIndex: 6 } },
+    )).toMatchObject({ status: 'committed' });
+    engine.publishFrame(1);
+    expectPaint(engine, ['first', 'second', 'low', 'high', 'selection', 'transformer'], {
+      sceneRevision: 3,
+      historyDepth: 1,
+    });
+
+    expect(engine.undo()).toMatchObject({ status: 'committed' });
+    engine.publishFrame(10);
+    expectPaint(engine, ['low', 'first', 'second', 'high', 'selection', 'transformer'], {
+      sceneRevision: 4,
+      historyDepth: 0,
+    });
+
+    expect(engine.redo()).toMatchObject({ status: 'committed' });
+    engine.publishFrame(20);
+    expectPaint(engine, ['first', 'second', 'low', 'high', 'selection', 'transformer'], {
+      sceneRevision: 5,
+      historyDepth: 1,
+    });
+  });
+
+  it('moves every item descendant as one zIndex unit', async () => {
+    const renderer = new PaintRendererTestDouble();
+    const TestPatchMap = PatchMapRuntime as unknown as new (
+      renderer: PatchMapPixiRenderer,
+      options: PatchMapRuntimeOptions,
+    ) => PatchMapRuntime;
+    const core = new TestPatchMap(renderer as unknown as PatchMapPixiRenderer, {
+      autoRender: false,
+    });
+    const engine = new PatchMap({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    allocated.push(engine);
+    await engine.initialize({ instanceId: 'item-paint-order', width: 800, height: 600 });
+    engine.loadDataset(itemStacking());
+    engine.publishFrame(0);
+
+    expect(engine.paintOrderProbe()?.plan.renderOrder).toEqual([
+      'rear',
+      'rear::background:bg',
+      'rear::text:label',
+      'front',
+      'front::background:bg',
+      'front::text:label',
+    ]);
+
+    expect(engine.patch(
+      { kind: 'element', id: 'rear' },
+      { attrs: { zIndex: 2 } },
+    )).toMatchObject({ status: 'committed' });
+    engine.publishFrame(1);
+    expect(engine.paintOrderProbe()?.plan.renderOrder).toEqual([
+      'front',
+      'front::background:bg',
+      'front::text:label',
+      'rear',
+      'rear::background:bg',
+      'rear::text:label',
+    ]);
+  });
+});
+
+class PaintRendererTestDouble {
+  public readonly strategy = 'mesh' as const;
+  public readonly preference = 'webgl' as const;
+  public readonly initializationMetrics: PatchMapPixiInitializationMetrics = Object.freeze({
+    applicationInitMs: 0,
+    rendererBuildMs: 0,
+  });
+  public readonly width = 800;
+  public readonly height = 600;
+  public readonly pixelRatio = 1;
+  public destroyed = false;
+  private frame = 0;
+  private selectedCount = 0;
+  private entityCount = 0;
+  private readonly paintById = new Map<string, PatchMapEntityPaintProbe>();
+  private projection: PatchMapProjectionIndex | null = null;
+  private presentationOverrides: ReadonlyMap<
+    string,
+    PatchMapRendererEntityPresentationOverride
+  > = new Map();
+  private presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null = null;
+  private view: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
+
+  public markChanges(): void {}
+  public markOverlayChanges(): void {}
+  public capturePublicationCheckpoint(): Readonly<{
+    projection: PatchMapProjectionIndex | null;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }> {
+    return Object.freeze({
+      projection: this.projection,
+      presentationOverrides: this.presentationOverrides,
+      presentationLayerUpdate: this.presentationLayerUpdate,
+    });
+  }
+  public restorePublicationCheckpoint(checkpoint: Readonly<{
+    projection: PatchMapProjectionIndex | null;
+    presentationOverrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>;
+    presentationLayerUpdate: PatchMapPresentationLayerRenderUpdate | null;
+  }>): void {
+    this.projection = checkpoint.projection;
+    this.presentationOverrides = checkpoint.presentationOverrides;
+    this.presentationLayerUpdate = checkpoint.presentationLayerUpdate;
+  }
+  public setProjection(
+    index: PatchMapProjectionIndex,
+    _ranges?: readonly SlotRange[],
+  ): boolean {
+    this.projection = index;
+    return true;
+  }
+  public setInstancePresentationOverrides(
+    overrides: ReadonlyMap<string, PatchMapRendererEntityPresentationOverride>,
+  ): boolean {
+    this.presentationOverrides = overrides;
+    return true;
+  }
+  public setPresentationLayerMultipliers(
+    update: PatchMapPresentationLayerRenderUpdate,
+  ): boolean {
+    this.presentationLayerUpdate = update;
+    return true;
+  }
+  public setWorldOrientation(): boolean { return true; }
+  public resize(): boolean { return false; }
+  public setView(view: CoreView): boolean {
+    this.view = Object.freeze({ ...view });
+    return true;
+  }
+  public flush(store: RenderStoreView): RendererFlushResult {
+    this.frame += 1;
+    this.selectedCount = 0;
+    this.entityCount = store.liveCount;
+    this.paintById.clear();
+    for (let slot = 0; slot < store.capacity; slot += 1) {
+      if (store.alive[slot] !== 1) continue;
+      if (((store.flags[slot] ?? 0) & RenderFlags.Selected) !== 0) this.selectedCount += 1;
+      const entityId = store.ids[slot];
+      if (!entityId) continue;
+      this.paintById.set(entityId, Object.freeze({
+        entityId,
+        lane: store.kind[slot] === RenderKind.Relation
+          ? 'relations-dynamic'
+          : 'ordinary-geometry',
+        rendererKind: 'mesh',
+        primitiveCount: 1,
+        renderObjectCount: 1,
+        packedTint: store.fill[slot] ?? null,
+        rgbTint: null,
+        alpha: store.opacity[slot] ?? null,
+      }));
+    }
+    return Object.freeze({ rendered: true, commandCount: this.entityCount });
+  }
+  public entityPaintProbe(entityId: string): PatchMapEntityPaintProbe | null {
+    return this.paintById.get(entityId) ?? null;
+  }
+  public overlayPaintProbe(): PatchMapOverlayPaintProbe {
+    const visible = this.selectedCount > 0;
+    return Object.freeze({
+      order: Object.freeze(['selection', 'transformer'] as const),
+      selection: visible,
+      transformer: visible,
+      selectedEntityCount: this.selectedCount,
+      renderObjectCount: visible ? 2 : 0,
+    });
+  }
+  public synchronizeNextFlush(): void {}
+  public prepareGpu(): Promise<void> { return Promise.resolve(); }
+  public loadAsset(): Promise<void> { return Promise.resolve(); }
+  public unloadAsset(): Promise<boolean> { return Promise.resolve(false); }
+  public finalizeAssetUnloads(): Promise<void> { return Promise.resolve(); }
+  public captureBase64(): Promise<string> { return Promise.resolve('data:image/png;base64,'); }
+  public bindRootInteractions(_handlers: RootInteractionHandlers): () => void {
+    return () => undefined;
+  }
+  public debugSnapshot(): PatchMapRendererDebug {
+    return Object.freeze({
+      strategy: this.strategy,
+      backend: 'webgl',
+      frame: this.frame,
+      storeEpoch: 1,
+      entityCount: this.entityCount,
+      aggregateRenderObjects: this.entityCount + (this.selectedCount > 0 ? 2 : 0),
+      visiblePrimitives: this.entityCount,
+      uploadedChunks: 0,
+      uploadedBytes: 0,
+      dynamicFullUploadCount: 0,
+      staticInvalidatedUploadCount: 0,
+      particleFullUploadCount: 0,
+      uploadObservation: 'dirty-chunk-bytes',
+      bitmapTextCount: 0,
+      fallbackTextCount: 0,
+      imageCount: 0,
+      loadedAssetCount: 0,
+      unresolvedAssetCount: 0,
+      view: this.view,
+      lastInvalidation: 'test',
+      destroyed: this.destroyed,
+    });
+  }
+  public destroy(): boolean {
+    if (this.destroyed) return false;
+    this.destroyed = true;
+    this.paintById.clear();
+    this.selectedCount = 0;
+    this.entityCount = 0;
+    return true;
+  }
+  public whenDestroyed(): Promise<void> { return Promise.resolve(); }
+}
+
+function expectPaint(
+  engine: PatchMap,
+  order: readonly string[],
+  expected: Readonly<{ sceneRevision: number; historyDepth: number }>,
+): void {
+  const probe = engine.paintOrderProbe();
+  expect(probe).not.toBeNull();
+  expect(probe).toMatchObject({
+    sceneRevision: expected.sceneRevision,
+    publication: 'current',
+    hierarchyNodeCount: 4,
+    overlays: {
+      order: ['selection', 'transformer'],
+      selection: true,
+      transformer: true,
+      selectedEntityCount: 1,
+      renderObjectCount: 2,
+    },
+    history: { undoDepth: expected.historyDepth },
+  });
+  expect(probe?.plan.renderOrder).toEqual(order);
+  expect(probe?.plan.visibleEntries
+    .filter((entry) => entry.zIndex === 4)
+    .map((entry) => entry.publicId)).toEqual(['first', 'second']);
+}
+
+function stacking(): readonly unknown[] {
+  return [
+    rect('low', -1, '#993333'),
+    rect('first', 4, '#339933'),
+    rect('second', 4, '#333399'),
+    rect('high', 10, '#999933'),
+  ];
+}
+
+function itemStacking(): readonly unknown[] {
+  return ['rear', 'front'].map((id, index) => ({
+    type: 'item',
+    id,
+    attrs: { x: index * 20, zIndex: 0 },
+    size: { width: 100, height: 80 },
+    components: [
+      {
+        type: 'background',
+        id: 'bg',
+        attrs: { zIndex: 0 },
+        source: { type: 'rect', fill: '#123456' },
+      },
+      {
+        type: 'text',
+        id: 'label',
+        attrs: { zIndex: 100 },
+        text: id,
+      },
+    ],
+  }));
+}
+
+function rect(id: string, zIndex: number, fill: string): Readonly<Record<string, unknown>> {
+  return Object.freeze({
+    type: 'rect',
+    id,
+    size: Object.freeze({ width: 40, height: 40 }),
+    fill,
+    attrs: Object.freeze({ x: 0, y: 0, zIndex }),
+  });
+}
