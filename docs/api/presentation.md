@@ -2,7 +2,10 @@
 
 - Status: current
 - Audience: package consumers and agents changing non-authoritative visual state
-- Source: `src/core/presentation-layers.ts`, `src/core/instance-presentation-overlay.ts`
+- Source: `src/public/presentation.ts`, `src/public/mutations.ts`,
+  `src/core/presentation-layers.ts`, `src/core/instance-presentation-overlay.ts`,
+  `src/core/instance-presentation-request.ts`, and
+  `src/core/instance-component-presentation-projection.ts`
 
 ## Scope
 
@@ -64,7 +67,9 @@ fields:
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
+| public keyed API validation | `src/public/presentation.ts` | `tests/integration/developer-api-targets-presentation.test.ts` |
 | keyed composition and lifecycle | `src/core/presentation-layers.ts` | `tests/semantic/presentation.test.ts` |
 | sparse-to-dense projection | `src/presentation/projection.ts` | `tests/rendering/presentation-projection.test.ts` |
-| concrete field overlay | `src/core/instance-presentation-overlay.ts` | `tests/core/core-instance-component-presentation-integration.test.ts` |
-| column validation and mixed animation | `src/public/presentation.ts` | `tests/engine/engine-update-transactions.test.ts` |
+| concrete request normalization | `src/core/instance-presentation-request.ts` | `tests/core/core-instance-component-presentation-integration.test.ts` |
+| concrete overlay planning and projection | `src/core/instance-presentation-overlay.ts`, `src/core/instance-component-presentation-projection.ts` | `tests/core/core-instance-component-presentation-integration.test.ts` |
+| public column validation and mixed animation | `src/public/mutations.ts` | `tests/integration/developer-api-updates.test.ts` |

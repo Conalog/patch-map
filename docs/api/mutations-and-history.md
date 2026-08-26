@@ -71,7 +71,7 @@ owned by [`presentation.md`](presentation.md) and
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| public lowering and batch validation | `src/public/mutations.ts` | `tests/engine/engine-update-transactions.test.ts` |
+| public lowering and batch validation | `src/public/mutations.ts` | `tests/integration/developer-api-updates.test.ts` |
 | authored commit ordering and atomicity | `src/engine/transaction-commit-coordinator.ts` | `tests/engine/engine-semantic-mutation.test.ts` |
 | history cursor and companion state | `src/engine/history-application-coordinator.ts` | `tests/engine/engine-history-integration.test.ts` |
 | refusal and reentrancy | `src/engine/operation-outcomes.ts` | `tests/engine/engine-reentrancy-lifecycle.test.ts` |

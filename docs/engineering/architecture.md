@@ -47,7 +47,7 @@ boundary test enforces these directions.
 | `public/` | application and host contracts plus stateless facade mapping | Engine state, Core types, or renderer objects |
 | `engine/index.ts` | product orchestration and authority delegation | public facade construction or duplicate lifecycle, transaction, capture, or pointer state machines |
 | Engine lifecycle and scene authorities | surface generation, lifecycle, accepted scene, publication revision | renderer internals or semantic planning |
-| Engine coordinators | replacement, mutation, history, selection, pointer, viewport, transformer, asset, and capture ordering | a second canonical scene, revision clock, or renderer |
+| Engine coordinators | replacement, mutation, history, editor, selection, pointer, viewport, transformer, asset, and capture ordering | a second canonical scene, revision clock, or renderer |
 | Core load and reconcile authorities | candidate parsing, dense construction, semantic publication, exact rollback | public facade policy, DOM input, or frame scheduling |
 | Core instance-presentation coordinator | instance presentation maps, full and height-only updates, reconcile replay, and projection-to-frame ordering | public Engine policy or a second semantic scene |
 | Semantic, geometry, and dense layers | normalization, identity, exact render quads, planning, compact state, transactions | Engine lifecycle or concrete GPU state |
@@ -57,6 +57,7 @@ boundary test enforces these directions.
 | Surface publication authority | canvas publication, context listeners, root binding activation, rollback and teardown | renderer-loss policy or frame eligibility |
 | Root interaction binding authority | fixed stage/canvas bindings, pointer capture, coordinate translation, cleanup | gesture and selection policy |
 | Interaction overlay authority | stable overlay objects, paint bounds cache, dirty repaint, teardown | canonical selection or transformer sessions |
+| Accessibility authorities | derived logical focus order, activation, reduced motion, canvas-aligned accessibility nodes, and teardown | application-shell accessibility or a second semantic selection owner |
 | Text and image leaf lanes | lane resources, projection, settlement, release after confirmed frames | a second store traversal or frame scheduler |
 | Scheduler and frame authorities | invalidation, frame eligibility, budget, publication confirmation | semantic mutation or per-feature tickers |
 
