@@ -64,6 +64,9 @@ resize handle.
 - Cancel, target change, pointer termination, or refused surface acceptance
   removes transformer preview and does not create a history entry.
 
+Runnable selection, transform, and history reference:
+[`examples/editor.ts`](../../examples/editor.ts).
+
 ## Verification map
 
 | Claim | Implementation | Focused verification |

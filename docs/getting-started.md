@@ -60,6 +60,8 @@ paths. The canonical fallback keys are `white`, `black`, `transparent`,
 dataset color fields. Every supplied leaf is validated and detached before the
 renderer is allocated.
 
+Runnable lifecycle reference: [`examples/minimal.ts`](../examples/minimal.ts).
+
 ## State and ordering
 
 Mount creates the renderer and frame authority, normalizes the dataset,

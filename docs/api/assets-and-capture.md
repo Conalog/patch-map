@@ -62,6 +62,8 @@ the latest deferred size is applied before the frame loop resumes. The result is
   never returns pixels for a different scene tuple.
 - Do not add a delay, frame loop, or `assets.status()` poll around capture.
 
+Runnable capture reference: [`examples/report.ts`](../../examples/report.ts).
+
 ## Verification map
 
 | Claim | Implementation | Focused verification |

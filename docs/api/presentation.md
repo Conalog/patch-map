@@ -63,6 +63,9 @@ fields:
 - Keyed targets outside their scope are ignored by design; the result reports
   `ignoredTargetCount`.
 
+Runnable keyed-layer reference:
+[`examples/presentation.ts`](../../examples/presentation.ts).
+
 ## Verification map
 
 | Claim | Implementation | Focused verification |

@@ -67,6 +67,8 @@ owned by [`presentation.md`](presentation.md) and
 - Undo or redo with no available entry is unchanged. A refused restoration does
   not advance the history cursor.
 
+Runnable update reference: [`examples/dashboard.ts`](../../examples/dashboard.ts).
+
 ## Verification map
 
 | Claim | Implementation | Focused verification |
