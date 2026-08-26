@@ -253,7 +253,10 @@ class RendererTestDouble {
   public whenDestroyed(): Promise<void> { return Promise.resolve(); }
 }
 
-export function createTestCore(allocated: PatchMapRuntime[]): Readonly<{
+export function createTestCore(
+  allocated: PatchMapRuntime[],
+  options: PatchMapRuntimeOptions = {},
+): Readonly<{
   core: PatchMapRuntime;
   renderer: RendererTestDouble;
 }> {
@@ -262,7 +265,10 @@ export function createTestCore(allocated: PatchMapRuntime[]): Readonly<{
     renderer: PatchMapPixiRenderer,
     options: PatchMapRuntimeOptions,
   ) => PatchMapRuntime;
-  const core = new TestPatchMap(renderer as unknown as PatchMapPixiRenderer, { autoRender: false });
+  const core = new TestPatchMap(renderer as unknown as PatchMapPixiRenderer, {
+    ...options,
+    autoRender: false,
+  });
   allocated.push(core);
   return { core, renderer };
 }
@@ -284,7 +290,7 @@ export function scene(height: number, animation = true): readonly unknown[] {
   }];
 }
 
-export function gridScene(height: number): readonly unknown[] {
+export function gridScene(height: number, fill = '#336699'): readonly unknown[] {
   return [{
     type: 'grid',
     id: 'grid-a',
@@ -295,7 +301,7 @@ export function gridScene(height: number): readonly unknown[] {
       components: [{
         type: 'bar',
         id: 'level',
-        source: { type: 'rect', fill: '#336699' },
+        source: { type: 'rect', fill },
         size: { width: 60, height },
         placement: 'bottom',
         animation: true,

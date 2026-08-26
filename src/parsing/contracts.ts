@@ -1,4 +1,4 @@
-import type { EntityKind, SceneDocument } from '../dense/contracts';
+import type { EntityKind, Rgba, SceneDocument } from '../dense/contracts';
 import type {
   PatchMapAffineBasis,
   PatchMapAffineMatrix,
@@ -235,6 +235,10 @@ export interface PatchMapBarProjection {
   readonly animation: boolean;
   readonly animationDuration: number;
   readonly destinationHeight: number;
+  /** Resolved authored paint basis used to reapply transient instance overlays. */
+  readonly trackFill: Rgba;
+  readonly tint: Rgba;
+  readonly radius: number;
   /** Parser-owned reference used to resolve an authored percentage height. */
   readonly percentageReferenceHeight: number;
 }

@@ -221,4 +221,71 @@ describe('PatchMap instance bar presentation integration', () => {
 
     await engine.destroy();
   });
+
+  it('preserves active instance bars across a targeted semantic bar reconcile', async () => {
+    const { core, renderer } = createTestCore(allocated, {
+      internalStableRecordOverlays: true,
+    });
+    const engine = createPublicApiEngine({
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+    });
+    await engine.initialize({
+      instanceId: 'grid-instance-full-presentation-animation',
+      width: 800,
+      height: 600,
+    });
+    engine.loadDataset(gridScene(10));
+    engine.publishFrame(0);
+
+    expect(engine.updateInstanceBarHeights({
+      bar: {
+        targets: [
+          { id: 'grid-a.0.0', componentId: 'level' },
+          { id: 'grid-a.0.1', componentId: 'level' },
+        ],
+        height: new Float64Array([50, 30]),
+        tint: ['#2563eb', '#2563eb'],
+      },
+      animate: true,
+    })).toMatchObject({ status: 'committed', activeAnimationCount: 2 });
+    const presentationTargets = [
+      { id: 'grid-a.0.0', componentId: 'level' },
+      { id: 'grid-a.0.1', componentId: 'level' },
+    ];
+    const rendererOverrideBeforeReconcile = renderer.presentationOverrides.at(-1)?.get(
+      'grid-a.0.0::bar:level',
+    );
+
+    expect(core.reconcile(gridScene(10), {
+      animatedBarTargets: [],
+    })).toMatchObject({ status: 'committed' });
+    expect(core.activeAnimations).toBe(2);
+    expect(renderer.presentationOverrides.at(-1)?.get(
+      'grid-a.0.0::bar:level',
+    )).toEqual(rendererOverrideBeforeReconcile);
+    expect(presentationTargets.map(({ id, componentId }) =>
+      engine.barPresentationProbe({ ownerId: id, componentId })?.presentationHeight))
+      .toEqual([10, 10]);
+
+    engine.publishFrame(100);
+    for (const { id, componentId } of presentationTargets) {
+      const height = engine.barPresentationProbe({ ownerId: id, componentId })
+        ?.presentationHeight ?? 0;
+      expect(height).toBeGreaterThan(10);
+    }
+    engine.publishFrame(200);
+    expect(core.activeAnimations).toBe(0);
+    expect(presentationTargets.map(({ id, componentId }) =>
+      engine.barPresentationProbe({ ownerId: id, componentId })?.presentationHeight))
+      .toEqual([50, 30]);
+
+    expect(core.reconcile(gridScene(10, '#ff0000'), {
+      animateBarChanges: false,
+    })).toMatchObject({ status: 'committed' });
+    expect(renderer.presentationOverrides.at(-1)?.get(
+      'grid-a.0.0::bar:level',
+    )).toMatchObject({ fill: 0x250000ff, trackFill: 0xff0000ff, radius: 0 });
+
+    await engine.destroy();
+  });
 });

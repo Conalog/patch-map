@@ -312,24 +312,22 @@ export class PatchMapBarPresentationAuthority {
         const currentHeight = this.visibleHeight(entityId) ??
           previous?.destinationHeight ??
           bar.destinationHeight;
-        const canAnimate = animateBarChanges &&
-          (
-            animatedTargetKeys === null ||
-            barMatchesAnimatedTarget(
-              entityId,
-              bar,
-              animatedTargetKeys,
-              entitySourceById,
-            )
-          ) &&
+        const canRetainAnimation = animateBarChanges &&
           previous !== undefined &&
           entity?.kind === 'bar' &&
           entity.visible &&
           ref !== null &&
           bar.animation;
+        const matchesAnimatedTarget = animatedTargetKeys === null ||
+          barMatchesAnimatedTarget(
+            entityId,
+            bar,
+            animatedTargetKeys,
+            entitySourceById,
+          );
         const destinationChanged =
           previous?.destinationHeight !== bar.destinationHeight;
-        if (!canAnimate) {
+        if (!canRetainAnimation || (destinationChanged && !matchesAnimatedTarget)) {
           if (active.found) {
             this.controller.cancelForReconcile(
               entityId,
@@ -406,24 +404,21 @@ export class PatchMapBarPresentationAuthority {
       const currentHeight = this.visibleHeight(entityId) ??
         previous?.destinationHeight ??
         bar.destinationHeight;
-      const canAnimate = animateBarChanges &&
-        (
-          animatedTargetKeys === null ||
-          barMatchesAnimatedTarget(
-            entityId,
-            bar,
-            animatedTargetKeys,
-            entitySourceById,
-          )
-        ) &&
+      const canRetainAnimation = animateBarChanges &&
         previous !== undefined &&
         entity?.kind === 'bar' &&
         entity.visible &&
         ref !== null &&
         bar.animation;
+      const matchesAnimatedTarget = animatedTargetKeys === null ||
+        barMatchesAnimatedTarget(
+          entityId,
+          bar,
+          animatedTargetKeys,
+          entitySourceById,
+        );
       const destinationChanged = previous?.destinationHeight !== bar.destinationHeight;
-
-      if (!canAnimate) {
+      if (!canRetainAnimation || (destinationChanged && !matchesAnimatedTarget)) {
         if (active.found) {
           this.controller.cancelForReconcile(
             entityId,

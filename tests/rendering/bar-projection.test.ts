@@ -39,6 +39,9 @@ describe('PatchMap bar projection sidecar', () => {
       animation: false,
       animationDuration: 350,
       destinationHeight: 42,
+      trackFill: 0x336699ff,
+      tint: 0xffffffff,
+      radius: 0,
       percentageReferenceHeight: 84,
     });
     expect(parsed.document.entities.find((entity) => entity.id === projection?.entityId)).toMatchObject({
@@ -89,6 +92,9 @@ describe('PatchMap bar projection sidecar', () => {
         animation: true,
         animationDuration: 200,
         destinationHeight: 10,
+        trackFill: 0,
+        tint: 0xffffffff,
+        radius: 0,
         percentageReferenceHeight: 80,
       },
       'rack.0.1::bar:level': {
@@ -101,6 +107,9 @@ describe('PatchMap bar projection sidecar', () => {
         animation: true,
         animationDuration: 200,
         destinationHeight: 10,
+        trackFill: 0,
+        tint: 0xffffffff,
+        radius: 0,
         percentageReferenceHeight: 80,
       },
     });

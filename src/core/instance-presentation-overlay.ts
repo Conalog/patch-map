@@ -1,4 +1,5 @@
 import type {
+  PatchMapBarProjection,
   PatchMapImageProjection,
   PatchMapProjectionIndex,
 } from '../parsing/contracts';
@@ -10,9 +11,7 @@ import { resolveColor } from '../parsing/value-normalization';
 import type { PatchMapRendererEntityPresentationOverride } from '../rendering-port';
 import type {
   PatchMapAssetSource,
-  PatchMapBarComponent,
   PatchMapComponent,
-  PatchMapIconComponent,
   PatchMapRectTexture,
 } from '../semantic/dataset';
 import type { PatchMapStableRecordStrategy } from '../semantic/stable-record-overlay';
@@ -214,6 +213,9 @@ export function planPatchMapInstancePresentationOverlay(
       Object.hasOwn(patch, 'tint') ||
       Object.hasOwn(patch, 'source') ||
       Object.hasOwn(patch, 'show');
+    const hasProjectedRendererBasis = patch.type === 'bar'
+      ? bar !== undefined
+      : patch.type === 'icon' && component?.componentType === 'icon';
     const semanticMatches = patch.type === 'bar'
       ? bar?.ownerId === patch.target.id && bar.componentId === patch.target.componentId
       : patch.type === 'text'
@@ -225,7 +227,8 @@ export function planPatchMapInstancePresentationOverlay(
       !indexed ||
       !semanticMatches ||
       (needsAuthoredPresentation &&
-        (!authoredComponent || authoredComponent.type !== patch.type))
+        (!authoredComponent || authoredComponent.type !== patch.type) &&
+        !hasProjectedRendererBasis)
     ) {
       missingTargets.push(patch.target);
       continue;
@@ -332,9 +335,12 @@ export function planPatchMapInstancePresentationOverlay(
     ) {
       throw new TypeError('instance presentation component type does not match authored component');
     }
-    const nextOverride = authoredComponent === null
-      ? null
-      : presentationOverride(stored, authoredComponent, colorState, resolvedColors);
+    const nextOverride = presentationOverride(
+      stored,
+      authored.barsByEntityId[indexed.entityId],
+      colorState,
+      resolvedColors,
+    );
     const previousOverride = nextRendererOverrides.get(indexed.entityId);
     if (nextOverride === null) nextRendererOverrides.delete(indexed.entityId);
     else nextRendererOverrides.set(indexed.entityId, nextOverride);
@@ -504,7 +510,7 @@ function presentationWithHeight(
 
 function presentationOverride(
   stored: PatchMapStoredInstancePresentation | undefined,
-  authored: PatchMapBarComponent | PatchMapIconComponent,
+  authoredBar: PatchMapBarProjection | undefined,
   colorState: ReturnType<typeof createPatchMapParseState>,
   resolvedColors: Map<unknown, Map<number, number>>,
 ): PatchMapRendererEntityPresentationOverride | null {
@@ -512,7 +518,7 @@ function presentationOverride(
     (stored.tint === undefined && stored.source === undefined && stored.show === undefined)) {
     return null;
   }
-  if (stored.type === 'icon' && authored.type === 'icon') {
+  if (stored.type === 'icon') {
     return Object.freeze({
       ...(stored.show === undefined ? {} : { visible: stored.show }),
       ...(stored.tint === undefined ? {} : {
@@ -525,21 +531,32 @@ function presentationOverride(
       }),
     });
   }
-  if (stored.type === 'bar' && authored.type === 'bar') {
-    const source = (stored.source ?? authored.source) as PatchMapRectTexture;
-    const tintValue = stored.tint ?? authored.tint;
-    const trackFill = resolveOverlayColor(
-      source.fill,
-      0x00000000,
-      colorState,
-      resolvedColors,
-    );
-    const tint = resolveOverlayColor(tintValue, 0xffffffff, colorState, resolvedColors);
+  if (
+    stored.type === 'bar' &&
+    authoredBar !== undefined
+  ) {
+    if (stored.tint === undefined && stored.source === undefined) {
+      return stored.show === undefined
+        ? null
+        : Object.freeze({ visible: stored.show });
+    }
+    const source = stored.source as PatchMapRectTexture | undefined;
+    const trackFill = source === undefined
+      ? authoredBar.trackFill
+      : resolveOverlayColor(source.fill, 0x00000000, colorState, resolvedColors);
+    const tint = stored.tint === undefined
+      ? authoredBar.tint
+      : resolveOverlayColor(stored.tint, 0xffffffff, colorState, resolvedColors);
+    const radius = source === undefined
+      ? authoredBar.radius
+      : Math.max(0, typeof source.radius === 'number' && Number.isFinite(source.radius)
+        ? source.radius
+        : 0);
     return Object.freeze({
       ...(stored.show === undefined ? {} : { visible: stored.show }),
       fill: multiplyPatchMapRgba(trackFill === 0 ? 0xffffffff : trackFill, tint),
       trackFill,
-      ...(typeof source.radius === 'number' ? { radius: source.radius } : {}),
+      radius,
     });
   }
   throw new TypeError('instance presentation component type does not match authored component');

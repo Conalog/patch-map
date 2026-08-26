@@ -426,6 +426,21 @@ describe('PatchMap bar presentation integration', () => {
       .toMatchObject({ semanticHeight: 50, presentationHeight: 50, active: false });
   });
 
+  it('retains only unchanged active destinations outside the targeted animation set', () => {
+    const { core } = createTestCore(allocated);
+    core.load(twoBarScene(10, 10));
+    core.publishFrame(0);
+    core.reconcile(twoBarScene(40, 50));
+
+    expect(core.activeAnimations).toBe(2);
+    core.reconcile(twoBarScene(40, 60), { animatedBarTargets: [] });
+
+    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'first' }))
+      .toMatchObject({ presentationHeight: 10, destinationHeight: 40, active: true });
+    expect(core.barPresentationProbe({ ownerId: 'item-a', componentId: 'second' }))
+      .toMatchObject({ presentationHeight: 60, destinationHeight: 60, active: false });
+  });
+
   it('lands immediately when animation is disabled and releases controller ownership on load', () => {
     const { core } = createTestCore(allocated);
     core.load(scene(10));

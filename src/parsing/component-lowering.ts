@@ -256,11 +256,13 @@ export function parseComponent(
       );
     }
     const trackFill = resolveColor(source?.fill, 0x00000000, `${path}.source.fill`, state);
+    const tint = resolveColor(value.tint, 0xffffffff, `${path}.tint`, state);
+    const radius = Math.max(0, finiteNumber(source?.radius) ?? 0);
     const fill = value.tint === undefined
       ? trackFill
       : multiplyPatchMapRgba(
           trackFill === 0 ? 0xffffffff : trackFill,
-          resolveColor(value.tint, 0xffffffff, `${path}.tint`, state),
+          tint,
         );
     state.barProjectionByEntityId[entityId] = Object.freeze({
       entityId,
@@ -272,6 +274,9 @@ export function parseComponent(
       animation,
       animationDuration,
       destinationHeight: local.height,
+      trackFill,
+      tint,
+      radius,
       percentageReferenceHeight: content.height,
     });
     addEntity(
@@ -289,9 +294,7 @@ export function parseComponent(
         fill,
         trackFill,
         ...(opacity === 1 ? {} : { opacity }),
-        ...(finiteNumber(source?.radius) !== undefined
-          ? { radius: Math.max(0, finiteNumber(source?.radius) as number) }
-          : {}),
+        ...(radius === 0 ? {} : { radius }),
         visible: componentVisible,
         interactive: false,
         zIndex: 0,
