@@ -49,4 +49,4 @@ await patchMap.destroy();
 - [Host integration](./docs/integration/host.md)
 - [Compatibility](./docs/compatibility.md)
 - [Runnable examples](./examples)
-- [Contributing and engineering](./CONTRIBUTING.md)
+- [Contributing and engineering](https://github.com/Conalog/patch-map/blob/release/1.0/CONTRIBUTING.md)
