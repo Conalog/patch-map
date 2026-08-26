@@ -166,8 +166,10 @@ export function resolveComponentSize(
       height: componentLength(value.height, reference.height, `${path}.height`, state),
     };
   }
-  const length = componentLength(value, Math.min(reference.width, reference.height), path, state);
-  return { width: length, height: length };
+  return {
+    width: componentLength(value, reference.width, `${path}.width`, state),
+    height: componentLength(value, reference.height, `${path}.height`, state),
+  };
 }
 
 export function barPlacement(

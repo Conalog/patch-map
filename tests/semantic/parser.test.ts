@@ -127,6 +127,31 @@ describe('PatchMap PatchMap parser', () => {
     expect(result.document.entities[4]).toMatchObject({ x: 55, y: 20 });
   });
 
+  it('fills each axis of a non-square item with a scalar component percentage', () => {
+    const result = parsePatchMap([{
+      type: 'item',
+      id: 'inverter',
+      size: { width: 60, height: 70 },
+      padding: { top: 20, right: 4, bottom: 4, left: 4 },
+      components: [{
+        type: 'bar',
+        id: 'value',
+        source: { type: 'rect', fill: '#1479bd' },
+        size: '100%',
+        animation: false,
+      }],
+    }]);
+
+    expect(result.document.entities).toContainEqual(expect.objectContaining({
+      id: 'inverter::bar:value',
+      kind: 'bar',
+      x: 4,
+      y: 20,
+      width: 52,
+      height: 46,
+    }));
+  });
+
   it('is deterministic, never retains caller aliases, and freezes its result', () => {
     const attrs = { x: 3, metadata: { note: 'caller-owned' } };
     const input = [

@@ -28,6 +28,10 @@ are owned by their respective API pages.
 - `background.size` is accepted only for v0.10/1.0 input compatibility and is
   discarded during normalization. A background always fills its owning item;
   omit `size` from new data.
+- A scalar component percentage applies independently to both content axes,
+  preserving the v0.10 contract. For example, `size: '100%'` fills the owning
+  item's content width and content height even when that content box is not
+  square. Scalar pixel lengths still produce equal pixel width and height.
 - Relation stroke compatibility fields (`cap`, `join`, `miterLimit`,
   `alignment`, `pixelLine`, `textureSpace`, `fill`, `texture`, and `matrix`)
   are validated and accepted, then discarded because relation rendering
@@ -82,6 +86,7 @@ public identities.
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
 | validation, detachment, semantic hash | `src/semantic/dataset` | `tests/semantic/dataset-contract.test.ts` |
+| component percentage geometry | `src/parsing/` | `tests/semantic/parser.test.ts`, `tests/semantic/parser-value-normalization.test.ts` |
 | replacement freshness and atomic publication | `src/engine/dataset-replacement-coordinator.ts` | `tests/engine/engine-lifecycle.test.ts` |
 | target grammar and revision binding | `src/query-selection` | `tests/semantic/query-selection.test.ts` |
 | hierarchical zIndex and authored tie order | `src/parsing/`, `src/semantic/paint-order.ts` | `tests/semantic/paint-order.test.ts`, `tests/rendering/component-render-lanes.test.ts` |

@@ -34,6 +34,31 @@ describe('PatchMap parser value normalization', () => {
     }]);
   });
 
+  it('resolves scalar component percentages against each axis', () => {
+    const state = createPatchMapParseState({});
+    const reference = { width: 52, height: 46 };
+
+    expect(resolveComponentSize(
+      '100%',
+      reference,
+      '$.component.size',
+      state,
+    )).toEqual({ width: 52, height: 46 });
+    expect(resolveComponentSize(
+      { value: 50, unit: '%' },
+      reference,
+      '$.component.size',
+      state,
+    )).toEqual({ width: 26, height: 23 });
+    expect(resolveComponentSize(
+      20,
+      reference,
+      '$.component.size',
+      state,
+    )).toEqual({ width: 20, height: 20 });
+    expect(state.diagnostics).toEqual([]);
+  });
+
   it('projects signed transforms and deduplicates preserved-only attribute diagnostics', () => {
     const state = createPatchMapParseState({});
     const parent = {
