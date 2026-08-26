@@ -134,8 +134,8 @@ describe('PatchMap selection visual paint bounds', () => {
     ]]);
   });
 
-  it('rejects negative component margins before paint-bound projection', () => {
-    expect(() => parsePatchMap([{
+  it('includes negative component margin outset in paint-bound projection', () => {
+    const fixture = parsePatchMap([{
       type: 'item',
       id: 'content-owner',
       attrs: { x: 40, y: 50 },
@@ -164,7 +164,20 @@ describe('PatchMap selection visual paint bounds', () => {
           style: { fontSize: 12 },
         },
       ],
-    }])).toThrow('Spacing must be a nonnegative finite number');
+    }]);
+    const store = createRenderStore(fixture.document.entities);
+    const slot = requireSlot(store, 'content-owner');
+    const plan = resolveOverlayPathPlan(
+      store,
+      [slot],
+      context(fixture.projection),
+      'element-only',
+      paintContext(store, fixture.projection),
+    );
+
+    expect(plan.individualVertices).toEqual([[
+      32, 45, 120, 45, 120, 110, 32, 110,
+    ]]);
   });
 });
 

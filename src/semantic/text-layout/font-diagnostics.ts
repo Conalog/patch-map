@@ -150,8 +150,8 @@ export function validateOptions(options: PatchMapTextLayoutOptions): void {
   assertFinitePositive(options.lineHeightPx ?? DEFAULT_LINE_HEIGHT, '$.lineHeightPx');
   assertFiniteNonNegative(options.alphabeticBaselinePx ?? DEFAULT_BASELINE, '$.alphabeticBaselinePx');
   assertFinite(options.letterSpacingPx ?? 0, '$.letterSpacingPx');
-  if (!Number.isSafeInteger(options.split ?? 0) || (options.split ?? 0) < 0) {
-    unsupported('$.split', 'split must be a nonnegative safe integer');
+  if (!Number.isSafeInteger(options.split ?? 0)) {
+    unsupported('$.split', 'split must be a safe integer');
   }
   if (options.wordWrapWidthPx !== undefined && options.wordWrapWidthPx !== null) {
     assertFiniteNonNegative(options.wordWrapWidthPx, '$.wordWrapWidthPx');

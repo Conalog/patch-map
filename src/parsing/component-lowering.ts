@@ -100,9 +100,13 @@ export function parseComponent(
   if (type === 'background') {
     const source = value.source;
     const sourceRecord = isRecord(source) ? source : undefined;
+    const rectSource = sourceRecord !== undefined &&
+      !Object.hasOwn(sourceRecord, 'src') &&
+      (sourceRecord.type === undefined || sourceRecord.type === 'rect');
     if (
       sourceRecord !== undefined &&
       !Object.hasOwn(sourceRecord, 'src') &&
+      Object.hasOwn(sourceRecord, 'type') &&
       sourceRecord.type !== 'rect'
     ) {
       fatal(
@@ -115,7 +119,7 @@ export function parseComponent(
     }
     const local: Box = { x: 0, y: 0, width: itemSize.width, height: itemSize.height };
     const transform = componentTransform(itemTransform, local, attrs, path, state);
-    if (sourceRecord?.type === 'rect') {
+    if (rectSource) {
       const sourceFill = resolveColor(sourceRecord.fill, 0xffffffff, `${path}.source.fill`, state);
       const borderWidth = projectedBackgroundBorderWidth(
         sourceRecord.borderWidth,
@@ -242,7 +246,7 @@ export function parseComponent(
       state,
     );
     const source = isRecord(value.source) ? value.source : undefined;
-    if (source?.type !== 'rect') {
+    if (source?.type !== undefined && source.type !== 'rect') {
       fatal(
         state,
         `${path}.source.type`,
@@ -507,14 +511,15 @@ function textSplit(
   state: ParseState,
 ): number {
   if (value === undefined) return 0;
-  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return value;
-  fatal(
+  if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
+  warn(
     state,
     path,
     'invalid-text-split',
-    'Text split must be a nonnegative safe integer',
+    'Invalid split fell back to zero',
     sourceId,
   );
+  return 0;
 }
 
 function textPlacement(

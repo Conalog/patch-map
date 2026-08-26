@@ -117,7 +117,7 @@ describe('PatchMap image source projection', () => {
     expect(two?.cacheIdentity).toBe('descriptor:https://assets.example.test/image.svg?resolution=2');
   });
 
-  it('preserves current parser identity without compatibility aliases', () => {
+  it('preserves parser and compatibility loadParser identities', () => {
     const result = parsePatchMap([
       {
         type: 'image',
@@ -131,14 +131,24 @@ describe('PatchMap image source projection', () => {
         source: { src: '/extensionless', parser: 'svg' },
         size: 10,
       },
+      {
+        type: 'image',
+        id: 'legacy-parser',
+        source: { src: '/extensionless', loadParser: 'loadTextures' },
+        size: 10,
+      },
     ]);
     const texture = result.projection.imagesByEntityId?.['texture-parser'];
     const svg = result.projection.imagesByEntityId?.['svg-parser'];
+    const legacy = result.projection.imagesByEntityId?.['legacy-parser'];
 
     expect(texture?.authoredSource).toEqual({ src: '/extensionless', parser: 'texture' });
     expect(texture?.cacheIdentity).toBe('descriptor:/extensionless?parser=texture');
     expect(svg?.cacheIdentity).toBe('descriptor:/extensionless?parser=svg');
+    expect(legacy?.authoredSource).toEqual({ src: '/extensionless', loadParser: 'loadTextures' });
+    expect(legacy?.cacheIdentity).toBe('descriptor:/extensionless?loadParser=loadTextures');
     expect(texture?.bindingKey).not.toBe(svg?.bindingKey);
+    expect(legacy?.bindingKey).not.toBe(texture?.bindingKey);
   });
 
   it('frames ambiguous descriptor identities instead of flattening query and option channels', () => {

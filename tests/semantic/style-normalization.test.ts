@@ -75,23 +75,37 @@ describe('PatchMap authored style normalization', () => {
       borderColor: '#1a1a1aff',
       radius: 0,
     });
-    expect(() => normalizeRectTexture({}, '$.source')).toThrowError(
-      expect.objectContaining<Partial<PatchMapDatasetError>>({
-        code: 'INVALID_VALUE',
-        datasetPath: '$.source.type',
-      }),
-    );
-    expect(() => parsePatchMap([{
+    expect(normalizeRectTexture({}, '$.source')).toEqual({
+      type: 'rect',
+      fill: '#00000000',
+      borderWidth: 0,
+      borderColor: '#1a1a1aff',
+      radius: 0,
+    });
+    const parsed = parsePatchMap([{
       type: 'item',
       id: 'item',
       size: 20,
-      components: [{
-        type: 'bar',
-        id: 'bar',
-        source: { fill: '#ffffff' },
-        size: 10,
-      }],
-    }])).toThrow("Rect texture source must declare type 'rect'");
+      components: [
+        {
+          type: 'background',
+          id: 'background',
+          source: { fill: '#ff0000' },
+        },
+        {
+          type: 'bar',
+          id: 'bar',
+          source: { fill: '#ffffff' },
+          size: 10,
+        },
+      ],
+    }]);
+    expect(parsed.document.entities.find(({ id }) => id === 'item::background:background'))
+      .toMatchObject({ kind: 'rect', fill: 0xff0000ff });
+    expect(parsed.document.entities.find(({ id }) => id === 'item::bar:bar')).toMatchObject({
+      kind: 'bar',
+      fill: 0xffffffff,
+    });
     expect(normalizeStrokeStyle(undefined, '$.style')).toEqual({
       color: '#1a1a1aff',
       alpha: 1,
@@ -122,6 +136,13 @@ describe('PatchMap authored style normalization', () => {
         datasetPath: `$.source.${unknownDescriptorField}`,
       }),
     );
+    expect(normalizeAssetSource({
+      src: '/legacy-parser',
+      loadParser: 'loadTextures',
+    }, '$.source')).toEqual({
+      src: '/legacy-parser',
+      loadParser: 'loadTextures',
+    });
     expect(() => normalizeTextStyle({
       alpha: 2,
       zUnknown: true,

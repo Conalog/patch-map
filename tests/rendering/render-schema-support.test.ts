@@ -109,11 +109,10 @@ describe('PatchMap rendering schema support inventory', () => {
   });
 
   it.each([
-    ['negative', -1],
     ['NaN', Number.NaN],
     ['positive infinity', Number.POSITIVE_INFINITY],
     ['negative infinity', Number.NEGATIVE_INFINITY],
-  ])('rejects %s standalone radius at both admission boundaries', (_label, radius) => {
+  ])('rejects %s standalone radius during strict materialization', (_label, radius) => {
     const input = [{ type: 'rect', id: 'invalid-radius', size: 10, radius }];
     expect(() => materializePatchMapDataset(input)).toThrowError(
       expect.objectContaining<Partial<PatchMapDatasetError>>({
@@ -121,7 +120,16 @@ describe('PatchMap rendering schema support inventory', () => {
         datasetPath: '$[0].radius',
       }),
     );
-    expect(() => parsePatchMap(input)).toThrow('Standalone rect radius must be a nonnegative finite number');
+    expect(parsePatchMap(input).diagnostics).toContainEqual(expect.objectContaining({
+      code: 'invalid-radius',
+      path: '$[0].radius',
+    }));
+  });
+
+  it('retains direct-parser negative-radius clamping compatibility', () => {
+    const input = [{ type: 'rect', id: 'negative-radius', size: 10, radius: -1 }];
+    expect(() => materializePatchMapDataset(input)).toThrowError(PatchMapDatasetError);
+    expect(parsePatchMap(input).document.entities[0]).toMatchObject({ radius: 0 });
   });
 
   it('does not widen closed records beyond supported fields', () => {
@@ -143,15 +151,14 @@ describe('PatchMap rendering schema support inventory', () => {
       bottomRight: 3,
       bottomLeft: 4,
     }]) {
-      expect(() => materializePatchMapDataset([
-        { type: 'rect', id: 'radius', size: 10, radius },
-      ])).toThrowError(expect.objectContaining<Partial<PatchMapDatasetError>>({
-        code: 'INVALID_VALUE',
-        datasetPath: '$[0].radius',
+      const input = [{ type: 'rect', id: 'radius', size: 10, radius }];
+      expect(materializePatchMapDataset(input).dataset[0]).toMatchObject({ radius });
+      const parsed = parsePatchMap(input);
+      expect(parsed.document.entities[0]).toMatchObject({ radius: 4 });
+      expect(parsed.diagnostics).toContainEqual(expect.objectContaining({
+        code: 'corner-radius-degraded',
+        path: '$[0].radius',
       }));
-      expect(() => parsePatchMap([
-        { type: 'rect', id: 'radius', size: 10, radius },
-      ])).toThrow('Standalone rect radius must be a nonnegative finite number');
     }
     expect(() => materializePatchMapDataset([
       { type: 'image', id: 'opacity', source: 'asset', opacity: 2 },

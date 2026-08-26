@@ -313,36 +313,38 @@ describe('PatchMap PatchMap parser', () => {
     });
   });
 
-  it.each([
-    ['cap', 'round'],
-    ['join', 'round'],
-    ['miterLimit', 10],
-    ['alignment', 0.5],
-    ['pixelLine', false],
-    ['textureSpace', 'local'],
-    ['fill', '#ffffff'],
-    ['texture', { source: '/stroke.png' }],
-    ['matrix', [1, 0, 0, 1, 0, 0]],
-  ] as const)('strictly rejects relation-only unsupported stroke key %s', (key, fieldValue) => {
-    const input = [{
-      type: 'relations',
-      id: 'links',
-      links: [{ source: 'links', target: 'links' }],
-      style: { [key]: fieldValue },
-    }];
+  it('accepts relation-only compatibility stroke fields without projecting them', () => {
+    const input = [
+      { type: 'rect', id: 'target', size: 10 },
+      {
+        type: 'relations',
+        id: 'links',
+        links: [{ source: 'target', target: 'target' }],
+        style: {
+          color: '#123456',
+          opacity: 0.4,
+          width: 2,
+          cap: 'round',
+          join: 'round',
+          miterLimit: 10,
+          alignment: 0.5,
+          pixelLine: false,
+          textureSpace: 'local',
+          fill: '#ffffff',
+          texture: { source: '/stroke.png' },
+          matrix: [1, 0, 0, 1, 0, 0],
+        },
+      },
+    ];
     const before = structuredClone(input);
 
-    try {
-      parsePatchMap(input);
-      throw new Error('expected parser failure');
-    } catch (error) {
-      expect(error).toBeInstanceOf(PatchMapParseError);
-      expect((error as PatchMapParseError).diagnostics).toContainEqual(expect.objectContaining({
-        level: 'error',
-        code: 'unknown-relation-style-field',
-        path: `$[0].style.${key}`,
-      }));
-    }
+    const result = parsePatchMap(input);
+
+    expect(result.document.entities.find(({ id }) => id.startsWith('@relation:'))).toMatchObject({
+      color: 0x123456ff,
+      lineWidth: 2,
+      opacity: 0.4,
+    });
     expect(input).toEqual(before);
   });
 

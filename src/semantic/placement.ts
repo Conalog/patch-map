@@ -18,6 +18,7 @@ const PLACEMENTS = new Set<string>([
   'right-bottom',
   'bottom',
   'center',
+  'none',
 ]);
 
 /**
@@ -39,12 +40,15 @@ export function resolvePatchMapPlacementBounds(
   assertFiniteNonNegative(reference.height, `${path}.reference.height`, 'reference height');
   assertFiniteNonNegative(size.width, `${path}.size.width`, 'component width');
   assertFiniteNonNegative(size.height, `${path}.size.height`, 'component height');
-  assertFiniteNonNegative(margin.top, `${path}.margin.top`, 'top margin');
-  assertFiniteNonNegative(margin.right, `${path}.margin.right`, 'right margin');
-  assertFiniteNonNegative(margin.bottom, `${path}.margin.bottom`, 'bottom margin');
-  assertFiniteNonNegative(margin.left, `${path}.margin.left`, 'left margin');
+  assertFinite(margin.top, `${path}.margin.top`, 'top margin');
+  assertFinite(margin.right, `${path}.margin.right`, 'right margin');
+  assertFinite(margin.bottom, `${path}.margin.bottom`, 'bottom margin');
+  assertFinite(margin.left, `${path}.margin.left`, 'left margin');
   if (!PLACEMENTS.has(placement)) {
     invalid(`${path}.placement`, 'placement must be a supported PatchMap placement');
+  }
+  if (placement === 'none') {
+    return Object.freeze({ x: 0, y: 0, width: size.width, height: size.height });
   }
 
   const left = reference.x + margin.left;

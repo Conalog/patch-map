@@ -20,7 +20,21 @@ import {
 } from './value-normalization';
 import { appendPatchMapStackingFrame } from '../semantic/stacking';
 
-const RELATION_STYLE_FIELDS = new Set(['color', 'alpha', 'width']);
+const RELATION_STYLE_FIELDS = new Set([
+  'color',
+  'alpha',
+  'opacity',
+  'width',
+  'cap',
+  'join',
+  'miterLimit',
+  'alignment',
+  'pixelLine',
+  'textureSpace',
+  'fill',
+  'texture',
+  'matrix',
+]);
 
 export function parseRelations(
   value: JsonRecord,
@@ -47,6 +61,15 @@ export function parseRelations(
       sourceId,
     );
   }
+  if (style.alpha !== undefined && style.opacity !== undefined) {
+    fatal(
+      state,
+      `${path}.style`,
+      'relation-opacity-conflict',
+      'Relation style alpha and opacity cannot both be authored',
+      sourceId,
+    );
+  }
   const lineWidth = relationStyleNumber(
     style.width,
     `${path}.style.width`,
@@ -57,8 +80,8 @@ export function parseRelations(
     'Relation width must be a nonnegative finite number',
   );
   const styleAlpha = relationStyleNumber(
-    style.alpha,
-    `${path}.style.alpha`,
+    style.alpha ?? style.opacity,
+    style.alpha === undefined ? `${path}.style.opacity` : `${path}.style.alpha`,
     'invalid-relation-alpha',
     sourceId,
     state,

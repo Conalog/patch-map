@@ -19,14 +19,26 @@ are owned by their respective API pages.
   mutate caller arrays, records, query objects, or returned snapshots.
 - `attrs` remains the host extension point. PatchMap transforms `x`, `y`,
   `angle` or `rotation`, signed `scaleX`/`scaleY`, and `zIndex` on supported
-  elements and components; `scale`, `skew`, `pivot`, and their axis aliases are
-  reserved and reject at their exact input path.
+  elements and components. Legacy `scale`, `skew`, `pivot`, and their axis
+  aliases remain accepted and preserved for 1.0 compatibility but are not
+  projected by the current renderer.
 - Supported root elements are `group`, `grid`, `item`, `relations`, `image`,
   `text`, and `rect`. Item and grid templates may contain `background`, `bar`,
   `icon`, and `text` components.
 - `background.size` is accepted only for v0.10/1.0 input compatibility and is
   discarded during normalization. A background always fills its owning item;
   omit `size` from new data.
+- Relation stroke compatibility fields (`cap`, `join`, `miterLimit`,
+  `alignment`, `pixelLine`, `textureSpace`, `fill`, `texture`, and `matrix`)
+  are validated and accepted, then discarded because relation rendering
+  projects only `color`, `alpha`, and `width`. Relation `opacity` remains a
+  deprecated alias for `alpha`.
+- Asset descriptor `loadParser` remains accepted for v0.10/1.0 identity
+  compatibility. New descriptors should use `parser`.
+- Rect texture `type` may be omitted and defaults to `rect`. Historical
+  `placement: none` keeps local `0,0`; finite negative margin/padding values
+  retain outset layout; negative text `split` is a visual no-op; and standalone
+  per-corner radius uses the largest corner in the scalar renderer.
 - `zIndex` orders siblings within their current scope. With the default mesh
   renderer, overlapping item descendants paint as item-scoped composite units,
   so a component's high `zIndex` cannot cross in front of a later sibling item.

@@ -211,7 +211,7 @@ describe('PatchMap aggregate relation paths', () => {
     expect(hitTestPatchMapSurfaceRelations(geometry.relations, { x: 50, y: 10 })).toBeNull();
   });
 
-  it('rejects unknown opacity and atomically stages structural relation links', () => {
+  it('rejects conflicting opacity aliases and atomically stages structural relation links', () => {
     const initial = materializePatchMapDataset(relationMatrixDataset());
     const mutation = applyPatchMapSemanticPatch(
       initial,
@@ -240,7 +240,7 @@ describe('PatchMap aggregate relation paths', () => {
         links: [],
         style: { alpha: 0.5, opacity: 0.5 },
       },
-    ])).toThrow('$[0].style.opacity');
+    ])).toThrow('$[0].style');
     expect(() => parsePatchMap([
       { type: 'rect', id: 'a', size: 10 },
       {
@@ -249,7 +249,7 @@ describe('PatchMap aggregate relation paths', () => {
         links: [{ source: 'a', target: 'a' }],
         style: { alpha: 0.5, opacity: 0.5 },
       },
-    ])).toThrow('unknown field "opacity"');
+    ])).toThrow('Relation style alpha and opacity cannot both be authored');
     try {
       parsePatchMap([
         { type: 'rect', id: 'a', size: 10 },

@@ -75,18 +75,18 @@ export function normalizeGap(value: unknown, path: string): PatchMapAxisSpacing 
 export function normalizeEdges(value: unknown, path: string): PatchMapEdges {
   if (value === undefined) return Object.freeze({ top: 0, right: 0, bottom: 0, left: 0 });
   if (typeof value === 'number') {
-    const edge = nonnegativeFiniteNumber(value, path);
+    const edge = finiteNumber(value, path);
     return Object.freeze({ top: edge, right: edge, bottom: edge, left: edge });
   }
-  const record = recordValue(value, path, 'spacing must be a nonnegative finite number or axis/edge object');
+  const record = recordValue(value, path, 'spacing must be a finite number or axis/edge object');
   assertKnownFields(record, SPACING_FIELDS, path);
-  const x = Object.hasOwn(record, 'x') ? nonnegativeFiniteNumber(record.x, `${path}.x`) : 0;
-  const y = Object.hasOwn(record, 'y') ? nonnegativeFiniteNumber(record.y, `${path}.y`) : 0;
+  const x = Object.hasOwn(record, 'x') ? finiteNumber(record.x, `${path}.x`) : 0;
+  const y = Object.hasOwn(record, 'y') ? finiteNumber(record.y, `${path}.y`) : 0;
   return Object.freeze({
-    top: Object.hasOwn(record, 'top') ? nonnegativeFiniteNumber(record.top, `${path}.top`) : y,
-    right: Object.hasOwn(record, 'right') ? nonnegativeFiniteNumber(record.right, `${path}.right`) : x,
-    bottom: Object.hasOwn(record, 'bottom') ? nonnegativeFiniteNumber(record.bottom, `${path}.bottom`) : y,
-    left: Object.hasOwn(record, 'left') ? nonnegativeFiniteNumber(record.left, `${path}.left`) : x,
+    top: Object.hasOwn(record, 'top') ? finiteNumber(record.top, `${path}.top`) : y,
+    right: Object.hasOwn(record, 'right') ? finiteNumber(record.right, `${path}.right`) : x,
+    bottom: Object.hasOwn(record, 'bottom') ? finiteNumber(record.bottom, `${path}.bottom`) : y,
+    left: Object.hasOwn(record, 'left') ? finiteNumber(record.left, `${path}.left`) : x,
   });
 }
 
@@ -120,10 +120,15 @@ export function normalizeRadius(value: unknown, path: string): PatchMapRadius {
   });
 }
 
-/** Standalone rects map directly to the scalar dense radius column. */
-export function normalizeStandaloneRadius(value: unknown, path: string): number {
-  if (value === undefined) return 0;
-  return nonnegativeFiniteNumber(value, path);
+export function validateVector(value: unknown, path: string): void {
+  if (typeof value === 'number') {
+    finiteNumber(value, path);
+    return;
+  }
+  const record = recordValue(value, path, 'transform vector must be a finite scalar or {x,y}');
+  assertKnownFields(record, VECTOR_FIELDS, path);
+  finiteNumber(requiredField(record, 'x', path), `${path}.x`);
+  finiteNumber(requiredField(record, 'y', path), `${path}.y`);
 }
 
 export function requiredField(

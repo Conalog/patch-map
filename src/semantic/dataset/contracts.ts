@@ -56,13 +56,15 @@ export type PatchMapPlacement =
   | 'right-top'
   | 'right-bottom'
   | 'bottom'
-  | 'center';
+  | 'center'
+  | 'none';
 
 export interface PatchMapAssetDescriptor {
   readonly src: string;
   readonly data?: Readonly<Record<string, unknown>>;
   readonly format?: string;
   readonly parser?: string;
+  readonly loadParser?: string;
 }
 
 export interface PatchMapRectTexture {
@@ -94,13 +96,9 @@ export type PatchMapAttrs = Readonly<Record<string, unknown> & {
   readonly scaleY?: number;
   readonly alpha?: number;
   readonly zIndex?: number;
-  readonly scale?: never;
-  readonly skew?: never;
-  readonly pivot?: never;
-  readonly skewX?: never;
-  readonly skewY?: never;
-  readonly pivotX?: never;
-  readonly pivotY?: never;
+  readonly scale?: number | Readonly<{ x: number; y: number }>;
+  readonly skew?: number | Readonly<{ x: number; y: number }>;
+  readonly pivot?: number | Readonly<{ x: number; y: number }>;
 }>;
 export type PatchMapStrokeStyle = Readonly<Record<string, unknown>>;
 export type PatchMapTextStyle = Readonly<Record<string, unknown>>;
@@ -186,7 +184,7 @@ export interface PatchMapRectElement extends PatchMapElementBase {
   readonly size: PatchMapFixedSize;
   readonly fill?: unknown;
   readonly stroke?: PatchMapStrokeStyle;
-  readonly radius: number;
+  readonly radius: PatchMapRadius;
   readonly eventMode?: PatchMapEventMode;
 }
 

@@ -363,17 +363,17 @@ describe('PatchMap deterministic Unicode semantic layout', () => {
     expect(result.layoutBounds).toEqual({ x: 0, y: 0, width: 80, height: 20 });
   });
 
-  it('implements nonnegative split by grapheme and rejects negative split', () => {
+  it('implements positive split by grapheme and treats negative split as a no-op', () => {
     const zero = layoutPatchMapText({ source: 'AB😀CD', split: 0 });
     const positive = layoutPatchMapText({ source: 'AB😀CD', split: 2 });
+    const negative = layoutPatchMapText({ source: 'AB😀CD', split: -1 });
 
     expect(zero.lines).toEqual(['AB😀CD']);
     expect(zero.layoutBounds).toEqual({ x: 0, y: 0, width: 48, height: 20 });
     expect(positive.lines).toEqual(['AB', '😀C', 'D']);
     expect(positive.layoutBounds).toEqual({ x: 0, y: 0, width: 24, height: 60 });
-    expect(() => layoutPatchMapText({ source: 'AB😀CD', split: -1 })).toThrow(
-      'UNSUPPORTED_TEXT_OPTION at $.split',
-    );
+    expect(negative.lines).toEqual(zero.lines);
+    expect(negative.layoutBounds).toEqual(zero.layoutBounds);
   });
 
   it('matches standalone and patched international product specimens', () => {

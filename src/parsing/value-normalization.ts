@@ -36,19 +36,11 @@ export const PATCH_MAP_PLACEMENTS = new Set<PatchMapPlacement>([
   'right-bottom',
   'bottom',
   'center',
+  'none',
 ]);
 
 const TRANSFORM_ATTRIBUTE_KEYS = new Set(['x', 'y', 'angle', 'rotation']);
 const SIGNED_SCALE_ATTRIBUTE_KEYS = new Set(['scaleX', 'scaleY']);
-const RESERVED_TRANSFORM_ATTRIBUTE_KEYS = new Set([
-  'scale',
-  'skew',
-  'pivot',
-  'skewX',
-  'skewY',
-  'pivotX',
-  'pivotY',
-]);
 const SIGNED_SCALE_ATTRIBUTE_TYPES = new Set([
   'group',
   'grid',
@@ -291,52 +283,51 @@ export function boxSpacing(
 ): Readonly<{ top: number; right: number; bottom: number; left: number }> {
   const uniform = finiteNumber(value);
   if (uniform !== undefined) {
-    const spacing = requiredNonnegativeSpacing(uniform, path, state);
-    return { top: spacing, right: spacing, bottom: spacing, left: spacing };
+    return { top: uniform, right: uniform, bottom: uniform, left: uniform };
   }
   if (value === undefined) return { top: 0, right: 0, bottom: 0, left: 0 };
   if (!isParserRecord(value)) {
     warnPatchMapParse(state, path, 'invalid-spacing', 'Invalid spacing fell back to zero');
     return { top: 0, right: 0, bottom: 0, left: 0 };
   }
-  const x = optionalNonnegativeSpacing(value.x, `${path}.x`, state);
-  const y = optionalNonnegativeSpacing(value.y, `${path}.y`, state);
+  const x = optionalSpacing(value.x, `${path}.x`, state);
+  const y = optionalSpacing(value.y, `${path}.y`, state);
   return {
     top: value.top === undefined
       ? y
-      : requiredNonnegativeSpacing(value.top, `${path}.top`, state),
+      : requiredSpacing(value.top, `${path}.top`, state),
     right: value.right === undefined
       ? x
-      : requiredNonnegativeSpacing(value.right, `${path}.right`, state),
+      : requiredSpacing(value.right, `${path}.right`, state),
     bottom: value.bottom === undefined
       ? y
-      : requiredNonnegativeSpacing(value.bottom, `${path}.bottom`, state),
+      : requiredSpacing(value.bottom, `${path}.bottom`, state),
     left: value.left === undefined
       ? x
-      : requiredNonnegativeSpacing(value.left, `${path}.left`, state),
+      : requiredSpacing(value.left, `${path}.left`, state),
   };
 }
 
-function optionalNonnegativeSpacing(
+function optionalSpacing(
   value: unknown,
   path: string,
   state: PatchMapParseState,
 ): number {
-  return value === undefined ? 0 : requiredNonnegativeSpacing(value, path, state);
+  return value === undefined ? 0 : requiredSpacing(value, path, state);
 }
 
-function requiredNonnegativeSpacing(
+function requiredSpacing(
   value: unknown,
   path: string,
   state: PatchMapParseState,
 ): number {
   const spacing = finiteNumber(value);
-  if (spacing !== undefined && spacing >= 0) return spacing;
+  if (spacing !== undefined) return spacing;
   fatalPatchMapParse(
     state,
     path,
     'invalid-spacing',
-    'Spacing must be a nonnegative finite number',
+    'Spacing must be a finite number',
   );
 }
 
@@ -449,14 +440,6 @@ export function inspectAttributes(
     );
   }
   for (const key of Object.keys(attrs)) {
-    if (RESERVED_TRANSFORM_ATTRIBUTE_KEYS.has(key)) {
-      fatalPatchMapParse(
-        state,
-        `${path}.${key}`,
-        'unsupported-transform-attribute',
-        `${key} is not a supported PatchMap transform attribute`,
-      );
-    }
     if (
       (TRANSFORM_ATTRIBUTE_KEYS.has(key) || SIGNED_SCALE_ATTRIBUTE_KEYS.has(key) || key === 'zIndex') &&
       finiteNumber(attrs[key]) === undefined
@@ -566,15 +549,31 @@ export function projectedRadius(
   path: string,
   state: PatchMapParseState,
 ): number | undefined {
-  if (value === undefined) return undefined;
   const scalar = finiteNumber(value);
-  if (scalar !== undefined && scalar >= 0) return scalar;
-  fatalPatchMapParse(
-    state,
-    path,
-    'invalid-radius',
-    'Standalone rect radius must be a nonnegative finite number',
-  );
+  if (scalar !== undefined) return Math.max(0, scalar);
+  const corners = Array.isArray(value)
+    ? value.map((entry) => finiteNumber(entry))
+    : isParserRecord(value)
+      ? [
+          finiteNumber(value.topLeft) ?? 0,
+          finiteNumber(value.topRight) ?? 0,
+          finiteNumber(value.bottomRight) ?? 0,
+          finiteNumber(value.bottomLeft) ?? 0,
+        ]
+      : undefined;
+  if (corners !== undefined && corners.length === 4 && corners.every((entry) => entry !== undefined)) {
+    warnPatchMapParse(
+      state,
+      path,
+      'corner-radius-degraded',
+      'Per-corner radius uses the maximum corner in the scalar dense renderer',
+    );
+    return Math.max(0, ...corners);
+  }
+  if (value !== undefined) {
+    warnPatchMapParse(state, path, 'invalid-radius', 'Invalid radius was omitted from dense rendering');
+  }
+  return undefined;
 }
 
 export function fontWeight(value: unknown): number | undefined {

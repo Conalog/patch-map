@@ -121,10 +121,10 @@ export function resolvePatchMapContentBox(
 ): PatchMapContentBox {
   assertFiniteNonNegative(size.width, `${path}.size.width`, 'item width');
   assertFiniteNonNegative(size.height, `${path}.size.height`, 'item height');
-  assertFiniteNonNegative(padding.top, `${path}.padding.top`, 'padding');
-  assertFiniteNonNegative(padding.right, `${path}.padding.right`, 'padding');
-  assertFiniteNonNegative(padding.bottom, `${path}.padding.bottom`, 'padding');
-  assertFiniteNonNegative(padding.left, `${path}.padding.left`, 'padding');
+  assertFinite(padding.top, `${path}.padding.top`, 'padding');
+  assertFinite(padding.right, `${path}.padding.right`, 'padding');
+  assertFinite(padding.bottom, `${path}.padding.bottom`, 'padding');
+  assertFinite(padding.left, `${path}.padding.left`, 'padding');
 
   const width = size.width - padding.left - padding.right;
   const height = size.height - padding.top - padding.bottom;
@@ -303,6 +303,12 @@ function assertGridCellValue(value: unknown, path: string): asserts value is Pat
 function assertSafeIndex(value: number, path: string): void {
   if (!Number.isSafeInteger(value) || value < 0) {
     invalid(path, 'grid coordinate must be a non-negative safe integer');
+  }
+}
+
+function assertFinite(value: number, path: string, label: string): void {
+  if (!Number.isFinite(value)) {
+    invalid(path, `${label} must be finite`);
   }
 }
 

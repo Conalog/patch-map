@@ -31,12 +31,12 @@ import {
   stringValue,
 } from './value-normalization';
 
-const ASSET_DESCRIPTOR_FIELDS = new Set(['src', 'data', 'format', 'parser']);
+const ASSET_DESCRIPTOR_FIELDS = new Set(['src', 'data', 'format', 'parser', 'loadParser']);
 const RECT_TEXTURE_FIELDS = new Set(['type', 'fill', 'borderWidth', 'borderColor', 'radius']);
-const RELATION_STYLE_FIELDS = new Set(['color', 'alpha', 'width']);
 const STROKE_FIELDS = new Set([
   'color',
   'alpha',
+  'opacity',
   'width',
   'cap',
   'join',
@@ -113,13 +113,16 @@ function normalizeAssetDescriptor(value: unknown, path: string): PatchMapAssetDe
     ...(Object.hasOwn(record, 'parser')
       ? { parser: stringValue(record.parser, `${path}.parser`) }
       : {}),
+    ...(Object.hasOwn(record, 'loadParser')
+      ? { loadParser: stringValue(record.loadParser, `${path}.loadParser`) }
+      : {}),
   });
 }
 
 export function normalizeRectTexture(value: unknown, path: string): PatchMapRectTexture {
   const record = recordValue(value, path, 'rectangular texture source must be an object');
   assertKnownFields(record, RECT_TEXTURE_FIELDS, path);
-  if (requiredField(record, 'type', path) !== 'rect') {
+  if (Object.hasOwn(record, 'type') && record.type !== 'rect') {
     throw new PatchMapDatasetError(
       'INVALID_RECORD_KIND',
       `${path}.type`,
@@ -142,15 +145,24 @@ export function normalizeRectTexture(value: unknown, path: string): PatchMapRect
 export function normalizeStrokeStyle(
   value: unknown,
   path: string,
+  allowCompatibilityOpacity = false,
 ): PatchMapStrokeStyle {
   if (value === undefined) return defaultStrokeStyle();
   const record = recordValue(value, path, 'stroke style must be an object');
   assertKnownFields(record, STROKE_FIELDS, path);
+  if (Object.hasOwn(record, 'opacity') && !allowCompatibilityOpacity) {
+    throw new PatchMapDatasetError('UNKNOWN_FIELD', `${path}.opacity`, 'unknown field opacity');
+  }
+  if (Object.hasOwn(record, 'alpha') && Object.hasOwn(record, 'opacity')) {
+    invalidValue(path, 'alpha and compatibility opacity are mutually exclusive');
+  }
   return Object.freeze({
     color: Object.hasOwn(record, 'color') ? normalizeColorLike(record.color, `${path}.color`) : BLACK,
     alpha: Object.hasOwn(record, 'alpha')
       ? rangedNumber(record.alpha, `${path}.alpha`, 0, 1)
-      : 1,
+      : Object.hasOwn(record, 'opacity')
+        ? rangedNumber(record.opacity, `${path}.opacity`, 0, 1)
+        : 1,
     width: Object.hasOwn(record, 'width')
       ? nonnegativeFiniteNumber(record.width, `${path}.width`)
       : 1,
@@ -192,22 +204,12 @@ export function normalizeRelationStyle(
   value: unknown,
   path: string,
 ): PatchMapRelationStyle {
-  if (value === undefined) return defaultRelationStyle();
-  const record = recordValue(value, path, 'relation style must be an object');
-  assertKnownFields(record, RELATION_STYLE_FIELDS, path);
+  const stroke = normalizeStrokeStyle(value, path, true);
   return Object.freeze({
-    color: Object.hasOwn(record, 'color') ? normalizeColorLike(record.color, `${path}.color`) : BLACK,
-    alpha: Object.hasOwn(record, 'alpha')
-      ? rangedNumber(record.alpha, `${path}.alpha`, 0, 1)
-      : 1,
-    width: Object.hasOwn(record, 'width')
-      ? nonnegativeFiniteNumber(record.width, `${path}.width`)
-      : 1,
+    color: stroke.color,
+    alpha: stroke.alpha as number,
+    width: stroke.width as number,
   });
-}
-
-function defaultRelationStyle(): PatchMapRelationStyle {
-  return Object.freeze({ color: BLACK, alpha: 1, width: 1 });
 }
 
 function defaultStrokeStyle(): PatchMapStrokeStyle {

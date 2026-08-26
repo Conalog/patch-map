@@ -47,9 +47,7 @@ const reference: PatchMapPlacementReference = Object.freeze({
 });
 const componentSize = Object.freeze({ width: componentWidth, height: componentHeight });
 const ITEM_WORLD_ORIGIN = Object.freeze([10, 20] as const);
-const currentPlacements = fixture.placements.filter(
-  (placement) => placement !== ('none' as string),
-);
+const currentPlacements = fixture.placements;
 
 describe('PatchMap placement semantic placement', () => {
   it('resolves the exact local and world matrix for every placement', () => {
@@ -81,11 +79,8 @@ describe('PatchMap placement semantic placement', () => {
     expect(tuple(resolve('center'))).toEqual([38, 32, 30, 10]);
   });
 
-  it('rejects placements outside the current closed placement set', () => {
-    expectInvalidValue(
-      () => resolve('none' as unknown as PatchMapPlacement),
-      '$.placement',
-    );
+  it('keeps compatibility none placement at item-local zero', () => {
+    expect(tuple(resolve('none'))).toEqual([0, 0, 30, 10]);
     expect(() => parsePatchMap([{
       type: 'item',
       id: 'item',
@@ -97,7 +92,7 @@ describe('PatchMap placement semantic placement', () => {
         size: 10,
         placement: 'none',
       }],
-    }])).toThrow('Placement must be a supported PatchMap placement');
+    }])).not.toThrow();
   });
 
   it('fails closed for unsupported, non-finite, negative-size, and overflowing profiles', () => {
@@ -143,24 +138,6 @@ describe('PatchMap placement semantic placement', () => {
     );
     expectInvalidValue(
       () => resolvePatchMapPlacementBounds(
-        reference,
-        componentSize,
-        'center',
-        { ...fixture.margin, left: -1 },
-        '$.negative-margin',
-      ),
-      '$.negative-margin.margin.left',
-    );
-    expectInvalidValue(
-      () => resolvePatchMapContentBox(
-        { width: itemWidth, height: itemHeight },
-        { ...fixture.item.padding, top: -1 },
-        '$.negative-padding',
-      ),
-      '$.negative-padding.padding.top',
-    );
-    expectInvalidValue(
-      () => resolvePatchMapPlacementBounds(
         { x: Number.MAX_VALUE, y: 0, width: Number.MAX_VALUE, height: 10 },
         { width: 0, height: 0 },
         'center',
@@ -171,8 +148,8 @@ describe('PatchMap placement semantic placement', () => {
     );
   });
 
-  it('rejects negative authored margin and padding edges at materialization', () => {
-    expect(() => materializePatchMapDataset([{
+  it('accepts finite negative authored margin and padding edges', () => {
+    const margin = materializePatchMapDataset([{
       type: 'item',
       id: 'negative-margin',
       size: 20,
@@ -183,21 +160,23 @@ describe('PatchMap placement semantic placement', () => {
         size: 10,
         margin: { left: -1 },
       }],
-    }])).toThrowError(expect.objectContaining<Partial<PatchMapDatasetError>>({
-      code: 'INVALID_VALUE',
-      datasetPath: '$[0].components[0].margin.left',
-    }));
+    }]).dataset[0];
 
-    expect(() => materializePatchMapDataset([{
+    const padding = materializePatchMapDataset([{
       type: 'item',
       id: 'negative-padding',
       size: 20,
       padding: { top: -1 },
       components: [],
-    }])).toThrowError(expect.objectContaining<Partial<PatchMapDatasetError>>({
-      code: 'INVALID_VALUE',
-      datasetPath: '$[0].padding.top',
-    }));
+    }]).dataset[0];
+    const marginComponent = margin?.type === 'item' ? margin.components[0] : undefined;
+
+    expect(marginComponent?.type === 'icon' ? marginComponent.margin.left : null).toBe(-1);
+    expect(padding?.type === 'item' ? padding.padding.top : null).toBe(-1);
+    expect(resolvePatchMapContentBox(
+      { width: itemWidth, height: itemHeight },
+      { ...fixture.item.padding, top: -1 },
+    )[3]).toBe(itemHeight + 1 - fixture.item.padding.bottom);
   });
 
   it('is deterministic, immutable, and does not mutate caller-owned inputs', () => {

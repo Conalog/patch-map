@@ -1,5 +1,3 @@
-import type { PatchMapRadius } from '../semantic/dataset';
-
 /** Backend-neutral color input accepted by PatchMap data and style APIs. */
 export type PatchMapColorSource =
   | string
@@ -59,6 +57,16 @@ export type Spacing = number | BoxSpacing;
 export type Gap = number | AxisSpacing;
 export type FitPadding = number | AxisSpacing;
 
+export type RadiusInput =
+  | number
+  | readonly [number, number, number, number]
+  | Readonly<{
+      topLeft?: number;
+      topRight?: number;
+      bottomRight?: number;
+      bottomLeft?: number;
+    }>;
+
 export type Placement =
   | 'left'
   | 'left-top'
@@ -68,7 +76,8 @@ export type Placement =
   | 'right-top'
   | 'right-bottom'
   | 'bottom'
-  | 'center';
+  | 'center'
+  | 'none';
 
 export type ContentOrientation = 'upright' | 'follow-item';
 export type InactiveCellStrategy = 'destroy' | 'hide';
@@ -81,13 +90,12 @@ export interface ElementAttributes {
   rotation?: number;
   scaleX?: number;
   scaleY?: number;
-  scale?: never;
-  skew?: never;
-  pivot?: never;
-  skewX?: never;
-  skewY?: never;
-  pivotX?: never;
-  pivotY?: never;
+  /** Compatibility-only; preserved but not projected by the current renderer. */
+  scale?: number | Readonly<{ x: number; y: number }>;
+  /** Compatibility-only; preserved but not projected by the current renderer. */
+  skew?: number | Readonly<{ x: number; y: number }>;
+  /** Compatibility-only; preserved but not projected by the current renderer. */
+  pivot?: number | Readonly<{ x: number; y: number }>;
   [attribute: string]: unknown;
 }
 
@@ -120,14 +128,25 @@ export interface RelationStyleInput {
   color?: PatchMapColorSource;
   width?: number;
   alpha?: number;
+  /** @deprecated Use `alpha`. */
+  opacity?: number;
+  cap?: 'butt' | 'round' | 'square';
+  join?: 'miter' | 'round' | 'bevel';
+  miterLimit?: number;
+  alignment?: number;
+  pixelLine?: boolean;
+  textureSpace?: 'local' | 'global';
+  fill?: unknown;
+  texture?: unknown;
+  matrix?: unknown;
 }
 
 export interface RectangleTextureStyle {
-  type: 'rect';
+  type?: 'rect';
   fill?: PatchMapColorSource;
   borderWidth?: number;
   borderColor?: PatchMapColorSource;
-  radius?: PatchMapRadius;
+  radius?: RadiusInput;
 }
 
 /** A strict inline source descriptor; public aliases belong in init assets. */
@@ -136,6 +155,8 @@ export interface AssetSourceDescriptor {
   data?: unknown;
   format?: string;
   parser?: string;
+  /** @deprecated Retained for v0.10/1.0 descriptor compatibility. */
+  loadParser?: string;
 }
 
 export type AssetSource = string | AssetSourceDescriptor;
@@ -209,7 +230,7 @@ export interface RectElementData extends BaseElementData {
   size: FixedSize;
   fill?: PatchMapColorSource;
   stroke?: PatchMapColorSource | StrokeStyleInput;
-  radius?: number;
+  radius?: RadiusInput;
 }
 
 export type ElementKind = MapElementData['type'];

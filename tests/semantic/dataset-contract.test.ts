@@ -121,26 +121,43 @@ describe('PatchMap dataset foundation', () => {
     expect(input).toEqual(before);
   });
 
-  it.each([
-    ['cap', 'round'],
-    ['join', 'round'],
-    ['miterLimit', 10],
-    ['alignment', 0.5],
-    ['pixelLine', false],
-    ['textureSpace', 'local'],
-    ['fill', '#ffffff'],
-    ['texture', { source: '/stroke.png' }],
-    ['matrix', [1, 0, 0, 1, 0, 0]],
-  ] as const)('rejects unsupported relation stroke key %s during materialization', (key, fieldValue) => {
-    expect(() => materializePatchMapDataset([{
+  it('accepts and discards non-projected relation stroke compatibility fields', () => {
+    const relation = materializePatchMapDataset([{
       type: 'relations',
       id: 'links',
       links: [],
-      style: { [key]: fieldValue },
-    }])).toThrowError(expect.objectContaining<Partial<PatchMapDatasetError>>({
-      code: 'UNKNOWN_FIELD',
-      datasetPath: `$[0].style.${key}`,
-    }));
+      style: {
+        color: '#123456',
+        alpha: 0.4,
+        width: 2,
+        cap: 'round',
+        join: 'bevel',
+        miterLimit: 12,
+        alignment: 0.25,
+        pixelLine: true,
+        textureSpace: 'local',
+        fill: '#ffffff',
+        texture: { source: '/stroke.png' },
+        matrix: [1, 0, 0, 1, 0, 0],
+      },
+    }]).dataset[0];
+
+    expect(relation?.type === 'relations' ? relation.style : null).toEqual({
+      color: '#123456',
+      alpha: 0.4,
+      width: 2,
+    });
+  });
+
+  it('normalizes deprecated relation opacity to alpha', () => {
+    const relation = materializePatchMapDataset([{
+      type: 'relations',
+      id: 'links',
+      links: [],
+      style: { opacity: 0.35 },
+    }]).dataset[0];
+
+    expect(relation?.type === 'relations' ? relation.style.alpha : null).toBe(0.35);
   });
 
   it('applies defaults without mutating caller data and is fresh-session deterministic', () => {

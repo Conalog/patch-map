@@ -3,10 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createPatchMapRenderTextSpecimens } from '../fixtures/render-text-specimens';
 import { parsePatchMap } from '../../src/parsing';
-import {
-  materializePatchMapDataset,
-  type PatchMapDatasetError,
-} from '../../src/semantic/dataset';
+import { materializePatchMapDataset } from '../../src/semantic/dataset';
 
 describe('PatchMap deterministic text projection', () => {
   it('keeps the standalone authored frame separate from natural geometry and affine inputs', () => {
@@ -138,7 +135,7 @@ describe('PatchMap deterministic text projection', () => {
     ]);
   });
 
-  it('rejects negative text split at materialization and direct parsing', () => {
+  it('accepts negative text split as a compatibility no-op', () => {
     const input = [{
       type: 'item',
       id: 'item-a',
@@ -151,13 +148,37 @@ describe('PatchMap deterministic text projection', () => {
       }],
     }];
 
-    expect(() => materializePatchMapDataset(input)).toThrowError(
-      expect.objectContaining<Partial<PatchMapDatasetError>>({
-        code: 'INVALID_VALUE',
-        datasetPath: '$[0].components[0].split',
-      }),
-    );
-    expect(() => parsePatchMap(input)).toThrow('Text split must be a nonnegative safe integer');
+    const materialized = materializePatchMapDataset(input);
+    const parsed = parsePatchMap(input);
+    const component = materialized.dataset[0]?.type === 'item'
+      ? materialized.dataset[0].components[0]
+      : undefined;
+
+    expect(component?.type === 'text' ? component.split : null).toBe(-1);
+    expect(parsed.projection.textsByEntityId?.['item-a::text:label']?.split).toBe(-1);
+  });
+
+  it('retains release materialization of integer split outside the safe range', () => {
+    const split = Number.MAX_SAFE_INTEGER + 1;
+    const input = [{
+      type: 'item',
+      id: 'item-a',
+      size: 100,
+      components: [{ type: 'text', id: 'label', text: 'AB', split }],
+    }];
+
+    const materialized = materializePatchMapDataset(input);
+    const parsed = parsePatchMap(materialized.dataset);
+    const component = materialized.dataset[0]?.type === 'item'
+      ? materialized.dataset[0].components[0]
+      : undefined;
+
+    expect(component?.type === 'text' ? component.split : null).toBe(split);
+    expect(parsed.projection.textsByEntityId?.['item-a::text:label']?.split).toBe(0);
+    expect(parsed.diagnostics).toContainEqual(expect.objectContaining({
+      code: 'invalid-text-split',
+      path: '$[0].components[0].split',
+    }));
   });
 
   it('derives all supplemental placement, auto-font, wrap, overflow, and upright facts from product input', () => {
