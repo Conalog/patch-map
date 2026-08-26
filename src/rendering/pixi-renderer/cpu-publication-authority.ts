@@ -119,6 +119,10 @@ export class PatchMapPixiCpuPublicationAuthority {
     return this.pendingTextOnlyValue;
   }
 
+  public get hasPresentationLayers(): boolean {
+    return this.presentationLayerCountValue > 0;
+  }
+
   public get storeEpoch(): number {
     return this.storeEpochValue;
   }
@@ -420,7 +424,14 @@ export class PatchMapPixiCpuPublicationAuthority {
       ? this.lastStoreValue
         ? projectionChangedRanges(this.lastStoreValue, previous, index)
         : []
-      : mergeRanges([], changedRanges);
+      : updateKind === 'bar-presentation' && this.hasPresentationLayers
+        ? keyedBarPresentationOwnerRanges(
+            index,
+            changedRanges,
+            sourceStore ?? this.presentationSourceStore(),
+            this.slotByEntityId,
+          )
+        : mergeRanges([], changedRanges);
     const stalenessRanges = stalenessChanged && this.lastStoreValue
       ? projectionStalenessChangedRanges(
           previousStaleEntityIds,
@@ -494,6 +505,7 @@ export class PatchMapPixiCpuPublicationAuthority {
     const storeReplaced = this.lastSourceStoreValue !== store;
     const reusableBarPresentationStore =
       this.pendingBarPresentationOnlyValue &&
+      !this.hasPresentationLayers &&
       !storeReplaced &&
       this.pendingRangesValue !== undefined;
     const effectiveStore = this.presentationStoreFor(store, !reusableBarPresentationStore);
@@ -652,4 +664,43 @@ export class PatchMapPixiCpuPublicationAuthority {
     this.pendingBarPresentationOnlyValue = false;
     this.pendingTextOnlyValue = false;
   }
+}
+
+/**
+ * Keyed layers bind retained paint to logical owners while bar animation
+ * publishes component geometry. At settlement, dirty both sides of that
+ * binding so the final vertices cannot remain stale until the layer clears.
+ * Intermediate frames keep the component-only path.
+ */
+function keyedBarPresentationOwnerRanges(
+  index: PatchMapProjectionIndex,
+  ranges: readonly SlotRange[],
+  store: RenderStoreView | null,
+  slotByEntityId: ReadonlyMap<string, number>,
+): readonly SlotRange[] {
+  if (store === null) return mergeRanges([], ranges);
+  const ownerRanges: SlotRange[] = [];
+  for (const range of ranges) {
+    const start = Math.max(0, Math.min(store.capacity, Math.trunc(range.start)));
+    const end = Math.max(start, Math.min(store.capacity, Math.trunc(range.end)));
+    for (let slot = start; slot < end; slot += 1) {
+      const entityId = store.ids[slot];
+      if (entityId === undefined) continue;
+      const bar = index.barsByEntityId[entityId];
+      const projection = index.byEntityId[entityId];
+      if (
+        bar === undefined ||
+        projection === undefined ||
+        !Object.is(projection.localBounds[3], bar.destinationHeight)
+      ) {
+        continue;
+      }
+      const ownerId = index.componentsByEntityId[entityId]?.ownerId;
+      if (ownerId === undefined) continue;
+      const ownerSlot = slotByEntityId.get(ownerId);
+      if (ownerSlot === undefined) continue;
+      ownerRanges.push({ start: ownerSlot, end: ownerSlot + 1 });
+    }
+  }
+  return mergeRanges(ranges, ownerRanges);
 }

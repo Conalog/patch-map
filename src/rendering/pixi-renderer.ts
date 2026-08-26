@@ -695,6 +695,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     return {
       revision: this.barPresentationVisibilityRevision,
       visibility: this.barPresentationVisibilityConservative ||
+          this.cpuPublication.hasPresentationLayers ||
           !(this.aggregate instanceof AggregateMeshLayer)
         ? null
         : this.aggregate.barPresentationVisibility(),

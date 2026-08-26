@@ -6,6 +6,7 @@ import type { PatchMapProjectionIndex } from '../../src/parsing/contracts';
 import type { PatchMapResolvedPresentationPolicy } from '../../src/presentation/policy';
 import { PatchMapPixiRenderer } from '../../src/rendering/pixi-renderer';
 import { PatchMapPresentationStoreView } from '../../src/rendering/contracts/presentation-store';
+import { AggregateMeshLayer } from '../../src/rendering/mesh-layer';
 import { PatchMapPixiCpuPublicationAuthority } from '../../src/rendering/pixi-renderer/cpu-publication-authority';
 import type { PatchMapPixiRendererPublicationCheckpoint } from '../../src/rendering/pixi-renderer/publication-checkpoint';
 import { createTestProjectionIndex } from '../support/projection-index';
@@ -115,6 +116,36 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
     expect(renderer.capturePublicationCheckpoint().projectionIndex).toBe(
       checkpoint.projectionIndex,
     );
+  });
+
+  it('uses conservative bar visibility while keyed presentation is active', () => {
+    const aggregate = new AggregateMeshLayer();
+    const retainedVisibility = Object.freeze({
+      chunkSize: 256,
+      visibleChunks: new Uint8Array([1]),
+      visibleSlots: new Uint8Array([1]),
+      entityIdsBySlot: Object.freeze(['bar-a']),
+    });
+    Object.defineProperty(aggregate, 'barPresentationVisibility', {
+      value: () => retainedVisibility,
+    });
+    const renderer = Object.create(PatchMapPixiRenderer.prototype) as
+      RendererBarVisibilityHarness;
+    Object.assign(renderer, {
+      destroyedValue: false,
+      view: Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 }),
+      aggregate,
+      barPresentationVisibilityConservative: false,
+      barPresentationVisibilityStale: false,
+      barPresentationVisibilityRevision: 3,
+      cpuPublication: publicationHarness({ presentationLayerCount: 1 }),
+    });
+
+    expect(renderer.prepareBarPresentationVisibility(renderer.view)).toEqual({
+      revision: 3,
+      visibility: null,
+    });
+    aggregate.destroy();
   });
 
   it('does not publish a policy before its presentation store is constructed', () => {
@@ -302,6 +333,85 @@ describe('PatchMap Pixi renderer publication checkpoint', () => {
       checkpoint.presentationAlphaMultipliers,
     );
   });
+
+  it('synchronizes materialized presentation columns during keyed bar publication', () => {
+    const sourceStore = renderStore(2, 'source');
+    const presentationStore = new PatchMapPresentationStoreView(
+      sourceStore,
+      null,
+      new Map(),
+      new Float32Array([1, 0.32]),
+    );
+    const synchronize = vi.spyOn(presentationStore, 'synchronize');
+    const renderer = publicationHarness({
+      lastSourceStore: sourceStore,
+      presentationLayerCount: 1,
+      presentationAlphaMultipliers: new Float32Array([1, 0.32]),
+      presentationStore,
+      presentationBaseStore: sourceStore,
+      pendingRanges: [{ start: 0, end: 1 }],
+      pendingBarPresentationOnly: true,
+    });
+    (sourceStore.opacity as Float32Array)[0] = 0.6;
+
+    expect(renderer.beginFlush(sourceStore)).toBe(presentationStore);
+    expect(synchronize).toHaveBeenCalledTimes(1);
+    expect(presentationStore.opacity[0]).toBeCloseTo(0.6, 6);
+  });
+
+  it('publishes a settled keyed bar with its logical owner range', () => {
+    const sourceStore = renderStore(3, 'source');
+    (sourceStore.ids as string[]).splice(
+      0,
+      3,
+      'grid-a.3.4',
+      'grid-a.3.4::bar::level',
+      'grid-a.3.4::text::value',
+    );
+    const next = createTestProjectionIndex({
+      byEntityId: Object.freeze({
+        'grid-a.3.4': Object.freeze({ marker: 'owner' }),
+        'grid-a.3.4::bar::level': Object.freeze({
+          marker: 'bar',
+          localBounds: Object.freeze([0, 0, 40, 6]),
+        }),
+        'grid-a.3.4::text::value': Object.freeze({ marker: 'text' }),
+      }) as unknown as PatchMapProjectionIndex['byEntityId'],
+      componentsByEntityId: Object.freeze({
+        'grid-a.3.4::bar::level': Object.freeze({
+          entityId: 'grid-a.3.4::bar::level',
+          ownerId: 'grid-a.3.4',
+          componentId: 'level',
+          componentType: 'bar',
+          logicalIdentity: 'grid-a.3.4/level',
+          renderRole: 'ordinary-geometry',
+        }),
+      }) as PatchMapProjectionIndex['componentsByEntityId'],
+      barsByEntityId: Object.freeze({
+        'grid-a.3.4::bar::level': Object.freeze({ destinationHeight: 6 }),
+      }) as unknown as PatchMapProjectionIndex['barsByEntityId'],
+    });
+    const renderer = publicationHarness({
+      lastStore: sourceStore,
+      lastSourceStore: sourceStore,
+      presentationLayerCount: 2,
+      presentationAlphaMultipliers: new Float32Array([1, 1, 1]),
+      slotByEntityId: new Map([
+        ['grid-a.3.4', 0],
+        ['grid-a.3.4::bar::level', 1],
+        ['grid-a.3.4::text::value', 2],
+      ]),
+    });
+
+    expect(renderer.setProjection(
+      next,
+      [{ start: 1, end: 2 }],
+      undefined,
+      'bar-presentation',
+    )).toBe(true);
+    expect(renderer.pendingRanges).toEqual([{ start: 0, end: 2 }]);
+    expect(renderer.pendingOverlayRanges).toEqual([{ start: 0, end: 2 }]);
+  });
 });
 
 interface PublicationSeed {
@@ -326,6 +436,7 @@ interface PublicationSeed {
   pendingSourceStore: RenderStoreView | null;
   lastStore: RenderStoreView | null;
   lastSourceStore: RenderStoreView | null;
+  slotByEntityId: ReadonlyMap<string, number>;
 }
 
 interface RendererOuterCheckpointHarness {
@@ -335,6 +446,19 @@ interface RendererOuterCheckpointHarness {
   setProjection(index: PatchMapProjectionIndex): boolean;
   capturePublicationCheckpoint(): PatchMapPixiRendererPublicationCheckpoint;
   restorePublicationCheckpoint(checkpoint: PatchMapPixiRendererPublicationCheckpoint): void;
+}
+
+interface RendererBarVisibilityHarness {
+  destroyedValue: boolean;
+  view: Readonly<{ x: number; y: number; scale: number; rotation: number }>;
+  aggregate: AggregateMeshLayer;
+  barPresentationVisibilityConservative: boolean;
+  barPresentationVisibilityStale: boolean;
+  barPresentationVisibilityRevision: number;
+  cpuPublication: PatchMapPixiCpuPublicationAuthority;
+  prepareBarPresentationVisibility(
+    view: Readonly<{ x: number; y: number; scale: number; rotation: number }>,
+  ): Readonly<{ revision: number; visibility: unknown }>;
 }
 
 function captureHarnessPublication(
@@ -376,7 +500,9 @@ interface PublicationStateHarness {
 function publicationHarness(
   overrides: Partial<PublicationSeed> = {},
 ): PatchMapPixiCpuPublicationAuthority {
-  const authority = new PatchMapPixiCpuPublicationAuthority(new Map());
+  const authority = new PatchMapPixiCpuPublicationAuthority(
+    overrides.slotByEntityId ?? new Map(),
+  );
   const state = authority as unknown as PublicationStateHarness;
   Object.assign(state, {
     projectionIndexValue: overrides.projectionIndex ?? projection('initial'),
