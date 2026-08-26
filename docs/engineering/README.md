@@ -23,7 +23,7 @@ directory owns internal structure and engineering policy.
 
 ```text
 locate owner -> state invariant -> focused test -> implementation
-             -> typecheck + lint -> risk gates -> documentation check
+             -> changed-risk gates -> documentation check
 ```
 
 Prefer a narrow port into an existing owner over a second state machine. Keep

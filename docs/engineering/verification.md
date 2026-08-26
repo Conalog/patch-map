@@ -8,11 +8,15 @@ resource lifecycle.
 
 ```bash
 npx vitest run tests/<owner>/<focused>.test.ts --maxWorkers=2
-npm run typecheck
-npm run lint
 ```
 
-Use `npm test` for cross-module behavior. Broad runtime or release changes add:
+Start with the focused test owned by the changed boundary. Add `npm run
+typecheck` and `npm run lint` when TypeScript, imports, or linted configuration
+changes. Do not repeatedly run broad suites while editing: pull-request CI owns
+the complete gate matrix. Use `npm test` locally only when behavior crosses
+several owners or a focused witness cannot cover the changed contract.
+
+Add only the matching gate for broad runtime or release risk:
 
 ```bash
 npm run build
@@ -28,17 +32,30 @@ npm run verify:memory
 | --- | --- |
 | Documentation only | owning page review and `npm run verify:docs` |
 | Types, exports, examples, public API | focused API tests, typecheck, build, package verification |
-| Semantic state, ordering, failure meaning | focused product tests and full unit suite |
-| Import or ownership boundary | architecture boundary tests, typecheck, lint, unit, build |
-| PixiJS, canvas, frame scheduling, renderer loss | focused rendering tests, benchmark smoke, memory verification |
+| Semantic state, ordering, failure meaning | focused product tests; full unit only when shared ordering crosses owners |
+| Import or ownership boundary | architecture boundary tests, typecheck, lint, and build |
+| PixiJS, canvas, frame scheduling, renderer loss | focused rendering tests; benchmark smoke or memory only for the affected hot path or resource lifecycle |
 | Asset, font, capture, package contents | focused tests, package verification; memory for retained resources |
 | Destroy, listener, timer, pending work | lifecycle tests and memory verification |
 | Measured hot path | correctness checks plus comparable baseline/candidate measurements |
 
 ## Performance
 
+- Treat user-visible performance as an invariant for every implementation, but
+  measure only when the change touches a hot path or existing evidence shows a
+  material scaling risk. Prefer removing unnecessary work over speculative
+  tuning.
 - A refactor has no performance claim unless environment, workload, warmup,
   sampling, and concurrency are held constant against a baseline.
+- Judge materiality at the user-visible milestone and representative scale.
+  Report the absolute delta in milliseconds before the relative percentage. A
+  one-off 1–2 ms delta within measurement noise is neutral by itself, even when
+  a small baseline makes the percentage or p95 change look large.
+- Relative percentages and p95 are supporting evidence, not standalone failure
+  gates. Treat a slowdown as material when a repeated comparable result exceeds
+  noise and can cause a missed frame, input lag, a long task, or a noticeable
+  completion delay. Small per-frame costs may still be material when they
+  compound across every frame or cross an existing frame budget.
 - `performance:smoke` proves the benchmark path and lifecycle, not speed.
 - Use `performance:benchmark` for renderer, animation, text, or interaction hot
   paths; `performance:update` for transaction work; and
