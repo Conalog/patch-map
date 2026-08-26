@@ -200,7 +200,7 @@ export interface ItemElementData extends BaseElementData {
   contentOrientation?: ContentOrientation;
 }
 
-export type RelationEndpoint = string;
+export type RelationEndpoint = string | { id: string };
 
 export interface RelationLink {
   source: RelationEndpoint;

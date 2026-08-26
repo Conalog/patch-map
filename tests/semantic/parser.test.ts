@@ -447,18 +447,12 @@ describe('PatchMap PatchMap parser', () => {
         { type: 'text', id: 'duplicate', text: 'x' },
       ]),
     ).toThrow(PatchMapParseError);
-    expect(() => parsePatchMap([{
-      type: 'relations',
-      id: 'object-endpoint',
-      links: [{ source: { id: 'known' }, target: 'missing' }],
-    }] as never)).toThrow(PatchMapParseError);
-
     const result = parsePatchMap([
       { type: 'rect', id: 'known', size: 10 },
       {
         type: 'relations',
         id: 'relations',
-        links: [{ source: 'known', target: 'missing' }],
+        links: [{ source: { id: 'known' }, target: { id: 'missing' } }],
       },
     ]);
     expect(result.document.entities.map((entity) => entity.id)).toEqual(['known']);

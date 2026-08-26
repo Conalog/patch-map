@@ -121,6 +121,18 @@ describe('PatchMap dataset foundation', () => {
     expect(input).toEqual(before);
   });
 
+  it('normalizes compatibility relation endpoint objects to string IDs', () => {
+    const relation = materializePatchMapDataset([{
+      type: 'relations',
+      id: 'links',
+      links: [{ source: { id: 'source' }, target: { id: 'target' } }],
+    }]).dataset[0];
+
+    expect(relation?.type === 'relations' ? relation.links : null).toEqual([
+      { source: 'source', target: 'target' },
+    ]);
+  });
+
   it('accepts and discards non-projected relation stroke compatibility fields', () => {
     const relation = materializePatchMapDataset([{
       type: 'relations',

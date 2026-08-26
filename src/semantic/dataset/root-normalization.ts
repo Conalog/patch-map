@@ -100,6 +100,7 @@ const COMPONENT_FIELDS: Readonly<Record<PatchMapComponentType, ReadonlySet<strin
 };
 const GRID_ITEM_FIELDS = new Set(['components', 'size', 'padding', 'contentOrientation']);
 const LINK_FIELDS = new Set(['source', 'target']);
+const RELATION_ENDPOINT_FIELDS = new Set(['id']);
 const ELEMENT_TYPE_SET = new Set<string>(PATCH_MAP_ELEMENT_TYPES);
 const COMPONENT_TYPE_SET = new Set<string>(PATCH_MAP_COMPONENT_TYPES);
 const PLACEMENTS = new Set<string>([
@@ -490,14 +491,27 @@ function normalizeLinks(values: readonly unknown[], path: string): readonly Patc
     const linkPath = `${path}[${index}]`;
     const record = recordValue(value, linkPath, 'relation link must be an object');
     assertKnownFields(record, LINK_FIELDS, linkPath);
-    const source = stringValue(requiredField(record, 'source', linkPath), `${linkPath}.source`);
-    const target = stringValue(requiredField(record, 'target', linkPath), `${linkPath}.target`);
+    const source = normalizeRelationEndpoint(
+      requiredField(record, 'source', linkPath),
+      `${linkPath}.source`,
+    );
+    const target = normalizeRelationEndpoint(
+      requiredField(record, 'target', linkPath),
+      `${linkPath}.target`,
+    );
     const key = `${source.length}:${source}${target.length}:${target}`;
     if (seen.has(key)) return;
     seen.add(key);
     links.push(Object.freeze({ source, target }));
   });
   return Object.freeze(links);
+}
+
+function normalizeRelationEndpoint(value: unknown, path: string): string {
+  if (typeof value === 'string') return stringValue(value, path);
+  const endpoint = recordValue(value, path, 'relation endpoint must be a string or { id }');
+  assertKnownFields(endpoint, RELATION_ENDPOINT_FIELDS, path);
+  return stringValue(requiredField(endpoint, 'id', path), `${path}.id`);
 }
 
 function normalizeAttrs(value: unknown, path: string): PatchMapAttrs {

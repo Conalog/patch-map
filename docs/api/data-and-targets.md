@@ -28,6 +28,8 @@ are owned by their respective API pages.
 - `background.size` is accepted only for v0.10/1.0 input compatibility and is
   discarded during normalization. A background always fills its owning item;
   omit `size` from new data.
+- Relation `source` and `target` accept either a string ID or `{ id }` for
+  v0.10/1.0 compatibility. Both forms normalize to the same string ID.
 - A scalar component percentage applies independently to both content axes,
   preserving the v0.10 contract. For example, `size: '100%'` fills the owning
   item's content width and content height even when that content box is not

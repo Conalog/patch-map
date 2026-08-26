@@ -355,11 +355,14 @@ export function relationEndpoint(
   sourceId: string,
 ): string {
   if (typeof value === 'string' && value.length > 0) return value;
+  if (isParserRecord(value) && typeof value.id === 'string' && value.id.length > 0) {
+    return value.id;
+  }
   fatalPatchMapParse(
     state,
     path,
     'invalid-relation-endpoint',
-    'Relation endpoint must be a non-empty string',
+    'Relation endpoint must be a non-empty string or { id }',
     sourceId,
   );
 }
