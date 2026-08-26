@@ -526,4 +526,3 @@ describe('PatchMap instance component presentation integration', () => {
     expect(coordinator.rendererOverrides.size).toBe(0);
   });
 });
-

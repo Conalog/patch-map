@@ -222,4 +222,3 @@ describe('PatchMap instance bar presentation integration', () => {
     await engine.destroy();
   });
 });
-
