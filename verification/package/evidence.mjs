@@ -35,6 +35,8 @@ export function collectPackageFailures({
     || esm.undoStatus !== 'committed'
     || esm.redoStatus !== 'committed'
     || esm.transactionStatus !== 'committed'
+    || esm.pointerOwnership?.overlayHoverIgnored !== true
+    || esm.pointerOwnership?.overlayDragContinued !== true
   ) failures.push('packed ESM public workflow failed');
   if (esm.serializedRootCount !== 2 || esm.serializedAddedId !== 'packed-added') {
     failures.push('packed ESM persistence boundary failed');
@@ -117,7 +119,7 @@ export function createPackageConsumerEvidence({
   types,
 }) {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     generatedAt,
     package: '@conalog/patch-map',
     pixi: '8.19.0',

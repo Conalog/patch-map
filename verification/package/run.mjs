@@ -125,6 +125,40 @@ try {
   const page = await browser.newPage({ viewport: { width: 800, height: 500 } });
   observeBrowserErrors(page, errors);
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.waitForFunction(() => window.__PACKAGE_POINTER_OWNERSHIP__ !== undefined, undefined, {
+    timeout: 30_000,
+  });
+  await page.mouse.move(90, 80);
+  const overlayHoverTargets = await page.evaluate(
+    () => window.__PACKAGE_POINTER_OWNERSHIP__.hoverTargets(),
+  );
+  await page.evaluate(() => {
+    document.querySelector('#host-overlay').hidden = true;
+  });
+  await page.mouse.move(20, 200);
+  const overlayDragBefore = await page.evaluate(
+    () => window.__PACKAGE_POINTER_OWNERSHIP__.viewport(),
+  );
+  await page.mouse.move(250, 200);
+  await page.mouse.down({ button: 'left' });
+  await page.evaluate(() => {
+    const overlay = document.querySelector('#host-overlay');
+    overlay.style.left = '240px';
+    overlay.style.top = '190px';
+    overlay.hidden = false;
+  });
+  await page.mouse.move(270, 220);
+  await page.mouse.up({ button: 'left' });
+  const overlayDragAfter = await page.evaluate(
+    () => window.__PACKAGE_POINTER_OWNERSHIP__.viewport(),
+  );
+  await page.evaluate(async (pointerOwnership) => {
+    document.querySelector('#host-overlay').hidden = true;
+    await window.__PACKAGE_POINTER_OWNERSHIP__.finalize(pointerOwnership);
+  }, {
+    overlayHoverIgnored: overlayHoverTargets.length === 0,
+    overlayDragContinued: JSON.stringify(overlayDragAfter) !== JSON.stringify(overlayDragBefore),
+  });
   await page.waitForFunction(() => window.__PACKAGE_RESULT__ !== undefined, undefined, {
     timeout: 30_000,
   });

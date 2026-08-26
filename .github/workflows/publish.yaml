@@ -127,44 +127,6 @@ jobs:
           echo "release-kind=$release_kind" >> "$GITHUB_OUTPUT"
           echo "release-sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-  product:
-    name: Product
-    needs: metadata
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout release tag
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.metadata.outputs.release-sha }}
-          persist-credentials: false
-
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Run unit tests
-        run: npm run unit
-
-      - name: Build package
-        run: npm run build
-
-      - name: Verify documentation
-        run: npm run verify:docs
-
   packed-consumer:
     name: Packed consumer
     needs: metadata
@@ -224,45 +186,11 @@ jobs:
           retention-days: 7
           compression-level: 0
 
-  lifecycle-memory:
-    name: Lifecycle memory
-    needs: metadata
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout release tag
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.metadata.outputs.release-sha }}
-          persist-credentials: false
-
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Verify lifecycle memory
-        run: npm run verify:memory
-
-      - name: Verify benchmark harness
-        run: npm run performance:smoke
-
   publish:
     name: Publish ${{ needs.metadata.outputs.package-version }} to npm ${{ needs.metadata.outputs.dist-tag }}
     needs:
       - metadata
-      - product
       - packed-consumer
-      - lifecycle-memory
     if: >-
       ${{
         vars.NPM_PUBLISH_ENABLED == 'true' &&

@@ -24,7 +24,7 @@ export function createPackedConsumerDependencySeedPackageJson() {
 }
 
 export const PACKED_CONSUMER_HTML_SOURCE =
-  '<!doctype html>\n<html><body><div id="host" style="width:640px;height:360px"></div><script type="module" src="/main.js"></script></body></html>\n';
+  '<!doctype html>\n<html><body><div id="host" style="width:640px;height:360px"></div><button id="host-overlay" style="position:fixed;left:60px;top:50px;width:80px;height:60px;z-index:10">Host overlay</button><script type="module" src="/main.js"></script></body></html>\n';
 
 export const PACKED_CONSUMER_ESM_SOURCE = `
 import * as packageApi from '@conalog/patch-map';
@@ -85,6 +85,10 @@ const transaction = map.transaction([{
 }], { actionId: 'packed-add', selectedIds: ['packed-added'] });
 const serialized = JSON.parse(map.data.serialize());
 const capture = await map.capture.png();
+const pointerHoverTargets = [];
+const releasePointerHover = map.pointer.onHover((event) => {
+  pointerHoverTargets.push(event.target?.id ?? null);
+});
 
 let constructorRejected = false;
 try {
@@ -98,32 +102,39 @@ const internalNames = [
   'parsePatchMap',
   'planPatchMapMutationTransaction',
 ];
-const destroyResult = await map.destroy();
-
-window.__PACKAGE_RESULT__ = {
-  immutable: immutableBefore === JSON.stringify(input),
-  backend: initial.resources.renderer?.backend ?? null,
-  renderObjects: initial.resources.rendering.commandCount,
-  barTargetCount: bars.count,
-  presentationChanged: presentation.changed,
-  presentationCleared,
-  updateStatus: update.status,
-  updatedBarHeight: updatedBar?.value?.size?.height ?? null,
-  selection,
-  transformStatus: transform.status,
-  undoStatus: undo.status,
-  redoStatus: redo.status,
-  transactionStatus: transaction.status,
-  serializedRootCount: serialized.length,
-  serializedAddedId: serialized[1]?.id ?? null,
-  capturePrefix: capture.dataUrl.slice(0, 22),
-  captureLength: capture.dataUrl.length,
-  internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
-  constructorRejected,
-  destroyResult,
-  destroyed: map.destroyed,
-  canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
-};
+window.__PACKAGE_POINTER_OWNERSHIP__ = Object.freeze({
+  hoverTargets: () => [...pointerHoverTargets],
+  viewport: () => map.viewport.snapshot(),
+  finalize: async (pointerOwnership) => {
+    releasePointerHover();
+    const destroyResult = await map.destroy();
+    window.__PACKAGE_RESULT__ = {
+      immutable: immutableBefore === JSON.stringify(input),
+      backend: initial.resources.renderer?.backend ?? null,
+      renderObjects: initial.resources.rendering.commandCount,
+      barTargetCount: bars.count,
+      presentationChanged: presentation.changed,
+      presentationCleared,
+      updateStatus: update.status,
+      updatedBarHeight: updatedBar?.value?.size?.height ?? null,
+      selection,
+      transformStatus: transform.status,
+      undoStatus: undo.status,
+      redoStatus: redo.status,
+      transactionStatus: transaction.status,
+      serializedRootCount: serialized.length,
+      serializedAddedId: serialized[1]?.id ?? null,
+      capturePrefix: capture.dataUrl.slice(0, 22),
+      captureLength: capture.dataUrl.length,
+      pointerOwnership,
+      internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
+      constructorRejected,
+      destroyResult,
+      destroyed: map.destroyed,
+      canvasCountAfterDestroy: document.querySelectorAll('canvas').length,
+    };
+  },
+});
 `;
 
 export const PACKED_CONSUMER_CJS_SOURCE = `

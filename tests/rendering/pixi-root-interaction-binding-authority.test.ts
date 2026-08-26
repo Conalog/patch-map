@@ -133,6 +133,43 @@ describe('PatchMap Pixi root interaction binding authority', () => {
     stage.destroy();
   });
 
+  it('ignores host-overlay hover while preserving canvas-owned pointer sequences', () => {
+    const stage = new Container();
+    const canvas = fakeCanvas();
+    const overlay = {} as EventTarget;
+    const shadowRetarget = {} as EventTarget;
+    const pointers: RootPointerInput[] = [];
+    const authority = new PatchMapPixiRootInteractionBindingAuthority({
+      stage,
+      canvas: canvas.element,
+      readViewportWidth: () => 200,
+      readViewportHeight: () => 100,
+      isSurfacePublished: () => true,
+    });
+    authority.bind(handlers(pointers));
+
+    stage.emit('pointermove', pointerEvent(1, 10, 20, overlay, [overlay]));
+    stage.emit('pointermove', pointerEvent(
+      2,
+      20,
+      30,
+      shadowRetarget,
+      [canvas.element, shadowRetarget],
+    ));
+    stage.emit('pointerdown', pointerEvent(3, 30, 40, canvas.element, [canvas.element]));
+    stage.emit('pointermove', pointerEvent(3, 40, 50, overlay, [overlay]));
+    stage.emit('pointerup', pointerEvent(3, 40, 50, overlay, [overlay]));
+    stage.emit('pointermove', pointerEvent(3, 50, 60, overlay, [overlay]));
+
+    expect(pointers.map(({ type }) => type)).toEqual(['move', 'down', 'move', 'up']);
+    expect(pointers[0]).toMatchObject({ pointerId: 2 });
+    expect(pointers[2]).toMatchObject({ pointerId: 3 });
+    expect(canvas.captured.has(3)).toBe(false);
+
+    expect(authority.destroy()).toBe(true);
+    stage.destroy();
+  });
+
   it('rolls back every installed listener when DOM listener installation fails', () => {
     const stage = new Container();
     const canvas = fakeCanvas({ throwOnAddType: 'pointerleave' });
@@ -170,6 +207,8 @@ function pointerEvent(
   pointerId: number,
   x: number,
   y: number,
+  nativeTarget: EventTarget = {} as EventTarget,
+  nativePath: readonly EventTarget[] = [nativeTarget],
 ): FederatedPointerEvent {
   return {
     global: { x, y },
@@ -182,6 +221,10 @@ function pointerEvent(
     ctrlKey: false,
     altKey: false,
     metaKey: false,
+    nativeEvent: {
+      target: nativeTarget,
+      composedPath: () => [...nativePath],
+    } as unknown as PointerEvent,
   } as unknown as FederatedPointerEvent;
 }
 

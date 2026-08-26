@@ -27,6 +27,10 @@ renderer-aligned bounds. The host supplies meaningful dataset `label` or text
 values and owns accessibility outside the map; it must not add a parallel
 per-entity DOM overlay over the canvas.
 
+Document-captured pointer movement over a host-owned DOM overlay does not
+become idle canvas hover. A pointer sequence that starts on the canvas remains
+owned through capture, so pan and selection drags continue across host overlays.
+
 ## Adapter shape
 
 The packaged `examples/host-adapter.ts` is the integration reference:
@@ -82,6 +86,7 @@ reporting a non-recoverable failure.
 | Public adapter boundary | `examples/host-adapter.ts`, `src/index.ts` | package integration and public example compilation |
 | Instance resource ownership | `src/engine/index.ts`, `src/assets/index.ts` | engine lifecycle and asset lifecycle tests |
 | Canvas-aligned accessibility | `src/accessibility`, `src/rendering/pixi-renderer/accessibility-overlay-authority.ts` | `tests/integration/accessibility-product.test.ts` |
+| Canvas pointer ownership | `src/rendering/pixi-renderer/root-interaction-binding-authority.ts` | `tests/rendering/pixi-root-interaction-binding-authority.test.ts` |
 | public debug snapshot | `src/public/index.ts`, `src/engine/product-probe-reader.ts` | `tests/engine/engine-lifecycle.test.ts` |
 | public failure projection | `src/engine/operation-outcomes.ts` | `tests/engine/engine-operation-outcomes.test.ts` |
 | Persistence guards | `src/semantic/persistence.ts` | `tests/semantic/persistence.test.ts` |

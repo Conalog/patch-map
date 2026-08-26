@@ -95,6 +95,7 @@ export class PatchMapPixiRootInteractionBindingAuthority {
   private install(handlers: RootInteractionHandlers): () => void {
     this.activeUnbind?.();
     const { stage, canvas } = this.port;
+    const activePointerIds = new Set<number>();
     const capturedPointerIds = new Set<number>();
     const capturePointer = (pointerId: number): void => {
       try {
@@ -106,6 +107,7 @@ export class PatchMapPixiRootInteractionBindingAuthority {
       }
     };
     const releasePointer = (pointerId: number): void => {
+      activePointerIds.delete(pointerId);
       capturedPointerIds.delete(pointerId);
       try {
         if (canvas.hasPointerCapture(pointerId)) {
@@ -133,10 +135,18 @@ export class PatchMapPixiRootInteractionBindingAuthority {
       metaKey: event.metaKey,
     });
     const pointerDown = (event: FederatedPointerEvent): void => {
+      activePointerIds.add(event.pointerId);
       capturePointer(event.pointerId);
       handlers.pointer(pointerInput('down', event));
     };
     const pointerMove = (event: FederatedPointerEvent): void => {
+      if (!activePointerIds.has(event.pointerId)) {
+        const nativeEvent = event.nativeEvent;
+        const path = 'composedPath' in nativeEvent && typeof nativeEvent.composedPath === 'function'
+          ? nativeEvent.composedPath()
+          : [];
+        if ((path[0] ?? nativeEvent.target) !== canvas) return;
+      }
       handlers.pointer(pointerInput('move', event));
     };
     const pointerUp = (event: FederatedPointerEvent): void => {
@@ -220,6 +230,7 @@ export class PatchMapPixiRootInteractionBindingAuthority {
       canvas.removeEventListener('pointerleave', pointerLeave);
       canvas.removeEventListener('contextmenu', contextMenu);
       for (const pointerId of capturedPointerIds) releasePointer(pointerId);
+      activePointerIds.clear();
       capturedPointerIds.clear();
       if (this.activeUnbind === unbind) this.activeUnbind = null;
     };
