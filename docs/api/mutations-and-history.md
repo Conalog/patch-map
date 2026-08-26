@@ -33,8 +33,8 @@ owned by [`presentation.md`](presentation.md) and
   stay in the same commit.
 - Authored semantic commits record history by default. Set `recordHistory` to
   `false` for a commit that must not create an undo entry. `actionId` identifies
-  related work for history coalescing; `historyLimit: 0` disables retained
-  entries. Concrete overlay behavior is defined in
+  related work for history coalescing; `historyLimit` defaults to 50 and zero
+  disables retained entries. Concrete overlay behavior is defined in
   [`presentation.md`](presentation.md).
 - `transaction(operations, { selectedIds, companion })` publishes and restores
   selection plus detached host JSON with the same history entry. Companion data

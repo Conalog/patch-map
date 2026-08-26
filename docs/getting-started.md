@@ -41,6 +41,25 @@ await map.destroy();
 - Call `destroy()` on unmount. Destruction is asynchronous and idempotent from
   the host's point of view; do not retain the canvas or Pixi objects afterward.
 
+## Mount options
+
+| Concern | Contract and default |
+| --- | --- |
+| identity | `instanceId` defaults to the host element ID, or a generated instance-local ID when the element has none |
+| CSS size | `width` and `height` override the measured host size; mount rejects when neither source provides positive dimensions |
+| renderer | `pixelRatio` defaults to `devicePixelRatio` or 1, `antialias` to true, `background` to `#FAFAFA`, and `powerPreference` to `high-performance` |
+| backend | omitted or `webgl` selects the qualified WebGL2 path; `webgpu` is opt-in and remains unqualified as described in [Compatibility](compatibility.md) |
+| camera | `zoomLimits` defaults to `[0.5, 30]`; initial viewport and fit ordering is owned by [Viewport and transform](api/viewport-and-transform.md) |
+| diagnostics | `devtools` defaults to false; use [`debug.snapshot()`](integration/host.md#diagnostics-and-errors) for the public bounded snapshot |
+| history | `historyLimit` configures retained undo entries; behavior and defaults are owned by [Mutations and history](api/mutations-and-history.md) |
+
+`theme` accepts nested, instance-local color entries and flattens them to dotted
+paths. The canonical fallback keys are `white`, `black`, `transparent`,
+`primary.default`, `primary.dark`, `primary.accent`, `gray.light`,
+`gray.default`, and `gray.dark`. Additional dotted paths may be referenced by
+dataset color fields. Every supplied leaf is validated and detached before the
+renderer is allocated.
+
 ## State and ordering
 
 Mount creates the renderer and frame authority, normalizes the dataset,
@@ -65,5 +84,6 @@ authority; the host must not add another render loop or a sleep before first use
 | Claim | Code | Focused evidence |
 | --- | --- | --- |
 | Public construction | `src/index.ts`, `src/public/contracts.ts` | `tests/integration/developer-api-workflows.test.ts` |
+| mount defaults and theme normalization | `src/composition/mount.ts`, `src/semantic/color.ts` | `tests/engine/engine-lifecycle.test.ts`, `tests/semantic/color-resolution.test.ts` |
 | Initial canvas publication | `src/engine/surface-lifecycle-authority.ts`, `src/rendering/pixi-renderer/surface-publication-authority.ts` | `tests/engine/canvas-surface-lifecycle.test.ts` |
 | Resize and teardown | `src/engine/index.ts`, `src/engine/page-lifecycle.ts` | `tests/engine/engine-lifecycle.test.ts`, `tests/integration/page-lifecycle.test.ts` |

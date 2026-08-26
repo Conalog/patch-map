@@ -25,6 +25,9 @@ Font byte identity and licensing are owned by [`fonts.md`](../assets/fonts.md).
 - `assets.register()` applies configured origin, response, MIME, size, and byte
   policy before admitting an external texture. A Pixi global-cache hit is not
   proof that admission ran.
+- Without an `assetPolicy`, only package-owned built-ins are eligible for a
+  session. Pass an explicit policy for external sources;
+  `createPatchMapAssetIngestionPolicy()` is the supported profile-based helper.
 - Each engine owns an asset session and releases only its leases. A shared
   `assetRuntime` deduplicates physical resources across engines and unloads a
   resource after its final lease. `assets.status(alias?)` reports session and
