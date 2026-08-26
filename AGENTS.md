@@ -52,8 +52,15 @@
 
 ## Git and review
 
-- Commit only when requested. Push, open or merge a PR, publish, or modify a
-  release only when explicitly requested.
+- Commit each completed, reviewable work unit without waiting for a separate
+  request, unless the user explicitly asks not to commit. A unit is complete
+  only after its implementation, related tests or documentation, and targeted
+  verification are finished.
+- Do not commit work in progress, partial iterations, unresolved failures, or
+  an intent that is still being edited. A larger request may continue, but
+  commit a category only when that category is independently complete.
+- Split independent intents into separate commits. Push, open or merge a PR,
+  publish, or modify a release only when explicitly requested.
 - Use `type: summary` commit messages consistent with repository history and
   keep one intent per commit.
 - For large refactors or pre-PR reviews, request an independent subagent review
