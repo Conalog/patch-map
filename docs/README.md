@@ -24,6 +24,3 @@ repeat feature contracts.
 Runnable examples live in [`examples/`](../examples/).
 Exact TypeScript shapes are exported by `@conalog/patch-map`; these pages own
 behavior, state ordering, failure meaning, and the shortest verification route.
-
-Repository contributors start with the
-[engineering fast path](engineering/README.md).
