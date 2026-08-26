@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.0-alpha.3](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.2...v1.0.0-alpha.3) (2026-08-26)
+
+
+### Fixed
+
+* preserve PatchMap pointer ownership across host overlays ([#220](https://github.com/Conalog/patch-map/issues/220)) ([0c94ca3](https://github.com/Conalog/patch-map/commit/0c94ca397c02b5e7b48f43f869f5ffe6b29825d5))
+* reorganize PatchMap runtime and repository ownership ([#223](https://github.com/Conalog/patch-map/issues/223)) ([85c5774](https://github.com/Conalog/patch-map/commit/85c5774e163d5baa478dccc0b86425388ac7361f))
+
 ## [1.0.0-alpha.2](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.1...v1.0.0-alpha.2) (2026-08-24)
 
 
