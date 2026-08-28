@@ -141,14 +141,18 @@ async function isolatedPixiDescriptor(
   const parser = descriptor.parser ?? inferAssetParser(descriptor, blob.type);
   if (policy) {
     const mediaType = normalizeMediaType(blob.type);
+    const responseMetadata = Object.freeze({
+      mediaType,
+      encodedBytes: blob.size,
+    });
+    assertPatchMapAssetResponseAllowed(policy, responseMetadata);
     if ((parser === 'svg') !== (mediaType === 'image/svg+xml')) {
       throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
     }
     const svgText = mediaType === 'image/svg+xml' ? await blob.text() : undefined;
     if (svgText !== undefined) {
       assertPatchMapAssetResponseAllowed(policy, {
-        mediaType,
-        encodedBytes: blob.size,
+        ...responseMetadata,
         svgText,
       });
     }
@@ -163,8 +167,7 @@ async function isolatedPixiDescriptor(
       ? undefined
       : decodedSizeForPolicy(descriptor, mediaType, await inspect(blob));
     assertPatchMapAssetResponseAllowed(policy, {
-      mediaType,
-      encodedBytes: blob.size,
+      ...responseMetadata,
       ...(decoded === undefined
         ? {}
         : {

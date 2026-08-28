@@ -792,6 +792,48 @@ describe('PatchMap shared asset runtime', () => {
     await backend.unload('patch-map-asset:fixed-fetch');
   });
 
+  it.each([
+    {
+      label: 'raster',
+      blob: new Blob(['oversized-raster'], { type: 'image/png' }),
+      source: 'https://assets.example.test/oversized.png',
+    },
+    {
+      label: 'SVG',
+      blob: new Blob([
+        '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"></svg>',
+      ], { type: 'image/svg+xml' }),
+      source: 'https://assets.example.test/oversized.svg',
+    },
+  ])('rejects an oversized $label before content inspection', async ({ blob, source }) => {
+    const text = vi.spyOn(blob, 'text');
+    const inspectDecodedSize = vi.fn(() => Promise.resolve({ width: 1, height: 1 }));
+    const createObjectURL = vi.fn(() => 'blob:patch-map/oversized');
+    const pixiAssets = Assets as unknown as { load(descriptor: unknown): Promise<unknown> };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(
+      Object.freeze({ texture: 'oversized' }),
+    );
+    const backend = createPatchMapPixiAssetBackend({
+      fetchAsset: () => Promise.resolve(blob),
+      createObjectURL,
+      revokeObjectURL: () => undefined,
+      inspectDecodedSize,
+    });
+
+    await expect(backend.load(Object.freeze({
+      key: `patch-map-asset:oversized:${blob.type}`,
+      descriptor: Object.freeze({ src: source }),
+      cacheIdentity: `descriptor:oversized:${blob.type}`,
+      packageOwned: false,
+      policy: { maxEncodedBytes: 1, maxDecodedWidth: 64, maxDecodedHeight: 64 },
+    }))).rejects.toMatchObject({ code: 'ASSET_POLICY_REJECTED' });
+
+    expect(text).not.toHaveBeenCalled();
+    expect(inspectDecodedSize).not.toHaveBeenCalled();
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+  });
+
   it('inspects SVG dimensions through the browser image decoder before Pixi loading', async () => {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"></svg>';
     const createImageBitmap = vi.fn(() => Promise.reject(new DOMException(
