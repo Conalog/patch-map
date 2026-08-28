@@ -1,4 +1,4 @@
-import { Assets, Cache } from 'pixi.js';
+import { Assets } from 'pixi.js';
 
 import type { PatchMapAssetDescriptor } from '../semantic/dataset';
 import { PATCH_MAP_FIRA_CODE_FAMILY } from '../semantic/text-font-family';
@@ -7,12 +7,12 @@ import {
   PatchMapAssetError,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-  type PatchMapAssetIngestionPolicyProfile,
+  type PatchMapResolvedAssetPolicy,
   type PatchMapPixiAssetBackendOptions,
 } from './contracts';
 import {
   assertPatchMapAssetResponseAllowed,
-  createPatchMapAssetIngestionPolicy,
+  normalizePatchMapAssetPolicy,
   normalizeMediaType,
 } from './ingestion-policy';
 import {
@@ -35,22 +35,12 @@ export function createPatchMapPixiAssetBackend(
   const ownedPixiKeys = new Map<string, string>();
   return Object.freeze({
     keyNamespace,
-    get(request: PatchMapAssetBackendRequest): unknown {
-      if (options.ingestionPolicy !== undefined && !request.packageOwned) return undefined;
-      const externalKey = externalBorrowKey(request);
-      return externalKey === null || !Cache.has(externalKey)
-        ? undefined
-        : Cache.get<unknown>(externalKey);
+    get(_request: PatchMapAssetBackendRequest): unknown {
+      // Host resources always pass through the package-owned fetch, MIME, byte,
+      // and decoded-size boundary. A global Pixi cache hit has no admission evidence.
+      return undefined;
     },
     async load(request: PatchMapAssetBackendRequest): Promise<unknown> {
-      if (options.ingestionPolicy && !request.packageOwned) {
-        await createPatchMapAssetIngestionPolicy(options.ingestionPolicy)(Object.freeze({
-          instanceId: 'patch-map-pixi-backend',
-          descriptor: request.descriptor,
-          cacheIdentity: request.cacheIdentity,
-          packageOwned: false,
-        }));
-      }
       const logicalDescriptor = await pixiDescriptor(request);
       const pixiKey = physicalPixiKey(request, logicalDescriptor);
       let objectUrl: string | null = null;
@@ -59,7 +49,7 @@ export function createPatchMapPixiAssetBackend(
           logicalDescriptor,
           fetchAsset,
           createObjectURL,
-          request.packageOwned ? undefined : options.ingestionPolicy,
+          request.packageOwned ? undefined : normalizePatchMapAssetPolicy(request.policy),
           options.inspectDecodedSize,
         );
         if (descriptor.src !== logicalDescriptor.src) {
@@ -102,11 +92,6 @@ function physicalPixiKey(
   return `${request.key}:content:${stableHash(descriptor.src)}`;
 }
 
-function externalBorrowKey(request: PatchMapAssetBackendRequest): string | null {
-  if (request.packageOwned || Object.keys(request.descriptor).length !== 1) return null;
-  return request.descriptor.src;
-}
-
 async function pixiDescriptor(
   request: PatchMapAssetBackendRequest,
 ): Promise<PatchMapAssetDescriptor> {
@@ -145,32 +130,28 @@ async function isolatedPixiDescriptor(
   descriptor: PatchMapAssetDescriptor,
   fetchAsset: (src: string) => Promise<Blob>,
   createObjectURL: (blob: Blob) => string,
-  ingestionPolicy?: PatchMapAssetIngestionPolicyProfile,
+  policy?: PatchMapResolvedAssetPolicy,
   inspectDecodedSize?: (
     blob: Blob,
   ) => Promise<Readonly<{ readonly width: number; readonly height: number }>>,
 ): Promise<PatchMapAssetDescriptor> {
   const blob = await fetchAsset(descriptor.src);
-  if (ingestionPolicy) {
+  if (policy) {
     const mediaType = normalizeMediaType(blob.type);
     const svgText = mediaType === 'image/svg+xml' ? await blob.text() : undefined;
     if (svgText !== undefined) {
-      assertPatchMapAssetResponseAllowed(ingestionPolicy, {
-        requestUrl: descriptor.src,
-        finalUrl: descriptor.src,
+      assertPatchMapAssetResponseAllowed(policy, {
         mediaType,
         encodedBytes: blob.size,
         svgText,
       });
     }
-    const inspect = inspectDecodedSize ?? defaultInspectDecodedSize;
+    const inspect = inspectDecodedSize ?? defaultDecodedSizeInspector();
     if (mediaType.startsWith('image/') && inspect === null) {
       throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
     }
     const decoded = inspect === null ? undefined : await inspect(blob);
-    assertPatchMapAssetResponseAllowed(ingestionPolicy, {
-      requestUrl: descriptor.src,
-      finalUrl: descriptor.src,
+    assertPatchMapAssetResponseAllowed(policy, {
       mediaType,
       encodedBytes: blob.size,
       ...(decoded === undefined
@@ -191,16 +172,19 @@ async function isolatedPixiDescriptor(
   });
 }
 
-const defaultInspectDecodedSize = typeof globalThis.createImageBitmap === 'function'
-  ? async (blob: Blob): Promise<Readonly<{ readonly width: number; readonly height: number }>> => {
-      const bitmap = await globalThis.createImageBitmap(blob);
-      try {
-        return Object.freeze({ width: bitmap.width, height: bitmap.height });
-      } finally {
-        bitmap.close();
-      }
+function defaultDecodedSizeInspector(): ((
+  blob: Blob,
+) => Promise<Readonly<{ readonly width: number; readonly height: number }>>) | null {
+  if (typeof globalThis.createImageBitmap !== 'function') return null;
+  return async (blob: Blob) => {
+    const bitmap = await globalThis.createImageBitmap(blob);
+    try {
+      return Object.freeze({ width: bitmap.width, height: bitmap.height });
+    } finally {
+      bitmap.close();
     }
-  : null;
+  };
+}
 
 async function defaultFetchAsset(src: string): Promise<Blob> {
   const response = await fetch(src, {

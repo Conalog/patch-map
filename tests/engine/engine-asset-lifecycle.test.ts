@@ -183,13 +183,9 @@ describe('PatchMap asset lifecycle', () => {
     const backend = new SequencedBackend();
     const runtime = new PatchMapAssetRuntime(backend);
     const harness = createSurfaceHarness();
-    const policyCalls: string[] = [];
     const create = (instanceId: string): PatchMap => {
       const engine = new PatchMap({
         assetRuntime: runtime,
-        assetPolicy: ({ instanceId: policyInstanceId }) => {
-          policyCalls.push(policyInstanceId);
-        },
         surfaceFactory: harness.factory,
       });
       engine.registerAssets(instanceId);
@@ -206,8 +202,6 @@ describe('PatchMap asset lifecycle', () => {
     });
     expect(runtime.probe('device').resource).toMatchObject({ resourceCount: 1, leaseCount: 2 });
     expect(backend.requests).toHaveLength(1);
-    expect(policyCalls).toEqual(['A', 'B']);
-
     await engineA.destroy();
     expect(runtime.probe('device').resource).toMatchObject({ resourceCount: 1, leaseCount: 1 });
     await engineB.destroy();
@@ -222,7 +216,6 @@ describe('PatchMap asset lifecycle', () => {
     const harness = createSurfaceHarness();
     const engine = new PatchMap({
       assetRuntime: runtime,
-      assetPolicy: () => undefined,
       surfaceFactory: harness.factory,
     });
     const ready: unknown[] = [];
@@ -296,7 +289,6 @@ describe('PatchMap asset lifecycle', () => {
     };
     const engine = new PatchMap({
       assetRuntime: runtime,
-      assetPolicy: () => undefined,
       surfaceFactory: factory,
     });
     const initialization = {
@@ -356,7 +348,6 @@ describe('PatchMap asset lifecycle', () => {
     const harness = createSurfaceHarness();
     const engine = new PatchMap({
       assetRuntime: runtime,
-      assetPolicy: () => undefined,
       surfaceFactory: harness.factory,
     });
     const initialization = engine.initialize({
@@ -398,7 +389,6 @@ describe('PatchMap asset lifecycle', () => {
     let receivedOptions: PatchMapSurfaceOptions | null = null;
     const engine = new PatchMap({
       assetRuntime: runtime,
-      assetPolicy: () => undefined,
       surfaceFactory: (options) => {
         receivedOptions = options;
         return pendingSurface.promise;
@@ -432,7 +422,6 @@ describe('PatchMap asset lifecycle', () => {
     let receivedOptions: PatchMapSurfaceOptions | null = null;
     const engine = new PatchMap({
       assetRuntime: runtime,
-      assetPolicy: () => undefined,
       surfaceFactory: (options) => {
         receivedOptions = options;
         return pendingSurface.promise;
@@ -491,28 +480,35 @@ describe('PatchMap asset lifecycle', () => {
     await engine.destroy();
   });
 
-  it('fails closed for an external required source when no explicit policy is supplied', async () => {
+  it('admits an external required source with normalized engine asset policy', async () => {
     const backend = new SequencedBackend();
     const runtime = new PatchMapAssetRuntime(backend);
     const harness = createSurfaceHarness();
-    const engine = new PatchMap({ assetRuntime: runtime, surfaceFactory: harness.factory });
+    const engine = new PatchMap({
+      assetRuntime: runtime,
+      assetPolicy: { maxEncodedBytes: 5 * 1024 * 1024 },
+      surfaceFactory: harness.factory,
+    });
 
     await expect(engine.initialize({
-      instanceId: 'fail-closed',
+      instanceId: 'external-policy',
       width: 800,
       height: 600,
       requiredAssets: [{
         alias: 'external',
         descriptor: 'https://assets.example.test/external.png',
       }],
-    })).rejects.toMatchObject({
-      diagnostic: { code: 'ASSET_POLICY_REJECTED', category: 'ASSET_FAILURE' },
+    })).resolves.toMatchObject({ lifecycle: 'ready-empty', instanceId: 'external-policy' });
+    expect(backend.requests).toHaveLength(1);
+    expect(backend.requests[0]).toMatchObject({
+      descriptor: { src: 'https://assets.example.test/external.png' },
+      packageOwned: false,
+      policy: { maxEncodedBytes: 5 * 1024 * 1024, maxDecodedWidth: 8192, maxDecodedHeight: 8192 },
     });
-    expect(backend.requests).toHaveLength(0);
-    expect(harness.options).toHaveLength(0);
+    expect(harness.options).toHaveLength(1);
     expect(engine.snapshot()).toMatchObject({
-      lifecycle: 'new',
-      resources: { canvasCount: 0, assets: { pendingCount: 0, leaseCount: 0 } },
+      lifecycle: 'ready-empty',
+      resources: { canvasCount: 1, assets: { pendingCount: 0, leaseCount: 1 } },
     });
     await engine.destroy();
   });
@@ -523,7 +519,6 @@ describe('PatchMap asset lifecycle', () => {
     const runtime = new PatchMapAssetRuntime(backend);
     const engine = new PatchMap({
       assetRuntime: runtime,
-      assetPolicy: () => undefined,
       surfaceFactory: createSurfaceHarness().factory,
     });
     engine.registerAssets('unload-failure', [{
@@ -567,7 +562,7 @@ describe('PatchMap asset lifecycle', () => {
     const backend = new SequencedBackend();
     backend.unloadFailuresRemaining = 3;
     const runtime = new PatchMapAssetRuntime(backend);
-    const owner = runtime.createSession({ instanceId: 'owner', policy: () => undefined });
+    const owner = runtime.createSession({ instanceId: 'owner' });
     owner.registerAssets([{
       alias: 'owner-only',
       descriptor: 'https://assets.example.test/owner-only.png',
@@ -579,7 +574,6 @@ describe('PatchMap asset lifecycle', () => {
     const harness = createSurfaceHarness();
     const unrelated = new PatchMap({
       assetRuntime: runtime,
-      assetPolicy: () => undefined,
       surfaceFactory: harness.factory,
     });
     await unrelated.initialize({ instanceId: 'unrelated', width: 800, height: 600 });
@@ -604,7 +598,6 @@ describe('PatchMap asset lifecycle', () => {
     const harness = createLeafSurfaceHarness();
     const engine = new PatchMap({
       assetRuntime: runtime,
-      assetPolicy: () => undefined,
       surfaceFactory: harness.factory,
     });
     const descriptor = 'https://assets.example.test/leaf-chain.png';

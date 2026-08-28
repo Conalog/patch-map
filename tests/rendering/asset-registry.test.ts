@@ -1,18 +1,16 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
-import { Assets, Cache } from 'pixi.js';
+import { Assets } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   PATCH_MAP_BUILTIN_ASSETS,
-  PatchMapAssetError,
   PatchMapAssetRuntime,
   createPatchMapPixiAssetBackend,
   normalizePatchMapAssetDescriptor,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-  type PatchMapAssetPolicyContext,
 } from '../../src/assets';
 import {
   BUILTIN_IMAGE_SVGS,
@@ -173,7 +171,7 @@ describe('PatchMap shared asset runtime', () => {
     expect(runtime.probe()).toMatchObject({ resourceCount: 0, pendingCount: 0, leaseCount: 0 });
   });
 
-  it('trusts only the exact package catalog identity and uses closed invalid-input codes', async () => {
+  it('distinguishes package catalog identity from host registrations and uses closed invalid-input codes', async () => {
     const backend = new FakeAssetBackend();
     backend.immediate = Object.freeze({ texture: 'device' });
     const runtime = new PatchMapAssetRuntime(backend);
@@ -183,17 +181,16 @@ describe('PatchMap shared asset runtime', () => {
       alias: 'spoofed-device',
       descriptor: 'patch-map-builtin://images/device.svg',
     }]);
-    await expect(session.acquire('spoofed-device')).rejects.toMatchObject({
-      code: 'ASSET_POLICY_REJECTED',
-      category: 'ASSET_FAILURE',
+    await expect(session.acquire('spoofed-device')).resolves.toMatchObject({
+      resource: { texture: 'device' },
     });
-    expect(backend.loadRequests).toHaveLength(0);
+    expect(backend.loadRequests[0]).toMatchObject({ packageOwned: false });
 
     session.registerAssets();
     await expect(session.acquire('device')).resolves.toMatchObject({
       resource: { texture: 'device' },
     });
-    expect(backend.loadRequests[0]).toMatchObject({ packageOwned: true });
+    expect(backend.loadRequests[1]).toMatchObject({ packageOwned: true });
 
     expect(() => session.acquire('missing')).toThrowError(expect.objectContaining({
       code: 'INVALID_VALUE',
@@ -209,7 +206,7 @@ describe('PatchMap shared asset runtime', () => {
   it('does not let a permissive reserved-source acquisition occupy a package resource identity', async () => {
     const backend = new FakeAssetBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const host = runtime.createSession({ instanceId: 'host', policy: () => undefined });
+    const host = runtime.createSession({ instanceId: 'host' });
     const product = runtime.createSession({ instanceId: 'product' });
     host.registerAssets([{
       alias: 'host-device',
@@ -237,13 +234,7 @@ describe('PatchMap shared asset runtime', () => {
     const backend = new FakeAssetBackend();
     backend.immediate = Object.freeze({ texture: 'resolution-2' });
     const runtime = new PatchMapAssetRuntime(backend);
-    const policyDescriptors: unknown[] = [];
-    const session = runtime.createSession({
-      instanceId: 'immutable',
-      policy: ({ descriptor }) => {
-        policyDescriptors.push(descriptor);
-      },
-    });
+    const session = runtime.createSession({ instanceId: 'immutable' });
     const data = { resolution: 2, nested: { scaleMode: 'linear' } };
     const descriptor = {
       src: 'https://assets.example.test/icon.svg',
@@ -256,13 +247,13 @@ describe('PatchMap shared asset runtime', () => {
     data.nested.scaleMode = 'nearest';
 
     const acquired = await session.acquire('icon');
-    expect(policyDescriptors).toEqual([{
+    expect(backend.loadRequests[0]?.descriptor).toEqual({
       src: 'https://assets.example.test/icon.svg',
       data: { nested: { scaleMode: 'linear' }, resolution: 2 },
       format: 'svg',
       parser: 'svg',
-    }]);
-    expect(Object.isFrozen(policyDescriptors[0])).toBe(true);
+    });
+    expect(Object.isFrozen(backend.loadRequests[0]?.descriptor)).toBe(true);
     expect(JSON.stringify(session.runtimeProbe('icon'))).not.toContain('assets.example.test');
 
     await acquired.release();
@@ -287,15 +278,11 @@ describe('PatchMap shared asset runtime', () => {
     }));
   });
 
-  it('deduplicates pending work, revalidates each instance, and unloads after the final lease', async () => {
+  it('deduplicates pending work across instances and unloads after the final lease', async () => {
     const backend = new FakeAssetBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const policyCalls: PatchMapAssetPolicyContext[] = [];
-    const policy = (context: PatchMapAssetPolicyContext): void => {
-      policyCalls.push(context);
-    };
-    const sessionA = runtime.createSession({ instanceId: 'A', policy });
-    const sessionB = runtime.createSession({ instanceId: 'B', policy });
+    const sessionA = runtime.createSession({ instanceId: 'A' });
+    const sessionB = runtime.createSession({ instanceId: 'B' });
     sessionA.registerAssets([{
       alias: 'device',
       descriptor: 'https://assets.example.test/device.png',
@@ -319,7 +306,6 @@ describe('PatchMap shared asset runtime', () => {
 
     backend.pending.resolve(Object.freeze({ texture: 'device' }));
     await Promise.all([pendingA, pendingB]);
-    expect(policyCalls.map(({ instanceId }) => instanceId)).toEqual(['A', 'B']);
     expect(runtime.probe('device').resource).toMatchObject({
       resourceCount: 1,
       pendingCount: 0,
@@ -341,8 +327,8 @@ describe('PatchMap shared asset runtime', () => {
     backend.immediate = Object.freeze({ texture: 'shared-runtime-resource' });
     const runtimeA = new PatchMapAssetRuntime(backend);
     const runtimeB = new PatchMapAssetRuntime(backend);
-    const sessionA = runtimeA.createSession({ instanceId: 'runtime-A', policy: () => undefined });
-    const sessionB = runtimeB.createSession({ instanceId: 'runtime-B', policy: () => undefined });
+    const sessionA = runtimeA.createSession({ instanceId: 'runtime-A' });
+    const sessionB = runtimeB.createSession({ instanceId: 'runtime-B' });
     const registration = [{
       alias: 'shared',
       descriptor: 'https://assets.example.test/shared-runtime.png',
@@ -366,34 +352,33 @@ describe('PatchMap shared asset runtime', () => {
     expect(runtimeA.probe()).toMatchObject({ resourceCount: 0, leaseCount: 0 });
   });
 
-  it('does not let a denied instance borrow an already resolved shared resource', async () => {
+  it('isolates shared resources when sessions use different asset policies', async () => {
     const backend = new FakeAssetBackend();
     backend.immediate = Object.freeze({ texture: 'device' });
     const runtime = new PatchMapAssetRuntime(backend);
-    const allowed = runtime.createSession({ instanceId: 'allowed', policy: () => undefined });
-    const denied = runtime.createSession({
-      instanceId: 'denied',
-      policy: () => {
-        throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', true);
-      },
+    const defaults = runtime.createSession({ instanceId: 'defaults' });
+    const constrained = runtime.createSession({
+      instanceId: 'constrained',
+      policy: { maxEncodedBytes: 1024 },
     });
     const registration = [{ alias: 'device', descriptor: 'https://assets.example.test/device.png' }];
-    allowed.registerAssets(registration);
-    denied.registerAssets(registration);
-    await allowed.acquire('device');
+    defaults.registerAssets(registration);
+    constrained.registerAssets(registration);
+    await Promise.all([defaults.acquire('device'), constrained.acquire('device')]);
 
-    await expect(denied.acquire('device')).rejects.toMatchObject({
-      code: 'ASSET_POLICY_REJECTED',
-    });
-    expect(backend.loadRequests).toHaveLength(1);
-    expect(runtime.probe('device').resource).toMatchObject({ leaseCount: 1, pendingCount: 0 });
-    await allowed.destroy();
+    expect(backend.loadRequests).toHaveLength(2);
+    expect(backend.loadRequests.map(({ policy }) => policy?.maxEncodedBytes)).toEqual([
+      20 * 1024 * 1024,
+      1024,
+    ]);
+    expect(runtime.probe('device').resource).toMatchObject({ resourceCount: 2, leaseCount: 2 });
+    await Promise.all([defaults.destroy(), constrained.destroy()]);
   });
 
   it('releases a late core-owned success after its only pending session is destroyed', async () => {
     const backend = new FakeAssetBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'late', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'late' });
     session.registerAssets([{ alias: 'late', descriptor: 'https://assets.example.test/late.png' }]);
     const acquisition = session.acquire('late');
     await Promise.resolve();
@@ -412,7 +397,7 @@ describe('PatchMap shared asset runtime', () => {
     backend.immediate = Object.freeze({ texture: 'transient-unload' });
     backend.unloadFailuresRemaining = 1;
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'transient', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'transient' });
     session.registerAssets([{
       alias: 'transient',
       descriptor: 'https://assets.example.test/transient.png',
@@ -429,7 +414,7 @@ describe('PatchMap shared asset runtime', () => {
     backend.immediate = Object.freeze({ texture: 'persistent-unload' });
     backend.unloadFailuresRemaining = 2;
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'persistent', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'persistent' });
     session.registerAssets([{
       alias: 'persistent',
       descriptor: 'https://assets.example.test/persistent.png',
@@ -462,7 +447,7 @@ describe('PatchMap shared asset runtime', () => {
     backend.immediate = Object.freeze({ texture: 'owned-by-a' });
     backend.unloadFailuresRemaining = 3;
     const runtime = new PatchMapAssetRuntime(backend);
-    const owner = runtime.createSession({ instanceId: 'owner', policy: () => undefined });
+    const owner = runtime.createSession({ instanceId: 'owner' });
     owner.registerAssets([{
       alias: 'owned-by-a',
       descriptor: 'https://assets.example.test/owned-by-a.png',
@@ -471,7 +456,7 @@ describe('PatchMap shared asset runtime', () => {
     await expect(owner.destroy()).rejects.toMatchObject({ code: 'INTERNAL_FAILURE' });
     expect(backend.unloadKeys).toHaveLength(2);
 
-    const unrelated = runtime.createSession({ instanceId: 'unrelated', policy: () => undefined });
+    const unrelated = runtime.createSession({ instanceId: 'unrelated' });
     await expect(unrelated.destroy()).resolves.toBeUndefined();
     expect(backend.unloadKeys).toHaveLength(2);
     expect(runtime.probe()).toMatchObject({ resourceCount: 1, cleanupPendingCount: 1 });
@@ -494,7 +479,7 @@ describe('PatchMap shared asset runtime', () => {
       alias: 'quarantined',
       descriptor: 'https://assets.example.test/quarantined.png',
     }] as const;
-    const first = runtime.createSession({ instanceId: 'first', policy: () => undefined });
+    const first = runtime.createSession({ instanceId: 'first' });
     first.registerAssets(registration);
     expect((await first.acquire('quarantined')).resource).toBe(staleResource);
 
@@ -509,7 +494,7 @@ describe('PatchMap shared asset runtime', () => {
     expect(runtime.probe()).toMatchObject({ cleanupPendingCount: 1 });
 
     backend.immediate = replacementResource;
-    const second = runtime.createSession({ instanceId: 'second', policy: () => undefined });
+    const second = runtime.createSession({ instanceId: 'second' });
     second.registerAssets(registration);
     const replacement = await second.acquire('quarantined');
     expect(replacement.resource).toBe(replacementResource);
@@ -530,14 +515,14 @@ describe('PatchMap shared asset runtime', () => {
       alias: 'quarantined-race',
       descriptor: 'https://assets.example.test/quarantined-race.png',
     }] as const;
-    const first = runtime.createSession({ instanceId: 'first', policy: () => undefined });
+    const first = runtime.createSession({ instanceId: 'first' });
     first.registerAssets(registration);
     await first.acquire('quarantined-race');
     await expect(first.destroy()).rejects.toMatchObject({ code: 'INTERNAL_FAILURE' });
 
     const cleanup = deferred<void>();
     backend.unloadBarrier = cleanup.promise;
-    const second = runtime.createSession({ instanceId: 'second', policy: () => undefined });
+    const second = runtime.createSession({ instanceId: 'second' });
     second.registerAssets(registration);
     const acquiring = second.acquire('quarantined-race');
     await vi.waitFor(() => expect(backend.unloadKeys).toHaveLength(3));
@@ -565,8 +550,8 @@ describe('PatchMap shared asset runtime', () => {
       alias: 'releasing-race',
       descriptor: 'https://assets.example.test/releasing-race.png',
     }] as const;
-    const first = runtime.createSession({ instanceId: 'first', policy: () => undefined });
-    const second = runtime.createSession({ instanceId: 'second', policy: () => undefined });
+    const first = runtime.createSession({ instanceId: 'first' });
+    const second = runtime.createSession({ instanceId: 'second' });
     first.registerAssets(registration);
     second.registerAssets(registration);
     await first.acquire('releasing-race');
@@ -594,7 +579,7 @@ describe('PatchMap shared asset runtime', () => {
     const backend = new FakeAssetBackend();
     backend.cached = Object.freeze({ texture: 'external' });
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'external', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'external' });
     session.registerAssets([{ alias: 'external', descriptor: 'https://assets.example.test/external.png' }]);
 
     await session.acquire('external');
@@ -609,7 +594,7 @@ describe('PatchMap shared asset runtime', () => {
     });
   });
 
-  it('uses public Pixi cache keys for exact external borrowing and maps package builtins', async () => {
+  it('does not borrow host Pixi cache entries and maps package builtins', async () => {
     const fetchedSources: string[] = [];
     let objectUrlSequence = 0;
     const backend = createPatchMapPixiAssetBackend({
@@ -621,18 +606,12 @@ describe('PatchMap shared asset runtime', () => {
       },
       createObjectURL: () => `blob:patch-map/builtin-${++objectUrlSequence}`,
       revokeObjectURL: () => undefined,
+      inspectDecodedSize: () => Promise.resolve({ width: 72, height: 72 }),
     });
     const pixiAssets = Assets as unknown as {
       load(descriptor: unknown): Promise<unknown>;
       unload(id: string): Promise<void>;
     };
-    const pixiCache = Cache as unknown as {
-      has(id: string): boolean;
-      get(id: string): unknown;
-    };
-    const external = Object.freeze({ texture: 'external' });
-    const has = vi.spyOn(pixiCache, 'has').mockReturnValueOnce(true);
-    const get = vi.spyOn(pixiCache, 'get').mockReturnValueOnce(external);
     const externalRequest: PatchMapAssetBackendRequest = Object.freeze({
       key: 'patch-map-asset:external',
       descriptor: Object.freeze({ src: 'https://assets.example.test/external.png' }),
@@ -640,12 +619,7 @@ describe('PatchMap shared asset runtime', () => {
       packageOwned: false,
     });
 
-    expect(backend.get(externalRequest)).toBe(external);
-    expect(has.mock.calls.map(([key]) => key)).toEqual([externalRequest.descriptor.src]);
-    expect(get.mock.calls.map(([key]) => key)).toEqual([externalRequest.descriptor.src]);
-
-    has.mockReset();
-    get.mockReset();
+    expect(backend.get(externalRequest)).toBeUndefined();
     const optionedRequest: PatchMapAssetBackendRequest = Object.freeze({
       ...externalRequest,
       descriptor: Object.freeze({
@@ -654,8 +628,6 @@ describe('PatchMap shared asset runtime', () => {
       }),
     });
     expect(backend.get(optionedRequest)).toBeUndefined();
-    expect(has).not.toHaveBeenCalled();
-    expect(get).not.toHaveBeenCalled();
 
     const resource = Object.freeze({ texture: 'builtin' });
     const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(resource);
@@ -767,23 +739,12 @@ describe('PatchMap shared asset runtime', () => {
     expect(new Set(physicalKeys).size).toBe(BUILTIN_IMAGE_ALIASES.length);
   });
 
-  it('does not borrow an unverified external Pixi cache entry under ingestion policy', () => {
+  it('does not borrow an unverified external Pixi cache entry', () => {
     const pixiAssets = Assets as unknown as { get(id: string): unknown };
     const get = vi.spyOn(pixiAssets, 'get').mockReturnValue(
       Object.freeze({ texture: 'unverified-external' }),
     );
-    const backend = createPatchMapPixiAssetBackend({
-      ingestionPolicy: {
-        protocols: ['https:'],
-        origins: ['https://assets.example.test'],
-        redirects: 'revalidate',
-        credentials: 'omit',
-        mediaTypes: ['image/png'],
-        maxEncodedBytes: 1024,
-        maxDecodedWidth: 64,
-        maxDecodedHeight: 64,
-      },
-    });
+    const backend = createPatchMapPixiAssetBackend();
 
     expect(backend.get(Object.freeze({
       key: 'patch-map-asset:policy-cache',
@@ -794,21 +755,43 @@ describe('PatchMap shared asset runtime', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
-  it('fails closed when image decoded-size inspection is absent under ingestion policy', async () => {
+  it('uses fixed anonymous fetches and rejects redirects in the package backend', async () => {
+    const source = 'https://assets.example.test/external.png';
+    const fetchAsset = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
+      new Blob(['png'], { type: 'image/png' }),
+      { status: 200, headers: { 'content-type': 'image/png' } },
+    ));
+    const pixiAssets = Assets as unknown as {
+      load(descriptor: unknown): Promise<unknown>;
+      unload(id: string): Promise<void>;
+    };
+    vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'external' }));
+    vi.spyOn(pixiAssets, 'unload').mockResolvedValue(undefined);
+    const backend = createPatchMapPixiAssetBackend({
+      createObjectURL: () => 'blob:patch-map/fixed-fetch',
+      revokeObjectURL: () => undefined,
+      inspectDecodedSize: () => Promise.resolve({ width: 32, height: 16 }),
+    });
+
+    await backend.load(Object.freeze({
+      key: 'patch-map-asset:fixed-fetch',
+      descriptor: Object.freeze({ src: source }),
+      cacheIdentity: 'descriptor:fixed-fetch',
+      packageOwned: false,
+    }));
+
+    expect(fetchAsset).toHaveBeenCalledWith(source, {
+      credentials: 'omit',
+      redirect: 'error',
+    });
+    await backend.unload('patch-map-asset:fixed-fetch');
+  });
+
+  it('fails closed when image decoded-size inspection is absent', async () => {
     const pixiAssets = Assets as unknown as { load(descriptor: unknown): Promise<unknown> };
     const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'unsafe' }));
     const createObjectURL = vi.fn(() => 'blob:unsafe');
     const backend = createPatchMapPixiAssetBackend({
-      ingestionPolicy: {
-        protocols: ['https:'],
-        origins: ['https://assets.example.test'],
-        redirects: 'revalidate',
-        credentials: 'omit',
-        mediaTypes: ['image/png'],
-        maxEncodedBytes: 1024,
-        maxDecodedWidth: 64,
-        maxDecodedHeight: 64,
-      },
       fetchAsset: () => Promise.resolve(new Blob(['png'], { type: 'image/png' })),
       createObjectURL,
     });
@@ -818,6 +801,7 @@ describe('PatchMap shared asset runtime', () => {
       descriptor: Object.freeze({ src: 'https://assets.example.test/external.png' }),
       cacheIdentity: 'descriptor:missing-inspector',
       packageOwned: false,
+      policy: { maxEncodedBytes: 1024, maxDecodedWidth: 64, maxDecodedHeight: 64 },
     }))).rejects.toMatchObject({ code: 'ASSET_POLICY_REJECTED' });
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(load).not.toHaveBeenCalled();
@@ -846,6 +830,7 @@ describe('PatchMap shared asset runtime', () => {
         return url;
       },
       revokeObjectURL: (url) => revoked.push(url),
+      inspectDecodedSize: () => Promise.resolve({ width: 72, height: 72 }),
     });
     const first: PatchMapAssetBackendRequest = Object.freeze({
       key: 'patch-map-asset:first',

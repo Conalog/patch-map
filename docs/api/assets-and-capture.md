@@ -22,12 +22,18 @@ Font byte identity and licensing are owned by [`fonts.md`](../assets/fonts.md).
   completed frame. Source changes retain the last resolved texture until the new
   binding is ready; a leaf with no resolved texture contributes no placeholder
   pixels while its geometry and diagnostics remain live.
-- `assets.register()` applies configured origin, response, MIME, size, and byte
-  policy before admitting an external texture. A Pixi global-cache hit is not
-  proof that admission ran.
-- Without an `assetPolicy`, only package-owned built-ins are eligible for a
-  session. Pass an explicit policy for external sources;
-  `createPatchMapAssetIngestionPolicy()` is the supported profile-based helper.
+- Direct URL and descriptor sources are eligible without an origin allowlist,
+  matching the v0.10 source contract. Host assets always use anonymous fetches
+  (`credentials: 'omit'`) and reject redirects; callers cannot override those
+  network rules.
+- The package fixes the admitted media set to supported image/font types and
+  rejects unsafe SVG content. A Pixi global-cache hit is not admission evidence,
+  so host assets always pass through package-owned fetch and validation.
+- `assetPolicy` is the extensible per-instance admission configuration. It
+  currently accepts `maxEncodedBytes`, `maxDecodedWidth`, and
+  `maxDecodedHeight`; defaults are 20 MiB and 8192×8192. For example,
+  `PatchMap.mount({ ..., assetPolicy: { maxEncodedBytes: 5 * 1024 * 1024 } })`
+  tightens one instance while retaining the default decoded dimensions.
 - Each engine owns an asset session and releases only its leases. A shared
   `assetRuntime` deduplicates physical resources across engines and unloads a
   resource after its final lease. `assets.status(alias?)` reports session and
@@ -36,8 +42,7 @@ Font byte identity and licensing are owned by [`fonts.md`](../assets/fonts.md).
   `createPatchMapPixiAssetBackend()` form the one intentional advanced asset
   extension. Use them only to share leases across mounted maps or to supply an
   equivalent resource backend; they do not expose renderer, scene, or Engine
-  ownership. `createPatchMapAssetIngestionPolicy()` remains the supported
-  admission-policy helper.
+  ownership. Custom runtimes receive the normalized policy on each backend request.
 - The package eagerly acquires the five Fira Code weights documented in
   [`fonts.md`](../assets/fonts.md)
   before creating text objects. The payload is an async package chunk shared by
@@ -52,7 +57,7 @@ the latest deferred size is applied before the frame loop resumes. The result is
 
 ## Failure semantics
 
-- Policy, fetch, decode, or upload failure is reported without borrowing a
+- Admission, fetch, decode, or upload failure is reported without borrowing a
   cached texture or painting a generic rectangle. Correct the reported source
   and register or replace it again.
 - Superseded image completions never attach. A failed replacement retains the
@@ -68,7 +73,7 @@ Runnable capture reference: [`examples/report.ts`](../../examples/report.ts).
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| admission policy | `src/assets/ingestion-policy.ts` | `tests/rendering/asset-ingestion-policy.test.ts` |
+| fixed admission and configurable policy | `src/assets/ingestion-policy.ts` | `tests/rendering/asset-ingestion-policy.test.ts` |
 | sessions, leases, and cleanup | `src/engine/asset-session-authority.ts` | `tests/engine/engine-asset-lifecycle.test.ts` |
 | built-in image projection | `src/assets/builtin-image-glyphs.ts` | `tests/rendering/component-assets-product.test.ts` |
 | font leases and first-frame readiness | `src/assets/builtin-font-payload.ts` | `tests/rendering/asset-registry.test.ts` |

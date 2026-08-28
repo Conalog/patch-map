@@ -6,6 +6,7 @@ import {
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
   type PatchMapAssetPolicy,
+  type PatchMapResolvedAssetPolicy,
   type PatchMapAssetRegistration,
   type PatchMapAssetRegistrationResult,
   type PatchMapAssetResourceProbe,
@@ -13,7 +14,9 @@ import {
   type PatchMapAssetSessionProbe,
   type PatchMapNormalizedAssetRegistration,
 } from './contracts';
-import { allowPackageBuiltinsOnly } from './ingestion-policy';
+import {
+  normalizePatchMapAssetPolicy,
+} from './ingestion-policy';
 import { createPatchMapPixiAssetBackend } from './pixi-backend';
 import {
   BUILTIN_FONT_WEIGHTS,
@@ -38,9 +41,8 @@ export type {
   PatchMapAssetDiagnosticCategory,
   PatchMapAssetDiagnosticCode,
   PatchMapAssetIngestionDecision,
-  PatchMapAssetIngestionPolicyProfile,
   PatchMapAssetPolicy,
-  PatchMapAssetPolicyContext,
+  PatchMapResolvedAssetPolicy,
   PatchMapAssetRegistration,
   PatchMapAssetRegistrationResult,
   PatchMapAssetResourceProbe,
@@ -52,8 +54,9 @@ export type {
 } from './contracts';
 export {
   assertPatchMapAssetResponseAllowed,
-  createPatchMapAssetIngestionPolicy,
   evaluatePatchMapAssetResponsePolicy,
+  normalizePatchMapAssetPolicy,
+  PATCH_MAP_DEFAULT_ASSET_POLICY,
 } from './ingestion-policy';
 export { createPatchMapPixiAssetBackend } from './pixi-backend';
 export {
@@ -70,6 +73,7 @@ interface AssetCatalogEntry extends PatchMapNormalizedAssetRegistration {
 
 interface SharedResource {
   readonly canonical: string;
+  readonly sourceIdentity: string;
   readonly cacheIdentity: string;
   readonly backendKey: string;
   readonly request: PatchMapAssetBackendRequest;
@@ -87,9 +91,11 @@ interface SharedResource {
 
 interface SessionUse {
   readonly canonical: string;
+  readonly sourceIdentity: string;
   readonly cacheIdentity: string;
   readonly descriptor: PatchMapAssetDescriptor;
   readonly packageOwned: boolean;
+  readonly policy: PatchMapResolvedAssetPolicy;
   readonly promise: Promise<unknown>;
   status: 'validating' | 'pending' | 'leased' | 'released';
   handleCount: number;
@@ -132,7 +138,7 @@ export class PatchMapAssetRuntime {
     return new PatchMapAssetSession(
       this,
       nonempty(options.instanceId, 'instanceId'),
-      options.policy ?? allowPackageBuiltinsOnly,
+      normalizePatchMapAssetPolicy(options.policy),
     );
   }
 
@@ -205,7 +211,11 @@ export class PatchMapAssetRuntime {
 
   public probe(alias?: string): PatchMapAssetRuntimeProbe {
     const entry = alias === undefined ? undefined : this.aliases.get(alias);
-    const resource = entry ? this.resources.get(entry.resourceIdentity) : undefined;
+    const resources = entry === undefined
+      ? []
+      : [...this.resources.values()].filter(
+          (resource) => resource.sourceIdentity === entry.resourceIdentity,
+        );
     return deepFreeze({
       builtins: { aliases: [...BUILTIN_IMAGE_ALIASES] },
       fonts: { weights: [...BUILTIN_FONT_WEIGHTS] },
@@ -218,7 +228,7 @@ export class PatchMapAssetRuntime {
         ({ state }) => state === 'cleanup-failed' ? 1 : 0,
       ),
       resource: entry
-        ? resourceProbe(entry.cacheIdentity, resource)
+        ? resourceProbe(entry.cacheIdentity, resources)
         : null,
     });
   }
@@ -347,6 +357,7 @@ export class PatchMapAssetRuntime {
       descriptor: use.descriptor,
       cacheIdentity: use.cacheIdentity,
       packageOwned: use.packageOwned,
+      policy: use.policy,
     });
     const cached = this.backend.get(request);
     const ownership = cached === undefined ? 'patch-map' : 'external';
@@ -355,6 +366,7 @@ export class PatchMapAssetRuntime {
       : Promise.resolve(cached);
     const entry: SharedResource = {
       canonical: use.canonical,
+      sourceIdentity: use.sourceIdentity,
       cacheIdentity: use.cacheIdentity,
       backendKey,
       request,
@@ -452,7 +464,7 @@ export class PatchMapAssetSession {
   public constructor(
     private readonly runtime: PatchMapAssetRuntime,
     public readonly instanceId: string,
-    private readonly policy: PatchMapAssetPolicy,
+    private readonly policy: PatchMapResolvedAssetPolicy,
   ) {}
 
   public registerAssets(
@@ -518,7 +530,8 @@ export class PatchMapAssetSession {
   }
 
   private async acquireEntry(entry: AssetCatalogEntry): Promise<PatchMapAssetAcquisition> {
-    let use = this.uses.get(entry.resourceIdentity);
+    const useIdentity = assetUseIdentity(entry, this.policy);
+    let use = this.uses.get(useIdentity);
     if (!use || use.status === 'released') {
       let resolveUse!: (value: unknown) => void;
       let rejectUse!: (reason?: unknown) => void;
@@ -527,15 +540,17 @@ export class PatchMapAssetSession {
         rejectUse = reject;
       });
       use = {
-        canonical: entry.resourceIdentity,
+        canonical: useIdentity,
+        sourceIdentity: entry.resourceIdentity,
         cacheIdentity: entry.cacheIdentity,
         descriptor: entry.descriptor,
         packageOwned: entry.packageOwned,
+        policy: this.policy,
         promise,
         status: 'validating',
         handleCount: 0,
       };
-      this.uses.set(entry.resourceIdentity, use);
+      this.uses.set(useIdentity, use);
       void this.beginAcquire(use).then(resolveUse, rejectUse);
     }
     use.handleCount += 1;
@@ -574,12 +589,6 @@ export class PatchMapAssetSession {
 
   private async beginAcquire(use: SessionUse): Promise<unknown> {
     try {
-      await this.policy(Object.freeze({
-        instanceId: this.instanceId,
-        descriptor: use.descriptor,
-        cacheIdentity: use.cacheIdentity,
-        packageOwned: use.packageOwned,
-      }));
       if (this.destroyedValue || use.status === 'released') {
         use.status = 'released';
         throw new PatchMapAssetError('CANCELLED', 'CANCELLED', false);
@@ -606,8 +615,20 @@ export function createPatchMapLeafAssetSession(
 ): PatchMapAssetSession {
   return PATCH_MAP_ASSET_RUNTIME.createSession({
     instanceId: `patch-map-leaf-${++leafSessionSequence}`,
-    ...(policy ? { policy } : {}),
+    ...(policy === undefined ? {} : { policy }),
   });
+}
+
+function assetUseIdentity(
+  entry: AssetCatalogEntry,
+  policy: PatchMapResolvedAssetPolicy,
+): string {
+  if (entry.packageOwned) return entry.resourceIdentity;
+  return [
+    entry.resourceIdentity,
+    'policy',
+    stableHash(JSON.stringify(policy)),
+  ].join(':');
 }
 
 function resolveBackendNamespace(backend: PatchMapAssetBackend): string {
@@ -628,17 +649,26 @@ function nextBackendResourceSequence(backend: PatchMapAssetBackend): number {
 
 function resourceProbe(
   cacheIdentity: string,
-  resource: SharedResource | undefined,
+  resources: readonly SharedResource[],
 ): PatchMapAssetResourceProbe {
+  const state = resources.some((resource) => resource.state === 'cleanup-failed')
+    ? 'cleanup-failed'
+    : resources.some((resource) => resource.state === 'releasing')
+      ? 'releasing'
+      : resources.some((resource) => resource.state === 'pending')
+        ? 'pending'
+        : resources.length > 0
+          ? 'resolved'
+          : 'absent';
   return Object.freeze({
     cacheIdentity,
-    resourceCount: resource ? 1 : 0,
-    pendingCount: resource?.pendingUsers.size ?? 0,
-    leaseCount: resource?.leases.size ?? 0,
-    ownership: resource?.ownership ?? null,
-    state: resource?.state ?? 'absent',
-    cleanupPending: resource?.state === 'cleanup-failed',
-    cleanupRetryOwner: resource?.state === 'cleanup-failed' ? 'runtime' : null,
+    resourceCount: resources.length,
+    pendingCount: resources.reduce((sum, resource) => sum + resource.pendingUsers.size, 0),
+    leaseCount: resources.reduce((sum, resource) => sum + resource.leases.size, 0),
+    ownership: resources[0]?.ownership ?? null,
+    state,
+    cleanupPending: state === 'cleanup-failed',
+    cleanupRetryOwner: state === 'cleanup-failed' ? 'runtime' : null,
   });
 }
 
