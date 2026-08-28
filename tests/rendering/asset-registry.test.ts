@@ -866,6 +866,40 @@ describe('PatchMap shared asset runtime', () => {
   });
 
   it.each([
+    'font/woff2',
+    'application/font-woff',
+  ])('loads an extensionless %s font without image decoding', async (mediaType) => {
+    const source = 'https://assets.example.test/external-font';
+    const pixiAssets = Assets as unknown as {
+      load(descriptor: unknown): Promise<unknown>;
+      unload(id: string): Promise<void>;
+    };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ font: 'external' }));
+    vi.spyOn(pixiAssets, 'unload').mockResolvedValue(undefined);
+    const { revoked } = mockObjectUrls('blob:patch-map/font-');
+    const createImageBitmap = vi.fn(() => Promise.reject(new Error('not an image')));
+    vi.stubGlobal('createImageBitmap', createImageBitmap);
+    mockAssetFetch(() => new Blob(['font'], { type: mediaType }));
+    const backend = createPatchMapPixiAssetBackend();
+
+    await backend.load(Object.freeze({
+      key: `patch-map-asset:font:${mediaType}`,
+      descriptor: Object.freeze({ src: source }),
+      cacheIdentity: `descriptor:font:${mediaType}`,
+      packageOwned: false,
+    }));
+
+    expect(createImageBitmap).not.toHaveBeenCalled();
+    expect(load).toHaveBeenCalledWith(expect.objectContaining({
+      alias: `patch-map-asset:font:${mediaType}`,
+      src: 'blob:patch-map/font-1',
+      parser: 'web-font',
+    }));
+    await backend.unload(`patch-map-asset:font:${mediaType}`);
+    expect(revoked).toEqual(['blob:patch-map/font-1']);
+  });
+
+  it.each([
     {
       label: 'raster',
       blob: new Blob(['oversized-raster'], { type: 'image/png' }),

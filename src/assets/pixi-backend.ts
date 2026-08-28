@@ -140,13 +140,14 @@ async function isolatedPixiDescriptor(
         svgText,
       });
     }
-    const inspect = defaultDecodedSizeInspector();
-    if (mediaType.startsWith('image/') && inspect === null) {
-      throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
+    let decoded: Readonly<{ readonly width: number; readonly height: number }> | undefined;
+    if (mediaType.startsWith('image/')) {
+      const inspect = defaultDecodedSizeInspector();
+      if (inspect === null) {
+        throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
+      }
+      decoded = decodedSizeForPolicy(descriptor, mediaType, await inspect(blob));
     }
-    const decoded = inspect === null
-      ? undefined
-      : decodedSizeForPolicy(descriptor, mediaType, await inspect(blob));
     assertPatchMapAssetResponseAllowed(policy, {
       ...responseMetadata,
       ...(decoded === undefined
@@ -256,7 +257,8 @@ function inferAssetParser(
   if (
     ['woff', 'woff2', 'ttf', 'otf'].includes(format ?? '') ||
     /\.(?:woff2?|ttf|otf)$/u.test(sourcePath) ||
-    mediaType.startsWith('font/')
+    mediaType.startsWith('font/') ||
+    mediaType === 'application/font-woff'
   ) {
     return 'web-font';
   }
