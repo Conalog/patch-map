@@ -28,7 +28,6 @@ export function createPatchMapPixiAssetBackend(
   options: PatchMapPixiAssetBackendOptions = {},
 ): PatchMapAssetBackend {
   const keyNamespace = `pixi-assets-${++pixiBackendSequence}`;
-  const fetchAsset = options.fetchAsset ?? defaultFetchAsset;
   const createObjectURL = options.createObjectURL ?? ((blob: Blob) => URL.createObjectURL(blob));
   const revokeObjectURL = options.revokeObjectURL ?? ((url: string) => URL.revokeObjectURL(url));
   const ownedObjectUrls = new Map<string, string>();
@@ -47,7 +46,6 @@ export function createPatchMapPixiAssetBackend(
       try {
         const descriptor = await isolatedPixiDescriptor(
           logicalDescriptor,
-          fetchAsset,
           createObjectURL,
           revokeObjectURL,
           request.packageOwned ? undefined : normalizePatchMapAssetPolicy(request.policy),
@@ -129,7 +127,6 @@ async function pixiDescriptor(
 
 async function isolatedPixiDescriptor(
   descriptor: PatchMapAssetDescriptor,
-  fetchAsset: (src: string) => Promise<Blob>,
   createObjectURL: (blob: Blob) => string,
   revokeObjectURL: (url: string) => void,
   policy?: PatchMapResolvedAssetPolicy,
@@ -137,7 +134,7 @@ async function isolatedPixiDescriptor(
     blob: Blob,
   ) => Promise<Readonly<{ readonly width: number; readonly height: number }>>,
 ): Promise<PatchMapAssetDescriptor> {
-  const blob = await fetchAsset(descriptor.src);
+  const blob = await defaultFetchAsset(descriptor.src);
   const parser = descriptor.parser ?? inferAssetParser(descriptor, blob.type);
   if (policy) {
     const mediaType = normalizeMediaType(blob.type);

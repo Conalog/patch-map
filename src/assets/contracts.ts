@@ -84,7 +84,6 @@ export interface PatchMapAssetBackend {
 }
 
 export interface PatchMapPixiAssetBackendOptions {
-  readonly fetchAsset?: (src: string) => Promise<Blob>;
   readonly createObjectURL?: (blob: Blob) => string;
   readonly revokeObjectURL?: (url: string) => void;
   /**
