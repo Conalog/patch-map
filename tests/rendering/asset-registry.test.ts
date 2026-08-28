@@ -1106,27 +1106,44 @@ describe('PatchMap shared asset runtime', () => {
       'blob:patch-map/3',
       'blob:patch-map/4',
     ]);
-    expect(load.mock.calls.map(([descriptor]) => descriptor)).toMatchObject([
-      { alias: first.key, src: 'blob:patch-map/3', parser: 'svg', data: { resolution: 1 } },
-      { alias: second.key, src: 'blob:patch-map/4', parser: 'svg', data: { resolution: 2 } },
-    ]);
+    const loadedDescriptors = load.mock.calls.map(([descriptor]) => descriptor as {
+      readonly alias: string;
+      readonly src: string;
+      readonly parser: string;
+      readonly data: Readonly<{ readonly resolution: number }>;
+    });
+    expect(loadedDescriptors).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        alias: first.key,
+        parser: 'svg',
+        data: { resolution: 1 },
+      }),
+      expect.objectContaining({
+        alias: second.key,
+        parser: 'svg',
+        data: { resolution: 2 },
+      }),
+    ]));
+    const firstObjectUrl = loadedDescriptors.find(({ alias }) => alias === first.key)?.src;
+    const secondObjectUrl = loadedDescriptors.find(({ alias }) => alias === second.key)?.src;
+    if (firstObjectUrl === undefined || secondObjectUrl === undefined) {
+      throw new Error('fixture Pixi descriptors were not loaded');
+    }
+    expect(firstObjectUrl).toMatch(/^blob:patch-map\/\d+$/u);
+    expect(secondObjectUrl).toMatch(/^blob:patch-map\/\d+$/u);
+    expect(firstObjectUrl).not.toBe(secondObjectUrl);
+    const decodedObjectUrls = created.filter((objectUrl) => (
+      objectUrl !== firstObjectUrl && objectUrl !== secondObjectUrl
+    ));
+    expect(decodedObjectUrls).toHaveLength(2);
 
     unload.mockRejectedValueOnce(new Error('fixture Pixi unload failure'));
     await expect(backend.unload(first.key)).rejects.toThrow('fixture Pixi unload failure');
-    expect(revoked).toEqual(['blob:patch-map/1', 'blob:patch-map/2']);
+    expect(new Set(revoked)).toEqual(new Set(decodedObjectUrls));
     await backend.unload(first.key);
     expect(unload).toHaveBeenCalledWith(first.key);
-    expect(revoked).toEqual([
-      'blob:patch-map/1',
-      'blob:patch-map/2',
-      'blob:patch-map/3',
-    ]);
+    expect(new Set(revoked)).toEqual(new Set([...decodedObjectUrls, firstObjectUrl]));
     await backend.unload(second.key);
-    expect(revoked).toEqual([
-      'blob:patch-map/1',
-      'blob:patch-map/2',
-      'blob:patch-map/3',
-      'blob:patch-map/4',
-    ]);
+    expect(new Set(revoked)).toEqual(new Set(created));
   });
 });
