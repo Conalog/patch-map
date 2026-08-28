@@ -138,8 +138,12 @@ async function isolatedPixiDescriptor(
   ) => Promise<Readonly<{ readonly width: number; readonly height: number }>>,
 ): Promise<PatchMapAssetDescriptor> {
   const blob = await fetchAsset(descriptor.src);
+  const parser = descriptor.parser ?? inferAssetParser(descriptor, blob.type);
   if (policy) {
     const mediaType = normalizeMediaType(blob.type);
+    if ((parser === 'svg') !== (mediaType === 'image/svg+xml')) {
+      throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
+    }
     const svgText = mediaType === 'image/svg+xml' ? await blob.text() : undefined;
     if (svgText !== undefined) {
       assertPatchMapAssetResponseAllowed(policy, {
@@ -155,7 +159,9 @@ async function isolatedPixiDescriptor(
     if (mediaType.startsWith('image/') && inspect === null) {
       throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
     }
-    const decoded = inspect === null ? undefined : await inspect(blob);
+    const decoded = inspect === null
+      ? undefined
+      : decodedSizeForPolicy(descriptor, mediaType, await inspect(blob));
     assertPatchMapAssetResponseAllowed(policy, {
       mediaType,
       encodedBytes: blob.size,
@@ -169,11 +175,32 @@ async function isolatedPixiDescriptor(
     });
   }
   const objectUrl = createObjectURL(blob);
-  const parser = descriptor.parser ?? inferAssetParser(descriptor, blob.type);
   return deepFreeze({
     ...descriptor,
     src: objectUrl,
     ...(parser === null ? {} : { parser }),
+  });
+}
+
+function decodedSizeForPolicy(
+  descriptor: PatchMapAssetDescriptor,
+  mediaType: string,
+  decoded: Readonly<{ readonly width: number; readonly height: number }>,
+): Readonly<{ readonly width: number; readonly height: number }> {
+  if (mediaType !== 'image/svg+xml') return decoded;
+  const width = descriptor.data?.width ?? decoded.width;
+  const height = descriptor.data?.height ?? decoded.height;
+  const resolution = descriptor.data?.resolution ?? 1;
+  if (
+    typeof width !== 'number' ||
+    typeof height !== 'number' ||
+    typeof resolution !== 'number'
+  ) {
+    return Object.freeze({ width: Number.NaN, height: Number.NaN });
+  }
+  return Object.freeze({
+    width: Math.ceil(width * resolution),
+    height: Math.ceil(height * resolution),
   });
 }
 

@@ -834,7 +834,7 @@ describe('PatchMap shared asset runtime', () => {
       }),
       cacheIdentity: 'descriptor:svg',
       packageOwned: false,
-      policy: { maxEncodedBytes: 1024, maxDecodedWidth: 64, maxDecodedHeight: 64 },
+      policy: { maxEncodedBytes: 1024, maxDecodedWidth: 144, maxDecodedHeight: 144 },
     });
 
     await expect(backend.load(request)).resolves.toEqual({ texture: 'svg' });
@@ -851,6 +851,70 @@ describe('PatchMap shared asset runtime', () => {
 
     await backend.unload(request.key);
     expect(revoked).toEqual(['blob:patch-map/svg-1', 'blob:patch-map/svg-2']);
+  });
+
+  it('applies SVG rasterization options to decoded-size admission', async () => {
+    const decode = vi.fn(() => Promise.resolve());
+    class FixtureImage {
+      public readonly naturalWidth = 48;
+      public readonly naturalHeight = 48;
+      public src = '';
+      public readonly decode = decode;
+    }
+    vi.stubGlobal('Image', FixtureImage);
+
+    const revoked: string[] = [];
+    const pixiAssets = Assets as unknown as { load(descriptor: unknown): Promise<unknown> };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'svg' }));
+    const backend = createPatchMapPixiAssetBackend({
+      fetchAsset: () => Promise.resolve(new Blob([
+        '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"></svg>',
+      ], { type: 'image/svg+xml' })),
+      createObjectURL: () => 'blob:patch-map/svg-policy',
+      revokeObjectURL: (url) => revoked.push(url),
+    });
+
+    await expect(backend.load(Object.freeze({
+      key: 'patch-map-asset:oversized-svg',
+      descriptor: Object.freeze({
+        src: 'https://assets.example.test/oversized.svg',
+        parser: 'svg',
+        data: Object.freeze({ width: 72, height: 48, resolution: 2 }),
+      }),
+      cacheIdentity: 'descriptor:oversized-svg',
+      packageOwned: false,
+      policy: { maxEncodedBytes: 1024, maxDecodedWidth: 143, maxDecodedHeight: 143 },
+    }))).rejects.toMatchObject({ code: 'ASSET_POLICY_REJECTED' });
+
+    expect(decode).toHaveBeenCalledOnce();
+    expect(revoked).toEqual(['blob:patch-map/svg-policy']);
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('rejects SVG parser and response MIME mismatches before Pixi loading', async () => {
+    const pixiAssets = Assets as unknown as { load(descriptor: unknown): Promise<unknown> };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'svg' }));
+    const createObjectURL = vi.fn(() => 'blob:patch-map/mismatched-svg');
+    const backend = createPatchMapPixiAssetBackend({
+      fetchAsset: () => Promise.resolve(new Blob([
+        '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+      ], { type: 'font/woff2' })),
+      createObjectURL,
+    });
+
+    await expect(backend.load(Object.freeze({
+      key: 'patch-map-asset:mismatched-svg',
+      descriptor: Object.freeze({
+        src: 'https://assets.example.test/mismatched.svg',
+        parser: 'svg',
+      }),
+      cacheIdentity: 'descriptor:mismatched-svg',
+      packageOwned: false,
+      policy: { maxEncodedBytes: 1024, maxDecodedWidth: 64, maxDecodedHeight: 64 },
+    }))).rejects.toMatchObject({ code: 'ASSET_POLICY_REJECTED' });
+
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
   });
 
   it('fails closed when image decoded-size inspection is absent', async () => {

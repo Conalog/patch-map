@@ -26,7 +26,6 @@ const PATCH_MAP_ASSET_MEDIA_TYPES = Object.freeze([
   'font/ttf',
   'font/otf',
   'application/font-woff',
-  'application/octet-stream',
 ]);
 
 export function normalizePatchMapAssetPolicy(

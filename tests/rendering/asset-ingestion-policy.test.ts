@@ -92,6 +92,10 @@ describe('PatchMap asset ingestion policy', () => {
       encodedBytes: 1024,
     })).toMatchObject({ accepted: false, stage: 'media-type' });
     expect(evaluatePatchMapAssetResponsePolicy(policy, {
+      mediaType: 'application/octet-stream',
+      encodedBytes: 1024,
+    })).toMatchObject({ accepted: false, stage: 'media-type' });
+    expect(evaluatePatchMapAssetResponsePolicy(policy, {
       mediaType: 'image/png',
       encodedBytes: 1_048_577,
     })).toMatchObject({ accepted: false, stage: 'encoded-bytes' });
