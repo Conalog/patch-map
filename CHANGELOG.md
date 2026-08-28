@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.4](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.3...v1.0.0-alpha.4) (2026-08-28)
+
+
+### Fixed
+
+* restore direct external SVG asset rendering ([#227](https://github.com/Conalog/patch-map/issues/227)) ([2e61583](https://github.com/Conalog/patch-map/commit/2e61583dd00bb56f673acdb99ea20a7ceb163e89))
+
 ## [1.0.0-alpha.3](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.2...v1.0.0-alpha.3) (2026-08-26)
 
 
