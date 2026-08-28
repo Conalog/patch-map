@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import { Assets } from 'pixi.js';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   PATCH_MAP_BUILTIN_ASSETS,
@@ -34,6 +34,11 @@ const PATCH_MAP_BUILTIN_SHA256 = Object.freeze({
   warning: '8d485f34e7fa054c787a6775a76a7e62f04e18b93f4741dab3137db15e45f1e8',
   wifi: 'ef2c14fd831d067d559737b7f281be6e550605024a8d9e01a23579e4ccac206c',
 });
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -785,6 +790,67 @@ describe('PatchMap shared asset runtime', () => {
       redirect: 'error',
     });
     await backend.unload('patch-map-asset:fixed-fetch');
+  });
+
+  it('inspects SVG dimensions through the browser image decoder before Pixi loading', async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"></svg>';
+    const createImageBitmap = vi.fn(() => Promise.reject(new DOMException(
+      'The source image could not be decoded.',
+      'InvalidStateError',
+    )));
+    const decode = vi.fn(() => Promise.resolve());
+    class FixtureImage {
+      public readonly naturalWidth = 48;
+      public readonly naturalHeight = 48;
+      public src = '';
+      public readonly decode = decode;
+    }
+    vi.stubGlobal('createImageBitmap', createImageBitmap);
+    vi.stubGlobal('Image', FixtureImage);
+
+    const created: string[] = [];
+    const revoked: string[] = [];
+    const pixiAssets = Assets as unknown as {
+      load(descriptor: unknown): Promise<unknown>;
+      unload(id: string): Promise<void>;
+    };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'svg' }));
+    vi.spyOn(pixiAssets, 'unload').mockResolvedValue(undefined);
+    const backend = createPatchMapPixiAssetBackend({
+      fetchAsset: () => Promise.resolve(new Blob([svg], { type: 'image/svg+xml' })),
+      createObjectURL: () => {
+        const url = `blob:patch-map/svg-${created.length + 1}`;
+        created.push(url);
+        return url;
+      },
+      revokeObjectURL: (url) => revoked.push(url),
+    });
+    const request: PatchMapAssetBackendRequest = Object.freeze({
+      key: 'patch-map-asset:svg',
+      descriptor: Object.freeze({
+        src: 'https://assets.example.test/icon.svg',
+        parser: 'svg',
+        data: Object.freeze({ resolution: 3 }),
+      }),
+      cacheIdentity: 'descriptor:svg',
+      packageOwned: false,
+      policy: { maxEncodedBytes: 1024, maxDecodedWidth: 64, maxDecodedHeight: 64 },
+    });
+
+    await expect(backend.load(request)).resolves.toEqual({ texture: 'svg' });
+    expect(createImageBitmap).not.toHaveBeenCalled();
+    expect(decode).toHaveBeenCalledOnce();
+    expect(created).toEqual(['blob:patch-map/svg-1', 'blob:patch-map/svg-2']);
+    expect(revoked).toEqual(['blob:patch-map/svg-1']);
+    expect(load).toHaveBeenCalledWith({
+      alias: request.key,
+      src: 'blob:patch-map/svg-2',
+      parser: 'svg',
+      data: { resolution: 3 },
+    });
+
+    await backend.unload(request.key);
+    expect(revoked).toEqual(['blob:patch-map/svg-1', 'blob:patch-map/svg-2']);
   });
 
   it('fails closed when image decoded-size inspection is absent', async () => {
