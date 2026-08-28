@@ -49,6 +49,7 @@ export function createPatchMapPixiAssetBackend(
           logicalDescriptor,
           fetchAsset,
           createObjectURL,
+          revokeObjectURL,
           request.packageOwned ? undefined : normalizePatchMapAssetPolicy(request.policy),
           options.inspectDecodedSize,
         );
@@ -130,6 +131,7 @@ async function isolatedPixiDescriptor(
   descriptor: PatchMapAssetDescriptor,
   fetchAsset: (src: string) => Promise<Blob>,
   createObjectURL: (blob: Blob) => string,
+  revokeObjectURL: (url: string) => void,
   policy?: PatchMapResolvedAssetPolicy,
   inspectDecodedSize?: (
     blob: Blob,
@@ -146,7 +148,10 @@ async function isolatedPixiDescriptor(
         svgText,
       });
     }
-    const inspect = inspectDecodedSize ?? defaultDecodedSizeInspector();
+    const inspect = inspectDecodedSize ?? defaultDecodedSizeInspector(
+      createObjectURL,
+      revokeObjectURL,
+    );
     if (mediaType.startsWith('image/') && inspect === null) {
       throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
     }
@@ -172,11 +177,39 @@ async function isolatedPixiDescriptor(
   });
 }
 
-function defaultDecodedSizeInspector(): ((
+function defaultDecodedSizeInspector(
+  createObjectURL: (blob: Blob) => string,
+  revokeObjectURL: (url: string) => void,
+): ((
   blob: Blob,
 ) => Promise<Readonly<{ readonly width: number; readonly height: number }>>) | null {
-  if (typeof globalThis.createImageBitmap !== 'function') return null;
+  if (
+    typeof globalThis.createImageBitmap !== 'function' &&
+    typeof globalThis.Image !== 'function'
+  ) {
+    return null;
+  }
   return async (blob: Blob) => {
+    if (normalizeMediaType(blob.type) === 'image/svg+xml') {
+      if (typeof globalThis.Image !== 'function') {
+        throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
+      }
+      const objectUrl = createObjectURL(blob);
+      try {
+        const image = new globalThis.Image();
+        image.src = objectUrl;
+        await image.decode();
+        return Object.freeze({
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+        });
+      } finally {
+        revokeObjectURL(objectUrl);
+      }
+    }
+    if (typeof globalThis.createImageBitmap !== 'function') {
+      throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
+    }
     const bitmap = await globalThis.createImageBitmap(blob);
     try {
       return Object.freeze({ width: bitmap.width, height: bitmap.height });

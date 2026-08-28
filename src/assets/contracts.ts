@@ -89,7 +89,8 @@ export interface PatchMapPixiAssetBackendOptions {
   readonly revokeObjectURL?: (url: string) => void;
   /**
    * Optional host override for decoded dimensions. When omitted, the browser
-   * backend uses `createImageBitmap`; runtimes without either path fail closed.
+   * backend uses native raster and SVG image decoders; runtimes without the
+   * decoder required by the response type fail closed.
    */
   readonly inspectDecodedSize?: (
     blob: Blob,
