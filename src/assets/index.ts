@@ -50,7 +50,6 @@ export type {
   PatchMapAssetRuntimeProbe,
   PatchMapAssetSessionProbe,
   PatchMapNormalizedAssetRegistration,
-  PatchMapPixiAssetBackendOptions,
 } from './contracts';
 export {
   assertPatchMapAssetResponseAllowed,

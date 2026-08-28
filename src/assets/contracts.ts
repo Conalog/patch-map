@@ -83,19 +83,6 @@ export interface PatchMapAssetBackend {
   unload(key: string): Promise<void>;
 }
 
-export interface PatchMapPixiAssetBackendOptions {
-  readonly createObjectURL?: (blob: Blob) => string;
-  readonly revokeObjectURL?: (url: string) => void;
-  /**
-   * Optional host override for decoded dimensions. When omitted, the browser
-   * backend uses native raster and SVG image decoders; runtimes without the
-   * decoder required by the response type fail closed.
-   */
-  readonly inspectDecodedSize?: (
-    blob: Blob,
-  ) => Promise<Readonly<{ readonly width: number; readonly height: number }>>;
-}
-
 export interface PatchMapAssetResponseMetadata {
   readonly mediaType: string;
   readonly encodedBytes: number;

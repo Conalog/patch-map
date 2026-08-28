@@ -39,7 +39,6 @@ export type {
   PatchMapAssetResourceProbe,
   PatchMapAssetRuntimeProbe,
   PatchMapAssetSessionProbe,
-  PatchMapPixiAssetBackendOptions,
 } from './assets';
 export type { PatchMapHistoryState } from './history';
 export type * from './public/contracts';

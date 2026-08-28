@@ -8,7 +8,6 @@ import {
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
   type PatchMapResolvedAssetPolicy,
-  type PatchMapPixiAssetBackendOptions,
 } from './contracts';
 import {
   assertPatchMapAssetResponseAllowed,
@@ -24,12 +23,8 @@ import {
 
 let pixiBackendSequence = 0;
 
-export function createPatchMapPixiAssetBackend(
-  options: PatchMapPixiAssetBackendOptions = {},
-): PatchMapAssetBackend {
+export function createPatchMapPixiAssetBackend(): PatchMapAssetBackend {
   const keyNamespace = `pixi-assets-${++pixiBackendSequence}`;
-  const createObjectURL = options.createObjectURL ?? ((blob: Blob) => URL.createObjectURL(blob));
-  const revokeObjectURL = options.revokeObjectURL ?? ((url: string) => URL.revokeObjectURL(url));
   const ownedObjectUrls = new Map<string, string>();
   const ownedPixiKeys = new Map<string, string>();
   return Object.freeze({
@@ -46,10 +41,7 @@ export function createPatchMapPixiAssetBackend(
       try {
         const descriptor = await isolatedPixiDescriptor(
           logicalDescriptor,
-          createObjectURL,
-          revokeObjectURL,
           request.packageOwned ? undefined : normalizePatchMapAssetPolicy(request.policy),
-          options.inspectDecodedSize,
         );
         if (descriptor.src !== logicalDescriptor.src) {
           objectUrl = descriptor.src;
@@ -64,7 +56,7 @@ export function createPatchMapPixiAssetBackend(
       } catch (error) {
         if (objectUrl !== null) {
           ownedObjectUrls.delete(request.key);
-          revokeObjectURL(objectUrl);
+          URL.revokeObjectURL(objectUrl);
         }
         throw error;
       }
@@ -75,7 +67,7 @@ export function createPatchMapPixiAssetBackend(
       ownedPixiKeys.delete(key);
       if (objectUrl !== undefined) {
         ownedObjectUrls.delete(key);
-        revokeObjectURL(objectUrl);
+        URL.revokeObjectURL(objectUrl);
       }
     },
   });
@@ -127,12 +119,7 @@ async function pixiDescriptor(
 
 async function isolatedPixiDescriptor(
   descriptor: PatchMapAssetDescriptor,
-  createObjectURL: (blob: Blob) => string,
-  revokeObjectURL: (url: string) => void,
   policy?: PatchMapResolvedAssetPolicy,
-  inspectDecodedSize?: (
-    blob: Blob,
-  ) => Promise<Readonly<{ readonly width: number; readonly height: number }>>,
 ): Promise<PatchMapAssetDescriptor> {
   const blob = await defaultFetchAsset(descriptor.src);
   const parser = descriptor.parser ?? inferAssetParser(descriptor, blob.type);
@@ -153,10 +140,7 @@ async function isolatedPixiDescriptor(
         svgText,
       });
     }
-    const inspect = inspectDecodedSize ?? defaultDecodedSizeInspector(
-      createObjectURL,
-      revokeObjectURL,
-    );
+    const inspect = defaultDecodedSizeInspector();
     if (mediaType.startsWith('image/') && inspect === null) {
       throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
     }
@@ -174,7 +158,7 @@ async function isolatedPixiDescriptor(
       ...(svgText === undefined ? {} : { svgText }),
     });
   }
-  const objectUrl = createObjectURL(blob);
+  const objectUrl = URL.createObjectURL(blob);
   return deepFreeze({
     ...descriptor,
     src: objectUrl,
@@ -204,10 +188,7 @@ function decodedSizeForPolicy(
   });
 }
 
-function defaultDecodedSizeInspector(
-  createObjectURL: (blob: Blob) => string,
-  revokeObjectURL: (url: string) => void,
-): ((
+function defaultDecodedSizeInspector(): ((
   blob: Blob,
 ) => Promise<Readonly<{ readonly width: number; readonly height: number }>>) | null {
   if (
@@ -221,7 +202,7 @@ function defaultDecodedSizeInspector(
       if (typeof globalThis.Image !== 'function') {
         throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', false);
       }
-      const objectUrl = createObjectURL(blob);
+      const objectUrl = URL.createObjectURL(blob);
       try {
         const image = new globalThis.Image();
         image.src = objectUrl;
@@ -231,7 +212,7 @@ function defaultDecodedSizeInspector(
           height: image.naturalHeight,
         });
       } finally {
-        revokeObjectURL(objectUrl);
+        URL.revokeObjectURL(objectUrl);
       }
     }
     if (typeof globalThis.createImageBitmap !== 'function') {
