@@ -498,7 +498,12 @@ export class PatchMapPointerInteractionCoordinator {
     const target = hitTarget === null
       ? null
       : this.port.logicalSelectionIndex().resolveSelectionUnit(hitTarget.key, 'grid-cell');
-    if (target === null) {
+    const selectable = target === null ? true : this.targetSelectable(target);
+    if (selectable === null) {
+      this.cancelArmedTargetDeselect();
+      return;
+    }
+    if (target === null || !selectable) {
       this.cancelArmedTargetDeselect();
       if (!blankClickClearsSelection(
         this.selectionPolicy.clearOnBlankClick,
@@ -522,7 +527,6 @@ export class PatchMapPointerInteractionCoordinator {
     const armed = this.armedTargetDeselect;
     if (armed?.selectionId === target.selectionId && click.payload.clickCount % 2 === 0) {
       this.cancelArmedTargetDeselect();
-      if (this.targetSelectable(target) !== true) return;
       this.port.applySelection({
         op: 'remove',
         ids: [target.selectionId],
@@ -532,7 +536,6 @@ export class PatchMapPointerInteractionCoordinator {
     }
     this.cancelArmedTargetDeselect();
     if (this.port.selectionIds().includes(target.selectionId)) {
-      if (this.targetSelectable(target) !== true) return;
       this.armTargetDeselect(target.selectionId);
       return;
     }
@@ -582,7 +585,6 @@ export class PatchMapPointerInteractionCoordinator {
     click: PatchMapSemanticPointerEvent,
     target: PatchMapLogicalTargetSnapshot,
   ): void {
-    if (this.targetSelectable(target) !== true) return;
     this.port.applySelection({
       op: this.selectionPolicy.allowMultiple && click.payload.modifiers.shift
         ? 'toggle'

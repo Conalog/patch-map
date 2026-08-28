@@ -48,7 +48,9 @@ are owned by [`viewport-and-transform.md`](viewport-and-transform.md).
 ## Failure semantics
 
 - A throwing or invalid modifier resolver leaves selection unchanged.
-- A target rejected by `isSelectable` cannot enter point or box selection.
+- A target rejected by `isSelectable` cannot enter point or box selection. For
+  point selection clearing it is treated as blank, while raw pointer hover and
+  tooltip projection still report the hit target.
 - Pointer cancel, lost capture, surface replacement, and destroy terminate the
   active gesture and transient paint without publishing a partial selection.
 - A disposer may be called once by the consumer; destroy removes any remaining
