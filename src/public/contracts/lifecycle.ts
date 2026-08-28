@@ -68,6 +68,7 @@ export interface PatchMapOptions {
   readonly assets?: readonly PatchMapAssetRegistration[];
   /** Share decoded asset ownership across mounted PatchMap instances. */
   readonly assetRuntime?: PatchMapAssetRuntime;
+  /** Configure instance-local host asset admission; currently exposes size limits. */
   readonly assetPolicy?: PatchMapAssetPolicy;
   readonly historyLimit?: number;
   /** Observe the host's CSS size and coalesce it through ResizeObserver. */

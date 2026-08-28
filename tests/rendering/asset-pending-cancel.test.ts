@@ -67,8 +67,8 @@ describe('PatchMap pending asset cancellation', () => {
       },
     };
     const runtime = new PatchMapAssetRuntime(backend);
-    const first = runtime.createSession({ instanceId: 'first', policy: () => undefined });
-    const second = runtime.createSession({ instanceId: 'second', policy: () => undefined });
+    const first = runtime.createSession({ instanceId: 'first' });
+    const second = runtime.createSession({ instanceId: 'second' });
     const registration = [{
       alias: 'image',
       descriptor: 'https://assets.example.test/image.png',
@@ -106,7 +106,7 @@ describe('PatchMap pending asset cancellation', () => {
       unload: () => Promise.resolve(),
     };
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'fallback', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'fallback' });
 
     const acquisition = await session.acquireSource('https://assets.example.test/fallback.png');
 
@@ -118,7 +118,7 @@ describe('PatchMap pending asset cancellation', () => {
   it('does not await an abandoned load and collects its late success exactly once', async () => {
     const backend = new PendingAssetBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'late-success', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'late-success' });
     session.registerAssets([{
       alias: 'late-success',
       descriptor: 'https://assets.example.test/late-success.png',
@@ -149,7 +149,7 @@ describe('PatchMap pending asset cancellation', () => {
   it('observes an abandoned late failure while removing the failed coordinator entry', async () => {
     const backend = new PendingAssetBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'late-failure', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'late-failure' });
     session.registerAssets([{
       alias: 'late-failure',
       descriptor: 'https://assets.example.test/late-failure.png',
@@ -182,7 +182,7 @@ describe('PatchMap pending asset cancellation', () => {
     const backend = new PendingAssetBackend();
     backend.unloadFailuresRemaining = 1;
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'late-cleanup', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'late-cleanup' });
     session.registerAssets([{
       alias: 'late-cleanup',
       descriptor: 'https://assets.example.test/late-cleanup.png',

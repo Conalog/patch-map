@@ -527,7 +527,7 @@ describe('PatchMap fixed component render lanes', () => {
     }]);
     const backend = new ImmediateTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'component-lane-icon', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'component-lane-icon' });
     session.registerAssets([{
       alias: 'fixture-icon',
       descriptor: 'https://assets.example.test/fixture-icon.png',
@@ -648,7 +648,7 @@ async function createResolvedLeafLayer(
   instanceId: string,
 ): Promise<AggregateLeafLayer> {
   const runtime = new PatchMapAssetRuntime(new ImmediateTextureBackend());
-  const session = runtime.createSession({ instanceId, policy: () => undefined });
+  const session = runtime.createSession({ instanceId });
   const images = Object.values(projection.imagesByEntityId ?? {});
   const aliases = [...new Set(images.map(({ authoredSource }) => fixtureImageAlias(authoredSource)))];
   session.registerAssets(aliases.map((alias) => ({

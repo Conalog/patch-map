@@ -35,7 +35,7 @@ export class PatchMapAssetSessionAuthority {
     }
     this.sessionValue = this.runtime.createSession({
       instanceId,
-      ...(this.policy ? { policy: this.policy } : {}),
+      ...(this.policy === undefined ? {} : { policy: this.policy }),
     });
     return this.sessionValue;
   }

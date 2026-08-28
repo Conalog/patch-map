@@ -24,23 +24,21 @@ export type PatchMap = PatchMapInstance;
 export { PatchMapError } from './engine/operation-outcomes';
 export {
   PATCH_MAP_BUILTIN_ASSETS,
+  PATCH_MAP_DEFAULT_ASSET_POLICY,
   PatchMapAssetError,
   PatchMapAssetRuntime,
-  createPatchMapAssetIngestionPolicy,
   createPatchMapPixiAssetBackend,
 } from './assets';
 export type {
   PatchMapAssetPolicy,
-  PatchMapAssetPolicyContext,
+  PatchMapResolvedAssetPolicy,
   PatchMapAssetBackend,
   PatchMapAssetBackendRequest,
-  PatchMapAssetIngestionPolicyProfile,
   PatchMapAssetRegistration,
   PatchMapAssetRegistrationResult,
   PatchMapAssetResourceProbe,
   PatchMapAssetRuntimeProbe,
   PatchMapAssetSessionProbe,
-  PatchMapPixiAssetBackendOptions,
 } from './assets';
 export type { PatchMapHistoryState } from './history';
 export type * from './public/contracts';

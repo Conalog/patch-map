@@ -42,22 +42,29 @@ export interface PatchMapNormalizedAssetRegistration {
   readonly fontWeight?: number;
 }
 
-export interface PatchMapAssetPolicyContext {
-  readonly instanceId: string;
-  readonly descriptor: PatchMapAssetDescriptor;
-  readonly cacheIdentity: string;
-  readonly packageOwned: boolean;
+export interface PatchMapResolvedAssetPolicy {
+  readonly maxEncodedBytes: number;
+  readonly maxDecodedWidth: number;
+  readonly maxDecodedHeight: number;
 }
 
-export type PatchMapAssetPolicy = (
-  context: PatchMapAssetPolicyContext,
-) => void | Promise<void>;
+/**
+ * Per-instance asset admission settings. New policy controls may be added here
+ * without replacing the root `assetPolicy` option.
+ */
+export interface PatchMapAssetPolicy {
+  readonly maxEncodedBytes?: number;
+  readonly maxDecodedWidth?: number;
+  readonly maxDecodedHeight?: number;
+}
 
 export interface PatchMapAssetBackendRequest {
   readonly key: string;
   readonly descriptor: PatchMapAssetDescriptor;
   readonly cacheIdentity: string;
   readonly packageOwned: boolean;
+  /** Per-request host asset policy. Omitted values use package defaults. */
+  readonly policy?: PatchMapAssetPolicy;
 }
 
 export interface PatchMapAssetBackend {
@@ -76,40 +83,7 @@ export interface PatchMapAssetBackend {
   unload(key: string): Promise<void>;
 }
 
-export interface PatchMapPixiAssetBackendOptions {
-  readonly fetchAsset?: (src: string) => Promise<Blob>;
-  readonly createObjectURL?: (blob: Blob) => string;
-  readonly revokeObjectURL?: (url: string) => void;
-  /**
-   * Optional defense-in-depth profile. The owning session must still install
-   * `createPatchMapAssetIngestionPolicy(profile)` so denied URLs cannot reach
-   * the backend lookup/fetch boundary.
-   */
-  readonly ingestionPolicy?: PatchMapAssetIngestionPolicyProfile;
-  /**
-   * Optional host override for decoded dimensions. When omitted, the browser
-   * backend uses `createImageBitmap`; runtimes without either path fail closed.
-   */
-  readonly inspectDecodedSize?: (
-    blob: Blob,
-  ) => Promise<Readonly<{ readonly width: number; readonly height: number }>>;
-}
-
-export interface PatchMapAssetIngestionPolicyProfile {
-  readonly protocols: readonly string[];
-  readonly origins: readonly string[];
-  readonly redirects: 'revalidate';
-  readonly credentials: 'omit';
-  readonly mediaTypes: readonly string[];
-  readonly maxEncodedBytes: number;
-  readonly maxDecodedWidth: number;
-  readonly maxDecodedHeight: number;
-}
-
 export interface PatchMapAssetResponseMetadata {
-  readonly requestUrl: string;
-  readonly finalUrl: string;
-  readonly redirectUrls?: readonly string[];
   readonly mediaType: string;
   readonly encodedBytes: number;
   readonly decodedWidth?: number;
@@ -122,8 +96,6 @@ export interface PatchMapAssetIngestionDecision {
   readonly code: 'ASSET_POLICY_REJECTED' | null;
   readonly stage:
     | 'accepted'
-    | 'descriptor'
-    | 'redirect'
     | 'media-type'
     | 'encoded-bytes'
     | 'decoded-size'

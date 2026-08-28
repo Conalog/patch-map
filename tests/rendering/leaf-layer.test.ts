@@ -1,4 +1,4 @@
-import { Assets, Cache, Matrix, Texture } from 'pixi.js';
+import { Assets, Matrix, Texture } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProjectionIndex } from '../support/projection-index';
@@ -18,7 +18,6 @@ let layerSequence = 0;
 function createAssetLayer(): AggregateLeafLayer {
   const session = PATCH_MAP_ASSET_RUNTIME.createSession({
     instanceId: `leaf-test-${++layerSequence}`,
-    policy: () => undefined,
   });
   return new AggregateLeafLayer(session, true);
 }
@@ -31,8 +30,13 @@ afterEach(() => {
 function mockOwnedAssetTransport(): void {
   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(
     new Blob(['fixture'], { type: 'image/png' }),
-    { status: 200 },
+    { status: 200, headers: { 'content-type': 'image/png' } },
   ))));
+  vi.stubGlobal('createImageBitmap', vi.fn(() => Promise.resolve({
+    width: 1,
+    height: 1,
+    close: vi.fn(),
+  })));
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:patch-map/leaf-fixture');
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
 }
@@ -440,21 +444,20 @@ describe('PatchMap aggregate leaf policy', () => {
     await layer.destroy();
   });
 
-  it('borrows a texture already present in the external Assets cache', async () => {
+  it('does not borrow a host texture from the external Assets cache', async () => {
     const url = 'patch-map-test://external-texture.png';
-    vi.spyOn(Cache, 'has').mockReturnValue(true);
-    vi.spyOn(Cache, 'get').mockReturnValue(Texture.WHITE as never);
-    const load = vi.spyOn(Assets, 'load').mockRejectedValue(new Error('must not reload') as never);
+    mockOwnedAssetTransport();
+    const load = vi.spyOn(Assets, 'load').mockResolvedValue(Texture.WHITE as never);
     const unload = vi.spyOn(Assets, 'unload').mockResolvedValue(undefined as never);
     const layer = createAssetLayer();
 
     await layer.loadAsset('external', url);
-    expect(load).not.toHaveBeenCalled();
+    expect(load).toHaveBeenCalledTimes(1);
     expect(await layer.unloadAsset('external')).toBe(true);
     await layer.finalizeAssetUnloads();
     await layer.destroy();
 
-    expect(unload).not.toHaveBeenCalled();
+    expect(unload).toHaveBeenCalledTimes(1);
   });
 
   it('recomputes unresolved aliases across full reload and final image removal', async () => {
@@ -472,7 +475,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('preserves typed alias, URL, data URI, and complete descriptor bindings', async () => {
     const backend = new ImmediateTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'typed-sources', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'typed-sources' });
     session.registerAssets([{
       alias: 'registered-image',
       descriptor: 'https://assets.example.test/registered.png',
@@ -536,7 +539,6 @@ describe('PatchMap aggregate leaf policy', () => {
     const runtime = new PatchMapAssetRuntime(backend);
     const session = runtime.createSession({
       instanceId: 'semantic-reuse-evidence',
-      policy: () => undefined,
     });
     const layer = new AggregateLeafLayer(session, true);
 
@@ -579,7 +581,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('suppresses and releases an old generation that settles after source replacement', async () => {
     const backend = new DeferredTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'generation-race', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'generation-race' });
     const layer = new AggregateLeafLayer(session, true);
 
     const oldCompletion = layer.bindSceneAsset('descriptor', {
@@ -638,7 +640,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('bounds unique-key stale churn to scalar counters and clears retained state on destroy', async () => {
     const backend = new DeferredTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'bounded-binding-churn', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'bounded-binding-churn' });
     const layer = new AggregateLeafLayer(session, true);
     const churnCount = 256;
     const churn = Array.from({ length: churnCount }, (_value, index) => {
@@ -692,7 +694,7 @@ describe('PatchMap aggregate leaf policy', () => {
     const backend = new DeferredTextureBackend();
     backend.unloadFailuresRemaining = 1;
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'generation-release-failure', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'generation-release-failure' });
     const layer = new AggregateLeafLayer(session, true);
 
     const oldCompletion = layer.bindSceneAsset('descriptor', {
@@ -734,7 +736,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('detects and repairs a live texture attachment mismatch exactly once', async () => {
     const backend = new DeferredTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'stale-attachment-invariant', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'stale-attachment-invariant' });
     const layer = new AggregateLeafLayer(session, true);
     const completion = layer.bindSceneAsset('image', {
       kind: 'source',
@@ -781,7 +783,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('keeps hidden images object-free and releases an attached texture only after a frame', async () => {
     const backend = new ImmediateTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'frame-release', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'frame-release' });
     const layer = new AggregateLeafLayer(session, true);
     await layer.bindSceneAsset('shared', {
       kind: 'source',
@@ -840,7 +842,6 @@ describe('PatchMap aggregate leaf policy', () => {
     const runtime = new PatchMapAssetRuntime(backend);
     const session = runtime.createSession({
       instanceId: 'invalid-frame-release',
-      policy: () => undefined,
     });
     const layer = new AggregateLeafLayer(session, true);
     const retained = leafRetentionAccess(layer);
@@ -912,7 +913,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('keeps a new pending image hidden and materializes exactly one resolved Sprite', async () => {
     const backend = new DeferredTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'pending-hidden', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'pending-hidden' });
     const layer = new AggregateLeafLayer(session, true);
     const source = 'https://assets.example.test/pending-hidden.png';
     const completion = layer.bindSceneAsset('pending-hidden', { kind: 'source', source });
@@ -949,7 +950,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('retains the last resolved texture across a full-rebuild retarget and releases it after swap', async () => {
     const backend = new DeferredTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'full-rebuild-retarget', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'full-rebuild-retarget' });
     const layer = new AggregateLeafLayer(session, true);
     const firstSource = 'https://assets.example.test/retarget-a.png';
     const secondSource = 'https://assets.example.test/retarget-b.png';
@@ -998,7 +999,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('keeps A visible through rapid A to B to C and ignores the stale B completion', async () => {
     const backend = new DeferredTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'rapid-retarget', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'rapid-retarget' });
     const layer = new AggregateLeafLayer(session, true);
     const sourceA = 'https://assets.example.test/rapid-a.png';
     const sourceB = 'https://assets.example.test/rapid-b.png';
@@ -1050,7 +1051,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('keeps equal-z image order stable through resolve, failure, and source replacement', async () => {
     const backend = new DeferredTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'stable-equal-z-order', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'stable-equal-z-order' });
     const layer = new AggregateLeafLayer(session, true);
     const firstSource = 'https://assets.example.test/order-first.png';
     const secondSource = 'https://assets.example.test/order-second.png';
@@ -1133,7 +1134,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('reorders 5,000 reverse-z images in one detach/append pass without changing semantic counts', async () => {
     const backend = new ImmediateTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'reverse-z-order', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'reverse-z-order' });
     const layer = new AggregateLeafLayer(session, true);
     const imageCount = 5_000;
     const bindingKey = 'reverse-z';
@@ -1191,7 +1192,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('reorders 5,000 existing images by seeded random z while preserving stable-slot ties', async () => {
     const backend = new ImmediateTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'seeded-random-z-order', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'seeded-random-z-order' });
     const layer = new AggregateLeafLayer(session, true);
     const imageCount = 5_000;
     const bindingKey = 'seeded-random-z';
@@ -1252,7 +1253,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('probes 5,000 shared image consumers from O(1) binding counters', async () => {
     const backend = new DeferredTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'constant-time-binding-probe', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'constant-time-binding-probe' });
     const layer = new AggregateLeafLayer(session, true);
     const source = 'https://assets.example.test/shared-5000.png';
     const replacementSource = 'https://assets.example.test/shared-5000-replacement.png';
@@ -1374,7 +1375,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('bulk probes and retires 5,000 unique bindings without visiting the Sprite collection', async () => {
     const backend = new ImmediateTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'constant-time-unique-probes', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'constant-time-unique-probes' });
     const layer = new AggregateLeafLayer(session, true);
     const bindingCount = 5_000;
     const keys = Array.from({ length: bindingCount }, (_value, index) => `unique-${index}`);
@@ -1412,7 +1413,7 @@ describe('PatchMap aggregate leaf policy', () => {
     const backend = new ImmediateTextureBackend();
     backend.failedSources.add('https://assets.example.test/fail.png');
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'failed-binding', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'failed-binding' });
     const layer = new AggregateLeafLayer(session, true);
 
     await layer.bindSceneAsset('failed', {
@@ -1447,7 +1448,7 @@ describe('PatchMap aggregate leaf policy', () => {
   it('uses the lossless projection binding key instead of the dense authored src', async () => {
     const backend = new ImmediateTextureBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'projection-binding', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'projection-binding' });
     const layer = new AggregateLeafLayer(session, true);
     const bindingKey = 'descriptor:{"data":{"resolution":2},"src":"fixture.svg"}';
     const authoredSource = Object.freeze({

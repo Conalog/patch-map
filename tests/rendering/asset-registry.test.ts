@@ -1,18 +1,16 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
-import { Assets, Cache } from 'pixi.js';
-import { describe, expect, it, vi } from 'vitest';
+import { Assets } from 'pixi.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   PATCH_MAP_BUILTIN_ASSETS,
-  PatchMapAssetError,
   PatchMapAssetRuntime,
   createPatchMapPixiAssetBackend,
   normalizePatchMapAssetDescriptor,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-  type PatchMapAssetPolicyContext,
 } from '../../src/assets';
 import {
   BUILTIN_IMAGE_SVGS,
@@ -36,6 +34,11 @@ const PATCH_MAP_BUILTIN_SHA256 = Object.freeze({
   warning: '8d485f34e7fa054c787a6775a76a7e62f04e18b93f4741dab3137db15e45f1e8',
   wifi: 'ef2c14fd831d067d559737b7f281be6e550605024a8d9e01a23579e4ccac206c',
 });
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -44,6 +47,60 @@ function deferred<T>() {
     reject = rejectPromise;
   });
   return { promise, resolve, reject };
+}
+
+function mockAssetFetch(
+  blobForSource: (src: string) => Blob | Promise<Blob>,
+) {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const src = typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input.url;
+    const blob = await blobForSource(src);
+    return new Response(blob, {
+      status: 200,
+      headers: { 'content-type': blob.type },
+    });
+  });
+}
+
+function mockObjectUrls(prefix: string) {
+  const created: string[] = [];
+  const revoked: string[] = [];
+  vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
+    const objectUrl = `${prefix}${created.length + 1}`;
+    created.push(objectUrl);
+    return objectUrl;
+  });
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation((objectUrl) => {
+    revoked.push(objectUrl);
+  });
+  return { created, revoked };
+}
+
+function mockSvgDecoder(width: number, height: number) {
+  const decode = vi.fn(() => Promise.resolve());
+  class FixtureImage {
+    public readonly naturalWidth = width;
+    public readonly naturalHeight = height;
+    public src = '';
+    public readonly decode = decode;
+  }
+  vi.stubGlobal('Image', FixtureImage);
+  return decode;
+}
+
+function mockRasterDecoder(width: number, height: number) {
+  const close = vi.fn();
+  const createImageBitmap = vi.fn(() => Promise.resolve({
+    width,
+    height,
+    close,
+  } as unknown as ImageBitmap));
+  vi.stubGlobal('createImageBitmap', createImageBitmap);
+  return { close, createImageBitmap };
 }
 
 class FakeAssetBackend implements PatchMapAssetBackend {
@@ -173,7 +230,7 @@ describe('PatchMap shared asset runtime', () => {
     expect(runtime.probe()).toMatchObject({ resourceCount: 0, pendingCount: 0, leaseCount: 0 });
   });
 
-  it('trusts only the exact package catalog identity and uses closed invalid-input codes', async () => {
+  it('distinguishes package catalog identity from host registrations and uses closed invalid-input codes', async () => {
     const backend = new FakeAssetBackend();
     backend.immediate = Object.freeze({ texture: 'device' });
     const runtime = new PatchMapAssetRuntime(backend);
@@ -183,17 +240,16 @@ describe('PatchMap shared asset runtime', () => {
       alias: 'spoofed-device',
       descriptor: 'patch-map-builtin://images/device.svg',
     }]);
-    await expect(session.acquire('spoofed-device')).rejects.toMatchObject({
-      code: 'ASSET_POLICY_REJECTED',
-      category: 'ASSET_FAILURE',
+    await expect(session.acquire('spoofed-device')).resolves.toMatchObject({
+      resource: { texture: 'device' },
     });
-    expect(backend.loadRequests).toHaveLength(0);
+    expect(backend.loadRequests[0]).toMatchObject({ packageOwned: false });
 
     session.registerAssets();
     await expect(session.acquire('device')).resolves.toMatchObject({
       resource: { texture: 'device' },
     });
-    expect(backend.loadRequests[0]).toMatchObject({ packageOwned: true });
+    expect(backend.loadRequests[1]).toMatchObject({ packageOwned: true });
 
     expect(() => session.acquire('missing')).toThrowError(expect.objectContaining({
       code: 'INVALID_VALUE',
@@ -209,7 +265,7 @@ describe('PatchMap shared asset runtime', () => {
   it('does not let a permissive reserved-source acquisition occupy a package resource identity', async () => {
     const backend = new FakeAssetBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const host = runtime.createSession({ instanceId: 'host', policy: () => undefined });
+    const host = runtime.createSession({ instanceId: 'host' });
     const product = runtime.createSession({ instanceId: 'product' });
     host.registerAssets([{
       alias: 'host-device',
@@ -237,13 +293,7 @@ describe('PatchMap shared asset runtime', () => {
     const backend = new FakeAssetBackend();
     backend.immediate = Object.freeze({ texture: 'resolution-2' });
     const runtime = new PatchMapAssetRuntime(backend);
-    const policyDescriptors: unknown[] = [];
-    const session = runtime.createSession({
-      instanceId: 'immutable',
-      policy: ({ descriptor }) => {
-        policyDescriptors.push(descriptor);
-      },
-    });
+    const session = runtime.createSession({ instanceId: 'immutable' });
     const data = { resolution: 2, nested: { scaleMode: 'linear' } };
     const descriptor = {
       src: 'https://assets.example.test/icon.svg',
@@ -256,13 +306,13 @@ describe('PatchMap shared asset runtime', () => {
     data.nested.scaleMode = 'nearest';
 
     const acquired = await session.acquire('icon');
-    expect(policyDescriptors).toEqual([{
+    expect(backend.loadRequests[0]?.descriptor).toEqual({
       src: 'https://assets.example.test/icon.svg',
       data: { nested: { scaleMode: 'linear' }, resolution: 2 },
       format: 'svg',
       parser: 'svg',
-    }]);
-    expect(Object.isFrozen(policyDescriptors[0])).toBe(true);
+    });
+    expect(Object.isFrozen(backend.loadRequests[0]?.descriptor)).toBe(true);
     expect(JSON.stringify(session.runtimeProbe('icon'))).not.toContain('assets.example.test');
 
     await acquired.release();
@@ -287,15 +337,11 @@ describe('PatchMap shared asset runtime', () => {
     }));
   });
 
-  it('deduplicates pending work, revalidates each instance, and unloads after the final lease', async () => {
+  it('deduplicates pending work across instances and unloads after the final lease', async () => {
     const backend = new FakeAssetBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const policyCalls: PatchMapAssetPolicyContext[] = [];
-    const policy = (context: PatchMapAssetPolicyContext): void => {
-      policyCalls.push(context);
-    };
-    const sessionA = runtime.createSession({ instanceId: 'A', policy });
-    const sessionB = runtime.createSession({ instanceId: 'B', policy });
+    const sessionA = runtime.createSession({ instanceId: 'A' });
+    const sessionB = runtime.createSession({ instanceId: 'B' });
     sessionA.registerAssets([{
       alias: 'device',
       descriptor: 'https://assets.example.test/device.png',
@@ -319,7 +365,6 @@ describe('PatchMap shared asset runtime', () => {
 
     backend.pending.resolve(Object.freeze({ texture: 'device' }));
     await Promise.all([pendingA, pendingB]);
-    expect(policyCalls.map(({ instanceId }) => instanceId)).toEqual(['A', 'B']);
     expect(runtime.probe('device').resource).toMatchObject({
       resourceCount: 1,
       pendingCount: 0,
@@ -341,8 +386,8 @@ describe('PatchMap shared asset runtime', () => {
     backend.immediate = Object.freeze({ texture: 'shared-runtime-resource' });
     const runtimeA = new PatchMapAssetRuntime(backend);
     const runtimeB = new PatchMapAssetRuntime(backend);
-    const sessionA = runtimeA.createSession({ instanceId: 'runtime-A', policy: () => undefined });
-    const sessionB = runtimeB.createSession({ instanceId: 'runtime-B', policy: () => undefined });
+    const sessionA = runtimeA.createSession({ instanceId: 'runtime-A' });
+    const sessionB = runtimeB.createSession({ instanceId: 'runtime-B' });
     const registration = [{
       alias: 'shared',
       descriptor: 'https://assets.example.test/shared-runtime.png',
@@ -366,34 +411,33 @@ describe('PatchMap shared asset runtime', () => {
     expect(runtimeA.probe()).toMatchObject({ resourceCount: 0, leaseCount: 0 });
   });
 
-  it('does not let a denied instance borrow an already resolved shared resource', async () => {
+  it('isolates shared resources when sessions use different asset policies', async () => {
     const backend = new FakeAssetBackend();
     backend.immediate = Object.freeze({ texture: 'device' });
     const runtime = new PatchMapAssetRuntime(backend);
-    const allowed = runtime.createSession({ instanceId: 'allowed', policy: () => undefined });
-    const denied = runtime.createSession({
-      instanceId: 'denied',
-      policy: () => {
-        throw new PatchMapAssetError('ASSET_POLICY_REJECTED', 'ASSET_FAILURE', true);
-      },
+    const defaults = runtime.createSession({ instanceId: 'defaults' });
+    const constrained = runtime.createSession({
+      instanceId: 'constrained',
+      policy: { maxEncodedBytes: 1024 },
     });
     const registration = [{ alias: 'device', descriptor: 'https://assets.example.test/device.png' }];
-    allowed.registerAssets(registration);
-    denied.registerAssets(registration);
-    await allowed.acquire('device');
+    defaults.registerAssets(registration);
+    constrained.registerAssets(registration);
+    await Promise.all([defaults.acquire('device'), constrained.acquire('device')]);
 
-    await expect(denied.acquire('device')).rejects.toMatchObject({
-      code: 'ASSET_POLICY_REJECTED',
-    });
-    expect(backend.loadRequests).toHaveLength(1);
-    expect(runtime.probe('device').resource).toMatchObject({ leaseCount: 1, pendingCount: 0 });
-    await allowed.destroy();
+    expect(backend.loadRequests).toHaveLength(2);
+    expect(backend.loadRequests.map(({ policy }) => policy?.maxEncodedBytes)).toEqual([
+      20 * 1024 * 1024,
+      1024,
+    ]);
+    expect(runtime.probe('device').resource).toMatchObject({ resourceCount: 2, leaseCount: 2 });
+    await Promise.all([defaults.destroy(), constrained.destroy()]);
   });
 
   it('releases a late core-owned success after its only pending session is destroyed', async () => {
     const backend = new FakeAssetBackend();
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'late', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'late' });
     session.registerAssets([{ alias: 'late', descriptor: 'https://assets.example.test/late.png' }]);
     const acquisition = session.acquire('late');
     await Promise.resolve();
@@ -412,7 +456,7 @@ describe('PatchMap shared asset runtime', () => {
     backend.immediate = Object.freeze({ texture: 'transient-unload' });
     backend.unloadFailuresRemaining = 1;
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'transient', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'transient' });
     session.registerAssets([{
       alias: 'transient',
       descriptor: 'https://assets.example.test/transient.png',
@@ -429,7 +473,7 @@ describe('PatchMap shared asset runtime', () => {
     backend.immediate = Object.freeze({ texture: 'persistent-unload' });
     backend.unloadFailuresRemaining = 2;
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'persistent', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'persistent' });
     session.registerAssets([{
       alias: 'persistent',
       descriptor: 'https://assets.example.test/persistent.png',
@@ -462,7 +506,7 @@ describe('PatchMap shared asset runtime', () => {
     backend.immediate = Object.freeze({ texture: 'owned-by-a' });
     backend.unloadFailuresRemaining = 3;
     const runtime = new PatchMapAssetRuntime(backend);
-    const owner = runtime.createSession({ instanceId: 'owner', policy: () => undefined });
+    const owner = runtime.createSession({ instanceId: 'owner' });
     owner.registerAssets([{
       alias: 'owned-by-a',
       descriptor: 'https://assets.example.test/owned-by-a.png',
@@ -471,7 +515,7 @@ describe('PatchMap shared asset runtime', () => {
     await expect(owner.destroy()).rejects.toMatchObject({ code: 'INTERNAL_FAILURE' });
     expect(backend.unloadKeys).toHaveLength(2);
 
-    const unrelated = runtime.createSession({ instanceId: 'unrelated', policy: () => undefined });
+    const unrelated = runtime.createSession({ instanceId: 'unrelated' });
     await expect(unrelated.destroy()).resolves.toBeUndefined();
     expect(backend.unloadKeys).toHaveLength(2);
     expect(runtime.probe()).toMatchObject({ resourceCount: 1, cleanupPendingCount: 1 });
@@ -494,7 +538,7 @@ describe('PatchMap shared asset runtime', () => {
       alias: 'quarantined',
       descriptor: 'https://assets.example.test/quarantined.png',
     }] as const;
-    const first = runtime.createSession({ instanceId: 'first', policy: () => undefined });
+    const first = runtime.createSession({ instanceId: 'first' });
     first.registerAssets(registration);
     expect((await first.acquire('quarantined')).resource).toBe(staleResource);
 
@@ -509,7 +553,7 @@ describe('PatchMap shared asset runtime', () => {
     expect(runtime.probe()).toMatchObject({ cleanupPendingCount: 1 });
 
     backend.immediate = replacementResource;
-    const second = runtime.createSession({ instanceId: 'second', policy: () => undefined });
+    const second = runtime.createSession({ instanceId: 'second' });
     second.registerAssets(registration);
     const replacement = await second.acquire('quarantined');
     expect(replacement.resource).toBe(replacementResource);
@@ -530,14 +574,14 @@ describe('PatchMap shared asset runtime', () => {
       alias: 'quarantined-race',
       descriptor: 'https://assets.example.test/quarantined-race.png',
     }] as const;
-    const first = runtime.createSession({ instanceId: 'first', policy: () => undefined });
+    const first = runtime.createSession({ instanceId: 'first' });
     first.registerAssets(registration);
     await first.acquire('quarantined-race');
     await expect(first.destroy()).rejects.toMatchObject({ code: 'INTERNAL_FAILURE' });
 
     const cleanup = deferred<void>();
     backend.unloadBarrier = cleanup.promise;
-    const second = runtime.createSession({ instanceId: 'second', policy: () => undefined });
+    const second = runtime.createSession({ instanceId: 'second' });
     second.registerAssets(registration);
     const acquiring = second.acquire('quarantined-race');
     await vi.waitFor(() => expect(backend.unloadKeys).toHaveLength(3));
@@ -565,8 +609,8 @@ describe('PatchMap shared asset runtime', () => {
       alias: 'releasing-race',
       descriptor: 'https://assets.example.test/releasing-race.png',
     }] as const;
-    const first = runtime.createSession({ instanceId: 'first', policy: () => undefined });
-    const second = runtime.createSession({ instanceId: 'second', policy: () => undefined });
+    const first = runtime.createSession({ instanceId: 'first' });
+    const second = runtime.createSession({ instanceId: 'second' });
     first.registerAssets(registration);
     second.registerAssets(registration);
     await first.acquire('releasing-race');
@@ -594,7 +638,7 @@ describe('PatchMap shared asset runtime', () => {
     const backend = new FakeAssetBackend();
     backend.cached = Object.freeze({ texture: 'external' });
     const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({ instanceId: 'external', policy: () => undefined });
+    const session = runtime.createSession({ instanceId: 'external' });
     session.registerAssets([{ alias: 'external', descriptor: 'https://assets.example.test/external.png' }]);
 
     await session.acquire('external');
@@ -609,30 +653,21 @@ describe('PatchMap shared asset runtime', () => {
     });
   });
 
-  it('uses public Pixi cache keys for exact external borrowing and maps package builtins', async () => {
+  it('does not borrow host Pixi cache entries and maps package builtins', async () => {
     const fetchedSources: string[] = [];
-    let objectUrlSequence = 0;
-    const backend = createPatchMapPixiAssetBackend({
-      fetchAsset: (src) => {
-        fetchedSources.push(src);
-        return Promise.resolve(new Blob(['fixture'], {
-          type: src.includes('FiraCode') ? 'font/woff2' : 'image/svg+xml',
-        }));
-      },
-      createObjectURL: () => `blob:patch-map/builtin-${++objectUrlSequence}`,
-      revokeObjectURL: () => undefined,
+    mockObjectUrls('blob:patch-map/builtin-');
+    mockSvgDecoder(72, 72);
+    mockAssetFetch((src) => {
+      fetchedSources.push(src);
+      return new Blob(['fixture'], {
+        type: src.includes('FiraCode') ? 'font/woff2' : 'image/svg+xml',
+      });
     });
+    const backend = createPatchMapPixiAssetBackend();
     const pixiAssets = Assets as unknown as {
       load(descriptor: unknown): Promise<unknown>;
       unload(id: string): Promise<void>;
     };
-    const pixiCache = Cache as unknown as {
-      has(id: string): boolean;
-      get(id: string): unknown;
-    };
-    const external = Object.freeze({ texture: 'external' });
-    const has = vi.spyOn(pixiCache, 'has').mockReturnValueOnce(true);
-    const get = vi.spyOn(pixiCache, 'get').mockReturnValueOnce(external);
     const externalRequest: PatchMapAssetBackendRequest = Object.freeze({
       key: 'patch-map-asset:external',
       descriptor: Object.freeze({ src: 'https://assets.example.test/external.png' }),
@@ -640,12 +675,7 @@ describe('PatchMap shared asset runtime', () => {
       packageOwned: false,
     });
 
-    expect(backend.get(externalRequest)).toBe(external);
-    expect(has.mock.calls.map(([key]) => key)).toEqual([externalRequest.descriptor.src]);
-    expect(get.mock.calls.map(([key]) => key)).toEqual([externalRequest.descriptor.src]);
-
-    has.mockReset();
-    get.mockReset();
+    expect(backend.get(externalRequest)).toBeUndefined();
     const optionedRequest: PatchMapAssetBackendRequest = Object.freeze({
       ...externalRequest,
       descriptor: Object.freeze({
@@ -654,8 +684,6 @@ describe('PatchMap shared asset runtime', () => {
       }),
     });
     expect(backend.get(optionedRequest)).toBeUndefined();
-    expect(has).not.toHaveBeenCalled();
-    expect(get).not.toHaveBeenCalled();
 
     const resource = Object.freeze({ texture: 'builtin' });
     const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(resource);
@@ -726,7 +754,7 @@ describe('PatchMap shared asset runtime', () => {
     expect(fetchedSources[6]).toBe(rawHostSvg);
     expect(load.mock.calls[0]?.[0]).toMatchObject({
       alias: hostRequest.key,
-      src: 'blob:patch-map/builtin-7',
+      src: 'blob:patch-map/builtin-8',
     });
     await backend.unload(hostRequest.key);
     expect(unload).toHaveBeenLastCalledWith(hostRequest.key);
@@ -739,12 +767,9 @@ describe('PatchMap shared asset runtime', () => {
     };
     const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'glyph' }));
     const unload = vi.spyOn(pixiAssets, 'unload').mockResolvedValue(undefined);
-    let objectUrlSequence = 0;
-    const backend = createPatchMapPixiAssetBackend({
-      fetchAsset: () => Promise.resolve(new Blob(['fixture'], { type: 'image/svg+xml' })),
-      createObjectURL: () => `blob:patch-map-builtin/${++objectUrlSequence}`,
-      revokeObjectURL: () => undefined,
-    });
+    mockObjectUrls('blob:patch-map-builtin/');
+    mockAssetFetch(() => new Blob(['fixture'], { type: 'image/svg+xml' }));
+    const backend = createPatchMapPixiAssetBackend();
     const physicalKeys: string[] = [];
 
     for (const alias of BUILTIN_IMAGE_ALIASES) {
@@ -767,23 +792,12 @@ describe('PatchMap shared asset runtime', () => {
     expect(new Set(physicalKeys).size).toBe(BUILTIN_IMAGE_ALIASES.length);
   });
 
-  it('does not borrow an unverified external Pixi cache entry under ingestion policy', () => {
+  it('does not borrow an unverified external Pixi cache entry', () => {
     const pixiAssets = Assets as unknown as { get(id: string): unknown };
     const get = vi.spyOn(pixiAssets, 'get').mockReturnValue(
       Object.freeze({ texture: 'unverified-external' }),
     );
-    const backend = createPatchMapPixiAssetBackend({
-      ingestionPolicy: {
-        protocols: ['https:'],
-        origins: ['https://assets.example.test'],
-        redirects: 'revalidate',
-        credentials: 'omit',
-        mediaTypes: ['image/png'],
-        maxEncodedBytes: 1024,
-        maxDecodedWidth: 64,
-        maxDecodedHeight: 64,
-      },
-    });
+    const backend = createPatchMapPixiAssetBackend();
 
     expect(backend.get(Object.freeze({
       key: 'patch-map-asset:policy-cache',
@@ -794,30 +808,255 @@ describe('PatchMap shared asset runtime', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
-  it('fails closed when image decoded-size inspection is absent under ingestion policy', async () => {
+  it('uses package-owned browser boundaries and ignores caller overrides', async () => {
+    const source = 'https://assets.example.test/external.png';
+    const fetchAsset = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
+      new Blob(['png'], { type: 'image/png' }),
+      { status: 200, headers: { 'content-type': 'image/png' } },
+    ));
+    const pixiAssets = Assets as unknown as {
+      load(descriptor: unknown): Promise<unknown>;
+      unload(id: string): Promise<void>;
+    };
+    vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'external' }));
+    vi.spyOn(pixiAssets, 'unload').mockResolvedValue(undefined);
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue(
+      'blob:patch-map/fixed-fetch',
+    );
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const { createImageBitmap } = mockRasterDecoder(32, 16);
+    const attemptedFetchOverride = vi.fn(() => Promise.resolve(new Blob([
+      'bypassed',
+    ], { type: 'image/png' })));
+    const attemptedCreateObjectURL = vi.fn(() => source);
+    const attemptedRevokeObjectURL = vi.fn();
+    const attemptedInspectDecodedSize = vi.fn(() => Promise.resolve({ width: 1, height: 1 }));
+    const createWithOverrides = createPatchMapPixiAssetBackend as unknown as (options: {
+      readonly fetchAsset: typeof attemptedFetchOverride;
+      readonly createObjectURL: typeof attemptedCreateObjectURL;
+      readonly revokeObjectURL: typeof attemptedRevokeObjectURL;
+      readonly inspectDecodedSize: typeof attemptedInspectDecodedSize;
+    }) => PatchMapAssetBackend;
+    const backend = createWithOverrides({
+      fetchAsset: attemptedFetchOverride,
+      createObjectURL: attemptedCreateObjectURL,
+      revokeObjectURL: attemptedRevokeObjectURL,
+      inspectDecodedSize: attemptedInspectDecodedSize,
+    });
+
+    await backend.load(Object.freeze({
+      key: 'patch-map-asset:fixed-fetch',
+      descriptor: Object.freeze({ src: source }),
+      cacheIdentity: 'descriptor:fixed-fetch',
+      packageOwned: false,
+    }));
+
+    expect(fetchAsset).toHaveBeenCalledWith(source, {
+      credentials: 'omit',
+      redirect: 'error',
+    });
+    expect(attemptedFetchOverride).not.toHaveBeenCalled();
+    expect(attemptedCreateObjectURL).not.toHaveBeenCalled();
+    expect(attemptedRevokeObjectURL).not.toHaveBeenCalled();
+    expect(attemptedInspectDecodedSize).not.toHaveBeenCalled();
+    expect(createImageBitmap).toHaveBeenCalledOnce();
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    await backend.unload('patch-map-asset:fixed-fetch');
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:patch-map/fixed-fetch');
+  });
+
+  it.each([
+    'font/woff2',
+    'application/font-woff',
+  ])('loads an extensionless %s font without image decoding', async (mediaType) => {
+    const source = 'https://assets.example.test/external-font';
+    const pixiAssets = Assets as unknown as {
+      load(descriptor: unknown): Promise<unknown>;
+      unload(id: string): Promise<void>;
+    };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ font: 'external' }));
+    vi.spyOn(pixiAssets, 'unload').mockResolvedValue(undefined);
+    const { revoked } = mockObjectUrls('blob:patch-map/font-');
+    const createImageBitmap = vi.fn(() => Promise.reject(new Error('not an image')));
+    vi.stubGlobal('createImageBitmap', createImageBitmap);
+    mockAssetFetch(() => new Blob(['font'], { type: mediaType }));
+    const backend = createPatchMapPixiAssetBackend();
+
+    await backend.load(Object.freeze({
+      key: `patch-map-asset:font:${mediaType}`,
+      descriptor: Object.freeze({ src: source }),
+      cacheIdentity: `descriptor:font:${mediaType}`,
+      packageOwned: false,
+    }));
+
+    expect(createImageBitmap).not.toHaveBeenCalled();
+    expect(load).toHaveBeenCalledWith(expect.objectContaining({
+      alias: `patch-map-asset:font:${mediaType}`,
+      src: 'blob:patch-map/font-1',
+      parser: 'web-font',
+    }));
+    await backend.unload(`patch-map-asset:font:${mediaType}`);
+    expect(revoked).toEqual(['blob:patch-map/font-1']);
+  });
+
+  it.each([
+    {
+      label: 'raster',
+      blob: new Blob(['oversized-raster'], { type: 'image/png' }),
+      source: 'https://assets.example.test/oversized.png',
+    },
+    {
+      label: 'SVG',
+      blob: new Blob([
+        '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"></svg>',
+      ], { type: 'image/svg+xml' }),
+      source: 'https://assets.example.test/oversized.svg',
+    },
+  ])('rejects an oversized $label before content inspection', async ({ blob, source }) => {
+    const text = vi.spyOn(blob, 'text');
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue(
+      'blob:patch-map/oversized',
+    );
+    const createImageBitmap = vi.fn();
+    const ImageConstructor = vi.fn();
+    vi.stubGlobal('createImageBitmap', createImageBitmap);
+    vi.stubGlobal('Image', ImageConstructor);
+    const pixiAssets = Assets as unknown as { load(descriptor: unknown): Promise<unknown> };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(
+      Object.freeze({ texture: 'oversized' }),
+    );
+    mockAssetFetch(() => blob);
+    const backend = createPatchMapPixiAssetBackend();
+
+    await expect(backend.load(Object.freeze({
+      key: `patch-map-asset:oversized:${blob.type}`,
+      descriptor: Object.freeze({ src: source }),
+      cacheIdentity: `descriptor:oversized:${blob.type}`,
+      packageOwned: false,
+      policy: { maxEncodedBytes: 1, maxDecodedWidth: 64, maxDecodedHeight: 64 },
+    }))).rejects.toMatchObject({ code: 'ASSET_POLICY_REJECTED' });
+
+    expect(text).not.toHaveBeenCalled();
+    expect(createImageBitmap).not.toHaveBeenCalled();
+    expect(ImageConstructor).not.toHaveBeenCalled();
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('inspects SVG dimensions through the browser image decoder before Pixi loading', async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"></svg>';
+    const createImageBitmap = vi.fn(() => Promise.reject(new DOMException(
+      'The source image could not be decoded.',
+      'InvalidStateError',
+    )));
+    vi.stubGlobal('createImageBitmap', createImageBitmap);
+    const decode = mockSvgDecoder(48, 48);
+
+    const { created, revoked } = mockObjectUrls('blob:patch-map/svg-');
+    const pixiAssets = Assets as unknown as {
+      load(descriptor: unknown): Promise<unknown>;
+      unload(id: string): Promise<void>;
+    };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'svg' }));
+    vi.spyOn(pixiAssets, 'unload').mockResolvedValue(undefined);
+    mockAssetFetch(() => new Blob([svg], { type: 'image/svg+xml' }));
+    const backend = createPatchMapPixiAssetBackend();
+    const request: PatchMapAssetBackendRequest = Object.freeze({
+      key: 'patch-map-asset:svg',
+      descriptor: Object.freeze({
+        src: 'https://assets.example.test/icon.svg',
+        parser: 'svg',
+        data: Object.freeze({ resolution: 3 }),
+      }),
+      cacheIdentity: 'descriptor:svg',
+      packageOwned: false,
+      policy: { maxEncodedBytes: 1024, maxDecodedWidth: 144, maxDecodedHeight: 144 },
+    });
+
+    await expect(backend.load(request)).resolves.toEqual({ texture: 'svg' });
+    expect(createImageBitmap).not.toHaveBeenCalled();
+    expect(decode).toHaveBeenCalledOnce();
+    expect(created).toEqual(['blob:patch-map/svg-1', 'blob:patch-map/svg-2']);
+    expect(revoked).toEqual(['blob:patch-map/svg-1']);
+    expect(load).toHaveBeenCalledWith({
+      alias: request.key,
+      src: 'blob:patch-map/svg-2',
+      parser: 'svg',
+      data: { resolution: 3 },
+    });
+
+    await backend.unload(request.key);
+    expect(revoked).toEqual(['blob:patch-map/svg-1', 'blob:patch-map/svg-2']);
+  });
+
+  it('applies SVG rasterization options to decoded-size admission', async () => {
+    const decode = mockSvgDecoder(48, 48);
+    const { revoked } = mockObjectUrls('blob:patch-map/svg-policy-');
+    const pixiAssets = Assets as unknown as { load(descriptor: unknown): Promise<unknown> };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'svg' }));
+    mockAssetFetch(() => new Blob([
+      '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"></svg>',
+    ], { type: 'image/svg+xml' }));
+    const backend = createPatchMapPixiAssetBackend();
+
+    await expect(backend.load(Object.freeze({
+      key: 'patch-map-asset:oversized-svg',
+      descriptor: Object.freeze({
+        src: 'https://assets.example.test/oversized.svg',
+        parser: 'svg',
+        data: Object.freeze({ width: 72, height: 48, resolution: 2 }),
+      }),
+      cacheIdentity: 'descriptor:oversized-svg',
+      packageOwned: false,
+      policy: { maxEncodedBytes: 1024, maxDecodedWidth: 143, maxDecodedHeight: 143 },
+    }))).rejects.toMatchObject({ code: 'ASSET_POLICY_REJECTED' });
+
+    expect(decode).toHaveBeenCalledOnce();
+    expect(revoked).toEqual(['blob:patch-map/svg-policy-1']);
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('rejects SVG parser and response MIME mismatches before Pixi loading', async () => {
+    const pixiAssets = Assets as unknown as { load(descriptor: unknown): Promise<unknown> };
+    const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'svg' }));
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue(
+      'blob:patch-map/mismatched-svg',
+    );
+    mockAssetFetch(() => new Blob([
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+    ], { type: 'font/woff2' }));
+    const backend = createPatchMapPixiAssetBackend();
+
+    await expect(backend.load(Object.freeze({
+      key: 'patch-map-asset:mismatched-svg',
+      descriptor: Object.freeze({
+        src: 'https://assets.example.test/mismatched.svg',
+        parser: 'svg',
+      }),
+      cacheIdentity: 'descriptor:mismatched-svg',
+      packageOwned: false,
+      policy: { maxEncodedBytes: 1024, maxDecodedWidth: 64, maxDecodedHeight: 64 },
+    }))).rejects.toMatchObject({ code: 'ASSET_POLICY_REJECTED' });
+
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when image decoded-size inspection is absent', async () => {
     const pixiAssets = Assets as unknown as { load(descriptor: unknown): Promise<unknown> };
     const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'unsafe' }));
-    const createObjectURL = vi.fn(() => 'blob:unsafe');
-    const backend = createPatchMapPixiAssetBackend({
-      ingestionPolicy: {
-        protocols: ['https:'],
-        origins: ['https://assets.example.test'],
-        redirects: 'revalidate',
-        credentials: 'omit',
-        mediaTypes: ['image/png'],
-        maxEncodedBytes: 1024,
-        maxDecodedWidth: 64,
-        maxDecodedHeight: 64,
-      },
-      fetchAsset: () => Promise.resolve(new Blob(['png'], { type: 'image/png' })),
-      createObjectURL,
-    });
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:unsafe');
+    vi.stubGlobal('createImageBitmap', undefined);
+    vi.stubGlobal('Image', undefined);
+    mockAssetFetch(() => new Blob(['png'], { type: 'image/png' }));
+    const backend = createPatchMapPixiAssetBackend();
 
     await expect(backend.load(Object.freeze({
       key: 'patch-map-asset:missing-inspector',
       descriptor: Object.freeze({ src: 'https://assets.example.test/external.png' }),
       cacheIdentity: 'descriptor:missing-inspector',
       packageOwned: false,
+      policy: { maxEncodedBytes: 1024, maxDecodedWidth: 64, maxDecodedHeight: 64 },
     }))).rejects.toMatchObject({ code: 'ASSET_POLICY_REJECTED' });
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(load).not.toHaveBeenCalled();
@@ -833,20 +1072,13 @@ describe('PatchMap shared asset runtime', () => {
     const load = vi.spyOn(pixiAssets, 'load').mockResolvedValue(Object.freeze({ texture: 'owned' }));
     const unload = vi.spyOn(pixiAssets, 'unload').mockResolvedValue(undefined);
     const fetched: string[] = [];
-    const created: string[] = [];
-    const revoked: string[] = [];
-    const backend = createPatchMapPixiAssetBackend({
-      fetchAsset: (src) => {
-        fetched.push(src);
-        return Promise.resolve(new Blob(['fixture'], { type: 'image/svg+xml' }));
-      },
-      createObjectURL: () => {
-        const url = `blob:patch-map/${created.length + 1}`;
-        created.push(url);
-        return url;
-      },
-      revokeObjectURL: (url) => revoked.push(url),
+    const { created, revoked } = mockObjectUrls('blob:patch-map/');
+    mockSvgDecoder(72, 72);
+    mockAssetFetch((src) => {
+      fetched.push(src);
+      return new Blob(['fixture'], { type: 'image/svg+xml' });
     });
+    const backend = createPatchMapPixiAssetBackend();
     const first: PatchMapAssetBackendRequest = Object.freeze({
       key: 'patch-map-asset:first',
       descriptor: Object.freeze({
@@ -868,19 +1100,50 @@ describe('PatchMap shared asset runtime', () => {
 
     await Promise.all([backend.load(first), backend.load(second)]);
     expect(fetched).toEqual([first.descriptor.src, second.descriptor.src]);
-    expect(created).toEqual(['blob:patch-map/1', 'blob:patch-map/2']);
-    expect(load.mock.calls.map(([descriptor]) => descriptor)).toMatchObject([
-      { alias: first.key, src: 'blob:patch-map/1', parser: 'svg', data: { resolution: 1 } },
-      { alias: second.key, src: 'blob:patch-map/2', parser: 'svg', data: { resolution: 2 } },
+    expect(created).toEqual([
+      'blob:patch-map/1',
+      'blob:patch-map/2',
+      'blob:patch-map/3',
+      'blob:patch-map/4',
     ]);
+    const loadedDescriptors = load.mock.calls.map(([descriptor]) => descriptor as {
+      readonly alias: string;
+      readonly src: string;
+      readonly parser: string;
+      readonly data: Readonly<{ readonly resolution: number }>;
+    });
+    expect(loadedDescriptors).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        alias: first.key,
+        parser: 'svg',
+        data: { resolution: 1 },
+      }),
+      expect.objectContaining({
+        alias: second.key,
+        parser: 'svg',
+        data: { resolution: 2 },
+      }),
+    ]));
+    const firstObjectUrl = loadedDescriptors.find(({ alias }) => alias === first.key)?.src;
+    const secondObjectUrl = loadedDescriptors.find(({ alias }) => alias === second.key)?.src;
+    if (firstObjectUrl === undefined || secondObjectUrl === undefined) {
+      throw new Error('fixture Pixi descriptors were not loaded');
+    }
+    expect(firstObjectUrl).toMatch(/^blob:patch-map\/\d+$/u);
+    expect(secondObjectUrl).toMatch(/^blob:patch-map\/\d+$/u);
+    expect(firstObjectUrl).not.toBe(secondObjectUrl);
+    const decodedObjectUrls = created.filter((objectUrl) => (
+      objectUrl !== firstObjectUrl && objectUrl !== secondObjectUrl
+    ));
+    expect(decodedObjectUrls).toHaveLength(2);
 
     unload.mockRejectedValueOnce(new Error('fixture Pixi unload failure'));
     await expect(backend.unload(first.key)).rejects.toThrow('fixture Pixi unload failure');
-    expect(revoked).toEqual([]);
+    expect(new Set(revoked)).toEqual(new Set(decodedObjectUrls));
     await backend.unload(first.key);
     expect(unload).toHaveBeenCalledWith(first.key);
-    expect(revoked).toEqual(['blob:patch-map/1']);
+    expect(new Set(revoked)).toEqual(new Set([...decodedObjectUrls, firstObjectUrl]));
     await backend.unload(second.key);
-    expect(revoked).toEqual(['blob:patch-map/1', 'blob:patch-map/2']);
+    expect(new Set(revoked)).toEqual(new Set(created));
   });
 });

@@ -419,11 +419,11 @@ describe('PatchMap developer API workflows', () => {
     expect(typeof PublicPatchMap.mount).toBe('function');
     expect(Object.keys(PublicPackage).sort()).toEqual([
       'PATCH_MAP_BUILTIN_ASSETS',
+      'PATCH_MAP_DEFAULT_ASSET_POLICY',
       'PatchMap',
       'PatchMapAssetError',
       'PatchMapAssetRuntime',
       'PatchMapError',
-      'createPatchMapAssetIngestionPolicy',
       'createPatchMapPixiAssetBackend',
     ]);
     for (const internalName of [

@@ -4,38 +4,25 @@ import {
   PatchMapAssetError,
   type PatchMapAssetBackend,
   type PatchMapAssetBackendRequest,
-  type PatchMapAssetIngestionPolicyProfile,
 } from '../../src/assets/contracts';
 import { PatchMapAssetRuntime } from '../../src/assets';
 import {
-  createPatchMapAssetIngestionPolicy,
   evaluatePatchMapAssetResponsePolicy,
+  normalizePatchMapAssetPolicy,
+  PATCH_MAP_DEFAULT_ASSET_POLICY,
 } from '../../src/assets/ingestion-policy';
-
-const PROFILE: PatchMapAssetIngestionPolicyProfile = Object.freeze({
-  protocols: Object.freeze(['https']),
-  origins: Object.freeze(['https://assets.example.test']),
-  redirects: 'revalidate',
-  credentials: 'omit',
-  mediaTypes: Object.freeze(['image/png']),
-  maxEncodedBytes: 1_048_576,
-  maxDecodedWidth: 4_096,
-  maxDecodedHeight: 4_096,
-});
 
 class CountingBackend implements PatchMapAssetBackend {
   public readonly keyNamespace = 'asset-ingestion-policy-test/1';
-  public getCount = 0;
-  public loadCount = 0;
+  public readonly requests: PatchMapAssetBackendRequest[] = [];
   public unloadCount = 0;
 
   public get(_request: PatchMapAssetBackendRequest): unknown {
-    this.getCount += 1;
     return undefined;
   }
 
-  public load(_request: PatchMapAssetBackendRequest): Promise<unknown> {
-    this.loadCount += 1;
+  public load(request: PatchMapAssetBackendRequest): Promise<unknown> {
+    this.requests.push(request);
     return Promise.resolve(Object.freeze({ decoded: true }));
   }
 
@@ -46,107 +33,84 @@ class CountingBackend implements PatchMapAssetBackend {
 }
 
 describe('PatchMap asset ingestion policy', () => {
-  it('rejects disallowed descriptors before cache lookup or fetch', async () => {
-    const backend = new CountingBackend();
-    const runtime = new PatchMapAssetRuntime(backend);
-    const session = runtime.createSession({
-      instanceId: 'blocked-origin',
-      policy: createPatchMapAssetIngestionPolicy(PROFILE),
+  it('uses package defaults and currently accepts three positive policy fields', () => {
+    expect(normalizePatchMapAssetPolicy(undefined)).toEqual(PATCH_MAP_DEFAULT_ASSET_POLICY);
+    expect(normalizePatchMapAssetPolicy({ maxDecodedWidth: 2048 })).toEqual({
+      ...PATCH_MAP_DEFAULT_ASSET_POLICY,
+      maxDecodedWidth: 2048,
     });
-
-    await expect(
-      session.acquireSource('https://blocked.example.test/image.png'),
-    ).rejects.toMatchObject({
-      code: 'ASSET_POLICY_REJECTED',
-      category: 'ASSET_FAILURE',
-      retryable: false,
-    });
-    expect(backend).toMatchObject({ getCount: 0, loadCount: 0, unloadCount: 0 });
-    expect(session.probe()).toMatchObject({ pendingCount: 0, leaseCount: 0 });
-    await session.destroy();
+    expect(() => normalizePatchMapAssetPolicy({ maxEncodedBytes: 0 })).toThrowError(
+      PatchMapAssetError,
+    );
+    expect(() => normalizePatchMapAssetPolicy({ origins: [] } as never)).toThrowError(
+      PatchMapAssetError,
+    );
   });
 
-  it('leases one allowed resource and releases the owned backend entry', async () => {
+  it('admits direct URLs without an origin allowlist and passes normalized policy to the backend', async () => {
     const backend = new CountingBackend();
     const runtime = new PatchMapAssetRuntime(backend);
     const session = runtime.createSession({
-      instanceId: 'allowed',
-      policy: createPatchMapAssetIngestionPolicy(PROFILE),
+      instanceId: 'direct-url',
+      policy: { maxEncodedBytes: 1024 },
     });
     const descriptor = {
-      src: 'https://assets.example.test/image.png#visible-fragment',
+      src: 'https://any-origin.example.test/image.png#visible-fragment',
       data: { resolution: 1 },
     };
     const before = structuredClone(descriptor);
 
     const acquisition = await session.acquireSource(descriptor);
     expect(descriptor).toEqual(before);
-    expect(backend).toMatchObject({ getCount: 1, loadCount: 1, unloadCount: 0 });
+    expect(backend.requests).toHaveLength(1);
+    expect(backend.requests[0]).toMatchObject({
+      descriptor,
+      packageOwned: false,
+      policy: {
+        ...PATCH_MAP_DEFAULT_ASSET_POLICY,
+        maxEncodedBytes: 1024,
+      },
+    });
     await acquisition.release();
     expect(backend.unloadCount).toBe(1);
-    await session.destroy();
-    expect(runtime.probe()).toMatchObject({
-      resourceCount: 0,
-      pendingCount: 0,
-      leaseCount: 0,
-    });
   });
 
-  it('revalidates redirects, media, encoded bytes, decoded size, and SVG content', () => {
-    expect(evaluatePatchMapAssetResponsePolicy(PROFILE, {
-      requestUrl: 'https://assets.example.test/image.png',
-      finalUrl: 'https://assets.example.test/image.png',
+  it('fixes MIME and SVG safety while applying configurable byte and decoded-size limits', () => {
+    const policy = normalizePatchMapAssetPolicy({
+      maxEncodedBytes: 1_048_576,
+      maxDecodedWidth: 4096,
+      maxDecodedHeight: 4096,
+    });
+    expect(evaluatePatchMapAssetResponsePolicy(policy, {
       mediaType: 'image/png',
-      encodedBytes: 1_024,
+      encodedBytes: 1024,
       decodedWidth: 32,
       decodedHeight: 16,
     })).toEqual({ accepted: true, code: null, stage: 'accepted' });
-
-    expect(evaluatePatchMapAssetResponsePolicy(PROFILE, {
-      requestUrl: 'https://assets.example.test/image.png',
-      finalUrl: 'https://blocked.example.test/image.png',
-      redirectUrls: ['https://blocked.example.test/image.png'],
-      mediaType: 'image/png',
-      encodedBytes: 1_024,
-    })).toMatchObject({ accepted: false, stage: 'redirect' });
-
-    expect(evaluatePatchMapAssetResponsePolicy(PROFILE, {
-      requestUrl: 'https://assets.example.test/image.png',
-      finalUrl: 'https://assets.example.test/image.png',
-      mediaType: 'image/svg+xml',
-      encodedBytes: 1_024,
+    expect(evaluatePatchMapAssetResponsePolicy(policy, {
+      mediaType: 'text/html',
+      encodedBytes: 1024,
     })).toMatchObject({ accepted: false, stage: 'media-type' });
-
-    expect(evaluatePatchMapAssetResponsePolicy(PROFILE, {
-      requestUrl: 'https://assets.example.test/image.png',
-      finalUrl: 'https://assets.example.test/image.png',
+    expect(evaluatePatchMapAssetResponsePolicy(policy, {
+      mediaType: 'application/octet-stream',
+      encodedBytes: 1024,
+    })).toMatchObject({ accepted: false, stage: 'media-type' });
+    expect(evaluatePatchMapAssetResponsePolicy(policy, {
       mediaType: 'image/png',
       encodedBytes: 1_048_577,
     })).toMatchObject({ accepted: false, stage: 'encoded-bytes' });
-
-    expect(evaluatePatchMapAssetResponsePolicy(PROFILE, {
-      requestUrl: 'https://assets.example.test/image.png',
-      finalUrl: 'https://assets.example.test/image.png',
+    expect(evaluatePatchMapAssetResponsePolicy(policy, {
       mediaType: 'image/png',
-      encodedBytes: 1_024,
-      decodedWidth: 4_097,
+      encodedBytes: 1024,
+      decodedWidth: 4097,
       decodedHeight: 16,
     })).toMatchObject({ accepted: false, stage: 'decoded-size' });
-
-    const svgProfile = Object.freeze({
-      ...PROFILE,
-      mediaTypes: Object.freeze(['image/svg+xml']),
-    });
-    expect(evaluatePatchMapAssetResponsePolicy(svgProfile, {
-      requestUrl: 'https://assets.example.test/image.svg',
-      finalUrl: 'https://assets.example.test/image.svg',
+    expect(evaluatePatchMapAssetResponsePolicy(policy, {
       mediaType: 'image/svg+xml',
       encodedBytes: 128,
       svgText: '<svg><script>alert(1)</script></svg>',
     })).toMatchObject({ accepted: false, stage: 'svg-content' });
-    expect(evaluatePatchMapAssetResponsePolicy(svgProfile, {
-      requestUrl: 'https://assets.example.test/image.svg',
-      finalUrl: 'https://assets.example.test/image.svg',
+    expect(evaluatePatchMapAssetResponsePolicy(policy, {
       mediaType: 'image/svg+xml',
       encodedBytes: 128,
       svgText: '<svg><image href="https://evil.test/a.png"/></svg>',
@@ -154,10 +118,7 @@ describe('PatchMap asset ingestion policy', () => {
   });
 
   it('uses the closed INVALID_VALUE diagnostic for cyclic descriptors', () => {
-    const descriptor: {
-      src: string;
-      data: { self?: unknown };
-    } = {
+    const descriptor: { src: string; data: { self?: unknown } } = {
       src: 'https://assets.example.test/cyclic.png',
       data: {},
     };
