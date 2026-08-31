@@ -128,7 +128,10 @@ export interface PatchMapSelectionPolicy {
   readonly deselectOnTargetDoubleClick?: boolean;
   /** Enable root-owned pointer drag box selection. Disabled by default. */
   readonly box?: boolean | PatchMapBoxSelectionOptions;
-  /** Called with detached stable identity, never renderer objects. */
+  /**
+   * Called with detached stable identity, never renderer objects. A rejected
+   * point hit is treated as blank for configured selection clearing.
+   */
   readonly isSelectable?: (target: PatchMapTarget) => boolean;
   /**
    * Resolve Ctrl/Cmd point selection from stable identities in the package's

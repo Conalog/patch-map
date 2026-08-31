@@ -379,6 +379,7 @@ describe('PatchMap root pointer and region-selection substrate', () => {
     const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
     engine.configurePointerSelectionPolicy({
       allowMultiple: true,
+      clearOnBlankClick: 'never',
       box: { partialIntersection: true },
       isSelectable: (target) => {
         policyTargets.push(target);
@@ -874,6 +875,35 @@ describe('PatchMap root pointer and region-selection substrate', () => {
       await engine.destroy().catch(() => undefined);
       vi.useRealTimers();
     }
+  });
+
+  it('treats non-selectable point hits as blank for configured selection clearing', async () => {
+    const surface = new PointerTestSurface();
+    const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
+    engine.configurePointerSelectionPolicy({
+      clearOnBlankClick: 'double',
+      isSelectable: ({ id }) => id !== 'rect-b',
+    });
+    await engine.initialize({ instanceId: 'pointer-rejected-target-clear', width: 800, height: 600 });
+    engine.loadDataset(REGION_DATASET);
+    const pointerChanges: PatchMapPointerSelectionChange[] = [];
+    engine.selection.onPointerChange((change) => pointerChanges.push(change));
+
+    engine.selection.set('item-a');
+    emitClick(surface, 28, [180, 55], 0);
+    expect(engine.selection.ids).toEqual(['item-a']);
+    expect(pointerChanges).toEqual([]);
+
+    emitClick(surface, 28, [180, 55], 100);
+    expect(engine.selection.ids).toEqual([]);
+    expect(pointerChanges).toHaveLength(1);
+    expect(pointerChanges[0]).toMatchObject({
+      selected: [],
+      added: [],
+      removed: [{ id: 'item-a' }],
+    });
+
+    await expect(engine.destroy()).resolves.toBe(true);
   });
 
   it('keeps the compatible blank single-click clear default', async () => {
