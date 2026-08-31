@@ -20,7 +20,7 @@ export interface PatchMapCaptureExtractionPort {
   readonly liveSurface: () => PatchMapEngineSurface | null;
   readonly authoritativeCanvas: () => HTMLCanvasElement | null;
   readonly isDestroyingOrDestroyed: () => boolean;
-  readonly resize: (width: number, height: number, pixelRatio: number) => void;
+  readonly resize: (width: number, height: number, pixelRatio: number) => boolean;
   readonly adjustPendingWork: (delta: 1 | -1) => void;
   readonly operationError: (
     code: string,

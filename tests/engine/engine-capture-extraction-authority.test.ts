@@ -200,6 +200,7 @@ function captureHarness(): {
       resize: (width, height, pixelRatio) => {
         resizes.push(Object.freeze([width, height, pixelRatio]));
         onResize?.();
+        return true;
       },
       adjustPendingWork: (delta) => {
         pendingWork += delta;
