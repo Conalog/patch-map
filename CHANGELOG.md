@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.6](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.5...v1.0.0-alpha.6) (2026-08-31)
+
+
+### Fixed
+
+* prevent black frames during automatic resize ([#231](https://github.com/Conalog/patch-map/issues/231)) ([ddaace9](https://github.com/Conalog/patch-map/commit/ddaace96cd9db37f58e0e894e8ea4cbcaa6596c2))
+
 ## [1.0.0-alpha.5](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.4...v1.0.0-alpha.5) (2026-08-31)
 
 
