@@ -61,6 +61,27 @@ describe('PatchMapCaptureExtractionAuthority', () => {
     harness.frameLoop.resume();
   });
 
+  it('publishes a deferred mount resize before managed capture frame ownership resumes', async () => {
+    const harness = captureHarness();
+    const resizeObserver = resizeObserverHarness();
+    harness.authority.observeMountSize(resizeObserver.target, 2);
+
+    const capture = harness.authority.captureManagedPng();
+    await Promise.resolve();
+    expect(harness.publishedFrameCount).toBe(1);
+
+    resizeObserver.setSize(640, 360);
+    resizeObserver.notify();
+    expect(harness.resizes).toEqual([]);
+
+    harness.surface.resolveNextCapture();
+    await expect(capture).resolves.toMatchObject({ mime: 'image/png' });
+    expect(harness.resizes).toEqual([[640, 360, 2]]);
+    expect(harness.publishedFrameCount).toBe(2);
+    expect(harness.frameLoop.pause()).toBe(true);
+    harness.frameLoop.resume();
+  });
+
   it('uses the injected security authority before acquiring capture work', async () => {
     const harness = captureHarness();
     harness.extractionSecurity.setAssetReadability('unreadable-source', 'tainted');
@@ -133,6 +154,7 @@ function captureHarness(): {
   readonly extractionSecurity: PatchMapExtractionSecurityAuthority;
   readonly frameLoop: PatchMapManagedFrameLoopAuthority;
   readonly publication: PatchMapPublicationAuthority;
+  readonly publishedFrameCount: number;
   readonly resizes: Array<readonly [number, number, number]>;
   readonly surface: DeferredCaptureSurface;
   destroyed: boolean;
@@ -151,6 +173,7 @@ function captureHarness(): {
   let destroyed = false;
   let liveSurface: PatchMapEngineSurface | null = surface as unknown as PatchMapEngineSurface;
   let pendingWork = 0;
+  let publishedFrameCount = 0;
   let onResize: (() => void) | null = null;
   frameLoop.create({
     activeAnimations: 0,
@@ -160,7 +183,10 @@ function captureHarness(): {
     get destroyed() {
       return destroyed;
     },
-    publishFrame: () => publication.commitFrame(),
+    publishFrame: () => {
+      publishedFrameCount += 1;
+      publication.commitFrame();
+    },
   }, {
     driver: {
       now: () => 1,
@@ -232,6 +258,9 @@ function captureHarness(): {
     extractionSecurity,
     frameLoop,
     publication,
+    get publishedFrameCount() {
+      return publishedFrameCount;
+    },
     resizes,
     surface,
     get destroyed() {
