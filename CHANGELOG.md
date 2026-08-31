@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.5](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.4...v1.0.0-alpha.5) (2026-08-31)
+
+
+### Fixed
+
+* treat non-selectable point hits as blank ([#229](https://github.com/Conalog/patch-map/issues/229)) ([ba37aad](https://github.com/Conalog/patch-map/commit/ba37aad6f62b1f315269212d9c91edf067eb33cc))
+
 ## [1.0.0-alpha.4](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.3...v1.0.0-alpha.4) (2026-08-28)
 
 
