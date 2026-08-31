@@ -20,7 +20,7 @@ export interface PatchMapCaptureExtractionPort {
   readonly liveSurface: () => PatchMapEngineSurface | null;
   readonly authoritativeCanvas: () => HTMLCanvasElement | null;
   readonly isDestroyingOrDestroyed: () => boolean;
-  readonly resize: (width: number, height: number, pixelRatio: number) => void;
+  readonly resize: (width: number, height: number, pixelRatio: number) => boolean;
   readonly adjustPendingWork: (delta: 1 | -1) => void;
   readonly operationError: (
     code: string,
@@ -71,7 +71,7 @@ export class PatchMapCaptureExtractionAuthority {
         this.deferredMountResize = Object.freeze([bounds.width, bounds.height, resolution]);
         return;
       }
-      this.port.resize(bounds.width, bounds.height, resolution);
+      this.resizeAndPublishMount(bounds.width, bounds.height, resolution);
     };
     const ownerWindow = target.ownerDocument?.defaultView;
     const ResizeObserverConstructor = ownerWindow?.ResizeObserver ?? globalThis.ResizeObserver;
@@ -283,6 +283,7 @@ export class PatchMapCaptureExtractionAuthority {
       });
     } finally {
       this.managedCaptureDepth -= 1;
+      let resized = false;
       if (
         this.managedCaptureDepth === 0 &&
         this.deferredMountResize !== null &&
@@ -290,10 +291,18 @@ export class PatchMapCaptureExtractionAuthority {
       ) {
         const [width, height, pixelRatio] = this.deferredMountResize;
         this.deferredMountResize = null;
-        this.port.resize(width, height, pixelRatio);
+        resized = this.port.resize(width, height, pixelRatio);
       }
       if (resume) this.managedFrameLoop.resume();
+      if (resized) this.managedFrameLoop.publishNow();
     }
+  }
+
+  private resizeAndPublishMount(width: number, height: number, pixelRatio: number): void {
+    if (!this.port.resize(width, height, pixelRatio)) return;
+    // ResizeObserver runs before paint, so publish before its callback can expose
+    // the renderer-cleared backing store to browser composition.
+    this.managedFrameLoop.publishNow();
   }
 
   private canvasHandleForSurface(

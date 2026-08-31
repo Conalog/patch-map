@@ -655,9 +655,7 @@ export class PatchMap {
         liveSurface: () => this.surface,
         authoritativeCanvas: () => this.authoritativeCanvas,
         isDestroyingOrDestroyed: () => this.isDestroyingOrDestroyed(),
-        resize: (width, height, pixelRatio) => {
-          this.resize(width, height, pixelRatio);
-        },
+        resize: (width, height, pixelRatio) => this.resize(width, height, pixelRatio),
         adjustPendingWork: (delta) => {
           this.pendingWork += delta;
         },

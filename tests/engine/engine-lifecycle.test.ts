@@ -50,6 +50,44 @@ function createFrameDriver(): FrameDriver & { pending(): number } {
   };
 }
 
+function createResizeObserverTarget(): Readonly<{
+  target: HTMLElement;
+  notify: () => void;
+  setSize: (width: number, height: number) => void;
+}> {
+  let width = 800;
+  let height = 600;
+  let callback: ResizeObserverCallback | null = null;
+  const Observer = class {
+    public constructor(value: ResizeObserverCallback) {
+      callback = value;
+    }
+
+    public observe(): void {}
+
+    public disconnect(): void {}
+  } as unknown as typeof ResizeObserver;
+  const target = {
+    ownerDocument: {
+      defaultView: {
+        ResizeObserver: Observer,
+      },
+    },
+    getBoundingClientRect: () => ({ width, height }),
+  } as unknown as HTMLElement;
+  return Object.freeze({
+    target,
+    notify: () => {
+      if (callback === null) throw new Error('resize observer is not registered');
+      callback([], {} as ResizeObserver);
+    },
+    setSize: (nextWidth, nextHeight) => {
+      width = nextWidth;
+      height = nextHeight;
+    },
+  });
+}
+
 class FakeSurface implements PatchMapEngineSurface {
   public canvasCount = 1;
   public destroyed = false;
@@ -301,6 +339,28 @@ describe('PatchMap lifecycle authority', () => {
     await engine.destroy();
     expect(driver.pending()).toBe(0);
     expect(loop.debugSnapshot().destroyed).toBe(true);
+  });
+
+  it('publishes an observed host resize before the observer callback returns', async () => {
+    const { factory, surfaces } = createSurfaceFactory();
+    const driver = createFrameDriver();
+    const resizeObserver = createResizeObserverTarget();
+    const engine = new PatchMap({ surfaceFactory: factory });
+    await engine.initialize({ instanceId: 'observed-resize', width: 800, height: 600 });
+    engine.createFrameLoop({ driver });
+    engine.observeMountSize(resizeObserver.target, 2);
+
+    resizeObserver.setSize(1024, 768);
+    resizeObserver.notify();
+
+    expect(surfaces[0]?.frameCount).toBe(1);
+    expect(surfaces[0]?.debugSnapshot()).toMatchObject({
+      cssSize: [1024, 768],
+      backingSize: [2048, 1536],
+    });
+    expect(driver.pending()).toBe(0);
+
+    await engine.destroy();
   });
 
   it('bridges asynchronous surface invalidation into the product frame loop', async () => {
