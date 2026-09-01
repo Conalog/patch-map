@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0-alpha.7](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.6...v1.0.0-alpha.7) (2026-09-01)
+
+
+### Fixed
+
+* preserve top-left origin for rotated standalone images ([#233](https://github.com/Conalog/patch-map/issues/233)) ([4baf1f2](https://github.com/Conalog/patch-map/commit/4baf1f25fbbe0a396cd5b4b6c87111f4da9ed492))
+
+
+### Changed
+
+* reduce Fira Code package payload with compatible asset delivery ([#234](https://github.com/Conalog/patch-map/issues/234)) ([afb4b32](https://github.com/Conalog/patch-map/commit/afb4b329a88af1ab329c53235b677e5981be89cd))
+
 ## [1.0.0-alpha.6](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.5...v1.0.0-alpha.6) (2026-08-31)
 
 
