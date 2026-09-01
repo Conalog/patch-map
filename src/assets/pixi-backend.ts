@@ -105,11 +105,11 @@ async function pixiDescriptor(
   if (fontFace !== undefined) {
     const { builtinFiraCodeUrl } = await import('./builtin-font-payload');
     return deepFreeze({
-      src: builtinFiraCodeUrl(fontFace.fontWeight),
+      src: builtinFiraCodeUrl(),
       parser: 'web-font',
       data: {
         family: PATCH_MAP_FIRA_CODE_FAMILY,
-        weights: [String(fontFace.fontWeight)],
+        weights: BUILTIN_FIRA_CODE_FACES.map(({ fontWeight }) => String(fontWeight)),
       },
     });
   }

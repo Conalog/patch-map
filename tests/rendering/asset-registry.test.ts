@@ -17,7 +17,9 @@ import {
   builtinImageSvg,
 } from '../../src/assets/builtin-image-glyphs';
 import {
+  BUILTIN_FIRA_CODE_ASSET,
   BUILTIN_FIRA_CODE_FACES,
+  BUILTIN_FONT_WEIGHTS,
   BUILTIN_IMAGE_ALIASES,
   PATCH_MAP_BUILTIN_FONT_ASSETS,
   builtinImageDataUri,
@@ -141,22 +143,27 @@ class FakeAssetBackend implements PatchMapAssetBackend {
 }
 
 describe('PatchMap shared asset runtime', () => {
-  it('binds every built-in Fira Code weight to its exact package-owned face', () => {
+  it('binds every built-in Fira Code weight to one exact package-owned variable face', () => {
     expect(BUILTIN_FIRA_CODE_FACES.map(({ fontWeight }) => fontWeight)).toEqual([
       300, 400, 500, 600, 700,
     ]);
     expect(new Set(BUILTIN_FIRA_CODE_FACES.map(({ descriptorSource }) => descriptorSource)).size)
-      .toBe(BUILTIN_FIRA_CODE_FACES.length);
+      .toBe(1);
+
+    const bytes = readFileSync(new URL(
+      `../../src/resources/fonts/${BUILTIN_FIRA_CODE_ASSET.fileName}`,
+      import.meta.url,
+    ));
+    expect(bytes.byteLength).toBe(BUILTIN_FIRA_CODE_ASSET.byteLength);
+    expect(createHash('sha256').update(bytes).digest('hex')).toBe(
+      BUILTIN_FIRA_CODE_ASSET.sha256,
+    );
+    expect(BUILTIN_FIRA_CODE_ASSET.descriptorSource).toContain(
+      `${BUILTIN_FIRA_CODE_ASSET.fileName}?sha256=${BUILTIN_FIRA_CODE_ASSET.sha256}`,
+    );
 
     for (const [index, face] of BUILTIN_FIRA_CODE_FACES.entries()) {
-      const bytes = readFileSync(new URL(
-        `../../src/resources/fonts/${face.fileName}`,
-        import.meta.url,
-      ));
       const registration = PATCH_MAP_BUILTIN_FONT_ASSETS[index];
-      expect(bytes.byteLength).toBe(face.byteLength);
-      expect(createHash('sha256').update(bytes).digest('hex')).toBe(face.sha256);
-      expect(face.descriptorSource).toContain(`${face.fileName}?sha256=${face.sha256}`);
       expect(registration).toMatchObject({
         alias: `FiraCode-${face.fontWeight}`,
         kind: 'font',
@@ -164,10 +171,28 @@ describe('PatchMap shared asset runtime', () => {
         descriptor: {
           src: face.descriptorSource,
           parser: 'web-font',
-          data: { family: 'FiraCode', weights: [String(face.fontWeight)] },
+          data: { family: 'FiraCode', weights: BUILTIN_FONT_WEIGHTS.map(String) },
         },
       });
     }
+  });
+
+  it('loads the shared built-in Fira Code resource once for all logical weights', async () => {
+    const backend = new FakeAssetBackend();
+    backend.immediate = Object.freeze({ font: 'FiraCode-VF' });
+    const runtime = new PatchMapAssetRuntime(backend);
+    const session = runtime.createSession({ instanceId: 'font-deduplication' });
+    session.registerAssets();
+
+    const acquisitions = await Promise.all(
+      PATCH_MAP_BUILTIN_FONT_ASSETS.map(({ alias }) => session.acquire(alias)),
+    );
+
+    expect(backend.loadRequests).toHaveLength(1);
+    expect(new Set(acquisitions.map(({ resource }) => resource)).size).toBe(1);
+    expect(runtime.probe()).toMatchObject({ resourceCount: 1, leaseCount: 1 });
+    await session.destroy();
+    expect(backend.unloadKeys).toHaveLength(1);
   });
 
   it('owns the exact transparent PatchMap filled glyph sources', () => {
@@ -735,9 +760,9 @@ describe('PatchMap shared asset runtime', () => {
         alias: `patch-map-asset:font-${registration.fontWeight}`,
         parser: 'web-font',
         src: `blob:patch-map/builtin-${index + 2}`,
-        data: { family: 'FiraCode', weights: [String(registration.fontWeight)] },
+        data: { family: 'FiraCode', weights: BUILTIN_FONT_WEIGHTS.map(String) },
       });
-      expect(fetchedSources[index + 1]).toMatch(/^file:.*FiraCode-[A-Za-z]+\.woff2$/u);
+      expect(fetchedSources[index + 1]).toMatch(/^file:.*FiraCode-VF\.woff2$/u);
     }
 
     load.mockClear();
