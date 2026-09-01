@@ -23,8 +23,9 @@ physical file supplies the supported 300, 400, 500, 600, and 700 weights.
 
 The payload is distributed under the SIL Open Font License 1.1. The required license is
 [fira-code-6.2-license.txt](fira-code-6.2-license.txt). Exact source filename,
-size, and SHA-256 are verified by the focused asset registry test. License
-inclusion is verified by the package artifact gate. The license SHA-256 is
+size, and SHA-256 are verified by the focused asset registry test. Packaged
+filename and size, browser loading, and license inclusion are verified by the
+package artifact gate. The license SHA-256 is
 `1d41e10031ab125302780a05ec4c91d218e47db0c7e37cf315cce5e608cdc25c`.
 
 ## Failure decisions

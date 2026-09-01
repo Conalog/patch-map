@@ -4,6 +4,10 @@ export function collectPackagePublicationFailures(packageArtifact) {
     packageArtifact.missingDocs.length !== 0
     || packageArtifact.missingExamples.length !== 0
   ) failures.push('packed artifact is missing public PatchMap docs or examples');
+  if (
+    packageArtifact.missingAssets.length !== 0
+    || packageArtifact.invalidAssetSizes.length !== 0
+  ) failures.push('packed artifact is missing an exact public PatchMap asset');
   if (packageArtifact.unexpectedDocs.length !== 0) {
     failures.push('packed artifact contains unexpected public documentation');
   }

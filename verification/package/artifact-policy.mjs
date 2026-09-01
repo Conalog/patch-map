@@ -25,6 +25,10 @@ export const PUBLIC_DOCS = Object.freeze([
   'docs/assets/fira-code-6.2-license.txt',
 ]);
 
+export const PUBLIC_ASSETS = Object.freeze([
+  Object.freeze({ path: 'dist/FiraCode-VF.woff2', size: 113_088 }),
+]);
+
 const PUBLIC_EXAMPLES = Object.freeze(
   EXAMPLE_FILES.map((name) => `examples/${name}`),
 );
@@ -54,6 +58,11 @@ const PROHIBITED_PACKAGE_PATHS = Object.freeze({
 });
 
 export function projectPackedArtifactPolicy({ packRecord, files, sha256 }) {
+  const packedFileSizes = new Map(
+    (Array.isArray(packRecord.files) ? packRecord.files : [])
+      .filter((entry) => typeof entry?.path === 'string' && Number.isInteger(entry?.size))
+      .map((entry) => [entry.path, entry.size]),
+  );
   const sourceMaps = files.filter((file) => file.endsWith('.map'));
   const restrictedEvidence = files.filter((file) =>
     RESTRICTED_PACKAGE_PATHS.some((pattern) => pattern.test(file)));
@@ -61,6 +70,9 @@ export function projectPackedArtifactPolicy({ packRecord, files, sha256 }) {
   const unexpectedDocs = files.filter((file) =>
     file.startsWith('docs/') && !PUBLIC_DOCS.includes(file));
   const missingExamples = PUBLIC_EXAMPLES.filter((file) => !files.includes(file));
+  const missingAssets = PUBLIC_ASSETS.filter(({ path }) => !files.includes(path));
+  const invalidAssetSizes = PUBLIC_ASSETS.filter(({ path, size }) =>
+    packedFileSizes.get(path) !== size);
   const prohibitedEntries = Object.entries(PROHIBITED_PACKAGE_PATHS)
     .flatMap(([category, patterns]) => files
       .filter((file) => patterns.some((pattern) => pattern.test(file)))
@@ -80,9 +92,12 @@ export function projectPackedArtifactPolicy({ packRecord, files, sha256 }) {
     restrictedEvidence,
     publicDocs: PUBLIC_DOCS,
     publicExamples: PUBLIC_EXAMPLES,
+    publicAssets: PUBLIC_ASSETS,
     missingDocs,
     unexpectedDocs,
     missingExamples,
+    missingAssets,
+    invalidAssetSizes,
     prohibitedEntryCount: prohibitedEntries.length,
     prohibitedEntries: Object.freeze(prohibitedEntries),
   });
