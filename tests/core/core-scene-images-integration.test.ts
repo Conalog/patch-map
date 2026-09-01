@@ -333,7 +333,7 @@ describe('PatchMap scene image integration', () => {
     });
   });
 
-  it('batches shared intrinsic sizes and recomputes rotated reflected center pivots', async () => {
+  it('batches shared intrinsic sizes and preserves rotated reflected top-left pivots', async () => {
     const { core, renderer } = createCore(allocated);
     core.load([
       {
@@ -362,11 +362,11 @@ describe('PatchMap scene image integration', () => {
     expect(core.hitBounds('plain')).toEqual([10, 20, 20, 10]);
     expect(core.projection?.byEntityId['rotated-reflected']).toMatchObject({
       localBounds: [0, 0, 20, 10],
-      visibleCenter: [80, 55],
+      visibleCenter: [95, 30],
       scaleX: -2,
       scaleY: 1,
     });
-    expect(core.hitBounds('rotated-reflected')).toEqual([75, 35, 10, 40]);
+    expect(core.hitBounds('rotated-reflected')).toEqual([90, 10, 10, 40]);
   });
 
   it('preserves nested affine authority when intrinsic size resolves and on reload', async () => {
@@ -384,14 +384,14 @@ describe('PatchMap scene image integration', () => {
     }] as const;
     core.load(dataset);
 
-    const fallback = nestedIntrinsicImageAffine(32, 32);
+    const fallback = nestedImageAffine();
     expectAffineClose(core.projection?.byEntityId['intrinsic-child']?.affine, fallback);
     expect(patchMapAffineHasSkew(fallback)).toBe(true);
 
     renderer.resolve('alias:fixture-image', { naturalSize: [48, 20] });
     await core.settleSceneImages();
 
-    const resolved = nestedIntrinsicImageAffine(48, 20);
+    const resolved = nestedImageAffine();
     expect(core.projection?.byEntityId['intrinsic-child']?.localBounds).toEqual([0, 0, 48, 20]);
     expectAffineClose(core.projection?.byEntityId['intrinsic-child']?.affine, resolved);
     expectBoundsClose(core.hitBounds('intrinsic-child'), affineAabb(resolved, 48, 20));
@@ -646,18 +646,12 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve };
 }
 
-function nestedIntrinsicImageAffine(width: number, height: number) {
+function nestedImageAffine() {
   return multiplyPatchMapAffine(
     createPatchMapAffine(30, 20, 25, 2, 0.5),
     multiplyPatchMapAffine(
       createPatchMapAffine(12, 8),
-      multiplyPatchMapAffine(
-        createPatchMapAffine(-1.5 * width / 2, 0.75 * height / 2),
-        multiplyPatchMapAffine(
-          createPatchMapAffine(0, 0, 40, -1.5, 0.75),
-          createPatchMapAffine(-width / 2, -height / 2),
-        ),
-      ),
+      createPatchMapAffine(0, 0, 40, -1.5, 0.75),
     ),
   );
 }

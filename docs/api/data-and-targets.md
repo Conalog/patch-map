@@ -22,6 +22,10 @@ are owned by their respective API pages.
   elements and components. Legacy `scale`, `skew`, `pivot`, and their axis
   aliases remain accepted and preserved for 1.0 compatibility but are not
   projected by the current renderer.
+- For standalone `image` elements, `attrs.x` and `attrs.y` are the authored
+  top-left transform origin. Rotation and signed scale preserve that origin,
+  matching the v0.10 persisted-data contract regardless of authored or decoded
+  image dimensions.
 - Supported root elements are `group`, `grid`, `item`, `relations`, `image`,
   `text`, and `rect`. Item and grid templates may contain `background`, `bar`,
   `icon`, and `text` components.

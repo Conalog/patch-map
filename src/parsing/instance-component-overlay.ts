@@ -255,7 +255,6 @@ function parserTransform(projection: PatchMapEntityProjection): PatchMapParserTr
       parentAffine: PATCH_MAP_IDENTITY_AFFINE,
       localTranslationAffine: PATCH_MAP_IDENTITY_AFFINE,
       localRotationScaleAffine: PATCH_MAP_IDENTITY_AFFINE,
-      localPivotScaleAffine: PATCH_MAP_IDENTITY_AFFINE,
     }),
   });
 }
