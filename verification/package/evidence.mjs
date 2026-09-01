@@ -19,6 +19,7 @@ export function collectPackageFailures({
   errors,
   esm,
   examples,
+  fontArtifacts,
   packageArtifact,
   productionAliasProbe,
   productionBuild,
@@ -55,6 +56,9 @@ export function collectPackageFailures({
   if (
     esm.internalExportsAbsent !== true
     || esm.constructorRejected !== true
+    || esm.fontWeightsReady !== true
+    || !(esm.firaCodeFaceCountBeforeDestroy > 0)
+    || esm.firaCodeFaceCountAfterDestroy !== 0
     || esm.destroyResult !== true
     || esm.destroyed !== true
     || esm.canvasCountAfterDestroy !== 0
@@ -64,6 +68,16 @@ export function collectPackageFailures({
     || cjs.internalExportsAbsent !== true
     || cjs.constructorRejected !== true
   ) failures.push('packed CJS public surface failed');
+  if (
+    fontArtifacts.esmReferencesFontAsset !== true
+    || fontArtifacts.cjsReferencesFontAsset !== true
+    || fontArtifacts.esmReferencesDataFallback !== true
+    || fontArtifacts.cjsReferencesDataFallback !== true
+    || fontArtifacts.esmLoadsDataFallback !== true
+    || fontArtifacts.cjsLoadsDataFallback !== true
+    || fontArtifacts.dataFallbackMatchesFontBytes !== true
+    || fontArtifacts.cjsRequiresFontAsModule !== false
+  ) failures.push('packed font asset is not URL-safe in ESM and CJS');
 
   if (
     packageArtifact.sourceMapCount !== 0
@@ -114,6 +128,7 @@ export function createPackageConsumerEvidence({
   errors,
   esm,
   examples,
+  fontArtifacts,
   failures,
   generatedAt,
   packageArtifact,
@@ -123,7 +138,7 @@ export function createPackageConsumerEvidence({
   types,
 }) {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     generatedAt,
     package: '@conalog/patch-map',
     pixi: '8.19.0',
@@ -147,6 +162,7 @@ export function createPackageConsumerEvidence({
       browser: browserAliasProbe,
     },
     examples,
+    fontArtifacts,
     esm,
     cjs,
     errors,

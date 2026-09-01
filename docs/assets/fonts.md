@@ -14,6 +14,9 @@ Font acquisition, leases, and first-frame readiness belong to
 
 The package contains the unmodified Fira Code 6.2 variable WOFF2 payload. One
 physical file supplies the supported 300, 400, 500, 600, and 700 weights.
+The runtime uses that file directly when its module-relative URL remains valid.
+A package-owned, lazily loaded data-URL module preserves the same font bytes
+when a consumer bundler relocates the library chunk.
 
 | Weights | File | Bytes | SHA-256 |
 | --- | --- | ---: | --- |
@@ -24,15 +27,15 @@ physical file supplies the supported 300, 400, 500, 600, and 700 weights.
 The payload is distributed under the SIL Open Font License 1.1. The required license is
 [fira-code-6.2-license.txt](fira-code-6.2-license.txt). Exact source filename,
 size, and SHA-256 are verified by the focused asset registry test. Packaged
-filename and size, browser loading, and license inclusion are verified by the
-package artifact gate. The license SHA-256 is
+filename and size, browser loading, fallback byte equivalence, and license
+inclusion are verified by the package artifact gate. The license SHA-256 is
 `1d41e10031ab125302780a05ec4c91d218e47db0c7e37cf315cce5e608cdc25c`.
 
 ## Failure decisions
 
 | Symptom | Meaning | Action |
 | --- | --- | --- |
-| Package verification reports a font digest change | Payload identity changed | Review provenance and license, then intentionally update the artifact expectation |
+| Focused asset test reports a font digest change | Payload identity changed | Review provenance and license, then intentionally update the source identity expectation |
 | Package omits the license | Artifact contents are invalid | Restore the exact license file before release |
 
 ## Verification map

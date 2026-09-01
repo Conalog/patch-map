@@ -18,7 +18,6 @@ import {
 } from '../../src/assets/builtin-image-glyphs';
 import {
   BUILTIN_FIRA_CODE_ASSET,
-  BUILTIN_FIRA_CODE_FACES,
   BUILTIN_FONT_WEIGHTS,
   BUILTIN_IMAGE_ALIASES,
   PATCH_MAP_BUILTIN_FONT_ASSETS,
@@ -144,11 +143,7 @@ class FakeAssetBackend implements PatchMapAssetBackend {
 
 describe('PatchMap shared asset runtime', () => {
   it('binds every built-in Fira Code weight to one exact package-owned variable face', () => {
-    expect(BUILTIN_FIRA_CODE_FACES.map(({ fontWeight }) => fontWeight)).toEqual([
-      300, 400, 500, 600, 700,
-    ]);
-    expect(new Set(BUILTIN_FIRA_CODE_FACES.map(({ descriptorSource }) => descriptorSource)).size)
-      .toBe(1);
+    expect(BUILTIN_FONT_WEIGHTS).toEqual([300, 400, 500, 600, 700]);
 
     const bytes = readFileSync(new URL(
       `../../src/resources/fonts/${BUILTIN_FIRA_CODE_ASSET.fileName}`,
@@ -162,14 +157,14 @@ describe('PatchMap shared asset runtime', () => {
       `${BUILTIN_FIRA_CODE_ASSET.fileName}?sha256=${BUILTIN_FIRA_CODE_ASSET.sha256}`,
     );
 
-    for (const [index, face] of BUILTIN_FIRA_CODE_FACES.entries()) {
+    for (const [index, fontWeight] of BUILTIN_FONT_WEIGHTS.entries()) {
       const registration = PATCH_MAP_BUILTIN_FONT_ASSETS[index];
       expect(registration).toMatchObject({
-        alias: `FiraCode-${face.fontWeight}`,
+        alias: `FiraCode-${fontWeight}`,
         kind: 'font',
-        fontWeight: face.fontWeight,
+        fontWeight,
         descriptor: {
-          src: face.descriptorSource,
+          src: BUILTIN_FIRA_CODE_ASSET.descriptorSource,
           parser: 'web-font',
           data: { family: 'FiraCode', weights: BUILTIN_FONT_WEIGHTS.map(String) },
         },
@@ -682,7 +677,7 @@ describe('PatchMap shared asset runtime', () => {
     const fetchedSources: string[] = [];
     mockObjectUrls('blob:patch-map/builtin-');
     mockSvgDecoder(72, 72);
-    mockAssetFetch((src) => {
+    const assetFetch = mockAssetFetch((src) => {
       fetchedSources.push(src);
       return new Blob(['fixture'], {
         type: src.includes('FiraCode') ? 'font/woff2' : 'image/svg+xml',
@@ -762,8 +757,15 @@ describe('PatchMap shared asset runtime', () => {
         src: `blob:patch-map/builtin-${index + 2}`,
         data: { family: 'FiraCode', weights: BUILTIN_FONT_WEIGHTS.map(String) },
       });
-      expect(fetchedSources[index + 1]).toMatch(/^file:.*FiraCode-VF\.woff2$/u);
+      expect(fetchedSources).toContainEqual(expect.stringMatching(
+        /^file:.*FiraCode-VF\.woff2$/u,
+      ));
     }
+    expect(assetFetch.mock.calls).toContainEqual([
+      expect.stringMatching(/^file:.*FiraCode-VF\.woff2$/u),
+      expect.objectContaining({ headers: { Range: 'bytes=0-0' } }),
+    ]);
+    expect(fetchedSources.filter((src) => src.includes('FiraCode-VF.woff2'))).toHaveLength(6);
 
     load.mockClear();
     const rawHostSvg = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
@@ -776,7 +778,7 @@ describe('PatchMap shared asset runtime', () => {
       packageOwned: false,
     });
     await backend.load(hostRequest);
-    expect(fetchedSources[6]).toBe(rawHostSvg);
+    expect(fetchedSources).toContain(rawHostSvg);
     expect(load.mock.calls[0]?.[0]).toMatchObject({
       alias: hostRequest.key,
       src: 'blob:patch-map/builtin-8',

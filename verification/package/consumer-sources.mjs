@@ -107,6 +107,11 @@ window.__PACKAGE_POINTER_OWNERSHIP__ = Object.freeze({
   viewport: () => map.viewport.snapshot(),
   finalize: async (pointerOwnership) => {
     releasePointerHover();
+    await document.fonts.ready;
+    const fontWeightsReady = [300, 400, 500, 600, 700]
+      .every((weight) => document.fonts.check(weight + ' 16px FiraCode', 'PatchMap'));
+    const firaCodeFaceCountBeforeDestroy = [...document.fonts]
+      .filter((face) => face.family.replaceAll(/["']/gu, '') === 'FiraCode').length;
     const destroyResult = await map.destroy();
     window.__PACKAGE_RESULT__ = {
       immutable: immutableBefore === JSON.stringify(input),
@@ -129,6 +134,10 @@ window.__PACKAGE_POINTER_OWNERSHIP__ = Object.freeze({
       pointerOwnership,
       internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
       constructorRejected,
+      fontWeightsReady,
+      firaCodeFaceCountBeforeDestroy,
+      firaCodeFaceCountAfterDestroy: [...document.fonts]
+        .filter((face) => face.family.replaceAll(/["']/gu, '') === 'FiraCode').length,
       destroyResult,
       destroyed: map.destroyed,
       canvasCountAfterDestroy: document.querySelectorAll('canvas').length,

@@ -1,12 +1,15 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
 import {
   copyFile,
   mkdir,
   readFile,
+  readdir,
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import { build as viteBuild } from 'vite';
@@ -22,6 +25,7 @@ import {
 } from './example-runner.mjs';
 
 const execute = promisify(execFile);
+const require = createRequire(import.meta.url);
 
 export async function analyzePackedArtifact({ packRecord, tarball }) {
   const files = Array.isArray(packRecord?.files)
@@ -206,6 +210,63 @@ export async function verifyPackedConsumerTypes(consumer) {
     exitCode: 0,
     stdout: result.stdout.trim(),
     stderr: result.stderr.trim(),
+  });
+}
+
+export async function verifyPackedFontArtifacts(consumer) {
+  const distribution = path.join(
+    consumer,
+    'node_modules/@conalog/patch-map/dist',
+  );
+  const files = await readdir(distribution);
+  const esmChunks = files.filter((file) => /^builtin-font-payload-.*\.js$/u.test(file));
+  const cjsChunks = files.filter((file) => /^builtin-font-payload-.*\.cjs$/u.test(file));
+  if (esmChunks.length !== 1 || cjsChunks.length !== 1) {
+    throw new Error('packed font payload must have one ESM chunk and one CJS chunk');
+  }
+
+  const font = path.join(distribution, 'FiraCode-VF.woff2');
+  const fontData = path.join(distribution, 'FiraCode-VF.data.js');
+  const esmPath = path.join(distribution, esmChunks[0]);
+  const cjsPath = path.join(distribution, cjsChunks[0]);
+  const [esmSource, cjsSource, fontBytes, fontDataSource, esmModule] = await Promise.all([
+    readFile(esmPath, 'utf8'),
+    readFile(cjsPath, 'utf8'),
+    readFile(font),
+    readFile(fontData, 'utf8'),
+    import(pathToFileURL(esmPath).href),
+  ]);
+  const dataModulePrefix = 'export default ';
+  if (!fontDataSource.startsWith(dataModulePrefix) || !fontDataSource.endsWith(';\n')) {
+    throw new Error('packed font data fallback is not an exact ESM default export');
+  }
+  const dataUrl = JSON.parse(fontDataSource.slice(dataModulePrefix.length, -2));
+  if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:font/woff2;base64,')) {
+    throw new Error('packed font data fallback does not export a WOFF2 data URL');
+  }
+  const fallbackBytes = Buffer.from(dataUrl.split(',', 2)[1], 'base64');
+  const cjsModule = require(cjsPath);
+  const [esmUrl, cjsUrl] = await Promise.all([
+    esmModule.builtinFiraCodeUrl(),
+    cjsModule.builtinFiraCodeUrl(),
+  ]);
+  return Object.freeze({
+    esmChunk: esmChunks[0],
+    cjsChunk: cjsChunks[0],
+    esmReferencesFontAsset: /new URL\(["']FiraCode-VF\.woff2["'], import\.meta\.url\)/u
+      .test(esmSource),
+    cjsReferencesFontAsset: /pathToFileURL\(__dirname\s*\+\s*["']\/FiraCode-VF\.woff2["']\)/u
+      .test(cjsSource),
+    esmReferencesDataFallback: /import\(["']\.\/FiraCode-VF\.data\.js["']\)/u
+      .test(esmSource),
+    cjsReferencesDataFallback: /import\(["']\.\/FiraCode-VF\.data\.js["']\)/u
+      .test(cjsSource),
+    esmLoadsDataFallback: esmUrl === dataUrl,
+    cjsLoadsDataFallback: cjsUrl === dataUrl,
+    dataFallbackMatchesFontBytes:
+      createHash('sha256').update(fallbackBytes).digest('hex')
+      === createHash('sha256').update(fontBytes).digest('hex'),
+    cjsRequiresFontAsModule: /require\(["'][^"']*\.woff2["']\)/u.test(cjsSource),
   });
 }
 

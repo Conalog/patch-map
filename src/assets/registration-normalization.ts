@@ -27,22 +27,15 @@ export const BUILTIN_FIRA_CODE_ASSET = Object.freeze({
     + '408e876a202f15ea6ee307a70a65cf40ceb222c589a0b17e0a3a371db96dd49f',
 });
 
-export const BUILTIN_FIRA_CODE_FACES = Object.freeze(
-  BUILTIN_FONT_WEIGHTS.map((fontWeight) => Object.freeze({
-    ...BUILTIN_FIRA_CODE_ASSET,
-    fontWeight,
-  })),
-);
-
-const BUILTIN_FIRA_CODE_WEIGHT_STRINGS = Object.freeze(
+export const BUILTIN_FIRA_CODE_WEIGHT_STRINGS = Object.freeze(
   BUILTIN_FONT_WEIGHTS.map(String),
 );
 
 export const PATCH_MAP_BUILTIN_FONT_ASSETS: readonly PatchMapAssetRegistration[] = Object.freeze(
-  BUILTIN_FIRA_CODE_FACES.map((face) => Object.freeze({
-    alias: `FiraCode-${face.fontWeight}`,
+  BUILTIN_FONT_WEIGHTS.map((fontWeight) => Object.freeze({
+    alias: `FiraCode-${fontWeight}`,
     descriptor: Object.freeze({
-      src: face.descriptorSource,
+      src: BUILTIN_FIRA_CODE_ASSET.descriptorSource,
       parser: 'web-font',
       data: Object.freeze({
         family: PATCH_MAP_FIRA_CODE_FAMILY,
@@ -50,7 +43,7 @@ export const PATCH_MAP_BUILTIN_FONT_ASSETS: readonly PatchMapAssetRegistration[]
       }),
     }),
     kind: 'font' as const,
-    fontWeight: face.fontWeight,
+    fontWeight,
   })),
 );
 

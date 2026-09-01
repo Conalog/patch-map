@@ -15,7 +15,8 @@ import {
   normalizeMediaType,
 } from './ingestion-policy';
 import {
-  BUILTIN_FIRA_CODE_FACES,
+  BUILTIN_FIRA_CODE_ASSET,
+  BUILTIN_FIRA_CODE_WEIGHT_STRINGS,
   BUILTIN_IMAGE_ALIASES,
   builtinImageDataUri,
   deepFreeze,
@@ -99,17 +100,14 @@ async function pixiDescriptor(
     });
   }
 
-  const fontFace = BUILTIN_FIRA_CODE_FACES.find(
-    ({ descriptorSource }) => descriptorSource === request.descriptor.src,
-  );
-  if (fontFace !== undefined) {
+  if (request.descriptor.src === BUILTIN_FIRA_CODE_ASSET.descriptorSource) {
     const { builtinFiraCodeUrl } = await import('./builtin-font-payload');
     return deepFreeze({
-      src: builtinFiraCodeUrl(),
+      src: await builtinFiraCodeUrl(),
       parser: 'web-font',
       data: {
         family: PATCH_MAP_FIRA_CODE_FAMILY,
-        weights: BUILTIN_FIRA_CODE_FACES.map(({ fontWeight }) => String(fontWeight)),
+        weights: BUILTIN_FIRA_CODE_WEIGHT_STRINGS,
       },
     });
   }

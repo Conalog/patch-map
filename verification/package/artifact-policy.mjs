@@ -27,6 +27,7 @@ export const PUBLIC_DOCS = Object.freeze([
 
 export const PUBLIC_ASSETS = Object.freeze([
   Object.freeze({ path: 'dist/FiraCode-VF.woff2', size: 113_088 }),
+  Object.freeze({ path: 'dist/FiraCode-VF.data.js', size: 150_826 }),
 ]);
 
 const PUBLIC_EXAMPLES = Object.freeze(
