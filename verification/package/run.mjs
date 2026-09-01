@@ -23,6 +23,7 @@ import {
   preparePackedConsumer,
   readPackedBrowserResult,
   verifyPackedConsumerTypes,
+  verifyPackedFontArtifacts,
   verifyPackedProductionBuild,
 } from './harness.mjs';
 import {
@@ -97,6 +98,7 @@ try {
   await installDependencies(consumer, true);
 
   const types = await verifyPackedConsumerTypes(consumer);
+  const fontArtifacts = await verifyPackedFontArtifacts(consumer);
   const productionAlias = createPackedProductAlias({ root, consumer });
   const productionBuild = await verifyPackedProductionBuild({
     consumer,
@@ -125,9 +127,18 @@ try {
   const page = await browser.newPage({ viewport: { width: 800, height: 500 } });
   observeBrowserErrors(page, errors);
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
-  await page.waitForFunction(() => window.__PACKAGE_POINTER_OWNERSHIP__ !== undefined, undefined, {
-    timeout: 30_000,
-  });
+  try {
+    await page.waitForFunction(
+      () => window.__PACKAGE_POINTER_OWNERSHIP__ !== undefined,
+      undefined,
+      { timeout: 30_000 },
+    );
+  } catch (error) {
+    throw new Error(
+      `packed browser consumer did not mount: ${JSON.stringify(errors)}`,
+      { cause: error },
+    );
+  }
   await page.mouse.move(90, 80);
   const overlayHoverTargets = await page.evaluate(
     () => window.__PACKAGE_POINTER_OWNERSHIP__.hoverTargets(),
@@ -176,6 +187,7 @@ try {
     errors,
     esm,
     examples,
+    fontArtifacts,
     packageArtifact,
     productionAliasProbe,
     productionBuild,
@@ -191,6 +203,7 @@ try {
     errors,
     esm,
     examples,
+    fontArtifacts,
     failures,
     packageArtifact,
     productionAliasProbe,

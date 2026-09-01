@@ -50,10 +50,10 @@ Font byte identity and licensing are owned by [`fonts.md`](../assets/fonts.md).
   extension. Use them only to share leases across mounted maps or to supply an
   equivalent resource backend; they do not expose renderer, scene, or Engine
   ownership. Custom runtimes receive the normalized policy on each backend request.
-- The package eagerly acquires the five Fira Code weights documented in
-  [`fonts.md`](../assets/fonts.md)
-  before creating text objects. The payload is an async package chunk shared by
-  mounted instances; destroy releases instance leases.
+- The package eagerly acquires the supported Fira Code weights documented in
+  [`fonts.md`](../assets/fonts.md) before creating text objects. All weight
+  aliases share one variable-font payload, emitted as a separate package asset
+  and shared by mounted instances; destroy releases instance leases.
 
 `await capture.png()` is the visible-readiness barrier. Captures are serialized;
 each request publishes pending work, waits the active image bindings for its

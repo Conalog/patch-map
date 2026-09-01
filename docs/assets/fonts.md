@@ -12,30 +12,30 @@ Font acquisition, leases, and first-frame readiness belong to
 
 ## Payload contract
 
-The package contains the unmodified Fira Code 6.2 Light, Regular, Medium,
-SemiBold, and Bold WOFF2 payloads.
+The package contains the unmodified Fira Code 6.2 variable WOFF2 payload. One
+physical file supplies the supported 300, 400, 500, 600, and 700 weights.
+The runtime uses that file directly when its module-relative URL remains valid.
+A package-owned, lazily loaded data-URL module preserves the same font bytes
+when a consumer bundler relocates the library chunk.
 
-| Weight | File | Bytes | SHA-256 |
-| ---: | --- | ---: | --- |
-| 300 | `FiraCode-Light.woff2` | 102,924 | `e3aa3db06cfb19dfc0b0f1f38355add3e8d1ef45d3af39ce95d9ca7d96114e6c` |
-| 400 | `FiraCode-Regular.woff2` | 103,240 | `a6ce59520b90e15d7062ffef214f94c8add5a4085c0bbb1683602ef227a4d1fe` |
-| 500 | `FiraCode-Medium.woff2` | 102,384 | `0e04bafb989ea46e840a581e49557b229662a00021493a5744c595d0882adf28` |
-| 600 | `FiraCode-SemiBold.woff2` | 106,992 | `d16779aa6dfc7c4effe686ece5bdf4b1356a7352167e37fa256f596a9d428f11` |
-| 700 | `FiraCode-Bold.woff2` | 107,788 | `d778c19803c672d294663e9283c7b752cc125ab266f0ddb8e53b039da92caf67` |
+| Weights | File | Bytes | SHA-256 |
+| --- | --- | ---: | --- |
+| 300, 400, 500, 600, 700 | `FiraCode-VF.woff2` | 113,088 | `408e876a202f15ea6ee307a70a65cf40ceb222c589a0b17e0a3a371db96dd49f` |
 
 ## Provenance
 
-The payloads are distributed under the SIL Open Font License 1.1. The required license is
-[fira-code-6.2-license.txt](fira-code-6.2-license.txt). Exact packaged filenames,
-sizes, SHA-256 values, and license inclusion are verified by the package
-artifact gate. The license SHA-256 is
+The payload is distributed under the SIL Open Font License 1.1. The required license is
+[fira-code-6.2-license.txt](fira-code-6.2-license.txt). Exact source filename,
+size, and SHA-256 are verified by the focused asset registry test. Packaged
+filename and size, browser loading, fallback byte equivalence, and license
+inclusion are verified by the package artifact gate. The license SHA-256 is
 `1d41e10031ab125302780a05ec4c91d218e47db0c7e37cf315cce5e608cdc25c`.
 
 ## Failure decisions
 
 | Symptom | Meaning | Action |
 | --- | --- | --- |
-| Package verification reports a font digest change | Payload identity changed | Review provenance and license, then intentionally update the artifact expectation |
+| Focused asset test reports a font digest change | Payload identity changed | Review provenance and license, then intentionally update the source identity expectation |
 | Package omits the license | Artifact contents are invalid | Restore the exact license file before release |
 
 ## Verification map
