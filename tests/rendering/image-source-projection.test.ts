@@ -213,7 +213,7 @@ describe('PatchMap image source projection', () => {
     expect(result.projection.imagesByEntityId?.sized?.dimensionMode).toBe('authored');
   });
 
-  it('keeps ordinary authored standalone image rotation on the Sprite center pivot', () => {
+  it('keeps standalone image rotation on the authored top-left pivot', () => {
     const result = parsePatchMap([{
       type: 'image',
       id: 'transformed',
@@ -223,13 +223,13 @@ describe('PatchMap image source projection', () => {
     }]);
 
     expect(result.document.entities[0]).toMatchObject({
-      x: 140,
-      y: 120,
+      x: 125,
+      y: 125,
       width: 20,
       height: 10,
       rotation: 90,
     });
-    expect(result.projection.byEntityId.transformed?.visibleCenter).toEqual([150, 125]);
+    expect(result.projection.byEntityId.transformed?.visibleCenter).toEqual([135, 130]);
   });
 
   it('ignores preserved display metadata instead of changing image geometry', () => {

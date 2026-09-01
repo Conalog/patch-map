@@ -3,7 +3,6 @@ import type {
   PatchMapImageIntrinsicTransform,
 } from './contracts';
 import {
-  applyPatchMapAffine,
   createPatchMapAffine,
   multiplyPatchMapAffine,
   projectPatchMapSignedRect,
@@ -48,7 +47,6 @@ export function composePatchMapParserTransform(
   const handedness = Math.sign(parent.scaleX * parent.scaleY) || 1;
   const localTranslationAffine = createPatchMapAffine(x, y);
   const localRotationScaleAffine = createPatchMapAffine(0, 0, rotation, scaleX, scaleY);
-  const localPivotScaleAffine = createPatchMapAffine(0, 0, 0, scaleX, scaleY);
   return {
     x: parent.x + localX * cos - localY * sin,
     y: parent.y + localX * sin + localY * cos,
@@ -63,7 +61,6 @@ export function composePatchMapParserTransform(
       parentAffine: parent.affine,
       localTranslationAffine,
       localRotationScaleAffine,
-      localPivotScaleAffine,
     }),
   };
 }
@@ -86,38 +83,18 @@ export function projectPatchMapParserTopLeft(
   });
 }
 
-/** Standalone image attrs retain the inherited Sprite center-pivot contract. */
+/** Standalone images share the authored top-left transform contract. */
 export function projectPatchMapParserImage(
   transform: PatchMapParserTransform,
   size: PatchMapParserSize,
 ): PatchMapEntityProjectionDraft {
-  const width = size.width * Math.abs(transform.scaleX);
-  const height = size.height * Math.abs(transform.scaleY);
-  const x = transform.x + (transform.scaleX < 0 ? -width : 0);
-  const y = transform.y + (transform.scaleY < 0 ? -height : 0);
-  const affine = projectPatchMapIntrinsicImageAffine(
-    transform.imageIntrinsicTransform,
-    size.width,
-    size.height,
-  );
-  return Object.freeze({
-    x,
-    y,
-    width,
-    height,
-    rotation: transform.rotation,
-    localBounds: Object.freeze([0, 0, size.width, size.height] as const),
-    scaleX: transform.scaleX,
-    scaleY: transform.scaleY,
-    affine,
-    rotationDegrees: transform.rotation,
-    contentOrientation: 'follow-item',
-  });
+  return projectPatchMapParserTopLeft(transform, size);
 }
 
 /**
- * Preserve exact nested affine authority while applying the standalone Sprite
- * center pivot whose placement changes with decoded intrinsic dimensions.
+ * Preserve exact nested affine authority when decoded intrinsic dimensions
+ * replace the parser fallback bounds. Image dimensions do not move the
+ * authored top-left transform origin.
  */
 export function projectPatchMapIntrinsicImageAffine(
   transform: PatchMapImageIntrinsicTransform,
@@ -127,21 +104,9 @@ export function projectPatchMapIntrinsicImageAffine(
   if (!(width >= 0) || !Number.isFinite(width) || !(height >= 0) || !Number.isFinite(height)) {
     throw new TypeError('intrinsic image dimensions must be finite and non-negative');
   }
-  const halfWidth = width / 2;
-  const halfHeight = height / 2;
-  const pivotCenter = applyPatchMapAffine(
-    transform.localPivotScaleAffine,
-    Object.freeze([halfWidth, halfHeight] as const),
-  );
   const local = multiplyPatchMapAffine(
     transform.localTranslationAffine,
-    multiplyPatchMapAffine(
-      createPatchMapAffine(pivotCenter[0], pivotCenter[1]),
-      multiplyPatchMapAffine(
-        transform.localRotationScaleAffine,
-        createPatchMapAffine(-halfWidth, -halfHeight),
-      ),
-    ),
+    transform.localRotationScaleAffine,
   );
   return multiplyPatchMapAffine(transform.parentAffine, local);
 }

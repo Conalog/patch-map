@@ -53,19 +53,14 @@ describe('PatchMap parser transform projection', () => {
     expect(Object.isFrozen(projected)).toBe(true);
   });
 
-  it('keeps standalone image center-pivot geometry and public intrinsic affine validation', () => {
+  it('keeps standalone image top-left geometry and public intrinsic affine validation', () => {
     const value = composePatchMapParserTransform(transform(0, 0, 0, 1, 1), 10, 20, 90, -1, 2);
     const projected = projectPatchMapParserImage(value, { width: 4, height: 6 });
 
-    expect(projected).toMatchObject({
-      x: 6,
-      y: 20,
-      width: 4,
-      height: 12,
-      rotation: 90,
-      localBounds: [0, 0, 4, 6],
-      scaleX: -1,
-      scaleY: 2,
+    expect(projected).toEqual({
+      ...projectPatchMapSignedRect(value, 4, 6),
+      affine: value.affine,
+      rotationDegrees: 90,
       contentOrientation: 'follow-item',
     });
     expect(projected.affine).toEqual(projectPatchMapIntrinsicImageAffine(
@@ -102,7 +97,6 @@ function transform(
       parentAffine: identity,
       localTranslationAffine: identity,
       localRotationScaleAffine: identity,
-      localPivotScaleAffine: identity,
     }),
   };
 }

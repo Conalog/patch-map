@@ -261,7 +261,7 @@ describe('PatchMap render projection closure', () => {
     }]);
     const projection = parsed.projection.byEntityId['intrinsic-child'];
     const intrinsic = parsed.projection.imagesByEntityId?.['intrinsic-child']?.intrinsicTransform;
-    const expected = nestedIntrinsicImageAffine(32, 32);
+    const expected = nestedImageAffine();
 
     expect(projection?.localBounds).toEqual([0, 0, 32, 32]);
     expectAffineClose(projection?.affine, expected);
@@ -270,23 +270,16 @@ describe('PatchMap render projection closure', () => {
       parentAffine: createPatchMapAffine(30, 20, 25, 2, 0.5),
       localTranslationAffine: createPatchMapAffine(12, 8),
       localRotationScaleAffine: createPatchMapAffine(0, 0, 40, -1.5, 0.75),
-      localPivotScaleAffine: createPatchMapAffine(0, 0, 0, -1.5, 0.75),
     });
   });
 });
 
-function nestedIntrinsicImageAffine(width: number, height: number) {
+function nestedImageAffine() {
   return multiplyPatchMapAffine(
     createPatchMapAffine(30, 20, 25, 2, 0.5),
     multiplyPatchMapAffine(
       createPatchMapAffine(12, 8),
-      multiplyPatchMapAffine(
-        createPatchMapAffine(-1.5 * width / 2, 0.75 * height / 2),
-        multiplyPatchMapAffine(
-          createPatchMapAffine(0, 0, 40, -1.5, 0.75),
-          createPatchMapAffine(-width / 2, -height / 2),
-        ),
-      ),
+      createPatchMapAffine(0, 0, 40, -1.5, 0.75),
     ),
   );
 }
