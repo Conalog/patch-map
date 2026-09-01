@@ -142,12 +142,10 @@ export type PatchMapImageDimensionMode = 'authored' | 'intrinsic' | 'layout';
 export interface PatchMapImageIntrinsicTransform {
   /** Exact ancestor-to-world authority before the standalone image's attrs. */
   readonly parentAffine: PatchMapAffineMatrix;
-  /** Exact authored local translation, kept separate for size-dependent pivot placement. */
+  /** Exact authored local translation, kept separate for intrinsic-size reprojection. */
   readonly localTranslationAffine: PatchMapAffineMatrix;
   /** Exact authored local rotation and signed scale. */
   readonly localRotationScaleAffine: PatchMapAffineMatrix;
-  /** Signed scale before local rotation, which positions the Sprite center pivot. */
-  readonly localPivotScaleAffine: PatchMapAffineMatrix;
 }
 
 /**
@@ -164,7 +162,7 @@ export interface PatchMapImageProjection {
   readonly authoredSize: boolean;
   /** Standalone unsized images adopt decoded logical size after resolution. */
   readonly dimensionMode: PatchMapImageDimensionMode;
-  /** Required parser authority for recomputing an intrinsic image's center pivot. */
+  /** Required parser authority for updating an intrinsic image's decoded bounds. */
   readonly intrinsicTransform?: PatchMapImageIntrinsicTransform;
 }
 

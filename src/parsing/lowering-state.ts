@@ -34,7 +34,6 @@ export const ROOT_CONTEXT: ElementContext = {
       parentAffine: PATCH_MAP_IDENTITY_AFFINE,
       localTranslationAffine: PATCH_MAP_IDENTITY_AFFINE,
       localRotationScaleAffine: PATCH_MAP_IDENTITY_AFFINE,
-      localPivotScaleAffine: PATCH_MAP_IDENTITY_AFFINE,
     }),
   },
   visible: true,

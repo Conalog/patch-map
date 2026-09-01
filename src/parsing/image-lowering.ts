@@ -92,7 +92,6 @@ export function imageSourceProjection(
             parentAffine: intrinsicTransform.parentAffine,
             localTranslationAffine: intrinsicTransform.localTranslationAffine,
             localRotationScaleAffine: intrinsicTransform.localRotationScaleAffine,
-            localPivotScaleAffine: intrinsicTransform.localPivotScaleAffine,
           }),
         }),
   } satisfies PatchMapImageProjection);
