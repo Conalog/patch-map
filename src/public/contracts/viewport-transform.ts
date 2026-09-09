@@ -1,5 +1,5 @@
 import type { PatchMapRotationAnimation, PatchMapRotationAnimationOptions } from '../../viewport/rotation-animation';
-export type { PatchMapRotationAnimation, PatchMapRotationAnimationOptions, PatchMapRotationAnimationResult } from '../../viewport/rotation-animation';
+export type { PatchMapRotationAnimation, PatchMapRotationAnimationOptions, PatchMapRotationAnimationResult, PatchMapRotationPath } from '../../viewport/rotation-animation';
 import type {
   PatchMapEdgeAutoPanResult,
   PatchMapResizeHandle,

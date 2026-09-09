@@ -53,9 +53,7 @@ patchmap.rotation.reset();      // set the angle to zero
   selection, or history. `transform.rotateBy()` instead edits logical targets.
 - Pan remains screen-relative, zoom retains its cursor anchor, fit accounts for
   the rotated bounds, and resize preserves the center, scale, and angle.
-- Changed rotations use the existing viewport publication and `onSettled()`
-  notification path. Read `rotation.value` in the listener for the angle;
-  its viewport state argument still contains only center, scale, and screen bounds.
+- Changed rotations use existing viewport publication and `onSettled()`. Read `rotation.value` in the listener; its viewport argument still contains only center, scale, and screen bounds.
 - `viewport.snapshot()` and `viewport.initial` still contain only center and
   scale to preserve the existing snapshot contract. Save the angle separately
   and restore it with `rotation.set(angle)`.
@@ -67,15 +65,18 @@ patchmap.rotation.reset();      // set the angle to zero
 Smooth rotation is opt-in; existing setters remain immediate:
 
 ```ts
-const animation = patchmap.rotation.animateTo(90, { durationMs: 250 });
+const animation = patchmap.rotation.animateTo(90, { path: 'clockwise', normalizeOnComplete: true });
 const result = await animation.finished; // { status: 'completed', angle: 90 }
-// animation.cancel() stops this request at its current angle.
+patchmap.rotation.animateTo(0, { path: 'shortest', normalizeOnComplete: true }); // reset bearing
 ```
 
-- Default: 250ms, cubic ease-out. Raw angle differences preserve turns: 0 to 360 makes a full turn; 350 to 10 travels backward 340 degrees. `rotation.value` reads the currently applied angle; center, scale, dataset and history stay fixed.
-- New animation retargets from the current angle. Immediate rotation setters and accepted pan/zoom/fit/restore cancel it; resize preserves it. `cancel()` affects only its own active request and returns false after that request has ended.
-- `finished` resolves once with `{ status, angle }`: `completed` after the final animated frame, `cancelled` on interruption/destroy, or `failed` on frame failure. Cancellation/failure do not reject. Zero duration, unchanged target or reduced motion completes immediately after accepting the angle and requesting a frame.
-- Non-finite angles and negative/non-finite durations throw `RangeError` before interrupting a request. Animation uses the managed frame loop independently of data-animation throttling. Hidden time is excluded; enabling reduced motion mid-animation completes on the next visible frame. `onSettled()` waits until rotation ends and the existing 100ms quiet period passes.
+- Defaults: `durationMs: 250`, cubic ease-out, `path: 'raw'`, `normalizeOnComplete: false`. Raw differences retain full turns: 0 to 720 makes two turns; 350 to 10 travels backward 340 degrees.
+- `clockwise`, `counterclockwise`, and `shortest` interpret any finite target modulo 360 as a bearing, retaining the current turn count during travel. Shortest-path 180-degree ties rotate clockwise; equivalent bearings do not add a turn. Example: 810 to 0 on the shortest path ends at 720, or at 0 with normalization.
+- `rotation.value` is the currently applied, unwrapped angle during travel. On successful final frame publication, `normalizeOnComplete: true` changes its representation to `[0, 360)` without another render or viewport revision. `finished` and subsequent `onSettled()` reads see that normalized value. Center, scale, dataset and history stay fixed.
+- New animation retargets from the current angle. Immediate rotation setters and accepted pan/zoom/fit/restore cancel it; resize preserves it. `cancel()` affects only its own active request and returns false after it ends. Cancellation and frame failure preserve the current applied angle without normalizing, including at the final frame.
+- `finished` resolves once with `{ status, angle }`: `completed` after the final animated frame, `cancelled` on interruption/destroy, or `failed` on frame failure; it does not reject. Zero duration, equivalent target or reduced motion completes immediately after accepting the resolved angle and requesting a frame. `onSettled()` also follows cancellation, so require `status === 'completed'` when saving only completed normalized targets.
+- Invalid angle/duration throws `RangeError`; invalid path or nonboolean normalization throws `TypeError`, before interrupting a request. Directed paths also reject accumulated angles outside `Number.MAX_SAFE_INTEGER` or unable to represent the target bearing accurately; normalize a huge current value with an immediate setter first. Raw finite multi-turn angles remain supported.
+- Animation uses the managed frame loop independently of data-animation throttling. Hidden time is excluded; enabling reduced motion mid-animation completes on the next visible frame. `onSettled()` waits until rotation ends and the existing 100ms quiet period passes.
 
 Transform APIs apply relative semantic edits to logical targets:
 
