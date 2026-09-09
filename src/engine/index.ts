@@ -2385,6 +2385,14 @@ export class PatchMap {
     return this.viewportRuntime.setWorldTransform(input);
   }
 
+  public worldRotation(): number {
+    return this.viewportRuntime.snapshot().world.rotationDegrees;
+  }
+
+  public setWorldRotation(angle: number): number {
+    return this.viewportRuntime.setWorldRotation(angle);
+  }
+
   public queryScene(input: PatchMapSceneQuery = {}): PatchMapEngineQueryResult {
     this.requireSurface('queryScene');
     const evaluated = this.logicalSceneIndex().query(input);

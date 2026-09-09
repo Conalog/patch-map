@@ -11,6 +11,14 @@ export interface PatchMapFitOptions {
   readonly targets?: PatchMapTargetsInput;
 }
 
+/** Whole-map orientation in clockwise degrees around the current viewport center. */
+export interface PatchMapRotationApi {
+  value: number;
+  set(angle: number): number;
+  rotateBy(delta: number): number;
+  reset(): number;
+}
+
 /** Wheel modifier required before the package consumes and zooms a wheel event. */
 export type PatchMapWheelActivationModifier = 'none' | 'control';
 

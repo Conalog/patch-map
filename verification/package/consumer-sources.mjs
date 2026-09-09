@@ -54,6 +54,21 @@ const map = await PatchMap.mount({
 });
 
 const initial = map.debug.snapshot();
+const unrotatedCapture = await map.capture.png();
+const rotationViewport = JSON.stringify(map.viewport.snapshot());
+map.rotation.set(90);
+const rotatedCapture = await map.capture.png();
+const rotationWorks = map.rotation.value === 90
+  && JSON.stringify(map.viewport.snapshot()) === rotationViewport
+  && unrotatedCapture.dataUrl !== rotatedCapture.dataUrl;
+map.rotation.rotateBy(-45);
+const relativeRotationWorks = map.rotation.value === 45;
+map.rotation.value = -90;
+const assignedRotationWorks = map.rotation.value === -90;
+map.rotation.reset();
+if (!rotationWorks || !relativeRotationWorks || !assignedRotationWorks || map.rotation.value !== 0) {
+  throw new Error('packed whole-map rotation failed');
+}
 const bars = map.targets.query({ type: 'bar', scope: 'authored' });
 const presentation = map.presentation.set('packed:focus', {
   scope: bars,

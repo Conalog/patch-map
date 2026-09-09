@@ -1,5 +1,6 @@
 import datasets from '../fixtures/datasets/index';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createPatchMapApi } from '../../src/public';
 
 import {
   PatchMap,
@@ -18,6 +19,106 @@ describe('PatchMap viewport authority', () => {
 
   afterEach(async () => {
     await Promise.all(engines.splice(0).map((engine) => engine.destroy()));
+  });
+
+  it('exposes centered whole-map rotation without editing data or history', async () => {
+    const { engine, surface } = await createEngine(engines, 'public-rotation');
+    engine.loadDataset(datasets['all-kinds-scene']);
+    const map = createPatchMapApi(engine);
+    map.viewport.restore({ centerWorld: [200, 150], scale: 2 });
+    engine.accessibilityTree();
+    const data = map.data.snapshot();
+    const history = engine.historyState();
+    const before = engine.snapshot().revisions;
+    const refreshes = surface.accessibilityRefreshCount;
+    const viewport = map.viewport.snapshot();
+
+    expect(map.rotation.value).toBe(0);
+    expect(map.rotation.set(90)).toBe(90);
+    expect(map.viewport.snapshot()).toEqual(viewport);
+    expectPointClose(engine.screenToWorld({ x: 400, y: 300 }), { x: 200, y: 150 });
+    expectPointClose(engine.screenToWorld({ x: 400, y: 320 }), { x: 210, y: 150 });
+    expect(surface.accessibilityRefreshCount).toBe(refreshes + 1);
+    expect(engine.snapshot().revisions).toEqual({ ...before, viewRevision: before.viewRevision + 1 });
+
+    const setViewCount = surface.setViewCount;
+    map.rotation.set(90);
+    expect(surface.setViewCount).toBe(setViewCount);
+    expect(engine.snapshot().revisions.viewRevision).toBe(before.viewRevision + 1);
+    expect(map.rotation.rotateBy(-135)).toBe(-45);
+    map.rotation.value = 450;
+    expect(map.rotation.value).toBe(450);
+    expect(map.rotation.reset()).toBe(0);
+    expect(map.rotation.value).toBe(0);
+    expect(map.data.snapshot()).toEqual(data);
+    expect(engine.historyState()).toEqual(history);
+
+    const revisions = engine.snapshot().revisions;
+    for (const invalid of [NaN, Infinity, -Infinity, '90', null]) {
+      expect(() => map.rotation.set(invalid as number)).toThrow(RangeError);
+      expect(() => map.rotation.rotateBy(invalid as number)).toThrow(RangeError);
+    }
+    expect(() => { map.rotation.value = NaN; }).toThrow(RangeError);
+    expect(map.rotation.value).toBe(0);
+    expect(engine.snapshot().revisions).toEqual(revisions);
+    map.rotation.set(Number.MAX_VALUE);
+    expect(() => map.rotation.rotateBy(Number.MAX_VALUE)).toThrow(RangeError);
+    map.rotation.reset();
+
+    const rejectView = vi.spyOn(surface, 'setView').mockImplementationOnce(() => {
+      throw new Error('surface refused rotation');
+    });
+    const beforeFailure = engine.snapshot().revisions;
+    expect(() => map.rotation.set(30)).toThrow('surface refused rotation');
+    expect(map.rotation.value).toBe(0);
+    expect(engine.snapshot().revisions).toEqual(beforeFailure);
+    rejectView.mockRestore();
+    await engine.destroy();
+    expect(() => map.rotation.set(90)).toThrow();
+  });
+
+  it('keeps navigation, fit, resize, and coalesced settlement coherent after rotation', async () => {
+    const { engine, surface } = await createEngine(engines, 'public-rotation-navigation');
+    engine.loadDataset(datasets['all-kinds-scene']);
+    const map = createPatchMapApi(engine);
+    vi.useFakeTimers();
+    try {
+      const settled = vi.fn();
+      const release = map.viewport.onSettled(settled);
+      map.rotation.set(90);
+      map.rotation.rotateBy(45);
+      vi.advanceTimersByTime(100);
+      expect(settled).toHaveBeenCalledTimes(1);
+      map.rotation.set(135);
+      vi.advanceTimersByTime(100);
+      expect(settled).toHaveBeenCalledTimes(1);
+
+      const point = { x: 200, y: 150 };
+      const beforePan = engine.screenToWorld(point);
+      map.viewport.panBy([40, -20]);
+      expectPointClose(engine.screenToWorld({ x: point.x + 40, y: point.y - 20 }), beforePan);
+      const anchor = { x: 520, y: 360 };
+      const beforeZoom = engine.screenToWorld(anchor);
+      map.viewport.zoomBy(1.5, [anchor.x, anchor.y]);
+      expectPointClose(engine.screenToWorld(anchor), beforeZoom);
+
+      map.viewport.fit({ targets: [{ id: 'item-a' }, { id: 'rect-b' }], padding: 24 });
+      expect(targetsInsideViewport(surface.geometrySnapshot().entities, ['item-a', 'rect-b'], [800, 600])).toBe(true);
+      const snapshot = map.viewport.snapshot();
+      map.viewport.resize(1024, 768, 2);
+      expect(map.viewport.snapshot()).toEqual(snapshot);
+      expectPointClose(engine.screenToWorld({ x: 512, y: 384 }), {
+        x: snapshot.centerWorld[0], y: snapshot.centerWorld[1],
+      });
+      map.viewport.restore({ centerWorld: [20, 30], scale: 1 });
+      expect(map.rotation.value).toBe(135);
+      expectPointClose(engine.screenToWorld({ x: 512, y: 384 }), { x: 20, y: 30 });
+      release();
+      vi.advanceTimersByTime(100);
+      expect(settled).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps cursor and pinch anchors stable while pan and deceleration use one view owner', async () => {

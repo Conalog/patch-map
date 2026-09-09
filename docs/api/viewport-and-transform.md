@@ -36,6 +36,33 @@ Viewport APIs:
   accepted wheel is prevented only when it changes scale and retains cursor
   anchoring. The option does not gate `zoomBy`, pan, or box selection.
 
+Whole-map rotation is exposed separately as `patchmap.rotation`:
+
+```ts
+patchmap.rotation.set(90);       // absolute clockwise degrees
+patchmap.rotation.rotateBy(-15); // relative degrees; now 75
+patchmap.rotation.value = 45;    // the same operation as set(45)
+const angle = patchmap.rotation.value;
+patchmap.rotation.reset();      // set the angle to zero
+```
+
+- The initial angle is zero. Methods return the resulting angle; negative and
+  multi-turn angles are retained without wrapping into 0–360.
+- Rotation keeps the world point at the viewport center and the current scale
+  fixed. It changes the whole scene's view, without editing dataset geometry,
+  selection, or history. `transform.rotateBy()` instead edits logical targets.
+- Pan remains screen-relative, zoom retains its cursor anchor, fit accounts for
+  the rotated bounds, and resize preserves the center, scale, and angle.
+- Changed rotations use the existing viewport publication and `onSettled()`
+  notification path. Read `rotation.value` in the listener for the angle;
+  its viewport state argument still contains only center, scale, and screen bounds.
+- `viewport.snapshot()` and `viewport.initial` still contain only center and
+  scale. Save the angle separately and restore it with `rotation.set(angle)`.
+  Viewport fit, reset, and restore retain rotation; `rotation.reset()` clears it.
+- Angles and deltas must be finite numbers. Invalid input, including relative
+  addition that overflows, throws `RangeError` before any change. Setting the
+  current angle does not publish a change. Rotation commands after destroy fail.
+
 Transform APIs apply relative semantic edits to logical targets:
 
 | API | Input |
@@ -73,5 +100,6 @@ Runnable selection, transform, and history reference:
 | --- | --- | --- |
 | viewport state, clamp, persistence, settle | `src/engine/viewport-authority.ts` | `tests/engine/viewport-authority.test.ts` |
 | public viewport integration | `src/public/index.ts` | `tests/engine/engine-viewport.test.ts` |
+| whole-map rotation facade and navigation | `src/public/index.ts`, `src/engine/viewport-runtime-coordinator.ts` | `tests/engine/engine-viewport.test.ts` |
 | relative transform semantics | `src/engine/transformer-edit-authority.ts` | `tests/engine/engine-transformer-edit.test.ts` |
 | gesture ownership and preview cleanup | `src/engine/transformer-session-coordinator.ts` | `tests/engine/engine-transformer-edit.test.ts` |

@@ -367,14 +367,33 @@ export class PatchMapViewportRuntimeCoordinator {
     return this.commit(input.centerWorld, input.scale, 'restore');
   }
 
+  public setWorldRotation(angle: number): number {
+    return this.setWorldTransform({
+      ...this.authority.snapshot().world,
+      rotationDegrees: angle,
+    }).rotationDegrees;
+  }
+
   public setWorldTransform(input: PatchMapWorldTransformInput): PatchMapWorldTransformState {
     const effect = this.authority.planWorldTransform(input);
     const surface = this.port.requireSurface('setWorldTransform');
     if (!effect.changed) return effect.world;
+    const previousRevisions = this.port.revisionStamp();
+    const previous = this.authority.snapshot().viewport;
     surface.setView(effect.surfaceView);
     const nextViewRevision = this.port.viewRevision() + 1;
     this.authority.commitWorldTransform(effect, nextViewRevision);
     this.port.advanceView();
+    this.port.refreshAccessibilitySurface('setWorldTransform');
+    this.port.emitViewChanged(Object.freeze({
+      changed: true,
+      blocked: false,
+      source: 'programmatic',
+      previous,
+      viewport: this.authority.snapshot().viewport,
+      previousRevisions,
+      revisions: this.port.revisionStamp(),
+    } satisfies PatchMapViewportChangeResult));
     return effect.world;
   }
 

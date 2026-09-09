@@ -116,6 +116,8 @@ interface PatchMapApiHost extends PatchMapTransformHost, PatchMapEditorHost, Pat
     readonly source: 'programmatic';
   }>): PatchMapHostViewportChangeResult;
   viewportProbe(): PatchMapHostViewportState;
+  worldRotation(): number;
+  setWorldRotation(angle: number): number;
   resize(width: number, height: number, pixelRatio?: number): boolean;
   registerAssets(
     instanceId: string,
@@ -584,6 +586,17 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
 
   const history = createPatchMapHistoryApi(host);
 
+  const rotation = Object.freeze({
+    get value(): number { return host.worldRotation(); },
+    set value(angle: number) { host.setWorldRotation(angle); },
+    set: (angle: number) => host.setWorldRotation(angle),
+    rotateBy(delta: number): number {
+      if (!Number.isFinite(delta)) throw new RangeError('rotation delta must be finite');
+      return host.setWorldRotation(host.worldRotation() + delta);
+    },
+    reset: () => host.setWorldRotation(0),
+  });
+
   const assets = Object.freeze({
     register(
       input: PatchMapOneOrMany<PatchMapAssetRegistration>,
@@ -622,6 +635,7 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     editor,
     transform,
     viewport,
+    rotation,
     history,
     assets,
     debug: Object.freeze({ snapshot: () => host.snapshot() }),

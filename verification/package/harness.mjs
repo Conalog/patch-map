@@ -125,6 +125,13 @@ const capabilities: readonly string[] = PATCH_MAP_HOST_ADAPTER_CAPABILITIES;
 const mount: typeof PatchMapHostAdapter.mount = PatchMapHostAdapter.mount;
 const snapshot: PatchMapDebugSnapshot | null = null;
 declare const mounted: Awaited<ReturnType<typeof PatchMap.mount>>;
+const rotationAngle: number = mounted.rotation.set(90);
+mounted.rotation.rotateBy(-15);
+mounted.rotation.value = 45;
+mounted.rotation.reset();
+// @ts-expect-error rotation accepts degrees as a finite number, not a string.
+mounted.rotation.set('90');
+void rotationAngle;
 const presentationScope = mounted.targets.query({ type: 'item', scope: 'authored' });
 const presentationResult: PatchMapPresentationSetResult = mounted.presentation.set(
   'strict:focus',

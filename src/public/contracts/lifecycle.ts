@@ -30,6 +30,7 @@ import type {
 } from './mutation-history-editor';
 import type {
   PatchMapFitOptions,
+  PatchMapRotationApi,
   PatchMapTransformApi,
   PatchMapViewportApi,
   PatchMapViewportOptions,
@@ -188,6 +189,7 @@ export interface PatchMapApi {
   readonly editor: PatchMapEditorApi;
   readonly transform: PatchMapTransformApi;
   readonly viewport: PatchMapViewportApi;
+  readonly rotation: PatchMapRotationApi;
   readonly history: PatchMapHistoryApi;
   readonly assets: PatchMapAssetsApi;
   readonly debug: PatchMapDebugApi;
