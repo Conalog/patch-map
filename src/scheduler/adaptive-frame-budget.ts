@@ -107,6 +107,7 @@ export class PatchMapAdaptiveFrameBudget {
 
     return Object.freeze({
       sequence: this.sequence,
+      viewportDeltaMs: elapsedMs,
       wallTimeMs,
       activeAnimationCount,
       viewportGestureActive: input.viewportGestureActive,

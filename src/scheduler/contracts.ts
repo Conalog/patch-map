@@ -33,6 +33,8 @@ export interface PatchMapAdaptiveFrameInput {
 }
 
 export interface PatchMapAdaptiveFramePlan {
+  /** Foreground delta before data-presentation throttling. */
+  readonly viewportDeltaMs: number;
   readonly sequence: number;
   readonly wallTimeMs: number;
   readonly activeAnimationCount: number;
@@ -60,7 +62,7 @@ export interface PatchMapFrameLoopTarget {
   /** Product-owned gesture state; hosts do not mirror pointer bookkeeping. */
   readonly viewportGestureActive: boolean;
   readonly destroyed: boolean;
-  publishFrame(timeMs: number): unknown;
+  publishFrame(timeMs: number, viewportDeltaMs?: number): unknown;
 }
 
 export interface PatchMapFrameLoopObservation {

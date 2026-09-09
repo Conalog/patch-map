@@ -50,6 +50,8 @@ import type {
   PatchMapTargetsInput,
   PatchMapTargetQuery,
   PatchMapViewportSnapshot,
+  PatchMapRotationAnimation,
+  PatchMapRotationAnimationOptions,
   PatchMapUpdateTargetsInput,
 } from './contracts';
 import {
@@ -116,6 +118,8 @@ interface PatchMapApiHost extends PatchMapTransformHost, PatchMapEditorHost, Pat
     readonly source: 'programmatic';
   }>): PatchMapHostViewportChangeResult;
   viewportProbe(): PatchMapHostViewportState;
+  readonly rotationAnimationActive: boolean;
+  animateRotationTo(angle: number, options?: PatchMapRotationAnimationOptions): PatchMapRotationAnimation;
   worldRotation(): number;
   setWorldRotation(angle: number): number;
   resize(width: number, height: number, pixelRatio?: number): boolean;
@@ -523,6 +527,7 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     clearViewportSettleTimer();
     viewportSettleTimer = globalThis.setTimeout(() => {
       viewportSettleTimer = null;
+      if (host.rotationAnimationActive) return;
       const state = host.viewportProbe();
       for (const listener of [...viewportSettledListeners]) listener(state);
     }, 100);
@@ -587,6 +592,14 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
   const history = createPatchMapHistoryApi(host);
 
   const rotation = Object.freeze({
+    animateTo(angle: number, options?: PatchMapRotationAnimationOptions): PatchMapRotationAnimation {
+      const animation = host.animateRotationTo(angle, options);
+      if (host.rotationAnimationActive) {
+        clearViewportSettleTimer();
+        void animation.finished.then(scheduleViewportSettled);
+      }
+      return animation;
+    },
     get value(): number { return host.worldRotation(); },
     set value(angle: number) { host.setWorldRotation(angle); },
     set: (angle: number) => host.setWorldRotation(angle),

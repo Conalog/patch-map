@@ -46,7 +46,7 @@ const angle = patchmap.rotation.value;
 patchmap.rotation.reset();      // set the angle to zero
 ```
 
-- The initial angle is zero. Methods return the resulting angle; negative and
+- The initial angle is zero. Immediate methods return the resulting angle; negative and
   multi-turn angles are retained without wrapping into 0–360.
 - Rotation keeps the world point at the viewport center and the current scale
   fixed. It changes the whole scene's view, without editing dataset geometry,
@@ -63,6 +63,19 @@ patchmap.rotation.reset();      // set the angle to zero
 - Angles and deltas must be finite numbers. Invalid input, including relative
   addition that overflows, throws `RangeError` before any change. Setting the
   current angle does not publish a change. Rotation commands after destroy fail.
+
+Smooth rotation is opt-in; existing setters remain immediate:
+
+```ts
+const animation = patchmap.rotation.animateTo(90, { durationMs: 250 });
+const result = await animation.finished; // { status: 'completed', angle: 90 }
+// animation.cancel() stops this request at its current angle.
+```
+
+- Default: 250ms, cubic ease-out. Raw angle differences preserve turns: 0 to 360 makes a full turn; 350 to 10 travels backward 340 degrees. `rotation.value` reads the currently applied angle; center, scale, dataset and history stay fixed.
+- New animation retargets from the current angle. Immediate rotation setters and accepted pan/zoom/fit/restore cancel it; resize preserves it. `cancel()` affects only its own active request and returns false after that request has ended.
+- `finished` resolves once with `{ status, angle }`: `completed` after the final animated frame, `cancelled` on interruption/destroy, or `failed` on frame failure. Cancellation/failure do not reject. Zero duration, unchanged target or reduced motion completes immediately after accepting the angle and requesting a frame.
+- Non-finite angles and negative/non-finite durations throw `RangeError` before interrupting a request. Animation uses the managed frame loop independently of data-animation throttling. Hidden time is excluded; enabling reduced motion mid-animation completes on the next visible frame. `onSettled()` waits until rotation ends and the existing 100ms quiet period passes.
 
 Transform APIs apply relative semantic edits to logical targets:
 
@@ -92,8 +105,7 @@ resize handle.
 - Cancel, target change, pointer termination, or refused surface acceptance
   removes transformer preview and does not create a history entry.
 
-Runnable selection, transform, and history reference:
-[`examples/editor.ts`](../../examples/editor.ts).
+Runnable selection, transform, and history reference: [`examples/editor.ts`](../../examples/editor.ts).
 
 ## Verification map
 

@@ -1,3 +1,5 @@
+import type { PatchMapRotationAnimation, PatchMapRotationAnimationOptions } from '../../viewport/rotation-animation';
+export type { PatchMapRotationAnimation, PatchMapRotationAnimationOptions, PatchMapRotationAnimationResult } from '../../viewport/rotation-animation';
 import type {
   PatchMapEdgeAutoPanResult,
   PatchMapResizeHandle,
@@ -17,6 +19,7 @@ export interface PatchMapRotationApi {
   set(angle: number): number;
   rotateBy(delta: number): number;
   reset(): number;
+  animateTo(angle: number, options?: PatchMapRotationAnimationOptions): PatchMapRotationAnimation;
 }
 
 /** Wheel modifier required before the package consumes and zooms a wheel event. */

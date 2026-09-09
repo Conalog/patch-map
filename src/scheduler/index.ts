@@ -27,6 +27,8 @@ export class PatchMapFrameLoop {
   private readonly onFrame: ((observation: PatchMapFrameLoopObservation) => void) | null;
   private handle: number | null = null;
   private monitorUntilMs = 0;
+  private viewportDeltaOriginMs: number | null = null;
+  private publishing = false;
   private logicalTimeMs: number;
   private frameCount = 0;
   private paused = false;
@@ -54,6 +56,7 @@ export class PatchMapFrameLoop {
   public request(monitorDurationMs = 0): void {
     this.assertAlive();
     const duration = nonnegativeFinite(monitorDurationMs, 'monitorDurationMs');
+    if (this.handle === null && !this.publishing) this.viewportDeltaOriginMs = this.driver.now();
     this.monitorUntilMs = Math.max(this.monitorUntilMs, this.driver.now() + duration);
     if (!this.paused && !this.target.destroyed) this.schedule();
   }
@@ -140,7 +143,16 @@ export class PatchMapFrameLoop {
       viewportGestureActive: this.target.viewportGestureActive,
     });
     this.logicalTimeMs += plan.presentationDeltaMs;
-    this.target.publishFrame(this.logicalTimeMs);
+    const viewportDeltaMs = this.viewportDeltaOriginMs === null
+      ? plan.viewportDeltaMs
+      : Math.min(plan.viewportDeltaMs, Math.max(0, wallTimeMs - this.viewportDeltaOriginMs));
+    this.viewportDeltaOriginMs = null;
+    this.publishing = true;
+    try {
+      this.target.publishFrame(this.logicalTimeMs, viewportDeltaMs);
+    } finally {
+      this.publishing = false;
+    }
     const completedAtMs = this.driver.now();
     this.budget.complete(plan, completedAtMs);
     this.frameCount += 1;
