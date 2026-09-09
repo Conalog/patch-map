@@ -69,6 +69,21 @@ map.rotation.reset();
 if (!rotationWorks || !relativeRotationWorks || !assignedRotationWorks || map.rotation.value !== 0) {
   throw new Error('packed whole-map rotation failed');
 }
+for (const angle of [Number.MAX_VALUE, -Number.MAX_VALUE]) {
+  map.rotation.set(angle);
+  map.viewport.fit({ padding: 24 });
+  const extremeView = map.viewport.snapshot();
+  const extremeCapture = await map.capture.png();
+  map.rotation.set(angle % 360);
+  map.viewport.fit({ padding: 24 });
+  const equivalentCapture = await map.capture.png();
+  if (JSON.stringify(extremeView) !== JSON.stringify(map.viewport.snapshot())
+    || extremeCapture.dataUrl !== equivalentCapture.dataUrl) {
+    throw new Error('packed multi-turn rotation diverged from its equivalent angle');
+  }
+}
+map.rotation.reset();
+map.viewport.restore(JSON.parse(rotationViewport));
 const bars = map.targets.query({ type: 'bar', scope: 'authored' });
 const presentation = map.presentation.set('packed:focus', {
   scope: bars,

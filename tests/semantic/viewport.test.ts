@@ -84,6 +84,12 @@ describe('PatchMap viewport substrate', () => {
       90,
       [0.25, 4],
     )).toBeCloseTo(3.1578947368, 8);
+    for (const angle of [Number.MAX_VALUE, -Number.MAX_VALUE, 450, -450]) {
+      const fit = (degrees: number) => patchMapViewportFitScale(
+        bounds, [800, 600], normalizePatchMapViewportPadding(24), degrees, [0.25, 4],
+      );
+      expect(fit(angle)).toBe(fit(angle % 360));
+    }
   });
 
   function resolve(

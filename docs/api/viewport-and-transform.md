@@ -57,7 +57,8 @@ patchmap.rotation.reset();      // set the angle to zero
   notification path. Read `rotation.value` in the listener for the angle;
   its viewport state argument still contains only center, scale, and screen bounds.
 - `viewport.snapshot()` and `viewport.initial` still contain only center and
-  scale. Save the angle separately and restore it with `rotation.set(angle)`.
+  scale to preserve the existing snapshot contract. Save the angle separately
+  and restore it with `rotation.set(angle)`.
   Viewport fit, reset, and restore retain rotation; `rotation.reset()` clears it.
 - Angles and deltas must be finite numbers. Invalid input, including relative
   addition that overflows, throws `RangeError` before any change. Setting the
