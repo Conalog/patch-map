@@ -151,7 +151,8 @@ export interface PatchMapReconcileOptions extends PatchMapDenseReconcileOptions 
   readonly allowedElementOrderIds?: readonly string[];
   /**
    * Engine-owned flat top-level roots changed by one already-staged immutable
-   * transaction. Unsupported shapes fall back to the canonical full parser.
+   * transaction. Refused flat updates try guarded root-fragment reuse before
+   * falling back to the canonical full parser.
    */
   readonly incrementalRootIds?: readonly string[];
   /**

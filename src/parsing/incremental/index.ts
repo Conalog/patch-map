@@ -279,7 +279,7 @@ export function parsePatchMapIncrementalStructure(
  * Reparse only explicitly dirty top-level roots for the common flat editor
  * scene. This is deliberately a guarded optimization, not a second parser:
  * relation, hierarchy, grid, diagnostic, identity, or root-order complexity
- * returns `null` so the caller can run the canonical full parser unchanged.
+ * returns `null` so the caller can try guarded structural reuse or full parsing.
  *
  * `dirtyRootIds` is trusted only after the Engine has atomically staged its
  * own detached candidate. Direct caller input must continue through the full

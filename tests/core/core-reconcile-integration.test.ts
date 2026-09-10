@@ -13,6 +13,7 @@ import {
   type PatchMapRuntimeOptions,
 } from '../../src/core';
 import type { PatchMapPublishedSceneState } from '../../src/core/published-scene-state';
+import { parsePatchMap } from '../../src/parsing';
 import { PatchMapParseError } from '../../src/parsing/contracts';
 import type {
   PatchMapPixiInitializationMetrics,
@@ -111,6 +112,38 @@ describe('PatchMap runtime dense reconcile', () => {
     expect(core.get('a')?.bounds.x).toBe(10);
     expect(core.get('b')?.bounds.x).toBe(20);
     expect(result.plan.summary.patched).toBe(2);
+  });
+
+  it('reuses unchanged grid projections when an authored update preserves parser warnings', () => {
+    const { core } = createTestCore(allocated);
+    const inverter = (text: string, fontSize: number | string) => ({
+      type: 'item', id: 'inverter', size: { width: 60, height: 70 },
+      components: [{
+        type: 'text', id: 'value', text,
+        style: { fontSize, autoFont: { min: 8, max: 14 } },
+      }],
+    });
+    let current = materializePatchMapDataset([
+      inverter('100 Wh', 'auto'),
+      { type: 'grid', id: 'panels', cells: [[1, 1]], item: { size: 20, components: [] } },
+    ]);
+    const loaded = core.load(current.dataset);
+    expect(loaded.parse.diagnostics.some(({ code }) => code === 'invalid-text-metric')).toBe(true);
+    const gridEntityId = loaded.parse.identity.entityIdsBySourceId['panels']![0]!;
+    const gridProjection = loaded.parse.projection.byEntityId[gridEntityId];
+    const gridRef = core.ref(gridEntityId);
+    // Cover preserving, clearing, and introducing warnings through the same
+    // guarded fallback, including reuse across successive publications.
+    for (const fontSize of ['auto', 12, 'auto']) {
+      const changed = materializePatchMapDataset([inverter('3870 Wh', fontSize)]).dataset[0]!;
+      const next = assembleOwnedPatchMapDataset(current, [changed, current.dataset[1]!]);
+      const result = core.reconcile(next.dataset, { incrementalRootIds: ['inverter'] });
+      expect(result.status).toBe('committed');
+      expect(result.parse).toEqual(parsePatchMap(next.dataset));
+      expect(result.parse.projection.byEntityId[gridEntityId]).toBe(gridProjection);
+      expect(core.ref(gridEntityId)).toEqual(gridRef);
+      current = next;
+    }
   });
 
   it('falls back to full parsing when parser color options change', () => {
