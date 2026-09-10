@@ -223,6 +223,36 @@ function createChunkRecord(): ChunkRecord {
   };
 }
 
+type GeometryDetachBatch = Map<Container, Container[]>;
+
+function detachCulledGeometry(child: Container, batch?: GeometryDetachBatch): void {
+  const parent = child.parent;
+  if (parent === null) return;
+  if (batch === undefined) {
+    parent.removeChild(child);
+    return;
+  }
+  const children = batch.get(parent);
+  if (children === undefined) batch.set(parent, [child]);
+  else children.push(child);
+}
+
+function flushGeometryDetachBatch(batch: GeometryDetachBatch): void {
+  for (const [parent, children] of batch) {
+    // Small viewport changes should not detach and reattach a whole scene.
+    if (children.length < 256) {
+      for (const child of children) parent.removeChild(child);
+      continue;
+    }
+    const removed = new Set(children);
+    const retained = parent.children.filter((child) => !removed.has(child));
+    // One compaction replaces repeated indexOf/splice on the shared exact
+    // container. Leaf nodes and surviving geometry keep their relative order.
+    parent.removeChildren();
+    for (const child of retained) parent.addChild(child);
+  }
+}
+
 function setChunkGeometryVisible(
   chunk: ChunkRecord,
   visible: boolean,
@@ -231,6 +261,7 @@ function setChunkGeometryVisible(
   viewport: AggregateViewportCull,
   precise: boolean,
   force = false,
+  detachBatch?: GeometryDetachBatch,
 ): void {
   if (
     !force &&
@@ -254,7 +285,7 @@ function setChunkGeometryVisible(
           : parent;
         if (mesh.parent !== target) target.addChild(mesh);
       } else if (mesh.parent !== null) {
-        mesh.parent.removeChild(mesh);
+        detachCulledGeometry(mesh, detachBatch);
       }
     }
   }
@@ -269,7 +300,7 @@ function setChunkGeometryVisible(
           : record.parent;
         if (record.graphics.parent !== target) target.addChild(record.graphics);
       } else if (record.graphics.parent !== null) {
-        record.graphics.parent.removeChild(record.graphics);
+        detachCulledGeometry(record.graphics, detachBatch);
       }
     }
   }
@@ -282,7 +313,7 @@ function setChunkGeometryVisible(
         : backgroundParent;
       if (record.graphics.parent !== target) target.addChild(record.graphics);
     } else if (record.graphics.parent !== null) {
-      record.graphics.parent.removeChild(record.graphics);
+      detachCulledGeometry(record.graphics, detachBatch);
     }
   }
   chunk.geometryVisible = visible;
@@ -559,6 +590,7 @@ export class AggregateMeshLayer {
     this.#visibleBarSlotCount = 0;
     this.#barSlotCount = 0;
     let visibleChunks = 0;
+    const detachBatch: GeometryDetachBatch = new Map();
     for (const [chunkIndex, chunk] of this.#chunks) {
       const visible = chunkIntersectsViewport(chunk, viewport);
       this.#visibleChunkFlags[chunkIndex] = visible ? 1 : 0;
@@ -577,9 +609,11 @@ export class AggregateMeshLayer {
         viewport,
         precise,
         precisionChanged,
+        detachBatch,
       );
       if (visible) visibleChunks += 1;
     }
+    flushGeometryDetachBatch(detachBatch);
     return visibleChunks;
   }
 

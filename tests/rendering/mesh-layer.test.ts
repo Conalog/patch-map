@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createTestProjectionIndex } from '../support/projection-index';
-import { Graphics, Matrix, Mesh } from 'pixi.js';
+import { Container, Graphics, Matrix, Mesh } from 'pixi.js';
 import type { MeshGeometry } from 'pixi.js';
 
 import type { RenderStoreView } from '../../src/dense/renderer-types';
@@ -277,6 +277,65 @@ describe('AggregateMeshLayer', () => {
     expect(secondRect.visible).toBe(true);
     expect(secondRect.parent).toBe(layer.ordinaryGeometryContainer);
     layer.destroy();
+  });
+
+  it.each([false, true])('batch-culls exact geometry while preserving leaf order (styled=%s)', (styled) => {
+    const capacity = 600;
+    const base = createStore();
+    const store = Object.fromEntries(Object.entries(base).map(([key, value]) => {
+      if (ArrayBuffer.isView(value)) {
+        const array = value as Float64Array;
+        const ArrayType = array.constructor as typeof Float64Array;
+        return [key, new ArrayType(capacity).fill(array[0] ?? 0)];
+      }
+      if (Array.isArray(value)) return [key, Array(capacity).fill(value[0])];
+      return [key, value];
+    })) as unknown as RenderStoreView;
+    Object.assign(store, {
+      capacity,
+      liveCount: capacity,
+      ids: Array.from({ length: capacity }, (_, index) => `rect-${index}`),
+      x: Float32Array.from({ length: capacity }, (_, index) => index < 300 ? 0 : 200),
+      radius: new Float64Array(capacity).fill(styled ? 2 : 0),
+      renderOrder: () => Uint32Array.from({ length: capacity }, (_, index) => index),
+    });
+    const layer = new AggregateMeshLayer({ chunkSize: 128 });
+    const exact = new Container();
+    const firstLeaf = new Container();
+    const lastLeaf = new Container();
+    exact.addChild(firstLeaf);
+    layer.setPaintContainer(exact);
+    layer.sync(store, {
+      fullRebuildEpoch: 1,
+      projectionContext: {
+        index: createTestProjectionIndex(),
+        revision: 1,
+        world: { rotationDegrees: 0, flipX: false, flipY: false },
+        paintOrderByEntityId: Object.fromEntries(
+          store.ids.map((id, index) => [id, 2 ** 32 + index]),
+        ),
+      },
+    });
+    exact.addChild(lastLeaf);
+    const records = exact.children.filter((child) => child !== firstLeaf && child !== lastLeaf);
+    expect(records).toHaveLength(capacity);
+    for (const x of [0, -200, 0]) {
+      const before = [...exact.children];
+      layer.cull(new Matrix(1, 0, 0, 1, x, 0), 70, 40, 0);
+      const visible = records.filter((child) => child.visible);
+      expect(visible).toHaveLength(300);
+      expect(records.filter((child) => child.parent === null)).toHaveLength(300);
+      expect(exact.children.filter((child) => before.includes(child)))
+        .toEqual(before.filter((child) => child.parent === exact));
+      expect(firstLeaf.parent).toBe(exact);
+      expect(lastLeaf.parent).toBe(exact);
+      expect(firstLeaf.destroyed).toBe(false);
+      expect(lastLeaf.destroyed).toBe(false);
+    }
+    layer.destroy();
+    expect(records.every((child) => child.destroyed)).toBe(true);
+    expect(exact.children).toEqual([firstLeaf, lastLeaf]);
+    exact.destroy({ children: true });
   });
 
   it('switches between precise idle records and coarse animation chunks', () => {
