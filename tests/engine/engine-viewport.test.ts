@@ -1,5 +1,6 @@
 import datasets from '../fixtures/datasets/index';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createPatchMapApi } from '../../src/public';
 
 import {
   PatchMap,
@@ -18,6 +19,514 @@ describe('PatchMap viewport authority', () => {
 
   afterEach(async () => {
     await Promise.all(engines.splice(0).map((engine) => engine.destroy()));
+  });
+
+  it('animates on the managed loop, preserves the viewport, and stops after completion', async () => {
+    const { engine, surface } = await createEngine(engines, 'rotation-animation');
+    engine.loadDataset(datasets['all-kinds-scene']);
+    const map = createPatchMapApi(engine);
+    map.viewport.restore({ centerWorld: [200, 150], scale: 2 });
+    engine.accessibilityTree();
+    const viewport = map.viewport.snapshot();
+    const data = map.data.snapshot();
+    const history = engine.historyState();
+    const driver = rotationFrameDriver();
+    engine.createFrameLoop({ driver });
+    const animation = map.rotation.animateTo(360, { durationMs: 100 });
+    expect(map.rotation.value).toBe(0);
+    expect(driver.pending()).toBe(1);
+    driver.fire(0);
+    const refreshes = surface.accessibilityRefreshCount;
+    driver.fire(50);
+    expect(map.rotation.value).toBeCloseTo(315, 0);
+    expect(surface.accessibilityRefreshCount).toBe(refreshes + 1);
+    expect(map.viewport.snapshot()).toEqual(viewport);
+    driver.fire(100);
+    await expect(animation.finished).resolves.toEqual({ status: 'completed', angle: 360 });
+    expect(animation.cancel()).toBe(false);
+    expect(map.rotation.value).toBe(360);
+    // A view invalidation during publication can leave one coalesced idle frame.
+    if (driver.pending()) driver.fire(116);
+    expect(driver.pending()).toBe(0);
+    expect(map.data.snapshot()).toEqual(data);
+    expect(engine.historyState()).toEqual(history);
+  });
+
+  it.each([
+    { from: 270, target: 0, path: 'clockwise', midpoint: 348.75, end: 360 },
+    { from: 90, target: 0, path: 'counterclockwise', midpoint: 11.25, end: 0 },
+    { from: 350, target: 10, path: 'shortest', midpoint: 367.5, end: 370 },
+    { from: 10, target: 350, path: 'shortest', midpoint: -7.5, end: -10 },
+    { from: 810, target: 0, path: 'shortest', midpoint: 731.25, end: 720 },
+    { from: -90, target: 0, path: 'clockwise', midpoint: -11.25, end: 0 },
+    { from: 0, target: 180, path: 'shortest', midpoint: 157.5, end: 180 },
+    { from: 180, target: 0, path: 'shortest', midpoint: 337.5, end: 360 },
+    { from: 360.1, target: 180.1, path: 'shortest', midpoint: 517.6, end: 540.1 },
+    { from: 0, target: 180, path: 'counterclockwise', midpoint: -157.5, end: -180 },
+    { from: 90, target: -90, path: 'shortest', midpoint: 247.5, end: 270 },
+    { from: 350, target: 10, path: 'raw', midpoint: 52.5, end: 10 },
+  ] as const)('follows $path from $from to bearing $target without implicit normalization', async (test) => {
+    const { engine } = await createEngine(engines, 'rotation-path');
+    const map = createPatchMapApi(engine);
+    map.rotation.set(test.from);
+    const animation = map.rotation.animateTo(test.target, { path: test.path, durationMs: 100 });
+    expect(map.rotation.value).toBe(test.from);
+    engine.publishFrame(50, 50);
+    expect(map.rotation.value).toBeCloseTo(test.midpoint);
+    engine.publishFrame(100, 50);
+    await expect(animation.finished).resolves.toEqual({ status: 'completed', angle: test.end });
+    expect(map.rotation.value).toBe(test.end);
+  });
+
+  it('normalizes after the final published frame without adding a second viewport update', async () => {
+    const { engine, surface } = await createEngine(engines, 'rotation-path-normalization');
+    engine.loadDataset(datasets['all-kinds-scene']);
+    const map = createPatchMapApi(engine);
+    map.viewport.restore({ centerWorld: [200, 150], scale: 2 });
+    map.rotation.set(810);
+    const viewport = map.viewport.snapshot();
+    const data = map.data.snapshot();
+    const history = engine.historyState();
+    const publishedAngles: number[] = [];
+    vi.spyOn(surface, 'publishFrame').mockImplementation(() => { publishedAngles.push(map.rotation.value); });
+    const frameAngles: number[] = [];
+    engine.on('frame', () => { frameAngles.push(map.rotation.value); });
+    const viewChanges: number[] = [];
+    const release = engine.onViewportChange(() => { viewChanges.push(map.rotation.value); });
+    const animation = map.rotation.animateTo(0, {
+      path: 'shortest', normalizeOnComplete: true, durationMs: 100,
+    });
+    engine.publishFrame(50, 50);
+    expect(map.rotation.value).toBe(731.25);
+    engine.publishFrame(100, 50);
+    await expect(animation.finished).resolves.toEqual({ status: 'completed', angle: 0 });
+    expect(publishedAngles).toEqual([731.25, 720]);
+    expect(frameAngles).toEqual([731.25, 0]);
+    expect(viewChanges).toEqual(publishedAngles);
+    expect(map.viewport.snapshot()).toEqual(viewport);
+    expectPointClose(engine.screenToWorld({ x: 400, y: 300 }), { x: 200, y: 150 });
+    expectPointClose(engine.screenToWorld({ x: 420, y: 300 }), { x: 210, y: 150 });
+    expect(map.data.snapshot()).toEqual(data);
+    expect(engine.historyState()).toEqual(history);
+    release();
+  });
+
+  it('cycles normalized bearings without accumulating turns, including raw full-turn normalization', async () => {
+    const { engine } = await createEngine(engines, 'rotation-bearing-cycle');
+    const map = createPatchMapApi(engine);
+    let time = 0;
+    for (const target of [90, 180, 270, 0, 90, 180, 270, 0]) {
+      const animation = map.rotation.animateTo(target, {
+        path: 'clockwise', normalizeOnComplete: true, durationMs: 100,
+      });
+      engine.publishFrame(time += 50, 50);
+      engine.publishFrame(time += 50, 50);
+      await expect(animation.finished).resolves.toEqual({ status: 'completed', angle: target });
+      expect(map.rotation.value).toBe(target);
+    }
+    const fullTurns = map.rotation.animateTo(720, { normalizeOnComplete: true, durationMs: 100 });
+    engine.publishFrame(time += 50, 50);
+    expect(map.rotation.value).toBe(630);
+    engine.publishFrame(time + 50, 50);
+    await expect(fullTurns.finished).resolves.toEqual({ status: 'completed', angle: 0 });
+    const negative = map.rotation.animateTo(-450, { durationMs: 0, normalizeOnComplete: true });
+    await expect(negative.finished).resolves.toEqual({ status: 'completed', angle: 270 });
+  });
+
+  it('treats equivalent directed bearings as unchanged and handles immediate normalized completion', async () => {
+    const { engine, surface } = await createEngine(engines, 'rotation-equivalent-bearing');
+    const map = createPatchMapApi(engine);
+    map.rotation.set(810);
+    const changes = surface.setViewCount;
+    for (const path of ['shortest', 'clockwise', 'counterclockwise'] as const) {
+      await expect(map.rotation.animateTo(90, { path }).finished)
+        .resolves.toEqual({ status: 'completed', angle: 810 });
+    }
+    expect(surface.setViewCount).toBe(changes);
+    await expect(map.rotation.animateTo(90, { path: 'clockwise', normalizeOnComplete: true }).finished)
+      .resolves.toEqual({ status: 'completed', angle: 90 });
+    expect(engine.rotationAnimationActive).toBe(false);
+    map.rotation.set(810);
+    engine.setReducedMotion(true);
+    await expect(map.rotation.animateTo(0, { path: 'shortest', normalizeOnComplete: true }).finished)
+      .resolves.toEqual({ status: 'completed', angle: 0 });
+    const zero = map.rotation.animateTo(-360, { path: 'clockwise', normalizeOnComplete: true });
+    await expect(zero.finished).resolves.toEqual({ status: 'completed', angle: 0 });
+    expect(Object.is(map.rotation.value, -0)).toBe(false);
+  });
+
+  it('does not add a nearly full turn for equivalent fractional bearings', async () => {
+    const { engine, surface } = await createEngine(engines, 'rotation-fractional-bearing');
+    const map = createPatchMapApi(engine);
+    for (const from of [360.1, -359.9, 810.1]) {
+      map.rotation.set(from);
+      const target = from === 810.1 ? 90.1 : 0.1;
+      const changes = surface.setViewCount;
+      for (const path of ['clockwise', 'counterclockwise', 'shortest'] as const) {
+        await expect(map.rotation.animateTo(target, { path }).finished)
+          .resolves.toEqual({ status: 'completed', angle: from });
+        expect(engine.rotationAnimationActive).toBe(false);
+      }
+      expect(surface.setViewCount).toBe(changes);
+    }
+  });
+
+  it('keeps interrupted angles unwrapped and uses the current angle when retargeting', async () => {
+    const { engine } = await createEngine(engines, 'rotation-path-cancel');
+    const map = createPatchMapApi(engine);
+    map.rotation.set(10);
+    const cancelled = map.rotation.animateTo(350, {
+      path: 'shortest', normalizeOnComplete: true, durationMs: 100,
+    });
+    engine.publishFrame(50, 50);
+    expect(map.rotation.value).toBe(-7.5);
+    expect(cancelled.cancel()).toBe(true);
+    await expect(cancelled.finished).resolves.toEqual({ status: 'cancelled', angle: -7.5 });
+    expect(map.rotation.value).toBe(-7.5);
+    const replaced = map.rotation.animateTo(270, { path: 'counterclockwise', durationMs: 100 });
+    engine.publishFrame(100, 50);
+    const current = map.rotation.value;
+    const final = map.rotation.animateTo(0, { path: 'shortest', normalizeOnComplete: true, durationMs: 100 });
+    expect(map.rotation.value).toBe(current);
+    await expect(replaced.finished).resolves.toEqual({ status: 'cancelled', angle: current });
+    engine.publishFrame(200, 100);
+    await expect(final.finished).resolves.toEqual({ status: 'completed', angle: 0 });
+  });
+
+  it('makes normalized completion available to settled listeners without normalizing cancellation', async () => {
+    const { engine } = await createEngine(engines, 'rotation-path-settled');
+    const map = createPatchMapApi(engine);
+    vi.useFakeTimers();
+    try {
+      const saved: number[] = [];
+      const release = map.viewport.onSettled(() => { saved.push(map.rotation.value); });
+      map.rotation.set(810);
+      const animation = map.rotation.animateTo(0, { path: 'shortest', normalizeOnComplete: true, durationMs: 100 });
+      engine.publishFrame(50, 50);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(saved).toEqual([]);
+      engine.publishFrame(100, 50);
+      await animation.finished;
+      await vi.advanceTimersByTimeAsync(100);
+      expect(saved).toEqual([0]);
+      map.rotation.set(10);
+      const interrupted = map.rotation.animateTo(350, { path: 'shortest', normalizeOnComplete: true, durationMs: 100 });
+      engine.publishFrame(150, 50);
+      map.viewport.panBy([10, 0]);
+      await expect(interrupted.finished).resolves.toEqual({ status: 'cancelled', angle: -7.5 });
+      await vi.advanceTimersByTimeAsync(100);
+      expect(saved).toEqual([0, -7.5]);
+      release();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('does not normalize when the final frame fails or is cancelled reentrantly', async () => {
+    const { engine, surface } = await createEngine(engines, 'rotation-final-normalization');
+    const map = createPatchMapApi(engine);
+    map.rotation.set(810);
+    const failure = map.rotation.animateTo(0, { path: 'shortest', normalizeOnComplete: true, durationMs: 100 });
+    vi.spyOn(surface, 'publishFrame').mockImplementationOnce(() => { throw new Error('final frame failed'); });
+    expect(() => engine.publishFrame(100, 100)).toThrow();
+    await expect(failure.finished).resolves.toEqual({ status: 'failed', angle: 720 });
+    expect(map.rotation.value).toBe(720);
+    map.rotation.set(810);
+    const interrupted = map.rotation.animateTo(0, { path: 'shortest', normalizeOnComplete: true, durationMs: 100 });
+    const release = engine.onViewportChange(() => { interrupted.cancel(); });
+    engine.publishFrame(200, 100);
+    await expect(interrupted.finished).resolves.toEqual({ status: 'cancelled', angle: 720 });
+    expect(map.rotation.value).toBe(720);
+    release();
+  });
+
+  it('rejects invalid path options and unrepresentable directed angles before interruption', async () => {
+    const { engine } = await createEngine(engines, 'rotation-path-validation');
+    const map = createPatchMapApi(engine);
+    const animation = map.rotation.animateTo(90);
+    for (const path of ['cw', '', null, 1]) {
+      expect(() => map.rotation.animateTo(180, { path: path as 'raw' })).toThrow(TypeError);
+    }
+    for (const normalizeOnComplete of [null, 1, 'true']) {
+      expect(() => map.rotation.animateTo(180, { normalizeOnComplete: normalizeOnComplete as unknown as boolean })).toThrow(TypeError);
+    }
+    expect(engine.rotationAnimationActive).toBe(true);
+    animation.cancel();
+    map.rotation.set(Number.MAX_VALUE);
+    const raw = map.rotation.animateTo(0);
+    expect(() => map.rotation.animateTo(90, { path: 'shortest' })).toThrow(RangeError);
+    expect(engine.rotationAnimationActive).toBe(true);
+    raw.cancel();
+    map.rotation.set(Number.MAX_SAFE_INTEGER - 1000);
+    expect(() => map.rotation.animateTo(90.5, { path: 'clockwise' })).toThrow(RangeError);
+    map.rotation.set(0);
+    await expect(map.rotation.animateTo(Number.MAX_VALUE, {
+      path: 'clockwise', normalizeOnComplete: true, durationMs: 0,
+    }).finished).resolves.toEqual({ status: 'completed', angle: Number.MAX_VALUE % 360 });
+  });
+
+  it('excludes idle time before a rotation request from its first frame', async () => {
+    const { engine } = await createEngine(engines, 'rotation-idle');
+    const map = createPatchMapApi(engine);
+    const driver = rotationFrameDriver();
+    const loop = engine.createFrameLoop({ driver });
+    loop.publishNow();
+    driver.setTime(10000);
+    const animation = map.rotation.animateTo(90, { durationMs: 50 });
+    driver.fire(10016);
+    expect(map.rotation.value).toBeCloseTo(90 * (1 - 0.68 ** 3));
+    expect(engine.rotationAnimationActive).toBe(true);
+    driver.fire(10050);
+    await expect(animation.finished).resolves.toEqual({ status: 'completed', angle: 90 });
+  });
+
+  it('advances rotation every frame while bulk presentation is throttled', async () => {
+    const { engine } = await createEngine(engines, 'rotation-budget');
+    const map = createPatchMapApi(engine);
+    vi.spyOn(engine, 'activeAnimations', 'get').mockReturnValue(5000);
+    vi.spyOn(engine, 'frameWorkloadSize', 'get').mockReturnValue(5000);
+    const driver = rotationFrameDriver();
+    engine.createFrameLoop({ driver });
+    map.rotation.animateTo(90, { durationMs: 100 });
+    driver.fire(0);
+    const first = map.rotation.value;
+    driver.fire(16);
+    const second = map.rotation.value;
+    driver.fire(32);
+    expect(engine.frameTimeMs).toBe(0);
+    expect(second).toBeGreaterThan(first);
+    expect(map.rotation.value).toBeGreaterThan(second);
+    driver.fire(82);
+    driver.fire(100);
+    expect(map.rotation.value).toBe(90);
+  });
+
+  it('retargets without jumping and validates before interrupting an active request', async () => {
+    const { engine } = await createEngine(engines, 'rotation-retarget');
+    const map = createPatchMapApi(engine);
+    const first = map.rotation.animateTo(90, { durationMs: 100 });
+    engine.publishFrame(50, 50);
+    expect(map.rotation.value).toBe(78.75);
+    for (const angle of [NaN, Infinity, -Infinity]) {
+      expect(() => map.rotation.animateTo(angle)).toThrow(RangeError);
+    }
+    for (const durationMs of [NaN, Infinity, -1, null, '100']) {
+      expect(() => map.rotation.animateTo(180, { durationMs: durationMs as number })).toThrow(RangeError);
+    }
+    expect(engine.rotationAnimationActive).toBe(true);
+    const next = map.rotation.animateTo(-90, { durationMs: 100 });
+    expect(map.rotation.value).toBe(78.75);
+    await expect(first.finished).resolves.toEqual({ status: 'cancelled', angle: 78.75 });
+    expect(first.cancel()).toBe(false);
+    engine.publishFrame(100, 50);
+    expect(map.rotation.value).toBeCloseTo(-68.90625);
+    expect(next.cancel()).toBe(true);
+    const stopped = map.rotation.value;
+    engine.publishFrame(150, 50);
+    expect(map.rotation.value).toBe(stopped);
+    await expect(next.finished).resolves.toEqual({ status: 'cancelled', angle: stopped });
+  });
+
+  it('cancels on direct rotation and navigation, but preserves animation through resize and hiding', async () => {
+    const { engine, surface } = await createEngine(engines, 'rotation-interruption');
+    const map = createPatchMapApi(engine);
+    for (const interrupt of [
+      () => map.rotation.set(20),
+      () => map.rotation.reset(),
+      () => { map.rotation.value = 30; },
+      () => map.viewport.panBy([10, 0]),
+      () => map.viewport.zoomBy(1.1),
+      () => map.viewport.restore({ centerWorld: [0, 0], scale: 1 }),
+      () => surface.emitViewportInput({ source: 'pointer', centerWorld: [10, 10], scale: 1 }),
+    ]) {
+      const animation = map.rotation.animateTo(90);
+      interrupt();
+      await expect(animation.finished).resolves.toMatchObject({ status: 'cancelled' });
+      expect(engine.rotationAnimationActive).toBe(false);
+    }
+    const driver = rotationFrameDriver();
+    engine.createFrameLoop({ driver });
+    const animation = map.rotation.animateTo(180, { durationMs: 100 });
+    driver.fire(0);
+    driver.fire(25);
+    const before = map.rotation.value;
+    map.viewport.resize(1000, 700, 1);
+    expect(map.rotation.value).toBe(before);
+    engine.setDocumentVisibility({ state: 'hidden', timeMs: 25 });
+    expect(driver.pending()).toBe(0);
+    engine.publishFrame(5000, 50);
+    expect(map.rotation.value).toBe(before);
+    engine.setDocumentVisibility({ state: 'visible', timeMs: 5000 });
+    driver.fire(5000);
+    expect(map.rotation.value).toBeCloseTo(before, 0);
+    driver.fire(5050);
+    driver.fire(5100);
+    await expect(animation.finished).resolves.toEqual({ status: 'completed', angle: 180 });
+  });
+
+  it('settles only after animation ends, including explicit cancellation', async () => {
+    const { engine } = await createEngine(engines, 'rotation-settled');
+    const map = createPatchMapApi(engine);
+    vi.useFakeTimers();
+    try {
+      const settled = vi.fn();
+      const release = map.viewport.onSettled(settled);
+      const animation = map.rotation.animateTo(90, { durationMs: 1000 });
+      engine.publishFrame(10, 10);
+      await vi.advanceTimersByTimeAsync(500);
+      expect(settled).not.toHaveBeenCalled();
+      animation.cancel();
+      await vi.advanceTimersByTimeAsync(100);
+      expect(settled).toHaveBeenCalledTimes(1);
+      const completing = map.rotation.animateTo(180, { durationMs: 100 });
+      engine.publishFrame(110, 100);
+      await completing.finished;
+      await vi.advanceTimersByTimeAsync(100);
+      expect(settled).toHaveBeenCalledTimes(2);
+      release();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('keeps reentrant replacement current and applies a changed reduced-motion preference', async () => {
+    const { engine } = await createEngine(engines, 'rotation-reentrant');
+    const map = createPatchMapApi(engine);
+    let replacement: ReturnType<typeof map.rotation.animateTo> | undefined;
+    const release = engine.onViewportChange(() => {
+      if (replacement === undefined) replacement = map.rotation.animateTo(180);
+    });
+    const original = map.rotation.animateTo(90, { durationMs: 100 });
+    engine.publishFrame(100, 100);
+    release();
+    await expect(original.finished).resolves.toEqual({ status: 'cancelled', angle: 90 });
+    expect(engine.rotationAnimationActive).toBe(true);
+    engine.setReducedMotion(true);
+    engine.publishFrame(116, 16);
+    await expect(replacement?.finished).resolves.toEqual({ status: 'completed', angle: 180 });
+    expect(map.rotation.value).toBe(180);
+    expect(engine.rotationAnimationActive).toBe(false);
+  });
+
+  it('handles reduced motion, extreme angles, frame failure, and destruction', async () => {
+    const { engine, surface } = await createEngine(engines, 'rotation-lifecycle');
+    const map = createPatchMapApi(engine);
+    engine.setReducedMotion(true);
+    await expect(map.rotation.animateTo(90).finished).resolves.toEqual({ status: 'completed', angle: 90 });
+    expect(map.rotation.value).toBe(90);
+    engine.setReducedMotion(false);
+    await expect(map.rotation.animateTo(0, { durationMs: 0 }).finished).resolves.toEqual({ status: 'completed', angle: 0 });
+    map.rotation.set(-Number.MAX_VALUE);
+    const extreme = map.rotation.animateTo(Number.MAX_VALUE, { durationMs: 100 });
+    engine.publishFrame(50, 50);
+    expect(Number.isFinite(map.rotation.value)).toBe(true);
+    engine.publishFrame(100, 50);
+    await expect(extreme.finished).resolves.toEqual({ status: 'completed', angle: Number.MAX_VALUE });
+    const failing = map.rotation.animateTo(0);
+    vi.spyOn(surface, 'publishFrame').mockImplementationOnce(() => { throw new Error('frame failed'); });
+    expect(() => engine.publishFrame(150, 50)).toThrow();
+    await expect(failing.finished).resolves.toMatchObject({ status: 'failed' });
+    const pending = map.rotation.animateTo(90);
+    await engine.destroy();
+    await expect(pending.finished).resolves.toMatchObject({ status: 'cancelled' });
+    expect(pending.cancel()).toBe(false);
+    expect(() => map.rotation.animateTo(0)).toThrow();
+  });
+
+  it('exposes centered whole-map rotation without editing data or history', async () => {
+    const { engine, surface } = await createEngine(engines, 'public-rotation');
+    engine.loadDataset(datasets['all-kinds-scene']);
+    const map = createPatchMapApi(engine);
+    map.viewport.restore({ centerWorld: [200, 150], scale: 2 });
+    engine.accessibilityTree();
+    const data = map.data.snapshot();
+    const history = engine.historyState();
+    const before = engine.snapshot().revisions;
+    const refreshes = surface.accessibilityRefreshCount;
+    const viewport = map.viewport.snapshot();
+
+    expect(map.rotation.value).toBe(0);
+    expect(map.rotation.set(90)).toBe(90);
+    expect(map.viewport.snapshot()).toEqual(viewport);
+    expectPointClose(engine.screenToWorld({ x: 400, y: 300 }), { x: 200, y: 150 });
+    expectPointClose(engine.screenToWorld({ x: 400, y: 320 }), { x: 210, y: 150 });
+    expect(surface.accessibilityRefreshCount).toBe(refreshes + 1);
+    expect(engine.snapshot().revisions).toEqual({ ...before, viewRevision: before.viewRevision + 1 });
+
+    const setViewCount = surface.setViewCount;
+    map.rotation.set(90);
+    expect(surface.setViewCount).toBe(setViewCount);
+    expect(engine.snapshot().revisions.viewRevision).toBe(before.viewRevision + 1);
+    expect(map.rotation.rotateBy(-135)).toBe(-45);
+    map.rotation.value = 450;
+    expect(map.rotation.value).toBe(450);
+    expect(map.rotation.reset()).toBe(0);
+    expect(map.rotation.value).toBe(0);
+    expect(map.data.snapshot()).toEqual(data);
+    expect(engine.historyState()).toEqual(history);
+
+    const revisions = engine.snapshot().revisions;
+    for (const invalid of [NaN, Infinity, -Infinity, '90', null]) {
+      expect(() => map.rotation.set(invalid as number)).toThrow(RangeError);
+      expect(() => map.rotation.rotateBy(invalid as number)).toThrow(RangeError);
+    }
+    expect(() => { map.rotation.value = NaN; }).toThrow(RangeError);
+    expect(map.rotation.value).toBe(0);
+    expect(engine.snapshot().revisions).toEqual(revisions);
+    map.rotation.set(Number.MAX_VALUE);
+    expect(() => map.rotation.rotateBy(Number.MAX_VALUE)).toThrow(RangeError);
+    map.rotation.reset();
+
+    const rejectView = vi.spyOn(surface, 'setView').mockImplementationOnce(() => {
+      throw new Error('surface refused rotation');
+    });
+    const beforeFailure = engine.snapshot().revisions;
+    expect(() => map.rotation.set(30)).toThrow('surface refused rotation');
+    expect(map.rotation.value).toBe(0);
+    expect(engine.snapshot().revisions).toEqual(beforeFailure);
+    rejectView.mockRestore();
+    await engine.destroy();
+    expect(() => map.rotation.set(90)).toThrow();
+  });
+
+  it('keeps navigation, fit, resize, and coalesced settlement coherent after rotation', async () => {
+    const { engine, surface } = await createEngine(engines, 'public-rotation-navigation');
+    engine.loadDataset(datasets['all-kinds-scene']);
+    const map = createPatchMapApi(engine);
+    vi.useFakeTimers();
+    try {
+      const settled = vi.fn();
+      const release = map.viewport.onSettled(settled);
+      map.rotation.set(90);
+      map.rotation.rotateBy(45);
+      vi.advanceTimersByTime(100);
+      expect(settled).toHaveBeenCalledTimes(1);
+      map.rotation.set(135);
+      vi.advanceTimersByTime(100);
+      expect(settled).toHaveBeenCalledTimes(1);
+
+      const point = { x: 200, y: 150 };
+      const beforePan = engine.screenToWorld(point);
+      map.viewport.panBy([40, -20]);
+      expectPointClose(engine.screenToWorld({ x: point.x + 40, y: point.y - 20 }), beforePan);
+      const anchor = { x: 520, y: 360 };
+      const beforeZoom = engine.screenToWorld(anchor);
+      map.viewport.zoomBy(1.5, [anchor.x, anchor.y]);
+      expectPointClose(engine.screenToWorld(anchor), beforeZoom);
+
+      map.viewport.fit({ targets: [{ id: 'item-a' }, { id: 'rect-b' }], padding: 24 });
+      expect(targetsInsideViewport(surface.geometrySnapshot().entities, ['item-a', 'rect-b'], [800, 600])).toBe(true);
+      const snapshot = map.viewport.snapshot();
+      map.viewport.resize(1024, 768, 2);
+      expect(map.viewport.snapshot()).toEqual(snapshot);
+      expectPointClose(engine.screenToWorld({ x: 512, y: 384 }), {
+        x: snapshot.centerWorld[0], y: snapshot.centerWorld[1],
+      });
+      map.viewport.restore({ centerWorld: [20, 30], scale: 1 });
+      expect(map.rotation.value).toBe(135);
+      expectPointClose(engine.screenToWorld({ x: 512, y: 384 }), { x: 20, y: 30 });
+      release();
+      vi.advanceTimersByTime(100);
+      expect(settled).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps cursor and pinch anchors stable while pan and deceleration use one view owner', async () => {
@@ -796,4 +1305,24 @@ function targetsInsideViewport(
 function expectPointClose(actual: PatchMapPoint, expected: PatchMapPoint): void {
   expect(actual.x).toBeCloseTo(expected.x, 9);
   expect(actual.y).toBeCloseTo(expected.y, 9);
+}
+
+function rotationFrameDriver() {
+  let now = 0;
+  let id = 0;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  return {
+    now: () => now,
+    setTime(time: number) { now = time; },
+    request(callback: FrameRequestCallback) { callbacks.set(++id, callback); return id; },
+    cancel(handle: number) { callbacks.delete(handle); },
+    pending: () => callbacks.size,
+    fire(time: number) {
+      const entry = callbacks.entries().next().value;
+      if (!entry) throw new Error('No pending rotation frame');
+      callbacks.delete(entry[0]);
+      now = time;
+      entry[1](time);
+    },
+  };
 }

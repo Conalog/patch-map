@@ -3,6 +3,26 @@ import { describe, expect, it } from 'vitest';
 import { PatchMapViewportAuthority } from '../../src/engine/viewport-authority';
 
 describe('PatchMapViewportAuthority', () => {
+  it('retains finite multi-turn angles while bounding the renderer transform', () => {
+    const authority = initializedAuthority();
+    for (const angle of [Number.MAX_VALUE, -Number.MAX_VALUE, 450, -450]) {
+      const effect = authority.planWorldTransform({
+        rotationDegrees: angle, flipX: false, flipY: false,
+      });
+      const equivalent = authority.planWorldTransform({
+        rotationDegrees: angle % 360, flipX: false, flipY: false,
+      });
+      expect(effect.world.rotationDegrees).toBe(angle);
+      expect(Number.isFinite(effect.surfaceView.x)).toBe(true);
+      expect(Number.isFinite(effect.surfaceView.y)).toBe(true);
+      expect(effect.surfaceView).toEqual(equivalent.surfaceView);
+      authority.commitWorldTransform(effect, 1);
+      expect(authority.planView([120, 80], 2).surfaceView).toMatchObject({
+        rotation: angle % 360,
+      });
+    }
+  });
+
   it('keeps planned view and resize candidates private until the facade commits them', () => {
     const authority = initializedAuthority();
     const before = authority.snapshot();

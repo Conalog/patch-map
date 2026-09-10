@@ -1,3 +1,9 @@
+import {
+  planPatchMapRotationAnimation,
+  type PatchMapRotationAnimation,
+  type PatchMapRotationAnimationOptions,
+  type PatchMapRotationAnimationResult,
+} from '../viewport/rotation-animation';
 import type { MaterializedPatchMapDataset } from '../semantic/dataset';
 import {
   PATCH_MAP_VIEWPORT_REVISION,
@@ -38,6 +44,8 @@ import type {
 } from './viewport-authority';
 
 export interface PatchMapViewportRuntimePort {
+  readonly requestFrame: () => void;
+  readonly reducedMotion: () => boolean;
   readonly requireSurface: (operation: string) => PatchMapEngineSurface;
   readonly liveSurface: () => PatchMapEngineSurface | null;
   readonly isSurfaceInputCurrent: (surface: PatchMapEngineSurface) => boolean;
@@ -59,6 +67,89 @@ export interface PatchMapViewportRuntimePort {
  * the Engine only exposes delegating public methods.
  */
 export class PatchMapViewportRuntimeCoordinator {
+  private rotationAnimation: {
+    readonly from: number;
+    readonly to: number;
+    readonly completedAngle: number;
+    readonly durationMs: number;
+    elapsedMs: number;
+    readonly finish: (result: PatchMapRotationAnimationResult) => void;
+  } | null = null;
+
+  public get rotationAnimationActive(): boolean {
+    return this.rotationAnimation !== null;
+  }
+
+  public animateRotationTo(
+    angle: number,
+    options: PatchMapRotationAnimationOptions = {},
+  ): PatchMapRotationAnimation {
+    const plan = planPatchMapRotationAnimation(
+      this.authority.snapshot().world.rotationDegrees, angle, options,
+    );
+    this.port.requireSurface('animateRotationTo');
+    this.cancelRotationAnimation();
+    this.authority.cancelMotion();
+    let resolve!: (result: PatchMapRotationAnimationResult) => void;
+    let cancel: (() => boolean) | null = null;
+    const finished = new Promise<PatchMapRotationAnimationResult>((done) => { resolve = done; });
+    const track = {
+      ...plan, elapsedMs: 0,
+      finish: (result: PatchMapRotationAnimationResult): void => {
+        cancel = null;
+        resolve(Object.freeze(result));
+      },
+    };
+    cancel = () => this.rotationAnimation === track && this.cancelRotationAnimation();
+    const handle = Object.freeze({ finished, cancel: (): boolean => cancel?.() ?? false });
+    if (plan.durationMs === 0 || plan.from === plan.to || this.port.reducedMotion()) {
+      this.setWorldRotation(plan.completedAngle);
+      track.finish({ status: 'completed', angle: plan.completedAngle });
+    } else {
+      this.rotationAnimation = track;
+      this.port.requestFrame();
+    }
+    return handle;
+  }
+
+  public cancelRotationAnimation(status: 'cancelled' | 'failed' = 'cancelled'): boolean {
+    const track = this.rotationAnimation;
+    if (track === null) return false;
+    this.rotationAnimation = null;
+    track.finish({ status, angle: this.authority.snapshot().world.rotationDegrees });
+    return true;
+  }
+
+  /** Called by the shared frame publisher, independently of data-animation cadence. */
+  public advanceRotationAnimation(deltaMs: number): void {
+    const track = this.rotationAnimation;
+    if (track === null) return;
+    track.elapsedMs = Math.min(track.durationMs, track.elapsedMs + deltaMs);
+    const progress = this.port.reducedMotion() ? 1 : track.elapsedMs / track.durationMs;
+    const eased = 1 - (1 - progress) ** 3;
+    // Weighted endpoints keep opposite finite multi-turn angles from overflowing.
+    const angle = progress >= 1 ? track.to : track.from * (1 - eased) + track.to * eased;
+    if (progress >= 1) track.elapsedMs = track.durationMs;
+    this.applyWorldTransform({ ...this.authority.snapshot().world, rotationDegrees: angle }, true);
+  }
+
+  public completeRotationFrame(): void {
+    const track = this.rotationAnimation;
+    if (track === null || track.elapsedMs < track.durationMs) return;
+    if (track.completedAngle !== track.to) {
+      // The equivalent target orientation is already on the surface. Commit
+      // its canonical representation only after a successful frame, without
+      // changing the view revision or publishing another viewport update.
+      const normalization = this.authority.planWorldTransform({
+        ...this.authority.snapshot().world,
+        rotationDegrees: track.completedAngle,
+      });
+      this.authority.commitWorldTransform(normalization, this.port.viewRevision());
+    }
+    this.rotationAnimation = null;
+    track.finish({ status: 'completed', angle: this.authority.snapshot().world.rotationDegrees });
+  }
+
   private defaultContributorsCache: Readonly<{
     readonly dataset: MaterializedPatchMapDataset['dataset'];
     readonly geometry: PatchMapViewportGeometry;
@@ -367,14 +458,41 @@ export class PatchMapViewportRuntimeCoordinator {
     return this.commit(input.centerWorld, input.scale, 'restore');
   }
 
+  public setWorldRotation(angle: number): number {
+    return this.setWorldTransform({
+      ...this.authority.snapshot().world,
+      rotationDegrees: angle,
+    }).rotationDegrees;
+  }
+
   public setWorldTransform(input: PatchMapWorldTransformInput): PatchMapWorldTransformState {
+    return this.applyWorldTransform(input, false);
+  }
+
+  private applyWorldTransform(
+    input: PatchMapWorldTransformInput,
+    animationFrame: boolean,
+  ): PatchMapWorldTransformState {
     const effect = this.authority.planWorldTransform(input);
     const surface = this.port.requireSurface('setWorldTransform');
+    if (!animationFrame) this.cancelRotationAnimation();
     if (!effect.changed) return effect.world;
+    const previousRevisions = this.port.revisionStamp();
+    const previous = this.authority.snapshot().viewport;
     surface.setView(effect.surfaceView);
     const nextViewRevision = this.port.viewRevision() + 1;
     this.authority.commitWorldTransform(effect, nextViewRevision);
     this.port.advanceView();
+    if (!animationFrame) this.port.refreshAccessibilitySurface('setWorldTransform');
+    this.port.emitViewChanged(Object.freeze({
+      changed: true,
+      blocked: false,
+      source: 'programmatic',
+      previous,
+      viewport: this.authority.snapshot().viewport,
+      previousRevisions,
+      revisions: this.port.revisionStamp(),
+    } satisfies PatchMapViewportChangeResult));
     return effect.world;
   }
 
@@ -388,6 +506,7 @@ export class PatchMapViewportRuntimeCoordinator {
   }
 
   public destroy(): void {
+    this.cancelRotationAnimation();
     this.defaultContributorsCache = null;
     this.authority.destroy();
   }
@@ -407,6 +526,7 @@ export class PatchMapViewportRuntimeCoordinator {
     effect: PatchMapViewportViewEffect,
     source: PatchMapViewportChangeSource,
   ): PatchMapViewportChangeResult {
+    this.cancelRotationAnimation();
     const previousRevisions = this.port.revisionStamp();
     if (effect.changed) {
       if (!effect.surfaceAlreadyApplied) surface.setView(effect.surfaceView);

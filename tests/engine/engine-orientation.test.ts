@@ -35,7 +35,7 @@ describe('PatchMap world orientation API', () => {
       flipX: true,
       flipY: false,
     });
-    expect(surface.view).toMatchObject({ rotation: 450, flipX: true, scale: 2 });
+    expect(surface.view).toMatchObject({ rotation: 90, flipX: true, scale: 2 });
     expect(toScreen([50, 40], surface.view)).toEqual([100, 50]);
     expect(engine.snapshot().revisions.viewRevision).toBe(before + 2);
     engine.setWorldTransform({ rotationDegrees: 450, flipX: true, flipY: false });

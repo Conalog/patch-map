@@ -50,6 +50,8 @@ import type {
   PatchMapTargetsInput,
   PatchMapTargetQuery,
   PatchMapViewportSnapshot,
+  PatchMapRotationAnimation,
+  PatchMapRotationAnimationOptions,
   PatchMapUpdateTargetsInput,
 } from './contracts';
 import {
@@ -116,6 +118,10 @@ interface PatchMapApiHost extends PatchMapTransformHost, PatchMapEditorHost, Pat
     readonly source: 'programmatic';
   }>): PatchMapHostViewportChangeResult;
   viewportProbe(): PatchMapHostViewportState;
+  readonly rotationAnimationActive: boolean;
+  animateRotationTo(angle: number, options?: PatchMapRotationAnimationOptions): PatchMapRotationAnimation;
+  worldRotation(): number;
+  setWorldRotation(angle: number): number;
   resize(width: number, height: number, pixelRatio?: number): boolean;
   registerAssets(
     instanceId: string,
@@ -521,6 +527,7 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     clearViewportSettleTimer();
     viewportSettleTimer = globalThis.setTimeout(() => {
       viewportSettleTimer = null;
+      if (host.rotationAnimationActive) return;
       const state = host.viewportProbe();
       for (const listener of [...viewportSettledListeners]) listener(state);
     }, 100);
@@ -584,6 +591,25 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
 
   const history = createPatchMapHistoryApi(host);
 
+  const rotation = Object.freeze({
+    animateTo(angle: number, options?: PatchMapRotationAnimationOptions): PatchMapRotationAnimation {
+      const animation = host.animateRotationTo(angle, options);
+      if (host.rotationAnimationActive) {
+        clearViewportSettleTimer();
+        void animation.finished.then(scheduleViewportSettled);
+      }
+      return animation;
+    },
+    get value(): number { return host.worldRotation(); },
+    set value(angle: number) { host.setWorldRotation(angle); },
+    set: (angle: number) => host.setWorldRotation(angle),
+    rotateBy(delta: number): number {
+      if (!Number.isFinite(delta)) throw new RangeError('rotation delta must be finite');
+      return host.setWorldRotation(host.worldRotation() + delta);
+    },
+    reset: () => host.setWorldRotation(0),
+  });
+
   const assets = Object.freeze({
     register(
       input: PatchMapOneOrMany<PatchMapAssetRegistration>,
@@ -622,6 +648,7 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     editor,
     transform,
     viewport,
+    rotation,
     history,
     assets,
     debug: Object.freeze({ snapshot: () => host.snapshot() }),

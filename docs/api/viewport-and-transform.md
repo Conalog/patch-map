@@ -36,6 +36,48 @@ Viewport APIs:
   accepted wheel is prevented only when it changes scale and retains cursor
   anchoring. The option does not gate `zoomBy`, pan, or box selection.
 
+Whole-map rotation is exposed separately as `patchmap.rotation`:
+
+```ts
+patchmap.rotation.set(90);       // absolute clockwise degrees
+patchmap.rotation.rotateBy(-15); // relative degrees; now 75
+patchmap.rotation.value = 45;    // the same operation as set(45)
+const angle = patchmap.rotation.value;
+patchmap.rotation.reset();      // set the angle to zero
+```
+
+- The initial angle is zero. Immediate methods return the resulting angle; negative and
+  multi-turn angles are retained without wrapping into 0–360.
+- Rotation keeps the world point at the viewport center and the current scale
+  fixed. It changes the whole scene's view, without editing dataset geometry,
+  selection, or history. `transform.rotateBy()` instead edits logical targets.
+- Pan remains screen-relative, zoom retains its cursor anchor, fit accounts for
+  the rotated bounds, and resize preserves the center, scale, and angle.
+- Changed rotations use existing viewport publication and `onSettled()`. Read `rotation.value` in the listener; its viewport argument still contains only center, scale, and screen bounds.
+- `viewport.snapshot()` and `viewport.initial` still contain only center and
+  scale to preserve the existing snapshot contract. Save the angle separately
+  and restore it with `rotation.set(angle)`.
+  Viewport fit, reset, and restore retain rotation; `rotation.reset()` clears it.
+- Angles and deltas must be finite numbers. Invalid input, including relative
+  addition that overflows, throws `RangeError` before any change. Setting the
+  current angle does not publish a change. Rotation commands after destroy fail.
+
+Smooth rotation is opt-in; existing setters remain immediate:
+
+```ts
+const animation = patchmap.rotation.animateTo(90, { path: 'clockwise', normalizeOnComplete: true });
+const result = await animation.finished; // { status: 'completed', angle: 90 }
+patchmap.rotation.animateTo(0, { path: 'shortest', normalizeOnComplete: true }); // reset bearing
+```
+
+- Defaults: `durationMs: 250`, cubic ease-out, `path: 'raw'`, `normalizeOnComplete: false`. Raw differences retain full turns: 0 to 720 makes two turns; 350 to 10 travels backward 340 degrees.
+- `clockwise`, `counterclockwise`, and `shortest` interpret any finite target modulo 360 as a bearing, retaining the current turn count during travel. Shortest-path 180-degree ties rotate clockwise; equivalent bearings do not add a turn. Example: 810 to 0 on the shortest path ends at 720, or at 0 with normalization.
+- `rotation.value` is the currently applied, unwrapped angle during travel. On successful final frame publication, `normalizeOnComplete: true` changes its representation to `[0, 360)` without another render or viewport revision. `finished` and subsequent `onSettled()` reads see that normalized value. Center, scale, dataset and history stay fixed.
+- New animation retargets from the current angle. Immediate rotation setters and accepted pan/zoom/fit/restore cancel it; resize preserves it. `cancel()` affects only its own active request and returns false after it ends. Cancellation and frame failure preserve the current applied angle without normalizing, including at the final frame.
+- `finished` resolves once with `{ status, angle }`: `completed` after the final animated frame, `cancelled` on interruption/destroy, or `failed` on frame failure; it does not reject. Zero duration, equivalent target or reduced motion completes immediately after accepting the resolved angle and requesting a frame. `onSettled()` also follows cancellation, so require `status === 'completed'` when saving only completed normalized targets.
+- Invalid angle/duration throws `RangeError`; invalid path or nonboolean normalization throws `TypeError`, before interrupting a request. Directed paths also reject accumulated angles outside `Number.MAX_SAFE_INTEGER` or unable to represent the target bearing accurately; normalize a huge current value with an immediate setter first. Raw finite multi-turn angles remain supported.
+- Animation uses the managed frame loop independently of data-animation throttling. Hidden time is excluded; enabling reduced motion mid-animation completes on the next visible frame. `onSettled()` waits until rotation ends and the existing 100ms quiet period passes.
+
 Transform APIs apply relative semantic edits to logical targets:
 
 | API | Input |
@@ -64,8 +106,7 @@ resize handle.
 - Cancel, target change, pointer termination, or refused surface acceptance
   removes transformer preview and does not create a history entry.
 
-Runnable selection, transform, and history reference:
-[`examples/editor.ts`](../../examples/editor.ts).
+Runnable selection, transform, and history reference: [`examples/editor.ts`](../../examples/editor.ts).
 
 ## Verification map
 
@@ -73,5 +114,6 @@ Runnable selection, transform, and history reference:
 | --- | --- | --- |
 | viewport state, clamp, persistence, settle | `src/engine/viewport-authority.ts` | `tests/engine/viewport-authority.test.ts` |
 | public viewport integration | `src/public/index.ts` | `tests/engine/engine-viewport.test.ts` |
+| whole-map rotation facade and navigation | `src/public/index.ts`, `src/engine/viewport-runtime-coordinator.ts` | `tests/engine/engine-viewport.test.ts` |
 | relative transform semantics | `src/engine/transformer-edit-authority.ts` | `tests/engine/engine-transformer-edit.test.ts` |
 | gesture ownership and preview cleanup | `src/engine/transformer-session-coordinator.ts` | `tests/engine/engine-transformer-edit.test.ts` |

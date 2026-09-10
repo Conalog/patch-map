@@ -1,3 +1,5 @@
+import type { PatchMapRotationAnimation, PatchMapRotationAnimationOptions } from '../../viewport/rotation-animation';
+export type { PatchMapRotationAnimation, PatchMapRotationAnimationOptions, PatchMapRotationAnimationResult, PatchMapRotationPath } from '../../viewport/rotation-animation';
 import type {
   PatchMapEdgeAutoPanResult,
   PatchMapResizeHandle,
@@ -9,6 +11,15 @@ import type { PatchMapRevisionStamp } from './mutation-history-editor';
 export interface PatchMapFitOptions {
   readonly padding?: number | readonly [number, number];
   readonly targets?: PatchMapTargetsInput;
+}
+
+/** Whole-map orientation in clockwise degrees around the current viewport center. */
+export interface PatchMapRotationApi {
+  value: number;
+  set(angle: number): number;
+  rotateBy(delta: number): number;
+  reset(): number;
+  animateTo(angle: number, options?: PatchMapRotationAnimationOptions): PatchMapRotationAnimation;
 }
 
 /** Wheel modifier required before the package consumes and zooms a wheel event. */

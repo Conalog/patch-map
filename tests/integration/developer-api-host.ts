@@ -415,6 +415,8 @@ export function createHost() {
     setViewportAbsolute,
     zoomViewportAt: vi.fn(),
     viewportProbe: () => viewportState,
+    worldRotation: () => 0,
+    setWorldRotation: vi.fn((angle: number) => angle),
     resize,
     historyState: () => Object.freeze({
       capacity: 20,

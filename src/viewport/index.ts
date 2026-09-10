@@ -231,7 +231,7 @@ export function patchMapViewportFitScale(
   if (!(availableWidth > 0) || !(availableHeight > 0)) {
     throw new RangeError('viewport padding leaves no visible area');
   }
-  const radians = rotationDegrees * Math.PI / 180;
+  const radians = (rotationDegrees % 360) * Math.PI / 180;
   const cosine = Math.abs(Math.cos(radians));
   const sine = Math.abs(Math.sin(radians));
   const width = Math.max(0, bounds[2]);

@@ -594,7 +594,10 @@ export class PatchMapViewportAuthority {
     width: number = this.width,
     height: number = this.height,
   ): PatchMapSurfaceView {
-    const radians = world.rotationDegrees * Math.PI / 180;
+    // Keep the authored angle in world state; bound only the renderer input so
+    // every finite multi-turn angle has a finite, consistent transform.
+    const rotation = world.rotationDegrees % 360;
+    const radians = rotation * Math.PI / 180;
     const cosine = Math.cos(radians);
     const sine = Math.sin(radians);
     const scaledX = centerWorld[0] * scale;
@@ -607,7 +610,7 @@ export class PatchMapViewportAuthority {
       x: width / 2 - transformedCenterX,
       y: height / 2 - transformedCenterY,
       scale,
-      rotation: world.rotationDegrees,
+      rotation,
       ...(world.flipX ? { flipX: true } : {}),
       ...(world.flipY ? { flipY: true } : {}),
     });

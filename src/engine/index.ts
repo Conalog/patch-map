@@ -1,3 +1,4 @@
+import type { PatchMapRotationAnimation, PatchMapRotationAnimationOptions } from '../viewport/rotation-animation';
 import {
   type PatchMapComponentVisualTarget,
   type PatchMapTextTarget,
@@ -611,6 +612,8 @@ export class PatchMap {
     this.viewportRuntime = new PatchMapViewportRuntimeCoordinator(
       new PatchMapViewportAuthority(),
       {
+        requestFrame: () => this.requestManagedFrameLoop(),
+        reducedMotion: () => this.accessibility.reducedMotion,
         requireSurface: (operation) => this.requireSurface(operation),
         liveSurface: () => this.surface,
         isSurfaceInputCurrent: (surface) =>
@@ -1308,7 +1311,7 @@ export class PatchMap {
 
   /** Product-owned pointer/motion state; hosts must not mirror it. */
   public get viewportGestureActive(): boolean {
-    if (this.viewportRuntime.motionActive) return true;
+    if (this.viewportRuntime.motionActive || this.viewportRuntime.rotationAnimationActive) return true;
     if (this.surface?.viewportGestureActive?.() === true) return true;
     return this.pointerInteractions.active;
   }
@@ -2221,20 +2224,29 @@ export class PatchMap {
     return this.pageLifecycle.probe();
   }
 
-  public publishFrame(timeMs = globalThis.performance?.now() ?? Date.now()): void {
+  public publishFrame(
+    timeMs = globalThis.performance?.now() ?? Date.now(),
+    viewportDeltaMs = 0,
+  ): void {
     if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
     if (!Number.isFinite(timeMs)) throw new TypeError('timeMs must be finite');
+    if (!Number.isFinite(viewportDeltaMs) || viewportDeltaMs < 0) {
+      throw new RangeError('viewportDeltaMs must be nonnegative and finite');
+    }
     if (this.pageLifecycle.hidden) return;
     const surface = this.requireSurface('publishFrame');
     try {
+      this.viewportRuntime.advanceRotationAnimation(viewportDeltaMs);
       this.refreshAccessibilitySurfaceIfActive('publishFrame');
       surface.publishFrame(timeMs);
       this.publication.setFrameClock(timeMs);
     } catch (error) {
+      this.viewportRuntime.cancelRotationAnimation('failed');
       const diagnostic = this.diagnosticFrom(error, 'publishFrame');
       this.emit('diagnostic', diagnostic);
       throw new PatchMapError(diagnostic);
     }
+    this.viewportRuntime.completeRotationFrame();
     this.viewportRuntime.completePendingResizeFrame(surface);
     const publication = this.publication.commitFrame();
     this.emit('frame', publication);
@@ -2383,6 +2395,25 @@ export class PatchMap {
 
   public setWorldTransform(input: PatchMapWorldTransformInput): PatchMapWorldTransformState {
     return this.viewportRuntime.setWorldTransform(input);
+  }
+
+  public get rotationAnimationActive(): boolean {
+    return this.viewportRuntime.rotationAnimationActive;
+  }
+
+  public animateRotationTo(
+    angle: number,
+    options?: PatchMapRotationAnimationOptions,
+  ): PatchMapRotationAnimation {
+    return this.viewportRuntime.animateRotationTo(angle, options);
+  }
+
+  public worldRotation(): number {
+    return this.viewportRuntime.snapshot().world.rotationDegrees;
+  }
+
+  public setWorldRotation(angle: number): number {
+    return this.viewportRuntime.setWorldRotation(angle);
   }
 
   public queryScene(input: PatchMapSceneQuery = {}): PatchMapEngineQueryResult {
@@ -3787,6 +3818,7 @@ export class PatchMap {
 
   private handleSurfaceTerminalFailure(error: Error): void {
     if (!this.surfaceLifecycle.recordTerminalFailure(error)) return;
+    this.viewportRuntime.cancelRotationAnimation('failed');
     this.managedFrameLoop.destroy();
   }
 

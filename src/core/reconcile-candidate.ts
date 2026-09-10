@@ -126,7 +126,7 @@ export function preparePatchMapReconcileCandidate(
           options.directElementAngleUpdates,
           stableRecordStrategy,
         );
-  const structuralParse =
+  let structuralParse =
     directBarParse !== null ||
     directTextParse !== null ||
     directElementAngleParse !== null ||
@@ -170,6 +170,21 @@ export function preparePatchMapReconcileCandidate(
         cachedSelectedParse ?? undefined,
         stableRecordStrategy,
       );
+  if (
+    incrementalInputMatches &&
+    incrementalParse === null &&
+    matchesOwnedStructuralInput(input, parseOptions, published)
+  ) {
+    // The flat path refuses changed-root diagnostics and identity changes.
+    // Reuse the existing guarded root-fragment parser before falling back to
+    // reparsing unrelated grids; it merges diagnostics and validates links.
+    structuralParse = parsePatchMapIncrementalStructure(
+      input,
+      published.ownedInputDataset,
+      currentParse,
+      parseOptions,
+    );
+  }
   const parserResult =
     directBarParse ??
       directTextParse ??
