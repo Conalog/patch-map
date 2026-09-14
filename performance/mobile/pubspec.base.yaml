@@ -1,0 +1,13 @@
+name: patch_map_mobile_bench
+publish_to: none
+version: 0.0.1+1
+environment:
+  sdk: '>=3.11.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+flutter:
+  uses-material-design: false
+  assets:
+    - assets/kernel.js
+    - assets/oracle.json

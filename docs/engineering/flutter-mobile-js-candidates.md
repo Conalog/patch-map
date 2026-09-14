@@ -1,6 +1,6 @@
 # Android and iOS JavaScript runtime candidates
 
-- Status: proposed; 2026-09-14 패키지 문서·배포 소스 조사
+- Status: proposed; 2026-09-14 문서·배포 소스 조사와 bar slice 시뮬레이터 측정 완료
 - Requirement: Android와 iOS 모두 필수이며 WebView 화면 없이 Flutter에서 직접 렌더링한다.
 - Scope: [JS runtime 설계](flutter-js-runtime-review.md)의 구체 후보 선정. 지원 표는 PatchMap 실기기 qualification 완료를 의미하지 않는다.
 
@@ -35,6 +35,8 @@ Android/iOS에 같은 QuickJS 버전을 동봉하면 언어 기능·engine 버�
 
 두 engine 전략 모두 Flutter용 JS 번들과 native renderer를 npm 실행 경로에서 분리할 수 있다. “양쪽 모바일을 지원하려면 npm도 변경해야 한다”거나 “iOS라서 JS 실행이 불가능하다”는 전제는 두지 않는다.
 
+[실측 범위와 실제 buffer 전달 경로](flutter-mobile-benchmark.md)를 함께 확인한다. jsf의 ArrayBuffer API는 내부적으로 tagged JSON을 사용했다. quickjs_engine 0.1.5의 iOS는 native 소스가 pod target에서 빠져 실행에 실패했으며, 벤치마크 앱에서 소스 포함을 보완한 뒤 측정했다. 지원 선언과 빌드 성공만으로 실행 가능성을 확정하지 않는다.
+
 ## 권장 실험 순서
 
 1. 작은 runtime port 뒤에 명령 실행·callback·job 처리·변경분 전달·dispose를 둔다. 소비자 API에 특정 JS wrapper의 handle이나 타입을 노출하지 않는다.
@@ -43,4 +45,4 @@ Android/iOS에 같은 QuickJS 버전을 동봉하면 언어 기능·engine 버�
 4. 같은 Flame/Canvas renderer로 frame/input latency·raster·memory·idle 비용을 비교한다. 같은 [conformance](flutter-conformance-design.md)와 [materiality 기준](verification.md)을 적용한다.
 5. JS 후보가 전체 기능·성능·수명을 통과하면 채택할 수 있다. wrapper 보완이나 bridge 비용이 큰 경우 독립 Dart 구현과 비교해 선택한다.
 
-Android/iOS 지원 가능성은 확인했다. PatchMap에 사용할 최종 패키지와 성능 우위는 아직 확정하지 않았으며, 이번 조사에서 native 앱을 빌드하거나 실기기 테스트하지 않았다.
+문헌조사 이후 세 후보의 [bar slice 벤치마크](flutter-mobile-benchmark.md)를 Android 에뮬레이터와 iOS 시뮬레이터에서 완료했다. quickjs_engine의 iOS 통합 보완과 native 컴파일 최적화 조건을 포함한 결과다. 전체 PatchMap 기능 동등성, 실기기 성능, 일반적인 VM 순위를 보장하지 않는다.

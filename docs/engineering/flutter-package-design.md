@@ -4,7 +4,7 @@
 - Date: 2026-09-14; 기준 commit: `3537152`, npm `1.0.0-alpha.7`
 - Goal: WebView 없이 Flutter에서 직접 렌더링하고, npm과 Dart 패키지가 전체 기능을 동일하게 제공하면서 서로의 성능에 영향을 주지 않는다.
 - Constraint: 코드는 공유해도, 독립 구현해도 된다. 문서 SSOT와 검증으로 일치하면 된다.
-- Recommendation: 기존 TS/PixiJS를 유지한다. 독립 Dart와 [임베디드 JS 대안](flutter-js-runtime-review.md)을 비교한 뒤 확정한다. Flame과 공통 명세·conformance가 출발점이다.
+- Recommendation: 기존 TS/PixiJS를 유지한다. [bar slice 실측](flutter-mobile-benchmark.md)은 고빈도 geometry의 Dart 실행을 지지한다. 전체 engine은 [JS 재사용 대안](flutter-js-runtime-review.md)과 공통 conformance를 검증한 뒤 확정한다.
 
 ## 현재 구조와 재사용 근거
 
@@ -103,6 +103,6 @@ Flutter는 기존 [performance fixtures](../../performance/fixtures/)와 실제 
 
 ## 검토 범위와 남은 결정
 
-설계 제안만 작성한다. Android/iOS는 모두 필수다. 추가 web/desktop·최소 SDK·시각 허용차·native 입력 매핑은 미확정이다. 기능 축소나 공통 코어 재작성을 전제하지 않는다.
+설계와 [bar 시뮬레이터 실험](flutter-mobile-benchmark.md)을 완료했다. 전체 Flutter 구현·실기기 검증은 남았다. Android/iOS는 필수다. 추가 플랫폼·최소 SDK·시각 허용차·입력 매핑은 미확정이다. 기능 축소나 공통 코어 재작성은 전제하지 않는다.
 
-T1 후 renderer 실험/conformance는 독립 진행한다. T3 상태·커밋은 순차, 확정된 adapter는 병렬화 가능하다. 성능·일정은 미측정이다.
+전체 API·일반 기하·실기기 성능과 구현 일정은 미검증이다.

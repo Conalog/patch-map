@@ -1,8 +1,8 @@
 # Embedded JavaScript runtime review
 
-- Status: proposed; 2026-09-14 정적 조사, 실기기 성능은 미측정
+- Status: proposed; 2026-09-14 정적 조사와 [bar slice 시뮬레이터 실측](flutter-mobile-benchmark.md), 실기기 성능은 미측정
 - Context: [Flutter package design](flutter-package-design.md)의 독립 Dart 구현과 임베디드 JS 대안 비교
-- Conclusion: JS 실행 방식도 유효하다. 독립 Dart는 잠정 우선안이며 같은 native renderer에서 비교하기 전 최종 확정하지 않는다.
+- Conclusion: JS 실행 방식도 유효하다. 실측한 대량 bar 경로는 Dart에 유리하지만, JS 의미 처리와 Dart geometry의 조합 및 전체 기능·수명 검증까지 engine 선택을 확정하지 않는다.
 - Android/iOS 필수 지원 후보는 [Mobile JS candidates](flutter-mobile-js-candidates.md)에서 비교한다.
 
 ## 실제 가능한 구성
@@ -64,7 +64,7 @@ JS는 scene·history·선택·편집·publication의 유일한 권위이고, Dar
 | 유지보수 | 두 동작 구현을 관리 | 한 동작 구현과 두 host/renderer 및 bridge/runtime binding을 관리 |
 | npm 영향 | 기존 구현 유지 가능 | 별도 entry/build이면 기존 npm 경로 유지 가능; 공통 소스 수정 시 회귀 검증 |
 
-독립안의 이유는 JS가 무조건 느리기 때문이 아니다. 이 라이브러리는 대량 갱신·hit test·회전/애니메이션·text/image publication이 자주 실행되고 이미 native renderer를 새로 만들어야 하므로, 경계를 오가는 비용과 binding 수명을 줄이는 데 가치가 있다고 판단한 것이다. 반면 TS 코어의 복잡도와 장기 수정 비용이 크면 JS 재사용 이득이 더 클 수 있다. 현재 어느 쪽이 빠른지, 총 작업량이 적은지는 측정되지 않았다.
+독립안의 이유는 JS가 무조건 느리기 때문이 아니다. 이 라이브러리는 대량 갱신·hit test·회전/애니메이션·text/image publication이 자주 실행되고 이미 native renderer를 새로 만들어야 하므로, 경계를 오가는 비용과 binding 수명을 줄이는 데 가치가 있다고 판단한 것이다. 반면 TS 코어의 복잡도와 장기 수정 비용이 크면 JS 재사용 이득이 더 클 수 있다. [선정한 실측](flutter-mobile-benchmark.md)은 대량 bar geometry에서 Dart에 유리했지만, 축 정렬 특화 구현과 기존 범용 JS 함수의 비교다. 전체 기능의 성능과 총 작업량은 미확정이다.
 
 JS 방식도 npm과 실행 의존성을 격리할 수 있다. 따라서 “npm 성능에 영향을 준다”는 이유로 JS 방식을 배제하지 않는다. 공통 소스 분리가 기존 hot path를 바꾸는 경우만 npm baseline/candidate로 검증한다.
 
