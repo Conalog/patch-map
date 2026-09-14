@@ -39,6 +39,8 @@ import {
   mutationContext,
   normalizeTransactionOperations,
   normalizeUpdate,
+  type MutationContext,
+  type ResolvedComponent,
 } from './mutation-lowering';
 
 export type { PatchMapMutationDeveloperHost } from './mutation-commit';
@@ -69,13 +71,21 @@ export function createPatchMapMutationApi(
     const context = mutationContext(resolved.sceneTargets);
     const preferred = resolved.selected[0];
     const fastBar = fastBarUpdate(normalized, preferred, context);
-    if (fastBar !== null) return commitBarUpdates(host, [fastBar], options);
+    if (fastBar !== null) {
+      if (fastBar.instance || rootOwner(fastBar, context)) {
+        return commitBarUpdates(host, [fastBar], options);
+      }
+      return commitTransactionOperations(host, lowerUpdate(normalized, preferred, context), options,
+        options.animate === false ? Object.freeze([]) : undefined);
+    }
     const fastPresentation = fastInstancePresentationUpdate(normalized, preferred, context);
     if (fastPresentation !== null) {
       return commitInstancePresentation(host, fastPresentation, options);
     }
     const fastText = fastTextUpdate(normalized, preferred, context);
-    if (fastText !== null) return commitTextUpdates(host, [fastText], options);
+    if (fastText !== null && rootOwner(fastText, context, 'item')) {
+      return commitTextUpdates(host, [fastText], options);
+    }
     return commitOperations(host, lowerUpdate(normalized, preferred, context), options);
   };
 
@@ -103,7 +113,22 @@ export function createPatchMapMutationApi(
     const context = mutationContext(resolved.sceneTargets);
     const fastBars = fastBarBatch(normalized, selected, context);
     if (fastBars !== null) {
-      return commitBarUpdates(host, fastBars, batchOptions, normalized.bar!.height);
+      if (fastBars.every((bar) => bar.instance || rootOwner(bar, context))) {
+        return commitBarUpdates(host, fastBars, batchOptions, normalized.bar!.height);
+      }
+      if (fastBars.some((bar) => bar.instance)) {
+        throw new TypeError('updateBatch() cannot mix authored and concrete grid-instance bar targets');
+      }
+      const operations = selected.flatMap((target, index) =>
+        lowerUpdate(batchRow(normalized, target, index), target, context));
+      const animation = batchOptions.animate;
+      const animatedTargets = animation === false
+        ? Object.freeze([])
+        : Array.isArray(animation)
+          ? Object.freeze(fastBars.filter((_bar, index) => animation[index] === true)
+            .map(({ ownerId, componentId }) => Object.freeze({ ownerId, componentId })))
+          : undefined;
+      return commitTransactionOperations(host, operations, batchOptions, animatedTargets);
     }
     if (Array.isArray(batchOptions.animate) && normalized.bar?.height === undefined) {
       throw new TypeError(
@@ -121,7 +146,9 @@ export function createPatchMapMutationApi(
     }
     const uniformOptions = batchOptions as PatchMapUpdateOptions;
     const fastTexts = fastTextBatch(normalized, selected, context);
-    if (fastTexts !== null) return commitTextUpdates(host, fastTexts, uniformOptions);
+    if (fastTexts !== null && fastTexts.every((text) => rootOwner(text, context, 'item'))) {
+      return commitTextUpdates(host, fastTexts, uniformOptions);
+    }
 
     const operations: PatchMapMutationOperation[] = [];
     for (let index = 0; index < selected.length; index += 1) {
@@ -169,4 +196,10 @@ export function createPatchMapMutationApi(
   };
 
   return Object.freeze({ update, updateBatch, transaction });
+}
+
+/** Direct column planners accept owned roots; nested edits use the general planner. */
+function rootOwner(component: ResolvedComponent, context: MutationContext, type?: string): boolean {
+  const owner = context.byKey.get(`element:${component.ownerId}`);
+  return owner?.topLevel === true && (type === undefined || owner.type === type);
 }

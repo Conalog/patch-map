@@ -4,6 +4,96 @@ import { createPatchMapApi } from '../../src/public';
 import { createHost } from './developer-api-host';
 
 describe('PatchMap developer API updates', () => {
+  it('routes nested authored bar and text updates through the atomic transaction planner', () => {
+    const harness = createHost();
+    const query = harness.host.queryScene();
+    const nestedQuery = Object.freeze({
+      ...query,
+      targets: Object.freeze(query.targets.map((target) => target.key === 'element:rack'
+        ? Object.freeze({ ...target, topLevel: false, parentKey: 'element:group' })
+        : target)),
+    });
+    const map = createPatchMapApi({ ...harness.host, queryScene: () => nestedQuery });
+
+    expect(map.update({ id: 'rack', bar: { height: 48 } }, {
+      animate: false, actionId: 'nested-bar', recordHistory: false,
+    })).toMatchObject({ status: 'committed' });
+    expect(harness.lastBarRequest()).toBeNull();
+    expect(harness.lastTransactionRequest()).toMatchObject({
+      operations: [{
+        target: { kind: 'component', ownerId: 'rack', id: 'usage' },
+        changes: [{ path: ['size', 'height'], value: 48 }],
+      }],
+      animatedBarTargets: [], actionId: 'nested-bar', recordHistory: false,
+    });
+
+    expect(map.update({ id: 'rack', text: { text: '한글 label' } }))
+      .toMatchObject({ status: 'committed' });
+    expect(harness.lastTextRequest()).toBeNull();
+    expect(harness.lastTransactionRequest()).toMatchObject({
+      operations: [{
+        target: { kind: 'component', ownerId: 'rack', id: 'label' },
+        changes: [{ path: ['text'], value: '한글 label' }],
+      }],
+    });
+  });
+
+  it('preserves target-aligned animation when an authored bar batch includes a nested owner', () => {
+    const harness = createHost();
+    const query = harness.host.queryScene();
+    const nestedQuery = Object.freeze({
+      ...query,
+      targets: Object.freeze(query.targets.map((target) => target.key === 'element:rack'
+        ? Object.freeze({ ...target, topLevel: false, parentKey: 'element:group' })
+        : target)),
+    });
+    const map = createPatchMapApi({ ...harness.host, queryScene: () => nestedQuery });
+    expect(map.updateBatch({
+      targets: [{ id: 'rack', componentId: 'usage' }, { id: 'ambiguous', componentId: 'primary' }],
+      bar: { height: [48, 64] },
+    }, { animate: [false, true] })).toMatchObject({ status: 'committed' });
+    expect(harness.lastBarRequest()).toBeNull();
+    expect(harness.lastTransactionRequest()).toMatchObject({
+      operations: [
+        { target: { kind: 'component', ownerId: 'rack', id: 'usage' } },
+        { target: { kind: 'component', ownerId: 'ambiguous', id: 'primary' } },
+      ],
+      animatedBarTargets: [{ ownerId: 'ambiguous', componentId: 'primary' }],
+    });
+  });
+
+  it('routes nested and grid-template text batches through authored transaction lowering', () => {
+    for (const type of ['item', 'grid'] as const) {
+      const harness = createHost();
+      const query = harness.host.queryScene();
+      const nestedQuery = Object.freeze({
+        ...query,
+        targets: Object.freeze(query.targets.map((target) => target.key === 'element:rack'
+          ? Object.freeze({ ...target, type, topLevel: type === 'grid', parentKey: type === 'grid' ? null : 'element:group' })
+          : target)),
+      });
+      const map = createPatchMapApi({ ...harness.host, queryScene: () => nestedQuery });
+      expect(map.updateBatch({ targets: ['rack'], text: { text: ['new label'] } }))
+        .toMatchObject({ status: 'committed' });
+      expect(harness.lastTextRequest()).toBeNull();
+      expect(harness.lastTransactionRequest()).toMatchObject({
+        operations: [{ target: { kind: 'component', ownerId: 'rack', id: 'label' } }],
+      });
+    }
+  });
+
+  it('retains direct root and concrete-instance paths after nested fallback admission', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+    map.update({ id: 'rack', bar: { height: 48 } });
+    map.updateBatch({ targets: ['rack'], text: { text: ['root label'] } });
+    map.updateBatch({ targets: ['rack-grid.12.3'], bar: { height: [24] } });
+    expect(harness.lastBarRequest()).not.toBeNull();
+    expect(harness.lastTextRequest()).not.toBeNull();
+    expect(harness.lastInstanceRequest()).not.toBeNull();
+    expect(harness.lastTransactionRequest()).toBeNull();
+  });
+
   it('lowers bar and icon concrete-cell presentation into one atomic columnar request', () => {
     const harness = createHost();
     const map = createPatchMapApi(harness.host);
