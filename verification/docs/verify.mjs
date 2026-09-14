@@ -4,6 +4,7 @@ import path from 'node:path';
 const root = process.cwd();
 const ignoredDirectories = new Set([
   '.artifacts', '.git', 'coverage', 'dist', 'node_modules',
+  '.dart_tool', '.symlinks', 'build', 'Pods', '.plugin_symlinks',
 ]);
 
 const files = await walk(root);
@@ -54,7 +55,7 @@ async function verifyLinks(file, source) {
 
 async function verifyInlineRepositoryPaths(file, source) {
   const paths = source.matchAll(
-    /`((?:(?:src|tests|performance|verification|examples|docs|\.github)\/)[^`]+|(?:package\.json|package-lock\.json|vite\.config\.ts|tsconfig(?:\.build)?\.json|eslint\.config\.js|\.nvmrc))`/gu,
+    /`((?:(?:src|tests|performance|verification|examples|docs|packages|conformance|\.github)\/)[^`]+|(?:package\.json|package-lock\.json|vite\.config\.ts|tsconfig(?:\.build)?\.json|eslint\.config\.js|\.nvmrc))`/gu,
   );
   for (const match of paths) {
     const destination = match[1];

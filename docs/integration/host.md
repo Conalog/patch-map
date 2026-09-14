@@ -90,3 +90,13 @@ reporting a non-recoverable failure.
 | public debug snapshot | `src/public/index.ts`, `src/engine/product-probe-reader.ts` | `tests/engine/engine-lifecycle.test.ts` |
 | public failure projection | `src/engine/operation-outcomes.ts` | `tests/engine/engine-operation-outcomes.test.ts` |
 | Persistence guards | `src/semantic/persistence.ts` | `tests/semantic/persistence.test.ts` |
+
+
+### Dart publication diagnostics
+
+The Dart binding additionally exposes `controller.debug.publication()`, returning
+only `frameRevision` and `publishedTuple` (`scene`, `view`, `interaction`). This
+constant-size read uses the same accepted frame authority as `debug.snapshot()`
+and does not ask the renderer to count commands, primitives, or resources. Use it
+for frame completion polling and benchmark observation; use `debug.snapshot()`
+when the resource inventory is needed. It does not advance or publish a frame.

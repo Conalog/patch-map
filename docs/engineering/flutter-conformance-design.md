@@ -1,6 +1,6 @@
 # Flutter conformance design
 
-- Status: proposed; [Flutter package design](flutter-package-design.md)의 동일성 검증 설계
+- Status: implemented; [Flutter package design](flutter-package-design.md)의 동일성 검증 설계
 - Goal: 코드 공유 여부와 무관하게 전체 기능 일치를 검증하고 플랫폼별 최적화를 허용한다.
 
 ## SSOT와 권위
@@ -54,7 +54,7 @@ versioned dataset + command + input + virtual time + asset/frame faults
              플랫폼별 rendering/input/accessibility 검사
 ```
 
-예시 trace는 load -> target query -> updateBatch -> change callback 재진입 -> transaction 거절 -> undo -> capture 중 resize -> destroy 순서를 수행한다. 명령 직후 결과와 callback 순서, 각 checkpoint의 data/hash/history/selection/geometry/published state를 기록한다. 재진입은 JSON 안에 함수 코드를 저장하지 않고 양쪽 runner가 같은 named action을 실행하게 한다.
+trace는 load -> query -> updateBatch -> callback 재진입 -> transaction 거절 -> undo -> capture/resize -> destroy 순서다. 결과·callback 순서와 data/hash/history/selection/geometry/published state를 기록한다. 재진입은 JSON 안에 함수 코드를 저장하지 않고 양쪽 runner가 같은 named action을 실행하게 한다.
 
 - 정확히 비교: stable ID, persisted 데이터, semanticHash, result status/code, 선택, history/companion, 기본값, 명세상 이벤트 순서.
 - 수치 규약: UTF-16/code point/grapheme 구분, 정수 범위, overflow, 색상 packing, 정렬 tie, serialization/key 순서를 명시한다. missing과 null을 구분하고 JS accessor/undefined 수용 규칙은 JS binding에서 검증한다.
@@ -88,7 +88,7 @@ versioned dataset + command + input + virtual time + asset/frame faults
 | 애니메이션 도중 background/reduced motion/취소 | 정의된 진행·정지·완료 순서, settled·history 보존 | 가상 clock + 실기기 |
 | 반복 mount/unmount, 다중 map 공유 assets | 인스턴스 간 해제 침범·늦은 재부착·listener/ticker/lease 누수 없음 | lifecycle + memory |
 
-Dart runner는 미구현이며 위 gate는 미검증이다. [기존 집중 테스트](system-map.md)를 JS 근거로 사용하고 [verification 정책](verification.md)에 따라 변경 위험에 맞게 확장한다.
+현재 npm/Dart 9개 trace가 일치한다. qualification은 [집중 테스트](system-map.md) 실행·설치 artifact·Android 에뮬레이터/iOS 시뮬레이터 증거를 연결해 판정한다. 사용자 지정에 따라 실기기는 제외한다. mock surface는 렌더링·설치 증거가 아니다. 검증 범위는 [verification 정책](verification.md)을 따른다.
 
 ## 유지보수와 배포 규칙
 

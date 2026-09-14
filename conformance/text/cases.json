@@ -1,0 +1,247 @@
+[
+  {
+    "id": "ascii",
+    "options": {
+      "source": "PatchMap 123"
+    }
+  },
+  {
+    "id": "empty",
+    "options": {
+      "source": ""
+    }
+  },
+  {
+    "id": "korean",
+    "options": {
+      "source": "한글 가나다",
+      "split": 3
+    }
+  },
+  {
+    "id": "combining",
+    "options": {
+      "source": "é ä"
+    }
+  },
+  {
+    "id": "emoji-zwj",
+    "options": {
+      "source": "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸"
+    }
+  },
+  {
+    "id": "hangul-jamo",
+    "options": {
+      "source": "각나"
+    }
+  },
+  {
+    "id": "crlf",
+    "options": {
+      "source": "A\r\nB\rC\n"
+    }
+  },
+  {
+    "id": "split",
+    "options": {
+      "source": "AB😀CD",
+      "split": 2
+    }
+  },
+  {
+    "id": "negative-split",
+    "options": {
+      "source": "ABCD",
+      "split": -3
+    }
+  },
+  {
+    "id": "wrap-words",
+    "options": {
+      "source": "hello world more",
+      "wordWrapWidthPx": 48
+    }
+  },
+  {
+    "id": "wrap-breakwords",
+    "options": {
+      "source": "longword",
+      "wordWrapWidthPx": 17,
+      "breakWords": true
+    }
+  },
+  {
+    "id": "wrap-korean",
+    "options": {
+      "source": "가나다라마",
+      "wordWrapWidthPx": 33
+    }
+  },
+  {
+    "id": "wrap-zero",
+    "options": {
+      "source": "ABC",
+      "wordWrapWidthPx": 0,
+      "breakWords": true
+    }
+  },
+  {
+    "id": "hidden",
+    "options": {
+      "source": "ABCDE\n12345\nxyz",
+      "overflow": "hidden",
+      "contentFrame": {
+        "width": 25,
+        "height": 45
+      }
+    }
+  },
+  {
+    "id": "ellipsis-width",
+    "options": {
+      "source": "ABCDEFGHI",
+      "overflow": "ellipsis",
+      "contentFrame": {
+        "width": 32,
+        "height": 20
+      }
+    }
+  },
+  {
+    "id": "ellipsis-height",
+    "options": {
+      "source": "A\nB\nC",
+      "overflow": "ellipsis",
+      "contentFrame": {
+        "width": 32,
+        "height": 20
+      }
+    }
+  },
+  {
+    "id": "ellipsis-no-marker",
+    "options": {
+      "source": "ABCDE",
+      "overflow": "ellipsis",
+      "contentFrame": {
+        "width": 4,
+        "height": 20
+      }
+    }
+  },
+  {
+    "id": "height-zero",
+    "options": {
+      "source": "ABC",
+      "overflow": "ellipsis",
+      "contentFrame": {
+        "width": 32,
+        "height": 0
+      }
+    }
+  },
+  {
+    "id": "line-height",
+    "options": {
+      "source": "A\nB",
+      "fontSizePx": 52,
+      "lineHeightPx": 18
+    }
+  },
+  {
+    "id": "auto-font",
+    "options": {
+      "source": "ABCDE 한글",
+      "autoFont": {
+        "minPx": 4,
+        "maxPx": 40
+      },
+      "contentFrame": {
+        "width": 90,
+        "height": 32
+      }
+    }
+  },
+  {
+    "id": "auto-wrap",
+    "options": {
+      "source": "한글 글자 자동 크기",
+      "autoFont": {
+        "minPx": 5,
+        "maxPx": 30
+      },
+      "contentFrame": {
+        "width": 60,
+        "height": 60
+      },
+      "wordWrapWidthPx": 80
+    }
+  },
+  {
+    "id": "negative-spacing",
+    "options": {
+      "source": "AB가CD라EF",
+      "letterSpacingPx": -12,
+      "wordWrapWidthPx": 4,
+      "breakWords": true
+    }
+  },
+  {
+    "id": "negative-spacing-overflow",
+    "options": {
+      "source": "AB가CD라EF",
+      "letterSpacingPx": -12,
+      "overflow": "ellipsis",
+      "contentFrame": {
+        "width": 4,
+        "height": 20
+      }
+    }
+  },
+  {
+    "id": "rtl-mixed",
+    "options": {
+      "source": "אבג 123 abc"
+    }
+  },
+  {
+    "id": "ltr-mixed",
+    "options": {
+      "source": "abc אבג 123 xyz"
+    }
+  },
+  {
+    "id": "arabic-number",
+    "options": {
+      "source": "مرحبا ١٢٣ عالم"
+    }
+  },
+  {
+    "id": "multiline-bidi",
+    "options": {
+      "source": "abc\nאבג\n123",
+      "split": 2
+    }
+  },
+  {
+    "id": "missing",
+    "options": {
+      "source": "a􏿿b"
+    }
+  },
+  {
+    "id": "zero-width",
+    "options": {
+      "source": "a‍b‌c️"
+    }
+  },
+  {
+    "id": "saturation",
+    "options": {
+      "source": "A😀B",
+      "fontSizePx": 1e+308,
+      "letterSpacingPx": 1e+308
+    }
+  }
+]

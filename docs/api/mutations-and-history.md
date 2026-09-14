@@ -45,6 +45,11 @@ owned by [`presentation.md`](presentation.md) and
 - `history.undo()` and `history.redo()` apply scene and companion selection state
   atomically and return the restored host `companion`, or `null` when absent.
   `history.onChange()` observes committed stack changes and returns a disposer.
+  Listeners run synchronously in registration order. A mutation made inside a
+  listener delivers its own change before the remaining outer listeners; each
+  listener still receives its original detached history snapshot. Disposing a
+  listener during delivery skips it if its turn has not begun. Callback failure
+  preserves the committed state and does not prevent remaining listeners.
   `history.clear()` removes both stacks without changing the scene.
 
 `PatchMapUpdateResult.status` has four values:
@@ -60,10 +65,20 @@ owned by [`presentation.md`](presentation.md) and
 
 - A rejected or refused call has `changed: false` and never leaves a partial
   dataset, presentation, history, or publication revision.
-- Missing targets are returned in `missing`; structured details are available in
-  `diagnostic`. Re-query a stale set rather than filtering failures after commit.
-- Ambiguous components, duplicate targets, unequal columns, accessor-backed
-  values, unsupported fields, and non-finite values reject atomically.
+- Public argument lowering throws before an engine plan exists for malformed
+  fields, unequal columns, ambiguous component addresses, unknown batch targets,
+  and stale or foreign target sets. The JavaScript binding uses `TypeError` or
+  `RangeError`; the Dart binding reports an invalid-argument exception. These
+  failures leave the scene and history unchanged.
+- Once an engine plan exists, rejected targets are returned in `missing` with
+  structured `diagnostic` details. Re-query a stale set rather than filtering
+  failures after commit. A thrown argument error is not a returned `rejected`
+  result.
+- Duplicate batch targets reach the transaction planner and return a `rejected`
+  result with `DUPLICATE_ID`, `operation: "transact"`, and the duplicate index
+  in `datasetPath`; they do not throw at target lowering. Accessor-backed values,
+  unsupported fields, and non-finite values also fail atomically at their owning
+  admission boundary.
 - Reentrant surface acceptance invalidates the prepared candidate. PatchMap
   restores the authoritative surface scene and cancels the prepared history
   entry instead of committing stale work.

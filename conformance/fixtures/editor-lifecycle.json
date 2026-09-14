@@ -1,0 +1,844 @@
+{
+  "schemaRevision": "patch-map-conformance/1",
+  "id": "editor-lifecycle",
+  "description": "Named relation conflicts/removal, text recovery/cancel/delete, mode replacement, and host-confirmed cascade delete public workflows.",
+  "surface": {
+    "width": 480,
+    "height": 520,
+    "pixelRatio": 1,
+    "background": "#f8fafc"
+  },
+  "dataset": [
+    {
+      "type": "rect",
+      "id": "a",
+      "attrs": {
+        "x": 10,
+        "y": 10
+      },
+      "size": {
+        "width": 40,
+        "height": 30
+      }
+    },
+    {
+      "type": "rect",
+      "id": "b",
+      "attrs": {
+        "x": 90,
+        "y": 10
+      },
+      "size": {
+        "width": 40,
+        "height": 30
+      }
+    },
+    {
+      "type": "relations",
+      "id": "rel",
+      "links": [
+        {
+          "source": "a",
+          "target": "b"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "text",
+      "text": "Original 한글",
+      "size": {
+        "width": 160,
+        "height": 40
+      },
+      "style": {
+        "fontSize": 16,
+        "fill": "#123456"
+      }
+    },
+    {
+      "type": "grid",
+      "id": "grid",
+      "attrs": {
+        "y": 100
+      },
+      "cells": [
+        [
+          1,
+          0
+        ]
+      ],
+      "item": {
+        "size": {
+          "width": 20,
+          "height": 20
+        },
+        "components": []
+      }
+    }
+  ],
+  "commands": [
+    {
+      "id": "relation-enter",
+      "op": "editor.execute",
+      "input": {
+        "type": "enter-relation-edit",
+        "target": "rel"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "relation-duplicate",
+      "op": "editor.execute",
+      "input": {
+        "type": "add-relation-link",
+        "relationId": "rel",
+        "source": "a",
+        "target": "b",
+        "actionId": "links"
+      },
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "relation-missing-endpoint",
+      "op": "editor.execute",
+      "input": {
+        "type": "add-relation-link",
+        "relationId": "rel",
+        "source": "a",
+        "target": "missing",
+        "actionId": "links"
+      },
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "relation-remove-missing",
+      "op": "editor.execute",
+      "input": {
+        "type": "remove-relation-link",
+        "relationId": "rel",
+        "source": "b",
+        "target": "a",
+        "actionId": "links"
+      },
+      "expect": {
+        "status": "unchanged"
+      }
+    },
+    {
+      "id": "relation-add-reverse",
+      "op": "editor.execute",
+      "input": {
+        "type": "add-relation-link",
+        "relationId": "rel",
+        "source": "b",
+        "target": "a",
+        "actionId": "links"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "relation-remove-original",
+      "op": "editor.execute",
+      "input": {
+        "type": "remove-relation-link",
+        "relationId": "rel",
+        "source": "a",
+        "target": "b",
+        "actionId": "links"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "relation-remove-reverse",
+      "op": "editor.execute",
+      "input": {
+        "type": "remove-relation-link",
+        "relationId": "rel",
+        "source": "b",
+        "target": "a",
+        "actionId": "links"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "relation-exit-empty",
+      "op": "editor.execute",
+      "input": {
+        "type": "exit-relation-edit",
+        "relationId": "rel"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "relation-undo",
+      "op": "history.undo",
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "text-open-cancel",
+      "op": "editor.execute",
+      "input": {
+        "type": "open-text-editor",
+        "target": "text",
+        "hostOverlay": true
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "text-cancel",
+      "op": "editor.execute",
+      "input": {
+        "type": "cancel-text-edit",
+        "target": "text"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "text-open-unchanged",
+      "op": "editor.execute",
+      "input": {
+        "type": "open-text-editor",
+        "target": "text",
+        "hostOverlay": true
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "text-unchanged",
+      "op": "editor.execute",
+      "input": {
+        "type": "commit-text-edit",
+        "target": "text",
+        "text": "Original 한글",
+        "actionId": "same"
+      },
+      "expect": {
+        "status": "unchanged"
+      }
+    },
+    {
+      "id": "text-open-replace",
+      "op": "editor.execute",
+      "input": {
+        "type": "open-text-editor",
+        "target": "text",
+        "hostOverlay": true
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "replace-while-text-open",
+      "op": "data.replace",
+      "input": [
+        {
+          "type": "rect",
+          "id": "a",
+          "attrs": {
+            "x": 10,
+            "y": 10
+          },
+          "size": {
+            "width": 40,
+            "height": 30
+          }
+        },
+        {
+          "type": "rect",
+          "id": "b",
+          "attrs": {
+            "x": 90,
+            "y": 10
+          },
+          "size": {
+            "width": 40,
+            "height": 30
+          }
+        },
+        {
+          "type": "relations",
+          "id": "rel",
+          "links": [
+            {
+              "source": "a",
+              "target": "b"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "text": "Original 한글",
+          "size": {
+            "width": 160,
+            "height": 40
+          },
+          "style": {
+            "fontSize": 16,
+            "fill": "#123456"
+          }
+        },
+        {
+          "type": "grid",
+          "id": "grid",
+          "attrs": {
+            "y": 100
+          },
+          "cells": [
+            [
+              1,
+              0
+            ]
+          ],
+          "item": {
+            "size": {
+              "width": 20,
+              "height": 20
+            },
+            "components": []
+          }
+        }
+      ],
+      "options": {
+        "fit": false
+      }
+    },
+    {
+      "id": "text-stale-after-replace",
+      "op": "editor.execute",
+      "input": {
+        "type": "commit-text-edit",
+        "target": "text",
+        "text": "Changed",
+        "actionId": "text"
+      },
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "text-resolve",
+      "op": "editor.execute",
+      "input": {
+        "type": "resolve-editor-target-by-id",
+        "target": "text"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "text-commit-styled",
+      "op": "editor.execute",
+      "input": {
+        "type": "commit-text-edit",
+        "target": "text",
+        "text": "Changed 한글 😀",
+        "preserveStyle": true,
+        "actionId": "text"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "text-undo",
+      "op": "history.undo",
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "text-redo",
+      "op": "history.redo",
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "text-empty-delete",
+      "op": "editor.execute",
+      "input": {
+        "type": "commit-text-edit",
+        "target": "text",
+        "text": "",
+        "actionId": "empty"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "text-delete-undo",
+      "op": "history.undo",
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "grid-enter",
+      "op": "editor.execute",
+      "input": {
+        "type": "enter-grid-edit",
+        "target": "grid",
+        "linkedCellIds": [
+          "grid.0.0"
+        ]
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "grid-linked-refusal",
+      "op": "editor.execute",
+      "input": {
+        "type": "set-grid-cell-active",
+        "target": "grid.0.0",
+        "active": false,
+        "actionId": "grid"
+      },
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "grid-reveal",
+      "op": "editor.execute",
+      "input": {
+        "type": "reveal-inactive-cells",
+        "target": "grid"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "relation-replaces-grid",
+      "op": "editor.execute",
+      "input": {
+        "type": "enter-relation-edit",
+        "target": "rel"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "old-grid-session-rejected",
+      "op": "editor.execute",
+      "input": {
+        "type": "reveal-inactive-cells",
+        "target": "grid"
+      },
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "delete-plan-before-text",
+      "op": "editor.execute",
+      "input": {
+        "type": "request-delete-plan",
+        "targets": [
+          "a"
+        ]
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "text-replaces-delete",
+      "op": "editor.execute",
+      "input": {
+        "type": "open-text-editor",
+        "target": "text",
+        "hostOverlay": true
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "no-active-confirmation",
+      "op": "editor.execute",
+      "input": {
+        "type": "apply-host-cascade-confirmation",
+        "confirmed": true,
+        "cascadeTargets": [
+          "rel"
+        ]
+      },
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "select-exits-text",
+      "op": "editor.execute",
+      "input": {
+        "type": "select-targets",
+        "targets": [
+          "b"
+        ],
+        "mode": "replace"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "delete-plan",
+      "op": "editor.execute",
+      "input": {
+        "type": "request-delete-plan",
+        "targets": [
+          "a"
+        ]
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "delete-unconfirmed",
+      "op": "editor.execute",
+      "input": {
+        "type": "delete-transaction",
+        "targets": [
+          "a",
+          "rel"
+        ],
+        "actionId": "delete"
+      },
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "delete-loading",
+      "op": "editor.execute",
+      "input": {
+        "type": "apply-host-cascade-confirmation",
+        "confirmed": true,
+        "cascadeTargets": [
+          "rel"
+        ],
+        "registryLoading": true
+      },
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "delete-denied",
+      "op": "editor.execute",
+      "input": {
+        "type": "apply-host-cascade-confirmation",
+        "confirmed": false,
+        "cascadeTargets": [
+          "rel"
+        ]
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "delete-denied-transaction",
+      "op": "editor.execute",
+      "input": {
+        "type": "delete-transaction",
+        "targets": [
+          "a",
+          "rel"
+        ],
+        "actionId": "delete"
+      },
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "delete-confirmed",
+      "op": "editor.execute",
+      "input": {
+        "type": "apply-host-cascade-confirmation",
+        "confirmed": true,
+        "cascadeTargets": [
+          "rel"
+        ]
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "delete-wrong-order",
+      "op": "editor.execute",
+      "input": {
+        "type": "delete-transaction",
+        "targets": [
+          "rel",
+          "a"
+        ],
+        "actionId": "delete"
+      },
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "delete-commit",
+      "op": "editor.execute",
+      "input": {
+        "type": "delete-transaction",
+        "targets": [
+          "a",
+          "rel"
+        ],
+        "actionId": "delete"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "delete-undo",
+      "op": "history.undo",
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "callback-history-reentry",
+      "op": "callbacks.probe",
+      "input": {
+        "target": "a",
+        "scenario": "history-reentry"
+      }
+    },
+    {
+      "id": "callback-failure-disposer",
+      "op": "callbacks.probe",
+      "input": {
+        "target": "a",
+        "scenario": "failure-disposer"
+      }
+    },
+    {
+      "id": "callback-transform-reentry",
+      "op": "callbacks.probe",
+      "input": {
+        "target": "a",
+        "scenario": "transform-reentry"
+      }
+    },
+    {
+      "id": "direct-text-grid-enter",
+      "op": "editor.execute",
+      "input": {
+        "type": "enter-grid-edit",
+        "target": "grid"
+      }
+    },
+    {
+      "id": "direct-text-retains-grid",
+      "op": "editor.execute",
+      "input": {
+        "type": "commit-text-edit",
+        "target": "text",
+        "text": "Direct edit",
+        "actionId": "direct"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "direct-text-grid-still-active",
+      "op": "editor.execute",
+      "input": {
+        "type": "resize-grid",
+        "target": "grid",
+        "rows": 2,
+        "columns": 2,
+        "gapX": 2,
+        "gapY": 3,
+        "actionId": "grid-again"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "direct-text-grid-exit",
+      "op": "editor.execute",
+      "input": {
+        "type": "exit-grid-edit",
+        "target": "grid"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "missing-single",
+      "op": "update",
+      "input": {
+        "id": "missing",
+        "changes": {
+          "fill": "#ff0000"
+        }
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        },
+        "snapshotUnchanged": true,
+        "historyUnchanged": true
+      }
+    },
+    {
+      "id": "grid-shortcut",
+      "op": "update",
+      "input": {
+        "id": "grid",
+        "bar": {
+          "height": 30
+        }
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        },
+        "snapshotUnchanged": true,
+        "historyUnchanged": true
+      }
+    },
+    {
+      "id": "empty-single",
+      "op": "update",
+      "input": {
+        "id": "a"
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        },
+        "snapshotUnchanged": true,
+        "historyUnchanged": true
+      }
+    },
+    {
+      "id": "protected-single",
+      "op": "update",
+      "input": {
+        "id": "a",
+        "changes": {
+          "id": "changed"
+        }
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        },
+        "snapshotUnchanged": true,
+        "historyUnchanged": true
+      }
+    },
+    {
+      "id": "standalone-text-shortcut",
+      "op": "update",
+      "input": {
+        "id": "text",
+        "text": {
+          "text": "Public text shortcut",
+          "style": {
+            "fontSize": 18
+          }
+        }
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "missing-transaction-target",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "update",
+          "id": "missing",
+          "changes": {
+            "fill": "#123456"
+          }
+        }
+      ],
+      "expect": {
+        "status": "rejected",
+        "snapshotUnchanged": true
+      }
+    },
+    {
+      "id": "component-transaction-missing",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "update",
+          "id": "missing",
+          "bar": {
+            "height": 40
+          }
+        }
+      ],
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        },
+        "snapshotUnchanged": true
+      }
+    }
+  ],
+  "expected": {
+    "rootIds": [
+      "a",
+      "b",
+      "rel",
+      "text",
+      "grid"
+    ],
+    "elementTypes": [
+      "grid",
+      "relations",
+      "text",
+      "rect"
+    ],
+    "componentTypes": []
+  }
+}

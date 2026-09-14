@@ -8,6 +8,7 @@ repeat feature contracts.
 
 | Task | Read |
 | --- | --- |
+| Render in a Flutter app | [Flutter binding](integration/flutter.md) |
 | Install, mount, resize, and destroy | [Getting started](getting-started.md) |
 | Load data or find stable targets | [Data and targets](api/data-and-targets.md) |
 | Update state, transact, animate, or use history | [Mutations and history](api/mutations-and-history.md) |

@@ -38,6 +38,7 @@
     "docs/api/assets-and-capture.md",
     "docs/api/text.md",
     "docs/integration/host.md",
+    "docs/integration/flutter.md",
     "docs/compatibility.md",
     "docs/assets/fonts.md",
     "docs/assets/fira-code-6.2-license.txt",

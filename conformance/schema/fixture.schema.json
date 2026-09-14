@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Conalog/patch-map/conformance/fixture.schema.json",
+  "title": "PatchMap shared fixture envelope",
+  "type": "object",
+  "required": [
+    "schemaRevision",
+    "id",
+    "surface",
+    "dataset",
+    "commands",
+    "expected"
+  ],
+  "properties": {
+    "schemaRevision": {
+      "const": "patch-map-conformance/1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "description": {
+      "type": "string"
+    },
+    "surface": {
+      "type": "object",
+      "required": [
+        "width",
+        "height",
+        "pixelRatio"
+      ],
+      "properties": {
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "pixelRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "dataset": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "op"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "op": {
+            "enum": [
+              "update",
+              "updateBatch",
+              "transaction",
+              "data.replace",
+              "data.replaceAsync",
+              "history.undo",
+              "history.redo",
+              "history.clear",
+              "editor.execute",
+              "selection.set",
+              "selection.clear",
+              "callbacks.probe",
+              "presentation.clear",
+              "viewport.fit",
+              "data.serialize",
+              "presentation.set",
+              "rotation.cancel",
+              "rotation.finished",
+              "rotation.reset",
+              "rotation.rotateBy",
+              "rotation.set",
+              "rotation.start",
+              "targets.get",
+              "targets.query",
+              "transform.beginSession",
+              "transform.cancel",
+              "transform.edgePan",
+              "transform.commit",
+              "transform.moveBy",
+              "transform.preview",
+              "transform.resizeBy",
+              "transform.rotateBy",
+              "viewport.panBy",
+              "viewport.resize",
+              "viewport.restore",
+              "viewport.zoomBy"
+            ]
+          },
+          "expect": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "required": [
+        "rootIds",
+        "elementTypes",
+        "componentTypes"
+      ]
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "alias",
+          "descriptor"
+        ],
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "font"
+            ]
+          },
+          "descriptor": {
+            "type": [
+              "string",
+              "object"
+            ]
+          }
+        }
+      }
+    },
+    "requiredAssets": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

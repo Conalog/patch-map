@@ -1,6 +1,6 @@
 # Flutter package architecture decision
 
-- Status: final recommendation; 구조 선정 완료, 전체 구현·출시 검증 전
+- Status: 구조 선정·독립 구현 반영; 전체 qualification과 registry 배포는 구분
 - Date: 2026-09-14; 기준 commit: `3537152`, npm `1.0.0-alpha.7`
 - Goal: WebView 없이 Flutter에서 직접 렌더링하고, npm과 Dart 패키지가 전체 기능을 동일하게 제공하면서 서로의 성능에 영향을 주지 않는다.
 - Constraint: 코드는 공유해도, 독립 구현해도 된다. 문서 SSOT와 검증으로 일치하면 된다.
@@ -52,12 +52,12 @@ controller가 좌표·선택·줄바꿈을 결정하고 renderer는 결과를 �
                 |                    |
            Pixi adapter         Flutter Canvas adapter
                 |                    |
-        npm: @conalog/patch-map  pub.dev: 이름 미확정
+        npm: @conalog/patch-map  pub.dev: patch_map
                  \                  /
             공통 conformance 입력·기대 결과
 ```
 
-동일 저장소에 Flutter package를 추가한다. 기존 npm source/build 위치는 유지하고, Flutter는 별도 디렉터리·pubspec·lock/toolchain·테스트·산출물을 가진다. npm은 Flutter/Dart를 runtime 또는 빌드 의존성으로 요구하지 않고 Flutter는 Node/Pixi를 요구하지 않는다. 공유 schema/fixture/asset 원본은 개발·빌드 입력이며 상대 renderer를 배포물에 포함하지 않는다. 외부 사용자는 각 package manager로만 설치한다.
+동일 저장소의 `packages/patch_map/`에 Flutter package를 관리한다. 기존 npm source/build 위치는 유지하고, Flutter는 별도 디렉터리·pubspec·lock/toolchain·테스트·산출물을 가진다. npm은 Flutter/Dart를 runtime 또는 빌드 의존성으로 요구하지 않고 Flutter는 Node/Pixi를 요구하지 않는다. 공유 schema/fixture/asset 원본은 개발·빌드 입력이며 상대 renderer를 배포물에 포함하지 않는다. 외부 사용자는 각 package manager로만 설치한다.
 
 공통 명세/conformance bundle의 버전/hash를 고정한다. 한 저장소에서 양쪽 변경을 함께 검토하며 문서를 복제해 별도 수정하지 않는다.
 
@@ -77,7 +77,7 @@ Dart 내부는 controller/facade, semantic/geometry, transaction/history/editor,
 
 웹은 Flutter 도입 전후 npm dependency graph·artifact 내용·크기와 기존 hot-path 기준을 확인한다. 문서/fixture 추가만으로 웹 전체 benchmark를 반복하지 않는다. 공통화를 위해 웹 hot path를 바꾸는 경우에만 해당 [verification gate](verification.md)를 실행한다. 독립 구현은 간섭 경로를 줄이지만 실제 성능 무영향을 증명하는 측정의 대체물은 아니다.
 
-Flutter는 기존 [performance fixtures](../../performance/fixtures/)와 실제 앱 데이터를 사용한다. seeded generator가 허용하는 최대는 현재 5,000 item이며 component 수를 함께 기록한다. 그 이상 규모는 사용자 workload를 확인한 뒤 별도 fixture로 정의한다. 출시 검증에서는 Android/iOS 실기기에서 선택한 Dart 경로와 현재 앱 WebView 기준값을 같은 화면·기기·DPR·warmup 조건으로 비교한다.
+Flutter는 기존 [performance fixtures](../../performance/fixtures/)와 사용자 제안의 4×25 grid 50/100개, 즉 5,000/10,000 bar workload를 사용하고 component 수를 함께 기록한다. 이번 검증 환경은 사용자 요청에 따라 Android 에뮬레이터와 iOS 시뮬레이터다. 화면·DPR·warmup·빌드 모드를 통제하며 실기기 결과로 확대하지 않는다.
 
 첫 표시·pan/zoom/rotation 입력 지연·frame p50/p95·jank·batch update·text/image 갱신·capture·mount/dispose 메모리·idle CPU/배터리를 측정한다. Dart update/paint 시간 외 Flutter raster/GPU도 본다. frame budget과 [materiality 정책](verification.md)을 사용하고 서로 다른 기기의 FPS로 우열을 결론내리지 않는다. 프레임별 전체 순회·전량 JSON 복사·불필요한 객체 생성·상시 idle loop·이중 ticker를 막는다. 캡처 외 불필요한 readback을 추가하지 않는다.
 
@@ -90,15 +90,15 @@ Flutter는 기존 [performance fixtures](../../performance/fixtures/)와 실제 
 | T1 명세 기준선 | 전체 export/기능·실패·기본값·binding·시각 기준·지원 플랫폼을 conformance ID에 매핑한다. TS 선언은 TS shape 권위로 유지한다. |
 | T2 구조 선정 완료 | 독립 Dart + 직접 Canvas를 선정했다. bar 실험의 수치·범위·제외 사유를 보존한다. |
 | T3 선택안 구현 | dataset/geometry -> mutation/history/editor -> interaction/presentation -> assets/text/capture/lifecycle 순으로 계약별 구현·검증한다. 중첩·회전·한글·bar 갱신·입력·PNG를 포함한다. |
-| T4 전체 qualification | 공통 conformance, 플랫폼 통합, 실기기 성능·메모리, 설치 consumer가 모두 통과한다. 빠진 기능은 출시 차단 항목이다. |
+| T4 전체 qualification | 공통 conformance, Android 에뮬레이터·iOS 시뮬레이터 통합, 해당 환경의 성능·메모리, 설치 consumer가 모두 통과한다. 빠진 기능은 출시 차단 항목이다. |
 | T5 독립 배포 | npm/pub 버전과 contract/hash·통과 capability·지원 플랫폼을 release manifest에 기록하고 실제 설치 결과로 검증한다. |
 
 최초 Flutter 구현 중 npm 유지보수는 계속할 수 있다. 제품 기능 변경은 SSOT와 양쪽 case를 함께 추가한다. 새 기능은 양쪽 구현·검증 완료 후 같은 계약을 지원하는 버전 조합으로 출시한다. 계약을 바꾸지 않는 플랫폼별 최적화·버그 수정은 해당 package만 배포할 수 있다.
 
-현재 [npm publish workflow](../../.github/workflows/publish.yaml)는 branch/manual event를 사용한다. [pub.dev OIDC](https://dart.dev/tools/pub/automated-publishing)는 tag push로 시작한 workflow를 요구하므로 Dart용 tag 기반 배포 job과 권한을 별도로 둔다. analyze/test/publish dry-run·패키지 설치·assets/license 포함 검증을 수행하며 npm release 경로를 불필요하게 재작성하지 않는다. 이름·게시 권한·최소 SDK는 구현 전 확정한다.
+현재 [npm publish workflow](../../.github/workflows/publish.yaml)는 branch/manual event를 사용한다. Dart 패키지명은 `patch_map`, 최소 SDK는 Dart 3.11/Flutter 3.41이며 `publish_to: none`으로 게시를 비활성화했다. analyze/test/publish dry-run·패키지 설치·assets/license 포함을 검증한다. 실제 게시 승인 시 [pub.dev OIDC](https://dart.dev/tools/pub/automated-publishing)의 tag 기반 job과 권한을 별도로 설정하며 npm release 경로는 유지한다.
 
 두 registry의 publish는 원자적이지 않다. 한쪽만 성공하면 실제 조합을 release manifest에 남기고 실패한 쪽만 동일 검증 내용으로 재시도한다. pub OIDC 재시도는 원래 tag run을 사용한다. 배포 완료와 기능 동등성 완료를 구분한다.
 
 ## 구현과 출시 조건
 
-구조 선택은 완료했다. Android/iOS의 전체 Flutter 구현과 conformance·실기기 검증이 출시 조건이다. 최소 SDK·시각 허용차·입력 매핑을 T1에서 명세하고, 전체 API·일반 기하를 구현한다. 누락 기능을 허용하는 축소 출시는 하지 않는다. 추가 플랫폼은 이번 필수 지원 범위에 포함하지 않는다.
+구조 선택과 독립 구현은 반영했다. 전체 conformance와 이번 Android 에뮬레이터·iOS 시뮬레이터 검증을 출시 판단에 사용한다. SDK·시각 기준·입력 매핑은 [구현 구조](flutter-implementation-plan.md)와 [Flutter binding](../integration/flutter.md)을 따른다. 누락 기능을 허용하는 축소 출시는 하지 않는다. 추가 플랫폼은 이번 필수 지원 범위에 포함하지 않는다.

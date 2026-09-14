@@ -1,0 +1,675 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
+import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart' show mapEquals, listEquals;
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
+
+import '../api/values.dart';
+import '../engine/controller.dart';
+import '../engine/ports.dart';
+import '../rendering/canvas_renderer.dart';
+import '../semantic/geometry/geometry.dart';
+import 'native_assets.dart';
+import 'native_pointer.dart';
+import 'map_gesture_recognizer.dart';
+
+enum PatchMapResizeMode { observe, manual }
+
+/// One native Canvas surface. Its owner controls the controller lifetime.
+class PatchMapView extends StatefulWidget {
+  const PatchMapView({
+    super.key,
+    required this.controller,
+    this.background = const ui.Color(0xfffafafa),
+    this.resizeMode = PatchMapResizeMode.observe,
+    this.antialias = true,
+    this.onError,
+  });
+  final PatchMapController controller;
+  final ui.Color background;
+  final PatchMapResizeMode resizeMode;
+  final bool antialias;
+  final void Function(Object error)? onError;
+  @override
+  State<PatchMapView> createState() => _PatchMapViewState();
+}
+
+class _PatchMapViewState extends State<PatchMapView>
+    with WidgetsBindingObserver {
+  late final _HostSurface _surface = _HostSurface(this);
+  final _repaint = ValueNotifier<int>(0);
+  final _semantics = ValueNotifier<int>(0);
+  bool _hasSnapshot = false,
+      _hasPointer = false,
+      _hasRenderer = false,
+      _ownsAssetCallback = false;
+  final _boundary = GlobalKey();
+  late PatchMapCanvasRenderer _renderer;
+  late PatchMapRenderSnapshot _snapshot;
+  bool _scheduled = false, _closed = false, _assetsReady = false;
+  int? _frameId;
+  Object? _error;
+  late NativePointerBinding _pointer;
+  final _focus = FocusNode();
+  NativeMapGestureRecognizer? _gestureRecognizer;
+  int _assetGeneration = 0;
+  bool _visible = true;
+  double _lastFrameMs = 0;
+  Object? _assetTopology;
+  Map<String, double>? _assetAlpha;
+  Future<void>? _assetFuture;
+  PatchMapController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _visible =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    _attach();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncHostPolicy();
+  }
+
+  void _syncHostPolicy() {
+    if (_closed || controller.destroyed) return;
+    final reduced =
+        MediaQuery.maybeOf(context)?.disableAnimations ??
+        WidgetsBinding
+            .instance
+            .platformDispatcher
+            .accessibilityFeatures
+            .disableAnimations;
+    if (controller.reducedMotion != reduced) {
+      controller.reducedMotion = reduced;
+      requestFrame();
+    }
+    if (!_visible) controller.surfaceVisibilityChanged(false, _lastFrameMs);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final visible = state == AppLifecycleState.resumed;
+    if (_visible == visible || _closed || controller.destroyed) return;
+    _visible = visible;
+    if (!visible) {
+      if (_frameId != null)
+        SchedulerBinding.instance.cancelFrameCallbackWithId(_frameId!);
+      _frameId = null;
+      _scheduled = false;
+      _gestureRecognizer?.cancelAll();
+      _pointer.blur();
+    }
+    controller.surfaceVisibilityChanged(visible, _lastFrameMs);
+    if (visible) requestFrame();
+  }
+
+  void _attach() {
+    _closed = false;
+    _assetTopology = null;
+    _assetAlpha = null;
+    _assetFuture = null;
+    final session = controller.assetPort;
+    var attachedHere = false;
+    try {
+      if (controller.attached)
+        throw const PatchMapException(
+          'CONFLICT',
+          'Controller already has an attached surface',
+        );
+      _renderer = PatchMapCanvasRenderer(
+        session is NativeAssetSession ? session : null,
+        antialias: widget.antialias,
+      );
+      _hasRenderer = true;
+      _snapshot = controller.renderSnapshot;
+      _hasSnapshot = true;
+      _pointer = NativePointerBinding(
+        controller,
+        (world) => _renderer.hitTestTarget(world),
+        requestFrame,
+      )..claimGesture = () => _gestureRecognizer?.acceptAll();
+      _hasPointer = true;
+      if (session is NativeAssetSession) {
+        _ownsAssetCallback = true;
+        session.invalidate = () {
+          if (_closed || !mounted) return;
+          controller.invalidateAssets();
+          final refreshed = controller.renderSnapshot;
+          _loadAssets(refreshed);
+          _renderer.refreshAssets(refreshed);
+          requestFrame();
+        };
+      }
+      controller.attach(_surface);
+      attachedHere = true;
+      _loadAssets(_snapshot);
+    } catch (error) {
+      if (!controller.attached || attachedHere)
+        _failSurface(error);
+      else
+        widget.onError?.call(error);
+      controller.detach(_surface);
+      _close();
+    }
+  }
+
+  void _loadAssets(PatchMapRenderSnapshot snapshot) {
+    // Only the proven bar-height projection preserves topology. It cannot
+    // change image/font dependencies; general scene edits take the ready path.
+    if (_assetsReady &&
+        controller.assetPort is NativeAssetSession &&
+        identical(_assetTopology, snapshot.geometry.topology) &&
+        mapEquals(_assetAlpha, snapshot.presentationAlpha))
+      return;
+    final future =
+        controller.assetPort?.ready(snapshot) ?? Future<void>.value();
+    _assetTopology = snapshot.geometry.topology;
+    _assetAlpha = snapshot.presentationAlpha;
+    if (identical(_assetFuture, future)) return;
+    _assetFuture = future;
+    _assetsReady = false;
+    final generation = ++_assetGeneration;
+    unawaited(
+      future.then(
+        (_) {
+          if (_closed || !mounted || generation != _assetGeneration) return;
+          _assetsReady = true;
+          _error = null;
+          // Resource completion invalidates through NativeAssetSession's owner.
+          requestFrame();
+        },
+        onError: (Object error) {
+          if (_closed || !mounted || generation != _assetGeneration) return;
+          _failSurface(error);
+          requestFrame();
+        },
+      ),
+    );
+  }
+
+  @override
+  void didUpdateWidget(PatchMapView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != controller) {
+      oldWidget.controller.detach(_surface);
+      if (_hasPointer) _pointer.dispose();
+      if (_ownsAssetCallback &&
+          oldWidget.controller.assetPort is NativeAssetSession)
+        (oldWidget.controller.assetPort as NativeAssetSession).invalidate =
+            null;
+      if (_hasRenderer) _renderer.dispose();
+      _hasSnapshot = _hasPointer = _hasRenderer = _ownsAssetCallback = false;
+      _assetsReady = false;
+      _attach();
+      _syncHostPolicy();
+    } else {
+      if (oldWidget.antialias != widget.antialias) {
+        _renderer.dispose();
+        final session = controller.assetPort;
+        _renderer = PatchMapCanvasRenderer(
+          session is NativeAssetSession ? session : null,
+          antialias: widget.antialias,
+        );
+        _renderer.prepare(controller.renderSnapshot);
+      }
+      if (oldWidget.background != widget.background ||
+          oldWidget.antialias != widget.antialias)
+        requestFrame();
+    }
+  }
+
+  bool prepare(PatchMapRenderSnapshot snapshot) {
+    if (_closed) return false;
+    try {
+      _renderer.prepare(snapshot);
+      return true;
+    } catch (error) {
+      widget.onError?.call(error);
+      return false;
+    }
+  }
+
+  void requestFrame() {
+    if (_closed || !_visible || _scheduled || !mounted) return;
+    _scheduled = true;
+    _frameId = SchedulerBinding.instance.scheduleFrameCallback((time) {
+      _scheduled = false;
+      _frameId = null;
+      if (_closed || !mounted || controller.destroyed) return;
+      try {
+        _lastFrameMs = time.inMicroseconds / 1000;
+        final activeAnimation = controller.advanceFrame(_lastFrameMs);
+        final snapshot = controller.renderSnapshot;
+        if (_snapshot.revisions.scene != snapshot.revisions.scene ||
+            _snapshot.revisions.interaction != snapshot.revisions.interaction ||
+            !mapEquals(_snapshot.presentationAlpha, snapshot.presentationAlpha))
+          _loadAssets(snapshot);
+        final manualSizeChanged =
+            widget.resizeMode == PatchMapResizeMode.manual &&
+            (_snapshot.viewport.width != snapshot.viewport.width ||
+                _snapshot.viewport.height != snapshot.viewport.height);
+        final semanticsChanged =
+            !identical(_snapshot.geometry, snapshot.geometry) ||
+            _snapshot.revisions.view != snapshot.revisions.view ||
+            !listEquals(_snapshot.selectedIds, snapshot.selectedIds);
+        _snapshot = snapshot;
+        if (semanticsChanged) _semantics.value++;
+        if (manualSizeChanged) setState(() {});
+        _renderer.prepare(snapshot);
+        _repaint.value++;
+        if (activeAnimation) requestFrame();
+      } catch (error) {
+        _failSurface(error);
+      }
+    });
+  }
+
+  void _failSurface(Object error) {
+    if (_closed || !mounted || controller.destroyed) return;
+    _error = error;
+    controller.surfaceFailed(error);
+    widget.onError?.call(error);
+  }
+
+  void _paintFailed(Object error) {
+    SchedulerBinding.instance.addPostFrameCallback((_) => _failSurface(error));
+  }
+
+  void _painted(PatchMapRenderSnapshot snapshot) {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!_closed && _visible && mounted && _assetsReady && _error == null)
+        controller.frameConfirmed(snapshot.revisions);
+    });
+  }
+
+  Future<PatchMapCaptureResult> capture(PatchMapRenderSnapshot snapshot) async {
+    if (_closed || !mounted || snapshot.revisions != controller.revisions)
+      throw const PatchMapException('STALE_TARGET', 'Capture surface changed');
+    if (_error != null) throw _error!;
+    await (controller.assetPort?.ready(snapshot) ?? Future<void>.value());
+    if (_closed || snapshot.revisions != controller.revisions)
+      throw const PatchMapException('STALE_TARGET', 'Capture tuple changed');
+    final boundary =
+        _boundary.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null || boundary.debugNeedsPaint)
+      throw const PatchMapException('NOT_READY', 'Surface has not painted');
+    final image = await boundary.toImage(
+      pixelRatio: snapshot.viewport.pixelRatio,
+    );
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (bytes == null ||
+          _closed ||
+          snapshot.revisions != controller.revisions)
+        throw const PatchMapException(
+          'EXTRACTION_FAILURE',
+          'Capture invalidated',
+        );
+      return PatchMapCaptureResult(
+        dataUrl:
+            'data:image/png;base64,${base64Encode(bytes.buffer.asUint8List())}',
+        size: [snapshot.viewport.width, snapshot.viewport.height],
+      );
+    } finally {
+      image.dispose();
+    }
+  }
+
+  void _input(void Function() callback) {
+    if (_closed || controller.destroyed) return;
+    try {
+      callback();
+    } catch (error) {
+      widget.onError?.call(error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      if (_closed || !_hasSnapshot) return const SizedBox.expand();
+      final width = constraints.maxWidth, height = constraints.maxHeight;
+      final dpr = MediaQuery.devicePixelRatioOf(context);
+      if (widget.resizeMode == PatchMapResizeMode.observe &&
+          width.isFinite &&
+          height.isFinite &&
+          width > 0 &&
+          height > 0 &&
+          (width != _snapshot.viewport.width ||
+              height != _snapshot.viewport.height ||
+              dpr != _snapshot.viewport.pixelRatio)) {
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_closed && !controller.destroyed)
+            controller.viewport.resize(width, height, dpr);
+        });
+      }
+      Widget paint = RepaintBoundary(
+        key: _boundary,
+        child: _SemanticCustomPaint(
+          semanticsUpdates: _semantics,
+          painter: _MapPainter(
+            _repaint,
+            () => _snapshot,
+            _renderer,
+            widget.background,
+            _painted,
+            _paintFailed,
+            (id) => _input(() => controller.selection.fromPointer([id])),
+            () => _pointer.marquee,
+          ),
+          size: Size.infinite,
+        ),
+      );
+      if (widget.resizeMode == PatchMapResizeMode.manual) {
+        final v = _snapshot.viewport;
+        paint = OverflowBox(
+          alignment: Alignment.topLeft,
+          minWidth: v.width,
+          maxWidth: v.width,
+          minHeight: v.height,
+          maxHeight: v.height,
+          child: paint,
+        );
+      }
+      return Focus(
+        focusNode: _focus,
+        onFocusChange: (focused) {
+          if (!focused) _pointer.cancel();
+        },
+        onKeyEvent: (_, event) {
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.escape) {
+            _pointer.cancel();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: MouseRegion(
+          onExit: (event) => _input(() => _pointer.leave(event)),
+          child: Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerHover: (event) => _input(() => _pointer.hover(event)),
+
+            onPointerSignal: (event) {
+              final modifier =
+                  (controller.viewportPolicy['wheel']
+                      as Map?)?['activationModifier'];
+              if (modifier == 'control' &&
+                  !HardwareKeyboard.instance.isControlPressed &&
+                  !HardwareKeyboard.instance.isMetaPressed)
+                return;
+              if (event is PointerScrollEvent)
+                GestureBinding.instance.pointerSignalResolver.register(
+                  event,
+                  (_) => _input(() {
+                    controller.viewport.zoomBy(
+                      math.exp(-event.scrollDelta.dy * 0.001),
+                      [event.localPosition.dx, event.localPosition.dy],
+                    );
+                  }),
+                );
+            },
+            child: RawGestureDetector(
+              behavior: HitTestBehavior.opaque,
+              gestures: {
+                NativeMapGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<
+                      NativeMapGestureRecognizer
+                    >(NativeMapGestureRecognizer.new, (recognizer) {
+                      _gestureRecognizer = recognizer;
+                      recognizer.onEvent = (event) => _input(() {
+                        if (event is PointerDownEvent) {
+                          _focus.requestFocus();
+                          _pointer.down(event);
+                        } else if (event is PointerMoveEvent) {
+                          _pointer.move(event);
+                        } else if (event is PointerUpEvent) {
+                          _pointer.up(event);
+                        } else if (event is PointerCancelEvent) {
+                          _pointer.cancel(event);
+                        }
+                      });
+                    }),
+              },
+              child: paint,
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  void _close() {
+    if (_closed) return;
+    _closed = true;
+    _assetGeneration++;
+    if (_frameId != null)
+      SchedulerBinding.instance.cancelFrameCallbackWithId(_frameId!);
+    _frameId = null;
+    if (_hasPointer) _pointer.dispose();
+    if (_hasRenderer) _renderer.dispose();
+    final assets = controller.assetPort;
+    if (_ownsAssetCallback && assets is NativeAssetSession)
+      assets.invalidate = null;
+    _ownsAssetCallback = false;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    controller.detach(_surface);
+    _close();
+    _repaint.dispose();
+    _semantics.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+}
+
+class _MapPainter extends CustomPainter {
+  _MapPainter(
+    Listenable repaint,
+    this.snapshot,
+    this.renderer,
+    this.background,
+    this.painted,
+    this.failed,
+    this.activate,
+    this.marquee,
+  ) : super(repaint: repaint);
+  final PatchMapRenderSnapshot Function() snapshot;
+  final PatchMapCanvasRenderer renderer;
+  final Color background;
+  final void Function(PatchMapRenderSnapshot) painted;
+  final void Function(Object) failed;
+  final void Function(String) activate;
+  final Rect? Function() marquee;
+  @override
+  void paint(Canvas canvas, Size size) {
+    try {
+      final value = snapshot();
+      renderer.paint(canvas, size, value, background);
+      final box = marquee();
+      if (box != null) {
+        final options = value.selectionPolicy['box'];
+        final visual = options is Map ? options['visual'] as Map? : null;
+        final selectionVisual = value.selectionPolicy['visual'] as Map?;
+        final color = mapColor(
+          visual?['color'] ?? selectionVisual?['color'] ?? '#2563eb',
+        );
+        canvas.drawRect(
+          box,
+          Paint()
+            ..color = color.withValues(
+              alpha: (visual?['fillAlpha'] as num? ?? 0.08).toDouble(),
+            ),
+        );
+        canvas.drawRect(
+          box,
+          Paint()
+            ..color = color
+            ..style = PaintingStyle.stroke
+            ..strokeWidth =
+                (visual?['strokeWidth'] as num? ??
+                        selectionVisual?['strokeWidth'] as num? ??
+                        2)
+                    .toDouble(),
+        );
+      }
+      painted(value);
+    } catch (error) {
+      failed(error);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MapPainter oldDelegate) =>
+      oldDelegate.renderer != renderer || oldDelegate.background != background;
+  @override
+  bool shouldRebuildSemantics(_MapPainter oldDelegate) => true;
+  @override
+  SemanticsBuilderCallback get semanticsBuilder => (size) {
+    final value = snapshot();
+    final bounds = renderer.accessibilityBounds(value.viewport);
+    final output = <CustomPainterSemantics>[];
+    for (final target
+        in renderer.geometry?.targets.values ?? const <GeometryTarget>[]) {
+      if (!target.visible ||
+          target.type == 'group' ||
+          target.type == 'grid' ||
+          target.type == 'relations')
+        continue;
+      if (target.componentId != null) continue;
+      final rect = bounds[target.id];
+      if (rect == null) continue;
+      final authored = value.dataset.nodes[target.id]?.value;
+      final label = authored?['label'];
+      final text = authored?['text'];
+      final name = label is String && label.isNotEmpty
+          ? label
+          : text is String && text.isNotEmpty
+          ? text
+          : target.id;
+      if (!rect.overlaps(Offset.zero & size)) continue;
+      output.add(
+        CustomPainterSemantics(
+          rect: rect,
+          properties: SemanticsProperties(
+            label: name,
+            enabled: !target.locked,
+            button: true,
+            selected: value.selectedIds.contains(target.id),
+            textDirection: TextDirection.ltr,
+            onTap: target.locked ? null : () => activate(target.id),
+          ),
+        ),
+      );
+    }
+    return output;
+  };
+}
+
+class _HostSurface implements PatchMapSurfacePort, PatchMapSurfaceProbePort {
+  _HostSurface(this.state);
+  final _PatchMapViewState state;
+  @override
+  Map<String, dynamic> get debugResources {
+    final v = state._snapshot.viewport;
+    return {
+      'canvasCount': state._closed ? 0 : 1,
+      'canvas': {
+        'cssSize': [v.width, v.height],
+        'backingSize': [
+          (v.width * v.pixelRatio).ceil(),
+          (v.height * v.pixelRatio).ceil(),
+        ],
+      },
+      'renderer': {
+        'resolution': v.pixelRatio,
+        'antialias': state.widget.antialias,
+        'background': state.widget.background.toARGB32(),
+        'backend': 'flutter-canvas',
+      },
+      'rendering': {
+        'commandCount': state._renderer.commandCount,
+        'visiblePrimitiveCount': state._renderer.visiblePrimitiveCount,
+      },
+    };
+  }
+
+  @override
+  bool prepare(PatchMapRenderSnapshot snapshot) => state.prepare(snapshot);
+  @override
+  void requestFrame() => state.requestFrame();
+  @override
+  Future<PatchMapCaptureResult> capture(PatchMapRenderSnapshot snapshot) =>
+      state.capture(snapshot);
+  @override
+  Future<void> dispose() async => state._close();
+}
+
+/// Paint invalidation and Semantics invalidation share the same frame owner.
+class _SemanticCustomPaint extends CustomPaint {
+  const _SemanticCustomPaint({
+    required this.semanticsUpdates,
+    super.painter,
+    super.size,
+  });
+  final Listenable semanticsUpdates;
+  @override
+  RenderCustomPaint createRenderObject(BuildContext context) =>
+      _SemanticRenderPaint(
+        painter: painter,
+        size: size,
+        updates: semanticsUpdates,
+      );
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _SemanticRenderPaint renderObject,
+  ) {
+    super.updateRenderObject(context, renderObject);
+    renderObject.updates = semanticsUpdates;
+  }
+}
+
+class _SemanticRenderPaint extends RenderCustomPaint {
+  _SemanticRenderPaint({
+    super.painter,
+    required Size size,
+    required Listenable updates,
+  }) : _updates = updates,
+       super(preferredSize: size);
+  Listenable _updates;
+  set updates(Listenable value) {
+    if (identical(value, _updates)) return;
+    if (attached) _updates.removeListener(markNeedsSemanticsUpdate);
+    _updates = value;
+    if (attached) _updates.addListener(markNeedsSemanticsUpdate);
+    markNeedsSemanticsUpdate();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _updates.addListener(markNeedsSemanticsUpdate);
+  }
+
+  @override
+  void detach() {
+    _updates.removeListener(markNeedsSemanticsUpdate);
+    super.detach();
+  }
+}

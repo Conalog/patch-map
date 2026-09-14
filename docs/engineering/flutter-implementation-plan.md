@@ -1,8 +1,9 @@
 # Dual-package implementation architecture
 
 - Status: reviewed; independent package, runtime and conformance reviews resolved before implementation.
+- Baseline: `release/1.0`, npm `1.0.0-alpha.7`; `main` has different contracts and is not a source for this implementation.
 - Decision: [independent Dart and Canvas](flutter-package-design.md).
-- Scope: full Android/iOS functionality, two independent distributable packages, continuous native/browser comparison; no registry publication in this work.
+- Scope: Android/iOS parity, independent distributions, continuous native/browser comparison; no publication.
 
 ## Repository and documentation ownership
 
@@ -29,7 +30,7 @@ verification/flutter/                     package and architecture gates
 
 Existing public API pages continue owning shared behavior. [Flutter binding](../integration/flutter.md) owns native construction, surface, input and diagnostic differences; exact Dart shapes belong to exported declarations. The [conformance design](flutter-conformance-design.md) owns equality rules. This page owns folders, dependencies and implementation sequencing. The Dart README links to contracts.
 
-The contract manifest links each behavior to its owning document, TS/Dart entry and executable case. It distinguishes implemented witnesses from pending implementation; all required entries must pass before declaring feature equivalence. API inventory includes members, options, union variants, defaults, failure and lifecycle rules. Dataset kinds require explicit entries because the public loader accepts unknown input. A fixture carries dataset, commands, virtual time and expected observations, never executable source.
+The manifest links behavior to owning documents, TS/Dart entries and executable cases. Every requirement must pass before declaring equivalence. Inventory covers API shapes, defaults, failure/lifecycle rules and dataset kinds. Fixtures contain data, commands, time and expected observations.
 
 ## Runtime dependency and ownership
 
@@ -60,7 +61,7 @@ The semantic dataset stores normalized immutable maps and indexed authored/grid 
 
 ## Asset decoder decisions
 
-The native asset backend receives admitted bytes, never a network URL bypassing policy. PNG/JPEG/WebP/GIF use Flutter codecs; SVG uses flutter_svg/vector_graphics decoding into retained pictures; AVIF uses the bytes decoder in [flutter_avif](https://pub.dev/packages/flutter_avif). WOFF/WOFF2 are converted to SFNT using [woff2](https://pub.dev/packages/woff2) before FontLoader, while TTF/OTF load directly. Native package versions are pinned when resolved. Font family/weight identity and glyph assets derive from the existing licensed source; no default network cache or loader owns admission. Format-specific fixtures verify the selected adapters on both targets, including unsupported collection/error behavior against the existing admission contract.
+The native backend admits bytes before decoding. PNG/JPEG/WebP/GIF use Flutter codecs; SVG uses flutter_svg/vector_graphics; AVIF uses [flutter_avif](https://pub.dev/packages/flutter_avif). WOFF/WOFF2 use the attributed Apache-2.0 container decoder with [pure Dart Brotli](https://pub.dev/packages/brotli), avoiding host-specific native compression deployment. Bundled Fira Code loads a reproducible SFNT converted from the npm WOFF2; provenance verifies glyphs, metrics and variable weights. TTF/OTF load directly. Session bindings consume the controller's visible geometry, retain the previous texture during replacement, and release superseded or unused leases. Format and failure fixtures qualify both targets.
 
 ## Sequencing and effective verification
 
@@ -73,7 +74,7 @@ The native asset backend receives admitted bytes, never a network URL bypassing 
 | E Host completeness | Text/fonts, image admission/codecs, animations, pointer/keyboard/accessibility, capture and cleanup; failure/lifecycle cases plus Android/iOS screenshots |
 | F Qualification | Required manifest coverage, installed consumers, native builds, representative bar performance, final side-by-side review |
 
-Parallel work requires agreed interfaces and disjoint ownership. Each reviewable unit is committed after focused checks. A/B/C are intermediate work, never a reduced-function release. Unsupported placeholders or successful no-op facades do not count as implementation.
+Parallel work uses agreed interfaces and disjoint ownership. Commit units after focused checks. A/B/C are intermediate work, never a reduced-function release. Unsupported placeholders or successful no-op facades do not count as implementation.
 
 During development run only tests for the changed owner and affected conformance IDs. Rebuild native apps when a vertical slice changes observable behavior; keep the browser comparison server running. Use hot reload for UI iteration, not as release evidence. Full package checks and broad native integration run at F or after a cross-owner failure warrants them. Do not repeat the full runtime benchmark matrix; measure the selected Dart renderer on representative 5,000/10,000-bar changes.
 
@@ -81,4 +82,6 @@ During development run only tests for the changed owner and affected conformance
 
 npm retains its existing export map and artifact allowlist. Dart ships its own lib/assets/docs/license and requires no Node/Pixi or JS engine. Native example platform scaffolding belongs to the example, not the library. Generated build/.dart_tool/Pods outputs are ignored and excluded from documentation scans. Package verifiers explicitly reject accidental cross-package payloads.
 
-Versions are independent; contract revision and qualified capability set identify equivalent releases. Dart tags use a separate prefix and release job; npm release classification excludes Dart-only paths. Flutter changes cannot silently bump or publish npm. Registry credentials, tags and publishing stay outside local implementation. Publication remains blocked until full conformance and both platform checks pass.
+Versions are independent; contract revision and qualified capability set identify equivalent releases. npm's release-please root excludes Dart package, shared verification and Flutter-only documentation paths. Dart release tags must use a separate prefix; registry publication is not enabled (`publish_to: none`). Credentials, tags and publishing stay outside local implementation. Publication remains blocked until full conformance and both platform checks pass.
+
+PR CI pins Flutter 3.41.4/Node 22, verifies inventory/package boundaries, runs Dart analysis/tests and an installed consumer. npm source, dependency, contract, asset and integration-document changes also select this gate. Native OS qualification remains separate; npm gates retain existing routing.

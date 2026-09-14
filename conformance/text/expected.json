@@ -1,0 +1,3412 @@
+[
+  {
+    "id": "ascii",
+    "options": {
+      "source": "PatchMap 123"
+    },
+    "expected": {
+      "source": "PatchMap 123",
+      "layoutSource": "PatchMap 123",
+      "graphemes": [
+        "P",
+        "a",
+        "t",
+        "c",
+        "h",
+        "M",
+        "a",
+        "p",
+        " ",
+        "1",
+        "2",
+        "3"
+      ],
+      "hardLines": [
+        "PatchMap 123"
+      ],
+      "splitLines": [
+        "PatchMap 123"
+      ],
+      "lines": [
+        "PatchMap 123"
+      ],
+      "visibleLines": [
+        "PatchMap 123"
+      ],
+      "visibleText": "PatchMap 123",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        96
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 96,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 96,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "PatchMap 123",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "PatchMap ",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 9
+            },
+            {
+              "text": "123",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 9,
+              "logicalEnd": 12
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "PatchMap ",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 9
+            },
+            {
+              "text": "123",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 9,
+              "logicalEnd": 12
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "empty",
+    "options": {
+      "source": ""
+    },
+    "expected": {
+      "source": "",
+      "layoutSource": "",
+      "graphemes": [],
+      "hardLines": [
+        ""
+      ],
+      "splitLines": [
+        ""
+      ],
+      "lines": [
+        ""
+      ],
+      "visibleLines": [
+        ""
+      ],
+      "visibleText": "",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        0
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "",
+          "baseDirection": "ltr",
+          "logicalRuns": [],
+          "visualRuns": [],
+          "logicalToVisual": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "korean",
+    "options": {
+      "source": "한글 가나다",
+      "split": 3
+    },
+    "expected": {
+      "source": "한글 가나다",
+      "layoutSource": "한글 가나다",
+      "graphemes": [
+        "한",
+        "글",
+        " ",
+        "가",
+        "나",
+        "다"
+      ],
+      "hardLines": [
+        "한글 가나다"
+      ],
+      "splitLines": [
+        "한글 ",
+        "가나다"
+      ],
+      "lines": [
+        "한글 ",
+        "가나다"
+      ],
+      "visibleLines": [
+        "한글 ",
+        "가나다"
+      ],
+      "visibleText": "한글 \n가나다",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        40,
+        48
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 48,
+        "height": 40
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 48,
+        "height": 40
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "한글 ",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "한글 ",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "한글 ",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "가나다",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "가나다",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "가나다",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "combining",
+    "options": {
+      "source": "é ä"
+    },
+    "expected": {
+      "source": "é ä",
+      "layoutSource": "é ä",
+      "graphemes": [
+        "é",
+        " ",
+        "ä"
+      ],
+      "hardLines": [
+        "é ä"
+      ],
+      "splitLines": [
+        "é ä"
+      ],
+      "lines": [
+        "é ä"
+      ],
+      "visibleLines": [
+        "é ä"
+      ],
+      "visibleText": "é ä",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        24
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "é ä",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "é ä",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "é ä",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "emoji-zwj",
+    "options": {
+      "source": "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸"
+    },
+    "expected": {
+      "source": "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸",
+      "layoutSource": "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸",
+      "graphemes": [
+        "👨‍👩‍👧‍👦",
+        "👍🏽",
+        "🇰🇷",
+        "🇺🇸"
+      ],
+      "hardLines": [
+        "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸"
+      ],
+      "splitLines": [
+        "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸"
+      ],
+      "lines": [
+        "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸"
+      ],
+      "visibleLines": [
+        "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸"
+      ],
+      "visibleText": "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        160
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 160,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 160,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "👨‍👩‍👧‍👦👍🏽🇰🇷🇺🇸",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "hangul-jamo",
+    "options": {
+      "source": "각나"
+    },
+    "expected": {
+      "source": "각나",
+      "layoutSource": "각나",
+      "graphemes": [
+        "각",
+        "나"
+      ],
+      "hardLines": [
+        "각나"
+      ],
+      "splitLines": [
+        "각나"
+      ],
+      "lines": [
+        "각나"
+      ],
+      "visibleLines": [
+        "각나"
+      ],
+      "visibleText": "각나",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        56
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "각나",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "각나",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "각나",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "crlf",
+    "options": {
+      "source": "A\r\nB\rC\n"
+    },
+    "expected": {
+      "source": "A\r\nB\rC\n",
+      "layoutSource": "A\nB\nC\n",
+      "graphemes": [
+        "A",
+        "\r\n",
+        "B",
+        "\r",
+        "C",
+        "\n"
+      ],
+      "hardLines": [
+        "A",
+        "B",
+        "C",
+        ""
+      ],
+      "splitLines": [
+        "A",
+        "B",
+        "C",
+        ""
+      ],
+      "lines": [
+        "A",
+        "B",
+        "C",
+        ""
+      ],
+      "visibleLines": [
+        "A",
+        "B",
+        "C",
+        ""
+      ],
+      "visibleText": "A\nB\nC\n",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        8,
+        8,
+        8,
+        0
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 8,
+        "height": 80
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 8,
+        "height": 80
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "A",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "A",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "A",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "B",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "B",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "B",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        },
+        {
+          "lineIndex": 2,
+          "source": "C",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "C",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "C",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        },
+        {
+          "lineIndex": 3,
+          "source": "",
+          "baseDirection": "ltr",
+          "logicalRuns": [],
+          "visualRuns": [],
+          "logicalToVisual": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "split",
+    "options": {
+      "source": "AB😀CD",
+      "split": 2
+    },
+    "expected": {
+      "source": "AB😀CD",
+      "layoutSource": "AB😀CD",
+      "graphemes": [
+        "A",
+        "B",
+        "😀",
+        "C",
+        "D"
+      ],
+      "hardLines": [
+        "AB😀CD"
+      ],
+      "splitLines": [
+        "AB",
+        "😀C",
+        "D"
+      ],
+      "lines": [
+        "AB",
+        "😀C",
+        "D"
+      ],
+      "visibleLines": [
+        "AB",
+        "😀C",
+        "D"
+      ],
+      "visibleText": "AB\n😀C\nD",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        16,
+        24,
+        8
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 60
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 60
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "AB",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "AB",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "AB",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "😀C",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "😀C",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "😀C",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1
+          ]
+        },
+        {
+          "lineIndex": 2,
+          "source": "D",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "D",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "D",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "negative-split",
+    "options": {
+      "source": "ABCD",
+      "split": -3
+    },
+    "expected": {
+      "source": "ABCD",
+      "layoutSource": "ABCD",
+      "graphemes": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "hardLines": [
+        "ABCD"
+      ],
+      "splitLines": [
+        "ABCD"
+      ],
+      "lines": [
+        "ABCD"
+      ],
+      "visibleLines": [
+        "ABCD"
+      ],
+      "visibleText": "ABCD",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        32
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 32,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 32,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "ABCD",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "ABCD",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "ABCD",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "wrap-words",
+    "options": {
+      "source": "hello world more",
+      "wordWrapWidthPx": 48
+    },
+    "expected": {
+      "source": "hello world more",
+      "layoutSource": "hello world more",
+      "graphemes": [
+        "h",
+        "e",
+        "l",
+        "l",
+        "o",
+        " ",
+        "w",
+        "o",
+        "r",
+        "l",
+        "d",
+        " ",
+        "m",
+        "o",
+        "r",
+        "e"
+      ],
+      "hardLines": [
+        "hello world more"
+      ],
+      "splitLines": [
+        "hello world more"
+      ],
+      "lines": [
+        "hello ",
+        "world ",
+        "more"
+      ],
+      "visibleLines": [
+        "hello ",
+        "world ",
+        "more"
+      ],
+      "visibleText": "hello \nworld \nmore",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        48,
+        48,
+        32
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 48,
+        "height": 60
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 48,
+        "height": 60
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "hello ",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "hello ",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 6
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "hello ",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 6
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "world ",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "world ",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 6
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "world ",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 6
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "lineIndex": 2,
+          "source": "more",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "more",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "more",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "wrap-breakwords",
+    "options": {
+      "source": "longword",
+      "wordWrapWidthPx": 17,
+      "breakWords": true
+    },
+    "expected": {
+      "source": "longword",
+      "layoutSource": "longword",
+      "graphemes": [
+        "l",
+        "o",
+        "n",
+        "g",
+        "w",
+        "o",
+        "r",
+        "d"
+      ],
+      "hardLines": [
+        "longword"
+      ],
+      "splitLines": [
+        "longword"
+      ],
+      "lines": [
+        "lo",
+        "ng",
+        "wo",
+        "rd"
+      ],
+      "visibleLines": [
+        "lo",
+        "ng",
+        "wo",
+        "rd"
+      ],
+      "visibleText": "lo\nng\nwo\nrd",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 16,
+        "height": 80
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 16,
+        "height": 80
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "lo",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "lo",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "lo",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "ng",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "ng",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "ng",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1
+          ]
+        },
+        {
+          "lineIndex": 2,
+          "source": "wo",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "wo",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "wo",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1
+          ]
+        },
+        {
+          "lineIndex": 3,
+          "source": "rd",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "rd",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "rd",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "wrap-korean",
+    "options": {
+      "source": "가나다라마",
+      "wordWrapWidthPx": 33
+    },
+    "expected": {
+      "source": "가나다라마",
+      "layoutSource": "가나다라마",
+      "graphemes": [
+        "가",
+        "나",
+        "다",
+        "라",
+        "마"
+      ],
+      "hardLines": [
+        "가나다라마"
+      ],
+      "splitLines": [
+        "가나다라마"
+      ],
+      "lines": [
+        "가나",
+        "다라",
+        "마"
+      ],
+      "visibleLines": [
+        "가나",
+        "다라",
+        "마"
+      ],
+      "visibleText": "가나\n다라\n마",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        32,
+        32,
+        16
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 32,
+        "height": 60
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 32,
+        "height": 60
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "가나",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "가나",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "가나",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "다라",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "다라",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "다라",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1
+          ]
+        },
+        {
+          "lineIndex": 2,
+          "source": "마",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "마",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "마",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "wrap-zero",
+    "options": {
+      "source": "ABC",
+      "wordWrapWidthPx": 0,
+      "breakWords": true
+    },
+    "expected": {
+      "source": "ABC",
+      "layoutSource": "ABC",
+      "graphemes": [
+        "A",
+        "B",
+        "C"
+      ],
+      "hardLines": [
+        "ABC"
+      ],
+      "splitLines": [
+        "ABC"
+      ],
+      "lines": [
+        "A",
+        "B",
+        "C"
+      ],
+      "visibleLines": [
+        "A",
+        "B",
+        "C"
+      ],
+      "visibleText": "A\nB\nC",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        8,
+        8,
+        8
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 8,
+        "height": 60
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 8,
+        "height": 60
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "A",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "A",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "A",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "B",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "B",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "B",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        },
+        {
+          "lineIndex": 2,
+          "source": "C",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "C",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "C",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "hidden",
+    "options": {
+      "source": "ABCDE\n12345\nxyz",
+      "overflow": "hidden",
+      "contentFrame": {
+        "width": 25,
+        "height": 45
+      }
+    },
+    "expected": {
+      "source": "ABCDE\n12345\nxyz",
+      "layoutSource": "ABCDE\n12345\nxyz",
+      "graphemes": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "\n",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "\n",
+        "x",
+        "y",
+        "z"
+      ],
+      "hardLines": [
+        "ABCDE",
+        "12345",
+        "xyz"
+      ],
+      "splitLines": [
+        "ABCDE",
+        "12345",
+        "xyz"
+      ],
+      "lines": [
+        "ABCDE",
+        "12345",
+        "xyz"
+      ],
+      "visibleLines": [
+        "ABC",
+        "123"
+      ],
+      "visibleText": "ABC\n123",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        24,
+        24
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 40
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 40,
+        "height": 60
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "ABCDE",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "ABCDE",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 5
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "ABCDE",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 5
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "12345",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "12345",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 5
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "12345",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 5
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "lineIndex": 2,
+          "source": "xyz",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "xyz",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "xyz",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "ellipsis-width",
+    "options": {
+      "source": "ABCDEFGHI",
+      "overflow": "ellipsis",
+      "contentFrame": {
+        "width": 32,
+        "height": 20
+      }
+    },
+    "expected": {
+      "source": "ABCDEFGHI",
+      "layoutSource": "ABCDEFGHI",
+      "graphemes": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I"
+      ],
+      "hardLines": [
+        "ABCDEFGHI"
+      ],
+      "splitLines": [
+        "ABCDEFGHI"
+      ],
+      "lines": [
+        "ABCDEFGHI"
+      ],
+      "visibleLines": [
+        "ABC…"
+      ],
+      "visibleText": "ABC…",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        32
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 32,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 72,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "ABCDEFGHI",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "ABCDEFGHI",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 9
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "ABCDEFGHI",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 9
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "ellipsis-height",
+    "options": {
+      "source": "A\nB\nC",
+      "overflow": "ellipsis",
+      "contentFrame": {
+        "width": 32,
+        "height": 20
+      }
+    },
+    "expected": {
+      "source": "A\nB\nC",
+      "layoutSource": "A\nB\nC",
+      "graphemes": [
+        "A",
+        "\n",
+        "B",
+        "\n",
+        "C"
+      ],
+      "hardLines": [
+        "A",
+        "B",
+        "C"
+      ],
+      "splitLines": [
+        "A",
+        "B",
+        "C"
+      ],
+      "lines": [
+        "A",
+        "B",
+        "C"
+      ],
+      "visibleLines": [
+        "A…"
+      ],
+      "visibleText": "A…",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        16
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 16,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 8,
+        "height": 60
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "A",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "A",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "A",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "B",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "B",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "B",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        },
+        {
+          "lineIndex": 2,
+          "source": "C",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "C",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "C",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "ellipsis-no-marker",
+    "options": {
+      "source": "ABCDE",
+      "overflow": "ellipsis",
+      "contentFrame": {
+        "width": 4,
+        "height": 20
+      }
+    },
+    "expected": {
+      "source": "ABCDE",
+      "layoutSource": "ABCDE",
+      "graphemes": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E"
+      ],
+      "hardLines": [
+        "ABCDE"
+      ],
+      "splitLines": [
+        "ABCDE"
+      ],
+      "lines": [
+        "ABCDE"
+      ],
+      "visibleLines": [
+        ""
+      ],
+      "visibleText": "",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        0
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 40,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "ABCDE",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "ABCDE",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 5
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "ABCDE",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 5
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "height-zero",
+    "options": {
+      "source": "ABC",
+      "overflow": "ellipsis",
+      "contentFrame": {
+        "width": 32,
+        "height": 0
+      }
+    },
+    "expected": {
+      "source": "ABC",
+      "layoutSource": "ABC",
+      "graphemes": [
+        "A",
+        "B",
+        "C"
+      ],
+      "hardLines": [
+        "ABC"
+      ],
+      "splitLines": [
+        "ABC"
+      ],
+      "lines": [
+        "ABC"
+      ],
+      "visibleLines": [],
+      "visibleText": "",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "ABC",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "ABC",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "ABC",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "line-height",
+    "options": {
+      "source": "A\nB",
+      "fontSizePx": 52,
+      "lineHeightPx": 18
+    },
+    "expected": {
+      "source": "A\nB",
+      "layoutSource": "A\nB",
+      "graphemes": [
+        "A",
+        "\n",
+        "B"
+      ],
+      "hardLines": [
+        "A",
+        "B"
+      ],
+      "splitLines": [
+        "A",
+        "B"
+      ],
+      "lines": [
+        "A",
+        "B"
+      ],
+      "visibleLines": [
+        "A",
+        "B"
+      ],
+      "visibleText": "A\nB",
+      "fontSizePx": 52,
+      "lineHeightPx": 18,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        26,
+        26
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 26,
+        "height": 36
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 26,
+        "height": 36
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "A",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "A",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "A",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "B",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "B",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "B",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "auto-font",
+    "options": {
+      "source": "ABCDE 한글",
+      "autoFont": {
+        "minPx": 4,
+        "maxPx": 40
+      },
+      "contentFrame": {
+        "width": 90,
+        "height": 32
+      }
+    },
+    "expected": {
+      "source": "ABCDE 한글",
+      "layoutSource": "ABCDE 한글",
+      "graphemes": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        " ",
+        "한",
+        "글"
+      ],
+      "hardLines": [
+        "ABCDE 한글"
+      ],
+      "splitLines": [
+        "ABCDE 한글"
+      ],
+      "lines": [
+        "ABCDE 한글"
+      ],
+      "visibleLines": [
+        "ABCDE 한글"
+      ],
+      "visibleText": "ABCDE 한글",
+      "fontSizePx": 18,
+      "lineHeightPx": 22.5,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        90
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 90,
+        "height": 22.5
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 90,
+        "height": 22.5
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "ABCDE 한글",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "ABCDE 한글",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 8
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "ABCDE 한글",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 8
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "auto-wrap",
+    "options": {
+      "source": "한글 글자 자동 크기",
+      "autoFont": {
+        "minPx": 5,
+        "maxPx": 30
+      },
+      "contentFrame": {
+        "width": 60,
+        "height": 60
+      },
+      "wordWrapWidthPx": 80
+    },
+    "expected": {
+      "source": "한글 글자 자동 크기",
+      "layoutSource": "한글 글자 자동 크기",
+      "graphemes": [
+        "한",
+        "글",
+        " ",
+        "글",
+        "자",
+        " ",
+        "자",
+        "동",
+        " ",
+        "크",
+        "기"
+      ],
+      "hardLines": [
+        "한글 글자 자동 크기"
+      ],
+      "splitLines": [
+        "한글 글자 자동 크기"
+      ],
+      "lines": [
+        "한글 글",
+        "자 자",
+        "동 크기"
+      ],
+      "visibleLines": [
+        "한글 글",
+        "자 자",
+        "동 크기"
+      ],
+      "visibleText": "한글 글\n자 자\n동 크기",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        56,
+        40,
+        56
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 60
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 60
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "한글 글",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "한글 글",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "한글 글",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "자 자",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "자 자",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "자 자",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "lineIndex": 2,
+          "source": "동 크기",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "동 크기",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "동 크기",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "negative-spacing",
+    "options": {
+      "source": "AB가CD라EF",
+      "letterSpacingPx": -12,
+      "wordWrapWidthPx": 4,
+      "breakWords": true
+    },
+    "expected": {
+      "source": "AB가CD라EF",
+      "layoutSource": "AB가CD라EF",
+      "graphemes": [
+        "A",
+        "B",
+        "가",
+        "C",
+        "D",
+        "라",
+        "E",
+        "F"
+      ],
+      "hardLines": [
+        "AB가CD라EF"
+      ],
+      "splitLines": [
+        "AB가CD라EF"
+      ],
+      "lines": [
+        "AB가CD라EF"
+      ],
+      "visibleLines": [
+        "AB가CD라EF"
+      ],
+      "visibleText": "AB가CD라EF",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": -12,
+      "lineAdvancesPx": [
+        0
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "AB가CD라EF",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "AB가CD라EF",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 8
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "AB가CD라EF",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 8
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "negative-spacing-overflow",
+    "options": {
+      "source": "AB가CD라EF",
+      "letterSpacingPx": -12,
+      "overflow": "ellipsis",
+      "contentFrame": {
+        "width": 4,
+        "height": 20
+      }
+    },
+    "expected": {
+      "source": "AB가CD라EF",
+      "layoutSource": "AB가CD라EF",
+      "graphemes": [
+        "A",
+        "B",
+        "가",
+        "C",
+        "D",
+        "라",
+        "E",
+        "F"
+      ],
+      "hardLines": [
+        "AB가CD라EF"
+      ],
+      "splitLines": [
+        "AB가CD라EF"
+      ],
+      "lines": [
+        "AB가CD라EF"
+      ],
+      "visibleLines": [
+        "AB가CD라EF"
+      ],
+      "visibleText": "AB가CD라EF",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": -12,
+      "lineAdvancesPx": [
+        0
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "AB가CD라EF",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "AB가CD라EF",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 8
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "AB가CD라EF",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 8
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "rtl-mixed",
+    "options": {
+      "source": "אבג 123 abc"
+    },
+    "expected": {
+      "source": "אבג 123 abc",
+      "layoutSource": "אבג 123 abc",
+      "graphemes": [
+        "א",
+        "ב",
+        "ג",
+        " ",
+        "1",
+        "2",
+        "3",
+        " ",
+        "a",
+        "b",
+        "c"
+      ],
+      "hardLines": [
+        "אבג 123 abc"
+      ],
+      "splitLines": [
+        "אבג 123 abc"
+      ],
+      "lines": [
+        "אבג 123 abc"
+      ],
+      "visibleLines": [
+        "אבג 123 abc"
+      ],
+      "visibleText": "אבג 123 abc",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        88
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 88,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 88,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "אבג 123 abc",
+          "baseDirection": "rtl",
+          "logicalRuns": [
+            {
+              "text": "אבג ",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            },
+            {
+              "text": "123 abc",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 4,
+              "logicalEnd": 11
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "123 abc",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 4,
+              "logicalEnd": 11
+            },
+            {
+              "text": "אבג ",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "logicalToVisual": [
+            10,
+            9,
+            8,
+            7,
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "ltr-mixed",
+    "options": {
+      "source": "abc אבג 123 xyz"
+    },
+    "expected": {
+      "source": "abc אבג 123 xyz",
+      "layoutSource": "abc אבג 123 xyz",
+      "graphemes": [
+        "a",
+        "b",
+        "c",
+        " ",
+        "א",
+        "ב",
+        "ג",
+        " ",
+        "1",
+        "2",
+        "3",
+        " ",
+        "x",
+        "y",
+        "z"
+      ],
+      "hardLines": [
+        "abc אבג 123 xyz"
+      ],
+      "splitLines": [
+        "abc אבג 123 xyz"
+      ],
+      "lines": [
+        "abc אבג 123 xyz"
+      ],
+      "visibleLines": [
+        "abc אבג 123 xyz"
+      ],
+      "visibleText": "abc אבג 123 xyz",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        120
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 120,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 120,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "abc אבג 123 xyz",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "abc ",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            },
+            {
+              "text": "אבג ",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 4,
+              "logicalEnd": 8
+            },
+            {
+              "text": "123 ",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 8,
+              "logicalEnd": 12
+            },
+            {
+              "text": "xyz",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 12,
+              "logicalEnd": 15
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "abc ",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            },
+            {
+              "text": "123 ",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 8,
+              "logicalEnd": 12
+            },
+            {
+              "text": "אבג ",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 4,
+              "logicalEnd": 8
+            },
+            {
+              "text": "xyz",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 12,
+              "logicalEnd": 15
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3,
+            11,
+            10,
+            9,
+            8,
+            4,
+            5,
+            6,
+            7,
+            12,
+            13,
+            14
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "arabic-number",
+    "options": {
+      "source": "مرحبا ١٢٣ عالم"
+    },
+    "expected": {
+      "source": "مرحبا ١٢٣ عالم",
+      "layoutSource": "مرحبا ١٢٣ عالم",
+      "graphemes": [
+        "م",
+        "ر",
+        "ح",
+        "ب",
+        "ا",
+        " ",
+        "١",
+        "٢",
+        "٣",
+        " ",
+        "ع",
+        "ا",
+        "ل",
+        "م"
+      ],
+      "hardLines": [
+        "مرحبا ١٢٣ عالم"
+      ],
+      "splitLines": [
+        "مرحبا ١٢٣ عالم"
+      ],
+      "lines": [
+        "مرحبا ١٢٣ عالم"
+      ],
+      "visibleLines": [
+        "مرحبا ١٢٣ عالم"
+      ],
+      "visibleText": "مرحبا ١٢٣ عالم",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        112
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 112,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 112,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "مرحبا ١٢٣ عالم",
+          "baseDirection": "rtl",
+          "logicalRuns": [
+            {
+              "text": "مرحبا ",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 0,
+              "logicalEnd": 6
+            },
+            {
+              "text": "١٢٣ ",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 6,
+              "logicalEnd": 10
+            },
+            {
+              "text": "عالم",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 10,
+              "logicalEnd": 14
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "عالم",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 10,
+              "logicalEnd": 14
+            },
+            {
+              "text": "١٢٣ ",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 6,
+              "logicalEnd": 10
+            },
+            {
+              "text": "مرحبا ",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 0,
+              "logicalEnd": 6
+            }
+          ],
+          "logicalToVisual": [
+            13,
+            12,
+            11,
+            10,
+            9,
+            8,
+            4,
+            5,
+            6,
+            7,
+            3,
+            2,
+            1,
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "multiline-bidi",
+    "options": {
+      "source": "abc\nאבג\n123",
+      "split": 2
+    },
+    "expected": {
+      "source": "abc\nאבג\n123",
+      "layoutSource": "abc\nאבג\n123",
+      "graphemes": [
+        "a",
+        "b",
+        "c",
+        "\n",
+        "א",
+        "ב",
+        "ג",
+        "\n",
+        "1",
+        "2",
+        "3"
+      ],
+      "hardLines": [
+        "abc",
+        "אבג",
+        "123"
+      ],
+      "splitLines": [
+        "ab",
+        "c",
+        "אב",
+        "ג",
+        "12",
+        "3"
+      ],
+      "lines": [
+        "ab",
+        "c",
+        "אב",
+        "ג",
+        "12",
+        "3"
+      ],
+      "visibleLines": [
+        "ab",
+        "c",
+        "אב",
+        "ג",
+        "12",
+        "3"
+      ],
+      "visibleText": "ab\nc\nאב\nג\n12\n3",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        16,
+        8,
+        16,
+        8,
+        16,
+        8
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 16,
+        "height": 120
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 16,
+        "height": 120
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "ab",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "ab",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "ab",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1
+          ]
+        },
+        {
+          "lineIndex": 1,
+          "source": "c",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "c",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "c",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        },
+        {
+          "lineIndex": 2,
+          "source": "אב",
+          "baseDirection": "rtl",
+          "logicalRuns": [
+            {
+              "text": "אב",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "אב",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            1,
+            0
+          ]
+        },
+        {
+          "lineIndex": 3,
+          "source": "ג",
+          "baseDirection": "rtl",
+          "logicalRuns": [
+            {
+              "text": "ג",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "ג",
+              "level": 1,
+              "direction": "rtl",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        },
+        {
+          "lineIndex": 4,
+          "source": "12",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "12",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "12",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 2
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1
+          ]
+        },
+        {
+          "lineIndex": 5,
+          "source": "3",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "3",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "3",
+              "level": 2,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 1
+            }
+          ],
+          "logicalToVisual": [
+            0
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "missing",
+    "options": {
+      "source": "a􏿿b"
+    },
+    "expected": {
+      "source": "a􏿿b",
+      "layoutSource": "a􏿿b",
+      "graphemes": [
+        "a",
+        "􏿿",
+        "b"
+      ],
+      "hardLines": [
+        "a􏿿b"
+      ],
+      "splitLines": [
+        "a􏿿b"
+      ],
+      "lines": [
+        "a􏿿b"
+      ],
+      "visibleLines": [
+        "a□b"
+      ],
+      "visibleText": "a□b",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        32
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 32,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 32,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "a􏿿b",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "a􏿿b",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "a􏿿b",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "zero-width",
+    "options": {
+      "source": "a‍b‌c️"
+    },
+    "expected": {
+      "source": "a‍b‌c️",
+      "layoutSource": "a‍b‌c️",
+      "graphemes": [
+        "a‍",
+        "b",
+        "‌",
+        "c️"
+      ],
+      "hardLines": [
+        "a‍b‌c️"
+      ],
+      "splitLines": [
+        "a‍b‌c️"
+      ],
+      "lines": [
+        "a‍b‌c️"
+      ],
+      "visibleLines": [
+        "a‍b‌c️"
+      ],
+      "visibleText": "a‍b‌c️",
+      "fontSizePx": 16,
+      "lineHeightPx": 20,
+      "letterSpacingPx": 0,
+      "lineAdvancesPx": [
+        24
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 20
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 20
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "a‍b‌c️",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "a‍b‌c️",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "a‍b‌c️",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 4
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2,
+            3
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "saturation",
+    "options": {
+      "source": "A😀B",
+      "fontSizePx": 1e+308,
+      "letterSpacingPx": 1e+308
+    },
+    "expected": {
+      "source": "A😀B",
+      "layoutSource": "A😀B",
+      "graphemes": [
+        "A",
+        "😀",
+        "B"
+      ],
+      "hardLines": [
+        "A😀B"
+      ],
+      "splitLines": [
+        "A😀B"
+      ],
+      "lines": [
+        "A😀B"
+      ],
+      "visibleLines": [
+        "A😀B"
+      ],
+      "visibleText": "A😀B",
+      "fontSizePx": 1e+308,
+      "lineHeightPx": 9007199254740991,
+      "letterSpacingPx": 1e+308,
+      "lineAdvancesPx": [
+        9007199254740991
+      ],
+      "layoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 9007199254740991,
+        "height": 9007199254740991
+      },
+      "naturalLayoutBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 9007199254740991,
+        "height": 9007199254740991
+      },
+      "bidiLines": [
+        {
+          "lineIndex": 0,
+          "source": "A😀B",
+          "baseDirection": "ltr",
+          "logicalRuns": [
+            {
+              "text": "A😀B",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "visualRuns": [
+            {
+              "text": "A😀B",
+              "level": 0,
+              "direction": "ltr",
+              "logicalStart": 0,
+              "logicalEnd": 3
+            }
+          ],
+          "logicalToVisual": [
+            0,
+            1,
+            2
+          ]
+        }
+      ]
+    }
+  }
+]

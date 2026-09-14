@@ -1,0 +1,2911 @@
+{
+  "schemaRevision": "patch-map-api-bindings/1",
+  "description": "Reviewed exact asset declaration bindings and partial named behavioral witnesses. No execution outcome is emitted. pendingAssertions are explicit blockers to complete binding qualification.",
+  "bindings": [
+    {
+      "id": "api.AssetSource",
+      "shapeSha256": "02f2d99864acbe51be536d3b72e4665cb28487f1413cfe176b55c44da5728138",
+      "role": "input",
+      "dart": {
+        "symbol": "Object: String or Map<String, dynamic>",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "JsonMap normalizeNativeAssetDescriptor(",
+        "adaptation": "Dart Object accepts the documented String-or-map branch; runtime validation rejects others."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.AssetSource"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Both source String and descriptor map branches normalize to detached canonical descriptors."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Both source String and descriptor map branches normalize to detached canonical descriptors."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.AssetSourceDescriptor",
+      "shapeSha256": "4d03aa615333738350cdf3eea133fd66deea2e7e597a4c1c6c529c9dbea3647f",
+      "role": "input",
+      "dart": {
+        "symbol": "Object: String or Map<String, dynamic>",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "JsonMap normalizeNativeAssetDescriptor(",
+        "adaptation": "Dart Object accepts the documented String-or-map branch; runtime validation rejects others."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.AssetSourceDescriptor"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Both source String and descriptor map branches normalize to detached canonical descriptors."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Both source String and descriptor map branches normalize to detached canonical descriptors."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.AssetSourceDescriptor.data",
+      "shapeSha256": "9c6b3568de79ab96e1d999159807281e242498ba07f7ded3934e2086cba53df8",
+      "role": "input",
+      "dart": {
+        "symbol": "JsonMap['data'] via normalizePatchMapAssetDescriptor",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "result['data'] = _cloneAssetJson",
+        "adaptation": "JSON field accepted by Object/String-or-JsonMap source; runtime normalization owns validation."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.AssetSourceDescriptor.data"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact data normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact data normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.AssetSourceDescriptor.format",
+      "shapeSha256": "2a0ad8bf5b1a17b0c795f6922c13ff3e378eb3c9b6a5986443295964f791a090",
+      "role": "input",
+      "dart": {
+        "symbol": "JsonMap['format'] via normalizePatchMapAssetDescriptor",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "['format', 'parser', 'loadParser']",
+        "adaptation": "JSON field accepted by Object/String-or-JsonMap source; runtime normalization owns validation."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.AssetSourceDescriptor.format"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact format normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact format normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.AssetSourceDescriptor.loadParser",
+      "shapeSha256": "e60a185cc38d1e4ccaa4b4ed28babe8343a7a77bd99a8be994527a2c6187f433",
+      "role": "input",
+      "dart": {
+        "symbol": "JsonMap['loadParser'] via normalizePatchMapAssetDescriptor",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "['format', 'parser', 'loadParser']",
+        "adaptation": "JSON field accepted by Object/String-or-JsonMap source; runtime normalization owns validation."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.AssetSourceDescriptor.loadParser"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact loadParser normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact loadParser normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.AssetSourceDescriptor.parser",
+      "shapeSha256": "945aa697b30097bc725fbb57c36cb3c2e166e626291a7793ecc839fad9648bbd",
+      "role": "input",
+      "dart": {
+        "symbol": "JsonMap['parser'] via normalizePatchMapAssetDescriptor",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "['format', 'parser', 'loadParser']",
+        "adaptation": "JSON field accepted by Object/String-or-JsonMap source; runtime normalization owns validation."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.AssetSourceDescriptor.parser"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact parser normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact parser normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.AssetSourceDescriptor.src",
+      "shapeSha256": "6fe54605d919170114728b3c3721911c840f73b4211a436233229473478607e4",
+      "role": "input",
+      "dart": {
+        "symbol": "JsonMap['src'] via normalizePatchMapAssetDescriptor",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'src': _nonempty(source['src'], 'asset src')",
+        "adaptation": "JSON field accepted by Object/String-or-JsonMap source; runtime normalization owns validation."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.AssetSourceDescriptor.src"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact src normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact src normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PATCH_MAP_BUILTIN_ASSETS",
+      "shapeSha256": "5b6a66a2df8b276b9443f4056c5c1ba66e623d369c7696a5b86997cc0f1da3ed",
+      "role": "output",
+      "dart": {
+        "symbol": "patchMapBuiltinAssets",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "patchMapBuiltinAssets",
+        "adaptation": "Public Dart lowerCamelCase const/list value preserves exact builtin catalog and normalized default policy fields."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PATCH_MAP_BUILTIN_ASSETS"
+      },
+      "scope": "Exact shipped builtin catalog/weights and default policy values are observed; source constant binding is compiled through the public entry.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Exact builtins/weights or default policy values are asserted against the exported catalog/policy."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Exact builtins/weights or default policy values are asserted against the exported catalog/policy."
+        }
+      ]
+    },
+    {
+      "id": "api.PATCH_MAP_DEFAULT_ASSET_POLICY",
+      "shapeSha256": "6b5c1b7079f1921fee1cf77400269d96b545bb5f65d6c86dfbdebf68d387db5c",
+      "role": "output",
+      "dart": {
+        "symbol": "patchMapDefaultAssetPolicy",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "patchMapDefaultAssetPolicy",
+        "adaptation": "Public Dart lowerCamelCase const/list value preserves exact builtin catalog and normalized default policy fields."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PATCH_MAP_DEFAULT_ASSET_POLICY"
+      },
+      "scope": "Exact shipped builtin catalog/weights and default policy values are observed; source constant binding is compiled through the public entry.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact builtins/weights or default policy values are asserted against the exported catalog/policy."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact builtins/weights or default policy values are asserted against the exported catalog/policy."
+        }
+      ]
+    },
+    {
+      "id": "api.PATCH_MAP_DEFAULT_ASSET_POLICY.maxDecodedHeight",
+      "shapeSha256": "02ff60bf772873725e9bcfe975aca61cd7662b817185225b3f2b7ac1ae08a4c7",
+      "role": "output",
+      "dart": {
+        "symbol": "patchMapDefaultAssetPolicy['maxDecodedHeight']",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "patchMapDefaultAssetPolicy",
+        "adaptation": "Public Dart lowerCamelCase const/list value preserves exact builtin catalog and normalized default policy fields."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PATCH_MAP_DEFAULT_ASSET_POLICY.maxDecodedHeight"
+      },
+      "scope": "Exact shipped builtin catalog/weights and default policy values are observed; source constant binding is compiled through the public entry.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact builtins/weights or default policy values are asserted against the exported catalog/policy."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact builtins/weights or default policy values are asserted against the exported catalog/policy."
+        }
+      ]
+    },
+    {
+      "id": "api.PATCH_MAP_DEFAULT_ASSET_POLICY.maxDecodedWidth",
+      "shapeSha256": "21cbad882d2c0a761aec603720616ad1c5981fd2cb237689d6095c7b92c7d4e8",
+      "role": "output",
+      "dart": {
+        "symbol": "patchMapDefaultAssetPolicy['maxDecodedWidth']",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "patchMapDefaultAssetPolicy",
+        "adaptation": "Public Dart lowerCamelCase const/list value preserves exact builtin catalog and normalized default policy fields."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PATCH_MAP_DEFAULT_ASSET_POLICY.maxDecodedWidth"
+      },
+      "scope": "Exact shipped builtin catalog/weights and default policy values are observed; source constant binding is compiled through the public entry.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact builtins/weights or default policy values are asserted against the exported catalog/policy."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact builtins/weights or default policy values are asserted against the exported catalog/policy."
+        }
+      ]
+    },
+    {
+      "id": "api.PATCH_MAP_DEFAULT_ASSET_POLICY.maxEncodedBytes",
+      "shapeSha256": "fcdcc882fa14d09b70dfdb62ff60fea4bc278c9ed7a2c2075d0d161ed7add4ed",
+      "role": "output",
+      "dart": {
+        "symbol": "patchMapDefaultAssetPolicy['maxEncodedBytes']",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "patchMapDefaultAssetPolicy",
+        "adaptation": "Public Dart lowerCamelCase const/list value preserves exact builtin catalog and normalized default policy fields."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PATCH_MAP_DEFAULT_ASSET_POLICY.maxEncodedBytes"
+      },
+      "scope": "Exact shipped builtin catalog/weights and default policy values are observed; source constant binding is compiled through the public entry.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact builtins/weights or default policy values are asserted against the exported catalog/policy."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact builtins/weights or default policy values are asserted against the exported catalog/policy."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapAssetBackend",
+      "shapeSha256": "8d1ff3d0d749b300241fa6d79ba0d0790fdcb6b3096b1f699bfe752ff3bb187b",
+      "role": "host-protocol",
+      "dart": {
+        "symbol": "PatchMapAssetBackend",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "abstract class PatchMapAssetBackend",
+        "adaptation": "Dart abstract backend/class request retains the interface members; see exact member bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackend"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Injected backend receives the complete source request and owns final resource cleanup."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Injected backend receives the complete source request and owns final resource cleanup."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetBackend.describe",
+      "shapeSha256": "3e092294dd712e42a4d4a9457196ea887d365e607426fbc8ae4aec2a83a8c51b",
+      "role": "host-protocol",
+      "dart": {
+        "symbol": "PatchMapAssetBackend.describe",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "PatchMapAssetResourceDescription? describe(",
+        "adaptation": "Abstract Dart method/getter replaces TypeScript backend callback property."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackend.describe"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "backend descriptions do not alter coordinator identity",
+          "assertion": "Dart normalized decoder metadata does not replace coordinator identity."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-pending-cancel.test.ts",
+          "test": "publishes decoder identities once without replacing the coordinator cache identity",
+          "assertion": "Normalized decoder metadata is detached from coordinator cache identity."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetBackend.get",
+      "shapeSha256": "fc7449841aef15d9126ead9329e83d7355c9b65d379bdc1316f64674fe3a5e34",
+      "role": "host-protocol",
+      "dart": {
+        "symbol": "PatchMapAssetBackend.get",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "Object? get(",
+        "adaptation": "Abstract Dart method/getter replaces TypeScript backend callback property."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackend.get"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "external cached resources are never unloaded",
+          "assertion": "Non-null cached resource is borrowed without load or unload; Dart null is the JS undefined cache-miss adaptation."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "borrows an externally cached backend entry without unloading it",
+          "assertion": "Non-null cached resource is borrowed without load or unload; Dart null is the JS undefined cache-miss adaptation."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetBackend.keyNamespace",
+      "shapeSha256": "d66e18ff228e71827502cd062d447611bdb4610ea035b8c59520ef080902f712",
+      "role": "host-protocol",
+      "dart": {
+        "symbol": "PatchMapAssetBackend.keyNamespace",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "String? get keyNamespace",
+        "adaptation": "Abstract Dart method/getter replaces TypeScript backend callback property."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackend.keyNamespace"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend declares a spaced namespace; physical request key uses its trimmed namespace (native direct prefix, npm hashed namespace)."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend declares a spaced namespace; physical request key uses its trimmed namespace (native direct prefix, npm hashed namespace)."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetBackend.load",
+      "shapeSha256": "dfd599005f7a651da0dd3fc252be62a3513444f0ff718f269efc0f70645aa0e2",
+      "role": "host-protocol",
+      "dart": {
+        "symbol": "PatchMapAssetBackend.load",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "Future<Object?> load(",
+        "adaptation": "Abstract Dart method/getter replaces TypeScript backend callback property."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackend.load"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "same backend shares physical resources across separate runtime catalogs",
+          "assertion": "Concurrent runtime use loads one resource."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "coordinates leases across runtimes that share one physical backend",
+          "assertion": "Concurrent runtime use loads one resource."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetBackend.unload",
+      "shapeSha256": "b3526fde646fe8ec55b69ad43ded2390a4239781a537fc95a123e449ad37b680",
+      "role": "host-protocol",
+      "dart": {
+        "symbol": "PatchMapAssetBackend.unload",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "Future<void> unload(",
+        "adaptation": "Abstract Dart method/getter replaces TypeScript backend callback property."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackend.unload"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "cleanup failure is visible and reacquisition retries before allocating a fresh key",
+          "assertion": "Failed unload quarantines resource until cleanup succeeds."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "quarantines an unload failure and never leases the partly destroyed resource again",
+          "assertion": "Failed unload quarantines resource until cleanup succeeds."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetBackendRequest",
+      "shapeSha256": "8d74c98bfab5778afdfc469ef7de2be23115aade35368554b43cdbb6cc947aba",
+      "role": "host-protocol",
+      "dart": {
+        "symbol": "PatchMapAssetBackendRequest",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "class PatchMapAssetBackendRequest",
+        "adaptation": "Dart abstract backend/class request retains the interface members; see exact member bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackendRequest"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Injected backend receives the complete source request and owns final resource cleanup."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Injected backend receives the complete source request and owns final resource cleanup."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetBackendRequest.cacheIdentity",
+      "shapeSha256": "c00feb1375a41dd274d199b34a415b58553b2859cedfdac9aefb23f9ddf298d8",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapAssetBackendRequest.cacheIdentity",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "final String key, cacheIdentity;",
+        "adaptation": "Typed immutable Dart backend request field."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackendRequest.cacheIdentity"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend request cacheIdentity field is directly read and asserted against the registered source, resolved identity and normalized policy."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend request cacheIdentity field is directly read and asserted against the registered source, resolved identity and normalized policy."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetBackendRequest.descriptor",
+      "shapeSha256": "1d743ad04f7e8e66a661f532fadb010228d388cc790851a13caa2a7a722e7a77",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapAssetBackendRequest.descriptor",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "final JsonMap descriptor, policy;",
+        "adaptation": "Typed immutable Dart backend request field."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackendRequest.descriptor"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend request descriptor field is directly read and asserted against the registered source, resolved identity and normalized policy."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend request descriptor field is directly read and asserted against the registered source, resolved identity and normalized policy."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetBackendRequest.key",
+      "shapeSha256": "89b2f2ac7363bd51d8225d9315115af2bb2867f9ac19d257bc419a6c189ca7e5",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapAssetBackendRequest.key",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "final String key, cacheIdentity;",
+        "adaptation": "Typed immutable Dart backend request field. Physical backend keys are opaque: native uses trimmed namespace plus identity/sequence, Pixi uses its own isolated prefix."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackendRequest.key"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend request key field is directly read and asserted against the registered source, resolved identity and normalized policy."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend request key field is directly read and asserted against the registered source, resolved identity and normalized policy."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetBackendRequest.packageOwned",
+      "shapeSha256": "013057ec60fc50b8c173220707e54fddf68b2e6467c6cb642dc8160ee2171b25",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapAssetBackendRequest.packageOwned",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "final bool packageOwned;",
+        "adaptation": "Typed immutable Dart backend request field."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackendRequest.packageOwned"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend request packageOwned field is directly read and asserted against the registered source, resolved identity and normalized policy."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend request packageOwned field is directly read and asserted against the registered source, resolved identity and normalized policy."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetBackendRequest.policy",
+      "shapeSha256": "770e9ecfe9c8ca960dbc8e0f5571794cad43fdeef16b3bc41fb99df026c18a40",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapAssetBackendRequest.policy",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "final JsonMap descriptor, policy;",
+        "adaptation": "Typed immutable Dart backend request field."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetBackendRequest.policy"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend request policy field is directly read and asserted against the registered source, resolved identity and normalized policy."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "The backend request policy field is directly read and asserted against the registered source, resolved identity and normalized policy."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetError",
+      "shapeSha256": "06a531fc180e4718d5abf00016967dccf163aea7fe1b802e95d4de2fa68d5c73",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapAssetError(code, category, retryable)",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "class PatchMapAssetError extends PatchMapException",
+        "adaptation": "Native exception inherits code and stores category/retryable; constructor has matching positional fields."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetError"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics. Reserved load/decode/upload codes are constructor-field preservation checks; errors originating from each codec remain owned by semantic/platform tests.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "INVALID_VALUE and CONFLICT error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "INVALID_VALUE and CONFLICT error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "INTERNAL_FAILURE and CANCELLED error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "INTERNAL_FAILURE and CANCELLED error code/category/retryable values are directly matched."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetError.prototype",
+      "shapeSha256": "d27adc34acc2a8ec3786e8a9664aa92bedb6cc5c89c51cb607441e2a082c46c6",
+      "role": "language-adaptation",
+      "dart": {
+        "symbol": "PatchMapAssetError instance type",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "class PatchMapAssetError",
+        "adaptation": "TS instance/prototype facets map to one Dart nominal instance type; JavaScript prototype reflection is not a native operation."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetError.prototype"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome. Reserved load/decode/upload codes are constructor-field preservation checks; errors originating from each codec remain owned by semantic/platform tests.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exception typed fields are directly matched on thrown errors."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exception typed fields are directly matched on thrown errors."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetError.type",
+      "shapeSha256": "858a75ad65fdb59da2d151458339f724656d32f3729676fdd105414d866089ee",
+      "role": "language-adaptation",
+      "dart": {
+        "symbol": "PatchMapAssetError instance type",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "class PatchMapAssetError",
+        "adaptation": "TS instance/prototype facets map to one Dart nominal instance type; JavaScript prototype reflection is not a native operation."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetError.type"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome. Reserved load/decode/upload codes are constructor-field preservation checks; errors originating from each codec remain owned by semantic/platform tests.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exception typed fields are directly matched on thrown errors."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exception typed fields are directly matched on thrown errors."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetError.type.category",
+      "shapeSha256": "9c6dcf3136ff173856fda0a1ae528ec2c858c6dd7c980e4a21b856a584dbe0bf",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapAssetError.category",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "class PatchMapAssetError extends PatchMapException",
+        "adaptation": "Native exception inherits code and stores category/retryable; constructor has matching positional fields."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetError.type.category"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics. Reserved load/decode/upload codes are constructor-field preservation checks; errors originating from each codec remain owned by semantic/platform tests.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "INVALID_VALUE and CONFLICT error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "INVALID_VALUE and CONFLICT error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "INTERNAL_FAILURE and CANCELLED error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "INTERNAL_FAILURE and CANCELLED error code/category/retryable values are directly matched."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetError.type.code",
+      "shapeSha256": "3e6ba0912b5ff7e88ffffc3da8a1cee8b9b92541e7ea0875cc6d4d8dff97fdc5",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapAssetError.code",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "class PatchMapAssetError extends PatchMapException",
+        "adaptation": "Native exception inherits code and stores category/retryable; constructor has matching positional fields."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetError.type.code"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics. Reserved load/decode/upload codes are constructor-field preservation checks; errors originating from each codec remain owned by semantic/platform tests.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "INVALID_VALUE and CONFLICT error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "INVALID_VALUE and CONFLICT error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "INTERNAL_FAILURE and CANCELLED error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "INTERNAL_FAILURE and CANCELLED error code/category/retryable values are directly matched."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetError.type.retryable",
+      "shapeSha256": "7e3198ad1abc4d9482c079a286d8dc4f31f41fb14b1f236b4f94a1dbb363cfc1",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapAssetError.retryable",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "class PatchMapAssetError extends PatchMapException",
+        "adaptation": "Native exception inherits code and stores category/retryable; constructor has matching positional fields."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetError.type.retryable"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics. Reserved load/decode/upload codes are constructor-field preservation checks; errors originating from each codec remain owned by semantic/platform tests.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "INVALID_VALUE and CONFLICT error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "INVALID_VALUE and CONFLICT error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "INTERNAL_FAILURE and CANCELLED error code/category/retryable values are directly matched."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "INTERNAL_FAILURE and CANCELLED error code/category/retryable values are directly matched."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetPolicy",
+      "shapeSha256": "fe1548f344c392934aa0c16e0fd88dc8913ce64bfaa7da3de1e3c5bd0f3c9f3f",
+      "role": "input",
+      "dart": {
+        "symbol": "Map<String,dynamic> normalized policy",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "JsonMap normalizePatchMapAssetPolicy(",
+        "adaptation": "Optional input keys normalize to three required integer result keys; Dart map does not provide compile-time required-field checking."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetPolicy"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "All three configured and default policy values are checked as exact map."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "All three configured and default policy values are checked as exact map."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetPolicy.maxDecodedHeight",
+      "shapeSha256": "d91d898015c0889cff41292a872b0aeae96cfbfb0f7ad3579a02c56f92452106",
+      "role": "input",
+      "dart": {
+        "symbol": "JsonMap['maxDecodedHeight'] via normalizePatchMapAssetPolicy",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "'maxDecodedHeight':",
+        "adaptation": "Optional input JSON key becomes required normalized positive integer policy."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetPolicy.maxDecodedHeight"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact maxDecodedHeight normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact maxDecodedHeight normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetPolicy.maxDecodedWidth",
+      "shapeSha256": "580e58768242ca678ae99463ed71b76c51f94424fa52ddbe085d308a916e54f4",
+      "role": "input",
+      "dart": {
+        "symbol": "JsonMap['maxDecodedWidth'] via normalizePatchMapAssetPolicy",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "'maxDecodedWidth':",
+        "adaptation": "Optional input JSON key becomes required normalized positive integer policy."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetPolicy.maxDecodedWidth"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact maxDecodedWidth normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact maxDecodedWidth normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetPolicy.maxEncodedBytes",
+      "shapeSha256": "a73bde0f0c4ad1806a68e9dd4b43ea1193f7e190c7ff724278670d96660af951",
+      "role": "input",
+      "dart": {
+        "symbol": "JsonMap['maxEncodedBytes'] via normalizePatchMapAssetPolicy",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "'maxEncodedBytes':",
+        "adaptation": "Optional input JSON key becomes required normalized positive integer policy."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetPolicy.maxEncodedBytes"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact maxEncodedBytes normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact maxEncodedBytes normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRegistration",
+      "shapeSha256": "26a3287d59cab38f24f1075d520a3cf59d242453243883c1cdc7eac2f6e52acc",
+      "role": "input",
+      "dart": {
+        "symbol": "Map<String,dynamic> registration",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "PatchMapNormalizedAssetRegistration _normalizeRegistration(",
+        "adaptation": "Native registration uses the same JSON fields; runtime normalization enforces required values, kind union and integer weight."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRegistration"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Complete registration shape, ordered duplicate result, conflict and immutable normalized value are asserted."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Complete registration shape, ordered duplicate result, conflict and immutable normalized value are asserted."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRegistration.alias",
+      "shapeSha256": "150d6ebc837998fe6aa2c2a0def12ce9532c6a02ecba14d2db0d5bc4ddc3b50f",
+      "role": "input",
+      "dart": {
+        "symbol": "Map<String,dynamic>['alias']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "final alias = _nonempty(value['alias'], 'alias')",
+        "adaptation": "Native registration uses the same JSON fields; runtime normalization enforces required values, kind union and integer weight."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRegistration.alias"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Registration alias is asserted after normalization, with default/invalid cases where applicable."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Registration alias is asserted after normalization, with default/invalid cases where applicable."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRegistration.descriptor",
+      "shapeSha256": "e2b202d143b64242f46bd00b80e30c4caf327bfc19ee50cc7a119254858b0c6d",
+      "role": "input",
+      "dart": {
+        "symbol": "Map<String,dynamic>['descriptor']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "descriptor = normalizeNativeAssetDescriptor(value['descriptor'])",
+        "adaptation": "Native registration uses the same JSON fields; runtime normalization enforces required values, kind union and integer weight."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRegistration.descriptor"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Registration descriptor is asserted after normalization, with default/invalid cases where applicable."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Registration descriptor is asserted after normalization, with default/invalid cases where applicable."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRegistration.fontWeight",
+      "shapeSha256": "361014a833b1c171e715306e24c6ed89111f2a6073e45d9ccfcacb54e850695f",
+      "role": "input",
+      "dart": {
+        "symbol": "Map<String,dynamic>['fontWeight']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "fontWeight",
+        "adaptation": "Native registration uses the same JSON fields; runtime normalization enforces required values, kind union and integer weight."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRegistration.fontWeight"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Registration fontWeight is asserted after normalization, with default/invalid cases where applicable."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Registration fontWeight is asserted after normalization, with default/invalid cases where applicable."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRegistration.kind",
+      "shapeSha256": "bc07458fc63a1f8374e3a2bc14184bfbd7490ca50f8261402a1e41f1aaa30fc4",
+      "role": "input",
+      "dart": {
+        "symbol": "Map<String,dynamic>['kind']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "final kind = value['kind'] ?? 'image'",
+        "adaptation": "Native registration uses the same JSON fields; runtime normalization enforces required values, kind union and integer weight."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRegistration.kind"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Registration kind is asserted after normalization, with default/invalid cases where applicable."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Registration kind is asserted after normalization, with default/invalid cases where applicable."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRegistrationResult",
+      "shapeSha256": "0cf0c3a85abaebd362853326495671d65800b854416d25b624abe2eb2c20743b",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapResult.toJson()",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'registeredAliases': added",
+        "adaptation": "Dart result wrapper serializes the identical two readonly list fields."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRegistrationResult"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Complete ordered registeredAliases/duplicateAliases result is compared."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Complete ordered registeredAliases/duplicateAliases result is compared."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRegistrationResult.duplicateAliases",
+      "shapeSha256": "30ac254c9d7defa9ed6085b7e1fb16261f6abfb399a4feb94f7cb7db759bca58",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapResult.toJson()['duplicateAliases']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'duplicateAliases':",
+        "adaptation": "JSON result array replaces the readonly interface field; caller accesses toJson()."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRegistrationResult.duplicateAliases"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact duplicateAliases normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact duplicateAliases normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRegistrationResult.registeredAliases",
+      "shapeSha256": "e5f1de040cd012775bcacc63edac0bae465cc6976884bf01f35c5535bd403e72",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapResult.toJson()['registeredAliases']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'registeredAliases':",
+        "adaptation": "JSON result array replaces the readonly interface field; caller accesses toJson()."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRegistrationResult.registeredAliases"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact registeredAliases normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Exact registeredAliases normalized/result field is asserted; invalid string/number and independent dimension boundaries have explicit cases."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetResourceProbe",
+      "shapeSha256": "f888a6d6774eea3419a872836c5dff55b55d7494474ed42de06a144e0e7fbad6",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic> probe",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "JsonMap probe(",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetResourceProbe"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Complete probe object is compared through pending, resolved, releasing, failed cleanup and destruction states."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Complete probe object is compared through pending, resolved, releasing, failed cleanup and destruction states."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetResourceProbe.cacheIdentity",
+      "shapeSha256": "0fcc6e3c28ace58b6773eb173e278851ac00c3e8f50cad881f114035163457bd",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['cacheIdentity']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'cacheIdentity':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetResourceProbe.cacheIdentity"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.cacheIdentity has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.cacheIdentity has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetResourceProbe.cleanupPending",
+      "shapeSha256": "8823a722b2da2fff6cbbd839207c564cbdcb32cab33f27dee2189ba17a2f15ae",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['cleanupPending']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'cleanupPending':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetResourceProbe.cleanupPending"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.cleanupPending has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.cleanupPending has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetResourceProbe.cleanupRetryOwner",
+      "shapeSha256": "a826e6d42706047cd1e2bcc3dc22e9146d08c732d5b524810a18133347388de5",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['cleanupRetryOwner']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'cleanupRetryOwner':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetResourceProbe.cleanupRetryOwner"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.cleanupRetryOwner has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.cleanupRetryOwner has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetResourceProbe.leaseCount",
+      "shapeSha256": "e1855b7cfd70b5c0e579cd30e8c847bbd607bda7d6f770a702c59c4c9e2471de",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['leaseCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'leaseCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetResourceProbe.leaseCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.leaseCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.leaseCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetResourceProbe.ownership",
+      "shapeSha256": "39fd7e7f376932d77b0f401529ddcaf56bcee558e73c5edeb84984d53bb30049",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['ownership']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'ownership':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetResourceProbe.ownership"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.ownership has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.ownership has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetResourceProbe.pendingCount",
+      "shapeSha256": "cc25a84a09546cd84fd5430abc415a939507fa697e50f0263814a1c702608569",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['pendingCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'pendingCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetResourceProbe.pendingCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.pendingCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.pendingCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetResourceProbe.resourceCount",
+      "shapeSha256": "897d1312ab196a0057343136ae46330f05777c29f808c7ac6b80a3be053a6e9c",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['resourceCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'resourceCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetResourceProbe.resourceCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.resourceCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.resourceCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetResourceProbe.state",
+      "shapeSha256": "3d7e864a7d8721ac85626606ca961b80fef2035feb1b8eb804719478e7de7038",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['state']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'state':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetResourceProbe.state"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.state has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetResourceProbe.state has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime",
+      "shapeSha256": "4fe9b5ab3a2536ab74c84f51cd94ccc6fa7c109da8e078affca2fcf86f203fb3",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime([PatchMapAssetBackend?])",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "PatchMapAssetRuntime([PatchMapAssetBackend? backend])",
+        "adaptation": "Optional positional native backend constructor; alias catalogs separate, physical coordinator keyed by backend identity."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "same backend shares physical resources across separate runtime catalogs",
+          "assertion": "Two runtime catalogs sharing one backend allocate one physical resource and unload after final lease."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "coordinates leases across runtimes that share one physical backend",
+          "assertion": "Two runtime catalogs sharing one backend allocate one physical resource and unload after final lease."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.prototype",
+      "shapeSha256": "fab3defbf31a80261e042111326567765a61cb1ee4af7f5cce36db8483016b3d",
+      "role": "language-adaptation",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime instance type",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "class PatchMapAssetRuntime",
+        "adaptation": "TS instance/prototype facets map to one Dart nominal instance type; JavaScript prototype reflection is not a native operation."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.prototype"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Constructor produces isolated alias catalog and shared backend resource coordination."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Constructor produces isolated alias catalog and shared backend resource coordination."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.type",
+      "shapeSha256": "5c26482d8a8ec44d860d44a6911958a0832281718d5f3e36ea42dbef84bbe3d6",
+      "role": "language-adaptation",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime instance type",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "class PatchMapAssetRuntime",
+        "adaptation": "TS instance/prototype facets map to one Dart nominal instance type; JavaScript prototype reflection is not a native operation."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.type"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Constructor produces isolated alias catalog and shared backend resource coordination."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Constructor produces isolated alias catalog and shared backend resource coordination."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.type.attach",
+      "shapeSha256": "17de38972f724938f608e6fde699fef66eca95791ad213b473123a87386e9887",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime.attach",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "Future<Object?> attach(",
+        "adaptation": "Same public operation; Future replaces Promise, named options and JsonMap/PatchMapResult are explicit native bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.type.attach"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics. npm witness invokes the runtime method through its owning session coordinator; Dart also tests the low-level public use directly. A separate direct call is not required to re-prove an observed coordinator transition.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "public low-level attach release and scoped retry use the same coordinator",
+          "assertion": "Public low-level use and regular session share the same resource and physical coordinator."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "deduplicates pending work across instances and unloads after the final lease",
+          "assertion": "Public low-level use and regular session share the same resource and physical coordinator."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.type.createSession",
+      "shapeSha256": "ae6e8b4c8d5ba7f7f6f45ca67b22ad6dd5ae8ca669b22b266d4e24872d4b0f05",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime.createSession",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "PatchMapAssetSession createSession({",
+        "adaptation": "Same public operation; Future replaces Promise, named options and JsonMap/PatchMapResult are explicit native bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.type.createSession"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "manual session distinguishes aliases from sources and deduplicates handles",
+          "assertion": "Named instanceId/policy input replaces a TS options object. Session trims instanceId and repeated acquisitions share one use."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "deduplicates pending work across instances and unloads after the final lease",
+          "assertion": "Named instanceId/policy input replaces a TS options object. Session trims instanceId and repeated acquisitions share one use."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.type.probe",
+      "shapeSha256": "a687baebe9e3dd9ece86af73b0bfcb905ca3311701b7dde9360b1f0d7b1db909",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime.probe",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "JsonMap probe(",
+        "adaptation": "Same public operation; Future replaces Promise, named options and JsonMap/PatchMapResult are explicit native bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.type.probe"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Exact pending/resolved/releasing/cleanup-failed/absent probe fields and direct runtime cleanup retry are asserted."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Exact pending/resolved/releasing/cleanup-failed/absent probe fields and direct runtime cleanup retry are asserted."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.type.registerAlias",
+      "shapeSha256": "d6c2ce648775ab605531f83b79342d635775584031dfac745e1df4eca26c242d",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime.registerAlias",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "PatchMapResult registerAlias(",
+        "adaptation": "Same public operation; Future replaces Promise, named options and JsonMap/PatchMapResult are explicit native bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.type.registerAlias"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "manual session distinguishes aliases from sources and deduplicates handles",
+          "assertion": "Registers one alias for session acquisition; unknown alias/source meanings remain distinct."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "registers immutable builtins without allocating resources and rejects conflicts by the closed code",
+          "assertion": "Registers one alias for session acquisition; unknown alias/source meanings remain distinct."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.type.registerAssets",
+      "shapeSha256": "c3ccc8fffa85920dc554c4ad6a33c86326a11dff5f1e824917f59f6bd4ade26c",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime.registerAssets",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "PatchMapResult registerAssets(",
+        "adaptation": "Same public operation; Future replaces Promise, named options and JsonMap/PatchMapResult are explicit native bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.type.registerAssets"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/assets_test.dart",
+          "test": "registration normalizes trimmed descriptors and treats duplicates atomically",
+          "assertion": "Atomic duplicate/conflict preflight leaves unrelated entries unregistered on conflict."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "registers immutable builtins without allocating resources and rejects conflicts by the closed code",
+          "assertion": "Atomic duplicate/conflict preflight leaves unrelated entries unregistered on conflict."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.type.release",
+      "shapeSha256": "ad477eac1d9ed6d859b48e05b874ef7287331dacac0468f9c16c4e297b7ff3bb",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime.release",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "Future<void> release(",
+        "adaptation": "Same public operation; Future replaces Promise, named options and JsonMap/PatchMapResult are explicit native bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.type.release"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics. npm witness invokes the runtime method through its owning session coordinator; Dart also tests the low-level public use directly. A separate direct call is not required to re-prove an observed coordinator transition.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "public low-level attach release and scoped retry use the same coordinator",
+          "assertion": "Final low-level release owns cleanup and exposes unload failure."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "deduplicates pending work across instances and unloads after the final lease",
+          "assertion": "Final low-level release owns cleanup and exposes unload failure."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.type.resolve",
+      "shapeSha256": "6c624d7ed8d697395ddcb1d6306dbacd968a140c9bee33d8bfebc123ac77a923",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime.resolve",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "PatchMapNormalizedAssetRegistration resolve(",
+        "adaptation": "Same public operation; Future replaces Promise, named options and JsonMap/PatchMapResult are explicit native bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.type.resolve"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "manual session distinguishes aliases from sources and deduplicates handles",
+          "assertion": "Returns immutable normalized alias identity; acquisition cache identity matches resolved catalog entry."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "distinguishes package catalog identity from host registrations and uses closed invalid-input codes",
+          "assertion": "Returns immutable normalized alias identity; acquisition cache identity matches resolved catalog entry."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.type.retryCleanup",
+      "shapeSha256": "65e3b6ec35f82d0bf650e86e4b708dc5d753d97efb2f1129d05a89f10acdd31a",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime.retryCleanup",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "Future<void> retryCleanup()",
+        "adaptation": "Same public operation; Future replaces Promise, named options and JsonMap/PatchMapResult are explicit native bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.type.retryCleanup"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Exact pending/resolved/releasing/cleanup-failed/absent probe fields and direct runtime cleanup retry are asserted."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Exact pending/resolved/releasing/cleanup-failed/absent probe fields and direct runtime cleanup retry are asserted."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.type.retryCleanupFor",
+      "shapeSha256": "58fe98124a8661635ae19a2d108252f3be8d20ca3319c4e8e8375c7099a6c087",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime.retryCleanupFor",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "Future<void> retryCleanupFor(",
+        "adaptation": "Same public operation; Future replaces Promise, named options and JsonMap/PatchMapResult are explicit native bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.type.retryCleanupFor"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics. npm witness invokes the runtime method through its owning session coordinator; Dart also tests the low-level public use directly. A separate direct call is not required to re-prove an observed coordinator transition.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "public low-level attach release and scoped retry use the same coordinator",
+          "assertion": "Canonical identity scopes retry; unrelated identity does not clear pending cleanup."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "does not make an unrelated empty session retry another session cleanup",
+          "assertion": "Canonical identity scopes retry; unrelated identity does not clear pending cleanup."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntime.type.sourceEntry",
+      "shapeSha256": "2cdb0e6eddccec0e85317c2c7622f2e9407b72f41f9b504947d20b1904db4d72",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapAssetRuntime.sourceEntry",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "PatchMapNormalizedAssetRegistration sourceEntry(",
+        "adaptation": "Same public operation; Future replaces Promise, named options and JsonMap/PatchMapResult are explicit native bindings."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntime.type.sourceEntry"
+      },
+      "scope": "Declaration probe checks public Dart access and named return types. Runtime evidence is limited to the assertion below; JSON-key access alone proves no field shape or semantics.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "backend descriptions do not alter coordinator identity",
+          "assertion": "Source descriptors canonicalize detached data and produce coordinator identity independent of backend metadata."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "detaches and freezes descriptor options while including every field in identity",
+          "assertion": "Source descriptors canonicalize detached data and produce coordinator identity independent of backend metadata."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntimeProbe",
+      "shapeSha256": "2052d1c5820d7f2af8dd670163979ec0db7fa94a62edfeef8c8ae28c4994dcea",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic> probe",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "JsonMap probe(",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntimeProbe"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Complete probe object is compared through pending, resolved, releasing, failed cleanup and destruction states."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Complete probe object is compared through pending, resolved, releasing, failed cleanup and destruction states."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntimeProbe.aliasCount",
+      "shapeSha256": "f00e003a0334d242ea20834695e659064f6dcf6aeb5d68f5dd5cb77df05350cd",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['aliasCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'aliasCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntimeProbe.aliasCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.aliasCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.aliasCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntimeProbe.builtins",
+      "shapeSha256": "04989ea588b71e28b4a8c1926716d6dd79d13451d8b44762835a882f16e288b3",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['builtins']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'builtins':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntimeProbe.builtins"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.builtins has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.builtins has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntimeProbe.cleanupPendingCount",
+      "shapeSha256": "96d897863c38f1a1f8288467084da8333226ac8f41e983896970a32fa18bf791",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['cleanupPendingCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'cleanupPendingCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntimeProbe.cleanupPendingCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.cleanupPendingCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.cleanupPendingCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntimeProbe.fonts",
+      "shapeSha256": "1f5552a30d8c40feaedd4416de3be3ba583d2564b6bc4b9862b26de4085fc9d5",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['fonts']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'fonts':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntimeProbe.fonts"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.fonts has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.fonts has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntimeProbe.leaseCount",
+      "shapeSha256": "783949f57189511787e9382eb8fe893079a12ca9799676107806ca28970a22e9",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['leaseCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'leaseCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntimeProbe.leaseCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.leaseCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.leaseCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntimeProbe.pendingCount",
+      "shapeSha256": "6280c79a2fefc1c8cf4588c7f8421b9ee5a9e6de13ea978f716850181ec384e0",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['pendingCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'pendingCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntimeProbe.pendingCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.pendingCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.pendingCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntimeProbe.resource",
+      "shapeSha256": "84245acd30f8a782487e2afd7a8c33db56168cd252c3970cf16b212042022ed5",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['resource']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'resource':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntimeProbe.resource"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.resource has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.resource has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetRuntimeProbe.resourceCount",
+      "shapeSha256": "4c2c142674c1caddb644220e32e56e62702bd6e7a6443d24b26de0fc1b767406",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['resourceCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_runtime.dart",
+        "locator": "'resourceCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetRuntimeProbe.resourceCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.resourceCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetRuntimeProbe.resourceCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetSessionProbe",
+      "shapeSha256": "239ad0c98606d069381f9f5a50bfea6ea350a92562a36c4a67fbadd9c7b01582",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic> probe",
+        "file": "packages/patch_map/lib/src/host/native_asset_session.dart",
+        "locator": "JsonMap probe(",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetSessionProbe"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Complete probe object is compared through pending, resolved, releasing, failed cleanup and destruction states."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Complete probe object is compared through pending, resolved, releasing, failed cleanup and destruction states."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetSessionProbe.acquisitionCount",
+      "shapeSha256": "5fa167f00ac860c8a3908ea1d5d8f8f686ebaffdd9e145091fc6e6166f11683e",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['acquisitionCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_session.dart",
+        "locator": "'acquisitionCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetSessionProbe.acquisitionCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.acquisitionCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.acquisitionCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetSessionProbe.cleanupPendingCount",
+      "shapeSha256": "bb7e7438e57abb3ca01fdb66fc90aa5e07ccc128e0660602973387f9d769036b",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['cleanupPendingCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_session.dart",
+        "locator": "'cleanupPendingCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetSessionProbe.cleanupPendingCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.cleanupPendingCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.cleanupPendingCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetSessionProbe.destroyed",
+      "shapeSha256": "cd5fd8a3d52f7277410804a41050c8b08300cc90bcea574523bad6b246de62c8",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['destroyed']",
+        "file": "packages/patch_map/lib/src/host/native_asset_session.dart",
+        "locator": "'destroyed':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetSessionProbe.destroyed"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.destroyed has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.destroyed has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetSessionProbe.instanceId",
+      "shapeSha256": "2f2c9649c30c971037bcfba3541bb88308dcd8b2a6a26e7a0d29ff8b2f93f74e",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['instanceId']",
+        "file": "packages/patch_map/lib/src/host/native_asset_session.dart",
+        "locator": "'instanceId':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetSessionProbe.instanceId"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.instanceId has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.instanceId has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetSessionProbe.leaseCount",
+      "shapeSha256": "8ecf45e7d981a2410fa5eb2c21299970a56a4bd3439ba69951c0bf898565f3b0",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['leaseCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_session.dart",
+        "locator": "'leaseCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetSessionProbe.leaseCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.leaseCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.leaseCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetSessionProbe.pendingCount",
+      "shapeSha256": "f99076b07f1d53b41aa44e69b7a9b1cb90bbc753c87235be038afcd290fdfe5f",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['pendingCount']",
+        "file": "packages/patch_map/lib/src/host/native_asset_session.dart",
+        "locator": "'pendingCount':",
+        "adaptation": "Readonly TS probe object maps to detached JSON-compatible Dart values; exact result keys are runtime assertions."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetSessionProbe.pendingCount"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.pendingCount has an exact expected value in lifecycle probe snapshots."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "PatchMapAssetSessionProbe.pendingCount has an exact expected value in lifecycle probe snapshots."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetStatus",
+      "shapeSha256": "5d9021e85654e9f0770aa98bbfc2a69fc4ad5d1ddfdefb8046bcbccc763596ee",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic> status",
+        "file": "packages/patch_map/lib/src/host/native_assets.dart",
+        "locator": "JsonMap status(",
+        "adaptation": "Native host status preserves session/runtime shared keys and adds documented resolved/failed/ready diagnostics inside session."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetStatus"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome. npm facade uses createPatchMapApi with the existing test host forwarding to the real runtime/session; this is facade evidence, not OS mount evidence. Successful native cleanup now clears the public session probe, while failed cleanup retains it for retry.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller returns both session and runtime keys, with native session diagnostic fields."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller returns both session and runtime keys, with native session diagnostic fields."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "native cleanup failure drops bindings and repeated destroy retries cleanup",
+          "assertion": "Concurrent destroy joins one cleanup attempt; failed cleanup preserves session probe; successful retry clears session to null and keeps runtime probe."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetStatus.runtime",
+      "shapeSha256": "d279f1f6f80c4694491d71804cc3cf123a5405cc4c1a2fb4c481c832070640b9",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['runtime']",
+        "file": "packages/patch_map/lib/src/host/native_assets.dart",
+        "locator": "'runtime':",
+        "adaptation": "Native host status preserves session/runtime shared keys and adds documented resolved/failed/ready diagnostics inside session."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetStatus.runtime"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome. npm facade uses createPatchMapApi with the existing test host forwarding to the real runtime/session; this is facade evidence, not OS mount evidence. Successful native cleanup now clears the public session probe, while failed cleanup retains it for retry.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller status.runtime matches its runtime/session owner probe."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller status.runtime matches its runtime/session owner probe."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "native cleanup failure drops bindings and repeated destroy retries cleanup",
+          "assertion": "Concurrent destroy joins one cleanup attempt; failed cleanup preserves session probe; successful retry clears session to null and keeps runtime probe."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetStatus.session",
+      "shapeSha256": "a77dc68dc179de119f32c8825b9b8e5a97cd06aea616a3be8896bbee79ca7702",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['session']",
+        "file": "packages/patch_map/lib/src/host/native_assets.dart",
+        "locator": "'session':",
+        "adaptation": "Native host status preserves session/runtime shared keys and adds documented resolved/failed/ready diagnostics inside session."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetStatus.session"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome. npm facade uses createPatchMapApi with the existing test host forwarding to the real runtime/session; this is facade evidence, not OS mount evidence. Successful native cleanup now clears the public session probe, while failed cleanup retains it for retry.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller status.session matches its runtime/session owner probe."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller status.session matches its runtime/session owner probe."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "native cleanup failure drops bindings and repeated destroy retries cleanup",
+          "assertion": "Concurrent destroy joins one cleanup attempt; failed cleanup preserves session probe; successful retry clears session to null and keeps runtime probe."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetsApi",
+      "shapeSha256": "5e217aba716d986f3be3c25597e2563f6fbf9661b27bea05be331ef1f8dd3756",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapController.assets",
+        "file": "packages/patch_map/lib/src/engine/controller.dart",
+        "locator": "class PatchMapAssetsApi",
+        "adaptation": "Controller namespace forwards one-or-many registrations and optional alias status to the mounted asset session."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetsApi"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome. npm facade uses createPatchMapApi with the existing test host forwarding to the real runtime/session; this is facade evidence, not OS mount evidence. Successful native cleanup now clears the public session probe, while failed cleanup retains it for retry.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller assets namespace forwards single/list registration and returns session/runtime status."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller assets namespace forwards single/list registration and returns session/runtime status."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "native cleanup failure drops bindings and repeated destroy retries cleanup",
+          "assertion": "Concurrent destroy joins one cleanup attempt; failed cleanup preserves session probe; successful retry clears session to null and keeps runtime probe."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetsApi.register",
+      "shapeSha256": "fde5c0cee03b3ca5d36ea52979c53d8a39ccc78f7200f5529fd66f9704a1857b",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapController.assets.register",
+        "file": "packages/patch_map/lib/src/engine/controller.dart",
+        "locator": "PatchMapResult register(Object registrations)",
+        "adaptation": "Controller namespace forwards one-or-many registrations and optional alias status to the mounted asset session."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetsApi.register"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome. npm facade uses createPatchMapApi with the existing test host forwarding to the real runtime/session; this is facade evidence, not OS mount evidence. Successful native cleanup now clears the public session probe, while failed cleanup retains it for retry.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller assets register forwards single/list registration and returns session/runtime status."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller assets register forwards single/list registration and returns session/runtime status."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "native cleanup failure drops bindings and repeated destroy retries cleanup",
+          "assertion": "Concurrent destroy joins one cleanup attempt; failed cleanup preserves session probe; successful retry clears session to null and keeps runtime probe."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapAssetsApi.status",
+      "shapeSha256": "7787506c25c2bd704bc4de6d9560b89c6ad0b2f4804c48ef19ab2a99842b5115",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapController.assets.status",
+        "file": "packages/patch_map/lib/src/engine/controller.dart",
+        "locator": "JsonMap status([String? alias])",
+        "adaptation": "Controller namespace forwards one-or-many registrations and optional alias status to the mounted asset session."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapAssetsApi.status"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome. npm facade uses createPatchMapApi with the existing test host forwarding to the real runtime/session; this is facade evidence, not OS mount evidence. Successful native cleanup now clears the public session probe, while failed cleanup retains it for retry.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller assets status forwards single/list registration and returns session/runtime status."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset backend requests and runtime session status enumerate lifecycle fields",
+          "assertion": "Dart controller assets status forwards single/list registration and returns session/runtime status."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+          "test": "native cleanup failure drops bindings and repeated destroy retries cleanup",
+          "assertion": "Concurrent destroy joins one cleanup attempt; failed cleanup preserves session probe; successful retry clears session to null and keeps runtime probe."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapResolvedAssetPolicy",
+      "shapeSha256": "02854e5be68f602b2d92f633fe6059e44c5aea4424706abd09fbf518b6fb994a",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic> normalized policy",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "JsonMap normalizePatchMapAssetPolicy(",
+        "adaptation": "Optional input keys normalize to three required integer result keys; Dart map does not provide compile-time required-field checking."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapResolvedAssetPolicy"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "All three configured and default policy values are checked as exact map."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "All three configured and default policy values are checked as exact map."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapResolvedAssetPolicy.maxDecodedHeight",
+      "shapeSha256": "3029f3779dcfd471fd1a01a462af935002562e7f410b88188b6dd7a867280fe5",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['maxDecodedHeight']",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "'maxDecodedHeight':",
+        "adaptation": "Optional input keys normalize to three required integer result keys; Dart map does not provide compile-time required-field checking."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapResolvedAssetPolicy.maxDecodedHeight"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Normalized maxDecodedHeight result equals the configured limit; invalid values are rejected."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Normalized maxDecodedHeight result equals the configured limit; invalid values are rejected."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapResolvedAssetPolicy.maxDecodedWidth",
+      "shapeSha256": "dd7a0b4729a4182f40e6d5848f3af8c1a58a4a850878c40356f8808d4f49065d",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['maxDecodedWidth']",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "'maxDecodedWidth':",
+        "adaptation": "Optional input keys normalize to three required integer result keys; Dart map does not provide compile-time required-field checking."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapResolvedAssetPolicy.maxDecodedWidth"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Normalized maxDecodedWidth result equals the configured limit; invalid values are rejected."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Normalized maxDecodedWidth result equals the configured limit; invalid values are rejected."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.PatchMapResolvedAssetPolicy.maxEncodedBytes",
+      "shapeSha256": "134f334ed98d60da402c8d0d37d24700ede52603e851b44cc119514393d46970",
+      "role": "output",
+      "dart": {
+        "symbol": "Map<String,dynamic>['maxEncodedBytes']",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "'maxEncodedBytes':",
+        "adaptation": "Optional input keys normalize to three required integer result keys; Dart map does not provide compile-time required-field checking."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.PatchMapResolvedAssetPolicy.maxEncodedBytes"
+      },
+      "scope": "Static Dart access probe plus exact field/operation assertions named here; declaration containers compose their reviewed member bindings. No automatic execution outcome.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Normalized maxEncodedBytes result equals the configured limit; invalid values are rejected."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-binding-contract.test.ts",
+          "test": "asset descriptor registration and policy fields preserve exact public values",
+          "assertion": "Normalized maxEncodedBytes result equals the configured limit; invalid values are rejected."
+        }
+      ],
+      "pendingAssertions": []
+    },
+    {
+      "id": "api.createPatchMapPixiAssetBackend",
+      "shapeSha256": "ea92114fd20d9d0b383983158b5a625eec1f0aaae4e29243beb41f6721264d1a",
+      "role": "language-adaptation",
+      "dart": {
+        "symbol": "createPatchMapNativeAssetBackend()",
+        "file": "packages/patch_map/lib/src/host/native_asset_backend.dart",
+        "locator": "PatchMapAssetBackend createPatchMapNativeAssetBackend()",
+        "adaptation": "Native factory returns Flutter codec backend instead of Pixi resources; this is the deliberate renderer binding."
+      },
+      "probe": {
+        "file": "packages/patch_map/test/conformance/assets_public_binding_probe.dart",
+        "marker": "// api:api.createPatchMapPixiAssetBackend"
+      },
+      "scope": "Factory is a renderer binding (native Canvas resource vs Pixi texture). Named tests prove each factory adapter contract; semantic codec-format and OS rendering qualification remain separate requirements, not inferred from this map.",
+      "witnesses": [
+        {
+          "runtime": "dart",
+          "file": "packages/patch_map/test/host/asset_binding_contract_test.dart",
+          "test": "public native backend factory decodes and releases an actual SVG source",
+          "assertion": "Exported native backend creates a drawable from actual admitted SVG bytes, with exact intrinsic dimensions and idempotent release."
+        },
+        {
+          "runtime": "npm",
+          "file": "tests/rendering/asset-registry.test.ts",
+          "test": "does not borrow host Pixi cache entries and maps package builtins",
+          "assertion": "Exported Pixi factory maps builtins and isolates host Pixi cache through its owned backend protocol."
+        }
+      ],
+      "pendingAssertions": []
+    }
+  ]
+}
