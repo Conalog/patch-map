@@ -67,7 +67,7 @@ versioned dataset + command + input + virtual time + asset/frame faults
 
 | 위험 | 필요한 동작·검사 |
 | --- | --- |
-| 텍스트 | Dart에 현재 semantic segmentation/layout 규칙을 구현한다. Flame TextBox/TextPainter의 기본 줄바꿈으로 대체하지 않는다. Latin·한글·emoji·RTL·ligature·weights·zoom별 잘림/배치 검사를 둔다. |
+| 텍스트 | Dart에 현재 semantic segmentation/layout 규칙을 구현한다. TextPainter의 기본 줄바꿈으로 대체하지 않는다. Latin·한글·emoji·RTL·ligature·weights·zoom별 잘림/배치 검사를 둔다. |
 | font fallback | FiraCode에 한글 glyph가 없고 현재 계약은 browser fallback이다. 고정 fallback font 도입 여부를 결정하고, 시각 tolerance는 raster 차이에 한정한다. 공통 font 원본에서 포맷별 산출물을 만들면 provenance·metric 일치를 검증한다. |
 | 이미지/font 형식 | SVG·PNG·JPEG·WebP·AVIF·GIF·WOFF/WOFF2·TTF/OTF 등 현재 admission 전체를 목표 OS에서 검사한다. Flutter 기본 codec이 모든 형식을 처리한다고 가정하지 않는다. 필요한 decoder가 없으면 출시 차단이다. |
 | 네트워크 | 기존 anonymous fetch·redirect 거부·MIME·size·SVG 정책을 유지한다. native loader의 기본 redirect나 전역 cache hit로 정책을 우회하지 않는다. CORS 같은 웹 제약은 플랫폼 binding에 남긴다. |

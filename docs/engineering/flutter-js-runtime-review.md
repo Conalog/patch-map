@@ -1,8 +1,8 @@
 # Embedded JavaScript runtime review
 
-- Status: proposed; 2026-09-14 정적 조사와 [bar slice 시뮬레이터 실측](flutter-mobile-benchmark.md), 실기기 성능은 미측정
+- Status: review complete; JS runtime 미채택; 2026-09-14 정적 조사와 [bar slice 시뮬레이터 실측](flutter-mobile-benchmark.md), 실기기 성능은 미측정
 - Context: [Flutter package design](flutter-package-design.md)의 독립 Dart 구현과 임베디드 JS 대안 비교
-- Conclusion: JS 실행 방식도 유효하다. 실측한 대량 bar 경로는 Dart에 유리하지만, JS 의미 처리와 Dart geometry의 조합 및 전체 기능·수명 검증까지 engine 선택을 확정하지 않는다.
+- Conclusion: Android/iOS에서 JS 실행은 가능하지만 최종안은 독립 Dart + 직접 Canvas다. 대량 bar 실측과 Dart 내부의 직접 데이터 경로를 근거로 선정했다. 상세 결정은 [architecture decision](flutter-package-design.md)이 소유한다.
 - Android/iOS 필수 지원 후보는 [Mobile JS candidates](flutter-mobile-js-candidates.md)에서 비교한다.
 
 ## 실제 가능한 구성
@@ -18,7 +18,7 @@
                               |
                      명령/결과 + dirty projection bridge
                               |
-                      Dart Flame/Canvas renderer
+                      Dart Canvas renderer
 ```
 
 JS는 scene·history·선택·편집·publication의 유일한 권위이고, Dart는 파생 rendering cache와 입력·asset·surface 실행을 소유한다. npm은 기존 배포물을 사용하며 Flutter 패키지에는 빌드된 JS를 동봉한다. 앱 소비자에게 npm 설치나 원격 script 다운로드를 요구하지 않는다. 두 곳에 package를 배포할 수 있고 WebView도 없다.
@@ -52,7 +52,7 @@ JS는 scene·history·선택·편집·publication의 유일한 권위이고, Dar
 
 [flutter_qjs](https://pub.dev/documentation/flutter_qjs/latest/)는 동기 evaluate, Uint8List/ArrayBuffer 및 함수 변환, isolate 실행을 문서화한다. [최신 배포](https://pub.dev/packages/flutter_qjs/versions)는 조회 기준 4년 전이므로 현대 SDK와 native target qualification이 필요하다. 이 역시 고속 전송이 원천 불가능하지 않음을 보여주며, 특정 wrapper 문제를 방식 전체의 불가 판정으로 확대하지 않는다.
 
-## 독립 Dart를 잠정 우선한 이유와 반대 근거
+## 독립 Dart 선택의 근거와 비용
 
 | 관점 | 독립 Dart | JS 코어 + native renderer |
 | --- | --- | --- |
@@ -64,20 +64,14 @@ JS는 scene·history·선택·편집·publication의 유일한 권위이고, Dar
 | 유지보수 | 두 동작 구현을 관리 | 한 동작 구현과 두 host/renderer 및 bridge/runtime binding을 관리 |
 | npm 영향 | 기존 구현 유지 가능 | 별도 entry/build이면 기존 npm 경로 유지 가능; 공통 소스 수정 시 회귀 검증 |
 
-독립안의 이유는 JS가 무조건 느리기 때문이 아니다. 이 라이브러리는 대량 갱신·hit test·회전/애니메이션·text/image publication이 자주 실행되고 이미 native renderer를 새로 만들어야 하므로, 경계를 오가는 비용과 binding 수명을 줄이는 데 가치가 있다고 판단한 것이다. 반면 TS 코어의 복잡도와 장기 수정 비용이 크면 JS 재사용 이득이 더 클 수 있다. [선정한 실측](flutter-mobile-benchmark.md)은 대량 bar geometry에서 Dart에 유리했지만, 축 정렬 특화 구현과 기존 범용 JS 함수의 비교다. 전체 기능의 성능과 총 작업량은 미확정이다.
+독립안의 이유는 모든 JS 구성이 느리다고 입증됐기 때문이 아니다. 이 라이브러리는 대량 갱신·hit test·회전/애니메이션·text/image publication이 자주 실행되고 이미 native renderer를 새로 만들어야 하므로, 경계를 오가는 비용과 binding 수명을 줄이는 데 가치가 있다고 판단한 것이다. 반면 TS 코어의 복잡도와 장기 수정 비용이 크면 JS 재사용 이득이 더 클 수 있다. [선정한 실측](flutter-mobile-benchmark.md)은 대량 bar geometry에서 Dart에 유리했지만, 축 정렬 특화 구현과 기존 범용 JS 함수의 비교다. 전체 기능의 성능과 총 작업량은 미확정이다.
 
 JS 방식도 npm과 실행 의존성을 격리할 수 있다. 따라서 “npm 성능에 영향을 준다”는 이유로 JS 방식을 배제하지 않는다. 공통 소스 분리가 기존 hot path를 바꾸는 경우만 npm baseline/candidate로 검증한다.
 
-## 비교 실험과 선택 조건
+## 비교 완료와 최종 판정
 
-1. renderer 선택은 Flame과 직접 Canvas를 동일 scene으로 비교한다. 코어 비교에서는 선정한 동일 renderer와 같은 출력 품질을 사용해 변수를 고정한다.
-2. JS 후보는 실제 TS 코어의 대표 slice를 headless bundle로 실행한다. Dart 후보도 같은 범위의 동작을 구현하고 [conformance](flutter-conformance-design.md)를 검사한다. 단순 JS 함수 호출 benchmark로 판단하지 않는다.
-3. 초기 load/layout/hash, batch update/undo, callback 재진입, pan/zoom/rotation, animated bars, 한글/text 변경, asset 교체, PNG, destroy를 실행한다. 규모는 기존 fixture와 실제 앱을 기준으로 정한다.
-4. 입력 -> JS/Dart 계산 -> 변환/전송 -> native projection -> raster/GPU -> 가시 frame을 구간별 측정한다. bridge 횟수·bytes/copy·allocation·JS/Dart heap·idle wakeup·startup/package 증가량도 기록한다.
-5. 선택한 runtime을 Android/iOS 실기기에서 각각 측정한다. flutter_js 기본 구성은 QuickJS/JSC이며 동일 QuickJS 구성도 비교한다. UI isolate의 jank·재진입과 worker isolate의 동기 API 변경 비용을 검사한다.
-6. 명령은 coarse batch, frame 변화는 dirty projection, view-only 변화는 작은 transform으로 전달한다. per-entity eval·매번 함수 source 생성·전량 JSON·중복 scene 권위·이중 frame loop는 금지한다.
-7. JS가 전체 의미·수명·frame budget을 통과하고 이식/유지보수 부담을 유의미하게 줄이면 JS 방식을 채택할 수 있다. bridge/jank/메모리/패키지 보완 비용이 크면 독립 Dart를 선택한다. [materiality 기준](verification.md)으로 판단하며 작은 microbenchmark 차이만으로 탈락시키지 않는다.
+flutter_js·quickjs_engine·jsf의 JSON 및 buffer 경로를 같은 Canvas renderer와 비교했다. [실험 문서](flutter-mobile-benchmark.md)가 측정 범위·통합 수정·환경·판정을 소유한다. 대량 전체 갱신에서는 독립 Dart가 paired frame 기준으로 우세했고, flutter_js buffer의 작은 갱신은 중립이었다. 전체 요구를 고려해 독립 Dart 하나를 권장한다.
 
-부분 공유도 가능하다. 예를 들어 순수 parsing/layout을 load/edit 경계에서 JS로 실행하고 native runtime이 결과를 소유할 수 있다. 이때 serialization/hash·후속 편집 규칙을 양쪽에 중복 소유시키지 않아야 하며, 전달 빈도가 낮을 때만 경계 비용 이점이 있다. 부분 공유라는 이름으로 두 scene 상태를 동기화하는 구조는 만들지 않는다.
+JS 의미 처리와 Dart geometry만 결합하면 전달량을 줄일 수 있다. 이 구성의 성능은 측정하지 않았으므로 실측으로 탈락시켰다고 주장하지 않는다. 다만 최종안에는 포함하지 않는다. 실행 시 공유를 위해 상태·호출·수명 경계를 추가하는 대신, Dart 안에서 처리하고 공통 명세와 전체 conformance로 기능을 일치시킨다.
 
-독립 Dart로 확정한 상태가 아니다. 기존 코어를 활용하는 JS 실험을 먼저 작게 수행하고 native 후보와 비교한다. 통과하면 JS를 채택할 수 있고, 보완 비용이 크면 독립 Dart로 진행한다. 전체 기능과 pub.dev 배포 조건은 동일하다.
+이 문서의 JS 구성과 보완 항목은 미채택 대안의 분석이다. 추가 후보 선정을 완료 조건으로 두지 않는다. 전체 기능·실기기 성능·pub.dev 배포 검증은 선정된 Dart 구현의 출시 조건이다.

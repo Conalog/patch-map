@@ -1,6 +1,6 @@
 # Flutter mobile benchmark
 
-- Status: selected bar slice measured on 2026-09-14; full Flutter package and architecture qualification remain open.
+- Status: selected bar slice measured on 2026-09-14; independent Dart + direct Canvas selected; full package implementation and release qualification pending.
 - Goal: compare JS reuse and independent Dart implementation with real rendering.
 - Current devices: dedicated Android 14 / API 34 arm64 emulator; iPhone 15 / iOS 17.2 simulator.
 - Owners: [protocol and runners](../../performance/mobile/README.md), [runtime candidates](flutter-mobile-js-candidates.md).
@@ -16,10 +16,13 @@ flutter_js buffer cases were neutral under the frame criterion on both platforms
 Android emulator frame p95 also exceeded 16.67 ms in several Dart cases; short
 CPU preparation time does not establish sustained 60 FPS.
 
-This supports keeping frequent bar geometry work on the Dart side. It does not
-settle the full engine architecture: JS semantic reuse with Dart geometry remains
-unmeasured, as do Flame overhead, general transforms and the rest of the API.
-Preserve the [full conformance requirement](flutter-conformance-design.md).
+The [final architecture recommendation](flutter-package-design.md) selects an
+independent Dart engine and direct Canvas renderer. This is a design decision
+based on the measured critical workload and keeping state and rendering within
+Dart, not proof that every unmeasured alternative is slower. JS semantic reuse
+with Dart geometry and Flame are not selected. General transforms and the rest
+of the API must meet the [full conformance requirement](flutter-conformance-design.md)
+in the selected implementation before release.
 The reproducible report/CSV and raw evidence live under ignored
 `.artifacts/performance/mobile/`; no historical number becomes a release gate.
 
