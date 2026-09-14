@@ -83,6 +83,8 @@ Flutter는 기존 [performance fixtures](../../performance/fixtures/)와 실제 
 
 ## 단계별 실행과 출시
 
+폴더·책임·배포 격리와 구현 순서는 [구현 구조](flutter-implementation-plan.md)를 따른다.
+
 | 단계 | 완성 조건 |
 | --- | --- |
 | T1 명세 기준선 | 전체 export/기능·실패·기본값·binding·시각 기준·지원 플랫폼을 conformance ID에 매핑한다. TS 선언은 TS shape 권위로 유지한다. |

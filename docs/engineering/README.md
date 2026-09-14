@@ -4,7 +4,8 @@ Use this directory to find the current code owner and the smallest credible
 verification set. Product usage belongs in [`docs/`](../README.md); this
 directory owns internal structure and engineering policy.
 
-Selected architecture, implementation pending: [Flutter package architecture decision](flutter-package-design.md).
+Flutter: [architecture decision](flutter-package-design.md) and
+[reviewed implementation structure](flutter-implementation-plan.md).
 
 ## Start here
 
