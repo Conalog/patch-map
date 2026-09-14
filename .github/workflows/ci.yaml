@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       full_validation: ${{ steps.changes.outputs.full_validation }}
+      flutter_validation: ${{ steps.changes.outputs.flutter_validation }}
     steps:
       - name: Checkout comparison base
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -121,10 +122,66 @@ jobs:
         if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
         run: npm run performance:smoke
 
+  flutter:
+    name: Flutter package
+    needs: classify
+    if: ${{ needs.classify.outputs.flutter_validation == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: 3.41.4
+          channel: stable
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd packages/patch_map
+          flutter pub get
+
+      - name: Shared contracts and package boundaries
+        run: |
+          node verification/conformance/inventory.mjs
+          node --test verification/conformance/*.test.mjs verification/flutter/installed-consumer.test.mjs
+          node verification/conformance/run-data.mjs
+          node verification/conformance/run-model.mjs
+          node verification/conformance/run-text.mjs
+          for binding in conformance/api-bindings/*.json; do
+            node verification/conformance/api-bindings.mjs "$binding"
+          done
+          node verification/flutter/package.mjs
+
+      - name: Dart analysis and tests
+        working-directory: packages/patch_map
+        run: |
+          flutter analyze --no-pub lib test
+          flutter test --no-pub --concurrency=2
+
+      - name: Compare npm and Dart public commands
+        run: |
+          npx playwright install --with-deps chromium
+          node verification/conformance/run-public.mjs
+
+      - name: Installed Dart consumer
+        run: node verification/flutter/installed-consumer.mjs
+
   validation:
     name: CI
     if: ${{ always() }}
-    needs: [classify, gate]
+    needs: [classify, gate, flutter]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -133,7 +190,15 @@ jobs:
           CLASSIFIER_RESULT: ${{ needs.classify.result }}
           FULL_VALIDATION: ${{ needs.classify.outputs.full_validation }}
           GATES_RESULT: ${{ needs.gate.result }}
+          FLUTTER_VALIDATION: ${{ needs.classify.outputs.flutter_validation }}
+          FLUTTER_RESULT: ${{ needs.flutter.result }}
         run: |
           test "$CLASSIFIER_RESULT" = success
           test "$GATES_RESULT" = success
           test "$FULL_VALIDATION" = true || test "$FULL_VALIDATION" = false
+          if test "$FLUTTER_VALIDATION" = true; then
+            test "$FLUTTER_RESULT" = success
+          else
+            test "$FLUTTER_VALIDATION" = false
+            test "$FLUTTER_RESULT" = skipped
+          fi

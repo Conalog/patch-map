@@ -14,6 +14,19 @@
     ".": {
       "release-type": "node",
       "package-name": "@conalog/patch-map",
+      "exclude-paths": [
+        "packages/patch_map",
+        "conformance",
+        "verification/flutter",
+        "verification/conformance",
+        "docs/integration/flutter.md",
+        "docs/engineering/flutter-conformance-design.md",
+        "docs/engineering/flutter-implementation-plan.md",
+        "docs/engineering/flutter-js-runtime-review.md",
+        "docs/engineering/flutter-mobile-benchmark.md",
+        "docs/engineering/flutter-mobile-js-candidates.md",
+        "docs/engineering/flutter-package-design.md"
+      ],
       "versioning": "prerelease",
       "prerelease": true,
       "prerelease-type": "alpha"

@@ -9,6 +9,21 @@ export function isLightweightValidationPath(path) {
     || path.startsWith('docs/engineering/');
 }
 
+export function requiresFlutterValidation(path) {
+  return path.startsWith('packages/patch_map/')
+    || path.startsWith('src/')
+    || path.startsWith('tests/')
+    || path.startsWith('conformance/')
+    || path.startsWith('verification/conformance/')
+    || path.startsWith('verification/flutter/')
+    || path.startsWith('docs/api/')
+    || path.startsWith('docs/integration/')
+    || path.startsWith('docs/assets/')
+    || ['package.json', 'package-lock.json', 'tsconfig.json', 'tsconfig.build.json'].includes(path)
+    || path === '.github/workflows/ci.yaml'
+    || path.startsWith('.github/scripts/classify-ci-files.');
+}
+
 export function parseNullDelimitedPaths(output) {
   return output.split('\0').filter(Boolean);
 }
@@ -25,6 +40,8 @@ export function classifyChangedPaths(paths) {
   return {
     fullValidation:
       paths.length === 0 || paths.some((path) => !isLightweightValidationPath(path)),
+    flutterValidation:
+      paths.length === 0 || paths.some(requiresFlutterValidation),
   };
 }
 
@@ -55,6 +72,7 @@ function main() {
 
   const result = classifyGitDiff(baseSha, resultSha);
   process.stdout.write(`full_validation=${result.fullValidation}\n`);
+  process.stdout.write(`flutter_validation=${result.flutterValidation}\n`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
