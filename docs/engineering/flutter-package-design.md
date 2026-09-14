@@ -103,6 +103,6 @@ Flutter는 기존 [performance fixtures](../../performance/fixtures/)와 실제 
 
 ## 검토 범위와 남은 결정
 
-설계 제안만 작성한다. Android/iOS 우선 평가를 가정하며 web/desktop·최소 SDK·시각 허용차·native 입력 매핑은 미확정이다. 기능 축소나 공통 코어 재작성을 전제하지 않는다.
+설계 제안만 작성한다. Android/iOS는 모두 필수다. 추가 web/desktop·최소 SDK·시각 허용차·native 입력 매핑은 미확정이다. 기능 축소나 공통 코어 재작성을 전제하지 않는다.
 
 T1 후 renderer 실험/conformance는 독립 진행한다. T3 상태·커밋은 순차, 확정된 adapter는 병렬화 가능하다. 성능·일정은 미측정이다.

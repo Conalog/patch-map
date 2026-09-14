@@ -3,6 +3,7 @@
 - Status: proposed; 2026-09-14 정적 조사, 실기기 성능은 미측정
 - Context: [Flutter package design](flutter-package-design.md)의 독립 Dart 구현과 임베디드 JS 대안 비교
 - Conclusion: JS 실행 방식도 유효하다. 독립 Dart는 잠정 우선안이며 같은 native renderer에서 비교하기 전 최종 확정하지 않는다.
+- Android/iOS 필수 지원 후보는 [Mobile JS candidates](flutter-mobile-js-candidates.md)에서 비교한다.
 
 ## 실제 가능한 구성
 
@@ -73,7 +74,7 @@ JS 방식도 npm과 실행 의존성을 격리할 수 있다. 따라서 “npm �
 2. JS 후보는 실제 TS 코어의 대표 slice를 headless bundle로 실행한다. Dart 후보도 같은 범위의 동작을 구현하고 [conformance](flutter-conformance-design.md)를 검사한다. 단순 JS 함수 호출 benchmark로 판단하지 않는다.
 3. 초기 load/layout/hash, batch update/undo, callback 재진입, pan/zoom/rotation, animated bars, 한글/text 변경, asset 교체, PNG, destroy를 실행한다. 규모는 기존 fixture와 실제 앱을 기준으로 정한다.
 4. 입력 -> JS/Dart 계산 -> 변환/전송 -> native projection -> raster/GPU -> 가시 frame을 구간별 측정한다. bridge 횟수·bytes/copy·allocation·JS/Dart heap·idle wakeup·startup/package 증가량도 기록한다.
-5. Android QuickJS와 iOS JSC를 실제 기기에서 각각 측정한다. JS를 UI isolate에서 동기 호출할 때 jank와 callback 재진입을 검사한다. worker isolate는 긴 작업에는 후보지만 동기 API를 RPC로 바꾸는 비용을 별도로 검토한다.
+5. 선택한 runtime을 Android/iOS 실기기에서 각각 측정한다. flutter_js 기본 구성은 QuickJS/JSC이며 동일 QuickJS 구성도 비교한다. UI isolate의 jank·재진입과 worker isolate의 동기 API 변경 비용을 검사한다.
 6. 명령은 coarse batch, frame 변화는 dirty projection, view-only 변화는 작은 transform으로 전달한다. per-entity eval·매번 함수 source 생성·전량 JSON·중복 scene 권위·이중 frame loop는 금지한다.
 7. JS가 전체 의미·수명·frame budget을 통과하고 이식/유지보수 부담을 유의미하게 줄이면 JS 방식을 채택할 수 있다. bridge/jank/메모리/패키지 보완 비용이 크면 독립 Dart를 선택한다. [materiality 기준](verification.md)으로 판단하며 작은 microbenchmark 차이만으로 탈락시키지 않는다.
 
