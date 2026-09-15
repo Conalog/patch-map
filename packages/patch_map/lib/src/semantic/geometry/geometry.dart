@@ -390,8 +390,21 @@ class _GeometryBuilder {
           textLayout = measured.layout;
         } else {
           final size = component['size'];
+          // A concrete height overlay owns only that axis. Scalar authored
+          // sizes still supply the width, including percentage dimensions;
+          // resolve against the current template rather than storing a width
+          // in the overlay that would hide a later template update.
+          final widthSize =
+              type == 'bar' &&
+                  size is Map &&
+                  size.containsKey('height') &&
+                  !size.containsKey('width')
+              ? authored['size']
+              : size;
           w = resolveDimension(
-            size is Map && size.containsKey('width') ? size['width'] : size,
+            widthSize is Map && widthSize.containsKey('width')
+                ? widthSize['width']
+                : widthSize,
             content.width,
           );
           h = resolveDimension(
