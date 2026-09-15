@@ -110,3 +110,54 @@ intermediate publications after idle and after retargeting. Run it using
 `test_driver/native_contract_driver.dart` and `PATCHMAP_CONTRACT_OUTPUT` on Android
 and iOS; captures happen outside its frame observations. It is a correctness
 check, not a performance measurement.
+
+## Service panel text updates
+
+The current demo checkpoint uses `conformance/scenes/panel-groups.json`: 50 panel
+groups × 5 rows × 20 columns, including panel backgrounds, borders, padding,
+full-height bars and visible autoFont text. Both runners submit all 5,000 targets
+in one synchronous `updateBatch`, with history disabled. They use 5 warmups and
+20 measured samples, seed `0x5eed` and the LCG above, with strings in 1…9999.
+Unlike the interactive button, these runners allow a generated value to equal
+its previous value. Inputs are generated outside timing, with 100 ms between
+samples. Do not run the two runners or other builds concurrently.
+
+From `packages/flutter/example`:
+
+```sh
+PATCHMAP_CONTRACT_OUTPUT=/absolute/path/panel-text-native.json \
+flutter drive --profile -d DEVICE_ID \
+  --driver=test_driver/native_contract_driver.dart \
+  --target=integration_test/panel_text_performance_test.dart \
+  --dart-define=PATCHMAP_REVISION=VERIFIED_GIT_REVISION
+```
+
+This mounts the actual `BarDemoApp` and switches to text mode. `commitMs` measures
+the synchronous command; `publishedMs` waits for a post-frame observation of the
+new published interaction revision. It is not a GPU completion timestamp.
+Engine build/raster timings are recorded separately by frame number. A passing
+report has `panelText.completed: true` and 25 rows, including warmups, and verifies
+the count and first/last text values after each update. Preserve device, mode,
+viewport and DPR between baseline and candidate. Keep the device awake throughout
+both runs and restore any changed device preference afterward.
+
+For web, start the existing conformance Vite server, then run from repository root:
+
+```sh
+node verification/conformance/panel-performance.mjs \
+  .artifacts/performance/panel-text-web.json
+```
+
+The web runner opens the real `panels.html` demo in headless Chromium at 1100×900,
+DPR 1. It records the browser version, source diff hash, scene hash and viewport.
+`twoRafMs` measures command start through two subsequent RAF opportunities; it is
+a browser scheduling proxy, not native publication or GPU completion. Compare
+baseline/candidate within each runner. Different surfaces and milestones do not
+establish npm versus Dart speed equivalence or sustained 60 FPS.
+
+Keep raw samples and the baseline commit/candidate source manifest in ignored
+`.artifacts/performance/`, including neutral or adverse experiments. The text
+optimization preserves atomic updates and uses the general transaction/geometry
+path when incremental projection is unsafe. Validate null restoration, refusal,
+target aliases, text bounds, Unicode, resource disposal and incremental/full
+render equivalence with the focused engine, geometry and renderer tests.
