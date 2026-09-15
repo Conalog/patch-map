@@ -98,10 +98,6 @@ export function segmentPatchMapGraphemes(source: string): readonly string[] {
 /** Semantic advance for one grapheme at a selected profile size. */
 export function measurePatchMapGraphemeAdvance(grapheme: string, fontSizePx = 16): number {
   assertFiniteNonNegative(fontSizePx, '$.fontSizePx');
-  if (grapheme.length === 1) {
-    const code = grapheme.charCodeAt(0);
-    if (code >= 0x20 && code <= 0x7e) return saturatingMultiply(8, fontSizePx / DEFAULT_FONT_SIZE);
-  }
   let units = 0;
   for (const symbol of grapheme) {
     const codePoint = symbol.codePointAt(0);
@@ -119,21 +115,6 @@ export function measurePatchMapGraphemeAdvance(grapheme: string, fontSizePx = 16
   return saturatingMultiply(units, fontSizePx / DEFAULT_FONT_SIZE);
 }
 
-interface PreparedLayoutSource {
-  readonly sourceGraphemes: readonly string[];
-  readonly layoutGraphemes: readonly string[];
-  readonly hardLines: readonly (readonly string[])[];
-  readonly splitLines: readonly (readonly string[])[];
-}
-
-/** Source segmentation is independent of the auto-font candidate size. */
-export function prepareLayoutSource(source: string, layoutSource: string, split: number): PreparedLayoutSource {
-  const sourceGraphemes = segmentPatchMapGraphemes(source);
-  const layoutGraphemes = layoutSource === source ? sourceGraphemes : segmentPatchMapGraphemes(layoutSource);
-  const hardLines = splitHardLines(layoutGraphemes);
-  return { sourceGraphemes, layoutGraphemes, hardLines, splitLines: splitByCount(hardLines, split) };
-}
-
 export function produceLayoutCore(input: Readonly<{
   source: string;
   layoutSource: string;
@@ -145,8 +126,13 @@ export function produceLayoutCore(input: Readonly<{
   fontSizePx: number;
   lineHeightPx: number;
   letterSpacingPx: number;
-}>, prepared = prepareLayoutSource(input.source, input.layoutSource, input.split)): LayoutCore {
-  const { sourceGraphemes, layoutGraphemes, hardLines, splitLines } = prepared;
+}>): LayoutCore {
+  const sourceGraphemes = segmentPatchMapGraphemes(input.source);
+  const layoutGraphemes = input.layoutSource === input.source
+    ? sourceGraphemes
+    : segmentPatchMapGraphemes(input.layoutSource);
+  const hardLines = splitHardLines(layoutGraphemes);
+  const splitLines = splitByCount(hardLines, input.split);
   const lines = input.wordWrapWidthPx === null
     ? splitLines
     : Object.freeze(splitLines.flatMap((line) =>
@@ -169,7 +155,7 @@ export function produceLayoutCore(input: Readonly<{
     input.lineHeightPx,
     input.letterSpacingPx,
   );
-  const lineAdvancesPx = overflowResult.lines === lines ? naturalLineAdvancesPx : Object.freeze(overflowResult.lines.map((line) =>
+  const lineAdvancesPx = Object.freeze(overflowResult.lines.map((line) =>
     measureLine(line, input.fontSizePx, input.letterSpacingPx),
   ));
   return Object.freeze({
@@ -200,18 +186,17 @@ export function chooseFontSize(
   explicitLineHeightPx: number | undefined,
   letterSpacingPx: number,
   effectiveWordWrapWidthPx: number | null,
-  prepared = prepareLayoutSource(options.source, layoutSource, options.split ?? 0),
 ): number {
   if (!options.autoFont) return options.fontSizePx ?? DEFAULT_FONT_SIZE;
   const { minPx, maxPx } = options.autoFont;
   if (
     !autoFontCandidateFits(
       options,
+      layoutSource,
       explicitLineHeightPx,
       letterSpacingPx,
       effectiveWordWrapWidthPx,
       minPx,
-      prepared,
     )
   ) {
     return minPx;
@@ -223,11 +208,11 @@ export function chooseFontSize(
     if (
       autoFontCandidateFits(
         options,
+        layoutSource,
         explicitLineHeightPx,
         letterSpacingPx,
         effectiveWordWrapWidthPx,
         candidate,
-        prepared,
       )
     ) {
       lower = candidate;
@@ -240,19 +225,27 @@ export function chooseFontSize(
 
 function autoFontCandidateFits(
   options: PatchMapTextLayoutOptions,
+  layoutSource: string,
   explicitLineHeightPx: number | undefined,
   letterSpacingPx: number,
   effectiveWordWrapWidthPx: number | null,
   candidate: number,
-  prepared: PreparedLayoutSource,
 ): boolean {
   const lineHeightPx = resolveLineHeightPx(candidate, explicitLineHeightPx);
-  // Fitting needs natural bounds only, not visible output, overflow or frozen
-  // public diagnostics. Keep wrapping/measurement with the same authority.
-  const lines = effectiveWordWrapWidthPx === null ? prepared.splitLines : prepared.splitLines.flatMap((line) =>
-    wrapLine(line, effectiveWordWrapWidthPx, options.breakWords ?? false, candidate, letterSpacingPx));
-  const boundsWidth = maximum(lines.map((line) => measureLine(line, candidate, letterSpacingPx)));
-  const boundsHeight = saturatingMultiply(lines.length, lineHeightPx);
+  const core = produceLayoutCore({
+    source: options.source,
+    layoutSource,
+    split: options.split ?? 0,
+    wordWrapWidthPx: effectiveWordWrapWidthPx,
+    breakWords: options.breakWords ?? false,
+    overflow: 'visible',
+    contentFrame: null,
+    fontSizePx: candidate,
+    lineHeightPx,
+    letterSpacingPx,
+  });
+  const boundsWidth = maximum(core.naturalLineAdvancesPx);
+  const boundsHeight = saturatingMultiply(core.lines.length, lineHeightPx);
   return (
     options.contentFrame !== undefined &&
     boundsWidth <= options.contentFrame.width &&
