@@ -19,13 +19,13 @@ class DensePanelScene {
         textSlots.add(slot);
       }
     }
-    if (barSlots.length != 5000 || textSlots.length != 5000)
-      throw StateError('Expected 5000 service panels');
-    from = Float64List(5000)..fillRange(0, 5000, 74);
+    if (barSlots.isEmpty || barSlots.length != textSlots.length)
+      throw StateError('Expected matching service panel bar/text slots');
+    from = Float64List(count)..fillRange(0, count, 74);
     to = Float64List.fromList(from);
-    start = Float64List(5000)..fillRange(0, 5000, -200);
-    texts = List.filled(5000, '');
-    _textPrimitives = List.filled(5000, null);
+    start = Float64List(count)..fillRange(0, count, -200);
+    texts = List.filled(count, '');
+    _textPrimitives = List.filled(count, null);
     for (final slot in textSlots) {
       final p = ps[slot];
       final b =
@@ -38,6 +38,7 @@ class DensePanelScene {
       ]);
     }
   }
+  int get count => barSlots.length;
   final PatchMapRenderSnapshot initial;
   final barIndex = <int, int>{}, textIndex = <int, int>{};
   final barSlots = <int>[], textSlots = <int>[];
@@ -57,10 +58,10 @@ class DensePanelScene {
   }
 
   void heights(List<double> values, double now, {required bool animate}) {
-    if (values.length != 5000 ||
+    if (values.length != count ||
         values.any((v) => !v.isFinite || v < 0 || v > 74))
       throw ArgumentError('Height columns');
-    for (var i = 0; i < 5000; i++) {
+    for (var i = 0; i < count; i++) {
       from[i] = heightAt(i, now);
       to[i] = values[i];
       start[i] = animate ? now : now - 200;
@@ -70,15 +71,15 @@ class DensePanelScene {
   }
 
   void textValues(List<String> values) {
-    if (values.length != 5000) throw ArgumentError('Text column');
+    if (values.length != count) throw ArgumentError('Text column');
     texts = List.of(values);
-    _textPrimitives = List.filled(5000, null);
+    _textPrimitives = List.filled(count, null);
     revision++;
   }
 
   void mode(bool text, double now) {
     textMode = text;
-    if (text) heights(List.filled(5000, 74), now, animate: false);
+    if (text) heights(List.filled(count, 74), now, animate: false);
     revision++;
   }
 

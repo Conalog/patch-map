@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'renderer_environment.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -44,11 +45,14 @@ class Run {
       c.updateBatch(
         {
           'targets': panelTargets,
-          'bar': {'componentId': 'bar', 'height': List.filled(5000, 74.0)},
+          'bar': {
+            'componentId': 'bar',
+            'height': List.filled(panelCount, 74.0),
+          },
           'text': {
             'componentId': 'text',
-            'changes': {'show': List.filled(5000, text)},
-            'text': List.filled(5000, ''),
+            'changes': {'show': List.filled(panelCount, text)},
+            'text': List.filled(panelCount, ''),
           },
         },
         animate: false,
@@ -94,18 +98,26 @@ class Run {
   void verify(String workload, List<double> heights, List<String> texts) {
     if (workload == 'pan') return;
     if (dense != null) {
-      if (workload == 'text') {
+      if (workload.startsWith('text')) {
         expect(dense!.scene.texts, texts);
       } else {
         expect(dense!.scene.to, heights);
+        for (var i = 0; i < panelCount; i++) {
+          expect(
+            dense!.scene.heightAt(i, dense!.sampleTime),
+            closeTo(heights[i], 1e-7),
+          );
+        }
       }
     } else {
       final ps = c.renderSnapshot.geometry.primitives
-          .where((p) => p.type == (workload == 'text' ? 'text' : 'bar'))
+          .where(
+            (p) => p.type == (workload.startsWith('text') ? 'text' : 'bar'),
+          )
           .toList();
-      expect(ps.length, 5000);
-      for (var i = 0; i < 5000; i++) {
-        if (workload == 'text') {
+      expect(ps.length, panelCount);
+      for (var i = 0; i < panelCount; i++) {
+        if (workload.startsWith('text')) {
           expect(ps[i].value['text'], texts[i]);
         } else {
           expect(ps[i].localRect.height, closeTo(heights[i], 1e-7));
@@ -179,9 +191,25 @@ void main() {
   testWidgets(
     'current Canvas and optimized Canvas/Flame service panels',
     (tester) async {
+      const scale10k = bool.fromEnvironment('PATCHMAP_SCALE_10K');
+      if (scale10k) {
+        expect(panelCount, 10000);
+        expect(const bool.fromEnvironment('PATCHMAP_FIT_ATLAS'), isTrue);
+      }
+      final variants = scale10k
+          ? ['canvas', 'flame', 'flame-raw']
+          : ['stock', 'canvas', 'flame'];
+      final workloads = scale10k
+          ? ['immediate', 'animated', 'text', 'text-cold']
+          : ['immediate', 'animated', 'text', 'pan'];
       final dpr = ui.PlatformDispatcher.instance.views.single.devicePixelRatio;
       final report = <String, dynamic>{
-        'protocol': 'patch-map-canvas-flame/1',
+        'protocol': scale10k
+            ? 'patch-map-canvas-flame/scale-10k-1'
+            : 'patch-map-canvas-flame/1',
+        'panelCount': panelCount,
+        'groupCount': panelGroupCount,
+        'seed': 0x5eed,
         'filter': ui.PlatformDispatcher.instance.defaultRouteName,
         'revision': const String.fromEnvironment('PATCHMAP_REVISION'),
         'mode': kProfileMode ? 'profile/AOT' : 'debug/JIT',
@@ -213,12 +241,9 @@ void main() {
       binding.addTimingsCallback(collect);
       try {
         for (var block = 0; block < 2; block++)
-          for (final variant
-              in (block == 0
-                  ? ['stock', 'canvas', 'flame']
-                  : ['flame', 'canvas', 'stock'])) {
+          for (final variant in (block == 0 ? variants : variants.reversed)) {
             for (final zoom in [false, true])
-              for (final workload in ['immediate', 'animated', 'text', 'pan']) {
+              for (final workload in workloads) {
                 final filter = ui.PlatformDispatcher.instance.defaultRouteName
                     .split('/');
                 if (filter.length > 1 &&
@@ -250,7 +275,8 @@ void main() {
                 if (variant != 'stock')
                   dense = DensePlayback(
                     DensePanelScene(c.renderSnapshot),
-                    flame: variant == 'flame',
+                    flame: variant.startsWith('flame'),
+                    flameBatch: variant == 'flame',
                     minAtlasScale:
                         const bool.fromEnvironment('PATCHMAP_FIT_ATLAS')
                         ? 0
@@ -291,31 +317,51 @@ void main() {
                       }
                     }
                     final coldMs = cold.elapsedMicroseconds / 1000;
-                    run.setMode(workload == 'text' || workload == 'pan');
+                    run.setMode(
+                      workload.startsWith('text') || workload == 'pan',
+                    );
                     if (workload == 'pan')
-                      run.texts(List.generate(5000, (i) => 'P$i'));
+                      run.texts(List.generate(panelCount, (i) => 'P$i'));
                     final scale = zoom ? 0.86 : mathFit();
-                    run.camera(2318, 2368, scale);
+                    run.camera(panelCenterX, panelCenterY, scale);
                     await Future<void>.delayed(
                       const Duration(milliseconds: 300),
                     );
+                    if (scale10k) {
+                      final idleFrames = run.frames;
+                      await Future<void>.delayed(
+                        const Duration(milliseconds: 250),
+                      );
+                      expect(
+                        run.frames,
+                        idleFrames,
+                        reason: 'Host must stop painting when idle',
+                      );
+                    }
                     final entry = <String, dynamic>{
                       'block': block,
                       'variant': variant,
                       'zoom': zoom,
                       'workload': workload,
                       'coldMs': coldMs,
+                      if (dense != null)
+                        'rendererConfig': {
+                          'host': dense.flame ? 'flame' : 'canvas',
+                          'flameBatch': dense.renderer.flameBatch,
+                          'atlasBars': dense.renderer.atlasBars,
+                          'minAtlasScale': dense.renderer.minAtlasScale,
+                        },
                       'rssBefore': ProcessInfo.currentRss,
                       'rows': <Map<String, dynamic>>[],
                     };
                     (report['cases'] as List).add(entry);
                     var seed = 0x5eed;
-                    var previousHeights = List.filled(5000, 74.0),
-                        previousTexts = List.filled(5000, '');
+                    var previousHeights = List.filled(panelCount, 74.0),
+                        previousTexts = List.filled(panelCount, '');
                     final heights = <List<double>>[], texts = <List<String>>[];
                     for (var s = 0; s < 25; s++) {
                       final hs = <double>[], ts = <String>[];
-                      for (var i = 0; i < 5000; i++) {
+                      for (var i = 0; i < panelCount; i++) {
                         seed = (seed * 1664525 + 1013904223) & 0xffffffff;
                         var percent = 1 + seed % 100;
                         var h = 74 * percent / 100;
@@ -323,7 +369,9 @@ void main() {
                           percent = percent % 100 + 1;
                           h = 74 * percent / 100;
                         }
-                        var t = '${1 + seed % 9999}';
+                        var t = workload == 'text-cold'
+                            ? '${100000 + s * panelCount + i}'
+                            : '${1 + seed % 9999}';
                         if (t == previousTexts[i])
                           t = '${(int.parse(t) % 9999) + 1}';
                         hs.add(h);
@@ -341,11 +389,12 @@ void main() {
                         () {
                           switch (workload) {
                             case 'text':
+                            case 'text-cold':
                               run.texts(texts[s]);
                             case 'pan':
                               run.camera(
-                                2318 + (s % 5 + 1) * 180,
-                                2368 + (s % 5 + 1) * 120,
+                                panelCenterX + (s % 5 + 1) * 180,
+                                panelCenterY + (s % 5 + 1) * 120,
                                 scale * (s.isEven ? 1.0 : 1.02),
                               );
                             default:
@@ -410,7 +459,8 @@ void main() {
   );
 }
 
-double mathFit() => (360 - 32) / 4636;
+double mathFit() =>
+    math.min((width - 32) / panelSceneWidth, (height - 32) / panelSceneHeight);
 
 /// Check the actual host culling rectangle, not only the renderer's pixel path.
 void verifyViewport(DensePlayback? dense) {

@@ -242,3 +242,51 @@ Do not infer full-SDK, iOS or npm performance equivalence from these scene-speci
 Android results. Preserve the current-run distributions and unresolved long-process
 stress evidence in ignored performance artifacts. Production adoption must retain
 schema/feature conformance while allowing Dart-native internals and APIs.
+
+## 10,000-panel follow-up
+
+The `scale10k` suite uses the same service blueprint: 100 groups of 5×20 panels,
+laid out in five group columns. Fit uses both scene dimensions (4636×9536 logical
+units); zoom remains 0.86 at the scene center. It compares Canvas raw batching,
+Flame SpriteBatch/Snapshot and Flame raw batching/Picture in one profile APK.
+Keep both Flame paths so the text decision does not rely on an unmeasured adapter.
+
+Each host runs immediate height changes, 200ms cubic height animation, repeated
+numeric text updates, and unseen numeric text updates at fit and zoom. Text mode
+keeps bars at 100%; bar mode hides text. All 10,000 values change on each update.
+Unseen text uses six-digit values unique across all 25 trials; the repeated-text
+case keeps the earlier 1…9999 distribution. Compare hosts within each workload,
+not warm versus unseen strings as if their widths and shaping cost were identical.
+Input generation is outside timing. Both text caches retain their 10,000-entry
+limit. Preserve the first warmup's cold text latency separately.
+
+There are 48 cases: three hosts × two views × four workloads × two reversed
+blocks, each with five warmups and twenty measurements. Existing thermal,
+single-install/fresh-process and FrameTiming rules apply. Runtime verifies actual
+viewport, all final values and idle behavior; assembly rejects a wrong panel count
+or renderer configuration. Local image tests also run at this new scale. Native
+host image qualification from the earlier 5,000-panel experiment is not a new
+10,000-panel image comparison.
+
+Build from `packages/flutter/example`:
+
+```sh
+flutter build apk --profile --target-platform=android-arm64 \
+  --target=integration_test/renderer_comparison_test.dart \
+  --dart-define=PATCHMAP_PANEL_GROUPS=100 \
+  --dart-define=PATCHMAP_SCALE_10K=true \
+  --dart-define=PATCHMAP_FIT_ATLAS=true \
+  --dart-define=PATCHMAP_REVISION=VERIFIED_SOURCE_IDENTITY
+```
+
+Preserve the APK and source manifest as above; run and assemble with
+`--suite scale10k`. Device-free checks are
+`python3 -m unittest discover -s verification/flutter -p test_renderer_comparison.py`
+from the root and `flutter test --dart-define=PATCHMAP_PANEL_GROUPS=100
+--dart-define=PATCHMAP_FIT_ATLAS=true test/renderer_comparison_test.dart` from the
+example. Do not use local-test timing as physical-device performance evidence.
+
+The user will decide on retaining Flame from the measured bar/text behavior and
+implementation burden. This setup does not remove either candidate or establish
+10,000-panel equivalence. Apply the materiality policy to first-paint latency,
+animation cadence and frame costs together; do not infer a tie from average FPS.

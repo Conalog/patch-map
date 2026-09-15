@@ -50,15 +50,24 @@ void main() {
     () async {
       final c = await createPanelController();
       final d = DensePanelScene(c.renderSnapshot);
-      d.heights(List.filled(5000, 0), 0, animate: true);
-      expect(d.heightAt(4999, 100), closeTo(9.25, 1e-9));
-      d.heights(List.filled(5000, 74), 100, animate: true);
-      expect(d.heightAt(4999, 100), 9.25);
-      expect(d.heightAt(4999, 300), 74);
+      expect(c.renderSnapshot.geometry.bounds.width, panelSceneWidth);
+      expect(c.renderSnapshot.geometry.bounds.height, panelSceneHeight);
+      expect(d.count, panelCount);
+      expect(d.textSlots.length, panelCount);
+      expect(panelTargets.toSet().length, panelCount);
+      expect(
+        c.renderSnapshot.geometry.primitives[d.barSlots.last].ownerId,
+        panelTargets.last,
+      );
+      d.heights(List.filled(panelCount, 0), 0, animate: true);
+      expect(d.heightAt(panelCount - 1, 100), closeTo(9.25, 1e-9));
+      d.heights(List.filled(panelCount, 74), 100, animate: true);
+      expect(d.heightAt(panelCount - 1, 100), 9.25);
+      expect(d.heightAt(panelCount - 1, 300), 74);
       final before = List.of(d.to);
       expect(
         () => d.heights(
-          [...List.filled(4999, 1.0), double.nan],
+          [...List.filled(panelCount - 1, 1.0), double.nan],
           400,
           animate: false,
         ),
@@ -96,7 +105,7 @@ void main() {
             ..prepare(initial);
       try {
         for (final height in [0.74, 3.0, 6.0, 37.0, 74.0]) {
-          final values = List.filled(5000, height);
+          final values = List.filled(panelCount, height);
           c.updateBatch(
             {
               'targets': panelTargets,
@@ -109,7 +118,7 @@ void main() {
           for (final zoom in [false, true]) {
             if (zoom)
               c.viewport.restore({
-                'centerWorld': [2318.0, 2368.0],
+                'centerWorld': [panelCenterX, panelCenterY],
                 'scale': 0.86,
               });
             else
@@ -148,7 +157,7 @@ void main() {
           }
         }
         final values = List.generate(
-          5000,
+          panelCount,
           (i) => ['', '1', '1234', '한글', '🙂'][i % 5],
         );
         dense.mode(true, 0);
@@ -158,7 +167,7 @@ void main() {
             'targets': panelTargets,
             'text': {
               'componentId': 'text',
-              'changes': {'show': List.filled(5000, true)},
+              'changes': {'show': List.filled(panelCount, true)},
               'text': values,
             },
           },

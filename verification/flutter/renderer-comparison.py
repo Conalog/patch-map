@@ -31,8 +31,9 @@ def matrix(suite='primary'):
         return
     for block in range(2):
         for view in ('fit', 'zoom'):
-            for workload in ('immediate', 'animated', 'text', 'pan'):
-                order = ('stock', 'canvas', 'flame')
+            for workload in (('immediate', 'animated', 'text', 'text-cold') if suite == 'scale10k'
+                             else ('immediate', 'animated', 'text', 'pan')):
+                order = ('canvas', 'flame', 'flame-raw') if suite == 'scale10k' else ('stock', 'canvas', 'flame')
                 for variant in order if block == 0 else reversed(order):
                     yield block, view, workload, variant
 
@@ -40,7 +41,7 @@ def matrix(suite='primary'):
 def validate(report, case_key, suite='primary'):
     block, view, workload, variant = case_key
     assert report['completed'] and report['mode'] == 'profile/AOT'
-    if suite == 'primary':
+    if suite != 'supplement':
         assert report['fitAtlas'] is True
         assert report['filter'] == f'/{variant}/{block}/{view}/{workload}'
     else:
@@ -51,6 +52,13 @@ def validate(report, case_key, suite='primary'):
             case['workload'], case['variant']) == case_key
     if suite == 'supplement' and variant == 'flame-raw':
         assert case['rendererConfig'] == dict(host='flame', flameBatch=False, atlasBars=True, minAtlasScale=0.0)
+    if suite == 'scale10k':
+        assert report['protocol'] == 'patch-map-canvas-flame/scale-10k-1'
+        assert report['panelCount'] == 10000 and report['groupCount'] == 100
+        assert report['seed'] == 0x5eed
+        assert case['rendererConfig'] == dict(
+            host='canvas' if variant == 'canvas' else 'flame',
+            flameBatch=variant == 'flame', atlasBars=True, minAtlasScale=0.0)
     count, warmups = (12, 2) if workload == 'cold-reentry' else (25, 5)
     assert case['completed'] and len(case['rows']) == count
     for index, row in enumerate(case['rows']):
@@ -188,7 +196,7 @@ def assemble(args):
         assert origin['brightness'] == 35
         hashes.add(origin['apkSha256'])
         provenance.append(origin)
-    assert len(cases) == (48 if args.suite == 'primary' else 26) and len(hashes) == 1
+    assert len(cases) == len(list(matrix(args.suite))) and len(hashes) == 1
     manifest = json.loads((args.output / 'sources.json').read_text())
     assert hashes == {manifest['apkSha256']}
     grouped = {}
@@ -237,7 +245,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['run', 'assemble'])
     parser.add_argument('--output', type=lambda s: Path(s).resolve(), required=True)
-    parser.add_argument('--suite', choices=['primary', 'supplement'], default='primary')
+    parser.add_argument('--suite', choices=['primary', 'supplement', 'scale10k'], default='primary')
     parser.add_argument('--device')
     parser.add_argument('--resume', action='store_true', help='Skip only verified complete cases with the same APK')
     parser.add_argument('--apk', type=lambda s: Path(s).resolve())
