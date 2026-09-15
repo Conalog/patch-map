@@ -213,6 +213,7 @@ class PatchMapGeometry {
     required List<int> changedPrimitiveSlots,
   }) : primitives = targets.primitives,
        targets = targets,
+       textBindings = previous.textBindings,
        _barBindings = previous.barBindings,
        _barBindingsBuilder = null,
        scopeChildren = previous.scopeChildren,
@@ -225,6 +226,7 @@ class PatchMapGeometry {
     required List<GeometryPrimitive> primitives,
     required Map<String, GeometryTarget> targets,
     required this.bounds,
+    this.textBindings = const {},
     Map<String, BarGeometryBinding>? barBindings,
     Map<String, BarGeometryBinding> Function()? barBindingsBuilder,
     this.scopeChildren = const {},
@@ -237,6 +239,7 @@ class PatchMapGeometry {
        _barBindings = barBindings,
        _barBindingsBuilder = barBindingsBuilder,
        topology = topology ?? Object();
+  final Map<String, TextGeometryBinding> textBindings;
   final List<GeometryPrimitive> primitives;
   final Map<String, GeometryTarget> targets;
   final MapBounds bounds;
@@ -401,6 +404,20 @@ class BarGeometryBinding {
   final String placement;
   final JsonMap margin;
   final List<String> scopes;
+}
+
+/// Placement inputs compiled by the geometry authority.
+class TextGeometryBinding {
+  const TextGeometryBinding(
+    this.slot,
+    this.content,
+    this.frame,
+    this.owner,
+    this.attrs,
+  );
+  final int slot;
+  final MapRect content, frame;
+  final MapAffine owner, attrs;
 }
 
 /// Text semantics supply explicit fitted bounds and their prepared layout.

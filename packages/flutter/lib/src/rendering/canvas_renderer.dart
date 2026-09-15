@@ -40,7 +40,10 @@ class PatchMapCanvasRenderer {
   final List<_MeshChunk> _meshes = [];
   final _barMeshSlots = <int, _MeshSlot>{};
   final _colors = <(Object, int), ui.Color>{};
-  final List<TextPainter> _texts = [];
+  final Set<TextPainter> _texts = {};
+  final _textSlots = <int, (int, List<TextPainter>)>{};
+  final _textCache = <(String, TextStyle, TextDirection), TextPainter>{};
+  final _usedTextCache = <TextPainter>{};
   final List<_PaintCommand> _commands = [];
   bool disposed = false;
   int get commandCount => _commands.length;
@@ -91,7 +94,8 @@ class PatchMapCanvasRenderer {
     if (changed &&
         !topologyChanged &&
         !styleChanged &&
-        _updateBarMeshes(previous!))
+        (_updateBarMeshes(previous!) ||
+            _updateTextCommands(previous, snapshot)))
       return;
     _rebuild(snapshot);
   }
@@ -153,8 +157,96 @@ class PatchMapCanvasRenderer {
     return true;
   }
 
+  bool _updateTextCommands(
+    PatchMapGeometry previous,
+    PatchMapRenderSnapshot snapshot,
+  ) {
+    final current = geometry!;
+    if (!identical(current.baseProjection, previous.projectionIdentity))
+      return false;
+    for (final index in current.changedPrimitiveSlots) {
+      final p = current.primitives[index];
+      if (p.type != 'text' ||
+          (p.visible && p.opacity > 0 && !_textSlots.containsKey(index)))
+        return false;
+    }
+    _usedTextCache.clear();
+    // Pins from unchanged commands must survive cache pruning.
+    final changed = current.changedPrimitiveSlots.toSet();
+    for (final entry in _textSlots.entries) {
+      if (!changed.contains(entry.key))
+        _usedTextCache.addAll(entry.value.$2.where((p) => !_texts.contains(p)));
+    }
+    for (final index in current.changedPrimitiveSlots) {
+      final old = _textSlots[index];
+      if (old == null) continue;
+      for (final text in old.$2) {
+        if (_texts.remove(text)) text.dispose();
+      }
+      final primitive = current.primitives[index];
+      final key = '${primitive.ownerId}\u0000${primitive.componentId}';
+      final alpha =
+          primitive.opacity *
+          (snapshot.presentationAlpha[key] ??
+              snapshot.presentationAlpha[primitive.ownerId] ??
+              1);
+      final next = _textCommand(primitive, alpha);
+      _commands[old.$1] = next.$1;
+      _textSlots[index] = (old.$1, next.$2);
+    }
+    _pruneTextCache();
+    return true;
+  }
+
+  TextPainter _linePainter(
+    String text,
+    TextStyle style,
+    TextDirection direction,
+    bool cache,
+  ) {
+    if (!cache) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: direction,
+      )..layout();
+      _texts.add(painter);
+      return painter;
+    }
+    final key = (text, style, direction);
+    final painter =
+        _textCache.remove(key) ??
+        (TextPainter(
+          text: TextSpan(text: text, style: style),
+          textDirection: direction,
+        )..layout());
+    _textCache[key] = painter;
+    _usedTextCache.add(painter);
+    return painter;
+  }
+
+  void _pruneTextCache() {
+    // Active paragraphs plus at most 1024 inactive lines; never retain frames.
+    var spare = _textCache.length - _usedTextCache.length - 1024;
+    if (spare <= 0) return;
+    final remove = <(String, TextStyle, TextDirection)>[];
+    for (final entry in _textCache.entries) {
+      if (!_usedTextCache.contains(entry.value) && spare > 0) {
+        remove.add(entry.key);
+        spare--;
+      }
+    }
+    for (final key in remove) _textCache.remove(key)!.dispose();
+  }
+
   void refreshAssets(PatchMapRenderSnapshot snapshot) {
-    if (!disposed && geometry != null) _rebuild(snapshot);
+    if (!disposed && geometry != null) {
+      for (final painter in _textCache.values) {
+        painter.dispose();
+      }
+      _textCache.clear();
+      _usedTextCache.clear();
+      _rebuild(snapshot);
+    }
   }
 
   void _rebuild(PatchMapRenderSnapshot snapshot) {
@@ -166,6 +258,8 @@ class PatchMapCanvasRenderer {
     }
     _meshes.clear();
     _texts.clear();
+    _textSlots.clear();
+    _usedTextCache.clear();
     _commands.clear();
     _barMeshSlots.clear();
     _colors.clear();
@@ -208,7 +302,9 @@ class PatchMapCanvasRenderer {
       final source = value['source'];
       if (primitive.type == 'text') {
         flush();
-        _addText(primitive, alpha);
+        final text = _textCommand(primitive, alpha);
+        _textSlots[primitiveIndex] = (_commands.length, text.$2);
+        _commands.add(text.$1);
       } else if (primitive.type == 'relation') {
         flush();
         final points = primitive.points;
@@ -335,9 +431,13 @@ class PatchMapCanvasRenderer {
       }
     }
     flush();
+    _pruneTextCache();
   }
 
-  void _addText(GeometryPrimitive primitive, double alpha) {
+  (_PaintCommand, List<TextPainter>) _textCommand(
+    GeometryPrimitive primitive,
+    double alpha,
+  ) {
     final value = primitive.value;
     final style = value['style'] as Map? ?? const {};
     final layout = primitive.textLayout as SemanticTextLayout;
@@ -387,12 +487,13 @@ class PatchMapCanvasRenderer {
               layout.bidiLines[i].baseDirection == 'rtl'
           ? TextDirection.rtl
           : TextDirection.ltr;
-      final text = TextPainter(
-        text: TextSpan(text: layout.lines[i], style: rasterStyle),
-        textDirection: direction,
-      )..layout();
+      final text = _linePainter(
+        layout.lines[i],
+        rasterStyle,
+        direction,
+        style['align'] != 'justify',
+      );
       painters.add(text);
-      _texts.add(text);
       if (stroke != null && strokeWidth > 0) {
         final strokeColor = stroke is Map ? stroke['color'] : stroke;
         final strokeAlpha =
@@ -467,35 +568,39 @@ class PatchMapCanvasRenderer {
             math.min(rect.width / maxWidth, rect.height / rasterHeight),
           )
         : 1.0;
-    _commands.add((canvas) {
-      canvas.save();
-      canvas.transform(
-        _matrix(readableTransform(primitive, worldRotation: _rotation)),
-      );
-      final overflow = value['overflow'] ?? style['overflow'];
-      if (overflow == 'hidden' || overflow == 'ellipsis') canvas.clipRect(rect);
-      final offset = fitted
-          ? ui.Offset(
-              rect.left + (rect.width - maxWidth * scale) / 2,
-              rect.top + (rect.height - rasterHeight * scale) / 2,
-            )
-          : rect.topLeft;
-      canvas.translate(offset.dx, offset.dy);
-      canvas.scale(scale);
-      for (var i = 0; i < painters.length; i++) {
-        final line = painters[i];
-        final x = style['align'] == 'center'
-            ? (maxWidth - line.width) / 2
-            : style['align'] == 'right'
-            ? maxWidth - line.width
-            : 0.0;
-        final position = ui.Offset(x, i * layout.lineHeight);
-        if (strokePainters.isNotEmpty)
-          strokePainters[i].paint(canvas, position);
-        line.paint(canvas, position);
-      }
-      canvas.restore();
-    });
+    return (
+      (canvas) {
+        canvas.save();
+        canvas.transform(
+          _matrix(readableTransform(primitive, worldRotation: _rotation)),
+        );
+        final overflow = value['overflow'] ?? style['overflow'];
+        if (overflow == 'hidden' || overflow == 'ellipsis')
+          canvas.clipRect(rect);
+        final offset = fitted
+            ? ui.Offset(
+                rect.left + (rect.width - maxWidth * scale) / 2,
+                rect.top + (rect.height - rasterHeight * scale) / 2,
+              )
+            : rect.topLeft;
+        canvas.translate(offset.dx, offset.dy);
+        canvas.scale(scale);
+        for (var i = 0; i < painters.length; i++) {
+          final line = painters[i];
+          final x = style['align'] == 'center'
+              ? (maxWidth - line.width) / 2
+              : style['align'] == 'right'
+              ? maxWidth - line.width
+              : 0.0;
+          final position = ui.Offset(x, i * layout.lineHeight);
+          if (strokePainters.isNotEmpty)
+            strokePainters[i].paint(canvas, position);
+          line.paint(canvas, position);
+        }
+        canvas.restore();
+      },
+      [...painters, ...strokePainters],
+    );
   }
 
   void paint(
@@ -677,6 +782,12 @@ class PatchMapCanvasRenderer {
     }
     _meshes.clear();
     _texts.clear();
+    for (final painter in _textCache.values) {
+      painter.dispose();
+    }
+    _textCache.clear();
+    _usedTextCache.clear();
+    _textSlots.clear();
     _commands.clear();
     geometry = null;
     _selectionGeometry = null;

@@ -7,6 +7,7 @@ export 'primitives.dart';
 export 'placement.dart';
 export 'readable.dart';
 export 'bar_projection.dart';
+export 'text_projection.dart';
 
 PatchMapGeometry buildGeometry(
   PatchMapDataset dataset, {
@@ -82,6 +83,7 @@ class _GeometryBuilder {
       >[];
   var order = 0;
   final scopeChildren = <String, List<String>>{};
+  final textContexts = <String, (MapRect, MapRect, MapAffine, MapAffine)>{};
   final barContexts =
       <
         String,
@@ -119,6 +121,19 @@ class _GeometryBuilder {
       primitives: primitives,
       targets: targets,
       bounds: bounds ?? MapBounds.empty,
+      textBindings: Map.unmodifiable({
+        for (var slot = 0; slot < primitives.length; slot++)
+          if (textContexts['${primitives[slot].ownerId}\u0000${primitives[slot].componentId}']
+              case final context?)
+            '${primitives[slot].ownerId}\u0000${primitives[slot].componentId}':
+                TextGeometryBinding(
+                  slot,
+                  context.$1,
+                  context.$2,
+                  context.$3,
+                  context.$4,
+                ),
+      }),
       barBindingsBuilder: () =>
           _compileBarBindings(primitives, contexts, scopes),
       scopeChildren: Map.unmodifiable(scopeChildren),
@@ -378,6 +393,12 @@ class _GeometryBuilder {
               0,
               content.height - number(margin['top']) - number(margin['bottom']),
             ),
+          );
+          textContexts['$id\u0000$componentId'] = (
+            content,
+            frame,
+            transform,
+            transformFor(component),
           );
           final measured = measure(
             component,

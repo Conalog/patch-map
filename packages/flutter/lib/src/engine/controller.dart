@@ -12,6 +12,7 @@ import 'ports.dart';
 
 part 'data_targets.dart';
 part 'mutations.dart';
+part 'text_mutations.dart';
 part 'mutation_lowering.dart';
 part 'structural_mutations.dart';
 part 'history_selection.dart';
@@ -218,6 +219,15 @@ class PatchMapController {
               _geometryCache!,
               overlays.barKeys,
               overlays.heights,
+            )
+          : overlays is _TextValueOverlay &&
+                identical(_geometryDataset, dataset) &&
+                identical(_geometryOverlays, overlays.previous) &&
+                _geometryCache != null
+          ? projectTextValues(
+              _geometryCache!,
+              overlays.textValues,
+              textLayouter,
             )
           : null;
       _geometryCache =

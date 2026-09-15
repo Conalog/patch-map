@@ -72,6 +72,72 @@ Future<Uint8List> raster(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
+    'incremental text paint matches rebuild across cached values and asset refresh',
+    () async {
+      final data = PatchMapDataset.parse([
+        {
+          'id': 'g',
+          'type': 'grid',
+          'cells': [
+            [1, 1],
+          ],
+          'gap': 4,
+          'item': {
+            'size': {'width': 40, 'height': 80},
+            'components': [
+              {
+                'id': 'bg',
+                'type': 'background',
+                'source': {
+                  'fill': '#112233',
+                  'borderWidth': 2,
+                  'borderColor': '#888888',
+                },
+              },
+              {
+                'id': 't',
+                'type': 'text',
+                'text': '12',
+                'placement': 'center',
+                'style': {
+                  'fontSize': 'auto',
+                  'autoFont': {'min': 8, 'max': 14},
+                  'fill': 'white',
+                },
+              },
+            ],
+          },
+        },
+      ]);
+      final retained = PatchMapCanvasRenderer(null);
+      var geometry = buildGeometry(data, textLayouter: layoutGeometryText);
+      await raster(retained, snapshot(data, geometry));
+      for (final value in ['1234', '1234', '99', '12', '99']) {
+        final texts = {'g.0.0\u0000t': value, 'g.0.1\u0000t': value};
+        geometry = projectTextValues(geometry, texts, layoutGeometryText)!;
+        final state = snapshot(data, geometry);
+        final actual = await raster(retained, state);
+        final fresh = PatchMapCanvasRenderer(null);
+        final full = buildGeometry(
+          data,
+          textLayouter: layoutGeometryText,
+          overlays: {
+            for (final e in texts.entries) e.key: {'text': e.value},
+          },
+        );
+        expect(
+          actual,
+          orderedEquals(await raster(fresh, snapshot(data, full))),
+        );
+        fresh.dispose();
+        retained.refreshAssets(state);
+        expect(await raster(retained, state), orderedEquals(actual));
+      }
+      retained.dispose();
+      expect(retained.commandCount, 0);
+    },
+  );
+  test(
     'text stroke accepts direct CSS colors and renderer counters release',
     () async {
       Future<Uint8List> draw(Object stroke) async {

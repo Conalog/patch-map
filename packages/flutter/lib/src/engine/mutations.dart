@@ -85,6 +85,8 @@ extension PatchMapMutationOperations on PatchMapController {
       }
       final fast = _barHeightBatch(input, targets, animate, actionId);
       if (fast != null) return fast;
+      final text = _textValueBatch(input, targets, animate, actionId);
+      if (text != null) return text;
       if (animate is List && targets.isNotEmpty) {
         final bar = input['bar'];
         final directBars =

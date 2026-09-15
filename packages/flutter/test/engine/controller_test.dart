@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:patch_map/src/semantic/text/layout.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patch_map/src/api/values.dart';
 import 'package:patch_map/src/engine/controller.dart';
@@ -100,6 +101,56 @@ Future<(PatchMapController, Surface)> mounted({int historyLimit = 50}) async {
 }
 
 void main() {
+  test(
+    'text batch preserves null restoration, refusal and component alias counting',
+    () async {
+      final c = await PatchMapController.create(
+        data: [
+          {
+            'id': 'g',
+            'type': 'grid',
+            'cells': [
+              [1, 1],
+            ],
+            'item': {
+              'size': 40,
+              'components': [
+                {
+                  'id': 't',
+                  'type': 'text',
+                  'text': '1',
+                  'style': {'fontSize': 10},
+                },
+              ],
+            },
+          },
+        ],
+        textLayouter: layoutGeometryText,
+      );
+      final surface = Surface()..controller = c;
+      c.attach(surface);
+      surface.paint();
+      final hash = c.dataset.semanticHash;
+      PatchMapResult update(List<Object> targets, List<Object?> values) =>
+          c.updateBatch({
+            'targets': targets,
+            'text': {'componentId': 't', 'text': values},
+          }, recordHistory: false);
+      expect(update(['g.0.0', 'g.0.1'], ['12', '34']).appliedCount, 2);
+      final retained = c.renderSnapshot;
+      surface.accept = false;
+      expect(update(['g.0.0'], ['99']).status, 'refused');
+      expect(c.instanceOverlays['g.0.0\u0000t']!['text'], '12');
+      surface.accept = true;
+      expect(update(['g.0.0'], ['99']).status, 'committed');
+      expect(retained.geometry.primitives.first.value['text'], '12');
+      expect(update(['g.0.0', 'g.0.1'], [null, '34']).appliedCount, 1);
+      expect(c.renderSnapshot.geometry.primitives.first.value['text'], '1');
+      expect(update(['g.0.0'], [null]).status, 'unchanged');
+      expect(c.dataset.semanticHash, hash);
+      await c.destroy();
+    },
+  );
   test(
     'policy inputs detach nested maps while preserving callback identity',
     () async {
