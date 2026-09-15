@@ -66,7 +66,7 @@ The native backend admits bytes before decoding. PNG/JPEG/WebP/GIF use Flutter c
 
 The selected implementations are maintained directly. Alternative JS engine, bridge and renderer experiments are removed. Native bar workloads exercise the shipped Dart controller and Canvas surface; npm workloads exercise the shipped Pixi implementation. Functional fixtures and trace equality remain shared under `conformance/` and `verification/conformance/`.
 
-Run package-local focused tests for the changed owner. The private root forwards explicit JavaScript and Flutter commands; shared checks run from the repository root. Package-local tools resolve their own package root and use the workspace root only for shared contracts, the npm lockfile and evidence. Neither production runtime imports the sibling package or repository tooling.
+Run package-local focused tests for the changed owner. The private root forwards `js:*` and `flutter:*` commands; shared `verify:*` checks run from the repository root. Unscoped root build/test aliases are not provided. Package-local tools resolve their own package root and use the workspace root only for shared contracts, the npm lockfile and evidence. Neither production runtime imports the sibling package or repository tooling.
 
 Folder changes require import-boundary, build, installed-package, documentation and shared-conformance checks. They make no runtime speed claim. For hot-path changes use the selected renderer's benchmark, controlled baseline/candidate inputs and the [verification policy](verification.md). Do not restore the retired runtime comparison matrix.
 

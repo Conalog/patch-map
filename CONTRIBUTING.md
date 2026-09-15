@@ -12,13 +12,16 @@ specified once under `docs/`; package APIs bind that contract to each platform.
 | --- | --- | --- |
 | JavaScript implementation | `packages/javascript/` | `npm run unit -- tests/<owner>/<test>.test.ts` from that package |
 | Dart implementation | `packages/flutter/` | `flutter test test/<owner>/<test>.dart` from that package |
-| Shared verification | `verification/`, `conformance/` | `npm run test:tooling` from the root |
+| Shared verification | `verification/`, `conformance/` | `npm run verify:tooling` from the root |
 | Cross-runtime observations | `verification/conformance/` | `npm run verify:conformance` from the root |
 
 Use [verification policy](docs/engineering/verification.md) to select additional
-gates. Root `typecheck`, `lint`, `build` and `unit` commands coordinate the npm
-package and shared tooling. `flutter:analyze`, `flutter:test` and `verify:flutter`
-cover the native package. `verify:docs` checks all maintained documentation.
+gates. Root commands identify their owner: `js:*` invokes the JavaScript package,
+`flutter:*` invokes the native package, and `verify:*` owns shared tooling,
+documentation and cross-runtime checks. `js:test` runs JavaScript typecheck,
+lint and unit tests; `flutter:test` runs Dart tests; `verify:tooling` runs shared
+typecheck, lint and tooling tests. There is no unscoped root build or test command.
+Package-local npm commands retain their ordinary names, such as `npm run build`.
 
 Keep package production imports inside their runtime. Shared fixtures and tools
 are development inputs, never production imports. Edit public documents at the

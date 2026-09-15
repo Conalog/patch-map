@@ -158,7 +158,7 @@ jobs:
       - name: Verify packed ESM, CJS, types, and consumer audit
         env:
           PATCH_MAP_PACKAGE_ARTIFACT_DIR: ${{ github.workspace }}/.release-evidence
-        run: npm run verify:package -- --require-audit
+        run: npm run js:verify:package -- --require-audit
 
       - name: Create the verified release artifact
         id: package

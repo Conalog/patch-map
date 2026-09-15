@@ -2,7 +2,7 @@
 
 Performance code measures the current source tree and writes transient results
 under the workspace root’s `.artifacts/performance/`. Run the commands below
-from `packages/javascript/`, or use the matching root npm scripts. Runners depend only on current source and owned
+from `packages/javascript/`, or use the matching root `js:performance:*` or `js:verify:memory` scripts. Runners depend only on current source and owned
 fixtures.
 
 | Owner | Purpose | Command |

@@ -18,14 +18,16 @@ if (lock.name !== workspace.name || root?.name !== workspace.name ||
 }
 
 const requiredScripts = [
-  'typecheck',
-  'lint',
-  'unit',
-  'build',
+  'js:typecheck',
+  'js:lint',
+  'js:unit',
+  'js:build',
+  'verify:typecheck',
+  'verify:lint',
   'verify:docs',
-  'performance:smoke',
-  'verify:package',
-  'verify:memory',
+  'js:performance:smoke',
+  'js:verify:package',
+  'js:verify:memory',
 ];
 const missingScripts = requiredScripts.filter(
   (name) => typeof workspace.scripts?.[name] !== 'string',

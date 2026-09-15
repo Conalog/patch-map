@@ -88,19 +88,23 @@ jobs:
 
       - name: Typecheck
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run typecheck
+        run: |
+          npm run js:typecheck
+          npm run verify:typecheck
 
       - name: Lint
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run lint
+        run: |
+          npm run js:lint
+          npm run verify:lint
 
       - name: Unit
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run unit
+        run: npm run js:unit
 
       - name: Build
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run build
+        run: npm run js:build
 
       - name: Documentation
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
@@ -112,15 +116,15 @@ jobs:
 
       - name: Verify package
         if: ${{ matrix.gate == 'package' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run verify:package -- --require-audit
+        run: npm run js:verify:package -- --require-audit
 
       - name: Verify memory
         if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run verify:memory
+        run: npm run js:verify:memory
 
       - name: Verify benchmark harness
         if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run performance:smoke
+        run: npm run js:performance:smoke
 
   flutter:
     name: Flutter package

@@ -48,4 +48,4 @@ excluded. The package verifier checks both required and prohibited paths.
 | --- | --- | --- |
 | Runtime and toolchain | `packages/javascript/package.json`, `.nvmrc`, CI workflows | typecheck, build, CI classification |
 | Export formats and declarations | `packages/javascript/package.json`, build configuration | package integration |
-| Included documentation and licenses | package artifact policy | `verify:package` |
+| Included documentation and licenses | package artifact policy | `js:verify:package` |

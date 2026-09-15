@@ -24,18 +24,27 @@ Use Node.js 22 and npm for web/shared tooling, and Flutter 3.41.4 for native wor
 ```sh
 nvm use
 npm ci
-npm run build
+npm run js:build
 npm run verify:docs
 cd packages/flutter
 flutter pub get
 flutter test --concurrency=2
 ```
 
-The root forwards npm package tasks; package-local commands also work from
-`packages/javascript`. Shared comparison commands run from the repository root:
+Root commands are grouped by owner:
+
+| Scope | Examples |
+| --- | --- |
+| JavaScript | `js:build`, `js:test`, `js:verify:package`, `js:performance:smoke` |
+| Flutter | `flutter:analyze`, `flutter:test`, `flutter:verify:package`, `flutter:demo` |
+| Shared verification | `verify:tooling`, `verify:docs`, `verify:conformance` |
+
+Run these with `npm run <command>` from the repository root. Package-local npm
+commands keep their ordinary names inside `packages/javascript`.
+Start the shared comparison page or compare both runtimes from the root:
 
 ```sh
-npm run dev:comparison
+npm run verify:conformance:serve
 npm run verify:conformance
 ```
 

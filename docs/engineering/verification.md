@@ -10,23 +10,23 @@ For Dart, run `flutter test test/<owner>/<focused>.dart` from
 `packages/flutter/`. Shared checks run from the private repository root.
 
 ```bash
-npm run unit --workspace @conalog/patch-map -- tests/<owner>/<focused>.test.ts
+npm run js:unit -- tests/<owner>/<focused>.test.ts
 ```
 
-Start with the focused test owned by the changed boundary. Add `npm run
-typecheck` and `npm run lint` when TypeScript, imports, or linted configuration
-changes. Do not repeatedly run broad suites while editing: pull-request CI owns
-the complete gate matrix. Use `npm test` locally only when behavior crosses
+Start with the focused test owned by the changed boundary. Add
+`npm run js:typecheck` and `npm run js:lint` for JavaScript package changes.
+Use `npm run verify:tooling` for shared verification code changes. Do not repeatedly run broad suites while editing: pull-request CI owns
+the complete gate matrix. Use `npm run js:test` locally only when behavior crosses
 several owners or a focused witness cannot cover the changed contract.
 
 Add only the matching gate for broad runtime or release risk:
 
 ```bash
-npm run build
+npm run js:build
 npm run verify:docs
-npm run verify:package -- --require-audit
-npm run performance:smoke
-npm run verify:memory
+npm run js:verify:package -- --require-audit
+npm run js:performance:smoke
+npm run js:verify:memory
 ```
 
 ## Risk routing
@@ -60,11 +60,11 @@ npm run verify:memory
   noise and can cause a missed frame, input lag, a long task, or a noticeable
   completion delay. Small per-frame costs may still be material when they
   compound across every frame or cross an existing frame budget.
-- `performance:smoke` proves the benchmark path and lifecycle, not speed.
-- Use `performance:benchmark` for renderer, animation, text, or interaction hot
-  paths; `performance:update` for transaction work; and
-  `performance:extraction` for capture/readback changes.
-- `verify:memory` is the release gate for retained heap and resource cleanup.
+- `js:performance:smoke` proves the benchmark path and lifecycle, not speed.
+- Use `js:performance:benchmark` for renderer, animation, text, or interaction hot
+  paths; `js:performance:update` for transaction work; and
+  `js:performance:extraction` for capture/readback changes.
+- `js:verify:memory` is the release gate for retained heap and resource cleanup.
 - Results are current-run artifacts under ignored `.artifacts/performance/`.
   Historical result files are not source-controlled release authority.
 
@@ -75,7 +75,7 @@ npm run verify:memory
 - Internal ownership and gate routing live under `docs/engineering/` and are not
   published in the package.
 - Routers link to one owner instead of copying contracts.
-- `verify:package` installs the generated tarball and checks ESM, CommonJS,
+- `js:verify:package` installs the generated tarball and checks ESM, CommonJS,
   declarations, examples, assets, interaction, capture, and teardown.
 - Tests, source, engineering docs, performance tooling, verification code, and
   generated artifacts must not enter the published tarball.
