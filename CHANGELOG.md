@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.8](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.7...v1.0.0-alpha.8) (2026-09-10)
+
+
+### Added
+
+* add whole-map rotation controls to PatchMap ([#238](https://github.com/Conalog/patch-map/issues/238)) ([3537152](https://github.com/Conalog/patch-map/commit/353715219c54e413b60fde94849747e51cb3e056))
+
 ## [1.0.0-alpha.7](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.6...v1.0.0-alpha.7) (2026-09-01)
 
 
