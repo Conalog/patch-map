@@ -1,4 +1,9 @@
-# Canvas / Flame 비교 결과 기록
+# Flutter 검증 보고서
+
+- [v1 alpha 기능 정합성](alpha-parity.md): npm 브라우저와 Android/iOS 앱,
+  native Canvas 변경 전후 성능 및 검증 한계.
+
+## Canvas / Flame 비교 결과 기록
 
 직접 Canvas를 유지하기로 결정한 Android 실기기 비교 기록이다. 5,000개와
 10,000개 서비스 패널에서 bar 높이 변경과 text 변경을 비교했다. Flame을
