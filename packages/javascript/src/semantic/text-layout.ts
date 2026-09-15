@@ -31,6 +31,7 @@ import {
   joinRawClusters,
   measurePatchMapGraphemeAdvance,
   produceLayoutCore,
+  prepareLayoutSource,
   segmentPatchMapGraphemes,
   semanticPrecisionExceeded,
 } from './text-layout/segmentation-wrapping';
@@ -76,12 +77,14 @@ export function layoutPatchMapText(options: PatchMapTextLayoutOptions): PatchMap
   const breakWords = options.breakWords ?? false;
   const overflow = options.overflow ?? 'visible';
   const letterSpacingPx = options.letterSpacingPx ?? 0;
+  const prepared = prepareLayoutSource(options.source, layoutSource, split);
   const fontSizePx = chooseFontSize(
     options,
     layoutSource,
     options.lineHeightPx,
     letterSpacingPx,
     effectiveWordWrapWidthPx,
+    prepared,
   );
   const lineHeightPx = resolveLineHeightPx(fontSizePx, options.lineHeightPx);
   const alphabeticBaselinePx =
@@ -98,7 +101,7 @@ export function layoutPatchMapText(options: PatchMapTextLayoutOptions): PatchMap
     fontSizePx,
     lineHeightPx,
     letterSpacingPx,
-  });
+  }, prepared);
   const naturalWidth = maximum(core.naturalLineAdvancesPx);
   const naturalHeight = saturatingMultiply(core.lines.length, lineHeightPx);
   const width = maximum(core.lineAdvancesPx);

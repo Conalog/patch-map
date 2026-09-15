@@ -69,7 +69,7 @@ export function projectPatchMapInstanceComponentOverlay(
     ((store.flags[ownerSlot] ?? 0) & RenderFlags.Visible) !== 0;
   const ownerOpacity = store.opacity[ownerSlot] ?? 1;
   const entityId = `${ownerId}::${component.type}:${component.id}`;
-  const textCacheKey = component.type === 'text' && cache !== undefined
+  const textCacheKey = component.type === 'text' && cache?.textComponents !== undefined
     ? JSON.stringify([
         ownerProjection.affine[0],
         ownerProjection.affine[1],
@@ -156,7 +156,7 @@ export function projectPatchMapInstanceComponentOverlay(
       ? {}
       : { textProjection: state.textProjectionByEntityId[entityId] }),
   });
-  if (textCacheKey !== null && component.type === 'text' && cache !== undefined) {
+  if (textCacheKey !== null && component.type === 'text' && cache?.textComponents !== undefined) {
     let componentCache = cache.textComponents?.get(component);
     if (componentCache === undefined) {
       componentCache = new Map();
