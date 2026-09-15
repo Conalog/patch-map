@@ -40,6 +40,7 @@ async function reset(id = fixture.id): Promise<void> {
   disposeAssets = assets.dispose;
   try { instance = await PatchMap.mount({ container, data: fixture.dataset, ...fixture.surface, fit: false, ...(assets.runtime ? { assetRuntime: assets.runtime } : {}) }); }
   catch (error) { await disposeAssets(); disposeAssets = undefined; throw error; }
+  seed = 0x51a7;
   instance.selection.onChange(() => { show('Selection changed'); });
   show(`${fixture.id}: same input and logical surface as Flutter`);
 }

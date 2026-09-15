@@ -67,6 +67,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
         controller = next;
         fixture = nextFixture;
         commandIndex = 0;
+        seed = 0x51a7;
         status = 'Native Canvas · $fixtureId';
         busy = false;
       });
