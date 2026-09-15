@@ -68,7 +68,7 @@ action('#heights', () => {
   if (!instance) return;
   const ids = instance.targets.query({ type: 'grid-cell', scope: 'instances' }).matches.map((target) => target.id);
   const heights = ids.map(() => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return 6 + seed % 44; });
-  const result = instance.updateBatch({ targets: ids, bar: { componentId: 'bar', height: heights } }, { animate: false });
+  const result = instance.updateBatch({ targets: ids, bar: { componentId: 'bar', height: heights } }, { animate: true });
   show(`Seeded heights: ${result.status}, ${ids.length} grid instances`);
 });
 action('#undo', () => { if (instance) show(`Undo: ${instance.history.undo().status}`); });

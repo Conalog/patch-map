@@ -118,6 +118,14 @@ class PatchMapController {
   _BarColumns? _barColumns;
   Map<String, JsonMap>? _animatedOverlays;
   double _clockMs = 0;
+  // Sample once per command, never once per bar. A host without a live clock
+  // retains the explicit advanceFrame timeline used by deterministic drivers.
+  void _syncAnimationClock() {
+    final surface = _surface;
+    if (surface is PatchMapClock)
+      _clockMs = math.max(_clockMs, (surface as PatchMapClock).milliseconds);
+  }
+
   bool _reducedMotion = false, _surfaceVisible = true;
   bool get reducedMotion => _reducedMotion;
   set reducedMotion(bool value) {
@@ -318,9 +326,9 @@ class PatchMapController {
   /// Host advances the single animation timeline immediately before a frame.
   bool advanceFrame(double milliseconds) {
     if (_destroyed || !_surfaceVisible) return false;
-    _clockMs = milliseconds;
-    final bars = _advanceBars(milliseconds);
-    final turning = rotation._advance(milliseconds);
+    _clockMs = math.max(_clockMs, milliseconds);
+    final bars = _advanceBars(_clockMs);
+    final turning = rotation._advance(_clockMs);
     return bars || turning;
   }
 

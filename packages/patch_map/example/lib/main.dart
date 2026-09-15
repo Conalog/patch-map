@@ -155,7 +155,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
     return c.updateBatch({
       'targets': ids,
       'bar': {'componentId': 'bar', 'height': heights},
-    }, animate: false);
+    }, animate: true);
   });
   Future<void> _capture() async {
     final c = controller;

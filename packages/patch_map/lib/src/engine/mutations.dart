@@ -190,6 +190,7 @@ extension PatchMapMutationOperations on PatchMapController {
         destroyed ? 'DESTROYED' : 'NOT_READY',
         'No ready surface',
       );
+    _syncAnimationClock();
     final plans = <String, _BarPlan>{};
     final changedKeys = <String>[],
         changedHeights = <double>[],
@@ -333,6 +334,7 @@ extension PatchMapMutationOperations on PatchMapController {
         destroyed ? 'DESTROYED' : 'NOT_READY',
         'No ready surface',
       );
+    _syncAnimationClock();
     var operationIndex = 0;
     try {
       if (actionId != null && actionId.trim().isEmpty)

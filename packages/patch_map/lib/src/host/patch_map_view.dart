@@ -61,6 +61,13 @@ class _PatchMapViewState extends State<PatchMapView>
   int _assetGeneration = 0;
   bool _visible = true;
   double _lastFrameMs = 0;
+  // The frame timestamp stops changing while the map is idle. A monotonic
+  // stopwatch fills that gap without scheduling frames; the test binding
+  // supplies the same fake clock used by pump/elapseBlocking.
+  late final Stopwatch _frameAge =
+      GestureBinding.instance.samplingClock.stopwatch()..start();
+  double get _animationTimeMs =>
+      _lastFrameMs + _frameAge.elapsedMicroseconds / (1000 * timeDilation);
   Object? _assetTopology;
   Map<String, double>? _assetAlpha;
   Future<void>? _assetFuture;
@@ -117,6 +124,11 @@ class _PatchMapViewState extends State<PatchMapView>
 
   void _attach() {
     _closed = false;
+    _lastFrameMs =
+        SchedulerBinding.instance.currentFrameTimeStamp.inMicroseconds / 1000;
+    _frameAge
+      ..reset()
+      ..start();
     _assetTopology = null;
     _assetAlpha = null;
     _assetFuture = null;
@@ -250,6 +262,7 @@ class _PatchMapViewState extends State<PatchMapView>
       if (_closed || !mounted || controller.destroyed) return;
       try {
         _lastFrameMs = time.inMicroseconds / 1000;
+        _frameAge.reset();
         final activeAnimation = controller.advanceFrame(_lastFrameMs);
         final snapshot = controller.renderSnapshot;
         if (_snapshot.revisions.scene != snapshot.revisions.scene ||
@@ -454,6 +467,7 @@ class _PatchMapViewState extends State<PatchMapView>
   void _close() {
     if (_closed) return;
     _closed = true;
+    _frameAge.stop();
     _assetGeneration++;
     if (_frameId != null)
       SchedulerBinding.instance.cancelFrameCallbackWithId(_frameId!);
@@ -581,9 +595,12 @@ class _MapPainter extends CustomPainter {
   };
 }
 
-class _HostSurface implements PatchMapSurfacePort, PatchMapSurfaceProbePort {
+class _HostSurface
+    implements PatchMapSurfacePort, PatchMapSurfaceProbePort, PatchMapClock {
   _HostSurface(this.state);
   final _PatchMapViewState state;
+  @override
+  double get milliseconds => state._animationTimeMs;
   @override
   Map<String, dynamic> get debugResources {
     final v = state._snapshot.viewport;

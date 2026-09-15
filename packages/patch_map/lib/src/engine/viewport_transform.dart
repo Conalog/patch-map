@@ -386,6 +386,7 @@ class PatchMapRotationApi {
       duration,
     );
     handle._cancel = () => identical(_animation, plan) ? _cancel() : false;
+    _c._syncAnimationClock();
     plan.start = _c._clockMs;
     _animation = plan;
     if (duration == 0 || to == _value || _c.reducedMotion) {
