@@ -1,17 +1,37 @@
-# patch_map_example
+# PatchMap Flutter examples
 
-A new Flutter project.
+Run from this directory with Flutter 3.41.4.
 
-## Getting Started
+## Interactive 5,000-bar demo
 
-This project is a starting point for a Flutter application.
+```sh
+flutter run --profile -d DEVICE_ID --target=lib/bar_demo.dart
+```
 
-A few resources to get you started if this is your first Flutter project:
+The demo creates 50 grids of 4 × 25 cells, with one bar per cell. Every press of
+**전체 높이 랜덤 변경** updates all 5,000 heights to different values in 1–20.
+The animation switch selects 200 ms height transitions or immediate updates.
+Updates preserve the current camera and do not record history.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Drag anywhere on the map to pan. Pinch to zoom, or use the zoom buttons.
+**전체 보기** fits all grids to the available screen. The footer shows the
+applied count; the camera label updates after movement settles. Rendering uses
+`PatchMapView` directly, without an enclosing scroll view or per-bar Widgets.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+To prepare an ARM64 Android APK without a connected device:
+
+```sh
+flutter build apk --profile --target-platform android-arm64 --target=lib/bar_demo.dart
+```
+
+Output: `build/app/outputs/flutter-apk/app-profile.apk`.
+
+## Shared contract comparison
+
+```sh
+flutter run -d DEVICE_ID --target=lib/main.dart
+```
+
+This opens the gallery, updates, editor and codec fixtures. The matching npm
+comparison is served by `verification/conformance/vite.config.ts` at the
+repository root. The Reset buttons restore the same random seed.
