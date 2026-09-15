@@ -27,11 +27,17 @@ packages/flutter/
 ```
 
 
-Existing public API pages continue owning shared behavior. [Flutter binding](../integration/flutter.md) owns native construction, surface, input and diagnostic differences; exact Dart shapes belong to exported declarations. The [conformance design](flutter-conformance-design.md) owns equality rules. This page owns repository folders, dependencies and distribution boundaries. The Dart README links to contracts.
+Public API pages own shared behavior. [Flutter binding](../integration/flutter.md) owns native construction, surface, input and diagnostic differences; exact Dart shapes belong to exported declarations. The [conformance design](flutter-conformance-design.md) owns equality rules. This page owns folders, dependencies and distributions. The Dart README links to contracts.
 
-The manifest links behavior to owning documents, TS/Dart entries and executable cases. Every requirement must pass before declaring equivalence. Inventory covers API shapes, defaults, failure/lifecycle rules and dataset kinds. Fixtures contain data, commands, time and expected observations.
+Every manifest requirement must pass before declaring equivalence. The conformance design owns inventory and fixture structure.
 
 ## Runtime dependency and ownership
+
+Dart is performance-first: share schema and feature semantics, not JavaScript
+internals. Compile native render data, retain buffers/resources and process dirty
+or visible regions. Measured gains may justify structural changes; shared
+conformance preserves behavior. The experiment does not change shipping Dart
+declarations.
 
 Dependencies point from composition to api/engine, from engine to model/semantic and abstract ports in `packages/flutter/lib/src/engine/ports.dart`, and from host/rendering adapters to those ports. Model/semantic use Dart core libraries only. They never import Flutter, renderer, filesystem, tests or fixtures. The public entry assembles adapters; engine never imports concrete Canvas or Widget code. No production code loads conformance files.
 
@@ -68,11 +74,11 @@ The selected implementations are maintained directly. Alternative JS engine, bri
 
 Run package-local focused tests for the changed owner. The private root forwards `js:*` and `flutter:*` commands; shared `verify:*` checks run from the repository root. Unscoped root build/test aliases are not provided. Package-local tools resolve their own package root and use the workspace root only for shared contracts, the npm lockfile and evidence. Neither production runtime imports the sibling package or repository tooling.
 
-Folder changes require import-boundary, build, installed-package, documentation and shared-conformance checks. They make no runtime speed claim. For hot-path changes use the selected renderer's benchmark, controlled baseline/candidate inputs and the [verification policy](verification.md). Do not restore the retired runtime comparison matrix.
+Folder changes require import-boundary, build, installed-package, documentation and shared-conformance checks. They make no runtime speed claim. For hot-path changes use the selected renderer's benchmark, controlled baseline/candidate inputs and the [verification policy](verification.md). Explicit renderer reevaluation uses the focused [Canvas/Flame experiment](../../verification/flutter/flame-comparison.md); the retired JavaScript runtime matrix remains removed.
 
 ## Distribution isolation
 
-npm retains its existing export map and artifact allowlist. Its build stages allowlisted public documentation and the license from repository authorities into ignored package-local outputs; generated copies are never edited or committed. The workspace lockfile owns npm dependency resolution. Dart ships its own lib/assets/docs/license and requires no Node/Pixi or JS engine. Native example platform scaffolding belongs to the example, not the library. Generated build/.dart_tool/Pods outputs are ignored and excluded from documentation scans. Package verifiers explicitly reject accidental cross-package payloads.
+npm retains its existing export map and artifact allowlist. Its build stages allowlisted public documentation and the license from repository authorities into ignored package-local outputs; generated copies are never edited or committed. The workspace lockfile owns npm dependency resolution. Dart ships its own lib/assets/docs/license and requires no Node/Pixi or JS engine. Platform scaffolding belongs to the native example. Generated build/.dart_tool/Pods outputs are ignored and excluded from documentation scans. Package verifiers explicitly reject accidental cross-package payloads.
 
 Versions are independent; contract revision and capabilities identify equivalent releases. npm release-please tracks `packages/javascript` and its independent version; shared public documentation is staged into its artifact. A shared-contract change must include the corresponding package change; documentation-only commits do not independently advance a package version. Dart release tags must use a separate prefix; registry publication is not enabled (`publish_to: none`). Credentials, tags and publishing stay outside local implementation. Publication remains blocked until full conformance and both platform checks pass.
 
