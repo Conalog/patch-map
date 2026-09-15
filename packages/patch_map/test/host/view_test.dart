@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patch_map/patch_map.dart';
 
@@ -60,6 +61,37 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('capture refuses a boundary invalidated after publication', (
+    tester,
+  ) async {
+    final c = await controller();
+    await tester.pumpWidget(surface(c));
+    await tester.pumpAndSettle();
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.descendant(
+        of: find.byType(PatchMapView),
+        matching: find.byWidgetPredicate((widget) => widget is RepaintBoundary),
+      ),
+    );
+    boundary.markNeedsPaint();
+    await expectLater(
+      c.capture.png(),
+      throwsA(
+        isA<PatchMapException>().having(
+          (error) => error.code,
+          'code',
+          'NOT_READY',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final png = await tester.runAsync(
+      () => c.capture.png().timeout(const Duration(seconds: 3)),
+    );
+    expect(png!.size, [100, 100]);
+    await c.destroy();
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets(
     'controller survives surface detach and reattach with selection',
     (tester) async {

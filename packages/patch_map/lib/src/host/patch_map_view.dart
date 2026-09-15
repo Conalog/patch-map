@@ -315,8 +315,8 @@ class _PatchMapViewState extends State<PatchMapView>
     if (_closed || snapshot.revisions != controller.revisions)
       throw const PatchMapException('STALE_TARGET', 'Capture tuple changed');
     final boundary =
-        _boundary.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-    if (boundary == null || boundary.debugNeedsPaint)
+        _boundary.currentContext?.findRenderObject() as _CaptureRenderBoundary?;
+    if (boundary == null || !boundary.paintReady)
       throw const PatchMapException('NOT_READY', 'Surface has not painted');
     final image = await boundary.toImage(
       pixelRatio: snapshot.viewport.pixelRatio,
@@ -368,7 +368,7 @@ class _PatchMapViewState extends State<PatchMapView>
             controller.viewport.resize(width, height, dpr);
         });
       }
-      Widget paint = RepaintBoundary(
+      Widget paint = _CaptureBoundary(
         key: _boundary,
         child: _SemanticCustomPaint(
           semanticsUpdates: _semantics,
@@ -688,5 +688,30 @@ class _SemanticRenderPaint extends RenderCustomPaint {
   void detach() {
     _updates.removeListener(markNeedsSemanticsUpdate);
     super.detach();
+  }
+}
+
+// RenderObject.debugNeedsPaint exists only with assertions enabled. Capture
+// needs the same paint boundary in profile/release, so retain its readiness
+// at the actual invalidation and paint hooks rather than guessing from a timer.
+class _CaptureBoundary extends RepaintBoundary {
+  const _CaptureBoundary({super.key, required super.child});
+  @override
+  RenderRepaintBoundary createRenderObject(BuildContext context) =>
+      _CaptureRenderBoundary();
+}
+
+class _CaptureRenderBoundary extends RenderRepaintBoundary {
+  bool paintReady = false;
+  @override
+  void markNeedsPaint() {
+    paintReady = false;
+    super.markNeedsPaint();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    super.paint(context, offset);
+    paintReady = true;
   }
 }
