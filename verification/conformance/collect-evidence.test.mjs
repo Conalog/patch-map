@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { analyzerSelectsProbe, parseDartReport, parseVitestReport, validateNativeIdentity } from './collect-evidence.mjs';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { snapshotSources, analyzerSelectsProbe, parseDartReport, parseVitestReport, validateNativeIdentity } from './collect-evidence.mjs';
 
 const root = '/workspace';
 const vitest = () => ({ success: true, numTotalTests: 2, numPassedTests: 1, numFailedTests: 0,
@@ -59,4 +62,24 @@ test('native evidence binds the report path, build revision, source receipt and 
   assert.throws(() => validateNativeIdentity(root, input, { revision: 'old' }, receipt, log), /revision/u);
   assert.throws(() => validateNativeIdentity(root, input, { revision: 'build-7' }, receipt, log.replace('report.json', 'other.json')), /execution log/u);
   assert.throws(() => validateNativeIdentity(root, input, { revision: 'build-7' }, { ...receipt, sha256: 'b'.repeat(64) }, log), /receipt mismatch/u);
+});
+
+
+test('evidence identity includes the shared workspace manifest and compiler/lint configuration', async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'patch-map-source-config-'));
+  try {
+    await mkdir(resolve(directory, 'verification'));
+    for (const name of ['package.json', 'tsconfig.json', 'eslint.config.js']) {
+      await writeFile(resolve(directory, 'verification', name), '{}');
+    }
+    const before = await snapshotSources(directory);
+    assert.deepEqual(Object.keys(before.files).sort(), [
+      'verification/eslint.config.js', 'verification/package.json', 'verification/tsconfig.json',
+    ]);
+    await writeFile(resolve(directory, 'verification/tsconfig.json'), '{"strict":true}');
+    const after = await snapshotSources(directory);
+    assert.notEqual(after.fingerprint, before.fingerprint);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

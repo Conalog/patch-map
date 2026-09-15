@@ -29,12 +29,10 @@
     ]
   },
   "include": [
-    "verification/**/*.ts",
-    "packages/javascript/src/**/*.d.ts"
+    "**/*.ts",
+    "../packages/javascript/src/**/*.d.ts"
   ],
   "exclude": [
-    ".artifacts",
-    "dist",
     "node_modules"
   ]
 }

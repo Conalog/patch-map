@@ -54,7 +54,7 @@ export async function snapshotSources(root) {
     'conformance', 'verification/conformance', 'verification/flutter', 'packages/javascript/verification/package']) {
     try { await visit(path); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
-  for (const path of ['package.json', 'package-lock.json', 'tsconfig.json', 'packages/javascript/package.json', 'packages/javascript/tsconfig.json', 'packages/javascript/tsconfig.build.json', 'packages/javascript/vite.config.ts', 'packages/flutter/pubspec.yaml', 'packages/flutter/pubspec.lock']) {
+  for (const path of ['package.json', 'package-lock.json', '.nvmrc', 'verification/package.json', 'verification/tsconfig.json', 'verification/eslint.config.js', 'packages/javascript/package.json', 'packages/javascript/tsconfig.json', 'packages/javascript/tsconfig.build.json', 'packages/javascript/vite.config.ts', 'packages/flutter/pubspec.yaml', 'packages/flutter/pubspec.lock']) {
     try { files[path] = sha(await readFile(resolve(root, path))); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
   const sorted = Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b)));

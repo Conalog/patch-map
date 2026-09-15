@@ -74,7 +74,8 @@ test('shared contract and npm source changes select both runtime gates', () => {
   assert.equal(requiresFlutterValidation('packages/javascript/src/index.ts'), true);
   assert.equal(requiresFlutterValidation('packages/javascript/tests/integration/multi-instance.test.ts'), true);
   assert.equal(requiresFlutterValidation('.github/workflows/ci.yaml'), true);
-  for (const path of ['package.json', 'package-lock.json', 'tsconfig.json', 'docs/assets/fira-code-6.2-license.txt']) {
+  for (const path of ['package.json', 'package-lock.json', '.nvmrc', 'verification/package.json',
+    'verification/tsconfig.json', 'verification/eslint.config.js', 'docs/assets/fira-code-6.2-license.txt']) {
     assert.equal(requiresFlutterValidation(path), true, path);
   }
   assert.equal(classifyChangedPaths([]).flutterValidation, true);

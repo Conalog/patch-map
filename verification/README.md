@@ -1,6 +1,19 @@
 # Shared verification
 
 Repository-wide gates coordinate the two independently built packages.
+`@patch-map/verification` is a private npm workspace, never a distributed runtime.
+Its [manifest](package.json) declares its tools; [TypeScript](tsconfig.json) and
+[ESLint](eslint.config.js) settings cover shared verification and CI scripts. JavaScript
+owns separate build/lint configuration in its package; Dart uses its own pubspec
+and analysis options.
+
+The root manifest forwards `verify:*` commands here. Typecheck runs in this
+workspace; cross-package gates explicitly change to the repository root before
+executing existing tools. This preserves fixture/artifact paths, CI script lint
+coverage and the `/verification/conformance/web/` browser URL. No second dispatcher
+or runtime wrapper is required. Run `npm ci` once at the root using its lockfile.
+Shared and JavaScript dependencies are declared by each consumer even when npm
+installs the same version only once.
 
 | Owner | Purpose | Command |
 | --- | --- | --- |

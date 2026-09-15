@@ -23,6 +23,14 @@ lint and unit tests; `flutter:test` runs Dart tests; `verify:tooling` runs share
 typecheck, lint and tooling tests. There is no unscoped root build or test command.
 Package-local npm commands retain their ordinary names, such as `npm run build`.
 
+The root `.nvmrc` selects Node for JavaScript and shared tooling. This contribution
+guide applies to both runtimes. The private root `package.json` routes tasks and
+`package-lock.json` resolves Node workspaces; tooling dependencies and TypeScript/
+ESLint configuration belong to `verification/`. Add npm runtime/build dependencies
+in `packages/javascript/package.json`, shared tool dependencies in
+`verification/package.json`, and Dart dependencies in the owning pubspec. Flutter
+is not an npm workspace and can use its native CLI without npm for Dart-only work.
+
 Keep package production imports inside their runtime. Shared fixtures and tools
 are development inputs, never production imports. Edit public documents at the
 repository root; npm build generates its allowlisted documentation/license copies.

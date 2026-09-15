@@ -17,7 +17,8 @@ export function requiresFlutterValidation(path) {
     || path.startsWith('verification/conformance/')
     || path.startsWith('verification/flutter/')
     || (path.startsWith('docs/') && !path.startsWith('docs/engineering/'))
-    || ['package.json', 'package-lock.json', 'tsconfig.json', 'eslint.config.js',
+    || ['package.json', 'package-lock.json', '.nvmrc',
+      'verification/package.json', 'verification/tsconfig.json', 'verification/eslint.config.js',
       'packages/javascript/package.json', 'packages/javascript/tsconfig.json',
       'packages/javascript/tsconfig.build.json'].includes(path)
     || path === '.github/workflows/ci.yaml'

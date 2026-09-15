@@ -7,13 +7,15 @@
 
 ## Repository and documentation ownership
 
-Both distributions are peers under `packages/`. The repository root owns shared contracts, conformance and task coordination; it is private and cannot be published.
+Both distributions are peers under `packages/`. The private root owns shared contracts, conformance and coordination.
 
 ```text
-package.json, package-lock.json            private npm workspace coordinator
+package.json, package-lock.json            private coordinator and shared Node resolution
+.nvmrc, CONTRIBUTING.md                    repository toolchain and contribution guide
 docs/                                     shared behavior and engineering authorities
 conformance/                              revisioned fixtures, API/semantic coverage
-verification/                             cross-package checks and documentation gate
+verification/                             private Node tooling workspace
+  package.json, tsconfig.json, eslint.config.js  tooling dependencies and checks
 packages/javascript/
   package.json, README.md, CHANGELOG.md      npm distribution metadata
   src/, tests/, examples/                   TypeScript/Pixi implementation and consumers
@@ -29,7 +31,7 @@ packages/flutter/
 
 Public API pages own shared behavior. [Flutter binding](../integration/flutter.md) owns native construction, surface, input and diagnostic differences; exact Dart shapes belong to exported declarations. The [conformance design](flutter-conformance-design.md) owns equality rules. This page owns folders, dependencies and distributions. The Dart README links to contracts.
 
-Every manifest requirement must pass before declaring equivalence. The conformance design owns inventory and fixture structure.
+Conformance owns inventory and fixture requirements; all must pass before declaring equivalence.
 
 ## Runtime dependency and ownership
 
@@ -72,7 +74,7 @@ The native backend admits bytes before decoding. PNG/JPEG/WebP/GIF use Flutter c
 
 The selected implementations are maintained directly. Alternative JS engine, bridge and renderer experiments are removed. Native bar workloads exercise the shipped Dart controller and Canvas surface; npm workloads exercise the shipped Pixi implementation. Functional fixtures and trace equality remain shared under `conformance/` and `verification/conformance/`.
 
-Run package-local focused tests for the changed owner. The private root forwards `js:*` and `flutter:*` commands; shared `verify:*` checks run from the repository root. Unscoped root build/test aliases are not provided. Package-local tools resolve their own package root and use the workspace root only for shared contracts, the npm lockfile and evidence. Neither production runtime imports the sibling package or repository tooling.
+The private root forwards `js:*` to JavaScript, `flutter:*` to native tasks and `verify:*` to the [verification workspace](../../verification/README.md). Root has no development dependencies or compiler/lint configuration. npm workspaces contain JavaScript and tooling; Flutter uses pub. Shared gates execute from the repository root. Package tools use their own root and access shared contracts, lockfile and evidence explicitly. Runtime imports never cross package/tooling boundaries.
 
 Folder changes require import-boundary, build, installed-package, documentation and shared-conformance checks. They make no runtime speed claim. For hot-path changes use the selected renderer's benchmark, controlled baseline/candidate inputs and the [verification policy](verification.md). The [renderer comparison reports](../../verification/flutter/reports/README.md) preserve the decision; experiment sources and tools are removed.
 

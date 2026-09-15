@@ -8,7 +8,8 @@ Two independently distributed implementations of the same map contract:
 | `patch_map` | Dart and Flutter Canvas for Android and iOS | [Flutter package](packages/flutter/README.md) |
 
 Both packages own their dependencies, tests, examples and distribution metadata.
-The repository root is private and is not a published package. Neither runtime
+The root is a private task coordinator; [shared tooling](verification/README.md)
+has its own private workspace and dependencies. Neither runtime
 loads the other. Flutter registry publication remains disabled while release
 qualification is managed separately.
 
