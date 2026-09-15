@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:collection';
 import '../../model/json.dart';
 
 class MapPoint {
@@ -203,6 +204,23 @@ class GeometryTarget {
 }
 
 class PatchMapGeometry {
+  /// The projection owns its immutable primitive list and lazy target view.
+  /// No previous frame is retained by this constructor.
+  PatchMapGeometry.barProjection({
+    required BarGeometryTargets targets,
+    required this.bounds,
+    required PatchMapGeometry previous,
+    required List<int> changedPrimitiveSlots,
+  }) : primitives = targets.primitives,
+       targets = targets,
+       _barBindings = previous.barBindings,
+       _barBindingsBuilder = null,
+       scopeChildren = previous.scopeChildren,
+       hasRelations = previous.hasRelations,
+       topology = previous.topology,
+       changedPrimitiveSlots = List.unmodifiable(changedPrimitiveSlots),
+       baseProjection = previous.projectionIdentity;
+
   PatchMapGeometry({
     required List<GeometryPrimitive> primitives,
     required Map<String, GeometryTarget> targets,
@@ -284,6 +302,82 @@ class PatchMapGeometry {
     }
     return null;
   }
+}
+
+/// A flat, immutable target projection. Bar geometry is already present in the
+/// primitive column; allocate query objects only when bounds/hit consumers ask.
+/// Keep original metadata and the latest scope overrides, never a frame chain.
+class BarGeometryTargets extends MapBase<String, GeometryTarget> {
+  factory BarGeometryTargets(
+    PatchMapGeometry previous,
+    List<GeometryPrimitive> primitives,
+  ) {
+    final prior = previous.targets;
+    return BarGeometryTargets._(
+      prior is BarGeometryTargets ? prior._base : prior,
+      previous.barBindings,
+      List.unmodifiable(primitives),
+      prior is BarGeometryTargets ? prior._scopes : const {},
+    );
+  }
+
+  BarGeometryTargets._(
+    this._base,
+    this._bindings,
+    this.primitives,
+    this._scopes,
+  );
+  final Map<String, GeometryTarget> _base, _scopes;
+  final Map<String, BarGeometryBinding> _bindings;
+  final List<GeometryPrimitive> primitives;
+  final Map<String, GeometryTarget> _cache = {};
+
+  BarGeometryTargets withScopes(Map<String, GeometryTarget> scopes) =>
+      scopes.isEmpty
+      ? this
+      : BarGeometryTargets._(
+          _base,
+          _bindings,
+          primitives,
+          Map.unmodifiable({..._scopes, ...scopes}),
+        );
+
+  @override
+  GeometryTarget? operator [](Object? key) {
+    final binding = _bindings[key];
+    if (binding == null) return _scopes[key] ?? _base[key];
+    return _cache.putIfAbsent(key as String, () {
+      final prior = _base[key]!, primitive = primitives[binding.slot];
+      return GeometryTarget(
+        id: prior.id,
+        type: prior.type,
+        localRect: primitive.localRect,
+        transform: primitive.transform,
+        visible: prior.visible,
+        locked: prior.locked,
+        ownerId: prior.ownerId,
+        componentId: prior.componentId,
+        paths: prior.paths,
+        strokeWidth: prior.strokeWidth,
+        paintOrder: prior.paintOrder,
+      );
+    });
+  }
+
+  @override
+  Iterable<String> get keys => _base.keys;
+  @override
+  int get length => _base.length;
+  @override
+  bool containsKey(Object? key) => _base.containsKey(key);
+  @override
+  void operator []=(String key, GeometryTarget value) =>
+      throw UnsupportedError('Read-only geometry targets');
+  @override
+  GeometryTarget? remove(Object? key) =>
+      throw UnsupportedError('Read-only geometry targets');
+  @override
+  void clear() => throw UnsupportedError('Read-only geometry targets');
 }
 
 /// Stable placement/transform data compiled by the one geometry authority.

@@ -55,9 +55,9 @@ All async work checks instance generation and request generation on settlement. 
 
 ## Implementation contracts
 
-Dart construction uses asynchronous `PatchMap.create` returning a controller and `PatchMapView(controller: ...)` as the surface binding. Controller readiness and visible readiness are distinct; capture requires an attached, published surface. Domain facades retain data/targets/update/updateBatch/transaction/history/editor/selection/pointer/presentation/viewport/rotation/transform/assets/debug/capture meanings. JSON-shaped dataset and patch inputs remain detached string-keyed maps; results and stable targets use exported Dart classes. Synchronous mutations stay synchronous; cancellation and listener disposal are explicit handles.
+Dart exposes asynchronous `PatchMap.create` and `PatchMapView(controller: ...)`. Controller and visible readiness differ; capture requires an attached, published surface. Domain facades retain data/targets/update/updateBatch/transaction/history/editor/selection/pointer/presentation/viewport/rotation/transform/assets/debug/capture meanings. JSON-shaped dataset and patch inputs remain detached string-keyed maps; results and stable targets use exported Dart classes. Synchronous mutations stay synchronous; cancellation and listener disposal are explicit handles.
 
-The semantic dataset uses immutable maps and indexed targets. Structural edits use detached preparation; grid heights use validated overlays and dirty slots without full tree cloning or parsing. Renderer projection uses packed buffers and ordered batches. View changes transform existing geometry. Text measurement, assets and clocks enter through ports. The native surface supplies a monotonic clock between frames; each command samples it once so idle time cannot consume a new bar or rotation animation. Idle schedules no frames.
+The semantic dataset uses immutable maps and indexed targets. Structural edits use detached preparation; grid heights use validated overlays and dirty slots without full tree cloning or parsing. Renderer projection uses packed buffers and ordered batches. Bar projections share original target metadata and create query targets lazily; flat views retain no preceding frames. View changes transform existing geometry. Text measurement, assets and clocks enter through ports. The native surface supplies a monotonic clock between frames; each command samples it once so idle time cannot consume a new bar or rotation animation. Idle schedules no frames.
 
 ## Asset decoder decisions
 
@@ -74,7 +74,7 @@ The native backend admits bytes before decoding. PNG/JPEG/WebP/GIF use Flutter c
 | E Host completeness | Text/fonts, image admission/codecs, animations, pointer/keyboard/accessibility, capture and cleanup; failure/lifecycle cases plus Android/iOS screenshots |
 | F Qualification | Required manifest coverage, installed consumers, native builds, representative bar performance, final side-by-side review |
 
-Parallel work uses agreed interfaces and disjoint ownership. Commit units after focused checks. A/B/C are intermediate work, never a reduced-function release. Unsupported placeholders or successful no-op facades do not count as implementation.
+Parallel work uses disjoint ownership. Commit after focused checks. A/B/C are intermediate work, never a reduced-function release. Unsupported placeholders or successful no-op facades do not count as implementation.
 
 During development run only tests for the changed owner and affected conformance IDs. Rebuild native apps when a vertical slice changes observable behavior; keep the browser comparison server running. Use hot reload for UI iteration, not as release evidence. Full package checks and broad native integration run at F or after a cross-owner failure warrants them. Do not repeat the full runtime benchmark matrix; measure the selected Dart renderer on representative 5,000/10,000-bar changes.
 
@@ -82,6 +82,6 @@ During development run only tests for the changed owner and affected conformance
 
 npm retains its existing export map and artifact allowlist. Dart ships its own lib/assets/docs/license and requires no Node/Pixi or JS engine. Native example platform scaffolding belongs to the example, not the library. Generated build/.dart_tool/Pods outputs are ignored and excluded from documentation scans. Package verifiers explicitly reject accidental cross-package payloads.
 
-Versions are independent; contract revision and qualified capability set identify equivalent releases. npm's release-please root excludes Dart package, shared verification and Flutter-only documentation paths. Dart release tags must use a separate prefix; registry publication is not enabled (`publish_to: none`). Credentials, tags and publishing stay outside local implementation. Publication remains blocked until full conformance and both platform checks pass.
+Versions are independent; contract revision and capabilities identify equivalent releases. npm's release-please root excludes Dart package, shared verification and Flutter-only documentation paths. Dart release tags must use a separate prefix; registry publication is not enabled (`publish_to: none`). Credentials, tags and publishing stay outside local implementation. Publication remains blocked until full conformance and both platform checks pass.
 
 PR CI pins Flutter 3.41.4/Node 22, verifies inventory/package boundaries, runs Dart analysis/tests and an installed consumer. npm source, dependency, contract, asset and integration-document changes also select this gate. Native OS qualification remains separate; npm gates retain existing routing.

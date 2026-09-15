@@ -13,8 +13,7 @@ PatchMapGeometry? projectBarHeights(
   if (keys.length != heights.length) return null;
   for (final key in keys)
     if (!previous.barBindings.containsKey(key)) return null;
-  final primitives = List<GeometryPrimitive>.of(previous.primitives),
-      targets = Map<String, GeometryTarget>.of(previous.targets);
+  final primitives = List<GeometryPrimitive>.of(previous.primitives);
   final changed = <int>[], scopes = <String>{};
   var boundsChanged = false;
   for (var i = 0; i < keys.length; i++) {
@@ -34,7 +33,7 @@ PatchMapGeometry? projectBarHeights(
     final transform = binding.ownerTransform
         .multiply(MapAffine(1, 0, 0, 1, placement.x, placement.y))
         .multiply(binding.attrsTransform);
-    final rect = MapRect(0, 0, binding.width, height), prior = targets[key]!;
+    final rect = MapRect(0, 0, binding.width, height);
     primitives[binding.slot] = GeometryPrimitive(
       ownerId: old.ownerId,
       componentId: old.componentId,
@@ -47,29 +46,19 @@ PatchMapGeometry? projectBarHeights(
       contentOrientation: old.contentOrientation,
       placementAnchor: old.placementAnchor,
     );
-    targets[key] = GeometryTarget(
-      id: prior.id,
-      type: prior.type,
-      localRect: rect,
-      transform: transform,
-      visible: prior.visible,
-      locked: prior.locked,
-      ownerId: prior.ownerId,
-      componentId: prior.componentId,
-      paintOrder: prior.paintOrder,
-    );
     changed.add(binding.slot);
     if (!old.visible ||
         (height <= binding.containedHeightLimit &&
             old.localRect.height <= binding.containedHeightLimit))
       continue;
-    final bounds = targets[key]!.bounds, owner = targets[old.ownerId]!.bounds;
+    final bounds = primitives[binding.slot].bounds,
+        owner = previous.targets[old.ownerId]!.bounds;
     bool within(MapBounds b) =>
         b.left >= owner.left &&
         b.right <= owner.right &&
         b.top >= owner.top &&
         b.bottom <= owner.bottom;
-    if (old.visible && (!within(prior.bounds) || !within(bounds))) {
+    if (old.visible && (!within(old.bounds) || !within(bounds))) {
       boundsChanged = true;
       scopes.addAll(binding.scopes);
     }
@@ -78,16 +67,18 @@ PatchMapGeometry? projectBarHeights(
   // Relations may use a changed composite center. Full lowering owns their
   // exact self-loop/endpoint dependencies until that subgraph is compiled.
   if (boundsChanged && previous.hasRelations) return null;
+  var targets = BarGeometryTargets(previous, primitives);
+  final scopeTargets = <String, GeometryTarget>{};
   for (final scope in previous.scopeChildren.entries) {
     if (!scopes.contains(scope.key)) continue;
     MapBounds? bounds;
     for (final key in scope.value) {
-      final target = targets[key]!;
+      final target = scopeTargets[key] ?? targets[key]!;
       if (target.visible)
         bounds = bounds?.union(target.bounds) ?? target.bounds;
     }
     final old = targets[scope.key]!;
-    targets[scope.key] = GeometryTarget(
+    scopeTargets[scope.key] = GeometryTarget(
       id: old.id,
       type: old.type,
       bounds: bounds ?? old.bounds,
@@ -98,6 +89,7 @@ PatchMapGeometry? projectBarHeights(
       paintOrder: old.paintOrder,
     );
   }
+  targets = targets.withScopes(scopeTargets);
   var bounds = previous.bounds;
   if (boundsChanged) {
     MapBounds? next;
@@ -106,15 +98,10 @@ PatchMapGeometry? projectBarHeights(
         next = next?.union(target.bounds) ?? target.bounds;
     bounds = next ?? MapBounds.empty;
   }
-  return PatchMapGeometry(
-    primitives: primitives,
+  return PatchMapGeometry.barProjection(
     targets: targets,
     bounds: bounds,
-    barBindings: previous.barBindings,
-    scopeChildren: previous.scopeChildren,
-    hasRelations: previous.hasRelations,
-    topology: previous.topology,
-    changedPrimitiveSlots: List.unmodifiable(changed),
-    baseProjection: previous.projectionIdentity,
+    previous: previous,
+    changedPrimitiveSlots: changed,
   );
 }
