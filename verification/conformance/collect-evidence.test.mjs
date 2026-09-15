@@ -42,12 +42,12 @@ test('machine errors, incomplete tails, unfinished tests and count drift fail cl
 });
 
 test('analyzer selection uses exact argv path containment rather than a shared substring', () => {
-  const one = { command: ['flutter', 'analyze', '--no-pub', 'test/conformance/one.dart'], workingDirectory: 'packages/patch_map' };
-  assert.equal(analyzerSelectsProbe(root, one, 'packages/patch_map/test/conformance/one.dart'), true);
-  assert.equal(analyzerSelectsProbe(root, one, 'packages/patch_map/test/conformance/two.dart'), false);
+  const one = { command: ['flutter', 'analyze', '--no-pub', 'test/conformance/one.dart'], workingDirectory: 'packages/flutter' };
+  assert.equal(analyzerSelectsProbe(root, one, 'packages/flutter/test/conformance/one.dart'), true);
+  assert.equal(analyzerSelectsProbe(root, one, 'packages/flutter/test/conformance/two.dart'), false);
   const all = { ...one, command: ['flutter', 'analyze', '--no-pub', 'lib', 'test'] };
-  assert.equal(analyzerSelectsProbe(root, all, 'packages/patch_map/test/conformance/two.dart'), true);
-  assert.equal(analyzerSelectsProbe(root, all, 'packages/patch_map/test-other/two.dart'), false);
+  assert.equal(analyzerSelectsProbe(root, all, 'packages/flutter/test/conformance/two.dart'), true);
+  assert.equal(analyzerSelectsProbe(root, all, 'packages/flutter/test-other/two.dart'), false);
 });
 
 test('native evidence binds the report path, build revision, source receipt and artifact SHA', () => {

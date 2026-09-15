@@ -33,7 +33,7 @@ export default defineConfig({
     resolveId(source) { return source === id ? `\0${id}` : null; },
     load(source) {
       if (source !== `\0${id}`) return null;
-      const bytes = readFileSync(new URL('../../src/resources/fonts/FiraCode-VF.woff2', import.meta.url));
+      const bytes = readFileSync(new URL('../../packages/javascript/src/resources/fonts/FiraCode-VF.woff2', import.meta.url));
       return `export default ${JSON.stringify(`data:font/woff2;base64,${bytes.toString('base64')}`)};`;
     },
   }],

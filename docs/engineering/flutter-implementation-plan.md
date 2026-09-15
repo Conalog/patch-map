@@ -7,34 +7,33 @@
 
 ## Repository and documentation ownership
 
-The npm package stays at the repository root. The Dart package has an independent runtime.
+Both distributions are peers under `packages/`. The repository root owns shared contracts, conformance and task coordination; it is private and cannot be published.
 
 ```text
-package.json, src/, tests/, examples/       existing npm package
-packages/patch_map/
-  pubspec.yaml, README.md, CHANGELOG.md, LICENSE
-  lib/patch_map.dart                       supported Dart exports
-  lib/src/api/                            detached public values and facades
-  lib/src/model/                          JSON values, normalized dataset, identity
-  lib/src/semantic/                       geometry, text, mutation planning
-  lib/src/engine/                         state, commits and lifecycle authorities
-  lib/src/rendering/                      Canvas projection and retained resources
-  lib/src/host/                           Widget, input, asset and frame adapters
-  test/                                  focused Dart and Widget tests
-  example/                               Android/iOS consumer and comparison UI
-conformance/                              revisioned fixtures, schema, coverage manifest
-verification/conformance/                 inventory, JS runner, trace comparison
-verification/flutter/                     package and architecture gates
-.artifacts/flutter/                       ignored observations, screenshots, builds
+package.json, package-lock.json            private npm workspace coordinator
+docs/                                     shared behavior and engineering authorities
+conformance/                              revisioned fixtures, API/semantic coverage
+verification/                             cross-package checks and documentation gate
+packages/javascript/
+  package.json, README.md, CHANGELOG.md      npm distribution metadata
+  src/, tests/, examples/                   TypeScript/Pixi implementation and consumers
+  verification/, performance/              npm artifact gates and current measurements
+  vite.config.ts, tsconfig*.json            package-local build and type ownership
+packages/flutter/
+  pubspec.yaml, README.md, CHANGELOG.md      Dart distribution metadata
+  lib/patch_map.dart, lib/src/              Dart engine, Canvas and Widget adapters
+  assets/, test/, example/                  native inputs, checks and Android/iOS demos
+.artifacts/                               ignored repository verification evidence
 ```
 
-Existing public API pages continue owning shared behavior. [Flutter binding](../integration/flutter.md) owns native construction, surface, input and diagnostic differences; exact Dart shapes belong to exported declarations. The [conformance design](flutter-conformance-design.md) owns equality rules. This page owns folders, dependencies and implementation sequencing. The Dart README links to contracts.
+
+Existing public API pages continue owning shared behavior. [Flutter binding](../integration/flutter.md) owns native construction, surface, input and diagnostic differences; exact Dart shapes belong to exported declarations. The [conformance design](flutter-conformance-design.md) owns equality rules. This page owns repository folders, dependencies and distribution boundaries. The Dart README links to contracts.
 
 The manifest links behavior to owning documents, TS/Dart entries and executable cases. Every requirement must pass before declaring equivalence. Inventory covers API shapes, defaults, failure/lifecycle rules and dataset kinds. Fixtures contain data, commands, time and expected observations.
 
 ## Runtime dependency and ownership
 
-Dependencies point from composition to api/engine, from engine to model/semantic and abstract ports in `packages/patch_map/lib/src/engine/ports.dart`, and from host/rendering adapters to those ports. Model/semantic use Dart core libraries only. They never import Flutter, renderer, filesystem, tests or fixtures. The public entry assembles adapters; engine never imports concrete Canvas or Widget code. No production code loads conformance files.
+Dependencies point from composition to api/engine, from engine to model/semantic and abstract ports in `packages/flutter/lib/src/engine/ports.dart`, and from host/rendering adapters to those ports. Model/semantic use Dart core libraries only. They never import Flutter, renderer, filesystem, tests or fixtures. The public entry assembles adapters; engine never imports concrete Canvas or Widget code. No production code loads conformance files.
 
 | Owner | Authority and boundary |
 | --- | --- |
@@ -63,25 +62,18 @@ The semantic dataset uses immutable maps and indexed targets. Structural edits u
 
 The native backend admits bytes before decoding. PNG/JPEG/WebP/GIF use Flutter codecs; SVG uses flutter_svg/vector_graphics; AVIF uses [flutter_avif](https://pub.dev/packages/flutter_avif). WOFF/WOFF2 use the attributed Apache-2.0 container decoder with [pure Dart Brotli](https://pub.dev/packages/brotli), avoiding host-specific native compression deployment. Bundled Fira Code loads a reproducible SFNT converted from the npm WOFF2; provenance verifies glyphs, metrics and variable weights. TTF/OTF load directly. Session bindings consume the controller's visible geometry, retain the previous texture during replacement, and release superseded or unused leases. Format and failure fixtures qualify both targets.
 
-## Sequencing and effective verification
+## Maintenance and verification
 
-| Unit | Implementation and completion witness |
-| --- | --- |
-| A Repository/contracts | Package boundaries, binding document, coverage inventory and fixture envelope; docs/import/package checks |
-| B Dataset/geometry | Every element/component, normalization, hash, targets, transforms and paint order; TS/Dart fixture observations |
-| C Controller/Canvas | Lifecycle, scene publication, aggregated drawing and viewport; same scene shown in web and Android emulator |
-| D Editing/presentation | Atomic updates/batches/transactions, history, overlays, selection, editor and transform sessions; shared command traces and focused tests |
-| E Host completeness | Text/fonts, image admission/codecs, animations, pointer/keyboard/accessibility, capture and cleanup; failure/lifecycle cases plus Android/iOS screenshots |
-| F Qualification | Required manifest coverage, installed consumers, native builds, representative bar performance, final side-by-side review |
+The selected implementations are maintained directly. Alternative JS engine, bridge and renderer experiments are removed. Native bar workloads exercise the shipped Dart controller and Canvas surface; npm workloads exercise the shipped Pixi implementation. Functional fixtures and trace equality remain shared under `conformance/` and `verification/conformance/`.
 
-Parallel work uses disjoint ownership. Commit after focused checks. A/B/C are intermediate work, never a reduced-function release. Unsupported placeholders or successful no-op facades do not count as implementation.
+Run package-local focused tests for the changed owner. The private root forwards explicit JavaScript and Flutter commands; shared checks run from the repository root. Package-local tools resolve their own package root and use the workspace root only for shared contracts, the npm lockfile and evidence. Neither production runtime imports the sibling package or repository tooling.
 
-During development run only tests for the changed owner and affected conformance IDs. Rebuild native apps when a vertical slice changes observable behavior; keep the browser comparison server running. Use hot reload for UI iteration, not as release evidence. Full package checks and broad native integration run at F or after a cross-owner failure warrants them. Do not repeat the full runtime benchmark matrix; measure the selected Dart renderer on representative 5,000/10,000-bar changes.
+Folder changes require import-boundary, build, installed-package, documentation and shared-conformance checks. They make no runtime speed claim. For hot-path changes use the selected renderer's benchmark, controlled baseline/candidate inputs and the [verification policy](verification.md). Do not restore the retired runtime comparison matrix.
 
 ## Distribution isolation
 
-npm retains its existing export map and artifact allowlist. Dart ships its own lib/assets/docs/license and requires no Node/Pixi or JS engine. Native example platform scaffolding belongs to the example, not the library. Generated build/.dart_tool/Pods outputs are ignored and excluded from documentation scans. Package verifiers explicitly reject accidental cross-package payloads.
+npm retains its existing export map and artifact allowlist. Its build stages allowlisted public documentation and the license from repository authorities into ignored package-local outputs; generated copies are never edited or committed. The workspace lockfile owns npm dependency resolution. Dart ships its own lib/assets/docs/license and requires no Node/Pixi or JS engine. Native example platform scaffolding belongs to the example, not the library. Generated build/.dart_tool/Pods outputs are ignored and excluded from documentation scans. Package verifiers explicitly reject accidental cross-package payloads.
 
-Versions are independent; contract revision and capabilities identify equivalent releases. npm's release-please root excludes Dart package, shared verification and Flutter-only documentation paths. Dart release tags must use a separate prefix; registry publication is not enabled (`publish_to: none`). Credentials, tags and publishing stay outside local implementation. Publication remains blocked until full conformance and both platform checks pass.
+Versions are independent; contract revision and capabilities identify equivalent releases. npm release-please tracks `packages/javascript` and its independent version; shared public documentation is staged into its artifact. A shared-contract change must include the corresponding package change; documentation-only commits do not independently advance a package version. Dart release tags must use a separate prefix; registry publication is not enabled (`publish_to: none`). Credentials, tags and publishing stay outside local implementation. Publication remains blocked until full conformance and both platform checks pass.
 
-PR CI pins Flutter 3.41.4/Node 22, verifies inventory/package boundaries, runs Dart analysis/tests and an installed consumer. npm source, dependency, contract, asset and integration-document changes also select this gate. Native OS qualification remains separate; npm gates retain existing routing.
+PR CI pins Flutter 3.41.4/Node 22, verifies inventory/package boundaries, runs Dart analysis/tests and an installed consumer. npm source, dependency, contract, asset and integration-document changes also select this gate. Native OS qualification remains separate; CI selects npm, Flutter and shared gates by their current ownership paths.

@@ -1,5 +1,5 @@
-import { PatchMap } from '../../../src/index';
-import type { PatchMapInstance } from '../../../src/index';
+import { PatchMap } from '../../../packages/javascript/src/index';
+import type { PatchMapInstance } from '../../../packages/javascript/src/index';
 import gallery from '../../../conformance/fixtures/gallery.json';
 import updates from '../../../conformance/fixtures/updates.json';
 import editor from '../../../conformance/fixtures/editor.json';

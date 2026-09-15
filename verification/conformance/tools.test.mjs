@@ -68,7 +68,7 @@ test('qualification requires every semantic/API witness and both installed and p
 });
 
 test('Dart package boundaries exclude runtime fixtures, upper-layer semantics and concrete engine adapters', () => {
-  const root = '/repo/packages/patch_map';
+  const root = '/repo/packages/flutter';
   assert.deepEqual(dartImportViolations("import 'dart:typed_data';", `${root}/lib/src/semantic/geometry.dart`, root), []);
   assert.match(dartImportViolations("import 'package:flutter/widgets.dart';", `${root}/lib/src/semantic/geometry.dart`, root).join(), /Dart core/);
   assert.match(dartImportViolations("import '../rendering/painter.dart';", `${root}/lib/src/engine/controller.dart`, root).join(), /concrete/);

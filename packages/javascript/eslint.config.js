@@ -1,0 +1,91 @@
+import eslint from '@eslint/js';
+import { defineConfig } from 'eslint/config';
+import { fileURLToPath } from 'node:url';
+import tseslint from 'typescript-eslint';
+
+const projectRoot = fileURLToPath(new URL('.', import.meta.url));
+const typescriptFiles = [
+  'src/**/*.ts',
+  'tests/**/*.ts',
+  'verification/**/*.ts',
+  'performance/**/*.ts',
+  'vite.config.ts',
+];
+
+export default defineConfig(
+  {
+    ignores: [
+      '.artifacts/**',
+      'dist/**',
+      'fixtures/**',
+      'node_modules/**',
+    ],
+  },
+  {
+    files: ['verification/**/*.mjs', 'performance/**/*.mjs'],
+    extends: [eslint.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    },
+    rules: {
+      'no-undef': 'off',
+      'no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+  {
+    // Public examples import the packed package name, so their strict type
+    // boundary belongs to verify:package. Keep them in the ordinary lint gate
+    // without making a fresh checkout depend on pre-existing dist output.
+    files: ['examples/**/*.ts'],
+    extends: [eslint.configs.recommended, tseslint.configs.recommended],
+    rules: {
+      'no-undef': 'off',
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports' },
+      ],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+  {
+    files: typescriptFiles,
+    extends: [eslint.configs.recommended, tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: projectRoot,
+      },
+    },
+    rules: {
+      'no-undef': 'off',
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports' },
+      ],
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+      '@typescript-eslint/unbound-method': 'off',
+    },
+  },
+);

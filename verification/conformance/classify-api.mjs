@@ -6,10 +6,10 @@ import ts from 'typescript';
 /** Structural classification only: callable interfaces may be host callbacks or SDK APIs.
  * Data direction must be reviewed at each binding; a name is not evidence of direction. */
 export function classifyPublicApi(root, inventory) {
-  const config = ts.readConfigFile(resolve(root, 'tsconfig.json'), ts.sys.readFile);
+  const config = ts.readConfigFile(resolve(root, 'packages/javascript/tsconfig.json'), ts.sys.readFile);
   if (config.error) throw new Error('Cannot read TypeScript config');
-  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, root);
-  const entry = resolve(root, 'src/index.ts');
+  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, resolve(root, 'packages/javascript'));
+  const entry = resolve(root, 'packages/javascript/src/index.ts');
   const program = ts.createProgram([entry], parsed.options);
   const checker = program.getTypeChecker();
   const module = checker.getSymbolAtLocation(program.getSourceFile(entry));

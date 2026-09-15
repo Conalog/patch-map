@@ -5,10 +5,10 @@ import ts from 'typescript';
 
 /** Uses the real public export graph, including export-star and inherited members. */
 export function inventoryPublicApi(root = process.cwd()) {
-  const config = ts.readConfigFile(resolve(root, 'tsconfig.json'), ts.sys.readFile);
+  const config = ts.readConfigFile(resolve(root, 'packages/javascript/tsconfig.json'), ts.sys.readFile);
   if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'));
-  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, root);
-  const entry = resolve(root, 'src/index.ts');
+  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, resolve(root, 'packages/javascript'));
+  const entry = resolve(root, 'packages/javascript/src/index.ts');
   const program = ts.createProgram([entry], parsed.options);
   const checker = program.getTypeChecker();
   const source = program.getSourceFile(entry);
@@ -26,7 +26,7 @@ export function inventoryPublicApi(root = process.cwd()) {
         ...(hasType ? [{ suffix: '.type', type: checker.getDeclaredTypeOfSymbol(symbol) }] : [])]
       : [{ suffix: '', type: checker.getDeclaredTypeOfSymbol(symbol) }];
     const origin = relative(root, declaration.getSourceFile().fileName).split('\\').join('/');
-    if (!origin.startsWith('src/')) continue;
+    if (!origin.startsWith('packages/javascript/src/')) continue;
     // TypeScript emits absolute import paths for some inferred external shapes.
     // Keep the fingerprint independent of checkout location.
     const portable = (value) => value.split('\\').join('/').replaceAll(`${resolve(root).split('\\').join('/')}/`, '');
@@ -42,7 +42,7 @@ export function inventoryPublicApi(root = process.cwd()) {
         (ts.ModifierFlags.Private | ts.ModifierFlags.Protected))) continue;
       const at = member.valueDeclaration ?? member.declarations?.[0] ?? declaration;
       const memberSource = relative(root, at.getSourceFile().fileName).split('\\').join('/');
-      if (!memberSource.startsWith('src/')) continue;
+      if (!memberSource.startsWith('packages/javascript/src/')) continue;
       const memberType = checker.getTypeOfSymbolAtLocation(member, at);
       entries.push({ id: `${prefix}.${member.name}`, export: exported.name, member: member.name,
         source: memberSource,

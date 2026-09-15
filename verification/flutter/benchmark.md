@@ -1,19 +1,19 @@
 # Full SDK native bar frame benchmark
 
 The integration target uses only `package:patch_map/patch_map.dart`, constructs
-`PatchMap.create`, and attaches the real `PatchMapView`. It does not import the
-geometry-only benchmark, install a mock surface, manually advance the engine
-clock, or call renderer internals. The public controller's snapshot is inspected
-only to verify painted first/last bar heights.
+`PatchMap.create`, and attaches the real `PatchMapView`. It uses the production
+controller, host frame scheduler and Canvas renderer; the native target does not
+install a mock surface or manually advance the engine clock. The public
+controller's snapshot is inspected only to verify painted first/last bar heights.
 
 The target is
-`packages/patch_map/example/integration_test/bar_performance_test.dart`; the host
-JSON collector is `packages/patch_map/example/test_driver/bar_performance_driver.dart`.
+`packages/flutter/example/integration_test/bar_performance_test.dart`; the host
+JSON collector is `packages/flutter/example/test_driver/bar_performance_driver.dart`.
 
 ## Workload and environment
 
 - 50 and 100 grids, each 4 rows × 25 columns: 5,000 / 10,000 bars.
-- The same original bar geometry as the earlier mobile slice: 8×20 item, height
+- Bar geometry: 8×20 item, height
   10 initially, radius 3, 5 grid columns, gaps 2/4, origin spacing 270/110.
 - Every bar receives a different integer height in 1…20 on every update. LCG seed
   `0x5eed`, multiplier 1664525, increment 1013904223, uint32 wrap; equal-to-previous
@@ -51,7 +51,7 @@ completion solely from a synchronous command return.
 ## Controlled invocation
 
 Do not run this concurrently with builds, another benchmark, or interactive UI
-validation. Run from `packages/patch_map/example`, with a connected device selected
+validation. Run from `packages/flutter/example`, with a connected device selected
 explicitly. The root task owns device setup and execution; creating this harness
 does not itself run a benchmark.
 
@@ -68,8 +68,9 @@ Use `--debug` and a distinct output/run ID for simulator debug evidence. Reports
 explicitly label `debug/JIT`, `profile/AOT` or `release/AOT`. Debug/JIT results are
 diagnostic; they cannot establish AOT performance equivalence. The harness marks
 optimization comparisons eligible only for profile mode with an explicit revision.
-Do not combine different modes or compare this complete SDK frame measurement as
-though it were the earlier geometry-only bridge benchmark.
+Do not combine different modes. npm/Pixi equivalence requires a separate
+measurement of the complete browser SDK with matched inputs and viewport; these
+Flutter-only measurements cannot establish it.
 
 The integration driver persists report data on failure as well as success. A
 successful report must contain `completed: true`, all eight case blocks and 20
@@ -89,8 +90,20 @@ Report command latency and first/final publication alongside engine timings.
 Lower animation build cost does not imply faster synchronous commits or sustained
 60 FPS: work outside the engine build interval and gaps between frames remain
 observable. Preserve adverse results and all raw samples. The opt-in host
-`bar_pipeline_profile_test.dart` diagnoses CPU stages; it cannot replace this
-native profile/AOT comparison or establish npm/Pixi performance equivalence.
+`packages/flutter/test/rendering/bar_pipeline_profile_test.dart` diagnoses commit,
+geometry, renderer preparation and animation sampling stages using the production
+Dart SDK. Its input helper is package-local test support; there is no independent
+geometry implementation or alternative runtime baseline. Protocol version 2
+writes `.artifacts/performance/flutter/full-dart-pipeline-*.json`. It cannot
+replace this native profile/AOT comparison or establish npm/Pixi performance
+equivalence.
+
+Run the CPU diagnostic from `packages/flutter`:
+
+```sh
+flutter test --no-pub --concurrency=1 --dart-define=PATCHMAP_PROFILE=true \
+  test/rendering/bar_pipeline_profile_test.dart
+```
 
 The separate `integration_test/height_animation_test.dart` validates real native
 intermediate publications after idle and after retargeting. Run it using

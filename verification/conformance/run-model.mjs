@@ -5,7 +5,7 @@ import {compareObservations} from './compare.mjs';
 // Bounded representative public model fields, union branches and critical errors.
 const server = await createServer({configFile:false,optimizeDeps:{noDiscovery:true,include:[]},server:{middlewareMode:true},appType:'custom'});
 try {
-  const {materializePatchMapDataset} = await server.ssrLoadModule('/src/semantic/dataset.ts');
+  const {materializePatchMapDataset} = await server.ssrLoadModule('/packages/javascript/src/semantic/dataset.ts');
   const cases=JSON.parse(await readFile('conformance/model/cases.json','utf8'));
   const observations=cases.map(({id,dataset,reject=false})=>{
     const before=JSON.stringify(dataset);

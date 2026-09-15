@@ -42,7 +42,7 @@ export function dartImportViolations(source, file, packageRoot) {
 }
 
 export async function verifyFlutterPackage(root = process.cwd()) {
-  const packageRoot = resolve(root, 'packages/patch_map');
+  const packageRoot = resolve(root, 'packages/flutter');
   const failures = [];
   const pubspec = await readFile(resolve(packageRoot, 'pubspec.yaml'), 'utf8');
   if (!/^name: patch_map$/mu.test(pubspec)) failures.push('Unexpected Dart package name');
@@ -54,10 +54,10 @@ export async function verifyFlutterPackage(root = process.cwd()) {
     if (file.endsWith('.dart')) failures.push(...dartImportViolations(await readFile(file, 'utf8'), file, packageRoot));
     else if (/\.(?:mjs|cjs|js|ts)$/u.test(file)) failures.push(`Unexpected JavaScript product file: ${relative(packageRoot, file)}`);
   }
-  const pairs = [['src/resources/fonts/FiraCode-VF.woff2', 'assets/fonts/FiraCode-VF.woff2'],
+  const pairs = [['packages/javascript/src/resources/fonts/FiraCode-VF.woff2', 'assets/fonts/FiraCode-VF.woff2'],
     ['docs/assets/fira-code-6.2-license.txt', 'assets/fonts/LICENSE.txt']];
-  for (const name of await readdir(resolve(root, 'src/resources/icons'))) {
-    if (name.endsWith('.svg')) pairs.push([`src/resources/icons/${name}`, `assets/icons/${name}`]);
+  for (const name of await readdir(resolve(root, 'packages/javascript/src/resources/icons'))) {
+    if (name.endsWith('.svg')) pairs.push([`packages/javascript/src/resources/icons/${name}`, `assets/icons/${name}`]);
   }
   const sharedFixtures = await readFile(resolve(packageRoot, 'example/lib/shared_fixtures.dart'), 'utf8').catch(() => null);
   if (sharedFixtures !== await renderSharedFixtures(root)) failures.push('Generated example fixture drift: run node verification/flutter/prepare-fixtures.mjs');
@@ -68,8 +68,8 @@ export async function verifyFlutterPackage(root = process.cwd()) {
   }
   const fontProvenance = JSON.parse(await readFile(resolve(packageRoot, 'assets/fonts/provenance.json'), 'utf8'));
   const nativeFont = await readFile(resolve(packageRoot, 'assets/fonts/FiraCode-VF.ttf'));
-  const sourceFont = await readFile(resolve(root, 'src/resources/fonts/FiraCode-VF.woff2'));
-  if (fontProvenance.source !== 'src/resources/fonts/FiraCode-VF.woff2' ||
+  const sourceFont = await readFile(resolve(root, 'packages/javascript/src/resources/fonts/FiraCode-VF.woff2'));
+  if (fontProvenance.source !== 'packages/javascript/src/resources/fonts/FiraCode-VF.woff2' ||
     fontProvenance.native !== 'assets/fonts/FiraCode-VF.ttf' ||
     fontProvenance.sourceSha256 !== HASH(sourceFont) || fontProvenance.nativeSha256 !== HASH(nativeFont) ||
     fontProvenance.tool !== 'fontTools' || fontProvenance.toolVersion !== '4.60.1' ||
@@ -77,7 +77,7 @@ export async function verifyFlutterPackage(root = process.cwd()) {
     JSON.stringify(fontProvenance.axes) !== JSON.stringify([{ tag: 'wght', min: 300, default: 300, max: 700 }])) {
     failures.push('Native SFNT provenance, identity or variable font axes differ from the npm WOFF2 source');
   }
-  const unicodeSource = await readFile(resolve(root, 'src/semantic/unicode-text-data.ts'), 'utf8');
+  const unicodeSource = await readFile(resolve(root, 'packages/javascript/src/semantic/unicode-text-data.ts'), 'utf8');
   const unicodeDart = await readFile(resolve(packageRoot, 'lib/src/semantic/text/unicode_data.dart'), 'utf8');
   for (const name of ['EXTEND_RANGES', 'SPACING_MARK_RANGES', 'PREPEND_RANGES']) {
     const sourceTable = unicodeSource.match(new RegExp(`const ${name}:[\\s\\S]*?Object\\.freeze\\(\\[([\\s\\S]*?)\\]\\);`, 'u'))?.[1];
@@ -87,7 +87,7 @@ export async function verifyFlutterPackage(root = process.cwd()) {
       failures.push(`Pinned Unicode table drift: ${name}`);
     }
   }
-  const npm = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
+  const npm = JSON.parse(await readFile(resolve(root, 'packages/javascript/package.json'), 'utf8'));
   if (npm.files.some((path) => /^(?:packages|conformance)(?:\/|$)/u.test(path))) failures.push('npm files include Dart/shared verification payload');
   if (failures.length) throw new Error(`Flutter package boundary verification failed:\n${failures.join('\n')}`);
   return { assetCopies: pairs.length, packageRoot };

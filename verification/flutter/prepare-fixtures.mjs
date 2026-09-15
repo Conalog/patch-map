@@ -29,7 +29,7 @@ export async function renderSharedFixtures(root = process.cwd()) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const target = resolve('packages/patch_map/example/lib/shared_fixtures.dart');
+  const target = resolve('packages/flutter/example/lib/shared_fixtures.dart');
   await writeFile(target, await renderSharedFixtures());
   console.log(target);
 }

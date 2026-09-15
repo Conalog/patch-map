@@ -75,7 +75,7 @@ export async function runPublicConformance({ root = process.cwd(), dartBin = def
     await browser.close(); browser = undefined;
     await server.close(); server = undefined;
 
-    const args = [resolve(root, 'packages/patch_map/test/engine/public_trace.dart'),
+    const args = [resolve(root, 'packages/flutter/test/engine/public_trace.dart'),
       ...fixtures.map((fixture) => resolve(root, `conformance/fixtures/${fixture.id}.json`))];
     let stdout, stderr;
     try {

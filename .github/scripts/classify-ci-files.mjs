@@ -10,18 +10,24 @@ export function isLightweightValidationPath(path) {
 }
 
 export function requiresFlutterValidation(path) {
-  return path.startsWith('packages/patch_map/')
-    || path.startsWith('src/')
-    || path.startsWith('tests/')
+  return path.startsWith('packages/flutter/')
+    || path.startsWith('packages/javascript/src/')
+    || path.startsWith('packages/javascript/tests/')
     || path.startsWith('conformance/')
     || path.startsWith('verification/conformance/')
     || path.startsWith('verification/flutter/')
-    || path.startsWith('docs/api/')
-    || path.startsWith('docs/integration/')
-    || path.startsWith('docs/assets/')
-    || ['package.json', 'package-lock.json', 'tsconfig.json', 'tsconfig.build.json'].includes(path)
+    || (path.startsWith('docs/') && !path.startsWith('docs/engineering/'))
+    || ['package.json', 'package-lock.json', 'tsconfig.json', 'eslint.config.js',
+      'packages/javascript/package.json', 'packages/javascript/tsconfig.json',
+      'packages/javascript/tsconfig.build.json'].includes(path)
     || path === '.github/workflows/ci.yaml'
     || path.startsWith('.github/scripts/classify-ci-files.');
+}
+
+export function requiresNpmValidation(path) {
+  return !isLightweightValidationPath(path)
+    && !path.startsWith('packages/flutter/')
+    && !path.startsWith('verification/flutter/');
 }
 
 export function parseNullDelimitedPaths(output) {
@@ -39,7 +45,7 @@ export function classifyChangedPaths(paths) {
 
   return {
     fullValidation:
-      paths.length === 0 || paths.some((path) => !isLightweightValidationPath(path)),
+      paths.length === 0 || paths.some(requiresNpmValidation),
     flutterValidation:
       paths.length === 0 || paths.some(requiresFlutterValidation),
   };

@@ -60,7 +60,7 @@ paths. The canonical fallback keys are `white`, `black`, `transparent`,
 dataset color fields. Every supplied leaf is validated and detached before the
 renderer is allocated.
 
-Runnable lifecycle reference: [`examples/minimal.ts`](../examples/minimal.ts).
+Runnable lifecycle reference: [`packages/javascript/examples/minimal.ts`](https://github.com/Conalog/patch-map/tree/release/1.0/packages/javascript/examples/minimal.ts).
 
 ## State and ordering
 
@@ -85,7 +85,7 @@ authority; the host must not add another render loop or a sleep before first use
 
 | Claim | Code | Focused evidence |
 | --- | --- | --- |
-| Public construction | `src/index.ts`, `src/public/contracts.ts` | `tests/integration/developer-api-workflows.test.ts` |
-| mount defaults and theme normalization | `src/composition/mount.ts`, `src/semantic/color.ts` | `tests/engine/engine-lifecycle.test.ts`, `tests/semantic/color-resolution.test.ts` |
-| Initial canvas publication | `src/engine/surface-lifecycle-authority.ts`, `src/rendering/pixi-renderer/surface-publication-authority.ts` | `tests/engine/canvas-surface-lifecycle.test.ts` |
-| Resize and teardown | `src/engine/index.ts`, `src/engine/page-lifecycle.ts` | `tests/engine/engine-lifecycle.test.ts`, `tests/integration/page-lifecycle.test.ts` |
+| Public construction | `packages/javascript/src/index.ts`, `packages/javascript/src/public/contracts.ts` | `packages/javascript/tests/integration/developer-api-workflows.test.ts` |
+| mount defaults and theme normalization | `packages/javascript/src/composition/mount.ts`, `packages/javascript/src/semantic/color.ts` | `packages/javascript/tests/engine/engine-lifecycle.test.ts`, `packages/javascript/tests/semantic/color-resolution.test.ts` |
+| Initial canvas publication | `packages/javascript/src/engine/surface-lifecycle-authority.ts`, `packages/javascript/src/rendering/pixi-renderer/surface-publication-authority.ts` | `packages/javascript/tests/engine/canvas-surface-lifecycle.test.ts` |
+| Resize and teardown | `packages/javascript/src/engine/index.ts`, `packages/javascript/src/engine/page-lifecycle.ts` | `packages/javascript/tests/engine/engine-lifecycle.test.ts`, `packages/javascript/tests/integration/page-lifecycle.test.ts` |

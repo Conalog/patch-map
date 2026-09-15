@@ -6,7 +6,7 @@
       "id": "dart-test:engine/controller_test.dart#nested update is detached and history restores semantic state",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "nested update is detached and history restores semantic state",
       "assertions": [
         "Mutation input stays detached and undo restores original semantic hash."
@@ -17,7 +17,7 @@
       "id": "dart-test:engine/controller_test.dart#query order and grid cell public value follow npm logical API",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "query order and grid cell public value follow npm logical API",
       "assertions": [
         "Authored and component identities, grid concrete cell value and query order."
@@ -28,7 +28,7 @@
       "id": "dart-test:engine/controller_test.dart#stale and unequal columns throw; duplicate targets are rejected",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "stale and unequal columns throw; duplicate targets are rejected",
       "assertions": [
         "Stale and unequal lowering throws; duplicate transaction returns rejected."
@@ -39,7 +39,7 @@
       "id": "dart-test:engine/controller_test.dart#structural add replace move group ungroup remove",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "structural add replace move group ungroup remove",
       "assertions": [
         "All seven operation kinds publish and round-trip authored structure."
@@ -50,7 +50,7 @@
       "id": "dart-test:engine/controller_test.dart#refusal and reentrant prepare never publish a candidate",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "refusal and reentrant prepare never publish a candidate",
       "assertions": [
         "Nested prepare work invalidates stale outer candidate; refused state remains unchanged."
@@ -61,7 +61,7 @@
       "id": "dart-test:engine/controller_test.dart#reentrant history mutation preserves detached event snapshots",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "reentrant history mutation preserves detached event snapshots",
       "assertions": [
         "Synchronous nested publication ordering a1,a2,b2,b1 matches browser callback oracle."
@@ -72,7 +72,7 @@
       "id": "dart-test:engine/controller_test.dart#history coalescing capacity and refused undo preserve cursor",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "history coalescing capacity and refused undo preserve cursor",
       "assertions": [
         "Consecutive actionId coalesces and capacity evicts old entries.",
@@ -85,7 +85,7 @@
       "id": "dart-test:engine/controller_test.dart#transaction companion and selection follow undo redo",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "transaction companion and selection follow undo redo",
       "assertions": [
         "Compound history round-trips detached companion and selection."
@@ -96,7 +96,7 @@
       "id": "dart-test:engine/controller_test.dart#bar uses 200ms cubic interpolation with committed destination",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "bar uses 200ms cubic interpolation with committed destination",
       "assertions": [
         "Destination commits immediately while displayed height follows cubic 200ms interpolation."
@@ -107,7 +107,7 @@
       "id": "dart-test:engine/controller_test.dart#batch animation prepares its actual first frame and keeps old snapshots immutable",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "batch animation prepares its actual first frame and keeps old snapshots immutable",
       "assertions": [
         "Prepared candidate matches first displayed sample; old typed-column snapshots remain immutable."
@@ -118,7 +118,7 @@
       "id": "dart-test:engine/controller_test.dart#grid editor respects linked-cell conflict and resizes",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "grid editor respects linked-cell conflict and resizes",
       "assertions": [
         "Linked cell cannot be disabled; grid resize and mode exit apply."
@@ -129,7 +129,7 @@
       "id": "dart-test:engine/controller_test.dart#refused preview cannot become a committed transform",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "refused preview cannot become a committed transform",
       "assertions": [
         "Refused preview cannot leak staged operations into authored commit."
@@ -140,7 +140,7 @@
       "id": "dart-test:engine/controller_test.dart#transform commit invalidates token before change callback and refused settlement",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "transform commit invalidates token before change callback and refused settlement",
       "assertions": [
         "Public token is unavailable during commit callbacks and after refused completion."
@@ -151,7 +151,7 @@
       "id": "dart-test:engine/controller_test.dart#host failure rejects pending readiness and captures without hanging",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "host failure rejects pending readiness and captures without hanging",
       "assertions": [
         "Injected host failure rejects queued initial ready and capture."
@@ -162,7 +162,7 @@
       "id": "dart-test:engine/controller_test.dart#capture waits matching publication and returns logical dimensions",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "capture waits matching publication and returns logical dimensions",
       "assertions": [
         "Capture waits for matching revision publication and reports logical dimensions."
@@ -173,7 +173,7 @@
       "id": "dart-test:engine/controller_test.dart#destroy settles capture waiting on initial readiness",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "destroy settles capture waiting on initial readiness",
       "assertions": [
         "Destroy rejects capture pending initial readiness and is idempotent.",
@@ -185,7 +185,7 @@
       "id": "dart-test:engine/controller_test.dart#visibility settles bars and cancels transient transforms and rotation",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "visibility settles bars and cancels transient transforms and rotation",
       "assertions": [
         "Hidden surface settles destination and cancels rotation/transform sessions."
@@ -196,7 +196,7 @@
       "id": "dart-test:engine/controller_test.dart#rotation completion follows painted final frame and failure settles failed",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "rotation completion follows painted final frame and failure settles failed",
       "assertions": [
         "Completion waits for accepted final frame; failed frame settles failed."
@@ -207,7 +207,7 @@
       "id": "dart-test:engine/controller_test.dart#callback failure and in-flight disposal preserve publication order",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "callback failure and in-flight disposal preserve publication order",
       "assertions": [
         "Callback failure is bounded diagnostic; disposed pending listener is skipped and authoritative commit survives."
@@ -218,7 +218,7 @@
       "id": "dart-test:host/native_pointer_test.dart#hover exposes detached component identity",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/native_pointer_test.dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
       "test": "hover exposes detached component identity",
       "assertions": [
         "component target identity and detached hover/move callbacks"
@@ -229,7 +229,7 @@
       "id": "dart-test:host/native_pointer_test.dart#pin survives leave and primary blank click hides it",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/native_pointer_test.dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
       "test": "pin survives leave and primary blank click hides it",
       "assertions": [
         "context pin/leave/blank lifecycle"
@@ -240,7 +240,7 @@
       "id": "dart-test:host/native_pointer_test.dart#touch long press pins once and cancellation removes its timer",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/native_pointer_test.dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
       "test": "touch long press pins once and cancellation removes its timer",
       "assertions": [
         "500ms touch pin and timer cleanup"
@@ -251,7 +251,7 @@
       "id": "dart-test:host/native_pointer_test.dart#4 logical pixels remains a click; any excursion beyond stays a drag",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/native_pointer_test.dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
       "test": "4 logical pixels remains a click; any excursion beyond stays a drag",
       "assertions": [
         "strict per-axis slop and excursion latch",
@@ -263,7 +263,7 @@
       "id": "dart-test:host/native_pointer_test.dart#pinch changes viewport without creating a point selection",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/native_pointer_test.dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
       "test": "pinch changes viewport without creating a point selection",
       "assertions": [
         "two pointers zoom without a click",
@@ -275,7 +275,7 @@
       "id": "dart-test:host/view_test.dart#native gesture commits taps and yields cleanly when parent wins",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/view_test.dart",
+      "file": "packages/flutter/test/host/view_test.dart",
       "test": "native gesture commits taps and yields cleanly when parent wins",
       "assertions": [
         "Flutter arena cancellation"
@@ -286,7 +286,7 @@
       "id": "dart-test:host/native_pointer_test.dart#blank double click policy and target eligibility preserve selection",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/native_pointer_test.dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
       "test": "blank double click policy and target eligibility preserve selection",
       "assertions": [
         "eligibility and configured blank double click"
@@ -297,7 +297,7 @@
       "id": "dart-test:host/native_pointer_test.dart#double click removes only the previously selected target",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/native_pointer_test.dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
       "test": "double click removes only the previously selected target",
       "assertions": [
         "multi selection preserves other targets"
@@ -308,7 +308,7 @@
       "id": "dart-test:host/native_pointer_test.dart#box commit selects logical target once",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/native_pointer_test.dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
       "test": "box commit selects logical target once",
       "assertions": [
         "native box selection commit"
@@ -319,7 +319,7 @@
       "id": "dart-test:host/native_pointer_test.dart#cancelled marquee neither commits selection nor leaves transient paint",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/native_pointer_test.dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
       "test": "cancelled marquee neither commits selection nor leaves transient paint",
       "assertions": [
         "cancel transient box without selection"
@@ -330,7 +330,7 @@
       "id": "dart-test:host/view_test.dart#manual surface keeps explicit logical size and DPR for PNG",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/view_test.dart",
+      "file": "packages/flutter/test/host/view_test.dart",
       "test": "manual surface keeps explicit logical size and DPR for PNG",
       "assertions": [
         "manual 120x80 DPR2 captured at240x160 despiteparent200x200 DPR3"
@@ -341,7 +341,7 @@
       "id": "dart-test:host/view_test.dart#native frame publishes ready, captures real PNG and stays idle",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/view_test.dart",
+      "file": "packages/flutter/test/host/view_test.dart",
       "test": "native frame publishes ready, captures real PNG and stays idle",
       "assertions": [
         "native published surface PNG signature and ready/idle",
@@ -353,7 +353,7 @@
       "id": "dart-test:host/view_test.dart#initial projection failure settles ready and capture and releases the host",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/view_test.dart",
+      "file": "packages/flutter/test/host/view_test.dart",
       "test": "initial projection failure settles ready and capture and releases the host",
       "assertions": [
         "injected initial geometry failure completes errors withoutpendingwork"
@@ -364,7 +364,7 @@
       "id": "dart-test:host/view_test.dart#empty scene and independent surfaces publish and destroy separately",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/view_test.dart",
+      "file": "packages/flutter/test/host/view_test.dart",
       "test": "empty scene and independent surfaces publish and destroy separately",
       "assertions": [
         "empty surface ready andactualPNG",
@@ -376,7 +376,7 @@
       "id": "dart-test:host/view_test.dart#controller survives surface detach and reattach with selection",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/view_test.dart",
+      "file": "packages/flutter/test/host/view_test.dart",
       "test": "controller survives surface detach and reattach with selection",
       "assertions": [
         "reattach controller retainsselection;finalzero transientcallbacks"
@@ -387,7 +387,7 @@
       "id": "dart-test:host/view_test.dart#background cancels native input and resumes one idle frame",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/view_test.dart",
+      "file": "packages/flutter/test/host/view_test.dart",
       "test": "background cancels native input and resumes one idle frame",
       "assertions": [
         "simulatedWidgetsBinding lifecyclecancelspress andstops/resumesframecallback"
@@ -398,7 +398,7 @@
       "id": "dart-test:host/view_test.dart#Semantics refreshes selection and geometry without rebuilding the host",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/view_test.dart",
+      "file": "packages/flutter/test/host/view_test.dart",
       "test": "Semantics refreshes selection and geometry without rebuilding the host",
       "assertions": [
         "logical nodes selectedflags/viewportbounds/removalrefresh"
@@ -409,7 +409,7 @@
       "id": "dart-test:host/view_test.dart#MediaQuery motion preference follows the attached controller",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/view_test.dart",
+      "file": "packages/flutter/test/host/view_test.dart",
       "test": "MediaQuery motion preference follows the attached controller",
       "assertions": [
         "MediaQuery disableAnimations changescontrollerpolicy"
@@ -642,7 +642,7 @@
       "id": "dart-test:model/dataset_test.dart#normalizes defaults and identities without retaining caller aliases",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/dataset_test.dart",
+      "file": "packages/flutter/test/model/dataset_test.dart",
       "test": "normalizes defaults and identities without retaining caller aliases",
       "assertions": [
         "Generated element/component IDs; default upright orientation and 200ms bar duration; caller mutation and detached snapshot mutation cannot alter normalized values."
@@ -653,7 +653,7 @@
       "id": "dart-test:model/dataset_test.dart#grid cells preserve index IDs and hide versus destroy behavior",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/dataset_test.dart",
+      "file": "packages/flutter/test/model/dataset_test.dart",
       "test": "grid cells preserve index IDs and hide versus destroy behavior",
       "assertions": [
         "Stable g.row.column IDs for hidden inactive cells, visible string-cell label, instance identity. This test covers hide preservation, not every destroy transition."
@@ -664,7 +664,7 @@
       "id": "dart-test:model/dataset_test.dart#preserves accepted compatibility and discards only documented fields",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/dataset_test.dart",
+      "file": "packages/flutter/test/model/dataset_test.dart",
       "test": "preserves accepted compatibility and discards only documented fields",
       "assertions": [
         "Legacy attrs scale/pivot admitted; negative padding expansion; background size discarded; duplicate relation endpoint pair deduplicated; opacity compatibility canonicalizes relation alpha and drops nonprojected cap."
@@ -675,7 +675,7 @@
       "id": "dart-test:model/dataset_test.dart#closed fields, null, cycles, duplicate generated IDs and references fail atomically",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/dataset_test.dart",
+      "file": "packages/flutter/test/model/dataset_test.dart",
       "test": "closed fields, null, cycles, duplicate generated IDs and references fail atomically",
       "assertions": [
         "Invalid root shape/null size/unknown fields/angle+rotation/cyclic attrs/duplicate grid-generated ID rejected; strict missing relation endpoint raises MISSING_TARGET."
@@ -686,7 +686,7 @@
       "id": "dart-test:model/dataset_test.dart#canonical JSON follows JS finite-number spelling and UTF-16 hash",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/dataset_test.dart",
+      "file": "packages/flutter/test/model/dataset_test.dart",
       "test": "canonical JSON follows JS finite-number spelling and UTF-16 hash",
       "assertions": [
         "Canonical key order, -0, decimal/exponent thresholds, UTF-16 Unicode data and empty-array known FNV64 hash; numeric 1 and 1.0 semantic equality."
@@ -697,7 +697,7 @@
       "id": "dart-test:model/dataset_test.dart#shared authoring fixtures match the reviewed normalization baseline",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/dataset_test.dart",
+      "file": "packages/flutter/test/model/dataset_test.dart",
       "test": "shared authoring fixtures match the reviewed normalization baseline",
       "assertions": [
         "gallery/editor/updates exact normalized hash fnv1a64:07494bb037134f8a after reviewed PNG CRC repair; serialize/snapshot reparse keeps hash."
@@ -708,7 +708,7 @@
       "id": "dart-test:model/geometry_test.dart#readable content removes reflections and flips around the owner anchor",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/geometry_test.dart",
+      "file": "packages/flutter/test/model/geometry_test.dart",
       "test": "readable content removes reflections and flips around the owner anchor",
       "assertions": [
         "180-degree owner bar upright anchor reposition, reflected icon positive readable basis, camera half-plane flip."
@@ -719,7 +719,7 @@
       "id": "dart-test:model/geometry_test.dart#relation stroke widths follow affine normals without becoming pointer targets",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/geometry_test.dart",
+      "file": "packages/flutter/test/model/geometry_test.dart",
       "test": "relation stroke widths follow affine normals without becoming pointer targets",
       "assertions": [
         "Nonuniform affine transforms relation stroke width 2 to 6; logical path contains point while interactive pointer indices exclude relation in both element/component modes."
@@ -730,7 +730,7 @@
       "id": "dart-test:model/geometry_test.dart#transforms preserve top-left origins, signed scale and nested affine",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/geometry_test.dart",
+      "file": "packages/flutter/test/model/geometry_test.dart",
       "test": "transforms preserve top-left origins, signed scale and nested affine",
       "assertions": [
         "Signed image scale composed with rotated parent produces exact quad coordinates and image hit."
@@ -741,7 +741,7 @@
       "id": "dart-test:model/geometry_test.dart#scalar percentages use both content axes and named margins only anchor their axes",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/geometry_test.dart",
+      "file": "packages/flutter/test/model/geometry_test.dart",
       "test": "scalar percentages use both content axes and named margins only anchor their axes",
       "assertions": [
         "50% bar resolves width40 height90 from padded80x180 content; bottommargin offsets y93 while unrelated margins do not move centered axis."
@@ -752,7 +752,7 @@
       "id": "dart-test:model/geometry_test.dart#stable hierarchical paint order keeps item descendants together",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/geometry_test.dart",
+      "file": "packages/flutter/test/model/geometry_test.dart",
       "test": "stable hierarchical paint order keeps item descendants together",
       "assertions": [
         "Child bar zIndex999 cannot escape its earlier owner and draw above a later sibling rect."
@@ -763,7 +763,7 @@
       "id": "dart-test:model/geometry_test.dart#instance overlays update geometry without altering authored data or hashes",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/geometry_test.dart",
+      "file": "packages/flutter/test/model/geometry_test.dart",
       "test": "instance overlays update geometry without altering authored data or hashes",
       "assertions": [
         "Single grid-cell height overlay changes only selected instance geometry; authored template and semantic hash remain unchanged."
@@ -774,7 +774,7 @@
       "id": "dart-test:model/geometry_test.dart#relations resolve world centers, self loops and missing endpoint omission",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/geometry_test.dart",
+      "file": "packages/flutter/test/model/geometry_test.dart",
       "test": "relations resolve world centers, self loops and missing endpoint omission",
       "assertions": [
         "Self relation lowered as 5-point world path; missing endpoint link omitted; endpoint coordinate anchored to owner bounds."
@@ -785,7 +785,7 @@
       "id": "dart-test:model/geometry_test.dart#text geometry uses the semantic layout port and never silently approximates",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/geometry_test.dart",
+      "file": "packages/flutter/test/model/geometry_test.dart",
       "test": "text geometry uses the semantic layout port and never silently approximates",
       "assertions": [
         "Text build without semantic layouter throws; injected measured width and layout become geometry."
@@ -796,7 +796,7 @@
       "id": "dart-test:model/bar_projection_test.dart#bar delta equals full geometry for placement, affine, bounds and hits",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/bar_projection_test.dart",
+      "file": "packages/flutter/test/model/bar_projection_test.dart",
       "test": "bar delta equals full geometry for placement, affine, bounds and hits",
       "assertions": [
         "Heights0/2/20/100/150/10 incremental vs complete builder exact bounds for every target; dense point sweep hit equality; percent content reference; prior geometry immutable."
@@ -807,7 +807,7 @@
       "id": "dart-test:model/bar_projection_test.dart#unrelated primitive identity is retained and relation scope fallback is explicit",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/bar_projection_test.dart",
+      "file": "packages/flutter/test/model/bar_projection_test.dart",
       "test": "unrelated primitive identity is retained and relation scope fallback is explicit",
       "assertions": [
         "Unchanged rect primitive identity retained; dirty slot reports onlybar; overflow affecting relation bounds returns explicit full-builder fallback."
@@ -818,7 +818,7 @@
       "id": "dart-test:model/theme_test.dart#theme canonicalizes nested CSS, array, RGB, HSL, HSV and byte inputs",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/theme_test.dart",
+      "file": "packages/flutter/test/model/theme_test.dart",
       "test": "theme canonicalizes nested CSS, array, RGB, HSL, HSV and byte inputs",
       "assertions": [
         "Exact canonical RGBA for nested CSS, modernrgb/hsl, normalized arrays/Float32List/Uint8List, RGB/HSL/HSV objects; detached immutable output."
@@ -829,7 +829,7 @@
       "id": "dart-test:model/theme_test.dart#theme rejects invalid input atomically with public theme paths",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/model/theme_test.dart",
+      "file": "packages/flutter/test/model/theme_test.dart",
       "test": "theme rejects invalid input atomically with public theme paths",
       "assertions": [
         "Invalid packedinteger/array/object/typedarray/alias string/null reject at $.theme.invalid; duplicate flattened paths and cycles reject."
@@ -840,7 +840,7 @@
       "id": "dart-test:rendering/canvas_renderer_test.dart#retained bar meshes equal full rendering across height zero, rotation and selection",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/rendering/canvas_renderer_test.dart",
+      "file": "packages/flutter/test/rendering/canvas_renderer_test.dart",
       "test": "retained bar meshes equal full rendering across height zero, rotation and selection",
       "assertions": [
         "Rounded bar heights0/30/5/40 produce exact raster byte equality incremental vs full build under 180degree owner and selected outline; upright bar hit preserves owner+component."
@@ -851,7 +851,7 @@
       "id": "dart-test:rendering/canvas_renderer_test.dart#indexed mesh uses shared geometry and honors theme and parent alpha",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/rendering/canvas_renderer_test.dart",
+      "file": "packages/flutter/test/rendering/canvas_renderer_test.dart",
       "test": "indexed mesh uses shared geometry and honors theme and parent alpha",
       "assertions": [
         "Rectangle exact red50% pixel overwhite; renderer uses same geometry identity and clears geometry on dispose."
@@ -862,7 +862,7 @@
       "id": "dart-test:rendering/canvas_renderer_test.dart#relations render with color alpha exactly once",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/rendering/canvas_renderer_test.dart",
+      "file": "packages/flutter/test/rendering/canvas_renderer_test.dart",
       "test": "relations render with color alpha exactly once",
       "assertions": [
         "Relation color+alpha0.5 raster equals exact expected center pixel255,128,128,255."
@@ -873,7 +873,7 @@
       "id": "dart-test:rendering/canvas_renderer_test.dart#selection honors encoded component IDs, display modes and stroke policy",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/rendering/canvas_renderer_test.dart",
+      "file": "packages/flutter/test/rendering/canvas_renderer_test.dart",
       "test": "selection honors encoded component IDs, display modes and stroke policy",
       "assertions": [
         "Ambiguous-looking owner/component string IDs resolve exact quad; all/element-only/group-only/hidden path counts; fixed andviewport LOD stroke widths."
@@ -884,7 +884,7 @@
       "id": "dart-test:rendering/canvas_renderer_test.dart#selection outline paints authored visual color and hidden mode",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/rendering/canvas_renderer_test.dart",
+      "file": "packages/flutter/test/rendering/canvas_renderer_test.dart",
       "test": "selection outline paints authored visual color and hidden mode",
       "assertions": [
         "Authoredgreen selection exactpixel and hidden mode erasure."
@@ -895,7 +895,7 @@
       "id": "dart-test:rendering/canvas_renderer_test.dart#justify expands word gaps while v1 alpha raster ignores small-caps and shadow",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/rendering/canvas_renderer_test.dart",
+      "file": "packages/flutter/test/rendering/canvas_renderer_test.dart",
       "test": "justify expands word gaps while v1 alpha raster ignores small-caps and shadow",
       "assertions": [
         "Justify widens nonlastline gaps; storedsmallcaps/shadow keep raster unchanged matching v1alpha leaf-text-style forwarding."
@@ -906,7 +906,7 @@
       "id": "dart-test:rendering/canvas_renderer_test.dart#text raster applies component tint precedence and supports authored stroke",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/rendering/canvas_renderer_test.dart",
+      "file": "packages/flutter/test/rendering/canvas_renderer_test.dart",
       "test": "text raster applies component tint precedence and supports authored stroke",
       "assertions": [
         "Standalone fill produces red glyph; component normalized tint precedence produces white glyph; authored stroke path renders withouterror."
@@ -917,7 +917,7 @@
       "id": "dart-test:rendering/canvas_renderer_test.dart#text stroke accepts direct CSS colors and renderer counters release",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/rendering/canvas_renderer_test.dart",
+      "file": "packages/flutter/test/rendering/canvas_renderer_test.dart",
       "test": "text stroke accepts direct CSS colors and renderer counters release",
       "assertions": [
         "CSS namedred textstroke pixel-equals canonicalhex; renderer command/primitivecounts zero afterdispose; antialias false option accepted."
@@ -928,7 +928,7 @@
       "id": "dart-test:rendering/canvas_renderer_test.dart#packed colors, theme chains, CSS functions and tint alpha retain parser semantics",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/rendering/canvas_renderer_test.dart",
+      "file": "packages/flutter/test/rendering/canvas_renderer_test.dart",
       "test": "packed colors, theme chains, CSS functions and tint alpha retain parser semantics",
       "assertions": [
         "Exact packed24/32bit/hex/rgb/hsl/themechain values and deterministic tokenparser semantics."
@@ -936,10 +936,10 @@
       "scope": "Focused host Flutter tester unit/raster witness only; not installed-package/device or complete requirement-matrix evidence."
     },
     {
-      "id": "npm-test:tests/rendering/asset-registry.test.ts#registers immutable builtins without allocating resources and rejects conflicts by the closed code",
+      "id": "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#registers immutable builtins without allocating resources and rejects conflicts by the closed code",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/asset-registry.test.ts",
+      "file": "packages/javascript/tests/rendering/asset-registry.test.ts",
       "test": "registers immutable builtins without allocating resources and rejects conflicts by the closed code",
       "runner": "vitest",
       "assertions": [
@@ -948,10 +948,10 @@
       "scope": "Registration normalization, ownership signatures, policy metadata; default native decode policy separately covered by assets_test. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/asset-registry.test.ts#detaches and freezes descriptor options while including every field in identity",
+      "id": "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#detaches and freezes descriptor options while including every field in identity",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/asset-registry.test.ts",
+      "file": "packages/javascript/tests/rendering/asset-registry.test.ts",
       "test": "detaches and freezes descriptor options while including every field in identity",
       "runner": "vitest",
       "assertions": [
@@ -960,10 +960,10 @@
       "scope": "Registration normalization, ownership signatures, policy metadata; default native decode policy separately covered by assets_test. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/asset-registry.test.ts#rejects unknown descriptor fields while preserving the parser descriptor",
+      "id": "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#rejects unknown descriptor fields while preserving the parser descriptor",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/asset-registry.test.ts",
+      "file": "packages/javascript/tests/rendering/asset-registry.test.ts",
       "test": "rejects unknown descriptor fields while preserving the parser descriptor",
       "runner": "vitest",
       "assertions": [
@@ -975,7 +975,7 @@
       "id": "dart-test:host/asset_runtime_test.dart#descriptor normalization detaches nested input and rejects non-JSON/cyclic data",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+      "file": "packages/flutter/test/host/asset_runtime_test.dart",
       "test": "descriptor normalization detaches nested input and rejects non-JSON/cyclic data",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -987,7 +987,7 @@
       "id": "dart-test:host/asset_runtime_test.dart#modified font descriptor never gains package-owned trust",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+      "file": "packages/flutter/test/host/asset_runtime_test.dart",
       "test": "modified font descriptor never gains package-owned trust",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -999,7 +999,7 @@
       "id": "dart-test:host/asset_runtime_test.dart#public response policy reports the first failed admission stage",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+      "file": "packages/flutter/test/host/asset_runtime_test.dart",
       "test": "public response policy reports the first failed admission stage",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1008,10 +1008,10 @@
       "scope": "Registration normalization, ownership signatures, policy metadata; default native decode policy separately covered by assets_test. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/asset-registry.test.ts#uses package-owned browser boundaries and ignores caller overrides",
+      "id": "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#uses package-owned browser boundaries and ignores caller overrides",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/asset-registry.test.ts",
+      "file": "packages/javascript/tests/rendering/asset-registry.test.ts",
       "test": "uses package-owned browser boundaries and ignores caller overrides",
       "runner": "vitest",
       "assertions": [
@@ -1020,10 +1020,10 @@
       "scope": "Data-URI MIME admission test; real HTTP status/redirect/stream behavior is indexed separately."
     },
     {
-      "id": "npm-test:tests/rendering/asset-registry.test.ts#rejects SVG parser and response MIME mismatches before Pixi loading",
+      "id": "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#rejects SVG parser and response MIME mismatches before Pixi loading",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/asset-registry.test.ts",
+      "file": "packages/javascript/tests/rendering/asset-registry.test.ts",
       "test": "rejects SVG parser and response MIME mismatches before Pixi loading",
       "runner": "vitest",
       "assertions": [
@@ -1035,7 +1035,7 @@
       "id": "dart-test:host/assets_test.dart#MIME, parser agreement, SVG content and decoded bounds enforce session policy",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/assets_test.dart",
+      "file": "packages/flutter/test/host/assets_test.dart",
       "test": "MIME, parser agreement, SVG content and decoded bounds enforce session policy",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1044,10 +1044,10 @@
       "scope": "Data-URI MIME admission test; real HTTP status/redirect/stream behavior is indexed separately."
     },
     {
-      "id": "npm-test:tests/rendering/asset-registry.test.ts#deduplicates pending work across instances and unloads after the final lease",
+      "id": "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#deduplicates pending work across instances and unloads after the final lease",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/asset-registry.test.ts",
+      "file": "packages/javascript/tests/rendering/asset-registry.test.ts",
       "test": "deduplicates pending work across instances and unloads after the final lease",
       "runner": "vitest",
       "assertions": [
@@ -1056,10 +1056,10 @@
       "scope": "Shared coordinator identity, handle/session lease lifecycle, external resources, unload retry; actual codec disposal uses codecs_test. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/asset-registry.test.ts#coordinates leases across runtimes that share one physical backend",
+      "id": "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#coordinates leases across runtimes that share one physical backend",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/asset-registry.test.ts",
+      "file": "packages/javascript/tests/rendering/asset-registry.test.ts",
       "test": "coordinates leases across runtimes that share one physical backend",
       "runner": "vitest",
       "assertions": [
@@ -1068,10 +1068,10 @@
       "scope": "Shared coordinator identity, handle/session lease lifecycle, external resources, unload retry; actual codec disposal uses codecs_test. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/asset-registry.test.ts#quarantines an unload failure and never leases the partly destroyed resource again",
+      "id": "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#quarantines an unload failure and never leases the partly destroyed resource again",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/asset-registry.test.ts",
+      "file": "packages/javascript/tests/rendering/asset-registry.test.ts",
       "test": "quarantines an unload failure and never leases the partly destroyed resource again",
       "runner": "vitest",
       "assertions": [
@@ -1080,10 +1080,10 @@
       "scope": "Shared coordinator identity, handle/session lease lifecycle, external resources, unload retry; actual codec disposal uses codecs_test. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/asset-registry.test.ts#borrows an externally cached backend entry without unloading it",
+      "id": "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#borrows an externally cached backend entry without unloading it",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/asset-registry.test.ts",
+      "file": "packages/javascript/tests/rendering/asset-registry.test.ts",
       "test": "borrows an externally cached backend entry without unloading it",
       "runner": "vitest",
       "assertions": [
@@ -1095,7 +1095,7 @@
       "id": "dart-test:host/asset_runtime_test.dart#manual session distinguishes aliases from sources and deduplicates handles",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+      "file": "packages/flutter/test/host/asset_runtime_test.dart",
       "test": "manual session distinguishes aliases from sources and deduplicates handles",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1107,7 +1107,7 @@
       "id": "dart-test:host/asset_runtime_test.dart#same backend shares physical resources across separate runtime catalogs",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+      "file": "packages/flutter/test/host/asset_runtime_test.dart",
       "test": "same backend shares physical resources across separate runtime catalogs",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1119,7 +1119,7 @@
       "id": "dart-test:host/asset_runtime_test.dart#cleanup failure is visible and reacquisition retries before allocating a fresh key",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+      "file": "packages/flutter/test/host/asset_runtime_test.dart",
       "test": "cleanup failure is visible and reacquisition retries before allocating a fresh key",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1131,7 +1131,7 @@
       "id": "dart-test:host/asset_runtime_test.dart#external cached resources are never unloaded",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+      "file": "packages/flutter/test/host/asset_runtime_test.dart",
       "test": "external cached resources are never unloaded",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1143,7 +1143,7 @@
       "id": "dart-test:host/asset_runtime_test.dart#native cleanup failure drops bindings and repeated destroy retries cleanup",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+      "file": "packages/flutter/test/host/asset_runtime_test.dart",
       "test": "native cleanup failure drops bindings and repeated destroy retries cleanup",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1155,7 +1155,7 @@
       "id": "dart-test:host/asset_runtime_test.dart#NativeAsset retries failed cleanup steps and successful disposal stays idempotent",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+      "file": "packages/flutter/test/host/asset_runtime_test.dart",
       "test": "NativeAsset retries failed cleanup steps and successful disposal stays idempotent",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1164,10 +1164,10 @@
       "scope": "Shared coordinator identity, handle/session lease lifecycle, external resources, unload retry; actual codec disposal uses codecs_test. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/asset-pending-cancel.test.ts#does not await an abandoned load and collects its late success exactly once",
+      "id": "npm-test:packages/javascript/tests/rendering/asset-pending-cancel.test.ts#does not await an abandoned load and collects its late success exactly once",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/asset-pending-cancel.test.ts",
+      "file": "packages/javascript/tests/rendering/asset-pending-cancel.test.ts",
       "test": "does not await an abandoned load and collects its late success exactly once",
       "runner": "vitest",
       "assertions": [
@@ -1176,10 +1176,10 @@
       "scope": "Visible replacement, stale retained image and pending cancellation; custom backend cancellation also asset_runtime_test. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/asset-pending-cancel.test.ts#observes an abandoned late failure while removing the failed coordinator entry",
+      "id": "npm-test:packages/javascript/tests/rendering/asset-pending-cancel.test.ts#observes an abandoned late failure while removing the failed coordinator entry",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/asset-pending-cancel.test.ts",
+      "file": "packages/javascript/tests/rendering/asset-pending-cancel.test.ts",
       "test": "observes an abandoned late failure while removing the failed coordinator entry",
       "runner": "vitest",
       "assertions": [
@@ -1191,7 +1191,7 @@
       "id": "dart-test:host/assets_test.dart#replacement preserves old texture, supersedes late completion and frees removed bindings",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/assets_test.dart",
+      "file": "packages/flutter/test/host/assets_test.dart",
       "test": "replacement preserves old texture, supersedes late completion and frees removed bindings",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1203,7 +1203,7 @@
       "id": "dart-test:host/assets_test.dart#failed replacement keeps the previous resolved binding and can retry",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/assets_test.dart",
+      "file": "packages/flutter/test/host/assets_test.dart",
       "test": "failed replacement keeps the previous resolved binding and can retry",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1215,7 +1215,7 @@
       "id": "dart-test:host/assets_test.dart#destroy settles pending requests immediately and late decode cannot reattach",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/assets_test.dart",
+      "file": "packages/flutter/test/host/assets_test.dart",
       "test": "destroy settles pending requests immediately and late decode cannot reattach",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1224,10 +1224,10 @@
       "scope": "Visible replacement, stale retained image and pending cancellation; custom backend cancellation also asset_runtime_test. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/text-layout.test.ts#segments family emoji, skin tone, combining marks, flags, and Hangul without native Intl",
+      "id": "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#segments family emoji, skin tone, combining marks, flags, and Hangul without native Intl",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/text-layout.test.ts",
+      "file": "packages/javascript/tests/rendering/text-layout.test.ts",
       "test": "segments family emoji, skin tone, combining marks, flags, and Hangul without native Intl",
       "runner": "vitest",
       "assertions": [
@@ -1236,10 +1236,10 @@
       "scope": "Exact JS semantic oracle observations; platform glyph raster shape is separate. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/text-layout.test.ts#derives automatic RTL base direction, logical/visual runs, and exact mapping",
+      "id": "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#derives automatic RTL base direction, logical/visual runs, and exact mapping",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/text-layout.test.ts",
+      "file": "packages/javascript/tests/rendering/text-layout.test.ts",
       "test": "derives automatic RTL base direction, logical/visual runs, and exact mapping",
       "runner": "vitest",
       "assertions": [
@@ -1248,10 +1248,10 @@
       "scope": "Exact JS semantic oracle observations; platform glyph raster shape is separate. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/text-layout.test.ts#keeps European and Arabic-Indic digit graphemes in logical order inside RTL text",
+      "id": "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#keeps European and Arabic-Indic digit graphemes in logical order inside RTL text",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/text-layout.test.ts",
+      "file": "packages/javascript/tests/rendering/text-layout.test.ts",
       "test": "keeps European and Arabic-Indic digit graphemes in logical order inside RTL text",
       "runner": "vitest",
       "assertions": [
@@ -1263,7 +1263,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: combining",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: combining",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1280,7 +1280,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: emoji-zwj",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: emoji-zwj",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1297,7 +1297,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: hangul-jamo",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: hangul-jamo",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1314,7 +1314,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: rtl-mixed",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: rtl-mixed",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1331,7 +1331,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: ltr-mixed",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: ltr-mixed",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1348,7 +1348,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: arabic-number",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: arabic-number",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1365,7 +1365,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: multiline-bidi",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: multiline-bidi",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1379,10 +1379,10 @@
       }
     },
     {
-      "id": "npm-test:tests/rendering/text-layout.test.ts#wraps CJK at pinned opportunities and long Latin only when breakWords is enabled",
+      "id": "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#wraps CJK at pinned opportunities and long Latin only when breakWords is enabled",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/text-layout.test.ts",
+      "file": "packages/javascript/tests/rendering/text-layout.test.ts",
       "test": "wraps CJK at pinned opportunities and long Latin only when breakWords is enabled",
       "runner": "vitest",
       "assertions": [
@@ -1391,10 +1391,10 @@
       "scope": "Exact lines, advances, overflow and grapheme boundaries against generated npm semantic oracle. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/text-layout.test.ts#applies visible, hidden, and ellipsis overflow without splitting a grapheme",
+      "id": "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#applies visible, hidden, and ellipsis overflow without splitting a grapheme",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/text-layout.test.ts",
+      "file": "packages/javascript/tests/rendering/text-layout.test.ts",
       "test": "applies visible, hidden, and ellipsis overflow without splitting a grapheme",
       "runner": "vitest",
       "assertions": [
@@ -1406,7 +1406,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: wrap-words",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: wrap-words",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1423,7 +1423,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: wrap-breakwords",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: wrap-breakwords",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1440,7 +1440,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: wrap-korean",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: wrap-korean",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1457,7 +1457,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: wrap-zero",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: wrap-zero",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1474,7 +1474,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: hidden",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: hidden",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1491,7 +1491,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: ellipsis-width",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: ellipsis-width",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1508,7 +1508,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: ellipsis-height",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: ellipsis-height",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1525,7 +1525,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: ellipsis-no-marker",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: ellipsis-no-marker",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1542,7 +1542,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: height-zero",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: height-zero",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1559,7 +1559,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: negative-spacing-overflow",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: negative-spacing-overflow",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1573,10 +1573,10 @@
       }
     },
     {
-      "id": "npm-test:tests/rendering/text-layout.test.ts#selects the largest inclusive automatic font candidate and makes ties deterministic",
+      "id": "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#selects the largest inclusive automatic font candidate and makes ties deterministic",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/text-layout.test.ts",
+      "file": "packages/javascript/tests/rendering/text-layout.test.ts",
       "test": "selects the largest inclusive automatic font candidate and makes ties deterministic",
       "runner": "vitest",
       "assertions": [
@@ -1585,10 +1585,10 @@
       "scope": "Exact auto font/line layout oracle; no claim of every safe-integer search extreme. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/text-layout.test.ts#pins auto-font wrapping to the frame so a larger rewrap cannot create a fit island",
+      "id": "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#pins auto-font wrapping to the frame so a larger rewrap cannot create a fit island",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/text-layout.test.ts",
+      "file": "packages/javascript/tests/rendering/text-layout.test.ts",
       "test": "pins auto-font wrapping to the frame so a larger rewrap cannot create a fit island",
       "runner": "vitest",
       "assertions": [
@@ -1600,7 +1600,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: auto-font",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: auto-font",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1617,7 +1617,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: auto-wrap",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: auto-wrap",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1631,10 +1631,10 @@
       }
     },
     {
-      "id": "npm-test:tests/rendering/text-layout.test.ts#uses deterministic font fallback independently of system fonts",
+      "id": "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#uses deterministic font fallback independently of system fonts",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/text-layout.test.ts",
+      "file": "packages/javascript/tests/rendering/text-layout.test.ts",
       "test": "uses deterministic font fallback independently of system fonts",
       "runner": "vitest",
       "assertions": [
@@ -1643,10 +1643,10 @@
       "scope": "Semantic missing-glyph/fallback oracle; actual native registration/readiness additionally asset_runtime_test opaque builtin cache barrier and assets_test canonical font lease. Static index only; installed artifacts and actual outcomes remain separate."
     },
     {
-      "id": "npm-test:tests/rendering/text-layout.test.ts#replaces declared missing glyphs while preserving exact source and run identity",
+      "id": "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#replaces declared missing glyphs while preserving exact source and run identity",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/text-layout.test.ts",
+      "file": "packages/javascript/tests/rendering/text-layout.test.ts",
       "test": "replaces declared missing glyphs while preserving exact source and run identity",
       "runner": "vitest",
       "assertions": [
@@ -1658,7 +1658,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: missing",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: missing",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1675,7 +1675,7 @@
       "id": "dart-test:text/layout_test.dart#shared npm text observation: zero-width",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/text/layout_test.dart",
+      "file": "packages/flutter/test/text/layout_test.dart",
       "test": "shared npm text observation: zero-width",
       "runner": "flutter test --concurrency=1",
       "assertions": [
@@ -1692,7 +1692,7 @@
       "id": "dart-test:host/assets_test.dart#real HTTP admission rejects redirects status MIME and streamed size before decode",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/assets_test.dart",
+      "file": "packages/flutter/test/host/assets_test.dart",
       "test": "real HTTP admission rejects redirects status MIME and streamed size before decode",
       "assertions": [
         "Local HttpServer admission of redirects, HTTP404, MIME mismatch, declared/chunked byte limit, credentials and successful decode."
@@ -1703,7 +1703,7 @@
       "id": "dart-test:host/asset_runtime_test.dart#public low-level attach release and scoped retry use the same coordinator",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/host/asset_runtime_test.dart",
+      "file": "packages/flutter/test/host/asset_runtime_test.dart",
       "test": "public low-level attach release and scoped retry use the same coordinator",
       "assertions": [
         "Public low-level runtime methods forward to the same lease/cleanup authority."
@@ -1747,7 +1747,7 @@
       "id": "dart-test:engine/structural_test.dart#move group and ungroup preserve signed world affine and rotation channel",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/structural_test.dart",
+      "file": "packages/flutter/test/engine/structural_test.dart",
       "test": "move group and ungroup preserve signed world affine and rotation channel",
       "assertions": [
         "Nested reflected/radian affine world quads and selection round-trip across hierarchy changes."
@@ -1758,7 +1758,7 @@
       "id": "dart-test:engine/structural_test.dart#same-parent move uses pre-removal insertion index and preserves no-op history",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/structural_test.dart",
+      "file": "packages/flutter/test/engine/structural_test.dart",
       "test": "same-parent move uses pre-removal insertion index and preserves no-op history",
       "assertions": [
         "Move insertion uses original sibling boundaries; adjacent insertion is unchanged."
@@ -1769,7 +1769,7 @@
       "id": "dart-test:engine/structural_test.dart#relation policy and locked or skewed destinations reject atomically",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/structural_test.dart",
+      "file": "packages/flutter/test/engine/structural_test.dart",
       "test": "relation policy and locked or skewed destinations reject atomically",
       "assertions": [
         "References, ancestor lock and unrepresentable skew reject without changing data/history."
@@ -1780,7 +1780,7 @@
       "id": "dart-test:engine/controller_test.dart#typed bar view preserves tint and old snapshots on null height reset",
       "kind": "focused-test",
       "runtime": "dart",
-      "file": "packages/patch_map/test/engine/controller_test.dart",
+      "file": "packages/flutter/test/engine/controller_test.dart",
       "test": "typed bar view preserves tint and old snapshots on null height reset",
       "assertions": [
         "Lazy typed bar view retains tint and immutable prior height after restoring template height."
@@ -1791,7 +1791,7 @@
       "id": "npm-test:semantic/dataset-contract.test.ts#applies defaults without mutating caller data and is fresh-session deterministic",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/dataset-contract.test.ts",
+      "file": "packages/javascript/tests/semantic/dataset-contract.test.ts",
       "test": "applies defaults without mutating caller data and is fresh-session deterministic",
       "assertions": [
         "Defaults remain deterministic and detached from caller data."
@@ -1802,7 +1802,7 @@
       "id": "npm-test:semantic/dataset-contract.test.ts#accepts but discards compatibility background size",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/dataset-contract.test.ts",
+      "file": "packages/javascript/tests/semantic/dataset-contract.test.ts",
       "test": "accepts but discards compatibility background size",
       "assertions": [
         "Compatibility background size does not survive normalization."
@@ -1813,7 +1813,7 @@
       "id": "npm-test:semantic/dataset-contract.test.ts#normalizes deprecated relation opacity to alpha",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/dataset-contract.test.ts",
+      "file": "packages/javascript/tests/semantic/dataset-contract.test.ts",
       "test": "normalizes deprecated relation opacity to alpha",
       "assertions": [
         "Legacy relation opacity maps to canonical alpha."
@@ -1824,7 +1824,7 @@
       "id": "npm-test:semantic/persistence.test.ts#checks semantic references in strict mode and permits explicit relaxed export",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/persistence.test.ts",
+      "file": "packages/javascript/tests/semantic/persistence.test.ts",
       "test": "checks semantic references in strict mode and permits explicit relaxed export",
       "assertions": [
         "Strict missing references reject; relaxed export preserves permitted input."
@@ -1835,7 +1835,7 @@
       "id": "npm-test:semantic/dataset-layout.test.ts#resolves the padded content box and equivalent dimension forms",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/dataset-layout.test.ts",
+      "file": "packages/javascript/tests/semantic/dataset-layout.test.ts",
       "test": "resolves the padded content box and equivalent dimension forms",
       "assertions": [
         "Numeric, percent and unit forms resolve against the correct padded content axes."
@@ -1846,7 +1846,7 @@
       "id": "npm-test:rendering/component-render-lanes.test.ts#uses exact order when zIndex reverses components in the same render lane",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/rendering/component-render-lanes.test.ts",
+      "file": "packages/javascript/tests/rendering/component-render-lanes.test.ts",
       "test": "uses exact order when zIndex reverses components in the same render lane",
       "assertions": [
         "Component zIndex determines exact render-lane order."
@@ -1857,7 +1857,7 @@
       "id": "npm-test:semantic/entity-hit-index.test.ts#applies visible, interactive, kind, and topmost filters after the broad phase",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/entity-hit-index.test.ts",
+      "file": "packages/javascript/tests/semantic/entity-hit-index.test.ts",
       "test": "applies visible, interactive, kind, and topmost filters after the broad phase",
       "assertions": [
         "Visible/interactive/kind/topmost filters determine the final hit target."
@@ -1868,7 +1868,7 @@
       "id": "npm-test:core/core-bar-presentation-integration.test.ts#commits semantic height immediately and publishes deterministic bottom-anchored frames",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/core/core-bar-presentation-integration.test.ts",
+      "file": "packages/javascript/tests/core/core-bar-presentation-integration.test.ts",
       "test": "commits semantic height immediately and publishes deterministic bottom-anchored frames",
       "assertions": [
         "Authored destination commits immediately while deterministic frame clock samples the bottom-anchored bar."
@@ -1879,7 +1879,7 @@
       "id": "npm-test:semantic/pointer-gesture.test.ts#projects stable authored/concrete hover and owns policy-filtered box selection",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/pointer-gesture.test.ts",
+      "file": "packages/javascript/tests/semantic/pointer-gesture.test.ts",
       "test": "projects stable authored/concrete hover and owns policy-filtered box selection",
       "assertions": [
         "Root pointer inputs expose stable authored/concrete hover identity and selection filtering."
@@ -1890,7 +1890,7 @@
       "id": "npm-test:semantic/pointer-gesture.test.ts#pins package-owned tooltip projection on context menu until the next primary click",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/pointer-gesture.test.ts",
+      "file": "packages/javascript/tests/semantic/pointer-gesture.test.ts",
       "test": "pins package-owned tooltip projection on context menu until the next primary click",
       "assertions": [
         "Context-menu tooltip remains pinned until the primary click policy releases it."
@@ -1901,7 +1901,7 @@
       "id": "npm-test:semantic/pointer-gesture.test.ts#normalizes click, drag, secondary, and touch traces without duplicate completion",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/pointer-gesture.test.ts",
+      "file": "packages/javascript/tests/semantic/pointer-gesture.test.ts",
       "test": "normalizes click, drag, secondary, and touch traces without duplicate completion",
       "assertions": [
         "Touch and cancelled pointer traces do not duplicate completion."
@@ -1912,7 +1912,7 @@
       "id": "npm-test:semantic/pointer-gesture.test.ts#owns configured blank and selected-target double-click deselection without delaying new targets",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/pointer-gesture.test.ts",
+      "file": "packages/javascript/tests/semantic/pointer-gesture.test.ts",
       "test": "owns configured blank and selected-target double-click deselection without delaying new targets",
       "assertions": [
         "Blank and selected target double-click policy preserves documented selection timing."
@@ -1923,7 +1923,7 @@
       "id": "npm-test:semantic/pointer-gesture.test.ts#latches shift-only box activation at pointer-down without taking ordinary pan drags",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/pointer-gesture.test.ts",
+      "file": "packages/javascript/tests/semantic/pointer-gesture.test.ts",
       "test": "latches shift-only box activation at pointer-down without taking ordinary pan drags",
       "assertions": [
         "Shift activation is latched at press start; ordinary drags remain pan."
@@ -1934,7 +1934,7 @@
       "id": "npm-test:semantic/pointer-gesture.test.ts#resolves Ctrl or Cmd point selection inside the package-owned selection commit",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/pointer-gesture.test.ts",
+      "file": "packages/javascript/tests/semantic/pointer-gesture.test.ts",
       "test": "resolves Ctrl or Cmd point selection inside the package-owned selection commit",
       "assertions": [
         "Modifier callback receives target and current selection and contributes one selection commit."
@@ -1945,7 +1945,7 @@
       "id": "npm-test:engine/engine-viewport.test.ts#keeps cursor and pinch anchors stable while pan and deceleration use one view owner",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-viewport.test.ts",
+      "file": "packages/javascript/tests/engine/engine-viewport.test.ts",
       "test": "keeps cursor and pinch anchors stable while pan and deceleration use one view owner",
       "assertions": [
         "Wheel cursor and pinch anchors remain stable through view updates."
@@ -1956,7 +1956,7 @@
       "id": "npm-test:integration/accessibility-product.test.ts#deduplicates Pixi aliases while preserving logical focus and selection intent",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/integration/accessibility-product.test.ts",
+      "file": "packages/javascript/tests/integration/accessibility-product.test.ts",
       "test": "deduplicates Pixi aliases while preserving logical focus and selection intent",
       "assertions": [
         "Logical focus/activation deduplicates aliases without repeated selection."
@@ -1967,7 +1967,7 @@
       "id": "npm-test:integration/accessibility-product.test.ts#connects logical tree, root activation, reduced motion, and cleanup",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/integration/accessibility-product.test.ts",
+      "file": "packages/javascript/tests/integration/accessibility-product.test.ts",
       "test": "connects logical tree, root activation, reduced motion, and cleanup",
       "assertions": [
         "Active accessible tree shares root activation, reduced-motion and cleanup lifecycle."
@@ -1978,7 +1978,7 @@
       "id": "npm-test:engine/engine-update-transactions.test.ts#preserves authority and prepared history on surface refusal and throw",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-update-transactions.test.ts",
+      "file": "packages/javascript/tests/engine/engine-update-transactions.test.ts",
       "test": "preserves authority and prepared history on surface refusal and throw",
       "assertions": [
         "Committed seed followed by refused/throw statuses preserves authored authority and history; common traces cover unchanged/rejected."
@@ -1989,7 +1989,7 @@
       "id": "npm-test:engine/engine-reentrancy-lifecycle.test.ts#restores scene and preserves a reentrant selection before refusing the stale transaction",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-reentrancy-lifecycle.test.ts",
+      "file": "packages/javascript/tests/engine/engine-reentrancy-lifecycle.test.ts",
       "test": "restores scene and preserves a reentrant selection before refusing the stale transaction",
       "assertions": [
         "Reentrant selection invalidates prepared transaction; stale candidate never publishes."
@@ -2000,7 +2000,7 @@
       "id": "npm-test:semantic/history.test.ts#coalesces consecutive records with one action ID and honors explicit barriers",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/history.test.ts",
+      "file": "packages/javascript/tests/semantic/history.test.ts",
       "test": "coalesces consecutive records with one action ID and honors explicit barriers",
       "assertions": [
         "Same action coalesces until a close barrier; distinct actions remain separate history records."
@@ -2011,7 +2011,7 @@
       "id": "npm-test:semantic/history.test.ts#moves the cursor only after an atomic apply accepts",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/history.test.ts",
+      "file": "packages/javascript/tests/semantic/history.test.ts",
       "test": "moves the cursor only after an atomic apply accepts",
       "assertions": [
         "Rejected and throwing history application preserve cursor; accepted undo/redo move it once."
@@ -2022,7 +2022,7 @@
       "id": "npm-test:semantic/history.test.ts#evicts oldest commands at capacity and supports disabled recording",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/history.test.ts",
+      "file": "packages/javascript/tests/semantic/history.test.ts",
       "test": "evicts oldest commands at capacity and supports disabled recording",
       "assertions": [
         "Capacity bounds depth, oldest entry eviction and capacity-zero recording."
@@ -2033,7 +2033,7 @@
       "id": "npm-test:semantic/query-selection.test.ts#queries elements and owner-qualified components in deterministic logical order",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/semantic/query-selection.test.ts",
+      "file": "packages/javascript/tests/semantic/query-selection.test.ts",
       "test": "queries elements and owner-qualified components in deterministic logical order",
       "assertions": [
         "Query returns deterministic authored and owner-qualified component addresses."
@@ -2044,7 +2044,7 @@
       "id": "npm-test:engine/engine-capture-extraction-authority.test.ts#recovers managed capture state when preparation fails and advances the queue",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-capture-extraction-authority.test.ts",
+      "file": "packages/javascript/tests/engine/engine-capture-extraction-authority.test.ts",
       "test": "recovers managed capture state when preparation fails and advances the queue",
       "assertions": [
         "A failed preparation rejects its request, the queued capture completes, pending work returns to zero and the frame owner resumes."
@@ -2055,7 +2055,7 @@
       "id": "npm-test:engine/engine-capture-extraction-authority.test.ts#uses the injected security authority before acquiring capture work",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-capture-extraction-authority.test.ts",
+      "file": "packages/javascript/tests/engine/engine-capture-extraction-authority.test.ts",
       "test": "uses the injected security authority before acquiring capture work",
       "assertions": [
         "Unreadable bindings fail preflight without capture allocation or pending work."
@@ -2066,7 +2066,7 @@
       "id": "npm-test:engine/engine-extraction.test.ts#captures an exact published tuple while retaining the authoritative canvas",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-extraction.test.ts",
+      "file": "packages/javascript/tests/engine/engine-extraction.test.ts",
       "test": "captures an exact published tuple while retaining the authoritative canvas",
       "assertions": [
         "Captured scene/view/interaction tuple and CSS/backing dimensions match; canvas identity is retained and temporary resources and pending work return to zero."
@@ -2077,7 +2077,7 @@
       "id": "npm-test:engine/engine-capture-extraction-authority.test.ts#serializes managed captures and applies deferred reentrant resize before resume",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-capture-extraction-authority.test.ts",
+      "file": "packages/javascript/tests/engine/engine-capture-extraction-authority.test.ts",
       "test": "serializes managed captures and applies deferred reentrant resize before resume",
       "assertions": [
         "Concurrent capture requests serialize; latest deferred and reentrant resize publish before the frame loop resumes."
@@ -2088,7 +2088,7 @@
       "id": "npm-test:engine/engine-capture-extraction-authority.test.ts#balances pending work across supersede and destroy settlements",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-capture-extraction-authority.test.ts",
+      "file": "packages/javascript/tests/engine/engine-capture-extraction-authority.test.ts",
       "test": "balances pending work across supersede and destroy settlements",
       "assertions": [
         "Superseded and destroyed captures reject with their exact categories and release pending work."
@@ -2099,7 +2099,7 @@
       "id": "npm-test:engine/engine-lifecycle.test.ts#deduplicates repeated initialization and publishes one ready event",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-lifecycle.test.ts",
+      "file": "packages/javascript/tests/engine/engine-lifecycle.test.ts",
       "test": "deduplicates repeated initialization and publishes one ready event",
       "assertions": [
         "Repeated initialization allocates one surface and emits one ready event with correct initial lifecycle and resource state."
@@ -2110,7 +2110,7 @@
       "id": "npm-test:engine/engine-asset-lifecycle.test.ts#preflights required assets before surface allocation and retries the same new engine",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-asset-lifecycle.test.ts",
+      "file": "packages/javascript/tests/engine/engine-asset-lifecycle.test.ts",
       "test": "preflights required assets before surface allocation and retries the same new engine",
       "assertions": [
         "Required asset failure emits no ready event and allocates no surface; a corrected retry reaches ready-empty once and releases all leases on destroy."
@@ -2121,7 +2121,7 @@
       "id": "npm-test:engine/engine-lifecycle.test.ts#keeps caller input immutable and returns deterministic empty/missing results",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-lifecycle.test.ts",
+      "file": "packages/javascript/tests/engine/engine-lifecycle.test.ts",
       "test": "keeps caller input immutable and returns deterministic empty/missing results",
       "assertions": [
         "Empty scene remains ready-empty; immutable caller input is preserved and missing queries return deterministic empty results."
@@ -2132,7 +2132,7 @@
       "id": "npm-test:integration/multi-instance.test.ts#isolates data selection history and destruction for identical target IDs",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/integration/multi-instance.test.ts",
+      "file": "packages/javascript/tests/integration/multi-instance.test.ts",
       "test": "isolates data selection history and destruction for identical target IDs",
       "assertions": [
         "Separate surfaces using identical target IDs retain independent data, selection, history and lifecycle; destroying one leaves the other mutable."
@@ -2143,7 +2143,7 @@
       "id": "npm-test:engine/engine-lifecycle.test.ts#destroys once and releases the surface",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-lifecycle.test.ts",
+      "file": "packages/javascript/tests/engine/engine-lifecycle.test.ts",
       "test": "destroys once and releases the surface",
       "assertions": [
         "First destroy releases the sole surface and reaches destroyed; repeated destroy returns false without another release."
@@ -2154,7 +2154,7 @@
       "id": "npm-test:engine/engine-lifecycle.test.ts#waits for and releases a renderer that resolves after destroy starts",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/engine/engine-lifecycle.test.ts",
+      "file": "packages/javascript/tests/engine/engine-lifecycle.test.ts",
       "test": "waits for and releases a renderer that resolves after destroy starts",
       "assertions": [
         "Destroy joins late initialization, rejects readiness with DESTROYED and releases the late surface."
@@ -2165,7 +2165,7 @@
       "id": "npm-test:integration/page-lifecycle.test.ts#cancels motion and root gesture ownership and publishes one resume frame",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/integration/page-lifecycle.test.ts",
+      "file": "packages/javascript/tests/integration/page-lifecycle.test.ts",
       "test": "cancels motion and root gesture ownership and publishes one resume frame",
       "assertions": [
         "Hidden transition cancels motion, gesture capture and animation; hidden frames do not publish and visible resume publishes once."
@@ -2176,7 +2176,7 @@
       "id": "npm-test:integration/operations.test.ts#isolates callback failure and drains reentrant actions after registration order",
       "kind": "focused-test",
       "runtime": "npm",
-      "file": "tests/integration/operations.test.ts",
+      "file": "packages/javascript/tests/integration/operations.test.ts",
       "test": "isolates callback failure and drains reentrant actions after registration order",
       "assertions": [
         "Callback failure preserves ordered delivery, records bounded HOST_CALLBACK_FAILURE without sensitive callback text, and disposer cleanup is idempotent."

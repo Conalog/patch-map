@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing camera state or relative object transforms
-- Source: `src/engine/viewport-authority.ts`, `src/engine/transformer-edit-authority.ts`
+- Source: `packages/javascript/src/engine/viewport-authority.ts`, `packages/javascript/src/engine/transformer-edit-authority.ts`
 
 ## Scope
 
@@ -106,14 +106,14 @@ resize handle.
 - Cancel, target change, pointer termination, or refused surface acceptance
   removes transformer preview and does not create a history entry.
 
-Runnable selection, transform, and history reference: [`examples/editor.ts`](../../examples/editor.ts).
+Runnable selection, transform, and history reference: [`packages/javascript/examples/editor.ts`](https://github.com/Conalog/patch-map/tree/release/1.0/packages/javascript/examples/editor.ts).
 
 ## Verification map
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| viewport state, clamp, persistence, settle | `src/engine/viewport-authority.ts` | `tests/engine/viewport-authority.test.ts` |
-| public viewport integration | `src/public/index.ts` | `tests/engine/engine-viewport.test.ts` |
-| whole-map rotation facade and navigation | `src/public/index.ts`, `src/engine/viewport-runtime-coordinator.ts` | `tests/engine/engine-viewport.test.ts` |
-| relative transform semantics | `src/engine/transformer-edit-authority.ts` | `tests/engine/engine-transformer-edit.test.ts` |
-| gesture ownership and preview cleanup | `src/engine/transformer-session-coordinator.ts` | `tests/engine/engine-transformer-edit.test.ts` |
+| viewport state, clamp, persistence, settle | `packages/javascript/src/engine/viewport-authority.ts` | `packages/javascript/tests/engine/viewport-authority.test.ts` |
+| public viewport integration | `packages/javascript/src/public/index.ts` | `packages/javascript/tests/engine/engine-viewport.test.ts` |
+| whole-map rotation facade and navigation | `packages/javascript/src/public/index.ts`, `packages/javascript/src/engine/viewport-runtime-coordinator.ts` | `packages/javascript/tests/engine/engine-viewport.test.ts` |
+| relative transform semantics | `packages/javascript/src/engine/transformer-edit-authority.ts` | `packages/javascript/tests/engine/engine-transformer-edit.test.ts` |
+| gesture ownership and preview cleanup | `packages/javascript/src/engine/transformer-session-coordinator.ts` | `packages/javascript/tests/engine/engine-transformer-edit.test.ts` |

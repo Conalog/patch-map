@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing hover, tooltip, pointer gestures, or selection
-- Source: `src/engine/pointer-interaction-coordinator.ts`, `src/pointer-gesture`, `src/query-selection`
+- Source: `packages/javascript/src/engine/pointer-interaction-coordinator.ts`, `packages/javascript/src/pointer-gesture`, `packages/javascript/src/query-selection`
 
 ## Scope
 
@@ -60,8 +60,8 @@ are owned by [`viewport-and-transform.md`](viewport-and-transform.md).
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| coordinator lifecycle and dispatch order | `src/engine/pointer-interaction-coordinator.ts` | `tests/engine/pointer-interaction-coordinator.test.ts` |
-| slop, capture, click/drag arbitration | `src/pointer-gesture` | `tests/semantic/pointer-gesture.test.ts` |
-| logical selection and resolver behavior | `src/query-selection` | `tests/semantic/query-selection.test.ts` |
-| root event integration | `src/host-interaction/index.ts` | `tests/integration/host-interaction.test.ts` |
-| persistent and marquee paint bounds | `src/rendering/pixi-renderer/interaction-overlay-authority.ts` | `tests/semantic/selection-paint-bounds.test.ts` |
+| coordinator lifecycle and dispatch order | `packages/javascript/src/engine/pointer-interaction-coordinator.ts` | `packages/javascript/tests/engine/pointer-interaction-coordinator.test.ts` |
+| slop, capture, click/drag arbitration | `packages/javascript/src/pointer-gesture` | `packages/javascript/tests/semantic/pointer-gesture.test.ts` |
+| logical selection and resolver behavior | `packages/javascript/src/query-selection` | `packages/javascript/tests/semantic/query-selection.test.ts` |
+| root event integration | `packages/javascript/src/host-interaction/index.ts` | `packages/javascript/tests/integration/host-interaction.test.ts` |
+| persistent and marquee paint bounds | `packages/javascript/src/rendering/pixi-renderer/interaction-overlay-authority.ts` | `packages/javascript/tests/semantic/selection-paint-bounds.test.ts` |

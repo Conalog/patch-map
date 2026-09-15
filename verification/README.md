@@ -1,12 +1,14 @@
-# Verification
+# Shared verification
 
-This root owns deterministic repository and release gates that are not unit
-tests or performance measurements.
+Repository-wide gates coordinate the two independently built packages.
 
 | Owner | Purpose | Command |
 | --- | --- | --- |
-| `package/` | Build, pack, install, audit, and exercise the public package | `npm run verify:package` |
-| `docs/` | Check documentation links, named paths, and page budgets | `npm run verify:docs` |
-Product behavior belongs in `tests/`; measurements and lifecycle resource
-budgets belong in `performance/`. Generated output stays under ignored
-`.artifacts/` or an explicitly configured release artifact directory.
+| `verification/conformance/` | Contract inventory, fixture comparison and qualification evidence | `npm run verify:conformance` |
+| `verification/flutter/` | Native installed consumer and managed asset/Unicode parity | `npm run verify:flutter` |
+| `verification/docs/` | Documentation links, named paths and page budgets | `npm run verify:docs` |
+| `packages/javascript/verification/package/` | npm packed consumers, formats, assets and supply chain | `npm run verify:package` |
+
+Product tests and runtime measurements belong to their packages. Shared tooling
+may read both implementations but neither implementation imports tooling or its
+sibling. Generated evidence stays under ignored `.artifacts/`.

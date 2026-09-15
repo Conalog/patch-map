@@ -1,5 +1,5 @@
 import bindingFieldsFixture from '../../conformance/fixtures/binding-fields.json';
-import { PatchMap, PatchMapAssetRuntime } from '../../src/index';
+import { PatchMap, PatchMapAssetRuntime } from '../../packages/javascript/src/index';
 import structuralFixture from '../../conformance/fixtures/structural.json';
 import editorLifecycleFixture from '../../conformance/fixtures/editor-lifecycle.json';
 import controllerFixture from '../../conformance/fixtures/controller.json';
@@ -11,7 +11,7 @@ import type {
   PatchMapDataReplaceOptions, PatchMapEditorWorkflowAction, PatchMapSelectionInput,
   PatchMapTargetSet, PatchMapTargetQuery, PatchMapTransformSession, PatchMapRotationAnimation, PatchMapPresentationLayer,
   PatchMapTarget, PatchMapFitOptions, PatchMapViewportSnapshot, PatchMapAssetRegistration,
-} from '../../src/index';
+} from '../../packages/javascript/src/index';
 
 export interface SharedCommand {
   readonly id: string;

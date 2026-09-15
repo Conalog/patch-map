@@ -30,7 +30,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: 22
           package-manager-cache: false
 
       - name: Test change classifier
@@ -49,7 +49,7 @@ jobs:
           test "$(git rev-parse "$RESULT_SHA^1")" = "$BASE_SHA"
           node .github/scripts/classify-ci-files.mjs "$BASE_SHA" "$RESULT_SHA" >> "$GITHUB_OUTPUT"
 
-      - name: Verify documentation-only change
+      - name: Verify documentation for changes outside npm
         if: ${{ steps.changes.outputs.full_validation == 'false' }}
         run: node verification/docs/verify.mjs
 
@@ -79,7 +79,7 @@ jobs:
         if: ${{ needs.classify.outputs.full_validation == 'true' }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -149,7 +149,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci
-          cd packages/patch_map
+          cd packages/flutter
           flutter pub get
 
       - name: Shared contracts and package boundaries
@@ -165,7 +165,7 @@ jobs:
           node verification/flutter/package.mjs
 
       - name: Dart analysis and tests
-        working-directory: packages/patch_map
+        working-directory: packages/flutter
         run: |
           flutter analyze --no-pub lib test
           flutter test --no-pub --concurrency=2

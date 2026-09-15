@@ -28,8 +28,8 @@ jobs:
       issues: write
       pull-requests: write
     outputs:
-      should_publish: ${{ steps.release.outputs.release_created == 'true' || steps.manual.outputs.tag_name != '' }}
-      tag_name: ${{ steps.manual.outputs.tag_name || steps.release.outputs.tag_name }}
+      should_publish: ${{ steps.release.outputs['packages/javascript--release_created'] == 'true' || steps.manual.outputs.tag_name != '' }}
+      tag_name: ${{ steps.manual.outputs.tag_name || steps.release.outputs['packages/javascript--tag_name'] }}
     steps:
       - name: Checkout release branch
         if: ${{ github.event_name == 'push' || inputs.tag == '' }}
@@ -103,12 +103,12 @@ jobs:
           TAG_NAME: ${{ needs.release.outputs.tag_name }}
         shell: bash
         run: |
-          test -f package.json
+          test -f packages/javascript/package.json
           test -f package-lock.json
-          test "$(node -p "require('./package.json').name")" = "@conalog/patch-map"
+          test "$(node -p "require('./packages/javascript/package.json').name")" = "@conalog/patch-map"
           test "$(node .github/scripts/release-ready.mjs)" = true
 
-          package_version="$(node -p "require('./package.json').version")"
+          package_version="$(node -p "require('./packages/javascript/package.json').version")"
           test "$TAG_NAME" = "v$package_version"
 
           if [[ "$package_version" = "1.0.0" ]]; then
@@ -157,7 +157,7 @@ jobs:
 
       - name: Verify packed ESM, CJS, types, and consumer audit
         env:
-          PATCH_MAP_PACKAGE_ARTIFACT_DIR: .release-evidence
+          PATCH_MAP_PACKAGE_ARTIFACT_DIR: ${{ github.workspace }}/.release-evidence
         run: npm run verify:package -- --require-audit
 
       - name: Create the verified release artifact
@@ -165,7 +165,7 @@ jobs:
         shell: bash
         run: |
           mkdir .release-artifact
-          pack_json="$(npm pack --ignore-scripts --json --pack-destination .release-artifact)"
+          pack_json="$(npm pack --workspace @conalog/patch-map --ignore-scripts --json --pack-destination .release-artifact)"
           filename="$(node -e 'process.stdout.write(JSON.parse(process.argv[1])[0].filename)' "$pack_json")"
           artifact_path=".release-artifact/$filename"
           test -f "$artifact_path"

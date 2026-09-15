@@ -58,7 +58,7 @@ function command(executable, args, cwd) {
 
 export async function verifyInstalledDartConsumer({ root = process.cwd(), flutter = process.env.FLUTTER_BIN ?? 'flutter', prepareOnly = false } = {}) {
   await verifyFlutterPackage(root);
-  const packageRoot = resolve(root, 'packages/patch_map');
+  const packageRoot = resolve(root, 'packages/flutter');
   const filenames = await publicationFiles(packageRoot);
   const inputs = [];
   for (const path of filenames) {

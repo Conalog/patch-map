@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing dataset admission or logical lookup
-- Source: `src/public/contracts.ts`, `src/semantic/dataset`, `src/query-selection`
+- Source: `packages/javascript/src/public/contracts.ts`, `packages/javascript/src/semantic/dataset`, `packages/javascript/src/query-selection`
 
 ## Scope
 
@@ -91,9 +91,9 @@ public identities.
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| validation, detachment, semantic hash | `src/semantic/dataset` | `tests/semantic/dataset-contract.test.ts` |
-| component percentage geometry | `src/parsing/` | `tests/semantic/parser.test.ts`, `tests/semantic/parser-value-normalization.test.ts` |
-| replacement freshness and atomic publication | `src/engine/dataset-replacement-coordinator.ts` | `tests/engine/engine-lifecycle.test.ts` |
-| target grammar and revision binding | `src/query-selection` | `tests/semantic/query-selection.test.ts` |
-| hierarchical zIndex and authored tie order | `src/parsing/`, `src/semantic/paint-order.ts` | `tests/semantic/paint-order.test.ts`, `tests/rendering/component-render-lanes.test.ts` |
-| facade shapes | `src/public/contracts.ts` | `tests/integration/developer-api-targets-presentation.test.ts` |
+| validation, detachment, semantic hash | `packages/javascript/src/semantic/dataset` | `packages/javascript/tests/semantic/dataset-contract.test.ts` |
+| component percentage geometry | `packages/javascript/src/parsing/` | `packages/javascript/tests/semantic/parser.test.ts`, `packages/javascript/tests/semantic/parser-value-normalization.test.ts` |
+| replacement freshness and atomic publication | `packages/javascript/src/engine/dataset-replacement-coordinator.ts` | `packages/javascript/tests/engine/engine-lifecycle.test.ts` |
+| target grammar and revision binding | `packages/javascript/src/query-selection` | `packages/javascript/tests/semantic/query-selection.test.ts` |
+| hierarchical zIndex and authored tie order | `packages/javascript/src/parsing/`, `packages/javascript/src/semantic/paint-order.ts` | `packages/javascript/tests/semantic/paint-order.test.ts`, `packages/javascript/tests/rendering/component-render-lanes.test.ts` |
+| facade shapes | `packages/javascript/src/public/contracts.ts` | `packages/javascript/tests/integration/developer-api-targets-presentation.test.ts` |

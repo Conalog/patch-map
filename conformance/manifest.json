@@ -506,9 +506,9 @@
       "document": "docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
-        "npm-test:tests/rendering/asset-registry.test.ts#registers immutable builtins without allocating resources and rejects conflicts by the closed code",
-        "npm-test:tests/rendering/asset-registry.test.ts#detaches and freezes descriptor options while including every field in identity",
-        "npm-test:tests/rendering/asset-registry.test.ts#rejects unknown descriptor fields while preserving the parser descriptor",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#registers immutable builtins without allocating resources and rejects conflicts by the closed code",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#detaches and freezes descriptor options while including every field in identity",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#rejects unknown descriptor fields while preserving the parser descriptor",
         "dart-test:host/asset_runtime_test.dart#descriptor normalization detaches nested input and rejects non-JSON/cyclic data",
         "dart-test:host/asset_runtime_test.dart#modified font descriptor never gains package-owned trust",
         "dart-test:host/asset_runtime_test.dart#public response policy reports the first failed admission stage"
@@ -519,8 +519,8 @@
       "document": "docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
-        "npm-test:tests/rendering/asset-registry.test.ts#uses package-owned browser boundaries and ignores caller overrides",
-        "npm-test:tests/rendering/asset-registry.test.ts#rejects SVG parser and response MIME mismatches before Pixi loading",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#uses package-owned browser boundaries and ignores caller overrides",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#rejects SVG parser and response MIME mismatches before Pixi loading",
         "dart-test:host/assets_test.dart#MIME, parser agreement, SVG content and decoded bounds enforce session policy",
         "dart-test:host/assets_test.dart#real HTTP admission rejects redirects status MIME and streamed size before decode"
       ]
@@ -546,10 +546,10 @@
       "document": "docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
-        "npm-test:tests/rendering/asset-registry.test.ts#deduplicates pending work across instances and unloads after the final lease",
-        "npm-test:tests/rendering/asset-registry.test.ts#coordinates leases across runtimes that share one physical backend",
-        "npm-test:tests/rendering/asset-registry.test.ts#quarantines an unload failure and never leases the partly destroyed resource again",
-        "npm-test:tests/rendering/asset-registry.test.ts#borrows an externally cached backend entry without unloading it",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#deduplicates pending work across instances and unloads after the final lease",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#coordinates leases across runtimes that share one physical backend",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#quarantines an unload failure and never leases the partly destroyed resource again",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#borrows an externally cached backend entry without unloading it",
         "dart-test:host/asset_runtime_test.dart#manual session distinguishes aliases from sources and deduplicates handles",
         "dart-test:host/asset_runtime_test.dart#same backend shares physical resources across separate runtime catalogs",
         "dart-test:host/asset_runtime_test.dart#cleanup failure is visible and reacquisition retries before allocating a fresh key",
@@ -564,8 +564,8 @@
       "document": "docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
-        "npm-test:tests/rendering/asset-pending-cancel.test.ts#does not await an abandoned load and collects its late success exactly once",
-        "npm-test:tests/rendering/asset-pending-cancel.test.ts#observes an abandoned late failure while removing the failed coordinator entry",
+        "npm-test:packages/javascript/tests/rendering/asset-pending-cancel.test.ts#does not await an abandoned load and collects its late success exactly once",
+        "npm-test:packages/javascript/tests/rendering/asset-pending-cancel.test.ts#observes an abandoned late failure while removing the failed coordinator entry",
         "dart-test:host/assets_test.dart#replacement preserves old texture, supersedes late completion and frees removed bindings",
         "dart-test:host/assets_test.dart#failed replacement keeps the previous resolved binding and can retry",
         "dart-test:host/assets_test.dart#destroy settles pending requests immediately and late decode cannot reattach"
@@ -607,9 +607,9 @@
       "document": "docs/api/text.md",
       "required": true,
       "cases": [
-        "npm-test:tests/rendering/text-layout.test.ts#segments family emoji, skin tone, combining marks, flags, and Hangul without native Intl",
-        "npm-test:tests/rendering/text-layout.test.ts#derives automatic RTL base direction, logical/visual runs, and exact mapping",
-        "npm-test:tests/rendering/text-layout.test.ts#keeps European and Arabic-Indic digit graphemes in logical order inside RTL text",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#segments family emoji, skin tone, combining marks, flags, and Hangul without native Intl",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#derives automatic RTL base direction, logical/visual runs, and exact mapping",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#keeps European and Arabic-Indic digit graphemes in logical order inside RTL text",
         "dart-test:text/layout_test.dart#shared npm text observation: combining",
         "dart-test:text/layout_test.dart#shared npm text observation: emoji-zwj",
         "dart-test:text/layout_test.dart#shared npm text observation: hangul-jamo",
@@ -624,8 +624,8 @@
       "document": "docs/api/text.md",
       "required": true,
       "cases": [
-        "npm-test:tests/rendering/text-layout.test.ts#wraps CJK at pinned opportunities and long Latin only when breakWords is enabled",
-        "npm-test:tests/rendering/text-layout.test.ts#applies visible, hidden, and ellipsis overflow without splitting a grapheme",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#wraps CJK at pinned opportunities and long Latin only when breakWords is enabled",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#applies visible, hidden, and ellipsis overflow without splitting a grapheme",
         "dart-test:text/layout_test.dart#shared npm text observation: wrap-words",
         "dart-test:text/layout_test.dart#shared npm text observation: wrap-breakwords",
         "dart-test:text/layout_test.dart#shared npm text observation: wrap-korean",
@@ -643,8 +643,8 @@
       "document": "docs/api/text.md",
       "required": true,
       "cases": [
-        "npm-test:tests/rendering/text-layout.test.ts#selects the largest inclusive automatic font candidate and makes ties deterministic",
-        "npm-test:tests/rendering/text-layout.test.ts#pins auto-font wrapping to the frame so a larger rewrap cannot create a fit island",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#selects the largest inclusive automatic font candidate and makes ties deterministic",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#pins auto-font wrapping to the frame so a larger rewrap cannot create a fit island",
         "dart-test:text/layout_test.dart#shared npm text observation: auto-font",
         "dart-test:text/layout_test.dart#shared npm text observation: auto-wrap"
       ]
@@ -654,8 +654,8 @@
       "document": "docs/api/text.md",
       "required": true,
       "cases": [
-        "npm-test:tests/rendering/text-layout.test.ts#uses deterministic font fallback independently of system fonts",
-        "npm-test:tests/rendering/text-layout.test.ts#replaces declared missing glyphs while preserving exact source and run identity",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#uses deterministic font fallback independently of system fonts",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#replaces declared missing glyphs while preserving exact source and run identity",
         "dart-test:text/layout_test.dart#shared npm text observation: missing",
         "dart-test:text/layout_test.dart#shared npm text observation: zero-width"
       ]

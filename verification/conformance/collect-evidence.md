@@ -53,7 +53,7 @@ An input config uses this structure (all `path` references also require a real
   "sourceSnapshot": {"path": ".artifacts/flutter/evidence-source.json", "sha256": "<SHA>"},
   "bindings": ["conformance/api-bindings/assets.json", "conformance/api-bindings/engine.json", "conformance/api-bindings/host.json", "conformance/api-bindings/model.json"],
   "unit": {"npm": [{"report": {"path": "<Vitest JSON>", "sha256": "<SHA>"}}], "dart": [{"report": {"path": "<Dart JSONL>", "sha256": "<SHA>"}}]},
-  "analyzers": [{"command": ["flutter", "analyze", "--no-pub", "lib", "test"], "workingDirectory": "packages/patch_map", "probes": ["<exact probe paths>"], "log": {"path": "<analyzer log>", "sha256": "<SHA>"}}],
+  "analyzers": [{"command": ["flutter", "analyze", "--no-pub", "lib", "test"], "workingDirectory": "packages/flutter", "probes": ["<exact probe paths>"], "log": {"path": "<analyzer log>", "sha256": "<SHA>"}}],
   "traces": {"npm": {"report": {"path": "<npm public JSON>", "sha256": "<SHA>"}}, "dart": {"report": {"path": "<Dart public JSON>", "sha256": "<SHA>"}}},
   "oracles": [{"id": "model", "report": {"path": "<npm model JSON>", "sha256": "<SHA>"}, "expected": "conformance/model/expected.json", "cases": "conformance/model/cases.json", "runner": {"file": "verification/conformance/run-model.mjs", "test": "compareObservations(observations,expected"}}],
   "installed": {"npm": {"report": {"path": "<package-consumer.json>", "sha256": "<SHA>"}, "artifact": {"path": "<tgz>", "sha256": "<SHA>"}}, "dart": {"report": {"path": "<installed Dart report.json>", "sha256": "<SHA>"}, "artifact": {"path": "<tar.gz>", "sha256": "<SHA>"}}},

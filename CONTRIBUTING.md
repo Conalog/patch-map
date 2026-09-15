@@ -1,24 +1,37 @@
-# Contributing to PatchMap
+# Contributing
 
-## Setup
+Use Node.js 22 (`nvm use`) and npm for repository tooling. Flutter work uses
+Flutter 3.41.4 / Dart 3.11. Install npm dependencies with `npm ci`; install native
+dependencies with `flutter pub get` from `packages/flutter` and its `example`.
 
-The package supports Node.js 20 or newer. Use Node.js 22 for local repository
-work, matching `.nvmrc`. Release CI currently runs Node.js 24:
+Start with the [engineering router](docs/engineering/README.md), then read the
+[system map](docs/engineering/system-map.md) and the owning source. Behavior is
+specified once under `docs/`; package APIs bind that contract to each platform.
 
-```sh
-nvm use
-npm ci
-```
+| Work | Location | Focused command |
+| --- | --- | --- |
+| JavaScript implementation | `packages/javascript/` | `npm run unit -- tests/<owner>/<test>.test.ts` from that package |
+| Dart implementation | `packages/flutter/` | `flutter test test/<owner>/<test>.dart` from that package |
+| Shared verification | `verification/`, `conformance/` | `npm run test:tooling` from the root |
+| Cross-runtime observations | `verification/conformance/` | `npm run verify:conformance` from the root |
 
-## Find the owner
+Use [verification policy](docs/engineering/verification.md) to select additional
+gates. Root `typecheck`, `lint`, `build` and `unit` commands coordinate the npm
+package and shared tooling. `flutter:analyze`, `flutter:test` and `verify:flutter`
+cover the native package. `verify:docs` checks all maintained documentation.
 
-Start with the [engineering fast path](docs/engineering/README.md). Its
-[system map](docs/engineering/system-map.md) routes each feature to the narrow
-source owner and focused tests. The [verification policy](docs/engineering/verification.md)
-selects final gates by changed risk.
+Keep package production imports inside their runtime. Shared fixtures and tools
+are development inputs, never production imports. Edit public documents at the
+repository root; npm build generates its allowlisted documentation/license copies.
+Do not edit or commit those generated copies.
 
-## Pull requests
+A feature change updates its owning contract, both implementations and affected
+conformance cases. Platform-specific optimizations can be independent when they
+preserve that contract. Do not add a second state, publication or cleanup owner.
+Current benchmarks measure the shipped Pixi and Canvas paths; retired runtime
+experiments are not maintained.
 
-Keep pull requests focused. Describe the owned boundary, invariants preserved,
-and checks run. Public behavior changes update the owning page under `docs/` in
-the same change.
+Versions and release metadata live in each package. Run the matching installed
+consumer gate after changing distribution layout. Local verification does not
+publish either package. Commit complete, targeted, verified units using the
+repository's `type: summary` convention.

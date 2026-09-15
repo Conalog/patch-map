@@ -1,0 +1,24 @@
+name: patch_map
+description: Native Flutter Canvas renderer and controller for PATCH MAP datasets.
+version: 0.1.0-dev.1
+homepage: https://github.com/Conalog/patch-map
+repository: https://github.com/Conalog/patch-map/tree/release/1.0/packages/flutter
+publish_to: none
+environment:
+  sdk: '>=3.11.0 <4.0.0'
+  flutter: '>=3.41.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_svg: 2.2.4
+  vector_graphics: 1.1.19
+  brotli: 0.6.0
+  flutter_avif: 3.1.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: false
+  assets:
+    - assets/icons/
+    - assets/fonts/

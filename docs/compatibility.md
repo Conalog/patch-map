@@ -20,6 +20,10 @@ artifact. Feature behavior belongs to its API page and is not repeated here.
 WebGPU is not a qualified consumer backend. Firefox, Safari, Windows-native,
 and cross-browser behavior remain unqualified until a repeatable gate exists.
 
+Flutter Android/iOS construction and support are described in the
+[Flutter binding](integration/flutter.md). Each package owns its independent
+version and artifact; matching capabilities are checked against the shared contract.
+
 ## Versioning
 
 - Public exports, dataset acceptance, visible behavior, event ordering, and
@@ -33,7 +37,7 @@ and cross-browser behavior remain unqualified until a repeatable gate exists.
 
 ## Published artifact
 
-The package contains built output, the root README, public documents, public
+The package contains built output, the JavaScript package README, public documents, public
 examples, and required third-party licenses. Engineering documents, tests,
 performance tooling and output, verification code, and source maps are
 excluded. The package verifier checks both required and prohibited paths.
@@ -42,6 +46,6 @@ excluded. The package verifier checks both required and prohibited paths.
 
 | Claim | Owner | Gate |
 | --- | --- | --- |
-| Runtime and toolchain | `package.json`, `.nvmrc`, CI workflows | typecheck, build, CI classification |
-| Export formats and declarations | `package.json`, build configuration | package integration |
+| Runtime and toolchain | `packages/javascript/package.json`, `.nvmrc`, CI workflows | typecheck, build, CI classification |
+| Export formats and declarations | `packages/javascript/package.json`, build configuration | package integration |
 | Included documentation and licenses | package artifact policy | `verify:package` |

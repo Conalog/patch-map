@@ -6,8 +6,11 @@ resource lifecycle.
 
 ## Default loop
 
+For Dart, run `flutter test test/<owner>/<focused>.dart` from
+`packages/flutter/`. Shared checks run from the private repository root.
+
 ```bash
-npx vitest run tests/<owner>/<focused>.test.ts --maxWorkers=2
+npm run unit --workspace @conalog/patch-map -- tests/<owner>/<focused>.test.ts
 ```
 
 Start with the focused test owned by the changed boundary. Add `npm run

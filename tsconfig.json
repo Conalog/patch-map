@@ -2,7 +2,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "moduleDetection": "force",
@@ -20,14 +24,17 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node", "vitest/globals"]
+    "types": [
+      "node"
+    ]
   },
   "include": [
-    "src",
-    "tests",
-    "verification",
-    "performance",
-    "vite.config.ts"
+    "verification/**/*.ts",
+    "packages/javascript/src/**/*.d.ts"
   ],
-  "exclude": [".artifacts", "dist", "node_modules"]
+  "exclude": [
+    ".artifacts",
+    "dist",
+    "node_modules"
+  ]
 }

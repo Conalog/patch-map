@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { compareObservations, compareRuns, contractFingerprint, qualify } from './compare.mjs';
 import { verifyApiBindings } from './api-bindings.mjs';
 import { inventoryPublicApi } from './inventory.mjs';
-import { collectPackageFailures } from '../package/evidence.mjs';
+import { collectPackageFailures } from '../../packages/javascript/verification/package/evidence.mjs';
 
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const fail = (message) => { throw new Error(message); };
@@ -49,12 +49,12 @@ export async function snapshotSources(root) {
       else if (entry.isFile()) files[child] = sha(await readFile(resolve(root, child)));
     }
   }
-  for (const path of ['src', 'assets', 'tests', 'docs', 'packages/patch_map/lib', 'packages/patch_map/assets', 'packages/patch_map/test',
-    'packages/patch_map/example/lib', 'packages/patch_map/example/integration_test', 'packages/patch_map/example/test_driver',
-    'conformance', 'verification/conformance', 'verification/flutter', 'verification/package']) {
+  for (const path of ['packages/javascript/src', 'packages/javascript/tests', 'docs', 'packages/flutter/lib', 'packages/flutter/assets', 'packages/flutter/test',
+    'packages/flutter/example/lib', 'packages/flutter/example/integration_test', 'packages/flutter/example/test_driver',
+    'conformance', 'verification/conformance', 'verification/flutter', 'packages/javascript/verification/package']) {
     try { await visit(path); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
-  for (const path of ['package.json', 'package-lock.json', 'tsconfig.json', 'packages/patch_map/pubspec.yaml', 'packages/patch_map/pubspec.lock']) {
+  for (const path of ['package.json', 'package-lock.json', 'tsconfig.json', 'packages/javascript/package.json', 'packages/javascript/tsconfig.json', 'packages/javascript/tsconfig.build.json', 'packages/javascript/vite.config.ts', 'packages/flutter/pubspec.yaml', 'packages/flutter/pubspec.lock']) {
     try { files[path] = sha(await readFile(resolve(root, path))); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
   const sorted = Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b)));
@@ -140,7 +140,7 @@ export async function collectEvidence(root, config) {
   }
   let textCaseIds;
   function testWitness(witness) {
-    if (witness.runtime === 'dart' && witness.file === 'packages/patch_map/test/text/layout_test.dart' && witness.test === 'shared npm text observation:') {
+    if (witness.runtime === 'dart' && witness.file === 'packages/flutter/test/text/layout_test.dart' && witness.test === 'shared npm text observation:') {
       requireTrue(Array.isArray(textCaseIds) && textCaseIds.length > 0, 'Parameterized text witness needs the verified full text case list');
       return textCaseIds.map((id) => testWitness({ ...witness, test: `shared npm text observation: ${id}` })).join('; ');
     }
@@ -288,16 +288,16 @@ export async function collectEvidence(root, config) {
     for (const [file, digest] of Object.entries(nativeFiles)) requireTrue(snapshot.files[file] === digest, `${platform}: built source differs: ${file}`);
     requireTrue(Object.keys(nativeFiles).some((file) => file.endsWith('native_contract_test.dart')) &&
       Object.keys(nativeFiles).some((file) => file.endsWith('native_contract_driver.dart')) &&
-      Object.keys(nativeFiles).some((file) => file.startsWith('packages/patch_map/lib/')), `${platform}: incomplete build-source receipt`);
-    for (const file of Object.keys(snapshot.files).filter((file) => file.startsWith('src/') || file.startsWith('packages/patch_map/lib/') || file.startsWith('packages/patch_map/assets/'))) {
+      Object.keys(nativeFiles).some((file) => file.startsWith('packages/flutter/lib/')), `${platform}: incomplete build-source receipt`);
+    for (const file of Object.keys(snapshot.files).filter((file) => file.startsWith('packages/javascript/src/') || file.startsWith('packages/flutter/lib/') || file.startsWith('packages/flutter/assets/'))) {
       requireTrue(nativeFiles[file] === snapshot.files[file], `${platform}: built source receipt omitted ${file}`);
     }
     if (input.producerVerification) {
       const producer = await readRef(input.producerVerification);
       requireTrue(producer.phase === 'after-run-verification' && producer.unchangedSinceNativeRuns === true, 'Native producer check must state its actual later verification phase');
-      const requiredProducer = ['packages/patch_map/example/lib/shared_fixtures.dart', 'packages/patch_map/example/integration_test/native_contract_test.dart', 'packages/patch_map/example/test_driver/native_contract_driver.dart'];
+      const requiredProducer = ['packages/flutter/example/lib/shared_fixtures.dart', 'packages/flutter/example/integration_test/native_contract_test.dart', 'packages/flutter/example/test_driver/native_contract_driver.dart'];
       for (const file of requiredProducer) requireTrue(producer.sourceHashes?.[file] === snapshot.files[file], `${platform}: missing/current native producer check: ${file}`);
-    } else requireTrue(nativeFiles['packages/patch_map/example/lib/shared_fixtures.dart'] === snapshot.files['packages/patch_map/example/lib/shared_fixtures.dart'], `${platform}: native fixture producer is absent from build snapshot`);
+    } else requireTrue(nativeFiles['packages/flutter/example/lib/shared_fixtures.dart'] === snapshot.files['packages/flutter/example/lib/shared_fixtures.dart'], `${platform}: native fixture producer is absent from build snapshot`);
     const categories = {};
     for (const category of ['rendering', 'input', 'lifecycle', 'assets', 'accessibility', 'capture']) {
       const refs = input.assertions?.[category];

@@ -1,69 +1,33 @@
 {
-  "name": "@conalog/patch-map",
-  "version": "1.0.0-alpha.7",
-  "description": "PATCH MAP renderer powered by PixiJS",
-  "license": "MIT",
-  "author": "Conalog",
-  "homepage": "https://github.com/Conalog/patch-map#readme",
-  "bugs": "https://github.com/Conalog/patch-map/issues",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Conalog/patch-map.git"
-  },
-  "engines": {
-    "node": ">=20"
-  },
+  "name": "patch-map-workspace",
+  "private": true,
   "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
-  "files": [
-    "dist",
-    "!dist/**/*.map",
-    "docs/README.md",
-    "docs/getting-started.md",
-    "docs/api/data-and-targets.md",
-    "docs/api/editor-workflows.md",
-    "docs/api/mutations-and-history.md",
-    "docs/api/pointer-and-selection.md",
-    "docs/api/viewport-and-transform.md",
-    "docs/api/presentation.md",
-    "docs/api/assets-and-capture.md",
-    "docs/api/text.md",
-    "docs/integration/host.md",
-    "docs/integration/flutter.md",
-    "docs/compatibility.md",
-    "docs/assets/fonts.md",
-    "docs/assets/fira-code-6.2-license.txt",
-    "examples",
-    "LICENSE"
+  "workspaces": [
+    "packages/javascript"
   ],
-  "sideEffects": false,
-  "publishConfig": {
-    "access": "public"
+  "engines": {
+    "node": ">=22"
   },
   "scripts": {
-    "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly && node verification/package/finalize-declarations.mjs",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
-    "unit": "vitest run --maxWorkers=2",
-    "test": "npm run typecheck && npm run lint && npm run unit",
+    "build": "npm run build --workspace @conalog/patch-map --",
+    "unit": "npm run unit --workspace @conalog/patch-map --",
+    "performance:smoke": "npm run performance:smoke --workspace @conalog/patch-map --",
+    "performance:benchmark": "npm run performance:benchmark --workspace @conalog/patch-map --",
+    "performance:extraction": "npm run performance:extraction --workspace @conalog/patch-map --",
+    "performance:update": "npm run performance:update --workspace @conalog/patch-map --",
+    "verify:memory": "npm run verify:memory --workspace @conalog/patch-map --",
+    "verify:package": "npm run verify:package --workspace @conalog/patch-map --",
+    "typecheck": "npm run typecheck --workspace @conalog/patch-map && tsc --noEmit",
+    "lint": "npm run lint --workspace @conalog/patch-map && eslint verification .github/scripts",
+    "test": "npm run typecheck && npm run lint && npm run unit && npm run test:tooling",
+    "test:tooling": "node --test verification/conformance/*.test.mjs verification/flutter/installed-consumer.test.mjs .github/scripts/*.test.mjs",
     "verify:docs": "node verification/docs/verify.mjs",
-    "performance:smoke": "node performance/runners/benchmark.mjs --smoke",
-    "performance:benchmark": "node performance/runners/benchmark.mjs",
-    "performance:extraction": "node performance/runners/extraction.mjs",
-    "performance:update": "node performance/runners/update.mjs",
-    "verify:package": "npm run build && node verification/package/run.mjs",
-    "verify:memory": "node performance/runners/memory.mjs",
-    "prepack": "npm run build",
-    "prepublishOnly": "npm test && npm run verify:package -- --require-audit"
+    "verify:conformance": "node verification/conformance/inventory.mjs && node verification/conformance/run-public.mjs",
+    "flutter:analyze": "cd packages/flutter && flutter analyze --no-pub lib test",
+    "flutter:test": "cd packages/flutter && flutter test --no-pub --concurrency=2",
+    "flutter:demo": "cd packages/flutter/example && flutter run --target=lib/bar_demo.dart",
+    "verify:flutter": "node verification/flutter/package.mjs && node verification/flutter/installed-consumer.mjs",
+    "dev:comparison": "vite --config verification/conformance/vite.config.ts --host 127.0.0.1"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -73,10 +37,6 @@
     "playwright": "1.57.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.65.0",
-    "vite": "7.3.6",
-    "vitest": "4.1.11"
-  },
-  "peerDependencies": {
-    "pixi.js": ">=8.0.0 <9"
+    "vite": "7.3.6"
   }
 }

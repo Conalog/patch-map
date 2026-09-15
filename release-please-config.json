@@ -2,35 +2,37 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "bootstrap-sha": "b1fbc30ba73a2117c85c15f60eb6d025970a0546",
   "changelog-sections": [
-    { "type": "feat", "section": "Added" },
-    { "type": "fix", "section": "Fixed" },
-    { "type": "perf", "section": "Changed" },
-    { "type": "deps", "section": "Maintenance" }
+    {
+      "type": "feat",
+      "section": "Added"
+    },
+    {
+      "type": "fix",
+      "section": "Fixed"
+    },
+    {
+      "type": "perf",
+      "section": "Changed"
+    },
+    {
+      "type": "deps",
+      "section": "Maintenance"
+    }
   ],
   "group-pull-request-title-pattern": "chore${scope}: release${component} ${version}",
   "include-component-in-tag": false,
   "include-v-in-tag": true,
   "packages": {
-    ".": {
+    "packages/javascript": {
       "release-type": "node",
       "package-name": "@conalog/patch-map",
-      "exclude-paths": [
-        "packages/patch_map",
-        "conformance",
-        "verification/flutter",
-        "verification/conformance",
-        "docs/integration/flutter.md",
-        "docs/engineering/flutter-conformance-design.md",
-        "docs/engineering/flutter-implementation-plan.md",
-        "docs/engineering/flutter-js-runtime-review.md",
-        "docs/engineering/flutter-mobile-benchmark.md",
-        "docs/engineering/flutter-mobile-js-candidates.md",
-        "docs/engineering/flutter-package-design.md"
-      ],
       "versioning": "prerelease",
       "prerelease": true,
       "prerelease-type": "alpha"
     }
   },
-  "pull-request-title-pattern": "chore: release ${version}"
+  "pull-request-title-pattern": "chore: release ${version}",
+  "plugins": [
+    "node-workspace"
+  ]
 }

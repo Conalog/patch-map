@@ -36,10 +36,10 @@ test('packaged public documentation and assets require the full release gate', (
 
 test('product, package, verification, and workflow changes require the full release gate', () => {
   for (const path of [
-    'src/index.ts',
+    'packages/javascript/src/index.ts',
     'package.json',
     'package-lock.json',
-    'verification/package/run.mjs',
+    'packages/javascript/verification/package/run.mjs',
     '.github/workflows/ci.yaml',
   ]) {
     assert.equal(classifyChangedPaths([path]).fullValidation, true, path);
@@ -51,7 +51,7 @@ test('empty and mixed diffs fail closed to full validation', () => {
   assert.equal(
     classifyChangedPaths([
       'docs/engineering/verification.md',
-      'src/index.ts',
+      'packages/javascript/src/index.ts',
     ]).fullValidation,
     true,
   );
@@ -65,17 +65,32 @@ test('invalid paths are rejected and NUL-delimited paths are preserved', () => {
   ]);
 });
 
-test('native and shared contract paths select Flutter validation without dropping existing npm gates', () => {
-  for (const path of ['packages/patch_map/lib/patch_map.dart', 'conformance/fixtures/gallery.json',
+test('shared contract and npm source changes select both runtime gates', () => {
+  for (const path of ['conformance/fixtures/gallery.json',
     'verification/conformance/compare.mjs', 'docs/api/presentation.md']) {
     assert.equal(requiresFlutterValidation(path), true);
     assert.deepEqual(classifyChangedPaths([path]), { fullValidation: true, flutterValidation: true });
   }
-  assert.equal(requiresFlutterValidation('src/index.ts'), true);
-  assert.equal(requiresFlutterValidation('tests/integration/multi-instance.test.ts'), true);
+  assert.equal(requiresFlutterValidation('packages/javascript/src/index.ts'), true);
+  assert.equal(requiresFlutterValidation('packages/javascript/tests/integration/multi-instance.test.ts'), true);
   assert.equal(requiresFlutterValidation('.github/workflows/ci.yaml'), true);
   for (const path of ['package.json', 'package-lock.json', 'tsconfig.json', 'docs/assets/fira-code-6.2-license.txt']) {
     assert.equal(requiresFlutterValidation(path), true, path);
   }
   assert.equal(classifyChangedPaths([]).flutterValidation, true);
+});
+
+test('Flutter-only changes select the native gate without npm release measurements', () => {
+  for (const path of ['packages/flutter/lib/patch_map.dart', 'packages/flutter/pubspec.yaml',
+    'packages/flutter/test/engine/controller_test.dart', 'verification/flutter/package.mjs']) {
+    assert.deepEqual(classifyChangedPaths([path]), { fullValidation: false, flutterValidation: true });
+  }
+});
+
+test('npm-only build and measurement changes stay in the npm gate', () => {
+  for (const path of ['packages/javascript/vite.config.ts',
+    'packages/javascript/performance/runners/benchmark.mjs',
+    'packages/javascript/verification/package/run.mjs']) {
+    assert.deepEqual(classifyChangedPaths([path]), { fullValidation: true, flutterValidation: false });
+  }
 });

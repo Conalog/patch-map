@@ -7,7 +7,7 @@ import { readFixtures, CONTRACT_REVISION } from './fixtures.mjs';
 export async function runDataFixtures(root = process.cwd()) {
   const server = await createServer({ root, configFile: false, optimizeDeps: { noDiscovery: true, include: [] }, server: { middlewareMode: true }, appType: 'custom' });
   try {
-    const { materializePatchMapDataset } = await server.ssrLoadModule('/src/semantic/dataset.ts');
+    const { materializePatchMapDataset } = await server.ssrLoadModule('/packages/javascript/src/semantic/dataset.ts');
     const observations = [];
     for (const fixture of await readFixtures(root)) {
       const before = JSON.stringify(fixture.dataset);

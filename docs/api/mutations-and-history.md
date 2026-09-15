@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing atomic edits, commits, or undo/redo
-- Source: `src/public/mutations.ts`, `src/engine`, `src/history`
+- Source: `packages/javascript/src/public/mutations.ts`, `packages/javascript/src/engine`, `packages/javascript/src/history`
 
 ## Scope
 
@@ -85,13 +85,13 @@ owned by [`presentation.md`](presentation.md) and
 - Undo or redo with no available entry is unchanged. A refused restoration does
   not advance the history cursor.
 
-Runnable update reference: [`examples/dashboard.ts`](../../examples/dashboard.ts).
+Runnable update reference: [`packages/javascript/examples/dashboard.ts`](https://github.com/Conalog/patch-map/tree/release/1.0/packages/javascript/examples/dashboard.ts).
 
 ## Verification map
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| public lowering and batch validation | `src/public/mutations.ts` | `tests/integration/developer-api-updates.test.ts` |
-| authored commit ordering and atomicity | `src/engine/transaction-commit-coordinator.ts` | `tests/engine/engine-semantic-mutation.test.ts` |
-| history cursor and companion state | `src/engine/history-application-coordinator.ts` | `tests/engine/engine-history-integration.test.ts` |
-| refusal and reentrancy | `src/engine/operation-outcomes.ts` | `tests/engine/engine-reentrancy-lifecycle.test.ts` |
+| public lowering and batch validation | `packages/javascript/src/public/mutations.ts` | `packages/javascript/tests/integration/developer-api-updates.test.ts` |
+| authored commit ordering and atomicity | `packages/javascript/src/engine/transaction-commit-coordinator.ts` | `packages/javascript/tests/engine/engine-semantic-mutation.test.ts` |
+| history cursor and companion state | `packages/javascript/src/engine/history-application-coordinator.ts` | `packages/javascript/tests/engine/engine-history-integration.test.ts` |
+| refusal and reentrancy | `packages/javascript/src/engine/operation-outcomes.ts` | `packages/javascript/tests/engine/engine-reentrancy-lifecycle.test.ts` |
