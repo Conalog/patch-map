@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { PatchMap } from '../../src/engine';
+import { createPatchMapApi } from '../../src/public';
 import { PatchMapLogicalSceneIndex } from '../../src/query-selection';
 import { applyPatchMapSelectionOperation } from '../../src/query-selection/selection-values';
 import { materializePatchMapDataset } from '../../src/semantic/dataset';
@@ -197,6 +198,77 @@ describe('PatchMap logical query and selection substrate', () => {
         status: 'matched',
         targets: [{ key: 'component:node-4999/label' }],
       });
+  });
+
+  it('keeps ID query conflicts scoped before applying type and predicate filters', () => {
+    const index = new PatchMapLogicalSceneIndex(materializePatchMapDataset([
+      ...QUERY_DATASET,
+      { type: 'group', id: 'nested', children: [
+        { type: 'text', id: 'bar', text: 'Element sharing a component ID' },
+      ] },
+    ]).dataset);
+
+    expect(keys(index.query({ where: { id: 'bar' } }))).toEqual(['element:bar']);
+    expect(index.query({ where: { id: 'bar', type: 'bar' } }).status).toBe('empty');
+    expect(index.query({
+      root: { kind: 'element', id: 'item-a' }, where: { id: 'bar' },
+      predicate: () => false,
+    })).toMatchObject({ status: 'rejected', code: 'CONFLICT', targets: [] });
+    expect(index.query({ recursive: false, where: { id: 'bar' } }).status).toBe('empty');
+    expect(keys(index.query({
+      root: { kind: 'element', id: 'nested' }, where: { id: 'bar' },
+    }))).toEqual(['element:bar']);
+    expect(keys(index.query({ where: { id: 'bar', ownerId: 'item-d' } })))
+      .toEqual(['component:item-d/bar']);
+    expect(index.query({
+      root: { kind: 'element', id: 'item-a' },
+      where: { id: 'bar', ownerId: 'item-d' },
+    }).status).toBe('empty');
+    expect(index.query({ where: { id: 'bar', ownerId: 'missing' } }).status).toBe('empty');
+    expect(index.query({ where: { id: 'missing' } }).status).toBe('empty');
+  });
+
+  it('keeps owned ID queries distinct when address separators occur in IDs', () => {
+    const index = new PatchMapLogicalSceneIndex(materializePatchMapDataset([
+      { type: 'item', id: 'rack/a', size: { width: 80, height: 40 }, components: [
+        { type: 'text', id: 'label', text: 'First' },
+      ] },
+      { type: 'item', id: 'rack', size: { width: 80, height: 40 }, components: [
+        { type: 'text', id: 'a/label', text: 'Second' },
+      ] },
+    ]).dataset);
+    expect(index.query({ where: { id: 'label', ownerId: 'rack/a' } }).targets[0]?.value)
+      .toMatchObject({ text: 'First' });
+    expect(index.query({ where: { id: 'a/label', ownerId: 'rack' } }).targets[0]?.value)
+      .toMatchObject({ text: 'Second' });
+  });
+
+  it('returns detached public ID matches from the current dataset after replacement', async () => {
+    const engine = new PatchMap({ surfaceFactory: createTestSurfaceFactory([]) });
+    await engine.initialize({ instanceId: 'id-lookup', width: 800, height: 600, pixelRatio: 1 });
+    try {
+      const map = createPatchMapApi(engine);
+      engine.loadDataset(QUERY_DATASET);
+      expect(map.targets.get({ id: 'item-a', componentId: 'bar' }))
+        .toMatchObject({ id: 'item-a', componentId: 'bar', type: 'bar' });
+      expect(map.targets.get({ id: 'bar' })).toBeNull();
+      const old = map.targets.get({ id: 'text-c' })!;
+      expect(() => { (old.value as { text: string }).text = 'Caller edit'; }).toThrow(TypeError);
+      expect(map.targets.get({ id: 'text-c' })?.value).toMatchObject({ text: 'Bravo' });
+      engine.loadDataset([{ type: 'text', id: 'text-c', text: 'Replacement' }]);
+      expect(map.targets.get({ id: 'text-c' })?.value).toMatchObject({ text: 'Replacement' });
+      expect(map.targets.get({ id: 'item-a', componentId: 'bar' })).toBeNull();
+      expect(map.targets.get({ id: 'item-a' })).toBeNull();
+      engine.loadDataset([{
+        type: 'grid', id: 'grid', cells: [[1, 1]],
+        item: { size: 10, components: [{ type: 'text', id: 'label', text: 'Cell' }] },
+      }]);
+      expect(map.targets.get({ id: 'grid.0.1' })).toMatchObject({ type: 'grid-cell' });
+      expect(map.targets.get({ id: 'grid.0.1', componentId: 'label' }))
+        .toMatchObject({ id: 'grid.0.1', componentId: 'label', value: { text: 'Cell' } });
+    } finally {
+      await engine.destroy();
+    }
   });
 
   it('reduces replace, add, remove, toggle, and clear to ordered unique snapshots', () => {

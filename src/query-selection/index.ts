@@ -54,6 +54,10 @@ export class PatchMapLogicalSceneIndex {
   private targetsValue: readonly PatchMapLogicalTargetSnapshot[] | null = null;
   private readonly byKey = new Map<PatchMapLogicalTargetKey, PatchMapLogicalTargetSnapshot>();
   private readonly bySelectionId = new Map<string, PatchMapLogicalTargetSnapshot>();
+  private readonly byId = new Map<
+    string,
+    Map<string | null, PatchMapLogicalTargetSnapshot[]>
+  >();
 
   public constructor(
     private readonly dataset: readonly NormalizedPatchMapElement[],
@@ -112,8 +116,17 @@ export class PatchMapLogicalSceneIndex {
   public query(input: PatchMapSceneQuery = {}): PatchMapSceneQueryEvaluation {
     validateQuery(input);
     const recursive = input.recursive ?? true;
-    let candidates = queryScope(this.ensureTargets(), input.root ?? null, recursive);
+    const catalog = this.ensureTargets();
     const where = input.where ?? {};
+    // ID lookups (including public targets.get) must not scan the whole scene.
+    // Keep every owner bucket: scope still decides element/component conflicts.
+    const owners = where.id === undefined ? undefined : this.byId.get(where.id);
+    const matches = where.id === undefined
+      ? catalog
+      : where.ownerId === undefined
+        ? [...(owners?.values() ?? [])].flat()
+        : owners?.get(where.ownerId) ?? [];
+    let candidates = queryScope(matches, input.root ?? null, recursive);
 
     if (where.id !== undefined && where.ownerId === undefined) {
       const elementMatches = candidates.filter((target) =>
@@ -330,9 +343,18 @@ export class PatchMapLogicalSceneIndex {
     const targets = buildLogicalTargets(this.dataset);
     this.byKey.clear();
     this.bySelectionId.clear();
+    this.byId.clear();
     for (const target of targets) {
       this.byKey.set(target.key, target);
       this.bySelectionId.set(target.selectionId, target);
+      let owners = this.byId.get(target.id);
+      if (owners === undefined) {
+        owners = new Map();
+        this.byId.set(target.id, owners);
+      }
+      const matches = owners.get(target.ownerId);
+      if (matches === undefined) owners.set(target.ownerId, [target]);
+      else matches.push(target);
     }
     this.targetsValue = targets;
     return targets;
