@@ -380,7 +380,10 @@ class PatchMapCanvasRenderer {
             value.containsKey('tint'))
           base = const ui.Color(0xffffffff);
         final color = multiplyColor(base, tint, alpha);
-        final radius = _radius(style['radius']);
+        // Alpha bars lower only numeric radius and have no source stroke.
+        final radius = primitive.type == 'bar'
+            ? number(style['radius'])
+            : _radius(style['radius']);
         if (colors.length + 21 > 65535) flush();
         final transform = readableTransform(
           primitive,
@@ -401,10 +404,13 @@ class PatchMapCanvasRenderer {
           retainDegenerate: primitive.type == 'bar',
         );
         final stroke = style['stroke'];
-        final borderWidth =
-            (style['borderWidth'] as num?)?.toDouble() ??
-            (stroke is Map ? (stroke['width'] as num?)?.toDouble() : null) ??
-            (stroke == null ? 0 : 1);
+        final borderWidth = primitive.type == 'bar'
+            ? 0.0
+            : (style['borderWidth'] as num?)?.toDouble() ??
+                  (stroke is Map
+                      ? (stroke['width'] as num?)?.toDouble()
+                      : null) ??
+                  (stroke == null ? 0 : 1);
         if (primitive.type == 'bar' && borderWidth == 0)
           pendingSlots.add((primitiveIndex, vertexOffset, radius));
         if (borderWidth > 0) {

@@ -15,7 +15,8 @@
     "transform-geometry",
     "editor-lifecycle",
     "structural",
-    "binding-fields"
+    "binding-fields",
+    "alpha-parity"
   ],
   "requirements": [
     {
@@ -55,7 +56,8 @@
         "dart-test:model/dataset_test.dart#preserves accepted compatibility and discards only documented fields",
         "dart-test:model/dataset_test.dart#closed fields, null, cycles, duplicate generated IDs and references fail atomically",
         "npm-test:semantic/dataset-contract.test.ts#accepts but discards compatibility background size",
-        "npm-test:semantic/dataset-contract.test.ts#normalizes deprecated relation opacity to alpha"
+        "npm-test:semantic/dataset-contract.test.ts#normalizes deprecated relation opacity to alpha",
+        "dart-test:rendering/canvas_renderer_test.dart#alpha bars ignore source borders and nonnumeric radius"
       ]
     },
     {
@@ -92,7 +94,8 @@
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#query order and grid cell public value follow npm logical API",
-        "npm-test:semantic/query-selection.test.ts#queries elements and owner-qualified components in deterministic logical order"
+        "npm-test:semantic/query-selection.test.ts#queries elements and owner-qualified components in deterministic logical order",
+        "dart-test:engine/alpha_parity_test.dart#whitespace-only target and query identities reject"
       ]
     },
     {
@@ -182,7 +185,8 @@
       "cases": [
         "updates",
         "dart-test:engine/structural_test.dart#relation policy and locked or skewed destinations reject atomically",
-        "binding-fields"
+        "binding-fields",
+        "dart-test:engine/alpha_parity_test.dart#concrete overlays normalize values and reject malformed batches atomically"
       ]
     },
     {
@@ -268,7 +272,8 @@
       "required": true,
       "cases": [
         "controller",
-        "binding-fields"
+        "binding-fields",
+        "dart-test:engine/alpha_parity_test.dart#presentation counts requested identities and admits explicit paints"
       ]
     },
     {
@@ -308,7 +313,8 @@
         "dart-test:model/bar_projection_test.dart#unrelated primitive identity is retained and relation scope fallback is explicit",
         "dart-test:rendering/canvas_renderer_test.dart#retained bar meshes equal full rendering across height zero, rotation and selection",
         "dart-test:engine/controller_test.dart#typed bar view preserves tint and old snapshots on null height reset",
-        "npm-test:core/core-bar-presentation-integration.test.ts#commits semantic height immediately and publishes deterministic bottom-anchored frames"
+        "npm-test:core/core-bar-presentation-integration.test.ts#commits semantic height immediately and publishes deterministic bottom-anchored frames",
+        "dart-test:engine/alpha_parity_test.dart#partial bar retarget preserves topology and other active tweens"
       ]
     },
     {
@@ -377,7 +383,8 @@
       "cases": [
         "dart-test:host/native_pointer_test.dart#pin survives leave and primary blank click hides it",
         "dart-test:host/native_pointer_test.dart#touch long press pins once and cancellation removes its timer",
-        "npm-test:semantic/pointer-gesture.test.ts#pins package-owned tooltip projection on context menu until the next primary click"
+        "npm-test:semantic/pointer-gesture.test.ts#pins package-owned tooltip projection on context menu until the next primary click",
+        "dart-test:host/native_pointer_test.dart#replacement invalidates same-id press and clears pinned tooltip"
       ]
     },
     {
@@ -410,7 +417,8 @@
       "cases": [
         "dart-test:host/native_pointer_test.dart#box commit selects logical target once",
         "dart-test:host/native_pointer_test.dart#cancelled marquee neither commits selection nor leaves transient paint",
-        "npm-test:semantic/pointer-gesture.test.ts#latches shift-only box activation at pointer-down without taking ordinary pan drags"
+        "npm-test:semantic/pointer-gesture.test.ts#latches shift-only box activation at pointer-down without taking ordinary pan drags",
+        "dart-test:host/native_pointer_test.dart#throwing box predicate clears marquee and preserves selection"
       ]
     },
     {
@@ -427,7 +435,9 @@
       "document": "docs/api/viewport-and-transform.md",
       "required": true,
       "cases": [
-        "controller"
+        "controller",
+        "alpha-parity",
+        "dart-test:engine/alpha_parity_test.dart#replacement validates fit before publication and resolves old TargetSet"
       ]
     },
     {
@@ -461,7 +471,8 @@
       "document": "docs/api/viewport-and-transform.md",
       "required": true,
       "cases": [
-        "controller"
+        "controller",
+        "alpha-parity"
       ]
     },
     {
@@ -470,7 +481,8 @@
       "required": true,
       "cases": [
         "controller",
-        "dart-test:engine/controller_test.dart#rotation completion follows painted final frame and failure settles failed"
+        "dart-test:engine/controller_test.dart#rotation completion follows painted final frame and failure settles failed",
+        "alpha-parity"
       ]
     },
     {
@@ -589,7 +601,8 @@
       "cases": [
         "dart-test:engine/controller_test.dart#capture waits matching publication and returns logical dimensions",
         "dart-test:host/view_test.dart#native frame publishes ready, captures real PNG and stays idle",
-        "npm-test:engine/engine-extraction.test.ts#captures an exact published tuple while retaining the authoritative canvas"
+        "npm-test:engine/engine-extraction.test.ts#captures an exact published tuple while retaining the authoritative canvas",
+        "dart-test:engine/alpha_parity_test.dart#capture freezes both animation timelines and resumes their remaining duration"
       ]
     },
     {
@@ -696,7 +709,8 @@
         "dart-test:engine/controller_test.dart#destroy settles capture waiting on initial readiness",
         "dart-test:host/view_test.dart#controller survives surface detach and reattach with selection",
         "npm-test:engine/engine-lifecycle.test.ts#destroys once and releases the surface",
-        "npm-test:engine/engine-lifecycle.test.ts#waits for and releases a renderer that resolves after destroy starts"
+        "npm-test:engine/engine-lifecycle.test.ts#waits for and releases a renderer that resolves after destroy starts",
+        "dart-test:engine/alpha_parity_test.dart#destroy joins callers, attempts assets after surface failure and retries only failed cleanup"
       ]
     },
     {
@@ -704,7 +718,7 @@
       "document": "docs/integration/host.md",
       "required": true,
       "cases": [
-        "dart-test:engine/controller_test.dart#visibility settles bars and cancels transient transforms and rotation",
+        "dart-test:engine/controller_test.dart#visibility settles bars, cancels transforms, and pauses rotation",
         "dart-test:host/view_test.dart#background cancels native input and resumes one idle frame",
         "npm-test:integration/page-lifecycle.test.ts#cancels motion and root gesture ownership and publishes one resume frame"
       ]
@@ -724,7 +738,8 @@
       "required": true,
       "cases": [
         "dart-test:host/view_test.dart#Semantics refreshes selection and geometry without rebuilding the host",
-        "npm-test:integration/accessibility-product.test.ts#deduplicates Pixi aliases while preserving logical focus and selection intent"
+        "npm-test:integration/accessibility-product.test.ts#deduplicates Pixi aliases while preserving logical focus and selection intent",
+        "dart-test:host/view_test.dart#Semantics activation selects without a pointer event"
       ]
     },
     {

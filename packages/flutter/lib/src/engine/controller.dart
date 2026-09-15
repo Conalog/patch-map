@@ -8,15 +8,18 @@ import '../api/values.dart';
 import '../model/dataset.dart';
 import '../model/theme.dart';
 import '../semantic/geometry/geometry.dart';
+import '../semantic/dataset/normalization.dart' show normalizeComponent;
 import 'ports.dart';
 
 part 'data_targets.dart';
+part 'pointer_policy.dart';
 part 'mutations.dart';
 part 'text_mutations.dart';
 part 'mutation_lowering.dart';
 part 'structural_mutations.dart';
 part 'history_selection.dart';
 part 'viewport_transform.dart';
+part 'viewport_fit.dart';
 part 'transform_geometry.dart';
 part 'editor.dart';
 part 'bar_animation.dart';
@@ -77,6 +80,7 @@ class PatchMapController {
         'Invalid surface dimensions or history limit',
       );
     }
+    _validatePointerPolicies(pointerPolicy, selectionPolicy);
     final c = PatchMapController._(
       PatchMapDataset.parse(data ?? []),
       instanceId: instanceId,
@@ -104,6 +108,8 @@ class PatchMapController {
   final GeometryTextLayouter? textLayouter;
   PatchMapDataset _dataset;
   PatchMapDataset get dataset => _dataset;
+  int _datasetGeneration = 0;
+  int get datasetGeneration => _datasetGeneration;
   Map<String, JsonMap> _overlays = {};
   Map<String, JsonMap> get instanceOverlays => _viewOverlays(_overlays);
   Map<String, JsonMap>? _overlayViewSource, _overlayViewCache;
@@ -122,6 +128,7 @@ class PatchMapController {
   // Sample once per command, never once per bar. A host without a live clock
   // retains the explicit advanceFrame timeline used by deterministic drivers.
   void _syncAnimationClock() {
+    if (_capturing) return;
     final surface = _surface;
     if (surface is PatchMapClock)
       _clockMs = math.max(_clockMs, (surface as PatchMapClock).milliseconds);
@@ -142,8 +149,8 @@ class PatchMapController {
     _clockMs = math.max(_clockMs, milliseconds);
     _surfaceVisible = visible;
     _settleBars();
+    rotation._visibilityChanged(visible, _clockMs);
     if (!visible) {
-      rotation._cancel();
       final active = transform._active;
       if (active != null && !active._ended) active.cancel();
       viewport._settleTimer?.cancel();
@@ -184,6 +191,7 @@ class PatchMapController {
   Object? _companion;
   String? _datasetRef;
   bool _capturing = false;
+  double _captureClockMs = 0;
   List<double>? _deferredResize;
   Future<void> _captureQueue = Future.value();
   final Map<PatchMapRevisionTuple, List<Completer<void>>> _frameWaiters = {};
@@ -336,6 +344,10 @@ class PatchMapController {
   /// Host advances the single animation timeline immediately before a frame.
   bool advanceFrame(double milliseconds) {
     if (_destroyed || !_surfaceVisible) return false;
+    if (_capturing) {
+      _captureClockMs = math.max(_captureClockMs, milliseconds);
+      return false;
+    }
     _clockMs = math.max(_clockMs, milliseconds);
     final bars = _advanceBars(_clockMs);
     final turning = rotation._advance(_clockMs);
@@ -528,39 +540,76 @@ class PatchMapController {
     _frameWaiters.clear();
   }
 
-  Future<bool> destroy() async {
-    if (_destroyed) return false;
-    _destroyed = true;
-    _generation++;
-    _replaceRequest++;
-    rotation._cancel();
-    transform._active?._end();
-    final error = const PatchMapException(
-      'DESTROYED',
-      'Controller was destroyed',
-    );
-    if (!_ready.isCompleted) _ready.completeError(error);
-    _failFrames(error);
-    final surface = _surface;
-    _surface = null;
-    _listeners.clear();
-    _notificationQueue.clear();
-    selection._listeners.clear();
-    _notificationQueue.clear();
-    selection._pointerListeners.clear();
-    history._listeners.clear();
-    viewport._listeners.clear();
-    viewport._settleTimer?.cancel();
-    _barTweens.clear();
-    _animatedOverlays = null;
-    pointer._hover.clear();
-    pointer._tooltip.clear();
-    history._entries.clear();
-    history._cursor = 0;
-    _overlays = {};
-    await surface?.dispose();
-    await assetPort?.dispose();
-    return true;
+  Future<bool>? _destroying;
+  PatchMapSurfacePort? _destroySurface;
+  bool _surfaceDisposed = false, _assetsDisposed = false;
+
+  Future<bool> destroy() {
+    final pending = _destroying;
+    if (pending != null) return pending;
+    if (_destroyed && _surfaceDisposed && _assetsDisposed)
+      return Future.value(false);
+    if (!_destroyed) {
+      _destroyed = true;
+      _generation++;
+      _replaceRequest++;
+      rotation._cancel();
+      transform._active?._end();
+      final error = const PatchMapException(
+        'DESTROYED',
+        'Controller was destroyed',
+      );
+      if (!_ready.isCompleted) _ready.completeError(error);
+      _failFrames(error);
+      _destroySurface = _surface;
+      _surface = null;
+      _listeners.clear();
+      _notificationQueue.clear();
+      selection._listeners.clear();
+      selection._pointerListeners.clear();
+      history._listeners.clear();
+      viewport._listeners.clear();
+      viewport._settleTimer?.cancel();
+      _barTweens.clear();
+      _barColumns = null;
+      _animatedOverlays = null;
+      pointer._hover.clear();
+      pointer._tooltip.clear();
+      history._entries.clear();
+      history._cursor = 0;
+      _overlays = {};
+    }
+    final completion = Completer<bool>();
+    _destroying = completion.future;
+    unawaited(() async {
+      Object? failure;
+      StackTrace? stack;
+      if (!_surfaceDisposed) {
+        try {
+          await _destroySurface?.dispose();
+          _surfaceDisposed = true;
+          _destroySurface = null;
+        } catch (error, trace) {
+          failure = error;
+          stack = trace;
+        }
+      }
+      if (!_assetsDisposed) {
+        try {
+          await assetPort?.dispose();
+          _assetsDisposed = true;
+        } catch (error, trace) {
+          failure ??= error;
+          stack ??= trace;
+        }
+      }
+      _destroying = null;
+      if (failure == null)
+        completion.complete(true);
+      else
+        completion.completeError(failure, stack);
+    }());
+    return completion.future;
   }
 }
 
@@ -698,6 +747,7 @@ class PatchMapCaptureApi {
         final surface = _c._surface;
         if (surface == null)
           throw const PatchMapException('NOT_READY', 'No attached surface');
+        _c._captureClockMs = _c._clockMs;
         _c._capturing = true;
         final snapshot = _c.renderSnapshot;
         await _c.assetPort?.ready(snapshot);
@@ -724,7 +774,38 @@ class PatchMapCaptureApi {
       } catch (error, stack) {
         result.completeError(error, stack);
       } finally {
+        final pausedAt = _c._clockMs;
         _c._capturing = false;
+        _c._syncAnimationClock();
+        _c._clockMs = math.max(_c._clockMs, _c._captureClockMs);
+        final pausedMs = _c._clockMs - pausedAt;
+        if (!_c.destroyed && pausedMs > 0) {
+          if (_c._barTweens.isNotEmpty) {
+            _c._barTweens = _c._barTweens.map(
+              (key, tween) => MapEntry(
+                key,
+                _BarTween(
+                  tween.from,
+                  tween.to,
+                  tween.start + pausedMs,
+                  tween.duration,
+                ),
+              ),
+            );
+            _c._barColumns = _BarColumns(_c._barTweens);
+          }
+          final rotation = _c.rotation._animation;
+          if (rotation != null) {
+            rotation.start = rotation.start! + pausedMs;
+            if (rotation.hiddenAt != null)
+              rotation.hiddenAt = rotation.hiddenAt! + pausedMs;
+          }
+        }
+        if (!_c.destroyed &&
+            (_c._barTweens.isNotEmpty || _c.rotation._animation != null)) {
+          _c._dirty = false;
+          _c._schedule();
+        }
         final resize = _c._deferredResize;
         _c._deferredResize = null;
         if (resize != null && !_c.destroyed)

@@ -10,6 +10,11 @@ export function compareObservations(left, right, path = '$') {
     throw new Error(`${path}: non-finite observation`);
   }
   if (left === right) return;
+  // This named rotation fixture uses trigonometry. Only calculated viewport
+  // and fit bounds admit round-off; IDs, dataset, counts and hashes stay exact.
+  if (typeof left === 'number' && typeof right === 'number' &&
+      /^\$\.alpha-parity\.steps\[\d+\]\.(?:(?:observation|result)\.viewport\.(?:centerWorld\[[01]\]|scale)|result\.(?:worldBounds\[[0-3]\]|contributors\[\d+\]\.worldBounds\[[0-3]\]))$/u.test(path) &&
+      Math.abs(left - right) <= 1e-9) return;
   if (left === null || right === null || typeof left !== typeof right) throw new Error(`${path}: values differ`);
   if (Array.isArray(left) || Array.isArray(right)) {
     if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) throw new Error(`${path}: array shape differs`);

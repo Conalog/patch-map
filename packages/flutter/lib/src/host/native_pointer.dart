@@ -8,7 +8,15 @@ import '../model/json.dart';
 
 /// One surface's native gesture state; logical selection stays in the engine.
 class NativePointerBinding {
-  NativePointerBinding(this.controller, this.hitTest, this.invalidate);
+  NativePointerBinding(this.controller, this.hitTest, this.invalidate)
+    : _datasetGeneration = controller.datasetGeneration;
+  int _datasetGeneration;
+  void syncDataset() {
+    if (_datasetGeneration == controller.datasetGeneration) return;
+    _datasetGeneration = controller.datasetGeneration;
+    blur();
+  }
+
   final PatchMapController controller;
   final PatchMapTarget? Function(Offset world) hitTest;
   final void Function() invalidate;
@@ -84,7 +92,30 @@ class NativePointerBinding {
     });
   }
 
+  double _panZoomScale = 1;
+  Offset _panZoomPan = Offset.zero;
+  void panZoomStart(PointerPanZoomStartEvent event) {
+    if (!_live) return;
+    blur();
+    _panZoomScale = 1;
+    _panZoomPan = Offset.zero;
+  }
+
+  void panZoomUpdate(PointerPanZoomUpdateEvent event) {
+    if (!_live) return;
+    final delta = event.localPan - _panZoomPan;
+    controller.viewport.panBy([delta.dx, delta.dy], source: 'pointer');
+    final anchor = event.localPosition + event.localPan;
+    controller.viewport.zoomBy(event.scale / _panZoomScale, [
+      anchor.dx,
+      anchor.dy,
+    ]);
+    _panZoomScale = event.scale;
+    _panZoomPan = event.localPan;
+  }
+
   void hover(PointerEvent event) {
+    syncDataset();
     _lastEvent = event;
     if (!_live ||
         _presses.isNotEmpty &&
@@ -119,6 +150,7 @@ class NativePointerBinding {
   }
 
   void down(PointerDownEvent event) {
+    syncDataset();
     _lastEvent = event;
     if (!_live) return;
     final modifiers = _modifiers;
@@ -126,6 +158,7 @@ class NativePointerBinding {
     final boxEnabled = box == true || box is Map;
     final wantsBox =
         event.buttons == kPrimaryButton &&
+        controller.editor.state['mode'] == 'select' &&
         boxEnabled &&
         (box is! Map ||
             box['activationModifier'] != 'shift' ||
@@ -166,6 +199,7 @@ class NativePointerBinding {
   }
 
   void move(PointerMoveEvent event) {
+    syncDataset();
     _lastEvent = event;
     if (!_live) return;
     final press = _presses[event.pointer];
@@ -220,12 +254,18 @@ class NativePointerBinding {
         node.value['locked'] == true ||
         (node.value['attrs'] as Map?)?['locked'] == true)
       return false;
+    var ancestor = controller.dataset.nodes[node.parentId];
+    while (ancestor != null) {
+      if (ancestor.value['locked'] == true) return false;
+      ancestor = controller.dataset.nodes[ancestor.parentId];
+    }
     final callback = _policy['isSelectable'];
     return callback == null ||
         (callback as bool Function(JsonMap))(identity?.toJson() ?? {'id': id});
   }
 
   void up(PointerUpEvent event) {
+    syncDataset();
     _lastEvent = event;
     if (!_live) return;
     final press = _presses.remove(event.pointer);
@@ -234,9 +274,12 @@ class NativePointerBinding {
     if (press.contextPinned) return;
     final d = event.localPosition - press.start;
     if (press.dragged || math.max(d.dx.abs(), d.dy.abs()) > 4) {
-      if (press.box && marquee != null) _box(press);
-      marquee = null;
-      invalidate();
+      try {
+        if (press.box && marquee != null) _box(press);
+      } finally {
+        marquee = null;
+        invalidate();
+      }
       return;
     }
     if (controller.revisions.view != press.viewRevision ||
@@ -271,6 +314,7 @@ class NativePointerBinding {
     if (!repeated) _armedTarget = null;
     _pinned = false;
     _showTooltip(event, press.target);
+    if (controller.editor.state['mode'] != 'select') return;
     final target =
         press.target != null &&
             _selectable(press.target!.id, identity: press.target)
@@ -322,6 +366,7 @@ class NativePointerBinding {
   }
 
   void _box(_Press press) {
+    if (controller.editor.state['mode'] != 'select') return;
     final box = marquee!, selected = <String>[];
     final partial =
         (_policy['box'] is Map
@@ -355,6 +400,7 @@ class NativePointerBinding {
                 bounds.right <= box.right &&
                 bounds.bottom <= box.bottom)
         selected.add(target.id);
+      if (selected.isNotEmpty && _policy['allowMultiple'] == false) break;
     }
     controller.selection.fromPointer(
       press.additive && _policy['allowMultiple'] != false

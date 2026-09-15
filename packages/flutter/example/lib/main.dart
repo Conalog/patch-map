@@ -106,40 +106,87 @@ class _ComparisonPageState extends State<ComparisonPage> {
     }
   }
 
-  void _step() {
+  Future<Object?> _execute(Map<String, dynamic> command) async {
+    final c = controller!;
+    final input = command['input'];
+    final options = command['options'] as Map? ?? {};
+    final result = switch (command['op']) {
+      'update' => c.update(
+        Map<String, dynamic>.from(input as Map),
+        actionId: options['actionId'] as String?,
+        animate: options['animate'] as bool?,
+        recordHistory: options['recordHistory'] as bool? ?? true,
+      ),
+      'updateBatch' => c.updateBatch(
+        Map<String, dynamic>.from(input as Map),
+        actionId: options['actionId'] as String?,
+        animate: options['animate'],
+        recordHistory: options['recordHistory'] as bool? ?? true,
+      ),
+      'transaction' => c.transaction(
+        (input as List).cast<Map<String, dynamic>>(),
+        recordHistory: options['recordHistory'] as bool? ?? true,
+        actionId: options['actionId'] as String?,
+      ),
+      'history.undo' => c.history.undo(),
+      'history.redo' => c.history.redo(),
+      'selection.set' => c.selection.set(input),
+      'editor.execute' => c.editor.execute(
+        Map<String, dynamic>.from(input as Map),
+      ),
+      'rotation.set' => c.rotation.set(input as num),
+      'rotation.animateTo' =>
+        await c.rotation
+            .animateTo(
+              input as num,
+              path: options['path'] as String? ?? 'raw',
+              normalizeOnComplete: options['normalizeOnComplete'] == true,
+            )
+            .finished,
+      'viewport.panBy' => c.viewport.panBy((input as List).cast<num>()),
+      'viewport.zoomBy' => c.viewport.zoomBy(
+        input['factor'] as num,
+        (input['anchor'] as List?)?.cast<num>(),
+      ),
+      'viewport.fit' => c.viewport.fit(
+        targets: (input as Map?)?['targets'],
+        padding: input?['padding'] ?? 16,
+      ),
+      'capture.png' => await c.capture.png(),
+      _ => throw StateError('Unknown command ${command['op']}'),
+    };
+    return result is PatchMapResult ? result.toJson() : result;
+  }
+
+  Future<void> _step() async {
     final commands = fixture?['commands'] as List? ?? [];
-    if (commandIndex >= commands.length) return;
-    final command = commands[commandIndex] as Map<String, dynamic>;
-    _action((c) {
-      final input = command['input'];
-      final options = command['options'] as Map<String, dynamic>? ?? {};
-      final result = switch (command['op']) {
-        'update' => c.update(
-          Map<String, dynamic>.from(input as Map),
-          actionId: options['actionId'] as String?,
-          animate: options['animate'] as bool?,
-          recordHistory: options['recordHistory'] as bool? ?? true,
-        ),
-        'updateBatch' => c.updateBatch(
-          Map<String, dynamic>.from(input as Map),
-          actionId: options['actionId'] as String?,
-          animate: options['animate'],
-          recordHistory: options['recordHistory'] as bool? ?? true,
-        ),
-        'transaction' => c.transaction(
-          (input as List).cast<Map<String, dynamic>>(),
-        ),
-        'history.undo' => c.history.undo(),
-        'history.redo' => c.history.redo(),
-        'selection.set' => c.selection.set(input),
-        'editor.execute' => c.editor.execute(
-          Map<String, dynamic>.from(input as Map),
-        ),
-        _ => throw StateError('Unknown command ${command['op']}'),
-      };
-      commandIndex++;
-      return result;
-    });
+    if (busy || commandIndex >= commands.length) return;
+    try {
+      final result = await _execute(
+        commands[commandIndex] as Map<String, dynamic>,
+      );
+      if (mounted)
+        setState(() {
+          commandIndex++;
+          status = jsonEncode(result);
+        });
+    } catch (error) {
+      final expected = (commands[commandIndex] as Map)['expect'] as Map?;
+      if (mounted)
+        setState(() {
+          if ((expected?['throws'] as Map?)?['kind'] == 'invalid-argument' &&
+              error is PatchMapException &&
+              const [
+                'INVALID_ARGUMENT',
+                'INVALID_INPUT',
+              ].contains(error.code)) {
+            commandIndex++;
+            status = 'Expected rejection: $error';
+          } else {
+            status = '$error';
+          }
+        });
+    }
   }
 
   void _heights() => _action((c) {
@@ -199,12 +246,21 @@ class _ComparisonPageState extends State<ComparisonPage> {
                     child: DropdownButton<String>(
                       value: fixtureId,
                       isExpanded: true,
-                      items: ['gallery', 'updates', 'editor', 'codecs']
-                          .map(
-                            (id) =>
-                                DropdownMenuItem(value: id, child: Text(id)),
-                          )
-                          .toList(),
+                      items:
+                          [
+                                'gallery',
+                                'updates',
+                                'editor',
+                                'codecs',
+                                'alpha-parity',
+                              ]
+                              .map(
+                                (id) => DropdownMenuItem(
+                                  value: id,
+                                  child: Text(id),
+                                ),
+                              )
+                              .toList(),
                       onChanged: busy
                           ? null
                           : (id) {
@@ -240,6 +296,27 @@ class _ComparisonPageState extends State<ComparisonPage> {
                 TextButton(
                   onPressed: () => _action((c) => c.history.redo()),
                   child: const Text('Redo'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final c = controller;
+                    if (c == null) return;
+                    await _execute({
+                      'op': 'rotation.animateTo',
+                      'input': c.rotation.value + 90,
+                    });
+                    if (mounted)
+                      setState(() => status = 'Rotation ${c.rotation.value}°');
+                  },
+                  child: const Text('Rotate +90°'),
+                ),
+                TextButton(
+                  onPressed: () => _action((c) => c.rotation.reset()),
+                  child: const Text('Reset angle'),
+                ),
+                TextButton(
+                  onPressed: () => _action((c) => c.viewport.fit()),
+                  child: const Text('Fit'),
                 ),
                 TextButton(onPressed: _capture, child: const Text('Capture')),
               ],

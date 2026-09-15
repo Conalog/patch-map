@@ -33,6 +33,28 @@ Widget surface(PatchMapController c) => MediaQuery(
   ),
 );
 void main() {
+  testWidgets('Semantics activation selects without a pointer event', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final c = await controller();
+    final pointerEvents = <Map<String, dynamic>>[];
+    c.selection.onPointerChange(pointerEvents.add);
+    await tester.pumpWidget(surface(c));
+    await tester.pumpAndSettle();
+    final node = find.semantics.byLabel('r').evaluate().single;
+    node.owner!.performAction(
+      node.id,
+      ui.SemanticsAction.tap,
+    );
+    await tester.pumpAndSettle();
+    expect(c.selection.ids, ['r']);
+    expect(pointerEvents, isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await c.destroy();
+    handle.dispose();
+  });
+
   testWidgets(
     'native frame publishes ready, captures real PNG and stays idle',
     (tester) async {

@@ -38,8 +38,7 @@ Conformance owns inventory and fixture requirements; all must pass before declar
 Dart is performance-first: share schema and feature semantics, not JavaScript
 internals. Compile native render data, retain buffers/resources and process dirty
 or visible regions. Measured gains may justify structural changes; shared
-conformance preserves behavior. The experiment does not change shipping Dart
-declarations.
+conformance preserves behavior.
 
 Dependencies point from composition to api/engine, from engine to model/semantic and abstract ports in `packages/flutter/lib/src/engine/ports.dart`, and from host/rendering adapters to those ports. Model/semantic use Dart core libraries only. They never import Flutter, renderer, filesystem, tests or fixtures. The public entry assembles adapters; engine never imports concrete Canvas or Widget code. No production code loads conformance files.
 
@@ -51,7 +50,7 @@ Dependencies point from composition to api/engine, from engine to model/semantic
 | History authority | Bounded undo/redo cursor, coalescing, selection and companion; cursor moves only after accepted restoration |
 | Instance presentation | Concrete grid overlays separate from authored data; field-level null restores current template; keyed alpha does not change hit identity |
 | Geometry projection | World geometry, hierarchical stable paint order and hit index shared by renderer, selection and viewport |
-| View/interaction | Viewport, map rotation, selection, editor and one transform session; previews never write authored history |
+| View/interaction | `viewport_transform.dart` owns viewport/rotation/session state; `viewport_fit.dart` validates and plans fit before publication; `pointer_policy.dart` admits creation policies. Previews never write authored history |
 | Publication authority | One dirty frame schedule; accepted scene/view/interaction tuple and confirmed frame; idle schedules nothing |
 | Asset session | Admission, per-alias generation, pending work and leases; stale completion releases without publishing |
 | Capture authority | Serial queue, visible readiness and exact published tuple; defers resize through extraction |

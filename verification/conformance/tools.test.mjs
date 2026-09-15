@@ -15,7 +15,7 @@ test('shared gallery inventories every element and component and all fixture env
   for (const fixture of fixtures) for (const command of fixture.commands) {
     assert.ok(operations.includes(command.op), `schema missing command ${command.op}`);
   }
-  assert.deepEqual(fixtures.map((item) => item.id), ['binding-fields', 'codecs', 'controller', 'editor-lifecycle', 'editor', 'gallery', 'structural', 'transform-geometry', 'updates']);
+  assert.deepEqual(fixtures.map((item) => item.id), ['alpha-parity', 'binding-fields', 'codecs', 'controller', 'editor-lifecycle', 'editor', 'gallery', 'structural', 'transform-geometry', 'updates']);
   const gallery = fixtures.find((item) => item.id === 'gallery');
   assert.equal(gallery.expected.elementTypes.length, 7);
   assert.equal(gallery.expected.componentTypes.length, 4);
@@ -133,4 +133,19 @@ test('static witness index resolves exact executable cases without manufacturing
   for (const requirement of manifest.requirements) {
     for (const id of requirement.cases) assert.ok(cases.has(id), `${requirement.id}: unknown witness ${id}`);
   }
+});
+
+
+test('rotation round-off is limited to named calculated geometry fields', () => {
+  for (const field of ['observation.viewport.centerWorld[1]', 'result.viewport.centerWorld[0]',
+    'result.worldBounds[2]', 'result.contributors[0].worldBounds[3]']) {
+    const path = `$.alpha-parity.steps[0].${field}`;
+    compareObservations(140, 140 + 1e-13, path);
+    assert.throws(() => compareObservations(140, 140 + 1e-8, path), /differ/);
+    assert.throws(() => compareObservations(Infinity, Infinity, path), /non-finite/);
+  }
+  assert.throws(() => compareObservations(140, 140 + 1e-13,
+    '$.alpha-parity.steps[0].observation.dataset[0].attrs.y'), /differ/);
+  assert.throws(() => compareObservations(140, 140 + 1e-13,
+    '$.gallery.steps[0].observation.viewport.centerWorld[1]'), /differ/);
 });

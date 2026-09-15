@@ -16,6 +16,13 @@ class PatchMapDataApi {
         'fit must be bool or fit options',
       );
     final candidate = PatchMapDataset.parse(input, strict: strict);
+    final fitPlan = fit == false
+        ? null
+        : _c.viewport._planFit(
+            fit is Map ? fit['targets'] : null,
+            fit is Map ? fit['padding'] ?? 16 : 16,
+            candidate: candidate,
+          );
     final interactionDelta =
         _c.selection.ids.isNotEmpty || _c.editor.state['mode'] != 'select'
         ? 1
@@ -32,9 +39,11 @@ class PatchMapDataApi {
       );
     _c._replaceRequest++;
     _c._dataset = candidate;
+    _c._datasetGeneration++;
     _c._datasetRef = datasetRef;
     _c._overlays = {};
     _c._barTweens.clear();
+    _c._barColumns = null;
     _c._animatedOverlays = null;
     _c._sceneRevision++;
     _c._interactionRevision += interactionDelta;
@@ -44,11 +53,7 @@ class PatchMapDataApi {
     _c.history._clear('replace');
     _c.editor._sceneReplaced();
     _c.transform._active?._end();
-    if (fit is Map) {
-      _c.viewport.fit(targets: fit['targets'], padding: fit['padding'] ?? 16);
-    } else if (fit == true) {
-      _c.viewport.fit();
-    }
+    if (fitPlan != null) _c.viewport._applyFit(fitPlan);
     _c._notify();
     return PatchMapResult({
       'rootIds': candidate.roots.map((e) => e['id']).toList(),
@@ -124,6 +129,16 @@ class PatchMapTargetsApi {
     const allowed = {'id', 'componentId', 'type', 'within', 'scope'};
     if (query.keys.any((k) => !allowed.contains(k)))
       throw const PatchMapException('INVALID_INPUT', 'Unknown query field');
+    for (final field in ['id', 'componentId', 'type', 'within']) {
+      if (query.containsKey(field) &&
+          (query[field] is! String ||
+              (query[field] as String).trim().isEmpty)) {
+        throw const PatchMapException(
+          'INVALID_INPUT',
+          'Invalid query identity',
+        );
+      }
+    }
     final scope = query['scope'] ?? 'all';
     if (!['all', 'authored', 'instances'].contains(scope))
       throw const PatchMapException('INVALID_INPUT', 'Invalid query scope');
@@ -185,13 +200,20 @@ class PatchMapTargetsApi {
 }
 
 PatchMapTarget _target(Object? value) {
-  if (value is PatchMapTarget) return value;
-  if (value is String && value.isNotEmpty) return PatchMapTarget(value);
+  if (value is PatchMapTarget) {
+    if (value.id.trim().isEmpty || value.componentId?.trim().isEmpty == true) {
+      throw const PatchMapException('INVALID_INPUT', 'Invalid target');
+    }
+    return value;
+  }
+  if (value is String && value.trim().isNotEmpty) return PatchMapTarget(value);
   final map = _map(value);
   if (map['id'] is! String ||
-      (map['id'] as String).isEmpty ||
+      (map['id'] as String).trim().isEmpty ||
       map.keys.any((k) => k != 'id' && k != 'componentId') ||
-      map['componentId'] != null && map['componentId'] is! String)
+      map.containsKey('componentId') &&
+          (map['componentId'] is! String ||
+              (map['componentId'] as String).trim().isEmpty))
     throw const PatchMapException('INVALID_INPUT', 'Invalid target');
   return PatchMapTarget(
     map['id'] as String,

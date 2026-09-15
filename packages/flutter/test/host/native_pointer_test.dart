@@ -81,7 +81,109 @@ void click(
 }
 
 void main() {
+  test(
+    'throwing box predicate clears marquee and preserves selection',
+    () async {
+      final (c, p) = await setup(
+        selection: {
+          'box': true,
+          'isSelectable': (Map<String, dynamic> _) =>
+              throw StateError('predicate'),
+        },
+      );
+      c.selection.set(['rect']);
+      p.down(const PointerDownEvent(pointer: 1, position: Offset(0, 0)));
+      p.move(const PointerMoveEvent(pointer: 1, position: Offset(90, 90)));
+      expect(p.marquee, isNotNull);
+      expect(
+        () => p.up(const PointerUpEvent(pointer: 1, position: Offset(90, 90))),
+        throwsStateError,
+      );
+      expect(p.marquee, isNull);
+      expect(c.selection.ids, ['rect']);
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'single selection box and editing modes preserve pointer policy',
+    () async {
+      final (c, p) = await setup(
+        selection: {'box': true, 'allowMultiple': false},
+      );
+      p.down(const PointerDownEvent(pointer: 1, position: Offset(0, 0)));
+      p.move(const PointerMoveEvent(pointer: 1, position: Offset(90, 90)));
+      p.up(const PointerUpEvent(pointer: 1, position: Offset(90, 90)));
+      expect(c.selection.ids.length, 1);
+      c.data.replace([
+        ...c.data.snapshot(),
+        {
+          'type': 'grid',
+          'id': 'g',
+          'cells': [
+            [1],
+          ],
+          'item': {'size': 10},
+        },
+      ], fit: false);
+      c.editor.execute({'type': 'enter-grid-edit', 'target': 'g'});
+      final selected = c.selection.ids;
+      click(p, const Offset(10, 10));
+      expect(c.selection.ids, selected);
+      p.down(const PointerDownEvent(pointer: 1, position: Offset(0, 0)));
+      p.move(const PointerMoveEvent(pointer: 1, position: Offset(90, 90)));
+      p.up(const PointerUpEvent(pointer: 1, position: Offset(90, 90)));
+      expect(c.selection.ids, selected);
+    },
+  );
+  test(
+    'replacement invalidates same-id press and clears pinned tooltip',
+    () async {
+      final (c, p) = await setup(
+        pointer: {
+          'tooltip': {'pinOnContextMenu': true},
+        },
+      );
+      final tooltip = <Map<String, dynamic>>[];
+      c.pointer.onTooltip(tooltip.add);
+      p.down(const PointerDownEvent(pointer: 1, position: Offset(10, 10)));
+      c.data.replace(c.data.snapshot(), fit: false);
+      p.up(const PointerUpEvent(pointer: 1, position: Offset(10, 10)));
+      expect(c.selection.ids, isEmpty);
+      p.down(
+        const PointerDownEvent(
+          pointer: 2,
+          position: Offset(10, 10),
+          buttons: kSecondaryMouseButton,
+        ),
+      );
+      p.up(const PointerUpEvent(pointer: 2, position: Offset(10, 10)));
+      expect(tooltip.last['type'], 'pin');
+      c.data.replace(c.data.snapshot(), fit: false);
+      p.syncDataset();
+      expect(tooltip.last['type'], 'hide');
+    },
+  );
+  test('trackpad pan and zoom use incremental deltas and one anchor', () async {
+    final (c, p) = await setup();
+    p.panZoomStart(const PointerPanZoomStartEvent(position: Offset(50, 50)));
+    p.panZoomUpdate(
+      const PointerPanZoomUpdateEvent(
+        position: Offset(50, 50),
+        pan: Offset(10, 0),
+        scale: 2,
+      ),
+    );
+    expect(c.viewport.snapshot()['scale'], 2);
+    p.panZoomUpdate(
+      const PointerPanZoomUpdateEvent(
+        position: Offset(50, 50),
+        pan: Offset(10, 0),
+        scale: 2,
+      ),
+    );
+    expect(c.viewport.snapshot()['scale'], 2);
+  });
   test(
     '4 logical pixels remains a click; any excursion beyond stays a drag',
     () async {

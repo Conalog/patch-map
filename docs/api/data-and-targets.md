@@ -49,6 +49,10 @@ are owned by their respective API pages.
   `placement: none` keeps local `0,0`; finite negative margin/padding values
   retain outset layout; negative text `split` is a visual no-op; and standalone
   per-corner radius uses the largest corner in the scalar renderer.
+- In the v1 alpha bar renderer, rectangular sources project fill/tint and numeric
+  radius. Source border fields and nonnumeric corner-radius forms remain
+  accepted data but do not paint a bar stroke or rounded corners. Background
+  borders and corner radii retain their own rendering behavior.
 - `zIndex` orders siblings within their current scope. With the default mesh
   renderer, overlapping item descendants paint as item-scoped composite units,
   so a component's high `zIndex` cannot cross in front of a later sibling item.

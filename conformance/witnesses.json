@@ -182,13 +182,13 @@
       "scope": "Focused local test; not installed-package or device evidence."
     },
     {
-      "id": "dart-test:engine/controller_test.dart#visibility settles bars and cancels transient transforms and rotation",
+      "id": "dart-test:engine/controller_test.dart#visibility settles bars, cancels transforms, and pauses rotation",
       "kind": "focused-test",
       "runtime": "dart",
       "file": "packages/flutter/test/engine/controller_test.dart",
-      "test": "visibility settles bars and cancels transient transforms and rotation",
+      "test": "visibility settles bars, cancels transforms, and pauses rotation",
       "assertions": [
-        "Hidden surface settles destination and cancels rotation/transform sessions."
+        "Hidden surface settles bars, cancels transform sessions and pauses rotation until resumed."
       ],
       "scope": "Focused local test; not installed-package or device evidence."
     },
@@ -2224,6 +2224,156 @@
         "Exact component patch/column normalized fields and results, overlapping-path refusal, animate-column admission, recordHistory:false callback publication, companion restoration, query scope, directed rotation and async replacement options."
       ],
       "scope": "Browser public vs pure Dart semantic trace; separate from native paint and installed package claims."
+    },
+    {
+      "id": "alpha-parity",
+      "kind": "shared-fixture",
+      "file": "conformance/fixtures/alpha-parity.json",
+      "commands": [
+        "root-fit",
+        "grid-fit",
+        "duplicate-fit",
+        "component-address-fits-owner",
+        "quarter-turn",
+        "half-turn",
+        "full-turn",
+        "restore-angle",
+        "scalar-bar-with-companion",
+        "source-replaces-defaults",
+        "scalar-text-margin",
+        "reset-source-and-margin",
+        "final-fit"
+      ],
+      "assertions": [
+        "Rotated and mirrored content preserves shared upright/follow semantics and fit contributors",
+        "Concrete scalar bar width, atomic source defaults and null resets match alpha behavior"
+      ],
+      "scope": "Public browser and Dart VM traces; native rendering is qualified separately.",
+      "runtimes": [
+        "npm",
+        "dart"
+      ]
+    },
+    {
+      "id": "dart-test:engine/alpha_parity_test.dart#partial bar retarget preserves topology and other active tweens",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/engine/alpha_parity_test.dart",
+      "test": "partial bar retarget preserves topology and other active tweens",
+      "assertions": [
+        "partial bar retarget preserves topology and other active tweens."
+      ],
+      "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
+    },
+    {
+      "id": "dart-test:engine/alpha_parity_test.dart#whitespace-only target and query identities reject",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/engine/alpha_parity_test.dart",
+      "test": "whitespace-only target and query identities reject",
+      "assertions": [
+        "whitespace-only target and query identities reject."
+      ],
+      "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
+    },
+    {
+      "id": "dart-test:engine/alpha_parity_test.dart#concrete overlays normalize values and reject malformed batches atomically",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/engine/alpha_parity_test.dart",
+      "test": "concrete overlays normalize values and reject malformed batches atomically",
+      "assertions": [
+        "concrete overlays normalize values and reject malformed batches atomically."
+      ],
+      "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
+    },
+    {
+      "id": "dart-test:engine/alpha_parity_test.dart#presentation counts requested identities and admits explicit paints",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/engine/alpha_parity_test.dart",
+      "test": "presentation counts requested identities and admits explicit paints",
+      "assertions": [
+        "presentation counts requested identities and admits explicit paints."
+      ],
+      "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
+    },
+    {
+      "id": "dart-test:engine/alpha_parity_test.dart#replacement validates fit before publication and resolves old TargetSet",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/engine/alpha_parity_test.dart",
+      "test": "replacement validates fit before publication and resolves old TargetSet",
+      "assertions": [
+        "replacement validates fit before publication and resolves old TargetSet."
+      ],
+      "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
+    },
+    {
+      "id": "dart-test:engine/alpha_parity_test.dart#destroy joins callers, attempts assets after surface failure and retries only failed cleanup",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/engine/alpha_parity_test.dart",
+      "test": "destroy joins callers, attempts assets after surface failure and retries only failed cleanup",
+      "assertions": [
+        "destroy joins callers, attempts assets after surface failure and retries only failed cleanup."
+      ],
+      "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
+    },
+    {
+      "id": "dart-test:engine/alpha_parity_test.dart#capture freezes both animation timelines and resumes their remaining duration",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/engine/alpha_parity_test.dart",
+      "test": "capture freezes both animation timelines and resumes their remaining duration",
+      "assertions": [
+        "capture freezes both animation timelines and resumes their remaining duration."
+      ],
+      "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
+    },
+    {
+      "id": "dart-test:host/native_pointer_test.dart#throwing box predicate clears marquee and preserves selection",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
+      "test": "throwing box predicate clears marquee and preserves selection",
+      "assertions": [
+        "throwing box predicate clears marquee and preserves selection."
+      ],
+      "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
+    },
+    {
+      "id": "dart-test:host/native_pointer_test.dart#replacement invalidates same-id press and clears pinned tooltip",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
+      "test": "replacement invalidates same-id press and clears pinned tooltip",
+      "assertions": [
+        "replacement invalidates same-id press and clears pinned tooltip."
+      ],
+      "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
+    },
+    {
+      "id": "dart-test:host/view_test.dart#Semantics activation selects without a pointer event",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/host/view_test.dart",
+      "test": "Semantics activation selects without a pointer event",
+      "assertions": [
+        "Semantics activation selects without a pointer event."
+      ],
+      "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
+    },
+    {
+      "id": "dart-test:rendering/canvas_renderer_test.dart#alpha bars ignore source borders and nonnumeric radius",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/rendering/canvas_renderer_test.dart",
+      "test": "alpha bars ignore source borders and nonnumeric radius",
+      "assertions": [
+        "alpha bars ignore source borders and nonnumeric radius."
+      ],
+      "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
     }
   ]
 }

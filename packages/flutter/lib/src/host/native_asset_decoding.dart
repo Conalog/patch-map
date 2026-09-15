@@ -108,8 +108,7 @@ extension _NativeAssetDecoding on NativeAssetSession {
       },
     );
     if (parser != null &&
-        parser.toLowerCase().contains('svg') &&
-        mime != 'image/svg+xml')
+        (parser.toLowerCase().contains('svg') != (mime == 'image/svg+xml')))
       throw const PatchMapException(
         'ASSET_POLICY_REJECTED',
         'SVG parser/MIME disagreement',
@@ -160,11 +159,16 @@ extension _NativeAssetDecoding on NativeAssetSession {
           'SVG dimensions exceed policy',
         );
       }
-      return NativeAsset(
-        picture: picture.picture,
-        width: picture.size.width,
-        height: picture.size.height,
-      );
+      var decoded = picture.picture;
+      if (width != picture.size.width || height != picture.size.height) {
+        final recorder = ui.PictureRecorder();
+        ui.Canvas(recorder)
+          ..scale(width / picture.size.width, height / picture.size.height)
+          ..drawPicture(decoded);
+        decoded = recorder.endRecording();
+        picture.picture.dispose();
+      }
+      return NativeAsset(picture: decoded, width: width, height: height);
     }
     if (mime == 'image/avif') {
       final frames = await decodeAvif(bytes);

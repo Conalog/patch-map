@@ -45,7 +45,7 @@ class PatchMapHistoryApi {
   }
 
   void _emit() {
-    final published = state;
+    final published = freezeJson(state) as JsonMap;
     for (final listener in List.of(_listeners)) {
       if (_listeners.contains(listener))
         _c._call(() {
@@ -107,7 +107,9 @@ class PatchMapHistoryApi {
         _c._viewRevision,
         _c._interactionRevision + (interactionChanged ? 1 : 0),
       );
-      if (_c._accept(snapshot.dataset, overlays, ids, next)) {
+      final bars = _c._prepareBars({}, snapshot.dataset, overlays);
+      if (_c._accept(snapshot.dataset, bars.overlay ?? overlays, ids, next)) {
+        _c._installBars(bars);
         _c._dataset = snapshot.dataset;
         _c._overlays = overlays;
         _c.selection._ids = ids;
@@ -269,7 +271,12 @@ class PatchMapPresentationApi {
 
   PatchMapResult set(String key, JsonMap layer) {
     _c._assertLive();
-    if (key.trim().isEmpty ||
+    if ((!layer.containsKey('matched') && !layer.containsKey('unmatched')) ||
+        [
+          'matched',
+          'unmatched',
+        ].any((k) => layer.containsKey(k) && layer[k] == null) ||
+        key.trim().isEmpty ||
         layer.keys.any(
           (k) => !{'scope', 'targets', 'matched', 'unmatched'}.contains(k),
         ))
@@ -318,7 +325,7 @@ class PatchMapPresentationApi {
       'changed': changed,
       'revision': _revision,
       'scopeCount': scope.length,
-      'targetCount': targetKeys.intersection(keys).length,
+      'targetCount': targetKeys.length,
       'matchedCount': targetKeys.intersection(keys).length,
       'unmatchedCount': keys.difference(targetKeys).length,
       'ignoredTargetCount': targetKeys.difference(keys).length,
@@ -327,6 +334,12 @@ class PatchMapPresentationApi {
 
   bool clear(String key) {
     _c._assertLive();
+    if (key.trim().isEmpty) {
+      throw const PatchMapException(
+        'INVALID_INPUT',
+        'Invalid presentation layer key',
+      );
+    }
     if (_layers.remove(key) == null) return false;
     _revision++;
     _c._notify();

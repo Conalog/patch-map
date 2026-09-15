@@ -17,13 +17,27 @@ class NativeMapGestureRecognizer extends OneSequenceGestureRecognizer {
     if (_starts.length > 1) acceptAll();
   }
 
+  @override
+  void addAllowedPointerPanZoom(PointerPanZoomStartEvent event) {
+    _starts[event.pointer] = event.localPosition;
+    _last[event.pointer] = event;
+    startTrackingPointer(event.pointer, event.transform);
+    onEvent?.call(event);
+    acceptAll();
+  }
+
   void acceptAll() => resolve(GestureDisposition.accepted);
   @override
   void handleEvent(PointerEvent event) {
     final start = _starts[event.pointer];
     if (start == null) return;
     _last[event.pointer] = event;
-    if (event is PointerMoveEvent) {
+    if (event is PointerPanZoomUpdateEvent) {
+      onEvent?.call(event);
+    } else if (event is PointerPanZoomEndEvent) {
+      onEvent?.call(event);
+      _stop(event.pointer);
+    } else if (event is PointerMoveEvent) {
       final d = event.localPosition - start;
       if (math.max(d.dx.abs(), d.dy.abs()) > 4) acceptAll();
       if (_starts.containsKey(event.pointer)) onEvent?.call(event);

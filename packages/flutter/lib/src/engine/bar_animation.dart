@@ -1,5 +1,10 @@
 part of 'controller.dart';
 
+Object? _authoredBarHeight(Object? size) =>
+    size is Map && (size.containsKey('width') || size.containsKey('height'))
+    ? size['height']
+    : size;
+
 typedef _BarPlan = ({double from, double to, bool animate, double duration});
 
 class _BarTween {
@@ -116,7 +121,7 @@ extension _BarAnimations on PatchMapController {
     final bar = bars.single, key = '${node.id}\u0000${bars.single['id']}';
     final geometry = _geometryFor(dataset, _animatedOverlays ?? _overlays);
     final size = bar['size'];
-    final authored = size is Map ? size['height'] : size;
+    final authored = _authoredBarHeight(size);
     final restored = geometry.resolveBarHeight(key, authored);
     final effective = overlays[key]?['size'];
     final current =
@@ -157,13 +162,30 @@ extension _BarAnimations on PatchMapController {
         tweens.remove(entry.key);
       }
     }
-    tweens.removeWhere(
-      (key, value) =>
-          !candidate.nodes.containsKey(
-            key.substring(0, key.indexOf('\u0000')),
-          ) ||
-          _clockMs - value.start >= value.duration,
-    );
+    // Reconcile only live tweens at the publication boundary. Authored edits
+    // and history may remove a component or change its effective destination.
+    // Sampling frames still use the compiled numeric columns exclusively.
+    PatchMapGeometry? candidateGeometry;
+    tweens.removeWhere((key, value) {
+      final split = key.indexOf('\u0000');
+      final node = candidate.nodes[key.substring(0, split)];
+      if (node == null || _clockMs - value.start >= value.duration) return true;
+      if (incremental || plans.containsKey(key)) return false;
+      final componentId = key.substring(split + 1);
+      final bars = node.components.where(
+        (v) => v['id'] == componentId && v['type'] == 'bar',
+      );
+      if (bars.isEmpty) return true;
+      final bar = bars.single;
+      final size = bar['size'];
+      final authored = _authoredBarHeight(size);
+      final overlaySize = overlays[key]?['size'];
+      final height = overlaySize is Map
+          ? overlaySize['height'] ?? authored
+          : authored;
+      candidateGeometry ??= _geometryFor(candidate, overlays);
+      return candidateGeometry!.resolveBarHeight(key, height) != value.to;
+    });
     final columns = _BarColumns(tweens);
     final sampled = columns.sample(_clockMs, reducedMotion);
     _BarHeightOverlay? overlay;

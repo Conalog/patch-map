@@ -88,7 +88,7 @@ trace는 load -> query -> updateBatch -> callback 재진입 -> transaction 거�
 | 애니메이션 도중 background/reduced motion/취소 | 정의된 진행·정지·완료 순서, settled·history 보존 | 가상 clock + 실기기 |
 | 반복 mount/unmount, 다중 map 공유 assets | 인스턴스 간 해제 침범·늦은 재부착·listener/ticker/lease 누수 없음 | lifecycle + memory |
 
-현재 npm/Dart 9개 trace가 일치한다. qualification은 [집중 테스트](system-map.md) 실행·설치 artifact·Android 에뮬레이터/iOS 시뮬레이터 증거를 연결해 판정한다. 사용자 지정에 따라 실기기는 제외한다. mock surface는 렌더링·설치 증거가 아니다. 검증 범위는 [verification 정책](verification.md)을 따른다.
+npm 브라우저와 Dart VM에서 공통 trace를 비교한다. Flutter 웹은 지원하지 않으며 Android/iOS 앱 시뮬레이터로 렌더링·입력을 검증한다. 성능은 빌드·입력·카메라·DPR을 고정해 순차 측정한다. `alpha-parity`의 계산된 viewport/fit 좌표만 절대 오차 1e-9를 허용하며 나머지는 정확 비교한다. [실행 지침](../../verification/flutter/README.md)과 [verification 정책](verification.md)에 따라 설치 artifact·모바일 증거를 함께 판정한다. mock surface는 렌더링·설치 증거가 아니다.
 
 ## 유지보수와 배포 규칙
 
@@ -96,7 +96,7 @@ trace는 load -> query -> updateBatch -> callback 재진입 -> transaction 거�
 2. TS와 Dart가 각자 구현하며 공통 trace와 플랫폼별 검증을 통과한다. 플랫폼 최적화는 공통 성능 수치나 내부 구조를 강제하지 않는다.
 3. release manifest는 npm version, pub version, spec revision, conformance hash, assets provenance, required capabilities, qualified platforms를 대응시킨다. manifest는 CI 결과에서 생성하고 수기로 통과 표시하지 않는다.
 4. 같은 spec이라도 필수 case가 누락·skip·실패하면 동일 기능 상태가 아니다. adapter가 빈 결과를 반환해 case를 통과시키는 일을 막도록 실제 public API와 플랫폼 integration을 검사한다.
-5. 패키지별 bug/performance patch는 독립 배포 가능하다. 공통 버그는 같은 회귀 ID로 양쪽 영향 여부를 확인한다. 새로운 기능은 양쪽 준비 상태를 명확히 표시한다.
+5. 패키지별 bug/performance patch는 독립 배포 가능하다. 공통 버그는 동일 회귀 ID로 양쪽 영향을 확인한다. 새로운 기능은 양쪽 준비 상태를 명확히 표시한다.
 6. docs만 갱신됐거나 실제 artifact에 반영되지 않은 상태를 막기 위해 npm packed consumer와 Dart package consumer에서 같은 contract fingerprint를 확인한다. 릴리스 시 두 registry의 조회·설치 결과를 기록한다.
 
-테스트만으로 모든 입력의 동등성을 증명하지는 못한다. inventory·경계/실패 trace·속성/renderer 검사·변경 리뷰로 drift를 발견하고 출시에서 차단한다.
+inventory·경계/실패검사·리뷰를 함께 적용해 출시 drift를 차단한다.

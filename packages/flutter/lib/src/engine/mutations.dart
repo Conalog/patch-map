@@ -29,8 +29,14 @@ extension PatchMapMutationOperations on PatchMapController {
       input['targets'] as Object,
       duplicates: true,
     );
+    var hasAuthored = false, hasInstance = false;
     for (final target in requested) {
       final node = dataset.nodes[target.id];
+      if (node?.instance == true) {
+        hasInstance = true;
+      } else {
+        hasAuthored = true;
+      }
       if (node?.type == 'grid' &&
           ['background', 'bar', 'icon', 'text'].any(input.containsKey))
         _invalidMutation('Grid templates have no public component target');
@@ -82,6 +88,13 @@ extension PatchMapMutationOperations on PatchMapController {
             },
           });
         }
+      }
+      if (['background', 'bar', 'icon', 'text'].any(input.containsKey) &&
+          hasInstance &&
+          hasAuthored) {
+        _invalidMutation(
+          'Component batches cannot mix authored and instance targets',
+        );
       }
       final fast = _barHeightBatch(input, targets, animate, actionId);
       if (fast != null) return fast;
@@ -201,7 +214,7 @@ extension PatchMapMutationOperations on PatchMapController {
     var changed = 0;
     for (var i = 0; i < targets.length; i++) {
       final target = targets[i], node = nodes[i], height = heights[i];
-      if (height != null && (height is! num || !height.isFinite))
+      if (height != null && (height is! num || !height.isFinite || height < 0))
         throw const PatchMapException(
           'INVALID_INPUT',
           'Bar height must be finite or null',
@@ -229,9 +242,7 @@ extension PatchMapMutationOperations on PatchMapController {
           ? animate[i] as bool
           : component['animation'] != false;
       final authoredSize = component['size'];
-      final authoredHeight = authoredSize is Map
-          ? authoredSize['height']
-          : authoredSize;
+      final authoredHeight = _authoredBarHeight(authoredSize);
       final destination = baseGeometry.resolveBarHeight(
         key,
         height ?? authoredHeight,
@@ -413,7 +424,31 @@ extension PatchMapMutationOperations on PatchMapController {
             final patches = _componentPatches(node, op, overlay: true);
             for (final entry in patches.entries) {
               final current = overlays[entry.key] ?? {};
-              final next = _overlayMerge(current, entry.value);
+              final sparse = _overlayMerge(current, entry.value);
+              final component = node.components.singleWhere(
+                (v) => '${node.id}\u0000${v['id']}' == entry.key,
+              );
+              final atomicSource =
+                  component['type'] == 'bar' || component['type'] == 'icon';
+              if (atomicSource && entry.value['source'] != null) {
+                sparse['source'] = cloneJson(entry.value['source']);
+              }
+              final size = component['size'];
+              final base = {
+                ...component,
+                if (size != null &&
+                    (size is! Map ||
+                        !size.containsKey('width') &&
+                            !size.containsKey('height')))
+                  'size': {'width': size, 'height': size},
+              };
+              final effective = _merge(base, sparse);
+              if (atomicSource && sparse.containsKey('source'))
+                effective['source'] = sparse['source'];
+              final normalized = normalizeComponent(effective);
+              final next = _normalizedOverlay(sparse, normalized);
+              if (atomicSource && sparse.containsKey('source'))
+                next['source'] = normalized['source'];
               if (!_equal(current, next)) {
                 if (next.isEmpty) {
                   overlays.remove(entry.key);
@@ -558,6 +593,15 @@ JsonMap _overlayMerge(JsonMap current, JsonMap patch) {
   return result;
 }
 
+// Keep resettable overlay ownership sparse while using the schema's normalized
+// effective values (for example scalar margins and text style defaults).
+JsonMap _normalizedOverlay(JsonMap sparse, JsonMap normalized) => {
+  for (final entry in sparse.entries)
+    entry.key: entry.value is Map && normalized[entry.key] is Map
+        ? _normalizedOverlay(_map(entry.value), _map(normalized[entry.key]))
+        : cloneJson(normalized[entry.key]),
+};
+
 Map<String, JsonMap> _componentPatches(
   PatchMapNode node,
   JsonMap op, {
@@ -613,7 +657,7 @@ Map<String, JsonMap> _componentPatches(
         : _cloneMap(part['changes']);
     if (part.containsKey('height')) {
       final height = part['height'];
-      if (height != null && (height is! num || !height.isFinite))
+      if (height != null && (height is! num || !height.isFinite || height < 0))
         throw const PatchMapException(
           'INVALID_INPUT',
           'Bar height must be finite',
@@ -623,10 +667,22 @@ Map<String, JsonMap> _componentPatches(
       } else {
         final size = component['size'];
         patch['size'] = {
-          ...(size is Map ? _map(size) : {'width': size}),
+          ...(size is Map &&
+                  (size.containsKey('width') || size.containsKey('height'))
+              ? _map(size)
+              : {'width': size}),
           'height': height,
         };
       }
+    }
+    if ([
+      'text',
+      'style',
+    ].any((key) => part.containsKey(key) && patch.containsKey(key))) {
+      throw const PatchMapException(
+        'INVALID_INPUT',
+        'Duplicate component update field',
+      );
     }
     if (part.containsKey('text')) patch['text'] = part['text'];
     if (part.containsKey('style')) patch['style'] = part['style'];

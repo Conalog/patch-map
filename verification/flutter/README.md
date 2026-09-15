@@ -37,3 +37,25 @@ Full SDK qualification still requires the complete feature witnesses and both
 OS reports with the same contract fingerprint. See the
 [conformance design](../../docs/engineering/flutter-conformance-design.md) and
 [native benchmark harness](benchmark.md).
+
+
+## Native/browser demo comparison
+
+The npm demo runs at `/verification/conformance/web/`; Flutter uses the same
+fixtures in `packages/flutter/example/lib/main.dart` on Android/iOS. Flutter web
+is outside the supported scope. Both demos expose fixture selection, step,
+height update, history, rotation, fit and capture controls. `alpha-parity` adds
+mirroring, upright/follow content, fit contribution and overlay reset cases.
+
+From `packages/flutter/example`, the actual native demo controls can be checked
+with `flutter drive --profile -d DEVICE_ID
+--driver=test_driver/native_contract_driver.dart
+--target=integration_test/comparison_demo_test.dart`, setting
+`PATCHMAP_CONTRACT_OUTPUT` to an absolute JSON path. Use `--debug` for the iOS
+simulator. The report includes per-command authored data/hash, selection,
+history, editor, viewport and rotation plus PNG captures at 0° and 90°. Compare
+these fields with `.artifacts/flutter/public-ci/npm-public.json` produced by
+`npm run verify:conformance`; calculated rotation/fit fields use the named
+1e-9 tolerance in the conformance comparator. Native raster and gesture checks
+remain separate from semantic trace equality. Run the [performance checks](benchmark.md)
+sequentially after closing active comparison scenes.

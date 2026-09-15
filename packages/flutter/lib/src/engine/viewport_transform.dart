@@ -84,11 +84,19 @@ class PatchMapViewportApi {
   void _changed() {
     _c._viewRevision++;
     _c._notify();
+    _queueSettled();
+  }
+
+  void _queueSettled() {
     _settleTimer?.cancel();
+    if (_c.destroyed || !_c._surfaceVisible || _c.rotation._animation != null)
+      return;
     _settleTimer = Timer(const Duration(milliseconds: 100), () {
-      if (!_c.destroyed) {
+      if (!_c.destroyed && _c.rotation._animation == null) {
         for (final listener in List.of(_listeners)) {
-          _c._call(() => listener(state));
+          _c._call(() {
+            if (_listeners.contains(listener)) listener(state);
+          });
         }
       }
     });
@@ -110,7 +118,6 @@ class PatchMapViewportApi {
   });
   PatchMapResult panBy(List<num> delta, {String source = 'pointer'}) {
     _c._assertLive();
-    _c.rotation._cancel();
     if (delta.length != 2)
       throw const PatchMapException(
         'INVALID_INPUT',
@@ -119,8 +126,15 @@ class PatchMapViewportApi {
     final before = state, stamp = _c.revisionStamp;
     final dx = _number(delta[0]), dy = _number(delta[1]);
     final radians = _c.rotation.value % 360 * math.pi / 180;
-    _centerX -= (dx * math.cos(radians) + dy * math.sin(radians)) / _scale;
-    _centerY -= (-dx * math.sin(radians) + dy * math.cos(radians)) / _scale;
+    final x = _number(
+      _centerX - (dx * math.cos(radians) + dy * math.sin(radians)) / _scale,
+    );
+    final y = _number(
+      _centerY - (-dx * math.sin(radians) + dy * math.cos(radians)) / _scale,
+    );
+    _c.rotation._cancel();
+    _centerX = x;
+    _centerY = y;
     final changed = dx != 0 || dy != 0;
     if (changed) _changed();
     return _result(before, stamp, source, changed);
@@ -146,7 +160,6 @@ class PatchMapViewportApi {
 
   PatchMapResult zoomBy(num factor, [List<num>? anchor]) {
     _c._assertLive();
-    _c.rotation._cancel();
     final f = _number(factor);
     if (f <= 0 || anchor != null && anchor.length != 2)
       throw const PatchMapException('INVALID_INPUT', 'Invalid zoom');
@@ -156,10 +169,18 @@ class PatchMapViewportApi {
     final point = screenToWorld(ax, ay);
     final next = (_scale * f).clamp(zoomLimits[0], zoomLimits[1]);
     final changed = next != _scale;
+    final radians = _c.rotation.value % 360 * math.pi / 180;
+    final dx = ax - _width / 2, dy = ay - _height / 2;
+    final x = _number(
+      point[0] - (dx * math.cos(radians) + dy * math.sin(radians)) / next,
+    );
+    final y = _number(
+      point[1] - (-dx * math.sin(radians) + dy * math.cos(radians)) / next,
+    );
+    _c.rotation._cancel();
     _scale = next;
-    final afterPoint = screenToWorld(ax, ay);
-    _centerX += point[0] - afterPoint[0];
-    _centerY += point[1] - afterPoint[1];
+    _centerX = x;
+    _centerY = y;
     if (changed) _changed();
     return _result(before, stamp, 'programmatic', changed);
   }
@@ -189,91 +210,31 @@ class PatchMapViewportApi {
 
   PatchMapResult fit({Object? targets, Object padding = 16}) {
     _c._assertLive();
-    _c.rotation._cancel();
     return _fit(targets, padding);
   }
 
-  PatchMapResult _fit(Object? targets, Object padding) {
-    final values = padding is List ? padding : [padding, padding];
-    if (values.length != 2)
-      throw const PatchMapException(
-        'INVALID_INPUT',
-        'Padding requires two values',
-      );
-    final px = _number(values[0]), py = _number(values[1]);
-    if (px < 0 || py < 0)
-      throw const PatchMapException(
-        'INVALID_INPUT',
-        'Padding must be nonnegative',
-      );
-    final addresses = targets == null
-        ? _c.dataset.roots
-              .map((v) => PatchMapTarget(v['id'] as String))
-              .toList()
-        : _c.targets._resolve(targets, duplicates: true);
-    final contributors = <JsonMap>[],
-        missing = <String>[],
-        excluded = <String>[];
-    final seen = <String>{};
-    var duplicate = 0;
-    double? left, top, right, bottom;
-    for (final target in addresses) {
-      if (!seen.add(target.key)) {
-        duplicate++;
-        continue;
-      }
-      final bounds = _geometry.worldBounds(target.key);
-      if (bounds == null) {
-        if (_c.targets.get(target) == null) {
-          missing.add(target.id);
-        } else {
-          excluded.add(target.id);
-        }
-        continue;
-      }
-      left = left == null ? bounds.left : math.min(left, bounds.left);
-      top = top == null ? bounds.top : math.min(top, bounds.top);
-      right = right == null ? bounds.right : math.max(right, bounds.right);
-      bottom = bottom == null ? bounds.bottom : math.max(bottom, bounds.bottom);
-      contributors.add({
-        'id': target.id,
-        'worldBounds': [bounds.left, bounds.top, bounds.right, bounds.bottom],
-      });
-    }
+  PatchMapResult _fit(Object? targets, Object padding) =>
+      _applyFit(_planFit(targets, padding));
+
+  PatchMapResult _applyFit(_ViewportFit plan) {
     final before = snapshot();
-    if (left != null) {
-      _centerX = (left + right!) / 2;
-      _centerY = (top! + bottom!) / 2;
-      final rad = _c.rotation.value % 360 * math.pi / 180;
-      final w = (right - left).abs(), h = (bottom - top).abs();
-      final rw = w * math.cos(rad).abs() + h * math.sin(rad).abs(),
-          rh = w * math.sin(rad).abs() + h * math.cos(rad).abs();
-      _scale = math
-          .min(
-            (_width - 2 * px).clamp(1, double.infinity) / math.max(rw, 1),
-            (_height - 2 * py).clamp(1, double.infinity) / math.max(rh, 1),
-          )
-          .clamp(zoomLimits[0], zoomLimits[1]);
+    if (plan.bounds != null) {
+      _c.rotation._cancel();
+      _centerX = plan.bounds!.centerX;
+      _centerY = plan.bounds!.centerY;
+      _scale = plan.scale;
     }
     final changed = !_equal(before, snapshot());
     if (changed) _changed();
     return PatchMapResult({
-      'status': left == null ? 'empty' : 'applied',
+      ...plan.facts,
       'changed': changed,
-      'paddingCssPx': [px, py],
       'viewport': state,
-      'contributors': contributors,
-      'applied': contributors.map((e) => e['id']).toList(),
-      'missing': missing,
-      'excluded': excluded,
-      'duplicateCount': duplicate,
-      'worldBounds': left == null ? null : [left, top, right, bottom],
     });
   }
 
   PatchMapResult restore(JsonMap value) {
     _c._assertLive();
-    _c.rotation._cancel();
     final center = value['centerWorld'];
     if (center is! List || center.length != 2)
       throw const PatchMapException(
@@ -286,6 +247,7 @@ class PatchMapViewportApi {
     if (scale <= 0)
       throw const PatchMapException('INVALID_INPUT', 'Invalid viewport scale');
     final before = state, stamp = _c.revisionStamp;
+    _c.rotation._cancel();
     _centerX = x;
     _centerY = y;
     _scale = scale.clamp(zoomLimits[0], zoomLimits[1]);
@@ -316,7 +278,7 @@ class _RotationPlan {
   _RotationPlan(this.handle, this.from, this.to, this.completed, this.duration);
   final PatchMapRotationAnimation handle;
   final double from, to, completed, duration;
-  double? start;
+  double? start, hiddenAt;
   bool awaitingFrame = false;
 }
 
@@ -362,7 +324,12 @@ class PatchMapRotationApi {
       );
     var to = target;
     if (path != 'raw') {
-      final clockwise = (target % 360 - _value % 360) % 360;
+      final distance = (target % 360 - _value % 360) % 360;
+      final clockwise = math.min(distance, 360 - distance) <= 1e-9
+          ? 0.0
+          : (distance - 180).abs() <= 1e-9
+          ? 180.0
+          : distance;
       final delta =
           clockwise == 0 ||
               path == 'clockwise' ||
@@ -370,7 +337,10 @@ class PatchMapRotationApi {
           ? clockwise
           : clockwise - 360;
       to = _value + delta;
-      if (_value.abs() > 9007199254740991 || to.abs() > 9007199254740991)
+      final bearingError = (to % 360 - target % 360).abs();
+      if (_value.abs() > 9007199254740991 ||
+          to.abs() > 9007199254740991 ||
+          math.min(bearingError, 360 - bearingError) > 1e-9)
         throw const PatchMapException(
           'INVALID_INPUT',
           'Directed angle cannot represent target',
@@ -389,9 +359,13 @@ class PatchMapRotationApi {
     _c._syncAnimationClock();
     plan.start = _c._clockMs;
     _animation = plan;
+    plan.hiddenAt = _c._surfaceVisible ? null : _c._clockMs;
+    _c.viewport._settleTimer?.cancel();
     if (duration == 0 || to == _value || _c.reducedMotion) {
+      final changed = plan.completed != _value;
       _assign(plan.completed);
       _animation = null;
+      if (changed) _c.viewport._queueSettled();
       handle._completer.complete(
         PatchMapResult({'status': 'completed', 'angle': _value}),
       );
@@ -406,6 +380,7 @@ class PatchMapRotationApi {
     final animation = _animation;
     if (animation == null) return false;
     _animation = null;
+    _c.viewport._queueSettled();
     animation.handle._completer.complete(
       PatchMapResult({'status': status, 'angle': _value}),
     );
@@ -417,9 +392,21 @@ class PatchMapRotationApi {
     if (animation == null || !animation.awaitingFrame) return;
     _value = animation.completed;
     _animation = null;
+    _c.viewport._queueSettled();
     animation.handle._completer.complete(
       PatchMapResult({'status': 'completed', 'angle': _value}),
     );
+  }
+
+  void _visibilityChanged(bool visible, double milliseconds) {
+    final plan = _animation;
+    if (plan == null) return;
+    if (!visible) {
+      plan.hiddenAt = milliseconds;
+    } else if (plan.hiddenAt != null) {
+      plan.start = plan.start! + math.max(0, milliseconds - plan.hiddenAt!);
+      plan.hiddenAt = null;
+    }
   }
 
   bool _advance(double milliseconds) {

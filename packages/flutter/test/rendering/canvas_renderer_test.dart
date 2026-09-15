@@ -70,6 +70,51 @@ Future<Uint8List> raster(
 }
 
 void main() {
+  test('alpha bars ignore source borders and nonnumeric radius', () async {
+    Future<Uint8List> draw(Map<String, dynamic> source) async {
+      final dataset = PatchMapDataset.parse([
+        {
+          'type': 'item',
+          'id': 'i',
+          'size': 80,
+          'components': [
+            {'type': 'bar', 'id': 'b', 'size': 40, 'source': source},
+          ],
+        },
+      ]);
+      final renderer = PatchMapCanvasRenderer(null);
+      try {
+        return await raster(
+          renderer,
+          snapshot(dataset, buildGeometry(dataset)),
+        );
+      } finally {
+        renderer.dispose();
+      }
+    }
+
+    final square = await draw({'fill': '#287ac7'});
+    for (final radius in [
+      0,
+      [8, 4, 2, 1],
+      {'topLeft': 8},
+    ]) {
+      expect(
+        await draw({
+          'fill': '#287ac7',
+          'borderWidth': 5,
+          'borderColor': '#000000',
+          'radius': radius,
+        }),
+        orderedEquals(square),
+      );
+    }
+    expect(
+      await draw({'fill': '#287ac7', 'radius': 8}),
+      isNot(orderedEquals(square)),
+    );
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
     'incremental text paint matches rebuild across cached values and asset refresh',

@@ -367,7 +367,7 @@ void main() {
             'changes': {'source': 'image.png'},
           },
         }).status,
-        'committed',
+        'rejected',
       );
       expect(
         c.update({
@@ -860,9 +860,9 @@ void main() {
     },
   );
   test(
-    'visibility settles bars and cancels transient transforms and rotation',
+    'visibility settles bars, cancels transforms, and pauses rotation',
     () async {
-      final (c, _) = await mounted();
+      final (c, surface) = await mounted();
       c.updateBatch({
         'targets': ['grid.0.0'],
         'bar': {
@@ -881,14 +881,19 @@ void main() {
       });
       c.advanceFrame(50);
       c.surfaceVisibilityChanged(false, 50);
-      expect((await rotation.finished).status, 'cancelled');
+      final paused = c.rotation.value;
       expect(
         c.renderSnapshot.geometry.targets['grid.0.0\u0000bar']!.bounds.height,
         60,
       );
       expect(c.renderSnapshot.geometry.targets['rect']!.bounds.left, 0);
       expect(c.advanceFrame(5000), false);
-      c.surfaceVisibilityChanged(true, 50);
+      c.surfaceVisibilityChanged(true, 5000);
+      surface.paint(5000);
+      expect(c.rotation.value, paused);
+      surface.paint(5250);
+      expect((await rotation.finished).status, 'completed');
+      expect(c.rotation.value, 90);
       expect(
         c.renderSnapshot.geometry.targets['grid.0.0\u0000bar']!.bounds.height,
         60,

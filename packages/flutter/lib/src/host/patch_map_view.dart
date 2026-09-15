@@ -118,7 +118,7 @@ class _PatchMapViewState extends State<PatchMapView>
       _gestureRecognizer?.cancelAll();
       _pointer.blur();
     }
-    controller.surfaceVisibilityChanged(visible, _lastFrameMs);
+    controller.surfaceVisibilityChanged(visible, _animationTimeMs);
     if (visible) requestFrame();
   }
 
@@ -264,6 +264,7 @@ class _PatchMapViewState extends State<PatchMapView>
         _lastFrameMs = time.inMicroseconds / 1000;
         _frameAge.reset();
         final activeAnimation = controller.advanceFrame(_lastFrameMs);
+        _pointer.syncDataset();
         final snapshot = controller.renderSnapshot;
         if (_snapshot.revisions.scene != snapshot.revisions.scene ||
             _snapshot.revisions.interaction != snapshot.revisions.interaction ||
@@ -379,7 +380,7 @@ class _PatchMapViewState extends State<PatchMapView>
             widget.background,
             _painted,
             _paintFailed,
-            (id) => _input(() => controller.selection.fromPointer([id])),
+            (id) => _input(() => controller.selection.set([id])),
             () => _pointer.marquee,
           ),
           size: Size.infinite,
@@ -399,7 +400,7 @@ class _PatchMapViewState extends State<PatchMapView>
       return Focus(
         focusNode: _focus,
         onFocusChange: (focused) {
-          if (!focused) _pointer.cancel();
+          if (!focused) _pointer.blur();
         },
         onKeyEvent: (_, event) {
           if (event is KeyDownEvent &&
@@ -450,6 +451,12 @@ class _PatchMapViewState extends State<PatchMapView>
                           _pointer.move(event);
                         } else if (event is PointerUpEvent) {
                           _pointer.up(event);
+                        } else if (event is PointerPanZoomStartEvent) {
+                          _pointer.panZoomStart(event);
+                        } else if (event is PointerPanZoomUpdateEvent) {
+                          _pointer.panZoomUpdate(event);
+                        } else if (event is PointerPanZoomEndEvent) {
+                          _pointer.cancel();
                         } else if (event is PointerCancelEvent) {
                           _pointer.cancel(event);
                         }

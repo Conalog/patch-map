@@ -499,6 +499,7 @@ class PatchMapEditorApi {
         } finally {
           _committing = false;
         }
+        outcomeStatus = outcome.status;
         if (outcome.changed && _c.history._entries.isNotEmpty)
           _c.history._entries.last.editorBoundary = true;
         if (outcome.status == 'rejected' || outcome.status == 'refused')

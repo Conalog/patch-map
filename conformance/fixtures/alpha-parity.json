@@ -1,0 +1,307 @@
+{
+  "schemaRevision": "patch-map-conformance/1",
+  "id": "alpha-parity",
+  "description": "Rotated and mirrored upright/follow items; fit contribution rules and concrete scalar/atomic overlay normalization",
+  "surface": {
+    "width": 480,
+    "height": 520,
+    "pixelRatio": 1,
+    "background": "#f8fafc"
+  },
+  "dataset": [
+    {
+      "type": "item",
+      "id": "upright",
+      "attrs": {
+        "x": 40,
+        "y": 50,
+        "angle": 150,
+        "scaleX": -1
+      },
+      "size": 80,
+      "contentOrientation": "upright",
+      "components": [
+        {
+          "type": "background",
+          "id": "bg",
+          "source": {
+            "fill": "#dbeafe"
+          }
+        },
+        {
+          "type": "bar",
+          "id": "b",
+          "size": 20,
+          "source": {
+            "type": "rect",
+            "fill": "#2563eb",
+            "borderWidth": 5
+          },
+          "animation": false
+        },
+        {
+          "type": "text",
+          "id": "t",
+          "text": "UP",
+          "style": {
+            "fontSize": 12,
+            "fill": "#0f172a"
+          }
+        }
+      ]
+    },
+    {
+      "type": "item",
+      "id": "follow",
+      "attrs": {
+        "x": 180,
+        "y": 50,
+        "angle": 150,
+        "scaleX": -1
+      },
+      "size": 80,
+      "contentOrientation": "follow-item",
+      "components": [
+        {
+          "type": "background",
+          "id": "bg",
+          "source": {
+            "fill": "#dbeafe"
+          }
+        },
+        {
+          "type": "bar",
+          "id": "b",
+          "size": 20,
+          "source": {
+            "type": "rect",
+            "fill": "#2563eb",
+            "borderWidth": 5
+          },
+          "animation": false
+        },
+        {
+          "type": "text",
+          "id": "t",
+          "text": "UP",
+          "style": {
+            "fontSize": 12,
+            "fill": "#0f172a"
+          }
+        }
+      ]
+    },
+    {
+      "type": "grid",
+      "id": "g",
+      "attrs": {
+        "x": 60,
+        "y": 200,
+        "angle": 15
+      },
+      "cells": [
+        [
+          1,
+          0,
+          1
+        ]
+      ],
+      "inactiveCellStrategy": "hide",
+      "item": {
+        "size": 80,
+        "components": [
+          {
+            "type": "background",
+            "id": "bg",
+            "source": {
+              "fill": "#dbeafe"
+            }
+          },
+          {
+            "type": "bar",
+            "id": "b",
+            "size": 20,
+            "source": {
+              "type": "rect",
+              "fill": "#2563eb",
+              "borderWidth": 5
+            },
+            "animation": false
+          },
+          {
+            "type": "text",
+            "id": "t",
+            "text": "UP",
+            "style": {
+              "fontSize": 12,
+              "fill": "#0f172a"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "rect",
+      "id": "hidden",
+      "show": false,
+      "size": 10000
+    },
+    {
+      "type": "image",
+      "id": "image",
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+      "size": 32
+    }
+  ],
+  "commands": [
+    {
+      "id": "root-fit",
+      "op": "viewport.fit",
+      "input": {}
+    },
+    {
+      "id": "grid-fit",
+      "op": "viewport.fit",
+      "input": {
+        "targets": [
+          {
+            "id": "g"
+          }
+        ]
+      }
+    },
+    {
+      "id": "duplicate-fit",
+      "op": "viewport.fit",
+      "input": {
+        "targets": [
+          {
+            "id": "upright"
+          },
+          {
+            "id": "upright"
+          },
+          {
+            "id": "hidden"
+          }
+        ]
+      }
+    },
+    {
+      "id": "component-address-fits-owner",
+      "op": "viewport.fit",
+      "input": {
+        "targets": [
+          {
+            "id": "upright",
+            "componentId": "b"
+          }
+        ]
+      }
+    },
+    {
+      "id": "quarter-turn",
+      "op": "rotation.set",
+      "input": 90
+    },
+    {
+      "id": "half-turn",
+      "op": "rotation.set",
+      "input": 180
+    },
+    {
+      "id": "full-turn",
+      "op": "rotation.set",
+      "input": 360
+    },
+    {
+      "id": "restore-angle",
+      "op": "rotation.set",
+      "input": 0
+    },
+    {
+      "id": "scalar-bar-with-companion",
+      "op": "update",
+      "input": {
+        "id": "g.0.0",
+        "bar": {
+          "height": 40,
+          "changes": {
+            "show": true
+          }
+        }
+      },
+      "options": {
+        "animate": false
+      }
+    },
+    {
+      "id": "source-replaces-defaults",
+      "op": "update",
+      "input": {
+        "id": "g.0.0",
+        "bar": {
+          "changes": {
+            "source": {
+              "fill": "#00ff00"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "scalar-text-margin",
+      "op": "update",
+      "input": {
+        "id": "g.0.0",
+        "text": {
+          "changes": {
+            "margin": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "reset-source-and-margin",
+      "op": "update",
+      "input": {
+        "id": "g.0.0",
+        "bar": {
+          "changes": {
+            "source": null
+          }
+        },
+        "text": {
+          "changes": {
+            "margin": null
+          }
+        }
+      }
+    },
+    {
+      "id": "final-fit",
+      "op": "viewport.fit",
+      "input": {}
+    }
+  ],
+  "expected": {
+    "rootIds": [
+      "upright",
+      "follow",
+      "g",
+      "hidden",
+      "image"
+    ],
+    "elementTypes": [
+      "item",
+      "grid",
+      "rect",
+      "image"
+    ],
+    "componentTypes": [
+      "background",
+      "bar",
+      "text"
+    ]
+  }
+}

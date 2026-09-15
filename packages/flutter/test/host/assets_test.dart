@@ -539,6 +539,15 @@ void main() {
         throwsA(code('ASSET_POLICY_REJECTED')),
       );
       await svg.dispose();
+      final raster = mockSession(
+        reader: (_) async =>
+            ('image/svg+xml', Uint8List.fromList(utf8.encode('<svg/>'))),
+      );
+      await expectLater(
+        raster.ensure({'src': 'a', 'parser': 'loadTextures'}),
+        throwsA(code('ASSET_POLICY_REJECTED')),
+      );
+      await raster.dispose();
       final large = mockSession(
         policy: {'maxDecodedWidth': 10},
         decoder: (_, __, ___) async => NativeAsset(width: 11, height: 1),
@@ -586,6 +595,13 @@ void main() {
       expect(image.width, 12);
       expect(image.height, 8);
       expect(image.picture, isNotNull);
+      final scaled = await session.ensure({
+        'src': source,
+        'data': {'width': 24, 'height': 16},
+      });
+      expect(scaled.width, 24);
+      expect(scaled.height, 16);
+      expect(scaled.picture, isNotNull);
       await session.dispose();
       await settle();
       expect(session.runtime.probe()['resourceCount'], 0);

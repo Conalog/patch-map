@@ -1,5 +1,6 @@
 import { PatchMap } from '../../../packages/javascript/src/index';
 import type { PatchMapInstance } from '../../../packages/javascript/src/index';
+import alphaParity from '../../../conformance/fixtures/alpha-parity.json';
 import gallery from '../../../conformance/fixtures/gallery.json';
 import updates from '../../../conformance/fixtures/updates.json';
 import editor from '../../../conformance/fixtures/editor.json';
@@ -7,7 +8,7 @@ import codecs from '../../../conformance/fixtures/codecs.json';
 import { observePublic, executeSharedCommand, assertCommandExpectation, runPublicFixture, EXTRA_TRACE_FIXTURES, acquireSharedFixtureAssets } from '../public-runner';
 import type { SharedFixture } from '../public-runner';
 
-const fixtures: Readonly<Record<string, SharedFixture>> = { gallery, updates, editor, codecs: codecs as SharedFixture };
+const fixtures: Readonly<Record<string, SharedFixture>> = { 'alpha-parity': alphaParity, gallery, updates, editor, codecs: codecs as SharedFixture };
 const container = document.querySelector<HTMLDivElement>('#map')!;
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
 const output = document.querySelector<HTMLPreElement>('#observation')!;
@@ -72,6 +73,9 @@ action('#heights', () => {
   const result = instance.updateBatch({ targets: ids, bar: { componentId: 'bar', height: heights } }, { animate: true });
   show(`Seeded heights: ${result.status}, ${ids.length} grid instances`);
 });
+action('#rotate', async () => { if (instance) { await instance.rotation.animateTo(instance.rotation.value + 90).finished; show(`Rotation ${instance.rotation.value}°`); } });
+action('#angle-reset', () => { if (instance) { instance.rotation.reset(); show('Rotation 0°'); } });
+action('#fit', () => { if (instance) show(JSON.stringify(instance.viewport.fit())); });
 action('#undo', () => { if (instance) show(`Undo: ${instance.history.undo().status}`); });
 action('#redo', () => { if (instance) show(`Redo: ${instance.history.redo().status}`); });
 action('#capture', async () => {
