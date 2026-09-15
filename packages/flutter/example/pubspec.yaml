@@ -10,7 +10,6 @@ dependencies:
   patch_map:
     path: ../
 dev_dependencies:
-  flame: 1.38.2
   flutter_test:
     sdk: flutter
   integration_test:

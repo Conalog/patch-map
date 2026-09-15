@@ -124,8 +124,8 @@ SpriteBatch 경로의 관측 간격 p95는 주 비교에서 25.03ms, 보조 비�
 - `final-primary/cases/aggregate.json`: 48개 전체 원본 행, 공통 메타데이터, APK/프로세스 provenance와 분포.
 - `final-primary/sources.json`, `final-primary/source/`, `final-primary/comparison.apk`: 주 비교의 정확한 입력과 실행 바이너리.
 - `final-supplement/`: 보조 실험의 별도 입력·APK·행.
-- 유지되는 실행·집계 도구: `verification/flutter/renderer-comparison.py`.
-- 설계·프로토콜: `verification/flutter/flame-comparison.md`.
+- 측정 당시 실행·집계 도구: `8dbee17b:verification/flutter/renderer-comparison.py`.
+- 설계·프로토콜: `8dbee17b:verification/flutter/flame-comparison.md`.
 
 배포용 npm 및 Dart 라이브러리는 수정하지 않았다. 실험 코드는 Flutter example과 verification에 격리돼 있다.
 

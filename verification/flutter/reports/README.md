@@ -19,14 +19,14 @@
 - `15cbbd12`: native surface 준비 후 측정을 시작하는 수정.
 - `6701df7e`: 10,000개 판정 문서. 10,000개 manifest의 63개 소스 파일은 이
   커밋과 모두 일치한다.
-- 이 보고서 추가 커밋은 이전 커밋에 원문 그대로 없던 5,000개 주 비교의
+- 보고서 보존 커밋 `0a51d765`는 이전 커밋에 원문 그대로 없던 5,000개 주 비교의
   `host.dart`와 `renderer_comparison_supplement_test.dart` 두 중간 소스도
-  `verification/flutter/renderer-comparison-snapshots/`에 기록한다. 다른 측정
+  `0a51d765:verification/flutter/renderer-comparison-snapshots/`에 기록한다. 다른 측정
   소스는 기존 Git 이력에 있으며 manifest의 해시로 대조할 수 있다.
 
-보고서 보존 커밋 다음에 별도 삭제 커밋을 만든다. 최종 작업 트리에는 결과
+보고서 보존 이후 별도 커밋으로 삭제했다. 최종 작업 트리에는 결과
 보고서와 소스 식별 정보만 남기고, 비교용 Canvas/Flame 프로토타입·실행 도구·
-전용 테스트·중간 소스 사본·로컬 APK와 원시 실행 산출물은 삭제한다. 측정
+전용 테스트·중간 소스 사본·로컬 APK와 원시 실행 산출물은 삭제했다. 측정
 소스와 프로토콜이 필요하면 Git의 해당 커밋에서 열람한다. APK와 원시 행
 파일 자체는 Git에 넣지 않으므로 해시만으로 원본 APK/원시 측정을 복원할 수
 있다는 의미는 아니다. 보고서의 과거 산출물 경로는 현재 실행 지침이 아니다.

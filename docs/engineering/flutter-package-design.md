@@ -46,12 +46,11 @@ not require a continuous game loop. Capture owns its explicit readback path.
 
 The runtime uses Flutter `CustomPainter` and `Canvas`, with no embedded JavaScript
 engine, WebView or Flame dependency. This is the selected architecture, not a
-claim that every alternative renderer is slower. Retired candidate experiments
-are not part of the maintained repository. The explicitly requested
-[Canvas/Flame reevaluation](../../verification/flutter/flame-comparison.md) is
-restricted to the Flutter example and verification tooling. Its compiled numeric
-state and renderer adapters explore performance without changing either shipping
-package; scene-specific prototypes do not establish full-SDK equivalence.
+claim that every alternative renderer is slower. The completed
+[Canvas/Flame comparison reports](../../verification/flutter/reports/README.md)
+preserve the selection evidence. Comparison prototypes, tools, dependencies and
+source snapshots were removed after being recorded in Git. Their scene-specific
+results do not establish full-SDK equivalence or change the shipping renderer.
 
 ## Functional equivalence
 

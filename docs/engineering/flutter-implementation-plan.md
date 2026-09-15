@@ -74,7 +74,7 @@ The selected implementations are maintained directly. Alternative JS engine, bri
 
 Run package-local focused tests for the changed owner. The private root forwards `js:*` and `flutter:*` commands; shared `verify:*` checks run from the repository root. Unscoped root build/test aliases are not provided. Package-local tools resolve their own package root and use the workspace root only for shared contracts, the npm lockfile and evidence. Neither production runtime imports the sibling package or repository tooling.
 
-Folder changes require import-boundary, build, installed-package, documentation and shared-conformance checks. They make no runtime speed claim. For hot-path changes use the selected renderer's benchmark, controlled baseline/candidate inputs and the [verification policy](verification.md). Explicit renderer reevaluation uses the focused [Canvas/Flame experiment](../../verification/flutter/flame-comparison.md); the retired JavaScript runtime matrix remains removed.
+Folder changes require import-boundary, build, installed-package, documentation and shared-conformance checks. They make no runtime speed claim. For hot-path changes use the selected renderer's benchmark, controlled baseline/candidate inputs and the [verification policy](verification.md). The [renderer comparison reports](../../verification/flutter/reports/README.md) preserve the decision; experiment sources and tools are removed.
 
 ## Distribution isolation
 
