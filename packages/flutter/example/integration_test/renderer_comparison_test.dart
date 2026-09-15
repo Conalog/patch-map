@@ -202,7 +202,12 @@ void main() {
       final workloads = scale10k
           ? ['immediate', 'animated', 'text', 'text-cold']
           : ['immediate', 'animated', 'text', 'pan'];
-      final dpr = ui.PlatformDispatcher.instance.views.single.devicePixelRatio;
+      await tester.runAsync(awaitNativeSurface);
+      final nativeView = ui.PlatformDispatcher.instance.views.single;
+      expect(nativeView.physicalSize.width, greaterThan(0));
+      expect(nativeView.physicalSize.height, greaterThan(0));
+      expect(binding.lifecycleState, ui.AppLifecycleState.resumed);
+      final dpr = nativeView.devicePixelRatio;
       final report = <String, dynamic>{
         'protocol': scale10k
             ? 'patch-map-canvas-flame/scale-10k-1'

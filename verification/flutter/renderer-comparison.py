@@ -56,6 +56,8 @@ def validate(report, case_key, suite='primary'):
         assert report['protocol'] == 'patch-map-canvas-flame/scale-10k-1'
         assert report['panelCount'] == 10000 and report['groupCount'] == 100
         assert report['seed'] == 0x5eed
+        assert report['dpr'] > 0 and len(report['physicalSize']) == 2
+        assert all(size > 0 for size in report['physicalSize'])
         assert case['rendererConfig'] == dict(
             host='canvas' if variant == 'canvas' else 'flame',
             flameBatch=variant == 'flame', atlasBars=True, minAtlasScale=0.0)

@@ -29,6 +29,7 @@ class ScaleComparisonTest(unittest.TestCase):
             filter='/flame-raw/0/fit/text-cold',
             protocol='patch-map-canvas-flame/scale-10k-1',
             panelCount=10000, groupCount=100, seed=0x5eed,
+            dpr=3.75, physicalSize=[1440, 3120],
             cases=[dict(
                 block=0, zoom=False, workload='text-cold', variant='flame-raw',
                 completed=True,
@@ -40,6 +41,7 @@ class ScaleComparisonTest(unittest.TestCase):
                       for i in range(25)])])
         comparison.validate(report, key, 'scale10k')
         mutations = [
+            lambda r: r.update(physicalSize=[0, 0]),
             lambda r: r.update(panelCount=5000),
             lambda r: r.update(groupCount=50),
             lambda r: r['cases'][0]['rendererConfig'].update(flameBatch=True),

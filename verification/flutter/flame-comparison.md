@@ -268,6 +268,11 @@ or renderer configuration. Local image tests also run at this new scale. Native
 host image qualification from the earlier 5,000-panel experiment is not a new
 10,000-panel image comparison.
 
+The target waits for positive native window dimensions and a resumed lifecycle
+before reading DPR or constructing the scene. A startup attempt with zero window
+dimensions failed frame-timing qualification and is excluded. Assembly also
+rejects missing/zero physical dimensions in this suite.
+
 Build from `packages/flutter/example`:
 
 ```sh
