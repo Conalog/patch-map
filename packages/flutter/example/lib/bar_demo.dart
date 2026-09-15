@@ -1,12 +1,19 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:patch_map/patch_map.dart';
 
+import 'shared_fixtures.dart';
+
+final _scene =
+    jsonDecode(sharedFixtureJson['scenes/panel-groups']!)
+        as Map<String, dynamic>;
+
 void main() => runApp(const BarDemoApp());
 
-/// Interactive device demo. Each of 50 grids contains 4 × 25 bars.
+/// Interactive device demo. Service panel groups: 50 grids of 5 × 20 panels.
 class BarDemoApp extends StatelessWidget {
   const BarDemoApp({super.key});
 
@@ -25,16 +32,31 @@ class _BarDemoPage extends StatefulWidget {
 }
 
 class _BarDemoPageState extends State<_BarDemoPage> {
-  static const count = 5000;
+  static final rows = _scene['rows'] as int;
+  static final columns = _scene['columns'] as int;
+  static final groups = _scene['groups'] as int;
+  static final count = groups * rows * columns;
+  static final _grid = _scene['grid'] as Map<String, dynamic>;
+  static final _item = _grid['item'] as Map<String, dynamic>;
+  static final _size = _item['size'] as Map<String, dynamic>;
+  static final fullHeight =
+      ((_size['height'] as num) - 2 * (_item['padding'] as num)).toDouble();
   final _targets = List.generate(
     count,
-    (i) => 'g${i ~/ 100}.${i % 100 ~/ 25}.${i % 25}',
+    (i) =>
+        'g${i ~/ (rows * columns)}.${i % (rows * columns) ~/ columns}.${i % columns}',
   );
-  final _heights = Float64List(count)..fillRange(0, count, 10);
+  final _heights = Float64List(count)..fillRange(0, count, fullHeight);
+  final _fullHeights = Float64List(count)..fillRange(0, count, fullHeight);
+  final _visible = List.filled(count, true);
+  final _hidden = List.filled(count, false);
+  final _percentages = List.filled(count, 100);
+  final _texts = List.filled(count, '0');
+  bool _textMode = false;
   PatchMapController? _controller;
   void Function()? _stopViewport;
   bool _ready = false, _animate = true;
-  int _seed = 0x5eed, _updates = 0;
+  int _seed = _scene['seed'] as int, _updates = 0;
   String _status = '맵을 준비하고 있습니다';
   String _camera = '';
 
@@ -50,32 +72,30 @@ class _BarDemoPageState extends State<_BarDemoPage> {
         fit: false,
         historyLimit: 0,
         selection: {'box': false},
+        theme: _scene['theme'] as Map<String, dynamic>,
         data: [
-          for (var g = 0; g < 50; g++)
+          for (var g = 0; g < groups; g++)
             {
+              ..._grid,
               'id': 'g$g',
-              'type': 'grid',
-              'attrs': {'x': g % 5 * 270, 'y': g ~/ 5 * 110},
-              'cells': [for (var row = 0; row < 4; row++) List.filled(25, 1)],
-              'gap': {'x': 2, 'y': 4},
-              'item': {
-                'size': {'width': 8, 'height': 20},
-                'components': [
-                  {
-                    'id': 'bar',
-                    'type': 'bar',
-                    'size': {'width': 8, 'height': 10},
-                    'placement': 'bottom',
-                    'source': {
-                      'type': 'rect',
-                      'fill': g.isEven ? '#2563eb' : '#0d9488',
-                      'radius': 3,
-                    },
-                    'animation': true,
-                    'animationDuration': 200,
-                  },
-                ],
+              'attrs': {
+                ..._grid['attrs'] as Map<String, dynamic>,
+                'x':
+                    g %
+                    (_scene['groupColumns'] as int) *
+                    (columns * (_size['width'] as num) +
+                        (columns - 1) * (_grid['gap'] as num) +
+                        (_scene['groupGap'] as num)),
+                'y':
+                    g ~/
+                    (_scene['groupColumns'] as int) *
+                    (rows * (_size['height'] as num) +
+                        (rows - 1) * (_grid['gap'] as num) +
+                        (_scene['groupGap'] as num)),
               },
+              'cells': [
+                for (var row = 0; row < rows; row++) List.filled(columns, 1),
+              ],
             },
         ],
       );
@@ -98,34 +118,77 @@ class _BarDemoPageState extends State<_BarDemoPage> {
       controller.viewport.fit();
       setState(() {
         _ready = true;
-        _status = '5,000개 bar 준비 완료';
+        _status = '5,000개 panel 준비 완료';
       });
     } catch (error) {
       if (mounted) setState(() => _status = '$error');
     }
   }
 
-  void _changeHeights() {
+  void _setMode(bool textMode) {
+    final controller = _controller;
+    if (!_ready || controller == null || textMode == _textMode) return;
+    try {
+      final result = controller.updateBatch(
+        {
+          'targets': _targets,
+          'bar': {
+            'componentId': 'bar',
+            'height': textMode ? _fullHeights : _heights,
+          },
+          'text': {
+            'componentId': 'text',
+            'changes': {'show': textMode ? _visible : _hidden},
+            'text': _texts,
+          },
+        },
+        animate: false,
+        recordHistory: false,
+      );
+      setState(() {
+        if (result.status == 'committed' || result.status == 'unchanged') {
+          _textMode = textMode;
+        }
+        _status =
+            '${textMode ? "텍스트" : "높이"} 모드 · ${result.appliedCount}개 · ${result.status}';
+      });
+    } catch (error) {
+      setState(() => _status = '$error');
+    }
+  }
+
+  void _changeValues() {
     final controller = _controller;
     if (!_ready || controller == null) return;
     for (var i = 0; i < count; i++) {
       _seed = (_seed * 1664525 + 1013904223) & 0xffffffff;
-      var height = 1.0 + _seed % 20;
-      if (height == _heights[i]) height = height % 20 + 1;
-      _heights[i] = height;
+      if (_textMode) {
+        var value = 1 + _seed % 9999;
+        if ('$value' == _texts[i]) value = value % 9999 + 1;
+        _texts[i] = '$value';
+      } else {
+        var percent = 1 + _seed % 100;
+        if (percent == _percentages[i]) percent = percent % 100 + 1;
+        _percentages[i] = percent;
+        _heights[i] = fullHeight * percent / 100;
+      }
     }
     try {
       final result = controller.updateBatch(
         {
           'targets': _targets,
-          'bar': {'componentId': 'bar', 'height': _heights},
+          if (_textMode)
+            'text': {'componentId': 'text', 'text': _texts}
+          else
+            'bar': {'componentId': 'bar', 'height': _heights},
         },
-        animate: _animate,
+        animate: !_textMode && _animate,
         recordHistory: false,
       );
       setState(() {
         _updates++;
-        _status = '변경 $_updates회 · ${result.appliedCount}개 · ${result.status}';
+        _status =
+            '${_textMode ? "텍스트" : "높이"} 변경 $_updates회 · ${result.appliedCount}개 · ${result.status}';
       });
     } catch (error) {
       setState(() => _status = '$error');
@@ -142,13 +205,23 @@ class _BarDemoPageState extends State<_BarDemoPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('PatchMap · 5,000 bars')),
+    appBar: AppBar(title: const Text('PatchMap · 5,000 panels')),
     body: SafeArea(
       child: Column(
         children: [
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Text('4 × 25 grid 50개 · 드래그 이동 · 두 손가락 확대/축소'),
+            child: Text('5 × 20 panelGroup 50개 · 드래그 이동 · 두 손가락 확대/축소'),
+          ),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('Bar 높이')),
+              ButtonSegment(value: true, label: Text('Text 값')),
+            ],
+            selected: {_textMode},
+            onSelectionChanged: _ready
+                ? (value) => _setMode(value.single)
+                : null,
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -156,15 +229,17 @@ class _BarDemoPageState extends State<_BarDemoPage> {
               children: [
                 Expanded(
                   child: FilledButton(
-                    onPressed: _ready ? _changeHeights : null,
-                    child: const Text('전체 높이 랜덤 변경'),
+                    onPressed: _ready ? _changeValues : null,
+                    child: Text(_textMode ? '전체 텍스트 랜덤 변경' : '전체 높이 랜덤 변경'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 const Text('애니메이션'),
                 Switch(
                   value: _animate,
-                  onChanged: (value) => setState(() => _animate = value),
+                  onChanged: _textMode
+                      ? null
+                      : (value) => setState(() => _animate = value),
                 ),
               ],
             ),

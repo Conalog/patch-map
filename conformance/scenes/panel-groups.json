@@ -1,0 +1,110 @@
+{
+  "provenance": {
+    "repository": "Conalog/patch-service",
+    "revision": "e6e3e0093",
+    "sources": [
+      "src/lib/editor/plantmap/toolbar-panel-group-tool.js",
+      "src/lib/dashboard/widgets/plant-map-pixi/initial-state.js",
+      "src/lib/dashboard/widgets/plant-map-pixi/display/shared/common-state.js"
+    ],
+    "adaptations": "Stable component IDs for v1 batch addressing; deterministic group layout and seed; service test theme palette."
+  },
+  "groups": 50,
+  "rows": 5,
+  "columns": 20,
+  "groupColumns": 5,
+  "groupGap": 64,
+  "seed": 24301,
+  "theme": {
+    "primary": {
+      "default": "#0c73bf",
+      "dark": "#063559"
+    },
+    "gray": {
+      "light": "#9eb3c3"
+    }
+  },
+  "grid": {
+    "type": "grid",
+    "inactiveCellStrategy": "hide",
+    "gap": 4,
+    "attrs": {
+      "x": 0,
+      "y": 0,
+      "angle": 0,
+      "display": "panelGroup"
+    },
+    "item": {
+      "padding": 3,
+      "size": {
+        "width": 40,
+        "height": 80
+      },
+      "components": [
+        {
+          "id": "background",
+          "type": "background",
+          "source": {
+            "type": "rect",
+            "fill": "white",
+            "borderWidth": 2,
+            "borderColor": "primary.dark",
+            "radius": 6
+          }
+        },
+        {
+          "id": "bar",
+          "type": "bar",
+          "show": true,
+          "size": {
+            "width": "100%",
+            "height": "100%"
+          },
+          "source": {
+            "type": "rect",
+            "radius": 3,
+            "fill": "white"
+          },
+          "tint": "primary.default",
+          "placement": "bottom",
+          "margin": 0,
+          "animation": true
+        },
+        {
+          "id": "icon",
+          "type": "icon",
+          "show": false,
+          "size": 20,
+          "placement": "center",
+          "margin": 0,
+          "source": "loading",
+          "tint": "black",
+          "attrs": {
+            "zIndex": 10
+          }
+        },
+        {
+          "id": "text",
+          "type": "text",
+          "text": "",
+          "placement": "center",
+          "style": {
+            "fontWeight": "600",
+            "fontSize": "auto",
+            "autoFont": {
+              "min": 8,
+              "max": 14
+            },
+            "align": "center",
+            "fill": "white",
+            "wordWrap": true,
+            "breakWords": false,
+            "wordWrapWidth": "auto"
+          },
+          "show": false,
+          "margin": 4
+        }
+      ]
+    }
+  }
+}

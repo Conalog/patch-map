@@ -16,8 +16,14 @@ export async function renderSharedFixtures(root = process.cwd()) {
     JSON.parse(source);
     return `  ${dartString(name.slice(0, -5))}: ${dartString(source)},`;
   }));
+  const sceneDirectory = resolve(root, 'conformance/scenes');
+  for (const name of (await readdir(sceneDirectory)).filter((name) => name.endsWith('.json')).sort()) {
+    const source = await readFile(resolve(sceneDirectory, name), 'utf8');
+    JSON.parse(source);
+    entries.push(`  ${dartString(`scenes/${name.slice(0, -5)}`)}: ${dartString(source)},`);
+  }
   return [
-    '// Generated from conformance/fixtures/*.json. Do not edit.',
+    '// Generated from conformance/{fixtures,scenes}/*.json. Do not edit.',
     '// Regenerate: node verification/flutter/prepare-fixtures.mjs',
     '// Dart source permits hot restart to pick up shared scene changes.',
     '// dart format off',
