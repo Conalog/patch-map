@@ -76,3 +76,24 @@ successful report must contain `completed: true`, all eight case blocks and 20
 non-warmup samples per block; missing or partial output is not a passing result.
 
 The mapping follows [Flutter 3.41.4 Animator](https://github.com/flutter/flutter/blob/3.41.4/engine/src/flutter/shell/common/animator.cc) and [FrameData.frameNumber](https://api.flutter.dev/flutter/dart-ui/FrameData/frameNumber.html).
+
+## Comparing Dart optimizations
+
+Keep correctness fixes on both sides of an optimization comparison. Record the
+base commit and a source hash manifest when the candidate is not yet committed.
+Run baseline and candidate sequentially on the same booted emulator, preserving
+viewport, DPR, inputs, warmups and both reversed-order blocks. Pause other
+simulators, builds and tests during measurements.
+
+Report command latency and first/final publication alongside engine timings.
+Lower animation build cost does not imply faster synchronous commits or sustained
+60 FPS: work outside the engine build interval and gaps between frames remain
+observable. Preserve adverse results and all raw samples. The opt-in host
+`bar_pipeline_profile_test.dart` diagnoses CPU stages; it cannot replace this
+native profile/AOT comparison or establish npm/Pixi performance equivalence.
+
+The separate `integration_test/height_animation_test.dart` validates real native
+intermediate publications after idle and after retargeting. Run it using
+`test_driver/native_contract_driver.dart` and `PATCHMAP_CONTRACT_OUTPUT` on Android
+and iOS; captures happen outside its frame observations. It is a correctness
+check, not a performance measurement.
