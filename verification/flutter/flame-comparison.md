@@ -257,8 +257,10 @@ keeps bars at 100%; bar mode hides text. All 10,000 values change on each update
 Unseen text uses six-digit values unique across all 25 trials; the repeated-text
 case keeps the earlier 1…9999 distribution. Compare hosts within each workload,
 not warm versus unseen strings as if their widths and shaping cost were identical.
-Input generation is outside timing. Both text caches retain their 10,000-entry
-limit. Preserve the first warmup's cold text latency separately.
+Input generation is outside timing. The semantic layout cache keeps 10,000 entries;
+the painter cache prunes toward 10,000 after exceeding 12,000, preserving active
+painters. These policies are identical across candidates and unchanged by scale.
+Preserve the first warmup's cold text latency separately.
 
 There are 48 cases: three hosts × two views × four workloads × two reversed
 blocks, each with five warmups and twenty measurements. Existing thermal,
@@ -295,3 +297,11 @@ The user will decide on retaining Flame from the measured bar/text behavior and
 implementation burden. This setup does not remove either candidate or establish
 10,000-panel equivalence. Apply the materiality policy to first-paint latency,
 animation cadence and frame costs together; do not infer a tie from average FPS.
+
+The qualified follow-up supports keeping direct Canvas as the default. Both raw
+hosts had similar ongoing animation cost/cadence; response differences must be
+read by order block as well as pooled summaries. No clear overall Flame benefit
+was established across the measured bar/text workloads. Full-view rendering and
+unseen text remain substantial bottlenecks with either host. This is a bounded
+scene/device result, not proof of universal equivalence. Flame code removal and
+production adoption are separate follow-up work.
