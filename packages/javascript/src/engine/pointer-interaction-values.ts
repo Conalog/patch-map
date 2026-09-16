@@ -15,6 +15,7 @@ import type {
 import type { PatchMapPointerGestureProbe } from '../pointer-gesture';
 
 export interface NormalizedPointerSelectionPolicy {
+  readonly brush: Readonly<{ longPress: false | Readonly<{ behavior: 'hold' | 'toggle'; delayMs: number }>; operation: 'auto' | 'add' | 'remove' }>;
   readonly allowMultiple: boolean;
   readonly clearOnBlankClick: 'single' | 'double' | 'never';
   readonly deselectOnTargetDoubleClick: boolean;
@@ -49,6 +50,7 @@ export interface NormalizedPointerPolicy {
 }
 
 export const DEFAULT_POINTER_SELECTION_POLICY: NormalizedPointerSelectionPolicy = Object.freeze({
+  brush: Object.freeze({ longPress: false, operation: 'auto' }),
   allowMultiple: true,
   clearOnBlankClick: 'single' as const,
   deselectOnTargetDoubleClick: false,
@@ -106,6 +108,15 @@ export function normalizePointerSelectionPolicy(
   ) {
     throw new TypeError('selection.resolveModifierSelection must be a function');
   }
+  const b = value.brush;
+  if (b !== undefined && (b === null || typeof b !== 'object' || Array.isArray(b))) throw new TypeError('selection.brush must be an object');
+  if (b?.operation !== undefined && !['auto', 'add', 'remove'].includes(b.operation)) throw new TypeError('invalid brush operation');
+  const hold = b?.longPress;
+  if (hold !== undefined && hold !== false && (hold === null || typeof hold !== 'object' || Array.isArray(hold) || !['hold', 'toggle'].includes(hold.behavior) || (hold.delayMs !== undefined && (!Number.isFinite(hold.delayMs) || hold.delayMs <= 0)))) throw new TypeError('invalid brush longPress');
+  const brush: NormalizedPointerSelectionPolicy['brush'] = Object.freeze({
+    operation: b?.operation ?? 'auto',
+    longPress: hold ? Object.freeze({behavior: hold.behavior, delayMs: hold.delayMs ?? 500}) : false,
+  });
   const visual = normalizePointerSelectionVisualPolicy(value.visual);
   let box: NormalizedPointerSelectionPolicy['box'] = null;
   if (value.box === true) {
@@ -142,6 +153,7 @@ export function normalizePointerSelectionPolicy(
     clearOnBlankClick: value.clearOnBlankClick ?? 'single',
     deselectOnTargetDoubleClick: value.deselectOnTargetDoubleClick ?? false,
     box,
+    brush,
     isSelectable: value.isSelectable ?? null,
     resolveModifierSelection: value.resolveModifierSelection ?? null,
     visual,

@@ -34,6 +34,7 @@ import type {
   PatchMapTextBatchRequest,
 } from '../semantic/transaction';
 import type {
+  PatchMapBrushApi,
   PatchMapTargetSet,
   PatchMapDataReplaceResult,
   PatchMapApi,
@@ -74,6 +75,7 @@ export type * from './contracts';
 
 interface PatchMapApiHost extends PatchMapTransformHost, PatchMapEditorHost, PatchMapHistoryHost {
   readonly selectionIds: readonly string[];
+  readonly brushSelection: PatchMapBrushApi;
   loadDataset(input: unknown, options?: PatchMapHostLoadOptions): PatchMapHostLoadResult;
   loadDatasetAsync(
     input: unknown,
@@ -475,6 +477,13 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     }).current;
   };
   const selection = Object.freeze({
+    brush: Object.freeze({
+      get state() { return host.brushSelection.state; },
+      enable: () => host.brushSelection.enable(),
+      disable: () => host.brushSelection.disable(),
+      toggle: () => host.brushSelection.toggle(),
+      onChange: (listener: Parameters<PatchMapBrushApi['onChange']>[0]) => host.brushSelection.onChange(listener),
+    }),
     get ids(): readonly string[] {
       return host.selectionIds;
     },

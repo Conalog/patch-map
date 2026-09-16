@@ -1,6 +1,6 @@
 {
   "schemaRevision": "patch-map-conformance/1",
-  "contractRevision": 1,
+  "contractRevision": 2,
   "requiredPlatforms": [
     "android",
     "ios"
@@ -749,6 +749,17 @@
       "cases": [
         "dart-test:host/view_test.dart#MediaQuery motion preference follows the attached controller",
         "npm-test:integration/accessibility-product.test.ts#connects logical tree, root activation, reduced motion, and cleanup"
+      ]
+    },
+    {
+      "id": "selection.brush",
+      "document": "docs/api/pointer-and-selection.md",
+      "required": true,
+      "cases": [
+        "npm-test:engine/brush-selection.test.ts#toggle API disable and another longpress share one state",
+        "npm-test:engine/brush-selection.test.ts#segments add erase and revisit once using the common fixture",
+        "dart-test:host/native_pointer_test.dart#brush toggle API disable and next longpress share one state",
+        "dart-test:host/native_pointer_test.dart#brush segments add erase and revisit common fixture"
       ]
     }
   ],

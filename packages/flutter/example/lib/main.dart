@@ -47,6 +47,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
   final jsonInput = TextEditingController();
   Map<String, dynamic>? lastPointer, lastHover, lastSelectionEvent;
   String? displayMode;
+  String brushTrigger = 'toggle';
   Map get scenario => demoScenarios.firstWhere((s) => s['id'] == scenarioId);
   List<Map<String, dynamic>> get steps =>
       ((scenario['commands'] ?? fixture?['commands'] ?? []) as List)
@@ -79,6 +80,11 @@ class _ComparisonPageState extends State<ComparisonPage> {
         theme: (nextFixture['theme'] as Map?)?.cast<String, dynamic>(),
         selection: {
           'allowMultiple': multiple,
+          'brush': {
+            'longPress': brushTrigger == 'manual'
+                ? false
+                : {'behavior': brushTrigger, 'delayMs': 500},
+          },
           'box': box ? {'activationModifier': 'none'} : false,
         },
         pointer: {
@@ -108,6 +114,9 @@ class _ComparisonPageState extends State<ComparisonPage> {
       });
       await old?.destroy();
       await oldSecondary?.destroy();
+      next.selection.brush.onChange((_) {
+        if (mounted && controller == next) setState(() {});
+      });
       next.selection.onChange((_) {
         if (mounted && controller == next) setState(() {});
       });
@@ -340,6 +349,37 @@ class _ComparisonPageState extends State<ComparisonPage> {
     key: const Key('demo-controls'),
     padding: const EdgeInsets.all(12),
     children: [
+      if (controller != null) ...[
+        Text(
+          '브러시 ${controller!.selection.brush.state.enabled ? "켜짐" : "꺼짐"} · ${controller!.selection.brush.state.drawing ? "선택 중" : "대기"}',
+          key: const Key('brush-state'),
+        ),
+        Wrap(
+          spacing: 6,
+          children: [
+            _button('브러시 켜기', () => controller!.selection.brush.enable()),
+            _button('브러시 끄기', () => controller!.selection.brush.disable()),
+            _button('브러시 토글', () => controller!.selection.brush.toggle()),
+            DropdownButton<String>(
+              value: brushTrigger,
+              items: const [
+                DropdownMenuItem(value: 'toggle', child: Text('롱프레스 토글')),
+                DropdownMenuItem(value: 'hold', child: Text('누르는 동안 브러시')),
+                DropdownMenuItem(value: 'manual', child: Text('버튼으로만 제어')),
+              ],
+              onChanged: busy
+                  ? null
+                  : (v) {
+                      brushTrigger = v!;
+                      _reset();
+                    },
+            ),
+          ],
+        ),
+        const Text(
+          '패널을 0.5초 길게 눌러 브러시 모드를 전환합니다. 켜진 상태에서 쓸어 선택하고, 선택된 패널에서 시작하면 해제합니다.',
+        ),
+      ],
       Text(scenario['hint'] as String),
       if (scenario['kind'] == 'service') ...[
         const Text(
@@ -665,6 +705,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
                   children: [
                     Expanded(
                       child: DropdownButton<String>(
+                        key: const Key('scenario-selector'),
                         isExpanded: true,
                         value: scenarioId,
                         items: demoScenarios
@@ -725,7 +766,9 @@ class _ComparisonPageState extends State<ComparisonPage> {
                     ),
                     if (c != null)
                       Text(
-                        'selection ${c.selection.ids} · step $commandIndex / ${steps.length}',
+                        'selection ${c.selection.ids.length}개 ${c.selection.ids.take(4).toList()} · step $commandIndex / ${steps.length}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 11),
                       ),
                   ],

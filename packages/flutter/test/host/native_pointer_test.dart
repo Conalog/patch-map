@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patch_map/src/engine/controller.dart';
@@ -46,13 +48,10 @@ Future<(PatchMapController, NativePointerBinding)> setup({
   );
   c.attach(_Surface());
   c.frameConfirmed(c.revisions);
-  final binding = NativePointerBinding(
-    c,
-    (p) => p.dx >= 0 && p.dy >= 0 && p.dx <= 30 && p.dy <= 30
-        ? const PatchMapTarget('rect')
-        : null,
-    () {},
-  );
+  final binding = NativePointerBinding(c, (p) {
+    final hit = c.renderSnapshot.geometry.hitTest(p.dx, p.dy);
+    return hit == null ? null : PatchMapTarget(hit.id);
+  }, () {});
   addTearDown(() async {
     binding.dispose();
     await c.destroy();
@@ -221,6 +220,198 @@ void main() {
       expect(c.selection.ids, isEmpty);
     },
   );
+  final brushFixture =
+      jsonDecode(
+            File(
+              '../../conformance/scenes/brush-selection.json',
+            ).readAsStringSync(),
+          )
+          as Map;
+  Future<(PatchMapController, NativePointerBinding)> brushSetup([
+    String behavior = 'toggle',
+  ]) => setup(
+    data: (brushFixture['dataset'] as List)
+        .map((v) => Map<String, dynamic>.from(v as Map))
+        .toList(),
+    selection: {
+      'brush': {
+        'longPress': {'behavior': behavior},
+      },
+    },
+  );
+  void brushDown(NativePointerBinding p, [int pointer = 1, double x = 20]) =>
+      p.down(
+        PointerDownEvent(
+          pointer: pointer,
+          kind: PointerDeviceKind.touch,
+          position: Offset(x, 20),
+        ),
+      );
+  void brushMove(NativePointerBinding p, double x) => p.move(
+    PointerMoveEvent(
+      pointer: 1,
+      kind: PointerDeviceKind.touch,
+      position: Offset(x, 20),
+    ),
+  );
+  void brushUp(NativePointerBinding p, [double x = 20]) => p.up(
+    PointerUpEvent(
+      pointer: 1,
+      kind: PointerDeviceKind.touch,
+      position: Offset(x, 20),
+    ),
+  );
+  testWidgets('brush toggle API disable and next longpress share one state', (
+    tester,
+  ) async {
+    final (c, p) = await brushSetup();
+    brushDown(p);
+    await tester.pump(const Duration(milliseconds: 500));
+    brushUp(p);
+    expect(c.selection.brush.state.enabled, true);
+    c.selection.brush.disable();
+    expect(c.selection.brush.state.enabled, false);
+    brushDown(p);
+    await tester.pump(const Duration(milliseconds: 500));
+    brushUp(p);
+    expect(c.selection.brush.state.enabled, true);
+    final before = c.selection.ids;
+    brushDown(p);
+    await tester.pump(const Duration(milliseconds: 500));
+    brushUp(p);
+    expect(c.selection.brush.state.enabled, false);
+    expect(c.selection.ids, before);
+  });
+  testWidgets('brush segments add erase and revisit common fixture', (
+    tester,
+  ) async {
+    final (c, p) = await brushSetup();
+    c.selection.set(['off']);
+    c.selection.brush.enable();
+    brushDown(p);
+    brushMove(p, 100);
+    brushMove(p, 20);
+    brushUp(p);
+    expect(c.selection.ids, brushFixture['added']);
+    brushDown(p);
+    brushMove(p, 100);
+    brushUp(p, 100);
+    expect(c.selection.ids, brushFixture['removed']);
+  });
+  testWidgets('brush hold restores prior mode and cancel retains selection', (
+    tester,
+  ) async {
+    final (c, p) = await brushSetup('hold');
+    c.selection.set(['off']);
+    brushDown(p);
+    await tester.pump(const Duration(milliseconds: 500));
+    brushMove(p, 100);
+    p.cancel();
+    expect(c.selection.ids, brushFixture['added']);
+    expect(c.selection.brush.state.enabled, false);
+    expect(c.selection.brush.state.drawing, false);
+  });
+  testWidgets(
+    'brush timer cancels on movement second pointer API replacement and destroy',
+    (tester) async {
+      for (final action in ['move', 'second', 'api', 'replace', 'destroy']) {
+        final (c, p) = await brushSetup();
+        brushDown(p);
+        if (action == 'move') brushMove(p, 26);
+        if (action == 'second') brushDown(p, 2, 60);
+        if (action == 'api') c.selection.brush.disable();
+        if (action == 'replace') c.data.replace(c.data.snapshot(), fit: false);
+        if (action == 'destroy') await c.destroy();
+        await tester.pump(const Duration(milliseconds: 600));
+        expect(c.selection.brush.state.enabled, false, reason: action);
+        expect(c.selection.ids, isEmpty, reason: action);
+      }
+    },
+  );
+  testWidgets(
+    'brush cancellation consumes remaining moves and pinch uses latest positions',
+    (tester) async {
+      final (c, p) = await brushSetup();
+      c.selection.brush.enable();
+      brushDown(p);
+      brushMove(p, 60);
+      final before = c.viewport.state;
+      c.selection.brush.disable();
+      brushMove(p, 100);
+      brushUp(p, 100);
+      expect(c.viewport.state, before);
+      c.selection.brush.enable();
+      brushDown(p);
+      brushMove(p, 60);
+      brushDown(p, 2, 100);
+      p.move(
+        const PointerMoveEvent(
+          pointer: 2,
+          position: Offset(100, 20),
+          buttons: kPrimaryButton,
+        ),
+      );
+      expect(c.viewport.state, before);
+    },
+  );
+  testWidgets('brush initial predicate cancellation does not arm a timer', (
+    tester,
+  ) async {
+    late PatchMapController controller;
+    final (c, p) = await setup(
+      selection: {
+        'brush': {
+          'longPress': {'behavior': 'toggle'},
+        },
+        'isSelectable': (Map<String, dynamic> _) {
+          controller.selection.brush.disable();
+          return true;
+        },
+      },
+    );
+    controller = c;
+    brushDown(p);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(c.selection.brush.state.enabled, false);
+    expect(c.selection.ids, isEmpty);
+  });
+  testWidgets(
+    'external selection cancellation commits after reentrant selection',
+    (tester) async {
+      final (c, p) = await brushSetup();
+      c.selection.brush.enable();
+      brushDown(p);
+      brushMove(p, 60);
+      c.selection.brush.onChange((e) {
+        if (!e.state.drawing) c.selection.set(['off']);
+      });
+      c.selection.add(['c']);
+      expect(c.selection.ids, ['off', 'c']);
+    },
+  );
+  testWidgets('external selection cancels hold and restores the prior mode', (
+    tester,
+  ) async {
+    final (c, p) = await brushSetup('hold');
+    brushDown(p);
+    await tester.pump(const Duration(milliseconds: 500));
+    c.selection.set(['off']);
+    expect(c.selection.brush.state.enabled, false);
+    expect(c.selection.ids, ['off']);
+    brushMove(p, 100);
+    brushUp(p, 100);
+    expect(c.selection.ids, ['off']);
+  });
+  testWidgets('brush activation callback disable has no stale selection', (
+    tester,
+  ) async {
+    final (c, p) = await brushSetup();
+    c.selection.brush.onChange((_) => c.selection.brush.disable());
+    brushDown(p);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(c.selection.ids, isEmpty);
+    expect(c.selection.brush.state.enabled, false);
+  });
   test('box commit selects logical target once', () async {
     final (c, p) = await setup(selection: {'box': true});
     p.down(const PointerDownEvent(pointer: 1, position: Offset(0, 0)));

@@ -151,6 +151,7 @@ class _PatchMapViewState extends State<PatchMapView>
         controller,
         (world) => _renderer.hitTestTarget(world),
         requestFrame,
+        onError: widget.onError,
       )..claimGesture = () => _gestureRecognizer?.acceptAll();
       _hasPointer = true;
       if (session is NativeAssetSession) {

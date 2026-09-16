@@ -32,6 +32,7 @@ const steps = () => scenario.commands ?? fixture.commands;
 const pretty = (value: unknown) => JSON.stringify(value, null, 2);
 
 function summary() {
+  if (instance) element('brush-state').textContent = `브러시 ${instance.selection.brush.state.enabled ? '켜짐' : '꺼짐'} · ${instance.selection.brush.state.drawing ? '선택 중' : '대기'}`;
   element('progress').textContent = `${index} / ${steps().length} 단계`;
   element('summary').textContent = instance ? `선택 ${instance.selection.ids.join(', ') || '없음'} · 회전 ${instance.rotation.value}°` : '';
 }
@@ -43,6 +44,7 @@ function setBusy(value: boolean) {
   busy = value;
   document.querySelectorAll<HTMLButtonElement>('button:not([data-tab])').forEach(button => { button.disabled = value; });
   selector.disabled = value;
+  element<HTMLSelectElement>('brush-trigger').disabled = value;
   element<HTMLInputElement>('box').disabled = value;
   element<HTMLInputElement>('multiple').disabled = value;
 }
@@ -79,12 +81,13 @@ async function reset(id = scenario.id) {
   const assets = await acquireSharedFixtureAssets(fixture); releaseAssets = assets.dispose;
   try {
     instance = await PatchMap.mount({ container: map, data: fixture.dataset, ...fixture.surface, fit: false, ...(scenario.kind === 'service' ? { theme: serviceBlueprint.theme } : {}),
-      selection: { allowMultiple: element<HTMLInputElement>('multiple').checked, box: element<HTMLInputElement>('box').checked ? { activationModifier: 'none' } : false },
+      selection: { brush: { longPress: element<HTMLSelectElement>('brush-trigger').value === 'manual' ? false : { behavior: element<HTMLSelectElement>('brush-trigger').value as 'toggle' | 'hold', delayMs: 500 } }, allowMultiple: element<HTMLInputElement>('multiple').checked, box: element<HTMLInputElement>('box').checked ? { activationModifier: 'none' } : false },
       pointer: { tooltip: { pinOnContextMenu: true } },
       ...(assets.runtime ? { assetRuntime: assets.runtime } : {}) });
   } catch (error) { await releaseAssets(); releaseAssets = undefined; throw error; }
   if (scenario.initialFit) instance.viewport.fit({ targets: scenario.initialFit });
   instance.selection.onChange(summary);
+  instance.selection.brush.onChange(summary);
   instance.pointer.onHover(value => { hover = value; });
   instance.selection.onPointerChange(value => { selectionEvent = value; });
   instance.pointer.onTooltip(value => { tooltip = value; if (!element('inspect').hidden) inspect(); });
@@ -137,6 +140,10 @@ for (const tab of document.querySelectorAll<HTMLButtonElement>('[data-tab]')) ta
   if (tab.dataset.tab === 'inspect') inspect();
 };
 bind('scenario', () => reset(selector.value), 'change'); bind('reset', () => reset());
+bind('brush-enable', () => instance!.selection.brush.enable());
+bind('brush-disable', () => instance!.selection.brush.disable());
+bind('brush-toggle', () => instance!.selection.brush.toggle());
+bind('brush-trigger', () => reset(), 'change');
 bind('box', () => reset(), 'change'); bind('multiple', () => reset(), 'change');
 bind('step', step); bind('run-all', async () => { const results = []; while (index < steps().length) { results.push(await step()); await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); } return { ok: true, steps: results }; });
 bind('undo', () => instance!.history.undo()); bind('redo', () => instance!.history.redo());
@@ -186,5 +193,5 @@ bind('export', () => {
   const link = document.createElement('a'); link.href = url; link.download = `patch-map-${scenario.id}.json`; link.click(); URL.revokeObjectURL(url); return '저장됨';
 });
 // Read-only automation access; every mutation is exercised through the visible UI.
-Object.assign(window, { patchMapLab: { snapshot: () => ({ scenario: scenario.id, index, busy, log, observation: instance && observePublic(instance) }) } });
+Object.assign(window, { patchMapLab: { snapshot: () => ({ scenario: scenario.id, index, busy, log, observation: instance && observePublic(instance), brush: instance?.selection.brush.state }) } });
 await act('초기화', () => reset());

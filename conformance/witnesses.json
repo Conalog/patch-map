@@ -2374,6 +2374,50 @@
         "alpha bars ignore source borders and nonnumeric radius."
       ],
       "scope": "Focused Dart regression test; native execution and installed consumer are separate evidence."
+    },
+    {
+      "id": "npm-test:engine/brush-selection.test.ts#toggle API disable and another longpress share one state",
+      "kind": "focused-test",
+      "runtime": "npm",
+      "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+      "test": "toggle API disable and another longpress share one state",
+      "assertions": [
+        "Longpress reads current mode; API disable does not remove the trigger."
+      ],
+      "scope": "Focused shared brush contract; device integration evidence is recorded separately."
+    },
+    {
+      "id": "npm-test:engine/brush-selection.test.ts#segments add erase and revisit once using the common fixture",
+      "kind": "focused-test",
+      "runtime": "npm",
+      "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+      "test": "segments add erase and revisit once using the common fixture",
+      "assertions": [
+        "Path segments preserve off-path selection, add or erase, and deduplicate revisits."
+      ],
+      "scope": "Focused shared brush contract; device integration evidence is recorded separately."
+    },
+    {
+      "id": "dart-test:host/native_pointer_test.dart#brush toggle API disable and next longpress share one state",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
+      "test": "brush toggle API disable and next longpress share one state",
+      "assertions": [
+        "Longpress reads current mode; API disable does not remove the trigger."
+      ],
+      "scope": "Focused shared brush contract; device integration evidence is recorded separately."
+    },
+    {
+      "id": "dart-test:host/native_pointer_test.dart#brush segments add erase and revisit common fixture",
+      "kind": "focused-test",
+      "runtime": "dart",
+      "file": "packages/flutter/test/host/native_pointer_test.dart",
+      "test": "brush segments add erase and revisit common fixture",
+      "assertions": [
+        "Path segments preserve off-path selection, add or erase, and deduplicate revisits."
+      ],
+      "scope": "Focused shared brush contract; device integration evidence is recorded separately."
     }
   ]
 }

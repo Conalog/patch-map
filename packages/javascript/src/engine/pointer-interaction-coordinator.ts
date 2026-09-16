@@ -1,3 +1,4 @@
+import { BrushModeAuthority } from './brush-mode-authority';
 import type {
   PatchMapPointerHoverEvent,
   PatchMapPointerPolicy,
@@ -61,6 +62,20 @@ interface PointerBoxGesture {
   active: boolean;
 }
 
+interface BrushGesture {
+  readonly sceneRevision: number;
+  readonly input: PatchMapEnginePointerInput;
+  readonly viewRevision: number;
+  readonly seed: PatchMapLogicalTargetSnapshot | null;
+  timer: ReturnType<typeof setTimeout> | null;
+  active: boolean;
+  consumed: boolean;
+  restore: boolean | null;
+  previous: readonly [number, number];
+  seen: Set<string>;
+  removing: boolean;
+}
+
 interface ArmedPointerTargetDeselect {
   readonly selectionId: string;
   readonly timer: ReturnType<typeof globalThis.setTimeout>;
@@ -81,7 +96,12 @@ export interface PatchMapPointerInteractionPort {
     end: readonly [number, number],
     options: PatchMapEngineRegionSelectionOptions,
   ) => PatchMapEngineRegionSelectionResult;
+  readonly selectPaint: (
+    segments: readonly (readonly [readonly [number, number], readonly [number, number]])[],
+    options: PatchMapEngineRegionSelectionOptions,
+  ) => PatchMapEngineRegionSelectionResult;
   readonly applySelection: (input: PatchMapSelectionSetOperation) => PatchMapSelectionChange;
+  readonly sceneRevision: () => number;
   readonly viewRevision: () => number;
   readonly interactionRevision: () => number;
   readonly advanceInteraction: () => void;
@@ -107,7 +127,16 @@ export class PatchMapPointerInteractionCoordinator {
   private tooltipTarget: PatchMapTarget | null = null;
   private tooltipPinned = false;
 
-  public constructor(private readonly port: PatchMapPointerInteractionPort) {}
+  public readonly brush: BrushModeAuthority;
+  private brushGeneration = 0;
+  private brushGesture: BrushGesture | null = null;
+  public constructor(private readonly port: PatchMapPointerInteractionPort) {
+    this.brush = new BrushModeAuthority(
+      () => { this.port.requireSurface('selection.brush'); },
+      () => this.clearBrushGesture('cancel', false, true),
+      () => this.port.emitHostCallbackFailure('selection.brush.onChange'),
+    );
+  }
 
   public configurePointerPolicy(policy: PatchMapPointerPolicy | undefined): void {
     this.pointerPolicy = normalizePointerPolicy(policy);
@@ -115,6 +144,7 @@ export class PatchMapPointerInteractionCoordinator {
 
   public configureSelectionPolicy(policy: PatchMapSelectionPolicy | undefined): void {
     const normalized = normalizePointerSelectionPolicy(policy);
+    this.clearBrushGesture('cancel');
     this.cancelArmedTargetDeselect();
     this.clearBoxGesture();
     this.selectionPolicy = normalized;
@@ -174,10 +204,12 @@ export class PatchMapPointerInteractionCoordinator {
   }
 
   public interruptIfPresent(reason: PatchMapGestureCancelReason): void {
+    this.clearBrushGesture('cancel');
     this.authority?.interrupt(reason);
   }
 
   public interruptAndResetIfPresent(reason: PatchMapGestureCancelReason): void {
+    this.clearBrushGesture('cancel');
     this.authority?.interrupt(reason);
     this.resetProjectionState();
   }
@@ -186,6 +218,9 @@ export class PatchMapPointerInteractionCoordinator {
     this.port.requireSurface('dispatchPointerInput');
     const authority = this.requireAuthority('dispatchPointerInput');
     const transformerOwned = this.port.transformerOwnsPointer(input.pointerId);
+    if (this.routeBrushInput(input, transformerOwned)) {
+      return Object.freeze({ events: Object.freeze([]), hoverTarget: null, clickSuppressed: true, semanticCompletionCount: 0 });
+    }
     this.prepareBoxGesture(input, transformerOwned);
     if (transformerOwned) this.port.routeTransformerInput(input.pointerId);
     const result = authority.dispatch(Object.freeze({
@@ -234,6 +269,7 @@ export class PatchMapPointerInteractionCoordinator {
   }
 
   public dispatchContextMenu(input: PatchMapSurfaceContextMenuInput): boolean {
+    if (this.brushGesture !== null) return true;
     const target = this.logicalTargetAtScreen(input.screen, null);
     if (!this.pointerPolicy.tooltip.pinOnContextMenu) return target !== null;
     if (target === null) return false;
@@ -343,6 +379,7 @@ export class PatchMapPointerInteractionCoordinator {
   }
 
   public resetProjectionState(): void {
+    this.clearBrushGesture('cancel');
     this.cancelArmedTargetDeselect();
     this.clearBoxGesture();
     this.hoverTarget = null;
@@ -351,11 +388,130 @@ export class PatchMapPointerInteractionCoordinator {
   }
 
   public destroy(): void {
+    this.clearBrushGesture('cancel');
+    this.brush.destroy();
     this.candidateAuthority?.destroy();
     this.candidateAuthority = null;
     this.authority?.destroy();
     this.authority = null;
     this.resetProjectionState();
+  }
+
+  private clearBrushGesture(source: 'release' | 'cancel', restore = true, consume = false): void {
+    this.brushGeneration++;
+    const gesture = this.brushGesture;
+    this.brushGesture = null;
+    if (gesture?.timer !== null && gesture?.timer !== undefined) clearTimeout(gesture.timer);
+    if (gesture?.consumed) this.authority?.terminateOwnedGesture(source === 'release' ? 'pointer-up-outside' : 'pointer-cancel');
+    if (consume && gesture) {
+      this.authority?.interrupt('pointer-cancel');
+      this.port.liveSurface()?.cancelViewportGestures?.();
+    }
+    this.brush.publish(restore && gesture?.restore !== null && gesture?.restore !== undefined ? gesture.restore : this.brush.state.enabled, false, source);
+  }
+
+  private brushLive(gesture: BrushGesture): boolean {
+    return this.brushGesture === gesture && this.port.liveSurface() !== null &&
+      this.port.interactionMode() === 'select' && this.port.viewRevision() === gesture.viewRevision &&
+      this.port.sceneRevision() === gesture.sceneRevision;
+  }
+
+  private routeBrushInput(input: PatchMapEnginePointerInput, transformerOwned: boolean): boolean {
+    if (input.type === 'down') {
+      const other = (this.authority?.probe().activePointerCount ?? 0) > 0;
+      this.clearBrushGesture('cancel');
+      if (other || transformerOwned || input.button !== 0 || !this.selectionPolicy.allowMultiple || this.port.interactionMode() !== 'select') return false;
+      const policy = this.selectionPolicy.brush;
+      if (!this.brush.state.enabled && !policy.longPress) return false;
+      const generation = this.brushGeneration;
+      const sceneRevision = this.port.sceneRevision();
+      const viewRevision = this.port.viewRevision();
+      const raw = this.logicalTargetAtScreen(input.screen, null);
+      const seed = raw === null ? null : this.port.logicalSelectionIndex().resolveSelectionUnit(raw.key, 'grid-cell');
+      if (seed !== null && (seed.locked || seed.ancestorLocked || this.targetSelectable(seed) !== true)) return false;
+      if (generation !== this.brushGeneration || this.port.liveSurface() === null ||
+          sceneRevision !== this.port.sceneRevision() || viewRevision !== this.port.viewRevision()) return true;
+      if (seed === null && !this.brush.state.enabled) return false;
+      const g: BrushGesture = { input, seed, sceneRevision, viewRevision, timer: null, active: false, consumed: false, restore: null, previous: input.screen, seen: new Set(), removing: false };
+      this.brushGesture = g;
+      if (policy.longPress && seed !== null) {
+        const hold = policy.longPress;
+        g.timer = setTimeout(() => {
+          g.timer = null;
+          if (!this.brushLive(g)) { if (this.brushGesture === g) this.clearBrushGesture('cancel'); return; }
+          try {
+          this.clearBoxGesture();
+          this.port.liveSurface()?.cancelViewportGestures?.();
+          this.requireAuthority('brush').beginOwnedGesture('paint', input.pointerId);
+          g.consumed = true;
+          const prior = this.brush.state.enabled;
+          if (hold.behavior === 'hold') g.restore = prior;
+          if (hold.behavior === 'toggle' && prior) {
+            this.brush.publish(false, false, 'long-press');
+          } else {
+            this.brush.publish(true, false, 'long-press');
+            if (this.brushLive(g)) this.startBrush(g, 'long-press');
+          }
+          } catch {
+            if (this.brushGesture === g) this.clearBrushGesture('cancel');
+            this.port.emitHostCallbackFailure('selection.brush');
+          }
+        }, hold.delayMs);
+      }
+      return false;
+    }
+    const g = this.brushGesture;
+    if (g === null || g.input.pointerId !== input.pointerId) return false;
+    const owned = g.consumed;
+    if (!this.brushLive(g)) { this.clearBrushGesture('cancel'); return owned; }
+    if (input.type === 'cancel' || input.type === 'leave') { this.clearBrushGesture('cancel'); return owned; }
+    if (input.type === 'move') {
+      const moved = Math.max(Math.abs(input.screen[0] - g.input.screen[0]), Math.abs(input.screen[1] - g.input.screen[1])) > 4;
+      if (!g.consumed && moved) {
+        if (g.timer !== null) { clearTimeout(g.timer); g.timer = null; }
+        if (!this.brush.state.enabled) { this.clearBrushGesture('cancel'); return false; }
+        this.clearBoxGesture();
+        this.requireAuthority('brush').beginOwnedGesture('paint', input.pointerId);
+        g.consumed = true;
+        this.startBrush(g, 'api');
+      }
+      if (g.consumed) this.port.liveSurface()?.cancelViewportGestures?.();
+      if (this.brushLive(g) && g.active) this.paintBrush(g, input.screen);
+      return g.consumed;
+    }
+    if (input.type === 'up' || input.type === 'up-outside') {
+      try { if (g.active) this.paintBrush(g, input.screen); }
+      finally { if (this.brushGesture === g) this.clearBrushGesture('release'); }
+      return owned;
+    }
+    return false;
+  }
+
+  private startBrush(g: BrushGesture, source: 'api' | 'long-press'): void {
+    const operation = this.selectionPolicy.brush.operation;
+    g.removing = operation === 'remove' || operation === 'auto' && g.seed !== null && this.port.selectionIds().includes(g.seed.selectionId);
+    g.active = true;
+    this.cancelArmedTargetDeselect();
+    this.port.clearHostTooltip('drag');
+    this.brush.publish(true, true, source);
+    if (this.brushLive(g)) this.paintBrush(g, g.previous, g.seed);
+  }
+
+  private paintBrush(g: BrushGesture, end: readonly [number, number], seed?: PatchMapLogicalTargetSnapshot | null): void {
+    if (!this.brushLive(g)) return;
+    const hit = this.port.selectPaint([[g.previous, end]], { commit: false });
+    g.previous = end;
+    const ids: string[] = [];
+    for (const target of seed ? [seed, ...hit.targets] : hit.targets) {
+      if (g.seen.has(target.selectionId) || target.locked || target.ancestorLocked) continue;
+      const eligible = this.targetSelectable(target);
+      if (!this.brushLive(g)) return;
+      if (eligible === null) { this.clearBrushGesture('cancel'); return; }
+      if (!eligible) continue;
+      g.seen.add(target.selectionId);
+      ids.push(target.selectionId);
+    }
+    if (ids.length > 0) this.port.applySelection({ op: g.removing ? 'remove' : 'add', ids, source: 'canvas' });
   }
 
   private releasePinnedTooltipFromPrimaryClick(click: PatchMapSemanticPointerEvent): void {

@@ -13,6 +13,7 @@ import 'ports.dart';
 
 part 'data_targets.dart';
 part 'pointer_policy.dart';
+part 'brush_selection.dart';
 part 'mutations.dart';
 part 'text_mutations.dart';
 part 'mutation_lowering.dart';
@@ -565,6 +566,7 @@ class PatchMapController {
       _surface = null;
       _listeners.clear();
       _notificationQueue.clear();
+      selection.brush._dispose();
       selection._listeners.clear();
       selection._pointerListeners.clear();
       history._listeners.clear();

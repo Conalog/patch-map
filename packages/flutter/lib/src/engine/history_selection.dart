@@ -155,6 +155,7 @@ class PatchMapHistoryApi {
 
 class PatchMapSelectionApi {
   PatchMapSelectionApi._(this._c);
+  late final brush = PatchMapBrushApi._(_c);
   final PatchMapController _c;
   List<String> _ids = [];
   List<String> get ids => List.unmodifiable(_ids);
@@ -175,8 +176,12 @@ class PatchMapSelectionApi {
   List<String> remove(Object targets) => _change(targets, 'remove');
   List<String> toggle(Object targets) => _change(targets, 'toggle');
   List<String> clear() => set(<String>[]);
-  List<String> _change(Object input, String operation) {
+  List<String> _change(Object input, String operation, {bool pointer = false}) {
     _c._assertLive();
+    if (!pointer) {
+      brush.cancelGesture?.call(true);
+      _c._assertLive();
+    }
     final Set<String> requested;
     if (input is PatchMapTargetSet) {
       requested = _c.targets._resolve(input, duplicates: true).map((target) {
@@ -236,7 +241,7 @@ class PatchMapSelectionApi {
   /// Native host binding: actual pointer-origin publication, separate from set.
   List<String> fromPointer(Object targets, {bool toggle = false}) {
     final before = _ids.toSet();
-    final result = toggle ? this.toggle(targets) : set(targets);
+    final result = _change(targets, toggle ? 'toggle' : 'set', pointer: true);
     final after = _ids.toSet();
     if (before.length != after.length || !before.containsAll(after)) {
       final event = <String, dynamic>{

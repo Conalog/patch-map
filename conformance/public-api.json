@@ -2480,6 +2480,130 @@
     "shape": "number"
   },
   {
+    "id": "api.PatchMapBrushApi",
+    "export": "PatchMapBrushApi",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "kind": "InterfaceDeclaration",
+    "shape": "PatchMapBrushApi",
+    "variants": [],
+    "constructors": []
+  },
+  {
+    "id": "api.PatchMapBrushApi.disable",
+    "export": "PatchMapBrushApi",
+    "member": "disable",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": false,
+    "shape": "() => PatchMapBrushState"
+  },
+  {
+    "id": "api.PatchMapBrushApi.enable",
+    "export": "PatchMapBrushApi",
+    "member": "enable",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": false,
+    "shape": "() => PatchMapBrushState"
+  },
+  {
+    "id": "api.PatchMapBrushApi.onChange",
+    "export": "PatchMapBrushApi",
+    "member": "onChange",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": false,
+    "shape": "(listener: (event: PatchMapBrushChange) => void) => () => void"
+  },
+  {
+    "id": "api.PatchMapBrushApi.state",
+    "export": "PatchMapBrushApi",
+    "member": "state",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": false,
+    "shape": "PatchMapBrushState"
+  },
+  {
+    "id": "api.PatchMapBrushApi.toggle",
+    "export": "PatchMapBrushApi",
+    "member": "toggle",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": false,
+    "shape": "() => PatchMapBrushState"
+  },
+  {
+    "id": "api.PatchMapBrushChange",
+    "export": "PatchMapBrushChange",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "kind": "InterfaceDeclaration",
+    "shape": "PatchMapBrushChange",
+    "variants": [],
+    "constructors": []
+  },
+  {
+    "id": "api.PatchMapBrushChange.source",
+    "export": "PatchMapBrushChange",
+    "member": "source",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": false,
+    "shape": "\"api\" | \"long-press\" | \"release\" | \"cancel\""
+  },
+  {
+    "id": "api.PatchMapBrushChange.state",
+    "export": "PatchMapBrushChange",
+    "member": "state",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": false,
+    "shape": "PatchMapBrushState"
+  },
+  {
+    "id": "api.PatchMapBrushOptions",
+    "export": "PatchMapBrushOptions",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "kind": "InterfaceDeclaration",
+    "shape": "PatchMapBrushOptions",
+    "variants": [],
+    "constructors": []
+  },
+  {
+    "id": "api.PatchMapBrushOptions.longPress",
+    "export": "PatchMapBrushOptions",
+    "member": "longPress",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": true,
+    "shape": "false | Readonly<{ behavior: \"hold\" | \"toggle\"; delayMs?: number; }>"
+  },
+  {
+    "id": "api.PatchMapBrushOptions.operation",
+    "export": "PatchMapBrushOptions",
+    "member": "operation",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": true,
+    "shape": "\"auto\" | \"add\" | \"remove\""
+  },
+  {
+    "id": "api.PatchMapBrushState",
+    "export": "PatchMapBrushState",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "kind": "InterfaceDeclaration",
+    "shape": "PatchMapBrushState",
+    "variants": [],
+    "constructors": []
+  },
+  {
+    "id": "api.PatchMapBrushState.drawing",
+    "export": "PatchMapBrushState",
+    "member": "drawing",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": false,
+    "shape": "boolean"
+  },
+  {
+    "id": "api.PatchMapBrushState.enabled",
+    "export": "PatchMapBrushState",
+    "member": "enabled",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": false,
+    "shape": "boolean"
+  },
+  {
     "id": "api.PatchMapCaptureApi",
     "export": "PatchMapCaptureApi",
     "source": "packages/javascript/src/public/contracts/lifecycle.ts",
@@ -4787,6 +4911,14 @@
     "shape": "(targets: PatchMapSelectionInput) => readonly string[]"
   },
   {
+    "id": "api.PatchMapSelectionApi.brush",
+    "export": "PatchMapSelectionApi",
+    "member": "brush",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": false,
+    "shape": "PatchMapBrushApi"
+  },
+  {
     "id": "api.PatchMapSelectionApi.clear",
     "export": "PatchMapSelectionApi",
     "member": "clear",
@@ -4895,6 +5027,14 @@
     "source": "packages/javascript/src/public/contracts/interaction.ts",
     "optional": true,
     "shape": "boolean | PatchMapBoxSelectionOptions"
+  },
+  {
+    "id": "api.PatchMapSelectionPolicy.brush",
+    "export": "PatchMapSelectionPolicy",
+    "member": "brush",
+    "source": "packages/javascript/src/public/contracts/interaction.ts",
+    "optional": true,
+    "shape": "PatchMapBrushOptions"
   },
   {
     "id": "api.PatchMapSelectionPolicy.clearOnBlankClick",
@@ -5527,7 +5667,7 @@
     "member": "type",
     "source": "packages/javascript/src/public/contracts/mutation-history-editor.ts",
     "optional": false,
-    "shape": "\"move\" | \"replace\" | \"update\" | \"add\" | \"remove\" | \"group\" | \"ungroup\""
+    "shape": "\"move\" | \"add\" | \"remove\" | \"replace\" | \"update\" | \"group\" | \"ungroup\""
   },
   {
     "id": "api.PatchMapTransactionOptions",

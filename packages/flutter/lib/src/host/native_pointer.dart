@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'brush_hit_index.dart';
 import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -8,13 +9,28 @@ import '../model/json.dart';
 
 /// One surface's native gesture state; logical selection stays in the engine.
 class NativePointerBinding {
-  NativePointerBinding(this.controller, this.hitTest, this.invalidate)
-    : _datasetGeneration = controller.datasetGeneration;
+  NativePointerBinding(
+    this.controller,
+    this.hitTest,
+    this.invalidate, {
+    this.onError,
+  }) : _datasetGeneration = controller.datasetGeneration {
+    controller.selection.brush.cancelGesture = _cancelBrushFromApi;
+  }
+  final void Function(Object)? onError;
+  _BrushGesture? _brush;
+  int _brushGeneration = 0;
+  void _cancelBrushFromApi(bool restore) =>
+      _clearBrush('cancel', restore: restore, consume: true);
   int _datasetGeneration;
   void syncDataset() {
-    if (_datasetGeneration == controller.datasetGeneration) return;
-    _datasetGeneration = controller.datasetGeneration;
-    blur();
+    if (_datasetGeneration != controller.datasetGeneration) {
+      _datasetGeneration = controller.datasetGeneration;
+      blur();
+      return;
+    }
+    final g = _brush;
+    if (g != null && !_brushLive(g)) _clearBrush('cancel', consume: g.consumed);
   }
 
   final PatchMapController controller;
@@ -180,7 +196,78 @@ class NativePointerBinding {
     }
     if (controller.pointerPolicy['hoverDuringPress'] != true) leave(event);
     final press = _presses[event.pointer]!;
+    if (_presses.length > 1) _clearBrush('cancel', consume: true);
+    final b = (_policy['brush'] as Map?) ?? const {};
+    final hold = b['longPress'];
+    final generation = _brushGeneration;
+    final scene = controller.revisions.scene;
+    final view = controller.revisions.view;
     if (_presses.length == 1 &&
+        event.buttons == kPrimaryButton &&
+        controller.editor.state['mode'] == 'select' &&
+        _policy['allowMultiple'] != false &&
+        (controller.selection.brush.state.enabled || hold is Map) &&
+        (press.target == null
+            ? controller.selection.brush.state.enabled
+            : _selectable(press.target!.id))) {
+      if (!_live ||
+          generation != _brushGeneration ||
+          scene != controller.revisions.scene ||
+          view != controller.revisions.view ||
+          !identical(_presses[event.pointer], press))
+        return;
+      final g = _BrushGesture(
+        event.pointer,
+        press,
+        controller.revisions.scene,
+        controller.revisions.view,
+      );
+      _brush = g;
+      if (hold is Map && press.target != null) {
+        g.timer = Timer(
+          Duration(
+            microseconds: (((hold['delayMs'] as num?) ?? 500) * 1000).round(),
+          ),
+          () {
+            g.timer = null;
+            if (!_brushLive(g)) {
+              if (identical(_brush, g)) _clearBrush('cancel');
+              return;
+            }
+            try {
+              claimGesture?.call();
+              if (!_brushLive(g)) return;
+              g.consumed = true;
+              press.dragged = true;
+              press.longPress?.cancel();
+              marquee = null;
+              final prior = controller.selection.brush.state.enabled;
+              if (hold['behavior'] == 'hold') g.restore = prior;
+              if (hold['behavior'] == 'toggle' && prior) {
+                controller.selection.brush.publishGestureState(
+                  false,
+                  false,
+                  'long-press',
+                );
+              } else {
+                controller.selection.brush.publishGestureState(
+                  true,
+                  false,
+                  'long-press',
+                );
+                if (_brushLive(g)) _startBrush(g, 'long-press');
+              }
+            } catch (error) {
+              _clearBrush('cancel', consume: true);
+              onError?.call(error);
+            }
+          },
+        );
+      }
+    }
+    if (!_live) return;
+    if (_brush == null &&
+        _presses.length == 1 &&
         event.kind == PointerDeviceKind.touch &&
         (controller.pointerPolicy['tooltip'] as Map?)?['pinOnContextMenu'] ==
             true &&
@@ -223,6 +310,43 @@ class NativePointerBinding {
         ]);
       press.current = event.localPosition;
       return;
+    }
+    if (press.consumed) {
+      press.current = event.localPosition;
+      return;
+    }
+    final g = _brush;
+    if (g != null && g.pointer == event.pointer) {
+      if (!_brushLive(g)) {
+        final consumed = g.consumed;
+        _clearBrush('cancel', consume: consumed);
+        if (consumed) {
+          press.current = event.localPosition;
+          return;
+        }
+      } else {
+        final d = event.localPosition - press.start;
+        if (!g.consumed && math.max(d.dx.abs(), d.dy.abs()) > 4) {
+          g.timer?.cancel();
+          g.timer = null;
+          if (!controller.selection.brush.state.enabled) {
+            _clearBrush('cancel');
+          } else {
+            claimGesture?.call();
+            if (!_brushLive(g)) return;
+            g.consumed = true;
+            press.dragged = true;
+            press.longPress?.cancel();
+            marquee = null;
+            _startBrush(g, 'api');
+          }
+        }
+        if (_brushLive(g) && g.active) _paintBrush(g, event.localPosition);
+        if (g.consumed) {
+          press.current = event.localPosition;
+          return;
+        }
+      }
     }
     final delta = event.localPosition - press.start;
     final started =
@@ -268,10 +392,23 @@ class NativePointerBinding {
     syncDataset();
     _lastEvent = event;
     if (!_live) return;
+    final g = _brush;
+    if (g != null && g.pointer == event.pointer) {
+      if (g.consumed) {
+        try {
+          if (_brushLive(g) && g.active) _paintBrush(g, event.localPosition);
+        } finally {
+          _presses.remove(event.pointer)?.longPress?.cancel();
+          if (identical(_brush, g)) _clearBrush('release');
+        }
+        return;
+      }
+      _clearBrush('release');
+    }
     final press = _presses.remove(event.pointer);
     if (press == null) return;
     press.longPress?.cancel();
-    if (press.contextPinned) return;
+    if (press.contextPinned || press.consumed) return;
     final d = event.localPosition - press.start;
     if (press.dragged || math.max(d.dx.abs(), d.dy.abs()) > 4) {
       try {
@@ -412,6 +549,71 @@ class NativePointerBinding {
     );
   }
 
+  bool _brushLive(_BrushGesture g) =>
+      identical(_brush, g) &&
+      _live &&
+      controller.attached &&
+      identical(_presses[g.pointer], g.press) &&
+      controller.revisions.scene == g.scene &&
+      controller.revisions.view == g.view &&
+      controller.editor.state['mode'] == 'select';
+
+  void _clearBrush(String source, {bool restore = true, bool consume = false}) {
+    _brushGeneration++;
+    final g = _brush;
+    _brush = null;
+    g?.timer?.cancel();
+    if (consume && g != null) {
+      g.press.dragged = true;
+      g.press.consumed = true;
+    }
+    final api = controller.selection.brush;
+    api.publishGestureState(
+      restore ? (g?.restore ?? api.state.enabled) : api.state.enabled,
+      false,
+      source,
+    );
+  }
+
+  void _startBrush(_BrushGesture g, String source) {
+    final op = (_policy['brush'] as Map?)?['operation'] ?? 'auto';
+    g.removing =
+        op == 'remove' ||
+        op == 'auto' && controller.selection.ids.contains(g.press.target?.id);
+    g.active = true;
+    g.index = BrushHitIndex(
+      controller.renderSnapshot.geometry,
+      controller.viewport.worldToScreen,
+    );
+    controller.selection.brush.publishGestureState(true, true, source);
+    if (_brushLive(g)) _paintBrush(g, g.previous, seed: g.press.target?.id);
+  }
+
+  void _paintBrush(_BrushGesture g, Offset end, {String? seed}) {
+    if (!_brushLive(g)) return;
+    final ids = <String>[];
+    for (final id in [
+      if (seed != null) seed,
+      ...g.index!.query(g.previous, end).map((t) => t.id),
+    ]) {
+      if (g.seen.contains(id)) continue;
+      final eligible = _selectable(id);
+      if (!_brushLive(g)) return;
+      if (!eligible) continue;
+      g.seen.add(id);
+      ids.add(id);
+    }
+    g.previous = end;
+    if (ids.isEmpty) return;
+    final next = controller.selection.ids.toSet();
+    if (g.removing) {
+      next.removeAll(ids);
+    } else {
+      next.addAll(ids);
+    }
+    controller.selection.fromPointer(next.toList());
+  }
+
   void blur() {
     _pinned = false;
     final event = _lastEvent;
@@ -424,6 +626,7 @@ class NativePointerBinding {
   }
 
   void cancel([PointerEvent? event]) {
+    _clearBrush('cancel', consume: true);
     for (final press in _presses.values) {
       press.longPress?.cancel();
     }
@@ -435,6 +638,8 @@ class NativePointerBinding {
   }
 
   void dispose() {
+    _clearBrush('cancel', consume: true);
+    controller.selection.brush.cancelGesture = null;
     _closed = true;
     for (final press in _presses.values) {
       press.longPress?.cancel();
@@ -458,9 +663,22 @@ class _Press {
   final PatchMapTarget? target;
   final int viewRevision, buttons;
   final bool box, additive;
-  bool dragged = false, contextPinned = false;
+  bool dragged = false, contextPinned = false, consumed = false;
   Timer? longPress;
 }
 
 bool _sameTarget(PatchMapTarget? a, PatchMapTarget? b) =>
     a?.id == b?.id && a?.componentId == b?.componentId;
+
+class _BrushGesture {
+  _BrushGesture(this.pointer, this.press, this.scene, this.view)
+    : previous = press.start;
+  final int pointer, scene, view;
+  final _Press press;
+  Offset previous;
+  Timer? timer;
+  bool active = false, consumed = false, removing = false;
+  bool? restore;
+  final seen = <String>{};
+  BrushHitIndex? index;
+}

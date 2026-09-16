@@ -10,6 +10,10 @@ Future<void> hostPublicBinding() async {
     },
     selection: {
       'allowMultiple': true,
+      'brush': {
+        'longPress': {'behavior': 'toggle', 'delayMs': 500},
+        'operation': 'auto',
+      },
       'clearOnBlankClick': 'double',
       'deselectOnTargetDoubleClick': true,
       'isSelectable': (Map<String, dynamic> target) => target['id'] != 'locked',
@@ -46,6 +50,10 @@ Future<void> hostPublicBinding() async {
     c.pointer.onHover((event) {}),
     c.pointer.onTooltip((event) {}),
     c.selection.onChange((ids) {}),
+    c.selection.brush.onChange((PatchMapBrushChange event) {
+      final PatchMapBrushState state = event.state;
+      if (state.drawing && !state.enabled) throw StateError(event.source);
+    }),
     c.selection.onPointerChange((event) {}),
     c.viewport.onSettled((state) {}),
   ];
@@ -57,6 +65,10 @@ Future<void> hostPublicBinding() async {
     c.selection.remove(<String>[]);
     c.selection.toggle(<String>[]);
     c.selection.clear();
+    c.selection.brush.enable();
+    c.selection.brush.toggle();
+    c.selection.brush.disable();
+    c.selection.brush.state.toJson();
     final Map<String, dynamic> fit = c.viewport.fit(padding: [2, 3]).toJson();
     final Map<String, dynamic> restored = c.viewport.reset(padding: 2).toJson();
     if (fit['status'] == null || restored['status'] == null)

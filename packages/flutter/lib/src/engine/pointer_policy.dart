@@ -36,6 +36,16 @@ void _validatePointerPolicies(JsonMap pointer, JsonMap selection) {
     boolean(tooltip, 'pinOnContextMenu');
     boolean(tooltip, 'preventDefault');
   }
+  final brush = record(selection, 'brush');
+  if (brush != null) {
+    choice(brush, 'operation', ['auto', 'add', 'remove']);
+    if (brush.containsKey('longPress') && brush['longPress'] != false) {
+      final hold = _map(brush['longPress']);
+      if (!['hold', 'toggle'].contains(hold['behavior']))
+        invalid('brush.longPress.behavior');
+      positive(hold, 'delayMs', 500);
+    }
+  }
   boolean(selection, 'allowMultiple');
   boolean(selection, 'deselectOnTargetDoubleClick');
   choice(selection, 'clearOnBlankClick', ['single', 'double', 'never']);

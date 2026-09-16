@@ -817,6 +817,8 @@ export class PatchMap {
         this.cancelTransformerEdit(pointerId, 'pointer-cancel');
       },
       selectBox: (start, end, options) => this.selectBox(start, end, options),
+      selectPaint: (segments, options) => this.selectPaint(segments, options),
+      sceneRevision: () => this.publication.sceneRevision,
       applySelection: (input) => this.applySelection(input),
       viewRevision: () => this.publication.viewRevision,
       interactionRevision: () => this.publication.interactionRevision,
@@ -1117,6 +1119,8 @@ export class PatchMap {
   }
 
   /** @internal Root `PatchMap.mount()` owns this policy boundary. */
+  public get brushSelection() { return this.pointerInteractions.brush; }
+
   public configurePointerSelectionPolicy(policy: PatchMapSelectionPolicy | undefined): void {
     this.pointerInteractions.configureSelectionPolicy(policy);
   }

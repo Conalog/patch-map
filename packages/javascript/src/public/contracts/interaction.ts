@@ -116,7 +116,30 @@ export interface PatchMapSelectionVisualPolicy {
 }
 
 /** Package-owned pointer selection policy for one mounted instance. */
+export interface PatchMapBrushOptions {
+  /** Disabled unless configured. Holding restores the previous mode on release. */
+  readonly longPress?: false | Readonly<{ behavior: 'hold' | 'toggle'; delayMs?: number }>;
+  /** Auto adds or erases according to the stroke's starting target. */
+  readonly operation?: 'auto' | 'add' | 'remove';
+}
+export interface PatchMapBrushState {
+  readonly enabled: boolean;
+  readonly drawing: boolean;
+}
+export interface PatchMapBrushChange {
+  readonly state: PatchMapBrushState;
+  readonly source: 'api' | 'long-press' | 'release' | 'cancel';
+}
+export interface PatchMapBrushApi {
+  readonly state: PatchMapBrushState;
+  enable(): PatchMapBrushState;
+  disable(): PatchMapBrushState;
+  toggle(): PatchMapBrushState;
+  onChange(listener: (event: PatchMapBrushChange) => void): () => void;
+}
+
 export interface PatchMapSelectionPolicy {
+  readonly brush?: PatchMapBrushOptions;
   /** Preserve multi-target shift selection. Defaults to true. */
   readonly allowMultiple?: boolean;
   /** Blank-canvas selection clearing. Defaults to the compatible `single`. */
@@ -237,6 +260,7 @@ export interface PatchMapTargetsApi {
 }
 
 export interface PatchMapSelectionApi {
+  readonly brush: PatchMapBrushApi;
   readonly ids: readonly string[];
   set(targets: PatchMapSelectionInput): readonly string[];
   add(targets: PatchMapSelectionInput): readonly string[];

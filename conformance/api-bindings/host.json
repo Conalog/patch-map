@@ -5124,6 +5124,533 @@
           "assertion": "Control-gated wheel preserves cursor world anchor; custom background/AA and native resource facts; exact reset/fit/contributor results and coalesced settlement; invalid wheel and zoom limits reject."
         }
       ]
+    },
+    {
+      "id": "api.PatchMapBrushApi",
+      "shapeSha256": "d2fe7711b9b7de3b615321ff03b21739a34f7fbed7cfb4cbbed46446e4cb59aa",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapBrushApi",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushApi",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushApi.disable",
+      "shapeSha256": "91f644a4207624f83a55f1b9dc010c79fe521bc8f94a5cf48ceb0e18f06302f8",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapBrushApi",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushApi",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushApi.enable",
+      "shapeSha256": "9dae0c9d81246977b6b381d5869f58e1e775500a328ea7ceccea7e09624a8f09",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapBrushApi",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushApi",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushApi.onChange",
+      "shapeSha256": "a27069be92f74382d13fd94e57b0f1856d6d4cd5196ef4469ec5a969d172b59a",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapBrushApi",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushApi",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushApi.state",
+      "shapeSha256": "2f1830169636e8954327ec58fc0348152211888a4574130ef1820ae0e8e70b6e",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapBrushApi",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushApi",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushApi.toggle",
+      "shapeSha256": "9c9c5b49ee8e7dc94a5b1c0a6aa4f3522a4d56415c3295c76c211a5fad3c857d",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapBrushApi",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushApi",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushChange",
+      "shapeSha256": "3da03d2aacc7af3119a79df56b64a39ebff062c7eebd152e354b119d4ab3b11e",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapBrushChange",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushChange",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushChange.source",
+      "shapeSha256": "6514b4658284ca558d5f08b63488d372547c011f2f6e28fd561740c9850ba508",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapBrushChange",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushChange",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushChange.state",
+      "shapeSha256": "c12db150928ff8e3aee36f3ea1f373f25dd0604f70def73ab662dad1089eaf66",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapBrushChange",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushChange",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushOptions",
+      "shapeSha256": "e8845aba69eb8f1f7bd4f841b25a7f7d3600479a84b908000b6d51682a597d27",
+      "role": "input",
+      "dart": {
+        "symbol": "_validatePointerPolicies",
+        "file": "packages/flutter/lib/src/engine/pointer_policy.dart",
+        "locator": "_validatePointerPolicies",
+        "adaptation": "Creation selection JSON accepts the same brush fields and defaults."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushOptions.longPress",
+      "shapeSha256": "159fb80933aa45429980cf03b7a8dbabd97148bdfe2c38e982327e655d10c50a",
+      "role": "input",
+      "dart": {
+        "symbol": "_validatePointerPolicies",
+        "file": "packages/flutter/lib/src/engine/pointer_policy.dart",
+        "locator": "_validatePointerPolicies",
+        "adaptation": "Creation selection JSON accepts the same brush fields and defaults."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushOptions.operation",
+      "shapeSha256": "6ba25ba4fb5b1b074c285536188f3eef9e6254b3fd9d92c831cce99071699b27",
+      "role": "input",
+      "dart": {
+        "symbol": "_validatePointerPolicies",
+        "file": "packages/flutter/lib/src/engine/pointer_policy.dart",
+        "locator": "_validatePointerPolicies",
+        "adaptation": "Creation selection JSON accepts the same brush fields and defaults."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushState",
+      "shapeSha256": "a2a1185a3c6382cf6cdc8315754c06683346b3937406e73c7cae2a6544fad816",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapBrushState",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushState",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushState.drawing",
+      "shapeSha256": "5050d04b99c96f1af94c6b1320b9a79054e401226b300293b09055fe6917351c",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapBrushState",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushState",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapBrushState.enabled",
+      "shapeSha256": "ef899ee0c985f80d1c2200598da91d855252ce0f7ca26b446d26d1335755b7f6",
+      "role": "output",
+      "dart": {
+        "symbol": "PatchMapBrushState",
+        "file": "packages/flutter/lib/src/engine/brush_selection.dart",
+        "locator": "class PatchMapBrushState",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapSelectionApi.brush",
+      "shapeSha256": "3dd9421212fa658c091049d398893f45bb5637bc10626e3a9df99ee47569a14e",
+      "role": "runtime",
+      "dart": {
+        "symbol": "PatchMapSelectionApi",
+        "file": "packages/flutter/lib/src/engine/history_selection.dart",
+        "locator": "class PatchMapSelectionApi",
+        "adaptation": "Typed Dart brush objects and disposer-returning API share the instance-owned mode and native gesture contract."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
+    },
+    {
+      "id": "api.PatchMapSelectionPolicy.brush",
+      "shapeSha256": "7c25d2920196e552d39cf19b0b70e2d495f2863e51cae5fdf0d7da0b8e68f1ea",
+      "role": "input",
+      "dart": {
+        "symbol": "_validatePointerPolicies",
+        "file": "packages/flutter/lib/src/engine/pointer_policy.dart",
+        "locator": "_validatePointerPolicies",
+        "adaptation": "Creation selection JSON accepts the same brush fields and defaults."
+      },
+      "probe": {
+        "file": "packages/flutter/test/conformance/host_public_binding_probe.dart",
+        "marker": "hostPublicBinding"
+      },
+      "scope": "Brush mode, toggle longpress, manual disable and next longpress; live path selection and cancellation.",
+      "pendingAssertions": [],
+      "witnesses": [
+        {
+          "runtime": "npm",
+          "file": "packages/javascript/tests/engine/brush-selection.test.ts",
+          "test": "toggle API disable and another longpress share one state",
+          "assertion": "One state drives longpress and API controls; toggling off preserves selection."
+        },
+        {
+          "runtime": "dart",
+          "file": "packages/flutter/test/host/native_pointer_test.dart",
+          "test": "brush toggle API disable and next longpress share one state",
+          "assertion": "Native longpress reads the current public mode after API disable."
+        }
+      ]
     }
   ],
   "uncovered": []

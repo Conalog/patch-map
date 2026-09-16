@@ -41,7 +41,7 @@ void main() {
       await ready('service');
       for (final id in ['gallery', 'updates', 'editor', 'alpha-parity']) {
         {
-          await tester.tap(find.byType(DropdownButton<String>));
+          await tester.tap(find.byKey(const Key('scenario-selector')));
           await tester.pumpAndSettle();
           await tester.tap(
             find

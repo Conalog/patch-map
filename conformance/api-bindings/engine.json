@@ -7425,7 +7425,7 @@
     },
     {
       "id": "api.PatchMapTransactionOperation.type",
-      "shapeSha256": "039f3f33bda1c76afe76d6f6d5a787107decea494cf27daeacf0a20df60282a7",
+      "shapeSha256": "ddc1684d943c945eaa4887b844fa5ddb0a15b28cd45edc0387eb9aefa8ca1eb9",
       "role": "input",
       "dart": {
         "symbol": "PatchMapTransactionOperation → input.0.type JSON input",

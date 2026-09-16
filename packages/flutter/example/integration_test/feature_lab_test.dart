@@ -60,7 +60,7 @@ void main() {
       for (final scenario in demoScenarios) {
         final id = scenario['id'] as String;
         {
-          await tester.tap(find.byType(DropdownButton<String>));
+          await tester.tap(find.byKey(const Key('scenario-selector')));
           await tester.pumpAndSettle();
           final item = find.text(scenario['title'] as String).last;
           await tester.ensureVisible(item);
