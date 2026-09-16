@@ -10,7 +10,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:patch_map/patch_map.dart';
+import 'package:conalog_patch_map/conalog_patch_map.dart';
 
 const _targets = ['grid.0.0', 'grid.0.1', 'grid.0.2', 'grid.0.3'];
 const _width = 240.0, _height = 160.0;

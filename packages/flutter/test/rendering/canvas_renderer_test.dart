@@ -1,13 +1,13 @@
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/src/engine/ports.dart';
-import 'package:patch_map/src/model/dataset.dart';
-import 'package:patch_map/src/rendering/canvas_renderer.dart';
-import 'package:patch_map/src/rendering/color.dart';
-import 'package:patch_map/src/rendering/selection.dart';
-import 'package:patch_map/src/semantic/geometry/geometry.dart';
-import 'package:patch_map/src/semantic/text/layout.dart';
+import 'package:conalog_patch_map/src/engine/ports.dart';
+import 'package:conalog_patch_map/src/model/dataset.dart';
+import 'package:conalog_patch_map/src/rendering/canvas_renderer.dart';
+import 'package:conalog_patch_map/src/rendering/color.dart';
+import 'package:conalog_patch_map/src/rendering/selection.dart';
+import 'package:conalog_patch_map/src/semantic/geometry/geometry.dart';
+import 'package:conalog_patch_map/src/semantic/text/layout.dart';
 
 PatchMapRenderSnapshot snapshot(
   PatchMapDataset dataset,

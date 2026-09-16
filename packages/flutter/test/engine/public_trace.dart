@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 import '../../example/lib/demo_commands.dart';
-import 'package:patch_map/src/api/values.dart';
-import 'package:patch_map/src/engine/controller.dart';
-import 'package:patch_map/src/engine/ports.dart';
-import 'package:patch_map/src/model/dataset.dart';
-import 'package:patch_map/src/semantic/text/layout.dart';
+import 'package:conalog_patch_map/src/api/values.dart';
+import 'package:conalog_patch_map/src/engine/controller.dart';
+import 'package:conalog_patch_map/src/engine/ports.dart';
+import 'package:conalog_patch_map/src/model/dataset.dart';
+import 'package:conalog_patch_map/src/semantic/text/layout.dart';
 
 class _Surface implements PatchMapSurfacePort {
   @override

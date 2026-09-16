@@ -82,7 +82,7 @@ test('shared contract and npm source changes select both runtime gates', () => {
 });
 
 test('Flutter-only changes select the native gate without npm release measurements', () => {
-  for (const path of ['packages/flutter/lib/patch_map.dart', 'packages/flutter/pubspec.yaml',
+  for (const path of ['packages/flutter/lib/conalog_patch_map.dart', 'packages/flutter/pubspec.yaml',
     'packages/flutter/test/engine/controller_test.dart', 'verification/flutter/package.mjs']) {
     assert.deepEqual(classifyChangedPaths([path]), { fullValidation: false, flutterValidation: true });
   }

@@ -1,4 +1,4 @@
-import 'package:patch_map/patch_map.dart';
+import 'package:conalog_patch_map/conalog_patch_map.dart';
 
 // Analyzer-only public binding probe; dynamic JSON keys need runtime witnesses.
 Future<void> modelDatasetBinding() async {

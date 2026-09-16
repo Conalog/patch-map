@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/patch_map.dart';
+import 'package:conalog_patch_map/conalog_patch_map.dart';
 
 Future<PatchMapController> mountMap(
   WidgetTester tester, {

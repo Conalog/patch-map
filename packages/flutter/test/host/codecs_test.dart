@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/src/host/native_assets.dart';
+import 'package:conalog_patch_map/src/host/native_assets.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

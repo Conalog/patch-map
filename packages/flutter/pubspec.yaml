@@ -1,4 +1,4 @@
-name: patch_map
+name: conalog_patch_map
 description: Native Flutter Canvas renderer and controller for PATCH MAP datasets.
 version: 0.1.0-alpha.1
 homepage: https://github.com/Conalog/patch-map

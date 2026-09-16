@@ -26,7 +26,7 @@ async function main() {
   if (command === 'prepare') {
     const report = await verifyInstalledDartConsumer();
     await mkdir('.release-dart', { recursive: true });
-    await copyFile(report.artifactPath, '.release-dart/patch_map.tar.gz');
+    await copyFile(report.artifactPath, '.release-dart/conalog_patch_map.tar.gz');
     await copyFile(report.reportPath, '.release-dart/installed-consumer.json');
     await writeFile('.release-dart/source-snapshot.json', `${JSON.stringify(await snapshotSources(process.cwd()), null, 2)}\n`);
     console.log(`Verified Dart artifact ${report.artifactSha256}`);
@@ -35,7 +35,7 @@ async function main() {
   if (command !== 'qualify' || !evidencePath) throw new Error('usage: dart-release.mjs prepare | qualify <collected-evidence.json>');
   const [evidence, manifest, inventory, report, snapshot, fingerprint, artifact] = await Promise.all([
     json(evidencePath), json('conformance/manifest.json'), json('conformance/public-api.json'),
-    json('.release-dart/installed-consumer.json'), snapshotSources(process.cwd()), contractFingerprint(), readFile('.release-dart/patch_map.tar.gz'),
+    json('.release-dart/installed-consumer.json'), snapshotSources(process.cwd()), contractFingerprint(), readFile('.release-dart/conalog_patch_map.tar.gz'),
   ]);
   const result = assertReleaseQualification({ evidence, manifest, inventory, fingerprint, sourceFingerprint: snapshot.fingerprint, report, artifactSha256: sha(artifact) });
   const npm = await json('packages/javascript/package.json');

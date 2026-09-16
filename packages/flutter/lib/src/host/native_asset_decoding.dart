@@ -36,13 +36,13 @@ extension _NativeAssetDecoding on NativeAssetSession {
       mime = 'image/svg+xml';
       final filename = Uri.parse(location).pathSegments.last;
       final data = await rootBundle.load(
-        'packages/patch_map/assets/icons/$filename',
+        'packages/conalog_patch_map/assets/icons/$filename',
       );
       bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
     } else if (packageOwned && location == _fontSource) {
       mime = 'font/woff2';
       final data = await rootBundle.load(
-        'packages/patch_map/assets/fonts/FiraCode-VF.woff2',
+        'packages/conalog_patch_map/assets/fonts/FiraCode-VF.woff2',
       );
       bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
     } else if (location.startsWith('data:')) {

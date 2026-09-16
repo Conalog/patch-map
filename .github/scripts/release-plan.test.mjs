@@ -26,7 +26,7 @@ async function fixture(changes, { dartReleased = false } = {}) {
     'release-please-config.json': JSON.stringify(config),
     '.release-please-manifest.json': JSON.stringify(versions),
     [`${npmPath}/package.json`]: JSON.stringify({ name: '@conalog/patch-map', version: versions[npmPath] }),
-    [`${dartPath}/pubspec.yaml`]: 'name: patch_map\nversion: 0.1.0-alpha.1\n',
+    [`${dartPath}/pubspec.yaml`]: 'name: conalog_patch_map\nversion: 0.1.0-alpha.1\n',
     [`${npmPath}/CHANGELOG.md`]: '# Changelog\n',
     [`${dartPath}/CHANGELOG.md`]: readFileSync(new URL('packages/flutter/CHANGELOG.md', root), 'utf8'),
     'package-lock.json': JSON.stringify({
@@ -119,7 +119,7 @@ test('npm-only release preserves legacy tag history and updates only the npm ver
 });
 
 test('first Dart release is alpha.1 and leaves npm manifests and root lockfile unchanged', async () => {
-  const { manifest, files } = await fixture([commit('feat: implement native brush', [`${dartPath}/lib/patch_map.dart`])]);
+  const { manifest, files } = await fixture([commit('feat: implement native brush', [`${dartPath}/lib/conalog_patch_map.dart`])]);
   const candidates = await manifest.buildPullRequests();
   assert.equal(candidates.length, 1);
   const dart = candidateFor(candidates, dartPath);
@@ -136,7 +136,7 @@ test('first Dart release is alpha.1 and leaves npm manifests and root lockfile u
 });
 
 test('later Dart-only fix increments alpha.2 without a new npm candidate', async () => {
-  const { manifest, files } = await fixture([commit('fix: repair native pointer', [`${dartPath}/lib/patch_map.dart`])], { dartReleased: true });
+  const { manifest, files } = await fixture([commit('fix: repair native pointer', [`${dartPath}/lib/conalog_patch_map.dart`])], { dartReleased: true });
   const candidates = await manifest.buildPullRequests();
   assert.equal(candidates.length, 1);
   const dart = candidateFor(candidates, dartPath);
@@ -145,7 +145,7 @@ test('later Dart-only fix increments alpha.2 without a new npm candidate', async
 });
 
 test('shared feature produces two independently mergeable PRs and correctly named releases', async () => {
-  const state = await fixture([commit('feat: add shared selection behavior', [`${npmPath}/src/index.ts`, `${dartPath}/lib/patch_map.dart`])]);
+  const state = await fixture([commit('feat: add shared selection behavior', [`${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`])]);
   const candidates = await state.manifest.buildPullRequests();
   assert.equal(candidates.length, 2);
   const npm = candidateFor(candidates, npmPath);
@@ -165,7 +165,7 @@ test('shared feature produces two independently mergeable PRs and correctly name
 });
 
 test('separate pending PRs route updates to the existing npm and Dart PR numbers', async () => {
-  const state = await fixture([commit('feat: add shared selection behavior', [`${npmPath}/src/index.ts`, `${dartPath}/lib/patch_map.dart`])]);
+  const state = await fixture([commit('feat: add shared selection behavior', [`${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`])]);
   const candidates = await state.manifest.buildPullRequests();
   state.openPullRequests.push(...candidates.map((candidate, index) => {
     const pullRequest = asPullRequest(candidate, 100 + index);

@@ -10,7 +10,7 @@ node verification/flutter/installed-consumer.mjs
 
 The installed-consumer runner first verifies repository import boundaries and
 managed native assets. It archives only `lib`, `assets`, package metadata,
-licenses and analysis configuration into deterministic `patch_map.tar.gz`.
+licenses and analysis configuration into deterministic `conalog_patch_map.tar.gz`.
 Examples, tests, tooling, lockfiles and generated host metadata are excluded by
 both the inventory and `.pubignore`. Unknown publication inputs fail review.
 The runner extracts that archive into a fresh directory, checks every file hash,

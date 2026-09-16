@@ -10,14 +10,14 @@ separately from implementation. Publication requires the repository
 
 ```yaml
 dependencies:
-  patch_map:
+  conalog_patch_map:
     path: ../patch-map/packages/flutter
 ```
 
 Create a controller once outside `build`, then attach it to a Widget:
 
 ```dart
-import 'package:patch_map/patch_map.dart';
+import 'package:conalog_patch_map/conalog_patch_map.dart';
 
 final controller = await PatchMap.create(
   data: [

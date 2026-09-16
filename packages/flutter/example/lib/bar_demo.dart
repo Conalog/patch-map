@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:patch_map/patch_map.dart';
+import 'package:conalog_patch_map/conalog_patch_map.dart';
 
 import 'shared_fixtures.dart';
 

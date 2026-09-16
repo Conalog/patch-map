@@ -38,10 +38,10 @@ test('publication requires both platforms, every contract witness, exact source 
   }
 });
 test('registry retry verifies every published file, allowing only pub omission of .pubignore', () => {
-  const report = { files: [{ path: '.pubignore', sha256: 'policy' }, { path: 'lib/patch_map.dart', sha256: 'source' }] };
-  assertPublishedContents({ '.pubignore': 'policy', 'lib/patch_map.dart': 'source' }, report);
-  assertPublishedContents({ 'lib/patch_map.dart': 'source' }, report, { registry: true });
-  for (const files of [{}, { 'lib/patch_map.dart': 'changed' }, { 'lib/patch_map.dart': 'source', 'unexpected': 'x' }]) {
+  const report = { files: [{ path: '.pubignore', sha256: 'policy' }, { path: 'lib/conalog_patch_map.dart', sha256: 'source' }] };
+  assertPublishedContents({ '.pubignore': 'policy', 'lib/conalog_patch_map.dart': 'source' }, report);
+  assertPublishedContents({ 'lib/conalog_patch_map.dart': 'source' }, report, { registry: true });
+  for (const files of [{}, { 'lib/conalog_patch_map.dart': 'changed' }, { 'lib/conalog_patch_map.dart': 'source', 'unexpected': 'x' }]) {
     assert.throws(() => assertPublishedContents(files, report, { registry: true }));
   }
 });
@@ -66,14 +66,14 @@ test('publication extraction leaves the ignored repository tree and preserves ve
     await mkdir(join(root, '.release-dart'));
     const archive = spawnSync('python3', ['-c', String.raw`
 import tarfile, io, sys
-payload = b'name: patch_map\nversion: 0.1.0-alpha.1\n'
+payload = b'name: conalog_patch_map\nversion: 0.1.0-alpha.1\n'
 with tarfile.open(fileobj=sys.stdout.buffer, mode='w|gz') as tar:
   info = tarfile.TarInfo('pubspec.yaml'); info.size = len(payload)
   tar.addfile(info, io.BytesIO(payload))
 `]).stdout;
     const digest = createHash('sha256').update(archive).digest('hex');
     const files = archiveFiles(archive);
-    await writeFile(join(root, '.release-dart/patch_map.tar.gz'), archive);
+    await writeFile(join(root, '.release-dart/conalog_patch_map.tar.gz'), archive);
     // Synthetic qualification belongs only to this isolated archive-path test.
     await writeFile(join(root, '.release-dart/compatibility.json'), JSON.stringify({ qualified: true, dart: { artifactSha256: digest } }));
     await writeFile(join(root, '.release-dart/installed-consumer.json'), JSON.stringify({ installedConsumer: true, artifactSha256: digest, files: Object.entries(files).map(([path, sha256]) => ({ path, sha256 })) }));

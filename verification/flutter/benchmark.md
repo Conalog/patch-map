@@ -1,6 +1,6 @@
 # Full SDK native bar frame benchmark
 
-The integration target uses only `package:patch_map/patch_map.dart`, constructs
+The integration target uses only `package:conalog_patch_map/conalog_patch_map.dart`, constructs
 `PatchMap.create`, and attaches the real `PatchMapView`. It uses the production
 controller, host frame scheduler and Canvas renderer; the native target does not
 install a mock surface or manually advance the engine clock. The public

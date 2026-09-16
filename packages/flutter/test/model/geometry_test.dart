@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/src/model/dataset.dart';
-import 'package:patch_map/src/semantic/geometry/geometry.dart';
+import 'package:conalog_patch_map/src/model/dataset.dart';
+import 'package:conalog_patch_map/src/semantic/geometry/geometry.dart';
 
 void main() {
   test(

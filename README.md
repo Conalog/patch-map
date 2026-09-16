@@ -5,7 +5,7 @@ Two independently distributed implementations of the same map contract:
 | Package | Runtime | Source and usage |
 | --- | --- | --- |
 | `@conalog/patch-map` | TypeScript and PixiJS for the web | [JavaScript package](packages/javascript/README.md) |
-| `patch_map` | Dart and Flutter Canvas for Android and iOS | [Flutter package](packages/flutter/README.md) |
+| `conalog_patch_map` | Dart and Flutter Canvas for Android and iOS | [Flutter package](packages/flutter/README.md) |
 
 Both packages own their dependencies, tests, examples and distribution metadata.
 The root is a private task coordinator; [shared tooling](verification/README.md)

@@ -1,4 +1,4 @@
-import 'package:patch_map/patch_map.dart';
+import 'package:conalog_patch_map/conalog_patch_map.dart';
 
 // Public compilation witness; native behavior is asserted by named host tests.
 Future<void> hostPublicBinding() async {

@@ -1,9 +1,9 @@
 // Shared by the interactive native demo and the Dart VM conformance runner.
 // Keep this adapter free of Flutter imports so VM traces use the same commands.
 import 'dart:convert';
-import 'package:patch_map/src/api/values.dart';
-import 'package:patch_map/src/engine/controller.dart';
-import 'package:patch_map/src/model/dataset.dart';
+import 'package:conalog_patch_map/src/api/values.dart';
+import 'package:conalog_patch_map/src/engine/controller.dart';
+import 'package:conalog_patch_map/src/model/dataset.dart';
 
 JsonMap observePublic(PatchMapController c) => {
   'dataset': c.data.snapshot(),

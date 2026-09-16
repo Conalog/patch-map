@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/src/api/values.dart';
-import 'package:patch_map/src/engine/ports.dart';
-import 'package:patch_map/src/semantic/geometry/primitives.dart';
-import 'package:patch_map/src/engine/controller.dart';
+import 'package:conalog_patch_map/src/api/values.dart';
+import 'package:conalog_patch_map/src/engine/ports.dart';
+import 'package:conalog_patch_map/src/semantic/geometry/primitives.dart';
+import 'package:conalog_patch_map/src/engine/controller.dart';
 import 'controller_test.dart' as fixtures;
-import 'package:patch_map/src/semantic/text/layout.dart';
+import 'package:conalog_patch_map/src/semantic/text/layout.dart';
 
 Future<(PatchMapController, fixtures.Surface)> mount(Object data) async {
   final c = await PatchMapController.create(

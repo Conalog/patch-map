@@ -149,7 +149,7 @@ class NativeAssetSession implements PatchMapAssetPort {
 
   static Future<void> _loadFont() async {
     final data = await rootBundle.load(
-      'packages/patch_map/assets/fonts/FiraCode-VF.ttf',
+      'packages/conalog_patch_map/assets/fonts/FiraCode-VF.ttf',
     );
     await (FontLoader('FiraCode')..addFont(Future.value(data))).load();
   }

@@ -21,7 +21,7 @@ must state its direction. Data declarations can be used in both directions.
 - `dart` names the exact public binding, owning source locator and language
   adaptation. A locator is navigational evidence, not an analyzer result.
 - `probe` points to a unique marker in a Dart analyzer fixture importing only
-  `package:patch_map/patch_map.dart`. JSON key probes prove map acceptance;
+  `package:conalog_patch_map/conalog_patch_map.dart`. JSON key probes prove map acceptance;
   runtime assertions must verify required keys and value semantics.
 - `witnesses` names exact npm/Dart tests and the specific assertion relevant to
   this binding. One test may substantiate several fields when it explicitly

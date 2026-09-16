@@ -1,6 +1,6 @@
 // Declaration-only analyzer probe. Never executed; no behavior outcome is implied.
 // Every api: marker names the exact shared inventory entry checked below it.
-import 'package:patch_map/patch_map.dart';
+import 'package:conalog_patch_map/conalog_patch_map.dart';
 
 Future<void> checkAssetBindings(
   PatchMapAssetBackend backend,

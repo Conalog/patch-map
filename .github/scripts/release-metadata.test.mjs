@@ -23,7 +23,7 @@ test('publisher requires the exact package, namespace and merged release manifes
     await mkdir(join(root, 'packages/javascript'), { recursive: true });
     await mkdir(join(root, 'packages/flutter'), { recursive: true });
     await writeFile(join(root, 'packages/javascript/package.json'), JSON.stringify({ name: '@conalog/patch-map', version: '1.1.0' }));
-    await writeFile(join(root, 'packages/flutter/pubspec.yaml'), 'name: patch_map\nversion: 0.1.0-alpha.1\n');
+    await writeFile(join(root, 'packages/flutter/pubspec.yaml'), 'name: conalog_patch_map\nversion: 0.1.0-alpha.1\n');
     const manifest = { 'packages/javascript': '1.1.0', 'packages/flutter': '0.1.0-alpha.1' };
     const save = () => writeFile(join(root, '.release-please-manifest.json'), JSON.stringify(manifest));
     await save();

@@ -65,6 +65,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.19.1"
+  conalog_patch_map:
+    dependency: "direct main"
+    description:
+      path: ".."
+      relative: true
+    source: path
+    version: "0.1.0-alpha.1"
   convert:
     dependency: transitive
     description:
@@ -359,13 +366,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
-  patch_map:
-    dependency: "direct main"
-    description:
-      path: ".."
-      relative: true
-    source: path
-    version: "0.1.0-dev.1"
   path:
     dependency: transitive
     description:

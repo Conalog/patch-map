@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/src/engine/controller.dart';
-import 'package:patch_map/src/engine/ports.dart';
-import 'package:patch_map/src/api/values.dart';
-import 'package:patch_map/src/host/native_pointer.dart';
+import 'package:conalog_patch_map/src/engine/controller.dart';
+import 'package:conalog_patch_map/src/engine/ports.dart';
+import 'package:conalog_patch_map/src/api/values.dart';
+import 'package:conalog_patch_map/src/host/native_pointer.dart';
 
 class _Surface implements PatchMapSurfacePort {
   @override

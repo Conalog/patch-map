@@ -30,7 +30,7 @@ export async function verifyApiBindings(root, inventory, document) {
     const declaration = await read(binding.dart.file);
     if (!binding.dart.locator || !declaration.includes(binding.dart.locator)) throw new Error(`Missing Dart declaration locator: ${binding.id}`);
     const probe = await read(binding.probe.file);
-    if (!binding.probe.marker || !probe.includes(binding.probe.marker) || !probe.includes("import 'package:patch_map/patch_map.dart'")) throw new Error(`Missing public compile probe: ${binding.id}`);
+    if (!binding.probe.marker || !probe.includes(binding.probe.marker) || !probe.includes("import 'package:conalog_patch_map/conalog_patch_map.dart'")) throw new Error(`Missing public compile probe: ${binding.id}`);
     if (!Array.isArray(binding.witnesses) || binding.witnesses.length === 0) throw new Error(`Missing witnesses: ${binding.id}`);
     for (const witness of binding.witnesses) {
       if (!['npm', 'dart'].includes(witness.runtime) || !witness.assertion || !witness.test) throw new Error(`Incomplete witness: ${binding.id}`);

@@ -11614,7 +11614,7 @@
       "role": "language-adaptation",
       "dart": {
         "symbol": "PatchMap.create + PatchMapView",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "docs/integration/flutter.md: mount({container,...}) is bound to async PatchMap.create and PatchMapView placement; Future replaces Promise and Flutter owns the canvas host."
       },
@@ -11645,7 +11645,7 @@
       "role": "language-adaptation",
       "dart": {
         "symbol": "PatchMap.create + PatchMapView",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "docs/integration/flutter.md: mount({container,...}) is bound to async PatchMap.create and PatchMapView placement; Future replaces Promise and Flutter owns the canvas host."
       },
@@ -11676,7 +11676,7 @@
       "role": "language-adaptation",
       "dart": {
         "symbol": "PatchMap.create + PatchMapView",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "docs/integration/flutter.md: mount({container,...}) is bound to async PatchMap.create and PatchMapView placement; Future replaces Promise and Flutter owns the canvas host."
       },
@@ -11707,7 +11707,7 @@
       "role": "language-adaptation",
       "dart": {
         "symbol": "PatchMap.create + PatchMapView",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "docs/integration/flutter.md: mount({container,...}) is bound to async PatchMap.create and PatchMapView placement; Future replaces Promise and Flutter owns the canvas host."
       },
@@ -11831,7 +11831,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create data named argument",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11862,7 +11862,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create width named argument",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11893,7 +11893,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create height named argument",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11924,7 +11924,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create pixelRatio named argument",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11955,7 +11955,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create fit named argument",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11986,7 +11986,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create historyLimit named argument",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -12017,7 +12017,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create instanceId named argument",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -12048,7 +12048,7 @@
       "role": "language-adaptation",
       "dart": {
         "symbol": "PatchMap.create named options + PatchMapView host configuration",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -12420,7 +12420,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create assets named parameter",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -12451,7 +12451,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create assetRuntime named parameter",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -12482,7 +12482,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create assetPolicy named parameter",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "static Future<PatchMapController> create(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -12513,7 +12513,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create theme JSON map",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "JsonMap? theme,",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -12544,7 +12544,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMap.create theme JSON map",
-        "file": "packages/flutter/lib/patch_map.dart",
+        "file": "packages/flutter/lib/conalog_patch_map.dart",
         "locator": "JsonMap? theme,",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },

@@ -3,12 +3,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/src/api/values.dart';
-import 'package:patch_map/src/engine/controller.dart';
-import 'package:patch_map/src/engine/ports.dart';
-import 'package:patch_map/src/model/dataset.dart';
-import 'package:patch_map/src/rendering/canvas_renderer.dart';
-import 'package:patch_map/src/semantic/geometry/geometry.dart';
+import 'package:conalog_patch_map/src/api/values.dart';
+import 'package:conalog_patch_map/src/engine/controller.dart';
+import 'package:conalog_patch_map/src/engine/ports.dart';
+import 'package:conalog_patch_map/src/model/dataset.dart';
+import 'package:conalog_patch_map/src/rendering/canvas_renderer.dart';
+import 'package:conalog_patch_map/src/semantic/geometry/geometry.dart';
 import '../support/bar_profile_inputs.dart';
 
 class _Surface implements PatchMapSurfacePort {

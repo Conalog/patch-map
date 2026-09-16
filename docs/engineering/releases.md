@@ -5,7 +5,7 @@ One repository owns two independently versioned packages. Compatibility comes fr
 | Owner | Registry | Version source | Tag | Release PR title |
 | --- | --- | --- | --- | --- |
 | `packages/javascript` | npm `@conalog/patch-map` | `package.json` | `v<version>` | `chore: release npm <version>` |
-| `packages/flutter` | pub.dev `patch_map` | `pubspec.yaml` | `dart-v<version>` | `chore: release dart <version>` |
+| `packages/flutter` | pub.dev `conalog_patch_map` | `pubspec.yaml` | `dart-v<version>` | `chore: release dart <version>` |
 
 Both packages own their changelog; root/verification npm workspaces remain private. No linked-version group is used. npm retains its tag format to preserve release history. Its baseline is the already-published `1.0.0-alpha.9` (2026-09-15); reconciling metadata does not import `main` code.
 
@@ -50,7 +50,7 @@ Dart dependency ranges retain validated minimums and allow patch updates only. W
 
 ## First Dart publication
 
-Pub.dev requires the first new-package version to be published manually. Confirm `patch_map` ownership/availability, merge its alpha.1 release PR, and use a clean checkout of `dart-v0.1.0-alpha.1`. Gather full evidence through the collector. Use Node 22 and Flutter 3.41.4 / Dart 3.11.1, matching CI.
+Pub.dev requires the first new-package version to be published manually. Confirm `conalog_patch_map` ownership/availability, merge its alpha.1 release PR, and use a clean checkout of `dart-v0.1.0-alpha.1`. Gather full evidence through the collector. Use Node 22 and Flutter 3.41.4 / Dart 3.11.1, matching CI.
 
 ```sh
 npm ci

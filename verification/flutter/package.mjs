@@ -24,7 +24,7 @@ export function dartImportViolations(source, file, packageRoot) {
   const engine = /^lib\/src\/engine\//u.test(origin);
   for (const match of source.matchAll(/\b(?:import|export|part)\s+['"]([^'"]+)['"]/gu)) {
     const specifier = match[1];
-    const target = specifier.startsWith('package:patch_map/') ? resolve(packageRoot, 'lib', specifier.slice('package:patch_map/'.length))
+    const target = specifier.startsWith('package:conalog_patch_map/') ? resolve(packageRoot, 'lib', specifier.slice('package:conalog_patch_map/'.length))
       : !specifier.includes(':') ? resolve(dirname(file), specifier) : null;
     if (target !== null) {
       const path = relative(packageRoot, target).split('\\').join('/');
@@ -32,7 +32,7 @@ export function dartImportViolations(source, file, packageRoot) {
       if (semantic && /^lib\/src\/(?:engine|host|rendering|api)\//u.test(path)) violations.push(`${origin}: semantic import into upper layer: ${specifier}`);
       if (engine && /^lib\/src\/(?:host|rendering)\//u.test(path)) violations.push(`${origin}: engine imports concrete adapter: ${specifier}`);
     }
-    if (semantic && (specifier.startsWith('package:') && !specifier.startsWith('package:patch_map/') || ['dart:ui', 'dart:io', 'dart:html', 'dart:js_interop'].includes(specifier))) {
+    if (semantic && (specifier.startsWith('package:') && !specifier.startsWith('package:conalog_patch_map/') || ['dart:ui', 'dart:io', 'dart:html', 'dart:js_interop'].includes(specifier))) {
       violations.push(`${origin}: semantic runtime requires Dart core only: ${specifier}`);
     }
     if (engine && (specifier.startsWith('package:flutter/') || specifier === 'dart:ui')) violations.push(`${origin}: engine imports Flutter host: ${specifier}`);
@@ -45,9 +45,9 @@ export async function verifyFlutterPackage(root = process.cwd()) {
   const packageRoot = resolve(root, 'packages/flutter');
   const failures = [];
   const pubspec = await readFile(resolve(packageRoot, 'pubspec.yaml'), 'utf8');
-  if (!/^name: patch_map$/mu.test(pubspec)) failures.push('Unexpected Dart package name');
+  if (!/^name: conalog_patch_map$/mu.test(pubspec)) failures.push('Unexpected Dart package name');
   if (/^\s+(?:flutter_js|quickjs_engine|jsf|webview_flutter):/mu.test(pubspec)) failures.push('Dart package depends on JS/WebView runtime');
-  for (const path of ['lib/patch_map.dart', 'README.md', 'CHANGELOG.md', 'LICENSE', '.pubignore']) {
+  for (const path of ['lib/conalog_patch_map.dart', 'README.md', 'CHANGELOG.md', 'LICENSE', '.pubignore']) {
     if (!(await stat(resolve(packageRoot, path)).catch(() => null))?.isFile()) failures.push(`Package file missing: ${path}`);
   }
   for (const file of await files(resolve(packageRoot, 'lib'))) {

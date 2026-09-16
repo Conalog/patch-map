@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/src/model/json.dart';
-import 'package:patch_map/src/model/theme.dart';
+import 'package:conalog_patch_map/src/model/json.dart';
+import 'package:conalog_patch_map/src/model/theme.dart';
 
 void main() {
   test(

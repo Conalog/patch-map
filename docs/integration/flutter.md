@@ -5,7 +5,7 @@
 
 ## Package and construction
 
-The Dart package is `patch_map`, managed under `packages/flutter`. The npm package remains `@conalog/patch-map`. These are independent runtimes implementing the same behavior contract. A development version or example screenshot does not establish full feature equivalence.
+The Dart package is `conalog_patch_map`, managed under `packages/flutter`. The npm package remains `@conalog/patch-map`. These are independent runtimes implementing the same behavior contract. A development version or example screenshot does not establish full feature equivalence.
 
 `PatchMap.create` asynchronously prepares a controller. `PatchMapView(controller: controller)` attaches the Flutter drawing surface. The controller survives Widget rebuilds; its owner calls `destroy` when finished. Native surface attachment replaces the browser container parameter. Detach permits later reattachment until destroy; `ready` completes only once, while each new attachment must publish before capture. A controller has one attached surface; multiple maps use separate controllers and may share an asset runtime.
 

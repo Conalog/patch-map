@@ -30,7 +30,7 @@ const pubspec = readFileSync(`${dartPath}/pubspec.yaml`, 'utf8');
 const dartVersion = pubspecField(pubspec, 'version');
 parseVersion(dartVersion);
 parseVersion(manifest.version);
-if (pubspecField(pubspec, 'name') !== 'patch_map' || /^publish_to:/mu.test(pubspec) ||
+if (pubspecField(pubspec, 'name') !== 'conalog_patch_map' || /^publish_to:/mu.test(pubspec) ||
   (release[dartPath] ?? config.packages[dartPath]['initial-version']) !== dartVersion) {
   throw new Error('Dart package and release versions must match (initial version before first release)');
 }

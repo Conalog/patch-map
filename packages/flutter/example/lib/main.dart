@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:patch_map/patch_map.dart';
+import 'package:conalog_patch_map/conalog_patch_map.dart';
 import 'bar_demo.dart' as panels;
 import 'demo_commands.dart' as commands;
 import 'shared_fixtures.dart';

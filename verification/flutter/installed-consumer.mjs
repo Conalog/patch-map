@@ -68,7 +68,7 @@ export async function verifyInstalledDartConsumer({ root = process.cwd(), flutte
   const outputRoot = resolve(root, '.artifacts/flutter');
   await mkdir(outputRoot, { recursive: true });
   const workspace = await mkdtemp(resolve(outputRoot, 'installed-consumer-'));
-  const archive = resolve(workspace, 'patch_map.tar.gz'), installed = resolve(workspace, 'package'), consumer = resolve(workspace, 'consumer');
+  const archive = resolve(workspace, 'conalog_patch_map.tar.gz'), installed = resolve(workspace, 'package'), consumer = resolve(workspace, 'consumer');
   const packed = command('python3', ['-c', ARCHIVE, packageRoot, archive, installed, JSON.stringify(filenames)], root);
   if (packed.status !== 0) throw new Error(`Dart packaging failed: ${packed.stderr}`);
   for (const input of inputs) {
@@ -83,7 +83,7 @@ export async function verifyInstalledDartConsumer({ root = process.cwd(), flutte
     if (await lstat(resolve(installed, forbidden)).catch(() => null)) throw new Error(`Artifact contains ${forbidden}`);
   }
   await mkdir(resolve(consumer, 'test'), { recursive: true });
-  await writeFile(resolve(consumer, 'pubspec.yaml'), `name: patch_map_installed_consumer\npublish_to: none\nenvironment:\n  sdk: '>=3.11.0 <4.0.0'\ndependencies:\n  flutter:\n    sdk: flutter\n  patch_map:\n    path: ../package\ndev_dependencies:\n  flutter_test:\n    sdk: flutter\n`);
+  await writeFile(resolve(consumer, 'pubspec.yaml'), `name: patch_map_installed_consumer\npublish_to: none\nenvironment:\n  sdk: '>=3.11.0 <4.0.0'\ndependencies:\n  flutter:\n    sdk: flutter\n  conalog_patch_map:\n    path: ../package\ndev_dependencies:\n  flutter_test:\n    sdk: flutter\n`);
   const consumerSource = await readFile(resolve(root, 'verification/flutter/installed-consumer.dart'));
   await writeFile(resolve(consumer, 'test/installed_consumer_test.dart'), consumerSource);
   const report = {

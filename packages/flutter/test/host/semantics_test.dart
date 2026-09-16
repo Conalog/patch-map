@@ -2,8 +2,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/patch_map.dart';
-import 'package:patch_map/src/semantic/text/layout.dart';
+import 'package:conalog_patch_map/conalog_patch_map.dart';
+import 'package:conalog_patch_map/src/semantic/text/layout.dart';
 
 Widget surface(PatchMapController controller) => MediaQuery(
   data: const MediaQueryData(devicePixelRatio: 1),

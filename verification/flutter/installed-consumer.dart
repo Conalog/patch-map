@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/patch_map.dart';
+import 'package:conalog_patch_map/conalog_patch_map.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -15,7 +15,7 @@ void main() {
     final font = await session.acquire('FiraCode-400');
     expect((font.resource as NativeAsset).isFont, true);
     final bytes = await rootBundle.load(
-      'packages/patch_map/assets/fonts/FiraCode-VF.ttf',
+      'packages/conalog_patch_map/assets/fonts/FiraCode-VF.ttf',
     );
     expect(bytes.getUint32(0), 0x00010000);
     expect(bytes.lengthInBytes, greaterThan(100000));

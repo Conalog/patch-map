@@ -35,7 +35,7 @@
     "packages/flutter": {
       "release-type": "dart",
       "component": "dart",
-      "package-name": "patch_map",
+      "package-name": "conalog_patch_map",
       "include-component-in-tag": true,
       "initial-version": "0.1.0-alpha.1",
       "versioning": "prerelease",

@@ -23,7 +23,7 @@ packages/javascript/
   vite.config.ts, tsconfig*.json            package-local build and type ownership
 packages/flutter/
   pubspec.yaml, README.md, CHANGELOG.md      Dart distribution metadata
-  lib/patch_map.dart, lib/src/              Dart engine, Canvas and Widget adapters
+  lib/conalog_patch_map.dart, lib/src/              Dart engine, Canvas and Widget adapters
   assets/, test/, example/                  native inputs, checks and Android/iOS demos
 .artifacts/                               ignored repository verification evidence
 ```

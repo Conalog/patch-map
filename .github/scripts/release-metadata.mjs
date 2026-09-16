@@ -44,7 +44,7 @@ export function releaseMetadata(runtime, tag, root = process.cwd()) {
   } else if (runtime === 'dart') {
     path = 'packages/flutter';
     const pubspec = readFileSync(`${root}/${path}/pubspec.yaml`, 'utf8');
-    if (pubspecField(pubspec, 'name') !== 'patch_map' || /^publish_to:/mu.test(pubspec)) throw new Error('unexpected Dart publication identity');
+    if (pubspecField(pubspec, 'name') !== 'conalog_patch_map' || /^publish_to:/mu.test(pubspec)) throw new Error('unexpected Dart publication identity');
     version = pubspecField(pubspec, 'version');
     prefix = 'dart-v';
   } else throw new Error('runtime must be npm or dart');

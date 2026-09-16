@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/src/semantic/geometry/primitives.dart';
-import 'package:patch_map/src/semantic/text/layout.dart';
+import 'package:conalog_patch_map/src/semantic/geometry/primitives.dart';
+import 'package:conalog_patch_map/src/semantic/text/layout.dart';
 
 void main() {
   final observations =

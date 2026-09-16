@@ -44,7 +44,7 @@ async function main() {
   const command = process.argv[2];
   const report = JSON.parse(readFileSync('.release-dart/installed-consumer.json', 'utf8'));
   const compatibility = JSON.parse(readFileSync('.release-dart/compatibility.json', 'utf8'));
-  const bytes = readFileSync('.release-dart/patch_map.tar.gz');
+  const bytes = readFileSync('.release-dart/conalog_patch_map.tar.gz');
   if (!report.installedConsumer || compatibility.qualified !== true || hash(bytes) !== report.artifactSha256 || hash(bytes) !== compatibility.dart.artifactSha256) throw new Error('Dart artifact digest or qualification mismatch');
   assertPublishedContents(archiveFiles(bytes), report);
   if (command === 'extract') {
@@ -62,12 +62,12 @@ async function main() {
   parseVersion(version);
   const directory = readFileSync('.release-dart/publication-directory.txt', 'utf8');
   const pubspec = readFileSync(join(directory, 'pubspec.yaml'), 'utf8');
-  if (pubspecField(pubspec, 'name') !== 'patch_map' || pubspecField(pubspec, 'version') !== version) throw new Error('qualified Dart artifact identity mismatch');
-  const response = await fetch(`https://pub.dev/api/packages/patch_map/versions/${version}`, { signal: AbortSignal.timeout(30000) });
+  if (pubspecField(pubspec, 'name') !== 'conalog_patch_map' || pubspecField(pubspec, 'version') !== version) throw new Error('qualified Dart artifact identity mismatch');
+  const response = await fetch(`https://pub.dev/api/packages/conalog_patch_map/versions/${version}`, { signal: AbortSignal.timeout(30000) });
   let published = false;
   if (response.ok) {
     const metadata = await response.json();
-    const archive = await fetch(`https://pub.dev/api/archives/patch_map-${version}.tar.gz`, { signal: AbortSignal.timeout(30000) });
+    const archive = await fetch(`https://pub.dev/api/archives/conalog_patch_map-${version}.tar.gz`, { signal: AbortSignal.timeout(30000) });
     if (!archive.ok) throw new Error(`cannot verify existing pub.dev archive: ${archive.status}`);
     const publishedBytes = Buffer.from(await archive.arrayBuffer());
     if (hash(publishedBytes) !== metadata.archive_sha256) throw new Error('pub.dev archive integrity mismatch');

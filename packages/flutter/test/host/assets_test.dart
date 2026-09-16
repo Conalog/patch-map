@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patch_map/src/api/values.dart';
-import 'package:patch_map/src/engine/ports.dart';
-import 'package:patch_map/src/host/native_assets.dart';
-import 'package:patch_map/src/model/dataset.dart';
-import 'package:patch_map/src/semantic/geometry/geometry.dart';
+import 'package:conalog_patch_map/src/api/values.dart';
+import 'package:conalog_patch_map/src/engine/ports.dart';
+import 'package:conalog_patch_map/src/host/native_assets.dart';
+import 'package:conalog_patch_map/src/model/dataset.dart';
+import 'package:conalog_patch_map/src/semantic/geometry/geometry.dart';
 
 class RealHttpOverrides extends HttpOverrides {}
 
