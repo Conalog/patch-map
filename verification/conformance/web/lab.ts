@@ -81,7 +81,7 @@ async function reset(id = scenario.id) {
   const assets = await acquireSharedFixtureAssets(fixture); releaseAssets = assets.dispose;
   try {
     instance = await PatchMap.mount({ container: map, data: fixture.dataset, ...fixture.surface, fit: false, ...(scenario.kind === 'service' ? { theme: serviceBlueprint.theme } : {}),
-      selection: { brush: { longPress: element<HTMLSelectElement>('brush-trigger').value === 'manual' ? false : { behavior: element<HTMLSelectElement>('brush-trigger').value as 'toggle' | 'hold', delayMs: 500 } }, allowMultiple: element<HTMLInputElement>('multiple').checked, box: element<HTMLInputElement>('box').checked ? { activationModifier: 'none' } : false },
+      selection: { visual: { color: '#ef4444', displayMode: 'element-only' }, brush: { longPress: element<HTMLSelectElement>('brush-trigger').value === 'manual' ? false : { behavior: element<HTMLSelectElement>('brush-trigger').value as 'toggle' | 'hold', delayMs: 500 } }, allowMultiple: element<HTMLInputElement>('multiple').checked, box: element<HTMLInputElement>('box').checked ? { activationModifier: 'none' } : false },
       pointer: { tooltip: { pinOnContextMenu: true } },
       ...(assets.runtime ? { assetRuntime: assets.runtime } : {}) });
   } catch (error) { await releaseAssets(); releaseAssets = undefined; throw error; }

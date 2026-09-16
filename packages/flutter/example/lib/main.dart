@@ -79,6 +79,7 @@ class _ComparisonPageState extends State<ComparisonPage> {
         fit: false,
         theme: (nextFixture['theme'] as Map?)?.cast<String, dynamic>(),
         selection: {
+          'visual': {'color': '#ef4444', 'displayMode': 'element-only'},
           'allowMultiple': multiple,
           'brush': {
             'longPress': brushTrigger == 'manual'
