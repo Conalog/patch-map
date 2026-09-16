@@ -504,7 +504,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapViewportApi.panBy",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "PatchMapResult panBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -535,7 +535,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapViewportApi.zoomBy",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "PatchMapResult zoomBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -566,7 +566,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapViewportApi.restore",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "PatchMapResult restore(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -597,7 +597,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapViewportApi.resize",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "bool resize(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -628,7 +628,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapViewportApi.state",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "JsonMap get state",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -659,7 +659,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapViewportApi.snapshot",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "JsonMap snapshot()",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -696,7 +696,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapViewportApi.fit",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "PatchMapResult fit(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -733,7 +733,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapRotationApi.set",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "set(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -764,7 +764,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapRotationApi.rotateBy",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "rotateBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -795,7 +795,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapRotationApi.reset",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "reset(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -826,7 +826,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapRotationApi.value",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "double get value",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -857,7 +857,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapRotationApi.animateTo",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "animateTo(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -888,7 +888,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapTransformApi.moveBy",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "moveBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -919,7 +919,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapTransformApi.resizeBy",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "resizeBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -950,7 +950,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapTransformApi.rotateBy",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "rotateBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -981,7 +981,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapTransformApi.beginSession",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "beginSession(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -2035,7 +2035,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapViewportApi",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "class PatchMapViewportApi",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -2159,7 +2159,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapRotationApi",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "class PatchMapRotationApi",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -2283,7 +2283,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapTransformApi",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "class PatchMapTransformApi",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4422,7 +4422,7 @@
       "role": "output",
       "dart": {
         "symbol": "c.viewport.state",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "JsonMap get state",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4453,7 +4453,7 @@
       "role": "output",
       "dart": {
         "symbol": "c.viewport.state['centerWorld']",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "JsonMap get state",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4484,7 +4484,7 @@
       "role": "output",
       "dart": {
         "symbol": "c.viewport.state['scale']",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "JsonMap get state",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4515,7 +4515,7 @@
       "role": "output",
       "dart": {
         "symbol": "c.viewport.state['screenBounds']",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "JsonMap get state",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4546,7 +4546,7 @@
       "role": "output",
       "dart": {
         "symbol": "c.viewport.snapshot()",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "JsonMap snapshot()",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4577,7 +4577,7 @@
       "role": "output",
       "dart": {
         "symbol": "c.viewport.snapshot()['centerWorld']",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "JsonMap snapshot()",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4608,7 +4608,7 @@
       "role": "output",
       "dart": {
         "symbol": "c.viewport.snapshot()['scale']",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "JsonMap snapshot()",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4794,7 +4794,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapTransformSession.preview",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult preview(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4825,7 +4825,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapTransformSession.cancel",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult cancel(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4856,7 +4856,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapTransformSession.commit",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult commit(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4887,7 +4887,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapTransformSession.edgePan",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult edgePan(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -4918,7 +4918,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapTransformSession",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "class PatchMapTransformSession",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -5321,7 +5321,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapRotationAnimation.finished",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "Future<PatchMapResult> get finished",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -5352,7 +5352,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapRotationAnimation.cancel",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "bool cancel()",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -5383,7 +5383,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapRotationAnimation",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "class PatchMapRotationAnimation",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -6716,7 +6716,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapRotationAnimationOptions → options JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "PatchMapRotationAnimation animateTo(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -6747,7 +6747,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapRotationAnimationOptions → options.durationMs JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "PatchMapRotationAnimation animateTo(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -6778,7 +6778,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapRotationAnimationOptions → options.normalizeOnComplete JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "PatchMapRotationAnimation animateTo(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -6809,7 +6809,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapTransformOptions → options JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult moveBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -6840,7 +6840,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapTransformOptions → options.actionId JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult moveBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -6871,7 +6871,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapResizeByOptions → input.resize JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult resizeBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -6902,7 +6902,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapResizeByOptions → input.resize.delta JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult resizeBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -6933,7 +6933,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapResizeByOptions → input.resize.handle JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult resizeBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -6964,7 +6964,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapResizeByOptions → input.resize.lockAspectRatio JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult resizeBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -6995,7 +6995,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapTransformSessionInput → input JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapTransformSession beginSession(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -7026,7 +7026,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapTransformSessionInput → input.actionId JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapTransformSession beginSession(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -7057,7 +7057,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapTransformSessionInput → input.kind JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapTransformSession beginSession(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -7088,7 +7088,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapTransformSessionInput → input.targets JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapTransformSession beginSession(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -7119,7 +7119,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapTransformSessionPreview → input JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult preview(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -7150,7 +7150,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapTransformSessionPreview → input.kind JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult preview(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -7243,7 +7243,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapFitOptions → options.fit JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "PatchMapResult fit(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -7274,7 +7274,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapFitOptions → options.fit.padding JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "PatchMapResult fit(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -7305,7 +7305,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapFitOptions → options.fit.targets JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "PatchMapResult fit(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -7522,7 +7522,7 @@
       "role": "language-adaptation",
       "dart": {
         "symbol": "PatchMapViewportChangeSource → Dart JSON value/list at facade",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/viewport.dart",
         "locator": "PatchMapResult panBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -7584,7 +7584,7 @@
       "role": "language-adaptation",
       "dart": {
         "symbol": "PatchMapTargetsInput → Dart JSON value/list at facade",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult moveBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -7708,7 +7708,7 @@
       "role": "language-adaptation",
       "dart": {
         "symbol": "PatchMapOneOrMany → Dart JSON value/list at facade",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult moveBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11056,7 +11056,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapResizeByOptions → input.resize.minSize JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult resizeBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11087,7 +11087,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapTransformOptions → options.recordHistory JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapResult resizeBy(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11118,7 +11118,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapTransformSessionInput → input.handle JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/transform.dart",
         "locator": "PatchMapTransformSession beginSession(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11149,7 +11149,7 @@
       "role": "input",
       "dart": {
         "symbol": "PatchMapRotationAnimationOptions → options.path JSON input",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "PatchMapRotationAnimation animateTo(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11180,7 +11180,7 @@
       "role": "input",
       "dart": {
         "symbol": "rotation.animateTo path string",
-        "file": "packages/flutter/lib/src/engine/viewport_transform.dart",
+        "file": "packages/flutter/lib/src/engine/rotation.dart",
         "locator": "PatchMapRotationAnimation animateTo(",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11211,7 +11211,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapCaptureApi.png",
-        "file": "packages/flutter/lib/src/engine/controller.dart",
+        "file": "packages/flutter/lib/src/engine/controller_services.dart",
         "locator": "Future<PatchMapCaptureResult> png()",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },
@@ -11242,7 +11242,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapCaptureApi.png",
-        "file": "packages/flutter/lib/src/engine/controller.dart",
+        "file": "packages/flutter/lib/src/engine/controller_services.dart",
         "locator": "Future<PatchMapCaptureResult> png()",
         "adaptation": "Same operation through the public Dart facade. TS options objects become named parameters; JSON-shaped payloads and detached PatchMapResult.toJson values follow docs/integration/flutter.md."
       },

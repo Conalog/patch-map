@@ -50,7 +50,7 @@ Dependencies point from composition to api/engine, from engine to model/semantic
 | History authority | Bounded undo/redo cursor, coalescing, selection and companion; cursor moves only after accepted restoration |
 | Instance presentation | Concrete grid overlays separate from authored data; field-level null restores current template; keyed alpha does not change hit identity |
 | Geometry projection | World geometry, hierarchical stable paint order and hit index shared by renderer, selection and viewport |
-| View/interaction | `viewport_transform.dart` owns viewport/rotation/session state; `viewport_fit.dart` validates and plans fit before publication; `pointer_policy.dart` admits creation policies. Previews never write authored history |
+| View/interaction | `viewport.dart`, `rotation.dart`, `transform.dart`: viewport/rotation/preview state. `viewport_fit.dart`: validated fit planning. `pointer_policy.dart`: creation policies. Previews never write history |
 | Publication authority | One dirty frame schedule; accepted scene/view/interaction tuple and confirmed frame; idle schedules nothing |
 | Asset session | Admission, per-alias generation, pending work and leases; stale completion releases without publishing |
 | Capture authority | Serial queue, visible readiness and exact published tuple; defers resize through extraction |
@@ -65,6 +65,11 @@ Dart exposes asynchronous `PatchMap.create` and `PatchMapView(controller: ...)`.
 
 The semantic dataset uses immutable maps and indexed targets. Structural edits use detached preparation; grid heights use validated overlays and dirty slots without full tree cloning or parsing. Renderer projection uses packed buffers and ordered batches. Bar projections share original target metadata and create query targets lazily; flat views retain no preceding frames. View changes transform existing geometry. Text measurement, assets and clocks enter through ports. The native surface supplies a monotonic clock between frames; each command samples it once so idle time cannot consume a new bar or rotation animation. Idle schedules no frames.
 
+`controller.dart` owns lifecycle/publication; `controller_services.dart` exposes
+assets/debug/capture. Canvas text and geometry live in `canvas_text.dart` and
+`canvas_primitives.dart`; `native_map_surface.dart` holds host adapters. All remain
+parts of their existing library with unchanged state/disposal ownership.
+
 The [native rendering owner](flutter-rendering.md) defines retained text/icon resources, incremental projection, cache bounds, invalidation and focused checks.
 
 ## Asset decoder decisions
@@ -73,7 +78,9 @@ The native backend admits bytes before decoding. PNG/JPEG/WebP/GIF use Flutter c
 
 ## Maintenance and verification
 
-The selected implementations are maintained directly. Alternative JS engine, bridge and renderer experiments are removed. Native bar workloads exercise the shipped Dart controller and Canvas surface; npm workloads exercise the shipped Pixi implementation. Functional fixtures and trace equality remain shared under `conformance/` and `verification/conformance/`.
+Runtime tests and measurements use shipped implementations. Shared traces live
+in `conformance/` and `verification/conformance/`; alternative runtime experiments
+are removed.
 
 The private root forwards `js:*` to JavaScript, `flutter:*` to native tasks and `verify:*` to the [verification workspace](../../verification/README.md). Root has no development dependencies or compiler/lint configuration. npm workspaces contain JavaScript and tooling; Flutter uses pub. Shared gates execute from the repository root. Package tools use their own root and access shared contracts, lockfile and evidence explicitly. Runtime imports never cross package/tooling boundaries.
 

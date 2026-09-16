@@ -2647,7 +2647,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapController.assets",
-        "file": "packages/flutter/lib/src/engine/controller.dart",
+        "file": "packages/flutter/lib/src/engine/controller_services.dart",
         "locator": "class PatchMapAssetsApi",
         "adaptation": "Controller namespace forwards one-or-many registrations and optional alias status to the mounted asset session."
       },
@@ -2684,7 +2684,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapController.assets.register",
-        "file": "packages/flutter/lib/src/engine/controller.dart",
+        "file": "packages/flutter/lib/src/engine/controller_services.dart",
         "locator": "PatchMapResult register(Object registrations)",
         "adaptation": "Controller namespace forwards one-or-many registrations and optional alias status to the mounted asset session."
       },
@@ -2721,7 +2721,7 @@
       "role": "runtime",
       "dart": {
         "symbol": "PatchMapController.assets.status",
-        "file": "packages/flutter/lib/src/engine/controller.dart",
+        "file": "packages/flutter/lib/src/engine/controller_services.dart",
         "locator": "JsonMap status([String? alias])",
         "adaptation": "Controller namespace forwards one-or-many registrations and optional alias status to the mounted asset session."
       },
