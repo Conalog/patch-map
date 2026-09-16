@@ -13,6 +13,7 @@ PatchMapRenderSnapshot snapshot(
   PatchMapDataset dataset,
   PatchMapGeometry geometry, {
   JsonMap theme = const {},
+  Map<String, double> presentationAlpha = const {},
   JsonMap visual = const {},
   List<String> selected = const [],
   double rotation = 0,
@@ -34,7 +35,7 @@ PatchMapRenderSnapshot snapshot(
     rotation: rotation,
   ),
   revisions: const PatchMapRevisionTuple(0, 0, 0),
-  presentationAlpha: const {},
+  presentationAlpha: presentationAlpha,
   theme: theme,
   selectionPolicy: {'visual': visual},
 );
@@ -159,12 +160,16 @@ void main() {
       final retained = PatchMapCanvasRenderer(null);
       var geometry = buildGeometry(data, textLayouter: layoutGeometryText);
       await raster(retained, snapshot(data, geometry));
-      for (final value in ['1234', '1234', '99', '12', '99']) {
+      for (final value in [
+        '1234',
+        '1234',
+        '123456789012345',
+        'שלום',
+        '99',
+        '12',
+        '99',
+      ]) {
         final texts = {'g.0.0\u0000t': value, 'g.0.1\u0000t': value};
-        geometry = projectTextValues(geometry, texts, layoutGeometryText)!;
-        final state = snapshot(data, geometry);
-        final actual = await raster(retained, state);
-        final fresh = PatchMapCanvasRenderer(null);
         final full = buildGeometry(
           data,
           textLayouter: layoutGeometryText,
@@ -172,6 +177,11 @@ void main() {
             for (final e in texts.entries) e.key: {'text': e.value},
           },
         );
+        geometry =
+            projectTextValues(geometry, texts, layoutGeometryText) ?? full;
+        final state = snapshot(data, geometry);
+        final actual = await raster(retained, state);
+        final fresh = PatchMapCanvasRenderer(null);
         expect(
           actual,
           orderedEquals(await raster(fresh, snapshot(data, full))),
@@ -180,8 +190,102 @@ void main() {
         retained.refreshAssets(state);
         expect(await raster(retained, state), orderedEquals(actual));
       }
+      final transparentFirst = snapshot(
+        data,
+        geometry,
+        presentationAlpha: {'g.0.0\u0000t': 0.0},
+      );
+      final invisible = projectTextValues(geometry, {
+        'g.0.0\u0000t': '',
+      }, layoutGeometryText)!;
+      final fresh = PatchMapCanvasRenderer(null);
+      try {
+        expect(
+          await raster(retained, transparentFirst),
+          orderedEquals(await raster(fresh, snapshot(data, invisible))),
+        );
+      } finally {
+        fresh.dispose();
+      }
       retained.dispose();
       expect(retained.commandCount, 0);
+    },
+  );
+  test(
+    'incremental text across ordered paint slots matches fresh paint on reentry',
+    () async {
+      final data = PatchMapDataset.parse([
+        {
+          'id': 'g',
+          'type': 'grid',
+          'gap': 1,
+          'cells': [for (var i = 0; i < 10; i++) List.filled(10, 1)],
+          'item': {
+            'size': 8,
+            'components': [
+              {
+                'id': 'bg',
+                'type': 'background',
+                'source': {
+                  'fill': '#112233',
+                  'borderWidth': 1,
+                  'borderColor': '#445566',
+                },
+              },
+              {
+                'id': 't',
+                'type': 'text',
+                'text': '1',
+                'style': {'fontSize': 5, 'fill': 'white'},
+              },
+            ],
+          },
+        },
+      ]);
+      final retained = PatchMapCanvasRenderer(null);
+      var geometry = buildGeometry(data, textLayouter: layoutGeometryText);
+      try {
+        final initial = await raster(retained, snapshot(data, geometry));
+        expect(retained.commandCount, greaterThan(128));
+        final texts = {'g.0.0\u0000t': '88', 'g.9.9\u0000t': '99'};
+        geometry = projectTextValues(geometry, texts, layoutGeometryText)!;
+        final full = buildGeometry(
+          data,
+          textLayouter: layoutGeometryText,
+          overlays: {
+            for (final e in texts.entries) e.key: {'text': e.value},
+          },
+        );
+        for (final rotation in [0.0, 37.0, 180.0, 0.0]) {
+          for (final scale in [1.0, 8.0, 1.0]) {
+            final state = snapshot(
+              data,
+              geometry,
+              rotation: rotation,
+              scale: scale,
+            );
+            final actual = await raster(retained, state);
+            final fresh = PatchMapCanvasRenderer(null);
+            try {
+              expect(
+                actual,
+                orderedEquals(
+                  await raster(
+                    fresh,
+                    snapshot(data, full, rotation: rotation, scale: scale),
+                  ),
+                ),
+              );
+            } finally {
+              fresh.dispose();
+            }
+            if (rotation == 0 && scale == 1)
+              expect(actual, isNot(orderedEquals(initial)));
+          }
+        }
+      } finally {
+        retained.dispose();
+      }
     },
   );
   test(

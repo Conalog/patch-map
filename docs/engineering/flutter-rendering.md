@@ -26,6 +26,12 @@ Readable orientation buckets share the semantic half-plane epsilon, including
 near-90/270-degree boundaries. This invalidates retained bar/icon commands when
 the semantic readable transform flips.
 
+The [10,000-panel strategy investigation](../../verification/flutter/reports/render-strategies-10000.md)
+records rejected display-list, raster-image, atlas and command/style-cache
+candidates. No performance gain from those candidates is claimed by the current
+renderer. Viewport clipping still does not avoid command traversal or offscreen
+paragraph preparation; semantic visibility is distinct from viewport culling.
+
 ## Verification boundary
 
 Use the existing `panel_text_performance_test.dart` integration target for service

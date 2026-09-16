@@ -228,3 +228,24 @@ Use median and nearest-rank p95 (`ceil(0.95 × n) - 1` in a sorted zero-based
 array). Match publication frame IDs to engine timings; publication acknowledges
 the accepted frame and resource readiness, while raster duration is a separate
 measurement and can finish later.
+
+## Rendering-strategy matrix
+
+`PATCHMAP_STRATEGY_SUITE=true` extends the same panel target with eight cases:
+text/icon all-target updates in fit and zoom views, text 1% updates in zoom,
+warm camera movement, text reentry after an offscreen update, and immediate
+bar fit updates. `PATCHMAP_VIEW=zoom` selects zoom for a single text/icon case;
+`PATCHMAP_CASE=bar` selects the immediate bar guard. For a single zoom workload,
+use `PATCHMAP_ACTION=sparse|camera|reentry` with `PATCHMAP_CASE=text` and
+`PATCHMAP_VIEW=zoom`; the default action is `all`. Unsupported tuples are refused.
+Suite output is `panelRuns`,
+with a fresh controller and 25 rows per case. Single-case output remains
+`panelText`. Reentry times the camera change after the text update has settled;
+it does not include or hide that update's cost in an all-update metric.
+
+Match both interaction and viewport publication revisions. Require a matching
+FrameTiming for every measured frame; report missing records as incomplete,
+never as zero. Fit, zoom, partial update and movement are separate workloads.
+Full-suite real-device heat can invalidate later cases: use separate prebuilt
+case APKs and cooldown when needed, recording thermal samples and restoring
+changed screen preferences. Emulator and physical results remain separate.
