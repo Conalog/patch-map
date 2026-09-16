@@ -293,10 +293,10 @@
       "image"
     ],
     "elementTypes": [
-      "item",
       "grid",
-      "rect",
-      "image"
+      "item",
+      "image",
+      "rect"
     ],
     "componentTypes": [
       "background",

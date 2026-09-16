@@ -6,6 +6,7 @@ import { CONTRACT_REVISION, readFixtures, validateFixture } from './fixtures.mjs
 import { dartImportViolations } from '../flutter/package.mjs';
 import { dartString } from '../flutter/prepare-fixtures.mjs';
 import { inventoryPublicApi } from './inventory.mjs';
+import { runDataFixtures } from './run-data.mjs';
 import { verifyCodecPayloads } from './codecs.mjs';
 
 test('shared gallery inventories every element and component and all fixture envelopes validate', async () => {
@@ -148,4 +149,10 @@ test('rotation round-off is limited to named calculated geometry fields', () => 
     '$.alpha-parity.steps[0].observation.dataset[0].attrs.y'), /differ/);
   assert.throws(() => compareObservations(140, 140 + 1e-13,
     '$.gallery.steps[0].observation.viewport.centerWorld[1]'), /differ/);
+});
+
+
+test('authored fixture inventories match canonical dataset materialization', async () => {
+  const result = await runDataFixtures();
+  assert.equal(result.observations.length, (await readFixtures()).length);
 });
