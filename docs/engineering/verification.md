@@ -77,5 +77,7 @@ npm run js:verify:memory
 - Routers link to one owner instead of copying contracts.
 - `js:verify:package` installs the generated tarball and checks ESM, CommonJS,
   declarations, examples, assets, interaction, capture, and teardown.
+- npm license inventory follows that workspace's build/runtime dependency graph,
+  including nested/hoisted dependencies; private sibling tooling is not part of its SBOM.
 - Tests, source, engineering docs, performance tooling, verification code, and
   generated artifacts must not enter the published tarball.
