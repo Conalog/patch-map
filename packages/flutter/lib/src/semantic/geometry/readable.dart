@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'primitives.dart';
 
+const readableHalfPlaneEpsilon = 1e-7;
+
 /// Returns the scene-space transform for readable content. Camera rotation is
 /// included when choosing the half-plane, but camera translation/zoom stays in
 /// the host Canvas transform. Bar placement rotates about its owning item.
@@ -18,7 +20,7 @@ MapAffine readableTransform(
     final y = worldRotation % 360 == 0
         ? t.b
         : t.a * math.sin(theta) + t.b * math.cos(theta);
-    final epsilon = 1e-7 * math.sqrt(t.a * t.a + t.b * t.b);
+    final epsilon = readableHalfPlaneEpsilon * math.sqrt(t.a * t.a + t.b * t.b);
     if (!(x < -epsilon || (x <= epsilon && y >= 0))) return t;
   }
   final world = MapAffine.authored(angle: worldRotation);
@@ -39,7 +41,8 @@ MapAffine readableTransform(
     c = -b;
     d = a;
   }
-  if (a < -1e-7 || (a <= 1e-7 && b >= 0)) {
+  if (a < -readableHalfPlaneEpsilon ||
+      (a <= readableHalfPlaneEpsilon && b >= 0)) {
     a = -a;
     b = -b;
     c = -c;

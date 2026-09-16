@@ -22,6 +22,10 @@ and readable orientation remain unchanged. The
 [native checkpoint](../../verification/flutter/benchmark.md) owns latency and
 whole-process memory evidence.
 
+Readable orientation buckets share the semantic half-plane epsilon, including
+near-90/270-degree boundaries. This invalidates retained bar/icon commands when
+the semantic readable transform flips.
+
 ## Verification boundary
 
 Use the existing `panel_text_performance_test.dart` integration target for service

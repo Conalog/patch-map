@@ -72,6 +72,7 @@ class PatchMapCanvasRenderer {
     geometry = snapshot.geometry;
     if (topologyChanged) {
       final boundaries = <double>{};
+      final epsilonAngle = math.asin(readableHalfPlaneEpsilon) * 180 / math.pi;
       for (final primitive in geometry!.primitives) {
         if (primitive.contentOrientation != 'upright' || !primitive.visible)
           continue;
@@ -79,8 +80,8 @@ class PatchMapCanvasRenderer {
             math.atan2(primitive.transform.b, primitive.transform.a) *
             180 /
             math.pi;
-        boundaries.add((90 - angle) % 360);
-        boundaries.add((270 - angle) % 360);
+        boundaries.add((90 - epsilonAngle - angle) % 360);
+        boundaries.add((270 - epsilonAngle - angle) % 360);
       }
       _orientationThresholds = boundaries.toList()..sort();
     }

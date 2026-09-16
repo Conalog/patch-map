@@ -185,6 +185,70 @@ void main() {
     },
   );
   test(
+    'retained upright content follows epsilon boundaries and reflected items',
+    () async {
+      for (final scaleX in [1.0, -1.0]) {
+        final data = PatchMapDataset.parse([
+          {
+            'id': 'i',
+            'type': 'item',
+            'size': 35,
+            'contentOrientation': 'upright',
+            'attrs': {'x': 50, 'y': 30, 'scaleX': scaleX},
+            'components': [
+              {
+                'id': 't',
+                'type': 'text',
+                'text': '12',
+                'placement': 'top',
+                'margin': 3,
+                'style': {'fontSize': 12, 'fill': '#a02040'},
+              },
+              {
+                'id': 'bar',
+                'type': 'bar',
+                'size': {'width': 7, 'height': 18},
+                'placement': 'bottom',
+                'source': {'fill': '#287ac7'},
+              },
+            ],
+          },
+        ]);
+        final geometry = buildGeometry(data, textLayouter: layoutGeometryText);
+        final retained = PatchMapCanvasRenderer(null);
+        try {
+          for (final rotation in [
+            0.0,
+            89.99999,
+            89.999999,
+            90.0,
+            179.0,
+            269.99999,
+            269.999999,
+            270.0,
+            359.0,
+            -90.0,
+            0.0,
+          ]) {
+            final state = snapshot(data, geometry, rotation: rotation);
+            final fresh = PatchMapCanvasRenderer(null);
+            try {
+              expect(
+                await raster(retained, state),
+                orderedEquals(await raster(fresh, state)),
+                reason: 'rotation=$rotation, scaleX=$scaleX',
+              );
+            } finally {
+              fresh.dispose();
+            }
+          }
+        } finally {
+          retained.dispose();
+        }
+      }
+    },
+  );
+  test(
     'text stroke accepts direct CSS colors and renderer counters release',
     () async {
       Future<Uint8List> draw(Object stroke) async {
