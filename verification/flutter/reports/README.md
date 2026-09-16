@@ -2,6 +2,8 @@
 
 - [v1 alpha 기능 정합성](alpha-parity.md): npm 브라우저와 Android/iOS 앱,
   native Canvas 변경 전후 성능 및 검증 한계.
+- [Android 실기기 기능 실험실 검증](android-feature-lab.md): 서비스 5,000개 패널,
+  21개 시나리오, 네이티브 입력·에셋·캡처 및 OS 복귀 확인.
 
 ## Canvas / Flame 비교 결과 기록
 
