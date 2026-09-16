@@ -42,7 +42,7 @@ CI retains its stable `CI` aggregate status and changed-package routing; shared/
 Repository edits do not create credentials, publish packages or change protection rules.
 
 1. Set `RELEASE_PLEASE_TOKEN` to a fine-grained bot PAT with repository Contents, Issues and Pull requests write access, including organization authorization. Its events must trigger downstream workflows; there is no `GITHUB_TOKEN` fallback. A GitHub App requires adding installation-token minting, not storing an expiring token as a permanent secret.
-2. Require `CI` and workflow-policy checks before merging release PRs. Protect `release/1.0`, `v*` and `dart-v*` against unauthorized changes.
+2. Require `CI` and `Analyze workflow policy` before merging release PRs. Workflow policy runs for every `release/1.0` PR, including version-only release PRs, so the required status cannot remain pending because of a path filter. Protect `release/1.0`, `v*` and `dart-v*` against unauthorized changes.
 3. Keep npm Trusted Publishing bound to `Conalog/patch-map`, `publish.yaml`, environment `npm`. Existing switches are `NPM_PUBLISH_ENABLED`, `NPM_PRERELEASE_ENABLED`, `NPM_LATEST_ENABLED`; explicit `true` enables a channel.
 4. Create environment `pub.dev`. Keep repository variable `PUBDEV_PUBLISH_ENABLED` unset/false until bootstrap. Then configure pub.dev for `Conalog/patch-map`, pattern `dart-v{{version}}`, required environment `pub.dev`, and enable the variable. No permanent pub token is needed.
 
