@@ -42,5 +42,5 @@ inclusion are verified by the package artifact gate. The license SHA-256 is
 
 | Claim | Code | Focused evidence |
 | --- | --- | --- |
-| Payload and weight mapping | `src/assets/builtin-font-payload.ts` | asset registry and leaf text style tests |
+| Payload and weight mapping | `packages/javascript/src/assets/builtin-font-payload.ts` | asset registry and leaf text style tests |
 | License inclusion | package artifact policy | `verify:package` |

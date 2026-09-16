@@ -4,6 +4,7 @@ import path from 'node:path';
 const root = process.cwd();
 const ignoredDirectories = new Set([
   '.artifacts', '.git', 'coverage', 'dist', 'node_modules',
+  '.dart_tool', '.symlinks', 'build', 'Pods', '.plugin_symlinks',
 ]);
 
 const files = await walk(root);
@@ -28,6 +29,7 @@ async function walk(directory) {
   const nested = await Promise.all(entries.flatMap((entry) => {
     if (entry.isDirectory() && ignoredDirectories.has(entry.name)) return [];
     const target = path.join(directory, entry.name);
+    if (entry.isDirectory() && relative(target) === 'packages/javascript/docs') return [];
     if (entry.isDirectory()) return [walk(target)];
     return entry.isFile() ? [[target]] : [];
   }));
@@ -54,14 +56,15 @@ async function verifyLinks(file, source) {
 
 async function verifyInlineRepositoryPaths(file, source) {
   const paths = source.matchAll(
-    /`((?:(?:src|tests|performance|verification|examples|docs|\.github)\/)[^`]+|(?:package\.json|package-lock\.json|vite\.config\.ts|tsconfig(?:\.build)?\.json|eslint\.config\.js|\.nvmrc))`/gu,
+    /`((?:(?:src|tests|performance|verification|examples|docs|packages|conformance|\.github)\/)[^`]+|(?:package\.json|package-lock\.json|vite\.config\.ts|tsconfig(?:\.build)?\.json|eslint\.config\.js|\.nvmrc))`/gu,
   );
   for (const match of paths) {
     const destination = match[1];
     if (/[*?[\]<>]/u.test(destination)) continue;
-    const exists = await stat(path.resolve(root, destination))
-      .then(() => true)
-      .catch(() => false);
+    const packageRoot = relative(file).startsWith('packages/javascript/')
+      ? path.resolve(root, 'packages/javascript') : root;
+    const candidates = [path.resolve(root, destination), path.resolve(packageRoot, destination)];
+    const exists = (await Promise.all(candidates.map((candidate) => stat(candidate).then(() => true).catch(() => false)))).some(Boolean);
     if (!exists) {
       failures.push(`${relative(file)} names missing ${destination}`);
     }

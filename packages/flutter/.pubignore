@@ -1,0 +1,9 @@
+.dart_tool/
+build/
+coverage/
+test/
+tool/
+example/
+pubspec.lock
+.flutter-plugins-dependencies
+.gitignore

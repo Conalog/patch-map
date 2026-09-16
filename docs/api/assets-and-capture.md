@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing resource admission, image readiness, fonts, or PNG extraction
-- Source: `src/assets`, `src/engine/asset-session-authority.ts`, `src/engine/capture-extraction-authority.ts`
+- Source: `packages/javascript/src/assets`, `packages/javascript/src/engine/asset-session-authority.ts`, `packages/javascript/src/engine/capture-extraction-authority.ts`
 
 ## Scope
 
@@ -74,15 +74,15 @@ the latest deferred size is applied before the frame loop resumes. The result is
   never returns pixels for a different scene tuple.
 - Do not add a delay, frame loop, or `assets.status()` poll around capture.
 
-Runnable capture reference: [`examples/report.ts`](../../examples/report.ts).
+Runnable capture reference: [`packages/javascript/examples/report.ts`](https://github.com/Conalog/patch-map/tree/release/1.0/packages/javascript/examples/report.ts).
 
 ## Verification map
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| fixed admission and configurable policy | `src/assets/ingestion-policy.ts` | `tests/rendering/asset-ingestion-policy.test.ts` |
-| sessions, leases, and cleanup | `src/engine/asset-session-authority.ts` | `tests/engine/engine-asset-lifecycle.test.ts` |
-| built-in image projection | `src/assets/builtin-image-glyphs.ts` | `tests/rendering/component-assets-product.test.ts` |
-| font leases and first-frame readiness | `src/assets/builtin-font-payload.ts` | `tests/rendering/asset-registry.test.ts` |
-| capture queue, freshness, resize, cleanup | `src/engine/capture-extraction-authority.ts` | `tests/engine/engine-capture-extraction-authority.test.ts` |
-| extraction security and PNG result | `src/operations/extraction-security-authority.ts` | `tests/engine/engine-extraction.test.ts` |
+| fixed admission and configurable policy | `packages/javascript/src/assets/ingestion-policy.ts` | `packages/javascript/tests/rendering/asset-ingestion-policy.test.ts` |
+| sessions, leases, and cleanup | `packages/javascript/src/engine/asset-session-authority.ts` | `packages/javascript/tests/engine/engine-asset-lifecycle.test.ts` |
+| built-in image projection | `packages/javascript/src/assets/builtin-image-glyphs.ts` | `packages/javascript/tests/rendering/component-assets-product.test.ts` |
+| font leases and first-frame readiness | `packages/javascript/src/assets/builtin-font-payload.ts` | `packages/javascript/tests/rendering/asset-registry.test.ts` |
+| capture queue, freshness, resize, cleanup | `packages/javascript/src/engine/capture-extraction-authority.ts` | `packages/javascript/tests/engine/engine-capture-extraction-authority.test.ts` |
+| extraction security and PNG result | `packages/javascript/src/operations/extraction-security-authority.ts` | `packages/javascript/tests/engine/engine-extraction.test.ts` |

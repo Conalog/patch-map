@@ -1,0 +1,337 @@
+{
+  "schemaRevision": "patch-map-conformance/1",
+  "id": "editor",
+  "description": "Grid, text and selection editor flows with named public commands.",
+  "surface": {
+    "width": 480,
+    "height": 520,
+    "pixelRatio": 1,
+    "background": "#f8fafc"
+  },
+  "dataset": [
+    {
+      "type": "group",
+      "id": "group",
+      "attrs": {
+        "x": 24,
+        "y": 28
+      },
+      "children": [
+        {
+          "type": "item",
+          "id": "item",
+          "size": {
+            "width": 80,
+            "height": 110
+          },
+          "padding": 8,
+          "components": [
+            {
+              "type": "background",
+              "id": "background",
+              "source": {
+                "type": "rect",
+                "fill": "#e2e8f0",
+                "radius": 7
+              }
+            },
+            {
+              "type": "bar",
+              "id": "bar",
+              "source": {
+                "type": "rect",
+                "fill": "#2563eb",
+                "radius": 3
+              },
+              "size": {
+                "width": 22,
+                "height": 38
+              },
+              "placement": "bottom",
+              "animation": false
+            },
+            {
+              "type": "icon",
+              "id": "icon",
+              "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+              "size": 12,
+              "placement": "right-top",
+              "tint": "#f59e0b"
+            },
+            {
+              "type": "text",
+              "id": "label",
+              "text": "A",
+              "placement": "top",
+              "style": {
+                "fontSize": 12,
+                "fill": "#0f172a"
+              }
+            }
+          ]
+        },
+        {
+          "type": "rect",
+          "id": "rotated",
+          "attrs": {
+            "x": 130,
+            "y": 18,
+            "angle": 18
+          },
+          "size": {
+            "width": 92,
+            "height": 62
+          },
+          "fill": "#8b5cf6",
+          "radius": 12
+        }
+      ]
+    },
+    {
+      "type": "grid",
+      "id": "grid",
+      "attrs": {
+        "x": 24,
+        "y": 200
+      },
+      "cells": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "gap": {
+        "x": 8,
+        "y": 8
+      },
+      "inactiveCellStrategy": "hide",
+      "item": {
+        "size": {
+          "width": 52,
+          "height": 66
+        },
+        "padding": 5,
+        "components": [
+          {
+            "type": "background",
+            "id": "background",
+            "source": {
+              "type": "rect",
+              "fill": "#e2e8f0",
+              "radius": 7
+            }
+          },
+          {
+            "type": "bar",
+            "id": "bar",
+            "source": {
+              "type": "rect",
+              "fill": "#2563eb",
+              "radius": 3
+            },
+            "size": {
+              "width": 22,
+              "height": 38
+            },
+            "placement": "bottom",
+            "animation": false
+          },
+          {
+            "type": "icon",
+            "id": "icon",
+            "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+            "size": 12,
+            "placement": "right-top",
+            "tint": "#f59e0b"
+          },
+          {
+            "type": "text",
+            "id": "label",
+            "text": "A",
+            "placement": "top",
+            "style": {
+              "fontSize": 12,
+              "fill": "#0f172a"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "relations",
+      "id": "relations",
+      "links": [
+        {
+          "source": "item",
+          "target": "rotated"
+        },
+        {
+          "source": "rotated",
+          "target": "grid.0.4"
+        }
+      ],
+      "style": {
+        "color": "#475569",
+        "width": 2,
+        "alpha": 0.8
+      }
+    },
+    {
+      "type": "image",
+      "id": "image",
+      "attrs": {
+        "x": 280,
+        "y": 36,
+        "angle": -12
+      },
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+      "size": {
+        "width": 42,
+        "height": 42
+      }
+    },
+    {
+      "type": "text",
+      "id": "text",
+      "attrs": {
+        "x": 24,
+        "y": 155
+      },
+      "text": "PatchMap · 한글 · A😀",
+      "style": {
+        "fontSize": 17,
+        "fill": "#0f172a"
+      },
+      "size": {
+        "width": 330,
+        "height": 35
+      }
+    },
+    {
+      "type": "rect",
+      "id": "zone",
+      "attrs": {
+        "x": 352,
+        "y": 200
+      },
+      "size": {
+        "width": 90,
+        "height": 160
+      },
+      "fill": "#dcfce7",
+      "stroke": {
+        "color": "#16a34a",
+        "width": 2
+      },
+      "radius": 10
+    }
+  ],
+  "commands": [
+    {
+      "id": "select",
+      "op": "editor.execute",
+      "input": {
+        "type": "select-targets",
+        "targets": [
+          "item"
+        ],
+        "mode": "replace"
+      }
+    },
+    {
+      "id": "grid-enter",
+      "op": "editor.execute",
+      "input": {
+        "type": "enter-grid-edit",
+        "target": "grid"
+      }
+    },
+    {
+      "id": "grid-exit",
+      "op": "editor.execute",
+      "input": {
+        "type": "exit-grid-edit",
+        "target": "grid"
+      }
+    },
+    {
+      "id": "text-open",
+      "op": "editor.execute",
+      "input": {
+        "type": "open-text-editor",
+        "target": "text",
+        "hostOverlay": true
+      }
+    },
+    {
+      "id": "text-commit",
+      "op": "editor.execute",
+      "input": {
+        "type": "commit-text-edit",
+        "target": "text",
+        "text": "Updated 한글 😀",
+        "preserveStyle": true,
+        "actionId": "text-edit"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "text-undo",
+      "op": "history.undo",
+      "expect": {
+        "status": "committed"
+      }
+    }
+  ],
+  "expected": {
+    "rootIds": [
+      "group",
+      "grid",
+      "relations",
+      "image",
+      "text",
+      "zone"
+    ],
+    "elementTypes": [
+      "group",
+      "grid",
+      "item",
+      "relations",
+      "image",
+      "text",
+      "rect"
+    ],
+    "componentTypes": [
+      "background",
+      "bar",
+      "icon",
+      "text"
+    ]
+  }
+}

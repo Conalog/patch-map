@@ -3,3 +3,6 @@ dist/
 .artifacts/
 *.log
 .gstack/
+
+# Local release candidates and qualification artifacts
+.release-dart/

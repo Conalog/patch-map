@@ -24,6 +24,10 @@
   product decision before changing either side.
 - When a documented public contract changes, update its owning page in the
   same change.
+- Before adding a feature, compare its public availability and behavior in both
+  packages. Add missing shared functionality to both npm and Dart against one
+  documented contract, with witnesses for each runtime; internal code alone is
+  not evidence that a package supports a feature.
 
 ## Keep changes focused
 
@@ -42,7 +46,7 @@
 - Follow `docs/engineering/verification.md`. During implementation, run the
   smallest focused test owned by the changed boundary.
 - Add typecheck, lint, build, package, browser, memory, or performance checks
-  only when the changed risk calls for them. Do not repeatedly run `npm test`,
+  only when the changed risk calls for them. Do not repeatedly run `npm run js:test`,
   the full unit suite, the full benchmark matrix, or release verification for
   a narrow change; pull-request CI owns broad validation.
 - Treat user-visible performance as an invariant. Avoid adding repeated

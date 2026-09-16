@@ -1,0 +1,53 @@
+name: Release pull requests
+
+on:
+  push:
+    branches: [release/1.0]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-please-release-1.0
+  # Preserve all merged release PR events; do not cancel an in-flight release.
+  queue: max
+
+jobs:
+  release:
+    name: Independent npm and Dart releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: release/1.0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Validate independent release ownership
+        run: node .github/scripts/release-ready.mjs
+
+      - name: Require a token that triggers downstream workflows
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if test -z "$RELEASE_TOKEN"; then
+            echo 'Set RELEASE_PLEASE_TOKEN to a fine-grained bot PAT with Contents, Issues and Pull requests write access. GITHUB_TOKEN cannot trigger tag-push publishing workflows.' >&2
+            exit 1
+          fi
+
+      - name: Install pinned release planner
+        run: npm ci --ignore-scripts
+
+      - name: Create or update independent releases and pull requests
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: node .github/scripts/release-planner.mjs

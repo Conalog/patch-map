@@ -2,22 +2,54 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "bootstrap-sha": "b1fbc30ba73a2117c85c15f60eb6d025970a0546",
   "changelog-sections": [
-    { "type": "feat", "section": "Added" },
-    { "type": "fix", "section": "Fixed" },
-    { "type": "perf", "section": "Changed" },
-    { "type": "deps", "section": "Maintenance" }
+    {
+      "type": "feat",
+      "section": "Added"
+    },
+    {
+      "type": "fix",
+      "section": "Fixed"
+    },
+    {
+      "type": "perf",
+      "section": "Changed"
+    },
+    {
+      "type": "deps",
+      "section": "Maintenance"
+    }
   ],
-  "group-pull-request-title-pattern": "chore${scope}: release${component} ${version}",
-  "include-component-in-tag": false,
+  "include-component-in-tag": true,
   "include-v-in-tag": true,
   "packages": {
-    ".": {
+    "packages/javascript": {
       "release-type": "node",
       "package-name": "@conalog/patch-map",
+      "versioning": "prerelease",
+      "prerelease": true,
+      "prerelease-type": "alpha",
+      "component": "js",
+      "include-component-in-tag": true,
+      "pull-request-title-pattern": "chore: release js ${version}"
+    },
+    "packages/flutter": {
+      "release-type": "dart",
+      "component": "dart",
+      "package-name": "conalog_patch_map",
+      "include-component-in-tag": true,
+      "initial-version": "1.0.0-alpha.1",
       "versioning": "prerelease",
       "prerelease": true,
       "prerelease-type": "alpha"
     }
   },
-  "pull-request-title-pattern": "chore: release ${version}"
+  "pull-request-title-pattern": "chore: release ${component} ${version}",
+  "plugins": [
+    {
+      "type": "node-workspace",
+      "merge": false
+    }
+  ],
+  "separate-pull-requests": true,
+  "include-v-in-release-name": true
 }

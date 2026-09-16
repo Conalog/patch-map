@@ -7,13 +7,15 @@ on:
     paths:
       - package.json
       - package-lock.json
+      - packages/javascript/package.json
+      - verification/package.json
 
 permissions:
   contents: read
 
 jobs:
   review:
-    name: Review dependency changes
+    name: JS + Tooling · Dependency review
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

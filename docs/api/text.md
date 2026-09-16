@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: package consumers and agents changing semantic text layout or raster publication
-- Source: `src/semantic/text-layout`, `src/semantic/text-render-route.ts`, `src/rendering/aggregate-text-leaf-lane.ts`
+- Source: `packages/javascript/src/semantic/text-layout`, `packages/javascript/src/semantic/text-render-route.ts`, `packages/javascript/src/rendering/aggregate-text-leaf-lane.ts`
 
 ## Scope
 
@@ -55,8 +55,8 @@ identity and licensing are owned by [`fonts.md`](../assets/fonts.md).
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| line height, wrapping, fitting | `src/semantic/text-layout` | `tests/rendering/text-layout.test.ts` |
-| route capability and fallback | `src/semantic/text-render-route.ts` | `tests/rendering/text-render-route.test.ts` |
-| published route/object agreement | `src/rendering/aggregate-text-leaf-lane.ts` | `tests/rendering/text-render-publication.test.ts` |
-| raster tiers and visual fit | `src/rendering/leaf-text-style.ts` | `tests/rendering/leaf-text-style.test.ts` |
-| engine text probes | `src/engine/text-probe-publication-policy.ts` | `tests/engine/engine-text-probe.test.ts` |
+| line height, wrapping, fitting | `packages/javascript/src/semantic/text-layout` | `packages/javascript/tests/rendering/text-layout.test.ts` |
+| route capability and fallback | `packages/javascript/src/semantic/text-render-route.ts` | `packages/javascript/tests/rendering/text-render-route.test.ts` |
+| published route/object agreement | `packages/javascript/src/rendering/aggregate-text-leaf-lane.ts` | `packages/javascript/tests/rendering/text-render-publication.test.ts` |
+| raster tiers and visual fit | `packages/javascript/src/rendering/leaf-text-style.ts` | `packages/javascript/tests/rendering/leaf-text-style.test.ts` |
+| engine text probes | `packages/javascript/src/engine/text-probe-publication-policy.ts` | `packages/javascript/tests/engine/engine-text-probe.test.ts` |

@@ -1,4 +1,4 @@
-# Runtime architecture
+# Repository and runtime architecture
 
 PatchMap separates product policy, semantic state, and concrete rendering. A
 change should flow through an existing owner instead of creating a parallel
@@ -21,29 +21,31 @@ Validation and planning happen before authoritative state changes. Accepted
 state is committed once, projected to renderer inputs, and published by the
 frame owner. Events and diagnostics describe that same accepted publication.
 
-## Repository roots
+## Repository ownership
 
 | Root | Single owner |
 | --- | --- |
-| `.github/` | pull-request, release, dependency, and workflow policy automation |
-| `src/` | shipped product and package surface |
-| `docs/` | public usage contracts and repository-internal engineering routes |
-| `examples/` | packed public consumer examples |
-| `performance/` | current-run benchmarks, fixtures, targeted probes, and runners |
-| `tests/` | direct product checks grouped by owning boundary |
-| `verification/` | package, documentation, and repository release gates |
-| `.artifacts/` | ignored build and measurement output |
+| `packages/javascript/` | npm source, tests, examples, build, artifact gate and Pixi measurements |
+| `packages/flutter/` | Dart source, assets, tests and native consumer/measurement app |
+| `docs/` | shared behavior contracts and engineering policies |
+| `conformance/` | revisioned inputs, expected observations and coverage mapping |
+| `verification/` | cross-package conformance, managed-input parity and documentation checks |
+| `.github/` | validation routing and independent package release automation |
+| `.artifacts/` | ignored build, consumer and measurement evidence |
 
-The package name is not repeated below these roots. Product imports no tooling;
-verification and performance can import product code but production never
-imports either. Tests may import product and explicitly owned fixtures. The
-boundary test enforces these directions.
+The root npm manifest is private task coordination. Each package owns its build,
+dependencies and distribution metadata. No production import crosses into the
+sibling runtime, tests or verification. Shared documentation is edited once;
+package copies are generated. [Dual-package structure](flutter-implementation-plan.md)
+owns distribution boundaries and the Dart ownership map.
+
+The flow and module names below are relative to `packages/javascript/`.
 
 ## Ownership map
 
 | Owner | Owns | Does not own |
 | --- | --- | --- |
-| `src/index.ts` and `composition/` | package construction, public facade assembly, and concrete Pixi assembly | semantic or lifecycle policy |
+| `packages/javascript/src/index.ts` and `composition/` | package construction, public facade assembly, and concrete Pixi assembly | semantic or lifecycle policy |
 | `public/` | application and host contracts plus stateless facade mapping | Engine state, Core types, or renderer objects |
 | `engine/index.ts` | product orchestration and authority delegation | public facade construction or duplicate lifecycle, transaction, capture, or pointer state machines |
 | Engine lifecycle and scene authorities | surface generation, lifecycle, accepted scene, publication revision | renderer internals or semantic planning |
@@ -64,7 +66,7 @@ boundary test enforces these directions.
 
 ## Dependency rules
 
-1. `src/index.ts` is the public entry. Lower layers never import it.
+1. `packages/javascript/src/index.ts` is the public entry. Lower layers never import it.
 2. Engine and Core support modules depend on `rendering-port/`, not concrete
    files under `rendering/` or `composition/`.
 3. Semantic and dense modules do not import Engine, developer API, DOM, or
@@ -82,7 +84,7 @@ boundary test enforces these directions.
 9. The same test enforces forbidden one-way imports; a cycle-free edge can still
    violate ownership.
 10. Verification commands live with their owner under `verification/` or
-    `performance/runners/`; there is no generic script ownership layer.
+    `packages/javascript/performance/runners/`; there is no generic script ownership layer.
 
 ## Resource and performance invariants
 

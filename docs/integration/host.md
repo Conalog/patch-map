@@ -33,7 +33,7 @@ owned through capture, so pan and selection drags continue across host overlays.
 
 ## Adapter shape
 
-The packaged `examples/host-adapter.ts` is the integration reference:
+The packaged `packages/javascript/examples/host-adapter.ts` is the integration reference:
 
 | Host task | Public owner |
 | --- | --- |
@@ -83,10 +83,20 @@ reporting a non-recoverable failure.
 
 | Claim | Code | Focused evidence |
 | --- | --- | --- |
-| Public adapter boundary | `examples/host-adapter.ts`, `src/index.ts` | package integration and public example compilation |
-| Instance resource ownership | `src/engine/index.ts`, `src/assets/index.ts` | engine lifecycle and asset lifecycle tests |
-| Canvas-aligned accessibility | `src/accessibility`, `src/rendering/pixi-renderer/accessibility-overlay-authority.ts` | `tests/integration/accessibility-product.test.ts` |
-| Canvas pointer ownership | `src/rendering/pixi-renderer/root-interaction-binding-authority.ts` | `tests/rendering/pixi-root-interaction-binding-authority.test.ts` |
-| public debug snapshot | `src/public/index.ts`, `src/engine/product-probe-reader.ts` | `tests/engine/engine-lifecycle.test.ts` |
-| public failure projection | `src/engine/operation-outcomes.ts` | `tests/engine/engine-operation-outcomes.test.ts` |
-| Persistence guards | `src/semantic/persistence.ts` | `tests/semantic/persistence.test.ts` |
+| Public adapter boundary | `packages/javascript/examples/host-adapter.ts`, `packages/javascript/src/index.ts` | package integration and public example compilation |
+| Instance resource ownership | `packages/javascript/src/engine/index.ts`, `packages/javascript/src/assets/index.ts` | engine lifecycle and asset lifecycle tests |
+| Canvas-aligned accessibility | `packages/javascript/src/accessibility`, `packages/javascript/src/rendering/pixi-renderer/accessibility-overlay-authority.ts` | `packages/javascript/tests/integration/accessibility-product.test.ts` |
+| Canvas pointer ownership | `packages/javascript/src/rendering/pixi-renderer/root-interaction-binding-authority.ts` | `packages/javascript/tests/rendering/pixi-root-interaction-binding-authority.test.ts` |
+| public debug snapshot | `packages/javascript/src/public/index.ts`, `packages/javascript/src/engine/product-probe-reader.ts` | `packages/javascript/tests/engine/engine-lifecycle.test.ts` |
+| public failure projection | `packages/javascript/src/engine/operation-outcomes.ts` | `packages/javascript/tests/engine/engine-operation-outcomes.test.ts` |
+| Persistence guards | `packages/javascript/src/semantic/persistence.ts` | `packages/javascript/tests/semantic/persistence.test.ts` |
+
+
+### Dart publication diagnostics
+
+The Dart binding additionally exposes `controller.debug.publication()`, returning
+only `frameRevision` and `publishedTuple` (`scene`, `view`, `interaction`). This
+constant-size read uses the same accepted frame authority as `debug.snapshot()`
+and does not ask the renderer to count commands, primitives, or resources. Use it
+for frame completion polling and benchmark observation; use `debug.snapshot()`
+when the resource inventory is needed. It does not advance or publish a frame.

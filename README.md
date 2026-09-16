@@ -1,52 +1,66 @@
 # PatchMap
 
-`@conalog/patch-map` is a PixiJS v8 renderer and interaction runtime for PATCH
-MAP datasets.
+Two independently distributed implementations of the same map contract:
 
-## Install
+| Package | Runtime | Source and usage |
+| --- | --- | --- |
+| `@conalog/patch-map` | TypeScript and PixiJS for the web | [JavaScript package](packages/javascript/README.md) |
+| `conalog_patch_map` | Dart and Flutter Canvas for Android and iOS | [Flutter package](packages/flutter/README.md) |
+
+Both packages own their dependencies, tests, examples and distribution metadata.
+The root is a private task coordinator; [shared tooling](verification/README.md)
+has its own private workspace and dependencies. Neither runtime
+loads the other. Flutter registry publication remains disabled while release
+qualification is managed separately.
+
+[Public documentation](docs/README.md) is the behavior SSOT.
+[Conformance](docs/engineering/flutter-conformance-design.md) maps that contract
+to both implementations and checks their observations. Versions are independent;
+matching features are established by the contract and executable checks.
+
+## Development
+
+Use Node.js 22 and npm for web/shared tooling, and Flutter 3.41.4 for native work.
 
 ```sh
-npm install @conalog/patch-map pixi.js
+nvm use
+npm ci
+npm run js:build
+npm run verify:docs
+cd packages/flutter
+flutter pub get
+flutter test --concurrency=2
 ```
 
-## Use
+Root commands are grouped by owner:
 
-```ts
-import { PatchMap } from '@conalog/patch-map';
+| Scope | Examples |
+| --- | --- |
+| JavaScript | `js:build`, `js:test`, `js:verify:package`, `js:performance:smoke` |
+| Flutter | `flutter:analyze`, `flutter:test`, `flutter:verify:package`, `flutter:demo`, `flutter:lab` |
+| Shared verification | `verify:tooling`, `verify:docs`, `verify:conformance` |
 
-const patchMap = await PatchMap.mount({
-  container: '#map',
-  data: [{
-    type: 'item',
-    id: 'rack-01',
-    attrs: { x: 40, y: 32 },
-    size: { width: 80, height: 120 },
-    components: [{
-      type: 'bar',
-      id: 'usage',
-      source: { type: 'rect', fill: '#2563eb', radius: 4 },
-      size: { width: '72%', height: '65%' },
-      placement: 'bottom',
-      animation: true,
-      animationDuration: 500,
-    }],
-  }],
-  fit: { padding: 24 },
-});
+Run these with `npm run <command>` from the repository root. Package-local npm
+commands keep their ordinary names inside `packages/javascript`.
+Start the shared comparison page or compare both runtimes from the root:
 
-patchMap.update({
-  id: 'rack-01',
-  bar: { height: 82 },
-});
-
-await patchMap.destroy();
+```sh
+npm run verify:conformance:serve
+npm run verify:conformance
 ```
 
-## Documentation
+The [feature lab](packages/flutter/example/README.md#전체-기능-실험실) starts with a
+service-derived blueprint of 50 panelGroups × 5 × 20 panels. Run
+`npm run flutter:lab` for the native app and open
+`/verification/conformance/web/lab.html` on the Vite server for npm. Both offer
+service display/editing scenarios, rotation, selection, capture, and separate
+contract regression scenarios.
 
-- [Choose a task](./docs/README.md)
-- [Getting started](./docs/getting-started.md)
-- [Host integration](./docs/integration/host.md)
-- [Compatibility](./docs/compatibility.md)
-- [Runnable examples](./examples)
-- [Contributing and engineering](https://github.com/Conalog/patch-map/blob/release/1.0/CONTRIBUTING.md)
+The [native panel demo](packages/flutter/example/README.md) includes 5,000 animated bars,
+random height changes, pan and zoom. Run it with `npm run flutter:demo` after
+installing its Flutter dependencies. The [npm measurements](packages/javascript/performance/README.md)
+and [native measurements](verification/flutter/benchmark.md) exercise the selected
+implementations.
+
+See [Contributing](CONTRIBUTING.md), [system ownership](docs/engineering/system-map.md)
+and the [dual-package architecture](docs/engineering/flutter-implementation-plan.md).

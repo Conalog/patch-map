@@ -1,6 +1,6 @@
 # PatchMap documentation
 
-PatchMap is an aggregate PixiJS renderer for PATCH MAP datasets. Choose the
+PatchMap renders PATCH MAP datasets through independent web/PixiJS and native Flutter/Canvas packages. Choose the
 single page that owns the task you are working on; routers intentionally do not
 repeat feature contracts.
 
@@ -8,6 +8,7 @@ repeat feature contracts.
 
 | Task | Read |
 | --- | --- |
+| Render in a Flutter app | [Flutter binding](integration/flutter.md) |
 | Install, mount, resize, and destroy | [Getting started](getting-started.md) |
 | Load data or find stable targets | [Data and targets](api/data-and-targets.md) |
 | Update state, transact, animate, or use history | [Mutations and history](api/mutations-and-history.md) |
@@ -21,6 +22,8 @@ repeat feature contracts.
 | Integrate, diagnose, handle errors, or define the accessibility boundary | [Host integration](integration/host.md) |
 | Check supported runtimes and release policy | [Compatibility](compatibility.md) |
 
-Runnable examples live in [`examples/`](../examples/).
+Web examples live in [`packages/javascript/examples/`](https://github.com/Conalog/patch-map/tree/release/1.0/packages/javascript/examples/).
 Exact TypeScript shapes are exported by `@conalog/patch-map`; these pages own
 behavior, state ordering, failure meaning, and the shortest verification route.
+
+Native examples live in the [Flutter package](https://github.com/Conalog/patch-map/tree/release/1.0/packages/flutter/example).

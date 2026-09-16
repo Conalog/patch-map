@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PatchMap · 5,000 panels</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f8fafc;color:#0f172a;font:14px system-ui,sans-serif;height:100dvh;display:flex;flex-direction:column}header,footer{padding:12px 20px}h1{font-size:22px;margin:0 0 6px}p{margin:6px 0}.controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px}button,select{font:inherit;padding:8px 12px;border:1px solid #94a3b8;border-radius:6px;background:white;color:inherit}#map{flex:1;min-height:200px;touch-action:none}#change{background:#0c73bf;color:white}a{color:#0c73bf}#camera{font-variant-numeric:tabular-nums}
+</style></head><body><header><h1>PatchMap · 5,000 panels</h1><p>patch-service panelGroup · 5행 × 20열 × 50개 · 드래그 이동 · 휠 확대/축소</p><a href="./">공통 기능 비교</a>
+<div class="controls"><select id="mode" disabled><option value="bar">Bar 높이</option><option value="text">Text 값</option></select><button id="change" disabled>전체 높이 랜덤 변경</button><label><input type="checkbox" id="animate" checked> 높이 애니메이션</label><button id="fit" disabled>전체 보기</button><button id="out" disabled>−</button><button id="in" disabled>+</button><span id="camera"></span></div></header>
+<div id="map"></div><footer id="status">맵을 준비하고 있습니다</footer><script type="module">import('./panels.ts').catch(error => { document.querySelector('#status').textContent = String(error); console.error(error); });</script></body></html>

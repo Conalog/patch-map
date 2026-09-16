@@ -1,81 +1,37 @@
 {
-  "name": "@conalog/patch-map",
-  "version": "1.0.0-alpha.9",
-  "description": "PATCH MAP renderer powered by PixiJS",
-  "license": "MIT",
-  "author": "Conalog",
-  "homepage": "https://github.com/Conalog/patch-map#readme",
-  "bugs": "https://github.com/Conalog/patch-map/issues",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Conalog/patch-map.git"
-  },
-  "engines": {
-    "node": ">=20"
-  },
+  "name": "patch-map-workspace",
+  "private": true,
   "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
-  "files": [
-    "dist",
-    "!dist/**/*.map",
-    "docs/README.md",
-    "docs/getting-started.md",
-    "docs/api/data-and-targets.md",
-    "docs/api/editor-workflows.md",
-    "docs/api/mutations-and-history.md",
-    "docs/api/pointer-and-selection.md",
-    "docs/api/viewport-and-transform.md",
-    "docs/api/presentation.md",
-    "docs/api/assets-and-capture.md",
-    "docs/api/text.md",
-    "docs/integration/host.md",
-    "docs/compatibility.md",
-    "docs/assets/fonts.md",
-    "docs/assets/fira-code-6.2-license.txt",
-    "examples",
-    "LICENSE"
+  "workspaces": [
+    "packages/javascript",
+    "verification"
   ],
-  "sideEffects": false,
-  "publishConfig": {
-    "access": "public"
+  "engines": {
+    "node": ">=22"
   },
   "scripts": {
-    "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly && node verification/package/finalize-declarations.mjs",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
-    "unit": "vitest run --maxWorkers=2",
-    "test": "npm run typecheck && npm run lint && npm run unit",
-    "verify:docs": "node verification/docs/verify.mjs",
-    "performance:smoke": "node performance/runners/benchmark.mjs --smoke",
-    "performance:benchmark": "node performance/runners/benchmark.mjs",
-    "performance:extraction": "node performance/runners/extraction.mjs",
-    "performance:update": "node performance/runners/update.mjs",
-    "verify:package": "npm run build && node verification/package/run.mjs",
-    "verify:memory": "node performance/runners/memory.mjs",
-    "prepack": "npm run build",
-    "prepublishOnly": "npm test && npm run verify:package -- --require-audit"
-  },
-  "devDependencies": {
-    "@eslint/js": "10.0.1",
-    "@types/node": "24.10.9",
-    "eslint": "10.7.0",
-    "pixi.js": "8.19.0",
-    "playwright": "1.57.0",
-    "typescript": "5.9.3",
-    "typescript-eslint": "8.65.0",
-    "vite": "7.3.6",
-    "vitest": "4.1.11"
-  },
-  "peerDependencies": {
-    "pixi.js": ">=8.0.0 <9"
+    "js:build": "npm run build --workspace @conalog/patch-map --",
+    "js:typecheck": "npm run typecheck --workspace @conalog/patch-map --",
+    "js:lint": "npm run lint --workspace @conalog/patch-map --",
+    "js:unit": "npm run unit --workspace @conalog/patch-map --",
+    "js:test": "npm run test --workspace @conalog/patch-map --",
+    "js:performance:smoke": "npm run performance:smoke --workspace @conalog/patch-map --",
+    "js:performance:benchmark": "npm run performance:benchmark --workspace @conalog/patch-map --",
+    "js:performance:extraction": "npm run performance:extraction --workspace @conalog/patch-map --",
+    "js:performance:update": "npm run performance:update --workspace @conalog/patch-map --",
+    "js:verify:memory": "npm run verify:memory --workspace @conalog/patch-map --",
+    "js:verify:package": "npm run verify:package --workspace @conalog/patch-map --",
+    "flutter:analyze": "cd packages/flutter && flutter analyze --no-pub lib test",
+    "flutter:test": "cd packages/flutter && flutter test --no-pub --concurrency=2",
+    "flutter:demo": "cd packages/flutter/example && flutter run --target=lib/bar_demo.dart",
+    "flutter:verify:package": "npm run flutter:package --workspace @patch-map/verification --",
+    "verify:typecheck": "npm run typecheck --workspace @patch-map/verification --",
+    "verify:lint": "npm run lint --workspace @patch-map/verification --",
+    "verify:tests": "npm run test --workspace @patch-map/verification --",
+    "verify:tooling": "npm run check --workspace @patch-map/verification --",
+    "verify:docs": "npm run docs --workspace @patch-map/verification --",
+    "verify:conformance": "npm run conformance --workspace @patch-map/verification --",
+    "verify:conformance:serve": "npm run conformance:serve --workspace @patch-map/verification --",
+    "flutter:lab": "cd packages/flutter/example && flutter run --target=lib/main.dart"
   }
 }

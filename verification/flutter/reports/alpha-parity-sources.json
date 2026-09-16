@@ -1,0 +1,121 @@
+{
+  "baseline": "590407f3adcb7321d8879d8f38c6e4b23e5a708a",
+  "candidate": {
+    "packages/flutter/lib/patch_map.dart": "ccf14c1fd0cb4b9b7bfc9face177069bb2b1571f183b6986868230f124ef822c",
+    "packages/flutter/lib/src/host/native_asset_policy.dart": "43ea61999dc47f925746cf7519b05f0f1022548b217878bff5c67c3b1b56e8fe",
+    "packages/flutter/lib/src/host/map_gesture_recognizer.dart": "f0d6435a10183ca48f90ac14c21326c9b594d3e7a2b693ac480aaf35a754403f",
+    "packages/flutter/lib/src/host/native_asset_backend.dart": "4fdb3f7bfed8f75749d704218dff235d7246dae027ccf4b648184ee7704a0075",
+    "packages/flutter/lib/src/host/font_decoder.dart": "2a733926f410318d23a6fd3ab741d3d286caf380ff97932de0f51a3371ab6c75",
+    "packages/flutter/lib/src/host/native_pointer.dart": "0534ada323285e9fc714401e1bbd632c3f1f29a88e001d2fcd17b37aec32de46",
+    "packages/flutter/lib/src/host/native_assets.dart": "00bcfee9f14ab1ca3f264789d3e56135d0d9aaf7c4aa37389d145300ade347d1",
+    "packages/flutter/lib/src/host/native_asset_decoding.dart": "b5b9a13ea98398735afbc7e6b983c9ba445146e0034c98a64f90837686bcc79b",
+    "packages/flutter/lib/src/host/patch_map_view.dart": "d14b65a2c2ffa79a00f9da6532ca1e4ea78d50b7338c2b33ff0c9d9b3adc5f86",
+    "packages/flutter/lib/src/host/native_asset_runtime.dart": "656996c15b57892316754aa52c9d0f2c3af87e36ee947748126af96ba0ab6e0f",
+    "packages/flutter/lib/src/host/native_asset_session.dart": "d65daa6cf03efe32755ad161fec77f6dc42240fb67a3f90a2d6dbe66cb78dd50",
+    "packages/flutter/lib/src/model/dataset.dart": "a743208f008c96e9a5fb4ec338867d5c0545ac470b8228e52c0d9c3286ce9238",
+    "packages/flutter/lib/src/model/theme_colors.dart": "bd301f46d93d972f2ff4b67884d4645935548858eae997dd5b1fa914fa8e5f30",
+    "packages/flutter/lib/src/model/json.dart": "dad6b5b8dc19275d6f7fa15cbaa13692516af70d3a261d6aaec9f930e90324c9",
+    "packages/flutter/lib/src/model/theme.dart": "11ea3668376309be99a30cab1ab14dfea46c0318e7415b84bbe46d284ccec009",
+    "packages/flutter/lib/src/api/values.dart": "7ada2cc95e5bfec32088a0141a4c0a9689255bb3ab3bf13021387c876e2277ed",
+    "packages/flutter/lib/src/rendering/selection.dart": "3677bd4afe1eabfdb4da9b568ff5cae3a26f61ff9c930b74b0b7f52d6b8aa997",
+    "packages/flutter/lib/src/rendering/color.dart": "908218552a2a898fb961943b5eeefc9a15afe360060735639b480ecbef851afc",
+    "packages/flutter/lib/src/rendering/canvas_renderer.dart": "73f7416caf0d6c448f8b0b9f496e048e18c048c06bd64f4785cf291a53485a35",
+    "packages/flutter/lib/src/engine/mutation_lowering.dart": "d0b47edc82bc1956aa04fefba7eae61ba7452a65e55ca1f3b172d04ba7e26d1a",
+    "packages/flutter/lib/src/engine/viewport_fit.dart": "11cf86caf46a79a24d6c6ad7ed4bfdc1b376215dd727da82a4f26a9d6e90f03f",
+    "packages/flutter/lib/src/engine/viewport_transform.dart": "db82fedecaedc4b758905252dc34a0845d261e19760ae146d455cf77121ed18f",
+    "packages/flutter/lib/src/engine/history_selection.dart": "a74539ab9626d9fae0942f2d90de776511809a42271578491f0e57af753e9fe1",
+    "packages/flutter/lib/src/engine/pointer_policy.dart": "0585a854ca73baaa58f0e5bad624038cf76a079ac0d6ba3f78553a0ba1eb1ff8",
+    "packages/flutter/lib/src/engine/editor.dart": "440fa70ba0826c6ac04380ba86c242e3f90349a3df131d2f5ad4db44c35dd79d",
+    "packages/flutter/lib/src/engine/mutations.dart": "03e5506c33c7f9e8168f54056a6ca4ecd2980e529ae653b7496b4d6be546f979",
+    "packages/flutter/lib/src/engine/bar_animation.dart": "fcba8b6e18b57330bcce68e53b3322a0a8dd741bf132a035031be4354d0a1ef3",
+    "packages/flutter/lib/src/engine/text_mutations.dart": "de98f732674e35162f9ff74c848e59ea46e55729b9da0389b046e9f2d2b6e922",
+    "packages/flutter/lib/src/engine/transform_geometry.dart": "13557b4125b890de66452b2270990bf69b1fe41a898df47e7d58932399817e23",
+    "packages/flutter/lib/src/engine/controller.dart": "4ff24bfa7e7de21c151d109ba61d76c6d82260330fb89fa980f413c2edf4d0de",
+    "packages/flutter/lib/src/engine/data_targets.dart": "deef47fc89f567e7a0717eb116cb4ef83dd6d4913d05ccc053780f46d7cd7b3f",
+    "packages/flutter/lib/src/engine/structural_mutations.dart": "f54ab87212ef8a9b37dfe10974fa8c0076149ac716024a690e4d76f32f0c6329",
+    "packages/flutter/lib/src/engine/ports.dart": "d4a85bbdf2a743b091752f7ded086272050a9d4fa707a7ab19c96c12de713283",
+    "packages/flutter/lib/src/semantic/dataset/values.dart": "af472742c7813fc4c7bb808af021429cb4bfb46c1041d01757e4a16da6e2a964",
+    "packages/flutter/lib/src/semantic/dataset/normalization.dart": "61c8e81d8a048daab90454af60ebea9a025c0781948e0372c67e50f16e6ee1cd",
+    "packages/flutter/lib/src/semantic/dataset/styles.dart": "b115a870eb42b06bbf85b3e9d24b05a4db1fd5aab5d96eb158d454fd9054d1eb",
+    "packages/flutter/lib/src/semantic/geometry/text_projection.dart": "e73ff4882eb72d60a3aaab030257924320092f9ea849b41b7829bf4bd0c2edce",
+    "packages/flutter/lib/src/semantic/geometry/bar_projection.dart": "7ce0b7e01008cb5b6e2a1ea13df98b7d83a03d5682306bc0da41770f6fc553b5",
+    "packages/flutter/lib/src/semantic/geometry/placement.dart": "91737cdefffeac8ff638036496eb230f3d53ea762965713e859149d34117fb0b",
+    "packages/flutter/lib/src/semantic/geometry/primitives.dart": "3438d9cbbb3c97c20adb5e9c42b63d550f5d7f258368b8b997c3ea8a6add73e1",
+    "packages/flutter/lib/src/semantic/geometry/geometry.dart": "e30c99de6abd4b516b9941b6bade3b449171a136266b3b4c7fd75d93b0868802",
+    "packages/flutter/lib/src/semantic/geometry/readable.dart": "bab0788b0ee371262e52ca7d6e8522e6b60f08bed229052e1df7e9838664b89a",
+    "packages/flutter/lib/src/semantic/text/layout.dart": "f715fd16f2c1be9eb8cbe95fdce8a9da9117bb63dbf86b8a716822a8b780ff33",
+    "packages/flutter/lib/src/semantic/text/unicode_data.dart": "363a6243595af9836981c991c2ad1566a996ef497f8abecb79147d66c3370298"
+  },
+  "harness": {
+    "packages/flutter/example/integration_test/bar_performance_test.dart": "60c4e072f031cf53cc25083c4e8a055a5b021fe9872ce3a2f1728186e62980a3",
+    "packages/flutter/example/integration_test/panel_text_performance_test.dart": "617382edc3cf7530626d416aa218b1e8e5958ab3ad497bceedac289310100a1c"
+  },
+  "environment": {
+    "target": "emulator-5554",
+    "avd": "Pixel_6a_API_34",
+    "gpu": "swiftshader_indirect",
+    "mode": "profile/AOT",
+    "dpi": 420,
+    "note": "Software GPU emulator; native baseline/candidate regression evidence, not real-device FPS or npm speed equivalence",
+    "displayPhysicalSize": [
+      1080,
+      2400
+    ],
+    "appPhysicalSize": [
+      1080,
+      2337
+    ]
+  },
+  "changeSinceInitial": "Fuse mixed-target admission into the existing target validation loop; no repeated target traversal",
+  "candidateCommit": "cc8cf8db29373b4be3d0e61cb3da054bacb16160",
+  "reports": {
+    ".artifacts/performance/alpha-parity/summary.json": "49c81d7b8a91763b2a72129b7816e2b4a53cc91140f5205358cc4aaaa4f5479e",
+    ".artifacts/performance/alpha-parity/baseline-bars.json": "7425e52ed3ebd25c340439ac21c95bc5d800a0883b960530eb52473ee9ab46cf",
+    ".artifacts/performance/alpha-parity/candidate-text.json": "4402750db2ae35df96037f02dfd41b01c33ab5506c25ee420d73c1bc1928a7e1",
+    ".artifacts/performance/alpha-parity/candidate-text-final.json": "eccaa3f8a372f1c228e8f6a9f70af0a7bdae051464545b4d8b39a40cedf71d65",
+    ".artifacts/performance/alpha-parity/baseline-text-repeat.json": "46ab925591462f75b5be06d66ab895b7bb5c2cb81b2e79feec8f1d120936a888",
+    ".artifacts/performance/alpha-parity/baseline-text.json": "cbcd7b54471b2d3540e37beeb5c1c513885ae75c3cf46778938e308838cff75a",
+    ".artifacts/performance/alpha-parity/candidate-text-repeat.json": "fc598d9b1ce7a2ede25099805569de89a3d6c866f91992de6e737fc7af8fe89a",
+    ".artifacts/performance/alpha-parity/candidate-bars-final.json": "7219b7a70ca51fd366476058e1dcb15a5e05f9d2ebca009e53b8a9fe5472bb48",
+    ".artifacts/performance/alpha-parity/candidate-bars.json": "a7a82e1411c583cbd0ab946e61f9890f952770028bfc97670d4b845c6250524f"
+  },
+  "nativeEvidence": {
+    ".artifacts/flutter/alpha-parity-native.json": "db3fe153e430f87d4c28ec14f0d925b719739b32fa2853f401529e70ab5137a1",
+    ".artifacts/flutter/alpha-parity-demo-ios.json": "6ac5a41c409106c77c1951d979c542b4eb6afa8ea39ceaf9f5ce0128054937fc",
+    ".artifacts/flutter/alpha-parity-demo-comparison.json": "fee3e49f69b98781eb9b770c29a71e565ef808c061e4dc339a933f659217f93a",
+    ".artifacts/flutter/alpha-parity-native-ios.json": "201d3def1ed9422cca630bb2e8a070019f91add8f0cd073d7e899ab785b0b1b8",
+    ".artifacts/flutter/alpha-parity-demo-android.json": "8842b375695b136d4b31f096b3e849e7c4238a6fe007cfc41864838e5d14ccfe",
+    ".artifacts/flutter/alpha-parity-demo-comparison-ios.json": "2593cc5c721376dd8ac92e5eca4b4ffd4615163bb7907665dc20819306351195"
+  },
+  "conformance": {
+    "schemaRevision": "patch-map-public-ci/1",
+    "status": "passed",
+    "contractFingerprint": "a0b21271ca0d37304e15669d21ae0b5110f3f0bb08585240f1a39a015bedd351",
+    "comparedFixtures": 10,
+    "comparedCommands": 177,
+    "npmReport": {
+      "path": ".artifacts/flutter/public-ci/npm-public.json",
+      "sha256": "b6c31695bcee0df32c328de4b7a56cf7caeb908d4c884e9d3e8eca0d689882fe"
+    },
+    "dartReport": {
+      "path": ".artifacts/flutter/public-ci/dart-public.json",
+      "sha256": "e42a810d3e67e10e47a14dad9507f4e31fc426d8993e8ccd389f587d6ba9c372"
+    },
+    "dartCommand": [
+      "dart",
+      "/Users/minholim/.codex/worktrees/d509/patch-map/packages/flutter/test/engine/public_trace.dart",
+      "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/alpha-parity.json",
+      "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/binding-fields.json",
+      "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/codecs.json",
+      "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/controller.json",
+      "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/editor-lifecycle.json",
+      "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/editor.json",
+      "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/gallery.json",
+      "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/structural.json",
+      "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/transform-geometry.json",
+      "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/updates.json"
+    ],
+    "elapsedMs": 5978,
+    "scope": "Exact public browser/Dart semantic observations; not native raster, device performance, or installed artifact qualification."
+  }
+}

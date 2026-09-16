@@ -2,7 +2,7 @@
 
 - Status: current
 - Audience: host applications implementing structured editors
-- Source: `src/editor-workflow`, `src/engine/editor-operations.ts`, `src/public/editor.ts`
+- Source: `packages/javascript/src/editor-workflow`, `packages/javascript/src/engine/editor-operations.ts`, `packages/javascript/src/public/editor.ts`
 
 ## Scope
 
@@ -45,7 +45,7 @@ shortcut choice, and persistence transport. Commit detached host state with
 
 | Claim | Implementation | Focused verification |
 | --- | --- | --- |
-| workflow state and invariants | `src/editor-workflow/index.ts` | `tests/semantic/editor-workflow.test.ts` |
-| Engine transaction and selection ordering | `src/engine/editor-operations.ts` | `tests/integration/developer-api-workflows.test.ts` |
-| public result projection | `src/public/editor.ts` | `tests/integration/developer-api-workflows.test.ts` |
-| atomic semantic history | `src/engine/history-application-coordinator.ts` | `tests/engine/engine-history-integration.test.ts` |
+| workflow state and invariants | `packages/javascript/src/editor-workflow/index.ts` | `packages/javascript/tests/semantic/editor-workflow.test.ts` |
+| Engine transaction and selection ordering | `packages/javascript/src/engine/editor-operations.ts` | `packages/javascript/tests/integration/developer-api-workflows.test.ts` |
+| public result projection | `packages/javascript/src/public/editor.ts` | `packages/javascript/tests/integration/developer-api-workflows.test.ts` |
+| atomic semantic history | `packages/javascript/src/engine/history-application-coordinator.ts` | `packages/javascript/tests/engine/engine-history-integration.test.ts` |

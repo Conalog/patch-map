@@ -1,0 +1,24 @@
+{
+  "source": "packages/javascript/src/resources/fonts/FiraCode-VF.woff2",
+  "sourceSha256": "408e876a202f15ea6ee307a70a65cf40ceb222c589a0b17e0a3a371db96dd49f",
+  "native": "assets/fonts/FiraCode-VF.ttf",
+  "nativeSha256": "6017720c9794b1c8187af200a1cc2df3a32ddbd097767930ec19f9c7db0c718d",
+  "tool": "fontTools",
+  "toolVersion": "4.60.1",
+  "axes": [
+    {
+      "tag": "wght",
+      "min": 300.0,
+      "default": 300.0,
+      "max": 700.0
+    }
+  ],
+  "glyphCount": 2030,
+  "verified": [
+    "glyph-order",
+    "cmap",
+    "horizontal-metrics",
+    "variable-axes"
+  ],
+  "license": "assets/fonts/LICENSE.txt"
+}

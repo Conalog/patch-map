@@ -1,0 +1,768 @@
+{
+  "schemaRevision": "patch-map-conformance/1",
+  "contractRevision": 2,
+  "requiredPlatforms": [
+    "android",
+    "ios"
+  ],
+  "apiInventory": "public-api.json",
+  "fixtures": [
+    "codecs",
+    "controller",
+    "editor",
+    "gallery",
+    "updates",
+    "transform-geometry",
+    "editor-lifecycle",
+    "structural",
+    "binding-fields",
+    "alpha-parity"
+  ],
+  "requirements": [
+    {
+      "id": "data.all-kinds",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "gallery"
+      ]
+    },
+    {
+      "id": "data.detach",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "gallery",
+        "dart-test:engine/controller_test.dart#nested update is detached and history restores semantic state",
+        "dart-test:model/dataset_test.dart#normalizes defaults and identities without retaining caller aliases"
+      ]
+    },
+    {
+      "id": "data.normalization-defaults",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "dart-test:model/dataset_test.dart#normalizes defaults and identities without retaining caller aliases",
+        "dart-test:model/dataset_test.dart#grid cells preserve index IDs and hide versus destroy behavior",
+        "dart-test:model/dataset_test.dart#shared authoring fixtures match the reviewed normalization baseline",
+        "npm-test:semantic/dataset-contract.test.ts#applies defaults without mutating caller data and is fresh-session deterministic"
+      ]
+    },
+    {
+      "id": "data.compatibility",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "dart-test:model/dataset_test.dart#preserves accepted compatibility and discards only documented fields",
+        "dart-test:model/dataset_test.dart#closed fields, null, cycles, duplicate generated IDs and references fail atomically",
+        "npm-test:semantic/dataset-contract.test.ts#accepts but discards compatibility background size",
+        "npm-test:semantic/dataset-contract.test.ts#normalizes deprecated relation opacity to alpha",
+        "dart-test:rendering/canvas_renderer_test.dart#alpha bars ignore source borders and nonnumeric radius"
+      ]
+    },
+    {
+      "id": "data.strict-reference",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "dart-test:model/dataset_test.dart#closed fields, null, cycles, duplicate generated IDs and references fail atomically",
+        "dart-test:model/geometry_test.dart#relations resolve world centers, self loops and missing endpoint omission",
+        "npm-test:semantic/persistence.test.ts#checks semantic references in strict mode and permits explicit relaxed export"
+      ]
+    },
+    {
+      "id": "data.serialize",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "controller"
+      ]
+    },
+    {
+      "id": "data.semantic-hash",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "gallery",
+        "dart-test:model/dataset_test.dart#canonical JSON follows JS finite-number spelling and UTF-16 hash",
+        "dart-test:model/dataset_test.dart#shared authoring fixtures match the reviewed normalization baseline"
+      ]
+    },
+    {
+      "id": "targets.stable-identity",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#query order and grid cell public value follow npm logical API",
+        "npm-test:semantic/query-selection.test.ts#queries elements and owner-qualified components in deterministic logical order",
+        "dart-test:engine/alpha_parity_test.dart#whitespace-only target and query identities reject"
+      ]
+    },
+    {
+      "id": "targets.query",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "controller",
+        "binding-fields"
+      ]
+    },
+    {
+      "id": "targets.stale-revision",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "controller"
+      ]
+    },
+    {
+      "id": "geometry.signed-transforms",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "dart-test:model/geometry_test.dart#readable content removes reflections and flips around the owner anchor",
+        "dart-test:model/geometry_test.dart#relation stroke widths follow affine normals without becoming pointer targets",
+        "dart-test:model/geometry_test.dart#transforms preserve top-left origins, signed scale and nested affine",
+        "dart-test:model/bar_projection_test.dart#bar delta equals full geometry for placement, affine, bounds and hits",
+        "dart-test:rendering/canvas_renderer_test.dart#retained bar meshes equal full rendering across height zero, rotation and selection",
+        "structural",
+        "dart-test:engine/structural_test.dart#move group and ungroup preserve signed world affine and rotation channel"
+      ]
+    },
+    {
+      "id": "geometry.percentage-layout",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "dart-test:model/geometry_test.dart#scalar percentages use both content axes and named margins only anchor their axes",
+        "dart-test:model/bar_projection_test.dart#bar delta equals full geometry for placement, affine, bounds and hits",
+        "npm-test:semantic/dataset-layout.test.ts#resolves the padded content box and equivalent dimension forms"
+      ]
+    },
+    {
+      "id": "geometry.paint-order",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "dart-test:model/geometry_test.dart#stable hierarchical paint order keeps item descendants together",
+        "npm-test:rendering/component-render-lanes.test.ts#uses exact order when zIndex reverses components in the same render lane"
+      ]
+    },
+    {
+      "id": "geometry.hit-test",
+      "document": "docs/api/data-and-targets.md",
+      "required": true,
+      "cases": [
+        "dart-test:model/geometry_test.dart#relation stroke widths follow affine normals without becoming pointer targets",
+        "dart-test:model/geometry_test.dart#transforms preserve top-left origins, signed scale and nested affine",
+        "dart-test:model/bar_projection_test.dart#bar delta equals full geometry for placement, affine, bounds and hits",
+        "dart-test:rendering/canvas_renderer_test.dart#retained bar meshes equal full rendering across height zero, rotation and selection",
+        "npm-test:semantic/entity-hit-index.test.ts#applies visible, interactive, kind, and topmost filters after the broad phase"
+      ]
+    },
+    {
+      "id": "mutation.authored",
+      "document": "docs/api/mutations-and-history.md",
+      "required": true,
+      "cases": [
+        "updates",
+        "binding-fields"
+      ]
+    },
+    {
+      "id": "mutation.batch-columns",
+      "document": "docs/api/mutations-and-history.md",
+      "required": true,
+      "cases": [
+        "updates",
+        "binding-fields"
+      ]
+    },
+    {
+      "id": "mutation.atomic-rejection",
+      "document": "docs/api/mutations-and-history.md",
+      "required": true,
+      "cases": [
+        "updates",
+        "dart-test:engine/structural_test.dart#relation policy and locked or skewed destinations reject atomically",
+        "binding-fields",
+        "dart-test:engine/alpha_parity_test.dart#concrete overlays normalize values and reject malformed batches atomically"
+      ]
+    },
+    {
+      "id": "mutation.statuses",
+      "document": "docs/api/mutations-and-history.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#stale and unequal columns throw; duplicate targets are rejected",
+        "npm-test:engine/engine-update-transactions.test.ts#preserves authority and prepared history on surface refusal and throw"
+      ]
+    },
+    {
+      "id": "mutation.transactions",
+      "document": "docs/api/mutations-and-history.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#structural add replace move group ungroup remove",
+        "structural",
+        "dart-test:engine/structural_test.dart#move group and ungroup preserve signed world affine and rotation channel",
+        "dart-test:engine/structural_test.dart#same-parent move uses pre-removal insertion index and preserves no-op history",
+        "dart-test:engine/structural_test.dart#relation policy and locked or skewed destinations reject atomically",
+        "binding-fields"
+      ]
+    },
+    {
+      "id": "mutation.reentry",
+      "document": "docs/api/mutations-and-history.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#refusal and reentrant prepare never publish a candidate",
+        "dart-test:engine/controller_test.dart#reentrant history mutation preserves detached event snapshots",
+        "npm-test:engine/engine-reentrancy-lifecycle.test.ts#restores scene and preserves a reentrant selection before refusing the stale transaction"
+      ]
+    },
+    {
+      "id": "history.undo-redo",
+      "document": "docs/api/mutations-and-history.md",
+      "required": true,
+      "cases": [
+        "updates"
+      ]
+    },
+    {
+      "id": "history.coalescing",
+      "document": "docs/api/mutations-and-history.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#history coalescing capacity and refused undo preserve cursor",
+        "npm-test:semantic/history.test.ts#coalesces consecutive records with one action ID and honors explicit barriers"
+      ]
+    },
+    {
+      "id": "history.companion-selection",
+      "document": "docs/api/mutations-and-history.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#transaction companion and selection follow undo redo",
+        "structural",
+        "binding-fields"
+      ]
+    },
+    {
+      "id": "history.refused-restoration",
+      "document": "docs/api/mutations-and-history.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#history coalescing capacity and refused undo preserve cursor",
+        "npm-test:semantic/history.test.ts#moves the cursor only after an atomic apply accepts"
+      ]
+    },
+    {
+      "id": "history.capacity",
+      "document": "docs/api/mutations-and-history.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#history coalescing capacity and refused undo preserve cursor",
+        "npm-test:semantic/history.test.ts#evicts oldest commands at capacity and supports disabled recording"
+      ]
+    },
+    {
+      "id": "presentation.keyed-alpha",
+      "document": "docs/api/presentation.md",
+      "required": true,
+      "cases": [
+        "controller",
+        "binding-fields",
+        "dart-test:engine/alpha_parity_test.dart#presentation counts requested identities and admits explicit paints"
+      ]
+    },
+    {
+      "id": "presentation.instance-overlay",
+      "document": "docs/api/presentation.md",
+      "required": true,
+      "cases": [
+        "updates",
+        "dart-test:model/geometry_test.dart#instance overlays update geometry without altering authored data or hashes"
+      ]
+    },
+    {
+      "id": "presentation.null-restoration",
+      "document": "docs/api/presentation.md",
+      "required": true,
+      "cases": [
+        "updates",
+        "dart-test:engine/controller_test.dart#typed bar view preserves tint and old snapshots on null height reset"
+      ]
+    },
+    {
+      "id": "presentation.authored-replay",
+      "document": "docs/api/presentation.md",
+      "required": true,
+      "cases": [
+        "updates"
+      ]
+    },
+    {
+      "id": "presentation.bar-animation",
+      "document": "docs/api/presentation.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#bar uses 200ms cubic interpolation with committed destination",
+        "dart-test:engine/controller_test.dart#batch animation prepares its actual first frame and keeps old snapshots immutable",
+        "dart-test:model/bar_projection_test.dart#bar delta equals full geometry for placement, affine, bounds and hits",
+        "dart-test:model/bar_projection_test.dart#unrelated primitive identity is retained and relation scope fallback is explicit",
+        "dart-test:rendering/canvas_renderer_test.dart#retained bar meshes equal full rendering across height zero, rotation and selection",
+        "dart-test:engine/controller_test.dart#typed bar view preserves tint and old snapshots on null height reset",
+        "npm-test:core/core-bar-presentation-integration.test.ts#commits semantic height immediately and publishes deterministic bottom-anchored frames",
+        "dart-test:engine/alpha_parity_test.dart#partial bar retarget preserves topology and other active tweens"
+      ]
+    },
+    {
+      "id": "presentation.history-exclusion",
+      "document": "docs/api/presentation.md",
+      "required": true,
+      "cases": [
+        "updates"
+      ]
+    },
+    {
+      "id": "editor.grid",
+      "document": "docs/api/editor-workflows.md",
+      "required": true,
+      "cases": [
+        "editor",
+        "dart-test:engine/controller_test.dart#grid editor respects linked-cell conflict and resizes"
+      ]
+    },
+    {
+      "id": "editor.relation",
+      "document": "docs/api/editor-workflows.md",
+      "required": true,
+      "cases": [
+        "editor-lifecycle"
+      ]
+    },
+    {
+      "id": "editor.text",
+      "document": "docs/api/editor-workflows.md",
+      "required": true,
+      "cases": [
+        "editor",
+        "editor-lifecycle"
+      ]
+    },
+    {
+      "id": "editor.delete",
+      "document": "docs/api/editor-workflows.md",
+      "required": true,
+      "cases": [
+        "editor-lifecycle"
+      ]
+    },
+    {
+      "id": "editor.mode-conflicts",
+      "document": "docs/api/editor-workflows.md",
+      "required": true,
+      "cases": [
+        "editor-lifecycle"
+      ]
+    },
+    {
+      "id": "pointer.hover",
+      "document": "docs/api/pointer-and-selection.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/native_pointer_test.dart#hover exposes detached component identity",
+        "npm-test:semantic/pointer-gesture.test.ts#projects stable authored/concrete hover and owns policy-filtered box selection"
+      ]
+    },
+    {
+      "id": "pointer.tooltip-pin",
+      "document": "docs/api/pointer-and-selection.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/native_pointer_test.dart#pin survives leave and primary blank click hides it",
+        "dart-test:host/native_pointer_test.dart#touch long press pins once and cancellation removes its timer",
+        "npm-test:semantic/pointer-gesture.test.ts#pins package-owned tooltip projection on context menu until the next primary click",
+        "dart-test:host/native_pointer_test.dart#replacement invalidates same-id press and clears pinned tooltip"
+      ]
+    },
+    {
+      "id": "pointer.touch-cancel",
+      "document": "docs/api/pointer-and-selection.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/native_pointer_test.dart#4 logical pixels remains a click; any excursion beyond stays a drag",
+        "dart-test:host/native_pointer_test.dart#pinch changes viewport without creating a point selection",
+        "dart-test:host/view_test.dart#native gesture commits taps and yields cleanly when parent wins",
+        "npm-test:semantic/pointer-gesture.test.ts#normalizes click, drag, secondary, and touch traces without duplicate completion"
+      ]
+    },
+    {
+      "id": "selection.policy",
+      "document": "docs/api/pointer-and-selection.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/native_pointer_test.dart#blank double click policy and target eligibility preserve selection",
+        "dart-test:host/native_pointer_test.dart#double click removes only the previously selected target",
+        "dart-test:rendering/canvas_renderer_test.dart#selection honors encoded component IDs, display modes and stroke policy",
+        "dart-test:rendering/canvas_renderer_test.dart#selection outline paints authored visual color and hidden mode",
+        "npm-test:semantic/pointer-gesture.test.ts#owns configured blank and selected-target double-click deselection without delaying new targets"
+      ]
+    },
+    {
+      "id": "selection.box",
+      "document": "docs/api/pointer-and-selection.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/native_pointer_test.dart#box commit selects logical target once",
+        "dart-test:host/native_pointer_test.dart#cancelled marquee neither commits selection nor leaves transient paint",
+        "npm-test:semantic/pointer-gesture.test.ts#latches shift-only box activation at pointer-down without taking ordinary pan drags",
+        "dart-test:host/native_pointer_test.dart#throwing box predicate clears marquee and preserves selection"
+      ]
+    },
+    {
+      "id": "selection.callbacks",
+      "document": "docs/api/pointer-and-selection.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/native_pointer_test.dart#4 logical pixels remains a click; any excursion beyond stays a drag",
+        "npm-test:semantic/pointer-gesture.test.ts#resolves Ctrl or Cmd point selection inside the package-owned selection commit"
+      ]
+    },
+    {
+      "id": "viewport.fit",
+      "document": "docs/api/viewport-and-transform.md",
+      "required": true,
+      "cases": [
+        "controller",
+        "alpha-parity",
+        "dart-test:engine/alpha_parity_test.dart#replacement validates fit before publication and resolves old TargetSet"
+      ]
+    },
+    {
+      "id": "viewport.restore",
+      "document": "docs/api/viewport-and-transform.md",
+      "required": true,
+      "cases": [
+        "controller"
+      ]
+    },
+    {
+      "id": "viewport.resize",
+      "document": "docs/api/viewport-and-transform.md",
+      "required": true,
+      "cases": [
+        "controller",
+        "dart-test:host/view_test.dart#manual surface keeps explicit logical size and DPR for PNG"
+      ]
+    },
+    {
+      "id": "viewport.input-anchor",
+      "document": "docs/api/viewport-and-transform.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/native_pointer_test.dart#pinch changes viewport without creating a point selection",
+        "npm-test:engine/engine-viewport.test.ts#keeps cursor and pinch anchors stable while pan and deceleration use one view owner"
+      ]
+    },
+    {
+      "id": "rotation.multi-turn",
+      "document": "docs/api/viewport-and-transform.md",
+      "required": true,
+      "cases": [
+        "controller",
+        "alpha-parity"
+      ]
+    },
+    {
+      "id": "rotation.animation-cancel",
+      "document": "docs/api/viewport-and-transform.md",
+      "required": true,
+      "cases": [
+        "controller",
+        "dart-test:engine/controller_test.dart#rotation completion follows painted final frame and failure settles failed",
+        "alpha-parity"
+      ]
+    },
+    {
+      "id": "transform.move-resize-rotate",
+      "document": "docs/api/viewport-and-transform.md",
+      "required": true,
+      "cases": [
+        "controller",
+        "transform-geometry"
+      ]
+    },
+    {
+      "id": "transform.preview-commit-cancel",
+      "document": "docs/api/viewport-and-transform.md",
+      "required": true,
+      "cases": [
+        "controller",
+        "transform-geometry",
+        "dart-test:engine/controller_test.dart#refused preview cannot become a committed transform",
+        "dart-test:engine/controller_test.dart#transform commit invalidates token before change callback and refused settlement"
+      ]
+    },
+    {
+      "id": "transform.edge-pan",
+      "document": "docs/api/viewport-and-transform.md",
+      "required": true,
+      "cases": [
+        "transform-geometry"
+      ]
+    },
+    {
+      "id": "assets.registration-policy",
+      "document": "docs/api/assets-and-capture.md",
+      "required": true,
+      "cases": [
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#registers immutable builtins without allocating resources and rejects conflicts by the closed code",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#detaches and freezes descriptor options while including every field in identity",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#rejects unknown descriptor fields while preserving the parser descriptor",
+        "dart-test:host/asset_runtime_test.dart#descriptor normalization detaches nested input and rejects non-JSON/cyclic data",
+        "dart-test:host/asset_runtime_test.dart#modified font descriptor never gains package-owned trust",
+        "dart-test:host/asset_runtime_test.dart#public response policy reports the first failed admission stage"
+      ]
+    },
+    {
+      "id": "assets.network-admission",
+      "document": "docs/api/assets-and-capture.md",
+      "required": true,
+      "cases": [
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#uses package-owned browser boundaries and ignores caller overrides",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#rejects SVG parser and response MIME mismatches before Pixi loading",
+        "dart-test:host/assets_test.dart#MIME, parser agreement, SVG content and decoded bounds enforce session policy",
+        "dart-test:host/assets_test.dart#real HTTP admission rejects redirects status MIME and streamed size before decode"
+      ]
+    },
+    {
+      "id": "assets.all-image-formats",
+      "document": "docs/api/assets-and-capture.md",
+      "required": true,
+      "cases": [
+        "codecs"
+      ]
+    },
+    {
+      "id": "assets.all-font-formats",
+      "document": "docs/api/assets-and-capture.md",
+      "required": true,
+      "cases": [
+        "codecs"
+      ]
+    },
+    {
+      "id": "assets.leases",
+      "document": "docs/api/assets-and-capture.md",
+      "required": true,
+      "cases": [
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#deduplicates pending work across instances and unloads after the final lease",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#coordinates leases across runtimes that share one physical backend",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#quarantines an unload failure and never leases the partly destroyed resource again",
+        "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#borrows an externally cached backend entry without unloading it",
+        "dart-test:host/asset_runtime_test.dart#manual session distinguishes aliases from sources and deduplicates handles",
+        "dart-test:host/asset_runtime_test.dart#same backend shares physical resources across separate runtime catalogs",
+        "dart-test:host/asset_runtime_test.dart#cleanup failure is visible and reacquisition retries before allocating a fresh key",
+        "dart-test:host/asset_runtime_test.dart#external cached resources are never unloaded",
+        "dart-test:host/asset_runtime_test.dart#native cleanup failure drops bindings and repeated destroy retries cleanup",
+        "dart-test:host/asset_runtime_test.dart#NativeAsset retries failed cleanup steps and successful disposal stays idempotent",
+        "dart-test:host/asset_runtime_test.dart#public low-level attach release and scoped retry use the same coordinator"
+      ]
+    },
+    {
+      "id": "assets.stale-completion",
+      "document": "docs/api/assets-and-capture.md",
+      "required": true,
+      "cases": [
+        "npm-test:packages/javascript/tests/rendering/asset-pending-cancel.test.ts#does not await an abandoned load and collects its late success exactly once",
+        "npm-test:packages/javascript/tests/rendering/asset-pending-cancel.test.ts#observes an abandoned late failure while removing the failed coordinator entry",
+        "dart-test:host/assets_test.dart#replacement preserves old texture, supersedes late completion and frees removed bindings",
+        "dart-test:host/assets_test.dart#failed replacement keeps the previous resolved binding and can retry",
+        "dart-test:host/assets_test.dart#destroy settles pending requests immediately and late decode cannot reattach"
+      ]
+    },
+    {
+      "id": "capture.readiness",
+      "document": "docs/api/assets-and-capture.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#host failure rejects pending readiness and captures without hanging",
+        "dart-test:host/view_test.dart#native frame publishes ready, captures real PNG and stays idle",
+        "npm-test:engine/engine-capture-extraction-authority.test.ts#recovers managed capture state when preparation fails and advances the queue",
+        "npm-test:engine/engine-capture-extraction-authority.test.ts#uses the injected security authority before acquiring capture work"
+      ]
+    },
+    {
+      "id": "capture.published-tuple",
+      "document": "docs/api/assets-and-capture.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#capture waits matching publication and returns logical dimensions",
+        "dart-test:host/view_test.dart#native frame publishes ready, captures real PNG and stays idle",
+        "npm-test:engine/engine-extraction.test.ts#captures an exact published tuple while retaining the authoritative canvas",
+        "dart-test:engine/alpha_parity_test.dart#capture freezes both animation timelines and resumes their remaining duration"
+      ]
+    },
+    {
+      "id": "capture.resize-destroy",
+      "document": "docs/api/assets-and-capture.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#destroy settles capture waiting on initial readiness",
+        "npm-test:engine/engine-capture-extraction-authority.test.ts#serializes managed captures and applies deferred reentrant resize before resume",
+        "npm-test:engine/engine-capture-extraction-authority.test.ts#balances pending work across supersede and destroy settlements"
+      ]
+    },
+    {
+      "id": "text.grapheme-bidi",
+      "document": "docs/api/text.md",
+      "required": true,
+      "cases": [
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#segments family emoji, skin tone, combining marks, flags, and Hangul without native Intl",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#derives automatic RTL base direction, logical/visual runs, and exact mapping",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#keeps European and Arabic-Indic digit graphemes in logical order inside RTL text",
+        "dart-test:text/layout_test.dart#shared npm text observation: combining",
+        "dart-test:text/layout_test.dart#shared npm text observation: emoji-zwj",
+        "dart-test:text/layout_test.dart#shared npm text observation: hangul-jamo",
+        "dart-test:text/layout_test.dart#shared npm text observation: rtl-mixed",
+        "dart-test:text/layout_test.dart#shared npm text observation: ltr-mixed",
+        "dart-test:text/layout_test.dart#shared npm text observation: arabic-number",
+        "dart-test:text/layout_test.dart#shared npm text observation: multiline-bidi"
+      ]
+    },
+    {
+      "id": "text.wrap-overflow",
+      "document": "docs/api/text.md",
+      "required": true,
+      "cases": [
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#wraps CJK at pinned opportunities and long Latin only when breakWords is enabled",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#applies visible, hidden, and ellipsis overflow without splitting a grapheme",
+        "dart-test:text/layout_test.dart#shared npm text observation: wrap-words",
+        "dart-test:text/layout_test.dart#shared npm text observation: wrap-breakwords",
+        "dart-test:text/layout_test.dart#shared npm text observation: wrap-korean",
+        "dart-test:text/layout_test.dart#shared npm text observation: wrap-zero",
+        "dart-test:text/layout_test.dart#shared npm text observation: hidden",
+        "dart-test:text/layout_test.dart#shared npm text observation: ellipsis-width",
+        "dart-test:text/layout_test.dart#shared npm text observation: ellipsis-height",
+        "dart-test:text/layout_test.dart#shared npm text observation: ellipsis-no-marker",
+        "dart-test:text/layout_test.dart#shared npm text observation: height-zero",
+        "dart-test:text/layout_test.dart#shared npm text observation: negative-spacing-overflow"
+      ]
+    },
+    {
+      "id": "text.auto-font",
+      "document": "docs/api/text.md",
+      "required": true,
+      "cases": [
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#selects the largest inclusive automatic font candidate and makes ties deterministic",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#pins auto-font wrapping to the frame so a larger rewrap cannot create a fit island",
+        "dart-test:text/layout_test.dart#shared npm text observation: auto-font",
+        "dart-test:text/layout_test.dart#shared npm text observation: auto-wrap"
+      ]
+    },
+    {
+      "id": "text.font-fallback-readiness",
+      "document": "docs/api/text.md",
+      "required": true,
+      "cases": [
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#uses deterministic font fallback independently of system fonts",
+        "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#replaces declared missing glyphs while preserving exact source and run identity",
+        "dart-test:text/layout_test.dart#shared npm text observation: missing",
+        "dart-test:text/layout_test.dart#shared npm text observation: zero-width"
+      ]
+    },
+    {
+      "id": "lifecycle.readiness",
+      "document": "docs/integration/host.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/view_test.dart#initial projection failure settles ready and capture and releases the host",
+        "npm-test:engine/engine-lifecycle.test.ts#deduplicates repeated initialization and publishes one ready event",
+        "npm-test:engine/engine-asset-lifecycle.test.ts#preflights required assets before surface allocation and retries the same new engine"
+      ]
+    },
+    {
+      "id": "lifecycle.empty-scene",
+      "document": "docs/integration/host.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/view_test.dart#empty scene and independent surfaces publish and destroy separately",
+        "npm-test:engine/engine-lifecycle.test.ts#keeps caller input immutable and returns deterministic empty/missing results"
+      ]
+    },
+    {
+      "id": "lifecycle.multi-instance",
+      "document": "docs/integration/host.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/view_test.dart#empty scene and independent surfaces publish and destroy separately",
+        "npm-test:integration/multi-instance.test.ts#isolates data selection history and destruction for identical target IDs"
+      ]
+    },
+    {
+      "id": "lifecycle.destroy",
+      "document": "docs/integration/host.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#destroy settles capture waiting on initial readiness",
+        "dart-test:host/view_test.dart#controller survives surface detach and reattach with selection",
+        "npm-test:engine/engine-lifecycle.test.ts#destroys once and releases the surface",
+        "npm-test:engine/engine-lifecycle.test.ts#waits for and releases a renderer that resolves after destroy starts",
+        "dart-test:engine/alpha_parity_test.dart#destroy joins callers, attempts assets after surface failure and retries only failed cleanup"
+      ]
+    },
+    {
+      "id": "lifecycle.background",
+      "document": "docs/integration/host.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#visibility settles bars, cancels transforms, and pauses rotation",
+        "dart-test:host/view_test.dart#background cancels native input and resumes one idle frame",
+        "npm-test:integration/page-lifecycle.test.ts#cancels motion and root gesture ownership and publishes one resume frame"
+      ]
+    },
+    {
+      "id": "diagnostics.errors",
+      "document": "docs/integration/host.md",
+      "required": true,
+      "cases": [
+        "dart-test:engine/controller_test.dart#callback failure and in-flight disposal preserve publication order",
+        "npm-test:integration/operations.test.ts#isolates callback failure and drains reentrant actions after registration order"
+      ]
+    },
+    {
+      "id": "accessibility.focus-activation",
+      "document": "docs/integration/host.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/view_test.dart#Semantics refreshes selection and geometry without rebuilding the host",
+        "npm-test:integration/accessibility-product.test.ts#deduplicates Pixi aliases while preserving logical focus and selection intent",
+        "dart-test:host/view_test.dart#Semantics activation selects without a pointer event"
+      ]
+    },
+    {
+      "id": "accessibility.reduced-motion",
+      "document": "docs/integration/host.md",
+      "required": true,
+      "cases": [
+        "dart-test:host/view_test.dart#MediaQuery motion preference follows the attached controller",
+        "npm-test:integration/accessibility-product.test.ts#connects logical tree, root activation, reduced motion, and cleanup"
+      ]
+    },
+    {
+      "id": "selection.brush",
+      "document": "docs/api/pointer-and-selection.md",
+      "required": true,
+      "cases": [
+        "npm-test:engine/brush-selection.test.ts#toggle API disable and another longpress share one state",
+        "npm-test:engine/brush-selection.test.ts#segments add erase and revisit once using the common fixture",
+        "dart-test:host/native_pointer_test.dart#brush toggle API disable and next longpress share one state",
+        "dart-test:host/native_pointer_test.dart#brush segments add erase and revisit common fixture"
+      ]
+    }
+  ],
+  "policy": "All API inventory entries and semantic requirements need passing witnesses in both published consumers. Missing cases, skips and incomplete platform evidence fail qualification.",
+  "witnessIndex": "witnesses.json"
+}
