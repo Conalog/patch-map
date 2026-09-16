@@ -43,6 +43,22 @@ npm run js:verify:memory
 | Destroy, listener, timer, pending work | lifecycle tests and memory verification |
 | Measured hot path | correctness checks plus comparable baseline/candidate measurements |
 
+## Pull request CI routing
+
+The classifier independently selects npm validation, Flutter validation and
+shared contract comparison. JS source/test changes run npm checks and comparison;
+Flutter changes run native checks and comparison. Shared contracts and common
+configuration select all three. Internal engineering documentation uses the
+lightweight documentation gate. npm-only build/measurement changes retain npm
+validation without selecting native tests.
+
+`Shared contract comparison` runs both browser JavaScript and Dart semantic
+traces, plus shared data/model/text and API binding checks. It is independent of
+`Flutter package`, which owns Dart analysis, tests and installed-artifact checks.
+The final `CI` status requires every selected job to succeed and accepts skipped
+native/comparison jobs only when explicitly excluded by the classifier. Semantic
+comparison does not qualify native pixels, gestures or device performance.
+
 ## Performance
 
 - Treat user-visible performance as an invariant for every implementation, but

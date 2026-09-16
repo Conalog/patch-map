@@ -11,8 +11,6 @@ export function isLightweightValidationPath(path) {
 
 export function requiresFlutterValidation(path) {
   return path.startsWith('packages/flutter/')
-    || path.startsWith('packages/javascript/src/')
-    || path.startsWith('packages/javascript/tests/')
     || path.startsWith('conformance/')
     || path.startsWith('verification/conformance/')
     || path.startsWith('verification/flutter/')
@@ -27,6 +25,12 @@ export function requiresFlutterValidation(path) {
     || path.startsWith('.github/scripts/pub-artifact.')
     || path.startsWith('.github/scripts/release-')
     || path.startsWith('.github/scripts/classify-ci-files.');
+}
+
+export function requiresContractValidation(path) {
+  return requiresFlutterValidation(path)
+    || path.startsWith('packages/javascript/src/')
+    || path.startsWith('packages/javascript/tests/');
 }
 
 export function requiresNpmValidation(path) {
@@ -51,6 +55,7 @@ export function classifyChangedPaths(paths) {
   return {
     fullValidation:
       paths.length === 0 || paths.some(requiresNpmValidation),
+    contractValidation: paths.length === 0 || paths.some(requiresContractValidation),
     flutterValidation:
       paths.length === 0 || paths.some(requiresFlutterValidation),
   };
@@ -83,6 +88,7 @@ function main() {
 
   const result = classifyGitDiff(baseSha, resultSha);
   process.stdout.write(`full_validation=${result.fullValidation}\n`);
+  process.stdout.write(`contract_validation=${result.contractValidation}\n`);
   process.stdout.write(`flutter_validation=${result.flutterValidation}\n`);
 }
 

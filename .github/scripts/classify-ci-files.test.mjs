@@ -14,7 +14,7 @@ test('internal documentation-only changes skip the full release gate', () => {
       'docs/engineering/verification.md',
       'CONTRIBUTING.md',
     ]),
-    { fullValidation: false, flutterValidation: false },
+    { fullValidation: false, flutterValidation: false, contractValidation: false },
   );
 });
 
@@ -65,14 +65,16 @@ test('invalid paths are rejected and NUL-delimited paths are preserved', () => {
   ]);
 });
 
-test('shared contract and npm source changes select both runtime gates', () => {
+test('shared contracts select both runtime gates and comparison', () => {
   for (const path of ['conformance/fixtures/gallery.json',
     'verification/conformance/compare.mjs', 'docs/api/presentation.md']) {
     assert.equal(requiresFlutterValidation(path), true);
-    assert.deepEqual(classifyChangedPaths([path]), { fullValidation: true, flutterValidation: true });
+    assert.deepEqual(classifyChangedPaths([path]), { fullValidation: true, flutterValidation: true, contractValidation: true });
   }
-  assert.equal(requiresFlutterValidation('packages/javascript/src/index.ts'), true);
-  assert.equal(requiresFlutterValidation('packages/javascript/tests/integration/multi-instance.test.ts'), true);
+  assert.deepEqual(classifyChangedPaths(['packages/javascript/src/index.ts']),
+    { fullValidation: true, flutterValidation: false, contractValidation: true });
+  assert.deepEqual(classifyChangedPaths(['packages/javascript/tests/integration/multi-instance.test.ts']),
+    { fullValidation: true, flutterValidation: false, contractValidation: true });
   assert.equal(requiresFlutterValidation('.github/workflows/ci.yaml'), true);
   for (const path of ['package.json', 'package-lock.json', '.nvmrc', 'verification/package.json',
     'verification/tsconfig.json', 'verification/eslint.config.js', 'docs/assets/fira-code-6.2-license.txt']) {
@@ -84,7 +86,7 @@ test('shared contract and npm source changes select both runtime gates', () => {
 test('Flutter-only changes select the native gate without npm release measurements', () => {
   for (const path of ['packages/flutter/lib/conalog_patch_map.dart', 'packages/flutter/pubspec.yaml',
     'packages/flutter/test/engine/controller_test.dart', 'verification/flutter/package.mjs']) {
-    assert.deepEqual(classifyChangedPaths([path]), { fullValidation: false, flutterValidation: true });
+    assert.deepEqual(classifyChangedPaths([path]), { fullValidation: false, flutterValidation: true, contractValidation: true });
   }
 });
 
@@ -92,6 +94,6 @@ test('npm-only build and measurement changes stay in the npm gate', () => {
   for (const path of ['packages/javascript/vite.config.ts',
     'packages/javascript/performance/runners/benchmark.mjs',
     'packages/javascript/verification/package/run.mjs']) {
-    assert.deepEqual(classifyChangedPaths([path]), { fullValidation: true, flutterValidation: false });
+    assert.deepEqual(classifyChangedPaths([path]), { fullValidation: true, flutterValidation: false, contractValidation: false });
   }
 });
