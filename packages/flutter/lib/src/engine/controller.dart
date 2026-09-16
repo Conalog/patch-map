@@ -782,7 +782,9 @@ class PatchMapCaptureApi {
         _c._capturing = true;
         final snapshot = _c.renderSnapshot;
         await _c.assetPort?.ready(snapshot);
-        if (_c.destroyed || snapshot.revisions != _c.revisions)
+        if (_c.destroyed ||
+            snapshot.revisions != _c.revisions ||
+            !identical(surface, _c._surface))
           throw const PatchMapException(
             'EXTRACTION_FAILURE',
             'Capture scene became stale',

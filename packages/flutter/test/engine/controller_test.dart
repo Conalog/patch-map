@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:conalog_patch_map/src/semantic/text/layout.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,26 @@ import 'package:conalog_patch_map/src/api/values.dart';
 import 'package:conalog_patch_map/src/engine/controller.dart';
 import 'package:conalog_patch_map/src/engine/ports.dart';
 import 'package:conalog_patch_map/src/model/dataset.dart';
+import 'package:conalog_patch_map/src/semantic/geometry/primitives.dart';
+
+class GatedCaptureAssets implements PatchMapAssetPort {
+  final entered = Completer<void>();
+  final release = Completer<void>();
+  @override
+  Map<String, MapRect> get imageSizes => const {};
+  @override
+  PatchMapResult register(List<JsonMap> registrations) => PatchMapResult({});
+  @override
+  JsonMap status([String? alias]) => {};
+  @override
+  Future<void> ready(PatchMapRenderSnapshot snapshot) {
+    entered.complete();
+    return release.future;
+  }
+
+  @override
+  Future<void> dispose() async {}
+}
 
 class Surface implements PatchMapSurfacePort {
   late PatchMapController controller;
@@ -989,6 +1010,33 @@ void main() {
     await c.destroy();
     await failed;
     expect(await c.destroy(), false);
+  });
+  test('capture rejects detachment during asset readiness', () async {
+    final assets = GatedCaptureAssets();
+    final c = await PatchMapController.create(
+      data: [],
+      fit: false,
+      assetPort: assets,
+    );
+    final surface = Surface()..controller = c;
+    c.attach(surface);
+    surface.paint();
+    addTearDown(c.destroy);
+    final capture = c.capture.png();
+    final failed = expectLater(
+      capture.timeout(const Duration(seconds: 1)),
+      throwsA(
+        isA<PatchMapException>().having(
+          (error) => error.code,
+          'code',
+          'EXTRACTION_FAILURE',
+        ),
+      ),
+    );
+    await assets.entered.future;
+    c.detach(surface);
+    assets.release.complete();
+    await failed;
   });
   test(
     'capture waits matching publication and returns logical dimensions',
