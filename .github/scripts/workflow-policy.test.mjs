@@ -9,6 +9,6 @@ test('required workflow policy reports for version-only release pull requests', 
   assert.match(pullRequest, /^ {6}- release\/1\.0$/mu);
   assert.doesNotMatch(pullRequest, /^ {4}(?:paths|paths-ignore):/mu,
     'version/changelog/manifest-only release PRs must not leave the required check pending');
-  assert.match(source, /^ {4}name: Analyze workflow policy$/mu,
+  assert.match(source, /^ {4}name: Shared · Workflow security$/mu,
     'retain the documented required status name');
 });

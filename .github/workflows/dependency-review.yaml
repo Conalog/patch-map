@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   review:
-    name: Review dependency changes
+    name: JS + Tooling · Dependency review
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

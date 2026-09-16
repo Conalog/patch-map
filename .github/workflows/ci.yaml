@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   classify:
-    name: Classify changes
+    name: Shared · Change routing
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -62,11 +62,11 @@ jobs:
       matrix:
         include:
           - gate: core
-            name: Core
+            name: JS + Shared · Static checks, tests & build
           - gate: package
-            name: Package
+            name: JS · Package verification
           - gate: lifecycle
-            name: Lifecycle
+            name: JS · Memory & benchmark smoke
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -132,7 +132,7 @@ jobs:
         run: npm run js:performance:smoke
 
   flutter:
-    name: Flutter package
+    name: Flutter · Analysis, tests & package
     needs: classify
     if: ${{ needs.classify.outputs.flutter_validation == 'true' }}
     runs-on: ubuntu-latest
@@ -174,7 +174,7 @@ jobs:
           node verification/flutter/installed-consumer.mjs
 
   contracts:
-    name: Shared contract comparison
+    name: JS ↔ Flutter · Contract comparison
     needs: classify
     if: ${{ needs.classify.outputs.contract_validation == 'true' }}
     runs-on: ubuntu-latest

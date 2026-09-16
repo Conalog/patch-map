@@ -52,9 +52,9 @@ configuration select all three. Internal engineering documentation uses the
 lightweight documentation gate. npm-only build/measurement changes retain npm
 validation without selecting native tests.
 
-`Shared contract comparison` runs both browser JavaScript and Dart semantic
+`JS ↔ Flutter · Contract comparison` runs both browser JavaScript and Dart semantic
 traces, plus shared data/model/text and API binding checks. It is independent of
-`Flutter package`, which owns Dart analysis, tests and installed-artifact checks.
+`Flutter · Analysis, tests & package`, which owns Dart analysis, tests and installed-artifact checks.
 The final `CI` status requires every selected job to succeed and accepts skipped
 native/comparison jobs only when explicitly excluded by the classifier. Semantic
 comparison does not qualify native pixels, gestures or device performance.
