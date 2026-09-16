@@ -33,8 +33,8 @@ jobs:
           node-version: 22
           package-manager-cache: false
 
-      - name: Test change classifier
-        run: node --test .github/scripts/classify-ci-files.test.mjs
+      - name: Test release metadata and change classifier
+        run: node --test .github/scripts/classify-ci-files.test.mjs .github/scripts/release-ready.test.mjs .github/scripts/release-metadata.test.mjs
 
       - name: Require release gate commands
         run: test "$(node .github/scripts/release-ready.mjs --require)" = true
@@ -85,6 +85,10 @@ jobs:
       - name: Install dependencies
         if: ${{ needs.classify.outputs.full_validation == 'true' }}
         run: npm ci
+
+      - name: Release tooling
+        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        run: node --test .github/scripts/*.test.mjs verification/package-supply-chain.test.mjs
 
       - name: Typecheck
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}

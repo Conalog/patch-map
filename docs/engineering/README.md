@@ -6,6 +6,7 @@ directory owns internal structure and engineering policy.
 
 Flutter: [architecture decision](flutter-package-design.md) and
 [reviewed implementation structure](flutter-implementation-plan.md).
+Versions, release PRs, tags and registry setup: [Independent package releases](releases.md).
 
 ## Start here
 

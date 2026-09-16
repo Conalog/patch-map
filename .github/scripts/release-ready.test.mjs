@@ -12,7 +12,7 @@ const runner = resolve(root, '.github/scripts/release-ready.mjs');
 test('release readiness accepts the private tooling workspace and rejects publication or stale lock identity', async () => {
   const directory = await mkdtemp(resolve(tmpdir(), 'patch-map-workspace-'));
   const paths = ['package.json', 'packages/javascript/package.json', 'verification/package.json',
-    'package-lock.json', '.release-please-manifest.json'];
+    'package-lock.json', '.release-please-manifest.json', 'release-please-config.json'];
   try {
     const inputs = Object.fromEntries(await Promise.all(paths.map(async (path) => [
       path, JSON.parse(await readFile(resolve(root, path), 'utf8')),
@@ -22,8 +22,18 @@ test('release readiness accepts the private tooling workspace and rejects public
       await writeFile(resolve(directory, path), JSON.stringify(value));
     };
     for (const [path, value] of Object.entries(inputs)) await write(path, value);
+    await mkdir(resolve(directory, 'packages/flutter'), { recursive: true });
+    const pubspec = await readFile(resolve(root, 'packages/flutter/pubspec.yaml'), 'utf8');
+    await writeFile(resolve(directory, 'packages/flutter/pubspec.yaml'), pubspec);
     const run = () => execFileSync(process.execPath, [runner], { cwd: directory, encoding: 'utf8', stdio: 'pipe' });
     assert.equal(run(), 'true');
+    await writeFile(resolve(directory, 'packages/flutter/pubspec.yaml'), pubspec.replace(/version: .+/u, 'version: 0.2.0'));
+    assert.throws(run, /Dart package and release versions/u);
+    await writeFile(resolve(directory, 'packages/flutter/pubspec.yaml'), pubspec);
+    const released = { ...inputs['.release-please-manifest.json'], 'packages/flutter': '0.1.0-alpha.1' };
+    await write('.release-please-manifest.json', released);
+    assert.equal(run(), 'true');
+    await write('.release-please-manifest.json', inputs['.release-please-manifest.json']);
     await write('verification/package.json', { ...inputs['verification/package.json'], private: false });
     assert.throws(run, /unexpected workspace/u);
     await write('verification/package.json', inputs['verification/package.json']);

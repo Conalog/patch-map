@@ -46,3 +46,6 @@ Versions and release metadata live in each package. Run the matching installed
 consumer gate after changing distribution layout. Local verification does not
 publish either package. Commit complete, targeted, verified units using the
 repository's `type: summary` convention.
+
+Independent versioning, release PRs and publishing are documented in
+[Independent package releases](docs/engineering/releases.md).

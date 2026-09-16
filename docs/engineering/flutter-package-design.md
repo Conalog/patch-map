@@ -95,8 +95,8 @@ capability set identify compatible combinations. Platform-only fixes or
 optimizations may release independently when shared behavior is unchanged; new
 shared features require both implementations and their conformance coverage.
 
-Each package validates its contents and installed consumer separately. Dart's
-`publish_to: none` keeps registry publication disabled until publication is
-explicitly enabled. Two registry publishes are not atomic: record the versions
+Each package validates its contents and installed consumer separately.
+The [release owner](releases.md) defines independent release PRs, tag namespaces
+and explicit registry enablement. Dart starts at `0.1.0-alpha.1`. Two registry publishes are not atomic: record the versions
 actually published and retry only the failed release. Functional qualification,
 performance evidence and successful registry publication are distinct statuses.

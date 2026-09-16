@@ -31,6 +31,6 @@ jobs:
           advanced-security: false
           inputs: .github/workflows
           # The title-only pull_request_target workflow has no permissions or checkout,
-          # and release cache findings are low-confidence on this push-only workflow.
+          # so its dangerous-trigger finding is an audited medium-confidence exception.
           min-confidence: high
           version: v1.29.0

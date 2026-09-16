@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.0-alpha.9](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.8...v1.0.0-alpha.9) (2026-09-15)
+
+
+### Changed
+
+* accelerate PatchMap target lookups with an ID and owner index ([#241](https://github.com/Conalog/patch-map/issues/241)) ([46f1735](https://github.com/Conalog/patch-map/commit/46f1735b39cfe2e5c0a062d25fcdcb8d71762ea9))
+
+## [1.0.0-alpha.8](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.7...v1.0.0-alpha.8) (2026-09-10)
+
+
+### Added
+
+* add whole-map rotation controls to PatchMap ([#238](https://github.com/Conalog/patch-map/issues/238)) ([3537152](https://github.com/Conalog/patch-map/commit/353715219c54e413b60fde94849747e51cb3e056))
+
 ## [1.0.0-alpha.7](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.6...v1.0.0-alpha.7) (2026-09-01)
 
 

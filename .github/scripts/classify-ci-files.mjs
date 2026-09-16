@@ -21,7 +21,11 @@ export function requiresFlutterValidation(path) {
       'verification/package.json', 'verification/tsconfig.json', 'verification/eslint.config.js',
       'packages/javascript/package.json', 'packages/javascript/tsconfig.json',
       'packages/javascript/tsconfig.build.json'].includes(path)
-    || path === '.github/workflows/ci.yaml'
+    || ['.github/workflows/ci.yaml', '.github/workflows/publish-dart.yaml', '.github/workflows/release-please.yaml',
+      'release-please-config.json', '.release-please-manifest.json'].includes(path)
+    || path.startsWith('.github/scripts/dart-release.')
+    || path.startsWith('.github/scripts/pub-artifact.')
+    || path.startsWith('.github/scripts/release-')
     || path.startsWith('.github/scripts/classify-ci-files.');
 }
 

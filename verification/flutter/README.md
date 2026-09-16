@@ -29,8 +29,9 @@ SHA-256, per-file sizes/hashes, content digest, contract fingerprint, exact
 consumer source hash, dependency lock hash, toolchain facts, stage logs and
 executed assertion names. `installedConsumer` is true only after both tests pass.
 Use `--prepare-only` for packaging without Flutter execution; its report remains
-false. No command publishes a package. `publish_to: none` remains the explicit
-unqualified development state.
+false. These verification commands never publish a package. Registry publication follows
+the explicit enablement and full qualification gates in
+[Independent package releases](../../docs/engineering/releases.md).
 
 An installed artifact proves its recorded snapshot, not later worktree changes.
 Full SDK qualification still requires the complete feature witnesses and both

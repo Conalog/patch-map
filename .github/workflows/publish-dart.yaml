@@ -1,0 +1,146 @@
+name: Publish Dart
+
+on:
+  push:
+    tags: ['dart-v[0-9]*']
+
+permissions: {}
+
+concurrency:
+  group: release-1.0-dart
+  queue: max
+
+jobs:
+  verify:
+    name: Verify immutable Dart release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      release-sha: ${{ steps.identity.outputs.sha }}
+      package-version: ${{ steps.metadata.outputs.package-version }}
+    steps:
+      - name: Checkout pushed tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require release branch ancestry
+        id: identity
+        run: |
+          git fetch --no-tags origin +refs/heads/release/1.0:refs/remotes/origin/release/1.0
+          git merge-base --is-ancestor HEAD refs/remotes/origin/release/1.0
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Setup Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: 3.41.4
+          channel: stable
+      - name: Validate package and tag
+        id: metadata
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          node .github/scripts/release-ready.mjs
+          node .github/scripts/release-metadata.mjs dart "$TAG_NAME"
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd packages/flutter
+          flutter pub get
+      - name: Check Dart and shared contracts
+        run: |
+          npm run flutter:analyze
+          npm run flutter:test
+          node verification/conformance/inventory.mjs
+          node verification/flutter/package.mjs
+          npx playwright install --with-deps chromium
+          node verification/conformance/run-public.mjs
+      - name: Verify installed consumer and prepare exact publication inputs
+        run: node .github/scripts/dart-release.mjs prepare
+      - name: Validate pub.dev package
+        working-directory: packages/flutter
+        run: flutter pub publish --dry-run
+      - name: Retain candidate and source snapshot for qualification
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dart-candidate-${{ steps.identity.outputs.sha }}
+          path: .release-dart/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+      - name: Require collected Android, iOS and shared qualification
+        if: ${{ vars.PUBDEV_PUBLISH_ENABLED == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          gh release download "$TAG_NAME" --pattern dart-qualification.json --dir .release-dart
+          node .github/scripts/dart-release.mjs qualify .release-dart/dart-qualification.json
+      - name: Retain qualified release artifact
+        if: ${{ vars.PUBDEV_PUBLISH_ENABLED == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dart-qualified-${{ steps.identity.outputs.sha }}
+          path: .release-dart/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish qualified Dart package
+    needs: verify
+    if: ${{ vars.PUBDEV_PUBLISH_ENABLED == 'true' }}
+    environment: pub.dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout verified release tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.verify.outputs.release-sha }}
+          persist-credentials: false
+      - name: Setup Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: 3.41.4
+          channel: stable
+      - name: Configure pub.dev OIDC
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # pinned setup-dart v1
+        with:
+          sdk: '3.11.1'
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Download qualified artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dart-qualified-${{ needs.verify.outputs.release-sha }}
+          path: .release-dart
+      - name: Verify and extract exact qualified package
+        id: artifact
+        run: node .github/scripts/pub-artifact.mjs extract
+      - name: Check immutable registry version
+        id: registry
+        env:
+          PACKAGE_VERSION: ${{ needs.verify.outputs.package-version }}
+        run: node .github/scripts/pub-artifact.mjs registry
+      - name: Publish exact qualified contents
+        if: ${{ steps.registry.outputs.already-published == 'false' }}
+        working-directory: ${{ steps.artifact.outputs.package-directory }}
+        run: |
+          flutter pub get
+          flutter pub publish --dry-run
+          flutter pub publish --force

@@ -2,9 +2,9 @@
 
 Native Dart controller and Flutter Canvas rendering for PATCH MAP datasets,
 targeting the `@conalog/patch-map` 1.0.0-alpha.7 contract on Android and iOS.
-It runs without a WebView, JavaScript engine or Node runtime. Release
-qualification is recorded separately from implementation; registry publishing
-is disabled.
+It runs without a WebView, JavaScript engine or Node runtime. The first package version is `0.1.0-alpha.1`. Release qualification is recorded
+separately from implementation. Publication requires the repository
+[release checks](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/releases.md).
 
 ## Use the local package
 

@@ -19,7 +19,6 @@
       "section": "Maintenance"
     }
   ],
-  "group-pull-request-title-pattern": "chore${scope}: release${component} ${version}",
   "include-component-in-tag": false,
   "include-v-in-tag": true,
   "packages": {
@@ -28,11 +27,28 @@
       "package-name": "@conalog/patch-map",
       "versioning": "prerelease",
       "prerelease": true,
+      "prerelease-type": "alpha",
+      "component": "npm",
+      "include-component-in-tag": false,
+      "pull-request-title-pattern": "chore: release npm ${version}"
+    },
+    "packages/flutter": {
+      "release-type": "dart",
+      "component": "dart",
+      "package-name": "patch_map",
+      "include-component-in-tag": true,
+      "initial-version": "0.1.0-alpha.1",
+      "versioning": "prerelease",
+      "prerelease": true,
       "prerelease-type": "alpha"
     }
   },
-  "pull-request-title-pattern": "chore: release ${version}",
+  "pull-request-title-pattern": "chore: release ${component} ${version}",
   "plugins": [
-    "node-workspace"
-  ]
+    {
+      "type": "node-workspace",
+      "merge": false
+    }
+  ],
+  "separate-pull-requests": true
 }
