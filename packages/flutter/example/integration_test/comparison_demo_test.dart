@@ -38,12 +38,19 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      await ready('gallery');
+      await ready('service');
       for (final id in ['gallery', 'updates', 'editor', 'alpha-parity']) {
-        if (id != 'gallery') {
+        {
           await tester.tap(find.byType(DropdownButton<String>));
           await tester.pumpAndSettle();
-          await tester.tap(find.text(id).last);
+          await tester.tap(
+            find
+                .text(
+                  demoScenarios.firstWhere((s) => s['id'] == id)['title']
+                      as String,
+                )
+                .last,
+          );
           await ready(id);
         }
         final c = tester
@@ -63,6 +70,8 @@ void main() {
         };
         final steps = <Map<String, dynamic>>[];
         rows.add({'fixtureId': id, 'initial': observe(), 'steps': steps});
+        await tester.tap(find.text('시나리오'));
+        await tester.pumpAndSettle();
         for (var i = 0; i < commands.length; i++) {
           await tester.tap(find.text('Step'));
           await tester.pumpAndSettle();
@@ -75,10 +84,14 @@ void main() {
           steps.add({'commandId': commands[i]['id'], 'observation': observe()});
         }
         if (id == 'gallery' || id == 'alpha-parity') {
+          await tester.tap(find.text('조작'));
+          await tester.pumpAndSettle();
           for (final angle in [0, 90]) {
-            await tester.tap(
-              find.text(angle == 0 ? 'Reset angle' : 'Rotate +90°'),
+            final button = find.text(
+              angle == 0 ? 'Reset angle' : 'Rotate +90°',
             );
+            await tester.ensureVisible(button);
+            await tester.tap(button);
             await tester.pumpAndSettle();
             expect(c.rotation.value, angle);
             final capture = await tester.runAsync(c.capture.png);

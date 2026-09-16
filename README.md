@@ -37,7 +37,7 @@ Root commands are grouped by owner:
 | Scope | Examples |
 | --- | --- |
 | JavaScript | `js:build`, `js:test`, `js:verify:package`, `js:performance:smoke` |
-| Flutter | `flutter:analyze`, `flutter:test`, `flutter:verify:package`, `flutter:demo` |
+| Flutter | `flutter:analyze`, `flutter:test`, `flutter:verify:package`, `flutter:demo`, `flutter:lab` |
 | Shared verification | `verify:tooling`, `verify:docs`, `verify:conformance` |
 
 Run these with `npm run <command>` from the repository root. Package-local npm
@@ -49,7 +49,14 @@ npm run verify:conformance:serve
 npm run verify:conformance
 ```
 
-The [native demo](packages/flutter/example/README.md) includes 5,000 animated bars,
+The [feature lab](packages/flutter/example/README.md#전체-기능-실험실) starts with a
+service-derived blueprint of 50 panelGroups × 5 × 20 panels. Run
+`npm run flutter:lab` for the native app and open
+`/verification/conformance/web/lab.html` on the Vite server for npm. Both offer
+service display/editing scenarios, rotation, selection, capture, and separate
+contract regression scenarios.
+
+The [native panel demo](packages/flutter/example/README.md) includes 5,000 animated bars,
 random height changes, pan and zoom. Run it with `npm run flutter:demo` after
 installing its Flutter dependencies. The [npm measurements](packages/javascript/performance/README.md)
 and [native measurements](verification/flutter/benchmark.md) exercise the selected

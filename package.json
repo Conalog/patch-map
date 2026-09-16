@@ -31,6 +31,7 @@
     "verify:tooling": "npm run check --workspace @patch-map/verification --",
     "verify:docs": "npm run docs --workspace @patch-map/verification --",
     "verify:conformance": "npm run conformance --workspace @patch-map/verification --",
-    "verify:conformance:serve": "npm run conformance:serve --workspace @patch-map/verification --"
+    "verify:conformance:serve": "npm run conformance:serve --workspace @patch-map/verification --",
+    "flutter:lab": "cd packages/flutter/example && flutter run --target=lib/main.dart"
   }
 }

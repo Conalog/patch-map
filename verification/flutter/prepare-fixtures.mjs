@@ -22,6 +22,7 @@ export async function renderSharedFixtures(root = process.cwd()) {
     JSON.parse(source);
     entries.push(`  ${dartString(`scenes/${name.slice(0, -5)}`)}: ${dartString(source)},`);
   }
+  entries.push(`  ${dartString('manifest')}: ${dartString(await readFile(resolve(root, 'conformance/manifest.json'), 'utf8'))},`);
   return [
     '// Generated from conformance/{fixtures,scenes}/*.json. Do not edit.',
     '// Regenerate: node verification/flutter/prepare-fixtures.mjs',
