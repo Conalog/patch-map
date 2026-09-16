@@ -20,21 +20,24 @@ class _Surface implements PatchMapSurfacePort {
 Future<(PatchMapController, NativePointerBinding)> setup({
   Map<String, dynamic> selection = const {},
   Map<String, dynamic> pointer = const {},
+  List<Map<String, dynamic>>? data,
 }) async {
   final c = await PatchMapController.create(
-    data: [
-      {
-        'type': 'rect',
-        'id': 'rect',
-        'size': {'width': 30, 'height': 30},
-      },
-      {
-        'type': 'rect',
-        'id': 'other',
-        'attrs': {'x': 60},
-        'size': {'width': 10, 'height': 10},
-      },
-    ],
+    data:
+        data ??
+        [
+          {
+            'type': 'rect',
+            'id': 'rect',
+            'size': {'width': 30, 'height': 30},
+          },
+          {
+            'type': 'rect',
+            'id': 'other',
+            'attrs': {'x': 60},
+            'size': {'width': 10, 'height': 10},
+          },
+        ],
     fit: false,
     width: 100,
     height: 100,
@@ -226,6 +229,48 @@ void main() {
     expect(c.selection.ids, ['rect']);
     expect(p.marquee, isNull);
   });
+  for (final partial in [true, false]) {
+    test(
+      'box selects nested grid cells, not composite scopes ($partial)',
+      () async {
+        final (c, p) = await setup(
+          selection: {
+            'box': {'partialIntersection': partial},
+          },
+          data: [
+            {
+              'id': 'plant',
+              'type': 'group',
+              'children': [
+                {
+                  'id': 'g',
+                  'type': 'grid',
+                  'attrs': {'x': 20, 'y': 20},
+                  'cells': [
+                    [1, 1],
+                    [1, 1],
+                  ],
+                  'item': {'size': 10},
+                },
+              ],
+            },
+            {'id': 'empty', 'type': 'group', 'children': []},
+          ],
+        );
+        final before = c.viewport.snapshot();
+        final events = <Map<String, dynamic>>[];
+        c.selection.onPointerChange(events.add);
+        p.down(const PointerDownEvent(pointer: 1, position: Offset(0, 0)));
+        p.move(const PointerMoveEvent(pointer: 1, position: Offset(90, 90)));
+        expect(p.marquee, isNotNull);
+        p.up(const PointerUpEvent(pointer: 1, position: Offset(90, 90)));
+        expect(c.selection.ids, ['g.0.0', 'g.0.1', 'g.1.0', 'g.1.1']);
+        expect(events, hasLength(1));
+        expect(c.viewport.snapshot(), before);
+        expect(p.marquee, isNull);
+      },
+    );
+  }
   test('pin survives leave and primary blank click hides it', () async {
     final (c, p) = await setup(
       pointer: {

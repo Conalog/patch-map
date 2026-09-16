@@ -378,6 +378,9 @@ class NativePointerBinding {
       if (entry.key.contains('\u0000') ||
           !target.visible ||
           target.locked ||
+          // Group/grid scopes aggregate children but have no selectable quad.
+          // Their rendered leaves participate in region selection instead.
+          target.quad.isEmpty ||
           !_selectable(target.id))
         continue;
       final corners = target.quad
