@@ -1,0 +1,7 @@
+{
+  "dart.analysisExcludedFolders": [
+    "verification/flutter",
+    ".artifacts",
+    ".release-dart"
+  ]
+}

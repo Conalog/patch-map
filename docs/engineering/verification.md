@@ -70,6 +70,13 @@ npm run js:verify:memory
 
 ## Documentation and package boundaries
 
+- VS Code workspace settings exclude `verification/flutter` from Dart analysis:
+  `installed-consumer.dart` is a test template copied into a temporary consumer
+  with its own `pubspec.yaml`, not a standalone Dart project. The installed
+  consumer verifier analyzes and runs that copy against the packaged artifact.
+  Generated `.artifacts` and `.release-dart` trees are excluded from editor
+  analysis as well; `packages/flutter` and its example remain analyzed.
+
 - Public behavior and failure meaning live under `docs/`; exact shapes come from
   exported TypeScript declarations.
 - Internal ownership and gate routing live under `docs/engineering/` and are not
