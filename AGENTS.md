@@ -24,6 +24,10 @@
   product decision before changing either side.
 - When a documented public contract changes, update its owning page in the
   same change.
+- Before adding a feature, compare its public availability and behavior in both
+  packages. Add missing shared functionality to both npm and Dart against one
+  documented contract, with witnesses for each runtime; internal code alone is
+  not evidence that a package supports a feature.
 
 ## Keep changes focused
 
