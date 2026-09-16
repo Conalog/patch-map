@@ -249,3 +249,22 @@ never as zero. Fit, zoom, partial update and movement are separate workloads.
 Full-suite real-device heat can invalidate later cases: use separate prebuilt
 case APKs and cooldown when needed, recording thermal samples and restoring
 changed screen preferences. Emulator and physical results remain separate.
+
+### Direct viewport culling experiment
+
+`PATCHMAP_CLIP_TEXT=true` creates a separately labelled text workload with
+`style.overflow: hidden`. It leaves the checked-in service fixture unchanged.
+Each workload report includes `clipText`; never compare clipped candidate output
+against an unclipped baseline. The original service text has no explicit clip.
+It must remain an eager fallback unless a reliable glyph-ink bound is available.
+
+Compare the existing renderer, direct command bounds filtering, and filtering
+plus deferred native preparation separately. The deferred path still computes
+semantic text layout synchronously. Count prepared native lines and compare
+pixels with culling disabled for offscreen changes/reentry, rotation/reflection,
+capture transforms, clipping/stroke and asset refresh. Include all-visible text
+and bar updates to detect bounds maintenance/branching regressions.
+
+The [direct-culling report](reports/viewport-culling-10000.md) records the tested
+candidates and their removal. `PATCHMAP_CLIP_TEXT` selects workload semantics;
+it does not enable viewport culling in the shipped renderer.

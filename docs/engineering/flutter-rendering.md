@@ -31,6 +31,11 @@ records rejected display-list, raster-image, atlas and command/style-cache
 candidates. No performance gain from those candidates is claimed by the current
 renderer. Viewport clipping still does not avoid command traversal or offscreen
 paragraph preparation; semantic visibility is distinct from viewport culling.
+The later [direct-culling experiment](../../verification/flutter/reports/viewport-culling-10000.md)
+measured conservative command bounds and deferred clipped paragraphs separately.
+Zoom draw costs decreased, but the candidates did not qualify a default change
+across completion time and all-visible guards, so they were removed. The original
+service's unclipped text was not silently clipped to obtain those results.
 
 ## Verification boundary
 

@@ -16,6 +16,7 @@ const _kind = String.fromEnvironment('PATCHMAP_CASE', defaultValue: 'text');
 const _view = String.fromEnvironment('PATCHMAP_VIEW', defaultValue: 'fit');
 const _action = String.fromEnvironment('PATCHMAP_ACTION', defaultValue: 'all');
 const _suite = bool.fromEnvironment('PATCHMAP_STRATEGY_SUITE');
+const _clipText = bool.fromEnvironment('PATCHMAP_CLIP_TEXT');
 
 // Same service scene through the shipped controller/host. Each workload has its
 // own controller and native caches; the APK lifecycle is recorded separately.
@@ -56,7 +57,11 @@ void main() {
           for (final raw in item['components'] as List)
             {
               ...raw as Map<String, dynamic>,
-              if (raw['type'] == 'text') 'show': kind == 'text',
+              if (raw['type'] == 'text') ...{
+                'show': kind == 'text',
+                if (_clipText)
+                  'style': {...raw['style'] as Map, 'overflow': 'hidden'},
+              },
               if (raw['type'] == 'icon') ...{
                 'show': kind == 'icon',
                 'source': 'object',
@@ -151,6 +156,7 @@ void main() {
           'count': _count,
           'case': kind,
           'view': view,
+          'clipText': _clipText,
           'action': action,
           'mapSize': [360, 640],
           'rows': <Map<String, dynamic>>[],
