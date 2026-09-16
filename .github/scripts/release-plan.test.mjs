@@ -21,12 +21,12 @@ const commit = (message, files, sha = 'c'.repeat(40)) => ({ message, files, sha 
 // run against an in-memory GitHub boundary. No network or repository writes occur.
 async function fixture(changes, { dartReleased = false } = {}) {
   const versions = { [npmPath]: '1.0.0-alpha.9' };
-  if (dartReleased) versions[dartPath] = '0.1.0-alpha.1';
+  if (dartReleased) versions[dartPath] = '1.0.0-alpha.1';
   const files = {
     'release-please-config.json': JSON.stringify(config),
     '.release-please-manifest.json': JSON.stringify(versions),
     [`${npmPath}/package.json`]: JSON.stringify({ name: '@conalog/patch-map', version: versions[npmPath] }),
-    [`${dartPath}/pubspec.yaml`]: 'name: conalog_patch_map\nversion: 0.1.0-alpha.1\n',
+    [`${dartPath}/pubspec.yaml`]: 'name: conalog_patch_map\nversion: 1.0.0-alpha.1\n',
     [`${npmPath}/CHANGELOG.md`]: '# Changelog\n',
     [`${dartPath}/CHANGELOG.md`]: readFileSync(new URL('packages/flutter/CHANGELOG.md', root), 'utf8'),
     'package-lock.json': JSON.stringify({
@@ -39,10 +39,10 @@ async function fixture(changes, { dartReleased = false } = {}) {
     }),
   };
   const releases = [{ tagName: 'v1.0.0-alpha.9', sha: npmSha, notes: 'Previous npm release' }];
-  if (dartReleased) releases.unshift({ tagName: 'dart-v0.1.0-alpha.1', sha: dartSha, notes: 'First Dart release' });
+  if (dartReleased) releases.unshift({ tagName: 'dart-v1.0.0-alpha.1', sha: dartSha, notes: 'First Dart release' });
   const commits = [
     ...changes,
-    ...(dartReleased ? [commit('chore: release dart 0.1.0-alpha.1', [`${dartPath}/pubspec.yaml`], dartSha)] : []),
+    ...(dartReleased ? [commit('chore: release dart 1.0.0-alpha.1', [`${dartPath}/pubspec.yaml`], dartSha)] : []),
     commit('chore: release 1.0.0-alpha.9', [`${npmPath}/package.json`], npmSha),
     commit('feat: already shipped npm feature', [`${npmPath}/src/index.ts`], 'd'.repeat(40)),
     commit('chore: bootstrap', [], config['bootstrap-sha']),
@@ -123,15 +123,15 @@ test('first Dart release is alpha.1 and leaves npm manifests and root lockfile u
   const candidates = await manifest.buildPullRequests();
   assert.equal(candidates.length, 1);
   const dart = candidateFor(candidates, dartPath);
-  assert.equal(dart.version.toString(), '0.1.0-alpha.1');
+  assert.equal(dart.version.toString(), '1.0.0-alpha.1');
   assert.match(dart.headRefName, /--dart$/u);
   assert.ok(dart.updates.every(({ path }) => path.startsWith(`${dartPath}/`) || path === '.release-please-manifest.json'));
   const updated = applyUpdates(dart, files);
-  assert.equal((updated[`${dartPath}/CHANGELOG.md`].match(/^## .*0\.1\.0-alpha\.1/gmu) ?? []).length, 1);
+  assert.equal((updated[`${dartPath}/CHANGELOG.md`].match(/^## .*1\.0\.0-alpha\.1/gmu) ?? []).length, 1);
   assert.equal(updated['package-lock.json'], files['package-lock.json']);
   assert.equal(updated[`${npmPath}/package.json`], files[`${npmPath}/package.json`]);
   assert.deepEqual(JSON.parse(updated['.release-please-manifest.json']), {
-    [npmPath]: '1.0.0-alpha.9', [dartPath]: '0.1.0-alpha.1',
+    [npmPath]: '1.0.0-alpha.9', [dartPath]: '1.0.0-alpha.1',
   });
 });
 
@@ -140,8 +140,8 @@ test('later Dart-only fix increments alpha.2 without a new npm candidate', async
   const candidates = await manifest.buildPullRequests();
   assert.equal(candidates.length, 1);
   const dart = candidateFor(candidates, dartPath);
-  assert.equal(dart.version.toString(), '0.1.0-alpha.2');
-  assert.match(applyUpdates(dart, files)[`${dartPath}/pubspec.yaml`], /version: 0\.1\.0-alpha\.2/u);
+  assert.equal(dart.version.toString(), '1.0.0-alpha.2');
+  assert.match(applyUpdates(dart, files)[`${dartPath}/pubspec.yaml`], /version: 1\.0\.0-alpha\.2/u);
 });
 
 test('shared feature produces two independently mergeable PRs and correctly named releases', async () => {
@@ -156,12 +156,12 @@ test('shared feature produces two independently mergeable PRs and correctly name
   const npmThenDart = applyUpdates(dart, applyUpdates(npm, state.files));
   const dartThenNpm = applyUpdates(npm, applyUpdates(dart, state.files));
   assert.deepEqual(JSON.parse(npmThenDart['.release-please-manifest.json']), {
-    [npmPath]: '1.0.0-alpha.10', [dartPath]: '0.1.0-alpha.1',
+    [npmPath]: '1.0.0-alpha.10', [dartPath]: '1.0.0-alpha.1',
   });
   assert.deepEqual(JSON.parse(npmThenDart['.release-please-manifest.json']), JSON.parse(dartThenNpm['.release-please-manifest.json']));
   state.mergedPullRequests.push(...candidates.map(asPullRequest));
   const releases = await state.manifest.buildReleases();
-  assert.deepEqual(releases.map(({ tag }) => tag.toString()).sort(), ['dart-v0.1.0-alpha.1', 'v1.0.0-alpha.10']);
+  assert.deepEqual(releases.map(({ tag }) => tag.toString()).sort(), ['dart-v1.0.0-alpha.1', 'v1.0.0-alpha.10']);
 });
 
 test('separate pending PRs route updates to the existing npm and Dart PR numbers', async () => {

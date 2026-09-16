@@ -9,7 +9,7 @@ One repository owns two independently versioned packages. Compatibility comes fr
 
 Both packages own their changelog; root/verification npm workspaces remain private. No linked-version group is used. npm retains its tag format to preserve release history. Its baseline is the already-published `1.0.0-alpha.9` (2026-09-15); reconciling metadata does not import `main` code.
 
-Dart starts at **`0.1.0-alpha.1`**. Before the first release PR, the release manifest intentionally has no Flutter entry. `initial-version` supplies alpha.1; the merged PR records it, and subsequent fixes advance alpha.2. Do not pre-populate that entry or add a persistent `release-as`.
+Dart starts at **`1.0.0-alpha.1`**. Before the first release PR, the release manifest intentionally has no Flutter entry. `initial-version` supplies alpha.1; the merged PR records it, and subsequent fixes advance alpha.2. Do not pre-populate that entry or add a persistent `release-as`.
 
 ## Change and version policy
 
@@ -18,7 +18,7 @@ Release-please routes changed file paths. Keep `type: summary` commit messages; 
 - Runtime-specific fixes release only that package. Dart-only releases leave npm's version and root lockfile unchanged.
 - Shared behavior changes include both implementations, documentation and conformance witnesses in one feature PR. Validate the intended pair before publishing either release PR.
 - Test/demo/documentation-only commits do not independently require publication. Shared public docs enter the next npm artifact; behavior changes require package changes too.
-- Both packages currently use independent alpha channels. Channel transitions require a one-time explicit `Release-As:` commit footer, e.g. `0.1.0-beta.1`, and matching prerelease configuration. Changing `prerelease-type` alone does not switch an existing alpha version. Starting another prerelease cycle needs an explicit numeric `.1`; remove prerelease settings when promoting to stable. Review the generated PR.
+- Both packages currently use independent alpha channels. Channel transitions require a one-time explicit `Release-As:` commit footer, e.g. `1.0.0-beta.1`, and matching prerelease configuration. Changing `prerelease-type` alone does not switch an existing alpha version. Starting another prerelease cycle needs an explicit numeric `.1`; remove prerelease settings when promoting to stable. Review the generated PR.
 - npm prereleases use `next`, stable uses `latest`; the publisher refuses backward channel movement. Pub.dev uses its own prerelease semantics without dist-tags.
 
 ## Automation
@@ -50,13 +50,13 @@ Dart dependency ranges retain validated minimums and allow patch updates only. W
 
 ## First Dart publication
 
-Pub.dev requires the first new-package version to be published manually. Confirm `conalog_patch_map` ownership/availability, merge its alpha.1 release PR, and use a clean checkout of `dart-v0.1.0-alpha.1`. Gather full evidence through the collector. Use Node 22 and Flutter 3.41.4 / Dart 3.11.1, matching CI.
+Pub.dev requires the first new-package version to be published manually. Confirm `conalog_patch_map` ownership/availability, merge its alpha.1 release PR, and use a clean checkout of `dart-v1.0.0-alpha.1`. Gather full evidence through the collector. Use Node 22 and Flutter 3.41.4 / Dart 3.11.1, matching CI.
 
 ```sh
 npm ci
 (cd packages/flutter && flutter pub get)
 node .github/scripts/release-ready.mjs
-node .github/scripts/release-metadata.mjs dart dart-v0.1.0-alpha.1
+node .github/scripts/release-metadata.mjs dart dart-v1.0.0-alpha.1
 node .github/scripts/dart-release.mjs prepare
 node .github/scripts/dart-release.mjs qualify /absolute/path/to/collected-evidence.json
 node .github/scripts/pub-artifact.mjs extract

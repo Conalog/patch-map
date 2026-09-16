@@ -66,7 +66,7 @@ test('publication extraction leaves the ignored repository tree and preserves ve
     await mkdir(join(root, '.release-dart'));
     const archive = spawnSync('python3', ['-c', String.raw`
 import tarfile, io, sys
-payload = b'name: conalog_patch_map\nversion: 0.1.0-alpha.1\n'
+payload = b'name: conalog_patch_map\nversion: 1.0.0-alpha.1\n'
 with tarfile.open(fileobj=sys.stdout.buffer, mode='w|gz') as tar:
   info = tarfile.TarInfo('pubspec.yaml'); info.size = len(payload)
   tar.addfile(info, io.BytesIO(payload))
@@ -82,7 +82,7 @@ with tarfile.open(fileobj=sys.stdout.buffer, mode='w|gz') as tar:
     directory = await readFile(join(root, '.release-dart/publication-directory.txt'), 'utf8');
     assert.ok(!directory.startsWith(`${root}/`));
     assert.ok(!directory.startsWith(`${resolve('.')}/`));
-    assert.match(await readFile(join(directory, 'pubspec.yaml'), 'utf8'), /version: 0.1.0-alpha.1/u);
+    assert.match(await readFile(join(directory, 'pubspec.yaml'), 'utf8'), /version: 1.0.0-alpha.1/u);
     assert.equal(await readFile(join(root, 'output'), 'utf8'), `package-directory=${directory}\n`);
   } finally {
     await rm(root, { recursive: true, force: true });

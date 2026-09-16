@@ -1,6 +1,6 @@
 # Changelog
 
-Initial release planned as `0.1.0-alpha.1`. The first release PR generates its
+Initial release planned as `1.0.0-alpha.1`. The first release PR generates its
 versioned changelog entry.
 
 - Add an independent Dart controller and native Flutter Canvas renderer.
