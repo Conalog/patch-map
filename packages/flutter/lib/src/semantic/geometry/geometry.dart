@@ -8,6 +8,7 @@ export 'placement.dart';
 export 'readable.dart';
 export 'bar_projection.dart';
 export 'text_projection.dart';
+export 'icon_projection.dart';
 
 PatchMapGeometry buildGeometry(
   PatchMapDataset dataset, {

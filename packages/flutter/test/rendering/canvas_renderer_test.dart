@@ -16,6 +16,8 @@ PatchMapRenderSnapshot snapshot(
   JsonMap visual = const {},
   List<String> selected = const [],
   double rotation = 0,
+  double scale = 1,
+  double pixelRatio = 1,
 }) => PatchMapRenderSnapshot(
   dataset: dataset,
   geometry: geometry,
@@ -25,10 +27,10 @@ PatchMapRenderSnapshot snapshot(
   viewport: PatchMapRenderViewport(
     centerX: 50,
     centerY: 50,
-    scale: 1,
+    scale: scale,
     width: 100,
     height: 100,
-    pixelRatio: 1,
+    pixelRatio: pixelRatio,
     rotation: rotation,
   ),
   revisions: const PatchMapRevisionTuple(0, 0, 0),

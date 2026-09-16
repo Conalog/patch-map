@@ -65,6 +65,8 @@ Dart exposes asynchronous `PatchMap.create` and `PatchMapView(controller: ...)`.
 
 The semantic dataset uses immutable maps and indexed targets. Structural edits use detached preparation; grid heights use validated overlays and dirty slots without full tree cloning or parsing. Renderer projection uses packed buffers and ordered batches. Bar projections share original target metadata and create query targets lazily; flat views retain no preceding frames. View changes transform existing geometry. Text measurement, assets and clocks enter through ports. The native surface supplies a monotonic clock between frames; each command samples it once so idle time cannot consume a new bar or rotation animation. Idle schedules no frames.
 
+The [native rendering owner](flutter-rendering.md) defines retained text/icon resources, incremental projection, cache bounds, invalidation and focused checks.
+
 ## Asset decoder decisions
 
 The native backend admits bytes before decoding. PNG/JPEG/WebP/GIF use Flutter codecs; SVG uses flutter_svg/vector_graphics; AVIF uses [flutter_avif](https://pub.dev/packages/flutter_avif). WOFF/WOFF2 use the attributed Apache-2.0 container decoder with [pure Dart Brotli](https://pub.dev/packages/brotli), avoiding host-specific native compression deployment. Bundled Fira Code loads a reproducible SFNT converted from the npm WOFF2; provenance verifies glyphs, metrics and variable weights. TTF/OTF load directly. Session bindings consume the controller's visible geometry, retain the previous texture during replacement, and release superseded or unused leases. Format and failure fixtures qualify both targets.

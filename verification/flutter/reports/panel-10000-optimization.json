@@ -1,0 +1,2211 @@
+{
+  "schema": "patch-map-panel-optimization/1",
+  "date": "2026-09-16",
+  "mode": "optimization",
+  "decision": "FAIL",
+  "canonicalOwner": [
+    "AGENTS.md",
+    "docs/engineering/verification.md",
+    "verification/flutter/benchmark.md",
+    "packages/flutter/example/integration_test/panel_text_performance_test.dart",
+    "conformance/scenes/panel-groups.json"
+  ],
+  "identity": {
+    "baselineRevision": "a981a782c81420775124a04e4b9b8a02a7eabeee",
+    "candidateSources": {
+      "packages/flutter/lib/conalog_patch_map.dart": "ccf14c1fd0cb4b9b7bfc9face177069bb2b1571f183b6986868230f124ef822c",
+      "packages/flutter/lib/src/host/native_asset_policy.dart": "43ea61999dc47f925746cf7519b05f0f1022548b217878bff5c67c3b1b56e8fe",
+      "packages/flutter/lib/src/host/map_gesture_recognizer.dart": "f0d6435a10183ca48f90ac14c21326c9b594d3e7a2b693ac480aaf35a754403f",
+      "packages/flutter/lib/src/host/native_asset_backend.dart": "4fdb3f7bfed8f75749d704218dff235d7246dae027ccf4b648184ee7704a0075",
+      "packages/flutter/lib/src/host/font_decoder.dart": "2a733926f410318d23a6fd3ab741d3d286caf380ff97932de0f51a3371ab6c75",
+      "packages/flutter/lib/src/host/native_pointer.dart": "c8c36b906b4b04230eae4a514e6fe2cb96c2c18042d230d5bfbb221d348018b3",
+      "packages/flutter/lib/src/host/native_assets.dart": "448235b854f834ff93f2aa37346f440117f2870a8e491027aef8141373f4b0b4",
+      "packages/flutter/lib/src/host/native_asset_decoding.dart": "8cbae2337c048096ea887047180605b8d300b1e4ec9e2a951820e7f635f31520",
+      "packages/flutter/lib/src/host/brush_hit_index.dart": "d84dfedba9bd56487d6086e360d0a0b19859fc81fe3014006f6711577042b826",
+      "packages/flutter/lib/src/host/patch_map_view.dart": "9935a07b122d25a5687b30f250789c3b4959b1c4f9811bf4df530d7cae827aa6",
+      "packages/flutter/lib/src/host/native_asset_runtime.dart": "656996c15b57892316754aa52c9d0f2c3af87e36ee947748126af96ba0ab6e0f",
+      "packages/flutter/lib/src/host/native_asset_session.dart": "d65daa6cf03efe32755ad161fec77f6dc42240fb67a3f90a2d6dbe66cb78dd50",
+      "packages/flutter/lib/src/model/dataset.dart": "a743208f008c96e9a5fb4ec338867d5c0545ac470b8228e52c0d9c3286ce9238",
+      "packages/flutter/lib/src/model/theme_colors.dart": "bd301f46d93d972f2ff4b67884d4645935548858eae997dd5b1fa914fa8e5f30",
+      "packages/flutter/lib/src/model/json.dart": "dad6b5b8dc19275d6f7fa15cbaa13692516af70d3a261d6aaec9f930e90324c9",
+      "packages/flutter/lib/src/model/theme.dart": "11ea3668376309be99a30cab1ab14dfea46c0318e7415b84bbe46d284ccec009",
+      "packages/flutter/lib/src/api/values.dart": "7ada2cc95e5bfec32088a0141a4c0a9689255bb3ab3bf13021387c876e2277ed",
+      "packages/flutter/lib/src/rendering/selection.dart": "3677bd4afe1eabfdb4da9b568ff5cae3a26f61ff9c930b74b0b7f52d6b8aa997",
+      "packages/flutter/lib/src/rendering/color.dart": "908218552a2a898fb961943b5eeefc9a15afe360060735639b480ecbef851afc",
+      "packages/flutter/lib/src/rendering/canvas_renderer.dart": "2c455efe6eb9b45ca2ed96527c1e0e5342ce4e5ecdff261f133cce9d0691abff",
+      "packages/flutter/lib/src/engine/mutation_lowering.dart": "d0b47edc82bc1956aa04fefba7eae61ba7452a65e55ca1f3b172d04ba7e26d1a",
+      "packages/flutter/lib/src/engine/viewport_fit.dart": "11cf86caf46a79a24d6c6ad7ed4bfdc1b376215dd727da82a4f26a9d6e90f03f",
+      "packages/flutter/lib/src/engine/viewport_transform.dart": "db82fedecaedc4b758905252dc34a0845d261e19760ae146d455cf77121ed18f",
+      "packages/flutter/lib/src/engine/history_selection.dart": "f43a7cb670626cac81efd425f809730da914a35deb82c3d7c4672a53d663196b",
+      "packages/flutter/lib/src/engine/pointer_policy.dart": "f805164531644aa9d7349999ba13a66fcb96ddc2f4effb2a8feecbfc9ec82a02",
+      "packages/flutter/lib/src/engine/editor.dart": "440fa70ba0826c6ac04380ba86c242e3f90349a3df131d2f5ad4db44c35dd79d",
+      "packages/flutter/lib/src/engine/mutations.dart": "c3321ccc94b6d78ddfe0a13b26735d9a0b29bbbb6f142d28e7ebcaaadda23708",
+      "packages/flutter/lib/src/engine/bar_animation.dart": "fcba8b6e18b57330bcce68e53b3322a0a8dd741bf132a035031be4354d0a1ef3",
+      "packages/flutter/lib/src/engine/icon_mutations.dart": "a499c27f647db56646fa4ad809b7c96e3d9bd0d2f72a9ae931d99a0342c83bac",
+      "packages/flutter/lib/src/engine/text_mutations.dart": "de98f732674e35162f9ff74c848e59ea46e55729b9da0389b046e9f2d2b6e922",
+      "packages/flutter/lib/src/engine/transform_geometry.dart": "13557b4125b890de66452b2270990bf69b1fe41a898df47e7d58932399817e23",
+      "packages/flutter/lib/src/engine/controller.dart": "8bc59f42aec1af207b6968e3db3983bb693280e7c456a75bc037772a4cc8392c",
+      "packages/flutter/lib/src/engine/brush_selection.dart": "2875d109a4bc563a4dcf640df1b6253cc46644d589755b48a6ef85def4a60ac1",
+      "packages/flutter/lib/src/engine/data_targets.dart": "deef47fc89f567e7a0717eb116cb4ef83dd6d4913d05ccc053780f46d7cd7b3f",
+      "packages/flutter/lib/src/engine/structural_mutations.dart": "f54ab87212ef8a9b37dfe10974fa8c0076149ac716024a690e4d76f32f0c6329",
+      "packages/flutter/lib/src/engine/ports.dart": "d4a85bbdf2a743b091752f7ded086272050a9d4fa707a7ab19c96c12de713283",
+      "packages/flutter/lib/src/semantic/dataset/values.dart": "af472742c7813fc4c7bb808af021429cb4bfb46c1041d01757e4a16da6e2a964",
+      "packages/flutter/lib/src/semantic/dataset/normalization.dart": "61c8e81d8a048daab90454af60ebea9a025c0781948e0372c67e50f16e6ee1cd",
+      "packages/flutter/lib/src/semantic/dataset/styles.dart": "b115a870eb42b06bbf85b3e9d24b05a4db1fd5aab5d96eb158d454fd9054d1eb",
+      "packages/flutter/lib/src/semantic/geometry/text_layout_cache.dart": "c0fa7db342c533f873cb858cc9028e1e4c5c1efbea0cd64419e865a86ab3a46b",
+      "packages/flutter/lib/src/semantic/geometry/text_projection.dart": "e73ff4882eb72d60a3aaab030257924320092f9ea849b41b7829bf4bd0c2edce",
+      "packages/flutter/lib/src/semantic/geometry/bar_projection.dart": "7ce0b7e01008cb5b6e2a1ea13df98b7d83a03d5682306bc0da41770f6fc553b5",
+      "packages/flutter/lib/src/semantic/geometry/icon_projection.dart": "a1819602a17e8b0f0035a798e5f484c63946afb717f8b33f88004168783defed",
+      "packages/flutter/lib/src/semantic/geometry/placement.dart": "91737cdefffeac8ff638036496eb230f3d53ea762965713e859149d34117fb0b",
+      "packages/flutter/lib/src/semantic/geometry/primitives.dart": "3438d9cbbb3c97c20adb5e9c42b63d550f5d7f258368b8b997c3ea8a6add73e1",
+      "packages/flutter/lib/src/semantic/geometry/geometry.dart": "70ac502581fc265ec7ec784b535048241d7997ef4aff7a2f97682acdbba01927",
+      "packages/flutter/lib/src/semantic/geometry/readable.dart": "bab0788b0ee371262e52ca7d6e8522e6b60f08bed229052e1df7e9838664b89a",
+      "packages/flutter/lib/src/semantic/text/layout.dart": "f715fd16f2c1be9eb8cbe95fdce8a9da9117bb63dbf86b8a716822a8b780ff33",
+      "packages/flutter/lib/src/semantic/text/unicode_data.dart": "363a6243595af9836981c991c2ad1566a996ef497f8abecb79147d66c3370298",
+      "packages/flutter/example/integration_test/panel_text_performance_test.dart": "8685c43e070a28a5b8aa09f98a32eb1f109648b07077438a024dfdc6d35d6da3",
+      "packages/flutter/example/test_driver/native_contract_driver.dart": "65d635a7be1a632de53cf98cafce89ec78027b501fb476c747f8c9f531a798be",
+      "packages/flutter/example/lib/shared_fixtures.dart": "79d8c934cc396de2059bf9e54fa2508f90e5324e2573a8c7839e57f2c0ff769a",
+      "conformance/scenes/panel-groups.json": "be117f96f90e554fdc6ec368fc1be5486164e9ef6734cbef7fa6681704a8616a",
+      "packages/flutter/pubspec.lock": "17ccbaa4896222cb9962118fcabe1cb834d337b42bd0607fabfc6832bfbf06bf",
+      "packages/flutter/example/pubspec.lock": "75c185d9fadfa5be60e62537abfe961d6225991c4d99b41697054dfcbc2e4a90"
+    },
+    "apks": {
+      "baseline-text.apk": "9e8e83aec197fcc7947ec7a0712f68e7a44583c3f91e1d5a07ed11ec5c85f3bb",
+      "final-text.apk": "771a5450301faf84d1e1ba94d55e1bc4f2f07e1e1acc4debf016d68a460911d3",
+      "final-icon.apk": "2dbfa08b70d00cdf90453371a4187a4f8de01389638a44f432d679a6109b2f77",
+      "baseline-icon.apk": "6cc182b4c9f1204f07f740d0ecf212b89933f89b77711808c4164755c53a09bc"
+    },
+    "environment": {
+      "AVD": "PatchMap_10k_Perf_API34",
+      "image": "system-images;android-34;google_apis_playstore;arm64-v8a",
+      "memoryMB": 4096,
+      "gpu": "host / Apple M2",
+      "headless": true,
+      "wifi": false,
+      "cellularData": false,
+      "disabledPackages": [
+        "com.android.vending"
+      ],
+      "screenOffTimeout": 2147483647,
+      "fingerprint": "google/sdk_gphone64_arm64/emu64a:14/UE1A.230829.036.A4/12096271:user/release-keys",
+      "host": "Apple M2, macOS, 16 GiB RAM; AC, no thermal warning"
+    },
+    "toolchain": {
+      "frameworkVersion": "3.41.4",
+      "channel": "stable",
+      "repositoryUrl": "https://github.com/flutter/flutter.git",
+      "frameworkRevision": "ff37bef603469fb030f2b72995ab929ccfc227f0",
+      "frameworkCommitDate": "2026-03-03 16:03:22 -0800",
+      "engineRevision": "e4b8dca3f1b4ede4c30371002441c88c12187ed6",
+      "engineCommitDate": "2026-03-03 18:24:54.000Z",
+      "engineContentHash": "99578ad0355da00edb26301c874a3c250a5716f5",
+      "engineBuildDate": "2026-03-04 07:41:09.880",
+      "dartSdkVersion": "3.11.1",
+      "devToolsVersion": "2.54.1",
+      "flutterVersion": "3.41.4",
+      "flutterRoot": "/Users/minholim/devsettings/flutter"
+    },
+    "buildFlags": [
+      "--profile",
+      "--no-pub",
+      "--target-platform=android-arm64",
+      "--target=integration_test/panel_text_performance_test.dart",
+      "PATCHMAP_COUNT=10000",
+      "PATCHMAP_CASE=text|icon",
+      "PATCHMAP_REVISION=a981a782-baseline|final"
+    ],
+    "rawEnvironmentFiles": {
+      "controlled-final-text-1-after.txt": "c4e524eb08d85f79e133f814b1cf3aa47796d2103886272a9ed38ad57b3ac8c1",
+      "controlled-baseline-text-1-before.txt": "602a2d91d594bb819e0dde70ea1d9950813624181ef1870dd33666371532b83f",
+      "controlled-baseline-text-1-after.txt": "ac8ab4e7848699e7b25ab4165dfff0d85c072b2c74bbd59e6fba89f89d24fa5c",
+      "controlled-baseline-icon-1-before.txt": "3d4a9c6d84869c5eb46faa9463530a92fae01840b8b486156baeba57fa309f26",
+      "controlled-final-icon-2-before.txt": "e7951789e1384d8cefdea47c63f5d26e7618abaceeb477a952562f98642d2348",
+      "controlled-final-icon-2-after.txt": "6e9e350af05bc762f10efb445b7ff0e9972e72de5aab4ae5292f254351f476a9",
+      "controlled-final-text-2-before.txt": "15eeb301b9a1e3031660b3c68a8ddc6ad68943c5897462e390ffe2f3a7290586",
+      "controlled-baseline-icon-2-after.txt": "2adfb05800b22883309e9f817a33f7105732761ea150282c65948d41880176a8",
+      "controlled-final-text-1-before.txt": "382354239105e022ca108dc301ce06bfd04243c2ef176e684339674ba83e40c7",
+      "controlled-final-icon-1-after.txt": "bfdb6cc96f867596ab3d7f22bbeb9ac2fd6f2fcb67c2d161ccfecef9095e5afd",
+      "controlled-final-icon-1-before.txt": "ccc072be1cdbe0843ebbb1fd64d5b4508e65eb788d472f8a258aacb0736dce73",
+      "controlled-baseline-icon-1-after.txt": "83907a9e2979f690667adf61c8a2301f5d4763d7f9d6071ce4a916e09677d16b",
+      "controlled-final-text-2-after.txt": "b495faae8b776a96a24ae3b27a6a7bda28fa3ec61b9aeca7ca83cb80d9b32eb2",
+      "controlled-baseline-icon-2-before.txt": "8cb16c171be19961b03a16980218ae04591c47dca93c9308c6d36dd527205929",
+      "controlled-baseline-text-2-after.txt": "9fb0fcfb27e041b34acc6efbb93be45b1930caaac5f8ff717582f3535b6856bb",
+      "controlled-baseline-text-2-before.txt": "a8f00e8fa7d028a8c07db7629851941a331837733c057cde885bef16986eed6f"
+    }
+  },
+  "sampling": {
+    "warmupsPerRun": 5,
+    "measuredPerRun": 20,
+    "freshRunsPerVariantCase": 2,
+    "order": [
+      "baseline-text",
+      "final-text",
+      "baseline-icon",
+      "final-icon",
+      "final-text",
+      "baseline-text",
+      "final-icon",
+      "baseline-icon"
+    ],
+    "percentile": "nearest-rank ceil(0.95*n)-1",
+    "metrics": "publication acknowledges accepted frame after asset readiness; raster is separate, not GPU completion latency"
+  },
+  "gates": [
+    {
+      "name": "optimization-necessity",
+      "decision": "PROCEED",
+      "reason": "Representative baseline exceeds predeclared interaction/frame goals"
+    },
+    {
+      "name": "comparison-validity",
+      "decision": "PASS",
+      "reason": "Controlled dedicated AVD; same prebuilt APKs, workload, viewport and warmups; reverse-order repeats"
+    },
+    {
+      "name": "combination-matrix",
+      "decision": "PASS",
+      "reason": "Diagnostic isolated and cumulative hypotheses; all retained mechanisms measured together in controlled final repeats"
+    },
+    {
+      "name": "commit-p95-100ms",
+      "decision": "FAIL",
+      "reason": "Final text >100ms; icon passes"
+    },
+    {
+      "name": "publication-p95-100ms",
+      "decision": "FAIL",
+      "reason": "Both final cases >100ms"
+    },
+    {
+      "name": "frame-p95-16.67ms",
+      "decision": "FAIL",
+      "reason": "Both final build/raster exceed16.67ms; text build/raster regress versus baseline"
+    },
+    {
+      "name": "correctness-lifecycle",
+      "decision": "PASS",
+      "reason": "67 focused tests passed; no new blocker in independent source review"
+    },
+    {
+      "name": "proxy-label",
+      "decision": "PASS",
+      "reason": "Android emulator only; no Android hardware/iOS/60fps qualification"
+    }
+  ],
+  "aggregate": {
+    "baseline-text": {
+      "commitMs": {
+        "n": 40,
+        "median": 261.159,
+        "p95": 281.917,
+        "min": 243.722,
+        "max": 297.129
+      },
+      "assetsReadyMs": {
+        "n": 40,
+        "median": 269.9215,
+        "p95": 296.286,
+        "min": 252.321,
+        "max": 310.074
+      },
+      "publishedMs": {
+        "n": 40,
+        "median": 373.7525,
+        "p95": 395.183,
+        "min": 364.21,
+        "max": 421.278
+      },
+      "buildMs": {
+        "n": 40,
+        "median": 58.868,
+        "p95": 72.53,
+        "min": 53.847,
+        "max": 77.217
+      },
+      "rasterMs": {
+        "n": 40,
+        "median": 167.6385,
+        "p95": 174.329,
+        "min": 156.906,
+        "max": 186.034
+      }
+    },
+    "baseline-icon": {
+      "commitMs": {
+        "n": 40,
+        "median": 614.5095,
+        "p95": 655.288,
+        "min": 559.609,
+        "max": 688.267
+      },
+      "assetsReadyMs": {
+        "n": 40,
+        "median": 1338.6285,
+        "p95": 1381.559,
+        "min": 1257.648,
+        "max": 1420.086
+      },
+      "publishedMs": {
+        "n": 40,
+        "median": 1586.155,
+        "p95": 1658.954,
+        "min": 1496.329,
+        "max": 1726.2
+      },
+      "buildMs": {
+        "n": 37,
+        "median": 190.84,
+        "p95": 252.26,
+        "min": 147.766,
+        "max": 254.73
+      },
+      "rasterMs": {
+        "n": 37,
+        "median": 1478.814,
+        "p95": 1580.325,
+        "min": 1418.35,
+        "max": 1585.11
+      }
+    },
+    "final-text": {
+      "commitMs": {
+        "n": 40,
+        "median": 140.5665,
+        "p95": 152.313,
+        "min": 127.682,
+        "max": 166.127
+      },
+      "assetsReadyMs": {
+        "n": 40,
+        "median": 152.511,
+        "p95": 167.589,
+        "min": 138.423,
+        "max": 179.973
+      },
+      "publishedMs": {
+        "n": 40,
+        "median": 273.16049999999996,
+        "p95": 291.146,
+        "min": 246.603,
+        "max": 293.685
+      },
+      "buildMs": {
+        "n": 40,
+        "median": 71.281,
+        "p95": 85.31,
+        "min": 58.705,
+        "max": 97.496
+      },
+      "rasterMs": {
+        "n": 40,
+        "median": 171.6995,
+        "p95": 180.802,
+        "min": 164.935,
+        "max": 189.764
+      }
+    },
+    "final-icon": {
+      "commitMs": {
+        "n": 40,
+        "median": 57.397,
+        "p95": 64.406,
+        "min": 50.042,
+        "max": 70.82
+      },
+      "assetsReadyMs": {
+        "n": 40,
+        "median": 83.434,
+        "p95": 90.644,
+        "min": 75.404,
+        "max": 100.232
+      },
+      "publishedMs": {
+        "n": 40,
+        "median": 226.7865,
+        "p95": 246.74,
+        "min": 185.269,
+        "max": 249.373
+      },
+      "buildMs": {
+        "n": 40,
+        "median": 33.1285,
+        "p95": 34.992,
+        "min": 32.192,
+        "max": 42.347
+      },
+      "rasterMs": {
+        "n": 40,
+        "median": 162.9645,
+        "p95": 166.494,
+        "min": 157.87,
+        "max": 168.964
+      }
+    }
+  },
+  "controlledRuns": [
+    {
+      "rawPath": ".artifacts/performance/panel-10k/controlled-baseline-text-1.json",
+      "sha256": "058cb159677bc0666be47d90e8a671e6d8dd4dd33f5e1d84b0df79199986a661",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-baseline",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 261.959,
+          "p95": 281.917,
+          "min": 243.722,
+          "max": 284.619
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 269.9215,
+          "p95": 296.286,
+          "min": 252.321,
+          "max": 298.012
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 375.91999999999996,
+          "p95": 395.183,
+          "min": 365.301,
+          "max": 421.278
+        },
+        "buildMs": {
+          "n": 20,
+          "median": 59.2535,
+          "p95": 76.678,
+          "min": 56.205,
+          "max": 77.217
+        },
+        "rasterMs": {
+          "n": 20,
+          "median": 159.86399999999998,
+          "p95": 171.753,
+          "min": 156.906,
+          "max": 186.034
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 635285504,
+        "rssAfterWarmup": 937635840,
+        "rssAfterSamples": 896716800,
+        "peakRssBytes": 945618944
+      }
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/controlled-baseline-text-2.json",
+      "sha256": "10cdcf174d82cd178b3f1398988fcb52e411e464d07f3d05e0cf583e5c244a51",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-baseline",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 260.76800000000003,
+          "p95": 271.494,
+          "min": 245.256,
+          "max": 297.129
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 269.6655,
+          "p95": 285.332,
+          "min": 253.659,
+          "max": 310.074
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 371.4105,
+          "p95": 382.861,
+          "min": 364.21,
+          "max": 407.023
+        },
+        "buildMs": {
+          "n": 20,
+          "median": 58.6185,
+          "p95": 70.97,
+          "min": 53.847,
+          "max": 71.006
+        },
+        "rasterMs": {
+          "n": 20,
+          "median": 168.953,
+          "p95": 174.329,
+          "min": 166.356,
+          "max": 174.771
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 638574592,
+        "rssAfterWarmup": 929947648,
+        "rssAfterSamples": 874328064,
+        "peakRssBytes": 942161920
+      }
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/controlled-baseline-icon-1.json",
+      "sha256": "8bf810bab21b8bc6deab77184f69a867414aa9da53847d9960bbc0cc212bf15a",
+      "completed": true,
+      "count": 10000,
+      "case": "icon",
+      "identity": {
+        "revision": "a981a782-baseline",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 623.2674999999999,
+          "p95": 663.844,
+          "min": 559.609,
+          "max": 688.267
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 1343.316,
+          "p95": 1382.899,
+          "min": 1288.557,
+          "max": 1420.086
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 1591.7845,
+          "p95": 1658.954,
+          "min": 1528.223,
+          "max": 1726.2
+        },
+        "buildMs": {
+          "n": 19,
+          "median": 191.202,
+          "p95": 254.73,
+          "min": 147.766,
+          "max": 254.73
+        },
+        "rasterMs": {
+          "n": 19,
+          "median": 1479.949,
+          "p95": 1585.11,
+          "min": 1418.35,
+          "max": 1585.11
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 458039296,
+        "rssAfterWarmup": 1115000832,
+        "rssAfterSamples": 1003356160,
+        "peakRssBytes": 1165639680
+      }
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/controlled-baseline-icon-2.json",
+      "sha256": "baf188672722d4eee6ff85e0de698e669a3cce995c94197e7690c23f2a2ed8b5",
+      "completed": true,
+      "count": 10000,
+      "case": "icon",
+      "identity": {
+        "revision": "a981a782-baseline",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 611.219,
+          "p95": 645.707,
+          "min": 565.695,
+          "max": 653.83
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 1335.9740000000002,
+          "p95": 1375.596,
+          "min": 1257.648,
+          "max": 1378.841
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 1580.3229999999999,
+          "p95": 1647.839,
+          "min": 1496.329,
+          "max": 1674.313
+        },
+        "buildMs": {
+          "n": 18,
+          "median": 190.60000000000002,
+          "p95": 252.26,
+          "min": 157.64,
+          "max": 252.26
+        },
+        "rasterMs": {
+          "n": 18,
+          "median": 1478.6195,
+          "p95": 1565.378,
+          "min": 1418.991,
+          "max": 1565.378
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 443260928,
+        "rssAfterWarmup": 1119076352,
+        "rssAfterSamples": 1045315584,
+        "peakRssBytes": 1171730432
+      }
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/controlled-final-text-1.json",
+      "sha256": "7189bc3dbc2fd990c660deb21cd540698fc6a8f932443d50ff577d02b3b3fd6a",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-final",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 140.4365,
+          "p95": 152.313,
+          "min": 128.501,
+          "max": 166.127
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 152.05700000000002,
+          "p95": 167.589,
+          "min": 138.423,
+          "max": 179.973
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 272.799,
+          "p95": 282.965,
+          "min": 246.603,
+          "max": 288.357
+        },
+        "buildMs": {
+          "n": 20,
+          "median": 70.985,
+          "p95": 84.014,
+          "min": 58.705,
+          "max": 85.31
+        },
+        "rasterMs": {
+          "n": 20,
+          "median": 173.4025,
+          "p95": 180.417,
+          "min": 165.963,
+          "max": 180.802
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 642179072,
+        "rssAfterWarmup": 928796672,
+        "rssAfterSamples": 918147072,
+        "peakRssBytes": 951435264
+      }
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/controlled-final-text-2.json",
+      "sha256": "b759dcd8344854cd0a1ef422cfa4b53268c2ad192db48be29f547dfd04b84560",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-final",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 140.9075,
+          "p95": 150.546,
+          "min": 127.682,
+          "max": 161.311
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 153.64,
+          "p95": 163.64,
+          "min": 140.592,
+          "max": 176.915
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 273.6165,
+          "p95": 292.468,
+          "min": 253.298,
+          "max": 293.685
+        },
+        "buildMs": {
+          "n": 20,
+          "median": 71.281,
+          "p95": 95.631,
+          "min": 59.033,
+          "max": 97.496
+        },
+        "rasterMs": {
+          "n": 20,
+          "median": 170.303,
+          "p95": 184.5,
+          "min": 164.935,
+          "max": 189.764
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 638898176,
+        "rssAfterWarmup": 931139584,
+        "rssAfterSamples": 918466560,
+        "peakRssBytes": 952111104
+      }
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/controlled-final-icon-1.json",
+      "sha256": "0f7253035d34c38db5c104144e8d5a8cf0d71a32b790dddccf2c796b313d3fbb",
+      "completed": true,
+      "count": 10000,
+      "case": "icon",
+      "identity": {
+        "revision": "a981a782-final",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 57.07899999999999,
+          "p95": 64.946,
+          "min": 50.042,
+          "max": 70.82
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 83.9615,
+          "p95": 89.074,
+          "min": 75.404,
+          "max": 100.232
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 226.7865,
+          "p95": 246.74,
+          "min": 185.269,
+          "max": 248.026
+        },
+        "buildMs": {
+          "n": 20,
+          "median": 33.084500000000006,
+          "p95": 35.71,
+          "min": 32.192,
+          "max": 42.347
+        },
+        "rasterMs": {
+          "n": 20,
+          "median": 163.6275,
+          "p95": 168.647,
+          "min": 160.719,
+          "max": 168.964
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 613728256,
+        "rssAfterWarmup": 745385984,
+        "rssAfterSamples": 717828096,
+        "peakRssBytes": 755335168
+      }
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/controlled-final-icon-2.json",
+      "sha256": "ffbacbe6a3cd50f1e2abc42a65d7d242d9c15573fbea0a9d5bb310f9c8a53f1c",
+      "completed": true,
+      "count": 10000,
+      "case": "icon",
+      "identity": {
+        "revision": "a981a782-final",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 57.641999999999996,
+          "p95": 64.114,
+          "min": 50.531,
+          "max": 64.406
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 83.434,
+          "p95": 90.644,
+          "min": 76.215,
+          "max": 90.894
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 214.155,
+          "p95": 246.592,
+          "min": 186.919,
+          "max": 249.373
+        },
+        "buildMs": {
+          "n": 20,
+          "median": 33.289,
+          "p95": 34.236,
+          "min": 32.552,
+          "max": 34.74
+        },
+        "rasterMs": {
+          "n": 20,
+          "median": 162.4975,
+          "p95": 164.026,
+          "min": 157.87,
+          "max": 164.221
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 622845952,
+        "rssAfterWarmup": 750309376,
+        "rssAfterSamples": 723288064,
+        "peakRssBytes": 754044928
+      }
+    }
+  ],
+  "diagnosticRuns": [
+    {
+      "rawPath": ".artifacts/performance/panel-10k/baseline-text.json",
+      "sha256": "8c5eafad11dc1d8aca2137ce987464c3ec7e416e5a3a58eaa799a062b6910c2a",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 297.55,
+          "p95": 341.674,
+          "min": 268.573,
+          "max": 493.222
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 307.868,
+          "p95": 355.136,
+          "min": 277.229,
+          "max": 508.452
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 429.49800000000005,
+          "p95": 467.365,
+          "min": 411.383,
+          "max": 620.939
+        },
+        "buildMs": {
+          "n": 20,
+          "median": 66.9685,
+          "p95": 82.933,
+          "min": 61.077,
+          "max": 86.364
+        },
+        "rasterMs": {
+          "n": 20,
+          "median": 186.438,
+          "p95": 203.444,
+          "min": 182.685,
+          "max": 234.656
+        }
+      },
+      "rss": {}
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/baseline-icon.json",
+      "sha256": "9cfb46815cb5708689453fc33a09111768799b277590d6eb05cfb619645b017b",
+      "completed": true,
+      "count": 10000,
+      "case": "icon",
+      "identity": {
+        "revision": "a981a782",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 697.356,
+          "p95": 787.063,
+          "min": 617.345,
+          "max": 838.043
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 1516.6465,
+          "p95": 1730.775,
+          "min": 1442.531,
+          "max": 1731.066
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 1800.1444999999999,
+          "p95": 2008.451,
+          "min": 1689.435,
+          "max": 2010.829
+        },
+        "buildMs": {
+          "n": 18,
+          "median": 222.11,
+          "p95": 296.402,
+          "min": 175.974,
+          "max": 296.402
+        },
+        "rasterMs": {
+          "n": 18,
+          "median": 1779.9479999999999,
+          "p95": 2147.91,
+          "min": 1635.335,
+          "max": 2147.91
+        }
+      },
+      "rss": {}
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/cache-text.json",
+      "sha256": "1ff86759c29b4e6f89cdcca6bd5b4fe98ca8e8703043b9c9fdadce35c142bab6",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-cache8192",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 266.733,
+          "p95": 307.705,
+          "min": 227.105,
+          "max": 314.179
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 275.49249999999995,
+          "p95": 316.015,
+          "min": 236.392,
+          "max": 330.323
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 399.235,
+          "p95": 436.2,
+          "min": 372.425,
+          "max": 447.228
+        },
+        "buildMs": {
+          "n": 20,
+          "median": 68.711,
+          "p95": 90.063,
+          "min": 64.189,
+          "max": 99.036
+        },
+        "rasterMs": {
+          "n": 20,
+          "median": 192.451,
+          "p95": 209.902,
+          "min": 182.337,
+          "max": 213.77
+        }
+      },
+      "rss": {}
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/assets-icon.json",
+      "sha256": "55eaae791bf80428f344b0ac898bea9deb242af3b58cc4c4ca0577eac71faa2a",
+      "completed": true,
+      "count": 10000,
+      "case": "icon",
+      "identity": {
+        "revision": "a981a782-assets",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 697.921,
+          "p95": 733.963,
+          "min": 651.897,
+          "max": 738.637
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 1126.664,
+          "p95": 1192.427,
+          "min": 1057.359,
+          "max": 1220.846
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 1610.6779999999999,
+          "p95": 1745.565,
+          "min": 1485.274,
+          "max": 1769.368
+        },
+        "buildMs": {
+          "n": 19,
+          "median": 194.234,
+          "p95": 280.338,
+          "min": 171.551,
+          "max": 280.338
+        },
+        "rasterMs": {
+          "n": 19,
+          "median": 1685.478,
+          "p95": 1873.517,
+          "min": 1569.571,
+          "max": 1873.517
+        }
+      },
+      "rss": {}
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/layout-text.json",
+      "sha256": "b03043752268f87b9a78b2e8c69a1077baa40fb0ba6b584a56527d3ceda99e21",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-layout",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 228.188,
+          "p95": 243.895,
+          "min": 204.88,
+          "max": 350.437
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 244.38049999999998,
+          "p95": 262.924,
+          "min": 220.412,
+          "max": 358.384
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 374.19050000000004,
+          "p95": 400.691,
+          "min": 346.808,
+          "max": 497.968
+        },
+        "buildMs": {
+          "n": 20,
+          "median": 75.20599999999999,
+          "p95": 90.913,
+          "min": 66.793,
+          "max": 94.06
+        },
+        "rasterMs": {
+          "n": 20,
+          "median": 194.239,
+          "p95": 218.213,
+          "min": 186.931,
+          "max": 234.336
+        }
+      },
+      "rss": {}
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/projection-icon.json",
+      "sha256": "0e26fc6ce49ec51d47e1f83e37462765461f5b2f163563b8e803501b9763da23",
+      "completed": true,
+      "count": 10000,
+      "case": "icon",
+      "identity": {
+        "revision": "a981a782-iconprojection",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 145.357,
+          "p95": 179.642,
+          "min": 107.604,
+          "max": 179.66
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 1034.4479999999999,
+          "p95": 1083.404,
+          "min": 884.222,
+          "max": 1087.495
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 1545.573,
+          "p95": 1615.36,
+          "min": 1448.239,
+          "max": 1617.321
+        },
+        "buildMs": {
+          "n": 19,
+          "median": 221.816,
+          "p95": 267.93,
+          "min": 179.159,
+          "max": 267.93
+        },
+        "rasterMs": {
+          "n": 19,
+          "median": 1640.958,
+          "p95": 1734.935,
+          "min": 1545.789,
+          "max": 1734.935
+        }
+      },
+      "rss": {}
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/retained-icon.json",
+      "sha256": "a03e31cd7e25a97ab48a27bd961a4272557ec857b0d544ff7de92f7dde62c362",
+      "completed": true,
+      "count": 10000,
+      "case": "icon",
+      "identity": {
+        "revision": "a981a782-retained",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 76.79050000000001,
+          "p95": 90.746,
+          "min": 54.307,
+          "max": 95.171
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 129.0915,
+          "p95": 141.735,
+          "min": 120.698,
+          "max": 145.946
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 1368.875,
+          "p95": 1420.775,
+          "min": 1322.229,
+          "max": 1477.108
+        },
+        "buildMs": {
+          "n": 17,
+          "median": 50.529,
+          "p95": 58.076,
+          "min": 48.247,
+          "max": 58.076
+        },
+        "rasterMs": {
+          "n": 17,
+          "median": 1481.804,
+          "p95": 1577.036,
+          "min": 1419.355,
+          "max": 1577.036
+        }
+      },
+      "rss": {}
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/raster-icon.json",
+      "sha256": "0451287da6798cbb0882bc448563df6e25165b7b7eabd69b34637dad7d21133b",
+      "completed": true,
+      "count": 10000,
+      "case": "icon",
+      "identity": {
+        "revision": "a981a782-raster",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 67.289,
+          "p95": 79.848,
+          "min": 64.307,
+          "max": 229.828
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 119.7595,
+          "p95": 146.542,
+          "min": 107.429,
+          "max": 275.546
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 243.41649999999998,
+          "p95": 298.964,
+          "min": 224.438,
+          "max": 385.737
+        },
+        "buildMs": {
+          "n": 20,
+          "median": 51.253,
+          "p95": 80.279,
+          "min": 38.464,
+          "max": 88.469
+        },
+        "rasterMs": {
+          "n": 20,
+          "median": 176.10250000000002,
+          "p95": 181.942,
+          "min": 172.008,
+          "max": 304.67
+        }
+      },
+      "rss": {}
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/final-text-1.json",
+      "sha256": "ea00ea9b1df32d4600a17340a9ec2d377eb379e9fd0acf50b01bd3397ebb733c",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-final",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 1456.2825,
+          "p95": 1915.821,
+          "min": 926.56,
+          "max": 1998.877
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 1524.3850000000002,
+          "p95": 2012.799,
+          "min": 972.363,
+          "max": 2065.627
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 2445.0370000000003,
+          "p95": 2900.576,
+          "min": 2102.037,
+          "max": 3464.231
+        },
+        "buildMs": {
+          "n": 19,
+          "median": 524.092,
+          "p95": 839.965,
+          "min": 358.336,
+          "max": 839.965
+        },
+        "rasterMs": {
+          "n": 19,
+          "median": 1225.55,
+          "p95": 2043.704,
+          "min": 1086.585,
+          "max": 2043.704
+        }
+      },
+      "rss": {}
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/control-text.json",
+      "sha256": "bfbdae00e837c5b3db2efa69b08f1a7f107849090890f9b461bf95bb7e8ca10d",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-control",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 2433.4345000000003,
+          "p95": 3189.041,
+          "min": 2084.397,
+          "max": 3374.391
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 2519.1085000000003,
+          "p95": 3249.139,
+          "min": 2146.803,
+          "max": 3427.051
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 3345.706,
+          "p95": 4333.313,
+          "min": 3061.992,
+          "max": 4422.062
+        },
+        "buildMs": {
+          "n": 19,
+          "median": 508.452,
+          "p95": 893.778,
+          "min": 441.887,
+          "max": 893.778
+        },
+        "rasterMs": {
+          "n": 19,
+          "median": 1230.606,
+          "p95": 1905.981,
+          "min": 1096.655,
+          "max": 1905.981
+        }
+      },
+      "rss": {}
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/cold4g-baseline-text-1.json",
+      "sha256": "f1d5b866cc0a11f7e067f1acfd4b97ef35494f6ae9a1abfb111ae5fb205205b1",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-baseline",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 304.1065,
+          "p95": 330.978,
+          "min": 278.742,
+          "max": 332.045
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 317.79150000000004,
+          "p95": 340.668,
+          "min": 292.032,
+          "max": 342.097
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 696.274,
+          "p95": 735.395,
+          "min": 569.799,
+          "max": 817.585
+        },
+        "buildMs": {
+          "n": 19,
+          "median": 72.866,
+          "p95": 97.915,
+          "min": 67.648,
+          "max": 97.915
+        },
+        "rasterMs": {
+          "n": 19,
+          "median": 799.555,
+          "p95": 810.326,
+          "min": 726.038,
+          "max": 810.326
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 432029696,
+        "rssAfterWarmup": 900370432,
+        "rssAfterSamples": 905056256,
+        "peakRssBytes": 961732608
+      }
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/cold4g-final-text-1.json",
+      "sha256": "15afbc037c61d25758808bd8735f2b124a9c68ef0157d70ec400f5995d312ea8",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-final",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 184.308,
+          "p95": 206.446,
+          "min": 138.09,
+          "max": 217.859
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 198.4505,
+          "p95": 214.092,
+          "min": 155.086,
+          "max": 227.371
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 702.5205000000001,
+          "p95": 731.004,
+          "min": 670.468,
+          "max": 738.111
+        },
+        "buildMs": {
+          "n": 20,
+          "median": 69.976,
+          "p95": 92.73,
+          "min": 59.493,
+          "max": 100.649
+        },
+        "rasterMs": {
+          "n": 20,
+          "median": 809.0605,
+          "p95": 820.283,
+          "min": 741.102,
+          "max": 828.762
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 391815168,
+        "rssAfterWarmup": 937627648,
+        "rssAfterSamples": 923222016,
+        "peakRssBytes": 978165760
+      }
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/cold4g-baseline-icon-1.json",
+      "sha256": "8674125bdbf92f8191b2f48419b6a434cfcf76a051be4f066018340ee491a7f2",
+      "completed": true,
+      "count": 10000,
+      "case": "icon",
+      "identity": {
+        "revision": "a981a782-baseline",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 612.3745,
+          "p95": 690.52,
+          "min": 556.197,
+          "max": 731.66
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 1349.3905,
+          "p95": 1558.176,
+          "min": 1264.616,
+          "max": 1627.076
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 2618.3725,
+          "p95": 3592.959,
+          "min": 1709.134,
+          "max": 3627.262
+        },
+        "buildMs": {
+          "n": 19,
+          "median": 192.134,
+          "p95": 227.067,
+          "min": 169.997,
+          "max": 227.067
+        },
+        "rasterMs": {
+          "n": 19,
+          "median": 2717.296,
+          "p95": 3707.248,
+          "min": 1590.222,
+          "max": 3707.248
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 414232576,
+        "rssAfterWarmup": 1074036736,
+        "rssAfterSamples": 990879744,
+        "peakRssBytes": 1126297600
+      }
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/host4g-baseline-text-1.json",
+      "sha256": "f33f476e4dc1acbe49062db3d84d5371729065d0e734f962449d3b9086f4ea0c",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-baseline",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 2248.5865,
+          "p95": 2943.724,
+          "min": 2108.341,
+          "max": 3050.202
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 2311.656,
+          "p95": 3010.405,
+          "min": 2173.523,
+          "max": 3139.801
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 3218.366,
+          "p95": 3901.817,
+          "min": 3022.484,
+          "max": 3908.489
+        },
+        "buildMs": {
+          "n": 19,
+          "median": 479.947,
+          "p95": 571.687,
+          "min": 460.6,
+          "max": 571.687
+        },
+        "rasterMs": {
+          "n": 19,
+          "median": 1226.579,
+          "p95": 1619.336,
+          "min": 1101.712,
+          "max": 1619.336
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 443408384,
+        "rssAfterWarmup": 944984064,
+        "rssAfterSamples": 909946880,
+        "peakRssBytes": 984182784
+      }
+    },
+    {
+      "rawPath": ".artifacts/performance/panel-10k/host4g-final-text-1.json",
+      "sha256": "e49aa24533d71476b14b3503ea6778e0bf6813134190de8aebca33a984414001",
+      "completed": true,
+      "count": 10000,
+      "case": "text",
+      "identity": {
+        "revision": "a981a782-final",
+        "mode": "profile/AOT",
+        "os": "UE1A.230829.036.A4",
+        "dpr": 2.625,
+        "physicalSize": "Instance of 'Size'",
+        "mapSize": [
+          360,
+          640
+        ],
+        "viewport": {
+          "centerWorld": [
+            2318.0,
+            4768.0
+          ],
+          "scale": 0.06375838926174497,
+          "screenBounds": [
+            0.0,
+            0.0,
+            360.0,
+            640.0
+          ]
+        },
+        "seed": 24301,
+        "warmups": 5,
+        "samples": 20
+      },
+      "metrics": {
+        "commitMs": {
+          "n": 20,
+          "median": 1341.0895,
+          "p95": 1893.262,
+          "min": 1136.052,
+          "max": 2291.032
+        },
+        "assetsReadyMs": {
+          "n": 20,
+          "median": 1465.7635,
+          "p95": 2087.95,
+          "min": 1181.272,
+          "max": 2447.131
+        },
+        "publishedMs": {
+          "n": 20,
+          "median": 2381.7525,
+          "p95": 3425.731,
+          "min": 2100.049,
+          "max": 3570.797
+        },
+        "buildMs": {
+          "n": 19,
+          "median": 567.926,
+          "p95": 965.541,
+          "min": 474.456,
+          "max": 965.541
+        },
+        "rasterMs": {
+          "n": 19,
+          "median": 1196.533,
+          "p95": 1801.779,
+          "min": 1095.474,
+          "max": 1801.779
+        }
+      },
+      "rss": {
+        "rssBeforeWarmup": 433872896,
+        "rssAfterWarmup": 972349440,
+        "rssAfterSamples": 960147456,
+        "peakRssBytes": 996249600
+      }
+    }
+  ],
+  "rawEvidencePolicy": "Raw JSON/logs/APKs remain in ignored .artifacts; this historical report and identity/statistics do not constitute release authority.",
+  "verification": {
+    "focusedFlutterTests": 67,
+    "analysis": "lib/test and changed integration target passed",
+    "publicConformance": {
+      "schemaRevision": "patch-map-public-ci/1",
+      "status": "passed",
+      "contractFingerprint": "ea8e88301b923d752344918b997ee262e3536810947d5e4f65a083d72e1ef4b5",
+      "comparedFixtures": 10,
+      "comparedCommands": 177,
+      "npmReport": {
+        "path": ".artifacts/flutter/public-ci/npm-public.json",
+        "sha256": "b6c31695bcee0df32c328de4b7a56cf7caeb908d4c884e9d3e8eca0d689882fe"
+      },
+      "dartReport": {
+        "path": ".artifacts/flutter/public-ci/dart-public.json",
+        "sha256": "e42a810d3e67e10e47a14dad9507f4e31fc426d8993e8ccd389f587d6ba9c372"
+      },
+      "dartCommand": [
+        "/Users/minholim/devsettings/flutter/bin/dart",
+        "/Users/minholim/.codex/worktrees/d509/patch-map/packages/flutter/test/engine/public_trace.dart",
+        "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/alpha-parity.json",
+        "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/binding-fields.json",
+        "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/codecs.json",
+        "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/controller.json",
+        "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/editor-lifecycle.json",
+        "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/editor.json",
+        "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/gallery.json",
+        "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/structural.json",
+        "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/transform-geometry.json",
+        "/Users/minholim/.codex/worktrees/d509/patch-map/conformance/fixtures/updates.json"
+      ],
+      "elapsedMs": 7733,
+      "scope": "Exact public browser/Dart semantic observations; not native raster, device performance, or installed artifact qualification."
+    },
+    "installedConsumer": {
+      "reportPath": ".artifacts/flutter/installed-consumer-wjz99k/report.json",
+      "sha256": "399ac86225611999d449a2f5f3f7e9106aac7181d25fde631fdc62742e490851",
+      "artifactSha256": "614fb4ebc83b6b9312340aef969aa0b8dedf06b7d267a57d75bea6a7860d0105",
+      "installedConsumer": true,
+      "files": 68
+    },
+    "independentReview": "No additional source/schema/lifecycle blocker; performance FAIL and text frame/RSS adverse results confirmed",
+    "documentation": "50 Markdown files passed verify:docs; git diff --check passed"
+  },
+  "cleanup": {
+    "dedicatedAvd": "Stopped and deleted; config/logs retained with raw evidence",
+    "existingAvdPreferences": "Unchanged",
+    "productionSourceHashes": "Rechecked after tests/docs and match measured APK manifest",
+    "rawArtifacts": "Preserved in ignored .artifacts/performance/panel-10k"
+  },
+  "firstUpdateWarmupObservations": [
+    {
+      "run": "controlled-baseline-text-1",
+      "row": {
+        "sample": 0,
+        "warmup": true,
+        "commitMs": 400.223,
+        "assetsReadyMs": 407.224,
+        "publishedMs": 510.165,
+        "frame": 42
+      }
+    },
+    {
+      "run": "controlled-baseline-text-2",
+      "row": {
+        "sample": 0,
+        "warmup": true,
+        "commitMs": 372.81,
+        "assetsReadyMs": 379.716,
+        "publishedMs": 476.876,
+        "frame": 43
+      }
+    },
+    {
+      "run": "controlled-baseline-icon-1",
+      "row": {
+        "sample": 0,
+        "warmup": true,
+        "commitMs": 579.752,
+        "assetsReadyMs": 1308.753,
+        "publishedMs": 3156.153,
+        "frame": 139
+      }
+    },
+    {
+      "run": "controlled-baseline-icon-2",
+      "row": {
+        "sample": 0,
+        "warmup": true,
+        "commitMs": 583.084,
+        "assetsReadyMs": 1269.027,
+        "publishedMs": 3098.556,
+        "frame": 136
+      }
+    },
+    {
+      "run": "controlled-final-text-1",
+      "row": {
+        "sample": 0,
+        "warmup": true,
+        "commitMs": 347.347,
+        "assetsReadyMs": 353.289,
+        "publishedMs": 452.693,
+        "frame": 42
+      }
+    },
+    {
+      "run": "controlled-final-text-2",
+      "row": {
+        "sample": 0,
+        "warmup": true,
+        "commitMs": 371.683,
+        "assetsReadyMs": 377.458,
+        "publishedMs": 487.537,
+        "frame": 41
+      }
+    },
+    {
+      "run": "controlled-final-icon-1",
+      "row": {
+        "sample": 0,
+        "warmup": true,
+        "commitMs": 68.217,
+        "assetsReadyMs": 102.038,
+        "publishedMs": 382.432,
+        "frame": 55
+      }
+    },
+    {
+      "run": "controlled-final-icon-2",
+      "row": {
+        "sample": 0,
+        "warmup": true,
+        "commitMs": 71.14,
+        "assetsReadyMs": 192.121,
+        "publishedMs": 339.325,
+        "frame": 47
+      }
+    }
+  ]
+}

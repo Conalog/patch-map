@@ -164,9 +164,12 @@ class NativeAssetSession implements PatchMapAssetPort {
     return result;
   }
 
+  final _sourceKeys = Expando<String>();
+
   String sourceKey(Object source) {
     final entry = runtime._bindingEntry(source);
-    return '${entry.packageOwned ? 'package' : 'host'}:${canonicalJson(entry.descriptor)}';
+    return _sourceKeys[entry] ??=
+        '${entry.packageOwned ? 'package' : 'host'}:${canonicalJson(entry.descriptor)}';
   }
 
   NativeAsset? lookup(Object source, String binding) {
@@ -352,7 +355,8 @@ class NativeAssetSession implements PatchMapAssetPort {
       binding.requestedKey = key;
       if (_uses[key]?.value != null) binding.resolvedKey = key;
     }
-    invalidate?.call();
+    // Accepted preparation already paints cached assets or previous bindings.
+    // Newly settled resources invalidate paint through _start.
     _collectUnused();
     await Future.wait([
       for (final source in {

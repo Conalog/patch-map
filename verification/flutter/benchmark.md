@@ -132,7 +132,8 @@ flutter drive --profile -d DEVICE_ID \
   --dart-define=PATCHMAP_REVISION=VERIFIED_GIT_REVISION
 ```
 
-This mounts the actual `BarDemoApp` and switches to text mode. `commitMs` measures
+This mounts the service panel template through `PatchMap.create` and
+`PatchMapView`. `commitMs` measures
 the synchronous command; `publishedMs` waits for a post-frame observation of the
 new published interaction revision. It is not a GPU completion timestamp.
 Engine build/raster timings are recorded separately by frame number. A passing
@@ -161,3 +162,69 @@ optimization preserves atomic updates and uses the general transaction/geometry
 path when incremental projection is unsafe. Validate null restoration, refusal,
 target aliases, text bounds, Unicode, resource disposal and incremental/full
 render equivalence with the focused engine, geometry and renderer tests.
+
+## 10,000-panel optimization checkpoint
+
+The panel target accepts `PATCHMAP_COUNT=10000` and `PATCHMAP_CASE=text|icon`.
+It mounts the service panel template directly on a fixed 360×640 Canvas, fits
+100 grids of 5×20 cells, and enables only the selected component. Icon samples
+alternate the bundled `object` and `loading` SVG aliases for every instance;
+text samples retain the seeded 1…9999 workload. Five warmups and twenty samples
+are retained, including adverse values. Input generation is outside timing.
+Asset readiness is measured separately and must finish before the observed
+publication. Native frame numbers map to build/raster timings. This measures
+warm resource replacement after warmup, not network or first-download latency.
+
+Run on one Android emulator in profile mode, sequentially with no competing
+build or benchmark. Record revision, source hashes, APK SHA256, Flutter/Dart,
+device properties, viewport and DPR with raw results. Compare baseline/candidates
+and repeat the selected final candidate in a fresh app lifecycle. Emulator
+evidence is diagnostic, not real-device qualification. Before measurements,
+the interactive goal is p95 commit and publication each at most 100 ms; the
+60 Hz frame goal is p95 build/raster each at most 16.67 ms. Material, correct
+improvements may be retained when goals remain unmet, but the final performance
+verdict must report that failure.
+
+Candidate hypotheses, only after a failing baseline: repeated semantic text
+layout, native paragraph/cache churn, and icon updates forcing full projection
+and resource/render rebuilds. Measure individual candidates first; combine only
+independently beneficial changes. Preserve atomic updates, null restoration,
+query/hit bounds, paint order, text shaping, asset replacement and cleanup.
+
+The September 2026 experiment detected guest memory pressure after repeated
+installs on the default 2 GB Pixel AVD (swap and system-process contention).
+Those runs remain diagnostic artifacts. Final comparisons use a cold-started
+dedicated 4 GB Pixel 6a API 34 emulator (`PatchMap_10k_Perf_API34`) with explicit
+`-gpu host -no-window` and prebuilt profile APKs installed sequentially. This
+temporary AVD uses the existing ARM64 Play Store image with `com.android.vending`
+disabled and Wi-Fi/cellular data off; no network assets enter this workload.
+The user's ordinary AVD settings are unchanged. No compilation runs during
+measured updates. Guest RAM/swap and process load must be checked before
+accepting repeat measurements. Record the emulator's
+graphics adapter at startup: headless `-gpu auto` can select SwiftShader rather
+than the host GPU and is a separate environment, not a comparable repeat.
+
+Build each revision/case before starting measurements, using identical profile
+and architecture flags. From `packages/flutter/example`:
+
+```sh
+flutter build apk --profile --no-pub --target-platform=android-arm64 \
+  --target=integration_test/panel_text_performance_test.dart \
+  --dart-define=PATCHMAP_COUNT=10000 --dart-define=PATCHMAP_CASE=icon \
+  --dart-define=PATCHMAP_REVISION=VERIFIED_SOURCE_ID
+# Copy app-profile.apk to a revision/case-specific path, then record its SHA256.
+PATCHMAP_CONTRACT_OUTPUT=/absolute/path/panel-icon-native.json \
+flutter drive --profile --no-pub -d DEVICE_ID \
+  --driver=test_driver/native_contract_driver.dart \
+  --target=integration_test/panel_text_performance_test.dart \
+  --use-application-binary=/absolute/path/profile.apk
+```
+
+The report also records process RSS before warmup, after warmup, after sampling,
+and the peak RSS. These are whole-process observations, not isolated cache or
+Dart-heap measurements. Keep startup/warmup samples separate from measured
+updates. Repeat baseline/candidate in reverse order to expose environment drift.
+Use median and nearest-rank p95 (`ceil(0.95 × n) - 1` in a sorted zero-based
+array). Match publication frame IDs to engine timings; publication acknowledges
+the accepted frame and resource readiness, while raster duration is a separate
+measurement and can finish later.

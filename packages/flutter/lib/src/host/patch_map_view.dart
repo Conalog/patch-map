@@ -160,7 +160,7 @@ class _PatchMapViewState extends State<PatchMapView>
           if (_closed || !mounted) return;
           controller.invalidateAssets();
           final refreshed = controller.renderSnapshot;
-          _loadAssets(refreshed);
+          _loadAssets(refreshed, force: true);
           _renderer.refreshAssets(refreshed);
           requestFrame();
         };
@@ -178,10 +178,11 @@ class _PatchMapViewState extends State<PatchMapView>
     }
   }
 
-  void _loadAssets(PatchMapRenderSnapshot snapshot) {
+  void _loadAssets(PatchMapRenderSnapshot snapshot, {bool force = false}) {
     // Only the proven bar-height projection preserves topology. It cannot
     // change image/font dependencies; general scene edits take the ready path.
-    if (_assetsReady &&
+    if (!force &&
+        _assetsReady &&
         controller.assetPort is NativeAssetSession &&
         identical(_assetTopology, snapshot.geometry.topology) &&
         mapEquals(_assetAlpha, snapshot.presentationAlpha))

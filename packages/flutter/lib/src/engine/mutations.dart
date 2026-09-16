@@ -100,6 +100,8 @@ extension PatchMapMutationOperations on PatchMapController {
       if (fast != null) return fast;
       final text = _textValueBatch(input, targets, animate, actionId);
       if (text != null) return text;
+      final icon = _iconSourceBatch(input, targets, animate, actionId);
+      if (icon != null) return icon;
       if (animate is List && targets.isNotEmpty) {
         final bar = input['bar'];
         final directBars =

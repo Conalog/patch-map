@@ -4,6 +4,9 @@
   native Canvas 변경 전후 성능 및 검증 한계.
 - [Android 실기기 기능 실험실 검증](android-feature-lab.md): 서비스 5,000개 패널,
   21개 시나리오, 네이티브 입력·에셋·캡처 및 OS 복귀 확인.
+- [10,000개 텍스트·아이콘 갱신 최적화](panel-10000-optimization.md): Android
+  에뮬레이터에서 여섯 후보와 최종 조합을 검증했다. 갱신 지연은 개선됐지만
+  100ms·60fps 목표는 미달하며 텍스트 프레임 비용은 증가했다.
 
 ## Canvas / Flame 비교 결과 기록
 

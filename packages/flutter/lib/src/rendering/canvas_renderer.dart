@@ -39,12 +39,17 @@ class PatchMapCanvasRenderer {
   Map<String, GeometryTarget>? _pointerComponents;
   final List<_MeshChunk> _meshes = [];
   final _barMeshSlots = <int, _MeshSlot>{};
+  final _iconSlots = <int, int>{};
+  final _assetSlots = <int, int>{};
   final _colors = <(Object, int), ui.Color>{};
   final Set<TextPainter> _texts = {};
   final _textSlots = <int, (int, List<TextPainter>)>{};
   final _textCache = <(String, TextStyle, TextDirection), TextPainter>{};
   final _usedTextCache = <TextPainter>{};
   final List<_PaintCommand> _commands = [];
+  final _svgImages = <(ui.Picture, int, int), ui.Image>{};
+  int _svgPixels = 0;
+  double _rasterScale = 1;
   bool disposed = false;
   int get commandCount => _commands.length;
   int get visiblePrimitiveCount =>
@@ -52,6 +57,12 @@ class PatchMapCanvasRenderer {
 
   void prepare(PatchMapRenderSnapshot snapshot) {
     if (disposed) return;
+    final scale = snapshot.viewport.scale * snapshot.viewport.pixelRatio;
+    final rasterScale = scale.isFinite && scale > 0
+        ? math.pow(2, (math.log(scale) / math.ln2).ceil()).toDouble()
+        : double.infinity;
+    final rasterScaleChanged = rasterScale != _rasterScale;
+    _rasterScale = rasterScale;
     final previous = geometry;
     final changed = !identical(previous, snapshot.geometry);
     final topologyChanged = !identical(
@@ -87,16 +98,26 @@ class PatchMapCanvasRenderer {
     _orientationBucket = bucket;
     _alpha = snapshot.presentationAlpha;
     _theme = snapshot.theme;
-    if (!paintChanged) return;
+    if (!paintChanged) {
+      if (rasterScaleChanged && _iconSlots.isNotEmpty)
+        _refreshImageCommands(snapshot);
+      return;
+    }
     _selectionGeometry = null;
     _pointerComponents = null;
     _selectionMode = null;
+    if (changed && !styleChanged && _updateIconCommands(previous!, snapshot)) {
+      if (rasterScaleChanged) _refreshImageCommands(snapshot);
+      return;
+    }
     if (changed &&
         !topologyChanged &&
         !styleChanged &&
         (_updateBarMeshes(previous!) ||
-            _updateTextCommands(previous, snapshot)))
+            _updateTextCommands(previous, snapshot))) {
+      if (rasterScaleChanged) _refreshImageCommands(snapshot);
       return;
+    }
     _rebuild(snapshot);
   }
 
@@ -225,8 +246,8 @@ class PatchMapCanvasRenderer {
   }
 
   void _pruneTextCache() {
-    // Active paragraphs plus at most 1024 inactive lines; never retain frames.
-    var spare = _textCache.length - _usedTextCache.length - 1024;
+    // Active paragraphs plus at most 8192 inactive lines; never retain frames.
+    var spare = _textCache.length - _usedTextCache.length - 8192;
     if (spare <= 0) return;
     final remove = <(String, TextStyle, TextDirection)>[];
     for (final entry in _textCache.entries) {
@@ -239,17 +260,38 @@ class PatchMapCanvasRenderer {
   }
 
   void refreshAssets(PatchMapRenderSnapshot snapshot) {
-    if (!disposed && geometry != null) {
-      for (final painter in _textCache.values) {
-        painter.dispose();
-      }
-      _textCache.clear();
-      _usedTextCache.clear();
+    if (disposed || geometry == null) return;
+    for (final painter in _textCache.values) painter.dispose();
+    _textCache.clear();
+    _usedTextCache.clear();
+    _clearSvgImages();
+    if (!identical(geometry, snapshot.geometry)) {
+      geometry = snapshot.geometry;
       _rebuild(snapshot);
+      return;
     }
+    // Resource completion changes image commands and native font paragraphs,
+    // while retained geometry meshes and ordering remain valid.
+    for (final painter in _texts) painter.dispose();
+    _texts.clear();
+    double alphaFor(GeometryPrimitive p) =>
+        p.opacity *
+        (snapshot
+                .presentationAlpha['${p.ownerId}\u0000${p.componentId ?? ''}'] ??
+            snapshot.presentationAlpha[p.ownerId] ??
+            1);
+    _refreshImageCommands(snapshot);
+    for (final index in _textSlots.keys.toList()) {
+      final p = geometry!.primitives[index], slot = _textSlots[index]!.$1;
+      final next = _textCommand(p, alphaFor(p));
+      _commands[slot] = next.$1;
+      _textSlots[index] = (slot, next.$2);
+    }
+    _pruneTextCache();
   }
 
   void _rebuild(PatchMapRenderSnapshot snapshot) {
+    _clearSvgImages();
     for (final mesh in _meshes) {
       mesh.dispose();
     }
@@ -262,6 +304,8 @@ class PatchMapCanvasRenderer {
     _usedTextCache.clear();
     _commands.clear();
     _barMeshSlots.clear();
+    _iconSlots.clear();
+    _assetSlots.clear();
     _colors.clear();
     final positions = <double>[];
     final colors = <int>[];
@@ -333,39 +377,10 @@ class PatchMapCanvasRenderer {
       } else if (source is String ||
           source is Map && source.containsKey('src')) {
         flush();
-        final asset = assets?.lookup(source!, key);
-        if (asset != null) {
-          _commands.add((canvas) {
-            canvas.save();
-            canvas.transform(
-              _matrix(readableTransform(primitive, worldRotation: _rotation)),
-            );
-            final rect = _rect(primitive.localRect);
-            final tint = _color(value['tint'], const ui.Color(0xffffffff));
-            final paint = ui.Paint()
-              ..isAntiAlias = antialias
-              ..color = ui.Color.fromRGBO(255, 255, 255, alpha.clamp(0, 1))
-              ..colorFilter = ui.ColorFilter.mode(tint, ui.BlendMode.modulate);
-            if (asset.image != null)
-              canvas.drawImageRect(
-                asset.image!,
-                ui.Rect.fromLTWH(0, 0, asset.width, asset.height),
-                rect,
-                paint,
-              );
-            if (asset.picture != null) {
-              canvas.saveLayer(rect, paint);
-              canvas.translate(rect.left, rect.top);
-              canvas.scale(
-                rect.width / asset.width,
-                rect.height / asset.height,
-              );
-              canvas.drawPicture(asset.picture!);
-              canvas.restore();
-            }
-            canvas.restore();
-          });
-        }
+        _assetSlots[primitiveIndex] = _commands.length;
+        if (primitive.type == 'icon')
+          _iconSlots[primitiveIndex] = _commands.length;
+        _commands.add(_imageCommand(primitive, alpha));
       } else {
         final style = source is Map ? source : value;
         var base = _color(
@@ -438,6 +453,141 @@ class PatchMapCanvasRenderer {
     }
     flush();
     _pruneTextCache();
+  }
+
+  void _refreshImageCommands(PatchMapRenderSnapshot snapshot) {
+    _clearSvgImages();
+    for (final entry in _assetSlots.entries) {
+      final p = geometry!.primitives[entry.key];
+      final key = '${p.ownerId}\u0000${p.componentId ?? ''}';
+      final alpha =
+          p.opacity *
+          (snapshot.presentationAlpha[key] ??
+              snapshot.presentationAlpha[p.ownerId] ??
+              1);
+      _commands[entry.value] = _imageCommand(p, alpha);
+    }
+  }
+
+  void _clearSvgImages() {
+    for (final image in _svgImages.values) image.dispose();
+    _svgImages.clear();
+    _svgPixels = 0;
+  }
+
+  ui.Image? _rasterIcon(NativeAsset asset, GeometryPrimitive primitive) {
+    if (primitive.type != 'icon' || asset.picture == null) return null;
+    final t = primitive.transform;
+    // Frobenius norm bounds the largest axis stretch, including skew/reflection.
+    final stretch = math.sqrt(t.a * t.a + t.b * t.b + t.c * t.c + t.d * t.d);
+    final pixelWidth = primitive.localRect.width * stretch * _rasterScale;
+    final pixelHeight = primitive.localRect.height * stretch * _rasterScale;
+    if (!pixelWidth.isFinite ||
+        !pixelHeight.isFinite ||
+        pixelWidth > 2048 ||
+        pixelHeight > 2048)
+      return null;
+    final width = pixelWidth.ceil(), height = pixelHeight.ceil();
+    if (width < 1 || height < 1 || width > 2048 || height > 2048) return null;
+    final key = (asset.picture!, width, height);
+    final cached = _svgImages[key];
+    if (cached != null) return cached;
+    // Bound derived GPU storage. Excess variants retain the exact vector path.
+    if (_svgImages.length >= 32 ||
+        _svgPixels + width * height > 4 * 1024 * 1024)
+      return null;
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder)
+      ..scale(width / asset.width, height / asset.height);
+    canvas.drawPicture(asset.picture!);
+    final picture = recorder.endRecording();
+    try {
+      final image = picture.toImageSync(width, height);
+      _svgImages[key] = image;
+      _svgPixels += width * height;
+      return image;
+    } catch (_) {
+      return null; // Resource-constrained devices can keep the vector path.
+    } finally {
+      picture.dispose();
+    }
+  }
+
+  _PaintCommand _imageCommand(GeometryPrimitive primitive, double alpha) {
+    final value = primitive.value;
+    final source = value['source'];
+    final key = '${primitive.ownerId}\u0000${primitive.componentId ?? ''}';
+    final asset = assets?.lookup(source!, key);
+    if (asset == null) return (_) {};
+    final rasterIcon = _rasterIcon(asset, primitive);
+    final matrix = _matrix(
+      readableTransform(primitive, worldRotation: _rotation),
+    );
+    final rect = _rect(primitive.localRect);
+    final tint = _color(value['tint'], const ui.Color(0xffffffff));
+    final paint = ui.Paint()
+      ..isAntiAlias = antialias
+      ..color = ui.Color.fromRGBO(255, 255, 255, alpha.clamp(0, 1))
+      ..colorFilter = ui.ColorFilter.mode(tint, ui.BlendMode.modulate);
+    return (canvas) {
+      canvas.save();
+      canvas.transform(matrix);
+      if (asset.image != null)
+        canvas.drawImageRect(
+          asset.image!,
+          ui.Rect.fromLTWH(0, 0, asset.width, asset.height),
+          rect,
+          paint,
+        );
+      if (rasterIcon != null) {
+        canvas.drawImageRect(
+          rasterIcon,
+          ui.Rect.fromLTWH(
+            0,
+            0,
+            rasterIcon.width.toDouble(),
+            rasterIcon.height.toDouble(),
+          ),
+          rect,
+          paint,
+        );
+      } else if (asset.picture != null) {
+        canvas.saveLayer(rect, paint);
+        canvas.translate(rect.left, rect.top);
+        canvas.scale(rect.width / asset.width, rect.height / asset.height);
+        canvas.drawPicture(asset.picture!);
+        canvas.restore();
+      }
+      canvas.restore();
+    };
+  }
+
+  bool _updateIconCommands(
+    PatchMapGeometry previous,
+    PatchMapRenderSnapshot snapshot,
+  ) {
+    final current = geometry!;
+    if (!identical(current.baseProjection, previous.projectionIdentity))
+      return false;
+    for (final index in current.changedPrimitiveSlots) {
+      final p = current.primitives[index];
+      if (p.type != 'icon' ||
+          (p.visible && p.opacity > 0 && !_iconSlots.containsKey(index)))
+        return false;
+    }
+    for (final index in current.changedPrimitiveSlots) {
+      final slot = _iconSlots[index];
+      if (slot == null) continue;
+      final p = current.primitives[index];
+      final key = '${p.ownerId}\u0000${p.componentId}';
+      final alpha =
+          p.opacity *
+          (snapshot.presentationAlpha[key] ??
+              snapshot.presentationAlpha[p.ownerId] ??
+              1);
+      _commands[slot] = _imageCommand(p, alpha);
+    }
+    return true;
   }
 
   (_PaintCommand, List<TextPainter>) _textCommand(
@@ -780,6 +930,7 @@ class PatchMapCanvasRenderer {
   void dispose() {
     if (disposed) return;
     disposed = true;
+    _clearSvgImages();
     for (final mesh in _meshes) {
       mesh.dispose();
     }
@@ -804,6 +955,8 @@ class PatchMapCanvasRenderer {
     _theme = const {};
     _pointerComponents = null;
     _barMeshSlots.clear();
+    _iconSlots.clear();
+    _assetSlots.clear();
     _colors.clear();
   }
 }

@@ -8,6 +8,7 @@ import '../api/values.dart';
 import '../model/dataset.dart';
 import '../model/theme.dart';
 import '../semantic/geometry/geometry.dart';
+import '../semantic/geometry/text_layout_cache.dart';
 import '../semantic/dataset/normalization.dart' show normalizeComponent;
 import 'ports.dart';
 
@@ -16,6 +17,7 @@ part 'pointer_policy.dart';
 part 'brush_selection.dart';
 part 'mutations.dart';
 part 'text_mutations.dart';
+part 'icon_mutations.dart';
 part 'mutation_lowering.dart';
 part 'structural_mutations.dart';
 part 'history_selection.dart';
@@ -107,6 +109,9 @@ class PatchMapController {
   final JsonMap viewportPolicy;
   final PatchMapAssetPort? assetPort;
   final GeometryTextLayouter? textLayouter;
+  late final GeometryTextLayoutCache? _textLayouts = textLayouter == null
+      ? null
+      : GeometryTextLayoutCache(textLayouter!);
   PatchMapDataset _dataset;
   PatchMapDataset get dataset => _dataset;
   int _datasetGeneration = 0;
@@ -212,6 +217,7 @@ class PatchMapController {
   PatchMapDataset? _geometryDataset;
   Map<String, JsonMap>? _geometryOverlays;
   PatchMapGeometry? _geometryCache;
+  Map<String, MapRect> _geometryImageSizes = const {};
   int _projectionRevision = 0;
   PatchMapGeometry _geometryFor(
     PatchMapDataset dataset,
@@ -236,17 +242,26 @@ class PatchMapController {
           ? projectTextValues(
               _geometryCache!,
               overlays.textValues,
-              textLayouter,
+              _textLayouts?.call,
             )
+          : overlays is _IconSourceOverlay &&
+                identical(_geometryDataset, dataset) &&
+                identical(_geometryOverlays, overlays.previous) &&
+                _geometryCache != null
+          ? projectIconSources(_geometryCache!, overlays.sources)
           : null;
+      final imageSizes = projected == null
+          ? (assetPort?.imageSizes ?? const <String, MapRect>{})
+          : _geometryImageSizes;
       _geometryCache =
           projected ??
           buildGeometry(
             dataset,
             overlays: overlays,
-            textLayouter: textLayouter,
-            imageSizes: assetPort?.imageSizes ?? const {},
+            textLayouter: _textLayouts?.call,
+            imageSizes: imageSizes,
           );
+      if (projected == null) _geometryImageSizes = Map.unmodifiable(imageSizes);
       _geometryDataset = dataset;
       _geometryOverlays = overlays;
       _projectionRevision++;
@@ -256,7 +271,20 @@ class PatchMapController {
 
   void invalidateAssets() {
     if (_destroyed) return;
-    _geometryDataset = null;
+    _textLayouts?.clear();
+    final sizes = assetPort?.imageSizes ?? const <String, MapRect>{};
+    // Semantic text metrics are deterministic. Only intrinsic standalone image
+    // sizes can change geometry when decoded resources settle.
+    if (sizes.length != _geometryImageSizes.length ||
+        sizes.entries.any((entry) {
+          final old = _geometryImageSizes[entry.key], next = entry.value;
+          return old == null ||
+              old.x != next.x ||
+              old.y != next.y ||
+              old.width != next.width ||
+              old.height != next.height;
+        }))
+      _geometryDataset = null;
     _dirty = false;
     _notify();
   }
@@ -580,6 +608,7 @@ class PatchMapController {
       history._entries.clear();
       history._cursor = 0;
       _overlays = {};
+      _textLayouts?.clear();
     }
     final completion = Completer<bool>();
     _destroying = completion.future;
