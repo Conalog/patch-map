@@ -19,7 +19,7 @@
       "section": "Maintenance"
     }
   ],
-  "include-component-in-tag": false,
+  "include-component-in-tag": true,
   "include-v-in-tag": true,
   "packages": {
     "packages/javascript": {
@@ -28,9 +28,9 @@
       "versioning": "prerelease",
       "prerelease": true,
       "prerelease-type": "alpha",
-      "component": "npm",
-      "include-component-in-tag": false,
-      "pull-request-title-pattern": "chore: release npm ${version}"
+      "component": "js",
+      "include-component-in-tag": true,
+      "pull-request-title-pattern": "chore: release js ${version}"
     },
     "packages/flutter": {
       "release-type": "dart",
@@ -50,5 +50,6 @@
       "merge": false
     }
   ],
-  "separate-pull-requests": true
+  "separate-pull-requests": true,
+  "include-v-in-release-name": true
 }

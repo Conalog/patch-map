@@ -37,8 +37,8 @@ if (pubspecField(pubspec, 'name') !== 'conalog_patch_map' || /^publish_to:/mu.te
 if (config['separate-pull-requests'] !== true ||
   config.plugins?.length !== 1 || config.plugins[0].type !== 'node-workspace' || config.plugins[0].merge !== false ||
   config.packages['packages/javascript']['release-type'] !== 'node' ||
-  config.packages['packages/javascript'].component !== 'npm' ||
-  config.packages['packages/javascript']['include-component-in-tag'] !== false ||
+  config.packages['packages/javascript'].component !== 'js' ||
+  config.packages['packages/javascript']['include-component-in-tag'] !== true ||
   config.packages[dartPath]['release-type'] !== 'dart' || config.packages[dartPath].component !== 'dart' ||
   config.packages[dartPath]['include-component-in-tag'] !== true) {
   throw new Error('independent npm/Dart release ownership configuration is required');

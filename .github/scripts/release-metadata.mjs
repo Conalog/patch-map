@@ -40,7 +40,7 @@ export function releaseMetadata(runtime, tag, root = process.cwd()) {
     const pkg = json(`${path}/package.json`);
     if (pkg.name !== '@conalog/patch-map') throw new Error('unexpected npm identity');
     version = pkg.version;
-    prefix = 'v';
+    prefix = 'js-v';
   } else if (runtime === 'dart') {
     path = 'packages/flutter';
     const pubspec = readFileSync(`${root}/${path}/pubspec.yaml`, 'utf8');

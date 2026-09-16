@@ -27,9 +27,9 @@ test('publisher requires the exact package, namespace and merged release manifes
     const manifest = { 'packages/javascript': '1.1.0', 'packages/flutter': '1.0.0-alpha.1' };
     const save = () => writeFile(join(root, '.release-please-manifest.json'), JSON.stringify(manifest));
     await save();
-    assert.equal(releaseMetadata('npm', 'v1.1.0', root)['dist-tag'], 'latest');
+    assert.equal(releaseMetadata('npm', 'js-v1.1.0', root)['dist-tag'], 'latest');
     assert.equal(releaseMetadata('dart', 'dart-v1.0.0-alpha.1', root)['release-kind'], 'prerelease');
-    for (const [runtime, tag] of [['npm', 'dart-v1.1.0'], ['dart', 'v1.0.0-alpha.1'], ['dart', 'dart-v1.0.0-alpha.2']]) assert.throws(() => releaseMetadata(runtime, tag, root));
+    for (const [runtime, tag] of [['npm', 'v1.1.0'], ['npm', 'dart-v1.1.0'], ['dart', 'v1.0.0-alpha.1'], ['dart', 'dart-v1.0.0-alpha.2']]) assert.throws(() => releaseMetadata(runtime, tag, root));
     delete manifest['packages/flutter'];
     await save();
     assert.throws(() => releaseMetadata('dart', 'dart-v1.0.0-alpha.1', root), /must match/u);

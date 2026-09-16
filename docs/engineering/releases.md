@@ -4,10 +4,10 @@ One repository owns two independently versioned packages. Compatibility comes fr
 
 | Owner | Registry | Version source | Tag | Release PR title |
 | --- | --- | --- | --- | --- |
-| `packages/javascript` | npm `@conalog/patch-map` | `package.json` | `v<version>` | `chore: release npm <version>` |
+| `packages/javascript` | npm `@conalog/patch-map` | `package.json` | `js-v<version>` | `chore: release js <version>` |
 | `packages/flutter` | pub.dev `conalog_patch_map` | `pubspec.yaml` | `dart-v<version>` | `chore: release dart <version>` |
 
-Both packages own their changelog; root/verification npm workspaces remain private. No linked-version group is used. npm retains its tag format to preserve release history. Its baseline is the already-published `1.0.0-alpha.9` (2026-09-15); reconciling metadata does not import `main` code.
+Both packages own their changelog; root/verification npm workspaces remain private. No linked-version group is used. Existing `v*` tags and published releases remain unchanged. New JavaScript tags use `js-v*`; Dart uses `dart-v*`. Release titles use the planner defaults `js: v<version>` and `dart: v<version>`. Its baseline is the already-published `1.0.0-alpha.9` (2026-09-15); reconciling metadata does not import `main` code.
 
 Dart starts at **`1.0.0-alpha.1`**. Before the first release PR, the release manifest intentionally has no Flutter entry. `initial-version` supplies alpha.1; the merged PR records it, and subsequent fixes advance alpha.2. Do not pre-populate that entry or add a persistent `release-as`.
 
@@ -23,9 +23,9 @@ Release-please routes changed file paths. Keep `type: summary` commit messages; 
 
 ## Automation
 
-`release-please.yaml` runs on `release/1.0` pushes or manual invocation. It owns separate release PRs, tags and GitHub Releases; it never publishes registry artifacts. `node-workspace` uses `merge: false`, updating the root lockfile only in the npm PR.
+`release-please.yaml` runs on `release/1.0` pushes or manual invocation. It owns separate release PRs, tags and GitHub Releases; it never publishes registry artifacts. The pinned library runner uses its public migration plugin to anchor the first JS release to `v1.0.0-alpha.9` at `6986c632a47d3443ff17903c416291dfe4120340`, retaining the real compare link and excluding shipped commits. Missing or mismatched history fails closed. This bridge is inactive once the JS manifest advances. `node-workspace` uses `merge: false`, updating the root lockfile only in the npm PR.
 
-`publish.yaml` retains npm's existing trusted-publisher filename. It accepts `v*` pushes or manual retries of existing tags. Ancestry, tag/package/manifest identity, channel and installed-consumer checks precede publication of the same verified tarball. Digests and registry state are checked.
+`publish.yaml` retains npm's existing trusted-publisher filename. It accepts `js-v*` pushes or manual retries of new-format tags. Historical `v*` releases remain untouched. Ancestry, tag/package/manifest identity, channel and installed-consumer checks precede publication of the same verified tarball. Digests and registry state are checked.
 
 `publish-dart.yaml` accepts only `dart-v*` pushes. It validates ancestry, identity, Dart analysis/tests, shared public-command comparisons, package boundaries, installed consumer and pub dry-run. Artifact `dart-candidate-<SHA>` retains the deterministic tarball, installed report and source snapshot.
 
@@ -42,8 +42,8 @@ CI retains its stable `CI` aggregate status and changed-package routing; shared/
 Repository edits do not create credentials, publish packages or change protection rules.
 
 1. Set `RELEASE_PLEASE_TOKEN` to a fine-grained bot PAT with repository Contents, Issues and Pull requests write access, including organization authorization. Its events must trigger downstream workflows; there is no `GITHUB_TOKEN` fallback. A GitHub App requires adding installation-token minting, not storing an expiring token as a permanent secret.
-2. Require `CI` and `Analyze workflow policy` before merging release PRs. Workflow policy runs for every `release/1.0` PR, including version-only release PRs, so the required status cannot remain pending because of a path filter. Protect `release/1.0`, `v*` and `dart-v*` against unauthorized changes.
-3. Keep npm Trusted Publishing bound to `Conalog/patch-map`, `publish.yaml`, environment `npm`. Existing switches are `NPM_PUBLISH_ENABLED`, `NPM_PRERELEASE_ENABLED`, `NPM_LATEST_ENABLED`; explicit `true` enables a channel.
+2. Require `CI` and `Analyze workflow policy` before merging release PRs. Workflow policy runs for every `release/1.0` PR, including version-only release PRs, so the required status cannot remain pending because of a path filter. Protect `release/1.0`, historical `v*`, `js-v*` and `dart-v*` against unauthorized changes.
+3. Keep npm Trusted Publishing bound to `Conalog/patch-map`, `publish.yaml`, environment `npm`. Allow `js-v*` tags in the `npm` environment deployment policy. Existing switches are `NPM_PUBLISH_ENABLED`, `NPM_PRERELEASE_ENABLED`, `NPM_LATEST_ENABLED`; explicit `true` enables a channel.
 4. Create environment `pub.dev`. Keep repository variable `PUBDEV_PUBLISH_ENABLED` unset/false until bootstrap. Then configure pub.dev for `Conalog/patch-map`, pattern `dart-v{{version}}`, required environment `pub.dev`, and enable the variable. No permanent pub token is needed.
 
 Dart dependency ranges retain validated minimums and allow patch updates only. Widening minor boundaries requires compatibility validation. Consumers resolve their own locks; native qualification identifies the tested SDK and lock.

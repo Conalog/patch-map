@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 
 const require = createRequire(new URL('../../verification/package.json', import.meta.url));
-const { Manifest } = require('release-please');
+import { createReleaseManifest } from './release-planner.mjs';
 const { setLogger } = require('release-please/build/src/util/logger.js');
 const quiet = Object.fromEntries(['info', 'warn', 'error', 'debug', 'trace'].map((level) => [level, () => {}]));
 setLogger(quiet);
@@ -13,14 +13,14 @@ const root = new URL('../../', import.meta.url);
 const config = JSON.parse(readFileSync(new URL('release-please-config.json', root), 'utf8'));
 const npmPath = 'packages/javascript';
 const dartPath = 'packages/flutter';
-const npmSha = 'a'.repeat(40);
+const npmSha = '6986c632a47d3443ff17903c416291dfe4120340';
 const dartSha = 'b'.repeat(40);
 const commit = (message, files, sha = 'c'.repeat(40)) => ({ message, files, sha });
 
 // The real pinned planner, strategies, changelog generators and workspace plugin
 // run against an in-memory GitHub boundary. No network or repository writes occur.
-async function fixture(changes, { dartReleased = false } = {}) {
-  const versions = { [npmPath]: '1.0.0-alpha.9' };
+async function fixture(changes, { dartReleased = false, jsReleased = false, missingLegacy = false, wrongLegacy = false, missingBoundary = false } = {}) {
+  const versions = { [npmPath]: jsReleased ? '1.0.0-alpha.10' : '1.0.0-alpha.9' };
   if (dartReleased) versions[dartPath] = '1.0.0-alpha.1';
   const files = {
     'release-please-config.json': JSON.stringify(config),
@@ -38,12 +38,13 @@ async function fixture(changes, { dartReleased = false } = {}) {
       },
     }),
   };
-  const releases = [{ tagName: 'v1.0.0-alpha.9', sha: npmSha, notes: 'Previous npm release' }];
+  const releases = [{ tagName: jsReleased ? 'js-v1.0.0-alpha.10' : 'v1.0.0-alpha.9', sha: wrongLegacy ? 'f'.repeat(40) : npmSha, notes: 'Previous npm release' }];
+  if (missingLegacy) releases.length = 0;
   if (dartReleased) releases.unshift({ tagName: 'dart-v1.0.0-alpha.1', sha: dartSha, notes: 'First Dart release' });
   const commits = [
     ...changes,
     ...(dartReleased ? [commit('chore: release dart 1.0.0-alpha.1', [`${dartPath}/pubspec.yaml`], dartSha)] : []),
-    commit('chore: release 1.0.0-alpha.9', [`${npmPath}/package.json`], npmSha),
+    ...(missingBoundary ? [] : [commit('chore: release previous npm', [jsReleased ? `${npmPath}/package.json` : 'package.json'], npmSha)]),
     commit('feat: already shipped npm feature', [`${npmPath}/src/index.ts`], 'd'.repeat(40)),
     commit('chore: bootstrap', [], config['bootstrap-sha']),
   ];
@@ -70,7 +71,7 @@ async function fixture(changes, { dartReleased = false } = {}) {
       return { number };
     },
   };
-  const manifest = await Manifest.fromManifest(github, 'release/1.0', undefined, undefined, { logger: quiet });
+  const manifest = await createReleaseManifest(github);
   return { manifest, files, versions, calls, openPullRequests, mergedPullRequests };
 }
 
@@ -98,7 +99,7 @@ function asPullRequest(candidate, number) {
   };
 }
 
-test('release planner dependency remains aligned with the pinned action engine', () => {
+test('release planner dependency remains pinned to the verified engine', () => {
   assert.equal(require('release-please/package.json').version, '17.6.0');
 });
 
@@ -108,9 +109,9 @@ test('npm-only release preserves legacy tag history and updates only the npm ver
   assert.equal(candidates.length, 1);
   const npm = candidateFor(candidates, npmPath);
   assert.equal(npm.version.toString(), '1.0.0-alpha.10');
-  assert.match(npm.headRefName, /--npm$/u);
+  assert.match(npm.headRefName, /--js$/u);
   assert.doesNotMatch(npm.body.toString(), /already shipped npm feature/u);
-  assert.match(npm.body.toString(), /v1\.0\.0-alpha\.9\.\.\.v1\.0\.0-alpha\.10/u);
+  assert.match(npm.body.toString(), /v1\.0\.0-alpha\.9\.\.\.js-v1\.0\.0-alpha\.10/u);
   const updated = applyUpdates(npm, files);
   assert.equal(JSON.parse(updated[`${npmPath}/package.json`]).version, '1.0.0-alpha.10');
   assert.equal(JSON.parse(updated['package-lock.json']).packages[npmPath].version, '1.0.0-alpha.10');
@@ -161,7 +162,8 @@ test('shared feature produces two independently mergeable PRs and correctly name
   assert.deepEqual(JSON.parse(npmThenDart['.release-please-manifest.json']), JSON.parse(dartThenNpm['.release-please-manifest.json']));
   state.mergedPullRequests.push(...candidates.map(asPullRequest));
   const releases = await state.manifest.buildReleases();
-  assert.deepEqual(releases.map(({ tag }) => tag.toString()).sort(), ['dart-v1.0.0-alpha.1', 'v1.0.0-alpha.10']);
+  assert.deepEqual(releases.map(({ name }) => name).sort(), ['dart: v1.0.0-alpha.1', 'js: v1.0.0-alpha.10']);
+  assert.deepEqual(releases.map(({ tag }) => tag.toString()).sort(), ['dart-v1.0.0-alpha.1', 'js-v1.0.0-alpha.10']);
 });
 
 test('separate pending PRs route updates to the existing npm and Dart PR numbers', async () => {
@@ -177,4 +179,27 @@ test('separate pending PRs route updates to the existing npm and Dart PR numbers
   assert.deepEqual(new Set(state.calls.map(({ candidate }) => candidate.headRefName)), new Set(candidates.map(({ headRefName }) => headRefName)));
   // This proves planner routing only. GitHub.updatePullRequest/code-suggester's
   // remote behavior (upstream issue #2773) still requires an actual hosted run.
+});
+
+
+test('migration preserves npm history even when Dart was released first', async () => {
+  const { manifest } = await fixture([commit('fix: new npm fix', [`${npmPath}/src/index.ts`])], { dartReleased: true });
+  const npm = candidateFor(await manifest.buildPullRequests(), npmPath);
+  assert.doesNotMatch(npm.body.toString(), /already shipped npm feature/u);
+  assert.match(npm.body.toString(), /v1\.0\.0-alpha\.9\.\.\.js-v1\.0\.0-alpha\.10/u);
+});
+
+test('subsequent JS release uses its real new-format predecessor', async () => {
+  const { manifest } = await fixture([commit('fix: later npm fix', [`${npmPath}/src/index.ts`])], { jsReleased: true });
+  const npm = candidateFor(await manifest.buildPullRequests(), npmPath);
+  assert.equal(npm.version.toString(), '1.0.0-alpha.11');
+  assert.match(npm.body.toString(), /js-v1\.0\.0-alpha\.10\.\.\.js-v1\.0\.0-alpha\.11/u);
+  assert.doesNotMatch(npm.body.toString(), /already shipped npm feature/u);
+});
+
+test('migration refuses missing or mismatched historical release boundaries', async () => {
+  for (const options of [{ missingLegacy: true }, { wrongLegacy: true }, { missingBoundary: true }]) {
+    const { manifest } = await fixture([commit('fix: npm fix', [`${npmPath}/src/index.ts`])], options);
+    await assert.rejects(manifest.buildPullRequests(), /historical release|outside the release branch/u);
+  }
 });
