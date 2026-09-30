@@ -1,0 +1,1016 @@
+{
+  "schemaRevision": "patch-map-conformance/1",
+  "id": "binding-fields",
+  "description": "Representative public input fields: authored component patches, column forms, explicit addressing and options. Exact normalized authored snapshots and results are compared; not a claim about every input combination.",
+  "surface": {
+    "width": 480,
+    "height": 520,
+    "pixelRatio": 1
+  },
+  "dataset": [
+    {
+      "type": "item",
+      "id": "a",
+      "size": {
+        "width": 100,
+        "height": 100
+      },
+      "components": [
+        {
+          "type": "background",
+          "id": "background",
+          "source": {
+            "type": "rect",
+            "fill": "#aaaaaa"
+          }
+        },
+        {
+          "type": "bar",
+          "id": "bar",
+          "size": {
+            "width": 20,
+            "height": 20
+          },
+          "source": {
+            "type": "rect",
+            "fill": "#bbbbbb"
+          },
+          "animation": false
+        },
+        {
+          "type": "icon",
+          "id": "icon",
+          "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+          "size": 12
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "text": "before",
+          "style": {
+            "fontSize": 12
+          }
+        }
+      ]
+    },
+    {
+      "type": "item",
+      "id": "b",
+      "size": {
+        "width": 100,
+        "height": 100
+      },
+      "components": [
+        {
+          "type": "background",
+          "id": "background",
+          "source": {
+            "type": "rect",
+            "fill": "#aaaaaa"
+          }
+        },
+        {
+          "type": "bar",
+          "id": "bar",
+          "size": {
+            "width": 20,
+            "height": 20
+          },
+          "source": {
+            "type": "rect",
+            "fill": "#bbbbbb"
+          },
+          "animation": false
+        },
+        {
+          "type": "icon",
+          "id": "icon",
+          "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+          "size": 12
+        },
+        {
+          "type": "text",
+          "id": "text",
+          "text": "before",
+          "style": {
+            "fontSize": 12
+          }
+        }
+      ]
+    }
+  ],
+  "commands": [
+    {
+      "id": "single-background",
+      "op": "update",
+      "input": {
+        "id": "a",
+        "background": {
+          "componentId": "background",
+          "changes": {
+            "show": true,
+            "attrs": {
+              "x": 1,
+              "y": 2
+            },
+            "source": {
+              "type": "rect",
+              "fill": "#123456",
+              "borderWidth": 2,
+              "borderColor": "#112233",
+              "radius": 3
+            },
+            "tint": "#aabbcc"
+          }
+        }
+      },
+      "options": {
+        "actionId": "single-background",
+        "recordHistory": false,
+        "animate": false
+      }
+    },
+    {
+      "id": "single-bar",
+      "op": "update",
+      "input": {
+        "id": "a",
+        "bar": {
+          "componentId": "bar",
+          "changes": {
+            "show": true,
+            "source": {
+              "type": "rect",
+              "fill": "#ff0000"
+            },
+            "tint": "#778899"
+          },
+          "height": 33
+        }
+      },
+      "options": {
+        "actionId": "single-bar",
+        "recordHistory": false,
+        "animate": false
+      }
+    },
+    {
+      "id": "single-icon",
+      "op": "update",
+      "input": {
+        "id": "a",
+        "icon": {
+          "componentId": "icon",
+          "changes": {
+            "show": true,
+            "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+            "tint": "#dd8833"
+          }
+        }
+      },
+      "options": {
+        "actionId": "single-icon",
+        "recordHistory": false,
+        "animate": false
+      }
+    },
+    {
+      "id": "overlap-text-rejected",
+      "op": "update",
+      "input": {
+        "id": "a",
+        "text": {
+          "componentId": "text",
+          "changes": {
+            "show": true,
+            "text": "native 한글",
+            "attrs": {
+              "x": 2,
+              "y": 3
+            },
+            "style": {
+              "fontFamily": "FiraCode",
+              "fontSize": 14,
+              "fontWeight": 700,
+              "fill": "#112233"
+            },
+            "margin": {
+              "top": 2,
+              "right": 3,
+              "bottom": 4,
+              "left": 5
+            },
+            "placement": "bottom",
+            "split": 1,
+            "tint": "#445566"
+          },
+          "text": "single",
+          "style": {
+            "fontSize": 13
+          }
+        }
+      },
+      "options": {
+        "actionId": "single-text",
+        "recordHistory": false,
+        "animate": false
+      },
+      "expect": {
+        "status": "rejected",
+        "snapshotUnchanged": true
+      }
+    },
+    {
+      "id": "single-text",
+      "op": "update",
+      "input": {
+        "id": "a",
+        "text": {
+          "componentId": "text",
+          "changes": {
+            "show": true,
+            "attrs": {
+              "x": 2,
+              "y": 3
+            },
+            "margin": {
+              "top": 2,
+              "right": 3,
+              "bottom": 4,
+              "left": 5
+            },
+            "placement": "bottom",
+            "split": 1,
+            "tint": "#445566"
+          },
+          "text": "single",
+          "style": {
+            "fontSize": 13
+          }
+        }
+      },
+      "options": {
+        "actionId": "single-text",
+        "recordHistory": false,
+        "animate": false
+      }
+    },
+    {
+      "id": "animation-columns-background-rejected",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "a",
+          "b"
+        ],
+        "background": {
+          "componentId": "background",
+          "changes": {
+            "show": [
+              true,
+              true
+            ],
+            "attrs": [
+              {
+                "x": 1,
+                "y": 2
+              },
+              {
+                "x": 1,
+                "y": 2
+              }
+            ],
+            "source": [
+              {
+                "type": "rect",
+                "fill": "#123456",
+                "borderWidth": 2,
+                "borderColor": "#112233",
+                "radius": 3
+              },
+              {
+                "type": "rect",
+                "fill": "#123456",
+                "borderWidth": 2,
+                "borderColor": "#112233",
+                "radius": 3
+              }
+            ],
+            "tint": [
+              "#aabbcc",
+              "#aabbcc"
+            ]
+          }
+        }
+      },
+      "options": {
+        "actionId": "columns-background",
+        "recordHistory": false,
+        "animate": [
+          false,
+          false
+        ]
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        },
+        "snapshotUnchanged": true
+      }
+    },
+    {
+      "id": "columns-background",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "a",
+          "b"
+        ],
+        "background": {
+          "componentId": "background",
+          "changes": {
+            "show": [
+              true,
+              true
+            ],
+            "attrs": [
+              {
+                "x": 1,
+                "y": 2
+              },
+              {
+                "x": 1,
+                "y": 2
+              }
+            ],
+            "source": [
+              {
+                "type": "rect",
+                "fill": "#123456",
+                "borderWidth": 2,
+                "borderColor": "#112233",
+                "radius": 3
+              },
+              {
+                "type": "rect",
+                "fill": "#123456",
+                "borderWidth": 2,
+                "borderColor": "#112233",
+                "radius": 3
+              }
+            ],
+            "tint": [
+              "#aabbcc",
+              "#aabbcc"
+            ]
+          }
+        }
+      },
+      "options": {
+        "actionId": "columns-background",
+        "recordHistory": false,
+        "animate": false
+      }
+    },
+    {
+      "id": "animation-columns-bar-rejected",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "a",
+          "b"
+        ],
+        "bar": {
+          "componentId": "bar",
+          "changes": {
+            "show": [
+              true,
+              true
+            ],
+            "source": [
+              {
+                "type": "rect",
+                "fill": "#ff0000"
+              },
+              {
+                "type": "rect",
+                "fill": "#ff0000"
+              }
+            ],
+            "tint": [
+              "#778899",
+              "#778899"
+            ]
+          },
+          "height": [
+            44,
+            55
+          ]
+        }
+      },
+      "options": {
+        "actionId": "columns-bar",
+        "recordHistory": false,
+        "animate": [
+          false,
+          false
+        ]
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        },
+        "snapshotUnchanged": true
+      }
+    },
+    {
+      "id": "columns-bar",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "a",
+          "b"
+        ],
+        "bar": {
+          "componentId": "bar",
+          "changes": {
+            "show": [
+              true,
+              true
+            ],
+            "source": [
+              {
+                "type": "rect",
+                "fill": "#ff0000"
+              },
+              {
+                "type": "rect",
+                "fill": "#ff0000"
+              }
+            ],
+            "tint": [
+              "#778899",
+              "#778899"
+            ]
+          },
+          "height": [
+            44,
+            55
+          ]
+        }
+      },
+      "options": {
+        "actionId": "columns-bar",
+        "recordHistory": false,
+        "animate": false
+      }
+    },
+    {
+      "id": "animation-columns-icon-rejected",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "a",
+          "b"
+        ],
+        "icon": {
+          "componentId": "icon",
+          "changes": {
+            "show": [
+              true,
+              true
+            ],
+            "source": [
+              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="
+            ],
+            "tint": [
+              "#dd8833",
+              "#dd8833"
+            ]
+          }
+        }
+      },
+      "options": {
+        "actionId": "columns-icon",
+        "recordHistory": false,
+        "animate": [
+          false,
+          false
+        ]
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        },
+        "snapshotUnchanged": true
+      }
+    },
+    {
+      "id": "columns-icon",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "a",
+          "b"
+        ],
+        "icon": {
+          "componentId": "icon",
+          "changes": {
+            "show": [
+              true,
+              true
+            ],
+            "source": [
+              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="
+            ],
+            "tint": [
+              "#dd8833",
+              "#dd8833"
+            ]
+          }
+        }
+      },
+      "options": {
+        "actionId": "columns-icon",
+        "recordHistory": false,
+        "animate": false
+      }
+    },
+    {
+      "id": "animation-columns-text-rejected",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "a",
+          "b"
+        ],
+        "text": {
+          "componentId": "text",
+          "changes": {
+            "show": [
+              true,
+              true
+            ],
+            "text": [
+              "native 한글",
+              "native 한글"
+            ],
+            "attrs": [
+              {
+                "x": 2,
+                "y": 3
+              },
+              {
+                "x": 2,
+                "y": 3
+              }
+            ],
+            "style": [
+              {
+                "fontFamily": "FiraCode",
+                "fontSize": 14,
+                "fontWeight": 700,
+                "fill": "#112233"
+              },
+              {
+                "fontFamily": "FiraCode",
+                "fontSize": 14,
+                "fontWeight": 700,
+                "fill": "#112233"
+              }
+            ],
+            "margin": [
+              {
+                "top": 2,
+                "right": 3,
+                "bottom": 4,
+                "left": 5
+              },
+              {
+                "top": 2,
+                "right": 3,
+                "bottom": 4,
+                "left": 5
+              }
+            ],
+            "placement": [
+              "bottom",
+              "bottom"
+            ],
+            "split": [
+              1,
+              1
+            ],
+            "tint": [
+              "#445566",
+              "#445566"
+            ]
+          },
+          "text": [
+            "column-A",
+            "column-B"
+          ],
+          "style": [
+            {
+              "fontSize": 15
+            },
+            {
+              "fontSize": 16
+            }
+          ]
+        }
+      },
+      "options": {
+        "actionId": "columns-text",
+        "recordHistory": false,
+        "animate": [
+          false,
+          false
+        ]
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        },
+        "snapshotUnchanged": true
+      }
+    },
+    {
+      "id": "columns-text",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "a",
+          "b"
+        ],
+        "text": {
+          "componentId": "text",
+          "changes": {
+            "show": [
+              true,
+              true
+            ],
+            "attrs": [
+              {
+                "x": 2,
+                "y": 3
+              },
+              {
+                "x": 2,
+                "y": 3
+              }
+            ],
+            "margin": [
+              {
+                "top": 2,
+                "right": 3,
+                "bottom": 4,
+                "left": 5
+              },
+              {
+                "top": 2,
+                "right": 3,
+                "bottom": 4,
+                "left": 5
+              }
+            ],
+            "placement": [
+              "bottom",
+              "bottom"
+            ],
+            "split": [
+              1,
+              1
+            ],
+            "tint": [
+              "#445566",
+              "#445566"
+            ]
+          },
+          "text": [
+            "column-A",
+            "column-B"
+          ],
+          "style": [
+            {
+              "fontSize": 15
+            },
+            {
+              "fontSize": 16
+            }
+          ]
+        }
+      },
+      "options": {
+        "actionId": "columns-text",
+        "recordHistory": false,
+        "animate": false
+      }
+    },
+    {
+      "id": "record-single",
+      "op": "update",
+      "input": {
+        "id": "a",
+        "changes": {
+          "attrs": {
+            "x": 12
+          },
+          "locked": false
+        }
+      },
+      "options": {
+        "recordHistory": false
+      }
+    },
+    {
+      "id": "record-columns",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "a",
+          "b"
+        ],
+        "changes": {
+          "attrs": [
+            {
+              "x": 20
+            },
+            {
+              "x": 140
+            }
+          ],
+          "locked": [
+            false,
+            false
+          ]
+        }
+      },
+      "options": {
+        "recordHistory": false
+      }
+    },
+    {
+      "id": "scope-components",
+      "op": "targets.query",
+      "input": {
+        "scope": "authored",
+        "within": "a",
+        "componentId": "bar",
+        "type": "bar"
+      }
+    },
+    {
+      "id": "layer-complement",
+      "op": "presentation.set",
+      "input": {
+        "key": "dim",
+        "layer": {
+          "targets": [
+            {
+              "id": "a",
+              "componentId": "bar"
+            }
+          ],
+          "matched": {
+            "alphaMultiplier": 0.4
+          },
+          "unmatched": {
+            "alphaMultiplier": 0.8
+          }
+        }
+      },
+      "refs": {
+        "scope": "scope-components"
+      }
+    },
+    {
+      "id": "transaction-options",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "update",
+          "id": "a",
+          "changes": {
+            "attrs": {
+              "x": 25
+            }
+          }
+        }
+      ],
+      "options": {
+        "actionId": "companion",
+        "recordHistory": true,
+        "animate": false,
+        "companion": {
+          "panel": "advanced"
+        },
+        "selectedIds": [
+          "a"
+        ],
+        "conflictPolicy": "reject"
+      }
+    },
+    {
+      "id": "companion-undo",
+      "op": "history.undo"
+    },
+    {
+      "id": "companion-redo",
+      "op": "history.redo"
+    },
+    {
+      "id": "resize-options",
+      "op": "transform.resizeBy",
+      "input": {
+        "targets": [
+          "a"
+        ],
+        "resize": {
+          "handle": "se",
+          "delta": [
+            2,
+            3
+          ],
+          "minSize": 10,
+          "lockAspectRatio": false
+        }
+      },
+      "options": {
+        "recordHistory": false,
+        "actionId": "resize"
+      }
+    },
+    {
+      "id": "resize-session",
+      "op": "transform.beginSession",
+      "input": {
+        "targets": [
+          "b"
+        ],
+        "kind": "resize",
+        "actionId": "resize-session",
+        "handle": "se"
+      }
+    },
+    {
+      "id": "resize-preview",
+      "op": "transform.preview",
+      "input": {
+        "kind": "resize",
+        "delta": [
+          3,
+          4
+        ],
+        "minSize": 8,
+        "lockAspectRatio": true
+      },
+      "refs": {
+        "session": "resize-session"
+      }
+    },
+    {
+      "id": "resize-cancel",
+      "op": "transform.cancel",
+      "refs": {
+        "session": "resize-session"
+      }
+    },
+    {
+      "id": "directed-rotation",
+      "op": "rotation.start",
+      "input": {
+        "angle": 90
+      },
+      "options": {
+        "durationMs": 0,
+        "path": "clockwise"
+      }
+    },
+    {
+      "id": "directed-finished",
+      "op": "rotation.finished",
+      "refs": {
+        "animation": "directed-rotation"
+      }
+    },
+    {
+      "id": "replace-async-options",
+      "op": "data.replaceAsync",
+      "input": [
+        {
+          "type": "item",
+          "id": "a",
+          "size": {
+            "width": 100,
+            "height": 100
+          },
+          "components": [
+            {
+              "type": "background",
+              "id": "background",
+              "source": {
+                "type": "rect",
+                "fill": "#aaaaaa"
+              }
+            },
+            {
+              "type": "bar",
+              "id": "bar",
+              "size": {
+                "width": 20,
+                "height": 20
+              },
+              "source": {
+                "type": "rect",
+                "fill": "#bbbbbb"
+              },
+              "animation": false
+            },
+            {
+              "type": "icon",
+              "id": "icon",
+              "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+              "size": 12
+            },
+            {
+              "type": "text",
+              "id": "text",
+              "text": "before",
+              "style": {
+                "fontSize": 12
+              }
+            }
+          ]
+        },
+        {
+          "type": "item",
+          "id": "b",
+          "size": {
+            "width": 100,
+            "height": 100
+          },
+          "components": [
+            {
+              "type": "background",
+              "id": "background",
+              "source": {
+                "type": "rect",
+                "fill": "#aaaaaa"
+              }
+            },
+            {
+              "type": "bar",
+              "id": "bar",
+              "size": {
+                "width": 20,
+                "height": 20
+              },
+              "source": {
+                "type": "rect",
+                "fill": "#bbbbbb"
+              },
+              "animation": false
+            },
+            {
+              "type": "icon",
+              "id": "icon",
+              "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+              "size": 12
+            },
+            {
+              "type": "text",
+              "id": "text",
+              "text": "before",
+              "style": {
+                "fontSize": 12
+              }
+            }
+          ]
+        }
+      ],
+      "options": {
+        "fit": false,
+        "strict": true,
+        "datasetRef": "binding-fixture"
+      }
+    }
+  ],
+  "expected": {
+    "rootIds": [
+      "a",
+      "b"
+    ],
+    "elementTypes": [
+      "item"
+    ],
+    "componentTypes": [
+      "background",
+      "bar",
+      "icon",
+      "text"
+    ]
+  }
+}

@@ -9,7 +9,7 @@
   performance work, start at `docs/engineering/README.md` and use
   `docs/engineering/system-map.md` to find the narrow source owner, focused
   tests, and risk gate.
-- Do not scan all of `docs/**` or `src/**` first. Expand from the selected owner
+- Do not scan all of `docs/**` or `packages/javascript/src/**` first. Expand from the selected owner
   only when it links to another authority or evidence shows cross-owner impact.
   Routers locate owners; they do not duplicate feature contracts.
 - Read the owning source before its callers. Extend an existing authority or
@@ -24,6 +24,15 @@
   product decision before changing either side.
 - When a documented public contract changes, update its owning page in the
   same change.
+
+## Package ownership
+
+- The root and `verification/` are private npm workspaces. JavaScript source,
+  tests, examples and performance tools are relative to `packages/javascript/`.
+- Use root `js:*` forwarding commands or run package commands in that directory.
+  Flutter environment and releases are owned by `docs/engineering/flutter-package.md`.
+- Shared contract definitions never substitute for executed cross-runtime or
+  Android/iOS qualification. Flutter foundation publication remains blocked.
 
 ## Keep changes focused
 

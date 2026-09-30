@@ -1,5 +1,7 @@
-## 0.1.0-dev.1
+# Changelog
 
-- Establish the package layout, pinned development SDK and native example host.
-- Add analysis, consumer verification and publication dry-run tooling.
-- No rendering or interaction API is implemented in this foundation.
+## Unreleased
+
+- Prepare independent native package version 1.0.0-alpha.1.
+- Add managed icons, Fira Code assets and extracted artifact verification.
+- Keep publication blocked while public runtime implementation is pending.

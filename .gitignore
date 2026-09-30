@@ -3,3 +3,11 @@ dist/
 .artifacts/
 *.log
 .gstack/
+
+# Workspace build and release evidence
+.release-dart/
+.dart_tool/
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/

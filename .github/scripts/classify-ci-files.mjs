@@ -9,6 +9,36 @@ export function isLightweightValidationPath(path) {
     || path.startsWith('docs/engineering/');
 }
 
+export function requiresFlutterValidation(path) {
+  return path.startsWith('packages/flutter/')
+    || path.startsWith('conformance/')
+    || path.startsWith('verification/conformance/')
+    || path.startsWith('verification/flutter/')
+    || (path.startsWith('docs/') && !path.startsWith('docs/engineering/'))
+    || ['package.json', 'package-lock.json', '.nvmrc',
+      'verification/package.json', 'verification/tsconfig.json', 'verification/eslint.config.js',
+      'packages/javascript/package.json', 'packages/javascript/tsconfig.json',
+      'packages/javascript/tsconfig.build.json'].includes(path)
+    || ['.github/workflows/ci.yaml', '.github/workflows/publish-dart.yaml', '.github/workflows/release-please.yaml',
+      'release-please-config.json', '.release-please-manifest.json'].includes(path)
+    || path.startsWith('.github/scripts/dart-release.')
+    || path.startsWith('.github/scripts/pub-artifact.')
+    || path.startsWith('.github/scripts/release-')
+    || path.startsWith('.github/scripts/classify-ci-files.');
+}
+
+export function requiresContractValidation(path) {
+  return requiresFlutterValidation(path)
+    || path.startsWith('packages/javascript/src/')
+    || path.startsWith('packages/javascript/tests/');
+}
+
+export function requiresNpmValidation(path) {
+  return !isLightweightValidationPath(path)
+    && !path.startsWith('packages/flutter/')
+    && !path.startsWith('verification/flutter/');
+}
+
 export function parseNullDelimitedPaths(output) {
   return output.split('\0').filter(Boolean);
 }
@@ -24,7 +54,10 @@ export function classifyChangedPaths(paths) {
 
   return {
     fullValidation:
-      paths.length === 0 || paths.some((path) => !isLightweightValidationPath(path)),
+      paths.length === 0 || paths.some(requiresNpmValidation),
+    contractValidation: paths.length === 0 || paths.some(requiresContractValidation),
+    flutterValidation:
+      paths.length === 0 || paths.some(requiresFlutterValidation),
   };
 }
 
@@ -55,6 +88,8 @@ function main() {
 
   const result = classifyGitDiff(baseSha, resultSha);
   process.stdout.write(`full_validation=${result.fullValidation}\n`);
+  process.stdout.write(`contract_validation=${result.contractValidation}\n`);
+  process.stdout.write(`flutter_validation=${result.flutterValidation}\n`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

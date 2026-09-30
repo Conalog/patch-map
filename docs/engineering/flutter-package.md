@@ -1,29 +1,49 @@
-# Flutter package development and release
+# Peer package environment and releases
 
-Owner: `packages/flutter/`; verification: `verification/flutter/run.mjs`;
-CI: `.github/workflows/flutter.yaml`. The JavaScript package keeps its existing
-release process. Flutter package versions and future `flutter-v<version>` tags
-are independent of npm versions and `v<version>` tags.
+`packages/javascript/` owns the existing npm runtime. `packages/flutter/` owns
+the new native package. The root and `verification/` are private npm workspaces;
+shared behavior targets live in `conformance/`. No experiment renderer was copied.
 
-## Development baseline
+## SDK and dependencies
 
-Use Node.js 22 (`nvm use`) for repository commands. The Flutter SDK pin is
-`packages/flutter/.fvmrc`: Flutter 3.41.4 / Dart 3.11.1. FVM is optional; a
-matching SDK on PATH works. CI reads this pin and the verifier rejects drift.
-Runtime SDK lower bounds in pubspec are consumer constraints, not CI pins.
+Consumer bounds: Dart >=3.11.0 <4 and Flutter >=3.41.0. `.fvmrc` selects the CI
+baseline, Flutter 3.41.4 / Dart 3.11.1. `packages/flutter/toolchains.json` records
+that baseline separately from the referenced service SDK, Flutter 3.44.9 /
+Dart 3.12.2, revision 6b182d2c7585eba26d4edce0f97630effd256c33.
+Use `FLUTTER_BIN` to verify with a specific SDK; a lower bound is not an exact pin
+or proof of functional compatibility across every supported version.
 
 ```sh
-npm run flutter:analyze
-npm run flutter:test
+npm ci
 npm run flutter:verify
+FLUTTER_BIN=/path/to/flutter/bin/flutter npm run flutter:verify
 ```
 
+Current dependencies are Flutter, bounded flutter_svg and vector_graphics for
+managed asset verification. The experiment's Brotli and AVIF runtime dependencies
+will be added with their codec owner and real decode tests. No Kotlin plugin source
+exclusion or experimental Android DSL workaround is inherited. Android host uses
+JVM 17, NDK 28.2.13676358 and a bounded 2 GiB Gradle heap.
+
+## Verification and artifact ownership
+
 `flutter:verify` resolves dependencies, checks formatting and analysis, runs
-example widget tests, validates publication and checks an extracted consumer.
-Package tests will also run when a package `test/` directory is added. Currently
-there is no renderer or public runtime API; the example only validates the host.
-Its lockfile is committed; library resolution is unlocked for consumer coverage.
-Native builds are separate CI gates, using the generated Android/iOS host.
+example tests, checks pub's dry run, and tests an extracted installed consumer.
+That consumer checks the package import, actual SVG decode and bundled font load.
+Its report records toolchain facts, input and artifact hashes, logs and scope.
+Library resolution is unlocked; the example lock is committed.
+
+The publication artifact contains library Dart sources, managed assets and font
+license, pubspec, README, integration notes, changelog, MIT license, third-party
+notices and analyzer policy. Example, tests, tools, locks, SDK pins and local
+artifacts are excluded. The verifier rejects unknown inputs and symlinks and
+checks extracted bytes before resolving the independent consumer.
+
+CI's stable `CI` aggregate includes changed-package JS, Flutter, shared-tooling
+and Android/iOS host build checks. Host builds do not qualify rendering or devices.
+The service SDK can be checked locally with the same commands; CI retains its
+recorded baseline. iOS simulator builds additionally require the selected Xcode's
+iOS platform installation.
 
 ```sh
 cd packages/flutter/example
@@ -32,50 +52,25 @@ flutter build apk --debug --no-pub
 flutter build ios --simulator --debug --no-codesign --no-pub
 ```
 
-Android needs a JDK and Android SDK. iOS simulator builds need macOS and Xcode.
-If Xcode reports no eligible simulator destination, install the iOS platform
-matching the selected Xcode in Settings > Components before rerunning the gate.
-These builds qualify host wiring, not device rendering, performance or App Store
-distribution. Do not claim platform support before renderer qualification.
+## Independent release contract
 
-## Artifact boundary
+`release-please-config.json` plans separate npm and Dart release PRs with `js-v`
+and `dart-v` tags. The pinned planner retains npm's actual historical v1.0.0-alpha.9
+boundary until its first prefixed release. Dart-only releases leave the npm
+package and root lock version unchanged. Its initial planned version is
+1.0.0-alpha.1; the release manifest receives Dart only after that release.
 
-`.pubignore` permits library Dart sources, README, changelog, MIT license,
-pubspec and the minimal Dart example. Native scaffolding, tests, SDK metadata,
-locks, local assets and benchmark evidence stay outside the published package.
-Add any future required assets to both the pubignore policy and verifier.
+`publish.yaml` publishes the verified npm artifact. `publish-dart.yaml` checks
+exact identity, ancestry and artifact bytes; publication additionally requires
+`PUBDEV_PUBLISH_ENABLED`, the `pub.dev` environment, and complete collected
+Android/iOS and shared contract evidence. `implementationStatus: foundation` in
+the contract manifest rejects qualification even with complete-looking reports.
+`publish_to: none` also rejects Dart publication identity. Definition checks and
+asset consumer tests cannot claim public SDK parity.
 
-`npm run verify:flutter-package` takes a fresh snapshot of tracked and non-ignored
-untracked package files, runs pub's dry run, then uses Dart 3.11.1's archive-only
-`--to-archive` option. It verifies actual archive entries and resolves/analyzes
-the example against extracted package sources outside the repository. The
-archive lives in ignored `.artifacts/flutter/package.tar.gz`; it is local
-verification evidence, not an approved release. Recheck the archive option when
-upgrading the SDK. This path never authenticates or uploads.
-
-## First release
-
-`publish_to: none` deliberately blocks uploads while only the foundation exists.
-Before enabling a release, implement and qualify the minimum native map behavior
-with recorded consumer inputs and overlapping request flows. Verify final-state
-correctness, camera/selection continuity and device performance separately from
-the service app. Do not migrate the previous experiment wholesale or infer speed
-from the development host's startup.
-
-When a functional release is explicitly authorized:
-
-1. Confirm pub.dev name availability and the owning Google account/publisher.
-2. Select an independent prerelease version and update the package changelog.
-3. Remove `publish_to: none`, complete all package/native/device gates, and commit.
-4. Run `flutter pub publish --dry-run` from the package root at the exact clean
-   release revision, inspect the file list, then use `flutter pub publish` for the
-   first upload. No credentials belong in the repository.
-5. Transfer the package to the organization's verified publisher if required.
-6. After the first upload, configure pub.dev's GitHub OIDC publishing for this
-   repository and a `flutter-v{{version}}` tag pattern. Add a separately reviewed
-   workflow with matching version/tag validation and qualified artifact checks.
-
-CI currently has read-only permissions and no upload step. First-upload ownership
-and later OIDC configuration require external account setup; they are not implied
-by passing a dry run. See [publishing](https://dart.dev/tools/pub/publishing) and
-[automated publishing](https://dart.dev/tools/pub/automated-publishing).
+The first pub.dev upload requires a functional, qualified package and explicit
+publication authorization. After first upload, configure repository OIDC with
+`dart-v{{version}}` and the `pub.dev` environment. The [official automated
+publishing guide](https://dart.dev/tools/pub/automated-publishing) requires an
+existing package and a tag-push workflow. External accounts, variables, secrets,
+tags and registries are not configured by this foundation change.

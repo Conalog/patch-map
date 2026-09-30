@@ -29,6 +29,7 @@ async function walk(directory) {
   const nested = await Promise.all(entries.flatMap((entry) => {
     if (entry.isDirectory() && ignoredDirectories.has(entry.name)) return [];
     const target = path.join(directory, entry.name);
+    if (entry.isDirectory() && relative(target) === 'packages/javascript/docs') return [];
     if (entry.isDirectory()) return [walk(target)];
     return entry.isFile() ? [[target]] : [];
   }));
@@ -47,7 +48,11 @@ async function verifyLinks(file, source) {
     ) continue;
     const [pathname] = destination.split('#', 1);
     const target = path.resolve(path.dirname(file), decodeURIComponent(pathname));
-    await stat(target).catch(() => {
+    const repoPath = relative(target);
+    const ownerTarget = repoPath.startsWith('packages/javascript/docs/')
+      ? path.resolve(root, repoPath.slice('packages/javascript/'.length))
+      : repoPath.startsWith('examples/') ? path.resolve(root, 'packages/javascript', repoPath) : target;
+    await stat(ownerTarget).catch(() => {
       failures.push(`${relative(file)} links to missing ${destination}`);
     });
   }
@@ -60,7 +65,9 @@ async function verifyInlineRepositoryPaths(file, source) {
   for (const match of paths) {
     const destination = match[1];
     if (/[*?[\]<>]/u.test(destination)) continue;
-    const exists = await stat(path.resolve(root, destination))
+    const jsOwned = /^(?:src|tests|performance|examples)\//u.test(destination) || ['vite.config.ts', 'tsconfig.json', 'tsconfig.build.json', 'eslint.config.js'].includes(destination);
+    const ownerRoot = jsOwned ? path.resolve(root, 'packages/javascript') : root;
+    const exists = await stat(path.resolve(ownerRoot, destination))
       .then(() => true)
       .catch(() => false);
     if (!exists) {

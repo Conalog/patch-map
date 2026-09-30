@@ -1,5 +1,8 @@
 # Engineering fast path
 
+JavaScript source paths and focused commands below are relative to
+`packages/javascript/`. Root commands use the `js:` prefix.
+
 Use this directory to find the current code owner and the smallest credible
 verification set. Product usage belongs in [`docs/`](../README.md); this
 directory owns internal structure and engineering policy.

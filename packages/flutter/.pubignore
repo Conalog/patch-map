@@ -1,11 +1,12 @@
-# Allow only consumer documentation, sources and the minimal Dart example.
-/*
-!/lib/
-!/example/
-/example/*
-!/example/lib/
-!/example/pubspec.yaml
-!/pubspec.yaml
-!/README.md
-!/CHANGELOG.md
-!/LICENSE
+.dart_tool/
+build/
+coverage/
+test/
+tool/
+example/
+pubspec.lock
+.flutter-plugins-dependencies
+.gitignore
+
+.fvmrc
+toolchains.json

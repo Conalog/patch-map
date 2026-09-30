@@ -7,6 +7,7 @@ resource lifecycle.
 ## Default loop
 
 ```bash
+cd packages/javascript
 npx vitest run tests/<owner>/<focused>.test.ts --maxWorkers=2
 ```
 
@@ -16,14 +17,14 @@ changes. Do not repeatedly run broad suites while editing: pull-request CI owns
 the complete gate matrix. Use `npm test` locally only when behavior crosses
 several owners or a focused witness cannot cover the changed contract.
 
-Add only the matching gate for broad runtime or release risk:
+Run these forwarding commands from the repository root for runtime or release risk:
 
 ```bash
-npm run build
+npm run js:build
 npm run verify:docs
-npm run verify:package -- --require-audit
-npm run performance:smoke
-npm run verify:memory
+npm run js:verify:package -- --require-audit
+npm run js:performance:smoke
+npm run js:verify:memory
 ```
 
 ## Risk routing

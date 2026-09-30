@@ -1,0 +1,464 @@
+{
+  "schemaRevision": "patch-map-conformance/1",
+  "id": "structural",
+  "surface": {
+    "width": 480,
+    "height": 520,
+    "pixelRatio": 1
+  },
+  "dataset": [
+    {
+      "type": "group",
+      "id": "g1",
+      "attrs": {
+        "x": 30,
+        "y": 40,
+        "angle": 90,
+        "scaleX": 2,
+        "scaleY": 2
+      },
+      "children": [
+        {
+          "type": "rect",
+          "id": "a",
+          "attrs": {
+            "x": 10,
+            "y": 5
+          },
+          "size": {
+            "width": 20,
+            "height": 10
+          }
+        },
+        {
+          "type": "rect",
+          "id": "b",
+          "attrs": {
+            "x": 40,
+            "y": 5
+          },
+          "size": {
+            "width": 20,
+            "height": 10
+          }
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "id": "g2",
+      "attrs": {
+        "x": 200,
+        "y": 40,
+        "angle": -90
+      },
+      "children": []
+    },
+    {
+      "type": "rect",
+      "id": "c",
+      "attrs": {
+        "x": 20,
+        "y": 180
+      },
+      "size": {
+        "width": 20,
+        "height": 10
+      }
+    },
+    {
+      "type": "rect",
+      "id": "d",
+      "attrs": {
+        "x": 60,
+        "y": 180
+      },
+      "size": {
+        "width": 20,
+        "height": 10
+      }
+    },
+    {
+      "type": "group",
+      "id": "referenced",
+      "attrs": {
+        "x": 150,
+        "y": 160
+      },
+      "children": [
+        {
+          "type": "rect",
+          "id": "r",
+          "attrs": {
+            "x": 3,
+            "y": 4
+          },
+          "size": {
+            "width": 20,
+            "height": 10
+          }
+        }
+      ]
+    },
+    {
+      "type": "relations",
+      "id": "rel",
+      "links": [
+        {
+          "source": "referenced",
+          "target": "c"
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "id": "locked",
+      "locked": true,
+      "children": [
+        {
+          "type": "rect",
+          "id": "locked-child",
+          "attrs": {
+            "x": 0,
+            "y": 0
+          },
+          "size": {
+            "width": 20,
+            "height": 10
+          }
+        }
+      ]
+    },
+    {
+      "type": "item",
+      "id": "item",
+      "size": {
+        "width": 30,
+        "height": 60
+      },
+      "components": [
+        {
+          "type": "bar",
+          "id": "bar",
+          "size": {
+            "width": 10,
+            "height": 20
+          },
+          "source": {
+            "type": "rect"
+          },
+          "animation": false
+        }
+      ]
+    }
+  ],
+  "commands": [
+    {
+      "id": "move-world-to-rotated-parent",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "move",
+          "id": "a",
+          "parentId": "g2",
+          "index": 0
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "move-world-back",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "move",
+          "id": "a",
+          "parentId": "g1",
+          "index": 0
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "group-rebases-world",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "group",
+          "ids": [
+            "b",
+            "a"
+          ],
+          "value": {
+            "type": "group",
+            "id": "wrapper",
+            "attrs": {
+              "x": 5,
+              "y": 6,
+              "angle": 90
+            }
+          }
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "ungroup-rebases-world",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "ungroup",
+          "id": "wrapper"
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "same-parent-adjacent-unchanged",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "move",
+          "id": "a",
+          "parentId": "g1",
+          "index": 1
+        }
+      ],
+      "expect": {
+        "status": "unchanged"
+      }
+    },
+    {
+      "id": "same-parent-move-end",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "move",
+          "id": "a",
+          "parentId": "g1",
+          "index": 2
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "root-group-rotation",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "group",
+          "ids": [
+            "c",
+            "d"
+          ],
+          "value": {
+            "type": "group",
+            "id": "root-wrapper",
+            "attrs": {
+              "x": 10,
+              "y": 20,
+              "angle": 90
+            }
+          }
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "root-ungroup-rotation",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "ungroup",
+          "id": "root-wrapper"
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "locked-ancestor-refuses",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "move",
+          "id": "locked-child",
+          "parentId": null,
+          "index": 0
+        }
+      ],
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "locked-destination-refuses",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "move",
+          "id": "c",
+          "parentId": "locked",
+          "index": 0
+        }
+      ],
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "referenced-ungroup-rejects",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "ungroup",
+          "id": "referenced"
+        }
+      ],
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "referenced-ungroup-removes-links",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "ungroup",
+          "id": "referenced",
+          "relationPolicy": "remove"
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "add-selects-new-owner",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "add",
+          "parentId": "g1",
+          "index": 1,
+          "value": {
+            "type": "rect",
+            "id": "new",
+            "attrs": {
+              "x": 1,
+              "y": 2
+            },
+            "size": {
+              "width": 20,
+              "height": 10
+            }
+          }
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "remove-clears-selection",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "remove",
+          "id": "new"
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "component-replace",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "replace",
+          "id": "item",
+          "componentId": "bar",
+          "value": {
+            "type": "bar",
+            "id": "bar",
+            "size": {
+              "width": 12,
+              "height": 24
+            },
+            "source": {
+              "type": "rect"
+            },
+            "animation": false
+          }
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "component-remove",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "remove",
+          "id": "item",
+          "componentId": "bar"
+        }
+      ],
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "component-remove-undo",
+      "op": "history.undo",
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "component-remove-redo",
+      "op": "history.redo",
+      "expect": {
+        "status": "committed"
+      }
+    }
+  ],
+  "expected": {
+    "rootIds": [
+      "g1",
+      "g2",
+      "c",
+      "d",
+      "referenced",
+      "rel",
+      "locked",
+      "item"
+    ],
+    "elementTypes": [
+      "group",
+      "item",
+      "relations",
+      "rect"
+    ],
+    "componentTypes": [
+      "bar"
+    ]
+  }
+}

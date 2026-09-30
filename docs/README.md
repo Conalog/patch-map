@@ -21,6 +21,9 @@ repeat feature contracts.
 | Integrate, diagnose, handle errors, or define the accessibility boundary | [Host integration](integration/host.md) |
 | Check supported runtimes and release policy | [Compatibility](compatibility.md) |
 
-Runnable examples live in [`examples/`](../examples/).
+Runnable examples live in [`examples/`](../packages/javascript/examples/).
 Exact TypeScript shapes are exported by `@conalog/patch-map`; these pages own
 behavior, state ordering, failure meaning, and the shortest verification route.
+
+Repository source paths in these JavaScript API pages are relative to
+`packages/javascript/`; published example links resolve inside the npm artifact.

@@ -1,0 +1,585 @@
+{
+  "schemaRevision": "patch-map-conformance/1",
+  "id": "codecs",
+  "description": "Real native/web image and font container decoding. Register assets, acquire requiredAssets through the public runtime session, then render; release all acquisitions on teardown.",
+  "surface": {
+    "width": 480,
+    "height": 550,
+    "pixelRatio": 1,
+    "background": "#f8fafc"
+  },
+  "assets": [
+    {
+      "alias": "codec-png",
+      "kind": "image",
+      "descriptor": {
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAALUlEQVR4nGN8YGDAgA0ENChgFWdiIBEwjWogArAEGGzAKnFAwGGo+IFpGGgAACTWBJISigGiAAAAAElFTkSuQmCC"
+      }
+    },
+    {
+      "alias": "codec-jpeg",
+      "kind": "image",
+      "descriptor": {
+        "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAAQABADAREAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD4nr+Dz/rAPtCvoD/zfz4Hr/sQP6wP64K/8v8AP+jg/9k="
+      }
+    },
+    {
+      "alias": "codec-webp",
+      "kind": "image",
+      "descriptor": {
+        "src": "data:image/webp;base64,UklGRkIAAABXRUJQVlA4TDYAAAAvD8ADAB8gECD+byRIkCJHIEBIkyxNgkCAWJEgRZrk+Q/nClYBYbbRJCc5yXufQUT/Y9Ov4AM="
+      }
+    },
+    {
+      "alias": "codec-gif",
+      "kind": "image",
+      "descriptor": {
+        "src": "data:image/gif;base64,R0lGODdhEAAQAIEAAPDAIDCwUDBg4OAwMCwAAAAAEAAQAEAIRgAHCBwoMIDBgwYFKFyoEIDDhw4JEkSIkCFDiBAlDqR4UGNBjgEsLsT4UGRDkgA8DgAZQCVLlyBhcjQpACUAmjZxotRJMiAAOw=="
+      }
+    },
+    {
+      "alias": "codec-svg",
+      "kind": "image",
+      "descriptor": {
+        "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBmaWxsPSIjZTAzMDMwIiBkPSJNMCAwaDh2OEgweiIvPjxwYXRoIGZpbGw9IiMzMGIwNTAiIGQ9Ik04IDBoOHY4SDh6Ii8+PHBhdGggZmlsbD0iIzMwNjBlMCIgZD0iTTAgOGg4djhIMHoiLz48cGF0aCBmaWxsPSIjZjBjMDIwIiBkPSJNOCA4aDh2OEg4eiIvPjwvc3ZnPg==",
+        "parser": "svg"
+      }
+    },
+    {
+      "alias": "codec-avif",
+      "kind": "image",
+      "descriptor": {
+        "src": "data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAADrbWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAAAAAAAOcGl0bQAAAAAAAQAAAB5pbG9jAAAAAEQAAAEAAQAAAAEAAAETAAAAJQAAAChpaW5mAAAAAAABAAAAGmluZmUCAAAAAAEAAGF2MDFDb2xvcgAAAABqaXBycAAAAEtpcGNvAAAAFGlzcGUAAAAAAAAAEAAAABAAAAAQcGl4aQAAAAADCAgIAAAADGF2MUOBIAAAAAAAE2NvbHJuY2x4AAEADQAGgAAAABdpcG1hAAAAAAAAAAEAAQQBAoMEAAAALW1kYXQSAAoFOAz/2CQyGkQAAIbKytt3AULGQuS36uw/G5oeg7/fNLAY"
+      }
+    },
+    {
+      "alias": "codec-ttf",
+      "kind": "font",
+      "descriptor": {
+        "src": "data:font/ttf;base64,AAEAAAAKAIAAAwAgT1MvMkUARJoAAAEoAAAAYGNtYXAARQDOAAABmAAAAERnbHlmN4by5QAAAewAAAOSaGVhZFm3pWQAAACsAAAANmhoZWEFSAIoAAAA5AAAACRobXR4AlgAAAAAAYgAAAAQbG9jYQJRA3AAAAHcAAAAEG1heHAAHABSAAABCAAAACBuYW1lOk6WNAAABYAAAAK1cG9zdBhQLQ8AAAg4AAAAWAABAAAAAQAAPzk/Ml8PPPUAAQPoAAAAAHwlsIAAAAAAfCWwgAAyAGQCJgMgAAAAAwACAAAAAAAAAAEAAANS/2oAAAJYAAAAZAH0AAEAAAAAAAAAAAAAAAAAAAABAAEAAAAHAFAAFAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAwJYAZAABQAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAPz8/PwAAACAAQgNS/2oAAANSAJYAAAAAAAAAAAAAAAAAAAAgAAACWAAAAAAAAAAAAAAAAAAAAAAAAgAAAAMAAAAUAAMAAQAAABQABAAwAAAACAAIAAIAAAAgADIAQv//AAAAIAAwAEH////h/9T/wQABAAAAAAAAAAAAAAAAAAAAZwDWAUABewHJABIAMgBkAiYDIAADAAcACwAPABMAFwAbAB8AIwAnACsALwAzADcAOwA/AEMARwAAEzUzFTE1MxUxNTMVBTUzFSE1MxUFNTMVITUzFQU1MxUxNTMVMTUzFTE1MxUxNTMVBTUzFSE1MxUFNTMVITUzFQU1MxUhNTMVlmRkZP5wZAEsZP4MZAEsZP4MZGRkZGT+DGQBLGT+DGQBLGT+DGQBLGQCvGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAAFAAyAGQCJgMgAAMABwALAA8AEwAXABsAHwAjACcAKwAvADMANwA7AD8AQwBHAEsATwAAEzUzFTE1MxUxNTMVMTUzFQU1MxUhNTMVBTUzFSE1MxUFNTMVMTUzFTE1MxUxNTMVBTUzFSE1MxUFNTMVITUzFQU1MxUxNTMVMTUzFTE1MxUyZGRkZP5wZAEsZP4MZAEsZP4MZGRkZP5wZAEsZP4MZAEsZP4MZGRkZAK8ZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAAEwAyAGQCJgMgAAMABwALAA8AEwAXABsAHwAjACcAKwAvADMANwA7AD8AQwBHAEsAABM1MxUxNTMVMTUzFQU1MxUhNTMVBTUzFTM1MxUxNTMVBTUzFTM1MxUzNTMVBTUzFTE1MxUzNTMVBTUzFSE1MxUFNTMVMTUzFTE1MxWWZGRk/nBkASxk/gxkyGRk/gxkZGRkZP4MZGTIZP4MZAEsZP5wZGRkArxkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAKAJYAZAHCAyAAAwAHAAsADwATABcAGwAfACMAJwAAEzUzFQc1MxUxNTMVBzUzFQc1MxUHNTMVBzUzFQc1MxUxNTMVMTUzFfpkyGRkZGRkZGRkZGTIZGRkArxkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAAADgAyAGQCJgMgAAMABwALAA8AEwAXABsAHwAjACcAKwAvADMANwAAEzUzFTE1MxUxNTMVBTUzFSE1MxUHNTMVBzUzFQc1MxUHNTMVBzUzFTE1MxUxNTMVMTUzFTE1MxWWZGRk/nBkASxkZGTIZMhkyGTIZGRkZGQCvGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQAAAAAAA4ArgABAAAAAAAAADEAAAABAAAAAAABABQAMQABAAAAAAACAAcARQABAAAAAAADAB4ATAABAAAAAAAEABwAagABAAAAAAAFAAsAhgABAAAAAAAGABwAkQADAAEECQAAAGIArQADAAEECQABACgBDwADAAEECQACAA4BNwADAAEECQADADwBRQADAAEECQAEADgBgQADAAEECQAFABYBuQADAAEECQAGADgBz09yaWdpbmFsIFBhdGNoTWFwIGNvZGVjIHRlc3QgZ2x5cGhzLiBNSVQgbGljZW5zZS5QYXRjaE1hcENvZGVjRml4dHVyZVJlZ3VsYXJQYXRjaE1hcENvZGVjRml4dHVyZS1SZWd1bGFyLTFQYXRjaE1hcENvZGVjRml4dHVyZSBSZWd1bGFyVmVyc2lvbiAxLjBQYXRjaE1hcENvZGVjRml4dHVyZS1SZWd1bGFyAE8AcgBpAGcAaQBuAGEAbAAgAFAAYQB0AGMAaABNAGEAcAAgAGMAbwBkAGUAYwAgAHQAZQBzAHQAIABnAGwAeQBwAGgAcwAuACAATQBJAFQAIABsAGkAYwBlAG4AcwBlAC4AUABhAHQAYwBoAE0AYQBwAEMAbwBkAGUAYwBGAGkAeAB0AHUAcgBlAFIAZQBnAHUAbABhAHIAUABhAHQAYwBoAE0AYQBwAEMAbwBkAGUAYwBGAGkAeAB0AHUAcgBlAC0AUgBlAGcAdQBsAGEAcgAtADEAUABhAHQAYwBoAE0AYQBwAEMAbwBkAGUAYwBGAGkAeAB0AHUAcgBlACAAUgBlAGcAdQBsAGEAcgBWAGUAcgBzAGkAbwBuACAAMQAuADAAUABhAHQAYwBoAE0AYQBwAEMAbwBkAGUAYwBGAGkAeAB0AHUAcgBlAC0AUgBlAGcAdQBsAGEAcgAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcAAAADAQIBAwEEAQUBBgd1bmkwMDQxB3VuaTAwNDIHdW5pMDAzMAd1bmkwMDMxB3VuaTAwMzI=",
+        "parser": "web-font",
+        "data": {
+          "family": "PatchMapCodecTTF",
+          "weights": [
+            "400"
+          ]
+        }
+      },
+      "fontWeight": 400
+    },
+    {
+      "alias": "codec-otf",
+      "kind": "font",
+      "descriptor": {
+        "src": "data:font/otf;base64,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",
+        "parser": "web-font",
+        "data": {
+          "family": "PatchMapCodecOTF",
+          "weights": [
+            "400"
+          ]
+        }
+      },
+      "fontWeight": 400
+    },
+    {
+      "alias": "codec-woff",
+      "kind": "font",
+      "descriptor": {
+        "src": "data:font/woff;base64,d09GRgABAAAAAAQcAAoAAAAACJAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAABPUy8yAAABZAAAAC4AAABgRQBEmmNtYXAAAAGgAAAAOAAAAEQARQDOZ2x5ZgAAAegAAADPAAADkjeG8uVoZWFkAAAA9AAAADYAAAA2WbelZGhoZWEAAAEsAAAAHwAAACQFSAIoaG10eAAAAZQAAAAMAAAAEAJYAABsb2NhAAAB2AAAABAAAAAQAlEDcG1heHAAAAFMAAAAGAAAACAAHABSbmFtZQAAArgAAAEzAAACtTpOljRwb3N0AAAD7AAAAC4AAABYGFAtDwABAAAAAQAAPzk/Ml8PPPUAAQPoAAAAAHwlsIAAAAAAfCWwgAAyAGQCJgMgAAAAAwACAAAAAAAAeJxjYGRgYA76n8XAwBTBwMCQwviFASiCAhgBV7sDdQB4nGNgZGBgYGcIYBBhAAEmBjQAAAq6AG94nGNgZopgnMDAysDCQBgwInPsgQBIKTA4MQf9z2JgYA5imIamXoGBAQDICQUgAAB4nGOKYEABAAVYAFt4nGNgYGBiYGBgBmIRIMkIplkYDIA0BxCC5BQYjBic/v8HswwYHP/////w/5X/B8FqwQAA16MLDQAAAAAAAABnANYBQAF7Acl4nJWRMQ6CQBBFHxBDokYT0VhYqDHRQhMDG2NhYWFhYeEl5gCchtNYWXkmC6LoQkBAYDZ/JrO7xX8zDPAQc2nNsLDp0MdhzIQpC1as2aLYc+DIiTM4OzVytVpvzX+q+6OiP1ENRCT0xdhI2NU5iqRJsnmT2gHDRjQXrlmiOlRV754UouVvmpB96ZyGdKXbUqk7pRVzqBK2zMYektrYu9NcfmMs2gSIcS9h+hDY2oFdoNjdM7IUx6PCBvRqTbJwfv9c5GcVmfkeqTmbFxE60/UAeJydkj9LA0EQxd/mn4gQG7ES2dLmjlylhV1IIOCREEL6c7PcrSx7Ye8OktLG3g+ivZ/Cr+STrBYhSPBgbn4z780wxQLo4x0Cuy9h7FjggtWOWzjBKHAb13gI3MEVngJ3cYaXwD32X+kUnVNWj3gLLHAjzgO30Be3gdu4F6PAHdyJ58BdXIqPwD32P6fe5MZlVs6yWhVptpaqXGkla13VMrfbdVHFMp0spDVKu0rHP77ht21sNnXj9Vznjc38ISkKWpQcUmVQl9pXpnQyiQd/LcEUHgY5wyGDhcSMuYZCgZS0ZkehxAqaWVLRqPiXnLHYUi9Yx6xTTLBgttyl6HLsayr7+4a/28Z0bqg1vEFjzsjJli5/9FS0NxfxQRw7K/dml6w8rzb0O6oJrx/895Iv/ViJ+gB4nGNgYsAP2IGYmZGJkZmRhZGVkY29NC/TwMDEEEobQWhjAygNFTc2AgDgqgqcAAA=",
+        "parser": "web-font",
+        "data": {
+          "family": "PatchMapCodecWOFF",
+          "weights": [
+            "400"
+          ]
+        }
+      },
+      "fontWeight": 400
+    },
+    {
+      "alias": "codec-woff2",
+      "kind": "font",
+      "descriptor": {
+        "src": "data:font/woff2;base64,d09GMgABAAAAAAKQAAoAAAAACJQAAAJHAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAARAqHGIY3ATYCJAMQCxAABCAFhTUHWBtxByAehXHDvbShTDFgOjjI54Pn37XP+5JZREVRCzj5S1xm9yEzC0i2ZWGrEI7fugpdV1+m5+u27+5II0sg4KZJQH8FU/s8l9NrLoFvZwEVZRqPNQDDpbcWtYZJL8ym8QLOEkiQMrfmjsqXNKZ6rn2CoujVO6LXne5J4tFQoesjGDeO7WvzoqzxBLEbhxXQoJAm5U6PD1KlUsCIODYDDN/ASJjvc8ifVQqAbHAVckM+AOABAMhXqEC67JP60TIQo4vJZSEvwoKWgKYolU8Kq9ByGRJvmjJMQgHFnemG/A3D/rDsp5hk4PGXIAiA9a6zBXXSn3UJkiAwo4J1yc0tryzWoeq+5mlHNC45CAnXgXfT/93mj3onOGd1R+zDSHCZIIshASA3vXVPV6M53b9T0z+A9evl9n5eRLAqtAE0BUBwTj9CPSDol2haBqV0+oEUVxROUEDK9hzRs2hCFLJQUpyEVuYCPCVGkSTD4elkJe6jyUkDEp4liKpyoGTXBq27k/C0t4MkxX1KJQ/lv13ORl7XbV+MTz8sTbtbyGND4yvTw3MN5uLZG798T5yaPr4MnhpZnl+YDT8Bxziaq18n1ttsMrH7xK1tg++nyWXGN2LoV58UN864Im6eM+yiuGmGMyUQcox5oTnzjCHjVkwbNqeBcdFZNxjjRjihSXNCDS7zx7evxikjls1bMCt0TWjIgnFxsxPl6vN+6tnpwcxnc0to1pwRUyYZVgM/mBkUvTQF6JRo8SRJklMW/hHfb7ZVY8TV5JtsOgI=",
+        "parser": "web-font",
+        "data": {
+          "family": "PatchMapCodecWOFF2",
+          "weights": [
+            "400"
+          ]
+        }
+      },
+      "fontWeight": 400
+    }
+  ],
+  "requiredAssets": [
+    "codec-png",
+    "codec-jpeg",
+    "codec-webp",
+    "codec-gif",
+    "codec-svg",
+    "codec-avif",
+    "codec-ttf",
+    "codec-otf",
+    "codec-woff",
+    "codec-woff2"
+  ],
+  "provenance": {
+    "generator": "verification/flutter/prepare-codecs.py",
+    "tools": {
+      "Pillow": "11.3.0",
+      "fontTools": "4.60.1"
+    },
+    "artwork": "Original 16x16 four-color quadrants and 5x7 block glyphs, MIT repository test data; no external media or font outlines.",
+    "payloads": [
+      {
+        "alias": "codec-png",
+        "mediaType": "image/png",
+        "encodedBytes": 102,
+        "sha256": "ae854128f75e1ba609486c4e340c1e70365d214fcd0dd01d5bcc320912d50dfb",
+        "source": "verification/flutter/prepare-codecs.py",
+        "license": "MIT",
+        "width": 16,
+        "height": 16
+      },
+      {
+        "alias": "codec-jpeg",
+        "mediaType": "image/jpeg",
+        "encodedBytes": 656,
+        "sha256": "985d3231e78d6b41a6fc80800a6606812f9db4f34310f912b9f337b0e76e321e",
+        "source": "verification/flutter/prepare-codecs.py",
+        "license": "MIT",
+        "width": 16,
+        "height": 16
+      },
+      {
+        "alias": "codec-webp",
+        "mediaType": "image/webp",
+        "encodedBytes": 74,
+        "sha256": "951ea4b26a87b0713f1b7bc16cfca4ac200545865ef8f76f260fd33777a720dc",
+        "source": "verification/flutter/prepare-codecs.py",
+        "license": "MIT",
+        "width": 16,
+        "height": 16
+      },
+      {
+        "alias": "codec-gif",
+        "mediaType": "image/gif",
+        "encodedBytes": 109,
+        "sha256": "5036acf60d98826af066b0cd6931ceb8667f75710df46071ec724753991ab337",
+        "source": "verification/flutter/prepare-codecs.py",
+        "license": "MIT",
+        "width": 16,
+        "height": 16
+      },
+      {
+        "alias": "codec-svg",
+        "mediaType": "image/svg+xml",
+        "encodedBytes": 241,
+        "sha256": "5c099c203b38efdfd5a4256b5eb178b86ac95437f110cfac68e08051a0c4bcb1",
+        "source": "verification/flutter/prepare-codecs.py",
+        "license": "MIT",
+        "width": 16,
+        "height": 16
+      },
+      {
+        "alias": "codec-avif",
+        "mediaType": "image/avif",
+        "encodedBytes": 312,
+        "sha256": "aa97cd5b4ef2592eee1d7af1024d289d074ccfd1d2f7afda15048aaf533643a7",
+        "source": "verification/flutter/prepare-codecs.py",
+        "license": "MIT",
+        "width": 16,
+        "height": 16
+      },
+      {
+        "alias": "codec-ttf",
+        "mediaType": "font/ttf",
+        "encodedBytes": 2192,
+        "sha256": "6ffc4ad9c2015685e19c119b7180ecedde04ef88675e5fe93efe2b1cdd4af9c3",
+        "source": "verification/flutter/prepare-codecs.py",
+        "license": "MIT",
+        "family": "PatchMapCodecTTF",
+        "codepoints": [
+          32,
+          48,
+          49,
+          50,
+          65,
+          66
+        ],
+        "sfntOutline": "TrueType"
+      },
+      {
+        "alias": "codec-otf",
+        "mediaType": "font/otf",
+        "encodedBytes": 1944,
+        "sha256": "6e66ca8bb7f504e0a3d16ebb50947ae0f1da42b1a9e4f5b8d318a5bf095372b5",
+        "source": "verification/flutter/prepare-codecs.py",
+        "license": "MIT",
+        "family": "PatchMapCodecOTF",
+        "codepoints": [
+          32,
+          48,
+          49,
+          50,
+          65,
+          66
+        ],
+        "sfntOutline": "CFF"
+      },
+      {
+        "alias": "codec-woff",
+        "mediaType": "font/woff",
+        "encodedBytes": 1052,
+        "sha256": "bd07f4fc91690132a2456e05dcfc493b58db3ceac1256abdd9e0e721889d9435",
+        "source": "verification/flutter/prepare-codecs.py",
+        "license": "MIT",
+        "family": "PatchMapCodecWOFF",
+        "codepoints": [
+          32,
+          48,
+          49,
+          50,
+          65,
+          66
+        ],
+        "sfntOutline": "TrueType"
+      },
+      {
+        "alias": "codec-woff2",
+        "mediaType": "font/woff2",
+        "encodedBytes": 656,
+        "sha256": "1e7be7bbf04f62bace47f9e93fd7ebb792f9bd1032630fba1bc2b7ad6ce5d6ce",
+        "source": "verification/flutter/prepare-codecs.py",
+        "license": "MIT",
+        "family": "PatchMapCodecWOFF2",
+        "codepoints": [
+          32,
+          48,
+          49,
+          50,
+          65,
+          66
+        ],
+        "sfntOutline": "TrueType"
+      }
+    ]
+  },
+  "dataset": [
+    {
+      "id": "codec-png",
+      "type": "image",
+      "source": "codec-png",
+      "size": 96,
+      "attrs": {
+        "x": 24,
+        "y": 28
+      }
+    },
+    {
+      "id": "codec-png-label",
+      "type": "text",
+      "text": "PNG",
+      "attrs": {
+        "x": 24,
+        "y": 130
+      },
+      "style": {
+        "fontSize": 14,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-jpeg",
+      "type": "image",
+      "source": "codec-jpeg",
+      "size": 96,
+      "attrs": {
+        "x": 176,
+        "y": 28
+      }
+    },
+    {
+      "id": "codec-jpeg-label",
+      "type": "text",
+      "text": "JPEG",
+      "attrs": {
+        "x": 176,
+        "y": 130
+      },
+      "style": {
+        "fontSize": 14,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-webp",
+      "type": "image",
+      "source": "codec-webp",
+      "size": 96,
+      "attrs": {
+        "x": 328,
+        "y": 28
+      }
+    },
+    {
+      "id": "codec-webp-label",
+      "type": "text",
+      "text": "WEBP",
+      "attrs": {
+        "x": 328,
+        "y": 130
+      },
+      "style": {
+        "fontSize": 14,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-gif",
+      "type": "image",
+      "source": "codec-gif",
+      "size": 96,
+      "attrs": {
+        "x": 24,
+        "y": 172
+      }
+    },
+    {
+      "id": "codec-gif-label",
+      "type": "text",
+      "text": "GIF",
+      "attrs": {
+        "x": 24,
+        "y": 274
+      },
+      "style": {
+        "fontSize": 14,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-svg",
+      "type": "image",
+      "source": "codec-svg",
+      "size": 96,
+      "attrs": {
+        "x": 176,
+        "y": 172
+      }
+    },
+    {
+      "id": "codec-svg-label",
+      "type": "text",
+      "text": "SVG",
+      "attrs": {
+        "x": 176,
+        "y": 274
+      },
+      "style": {
+        "fontSize": 14,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-avif",
+      "type": "image",
+      "source": "codec-avif",
+      "size": 96,
+      "attrs": {
+        "x": 328,
+        "y": 172
+      }
+    },
+    {
+      "id": "codec-avif-label",
+      "type": "text",
+      "text": "AVIF",
+      "attrs": {
+        "x": 328,
+        "y": 274
+      },
+      "style": {
+        "fontSize": 14,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-ttf-label",
+      "type": "text",
+      "text": "TTF",
+      "attrs": {
+        "x": 24,
+        "y": 330
+      },
+      "style": {
+        "fontSize": 14,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-ttf-sample",
+      "type": "text",
+      "text": "AB 012",
+      "attrs": {
+        "x": 152,
+        "y": 330
+      },
+      "style": {
+        "fontFamily": "PatchMapCodecTTF",
+        "fontWeight": 400,
+        "fontSize": 28,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-otf-label",
+      "type": "text",
+      "text": "OTF",
+      "attrs": {
+        "x": 24,
+        "y": 380
+      },
+      "style": {
+        "fontSize": 14,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-otf-sample",
+      "type": "text",
+      "text": "AB 012",
+      "attrs": {
+        "x": 152,
+        "y": 380
+      },
+      "style": {
+        "fontFamily": "PatchMapCodecOTF",
+        "fontWeight": 400,
+        "fontSize": 28,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-woff-label",
+      "type": "text",
+      "text": "WOFF",
+      "attrs": {
+        "x": 24,
+        "y": 430
+      },
+      "style": {
+        "fontSize": 14,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-woff-sample",
+      "type": "text",
+      "text": "AB 012",
+      "attrs": {
+        "x": 152,
+        "y": 430
+      },
+      "style": {
+        "fontFamily": "PatchMapCodecWOFF",
+        "fontWeight": 400,
+        "fontSize": 28,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-woff2-label",
+      "type": "text",
+      "text": "WOFF2",
+      "attrs": {
+        "x": 24,
+        "y": 480
+      },
+      "style": {
+        "fontSize": 14,
+        "fill": "#0f172a"
+      }
+    },
+    {
+      "id": "codec-woff2-sample",
+      "type": "text",
+      "text": "AB 012",
+      "attrs": {
+        "x": 152,
+        "y": 480
+      },
+      "style": {
+        "fontFamily": "PatchMapCodecWOFF2",
+        "fontWeight": 400,
+        "fontSize": 28,
+        "fill": "#0f172a"
+      }
+    }
+  ],
+  "commands": [],
+  "expected": {
+    "rootIds": [
+      "codec-png",
+      "codec-png-label",
+      "codec-jpeg",
+      "codec-jpeg-label",
+      "codec-webp",
+      "codec-webp-label",
+      "codec-gif",
+      "codec-gif-label",
+      "codec-svg",
+      "codec-svg-label",
+      "codec-avif",
+      "codec-avif-label",
+      "codec-ttf-label",
+      "codec-ttf-sample",
+      "codec-otf-label",
+      "codec-otf-sample",
+      "codec-woff-label",
+      "codec-woff-sample",
+      "codec-woff2-label",
+      "codec-woff2-sample"
+    ],
+    "elementTypes": [
+      "image",
+      "text"
+    ],
+    "componentTypes": [],
+    "decodedImages": {
+      "codec-png": {
+        "width": 16,
+        "height": 16
+      },
+      "codec-jpeg": {
+        "width": 16,
+        "height": 16
+      },
+      "codec-webp": {
+        "width": 16,
+        "height": 16
+      },
+      "codec-gif": {
+        "width": 16,
+        "height": 16
+      },
+      "codec-svg": {
+        "width": 16,
+        "height": 16
+      },
+      "codec-avif": {
+        "width": 16,
+        "height": 16
+      }
+    },
+    "loadedFonts": [
+      "codec-ttf",
+      "codec-otf",
+      "codec-woff",
+      "codec-woff2"
+    ],
+    "fontSample": "AB 012"
+  }
+}

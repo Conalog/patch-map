@@ -1,12 +1,15 @@
 # System map
 
+Source and test paths are relative to `packages/javascript/`. Commands use
+the repository root forwarding scripts.
+
 Use the first matching row. Paths name primary owners and focused checks, not
 every helper involved.
 
 | Change | Primary source | Focused checks | Additional gate |
 | --- | --- | --- | --- |
-| Public mount, facade, exports | `src/index.ts`, `src/composition/`, `src/public/` | `tests/integration/developer-api-workflows.test.ts` | `npm run build`, `npm run verify:package` |
-| Mount, resize, renderer loss, destroy | `src/engine/surface-lifecycle-authority.ts`, `src/engine/page-lifecycle-coordinator.ts`, `src/composition/pixi-engine-surface.ts` | `tests/engine/engine-lifecycle.test.ts`, `tests/integration/page-lifecycle.test.ts` | `npm run verify:memory` |
+| Public mount, facade, exports | `src/index.ts`, `src/composition/`, `src/public/` | `tests/integration/developer-api-workflows.test.ts` | `npm run js:build`, `npm run js:verify:package` |
+| Mount, resize, renderer loss, destroy | `src/engine/surface-lifecycle-authority.ts`, `src/engine/page-lifecycle-coordinator.ts`, `src/composition/pixi-engine-surface.ts` | `tests/engine/engine-lifecycle.test.ts`, `tests/integration/page-lifecycle.test.ts` | `npm run js:verify:memory` |
 | Dataset admission and replacement | `src/semantic/dataset/`, `src/parsing/`, `src/engine/dataset-replacement-coordinator.ts` | `tests/semantic/dataset-contract.test.ts`, `tests/semantic/incremental-parser.test.ts` | full unit suite when shared parsing changes |
 | Mutation and transaction publication | `src/public/mutation-*`, `src/semantic/transaction/`, `src/engine/transaction-commit-coordinator.ts` | `tests/integration/developer-api-updates.test.ts`, `tests/semantic/semantic-transaction-mutations.test.ts`, `tests/engine/engine-update-transactions.test.ts` | update performance probe for changed hot paths |
 | History | `src/history/`, `src/engine/history-application-coordinator.ts` | `tests/semantic/history.test.ts` | full unit suite when transaction ordering changes |
@@ -22,5 +25,5 @@ every helper involved.
 | Capture and extraction | `src/engine/capture-extraction-authority.ts`, `src/operations/extraction-security-authority.ts` | `tests/engine/engine-capture-extraction-authority.test.ts` | extraction probe and memory gate |
 | Accessibility | `src/accessibility/`, `src/rendering/pixi-renderer/accessibility-overlay-authority.ts` | `tests/integration/accessibility-product.test.ts` | package gate for public output changes |
 | Debug snapshots and operation failures | `src/public/index.ts`, `src/engine/product-probe-reader.ts`, `src/engine/operation-outcomes.ts`, `src/operations/` | `tests/engine/engine-lifecycle.test.ts`, `tests/engine/engine-operation-outcomes.test.ts`, `tests/integration/operations.test.ts` | package gate for public output changes |
-| Package contents and installed consumers | `package.json`, `verification/package/`, `examples/` | package verifier | `npm run verify:package -- --require-audit` |
+| Package contents and installed consumers | `package.json`, `packages/javascript/verification/package/`, `examples/` | package verifier | `npm run js:verify:package -- --require-audit` |
 | Import and repository boundaries | all production and support roots | `tests/tooling/architecture-import-graph.test.ts` | typecheck and lint |

@@ -1,13 +1,14 @@
 # PatchMap for Flutter
 
-`conalog_patch_map` is the foundation for a native Flutter PATCH MAP package.
-It currently has **no map rendering or interaction API** and is not published.
-The Android/iOS example is a development host, not a functional map demo.
+`conalog_patch_map` is a native Flutter package foundation, version 1.0.0-alpha.1.
+There is no map rendering or interaction API yet. The Android/iOS example is a
+development host; `publish_to: none` blocks registry publication.
 
-## Local dependency
+## Consumer setup
 
-Requires Dart >=3.11.1 <4.0.0 and Flutter >=3.41.4. Development and CI use
-Flutter 3.41.4 / Dart 3.11.1.
+Consumer bounds are Dart >=3.11.0 <4.0.0 and Flutter >=3.41.0. CI uses Flutter
+3.41.4 / Dart 3.11.1. The referenced service environment uses Flutter 3.44.9 /
+Dart 3.12.2; exact SDK facts live in repository toolchain metadata.
 
 ```yaml
 dependencies:
@@ -17,14 +18,12 @@ dependencies:
     path: ../patch-map/packages/flutter
 ```
 
-Run `flutter pub get` in the consumer. The public import path is
-`package:conalog_patch_map/conalog_patch_map.dart`; it intentionally exports
-no runtime API yet. Keep application integration on a fixed package revision
-while developing and measuring the library separately.
+The public import is `package:conalog_patch_map/conalog_patch_map.dart`.
+It exports no runtime API. Managed icons and Fira Code font assets are included
+and verified from an extracted artifact. See [integration](INTEGRATION.md) and
+[third-party notices](THIRD_PARTY_NOTICES.md) for their scope and licenses.
 
 ## Development host
-
-From this package directory:
 
 ```sh
 flutter pub get
@@ -33,12 +32,6 @@ flutter pub get
 flutter run
 ```
 
-The host has Android and iOS scaffolding. These targets are intended for the
-first implementation; renderer behavior and performance are not yet qualified.
-No web or desktop support is claimed.
-
-## Development and release
-
-See the repository's [Flutter package workflow](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-package.md)
-for verification, package contents and first-release steps. `publish_to: none`
-blocks uploads until a functional release is ready; CI only performs a dry run.
+Android/iOS builds verify host wiring. Runtime behavior, device performance,
+accessibility and capture still require implementation and qualification.
+See the repository [environment and release workflow](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-package.md).
