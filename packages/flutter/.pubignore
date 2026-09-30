@@ -1,0 +1,11 @@
+# Allow only consumer documentation, sources and the minimal Dart example.
+/*
+!/lib/
+!/example/
+/example/*
+!/example/lib/
+!/example/pubspec.yaml
+!/pubspec.yaml
+!/README.md
+!/CHANGELOG.md
+!/LICENSE

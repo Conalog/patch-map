@@ -6,6 +6,9 @@ directory owns internal structure and engineering policy.
 
 ## Start here
 
+For the native Flutter package baseline and publishing setup, read
+[Flutter package development and release](flutter-package.md).
+
 1. Find the feature row in [System map](system-map.md).
 2. Read the owning public API page when behavior, ordering, or failure meaning
    changes; exported TypeScript types remain the exact shape authority.

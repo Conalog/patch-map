@@ -12,6 +12,9 @@ npm ci
 
 ## Find the owner
 
+Flutter package work uses the [Flutter package workflow](docs/engineering/flutter-package.md).
+Its SDK pin, checks and release process are independent of the npm package.
+
 Start with the [engineering fast path](docs/engineering/README.md). Its
 [system map](docs/engineering/system-map.md) routes each feature to the narrow
 source owner and focused tests. The [verification policy](docs/engineering/verification.md)

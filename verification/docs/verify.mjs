@@ -4,6 +4,7 @@ import path from 'node:path';
 const root = process.cwd();
 const ignoredDirectories = new Set([
   '.artifacts', '.git', 'coverage', 'dist', 'node_modules',
+  '.dart_tool', '.fvm', '.gradle', '.symlinks', 'build', 'Pods',
 ]);
 
 const files = await walk(root);
