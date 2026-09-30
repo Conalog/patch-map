@@ -29,7 +29,8 @@ Reference: d509 at 8bcbf494; baseline: release/1.0 at 6986c632.
 - Shared tooling: typecheck/lint and 34 Node tests passed; public API inventory 865 verified.
 - Flutter 3.41.4 and service 3.44.9: analysis, example tests and extracted import/SVG/font passed.
 - Both SDKs verified identical Dart artifact bytes with exact current contract fingerprint.
-- Android debug APK built; iOS simulator build blocked by absent Xcode iOS 26.2 platform.
+- Android debug APK built; iOS 26.2 simulator build and native foundation integration test passed.
+  Xcode 26.3 platform installation resolved the previous environment blocker.
 - Independent review resolved fresh-checkout docs dependency; 40 docs pass without build outputs.
 - Workflow lint passed with only unsupported queue syntax ignored in actionlint 1.7.12;
   queue: max is documented by GitHub and preserves release events.

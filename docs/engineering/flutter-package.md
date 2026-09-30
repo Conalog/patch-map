@@ -52,6 +52,17 @@ flutter build apk --debug --no-pub
 flutter build ios --simulator --debug --no-codesign --no-pub
 ```
 
+Native smoke verification runs the development host, SVG raster decode, bundled
+font load and widget teardown on a selected simulator or device:
+
+```sh
+cd packages/flutter/example
+flutter test --no-pub -d <device-id> integration_test/foundation_test.dart
+```
+
+This covers foundation host wiring and assets; public map functionality remains
+pending. Integration tests and reports are excluded from the publication artifact.
+
 ## Independent release contract
 
 `release-please-config.json` plans separate npm and Dart release PRs with `js-v`
