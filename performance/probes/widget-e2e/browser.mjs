@@ -17,8 +17,12 @@ window.renderWidgetImage = async ({ model, assets, width, height }) => {
   };
   reset(initial);
   let canvas, gl;
+  const tileAllocations=[];
   const original=HTMLCanvasElement.prototype.getContext;
-  HTMLCanvasElement.prototype.getContext=function(...args){const context=original.apply(this,args);if(args[0]==='webgl2'&&context){canvas=this;gl=context;}return context;};
+  HTMLCanvasElement.prototype.getContext=function(...args){const context=original.apply(this,args);if(args[0]==='webgl2'&&context&&args[1]?.depth===false){canvas=this;gl=context;
+    const allocate=gl.renderbufferStorageMultisample;
+    gl.renderbufferStorageMultisample=function(target,samples,format,w,h){allocate.call(this,target,samples,format,w,h);tileAllocations.push({requestedSamples:samples,samples:this.getRenderbufferParameter(target,this.RENDERBUFFER_SAMPLES),width:w,height:h});};
+  }return context;};
   let session;
   try {
     try {
@@ -27,7 +31,7 @@ window.renderWidgetImage = async ({ model, assets, width, height }) => {
         ...(model.theme?{theme:model.theme}:{}), antialias:model.antialias,background:'#ffffff',zoomLimits:[0.1,30],assets}));
     } finally { HTMLCanvasElement.prototype.getContext=original; }
     const debug=gl.getExtension('WEBGL_debug_renderer_info');
-    const surface={size:[canvas.width,canvas.height],samples:gl.getParameter(gl.SAMPLES),attributes:gl.getContextAttributes(),
+    const surface={size:[width,height],gpuCanvasSize:[canvas.width,canvas.height],tileAllocations,samples:gl.getParameter(gl.SAMPLES),attributes:gl.getContextAttributes(),
       renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):null};
     const rows=model.runtimeUpdates;
     if(!rows.length||rows.some(row=>!Number.isFinite(row.barHeight)||row.barHeight<=0||row.text?.length!==12||row.showText!==true||row.tint!=='#e53935'))throw new Error('100% bar/color/12-character text workload missing');
@@ -46,6 +50,11 @@ window.renderWidgetImage = async ({ model, assets, width, height }) => {
       }
     });
     const image=await phase('renderMs',()=>session.render({format:'jpeg',quality:0.9}));
+    if(tileAllocations.length) {
+      if(tileAllocations.some(a=>a.samples!==4||a.width>2048||a.height>2048))throw new Error('invalid tile allocation');
+      surface.samples=tileAllocations[0].samples;
+    }
+    if(JSON.stringify(image.size)!==JSON.stringify([width,height]))throw new Error('invalid image size');
     const upload=await phase('browserToNodeMs',async()=>{const response=await fetch('/__e2e/image',{method:'POST',body:image.blob});if(!response.ok)throw new Error('Blob upload failed');await response.arrayBuffer();});
     void upload;
     return {timings,surface,batches,updateCount:rows.length,resetBars,resetTexts,bytes:image.blob.size,mime:image.mime,

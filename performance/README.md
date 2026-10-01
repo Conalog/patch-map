@@ -61,9 +61,10 @@ local transfer. `coldNodeReadyMs` additionally includes browser launch, page and
 module preparation, measurement setup, and argument delivery. These are local
 library/consumer measurements, not widget-renderer's HTTP response latency.
 Pixel decode/checksum validation and destroy are outside the primary memory and
-image-ready timing window. The probe only observes native WebGL context creation
-and restores the prototype before updates/render; it does not change renderer
-options or work.
+image-ready timing window. The probe observes native WebGL context creation and MSAA renderbuffer
+allocations without changing renderer options. It restores the canvas prototype
+before updates/render. Output dimensions and the GPU carrier dimensions are
+reported separately; image tiles must allocate four samples within 2048×2048.
 
 On macOS, `probes/image/sample.py` samples `proc_pid_rusage` v2 every 50 ms for
 the benchmark Node process and its descendants, excluding the sampler itself.
