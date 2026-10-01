@@ -19,8 +19,12 @@ The TTF is preconverted; preparation does not run font conversion. Provenance
 pins the source and native hashes, conversion tool and verified font properties.
 Changing either font requires updating and reviewing that record.
 
-`verification/assets/prepare.mjs` owns the reviewed inventory, source checks and
-output preparation. Generated Flutter assets and the JavaScript license copy
+`verification/assets/catalog.mjs` owns the reviewed inventory, consumer packages
+and generated output paths. Preparation and release planning read that same
+catalog; null targets are consumed directly by the JavaScript build.
+`verification/assets/prepare.mjs` owns source checks and output preparation.
+Every preparation still verifies the entire canonical inventory and font
+provenance before writing. Generated Flutter assets and the JavaScript license copy
 are ignored by Git. Only their canonical inputs and tooling are committed.
 
 ## Local development and packaging

@@ -2,13 +2,11 @@ import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ASSET_CATALOG, ASSET_PACKAGES, ASSET_SOURCE } from './catalog.mjs';
 
 const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
-const sourcePath = 'shared/assets';
-const assetNames = [
-  ...['device', 'loading', 'object', 'warning', 'wifi'].map((name) => `icons/${name}.svg`),
-  'fonts/FiraCode-VF.woff2', 'fonts/FiraCode-VF.ttf', 'fonts/LICENSE.txt', 'fonts/provenance.json',
-].sort();
+const sourcePath = ASSET_SOURCE;
+const assetNames = ASSET_CATALOG.map((asset) => asset.name).sort();
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 function directories(root, path) {
@@ -68,25 +66,34 @@ export function prepareAssets({ root = repositoryRoot, packageName = 'all' } = {
   if (!['all', 'javascript', 'flutter'].includes(packageName)) throw new Error('usage: prepare.mjs [all|javascript|flutter]');
   const assets = readSharedAssets(root);
   if (packageName !== 'flutter') {
-    writeChanged(root, resolve(root, 'packages/javascript/docs/assets/fira-code-6.2-license.txt'), assets.get('fonts/LICENSE.txt'));
+    for (const asset of ASSET_CATALOG) {
+      const target = asset.targets.javascript;
+      if (typeof target === 'string') writeChanged(root, resolve(root, target), assets.get(asset.name));
+    }
   }
   if (packageName !== 'javascript') {
     // This ignored directory is wholly generated. Reject links before writing or
     // deleting anything, and remove files left by a previous asset inventory.
-    const target = resolve(root, 'packages/flutter/assets');
+    const target = resolve(root, ASSET_PACKAGES.flutter, 'assets');
     const previous = filesIn(root, target);
-    for (const [name, bytes] of assets) writeChanged(root, join(target, name), bytes);
-    for (const name of previous) if (!assets.has(name)) rmSync(join(target, name));
+    const expected = [];
+    for (const asset of ASSET_CATALOG) {
+      const path = resolve(root, asset.targets.flutter);
+      expected.push(relative(target, path));
+      writeChanged(root, path, assets.get(asset.name));
+    }
+    for (const name of previous) if (!expected.includes(name)) rmSync(join(target, name));
   }
   return { source: sourcePath, packageName, assets: assets.size };
 }
 
 export function verifyPreparedFlutterAssets(root = repositoryRoot) {
   const assets = readSharedAssets(root);
-  const target = resolve(root, 'packages/flutter/assets');
-  if (JSON.stringify(filesIn(root, target)) !== JSON.stringify(assetNames)) throw new Error('Prepared Flutter asset inventory mismatch; run npm run assets:prepare');
-  for (const [name, bytes] of assets) {
-    if (!readFileSync(join(target, name)).equals(bytes)) throw new Error(`Prepared asset drift: ${name}`);
+  const target = resolve(root, ASSET_PACKAGES.flutter, 'assets');
+  const expected = ASSET_CATALOG.map((asset) => relative(target, resolve(root, asset.targets.flutter))).sort();
+  if (JSON.stringify(filesIn(root, target)) !== JSON.stringify(expected)) throw new Error('Prepared Flutter asset inventory mismatch; run npm run assets:prepare');
+  for (const asset of ASSET_CATALOG) {
+    if (!readFileSync(resolve(root, asset.targets.flutter)).equals(assets.get(asset.name))) throw new Error(`Prepared asset drift: ${asset.name}`);
   }
   return assets.size;
 }

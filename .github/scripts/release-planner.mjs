@@ -1,12 +1,12 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { assetConsumerPaths } from '../../verification/assets/catalog.mjs';
 
 const require = createRequire(new URL('../../verification/package.json', import.meta.url));
 const { GitHub, Manifest } = require('release-please');
 const { ManifestPlugin } = require('release-please/build/src/plugin.js');
 const { TagName } = require('release-please/build/src/util/tag-name.js');
 const jsPath = 'packages/javascript';
-const dartPath = 'packages/flutter';
 const legacyVersion = '1.0.0-alpha.9';
 const legacyTag = `v${legacyVersion}`;
 const legacySha = '6986c632a47d3443ff17903c416291dfe4120340';
@@ -21,10 +21,7 @@ function withSharedAssetConsumers(github) {
         for await (const commit of target.mergeCommitIterator(...args)) {
           const consumers = new Set();
           for (const file of commit.files ?? []) {
-            if (file.startsWith('verification/assets/') || file.startsWith('shared/assets/')) {
-              consumers.add(dartPath);
-              if (!['shared/assets/fonts/FiraCode-VF.ttf', 'shared/assets/fonts/provenance.json'].includes(file)) consumers.add(jsPath);
-            }
+            for (const path of assetConsumerPaths(file)) consumers.add(path);
           }
           yield consumers.size === 0 ? commit : {
             ...commit,
