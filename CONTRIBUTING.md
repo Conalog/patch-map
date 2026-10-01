@@ -2,8 +2,10 @@
 
 ## Setup
 
-The package supports Node.js 20 or newer. Use Node.js 22 for local repository
-work, matching `.nvmrc`. Release CI currently runs Node.js 24:
+Use Node.js 22 for local repository work, matching `.nvmrc`. JavaScript
+consumer requirements belong to [package compatibility](packages/javascript/docs/compatibility.md).
+Publication toolchains are separate from local development; see
+[release operations](docs/engineering/releases.md).
 
 ```sh
 nvm use

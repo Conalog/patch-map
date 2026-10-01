@@ -13,8 +13,8 @@ test can never serve as a witness. Supplementary machine reports are listed in
 chronological order; the latest record for an exact file/full test name wins.
 
 This foundation has no public npm/Dart comparison runner or Dart API bindings.
-Implement and verify those producers before supplying their reports. Saved
-experiment fixtures are targets; the current contract manifest explicitly blocks
+Implement and verify those producers before supplying their reports. Stored
+fixtures are targets; the current contract manifest explicitly blocks
 qualification until the Flutter public runtime exists.
 
 Create a source snapshot after sources have stabilized:

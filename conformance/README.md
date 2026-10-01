@@ -1,15 +1,15 @@
 # Shared behavior targets
 
-This directory carries language-neutral inputs and required behavior targets from
-the referenced experiment. Current JavaScript declaration identities are recorded
-in `public-api.json`. JavaScript API pages under `packages/javascript/docs/` remain the current
+This directory owns language-neutral inputs and required behavior targets.
+Current JavaScript declaration identities are recorded in `public-api.json`.
+The [JavaScript API docs](../packages/javascript/docs/README.md) remain the current
 JavaScript meaning authority; these targets do not establish Flutter support.
 
 `manifest.json` has `implementationStatus: foundation`. Flutter public runtime,
 API bindings, executed witnesses and Android/iOS functional evidence are pending.
-The referenced implementation's Dart binding locators and test index are not
-transferred as current evidence. Fixtures, reviewed expected observations and
-codec payloads are target inputs, not execution reports or support claims.
+Fixtures, reviewed expected observations and codec payloads are target inputs,
+not execution reports or support claims. Collection of executed reports belongs
+to the [evidence collector](../verification/conformance/collect-evidence.md).
 
 ```sh
 node verification/conformance/inventory.mjs

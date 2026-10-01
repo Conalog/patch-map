@@ -2,8 +2,8 @@
 
 `packages/javascript/` owns the existing npm runtime. `packages/flutter/` owns the new native package. The root and `verification/` are private npm workspaces;
 shared behavior targets live in `conformance/`. The Flutter runtime must not import
-JavaScript or verification tooling. No experiment renderer was copied. Independent
-versioning and publication belong to [release operations](releases.md).
+JavaScript or verification tooling. Independent versioning and publication
+belong to [release operations](releases.md).
 
 ## SDK and dependencies
 
@@ -20,9 +20,11 @@ FLUTTER_TOOLCHAIN_ROLE=service FLUTTER_BIN=/service/bin/flutter npm run flutter:
 The selector emits workflow setup outputs; `check ci` checks the installed SDK. An exact pin verifies tooling; consumer lower bounds do not prove every
 version's functional compatibility. Service checks use a temporary copy to resolve their example lock without changing the baseline's committed lock.
 
-Current dependencies are Flutter, bounded flutter_svg and vector_graphics for managed asset verification. The experiment's Brotli and AVIF runtime dependencies
-will be added with their codec owner and real decode tests. No Kotlin plugin source exclusion or experimental Android DSL workaround is inherited. Android host
-uses JVM 17, NDK 28.2.13676358 and a bounded 2 GiB Gradle heap.
+Current managed-asset dependencies are Flutter, bounded flutter_svg and
+vector_graphics, declared in [pubspec.yaml](../../packages/flutter/pubspec.yaml).
+Codec inputs remain [conformance targets](../../conformance/README.md); this
+foundation has no codec runtime. Android host uses JVM 17, NDK 28.2.13676358
+and a bounded 2 GiB Gradle heap.
 
 ## Verification and artifact ownership
 
