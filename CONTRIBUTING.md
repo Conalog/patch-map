@@ -2,8 +2,10 @@
 
 ## Setup
 
-The package supports Node.js 20 or newer. Use Node.js 22 for local repository
-work, matching `.nvmrc`. Release CI currently runs Node.js 24:
+Use Node.js 22 for local repository work, matching `.nvmrc`. JavaScript
+consumer requirements belong to [package compatibility](packages/javascript/docs/compatibility.md).
+Publication toolchains are separate from local development; see
+[release operations](docs/engineering/releases.md).
 
 ```sh
 nvm use
@@ -11,6 +13,10 @@ npm ci
 ```
 
 ## Find the owner
+
+Flutter package work uses the [Flutter package workflow](docs/engineering/flutter-package.md).
+Its SDK pin and checks are independent of the npm package. Both packages use
+the [independent release operations](docs/engineering/releases.md).
 
 Start with the [engineering fast path](docs/engineering/README.md). Its
 [system map](docs/engineering/system-map.md) routes each feature to the narrow
@@ -20,5 +26,6 @@ selects final gates by changed risk.
 ## Pull requests
 
 Keep pull requests focused. Describe the owned boundary, invariants preserved,
-and checks run. Public behavior changes update the owning page under `docs/` in
-the same change.
+and checks run. JavaScript behavior changes update the owning page under
+`packages/javascript/docs/` in the same change. Flutter consumer changes update
+its package README; runtime contracts will be added with implemented capabilities.

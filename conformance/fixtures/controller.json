@@ -1,0 +1,587 @@
+{
+  "schemaRevision": "patch-map-conformance/1",
+  "id": "controller",
+  "description": "Public argument failures, lifecycle replacement, keyed presentation, viewport, rotation and transform sessions. Semantic traces only; visual/input integration remains separate.",
+  "surface": {
+    "width": 480,
+    "height": 520,
+    "pixelRatio": 1,
+    "background": "#f8fafc"
+  },
+  "dataset": [
+    {
+      "type": "rect",
+      "id": "rect",
+      "attrs": {
+        "x": 10,
+        "y": 20
+      },
+      "size": {
+        "width": 40,
+        "height": 30
+      },
+      "fill": "#2563eb"
+    },
+    {
+      "type": "item",
+      "id": "item",
+      "attrs": {
+        "x": 100,
+        "y": 20
+      },
+      "size": {
+        "width": 40,
+        "height": 80
+      },
+      "components": [
+        {
+          "type": "bar",
+          "id": "bar",
+          "size": {
+            "width": 20,
+            "height": 30
+          },
+          "source": {
+            "type": "rect"
+          },
+          "animation": false
+        }
+      ]
+    }
+  ],
+  "commands": [
+    {
+      "id": "bar-scope",
+      "op": "targets.query",
+      "input": {
+        "type": "bar"
+      }
+    },
+    {
+      "id": "empty-query",
+      "op": "targets.query",
+      "input": {
+        "id": "absent"
+      }
+    },
+    {
+      "id": "missing-get",
+      "op": "targets.get",
+      "input": {
+        "id": "absent"
+      }
+    },
+    {
+      "id": "empty-batch",
+      "op": "updateBatch",
+      "input": {
+        "targets": [],
+        "bar": {
+          "height": []
+        }
+      },
+      "expect": {
+        "status": "unchanged",
+        "snapshotUnchanged": true
+      }
+    },
+    {
+      "id": "duplicate-batch",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "item",
+          "item"
+        ],
+        "bar": {
+          "height": [
+            10,
+            20
+          ]
+        }
+      },
+      "expect": {
+        "status": "rejected",
+        "snapshotUnchanged": true
+      }
+    },
+    {
+      "id": "unequal-batch",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "item"
+        ],
+        "bar": {
+          "height": [
+            10,
+            20
+          ]
+        }
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        },
+        "snapshotUnchanged": true
+      }
+    },
+    {
+      "id": "alpha-layer",
+      "op": "presentation.set",
+      "input": {
+        "key": "dim",
+        "layer": {
+          "targets": [
+            {
+              "id": "item",
+              "componentId": "bar"
+            }
+          ],
+          "matched": {
+            "alphaMultiplier": 0.5
+          }
+        }
+      },
+      "expect": {
+        "semanticHashUnchanged": true,
+        "historyUnchanged": true
+      },
+      "refs": {
+        "scope": "bar-scope"
+      }
+    },
+    {
+      "id": "alpha-clear",
+      "op": "presentation.clear",
+      "input": "dim",
+      "expect": {
+        "semanticHashUnchanged": true,
+        "historyUnchanged": true
+      }
+    },
+    {
+      "id": "alpha-clear-again",
+      "op": "presentation.clear",
+      "input": "dim"
+    },
+    {
+      "id": "authored-change",
+      "op": "update",
+      "input": {
+        "id": "item",
+        "bar": {
+          "height": 40
+        }
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "stale-target",
+      "op": "updateBatch",
+      "input": {
+        "bar": {
+          "height": [
+            20
+          ]
+        }
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        },
+        "snapshotUnchanged": true
+      },
+      "refs": {
+        "targets": "bar-scope"
+      }
+    },
+    {
+      "id": "history-clear",
+      "op": "history.clear"
+    },
+    {
+      "id": "undo-empty",
+      "op": "history.undo",
+      "expect": {
+        "status": "unavailable"
+      }
+    },
+    {
+      "id": "serialize",
+      "op": "data.serialize",
+      "input": true
+    },
+    {
+      "id": "pan",
+      "op": "viewport.panBy",
+      "input": [
+        12,
+        8
+      ]
+    },
+    {
+      "id": "zoom-anchor",
+      "op": "viewport.zoomBy",
+      "input": {
+        "factor": 1.5,
+        "anchor": [
+          120,
+          80
+        ]
+      }
+    },
+    {
+      "id": "restore",
+      "op": "viewport.restore",
+      "input": {
+        "centerWorld": [
+          240,
+          260
+        ],
+        "scale": 1
+      }
+    },
+    {
+      "id": "resize",
+      "op": "viewport.resize",
+      "input": {
+        "width": 480,
+        "height": 520,
+        "pixelRatio": 1
+      }
+    },
+    {
+      "id": "rotate-set",
+      "op": "rotation.set",
+      "input": 450
+    },
+    {
+      "id": "rotate-relative",
+      "op": "rotation.rotateBy",
+      "input": -90
+    },
+    {
+      "id": "rotate-zero",
+      "op": "rotation.reset"
+    },
+    {
+      "id": "instant-rotation",
+      "op": "rotation.start",
+      "input": {
+        "angle": 720
+      },
+      "options": {
+        "durationMs": 0,
+        "normalizeOnComplete": true
+      }
+    },
+    {
+      "id": "instant-finished",
+      "op": "rotation.finished",
+      "expect": {
+        "status": "completed"
+      },
+      "refs": {
+        "animation": "instant-rotation"
+      }
+    },
+    {
+      "id": "cancel-rotation",
+      "op": "rotation.start",
+      "input": {
+        "angle": 90
+      },
+      "options": {
+        "durationMs": 250
+      }
+    },
+    {
+      "id": "cancel-request",
+      "op": "rotation.cancel",
+      "refs": {
+        "animation": "cancel-rotation"
+      }
+    },
+    {
+      "id": "cancel-finished",
+      "op": "rotation.finished",
+      "expect": {
+        "status": "cancelled"
+      },
+      "refs": {
+        "animation": "cancel-rotation"
+      }
+    },
+    {
+      "id": "move",
+      "op": "transform.moveBy",
+      "input": {
+        "targets": [
+          {
+            "id": "rect"
+          }
+        ],
+        "delta": [
+          8,
+          12
+        ]
+      },
+      "expect": {
+        "status": "committed"
+      },
+      "options": {
+        "actionId": "move"
+      }
+    },
+    {
+      "id": "resize-shape",
+      "op": "transform.resizeBy",
+      "input": {
+        "targets": [
+          {
+            "id": "rect"
+          }
+        ],
+        "resize": {
+          "handle": "se",
+          "delta": [
+            10,
+            5
+          ]
+        }
+      },
+      "expect": {
+        "status": "committed"
+      },
+      "options": {
+        "actionId": "resize"
+      }
+    },
+    {
+      "id": "turn-shape",
+      "op": "transform.rotateBy",
+      "input": {
+        "targets": [
+          {
+            "id": "rect"
+          }
+        ],
+        "degrees": 30
+      },
+      "expect": {
+        "status": "committed"
+      },
+      "options": {
+        "actionId": "rotate"
+      }
+    },
+    {
+      "id": "cancel-session",
+      "op": "transform.beginSession",
+      "input": {
+        "targets": [
+          {
+            "id": "rect"
+          }
+        ],
+        "kind": "move",
+        "actionId": "cancel-preview"
+      }
+    },
+    {
+      "id": "preview-cancel",
+      "op": "transform.preview",
+      "input": {
+        "kind": "move",
+        "delta": [
+          20,
+          0
+        ]
+      },
+      "expect": {
+        "status": "previewed",
+        "snapshotUnchanged": true,
+        "historyUnchanged": true
+      },
+      "refs": {
+        "session": "cancel-session"
+      }
+    },
+    {
+      "id": "cancel-preview",
+      "op": "transform.cancel",
+      "expect": {
+        "status": "cancelled",
+        "historyUnchanged": true
+      },
+      "refs": {
+        "session": "cancel-session"
+      }
+    },
+    {
+      "id": "commit-session",
+      "op": "transform.beginSession",
+      "input": {
+        "targets": [
+          {
+            "id": "rect"
+          }
+        ],
+        "kind": "move",
+        "actionId": "commit-preview"
+      }
+    },
+    {
+      "id": "preview-commit",
+      "op": "transform.preview",
+      "input": {
+        "kind": "move",
+        "delta": [
+          0,
+          20
+        ]
+      },
+      "expect": {
+        "status": "previewed",
+        "snapshotUnchanged": true,
+        "historyUnchanged": true
+      },
+      "refs": {
+        "session": "commit-session"
+      }
+    },
+    {
+      "id": "commit-preview",
+      "op": "transform.commit",
+      "expect": {
+        "status": "committed"
+      },
+      "refs": {
+        "session": "commit-session"
+      }
+    },
+    {
+      "id": "replace-data",
+      "op": "data.replace",
+      "input": [
+        {
+          "type": "rect",
+          "id": "rect",
+          "attrs": {
+            "x": 10,
+            "y": 20
+          },
+          "size": {
+            "width": 40,
+            "height": 30
+          },
+          "fill": "#2563eb"
+        },
+        {
+          "type": "item",
+          "id": "item",
+          "attrs": {
+            "x": 100,
+            "y": 20
+          },
+          "size": {
+            "width": 40,
+            "height": 80
+          },
+          "components": [
+            {
+              "type": "bar",
+              "id": "bar",
+              "size": {
+                "width": 20,
+                "height": 30
+              },
+              "source": {
+                "type": "rect"
+              },
+              "animation": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "restored-history-empty",
+      "op": "history.undo",
+      "expect": {
+        "status": "unavailable"
+      }
+    },
+    {
+      "id": "replace-fit-options",
+      "op": "data.replace",
+      "input": [
+        {
+          "type": "rect",
+          "id": "rect",
+          "attrs": {
+            "x": 10,
+            "y": 20
+          },
+          "size": {
+            "width": 40,
+            "height": 30
+          },
+          "fill": "#2563eb"
+        },
+        {
+          "type": "item",
+          "id": "item",
+          "attrs": {
+            "x": 100,
+            "y": 20
+          },
+          "size": {
+            "width": 40,
+            "height": 80
+          },
+          "components": [
+            {
+              "type": "bar",
+              "id": "bar",
+              "size": {
+                "width": 20,
+                "height": 30
+              },
+              "source": {
+                "type": "rect"
+              },
+              "animation": false
+            }
+          ]
+        }
+      ],
+      "options": {
+        "fit": {
+          "padding": 30,
+          "targets": [
+            {
+              "id": "rect"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "expected": {
+    "rootIds": [
+      "rect",
+      "item"
+    ],
+    "elementTypes": [
+      "item",
+      "rect"
+    ],
+    "componentTypes": [
+      "bar"
+    ]
+  }
+}

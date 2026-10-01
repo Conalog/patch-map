@@ -7,6 +7,7 @@ resource lifecycle.
 ## Default loop
 
 ```bash
+cd packages/javascript
 npx vitest run tests/<owner>/<focused>.test.ts --maxWorkers=2
 ```
 
@@ -16,14 +17,14 @@ changes. Do not repeatedly run broad suites while editing: pull-request CI owns
 the complete gate matrix. Use `npm test` locally only when behavior crosses
 several owners or a focused witness cannot cover the changed contract.
 
-Add only the matching gate for broad runtime or release risk:
+Run these forwarding commands from the repository root for runtime or release risk:
 
 ```bash
-npm run build
+npm run js:build
 npm run verify:docs
-npm run verify:package -- --require-audit
-npm run performance:smoke
-npm run verify:memory
+npm run js:verify:package -- --require-audit
+npm run js:performance:smoke
+npm run js:verify:memory
 ```
 
 ## Risk routing
@@ -67,10 +68,16 @@ npm run verify:memory
 
 ## Documentation and package boundaries
 
-- Public behavior and failure meaning live under `docs/`; exact shapes come from
-  exported TypeScript declarations.
+- JavaScript behavior and failure meaning live under `packages/javascript/docs/`;
+  exact shapes come from exported TypeScript declarations. Flutter consumer
+  status lives in its package README until a public runtime is implemented.
 - Internal ownership and gate routing live under `docs/engineering/` and are not
   published in the package.
+- JavaScript Markdown changes keep documentation, npm package and shared contract
+  checks. They do not select Flutter SDK or native host jobs. Mixed changes use
+  the union of affected gates; Flutter, shared assets, tooling and workflow inputs
+  retain their required checks. Non-Markdown documentation assets still select
+  both packages. Registry qualification gates are independent of PR routing.
 - Routers link to one owner instead of copying contracts.
 - `verify:package` installs the generated tarball and checks ESM, CommonJS,
   declarations, examples, assets, interaction, capture, and teardown.

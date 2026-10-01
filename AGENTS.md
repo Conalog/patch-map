@@ -3,27 +3,40 @@
 ## Bootstrap and documentation routing
 
 - Use Node.js 22 for repository work (`nvm use`) and npm for project commands.
-- Read this file, then choose one documentation router. For public behavior,
-  usage, integration, or compatibility, start at `docs/README.md` and select
-  one owning page. For implementation, refactoring, testing, architecture, or
+- Read this file, then choose one documentation router. For JavaScript behavior,
+  usage, integration, or compatibility, start at
+  `packages/javascript/docs/README.md` and select one owning page. Flutter
+  consumer setup starts at `packages/flutter/README.md`. For implementation,
+  refactoring, testing, architecture, or
   performance work, start at `docs/engineering/README.md` and use
   `docs/engineering/system-map.md` to find the narrow source owner, focused
   tests, and risk gate.
-- Do not scan all of `docs/**` or `src/**` first. Expand from the selected owner
+- Do not scan all of `docs/**` or `packages/javascript/src/**` first. Expand from the selected owner
   only when it links to another authority or evidence shows cross-owner impact.
   Routers locate owners; they do not duplicate feature contracts.
 - Read the owning source before its callers. Extend an existing authority or
   coordinator instead of creating a parallel state, publication, frame, or
   cleanup path.
-- Exact public shapes come from exported TypeScript declarations. Owning pages
-  under `docs/` define public behavior, ordering, failure meaning,
-  compatibility, and package contents; engineering ownership and verification
-  policy live under `docs/engineering/`.
+- Exact JavaScript public shapes come from exported TypeScript declarations.
+  Owning pages under `packages/javascript/docs/` define JavaScript behavior,
+  ordering, failure meaning, compatibility, and package contents. Flutter has
+  no public runtime API yet. Engineering ownership and verification policy
+  live under `docs/engineering/`.
 - When code and documentation disagree, do not assume code is correct. Decide
   whether the drift is in the document, the implementation, or an unresolved
   product decision before changing either side.
 - When a documented public contract changes, update its owning page in the
   same change.
+
+## Package ownership
+
+- The root and `verification/` are private npm workspaces. JavaScript source,
+  tests, examples and performance tools are relative to `packages/javascript/`.
+- Use root `js:*` forwarding commands or run package commands in that directory.
+  Flutter environment is owned by `docs/engineering/flutter-package.md`;
+  independent npm and Dart releases are owned by `docs/engineering/releases.md`.
+- Shared contract definitions never substitute for executed cross-runtime or
+  Android/iOS qualification. Flutter foundation publication remains blocked.
 
 ## Keep changes focused
 

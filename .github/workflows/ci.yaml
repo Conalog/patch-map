@@ -14,11 +14,13 @@ concurrency:
 
 jobs:
   classify:
-    name: Classify changes
+    name: Shared · Change routing
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       full_validation: ${{ steps.changes.outputs.full_validation }}
+      contract_validation: ${{ steps.changes.outputs.contract_validation }}
+      flutter_validation: ${{ steps.changes.outputs.flutter_validation }}
     steps:
       - name: Checkout comparison base
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -29,11 +31,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: 22
           package-manager-cache: false
 
-      - name: Test change classifier
-        run: node --test .github/scripts/classify-ci-files.test.mjs
+      - name: Test release metadata and change classifier
+        run: node --test .github/scripts/classify-ci-files.test.mjs .github/scripts/release-ready.test.mjs .github/scripts/release-metadata.test.mjs
 
       - name: Require release gate commands
         run: test "$(node .github/scripts/release-ready.mjs --require)" = true
@@ -48,9 +50,11 @@ jobs:
           test "$(git rev-parse "$RESULT_SHA^1")" = "$BASE_SHA"
           node .github/scripts/classify-ci-files.mjs "$BASE_SHA" "$RESULT_SHA" >> "$GITHUB_OUTPUT"
 
-      - name: Verify documentation-only change
+      - name: Verify documentation for changes outside npm
         if: ${{ steps.changes.outputs.full_validation == 'false' }}
-        run: node verification/docs/verify.mjs
+        run: |
+          node verification/assets/prepare.mjs all
+          node verification/docs/verify.mjs
 
   gate:
     name: ${{ matrix.name }}
@@ -60,11 +64,11 @@ jobs:
       matrix:
         include:
           - gate: core
-            name: Core
+            name: JS + Shared · Static checks, tests & build
           - gate: package
-            name: Package
+            name: JS · Package verification
           - gate: lifecycle
-            name: Lifecycle
+            name: JS · Memory & benchmark smoke
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -78,28 +82,36 @@ jobs:
         if: ${{ needs.classify.outputs.full_validation == 'true' }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
         if: ${{ needs.classify.outputs.full_validation == 'true' }}
         run: npm ci
 
+      - name: Release tooling
+        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        run: npm run verify:tests
+
       - name: Typecheck
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run typecheck
+        run: |
+          npm run js:typecheck
+          npm run verify:typecheck
 
       - name: Lint
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run lint
+        run: |
+          npm run js:lint
+          npm run verify:lint
 
       - name: Unit
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run unit
+        run: npm run js:unit
 
       - name: Build
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run build
+        run: npm run js:build
 
       - name: Documentation
         if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
@@ -111,20 +123,141 @@ jobs:
 
       - name: Verify package
         if: ${{ matrix.gate == 'package' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run verify:package -- --require-audit
+        run: npm run js:verify:package -- --require-audit
 
       - name: Verify memory
         if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run verify:memory
+        run: npm run js:verify:memory
 
       - name: Verify benchmark harness
         if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
-        run: npm run performance:smoke
+        run: npm run js:performance:smoke
+
+  flutter:
+    name: Flutter · ${{ matrix.toolchain }} analysis, tests & package
+    needs: classify
+    if: ${{ needs.classify.outputs.flutter_validation == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [ci, service]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Read SDK role
+        id: sdk
+        env:
+          TOOLCHAIN_ROLE: ${{ matrix.toolchain }}
+        run: node verification/flutter/toolchains.mjs "$TOOLCHAIN_ROLE" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: ${{ steps.sdk.outputs.flutter-version }}
+          channel: ${{ steps.sdk.outputs.flutter-channel }}
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          node verification/assets/prepare.mjs flutter
+          cd packages/flutter
+          flutter pub get
+
+      - name: Dart analysis and tests
+        env:
+          FLUTTER_TOOLCHAIN_ROLE: ${{ matrix.toolchain }}
+        run: npm run flutter:verify
+
+  contracts:
+    name: Shared contract definitions & release tooling
+    needs: classify
+    if: ${{ needs.classify.outputs.contract_validation == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Shared contract and release tooling checks
+        run: |
+          npm run verify:tooling
+          node verification/conformance/inventory.mjs
+
+  native-example:
+    name: Build ${{ matrix.platform }} development host
+    needs: [classify, flutter]
+    if: ${{ needs.classify.outputs.flutter_validation == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: android
+            runner: ubuntu-latest
+          - platform: ios
+            runner: macos-latest
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Read SDK role
+        id: sdk
+        run: node verification/flutter/toolchains.mjs ci >> "$GITHUB_OUTPUT"
+      - name: Setup Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: ${{ steps.sdk.outputs.flutter-version }}
+          channel: ${{ steps.sdk.outputs.flutter-channel }}
+          cache: false
+      - name: Verify installed SDK
+        run: node verification/flutter/toolchains.mjs check ci
+      - name: Prepare shared assets
+        run: node verification/assets/prepare.mjs flutter
+      - name: Resolve development host
+        working-directory: packages/flutter/example
+        run: flutter pub get --enforce-lockfile
+      - name: Build Android
+        if: ${{ matrix.platform == 'android' }}
+        working-directory: packages/flutter/example
+        run: flutter build apk --debug --no-pub
+      - name: Build iOS simulator
+        if: ${{ matrix.platform == 'ios' }}
+        working-directory: packages/flutter/example
+        run: flutter build ios --simulator --debug --no-codesign --no-pub
 
   validation:
     name: CI
     if: ${{ always() }}
-    needs: [classify, gate]
+    needs: [classify, gate, flutter, contracts, native-example]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -133,7 +266,26 @@ jobs:
           CLASSIFIER_RESULT: ${{ needs.classify.result }}
           FULL_VALIDATION: ${{ needs.classify.outputs.full_validation }}
           GATES_RESULT: ${{ needs.gate.result }}
+          FLUTTER_VALIDATION: ${{ needs.classify.outputs.flutter_validation }}
+          CONTRACT_VALIDATION: ${{ needs.classify.outputs.contract_validation }}
+          CONTRACT_RESULT: ${{ needs.contracts.result }}
+          FLUTTER_RESULT: ${{ needs.flutter.result }}
+          NATIVE_RESULT: ${{ needs.native-example.result }}
         run: |
           test "$CLASSIFIER_RESULT" = success
           test "$GATES_RESULT" = success
           test "$FULL_VALIDATION" = true || test "$FULL_VALIDATION" = false
+          if test "$FLUTTER_VALIDATION" = true; then
+            test "$FLUTTER_RESULT" = success
+            test "$NATIVE_RESULT" = success
+          else
+            test "$FLUTTER_VALIDATION" = false
+            test "$FLUTTER_RESULT" = skipped
+            test "$NATIVE_RESULT" = skipped
+          fi
+          if test "$CONTRACT_VALIDATION" = true; then
+            test "$CONTRACT_RESULT" = success
+          else
+            test "$CONTRACT_VALIDATION" = false
+            test "$CONTRACT_RESULT" = skipped
+          fi

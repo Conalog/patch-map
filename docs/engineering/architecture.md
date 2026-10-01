@@ -4,6 +4,9 @@ PatchMap separates product policy, semantic state, and concrete rendering. A
 change should flow through an existing owner instead of creating a parallel
 publication or cleanup path.
 
+Runtime and test paths below are relative to `packages/javascript/`. The
+repository roots table uses paths relative to the workspace root.
+
 ## Runtime flow
 
 ```text
@@ -26,15 +29,17 @@ frame owner. Events and diagnostics describe that same accepted publication.
 | Root | Single owner |
 | --- | --- |
 | `.github/` | pull-request, release, dependency, and workflow policy automation |
-| `src/` | shipped product and package surface |
-| `docs/` | public usage contracts and repository-internal engineering routes |
-| `examples/` | packed public consumer examples |
-| `performance/` | current-run benchmarks, fixtures, targeted probes, and runners |
-| `tests/` | direct product checks grouped by owning boundary |
-| `verification/` | package, documentation, and repository release gates |
+| `packages/javascript/` | JavaScript runtime, editable public docs, release history, packed examples, tests, performance tools, and npm artifact verification |
+| `packages/flutter/` | Flutter package foundation, generated assets, and development hosts; runtime implementation remains pending |
+| `shared/assets/` | canonical package SVG/font sources, font license and native provenance; see [shared assets](shared-assets.md) |
+| `docs/engineering/` | repository-internal architecture, verification, environment and release operations |
+| `conformance/` | shared behavior targets and pending runtime qualification inputs |
+| `verification/` | private shared asset preparation, documentation, Flutter artifact, and cross-runtime qualification tooling |
 | `.artifacts/` | ignored build and measurement output |
 
-The package name is not repeated below these roots. Product imports no tooling;
+JavaScript package-local directories retain their existing owners. Production may
+import canonical raw SVG data from `shared/assets/icons/`; shared executable
+modules are not a production dependency. Product imports no tooling;
 verification and performance can import product code but production never
 imports either. Tests may import product and explicitly owned fixtures. The
 boundary test enforces these directions.

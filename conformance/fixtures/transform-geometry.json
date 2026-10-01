@@ -1,0 +1,299 @@
+{
+  "schemaRevision": "patch-map-conformance/1",
+  "id": "transform-geometry",
+  "description": "Nested affine transform, multi-target resize/rotation and session validation through the public binding.",
+  "surface": {
+    "width": 480,
+    "height": 520,
+    "pixelRatio": 1,
+    "background": "#f8fafc"
+  },
+  "dataset": [
+    {
+      "type": "group",
+      "id": "group",
+      "attrs": {
+        "x": 100,
+        "y": 120,
+        "angle": 30,
+        "scaleX": -2
+      },
+      "children": [
+        {
+          "type": "rect",
+          "id": "a",
+          "attrs": {
+            "x": 10,
+            "y": 20,
+            "rotation": 0.2
+          },
+          "size": {
+            "width": 40,
+            "height": 30
+          },
+          "fill": "#2563eb"
+        },
+        {
+          "type": "rect",
+          "id": "b",
+          "attrs": {
+            "x": 100,
+            "y": 20
+          },
+          "size": {
+            "width": 20,
+            "height": 50
+          },
+          "fill": "#22c55e"
+        }
+      ]
+    },
+    {
+      "type": "rect",
+      "id": "locked",
+      "locked": true,
+      "attrs": {
+        "x": 250,
+        "y": 50
+      },
+      "size": {
+        "width": 30,
+        "height": 20
+      }
+    },
+    {
+      "type": "rect",
+      "id": "free",
+      "attrs": {
+        "x": 200,
+        "y": 130
+      },
+      "size": {
+        "width": 40,
+        "height": 60
+      }
+    }
+  ],
+  "commands": [
+    {
+      "id": "nested-move",
+      "op": "transform.moveBy",
+      "input": {
+        "targets": [
+          "a"
+        ],
+        "delta": [
+          7.5,
+          -2.5
+        ]
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "single-aspect",
+      "op": "transform.resizeBy",
+      "input": {
+        "targets": [
+          "a"
+        ],
+        "resize": {
+          "handle": "e",
+          "delta": [
+            5,
+            0
+          ],
+          "lockAspectRatio": true
+        }
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "multi-resize",
+      "op": "transform.resizeBy",
+      "input": {
+        "targets": [
+          "a",
+          "b"
+        ],
+        "resize": {
+          "handle": "sw",
+          "delta": [
+            -10,
+            6
+          ]
+        }
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "multi-rotate",
+      "op": "transform.rotateBy",
+      "input": {
+        "targets": [
+          "a",
+          "b"
+        ],
+        "degrees": 390
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "partial-rotate",
+      "op": "transform.rotateBy",
+      "input": {
+        "targets": [
+          "locked",
+          "free"
+        ],
+        "degrees": -45
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "locked-move",
+      "op": "transform.moveBy",
+      "input": {
+        "targets": [
+          "locked"
+        ],
+        "delta": [
+          3,
+          4
+        ]
+      },
+      "expect": {
+        "status": "rejected"
+      }
+    },
+    {
+      "id": "invalid-handle",
+      "op": "transform.beginSession",
+      "input": {
+        "targets": [
+          "a"
+        ],
+        "kind": "move",
+        "actionId": "invalid",
+        "handle": "se"
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        }
+      }
+    },
+    {
+      "id": "move-session",
+      "op": "transform.beginSession",
+      "input": {
+        "targets": [
+          "a"
+        ],
+        "kind": "move",
+        "actionId": "axis"
+      }
+    },
+    {
+      "id": "wrong-kind",
+      "op": "transform.preview",
+      "input": {
+        "kind": "rotate",
+        "degrees": 20
+      },
+      "refs": {
+        "session": "move-session"
+      },
+      "expect": {
+        "throws": {
+          "kind": "invalid-argument"
+        }
+      }
+    },
+    {
+      "id": "axis-preview",
+      "op": "transform.preview",
+      "input": {
+        "kind": "move",
+        "delta": [
+          2,
+          5
+        ],
+        "axisLock": true
+      },
+      "refs": {
+        "session": "move-session"
+      },
+      "expect": {
+        "status": "previewed"
+      }
+    },
+    {
+      "id": "edge-pan",
+      "op": "transform.edgePan",
+      "input": {
+        "pointerScreen": [
+          470,
+          200
+        ],
+        "deltaCss": [
+          12,
+          -5
+        ]
+      },
+      "refs": {
+        "session": "move-session"
+      }
+    },
+    {
+      "id": "axis-commit",
+      "op": "transform.commit",
+      "refs": {
+        "session": "move-session"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "settled-preview",
+      "op": "transform.preview",
+      "input": {
+        "kind": "move",
+        "delta": [
+          2,
+          5
+        ]
+      },
+      "refs": {
+        "session": "move-session"
+      },
+      "expect": {
+        "throws": {
+          "kind": "unexpected-error"
+        }
+      }
+    }
+  ],
+  "expected": {
+    "rootIds": [
+      "group",
+      "locked",
+      "free"
+    ],
+    "elementTypes": [
+      "group",
+      "rect"
+    ],
+    "componentTypes": []
+  }
+}

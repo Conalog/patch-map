@@ -1,0 +1,217 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { snapshotSources, analyzerSelectsProbe, parseDartReport, parseVitestReport, validateNativeIdentity, validateNativeSources } from './collect-evidence.mjs';
+
+const root = '/workspace';
+const vitest = () => ({ success: true, numTotalTests: 2, numPassedTests: 1, numFailedTests: 0,
+  numFailedTestSuites: 0, numPendingTests: 1, testResults: [{ name: `${root}/tests/owner.test.ts`, status: 'passed',
+    assertionResults: [{ title: 'works', fullName: 'owner works', status: 'passed' }, { title: 'opt-in', fullName: 'owner opt-in', status: 'pending' }] }] });
+const dart = () => [
+  { type: 'group', group: { id: 1, name: 'owner' } },
+  { type: 'testStart', test: { id: 2, name: 'owner works', url: 'file:///workspace/test/owner.dart', groupIDs: [1] } },
+  { type: 'testDone', testID: 2, result: 'success', skipped: false, hidden: false },
+  { type: 'testStart', test: { id: 3, name: 'owner opt-in', url: 'file:///workspace/test/owner.dart', groupIDs: [1] } },
+  { type: 'testDone', testID: 3, result: 'success', skipped: true, hidden: false },
+  { type: 'done', success: true },
+];
+const lines = (events) => events.map((event) => JSON.stringify(event)).join('\n');
+
+test('source identity covers canonical assets and preparation, independent of generated copies', async (t) => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'patch-map-source-assets-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  for (const path of ['shared/assets/icons', 'verification/assets', 'packages/flutter/assets/icons', 'packages/javascript/docs/assets']) {
+    await mkdir(resolve(directory, path), { recursive: true });
+  }
+  await writeFile(resolve(directory, 'shared/assets/icons/object.svg'), '<svg/>');
+  await writeFile(resolve(directory, 'verification/assets/prepare.mjs'), '// prepare');
+  const before = await snapshotSources(directory);
+  assert.deepEqual(Object.keys(before.files), ['shared/assets/icons/object.svg', 'verification/assets/prepare.mjs']);
+  await writeFile(resolve(directory, 'packages/flutter/assets/icons/object.svg'), '<svg/>');
+  await writeFile(resolve(directory, 'packages/javascript/docs/assets/fira-code-6.2-license.txt'), 'license');
+  assert.deepEqual(await snapshotSources(directory), before);
+  await writeFile(resolve(directory, 'shared/assets/icons/object.svg'), '<svg>changed</svg>');
+  const changed = await snapshotSources(directory);
+  assert.notEqual(changed.fingerprint, before.fingerprint);
+  await writeFile(resolve(directory, 'verification/assets/prepare.mjs'), '// changed preparation');
+  assert.notEqual((await snapshotSources(directory)).fingerprint, changed.fingerprint);
+});
+
+async function nativeInputFixture(t) {
+  const directory = await mkdtemp(resolve(tmpdir(), 'patch-map-native-inputs-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-q', directory]);
+  await writeFile(resolve(directory, '.gitignore'), '**/.gradle/\n**/Pods/\n**/build/\n**/.symlinks/\n**/Generated.xcconfig\n');
+  const paths = [
+    'packages/flutter/pubspec.yaml', 'packages/flutter/pubspec.lock',
+    'packages/flutter/toolchains.json', 'packages/flutter/.fvmrc',
+    'packages/flutter/example/pubspec.yaml', 'packages/flutter/example/pubspec.lock',
+    'packages/flutter/example/android/app/build.gradle.kts',
+    'packages/flutter/example/android/app/src/main/AndroidManifest.xml',
+    'packages/flutter/example/android/app/src/main/kotlin/MainActivity.kt',
+    'packages/flutter/example/android/gradle/wrapper/gradle-wrapper.properties',
+    'packages/flutter/example/ios/Runner.xcodeproj/project.pbxproj',
+    'packages/flutter/example/ios/Runner/AppDelegate.swift',
+    'packages/flutter/example/ios/Podfile', 'packages/flutter/example/ios/Podfile.lock',
+  ];
+  for (const path of paths) {
+    await mkdir(dirname(resolve(directory, path)), { recursive: true });
+    await writeFile(resolve(directory, path), 'original input');
+  }
+  execFileSync('git', ['-C', directory, 'add', '--', paths[11]]);
+  return { directory, paths };
+}
+
+test('source identity detects toolchain, dependency and tracked or newly authored native input changes', async (t) => {
+  const { directory, paths } = await nativeInputFixture(t);
+  const before = await snapshotSources(directory);
+  for (const path of paths) {
+    assert.ok(before.files[path], `Missing build input: ${path}`);
+    await writeFile(resolve(directory, path), 'changed input');
+    const after = await snapshotSources(directory);
+    assert.notEqual(after.fingerprint, before.fingerprint, path);
+    assert.notEqual(after.files[path], before.files[path], path);
+    await writeFile(resolve(directory, path), 'original input');
+  }
+  for (const path of ['packages/flutter/example/android/.gradle/cache.bin',
+    'packages/flutter/example/ios/Pods/plugin/source.m',
+    'packages/flutter/example/ios/Flutter/Generated.xcconfig']) {
+    await mkdir(dirname(resolve(directory, path)), { recursive: true });
+    await writeFile(resolve(directory, path), 'generated output');
+  }
+  await mkdir(resolve(directory, 'packages/flutter/example/ios/.symlinks'));
+  await symlink('/outside', resolve(directory, 'packages/flutter/example/ios/.symlinks/plugin'));
+  assert.deepEqual(await snapshotSources(directory), before);
+});
+
+test('native receipts require toolchain, dependencies and host inputs and reject stale bytes', async (t) => {
+  const { directory, paths } = await nativeInputFixture(t);
+  const snapshot = await snapshotSources(directory);
+  validateNativeSources(snapshot, snapshot.files, 'ios');
+  for (const path of paths) {
+    const omitted = { ...snapshot.files };
+    delete omitted[path];
+    assert.throws(() => validateNativeSources(snapshot, omitted, 'ios'), /built source receipt omitted/u, path);
+    assert.throws(() => validateNativeSources(snapshot, { ...snapshot.files, [path]: 'stale' }, 'ios'), /built source differs/u, path);
+  }
+});
+
+test('native source identity rejects authored symlinks and records removed source inputs', async (t) => {
+  const { directory, paths } = await nativeInputFixture(t);
+  const before = await snapshotSources(directory);
+  const tracked = paths[11];
+  await rm(resolve(directory, tracked));
+  const removed = await snapshotSources(directory);
+  assert.equal(Object.hasOwn(removed.files, tracked), false);
+  assert.notEqual(removed.fingerprint, before.fingerprint);
+  await symlink('missing.swift', resolve(directory, 'packages/flutter/example/ios/Runner/Alias.swift'));
+  await assert.rejects(snapshotSources(directory), /rejects symlink/u);
+});
+
+test('source identity rejects symlinked native source ancestors even when Git ignores the link', async (t) => {
+  const { directory } = await nativeInputFixture(t);
+  const target = resolve(directory, 'other-runner');
+  await mkdir(target);
+  await writeFile(resolve(target, 'AppDelegate.swift'), 'original input');
+  const runner = resolve(directory, 'packages/flutter/example/ios/Runner');
+  await rm(runner, { recursive: true, force: true });
+  await symlink(target, runner);
+  await writeFile(resolve(directory, '.gitignore'), 'packages/flutter/example/ios/Runner\n');
+  await assert.rejects(snapshotSources(directory), /rejects symlink/u);
+});
+
+test('unit parsers preserve exact files/titles and never promote an opt-in skip', () => {
+  const npm = parseVitestReport(root, vitest());
+  assert.deepEqual(npm[0], { file: 'tests/owner.test.ts', test: 'works', fullName: 'owner works' });
+  assert.equal(npm[1].skipped, true);
+  const parsed = parseDartReport(root, lines(dart()));
+  assert.deepEqual(parsed[0], { file: 'test/owner.dart', test: 'works', fullName: 'owner works' });
+  assert.equal(parsed[1].skipped, true);
+  const widgets = dart(); widgets[1].test.root_url = widgets[1].test.url;
+  widgets[1].test.url = 'package:flutter_test/src/widget_tester.dart';
+  assert.equal(parseDartReport(root, lines(widgets))[0].file, 'test/owner.dart');
+});
+
+test('machine errors, incomplete tails, unfinished tests and count drift fail closed', () => {
+  const failed = vitest(); failed.numFailedTests = 1;
+  assert.throws(() => parseVitestReport(root, failed), /failed/u);
+  const count = vitest(); count.numPassedTests = 2;
+  assert.throws(() => parseVitestReport(root, count), /count/u);
+  const incomplete = dart().slice(0, -1);
+  assert.throws(() => parseDartReport(root, lines(incomplete)), /incomplete/u);
+  const error = dart(); error.splice(2, 0, { type: 'error', error: 'assertion failed' });
+  assert.throws(() => parseDartReport(root, lines(error)), /machine error/u);
+  const unfinished = dart(); unfinished.splice(2, 1);
+  assert.throws(() => parseDartReport(root, lines(unfinished)), /unfinished/u);
+});
+
+test('analyzer selection uses exact argv path containment rather than a shared substring', () => {
+  const one = { command: ['flutter', 'analyze', '--no-pub', 'test/conformance/one.dart'], workingDirectory: 'packages/flutter' };
+  assert.equal(analyzerSelectsProbe(root, one, 'packages/flutter/test/conformance/one.dart'), true);
+  assert.equal(analyzerSelectsProbe(root, one, 'packages/flutter/test/conformance/two.dart'), false);
+  const all = { ...one, command: ['flutter', 'analyze', '--no-pub', 'lib', 'test'] };
+  assert.equal(analyzerSelectsProbe(root, all, 'packages/flutter/test/conformance/two.dart'), true);
+  assert.equal(analyzerSelectsProbe(root, all, 'packages/flutter/test-other/two.dart'), false);
+});
+
+test('native evidence binds the report path, build revision, source receipt and artifact SHA', () => {
+  const input = { artifactReceipt: { path: '.artifacts/app-artifact.json' }, artifact: { path: '.artifacts/app.apk', sha256: 'a'.repeat(64) },
+    report: { path: '.artifacts/report.json' }, sourceSnapshot: { path: '.artifacts/source.json' }, revision: 'build-7' };
+  const receipt = { path: input.artifact.path, sha256: input.artifact.sha256, report: 'report.json', sourceManifest: 'source.json' };
+  const log = 'All tests passed.\nPATCHMAP_NATIVE_CONTRACT /workspace/.artifacts/report.json\n';
+  validateNativeIdentity(root, input, { revision: 'build-7' }, receipt, log);
+  assert.throws(() => validateNativeIdentity(root, input, { revision: 'old' }, receipt, log), /revision/u);
+  assert.throws(() => validateNativeIdentity(root, input, { revision: 'build-7' }, receipt, log.replace('report.json', 'other.json')), /execution log/u);
+  assert.throws(() => validateNativeIdentity(root, input, { revision: 'build-7' }, { ...receipt, sha256: 'b'.repeat(64) }, log), /receipt mismatch/u);
+});
+
+test('native evidence requires actual prepared asset hashes and rejects stale or omitted copies', () => {
+  const snapshot = { files: { 'shared/assets/icons/object.svg': 'canonical', 'verification/assets/prepare.mjs': 'generator' } };
+  const native = { ...snapshot.files, 'packages/flutter/assets/icons/object.svg': 'canonical' };
+  validateNativeSources(snapshot, native, 'ios');
+  const omitted = { ...snapshot.files };
+  assert.throws(() => validateNativeSources(snapshot, omitted, 'ios'), /native asset receipt omitted/u);
+  assert.throws(() => validateNativeSources(snapshot, { ...native, 'packages/flutter/assets/icons/object.svg': 'old' }, 'ios'), /built source differs/u);
+  assert.throws(() => validateNativeSources(snapshot, { ...native, 'packages/flutter/assets/icons/inverter.svg': 'old' }, 'ios'), /built source differs/u);
+});
+
+
+test('evidence identity includes the shared workspace manifest and compiler/lint configuration', async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'patch-map-source-config-'));
+  try {
+    await mkdir(resolve(directory, 'verification'));
+    for (const name of ['package.json', 'tsconfig.json', 'eslint.config.js']) {
+      await writeFile(resolve(directory, 'verification', name), '{}');
+    }
+    const before = await snapshotSources(directory);
+    assert.deepEqual(Object.keys(before.files).sort(), [
+      'verification/eslint.config.js', 'verification/package.json', 'verification/tsconfig.json',
+    ]);
+    await writeFile(resolve(directory, 'verification/tsconfig.json'), '{"strict":true}');
+    const after = await snapshotSources(directory);
+    assert.notEqual(after.fingerprint, before.fingerprint);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+
+test('public documentation changes invalidate the collected source identity', async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'patch-map-source-docs-'));
+  try {
+    await mkdir(resolve(directory, 'packages/javascript/docs/api'), { recursive: true });
+    const document = 'packages/javascript/docs/api/data-and-targets.md';
+    await writeFile(resolve(directory, document), '# Current admission contract');
+    const before = await snapshotSources(directory);
+    assert.ok(before.files[document]);
+    await writeFile(resolve(directory, document), '# Changed admission contract');
+    const after = await snapshotSources(directory);
+    assert.notEqual(after.files[document], before.files[document]);
+    assert.notEqual(after.fingerprint, before.fingerprint);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

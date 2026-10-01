@@ -1,0 +1,1278 @@
+[
+  {
+    "id": "all-public-model-fields",
+    "dataset": [
+      {
+        "type": "group",
+        "id": "group",
+        "label": "label group",
+        "show": true,
+        "locked": false,
+        "attrs": {
+          "x": 3,
+          "y": 4,
+          "angle": 15,
+          "scaleX": -2,
+          "scaleY": 3,
+          "scale": {
+            "x": 2,
+            "y": 3
+          },
+          "skew": 1,
+          "pivot": {
+            "x": 4,
+            "y": 5
+          },
+          "metadata": {
+            "a": [
+              1,
+              "한글"
+            ]
+          }
+        },
+        "children": [
+          {
+            "type": "item",
+            "id": "item",
+            "label": "label item",
+            "show": true,
+            "locked": false,
+            "attrs": {
+              "x": 3,
+              "y": 4,
+              "angle": 15,
+              "scaleX": -2,
+              "scaleY": 3,
+              "scale": {
+                "x": 2,
+                "y": 3
+              },
+              "skew": 1,
+              "pivot": {
+                "x": 4,
+                "y": 5
+              },
+              "metadata": {
+                "a": [
+                  1,
+                  "한글"
+                ]
+              }
+            },
+            "size": {
+              "width": 100,
+              "height": 120
+            },
+            "components": [
+              {
+                "type": "background",
+                "id": "bg",
+                "label": "component bg",
+                "show": true,
+                "attrs": {
+                  "x": 1,
+                  "y": 2,
+                  "rotation": 0.3,
+                  "scaleX": 2,
+                  "scaleY": -1
+                },
+                "tint": "#123456",
+                "source": {
+                  "type": "rect",
+                  "fill": [
+                    1,
+                    0,
+                    0,
+                    0.5
+                  ],
+                  "borderWidth": 2,
+                  "borderColor": {
+                    "r": 1,
+                    "g": 2,
+                    "b": 3
+                  },
+                  "radius": [
+                    1,
+                    2,
+                    3,
+                    4
+                  ]
+                },
+                "size": {
+                  "width": 100,
+                  "height": 200
+                }
+              },
+              {
+                "type": "bar",
+                "id": "bar",
+                "label": "component bar",
+                "show": true,
+                "attrs": {
+                  "x": 1,
+                  "y": 2,
+                  "rotation": 0.3,
+                  "scaleX": 2,
+                  "scaleY": -1
+                },
+                "tint": "#123456",
+                "source": {
+                  "type": "rect",
+                  "fill": [
+                    1,
+                    0,
+                    0,
+                    0.5
+                  ],
+                  "borderWidth": 2,
+                  "borderColor": {
+                    "r": 1,
+                    "g": 2,
+                    "b": 3
+                  },
+                  "radius": [
+                    1,
+                    2,
+                    3,
+                    4
+                  ]
+                },
+                "size": {
+                  "width": {
+                    "value": 50,
+                    "unit": "%"
+                  },
+                  "height": 40
+                },
+                "placement": "bottom",
+                "margin": {
+                  "x": -1,
+                  "y": 2,
+                  "top": 3,
+                  "right": 4,
+                  "bottom": 5,
+                  "left": 6
+                },
+                "animation": false,
+                "animationDuration": 321
+              },
+              {
+                "type": "icon",
+                "id": "icon",
+                "label": "component icon",
+                "show": true,
+                "attrs": {
+                  "x": 1,
+                  "y": 2,
+                  "rotation": 0.3,
+                  "scaleX": 2,
+                  "scaleY": -1
+                },
+                "tint": "#123456",
+                "source": "object",
+                "size": "40%",
+                "placement": "left-top",
+                "margin": 2
+              },
+              {
+                "type": "text",
+                "id": "text",
+                "label": "component text",
+                "show": true,
+                "attrs": {
+                  "x": 1,
+                  "y": 2,
+                  "rotation": 0.3,
+                  "scaleX": 2,
+                  "scaleY": -1
+                },
+                "tint": "#123456",
+                "text": "한글 ABC",
+                "style": {
+                  "fontFamily": "FiraCode",
+                  "fontSize": 18,
+                  "fontWeight": "bold",
+                  "fill": "colors.text",
+                  "align": "justify",
+                  "letterSpacing": -1,
+                  "wordWrap": true,
+                  "wordWrapWidth": 80,
+                  "autoFont": {
+                    "min": 6,
+                    "max": 20
+                  },
+                  "overflow": "ellipsis"
+                },
+                "split": 2,
+                "placement": "right-bottom",
+                "margin": {
+                  "x": 3,
+                  "y": 4
+                }
+              }
+            ],
+            "padding": {
+              "x": 2,
+              "y": 3,
+              "top": 4,
+              "right": 5,
+              "bottom": 6,
+              "left": 7
+            },
+            "contentOrientation": "follow-item"
+          }
+        ]
+      },
+      {
+        "type": "grid",
+        "id": "grid",
+        "label": "label grid",
+        "show": true,
+        "locked": false,
+        "attrs": {
+          "x": 3,
+          "y": 4,
+          "angle": 15,
+          "scaleX": -2,
+          "scaleY": 3,
+          "scale": {
+            "x": 2,
+            "y": 3
+          },
+          "skew": 1,
+          "pivot": {
+            "x": 4,
+            "y": 5
+          },
+          "metadata": {
+            "a": [
+              1,
+              "한글"
+            ]
+          }
+        },
+        "cells": [
+          [
+            1,
+            0,
+            "B"
+          ]
+        ],
+        "gap": {
+          "x": 2,
+          "y": 3
+        },
+        "inactiveCellStrategy": "hide",
+        "item": {
+          "size": 20,
+          "components": [],
+          "padding": 2,
+          "contentOrientation": "upright"
+        }
+      },
+      {
+        "type": "relations",
+        "id": "relations",
+        "label": "label relations",
+        "show": true,
+        "locked": false,
+        "attrs": {
+          "x": 3,
+          "y": 4,
+          "angle": 15,
+          "scaleX": -2,
+          "scaleY": 3,
+          "scale": {
+            "x": 2,
+            "y": 3
+          },
+          "skew": 1,
+          "pivot": {
+            "x": 4,
+            "y": 5
+          },
+          "metadata": {
+            "a": [
+              1,
+              "한글"
+            ]
+          }
+        },
+        "links": [
+          {
+            "source": {
+              "id": "item"
+            },
+            "target": "grid.0.0"
+          }
+        ],
+        "style": {
+          "color": "blue",
+          "width": 2,
+          "alpha": 0.6,
+          "cap": "round",
+          "join": "bevel",
+          "miterLimit": 4,
+          "alignment": 0.2,
+          "pixelLine": true,
+          "textureSpace": "global",
+          "fill": {
+            "host": true
+          },
+          "texture": "ignored",
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "type": "image",
+        "id": "image",
+        "label": "label image",
+        "show": true,
+        "locked": false,
+        "attrs": {
+          "x": 3,
+          "y": 4,
+          "angle": 15,
+          "scaleX": -2,
+          "scaleY": 3,
+          "scale": {
+            "x": 2,
+            "y": 3
+          },
+          "skew": 1,
+          "pivot": {
+            "x": 4,
+            "y": 5
+          },
+          "metadata": {
+            "a": [
+              1,
+              "한글"
+            ]
+          }
+        },
+        "source": {
+          "src": "image.png",
+          "data": {
+            "host": true
+          },
+          "format": "png",
+          "parser": "p",
+          "loadParser": "p"
+        },
+        "size": 15
+      },
+      {
+        "type": "rect",
+        "id": "rect",
+        "label": "label rect",
+        "show": true,
+        "locked": false,
+        "attrs": {
+          "x": 3,
+          "y": 4,
+          "angle": 15,
+          "scaleX": -2,
+          "scaleY": 3,
+          "scale": {
+            "x": 2,
+            "y": 3
+          },
+          "skew": 1,
+          "pivot": {
+            "x": 4,
+            "y": 5
+          },
+          "metadata": {
+            "a": [
+              1,
+              "한글"
+            ]
+          }
+        },
+        "size": 20,
+        "fill": 16711680,
+        "stroke": {
+          "color": "blue",
+          "width": 2,
+          "alpha": 0.6
+        },
+        "radius": {
+          "topLeft": 1,
+          "topRight": 2,
+          "bottomRight": 3,
+          "bottomLeft": 4
+        }
+      },
+      {
+        "type": "text",
+        "id": "text",
+        "label": "label text",
+        "show": true,
+        "locked": false,
+        "attrs": {
+          "x": 3,
+          "y": 4,
+          "angle": 15,
+          "scaleX": -2,
+          "scaleY": 3,
+          "scale": {
+            "x": 2,
+            "y": 3
+          },
+          "skew": 1,
+          "pivot": {
+            "x": 4,
+            "y": 5
+          },
+          "metadata": {
+            "a": [
+              1,
+              "한글"
+            ]
+          }
+        },
+        "text": "Text",
+        "style": {
+          "fontFamily": "FiraCode",
+          "fontSize": 18,
+          "fontWeight": 500,
+          "fill": "#123456",
+          "align": "center",
+          "letterSpacing": 1,
+          "wordWrap": true,
+          "wordWrapWidth": 80
+        }
+      }
+    ]
+  },
+  {
+    "id": "length-union-0",
+    "dataset": [
+      {
+        "type": "item",
+        "id": "item",
+        "size": 100,
+        "components": [
+          {
+            "type": "bar",
+            "id": "bar",
+            "source": {},
+            "size": 20
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "length-union-1",
+    "dataset": [
+      {
+        "type": "item",
+        "id": "item",
+        "size": 100,
+        "components": [
+          {
+            "type": "bar",
+            "id": "bar",
+            "source": {},
+            "size": "50%"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "length-union-2",
+    "dataset": [
+      {
+        "type": "item",
+        "id": "item",
+        "size": 100,
+        "components": [
+          {
+            "type": "bar",
+            "id": "bar",
+            "source": {},
+            "size": {
+              "value": 12,
+              "unit": "px"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "length-union-3",
+    "dataset": [
+      {
+        "type": "item",
+        "id": "item",
+        "size": 100,
+        "components": [
+          {
+            "type": "bar",
+            "id": "bar",
+            "source": {},
+            "size": {
+              "value": 20,
+              "unit": "%"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "length-union-4",
+    "dataset": [
+      {
+        "type": "item",
+        "id": "item",
+        "size": 100,
+        "components": [
+          {
+            "type": "bar",
+            "id": "bar",
+            "source": {},
+            "size": {
+              "width": "25%",
+              "height": {
+                "value": 30,
+                "unit": "px"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "radius-union-0",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 20,
+        "radius": 3
+      }
+    ]
+  },
+  {
+    "id": "radius-union-1",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 20,
+        "radius": [
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    ]
+  },
+  {
+    "id": "radius-union-2",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 20,
+        "radius": {
+          "topLeft": 5
+        }
+      }
+    ]
+  },
+  {
+    "id": "spacing-union-0",
+    "dataset": [
+      {
+        "type": "grid",
+        "id": "g",
+        "cells": [
+          [
+            0,
+            1
+          ]
+        ],
+        "gap": 3,
+        "inactiveCellStrategy": "destroy",
+        "item": {
+          "size": 20,
+          "padding": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "spacing-union-1",
+    "dataset": [
+      {
+        "type": "grid",
+        "id": "g",
+        "cells": [
+          [
+            0,
+            1
+          ]
+        ],
+        "gap": {
+          "x": 2,
+          "y": 4
+        },
+        "inactiveCellStrategy": "destroy",
+        "item": {
+          "size": 20,
+          "padding": {
+            "x": 2,
+            "y": 4
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": "placement-left",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 30,
+        "components": [
+          {
+            "type": "icon",
+            "source": "object",
+            "size": 10,
+            "placement": "left"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "placement-left-top",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 30,
+        "components": [
+          {
+            "type": "icon",
+            "source": "object",
+            "size": 10,
+            "placement": "left-top"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "placement-left-bottom",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 30,
+        "components": [
+          {
+            "type": "icon",
+            "source": "object",
+            "size": 10,
+            "placement": "left-bottom"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "placement-top",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 30,
+        "components": [
+          {
+            "type": "icon",
+            "source": "object",
+            "size": 10,
+            "placement": "top"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "placement-right",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 30,
+        "components": [
+          {
+            "type": "icon",
+            "source": "object",
+            "size": 10,
+            "placement": "right"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "placement-right-top",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 30,
+        "components": [
+          {
+            "type": "icon",
+            "source": "object",
+            "size": 10,
+            "placement": "right-top"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "placement-right-bottom",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 30,
+        "components": [
+          {
+            "type": "icon",
+            "source": "object",
+            "size": 10,
+            "placement": "right-bottom"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "placement-bottom",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 30,
+        "components": [
+          {
+            "type": "icon",
+            "source": "object",
+            "size": 10,
+            "placement": "bottom"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "placement-center",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 30,
+        "components": [
+          {
+            "type": "icon",
+            "source": "object",
+            "size": 10,
+            "placement": "center"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "placement-none",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 30,
+        "components": [
+          {
+            "type": "icon",
+            "source": "object",
+            "size": 10,
+            "placement": "none"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "legacy-vector-unions",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 2,
+        "attrs": {
+          "rotation": 0.3,
+          "scale": 2,
+          "skew": {
+            "x": 1,
+            "y": 2
+          },
+          "pivot": 3
+        }
+      },
+      {
+        "type": "relations",
+        "links": [],
+        "style": {
+          "opacity": 0.4
+        }
+      }
+    ]
+  },
+  {
+    "id": "reject-show",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 10,
+        "show": 0
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-locked",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 10,
+        "locked": "yes"
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-label",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 10,
+        "label": 3
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-attrs-angle-rotation",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 10,
+        "attrs": {
+          "angle": 1,
+          "rotation": 2
+        }
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-attrs-vector",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 10,
+        "attrs": {
+          "scale": {
+            "x": 2
+          }
+        }
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-size",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": -1
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-radius",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 10,
+        "radius": [
+          1,
+          2
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-stroke-alpha",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 10,
+        "stroke": {
+          "alpha": 2
+        }
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-stroke-width",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 10,
+        "stroke": {
+          "width": -1
+        }
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-unknown-field",
+    "dataset": [
+      {
+        "type": "rect",
+        "size": 10,
+        "unknown": true
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-component-show",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "bar",
+            "size": 10,
+            "source": {},
+            "show": 1
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-component-label",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "bar",
+            "size": 10,
+            "source": {},
+            "label": 2
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-component-tint",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "bar",
+            "size": 10,
+            "source": {},
+            "tint": null
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-component-size",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "bar",
+            "size": {
+              "value": 1,
+              "unit": "em"
+            },
+            "source": {}
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-placement",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "bar",
+            "size": 10,
+            "source": {},
+            "placement": "bad"
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-animation",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "bar",
+            "size": 10,
+            "source": {},
+            "animation": 1
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-duration",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "bar",
+            "size": 10,
+            "source": {},
+            "animationDuration": -1
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-texture-border",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "bar",
+            "size": 10,
+            "source": {
+              "borderWidth": -1
+            }
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-text-fontSize",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "text",
+            "text": "A",
+            "style": {
+              "fontSize": -1
+            }
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-text-fontWeight",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "text",
+            "text": "A",
+            "style": {
+              "fontWeight": 50
+            }
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-text-align",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "text",
+            "text": "A",
+            "style": {
+              "align": "bad"
+            }
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-text-wordWrap",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "text",
+            "text": "A",
+            "style": {
+              "wordWrap": 1
+            }
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-text-autoFont",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "text",
+            "text": "A",
+            "style": {
+              "autoFont": {
+                "min": 20,
+                "max": 2
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-text-overflow",
+    "dataset": [
+      {
+        "type": "item",
+        "size": 20,
+        "components": [
+          {
+            "type": "text",
+            "text": "A",
+            "style": {
+              "overflow": "bad"
+            }
+          }
+        ]
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-grid-gap",
+    "dataset": [
+      {
+        "type": "grid",
+        "cells": [
+          [
+            1
+          ]
+        ],
+        "item": {
+          "size": 20
+        },
+        "gap": -1
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-grid-cell",
+    "dataset": [
+      {
+        "type": "grid",
+        "cells": [
+          [
+            true
+          ]
+        ],
+        "item": {
+          "size": 20
+        }
+      }
+    ],
+    "reject": true
+  },
+  {
+    "id": "reject-grid-strategy",
+    "dataset": [
+      {
+        "type": "grid",
+        "cells": [
+          [
+            1
+          ]
+        ],
+        "item": {
+          "size": 20
+        },
+        "inactiveCellStrategy": "bad"
+      }
+    ],
+    "reject": true
+  }
+]

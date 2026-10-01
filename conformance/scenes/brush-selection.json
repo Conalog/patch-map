@@ -1,0 +1,11 @@
+{
+  "id": "brush-selection",
+  "dataset": [
+    {"id":"a","type":"rect","attrs":{"x":10,"y":10},"size":{"width":20,"height":20}},
+    {"id":"b","type":"rect","attrs":{"x":50,"y":10},"size":{"width":20,"height":20}},
+    {"id":"c","type":"rect","attrs":{"x":90,"y":10},"size":{"width":20,"height":20}},
+    {"id":"off","type":"rect","attrs":{"x":50,"y":70},"size":{"width":20,"height":20}}
+  ],
+  "start": [20,20], "end": [100,20],
+  "added": ["off","a","b","c"], "removed": ["off"]
+}
