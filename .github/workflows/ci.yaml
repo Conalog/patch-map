@@ -87,21 +87,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Release tooling
-        if: ${{ matrix.gate == 'core' }}
-        run: npm run verify:tests
+      - name: Repository tooling
+        if: ${{ matrix.gate == 'core' && needs.classify.outputs.contract_validation != 'true' }}
+        run: npm run verify:tooling
 
       - name: Typecheck
         if: ${{ matrix.gate == 'core' }}
-        run: |
-          npm run js:typecheck
-          npm run verify:typecheck
+        run: npm run js:typecheck
 
       - name: Lint
         if: ${{ matrix.gate == 'core' }}
-        run: |
-          npm run js:lint
-          npm run verify:lint
+        run: npm run js:lint
 
       - name: Unit
         if: ${{ matrix.gate == 'core' }}

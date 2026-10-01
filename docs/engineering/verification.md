@@ -85,6 +85,9 @@ npm run js:verify:memory
   unreadable or malformed metadata changes retain the broader path-based gates;
   mixed changes use the union of affected owners. PR names and labels never
   determine which checks are skipped.
+- Repository tooling (typecheck, lint and tests) runs once in the shared contract
+  job when selected, otherwise in the JavaScript core job. JavaScript static
+  checks remain in the core job regardless of shared contract routing.
 - Routers link to one owner instead of copying contracts.
 - `verify:package` installs the generated tarball and checks ESM, CommonJS,
   declarations, examples, assets, interaction, capture, and teardown.
