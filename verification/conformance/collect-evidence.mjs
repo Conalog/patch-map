@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { readFile, readdir, writeFile, lstat } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compareObservations, compareRuns, contractFingerprint, qualify } from './compare.mjs';
@@ -14,6 +15,15 @@ const requireTrue = (value, message) => { if (!value) fail(message); };
 const isSha = (value) => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
 const json = async (path) => JSON.parse(await readFile(path, 'utf8'));
 const portable = (root, path) => relative(root, path.startsWith('file://') ? fileURLToPath(path) : resolve(root, path)).split('\\').join('/');
+const NATIVE_HOST_ROOTS = ['packages/flutter/example/android', 'packages/flutter/example/ios'];
+const NATIVE_PACKAGE_INPUTS = new Set([
+  'packages/flutter/pubspec.yaml', 'packages/flutter/pubspec.lock',
+  'packages/flutter/toolchains.json', 'packages/flutter/.fvmrc',
+  'packages/flutter/example/pubspec.yaml', 'packages/flutter/example/pubspec.lock',
+]);
+
+const isNativeBuildInput = (path) => NATIVE_PACKAGE_INPUTS.has(path)
+  || NATIVE_HOST_ROOTS.some((directory) => path.startsWith(`${directory}/`));
 
 export function analyzerSelectsProbe(root, analyzer, file) {
   if (!Array.isArray(analyzer.command)) return false;
@@ -42,6 +52,24 @@ export function validateNativeIdentity(root, input, observed, artifactReceipt, l
  * represented as a historical pre-run capture. Native build snapshots are separate. */
 export async function snapshotSources(root) {
   const files = {};
+  const verifiedDirectories = new Set();
+  async function verifyDirectory(path) {
+    if (path === '.' || verifiedDirectories.has(path)) return;
+    const entry = await lstat(resolve(root, path));
+    if (entry.isSymbolicLink()) fail(`Source snapshot rejects symlink: ${path}`);
+    requireTrue(entry.isDirectory(), `Unsupported source directory: ${path}`);
+    await verifyDirectory(dirname(path));
+    verifiedDirectories.add(path);
+  }
+  async function includeFile(path) {
+    try {
+      await verifyDirectory(dirname(path));
+      const entry = await lstat(resolve(root, path));
+      if (entry.isSymbolicLink()) fail(`Source snapshot rejects symlink: ${path}`);
+      requireTrue(entry.isFile(), `Unsupported source input: ${path}`);
+      files[path] = sha(await readFile(resolve(root, path)));
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
   async function visit(path) {
     for (const entry of (await readdir(resolve(root, path), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
       const child = `${path}/${entry.name}`;
@@ -56,8 +84,22 @@ export async function snapshotSources(root) {
     'conformance', 'verification/conformance', 'verification/flutter', 'packages/javascript/verification/package']) {
     try { await visit(path); } catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
-  for (const path of ['package.json', 'package-lock.json', '.nvmrc', 'verification/package.json', 'verification/tsconfig.json', 'verification/eslint.config.js', 'packages/javascript/package.json', 'packages/javascript/tsconfig.json', 'packages/javascript/tsconfig.build.json', 'packages/javascript/vite.config.ts', 'packages/flutter/pubspec.yaml', 'packages/flutter/pubspec.lock']) {
-    try { files[path] = sha(await readFile(resolve(root, path))); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  for (const path of ['package.json', 'package-lock.json', '.nvmrc', 'verification/package.json', 'verification/tsconfig.json', 'verification/eslint.config.js', 'packages/javascript/package.json', 'packages/javascript/tsconfig.json', 'packages/javascript/tsconfig.build.json', 'packages/javascript/vite.config.ts', ...NATIVE_PACKAGE_INPUTS]) {
+    await includeFile(path);
+  }
+  for (const directory of NATIVE_HOST_ROOTS) {
+    const entry = await lstat(resolve(root, directory)).catch((error) => {
+      if (error.code !== 'ENOENT') throw error;
+      return null;
+    });
+    if (entry === null) continue;
+    if (entry.isSymbolicLink()) fail(`Source snapshot rejects symlink: ${directory}`);
+    requireTrue(entry.isDirectory(), `Unsupported native source directory: ${directory}`);
+    // Hash tracked and newly authored inputs, using Git's existing exclusion
+    // policy for generated SDK files, machine configuration and build caches.
+    const paths = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', directory],
+      { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean);
+    for (const path of new Set(paths)) await includeFile(path);
   }
   const sorted = Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b)));
   return { schemaRevision: 'patch-map-evidence-source-snapshot/1', files: sorted, fingerprint: sha(JSON.stringify(sorted)) };
@@ -84,7 +126,8 @@ export function validateNativeSources(snapshot, nativeFiles, platform) {
     requireTrue(snapshot.files[source] === digest, `${platform}: built source differs: ${file}`);
   }
   for (const file of Object.keys(snapshot.files).filter((file) => file.startsWith('packages/javascript/src/')
-    || file.startsWith('packages/flutter/lib/') || file.startsWith('shared/assets/') || file.startsWith('verification/assets/'))) {
+    || file.startsWith('packages/flutter/lib/') || file.startsWith('shared/assets/') || file.startsWith('verification/assets/')
+    || isNativeBuildInput(file))) {
     requireTrue(nativeFiles[file] === snapshot.files[file], `${platform}: built source receipt omitted ${file}`);
     if (file.startsWith('shared/assets/')) {
       const target = file.replace('shared/assets/', 'packages/flutter/assets/');

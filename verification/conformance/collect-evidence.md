@@ -43,6 +43,12 @@ node verification/assets/prepare.mjs flutter
 node verification/conformance/collect-evidence.mjs --native-snapshot .artifacts/flutter/native-build-source.json
 ```
 
+Snapshots also bind Flutter SDK metadata, package/example manifests and resolved
+locks, and Android/iOS host sources and build settings. Native host inventory uses
+Git's tracked files and non-ignored new files; ignored generated SDK files and
+build caches are excluded. Run collection from the repository root. Native receipts must include
+these inputs as well as prepared assets, and reject missing or changed bytes.
+
 This command verifies prepared bytes without repairing them. The collector
 requires both canonical inputs and matching prepared asset hashes in the native
 build receipt, rejecting omitted or stale copies. Retain the snapshot with the

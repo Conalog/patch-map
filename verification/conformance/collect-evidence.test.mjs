@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { snapshotSources, analyzerSelectsProbe, parseDartReport, parseVitestReport, validateNativeIdentity, validateNativeSources } from './collect-evidence.mjs';
 
@@ -37,6 +38,89 @@ test('source identity covers canonical assets and preparation, independent of ge
   assert.notEqual(changed.fingerprint, before.fingerprint);
   await writeFile(resolve(directory, 'verification/assets/prepare.mjs'), '// changed preparation');
   assert.notEqual((await snapshotSources(directory)).fingerprint, changed.fingerprint);
+});
+
+async function nativeInputFixture(t) {
+  const directory = await mkdtemp(resolve(tmpdir(), 'patch-map-native-inputs-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-q', directory]);
+  await writeFile(resolve(directory, '.gitignore'), '**/.gradle/\n**/Pods/\n**/build/\n**/.symlinks/\n**/Generated.xcconfig\n');
+  const paths = [
+    'packages/flutter/pubspec.yaml', 'packages/flutter/pubspec.lock',
+    'packages/flutter/toolchains.json', 'packages/flutter/.fvmrc',
+    'packages/flutter/example/pubspec.yaml', 'packages/flutter/example/pubspec.lock',
+    'packages/flutter/example/android/app/build.gradle.kts',
+    'packages/flutter/example/android/app/src/main/AndroidManifest.xml',
+    'packages/flutter/example/android/app/src/main/kotlin/MainActivity.kt',
+    'packages/flutter/example/android/gradle/wrapper/gradle-wrapper.properties',
+    'packages/flutter/example/ios/Runner.xcodeproj/project.pbxproj',
+    'packages/flutter/example/ios/Runner/AppDelegate.swift',
+    'packages/flutter/example/ios/Podfile', 'packages/flutter/example/ios/Podfile.lock',
+  ];
+  for (const path of paths) {
+    await mkdir(dirname(resolve(directory, path)), { recursive: true });
+    await writeFile(resolve(directory, path), 'original input');
+  }
+  execFileSync('git', ['-C', directory, 'add', '--', paths[11]]);
+  return { directory, paths };
+}
+
+test('source identity detects toolchain, dependency and tracked or newly authored native input changes', async (t) => {
+  const { directory, paths } = await nativeInputFixture(t);
+  const before = await snapshotSources(directory);
+  for (const path of paths) {
+    assert.ok(before.files[path], `Missing build input: ${path}`);
+    await writeFile(resolve(directory, path), 'changed input');
+    const after = await snapshotSources(directory);
+    assert.notEqual(after.fingerprint, before.fingerprint, path);
+    assert.notEqual(after.files[path], before.files[path], path);
+    await writeFile(resolve(directory, path), 'original input');
+  }
+  for (const path of ['packages/flutter/example/android/.gradle/cache.bin',
+    'packages/flutter/example/ios/Pods/plugin/source.m',
+    'packages/flutter/example/ios/Flutter/Generated.xcconfig']) {
+    await mkdir(dirname(resolve(directory, path)), { recursive: true });
+    await writeFile(resolve(directory, path), 'generated output');
+  }
+  await mkdir(resolve(directory, 'packages/flutter/example/ios/.symlinks'));
+  await symlink('/outside', resolve(directory, 'packages/flutter/example/ios/.symlinks/plugin'));
+  assert.deepEqual(await snapshotSources(directory), before);
+});
+
+test('native receipts require toolchain, dependencies and host inputs and reject stale bytes', async (t) => {
+  const { directory, paths } = await nativeInputFixture(t);
+  const snapshot = await snapshotSources(directory);
+  validateNativeSources(snapshot, snapshot.files, 'ios');
+  for (const path of paths) {
+    const omitted = { ...snapshot.files };
+    delete omitted[path];
+    assert.throws(() => validateNativeSources(snapshot, omitted, 'ios'), /built source receipt omitted/u, path);
+    assert.throws(() => validateNativeSources(snapshot, { ...snapshot.files, [path]: 'stale' }, 'ios'), /built source differs/u, path);
+  }
+});
+
+test('native source identity rejects authored symlinks and records removed source inputs', async (t) => {
+  const { directory, paths } = await nativeInputFixture(t);
+  const before = await snapshotSources(directory);
+  const tracked = paths[11];
+  await rm(resolve(directory, tracked));
+  const removed = await snapshotSources(directory);
+  assert.equal(Object.hasOwn(removed.files, tracked), false);
+  assert.notEqual(removed.fingerprint, before.fingerprint);
+  await symlink('missing.swift', resolve(directory, 'packages/flutter/example/ios/Runner/Alias.swift'));
+  await assert.rejects(snapshotSources(directory), /rejects symlink/u);
+});
+
+test('source identity rejects symlinked native source ancestors even when Git ignores the link', async (t) => {
+  const { directory } = await nativeInputFixture(t);
+  const target = resolve(directory, 'other-runner');
+  await mkdir(target);
+  await writeFile(resolve(target, 'AppDelegate.swift'), 'original input');
+  const runner = resolve(directory, 'packages/flutter/example/ios/Runner');
+  await rm(runner, { recursive: true, force: true });
+  await symlink(target, runner);
+  await writeFile(resolve(directory, '.gitignore'), 'packages/flutter/example/ios/Runner\n');
+  await assert.rejects(snapshotSources(directory), /rejects symlink/u);
 });
 
 test('unit parsers preserve exact files/titles and never promote an opt-in skip', () => {
