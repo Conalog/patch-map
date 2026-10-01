@@ -14,10 +14,12 @@ test('Dart artifact inventory excludes examples, tests and generated metadata', 
       'assets/icons/object.svg': '<svg/>', 'example/lib/main.dart': 'private example',
       'test/a_test.dart': 'private test', '.dart_tool/package_config.json': '{}',
       '.flutter-plugins-dependencies': '{}', '.fvmrc': '{}', 'toolchains.json': '{}',
+      '.fvm/config.json': '{}',
     })) {
       await mkdir(resolve(directory, path, '..'), { recursive: true });
       await writeFile(resolve(directory, path), value);
     }
+    await symlink('/tmp', resolve(directory, '.fvm/flutter_sdk'));
     assert.deepEqual(await publicationFiles(directory), ['INTEGRATION.md', 'README.md', 'assets/icons/object.svg', 'lib/conalog_patch_map.dart', 'pubspec.yaml']);
     await writeFile(resolve(directory, 'unreviewed.json'), '{}');
     await assert.rejects(publicationFiles(directory), /Unreviewed Dart publication input/u);

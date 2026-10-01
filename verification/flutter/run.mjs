@@ -22,7 +22,7 @@ let sdkWorkspace;
 if (role !== 'ci') {
   sdkWorkspace = mkdtempSync(join(tmpdir(), 'patch-map-sdk-'));
   packageRoot = join(sdkWorkspace, 'package');
-  cpSync(sourcePackageRoot, packageRoot, { recursive: true, filter: (path) => !/(?:^|\/)(?:\.dart_tool|build|\.symlinks)(?:\/|$)/u.test(path) });
+  cpSync(sourcePackageRoot, packageRoot, { recursive: true, filter: (path) => !/(?:^|\/)(?:\.dart_tool|\.fvm|build|\.symlinks)(?:\/|$)/u.test(path) });
   process.on('exit', () => rmSync(sdkWorkspace, { recursive: true, force: true }));
 }
 const exampleRoot = join(packageRoot, 'example');

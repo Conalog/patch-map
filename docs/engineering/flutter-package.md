@@ -31,7 +31,8 @@ Library resolution is unlocked; the example lock is committed.
 The publication artifact contains library Dart sources, managed assets and font
 license, pubspec, README, integration notes, changelog, MIT license, third-party
 notices and analyzer policy. Example, tests, tools, locks, SDK pins and local
-artifacts are excluded. The verifier rejects unknown inputs and symlinks and
+artifacts, including FVM's local `.fvm/` cache, are excluded. The verifier rejects
+unknown inputs and product symlinks and
 checks extracted bytes before resolving the independent consumer.
 
 CI's stable `CI` aggregate includes changed-package JS, Flutter, shared-tooling and Android/iOS host build checks. Flutter analysis, tests and

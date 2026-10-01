@@ -9,7 +9,7 @@ import { contractFingerprint } from '../conformance/compare.mjs';
 
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const ROOT_FILES = new Set(['pubspec.yaml', 'README.md', 'INTEGRATION.md', 'CHANGELOG.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', '.pubignore', 'analysis_options.yaml']);
-const EXCLUDED = new Set(['example', 'test', 'tool', 'build', 'coverage', '.dart_tool', '.gitignore', 'pubspec.lock', '.flutter-plugins-dependencies', '.fvmrc', 'toolchains.json']);
+const EXCLUDED = new Set(['example', 'test', 'tool', 'build', 'coverage', '.dart_tool', '.fvm', '.gitignore', 'pubspec.lock', '.flutter-plugins-dependencies', '.fvmrc', 'toolchains.json']);
 export async function publicationFiles(packageRoot) {
   const files = [];
   async function visit(directory) {
