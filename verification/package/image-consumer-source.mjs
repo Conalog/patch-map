@@ -2,6 +2,26 @@
 export const PACKED_IMAGE_CONSUMER_SOURCE = `
 import { PatchMap as ImagePatchMap } from '@conalog/patch-map/image';
 
+async function createVerifiedImage(options) {
+  const original = HTMLCanvasElement.prototype.getContext;
+  let gl;
+  HTMLCanvasElement.prototype.getContext = function(...args) {
+    const context = original.apply(this, args);
+    if (args[0] === 'webgl2' && this.width === options.width && this.height === options.height) gl = context;
+    return context;
+  };
+  let map;
+  try { map = await ImagePatchMap.create(options); }
+  finally { HTMLCanvasElement.prototype.getContext = original; }
+  const attributes = gl?.getContextAttributes();
+  if (!attributes || attributes.depth !== false || attributes.stencil !== false ||
+      (options.antialias === false && (attributes.antialias || gl.getParameter(gl.SAMPLES) !== 0))) {
+    await map.destroy();
+    throw new Error('image context did not omit unused buffers or honor disabled AA: ' + JSON.stringify(attributes));
+  }
+  return map;
+}
+
 async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount: 0 }) {
   const input = [
     { type: 'rect', id: 'image-square', show: true, attrs: { x: 40, y: 30 }, size: { width: 80, height: 80 }, fill: '#ff0000' },
@@ -28,8 +48,9 @@ async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount
   let detached = true;
   let released = true;
   for (let cycle = 0; cycle < 5; cycle += 1) {
-    const map = await ImagePatchMap.create({
+    const map = await createVerifiedImage({
       data: input, width: 320, height: 180, fit: false, background: '#ffffff',
+      antialias: cycle !== 1,
       viewport: { initial: { centerWorld: [160, 90], scale: 1 } },
     });
     try {
@@ -58,7 +79,7 @@ async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount
     const status = map.assets.status();
     released &&= status.runtime.resourceCount === runtimeBaseline.resourceCount && status.runtime.leaseCount === runtimeBaseline.leaseCount && fontCount() === fontsBefore;
   }
-  const transparent = await ImagePatchMap.create({
+  const transparent = await createVerifiedImage({
     data: [input[0]], width: 160, height: 120, background: '#00000000', fit: false,
     viewport: { initial: { centerWorld: [80, 60], scale: 1 } },
   });

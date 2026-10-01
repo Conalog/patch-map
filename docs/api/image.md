@@ -30,7 +30,9 @@ canvas. It omits PatchMap root pointer/viewport input and accessibility activati
 bindings and selection/transformer overlays, including their scene-index and
 paint-bound work. Data, assets, viewport transforms, and pixel publication still use the
 shared runtime. Pixi retains its own renderer systems; global extensions and
-shared tickers are not removed. It accepts the same dataset, assets, theme, fit,
+shared tickers are not removed. The image WebGL2 context omits depth and stencil
+buffers, which these rendering lanes do not use; color buffers and the requested
+antialiasing remain. It accepts the same dataset, assets, theme, fit,
 and update inputs as the root product. Width and height are required positive integers in final output
 pixels, independent of device pixel ratio. `data: []` creates an empty session.
 Initial fit defaults to 24 pixels of padding. `viewport.initial` takes precedence

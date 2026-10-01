@@ -59,6 +59,10 @@ const map = await PatchMap.mount({
 
 // Image create/render/destroy must coexist with an already-mounted root map.
 await verifyImageEntry(map.assets.status().runtime);
+const rootContextAttributes = document.querySelector('#host canvas').getContext('webgl2').getContextAttributes();
+if (!rootContextAttributes.depth || !rootContextAttributes.stencil) {
+  throw new Error('image creation changed mounted root context buffers');
+}
 const initial = map.debug.snapshot();
 const unrotatedCapture = await map.capture.png();
 const rotationViewport = JSON.stringify(map.viewport.snapshot());

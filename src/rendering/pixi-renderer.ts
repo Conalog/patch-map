@@ -400,6 +400,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ? null
       : PatchMapCanvasSurfaceLifecycle.stageCallerCanvas(options.canvas, options.target);
     let applicationInitialized = false;
+    let imageContext: WebGL2RenderingContext | null = null;
     const applicationStarted = now();
     const initOptions: Partial<ApplicationOptions> = {
       width,
@@ -424,6 +425,32 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ...(options.canvas === undefined ? {} : { canvas: options.canvas }),
     };
     try {
+      if (options.interactive === false && preference === 'webgl' && options.requireWebGL2 === true) {
+        const canvas = options.canvas ?? document.createElement('canvas');
+        canvasLifecycle ??= PatchMapCanvasSurfaceLifecycle.ownCreatedCanvas(canvas, options.target);
+        canvas.width = Math.round(width * pixelRatio);
+        canvas.height = Math.round(height * pixelRatio);
+        // Image lanes use neither depth testing nor stencil masks. Pixi's
+        // default context requests both, so supply a context without them.
+        imageContext = canvas.getContext('webgl2', {
+          alpha: packedAlpha(packedBackground) < 1,
+          premultipliedAlpha: true,
+          antialias: options.antialias ?? false,
+          depth: false,
+          stencil: false,
+          preserveDrawingBuffer: false,
+          powerPreference: options.powerPreference ?? 'high-performance',
+        });
+        const attributes = imageContext?.getContextAttributes();
+        if (!imageContext || !attributes || attributes.depth || attributes.stencil) {
+          throw new PatchMapPixiRuntimeError(
+            'UNSUPPORTED_RUNTIME',
+            'PatchMap image output requires WebGL2 without depth or stencil buffers',
+          );
+        }
+        initOptions.canvas = canvas;
+        initOptions.context = imageContext;
+      }
       await application.init(initOptions);
       applicationInitialized = true;
       canvasLifecycle ??= PatchMapCanvasSurfaceLifecycle.ownCreatedCanvas(
@@ -463,6 +490,13 @@ export class PatchMapPixiRenderer implements CoreRenderer {
           application.destroy({ removeView: false }, { children: true });
         } catch {
           // The original initialization/construction failure remains authoritative.
+        }
+      } else {
+        // Before successful init, Pixi has not taken cleanup ownership.
+        try {
+          imageContext?.getExtension('WEBGL_lose_context')?.loseContext();
+        } catch {
+          // Preserve the original initialization failure.
         }
       }
       canvasLifecycle?.destroy();
