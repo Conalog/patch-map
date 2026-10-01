@@ -160,6 +160,7 @@ jobs:
         with:
           flutter-version: ${{ steps.sdk.outputs.flutter-version }}
           channel: ${{ steps.sdk.outputs.flutter-channel }}
+          cache: true
 
       - name: Install dependencies
         run: |
@@ -231,7 +232,7 @@ jobs:
         with:
           flutter-version: ${{ steps.sdk.outputs.flutter-version }}
           channel: ${{ steps.sdk.outputs.flutter-channel }}
-          cache: false
+          cache: true
       - name: Verify installed SDK
         run: node verification/flutter/toolchains.mjs check ci
       - name: Prepare shared assets

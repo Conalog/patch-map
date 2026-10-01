@@ -84,6 +84,27 @@ test('CI and publishing wire each Flutter installation to the SDK authority', ()
   assert.ok(ci.jobs.contracts.steps.every((step) => !step.uses?.startsWith('subosito/') && !step.run?.includes('flutter pub get')));
 });
 
+test('CI caches SDK and pub downloads without bypassing SDK or dependency verification', () => {
+  const ci = workflow('ci.yaml');
+  for (const name of ['flutter', 'native-example']) {
+    const job = ci.jobs[name];
+    const setup = job.steps.find((step) => step.uses?.startsWith('subosito/flutter-action@'));
+    assert.equal(setup.with.cache, true, `${name}: enable SDK and pub caches`);
+    // The pinned action defaults include OS, SDK version/revision and architecture;
+    // its pub key also includes lockfile hashes. Custom keys must not weaken them.
+    assert.equal(setup.uses, 'subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e');
+    for (const key of ['cache-key', 'pub-cache-key']) assert.equal(setup.with[key], undefined, `${name}: retain ${key} default`);
+    const sdkCheck = job.steps.find((step) => step.run === (name === 'flutter'
+      ? 'npm run flutter:verify' : 'node verification/flutter/toolchains.mjs check ci'));
+    const dependencies = job.steps.find((step) => step.run?.includes('flutter pub get'));
+    for (const step of [setup, sdkCheck, dependencies]) {
+      assert.ok(step, `${name}: setup, SDK check and resolution are required`);
+      assert.equal(step.if, undefined, `${name}: cache hits must not bypass validation or resolution`);
+    }
+    if (name === 'native-example') assert.equal(dependencies.run, 'flutter pub get --enforce-lockfile');
+  }
+});
+
 test('wiring validation detects drift and omitted runtime role checks', () => {
   const hardcoded = workflow('publish-dart.yaml');
   hardcoded.jobs.publish.steps.find((step) => step.uses?.startsWith('subosito/')).with['flutter-version'] = '3.0.0';
