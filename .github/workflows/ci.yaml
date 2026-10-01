@@ -59,6 +59,7 @@ jobs:
   gate:
     name: ${{ matrix.name }}
     needs: classify
+    if: ${{ needs.classify.outputs.full_validation == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -73,64 +74,61 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout
-        if: ${{ needs.classify.outputs.full_validation == 'true' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup Node
-        if: ${{ needs.classify.outputs.full_validation == 'true' }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: npm
 
       - name: Install dependencies
-        if: ${{ needs.classify.outputs.full_validation == 'true' }}
         run: npm ci
 
       - name: Release tooling
-        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate == 'core' }}
         run: npm run verify:tests
 
       - name: Typecheck
-        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate == 'core' }}
         run: |
           npm run js:typecheck
           npm run verify:typecheck
 
       - name: Lint
-        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate == 'core' }}
         run: |
           npm run js:lint
           npm run verify:lint
 
       - name: Unit
-        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate == 'core' }}
         run: npm run js:unit
 
       - name: Build
-        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate == 'core' }}
         run: npm run js:build
 
       - name: Documentation
-        if: ${{ matrix.gate == 'core' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate == 'core' }}
         run: npm run verify:docs
 
       - name: Install Chromium
-        if: ${{ matrix.gate != 'core' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate != 'core' }}
         run: npx playwright install --with-deps chromium
 
       - name: Verify package
-        if: ${{ matrix.gate == 'package' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate == 'package' }}
         run: npm run js:verify:package -- --require-audit
 
       - name: Verify memory
-        if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate == 'lifecycle' }}
         run: npm run js:verify:memory
 
       - name: Verify benchmark harness
-        if: ${{ matrix.gate == 'lifecycle' && needs.classify.outputs.full_validation == 'true' }}
+        if: ${{ matrix.gate == 'lifecycle' }}
         run: npm run js:performance:smoke
 
   flutter:
@@ -273,8 +271,12 @@ jobs:
           NATIVE_RESULT: ${{ needs.native-example.result }}
         run: |
           test "$CLASSIFIER_RESULT" = success
-          test "$GATES_RESULT" = success
-          test "$FULL_VALIDATION" = true || test "$FULL_VALIDATION" = false
+          if test "$FULL_VALIDATION" = true; then
+            test "$GATES_RESULT" = success
+          else
+            test "$FULL_VALIDATION" = false
+            test "$GATES_RESULT" = skipped
+          fi
           if test "$FLUTTER_VALIDATION" = true; then
             test "$FLUTTER_RESULT" = success
             test "$NATIVE_RESULT" = success
