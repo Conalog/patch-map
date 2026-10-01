@@ -1,0 +1,3 @@
+**2026-10-01**
+- SDK 선택기를 도입하고 CI를 ci/service matrix로 변경했다. 네이티브·Dart 배포는 ci 역할을 사용하며 Node 계약 작업의 Flutter 설치를 제거했다. SDK 회귀 검사 5개, 전체 tooling 40개, lint/typecheck, 양 SDK flutter:verify 및 actionlint가 통과했다. actionlint 1.7.12의 알려진 concurrency.queue 스키마 누락만 제외했다. 배포 운영 문서는 기존 owner 안에서 보완 중이다.
+- SDK 구현은 69140a99에 커밋했다. 기존 배포 owner에 최초 pub.dev 업로드, independent 채널 전환, 외부 설정, 원래 tag-push 실행 재시도, partial success 기록 및 qualified/publication 구분을 정리했다. 독립 리뷰의 게시 상태 의미 지적을 수정한 후 잔여 결함 없음으로 확인받았다. 두 SDK artifact SHA는 118fe96ca04b0b89ac863d1dd3955339a1c657b44ac8b4ffa36c9f40995129ba(21 files)로 일치한다. 기존 11 dirty paths는 index에서 분리했다. hosted CI/OIDC/게시 및 기능 자격은 주장하지 않는다.
