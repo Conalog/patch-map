@@ -1,4 +1,4 @@
-import { Matrix, Rectangle, RenderTexture, Texture, type Container, type WebGLRenderer } from 'pixi.js';
+import { Matrix, RenderTexture, type Container, type WebGLRenderer } from 'pixi.js';
 import { PatchMapRendererRuntimeError } from '../contracts/options';
 
 const TILE_SIZE = 2048;
@@ -8,7 +8,7 @@ export class PatchMapPixiImageTileOutput {
   public readonly canvas = document.createElement('canvas');
   private context: CanvasRenderingContext2D | null = null;
   private work: RenderTexture | null = null;
-  private readView: Texture | null = null;
+  private readback: Uint8Array<ArrayBuffer> | null = null;
   private readonly transform = new Matrix();
   private pixelRatio = 1;
 
@@ -32,7 +32,7 @@ export class PatchMapPixiImageTileOutput {
       width: Math.min(width, TILE_SIZE), height: Math.min(height, TILE_SIZE),
       resolution: 1, antialias: true,
     });
-    const view = this.readView ??= new Texture({ source: work.source, frame: new Rectangle() });
+    const readback = this.readback ??= new Uint8Array(work.width * work.height * 4);
     const background = this.renderer.background.colorRgba;
     // Offscreen clears bypass Pixi's premultiplied blend path.
     const alpha = background[3];
@@ -49,13 +49,12 @@ export class PatchMapPixiImageTileOutput {
             throw new PatchMapRendererRuntimeError('UNSUPPORTED_RUNTIME', 'Image output requires a complete AA4 render target');
           }
         }
-        // Resolve MSAA before reading the shared texture; extract.pixels does not resolve it.
         this.renderer.renderTarget.finishRenderPass();
-        view.frame.width = Math.min(work.width, width - x);
-        view.frame.height = Math.min(work.height, height - y);
-        view.updateUvs();
-        const { pixels, width: tileWidth, height: tileHeight } = this.renderer.extract.pixels(view);
-        this.assertAvailable();
+        const tileWidth = Math.min(work.width, width - x);
+        const tileHeight = Math.min(work.height, height - y);
+        this.readPixels(work, tileWidth, tileHeight, readback);
+        // Edge tiles use an exact-length view of the same backing buffer.
+        const pixels = new Uint8ClampedArray(readback.buffer, 0, tileWidth * tileHeight * 4);
         // WebGL readback is premultiplied; ImageData uses straight alpha.
         if (alpha < 1) {
           for (let offset = 0; offset < pixels.length; offset += 4) {
@@ -67,8 +66,7 @@ export class PatchMapPixiImageTileOutput {
             pixels[offset + 2] = Math.round(pixels[offset + 2]! * factor);
           }
         }
-        // Pixi readPixels allocates an ArrayBuffer-backed array.
-        const image = new ImageData(pixels as Uint8ClampedArray<ArrayBuffer>, tileWidth, tileHeight);
+        const image = new ImageData(pixels, tileWidth, tileHeight);
         context.putImageData(image, x, y);
       }
     }
@@ -83,10 +81,26 @@ export class PatchMapPixiImageTileOutput {
   }
 
   private releaseWork(): void {
-    this.readView?.destroy(false);
-    this.readView = null;
+    this.readback = null;
     this.work?.destroy(true);
     this.work = null;
+  }
+
+  private readPixels(work: RenderTexture, width: number, height: number, pixels: Uint8Array<ArrayBuffer>): void {
+    const target = this.renderer.renderTarget.getRenderTarget(work);
+    const gpuTarget = this.renderer.renderTarget.getGpuRenderTarget(target);
+    const gl = this.renderer.gl;
+    // Select only the resolved read framebuffer; preserve Pixi's draw target.
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, gpuTarget.resolveTargetFramebuffer);
+    try {
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      const error = gl.getError();
+      this.assertAvailable();
+      // A failed read may leave previous tile bytes in the reusable buffer.
+      if (error !== gl.NO_ERROR) throw new Error(`Image tile readback failed (WebGL error ${error})`);
+    } finally {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, gpuTarget.framebuffer);
+    }
   }
 
   private assertAvailable(): void {

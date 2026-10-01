@@ -59,8 +59,12 @@ one AA4 render target of at most 2048×2048 pixels and a 1×1 GPU canvas. Each
 tile is resolved, read back, and copied into a full-size CPU output canvas,
 which is encoded once. Tiles do not apply additional scene culling or change
 fit. Partial edge tiles retain only their output pixels; transparent PNG uses
-straight-alpha pixels during assembly. Repeated renders reuse the work target
-and teardown releases both canvases and the target.
+straight-alpha pixels during assembly. One pixel readback buffer, at most
+16 MiB, is reused across tiles and repeated renders. Edge tiles use exact-length
+views of that buffer, and each tile is copied into the output canvas before the
+next read overwrites it. WebGL readback errors reject the render instead of
+publishing previous tile bytes. Repeated renders reuse the work target and
+teardown releases both canvases, the target, and the readback buffer.
 
 Tile rasterization can produce antialiasing coverage and channel rounding
 differences compared with rendering the same scene in one full-size target.

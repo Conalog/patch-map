@@ -3,6 +3,7 @@ export const PACKED_IMAGE_CONSUMER_SOURCE = `
 import { PatchMap as ImagePatchMap } from '@conalog/patch-map/image';
 
 const imageGpuResources = [];
+const imageReadbacks = [];
 
 async function createVerifiedImage(options) {
   const original = HTMLCanvasElement.prototype.getContext;
@@ -12,6 +13,18 @@ async function createVerifiedImage(options) {
     if (args[0] === 'webgl2' && context && args[1]?.depth === false && args[1]?.stencil === false) {
       gl = context;
       if (this.width !== 1 || this.height !== 1) throw new Error('image GPU carrier must be 1x1');
+      const buffers = new WeakSet();
+      const reads = { calls: 0, buffers: 0, maxCapacityBytes: 0 };
+      imageReadbacks.push(reads);
+      const readPixels = gl.readPixels;
+      gl.readPixels = function(...args) {
+        const pixels = args[6];
+        if (!ArrayBuffer.isView(pixels) || pixels.byteLength < args[2] * args[3] * 4 || pixels.byteLength > 2048 * 2048 * 4) throw new Error('invalid image readback capacity');
+        reads.calls++;
+        if (!buffers.has(pixels.buffer)) { buffers.add(pixels.buffer); reads.buffers++; }
+        reads.maxCapacityBytes = Math.max(reads.maxCapacityBytes, pixels.byteLength);
+        return readPixels.apply(this, args);
+      };
       const resources = new Map();
       imageGpuResources.push(resources);
       const allocate = gl.renderbufferStorageMultisample;
@@ -126,14 +139,15 @@ async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount
     tileWitness = { seams, edges, alpha, seam: pixel(first, 2048, 2048), corner: pixel(first, 2304, 2176), background: pixel(first, 2200, 2100), translucent: pixel(first, 20, 20), updated: pixel(second, 2048, 2048) };
     tiledPixels = seams && edges && alpha && isPixel(second, 2048, 2048, [0, 0, 255, 255]);
   } finally { await tiled.destroy(); }
+  const readbackReused = imageReadbacks.every(r => r.calls > 0 && r.buffers === 1 && r.maxCapacityBytes <= 2048 * 2048 * 4);
   const aa4Released = imageGpuResources.every(resources => resources.size > 0 && [...resources.values()].every(r => r.released));
   const result = {
     createType: typeof ImagePatchMap.create, pngSize, jpegSize, pngPixels, jpegPixels,
-    finalBarPixels, transparentPixels, tiledPixels, tileWitness, aa4Released, fontsReady, detached, released, cycles: 5,
+    finalBarPixels, transparentPixels, tiledPixels, tileWitness, aa4Released, readbackReused, readbacks: imageReadbacks, fontsReady, detached, released, cycles: 5,
     immutable: JSON.stringify(input) === before,
   };
   if (!result.pngPixels || !result.jpegPixels || !result.finalBarPixels || !result.transparentPixels ||
-      !result.tiledPixels || !result.aa4Released || !result.fontsReady || !result.detached || !result.released || !result.immutable) {
+      !result.tiledPixels || !result.aa4Released || !result.readbackReused || !result.fontsReady || !result.detached || !result.released || !result.immutable) {
     throw new Error('packed image API failed: ' + JSON.stringify(result));
   }
   return result;
