@@ -2,7 +2,6 @@ import {
   PatchMapRuntime,
   type PatchMapRuntimeOptions,
 } from '../core';
-import type { PatchMapRuntimeRendererBackend } from '../core/runtime-renderer-port';
 import { PatchMapPixiRenderer } from '../rendering/pixi-renderer';
 import type { PatchMapPixiRendererOptions } from '../rendering/contracts/options';
 
@@ -28,7 +27,7 @@ export async function createPatchMapPixiRuntimeAssembly(
   const renderer = await PatchMapPixiRenderer.create(options);
   try {
     const runtime = PatchMapRuntime.attach(
-      renderer as unknown as PatchMapRuntimeRendererBackend,
+      renderer,
       options,
     );
     return Object.freeze({ runtime, renderer });
