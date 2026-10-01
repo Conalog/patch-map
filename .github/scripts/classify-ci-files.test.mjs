@@ -90,6 +90,14 @@ test('Flutter-only changes select the native gate without npm release measuremen
   }
 });
 
+test('JavaScript managed asset sources select the Flutter copy-drift gate', () => {
+  for (const path of ['packages/javascript/src/resources/icons/object.svg',
+    'packages/javascript/src/resources/fonts/FiraCode-VF.woff2']) {
+    assert.deepEqual(classifyChangedPaths([path]),
+      { fullValidation: true, flutterValidation: true, contractValidation: true }, path);
+  }
+});
+
 test('npm-only build and measurement changes stay in the npm gate', () => {
   for (const path of ['packages/javascript/vite.config.ts',
     'packages/javascript/performance/runners/benchmark.mjs',

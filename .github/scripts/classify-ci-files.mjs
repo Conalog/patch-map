@@ -11,6 +11,8 @@ export function isLightweightValidationPath(path) {
 
 export function requiresFlutterValidation(path) {
   return path.startsWith('packages/flutter/')
+    || path.startsWith('packages/javascript/src/resources/icons/')
+    || path.startsWith('packages/javascript/src/resources/fonts/')
     || path.startsWith('conformance/')
     || path.startsWith('verification/conformance/')
     || path.startsWith('verification/flutter/')
