@@ -3,7 +3,7 @@ import test from 'node:test';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { snapshotSources, analyzerSelectsProbe, parseDartReport, parseVitestReport, validateNativeIdentity } from './collect-evidence.mjs';
+import { snapshotSources, analyzerSelectsProbe, parseDartReport, parseVitestReport, validateNativeIdentity, validateNativeSources } from './collect-evidence.mjs';
 
 const root = '/workspace';
 const vitest = () => ({ success: true, numTotalTests: 2, numPassedTests: 1, numFailedTests: 0,
@@ -18,6 +18,26 @@ const dart = () => [
   { type: 'done', success: true },
 ];
 const lines = (events) => events.map((event) => JSON.stringify(event)).join('\n');
+
+test('source identity covers canonical assets and preparation, independent of generated copies', async (t) => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'patch-map-source-assets-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  for (const path of ['shared/assets/icons', 'verification/assets', 'packages/flutter/assets/icons', 'packages/javascript/docs/assets']) {
+    await mkdir(resolve(directory, path), { recursive: true });
+  }
+  await writeFile(resolve(directory, 'shared/assets/icons/object.svg'), '<svg/>');
+  await writeFile(resolve(directory, 'verification/assets/prepare.mjs'), '// prepare');
+  const before = await snapshotSources(directory);
+  assert.deepEqual(Object.keys(before.files), ['shared/assets/icons/object.svg', 'verification/assets/prepare.mjs']);
+  await writeFile(resolve(directory, 'packages/flutter/assets/icons/object.svg'), '<svg/>');
+  await writeFile(resolve(directory, 'packages/javascript/docs/assets/fira-code-6.2-license.txt'), 'license');
+  assert.deepEqual(await snapshotSources(directory), before);
+  await writeFile(resolve(directory, 'shared/assets/icons/object.svg'), '<svg>changed</svg>');
+  const changed = await snapshotSources(directory);
+  assert.notEqual(changed.fingerprint, before.fingerprint);
+  await writeFile(resolve(directory, 'verification/assets/prepare.mjs'), '// changed preparation');
+  assert.notEqual((await snapshotSources(directory)).fingerprint, changed.fingerprint);
+});
 
 test('unit parsers preserve exact files/titles and never promote an opt-in skip', () => {
   const npm = parseVitestReport(root, vitest());
@@ -62,6 +82,16 @@ test('native evidence binds the report path, build revision, source receipt and 
   assert.throws(() => validateNativeIdentity(root, input, { revision: 'old' }, receipt, log), /revision/u);
   assert.throws(() => validateNativeIdentity(root, input, { revision: 'build-7' }, receipt, log.replace('report.json', 'other.json')), /execution log/u);
   assert.throws(() => validateNativeIdentity(root, input, { revision: 'build-7' }, { ...receipt, sha256: 'b'.repeat(64) }, log), /receipt mismatch/u);
+});
+
+test('native evidence requires actual prepared asset hashes and rejects stale or omitted copies', () => {
+  const snapshot = { files: { 'shared/assets/icons/object.svg': 'canonical', 'verification/assets/prepare.mjs': 'generator' } };
+  const native = { ...snapshot.files, 'packages/flutter/assets/icons/object.svg': 'canonical' };
+  validateNativeSources(snapshot, native, 'ios');
+  const omitted = { ...snapshot.files };
+  assert.throws(() => validateNativeSources(snapshot, omitted, 'ios'), /native asset receipt omitted/u);
+  assert.throws(() => validateNativeSources(snapshot, { ...native, 'packages/flutter/assets/icons/object.svg': 'old' }, 'ios'), /built source differs/u);
+  assert.throws(() => validateNativeSources(snapshot, { ...native, 'packages/flutter/assets/icons/inverter.svg': 'old' }, 'ios'), /built source differs/u);
 });
 
 

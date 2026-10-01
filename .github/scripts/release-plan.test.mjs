@@ -19,7 +19,7 @@ const commit = (message, files, sha = 'c'.repeat(40)) => ({ message, files, sha 
 
 // The real pinned planner, strategies, changelog generators and workspace plugin
 // run against an in-memory GitHub boundary. No network or repository writes occur.
-async function fixture(changes, { dartReleased = false, jsReleased = false, missingLegacy = false, wrongLegacy = false, missingBoundary = false } = {}) {
+async function fixture(changes, { dartReleased = false, jsReleased = false, missingLegacy = false, wrongLegacy = false, missingBoundary = false, betweenReleases = [], historical = [] } = {}) {
   const versions = { [npmPath]: jsReleased ? '1.0.0-alpha.10' : '1.0.0-alpha.9' };
   if (dartReleased) versions[dartPath] = '1.0.0-alpha.1';
   const files = {
@@ -44,7 +44,9 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
   const commits = [
     ...changes,
     ...(dartReleased ? [commit('chore: release dart 1.0.0-alpha.1', [`${dartPath}/pubspec.yaml`], dartSha)] : []),
+    ...betweenReleases,
     ...(missingBoundary ? [] : [commit('chore: release previous npm', [jsReleased ? `${npmPath}/package.json` : 'package.json'], npmSha)]),
+    ...historical,
     commit('feat: already shipped npm feature', [`${npmPath}/src/index.ts`], 'd'.repeat(40)),
     commit('chore: bootstrap', [], config['bootstrap-sha']),
   ];
@@ -101,6 +103,53 @@ function asPullRequest(candidate, number) {
 
 test('release planner dependency remains pinned to the verified engine', () => {
   assert.equal(require('release-please/package.json').version, '17.6.0');
+});
+
+test('shared-only assets and preparation fixes produce both release candidates once', async () => {
+  for (const files of [
+    ['shared/assets/icons/object.svg'], ['shared/assets/fonts/FiraCode-VF.woff2'],
+    ['shared/assets/fonts/LICENSE.txt'], ['verification/assets/prepare.mjs'],
+    ['shared/assets/icons/object.svg', `${npmPath}/src/index.ts`, `${dartPath}/pubspec.yaml`],
+  ]) {
+    const { manifest } = await fixture([commit('fix: repair shared assets', files)]);
+    const candidates = await manifest.buildPullRequests();
+    assert.equal(candidates.length, 2, files.join(', '));
+    for (const path of [npmPath, dartPath]) {
+      assert.equal((candidateFor(candidates, path).body.toString().match(/repair shared assets/gu) ?? []).length, 1);
+    }
+  }
+});
+
+test('native font derivation changes release only Dart', async () => {
+  const { manifest } = await fixture([commit('fix: repair native font', [
+    'shared/assets/fonts/FiraCode-VF.ttf', 'shared/assets/fonts/provenance.json',
+  ])], { dartReleased: true, jsReleased: true });
+  const candidates = await manifest.buildPullRequests();
+  assert.equal(candidates.length, 1);
+  assert.equal(candidateFor(candidates, dartPath).version.toString(), '1.0.0-alpha.2');
+});
+
+test('shared asset routing respects each independent published boundary', async () => {
+  const { manifest } = await fixture([], {
+    dartReleased: true, jsReleased: true,
+    betweenReleases: [commit('fix: shared change already shipped in Dart', ['shared/assets/icons/object.svg'], 'a'.repeat(40))],
+    historical: [commit('fix: shared change already shipped in both', ['shared/assets/icons/wifi.svg'], 'e'.repeat(40))],
+  });
+  const candidates = await manifest.buildPullRequests();
+  assert.equal(candidates.length, 1);
+  const npm = candidateFor(candidates, npmPath);
+  assert.equal(npm.version.toString(), '1.0.0-alpha.11');
+  assert.match(npm.body.toString(), /already shipped in Dart/u);
+  assert.doesNotMatch(npm.body.toString(), /already shipped in both/u);
+});
+
+test('legacy npm boundary also excludes historical shared assets', async () => {
+  const { manifest } = await fixture([], {
+    historical: [commit('fix: historical shared asset', ['shared/assets/icons/object.svg'], 'e'.repeat(40))],
+  });
+  const candidates = await manifest.buildPullRequests();
+  assert.equal(candidates.length, 1);
+  candidateFor(candidates, dartPath);
 });
 
 test('npm-only release preserves legacy tag history and updates only the npm version and root lockfile', async () => {

@@ -11,3 +11,7 @@ dist/
 .packages
 build/
 coverage/
+
+# Prepared from shared/assets; included only in publication artifacts
+/packages/flutter/assets/
+/packages/javascript/docs/assets/fira-code-6.2-license.txt

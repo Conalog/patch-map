@@ -24,6 +24,11 @@ both implementations and the intended pair before releasing shared behavior. Cha
 `1.0.0-beta.1`) and matching prerelease settings; remove those settings for stable promotion and inspect the generated PR. npm maps prereleases to `next` and
 stable to `latest`, rejecting backward movement; pub.dev has no dist-tags.
 
+[Shared asset changes](shared-assets.md) are routed into the consuming package
+histories before their independent release boundaries are applied. SVG, WOFF2,
+license and preparation changes affect both; native TTF/provenance-only changes
+affect Dart. Generated package-local copies are not release-planning inputs.
+
 Dart publishing requires exact tag/package/manifest identity, branch ancestry, verified artifact bytes and complete Android/iOS and shared qualification. Both
 `publish_to: none` and `implementationStatus: foundation` block publication; asset tests and contract definitions cannot qualify the public runtime.
 
@@ -43,6 +48,7 @@ collector](../../verification/conformance/collect-evidence.md):
 ```sh
 node verification/flutter/toolchains.mjs check ci
 npm ci
+node verification/assets/prepare.mjs flutter
 (cd packages/flutter && flutter pub get)
 node .github/scripts/release-ready.mjs
 node .github/scripts/release-metadata.mjs dart dart-v1.0.0-alpha.1

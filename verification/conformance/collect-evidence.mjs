@@ -6,6 +6,7 @@ import { compareObservations, compareRuns, contractFingerprint, qualify } from '
 import { verifyApiBindings } from './api-bindings.mjs';
 import { inventoryPublicApi } from './inventory.mjs';
 import { collectPackageFailures } from '../../packages/javascript/verification/package/evidence.mjs';
+import { verifyPreparedFlutterAssets } from '../assets/prepare.mjs';
 
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const fail = (message) => { throw new Error(message); };
@@ -44,12 +45,13 @@ export async function snapshotSources(root) {
   async function visit(path) {
     for (const entry of (await readdir(resolve(root, path), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
       const child = `${path}/${entry.name}`;
+      if (child === 'packages/javascript/docs/assets/fira-code-6.2-license.txt') continue;
       if (entry.isSymbolicLink()) fail(`Source snapshot rejects symlink: ${child}`);
       if (entry.isDirectory()) await visit(child);
       else if (entry.isFile()) files[child] = sha(await readFile(resolve(root, child)));
     }
   }
-  for (const path of ['packages/javascript/src', 'packages/javascript/tests', 'packages/javascript/docs', 'docs', 'packages/flutter/lib', 'packages/flutter/assets', 'packages/flutter/test',
+  for (const path of ['packages/javascript/src', 'packages/javascript/tests', 'packages/javascript/docs', 'docs', 'packages/flutter/lib', 'shared/assets', 'verification/assets', 'packages/flutter/test',
     'packages/flutter/example/lib', 'packages/flutter/example/integration_test', 'packages/flutter/example/test_driver',
     'conformance', 'verification/conformance', 'verification/flutter', 'packages/javascript/verification/package']) {
     try { await visit(path); } catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -59,6 +61,36 @@ export async function snapshotSources(root) {
   }
   const sorted = Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b)));
   return { schemaRevision: 'patch-map-evidence-source-snapshot/1', files: sorted, fingerprint: sha(JSON.stringify(sorted)) };
+}
+
+/** Capture actual prepared native inputs before building, without changing them. */
+export async function snapshotNativeSources(root) {
+  const source = await snapshotSources(root);
+  verifyPreparedFlutterAssets(root);
+  const files = { ...source.files };
+  for (const file of Object.keys(source.files).filter((file) => file.startsWith('shared/assets/'))) {
+    const target = file.replace('shared/assets/', 'packages/flutter/assets/');
+    files[target] = sha(await readFile(resolve(root, target)));
+    requireTrue(files[target] === source.files[file], `Prepared native asset changed during snapshot: ${target}`);
+  }
+  const sorted = Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b)));
+  return { schemaRevision: 'patch-map-evidence-native-source-snapshot/1', files: sorted, fingerprint: sha(JSON.stringify(sorted)) };
+}
+
+export function validateNativeSources(snapshot, nativeFiles, platform) {
+  for (const [file, digest] of Object.entries(nativeFiles)) {
+    const source = file.startsWith('packages/flutter/assets/')
+      ? file.replace('packages/flutter/assets/', 'shared/assets/') : file;
+    requireTrue(snapshot.files[source] === digest, `${platform}: built source differs: ${file}`);
+  }
+  for (const file of Object.keys(snapshot.files).filter((file) => file.startsWith('packages/javascript/src/')
+    || file.startsWith('packages/flutter/lib/') || file.startsWith('shared/assets/') || file.startsWith('verification/assets/'))) {
+    requireTrue(nativeFiles[file] === snapshot.files[file], `${platform}: built source receipt omitted ${file}`);
+    if (file.startsWith('shared/assets/')) {
+      const target = file.replace('shared/assets/', 'packages/flutter/assets/');
+      requireTrue(nativeFiles[target] === snapshot.files[file], `${platform}: prepared native asset receipt omitted or stale: ${target}`);
+    }
+  }
 }
 
 export function parseVitestReport(root, report) {
@@ -285,13 +317,10 @@ export async function collectEvidence(root, config) {
     validateNativeIdentity(root, input, observed, artifactReceipt, log);
     const nativeSources = await readRef(input.sourceSnapshot);
     const nativeFiles = nativeSources.files ?? nativeSources;
-    for (const [file, digest] of Object.entries(nativeFiles)) requireTrue(snapshot.files[file] === digest, `${platform}: built source differs: ${file}`);
+    validateNativeSources(snapshot, nativeFiles, platform);
     requireTrue(Object.keys(nativeFiles).some((file) => file.endsWith('native_contract_test.dart')) &&
       Object.keys(nativeFiles).some((file) => file.endsWith('native_contract_driver.dart')) &&
       Object.keys(nativeFiles).some((file) => file.startsWith('packages/flutter/lib/')), `${platform}: incomplete build-source receipt`);
-    for (const file of Object.keys(snapshot.files).filter((file) => file.startsWith('packages/javascript/src/') || file.startsWith('packages/flutter/lib/') || file.startsWith('packages/flutter/assets/'))) {
-      requireTrue(nativeFiles[file] === snapshot.files[file], `${platform}: built source receipt omitted ${file}`);
-    }
     if (input.producerVerification) {
       const producer = await readRef(input.producerVerification);
       requireTrue(producer.phase === 'after-run-verification' && producer.unchangedSinceNativeRuns === true, 'Native producer check must state its actual later verification phase');
@@ -329,9 +358,10 @@ export async function collectEvidence(root, config) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [argument, output] = process.argv.slice(2);
-  if (argument === '--snapshot') {
-    requireTrue(output, 'usage: collect-evidence.mjs --snapshot <source-snapshot.json>');
-    await writeFile(resolve(output), `${JSON.stringify(await snapshotSources(process.cwd()), null, 2)}\n`);
+  if (argument === '--snapshot' || argument === '--native-snapshot') {
+    requireTrue(output, 'usage: collect-evidence.mjs [--snapshot|--native-snapshot] <source-snapshot.json>');
+    const snapshot = argument === '--native-snapshot' ? await snapshotNativeSources(process.cwd()) : await snapshotSources(process.cwd());
+    await writeFile(resolve(output), `${JSON.stringify(snapshot, null, 2)}\n`);
   } else {
     requireTrue(argument && output, 'usage: collect-evidence.mjs <input-config.json> <qualification-envelope.json>');
     try {

@@ -28,7 +28,8 @@
     "verify:lint": "npm run lint --workspace @patch-map/verification --",
     "verify:tests": "npm run test --workspace @patch-map/verification --",
     "verify:tooling": "npm run check --workspace @patch-map/verification --",
-    "verify:docs": "npm run docs --workspace @patch-map/verification --",
-    "flutter:verify": "npm run flutter:verify --workspace @patch-map/verification --"
+    "verify:docs": "node verification/assets/prepare.mjs all && npm run docs --workspace @patch-map/verification --",
+    "flutter:verify": "npm run flutter:verify --workspace @patch-map/verification --",
+    "assets:prepare": "node verification/assets/prepare.mjs"
   }
 }

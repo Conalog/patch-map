@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyInstalledDartConsumer } from './installed-consumer.mjs';
+import { prepareAssets } from '../assets/prepare.mjs';
 import { sha256 } from './package.mjs';
 import { readToolchains, assertFvmPin, identifyToolchain } from './toolchains.mjs';
 
@@ -18,6 +19,7 @@ const sdk = JSON.parse(execFileSync(flutter, ['--version', '--machine'], { encod
 const toolchains = readToolchains(root);
 assertFvmPin(root, toolchains);
 const role = identifyToolchain(sdk, toolchains, process.env.FLUTTER_TOOLCHAIN_ROLE);
+prepareAssets({ root, packageName: 'flutter' });
 let sdkWorkspace;
 if (role !== 'ci') {
   sdkWorkspace = mkdtempSync(join(tmpdir(), 'patch-map-sdk-'));

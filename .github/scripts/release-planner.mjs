@@ -6,9 +6,37 @@ const { GitHub, Manifest } = require('release-please');
 const { ManifestPlugin } = require('release-please/build/src/plugin.js');
 const { TagName } = require('release-please/build/src/util/tag-name.js');
 const jsPath = 'packages/javascript';
+const dartPath = 'packages/flutter';
 const legacyVersion = '1.0.0-alpha.9';
 const legacyTag = `v${legacyVersion}`;
 const legacySha = '6986c632a47d3443ff17903c416291dfe4120340';
+
+// CommitSplit only sees package-local paths. Project shared inputs onto their
+// consuming package boundaries before splitting, preserving each release SHA.
+// This changes planner input only; GitHub files and commit history stay intact.
+function withSharedAssetConsumers(github) {
+  return new Proxy(github, {
+    get(target, key) {
+      if (key === 'mergeCommitIterator') return async function* (...args) {
+        for await (const commit of target.mergeCommitIterator(...args)) {
+          const consumers = new Set();
+          for (const file of commit.files ?? []) {
+            if (file.startsWith('verification/assets/') || file.startsWith('shared/assets/')) {
+              consumers.add(dartPath);
+              if (!['shared/assets/fonts/FiraCode-VF.ttf', 'shared/assets/fonts/provenance.json'].includes(file)) consumers.add(jsPath);
+            }
+          }
+          yield consumers.size === 0 ? commit : {
+            ...commit,
+            files: [...new Set([...commit.files, ...[...consumers].map((path) => `${path}/CHANGELOG.md`)])],
+          };
+        }
+      };
+      const value = Reflect.get(target, key, target);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
 
 // Preserve the actual historical boundary and compare URL without creating aliases
 // or rewriting published tags. Inactive after the first js-prefixed release.
@@ -34,6 +62,7 @@ class LegacyJsBoundary extends ManifestPlugin {
 }
 
 export async function createReleaseManifest(github, branch = 'release/1.0') {
+  github = withSharedAssetConsumers(github);
   const manifest = await Manifest.fromManifest(github, branch);
   if (manifest.releasedVersions[jsPath]?.toString() === legacyVersion) {
     manifest.plugins.unshift(new LegacyJsBoundary(github, branch, manifest.repositoryConfig));

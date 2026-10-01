@@ -143,7 +143,7 @@ describe('PatchMap shared asset runtime', () => {
     expect(BUILTIN_FONT_WEIGHTS).toEqual([300, 400, 500, 600, 700]);
 
     const bytes = readFileSync(new URL(
-      `../../src/resources/fonts/${BUILTIN_FIRA_CODE_ASSET.fileName}`,
+      `../../../../shared/assets/fonts/${BUILTIN_FIRA_CODE_ASSET.fileName}`,
       import.meta.url,
     ));
     expect(bytes.byteLength).toBe(BUILTIN_FIRA_CODE_ASSET.byteLength);

@@ -27,10 +27,15 @@ package development. Service integration begins after the selected runtime
 capabilities are implemented and qualified. See [third-party notices](THIRD_PARTY_NOTICES.md)
 for asset scope and licenses.
 Equipment icons (`inverter`, `combiner`, `edge`) are not bundled.
+When using a repository checkout as a path dependency, prepare its generated
+assets from the repository root with `npm run assets:prepare -- flutter` before
+Flutter dependency resolution. Published artifacts include the prepared assets.
 
 ## Development host
 
 ```sh
+node verification/assets/prepare.mjs flutter # from the repository root
+cd packages/flutter
 flutter pub get
 cd example
 flutter pub get

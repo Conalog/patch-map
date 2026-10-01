@@ -34,6 +34,21 @@ was omitted from the original snapshot, a separately labelled later verification
 records its hash and the operator's unchanged-source confirmation. The old
 snapshot remains intact.
 
+Canonical assets and preparation tooling are part of source identity; ignored
+package-local copies are not. Before native execution, prepare assets and retain
+their actual build-input hashes with the native snapshot command:
+
+```sh
+node verification/assets/prepare.mjs flutter
+node verification/conformance/collect-evidence.mjs --native-snapshot .artifacts/flutter/native-build-source.json
+```
+
+This command verifies prepared bytes without repairing them. The collector
+requires both canonical inputs and matching prepared asset hashes in the native
+build receipt, rejecting omitted or stale copies. Retain the snapshot with the
+build revision and binary receipt; a later snapshot cannot establish historical
+build inputs.
+
 An input config uses this structure (all `path` references also require a real
 `sha256`; every command receipt has actual `exitCode: 0`, the current reviewed
 `sourceFingerprint` and `contractFingerprint`):

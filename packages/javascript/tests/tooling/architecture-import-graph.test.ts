@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const SOURCE_ROOT = resolve(ROOT, 'src');
+const SHARED_ICONS_ROOT = resolve(ROOT, '../../shared/assets/icons');
 
 describe('PatchMap architecture import graph', () => {
   it('keeps production TypeScript modules acyclic', async () => {
@@ -189,6 +190,7 @@ describe('PatchMap architecture import graph', () => {
         );
         for (const specifier of moduleSpecifiers(parsed)) {
           if (!specifier.startsWith('.')) continue;
+          if (owner === 'src' && isSharedSvgImport(file, specifier)) continue;
           const targetRoot = relative(ROOT, resolve(dirname(file), specifier)).split(sep)[0];
           if (targetRoot !== undefined && prohibited.has(targetRoot)) {
             violations.push(`${relative(ROOT, file)} -> ${specifier}`);
@@ -199,7 +201,24 @@ describe('PatchMap architecture import graph', () => {
 
     expect(violations.sort()).toEqual([]);
   });
+
+  it('permits only raw shared SVG data across the production package boundary', () => {
+    const file = resolve(SOURCE_ROOT, 'assets/builtin-image-glyphs.ts');
+    expect(isSharedSvgImport(file, '../../../../shared/assets/icons/object.svg?raw')).toBe(true);
+    for (const specifier of [
+      '../../../../shared/assets/icons/object.svg',
+      '../../../../shared/assets/icons/object.svg?url',
+      '../../../../shared/assets/icons/tool.mjs?raw',
+      '../../../../shared/assets/icons/../tool.svg?raw',
+      '../../../../verification/assets/object.svg?raw',
+    ]) expect(isSharedSvgImport(file, specifier), specifier).toBe(false);
+  });
 });
+
+function isSharedSvgImport(file: string, specifier: string): boolean {
+  const target = resolve(dirname(file), specifier);
+  return /^[^/\\]+\.svg\?raw$/.test(relative(SHARED_ICONS_ROOT, target));
+}
 
 const FORBIDDEN_OWNER_DEPENDENCIES: Readonly<
   Record<string, ReadonlySet<string>>

@@ -52,7 +52,9 @@ jobs:
 
       - name: Verify documentation for changes outside npm
         if: ${{ steps.changes.outputs.full_validation == 'false' }}
-        run: node verification/docs/verify.mjs
+        run: |
+          node verification/assets/prepare.mjs all
+          node verification/docs/verify.mjs
 
   gate:
     name: ${{ matrix.name }}
@@ -168,6 +170,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci
+          node verification/assets/prepare.mjs flutter
           cd packages/flutter
           flutter pub get
 
@@ -237,6 +240,8 @@ jobs:
           cache: false
       - name: Verify installed SDK
         run: node verification/flutter/toolchains.mjs check ci
+      - name: Prepare shared assets
+        run: node verification/assets/prepare.mjs flutter
       - name: Resolve development host
         working-directory: packages/flutter/example
         run: flutter pub get --enforce-lockfile

@@ -1,3 +1,4 @@
+import { prepareAssets } from '../assets/prepare.mjs';
 import { readdir, readFile, writeFile, mkdir, mkdtemp, lstat } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -62,6 +63,7 @@ function command(executable, args, cwd) {
 }
 
 export async function verifyInstalledDartConsumer({ root = process.cwd(), flutter = process.env.FLUTTER_BIN ?? 'flutter', prepareOnly = false } = {}) {
+  prepareAssets({ root, packageName: 'flutter' });
   await verifyFlutterPackage(root);
   const packageRoot = resolve(root, 'packages/flutter');
   const filenames = await publicationFiles(packageRoot);

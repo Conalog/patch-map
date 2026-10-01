@@ -30,13 +30,16 @@ frame owner. Events and diagnostics describe that same accepted publication.
 | --- | --- |
 | `.github/` | pull-request, release, dependency, and workflow policy automation |
 | `packages/javascript/` | JavaScript runtime, editable public docs, release history, packed examples, tests, performance tools, and npm artifact verification |
-| `packages/flutter/` | Flutter package foundation, managed assets, and development hosts; runtime implementation remains pending |
+| `packages/flutter/` | Flutter package foundation, generated assets, and development hosts; runtime implementation remains pending |
+| `shared/assets/` | canonical package SVG/font sources, font license and native provenance; see [shared assets](shared-assets.md) |
 | `docs/engineering/` | repository-internal architecture, verification, environment and release operations |
 | `conformance/` | shared behavior targets and pending runtime qualification inputs |
-| `verification/` | private shared documentation, Flutter artifact, and cross-runtime qualification tooling |
+| `verification/` | private shared asset preparation, documentation, Flutter artifact, and cross-runtime qualification tooling |
 | `.artifacts/` | ignored build and measurement output |
 
-JavaScript package-local directories retain their existing owners. Product imports no tooling;
+JavaScript package-local directories retain their existing owners. Production may
+import canonical raw SVG data from `shared/assets/icons/`; shared executable
+modules are not a production dependency. Product imports no tooling;
 verification and performance can import product code but production never
 imports either. Tests may import product and explicitly owned fixtures. The
 boundary test enforces these directions.

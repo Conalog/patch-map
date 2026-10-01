@@ -90,9 +90,9 @@ test('Flutter-only changes select the native gate without npm release measuremen
   }
 });
 
-test('JavaScript managed asset sources select the Flutter copy-drift gate', () => {
-  for (const path of ['packages/javascript/src/resources/icons/object.svg',
-    'packages/javascript/src/resources/fonts/FiraCode-VF.woff2']) {
+test('Shared assets and preparation select both package gates', () => {
+  for (const path of ['shared/assets/icons/object.svg', 'shared/assets/fonts/FiraCode-VF.woff2',
+    'shared/assets/fonts/FiraCode-VF.ttf', 'verification/assets/prepare.mjs']) {
     assert.deepEqual(classifyChangedPaths([path]),
       { fullValidation: true, flutterValidation: true, contractValidation: true }, path);
   }

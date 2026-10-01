@@ -9,10 +9,10 @@ const builtinFontModule = normalizePath(
   fileURLToPath(new URL('./src/assets/builtin-font-payload.ts', import.meta.url)),
 );
 const builtinFontSource = fileURLToPath(
-  new URL('./src/resources/fonts/FiraCode-VF.woff2', import.meta.url),
+  new URL('../../shared/assets/fonts/FiraCode-VF.woff2', import.meta.url),
 );
 const builtinFontExpression =
-  "new URL('../resources/fonts/FiraCode-VF.woff2', import.meta.url).href";
+  "new URL('../../../../shared/assets/fonts/FiraCode-VF.woff2', import.meta.url).href";
 const builtinFontDataImport = 'patch-map-builtin-font-data';
 
 function isPixiDependency(id: string): boolean {

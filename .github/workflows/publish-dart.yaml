@@ -57,6 +57,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci
+          node verification/assets/prepare.mjs flutter
           cd packages/flutter
           flutter pub get
       - name: Check Dart and shared contracts

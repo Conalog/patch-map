@@ -1,4 +1,4 @@
-const FIRA_CODE_URL = new URL('../resources/fonts/FiraCode-VF.woff2', import.meta.url).href;
+const FIRA_CODE_URL = new URL('../../../../shared/assets/fonts/FiraCode-VF.woff2', import.meta.url).href;
 let resolvedFiraCodeUrl: Promise<string> | undefined;
 
 export function builtinFiraCodeUrl(): Promise<string> {

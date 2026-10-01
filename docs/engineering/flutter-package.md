@@ -22,6 +22,9 @@ version's functional compatibility. Service checks use a temporary copy to resol
 
 Current managed-asset dependencies are Flutter, bounded flutter_svg and
 vector_graphics, declared in [pubspec.yaml](../../packages/flutter/pubspec.yaml).
+Canonical SVG/font inputs and ignored package-local preparation are owned by
+[shared assets](shared-assets.md). Repository Flutter commands prepare them
+automatically; direct Flutter commands require preparation from the root first.
 Codec inputs remain [conformance targets](../../conformance/README.md); this
 foundation has no codec runtime. Android host uses JVM 17, NDK 28.2.13676358
 and a bounded 2 GiB Gradle heap.
@@ -44,6 +47,7 @@ installed-consumer checks run on both recorded SDK roles. Native hosts build on 
 Host builds do not qualify rendering or devices. iOS simulator builds additionally require the selected Xcode's iOS platform installation.
 
 ```sh
+node verification/assets/prepare.mjs flutter
 cd packages/flutter/example
 flutter pub get --enforce-lockfile
 flutter build apk --debug --no-pub

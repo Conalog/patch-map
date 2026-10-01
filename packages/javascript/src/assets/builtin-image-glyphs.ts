@@ -1,8 +1,8 @@
-import deviceSvg from '../resources/icons/device.svg?raw';
-import loadingSvg from '../resources/icons/loading.svg?raw';
-import objectSvg from '../resources/icons/object.svg?raw';
-import warningSvg from '../resources/icons/warning.svg?raw';
-import wifiSvg from '../resources/icons/wifi.svg?raw';
+import deviceSvg from '../../../../shared/assets/icons/device.svg?raw';
+import loadingSvg from '../../../../shared/assets/icons/loading.svg?raw';
+import objectSvg from '../../../../shared/assets/icons/object.svg?raw';
+import warningSvg from '../../../../shared/assets/icons/warning.svg?raw';
+import wifiSvg from '../../../../shared/assets/icons/wifi.svg?raw';
 
 /**
  * PatchMap package glyphs. The original 72x72 white artwork keeps

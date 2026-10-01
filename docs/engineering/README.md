@@ -12,6 +12,7 @@ This directory owns internal structure, engineering policy and release operation
 
 For the native Flutter package baseline, read [Flutter development environment](flutter-package.md).
 For npm or Dart versioning and publication, read [Independent release operations](releases.md).
+For shared SVG/font sources and package preparation, read [Shared package assets](shared-assets.md).
 
 1. Find the feature row in [System map](system-map.md).
 2. Read the owning public API page when behavior, ordering, or failure meaning
