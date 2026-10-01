@@ -13,9 +13,11 @@ import type {
 
 /** Browser image session. Width and height are final output pixels. */
 export interface PatchMapImageOptions extends Pick<PatchMapOptions,
-  'theme' | 'instanceId' | 'antialias' | 'background' | 'zoomLimits' |
+  'theme' | 'instanceId' | 'background' | 'zoomLimits' |
   'assets' | 'assetRuntime' | 'assetPolicy' | 'fit' | 'powerPreference'
 > {
+  /** Image output always uses four-sample antialiasing. */
+  readonly antialias?: true;
   readonly data: unknown;
   readonly width: number;
   readonly height: number;

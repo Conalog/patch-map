@@ -35,7 +35,7 @@ export async function createImagePatchMap(
       preference: 'webgl',
       backend: 'webgl2',
       ...(options.theme === undefined ? {} : { theme: options.theme }),
-      ...(options.antialias === undefined ? {} : { antialias: options.antialias }),
+      antialias: true,
       ...(options.background === undefined ? {} : { background: options.background }),
       ...(options.zoomLimits === undefined ? {} : { zoomLimits: options.zoomLimits }),
       ...(options.powerPreference === undefined ? {} : { powerPreference: options.powerPreference }),
@@ -63,6 +63,9 @@ function validateOptions(options: PatchMapImageOptions): void {
   ]);
   for (const key of Object.keys(options)) {
     if (!allowed.has(key)) throw new TypeError(`PatchMap.create does not support ${key}`);
+  }
+  if (options.antialias !== undefined && options.antialias !== true) {
+    throw new TypeError('Image sessions require antialias: true');
   }
   if (options.data === undefined) throw new TypeError('PatchMap.create requires data; use [] for an empty map');
   if (!Number.isSafeInteger(options.width) || options.width <= 0 ||

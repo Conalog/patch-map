@@ -5,7 +5,7 @@ every helper involved.
 
 | Change | Primary source | Focused checks | Additional gate |
 | --- | --- | --- | --- |
-| Image sessions and Blob output | `src/image.ts`, `src/composition/image.ts`, `src/public/image.ts`, `src/engine/capture-extraction-authority.ts` | `tests/integration/image-api.test.ts`, `tests/engine/engine-capture-extraction-authority.test.ts` | package and memory gates |
+| Image sessions and Blob output | `src/image.ts`, `src/composition/image.ts`, `src/public/image.ts`, `src/engine/capture-extraction-authority.ts`, `src/rendering/pixi-renderer/image-tile-output.ts` | `tests/rendering/image-tile-output.test.ts`, `tests/integration/image-api.test.ts`, `tests/engine/engine-capture-extraction-authority.test.ts` | package and memory gates |
 | Public mount, facade, exports | `src/index.ts`, `src/composition/`, `src/public/` | `tests/integration/developer-api-workflows.test.ts` | `npm run build`, `npm run verify:package` |
 | Mount, resize, renderer loss, destroy | `src/engine/surface-lifecycle-authority.ts`, `src/engine/page-lifecycle-coordinator.ts`, `src/composition/pixi-engine-surface.ts` | `tests/engine/engine-lifecycle.test.ts`, `tests/integration/page-lifecycle.test.ts` | `npm run verify:memory` |
 | Dataset admission and replacement | `src/semantic/dataset/`, `src/parsing/`, `src/engine/dataset-replacement-coordinator.ts` | `tests/semantic/dataset-contract.test.ts`, `tests/semantic/incremental-parser.test.ts` | full unit suite when shared parsing changes |

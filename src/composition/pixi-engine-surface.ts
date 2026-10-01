@@ -137,7 +137,7 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
   }
 
   public get canvasCount(): number {
-    return this.canvasPresent ? 1 : 0;
+    return this.canvasPresent ? this.pixiRenderer.canvasCount : 0;
   }
 
   public get destroyed(): boolean {
@@ -145,7 +145,7 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
   }
 
   public canvasElement(): HTMLCanvasElement {
-    return this.pixiRenderer.canvas;
+    return this.pixiRenderer.imageCanvasElement();
   }
 
   public captureBase64(): Promise<string> {

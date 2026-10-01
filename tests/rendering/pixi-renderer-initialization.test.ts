@@ -33,13 +33,13 @@ describe('image renderer context initialization', () => {
       width: 320, height: 180, pixelRatio: 1, antialias: true, background: 0xffffff00,
       powerPreference: 'low-power',
     })).rejects.toBe(failure);
-    expect([canvas.width, canvas.height]).toEqual([320, 180]);
+    expect([canvas.width, canvas.height]).toEqual([1, 1]);
     expect(canvas.getContext).toHaveBeenCalledWith('webgl2', {
       alpha: true, premultipliedAlpha: true, antialias: true,
       depth: false, stencil: false, preserveDrawingBuffer: false,
       powerPreference: 'low-power',
     });
-    expect(init).toHaveBeenCalledWith(expect.objectContaining({ canvas, context, antialias: true }));
+    expect(init).toHaveBeenCalledWith(expect.objectContaining({ canvas, context, width: 1, height: 1, antialias: true }));
     expect(loseContext).toHaveBeenCalledOnce();
     expect(canvas.remove).toHaveBeenCalledOnce();
   });

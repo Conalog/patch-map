@@ -107,7 +107,7 @@ async function runImageTrial(input: unknown, seed: number): Promise<boolean> {
   const surfaces: PatchMapEngineSurface[] = [];
   const map = await createImagePatchMap({
     data: input, width: 960, height: 540, instanceId: `memory-image-${seed}`,
-    background: '#ffffff', antialias: false,
+    background: '#ffffff', antialias: true,
   }, async (options) => {
     const imageSurface = await createPixiSurface(options);
     surfaces.push(imageSurface);

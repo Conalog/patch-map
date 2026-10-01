@@ -65,6 +65,7 @@ describe('image API', () => {
       expect(surfaceOptions.interactive).toBe(false);
       expect(surfaceOptions.target).toBeUndefined();
       expect(surfaceOptions.pixelRatio).toBe(1);
+      expect(surfaceOptions.antialias).toBe(true);
       expect(surface.frameCount).toBe(0);
       expect(Object.keys(map).sort()).toEqual([
         'assets', 'data', 'destroy', 'destroyed', 'render', 'rotation', 'targets',
@@ -115,6 +116,13 @@ describe('image API', () => {
   it.each([0, -1, 1.5, NaN, Infinity])('rejects invalid output width %s before allocation', async (width) => {
     const factory = vi.fn();
     await expect(createImagePatchMap(options({ width }), factory)).rejects.toThrow('positive integers');
+    expect(factory).not.toHaveBeenCalled();
+  });
+
+  it('rejects disabled AA before allocation', async () => {
+    const factory = vi.fn();
+    await expect(createImagePatchMap({ ...options(), antialias: false } as unknown as PatchMapImageOptions, factory))
+      .rejects.toThrow('antialias: true');
     expect(factory).not.toHaveBeenCalled();
   });
 

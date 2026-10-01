@@ -25,14 +25,15 @@ try {
 }
 ```
 
-`PatchMap.create()` prepares one reusable image session with a private detached
-canvas. It omits PatchMap root pointer/viewport input and accessibility activation
+`PatchMap.create()` prepares one reusable image session with private detached
+GPU and output canvases. It omits PatchMap root pointer/viewport input and accessibility activation
 bindings and selection/transformer overlays, including their scene-index and
 paint-bound work. Data, assets, viewport transforms, and pixel publication still use the
 shared runtime. Pixi retains its own renderer systems; global extensions and
 shared tickers are not removed. The image WebGL2 context omits depth and stencil
-buffers, which these rendering lanes do not use; color buffers and the requested
-antialiasing remain. It accepts the same dataset, assets, theme, fit,
+buffers, which these rendering lanes do not use. Image output always enables
+antialiasing and requires an AA4 (four-sample) render target; `antialias: false`
+is rejected before allocation. It accepts the same dataset, assets, theme, fit,
 and update inputs as the root product. Width and height are required positive integers in final output
 pixels, independent of device pixel ratio. `data: []` creates an empty session.
 Initial fit defaults to 24 pixels of padding. `viewport.initial` takes precedence
@@ -53,10 +54,21 @@ set an opaque background when its color matters. Use `background: '#00000000'`
 for transparent PNG output; background strings follow the root hex-color contract.
 Built-in fonts and image admission follow [Assets and capture](assets-and-capture.md).
 
-This initial implementation renders the full viewport and encodes its canvas.
-It provides no tile rendering, tile capture, memory budget, or speed guarantee.
-Those internal strategies can be introduced later while retaining this session
-and image-result contract. Browser/GPU canvas size limits still apply.
+The scene is prepared once for the full output viewport. Rasterization reuses
+one AA4 render target of at most 2048×2048 pixels and a 1×1 GPU canvas. Each
+tile is resolved, read back, and copied into a full-size CPU output canvas,
+which is encoded once. Tiles do not apply additional scene culling or change
+fit. Partial edge tiles retain only their output pixels; transparent PNG uses
+straight-alpha pixels during assembly. Repeated renders reuse the work target
+and teardown releases both canvases and the target.
+
+Tile rasterization can produce antialiasing coverage and channel rounding
+differences compared with rendering the same scene in one full-size target.
+Individual edge pixels may differ substantially even when the overall image
+appears similar. Byte-for-byte
+equivalence with root capture is not guaranteed. The full-size CPU canvas and
+encoder still consume memory proportional to output area, and browser canvas
+size limits still apply. There is no fixed memory budget or speed guarantee.
 
 ## Ordering and failures
 

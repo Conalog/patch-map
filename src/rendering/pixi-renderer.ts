@@ -7,7 +7,10 @@ import {
   Matrix,
   Rectangle,
   type ApplicationOptions,
+  type WebGLRenderer,
 } from 'pixi.js';
+
+import { PatchMapPixiImageTileOutput } from './pixi-renderer/image-tile-output';
 
 import type { CoreView, SlotRange } from '../dense/contracts';
 import {
@@ -199,6 +202,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private worldOrientation: PatchMapWorldOrientation = DEFAULT_WORLD_ORIENTATION;
   private readonly worldMatrix = new Matrix();
   private destroyedValue = false;
+  private readonly imageOutput: PatchMapPixiImageTileOutput | null;
   private readonly activeBackend: PatchMapActiveRendererBackend;
   private readonly initialWebGLVersion: 1 | 2 | null;
   private rendererLossState: PatchMapRendererLossState = 'healthy';
@@ -376,6 +380,11 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     this.application.stage.addChild(this.world);
     this.application.ticker.stop();
+    this.imageOutput = options.interactive === false && this.initialWebGLVersion === 2
+      ? new PatchMapPixiImageTileOutput(application.renderer as WebGLRenderer, options.width, options.height, options.pixelRatio)
+      : null;
+    const imageOutput = this.imageOutput;
+    if (imageOutput) application.render = () => imageOutput.render(application.stage);
     canvasLifecycle.applyRuntimeIdentity();
     this.surfacePublication.armInitialRender();
 
@@ -402,9 +411,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     let applicationInitialized = false;
     let imageContext: WebGL2RenderingContext | null = null;
     const applicationStarted = now();
+    const imageOutput = options.interactive === false && preference === 'webgl' && options.requireWebGL2 === true;
     const initOptions: Partial<ApplicationOptions> = {
-      width,
-      height,
+      width: imageOutput ? 1 : width,
+      height: imageOutput ? 1 : height,
       resolution: pixelRatio,
       autoDensity: true,
       antialias: options.antialias ?? false,
@@ -425,11 +435,11 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ...(options.canvas === undefined ? {} : { canvas: options.canvas }),
     };
     try {
-      if (options.interactive === false && preference === 'webgl' && options.requireWebGL2 === true) {
+      if (imageOutput) {
         const canvas = options.canvas ?? document.createElement('canvas');
         canvasLifecycle ??= PatchMapCanvasSurfaceLifecycle.ownCreatedCanvas(canvas, options.target);
-        canvas.width = Math.round(width * pixelRatio);
-        canvas.height = Math.round(height * pixelRatio);
+        canvas.width = 1;
+        canvas.height = 1;
         // Image lanes use neither depth testing nor stencil masks. Pixi's
         // default context requests both, so supply a context without them.
         imageContext = canvas.getContext('webgl2', {
@@ -676,6 +686,14 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     return true;
   }
 
+  public imageCanvasElement(): HTMLCanvasElement {
+    return this.imageOutput?.canvas ?? this.canvas;
+  }
+
+  public get canvasCount(): number {
+    return this.destroyedValue ? 0 : this.imageOutput ? 2 : 1;
+  }
+
   public resize(width: number, height: number, pixelRatio = this.pixelRatioValue): boolean {
     this.assertAlive();
     positive(width, 'width');
@@ -694,7 +712,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.application.renderer.resolution = pixelRatio;
       this.pixelRatioValue = pixelRatio;
     }
-    this.application.renderer.resize(width, height);
+    if (this.imageOutput) this.imageOutput.resize(width, height, pixelRatio);
+    else this.application.renderer.resize(width, height);
     if (this.application.stage.eventMode !== 'none') {
       this.application.stage.hitArea = new Rectangle(0, 0, width, height);
     }
@@ -1273,6 +1292,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.interactionOverlay?.destroy();
     this.cleanupPromise = this.leaves.destroy();
     this.world.destroy();
+    this.imageOutput?.destroy();
     this.application.destroy({ removeView: false }, { children: true });
     this.surfacePublication.destroyCanvas();
     this.cpuPublication.destroy();
