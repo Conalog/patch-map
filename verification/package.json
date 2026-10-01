@@ -23,6 +23,7 @@
     "release-please": "17.6.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.65.0",
-    "vite": "7.3.6"
+    "vite": "7.3.6",
+    "yaml": "2.9.1"
   }
 }

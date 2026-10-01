@@ -6,9 +6,10 @@ development host; `publish_to: none` blocks registry publication.
 
 ## Consumer setup
 
-Consumer bounds are Dart >=3.11.0 <4.0.0 and Flutter >=3.41.0. CI uses Flutter
-3.41.4 / Dart 3.11.1. The referenced service environment uses Flutter 3.44.9 /
-Dart 3.12.2; exact SDK facts live in repository toolchain metadata.
+Consumer bounds are Dart >=3.11.0 <4.0.0 and Flutter >=3.41.0. Exact CI and
+service SDK identities live in the repository's [toolchain metadata](https://github.com/Conalog/patch-map/blob/release/1.0/packages/flutter/toolchains.json).
+CI checks analysis, tests and installed assets on both roles; native host builds
+use the recorded CI baseline.
 
 ```yaml
 dependencies:

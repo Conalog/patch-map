@@ -6,18 +6,22 @@ shared behavior targets live in `conformance/`. No experiment renderer was copie
 
 ## SDK and dependencies
 
-Consumer bounds: Dart >=3.11.0 <4 and Flutter >=3.41.0. `.fvmrc` selects the CI
-baseline, Flutter 3.41.4 / Dart 3.11.1. `packages/flutter/toolchains.json` records
-that baseline separately from the referenced service SDK, Flutter 3.44.9 /
-Dart 3.12.2, revision 6b182d2c7585eba26d4edce0f97630effd256c33.
-Use `FLUTTER_BIN` to verify with a specific SDK; a lower bound is not an exact pin
-or proof of functional compatibility across every supported version.
+Consumer bounds: Dart >=3.11.0 <4 and Flutter >=3.41.0. Exact CI and service
+SDK versions, bundled Dart versions and official framework revisions have one
+source: `packages/flutter/toolchains.json`. `.fvmrc` is its checked CI derivative.
+After editing the metadata, synchronize FVM and verify both installed SDKs:
 
 ```sh
+node verification/flutter/toolchains.mjs sync-fvm
 npm ci
-npm run flutter:verify
-FLUTTER_BIN=/path/to/flutter/bin/flutter npm run flutter:verify
+FLUTTER_TOOLCHAIN_ROLE=ci FLUTTER_BIN=/baseline/bin/flutter npm run flutter:verify
+FLUTTER_TOOLCHAIN_ROLE=service FLUTTER_BIN=/service/bin/flutter npm run flutter:verify
 ```
+
+The selector emits workflow setup outputs; `check ci` checks the installed SDK.
+An exact pin verifies tooling; consumer lower bounds do not prove every version's
+functional compatibility. Service checks use a temporary copy to resolve their
+example lock without changing the baseline's committed lock.
 
 Current dependencies are Flutter, bounded flutter_svg and vector_graphics for
 managed asset verification. The experiment's Brotli and AVIF runtime dependencies
@@ -40,10 +44,11 @@ artifacts are excluded. The verifier rejects unknown inputs and symlinks and
 checks extracted bytes before resolving the independent consumer.
 
 CI's stable `CI` aggregate includes changed-package JS, Flutter, shared-tooling
-and Android/iOS host build checks. Host builds do not qualify rendering or devices.
-The service SDK can be checked locally with the same commands; CI retains its
-recorded baseline. iOS simulator builds additionally require the selected Xcode's
-iOS platform installation.
+and Android/iOS host build checks. Flutter analysis, tests and installed-consumer
+checks run on both recorded SDK roles. Native hosts build on the CI baseline;
+shared contract definitions and release tooling need only Node. Host builds do
+not qualify rendering or devices. iOS simulator builds additionally require the
+selected Xcode's iOS platform installation.
 
 ```sh
 cd packages/flutter/example

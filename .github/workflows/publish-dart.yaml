@@ -37,11 +37,16 @@ jobs:
         with:
           node-version: 22
           package-manager-cache: false
+      - name: Read SDK role
+        id: sdk
+        run: node verification/flutter/toolchains.mjs ci >> "$GITHUB_OUTPUT"
       - name: Setup Flutter
         uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
         with:
-          flutter-version: 3.41.4
-          channel: stable
+          flutter-version: ${{ steps.sdk.outputs.flutter-version }}
+          channel: ${{ steps.sdk.outputs.flutter-channel }}
+      - name: Verify installed SDK
+        run: node verification/flutter/toolchains.mjs check ci
       - name: Validate package and tag
         id: metadata
         env:
@@ -109,20 +114,25 @@ jobs:
         with:
           ref: ${{ needs.verify.outputs.release-sha }}
           persist-credentials: false
-      - name: Setup Flutter
-        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
-        with:
-          flutter-version: 3.41.4
-          channel: stable
-      - name: Configure pub.dev OIDC
-        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # pinned setup-dart v1
-        with:
-          sdk: '3.11.1'
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           package-manager-cache: false
+      - name: Read SDK role
+        id: sdk
+        run: node verification/flutter/toolchains.mjs ci >> "$GITHUB_OUTPUT"
+      - name: Setup Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: ${{ steps.sdk.outputs.flutter-version }}
+          channel: ${{ steps.sdk.outputs.flutter-channel }}
+      - name: Configure pub.dev OIDC
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # pinned setup-dart v1
+        with:
+          sdk: ${{ steps.sdk.outputs.dart-version }}
+      - name: Verify installed SDK
+        run: node verification/flutter/toolchains.mjs check ci
       - name: Download qualified artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:

@@ -1,11 +1,14 @@
 {
   "ci": {
     "flutter": "3.41.4",
-    "dart": "3.11.1"
+    "dart": "3.11.1",
+    "channel": "stable",
+    "frameworkRevision": "ff37bef603469fb030f2b72995ab929ccfc227f0"
   },
   "service": {
     "flutter": "3.44.9",
     "dart": "3.12.2",
+    "channel": "stable",
     "frameworkRevision": "6b182d2c7585eba26d4edce0f97630effd256c33"
   }
 }
