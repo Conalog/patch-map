@@ -23,7 +23,7 @@ export async function verifyFlutterPackage(root = process.cwd()) {
   const packageRoot = resolve(root, 'packages/flutter');
   const pubspec = await readFile(resolve(packageRoot, 'pubspec.yaml'), 'utf8');
   if (!/^name: conalog_patch_map$/mu.test(pubspec)) throw new Error('Unexpected Dart package name');
-  const pairs = [['packages/javascript/src/resources/fonts/FiraCode-VF.woff2', 'assets/fonts/FiraCode-VF.woff2'], ['docs/assets/fira-code-6.2-license.txt', 'assets/fonts/LICENSE.txt']];
+  const pairs = [['packages/javascript/src/resources/fonts/FiraCode-VF.woff2', 'assets/fonts/FiraCode-VF.woff2'], ['packages/javascript/docs/assets/fira-code-6.2-license.txt', 'assets/fonts/LICENSE.txt']];
   for (const icon of await readdir(resolve(root, 'packages/javascript/src/resources/icons'))) {
     if (icon.endsWith('.svg')) pairs.push([`packages/javascript/src/resources/icons/${icon}`, `assets/icons/${icon}`]);
   }

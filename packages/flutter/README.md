@@ -21,8 +21,10 @@ dependencies:
 
 The public import is `package:conalog_patch_map/conalog_patch_map.dart`.
 It exports no runtime API. Managed icons and Fira Code font assets are included
-and verified from an extracted artifact. See [integration](INTEGRATION.md) and
-[third-party notices](THIRD_PARTY_NOTICES.md) for their scope and licenses.
+and verified from an extracted artifact. Use this foundation for independent
+package development. Service integration begins after the selected runtime
+capabilities are implemented and qualified. See [third-party notices](THIRD_PARTY_NOTICES.md)
+for asset scope and licenses.
 
 ## Development host
 
@@ -35,4 +37,5 @@ flutter run
 
 Android/iOS builds verify host wiring. Runtime behavior, device performance,
 accessibility and capture still require implementation and qualification.
-See the repository [environment and release workflow](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-package.md).
+See the repository [development environment](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-package.md)
+and [release operations](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/releases.md).

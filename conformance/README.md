@@ -2,7 +2,8 @@
 
 This directory carries language-neutral inputs and required behavior targets from
 the referenced experiment. Current JavaScript declaration identities are recorded
-in `public-api.json`. Existing API pages under `docs/` remain the meaning authority.
+in `public-api.json`. JavaScript API pages under `packages/javascript/docs/` remain the current
+JavaScript meaning authority; these targets do not establish Flutter support.
 
 `manifest.json` has `implementationStatus: foundation`. Flutter public runtime,
 API bindings, executed witnesses and Android/iOS functional evidence are pending.
@@ -20,7 +21,7 @@ node verification/conformance/qualify.mjs collected-evidence.json
 The comparator accepts exact matching finite observations. Qualification requires
 every semantic/API assertion, exact installed artifact identities and both native
 platforms' rendering, input, lifecycle, assets, accessibility and capture evidence.
-It always refuses the foundation stage. See [environment and release ownership](../docs/engineering/flutter-package.md).
+It always refuses the foundation stage. See [release operations](../docs/engineering/releases.md).
 
 Fixtures and model/text expectations are committed targets. Run reports live
 under ignored `.artifacts/`. Implementing runners, bindings and executable

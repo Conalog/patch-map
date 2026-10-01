@@ -23,5 +23,8 @@ npm run verify:docs
 
 JavaScript installation and usage: [package README](packages/javascript/README.md).
 Flutter consumer setup: [package README](packages/flutter/README.md).
-Shared product contracts: [docs](docs/README.md).
-Environment and release ownership: [Flutter package workflow](docs/engineering/flutter-package.md).
+JavaScript behavior contracts: [package docs](packages/javascript/docs/README.md).
+Repository development: [contributing](CONTRIBUTING.md) and [engineering](docs/engineering/README.md).
+Flutter development environment: [package workflow](docs/engineering/flutter-package.md).
+Independent npm and Dart releases: [release operations](docs/engineering/releases.md).
+Cross-runtime targets and qualification status: [conformance](conformance/README.md).

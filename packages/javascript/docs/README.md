@@ -1,4 +1,4 @@
-# PatchMap documentation
+# JavaScript package documentation
 
 PatchMap is an aggregate PixiJS renderer for PATCH MAP datasets. Choose the
 single page that owns the task you are working on; routers intentionally do not
@@ -21,7 +21,7 @@ repeat feature contracts.
 | Integrate, diagnose, handle errors, or define the accessibility boundary | [Host integration](integration/host.md) |
 | Check supported runtimes and release policy | [Compatibility](compatibility.md) |
 
-Runnable examples live in [`examples/`](../packages/javascript/examples/).
+Runnable examples live in [`examples/`](../examples/).
 Exact TypeScript shapes are exported by `@conalog/patch-map`; these pages own
 behavior, state ordering, failure meaning, and the shortest verification route.
 

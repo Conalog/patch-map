@@ -49,7 +49,7 @@ export async function snapshotSources(root) {
       else if (entry.isFile()) files[child] = sha(await readFile(resolve(root, child)));
     }
   }
-  for (const path of ['packages/javascript/src', 'packages/javascript/tests', 'docs', 'packages/flutter/lib', 'packages/flutter/assets', 'packages/flutter/test',
+  for (const path of ['packages/javascript/src', 'packages/javascript/tests', 'packages/javascript/docs', 'docs', 'packages/flutter/lib', 'packages/flutter/assets', 'packages/flutter/test',
     'packages/flutter/example/lib', 'packages/flutter/example/integration_test', 'packages/flutter/example/test_driver',
     'conformance', 'verification/conformance', 'verification/flutter', 'packages/javascript/verification/package']) {
     try { await visit(path); } catch (error) { if (error.code !== 'ENOENT') throw error; }

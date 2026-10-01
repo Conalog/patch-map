@@ -25,5 +25,5 @@ every helper involved.
 | Capture and extraction | `src/engine/capture-extraction-authority.ts`, `src/operations/extraction-security-authority.ts` | `tests/engine/engine-capture-extraction-authority.test.ts` | extraction probe and memory gate |
 | Accessibility | `src/accessibility/`, `src/rendering/pixi-renderer/accessibility-overlay-authority.ts` | `tests/integration/accessibility-product.test.ts` | package gate for public output changes |
 | Debug snapshots and operation failures | `src/public/index.ts`, `src/engine/product-probe-reader.ts`, `src/engine/operation-outcomes.ts`, `src/operations/` | `tests/engine/engine-lifecycle.test.ts`, `tests/engine/engine-operation-outcomes.test.ts`, `tests/integration/operations.test.ts` | package gate for public output changes |
-| Package contents and installed consumers | `package.json`, `packages/javascript/verification/package/`, `examples/` | package verifier | `npm run js:verify:package -- --require-audit` |
+| Package contents and installed consumers | `package.json`, [installed npm verifier](../../packages/javascript/verification/package/), `examples/` | package verifier | `npm run js:verify:package -- --require-audit` |
 | Import and repository boundaries | all production and support roots | `tests/tooling/architecture-import-graph.test.ts` | typecheck and lint |

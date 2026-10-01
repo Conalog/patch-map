@@ -29,9 +29,9 @@ frame owner. Events and diagnostics describe that same accepted publication.
 | Root | Single owner |
 | --- | --- |
 | `.github/` | pull-request, release, dependency, and workflow policy automation |
-| `packages/javascript/` | shipped JavaScript source, package surface, packed examples, tests, performance tools, and npm artifact verification |
+| `packages/javascript/` | JavaScript runtime, editable public docs, release history, packed examples, tests, performance tools, and npm artifact verification |
 | `packages/flutter/` | Flutter package foundation, managed assets, and development hosts; runtime implementation remains pending |
-| `docs/` | public usage contracts and repository-internal engineering routes |
+| `docs/engineering/` | repository-internal architecture, verification, environment and release operations |
 | `conformance/` | shared behavior targets and pending runtime qualification inputs |
 | `verification/` | private shared documentation, Flutter artifact, and cross-runtime qualification tooling |
 | `.artifacts/` | ignored build and measurement output |

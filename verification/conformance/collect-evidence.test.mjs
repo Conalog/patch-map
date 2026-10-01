@@ -83,3 +83,21 @@ test('evidence identity includes the shared workspace manifest and compiler/lint
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+
+test('public documentation changes invalidate the collected source identity', async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'patch-map-source-docs-'));
+  try {
+    await mkdir(resolve(directory, 'packages/javascript/docs/api'), { recursive: true });
+    const document = 'packages/javascript/docs/api/data-and-targets.md';
+    await writeFile(resolve(directory, document), '# Current admission contract');
+    const before = await snapshotSources(directory);
+    assert.ok(before.files[document]);
+    await writeFile(resolve(directory, document), '# Changed admission contract');
+    const after = await snapshotSources(directory);
+    assert.notEqual(after.files[document], before.files[document]);
+    assert.notEqual(after.fingerprint, before.fingerprint);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

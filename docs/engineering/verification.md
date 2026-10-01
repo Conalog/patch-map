@@ -68,8 +68,9 @@ npm run js:verify:memory
 
 ## Documentation and package boundaries
 
-- Public behavior and failure meaning live under `docs/`; exact shapes come from
-  exported TypeScript declarations.
+- JavaScript behavior and failure meaning live under `packages/javascript/docs/`;
+  exact shapes come from exported TypeScript declarations. Flutter consumer
+  status lives in its package README until a public runtime is implemented.
 - Internal ownership and gate routing live under `docs/engineering/` and are not
   published in the package.
 - Routers link to one owner instead of copying contracts.

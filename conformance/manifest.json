@@ -21,7 +21,7 @@
   "requirements": [
     {
       "id": "data.all-kinds",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "gallery"
@@ -29,7 +29,7 @@
     },
     {
       "id": "data.detach",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "gallery",
@@ -39,7 +39,7 @@
     },
     {
       "id": "data.normalization-defaults",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "dart-test:model/dataset_test.dart#normalizes defaults and identities without retaining caller aliases",
@@ -50,7 +50,7 @@
     },
     {
       "id": "data.compatibility",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "dart-test:model/dataset_test.dart#preserves accepted compatibility and discards only documented fields",
@@ -62,7 +62,7 @@
     },
     {
       "id": "data.strict-reference",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "dart-test:model/dataset_test.dart#closed fields, null, cycles, duplicate generated IDs and references fail atomically",
@@ -72,7 +72,7 @@
     },
     {
       "id": "data.serialize",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "controller"
@@ -80,7 +80,7 @@
     },
     {
       "id": "data.semantic-hash",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "gallery",
@@ -90,7 +90,7 @@
     },
     {
       "id": "targets.stable-identity",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#query order and grid cell public value follow npm logical API",
@@ -100,7 +100,7 @@
     },
     {
       "id": "targets.query",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "controller",
@@ -109,7 +109,7 @@
     },
     {
       "id": "targets.stale-revision",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "controller"
@@ -117,7 +117,7 @@
     },
     {
       "id": "geometry.signed-transforms",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "dart-test:model/geometry_test.dart#readable content removes reflections and flips around the owner anchor",
@@ -131,7 +131,7 @@
     },
     {
       "id": "geometry.percentage-layout",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "dart-test:model/geometry_test.dart#scalar percentages use both content axes and named margins only anchor their axes",
@@ -141,7 +141,7 @@
     },
     {
       "id": "geometry.paint-order",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "dart-test:model/geometry_test.dart#stable hierarchical paint order keeps item descendants together",
@@ -150,7 +150,7 @@
     },
     {
       "id": "geometry.hit-test",
-      "document": "docs/api/data-and-targets.md",
+      "document": "packages/javascript/docs/api/data-and-targets.md",
       "required": true,
       "cases": [
         "dart-test:model/geometry_test.dart#relation stroke widths follow affine normals without becoming pointer targets",
@@ -162,7 +162,7 @@
     },
     {
       "id": "mutation.authored",
-      "document": "docs/api/mutations-and-history.md",
+      "document": "packages/javascript/docs/api/mutations-and-history.md",
       "required": true,
       "cases": [
         "updates",
@@ -171,7 +171,7 @@
     },
     {
       "id": "mutation.batch-columns",
-      "document": "docs/api/mutations-and-history.md",
+      "document": "packages/javascript/docs/api/mutations-and-history.md",
       "required": true,
       "cases": [
         "updates",
@@ -180,7 +180,7 @@
     },
     {
       "id": "mutation.atomic-rejection",
-      "document": "docs/api/mutations-and-history.md",
+      "document": "packages/javascript/docs/api/mutations-and-history.md",
       "required": true,
       "cases": [
         "updates",
@@ -191,7 +191,7 @@
     },
     {
       "id": "mutation.statuses",
-      "document": "docs/api/mutations-and-history.md",
+      "document": "packages/javascript/docs/api/mutations-and-history.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#stale and unequal columns throw; duplicate targets are rejected",
@@ -200,7 +200,7 @@
     },
     {
       "id": "mutation.transactions",
-      "document": "docs/api/mutations-and-history.md",
+      "document": "packages/javascript/docs/api/mutations-and-history.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#structural add replace move group ungroup remove",
@@ -213,7 +213,7 @@
     },
     {
       "id": "mutation.reentry",
-      "document": "docs/api/mutations-and-history.md",
+      "document": "packages/javascript/docs/api/mutations-and-history.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#refusal and reentrant prepare never publish a candidate",
@@ -223,7 +223,7 @@
     },
     {
       "id": "history.undo-redo",
-      "document": "docs/api/mutations-and-history.md",
+      "document": "packages/javascript/docs/api/mutations-and-history.md",
       "required": true,
       "cases": [
         "updates"
@@ -231,7 +231,7 @@
     },
     {
       "id": "history.coalescing",
-      "document": "docs/api/mutations-and-history.md",
+      "document": "packages/javascript/docs/api/mutations-and-history.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#history coalescing capacity and refused undo preserve cursor",
@@ -240,7 +240,7 @@
     },
     {
       "id": "history.companion-selection",
-      "document": "docs/api/mutations-and-history.md",
+      "document": "packages/javascript/docs/api/mutations-and-history.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#transaction companion and selection follow undo redo",
@@ -250,7 +250,7 @@
     },
     {
       "id": "history.refused-restoration",
-      "document": "docs/api/mutations-and-history.md",
+      "document": "packages/javascript/docs/api/mutations-and-history.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#history coalescing capacity and refused undo preserve cursor",
@@ -259,7 +259,7 @@
     },
     {
       "id": "history.capacity",
-      "document": "docs/api/mutations-and-history.md",
+      "document": "packages/javascript/docs/api/mutations-and-history.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#history coalescing capacity and refused undo preserve cursor",
@@ -268,7 +268,7 @@
     },
     {
       "id": "presentation.keyed-alpha",
-      "document": "docs/api/presentation.md",
+      "document": "packages/javascript/docs/api/presentation.md",
       "required": true,
       "cases": [
         "controller",
@@ -278,7 +278,7 @@
     },
     {
       "id": "presentation.instance-overlay",
-      "document": "docs/api/presentation.md",
+      "document": "packages/javascript/docs/api/presentation.md",
       "required": true,
       "cases": [
         "updates",
@@ -287,7 +287,7 @@
     },
     {
       "id": "presentation.null-restoration",
-      "document": "docs/api/presentation.md",
+      "document": "packages/javascript/docs/api/presentation.md",
       "required": true,
       "cases": [
         "updates",
@@ -296,7 +296,7 @@
     },
     {
       "id": "presentation.authored-replay",
-      "document": "docs/api/presentation.md",
+      "document": "packages/javascript/docs/api/presentation.md",
       "required": true,
       "cases": [
         "updates"
@@ -304,7 +304,7 @@
     },
     {
       "id": "presentation.bar-animation",
-      "document": "docs/api/presentation.md",
+      "document": "packages/javascript/docs/api/presentation.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#bar uses 200ms cubic interpolation with committed destination",
@@ -319,7 +319,7 @@
     },
     {
       "id": "presentation.history-exclusion",
-      "document": "docs/api/presentation.md",
+      "document": "packages/javascript/docs/api/presentation.md",
       "required": true,
       "cases": [
         "updates"
@@ -327,7 +327,7 @@
     },
     {
       "id": "editor.grid",
-      "document": "docs/api/editor-workflows.md",
+      "document": "packages/javascript/docs/api/editor-workflows.md",
       "required": true,
       "cases": [
         "editor",
@@ -336,7 +336,7 @@
     },
     {
       "id": "editor.relation",
-      "document": "docs/api/editor-workflows.md",
+      "document": "packages/javascript/docs/api/editor-workflows.md",
       "required": true,
       "cases": [
         "editor-lifecycle"
@@ -344,7 +344,7 @@
     },
     {
       "id": "editor.text",
-      "document": "docs/api/editor-workflows.md",
+      "document": "packages/javascript/docs/api/editor-workflows.md",
       "required": true,
       "cases": [
         "editor",
@@ -353,7 +353,7 @@
     },
     {
       "id": "editor.delete",
-      "document": "docs/api/editor-workflows.md",
+      "document": "packages/javascript/docs/api/editor-workflows.md",
       "required": true,
       "cases": [
         "editor-lifecycle"
@@ -361,7 +361,7 @@
     },
     {
       "id": "editor.mode-conflicts",
-      "document": "docs/api/editor-workflows.md",
+      "document": "packages/javascript/docs/api/editor-workflows.md",
       "required": true,
       "cases": [
         "editor-lifecycle"
@@ -369,7 +369,7 @@
     },
     {
       "id": "pointer.hover",
-      "document": "docs/api/pointer-and-selection.md",
+      "document": "packages/javascript/docs/api/pointer-and-selection.md",
       "required": true,
       "cases": [
         "dart-test:host/native_pointer_test.dart#hover exposes detached component identity",
@@ -378,7 +378,7 @@
     },
     {
       "id": "pointer.tooltip-pin",
-      "document": "docs/api/pointer-and-selection.md",
+      "document": "packages/javascript/docs/api/pointer-and-selection.md",
       "required": true,
       "cases": [
         "dart-test:host/native_pointer_test.dart#pin survives leave and primary blank click hides it",
@@ -389,7 +389,7 @@
     },
     {
       "id": "pointer.touch-cancel",
-      "document": "docs/api/pointer-and-selection.md",
+      "document": "packages/javascript/docs/api/pointer-and-selection.md",
       "required": true,
       "cases": [
         "dart-test:host/native_pointer_test.dart#4 logical pixels remains a click; any excursion beyond stays a drag",
@@ -400,7 +400,7 @@
     },
     {
       "id": "selection.policy",
-      "document": "docs/api/pointer-and-selection.md",
+      "document": "packages/javascript/docs/api/pointer-and-selection.md",
       "required": true,
       "cases": [
         "dart-test:host/native_pointer_test.dart#blank double click policy and target eligibility preserve selection",
@@ -412,7 +412,7 @@
     },
     {
       "id": "selection.box",
-      "document": "docs/api/pointer-and-selection.md",
+      "document": "packages/javascript/docs/api/pointer-and-selection.md",
       "required": true,
       "cases": [
         "dart-test:host/native_pointer_test.dart#box commit selects logical target once",
@@ -423,7 +423,7 @@
     },
     {
       "id": "selection.callbacks",
-      "document": "docs/api/pointer-and-selection.md",
+      "document": "packages/javascript/docs/api/pointer-and-selection.md",
       "required": true,
       "cases": [
         "dart-test:host/native_pointer_test.dart#4 logical pixels remains a click; any excursion beyond stays a drag",
@@ -432,7 +432,7 @@
     },
     {
       "id": "viewport.fit",
-      "document": "docs/api/viewport-and-transform.md",
+      "document": "packages/javascript/docs/api/viewport-and-transform.md",
       "required": true,
       "cases": [
         "controller",
@@ -442,7 +442,7 @@
     },
     {
       "id": "viewport.restore",
-      "document": "docs/api/viewport-and-transform.md",
+      "document": "packages/javascript/docs/api/viewport-and-transform.md",
       "required": true,
       "cases": [
         "controller"
@@ -450,7 +450,7 @@
     },
     {
       "id": "viewport.resize",
-      "document": "docs/api/viewport-and-transform.md",
+      "document": "packages/javascript/docs/api/viewport-and-transform.md",
       "required": true,
       "cases": [
         "controller",
@@ -459,7 +459,7 @@
     },
     {
       "id": "viewport.input-anchor",
-      "document": "docs/api/viewport-and-transform.md",
+      "document": "packages/javascript/docs/api/viewport-and-transform.md",
       "required": true,
       "cases": [
         "dart-test:host/native_pointer_test.dart#pinch changes viewport without creating a point selection",
@@ -468,7 +468,7 @@
     },
     {
       "id": "rotation.multi-turn",
-      "document": "docs/api/viewport-and-transform.md",
+      "document": "packages/javascript/docs/api/viewport-and-transform.md",
       "required": true,
       "cases": [
         "controller",
@@ -477,7 +477,7 @@
     },
     {
       "id": "rotation.animation-cancel",
-      "document": "docs/api/viewport-and-transform.md",
+      "document": "packages/javascript/docs/api/viewport-and-transform.md",
       "required": true,
       "cases": [
         "controller",
@@ -487,7 +487,7 @@
     },
     {
       "id": "transform.move-resize-rotate",
-      "document": "docs/api/viewport-and-transform.md",
+      "document": "packages/javascript/docs/api/viewport-and-transform.md",
       "required": true,
       "cases": [
         "controller",
@@ -496,7 +496,7 @@
     },
     {
       "id": "transform.preview-commit-cancel",
-      "document": "docs/api/viewport-and-transform.md",
+      "document": "packages/javascript/docs/api/viewport-and-transform.md",
       "required": true,
       "cases": [
         "controller",
@@ -507,7 +507,7 @@
     },
     {
       "id": "transform.edge-pan",
-      "document": "docs/api/viewport-and-transform.md",
+      "document": "packages/javascript/docs/api/viewport-and-transform.md",
       "required": true,
       "cases": [
         "transform-geometry"
@@ -515,7 +515,7 @@
     },
     {
       "id": "assets.registration-policy",
-      "document": "docs/api/assets-and-capture.md",
+      "document": "packages/javascript/docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
         "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#registers immutable builtins without allocating resources and rejects conflicts by the closed code",
@@ -528,7 +528,7 @@
     },
     {
       "id": "assets.network-admission",
-      "document": "docs/api/assets-and-capture.md",
+      "document": "packages/javascript/docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
         "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#uses package-owned browser boundaries and ignores caller overrides",
@@ -539,7 +539,7 @@
     },
     {
       "id": "assets.all-image-formats",
-      "document": "docs/api/assets-and-capture.md",
+      "document": "packages/javascript/docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
         "codecs"
@@ -547,7 +547,7 @@
     },
     {
       "id": "assets.all-font-formats",
-      "document": "docs/api/assets-and-capture.md",
+      "document": "packages/javascript/docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
         "codecs"
@@ -555,7 +555,7 @@
     },
     {
       "id": "assets.leases",
-      "document": "docs/api/assets-and-capture.md",
+      "document": "packages/javascript/docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
         "npm-test:packages/javascript/tests/rendering/asset-registry.test.ts#deduplicates pending work across instances and unloads after the final lease",
@@ -573,7 +573,7 @@
     },
     {
       "id": "assets.stale-completion",
-      "document": "docs/api/assets-and-capture.md",
+      "document": "packages/javascript/docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
         "npm-test:packages/javascript/tests/rendering/asset-pending-cancel.test.ts#does not await an abandoned load and collects its late success exactly once",
@@ -585,7 +585,7 @@
     },
     {
       "id": "capture.readiness",
-      "document": "docs/api/assets-and-capture.md",
+      "document": "packages/javascript/docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#host failure rejects pending readiness and captures without hanging",
@@ -596,7 +596,7 @@
     },
     {
       "id": "capture.published-tuple",
-      "document": "docs/api/assets-and-capture.md",
+      "document": "packages/javascript/docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#capture waits matching publication and returns logical dimensions",
@@ -607,7 +607,7 @@
     },
     {
       "id": "capture.resize-destroy",
-      "document": "docs/api/assets-and-capture.md",
+      "document": "packages/javascript/docs/api/assets-and-capture.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#destroy settles capture waiting on initial readiness",
@@ -617,7 +617,7 @@
     },
     {
       "id": "text.grapheme-bidi",
-      "document": "docs/api/text.md",
+      "document": "packages/javascript/docs/api/text.md",
       "required": true,
       "cases": [
         "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#segments family emoji, skin tone, combining marks, flags, and Hangul without native Intl",
@@ -634,7 +634,7 @@
     },
     {
       "id": "text.wrap-overflow",
-      "document": "docs/api/text.md",
+      "document": "packages/javascript/docs/api/text.md",
       "required": true,
       "cases": [
         "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#wraps CJK at pinned opportunities and long Latin only when breakWords is enabled",
@@ -653,7 +653,7 @@
     },
     {
       "id": "text.auto-font",
-      "document": "docs/api/text.md",
+      "document": "packages/javascript/docs/api/text.md",
       "required": true,
       "cases": [
         "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#selects the largest inclusive automatic font candidate and makes ties deterministic",
@@ -664,7 +664,7 @@
     },
     {
       "id": "text.font-fallback-readiness",
-      "document": "docs/api/text.md",
+      "document": "packages/javascript/docs/api/text.md",
       "required": true,
       "cases": [
         "npm-test:packages/javascript/tests/rendering/text-layout.test.ts#uses deterministic font fallback independently of system fonts",
@@ -675,7 +675,7 @@
     },
     {
       "id": "lifecycle.readiness",
-      "document": "docs/integration/host.md",
+      "document": "packages/javascript/docs/integration/host.md",
       "required": true,
       "cases": [
         "dart-test:host/view_test.dart#initial projection failure settles ready and capture and releases the host",
@@ -685,7 +685,7 @@
     },
     {
       "id": "lifecycle.empty-scene",
-      "document": "docs/integration/host.md",
+      "document": "packages/javascript/docs/integration/host.md",
       "required": true,
       "cases": [
         "dart-test:host/view_test.dart#empty scene and independent surfaces publish and destroy separately",
@@ -694,7 +694,7 @@
     },
     {
       "id": "lifecycle.multi-instance",
-      "document": "docs/integration/host.md",
+      "document": "packages/javascript/docs/integration/host.md",
       "required": true,
       "cases": [
         "dart-test:host/view_test.dart#empty scene and independent surfaces publish and destroy separately",
@@ -703,7 +703,7 @@
     },
     {
       "id": "lifecycle.destroy",
-      "document": "docs/integration/host.md",
+      "document": "packages/javascript/docs/integration/host.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#destroy settles capture waiting on initial readiness",
@@ -715,7 +715,7 @@
     },
     {
       "id": "lifecycle.background",
-      "document": "docs/integration/host.md",
+      "document": "packages/javascript/docs/integration/host.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#visibility settles bars, cancels transforms, and pauses rotation",
@@ -725,7 +725,7 @@
     },
     {
       "id": "diagnostics.errors",
-      "document": "docs/integration/host.md",
+      "document": "packages/javascript/docs/integration/host.md",
       "required": true,
       "cases": [
         "dart-test:engine/controller_test.dart#callback failure and in-flight disposal preserve publication order",
@@ -734,7 +734,7 @@
     },
     {
       "id": "accessibility.focus-activation",
-      "document": "docs/integration/host.md",
+      "document": "packages/javascript/docs/integration/host.md",
       "required": true,
       "cases": [
         "dart-test:host/view_test.dart#Semantics refreshes selection and geometry without rebuilding the host",
@@ -744,7 +744,7 @@
     },
     {
       "id": "accessibility.reduced-motion",
-      "document": "docs/integration/host.md",
+      "document": "packages/javascript/docs/integration/host.md",
       "required": true,
       "cases": [
         "dart-test:host/view_test.dart#MediaQuery motion preference follows the attached controller",
@@ -753,7 +753,7 @@
     },
     {
       "id": "selection.brush",
-      "document": "docs/api/pointer-and-selection.md",
+      "document": "packages/javascript/docs/api/pointer-and-selection.md",
       "required": true,
       "cases": [
         "npm-test:engine/brush-selection.test.ts#toggle API disable and another longpress share one state",

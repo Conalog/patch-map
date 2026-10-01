@@ -6,7 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "cd .. && eslint --config verification/eslint.config.js verification .github/scripts",
-    "test": "cd .. && node --test verification/*.test.mjs verification/conformance/*.test.mjs verification/flutter/*.test.mjs .github/scripts/*.test.mjs",
+    "test": "cd .. && node --test verification/docs/*.test.mjs verification/*.test.mjs verification/conformance/*.test.mjs verification/flutter/*.test.mjs .github/scripts/*.test.mjs",
     "check": "npm run typecheck && npm run lint && npm test",
     "docs": "cd .. && node verification/docs/verify.mjs",
     "flutter:analyze": "cd .. && node verification/flutter/run.mjs analyze",

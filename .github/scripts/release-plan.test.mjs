@@ -27,7 +27,7 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
     '.release-please-manifest.json': JSON.stringify(versions),
     [`${npmPath}/package.json`]: JSON.stringify({ name: '@conalog/patch-map', version: versions[npmPath] }),
     [`${dartPath}/pubspec.yaml`]: 'name: conalog_patch_map\nversion: 1.0.0-alpha.1\n',
-    [`${npmPath}/CHANGELOG.md`]: '# Changelog\n',
+    [`${npmPath}/CHANGELOG.md`]: readFileSync(new URL('packages/javascript/CHANGELOG.md', root), 'utf8'),
     [`${dartPath}/CHANGELOG.md`]: readFileSync(new URL('packages/flutter/CHANGELOG.md', root), 'utf8'),
     'package-lock.json': JSON.stringify({
       name: 'patch-map-workspace', lockfileVersion: 3,
@@ -114,6 +114,7 @@ test('npm-only release preserves legacy tag history and updates only the npm ver
   assert.match(npm.body.toString(), /v1\.0\.0-alpha\.9\.\.\.js-v1\.0\.0-alpha\.10/u);
   const updated = applyUpdates(npm, files);
   assert.equal(JSON.parse(updated[`${npmPath}/package.json`]).version, '1.0.0-alpha.10');
+  assert.ok(updated[`${npmPath}/CHANGELOG.md`].includes(files[`${npmPath}/CHANGELOG.md`].slice('# Changelog\n'.length).trim()));
   assert.equal(JSON.parse(updated['package-lock.json']).packages[npmPath].version, '1.0.0-alpha.10');
   assert.equal(updated[`${dartPath}/pubspec.yaml`], files[`${dartPath}/pubspec.yaml`]);
   assert.deepEqual(JSON.parse(updated['.release-please-manifest.json']), { [npmPath]: '1.0.0-alpha.10' });

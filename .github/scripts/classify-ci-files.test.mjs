@@ -26,9 +26,9 @@ test('only non-packaged engineering documentation uses lightweight validation', 
 test('packaged public documentation and assets require the full release gate', () => {
   for (const path of [
     'README.md',
-    'docs/README.md',
-    'docs/api/data-and-targets.md',
-    'docs/assets/fira-code-6.2-license.txt',
+    'packages/javascript/docs/README.md',
+    'packages/javascript/docs/api/data-and-targets.md',
+    'packages/javascript/docs/assets/fira-code-6.2-license.txt',
   ]) {
     assert.equal(classifyChangedPaths([path]).fullValidation, true, path);
   }
@@ -67,7 +67,7 @@ test('invalid paths are rejected and NUL-delimited paths are preserved', () => {
 
 test('shared contracts select both runtime gates and comparison', () => {
   for (const path of ['conformance/fixtures/gallery.json',
-    'verification/conformance/compare.mjs', 'docs/api/presentation.md']) {
+    'verification/conformance/compare.mjs', 'packages/javascript/docs/api/presentation.md']) {
     assert.equal(requiresFlutterValidation(path), true);
     assert.deepEqual(classifyChangedPaths([path]), { fullValidation: true, flutterValidation: true, contractValidation: true });
   }
@@ -77,7 +77,7 @@ test('shared contracts select both runtime gates and comparison', () => {
     { fullValidation: true, flutterValidation: false, contractValidation: true });
   assert.equal(requiresFlutterValidation('.github/workflows/ci.yaml'), true);
   for (const path of ['package.json', 'package-lock.json', '.nvmrc', 'verification/package.json',
-    'verification/tsconfig.json', 'verification/eslint.config.js', 'docs/assets/fira-code-6.2-license.txt']) {
+    'verification/tsconfig.json', 'verification/eslint.config.js', 'packages/javascript/docs/assets/fira-code-6.2-license.txt']) {
     assert.equal(requiresFlutterValidation(path), true, path);
   }
   assert.equal(classifyChangedPaths([]).flutterValidation, true);

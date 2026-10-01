@@ -50,7 +50,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly && node verification/package/finalize-declarations.mjs && node verification/package/stage-public-files.mjs",
+    "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly && node verification/package/finalize-declarations.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "unit": "vitest run --maxWorkers=2",
