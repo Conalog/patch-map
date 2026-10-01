@@ -67,7 +67,7 @@ test('invalid paths are rejected and NUL-delimited paths are preserved', () => {
 
 test('shared contracts select both runtime gates and comparison', () => {
   for (const path of ['conformance/fixtures/gallery.json',
-    'verification/conformance/compare.mjs', 'packages/javascript/docs/api/presentation.md']) {
+    'verification/conformance/compare.mjs']) {
     assert.equal(requiresFlutterValidation(path), true);
     assert.deepEqual(classifyChangedPaths([path]), { fullValidation: true, flutterValidation: true, contractValidation: true });
   }
@@ -81,6 +81,37 @@ test('shared contracts select both runtime gates and comparison', () => {
     assert.equal(requiresFlutterValidation(path), true, path);
   }
   assert.equal(classifyChangedPaths([]).flutterValidation, true);
+});
+
+test('JavaScript Markdown keeps npm and contract checks without Flutter SDK or native builds', () => {
+  for (const path of ['packages/javascript/docs/README.md',
+    'packages/javascript/docs/getting-started.md', 'packages/javascript/docs/api/presentation.md',
+    'packages/javascript/docs/integration/host.md', 'packages/javascript/docs/assets/fonts.md',
+    'packages/javascript/docs/compatibility.md']) {
+    assert.deepEqual(classifyChangedPaths([path]),
+      { fullValidation: true, contractValidation: true, flutterValidation: false }, path);
+  }
+});
+
+test('mixed Markdown changes retain all gates required by native, shared or workflow inputs', () => {
+  for (const path of ['packages/flutter/lib/conalog_patch_map.dart', 'packages/flutter/pubspec.yaml',
+    'packages/flutter/example/ios/Runner/Info.plist', 'shared/assets/fonts/FiraCode-VF.ttf',
+    'verification/assets/prepare.mjs', 'conformance/manifest.json', '.github/workflows/ci.yaml']) {
+    for (const paths of [[path, 'packages/javascript/docs/api/text.md'], ['packages/javascript/docs/api/text.md', path]]) {
+      assert.deepEqual(classifyChangedPaths(paths),
+        { fullValidation: true, contractValidation: true, flutterValidation: true }, path);
+    }
+  }
+  assert.deepEqual(classifyChangedPaths(['packages/javascript/docs/api/text.md', 'packages/javascript/src/index.ts']),
+    { fullValidation: true, contractValidation: true, flutterValidation: false });
+});
+
+test('non-Markdown documentation assets retain both package checks', () => {
+  for (const path of ['packages/javascript/docs/assets/fira-code-6.2-license.txt',
+    'packages/javascript/docs/assets/unreviewed.svg', 'packages/javascript/docs/new-file']) {
+    assert.deepEqual(classifyChangedPaths([path]),
+      { fullValidation: true, contractValidation: true, flutterValidation: true }, path);
+  }
 });
 
 test('Flutter-only changes select the native gate without npm release measurements', () => {

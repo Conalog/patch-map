@@ -73,6 +73,11 @@ npm run js:verify:memory
   status lives in its package README until a public runtime is implemented.
 - Internal ownership and gate routing live under `docs/engineering/` and are not
   published in the package.
+- JavaScript Markdown changes keep documentation, npm package and shared contract
+  checks. They do not select Flutter SDK or native host jobs. Mixed changes use
+  the union of affected gates; Flutter, shared assets, tooling and workflow inputs
+  retain their required checks. Non-Markdown documentation assets still select
+  both packages. Registry qualification gates are independent of PR routing.
 - Routers link to one owner instead of copying contracts.
 - `verify:package` installs the generated tarball and checks ESM, CommonJS,
   declarations, examples, assets, interaction, capture, and teardown.

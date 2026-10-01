@@ -16,7 +16,7 @@ export function requiresFlutterValidation(path) {
     || path.startsWith('conformance/')
     || path.startsWith('verification/conformance/')
     || path.startsWith('verification/flutter/')
-    || path.startsWith('packages/javascript/docs/')
+    || (path.startsWith('packages/javascript/docs/') && !path.endsWith('.md'))
     || ['package.json', 'package-lock.json', '.nvmrc',
       'verification/package.json', 'verification/tsconfig.json', 'verification/eslint.config.js',
       'packages/javascript/package.json', 'packages/javascript/tsconfig.json',
@@ -31,6 +31,7 @@ export function requiresFlutterValidation(path) {
 
 export function requiresContractValidation(path) {
   return requiresFlutterValidation(path)
+    || path.startsWith('packages/javascript/docs/')
     || path.startsWith('packages/javascript/src/')
     || path.startsWith('packages/javascript/tests/');
 }
