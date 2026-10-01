@@ -53,6 +53,11 @@ export function collectPackageFailures({
   if (esm.backend !== 'webgl' || !(esm.renderObjects > 0)) {
     failures.push('packed ESM rendered no WebGL content');
   }
+  if (esm.imageEntry?.createType !== 'function' || esm.imageEntry?.cycles !== 5 ||
+      JSON.stringify(esm.imageEntry?.pngSize) !== JSON.stringify([320, 180]) ||
+      JSON.stringify(esm.imageEntry?.jpegSize) !== JSON.stringify([320, 180]) ||
+      ['pngPixels', 'jpegPixels', 'finalBarPixels', 'transparentPixels', 'fontsReady', 'detached', 'released', 'immutable']
+        .some((key) => esm.imageEntry?.[key] !== true)) failures.push('packed image session failed');
   if (
     esm.internalExportsAbsent !== true
     || esm.constructorRejected !== true
@@ -65,6 +70,7 @@ export function collectPackageFailures({
   ) failures.push('packed ESM public surface or lifecycle failed');
   if (
     cjs.mountType !== 'function'
+    || cjs.imageCreateType !== 'function'
     || cjs.internalExportsAbsent !== true
     || cjs.constructorRejected !== true
   ) failures.push('packed CJS public surface failed');

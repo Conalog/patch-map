@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -27,6 +27,17 @@ const resultsRoot = path.resolve(
 const server = await createServer({
   root: ROOT,
   configFile: false,
+  plugins: [{
+    name: 'memory-probe-builtin-font-data',
+    resolveId(id) {
+      return id === 'patch-map-builtin-font-data' ? '\0memory-builtin-font-data' : null;
+    },
+    async load(id) {
+      if (id !== '\0memory-builtin-font-data') return null;
+      const bytes = await readFile(path.join(ROOT, 'src/resources/fonts/FiraCode-VF.woff2'));
+      return `export default ${JSON.stringify(`data:font/woff2;base64,${bytes.toString('base64')}`)};`;
+    },
+  }],
   logLevel: 'error',
   server: { host: '127.0.0.1', port: 0 },
 });
@@ -77,6 +88,7 @@ try {
     || trial.hostChildCountAfterDestroy !== 0
     || trial.inputUnchanged !== true
     || trial.backend !== 'webgl'
+    || trial.imageSessionReleased !== true
   ));
   const failures = [
     ...(errors.length > 0 ? ['browser errors are not empty'] : []),
