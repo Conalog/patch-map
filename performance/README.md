@@ -65,6 +65,8 @@ image-ready timing window. The probe observes native WebGL context creation and 
 allocations without changing renderer options. It restores the canvas prototype
 before updates/render. Output dimensions and the GPU carrier dimensions are
 reported separately; image tiles must allocate four samples within 2048×2048.
+The probes also count native pixel reads, requested bytes, buffer capacity and
+distinct backing stores using a WeakSet, without retaining readback buffers.
 
 On macOS, `probes/image/sample.py` samples `proc_pid_rusage` v2 every 50 ms for
 the benchmark Node process and its descendants, excluding the sampler itself.

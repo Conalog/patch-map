@@ -18,8 +18,16 @@ window.renderWidgetImage = async ({ model, assets, width, height }) => {
   reset(initial);
   let canvas, gl;
   const tileAllocations=[];
+  const readback={calls:0,buffers:0,requestedBytes:0,minCapacityBytes:null,maxCapacityBytes:0};
   const original=HTMLCanvasElement.prototype.getContext;
   HTMLCanvasElement.prototype.getContext=function(...args){const context=original.apply(this,args);if(args[0]==='webgl2'&&context&&args[1]?.depth===false){canvas=this;gl=context;
+    const buffers=new WeakSet();const nativeRead=gl.readPixels;
+    gl.readPixels=function(...args){const pixels=args[6];if(ArrayBuffer.isView(pixels)){
+      readback.calls++;readback.requestedBytes+=args[2]*args[3]*4;
+      if(!buffers.has(pixels.buffer)){buffers.add(pixels.buffer);readback.buffers++;}
+      readback.minCapacityBytes=readback.minCapacityBytes===null?pixels.byteLength:Math.min(readback.minCapacityBytes,pixels.byteLength);
+      readback.maxCapacityBytes=Math.max(readback.maxCapacityBytes,pixels.byteLength);
+    }return nativeRead.apply(this,args);};
     const allocate=gl.renderbufferStorageMultisample;
     gl.renderbufferStorageMultisample=function(target,samples,format,w,h){allocate.call(this,target,samples,format,w,h);tileAllocations.push({requestedSamples:samples,samples:this.getRenderbufferParameter(target,this.RENDERBUFFER_SAMPLES),width:w,height:h});};
   }return context;};
@@ -31,7 +39,7 @@ window.renderWidgetImage = async ({ model, assets, width, height }) => {
         ...(model.theme?{theme:model.theme}:{}), antialias:model.antialias,background:'#ffffff',zoomLimits:[0.1,30],assets}));
     } finally { HTMLCanvasElement.prototype.getContext=original; }
     const debug=gl.getExtension('WEBGL_debug_renderer_info');
-    const surface={size:[width,height],gpuCanvasSize:[canvas.width,canvas.height],tileAllocations,samples:gl.getParameter(gl.SAMPLES),attributes:gl.getContextAttributes(),
+    const surface={size:[width,height],gpuCanvasSize:[canvas.width,canvas.height],tileAllocations,readback,samples:gl.getParameter(gl.SAMPLES),attributes:gl.getContextAttributes(),
       renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):null};
     const rows=model.runtimeUpdates;
     if(!rows.length||rows.some(row=>!Number.isFinite(row.barHeight)||row.barHeight<=0||row.text?.length!==12||row.showText!==true||row.tint!=='#e53935'))throw new Error('100% bar/color/12-character text workload missing');
@@ -54,6 +62,7 @@ window.renderWidgetImage = async ({ model, assets, width, height }) => {
       if(tileAllocations.some(a=>a.samples!==4||a.width>2048||a.height>2048))throw new Error('invalid tile allocation');
       surface.samples=tileAllocations[0].samples;
     }
+    if(tileAllocations.length&&(readback.calls!==Math.ceil(width/2048)*Math.ceil(height/2048)||readback.requestedBytes!==width*height*4||readback.maxCapacityBytes>2048*2048*4))throw new Error('invalid tile readback workload');
     if(JSON.stringify(image.size)!==JSON.stringify([width,height]))throw new Error('invalid image size');
     const upload=await phase('browserToNodeMs',async()=>{const response=await fetch('/__e2e/image',{method:'POST',body:image.blob});if(!response.ok)throw new Error('Blob upload failed');await response.arrayBuffer();});
     void upload;

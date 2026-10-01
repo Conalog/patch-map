@@ -5,6 +5,7 @@ window.runImageBenchmark = async ({ model, assets, size, format }) => {
   let image;
   let canvas;
   const tileAllocations = [];
+  const readback = { calls: 0, buffers: 0, requestedBytes: 0, maxCapacityBytes: 0 };
   let gl;
   const timings = {};
   const phase = async (name, operation) => {
@@ -75,6 +76,17 @@ window.runImageBenchmark = async ({ model, assets, size, format }) => {
     const context = originalGetContext.apply(this, args);
     if (args[0] === 'webgl2' && context && args[1]?.depth === false) {
       canvas = this; gl = context;
+      const buffers = new WeakSet();
+      const nativeRead = gl.readPixels;
+      gl.readPixels = function (...args) {
+        const pixels = args[6];
+        if (ArrayBuffer.isView(pixels)) {
+          readback.calls++; readback.requestedBytes += args[2] * args[3] * 4;
+          if (!buffers.has(pixels.buffer)) { buffers.add(pixels.buffer); readback.buffers++; }
+          readback.maxCapacityBytes = Math.max(readback.maxCapacityBytes, pixels.byteLength);
+        }
+        return nativeRead.apply(this, args);
+      };
       const allocate = gl.renderbufferStorageMultisample;
       gl.renderbufferStorageMultisample = function (target, samples, format, width, height) {
         allocate.call(this, target, samples, format, width, height);
@@ -95,7 +107,7 @@ window.runImageBenchmark = async ({ model, assets, size, format }) => {
     } finally { HTMLCanvasElement.prototype.getContext = originalGetContext; }
     const debug = gl?.getExtension('WEBGL_debug_renderer_info');
     surface = {
-      backingSize: [size, size], gpuCanvasSize: [canvas?.width, canvas?.height], tileAllocations, context: gl ? 'webgl2' : null,
+      backingSize: [size, size], gpuCanvasSize: [canvas?.width, canvas?.height], tileAllocations, readback, context: gl ? 'webgl2' : null,
       samples: gl?.getParameter(gl.SAMPLES), attributes: gl?.getContextAttributes(),
       renderer: debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : null,
       viewport: session.viewport.snapshot(),
