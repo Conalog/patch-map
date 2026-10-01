@@ -1,8 +1,15 @@
 import { execFileSync } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
+import { parseVersion } from './release-metadata.mjs';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
+const JS_PATH = 'packages/javascript';
+const DART_PATH = 'packages/flutter';
+const RELEASE_METADATA_PATHS = new Set([
+  `${JS_PATH}/package.json`, 'package-lock.json', '.release-please-manifest.json',
+]);
 
 export function isLightweightValidationPath(path) {
   return path === 'CONTRIBUTING.md'
@@ -50,17 +57,69 @@ function isRepositoryPath(path) {
   return path.length > 0 && !isAbsolute(path) && !path.split('/').includes('..');
 }
 
-export function classifyChangedPaths(paths) {
+function isObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function onlyPackageVersionChanged(before, after) {
+  if (!isObject(before) || !isObject(after)
+    || before.name !== '@conalog/patch-map' || after.name !== before.name) return false;
+  parseVersion(before.version);
+  parseVersion(after.version);
+  return isDeepStrictEqual({ ...before, version: after.version }, after);
+}
+
+// Narrow only metadata whose complete diff is understood. Changes to scripts,
+// dependencies, other lock entries or unknown manifest owners keep broad gates.
+function releaseMetadataImpact(path, readFile) {
+  if (!readFile || !RELEASE_METADATA_PATHS.has(path)) return undefined;
+  try {
+    const before = JSON.parse(readFile(path, 'base'));
+    const after = JSON.parse(readFile(path, 'result'));
+    if (!isObject(before) || !isObject(after)) return undefined;
+    if (path === '.release-please-manifest.json') {
+      if (!Object.hasOwn(before, JS_PATH) || !Object.hasOwn(after, JS_PATH)) return undefined;
+      const owners = [...new Set([...Object.keys(before), ...Object.keys(after)])];
+      if (owners.some((owner) => owner !== JS_PATH && owner !== DART_PATH)) return undefined;
+      for (const owner of owners) {
+        if (Object.hasOwn(before, owner)) parseVersion(before[owner]);
+        parseVersion(after[owner]);
+      }
+      return {
+        fullValidation: before[JS_PATH] !== after[JS_PATH],
+        flutterValidation: before[DART_PATH] !== after[DART_PATH],
+        contractValidation: true,
+      };
+    }
+    if (path === 'package-lock.json') {
+      if (!isObject(before.packages) || !isObject(after.packages)
+        || !onlyPackageVersionChanged(before.packages[JS_PATH], after.packages[JS_PATH])) return undefined;
+      before.packages[JS_PATH] = after.packages[JS_PATH];
+      if (!isDeepStrictEqual(before, after)) return undefined;
+    } else if (!onlyPackageVersionChanged(before, after)) {
+      return undefined;
+    }
+    return { fullValidation: true, flutterValidation: false, contractValidation: true };
+  } catch {
+    // Added/deleted files, unreadable Git blobs and invalid metadata fail closed.
+    return undefined;
+  }
+}
+
+export function classifyChangedPaths(paths, { readFile } = {}) {
   if (paths.some((path) => !isRepositoryPath(path))) {
     throw new Error('git diff returned an invalid repository path');
   }
 
+  const impacts = paths.map((path) => releaseMetadataImpact(path, readFile) ?? {
+    fullValidation: requiresNpmValidation(path),
+    contractValidation: requiresContractValidation(path),
+    flutterValidation: requiresFlutterValidation(path),
+  });
   return {
-    fullValidation:
-      paths.length === 0 || paths.some(requiresNpmValidation),
-    contractValidation: paths.length === 0 || paths.some(requiresContractValidation),
-    flutterValidation:
-      paths.length === 0 || paths.some(requiresFlutterValidation),
+    fullValidation: paths.length === 0 || impacts.some((impact) => impact.fullValidation),
+    contractValidation: paths.length === 0 || impacts.some((impact) => impact.contractValidation),
+    flutterValidation: paths.length === 0 || impacts.some((impact) => impact.flutterValidation),
   };
 }
 
@@ -80,7 +139,12 @@ export function classifyGitDiff(baseSha, resultSha, { root = process.cwd() } = {
     { cwd: root, encoding: 'utf8' },
   );
 
-  return classifyChangedPaths(parseNullDelimitedPaths(output));
+  return classifyChangedPaths(parseNullDelimitedPaths(output), {
+    readFile(path, side) {
+      const sha = side === 'base' ? baseSha : resultSha;
+      return execFileSync('git', ['show', `${sha}:${path}`], { cwd: root, encoding: 'utf8', stdio: 'pipe' });
+    },
+  });
 }
 
 function main() {

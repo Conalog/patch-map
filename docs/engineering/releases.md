@@ -12,12 +12,17 @@ each package's public documentation; release automation does not qualify it.
 | `packages/javascript` | npm `@conalog/patch-map` / [package.json](../../packages/javascript/package.json) | `js-v<version>` / `chore: release js <version>` |
 | `packages/flutter` | pub.dev `conalog_patch_map` / [pubspec.yaml](../../packages/flutter/pubspec.yaml) | `dart-v<version>` / `chore: release dart <version>` |
 
-`release-please.yaml` runs on `release/1.0` pushes or manual invocation and plans separate PRs, tags and GitHub Releases. Registry writes and publication
+`release-please.yaml` runs on `release/1.0` pushes and plans separate PRs, tags and GitHub Releases. Registry writes and publication
 Node.js versions belong to the [npm workflow](../../.github/workflows/publish.yaml)
 and [Dart workflow](../../.github/workflows/publish-dart.yaml). Keep historical `v*` releases; the pinned planner uses npm's actual v1.0.0-alpha.9 boundary until its first prefixed
 release. Dart-only releases leave npm and the root lock version unchanged. Dart starts at alpha.1; its manifest entry appears in the first release PR, not
 before planning. Release histories live in the package-local [JavaScript changelog](../../packages/javascript/CHANGELOG.md)
 and [Flutter changelog](../../packages/flutter/CHANGELOG.md); preserve their historical release links.
+
+The planner writes Dart's exact planned version into `pubspec.yaml`, retaining
+YAML comments and publication blocks. Package versions do not inherit or
+increment application build numbers; pubspec, manifest and release tag versions
+must agree.
 
 Review and merge each generated release PR after `CI`. `feat`, `fix`, `perf` and `deps` feed changelogs; use `BREAKING CHANGE:` for breaking behavior. Validate
 both implementations and the intended pair before releasing shared behavior. Channels are independent: a transition needs a one-time `Release-As:` footer (e.g.
@@ -31,6 +36,24 @@ affect Dart. Generated package-local copies are not release-planning inputs.
 
 Dart publishing requires exact tag/package/manifest identity, branch ancestry, verified artifact bytes and complete Android/iOS and shared qualification. Both
 `publish_to: none` and `implementationStatus: foundation` block publication; asset tests and contract definitions cannot qualify the public runtime.
+
+Repository-wide release inputs also feed both package histories: `.github/`,
+common `verification/`, `conformance/`, root `package.json`, `package-lock.json`,
+`.nvmrc` and `release-please-config.json`. This makes a common `fix:` update both
+pending release PRs on the ordinary branch push, including corrected generated
+files. `verification/flutter/` remains Dart-only; shared assets retain their
+consumer-specific routing above. Repository guidance under `docs/engineering/`
+is not a release input. Routing preserves each package's published boundary and
+deduplicates commits that also modify package-local files. Only the existing
+`feat`, `fix`, `perf` and `deps` release rules create release notes; `ci`, `docs`,
+`test` and `chore` maintenance alone does not create package releases. Release
+planning ownership and PR CI gate selection are separate decisions.
+
+The initial peer-release bootstrap starts immediately after the last
+single-package npm release, `v1.0.0-alpha.9`. This includes the peer-package
+foundation and later common changes without presenting historical npm-only
+features as Dart additions. Once published, each package uses its own release
+boundary; the bootstrap does not replace either package's release history.
 
 ## External setup and first Dart publication
 
@@ -77,3 +100,8 @@ Registry writes are independent. On partial success, record each registry's actu
 `publish.yaml`'s `tag` input; Dart reruns its original tag-push run, because pub.dev rejects branch/manual-dispatch publishing. Reuse immutable source and tags.
 Already-published versions must match verified contents (and npm's selected dist-tag); mismatches require a new fix version. Preserve source snapshots and
 evidence before workflow retention expires. External setup and hosted release execution remain operator steps; local planner tests mock GitHub.
+
+A release-planner repair should be merged as a release-relevant common fix.
+The branch push then updates both pending PRs and their generated files through
+normal planning; inspect their contents and CI afterward. Unchanged release
+notes still skip updates, so a maintenance-only commit is not a repair trigger.

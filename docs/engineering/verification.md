@@ -78,6 +78,21 @@ npm run js:verify:memory
   the union of affected gates; Flutter, shared assets, tooling and workflow inputs
   retain their required checks. Non-Markdown documentation assets still select
   both packages. Registry qualification gates are independent of PR routing.
+- Release metadata is compared between immutable Git revisions. JavaScript-only
+  package and lockfile version changes plus its manifest entry select npm checks;
+  Dart-only manifest entry changes select Flutter checks. Each release retains
+  shared release-tooling and contract checks. Dependency, script, unknown-owner,
+  unreadable or malformed metadata changes retain the broader path-based gates;
+  mixed changes use the union of affected owners. PR names and labels never
+  determine which checks are skipped.
+- Repository tooling (typecheck, lint and tests) runs once in the shared contract
+  job when selected, otherwise in the JavaScript core job. JavaScript static
+  checks remain in the core job regardless of shared contract routing.
+- Selected Flutter verification and Android/iOS host builds start independently
+  after classification. Each prepares its own SDK, assets and dependencies; the
+  final `CI` aggregate waits for both and requires both to succeed. This reduces
+  dependency waiting on successful runs, but host builds may consume runner time
+  even when Flutter verification fails.
 - Routers link to one owner instead of copying contracts.
 - `verify:package` installs the generated tarball and checks ESM, CommonJS,
   declarations, examples, assets, interaction, capture, and teardown.

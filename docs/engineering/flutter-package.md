@@ -46,6 +46,14 @@ CI's stable `CI` aggregate includes changed-package JS, Flutter, shared-tooling 
 installed-consumer checks run on both recorded SDK roles. Native hosts build on the CI baseline; shared contract definitions and release tooling need only Node.
 Host builds do not qualify rendering or devices. iOS simulator builds additionally require the selected Xcode's iOS platform installation.
 
+PR CI caches Flutter SDK and pub downloads with the pinned Flutter action's
+default keys: OS, architecture, SDK version and framework revision separate SDK
+entries, and pub entries additionally include lockfile hashes. Restoring a cache
+never skips installed SDK identity checks or dependency resolution; native hosts
+still enforce the committed example lock. PR-created caches serve that PR's
+reruns, while accessible base/default-branch caches can also be restored. A new
+PR cannot assume a cache created by a sibling PR is available.
+
 ```sh
 node verification/assets/prepare.mjs flutter
 cd packages/flutter/example
