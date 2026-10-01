@@ -4,11 +4,16 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ASSET_CATALOG, ASSET_PACKAGES, ASSET_SOURCE } from './catalog.mjs';
 
+/** @typedef {import('./catalog.mjs').AssetPackage | 'all'} PreparationPackage */
+/** @typedef {{ source: string, native: string, license: string, sourceSha256: string, nativeSha256: string }} FontProvenance */
+
 const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
 const sourcePath = ASSET_SOURCE;
 const assetNames = ASSET_CATALOG.map((asset) => asset.name).sort();
+/** @param {Uint8Array} bytes */
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
+/** @param {string} root @param {string} path */
 function directories(root, path) {
   let current = resolve(root);
   for (const segment of relative(root, path).split('/').filter(Boolean)) {
@@ -19,12 +24,19 @@ function directories(root, path) {
     }
   }
 }
+/** @param {string} path */
 function lstatSyncOrNull(path) {
-  try { return lstatSync(path); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  try { return lstatSync(path); } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null;
+    throw error;
+  }
 }
+/** @param {string} root @param {string} path */
 function filesIn(root, path) {
   directories(root, path);
+  /** @type {string[]} */
   const files = [];
+  /** @param {string} directory */
   function visit(directory) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const child = join(directory, entry.name);
@@ -41,18 +53,27 @@ export function readSharedAssets(root = repositoryRoot) {
   const source = resolve(root, sourcePath);
   if (JSON.stringify(filesIn(root, source)) !== JSON.stringify(assetNames)) throw new Error('Shared asset inventory mismatch');
   const assets = new Map(assetNames.map((name) => [name, readFileSync(join(source, name))]));
-  const provenance = JSON.parse(assets.get('fonts/provenance.json').toString());
-  const native = assets.get('fonts/FiraCode-VF.ttf');
+  /** @type {FontProvenance} */
+  const provenance = JSON.parse(assetBytes(assets, 'fonts/provenance.json').toString());
+  const native = assetBytes(assets, 'fonts/FiraCode-VF.ttf');
   if (provenance.source !== `${sourcePath}/fonts/FiraCode-VF.woff2`
     || provenance.native !== `${sourcePath}/fonts/FiraCode-VF.ttf`
     || provenance.license !== `${sourcePath}/fonts/LICENSE.txt`
-    || provenance.sourceSha256 !== digest(assets.get('fonts/FiraCode-VF.woff2'))
+    || provenance.sourceSha256 !== digest(assetBytes(assets, 'fonts/FiraCode-VF.woff2'))
     || provenance.nativeSha256 !== digest(native) || native.length < 4 || native.readUInt32BE(0) !== 0x00010000) {
     throw new Error('Shared native font provenance drift');
   }
   return assets;
 }
 
+/** @param {Map<string, Buffer>} assets @param {string} name */
+function assetBytes(assets, name) {
+  const bytes = assets.get(name);
+  if (bytes === undefined) throw new Error(`Missing canonical asset: ${name}`);
+  return bytes;
+}
+
+/** @param {string} root @param {string} path @param {Uint8Array} bytes */
 function writeChanged(root, path, bytes) {
   directories(root, dirname(path));
   const stat = lstatSyncOrNull(path);
@@ -62,13 +83,20 @@ function writeChanged(root, path, bytes) {
   writeFileSync(path, bytes);
 }
 
+/** @param {string} name @returns {PreparationPackage} */
+function preparationPackage(name) {
+  if (name !== 'all' && name !== 'javascript' && name !== 'flutter') throw new Error('usage: prepare.mjs [all|javascript|flutter]');
+  return name;
+}
+
+/** @param {{ root?: string, packageName?: PreparationPackage }} [options] */
 export function prepareAssets({ root = repositoryRoot, packageName = 'all' } = {}) {
-  if (!['all', 'javascript', 'flutter'].includes(packageName)) throw new Error('usage: prepare.mjs [all|javascript|flutter]');
+  packageName = preparationPackage(packageName);
   const assets = readSharedAssets(root);
   if (packageName !== 'flutter') {
     for (const asset of ASSET_CATALOG) {
       const target = asset.targets.javascript;
-      if (typeof target === 'string') writeChanged(root, resolve(root, target), assets.get(asset.name));
+      if (typeof target === 'string') writeChanged(root, resolve(root, target), assetBytes(assets, asset.name));
     }
   }
   if (packageName !== 'javascript') {
@@ -76,11 +104,12 @@ export function prepareAssets({ root = repositoryRoot, packageName = 'all' } = {
     // deleting anything, and remove files left by a previous asset inventory.
     const target = resolve(root, ASSET_PACKAGES.flutter, 'assets');
     const previous = filesIn(root, target);
+    /** @type {string[]} */
     const expected = [];
     for (const asset of ASSET_CATALOG) {
       const path = resolve(root, asset.targets.flutter);
       expected.push(relative(target, path));
-      writeChanged(root, path, assets.get(asset.name));
+      writeChanged(root, path, assetBytes(assets, asset.name));
     }
     for (const name of previous) if (!expected.includes(name)) rmSync(join(target, name));
   }
@@ -93,11 +122,12 @@ export function verifyPreparedFlutterAssets(root = repositoryRoot) {
   const expected = ASSET_CATALOG.map((asset) => relative(target, resolve(root, asset.targets.flutter))).sort();
   if (JSON.stringify(filesIn(root, target)) !== JSON.stringify(expected)) throw new Error('Prepared Flutter asset inventory mismatch; run npm run assets:prepare');
   for (const asset of ASSET_CATALOG) {
-    if (!readFileSync(resolve(root, asset.targets.flutter)).equals(assets.get(asset.name))) throw new Error(`Prepared asset drift: ${asset.name}`);
+    if (!readFileSync(resolve(root, asset.targets.flutter)).equals(assetBytes(assets, asset.name))) throw new Error(`Prepared asset drift: ${asset.name}`);
   }
   return assets.size;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  console.log(JSON.stringify(prepareAssets({ packageName: process.argv[2] ?? 'all' })));
+  const packageName = preparationPackage(process.argv[2] ?? 'all');
+  console.log(JSON.stringify(prepareAssets({ packageName })));
 }
