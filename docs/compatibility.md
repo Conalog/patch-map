@@ -31,6 +31,10 @@ and cross-browser behavior remain unqualified until a repeatable gate exists.
 - A deprecation must name the replacement and removal release. Compatibility
   aliases without a scheduled removal are not added.
 
+The optional `@conalog/patch-map/image` entry has ESM, CommonJS, and TypeScript
+declarations. Creating an image requires a browser with WebGL2 and DOM canvas
+encoding; importing it in Node does not supply a renderer. See [Image output](api/image.md).
+
 ## Published artifact
 
 The package contains built output, the root README, public documents, public

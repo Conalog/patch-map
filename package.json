@@ -22,6 +22,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./image": {
+      "types": "./dist/image.d.ts",
+      "import": "./dist/image.js",
+      "require": "./dist/image.cjs"
     }
   },
   "files": [
@@ -36,6 +41,7 @@
     "docs/api/viewport-and-transform.md",
     "docs/api/presentation.md",
     "docs/api/assets-and-capture.md",
+    "docs/api/image.md",
     "docs/api/text.md",
     "docs/integration/host.md",
     "docs/compatibility.md",

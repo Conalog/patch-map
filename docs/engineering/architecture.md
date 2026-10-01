@@ -7,7 +7,7 @@ publication or cleanup path.
 ## Runtime flow
 
 ```text
-src/index.ts
+src/index.ts or src/image.ts
   -> composition/ (mount, public facade, Pixi runtime and surface assembly)
   -> public/ (application contracts and stateless facade factories)
   -> Engine authorities and coordinators
@@ -64,7 +64,7 @@ boundary test enforces these directions.
 
 ## Dependency rules
 
-1. `src/index.ts` is the public entry. Lower layers never import it.
+1. `src/index.ts` and `src/image.ts` are public entries. Lower layers never import them.
 2. Engine and Core support modules depend on `rendering-port/`, not concrete
    files under `rendering/` or `composition/`.
 3. Semantic and dense modules do not import Engine, developer API, DOM, or

@@ -80,13 +80,13 @@ export default defineConfig({
     target: 'es2022',
     sourcemap: false,
     lib: {
-      entry: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+      entry: {
+        index: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+        image: fileURLToPath(new URL('./src/image.ts', import.meta.url)),
+      },
       name: 'PatchMap',
       formats: ['es', 'cjs'],
-      fileName: (format) => {
-        if (format === 'es') return 'index.js';
-        return 'index.cjs';
-      },
+      fileName: (format, entryName) => `${entryName}.${format === 'es' ? 'js' : 'cjs'}`,
     },
     rollupOptions: {
       // Consumers must share their Pixi scene graph with PATCH MAP.

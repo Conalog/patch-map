@@ -6,6 +6,7 @@ export const EXAMPLE_FILES = Object.freeze([
   'host-adapter.ts',
   ...EXAMPLES.map((name) => `${name}.ts`),
   'presentation.ts',
+  'image.ts',
 ]);
 
 export const PUBLIC_DOCS = Object.freeze([
@@ -18,6 +19,7 @@ export const PUBLIC_DOCS = Object.freeze([
   'docs/api/viewport-and-transform.md',
   'docs/api/presentation.md',
   'docs/api/assets-and-capture.md',
+  'docs/api/image.md',
   'docs/api/text.md',
   'docs/integration/host.md',
   'docs/compatibility.md',
