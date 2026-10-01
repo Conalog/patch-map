@@ -346,6 +346,33 @@ describe('PatchMap developer API workflows', () => {
     }
   });
 
+  it.each(['unsubscribe', 'destroy'] as const)(
+    'skips settled listeners removed by %s during delivery', (action) => {
+      vi.useFakeTimers();
+      try {
+        const harness = createHost();
+        const map = createPatchMapApi(harness.host);
+        const second = vi.fn();
+        let releaseSecond = (): void => undefined;
+        const releaseFirst = map.viewport.onSettled(() => {
+          if (action === 'destroy') harness.publishDestroyed();
+          else releaseSecond();
+        });
+        releaseSecond = map.viewport.onSettled(second);
+        harness.publishViewportChange(Object.freeze({
+          centerWorld: Object.freeze([10, 0] as const),
+          scale: 1,
+          screenBounds: Object.freeze([0, 0, 640, 360] as const),
+        }));
+        vi.advanceTimersByTime(100);
+        expect(second).not.toHaveBeenCalled();
+        releaseFirst();
+        releaseSecond();
+        expect(vi.getTimerCount()).toBe(0);
+      } finally { vi.useRealTimers(); }
+    },
+  );
+
   it('projects root hover and pointer selection through disposer-based public domains', () => {
     const harness = createHost();
     const map = createPatchMapApi(harness.host);

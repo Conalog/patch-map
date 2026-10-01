@@ -104,6 +104,14 @@ interface PatchMapApiHost extends PatchMapTransformHost, PatchMapEditorHost, Pat
   onPointerTooltip(listener: (event: PatchMapPointerTooltipEvent) => void): () => void;
   onViewportChange(listener: (change: PatchMapHostViewportChangeResult) => void): () => void;
   onDestroyed(listener: () => void): () => void;
+  reportOperationalFailure(input: Readonly<{
+    readonly code: 'HOST_CALLBACK_FAILURE';
+    readonly category: 'HOST_CALLBACK_FAILURE';
+    readonly operation: string;
+    readonly recoverable: true;
+    readonly retryable: false;
+    readonly details: unknown;
+  }>): void;
   applySelection(input: PatchMapSelectionSetOperation): PatchMapSelectionChange;
   fitViewport(options?: PatchMapHostViewportFitOptions): PatchMapHostViewportFitResult;
   restoreViewport(
@@ -529,7 +537,25 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
       viewportSettleTimer = null;
       if (host.rotationAnimationActive) return;
       const state = host.viewportProbe();
-      for (const listener of [...viewportSettledListeners]) listener(state);
+      const failures: unknown[] = [];
+      for (const listener of [...viewportSettledListeners]) {
+        if (!viewportSettledListeners.has(listener)) continue;
+        try {
+          listener(state);
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      for (const error of failures) {
+        host.reportOperationalFailure({
+          code: 'HOST_CALLBACK_FAILURE',
+          category: 'HOST_CALLBACK_FAILURE',
+          operation: 'viewport.onSettled',
+          recoverable: true,
+          retryable: false,
+          details: error,
+        });
+      }
     }, 100);
   };
   const ensureViewportObservers = (): void => {

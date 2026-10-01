@@ -29,8 +29,8 @@ Viewport APIs:
   over mount-time `fit`. Scale always passes through configured zoom limits.
 - A snapshot is detached and consists only of `centerWorld: [x, y]` plus `scale`.
   Resize preserves that absolute center and scale.
-- `onSettled()` coalesces pointer pan, wheel, fit, reset, restore, programmatic
-  pan/zoom, and resize. It returns a disposer; destroy removes remaining listeners.
+- `onSettled()` coalesces pointer pan, wheel, fit, reset, restore, programmatic pan/zoom, and resize. It returns a disposer; destroy removes remaining listeners.
+  Listener failures are isolated and reported as `HOST_CALLBACK_FAILURE` after delivery; listeners removed during delivery are skipped.
 - Wheel activation defaults to `none`. `control` accepts `ctrlKey || metaKey` from
   the current wheel event. A rejected wheel is neither prevented nor stopped. An
   accepted wheel is prevented only when it changes scale and retains cursor

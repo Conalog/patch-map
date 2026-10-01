@@ -291,6 +291,7 @@ export function createHost() {
   })));
   const host = {
     selectionIds: Object.freeze([]),
+    reportOperationalFailure: vi.fn(),
     loadDataset,
     loadDatasetAsync,
     exportDataset: () => Object.freeze([]),

@@ -220,6 +220,55 @@ describe('PatchMap viewport authority', () => {
     } finally { vi.useRealTimers(); }
   });
 
+  it('isolates settled callback failures and reports them after delivering other listeners', async () => {
+    const { engine } = await createEngine(engines, 'viewport-settled-failure');
+    const map = createPatchMapApi(engine);
+    const delivery: string[] = [];
+    const diagnostics: unknown[] = [];
+    const releaseDiagnostic = engine.on('diagnostic', (diagnostic) => {
+      diagnostics.push(diagnostic);
+      delivery.push('diagnostic');
+      throw new Error('diagnostic observer failure');
+    });
+    const releaseFailure = map.viewport.onSettled(() => {
+      delivery.push('first');
+      throw new Error('private host callback details');
+    });
+    const listener = vi.fn(() => { delivery.push('second'); });
+    const releaseListener = map.viewport.onSettled(listener);
+    vi.useFakeTimers();
+    try {
+      map.viewport.panBy([10, 0]);
+      vi.advanceTimersByTime(99);
+      expect(delivery).toEqual([]);
+      expect(() => vi.advanceTimersByTime(1)).not.toThrow();
+      expect(delivery).toEqual(['first', 'second', 'diagnostic']);
+      expect(listener).toHaveBeenCalledWith(engine.viewportProbe());
+      expect(diagnostics).toHaveLength(1);
+      expect(diagnostics[0]).toMatchObject({
+        code: 'HOST_CALLBACK_FAILURE',
+        category: 'HOST_CALLBACK_FAILURE',
+        operation: 'viewport.onSettled',
+        recoverable: true,
+        retryable: false,
+        revisionStamp: engine.snapshot().revisions,
+      });
+      expect(JSON.stringify(diagnostics)).not.toContain('private host callback details');
+      releaseFailure();
+      releaseListener();
+      releaseDiagnostic();
+      map.viewport.panBy([10, 0]);
+      vi.advanceTimersByTime(100);
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      releaseFailure();
+      releaseListener();
+      releaseDiagnostic();
+      vi.useRealTimers();
+    }
+  });
+
   it('does not normalize when the final frame fails or is cancelled reentrantly', async () => {
     const { engine, surface } = await createEngine(engines, 'rotation-final-normalization');
     const map = createPatchMapApi(engine);
