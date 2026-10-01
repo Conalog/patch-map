@@ -3,13 +3,6 @@ name: Release pull requests
 on:
   push:
     branches: [release/1.0]
-  workflow_dispatch:
-    inputs:
-      force_update:
-        description: Refresh pending release PR files even when release notes are unchanged
-        required: false
-        default: false
-        type: boolean
 
 permissions: {}
 
@@ -56,5 +49,4 @@ jobs:
       - name: Create or update independent releases and pull requests
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-          RELEASE_ALWAYS_UPDATE: ${{ github.event_name == 'workflow_dispatch' && inputs.force_update || false }}
         run: node .github/scripts/release-planner.mjs

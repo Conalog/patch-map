@@ -8,21 +8,33 @@ const { GitHub, Manifest } = require('release-please');
 const { ManifestPlugin } = require('release-please/build/src/plugin.js');
 const { TagName } = require('release-please/build/src/util/tag-name.js');
 const jsPath = 'packages/javascript';
+const dartPath = 'packages/flutter';
+const packagePaths = [jsPath, dartPath];
+const sharedReleaseFiles = new Set(['package.json', 'package-lock.json', '.nvmrc', 'release-please-config.json']);
 const legacyVersion = '1.0.0-alpha.9';
 const legacyTag = `v${legacyVersion}`;
 const legacySha = '6986c632a47d3443ff17903c416291dfe4120340';
 
-// CommitSplit only sees package-local paths. Project shared inputs onto their
-// consuming package boundaries before splitting, preserving each release SHA.
+function releaseConsumerPaths(path) {
+  const assetConsumers = assetConsumerPaths(path);
+  if (assetConsumers.length > 0) return assetConsumers;
+  if (path.startsWith('verification/flutter/')) return [dartPath];
+  if (path.startsWith('.github/') || path.startsWith('verification/')
+    || path.startsWith('conformance/') || sharedReleaseFiles.has(path)) return packagePaths;
+  return [];
+}
+
+// CommitSplit only sees package-local paths. Project repository release inputs
+// onto their consuming package boundaries, preserving each release SHA.
 // This changes planner input only; GitHub files and commit history stay intact.
-function withSharedAssetConsumers(github) {
+function withReleaseConsumers(github) {
   return new Proxy(github, {
     get(target, key) {
       if (key === 'mergeCommitIterator') return async function* (...args) {
         for await (const commit of target.mergeCommitIterator(...args)) {
           const consumers = new Set();
           for (const file of commit.files ?? []) {
-            for (const path of assetConsumerPaths(file)) consumers.add(path);
+            for (const path of releaseConsumerPaths(file)) consumers.add(path);
           }
           yield consumers.size === 0 ? commit : {
             ...commit,
@@ -80,9 +92,9 @@ class DartPackageVersion extends ManifestPlugin {
   }
 }
 
-export async function createReleaseManifest(github, branch = 'release/1.0', { alwaysUpdate = false } = {}) {
-  github = withSharedAssetConsumers(github);
-  const manifest = await Manifest.fromManifest(github, branch, undefined, undefined, { alwaysUpdate });
+export async function createReleaseManifest(github, branch = 'release/1.0') {
+  github = withReleaseConsumers(github);
+  const manifest = await Manifest.fromManifest(github, branch);
   if (manifest.releasedVersions[jsPath]?.toString() === legacyVersion) {
     manifest.plugins.unshift(new LegacyJsBoundary(github, branch, manifest.repositoryConfig));
   }
@@ -94,9 +106,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!process.env.RELEASE_TOKEN) throw new Error('RELEASE_TOKEN is required');
   if (process.env.GITHUB_REPOSITORY !== 'Conalog/patch-map') throw new Error('Unexpected release repository');
   const github = await GitHub.create({ owner: 'Conalog', repo: 'patch-map', token: process.env.RELEASE_TOKEN });
-  const manifest = await createReleaseManifest(github, 'release/1.0', {
-    alwaysUpdate: process.env.RELEASE_ALWAYS_UPDATE === 'true',
-  });
+  const manifest = await createReleaseManifest(github, 'release/1.0');
   await manifest.createReleases();
   await manifest.createPullRequests();
 }
