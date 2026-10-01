@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { parseVersion, pubspecField } from './release-metadata.mjs';
 
 const require = createRequire(new URL('../../verification/package.json', import.meta.url));
 import { createReleaseManifest } from './release-planner.mjs';
@@ -19,14 +20,14 @@ const commit = (message, files, sha = 'c'.repeat(40)) => ({ message, files, sha 
 
 // The real pinned planner, strategies, changelog generators and workspace plugin
 // run against an in-memory GitHub boundary. No network or repository writes occur.
-async function fixture(changes, { dartReleased = false, jsReleased = false, missingLegacy = false, wrongLegacy = false, missingBoundary = false, betweenReleases = [], historical = [] } = {}) {
+async function fixture(changes, { dartReleased = false, jsReleased = false, missingLegacy = false, wrongLegacy = false, missingBoundary = false, betweenReleases = [], historical = [], alwaysUpdate = false } = {}) {
   const versions = { [npmPath]: jsReleased ? '1.0.0-alpha.10' : '1.0.0-alpha.9' };
   if (dartReleased) versions[dartPath] = '1.0.0-alpha.1';
   const files = {
     'release-please-config.json': JSON.stringify(config),
     '.release-please-manifest.json': JSON.stringify(versions),
     [`${npmPath}/package.json`]: JSON.stringify({ name: '@conalog/patch-map', version: versions[npmPath] }),
-    [`${dartPath}/pubspec.yaml`]: 'name: conalog_patch_map\nversion: 1.0.0-alpha.1\n',
+    [`${dartPath}/pubspec.yaml`]: readFileSync(new URL('packages/flutter/pubspec.yaml', root), 'utf8'),
     [`${npmPath}/CHANGELOG.md`]: readFileSync(new URL('packages/javascript/CHANGELOG.md', root), 'utf8'),
     [`${dartPath}/CHANGELOG.md`]: readFileSync(new URL('packages/flutter/CHANGELOG.md', root), 'utf8'),
     'package-lock.json': JSON.stringify({
@@ -73,7 +74,7 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
       return { number };
     },
   };
-  const manifest = await createReleaseManifest(github);
+  const manifest = await createReleaseManifest(github, 'release/1.0', { alwaysUpdate });
   return { manifest, files, versions, calls, openPullRequests, mergedPullRequests };
 }
 
@@ -178,6 +179,10 @@ test('first Dart release is alpha.1 and leaves npm manifests and root lockfile u
   assert.match(dart.headRefName, /--dart$/u);
   assert.ok(dart.updates.every(({ path }) => path.startsWith(`${dartPath}/`) || path === '.release-please-manifest.json'));
   const updated = applyUpdates(dart, files);
+  assert.equal(pubspecField(updated[`${dartPath}/pubspec.yaml`], 'version'), dart.version.toString());
+  assert.equal(updated[`${dartPath}/pubspec.yaml`], files[`${dartPath}/pubspec.yaml`]);
+  assert.equal(pubspecField(updated[`${dartPath}/pubspec.yaml`], 'publish_to'), 'none');
+  assert.match(updated[`${dartPath}/pubspec.yaml`], /# Enable publication only after the first functional release is qualified\./u);
   assert.equal((updated[`${dartPath}/CHANGELOG.md`].match(/^## .*1\.0\.0-alpha\.1/gmu) ?? []).length, 1);
   assert.equal(updated['package-lock.json'], files['package-lock.json']);
   assert.equal(updated[`${npmPath}/package.json`], files[`${npmPath}/package.json`]);
@@ -192,7 +197,29 @@ test('later Dart-only fix increments alpha.2 without a new npm candidate', async
   assert.equal(candidates.length, 1);
   const dart = candidateFor(candidates, dartPath);
   assert.equal(dart.version.toString(), '1.0.0-alpha.2');
-  assert.match(applyUpdates(dart, files)[`${dartPath}/pubspec.yaml`], /version: 1\.0\.0-alpha\.2/u);
+  const updatedPubspec = applyUpdates(dart, files)[`${dartPath}/pubspec.yaml`];
+  const version = pubspecField(updatedPubspec, 'version');
+  assert.equal(version, dart.version.toString());
+  assert.equal(updatedPubspec, files[`${dartPath}/pubspec.yaml`].replace('version: 1.0.0-alpha.1', 'version: 1.0.0-alpha.2'));
+  assert.doesNotThrow(() => parseVersion(version));
+});
+
+test('Dart channel transitions write the exact planned version without inherited suffixes', async () => {
+  for (const version of ['1.0.0-beta.1', '1.0.0-rc.1', '1.0.0']) {
+    const { manifest, files } = await fixture([commit(`feat: promote Dart\n\nRelease-As: ${version}`, [`${dartPath}/lib/conalog_patch_map.dart`])], { dartReleased: true });
+    const dart = candidateFor(await manifest.buildPullRequests(), dartPath);
+    assert.equal(dart.version.toString(), version);
+    const updated = applyUpdates(dart, files);
+    assert.equal(pubspecField(updated[`${dartPath}/pubspec.yaml`], 'version'), version);
+    assert.equal(JSON.parse(updated['.release-please-manifest.json'])[dartPath], version);
+  }
+});
+
+test('Dart release updates reject ambiguous pubspec version fields', async () => {
+  const { manifest, files } = await fixture([commit('feat: update Dart', [`${dartPath}/lib/conalog_patch_map.dart`])]);
+  const dart = candidateFor(await manifest.buildPullRequests(), dartPath);
+  files[`${dartPath}/pubspec.yaml`] += 'version: 1.0.0-alpha.2\n';
+  assert.throws(() => applyUpdates(dart, files), /one plain version scalar/u);
 });
 
 test('shared feature produces two independently mergeable PRs and correctly named releases', async () => {
@@ -229,6 +256,24 @@ test('separate pending PRs route updates to the existing npm and Dart PR numbers
   assert.deepEqual(new Set(state.calls.map(({ candidate }) => candidate.headRefName)), new Set(candidates.map(({ headRefName }) => headRefName)));
   // This proves planner routing only. GitHub.updatePullRequest/code-suggester's
   // remote behavior (upstream issue #2773) still requires an actual hosted run.
+});
+
+test('explicit repair refreshes the existing Dart PR even when release notes are unchanged', async () => {
+  for (const alwaysUpdate of [false, true]) {
+    const state = await fixture([commit('feat: add native foundation', [`${dartPath}/lib/conalog_patch_map.dart`])], { alwaysUpdate });
+    const dart = candidateFor(await state.manifest.buildPullRequests(), dartPath);
+    state.openPullRequests.push(asPullRequest(dart, 247));
+    await state.manifest.createPullRequests();
+    assert.equal(state.calls.length, alwaysUpdate ? 1 : 0);
+    if (alwaysUpdate) {
+      const [{ number, candidate }] = state.calls;
+      assert.equal(number, 247);
+      assert.equal(candidate.body.toString(), dart.body.toString());
+      const updated = applyUpdates(candidate, state.files);
+      assert.equal(pubspecField(updated[`${dartPath}/pubspec.yaml`], 'version'), '1.0.0-alpha.1');
+      assert.equal(JSON.parse(updated['.release-please-manifest.json'])[dartPath], '1.0.0-alpha.1');
+    }
+  }
 });
 
 

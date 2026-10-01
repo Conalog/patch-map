@@ -19,6 +19,11 @@ release. Dart-only releases leave npm and the root lock version unchanged. Dart 
 before planning. Release histories live in the package-local [JavaScript changelog](../../packages/javascript/CHANGELOG.md)
 and [Flutter changelog](../../packages/flutter/CHANGELOG.md); preserve their historical release links.
 
+The planner writes Dart's exact planned version into `pubspec.yaml`, retaining
+YAML comments and publication blocks. Package versions do not inherit or
+increment application build numbers; pubspec, manifest and release tag versions
+must agree.
+
 Review and merge each generated release PR after `CI`. `feat`, `fix`, `perf` and `deps` feed changelogs; use `BREAKING CHANGE:` for breaking behavior. Validate
 both implementations and the intended pair before releasing shared behavior. Channels are independent: a transition needs a one-time `Release-As:` footer (e.g.
 `1.0.0-beta.1`) and matching prerelease settings; remove those settings for stable promotion and inspect the generated PR. npm maps prereleases to `next` and
@@ -77,3 +82,9 @@ Registry writes are independent. On partial success, record each registry's actu
 `publish.yaml`'s `tag` input; Dart reruns its original tag-push run, because pub.dev rejects branch/manual-dispatch publishing. Reuse immutable source and tags.
 Already-published versions must match verified contents (and npm's selected dist-tag); mismatches require a new fix version. Preserve source snapshots and
 evidence before workflow retention expires. External setup and hosted release execution remain operator steps; local planner tests mock GitHub.
+
+If a planner fix must repair files in an open release PR without changing its
+release notes, manually run `release-please.yaml` on `release/1.0` with
+`force_update: true`. This uses the planner's existing forced-update path to
+refresh pending PRs; ordinary branch pushes still skip unchanged release notes.
+Use it after the planner fix is merged, then check the updated PR files and CI.

@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { assetConsumerPaths } from '../../verification/assets/catalog.mjs';
+import { parseVersion, pubspecField } from './release-metadata.mjs';
 
 const require = createRequire(new URL('../../verification/package.json', import.meta.url));
 const { GitHub, Manifest } = require('release-please');
@@ -58,12 +59,34 @@ class LegacyJsBoundary extends ManifestPlugin {
   }
 }
 
-export async function createReleaseManifest(github, branch = 'release/1.0') {
+// The pinned Dart updater mistakes prerelease suffixes for app build numbers.
+// A published package must use the planner's version without an extra suffix.
+class DartPackageVersion extends ManifestPlugin {
+  async run(candidates) {
+    for (const { path, pullRequest } of candidates) {
+      if (this.repositoryConfig[path]?.releaseType !== 'dart') continue;
+      const version = pullRequest.version?.toString();
+      const pubspecUpdate = pullRequest.updates.find((update) => update.path === `${path}/pubspec.yaml`);
+      if (!version || !pubspecUpdate) throw new Error(`Missing Dart version update for ${path}`);
+      parseVersion(version);
+      pubspecUpdate.updater = {
+        updateContent(content) {
+          pubspecField(content, 'version');
+          return content.replace(/^version: [^\r\n]+/mu, `version: ${version}`);
+        },
+      };
+    }
+    return candidates;
+  }
+}
+
+export async function createReleaseManifest(github, branch = 'release/1.0', { alwaysUpdate = false } = {}) {
   github = withSharedAssetConsumers(github);
-  const manifest = await Manifest.fromManifest(github, branch);
+  const manifest = await Manifest.fromManifest(github, branch, undefined, undefined, { alwaysUpdate });
   if (manifest.releasedVersions[jsPath]?.toString() === legacyVersion) {
     manifest.plugins.unshift(new LegacyJsBoundary(github, branch, manifest.repositoryConfig));
   }
+  manifest.plugins.push(new DartPackageVersion(github, branch, manifest.repositoryConfig));
   return manifest;
 }
 
@@ -71,7 +94,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!process.env.RELEASE_TOKEN) throw new Error('RELEASE_TOKEN is required');
   if (process.env.GITHUB_REPOSITORY !== 'Conalog/patch-map') throw new Error('Unexpected release repository');
   const github = await GitHub.create({ owner: 'Conalog', repo: 'patch-map', token: process.env.RELEASE_TOKEN });
-  const manifest = await createReleaseManifest(github);
+  const manifest = await createReleaseManifest(github, 'release/1.0', {
+    alwaysUpdate: process.env.RELEASE_ALWAYS_UPDATE === 'true',
+  });
   await manifest.createReleases();
   await manifest.createPullRequests();
 }
