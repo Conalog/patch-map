@@ -70,6 +70,8 @@ import type {
 } from './surface-contract';
 
 export interface PatchMapSurfaceOptions {
+  /** Internal composition capability. Defaults to interactive root behavior. */
+  readonly interactive?: boolean;
   readonly target?: HTMLElement;
   readonly canvas?: HTMLCanvasElement;
   readonly width: number;

@@ -304,6 +304,7 @@ export class PatchMapRuntime {
         },
       },
       {
+        enabled: options.interactive !== false,
         selectionMode: options.rootSelectionMode ?? 'immediate',
         autoRender,
         wheelActivationModifier: options.rootWheelActivationModifier ?? 'none',

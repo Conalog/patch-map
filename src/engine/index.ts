@@ -490,6 +490,7 @@ const unavailableSurfaceFactory: PatchMapEngineSurfaceFactory = () => Promise.re
   new Error('PatchMap Engine requires an injected surface factory'),
 );
 export class PatchMap {
+  private readonly interactive: boolean;
   private readonly assetSessions: PatchMapAssetSessionAuthority;
   private readonly operations: PatchMapOperationsAuthority;
   private readonly extractionSecurity: PatchMapExtractionSecurityAuthority;
@@ -596,6 +597,7 @@ export class PatchMap {
   }
 
   public constructor(options: PatchMapEngineOptions = {}) {
+    this.interactive = options.interactive !== false;
     this.surfaceLifecycle = new PatchMapSurfaceLifecycleAuthority(
       options.surfaceFactory ?? unavailableSurfaceFactory,
     );
@@ -855,7 +857,7 @@ export class PatchMap {
       },
       notReadyError: (operation) =>
         this.operationError('NOT_READY', 'NOT_READY', operation, true),
-    });
+    }, this.interactive);
     this.historyApplication = new PatchMapHistoryApplicationCoordinator(
       this.historyAuthority,
       this.sceneState,
@@ -1411,6 +1413,7 @@ export class PatchMap {
     this.terminalRendererLossProbe = null;
     this.instanceId = options.instanceId;
     const surfaceOptions: PatchMapSurfaceOptions = {
+      interactive: this.interactive,
       width: options.width,
       height: options.height,
       pixelRatio: options.pixelRatio ?? globalThis.devicePixelRatio ?? 1,
@@ -1497,9 +1500,11 @@ export class PatchMap {
           throw this.operationError('DESTROYED', 'DESTROYED', 'initialize', false);
         }
         const readySurface = candidateSurface;
-        const pointerAuthority = this.pointerInteractions.createCandidateAuthority(readySurface);
+        const pointerAuthority = this.interactive
+          ? this.pointerInteractions.createCandidateAuthority(readySurface)
+          : null;
         try {
-          this.surfaceLifecycle.installCandidate(readySurface, {
+          this.surfaceLifecycle.installCandidate(readySurface, this.interactive ? {
             viewport: (input: PatchMapSurfaceViewportInput) =>
               this.viewportRuntime.acceptSurfaceInput(readySurface, input),
             pointer: (input: PatchMapSurfacePointerInput) =>
@@ -1516,12 +1521,16 @@ export class PatchMap {
               }
               this.activateAccessibilityTarget(targetId, input);
             },
-          });
+          } : undefined);
         } catch (error) {
-          this.pointerInteractions.discardCandidateAuthority(pointerAuthority);
+          if (pointerAuthority !== null) {
+            this.pointerInteractions.discardCandidateAuthority(pointerAuthority);
+          }
           throw error;
         }
-        this.pointerInteractions.adoptCandidateAuthority(pointerAuthority);
+        if (pointerAuthority !== null) {
+          this.pointerInteractions.adoptCandidateAuthority(pointerAuthority);
+        }
         this.publication.resetGeometryCorrelation();
         candidateSurface = null;
         this.assetSessions.adoptRequiredAcquisitions(attemptAcquisitions);

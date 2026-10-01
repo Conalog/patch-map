@@ -147,6 +147,17 @@ interface AggregateResult {
   readonly uploadObservation: PatchMapRendererDebug['uploadObservation'];
 }
 
+const DISABLED_OVERLAY_PROBE: PatchMapOverlayPaintProbe = Object.freeze({
+  order: Object.freeze(['selection', 'transformer'] as const),
+  selection: false, transformer: false, selectedEntityCount: 0, renderObjectCount: 0,
+  displayMode: 'hidden', redrawCount: 0,
+});
+const DISABLED_ACCESSIBILITY_PROBE: PatchMapAccessibilitySurfaceProbe = Object.freeze({
+  active: false, shadowDomActive: false, overlayNodeCount: 0, shadowDomNodeCount: 0,
+  rootListenerCount: 0, entityListenerCount: 0, focusedId: null, shadowDomFocusedId: null,
+  destroyed: false,
+});
+
 const DEFAULT_VIEW: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 const DEFAULT_WORLD_ORIENTATION: PatchMapWorldOrientation = Object.freeze({
   rotationDegrees: 0,
@@ -165,8 +176,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private readonly leaves: AggregateLeafLayer;
   private readonly backgroundGeometryLane: Container;
   private readonly scenePaintContainer: Container;
-  private readonly interactionOverlay: PatchMapPixiInteractionOverlayAuthority;
-  private readonly accessibilityOverlay: PatchMapAccessibilityOverlayAuthority;
+  private readonly interactionOverlay: PatchMapPixiInteractionOverlayAuthority | null;
+  private readonly accessibilityOverlay: PatchMapAccessibilityOverlayAuthority | null;
   private readonly target: HTMLElement | undefined;
   private readonly rootInteractionBindings: PatchMapPixiRootInteractionBindingAuthority;
   private readonly surfacePublication: PatchMapPixiSurfacePublicationAuthority;
@@ -221,14 +232,16 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     options: Required<Pick<PatchMapPixiRendererOptions, 'width' | 'height' | 'pixelRatio' | 'strategy' | 'preference'>> &
       Pick<
         PatchMapPixiRendererOptions,
-        'target' | 'devtools' | 'assetSession' | 'assetPolicy' | 'resolveBitmapTextCapability'
+        'target' | 'interactive' | 'devtools' | 'assetSession' | 'assetPolicy' | 'resolveBitmapTextCapability'
       >,
     metrics: PatchMapPixiInitializationMetrics,
     canvasLifecycle: PatchMapCanvasSurfaceLifecycle,
   ) {
     const buildStarted = now();
     this.application = application;
-    this.accessibilityOverlay = new PatchMapAccessibilityOverlayAuthority(application);
+    this.accessibilityOverlay = options.interactive === false
+      ? null
+      : new PatchMapAccessibilityOverlayAuthority(application);
     this.canvas = application.canvas;
     this.activeBackend = activeRendererBackend(application);
     this.initialWebGLVersion = publicGlContext(application)?.webGLVersion ?? null;
@@ -322,7 +335,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
           : { resolveBitmapTextCapability: options.resolveBitmapTextCapability }),
       },
     );
-    this.interactionOverlay = new PatchMapPixiInteractionOverlayAuthority({
+    this.interactionOverlay = options.interactive === false ? null : new PatchMapPixiInteractionOverlayAuthority({
       worldMatrix: this.worldMatrix,
       slotByEntityId: this.entitySlotIndex.slotByEntityId,
       readProjectionContext: () => this.projectionContext(),
@@ -343,7 +356,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.scenePaintContainer,
       );
       this.world.addChild(this.aggregate.container);
-      this.interactionOverlay.attachToTail(this.world);
+      this.interactionOverlay?.attachToTail(this.world);
     } else {
       this.world.addChild(
         this.leaves.standaloneAssetContainer,
@@ -353,12 +366,14 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.leaves.contentAssetContainer,
         this.leaves.textContainer,
       );
-      this.interactionOverlay.attachToTail(this.world);
+      this.interactionOverlay?.attachToTail(this.world);
     }
     this.application.stage.label = 'PatchMap';
-    this.application.stage.eventMode = 'static';
+    this.application.stage.eventMode = options.interactive === false ? 'none' : 'static';
     this.application.stage.interactiveChildren = false;
-    this.application.stage.hitArea = new Rectangle(0, 0, this.widthValue, this.heightValue);
+    if (options.interactive !== false) {
+      this.application.stage.hitArea = new Rectangle(0, 0, this.widthValue, this.heightValue);
+    }
     this.application.stage.addChild(this.world);
     this.application.ticker.stop();
     canvasLifecycle.applyRuntimeIdentity();
@@ -402,6 +417,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       background: packedRgb(packedBackground),
       backgroundAlpha: packedAlpha(packedBackground),
       clearBeforeRender: true,
+      ...(options.interactive === false ? {
+        eventFeatures: { move: false, globalMove: false, click: false, wheel: false },
+        accessibilityOptions: { enabledByDefault: false, activateOnTab: false },
+      } : {}),
       ...(options.canvas === undefined ? {} : { canvas: options.canvas }),
     };
     try {
@@ -424,6 +443,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
           width,
           height,
           pixelRatio,
+          interactive: options.interactive !== false,
           strategy,
           preference,
           ...(options.target ? { target: options.target } : {}),
@@ -489,7 +509,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     policy: PatchMapInteractionOverlayPolicy,
   ): boolean {
     this.assertAlive();
-    const changed = this.interactionOverlay.setPolicy(
+    const changed = this.interactionOverlay?.setPolicy(
       policy,
       this.cpuPublication.lastStore,
     );
@@ -504,7 +524,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     readonly current: readonly [number, number];
   }> | null): boolean {
     this.assertAlive();
-    const changed = this.interactionOverlay.setMarquee(
+    const changed = this.interactionOverlay?.setMarquee(
       input,
       this.cpuPublication.lastStore,
     );
@@ -641,7 +661,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.pixelRatioValue = pixelRatio;
     }
     this.application.renderer.resize(width, height);
-    this.application.stage.hitArea = new Rectangle(0, 0, width, height);
+    if (this.application.stage.eventMode !== 'none') {
+      this.application.stage.hitArea = new Rectangle(0, 0, width, height);
+    }
     this.barPresentationVisibilityStale = true;
     this.cpuPublication.invalidate('resize');
     return true;
@@ -665,7 +687,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       });
       this.cpuPublication.markProjectionOrientationChanged();
     }
-    if (scaleChanged || this.interactionOverlay.marqueeVisible) {
+    if (this.interactionOverlay !== null && (scaleChanged || this.interactionOverlay.marqueeVisible)) {
       this.cpuPublication.invalidateOverlayForView();
     }
     this.applyWorldTransform();
@@ -732,7 +754,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     const effectiveStore = this.cpuPublication.beginFlush(store);
     const storeReplaced = this.cpuPublication.flushStoreReplaced;
     if (storeReplaced) {
-      this.interactionOverlay.resetSelection();
+      this.interactionOverlay?.resetSelection();
     }
     // View rotation can change upright projection geometry. Resolve it before
     // consuming pending ranges so the first published frame cannot lag.
@@ -849,7 +871,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     const leaves = this.leaves.debugSnapshot();
     this.textProjectionSynchronizedRevision = this.cpuPublication.projectionRevision;
-    this.interactionOverlay.synchronize(
+    this.interactionOverlay?.synchronize(
       effectiveStore,
       storeReplaced,
       this.cpuPublication.pendingOverlayRanges ?? ranges,
@@ -885,7 +907,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.lastRenderedTextStoreRevision = effectiveStore.revision;
     }
     this.cpuPublication.commitFlush(store, effectiveStore);
-    const overlayCount = this.interactionOverlay.renderObjectCount;
+    const overlayCount = this.interactionOverlay?.renderObjectCount ?? 0;
     this.lastLaneProbe = this.buildLaneProbe(overlayCount);
     this.lastDebug = Object.freeze({
       strategy: this.strategy,
@@ -1072,7 +1094,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   /** Exact scene-tail order and current visibility of aggregate editor overlays. */
   public overlayPaintProbe(): PatchMapOverlayPaintProbe {
     this.assertAlive();
-    return this.interactionOverlay.probe();
+    return this.interactionOverlay?.probe() ?? DISABLED_OVERLAY_PROBE;
   }
 
   public async captureBase64(): Promise<string> {
@@ -1089,7 +1111,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     nodes: readonly PatchMapAccessibilityRenderNode[],
   ): PatchMapAccessibilitySurfaceProbe {
     this.assertAlive();
-    return this.accessibilityOverlay.setTree(nodes);
+    return this.accessibilityOverlay?.setTree(nodes) ?? DISABLED_ACCESSIBILITY_PROBE;
   }
 
   public bindAccessibilityActivation(
@@ -1099,16 +1121,16 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     ) => void,
   ): () => void {
     this.assertAlive();
-    return this.accessibilityOverlay.bindActivation(listener);
+    return this.accessibilityOverlay?.bindActivation(listener) ?? (() => undefined);
   }
 
   public focusAccessibilityTarget(targetId: string): boolean {
     this.assertAlive();
-    return this.accessibilityOverlay.focus(targetId);
+    return this.accessibilityOverlay?.focus(targetId) ?? false;
   }
 
   public accessibilitySurfaceProbe(): PatchMapAccessibilitySurfaceProbe {
-    return this.accessibilityOverlay.probe();
+    return this.accessibilityOverlay?.probe() ?? DISABLED_ACCESSIBILITY_PROBE;
   }
 
   public bindRootInteractions(handlers: RootInteractionHandlers): () => void {
@@ -1194,7 +1216,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
 
   public destroy(): boolean {
     if (this.destroyedValue) return false;
-    this.accessibilityOverlay.destroy();
+    this.accessibilityOverlay?.destroy();
     this.destroyedValue = true;
     this.rendererLossState = 'destroyed';
     this.surfacePublication.deactivate();
@@ -1205,7 +1227,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ['relations-dynamic', this.aggregate.container.label],
       ['content-assets', this.leaves.contentAssetContainer.label],
       ['text', this.leaves.textContainer.label],
-      ['interaction-overlay', this.interactionOverlay.label],
+      ['interaction-overlay', this.interactionOverlay?.label ?? 'PatchMap / interaction overlay (disabled)'],
     ]);
     this.rootInteractionBindings.destroy();
     this.application.stage.removeChild(this.world);
@@ -1214,7 +1236,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     if (!(this.aggregate instanceof AggregateMeshLayer)) {
       this.backgroundGeometryLane.destroy();
     }
-    this.interactionOverlay.destroy();
+    this.interactionOverlay?.destroy();
     this.cleanupPromise = this.leaves.destroy();
     this.world.destroy();
     this.application.destroy({ removeView: false }, { children: true });
@@ -1319,7 +1341,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ['relations-dynamic', this.aggregate.container.label],
       ['content-assets', this.leaves.contentAssetContainer.label],
       ['text', this.leaves.textContainer.label],
-      ['interaction-overlay', this.interactionOverlay.label],
+      ['interaction-overlay', this.interactionOverlay?.label ?? 'PatchMap / interaction overlay (disabled)'],
     ]);
   }
 
@@ -1363,9 +1385,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       text: leaves.text,
       'interaction-overlay': freezeLane(
         'interaction-overlay',
-        this.interactionOverlay.label,
+        this.interactionOverlay?.label ?? 'PatchMap / interaction overlay (disabled)',
         overlayCount,
-        this.interactionOverlay.visiblePrimitiveCount,
+        this.interactionOverlay?.visiblePrimitiveCount ?? 0,
       ),
     });
   }

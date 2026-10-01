@@ -107,7 +107,10 @@ export class PatchMapPointerInteractionCoordinator {
   private tooltipTarget: PatchMapTarget | null = null;
   private tooltipPinned = false;
 
-  public constructor(private readonly port: PatchMapPointerInteractionPort) {}
+  public constructor(
+    private readonly port: PatchMapPointerInteractionPort,
+    private readonly interactive = true,
+  ) {}
 
   public configurePointerPolicy(policy: PatchMapPointerPolicy | undefined): void {
     this.pointerPolicy = normalizePointerPolicy(policy);
@@ -311,7 +314,7 @@ export class PatchMapPointerInteractionCoordinator {
   }
 
   public syncSelectionVisualPolicy(): boolean {
-    if (!this.port.hasMaterialized()) return false;
+    if (!this.interactive || !this.port.hasMaterialized()) return false;
     const surface = this.port.liveSurface();
     if (surface === null) return false;
     const policy = this.selectionPolicy.visual;

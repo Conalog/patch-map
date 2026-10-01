@@ -41,6 +41,8 @@ import type {
 } from './reconcile';
 
 export interface PatchMapRuntimeOptions extends CoreSceneOptions {
+  /** Omit root input bindings for non-interactive output surfaces. */
+  readonly interactive?: boolean;
   readonly parse?: ParsePatchMapOptions;
   /** Schedule one invalidation frame after mutations. Defaults to true. */
   readonly autoRender?: boolean;

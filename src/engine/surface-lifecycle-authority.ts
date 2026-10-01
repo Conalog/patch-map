@@ -129,7 +129,7 @@ export class PatchMapSurfaceLifecycleAuthority<TInitialization> {
 
   public installCandidate(
     surface: PatchMapEngineSurface,
-    callbacks: PatchMapSurfaceInputCallbacks,
+    callbacks?: PatchMapSurfaceInputCallbacks,
   ): PatchMapInstalledSurface {
     if (this.candidateSurfaceValue !== surface) {
       throw new Error('PatchMap surface candidate ownership was lost');
@@ -140,7 +140,9 @@ export class PatchMapSurfaceLifecycleAuthority<TInitialization> {
     // Resolve the canvas before binding root listeners so an injected surface
     // cannot throw between listener allocation and ownership publication.
     const canvas = surface.canvasElement?.() ?? null;
-    const bindings = this.bindInputs(surface, callbacks);
+    const bindings = callbacks === undefined
+      ? EMPTY_BINDINGS
+      : this.bindInputs(surface, callbacks);
     this.liveSurfaceValue = surface;
     this.candidateSurfaceValue = null;
     this.authoritativeCanvasValue = canvas;

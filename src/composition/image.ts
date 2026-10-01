@@ -17,6 +17,7 @@ export async function createImagePatchMap(
   const viewport = normalizeViewportOptions(options.viewport);
   const instanceId = options.instanceId ?? `patch-map-image-${++imageSequence}`;
   const engine = new PatchMap({
+    interactive: false,
     ...(options.assetRuntime === undefined ? {} : { assetRuntime: options.assetRuntime }),
     ...(options.assetPolicy === undefined ? {} : { assetPolicy: options.assetPolicy }),
     surfaceFactory,

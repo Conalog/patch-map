@@ -116,6 +116,12 @@ async function runImageTrial(input: unknown, seed: number): Promise<boolean> {
   try {
     await map.render();
     await map.render({ format: 'jpeg', quality: 0.9 });
+    for (const surface of surfaces) {
+      const input = surface.interactionOwnershipProbe?.();
+      if (input?.rootBindingCount !== 0 || input.rootListenerCount !== 0) {
+        throw new Error('Image publication installed interactive root listeners');
+      }
+    }
   } finally {
     await map.destroy();
   }

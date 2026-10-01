@@ -105,12 +105,13 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
   public constructor(
     core: PatchMapRuntime,
     pixiRenderer: PatchMapPixiRenderer = core.renderer as unknown as PatchMapPixiRenderer,
+    interactive = true,
   ) {
     this.core = core;
     this.geometryAuthority = new PatchMapSurfaceGeometryAuthority(core);
     this.pixiRenderer = pixiRenderer;
     this.renderer = pixiRenderer;
-    this.unbindCoreViewportChanges = typeof core.bindRootViewportChanges === 'function'
+    this.unbindCoreViewportChanges = interactive && typeof core.bindRootViewportChanges === 'function'
       ? core.bindRootViewportChanges(({ source, view }) => {
           this.geometryAuthority.updateRootView(view);
           const center = core.screenToWorld({
@@ -124,12 +125,12 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
           }));
         })
       : () => {};
-    this.unbindCorePointerInputs = typeof core.bindRootPointerInputs === 'function'
+    this.unbindCorePointerInputs = interactive && typeof core.bindRootPointerInputs === 'function'
       ? core.bindRootPointerInputs((input) => {
           this.pointerInputListener?.(surfacePointerInput(input));
         })
       : () => {};
-    this.unbindCoreContextMenuInputs = typeof core.bindRootContextMenuInputs === 'function'
+    this.unbindCoreContextMenuInputs = interactive && typeof core.bindRootContextMenuInputs === 'function'
       ? core.bindRootContextMenuInputs((input) =>
           this.contextMenuInputListener?.(surfaceContextMenuInput(input)) ?? false)
       : () => {};
@@ -697,6 +698,7 @@ function projectEngineSceneImageRecord(
 
 export async function createPixiSurface(options: PatchMapSurfaceOptions): Promise<PatchMapEngineSurface> {
   const coreOptions: PatchMapRuntimeCreationOptions = {
+    interactive: options.interactive !== false,
     width: options.width,
     height: options.height,
     pixelRatio: options.pixelRatio,
@@ -721,7 +723,7 @@ export async function createPixiSurface(options: PatchMapSurfaceOptions): Promis
     ...(options.canvas ? { canvas: options.canvas } : {}),
   };
   const { runtime, renderer } = await createPatchMapPixiRuntimeAssembly(coreOptions);
-  return new PixiEngineSurface(runtime, renderer);
+  return new PixiEngineSurface(runtime, renderer, options.interactive !== false);
 }
 
 function surfacePointerInput(input: PatchMapRootPointerInput): PatchMapSurfacePointerInput {

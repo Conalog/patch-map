@@ -3,6 +3,7 @@ import { PatchMapAssetRuntime } from '../../src/assets';
 import { createImagePatchMap } from '../../src/composition/image';
 import type { PatchMapSurfaceOptions } from '../../src/engine/contracts';
 import { PatchMap } from '../../src/image';
+import { PatchMapSceneStateAuthority } from '../../src/engine/scene-state-authority';
 import type { PatchMapImageMutationOptions, PatchMapImageOptions, PatchMapImageRenderOptions } from '../../src/public/image-contracts';
 import { TransactionSurface } from '../support/engine-update-transaction-surface';
 
@@ -15,6 +16,11 @@ class ImageSurface extends TransactionSurface {
     },
   } as HTMLCanvasElement;
   public canvasElement(): HTMLCanvasElement { return this.canvas; }
+  public override bindViewportInput(): () => void { throw new Error('image bound viewport input'); }
+  public bindPointerInput(): () => void { throw new Error('image bound pointer input'); }
+  public bindContextMenuInput(): () => void { throw new Error('image bound context menu input'); }
+  public bindAccessibilityActivation(): () => void { throw new Error('image bound accessibility input'); }
+  public setSelectionOverlayPolicy(): boolean { throw new Error('image synchronized selection overlays'); }
 }
 
 function options(overrides: Partial<PatchMapImageOptions> = {}): PatchMapImageOptions {
@@ -51,10 +57,12 @@ async function create(input = options()) {
 
 describe('image API', () => {
   it('reuses root input and columnar updates without automatic frames, history, or animation', async () => {
+    const selectionIndex = vi.spyOn(PatchMapSceneStateAuthority.prototype, 'logicalSceneSelectionIndex');
     const input = options();
     const before = JSON.stringify(input.data);
     const { map, surface, surfaceOptions } = await create(input);
     try {
+      expect(surfaceOptions.interactive).toBe(false);
       expect(surfaceOptions.target).toBeUndefined();
       expect(surfaceOptions.pixelRatio).toBe(1);
       expect(surface.frameCount).toBe(0);
@@ -77,9 +85,11 @@ describe('image API', () => {
       expect(surface.frameCount).toBe(2);
       expect(surface.encodes).toEqual([{ mime: 'image/png', quality: undefined }, { mime: 'image/jpeg', quality: 0.9 }]);
       expect(JSON.stringify(input.data)).toBe(before);
+      expect(selectionIndex).not.toHaveBeenCalled();
     } finally {
       expect(await map.destroy()).toBe(true);
       expect(await map.destroy()).toBe(false);
+      selectionIndex.mockRestore();
     }
     expect(surface.canvasCount).toBe(0);
     expect(map.destroyed).toBe(true);
