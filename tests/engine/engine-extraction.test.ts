@@ -132,6 +132,22 @@ class ExtractionSurface implements PatchMapEngineSurface {
 }
 
 describe('PatchMap published scene extraction', () => {
+  it('publishes explicit images while hidden without starting a frame loop', async () => {
+    const surface = new ExtractionSurface({ width: 320, height: 180, pixelRatio: 1 } as PatchMapSurfaceOptions);
+    surface.canvasElement().toBlob = (callback, mime) => callback(new Blob(['pixels'], { type: mime ?? 'image/png' }));
+    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    try {
+      await engine.initialize({ instanceId: 'hidden-image', width: 320, height: 180, pixelRatio: 1 });
+      engine.loadDataset(scene());
+      engine.setDocumentVisibility({ state: 'hidden', timeMs: 0 });
+      engine.publishFrame(0);
+      expect(engine.snapshot().frameRevision).toBe(0);
+      await expect(engine.renderImage({ mime: 'image/png' })).resolves.toMatchObject({ size: [320, 180] });
+      expect(engine.snapshot().frameRevision).toBe(1);
+      expect(engine.snapshot().pendingWork).toBe(0);
+    } finally { await engine.destroy(); }
+  });
+
   it('captures an exact published tuple while retaining the authoritative canvas', async () => {
     let surface: ExtractionSurface | null = null;
     const engine = new PatchMap({

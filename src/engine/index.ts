@@ -272,6 +272,8 @@ import type {
   PatchMapEngineCanvasHandle,
   PatchMapEngineExtractionRequest,
   PatchMapEngineExtractionResult,
+  PatchMapEngineImageRequest,
+  PatchMapEngineImageResult,
 } from './contracts/extraction';
 import type {
   PatchMapEngineDestroyTargetResult,
@@ -654,6 +656,10 @@ export class PatchMap {
       this.managedFrameLoop,
       this.publication,
       {
+        image: {
+          settleAssets: () => this.settleSceneImages(),
+          publish: () => this.publishFrame(undefined, 0, true),
+        },
         requireSurface: (operation) => this.requireSurface(operation),
         liveSurface: () => this.surface,
         authoritativeCanvas: () => this.authoritativeCanvas,
@@ -1345,6 +1351,10 @@ export class PatchMap {
 
   public captureManagedPng(): Promise<PatchMapEngineExtractionResult> {
     return this.captureExtraction.captureManagedPng();
+  }
+
+  public renderImage(request: PatchMapEngineImageRequest): Promise<PatchMapEngineImageResult> {
+    return this.captureExtraction.renderImage(request);
   }
 
   public initialize(options: PatchMapInitializeOptions): Promise<PatchMapInitializeResult> {
@@ -2227,13 +2237,14 @@ export class PatchMap {
   public publishFrame(
     timeMs = globalThis.performance?.now() ?? Date.now(),
     viewportDeltaMs = 0,
+    explicitImage = false,
   ): void {
     if (this.terminalSurfaceFailure !== null) throw this.terminalSurfaceFailure;
     if (!Number.isFinite(timeMs)) throw new TypeError('timeMs must be finite');
     if (!Number.isFinite(viewportDeltaMs) || viewportDeltaMs < 0) {
       throw new RangeError('viewportDeltaMs must be nonnegative and finite');
     }
-    if (this.pageLifecycle.hidden) return;
+    if (this.pageLifecycle.hidden && !explicitImage) return;
     const surface = this.requireSurface('publishFrame');
     try {
       this.viewportRuntime.advanceRotationAnimation(viewportDeltaMs);
