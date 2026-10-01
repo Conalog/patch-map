@@ -311,7 +311,9 @@ test('the CI aggregate accepts intentional package skips and rejects missing req
   for (const values of [
     { ...js, GATES_RESULT: 'skipped' }, { ...js, GATES_RESULT: 'failure' },
     { ...dart, GATES_RESULT: 'success' }, { ...dart, FLUTTER_RESULT: 'skipped' },
-    { ...dart, NATIVE_RESULT: 'failure' }, { ...dart, CONTRACT_RESULT: 'skipped' },
+    { ...dart, FLUTTER_RESULT: 'failure' }, { ...dart, FLUTTER_RESULT: 'cancelled' },
+    { ...dart, NATIVE_RESULT: 'failure' }, { ...dart, NATIVE_RESULT: 'cancelled' },
+    { ...dart, NATIVE_RESULT: 'skipped' }, { ...dart, CONTRACT_RESULT: 'skipped' },
     { ...js, CLASSIFIER_RESULT: 'failure' }, { ...js, FULL_VALIDATION: '' },
   ]) assert.throws(() => run(values));
 });

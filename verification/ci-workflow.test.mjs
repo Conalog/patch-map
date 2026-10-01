@@ -52,3 +52,17 @@ test('JavaScript static checks remain selected when shared tooling owns reposito
     assert.equal(selected(step.if, { ...context, matrix: { gate: 'package' } }), false, command);
   }
 });
+
+test('Flutter verification and native hosts can run independently while the aggregate waits for both', () => {
+  for (const name of ['flutter', 'native-example']) {
+    const job = workflow.jobs[name];
+    assert.deepEqual([job.needs].flat(), ['classify'], `${name}: no dependency on another package gate`);
+    for (const flag of ['true', 'false']) {
+      const context = { needs: { classify: { outputs: { flutter_validation: flag } } } };
+      assert.equal(selected(job.if, context), flag === 'true', `${name}: flutter_validation=${flag}`);
+    }
+    assert.ok(workflow.jobs.validation.needs.includes(name), `${name}: required aggregate dependency`);
+  }
+  assert.deepEqual(workflow.jobs['native-example'].strategy.matrix.include.map(({ platform }) => platform), ['android', 'ios']);
+  assert.equal(workflow.jobs.validation.if, '${{ always() }}');
+});

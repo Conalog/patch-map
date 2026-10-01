@@ -201,7 +201,7 @@ jobs:
 
   native-example:
     name: Build ${{ matrix.platform }} development host
-    needs: [classify, flutter]
+    needs: classify
     if: ${{ needs.classify.outputs.flutter_validation == 'true' }}
     strategy:
       fail-fast: false
