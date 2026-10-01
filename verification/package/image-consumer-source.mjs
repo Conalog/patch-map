@@ -2,7 +2,7 @@
 export const PACKED_IMAGE_CONSUMER_SOURCE = `
 import { PatchMap as ImagePatchMap } from '@conalog/patch-map/image';
 
-async function verifyImageEntry() {
+async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount: 0 }) {
   const input = [
     { type: 'rect', id: 'image-square', show: true, attrs: { x: 40, y: 30 }, size: { width: 80, height: 80 }, fill: '#ff0000' },
     {
@@ -51,11 +51,12 @@ async function verifyImageEntry() {
           JSON.stringify(png.size) !== JSON.stringify(pngSize) ||
           JSON.stringify(jpeg.size) !== JSON.stringify(jpegSize)) throw new Error('image result metadata differs from encoded pixels');
     } finally {
-      released &&= await map.destroy();
-      released &&= map.destroyed && (await map.destroy()) === false;
+      const destroyed = await map.destroy();
+      const destroyedAgain = await map.destroy();
+      released &&= destroyed && map.destroyed && destroyedAgain === false;
     }
     const status = map.assets.status();
-    released &&= status.runtime.resourceCount === 0 && status.runtime.leaseCount === 0 && fontCount() === fontsBefore;
+    released &&= status.runtime.resourceCount === runtimeBaseline.resourceCount && status.runtime.leaseCount === runtimeBaseline.leaseCount && fontCount() === fontsBefore;
   }
   const transparent = await ImagePatchMap.create({
     data: [input[0]], width: 160, height: 120, background: '#00000000', fit: false,
@@ -67,11 +68,17 @@ async function verifyImageEntry() {
     const decoded = await decodeImage(image.blob);
     transparentPixels = isPixel(decoded, 5, 5, [0, 0, 0, 0]) && isPixel(decoded, 60, 50, [255, 0, 0, 255]);
   } finally { await transparent.destroy(); }
-  return {
+  released &&= fontCount() === fontsBefore;
+  const result = {
     createType: typeof ImagePatchMap.create, pngSize, jpegSize, pngPixels, jpegPixels,
     finalBarPixels, transparentPixels, fontsReady, detached, released, cycles: 5,
     immutable: JSON.stringify(input) === before,
   };
+  if (!result.pngPixels || !result.jpegPixels || !result.finalBarPixels || !result.transparentPixels ||
+      !result.fontsReady || !result.detached || !result.released || !result.immutable) {
+    throw new Error('packed image API failed: ' + JSON.stringify(result));
+  }
+  return result;
 }
 
 async function decodeImage(blob) {
@@ -92,8 +99,4 @@ function isPixel(image, x, y, expected, tolerance = 0) {
 }
 
 const imageEntry = await verifyImageEntry();
-if (!imageEntry.pngPixels || !imageEntry.jpegPixels || !imageEntry.finalBarPixels || !imageEntry.transparentPixels ||
-    !imageEntry.fontsReady || !imageEntry.detached || !imageEntry.released || !imageEntry.immutable) {
-  throw new Error('packed image API failed: ' + JSON.stringify(imageEntry));
-}
 `;
