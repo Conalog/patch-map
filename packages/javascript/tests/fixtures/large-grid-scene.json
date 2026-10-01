@@ -12616,7 +12616,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -14434,7 +14434,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -16252,7 +16252,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -18070,7 +18070,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -19888,7 +19888,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -21706,7 +21706,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -23524,7 +23524,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -25342,7 +25342,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -27160,7 +27160,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -28978,7 +28978,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -30796,7 +30796,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -32614,7 +32614,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -34432,7 +34432,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -36250,7 +36250,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -38068,7 +38068,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -39886,7 +39886,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -41704,7 +41704,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -43522,7 +43522,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -45340,7 +45340,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -47158,7 +47158,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -48976,7 +48976,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -50794,7 +50794,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -52612,7 +52612,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -54430,7 +54430,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -56248,7 +56248,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -58066,7 +58066,7 @@
             "value": 24
           }
         },
-        "source": "inverter",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -59769,7 +59769,7 @@
             "value": 24
           }
         },
-        "source": "edge",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M12%2032h48v24H12zM20%2012h4v20h-4zM48%2012h4v20h-4z%22%20fill%3D%22white%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -59862,7 +59862,7 @@
             "value": 24
           }
         },
-        "source": "edge",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M12%2032h48v24H12zM20%2012h4v20h-4zM48%2012h4v20h-4z%22%20fill%3D%22white%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },
@@ -59955,7 +59955,7 @@
             "value": 24
           }
         },
-        "source": "edge",
+        "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M12%2032h48v24H12zM20%2012h4v20h-4zM48%2012h4v20h-4z%22%20fill%3D%22white%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
         "tint": "primary.default",
         "type": "icon"
       },

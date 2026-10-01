@@ -20,11 +20,13 @@ dependencies:
 ```
 
 The public import is `package:conalog_patch_map/conalog_patch_map.dart`.
-It exports no runtime API. Managed icons and Fira Code font assets are included
+It exports no runtime API. Managed `object`, `device`, `loading`, `warning`, and
+`wifi` icons and Fira Code font assets are included
 and verified from an extracted artifact. Use this foundation for independent
 package development. Service integration begins after the selected runtime
 capabilities are implemented and qualified. See [third-party notices](THIRD_PARTY_NOTICES.md)
 for asset scope and licenses.
+Equipment icons (`inverter`, `combiner`, `edge`) are not bundled.
 
 ## Development host
 

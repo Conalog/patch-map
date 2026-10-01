@@ -27,10 +27,7 @@ import { stableHash64Hex } from '../../src/shared/stable-hash';
 
 const PATCH_MAP_BUILTIN_SHA256 = Object.freeze({
   object: 'e87c2ae562c7a3941a0c79249aa4c37494ef6222de31e57779d2aaa31d79e4d4',
-  inverter: 'd7527c15410edb84e560a9dcd763edf4914be13494c5a99509c373dff803992d',
-  combiner: '2965f5e1c28bd8779d7f02e967cefa43893d4171046708243b1ab03451ed1ee5',
   device: 'a11ac1f84f74afb9a2e888d615c79d45312f2194c64510e64e10db7c8eb70680',
-  edge: '46cc54309389013808f40bcbfaa8574fdfec78521b52e3178b3a53eb7f7c3c84',
   loading: '30645d95659f451df9d847f9dadf4d7a641e421c158c54619d7c817057ea00a5',
   warning: '8d485f34e7fa054c787a6775a76a7e62f04e18b93f4741dab3137db15e45f1e8',
   wifi: 'ef2c14fd831d067d559737b7f281be6e550605024a8d9e01a23579e4ccac206c',
@@ -192,7 +189,7 @@ describe('PatchMap shared asset runtime', () => {
 
   it('owns the exact transparent PatchMap filled glyph sources', () => {
     expect(BUILTIN_IMAGE_ALIASES).toEqual([
-      'object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi',
+      'object', 'device', 'loading', 'warning', 'wifi',
     ]);
     expect(Object.isFrozen(BUILTIN_IMAGE_SVGS)).toBe(true);
     expect(new Set(Object.values(BUILTIN_IMAGE_SVGS)).size).toBe(BUILTIN_IMAGE_ALIASES.length);
@@ -229,7 +226,7 @@ describe('PatchMap shared asset runtime', () => {
     });
     expect(runtime.probe()).toMatchObject({
       builtins: {
-        aliases: ['object', 'inverter', 'combiner', 'device', 'edge', 'loading', 'warning', 'wifi'],
+        aliases: ['object', 'device', 'loading', 'warning', 'wifi'],
       },
       fonts: { weights: [300, 400, 500, 600, 700] },
       resourceCount: 0,
@@ -249,6 +246,37 @@ describe('PatchMap shared asset runtime', () => {
     }));
     expect(runtime.probe()).toMatchObject({ resourceCount: 0, pendingCount: 0, leaseCount: 0 });
   });
+
+  it.each(['inverter', 'combiner', 'edge'])(
+    'requires a host registration for the %s equipment alias',
+    async (alias) => {
+      const backend = new FakeAssetBackend();
+      backend.immediate = Object.freeze({ texture: alias });
+      const runtime = new PatchMapAssetRuntime(backend);
+      const session = runtime.createSession({ instanceId: `host-${alias}` });
+      session.registerAssets();
+
+      expect(() => session.acquire(alias)).toThrowError(expect.objectContaining({
+        code: 'INVALID_VALUE',
+        category: 'INVALID_INPUT',
+      }));
+      expect(() => builtinImageDataUri(alias)).toThrowError(expect.objectContaining({
+        code: 'INVALID_VALUE',
+        category: 'INVALID_INPUT',
+      }));
+      const descriptor = {
+        src: `https://assets.example.test/${alias}.svg`,
+        data: { resolution: 3 },
+      };
+      session.registerAssets([{ alias, descriptor }]);
+      await expect(session.acquire(alias)).resolves.toMatchObject({ resource: { texture: alias } });
+      expect(backend.loadRequests).toHaveLength(1);
+      expect(backend.loadRequests[0]).toMatchObject({ descriptor, packageOwned: false });
+
+      await session.destroy();
+      expect(runtime.probe()).toMatchObject({ resourceCount: 0, leaseCount: 0 });
+    },
+  );
 
   it('distinguishes package catalog identity from host registrations and uses closed invalid-input codes', async () => {
     const backend = new FakeAssetBackend();
@@ -769,7 +797,7 @@ describe('PatchMap shared asset runtime', () => {
 
     load.mockClear();
     const rawHostSvg = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-      builtinImageSvg('inverter'),
+      '<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72"><circle cx="36" cy="36" r="20" fill="white"/></svg>',
     )}`;
     const hostRequest: PatchMapAssetBackendRequest = Object.freeze({
       key: 'patch-map-asset:host-inverter-frame',

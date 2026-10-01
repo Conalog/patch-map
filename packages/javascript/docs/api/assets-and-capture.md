@@ -13,10 +13,13 @@ Font byte identity and licensing are owned by [`fonts.md`](../assets/fonts.md).
 
 ## Contract
 
-- Mount registers `object`, `inverter`, `combiner`, `device`, `edge`, `loading`,
-  `warning`, and `wifi`. Each is white monochrome artwork on its original
+- Mount registers `object`, `device`, `loading`, `warning`, and `wifi`.
+  Each is white monochrome artwork on its original
   transparent `0 0 72 72` SVG canvas; icon size addresses that canvas without
   trimming visible artwork.
+- Equipment icons are host-owned. Supply `inverter`, `combiner`, and `edge`
+  images as URL/descriptor sources or register those aliases with host assets;
+  mount does not register them automatically.
 - Built-in registration is not eager image loading. Mount acquires distinct
   bindings used by the initial presentation and publishes them in the first
   completed frame. Source changes retain the last resolved texture until the new

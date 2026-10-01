@@ -506,7 +506,7 @@
             "type": "icon",
             "id": "sample.item.3.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "center",
             "margin": {
@@ -1021,7 +1021,7 @@
             "type": "icon",
             "id": "sample.item.7.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "center",
             "margin": {
@@ -1536,7 +1536,7 @@
             "type": "icon",
             "id": "sample.item.11.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "center",
             "margin": {
@@ -2046,7 +2046,7 @@
             "type": "icon",
             "id": "sample.item.15.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "center",
             "margin": {
@@ -2202,7 +2202,7 @@
             "type": "icon",
             "id": "inverter.0.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -2304,7 +2304,7 @@
             "type": "icon",
             "id": "inverter.1.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -2406,7 +2406,7 @@
             "type": "icon",
             "id": "inverter.2.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -2508,7 +2508,7 @@
             "type": "icon",
             "id": "inverter.3.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -2610,7 +2610,7 @@
             "type": "icon",
             "id": "inverter.4.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -2712,7 +2712,7 @@
             "type": "icon",
             "id": "inverter.5.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -2814,7 +2814,7 @@
             "type": "icon",
             "id": "inverter.6.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -2916,7 +2916,7 @@
             "type": "icon",
             "id": "inverter.7.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -3018,7 +3018,7 @@
             "type": "icon",
             "id": "inverter.8.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -3120,7 +3120,7 @@
             "type": "icon",
             "id": "inverter.9.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -3222,7 +3222,7 @@
             "type": "icon",
             "id": "inverter.10.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -3324,7 +3324,7 @@
             "type": "icon",
             "id": "inverter.11.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -3426,7 +3426,7 @@
             "type": "icon",
             "id": "inverter.12.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -3528,7 +3528,7 @@
             "type": "icon",
             "id": "inverter.13.icon",
             "show": true,
-            "source": "inverter",
+            "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
             "size": 20,
             "placement": "left",
             "margin": {
@@ -4628,7 +4628,7 @@
           "type": "icon",
           "id": "panelGroup.3.item.icon",
           "show": true,
-          "source": "inverter",
+          "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
           "size": 20,
           "placement": "center",
           "margin": {
@@ -5685,7 +5685,7 @@
           "type": "icon",
           "id": "panelGroup.7.item.icon",
           "show": true,
-          "source": "inverter",
+          "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
           "size": 20,
           "placement": "center",
           "margin": {
@@ -6757,7 +6757,7 @@
           "type": "icon",
           "id": "panelGroup.11.item.icon",
           "show": true,
-          "source": "inverter",
+          "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
           "size": 20,
           "placement": "center",
           "margin": {
@@ -7802,7 +7802,7 @@
           "type": "icon",
           "id": "panelGroup.15.item.icon",
           "show": true,
-          "source": "inverter",
+          "source": {"src": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Cpath%20d%3D%22M16%2012h40v48H16zM24%2024h24v8H24z%22%20fill%3D%22white%22%20fill-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E", "data": {"resolution": 3}},
           "size": 20,
           "placement": "center",
           "margin": {
