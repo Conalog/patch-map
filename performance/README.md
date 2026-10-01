@@ -88,3 +88,61 @@ collection; it does not assert a latency/resource budget or improvement. With
 seven measured samples p95 equals the observed maximum and is not a stable tail
 estimate. Compare future candidates using the same workload hashes, browser,
 hardware, lifecycle, cache, and protocol; retain adverse samples.
+
+## Widget-renderer HTTP E2E with the image API
+
+The library probe above does **not** measure widget-renderer's full HTTP request.
+Use the widget E2E runner for request dispatch through receipt of the complete
+JPEG response, including data queries, model creation, browser preparation,
+`create`, `updateBatch`, `render`, Blob transfer, destroy, browser close, and
+HTTP response transmission:
+
+```bash
+npm run build
+node performance/runners/widget-e2e.mjs \
+  --widget-root /absolute/path/to/widget-renderer \
+  --inputs /absolute/path/to/frozen-widget-inputs \
+  --output .artifacts/performance/widget-image-e2e-new-run \
+  --executable-path /absolute/path/to/hardware-Chromium
+```
+
+The input directory additionally needs the original `request.json` and
+`data.json` with captured blueprint/registry query results. The runner snapshots
+the supplied widget's current `src`, assets and package files under ignored
+artifacts. It does not create a worktree or modify the supplied widget checkout.
+Dependencies come from that checkout without installation; the browser bundle
+aliases the image entry to a frozen copy of this library's emitted `dist`.
+The snapshot and all source/input/probe hashes are recorded. The real widget
+HTTP handler, authorization validation, Patch API HTTP client, data source,
+model builder, fit/output calculations, and response path are reused. Only the
+experimental browser/image adapter and asset transport are replaced.
+
+External Patch API queries and images replay frozen bytes over local HTTP;
+production network/database latency is excluded. A benchmark-only local bearer
+token exercises the actual authorization path. The server is already listening
+before the request starts; Chromium starts fresh for every request. The protocol
+is 2 warmups + 7 measured requests for 5000 and 7000, serial execution, hardware
+WebGL2 AA4, JPEG90, white background, and no CPU throttling. Widget output is
+fixed JPEG90, so this owner does not add a PNG HTTP case. `--smoke` performs a
+single 5000 request for harness validation.
+
+The workload uses text mode, 12-character values and `#e53935`. Model-derived
+bar heights represent 100% in the widget's units; the library accepts numeric
+height columns, rather than the string `100%`. Final values are cleared from
+initial component templates before `create` so that every `updateBatch` performs
+a real bar/color/text change. Label components and layout stay intact. The same
+ordered target list is grouped by authored/concrete target kind and text
+component, at most 100 per batch. All 3,377 targets must commit both bar and text
+changes, with no transaction or unchanged-result shortcut. This initial reset
+is specific to the explicitly requested post-create update workload and its
+cost remains included in HTTP E2E time; it is not a production widget patch.
+
+Each raw result preserves client E2E latency, browser/API stages, the actual
+widget trace, query count, output dimensions, update outcomes, and sampled CPU
+and process footprint. Every JPEG is retained and same-case output digests
+must match across all trials. Post-render fonts/canvases and browser close are
+verified before the HTTP response returns. `e2e-baseline.json` summarizes
+measured samples only. Measurement semantics and sampling limitations match
+the image owner's macOS sampler above. This establishes a local consumer E2E
+baseline for the new API; it is not a deployment measurement or a speedup
+comparison with the widget's published screenshot backend.
