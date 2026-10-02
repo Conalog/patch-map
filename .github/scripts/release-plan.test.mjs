@@ -20,6 +20,8 @@ const commit = (message, files, sha = 'c'.repeat(40)) => ({ message, files, sha 
 
 // The real pinned planner, strategies, changelog generators and workspace plugin
 // run against an in-memory GitHub boundary. No network or repository writes occur.
+// Package artifacts model this fixture's release history, never the checkout's
+// pending release PR. Repository configuration remains the wiring under test.
 async function fixture(changes, { dartReleased = false, jsReleased = false, missingLegacy = false, wrongLegacy = false, missingBoundary = false, betweenReleases = [], historical = [] } = {}) {
   const versions = { [npmPath]: jsReleased ? '1.0.0-alpha.10' : '1.0.0-alpha.9' };
   if (dartReleased) versions[dartPath] = '1.0.0-alpha.1';
@@ -27,9 +29,9 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
     'release-please-config.json': JSON.stringify(config),
     '.release-please-manifest.json': JSON.stringify(versions),
     [`${npmPath}/package.json`]: JSON.stringify({ name: '@conalog/patch-map', version: versions[npmPath] }),
-    [`${dartPath}/pubspec.yaml`]: readFileSync(new URL('packages/flutter/pubspec.yaml', root), 'utf8'),
-    [`${npmPath}/CHANGELOG.md`]: readFileSync(new URL('packages/javascript/CHANGELOG.md', root), 'utf8'),
-    [`${dartPath}/CHANGELOG.md`]: readFileSync(new URL('packages/flutter/CHANGELOG.md', root), 'utf8'),
+    [`${dartPath}/pubspec.yaml`]: 'name: conalog_patch_map\nversion: 1.0.0-alpha.1\n# Enable publication only after the first functional release is qualified.\npublish_to: none\n',
+    [`${npmPath}/CHANGELOG.md`]: `# Changelog\n\n## ${versions[npmPath]}\n\n- Previous npm release.\n`,
+    [`${dartPath}/CHANGELOG.md`]: `# Changelog\n\n## ${dartReleased ? versions[dartPath] : 'Unreleased'}\n\n- Native package foundation.\n`,
     'package-lock.json': JSON.stringify({
       name: 'patch-map-workspace', lockfileVersion: 3,
       packages: {
