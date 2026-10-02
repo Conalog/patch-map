@@ -88,6 +88,12 @@ npm run js:verify:memory
 - Repository tooling (typecheck, lint and tests) runs once in the shared contract
   job when selected, otherwise in the JavaScript core job. JavaScript static
   checks remain in the core job regardless of shared contract routing.
+- Planner unit fixtures own their package versions, changelogs and release
+  history; they must not inherit mutable publication artifacts from the current
+  checkout. `node --test verification/release-inputs.test.mjs` runs the release
+  suites in temporary input sandboxes for unreleased, independent JS/Dart,
+  later Dart, beta and stable metadata. The normal tooling gate includes these
+  witnesses and requires the nested suites to actually execute.
 - Selected Flutter verification and Android/iOS host builds start independently
   after classification. Each prepares its own SDK, assets and dependencies; the
   final `CI` aggregate waits for both and requires both to succeed. This reduces

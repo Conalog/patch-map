@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { pubspecField } from './release-metadata.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const runner = resolve(root, '.github/scripts/release-ready.mjs');
@@ -30,7 +31,7 @@ test('release readiness accepts the private tooling workspace and rejects public
     await writeFile(resolve(directory, 'packages/flutter/pubspec.yaml'), pubspec.replace(/version: .+/u, 'version: 0.2.0'));
     assert.throws(run, /Dart package and release versions/u);
     await writeFile(resolve(directory, 'packages/flutter/pubspec.yaml'), pubspec);
-    const released = { ...inputs['.release-please-manifest.json'], 'packages/flutter': '1.0.0-alpha.1' };
+    const released = { ...inputs['.release-please-manifest.json'], 'packages/flutter': pubspecField(pubspec, 'version') };
     await write('.release-please-manifest.json', released);
     assert.equal(run(), 'true');
     await write('.release-please-manifest.json', inputs['.release-please-manifest.json']);
