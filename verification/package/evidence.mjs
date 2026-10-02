@@ -147,7 +147,7 @@ export function createPackageConsumerEvidence({
     schemaVersion: 6,
     generatedAt,
     package: '@conalog/patch-map',
-    pixi: '8.19.0',
+    pixi: '8.22.0',
     provenance: {
       codeCommit,
       packedPackageSha256: packageArtifact.sha256,

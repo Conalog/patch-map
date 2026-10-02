@@ -1,7 +1,7 @@
 import { PACKED_IMAGE_CONSUMER_SOURCE } from './image-consumer-source.mjs';
 
 const HOST_DEPENDENCIES = Object.freeze({
-  'pixi.js': '8.19.0',
+  'pixi.js': '8.22.0',
   typescript: '5.9.3',
 });
 
