@@ -360,11 +360,9 @@ function appendStyledBackground(
 /**
  * Fixed-slot-chunk Pixi Mesh spike for rects, bars, and relations.
  *
- * Pixi's public Buffer.update(sizeInBytes) can update only a prefix; it has no
- * public arbitrary byte-offset argument. Consequently a dirty slot updates the
- * complete position buffer for each style group in its fixed chunk. Clean
- * chunks retain their geometry and cause no upload. Structural/style-count
- * changes rebuild only the affected chunk group.
+ * A dirty slot updates the complete position buffer for each style group in
+ * its fixed chunk. Clean chunks retain their geometry and cause no upload.
+ * Structural/style-count changes rebuild only the affected chunk group.
  */
 export class AggregateMeshLayer {
   public readonly container: Container;
@@ -1250,7 +1248,6 @@ export class AggregateMeshLayer {
         current.geometry.indices.length === group.indices.length
       ) {
         current.geometry.positions.set(group.positions);
-        // Buffer.update exposes a prefix size, not an arbitrary byte offset.
         // Upload the complete dirty chunk/style position buffer only.
         current.geometry.getBuffer('aPosition').update(current.geometry.positions.byteLength);
         current.mesh.tint = group.tint;

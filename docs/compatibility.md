@@ -16,6 +16,7 @@ artifact. Feature behavior belongs to its API page and is not repeated here.
 | Renderer | WebGL2 aggregate renderer is the supported default |
 | Package formats | ESM and CommonJS through declared package exports |
 | TypeScript | Declarations are built and checked with the package artifact |
+| PixiJS | v8 peer range (`>=8.0.0 <9`); the repository and packed consumer are verified with 8.22.0 |
 
 WebGPU is not a qualified consumer backend. Firefox, Safari, Windows-native,
 and cross-browser behavior remain unqualified until a repeatable gate exists.
