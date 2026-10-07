@@ -30,6 +30,8 @@ function setup(width: number, height: number, alpha = 1) {
     },
     render: vi.fn(({ transform }: { transform: { tx: number; ty: number } }) => {
       translations.push([transform.tx || 0, transform.ty || 0]); events.push('render');
+      // Model Pixi's renderEnd: readback must use this resolve without repeating it.
+      renderer.renderTarget.finishRenderPass();
     }),
     renderTarget: {
       finishRenderPass: vi.fn(() => events.push('resolve')),
@@ -48,6 +50,7 @@ describe('image tile raster resources', () => {
   it('covers partial edges without a full-size GPU allocation and reuses work across renders', () => {
     const s = setup(2305, 2177);
     s.output.render(new Container());
+    expect(s.renderer.renderTarget.finishRenderPass).toHaveBeenCalledTimes(4);
     expect(s.translations).toEqual([[0, 0], [-2048, 0], [0, -2048], [-2048, -2048]]);
     expect(s.writes.map(({ x, y, width, height }) => [x, y, width, height])).toEqual([
       [0, 0, 2048, 2048], [2048, 0, 257, 2048], [0, 2048, 2048, 129], [2048, 2048, 257, 129],
@@ -55,6 +58,7 @@ describe('image tile raster resources', () => {
     expect(s.events).toEqual(Array(4).fill(['render', 'resolve', 'bind-read', 'read', 'restore-read', 'write']).flat());
     s.output.render(new Container());
     const readCalls = s.renderer.gl.readPixels.mock.calls;
+    expect(s.renderer.renderTarget.finishRenderPass).toHaveBeenCalledTimes(readCalls.length);
     expect(new Set(readCalls.map(call => call[6].buffer)).size).toBe(1);
     expect(readCalls.every(call => call[6].byteLength === 2048 * 2048 * 4)).toBe(true);
     expect(readCalls.slice(0, 4).map(call => call.slice(0, 6))).toEqual([

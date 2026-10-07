@@ -49,7 +49,7 @@ export class PatchMapPixiImageTileOutput {
             throw new PatchMapRendererRuntimeError('UNSUPPORTED_RUNTIME', 'Image output requires a complete AA4 render target');
           }
         }
-        this.renderer.renderTarget.finishRenderPass();
+        // Pixi's renderEnd resolves the AA target before render() returns.
         const tileWidth = Math.min(work.width, width - x);
         const tileHeight = Math.min(work.height, height - y);
         this.readPixels(work, tileWidth, tileHeight, readback);
