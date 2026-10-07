@@ -57,6 +57,9 @@ Image sessions use Pixi Text for standalone and component labels.
 
 The scene is prepared once for the full output viewport. Rasterization reuses
 one AA4 render target of at most 2048×2048 pixels and a 1×1 GPU canvas. Each
+axis is divided evenly within that limit, reducing unused edge space without
+increasing the tile count. For example, a 5000×5000 output uses a 1667×1667
+work target and nine tiles. Each
 tile is resolved, read back, and copied into a full-size CPU output canvas,
 which is encoded once. Tiles do not apply additional scene culling or change
 fit. Partial edge tiles retain only their output pixels; transparent PNG uses

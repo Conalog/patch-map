@@ -134,6 +134,7 @@ async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount
   const tiled = await createVerifiedImage({
     data: [
       { type: 'rect', id: 'cross', show: true, attrs: { x: 2038, y: 2038 }, size: { width: 40, height: 40 }, fill: '#ff0000' },
+      { type: 'rect', id: 'balanced-cross', show: true, attrs: { x: 1143, y: 1079 }, size: { width: 40, height: 40 }, fill: '#ff0000' },
       { type: 'rect', id: 'corner', show: true, attrs: { x: 2280, y: 2150 }, size: { width: 25, height: 27 }, fill: '#00ff00' },
       { type: 'rect', id: 'alpha', show: true, attrs: { x: 10, y: 10 }, size: { width: 20, height: 20 }, fill: '#ff000080' },
     ], width: 2305, height: 2177, background: '#20406080', fit: false,
@@ -144,13 +145,18 @@ async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount
   try {
     const first = await decodeImage((await tiled.render()).blob);
     const seams = [2047, 2048, 2049].every(x => [2047, 2048, 2049].every(y => isPixel(first, x, y, [255, 0, 0, 255])));
+    const balancedSeams = [1152, 1153, 1154].every(x => [1088, 1089, 1090].every(y => isPixel(first, x, y, [255, 0, 0, 255])));
     const edges = isPixel(first, 2304, 2176, [0, 255, 0, 255]) && isPixel(first, 2200, 2100, [32, 64, 96, 128], 1);
     const alpha = isPixel(first, 20, 20, [181, 21, 32, 192], 2);
     tiled.update({ id: 'cross', changes: { fill: '#0000ff' } });
+    tiled.update({ id: 'balanced-cross', changes: { fill: '#0000ff' } });
     const second = await decodeImage((await tiled.render()).blob);
     const pixel = (image, x, y) => [...image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 4)];
-    tileWitness = { seams, edges, alpha, seam: pixel(first, 2048, 2048), corner: pixel(first, 2304, 2176), background: pixel(first, 2200, 2100), translucent: pixel(first, 20, 20), updated: pixel(second, 2048, 2048) };
-    tiledPixels = seams && edges && alpha && isPixel(second, 2048, 2048, [0, 0, 255, 255]);
+    const allocations = [...imageGpuResources.at(-1).values()];
+    const balancedTarget = allocations.length === 1 && allocations[0].width === 1153 && allocations[0].height === 1089;
+    tileWitness = { seams, balancedSeams, balancedTarget, allocations, edges, alpha, seam: pixel(first, 2048, 2048), balancedSeam: pixel(first, 1153, 1089), corner: pixel(first, 2304, 2176), background: pixel(first, 2200, 2100), translucent: pixel(first, 20, 20), updated: pixel(second, 2048, 2048) };
+    tiledPixels = seams && balancedSeams && balancedTarget && edges && alpha &&
+      isPixel(second, 2048, 2048, [0, 0, 255, 255]) && isPixel(second, 1153, 1089, [0, 0, 255, 255]);
   } finally { await tiled.destroy(); }
   const readbackReused = imageReadbacks.every(r => r.calls > 0 && r.buffers === 1 && r.maxCapacityBytes <= 2048 * 2048 * 4);
   const resolvedOncePerTile = imageReadbacks.every(r => r.resolves === r.calls);

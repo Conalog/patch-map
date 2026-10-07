@@ -29,7 +29,9 @@ export class PatchMapPixiImageTileOutput {
     const width = this.canvas.width;
     const height = this.canvas.height;
     const work = this.work ??= RenderTexture.create({
-      width: Math.min(width, TILE_SIZE), height: Math.min(height, TILE_SIZE),
+      // Keep the same tile count while minimizing padding in full-target AA resolves.
+      width: Math.ceil(width / Math.ceil(width / TILE_SIZE)),
+      height: Math.ceil(height / Math.ceil(height / TILE_SIZE)),
       resolution: 1, antialias: true,
     });
     const readback = this.readback ??= new Uint8Array(work.width * work.height * 4);

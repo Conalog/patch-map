@@ -47,26 +47,62 @@ function setup(width: number, height: number, alpha = 1) {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('image tile raster resources', () => {
+  it.each([
+    [1, 17, 1, 17, 1],
+    [2048, 17, 2048, 17, 1],
+    [2049, 17, 1025, 17, 2],
+    [4096, 17, 2048, 17, 2],
+    [5000, 3000, 1667, 1500, 6],
+  ])('covers %ix%i with a reusable %ix%i AA4 target and %i tiles', (width, height, workWidth, workHeight, tileCount) => {
+    const s = setup(width, height);
+    s.output.render(new Container());
+    expect(s.allocation).toHaveBeenCalledWith({ width: workWidth, height: workHeight, resolution: 1, antialias: true });
+    expect(s.writes).toHaveLength(tileCount);
+    expect(s.writes.reduce((area, tile) => area + tile.width * tile.height, 0)).toBe(width * height);
+    const rows = new Map<number, typeof s.writes>();
+    for (const tile of s.writes) {
+      expect(tile.x + tile.width).toBeLessThanOrEqual(width);
+      expect(tile.y + tile.height).toBeLessThanOrEqual(height);
+      const row = rows.get(tile.y) ?? [];
+      row.push(tile);
+      rows.set(tile.y, row);
+    }
+    let nextY = 0;
+    for (const [y, row] of rows) {
+      expect(y).toBe(nextY);
+      let nextX = 0;
+      for (const tile of row) {
+        expect(tile.x).toBe(nextX);
+        expect(tile.height).toBe(row[0]!.height);
+        nextX += tile.width;
+      }
+      expect(nextX).toBe(width);
+      nextY += row[0]!.height;
+    }
+    expect(nextY).toBe(height);
+    s.output.destroy();
+  });
+
   it('covers partial edges without a full-size GPU allocation and reuses work across renders', () => {
     const s = setup(2305, 2177);
     s.output.render(new Container());
     expect(s.renderer.renderTarget.finishRenderPass).toHaveBeenCalledTimes(4);
-    expect(s.translations).toEqual([[0, 0], [-2048, 0], [0, -2048], [-2048, -2048]]);
+    expect(s.translations).toEqual([[0, 0], [-1153, 0], [0, -1089], [-1153, -1089]]);
     expect(s.writes.map(({ x, y, width, height }) => [x, y, width, height])).toEqual([
-      [0, 0, 2048, 2048], [2048, 0, 257, 2048], [0, 2048, 2048, 129], [2048, 2048, 257, 129],
+      [0, 0, 1153, 1089], [1153, 0, 1152, 1089], [0, 1089, 1153, 1088], [1153, 1089, 1152, 1088],
     ]);
     expect(s.events).toEqual(Array(4).fill(['render', 'resolve', 'bind-read', 'read', 'restore-read', 'write']).flat());
     s.output.render(new Container());
     const readCalls = s.renderer.gl.readPixels.mock.calls;
     expect(s.renderer.renderTarget.finishRenderPass).toHaveBeenCalledTimes(readCalls.length);
     expect(new Set(readCalls.map(call => call[6].buffer)).size).toBe(1);
-    expect(readCalls.every(call => call[6].byteLength === 2048 * 2048 * 4)).toBe(true);
+    expect(readCalls.every(call => call[6].byteLength === 1153 * 1089 * 4)).toBe(true);
     expect(readCalls.slice(0, 4).map(call => call.slice(0, 6))).toEqual([
-      [0, 0, 2048, 2048, 4, 5], [0, 0, 257, 2048, 4, 5], [0, 0, 2048, 129, 4, 5], [0, 0, 257, 129, 4, 5],
+      [0, 0, 1153, 1089, 4, 5], [0, 0, 1152, 1089, 4, 5], [0, 0, 1153, 1088, 4, 5], [0, 0, 1152, 1088, 4, 5],
     ]);
     expect(s.renderer.gl.bindFramebuffer.mock.calls.every(call => call[0] === s.renderer.gl.READ_FRAMEBUFFER)).toBe(true);
     expect(s.allocation).toHaveBeenCalledOnce();
-    expect(s.allocation).toHaveBeenCalledWith({ width: 2048, height: 2048, resolution: 1, antialias: true });
+    expect(s.allocation).toHaveBeenCalledWith({ width: 1153, height: 1089, resolution: 1, antialias: true });
     const work = s.allocation.mock.results[0]!.value as RenderTexture;
     const release = vi.spyOn(work, 'destroy');
     s.output.destroy();
@@ -106,7 +142,7 @@ describe('image tile raster resources', () => {
     expect(() => s.output.render(new Container())).toThrow('readback failed');
     expect(s.renderer.gl.bindFramebuffer).toHaveBeenLastCalledWith(s.renderer.gl.READ_FRAMEBUFFER, s.drawTarget);
     s.output.render(new Container());
-    expect(s.writes.map(({ x }) => x)).toEqual([0, 0, 2048]);
+    expect(s.writes.map(({ x }) => x)).toEqual([0, 0, 1025]);
     expect(s.allocation).toHaveBeenCalledOnce();
     s.output.destroy();
   });
@@ -119,7 +155,7 @@ describe('image tile raster resources', () => {
     expect(s.writes).toHaveLength(1);
     expect(s.renderer.gl.bindFramebuffer).toHaveBeenLastCalledWith(s.renderer.gl.READ_FRAMEBUFFER, s.drawTarget);
     s.output.render(new Container());
-    expect(s.writes.map(({ x }) => x)).toEqual([0, 0, 2048]);
+    expect(s.writes.map(({ x }) => x)).toEqual([0, 0, 1025]);
     expect(new Set(s.renderer.gl.readPixels.mock.calls.map(call => call[6].buffer)).size).toBe(1);
     s.output.destroy();
   });
@@ -131,7 +167,7 @@ describe('image tile raster resources', () => {
     s.output.render(new Container());
     expect(s.writes[0]!.data[0]).toBe(1);
     expect(s.writes[1]!.data[0]).toBe(2);
-    expect(s.writes[1]!.data).toHaveLength(4);
+    expect(s.writes[1]!.data).toHaveLength(1024 * 4);
     s.output.resize(2, 1, 1);
     s.output.render(new Container());
     expect(s.renderer.gl.readPixels.mock.calls.at(-1)![6].byteLength).toBe(8);
