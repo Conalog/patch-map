@@ -53,6 +53,7 @@ encoder default. PNG rejects quality. PNG retains alpha; JPEG has no alpha, so
 set an opaque background when its color matters. Use `background: '#00000000'`
 for transparent PNG output; background strings follow the root hex-color contract.
 Built-in fonts and image admission follow [Assets and capture](assets-and-capture.md).
+Image sessions use Pixi Text for standalone and component labels.
 
 The scene is prepared once for the full output viewport. Rasterization reuses
 one AA4 render target of at most 2048×2048 pixels and a 1×1 GPU canvas. Each

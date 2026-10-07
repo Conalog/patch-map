@@ -64,9 +64,10 @@ async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount
       components: [
         { type: 'background', id: 'bg', source: { type: 'rect', fill: '#eeeeee' } },
         { type: 'bar', id: 'bar', source: { type: 'rect', fill: '#0000ff' }, size: { width: '70%', height: 20 }, placement: 'bottom', animation: true },
-        { type: 'text', id: 'label', text: 'before', placement: 'top' },
+        { type: 'text', id: 'label', text: 'before', placement: 'top', style: { fontFamily: 'FiraCode', fontWeight: 600 } },
       ],
     },
+    { type: 'text', id: 'image-title', text: '인버터', attrs: { x: 40, y: 140 }, style: { fontFamily: 'FiraCode', fontSize: 18 } },
   ];
   const before = JSON.stringify(input);
   const originalCanvasCount = document.querySelectorAll('canvas').length;
@@ -80,6 +81,7 @@ async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount
   let fontsReady = false;
   let detached = true;
   let released = true;
+  let textPixels = true;
   for (let cycle = 0; cycle < 5; cycle += 1) {
     const map = await createVerifiedImage({
       data: input, width: 320, height: 180, fit: false, background: '#ffffff',
@@ -91,6 +93,12 @@ async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount
       fontsReady = [300, 400, 500, 600, 700].every((weight) => document.fonts.check(weight + ' 12px FiraCode'));
       const png = await map.render();
       const decodedPng = await decodeImage(png.blob);
+      let titleInk = 0;
+      for (let y = 140; y < 178; y++) for (let x = 40; x < 110; x++) {
+        const offset = (y * decodedPng.width + x) * 4;
+        if (decodedPng.data[offset] < 100 && decodedPng.data[offset + 1] < 100 && decodedPng.data[offset + 2] < 100) titleInk++;
+      }
+      textPixels &&= titleInk > 50;
       pngSize = [decodedPng.width, decodedPng.height];
       pngPixels = isPixel(decodedPng, 60, 50, [255, 0, 0, 255]) && isPixel(decodedPng, 5, 5, [255, 255, 255, 255]);
       const update = map.updateBatch({ targets: ['image-item'], bar: { height: [60] }, text: { text: ['123456789012'] } });
@@ -150,10 +158,12 @@ async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount
   const result = {
     createType: typeof ImagePatchMap.create, pngSize, jpegSize, pngPixels, jpegPixels,
     finalBarPixels, transparentPixels, tiledPixels, tileWitness, aa4Released, readbackReused, resolvedOncePerTile, readbacks: imageReadbacks, fontsReady, detached, released, cycles: 5,
+    textPixels,
     immutable: JSON.stringify(input) === before,
   };
   if (!result.pngPixels || !result.jpegPixels || !result.finalBarPixels || !result.transparentPixels ||
-      !result.tiledPixels || !result.aa4Released || !result.readbackReused || !result.resolvedOncePerTile || !result.fontsReady || !result.detached || !result.released || !result.immutable) {
+      !result.tiledPixels || !result.aa4Released || !result.readbackReused || !result.resolvedOncePerTile || !result.fontsReady || !result.detached || !result.released || !result.immutable ||
+      !result.textPixels) {
     throw new Error('packed image API failed: ' + JSON.stringify(result));
   }
   return result;
