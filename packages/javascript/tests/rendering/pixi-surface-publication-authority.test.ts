@@ -7,6 +7,36 @@ import type { PatchMapPixiRootInteractionBindingAuthority } from '../../src/rend
 import { PatchMapPixiSurfacePublicationAuthority } from '../../src/rendering/pixi-renderer/surface-publication-authority';
 
 describe('PatchMap Pixi surface publication authority', () => {
+  it('publishes a custom raster through the same retry, listener, and teardown owner', () => {
+    const application = fakeApplication(2);
+    const canvas = fakeCanvas();
+    const lifecycle = new FakeCanvasLifecycle();
+    const root = new FakeRootBindings();
+    const authority = createAuthority({ application, canvas, lifecycle, root });
+    let attempts = 0;
+    const raster = (): void => {
+      if (++attempts === 1) throw new Error('tile readback failed');
+    };
+    authority.armInitialRender(raster);
+    const wrapper = application.value.render;
+    expect(() => application.value.render()).toThrow('tile readback failed');
+    expect(authority.published).toBe(false);
+    expect(canvas.listenerCount()).toBe(0);
+    expect(application.value.render).toBe(wrapper);
+    application.value.render();
+    expect(application.value.render).toBe(raster);
+    expect(application.renderCount).toBe(0);
+    expect(authority.published).toBe(true);
+    expect(lifecycle.publishCount).toBe(1);
+    expect(authority.rendererLossListenerCount).toBe(2);
+    application.value.render();
+    expect(attempts).toBe(3);
+    expect(lifecycle.publishCount).toBe(1);
+    authority.deactivate();
+    authority.destroyCanvas();
+    expect(canvas.listenerCount()).toBe(0);
+  });
+
   it('publishes once, restores the original render, and owns loss/devtools cleanup', () => {
     const application = fakeApplication(2);
     const canvas = fakeCanvas();

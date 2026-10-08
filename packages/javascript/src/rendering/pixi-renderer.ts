@@ -384,9 +384,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ? new PatchMapPixiImageTileOutput(application.renderer as WebGLRenderer, options.width, options.height, options.pixelRatio)
       : null;
     const imageOutput = this.imageOutput;
-    if (imageOutput) application.render = () => imageOutput.render(application.stage);
     canvasLifecycle.applyRuntimeIdentity();
-    this.surfacePublication.armInitialRender();
+    this.surfacePublication.armInitialRender(imageOutput
+      ? () => imageOutput.render(application.stage)
+      : undefined);
 
     const rendererBuildMs = metrics.rendererBuildMs + (now() - buildStarted);
     this.initializationMetrics = Object.freeze({

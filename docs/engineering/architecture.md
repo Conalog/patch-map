@@ -29,6 +29,8 @@ asset registration, required font admission, initial dataset settlement and
 viewport precedence. Each entry retains its validation, interaction, frame and
 failure-cleanup policy.
 
+Image raster selection goes through the existing surface publication authority.
+
 ## Repository roots
 
 | Root | Single owner |
