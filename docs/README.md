@@ -23,5 +23,6 @@ repeat feature contracts.
 | Check supported runtimes and release policy | [Compatibility](compatibility.md) |
 
 Runnable examples live in [`examples/`](../examples/).
-Exact TypeScript shapes are exported by `@conalog/patch-map`; these pages own
-behavior, state ordering, failure meaning, and the shortest verification route.
+Exact TypeScript shapes are exported by `@conalog/patch-map` and
+`@conalog/patch-map/image`; these pages own behavior, state ordering, failure
+meaning, and the shortest verification route.
