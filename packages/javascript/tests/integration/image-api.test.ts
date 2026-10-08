@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PatchMapAssetRuntime } from '../../src/assets';
 import { createImagePatchMap } from '../../src/composition/image';
+import { mountPatchMap } from '../../src/composition/mount';
 import type { PatchMapSurfaceOptions } from '../../src/engine/contracts';
 import { PatchMap } from '../../src/image';
 import { PatchMapSceneStateAuthority } from '../../src/engine/scene-state-authority';
@@ -56,6 +57,24 @@ async function create(input = options()) {
 }
 
 describe('image API', () => {
+  it.each(['mount', 'image'] as const)('uses explicit initial viewport over fit through %s composition', async (mode) => {
+    const initial = { centerWorld: [200, 100] as const, scale: 2 };
+    const input = options({ fit: { padding: 40 }, viewport: { initial } });
+    const target = {
+      id: '', getBoundingClientRect: () => ({ width: 320, height: 180 }),
+    } as unknown as HTMLElement;
+    const map = mode === 'image'
+      ? (await create(input)).map
+      : await mountPatchMap({ ...input, container: target, resizeMode: 'manual' }, value =>
+          Promise.resolve(new TransactionSurface(value)));
+    try {
+      expect(map.viewport.snapshot()).toEqual(initial);
+      expect(map.data.snapshot()).toMatchObject([{
+        id: 'panel', components: [{ id: 'bg' }, { id: 'bar' }, { id: 'label', text: 'initial' }],
+      }]);
+    } finally { await map.destroy(); }
+  });
+
   it('reuses root input and columnar updates without automatic frames, history, or animation', async () => {
     const selectionIndex = vi.spyOn(PatchMapSceneStateAuthority.prototype, 'logicalSceneSelectionIndex');
     const input = options();

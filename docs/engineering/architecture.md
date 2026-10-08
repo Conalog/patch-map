@@ -24,6 +24,11 @@ Validation and planning happen before authoritative state changes. Accepted
 state is committed once, projected to renderer inputs, and published by the
 frame owner. Events and diagnostics describe that same accepted publication.
 
+Mount and image composition share `composition/session-initialization.ts` for
+asset registration, required font admission, initial dataset settlement and
+viewport precedence. Each entry retains its validation, interaction, frame and
+failure-cleanup policy.
+
 ## Repository roots
 
 | Root | Single owner |

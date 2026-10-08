@@ -1,4 +1,4 @@
-import { PATCH_MAP_BUILTIN_FONT_ASSETS } from '../assets/registration-normalization';
+import { initializePatchMapSession } from './session-initialization';
 import { PatchMap } from '../engine';
 import type { PatchMapEngineSurfaceFactory } from '../engine/contracts';
 import { createPatchMapApi } from '../public';
@@ -24,9 +24,7 @@ export async function createImagePatchMap(
   });
   const api = createPatchMapApi(engine);
   try {
-    engine.registerAssets(instanceId);
-    if (options.assets !== undefined) engine.registerAssets(instanceId, options.assets);
-    await engine.initialize({
+    await initializePatchMapSession(engine, api, { ...options, fit: options.fit ?? { padding: 24 } }, {
       instanceId,
       width: options.width,
       height: options.height,
@@ -39,13 +37,7 @@ export async function createImagePatchMap(
       ...(options.background === undefined ? {} : { background: options.background }),
       ...(options.zoomLimits === undefined ? {} : { zoomLimits: options.zoomLimits }),
       ...(options.powerPreference === undefined ? {} : { powerPreference: options.powerPreference }),
-      requiredAssets: [...PATCH_MAP_BUILTIN_FONT_ASSETS],
-    });
-    api.data.replace(options.data, {
-      fit: viewport.initial === null ? options.fit ?? { padding: 24 } : false,
-    });
-    await engine.settleSceneImages();
-    if (viewport.initial !== null) engine.setViewportAbsolute(viewport.initial);
+    }, viewport.initial);
     return createPatchMapImageApi(engine, api);
   } catch (error) {
     await engine.destroy().catch(() => undefined);

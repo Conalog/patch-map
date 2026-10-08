@@ -1,5 +1,5 @@
 import { normalizeViewportOptions } from './viewport-options';
-import { PATCH_MAP_BUILTIN_FONT_ASSETS } from '../assets/registration-normalization';
+import { initializePatchMapSession } from './session-initialization';
 import { PatchMap } from '../engine';
 import type { PatchMapEngineSurfaceFactory } from '../engine/contracts';
 import { createPatchMapApi } from '../public';
@@ -31,9 +31,7 @@ export async function mountPatchMap(
   try {
     engine.configurePointerPolicy(options.pointer);
     engine.configurePointerSelectionPolicy(options.selection);
-    engine.registerAssets(instanceId);
-    if (options.assets !== undefined) engine.registerAssets(instanceId, options.assets);
-    await engine.initialize({
+    await initializePatchMapSession(engine, api, options, {
       instanceId,
       target,
       width,
@@ -51,19 +49,7 @@ export async function mountPatchMap(
       ...(options.powerPreference === undefined
         ? {}
         : { powerPreference: options.powerPreference }),
-      requiredAssets: [...PATCH_MAP_BUILTIN_FONT_ASSETS],
-    });
-    if (options.data !== undefined) {
-      api.data.replace(options.data, {
-        fit: viewportOptions.initial === null
-          ? options.fit === undefined ? { padding: 24 } : options.fit
-          : false,
-      });
-      await engine.settleSceneImages();
-    }
-    if (viewportOptions.initial !== null) {
-      engine.setViewportAbsolute(viewportOptions.initial);
-    }
+    }, viewportOptions.initial);
     const frameLoop = engine.createFrameLoop();
     frameLoop.publishNow();
     if (options.resizeMode !== 'manual') {
