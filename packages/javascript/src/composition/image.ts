@@ -24,7 +24,11 @@ export async function createImagePatchMap(
   });
   const api = createPatchMapApi(engine);
   try {
-    await initializePatchMapSession(engine, api, { ...options, fit: options.fit ?? { padding: 24 } }, {
+    await initializePatchMapSession(engine, api, {
+      data: options.data,
+      ...(options.assets === undefined ? {} : { assets: options.assets }),
+      fit: options.fit ?? { padding: 24 },
+    }, {
       instanceId,
       width: options.width,
       height: options.height,

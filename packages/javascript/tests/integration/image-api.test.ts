@@ -57,6 +57,38 @@ async function create(input = options()) {
 }
 
 describe('image API', () => {
+  it.each(['prototype getter', 'non-enumerable property'] as const)(
+    'retains initial data and assets supplied through a %s', async (shape) => {
+      const base = options();
+      const registration = { alias: 'host-image', descriptor: 'https://example.test/image.svg' };
+      const assets = [registration];
+      class ImageOptions implements PatchMapImageOptions {
+        readonly width = base.width;
+        readonly height = base.height;
+        readonly fit = false;
+        readonly assetRuntime = base.assetRuntime!;
+        get data() { return base.data; }
+        get assets() { return assets; }
+      }
+      const input = shape === 'prototype getter'
+        ? new ImageOptions()
+        : Object.defineProperties(base, {
+          data: { value: base.data, enumerable: false },
+          assets: { value: assets, enumerable: false },
+        });
+      const { map } = await create(input);
+      try {
+        expect(map.data.snapshot()).toMatchObject([{
+          id: 'panel', components: [{ id: 'bg' }, { id: 'bar' }, { id: 'label', text: 'initial' }],
+        }]);
+        expect(map.assets.register(registration)).toEqual({
+          registeredAliases: [], duplicateAliases: ['host-image'],
+        });
+        await expect(map.render()).resolves.toMatchObject({ mime: 'image/png', size: [320, 180] });
+      } finally { await map.destroy(); }
+    },
+  );
+
   it.each(['mount', 'image'] as const)('uses explicit initial viewport over fit through %s composition', async (mode) => {
     const initial = { centerWorld: [200, 100] as const, scale: 2 };
     const input = options({ fit: { padding: 40 }, viewport: { initial } });
