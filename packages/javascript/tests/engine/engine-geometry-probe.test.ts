@@ -16,7 +16,7 @@ describe('PatchMap renderer-aligned geometry probe', () => {
         semanticResolutionCount += 1;
         throw new Error('dataset is not loaded');
       },
-    } as never);
+    } as never, {} as never);
 
     expect(surface.selectionGeometries([])).toEqual([]);
     expect(semanticResolutionCount).toBe(0);
@@ -228,7 +228,7 @@ describe('PatchMap renderer-aligned geometry probe', () => {
       resize: () => true,
       setWorldTransform: () => {},
     };
-    const surface = new PixiEngineSurface(core as never);
+    const surface = new PixiEngineSurface(core as never, {} as never);
 
     const beforeSelection = surface.geometrySnapshot();
     expect(beforeSelection.selectionOverlay).toBeNull();
@@ -379,7 +379,7 @@ describe('PatchMap renderer-aligned geometry probe', () => {
         selection: { revision: 0, refs: [] },
       }),
     };
-    const surface = new PixiEngineSurface(core as never);
+    const surface = new PixiEngineSurface(core as never, {} as never);
 
     const provisional = surface.geometrySnapshot();
     expect(provisional.entities[0]?.worldBounds).toEqual([10, 20, 32, 32]);
@@ -439,7 +439,7 @@ describe('PatchMap renderer-aligned geometry probe', () => {
         },
       }),
     };
-    const surface = new PixiEngineSurface(core as never);
+    const surface = new PixiEngineSurface(core as never, {} as never);
 
     const probe = surface.sceneImageProbe();
 

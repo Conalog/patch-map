@@ -16,6 +16,7 @@ artifact. Feature behavior belongs to its API page and is not repeated here.
 | Renderer | WebGL2 aggregate renderer is the supported default |
 | Package formats | ESM and CommonJS through declared package exports |
 | TypeScript | Declarations are built and checked with the package artifact |
+| PixiJS | v8 peer range (`>=8.0.0 <9`); the repository and packed consumer are verified with 8.22.0 |
 
 WebGPU is not a qualified consumer backend. Firefox, Safari, Windows-native,
 and cross-browser behavior remain unqualified until a repeatable gate exists.
@@ -30,6 +31,10 @@ and cross-browser behavior remain unqualified until a repeatable gate exists.
   implementation, and verification fixtures are not public identities.
 - A deprecation must name the replacement and removal release. Compatibility
   aliases without a scheduled removal are not added.
+
+The optional `@conalog/patch-map/image` entry has ESM, CommonJS, and TypeScript
+declarations. Creating an image requires a browser with WebGL2 and DOM canvas
+encoding; importing it in Node does not supply a renderer. See [Image output](api/image.md).
 
 ## Published artifact
 

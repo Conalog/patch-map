@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { RenderAlign, RenderKind } from '../../src/dense/renderer-types';
 import type { PatchMapRuntime } from '../../src/core';
 import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
+import type { PatchMapPixiRenderer } from '../../src/rendering/pixi-renderer';
 import { createPublicApiEngine } from '../support/public-api-engine';
 import {
   createTestCore,
@@ -19,7 +20,7 @@ describe('PatchMap instance component presentation integration', () => {
   it('publishes bar tint and hidden icon presentation atomically without semantic changes', async () => {
     const { core, renderer } = createTestCore(allocated);
     const engine = createPublicApiEngine({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     await engine.initialize({
       instanceId: 'grid-instance-presentation-overlay',
@@ -229,7 +230,7 @@ describe('PatchMap instance component presentation integration', () => {
   it('projects concrete background and text fields, restores current authored values, and stays atomic', async () => {
     const { core, renderer } = createTestCore(allocated);
     const engine = createPublicApiEngine({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     await engine.initialize({
       instanceId: 'grid-instance-background-text-overlay',
@@ -527,9 +528,9 @@ describe('PatchMap instance component presentation integration', () => {
   });
 
   it('keeps cached repeated text projections inside each grid item stacking path', async () => {
-    const { core } = createTestCore(allocated);
+    const { core, renderer } = createTestCore(allocated);
     const engine = createPublicApiEngine({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     await engine.initialize({
       instanceId: 'grid-instance-repeated-text-stacking',

@@ -1,5 +1,17 @@
 import type { PatchMapPublishedTuple } from './lifecycle';
 
+export interface PatchMapEngineImageRequest {
+  readonly mime: 'image/png' | 'image/jpeg';
+  readonly quality?: number;
+  readonly signal?: AbortSignal;
+}
+
+export interface PatchMapEngineImageResult {
+  readonly blob: Blob;
+  readonly mime: 'image/png' | 'image/jpeg';
+  readonly size: readonly [number, number];
+}
+
 export interface PatchMapEngineCanvasHandle {
   readonly element: HTMLCanvasElement;
   readonly identity: 'initial-canvas';

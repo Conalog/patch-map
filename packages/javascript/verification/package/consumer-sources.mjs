@@ -1,5 +1,7 @@
+import { PACKED_IMAGE_CONSUMER_SOURCE } from './image-consumer-source.mjs';
+
 const HOST_DEPENDENCIES = Object.freeze({
-  'pixi.js': '8.19.0',
+  'pixi.js': '8.22.0',
   typescript: '5.9.3',
 });
 
@@ -30,6 +32,8 @@ export const PACKED_CONSUMER_ESM_SOURCE = `
 import * as packageApi from '@conalog/patch-map';
 import { PatchMap } from '@conalog/patch-map';
 
+${PACKED_IMAGE_CONSUMER_SOURCE}
+
 const input = [{
   type: 'item', id: 'consumer-item', show: true,
   attrs: { x: 20, y: 30 }, size: { width: 80, height: 120 },
@@ -53,6 +57,12 @@ const map = await PatchMap.mount({
   data: input,
 });
 
+// Image create/render/destroy must coexist with an already-mounted root map.
+await verifyImageEntry(map.assets.status().runtime);
+const rootContextAttributes = document.querySelector('#host canvas').getContext('webgl2').getContextAttributes();
+if (!rootContextAttributes.depth || !rootContextAttributes.stencil) {
+  throw new Error('image creation changed mounted root context buffers');
+}
 const initial = map.debug.snapshot();
 const unrotatedCapture = await map.capture.png();
 const rotationViewport = JSON.stringify(map.viewport.snapshot());
@@ -146,6 +156,7 @@ window.__PACKAGE_POINTER_OWNERSHIP__ = Object.freeze({
     window.__PACKAGE_RESULT__ = {
       immutable: immutableBefore === JSON.stringify(input),
       backend: initial.resources.renderer?.backend ?? null,
+      imageEntry,
       renderObjects: initial.resources.rendering.commandCount,
       barTargetCount: bars.count,
       presentationChanged: presentation.changed,
@@ -179,6 +190,7 @@ window.__PACKAGE_POINTER_OWNERSHIP__ = Object.freeze({
 export const PACKED_CONSUMER_CJS_SOURCE = `
 const packageApi = require('@conalog/patch-map');
 const { PatchMap } = packageApi;
+const imageApi = require('@conalog/patch-map/image');
 let constructorRejected = false;
 try {
   Reflect.construct(PatchMap, []);
@@ -193,6 +205,7 @@ const internalNames = [
 ];
 process.stdout.write(JSON.stringify({
   mountType: typeof PatchMap.mount,
+  imageCreateType: typeof imageApi.PatchMap.create,
   internalExportsAbsent: internalNames.every((name) => !(name in packageApi)),
   constructorRejected,
 }));

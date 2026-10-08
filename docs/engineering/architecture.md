@@ -10,7 +10,7 @@ repository roots table uses paths relative to the workspace root.
 ## Runtime flow
 
 ```text
-src/index.ts
+src/index.ts or src/image.ts
   -> composition/ (mount, public facade, Pixi runtime and surface assembly)
   -> public/ (application contracts and stateless facade factories)
   -> Engine authorities and coordinators
@@ -23,6 +23,15 @@ src/index.ts
 Validation and planning happen before authoritative state changes. Accepted
 state is committed once, projected to renderer inputs, and published by the
 frame owner. Events and diagnostics describe that same accepted publication.
+
+Mount and image composition share `composition/session-initialization.ts` for
+asset registration, required font admission, initial dataset settlement and
+viewport precedence. Each entry retains its validation, interaction, frame and
+failure-cleanup policy.
+
+Image raster selection goes through the existing surface publication authority.
+Capture security and error projection stay in the shared capture/extraction
+authority.
 
 ## Repository roots
 
@@ -69,7 +78,7 @@ boundary test enforces these directions.
 
 ## Dependency rules
 
-1. `src/index.ts` is the public entry. Lower layers never import it.
+1. `src/index.ts` and `src/image.ts` are public entries. Lower layers never import them.
 2. Engine and Core support modules depend on `rendering-port/`, not concrete
    files under `rendering/` or `composition/`.
 3. Semantic and dense modules do not import Engine, developer API, DOM, or

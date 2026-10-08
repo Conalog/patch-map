@@ -7,7 +7,10 @@ import {
   Matrix,
   Rectangle,
   type ApplicationOptions,
+  type WebGLRenderer,
 } from 'pixi.js';
+
+import { PatchMapPixiImageTileOutput } from './pixi-renderer/image-tile-output';
 
 import type { CoreView, SlotRange } from '../dense/contracts';
 import {
@@ -147,6 +150,17 @@ interface AggregateResult {
   readonly uploadObservation: PatchMapRendererDebug['uploadObservation'];
 }
 
+const DISABLED_OVERLAY_PROBE: PatchMapOverlayPaintProbe = Object.freeze({
+  order: Object.freeze(['selection', 'transformer'] as const),
+  selection: false, transformer: false, selectedEntityCount: 0, renderObjectCount: 0,
+  displayMode: 'hidden', redrawCount: 0,
+});
+const DISABLED_ACCESSIBILITY_PROBE: PatchMapAccessibilitySurfaceProbe = Object.freeze({
+  active: false, shadowDomActive: false, overlayNodeCount: 0, shadowDomNodeCount: 0,
+  rootListenerCount: 0, entityListenerCount: 0, focusedId: null, shadowDomFocusedId: null,
+  destroyed: false,
+});
+
 const DEFAULT_VIEW: CoreView = Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 });
 const DEFAULT_WORLD_ORIENTATION: PatchMapWorldOrientation = Object.freeze({
   rotationDegrees: 0,
@@ -165,8 +179,8 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private readonly leaves: AggregateLeafLayer;
   private readonly backgroundGeometryLane: Container;
   private readonly scenePaintContainer: Container;
-  private readonly interactionOverlay: PatchMapPixiInteractionOverlayAuthority;
-  private readonly accessibilityOverlay: PatchMapAccessibilityOverlayAuthority;
+  private readonly interactionOverlay: PatchMapPixiInteractionOverlayAuthority | null;
+  private readonly accessibilityOverlay: PatchMapAccessibilityOverlayAuthority | null;
   private readonly target: HTMLElement | undefined;
   private readonly rootInteractionBindings: PatchMapPixiRootInteractionBindingAuthority;
   private readonly surfacePublication: PatchMapPixiSurfacePublicationAuthority;
@@ -188,6 +202,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   private worldOrientation: PatchMapWorldOrientation = DEFAULT_WORLD_ORIENTATION;
   private readonly worldMatrix = new Matrix();
   private destroyedValue = false;
+  private readonly imageOutput: PatchMapPixiImageTileOutput | null;
   private readonly activeBackend: PatchMapActiveRendererBackend;
   private readonly initialWebGLVersion: 1 | 2 | null;
   private rendererLossState: PatchMapRendererLossState = 'healthy';
@@ -221,14 +236,16 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     options: Required<Pick<PatchMapPixiRendererOptions, 'width' | 'height' | 'pixelRatio' | 'strategy' | 'preference'>> &
       Pick<
         PatchMapPixiRendererOptions,
-        'target' | 'devtools' | 'assetSession' | 'assetPolicy' | 'resolveBitmapTextCapability'
+        'target' | 'interactive' | 'devtools' | 'assetSession' | 'assetPolicy' | 'resolveBitmapTextCapability'
       >,
     metrics: PatchMapPixiInitializationMetrics,
     canvasLifecycle: PatchMapCanvasSurfaceLifecycle,
   ) {
     const buildStarted = now();
     this.application = application;
-    this.accessibilityOverlay = new PatchMapAccessibilityOverlayAuthority(application);
+    this.accessibilityOverlay = options.interactive === false
+      ? null
+      : new PatchMapAccessibilityOverlayAuthority(application);
     this.canvas = application.canvas;
     this.activeBackend = activeRendererBackend(application);
     this.initialWebGLVersion = publicGlContext(application)?.webGLVersion ?? null;
@@ -322,7 +339,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
           : { resolveBitmapTextCapability: options.resolveBitmapTextCapability }),
       },
     );
-    this.interactionOverlay = new PatchMapPixiInteractionOverlayAuthority({
+    this.interactionOverlay = options.interactive === false ? null : new PatchMapPixiInteractionOverlayAuthority({
       worldMatrix: this.worldMatrix,
       slotByEntityId: this.entitySlotIndex.slotByEntityId,
       readProjectionContext: () => this.projectionContext(),
@@ -343,7 +360,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.scenePaintContainer,
       );
       this.world.addChild(this.aggregate.container);
-      this.interactionOverlay.attachToTail(this.world);
+      this.interactionOverlay?.attachToTail(this.world);
     } else {
       this.world.addChild(
         this.leaves.standaloneAssetContainer,
@@ -353,16 +370,24 @@ export class PatchMapPixiRenderer implements CoreRenderer {
         this.leaves.contentAssetContainer,
         this.leaves.textContainer,
       );
-      this.interactionOverlay.attachToTail(this.world);
+      this.interactionOverlay?.attachToTail(this.world);
     }
     this.application.stage.label = 'PatchMap';
-    this.application.stage.eventMode = 'static';
+    this.application.stage.eventMode = options.interactive === false ? 'none' : 'static';
     this.application.stage.interactiveChildren = false;
-    this.application.stage.hitArea = new Rectangle(0, 0, this.widthValue, this.heightValue);
+    if (options.interactive !== false) {
+      this.application.stage.hitArea = new Rectangle(0, 0, this.widthValue, this.heightValue);
+    }
     this.application.stage.addChild(this.world);
     this.application.ticker.stop();
+    this.imageOutput = options.interactive === false && this.initialWebGLVersion === 2
+      ? new PatchMapPixiImageTileOutput(application.renderer as WebGLRenderer, options.width, options.height, options.pixelRatio)
+      : null;
+    const imageOutput = this.imageOutput;
     canvasLifecycle.applyRuntimeIdentity();
-    this.surfacePublication.armInitialRender();
+    this.surfacePublication.armInitialRender(imageOutput
+      ? () => imageOutput.render(application.stage)
+      : undefined);
 
     const rendererBuildMs = metrics.rendererBuildMs + (now() - buildStarted);
     this.initializationMetrics = Object.freeze({
@@ -385,10 +410,12 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ? null
       : PatchMapCanvasSurfaceLifecycle.stageCallerCanvas(options.canvas, options.target);
     let applicationInitialized = false;
+    let imageContext: WebGL2RenderingContext | null = null;
     const applicationStarted = now();
+    const imageOutput = options.interactive === false && preference === 'webgl' && options.requireWebGL2 === true;
     const initOptions: Partial<ApplicationOptions> = {
-      width,
-      height,
+      width: imageOutput ? 1 : width,
+      height: imageOutput ? 1 : height,
       resolution: pixelRatio,
       autoDensity: true,
       antialias: options.antialias ?? false,
@@ -402,9 +429,39 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       background: packedRgb(packedBackground),
       backgroundAlpha: packedAlpha(packedBackground),
       clearBeforeRender: true,
+      ...(options.interactive === false ? {
+        eventFeatures: { move: false, globalMove: false, click: false, wheel: false },
+        accessibilityOptions: { enabledByDefault: false, activateOnTab: false },
+      } : {}),
       ...(options.canvas === undefined ? {} : { canvas: options.canvas }),
     };
     try {
+      if (imageOutput) {
+        const canvas = options.canvas ?? document.createElement('canvas');
+        canvasLifecycle ??= PatchMapCanvasSurfaceLifecycle.ownCreatedCanvas(canvas, options.target);
+        canvas.width = 1;
+        canvas.height = 1;
+        // Image lanes use neither depth testing nor stencil masks. Pixi's
+        // default context requests both, so supply a context without them.
+        imageContext = canvas.getContext('webgl2', {
+          alpha: packedAlpha(packedBackground) < 1,
+          premultipliedAlpha: true,
+          antialias: options.antialias ?? false,
+          depth: false,
+          stencil: false,
+          preserveDrawingBuffer: false,
+          powerPreference: options.powerPreference ?? 'high-performance',
+        });
+        const attributes = imageContext?.getContextAttributes();
+        if (!imageContext || !attributes || attributes.depth || attributes.stencil) {
+          throw new PatchMapPixiRuntimeError(
+            'UNSUPPORTED_RUNTIME',
+            'PatchMap image output requires WebGL2 without depth or stencil buffers',
+          );
+        }
+        initOptions.canvas = canvas;
+        initOptions.context = imageContext;
+      }
       await application.init(initOptions);
       applicationInitialized = true;
       canvasLifecycle ??= PatchMapCanvasSurfaceLifecycle.ownCreatedCanvas(
@@ -424,6 +481,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
           width,
           height,
           pixelRatio,
+          interactive: options.interactive !== false,
           strategy,
           preference,
           ...(options.target ? { target: options.target } : {}),
@@ -443,6 +501,13 @@ export class PatchMapPixiRenderer implements CoreRenderer {
           application.destroy({ removeView: false }, { children: true });
         } catch {
           // The original initialization/construction failure remains authoritative.
+        }
+      } else {
+        // Before successful init, Pixi has not taken cleanup ownership.
+        try {
+          imageContext?.getExtension('WEBGL_lose_context')?.loseContext();
+        } catch {
+          // Preserve the original initialization failure.
         }
       }
       canvasLifecycle?.destroy();
@@ -489,7 +554,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     policy: PatchMapInteractionOverlayPolicy,
   ): boolean {
     this.assertAlive();
-    const changed = this.interactionOverlay.setPolicy(
+    const changed = this.interactionOverlay?.setPolicy(
       policy,
       this.cpuPublication.lastStore,
     );
@@ -504,7 +569,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     readonly current: readonly [number, number];
   }> | null): boolean {
     this.assertAlive();
-    const changed = this.interactionOverlay.setMarquee(
+    const changed = this.interactionOverlay?.setMarquee(
       input,
       this.cpuPublication.lastStore,
     );
@@ -622,6 +687,14 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     return true;
   }
 
+  public imageCanvasElement(): HTMLCanvasElement {
+    return this.imageOutput?.canvas ?? this.canvas;
+  }
+
+  public get canvasCount(): number {
+    return this.destroyedValue ? 0 : this.imageOutput ? 2 : 1;
+  }
+
   public resize(width: number, height: number, pixelRatio = this.pixelRatioValue): boolean {
     this.assertAlive();
     positive(width, 'width');
@@ -640,8 +713,11 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.application.renderer.resolution = pixelRatio;
       this.pixelRatioValue = pixelRatio;
     }
-    this.application.renderer.resize(width, height);
-    this.application.stage.hitArea = new Rectangle(0, 0, width, height);
+    if (this.imageOutput) this.imageOutput.resize(width, height, pixelRatio);
+    else this.application.renderer.resize(width, height);
+    if (this.application.stage.eventMode !== 'none') {
+      this.application.stage.hitArea = new Rectangle(0, 0, width, height);
+    }
     this.barPresentationVisibilityStale = true;
     this.cpuPublication.invalidate('resize');
     return true;
@@ -665,7 +741,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       });
       this.cpuPublication.markProjectionOrientationChanged();
     }
-    if (scaleChanged || this.interactionOverlay.marqueeVisible) {
+    if (this.interactionOverlay !== null && (scaleChanged || this.interactionOverlay.marqueeVisible)) {
       this.cpuPublication.invalidateOverlayForView();
     }
     this.applyWorldTransform();
@@ -732,7 +808,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     const effectiveStore = this.cpuPublication.beginFlush(store);
     const storeReplaced = this.cpuPublication.flushStoreReplaced;
     if (storeReplaced) {
-      this.interactionOverlay.resetSelection();
+      this.interactionOverlay?.resetSelection();
     }
     // View rotation can change upright projection geometry. Resolve it before
     // consuming pending ranges so the first published frame cannot lag.
@@ -849,7 +925,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     }
     const leaves = this.leaves.debugSnapshot();
     this.textProjectionSynchronizedRevision = this.cpuPublication.projectionRevision;
-    this.interactionOverlay.synchronize(
+    this.interactionOverlay?.synchronize(
       effectiveStore,
       storeReplaced,
       this.cpuPublication.pendingOverlayRanges ?? ranges,
@@ -885,7 +961,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       this.lastRenderedTextStoreRevision = effectiveStore.revision;
     }
     this.cpuPublication.commitFlush(store, effectiveStore);
-    const overlayCount = this.interactionOverlay.renderObjectCount;
+    const overlayCount = this.interactionOverlay?.renderObjectCount ?? 0;
     this.lastLaneProbe = this.buildLaneProbe(overlayCount);
     this.lastDebug = Object.freeze({
       strategy: this.strategy,
@@ -1072,7 +1148,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
   /** Exact scene-tail order and current visibility of aggregate editor overlays. */
   public overlayPaintProbe(): PatchMapOverlayPaintProbe {
     this.assertAlive();
-    return this.interactionOverlay.probe();
+    return this.interactionOverlay?.probe() ?? DISABLED_OVERLAY_PROBE;
   }
 
   public async captureBase64(): Promise<string> {
@@ -1089,7 +1165,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     nodes: readonly PatchMapAccessibilityRenderNode[],
   ): PatchMapAccessibilitySurfaceProbe {
     this.assertAlive();
-    return this.accessibilityOverlay.setTree(nodes);
+    return this.accessibilityOverlay?.setTree(nodes) ?? DISABLED_ACCESSIBILITY_PROBE;
   }
 
   public bindAccessibilityActivation(
@@ -1099,16 +1175,16 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     ) => void,
   ): () => void {
     this.assertAlive();
-    return this.accessibilityOverlay.bindActivation(listener);
+    return this.accessibilityOverlay?.bindActivation(listener) ?? (() => undefined);
   }
 
   public focusAccessibilityTarget(targetId: string): boolean {
     this.assertAlive();
-    return this.accessibilityOverlay.focus(targetId);
+    return this.accessibilityOverlay?.focus(targetId) ?? false;
   }
 
   public accessibilitySurfaceProbe(): PatchMapAccessibilitySurfaceProbe {
-    return this.accessibilityOverlay.probe();
+    return this.accessibilityOverlay?.probe() ?? DISABLED_ACCESSIBILITY_PROBE;
   }
 
   public bindRootInteractions(handlers: RootInteractionHandlers): () => void {
@@ -1194,19 +1270,11 @@ export class PatchMapPixiRenderer implements CoreRenderer {
 
   public destroy(): boolean {
     if (this.destroyedValue) return false;
-    this.accessibilityOverlay.destroy();
+    this.accessibilityOverlay?.destroy();
     this.destroyedValue = true;
     this.rendererLossState = 'destroyed';
     this.surfacePublication.deactivate();
-    this.lastLaneProbe = freezeLaneSnapshot([
-      ['background-geometry', this.backgroundGeometryLane.label],
-      ['background-assets', this.leaves.backgroundAssetContainer.label],
-      ['ordinary-geometry', this.aggregate.container.label],
-      ['relations-dynamic', this.aggregate.container.label],
-      ['content-assets', this.leaves.contentAssetContainer.label],
-      ['text', this.leaves.textContainer.label],
-      ['interaction-overlay', this.interactionOverlay.label],
-    ]);
+    this.lastLaneProbe = this.emptyLaneProbe();
     this.rootInteractionBindings.destroy();
     this.application.stage.removeChild(this.world);
     this.world.removeChildren();
@@ -1214,9 +1282,10 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     if (!(this.aggregate instanceof AggregateMeshLayer)) {
       this.backgroundGeometryLane.destroy();
     }
-    this.interactionOverlay.destroy();
+    this.interactionOverlay?.destroy();
     this.cleanupPromise = this.leaves.destroy();
     this.world.destroy();
+    this.imageOutput?.destroy();
     this.application.destroy({ removeView: false }, { children: true });
     this.surfacePublication.destroyCanvas();
     this.cpuPublication.destroy();
@@ -1319,7 +1388,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       ['relations-dynamic', this.aggregate.container.label],
       ['content-assets', this.leaves.contentAssetContainer.label],
       ['text', this.leaves.textContainer.label],
-      ['interaction-overlay', this.interactionOverlay.label],
+      ['interaction-overlay', this.interactionOverlay?.label ?? 'PatchMap / interaction overlay (disabled)'],
     ]);
   }
 
@@ -1363,9 +1432,9 @@ export class PatchMapPixiRenderer implements CoreRenderer {
       text: leaves.text,
       'interaction-overlay': freezeLane(
         'interaction-overlay',
-        this.interactionOverlay.label,
+        this.interactionOverlay?.label ?? 'PatchMap / interaction overlay (disabled)',
         overlayCount,
-        this.interactionOverlay.visiblePrimitiveCount,
+        this.interactionOverlay?.visiblePrimitiveCount ?? 0,
       ),
     });
   }

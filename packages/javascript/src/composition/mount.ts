@@ -1,4 +1,5 @@
-import { PATCH_MAP_BUILTIN_FONT_ASSETS } from '../assets/registration-normalization';
+import { normalizeViewportOptions } from './viewport-options';
+import { initializePatchMapSession } from './session-initialization';
 import { PatchMap } from '../engine';
 import type { PatchMapEngineSurfaceFactory } from '../engine/contracts';
 import { createPatchMapApi } from '../public';
@@ -6,8 +7,6 @@ import type {
   PatchMapApi,
   PatchMapInstance,
   PatchMapOptions,
-  PatchMapViewportOptions,
-  PatchMapViewportSnapshot,
 } from '../public/contracts';
 
 let mountSequence = 0;
@@ -32,9 +31,7 @@ export async function mountPatchMap(
   try {
     engine.configurePointerPolicy(options.pointer);
     engine.configurePointerSelectionPolicy(options.selection);
-    engine.registerAssets(instanceId);
-    if (options.assets !== undefined) engine.registerAssets(instanceId, options.assets);
-    await engine.initialize({
+    await initializePatchMapSession(engine, api, options, {
       instanceId,
       target,
       width,
@@ -52,19 +49,7 @@ export async function mountPatchMap(
       ...(options.powerPreference === undefined
         ? {}
         : { powerPreference: options.powerPreference }),
-      requiredAssets: [...PATCH_MAP_BUILTIN_FONT_ASSETS],
-    });
-    if (options.data !== undefined) {
-      api.data.replace(options.data, {
-        fit: viewportOptions.initial === null
-          ? options.fit === undefined ? { padding: 24 } : options.fit
-          : false,
-      });
-      await engine.settleSceneImages();
-    }
-    if (viewportOptions.initial !== null) {
-      engine.setViewportAbsolute(viewportOptions.initial);
-    }
+    }, viewportOptions.initial);
     const frameLoop = engine.createFrameLoop();
     frameLoop.publishNow();
     if (options.resizeMode !== 'manual') {
@@ -111,55 +96,5 @@ function publicInstance(engine: PatchMap, api: PatchMapApi): PatchMapInstance {
     ...api,
     get destroyed(): boolean { return engine.destroyed; },
     destroy: () => engine.destroy(),
-  });
-}
-
-function normalizeViewportOptions(
-  value: PatchMapViewportOptions | undefined,
-): Readonly<{
-  readonly wheel: Readonly<{ readonly activationModifier: 'none' | 'control' }>;
-  readonly initial: PatchMapViewportSnapshot | null;
-}> {
-  if (value === undefined) {
-    return Object.freeze({
-      wheel: Object.freeze({ activationModifier: 'none' as const }),
-      initial: null,
-    });
-  }
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError('viewport options must be an object');
-  }
-  const wheel = value.wheel;
-  if (wheel !== undefined && (
-    wheel === null || typeof wheel !== 'object' || Array.isArray(wheel)
-  )) {
-    throw new TypeError('viewport.wheel must be an object');
-  }
-  const activationModifier = wheel?.activationModifier ?? 'none';
-  if (activationModifier !== 'none' && activationModifier !== 'control') {
-    throw new TypeError('viewport.wheel.activationModifier must be none or control');
-  }
-  const initial = value.initial;
-  if (initial !== undefined && (
-    initial === null
-    || typeof initial !== 'object'
-    || Array.isArray(initial)
-    || !Array.isArray(initial.centerWorld)
-    || initial.centerWorld.length !== 2
-    || !Number.isFinite(initial.centerWorld[0])
-    || !Number.isFinite(initial.centerWorld[1])
-    || !(initial.scale > 0)
-    || !Number.isFinite(initial.scale)
-  )) {
-    throw new TypeError('viewport.initial requires finite centerWorld and positive scale');
-  }
-  return Object.freeze({
-    wheel: Object.freeze({ activationModifier }),
-    initial: initial === undefined
-      ? null
-      : Object.freeze({
-          centerWorld: Object.freeze([...initial.centerWorld] as [number, number]),
-          scale: initial.scale,
-        }),
   });
 }

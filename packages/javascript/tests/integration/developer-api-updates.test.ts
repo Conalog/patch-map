@@ -4,6 +4,13 @@ import { createPatchMapApi } from '../../src/public';
 import { createHost } from './developer-api-host';
 
 describe('PatchMap developer API updates', () => {
+  it('preserves explicit no-animation policy for combined authored bar and text updates', () => {
+    const harness = createHost();
+    const map = createPatchMapApi(harness.host);
+    map.updateBatch({ targets: ['rack'], bar: { height: [60] }, text: { text: ['final'] } }, { animate: false });
+    expect(harness.lastTransactionRequest()).toMatchObject({ animatedBarTargets: [] });
+  });
+
   it('lowers bar and icon concrete-cell presentation into one atomic columnar request', () => {
     const harness = createHost();
     const map = createPatchMapApi(harness.host);

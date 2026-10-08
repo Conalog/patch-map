@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { PatchMapRuntime } from '../../src/core';
 import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
+import type { PatchMapPixiRenderer } from '../../src/rendering/pixi-renderer';
 import { createPublicApiEngine } from '../support/public-api-engine';
 import {
   createTestCore,
@@ -16,9 +17,9 @@ describe('PatchMap instance bar presentation integration', () => {
   });
 
   it('animates every expanded grid bar from one template batch target', async () => {
-    const { core } = createTestCore(allocated);
+    const { core, renderer } = createTestCore(allocated);
     const engine = createPublicApiEngine({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     await engine.initialize({
       instanceId: 'grid-template-bar-animation',
@@ -57,9 +58,9 @@ describe('PatchMap instance bar presentation integration', () => {
   });
 
   it('updates expanded grid bars independently without mutating authored data or history', async () => {
-    const { core } = createTestCore(allocated);
+    const { core, renderer } = createTestCore(allocated);
     const engine = createPublicApiEngine({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     await engine.initialize({
       instanceId: 'grid-instance-bar-overlay',
@@ -182,9 +183,9 @@ describe('PatchMap instance bar presentation integration', () => {
   });
 
   it('retargets independent grid bars through one central animation controller', async () => {
-    const { core } = createTestCore(allocated);
+    const { core, renderer } = createTestCore(allocated);
     const engine = createPublicApiEngine({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     await engine.initialize({
       instanceId: 'grid-instance-bar-animation',
@@ -227,7 +228,7 @@ describe('PatchMap instance bar presentation integration', () => {
       internalStableRecordOverlays: true,
     });
     const engine = createPublicApiEngine({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     await engine.initialize({
       instanceId: 'grid-instance-full-presentation-animation',

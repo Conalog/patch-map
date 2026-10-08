@@ -8,6 +8,8 @@
 
 This page owns image registration and leasing, built-in image provenance,
 visible image readiness, package font leases/readiness, and PNG capture.
+For a detached session that returns PNG/JPEG Blobs, use the
+[image entry point](image.md).
 Text layout and family matching are owned by [`text.md`](text.md).
 Font byte identity and licensing are owned by [`fonts.md`](../assets/fonts.md).
 

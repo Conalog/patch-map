@@ -34,6 +34,7 @@ export interface PatchMapRootInteractionPorts {
 }
 
 export interface PatchMapRootInteractionOptions {
+  readonly enabled?: boolean;
   readonly selectionMode: 'immediate' | 'deferred';
   readonly autoRender: boolean;
   readonly wheelActivationModifier: 'none' | 'control';
@@ -80,7 +81,7 @@ export class PatchMapRootInteractionAuthority {
     private readonly ports: PatchMapRootInteractionPorts,
     private readonly options: PatchMapRootInteractionOptions,
   ) {
-    this.unbind = binder.bindRootInteractions({
+    this.unbind = options.enabled === false ? () => undefined : binder.bindRootInteractions({
       pointer: (input) => this.onPointerInput(input),
       wheel: (input) => this.onWheel(input),
       contextMenu: (input) => this.onContextMenu(input),

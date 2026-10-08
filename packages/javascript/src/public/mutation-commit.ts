@@ -131,6 +131,7 @@ export function commitOperations(
     strict: true,
     ...(options.actionId === undefined ? {} : { actionId: options.actionId }),
     ...(options.recordHistory === undefined ? {} : { recordHistory: options.recordHistory }),
+    ...(options.animate === false ? { animatedBarTargets: Object.freeze([]) } : {}),
   }));
 }
 

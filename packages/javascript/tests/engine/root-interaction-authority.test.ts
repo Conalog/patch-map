@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { CoreView } from '../../src/dense/contracts';
 import {
@@ -10,6 +10,18 @@ import type { PatchMapRootPointerInput } from '../../src/core/contracts';
 import type { RootInteractionHandlers, RootWheelInput } from '../../src/rendering-port';
 
 describe('PatchMapRootInteractionAuthority', () => {
+  it('omits renderer bindings for an image surface and still tears down safely', () => {
+    const bindRootInteractions = vi.fn(() => () => undefined);
+    const authority = new PatchMapRootInteractionAuthority(
+      { bindRootInteractions }, staticPorts([]),
+      { enabled: false, selectionMode: 'deferred', autoRender: false, wheelActivationModifier: 'none' },
+    );
+    expect(bindRootInteractions).not.toHaveBeenCalled();
+    expect(authority.activeGesture).toBe(false);
+    expect(authority.destroy()).toBe(true);
+    expect(authority.destroy()).toBe(false);
+  });
+
   it('preserves root pointer, selection, pan, viewport, and wheel publication order', () => {
     const journal: string[] = [];
     const binding = rootBinding();

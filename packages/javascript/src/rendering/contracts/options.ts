@@ -26,6 +26,8 @@ export interface PatchMapBitmapTextCapabilityRequest {
 
 /** Construction contract shared by the runtime and the PixiJS adapter. */
 export interface PatchMapPixiRendererOptions {
+  /** Omit input and editor overlays for non-interactive output surfaces. */
+  readonly interactive?: boolean;
   readonly target?: HTMLElement;
   readonly canvas?: HTMLCanvasElement;
   readonly width?: number;

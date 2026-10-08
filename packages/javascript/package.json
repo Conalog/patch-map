@@ -23,6 +23,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./image": {
+      "types": "./dist/image.d.ts",
+      "import": "./dist/image.js",
+      "require": "./dist/image.cjs"
     }
   },
   "files": [
@@ -37,6 +42,7 @@
     "docs/api/viewport-and-transform.md",
     "docs/api/presentation.md",
     "docs/api/assets-and-capture.md",
+    "docs/api/image.md",
     "docs/api/text.md",
     "docs/integration/host.md",
     "docs/compatibility.md",
@@ -68,7 +74,7 @@
     "@eslint/js": "10.0.1",
     "@types/node": "24.10.9",
     "eslint": "10.7.0",
-    "pixi.js": "8.19.0",
+    "pixi.js": "8.22.0",
     "playwright": "1.57.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.65.0",

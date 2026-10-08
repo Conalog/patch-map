@@ -22,6 +22,8 @@ import type { PatchMapColorTheme } from '../../semantic/color';
 
 export interface PatchMapEngineOptions {
   readonly surfaceFactory?: PatchMapEngineSurfaceFactory;
+  /** Internal composition capability; image sessions have no interactive surface. */
+  readonly interactive?: boolean;
   readonly assetRuntime?: PatchMapAssetRuntime;
   readonly assetPolicy?: PatchMapAssetPolicy;
   readonly historyLimit?: number;

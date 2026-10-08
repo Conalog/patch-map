@@ -8,6 +8,8 @@ import type {
   PatchMapEngineCanvasHandle,
   PatchMapEngineExtractionRequest,
   PatchMapEngineExtractionResult,
+  PatchMapEngineImageRequest,
+  PatchMapEngineImageResult,
 } from './contracts/extraction';
 import type { PatchMapEngineSurface } from './contracts';
 import { validateExtractionRequest } from './input-contracts';
@@ -16,6 +18,10 @@ import type { PatchMapManagedFrameLoopAuthority } from './managed-frame-loop-aut
 import type { PatchMapPublicationAuthority } from './publication-authority';
 
 export interface PatchMapCaptureExtractionPort {
+  readonly image?: Readonly<{
+    settleAssets(): Promise<void>;
+    publish(): void;
+  }>;
   readonly requireSurface: (operation: string) => PatchMapEngineSurface;
   readonly liveSurface: () => PatchMapEngineSurface | null;
   readonly authoritativeCanvas: () => HTMLCanvasElement | null;
@@ -48,6 +54,8 @@ export class PatchMapCaptureExtractionAuthority {
   private managedCaptureSettlement: Promise<void> = Promise.resolve();
   private deferredMountResize: readonly [number, number, number] | null = null;
   private mountResizeCleanup: (() => void) | null = null;
+  private imageRendering = false;
+  private readonly imageLifetime = new AbortController();
 
   public constructor(
     private readonly extractionSecurity: PatchMapExtractionSecurityAuthority,
@@ -126,6 +134,78 @@ export class PatchMapCaptureExtractionAuthority {
     return this.canvasHandleForSurface(surface, 'canvasHandle');
   }
 
+  /** Snapshot the published viewport in the same task, before yielding to the encoder. */
+  public async renderImage(request: PatchMapEngineImageRequest): Promise<PatchMapEngineImageResult> {
+    const operation = 'render';
+    const fail = (code: 'DESTROYED' | 'CANCELLED' | 'CONFLICT' | 'SUPERSEDED' | 'RENDERER_LOST'): PatchMapError =>
+      this.port.operationError(code, code, operation, code !== 'DESTROYED');
+    const surface = this.port.requireSurface(operation);
+    const image = this.port.image;
+    if (image === undefined) {
+      throw this.port.operationError('UNSUPPORTED_RUNTIME', 'UNSUPPORTED_RUNTIME', operation, false);
+    }
+    if (request.signal?.aborted === true) throw fail('CANCELLED');
+    if (this.imageRendering || this.managedCaptureDepth > 0) throw fail('CONFLICT');
+    const stamp = this.publication.revisionStamp();
+    const assertCurrent = (): void => {
+      if (this.port.isDestroyingOrDestroyed() || this.port.liveSurface() !== surface) {
+        throw fail('DESTROYED');
+      }
+      if (request.signal?.aborted === true) throw fail('CANCELLED');
+      const loss = surface.rendererLossProbe?.();
+      if (loss?.contextLost === true || loss?.state === 'lost') throw fail('RENDERER_LOST');
+      const current = this.publication.revisionStamp();
+      if (
+        current.lifecycleGeneration !== stamp.lifecycleGeneration ||
+        current.sceneRevision !== stamp.sceneRevision ||
+        current.viewRevision !== stamp.viewRevision ||
+        current.interactionRevision !== stamp.interactionRevision
+      ) throw fail('SUPERSEDED');
+    };
+    let rejectInterrupted: (reason: PatchMapError) => void = () => undefined;
+    const interrupted = new Promise<never>((_resolve, reject) => { rejectInterrupted = reject; });
+    const cancel = (): void => rejectInterrupted(fail('CANCELLED'));
+    const destroy = (): void => rejectInterrupted(fail('DESTROYED'));
+    request.signal?.addEventListener('abort', cancel, { once: true });
+    this.imageLifetime.signal.addEventListener('abort', destroy, { once: true });
+    this.imageRendering = true;
+    this.port.adjustPendingWork(1);
+    try {
+      assertCurrent();
+      await Promise.race([image.settleAssets(), interrupted]);
+      assertCurrent();
+      const preflightFailure = this.extractionSecurityFailure(operation);
+      if (preflightFailure !== null) throw preflightFailure;
+      image.publish();
+      assertCurrent();
+      const before = this.canvasHandleForSurface(surface, operation);
+      const encoding = new Promise<Blob>((resolve, reject) => {
+        before.element.toBlob((blob) => {
+          if (blob === null || blob.size === 0 || blob.type !== request.mime) {
+            reject(this.port.operationError('EXTRACTION_READBACK_FAILED', 'EXTRACTION_FAILURE', operation, true));
+          } else {
+            resolve(blob);
+          }
+        }, request.mime, request.quality);
+      });
+      const blob = await Promise.race([encoding, interrupted]);
+      assertCurrent();
+      const after = this.canvasHandleForSurface(surface, operation);
+      if (before.element !== after.element) throw fail('RENDERER_LOST');
+      if (before.backingSize[0] !== after.backingSize[0] || before.backingSize[1] !== after.backingSize[1]) {
+        throw fail('SUPERSEDED');
+      }
+      return Object.freeze({ blob, mime: request.mime, size: before.backingSize });
+    } catch (error) {
+      return this.rethrowExtractionFailure(error, surface, operation);
+    } finally {
+      request.signal?.removeEventListener('abort', cancel);
+      this.imageLifetime.signal.removeEventListener('abort', destroy);
+      this.imageRendering = false;
+      this.port.adjustPendingWork(-1);
+    }
+  }
+
   public async extractPublishedScene(
     request: PatchMapEngineExtractionRequest,
   ): Promise<PatchMapEngineExtractionResult> {
@@ -148,22 +228,10 @@ export class PatchMapCaptureExtractionAuthority {
         true,
       );
     }
-    const extractionPreflight = this.extractionSecurity.preflight();
-    if (extractionPreflight.code !== null) {
-      const diagnostic = Object.freeze({
-        ...this.port.operationDiagnostic(
-          extractionPreflight.code,
-          'EXTRACTION_FAILURE',
-          'extractPublishedScene',
-          true,
-        ),
-        ...(extractionPreflight.sanitizedAssetId === null
-          ? {}
-          : { sanitizedAssetId: extractionPreflight.sanitizedAssetId }),
-      });
-      const failure = new PatchMapError(diagnostic);
-      this.port.emitDiagnostic(diagnostic);
-      throw failure;
+    const preflightFailure = this.extractionSecurityFailure('extractPublishedScene');
+    if (preflightFailure !== null) {
+      this.port.emitDiagnostic(preflightFailure.diagnostic);
+      throw preflightFailure;
     }
     if (!samePublishedTuple(this.publication.publishedTuple, request.targetTuple)) {
       throw this.port.operationError(
@@ -237,32 +305,34 @@ export class PatchMapCaptureExtractionAuthority {
         renderTextureCount: 0,
       });
     } catch (error) {
-      const currentRendererLoss = surface.rendererLossProbe?.() ?? null;
-      const failure = error instanceof PatchMapError
-        ? error
-        : currentRendererLoss?.contextLost === true || currentRendererLoss?.state === 'lost'
-          ? this.port.operationError(
-              'RENDERER_LOST',
-              'RENDERER_LOST',
-              'extractPublishedScene',
-              true,
-            )
-          : this.port.operationError(
-              extractionFailureCode(error),
-              'EXTRACTION_FAILURE',
-              'extractPublishedScene',
-              true,
-            );
-      if (!this.port.isDestroyingOrDestroyed()) {
-        this.port.emitDiagnostic(failure.diagnostic);
-      }
-      throw failure;
+      return this.rethrowExtractionFailure(error, surface, 'extractPublishedScene');
     } finally {
       this.port.adjustPendingWork(-1);
     }
   }
 
+  private extractionSecurityFailure(operation: string): PatchMapError | null {
+    const preflight = this.extractionSecurity.preflight();
+    if (preflight.code === null) return null;
+    return new PatchMapError(Object.freeze({
+      ...this.port.operationDiagnostic(preflight.code, 'EXTRACTION_FAILURE', operation, true),
+      ...(preflight.sanitizedAssetId === null ? {} : { sanitizedAssetId: preflight.sanitizedAssetId }),
+    }));
+  }
+
+  private rethrowExtractionFailure(error: unknown, surface: PatchMapEngineSurface, operation: string): never {
+    const loss = error instanceof PatchMapError ? null : surface.rendererLossProbe?.() ?? null;
+    const failure = error instanceof PatchMapError
+      ? error
+      : loss?.contextLost === true || loss?.state === 'lost'
+        ? this.port.operationError('RENDERER_LOST', 'RENDERER_LOST', operation, true)
+        : this.port.operationError(extractionFailureCode(error), 'EXTRACTION_FAILURE', operation, true);
+    if (!this.port.isDestroyingOrDestroyed()) this.port.emitDiagnostic(failure.diagnostic);
+    throw failure;
+  }
+
   public destroy(): void {
+    this.imageLifetime.abort();
     this.mountResizeCleanup?.();
     this.mountResizeCleanup = null;
     this.deferredMountResize = null;

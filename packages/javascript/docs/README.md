@@ -15,6 +15,7 @@ repeat feature contracts.
 | Handle hover, tooltip, click, box selection, or transformer paint | [Pointer and selection](api/pointer-and-selection.md) |
 | Pan, zoom, fit, persist a viewport, or transform a target | [Viewport and transforms](api/viewport-and-transform.md) |
 | Apply transient grid or keyed presentation | [Presentation](api/presentation.md) |
+| Create a detached PNG/JPEG image session | [Image output](api/image.md) |
 | Register images, inspect readiness, or capture PNG | [Assets and capture](api/assets-and-capture.md) |
 | Understand text layout, font matching, or fallback | [Text](api/text.md) |
 | Audit packaged font bytes, provenance, or license | [Packaged fonts](assets/fonts.md) |
@@ -22,8 +23,9 @@ repeat feature contracts.
 | Check supported runtimes and release policy | [Compatibility](compatibility.md) |
 
 Runnable examples live in [`examples/`](../examples/).
-Exact TypeScript shapes are exported by `@conalog/patch-map`; these pages own
-behavior, state ordering, failure meaning, and the shortest verification route.
+Exact TypeScript shapes are exported by `@conalog/patch-map` and
+`@conalog/patch-map/image`; these pages own behavior, state ordering, failure
+meaning, and the shortest verification route.
 
 Repository source paths in these JavaScript API pages are relative to
 `packages/javascript/`; published example links resolve inside the npm artifact.

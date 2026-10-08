@@ -1,4 +1,6 @@
 import { createPixiSurface } from '../../../src/composition/pixi-engine-surface';
+import { createImagePatchMap } from '../../../src/composition/image';
+import type { PatchMapEngineSurface } from '../../../src/engine/contracts';
 import { PatchMap } from '../../../src/engine';
 import { buildPatchMapSeededScene } from '../../fixtures/seeded-scene';
 
@@ -23,6 +25,7 @@ interface MemoryTrial {
   readonly pendingWorkAfterDestroy: number;
   readonly subscriptionCountAfterDestroy: number;
   readonly hostChildCountAfterDestroy: number;
+  readonly imageSessionReleased: boolean;
 }
 
 const surfaceElement = document.getElementById('surface');
@@ -80,6 +83,7 @@ async function runTrial(
     const active = engine.snapshot();
     await engine.destroy();
     const destroyed = engine.snapshot();
+    const imageSessionReleased = await runImageTrial(input, seed);
     surface.replaceChildren();
     return Object.freeze({
       sourceItems: input.length,
@@ -91,11 +95,40 @@ async function runTrial(
       pendingWorkAfterDestroy: destroyed.pendingWork,
       subscriptionCountAfterDestroy: destroyed.resources.subscriptions.active,
       hostChildCountAfterDestroy: surface.childElementCount,
+      imageSessionReleased,
     });
   } finally {
     await engine.destroy().catch(() => undefined);
     surface.replaceChildren();
   }
+}
+
+async function runImageTrial(input: unknown, seed: number): Promise<boolean> {
+  const surfaces: PatchMapEngineSurface[] = [];
+  const map = await createImagePatchMap({
+    data: input, width: 960, height: 540, instanceId: `memory-image-${seed}`,
+    background: '#ffffff', antialias: true,
+  }, async (options) => {
+    const imageSurface = await createPixiSurface(options);
+    surfaces.push(imageSurface);
+    return imageSurface;
+  });
+  try {
+    await map.render();
+    await map.render({ format: 'jpeg', quality: 0.9 });
+    for (const surface of surfaces) {
+      const input = surface.interactionOwnershipProbe?.();
+      if (input?.rootBindingCount !== 0 || input.rootListenerCount !== 0) {
+        throw new Error('Image publication installed interactive root listeners');
+      }
+    }
+  } finally {
+    await map.destroy();
+  }
+  const status = map.assets.status();
+  return map.destroyed && surfaces.every((imageSurface) => imageSurface.canvasCount === 0)
+    && status.runtime.resourceCount === 0 && status.runtime.leaseCount === 0
+    && status.runtime.pendingCount === 0;
 }
 
 function usedHeap(): number {

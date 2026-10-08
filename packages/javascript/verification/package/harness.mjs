@@ -97,6 +97,24 @@ import {
 } from './examples/host-adapter';
 // @ts-expect-error PatchMapAdvanced is intentionally not a package export.
 import { PatchMapAdvanced } from '${PACKAGE_NAME}';
+import { PatchMap as ImagePatchMap, type PatchMapRenderResult } from '${PACKAGE_NAME}/image';
+
+const imageMap = await ImagePatchMap.create({ data: [], width: 320, height: 180 });
+imageMap.updateBatch({ targets: ['cell'], text: { text: ['123456789012'] } });
+const imageResult: PatchMapRenderResult = await imageMap.render({ format: 'jpeg', quality: 0.9 });
+const imageBytes: ArrayBuffer = await imageResult.blob.arrayBuffer();
+// @ts-expect-error Image sessions own their detached canvas.
+ImagePatchMap.create({ data: [], width: 320, height: 180, container: '#host' });
+// @ts-expect-error Image renderer strategies are internal.
+imageMap.render({ strategy: 'tiled' });
+// @ts-expect-error PNG has no quality option.
+imageMap.render({ format: 'png', quality: 0.9 });
+// @ts-expect-error Image mutations have no animation option.
+imageMap.update({ id: 'cell' }, { animate: true });
+// @ts-expect-error Image sessions have no interactive pointer API.
+imageMap.pointer.onHover(() => undefined);
+await imageMap.destroy();
+void imageBytes;
 
 const Engine: typeof PatchMap = PatchMap;
 const highLevelMount: typeof PatchMap.mount = PatchMap.mount;

@@ -23,7 +23,7 @@ export interface PatchMapPixiSurfacePublicationAuthorityOptions {
 
 /**
  * Owns the one-shot transition from a staged Pixi application to the visible
- * PatchMap surface. Steady renders return to Pixi's original render function.
+ * PatchMap surface. Steady renders return to the selected raster function.
  */
 export class PatchMapPixiSurfacePublicationAuthority {
   private readonly devtoolsToken = Object.freeze({});
@@ -45,10 +45,9 @@ export class PatchMapPixiSurfacePublicationAuthority {
     return this.contextLossUnbind === null ? 0 : 2;
   }
 
-  public armInitialRender(): void {
+  public armInitialRender(render = this.options.application.render): void {
     if (this.armed) return;
     this.armed = true;
-    const render = this.options.application.render;
     this.options.application.render = () => {
       this.options.assertInitialRenderAvailable();
       render.call(this.options.application);

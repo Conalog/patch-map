@@ -14,6 +14,109 @@ import type {
 import { PatchMapExtractionSecurityAuthority } from '../../src/operations';
 
 describe('PatchMapCaptureExtractionAuthority', () => {
+  it('classifies native image failures using the same renderer-loss policy as extraction', async () => {
+    const harness = captureHarness();
+    harness.surface.lossDuringBlob = true;
+    const image = harness.authority.renderImage({ mime: 'image/png' });
+    await expect(image).rejects.toMatchObject({ diagnostic: { code: 'RENDERER_LOST' } });
+    expect(harness.pendingWork).toBe(0);
+    expect(harness.diagnostics).toHaveLength(1);
+  });
+
+  it('snapshots one published viewport into a native Blob with the requested MIME and quality', async () => {
+    const harness = captureHarness();
+    const image = harness.authority.renderImage({ mime: 'image/jpeg', quality: 0.9 });
+    await drainMicrotasks();
+    expect(harness.publishedFrameCount).toBe(1);
+    expect(harness.surface.blobRequests).toMatchObject([{ mime: 'image/jpeg', quality: 0.9 }]);
+    harness.surface.resolveBlob(new Blob(['jpeg'], { type: 'image/jpeg' }));
+    await expect(image).resolves.toMatchObject({ mime: 'image/jpeg', size: [640, 360] });
+    expect(harness.surface.captureCount).toBe(0);
+    expect(harness.pendingWork).toBe(0);
+  });
+
+  it('waits for assets and rejects concurrent rendering without publishing an incomplete scene', async () => {
+    const harness = captureHarness();
+    let ready = (): void => undefined;
+    harness.assetsReady = new Promise((resolve) => { ready = resolve; });
+    const first = harness.authority.renderImage({ mime: 'image/png' });
+    await expect(harness.authority.renderImage({ mime: 'image/png' })).rejects.toMatchObject({
+      diagnostic: { code: 'CONFLICT' },
+    });
+    expect(harness.publishedFrameCount).toBe(0);
+    ready();
+    await drainMicrotasks();
+    harness.surface.resolveBlob(new Blob(['png'], { type: 'image/png' }));
+    await expect(first).resolves.toMatchObject({ mime: 'image/png' });
+    expect(harness.pendingWork).toBe(0);
+  });
+
+  it.each(['assets', 'encoding'] as const)('cancels during %s without waiting for native completion', async (phase) => {
+    const harness = captureHarness();
+    if (phase === 'assets') harness.assetsReady = new Promise(() => undefined);
+    const controller = new AbortController();
+    const image = harness.authority.renderImage({ mime: 'image/png', signal: controller.signal });
+    await drainMicrotasks();
+    controller.abort();
+    await expect(image).rejects.toMatchObject({ diagnostic: { code: 'CANCELLED' } });
+    expect(harness.pendingWork).toBe(0);
+    if (phase === 'encoding') harness.surface.resolveBlob(null);
+  });
+
+  it('rejects changed scenes before publication and changed views after encoding', async () => {
+    const scene = captureHarness();
+    const image = scene.authority.renderImage({ mime: 'image/png' });
+    scene.publication.advanceScene();
+    await expect(image).rejects.toMatchObject({ diagnostic: { code: 'SUPERSEDED' } });
+    expect(scene.publishedFrameCount).toBe(0);
+    expect(scene.pendingWork).toBe(0);
+
+    const view = captureHarness();
+    const encoded = view.authority.renderImage({ mime: 'image/png' });
+    await drainMicrotasks();
+    view.publication.advanceView();
+    view.surface.resolveBlob(new Blob(['png'], { type: 'image/png' }));
+    await expect(encoded).rejects.toMatchObject({ diagnostic: { code: 'SUPERSEDED' } });
+    expect(view.pendingWork).toBe(0);
+  });
+
+  it('rejects destroy immediately while the encoder is pending', async () => {
+    const harness = captureHarness();
+    const image = harness.authority.renderImage({ mime: 'image/png' });
+    await drainMicrotasks();
+    harness.destroyed = true;
+    harness.authority.destroy();
+    await expect(image).rejects.toMatchObject({ diagnostic: { code: 'DESTROYED' } });
+    expect(harness.pendingWork).toBe(0);
+    expect(harness.diagnostics).toEqual([]);
+    harness.surface.resolveBlob(null);
+  });
+
+  it.each([null, new Blob([]), new Blob(['wrong'], { type: 'image/png' })])(
+    'rejects invalid JPEG encoding and allows a subsequent render', async (blob) => {
+      const harness = captureHarness();
+      const image = harness.authority.renderImage({ mime: 'image/jpeg' });
+      await drainMicrotasks();
+      harness.surface.resolveBlob(blob);
+      await expect(image).rejects.toMatchObject({ diagnostic: { code: 'EXTRACTION_READBACK_FAILED' } });
+      const retry = harness.authority.renderImage({ mime: 'image/png' });
+      await drainMicrotasks();
+      harness.surface.resolveBlob(new Blob(['ok'], { type: 'image/png' }));
+      await expect(retry).resolves.toMatchObject({ mime: 'image/png' });
+      expect(harness.pendingWork).toBe(0);
+    },
+  );
+
+  it('uses extraction security before publishing an image', async () => {
+    const harness = captureHarness();
+    harness.extractionSecurity.setAssetReadability('unreadable-source', 'tainted');
+    await expect(harness.authority.renderImage({ mime: 'image/png' })).rejects.toMatchObject({
+      diagnostic: { code: 'EXTRACTION_TAINTED', category: 'EXTRACTION_FAILURE' },
+    });
+    expect(harness.publishedFrameCount).toBe(0);
+    expect(harness.pendingWork).toBe(0);
+  });
+
   it('serializes managed captures and applies deferred reentrant resize before resume', async () => {
     const harness = captureHarness();
     const resizeObserver = resizeObserverHarness();
@@ -161,6 +264,7 @@ function captureHarness(): {
   liveSurface: PatchMapEngineSurface | null;
   onResize: (() => void) | null;
   readonly pendingWork: number;
+  assetsReady: Promise<void>;
 } {
   const publication = new PatchMapPublicationAuthority();
   publication.advanceScene();
@@ -175,6 +279,7 @@ function captureHarness(): {
   let pendingWork = 0;
   let publishedFrameCount = 0;
   let onResize: (() => void) | null = null;
+  let assetsReady = Promise.resolve();
   frameLoop.create({
     activeAnimations: 0,
     frameWorkloadSize: 1,
@@ -199,6 +304,13 @@ function captureHarness(): {
     frameLoop,
     publication,
     {
+      image: {
+        settleAssets: () => assetsReady,
+        publish: () => {
+          publishedFrameCount += 1;
+          publication.commitFrame();
+        },
+      },
       requireSurface: (operation) => {
         if (destroyed) {
           throw createPatchMapOperationError(
@@ -263,6 +375,8 @@ function captureHarness(): {
     },
     resizes,
     surface,
+    get assetsReady() { return assetsReady; },
+    set assetsReady(value: Promise<void>) { assetsReady = value; },
     get destroyed() {
       return destroyed;
     },
@@ -288,8 +402,22 @@ function captureHarness(): {
 }
 
 class DeferredCaptureSurface {
-  public readonly canvas = {} as HTMLCanvasElement;
+  public lossDuringBlob = false;
+  private contextLost = false;
+  public readonly blobRequests: Array<{ mime: string | undefined; quality: number | undefined }> = [];
+  private readonly blobCallbacks: BlobCallback[] = [];
+  public readonly canvas = {
+    toBlob: (callback: BlobCallback, mime?: string, quality?: number): void => {
+      if (this.lossDuringBlob) {
+        this.contextLost = true;
+        throw new Error('native encoder context failure');
+      }
+      this.blobRequests.push({ mime, quality });
+      this.blobCallbacks.push(callback);
+    },
+  } as HTMLCanvasElement;
   public captureCount = 0;
+  public rendererLossProbe() { return { contextLost: this.contextLost, state: this.contextLost ? 'lost' : 'healthy' }; }
   public failNextDebugSnapshot = false;
   private readonly captureResolvers: Array<() => void> = [];
 
@@ -310,6 +438,12 @@ class DeferredCaptureSurface {
     resolve();
   }
 
+  public resolveBlob(blob: Blob | null): void {
+    const callback = this.blobCallbacks.shift();
+    if (callback === undefined) throw new Error('no pending Blob');
+    callback(blob);
+  }
+
   public debugSnapshot(): Readonly<{
     cssSize: readonly [number, number];
     backingSize: readonly [number, number];
@@ -323,6 +457,10 @@ class DeferredCaptureSurface {
       backingSize: Object.freeze([640, 360] as const),
     });
   }
+}
+
+async function drainMicrotasks(): Promise<void> {
+  for (let turn = 0; turn < 5; turn += 1) await Promise.resolve();
 }
 
 function currentRequest() {

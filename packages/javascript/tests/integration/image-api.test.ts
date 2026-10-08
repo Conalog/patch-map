@@ -1,0 +1,281 @@
+import { describe, expect, it, vi } from 'vitest';
+import { PatchMapAssetRuntime } from '../../src/assets';
+import { createImagePatchMap } from '../../src/composition/image';
+import { mountPatchMap } from '../../src/composition/mount';
+import { PatchMap as PatchMapEngine } from '../../src/engine';
+import type { PatchMapSurfaceOptions } from '../../src/engine/contracts';
+import { PatchMap } from '../../src/image';
+import { PatchMapSceneStateAuthority } from '../../src/engine/scene-state-authority';
+import type { PatchMapImageMutationOptions, PatchMapImageOptions, PatchMapImageRenderOptions, PatchMapImageTransactionOptions } from '../../src/public/image-contracts';
+import { TransactionSurface } from '../support/engine-update-transaction-surface';
+
+class ImageSurface extends TransactionSurface {
+  public readonly encodes: Array<{ mime: string | undefined; quality: number | undefined }> = [];
+  public readonly canvas = {
+    toBlob: (callback: BlobCallback, mime?: string, quality?: number): void => {
+      this.encodes.push({ mime, quality });
+      callback(new Blob(['encoded'], { type: mime ?? 'image/png' }));
+    },
+  } as HTMLCanvasElement;
+  public canvasElement(): HTMLCanvasElement { return this.canvas; }
+  public override bindViewportInput(): () => void { throw new Error('image bound viewport input'); }
+  public bindPointerInput(): () => void { throw new Error('image bound pointer input'); }
+  public bindContextMenuInput(): () => void { throw new Error('image bound context menu input'); }
+  public bindAccessibilityActivation(): () => void { throw new Error('image bound accessibility input'); }
+  public setSelectionOverlayPolicy(): boolean { throw new Error('image synchronized selection overlays'); }
+}
+
+function options(overrides: Partial<PatchMapImageOptions> = {}): PatchMapImageOptions {
+  return {
+    width: 320, height: 180, fit: false,
+    data: [{
+      type: 'item', id: 'panel', show: true,
+      attrs: { x: 20, y: 30 }, size: { width: 80, height: 120 },
+      components: [
+        { type: 'background', id: 'bg', source: { type: 'rect', fill: '#ffffff' } },
+        { type: 'bar', id: 'bar', source: { type: 'rect', fill: '#2563eb' }, size: { width: 40, height: 20 } },
+        { type: 'text', id: 'label', text: 'initial' },
+      ],
+    }],
+    assetRuntime: new PatchMapAssetRuntime({
+      get: () => undefined,
+      load: () => Promise.resolve({ font: true }),
+      unload: () => Promise.resolve(),
+    }),
+    ...overrides,
+  };
+}
+
+async function create(input = options()) {
+  let surface!: ImageSurface;
+  let surfaceOptions!: PatchMapSurfaceOptions;
+  const map = await createImagePatchMap(input, (value) => {
+    surfaceOptions = value;
+    surface = new ImageSurface(value);
+    return Promise.resolve(surface);
+  });
+  return { map, surface, surfaceOptions };
+}
+
+describe('image API', () => {
+  it.each(['prototype getter', 'non-enumerable property'] as const)(
+    'rejects malformed transaction options supplied through a %s without changing data', async (shape) => {
+      const { map } = await create();
+      const before = map.data.serialize();
+      try {
+        for (const [key, value] of [['actionId', ''], ['conflictPolicy', 'invalid']] as const) {
+          const input = shape === 'prototype getter'
+            ? Object.create(Object.defineProperty({}, key, { get: () => value })) as PatchMapImageTransactionOptions
+            : Object.defineProperty({}, key, { value }) as PatchMapImageTransactionOptions;
+          expect(map.transaction([{ type: 'update', id: 'panel', bar: { height: 70 } }], input))
+            .toMatchObject({ status: 'rejected', changed: false, diagnostic: { code: 'INVALID_VALUE' } });
+          expect(map.data.serialize()).toBe(before);
+        }
+      } finally { await map.destroy(); }
+    },
+  );
+
+  it.each(['prototype getter', 'non-enumerable property'] as const)(
+    'preserves transaction conflict policy supplied through a %s', async (shape) => {
+      const { map } = await create();
+      const before = map.data.serialize();
+      try {
+        for (const policy of ['cancel-active', 'queue-after'] as const) {
+          class TransactionOptions implements PatchMapImageTransactionOptions {
+            get conflictPolicy() { return policy; }
+          }
+          const input = shape === 'prototype getter'
+            ? new TransactionOptions()
+            : Object.defineProperty({}, 'conflictPolicy', { value: policy });
+          expect(map.transaction([{ type: 'update', id: 'panel', bar: { height: 70 } }], input))
+            .toMatchObject({ status: 'rejected', changed: false, diagnostic: { code: 'UNSUPPORTED_RUNTIME' } });
+          expect(map.data.serialize()).toBe(before);
+        }
+      } finally { await map.destroy(); }
+    },
+  );
+
+  it.each(['prototype getter', 'non-enumerable property'] as const)(
+    'preserves actionId for all image mutations supplied through a %s', async (shape) => {
+      const { map } = await create();
+      const transact = vi.spyOn(PatchMapEngine.prototype, 'transact');
+      const actionId = 'image-refresh';
+      class MutationOptions implements PatchMapImageMutationOptions {
+        get actionId() { return actionId; }
+      }
+      const input = shape === 'prototype getter'
+        ? new MutationOptions()
+        : Object.defineProperty({}, 'actionId', { value: actionId });
+      try {
+        expect(map.update({ id: 'panel', bar: { height: 61 }, text: { text: 'update' } }, input).status)
+          .toBe('committed');
+        expect(transact.mock.calls.at(-1)?.[0].actionId).toBe(actionId);
+        expect(map.updateBatch({ targets: ['panel'], bar: { height: [62] }, text: { text: ['batch'] } }, input).status)
+          .toBe('committed');
+        expect(transact.mock.calls.at(-1)?.[0].actionId).toBe(actionId);
+        expect(map.transaction([{ type: 'update', id: 'panel', bar: { height: 63 } }], input).status)
+          .toBe('committed');
+        expect(transact.mock.calls.at(-1)?.[0].actionId).toBe(actionId);
+      } finally { transact.mockRestore(); await map.destroy(); }
+    },
+  );
+
+  it.each(['prototype getter', 'non-enumerable property'] as const)(
+    'retains initial data and assets supplied through a %s', async (shape) => {
+      const base = options();
+      const registration = { alias: 'host-image', descriptor: 'https://example.test/image.svg' };
+      const assets = [registration];
+      class ImageOptions implements PatchMapImageOptions {
+        readonly width = base.width;
+        readonly height = base.height;
+        readonly fit = false;
+        readonly assetRuntime = base.assetRuntime!;
+        get data() { return base.data; }
+        get assets() { return assets; }
+      }
+      const input = shape === 'prototype getter'
+        ? new ImageOptions()
+        : Object.defineProperties(base, {
+          data: { value: base.data, enumerable: false },
+          assets: { value: assets, enumerable: false },
+        });
+      const { map } = await create(input);
+      try {
+        expect(map.data.snapshot()).toMatchObject([{
+          id: 'panel', components: [{ id: 'bg' }, { id: 'bar' }, { id: 'label', text: 'initial' }],
+        }]);
+        expect(map.assets.register(registration)).toEqual({
+          registeredAliases: [], duplicateAliases: ['host-image'],
+        });
+        await expect(map.render()).resolves.toMatchObject({ mime: 'image/png', size: [320, 180] });
+      } finally { await map.destroy(); }
+    },
+  );
+
+  it.each(['mount', 'image'] as const)('uses explicit initial viewport over fit through %s composition', async (mode) => {
+    const initial = { centerWorld: [200, 100] as const, scale: 2 };
+    const input = options({ fit: { padding: 40 }, viewport: { initial } });
+    const target = {
+      id: '', getBoundingClientRect: () => ({ width: 320, height: 180 }),
+    } as unknown as HTMLElement;
+    const map = mode === 'image'
+      ? (await create(input)).map
+      : await mountPatchMap({ ...input, container: target, resizeMode: 'manual' }, value =>
+          Promise.resolve(new TransactionSurface(value)));
+    try {
+      expect(map.viewport.snapshot()).toEqual(initial);
+      expect(map.data.snapshot()).toMatchObject([{
+        id: 'panel', components: [{ id: 'bg' }, { id: 'bar' }, { id: 'label', text: 'initial' }],
+      }]);
+    } finally { await map.destroy(); }
+  });
+
+  it('reuses root input and columnar updates without automatic frames, history, or animation', async () => {
+    const selectionIndex = vi.spyOn(PatchMapSceneStateAuthority.prototype, 'logicalSceneSelectionIndex');
+    const input = options();
+    const before = JSON.stringify(input.data);
+    const { map, surface, surfaceOptions } = await create(input);
+    try {
+      expect(surfaceOptions.interactive).toBe(false);
+      expect(surfaceOptions.target).toBeUndefined();
+      expect(surfaceOptions.pixelRatio).toBe(1);
+      expect(surfaceOptions.antialias).toBe(true);
+      expect(surface.frameCount).toBe(0);
+      expect(Object.keys(map).sort()).toEqual([
+        'assets', 'data', 'destroy', 'destroyed', 'render', 'rotation', 'targets',
+        'transaction', 'update', 'updateBatch', 'viewport',
+      ]);
+      const result = map.updateBatch({ targets: ['panel'], bar: { height: new Float64Array([64]) }, text: { text: ['123456789012'] } });
+      expect(result.status).toBe('committed');
+      expect(map.targets.get({ id: 'panel', componentId: 'bar' })?.value).toMatchObject({ size: { height: 64 } });
+      expect(map.targets.get({ id: 'panel', componentId: 'label' })?.value).toMatchObject({ text: '123456789012' });
+      expect(surface.frameCount).toBe(0);
+      expect(surface.reconcileCalls.every((call) => call.options.animateBarChanges === false)).toBe(true);
+      const png = await map.render();
+      const jpeg = await map.render({ format: 'jpeg', quality: 0.9 });
+      expect(png).toMatchObject({ mime: 'image/png', size: [320, 180] });
+      expect(jpeg).toMatchObject({ mime: 'image/jpeg', size: [320, 180] });
+      expect(Object.isFrozen(png)).toBe(true);
+      expect(Object.isFrozen(png.size)).toBe(true);
+      expect(surface.frameCount).toBe(2);
+      expect(surface.encodes).toEqual([{ mime: 'image/png', quality: undefined }, { mime: 'image/jpeg', quality: 0.9 }]);
+      expect(JSON.stringify(input.data)).toBe(before);
+      expect(selectionIndex).not.toHaveBeenCalled();
+    } finally {
+      expect(await map.destroy()).toBe(true);
+      expect(await map.destroy()).toBe(false);
+      selectionIndex.mockRestore();
+    }
+    expect(surface.canvasCount).toBe(0);
+    expect(map.destroyed).toBe(true);
+    await expect(map.render()).rejects.toMatchObject({ diagnostic: { code: 'DESTROYED' } });
+  });
+
+  it('supports replacement, transactions, orientation, and absolute viewport state', async () => {
+    const { map } = await create();
+    try {
+      expect(map.update({ id: 'panel', text: { text: 'next' } }).changed).toBe(true);
+      expect(map.transaction([{ type: 'update', id: 'panel', bar: { height: 70 } }]).status).toBe('committed');
+      map.rotation.value = 90;
+      expect(map.rotation.value).toBe(90);
+      map.rotation.reset();
+      map.viewport.restore({ centerWorld: [200, 100], scale: 2 });
+      expect(map.viewport.snapshot()).toEqual({ centerWorld: [200, 100], scale: 2 });
+      map.data.replace([], { fit: false });
+      expect(map.data.snapshot()).toEqual([]);
+      await expect(map.render()).resolves.toMatchObject({ size: [320, 180] });
+    } finally { await map.destroy(); }
+  });
+
+  it.each([0, -1, 1.5, NaN, Infinity])('rejects invalid output width %s before allocation', async (width) => {
+    const factory = vi.fn();
+    await expect(createImagePatchMap(options({ width }), factory)).rejects.toThrow('positive integers');
+    expect(factory).not.toHaveBeenCalled();
+  });
+
+  it('rejects disabled AA before allocation', async () => {
+    const factory = vi.fn();
+    await expect(createImagePatchMap({ ...options(), antialias: false } as unknown as PatchMapImageOptions, factory))
+      .rejects.toThrow('antialias: true');
+    expect(factory).not.toHaveBeenCalled();
+  });
+
+  it.each(['width', 'height'] as const)('rejects overflowing canvas %s before allocation', async (axis) => {
+    for (const value of [2 ** 32, 2 ** 32 + 1, Number.MAX_SAFE_INTEGER]) {
+      const factory = vi.fn();
+      await expect(createImagePatchMap(options({ [axis]: value }), factory)).rejects.toThrow('canvas dimension range');
+      expect(factory).not.toHaveBeenCalled();
+    }
+  });
+
+  it('destroys an initialized surface when dataset admission fails', async () => {
+    let surface!: ImageSurface;
+    await expect(createImagePatchMap(options({ data: [{ type: 'unknown', id: 'bad' }] }), (value) => {
+      surface = new ImageSurface(value);
+      return Promise.resolve(surface);
+    })).rejects.toThrow();
+    expect(surface.destroyed).toBe(true);
+  });
+
+  it('rejects unsupported interactive and rendering options', async () => {
+    await expect(createImagePatchMap({ ...options(), container: '#host' } as PatchMapImageOptions, vi.fn())).rejects.toThrow('container');
+    const { map, surface } = await create();
+    try {
+      for (const value of [{ format: 'webp' }, { format: null }, { quality: 0.9 }, { format: 'jpeg', quality: NaN }, { format: 'jpeg', quality: 1.1 }, { strategy: 'tiled' }]) {
+        await expect(map.render(value as PatchMapImageRenderOptions)).rejects.toThrow();
+      }
+      expect(() => map.update({ id: 'panel' }, { animate: true } as PatchMapImageMutationOptions)).toThrow('animate');
+      expect(surface.frameCount).toBe(0);
+      const controller = new AbortController();
+      controller.abort();
+      await expect(map.render({ signal: controller.signal })).rejects.toMatchObject({ diagnostic: { code: 'CANCELLED' } });
+    } finally { await map.destroy(); }
+  });
+
+  it('exports create under the same PatchMap name and explains the browser requirement', async () => {
+    expect(typeof PatchMap.create).toBe('function');
+    expect('mount' in PatchMap).toBe(false);
+    expect(() => Reflect.construct(PatchMap as unknown as new () => object, [])).toThrow('PatchMap.create');
+    await expect(PatchMap.create(options())).rejects.toThrow('browser with WebGL2');
+  });
+});

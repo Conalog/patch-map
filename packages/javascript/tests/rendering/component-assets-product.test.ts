@@ -62,6 +62,9 @@ class ComponentAssetRendererDouble {
   public readonly width = 320;
   public readonly height = 240;
   public readonly pixelRatio = 1;
+  // These renderer doubles own no DOM canvas.
+  public readonly canvasCount = 0;
+  public imageCanvasElement(): null { return null; }
   public readonly operations: string[] = [];
   public finalizeCount = 0;
   public destroyed = false;
@@ -628,7 +631,7 @@ async function createHarness(
       const core = new TestPatchMap(renderer as unknown as PatchMapPixiRenderer, {
         autoRender: false,
       });
-      return Promise.resolve(new PixiEngineSurface(core));
+      return Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer));
     },
   });
   engines.push(engine);
