@@ -2,10 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { PatchMapAssetRuntime } from '../../src/assets';
 import { createImagePatchMap } from '../../src/composition/image';
 import { mountPatchMap } from '../../src/composition/mount';
+import { PatchMap as PatchMapEngine } from '../../src/engine';
 import type { PatchMapSurfaceOptions } from '../../src/engine/contracts';
 import { PatchMap } from '../../src/image';
 import { PatchMapSceneStateAuthority } from '../../src/engine/scene-state-authority';
-import type { PatchMapImageMutationOptions, PatchMapImageOptions, PatchMapImageRenderOptions } from '../../src/public/image-contracts';
+import type { PatchMapImageMutationOptions, PatchMapImageOptions, PatchMapImageRenderOptions, PatchMapImageTransactionOptions } from '../../src/public/image-contracts';
 import { TransactionSurface } from '../support/engine-update-transaction-surface';
 
 class ImageSurface extends TransactionSurface {
@@ -57,6 +58,51 @@ async function create(input = options()) {
 }
 
 describe('image API', () => {
+  it.each(['prototype getter', 'non-enumerable property'] as const)(
+    'preserves transaction conflict policy supplied through a %s', async (shape) => {
+      const { map } = await create();
+      const before = map.data.serialize();
+      try {
+        for (const policy of ['cancel-active', 'queue-after'] as const) {
+          class TransactionOptions implements PatchMapImageTransactionOptions {
+            get conflictPolicy() { return policy; }
+          }
+          const input = shape === 'prototype getter'
+            ? new TransactionOptions()
+            : Object.defineProperty({}, 'conflictPolicy', { value: policy });
+          expect(map.transaction([{ type: 'update', id: 'panel', bar: { height: 70 } }], input))
+            .toMatchObject({ status: 'rejected', changed: false, diagnostic: { code: 'UNSUPPORTED_RUNTIME' } });
+          expect(map.data.serialize()).toBe(before);
+        }
+      } finally { await map.destroy(); }
+    },
+  );
+
+  it.each(['prototype getter', 'non-enumerable property'] as const)(
+    'preserves actionId for all image mutations supplied through a %s', async (shape) => {
+      const { map } = await create();
+      const transact = vi.spyOn(PatchMapEngine.prototype, 'transact');
+      const actionId = 'image-refresh';
+      class MutationOptions implements PatchMapImageMutationOptions {
+        get actionId() { return actionId; }
+      }
+      const input = shape === 'prototype getter'
+        ? new MutationOptions()
+        : Object.defineProperty({}, 'actionId', { value: actionId });
+      try {
+        expect(map.update({ id: 'panel', bar: { height: 61 }, text: { text: 'update' } }, input).status)
+          .toBe('committed');
+        expect(transact.mock.calls.at(-1)?.[0].actionId).toBe(actionId);
+        expect(map.updateBatch({ targets: ['panel'], bar: { height: [62] }, text: { text: ['batch'] } }, input).status)
+          .toBe('committed');
+        expect(transact.mock.calls.at(-1)?.[0].actionId).toBe(actionId);
+        expect(map.transaction([{ type: 'update', id: 'panel', bar: { height: 63 } }], input).status)
+          .toBe('committed');
+        expect(transact.mock.calls.at(-1)?.[0].actionId).toBe(actionId);
+      } finally { transact.mockRestore(); await map.destroy(); }
+    },
+  );
+
   it.each(['prototype getter', 'non-enumerable property'] as const)(
     'retains initial data and assets supplied through a %s', async (shape) => {
       const base = options();

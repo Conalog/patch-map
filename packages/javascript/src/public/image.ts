@@ -1,7 +1,6 @@
 import type { PatchMapApi } from './contracts';
 import type {
   PatchMapImageInstance,
-  PatchMapImageMutationOptions,
   PatchMapImageRenderOptions,
   PatchMapImageResult,
   PatchMapImageTransactionOptions,
@@ -55,7 +54,7 @@ export function createPatchMapImageApi(host: ImageHost, api: PatchMapApi): Patch
 }
 
 function mutationOptions(
-  options: PatchMapImageMutationOptions | PatchMapImageTransactionOptions | undefined,
+  options: PatchMapImageTransactionOptions | undefined,
   transaction = false,
 ) {
   if (options !== undefined) {
@@ -66,7 +65,14 @@ function mutationOptions(
       }
     }
   }
-  return { ...options, animate: false, recordHistory: false };
+  const actionId = options?.actionId;
+  const conflictPolicy = transaction ? options?.conflictPolicy : undefined;
+  return {
+    ...(actionId === undefined ? {} : { actionId }),
+    ...(conflictPolicy === undefined ? {} : { conflictPolicy }),
+    animate: false,
+    recordHistory: false,
+  };
 }
 
 function normalizeRenderOptions(options: PatchMapImageRenderOptions | undefined): PatchMapImageRenderOptions {
