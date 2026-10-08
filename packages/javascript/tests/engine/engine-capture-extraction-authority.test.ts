@@ -14,6 +14,15 @@ import type {
 import { PatchMapExtractionSecurityAuthority } from '../../src/operations';
 
 describe('PatchMapCaptureExtractionAuthority', () => {
+  it('classifies native image failures using the same renderer-loss policy as extraction', async () => {
+    const harness = captureHarness();
+    harness.surface.lossDuringBlob = true;
+    const image = harness.authority.renderImage({ mime: 'image/png' });
+    await expect(image).rejects.toMatchObject({ diagnostic: { code: 'RENDERER_LOST' } });
+    expect(harness.pendingWork).toBe(0);
+    expect(harness.diagnostics).toHaveLength(1);
+  });
+
   it('snapshots one published viewport into a native Blob with the requested MIME and quality', async () => {
     const harness = captureHarness();
     const image = harness.authority.renderImage({ mime: 'image/jpeg', quality: 0.9 });
@@ -393,15 +402,22 @@ function captureHarness(): {
 }
 
 class DeferredCaptureSurface {
+  public lossDuringBlob = false;
+  private contextLost = false;
   public readonly blobRequests: Array<{ mime: string | undefined; quality: number | undefined }> = [];
   private readonly blobCallbacks: BlobCallback[] = [];
   public readonly canvas = {
     toBlob: (callback: BlobCallback, mime?: string, quality?: number): void => {
+      if (this.lossDuringBlob) {
+        this.contextLost = true;
+        throw new Error('native encoder context failure');
+      }
       this.blobRequests.push({ mime, quality });
       this.blobCallbacks.push(callback);
     },
   } as HTMLCanvasElement;
   public captureCount = 0;
+  public rendererLossProbe() { return { contextLost: this.contextLost, state: this.contextLost ? 'lost' : 'healthy' }; }
   public failNextDebugSnapshot = false;
   private readonly captureResolvers: Array<() => void> = [];
 

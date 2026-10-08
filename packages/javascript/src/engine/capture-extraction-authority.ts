@@ -174,13 +174,8 @@ export class PatchMapCaptureExtractionAuthority {
       assertCurrent();
       await Promise.race([image.settleAssets(), interrupted]);
       assertCurrent();
-      const preflight = this.extractionSecurity.preflight();
-      if (preflight.code !== null) {
-        throw new PatchMapError(Object.freeze({
-          ...this.port.operationDiagnostic(preflight.code, 'EXTRACTION_FAILURE', operation, true),
-          ...(preflight.sanitizedAssetId === null ? {} : { sanitizedAssetId: preflight.sanitizedAssetId }),
-        }));
-      }
+      const preflightFailure = this.extractionSecurityFailure(operation);
+      if (preflightFailure !== null) throw preflightFailure;
       image.publish();
       assertCurrent();
       const before = this.canvasHandleForSurface(surface, operation);
@@ -202,11 +197,7 @@ export class PatchMapCaptureExtractionAuthority {
       }
       return Object.freeze({ blob, mime: request.mime, size: before.backingSize });
     } catch (error) {
-      const failure = error instanceof PatchMapError ? error : this.port.operationError(
-        extractionFailureCode(error), 'EXTRACTION_FAILURE', operation, true,
-      );
-      if (!this.port.isDestroyingOrDestroyed()) this.port.emitDiagnostic(failure.diagnostic);
-      throw failure;
+      return this.rethrowExtractionFailure(error, surface, operation);
     } finally {
       request.signal?.removeEventListener('abort', cancel);
       this.imageLifetime.signal.removeEventListener('abort', destroy);
@@ -237,22 +228,10 @@ export class PatchMapCaptureExtractionAuthority {
         true,
       );
     }
-    const extractionPreflight = this.extractionSecurity.preflight();
-    if (extractionPreflight.code !== null) {
-      const diagnostic = Object.freeze({
-        ...this.port.operationDiagnostic(
-          extractionPreflight.code,
-          'EXTRACTION_FAILURE',
-          'extractPublishedScene',
-          true,
-        ),
-        ...(extractionPreflight.sanitizedAssetId === null
-          ? {}
-          : { sanitizedAssetId: extractionPreflight.sanitizedAssetId }),
-      });
-      const failure = new PatchMapError(diagnostic);
-      this.port.emitDiagnostic(diagnostic);
-      throw failure;
+    const preflightFailure = this.extractionSecurityFailure('extractPublishedScene');
+    if (preflightFailure !== null) {
+      this.port.emitDiagnostic(preflightFailure.diagnostic);
+      throw preflightFailure;
     }
     if (!samePublishedTuple(this.publication.publishedTuple, request.targetTuple)) {
       throw this.port.operationError(
@@ -326,29 +305,30 @@ export class PatchMapCaptureExtractionAuthority {
         renderTextureCount: 0,
       });
     } catch (error) {
-      const currentRendererLoss = surface.rendererLossProbe?.() ?? null;
-      const failure = error instanceof PatchMapError
-        ? error
-        : currentRendererLoss?.contextLost === true || currentRendererLoss?.state === 'lost'
-          ? this.port.operationError(
-              'RENDERER_LOST',
-              'RENDERER_LOST',
-              'extractPublishedScene',
-              true,
-            )
-          : this.port.operationError(
-              extractionFailureCode(error),
-              'EXTRACTION_FAILURE',
-              'extractPublishedScene',
-              true,
-            );
-      if (!this.port.isDestroyingOrDestroyed()) {
-        this.port.emitDiagnostic(failure.diagnostic);
-      }
-      throw failure;
+      return this.rethrowExtractionFailure(error, surface, 'extractPublishedScene');
     } finally {
       this.port.adjustPendingWork(-1);
     }
+  }
+
+  private extractionSecurityFailure(operation: string): PatchMapError | null {
+    const preflight = this.extractionSecurity.preflight();
+    if (preflight.code === null) return null;
+    return new PatchMapError(Object.freeze({
+      ...this.port.operationDiagnostic(preflight.code, 'EXTRACTION_FAILURE', operation, true),
+      ...(preflight.sanitizedAssetId === null ? {} : { sanitizedAssetId: preflight.sanitizedAssetId }),
+    }));
+  }
+
+  private rethrowExtractionFailure(error: unknown, surface: PatchMapEngineSurface, operation: string): never {
+    const loss = error instanceof PatchMapError ? null : surface.rendererLossProbe?.() ?? null;
+    const failure = error instanceof PatchMapError
+      ? error
+      : loss?.contextLost === true || loss?.state === 'lost'
+        ? this.port.operationError('RENDERER_LOST', 'RENDERER_LOST', operation, true)
+        : this.port.operationError(extractionFailureCode(error), 'EXTRACTION_FAILURE', operation, true);
+    if (!this.port.isDestroyingOrDestroyed()) this.port.emitDiagnostic(failure.diagnostic);
+    throw failure;
   }
 
   public destroy(): void {

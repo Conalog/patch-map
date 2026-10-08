@@ -30,6 +30,8 @@ viewport precedence. Each entry retains its validation, interaction, frame and
 failure-cleanup policy.
 
 Image raster selection goes through the existing surface publication authority.
+Capture security and error projection stay in the shared capture/extraction
+authority.
 
 ## Repository roots
 
