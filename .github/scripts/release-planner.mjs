@@ -10,7 +10,6 @@ const { TagName } = require('release-please/build/src/util/tag-name.js');
 const jsPath = 'packages/javascript';
 const dartPath = 'packages/flutter';
 const packagePaths = [jsPath, dartPath];
-const sharedReleaseFiles = new Set(['package.json', 'package-lock.json', '.nvmrc', 'release-please-config.json']);
 const legacyVersion = '1.0.0-alpha.9';
 const legacyTag = `v${legacyVersion}`;
 const legacySha = '6986c632a47d3443ff17903c416291dfe4120340';
@@ -18,14 +17,12 @@ const legacySha = '6986c632a47d3443ff17903c416291dfe4120340';
 function releaseConsumerPaths(path) {
   const assetConsumers = assetConsumerPaths(path);
   if (assetConsumers.length > 0) return assetConsumers;
-  if (path.startsWith('verification/flutter/')) return [dartPath];
-  if (path.startsWith('.github/') || path.startsWith('verification/')
-    || path.startsWith('conformance/') || sharedReleaseFiles.has(path)) return packagePaths;
+  if (path.startsWith('conformance/')) return packagePaths;
   return [];
 }
 
-// CommitSplit only sees package-local paths. Project repository release inputs
-// onto their consuming package boundaries, preserving each release SHA.
+// CommitSplit already owns package-local paths. Only project shared product
+// assets/contracts onto their consumers; tooling and CI impact is not release ownership.
 // This changes planner input only; GitHub files and commit history stay intact.
 function withReleaseConsumers(github) {
   return new Proxy(github, {

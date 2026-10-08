@@ -131,26 +131,23 @@ test('native font derivation changes release only Dart', async () => {
   assert.equal(candidateFor(candidates, dartPath).version.toString(), '1.0.0-alpha.2');
 });
 
-test('common workflows, verification and repository inputs produce both release candidates', async () => {
+test('repository tooling does not create package releases or consumer notes', async () => {
   for (const path of [
     '.github/scripts/release-planner.mjs', '.github/workflows/ci.yaml', '.github/workflows/publish.yaml',
     'verification/ci-workflow.test.mjs', 'verification/package.json',
     'verification/docs/verify.mjs', 'verification/conformance/inventory.mjs',
-    'conformance/contracts.json', 'package.json', 'package-lock.json', '.nvmrc', 'release-please-config.json',
+    'verification/flutter/package.mjs',
+    'package.json', 'package-lock.json', '.nvmrc', 'release-please-config.json',
   ]) {
     const { manifest } = await fixture([commit('fix: repair common release checks', [path])]);
-    const candidates = await manifest.buildPullRequests();
-    assert.equal(candidates.length, 2, path);
-    for (const owner of [npmPath, dartPath]) {
-      assert.match(candidateFor(candidates, owner).body.toString(), /repair common release checks/u, path);
-    }
+    assert.deepEqual(await manifest.buildPullRequests(), [], path);
   }
 });
 
-test('mixed common and package paths add a release note once per owner', async () => {
+test('mixed shared product and package paths add a release note once per consumer', async () => {
   const { manifest } = await fixture([commit('fix: repair mixed release inputs', [
     '.github/scripts/release-planner.mjs', 'verification/ci-workflow.test.mjs',
-    'package.json', `${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`,
+    'conformance/contracts.json', 'package.json', `${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`,
   ])]);
   const candidates = await manifest.buildPullRequests();
   assert.equal(candidates.length, 2);
@@ -159,20 +156,18 @@ test('mixed common and package paths add a release note once per owner', async (
   }
 });
 
-test('Flutter verification remains Dart-owned and ordinary repository docs do not plan releases', async () => {
-  const { manifest } = await fixture([commit('fix: repair Flutter qualification', ['verification/flutter/package.mjs'])]);
-  const candidates = await manifest.buildPullRequests();
-  assert.equal(candidates.length, 1);
-  candidateFor(candidates, dartPath);
+test('shared product contracts produce both release candidates and repository docs do not plan releases', async () => {
+  const { manifest } = await fixture([commit('fix: repair shared contract', ['conformance/contracts.json'])]);
+  assert.equal((await manifest.buildPullRequests()).length, 2);
   for (const path of ['docs/engineering/releases.md', 'CONTRIBUTING.md', 'AGENTS.md']) {
     const { manifest } = await fixture([commit('fix: repair repository guidance', [path])]);
     assert.deepEqual(await manifest.buildPullRequests(), [], path);
   }
 });
 
-test('shared routing preserves conventional release types and does not turn CI or docs into package releases', async () => {
+test('shared product routing preserves conventional release types without releasing maintenance', async () => {
   for (const type of ['feat', 'fix', 'perf', 'deps']) {
-    const { manifest } = await fixture([commit(`${type}: improve common release inputs`, ['.github/scripts/release-planner.mjs'])]);
+    const { manifest } = await fixture([commit(`${type}: improve shared product inputs`, ['conformance/contracts.json'])]);
     assert.equal((await manifest.buildPullRequests()).length, 2, type);
   }
   for (const type of ['ci', 'docs', 'test', 'chore']) {
@@ -181,11 +176,11 @@ test('shared routing preserves conventional release types and does not turn CI o
   }
 });
 
-test('common tooling respects the independent published release boundaries', async () => {
+test('shared contracts respect the independent published release boundaries', async () => {
   const { manifest } = await fixture([], {
     dartReleased: true, jsReleased: true,
-    betweenReleases: [commit('fix: common check already shipped in Dart', ['verification/conformance/inventory.mjs'], 'a'.repeat(40))],
-    historical: [commit('fix: common check already shipped in both', ['.github/workflows/ci.yaml'], 'e'.repeat(40))],
+    betweenReleases: [commit('fix: shared contract already shipped in Dart', ['conformance/contracts.json'], 'a'.repeat(40))],
+    historical: [commit('fix: shared contract already shipped in both', ['conformance/contracts.json'], 'e'.repeat(40))],
   });
   const candidates = await manifest.buildPullRequests();
   assert.equal(candidates.length, 1);
@@ -337,7 +332,7 @@ test('separate pending PRs route updates to the existing npm and Dart PR numbers
   // remote behavior (upstream issue #2773) still requires an actual hosted run.
 });
 
-test('a common fix refreshes both pending release PRs through the ordinary planner and repairs Dart files', async () => {
+test('a JS feature with root lock and tooling changes updates only the pending JS release', async () => {
   const state = await fixture([commit('feat: add peer foundations', [
     `${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`,
   ])]);
@@ -346,17 +341,57 @@ test('a common fix refreshes both pending release PRs through the ordinary plann
     asPullRequest(candidateFor(oldCandidates, npmPath), 248));
   await state.manifest.createPullRequests();
   assert.deepEqual(state.calls, [], 'unchanged release notes still skip needless updates');
-  state.commits.unshift(commit('fix: repair common release planning', ['.github/scripts/release-planner.mjs'], 'f'.repeat(40)));
+  state.commits.unshift(commit('feat: add image sessions', [
+    `${npmPath}/src/image.ts`, `${npmPath}/package.json`, 'package-lock.json',
+    '.github/scripts/release-planner.mjs', 'verification/package.json',
+  ], 'f'.repeat(40)));
   await state.manifest.createPullRequests();
-  assert.deepEqual(state.calls.map(({ number }) => number).sort(), [247, 248]);
-  for (const { number, candidate } of state.calls) {
-    assert.match(candidate.body.toString(), /repair common release planning/u);
-    if (number !== 247) continue;
-    const broken = { ...state.files, [`${dartPath}/pubspec.yaml`]: state.files[`${dartPath}/pubspec.yaml`]
-      .replace('version: 1.0.0-alpha.1', 'version: 1.0.0-alpha.1+-alpha.1') };
-    const updated = applyUpdates(candidate, broken);
-    assert.equal(pubspecField(updated[`${dartPath}/pubspec.yaml`], 'version'), '1.0.0-alpha.1');
-    assert.equal(JSON.parse(updated['.release-please-manifest.json'])[dartPath], '1.0.0-alpha.1');
+  assert.deepEqual(state.calls.map(({ number }) => number), [248]);
+  assert.match(state.calls[0].candidate.body.toString(), /add image sessions/u);
+  const dart = candidateFor(await state.manifest.buildPullRequests(), dartPath);
+  assert.doesNotMatch(dart.body.toString(), /add image sessions/u);
+  assert.match(dart.body.toString(), /add peer foundations/u);
+});
+
+test('tooling-only changes leave existing package release notes and PRs untouched', async () => {
+  const state = await fixture([commit('feat: add peer foundations', [
+    `${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`,
+  ])]);
+  const candidates = await state.manifest.buildPullRequests();
+  state.openPullRequests.push(asPullRequest(candidateFor(candidates, dartPath), 247),
+    asPullRequest(candidateFor(candidates, npmPath), 248));
+  state.commits.unshift(commit('fix: repair common release planning', [
+    '.github/scripts/release-planner.mjs', 'verification/package.json', 'package-lock.json',
+  ], 'f'.repeat(40)));
+  await state.manifest.createPullRequests();
+  assert.deepEqual(state.calls, []);
+});
+
+test('ordinary planning removes a leaked JS note from the existing Dart release PR', async () => {
+  const state = await fixture([
+    commit('feat: add image sessions', [`${npmPath}/src/image.ts`, 'package-lock.json'], 'f'.repeat(40)),
+    commit('feat: add peer foundations', [`${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`]),
+  ]);
+  const candidates = await state.manifest.buildPullRequests();
+  const dart = asPullRequest(candidateFor(candidates, dartPath), 247);
+  dart.body = dart.body.replace('add peer foundations', 'add image sessions');
+  state.openPullRequests.push(dart, asPullRequest(candidateFor(candidates, npmPath), 248));
+  await state.manifest.createPullRequests();
+  assert.deepEqual(state.calls.map(({ number }) => number), [247]);
+  const repaired = state.calls[0].candidate;
+  assert.doesNotMatch(repaired.body.toString(), /add image sessions/u);
+  assert.match(repaired.body.toString(), /add peer foundations/u);
+  assert.doesNotMatch(applyUpdates(repaired, state.files)[`${dartPath}/CHANGELOG.md`], /add image sessions/u);
+});
+
+test('JS-only root-lock changes do not create a Dart candidate before or after its first release', async () => {
+  for (const dartReleased of [false, true]) {
+    const { manifest } = await fixture([commit('feat: add image sessions', [
+      `${npmPath}/src/image.ts`, `${npmPath}/package.json`, 'package-lock.json',
+    ])], { dartReleased });
+    const candidates = await manifest.buildPullRequests();
+    assert.equal(candidates.length, 1);
+    assert.match(candidateFor(candidates, npmPath).body.toString(), /add image sessions/u);
   }
 });
 
