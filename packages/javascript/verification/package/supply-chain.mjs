@@ -1,5 +1,9 @@
 import { dependencyClosure, packageNameFromLockPath } from '../../../../verification/dependencies/closure.mjs';
 
+export const NPM_ARTIFACT_AUDIT_ARGS = Object.freeze([
+  'audit', '--package-lock-only', '--workspace=packages/javascript',
+  '--include-workspace-root=false', '--json', '--audit-level=low',
+]);
 
 export function createDependencyLicenseInventory(lock, packagePath = '') {
   const approvedLicenses = Object.freeze([

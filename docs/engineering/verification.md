@@ -85,6 +85,8 @@ npm run js:verify:memory
   unreadable or malformed metadata changes retain the broader path-based gates;
   mixed changes use the union of affected owners. PR names and labels never
   determine which checks are skipped.
+- npm artifact audit covers its workspace build/runtime closure; shared contract
+  CI separately audits the full repository lock, including private release tools.
 - Repository tooling (typecheck, lint and tests) runs once in the shared contract
   job when selected, otherwise in the JavaScript core job. JavaScript static
   checks remain in the core job regardless of shared contract routing.
