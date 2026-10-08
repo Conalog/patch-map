@@ -1,13 +1,7 @@
-import { posix } from 'node:path';
+import { dependencyClosure, packageNameFromLockPath } from '../../../../verification/dependencies/closure.mjs';
+
 
 export function createDependencyLicenseInventory(lock, packagePath = '') {
-  const rootRecord = lock.packages?.[packagePath];
-  if (!rootRecord) throw new Error(`missing workspace lock record: ${packagePath}`);
-  const directNames = new Set([
-    ...Object.keys(rootRecord.dependencies ?? {}),
-    ...Object.keys(rootRecord.devDependencies ?? {}),
-    ...Object.keys(rootRecord.peerDependencies ?? {}),
-  ]);
   const approvedLicenses = Object.freeze([
     'Apache-2.0',
     'BSD-2-Clause',
@@ -18,49 +12,13 @@ export function createDependencyLicenseInventory(lock, packagePath = '') {
     'Python-2.0',
   ]);
   const approved = new Set(approvedLicenses);
-  // The workspace lock also contains private verification tools. Inventory
-  // this package's build/runtime dependency closure, not every workspace record.
-  const visited = new Set();
-  const directPaths = new Set();
-  const records = lock.packages;
-  function locate(name, issuer, optional) {
-    let directory = issuer;
-    while (true) {
-      const candidate = posix.join(directory, 'node_modules', name);
-      if (records[candidate]) return candidate;
-      if (!directory) break;
-      const parent = posix.dirname(directory);
-      directory = parent === '.' ? '' : parent;
-    }
-    if (!optional) throw new Error(`unresolved dependency ${name} from ${issuer}`);
-    return undefined;
-  }
-  function visit(lockPath) {
-    if (visited.has(lockPath)) return;
-    visited.add(lockPath);
-    const entry = records[lockPath];
-    if (entry.link) throw new Error(`published package must not depend on a workspace link: ${lockPath}`);
-    const dependencies = { ...entry.dependencies, ...entry.peerDependencies, ...entry.optionalDependencies };
-    for (const name of Object.keys(dependencies)) {
-      const optional = Object.hasOwn(entry.optionalDependencies ?? {}, name) || entry.peerDependenciesMeta?.[name]?.optional === true;
-      const dependency = locate(name, lockPath, optional);
-      if (dependency) visit(dependency);
-    }
-  }
-  for (const name of new Set([...directNames, ...Object.keys(rootRecord.optionalDependencies ?? {})])) {
-    const optional = Object.hasOwn(rootRecord.optionalDependencies ?? {}, name) || rootRecord.peerDependenciesMeta?.[name]?.optional === true;
-    const dependency = locate(name, packagePath, optional);
-    if (dependency) { directPaths.add(dependency); visit(dependency); }
-  }
-  const packages = [...visited].map((lockPath) => {
-    const record = records[lockPath];
-    return Object.freeze({
-      name: packageNameFromLockPath(lockPath),
-      version: typeof record.version === 'string' ? record.version : 'unknown',
-      license: typeof record.license === 'string' ? record.license : 'UNKNOWN',
-      direct: directPaths.has(lockPath),
-    });
-  }).sort((left, right) => left.name.localeCompare(right.name) || left.version.localeCompare(right.version));
+  const { packages: records, directPaths } = dependencyClosure(lock, packagePath);
+  const packages = [...records].map(([lockPath, record]) => Object.freeze({
+    name: packageNameFromLockPath(lockPath),
+    version: typeof record.version === 'string' ? record.version : 'unknown',
+    license: typeof record.license === 'string' ? record.license : 'UNKNOWN',
+    direct: directPaths.has(lockPath),
+  })).sort((left, right) => left.name.localeCompare(right.name) || left.version.localeCompare(right.version));
   const unapproved = packages.filter(({ license }) => !approved.has(license));
   const licenseCounts = {};
   for (const { license } of packages) {
@@ -140,12 +98,6 @@ export function createSupplyChainEvidence({
         : 'pass'
       : 'fail',
   });
-}
-
-function packageNameFromLockPath(lockPath) {
-  const marker = 'node_modules/';
-  const index = lockPath.lastIndexOf(marker);
-  return index === -1 ? lockPath : lockPath.slice(index + marker.length);
 }
 
 export function nonNegativeAuditCount(value) {
