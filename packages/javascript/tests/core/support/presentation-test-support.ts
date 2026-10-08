@@ -37,6 +37,9 @@ class RendererTestDouble {
   public readonly width = 800;
   public readonly height = 600;
   public readonly pixelRatio = 1;
+  // These renderer doubles own no DOM canvas.
+  public readonly canvasCount = 0;
+  public imageCanvasElement(): null { return null; }
   public readonly projectionCalls: Array<Readonly<{
     index: PatchMapProjectionIndex;
     ranges: readonly SlotRange[] | null;

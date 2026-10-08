@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { PatchMapRuntime } from '../../src/core';
 import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
+import type { PatchMapPixiRenderer } from '../../src/rendering/pixi-renderer';
 import { createPublicApiEngine } from '../support/public-api-engine';
 import {
   createTestCore,
@@ -22,7 +23,7 @@ describe('PatchMap presentation layer integration', () => {
   it('composes keyed presentation layers by product and clears them on dataset replacement', async () => {
     const { core, renderer } = createTestCore(allocated);
     const engine = createPublicApiEngine({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     await engine.initialize({ instanceId: 'keyed-presentation-engine', width: 800, height: 600 });
     engine.loadDataset(twoBarScene(10, 20));
@@ -122,7 +123,7 @@ describe('PatchMap presentation layer integration', () => {
   it('reprojects the logical scope snapshot without admitting later grid instances', async () => {
     const { core, renderer } = createTestCore(allocated);
     const engine = createPublicApiEngine({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     await engine.initialize({ instanceId: 'presentation-scope-snapshot', width: 800, height: 600 });
     engine.loadDataset(gridScene(10));

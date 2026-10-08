@@ -104,7 +104,7 @@ export class PixiEngineSurface implements PatchMapEngineSurface {
 
   public constructor(
     core: PatchMapRuntime,
-    pixiRenderer: PatchMapPixiRenderer = core.renderer as unknown as PatchMapPixiRenderer,
+    pixiRenderer: PatchMapPixiRenderer,
     interactive = true,
   ) {
     this.core = core;

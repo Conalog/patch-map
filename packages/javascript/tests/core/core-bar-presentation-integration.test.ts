@@ -5,6 +5,7 @@ import type { PatchMapSpatialHitAuthority } from '../../src/core/spatial-hit-aut
 import type { PatchMapBarPresentationAuthority } from '../../src/core/bar-presentation-authority';
 import { PatchMapError } from '../../src/engine';
 import { PixiEngineSurface } from '../../src/composition/pixi-engine-surface';
+import type { PatchMapPixiRenderer } from '../../src/rendering/pixi-renderer';
 import {
   PatchMapPresentationController,
   PatchMapPresentationError,
@@ -172,9 +173,9 @@ describe('PatchMap bar presentation integration', () => {
   });
 
   it('reuses the animated-bar hit envelope across direct mid-animation retargets', async () => {
-    const { core } = createTestCore(allocated);
+    const { core, renderer } = createTestCore(allocated);
     const engine = createPublicApiEngine({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     await engine.initialize({
       instanceId: 'presentation-retarget-hit-envelope',
@@ -218,8 +219,8 @@ describe('PatchMap bar presentation integration', () => {
   });
 
   it('invalidates surface geometry only when a presentation frame advances', () => {
-    const { core } = createTestCore(allocated);
-    const surface = new PixiEngineSurface(core);
+    const { core, renderer } = createTestCore(allocated);
+    const surface = new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer);
     surface.load(scene(10));
     surface.publishFrame(0);
     surface.reconcile(scene(40));
@@ -586,8 +587,8 @@ describe('PatchMap bar presentation integration', () => {
   });
 
   it('publishes through Engine and maps backward clock conflicts without advancing revisions', async () => {
-    const { core } = createTestCore(allocated);
-    const surface = new PixiEngineSurface(core);
+    const { core, renderer } = createTestCore(allocated);
+    const surface = new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer);
     const engine = createPublicApiEngine({ surfaceFactory: () => Promise.resolve(surface) });
     await engine.initialize({ instanceId: 'presentation-engine', width: 800, height: 600 });
     engine.loadDataset(scene(10));
@@ -632,9 +633,9 @@ describe('PatchMap bar presentation integration', () => {
   });
 
   it('keeps Engine ancestor layout patches atomic while direct bar patches animate', async () => {
-    const { core } = createTestCore(allocated);
+    const { core, renderer } = createTestCore(allocated);
     const engine = createPublicApiEngine({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     await engine.initialize({ instanceId: 'presentation-layout-engine', width: 800, height: 600 });
     engine.loadDataset(percentScene(80));

@@ -41,7 +41,7 @@ describe('PatchMap aggregate paint-order product seam', () => {
       autoRender: false,
     });
     const engine = new PatchMap({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     allocated.push(engine);
     await engine.initialize({ instanceId: 'paint-order', width: 800, height: 600 });
@@ -89,7 +89,7 @@ describe('PatchMap aggregate paint-order product seam', () => {
       autoRender: false,
     });
     const engine = new PatchMap({
-      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core)),
+      surfaceFactory: () => Promise.resolve(new PixiEngineSurface(core, renderer as unknown as PatchMapPixiRenderer)),
     });
     allocated.push(engine);
     await engine.initialize({ instanceId: 'item-paint-order', width: 800, height: 600 });
@@ -131,6 +131,9 @@ class PaintRendererTestDouble {
   public readonly width = 800;
   public readonly height = 600;
   public readonly pixelRatio = 1;
+  // This renderer double owns no DOM canvas.
+  public readonly canvasCount = 0;
+  public imageCanvasElement(): null { return null; }
   public destroyed = false;
   private frame = 0;
   private selectedCount = 0;
