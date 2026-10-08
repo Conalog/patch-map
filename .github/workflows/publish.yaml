@@ -56,7 +56,7 @@ jobs:
           TAG_NAME: ${{ inputs.tag || github.ref_name }}
         shell: bash
         run: |
-          test "$(node .github/scripts/release-ready.mjs)" = true
+          test "$(node .github/scripts/release-ready.mjs --scope js)" = true
           node .github/scripts/release-metadata.mjs npm "$TAG_NAME"
 
           echo "release-sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"

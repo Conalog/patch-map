@@ -32,7 +32,7 @@ jobs:
           package-manager-cache: false
 
       - name: Validate independent release ownership
-        run: node .github/scripts/release-ready.mjs
+        run: node .github/scripts/release-ready.mjs --scope repository
 
       - name: Require a token that triggers downstream workflows
         env:

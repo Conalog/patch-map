@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CONTRACT_REVISION } from './fixtures.mjs';
+import { isContractInput } from './inputs.mjs';
 
 /** Exact JSON semantics; raster and field-specific numeric tolerances belong to named cases. */
 export function compareObservations(left, right, path = '$') {
@@ -54,7 +55,7 @@ export async function contractFingerprint(root = process.cwd()) {
     for (const entry of (await readdir(resolve(root, directory), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
       const path = `${directory}/${entry.name}`;
       if (entry.isDirectory()) await include(path);
-      else if (entry.isFile()) hash.update(path).update('\0').update(await readFile(resolve(root, path))).update('\0');
+      else if (entry.isFile() && isContractInput(path)) hash.update(path).update('\0').update(await readFile(resolve(root, path))).update('\0');
     }
   }
   await include('conformance');

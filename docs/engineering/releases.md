@@ -38,17 +38,19 @@ Dart publishing requires exact tag/package/manifest identity, branch ancestry, v
 `publish_to: none` and `implementationStatus: foundation` block publication; asset tests and contract definitions cannot qualify the public runtime.
 
 Package-local changes feed that package's history. Shared product contracts
-under `conformance/` feed both histories; shared assets and their preparation
+under `conformance/` (excluding Markdown guidance) feed both histories; shared assets and their preparation
 retain the consumer-specific routing above. Routing preserves each package's
 published boundary and deduplicates mixed commits once per consumer.
 
 Repository automation and validation do not assign release ownership:
 `.github/`, general `verification/` (including Flutter qualification), root
-`package.json`, `package-lock.json`, `.nvmrc`, `release-please-config.json` and
+`package.json`, `.nvmrc`, `release-please-config.json` and
 engineering guidance do not create consumer release notes by themselves. A JS
 feature that also changes the root lockfile remains JS-only. A tooling-only fix
-does not create a package release or refresh an otherwise unchanged pending PR.
-Only the existing `feat`, `fix`, `perf` and `deps` release rules create notes for
+does not create a package release or change consumer notes.
+Immutable root lock changes in the JS build/runtime dependency closure feed JS
+notes; private verifier-only changes do not. Unresolvable lock ownership fails
+JS planning explicitly, without blocking Dart. Only the existing `feat`, `fix`, `perf` and `deps` release rules create notes for
 affected packages; `ci`, `docs`, `test` and `chore` remain maintenance.
 
 Release planning ownership and PR CI gate selection are separate decisions.
@@ -109,10 +111,9 @@ Registry writes are independent. On partial success, record each registry's actu
 Already-published versions must match verified contents (and npm's selected dist-tag); mismatches require a new fix version. Preserve source snapshots and
 evidence before workflow retention expires. External setup and hosted release execution remain operator steps; local planner tests mock GitHub.
 
-A release-planner repair is repository tooling, not a feature of either package.
-After merging a routing correction, ordinary planning regenerates notes from
-the affected packages' histories and updates existing PRs whose notes differ,
-including removing previously leaked notes. Do not manually edit bot-owned
-notes as the fix. Unchanged notes still skip updates, so a tooling-only commit
-does not force metadata repairs or a new registry release. Inspect the hosted
-planner's resulting PRs and CI; local mocks prove routing, not GitHub publication.
+The planner executes each package independently and reports failures after
+attempting its peer. Pending tags block only their owning package. Existing PRs refresh
+when their actual branch head lacks the current base or planned metadata. This repairs the shared manifest after either merge
+order without inventing consumer notes; unchanged current PRs skip updates.
+Readiness uses `--scope repository`, `js` or `dart`; publishers validate their metadata
+alongside shared policy. Local tests mock GitHub and test actual Git merge orders; hosted execution remains an operator check.
