@@ -1273,15 +1273,7 @@ export class PatchMapPixiRenderer implements CoreRenderer {
     this.destroyedValue = true;
     this.rendererLossState = 'destroyed';
     this.surfacePublication.deactivate();
-    this.lastLaneProbe = freezeLaneSnapshot([
-      ['background-geometry', this.backgroundGeometryLane.label],
-      ['background-assets', this.leaves.backgroundAssetContainer.label],
-      ['ordinary-geometry', this.aggregate.container.label],
-      ['relations-dynamic', this.aggregate.container.label],
-      ['content-assets', this.leaves.contentAssetContainer.label],
-      ['text', this.leaves.textContainer.label],
-      ['interaction-overlay', this.interactionOverlay?.label ?? 'PatchMap / interaction overlay (disabled)'],
-    ]);
+    this.lastLaneProbe = this.emptyLaneProbe();
     this.rootInteractionBindings.destroy();
     this.application.stage.removeChild(this.world);
     this.world.removeChildren();
