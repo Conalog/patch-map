@@ -24,6 +24,15 @@ node verification/conformance/collect-evidence.mjs --snapshot .artifacts/flutter
 node verification/conformance/collect-evidence.mjs .artifacts/flutter/evidence-inputs.json .artifacts/flutter/qualified-evidence.json
 ```
 
+Snapshot revision 2 retains the complete pair identity plus `npm`, `dart`,
+`native`, `android` and `ios` stamps. Receipts may specify `sourceScope` and its
+matching `sourceFingerprint`; omitted scope means the complete pair. A collector
+accepts only its expected runtime/platform scope (or complete pair/native scope).
+Unrelated JS changes can reuse native receipts; changed native inputs, producers,
+actual contracts and prepared bytes still invalidate them. Pair qualification
+always rechecks current contracts and both exact installed artifacts. Markdown
+under `conformance/` does not change the executable contract digest.
+
 The source snapshot covers production, tests/probes, owning docs, native fixture
 and integration producers, and installed-consumer tooling. A snapshot captured
 after execution is current-state verification; mark `sourceSnapshotPhase` as
@@ -40,14 +49,17 @@ their actual build-input hashes with the native snapshot command:
 
 ```sh
 node verification/assets/prepare.mjs flutter
-node verification/conformance/collect-evidence.mjs --native-snapshot .artifacts/flutter/native-build-source.json
+node verification/conformance/collect-evidence.mjs --native-snapshot .artifacts/flutter/native-build-source.json ios
 ```
 
 Snapshots also bind Flutter SDK metadata, package/example manifests and resolved
 locks, and Android/iOS host sources and build settings. Native host inventory uses
 Git's tracked files and non-ignored new files; ignored generated SDK files and
 build caches are excluded. Run collection from the repository root. Native receipts must include
-these inputs as well as prepared assets, and reject missing or changed bytes.
+the selected platform inputs as well as prepared assets, and reject missing or
+changed bytes. Omit the final platform argument only to bind both native hosts.
+Native snapshots expose `sourceScope` and `sourceFingerprint` for the command
+receipt; their separate `fingerprint` also covers the prepared-file inventory.
 
 This command verifies prepared bytes without repairing them. The collector
 requires both canonical inputs and matching prepared asset hashes in the native
@@ -57,7 +69,7 @@ build inputs.
 
 An input config uses this structure (all `path` references also require a real
 `sha256`; every command receipt has actual `exitCode: 0`, the current reviewed
-`sourceFingerprint` and `contractFingerprint`):
+`sourceFingerprint` for its scope and current `contractFingerprint`):
 
 ```json
 {
