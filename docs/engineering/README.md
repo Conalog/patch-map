@@ -1,10 +1,18 @@
 # Engineering fast path
 
+JavaScript source paths and focused commands below are relative to
+`packages/javascript/`. Root commands use the `js:` prefix.
+
 Use this directory to find the current code owner and the smallest credible
-verification set. Product usage belongs in [`docs/`](../README.md); this
-directory owns internal structure and engineering policy.
+verification set. JavaScript usage belongs in the [package docs](../../packages/javascript/docs/README.md);
+Flutter consumer setup belongs in its [package README](../../packages/flutter/README.md).
+This directory owns internal structure, engineering policy and release operations.
 
 ## Start here
+
+For the native Flutter package baseline, read [Flutter development environment](flutter-package.md).
+For npm or Dart versioning and publication, read [Independent release operations](releases.md).
+For shared SVG/font sources and package preparation, read [Shared package assets](shared-assets.md).
 
 1. Find the feature row in [System map](system-map.md).
 2. Read the owning public API page when behavior, ordering, or failure meaning

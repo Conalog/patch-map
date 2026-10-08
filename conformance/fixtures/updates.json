@@ -1,0 +1,487 @@
+{
+  "schemaRevision": "patch-map-conformance/1",
+  "id": "updates",
+  "description": "Authored history and concrete grid overlay separation, null restoration and atomic invalid batch.",
+  "surface": {
+    "width": 480,
+    "height": 520,
+    "pixelRatio": 1,
+    "background": "#f8fafc"
+  },
+  "dataset": [
+    {
+      "type": "group",
+      "id": "group",
+      "attrs": {
+        "x": 24,
+        "y": 28
+      },
+      "children": [
+        {
+          "type": "item",
+          "id": "item",
+          "size": {
+            "width": 80,
+            "height": 110
+          },
+          "padding": 8,
+          "components": [
+            {
+              "type": "background",
+              "id": "background",
+              "source": {
+                "type": "rect",
+                "fill": "#e2e8f0",
+                "radius": 7
+              }
+            },
+            {
+              "type": "bar",
+              "id": "bar",
+              "source": {
+                "type": "rect",
+                "fill": "#2563eb",
+                "radius": 3
+              },
+              "size": {
+                "width": 22,
+                "height": 38
+              },
+              "placement": "bottom",
+              "animation": false
+            },
+            {
+              "type": "icon",
+              "id": "icon",
+              "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+              "size": 12,
+              "placement": "right-top",
+              "tint": "#f59e0b"
+            },
+            {
+              "type": "text",
+              "id": "label",
+              "text": "A",
+              "placement": "top",
+              "style": {
+                "fontSize": 12,
+                "fill": "#0f172a"
+              }
+            }
+          ]
+        },
+        {
+          "type": "rect",
+          "id": "rotated",
+          "attrs": {
+            "x": 130,
+            "y": 18,
+            "angle": 18
+          },
+          "size": {
+            "width": 92,
+            "height": 62
+          },
+          "fill": "#8b5cf6",
+          "radius": 12
+        }
+      ]
+    },
+    {
+      "type": "grid",
+      "id": "grid",
+      "attrs": {
+        "x": 24,
+        "y": 200
+      },
+      "cells": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "gap": {
+        "x": 8,
+        "y": 8
+      },
+      "inactiveCellStrategy": "hide",
+      "item": {
+        "size": {
+          "width": 52,
+          "height": 66
+        },
+        "padding": 5,
+        "components": [
+          {
+            "type": "background",
+            "id": "background",
+            "source": {
+              "type": "rect",
+              "fill": "#e2e8f0",
+              "radius": 7
+            }
+          },
+          {
+            "type": "bar",
+            "id": "bar",
+            "source": {
+              "type": "rect",
+              "fill": "#2563eb",
+              "radius": 3
+            },
+            "size": {
+              "width": 22,
+              "height": 38
+            },
+            "placement": "bottom",
+            "animation": false
+          },
+          {
+            "type": "icon",
+            "id": "icon",
+            "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+            "size": 12,
+            "placement": "right-top",
+            "tint": "#f59e0b"
+          },
+          {
+            "type": "text",
+            "id": "label",
+            "text": "A",
+            "placement": "top",
+            "style": {
+              "fontSize": 12,
+              "fill": "#0f172a"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "relations",
+      "id": "relations",
+      "links": [
+        {
+          "source": "item",
+          "target": "rotated"
+        },
+        {
+          "source": "rotated",
+          "target": "grid.0.4"
+        }
+      ],
+      "style": {
+        "color": "#475569",
+        "width": 2,
+        "alpha": 0.8
+      }
+    },
+    {
+      "type": "image",
+      "id": "image",
+      "attrs": {
+        "x": 280,
+        "y": 36,
+        "angle": -12
+      },
+      "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+      "size": {
+        "width": 42,
+        "height": 42
+      }
+    },
+    {
+      "type": "text",
+      "id": "text",
+      "attrs": {
+        "x": 24,
+        "y": 155
+      },
+      "text": "PatchMap · 한글 · A😀",
+      "style": {
+        "fontSize": 17,
+        "fill": "#0f172a"
+      },
+      "size": {
+        "width": 330,
+        "height": 35
+      }
+    },
+    {
+      "type": "rect",
+      "id": "zone",
+      "attrs": {
+        "x": 352,
+        "y": 200
+      },
+      "size": {
+        "width": 90,
+        "height": 160
+      },
+      "fill": "#dcfce7",
+      "stroke": {
+        "color": "#16a34a",
+        "width": 2
+      },
+      "radius": 10
+    }
+  ],
+  "commands": [
+    {
+      "id": "authored-bar",
+      "op": "update",
+      "input": {
+        "id": "item",
+        "bar": {
+          "height": 48
+        }
+      },
+      "options": {
+        "actionId": "authored-bar"
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "undo",
+      "op": "history.undo",
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "redo",
+      "op": "history.redo",
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "overlay",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "grid.0.0",
+          "grid.0.1"
+        ],
+        "bar": {
+          "height": [
+            12,
+            52
+          ]
+        }
+      },
+      "expect": {
+        "status": "committed",
+        "semanticHashUnchanged": true,
+        "historyUnchanged": true
+      }
+    },
+    {
+      "id": "overlay-reset",
+      "op": "update",
+      "input": {
+        "id": "grid.0.0",
+        "bar": {
+          "height": null
+        }
+      },
+      "expect": {
+        "status": "committed",
+        "semanticHashUnchanged": true,
+        "historyUnchanged": true
+      }
+    },
+    {
+      "id": "atomic-invalid",
+      "op": "updateBatch",
+      "input": {
+        "targets": [
+          "grid.0.0",
+          "missing"
+        ],
+        "bar": {
+          "height": [
+            20,
+            30
+          ]
+        }
+      },
+      "expect": {
+        "snapshotUnchanged": true,
+        "semanticHashUnchanged": true,
+        "historyUnchanged": true,
+        "throws": {
+          "kind": "invalid-argument"
+        }
+      }
+    },
+    {
+      "id": "authored-template-replays-overlay",
+      "op": "transaction",
+      "input": [
+        {
+          "type": "replace",
+          "id": "grid",
+          "value": {
+            "type": "grid",
+            "id": "grid",
+            "attrs": {
+              "x": 24,
+              "y": 200
+            },
+            "cells": [
+              [
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                0,
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                1,
+                1,
+                1
+              ]
+            ],
+            "gap": {
+              "x": 8,
+              "y": 8
+            },
+            "inactiveCellStrategy": "hide",
+            "item": {
+              "size": {
+                "width": 52,
+                "height": 66
+              },
+              "padding": 5,
+              "components": [
+                {
+                  "type": "background",
+                  "id": "background",
+                  "source": {
+                    "type": "rect",
+                    "fill": "#e2e8f0",
+                    "radius": 7
+                  }
+                },
+                {
+                  "type": "bar",
+                  "id": "bar",
+                  "source": {
+                    "type": "rect",
+                    "fill": "#2563eb",
+                    "radius": 3
+                  },
+                  "size": {
+                    "width": 22,
+                    "height": 27
+                  },
+                  "placement": "bottom",
+                  "animation": false
+                },
+                {
+                  "type": "icon",
+                  "id": "icon",
+                  "source": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=",
+                  "size": 12,
+                  "placement": "right-top",
+                  "tint": "#f59e0b"
+                },
+                {
+                  "type": "text",
+                  "id": "label",
+                  "text": "A",
+                  "placement": "top",
+                  "style": {
+                    "fontSize": 12,
+                    "fill": "#0f172a"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "options": {
+        "animate": false
+      },
+      "expect": {
+        "status": "committed"
+      }
+    },
+    {
+      "id": "authored-template-undo-keeps-overlay",
+      "op": "history.undo",
+      "expect": {
+        "status": "committed"
+      }
+    }
+  ],
+  "expected": {
+    "rootIds": [
+      "group",
+      "grid",
+      "relations",
+      "image",
+      "text",
+      "zone"
+    ],
+    "elementTypes": [
+      "group",
+      "grid",
+      "item",
+      "relations",
+      "image",
+      "text",
+      "rect"
+    ],
+    "componentTypes": [
+      "background",
+      "bar",
+      "icon",
+      "text"
+    ]
+  }
+}

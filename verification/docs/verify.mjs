@@ -4,6 +4,7 @@ import path from 'node:path';
 const root = process.cwd();
 const ignoredDirectories = new Set([
   '.artifacts', '.git', 'coverage', 'dist', 'node_modules',
+  '.dart_tool', '.fvm', '.gradle', '.symlinks', 'build', 'Pods',
 ]);
 
 const files = await walk(root);
@@ -59,7 +60,13 @@ async function verifyInlineRepositoryPaths(file, source) {
   for (const match of paths) {
     const destination = match[1];
     if (/[*?[\]<>]/u.test(destination)) continue;
-    const exists = await stat(path.resolve(root, destination))
+    const jsOwned = /^(?:src|tests|performance|examples)\//u.test(destination) || ['vite.config.ts', 'tsconfig.json', 'tsconfig.build.json', 'eslint.config.js'].includes(destination);
+    const packageOwned = relative(file).startsWith('packages/javascript/');
+    const repositoryOwned = destination === '.nvmrc' || destination.startsWith('.github/')
+      || destination.startsWith('docs/engineering/');
+    const ownerRoot = !repositoryOwned && (jsOwned || packageOwned)
+      ? path.resolve(root, 'packages/javascript') : root;
+    const exists = await stat(path.resolve(ownerRoot, destination))
       .then(() => true)
       .catch(() => false);
     if (!exists) {
@@ -70,10 +77,10 @@ async function verifyInlineRepositoryPaths(file, source) {
 
 function verifyDocumentSize(file, source) {
   const name = relative(file);
-  if (!name.startsWith('docs/')) return;
+  if (!name.startsWith('docs/') && !name.startsWith('packages/javascript/docs/')) return;
   const lines = source.split(/\r?\n/u).length;
   const words = source.trim().split(/\s+/u).filter(Boolean).length;
-  const router = name === 'docs/README.md' || name === 'docs/engineering/README.md';
+  const router = name === 'packages/javascript/docs/README.md' || name === 'docs/engineering/README.md';
   const maximumLines = router ? 80 : 120;
   const maximumWords = router ? 600 : 1_200;
   if (lines > maximumLines || words > maximumWords) {

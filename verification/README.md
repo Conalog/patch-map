@@ -1,12 +1,22 @@
-# Verification
+# Shared verification workspace
 
-This root owns deterministic repository and release gates that are not unit
-tests or performance measurements.
+Private `@patch-map/verification` owns repository tooling and its dependencies.
 
-| Owner | Purpose | Command |
+| Owner | Purpose | Root command |
 | --- | --- | --- |
-| `package/` | Build, pack, install, audit, and exercise the public package | `npm run verify:package` |
-| `docs/` | Check documentation links, named paths, and page budgets | `npm run verify:docs` |
-Product behavior belongs in `tests/`; measurements and lifecycle resource
-budgets belong in `performance/`. Generated output stays under ignored
-`.artifacts/` or an explicitly configured release artifact directory.
+| `verification/assets/` | Shared asset inventory, consumers and output preparation | `npm run assets:prepare` |
+| `verification/docs/` | Documentation links, source paths and budgets | `npm run verify:docs` |
+| `verification/flutter/` | Extracted Dart artifact, asset consumer and SDK checks | `npm run flutter:verify` |
+| `verification/conformance/` | Contract inventory, exact comparison and evidence qualification | `npm run verify:tooling` |
+| `.github/scripts/` | Independent release planning, identity and exact publication bytes | `npm run verify:tooling` |
+
+JavaScript unit tests and performance tools belong to `packages/javascript/`;
+its installed package tooling belongs to `packages/javascript/verification/package/`.
+Generated evidence lives under ignored `.artifacts/`. Passing definition and asset
+checks cannot qualify Flutter's pending public runtime.
+
+`npm run verify:typecheck` strictly checks the executable asset catalog and
+preparation modules using `checkJs` and JSDoc, without emitting files. Other
+tooling currently relies on lint and focused execution tests; extend the explicit
+compiler inputs when another module is ready. Virtual consumer tests verify that
+invalid package names, paths, byte operations and catalog mutations are rejected.

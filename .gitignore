@@ -3,3 +3,15 @@ dist/
 .artifacts/
 *.log
 .gstack/
+
+# Workspace build and release evidence
+.release-dart/
+.dart_tool/
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+
+# Prepared from shared/assets; included only in publication artifacts
+/packages/flutter/assets/
+/packages/javascript/docs/assets/fira-code-6.2-license.txt

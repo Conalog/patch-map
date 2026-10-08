@@ -7,6 +7,7 @@ resource lifecycle.
 ## Default loop
 
 ```bash
+cd packages/javascript
 npx vitest run tests/<owner>/<focused>.test.ts --maxWorkers=2
 ```
 
@@ -16,14 +17,14 @@ changes. Do not repeatedly run broad suites while editing: pull-request CI owns
 the complete gate matrix. Use `npm test` locally only when behavior crosses
 several owners or a focused witness cannot cover the changed contract.
 
-Add only the matching gate for broad runtime or release risk:
+Run these forwarding commands from the repository root for runtime or release risk:
 
 ```bash
-npm run build
+npm run js:build
 npm run verify:docs
-npm run verify:package -- --require-audit
-npm run performance:smoke
-npm run verify:memory
+npm run js:verify:package -- --require-audit
+npm run js:performance:smoke
+npm run js:verify:memory
 ```
 
 ## Risk routing
@@ -67,10 +68,37 @@ npm run verify:memory
 
 ## Documentation and package boundaries
 
-- Public behavior and failure meaning live under `docs/`; exact shapes come from
-  exported TypeScript declarations.
+- JavaScript behavior and failure meaning live under `packages/javascript/docs/`;
+  exact shapes come from exported TypeScript declarations. Flutter consumer
+  status lives in its package README until a public runtime is implemented.
 - Internal ownership and gate routing live under `docs/engineering/` and are not
   published in the package.
+- JavaScript Markdown changes keep documentation, npm package and shared contract
+  checks. They do not select Flutter SDK or native host jobs. Mixed changes use
+  the union of affected gates; Flutter, shared assets, tooling and workflow inputs
+  retain their required checks. Non-Markdown documentation assets still select
+  both packages. Registry qualification gates are independent of PR routing.
+- Release metadata is compared between immutable Git revisions. JavaScript-only
+  package and lockfile version changes plus its manifest entry select npm checks;
+  Dart-only manifest entry changes select Flutter checks. Each release retains
+  shared release-tooling and contract checks. Dependency, script, unknown-owner,
+  unreadable or malformed metadata changes retain the broader path-based gates;
+  mixed changes use the union of affected owners. PR names and labels never
+  determine which checks are skipped.
+- Repository tooling (typecheck, lint and tests) runs once in the shared contract
+  job when selected, otherwise in the JavaScript core job. JavaScript static
+  checks remain in the core job regardless of shared contract routing.
+- Planner unit fixtures own their package versions, changelogs and release
+  history; they must not inherit mutable publication artifacts from the current
+  checkout. `node --test verification/release-inputs.test.mjs` runs the release
+  suites in temporary input sandboxes for unreleased, independent JS/Dart,
+  later Dart, beta and stable metadata. The normal tooling gate includes these
+  witnesses and requires the nested suites to actually execute.
+- Selected Flutter verification and Android/iOS host builds start independently
+  after classification. Each prepares its own SDK, assets and dependencies; the
+  final `CI` aggregate waits for both and requires both to succeed. This reduces
+  dependency waiting on successful runs, but host builds may consume runner time
+  even when Flutter verification fails.
 - Routers link to one owner instead of copying contracts.
 - `verify:package` installs the generated tarball and checks ESM, CommonJS,
   declarations, examples, assets, interaction, capture, and teardown.

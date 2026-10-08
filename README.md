@@ -1,52 +1,30 @@
-# PatchMap
+# PatchMap workspace
 
-`@conalog/patch-map` is a PixiJS v8 renderer and interaction runtime for PATCH
-MAP datasets.
+Private repository workspace for independently released JavaScript and Flutter packages.
 
-## Install
+| Owner | Package | Status |
+| --- | --- | --- |
+| `packages/javascript/` | `@conalog/patch-map` | JavaScript renderer, 1.0.0-alpha.9 |
+| `packages/flutter/` | `conalog_patch_map` | Native foundation, 1.0.0-alpha.1; publication blocked |
+| `verification/` | `@patch-map/verification` | Private shared tooling |
+| `conformance/` | Shared behavior targets | Definitions; Flutter runtime witnesses pending |
+
+Use Node.js 22 and `npm ci` at the repository root. JavaScript source, unit tests,
+examples and performance tooling belong to the JavaScript package.
 
 ```sh
-npm install @conalog/patch-map pixi.js
+npm run js:test
+npm run js:build
+npm run js:verify:package -- --require-audit
+npm run flutter:verify
+npm run verify:tooling
+npm run verify:docs
 ```
 
-## Use
-
-```ts
-import { PatchMap } from '@conalog/patch-map';
-
-const patchMap = await PatchMap.mount({
-  container: '#map',
-  data: [{
-    type: 'item',
-    id: 'rack-01',
-    attrs: { x: 40, y: 32 },
-    size: { width: 80, height: 120 },
-    components: [{
-      type: 'bar',
-      id: 'usage',
-      source: { type: 'rect', fill: '#2563eb', radius: 4 },
-      size: { width: '72%', height: '65%' },
-      placement: 'bottom',
-      animation: true,
-      animationDuration: 500,
-    }],
-  }],
-  fit: { padding: 24 },
-});
-
-patchMap.update({
-  id: 'rack-01',
-  bar: { height: 82 },
-});
-
-await patchMap.destroy();
-```
-
-## Documentation
-
-- [Choose a task](./docs/README.md)
-- [Getting started](./docs/getting-started.md)
-- [Host integration](./docs/integration/host.md)
-- [Compatibility](./docs/compatibility.md)
-- [Runnable examples](./examples)
-- [Contributing and engineering](https://github.com/Conalog/patch-map/blob/release/1.0/CONTRIBUTING.md)
+JavaScript installation and usage: [package README](packages/javascript/README.md).
+Flutter consumer setup: [package README](packages/flutter/README.md).
+JavaScript behavior contracts: [package docs](packages/javascript/docs/README.md).
+Repository development: [contributing](CONTRIBUTING.md) and [engineering](docs/engineering/README.md).
+Flutter development environment: [package workflow](docs/engineering/flutter-package.md).
+Independent npm and Dart releases: [release operations](docs/engineering/releases.md).
+Cross-runtime targets and qualification status: [conformance](conformance/README.md).
