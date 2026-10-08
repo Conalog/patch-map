@@ -59,6 +59,23 @@ async function create(input = options()) {
 
 describe('image API', () => {
   it.each(['prototype getter', 'non-enumerable property'] as const)(
+    'rejects malformed transaction options supplied through a %s without changing data', async (shape) => {
+      const { map } = await create();
+      const before = map.data.serialize();
+      try {
+        for (const [key, value] of [['actionId', ''], ['conflictPolicy', 'invalid']] as const) {
+          const input = shape === 'prototype getter'
+            ? Object.create(Object.defineProperty({}, key, { get: () => value })) as PatchMapImageTransactionOptions
+            : Object.defineProperty({}, key, { value }) as PatchMapImageTransactionOptions;
+          expect(map.transaction([{ type: 'update', id: 'panel', bar: { height: 70 } }], input))
+            .toMatchObject({ status: 'rejected', changed: false, diagnostic: { code: 'INVALID_VALUE' } });
+          expect(map.data.serialize()).toBe(before);
+        }
+      } finally { await map.destroy(); }
+    },
+  );
+
+  it.each(['prototype getter', 'non-enumerable property'] as const)(
     'preserves transaction conflict policy supplied through a %s', async (shape) => {
       const { map } = await create();
       const before = map.data.serialize();
