@@ -116,7 +116,7 @@ test('shared contracts select both runtime gates and comparison', () => {
     { fullValidation: true, flutterValidation: false, contractValidation: true });
   assert.equal(requiresFlutterValidation('.github/workflows/ci.yaml'), true);
   for (const path of ['package.json', 'package-lock.json', '.nvmrc', 'verification/package.json',
-    'verification/tsconfig.json', 'verification/eslint.config.js', 'packages/javascript/docs/assets/fira-code-6.2-license.txt']) {
+    'verification/tsconfig.json', 'verification/eslint.config.js']) {
     assert.equal(requiresFlutterValidation(path), true, path);
   }
   assert.equal(classifyChangedPaths([]).flutterValidation, true);
@@ -145,11 +145,11 @@ test('mixed Markdown changes retain all gates required by native, shared or work
     { fullValidation: true, contractValidation: true, flutterValidation: false });
 });
 
-test('non-Markdown documentation assets retain both package checks', () => {
+test('JavaScript documentation assets stay with their consumer', () => {
   for (const path of ['packages/javascript/docs/assets/fira-code-6.2-license.txt',
     'packages/javascript/docs/assets/unreviewed.svg', 'packages/javascript/docs/new-file']) {
     assert.deepEqual(classifyChangedPaths([path]),
-      { fullValidation: true, contractValidation: true, flutterValidation: true }, path);
+      { fullValidation: true, contractValidation: true, flutterValidation: false }, path);
   }
 });
 
@@ -162,7 +162,7 @@ test('Flutter-only changes select the native gate without npm release measuremen
 
 test('Shared assets and preparation select both package gates', () => {
   for (const path of ['shared/assets/icons/object.svg', 'shared/assets/fonts/FiraCode-VF.woff2',
-    'shared/assets/fonts/FiraCode-VF.ttf', 'verification/assets/prepare.mjs']) {
+    'verification/assets/prepare.mjs']) {
     assert.deepEqual(classifyChangedPaths([path]),
       { fullValidation: true, flutterValidation: true, contractValidation: true }, path);
   }
@@ -210,29 +210,65 @@ test('release metadata preserves gates from other affected owners', () => {
   assert.deepEqual(classifyChangedPaths([MANIFEST, `${JS_PATH}/src/index.ts`], { readFile: dart.readFile }), BOTH);
 });
 
-test('npm metadata dependency, tooling and identity changes retain Flutter validation', () => {
+test('JavaScript package dependency and script edits remain npm scoped, invalid identity fails closed', () => {
   for (const mutate of [
-    (after) => { after[`${JS_PATH}/package.json`].scripts.build = 'new build'; },
-    (after) => { after[`${JS_PATH}/package.json`].dependencies = { yaml: '2.9.2' }; },
-    (after) => { after[`${JS_PATH}/package.json`].name = 'different-package'; },
+    (pkg) => { pkg.scripts.build = 'new build'; },
+    (pkg) => { pkg.dependencies = { yaml: '2.9.2' }; },
   ]) {
     const { after, readFile } = metadataFixture();
-    updateJsVersion(after);
-    mutate(after);
-    assert.deepEqual(classifyChangedPaths([`${JS_PATH}/package.json`], { readFile }), BOTH);
+    mutate(after[`${JS_PATH}/package.json`]);
+    assert.deepEqual(classifyChangedPaths([`${JS_PATH}/package.json`], { readFile }), JS_ONLY);
+  }
+  const { after, readFile } = metadataFixture();
+  after[`${JS_PATH}/package.json`].name = 'different-package';
+  assert.deepEqual(classifyChangedPaths([`${JS_PATH}/package.json`], { readFile }), BOTH);
+});
+
+test('lock routing compares JavaScript and verifier dependency closures', () => {
+  const fixture = () => {
+    const result = metadataFixture();
+    const lock = result.before['package-lock.json'];
+    lock.packages[JS_PATH].dependencies = { js: '1.0.0' };
+    lock.packages['node_modules/js'] = { version: '1.0.0', dependencies: { transitive: '1.0.0' } };
+    lock.packages['node_modules/transitive'] = { version: '1.0.0', integrity: 'original' };
+    result.after['package-lock.json'] = structuredClone(lock);
+    return result;
+  };
+  for (const [record, key, value, expected] of [
+    ['node_modules/js', 'version', '1.0.1', JS_ONLY],
+    ['node_modules/transitive', 'integrity', 'changed', JS_ONLY],
+    ['node_modules/yaml', 'version', '2.9.2', BOTH],
+    ['verification', 'name', 'different-verifier', BOTH],
+    [JS_PATH, 'dependencies', { js: '^1.0.0' }, JS_ONLY],
+    ['', 'name', 'different-root', BOTH],
+    [JS_PATH, 'name', 'different-js', BOTH],
+  ]) {
+    const { after, readFile } = fixture();
+    after['package-lock.json'].packages[record][key] = value;
+    assert.deepEqual(classifyChangedPaths(['package-lock.json'], { readFile }), expected, `${record}:${key}`);
   }
   for (const mutate of [
-    (lock) => { lock.packages['node_modules/yaml'].version = '2.9.2'; },
-    (lock) => { lock.packages['node_modules/yaml'].integrity = 'different-integrity'; },
-    (lock) => { lock.packages.verification.devDependencies.yaml = '2.9.2'; },
     (lock) => { delete lock.packages.verification; },
-    (lock) => { lock.packages[JS_PATH].devDependencies = { vite: 'new-version' }; },
+    (lock) => { delete lock.packages['node_modules/transitive']; },
     (lock) => { lock.lockfileVersion = 2; },
+    (lock) => { lock.packages['node_modules/unowned'] = { version: '1.0.0' }; },
   ]) {
-    const { after, readFile } = metadataFixture();
-    updateJsVersion(after);
+    const { after, readFile } = fixture();
     mutate(after['package-lock.json']);
     assert.deepEqual(classifyChangedPaths(['package-lock.json'], { readFile }), BOTH);
+  }
+});
+
+test('consumer paths isolate native font inputs and JavaScript configuration', () => {
+  for (const path of ['shared/assets/fonts/FiraCode-VF.ttf', 'shared/assets/fonts/provenance.json']) {
+    assert.deepEqual(classifyChangedPaths([path]), DART_ONLY, path);
+  }
+  for (const path of [`${JS_PATH}/package.json`, `${JS_PATH}/tsconfig.json`, `${JS_PATH}/tsconfig.build.json`]) {
+    assert.deepEqual(classifyChangedPaths([path]), JS_ONLY, path);
+  }
+  for (const path of ['shared/assets/unreviewed.svg', 'verification/assets/prepare.test.mjs',
+    'verification/dependencies/closure.mjs', 'unknown/input.json']) {
+    assert.deepEqual(classifyChangedPaths([path]), BOTH, path);
   }
 });
 
@@ -316,4 +352,15 @@ test('the CI aggregate accepts intentional package skips and rejects missing req
     { ...dart, NATIVE_RESULT: 'skipped' }, { ...dart, CONTRACT_RESULT: 'skipped' },
     { ...js, CLASSIFIER_RESULT: 'failure' }, { ...js, FULL_VALIDATION: '' },
   ]) assert.throws(() => run(values));
+});
+
+test('mixed JS dependency patches and unowned lock records retain both runtime gates', () => {
+  const { before, after, readFile } = metadataFixture();
+  for (const side of [before, after]) {
+    side['package-lock.json'].packages[JS_PATH].dependencies = { pixi: '1.0.0' };
+    side['package-lock.json'].packages['node_modules/pixi'] = { version: '1.0.0' };
+  }
+  after['package-lock.json'].packages['node_modules/pixi'].version = '1.0.1';
+  after['package-lock.json'].packages['node_modules/unowned'] = { version: '1.0.0' };
+  assert.deepEqual(classifyChangedPaths(['package-lock.json'], { readFile }), BOTH);
 });
