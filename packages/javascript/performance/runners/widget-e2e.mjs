@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { execFileSync, spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { cp, mkdir, readFile, writeFile, symlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { hashText as hash, summarizeSamples } from '../benchmark/report.mjs';
+import { startFootprintSampler, measurementHelperDigests } from '../probes/image/sampler.mjs';
 import { argumentValue } from '../browser-options.mjs';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const workspaceRoot=path.resolve(root,'../..'),argv=process.argv.slice(2);
@@ -21,12 +22,11 @@ const protocol={warmups:smoke?0:2,measured:smoke?1:7,sizes:smoke?[5000]:[5000,70
  milestone:'HTTP request dispatched -> full response image received, includes model/data/browser/destroy/close',
  upstream:'local frozen Patch API HTTP replay and cached assets; excludes remote production network variance',
  acceptance:'output/workload/lifecycle gates; no predeclared latency or memory performance budget'};
-const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const git=(cwd,...args)=>execFileSync('git',args,{cwd,encoding:'utf8'}).trim();
 const jpegSize=bytes=>{
  let offset=2;while(offset<bytes.length){while(bytes[offset]===0xff)offset++;const marker=bytes[offset++];if(marker===0xd9||marker===0xda)break;const length=bytes.readUInt16BE(offset);if([0xc0,0xc1,0xc2].includes(marker))return[bytes.readUInt16BE(offset+5),bytes.readUInt16BE(offset+3)];offset+=length;}throw new Error('JPEG dimensions missing');
 };
-const stats=values=>{const sorted=[...values].sort((a,b)=>a-b);return{samples:values,min:sorted[0],median:sorted[Math.floor(sorted.length/2)],p95:sorted[Math.ceil(sorted.length*.95)-1],max:sorted.at(-1)};};
+const stats=values=>summarizeSamples(values,'widget E2E samples',{upperMedian:true});
 await mkdir(output,{recursive:false});
 const snapshot=path.join(output,'widget-snapshot');await mkdir(snapshot);
 for(const name of ['src','assets','package.json','package-lock.json'])await cp(path.join(widgetRoot,name),path.join(snapshot,name),{recursive:true});
@@ -45,13 +45,14 @@ await cp(path.join(snapshot,'src/renderer/render.js'),path.join(snapshot,'src/re
 await cp(path.join(root,'performance/probes/widget-e2e/renderer.mjs'),path.join(snapshot,'src/renderer/image-renderer.js'));
 await writeFile(path.join(snapshot,'src/renderer/render.js'),`import { buildDocument, resolveOutputDimensions } from './legacy-render.js';\nimport { renderImage as imageRender } from './image-renderer.js';\nexport const renderImage=(model,output,base,options)=>imageRender(model,output,base,{...options,buildDocument,resolveOutputDimensions});\n`);
 await writeFile(path.join(snapshot,'src/renderer/browser-entry.js'),await readFile(path.join(root,'performance/probes/widget-e2e/browser.mjs')));
+await cp(path.join(root,'performance/probes/image/webgl-observation.mjs'),path.join(snapshot,'src/renderer/webgl-observation.mjs'));
 const bundleScript=`import {build} from 'esbuild';await build({entryPoints:[${JSON.stringify(path.join(snapshot,'src/renderer/browser-entry.js'))}],bundle:true,format:'esm',platform:'browser',target:'es2022',minify:true,outfile:${JSON.stringify(path.join(snapshot,'assets/image-client.js'))},alias:{'@conalog/patch-map/image':${JSON.stringify(path.join(output,'patch-map-build/image.js'))}}});`;
 execFileSync(process.execPath,['--input-type=module','-e',bundleScript],{cwd:snapshot,stdio:'inherit'});
 await writeFile(path.join(snapshot,'src/renderer/render-assets.js'),`import fs from 'node:fs';import path from 'node:path';import{fileURLToPath}from'node:url';\nconst root=path.resolve(fileURLToPath(new URL('../..',import.meta.url)));\nexport function serveRendererAsset(req,res){let name;if(req.url==='/__renderer/image-client.js')name='assets/image-client.js';if(/^\\/__renderer\\/icons\\/(ess|inverter-frame)\\.svg$/.test(req.url))name='assets/icons/'+path.basename(req.url);if(!name)return false;res.writeHead(200,{'content-type':name.endsWith('.svg')?'image/svg+xml':'text/javascript','access-control-allow-origin':'*'});res.end(fs.readFileSync(path.join(root,name)));return true;}\n`);
 const identity={libraryCommit:git(root,'rev-parse','HEAD'),librarySourceSha256:sourceSha,
  widgetCommit:git(widgetRoot,'rev-parse','HEAD'),widgetWorkingTreeStatus:git(widgetRoot,'status','--short'),widgetDigests,fixtures,
  consumerBundleSha256:hash(await readFile(path.join(snapshot,'assets/image-client.js'))),
- runnerSha256:hash(await readFile(new URL(import.meta.url))),
+ runnerSha256:hash(await readFile(new URL(import.meta.url))),measurementHelpers:await measurementHelperDigests(),
  probeDigests:Object.fromEntries(await Promise.all(['browser.mjs','renderer.mjs','server.mjs'].map(async name=>[name,hash(await readFile(path.join(root,'performance/probes/widget-e2e',name)))])))};
 const environment={node:process.version,cpu:os.cpus()[0].model,memoryBytes:os.totalmem(),osRelease:os.release(),chrome};
 await writeFile(path.join(output,'contract.json'),JSON.stringify({identity,protocol,environment},null,2));
@@ -68,13 +69,10 @@ try{
   const phase=round<protocol.warmups?'warmup':'measured';const label=`${phase}-${round}-${size}`;
   const directory=path.join(output,label);await mkdir(directory);
   await(await fetch(base+'/__e2e/reset')).text();
-  const samples=[];let buffer='',samplerError='';
-  const sampler=spawn('python3',[path.join(root,'performance/probes/image/sample.py'),String(process.pid)]);const samplerExit=once(sampler,'exit');
-  sampler.stdout.on('data',chunk=>{buffer+=chunk;const lines=buffer.split('\n');buffer=lines.pop();for(const line of lines)if(line)samples.push(JSON.parse(line));});
-  sampler.stderr.on('data',chunk=>samplerError+=chunk);
+  const sampler=startFootprintSampler(process.pid);const {samples}=sampler;
   const row={label,size,phase,loadBefore:os.loadavg()};
   try{
-   const wait=Date.now();while(!samples.length){if(sampler.exitCode!==null||Date.now()-wait>10000)throw new Error('sampler failed: '+samplerError);await new Promise(r=>setTimeout(r,10));}
+   await sampler.ready();
    const request={...requestTemplate,output:{width:size,height:size,antialias:true}};
    row.requestSha256=hash(JSON.stringify(request));row.startEpochMs=Date.now();const t=performance.now();
    const response=await fetch(base+'/plant-map/render',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer local-benchmark','account-type':'manager'},body:JSON.stringify(request),signal:AbortSignal.timeout(60000)});
@@ -83,6 +81,7 @@ try{
    const meta=await(await fetch(base+'/__e2e/meta')).json();row.meta=meta;
    row.loadAfter=os.loadavg();
    await new Promise(r=>setTimeout(r,100));
+   sampler.assertRunning();
    const primary=samples.filter(s=>s.epochMs>=row.startEpochMs&&s.epochMs<=row.endEpochMs);
    const roles=new Map(meta.timing.processInfo.processInfo.map(p=>[p.id,p.type]));
    const peak=fn=>Math.max(0,...primary.map(fn));
@@ -95,7 +94,7 @@ try{
    await writeFile(path.join(directory,'output.jpg'),bytes);
    row.status='pass';
   }catch(error){row.status='fail';row.failure=String(error.stack??error);}
-  finally{sampler.kill('SIGTERM');await samplerExit;await writeFile(path.join(directory,'samples.jsonl'),samples.map(s=>JSON.stringify(s)).join('\n')+'\n');await writeFile(path.join(directory,'result.json'),JSON.stringify(row,null,2));}
+  finally{await sampler.stop();await writeFile(path.join(directory,'samples.jsonl'),samples.map(s=>JSON.stringify(s)).join('\n')+'\n');await writeFile(path.join(directory,'result.json'),JSON.stringify(row,null,2));}
   raw.push(row);console.log(JSON.stringify({label,status:row.status,responseMs:row.responseMs,peakGiB:row.memory?.peakTotalMiB/1024,failure:row.failure}));
   if(row.status!=='pass')throw new Error(`${label} failed; raw evidence retained`);
  }

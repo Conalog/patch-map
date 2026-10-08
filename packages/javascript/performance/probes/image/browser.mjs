@@ -1,12 +1,9 @@
 import { PatchMap } from '/dist/image.js';
+import { observeImageWebGL } from './webgl-observation.mjs';
 
 window.runImageBenchmark = async ({ model, assets, size, format }) => {
   let session;
   let image;
-  let canvas;
-  const tileAllocations = [];
-  const readback = { calls: 0, buffers: 0, requestedBytes: 0, maxCapacityBytes: 0 };
-  let gl;
   const timings = {};
   const phase = async (name, operation) => {
     const start = performance.now();
@@ -71,30 +68,8 @@ window.runImageBenchmark = async ({ model, assets, size, format }) => {
   }
 
   const before = JSON.stringify(model);
-  const originalGetContext = HTMLCanvasElement.prototype.getContext;
-  HTMLCanvasElement.prototype.getContext = function (...args) {
-    const context = originalGetContext.apply(this, args);
-    if (args[0] === 'webgl2' && context && args[1]?.depth === false) {
-      canvas = this; gl = context;
-      const buffers = new WeakSet();
-      const nativeRead = gl.readPixels;
-      gl.readPixels = function (...args) {
-        const pixels = args[6];
-        if (ArrayBuffer.isView(pixels)) {
-          readback.calls++; readback.requestedBytes += args[2] * args[3] * 4;
-          if (!buffers.has(pixels.buffer)) { buffers.add(pixels.buffer); readback.buffers++; }
-          readback.maxCapacityBytes = Math.max(readback.maxCapacityBytes, pixels.byteLength);
-        }
-        return nativeRead.apply(this, args);
-      };
-      const allocate = gl.renderbufferStorageMultisample;
-      gl.renderbufferStorageMultisample = function (target, samples, format, width, height) {
-        allocate.call(this, target, samples, format, width, height);
-        tileAllocations.push({ samples: this.getRenderbufferParameter(target, this.RENDERBUFFER_SAMPLES), width, height });
-      };
-    }
-    return context;
-  };
+  const observation = observeImageWebGL();
+  const { tileAllocations, readback } = observation;
   const start = performance.now();
   let batches;
   let surface;
@@ -104,7 +79,8 @@ window.runImageBenchmark = async ({ model, assets, size, format }) => {
         data: model.blueprint, width: size, height: size, fit: model.fit,
         antialias: model.antialias, background: '#ffffff', zoomLimits: [0.1, 30], assets,
       }));
-    } finally { HTMLCanvasElement.prototype.getContext = originalGetContext; }
+    } finally { observation.restore(); }
+    const { canvas, gl } = observation;
     const debug = gl?.getExtension('WEBGL_debug_renderer_info');
     surface = {
       backingSize: [size, size], gpuCanvasSize: [canvas?.width, canvas?.height], tileAllocations, readback, context: gl ? 'webgl2' : null,

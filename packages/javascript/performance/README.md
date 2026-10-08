@@ -18,6 +18,13 @@ Benchmark smoke and probe success establish harness correctness and lifecycle
 invariants. Timing results are measurements, not regression claims, until a
 comparable baseline and predeclared budget exist for the same environment.
 
+`benchmark/report.mjs` owns shared sample summaries and SHA-256 hashing. Image
+and widget E2E runners retain their upper-median convention for even sample
+counts. Both use `probes/image/sampler.mjs` for streamed native samples, bounded
+startup with exit/error diagnostics, and idempotent process cleanup.
+`probes/image/webgl-observation.mjs` owns the shared AA4 allocation and readback
+observations. Both runners hash these shared helpers in `contract.json`.
+
 ## Image API baseline
 
 `performance/runners/image.mjs` measures the built `dist/image.js` public API

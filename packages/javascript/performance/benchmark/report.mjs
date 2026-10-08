@@ -11,23 +11,20 @@ import {
   isRecord,
 } from './protocol.mjs';
 
-function percentile(values, quantile) {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((left, right) => left - right);
-  return sorted[Math.max(0, Math.ceil(sorted.length * quantile) - 1)];
-}
-function stats(values, label) {
+/** Preserve image runners' upper median for even-sized sample sets. */
+export function summarizeSamples(values, label, { upperMedian = false } = {}) {
   assert(
     values.length > 0
       && values.every((value) => typeof value === 'number' && Number.isFinite(value)),
     `${label} finite samples`,
   );
+  const sorted = [...values].sort((left, right) => left - right);
   return {
     samples: values,
-    min: Math.min(...values),
-    median: percentile(values, 0.5),
-    p95: percentile(values, 0.95),
-    max: Math.max(...values),
+    min: sorted[0],
+    median: sorted[upperMedian ? Math.floor(sorted.length / 2) : Math.ceil(sorted.length / 2) - 1],
+    p95: sorted[Math.ceil(sorted.length * 0.95) - 1],
+    max: sorted.at(-1),
   };
 }
 
@@ -96,7 +93,7 @@ export async function summarizeBenchmark(raw, runInfo) {
   const phaseValues = allMeasured.flatMap((trial) =>
     phaseNames.map((name) => trial.phases[name]));
   const firstFrameStats = raw.runs.map((run) =>
-    stats(
+    summarizeSamples(
       run.measuredRaw.map((trial) => trial.phases.firstUsefulFrameMs),
       `${String(run.size)} first useful frame`,
     ));
@@ -105,7 +102,7 @@ export async function summarizeBenchmark(raw, runInfo) {
     assert(isRecord(run), `${size} bulk complexity run`);
     const samples = run.measuredRaw.flatMap((trial) =>
       trial.visible.bulk.slice(0, 1).map((entry) => entry.actionToVisibleMs));
-    return { size, p95: stats(samples, `${size} bulk action`).p95 };
+    return { size, p95: summarizeSamples(samples, `${size} bulk action`).p95 };
   });
   const complexityExponentMax = Math.max(
     0,
@@ -165,8 +162,8 @@ export async function summarizeBenchmark(raw, runInfo) {
         samplesPerWorkload: MEASURED,
         warmupsPerWorkload: WARMUPS,
         longTaskAtLeast100Ms: longTasks.filter((duration) => duration >= 100).length,
-        frameGapP95Ms: stats(allFrameGaps, 'matrix frame gaps').p95,
-        actionToVisibleP95Ms: stats(allVisible, 'matrix action-to-visible').p95,
+        frameGapP95Ms: summarizeSamples(allFrameGaps, 'matrix frame gaps').p95,
+        actionToVisibleP95Ms: summarizeSamples(allVisible, 'matrix action-to-visible').p95,
         rawTimingSamples: raw.runs.map((run) => ({
           size: run.size,
           actionToVisibleMs: run.measuredRaw.flatMap(
@@ -194,29 +191,29 @@ export async function summarizeBenchmark(raw, runInfo) {
       },
       bar: {
         longTaskAtLeast100Ms: longTasksForRun(run2k),
-        actionToVisibleP95Ms: stats(barAction, 'bar action-to-visible').p95,
-        frameGapP95Ms: stats(barFrames, 'bar frame gaps').p95,
+        actionToVisibleP95Ms: summarizeSamples(barAction, 'bar action-to-visible').p95,
+        frameGapP95Ms: summarizeSamples(barFrames, 'bar frame gaps').p95,
         rawTimingSamples: run2k.measuredRaw.map((trial) => trial.visible.bar),
       },
       text: {
         longTaskAtLeast100Ms: longTasksForRun(run2k),
-        actionToVisibleP95Ms: stats(textAction, 'text action-to-visible').p95,
+        actionToVisibleP95Ms: summarizeSamples(textAction, 'text action-to-visible').p95,
         rawTimingSamples: run2k.measuredRaw.map((trial) => trial.visible.text),
       },
       bulk: {
         longTaskAtLeast100Ms: longTasksForRun(run5k),
-        actionToVisibleP95Ms: stats(bulkAction, 'bulk action-to-visible').p95,
+        actionToVisibleP95Ms: summarizeSamples(bulkAction, 'bulk action-to-visible').p95,
         complexityExponentMax,
         bulkP95BySize,
         rawTimingSamples: run5k.measuredRaw.map((trial) => trial.visible.bulk),
       },
       interaction: {
         longTaskAtLeast100Ms: longTasksForRun(run5k),
-        inputToVisibleP95Ms: stats(
+        inputToVisibleP95Ms: summarizeSamples(
           interactionAction,
           'interaction input-to-visible',
         ).p95,
-        frameGapP95Ms: stats(interactionFrames, 'interaction frame gaps').p95,
+        frameGapP95Ms: summarizeSamples(interactionFrames, 'interaction frame gaps').p95,
         rawTimingSamples: run5k.measuredRaw.map(
           (trial) => trial.visible.interaction,
         ),
@@ -238,7 +235,7 @@ function loadTimingRow(run) {
     size: run.size,
     phases: Object.fromEntries(names.map((name) => [
       name,
-      stats(
+      summarizeSamples(
         run.measuredRaw.map((trial) => trial.phases[name]),
         `${String(run.size)} ${name}`,
       ),

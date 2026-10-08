@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-import { execFileSync, spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { once } from 'node:events';
+import { execFileSync } from 'node:child_process';
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { hashText as hash, summarizeSamples } from '../benchmark/report.mjs';
+import { startFootprintSampler, measurementHelperDigests } from '../probes/image/sampler.mjs';
 import { argumentValue, parsePatchMapBrowserLaunch } from '../browser-options.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -30,13 +30,8 @@ const protocol = { warmups: smoke ? 0 : 2, measured: smoke ? 1 : 7, sizes: smoke
   invariants: ['hardware WebGL2, AA4, exact dimensions/MIME, all updates accepted',
     'unchanged input, nonblank stable pixels per case, no DOM canvas, fonts released, browser closed'],
 };
-const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
-const stats = values => {
-  const sorted = [...values].sort((a,b) => a-b);
-  return { samples: values, min: sorted[0], median: sorted[Math.floor(sorted.length/2)],
-    p95: sorted[Math.ceil(sorted.length*0.95)-1], max: sorted.at(-1) };
-};
+const stats = values => summarizeSamples(values, 'image samples', { upperMedian: true });
 await mkdir(output, { recursive: false });
 // Freeze the exact build and input bytes; subsequent source edits cannot change this run.
 await cp(path.join(root, 'dist'), path.join(output, 'build'), { recursive: true });
@@ -67,6 +62,7 @@ const { readdir } = await import('node:fs/promises');
 const artifactFiles = (await readdir(path.join(output, 'build'))).filter(name => /\.(js|cjs)$/.test(name)).sort();
 const buildDigests = Object.fromEntries(await Promise.all(artifactFiles.map(async name => [name, hash(await readFile(path.join(output,'build',name)))])));
 const probeBytes = await readFile(path.join(root,'performance/probes/image/browser.mjs'));
+await cp(path.join(root,'performance/probes/image/webgl-observation.mjs'),path.join(output,'webgl-observation.mjs'));
 await writeFile(path.join(output,'entry.mjs'),probeBytes.toString().replace("'/dist/image.js'","'./build/image.js'"));
 // Consumer bundling runs in a separate process which exits before native sampling.
 const bundlerConfig = { root:output, configFile:false, logLevel:'error', build:{
@@ -80,7 +76,7 @@ const consumerDigests = Object.fromEntries(await Promise.all(consumerFiles.map(a
 const identity = { consumerDigests, codeCommit: git('rev-parse','HEAD'), productionSourceSha256: sourceIdentity,
   lockSha256: hash(await readFile(path.join(workspaceRoot, 'package-lock.json'))), buildDigests, fixtureFiles,
   modelSha256: hash(modelBytes), runnerSha256: hash(await readFile(new URL(import.meta.url))),
-  probeSha256: hash(probeBytes), samplerSha256: hash(await readFile(path.join(root, 'performance/probes/image/sample.py'))) };
+  probeSha256: hash(probeBytes), measurementHelpers: await measurementHelperDigests(), samplerSha256: hash(await readFile(path.join(root, 'performance/probes/image/sample.py'))) };
 const environment = { node: process.version, platform: process.platform, architecture: process.arch,
   osRelease: os.release(), cpuModel: os.cpus()[0].model, logicalCpus: os.cpus().length,
   systemMemoryBytes: os.totalmem(), browserTarget: launch.target, executablePath: launch.executablePath,
@@ -142,19 +138,13 @@ try {
       const label = `${phase}-${round}-${spec.size}-${spec.format}`;
       const directory = path.join(output,label); await mkdir(directory,{recursive:true});
       active = {};
-      const samples = []; let sampleBuffer = '';
-      const sampler = spawn('python3',[path.join(root,'performance/probes/image/sample.py'),String(process.pid)]);
-      const samplerExit = once(sampler,'exit');
-      sampler.stdout.on('data', chunk => {
-        sampleBuffer += chunk;
-        const lines = sampleBuffer.split('\n'); sampleBuffer = lines.pop();
-        for (const line of lines) if (line) samples.push(JSON.parse(line));
-      });
+      const sampler = startFootprintSampler(process.pid);
+      const { samples } = sampler;
       let browser;
       const row = { label,phase,...spec, errors: [],stages:{},loadBefore:os.loadavg() };
       const stage = async (name,fn) => { const t = performance.now(); try { return await fn(); } finally { row.stages[name] = performance.now()-t; } };
       try {
-        while(samples.length===0) await new Promise(resolve=>setTimeout(resolve,10));
+        await sampler.ready();
         row.startEpochMs = Date.now(); const start = performance.now();
         browser = await stage('browserLaunchMs',() => chromium.launch(launch.launchOptions));
         environment.browserVersion = browser.version();
@@ -190,6 +180,7 @@ try {
         const roles = new Map([...initialProcesses.processInfo,...finalProcesses.processInfo].map(p=>[p.id,p.type]));
         // Leave the sampler an opportunity to receive its latest line without widening the measurement window.
         await new Promise(resolve=>setTimeout(resolve,100));
+        sampler.assertRunning();
         const primary = samples.filter(s=>s.epochMs>=row.startEpochMs && s.epochMs<=row.profileEndEpochMs);
         const rolePeak = role => peak(primary,s=>s.processes.filter(p=>roles.get(p.pid)===role).reduce((sum,p)=>sum+p.footprintMiB,0));
         row.memory = { sampleCount:primary.length, maxSamplingGapMs:peak(primary.slice(1),(s)=>s.epochMs-primary[primary.indexOf(s)-1].epochMs),
@@ -213,7 +204,7 @@ try {
         row.status='pass';
       } catch(error) { row.status='fail'; row.failure=String(error.stack??error); }
       finally {
-        await browser?.close(); sampler.kill('SIGTERM'); await samplerExit;
+        try { await browser?.close(); } finally { await sampler.stop(); }
         await writeFile(path.join(directory,'samples.jsonl'),samples.map(s=>JSON.stringify(s)).join('\n')+'\n');
         await writeFile(path.join(directory,'result.json'),JSON.stringify(row,null,2));
         active=null;
