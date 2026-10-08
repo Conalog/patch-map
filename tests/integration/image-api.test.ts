@@ -126,6 +126,14 @@ describe('image API', () => {
     expect(factory).not.toHaveBeenCalled();
   });
 
+  it.each(['width', 'height'] as const)('rejects overflowing canvas %s before allocation', async (axis) => {
+    for (const value of [2 ** 32, 2 ** 32 + 1, Number.MAX_SAFE_INTEGER]) {
+      const factory = vi.fn();
+      await expect(createImagePatchMap(options({ [axis]: value }), factory)).rejects.toThrow('canvas dimension range');
+      expect(factory).not.toHaveBeenCalled();
+    }
+  });
+
   it('destroys an initialized surface when dataset admission fails', async () => {
     let surface!: ImageSurface;
     await expect(createImagePatchMap(options({ data: [{ type: 'unknown', id: 'bad' }] }), (value) => {

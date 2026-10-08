@@ -56,6 +56,15 @@ async function createVerifiedImage(options) {
 }
 
 async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount: 0 }) {
+  let dimensionOverflowRejected = true;
+  for (const dimensions of [{ width: 4294967297, height: 1 }, { width: 1, height: 4294967297 }]) {
+    let unexpected;
+    let rejected = false;
+    try { unexpected = await ImagePatchMap.create({ data: [], fit: false, ...dimensions }); }
+    catch (error) { if (!(error instanceof RangeError)) throw error; rejected = true; }
+    finally { await unexpected?.destroy(); }
+    dimensionOverflowRejected &&= rejected;
+  }
   const input = [
     { type: 'rect', id: 'image-square', show: true, attrs: { x: 40, y: 30 }, size: { width: 80, height: 80 }, fill: '#ff0000' },
     {
@@ -165,11 +174,12 @@ async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount
     createType: typeof ImagePatchMap.create, pngSize, jpegSize, pngPixels, jpegPixels,
     finalBarPixels, transparentPixels, tiledPixels, tileWitness, aa4Released, readbackReused, resolvedOncePerTile, readbacks: imageReadbacks, fontsReady, detached, released, cycles: 5,
     textPixels,
+    dimensionOverflowRejected,
     immutable: JSON.stringify(input) === before,
   };
   if (!result.pngPixels || !result.jpegPixels || !result.finalBarPixels || !result.transparentPixels ||
       !result.tiledPixels || !result.aa4Released || !result.readbackReused || !result.resolvedOncePerTile || !result.fontsReady || !result.detached || !result.released || !result.immutable ||
-      !result.textPixels) {
+      !result.textPixels || !result.dimensionOverflowRejected) {
     throw new Error('packed image API failed: ' + JSON.stringify(result));
   }
   return result;

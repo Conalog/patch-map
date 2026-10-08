@@ -35,7 +35,9 @@ buffers, which these rendering lanes do not use. Image output always enables
 antialiasing and requires an AA4 (four-sample) render target; `antialias: false`
 is rejected before allocation. It accepts the same dataset, assets, theme, fit,
 and update inputs as the root product. Width and height are required positive integers in final output
-pixels, independent of device pixel ratio. `data: []` creates an empty session.
+pixels, independent of device pixel ratio. Dimensions above 4,294,967,295 are
+rejected before allocation to prevent Canvas integer wrapping; browser canvas
+limits can be lower. `data: []` creates an empty session.
 Initial fit defaults to 24 pixels of padding. `viewport.initial` takes precedence
 over fit. Mutations return the same committed/unchanged/rejected/refused results
 as root mutations; handle rejection before rendering.

@@ -56,7 +56,7 @@ export function collectPackageFailures({
   if (esm.imageEntry?.createType !== 'function' || esm.imageEntry?.cycles !== 5 ||
       JSON.stringify(esm.imageEntry?.pngSize) !== JSON.stringify([320, 180]) ||
       JSON.stringify(esm.imageEntry?.jpegSize) !== JSON.stringify([320, 180]) ||
-      ['pngPixels', 'jpegPixels', 'finalBarPixels', 'transparentPixels', 'tiledPixels', 'aa4Released', 'readbackReused', 'fontsReady', 'detached', 'released', 'immutable']
+      ['pngPixels', 'jpegPixels', 'finalBarPixels', 'transparentPixels', 'tiledPixels', 'aa4Released', 'readbackReused', 'fontsReady', 'detached', 'released', 'immutable', 'dimensionOverflowRejected']
         .some((key) => esm.imageEntry?.[key] !== true)) failures.push('packed image session failed');
   if (
     esm.internalExportsAbsent !== true

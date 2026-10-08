@@ -68,9 +68,10 @@ function validateOptions(options: PatchMapImageOptions): void {
     throw new TypeError('Image sessions require antialias: true');
   }
   if (options.data === undefined) throw new TypeError('PatchMap.create requires data; use [] for an empty map');
-  if (!Number.isSafeInteger(options.width) || options.width <= 0 ||
-      !Number.isSafeInteger(options.height) || options.height <= 0) {
-    throw new RangeError('width and height must be positive integers in output pixels');
+  // Canvas dimensions are WebIDL unsigned longs; larger values silently wrap.
+  if (!Number.isSafeInteger(options.width) || options.width <= 0 || options.width > 0xffff_ffff ||
+      !Number.isSafeInteger(options.height) || options.height <= 0 || options.height > 0xffff_ffff) {
+    throw new RangeError('width and height must be positive integers in output pixels within the canvas dimension range');
   }
   if (options.viewport !== undefined) {
     if (options.viewport === null || typeof options.viewport !== 'object' || Array.isArray(options.viewport)) {
