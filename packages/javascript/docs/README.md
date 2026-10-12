@@ -15,7 +15,8 @@ repeat feature contracts.
 | Handle hover, tooltip, click, box selection, or transformer paint | [Pointer and selection](api/pointer-and-selection.md) |
 | Pan, zoom, fit, persist a viewport, or transform a target | [Viewport and transforms](api/viewport-and-transform.md) |
 | Apply transient grid or keyed presentation | [Presentation](api/presentation.md) |
-| Create a detached PNG/JPEG image session | [Image output](api/image.md) |
+| Create PNG/JPEG images, choose batching/reuse, and control host cost | [Image output and recommended usage](api/image.md) |
+| Implement one-shot/variant image jobs or a bounded CPU service | [Image job recipes](integration/image-jobs.md) |
 | Register images, inspect readiness, or capture PNG | [Assets and capture](api/assets-and-capture.md) |
 | Understand text layout, font matching, or fallback | [Text](api/text.md) |
 | Audit packaged font bytes, provenance, or license | [Packaged fonts](assets/fonts.md) |

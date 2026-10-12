@@ -114,9 +114,9 @@ export function collectPackageFailures({
   ) failures.push('packed production build did not use the tarball product');
   if (
     JSON.stringify(examples.compiledExamples)
-      !== JSON.stringify(['minimal', 'dashboard', 'editor', 'report'])
+      !== JSON.stringify(['minimal', 'dashboard', 'editor', 'report', 'image'])
     || JSON.stringify(examples.executedExamples)
-      !== JSON.stringify(['minimal', 'dashboard', 'editor', 'report'])
+      !== JSON.stringify(['minimal', 'dashboard', 'editor', 'report', 'image'])
     || examples.results?.some((result) => result.status !== 'pass')
     || examples.remainingCanvasCount !== 0
   ) failures.push('packed public PatchMap examples failed');

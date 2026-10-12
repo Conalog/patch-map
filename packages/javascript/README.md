@@ -46,6 +46,8 @@ await patchMap.destroy();
 
 - [Choose a task](./docs/README.md)
 - [Getting started](./docs/getting-started.md)
+- [Image output: recommended usage and cost](./docs/api/image.md#recommended-usage-and-cost)
+- [Image job decisions and complete examples](./docs/integration/image-jobs.md)
 - [Host integration](./docs/integration/host.md)
 - [Compatibility](./docs/compatibility.md)
 - [Runnable examples](./examples)
