@@ -66,6 +66,7 @@ There is no fixed memory budget or speed guarantee.
 ## Recommended usage and cost
 
 These are starting recommendations, not measured speed guarantees; [ordering requirements](#ordering-and-failures) apply.
+For implementation decisions, complete browser examples and a bounded CPU host queue, use [Image jobs](../integration/image-jobs.md).
 
 | Workload or decision | Recommended pattern |
 | --- | --- |
@@ -75,16 +76,6 @@ These are starting recommendations, not measured speed guarantees; [ordering req
 | Output size | Use required final pixel dimensions. Tiles bound the work target, not the output canvas/encoder. Doubling both dimensions quadruples pixel count. |
 | Output format | PNG preserves alpha/lossless detail; JPEG needs an opaque background when its color matters. Inspect lossy quality/file size; lower quality does not guarantee faster encoding. |
 | CPU-only server | Require browser software WebGL2/AA4. Start one active job per page/session with a bounded queue; increase host concurrency after measuring peak memory and throughput. |
-
-For repeated variants, replace the update/render part of the first example with the loop below; `variants` contains `PatchMapUpdateBatch` inputs and `saveImage` is host-owned:
-
-```ts
-for (const updates of variants) {
-  const result = map.updateBatch(updates);
-  if (result.status === 'rejected' || result.status === 'refused') throw new Error('Map update failed');
-  await saveImage(await map.render({ format: 'jpeg', quality: 0.9 }));
-}
-```
 
 Pool browser pages separately from maps, with a bound. Destroy maps before releasing pages and reset request state before reuse. Consume Blobs and release host references instead of accumulating results. AA4 and tile sizing are managed internally.
 Measure create → updates → render → consume → destroy, plus queue time for service latency. Compare cold/warm runs at fixed size/format and track whole-browser/container peak memory, not only JS heap. `render()` includes rasterization, readback and encoding.

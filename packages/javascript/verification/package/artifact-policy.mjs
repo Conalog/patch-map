@@ -7,6 +7,7 @@ export const EXAMPLE_FILES = Object.freeze([
   ...EXAMPLES.map((name) => `${name}.ts`),
   'presentation.ts',
   'image.ts',
+  'image-job-queue.ts',
 ]);
 
 export const PUBLIC_DOCS = Object.freeze([
@@ -22,6 +23,7 @@ export const PUBLIC_DOCS = Object.freeze([
   'docs/api/image.md',
   'docs/api/text.md',
   'docs/integration/host.md',
+  'docs/integration/image-jobs.md',
   'docs/compatibility.md',
   'docs/assets/fonts.md',
   'docs/assets/fira-code-6.2-license.txt',
