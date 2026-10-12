@@ -48,7 +48,56 @@ test('unreviewed source inventory or native font changes fail before generating 
   writeFileSync(font, bytes);
   writeFileSync(join(root, 'shared/assets/icons/unreviewed.svg'), '<svg/>');
   assert.throws(() => prepareAssets({ root }), /inventory mismatch/u);
+  assert.throws(() => prepareAssets({ root, packageName: 'javascript' }), /inventory mismatch/u);
   assert.throws(() => statSync(join(root, 'packages')), { code: 'ENOENT' });
+});
+
+test('JavaScript reads only consumed inputs while complete and Flutter checks retain native provenance', (t) => {
+  for (const name of ['FiraCode-VF.ttf', 'provenance.json']) {
+    for (const missing of [true, false]) {
+      const root = fixture(t), path = join(root, 'shared/assets/fonts', name);
+      if (missing) rmSync(path);
+      else writeFileSync(path, 'corrupt');
+      assert.equal(prepareAssets({ root, packageName: 'javascript' }).assets, 7);
+      const selected = readSharedAssets(root, 'javascript');
+      assert.equal(selected.size, 7);
+      assert.equal(selected.has(`fonts/${name}`), false);
+      assert.throws(() => readSharedAssets(root));
+      assert.throws(() => prepareAssets({ root, packageName: 'flutter' }));
+      assert.throws(() => statSync(join(root, 'packages/flutter/assets')), { code: 'ENOENT' });
+    }
+  }
+});
+
+test('JavaScript validates its WOFF2 format without requiring Dart native source provenance', (t) => {
+  const root = fixture(t), path = join(root, 'shared/assets/fonts/FiraCode-VF.woff2');
+  const font = readFileSync(path);
+  font[font.length - 1] ^= 1;
+  writeFileSync(path, font);
+  assert.equal(prepareAssets({ root, packageName: 'javascript' }).assets, 7);
+  assert.throws(() => readSharedAssets(root), /provenance drift/u);
+  assert.throws(() => prepareAssets({ root, packageName: 'flutter' }), /provenance drift/u);
+  for (const invalid of ['corrupt', 'wOF']) {
+    writeFileSync(path, invalid);
+    assert.throws(() => prepareAssets({ root, packageName: 'javascript' }), /WOFF2 font format/u);
+    assert.throws(() => readSharedAssets(root), /WOFF2 font format/u);
+  }
+});
+
+test('JavaScript rejects missing or unsafe consumed sources before generating outputs', (t) => {
+  for (const name of ['fonts/FiraCode-VF.woff2', 'fonts/LICENSE.txt', 'icons/object.svg']) {
+    for (const unsafe of [true, false]) {
+      const root = fixture(t), path = join(root, 'shared/assets', name);
+      rmSync(path);
+      if (unsafe) {
+        const external = join(root, 'external');
+        writeFileSync(external, 'keep');
+        symlinkSync(external, path);
+      }
+      assert.throws(() => prepareAssets({ root, packageName: 'javascript' }), unsafe ? /regular file/u : /inventory mismatch/u);
+      assert.throws(() => statSync(join(root, 'packages')), { code: 'ENOENT' });
+    }
+  }
 });
 
 test('source links and generated-directory links cannot read, overwrite or delete external assets', (t) => {

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, symlink, cp } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { snapshotSources, analyzerSelectsProbe, parseDartReport, parseVitestReport, validateNativeIdentity, validateNativeSources } from './collect-evidence.mjs';
+import { prepareAssets } from '../assets/prepare.mjs';
+import { snapshotSources, snapshotNativeSources, analyzerSelectsProbe, parseDartReport, parseVitestReport, validateNativeIdentity, validateNativeSources, validateSourceReceipt } from './collect-evidence.mjs';
 
 const root = '/workspace';
 const vitest = () => ({ success: true, numTotalTests: 2, numPassedTests: 1, numFailedTests: 0,
@@ -94,8 +95,9 @@ test('native receipts require toolchain, dependencies and host inputs and reject
   for (const path of paths) {
     const omitted = { ...snapshot.files };
     delete omitted[path];
-    assert.throws(() => validateNativeSources(snapshot, omitted, 'ios'), /built source receipt omitted/u, path);
-    assert.throws(() => validateNativeSources(snapshot, { ...snapshot.files, [path]: 'stale' }, 'ios'), /built source differs/u, path);
+    const platform = path.includes('/android/') ? 'android' : 'ios';
+    assert.throws(() => validateNativeSources(snapshot, omitted, platform), /built source receipt omitted/u, path);
+    assert.throws(() => validateNativeSources(snapshot, { ...snapshot.files, [path]: 'stale' }, platform), /built source differs/u, path);
   }
 });
 
@@ -214,4 +216,100 @@ test('public documentation changes invalidate the collected source identity', as
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('scoped receipts reuse unchanged native and Dart inputs after JS changes, without qualifying another scope', async (t) => {
+  const { directory } = await nativeInputFixture(t);
+  for (const [path, bytes] of Object.entries({
+    'packages/javascript/tests/unit.test.ts': '// original',
+    'packages/flutter/lib/conalog_patch_map.dart': '// native runtime',
+    'packages/flutter/example/lib/shared_fixtures.dart': '// producer',
+    'conformance/manifest.json': '{"contract":1}',
+    'conformance/README.md': '# documentation',
+  })) {
+    await mkdir(dirname(resolve(directory, path)), { recursive: true });
+    await writeFile(resolve(directory, path), bytes);
+  }
+  const before = await snapshotSources(directory);
+  const ios = { exitCode: 0, sourceScope: 'ios', sourceFingerprint: before.scopes.ios.fingerprint };
+  await writeFile(resolve(directory, 'packages/javascript/tests/unit.test.ts'), '// changed JS test');
+  await writeFile(resolve(directory, 'conformance/README.md'), '# revised guidance');
+  const after = await snapshotSources(directory);
+  assert.notEqual(after.fingerprint, before.fingerprint);
+  assert.notEqual(after.scopes.npm.fingerprint, before.scopes.npm.fingerprint);
+  assert.equal(after.scopes.dart.fingerprint, before.scopes.dart.fingerprint);
+  assert.equal(after.scopes.ios.fingerprint, before.scopes.ios.fingerprint);
+  validateSourceReceipt(after, ios, 'ios build', 'ios');
+  validateNativeSources(after, before.scopes.ios.files, 'ios');
+  assert.throws(() => validateSourceReceipt(after, ios, 'android build', 'android'), /invalid source scope/);
+  await writeFile(resolve(directory, 'packages/flutter/example/ios/Runner/AppDelegate.swift'), '// changed native input');
+  const nativeChange = await snapshotSources(directory);
+  assert.throws(() => validateSourceReceipt(nativeChange, ios, 'ios build', 'ios'), /stale source fingerprint/);
+  assert.throws(() => validateNativeSources(nativeChange, before.scopes.ios.files, 'ios'), /built source differs/);
+  assert.equal(nativeChange.scopes.android.fingerprint, after.scopes.android.fingerprint);
+});
+
+test('changed contract and removed native producer inputs invalidate scoped evidence', async (t) => {
+  const { directory } = await nativeInputFixture(t);
+  await mkdir(resolve(directory, 'conformance'));
+  await writeFile(resolve(directory, 'conformance/manifest.json'), '{}');
+  const before = await snapshotSources(directory);
+  await writeFile(resolve(directory, 'conformance/manifest.json'), '{"changed":true}');
+  const after = await snapshotSources(directory);
+  for (const scope of ['npm', 'dart', 'android', 'ios']) assert.notEqual(before.scopes[scope].fingerprint, after.scopes[scope].fingerprint);
+  await rm(resolve(directory, 'packages/flutter/example/ios/Runner/AppDelegate.swift'));
+  const removed = await snapshotSources(directory);
+  assert.throws(() => validateNativeSources(removed, after.scopes.ios.files, 'ios'), /built source differs/);
+});
+
+test('native capture reads only selected build inputs even with broken unrelated JS sources and lock', async (t) => {
+  const { directory } = await nativeInputFixture(t);
+  await cp(new URL('../../shared/assets', import.meta.url), resolve(directory, 'shared/assets'), { recursive: true });
+  prepareAssets({ root: directory, packageName: 'flutter' });
+  const before = await snapshotNativeSources(directory, 'ios');
+  await mkdir(resolve(directory, 'packages/javascript'), { recursive: true });
+  await symlink('/outside/unreadable', resolve(directory, 'packages/javascript/src'));
+  await writeFile(resolve(directory, 'package-lock.json'), '{ invalid JS lock');
+  const after = await snapshotNativeSources(directory, 'ios');
+  assert.deepEqual(after, before);
+  assert.equal(after.sourceScope, 'ios');
+  assert.ok(!Object.keys(after.files).some((file) => file.startsWith('packages/javascript/') || file.includes('/android/')));
+  assert.ok(after.files['packages/flutter/assets/fonts/FiraCode-VF.ttf']);
+});
+
+test('runtime lock stamps track their closure rather than peer or private tool dependency changes', async (t) => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'patch-map-source-lock-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const lock = { lockfileVersion: 3, packages: {
+    'packages/javascript': { name: '@conalog/patch-map', dependencies: { runtime: '1.0.0' } },
+    verification: { name: '@patch-map/verification', devDependencies: { tool: '1.0.0' } },
+    'node_modules/runtime': { version: '1.0.0' }, 'node_modules/tool': { version: '1.0.0' },
+  } };
+  const capture = async () => {
+    await writeFile(resolve(directory, 'package-lock.json'), JSON.stringify(lock));
+    return snapshotSources(directory);
+  };
+  const before = await capture();
+  lock.packages['node_modules/tool'].version = '1.0.1';
+  const tooling = await capture();
+  assert.equal(before.scopes.npm.fingerprint, tooling.scopes.npm.fingerprint);
+  assert.notEqual(before.scopes.dart.fingerprint, tooling.scopes.dart.fingerprint);
+  lock.packages['node_modules/runtime'].version = '1.0.1';
+  const runtime = await capture();
+  assert.notEqual(tooling.scopes.npm.fingerprint, runtime.scopes.npm.fingerprint);
+  assert.equal(tooling.scopes.dart.fingerprint, runtime.scopes.dart.fingerprint);
+});
+
+test('the shared dependency resolver remains part of installed report and lock-stamp producer identity', async (t) => {
+  const directory = await mkdtemp(resolve(tmpdir(), 'patch-map-source-resolver-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await mkdir(resolve(directory, 'verification/dependencies'), { recursive: true });
+  const file = 'verification/dependencies/closure.mjs';
+  await writeFile(resolve(directory, file), '// original producer');
+  const before = await snapshotSources(directory);
+  await writeFile(resolve(directory, file), '// changed producer');
+  const after = await snapshotSources(directory);
+  assert.notEqual(before.fingerprint, after.fingerprint);
+  for (const scope of ['npm', 'dart']) assert.notEqual(before.scopes[scope].fingerprint, after.scopes[scope].fingerprint);
+  assert.equal(before.scopes.ios.fingerprint, after.scopes.ios.fingerprint);
 });

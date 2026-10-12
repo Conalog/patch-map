@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import { parseVersion, pubspecField } from './release-metadata.mjs';
 
 const require = createRequire(new URL('../../verification/package.json', import.meta.url));
-import { createReleaseManifest } from './release-planner.mjs';
+import { createReleaseManifest, runIndependentReleases } from './release-planner.mjs';
 const { setLogger } = require('release-please/build/src/util/logger.js');
 const quiet = Object.fromEntries(['info', 'warn', 'error', 'debug', 'trace'].map((level) => [level, () => {}]));
 setLogger(quiet);
@@ -22,7 +25,7 @@ const commit = (message, files, sha = 'c'.repeat(40)) => ({ message, files, sha 
 // run against an in-memory GitHub boundary. No network or repository writes occur.
 // Package artifacts model this fixture's release history, never the checkout's
 // pending release PR. Repository configuration remains the wiring under test.
-async function fixture(changes, { dartReleased = false, jsReleased = false, missingLegacy = false, wrongLegacy = false, missingBoundary = false, betweenReleases = [], historical = [] } = {}) {
+async function fixture(changes, { dartReleased = false, jsReleased = false, missingLegacy = false, wrongLegacy = false, missingBoundary = false, betweenReleases = [], historical = [], packagePath, lockHistory = {}, staleBase = false } = {}) {
   const versions = { [npmPath]: jsReleased ? '1.0.0-alpha.10' : '1.0.0-alpha.9' };
   if (dartReleased) versions[dartPath] = '1.0.0-alpha.1';
   const files = {
@@ -48,7 +51,7 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
     ...changes,
     ...(dartReleased ? [commit('chore: release dart 1.0.0-alpha.1', [`${dartPath}/pubspec.yaml`], dartSha)] : []),
     ...betweenReleases,
-    ...(missingBoundary ? [] : [commit('chore: release previous npm', [jsReleased ? `${npmPath}/package.json` : 'package.json'], npmSha)]),
+    ...(missingBoundary ? [] : [commit('chore: release previous npm', [jsReleased ? `${npmPath}/package.json` : 'package.json', 'package-lock.json'], npmSha)]),
     ...historical,
     commit('feat: already shipped npm feature', [`${npmPath}/src/index.ts`], 'd'.repeat(40)),
   ];
@@ -57,14 +60,29 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
   const mergedPullRequests = [];
   const github = {
     repository: { owner: 'Conalog', repo: 'patch-map' },
-    async getFileJson(path) { return JSON.parse(files[path]); },
-    async getFileContentsOnBranch(path) {
+    async getFileJson(path, ref) { return path === 'package-lock.json' && lockHistory[ref] ? lockHistory[ref] : JSON.parse(files[path]); },
+    getGitHubApi() { return { octokit: { repos: {
+      async getBranch({ branch }) { return { data: { commit: { sha: openPullRequests.find((pr) => pr.headBranchName === branch).fixtureHeadSha } } }; },
+      async getCommit({ ref }) { assert.notEqual(ref, npmSha, 'bootstrap lock ownership must not be queried'); return { data: { parents: [{ sha: `${ref}-parent` }] } }; },
+      async compareCommitsWithBasehead() { return { data: { behind_by: staleBase ? 1 : 0 } }; },
+    } } }; },
+    async buildChangeSet(updates) {
+      const updated = applyUpdates({ updates }, files);
+      return new Map(updates.filter(({ path }) => typeof updated[path] === 'string').map(({ path }) => [path, { content: updated[path] }]));
+    },
+    async getFileContentsOnBranch(path, ref) {
+      const pr = openPullRequests.find((pr) => pr.fixtureHeadSha === ref || pr.headBranchName === ref);
+      if (pr) {
+        pr.baseFiles ??= structuredClone(files);
+        const content = applyUpdates({ updates: pr.fixtureUpdates }, pr.baseFiles)[path];
+        return { parsedContent: content, content: Buffer.from(content).toString('base64'), sha: 'head-file-sha' };
+      }
       assert.ok(Object.hasOwn(files, path), `unexpected planner file read: ${path}`);
       return { parsedContent: files[path], content: Buffer.from(files[path]).toString('base64'), sha: 'file-sha' };
     },
     async *releaseIterator() { yield* releases; },
     async *tagIterator() { yield* releases.map(({ tagName, sha }) => ({ name: tagName, sha })); },
-    async *mergeCommitIterator() { yield* commits; },
+    async *mergeCommitIterator(_branch, options) { assert.equal(options.backfillFiles, true, 'all ownership scans need complete paths'); yield* commits; },
     async *pullRequestIterator(branch, state) {
       assert.equal(branch, 'release/1.0');
       yield* state === 'OPEN' ? openPullRequests : state === 'MERGED' ? mergedPullRequests : [];
@@ -75,8 +93,8 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
       return { number };
     },
   };
-  const manifest = await createReleaseManifest(github, 'release/1.0');
-  return { manifest, files, versions, calls, commits, openPullRequests, mergedPullRequests };
+  const manifest = await createReleaseManifest(github, 'release/1.0', packagePath);
+  return { manifest, github, files, versions, calls, commits, openPullRequests, mergedPullRequests };
 }
 
 function applyUpdates(candidate, original) {
@@ -95,11 +113,11 @@ function candidateFor(candidates, path) {
   return candidate;
 }
 
-function asPullRequest(candidate, number) {
+function asPullRequest(candidate, number, baseFiles) {
   return {
-    number, title: candidate.title.toString(), body: candidate.body.toString(),
+    baseFiles, number, title: candidate.title.toString(), body: candidate.body.toString(),
     headBranchName: candidate.headRefName, baseBranchName: 'release/1.0',
-    labels: ['autorelease: pending'], files: [], sha: 'e'.repeat(40),
+    labels: ['autorelease: pending'], files: [], sha: 'test-merge-sha', fixtureHeadSha: number.toString(16).padEnd(40, 'e'), fixtureUpdates: candidate.updates,
   };
 }
 
@@ -131,26 +149,23 @@ test('native font derivation changes release only Dart', async () => {
   assert.equal(candidateFor(candidates, dartPath).version.toString(), '1.0.0-alpha.2');
 });
 
-test('common workflows, verification and repository inputs produce both release candidates', async () => {
+test('repository tooling does not create package releases or consumer notes', async () => {
   for (const path of [
     '.github/scripts/release-planner.mjs', '.github/workflows/ci.yaml', '.github/workflows/publish.yaml',
     'verification/ci-workflow.test.mjs', 'verification/package.json',
     'verification/docs/verify.mjs', 'verification/conformance/inventory.mjs',
-    'conformance/contracts.json', 'package.json', 'package-lock.json', '.nvmrc', 'release-please-config.json',
+    'verification/flutter/package.mjs',
+    'package.json', 'package-lock.json', '.nvmrc', 'release-please-config.json',
   ]) {
     const { manifest } = await fixture([commit('fix: repair common release checks', [path])]);
-    const candidates = await manifest.buildPullRequests();
-    assert.equal(candidates.length, 2, path);
-    for (const owner of [npmPath, dartPath]) {
-      assert.match(candidateFor(candidates, owner).body.toString(), /repair common release checks/u, path);
-    }
+    assert.deepEqual(await manifest.buildPullRequests(), [], path);
   }
 });
 
-test('mixed common and package paths add a release note once per owner', async () => {
+test('mixed shared product and package paths add a release note once per consumer', async () => {
   const { manifest } = await fixture([commit('fix: repair mixed release inputs', [
     '.github/scripts/release-planner.mjs', 'verification/ci-workflow.test.mjs',
-    'package.json', `${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`,
+    'conformance/contracts.json', 'package.json', `${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`,
   ])]);
   const candidates = await manifest.buildPullRequests();
   assert.equal(candidates.length, 2);
@@ -159,20 +174,18 @@ test('mixed common and package paths add a release note once per owner', async (
   }
 });
 
-test('Flutter verification remains Dart-owned and ordinary repository docs do not plan releases', async () => {
-  const { manifest } = await fixture([commit('fix: repair Flutter qualification', ['verification/flutter/package.mjs'])]);
-  const candidates = await manifest.buildPullRequests();
-  assert.equal(candidates.length, 1);
-  candidateFor(candidates, dartPath);
+test('shared product contracts produce both release candidates and repository docs do not plan releases', async () => {
+  const { manifest } = await fixture([commit('fix: repair shared contract', ['conformance/contracts.json'])]);
+  assert.equal((await manifest.buildPullRequests()).length, 2);
   for (const path of ['docs/engineering/releases.md', 'CONTRIBUTING.md', 'AGENTS.md']) {
     const { manifest } = await fixture([commit('fix: repair repository guidance', [path])]);
     assert.deepEqual(await manifest.buildPullRequests(), [], path);
   }
 });
 
-test('shared routing preserves conventional release types and does not turn CI or docs into package releases', async () => {
+test('shared product routing preserves conventional release types without releasing maintenance', async () => {
   for (const type of ['feat', 'fix', 'perf', 'deps']) {
-    const { manifest } = await fixture([commit(`${type}: improve common release inputs`, ['.github/scripts/release-planner.mjs'])]);
+    const { manifest } = await fixture([commit(`${type}: improve shared product inputs`, ['conformance/contracts.json'])]);
     assert.equal((await manifest.buildPullRequests()).length, 2, type);
   }
   for (const type of ['ci', 'docs', 'test', 'chore']) {
@@ -181,11 +194,11 @@ test('shared routing preserves conventional release types and does not turn CI o
   }
 });
 
-test('common tooling respects the independent published release boundaries', async () => {
+test('shared contracts respect the independent published release boundaries', async () => {
   const { manifest } = await fixture([], {
     dartReleased: true, jsReleased: true,
-    betweenReleases: [commit('fix: common check already shipped in Dart', ['verification/conformance/inventory.mjs'], 'a'.repeat(40))],
-    historical: [commit('fix: common check already shipped in both', ['.github/workflows/ci.yaml'], 'e'.repeat(40))],
+    betweenReleases: [commit('fix: shared contract already shipped in Dart', ['conformance/contracts.json'], 'a'.repeat(40))],
+    historical: [commit('fix: shared contract already shipped in both', ['conformance/contracts.json'], 'e'.repeat(40))],
   });
   const candidates = await manifest.buildPullRequests();
   assert.equal(candidates.length, 1);
@@ -337,7 +350,7 @@ test('separate pending PRs route updates to the existing npm and Dart PR numbers
   // remote behavior (upstream issue #2773) still requires an actual hosted run.
 });
 
-test('a common fix refreshes both pending release PRs through the ordinary planner and repairs Dart files', async () => {
+test('a JS feature with root lock and tooling changes updates only the pending JS release', async () => {
   const state = await fixture([commit('feat: add peer foundations', [
     `${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`,
   ])]);
@@ -346,17 +359,57 @@ test('a common fix refreshes both pending release PRs through the ordinary plann
     asPullRequest(candidateFor(oldCandidates, npmPath), 248));
   await state.manifest.createPullRequests();
   assert.deepEqual(state.calls, [], 'unchanged release notes still skip needless updates');
-  state.commits.unshift(commit('fix: repair common release planning', ['.github/scripts/release-planner.mjs'], 'f'.repeat(40)));
+  state.commits.unshift(commit('feat: add image sessions', [
+    `${npmPath}/src/image.ts`, `${npmPath}/package.json`, 'package-lock.json',
+    '.github/scripts/release-planner.mjs', 'verification/package.json',
+  ], 'f'.repeat(40)));
   await state.manifest.createPullRequests();
-  assert.deepEqual(state.calls.map(({ number }) => number).sort(), [247, 248]);
-  for (const { number, candidate } of state.calls) {
-    assert.match(candidate.body.toString(), /repair common release planning/u);
-    if (number !== 247) continue;
-    const broken = { ...state.files, [`${dartPath}/pubspec.yaml`]: state.files[`${dartPath}/pubspec.yaml`]
-      .replace('version: 1.0.0-alpha.1', 'version: 1.0.0-alpha.1+-alpha.1') };
-    const updated = applyUpdates(candidate, broken);
-    assert.equal(pubspecField(updated[`${dartPath}/pubspec.yaml`], 'version'), '1.0.0-alpha.1');
-    assert.equal(JSON.parse(updated['.release-please-manifest.json'])[dartPath], '1.0.0-alpha.1');
+  assert.deepEqual(state.calls.map(({ number }) => number), [248]);
+  assert.match(state.calls[0].candidate.body.toString(), /add image sessions/u);
+  const dart = candidateFor(await state.manifest.buildPullRequests(), dartPath);
+  assert.doesNotMatch(dart.body.toString(), /add image sessions/u);
+  assert.match(dart.body.toString(), /add peer foundations/u);
+});
+
+test('tooling-only changes leave notes and already current release PRs untouched', async () => {
+  const state = await fixture([commit('feat: add peer foundations', [
+    `${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`,
+  ])]);
+  const candidates = await state.manifest.buildPullRequests();
+  state.openPullRequests.push(asPullRequest(candidateFor(candidates, dartPath), 247),
+    asPullRequest(candidateFor(candidates, npmPath), 248));
+  state.commits.unshift(commit('fix: repair common release planning', [
+    '.github/scripts/release-planner.mjs', 'verification/package.json', 'package-lock.json',
+  ], 'f'.repeat(40)));
+  await state.manifest.createPullRequests();
+  assert.deepEqual(state.calls, []);
+});
+
+test('ordinary planning removes a leaked JS note from the existing Dart release PR', async () => {
+  const state = await fixture([
+    commit('feat: add image sessions', [`${npmPath}/src/image.ts`, 'package-lock.json'], 'f'.repeat(40)),
+    commit('feat: add peer foundations', [`${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`]),
+  ]);
+  const candidates = await state.manifest.buildPullRequests();
+  const dart = asPullRequest(candidateFor(candidates, dartPath), 247);
+  dart.body = dart.body.replace('add peer foundations', 'add image sessions');
+  state.openPullRequests.push(dart, asPullRequest(candidateFor(candidates, npmPath), 248));
+  await state.manifest.createPullRequests();
+  assert.deepEqual(state.calls.map(({ number }) => number), [247]);
+  const repaired = state.calls[0].candidate;
+  assert.doesNotMatch(repaired.body.toString(), /add image sessions/u);
+  assert.match(repaired.body.toString(), /add peer foundations/u);
+  assert.doesNotMatch(applyUpdates(repaired, state.files)[`${dartPath}/CHANGELOG.md`], /add image sessions/u);
+});
+
+test('JS-only root-lock changes do not create a Dart candidate before or after its first release', async () => {
+  for (const dartReleased of [false, true]) {
+    const { manifest } = await fixture([commit('feat: add image sessions', [
+      `${npmPath}/src/image.ts`, `${npmPath}/package.json`, 'package-lock.json',
+    ])], { dartReleased });
+    const candidates = await manifest.buildPullRequests();
+    assert.equal(candidates.length, 1);
+    assert.match(candidateFor(candidates, npmPath).body.toString(), /add image sessions/u);
   }
 });
 
@@ -381,4 +434,119 @@ test('migration refuses missing or mismatched historical release boundaries', as
     const { manifest } = await fixture([commit('fix: npm fix', [`${npmPath}/src/index.ts`])], options);
     await assert.rejects(manifest.buildPullRequests(), /historical release|outside the release branch/u);
   }
+});
+
+test('shared contract documentation and asset test changes never leak a JS note into Dart', async () => {
+  for (const file of ['conformance/README.md', 'conformance/model/README.md', 'verification/assets/prepare.test.mjs']) {
+    const shared = await fixture([commit('fix: improve verification', [file])]);
+    assert.deepEqual(await shared.manifest.buildPullRequests(), []);
+    const mixed = await fixture([commit('feat: add image output', [file, `${npmPath}/src/image.ts`])]);
+    assert.equal((await mixed.manifest.buildPullRequests()).length, 1);
+  }
+});
+
+test('immutable lock-only JS dependency patches release JS while private tooling patches do not', async () => {
+  const before = { lockfileVersion: 3, packages: {
+    [npmPath]: { name: '@conalog/patch-map', dependencies: { pixi: '1' } },
+    verification: { devDependencies: { tool: '1' } },
+    'node_modules/pixi': { version: '1', dependencies: { transit: '1' } },
+    'node_modules/transit': { version: '1', integrity: 'original' },
+    'node_modules/tool': { version: '1' },
+  } };
+  for (const target of ['transit', 'tool']) {
+    const after = structuredClone(before);
+    after.packages[`node_modules/${target}`].integrity = 'patched';
+    const sha = 'f'.repeat(40);
+    const state = await fixture([commit('deps: patch a dependency', ['package-lock.json'], sha)], {
+      lockHistory: { [sha]: after, [`${sha}-parent`]: before },
+    });
+    const candidates = await state.manifest.buildPullRequests();
+    assert.equal(candidates.length, target === 'transit' ? 1 : 0);
+    if (candidates.length) assert.ok(candidateFor(candidates, npmPath));
+  }
+  const sha = 'f'.repeat(40);
+  const invalid = await fixture([commit('deps: patch dependency', ['package-lock.json'], sha)], {
+    lockHistory: { [sha]: {}, [`${sha}-parent`]: before },
+  });
+  await assert.rejects(invalid.manifest.buildPullRequests(), /Invalid workspace lock/);
+});
+
+test('pending peer tags do not block scoped planning, but the selected runtime remains guarded', async () => {
+  const state = await fixture([commit('feat: add peer feature', [`${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`])]);
+  const candidates = await state.manifest.buildPullRequests();
+  state.mergedPullRequests.push(asPullRequest(candidateFor(candidates, dartPath), 247));
+  let created = 0;
+  state.github.createPullRequest = async () => { created++; return { number: 248 }; };
+  const js = await createReleaseManifest(state.github, 'release/1.0', npmPath);
+  assert.equal((await js.createPullRequests()).length, 1);
+  assert.equal(created, 1);
+  const dart = await createReleaseManifest(state.github, 'release/1.0', dartPath);
+  assert.deepEqual(await dart.createPullRequests(), []);
+  assert.equal(created, 1);
+});
+
+test('release failures are reported after the independent peer attempt completes', async () => {
+  const state = await fixture([commit('feat: implement Dart feature', [`${dartPath}/lib/conalog_patch_map.dart`])], { missingLegacy: true });
+  let created = 0;
+  state.github.createPullRequest = async () => { created++; return { number: 247 }; };
+  await assert.rejects(runIndependentReleases(state.github), (error) => {
+    assert.ok(error instanceof AggregateError);
+    assert.equal(error.errors.length, 1);
+    assert.match(error.errors[0].message, /packages\/javascript/);
+    assert.match(error.errors[0].cause.message, /historical release/);
+    return true;
+  });
+  assert.equal(created, 1);
+});
+
+test('both actual Git merge orders regenerate the remaining PR on the peer base without changing notes', async (t) => {
+  for (const firstPath of [npmPath, dartPath]) {
+    const secondPath = firstPath === npmPath ? dartPath : npmPath;
+    const state = await fixture([commit('feat: establish peers', [`${npmPath}/src/index.ts`, `${dartPath}/lib/conalog_patch_map.dart`])], { staleBase: true });
+    const candidates = await state.manifest.buildPullRequests();
+    const first = candidateFor(candidates, firstPath), second = candidateFor(candidates, secondPath);
+    const original = structuredClone(state.files);
+    const directory = mkdtempSync(join(tmpdir(), 'patch-map-release-merge-'));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const git = (...args) => execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', ...args], { cwd: directory, encoding: 'utf8', stdio: 'pipe' }).trim();
+    const save = (files) => {
+      for (const [file, bytes] of Object.entries(files)) {
+        mkdirSync(dirname(join(directory, file)), { recursive: true });
+        writeFileSync(join(directory, file), bytes);
+      }
+      git('add', '.'); git('commit', '-qm', 'chore: release fixture'); return git('rev-parse', 'HEAD');
+    };
+    git('init', '-q'); const base = save(original);
+    const firstFiles = applyUpdates(first, original);
+    const firstHead = save(firstFiles);
+    git('checkout', '-q', '--detach', base);
+    const oldSecondHead = save(applyUpdates(second, original));
+    assert.throws(() => git('merge-tree', '--write-tree', firstHead, oldSecondHead), /Command failed/);
+    Object.assign(state.files, firstFiles);
+    state.openPullRequests.push(asPullRequest(second, 249, original));
+    const scoped = await createReleaseManifest(state.github, 'release/1.0', secondPath);
+    await scoped.createPullRequests();
+    assert.deepEqual(state.calls.map(({ number }) => number), [249]);
+    const refreshed = state.calls[0].candidate;
+    assert.equal(refreshed.body.toString(), second.body.toString());
+    const refreshedFiles = applyUpdates(refreshed, firstFiles);
+    const manifest = JSON.parse(refreshedFiles['.release-please-manifest.json']);
+    assert.equal(manifest[npmPath], '1.0.0-alpha.10');
+    assert.equal(manifest[dartPath], '1.0.0-alpha.1');
+    assert.equal(JSON.parse(refreshedFiles['package-lock.json']).packages[npmPath].version, '1.0.0-alpha.10');
+    git('checkout', '-q', '--detach', firstHead);
+    const repairedHead = save(refreshedFiles);
+    assert.doesNotThrow(() => git('merge-tree', '--write-tree', firstHead, repairedHead));
+  }
+});
+
+test('a broken JS lock graph cannot prevent independent Dart planning', async () => {
+  const sha = 'f'.repeat(40);
+  const state = await fixture([
+    commit('deps: patch JS dependency', ['package-lock.json'], sha),
+    commit('feat: implement Dart feature', [`${dartPath}/lib/conalog_patch_map.dart`]),
+  ], { packagePath: dartPath, lockHistory: { [sha]: {}, [`${sha}-parent`]: {} } });
+  const candidates = await state.manifest.buildPullRequests();
+  assert.equal(candidates.length, 1);
+  assert.ok(candidateFor(candidates, dartPath));
 });

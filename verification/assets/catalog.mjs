@@ -21,7 +21,7 @@ export const ASSET_CATALOG = Object.freeze([
 
 /** @param {string} path */
 export function assetConsumerPaths(path) {
-  if (path.startsWith('verification/assets/')) return Object.values(ASSET_PACKAGES);
+  if (path === 'verification/assets/catalog.mjs' || path === 'verification/assets/prepare.mjs') return Object.values(ASSET_PACKAGES);
   if (!path.startsWith(`${ASSET_SOURCE}/`)) return [];
   const asset = ASSET_CATALOG.find((entry) => path === `${ASSET_SOURCE}/${entry.name}`);
   // Unreviewed shared inputs conservatively affect both releases until their

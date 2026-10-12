@@ -52,20 +52,18 @@ jobs:
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: |
-          node .github/scripts/release-ready.mjs
+          node .github/scripts/release-ready.mjs --scope dart
           node .github/scripts/release-metadata.mjs dart "$TAG_NAME"
       - name: Install dependencies
         run: |
-          npm ci
+          npm ci --workspace verification --include-workspace-root=false --ignore-scripts
           node verification/assets/prepare.mjs flutter
           cd packages/flutter
           flutter pub get
-      - name: Check Dart and shared contracts
+      - name: Check Dart artifact
         run: |
           npm run flutter:analyze
           npm run flutter:test
-          node verification/conformance/inventory.mjs
-          npm run verify:tooling
           npm run flutter:verify:package
       - name: Verify installed consumer and prepare exact publication inputs
         run: node .github/scripts/dart-release.mjs prepare

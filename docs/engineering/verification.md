@@ -73,18 +73,25 @@ npm run js:verify:memory
   status lives in its package README until a public runtime is implemented.
 - Internal ownership and gate routing live under `docs/engineering/` and are not
   published in the package.
-- JavaScript Markdown changes keep documentation, npm package and shared contract
-  checks. They do not select Flutter SDK or native host jobs. Mixed changes use
-  the union of affected gates; Flutter, shared assets, tooling and workflow inputs
-  retain their required checks. Non-Markdown documentation assets still select
-  both packages. Registry qualification gates are independent of PR routing.
-- Release metadata is compared between immutable Git revisions. JavaScript-only
-  package and lockfile version changes plus its manifest entry select npm checks;
-  Dart-only manifest entry changes select Flutter checks. Each release retains
-  shared release-tooling and contract checks. Dependency, script, unknown-owner,
-  unreadable or malformed metadata changes retain the broader path-based gates;
-  mixed changes use the union of affected owners. PR names and labels never
-  determine which checks are skipped.
+- JavaScript package/configuration/docs inputs select npm checks without Flutter
+  SDK or native hosts. Shared assets use `verification/assets/catalog.mjs` consumer
+  ownership: native TTF/provenance select Flutter; SVG/WOFF2/license select both.
+  Asset verifier changes and unknown inputs retain both gates. Actual shared
+  contracts also retain both gates. Mixed changes use the union of affected gates.
+- Immutable lock comparisons include each workspace's dependency declarations and
+  resolved transitive records. JavaScript closure changes select npm and contract
+  checks; verifier closure changes select both packages. Understood version-only
+  metadata retains independent routing. Invalid identity, unresolved dependencies,
+  unreadable inputs and unclassified lock changes fail closed to broad checks.
+- Classification and the shared planner check repository release configuration;
+  npm and Dart gates/publishers check their own consumer readiness. Dart artifact
+  jobs install only the verifier workspace with scripts disabled and defer pair
+  compatibility to required native/shared publication qualification. Shared CI
+  tooling and TypeScript API inventory retain the full npm install. Workspace
+  selection limits installed packages, but npm still validates the shared lock
+  and manifests; it does not isolate malformed global npm metadata.
+- npm artifact audit covers its workspace build/runtime closure; shared contract
+  CI separately audits the full repository lock, including private release tools.
 - Repository tooling (typecheck, lint and tests) runs once in the shared contract
   job when selected, otherwise in the JavaScript core job. JavaScript static
   checks remain in the core job regardless of shared contract routing.

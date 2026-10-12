@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
@@ -65,4 +67,52 @@ test('Flutter verification and native hosts can run independently while the aggr
   }
   assert.deepEqual(workflow.jobs['native-example'].strategy.matrix.include.map(({ platform }) => platform), ['android', 'ios']);
   assert.equal(workflow.jobs.validation.if, '${{ always() }}');
+});
+
+const readWorkflow = (name) => parse(readFileSync(new URL(`../.github/workflows/${name}.yaml`, import.meta.url), 'utf8'));
+const commands = (job) => job.steps.flatMap((step) => (step.run ?? '').trim().split('\n'));
+
+test('readiness gates validate repository policy and only the selected consumer metadata', () => {
+  assert.ok(commands(workflow.jobs.classify).includes('test "$(node .github/scripts/release-ready.mjs --scope repository)" = true'));
+  assert.ok(commands(workflow.jobs.gate).includes('test "$(node .github/scripts/release-ready.mjs --scope js)" = true'));
+  assert.ok(commands(workflow.jobs.flutter).includes('test "$(node .github/scripts/release-ready.mjs --scope dart)" = true'));
+  assert.ok(commands(readWorkflow('release-please').jobs.release).includes('node .github/scripts/release-ready.mjs --scope repository'));
+  assert.ok(commands(readWorkflow('publish').jobs.metadata).includes('test "$(node .github/scripts/release-ready.mjs --scope js)" = true'));
+  assert.ok(commands(readWorkflow('publish-dart').jobs.verify).includes('node .github/scripts/release-ready.mjs --scope dart'));
+});
+
+test('Dart artifact jobs install only verifier dependencies and preserve publication qualification', () => {
+  const dart = readWorkflow('publish-dart');
+  const install = 'npm ci --workspace verification --include-workspace-root=false --ignore-scripts';
+  for (const job of [workflow.jobs.flutter, dart.jobs.verify]) {
+    assert.ok(commands(job).includes(install));
+    assert.ok(!commands(job).includes('npm ci'));
+  }
+  const verify = commands(dart.jobs.verify);
+  assert.ok(!verify.includes('node verification/conformance/inventory.mjs'));
+  assert.ok(!verify.includes('npm run verify:tooling'));
+  for (const command of ['npm run flutter:analyze', 'npm run flutter:test', 'npm run flutter:verify:package',
+    'node .github/scripts/dart-release.mjs qualify .release-dart/dart-qualification.json']) {
+    assert.ok(verify.includes(command), command);
+  }
+  const qualification = dart.jobs.verify.steps.find((step) => step.name === 'Require collected Android, iOS and shared qualification');
+  assert.equal(qualification.if, "${{ vars.PUBDEV_PUBLISH_ENABLED == 'true' }}");
+  assert.equal(dart.jobs.publish.needs, 'verify');
+  assert.equal(dart.jobs.publish.if, qualification.if);
+  assert.ok(commands(workflow.jobs.contracts).includes('npm ci'));
+  assert.ok(commands(workflow.jobs.contracts).includes('node verification/conformance/inventory.mjs'));
+});
+
+
+test('every readiness invocation in the workflows is accepted by the actual CLI', () => {
+  for (const owner of [workflow, readWorkflow('publish'), readWorkflow('publish-dart'), readWorkflow('release-please')]) {
+    for (const job of Object.values(owner.jobs)) {
+      for (const command of commands(job)) {
+        const match = command.match(/node (\.github\/scripts\/release-ready\.mjs)([^)"\n]*)/u);
+        if (!match) continue;
+        const argv = [match[1], ...match[2].trim().split(/\s+/u).filter(Boolean)];
+        assert.equal(execFileSync(process.execPath, argv, { cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8' }), 'true');
+      }
+    }
+  }
 });

@@ -31,6 +31,7 @@ import {
   createDependencyLicenseInventory,
   createSupplyChainEvidence,
   nonNegativeAuditCount,
+  NPM_ARTIFACT_AUDIT_ARGS,
 } from './supply-chain.mjs';
 
 const execute = promisify(execFile);
@@ -301,7 +302,7 @@ async function auditDependencyLock(directory) {
   try {
     stdout = (await execute(
       'npm',
-      ['audit', '--package-lock-only', '--json', '--audit-level=low'],
+      NPM_ARTIFACT_AUDIT_ARGS,
       { cwd: directory, maxBuffer: 10 * 1024 * 1024 },
     )).stdout;
   } catch (error) {

@@ -37,17 +37,27 @@ affect Dart. Generated package-local copies are not release-planning inputs.
 Dart publishing requires exact tag/package/manifest identity, branch ancestry, verified artifact bytes and complete Android/iOS and shared qualification. Both
 `publish_to: none` and `implementationStatus: foundation` block publication; asset tests and contract definitions cannot qualify the public runtime.
 
-Repository-wide release inputs also feed both package histories: `.github/`,
-common `verification/`, `conformance/`, root `package.json`, `package-lock.json`,
-`.nvmrc` and `release-please-config.json`. This makes a common `fix:` update both
-pending release PRs on the ordinary branch push, including corrected generated
-files. `verification/flutter/` remains Dart-only; shared assets retain their
-consumer-specific routing above. Repository guidance under `docs/engineering/`
-is not a release input. Routing preserves each package's published boundary and
-deduplicates commits that also modify package-local files. Only the existing
-`feat`, `fix`, `perf` and `deps` release rules create release notes; `ci`, `docs`,
-`test` and `chore` maintenance alone does not create package releases. Release
-planning ownership and PR CI gate selection are separate decisions.
+Package-local changes feed that package's history. Shared product contracts
+under `conformance/` (excluding Markdown guidance) feed both histories; shared assets and their preparation
+retain the consumer-specific routing above. Routing preserves each package's
+published boundary and deduplicates mixed commits once per consumer.
+
+Repository automation and validation do not assign release ownership:
+`.github/`, general `verification/` (including Flutter qualification), root
+`package.json`, `.nvmrc`, `release-please-config.json` and
+engineering guidance do not create consumer release notes by themselves. A JS
+feature that also changes the root lockfile remains JS-only. A tooling-only fix
+does not create a package release or change consumer notes.
+Immutable root lock changes in the JS build/runtime dependency closure feed JS
+notes; private verifier-only changes do not. Unresolvable lock ownership fails
+JS planning explicitly, without blocking Dart. Only the existing `feat`, `fix`, `perf` and `deps` release rules create notes for
+affected packages; `ci`, `docs`, `test` and `chore` remain maintenance.
+
+Release planning ownership and PR CI gate selection are separate decisions.
+Tooling, dependency and workflow changes retain the validation required by
+[verification policy](verification.md), even when they produce no release notes.
+A Dart release PR still runs its own required native checks; unrelated JS work
+must not add a Dart note or cause a needless update of that PR.
 
 The initial peer-release bootstrap starts immediately after the last
 single-package npm release, `v1.0.0-alpha.9`. This includes the peer-package
@@ -101,7 +111,9 @@ Registry writes are independent. On partial success, record each registry's actu
 Already-published versions must match verified contents (and npm's selected dist-tag); mismatches require a new fix version. Preserve source snapshots and
 evidence before workflow retention expires. External setup and hosted release execution remain operator steps; local planner tests mock GitHub.
 
-A release-planner repair should be merged as a release-relevant common fix.
-The branch push then updates both pending PRs and their generated files through
-normal planning; inspect their contents and CI afterward. Unchanged release
-notes still skip updates, so a maintenance-only commit is not a repair trigger.
+The planner executes each package independently and reports failures after
+attempting its peer. Pending tags block only their owning package. Existing PRs refresh
+when their actual branch head lacks the current base or planned metadata. This repairs the shared manifest after either merge
+order without inventing consumer notes; unchanged current PRs skip updates.
+Readiness uses `--scope repository`, `js` or `dart`; publishers validate their metadata
+alongside shared policy. Local tests mock GitHub and test actual Git merge orders; hosted execution remains an operator check.

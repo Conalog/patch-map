@@ -23,8 +23,11 @@ Changing either font requires updating and reviewing that record.
 and generated output paths. Preparation and release planning read that same
 catalog; null targets are consumed directly by the JavaScript build.
 `verification/assets/prepare.mjs` owns source checks and output preparation.
-Every preparation still verifies the entire canonical inventory and font
-provenance before writing. Generated Flutter assets and the JavaScript license copy
+Preparation rejects unknown source files and unsafe source paths before writing,
+then requires and reads only the selected consumer's inputs. JavaScript validates
+the WOFF2 signature but does not require native TTF or provenance. Flutter and the
+default complete-inventory read validate every canonical input and native-font
+provenance. Generated Flutter assets and the JavaScript license copy
 are ignored by Git. Only their canonical inputs and tooling are committed.
 
 ## Local development and packaging
@@ -57,10 +60,13 @@ it does not regenerate resources after qualification.
 
 ## Change routing and verification
 
-Shared sources and preparation tooling select both package CI gates. Release
+Shared sources and preparation tooling select their consuming package CI gates. Release
 planning routes shared SVG, WOFF2, license and preparation changes to both
-package histories before applying each package's published SHA boundary. Native
-TTF/provenance-only changes affect Dart releases. Version and registry operations
+package histories before applying each package's published SHA boundary. Only
+`catalog.mjs` and `prepare.mjs` are asset generators for release routing; asset tests
+and documentation do not create consumer release notes. Unknown shared inputs
+conservatively affect both consumers. Native TTF/provenance-only changes affect
+Dart releases. Version and registry operations
 remain [independent](releases.md).
 
 Source evidence fingerprints include canonical assets and preparation tooling,

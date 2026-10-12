@@ -3,6 +3,8 @@ import { isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { parseVersion } from './release-metadata.mjs';
+import { assetConsumerPaths } from '../../verification/assets/catalog.mjs';
+import { dependencyClosure, dependencyGraphChanged } from '../../verification/dependencies/closure.mjs';
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const JS_PATH = 'packages/javascript';
@@ -17,36 +19,27 @@ export function isLightweightValidationPath(path) {
 }
 
 export function requiresFlutterValidation(path) {
-  return path.startsWith('packages/flutter/')
-    || path.startsWith('shared/assets/')
-    || path.startsWith('verification/assets/')
-    || path.startsWith('conformance/')
-    || path.startsWith('verification/conformance/')
-    || path.startsWith('verification/flutter/')
-    || (path.startsWith('packages/javascript/docs/') && !path.endsWith('.md'))
-    || ['package.json', 'package-lock.json', '.nvmrc',
-      'verification/package.json', 'verification/tsconfig.json', 'verification/eslint.config.js',
-      'packages/javascript/package.json', 'packages/javascript/tsconfig.json',
-      'packages/javascript/tsconfig.build.json'].includes(path)
-    || ['.github/workflows/ci.yaml', '.github/workflows/publish-dart.yaml', '.github/workflows/release-please.yaml',
-      'release-please-config.json', '.release-please-manifest.json'].includes(path)
-    || path.startsWith('.github/scripts/dart-release.')
-    || path.startsWith('.github/scripts/pub-artifact.')
-    || path.startsWith('.github/scripts/release-')
-    || path.startsWith('.github/scripts/classify-ci-files.');
+  if (isLightweightValidationPath(path) || path.startsWith(`${JS_PATH}/`)) return false;
+  const consumers = assetConsumerPaths(path);
+  if (consumers.length) return consumers.includes(DART_PATH);
+  // Shared verification, repository configuration and unknown paths fail closed.
+  return true;
 }
 
 export function requiresContractValidation(path) {
   return requiresFlutterValidation(path)
-    || path.startsWith('packages/javascript/docs/')
-    || path.startsWith('packages/javascript/src/')
-    || path.startsWith('packages/javascript/tests/');
+    || path.startsWith(`${JS_PATH}/docs/`)
+    || path.startsWith(`${JS_PATH}/src/`)
+    || path.startsWith(`${JS_PATH}/tests/`)
+    || [`${JS_PATH}/package.json`, `${JS_PATH}/tsconfig.json`,
+      `${JS_PATH}/tsconfig.build.json`].includes(path);
 }
 
 export function requiresNpmValidation(path) {
-  return !isLightweightValidationPath(path)
-    && !path.startsWith('packages/flutter/')
-    && !path.startsWith('verification/flutter/');
+  if (isLightweightValidationPath(path)
+    || path.startsWith(`${DART_PATH}/`) || path.startsWith('verification/flutter/')) return false;
+  const consumers = assetConsumerPaths(path);
+  return consumers.length ? consumers.includes(JS_PATH) : true;
 }
 
 export function parseNullDelimitedPaths(output) {
@@ -76,7 +69,7 @@ function releaseMetadataImpact(path, readFile) {
   try {
     const before = JSON.parse(readFile(path, 'base'));
     const after = JSON.parse(readFile(path, 'result'));
-    if (!isObject(before) || !isObject(after)) return undefined;
+    if (!isObject(before) || !isObject(after)) throw new Error('invalid release metadata');
     if (path === '.release-please-manifest.json') {
       if (!Object.hasOwn(before, JS_PATH) || !Object.hasOwn(after, JS_PATH)) return undefined;
       const owners = [...new Set([...Object.keys(before), ...Object.keys(after)])];
@@ -92,17 +85,36 @@ function releaseMetadataImpact(path, readFile) {
       };
     }
     if (path === 'package-lock.json') {
-      if (!isObject(before.packages) || !isObject(after.packages)
-        || !onlyPackageVersionChanged(before.packages[JS_PATH], after.packages[JS_PATH])) return undefined;
-      before.packages[JS_PATH] = after.packages[JS_PATH];
-      if (!isDeepStrictEqual(before, after)) return undefined;
-    } else if (!onlyPackageVersionChanged(before, after)) {
-      return undefined;
+      if (before.packages?.[JS_PATH]?.name !== '@conalog/patch-map'
+        || after.packages?.[JS_PATH]?.name !== '@conalog/patch-map') throw new Error('invalid JavaScript lock identity');
+      if (!isDeepStrictEqual({ ...before, packages: undefined }, { ...after, packages: undefined })
+        || !isDeepStrictEqual(before.packages?.[''], after.packages?.[''])) return undefined;
+      const jsChanged = dependencyGraphChanged(before, after, JS_PATH);
+      const verifierChanged = dependencyGraphChanged(before, after, 'verification');
+      // Do not hide unowned changes behind an understood JS dependency patch.
+      const normalized = structuredClone(before);
+      for (const owner of [JS_PATH, 'verification']) {
+        const paths = new Set([owner, ...dependencyClosure(before, owner).packages.keys(), ...dependencyClosure(after, owner).packages.keys()]);
+        for (const record of paths) {
+          if (Object.hasOwn(after.packages, record)) normalized.packages[record] = after.packages[record];
+          else delete normalized.packages[record];
+        }
+      }
+      if (!isDeepStrictEqual(normalized, after)) return undefined;
+      if (verifierChanged) return { fullValidation: true, flutterValidation: true, contractValidation: true };
+      if (jsChanged) return { fullValidation: true, flutterValidation: false, contractValidation: true };
+      // Preserve the understood release-version exception. Other changes outside
+      // both closures (including root lock metadata) remain conservative.
+      if (!onlyPackageVersionChanged(before.packages[JS_PATH], after.packages[JS_PATH])) return undefined;
+    } else {
+      if (before.name !== '@conalog/patch-map' || after.name !== before.name) throw new Error('invalid JavaScript package identity');
+      parseVersion(before.version);
+      parseVersion(after.version);
     }
     return { fullValidation: true, flutterValidation: false, contractValidation: true };
   } catch {
     // Added/deleted files, unreadable Git blobs and invalid metadata fail closed.
-    return undefined;
+    return { fullValidation: true, flutterValidation: true, contractValidation: true };
   }
 }
 

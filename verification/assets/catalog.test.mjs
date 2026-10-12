@@ -32,8 +32,11 @@ test('release ownership follows direct and generated consumers, with conservativ
   for (const path of ['shared/assets/fonts/FiraCode-VF.ttf', 'shared/assets/fonts/provenance.json']) {
     assert.deepEqual(assetConsumerPaths(path), ['packages/flutter']);
   }
-  for (const path of ['verification/assets/catalog.mjs', 'shared/assets/new.svg']) {
+  for (const path of ['verification/assets/catalog.mjs', 'verification/assets/prepare.mjs', 'shared/assets/new.svg']) {
     assert.deepEqual(assetConsumerPaths(path).sort(), ['packages/flutter', 'packages/javascript']);
   }
   assert.deepEqual(assetConsumerPaths('shared/unrelated.json'), []);
+  for (const path of ['verification/assets/catalog.test.mjs', 'verification/assets/prepare.test.mjs', 'verification/assets/README.md', 'verification/assets/other.mjs']) {
+    assert.deepEqual(assetConsumerPaths(path), []);
+  }
 });

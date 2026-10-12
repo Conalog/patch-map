@@ -38,7 +38,7 @@ jobs:
         run: node --test .github/scripts/classify-ci-files.test.mjs .github/scripts/release-ready.test.mjs .github/scripts/release-metadata.test.mjs
 
       - name: Require release gate commands
-        run: test "$(node .github/scripts/release-ready.mjs --require)" = true
+        run: test "$(node .github/scripts/release-ready.mjs --scope repository)" = true
 
       - name: Classify pull request changes
         id: changes
@@ -83,6 +83,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Require JavaScript release inputs
+        run: test "$(node .github/scripts/release-ready.mjs --scope js)" = true
 
       - name: Install dependencies
         run: npm ci
@@ -162,9 +165,12 @@ jobs:
           channel: ${{ steps.sdk.outputs.flutter-channel }}
           cache: true
 
+      - name: Require Dart release inputs
+        run: test "$(node .github/scripts/release-ready.mjs --scope dart)" = true
+
       - name: Install dependencies
         run: |
-          npm ci
+          npm ci --workspace verification --include-workspace-root=false --ignore-scripts
           node verification/assets/prepare.mjs flutter
           cd packages/flutter
           flutter pub get
@@ -199,6 +205,7 @@ jobs:
         run: |
           npm run verify:tooling
           node verification/conformance/inventory.mjs
+          npm audit --package-lock-only --audit-level=low
 
   native-example:
     name: Build ${{ matrix.platform }} development host

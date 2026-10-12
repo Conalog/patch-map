@@ -11,7 +11,7 @@ const jsPath = 'packages/javascript';
 const dartPath = 'packages/flutter';
 const inputs = ['package.json', 'package-lock.json', '.release-please-manifest.json',
   'release-please-config.json', 'conformance/manifest.json', 'verification/package.json',
-  'verification/assets/catalog.mjs', `${jsPath}/package.json`, `${jsPath}/CHANGELOG.md`,
+  'verification/assets/catalog.mjs', 'verification/conformance/inputs.mjs', 'verification/dependencies/closure.mjs', `${jsPath}/package.json`, `${jsPath}/CHANGELOG.md`,
   `${dartPath}/pubspec.yaml`, `${dartPath}/CHANGELOG.md`];
 
 // Exercise the same tooling tests on the files modified by independent release

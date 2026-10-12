@@ -49,17 +49,26 @@ function filesIn(root, path) {
   return files.sort();
 }
 
-export function readSharedAssets(root = repositoryRoot) {
+/** @param {string} [root] @param {PreparationPackage} [packageName] */
+export function readSharedAssets(root = repositoryRoot, packageName = 'all') {
+  packageName = preparationPackage(packageName);
   const source = resolve(root, sourcePath);
-  if (JSON.stringify(filesIn(root, source)) !== JSON.stringify(assetNames)) throw new Error('Shared asset inventory mismatch');
-  const assets = new Map(assetNames.map((name) => [name, readFileSync(join(source, name))]));
+  const selectedNames = ASSET_CATALOG.filter((asset) => packageName === 'all' || Object.hasOwn(asset.targets, packageName)).map((asset) => asset.name);
+  const actualNames = filesIn(root, source);
+  if (actualNames.some((name) => !assetNames.includes(name)) || selectedNames.some((name) => !actualNames.includes(name))) {
+    throw new Error('Shared asset inventory mismatch');
+  }
+  const assets = new Map(selectedNames.map((name) => [name, readFileSync(join(source, name))]));
+  const webFont = assetBytes(assets, 'fonts/FiraCode-VF.woff2');
+  if (webFont.length < 4 || webFont.toString('ascii', 0, 4) !== 'wOF2') throw new Error('Shared WOFF2 font format mismatch');
+  if (packageName === 'javascript') return assets;
   /** @type {FontProvenance} */
   const provenance = JSON.parse(assetBytes(assets, 'fonts/provenance.json').toString());
   const native = assetBytes(assets, 'fonts/FiraCode-VF.ttf');
   if (provenance.source !== `${sourcePath}/fonts/FiraCode-VF.woff2`
     || provenance.native !== `${sourcePath}/fonts/FiraCode-VF.ttf`
     || provenance.license !== `${sourcePath}/fonts/LICENSE.txt`
-    || provenance.sourceSha256 !== digest(assetBytes(assets, 'fonts/FiraCode-VF.woff2'))
+    || provenance.sourceSha256 !== digest(webFont)
     || provenance.nativeSha256 !== digest(native) || native.length < 4 || native.readUInt32BE(0) !== 0x00010000) {
     throw new Error('Shared native font provenance drift');
   }
@@ -92,7 +101,7 @@ function preparationPackage(name) {
 /** @param {{ root?: string, packageName?: PreparationPackage }} [options] */
 export function prepareAssets({ root = repositoryRoot, packageName = 'all' } = {}) {
   packageName = preparationPackage(packageName);
-  const assets = readSharedAssets(root);
+  const assets = readSharedAssets(root, packageName);
   if (packageName !== 'flutter') {
     for (const asset of ASSET_CATALOG) {
       const target = asset.targets.javascript;
