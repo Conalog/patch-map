@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.0-alpha.10](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.9...js-v1.0.0-alpha.10) (2026-10-12)
+
+
+### Added
+
+* add Flutter package foundation and independent peer releases ([#246](https://github.com/Conalog/patch-map/issues/246)) ([1c0e439](https://github.com/Conalog/patch-map/commit/1c0e439564d99da5f2f2b925b6d64db05a348b5e))
+* add reusable PatchMap image sessions with bounded AA4 tiles ([#252](https://github.com/Conalog/patch-map/issues/252)) ([4a54432](https://github.com/Conalog/patch-map/commit/4a54432eba1ec04e9bbaa8d0b615ed08ad5b0d71))
+
+
+### Fixed
+
+* isolate JavaScript and Dart release and verification ownership ([#254](https://github.com/Conalog/patch-map/issues/254)) ([624dea3](https://github.com/Conalog/patch-map/commit/624dea3c30129249bec528cc2c6dc549ee34892a))
+
 ## [1.0.0-alpha.9](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.8...v1.0.0-alpha.9) (2026-09-15)
 
 
