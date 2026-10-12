@@ -26,7 +26,7 @@ For mixed atomic operations, follow [Mutations and history](../api/mutations-and
 ## Complete browser recipes
 
 Copy [image.ts](../../examples/image.ts) into the consumer's source tree; its imports use only the public image entry.
-Install the package and its PixiJS peer as described in the [package README](../../README.md), then run the copied file in your browser bundle:
+Install a version exporting `./image` and its PixiJS peer ([package README](../../README.md)). Verify the subpath import, then run your browser bundle:
 
 ```ts
 import { previewImage, runImageExample } from './image';
@@ -78,7 +78,7 @@ Record these intervals separately in the host:
 | Interval | Includes |
 | --- | --- |
 | Queue | Accepted request → worker admission |
-| Data / create | Business preprocessing, driver transfer and browser creation as separate timestamps |
+| Data / create | Preprocessing, page acquisition, input transfer and `PatchMap.create` separately |
 | Updates | Residual batch/transaction only; count calls and targets |
 | Render | First-use shader work, tile rasterization, readback, assembly and encoding |
 | Consume | Blob → bytes, browser-to-host transfer and response/storage completion |
