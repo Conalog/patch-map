@@ -49,7 +49,44 @@ describe('PatchMap load and mutation publication atomicity', () => {
     await Promise.all(allocated.splice(0).map((core) => core.destroy()));
   });
 
-  it('restores an active runtime after a synchronous projection boundary failure', () => {
+  it.each([
+    { mode: 'sync', flipX: false, flipY: false },
+    { mode: 'async', flipX: false, flipY: false },
+    { mode: 'sync', flipX: true, flipY: false },
+    { mode: 'async', flipX: true, flipY: false },
+    { mode: 'sync', flipX: false, flipY: true },
+    { mode: 'async', flipX: false, flipY: true },
+  ] as const)(
+    'preserves the camera across repeated and A → B → A $mode replacements (flipX=$flipX, flipY=$flipY)',
+    async ({ mode, flipX, flipY }) => {
+      const { core, renderer } = createActiveCore(allocated);
+      core.setWorldTransform({
+        x: 31, y: -17, scale: 1.25, rotationDegrees: 12, flipX, flipY,
+      });
+      const camera = core.view;
+      for (const height of [40, 40, 70, 40]) {
+        if (mode === 'async') await core.loadAsync(runtimeScene(height, 'old-image'));
+        else core.load(runtimeScene(height, 'old-image'));
+        expect(core.view).toEqual(camera);
+        expect(core.snapshot().view).toEqual(camera);
+        core.publishFrame(0);
+        expect(renderer.debugSnapshot().view).toEqual(camera);
+        const angle = (camera.rotation ?? 0) * Math.PI / 180;
+        const screen = {
+          x: camera.x + (flipX ? -1 : 1) * camera.scale * (90 * Math.cos(angle) - 10 * Math.sin(angle)),
+          y: camera.y + (flipY ? -1 : 1) * camera.scale * (90 * Math.sin(angle) + 10 * Math.cos(angle)),
+        };
+        expect(core.screenToWorld(screen).x).toBeCloseTo(90);
+        expect(core.screenToWorld(screen).y).toBeCloseTo(10);
+        const hit = core.hitTestScreen(screen);
+        expect(hit && core.get(hit)?.id).toBe('item-a');
+        const selected = core.selectAtScreen(screen);
+        expect(selected && core.get(selected)?.id).toBe('item-a');
+      }
+    },
+  );
+
+  it.each(['sync', 'async'] as const)('restores an active runtime after a %s projection boundary failure', async (mode) => {
     const { core, renderer } = createActiveCore(allocated);
     const before = captureRuntime(core, renderer);
     const boundaryError = new Error('projection boundary failed');
@@ -57,18 +94,37 @@ describe('PatchMap load and mutation publication atomicity', () => {
 
     let failure: unknown;
     try {
-      core.load(runtimeScene(70, 'new-image'));
+      if (mode === 'async') await core.loadAsync(runtimeScene(70, 'new-image'));
+      else core.load(runtimeScene(70, 'new-image'));
     } catch (error) {
       failure = error;
     }
 
     expect(failure).toBe(boundaryError);
     expectRuntimeRestored(core, renderer, before);
+    core.publishFrame(0);
+    expect(renderer.debugSnapshot().view).toEqual(before.view);
 
     const loaded = core.load(runtimeScene(70, 'new-image'));
+    expect(core.view).toEqual(before.view);
     expect(loaded.store.revision).toBe(before.snapshot.revision + 1);
     expect(core.ref(BAR_ID)?.generation).toBe(before.ref.generation + 1);
     expect(core.get(before.ref)).toBeNull();
+  });
+
+  it('retains the newer camera when navigation supersedes an async replacement', async () => {
+    const { core, renderer } = createActiveCore(allocated);
+    const scene = runtimeInternals(core).publishedScene.current();
+    const replacement = core.loadAsync(runtimeScene(70, 'new-image'));
+    core.panBy({ x: 8, y: 12 });
+    const camera = core.view;
+
+    await expect(replacement).rejects.toThrow('cooperative load was superseded');
+
+    expect(runtimeInternals(core).publishedScene.current()).toBe(scene);
+    expect(core.view).toEqual(camera);
+    core.publishFrame(0);
+    expect(renderer.debugSnapshot().view).toEqual(camera);
   });
 
   it('forwards the renderer publication checkpoint through the runtime adapter rollback', () => {

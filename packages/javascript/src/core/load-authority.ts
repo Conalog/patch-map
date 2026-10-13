@@ -1,4 +1,4 @@
-import type { CoreView, LoadResult, SlotRange } from '../dense/contracts';
+import type { CoreView, LoadResult, SceneDocument, SlotRange } from '../dense/contracts';
 import type {
   ParsePatchMapResult,
   ParsePatchMapOptions,
@@ -81,7 +81,6 @@ interface PatchMapLoadCandidateInput {
 interface PatchMapLoadPublicationInput {
   readonly candidate: PatchMapPublishedSceneCandidate;
   readonly sourceProjection: PatchMapProjectionIndex;
-  readonly view: CoreView | undefined;
   readonly activeImageEntityIds: ReadonlySet<string>;
   readonly currentRuntime: PatchMapCurrentLoadRuntimeState;
 }
@@ -153,7 +152,7 @@ export class PatchMapLoadAuthority {
     try {
       candidateScene.seedReplacementFrom(this.execution.readScene());
       const storeStarted = now();
-      const store = candidateScene.load(parse.document);
+      const store = candidateScene.load(this.loadDocument(parse));
       const storeLoadMs = now() - storeStarted;
       this.primeCandidate(parse);
       const candidate = this.prepareLoadedCandidate(input, options, parse, candidateScene, store);
@@ -192,9 +191,10 @@ export class PatchMapLoadAuthority {
       candidateScene.seedReplacementFrom(this.execution.readScene());
       const storeStarted = now();
       const cooperativeFirstLoad = sceneRevision === 0 && this.execution.readEntityCount() === 0;
+      const document = this.loadDocument(parse);
       const store = cooperativeFirstLoad
-        ? await candidateScene.loadCooperatively(parse.document, assertCurrent)
-        : candidateScene.load(parse.document);
+        ? await candidateScene.loadCooperatively(document, assertCurrent)
+        : candidateScene.load(document);
       const storeLoadMs = now() - storeStarted;
       if (cooperativeFirstLoad) {
         await yieldPatchMapMainTask();
@@ -249,7 +249,7 @@ export class PatchMapLoadAuthority {
       throw new Error('PatchMap load candidate has no semantic projection');
     }
     const previousRuntime = this.captureRuntimeState(input.currentRuntime);
-    const nextRuntime = this.prepareRuntimeState(loadedProjection, input.view);
+    const nextRuntime = this.prepareRuntimeState(loadedProjection, input.candidate.state.scene.view);
     try {
       const imagePlan = this.sceneImages.prepareReconcile(input.sourceProjection, {
         activeEntityIds: input.activeImageEntityIds,
@@ -368,6 +368,16 @@ export class PatchMapLoadAuthority {
     primePatchMapParsedSceneReconcileIncremental(parse.document);
   }
 
+  private loadDocument(parse: ParsePatchMapResult): SceneDocument {
+    // Replacement changes the dataset, not the accepted camera. Seed the
+    // private scene before publication so rendering and hit testing share it
+    // even when the Engine's subsequent fit is an equivalent-view no-op.
+    return {
+      ...parse.document,
+      view: parse.document.view ?? this.execution.readCurrentRuntime().currentView,
+    };
+  }
+
   private prepareLoadedCandidate(
     input: unknown,
     options: ParsePatchMapOptions,
@@ -394,7 +404,6 @@ export class PatchMapLoadAuthority {
     this.publish({
       candidate,
       sourceProjection: parse.projection,
-      view: parse.document.view,
       activeImageEntityIds: this.execution.activeImageEntityIds(candidate.state),
       changedRanges: store.changedRanges,
       currentRuntime: this.execution.readCurrentRuntime(),
@@ -454,7 +463,7 @@ export class PatchMapLoadAuthority {
 
   private prepareRuntimeState(
     projection: PatchMapProjectionIndex,
-    view: CoreView | undefined,
+    view: CoreView,
   ): PatchMapLoadRuntimeState {
     const spatialHit = new PatchMapSpatialHitAuthority();
     spatialHit.setDenseGeometryCompatible(true);
@@ -462,7 +471,7 @@ export class PatchMapLoadAuthority {
     return {
       barPresentation: this.barPresentation.prepareLoadedState(projection),
       spatialHit,
-      currentView: view ?? Object.freeze({ x: 0, y: 0, scale: 1, rotation: 0 }),
+      currentView: view,
       pendingIntrinsicImageSizes: new Map(),
       automaticAnimationFramesActive: false,
     };

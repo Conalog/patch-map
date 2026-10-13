@@ -15,6 +15,10 @@ are owned by their respective API pages.
 - `data.replace(input, options?)` validates and publishes an available PATCH MAP
   array synchronously. `data.replaceAsync()` provides the same result while
   allowing replacement work to yield.
+- Replacement retains the accepted camera and whole-map rotation. By default,
+  the public replace methods then fit the new dataset; `{ fit: false }` retains
+  the current center and scale. An equivalent fit/reset remains unchanged while
+  rendering and pointer coordinates continue to use that same camera.
 - Input is detached before it becomes authoritative. PatchMap does not retain or
   mutate caller arrays, records, query objects, or returned snapshots.
 - `attrs` remains the host extension point. PatchMap transforms `x`, `y`,
@@ -94,6 +98,7 @@ public identities.
 | validation, detachment, semantic hash | `src/semantic/dataset` | `tests/semantic/dataset-contract.test.ts` |
 | component percentage geometry | `src/parsing/` | `tests/semantic/parser.test.ts`, `tests/semantic/parser-value-normalization.test.ts` |
 | replacement freshness and atomic publication | `src/engine/dataset-replacement-coordinator.ts` | `tests/engine/engine-lifecycle.test.ts` |
+| replacement camera, rendering, and pointer consistency | `src/core/load-authority.ts` | `tests/core/core-load-atomicity.test.ts`, `verification/package/replacement-camera.mjs` |
 | target grammar and revision binding | `src/query-selection` | `tests/semantic/query-selection.test.ts` |
 | hierarchical zIndex and authored tie order | `src/parsing/`, `src/semantic/paint-order.ts` | `tests/semantic/paint-order.test.ts`, `tests/rendering/component-render-lanes.test.ts` |
 | facade shapes | `src/public/contracts.ts` | `tests/integration/developer-api-targets-presentation.test.ts` |

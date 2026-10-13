@@ -43,6 +43,12 @@ export function collectPackageFailures({
     || esm.pointerOwnership?.overlayHoverIgnored !== true
     || esm.pointerOwnership?.overlayDragContinued !== true
   ) failures.push('packed ESM public workflow failed');
+  if (esm.replacementCamera?.cases?.length !== 8 || esm.replacementCamera?.clicks !== 64
+    || esm.replacementCamera?.renderedCamera !== true
+    || esm.replacementCamera?.pointerSelection !== true
+    || esm.replacementCamera?.atomicRejection !== true) {
+    failures.push('packed dataset replacement camera/selection failed');
+  }
   if (esm.serializedRootCount !== 2 || esm.serializedAddedId !== 'packed-added') {
     failures.push('packed ESM persistence boundary failed');
   }

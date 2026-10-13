@@ -19,6 +19,11 @@ import {
 } from './consumer-sources.mjs';
 import { collectPackageFailures, createPackageConsumerEvidence } from './evidence.mjs';
 import {
+  PACKED_REPLACEMENT_CAMERA_HTML_SOURCE,
+  PACKED_REPLACEMENT_CAMERA_SOURCE,
+  verifyPackedReplacementCamera,
+} from './replacement-camera.mjs';
+import {
   analyzePackedArtifact,
   createPackedProductAlias,
   preparePackedConsumer,
@@ -95,6 +100,8 @@ try {
     writeFile(path.join(consumer, 'index.html'), PACKED_CONSUMER_HTML_SOURCE),
     writeFile(path.join(consumer, 'main.js'), PACKED_CONSUMER_ESM_SOURCE),
     writeFile(path.join(consumer, 'consumer.cjs'), PACKED_CONSUMER_CJS_SOURCE),
+    writeFile(path.join(consumer, 'replacement-camera.html'), PACKED_REPLACEMENT_CAMERA_HTML_SOURCE),
+    writeFile(path.join(consumer, 'replacement-camera.js'), PACKED_REPLACEMENT_CAMERA_SOURCE),
   ]);
 
   // Seed npm's metadata cache, then prove the tarball installs without network access.
@@ -185,6 +192,7 @@ try {
     '__PATCH_MAP_PACKAGE_EXAMPLES__',
     60_000,
   );
+  esm.replacementCamera = await verifyPackedReplacementCamera(page, baseUrl);
   const browserAliasProbe = browserAlias.probe();
   const failures = collectPackageFailures({
     cjs,
