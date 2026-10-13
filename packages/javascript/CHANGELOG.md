@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.11](https://github.com/Conalog/patch-map/compare/js-v1.0.0-alpha.10...js-v1.0.0-alpha.11) (2026-10-13)
+
+
+### Fixed
+
+* preserve PatchMap camera across dataset replacement ([#256](https://github.com/Conalog/patch-map/issues/256)) ([9a495aa](https://github.com/Conalog/patch-map/commit/9a495aa2a1ababa82a5a11f61328876c224e07ce))
+
 ## [1.0.0-alpha.10](https://github.com/Conalog/patch-map/compare/v1.0.0-alpha.9...js-v1.0.0-alpha.10) (2026-10-12)
 
 
