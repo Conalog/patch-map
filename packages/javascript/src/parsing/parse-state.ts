@@ -44,6 +44,7 @@ export interface PatchMapParserEntityOwner {
   readonly stackingPath: PatchMapStackingPath;
   readonly instance?: PatchMapMutableExpandedItemIdentity;
   readonly component?: PatchMapMutableComponentIdentity;
+  readonly gridFrame?: NonNullable<PatchMapEntityProjection['gridFrame']>;
 }
 
 export interface PatchMapPendingRelation {

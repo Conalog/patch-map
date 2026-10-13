@@ -265,6 +265,7 @@ function parseGrid(
     fatal(state, path, 'invalid-grid', 'Grid requires cells[][] and an item template', sourceId);
   }
   const item = value.item;
+  const gridFrame = Object.freeze({ id: sourceId, affine: transform.affine });
   const itemSize = fixedSize(item.size, `${path}.item.size`, state);
   const gap = axisSpacing(value.gap, `${path}.gap`, state);
   const hideInactive = value.inactiveCellStrategy === 'hide';
@@ -335,7 +336,7 @@ function parseGrid(
         visible && cellValue !== 0,
         interactive && cellValue !== 0,
         itemSize,
-        { ...owner, opacity: itemOpacity, stackingPath: itemStackingPath },
+        { ...owner, opacity: itemOpacity, stackingPath: itemStackingPath, gridFrame },
         { row, column, cell: cellValue },
         state,
       );

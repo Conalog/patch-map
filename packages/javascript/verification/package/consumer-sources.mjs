@@ -1,4 +1,5 @@
 import { PACKED_IMAGE_CONSUMER_SOURCE } from './image-consumer-source.mjs';
+import { PACKED_VIEWPORT_BOUNDS_CONSUMER_SOURCE } from './viewport-bounds-consumer.mjs';
 
 const HOST_DEPENDENCIES = Object.freeze({
   'pixi.js': '8.22.0',
@@ -33,6 +34,7 @@ import * as packageApi from '@conalog/patch-map';
 import { PatchMap } from '@conalog/patch-map';
 
 ${PACKED_IMAGE_CONSUMER_SOURCE}
+${PACKED_VIEWPORT_BOUNDS_CONSUMER_SOURCE}
 
 const input = [{
   type: 'item', id: 'consumer-item', show: true,
@@ -59,6 +61,7 @@ const map = await PatchMap.mount({
 
 // Image create/render/destroy must coexist with an already-mounted root map.
 await verifyImageEntry(map.assets.status().runtime);
+await verifyViewportBounds();
 const rootContextAttributes = document.querySelector('#host canvas').getContext('webgl2').getContextAttributes();
 if (!rootContextAttributes.depth || !rootContextAttributes.stencil) {
   throw new Error('image creation changed mounted root context buffers');

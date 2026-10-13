@@ -1,4 +1,5 @@
 import type { PatchMapAffineBasis } from '../semantic/geometry';
+import type { PatchMapViewportGeometryEntity } from '../viewport';
 import type { PatchMapScreenRegionCandidates } from '../semantic/screen-region-index';
 
 export interface PatchMapPoint {
@@ -35,7 +36,7 @@ export interface PatchMapRelationHitIndex {
   readonly overflow: readonly number[];
 }
 
-export interface PatchMapSurfaceEntityGeometry {
+export interface PatchMapSurfaceEntityGeometry extends PatchMapViewportGeometryEntity {
   readonly id: string;
   readonly kind: string;
   readonly localBounds?: readonly [number, number, number, number];

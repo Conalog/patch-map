@@ -110,6 +110,8 @@ export interface PatchMapEntityProjection {
   readonly ownerItemId?: string;
   readonly componentId?: string;
   readonly componentType?: string;
+  /** Owning grid frame, shared by its item markers for logical viewport bounds. */
+  readonly gridFrame?: Readonly<{ id: string; affine: PatchMapAffineMatrix }>;
 }
 
 export interface PatchMapRelationProjection {

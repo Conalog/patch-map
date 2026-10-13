@@ -16,6 +16,11 @@
   explicitly targeted. Explicit relation IDs resolve to their linked endpoint
   elements before traversal; if no endpoints resolve, the relation's own bound
   is used. Relations encountered inside a group use their own bounds.
+- Item and expanded-instance bounds include actual component extents, including
+  overflow outside the authored item size. Container bounds are measured in
+  that item's or grid's local frame before transforming the rectangle's four
+  corners to world coordinates; rotated sparse grids retain their full local
+  frame. Empty item containers contribute a zero-size bound at their origin.
 - `filter(target)` receives a frozen semantic match (`id`, `kind`, `type`,
   `label`, `value`), without renderer objects. `value` contains the read-only
   normalized element data; expanded instances have type `grid-cell` and expose
@@ -48,4 +53,4 @@ Unknown viewport IDs are reported in `missing`; surviving targets still apply.
 
 ## Verification
 
-Target traversal is covered by `tests/semantic/viewport.test.ts`; public camera behavior and filter failures by `tests/engine/engine-viewport.test.ts`. Installed package consumers exercise focus and fit in a real browser. General camera state is owned by [Viewport and transform](viewport-and-transform.md).
+Target traversal is covered by `tests/semantic/viewport.test.ts`; public camera behavior and filter failures by `tests/engine/engine-viewport.test.ts`. Parser-to-geometry bounds regressions are covered by `tests/engine/viewport-logical-bounds.test.ts`. Installed package consumers exercise focus and fit in a real browser. General camera state is owned by [Viewport and transform](viewport-and-transform.md).
