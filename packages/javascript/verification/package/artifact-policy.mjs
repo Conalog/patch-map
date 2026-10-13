@@ -18,6 +18,7 @@ export const PUBLIC_DOCS = Object.freeze([
   'docs/api/mutations-and-history.md',
   'docs/api/pointer-and-selection.md',
   'docs/api/viewport-and-transform.md',
+  'docs/api/viewport-targets.md',
   'docs/api/presentation.md',
   'docs/api/assets-and-capture.md',
   'docs/api/image.md',

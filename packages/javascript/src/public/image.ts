@@ -25,6 +25,7 @@ export function createPatchMapImageApi(host: ImageHost, api: PatchMapApi): Patch
     targets: api.targets,
     assets: api.assets,
     viewport: Object.freeze({
+      focus: api.viewport.focus,
       fit: api.viewport.fit,
       snapshot: api.viewport.snapshot,
       restore: api.viewport.restore,

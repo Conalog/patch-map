@@ -99,6 +99,13 @@ async function verifyImageEntry(runtimeBaseline = { resourceCount: 0, leaseCount
     });
     try {
       detached &&= document.querySelectorAll('canvas').length === originalCanvasCount;
+      const beforeFocus = map.viewport.snapshot();
+      const focus = map.viewport.focus({ targets: { id: 'image-square' }, filter: ({ id }) => id === 'image-square' });
+      if (focus.viewport.scale !== beforeFocus.scale
+        || JSON.stringify(focus.viewport.centerWorld) !== JSON.stringify([80, 70])) {
+        throw new Error('image focus did not preserve scale and center its target');
+      }
+      map.viewport.restore(beforeFocus);
       fontsReady = [300, 400, 500, 600, 700].every((weight) => document.fonts.check(weight + ' 12px FiraCode'));
       const png = await map.render();
       const decodedPng = await decodeImage(png.blob);

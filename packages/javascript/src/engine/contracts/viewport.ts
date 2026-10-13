@@ -1,5 +1,6 @@
 import type {
   PatchMapViewportContributorResult,
+  PatchMapViewportFilter,
   PatchMapViewportPolicy,
   PATCH_MAP_VIEWPORT_REVISION,
 } from '../../viewport';
@@ -68,6 +69,7 @@ export interface PatchMapViewportTargetOptions {
   readonly targets?: readonly string[] | null;
   readonly rejectIds?: readonly string[];
   readonly relationEndpointsAvailable?: boolean;
+  readonly filter?: PatchMapViewportFilter;
 }
 
 export interface PatchMapViewportFocusResult extends PatchMapViewportContributorResult {

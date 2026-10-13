@@ -1,4 +1,4 @@
-import type { NormalizedPatchMapElement } from '../semantic/dataset';
+import type { NormalizedPatchMapElement, PatchMapGridElement } from '../semantic/dataset';
 
 export const PATCH_MAP_VIEWPORT_REVISION = 'patch-map-viewport/1';
 
@@ -54,6 +54,27 @@ export interface PatchMapViewportContributorOptions {
   readonly targets: readonly string[] | null;
   readonly rejectIds?: readonly string[];
   readonly relationEndpointsAvailable?: boolean;
+  readonly filter?: PatchMapViewportFilter;
+}
+
+/** Immutable semantic target passed to viewport traversal filters. */
+export interface PatchMapViewportFilterTarget {
+  readonly id: string;
+  readonly kind: 'element';
+  readonly type: string;
+  readonly label: string | null;
+  readonly value: Readonly<Record<string, unknown>>;
+}
+
+export type PatchMapViewportFilter = (target: PatchMapViewportFilterTarget) => unknown;
+
+export function normalizePatchMapViewportFilter(
+  filter?: PatchMapViewportFilter,
+): PatchMapViewportFilter | undefined {
+  if (filter !== undefined && typeof filter !== 'function') {
+    throw new TypeError('viewport filter must be a function');
+  }
+  return filter;
 }
 
 export interface PatchMapViewportContributorResult {
@@ -75,6 +96,7 @@ export function resolvePatchMapViewportContributors(
   geometry: PatchMapViewportGeometry,
   options: PatchMapViewportContributorOptions,
 ): PatchMapViewportContributorResult {
+  const filter = normalizePatchMapViewportFilter(options.filter);
   const rejectIds = new Set(normalizeIds(options.rejectIds ?? [], 'rejectIds'));
   const entityById = new Map(geometry.entities.map((entity) => [entity.id, entity]));
   const elementById = indexElements(dataset);
@@ -101,54 +123,79 @@ export function resolvePatchMapViewportContributors(
 
   const addEntity = (id: string): boolean => {
     const entity = entityById.get(id);
-    if (!entity || !entity.visible || !finiteBounds(entity.worldBounds)) return false;
+    if (!entity || !finiteBounds(entity.worldBounds)) return false;
     addContributor(id, entity.worldBounds);
     return true;
   };
 
-  const visitElement = (
-    element: NormalizedPatchMapElement,
-    defaultSelection: boolean,
+  const accepts = (
+    id: string,
+    type: string,
+    value: Readonly<Record<string, unknown>>,
+    label = typeof value.label === 'string' ? value.label : null,
   ): boolean => {
-    if (rejectIds.has(element.id) || !element.show) {
-      excluded.push(element.id);
+    if (rejectIds.has(id) || (filter && !filter(Object.freeze({
+      id, kind: 'element', type,
+      label,
+      value,
+    })))) {
+      excluded.push(id);
       return false;
     }
+    return true;
+  };
+
+  const instanceValue = (id: string): Readonly<Record<string, unknown>> | null => {
+    const match = /^(.*)\.(\d+)\.(\d+)$/.exec(id);
+    if (!match) return null;
+    const grid = elementById.get(match[1]!);
+    if (grid?.type !== 'grid') return null;
+    const row = Number(match[2]);
+    const column = Number(match[3]);
+    if (id !== `${grid.id}.${row}.${column}`) return null;
+    const cell = grid.cells[row]?.[column];
+    if (cell === undefined || (cell === 0 && grid.inactiveCellStrategy !== 'hide')) return null;
+    return Object.freeze({
+      id, type: 'grid-cell', gridId: grid.id, row, column, value: cell,
+      show: cell !== 0, locked: grid.locked,
+    });
+  };
+
+  const visitId = (id: string): boolean => {
+    const element = elementById.get(id);
+    if (element) return visitElement(element);
+    const value = instanceValue(id);
+    if (!value) return false;
+    if (contributorIds.has(id)) { duplicateCount += 1; return true; }
+    return accepts(id, 'grid-cell', value, typeof value.value === 'string' ? value.value : null) && addEntity(id);
+  };
+
+  const visitElement = (
+    element: NormalizedPatchMapElement,
+  ): boolean => {
+    if (contributorIds.has(element.id)) { duplicateCount += 1; return true; }
+    if (!accepts(element.id, element.type, element)) return false;
     switch (element.type) {
       case 'group': {
         let found = false;
         for (const child of element.children) {
-          found = visitElement(child, false) || found;
+          found = visitElement(child) || found;
         }
         return found;
       }
       case 'grid': {
-        const prefix = `${element.id}.`;
-        let found = false;
-        for (const entity of geometry.entities) {
-          if (!entity.id.startsWith(prefix) || !entity.visible) continue;
-          addContributor(entity.id, entity.worldBounds);
-          found = true;
-        }
-        return found;
+        // A grid is one leaf target: its children contribute bounds, but are
+        // never individually filtered when the grid itself is selected.
+        const bounds = unionBounds(gridEntityBounds(geometry.entities, element));
+        if (bounds === null) return false;
+        addContributor(element.id, bounds);
+        return true;
       }
       case 'relations': {
-        if (defaultSelection) {
-          excluded.push(element.id);
-          return false;
-        }
         const relations = relationsByOwner.get(element.id) ?? [];
-        if (options.relationEndpointsAvailable !== false) {
-          let endpointFound = false;
-          for (const relation of relations) {
-            endpointFound = addEntity(relation.sourceId) || endpointFound;
-            endpointFound = addEntity(relation.targetId) || endpointFound;
-          }
-          if (endpointFound) return true;
-        }
         const ownBounds = unionBounds(
           relations.flatMap((relation) => {
-            if (relation.visible === false || !relation.worldBounds) return [];
+            if (!relation.worldBounds) return [];
             return [relation.worldBounds];
           }),
         );
@@ -157,11 +204,6 @@ export function resolvePatchMapViewportContributors(
         return true;
       }
       case 'image':
-        if (defaultSelection) {
-          excluded.push(element.id);
-          return false;
-        }
-        return addEntity(element.id);
       case 'item':
       case 'rect':
       case 'text':
@@ -171,17 +213,24 @@ export function resolvePatchMapViewportContributors(
 
   if (options.targets === null) {
     for (const element of dataset) {
-      if (visitElement(element, true)) applied.push(element.id);
+      if (element.type === 'relations') { excluded.push(element.id); continue; }
+      if (visitElement(element)) applied.push(element.id);
     }
   } else {
     const targetIds = normalizeIds(options.targets, 'targets');
     for (const targetId of targetIds) {
       const element = elementById.get(targetId);
-      const found = element
-        ? visitElement(element, false)
-        : addEntity(targetId);
+      let found = false;
+      if (element?.type === 'relations' && options.relationEndpointsAvailable !== false) {
+        // Resolve explicit relation IDs before traversal/filtering, as on main.
+        const endpoints = [...new Set(element.links.flatMap(({ source, target }) => [source, target]))]
+          .filter((id) => elementById.has(id) || instanceValue(id) !== null);
+        if (endpoints.length > 0) {
+          for (const id of endpoints) found = visitId(id) || found;
+        } else found = visitElement(element);
+      } else found = visitId(targetId);
       if (found) applied.push(targetId);
-      else if (!rejectIds.has(targetId)) missing.push(targetId);
+      else if (!element && instanceValue(targetId) === null) missing.push(targetId);
     }
   }
 
@@ -293,7 +342,7 @@ function normalizeIds(values: readonly string[], label: string): string[] {
 }
 
 function unionBounds(
-  values: readonly (readonly [number, number, number, number])[],
+  values: Iterable<readonly [number, number, number, number]>,
 ): readonly [number, number, number, number] | null {
   let left = Number.POSITIVE_INFINITY;
   let top = Number.POSITIVE_INFINITY;
@@ -309,6 +358,21 @@ function unionBounds(
   return Number.isFinite(left)
     ? Object.freeze([left, top, right - left, bottom - top])
     : null;
+}
+
+function* gridEntityBounds(
+  entities: readonly PatchMapViewportGeometryEntity[],
+  grid: PatchMapGridElement,
+): Iterable<readonly [number, number, number, number]> {
+  const prefix = `${grid.id}.`;
+  for (const entity of entities) {
+    if (!entity.id.startsWith(prefix)) continue;
+    const cell = /^(\d+)\.(\d+)(?:::|$)/.exec(entity.id.slice(prefix.length));
+    if (!cell) continue;
+    const value = grid.cells[Number(cell[1])]?.[Number(cell[2])];
+    if (value === undefined || (value === 0 && grid.inactiveCellStrategy !== 'hide')) continue;
+    yield entity.worldBounds;
+  }
 }
 
 function finiteBounds(

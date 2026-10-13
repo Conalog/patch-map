@@ -1,6 +1,6 @@
 import datasets from '../fixtures/datasets/index';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createPatchMapApi } from '../../src/public';
+import { createPatchMapApi, type PatchMapFocusOptions } from '../../src/public';
 
 import {
   PatchMap,
@@ -693,6 +693,82 @@ describe('PatchMap viewport authority', () => {
       centerWorld: [240, 180],
       scale: 2,
     });
+  });
+
+  it('exposes focus with shared fit filtering, preserving scale, rotation, data and history', async () => {
+    const { engine, surface } = await createEngine(engines, 'public-focus');
+    engine.loadDataset(datasets['all-kinds-scene']);
+    const map = createPatchMapApi(engine);
+    map.viewport.restore({ centerWorld: [0, 0], scale: 2 });
+    map.rotation.set(90);
+    const data = map.data.snapshot();
+    const history = engine.historyState();
+    vi.useFakeTimers();
+    try {
+      const settled = vi.fn();
+      const release = map.viewport.onSettled(settled);
+      const options: PatchMapFocusOptions = {
+        targets: map.targets.query({ id: 'group-a' }),
+        filter: ({ id, value }) => value.show && id !== 'item-a',
+      };
+      const focus = map.viewport.focus(options);
+      expect(focus).toMatchObject({
+        status: 'applied', changed: true, excluded: ['item-a'],
+        viewport: { centerWorld: [180, 55], scale: 2 },
+        contributors: [expect.objectContaining({ id: 'rect-b' })],
+      });
+      expect(screenBoundsCenter(surface.geometrySnapshot().entities, 'rect-b')).toEqual([400, 300]);
+      vi.advanceTimersByTime(100);
+      expect(settled).toHaveBeenCalledOnce();
+      expect(map.viewport.focus(options).changed).toBe(false);
+      expect(map.viewport.fit({ ...options, padding: [20, 30] }).contributors).toEqual(focus.contributors);
+      expect(map.rotation.value).toBe(90);
+      expect(map.data.snapshot()).toEqual(data);
+      expect(engine.historyState()).toEqual(history);
+      release();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('evaluates viewport filters on every call and does not change the view on rejection or failure', async () => {
+    const { engine } = await createEngine(engines, 'public-focus-empty');
+    engine.loadDataset(datasets['all-kinds-scene']);
+    const map = createPatchMapApi(engine);
+    expect(map.viewport.fit().contributors.map(({ id }) => id)).toContain('image-a');
+    let accepted = 'item-a';
+    const filter = vi.fn(({ id }: { id: string }) => id === 'group-a' || id === accepted ? 'keep' : false);
+    expect(map.viewport.focus({ filter }).contributors.map(({ id }) => id)).toEqual(['item-a']);
+    accepted = 'rect-b';
+    expect(map.viewport.fit({ filter }).contributors.map(({ id }) => id)).toEqual(['rect-b']);
+    const before = map.viewport.snapshot();
+    const revisions = engine.snapshot().revisions;
+    for (const method of ['focus', 'fit'] as const) {
+      expect(map.viewport[method]({ filter: () => false })).toMatchObject({
+        status: 'empty', changed: false, missing: [],
+      });
+      expect(map.viewport[method]({ targets: { id: 'missing' } })).toMatchObject({
+        status: 'empty', changed: false, missing: ['missing'],
+      });
+      expect(() => map.viewport[method]({ filter: () => { throw new Error('host filter failure'); } }))
+        .toThrow('host filter failure');
+      expect(() => map.viewport[method]({ filter: null as unknown as NonNullable<PatchMapFocusOptions['filter']> }))
+        .toThrow('viewport filter must be a function');
+      expect(map.viewport.snapshot()).toEqual(before);
+      expect(engine.snapshot().revisions).toEqual(revisions);
+    }
+  });
+
+  it('keeps focus target sets bound to their originating map and scene', async () => {
+    const { engine } = await createEngine(engines, 'public-focus-targets');
+    const { engine: other } = await createEngine(engines, 'public-focus-foreign');
+    engine.loadDataset(datasets['all-kinds-scene']);
+    other.loadDataset(datasets['all-kinds-scene']);
+    const map = createPatchMapApi(engine);
+    const targets = map.targets.query({ id: 'rect-b' });
+    expect(() => createPatchMapApi(other).viewport.focus({ targets })).toThrow('another PatchMap');
+    engine.loadDataset(datasets['all-kinds-scene']);
+    const before = map.viewport.snapshot();
+    expect(() => map.viewport.focus({ targets })).toThrow('target set is stale');
+    expect(map.viewport.snapshot()).toEqual(before);
   });
 
   it('focuses and fits hierarchy-aware contributors without moving on empty or invalid input', async () => {

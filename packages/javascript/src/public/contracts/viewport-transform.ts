@@ -5,12 +5,17 @@ import type {
   PatchMapResizeHandle,
   PatchMapTransformerEditKind,
 } from '../../selection-transformer/edit';
-import type { PatchMapTargetsInput } from './interaction';
+import type { PatchMapTargetMatch, PatchMapTargetsInput } from './interaction';
 import type { PatchMapRevisionStamp } from './mutation-history-editor';
 
-export interface PatchMapFitOptions {
-  readonly padding?: number | readonly [number, number];
+export interface PatchMapFocusOptions {
   readonly targets?: PatchMapTargetsInput;
+  /** Truthy includes a target; rejecting a group excludes its entire subtree. */
+  readonly filter?: (target: PatchMapTargetMatch) => unknown;
+}
+
+export interface PatchMapFitOptions extends PatchMapFocusOptions {
+  readonly padding?: number | readonly [number, number];
 }
 
 /** Whole-map orientation in clockwise degrees around the current viewport center. */
@@ -76,10 +81,9 @@ export interface PatchMapViewportContributor {
   readonly worldBounds: readonly [number, number, number, number];
 }
 
-export interface PatchMapViewportFitResult {
+export interface PatchMapViewportFocusResult {
   readonly status: 'applied' | 'empty';
   readonly changed: boolean;
-  readonly paddingCssPx: readonly [number, number];
   readonly viewport: PatchMapViewportState;
   readonly contributors: readonly PatchMapViewportContributor[];
   readonly applied: readonly string[];
@@ -87,6 +91,10 @@ export interface PatchMapViewportFitResult {
   readonly excluded: readonly string[];
   readonly duplicateCount: number;
   readonly worldBounds: readonly [number, number, number, number] | null;
+}
+
+export interface PatchMapViewportFitResult extends PatchMapViewportFocusResult {
+  readonly paddingCssPx: readonly [number, number];
 }
 
 export interface PatchMapViewportRestoreResult {
@@ -190,6 +198,7 @@ export interface PatchMapTransformResult {
 }
 
 export interface PatchMapViewportApi {
+  focus(options?: PatchMapFocusOptions): PatchMapViewportFocusResult;
   fit(options?: PatchMapFitOptions): PatchMapViewportFitResult;
   reset(options?: PatchMapFitOptions): PatchMapViewportRestoreResult;
   panBy(delta: readonly [number, number]): PatchMapViewportChangeResult;
@@ -197,7 +206,7 @@ export interface PatchMapViewportApi {
   resize(width: number, height: number, pixelRatio?: number): boolean;
   snapshot(): PatchMapViewportSnapshot;
   restore(snapshot: PatchMapViewportSnapshot): PatchMapViewportChangeResult;
-  /** Coalesced once after a burst of pointer, wheel, fit, restore, or resize changes. */
+  /** Coalesced once after a burst of pointer, wheel, focus, fit, restore, or resize changes. */
   onSettled(listener: (state: PatchMapViewportState) => void): () => void;
   readonly state: PatchMapViewportState;
 }

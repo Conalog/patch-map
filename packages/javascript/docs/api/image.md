@@ -36,7 +36,8 @@ Dimensions above 4,294,967,295 are rejected before allocation to prevent Canvas 
 Mutations return the same committed/unchanged/rejected/refused results as root mutations; handle rejection before rendering.
 
 The session exposes `data.replace/snapshot/serialize`, `targets`, `assets`, `update`, `updateBatch`, `transaction`,
-`viewport.fit/snapshot/restore/state`, immediate `rotation`, `render`, and `destroy`. Mutations commit without history or animation.
+`viewport.focus/fit/snapshot/restore/state`, immediate `rotation`, `render`, and `destroy`. Mutations commit without history or animation.
+Focus and fit share the target traversal and filter contract in [Viewport and transform](viewport-and-transform.md).
 Interactive controls, asynchronous replacement, canvas access, resize, backend selection, and renderer strategy options are not exposed.
 
 `render()` waits for active scene image bindings, publishes the current viewport,

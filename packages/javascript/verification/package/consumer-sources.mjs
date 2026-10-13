@@ -64,6 +64,26 @@ if (!rootContextAttributes.depth || !rootContextAttributes.stencil) {
   throw new Error('image creation changed mounted root context buffers');
 }
 const initial = map.debug.snapshot();
+const beforeFocus = map.viewport.snapshot();
+map.viewport.panBy([48, 24]);
+const focused = map.viewport.focus({
+  targets: map.targets.query({ id: 'consumer-item' }),
+  filter: ({ id, value }) => id === 'consumer-item' && value.show,
+});
+if (!focused.changed || focused.viewport.scale !== beforeFocus.scale
+  || JSON.stringify(focused.viewport.centerWorld) !== JSON.stringify([60, 90])) {
+  throw new Error('packed focus did not center the target while preserving scale');
+}
+const focusView = JSON.stringify(map.viewport.snapshot());
+if (map.viewport.focus({ filter: () => false }).status !== 'empty'
+  || JSON.stringify(map.viewport.snapshot()) !== focusView) {
+  throw new Error('packed empty focus changed the viewport');
+}
+const filteredFit = map.viewport.fit({ padding: [24, 16], filter: ({ id }) => id === 'consumer-item' });
+if (filteredFit.status !== 'applied' || filteredFit.contributors[0]?.id !== 'consumer-item') {
+  throw new Error('packed filtered fit failed');
+}
+map.viewport.restore(beforeFocus);
 const unrotatedCapture = await map.capture.png();
 const rotationViewport = JSON.stringify(map.viewport.snapshot());
 map.rotation.set(90);
