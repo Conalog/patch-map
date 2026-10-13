@@ -98,6 +98,7 @@ public identities.
 | validation, detachment, semantic hash | `src/semantic/dataset` | `tests/semantic/dataset-contract.test.ts` |
 | component percentage geometry | `src/parsing/` | `tests/semantic/parser.test.ts`, `tests/semantic/parser-value-normalization.test.ts` |
 | replacement freshness and atomic publication | `src/engine/dataset-replacement-coordinator.ts` | `tests/engine/engine-lifecycle.test.ts` |
+| replacement camera, rendering, and pointer consistency | `src/core/load-authority.ts` | `tests/core/core-load-atomicity.test.ts`, `verification/package/replacement-camera.mjs` |
 | target grammar and revision binding | `src/query-selection` | `tests/semantic/query-selection.test.ts` |
 | hierarchical zIndex and authored tie order | `src/parsing/`, `src/semantic/paint-order.ts` | `tests/semantic/paint-order.test.ts`, `tests/rendering/component-render-lanes.test.ts` |
 | facade shapes | `src/public/contracts.ts` | `tests/integration/developer-api-targets-presentation.test.ts` |
