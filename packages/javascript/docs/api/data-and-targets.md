@@ -15,6 +15,10 @@ are owned by their respective API pages.
 - `data.replace(input, options?)` validates and publishes an available PATCH MAP
   array synchronously. `data.replaceAsync()` provides the same result while
   allowing replacement work to yield.
+- Replacement retains the accepted camera and whole-map rotation. By default,
+  the public replace methods then fit the new dataset; `{ fit: false }` retains
+  the current center and scale. An equivalent fit/reset remains unchanged while
+  rendering and pointer coordinates continue to use that same camera.
 - Input is detached before it becomes authoritative. PatchMap does not retain or
   mutate caller arrays, records, query objects, or returned snapshots.
 - `attrs` remains the host extension point. PatchMap transforms `x`, `y`,

@@ -49,7 +49,8 @@ describe('PatchMap load authority', () => {
     const parse = parsePatchMap(input);
     const candidateScene = scene();
     candidateScene.seedReplacementFrom(fixture.initial.scene);
-    const store = candidateScene.load(parse.document);
+    const camera = Object.freeze({ x: 7, y: 8, scale: 2, rotation: 9 });
+    const store = candidateScene.load({ ...parse.document, view: camera });
     const candidate = fixture.authority.prepareCandidate({
       scene: candidateScene,
       parse,
@@ -64,11 +65,10 @@ describe('PatchMap load authority', () => {
     const prepared = fixture.authority.preparePublication({
       candidate,
       sourceProjection: parse.projection,
-      view: parse.document.view,
       activeImageEntityIds: new Set(),
       currentRuntime: {
         spatialHit: currentSpatialHit,
-        currentView: Object.freeze({ x: 7, y: 8, scale: 2, rotation: 9 }),
+        currentView: camera,
         pendingIntrinsicImageSizes: currentPendingSizes,
         automaticAnimationFramesActive: true,
       },
@@ -81,7 +81,8 @@ describe('PatchMap load authority', () => {
     expect(prepared.previousRuntime.spatialHit).toBe(currentSpatialHit);
     expect(prepared.previousRuntime.pendingIntrinsicImageSizes).toBe(currentPendingSizes);
     expect(prepared.nextRuntime.spatialHit).not.toBe(currentSpatialHit);
-    expect(prepared.nextRuntime.currentView).toEqual({ x: 0, y: 0, scale: 1, rotation: 0 });
+    expect(prepared.nextRuntime.currentView).toBe(candidateScene.view);
+    expect(prepared.nextRuntime.currentView).toEqual(camera);
     expect(prepared.rendererCheckpoint.state).toEqual({ opaqueState: 'initial' });
 
     fixture.authority.disposeRuntimeState(prepared.nextRuntime);
