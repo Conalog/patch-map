@@ -22,6 +22,8 @@ import type {
   PatchMapTransformResult,
   PatchMapViewportChangeResult,
   PatchMapViewportFitResult,
+  PatchMapViewportFocusResult,
+  PatchMapFocusOptions,
   PatchMapViewportRestoreResult,
   PatchMapViewportState,
 } from './contracts';
@@ -110,15 +112,20 @@ export interface PatchMapHostPresentationLayerChange {
   readonly revision: number;
 }
 
-export interface PatchMapHostViewportFitOptions {
-  readonly paddingCssPx?: number | readonly [number, number];
+export interface PatchMapHostViewportTargetOptions {
   readonly targets?: readonly string[] | null;
+  readonly filter?: NonNullable<PatchMapFocusOptions['filter']>;
+}
+
+export interface PatchMapHostViewportFitOptions extends PatchMapHostViewportTargetOptions {
+  readonly paddingCssPx?: number | readonly [number, number];
 }
 
 export type PatchMapHostTransformerEditOptions = PatchMapTransformOptions;
 export type PatchMapHostTransformerEditResult = PatchMapTransformResult;
 export type PatchMapHostViewportChangeResult = PatchMapViewportChangeResult;
 export type PatchMapHostViewportFitResult = PatchMapViewportFitResult;
+export type PatchMapHostViewportFocusResult = PatchMapViewportFocusResult;
 export type PatchMapHostViewportRestoreResult = PatchMapViewportRestoreResult;
 export type PatchMapHostViewportState = PatchMapViewportState;
 export type PatchMapHostHistoryResult = Omit<PatchMapHistoryResult, 'companion'> & Readonly<{

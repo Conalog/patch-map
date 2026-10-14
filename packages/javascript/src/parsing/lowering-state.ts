@@ -91,6 +91,7 @@ export function addEntity(
       contentOrientation: projection?.contentOrientation ?? 'follow-item',
       stackingPath: owner.stackingPath,
       ...(owner.instance ? { ownerItemId: owner.instance.instanceId } : {}),
+      ...(owner.gridId && !owner.component ? { gridId: owner.gridId } : {}),
       ...(owner.component
         ? {
             componentId: owner.component.componentId,

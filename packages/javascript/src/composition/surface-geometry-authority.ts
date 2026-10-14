@@ -161,6 +161,7 @@ export class PatchMapSurfaceGeometryAuthority {
       this.worldGeometryProjection !== projection
     ) {
       this.worldGeometryCache = Object.freeze({
+        ...(geometry.elementFrames === undefined ? {} : { elementFrames: geometry.elementFrames }),
         entities: geometry.entities,
         relations: geometry.relations,
       });

@@ -143,6 +143,19 @@ const capabilities: readonly string[] = PATCH_MAP_HOST_ADAPTER_CAPABILITIES;
 const mount: typeof PatchMapHostAdapter.mount = PatchMapHostAdapter.mount;
 const snapshot: PatchMapDebugSnapshot | null = null;
 declare const mounted: Awaited<ReturnType<typeof PatchMap.mount>>;
+const focusResult = mounted.viewport.focus({
+  targets: { id: 'rack-grid' },
+  filter: ({ id, type, value }) => type === 'grid' && id !== 'background' && value.show,
+});
+const focusedScale: number = focusResult.viewport.scale;
+mounted.viewport.fit({ targets: mounted.targets.query({ type: 'item' }), padding: [24, 16], filter: ({ id }) => id !== 'background' });
+// @ts-expect-error focus keeps the current options-object API, not positional IDs.
+mounted.viewport.focus('rack-grid');
+// @ts-expect-error fit padding retains the current tuple shape, not main's axis object.
+mounted.viewport.fit({ padding: { x: 24, y: 16 } });
+// @ts-expect-error viewport filters must be functions.
+mounted.viewport.focus({ filter: true });
+void focusedScale;
 const rotationAngle: number = mounted.rotation.set(90);
 mounted.rotation.rotateBy(-15);
 mounted.rotation.value = 45;

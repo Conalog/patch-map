@@ -7,6 +7,7 @@ import {
 import type { MaterializedPatchMapDataset } from '../semantic/dataset';
 import {
   PATCH_MAP_VIEWPORT_REVISION,
+  normalizePatchMapViewportFilter,
   normalizePatchMapViewportPadding,
   patchMapBoundsCenter,
   patchMapViewportFitScale,
@@ -566,6 +567,7 @@ export class PatchMapViewportRuntimeCoordinator {
     options: PatchMapViewportTargetOptions,
   ): PatchMapViewportContributorResult {
     const surface = this.port.requireSurface('resolveViewportContributors');
+    normalizePatchMapViewportFilter(options.filter);
     const materialized = this.port.materialized();
     if (materialized === null) {
       return Object.freeze({
@@ -582,6 +584,7 @@ export class PatchMapViewportRuntimeCoordinator {
     const defaultRequest =
       (options.targets === undefined || options.targets === null) &&
       options.rejectIds === undefined &&
+      options.filter === undefined &&
       options.relationEndpointsAvailable === undefined;
     const cached = this.defaultContributorsCache;
     if (
@@ -595,6 +598,7 @@ export class PatchMapViewportRuntimeCoordinator {
     const result = resolvePatchMapViewportContributors(materialized.dataset, geometry, {
       targets: options.targets ?? null,
       ...(options.rejectIds === undefined ? {} : { rejectIds: options.rejectIds }),
+      ...(options.filter === undefined ? {} : { filter: options.filter }),
       ...(options.relationEndpointsAvailable === undefined
         ? {}
         : { relationEndpointsAvailable: options.relationEndpointsAvailable }),

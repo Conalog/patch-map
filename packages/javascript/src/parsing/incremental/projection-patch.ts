@@ -18,10 +18,15 @@ export function patchStableProjection(
   for (const rootIndex of dirtyIndices) {
     const fragment = fragments[rootIndex];
     if (fragment === undefined) return null;
+    Object.assign(selected.elementFramesById, fragment.projection.elementFramesById);
     for (const entity of fragment.entities) {
       appendProjectionEntity(selected, fragment.projection, entity.id);
     }
   }
+  const elementFramesById = patchPatchMapStableRecord(
+    previous.elementFramesById, selected.elementFramesById,
+    Object.keys(selected.elementFramesById), recordStrategy,
+  );
   const byEntityId = patchPatchMapStableRecord(
     previous.byEntityId,
     selected.byEntityId,
@@ -65,6 +70,7 @@ export function patchStableProjection(
     recordStrategy,
   );
   if (
+    elementFramesById === null ||
     byEntityId === null ||
     componentsByEntityId === null ||
     backgroundsByEntityId === null ||
@@ -76,6 +82,7 @@ export function patchStableProjection(
     return null;
   }
   return Object.freeze({
+    elementFramesById,
     byEntityId,
     componentsByEntityId,
     backgroundsByEntityId,
@@ -90,11 +97,13 @@ export function patchStableProjection(
 export function projectionForEntities(
   source: PatchMapProjectionIndex,
   entities: readonly EntityInput[],
+  elementIds: readonly string[],
   omittedRelations: readonly NonNullable<
     PatchMapProjectionIndex['omittedRelations']
   >[number][] = [],
 ): PatchMapProjectionIndex {
   const projection = emptyProjection();
+  for (const id of elementIds) appendRecordValue(projection.elementFramesById, source.elementFramesById, id);
   for (const entity of entities) appendProjectionEntity(projection, source, entity.id);
   projection.omittedRelations.push(...omittedRelations);
   return freezeProjection(projection);
@@ -102,6 +111,7 @@ export function projectionForEntities(
 
 export function emptyProjection(): MutableProjection {
   return {
+    elementFramesById: Object.create(null) as MutableProjection['elementFramesById'],
     byEntityId: Object.create(null) as MutableProjection['byEntityId'],
     componentsByEntityId:
       Object.create(null) as MutableProjection['componentsByEntityId'],
@@ -117,6 +127,7 @@ export function emptyProjection(): MutableProjection {
 }
 
 interface MutableProjection {
+  readonly elementFramesById: Record<string, PatchMapProjectionIndex['elementFramesById'][string]>;
   readonly byEntityId: Record<string, NonNullable<PatchMapProjectionIndex['byEntityId'][string]>>;
   readonly componentsByEntityId: Record<string, NonNullable<
     NonNullable<PatchMapProjectionIndex['componentsByEntityId']>[string]
@@ -164,6 +175,7 @@ function appendRecordValue<Value>(
 
 export function freezeProjection(projection: MutableProjection): PatchMapProjectionIndex {
   return Object.freeze({
+    elementFramesById: Object.freeze(projection.elementFramesById),
     byEntityId: Object.freeze(projection.byEntityId),
     componentsByEntityId: Object.freeze(projection.componentsByEntityId),
     backgroundsByEntityId: Object.freeze(projection.backgroundsByEntityId),

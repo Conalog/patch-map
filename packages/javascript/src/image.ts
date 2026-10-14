@@ -34,6 +34,8 @@ export type {
   PatchMapUpdateResult,
   PatchMapTransactionOperation,
   PatchMapFitOptions,
+  PatchMapFocusOptions,
+  PatchMapViewportFocusResult,
   PatchMapViewportSnapshot,
   PatchMapDiagnostic,
 } from './public/contracts';

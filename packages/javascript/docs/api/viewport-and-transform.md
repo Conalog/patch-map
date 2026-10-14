@@ -17,7 +17,8 @@ Viewport APIs:
 
 | API | Effect |
 | --- | --- |
-| `fit({ padding, targets })` | fit the scene or selected logical targets |
+| `focus({ targets, filter })` | center the scene or selected logical targets, preserving scale |
+| `fit({ padding, targets, filter })` | center and scale the scene or selected logical targets |
 | `reset(options?)` | restore the fitted baseline |
 | `panBy([dx, dy])` | apply a relative screen-space pan |
 | `zoomBy(factor, anchor?)` | scale at an optional CSS-space anchor |
@@ -25,11 +26,11 @@ Viewport APIs:
 | `snapshot()` / `restore(snapshot)` | persist and atomically restore absolute world center and scale |
 | `onSettled(listener)` | notify once 100ms after a viewport-change burst |
 
-- Mount-time `viewport.initial` is validated after data load and takes precedence
-  over mount-time `fit`. Scale always passes through configured zoom limits.
-- A snapshot is detached and consists only of `centerWorld: [x, y]` plus `scale`.
-  Resize preserves that absolute center and scale.
-- `onSettled()` coalesces pointer pan, wheel, fit, reset, restore, programmatic pan/zoom, and resize. It returns a disposer; destroy removes remaining listeners.
+Target traversal, filtering, defaults, and result semantics: [Viewport targets](viewport-targets.md).
+
+- Mount-time `viewport.initial` is validated after data load and takes precedence over mount-time `fit`. Scale always passes through configured zoom limits.
+- A snapshot is detached and consists only of `centerWorld: [x, y]` plus `scale`. Resize preserves that absolute center and scale.
+- `onSettled()` coalesces pointer pan, wheel, focus, fit, reset, restore, programmatic pan/zoom, and resize. It returns a disposer; destroy removes remaining listeners.
   Listener failures are isolated and reported as `HOST_CALLBACK_FAILURE` after delivery; listeners removed during delivery are skipped.
 - Wheel activation defaults to `none`. `control` accepts `ctrlKey || metaKey` from
   the current wheel event. A rejected wheel is neither prevented nor stopped. An
@@ -73,7 +74,7 @@ patchmap.rotation.animateTo(0, { path: 'shortest', normalizeOnComplete: true });
 - Defaults: `durationMs: 250`, cubic ease-out, `path: 'raw'`, `normalizeOnComplete: false`. Raw differences retain full turns: 0 to 720 makes two turns; 350 to 10 travels backward 340 degrees.
 - `clockwise`, `counterclockwise`, and `shortest` interpret any finite target modulo 360 as a bearing, retaining the current turn count during travel. Shortest-path 180-degree ties rotate clockwise; equivalent bearings do not add a turn. Example: 810 to 0 on the shortest path ends at 720, or at 0 with normalization.
 - `rotation.value` is the currently applied, unwrapped angle during travel. On successful final frame publication, `normalizeOnComplete: true` changes its representation to `[0, 360)` without another render or viewport revision. `finished` and subsequent `onSettled()` reads see that normalized value. Center, scale, dataset and history stay fixed.
-- New animation retargets from the current angle. Immediate rotation setters and accepted pan/zoom/fit/restore cancel it; resize preserves it. `cancel()` affects only its own active request and returns false after it ends. Cancellation and frame failure preserve the current applied angle without normalizing, including at the final frame.
+- New animation retargets from the current angle. Immediate rotation setters and accepted pan/zoom/focus/fit/restore cancel it; resize preserves it. `cancel()` affects only its own active request and returns false after it ends. Cancellation and frame failure preserve the current applied angle without normalizing, including at the final frame.
 - `finished` resolves once with `{ status, angle }`: `completed` after the final animated frame, `cancelled` on interruption/destroy, or `failed` on frame failure; it does not reject. Zero duration, equivalent target or reduced motion completes immediately after accepting the resolved angle and requesting a frame. `onSettled()` also follows cancellation, so require `status === 'completed'` when saving only completed normalized targets.
 - Invalid angle/duration throws `RangeError`; invalid path or nonboolean normalization throws `TypeError`, before interrupting a request. Directed paths also reject accumulated angles outside `Number.MAX_SAFE_INTEGER` or unable to represent the target bearing accurately; normalize a huge current value with an immediate setter first. Raw finite multi-turn angles remain supported.
 - Animation uses the managed frame loop independently of data-animation throttling. Hidden time is excluded; enabling reduced motion mid-animation completes on the next visible frame. `onSettled()` waits until rotation ends and the existing 100ms quiet period passes.
@@ -99,8 +100,7 @@ resize handle.
 ## Failure semantics
 
 - Non-finite viewport or transform values reject without changing state.
-- Invalid snapshots, unknown targets, unsupported transforms, and geometry below
-  policy limits return a rejected or refused status; no subset commits.
+- Invalid transform targets, unsupported transforms, and geometry below policy limits return a rejected or refused status; no subset commits.
 - A viewport command that clamps to the current state is unchanged rather than a
   new publication.
 - Cancel, target change, pointer termination, or refused surface acceptance

@@ -1,4 +1,5 @@
 import { PACKED_IMAGE_CONSUMER_SOURCE } from './image-consumer-source.mjs';
+import { PACKED_VIEWPORT_BOUNDS_CONSUMER_SOURCE } from './viewport-bounds-consumer.mjs';
 
 const HOST_DEPENDENCIES = Object.freeze({
   'pixi.js': '8.22.0',
@@ -33,6 +34,7 @@ import * as packageApi from '@conalog/patch-map';
 import { PatchMap } from '@conalog/patch-map';
 
 ${PACKED_IMAGE_CONSUMER_SOURCE}
+${PACKED_VIEWPORT_BOUNDS_CONSUMER_SOURCE}
 
 const input = [{
   type: 'item', id: 'consumer-item', show: true,
@@ -59,11 +61,32 @@ const map = await PatchMap.mount({
 
 // Image create/render/destroy must coexist with an already-mounted root map.
 await verifyImageEntry(map.assets.status().runtime);
+await verifyViewportBounds();
 const rootContextAttributes = document.querySelector('#host canvas').getContext('webgl2').getContextAttributes();
 if (!rootContextAttributes.depth || !rootContextAttributes.stencil) {
   throw new Error('image creation changed mounted root context buffers');
 }
 const initial = map.debug.snapshot();
+const beforeFocus = map.viewport.snapshot();
+map.viewport.panBy([48, 24]);
+const focused = map.viewport.focus({
+  targets: map.targets.query({ id: 'consumer-item' }),
+  filter: ({ id, value }) => id === 'consumer-item' && value.show,
+});
+if (!focused.changed || focused.viewport.scale !== beforeFocus.scale
+  || JSON.stringify(focused.viewport.centerWorld) !== JSON.stringify([60, 90])) {
+  throw new Error('packed focus did not center the target while preserving scale');
+}
+const focusView = JSON.stringify(map.viewport.snapshot());
+if (map.viewport.focus({ filter: () => false }).status !== 'empty'
+  || JSON.stringify(map.viewport.snapshot()) !== focusView) {
+  throw new Error('packed empty focus changed the viewport');
+}
+const filteredFit = map.viewport.fit({ padding: [24, 16], filter: ({ id }) => id === 'consumer-item' });
+if (filteredFit.status !== 'applied' || filteredFit.contributors[0]?.id !== 'consumer-item') {
+  throw new Error('packed filtered fit failed');
+}
+map.viewport.restore(beforeFocus);
 const unrotatedCapture = await map.capture.png();
 const rotationViewport = JSON.stringify(map.viewport.snapshot());
 map.rotation.set(90);

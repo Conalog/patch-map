@@ -1,4 +1,5 @@
 import type { PatchMapAffineBasis } from '../semantic/geometry';
+import type { PatchMapViewportGeometry, PatchMapViewportGeometryEntity } from '../viewport';
 import type { PatchMapScreenRegionCandidates } from '../semantic/screen-region-index';
 
 export interface PatchMapPoint {
@@ -35,7 +36,7 @@ export interface PatchMapRelationHitIndex {
   readonly overflow: readonly number[];
 }
 
-export interface PatchMapSurfaceEntityGeometry {
+export interface PatchMapSurfaceEntityGeometry extends PatchMapViewportGeometryEntity {
   readonly id: string;
   readonly kind: string;
   readonly localBounds?: readonly [number, number, number, number];
@@ -56,6 +57,8 @@ export interface PatchMapSurfaceEntityGeometry {
 }
 
 export interface PatchMapSurfaceRelationGeometry {
+  readonly viewportPath?: NonNullable<PatchMapViewportGeometry['relations'][number]['viewportPath']>;
+  readonly worldQuad?: NonNullable<PatchMapViewportGeometry['relations'][number]['worldQuad']>;
   readonly id: string;
   readonly relationId?: string;
   readonly key?: string;
@@ -99,6 +102,7 @@ export interface PatchMapSurfaceOmittedRelationGeometry {
 }
 
 export interface PatchMapSurfaceGeometrySnapshot {
+  readonly elementFrames?: NonNullable<PatchMapViewportGeometry['elementFrames']>;
   /** Surface geometry generation used to correlate engine revision domains. */
   readonly revision: number;
   /** Dense scene revision used to derive the geometry snapshot. */

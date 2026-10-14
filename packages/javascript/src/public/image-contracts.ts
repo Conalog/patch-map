@@ -47,7 +47,7 @@ export interface PatchMapImageInstance {
   readonly data: Pick<PatchMapApi['data'], 'replace' | 'snapshot' | 'serialize'>;
   readonly targets: PatchMapApi['targets'];
   readonly assets: PatchMapApi['assets'];
-  readonly viewport: Pick<PatchMapViewportApi, 'fit' | 'snapshot' | 'restore' | 'state'>;
+  readonly viewport: Pick<PatchMapViewportApi, 'focus' | 'fit' | 'snapshot' | 'restore' | 'state'>;
   readonly rotation: Omit<PatchMapRotationApi, 'animateTo'>;
   update(input: PatchMapUpdate, options?: PatchMapImageMutationOptions): PatchMapUpdateResult;
   updateBatch(input: PatchMapUpdateBatch, options?: PatchMapImageMutationOptions): PatchMapUpdateResult;

@@ -418,6 +418,7 @@ export function parsePatchMapDirectElementAngleBatch(
     string,
     PatchMapEntityProjection
   >;
+  const selectedFrames = Object.create(null) as Record<string, PatchMapAffineMatrix>;
   const dirtyEntityIds: string[] = [];
   const nextFragments: RootFragment[] = [...previousFragments];
   const localAffines: Map<string, PatchMapAffineMatrix> =
@@ -487,6 +488,7 @@ export function parsePatchMapDirectElementAngleBatch(
       return null;
     }
     const angleDelta = update.angle - rootProjection.rotationDegrees;
+    selectedFrames[fragment.element.sourceId] = rootAffine;
     const fragmentEntities: EntityInput[] = [];
     const fragmentProjections = Object.create(null) as Record<
       string,
@@ -560,6 +562,7 @@ export function parsePatchMapDirectElementAngleBatch(
       entities: Object.freeze(fragmentEntities),
       projection: Object.freeze({
         ...fragment.projection,
+        elementFramesById: Object.freeze({ [fragment.element.sourceId]: rootAffine }),
         byEntityId: Object.freeze(fragmentProjections),
       }),
     });
@@ -576,6 +579,14 @@ export function parsePatchMapDirectElementAngleBatch(
     true,
   );
   if (byEntityId === null) return null;
+  const elementFramesById = patchPatchMapStableRecord(
+    previous.projection.elementFramesById,
+    selectedFrames,
+    Object.keys(selectedFrames),
+    recordStrategy,
+    true,
+  );
+  if (elementFramesById === null) return null;
   const result = Object.freeze({
     ...previous,
     document: Object.freeze({
@@ -588,6 +599,7 @@ export function parsePatchMapDirectElementAngleBatch(
     }),
     projection: Object.freeze({
       ...previous.projection,
+      elementFramesById,
       byEntityId,
     }),
   });

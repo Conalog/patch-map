@@ -16,7 +16,7 @@ import {
   relationPathHitScreen,
   resolvePatchMapRelationPath,
 } from '../geometry/relation-paths';
-import type { PatchMapViewportGeometry } from '../viewport';
+import type { PatchMapViewportGeometry, PatchMapViewportGeometryEntity } from '../viewport';
 import type {
   PatchMapPoint,
   PatchMapRelationHit,
@@ -106,6 +106,7 @@ export function createPatchMapSurfaceGeometrySnapshot(
       worldPoints: resolved.worldPoints,
       screenPoints,
       worldBounds: resolved.worldBounds,
+      viewportPath: Object.freeze({ affine: (relationProjection ?? fallbackProjection).affine, worldPoints: resolved.worldPoints, strokeWidth: resolved.style.width, authoredIndex: (relationProjection ?? fallbackProjection).authoredIndex }),
       screenBounds: boundsForTuplePoints(screenPoints),
       visible: resolved.visible,
       style: Object.freeze({
@@ -140,6 +141,7 @@ export function createPatchMapSurfaceGeometrySnapshot(
   const selectionOverlay = unionBounds(selectedBounds);
 
   return Object.freeze({
+    ...(projection === null ? {} : { elementFrames: projection.elementFramesById }),
     revision: snapshot.revision,
     sceneRevision: snapshot.revision,
     entities: Object.freeze(entityGeometries),
@@ -171,7 +173,7 @@ export function createPatchMapSurfaceEntityGeometry(
     ? resolveProjectedEntityGeometry(entityProjection, surfaceView, projection)
     : resolveDenseEntityGeometry(entity.bounds, entity.rotation, surfaceView);
   return Object.freeze({
-    id: entity.id,
+    ...viewportGeometryEntity(entity, entityProjection, geometry),
     kind: entity.kind,
     localBounds: entityProjection?.localBounds ?? freezeBounds(
       0,
@@ -179,10 +181,8 @@ export function createPatchMapSurfaceEntityGeometry(
       entity.bounds.width,
       entity.bounds.height,
     ),
-    worldBounds: geometry.worldBounds,
     screenBounds: geometry.screenBounds,
     visibleBounds: entity.visible ? geometry.worldBounds : null,
-    visible: entity.visible,
     interactive: entity.interactive,
     scaleX: entityProjection?.scaleX ?? 1,
     scaleY: entityProjection?.scaleY ?? 1,
@@ -232,11 +232,7 @@ export function createPatchMapSurfaceWorldGeometrySnapshot(
       visible: entity.visible,
     });
     resolvedById.set(entity.id, resolved);
-    return [Object.freeze({
-      id: entity.id,
-      worldBounds: geometry.worldBounds,
-      visible: entity.visible,
-    })];
+    return [viewportGeometryEntity(entity, entityProjection, geometry)];
   });
   const relations = snapshot.entities.flatMap((entity) => {
     if (entity.kind !== 'relation') return [];
@@ -285,10 +281,12 @@ export function createPatchMapSurfaceWorldGeometrySnapshot(
       sourceId,
       targetId,
       worldBounds: resolved.worldBounds,
+      viewportPath: Object.freeze({ affine: (relationProjection ?? fallbackProjection).affine, worldPoints: resolved.worldPoints, strokeWidth: resolved.style.width, authoredIndex: (relationProjection ?? fallbackProjection).authoredIndex }),
       visible: resolved.visible,
     })];
   });
   return Object.freeze({
+    ...(projection === null ? {} : { elementFrames: projection.elementFramesById }),
     entities: Object.freeze(entities),
     relations: Object.freeze(relations),
   });
@@ -557,6 +555,7 @@ function relationSourceId(entity: SceneSnapshot['entities'][number]): string {
 
 interface ResolvedEntityGeometry {
   readonly worldBounds: readonly [number, number, number, number];
+  readonly worldCorners: readonly PatchMapPointTuple[];
   readonly screenBounds: readonly [number, number, number, number];
   readonly screenBasis: PatchMapAffineBasis;
   readonly visibleCenter: readonly [number, number];
@@ -569,18 +568,85 @@ interface ResolvedWorldEntityGeometry {
   readonly visibleCenter: readonly [number, number];
 }
 
+/** Shared by screen and world snapshots, which may seed the same viewport cache. */
+function viewportGeometryEntity(
+  entity: SceneSnapshot['entities'][number],
+  projection: PatchMapEntityProjection | undefined,
+  geometry: Pick<ResolvedWorldEntityGeometry, 'worldBounds' | 'worldCorners'>,
+): PatchMapViewportGeometryEntity {
+  if (projection?.ownerItemId === entity.id && projection.componentId === undefined) {
+    return Object.freeze({
+      id: entity.id, visible: entity.visible, worldBounds: geometry.worldBounds, frame: projection,
+    });
+  }
+  if (projection === undefined) return Object.freeze({ id: entity.id, visible: entity.visible, worldBounds: geometry.worldBounds });
+  const worldQuad = viewportVisualQuad(entity, projection, geometry.worldCorners);
+  if (projection.componentId !== undefined && projection.ownerItemId !== undefined) {
+    return Object.freeze({
+      id: entity.id, visible: entity.visible, worldBounds: geometry.worldBounds,
+      ownerItemId: projection.ownerItemId, worldQuad,
+    });
+  }
+  return Object.freeze({ id: entity.id, visible: entity.visible, worldBounds: geometry.worldBounds, worldQuad });
+}
+
+function viewportVisualQuad(
+  entity: SceneSnapshot['entities'][number],
+  projection: PatchMapEntityProjection,
+  corners: readonly PatchMapPointTuple[],
+): NonNullable<PatchMapViewportGeometryEntity['worldQuad']> {
+  const base = projection.contentOrientation === 'follow-item'
+    ? projection
+    : uprightViewportQuad(corners);
+  return entity.kind === 'rect' || entity.kind === 'bar'
+    ? viewportRectQuad(entity.data, projection, base)
+    : base;
+}
+
+function uprightViewportQuad(corners: readonly PatchMapPointTuple[]): NonNullable<PatchMapViewportGeometryEntity['worldQuad']> {
+  return Object.freeze({
+    affine: Object.freeze([
+      corners[1]![0] - corners[0]![0], corners[1]![1] - corners[0]![1],
+      corners[3]![0] - corners[0]![0], corners[3]![1] - corners[0]![1],
+      corners[0]![0], corners[0]![1],
+    ] as const),
+    localBounds: VIEWPORT_UNIT_BOUNDS,
+  });
+}
+
+function viewportRectQuad(
+  data: SceneSnapshot['entities'][number]['data'],
+  projection: PatchMapEntityProjection,
+  base: NonNullable<PatchMapViewportGeometryEntity['worldQuad']>,
+): NonNullable<PatchMapViewportGeometryEntity['worldQuad']> {
+  const width = projection.localBounds[2], height = projection.localBounds[3];
+  if (!(width > 0 && height > 0)) return Object.freeze({ affine: base.affine, localBounds: VIEWPORT_EMPTY_BOUNDS });
+  if (typeof data.stroke === 'number' && typeof data.strokeWidth === 'number' && data.strokeWidth > 0) {
+    const outsetX = data.strokeWidth / 2 * base.localBounds[2] / width;
+    const outsetY = data.strokeWidth / 2 * base.localBounds[3] / height;
+    return Object.freeze({ affine: base.affine, localBounds: Object.freeze([
+      base.localBounds[0] - outsetX, base.localBounds[1] - outsetY,
+      base.localBounds[2] + outsetX * 2, base.localBounds[3] + outsetY * 2,
+    ] as const) });
+  }
+  return base;
+}
+
+const VIEWPORT_EMPTY_BOUNDS = Object.freeze([0, 0, 0, 0] as const);
+const VIEWPORT_UNIT_BOUNDS = Object.freeze([0, 0, 1, 1] as const);
+
 function resolveProjectedEntityWorldGeometry(
   projection: NonNullable<PatchMapProjectionIndex['byEntityId'][string]>,
   view: PatchMapSurfaceView,
   index?: PatchMapProjectionIndex | null,
 ): ResolvedWorldEntityGeometry {
-  const orientedWorldAffine = multiplyPatchMapAffine(
-    createPatchMapAffine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
-    createPatchMapAffine(0, 0, view.rotation),
-  );
   let worldCorners: readonly (readonly [number, number])[];
   let worldBasis: PatchMapAffineBasis;
   if (projection.contentOrientation === 'upright') {
+    const orientedWorldAffine = multiplyPatchMapAffine(
+      createPatchMapAffine(0, 0, 0, view.flipX ? -1 : 1, view.flipY ? -1 : 1),
+      createPatchMapAffine(0, 0, view.rotation),
+    );
     const resolved = writePatchMapReadableRect(
       {
         center: [0, 0],
@@ -647,6 +713,7 @@ function resolveProjectedEntityGeometry(
     surfacePointToScreen(point, view));
   return Object.freeze({
     worldBounds: worldGeometry.worldBounds,
+    worldCorners: worldGeometry.worldCorners,
     screenBounds: boundsForTuplePoints(screenCorners),
     screenBasis,
     visibleCenter: worldGeometry.visibleCenter,
@@ -697,6 +764,7 @@ function resolveDenseEntityGeometry(
   );
   return Object.freeze({
     worldBounds: worldGeometry.worldBounds,
+    worldCorners: worldGeometry.worldCorners,
     screenBounds: boundsForTuplePoints(screenCorners),
     screenBasis: patchMapAffineBasis(worldAffine),
     visibleCenter: worldGeometry.visibleCenter,

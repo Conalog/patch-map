@@ -18,6 +18,8 @@ import type {
   PatchMapHostViewportChangeResult,
   PatchMapHostViewportFitOptions,
   PatchMapHostViewportFitResult,
+  PatchMapHostViewportFocusResult,
+  PatchMapHostViewportTargetOptions,
   PatchMapHostViewportRestoreResult,
   PatchMapHostViewportState,
 } from './host-contracts';
@@ -38,6 +40,7 @@ import type {
   PatchMapDataReplaceResult,
   PatchMapApi,
   PatchMapFitOptions,
+  PatchMapFocusOptions,
   PatchMapOneOrMany,
   PatchMapPointerHoverEvent,
   PatchMapPointerSelectionChange,
@@ -68,7 +71,7 @@ import {
   createPatchMapTransformApi,
   type PatchMapTransformHost,
 } from './transform';
-import { normalizePatchMapViewportPadding } from '../viewport';
+import { normalizePatchMapViewportFilter, normalizePatchMapViewportPadding } from '../viewport';
 
 export type * from './contracts';
 
@@ -114,6 +117,7 @@ interface PatchMapApiHost extends PatchMapTransformHost, PatchMapEditorHost, Pat
   }>): void;
   applySelection(input: PatchMapSelectionSetOperation): PatchMapSelectionChange;
   fitViewport(options?: PatchMapHostViewportFitOptions): PatchMapHostViewportFitResult;
+  focusViewport(options?: PatchMapHostViewportTargetOptions): PatchMapHostViewportFocusResult;
   restoreViewport(
     input: unknown,
     fallback?: PatchMapHostViewportFitOptions,
@@ -363,6 +367,18 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
     return Object.freeze({ selected, sceneTargets: logical });
   };
 
+  const engineTargetOptions = (
+    options: PatchMapFocusOptions,
+  ): PatchMapHostViewportTargetOptions => {
+    normalizePatchMapViewportFilter(options.filter);
+    return Object.freeze({
+      ...(options.filter === undefined ? {} : { filter: options.filter }),
+      ...(options.targets === undefined
+        ? {}
+        : { targets: targetsOf(options.targets, 'focus').map((target) => target.id) }),
+    });
+  };
+
   const engineFitOptions = (
     options: PatchMapFitOptions = {},
   ): PatchMapHostViewportFitOptions => {
@@ -370,12 +386,10 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
       ? null
       : normalizePatchMapViewportPadding(options.padding);
     return Object.freeze({
+      ...engineTargetOptions(options),
       ...(padding === null
         ? {}
         : { paddingCssPx: Object.freeze([padding.x, padding.y] as const) }),
-      ...(options.targets === undefined
-        ? {}
-        : { targets: targetsOf(options.targets, 'focus').map((target) => target.id) }),
     });
   };
 
@@ -565,13 +579,9 @@ export function createPatchMapApi(host: PatchMapApiHost): PatchMapApi {
   };
 
   const viewport = Object.freeze({
+    focus: (options: PatchMapFocusOptions = {}) => host.focusViewport(engineTargetOptions(options)),
     fit,
-    reset: (options: PatchMapFitOptions = {}) => host.restoreViewport(null, {
-      ...(options.padding === undefined ? {} : { paddingCssPx: options.padding }),
-      ...(options.targets === undefined
-        ? {}
-        : { targets: targetsOf(options.targets, 'focus').map((target) => target.id) }),
-    }),
+    reset: (options: PatchMapFitOptions = {}) => host.restoreViewport(null, engineFitOptions(options)),
     panBy: (delta: readonly [number, number]) => host.panViewport(delta),
     zoomBy(factor: number, anchor?: readonly [number, number]): PatchMapHostViewportChangeResult {
       const size = host.snapshot().resources.canvas.cssSize;

@@ -116,6 +116,7 @@ function assertCanonicalAngleProjection(
 ): void {
   expect(actual.diagnostics).toEqual(expected.diagnostics);
   expect(actual.identity).toEqual(expected.identity);
+  expect(actual.projection.elementFramesById).toEqual(expected.projection.elementFramesById);
   expect(actual.document.entities).toHaveLength(expected.document.entities.length);
   actual.document.entities.forEach((entity, index) => {
     const candidate = expected.document.entities[index]!;

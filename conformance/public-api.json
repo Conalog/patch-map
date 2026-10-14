@@ -3269,6 +3269,14 @@
     "constructors": []
   },
   {
+    "id": "api.PatchMapFitOptions.filter",
+    "export": "PatchMapFitOptions",
+    "member": "filter",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": true,
+    "shape": "(target: PatchMapTargetMatch) => unknown"
+  },
+  {
     "id": "api.PatchMapFitOptions.padding",
     "export": "PatchMapFitOptions",
     "member": "padding",
@@ -3279,6 +3287,31 @@
   {
     "id": "api.PatchMapFitOptions.targets",
     "export": "PatchMapFitOptions",
+    "member": "targets",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": true,
+    "shape": "PatchMapTargetsInput"
+  },
+  {
+    "id": "api.PatchMapFocusOptions",
+    "export": "PatchMapFocusOptions",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "kind": "InterfaceDeclaration",
+    "shape": "PatchMapFocusOptions",
+    "variants": [],
+    "constructors": []
+  },
+  {
+    "id": "api.PatchMapFocusOptions.filter",
+    "export": "PatchMapFocusOptions",
+    "member": "filter",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": true,
+    "shape": "(target: PatchMapTargetMatch) => unknown"
+  },
+  {
+    "id": "api.PatchMapFocusOptions.targets",
+    "export": "PatchMapFocusOptions",
     "member": "targets",
     "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
     "optional": true,
@@ -6181,6 +6214,14 @@
     "shape": "(options?: PatchMapFitOptions) => PatchMapViewportFitResult"
   },
   {
+    "id": "api.PatchMapViewportApi.focus",
+    "export": "PatchMapViewportApi",
+    "member": "focus",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": false,
+    "shape": "(options?: PatchMapFocusOptions) => PatchMapViewportFocusResult"
+  },
+  {
     "id": "api.PatchMapViewportApi.onSettled",
     "export": "PatchMapViewportApi",
     "member": "onSettled",
@@ -6440,6 +6481,87 @@
   {
     "id": "api.PatchMapViewportFitResult.worldBounds",
     "export": "PatchMapViewportFitResult",
+    "member": "worldBounds",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": false,
+    "shape": "readonly [number, number, number, number] | null"
+  },
+  {
+    "id": "api.PatchMapViewportFocusResult",
+    "export": "PatchMapViewportFocusResult",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "kind": "InterfaceDeclaration",
+    "shape": "PatchMapViewportFocusResult",
+    "variants": [],
+    "constructors": []
+  },
+  {
+    "id": "api.PatchMapViewportFocusResult.applied",
+    "export": "PatchMapViewportFocusResult",
+    "member": "applied",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": false,
+    "shape": "readonly string[]"
+  },
+  {
+    "id": "api.PatchMapViewportFocusResult.changed",
+    "export": "PatchMapViewportFocusResult",
+    "member": "changed",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": false,
+    "shape": "boolean"
+  },
+  {
+    "id": "api.PatchMapViewportFocusResult.contributors",
+    "export": "PatchMapViewportFocusResult",
+    "member": "contributors",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": false,
+    "shape": "readonly PatchMapViewportContributor[]"
+  },
+  {
+    "id": "api.PatchMapViewportFocusResult.duplicateCount",
+    "export": "PatchMapViewportFocusResult",
+    "member": "duplicateCount",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": false,
+    "shape": "number"
+  },
+  {
+    "id": "api.PatchMapViewportFocusResult.excluded",
+    "export": "PatchMapViewportFocusResult",
+    "member": "excluded",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": false,
+    "shape": "readonly string[]"
+  },
+  {
+    "id": "api.PatchMapViewportFocusResult.missing",
+    "export": "PatchMapViewportFocusResult",
+    "member": "missing",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": false,
+    "shape": "readonly string[]"
+  },
+  {
+    "id": "api.PatchMapViewportFocusResult.status",
+    "export": "PatchMapViewportFocusResult",
+    "member": "status",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": false,
+    "shape": "\"applied\" | \"empty\""
+  },
+  {
+    "id": "api.PatchMapViewportFocusResult.viewport",
+    "export": "PatchMapViewportFocusResult",
+    "member": "viewport",
+    "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
+    "optional": false,
+    "shape": "PatchMapViewportState"
+  },
+  {
+    "id": "api.PatchMapViewportFocusResult.worldBounds",
+    "export": "PatchMapViewportFocusResult",
     "member": "worldBounds",
     "source": "packages/javascript/src/public/contracts/viewport-transform.ts",
     "optional": false,

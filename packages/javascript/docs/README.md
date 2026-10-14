@@ -13,7 +13,7 @@ repeat feature contracts.
 | Update state, transact, animate, or use history | [Mutations and history](api/mutations-and-history.md) |
 | Run grid, relation, text, or delete editor workflows | [Editor workflows](api/editor-workflows.md) |
 | Handle hover, tooltip, click, box selection, or transformer paint | [Pointer and selection](api/pointer-and-selection.md) |
-| Pan, zoom, fit, persist a viewport, or transform a target | [Viewport and transforms](api/viewport-and-transform.md) |
+| Pan, zoom, focus, fit, persist a viewport, or transform a target | [Viewport and transforms](api/viewport-and-transform.md) |
 | Apply transient grid or keyed presentation | [Presentation](api/presentation.md) |
 | Create PNG/JPEG images, choose batching/reuse, and control host cost | [Image output and recommended usage](api/image.md) |
 | Implement one-shot/variant image jobs or a bounded CPU service | [Image job recipes](integration/image-jobs.md) |
