@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.12](https://github.com/Conalog/patch-map/compare/js-v1.0.0-alpha.11...js-v1.0.0-alpha.12) (2026-10-14)
+
+
+### Added
+
+* expose PatchMap viewport focus and align focus/fit behavior ([#258](https://github.com/Conalog/patch-map/issues/258)) ([d39550e](https://github.com/Conalog/patch-map/commit/d39550ea21b9ed4fbb0fd7352ea040e00b31a486))
+
 ## [1.0.0-alpha.11](https://github.com/Conalog/patch-map/compare/js-v1.0.0-alpha.10...js-v1.0.0-alpha.11) (2026-10-13)
 
 
