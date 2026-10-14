@@ -110,6 +110,65 @@ describe('viewport logical bounds through parser and dense geometry', () => {
     } finally { item.destroy({ children: true }); }
   });
 
+  it.each([false, true])('preserves empty grid cell origins (screen geometry first: %s)', async (screenFirst) => {
+    const map = await mount([{
+      type: 'grid', id: 'empty-grid', cells: [[0, 1]],
+      item: { size: 100, components: [] },
+    }], screenFirst);
+    const grid = new Container();
+    grid.addChild(new Container({ x: 100 }));
+    try {
+      const expected = mainBounds(grid);
+      expect(expected).toEqual([100, 0, 0, 0]);
+      map.viewport.restore({ centerWorld: [-50, -50], scale: 2 });
+      const focus = map.viewport.focus({ targets: { id: 'empty-grid' } });
+      expectBounds(focus.worldBounds, expected);
+      expect(focus.viewport).toMatchObject({ centerWorld: [100, 0], scale: 2 });
+      const fit = map.viewport.fit({ targets: { id: 'empty-grid' } });
+      expectBounds(fit.worldBounds, expected);
+      expect(fit.viewport.centerWorld).toEqual([100, 0]);
+      expect(fit.contributors.map(({ id }) => id)).toEqual(['empty-grid']);
+    } finally { grid.destroy({ children: true }); }
+  });
+
+  it.each(['destroy', 'hide'] as const)('uses world bounds of empty cells in a rotated grid (%s inactive cells)', async (inactiveCellStrategy) => {
+    const cells = [[0, 1, 0], [0, 0, 1]];
+    const map = await mount([{
+      type: 'grid', id: 'empty-grid', attrs: { x: 40, y: 60, angle: 30, scaleX: -1 },
+      cells, inactiveCellStrategy,
+      item: { size: 100, components: [] },
+    }]);
+    const grid = new Container({ x: 40, y: 60, angle: 30, scale: { x: -1, y: 1 } });
+    cells.forEach((row, y) => row.forEach((cell, x) => {
+      if (cell !== 0 || inactiveCellStrategy === 'hide') {
+        grid.addChild(new Container({ x: x * 100, y: y * 100, visible: cell !== 0 }));
+      }
+    }));
+    try {
+      const expected = mainBounds(grid);
+      const focus = map.viewport.focus({ targets: { id: 'empty-grid' } });
+      expectBounds(focus.worldBounds, expected);
+      const fit = map.viewport.fit({ targets: { id: 'empty-grid' }, padding: [16, 16] });
+      expectBounds(fit.worldBounds, expected);
+      const expectedScale = Math.min(288 / expected[2], 968 / expected[3]);
+      expect(fit.viewport.scale).toBeCloseTo(expectedScale, 9);
+    } finally { grid.destroy({ children: true }); }
+  });
+
+  it('keeps separate empty grids as distinct contributors', async () => {
+    const map = await mount([
+      { type: 'grid', id: 'left', cells: [[0, 1]], item: { size: 100, components: [] } },
+      { type: 'grid', id: 'right', attrs: { x: 500 }, cells: [[0, 0, 1]], item: { size: 100, components: [] } },
+    ]);
+    const focus = map.viewport.focus({ targets: [{ id: 'left' }, { id: 'right' }] });
+    expect(focus.contributors).toEqual([
+      { id: 'left', worldBounds: [100, 0, 0, 0] },
+      { id: 'right', worldBounds: [700, 0, 0, 0] },
+    ]);
+    expect(focus.worldBounds).toEqual([100, 0, 600, 0]);
+    expect(focus.viewport.centerWorld).toEqual([400, 0]);
+  });
+
   it('retains the updated grid frame through incremental projection replacement', () => {
     const previous = materializePatchMapDataset([sparseGrid]).dataset;
     const parsed = parsePatchMap(previous);
@@ -181,6 +240,15 @@ function rect(x: number, y: number, width: number, height: number): Graphics {
 // transform all four corners. This oracle uses Pixi rather than the new helper.
 function mainBounds(container: Container): readonly [number, number, number, number] {
   const bounds = container.getLocalBounds();
+  // main falls back to child world corners when the container has no area.
+  if (!(bounds.width > 0 || bounds.height > 0) && container.children.length > 0) {
+    const children = container.children.map((child) => mainBounds(child));
+    const left = Math.min(...children.map(([x]) => x));
+    const top = Math.min(...children.map(([, y]) => y));
+    return [left, top,
+      Math.max(...children.map(([x, , width]) => x + width)) - left,
+      Math.max(...children.map(([, y, , height]) => y + height)) - top];
+  }
   const matrix = container.getGlobalTransform(new Matrix(), false);
   const points = [
     [bounds.x, bounds.y], [bounds.x + bounds.width, bounds.y],

@@ -118,6 +118,7 @@ export function resolvePatchMapViewportContributors(
   }
   const componentsByItem = new Map<string, PatchMapViewportGeometryEntity[]>();
   const componentsByGrid = new Map<string, PatchMapViewportGeometryEntity[]>();
+  let gridOrigins: ReadonlyMap<string, PatchMapBoundsTuple> | undefined;
   const gridFrames = new Map<string, NonNullable<NonNullable<PatchMapViewportGeometryEntity['frame']>['gridFrame']>>();
   for (const entity of geometry.entities) {
     const gridFrame = entity.frame?.gridFrame;
@@ -227,9 +228,12 @@ export function resolvePatchMapViewportContributors(
         // A grid is one leaf target: its children contribute bounds, but are
         // never individually filtered when the grid itself is selected.
         const frame = gridFrames.get(element.id);
+        const components = componentsByGrid.get(element.id);
         const bounds = frame === undefined
           ? unionBounds(gridEntityBounds(geometry.entities, element))
-          : logicalFrameBounds(frame.affine, componentsByGrid.get(element.id) ?? []);
+          : components === undefined
+            ? (gridOrigins ??= indexGridOriginBounds(geometry.entities)).get(element.id) ?? null
+            : logicalFrameBounds(frame.affine, components);
         if (bounds === null) return false;
         addContributor(element.id, bounds);
         return true;
@@ -401,6 +405,35 @@ function unionBounds(
   return Number.isFinite(left)
     ? Object.freeze([left, top, right - left, bottom - top])
     : null;
+}
+
+/** main's empty-container fallback unions child world origins, not a local rectangle. */
+function indexGridOriginBounds(
+  entities: readonly PatchMapViewportGeometryEntity[],
+): ReadonlyMap<string, PatchMapBoundsTuple> {
+  const origins = new Map<string, [number, number, number, number]>();
+  for (const entity of entities) {
+    const frame = entity.frame;
+    const id = frame?.gridFrame?.id;
+    if (id === undefined || frame === undefined) continue;
+    const x = frame.affine[4];
+    const y = frame.affine[5];
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    const bounds = origins.get(id);
+    if (bounds === undefined) origins.set(id, [x, y, x, y]);
+    else {
+      bounds[0] = Math.min(bounds[0], x);
+      bounds[1] = Math.min(bounds[1], y);
+      bounds[2] = Math.max(bounds[2], x);
+      bounds[3] = Math.max(bounds[3], y);
+    }
+  }
+  for (const bounds of origins.values()) {
+    bounds[2] -= bounds[0];
+    bounds[3] -= bounds[1];
+    Object.freeze(bounds);
+  }
+  return origins;
 }
 
 function* gridEntityBounds(

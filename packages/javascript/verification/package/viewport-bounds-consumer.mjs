@@ -5,7 +5,7 @@ async function verifyViewportBounds() {
   const background = { type: 'background', id: 'bg', source: { type: 'rect', fill: '#ffffff' } };
   const boundsMap = await PatchMap.mount({
     container: host, instanceId: 'packed-viewport-bounds',
-    width: 320, height: 1000, backend: 'webgl', resizeMode: 'manual',
+    width: 320, height: 1000, backend: 'webgl', resizeMode: 'manual', zoomLimits: [0.1, 8],
     data: [{
       type: 'item', id: 'overflow', size: { width: 100, height: 100 },
       components: [background, {
@@ -15,12 +15,16 @@ async function verifyViewportBounds() {
     }, {
       type: 'grid', id: 'sparse', attrs: { angle: 45 }, cells: [[1, 0, 1], [0, 0, 1]],
       item: { size: 100, contentOrientation: 'follow-item', components: [background] },
+    }, {
+      type: 'grid', id: 'empty-grid', cells: [[0, 1]],
+      item: { size: 100, components: [] },
     }],
   });
   try {
     for (const [id, expected, scale] of [
       ['overflow', [-200, 0, 300, 100], 288 / 300],
       ['sparse', [-100 * Math.SQRT2, 0, 250 * Math.SQRT2, 250 * Math.SQRT2], 288 / (250 * Math.SQRT2)],
+      ['empty-grid', [100, 0, 0, 0], 8],
     ]) {
       boundsMap.viewport.restore({ centerWorld: [0, 0], scale: 2 });
       const focus = boundsMap.viewport.focus({ targets: { id } });
