@@ -15,7 +15,7 @@ describe('PatchMap PatchMap parser', () => {
     const projection = parsePatchMap([]).projection;
 
     expect(projection).toEqual({
-      gridFramesById: {},
+      elementFramesById: {},
       byEntityId: {},
       componentsByEntityId: {},
       backgroundsByEntityId: {},

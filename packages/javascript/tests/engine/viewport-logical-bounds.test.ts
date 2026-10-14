@@ -1,16 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { Container, Graphics, Matrix } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 import { PatchMapScene } from '../../src/core/scene';
-import { PatchMap } from '../../src/engine';
+import type { PatchMap } from '../../src/engine';
 import { createPatchMapSurfaceWorldGeometrySnapshot } from '../../src/engine/surface-geometry';
 import { parsePatchMap } from '../../src/parsing';
-import type { ParsePatchMapResult } from '../../src/parsing/contracts';
 import { parsePatchMapIncrementalStructure } from '../../src/parsing/incremental';
 import { materializePatchMapDataset } from '../../src/semantic/dataset';
 import { resolvePatchMapViewportContributors } from '../../src/viewport';
-import { createPatchMapApi } from '../../src/public';
-import { TransactionSurface } from '../support/engine-update-transaction-surface';
-import { PatchMapSurfaceGeometryAuthority } from '../../src/composition/surface-geometry-authority';
+import { createViewportBoundsHarness, mainBounds } from '../support/viewport-bounds-harness';
 
 const background = { type: 'background', id: 'bg', source: { type: 'rect', fill: '#ffffff' } };
 const overflowItem = {
@@ -222,7 +219,7 @@ describe('viewport logical bounds through parser and dense geometry', () => {
       const removed = parsePatchMapIncrementalStructure(next, previous, parsed);
       expect(removed).not.toBeNull();
       if (removed === null) throw new Error('incremental grid removal refused');
-      expect(removed.projection.gridFramesById).toEqual({});
+      expect(Object.keys(removed.projection.elementFramesById)).toEqual(['remaining']);
       scene.load(removed.document);
       expect(resolvePatchMapViewportContributors(next, createPatchMapSurfaceWorldGeometrySnapshot(scene.snapshot(), removed.projection), { targets: ['no-cells'] }).missing).toEqual(['no-cells']);
     } finally { scene.destroy(); parent.destroy({ children: true }); }
@@ -246,76 +243,14 @@ describe('viewport logical bounds through parser and dense geometry', () => {
   });
 
   async function mount(data: unknown, screenFirst = false) {
-    const surface = new ParsedViewportSurface({ width: 320, height: 1000, pixelRatio: 1 });
-    const engine = new PatchMap({ surfaceFactory: () => Promise.resolve(surface) });
+    const { api, engine } = await createViewportBoundsHarness(data, screenFirst);
     engines.push(engine);
-    await engine.initialize({ instanceId: 'logical-bounds', width: 320, height: 1000 });
-    engine.loadDataset(data);
-    if (screenFirst) surface.geometrySnapshot();
-    return createPatchMapApi(engine);
+    return api;
   }
 });
 
-class ParsedViewportSurface extends TransactionSurface {
-  private readonly scene = new PatchMapScene();
-  private parsed: ParsePatchMapResult | null = null;
-  private readonly geometry: PatchMapSurfaceGeometryAuthority;
-  public constructor(options: ConstructorParameters<typeof TransactionSurface>[0]) {
-    super(options);
-    const projection = () => this.parsed?.projection ?? null;
-    this.geometry = new PatchMapSurfaceGeometryAuthority({
-      get visibleProjection() { return projection(); },
-      snapshot: () => this.scene.snapshot(),
-      selection: () => this.scene.selection(),
-    } as ConstructorParameters<typeof PatchMapSurfaceGeometryAuthority>[0]);
-  }
-  public override load(input: unknown): void {
-    super.load(input);
-    this.parsed = parsePatchMap(input);
-    this.scene.load(this.parsed.document);
-    this.geometry.invalidateProjection(this.parsed.projection);
-  }
-  public override setView(view: Parameters<TransactionSurface['setView']>[0]): void {
-    super.setView(view);
-    this.geometry.updateRootView(view);
-  }
-  public geometrySnapshot() { return this.geometry.geometrySnapshot(); }
-  public worldGeometrySnapshot() {
-    return this.geometry.worldGeometrySnapshot();
-  }
-  public override destroy(): Promise<boolean> {
-    this.geometry.invalidateProjection(null);
-    this.parsed = null;
-    this.scene.destroy();
-    return super.destroy();
-  }
-}
-
 function rect(x: number, y: number, width: number, height: number): Graphics {
   return new Graphics().rect(x, y, width, height).fill(0xffffff);
-}
-
-// main's getObjectWorldCorners: take the container's local bounds, then
-// transform all four corners. This oracle uses Pixi rather than the new helper.
-function mainBounds(container: Container): readonly [number, number, number, number] {
-  const bounds = container.getLocalBounds();
-  // main falls back to child world corners when the container has no area.
-  if (!(bounds.width > 0 || bounds.height > 0) && container.children.length > 0) {
-    const children = container.children.map((child) => mainBounds(child));
-    const left = Math.min(...children.map(([x]) => x));
-    const top = Math.min(...children.map(([, y]) => y));
-    return [left, top,
-      Math.max(...children.map(([x, , width]) => x + width)) - left,
-      Math.max(...children.map(([, y, , height]) => y + height)) - top];
-  }
-  const matrix = container.getGlobalTransform(new Matrix(), false);
-  const points = [
-    [bounds.x, bounds.y], [bounds.x + bounds.width, bounds.y],
-    [bounds.x + bounds.width, bounds.y + bounds.height], [bounds.x, bounds.y + bounds.height],
-  ].map(([x, y]) => matrix.apply({ x: x!, y: y! }));
-  const left = Math.min(...points.map(({ x }) => x));
-  const top = Math.min(...points.map(({ y }) => y));
-  return [left, top, Math.max(...points.map(({ x }) => x)) - left, Math.max(...points.map(({ y }) => y)) - top];
 }
 
 function expectBounds(actual: readonly number[] | null, expected: readonly number[]): void {

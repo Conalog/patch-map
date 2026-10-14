@@ -122,6 +122,33 @@ describe('PatchMap viewport substrate', () => {
       .toEqual([300, 40, 104, 48]);
   });
 
+  it('indexes dense-only grid ports with opaque IDs and numeric qualified component IDs', () => {
+    const source = materializePatchMapDataset([{
+      type: 'grid', id: 'grid::a.7', cells: [[1]], item: { size: 10, components: [] },
+    }]).dataset;
+    const geometry = {
+      entities: [entity('grid::a.7.0.0', [0, 0, 10, 10]), {
+        ...entity('grid::a.7.0.0::paint.1.2', [-20, -10, 40, 30]),
+        ownerItemId: 'grid::a.7.0.0',
+      }], relations: [],
+    };
+    expect(resolvePatchMapViewportContributors(source, geometry, { targets: ['grid::a.7'] }).worldBounds).toEqual([-20, -10, 40, 30]);
+  });
+
+  it('keeps grids whose opaque IDs contain another grid cell address separate', () => {
+    const source = materializePatchMapDataset(['g', 'g.0.0::inner'].map((id) => ({
+      type: 'grid', id, cells: [[1]], item: { size: 10, components: [] },
+    }))).dataset;
+    const geometry = {
+      entities: [entity('g.0.0', [0, 0, 10, 10]), entity('g.0.0::inner.0.0', [100, 100, 10, 10]), {
+        ...entity('g.0.0::inner.0.0::paint.1.2', [95, 95, 20, 20]),
+        ownerItemId: 'g.0.0::inner.0.0',
+      }, entity('g.0.0::inner.0.0::legacy', [90, 90, 30, 30])], relations: [],
+    };
+    expect(resolvePatchMapViewportContributors(source, geometry, { targets: ['g'] }).worldBounds).toEqual([0, 0, 10, 10]);
+    expect(resolvePatchMapViewportContributors(source, geometry, { targets: ['g.0.0::inner'] }).worldBounds).toEqual([90, 90, 30, 30]);
+  });
+
   it('expands explicit relations before filtering endpoints, without falling back after rejection', () => {
     const filter = vi.fn<PatchMapViewportFilter>(({ id }) => id !== 'rect-b');
     expect(resolve(['links'], { filter })).toMatchObject({

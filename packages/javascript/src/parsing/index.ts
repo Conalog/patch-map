@@ -192,6 +192,7 @@ function parseElement(
     authoredOrder,
   );
   const localTransform = elementTransform(attrs, path, context.transform, type, state);
+  state.elementFramesById[sourceId] = localTransform.affine;
   const visible = context.visible && value.show !== false;
   const interactive = context.interactive && value.locked !== true;
   const opacity = context.opacity * attributeAlpha(attrs, `${path}.attrs.alpha`, state);
@@ -265,8 +266,7 @@ function parseGrid(
     fatal(state, path, 'invalid-grid', 'Grid requires cells[][] and an item template', sourceId);
   }
   const item = value.item;
-  const gridFrame = Object.freeze({ id: sourceId, affine: transform.affine });
-  state.gridFramesById[sourceId] = gridFrame;
+
   const itemSize = fixedSize(item.size, `${path}.item.size`, state);
   const gap = axisSpacing(value.gap, `${path}.gap`, state);
   const hideInactive = value.inactiveCellStrategy === 'hide';
@@ -337,7 +337,7 @@ function parseGrid(
         visible && cellValue !== 0,
         interactive && cellValue !== 0,
         itemSize,
-        { ...owner, opacity: itemOpacity, stackingPath: itemStackingPath, gridFrame },
+        { ...owner, opacity: itemOpacity, stackingPath: itemStackingPath, gridId: sourceId },
         { row, column, cell: cellValue },
         state,
       );

@@ -21,6 +21,35 @@ async function verifyViewportBounds() {
     }, {
       type: 'grid', id: 'no-cells', attrs: { x: 500, y: 200 }, cells: [[0]],
       item: { size: 100, components: [background] },
+    }, {
+      type: 'group', id: 'empty-group', attrs: { x: 400, y: 200 }, children: [],
+    }, {
+      type: 'relations', id: 'empty-links', attrs: { x: 600, y: 200 }, links: [],
+    }, {
+      type: 'rect', id: 'stroked-rect', attrs: { x: 800 }, size: { width: 100, height: 40 },
+      fill: '#ffffff', stroke: { color: '#000000', width: 12 },
+    }, {
+      type: 'rect', id: 'zero-rect', attrs: { x: 900 }, size: { width: 100, height: 0 },
+    }, {
+      type: 'item', id: 'bordered-item', attrs: { x: 1000 }, size: 100,
+      components: [{ ...background, source: { ...background.source, borderWidth: 8 } }],
+    }, {
+      type: 'item', id: 'link-a', attrs: { x: 1200 }, size: 100, components: [background],
+    }, {
+      type: 'item', id: 'link-b', attrs: { x: 1400, y: 100 }, size: 100, components: [background],
+    }, {
+      type: 'group', id: 'relation-group', children: [{
+        type: 'relations', id: 'drawn-relation', style: { width: 8 },
+        links: [{ source: 'link-a', target: 'link-b' }],
+      }],
+    }, {
+      type: 'group', id: 'self-relation-group', children: [{
+        type: 'relations', id: 'self-relation', style: { width: 8 },
+        links: [{ source: 'link-a', target: 'link-a' }],
+      }],
+    }, {
+      type: 'image', id: 'intrinsic-image', attrs: { x: 1600 },
+      source: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="32"><rect width="64" height="32" fill="red"/></svg>'),
     }],
   });
   try {
@@ -29,6 +58,13 @@ async function verifyViewportBounds() {
       ['sparse', [-100 * Math.SQRT2, 0, 250 * Math.SQRT2, 250 * Math.SQRT2], 288 / (250 * Math.SQRT2)],
       ['empty-grid', [100, 0, 0, 0], 8],
       ['no-cells', [500, 200, 0, 0], 8],
+      ['empty-group', [400, 200, 0, 0], 8],
+      ['empty-links', [600, 200, 0, 0], 8],
+      ['stroked-rect', [794, -6, 112, 52], 288 / 112],
+      ['zero-rect', [900, 0, 0, 0], 8],
+      ['bordered-item', [996, -4, 108, 108], 288 / 108],
+      ['relation-group', [1246, 46, 208, 108], 288 / 208],
+      ['self-relation-group', [1250 - 4 * Math.SQRT2, -50 - 4 * Math.SQRT2, 150 + 8 * Math.SQRT2, 200 + 8 * Math.SQRT2], 288 / (150 + 8 * Math.SQRT2)],
     ]) {
       boundsMap.viewport.restore({ centerWorld: [0, 0], scale: 2 });
       const focus = boundsMap.viewport.focus({ targets: { id } });
@@ -45,6 +81,10 @@ async function verifyViewportBounds() {
     }
     const capture = await boundsMap.capture.png();
     if (!capture.dataUrl.startsWith('data:image/png')) throw new Error('bounds map capture failed');
+    const intrinsic = boundsMap.viewport.focus({ targets: { id: 'intrinsic-image' } });
+    if (!intrinsic.worldBounds || ![1600, 0, 64, 32].every((value, index) => Math.abs(intrinsic.worldBounds[index] - value) < 1e-7)) {
+      throw new Error('decoded intrinsic image viewport bounds stale');
+    }
   } finally {
     await boundsMap.destroy();
     host.remove();

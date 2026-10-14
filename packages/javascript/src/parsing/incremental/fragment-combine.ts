@@ -130,7 +130,7 @@ export function combineStructuralRootFragments(
   const projection = emptyProjection();
 
   for (const fragment of fragments) {
-    Object.assign(projection.gridFramesById, fragment.projection.gridFramesById);
+    Object.assign(projection.elementFramesById, fragment.projection.elementFramesById);
     for (const element of fragment.elements) {
       if (
         sourceIds.has(element.sourceId) ||
@@ -277,7 +277,7 @@ export function combineRootFragments(
   const projection = emptyProjection();
 
   for (const fragment of fragments) {
-    Object.assign(projection.gridFramesById, fragment.projection.gridFramesById);
+    Object.assign(projection.elementFramesById, fragment.projection.elementFramesById);
     for (const element of fragment.elements) {
       if (sourceIds.has(element.sourceId)) return null;
       sourceIds.add(element.sourceId);

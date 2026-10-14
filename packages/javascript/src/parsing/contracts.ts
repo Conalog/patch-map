@@ -110,8 +110,8 @@ export interface PatchMapEntityProjection {
   readonly ownerItemId?: string;
   readonly componentId?: string;
   readonly componentType?: string;
-  /** Owning grid frame, shared by its item markers for logical viewport bounds. */
-  readonly gridFrame?: Readonly<{ id: string; affine: PatchMapAffineMatrix }>;
+  /** Owning grid ID for an expanded item marker. */
+  readonly gridId?: string;
 }
 
 export interface PatchMapRelationProjection {
@@ -245,8 +245,8 @@ export interface PatchMapBarProjection {
 
 /** Immutable numeric metadata omitted by the compact dense rows. */
 export interface PatchMapProjectionIndex {
-  /** Authored grid frames survive even when no cell entities are retained. */
-  readonly gridFramesById: Readonly<Record<string, NonNullable<PatchMapEntityProjection['gridFrame']>>>;
+  /** Every managed element retains its frame, including empty containers. */
+  readonly elementFramesById: Readonly<Record<string, PatchMapAffineMatrix>>;
   readonly byEntityId: Readonly<Record<string, PatchMapEntityProjection>>;
   /** Stable component ownership and fixed render-role classification. */
   readonly componentsByEntityId: Readonly<Record<string, PatchMapComponentVisualProjection>>;

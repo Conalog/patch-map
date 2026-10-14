@@ -1,6 +1,7 @@
-import type { NormalizedPatchMapElement, PatchMapGridElement } from '../semantic/dataset';
-import type { PatchMapAffineMatrix, PatchMapBoundsTuple } from '../semantic/geometry';
-import { logicalFrameBounds } from './logical-frame-bounds';
+import type { NormalizedPatchMapElement } from '../semantic/dataset';
+import type { PatchMapViewportGeometry } from './geometry-contracts';
+import { createViewportBoundsIndex, finiteBounds, unionBounds } from './bounds-index';
+export type { PatchMapViewportGeometry, PatchMapViewportGeometryEntity, PatchMapViewportGeometryRelation } from './geometry-contracts';
 
 export const PATCH_MAP_VIEWPORT_REVISION = 'patch-map-viewport/1';
 
@@ -25,34 +26,6 @@ export const PATCH_MAP_DEFAULT_VIEWPORT_POLICIES = Object.freeze([
   'pinch',
   'deceleration',
 ] as const satisfies readonly PatchMapViewportPolicy[]);
-
-export interface PatchMapViewportGeometryEntity {
-  readonly id: string;
-  readonly worldBounds: readonly [number, number, number, number];
-  readonly visible: boolean;
-  /** Actual visual quads and ownership; item markers themselves have no paint. */
-  readonly worldQuad?: Readonly<{ affine: PatchMapAffineMatrix; localBounds: PatchMapBoundsTuple }>;
-  readonly ownerItemId?: string;
-  readonly frame?: Readonly<{
-    affine: PatchMapAffineMatrix;
-    gridFrame?: Readonly<{ id: string; affine: PatchMapAffineMatrix }>;
-  }>;
-}
-
-export interface PatchMapViewportGeometryRelation {
-  readonly id: string;
-  readonly relationId?: string;
-  readonly sourceId: string;
-  readonly targetId: string;
-  readonly worldBounds?: readonly [number, number, number, number];
-  readonly visible?: boolean;
-}
-
-export interface PatchMapViewportGeometry {
-  readonly gridFrames?: Readonly<Record<string, Readonly<{ id: string; affine: PatchMapAffineMatrix }>>>;
-  readonly entities: readonly PatchMapViewportGeometryEntity[];
-  readonly relations: readonly PatchMapViewportGeometryRelation[];
-}
 
 export interface PatchMapViewportContributor {
   readonly id: string;
@@ -108,7 +81,6 @@ export function resolvePatchMapViewportContributors(
 ): PatchMapViewportContributorResult {
   const filter = normalizePatchMapViewportFilter(options.filter);
   const rejectIds = new Set(normalizeIds(options.rejectIds ?? [], 'rejectIds'));
-  const entityById = new Map(geometry.entities.map((entity) => [entity.id, entity]));
   const elementById = indexElements(dataset);
   const explicitItems = new Set(options.targets ?? []);
   for (const id of options.targets ?? []) {
@@ -117,29 +89,7 @@ export function resolvePatchMapViewportContributors(
       for (const link of element.links) { explicitItems.add(link.source); explicitItems.add(link.target); }
     }
   }
-  const componentsByItem = new Map<string, PatchMapViewportGeometryEntity[]>();
-  const componentsByGrid = new Map<string, PatchMapViewportGeometryEntity[]>();
-  let gridOrigins: ReadonlyMap<string, PatchMapBoundsTuple> | undefined;
-  const gridFrames = new Map<string, NonNullable<NonNullable<PatchMapViewportGeometryEntity['frame']>['gridFrame']>>();
-  for (const entity of geometry.entities) {
-    const gridFrame = entity.frame?.gridFrame;
-    if (gridFrame !== undefined) gridFrames.set(gridFrame.id, gridFrame);
-    if (entity.ownerItemId !== undefined && entity.frame === undefined) {
-      const grid = entityById.get(entity.ownerItemId)?.frame?.gridFrame;
-      if (grid !== undefined) {
-        const bucket = componentsByGrid.get(grid.id);
-        if (bucket) bucket.push(entity);
-        else componentsByGrid.set(grid.id, [entity]);
-      }
-      // A default grid fit needs one visual bucket, not an array per cell.
-      if (grid === undefined || explicitItems.has(entity.ownerItemId)) {
-        const bucket = componentsByItem.get(entity.ownerItemId);
-        if (bucket) bucket.push(entity);
-        else componentsByItem.set(entity.ownerItemId, [entity]);
-      }
-    }
-  }
-  const relationsByOwner = indexRelations(geometry.relations);
+  const boundsIndex = createViewportBoundsIndex(geometry, elementById, explicitItems);
   const contributors: PatchMapViewportContributor[] = [];
   const contributorIds = new Set<string>();
   const applied: string[] = [];
@@ -160,12 +110,9 @@ export function resolvePatchMapViewportContributors(
     contributors.push(Object.freeze({ id, worldBounds: freezeBounds(bounds) }));
   };
 
-  const addEntity = (id: string): boolean => {
-    const entity = entityById.get(id);
-    if (!entity || !finiteBounds(entity.worldBounds)) return false;
-    const bounds = entity.frame === undefined
-      ? entity.worldBounds
-      : logicalFrameBounds(entity.frame.affine, componentsByItem.get(id) ?? []);
+  const addTarget = (id: string, type: NormalizedPatchMapElement['type'] | 'grid-cell'): boolean => {
+    const bounds = boundsIndex.get(id, type);
+    if (bounds === null || !finiteBounds(bounds)) return false;
     addContributor(id, bounds);
     return true;
   };
@@ -209,7 +156,7 @@ export function resolvePatchMapViewportContributors(
     const value = instanceValue(id);
     if (!value) return false;
     if (contributorIds.has(id)) { duplicateCount += 1; return true; }
-    return accepts(id, 'grid-cell', value, typeof value.value === 'string' ? value.value : null) && addEntity(id);
+    return accepts(id, 'grid-cell', value, typeof value.value === 'string' ? value.value : null) && addTarget(id, 'grid-cell');
   };
 
   const visitElement = (
@@ -217,46 +164,12 @@ export function resolvePatchMapViewportContributors(
   ): boolean => {
     if (contributorIds.has(element.id)) { duplicateCount += 1; return true; }
     if (!accepts(element.id, element.type, element)) return false;
-    switch (element.type) {
-      case 'group': {
-        let found = false;
-        for (const child of element.children) {
-          found = visitElement(child) || found;
-        }
-        return found;
-      }
-      case 'grid': {
-        // A grid is one leaf target: its children contribute bounds, but are
-        // never individually filtered when the grid itself is selected.
-        const frame = geometry.gridFrames?.[element.id] ?? gridFrames.get(element.id);
-        const components = componentsByGrid.get(element.id);
-        const bounds = frame === undefined
-          ? unionBounds(gridEntityBounds(geometry.entities, element))
-          : components === undefined
-            ? (gridOrigins ??= indexGridOriginBounds(geometry.entities)).get(element.id) ?? logicalFrameBounds(frame.affine, [])
-            : logicalFrameBounds(frame.affine, components);
-        if (bounds === null) return false;
-        addContributor(element.id, bounds);
-        return true;
-      }
-      case 'relations': {
-        const relations = relationsByOwner.get(element.id) ?? [];
-        const ownBounds = unionBounds(
-          relations.flatMap((relation) => {
-            if (!relation.worldBounds) return [];
-            return [relation.worldBounds];
-          }),
-        );
-        if (ownBounds === null) return false;
-        addContributor(element.id, ownBounds);
-        return true;
-      }
-      case 'image':
-      case 'item':
-      case 'rect':
-      case 'text':
-        return addEntity(element.id);
+    if (element.type === 'group' && element.children.length > 0) {
+      let found = false;
+      for (const child of element.children) found = visitElement(child) || found;
+      return found;
     }
+    return addTarget(element.id, element.type);
   };
 
   if (options.targets === null) {
@@ -366,19 +279,6 @@ function indexElements(
   return result;
 }
 
-function indexRelations(
-  relations: readonly PatchMapViewportGeometryRelation[],
-): ReadonlyMap<string, readonly PatchMapViewportGeometryRelation[]> {
-  const indexed = new Map<string, PatchMapViewportGeometryRelation[]>();
-  for (const relation of relations) {
-    const owner = relation.relationId ?? relation.id.split(':', 1)[0] ?? relation.id;
-    const bucket = indexed.get(owner);
-    if (bucket) bucket.push(relation);
-    else indexed.set(owner, [relation]);
-  }
-  return indexed;
-}
-
 function normalizeIds(values: readonly string[], label: string): string[] {
   if (!Array.isArray(values)) throw new TypeError(`${label} must be an array`);
   return values.map((value, index) => {
@@ -387,78 +287,6 @@ function normalizeIds(values: readonly string[], label: string): string[] {
     }
     return value;
   });
-}
-
-function unionBounds(
-  values: Iterable<readonly [number, number, number, number]>,
-): readonly [number, number, number, number] | null {
-  let left = Number.POSITIVE_INFINITY;
-  let top = Number.POSITIVE_INFINITY;
-  let right = Number.NEGATIVE_INFINITY;
-  let bottom = Number.NEGATIVE_INFINITY;
-  for (const bounds of values) {
-    if (!finiteBounds(bounds)) continue;
-    left = Math.min(left, bounds[0]);
-    top = Math.min(top, bounds[1]);
-    right = Math.max(right, bounds[0] + bounds[2]);
-    bottom = Math.max(bottom, bounds[1] + bounds[3]);
-  }
-  return Number.isFinite(left)
-    ? Object.freeze([left, top, right - left, bottom - top])
-    : null;
-}
-
-/** main's empty-container fallback unions child world origins, not a local rectangle. */
-function indexGridOriginBounds(
-  entities: readonly PatchMapViewportGeometryEntity[],
-): ReadonlyMap<string, PatchMapBoundsTuple> {
-  const origins = new Map<string, [number, number, number, number]>();
-  for (const entity of entities) {
-    const frame = entity.frame;
-    const id = frame?.gridFrame?.id;
-    if (id === undefined || frame === undefined) continue;
-    const x = frame.affine[4];
-    const y = frame.affine[5];
-    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-    const bounds = origins.get(id);
-    if (bounds === undefined) origins.set(id, [x, y, x, y]);
-    else {
-      bounds[0] = Math.min(bounds[0], x);
-      bounds[1] = Math.min(bounds[1], y);
-      bounds[2] = Math.max(bounds[2], x);
-      bounds[3] = Math.max(bounds[3], y);
-    }
-  }
-  for (const bounds of origins.values()) {
-    bounds[2] -= bounds[0];
-    bounds[3] -= bounds[1];
-    Object.freeze(bounds);
-  }
-  return origins;
-}
-
-function* gridEntityBounds(
-  entities: readonly PatchMapViewportGeometryEntity[],
-  grid: PatchMapGridElement,
-): Iterable<readonly [number, number, number, number]> {
-  const prefix = `${grid.id}.`;
-  for (const entity of entities) {
-    if (!entity.id.startsWith(prefix)) continue;
-    const cell = /^(\d+)\.(\d+)(?:::|$)/.exec(entity.id.slice(prefix.length));
-    if (!cell) continue;
-    const value = grid.cells[Number(cell[1])]?.[Number(cell[2])];
-    if (value === undefined || (value === 0 && grid.inactiveCellStrategy !== 'hide')) continue;
-    yield entity.worldBounds;
-  }
-}
-
-function finiteBounds(
-  value: readonly [number, number, number, number],
-): boolean {
-  return value.length === 4 &&
-    value.every(Number.isFinite) &&
-    value[2] >= 0 &&
-    value[3] >= 0;
 }
 
 function freezeBounds(

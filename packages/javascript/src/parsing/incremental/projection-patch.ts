@@ -18,14 +18,14 @@ export function patchStableProjection(
   for (const rootIndex of dirtyIndices) {
     const fragment = fragments[rootIndex];
     if (fragment === undefined) return null;
-    Object.assign(selected.gridFramesById, fragment.projection.gridFramesById);
+    Object.assign(selected.elementFramesById, fragment.projection.elementFramesById);
     for (const entity of fragment.entities) {
       appendProjectionEntity(selected, fragment.projection, entity.id);
     }
   }
-  const gridFramesById = patchPatchMapStableRecord(
-    previous.gridFramesById, selected.gridFramesById,
-    Object.keys(selected.gridFramesById), recordStrategy,
+  const elementFramesById = patchPatchMapStableRecord(
+    previous.elementFramesById, selected.elementFramesById,
+    Object.keys(selected.elementFramesById), recordStrategy,
   );
   const byEntityId = patchPatchMapStableRecord(
     previous.byEntityId,
@@ -70,7 +70,7 @@ export function patchStableProjection(
     recordStrategy,
   );
   if (
-    gridFramesById === null ||
+    elementFramesById === null ||
     byEntityId === null ||
     componentsByEntityId === null ||
     backgroundsByEntityId === null ||
@@ -82,7 +82,7 @@ export function patchStableProjection(
     return null;
   }
   return Object.freeze({
-    gridFramesById,
+    elementFramesById,
     byEntityId,
     componentsByEntityId,
     backgroundsByEntityId,
@@ -97,13 +97,13 @@ export function patchStableProjection(
 export function projectionForEntities(
   source: PatchMapProjectionIndex,
   entities: readonly EntityInput[],
-  gridIds: readonly string[],
+  elementIds: readonly string[],
   omittedRelations: readonly NonNullable<
     PatchMapProjectionIndex['omittedRelations']
   >[number][] = [],
 ): PatchMapProjectionIndex {
   const projection = emptyProjection();
-  for (const id of gridIds) appendRecordValue(projection.gridFramesById, source.gridFramesById, id);
+  for (const id of elementIds) appendRecordValue(projection.elementFramesById, source.elementFramesById, id);
   for (const entity of entities) appendProjectionEntity(projection, source, entity.id);
   projection.omittedRelations.push(...omittedRelations);
   return freezeProjection(projection);
@@ -111,7 +111,7 @@ export function projectionForEntities(
 
 export function emptyProjection(): MutableProjection {
   return {
-    gridFramesById: Object.create(null) as MutableProjection['gridFramesById'],
+    elementFramesById: Object.create(null) as MutableProjection['elementFramesById'],
     byEntityId: Object.create(null) as MutableProjection['byEntityId'],
     componentsByEntityId:
       Object.create(null) as MutableProjection['componentsByEntityId'],
@@ -127,7 +127,7 @@ export function emptyProjection(): MutableProjection {
 }
 
 interface MutableProjection {
-  readonly gridFramesById: Record<string, PatchMapProjectionIndex['gridFramesById'][string]>;
+  readonly elementFramesById: Record<string, PatchMapProjectionIndex['elementFramesById'][string]>;
   readonly byEntityId: Record<string, NonNullable<PatchMapProjectionIndex['byEntityId'][string]>>;
   readonly componentsByEntityId: Record<string, NonNullable<
     NonNullable<PatchMapProjectionIndex['componentsByEntityId']>[string]
@@ -175,7 +175,7 @@ function appendRecordValue<Value>(
 
 export function freezeProjection(projection: MutableProjection): PatchMapProjectionIndex {
   return Object.freeze({
-    gridFramesById: Object.freeze(projection.gridFramesById),
+    elementFramesById: Object.freeze(projection.elementFramesById),
     byEntityId: Object.freeze(projection.byEntityId),
     componentsByEntityId: Object.freeze(projection.componentsByEntityId),
     backgroundsByEntityId: Object.freeze(projection.backgroundsByEntityId),

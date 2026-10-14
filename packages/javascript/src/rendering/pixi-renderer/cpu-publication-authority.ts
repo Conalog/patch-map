@@ -32,7 +32,7 @@ import {
 import { sameStringSet } from './value-atoms';
 
 const EMPTY_PROJECTION_INDEX: PatchMapProjectionIndex = Object.freeze({
-  gridFramesById: Object.freeze({}),
+  elementFramesById: Object.freeze({}),
   byEntityId: Object.freeze({}),
   componentsByEntityId: Object.freeze({}),
   backgroundsByEntityId: Object.freeze({}),

@@ -57,6 +57,7 @@ export interface PatchMapSurfaceEntityGeometry extends PatchMapViewportGeometryE
 }
 
 export interface PatchMapSurfaceRelationGeometry {
+  readonly worldQuad?: NonNullable<PatchMapViewportGeometry['relations'][number]['worldQuad']>;
   readonly id: string;
   readonly relationId?: string;
   readonly key?: string;
@@ -100,7 +101,7 @@ export interface PatchMapSurfaceOmittedRelationGeometry {
 }
 
 export interface PatchMapSurfaceGeometrySnapshot {
-  readonly gridFrames?: NonNullable<PatchMapViewportGeometry['gridFrames']>;
+  readonly elementFrames?: NonNullable<PatchMapViewportGeometry['elementFrames']>;
   /** Surface geometry generation used to correlate engine revision domains. */
   readonly revision: number;
   /** Dense scene revision used to derive the geometry snapshot. */

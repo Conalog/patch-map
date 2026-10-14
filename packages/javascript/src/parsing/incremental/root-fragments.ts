@@ -96,7 +96,7 @@ export function previousRootFragments(
     projection: projectionForEntities(
       previous.projection,
       entities[index]!,
-      elements[index]!.filter(({ type }) => type === 'grid').map(({ sourceId }) => sourceId),
+      elements[index]!.map(({ sourceId }) => sourceId),
       previous.projection.omittedRelations.filter(
         ({ relationId }) => relationId === element!.sourceId,
       ),
@@ -361,7 +361,7 @@ export function selectedRootFragments(
       projection: projectionForEntities(
         parsed.projection,
         entities.get(index)!,
-        elements.get(index)!.filter(({ type }) => type === 'grid').map(({ sourceId }) => sourceId),
+        elements.get(index)!.map(({ sourceId }) => sourceId),
         parsed.projection.omittedRelations.filter(
           ({ relationId }) => relationId === rootElements.get(index)!.sourceId,
         ),
