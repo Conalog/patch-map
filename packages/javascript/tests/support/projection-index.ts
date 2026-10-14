@@ -4,6 +4,7 @@ export function createTestProjectionIndex(
   overrides: Partial<PatchMapProjectionIndex> = {},
 ): PatchMapProjectionIndex {
   return Object.freeze({
+    gridFramesById: Object.freeze({}),
     byEntityId: Object.freeze({}),
     componentsByEntityId: Object.freeze({}),
     backgroundsByEntityId: Object.freeze({}),

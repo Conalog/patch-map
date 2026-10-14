@@ -1,5 +1,5 @@
 import type { PatchMapAffineBasis } from '../semantic/geometry';
-import type { PatchMapViewportGeometryEntity } from '../viewport';
+import type { PatchMapViewportGeometry, PatchMapViewportGeometryEntity } from '../viewport';
 import type { PatchMapScreenRegionCandidates } from '../semantic/screen-region-index';
 
 export interface PatchMapPoint {
@@ -100,6 +100,7 @@ export interface PatchMapSurfaceOmittedRelationGeometry {
 }
 
 export interface PatchMapSurfaceGeometrySnapshot {
+  readonly gridFrames?: NonNullable<PatchMapViewportGeometry['gridFrames']>;
   /** Surface geometry generation used to correlate engine revision domains. */
   readonly revision: number;
   /** Dense scene revision used to derive the geometry snapshot. */

@@ -140,6 +140,7 @@ export function createPatchMapSurfaceGeometrySnapshot(
   const selectionOverlay = unionBounds(selectedBounds);
 
   return Object.freeze({
+    ...(projection === null ? {} : { gridFrames: projection.gridFramesById }),
     revision: snapshot.revision,
     sceneRevision: snapshot.revision,
     entities: Object.freeze(entityGeometries),
@@ -283,6 +284,7 @@ export function createPatchMapSurfaceWorldGeometrySnapshot(
     })];
   });
   return Object.freeze({
+    ...(projection === null ? {} : { gridFrames: projection.gridFramesById }),
     entities: Object.freeze(entities),
     relations: Object.freeze(relations),
   });

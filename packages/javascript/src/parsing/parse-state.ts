@@ -73,6 +73,7 @@ export interface PatchMapParseState {
   readonly entityIdsBySourceId: Record<string, string[]>;
   readonly entityIdsByComponentId: Record<string, string[]>;
   readonly entitySourceById: Record<string, EntitySourceIdentity>;
+  readonly gridFramesById: Record<string, NonNullable<PatchMapEntityProjection['gridFrame']>>;
   readonly projectionByEntityId: Record<string, PatchMapEntityProjection>;
   readonly componentVisualProjectionByEntityId: Record<string, PatchMapComponentVisualProjection>;
   readonly backgroundPaintProjectionByEntityId: Record<string, PatchMapBackgroundPaintProjection>;
@@ -118,6 +119,7 @@ export function createPatchMapParseState(
     entityIdsBySourceId: Object.create(null) as Record<string, string[]>,
     entityIdsByComponentId: Object.create(null) as Record<string, string[]>,
     entitySourceById: Object.create(null) as Record<string, EntitySourceIdentity>,
+    gridFramesById: Object.create(null) as PatchMapParseState['gridFramesById'],
     projectionByEntityId: Object.create(null) as Record<string, PatchMapEntityProjection>,
     componentVisualProjectionByEntityId: Object.create(null) as Record<
       string,
@@ -181,6 +183,7 @@ export function finishPatchMapParseState(
       expandedItems: state.expandedItems,
     },
     projection: {
+      gridFramesById: state.gridFramesById,
       byEntityId: state.projectionByEntityId,
       componentsByEntityId: state.componentVisualProjectionByEntityId,
       backgroundsByEntityId: state.backgroundPaintProjectionByEntityId,

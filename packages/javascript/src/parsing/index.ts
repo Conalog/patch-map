@@ -266,6 +266,7 @@ function parseGrid(
   }
   const item = value.item;
   const gridFrame = Object.freeze({ id: sourceId, affine: transform.affine });
+  state.gridFramesById[sourceId] = gridFrame;
   const itemSize = fixedSize(item.size, `${path}.item.size`, state);
   const gap = axisSpacing(value.gap, `${path}.gap`, state);
   const hideInactive = value.inactiveCellStrategy === 'hide';

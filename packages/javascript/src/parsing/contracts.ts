@@ -245,6 +245,8 @@ export interface PatchMapBarProjection {
 
 /** Immutable numeric metadata omitted by the compact dense rows. */
 export interface PatchMapProjectionIndex {
+  /** Authored grid frames survive even when no cell entities are retained. */
+  readonly gridFramesById: Readonly<Record<string, NonNullable<PatchMapEntityProjection['gridFrame']>>>;
   readonly byEntityId: Readonly<Record<string, PatchMapEntityProjection>>;
   /** Stable component ownership and fixed render-role classification. */
   readonly componentsByEntityId: Readonly<Record<string, PatchMapComponentVisualProjection>>;

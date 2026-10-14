@@ -34,6 +34,7 @@ function patchMapProjectionStableRecords(
   projection: PatchMapProjectionIndex,
 ): readonly (Readonly<Record<string, unknown>> | undefined)[] {
   return [
+    projection.gridFramesById,
     projection.byEntityId,
     projection.componentsByEntityId,
     projection.backgroundsByEntityId,

@@ -18,6 +18,9 @@ async function verifyViewportBounds() {
     }, {
       type: 'grid', id: 'empty-grid', cells: [[0, 1]],
       item: { size: 100, components: [] },
+    }, {
+      type: 'grid', id: 'no-cells', attrs: { x: 500, y: 200 }, cells: [[0]],
+      item: { size: 100, components: [background] },
     }],
   });
   try {
@@ -25,6 +28,7 @@ async function verifyViewportBounds() {
       ['overflow', [-200, 0, 300, 100], 288 / 300],
       ['sparse', [-100 * Math.SQRT2, 0, 250 * Math.SQRT2, 250 * Math.SQRT2], 288 / (250 * Math.SQRT2)],
       ['empty-grid', [100, 0, 0, 0], 8],
+      ['no-cells', [500, 200, 0, 0], 8],
     ]) {
       boundsMap.viewport.restore({ centerWorld: [0, 0], scale: 2 });
       const focus = boundsMap.viewport.focus({ targets: { id } });

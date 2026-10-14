@@ -169,6 +169,65 @@ describe('viewport logical bounds through parser and dense geometry', () => {
     expect(focus.viewport.centerWorld).toEqual([400, 0]);
   });
 
+  it.each([
+    [false, []], [true, []], [false, [background]], [true, [background]],
+  ])('keeps the origin of a grid with no retained cells (screen first: %s)', async (screenFirst, components) => {
+    const map = await mount([{
+      type: 'grid', id: 'no-cells', attrs: { x: 500, y: 200 }, cells: [[0]],
+      item: { size: 100, components },
+    }], screenFirst);
+    map.viewport.restore({ centerWorld: [0, 0], scale: 2 });
+    const focus = map.viewport.focus({ targets: { id: 'no-cells' } });
+    expect(focus.status).toBe('applied');
+    expect(focus.worldBounds).toEqual([500, 200, 0, 0]);
+    expect(focus.contributors).toEqual([{ id: 'no-cells', worldBounds: [500, 200, 0, 0] }]);
+    expect(focus.viewport).toMatchObject({ centerWorld: [500, 200], scale: 2 });
+    const fit = map.viewport.fit();
+    expect(fit.status).toBe('applied');
+    expect(fit.worldBounds).toEqual([500, 200, 0, 0]);
+    expect(fit.viewport.centerWorld).toEqual([500, 200]);
+    expect(map.viewport.focus({ filter: () => false }).status).toBe('empty');
+    expect(map.viewport.state.centerWorld).toEqual([500, 200]);
+  });
+
+  it('updates a childless grid frame through nested incremental replacement and removal', () => {
+    const grid = { type: 'grid', id: 'no-cells', attrs: { x: 50, y: 20 }, cells: [[0]], item: { size: 100, components: [] } };
+    const remaining = { type: 'item', id: 'remaining', size: 100, components: [] };
+    const input = (x: number, cells: number[][]) => [{
+      type: 'group', id: 'parent', attrs: { x, y: 200, angle: 30, scaleX: -1 },
+      children: [{ ...grid, cells }],
+    }, remaining];
+    let previous = materializePatchMapDataset(input(500, [[1]])).dataset;
+    let parsed = parsePatchMap(previous);
+    const scene = new PatchMapScene();
+    const parent = new Container({ x: 500, y: 200, angle: 30, scale: { x: -1, y: 1 } });
+    const oracle = new Container({ x: 50, y: 20 });
+    parent.addChild(oracle);
+    try {
+      for (const [x, cells] of [[500, [[0]]], [700, [[0]]], [700, [[1]]]] as const) {
+        const next = materializePatchMapDataset(input(x, cells.map((row) => [...row]))).dataset;
+        const incremental = parsePatchMapIncrementalStructure(next, previous, parsed);
+        expect(incremental).not.toBeNull();
+        if (incremental === null) throw new Error('incremental childless grid parse was refused');
+        parent.x = x;
+        scene.load(incremental.document);
+        const geometry = createPatchMapSurfaceWorldGeometrySnapshot(scene.snapshot(), incremental.projection);
+        const result = resolvePatchMapViewportContributors(next, geometry, { targets: ['parent'] });
+        expectBounds(result.worldBounds, mainBounds(oracle));
+        expect(result.contributors.map(({ id }) => id)).toEqual(['no-cells']);
+        previous = next;
+        parsed = incremental;
+      }
+      const next = materializePatchMapDataset([remaining]).dataset;
+      const removed = parsePatchMapIncrementalStructure(next, previous, parsed);
+      expect(removed).not.toBeNull();
+      if (removed === null) throw new Error('incremental grid removal refused');
+      expect(removed.projection.gridFramesById).toEqual({});
+      scene.load(removed.document);
+      expect(resolvePatchMapViewportContributors(next, createPatchMapSurfaceWorldGeometrySnapshot(scene.snapshot(), removed.projection), { targets: ['no-cells'] }).missing).toEqual(['no-cells']);
+    } finally { scene.destroy(); parent.destroy({ children: true }); }
+  });
+
   it('retains the updated grid frame through incremental projection replacement', () => {
     const previous = materializePatchMapDataset([sparseGrid]).dataset;
     const parsed = parsePatchMap(previous);

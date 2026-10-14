@@ -22,6 +22,7 @@
   corners to world coordinates; rotated sparse grids retain their full local
   frame. Empty item containers contribute a zero-size bound at their origin.
   Grids without visual components combine the world origins of retained cells.
+  If no cells remain, the grid contributes a zero-size bound at its own world origin.
 - `filter(target)` receives a frozen semantic match (`id`, `kind`, `type`,
   `label`, `value`), without renderer objects. `value` contains the read-only
   normalized element data; expanded instances have type `grid-cell` and expose

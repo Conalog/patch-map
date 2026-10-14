@@ -49,6 +49,7 @@ export interface PatchMapViewportGeometryRelation {
 }
 
 export interface PatchMapViewportGeometry {
+  readonly gridFrames?: Readonly<Record<string, Readonly<{ id: string; affine: PatchMapAffineMatrix }>>>;
   readonly entities: readonly PatchMapViewportGeometryEntity[];
   readonly relations: readonly PatchMapViewportGeometryRelation[];
 }
@@ -227,12 +228,12 @@ export function resolvePatchMapViewportContributors(
       case 'grid': {
         // A grid is one leaf target: its children contribute bounds, but are
         // never individually filtered when the grid itself is selected.
-        const frame = gridFrames.get(element.id);
+        const frame = geometry.gridFrames?.[element.id] ?? gridFrames.get(element.id);
         const components = componentsByGrid.get(element.id);
         const bounds = frame === undefined
           ? unionBounds(gridEntityBounds(geometry.entities, element))
           : components === undefined
-            ? (gridOrigins ??= indexGridOriginBounds(geometry.entities)).get(element.id) ?? null
+            ? (gridOrigins ??= indexGridOriginBounds(geometry.entities)).get(element.id) ?? logicalFrameBounds(frame.affine, [])
             : logicalFrameBounds(frame.affine, components);
         if (bounds === null) return false;
         addContributor(element.id, bounds);
