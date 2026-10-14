@@ -106,7 +106,7 @@ export function createPatchMapSurfaceGeometrySnapshot(
       worldPoints: resolved.worldPoints,
       screenPoints,
       worldBounds: resolved.worldBounds,
-      worldQuad: relationViewportQuad(relationProjection?.affine ?? fallbackProjection.affine, resolved.localPoints, resolved.style.width),
+      viewportPath: Object.freeze({ affine: (relationProjection ?? fallbackProjection).affine, worldPoints: resolved.worldPoints, strokeWidth: resolved.style.width, authoredIndex: (relationProjection ?? fallbackProjection).authoredIndex }),
       screenBounds: boundsForTuplePoints(screenPoints),
       visible: resolved.visible,
       style: Object.freeze({
@@ -281,7 +281,7 @@ export function createPatchMapSurfaceWorldGeometrySnapshot(
       sourceId,
       targetId,
       worldBounds: resolved.worldBounds,
-      worldQuad: relationViewportQuad(relationProjection?.affine ?? fallbackProjection.affine, resolved.localPoints, resolved.style.width),
+      viewportPath: Object.freeze({ affine: (relationProjection ?? fallbackProjection).affine, worldPoints: resolved.worldPoints, strokeWidth: resolved.style.width, authoredIndex: (relationProjection ?? fallbackProjection).authoredIndex }),
       visible: resolved.visible,
     })];
   });
@@ -630,31 +630,6 @@ function viewportRectQuad(
     ] as const) });
   }
   return base;
-}
-
-function relationViewportQuad(
-  affine: NonNullable<PatchMapViewportGeometryEntity['worldQuad']>['affine'],
-  points: readonly PatchMapPointTuple[],
-  strokeWidth: number,
-): NonNullable<PatchMapViewportGeometryEntity['worldQuad']> {
-  const bounds = boundsForTuplePoints(points);
-  let miterRatio = 1;
-  // Renderer paths use the default open miter join (limit 10). Pixi expands
-  // the path rectangle by the largest join, including self-link corners.
-  if (strokeWidth > 0) for (let index = 1; index < points.length - 1; index += 1) {
-    const previous = points[index - 1]!, point = points[index]!, next = points[index + 1]!;
-    const ax = previous[0] - point[0], ay = previous[1] - point[1];
-    const bx = next[0] - point[0], by = next[1] - point[1];
-    const aSquared = ax * ax + ay * ay, bSquared = bx * bx + by * by;
-    if (aSquared < 1e-12 || bSquared < 1e-12) continue;
-    const cosine = Math.max(-1, Math.min(1, (ax * bx + ay * by) / Math.sqrt(aSquared * bSquared)));
-    const sineHalf = Math.sqrt((1 - cosine) / 2);
-    if (sineHalf >= 1e-6) miterRatio = Math.max(miterRatio, Math.min(10, 1 / sineHalf));
-  }
-  const half = Math.max(0, strokeWidth) / 2 * miterRatio;
-  return Object.freeze({ affine, localBounds: Object.freeze([
-    bounds[0] - half, bounds[1] - half, bounds[2] + half * 2, bounds[3] + half * 2,
-  ] as const) });
 }
 
 const VIEWPORT_EMPTY_BOUNDS = Object.freeze([0, 0, 0, 0] as const);

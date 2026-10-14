@@ -1,4 +1,4 @@
-import type { PatchMapAffineMatrix, PatchMapBoundsTuple } from '../semantic/geometry';
+import type { PatchMapAffineMatrix, PatchMapBoundsTuple, PatchMapPointTuple } from '../semantic/geometry';
 
 export interface PatchMapViewportVisual {
   readonly worldBounds: PatchMapBoundsTuple;
@@ -20,6 +20,13 @@ export interface PatchMapViewportGeometryRelation {
   readonly targetId: string;
   readonly worldBounds?: PatchMapBoundsTuple;
   readonly worldQuad?: NonNullable<PatchMapViewportVisual['worldQuad']>;
+  /** Unrounded world points; the affine identifies the relation's local frame. */
+  readonly viewportPath?: Readonly<{
+    affine: PatchMapAffineMatrix;
+    worldPoints: readonly PatchMapPointTuple[];
+    strokeWidth: number;
+    authoredIndex: number;
+  }>;
   readonly visible?: boolean;
 }
 

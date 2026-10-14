@@ -1,7 +1,8 @@
 import type { NormalizedPatchMapElement } from '../semantic/dataset';
 import { PATCH_MAP_IDENTITY_AFFINE, type PatchMapBoundsTuple } from '../semantic/geometry';
-import type { PatchMapViewportGeometry, PatchMapViewportGeometryEntity, PatchMapViewportVisual } from './geometry-contracts';
+import type { PatchMapViewportGeometry, PatchMapViewportGeometryEntity, PatchMapViewportGeometryRelation, PatchMapViewportVisual } from './geometry-contracts';
 import { logicalFrameBounds } from './logical-frame-bounds';
+import { relationBoundsVisuals } from './relation-bounds';
 
 /** One geometry index for every managed target; traversal/filter policy stays with viewport. */
 export function createViewportBoundsIndex(
@@ -12,7 +13,7 @@ export function createViewportBoundsIndex(
   const entities = new Map(geometry.entities.map((entity) => [entity.id, entity]));
   const itemVisuals = new Map<string, PatchMapViewportVisual[]>();
   const gridVisuals = new Map<string, PatchMapViewportVisual[]>();
-  const relationVisuals = new Map<string, PatchMapViewportVisual[]>();
+  const relationsById = new Map<string, PatchMapViewportGeometryRelation[]>();
   let gridOrigins: ReadonlyMap<string, PatchMapBoundsTuple> | undefined;
 
   for (const entity of geometry.entities) {
@@ -33,18 +34,17 @@ export function createViewportBoundsIndex(
     }
   }
   for (const relation of geometry.relations) {
-    if (relation.worldBounds === undefined) continue;
+    if (relation.worldBounds === undefined && relation.viewportPath === undefined) continue;
     const id = relation.relationId ?? relation.id.split(':', 1)[0] ?? relation.id;
-    append(relationVisuals, id, {
-      worldBounds: relation.worldBounds,
-      ...(relation.worldQuad === undefined ? {} : { worldQuad: relation.worldQuad }),
-    });
+    const bucket = relationsById.get(id);
+    if (bucket === undefined) relationsById.set(id, [relation]); else bucket.push(relation);
   }
 
   const get = (id: string, type: NormalizedPatchMapElement['type'] | 'grid-cell'): PatchMapBoundsTuple | null => {
     const frame = geometry.elementFrames?.[id];
     if (type === 'grid' || type === 'relations') {
-      const visuals = (type === 'grid' ? gridVisuals : relationVisuals).get(id);
+      const relations = type === 'relations' ? relationsById.get(id) : undefined;
+      const visuals = type === 'grid' ? gridVisuals.get(id) : relations === undefined ? undefined : relationBoundsVisuals(relations);
       if (visuals !== undefined) {
         return frame === undefined ? unionBounds(visuals.map(({ worldBounds }) => worldBounds)) : logicalFrameBounds(frame, visuals);
       }

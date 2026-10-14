@@ -28,6 +28,12 @@
 - Ordinary bounds use visual rectangles rather than authored item-size markers.
   Rect and background borders, and relation strokes, include their outsets,
   including miter corners on self-links.
+  Relation paths follow authored link order. Consecutive matching local points
+  join an open path, regardless of endpoint IDs; missing links do not break it.
+  Stroke bounds apply the largest miter outset to the whole relation rectangle,
+  including disconnected subpaths. Consecutive duplicate points are ignored,
+  and subpaths with only one distinct point are discarded. If no paths survive,
+  the relation contributes its own origin.
   Rects with a zero width or height have no drawn rectangle and use their origin.
   When every child is empty, their world-origin bounds are combined directly;
   empty children do not enlarge a container with a nonempty visual rectangle.
@@ -69,4 +75,4 @@ Unknown viewport IDs are reported in `missing`; surviving targets still apply.
 
 ## Verification
 
-Target traversal is covered by `tests/semantic/viewport.test.ts`; public camera behavior and filter failures by `tests/engine/engine-viewport.test.ts`. The all-type matrix in `tests/engine/viewport-bounds-matrix.test.ts` covers empty and stroked containers, zero-size visuals, nested reflection/rotation, screen/world cache order, target forms, filters and deduplication. Parser-to-geometry and incremental regressions are covered by `tests/engine/viewport-logical-bounds.test.ts`. Installed package consumers exercise focus and fit in a real browser. General camera state is owned by [Viewport and transform](viewport-and-transform.md).
+Target traversal is covered by `tests/semantic/viewport.test.ts`; public camera behavior and filter failures by `tests/engine/engine-viewport.test.ts`. The all-type matrix in `tests/engine/viewport-bounds-matrix.test.ts` covers empty and stroked containers, zero-size visuals, nested reflection/rotation, screen/world cache order, target forms, filters and deduplication. `tests/engine/viewport-relation-bounds.test.ts` compares complete relation paths, missing/duplicate links, degenerate paths and reordered geometry against the independent Pixi oracle. Parser-to-geometry and incremental regressions are covered by `tests/engine/viewport-logical-bounds.test.ts`. Installed package consumers exercise focus and fit in a real browser. General camera state is owned by [Viewport and transform](viewport-and-transform.md).

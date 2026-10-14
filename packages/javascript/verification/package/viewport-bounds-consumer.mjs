@@ -48,6 +48,35 @@ async function verifyViewportBounds() {
         links: [{ source: 'link-a', target: 'link-a' }],
       }],
     }, {
+      type: 'rect', id: 'chain-a', attrs: { x: 1995, y: -5 }, size: 10, fill: '#ffffff',
+    }, {
+      type: 'rect', id: 'chain-b', attrs: { x: 2095, y: -5 }, size: 10, fill: '#ffffff',
+    }, {
+      type: 'rect', id: 'chain-c', attrs: { x: 1995, y: 5 }, size: 10, fill: '#ffffff',
+    }, {
+      type: 'rect', id: 'distant-a', attrs: { x: 2995, y: 995 }, size: 10, fill: '#ffffff',
+    }, {
+      type: 'rect', id: 'distant-b', attrs: { x: 3095, y: 995 }, size: 10, fill: '#ffffff',
+    }, {
+      type: 'group', id: 'chain-group', children: [{
+        type: 'relations', id: 'chain', style: { width: 8 },
+        links: [{ source: 'chain-a', target: 'chain-b' }, { source: 'chain-b', target: 'chain-c' }],
+      }],
+    }, {
+      type: 'group', id: 'mixed-chain-group', children: [{
+        type: 'relations', id: 'mixed-chain', style: { width: 8 },
+        links: [{ source: 'chain-a', target: 'chain-b' }, { source: 'chain-b', target: 'chain-c' }, { source: 'distant-a', target: 'distant-b' }],
+      }],
+    }, {
+      type: 'rect', id: 'coincident-a', attrs: { x: 3995, y: 495 }, size: 10, fill: '#ffffff',
+    }, {
+      type: 'rect', id: 'coincident-b', attrs: { x: 3995, y: 495 }, size: 10, fill: '#ffffff',
+    }, {
+      type: 'group', id: 'degenerate-relation-group', attrs: { x: 4200, y: 100 }, children: [{
+        type: 'relations', id: 'degenerate-relation', style: { width: 8 },
+        links: [{ source: 'coincident-a', target: 'coincident-b' }],
+      }],
+    }, {
       type: 'image', id: 'intrinsic-image', attrs: { x: 1600 },
       source: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="32"><rect width="64" height="32" fill="red"/></svg>'),
     }],
@@ -65,6 +94,9 @@ async function verifyViewportBounds() {
       ['bordered-item', [996, -4, 108, 108], 288 / 108],
       ['relation-group', [1246, 46, 208, 108], 288 / 208],
       ['self-relation-group', [1250 - 4 * Math.SQRT2, -50 - 4 * Math.SQRT2, 150 + 8 * Math.SQRT2, 200 + 8 * Math.SQRT2], 288 / (150 + 8 * Math.SQRT2)],
+      ['chain-group', [1960, -40, 180, 90], 1.6],
+      ['mixed-chain-group', [1960, -40, 1180, 1080], 288 / 1180],
+      ['degenerate-relation-group', [4200, 100, 0, 0], 8],
     ]) {
       boundsMap.viewport.restore({ centerWorld: [0, 0], scale: 2 });
       const focus = boundsMap.viewport.focus({ targets: { id } });

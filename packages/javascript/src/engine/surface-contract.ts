@@ -57,6 +57,7 @@ export interface PatchMapSurfaceEntityGeometry extends PatchMapViewportGeometryE
 }
 
 export interface PatchMapSurfaceRelationGeometry {
+  readonly viewportPath?: NonNullable<PatchMapViewportGeometry['relations'][number]['viewportPath']>;
   readonly worldQuad?: NonNullable<PatchMapViewportGeometry['relations'][number]['worldQuad']>;
   readonly id: string;
   readonly relationId?: string;
