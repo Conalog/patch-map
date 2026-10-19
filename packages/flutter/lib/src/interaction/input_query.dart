@@ -90,7 +90,7 @@ final class InputQuery {
   ) {
     for (final slot in _candidates(snapshot, Rect.fromPoints(world, world))) {
       final node = snapshot.nodes[slot];
-      if (!node.visible || node.locked || node.isContainer) continue;
+      if (!_acceptsInput(node)) continue;
       // Main entity point/range queries first reject against item size AABB.
       // Paint segments intentionally retain their component overflow surface.
       if (_hasItemSizeBounds(node) &&
@@ -120,7 +120,7 @@ final class InputQuery {
     final result = <PatchMapObject>[];
     for (final slot in _candidates(snapshot, range.bounds)) {
       final node = snapshot.nodes[slot];
-      if (!node.visible || node.locked || node.isContainer) continue;
+      if (!_acceptsInput(node)) continue;
       if (_hasItemSizeBounds(node) &&
           !boundsOverlap(node.bounds!, range.bounds)) {
         continue;
@@ -151,7 +151,7 @@ final class InputQuery {
     var order = 0;
     for (final slot in _candidates(snapshot, Rect.fromPoints(from, to))) {
       final node = snapshot.nodes[slot];
-      if (!node.visible || node.locked || node.isContainer) continue;
+      if (!_acceptsInput(node)) continue;
       final exact = ports.exactGeometry?.call(snapshot, node);
       double? first;
       if (exact != null) {
@@ -171,6 +171,13 @@ final class InputQuery {
       return t == 0 ? a.order.compareTo(b.order) : t;
     });
     return List.unmodifiable(hits.map((hit) => hit.object));
+  }
+
+  bool _acceptsInput(TargetGeometry node) {
+    if (!node.visible || node.locked || node.isContainer) return false;
+    if (node.target.type != 'rect') return true;
+    final mode = node.data['eventMode'];
+    return mode != 'none' && mode != 'passive';
   }
 
   bool _hasItemSizeBounds(TargetGeometry node) {
