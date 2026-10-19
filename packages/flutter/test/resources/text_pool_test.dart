@@ -366,8 +366,8 @@ void main() {
         expect(next.hasParagraph, true);
         expect(
           h.owner.paragraphCreates - count,
-          2,
-        ); // One wrap measure + one final layout.
+          1,
+        ); // One final layout; a single unbreakable token needs no wrap probe.
         final after = h.owner.paragraphCreates;
         h.owner.draw(next, canvas, ui.Offset.zero, 1);
         expect(h.owner.paragraphCreates, after);
@@ -623,8 +623,9 @@ void main() {
 Future<void> _until(bool Function() predicate) async {
   final deadline = DateTime.now().add(const Duration(seconds: 8));
   while (!predicate()) {
-    if (DateTime.now().isAfter(deadline))
+    if (DateTime.now().isAfter(deadline)) {
       fail('native preparation did not settle within 8 seconds');
+    }
     await Future<void>.delayed(const Duration(milliseconds: 1));
   }
 }

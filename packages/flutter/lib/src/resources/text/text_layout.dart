@@ -272,6 +272,11 @@ final class NativeTextLayout {
 
   String _wrap(String text, double size) {
     if (!spec.wordWrap) return text;
+    // One unbreakable token is unchanged by wrapping even when it exceeds the
+    // width. Avoid measuring it once for wrap and again for the final layout.
+    if (!spec.breakWords && text.isNotEmpty && !_whitespace.hasMatch(text)) {
+      return text;
+    }
     final collapse = spec.whiteSpace != 'pre';
     if (spec.whiteSpace == 'normal') {
       text = text.replaceAll(RegExp(r'\r\n|\r|\n'), ' ');
@@ -337,6 +342,8 @@ final class NativeTextLayout {
     return lines.join('\n');
   }
 }
+
+final _whitespace = RegExp(r'\s');
 
 String _split(String text, int split) {
   if (split <= 0) return text;

@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -64,6 +65,38 @@ final class TextPool {
   bool _closed = false;
   int _unusedUnits = 0;
   int paragraphCreates = 0, liveParagraphLayouts = 0;
+  int specCreates = 0, keyCreates = 0;
+  HashMap<Map<String, Object?>, Map<ui.Size?, _PreparedText>>? _preparation;
+
+  /// Reuses scalar preparation for immutable admitted data during one synchronous
+  /// measure/compile transaction. No handle references or async work are cached.
+  /// Nested transactions have independent caches and restore the outer cache.
+  T withPreparation<T>(T Function() action) {
+    if (_closed) throw StateError('text pool is closed');
+    final previous = _preparation;
+    _preparation = HashMap.identity();
+    try {
+      final result = action();
+      if (result is Future) {
+        throw StateError('Text preparation action must be synchronous');
+      }
+      return result;
+    } finally {
+      _preparation = previous;
+    }
+  }
+
+  TextSpec _spec(Map<String, Object?> data, ui.Size? content) {
+    final spec = TextSpec.fromData(data, content, palette);
+    specCreates++;
+    return spec;
+  }
+
+  String _key(TextSpec spec) {
+    keyCreates++;
+    return '${spec.metricKey}|${spec.paintKey}';
+  }
+
   int metricHits = 0, metricMisses = 0, atlasDraws = 0, paragraphDraws = 0;
   int get entries => _entries.length;
   int get unusedEntries => _unused.length;
@@ -71,8 +104,21 @@ final class TextPool {
 
   TextHandle acquire(Map<String, Object?> data, ui.Size? content) {
     if (_closed) throw StateError('text pool is closed');
-    final spec = TextSpec.fromData(data, content, palette);
-    final key = '${spec.metricKey}|${spec.paintKey}';
+    final cache = _preparation;
+    final TextSpec spec;
+    final String key;
+    if (cache == null) {
+      spec = _spec(data, content);
+      key = _key(spec);
+    } else {
+      final byContent = cache.putIfAbsent(data, () => {});
+      final prepared = byContent.putIfAbsent(
+        content,
+        () => _PreparedText(_spec(data, content)),
+      );
+      spec = prepared.spec;
+      key = prepared.key ??= _key(spec);
+    }
     var handle = _entries[key];
     if (handle == null) {
       OwnedTextLayout? native;
@@ -238,6 +284,12 @@ final class TextPool {
     atlases.close();
     // Still-pinned candidates release their own handles after async settlement.
   }
+}
+
+final class _PreparedText {
+  _PreparedText(this.spec);
+  final TextSpec spec;
+  String? key;
 }
 
 final _digits = RegExp(r'^[0-9]{1,12}$');
