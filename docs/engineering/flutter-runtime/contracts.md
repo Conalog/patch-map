@@ -66,7 +66,8 @@ an external verification input. Baseline source is the previously investigated
 | Boundary | Status | Evidence |
 | --- | --- | --- |
 | Ownership/contracts | Reviewed; six missing transition conditions incorporated | Independent contract/architecture review against all213 inventoried source sections |
-| Dataset and geometry | Geometry primitives/index/camera implemented; dataset/layout integration pending | `test/geometry/`: nested signed transforms, quad/path hits, 10,000-item scan oracle with overflow/moves; rotated padding fit and resize/anchor checks |
+| Dataset | Normalized immutable admission implemented; runtime projection pending | 12 focused tests; gallery and large-grid normalized JSON equal to executed JS materializer (`.artifacts/verification/flutter-dataset-20261019/comparison.json`); template sharing and cycle/mutation isolation |
+| Geometry / viewport | Primitives, bounded index and camera implemented; component layout integration pending | `test/geometry/`: nested signed transforms, quad/path hits, 10,000-item scan oracle with overflow/moves; rotated padding fit and resize/anchor checks |
 | Session/widget/frame | Pending | — |
 | Rendering/resources | Experimental algorithms only | No package-runtime claim |
 | Interaction/lifecycle | Pending | — |
