@@ -25,14 +25,18 @@ vector_graphics, declared in [pubspec.yaml](../../packages/flutter/pubspec.yaml)
 Canonical SVG/font inputs and ignored package-local preparation are owned by
 [shared assets](shared-assets.md). Repository Flutter commands prepare them
 automatically; direct Flutter commands require preparation from the root first.
-Codec inputs remain [conformance targets](../../conformance/README.md); this
-foundation has no codec runtime. Android host uses JVM 17, NDK 28.2.13676358
+Encoded dataset codec inputs remain [conformance targets](../../conformance/README.md);
+the current native runtime admits JSON List/Map data. Runtime ownership and
+qualification are tracked in the [implementation owner](flutter-runtime/README.md). Android host uses JVM 17, NDK 28.2.13676358
 and a bounded 2 GiB Gradle heap.
 
 ## Verification and artifact ownership
 
 `flutter:verify` resolves dependencies, checks formatting and analysis, runs example tests, checks pub's dry run, and tests an extracted installed consumer.
-That consumer checks the package import, actual SVG decode and bundled font load. Its report records toolchain facts, input and artifact hashes, logs and scope.
+That consumer checks the public widget/controller through draw, text/bar updates,
+value lookup, removal and controller reattachment, plus actual SVG decode and
+bundled font loading. Its report records toolchain facts, input and artifact
+hashes, logs and scope; host smoke is not Android/iOS/WebView qualification.
 Library resolution is unlocked; the example lock is committed.
 
 The publication artifact contains library Dart sources, managed assets and font
@@ -63,4 +67,5 @@ flutter build ios --simulator --debug --no-codesign --no-pub
 ```
 
 For native smoke checks, run `flutter test --no-pub -d <device-id> integration_test/foundation_test.dart` in the example. This checks host wiring, SVG decode,
-font load and teardown; public map functionality remains pending. Integration tests and reports are excluded from the artifact.
+font load and teardown. It does not qualify map rendering or update performance;
+package/widget tests and the profile playground track those separately. Integration tests and reports are excluded from the artifact.

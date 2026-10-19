@@ -9,6 +9,23 @@ import { verifyFlutterPackage, dartImportViolations } from './package.mjs';
 import { contractFingerprint } from '../conformance/compare.mjs';
 
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+export const REQUIRED_INSTALLED_ASSERTIONS = Object.freeze([
+  'installed bundled SVG and native font load',
+  'installed public runtime draw update getValue and detach',
+]);
+
+// An exit code alone does not prove that the required consumer scenarios ran.
+// Keep exact visible, unskipped success names/order and Flutter's final witness.
+export function installedConsumerAssertions(stdout) {
+  const events = stdout.split('\n').filter((line) => line.startsWith('{')).map((line) => JSON.parse(line));
+  const tests = new Map(events.filter((event) => event.type === 'testStart').map((event) => [event.test.id, event.test.name]));
+  const assertions = events.filter((event) => event.type === 'testDone' && event.result === 'success' && event.hidden !== true && !event.skipped).map((event) => tests.get(event.testID));
+  if (events.at(-1)?.type !== 'done' || events.at(-1)?.success !== true || JSON.stringify(assertions) !== JSON.stringify(REQUIRED_INSTALLED_ASSERTIONS)) {
+    throw new Error('Installed Dart consumer did not execute the required bundled asset and public runtime assertions');
+  }
+  return assertions;
+}
+
 const ROOT_FILES = new Set(['pubspec.yaml', 'README.md', 'CHANGELOG.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', '.pubignore', 'analysis_options.yaml']);
 const EXCLUDED = new Set(['example', 'test', 'tool', 'build', 'coverage', '.dart_tool', '.fvm', '.gitignore', 'pubspec.lock', '.flutter-plugins-dependencies', '.fvmrc', 'toolchains.json']);
 export async function publicationFiles(packageRoot) {
@@ -98,7 +115,7 @@ export async function verifyInstalledDartConsumer({ root = process.cwd(), flutte
     artifactSha256: hash(await readFile(archive)), artifactPath: relative(root, archive),
     contentsSha256: hash(JSON.stringify(inputs)), files: inputs,
     consumerSourceSha256: hash(consumerSource), installedConsumer: false, prepared: true,
-    stages: [], assertions: [], platform: 'flutter-test-host', scope: 'foundation public import and bundled SVG/font loading only; runtime parity and Android/iOS qualification are not tested',
+    stages: [], assertions: [], platform: 'flutter-test-host', scope: 'extracted artifact public widget/controller host smoke: item/text/bar, bundled SVG/FiraCode, draw/updateValues/getValue/removal/detach/reattach; separate bundled SVG/font loading; Android/iOS/WebView parity and SDK-role qualification are not tested',
   };
   const reportPath = resolve(workspace, 'report.json');
   const save = () => writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`);
@@ -137,10 +154,7 @@ export async function verifyInstalledDartConsumer({ root = process.cwd(), flutte
         await save();
       }
       if (name === 'test') {
-        const events = run.stdout.split('\n').filter((line) => line.startsWith('{')).map((line) => JSON.parse(line));
-        const tests = new Map(events.filter((event) => event.type === 'testStart').map((event) => [event.test.id, event.test.name]));
-        report.assertions = events.filter((event) => event.type === 'testDone' && event.result === 'success' && event.hidden !== true && !event.skipped).map((event) => tests.get(event.testID));
-        if (events.at(-1)?.type !== 'done' || events.at(-1)?.success !== true || JSON.stringify(report.assertions) !== JSON.stringify(['installed bundled SVG and native font load'])) throw new Error('Installed Dart consumer did not execute the required bundled asset assertion');
+        report.assertions = installedConsumerAssertions(run.stdout);
       }
     }
     // The archive remains valid even if work continues; qualification must name

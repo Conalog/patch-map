@@ -30,7 +30,7 @@ if (role !== 'ci') {
 const exampleRoot = join(packageRoot, 'example');
 const artifactRoot = join(root, '.artifacts/flutter');
 mkdirSync(artifactRoot, { recursive: true });
-const report = { scope: 'foundation tooling and installed import/SVG/font only', mode, toolchain: sdk, toolchainRole: role, flutter, dart, stages: [], inputHashes: {} };
+const report = { scope: 'package tooling and extracted-artifact public widget/controller runtime plus SVG/font host smoke; not Android/iOS/WebView qualification', mode, toolchain: sdk, toolchainRole: role, flutter, dart, stages: [], inputHashes: {} };
 for (const path of ['pubspec.yaml', '.fvmrc', 'toolchains.json', 'example/pubspec.yaml']) report.inputHashes[path] = sha256(readFileSync(join(packageRoot, path)));
 const reportPath = join(artifactRoot, `verification-${role}-${mode}.json`);
 const save = () => writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
