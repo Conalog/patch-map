@@ -100,3 +100,14 @@ an external verification input. Baseline source is the previously investigated
   atlas pages use fixed 3/6/12 densities. Unknown style/shape proof conditions
   use native layout. Advanced JS-only text/stroke effects remain qualification
   work and are not claimed as supported by the successful numeric fixtures.
+
+- Text color preserves release's projection pipeline: component `tint` overrides
+  `style.fill` (including the admitted white default); standalone text uses
+  `style.fill`. Stroke raster RGB is modulated by that projection color and
+  object opacity applies once after fill/stroke composition. The browser oracle
+  at `.artifacts/verification/flutter-text-compat-20261019/` executes the release
+  materializer/parser/style with Pixi8.22.0; native regression tests cover the
+  corresponding color and opacity rules. Shadow/padding and other fields that
+  release does not forward remain preserved data without newly added effects.
+  The invalid JSON `stroke.fill` red error fallback is not a supported paint
+  feature; JSON texture-backed text strokes remain unqualified.

@@ -29,6 +29,7 @@ final class TextSpec {
     required this.lineHeight,
     required this.padding,
     required this.color,
+    required this.objectOpacity,
     required this.strokeColor,
     required this.strokeWidth,
     required this.strokeJoin,
@@ -132,11 +133,15 @@ final class TextSpec {
       );
     }
     final alpha = _metric(style['alpha'] ?? 1, 'alpha', min: 0, max: 1);
-    final tint = data['tint'] == null
-        ? const ui.Color(0xffffffff)
-        : palette.resolve(data['tint']!);
-    ui.Color paintColor(Object source, [double opacity = 1]) {
-      final resolved = multiplyColors(palette.resolve(source), tint);
+    // Release lowers component tint (including its normalized white default)
+    // over style.fill, then rasterizes white text and applies object.tint/alpha.
+    // Standalone text has no tint field and uses its authored fill instead.
+    final paint = palette.resolve(data['tint'] ?? style['fill'] ?? 'black');
+    final color = paint.withValues(alpha: paint.a * alpha);
+    ui.Color strokePaint(Object source, double opacity) {
+      // Raster stroke RGBA is multiplied by the object's RGB tint and alpha.
+      final raster = palette.resolve(source);
+      final resolved = multiplyColors(raster, paint);
       return resolved.withValues(alpha: resolved.a * alpha * opacity);
     }
 
@@ -151,7 +156,7 @@ final class TextSpec {
           );
     final strokeColor = rawStroke == null
         ? null
-        : paintColor(
+        : strokePaint(
             rawStroke is Map ? (stroke['color'] ?? 'black') : rawStroke,
             _metric(stroke['alpha'] ?? 1, 'stroke.alpha', min: 0, max: 1),
           );
@@ -162,39 +167,12 @@ final class TextSpec {
       diagnostics.add('stroke.alignment');
     }
     if (stroke['pixelLine'] == true) diagnostics.add('stroke.pixelLine');
+    // These authored fields do not reach release's Pixi TextStyle. Retain the
+    // data in the dataset, but do not add shadow/spacing to native output. Keep
+    // their existing conservative proof exclusion until qualified separately.
     final rawShadow = style['dropShadow'];
-    final shadowFields = rawShadow is Map ? rawShadow : const {};
-    ui.Shadow? shadow;
-    if (rawShadow == true || rawShadow is Map) {
-      final angle = _metric(
-        shadowFields['angle'] ?? math.pi / 6,
-        'dropShadow.angle',
-      );
-      final distance = _metric(
-        shadowFields['distance'] ?? 5,
-        'dropShadow.distance',
-      );
-      shadow = ui.Shadow(
-        color: paintColor(
-          shadowFields['color'] ?? 'black',
-          _metric(
-            shadowFields['alpha'] ?? 1,
-            'dropShadow.alpha',
-            min: 0,
-            max: 1,
-          ),
-        ),
-        offset: ui.Offset(
-          math.cos(angle) * distance,
-          math.sin(angle) * distance,
-        ),
-        blurRadius: _metric(
-          shadowFields['blur'] ?? 0,
-          'dropShadow.blur',
-          min: 0,
-        ),
-      );
-    }
+    if (rawShadow == true || rawShadow is Map) diagnostics.add('dropShadow');
+    if ((style['padding'] as num? ?? 0) != 0) diagnostics.add('padding');
     for (final entry in style.entries) {
       final unsupported = switch (entry.key) {
         'fontVariant' => entry.value != 'normal',
@@ -235,8 +213,9 @@ final class TextSpec {
       split: (data['split'] as num? ?? 0).toInt(),
       letterSpacing: _metric(style['letterSpacing'] ?? 0, 'letterSpacing'),
       lineHeight: lineHeight > 0 ? lineHeight : null,
-      padding: _metric(style['padding'] ?? 0, 'padding', min: 0),
-      color: paintColor(style['fill'] ?? 'black'),
+      padding: 0,
+      color: color,
+      objectOpacity: paint.a * alpha,
       strokeColor: strokeColor,
       strokeWidth: strokeWidth,
       strokeJoin: switch (stroke['join']) {
@@ -254,7 +233,7 @@ final class TextSpec {
         'stroke.miterLimit',
         min: 0,
       ),
-      shadow: shadow,
+      shadow: null,
       unsupportedFields: List<String>.unmodifiable(diagnostics),
     );
   }
@@ -270,6 +249,9 @@ final class TextSpec {
   final ui.TextAlign align;
   final ui.Size? bounds;
   final ui.Color color;
+
+  /// Opacity applied after the release text raster has combined fill and stroke.
+  final double objectOpacity;
   final ui.Color? strokeColor;
   final ui.StrokeJoin strokeJoin;
   final ui.StrokeCap strokeCap;

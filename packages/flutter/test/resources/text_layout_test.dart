@@ -397,7 +397,7 @@ void main() {
   );
 
   test(
-    'stroke, shadow, tint and alpha produce explicit paint values and ownership',
+    'release tint overrides fill and ignored shadow adds no native effect',
     () {
       final value = TextSpec.fromData(
         {
@@ -420,10 +420,10 @@ void main() {
         null,
         ColorResolver(),
       );
-      expect(value.color.toARGB32(), 0x80800000);
+      expect(value.color.toARGB32(), 0x80808080);
       expect(value.strokeColor!.toARGB32(), 0x80808080);
-      expect(value.shadow!.color.a, closeTo(.25, .005));
-      expect(value.shadow!.offset, const ui.Offset(5, 0));
+      expect(value.shadow, isNull);
+      expect(value.unsupportedFields, contains('dropShadow'));
       final created = <ui.Paragraph>[];
       final result = NativeTextLayout(
         value,

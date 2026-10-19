@@ -16,6 +16,7 @@ final class OwnedTextLayout {
     this.lineCount,
     this.visibleText,
     this.paintOffset,
+    this.paintOpacity,
   );
 
   final double fontSize, longestLine;
@@ -25,16 +26,28 @@ final class OwnedTextLayout {
   final int lineCount;
   final String visibleText;
   final ui.Offset paintOffset;
+  final double paintOpacity;
   bool _disposed = false;
   bool get isDisposed => _disposed;
   double get paragraphWidth => paragraph.width;
 
   void paint(ui.Canvas canvas, ui.Offset offset) {
     if (_disposed) throw StateError('Text layout has been disposed');
-    if (strokeParagraph != null) {
-      canvas.drawParagraph(strokeParagraph!, offset + paintOffset);
+    if (paintOpacity < 1) {
+      canvas.saveLayer(
+        (offset & size).inflate(1),
+        ui.Paint()
+          ..color = const ui.Color(0xffffffff).withValues(alpha: paintOpacity),
+      );
     }
-    canvas.drawParagraph(paragraph, offset + paintOffset);
+    try {
+      if (strokeParagraph != null) {
+        canvas.drawParagraph(strokeParagraph!, offset + paintOffset);
+      }
+      canvas.drawParagraph(paragraph, offset + paintOffset);
+    } finally {
+      if (paintOpacity < 1) canvas.restore();
+    }
   }
 
   void dispose() {
@@ -145,6 +158,7 @@ final class NativeTextLayout {
         visibleText.isEmpty ? 0 : chosen.computeLineMetrics().length,
         visibleText,
         ui.Offset(inset.$1, inset.$2),
+        _compositeOpacity,
       );
       chosen = null;
       stroke = null;
@@ -160,10 +174,21 @@ final class NativeTextLayout {
     return (paragraph: _paragraph(wrapped, size), text: wrapped);
   }
 
+  // Pixi tints the completed text raster. RGB multiplication distributes over
+  // source-over, but object alpha must be applied once after stroke and fill.
+  double get _compositeOpacity =>
+      spec.strokeWidth > 0 && spec.strokeColor != null ? spec.objectOpacity : 1;
+  ui.Color _rasterColor(ui.Color color) {
+    final opacity = _compositeOpacity;
+    return opacity == 1 || opacity == 0
+        ? color
+        : color.withValues(alpha: (color.a / opacity).clamp(0, 1));
+  }
+
   ui.Paragraph _paragraph(String text, double size, {bool stroke = false}) {
     final paint = stroke
         ? (ui.Paint()
-            ..color = spec.strokeColor!
+            ..color = _rasterColor(spec.strokeColor!)
             ..style = ui.PaintingStyle.stroke
             ..strokeWidth = spec.strokeWidth
             ..strokeJoin = spec.strokeJoin
@@ -195,7 +220,7 @@ final class NativeTextLayout {
               height: size > 0 && spec.lineHeight != null
                   ? spec.lineHeight! / size
                   : null,
-              color: stroke ? null : spec.color,
+              color: stroke ? null : _rasterColor(spec.color),
               foreground: paint,
               shadows: !stroke && spec.shadow != null ? [spec.shadow!] : null,
             ),
