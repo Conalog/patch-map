@@ -77,7 +77,8 @@ an external verification input. Baseline source is the previously investigated
 | Geometry / viewport | Primitives, bounded index, camera, component dimensions/placement and readable transform and initial scene tree implemented; incremental renderer integration pending | `test/geometry/`: nested signed transforms, quad/path hits, 10,000-item scan oracle with overflow/moves; rotated padding fit and resize/anchor checks; three independently discovered finite-overflow regressions now covered; three scene-tree tests include >9,000 saved grid cells with template-local measurement reuse |
 | Frame coordinator | Implemented; session and actual renderer integration pending | Paint-witness/post-frame completion, no-paint noncompletion, inactivity/disposal and idle scheduling tests; independent review |
 | Presentation admission/composition | Implemented; native backend integration pending | 22 focused tests including explicit reset + child updates, scalar size promotion, empty partial no-op, attrs extension isolation, atomic invalid tail and unchanged identity |
-| Session/widget | Pending | — |
+| Session progression | Implemented against an explicit backend port; widget/native backend pending | 29 tests: request provenance, generation/callback/paint witnesses, reset merge, late ownership, inactive latest values, failed-field baseline, error+stack channel, retained failure on interruption; independent review found seven transitions now fixed |
+| Widget/controller | Pending | — |
 | Resource accounting | Logical reservation/live/retiring budget implemented; native owners pending | 12 focused tests and independent review; no physical GPU-memory guarantee |
 | Rendering/resource owners | Experimental algorithms only | No package-runtime claim |
 | Interaction/lifecycle | Pending | — |

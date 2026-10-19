@@ -59,7 +59,8 @@ replacement starts recovery.
 Presentation admission validates the entire input before accepting any field.
 Each active session has one executing update and one composed pending update.
 Reset barriers and subsequent child-field sets are kept as operations, not an
-ordinary deep merge. Request provenance survives composition so replaced fields
+ordinary deep merge. Expected admission/resource outcomes are structured results;
+unexpected implementation errors preserve the Future error and original stack. Request provenance survives composition so replaced fields
 and preparation failures can both be reported. Immutable effective values and
 retained projections are reused when unchanged; avoid allocating a complete
 candidate object for every unchanged input record.
@@ -92,7 +93,9 @@ creation identity until replacement. It is not retried on each update/pan/zoom,
 and successful Canvas fallback does not make the update a partial failure.
 
 Host `active` and app foreground jointly enable work. Inactive sessions validate
-and compose input but do not start new resource preparation or frames. In-flight
+and compose input but do not start new resource preparation or frames. Validation
+may resolve the addressed raw record against pending field operations when a
+cross-field constraint requires it; it does not traverse or compare the scene. In-flight
 uncancellable work retains its slot/reservation until actual settlement; no early
 release on logical cancellation. Resume uses latest state without replaying old
 animations. Started transfers may finish; further decode waits for activity.
