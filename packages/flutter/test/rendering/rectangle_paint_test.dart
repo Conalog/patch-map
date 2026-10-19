@@ -63,7 +63,7 @@ void main() {
 
   test('admitted defaults and each radius grammar retain immutable values', () {
     final empty = RectanglePaint.fromElement(_element({}), palette, 1);
-    expect(empty.fillColor.a, 0);
+    expect(empty.fillColor, const Color(0xffffffff));
     expect(empty.strokeWidth, 0);
     expect(empty.uniformRadius, 0);
     for (final radius in <Object>[
@@ -228,6 +228,7 @@ void main() {
     for (final alignment in [0.0, .25, 1.0]) {
       final style = RectanglePaint.fromElement(
         _element({
+          'fill': '#00000000',
           'stroke': {'width': 4, 'color': '#00ff00', 'alignment': alignment},
         }),
         palette,

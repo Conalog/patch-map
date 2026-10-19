@@ -38,7 +38,7 @@ final class RectanglePaint {
       }
     }
     return RectanglePaint._(
-      fillColor: _alpha(palette.resolve(data['fill'] ?? '#00000000'), opacity),
+      fillColor: _alpha(palette.resolve(data['fill'] ?? '#ffffff'), opacity),
       strokeColor: _alpha(
         palette.resolve(stroke?['fill'] ?? stroke?['color'] ?? '#1a1a1a'),
         opacity * ((stroke?['alpha'] as num?)?.toDouble() ?? 1),

@@ -87,9 +87,10 @@ an external verification input. Baseline source is the previously investigated
 
 ### Native paint compatibility findings during implementation
 
-- An omitted standalone `rect.fill` is transparent, matching main's renderer.
-  The release/1.0 parser's white fallback is not reproduced. Rectangular
-  background textures retain their schema-provided fill/border defaults.
+- An omitted standalone `rect.fill` retains release/1.0's white fallback.
+  Main leaves that shape transparent; no approved decision specifically changes
+  this default, so main's different default is not imported implicitly.
+  Rectangular background textures keep their own schema defaults.
 - SVG tint applies to the composited artwork, including overlapping primitives
   and embedded raster images. Per-path ColorMapper alpha is not equivalent.
   A non-white vector tint records a compositing layer; repeated image sharing
