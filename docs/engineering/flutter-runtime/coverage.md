@@ -17,7 +17,7 @@ Progress against the [accepted contracts](contracts.md) and
 | Rendering/resource owners | Ordered retained plan, static chunks, slice bars, text metrics/Paragraph/atlas and SVG/raster sharing integrated | Pixel/order tests, sparse no-full-traversal witness and measured 10,000-panel device checkpoint; integrated optimization in progress |
 | Interaction/lifecycle | Input coordinator and selection overlay integrated | Gesture/input/selection tests, actual selection pixels, deferred paint-generation failure and inactive font/resource continuation regressions |
 | Playground uses package | Implemented through public imports only | Example tests; aligned 100-group layouts with exactly 10,000 panels +100 devices and zero conservative AABB overlap; profile source/APK identity archived |
-| Platform/WebView qualification | Incomplete | Flutter3.47.6 extracted installed-consumer import/assets and public draw/update/detach smoke passed. Android profile checkpoint is synthetic; declared SDK roles, iOS and deployed WebView equivalence remain unqualified |
+| Platform/WebView qualification | Incomplete | Flutter3.47.6 and CI3.41.4 extracted installed-consumer import/assets and public draw/update/detach smoke passed; CI static analysis passed. Android profile checkpoint is synthetic; service SDK, iOS and deployed WebView equivalence remain unqualified |
 
 The coherent integration suite ran 396 cases after the reviewed lifetime,
 compatibility and geometry changes: 395 passed and one stale round-cap test
@@ -50,17 +50,28 @@ completed 45 requests per arm without failures or incomplete timings; API respon
 and CPU medians improved in those six conditions. Frame p95 did not improve in
 every condition. Independent review left frame nonregression inconclusive: the
 1% overview first-raster cost consistently increased, although total CPU and
-final raster completion improved. Reverse-order reproduction and attribution of
-that first frame to a publication remain before frame qualification. This is
-synthetic emulator evidence, not a universal frame-rate
-or device/GPU-memory qualification. Source, APK identity, raw records and limits
+final raster completion improved. A reverse-order diagnostic then confirmed that both arms' first frames painted
+the corresponding new publication. First-raster cost still differed, while
+request CPU, summed raster work and per-request maximum frame timings did not
+show consistent worsening. Cost distribution and exact request-to-first-raster
+completion remain unresolved; adding response and raster durations is not that
+latency. Independent review permits moving to lifecycle qualification without
+another broad matrix. Initial visual-response nonregression is not claimed.
+One instrumented startup ended in native SIGSEGV; the identical APK retry passed.
+The crash is retained as an unresolved stability item, not attributed to the
+emulator or instrumentation without evidence. This is synthetic emulator evidence,
+not universal frame-rate or device/GPU-memory qualification. Source, APK identity, raw records and limits
 are preserved under
 `.artifacts/performance/flutter/native-runtime3476-hotpath-emulator-20261019/`
-(`SETTLED.ko.md`, `HOST-DIAGNOSTIC.ko.md`, `FINAL.ko.md`). Earlier frame/CPU windows
+(`SETTLED.ko.md`, `WITNESS.ko.md`, `HOST-DIAGNOSTIC.ko.md`, `FINAL.ko.md`). Earlier frame/CPU windows
 remain separate; their response stopwatches are valid for their recorded inputs.
 
 The current runtime also passed the Flutter3.47.6 extracted installed-consumer
-check (`.artifacts/flutter/installed-consumer-VBTpBN/report.json`). Remaining
-qualification includes declared SDK roles, iOS, deployed WebView equivalence,
-physical GPU memory and sustained replacement/removal/rapid-input profiling.
+check (`.artifacts/flutter/installed-consumer-VBTpBN/report.json`). CI SDK3.41.4
+also passed static analysis and the extracted smoke
+(`.artifacts/flutter/installed-consumer-KxgGLI/report.json`) for the same artifact
+SHA256 `70e760b62417340a3dc9c78b40e276185aad1a79bdae56ddfd23ec3a742981c3`.
+This is not a complete CI SDK native qualification. Remaining qualification
+includes the service SDK, iOS, deployed WebView equivalence, physical GPU memory
+and sustained replacement/removal/rapid-input profiling.
 No release or full performance approval is inferred from these checkpoints.
