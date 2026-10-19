@@ -361,8 +361,11 @@ Map<String, Object?> stroke(
 
 Map<String, Object?> relationStyle(Object? value, String path) {
   final normalized = stroke(value, path, compatibility: true);
+  final input = value is Map ? value : const {};
   return frozen({
     for (final key in ['color', 'alpha', 'width']) key: normalized[key],
+    for (final key in input.keys.cast<String>())
+      if (key != 'opacity') key: normalized[key],
   });
 }
 

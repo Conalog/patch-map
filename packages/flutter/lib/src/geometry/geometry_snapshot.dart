@@ -6,6 +6,7 @@ import '../dataset/dataset_reader.dart';
 import 'affine.dart';
 import 'item_layout.dart';
 import 'paged_values.dart';
+import 'relation_geometry.dart';
 import 'scene_geometry.dart';
 
 /// A retained geometry publication. Immutable pages share unchanged projections;
@@ -17,32 +18,102 @@ final class GeometrySnapshot {
     this.paintSlots,
     this._bounds,
     this._paintBounds,
+    this._endpointBounds,
+    this._relationSlots,
+    this._relations,
+    this._dependencies,
   );
 
   factory GeometrySnapshot.compile(
     DatasetDocument document,
-    MeasureText measure,
-  ) {
-    final initial = SceneGeometry.compile(document, measure);
+    MeasureText measure, {
+    MeasureImage? measureImage,
+  }) {
+    final initial = SceneGeometry.compile(
+      document,
+      measure,
+      measureImage: measureImage,
+    );
     final topology = GeometryTopology(document);
-    final nodes = PagedValues<TargetGeometry>.fromList([
+    final baseNodes = PagedValues<TargetGeometry>.fromList([
       for (final id in topology.ids) initial.targets[id]!,
     ]);
+    final dependencies = RelationDependencies.fromNodes(topology, baseNodes);
+    final ids = dependencies.relationIds.toList(growable: false);
+    final relationSlots = Map<String, int>.unmodifiable({
+      for (var i = 0; i < ids.length; i++) ids[i]: i,
+    });
+    final endpoints = _pageBounds(
+      baseNodes,
+      paint: false,
+      excludeRelations: true,
+    );
+    final replacements = <int, TargetGeometry>{};
+    final relations = <RelationGeometry>[];
+    for (final id in relationSlots.keys) {
+      final slot = topology.slots[id]!;
+      final relation = RelationGeometry.resolve(
+        baseNodes[slot],
+        targetFor: (id) {
+          final target = topology.slots[id];
+          return target == null ? null : baseNodes[target];
+        },
+        endpointBounds: (id) => _rangeBounds(
+          baseNodes,
+          topology,
+          id,
+          endpoints,
+          paint: false,
+          excludeRelations: true,
+        ),
+      );
+      relations.add(relation);
+      replacements[slot] = _withRelationBounds(baseNodes[slot], relation);
+    }
+    final nodes = baseNodes.replace(replacements);
     return GeometrySnapshot._(
       topology,
       nodes,
       List.unmodifiable(
         initial.paintOrder.map((node) => topology.slots[node.id]!),
       ),
-      _pageBounds(nodes, paint: false),
+      relations.isEmpty ? endpoints : _pageBounds(nodes, paint: false),
       _pageBounds(nodes, paint: true),
+      endpoints,
+      relationSlots,
+      PagedValues<RelationGeometry>.fromList(relations),
+      dependencies,
     );
   }
 
   final GeometryTopology topology;
   final PagedValues<TargetGeometry> nodes;
   final List<int> paintSlots;
-  final List<Rect?> _bounds, _paintBounds;
+  final List<Rect?> _bounds, _paintBounds, _endpointBounds;
+  final Map<String, int> _relationSlots;
+  final PagedValues<RelationGeometry> _relations;
+  final RelationDependencies _dependencies;
+  RelationGeometry? relationFor(String id) {
+    final slot = _relationSlots[id];
+    return slot == null ? null : _relations[slot];
+  }
+
+  /// Logical endpoint bounds exclude relation paths, like release's endpoint
+  /// entity map. This keeps relation cycles/container self-inclusion finite.
+  Rect? endpointBoundsFor(String id) {
+    final node = this[id];
+    if (node == null || node.target.type == 'relations') return null;
+    if (!node.isContainer) return node.bounds;
+    return _rangeBounds(
+      nodes,
+      topology,
+      id,
+      _endpointBounds,
+      paint: false,
+      excludeRelations: true,
+    );
+  }
+
   TargetGeometry? operator [](String id) {
     final slot = topology.slots[id];
     return slot == null ? null : nodes[slot];
@@ -50,35 +121,45 @@ final class GeometrySnapshot {
 
   Rect? get bounds => _paintBounds.fold<Rect?>(null, unionBounds);
 
-  Rect? boundsFor(String id, {bool paint = true}) {
-    final start = topology.slots[id];
-    if (start == null) return null;
-    final end = topology.ends[start];
-    final aggregates = paint ? _paintBounds : _bounds;
-    Rect? result;
-    var index = start;
-    while (index < end) {
-      final page = index ~/ nodes.pageSize;
-      if (index % nodes.pageSize == 0 &&
-          index + nodes.pages[page].length <= end) {
-        result = unionBounds(result, aggregates[page]);
-        index += nodes.pages[page].length;
-      } else {
-        final node = nodes[index++];
-        if (node.visible && !node.isContainer) {
-          result = unionBounds(result, paint ? node.paintBounds : node.bounds);
-        }
+  Rect? boundsFor(String id, {bool paint = true}) => _rangeBounds(
+    nodes,
+    topology,
+    id,
+    paint ? _paintBounds : _bounds,
+    paint: paint,
+  );
+
+  /// Resource readiness changes geometry only. No authored/presentation field
+  /// is manufactured, and fixed-size/unknown/non-image IDs need no projection.
+  GeometryChange reprojectImages(
+    Iterable<String> ids,
+    MeasureText measure, {
+    required MeasureImage measureImage,
+  }) {
+    final changes = <PatchMapTarget, Map<String, Object?>>{};
+    final sizes = <String, Size?>{};
+    for (final id in ids.toSet()) {
+      final node = this[id];
+      if (node == null ||
+          node.target.type != 'image' ||
+          node.data['size'] != null) {
+        continue;
       }
+      final size = measureImage(id, node.data);
+      if ((size ?? Size.zero) == node.localBounds?.size) continue;
+      sizes[id] = size;
+      changes[PatchMapTarget(id)] = node.data;
     }
-    return result;
+    return prepare(changes, measure, measureImage: (id, data) => sizes[id]);
   }
 
   /// Changed input records are already normalized and fully resolved by the
   /// session. Preparation returns a candidate and leaves this snapshot intact.
   GeometryChange prepare(
     Map<PatchMapTarget, Map<String, Object?>> changes,
-    MeasureText measure,
-  ) {
+    MeasureText measure, {
+    MeasureImage? measureImage,
+  }) {
     if (changes.isEmpty) return GeometryChange(this, const {});
     final records = <String, Map<String, Object?>>{};
     final components = <String, Map<String, Map<String, Object?>>>{};
@@ -145,6 +226,7 @@ final class GeometrySnapshot {
         target: before.target,
         data: data,
         measureText: measure,
+        measureImage: measureImage,
         parentWorld: parent?.world ?? Affine.identity,
         parentVisible: parent?.visible ?? true,
         parentLocked: parent?.locked ?? false,
@@ -170,9 +252,71 @@ final class GeometrySnapshot {
     for (final slot in roots) {
       project(slot);
     }
+    // Aggregate nonrelation endpoint pages from the overlay first. Relation
+    // compilation reads this same candidate without cloning node pages twice.
+    final endpointPages = <int, Rect?>{};
+    for (final page
+        in changed.keys.map((slot) => slot ~/ nodes.pageSize).toSet()) {
+      endpointPages[page] = _aggregate(
+        [
+          for (
+            var i = page * nodes.pageSize;
+            i < page * nodes.pageSize + nodes.pages[page].length;
+            i++
+          )
+            changed[i] ?? nodes[i],
+        ],
+        paint: false,
+        excludeRelations: true,
+      );
+    }
+    TargetGeometry? targetFor(String id) {
+      final slot = topology.slots[id];
+      return slot == null ? null : changed[slot] ?? nodes[slot];
+    }
+
+    final relationChanges = <int, RelationGeometry>{};
+    final affected = _dependencies.affectedIds(
+      changed.entries
+          .where((entry) {
+            final before = nodes[entry.key], after = entry.value;
+            return after.target.type == 'relations' ||
+                before.bounds != after.bounds ||
+                before.visible != after.visible;
+          })
+          .map((entry) => entry.value.id),
+    );
+    for (final id in affected) {
+      final slot = topology.slots[id]!;
+      final relation = RelationGeometry.resolve(
+        targetFor(id)!,
+        targetFor: targetFor,
+        endpointBounds: (id) {
+          final target = targetFor(id);
+          if (target == null || target.target.type == 'relations') return null;
+          if (!target.isContainer) return target.bounds;
+          return _rangeBounds(
+            nodes,
+            topology,
+            id,
+            _endpointBounds,
+            paint: false,
+            excludeRelations: true,
+            changes: changed,
+            pageOverrides: endpointPages,
+          );
+        },
+      );
+      relationChanges[_relationSlots[id]!] = relation;
+      changed[slot] = _withRelationBounds(targetFor(id)!, relation);
+    }
     final next = nodes.replace(changed);
     final newBounds = List<Rect?>.of(_bounds),
         newPaint = List<Rect?>.of(_paintBounds);
+    final newEndpoints = List<Rect?>.of(_endpointBounds);
+    for (final entry in endpointPages.entries) {
+      newEndpoints[entry.key] = entry.value;
+    }
     final pages = changed.keys.map((slot) => slot ~/ nodes.pageSize).toSet();
     for (final page in pages) {
       newBounds[page] = _aggregate(next.pages[page], paint: false);
@@ -184,6 +328,10 @@ final class GeometrySnapshot {
       orderChanged ? topology.paintOrder(next) : paintSlots,
       List.unmodifiable(newBounds),
       List.unmodifiable(newPaint),
+      List.unmodifiable(newEndpoints),
+      _relationSlots,
+      _relations.replace(relationChanges),
+      _dependencies,
     );
     return GeometryChange(snapshot, Map.unmodifiable(changed));
   }
@@ -279,15 +427,79 @@ double _z(Map<String, Object?> record) =>
 List<Rect?> _pageBounds(
   PagedValues<TargetGeometry> nodes, {
   required bool paint,
+  bool excludeRelations = false,
 }) => List.unmodifiable([
-  for (final page in nodes.pages) _aggregate(page, paint: paint),
+  for (final page in nodes.pages)
+    _aggregate(page, paint: paint, excludeRelations: excludeRelations),
 ]);
-Rect? _aggregate(List<TargetGeometry> nodes, {required bool paint}) {
+Rect? _aggregate(
+  List<TargetGeometry> nodes, {
+  required bool paint,
+  bool excludeRelations = false,
+}) {
   Rect? bounds;
   for (final node in nodes) {
-    if (node.visible && !node.isContainer) {
+    if (node.visible &&
+        !node.isContainer &&
+        (!excludeRelations || node.target.type != 'relations')) {
       bounds = unionBounds(bounds, paint ? node.paintBounds : node.bounds);
     }
   }
   return bounds;
 }
+
+Rect? _rangeBounds(
+  PagedValues<TargetGeometry> nodes,
+  GeometryTopology topology,
+  String id,
+  List<Rect?> aggregates, {
+  required bool paint,
+  bool excludeRelations = false,
+  Map<int, TargetGeometry> changes = const {},
+  Map<int, Rect?> pageOverrides = const {},
+}) {
+  final start = topology.slots[id];
+  if (start == null) return null;
+  final end = topology.ends[start];
+  Rect? result;
+  var index = start;
+  while (index < end) {
+    final page = index ~/ nodes.pageSize;
+    if (index % nodes.pageSize == 0 &&
+        index + nodes.pages[page].length <= end) {
+      result = unionBounds(
+        result,
+        pageOverrides.containsKey(page)
+            ? pageOverrides[page]
+            : aggregates[page],
+      );
+      index += nodes.pages[page].length;
+    } else {
+      final node = changes[index] ?? nodes[index];
+      index++;
+      if (node.visible &&
+          !node.isContainer &&
+          (!excludeRelations || node.target.type != 'relations')) {
+        result = unionBounds(result, paint ? node.paintBounds : node.bounds);
+      }
+    }
+  }
+  return result;
+}
+
+TargetGeometry _withRelationBounds(
+  TargetGeometry node,
+  RelationGeometry relation,
+) => TargetGeometry(
+  target: node.target,
+  data: node.data,
+  world: node.world,
+  visible: node.visible,
+  opacity: node.opacity,
+  locked: node.locked,
+  bounds: relation.bounds,
+  paintBounds: relation.paintBounds,
+  children: node.children,
+  item: node.item,
+  localBounds: node.localBounds,
+);

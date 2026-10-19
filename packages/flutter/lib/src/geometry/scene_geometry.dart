@@ -6,6 +6,10 @@ import 'affine.dart';
 import 'item_layout.dart';
 import 'layout.dart';
 
+/// Intrinsic pixel dimensions only. Asset/native lifetime belongs to the caller.
+/// Return null until ready; authored fixed sizes never invoke this callback.
+typedef MeasureImage = Size? Function(String id, Map<String, Object?> data);
+
 /// Derived initial geometry, never an alternative authored-data authority.
 final class SceneGeometry {
   SceneGeometry._(this.targets, this.paintOrder, this.bounds);
@@ -15,8 +19,9 @@ final class SceneGeometry {
 
   factory SceneGeometry.compile(
     DatasetDocument document,
-    MeasureText measureText,
-  ) => _Builder(document, measureText).build();
+    MeasureText measureText, {
+    MeasureImage? measureImage,
+  }) => _Builder(document, measureText, measureImage).build();
 }
 
 final class TargetGeometry {
@@ -31,13 +36,14 @@ final class TargetGeometry {
     required this.paintBounds,
     required this.children,
     this.item,
+    this.localBounds,
   });
   final DatasetTarget target;
   final Map<String, Object?> data;
   final Affine world;
   final bool visible, locked;
   final double opacity;
-  final Rect? bounds, paintBounds;
+  final Rect? bounds, paintBounds, localBounds;
   // Immutable structural identities, never stale child projection objects.
   final List<String> children;
   final ItemLayout? item;
@@ -52,6 +58,7 @@ TargetGeometry projectTargetGeometry({
   required Map<String, Object?> data,
   required MeasureText measureText,
   required Affine parentWorld,
+  MeasureImage? measureImage,
   bool parentVisible = true,
   bool parentLocked = false,
   double parentOpacity = 1,
@@ -85,11 +92,12 @@ TargetGeometry projectTargetGeometry({
   final visible = parentVisible && target.active && data['show'] != false;
   final locked = parentLocked || data['locked'] == true;
   final opacity = parentOpacity * ((attrs?['alpha'] as num?)?.toDouble() ?? 1);
-  Rect? bounds, paintBounds;
+  Rect? bounds, paintBounds, localBounds;
   switch (target.type) {
     case 'item':
       item ??= ItemLayout.compile(data, measureText);
-      bounds = world.projectRect(Offset.zero & item.size).bounds;
+      localBounds = Offset.zero & item.size;
+      bounds = world.projectRect(localBounds).bounds;
       paintBounds =
           previous?.item != null &&
               previous!.item!.sameEnvelope(item) &&
@@ -97,9 +105,8 @@ TargetGeometry projectTargetGeometry({
           ? previous.paintBounds
           : item.paintBounds(world);
     case 'rect':
-      bounds = world
-          .projectRect(Offset.zero & fixedSize(data['size']! as Map))
-          .bounds;
+      localBounds = Offset.zero & fixedSize(data['size']! as Map);
+      bounds = world.projectRect(localBounds).bounds;
       final stroke = data['stroke'] as Map?;
       final width = (stroke?['width'] as num?)?.toDouble() ?? 0;
       final scale =
@@ -110,14 +117,31 @@ TargetGeometry projectTargetGeometry({
         data,
         data['size'] == null ? null : fixedSize(data['size']! as Map),
       );
-      bounds = world.projectRect(Offset.zero & size).bounds;
+      localBounds = Offset.zero & size;
+      bounds = world.projectRect(localBounds).bounds;
       paintBounds = bounds;
     case 'image':
-      // Asynchronous intrinsic dimensions are supplied by the resource owner.
-      final size = data['size'] == null
-          ? Size.zero
-          : fixedSize(data['size']! as Map);
-      bounds = world.projectRect(Offset.zero & size).bounds;
+      final Size size;
+      if (data['size'] != null) {
+        size = fixedSize(data['size']! as Map);
+      } else if (measureImage != null) {
+        size = measureImage(target.id, data) ?? Size.zero;
+      } else {
+        // Preserve a previously resolved intrinsic size during unrelated attrs
+        // updates when the same source remains and no resolver was supplied.
+        size = identical(previous?.data['source'], data['source'])
+            ? previous?.localBounds?.size ?? Size.zero
+            : Size.zero;
+      }
+      if (!size.isFinite || size.width < 0 || size.height < 0) {
+        throw DatasetException(
+          'INVALID_GEOMETRY',
+          target.id,
+          'invalid intrinsic image size',
+        );
+      }
+      localBounds = Offset.zero & size;
+      bounds = world.projectRect(localBounds).bounds;
       paintBounds = bounds;
     case 'group':
     case 'grid':
@@ -135,15 +159,17 @@ TargetGeometry projectTargetGeometry({
     locked: locked,
     bounds: bounds,
     paintBounds: paintBounds,
+    localBounds: localBounds,
     children: children,
     item: item,
   );
 }
 
 class _Builder {
-  _Builder(this.document, this.measureText);
+  _Builder(this.document, this.measureText, this.measureImage);
   final DatasetDocument document;
   final MeasureText measureText;
+  final MeasureImage? measureImage;
   final _items = HashMap<Map<String, Object?>, ItemLayout>.identity();
   final _targets = <String, TargetGeometry>{};
   final _ordered = <TargetGeometry>[];
@@ -184,6 +210,7 @@ class _Builder {
       target: target,
       data: data,
       measureText: measureText,
+      measureImage: measureImage,
       parentWorld: parent?.world ?? Affine.identity,
       parentVisible: parent?.visible ?? true,
       parentLocked: parent?.locked ?? false,

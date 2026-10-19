@@ -199,10 +199,7 @@ num _integer(Object? value, String path) {
 
 Map<String, Object?> _relationStyle(Object? value, String path) {
   final normalized = stroke(value, path, compatibility: true, partial: true);
-  return frozen({
-    for (final key in ['color', 'alpha', 'width'])
-      if (normalized.containsKey(key)) key: normalized[key],
-  });
+  return normalized;
 }
 
 bool _atomicRoot(String key, Object? normalized, bool concrete, String type) =>
