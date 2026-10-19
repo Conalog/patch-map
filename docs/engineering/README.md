@@ -11,6 +11,7 @@ This directory owns internal structure, engineering policy and release operation
 ## Start here
 
 For the native Flutter package baseline, read [Flutter development environment](flutter-package.md).
+Native runtime implementation starts at [Flutter runtime](flutter-runtime/README.md).
 For npm or Dart versioning and publication, read [Independent release operations](releases.md).
 For shared SVG/font sources and package preparation, read [Shared package assets](shared-assets.md).
 
