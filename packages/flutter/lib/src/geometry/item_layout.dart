@@ -43,14 +43,32 @@ final class ItemLayout {
 
   factory ItemLayout.compile(
     Map<String, Object?> data,
-    MeasureText measureText,
-  ) {
+    MeasureText measureText, {
+    ItemLayout? previous,
+  }) {
     final size = fixedSize(data['size']! as Map);
     final content = BoxEdges.fromData(data['padding']! as Map).contentBox(size);
     final values = (data['components']! as List).cast<Map<String, Object?>>();
     final components = <ComponentLayout>[];
+    final previousById = previous == null
+        ? const <String, ComponentLayout>{}
+        : {
+            for (final component in previous.components)
+              component.id: component,
+          };
     for (final value in orderedRecords(values)) {
       final type = value['type'];
+      final prior = previousById[value['id']];
+      if (prior != null &&
+          identical(prior.data, value) &&
+          previous!.size == size &&
+          previous.content == content &&
+          prior.upright ==
+              (type != 'background' &&
+                  data['contentOrientation'] == 'upright')) {
+        components.add(prior);
+        continue;
+      }
       final Rect box;
       if (type == 'background') {
         box = Offset.zero & size;
@@ -87,6 +105,21 @@ final class ItemLayout {
       );
     }
     return ItemLayout._(size, content, List.unmodifiable(components));
+  }
+
+  /// Bars are contained and never invalidate the text/SVG safety envelope.
+  bool sameEnvelope(ItemLayout other) {
+    if (size != other.size || components.length != other.components.length) {
+      return false;
+    }
+    for (var i = 0; i < components.length; i++) {
+      final component = components[i];
+      if (component.type == 'bar' && other.components[i].type == 'bar') {
+        continue;
+      }
+      if (!identical(component, other.components[i])) return false;
+    }
+    return true;
   }
 
   /// Camera-independent conservative paint envelope. Bars are contained by the
