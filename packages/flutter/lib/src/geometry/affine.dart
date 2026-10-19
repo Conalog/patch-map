@@ -99,7 +99,8 @@ final class Quad {
     math.max(math.max(p0.dy, p1.dy), math.max(p2.dy, p3.dy)),
   );
 
-  double get _orientation => cross(p1 - p0, p3 - p0);
+  double get _orientation =>
+      _crossSign(_difference(p1, p0), _difference(p3, p0));
 
   bool contains(Offset point) {
     final orientation = _orientation;
@@ -107,7 +108,11 @@ final class Quad {
     final sign = orientation.sign;
     for (var i = 0; i < 4; i++) {
       final p = vertex(i);
-      if (cross(vertex(i + 1) - p, point - p) * sign < 0) return false;
+      if (_crossSign(_difference(vertex(i + 1), p), _difference(point, p)) *
+              sign <
+          0) {
+        return false;
+      }
     }
     return true;
   }
@@ -121,8 +126,32 @@ final class Quad {
     var enter = 0.0, leave = 1.0;
     for (var i = 0; i < 4; i++) {
       final p = vertex(i), edge = vertex(i + 1) - p;
-      final start = cross(edge, from - p) * sign;
-      final rate = cross(edge, delta) * sign;
+      var start = cross(edge, from - p) * sign;
+      var rate = cross(edge, delta) * sign;
+      if (!start.isFinite ||
+          !rate.isFinite ||
+          (start == 0 && rate == 0 && (edge.dx != 0 || edge.dy != 0))) {
+        // Rare numeric fallback. Scale the edge independently, and both
+        // signed distances by the same coordinate factor, preserving t.
+        final direction = _difference(vertex(i + 1), p);
+        final edgeScale = math.max(direction.dx.abs(), direction.dy.abs());
+        if (edgeScale == 0) continue;
+        final unit = direction / edgeScale;
+        final coordinateScale = math.max(
+          1.0,
+          math.max(
+            math.max(p.dx.abs(), p.dy.abs()),
+            math.max(
+              math.max(from.dx.abs(), from.dy.abs()),
+              math.max(to.dx.abs(), to.dy.abs()),
+            ),
+          ),
+        );
+        final scaledFrom = from / coordinateScale;
+        start = cross(unit, scaledFrom - p / coordinateScale) * sign;
+        rate = cross(unit, to / coordinateScale - scaledFrom) * sign;
+      }
+      if (!start.isFinite || !rate.isFinite) return null;
       if (rate == 0) {
         if (start < 0) return null;
       } else {
@@ -155,6 +184,27 @@ final class Quad {
 }
 
 double cross(Offset a, Offset b) => a.dx * b.dy - a.dy * b.dx;
+
+Offset _difference(Offset a, Offset b) {
+  final delta = a - b;
+  return delta.dx.isFinite && delta.dy.isFinite ? delta : a / 2 - b / 2;
+}
+
+double _crossSign(Offset a, Offset b) {
+  final value = cross(a, b);
+  if (value.isFinite && value != 0) return value.sign;
+  final as = math.max(a.dx.abs(), a.dy.abs());
+  final bs = math.max(b.dx.abs(), b.dy.abs());
+  return as == 0 || bs == 0 ? 0 : cross(a / as, b / bs).sign;
+}
+
+/// Math.hypot-style length avoids squaring large/small finite coefficients.
+double vectorLength(double x, double y) {
+  final scale = math.max(x.abs(), y.abs());
+  if (scale == 0) return 0;
+  return scale *
+      math.sqrt((x / scale) * (x / scale) + (y / scale) * (y / scale));
+}
 
 /// Rect.overlaps excludes touching/zero-width query bounds; input points and
 /// paint paths require inclusive conservative rejection instead.

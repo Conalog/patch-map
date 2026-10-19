@@ -6,6 +6,34 @@ import 'package:conalog_patch_map/src/geometry/spatial_index.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('large finite geometry cannot turn a miss into a NaN hit', () {
+    final huge = Affine.identity.projectRect(
+      const Rect.fromLTWH(0, 0, 1e200, 1e200),
+    );
+    expect(
+      huge.segmentEntry(
+        const Offset(-1e200, 5e199),
+        const Offset(-5e199, 5e199),
+      ),
+      isNull,
+    );
+    expect(
+      huge.segmentEntry(
+        const Offset(-1e200, 5e199),
+        const Offset(1e200, 5e199),
+      ),
+      closeTo(.5, 1e-12),
+    );
+    expect(huge.contains(const Offset(-1e200, 5e199)), false);
+    expect(huge.contains(const Offset(5e199, 5e199)), true);
+    final small = Affine.identity.projectRect(
+      const Rect.fromLTWH(0, 0, 10, 10),
+    );
+    expect(
+      small.segmentEntry(const Offset(-1e308, 5), const Offset(1e308, 5)),
+      closeTo(.5, 1e-12),
+    );
+  });
   test(
     'nested signed transforms share exact drawing and inverse coordinates',
     () {

@@ -61,15 +61,22 @@ claim all conformance targets pass. Actual WebView deployment identity remains
 an external verification input. Baseline source is the previously investigated
 0.10.0 mobile WebView path, not automatically latest release/1.0.
 
+## Compatibility corrections found during implementation
+
+- `calc()` dimensions follow main's multi-term percent/pixel semantics. The current JS schema admits these inputs, while the release parser renders them at zero and its separate layout helper supports only two terms. Flutter compiles admitted expressions into one pixel offset and one fractional coefficient; no expression parsing occurs during paint or animation. Invalid derived negative/nonfinite geometry is rejected. This is an intentional correction to release/1.0 output, not a new expression language.
+- `upright` preserves a readable authored angle and removes reflection/upside-down orientation. It does not pin content to screen axes. Bars use the item-center placement anchor; text retains its authored center, as in the shared JS geometry owner.
+
 ## Delivery status
 
 | Boundary | Status | Evidence |
 | --- | --- | --- |
 | Ownership/contracts | Reviewed; six missing transition conditions incorporated | Independent contract/architecture review against all213 inventoried source sections |
 | Dataset | Normalized immutable admission implemented; runtime projection pending | 12 focused tests; gallery and large-grid normalized JSON equal to executed JS materializer (`.artifacts/verification/flutter-dataset-20261019/comparison.json`); template sharing and cycle/mutation isolation |
-| Geometry / viewport | Primitives, bounded index and camera implemented; component layout integration pending | `test/geometry/`: nested signed transforms, quad/path hits, 10,000-item scan oracle with overflow/moves; rotated padding fit and resize/anchor checks |
-| Session/widget/frame | Pending | — |
-| Rendering/resources | Experimental algorithms only | No package-runtime claim |
+| Geometry / viewport | Primitives, bounded index, camera, component dimensions/placement and readable transform implemented; tree integration pending | `test/geometry/`: nested signed transforms, quad/path hits, 10,000-item scan oracle with overflow/moves; rotated padding fit and resize/anchor checks; three independently discovered finite-overflow regressions now covered |
+| Frame coordinator | Implemented; session and actual renderer integration pending | Paint-witness/post-frame completion, no-paint noncompletion, inactivity/disposal and idle scheduling tests; independent review |
+| Session/widget | Pending | — |
+| Resource accounting | Logical reservation/live/retiring budget implemented; native owners pending | 12 focused tests and independent review; no physical GPU-memory guarantee |
+| Rendering/resource owners | Experimental algorithms only | No package-runtime claim |
 | Interaction/lifecycle | Pending | — |
 | Playground uses package | Pending | Current optimized app still standalone |
 | Platform/WebView qualification | Pending | Foundation host checks are not functional qualification |

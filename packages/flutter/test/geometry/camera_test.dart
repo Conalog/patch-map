@@ -70,6 +70,14 @@ void main() {
     );
     expect(() => camera.set(scale: 0), throwsArgumentError);
     expect(() => camera.set(scale: 1e200), throwsArgumentError);
+    final matrix = List<double>.of(camera.paintMatrix);
+    final world = camera.localToWorld(const Offset(20, 20));
+    expect(
+      () => camera.set(center: const Offset(1.79e308, 0), scale: 1e-161),
+      throwsArgumentError,
+    );
+    expect(camera.paintMatrix, matrix);
+    expect(camera.localToWorld(const Offset(20, 20)), world);
     expect(camera.center, Offset.zero);
     expect(camera.scale, 1);
   });

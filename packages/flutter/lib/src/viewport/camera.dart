@@ -33,8 +33,9 @@ final class MapCamera {
       throw ArgumentError.value(value, 'size');
     }
     if (value == _size) return false;
+    final candidate = _candidate(value, _center, _scale, _rotation);
     _size = value;
-    _rebuild();
+    _commit(candidate);
     return true;
   }
 
@@ -49,17 +50,12 @@ final class MapCamera {
         'camera requires a finite center/rotation and positive scale',
       );
     }
-    final cos = math.cos(r), sin = math.sin(r);
-    final tx = _size.width / 2 - s * (cos * c.dx - sin * c.dy);
-    final ty = _size.height / 2 - s * (sin * c.dx + cos * c.dy);
-    if (!tx.isFinite || !ty.isFinite || !(s * s).isFinite || s * s == 0) {
-      throw ArgumentError('camera transform is not representable');
-    }
     if (c == _center && s == _scale && r == _rotation) return false;
+    final candidate = _candidate(_size, c, s, r);
     _center = c;
     _scale = s;
     _rotation = r;
-    _rebuild();
+    _commit(candidate);
     return true;
   }
 
@@ -158,18 +154,31 @@ final class MapCamera {
     }
   }
 
-  void _rebuild() {
-    final cos = math.cos(_rotation) * _scale,
-        sin = math.sin(_rotation) * _scale;
-    _worldToLocal = Affine(
+  (Affine, Affine, Float64List) _candidate(
+    Size size,
+    Offset center,
+    double scale,
+    double rotation,
+  ) {
+    final cos = math.cos(rotation) * scale, sin = math.sin(rotation) * scale;
+    final forward = Affine(
       cos,
       sin,
       -sin,
       cos,
-      _size.width / 2 - cos * _center.dx + sin * _center.dy,
-      _size.height / 2 - sin * _center.dx - cos * _center.dy,
+      size.width / 2 - cos * center.dx + sin * center.dy,
+      size.height / 2 - sin * center.dx - cos * center.dy,
     );
-    _localToWorld = _worldToLocal.inverse!;
-    _matrix = _worldToLocal.toMatrix4();
+    final inverse = forward.inverse;
+    if (!forward.isFinite || inverse == null) {
+      throw ArgumentError('camera transform is not representable');
+    }
+    return (forward, inverse, forward.toMatrix4());
+  }
+
+  void _commit((Affine, Affine, Float64List) candidate) {
+    _worldToLocal = candidate.$1;
+    _localToWorld = candidate.$2;
+    _matrix = candidate.$3;
   }
 }
