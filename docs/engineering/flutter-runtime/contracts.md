@@ -66,12 +66,14 @@ an external verification input. Baseline source is the previously investigated
 - `calc()` dimensions follow main's multi-term percent/pixel semantics. The current JS schema admits these inputs, while the release parser renders them at zero and its separate layout helper supports only two terms. Flutter compiles admitted expressions into one pixel offset and one fractional coefficient; no expression parsing occurs during paint or animation. Invalid derived negative/nonfinite geometry is rejected. This is an intentional correction to release/1.0 output, not a new expression language.
 - `upright` preserves a readable authored angle and removes reflection/upside-down orientation. It does not pin content to screen axes. Bars use the item-center placement anchor; text retains its authored center, as in the shared JS geometry owner.
 
+- Color resolution follows configured theme lookup and real ColorLike parsing, as in main. Custom leaf tokens used by the actual WebView (such as `statusRed`) are preserved during schema checking and validated with the configured palette before final acceptance. Release's accidental hash-color fallback is not reproduced. RGB/alpha conversion can differ by one quantization unit; exact pixel identity is not claimed.
+
 ## Delivery status
 
 | Boundary | Status | Evidence |
 | --- | --- | --- |
 | Ownership/contracts | Reviewed; six missing transition conditions incorporated | Independent contract/architecture review against all213 inventoried source sections |
-| Dataset | Normalized immutable admission implemented; runtime projection pending | 12 focused tests; gallery and large-grid normalized JSON equal to executed JS materializer (`.artifacts/verification/flutter-dataset-20261019/comparison.json`); template sharing and cycle/mutation isolation |
+| Dataset | Normalized immutable admission implemented; runtime projection pending | 13 focused schema tests plus 19 color resolver/semantic tests; gallery and large-grid normalized JSON equal to executed JS materializer (`.artifacts/verification/flutter-dataset-20261019/comparison.json`); template sharing and cycle/mutation isolation |
 | Geometry / viewport | Primitives, bounded index, camera, component dimensions/placement and readable transform implemented; tree integration pending | `test/geometry/`: nested signed transforms, quad/path hits, 10,000-item scan oracle with overflow/moves; rotated padding fit and resize/anchor checks; three independently discovered finite-overflow regressions now covered |
 | Frame coordinator | Implemented; session and actual renderer integration pending | Paint-witness/post-frame completion, no-paint noncompletion, inactivity/disposal and idle scheduling tests; independent review |
 | Session/widget | Pending | — |

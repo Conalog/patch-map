@@ -3,6 +3,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
+import 'package:conalog_patch_map/src/dataset/colors.dart';
+import 'package:conalog_patch_map/src/dataset/dataset_styles.dart'
+    show validateDatasetColors;
 
 void main() {
   const reader = DatasetReader();
@@ -186,7 +189,7 @@ void main() {
         [item()..['show'] = 1],
         [item()..['size'] = double.nan],
         [
-          {'type': 'rect', 'size': 2, 'fill': 'definitely-not-color'},
+          {'type': 'rect', 'size': 2, 'fill': 'rgb(not-a-color)'},
         ],
         [
           item()..['attrs'] = {'alpha': 2},
@@ -337,6 +340,8 @@ void main() {
         'rgb(1% 2% 3% / 50%)',
         'hsl(1turn 20% 30%)',
         'theme.primary',
+        'statusRed',
+        'textOnLight',
       ]) {
         final root = reader
             .read([
@@ -348,8 +353,6 @@ void main() {
       }
       for (final color in [
         '',
-        'unknown-color',
-        'abcde',
         '0x1234',
         '#12345',
         'rgb(1%, 2, 3)',
@@ -376,6 +379,23 @@ void main() {
       expect(root['fill'], {'r': 1, 'g': 2, 'b': 3});
     },
   );
+
+  test('unknown theme identifiers require configured semantic admission', () {
+    for (final token in ['unknown-color', 'abcde', 'missing.token']) {
+      final document = reader.read([
+        {'type': 'rect', 'size': 2, 'fill': token},
+      ]);
+      expect(document.roots.single['fill'], token);
+      expect(
+        () => validateDatasetColors(document.roots, ColorResolver()),
+        throwsA(diagnostic('INVALID_VALUE', r'$[0].fill')),
+      );
+      validateDatasetColors(
+        document.roots,
+        ColorResolver(colors: {token: '#ff0000'}),
+      );
+    }
+  });
 
   test('normalizes advanced styles, source descriptors, edges and radii', () {
     final document = reader.read([

@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'colors.dart';
 import 'dataset_values.dart';
 
 const black = '#1a1a1aff';
@@ -46,218 +47,205 @@ const _textFields = [
   'filters',
 ];
 
+/// Palette-independent schema check. A possible theme identifier is preserved,
+/// including custom leaf names such as statusRed. This is not final drawing
+/// acceptance: the backend must call [validateDatasetColors] or
+/// [validateRecordColors] with its configured resolver before accepting work.
 Object color(Object? value, String path) {
-  if (value is String) {
-    if (!_validColor(value)) {
-      invalid(
-        path,
-        'color string must be a supported CSS color or dotted theme path',
-      );
+  if (value is String && isColorThemeIdentifier(value)) return value;
+  final detached = cloneJson(value, path);
+  if (detached == null) invalid(path, 'color must not be null');
+  try {
+    resolveDirectColor(detached);
+  } on FormatException catch (error) {
+    invalid(path, error.message);
+  }
+  return detached;
+}
+
+/// Final color semantics for detached roots returned by DatasetReader. Call
+/// before accepting a drawing/replacement; schema validation alone deliberately
+/// cannot prove custom theme identifiers exist. Grid templates are checked once
+/// rather than walking every expanded cell. No canonical data is changed.
+void validateDatasetColors(
+  Iterable<Map<String, Object?>> roots,
+  ColorResolver palette,
+) {
+  var index = 0;
+  for (final root in roots) {
+    validateRecordColors(root, palette, path: '\$[${index++}]');
+  }
+}
+
+/// Checks only schema-owned color positions on one already schema-validated
+/// record, including partial effective presentation records carrying `type`.
+/// A backend must use this after composing an update and before accepting it.
+/// attrs, labels, asset descriptor data, filters and other host JSON are not
+/// searched for coincidentally named `color`/`fill` fields.
+void validateRecordColors(
+  Map<String, Object?> value,
+  ColorResolver palette, {
+  String path = r'$',
+}) {
+  void check(String key) {
+    if (value.containsKey(key)) {
+      _validateColor(value[key], '$path.$key', palette);
     }
-    return value;
   }
-  if (value is num) return number(value, path);
-  if (value is List || value is Map) return cloneJson(value, path)!;
-  invalid(path, 'color must use a supported JSON color source');
+
+  switch (value['type']) {
+    case 'group':
+      if (!value.containsKey('children')) return;
+      final children = array(value['children'], '$path.children');
+      for (var i = 0; i < children.length; i++) {
+        validateRecordColors(
+          record(children[i], '$path.children[$i]'),
+          palette,
+          path: '$path.children[$i]',
+        );
+      }
+    case 'grid':
+      if (!value.containsKey('item')) return;
+      _validateComponentColors(
+        record(value['item'], '$path.item'),
+        '$path.item',
+        palette,
+      );
+    case 'item':
+      _validateComponentColors(value, path, palette);
+    case 'background' || 'bar':
+      check('tint');
+      final source = value['source'];
+      // A source with src is an asset descriptor, even when its data happens
+      // to contain fields named fill or borderColor.
+      if (source is Map && !source.containsKey('src')) {
+        _validateRectTextureColors(
+          record(source, '$path.source'),
+          '$path.source',
+          palette,
+        );
+      }
+    case 'icon':
+      check('tint');
+    case 'text':
+      check('tint');
+      if (value.containsKey('style')) {
+        _validateTextStyleColors(
+          record(value['style'], '$path.style'),
+          '$path.style',
+          palette,
+        );
+      }
+    case 'rect':
+      check('fill');
+      if (value.containsKey('stroke')) {
+        _validateStrokeColors(
+          record(value['stroke'], '$path.stroke'),
+          '$path.stroke',
+          palette,
+        );
+      }
+    case 'relations':
+      final style = value['style'];
+      if (style is Map && style.containsKey('color')) {
+        _validateColor(style['color'], '$path.style.color', palette);
+      }
+    case 'image':
+      break;
+    default:
+      invalid('$path.type', 'color validation needs a known record type');
+  }
 }
 
-// This validates source syntax only. Rendering owns conversion to native color.
-bool _validColor(String value) {
-  if (RegExp(r'^[A-Za-z_][\w-]*(?:\.[A-Za-z_][\w-]*)+$').hasMatch(value)) {
-    return true;
+void _validateComponentColors(
+  Map<String, Object?> owner,
+  String path,
+  ColorResolver palette,
+) {
+  if (!owner.containsKey('components')) return;
+  final components = array(owner['components'], '$path.components');
+  for (var i = 0; i < components.length; i++) {
+    validateRecordColors(
+      record(components[i], '$path.components[$i]'),
+      palette,
+      path: '$path.components[$i]',
+    );
   }
-  // Pixi first rewrites bare/0x hex, then delegates CSS parsing to colord.
-  if (RegExp(
-    r'^(#|0x)?(?:[a-f0-9]{3}|[a-f0-9]{6}|[a-f0-9]{8})$',
-    caseSensitive: false,
-  ).hasMatch(value)) {
-    return true;
-  }
-  final text = value.toLowerCase().trim();
-  if (RegExp(
-    r'^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$',
-  ).hasMatch(text)) {
-    return true;
-  }
-  if (_colorNames.contains(text)) return true;
-  const n = r'[+-]?\d*\.?\d+';
-  final rgbComma = RegExp(
-    '^rgba?\\(\\s*($n)(%)?\\s*,\\s*($n)(%)?\\s*,\\s*($n)(%)?\\s*(?:,\\s*$n%?\\s*)?\\)\$',
-  );
-  final rgbSpace = RegExp(
-    '^rgba?\\(\\s*($n)(%)?\\s+($n)(%)?\\s+($n)(%)?\\s*(?:/\\s*$n%?\\s*)?\\)\$',
-  );
-  final hslComma = RegExp(
-    '^hsla?\\(\\s*$n(?:deg|rad|grad|turn)?\\s*,\\s*$n%\\s*,\\s*$n%\\s*(?:,\\s*$n%?\\s*)?\\)\$',
-  );
-  final hslSpace = RegExp(
-    '^hsla?\\(\\s*$n(?:deg|rad|grad|turn)?\\s+$n%\\s+$n%\\s*(?:/\\s*$n%?\\s*)?\\)\$',
-  );
-  final rgb = rgbComma.firstMatch(text) ?? rgbSpace.firstMatch(text);
-  final validRgb =
-      rgb != null &&
-      rgb.group(2) == rgb.group(4) &&
-      rgb.group(4) == rgb.group(6);
-  return validRgb || hslComma.hasMatch(text) || hslSpace.hasMatch(text);
 }
 
-const _colorNames = {
-  'transparent',
-  'aliceblue',
-  'antiquewhite',
-  'aqua',
-  'aquamarine',
-  'azure',
-  'beige',
-  'bisque',
-  'black',
-  'blanchedalmond',
-  'blue',
-  'blueviolet',
-  'brown',
-  'burlywood',
-  'cadetblue',
-  'chartreuse',
-  'chocolate',
-  'coral',
-  'cornflowerblue',
-  'cornsilk',
-  'crimson',
-  'cyan',
-  'darkblue',
-  'darkcyan',
-  'darkgoldenrod',
-  'darkgray',
-  'darkgreen',
-  'darkgrey',
-  'darkkhaki',
-  'darkmagenta',
-  'darkolivegreen',
-  'darkorange',
-  'darkorchid',
-  'darkred',
-  'darksalmon',
-  'darkseagreen',
-  'darkslateblue',
-  'darkslategray',
-  'darkslategrey',
-  'darkturquoise',
-  'darkviolet',
-  'deeppink',
-  'deepskyblue',
-  'dimgray',
-  'dimgrey',
-  'dodgerblue',
-  'firebrick',
-  'floralwhite',
-  'forestgreen',
-  'fuchsia',
-  'gainsboro',
-  'ghostwhite',
-  'gold',
-  'goldenrod',
-  'gray',
-  'green',
-  'greenyellow',
-  'grey',
-  'honeydew',
-  'hotpink',
-  'indianred',
-  'indigo',
-  'ivory',
-  'khaki',
-  'lavender',
-  'lavenderblush',
-  'lawngreen',
-  'lemonchiffon',
-  'lightblue',
-  'lightcoral',
-  'lightcyan',
-  'lightgoldenrodyellow',
-  'lightgray',
-  'lightgreen',
-  'lightgrey',
-  'lightpink',
-  'lightsalmon',
-  'lightseagreen',
-  'lightskyblue',
-  'lightslategray',
-  'lightslategrey',
-  'lightsteelblue',
-  'lightyellow',
-  'lime',
-  'limegreen',
-  'linen',
-  'magenta',
-  'maroon',
-  'mediumaquamarine',
-  'mediumblue',
-  'mediumorchid',
-  'mediumpurple',
-  'mediumseagreen',
-  'mediumslateblue',
-  'mediumspringgreen',
-  'mediumturquoise',
-  'mediumvioletred',
-  'midnightblue',
-  'mintcream',
-  'mistyrose',
-  'moccasin',
-  'navajowhite',
-  'navy',
-  'oldlace',
-  'olive',
-  'olivedrab',
-  'orange',
-  'orangered',
-  'orchid',
-  'palegoldenrod',
-  'palegreen',
-  'paleturquoise',
-  'palevioletred',
-  'papayawhip',
-  'peachpuff',
-  'peru',
-  'pink',
-  'plum',
-  'powderblue',
-  'purple',
-  'rebeccapurple',
-  'red',
-  'rosybrown',
-  'royalblue',
-  'saddlebrown',
-  'salmon',
-  'sandybrown',
-  'seagreen',
-  'seashell',
-  'sienna',
-  'silver',
-  'skyblue',
-  'slateblue',
-  'slategray',
-  'slategrey',
-  'snow',
-  'springgreen',
-  'steelblue',
-  'tan',
-  'teal',
-  'thistle',
-  'tomato',
-  'turquoise',
-  'violet',
-  'wheat',
-  'white',
-  'whitesmoke',
-  'yellow',
-  'yellowgreen',
-};
-Object assetSource(Object? value, String path) {
+void _validateRectTextureColors(
+  Map<String, Object?> value,
+  String path,
+  ColorResolver palette,
+) {
+  for (final key in ['fill', 'borderColor']) {
+    if (value.containsKey(key)) {
+      _validateColor(value[key], '$path.$key', palette);
+    }
+  }
+}
+
+void _validateStrokeColors(
+  Map<String, Object?> value,
+  String path,
+  ColorResolver palette,
+) {
+  for (final key in ['color', 'fill']) {
+    if (value.containsKey(key)) {
+      _validateColor(value[key], '$path.$key', palette);
+    }
+  }
+}
+
+void _validateTextStyleColors(
+  Map<String, Object?> value,
+  String path,
+  ColorResolver palette,
+) {
+  if (value.containsKey('fill')) {
+    _validateColor(value['fill'], '$path.fill', palette);
+  }
+  if (value.containsKey('stroke')) {
+    final stroke = value['stroke'];
+    if (stroke is Map) {
+      _validateStrokeColors(
+        record(stroke, '$path.stroke'),
+        '$path.stroke',
+        palette,
+      );
+    } else {
+      _validateColor(stroke, '$path.stroke', palette);
+    }
+  }
+  final shadow = value['dropShadow'];
+  if (shadow is Map && shadow.containsKey('color')) {
+    _validateColor(shadow['color'], '$path.dropShadow.color', palette);
+  }
+  final tags = value['tagStyles'];
+  if (tags is Map) {
+    for (final entry in record(tags, '$path.tagStyles').entries) {
+      final tagPath = '$path.tagStyles.${entry.key}';
+      _validateTextStyleColors(record(entry.value, tagPath), tagPath, palette);
+    }
+  }
+}
+
+void _validateColor(Object? value, String path, ColorResolver palette) {
+  if (value == null) invalid(path, 'color must not be null');
+  try {
+    palette.resolve(value);
+  } on FormatException catch (error) {
+    invalid(path, error.message);
+  }
+}
+
+Object assetSource(Object? value, String path, {bool partial = false}) {
   if (value is String) return value;
   final input = record(value, path);
   known(input, ['src', 'data', 'format', 'parser', 'loadParser'], path);
   return frozen({
-    'src': string(required(input, 'src', path), '$path.src'),
+    if (!partial || input.containsKey('src'))
+      'src': string(required(input, 'src', path), '$path.src'),
     if (input.containsKey('data'))
       'data': cloneJson(record(input['data'], '$path.data'), '$path.data'),
     for (final key in ['format', 'parser', 'loadParser'])
