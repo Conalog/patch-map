@@ -84,3 +84,18 @@ an external verification input. Baseline source is the previously investigated
 | Interaction/lifecycle | Pending | — |
 | Playground uses package | Pending | Current optimized app still standalone |
 | Platform/WebView qualification | Pending | Foundation host checks are not functional qualification |
+
+### Native paint compatibility findings during implementation
+
+- An omitted standalone `rect.fill` is transparent, matching main's renderer.
+  The release/1.0 parser's white fallback is not reproduced. Rectangular
+  background textures retain their schema-provided fill/border defaults.
+- SVG tint applies to the composited artwork, including overlapping primitives
+  and embedded raster images. Per-path ColorMapper alpha is not equivalent.
+  A non-white vector tint records a compositing layer; repeated image sharing
+  rasterizes that correct result. Its vector fallback cost still needs the
+  integrated profile; no performance equivalence is inferred from unit tests.
+- Native text shares immutable Paragraphs and proved numeric layout metrics;
+  atlas pages use fixed 3/6/12 densities. Unknown style/shape proof conditions
+  use native layout. Advanced JS-only text/stroke effects remain qualification
+  work and are not claimed as supported by the successful numeric fixtures.
