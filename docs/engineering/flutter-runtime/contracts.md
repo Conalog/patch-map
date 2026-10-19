@@ -21,7 +21,7 @@ historical proposals which this current specification supersedes.
 | F10 | Widget State owns lifetime. Controller may reconnect; at most one live attachment; detached commands reject without queueing. | Widget | Rebuild/remount/double attach/dispose |
 | F11 | App background or explicit inactive map preserves resources but defers comparison/preparation/frames, composing latest input. Inactive replacements retain only latest valid dataset. | Session / resources | Background burst/resume and replacement |
 | F12 | CustomPainter; one frame scheduling owner; calculations/search on main isolate. No per-item widget/ticker/listener. | Frame / rendering | Idle frames and lifetime counts |
-| F13 | Shared geometry for bounds/hit/fit. Item is interaction unit; background-less item uses component intersections. Uniform index: max16 cells/item, overflow list once, broad query at 1/4 goes to scan. | Geometry | Large/overflow/rotated items; point/range/path equivalence |
+| F13 | Shared geometry for bounds/hit/fit. Item is interaction unit; background-less item uses component intersections. Uniform index: max16 cells/item, overflow list once. With B occupied buckets, T=max(1,min(4096,ceil(B/4))); clipped query visiting Q>=T cells scans once. | Geometry | Large/overflow/rotated items; point/range/path equivalence |
 | F14 | Library detects inputs/items and owns selection; host maps gestures to actions. Filter skips disallowed front objects; direct selection bypasses input filter. | Interaction | Overlap/filter/programmatic selection |
 | F15 | Default drag pans; host may choose range or paint mode; mode stays stable during drag. Resolve each raw input using then-published geometry/camera, preserving intermediate path hits; coalesce only move notifications per frame. One end with reason; no extra final move; no end callback on permanent widget removal. | Interaction | Range/paint paths, changing camera/geometry, interruption, removal exception |
 | F16 | Filters are judgment-only; mutations are allowed in result callbacks, admitted then processed after callback exit. Callback exceptions cannot break runtime cleanup. | Session / interaction | Reentry and throwing callback/filter |
@@ -66,7 +66,7 @@ an external verification input. Baseline source is the previously investigated
 | Boundary | Status | Evidence |
 | --- | --- | --- |
 | Ownership/contracts | Reviewed; six missing transition conditions incorporated | Independent contract/architecture review against all213 inventoried source sections |
-| Dataset and geometry | Pending | — |
+| Dataset and geometry | Geometry primitives/index/camera implemented; dataset/layout integration pending | `test/geometry/`: nested signed transforms, quad/path hits, 10,000-item scan oracle with overflow/moves; rotated padding fit and resize/anchor checks |
 | Session/widget/frame | Pending | — |
 | Rendering/resources | Experimental algorithms only | No package-runtime claim |
 | Interaction/lifecycle | Pending | — |
