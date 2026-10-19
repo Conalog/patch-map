@@ -28,7 +28,14 @@ final class SvgImageLease {
   final SvgVectorLease _vectorLease;
 
   /// Whole-diagram count for this source/style identity, compiled by renderer.
-  final int sourceReferenceCount;
+  int sourceReferenceCount;
+  void updateLogicalCount(int count) {
+    if (count < 0) throw RangeError.value(count);
+    sourceReferenceCount = count;
+    if (count < 16) _detach();
+  }
+
+  void hide() => _detach();
   late final Future<SvgVector> vectorReady;
   SvgVector? _vector;
   _ImageEntry? _entry;

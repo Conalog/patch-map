@@ -11,7 +11,7 @@ Map<String, Object?> rect(String id, [String? eventMode]) => {
   'type': 'rect',
   'id': id,
   'size': 10,
-  if (eventMode != null) 'eventMode': eventMode,
+  'eventMode': ?eventMode,
 };
 GeometrySnapshot scene(List<Object?> data) => GeometrySnapshot.compile(
   const DatasetReader().read(data),

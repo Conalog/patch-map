@@ -46,19 +46,26 @@ final class ItemLayout {
     MeasureText measureText, {
     ItemLayout? previous,
   }) {
-    final size = fixedSize(data['size']! as Map);
-    final content = BoxEdges.fromData(data['padding']! as Map).contentBox(size);
+    var size = fixedSize(data['size']! as Map);
+    if (previous?.size == size) size = previous!.size;
+    var content = BoxEdges.fromData(data['padding']! as Map).contentBox(size);
+    if (previous?.content == content) content = previous!.content;
     final values = (data['components']! as List).cast<Map<String, Object?>>();
     final components = <ComponentLayout>[];
-    final previousById = previous == null
-        ? const <String, ComponentLayout>{}
-        : {
-            for (final component in previous.components)
-              component.id: component,
-          };
+    Map<String, ComponentLayout>? previousById;
     for (final value in orderedRecords(values)) {
       final type = value['type'];
-      final prior = previousById[value['id']];
+      final index = components.length;
+      final indexed = previous != null && index < previous.components.length
+          ? previous.components[index]
+          : null;
+      final prior = indexed?.id == value['id']
+          ? indexed
+          : (previousById ??= {
+              for (final component
+                  in previous?.components ?? <ComponentLayout>[])
+                component.id: component,
+            })[value['id']];
       if (prior != null &&
           identical(prior.data, value) &&
           previous!.size == size &&
@@ -69,12 +76,16 @@ final class ItemLayout {
         components.add(prior);
         continue;
       }
-      final Rect box;
+      Rect box;
       if (type == 'background') {
         box = Offset.zero & size;
       } else {
         final componentSize = type == 'text'
-            ? measureText(value, content.size)
+            ? prior != null &&
+                      previous!.content == content &&
+                      _sameTextMeasurement(value, prior.data)
+                  ? prior.box.size
+                  : measureText(value, content.size)
             : RelativeSize.compile(value['size']!).resolve(content.size);
         if (!componentSize.isFinite ||
             componentSize.width < 0 ||
@@ -85,16 +96,35 @@ final class ItemLayout {
             'invalid measured size',
           );
         }
-        box = placeBox(
-          content,
-          componentSize,
-          value['placement']! as String,
-          BoxEdges.fromData(value['margin']! as Map),
-        );
+        box =
+            prior != null &&
+                previous!.content == content &&
+                prior.box.width == componentSize.width &&
+                prior.box.height == componentSize.height &&
+                value['placement'] == prior.data['placement'] &&
+                _sameEdges(value['margin'] as Map, prior.data['margin'] as Map)
+            ? prior.box
+            : placeBox(
+                content,
+                componentSize,
+                value['placement']! as String,
+                BoxEdges.fromData(value['margin']! as Map),
+              );
       }
-      final local = Affine.identity
-          .translated(box.left, box.top)
-          .multiply(Affine.fromAttrs(value['attrs'] as Map<String, Object?>?));
+      if (prior?.box == box) box = prior!.box;
+      var local =
+          prior != null &&
+              identical(box, prior.box) &&
+              identical(value['attrs'], prior.data['attrs'])
+          ? prior.transform
+          : Affine.identity
+                .translated(box.left, box.top)
+                .multiply(
+                  Affine.fromAttrs(value['attrs'] as Map<String, Object?>?),
+                );
+      if (prior != null && local.sameTransform(prior.transform)) {
+        local = prior.transform;
+      }
       components.add(
         ComponentLayout(
           value,
@@ -113,11 +143,18 @@ final class ItemLayout {
       return false;
     }
     for (var i = 0; i < components.length; i++) {
-      final component = components[i];
-      if (component.type == 'bar' && other.components[i].type == 'bar') {
-        continue;
+      final component = components[i], prior = other.components[i];
+      if (component.id != prior.id ||
+          component.type != prior.type ||
+          component.visible != prior.visible ||
+          component.upright != prior.upright) {
+        return false;
       }
-      if (!identical(component, other.components[i])) return false;
+      if (component.type == 'bar') continue;
+      if (component.box != prior.box ||
+          !component.transform.sameTransform(prior.transform)) {
+        return false;
+      }
     }
     return true;
   }
@@ -177,3 +214,18 @@ void validateBounds(Rect bounds) {
     );
   }
 }
+
+bool _sameEdges(Map a, Map b) =>
+    identical(a, b) ||
+    const ['top', 'right', 'bottom', 'left'].every((key) => a[key] == b[key]);
+
+// TextSpec's content bounds include margin. Keep the whole style identity as a
+// conservative dependency, including font/wrap/auto/stroke metric settings.
+// Tint/show/placement/attrs affect paint or placement rather than measurement.
+bool _sameTextMeasurement(Map<String, Object?> a, Map<String, Object?> b) =>
+    b['type'] == 'text' &&
+    a['text'] == b['text'] &&
+    identical(a['style'], b['style']) &&
+    a['split'] == b['split'] &&
+    a['overflow'] == b['overflow'] &&
+    _sameEdges(a['margin'] as Map, b['margin'] as Map);

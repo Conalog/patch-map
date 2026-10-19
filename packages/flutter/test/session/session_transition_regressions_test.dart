@@ -37,6 +37,7 @@ class Backend extends SessionBackend {
     Map<PatchMapTarget, Map<String, Object?>> changes, {
     required int generation,
     required bool animate,
+    PresentationPlan? intent,
   }) async {
     updates++;
     lastChanges = changes;

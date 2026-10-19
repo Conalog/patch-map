@@ -3,7 +3,8 @@
 Status: implementation in progress; no functional release qualification yet.
 
 This is the implementation owner for the native package. Start with
-[architecture](architecture.md), then [contracts and coverage](contracts.md).
+[architecture](architecture.md), then [contracts](contracts.md) and
+[delivery coverage](coverage.md).
 The historical decision inventory is [decisions.json](decisions.json); it
 records the approved discussion's source headings and hashes, not implemented
 features. Later decisions supersede earlier discussion proposals.

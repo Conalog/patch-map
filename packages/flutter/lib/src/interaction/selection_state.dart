@@ -23,6 +23,9 @@ final class SelectionState {
   final void Function(PatchMapInputEvent event) notify;
   final _ids = <String>{};
   bool _disposed = false;
+
+  /// Borrowed synchronous view for the renderer; the selection owner alone mutates it.
+  Iterable<String> get ids => _ids;
   List<PatchMapObject> get selected {
     final snapshot = currentGeometry();
     if (snapshot == null) return const [];

@@ -897,6 +897,7 @@ class _Backend extends SessionBackend {
     Map<PatchMapTarget, Map<String, Object?>> changes, {
     required int generation,
     required bool animate,
+    PresentationPlan? intent,
   }) {
     final work = _UpdateWork(
       this,

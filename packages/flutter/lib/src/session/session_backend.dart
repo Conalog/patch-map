@@ -29,6 +29,10 @@ abstract class SessionBackend {
     int generation,
   );
 
+  /// A respecified failed source is work even when its scalar value is equal.
+  bool needsRetry(SessionPublication publication, PresentationPatch patch) =>
+      false;
+
   /// Owns a reference to its returned publication, including identity reuse.
   /// The caller pins [before] until the asynchronous operation settles.
   Future<PreparedUpdate> prepareUpdate(
@@ -37,7 +41,15 @@ abstract class SessionBackend {
     Map<PatchMapTarget, Map<String, Object?>> changes, {
     required int generation,
     required bool animate,
+    PresentationPlan? intent,
   });
+
+  /// Serializes intrinsic-image geometry refresh with ordinary preparations.
+  Future<SessionPublication> prepareRefresh(SessionPublication before) async {
+    retain(before);
+    return before;
+  }
+
   void publish(SessionPublication publication, int generation, int revision);
   void hide();
   void setActive(bool active);

@@ -1,5 +1,10 @@
-/// The public entry point for the native Flutter PatchMap package.
-///
-/// This foundation establishes package tooling and consumer resolution.
-/// Rendering and interaction APIs will be added after independent validation.
+/// Native retained PATCH MAP rendering, with widget-owned resource lifetimes.
 library;
+
+export 'src/api/result.dart';
+export 'src/api/target.dart';
+export 'src/api/update.dart';
+export 'src/widget/patch_map_controller.dart' show PatchMapController;
+export 'src/widget/patch_map_view.dart' show PatchMapView;
+
+export 'src/api/events.dart';

@@ -29,6 +29,17 @@ final class Affine {
     );
   }
 
+  /// Exact equality of the six output coefficients; no tolerance or transform
+  /// interpretation changes. Immutable projections may share prepared values.
+  bool sameTransform(Affine other) =>
+      identical(this, other) ||
+      (a == other.a &&
+          b == other.b &&
+          c == other.c &&
+          d == other.d &&
+          tx == other.tx &&
+          ty == other.ty);
+
   Affine multiply(Affine local) => Affine(
     a * local.a + c * local.b,
     b * local.a + d * local.b,

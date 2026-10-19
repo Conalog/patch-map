@@ -39,6 +39,7 @@ final class MapSession {
   int _notificationDepth = 0, _suspension = 0;
   Completer<void>? _activityChange;
   Object? _work;
+  bool _refresh = false;
   _Pending? _pending, _executing;
   _Submission? _submission;
   Completer<PatchMapResult>? _replacementResult;
@@ -48,9 +49,23 @@ final class MapSession {
   DatasetDocument? get document => _document;
   bool get active => _active && !_closed;
   int get generation => _generation;
+  bool get commandsAllowed => !_closed && !_inFilter;
   Map<String, Object?>? current(PatchMapTarget target) =>
       _values[target] ??
-      (_document == null ? null : authoredRecord(_document!, target));
+      (_document == null ||
+              !_document!.targets.containsKey(target.id) ||
+              target.componentId != null &&
+                  !_document!.targets[target.id]!.components.containsKey(
+                    target.componentId,
+                  )
+          ? null
+          : authoredRecord(_document!, target));
+
+  void refreshResources() {
+    if (_closed || _document == null || _phase == PatchMapPhase.failed) return;
+    _refresh = true;
+    _schedule();
+  }
 
   Future<PatchMapResult> replace(Object? input) {
     final denial = _commandDenial();
@@ -71,6 +86,7 @@ final class MapSession {
     _document = candidate;
     _values.clear();
     _failedTargets.clear();
+    _refresh = false;
     _replacement = true;
     _phase = PatchMapPhase.preparing;
     _work = null; // Old uncancellable preparation still owns its temporaries.
@@ -99,12 +115,14 @@ final class MapSession {
         _executing == null &&
         _submission == null &&
         _submittedRevision == _revision) {
-      final resolved = _resolve(batch);
-      if (resolved.isEmpty &&
-          !batch.patches.any(
-            (patch) => _failedTargets.contains(patch.target.id),
-          )) {
-        return Future.value(PatchMapResult(PatchMapOutcome.unchanged));
+      try {
+        // Admission already checked every input. Only prove whether this is a
+        // no-op here; a changed batch resolves fully against current at execution.
+        if (!batch.patches.any((patch) => _resolveChange(patch) != null)) {
+          return Future.value(PatchMapResult(PatchMapOutcome.unchanged));
+        }
+      } catch (error, stack) {
+        return Future.error(error, stack);
       }
     }
     final pending = _pending ??= _Pending();
@@ -254,18 +272,24 @@ final class MapSession {
   Map<PatchMapTarget, Map<String, Object?>> _resolve(PresentationPlan plan) {
     final result = <PatchMapTarget, Map<String, Object?>>{};
     for (final patch in plan.patches) {
-      final before = current(patch.target)!;
-      final next = _resolver.resolvePatch(
-        authoredRecord(_document!, patch.target),
-        before,
-        patch,
-      );
-      if (!identical(before, next) ||
-          _failedTargets.contains(patch.target.id)) {
-        result[patch.target] = next;
-      }
+      final next = _resolveChange(patch);
+      if (next != null) result[patch.target] = next;
     }
     return result;
+  }
+
+  Map<String, Object?>? _resolveChange(PresentationPatch patch) {
+    final before = current(patch.target)!;
+    final next = _resolver.resolvePatch(
+      authoredRecord(_document!, patch.target),
+      before,
+      patch,
+    );
+    return !identical(before, next) ||
+            _failedTargets.contains(patch.target.id) ||
+            (_publication != null && backend.needsRetry(_publication!, patch))
+        ? next
+        : null;
   }
 
   void _schedule() {
@@ -275,7 +299,7 @@ final class MapSession {
         _work != null ||
         _submission != null ||
         _phase == PatchMapPhase.failed ||
-        (!_replacement && _pending == null)) {
+        (!_replacement && _pending == null && !_refresh)) {
       return;
     }
     _queued = true;
@@ -291,12 +315,14 @@ final class MapSession {
         _work != null ||
         _submission != null ||
         _phase == PatchMapPhase.failed ||
-        (!_replacement && _pending == null)) {
+        (!_replacement && _pending == null && !_refresh)) {
       return;
     }
     final token = _work = Object(),
         generation = _generation,
         document = _document!;
+    final refresh = _refresh;
+    _refresh = false;
     final initial = _replacement;
     _replacement = false;
     SessionPublication? baseline, candidate;
@@ -323,6 +349,12 @@ final class MapSession {
         backend.retain(baseline);
       }
       if (!await waitActive()) return;
+      if (refresh) {
+        final refreshed = await backend.prepareRefresh(baseline);
+        backend.retire(baseline);
+        baseline = refreshed;
+        if (!await waitActive()) return;
+      }
       // First-screen input is cut at presentation processing, after document
       // preparation. Later active requests cannot postpone first readiness.
       var pending = _executing = _pending;
@@ -340,6 +372,7 @@ final class MapSession {
             changes,
             generation: generation,
             animate: !initial && !_resumeWithoutAnimation,
+            intent: pending?.plan,
           );
           candidate = prepared.publication;
           failures = prepared.failures;
@@ -470,6 +503,7 @@ final class MapSession {
     _document = null;
     _values.clear();
     _failedTargets.clear();
+    _refresh = false;
     final previous = _publication;
     _publication = null;
     if (previous != null) backend.retire(previous);

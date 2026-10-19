@@ -81,7 +81,10 @@ TargetGeometry projectTargetGeometry({
         )
         .multiply(local);
   }
-  final world = parentWorld.multiply(local);
+  var world = parentWorld.multiply(local);
+  if (previous != null && previous.world.sameTransform(world)) {
+    world = previous.world;
+  }
   if (!world.isFinite) {
     throw DatasetException(
       'INVALID_GEOMETRY',
@@ -96,12 +99,19 @@ TargetGeometry projectTargetGeometry({
   switch (target.type) {
     case 'item':
       item ??= ItemLayout.compile(data, measureText);
-      localBounds = Offset.zero & item.size;
-      bounds = world.projectRect(localBounds).bounds;
+      localBounds = previous?.localBounds?.size == item.size
+          ? previous!.localBounds
+          : Offset.zero & item.size;
+      bounds =
+          previous != null &&
+              identical(world, previous.world) &&
+              identical(localBounds, previous.localBounds)
+          ? previous.bounds
+          : world.projectRect(localBounds!).bounds;
       paintBounds =
           previous?.item != null &&
               previous!.item!.sameEnvelope(item) &&
-              _sameTransform(previous.world, world)
+              previous.world.sameTransform(world)
           ? previous.paintBounds
           : item.paintBounds(world);
     case 'rect':
@@ -113,12 +123,31 @@ TargetGeometry projectTargetGeometry({
           vectorLength(world.a, world.b) + vectorLength(world.c, world.d);
       paintBounds = bounds.inflate(width * scale);
     case 'text':
-      final size = measureText(
-        data,
-        data['size'] == null ? null : fixedSize(data['size']! as Map),
-      );
-      localBounds = Offset.zero & size;
-      bounds = world.projectRect(localBounds).bounds;
+      final sameText =
+          previous != null &&
+          previous.localBounds != null &&
+          const [
+            'text',
+            'style',
+            'size',
+            'overflow',
+            'split',
+          ].every((key) => identical(data[key], previous.data[key]));
+      final size = sameText
+          ? previous.localBounds!.size
+          : measureText(
+              data,
+              data['size'] == null ? null : fixedSize(data['size']! as Map),
+            );
+      localBounds = previous?.localBounds?.size == size
+          ? previous!.localBounds
+          : Offset.zero & size;
+      bounds =
+          previous != null &&
+              identical(world, previous.world) &&
+              identical(localBounds, previous.localBounds)
+          ? previous.bounds
+          : world.projectRect(localBounds!).bounds;
       paintBounds = bounds;
     case 'image':
       final Size size;
@@ -238,11 +267,3 @@ Rect? unionBounds(Rect? left, Rect? right) => left == null
     : right == null
     ? left
     : left.expandToInclude(right);
-
-bool _sameTransform(Affine a, Affine b) =>
-    a.a == b.a &&
-    a.b == b.b &&
-    a.c == b.c &&
-    a.d == b.d &&
-    a.tx == b.tx &&
-    a.ty == b.ty;

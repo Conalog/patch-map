@@ -238,7 +238,7 @@ final class GeometrySnapshot {
       );
       changed[slot] = projected;
       if (_z(before.data) != _z(data)) orderChanged = true;
-      if (before.isContainer) {
+      if (before.isContainer && _changesInheritance(before, projected)) {
         for (final child in topology.children[slot]) {
           project(child);
         }
@@ -503,3 +503,25 @@ TargetGeometry _withRelationBounds(
   item: node.item,
   localBounds: node.localBounds,
 );
+
+// Data such as labels/extension attrs do not invalidate descendants. Grid pitch
+// additionally positions cells and must propagate even with a stable container.
+bool _changesInheritance(TargetGeometry before, TargetGeometry after) {
+  final a = before.world, b = after.world;
+  if (!identical(a, b) ||
+      before.visible != after.visible ||
+      before.opacity != after.opacity ||
+      before.locked != after.locked) {
+    return true;
+  }
+  if (before.target.type != 'grid') return false;
+  final oldItem = before.data['item']! as Map;
+  final nextItem = after.data['item']! as Map;
+  final oldSize = oldItem['size']! as Map, nextSize = nextItem['size']! as Map;
+  final oldGap = before.data['gap']! as Map,
+      nextGap = after.data['gap']! as Map;
+  return oldSize['width'] != nextSize['width'] ||
+      oldSize['height'] != nextSize['height'] ||
+      oldGap['x'] != nextGap['x'] ||
+      oldGap['y'] != nextGap['y'];
+}

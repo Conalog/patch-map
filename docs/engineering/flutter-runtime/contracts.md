@@ -1,7 +1,7 @@
 # Accepted Flutter contracts and delivery coverage
 
-Status: contracts accepted; runtime implementation pending unless a coverage
-entry below says otherwise. These are Flutter first-release contracts, not a
+Status: runtime integration implemented; performance and platform/consumer
+qualification remain in progress as recorded below. These are Flutter first-release contracts, not a
 claim of complete JavaScript API parity. The source decision inventory includes
 historical proposals which this current specification supersedes.
 
@@ -26,19 +26,10 @@ historical proposals which this current specification supersedes.
 | F15 | Default drag pans; host may choose range or paint mode; mode stays stable during drag. Resolve each raw input using then-published geometry/camera, preserving intermediate path hits; coalesce only move notifications per frame. One end with reason; no extra final move; no end callback on permanent widget removal. | Interaction | Range/paint paths, changing camera/geometry, interruption, removal exception |
 | F16 | Filters are judgment-only; mutations are allowed in result callbacks, admitted then processed after callback exit. Callback exceptions cannot break runtime cleanup. | Session / interaction | Reentry and throwing callback/filter |
 | F17 | Events provide world/local/global logical-pixel coordinates. Fit adjusts scale; focus preserves it; rotation retained. Screen-edge padding is one unified option. Resize preserves world center/scale/rotation. Focus/fit reject while preparing; partial missing targets return applied/missing, all missing preserves camera. | Viewport / API | Rotated fit/padding/resize, preparation state and missing targets |
-| F18 | Bar schema alone controls animation (default true/200ms). Width/height and placement change together, cubic ease-in-out; retarget from displayed size. | Rendering / frame | Intermediate frames, retarget, disabled and zero duration |
-| F19 | Static geometry max100; representative initial most frequent width fixed until replacement; matching bars use shared3-slice, others9-slice, ineligible/pending paths use Canvas. | Rendering | Overview and zoom+update+pan; order/shape and width transitions |
-| F20 | Bar images share color/height-independent masks by radius; unused cache1MiB, FIFO preparation max4; skip unusable resources and drop unstarted unreferenced jobs. Remember failed creation identities until replacement; Canvas success is not an update failure. | Resources | Single/multiple radius, repeated failure, inactivity and cleanup |
-| F21 | Text uses internally selected shared Paragraph or validated numeric atlas; fixed3/6/12 filtered levels, shape/style sharing independent of color/placement. | Text resources | Numeric grammar/font/shaping; scale/rotation and fallback |
-| F22 | Reuse validated numeric layout metrics; create native Paragraph only when required. Values/layout/bounds update immediately. Single-pass FIFO eviction preserves existing limits. | Text resources | 1–12 digit validated font cases; new visibility; 10,000 updates |
-| F23 | Text active atlas cap remains deferred. Unused-cache policies remain bounded; derived color arrays follow actual references. Do not add an unbounded global cache or silently change active policy. | Text resources | Churn/refcount/cache retirement |
-| F24 | Existing SVG parser and shared vector result. Whole-diagram16-reference threshold; visible-demand image preparation at192/384/768/1536; vector fallback for excess demand/budget. | SVG resources | Real consumer sizes/icons; repeat count; transition |
-| F25 | Bar+SVG optimization images share2MiB including preparation/retirement. Budget denial keeps basic rendering. Reconsider denied SVG only on space or required-resolution change; boundary regeneration is known limitation. | Resources | Reservations, fallback, zoom transitions |
-| F26 | First URL image transient failures: max3 attempts, delays0.5/1s, each attempt20s. Inactive time counts but new work waits for active. Later update failure retries only when value is respecified. | Image resources | Local controlled network failure/deadline/inactivity |
-| F27 | Downloads max16; individual source20MiB; map source total64MiB, initially reserve20MiB then shrink on reliable length; stop over-limit receive. | Image resources | Unknown length, streaming overrun, shared source |
-| F28 | Before decode: each axis<=8192, pixels<=16,777,216. Decode max2 and128MiB in-flight predicted pixels; single over-limit fails. | Image resources | Descriptor validation and reservation lifecycle |
-| F29 | Raster result total256MiB per widget including active/preparing/retiring; safe last-reference release, no unused raster cache; decode FIFO. | Image resources | Replace/remove/failed decode and temporary ownership |
 | F30 | CPU and memory are independent goals. Same-workload WebView comparison per user journey and Android/iOS evidence required; synthetic experiments are not product qualification. | Verification | Overview/update/pan/interaction/first frame, platform gates |
+
+Rendering and resource contracts F18–F29 are owned by
+[rendering contracts](rendering-contracts.md).
 
 ## Explicit implementation judgments
 
@@ -61,53 +52,8 @@ claim all conformance targets pass. Actual WebView deployment identity remains
 an external verification input. Baseline source is the previously investigated
 0.10.0 mobile WebView path, not automatically latest release/1.0.
 
-## Compatibility corrections found during implementation
+Compatibility decisions and executed legacy evidence are owned by
+[compatibility findings](compatibility.md).
 
-- `calc()` dimensions follow main's multi-term percent/pixel semantics. The current JS schema admits these inputs, while the release parser renders them at zero and its separate layout helper supports only two terms. Flutter compiles admitted expressions into one pixel offset and one fractional coefficient; no expression parsing occurs during paint or animation. Invalid derived negative/nonfinite geometry is rejected. This is an intentional correction to release/1.0 output, not a new expression language.
-- `upright` preserves a readable authored angle and removes reflection/upside-down orientation. It does not pin content to screen axes. Bars use the item-center placement anchor; text retains its authored center, as in the shared JS geometry owner.
-
-- Color resolution follows configured theme lookup and real ColorLike parsing, as in main. Custom leaf tokens used by the actual WebView (such as `statusRed`) are preserved during schema checking and validated with the configured palette before final acceptance. Release's accidental hash-color fallback is not reproduced. RGB/alpha conversion can differ by one quantization unit; exact pixel identity is not claimed.
-
-## Delivery status
-
-| Boundary | Status | Evidence |
-| --- | --- | --- |
-| Ownership/contracts | Reviewed; six missing transition conditions incorporated | Independent contract/architecture review against all213 inventoried source sections |
-| Dataset | Normalized immutable admission implemented; runtime projection pending | 13 focused schema tests plus 19 color resolver/semantic tests; gallery and large-grid normalized JSON equal to executed JS materializer (`.artifacts/verification/flutter-dataset-20261019/comparison.json`); template sharing and cycle/mutation isolation |
-| Geometry / viewport | Primitives, bounded index, camera, component dimensions/placement and readable transform and initial scene tree implemented; incremental renderer integration pending | `test/geometry/`: nested signed transforms, quad/path hits, 10,000-item scan oracle with overflow/moves; rotated padding fit and resize/anchor checks; three independently discovered finite-overflow regressions now covered; three scene-tree tests include >9,000 saved grid cells with template-local measurement reuse |
-| Frame coordinator | Implemented; session and actual renderer integration pending | Paint-witness/post-frame completion, no-paint noncompletion, inactivity/disposal and idle scheduling tests; independent review |
-| Presentation admission/composition | Implemented; native backend integration pending | 22 focused tests including explicit reset + child updates, scalar size promotion, empty partial no-op, attrs extension isolation, atomic invalid tail and unchanged identity |
-| Session progression | Implemented against an explicit backend port; widget/native backend pending | 29 tests: request provenance, generation/callback/paint witnesses, reset merge, late ownership, inactive latest values, failed-field baseline, error+stack channel, retained failure on interruption; independent review found seven transitions now fixed |
-| Widget/controller | Pending | — |
-| Resource accounting | Logical reservation/live/retiring budget implemented; native owners pending | 12 focused tests and independent review; no physical GPU-memory guarantee |
-| Rendering/resource owners | Experimental algorithms only | No package-runtime claim |
-| Interaction/lifecycle | Pending | — |
-| Playground uses package | Pending | Current optimized app still standalone |
-| Platform/WebView qualification | Pending | Foundation host checks are not functional qualification |
-
-### Native paint compatibility findings during implementation
-
-- An omitted standalone `rect.fill` retains release/1.0's white fallback.
-  Main leaves that shape transparent; no approved decision specifically changes
-  this default, so main's different default is not imported implicitly.
-  Rectangular background textures keep their own schema defaults.
-- SVG tint applies to the composited artwork, including overlapping primitives
-  and embedded raster images. Per-path ColorMapper alpha is not equivalent.
-  A non-white vector tint records a compositing layer; repeated image sharing
-  rasterizes that correct result. Its vector fallback cost still needs the
-  integrated profile; no performance equivalence is inferred from unit tests.
-- Native text shares immutable Paragraphs and proved numeric layout metrics;
-  atlas pages use fixed 3/6/12 densities. Unknown style/shape proof conditions
-  use native layout. Advanced JS-only text/stroke effects remain qualification
-  work and are not claimed as supported by the successful numeric fixtures.
-
-- Text color preserves release's projection pipeline: component `tint` overrides
-  `style.fill` (including the admitted white default); standalone text uses
-  `style.fill`. Stroke raster RGB is modulated by that projection color and
-  object opacity applies once after fill/stroke composition. The browser oracle
-  at `.artifacts/verification/flutter-text-compat-20261019/` executes the release
-  materializer/parser/style with Pixi8.22.0; native regression tests cover the
-  corresponding color and opacity rules. Shadow/padding and other fields that
-  release does not forward remain preserved data without newly added effects.
-  The invalid JSON `stroke.fill` red error fallback is not a supported paint
-  feature; JSON texture-backed text strokes remain unqualified.
+Implementation status and remaining verification are tracked in
+[delivery coverage](coverage.md).
