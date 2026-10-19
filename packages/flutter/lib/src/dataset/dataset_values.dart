@@ -185,7 +185,7 @@ Map<String, Object?> edges(Object? value, String path) {
   });
 }
 
-Object radius(Object? value, String path) {
+Object radius(Object? value, String path, {bool partial = false}) {
   if (identical(value, missing)) return 0;
   if (value is num) return number(value, path, min: 0);
   if (value is List) {
@@ -201,9 +201,10 @@ Object radius(Object? value, String path) {
   known(input, keys, path);
   return frozen({
     for (final key in keys)
-      key: input.containsKey(key)
-          ? number(input[key], '$path.$key', min: 0)
-          : 0,
+      if (!partial || input.containsKey(key))
+        key: input.containsKey(key)
+            ? number(input[key], '$path.$key', min: 0)
+            : 0,
   });
 }
 

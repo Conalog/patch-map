@@ -261,7 +261,11 @@ Object backgroundSource(Object? value, String path) {
       : rectTexture(input, path);
 }
 
-Map<String, Object?> rectTexture(Object? value, String path) {
+Map<String, Object?> rectTexture(
+  Object? value,
+  String path, {
+  bool partial = false,
+}) {
   final input = record(value, path);
   known(input, ['type', 'fill', 'borderWidth', 'borderColor', 'radius'], path);
   if (input.containsKey('type') && input['type'] != 'rect') {
@@ -271,7 +275,7 @@ Map<String, Object?> rectTexture(Object? value, String path) {
       'rectangular texture discriminator must be rect',
     );
   }
-  return frozen({
+  final normalized = <String, Object?>{
     'type': 'rect',
     'fill': input.containsKey('fill')
         ? color(input['fill'], '$path.fill')
@@ -282,14 +286,18 @@ Map<String, Object?> rectTexture(Object? value, String path) {
     'borderColor': input.containsKey('borderColor')
         ? color(input['borderColor'], '$path.borderColor')
         : black,
-    'radius': radius(field(input, 'radius'), '$path.radius'),
-  });
+    'radius': radius(field(input, 'radius'), '$path.radius', partial: partial),
+  };
+  return frozen(
+    partial ? {for (final key in input.keys) key: normalized[key]} : normalized,
+  );
 }
 
 Map<String, Object?> stroke(
   Object? value,
   String path, {
   bool compatibility = false,
+  bool partial = false,
 }) {
   final input = identical(value, missing)
       ? <String, Object?>{}
@@ -305,7 +313,7 @@ Map<String, Object?> stroke(
   if (input.containsKey('alpha') && input.containsKey('opacity')) {
     invalid(path, 'alpha and compatibility opacity are mutually exclusive');
   }
-  return frozen({
+  final normalized = <String, Object?>{
     'color': input.containsKey('color')
         ? color(input['color'], '$path.color')
         : black,
@@ -339,7 +347,16 @@ Map<String, Object?> stroke(
       ]),
     for (final key in ['fill', 'texture', 'matrix'])
       if (input.containsKey(key)) key: cloneJson(input[key], '$path.$key'),
-  });
+  };
+  return frozen(
+    partial
+        ? {
+            for (final key in input.keys)
+              (key == 'opacity' ? 'alpha' : key):
+                  normalized[key == 'opacity' ? 'alpha' : key],
+          }
+        : normalized,
+  );
 }
 
 Map<String, Object?> relationStyle(Object? value, String path) {
@@ -354,6 +371,7 @@ Map<String, Object?> textStyle(
   String path, {
   required bool item,
   bool defaults = true,
+  bool partial = false,
   Set<Object>? ancestors,
 }) {
   final input = identical(value, missing)
@@ -393,7 +411,7 @@ Map<String, Object?> textStyle(
         'fontStyle' => choice(v, p, ['normal', 'italic', 'oblique']),
         'fontVariant' => choice(v, p, ['normal', 'small-caps']),
         'fill' => color(v, p),
-        'stroke' => v is Map ? stroke(v, p) : color(v, p),
+        'stroke' => v is Map ? stroke(v, p, partial: partial) : color(v, p),
         'strokeWidth' || 'cornerRadius' || 'padding' => number(v, p, min: 0),
         'alpha' => number(v, p, min: 0, max: 1),
         'dropShadow' => _dropShadow(v, p),
@@ -410,7 +428,7 @@ Map<String, Object?> textStyle(
         'wordWrapWidth' => item && v == 'auto' ? 'auto' : number(v, p, min: 0),
         'whiteSpace' => choice(v, p, ['normal', 'pre', 'pre-line']),
         'lineHeight' || 'leading' || 'letterSpacing' => number(v, p),
-        'tagStyles' => _tagStyles(v, p, item, parents),
+        'tagStyles' => _tagStyles(v, p, item, parents, partial),
         'filters' => cloneJson(array(v, p), p),
         'autoFont' => _autoFont(v, p),
         'overflow' => choice(v, p, ['visible', 'hidden', 'ellipsis']),
@@ -495,6 +513,7 @@ Map<String, Object?> _tagStyles(
   String path,
   bool item,
   Set<Object> ancestors,
+  bool partial,
 ) {
   final input = record(value, path);
   final keys = input.keys.toList()..sort();
@@ -505,6 +524,7 @@ Map<String, Object?> _tagStyles(
         '$path.$key',
         item: item,
         defaults: false,
+        partial: partial,
         ancestors: ancestors,
       ),
   });
