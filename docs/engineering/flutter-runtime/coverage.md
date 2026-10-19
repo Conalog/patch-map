@@ -108,3 +108,7 @@ archived, then only those generated tracked edits were restored. These checks do
 not qualify the unchanged CI iOS host, performance or all consumer schemas.
 Logs and identities are under
 `.artifacts/flutter/native-runtime-platform-smoke-20261019/`.
+
+The [common-input WebView checkpoint](webview-checkpoint.md) completed 84 requests.
+Native API/observed CPU were lower; overview PSS was higher. Deployed equivalence
+and presentation smoothness remain unqualified. Historical code is evidence only.

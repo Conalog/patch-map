@@ -1,8 +1,9 @@
 # PatchMap for Flutter
 
 `conalog_patch_map` provides an experimental native retained diagram renderer,
-version 1.0.0-alpha.1. The widget/controller runtime is implemented; integrated
-performance and Android/iOS/WebView compatibility qualification are in progress.
+version 1.0.0-alpha.1. The widget/controller runtime is implemented. Representative
+native behavior, lifecycle and emulator performance checkpoints have run; full
+platform and consumer compatibility qualification remains incomplete.
 `publish_to: none` continues to block registry publication.
 
 ## Consumer setup
@@ -104,7 +105,9 @@ must not be inferred from synthetic numeric or unit-test results.
 The package-consuming example exercises regular and varied aligned groups of
 10,000 panels plus devices, with number/bar/mixed updates and navigation. Its
 README explains inputs, measurement boundaries and reproducible profile commands.
-Current integrated performance remains an implementation task, not a release claim.
+Performance checkpoints establish their recorded scope, not release approval or
+deployed WebView equivalence. See the [delivery coverage](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-runtime/coverage.md)
+for measured outcomes and remaining qualification.
 See the repository [development environment](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-package.md),
 [runtime contracts](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-runtime/contracts.md)
 and [release operations](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/releases.md).
