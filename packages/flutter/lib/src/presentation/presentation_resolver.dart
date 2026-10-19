@@ -28,6 +28,9 @@ class PresentationResolver {
     PresentationPatch patch,
   ) {
     var result = current;
+    // Only this call owns the root copy. Nested records remain immutable and
+    // shared; no partially assigned map is exposed to a caller or publication.
+    var ownedRoot = false;
     for (final operation in patch.operations) {
       final reset = operation.kind == FieldOperationKind.reset;
       final expected = reset
@@ -39,9 +42,11 @@ class PresentationResolver {
         0,
         expected.value,
         remove: !expected.exists,
+        ownedRoot: ownedRoot,
       );
+      ownedRoot = !identical(result, current);
     }
-    return result;
+    return ownedRoot ? frozen(result) : current;
   }
 }
 
@@ -80,6 +85,7 @@ Map<String, Object?> _assign(
   int index,
   Object? value, {
   required bool remove,
+  bool ownedRoot = false,
 }) {
   final key = path[index];
   if (index == path.length - 1) {
@@ -94,13 +100,15 @@ Map<String, Object?> _assign(
         : current.containsKey(key) && presentationEqual(current[key], value)) {
       return current;
     }
-    final result = Map<String, Object?>.of(current);
+    final result = index == 0 && ownedRoot
+        ? current
+        : Map<String, Object?>.of(current);
     if (remove) {
       result.remove(key);
     } else {
       result[key] = value;
     }
-    return frozen(result);
+    return index == 0 ? result : frozen(result);
   }
   Object? old = current[key];
   var introducedStroke = false;
@@ -125,5 +133,9 @@ Map<String, Object?> _assign(
   final next = _assign(child, path, index + 1, value, remove: remove);
   if (identical(child, next) && !introducedStroke) return current;
   if (presentationEqual(current[key], next)) return current;
-  return frozen({...current, key: next});
+  final result = index == 0 && ownedRoot
+      ? current
+      : Map<String, Object?>.of(current);
+  result[key] = next;
+  return index == 0 ? result : frozen(result);
 }
