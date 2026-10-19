@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart' as svg;
 import 'package:vector_graphics/vector_graphics.dart' as vg;
 import 'package:vector_graphics_compiler/vector_graphics_compiler.dart'
     as compiler;
+import 'package:xml/xml_events.dart' as xml_events;
 
 import 'svg_source.dart';
 
@@ -96,10 +97,12 @@ final class SvgVectorStore {
     required this.sourceLoader,
     SvgPictureLoader? pictureLoader,
     this.retire,
+    this.beforeParse,
   }) : _pictureLoader = pictureLoader ?? loadSvgPicture;
   final SvgTextLoader sourceLoader;
   final SvgPictureLoader _pictureLoader;
   final SvgRetirement? retire;
+  final Future<void> Function()? beforeParse;
   final _vectors = <(String, int), _VectorEntry>{};
   final _sources = <String, _SourceEntry>{};
   var _closed = false, _pending = 0, _references = 0;
@@ -172,6 +175,7 @@ final class SvgVectorStore {
     SvgPicture? temporary;
     try {
       final xml = await entry.source.result.future;
+      await beforeParse?.call();
       if (_closed || entry.references == 0) {
         throw StateError('SVG preparation no longer has a live owner');
       }
@@ -267,18 +271,27 @@ final class _VectorEntry {
 /// compiler API. Bypass SvgStringLoader's global cache: its failed-pending
 /// entries cannot be removed through public cache APIs in that version.
 Future<SvgPicture> loadSvgPicture(String xml, ui.Color tint) async {
-  final bytes = compiler.encodeSvg(
-    xml: xml,
-    theme: const svg.SvgTheme().toVgTheme(),
-
-    debugName: 'PatchMap SVG',
-    enableClippingOptimizer: false,
-    enableMaskingOptimizer: false,
-    enableOverdrawOptimizer: false,
-    // Unsupported elements must surface as preparation failures rather than
-    // silently publish a picture missing part of the authored artwork.
-    warningsAsErrors: true,
-  );
+  final Uint8List bytes;
+  try {
+    _validateSvgXml(xml);
+    bytes = compiler.encodeSvg(
+      xml: xml,
+      theme: const svg.SvgTheme().toVgTheme(),
+      debugName: 'PatchMap SVG',
+      enableClippingOptimizer: false,
+      enableMaskingOptimizer: false,
+      enableOverdrawOptimizer: false,
+      // Unsupported elements must surface as preparation failures rather than
+      // silently publish a picture missing part of the authored artwork.
+      warningsAsErrors: true,
+    );
+  } catch (error, stack) {
+    // Keep this boundary around input compilation only. In particular, native
+    // codec/Picture preparation and injected loader bugs must keep their errors.
+    final inputFailure = _svgCompilerInputFailure(error, stack);
+    if (inputFailure == null) rethrow;
+    Error.throwWithStackTrace(inputFailure, stack);
+  }
   Object? error;
   final picture = await vg.vg.loadPicture(
     _OwnedBytesLoader(
@@ -312,6 +325,163 @@ Future<SvgPicture> loadSvgPicture(String xml, ui.Color tint) async {
   } finally {
     picture.picture.dispose();
   }
+}
+
+// Mirrors the element surface consumed by compiler 1.3.x (including <defs>
+// and gradient <stop>). Its unknown-element diagnostic is inside an assert
+// closure, so warningsAsErrors alone silently omits artwork in profile/release.
+// Use the existing lazy XML event lexer to close that build-mode gap, without
+// a second DOM or a parallel SVG geometry/style parser. Comments/CDATA cannot
+// be mistaken for authored elements. XML itself validates document/nesting.
+void _validateSvgXml(String xml) {
+  const supportedElements = {
+    'svg',
+    'g',
+    'a',
+    'use',
+    'symbol',
+    'mask',
+    'pattern',
+    'radialGradient',
+    'linearGradient',
+    'clipPath',
+    'image',
+    'text',
+    'tspan',
+    'defs',
+    'stop',
+    'circle',
+    'path',
+    'rect',
+    'polygon',
+    'polyline',
+    'ellipse',
+    'line',
+  };
+  var root = true;
+  for (final event in xml_events.parseEvents(
+    xml,
+    validateNesting: true,
+    validateDocument: true,
+  )) {
+    if (event is! xml_events.XmlStartElementEvent) continue;
+    if (root && event.name != 'svg') {
+      throw const SvgSourceException(
+        'invalid-svg',
+        'PatchMap SVG',
+        'SVG document requires an svg root element',
+      );
+    }
+    root = false;
+    if (!supportedElements.contains(event.name)) {
+      throw SvgSourceException(
+        'unsupported-svg',
+        'PatchMap SVG',
+        'Unsupported SVG element <${event.name}>',
+      );
+    }
+  }
+}
+
+// vector_graphics_compiler 1.3.x uses Error subclasses for several authored
+// input diagnostics. Match its specific diagnostics, never every Error or
+// StateError. XML's XmlParserException/XmlTagException implement FormatException.
+SvgSourceException? _svgCompilerInputFailure(Object error, StackTrace stack) {
+  String? code, message;
+  if (error is FormatException) {
+    code = 'invalid-svg';
+    message = error.message;
+  } else if (error is UnimplementedError &&
+      (error.message?.startsWith('unhandled element <') == true ||
+          error.message?.startsWith('Image data format not supported:') ==
+              true)) {
+    code = 'unsupported-svg';
+    message = error.message;
+  } else if (error is UnsupportedError &&
+      (error.message == 'Unsupported nested <svg> element.' ||
+          error.message?.startsWith('Unsupported clipPath child ') == true ||
+          error.message?.startsWith('Attribute value for text-decoration=') ==
+              true ||
+          error.message?.startsWith(
+                'Attribute value for text-decoration-style=',
+              ) ==
+              true)) {
+    code = 'unsupported-svg';
+    message = error.message;
+  } else if (error is ArgumentError &&
+      error.name == 'colorString' &&
+      (error.message == 'Invalid CSS rgb/rgba color syntax' ||
+          error.message == 'Invalid CSS hsl/hsla color syntax')) {
+    code = 'invalid-svg';
+    message = error.message as String;
+  } else if (error is StateError) {
+    final value = error.message;
+    if (value.startsWith('Unsupported transform: ')) {
+      code = 'unsupported-svg';
+    } else if (value == 'Invalid SVG data' ||
+        value == 'viewBox element must be 4 elements long' ||
+        value.startsWith('SVG did not specify dimensions\n') ||
+        value.startsWith('Could not parse font-size: ') ||
+        value.startsWith('Invalid "font-weight": ') ||
+        value.startsWith('illegal or unsupported transform: ') ||
+        value ==
+            'SVG contains too many nested reference expansions (possible Denial of Service exploit).' ||
+        // path_parsing's authored path grammar diagnostics, not its internal
+        // "Unknown segment command"/"Invalid command type in path" invariants.
+        const {
+          'First character of a number must be one of [0-9+-.].',
+          'Numeric overflow',
+          'There must be at least one digit following the .',
+          'Missing exponent',
+          'Expected more data',
+          'Invalid flag value',
+          'Expected to find moveTo command',
+          'Expected a path command',
+        }.contains(value) ||
+        value.startsWith('Invalid exponent ')) {
+      code = 'invalid-svg';
+    }
+    message = value;
+  } else if (error is AssertionError) {
+    final value = error.toString();
+    // The dependency asserts on unresolved gradients/incorrect transform arity
+    // in debug mode. Release mode throws at the corresponding operation below.
+    if ((value.contains(
+              'package:vector_graphics_compiler/src/svg/parser.dart',
+            ) &&
+            value.contains("'_deferredShaders.isEmpty'")) ||
+        (value.contains('package:vector_graphics_compiler/src/paint.dart') &&
+            (value.contains("'offsets != null'") ||
+                value.contains("'colors != null'"))) ||
+        (value.contains(
+              'package:vector_graphics_compiler/src/svg/parsers.dart',
+            ) &&
+            (value.contains("'params.isNotEmpty'") ||
+                value.contains("'params.length == 6'") ||
+                value.contains("'params.length <= 2'") ||
+                value.contains("'params.length <= 3'")))) {
+      code = 'invalid-svg';
+      message = 'Invalid SVG gradient reference or transform arguments';
+    }
+  } else if (error is TypeError &&
+      error.toString() == 'Null check operator used on a null value' &&
+      stack
+          .toString()
+          .split('\n')
+          .first
+          .contains('_encodeShader (package:vector_graphics_compiler/')) {
+    code = 'invalid-svg';
+    message = 'Unresolved SVG gradient properties';
+  } else if (error is RangeError &&
+      stack.toString().contains(
+        '_parseSvgMatrix (package:vector_graphics_compiler/src/svg/parsers.dart:',
+      )) {
+    code = 'invalid-svg';
+    message = 'SVG matrix transform requires six arguments';
+  }
+  return code == null
+      ? null
+      : SvgSourceException(code, 'PatchMap SVG', message!);
 }
 
 final class _OwnedBytesLoader extends vg.BytesLoader {

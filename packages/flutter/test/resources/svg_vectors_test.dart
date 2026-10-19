@@ -391,7 +391,7 @@ void main() {
       final cachedBefore = svg.svg.cache.count;
       final invalid = SvgVectorStore(sourceLoader: (_) async => '<svg><');
       final bad = invalid.acquire(resolver.resolve('invalid.svg'));
-      await expectLater(bad.ready, throwsA(anything));
+      await expectLater(bad.ready, throwsA(sourceDiagnostic('invalid-svg')));
       expect(invalid.entryCount, 0);
       expect(invalid.sourceCount, 0);
       expect(invalid.pendingCount, 0);
@@ -466,11 +466,106 @@ void main() {
             '<foreignObject width="20" height="10"><div>content</div></foreignObject></svg>',
       );
       final lease = store.acquire(resolver.resolve('unsupported.svg'));
-      await expectLater(lease.ready, throwsA(anything));
+      await expectLater(
+        lease.ready,
+        throwsA(sourceDiagnostic('unsupported-svg')),
+      );
       expect(store.entryCount, 0);
       expect(store.pendingCount, 0);
       lease.release();
       store.close();
+    },
+  );
+
+  test(
+    'real compiler/XML input failures are typed without a broad Error catch',
+    () async {
+      const head =
+          '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10">';
+      const failures = <String, String>{
+        '$head<': 'invalid-svg',
+        '$head<g></svg>': 'invalid-svg',
+        '<notSvg/>': 'invalid-svg',
+        '<svg/>': 'invalid-svg',
+        '$head<svg width="1" height="1"/></svg>': 'unsupported-svg',
+        '$head<defs><linearGradient id="g" x1="not-a-number"><stop offset="0" stop-color="red"/></linearGradient></defs>'
+                '<rect width="20" height="10" fill="url(#g)"/></svg>':
+            'invalid-svg',
+        '$head<defs><linearGradient id="g" href="#missing"/></defs>'
+                '<rect width="20" height="10" fill="url(#g)"/></svg>':
+            'invalid-svg',
+        '$head<defs><linearGradient id="g" href="#g"/></defs>'
+                '<rect width="20" height="10" fill="url(#g)"/></svg>':
+            'invalid-svg',
+        '$head<rect width="20" height="10" fill="rgb(not-a-color)"/></svg>':
+            'invalid-svg',
+        '$head<path d="M0 0 Lnot-a-number"/></svg>': 'invalid-svg',
+        '$head<rect width="20" height="10" transform="matrix(1)"/></svg>':
+            'invalid-svg',
+      };
+      for (final entry in failures.entries) {
+        await expectLater(
+          loadSvgPicture(entry.key, const ui.Color(0xffffffff)),
+          throwsA(sourceDiagnostic(entry.value)),
+          reason: entry.key,
+        );
+      }
+    },
+  );
+
+  test(
+    'unsupported XML-looking comments and CDATA do not become authored SVG elements',
+    () async {
+      final value = await loadSvgPicture(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10">'
+        '<!-- <foreignObject><div>ignored</div></foreignObject> -->'
+        '<![CDATA[<foreignObject/>]]><rect width="20" height="10" fill="blue"/></svg>',
+        const ui.Color(0xffffffff),
+      );
+      final image = await value.picture.toImage(20, 10);
+      try {
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        expect(
+          [for (var i = 0; i < 4; i++) bytes.getUint8((5 * 20 + 10) * 4 + i)],
+          [0, 0, 255, 255],
+        );
+      } finally {
+        image.dispose();
+        value.picture.dispose();
+      }
+    },
+  );
+
+  test(
+    'source, beforeParse and injected picture/codec StateError retain original identity',
+    () async {
+      // Even the same message used by a compiler input diagnostic must not be
+      // converted when thrown by lifecycle or injected native preparation code.
+      for (final stage in ['source', 'beforeParse', 'picture']) {
+        final error = StateError('Invalid SVG data');
+        final store = SvgVectorStore(
+          sourceLoader: (_) async {
+            if (stage == 'source') throw error;
+            return multicolor;
+          },
+          beforeParse: () async {
+            if (stage == 'beforeParse') throw error;
+          },
+          pictureLoader: (xml, tint) async {
+            if (stage == 'picture') throw error;
+            return loadSvgPicture(xml, tint);
+          },
+        );
+        final lease = store.acquire(resolver.resolve('$stage.svg'));
+        await expectLater(lease.ready, throwsA(same(error)));
+        expect(store.pendingCount, 0);
+        expect(store.entryCount, 0);
+        expect(store.sourceCount, 0);
+        lease.release();
+        store.close();
+      }
     },
   );
 }
