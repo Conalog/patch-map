@@ -4,8 +4,8 @@ import 'dart:ui';
 import '../dataset/colors.dart';
 
 /// Resource-free resolved paint for authored rectangles and rectangular textures.
-/// Receives admitted records; asset textures and device-space pixel lines belong
-/// to other rendering owners and are rejected explicitly here.
+/// Receives admitted records. Authored rect strokes project only color/width,
+/// like release; the other preserved stroke options have no visual effect.
 final class RectanglePaint {
   RectanglePaint._({
     required this.fillColor,
@@ -25,37 +25,17 @@ final class RectanglePaint {
   ) {
     _opacity(opacity);
     final stroke = data['stroke'] as Map<String, Object?>?;
-    if (stroke != null) {
-      for (final key in ['texture', 'matrix', 'textureSpace']) {
-        if (stroke.containsKey(key)) {
-          throw UnsupportedError('Rectangle stroke.$key is not supported');
-        }
-      }
-      if (stroke['pixelLine'] == true) {
-        throw UnsupportedError(
-          'Rectangle stroke.pixelLine needs device-space rendering',
-        );
-      }
-    }
     return RectanglePaint._(
       fillColor: _alpha(palette.resolve(data['fill'] ?? '#ffffff'), opacity),
       strokeColor: _alpha(
-        palette.resolve(stroke?['fill'] ?? stroke?['color'] ?? '#1a1a1a'),
-        opacity * ((stroke?['alpha'] as num?)?.toDouble() ?? 1),
+        palette.resolve(stroke?['color'] ?? '#1a1a1a'),
+        opacity,
       ),
       strokeWidth: stroke == null ? 0 : (stroke['width']! as num).toDouble(),
-      strokeAlignment: (stroke?['alignment'] as num?)?.toDouble() ?? .5,
-      strokeCap: switch (stroke?['cap']) {
-        'round' => StrokeCap.round,
-        'square' => StrokeCap.square,
-        _ => StrokeCap.butt,
-      },
-      strokeJoin: switch (stroke?['join']) {
-        'round' => StrokeJoin.round,
-        'bevel' => StrokeJoin.bevel,
-        _ => StrokeJoin.miter,
-      },
-      strokeMiterLimit: (stroke?['miterLimit'] as num?)?.toDouble() ?? 10,
+      strokeAlignment: .5,
+      strokeCap: StrokeCap.butt,
+      strokeJoin: StrokeJoin.miter,
+      strokeMiterLimit: 10,
       radii: _radii(data['radius'] ?? 0),
     );
   }
@@ -141,31 +121,7 @@ final class RectanglePaint {
       ..strokeCap = strokeCap
       ..strokeJoin = strokeJoin
       ..strokeMiterLimit = strokeMiterLimit;
-    if (strokeAlignment == .5) {
-      canvas.drawPath(path, stroke);
-      return;
-    }
-    // Draw the two native stroke halves independently. This also handles an
-    // inside stroke wider than the shape without inverted/negative contours,
-    // while preserving native miter/bevel/round joins on sharp corners.
-    final inside = strokeWidth * strokeAlignment;
-    final outside = strokeWidth * (1 - strokeAlignment);
-    if (outside > 0) {
-      final exterior = Path()
-        ..fillType = PathFillType.evenOdd
-        ..addRect(rect.inflate(strokeWidth * (strokeMiterLimit + 2)))
-        ..addPath(path, Offset.zero);
-      canvas.save();
-      canvas.clipPath(exterior, doAntiAlias: false);
-      canvas.drawPath(path, stroke..strokeWidth = outside * 2);
-      canvas.restore();
-    }
-    if (inside > 0) {
-      canvas.save();
-      canvas.clipPath(path, doAntiAlias: false);
-      canvas.drawPath(path, stroke..strokeWidth = inside * 2);
-      canvas.restore();
-    }
+    canvas.drawPath(path, stroke);
   }
 }
 

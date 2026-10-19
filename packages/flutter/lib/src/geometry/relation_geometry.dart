@@ -44,7 +44,6 @@ final class RelationGeometry {
     this.paintBounds,
     this.hitQuads,
     this._localQuads,
-    this._circles,
   );
 
   factory RelationGeometry.compile(
@@ -82,11 +81,10 @@ final class RelationGeometry {
       );
     }
     final style = node.data['style']! as Map<String, Object?>;
-    _supportedStyle(style);
     final width = (style['width'] as num?)?.toDouble() ?? 1;
-    final cap = style['cap'] as String? ?? 'butt';
-    final join = style['join'] as String? ?? 'miter';
-    final miterLimit = (style['miterLimit'] as num?)?.toDouble() ?? 10;
+    // Only width is geometric in release relation lowering. Other admitted
+    // stroke options do not alter its butt caps / miter joins / limit 10.
+    const cap = 'butt', join = 'miter', miterLimit = 10.0;
     final paths = <RelationPath>[], runs = <List<Offset>>[];
     final boundsCache = <String, Rect?>{};
     Rect? bounds(String id) => boundsCache.putIfAbsent(id, () {
@@ -137,7 +135,7 @@ final class RelationGeometry {
       paths.add(RelationPath._(fromId, toId, localPoints, worldPoints, widths));
       runs.add(List.of(localPoints));
     }
-    final quads = <Quad>[], circles = <(Offset, double)>[];
+    final quads = <Quad>[];
     final half = width / 2;
     if (half > 0) {
       for (final raw in runs) {
@@ -162,32 +160,11 @@ final class RelationGeometry {
             ),
           );
         }
-        for (final (point, direction) in [
-          (points.first, -directions.first),
-          (points.last, directions.last),
-        ]) {
-          if (cap == 'round') circles.add((point, half));
-          if (cap == 'square') {
-            final normal = Offset(-direction.dy, direction.dx) * half;
-            quads.add(
-              Quad(
-                point + normal,
-                point + direction * half + normal,
-                point + direction * half - normal,
-                point - normal,
-              ),
-            );
-          }
-        }
         for (var i = 1; i + 1 < points.length; i++) {
           final previous = directions[i - 1], next = directions[i];
           final turn = cross(previous, next);
           if (turn.abs() < 1e-14) continue;
           final center = points[i];
-          if (join == 'round') {
-            circles.add((center, half));
-            continue;
-          }
           final n0 = Offset(previous.dy, -previous.dx) * turn.sign;
           final n1 = Offset(next.dy, -next.dx) * turn.sign;
           final a = center + n0 * half, b = center + n1 * half;
@@ -195,8 +172,7 @@ final class RelationGeometry {
           final offset = denominator <= 0
               ? null
               : (n0 + n1) * (half / denominator);
-          if (join == 'miter' &&
-              offset != null &&
+          if (offset != null &&
               vectorLength(offset.dx, offset.dy) <= half * miterLimit) {
             quads.add(Quad(center, a, center + offset, b));
           } else {
@@ -218,13 +194,6 @@ final class RelationGeometry {
     final worldQuads = [for (final quad in quads) _project(node.world, quad)];
     Rect? paintBounds;
     for (final quad in worldQuads) {
-      paintBounds = unionBounds(paintBounds, quad.bounds);
-    }
-    for (final (center, radius) in circles) {
-      final quad = node.world.projectRect(
-        Rect.fromCircle(center: center, radius: radius),
-      );
-      worldQuads.add(quad);
       paintBounds = unionBounds(paintBounds, quad.bounds);
     }
     if (paintBounds != null) validateBounds(paintBounds);
@@ -255,7 +224,6 @@ final class RelationGeometry {
       paintBounds,
       List.unmodifiable(worldQuads),
       List.unmodifiable(quads),
-      List.unmodifiable(circles),
     );
   }
 
@@ -267,20 +235,13 @@ final class RelationGeometry {
   final String cap, join;
   final Rect? bounds, paintBounds;
 
-  /// Exact for polygon pieces, conservative for transformed round cap/joins.
-  /// Use [contains] after broad-phase quads to reject round-corner false hits.
+  /// Shared polygon pieces for the default butt-cap/miter-join stroke.
   final List<Quad> hitQuads;
   final List<Quad> _localQuads;
-  final List<(Offset, double)> _circles;
 
   bool contains(Offset worldPoint) {
     final point = _inverse.project(worldPoint);
-    return _localQuads.any((quad) => quad.contains(point)) ||
-        _circles.any(
-          (circle) =>
-              vectorLength(point.dx - circle.$1.dx, point.dy - circle.$1.dy) <=
-              circle.$2,
-        );
+    return _localQuads.any((quad) => quad.contains(point));
   }
 
   double? segmentEntry(Offset fromWorld, Offset toWorld) {
@@ -296,30 +257,12 @@ final class RelationGeometry {
     for (final quad in _localQuads) {
       include(quad.segmentEntry(from, to));
     }
-    for (final circle in _circles) {
-      include(_circleEntry(from, to, circle.$1, circle.$2));
-    }
     return first;
   }
 
   bool intersects(Quad worldRange) {
     final range = _project(_inverse, worldRange);
-    if (_localQuads.any((quad) => quad.intersects(range))) return true;
-    for (final (center, radius) in _circles) {
-      if (range.contains(center)) return true;
-      for (var edge = 0; edge < 4; edge++) {
-        if (_circleEntry(
-              range.vertex(edge),
-              range.vertex(edge + 1),
-              center,
-              radius,
-            ) !=
-            null) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return _localQuads.any((quad) => quad.intersects(range));
   }
 }
 
@@ -404,24 +347,6 @@ final class RelationDependencies {
   }
 }
 
-void _supportedStyle(Map<String, Object?> style) {
-  for (final key in ['texture', 'matrix', 'textureSpace']) {
-    if (style.containsKey(key)) {
-      throw UnsupportedError('Relation style.$key is not supported');
-    }
-  }
-  if (style['pixelLine'] == true) {
-    throw UnsupportedError(
-      'Relation pixelLine requires device-space rendering',
-    );
-  }
-  if ((style['alignment'] as num? ?? .5) != .5) {
-    throw UnsupportedError(
-      'Noncenter relation alignment requires Pixi polyline tessellation',
-    );
-  }
-}
-
 List<Offset> _selfLoop(Rect bounds) {
   final pad = math.max(10.0, math.max(bounds.width / 2, bounds.height / 2));
   return [
@@ -447,28 +372,3 @@ Quad _project(Affine transform, Quad quad) => Quad(
   transform.project(quad.p2),
   transform.project(quad.p3),
 );
-double? _circleEntry(Offset from, Offset to, Offset center, double radius) {
-  final scale = math.max(
-    radius,
-    math.max(
-      math.max(from.dx.abs(), from.dy.abs()),
-      math.max(
-        math.max(to.dx.abs(), to.dy.abs()),
-        math.max(center.dx.abs(), center.dy.abs()),
-      ),
-    ),
-  );
-  if (scale == 0) return 0;
-  final start = from / scale - center / scale,
-      delta = to / scale - from / scale;
-  final r = radius / scale;
-  final c = start.dx * start.dx + start.dy * start.dy - r * r;
-  if (c <= 0) return 0;
-  final a = delta.dx * delta.dx + delta.dy * delta.dy;
-  if (a == 0) return null;
-  final b = start.dx * delta.dx + start.dy * delta.dy;
-  final discriminant = b * b - a * c;
-  if (discriminant < 0) return null;
-  final t = (-b - math.sqrt(discriminant)) / a;
-  return t >= 0 && t <= 1 ? t : null;
-}

@@ -19,11 +19,9 @@ final class RelationPaint {
       throw ArgumentError.value(opacity);
     }
     final style = data['style']! as Map<String, Object?>;
-    // Shared geometry rejects unsupported stroke resources/alignment. A solid
-    // fill override is resolved explicitly; gradient values fail color parsing.
-    final source = palette.resolve(
-      style['fill'] ?? style['color'] ?? '#1a1a1a',
-    );
+    // Release projects color/alpha/width only. Preserved optional input cannot
+    // become a fill override, a new rendering feature or an unsupported error.
+    final source = palette.resolve(style['color'] ?? '#1a1a1a');
     final color = source.withValues(
       alpha: source.a * opacity * ((style['alpha'] as num?)?.toDouble() ?? 1),
     );
@@ -41,17 +39,9 @@ final class RelationPaint {
       ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = geometry.width
-      ..strokeMiterLimit = geometry.miterLimit
-      ..strokeCap = switch (geometry.cap) {
-        'round' => StrokeCap.round,
-        'square' => StrokeCap.square,
-        _ => StrokeCap.butt,
-      }
-      ..strokeJoin = switch (geometry.join) {
-        'round' => StrokeJoin.round,
-        'bevel' => StrokeJoin.bevel,
-        _ => StrokeJoin.miter,
-      };
+      ..strokeMiterLimit = 10
+      ..strokeCap = StrokeCap.butt
+      ..strokeJoin = StrokeJoin.miter;
     return RelationPaint._(geometry, color, List.unmodifiable(paths), paint);
   }
   final RelationGeometry geometry;

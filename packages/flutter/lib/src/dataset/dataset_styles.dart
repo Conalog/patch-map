@@ -139,11 +139,12 @@ void validateRecordColors(
     case 'rect':
       check('fill');
       if (value.containsKey('stroke')) {
-        _validateStrokeColors(
-          record(value['stroke'], '$path.stroke'),
-          '$path.stroke',
-          palette,
-        );
+        // Rect lowering reads only stroke.color. fill/texture/matrix are
+        // preserved JSON, not additional admitted rendering/color features.
+        final stroke = record(value['stroke'], '$path.stroke');
+        if (stroke.containsKey('color')) {
+          _validateColor(stroke['color'], '$path.stroke.color', palette);
+        }
       }
     case 'relations':
       final style = value['style'];
@@ -361,11 +362,10 @@ Map<String, Object?> stroke(
 
 Map<String, Object?> relationStyle(Object? value, String path) {
   final normalized = stroke(value, path, compatibility: true);
-  final input = value is Map ? value : const {};
+  // JS normalizeRelationStyle validates the full stroke grammar, then retains
+  // exactly these projected fields. opacity has already normalized to alpha.
   return frozen({
     for (final key in ['color', 'alpha', 'width']) key: normalized[key],
-    for (final key in input.keys.cast<String>())
-      if (key != 'opacity') key: normalized[key],
   });
 }
 

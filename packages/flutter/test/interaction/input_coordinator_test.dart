@@ -538,7 +538,7 @@ void main() {
   });
 
   test(
-    'relation exact port rejects round cap envelope false positives for every query',
+    'relation exact port rejects diagonal envelope false positives for every query',
     () {
       final snapshot = _compile([
         {'type': 'rect', 'id': 'a', 'size': 10},
@@ -546,7 +546,7 @@ void main() {
           'type': 'rect',
           'id': 'b',
           'size': 10,
-          'attrs': {'x': 100},
+          'attrs': {'x': 100, 'y': 100},
         },
         {
           'type': 'relations',
@@ -558,6 +558,7 @@ void main() {
         },
       ]);
       final relation = RelationGeometry.compile(snapshot, snapshot['r']!);
+      expect(relation.cap, 'butt'); // release ignores the admitted cap option.
       final exact = InputHitGeometry(
         contains: relation.contains,
         segmentEntry: relation.segmentEntry,
@@ -569,27 +570,24 @@ void main() {
           exactGeometry: (_, _) => exact,
         ),
       );
-      expect(
-        relation.hitQuads.any((quad) => quad.contains(const Offset(1, 1))),
-        isTrue,
-      );
-      expect(query.point(snapshot, const Offset(1, 1), 0), isNull);
+      expect(relation.paintBounds!.contains(const Offset(10, 100)), isTrue);
+      expect(query.point(snapshot, const Offset(10, 100), 0), isNull);
       expect(
         query.range(
           snapshot,
-          Affine.identity.projectRect(const Rect.fromLTWH(0, 0, 1, 1)),
+          Affine.identity.projectRect(const Rect.fromLTWH(9, 99, 1, 1)),
           0,
         ),
         isEmpty,
       );
       expect(
-        query.segment(snapshot, const Offset(0, 0), const Offset(1, 1), 0),
+        query.segment(snapshot, const Offset(9, 99), const Offset(10, 100), 0),
         isEmpty,
       );
-      expect(query.point(snapshot, const Offset(1, 5), 0)!.id, 'r');
+      expect(query.point(snapshot, const Offset(50, 50), 0)!.id, 'r');
       expect(
         query
-            .segment(snapshot, const Offset(-5, 5), const Offset(10, 5), 0)
+            .segment(snapshot, const Offset(0, 50), const Offset(100, 50), 0)
             .single
             .id,
         'r',

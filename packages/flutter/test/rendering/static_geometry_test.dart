@@ -22,7 +22,7 @@ RectanglePaint style({
     'fill': fill,
     'radius': radius,
     'stroke': {
-      'fill': stroke,
+      'color': stroke,
       'width': width,
       'alignment': alignment,
       'join': join,
@@ -292,11 +292,6 @@ void main() {
       final rect = const Rect.fromLTWH(10, 10, 30, 20);
       final unsupported = [
         shape(rect, paint: style(radius: [1, 2, 3, 4])),
-        shape(rect, paint: style(alignment: 0)),
-        shape(rect, paint: style(alignment: 1)),
-        shape(rect, paint: style(radius: 0, join: 'bevel')),
-        shape(rect, paint: style(radius: 0, join: 'round')),
-        shape(rect, paint: style(radius: 0, miterLimit: 1)),
         shape(rect, paint: style(width: 20)),
         shape(rect, paint: style(radius: 1, width: 3)),
         shape(rect, world: const Affine(0, 0, 0, 0, 0, 0)),
@@ -320,6 +315,17 @@ void main() {
         StaticGeometry.isEligible(shape(rect, paint: style(radius: 100))),
         isTrue,
       );
+      // Authored options are ignored before mesh eligibility, just as they are
+      // before Canvas paint. They cannot force a renderer-only rejection.
+      for (final paint in [
+        style(alignment: 0),
+        style(alignment: 1),
+        style(radius: 0, join: 'bevel'),
+        style(radius: 0, join: 'round'),
+        style(radius: 0, miterLimit: 1),
+      ]) {
+        expect(StaticGeometry.isEligible(shape(rect, paint: paint)), isTrue);
+      }
     },
   );
 

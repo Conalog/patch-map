@@ -71,23 +71,32 @@ void main() {
     },
   );
 
-  testWidgets('native square and round caps match shared exact hit shape', (
+  testWidgets('ignored square and round caps retain butt endpoints', (
     tester,
   ) async {
+    final baseline = scene({'width': 8, 'color': '#00ff00'});
+    final expected = await tester.runAsync(
+      () => pixels(
+        RelationPaint(
+          RelationGeometry.compile(baseline, baseline['r']!),
+          baseline['r']!.data,
+          ColorResolver(),
+          1,
+        ),
+      ),
+    );
     for (final cap in ['round', 'square']) {
       final snapshot = scene({'width': 8, 'color': '#00ff00', 'cap': cap});
       final geometry = RelationGeometry.compile(snapshot, snapshot['r']!);
-      final paint = RelationPaint(
-        geometry,
-        snapshot['r']!.data,
-        ColorResolver(),
-        1,
+      final data = await tester.runAsync(
+        () => pixels(
+          RelationPaint(geometry, snapshot['r']!.data, ColorResolver(), 1),
+        ),
       );
-      final data = await tester.runAsync(() => pixels(paint));
-      expect(pixel(data!, 11, 21)[3], cap == 'round' ? 0 : 255);
-      expect(geometry.contains(const Offset(1.5, 1.5)), cap != 'round');
-      expect(pixel(data, 11, 25)[3], greaterThan(200));
-      expect(geometry.contains(const Offset(1.5, 5.5)), isTrue);
+      expect(data!.buffer.asUint8List(), expected!.buffer.asUint8List());
+      expect(pixel(data, 11, 25)[3], 0);
+      expect(geometry.contains(const Offset(1.5, 5.5)), isFalse);
+      expect(geometry.contains(const Offset(5.5, 5.5)), isTrue);
     }
   });
 
@@ -128,7 +137,7 @@ void main() {
     },
   );
 
-  testWidgets('self-loop join hit envelope contains native painted coverage', (
+  testWidgets('ignored self-loop joins retain default native hit envelope', (
     tester,
   ) async {
     for (final join in ['miter', 'bevel', 'round']) {
@@ -160,21 +169,17 @@ void main() {
     }
   });
 
-  test(
-    'gradient style is rejected instead of silently drawing a flat color',
-    () {
-      final snapshot = scene({
-        'fill': {'colorStops': []},
-      });
-      expect(
-        () => RelationPaint(
-          RelationGeometry.compile(snapshot, snapshot['r']!),
-          snapshot['r']!.data,
-          ColorResolver(),
-          1,
-        ),
-        throwsFormatException,
-      );
-    },
-  );
+  test('ignored gradient fill does not replace projected color or fail', () {
+    final snapshot = scene({
+      'color': '#123456',
+      'fill': {'colorStops': []},
+    });
+    final paint = RelationPaint(
+      RelationGeometry.compile(snapshot, snapshot['r']!),
+      snapshot['r']!.data,
+      ColorResolver(),
+      1,
+    );
+    expect(paint.color, const Color(0xff123456));
+  });
 }

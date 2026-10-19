@@ -197,56 +197,53 @@ void main() {
     },
   );
 
-  test(
-    'stroke body bounds and exact round-cap point/path/range hit share projection',
-    () {
-      final initial = scene([
-        box('a', 0),
-        box('b', 100),
-        relation([
-          {'source': 'a', 'target': 'b'},
-        ]),
-      ]);
-      final snapshot = initial.prepare({
-        const PatchMapTarget('r'): Map.unmodifiable({
-          ...initial['r']!.data,
-          'style': const <String, Object?>{
-            'width': 10,
-            'color': '#f00',
-            'alpha': 1,
-            'cap': 'round',
-            'join': 'round',
-          },
-        }),
-      }, (_, _) => const Size(8, 6)).snapshot;
-      final geometry = project(snapshot);
-      expect(geometry.paintBounds, const Rect.fromLTRB(0, 0, 110, 10));
-      expect(geometry.contains(const Offset(1, 5)), isTrue);
-      expect(
-        geometry.contains(const Offset(1, 1)),
-        isFalse,
-      ); // inside cap AABB, outside circle
-      expect(
-        geometry.segmentEntry(const Offset(-5, 5), const Offset(10, 5)),
-        closeTo(1 / 3, 1e-10),
-      );
-      expect(
-        geometry.intersects(
-          Affine.identity.projectRect(const Rect.fromLTWH(0, 4, 2, 2)),
-        ),
-        isTrue,
-      );
-      expect(
-        geometry.intersects(
-          Affine.identity.projectRect(const Rect.fromLTWH(0, 0, 1, 1)),
-        ),
-        isFalse,
-      );
-    },
-  );
+  test('ignored round-cap input retains butt point/path/range projection', () {
+    final initial = scene([
+      box('a', 0),
+      box('b', 100),
+      relation([
+        {'source': 'a', 'target': 'b'},
+      ]),
+    ]);
+    final snapshot = initial.prepare({
+      const PatchMapTarget('r'): Map.unmodifiable({
+        ...initial['r']!.data,
+        'style': const <String, Object?>{
+          'width': 10,
+          'color': '#f00',
+          'alpha': 1,
+          'cap': 'round',
+          'join': 'round',
+        },
+      }),
+    }, (_, _) => const Size(8, 6)).snapshot;
+    final geometry = project(snapshot);
+    expect(geometry.paintBounds, const Rect.fromLTRB(5, 0, 105, 10));
+    expect(geometry.contains(const Offset(1, 5)), isFalse);
+    expect(
+      geometry.contains(const Offset(1, 1)),
+      isFalse,
+    ); // ignored cap does not extend the body
+    expect(
+      geometry.segmentEntry(const Offset(-5, 5), const Offset(10, 5)),
+      closeTo(2 / 3, 1e-10),
+    );
+    expect(
+      geometry.intersects(
+        Affine.identity.projectRect(const Rect.fromLTWH(0, 4, 2, 2)),
+      ),
+      isFalse,
+    );
+    expect(
+      geometry.intersects(
+        Affine.identity.projectRect(const Rect.fromLTWH(0, 0, 1, 1)),
+      ),
+      isFalse,
+    );
+  });
 
   test(
-    'relation inverse failure is atomic and unsupported stroke options are explicit gaps',
+    'relation inverse failure is atomic and ignored options do not fail',
     () {
       final initial = scene([
         box('a', 0),
@@ -282,7 +279,7 @@ void main() {
               }),
             }),
           }, (_, _) => const Size(8, 6)),
-          throwsUnsupportedError,
+          returnsNormally,
         );
       }
     },

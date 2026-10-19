@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
-    'relation optional stroke fields survive normalization and partial updates',
+    'relation initial normalization keeps projected fields; partial options remain harmless input',
     () {
       final doc = const DatasetReader().read([
         {
@@ -19,6 +19,7 @@ void main() {
       ]);
       const target = PatchMapTarget('r');
       final before = authoredRecord(doc, target);
+      expect(before['style'], {'color': '#1a1a1aff', 'alpha': .4, 'width': 1});
       final patch = const PresentationAdmission()
           .admit(doc, [
             const PatchMapUpdate(target, {
@@ -33,7 +34,7 @@ void main() {
         patch,
       );
       expect((next['style'] as Map)['cap'], 'square');
-      expect((next['style'] as Map)['join'], 'bevel');
+      expect((next['style'] as Map).containsKey('join'), isFalse);
       expect((next['style'] as Map)['miterLimit'], 3);
       expect((next['style'] as Map)['alpha'], .4);
     },

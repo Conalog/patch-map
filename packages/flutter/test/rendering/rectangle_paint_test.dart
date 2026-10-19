@@ -94,36 +94,39 @@ void main() {
     expect(uniform.roundedRect(const Size(20, 10)).tlRadiusX, 5);
   });
 
-  test('stroke settings and color alpha resolve without retained input', () {
-    final stroke = <String, Object?>{
-      'color': '#ff000080',
-      'alpha': .5,
-      'width': 4,
-      'alignment': .25,
-      'join': 'bevel',
-      'cap': 'square',
-      'miterLimit': 7,
-    };
-    final style = RectanglePaint.fromElement(
-      _element({'stroke': stroke}),
-      palette,
-      .5,
-    );
-    stroke['width'] = 99;
-    expect(style.strokeWidth, 4);
-    expect(style.strokeAlignment, .25);
-    expect(style.strokeJoin, StrokeJoin.bevel);
-    expect(style.strokeCap, StrokeCap.square);
-    expect(style.strokeMiterLimit, 7);
-    expect(style.strokeColor.a, closeTo(128 / 255 * .25, 1e-6));
-    expect(
-      () => style.roundedRect(const Size(double.infinity, 10)),
-      throwsArgumentError,
-    );
-  });
+  test(
+    'only stroke color and width project; other admitted settings remain no-ops',
+    () {
+      final stroke = <String, Object?>{
+        'color': '#ff000080',
+        'alpha': .5,
+        'width': 4,
+        'alignment': .25,
+        'join': 'bevel',
+        'cap': 'square',
+        'miterLimit': 7,
+      };
+      final style = RectanglePaint.fromElement(
+        _element({'stroke': stroke}),
+        palette,
+        .5,
+      );
+      stroke['width'] = 99;
+      expect(style.strokeWidth, 4);
+      expect(style.strokeAlignment, .5);
+      expect(style.strokeJoin, StrokeJoin.miter);
+      expect(style.strokeCap, StrokeCap.butt);
+      expect(style.strokeMiterLimit, 10);
+      expect(style.strokeColor.a, closeTo(128 / 255 * .5, 1e-6));
+      expect(
+        () => style.roundedRect(const Size(double.infinity, 10)),
+        throwsArgumentError,
+      );
+    },
+  );
 
   test(
-    'unsupported resource and device-space stroke fields fail explicitly',
+    'ignored resource/device-space/fill fields do not acquire resources or fail',
     () {
       for (final field in <Map<String, Object?>>[
         {'pixelLine': true},
@@ -139,7 +142,7 @@ void main() {
             palette,
             1,
           ),
-          throwsUnsupportedError,
+          returnsNormally,
         );
       }
       expect(
@@ -152,7 +155,7 @@ void main() {
           palette,
           1,
         ),
-        throwsFormatException,
+        returnsNormally,
       );
       expect(
         () => RectanglePaint.fromTexture(
@@ -222,34 +225,42 @@ void main() {
     },
   );
 
-  testWidgets('inside outside and oversized inside strokes respect alignment', (
-    tester,
-  ) async {
-    for (final alignment in [0.0, .25, 1.0]) {
-      final style = RectanglePaint.fromElement(
-        _element({
-          'fill': '#00000000',
-          'stroke': {'width': 4, 'color': '#00ff00', 'alignment': alignment},
-        }),
-        palette,
-        1,
-      );
-      final bytes = await tester.runAsync(() => _pixels(style));
-      expect(
-        _pixel(bytes!, alignment == 1 ? 9 : 7, 20)[3],
-        alignment == 1 ? 0 : 255,
-      );
-      expect(_pixel(bytes, 10, 20)[3], alignment == 0 ? 0 : 255);
-    }
-    final thick = RectanglePaint.fromElement(
-      _element({
-        'stroke': {'width': 100, 'color': '#00ff00', 'alignment': 1},
-      }),
-      palette,
-      1,
-    );
-    final bytes = await tester.runAsync(() => _pixels(thick));
-    expect(_pixel(bytes!, 9, 20)[3], 0);
-    expect(_pixel(bytes, 20, 20), [0, 255, 0, 255]);
-  });
+  testWidgets(
+    'authored alignment is ignored for thin and oversized centered strokes',
+    (tester) async {
+      for (final width in [4, 100]) {
+        final baseline = await tester.runAsync(
+          () => _pixels(
+            RectanglePaint.fromElement(
+              _element({
+                'fill': '#00000000',
+                'stroke': {'width': width, 'color': '#00ff00'},
+              }),
+              palette,
+              1,
+            ),
+          ),
+        );
+        for (final alignment in [0.0, .25, 1.0]) {
+          final actual = await tester.runAsync(
+            () => _pixels(
+              RectanglePaint.fromElement(
+                _element({
+                  'fill': '#00000000',
+                  'stroke': {
+                    'width': width,
+                    'color': '#00ff00',
+                    'alignment': alignment,
+                  },
+                }),
+                palette,
+                1,
+              ),
+            ),
+          );
+          expect(actual!.buffer.asUint8List(), baseline!.buffer.asUint8List());
+        }
+      }
+    },
+  );
 }
