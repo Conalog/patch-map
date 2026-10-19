@@ -144,6 +144,7 @@ void main() {
       visit();
       expect(pool.specCreates, 6);
       expect(pool.keyCreates, 6);
+      expect(pool.parameterCreates, 6);
     },
   );
 
@@ -165,7 +166,7 @@ void main() {
   );
 
   test(
-    '10000 measure/acquire pairs build half as many Specs and JSON key pairs',
+    '10000 measure/acquire pairs build half as many Specs and structured keys',
     () {
       final inputs = [for (var i = 0; i < 10000; i++) data('${100000 + i}')];
       for (final input in inputs) {
@@ -188,6 +189,211 @@ void main() {
       expect(pool.specCreates, 30000);
       expect(pool.keyCreates, 30000);
       expect(pool.paragraphCreates, paragraphs);
+    },
+  );
+
+  test('10000 distinct numbers share one scope-local non-text parse', () {
+    final shared = Map<String, Object?>.unmodifiable(data('')['style']! as Map);
+    final margin = Map<String, Object?>.unmodifiable({
+      'top': 4,
+      'right': 4,
+      'bottom': 4,
+      'left': 4,
+    });
+    Map<String, Object?> input(String text) => Map.unmodifiable({
+      'text': text,
+      'style': shared,
+      'margin': margin,
+      'tint': 'white',
+    });
+    TextParameters? first;
+    pool.withPreparation(() {
+      for (var i = 0; i < 10000; i++) {
+        final record = input('${100000 + i}');
+        pool.measure(record, const ui.Size(80, 40));
+        final handle = pool.acquire(record, const ui.Size(80, 40));
+        first ??= handle.spec.parameters;
+        expect(handle.spec.parameters, same(first));
+        expect(handle.spec.text, '${100000 + i}');
+        pool.release(handle);
+      }
+      expect(pool.parameterCreates, 1);
+      expect(pool.specCreates, 10000);
+      expect(pool.keyCreates, 10000);
+      expect(pool.metricMisses, 1);
+      expect(pool.metricHits, 9999);
+    });
+    pool.withPreparation(() {
+      final handle = pool.acquire(input('999999'), const ui.Size(80, 40));
+      expect(pool.parameterCreates, 2);
+      expect(handle.spec.parameters, isNot(same(first)));
+      pool.release(handle);
+    });
+    final outside = pool.acquire(input('888888'), const ui.Size(80, 40));
+    expect(pool.parameterCreates, 3);
+    expect(outside.spec.parameters, isNot(same(first)));
+    pool.release(outside);
+  });
+
+  test(
+    'all non-text overrides remain isolated and equal styles still share handles',
+    () {
+      final shared = Map<String, Object?>.unmodifiable(
+        data('')['style']! as Map,
+      );
+      final margin = Map<String, Object?>.unmodifiable({
+        'top': 4,
+        'right': 4,
+        'bottom': 4,
+        'left': 4,
+      });
+      final baseline = <String, Object?>{
+        'text': '123456',
+        'style': shared,
+        'margin': margin,
+        'tint': 'white',
+      };
+      const content = ui.Size(80, 40);
+      final variants = <(Map<String, Object?>, ui.Size)>[
+        ({...baseline, 'text': '1'}, content),
+        ({...baseline, 'text': '123456789012'}, content),
+        ({...baseline, 'tint': '#ff0000'}, content),
+        (
+          {
+            ...baseline,
+            'tint': const [0, 1, 0, .5],
+          },
+          content,
+        ),
+        ({...baseline, 'margin': 2}, content),
+        ({...baseline}, const ui.Size(20, 16)),
+        ({...baseline, 'split': 2}, content),
+        ({...baseline, 'overflow': 'ellipsis'}, content),
+        (
+          {
+            ...baseline,
+            'style': {...shared, 'fontWeight': 400},
+          },
+          content,
+        ),
+        (
+          {
+            ...baseline,
+            'style': {...shared, 'letterSpacing': .5},
+          },
+          content,
+        ),
+        (
+          {
+            ...baseline,
+            'style': {...shared, 'alpha': .5},
+          },
+          content,
+        ),
+        (
+          {
+            ...baseline,
+            'style': {
+              ...shared,
+              'stroke': {'width': 1, 'color': 'red'},
+            },
+          },
+          content,
+        ),
+      ];
+      pool.withPreparation(() {
+        final base = pool.acquire(baseline, content);
+        for (final (record, bounds) in variants) {
+          final handle = pool.acquire(record, bounds);
+          final reference = TextSpec.fromData(record, bounds, pool.palette);
+          final native = NativeTextLayout(reference).resolve();
+          try {
+            expect(handle.spec.metricKey, reference.metricKey);
+            expect(handle.spec.paintKey, reference.paintKey);
+            expect(handle.spec.bounds, reference.bounds);
+            expect(handle.spec.color, reference.color);
+            expect(handle.spec.objectOpacity, reference.objectOpacity);
+            expect(handle.metrics.fontSize, native.fontSize);
+            expect(
+              handle.metrics.longestLine,
+              closeTo(native.longestLine, .02),
+            );
+            expect(handle.metrics.lines, native.lineCount);
+            expect(handle, isNot(same(base)));
+            if (record['text'] != baseline['text']) {
+              expect(handle.spec.parameters, same(base.spec.parameters));
+            }
+          } finally {
+            native.dispose();
+            pool.release(handle);
+          }
+        }
+        final count = pool.parameterCreates;
+        final equivalent = pool.acquire({
+          ...baseline,
+          'style': Map<String, Object?>.unmodifiable({
+            ...shared,
+            'fontFamily': ['FiraCode'],
+          }),
+          'margin': Map<String, Object?>.unmodifiable({...margin}),
+          'tint': const [1, 1, 1],
+        }, content);
+        expect(pool.parameterCreates, count + 1);
+        expect(equivalent, same(base));
+        pool.release(equivalent);
+        pool.release(base);
+      });
+    },
+  );
+
+  test(
+    'invalid parameters fail in and outside scopes without poisoning valid input',
+    () {
+      final shared = Map<String, Object?>.unmodifiable(
+        data('')['style']! as Map,
+      );
+      final baseline = <String, Object?>{'text': '123', 'style': shared};
+      const content = ui.Size(80, 40);
+      final invalid = <(Map<String, Object?>, ui.Size?)>[
+        (baseline, null),
+        (baseline, const ui.Size(-1, 4)),
+        ({...baseline, 'margin': double.nan}, content),
+        ({...baseline, 'tint': 'unknownToken'}, content),
+        (
+          {
+            ...baseline,
+            'style': {...shared, 'fontWeight': 'bolder'},
+          },
+          content,
+        ),
+        (
+          {
+            ...baseline,
+            'style': {
+              ...shared,
+              'autoFont': {'min': 15, 'max': 14},
+            },
+          },
+          content,
+        ),
+      ];
+      void verify() {
+        final before = pool.acquire(baseline, content);
+        for (final (record, bounds) in invalid) {
+          expect(
+            () => TextSpec.fromData(record, bounds, pool.palette),
+            throwsFormatException,
+          );
+          expect(() => pool.acquire(record, bounds), throwsFormatException);
+        }
+        final after = pool.acquire({...baseline}, content);
+        expect(after, same(before));
+        pool.release(before);
+        pool.release(after);
+      }
+
+      pool.withPreparation(verify);
+      verify();
     },
   );
 

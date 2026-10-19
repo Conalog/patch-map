@@ -30,7 +30,7 @@ final class TextHandle {
     this._native,
     this.atlasEligible,
   );
-  final String key;
+  final (String, String, String) key;
   final TextSpec spec;
   final TextMetrics metrics;
   final bool atlasEligible;
@@ -58,15 +58,15 @@ final class TextPool {
   final GlyphAtlasCache atlases;
   // These bound unused state only and are provisional implementation defaults.
   final int maxUnusedEntries, maxUnusedCodeUnits;
-  final _entries = <String, TextHandle>{};
-  final _unused = <String, TextHandle>{};
+  final _entries = <(String, String, String), TextHandle>{};
+  final _unused = <(String, String, String), TextHandle>{};
   final _numeric = <Object, TextMetrics>{};
   final _paint = ui.Paint()..filterQuality = ui.FilterQuality.medium;
   bool _closed = false;
   int _unusedUnits = 0;
   int paragraphCreates = 0, liveParagraphLayouts = 0;
-  int specCreates = 0, keyCreates = 0;
-  HashMap<Map<String, Object?>, Map<ui.Size?, _PreparedText>>? _preparation;
+  int specCreates = 0, keyCreates = 0, parameterCreates = 0;
+  _TextPreparation? _preparation;
 
   /// Reuses scalar preparation for immutable admitted data during one synchronous
   /// measure/compile transaction. No handle references or async work are cached.
@@ -74,7 +74,7 @@ final class TextPool {
   T withPreparation<T>(T Function() action) {
     if (_closed) throw StateError('text pool is closed');
     final previous = _preparation;
-    _preparation = HashMap.identity();
+    _preparation = _TextPreparation();
     try {
       final result = action();
       if (result is Future) {
@@ -86,15 +86,31 @@ final class TextPool {
     }
   }
 
+  TextParameters _parameters(Map<String, Object?> data, ui.Size? content) {
+    final parameters = TextParameters.fromData(data, content, palette);
+    parameterCreates++;
+    return parameters;
+  }
+
   TextSpec _spec(Map<String, Object?> data, ui.Size? content) {
-    final spec = TextSpec.fromData(data, content, palette);
+    final cache = _preparation;
+    final parameters = cache == null
+        ? _parameters(data, content)
+        : cache.parameters.putIfAbsent(
+            _ParameterKey(data, content),
+            () => _parameters(data, content),
+          );
+    final spec = TextSpec.fromParameters(
+      data['text'] as String? ?? '',
+      parameters,
+    );
     specCreates++;
     return spec;
   }
 
-  String _key(TextSpec spec) {
+  (String, String, String) _key(TextSpec spec) {
     keyCreates++;
-    return '${spec.metricKey}|${spec.paintKey}';
+    return (spec.text, spec.metricStyleKey, spec.paintKey);
   }
 
   int metricHits = 0, metricMisses = 0, atlasDraws = 0, paragraphDraws = 0;
@@ -106,12 +122,12 @@ final class TextPool {
     if (_closed) throw StateError('text pool is closed');
     final cache = _preparation;
     final TextSpec spec;
-    final String key;
+    final (String, String, String) key;
     if (cache == null) {
       spec = _spec(data, content);
       key = _key(spec);
     } else {
-      final byContent = cache.putIfAbsent(data, () => {});
+      final byContent = cache.records.putIfAbsent(data, () => {});
       final prepared = byContent.putIfAbsent(
         content,
         () => _PreparedText(_spec(data, content)),
@@ -286,10 +302,48 @@ final class TextPool {
   }
 }
 
+/// Both caches die with their synchronous transaction, including on throw.
+final class _TextPreparation {
+  final records =
+      HashMap<Map<String, Object?>, Map<ui.Size?, _PreparedText>>.identity();
+  final parameters = <_ParameterKey, TextParameters>{};
+}
+
+/// Admitted style/margin maps are immutable. Identity avoids rescanning them;
+/// content and the top-level non-text overrides must still distinguish parses.
+final class _ParameterKey {
+  _ParameterKey(Map<String, Object?> data, this.content)
+    : style = data['style'],
+      margin = data['margin'],
+      tint = data['tint'],
+      overflow = data['overflow'],
+      split = data['split'];
+  final Object? style, margin, tint, overflow, split;
+  final ui.Size? content;
+  @override
+  bool operator ==(Object other) =>
+      other is _ParameterKey &&
+      identical(style, other.style) &&
+      identical(margin, other.margin) &&
+      content == other.content &&
+      tint == other.tint &&
+      overflow == other.overflow &&
+      split == other.split;
+  @override
+  int get hashCode => Object.hash(
+    identityHashCode(style),
+    identityHashCode(margin),
+    content,
+    tint,
+    overflow,
+    split,
+  );
+}
+
 final class _PreparedText {
   _PreparedText(this.spec);
   final TextSpec spec;
-  String? key;
+  (String, String, String)? key;
 }
 
 final _digits = RegExp(r'^[0-9]{1,12}$');

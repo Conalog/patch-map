@@ -5,11 +5,60 @@ import 'dart:ui' as ui;
 import '../../dataset/colors.dart';
 import '../../geometry/layout.dart' show BoxEdges;
 
-/// Detached text preparation values. Placement and authored transforms stay with
-/// geometry; [bounds] is the available content size after this text's margin.
+/// Detached text and shared immutable preparation values. Placement and authored
+/// transforms stay with geometry; [bounds] excludes this text's margin.
 final class TextSpec {
-  TextSpec._({
-    required this.text,
+  const TextSpec.fromParameters(this.text, this.parameters);
+
+  factory TextSpec.fromData(
+    Map<String, Object?> data,
+    ui.Size? content,
+    ColorResolver palette,
+  ) {
+    final parameters = TextParameters.fromData(data, content, palette);
+    return TextSpec.fromParameters(data['text'] as String? ?? '', parameters);
+  }
+
+  final String text;
+  final TextParameters parameters;
+  List<String> get fontFamilies => parameters.fontFamilies;
+  double get fontSize => parameters.fontSize;
+  bool get auto => parameters.auto;
+  int get autoMin => parameters.autoMin;
+  int get autoMax => parameters.autoMax;
+  ui.FontWeight get fontWeight => parameters.fontWeight;
+  ui.FontStyle get fontStyle => parameters.fontStyle;
+  ui.TextAlign get align => parameters.align;
+  bool get wordWrap => parameters.wordWrap;
+  double? get wrapWidth => parameters.wrapWidth;
+  bool get breakWords => parameters.breakWords;
+  String get whiteSpace => parameters.whiteSpace;
+  String get overflow => parameters.overflow;
+  ui.Size? get bounds => parameters.bounds;
+  int get split => parameters.split;
+  double get letterSpacing => parameters.letterSpacing;
+  double? get lineHeight => parameters.lineHeight;
+  double get padding => parameters.padding;
+  ui.Color get color => parameters.color;
+  double get objectOpacity => parameters.objectOpacity;
+  ui.Color? get strokeColor => parameters.strokeColor;
+  double get strokeWidth => parameters.strokeWidth;
+  ui.StrokeJoin get strokeJoin => parameters.strokeJoin;
+  ui.StrokeCap get strokeCap => parameters.strokeCap;
+  double get strokeMiterLimit => parameters.strokeMiterLimit;
+  ui.Shadow? get shadow => parameters.shadow;
+  List<String> get unsupportedFields => parameters.unsupportedFields;
+
+  String get metricStyleKey => parameters.metricStyleKey;
+  (String, String) get metricKey => (text, metricStyleKey);
+  String get paintKey => parameters.paintKey;
+}
+
+/// Parsed non-text parameters only: no numeric proof, atlas eligibility, fitted
+/// font size, native metrics or Paragraph is shared through this value.
+/// Scope-local input identity keys belong to TextPool, never to this object.
+final class TextParameters {
+  TextParameters._({
     required this.fontFamilies,
     required this.fontSize,
     required this.auto,
@@ -39,7 +88,7 @@ final class TextSpec {
     required this.unsupportedFields,
   });
 
-  factory TextSpec.fromData(
+  factory TextParameters.fromData(
     Map<String, Object?> data,
     ui.Size? content,
     ColorResolver palette,
@@ -189,8 +238,7 @@ final class TextSpec {
     if (lineHeight < 0) diagnostics.add('lineHeight.negative');
     final fontSize = auto ? max.toDouble() : _fontSize(rawFontSize);
     if (fontSize == 0) diagnostics.add('fontSize.zeroNativeLineHeight');
-    return TextSpec._(
-      text: data['text'] as String? ?? '',
+    return TextParameters._(
       fontFamilies: fontFamilies,
       fontSize: fontSize,
       auto: auto,
@@ -238,7 +286,7 @@ final class TextSpec {
     );
   }
 
-  final String text, whiteSpace, overflow;
+  final String whiteSpace, overflow;
   final List<String> fontFamilies;
   final double fontSize, letterSpacing, padding, strokeWidth, strokeMiterLimit;
   final double? wrapWidth, lineHeight;
@@ -258,8 +306,7 @@ final class TextSpec {
   final ui.Shadow? shadow;
   final List<String> unsupportedFields;
 
-  late final String metricKey = jsonEncode([
-    text,
+  late final String metricStyleKey = jsonEncode([
     fontFamilies,
     fontSize,
     auto,
