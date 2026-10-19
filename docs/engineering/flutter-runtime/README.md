@@ -1,6 +1,6 @@
 # Flutter runtime implementation
 
-Status: implementation in progress; no functional release qualification yet.
+Status: runtime and public playground integrated; release qualification pending.
 
 This is the implementation owner for the native package. Start with
 [architecture](architecture.md), then [contracts](contracts.md) and
