@@ -14,11 +14,12 @@ final class ResourceRetirement {
   }
 
   void flush() {
-    if (_pending.isEmpty) return;
-    final ready = List<void Function()>.of(_pending);
-    _pending.clear();
-    for (final dispose in ready) {
-      dispose();
+    while (_pending.isNotEmpty) {
+      final ready = List<void Function()>.of(_pending);
+      _pending.clear();
+      for (final dispose in ready) {
+        dispose();
+      }
     }
   }
 
