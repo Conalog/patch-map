@@ -13,15 +13,11 @@ void main() {
   testWidgets('native foundation mounts, decodes assets and tears down', (
     tester,
   ) async {
-    await tester.pumpWidget(const PatchMapExampleApp());
-    await tester.pumpAndSettle();
-    expect(find.text('PatchMap development'), findsOneWidget);
-    expect(
-      find.text(
-        'Package environment is ready.\nMap renderer is not implemented yet.',
-      ),
-      findsOneWidget,
+    await tester.pumpWidget(
+      const PatchMapExampleApp(itemCount: 4, autoStart: false),
     );
+    await tester.pumpAndSettle();
+    expect(find.text('PatchMap 10k native'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     final picture = await vg.loadPicture(
