@@ -11,18 +11,21 @@ import 'presentation_resolver.dart' show readAuthoredField;
 typedef PresentationRecordLookup =
     Map<String, Object?>? Function(PatchMapTarget target);
 
+const _elementCommon = ['show', 'locked', 'label', 'attrs'];
+const _componentCommon = ['show', 'label', 'attrs'];
 const _elementFields = {
-  'group': <String>[],
-  'grid': ['gap'],
-  'item': ['size', 'padding', 'contentOrientation'],
-  'relations': ['style'],
-  'image': ['source', 'size', 'opacity'],
-  'text': ['text', 'style', 'size', 'overflow'],
-  'rect': ['size', 'fill', 'stroke', 'radius', 'eventMode'],
+  'group': _elementCommon,
+  'grid': [..._elementCommon, 'gap'],
+  'item': [..._elementCommon, 'size', 'padding', 'contentOrientation'],
+  'relations': [..._elementCommon, 'style'],
+  'image': [..._elementCommon, 'source', 'size', 'opacity'],
+  'text': [..._elementCommon, 'text', 'style', 'size', 'overflow'],
+  'rect': [..._elementCommon, 'size', 'fill', 'stroke', 'radius', 'eventMode'],
 };
 const _componentFields = {
-  'background': ['source', 'tint'],
+  'background': [..._componentCommon, 'source', 'tint'],
   'bar': [
+    ..._componentCommon,
     'source',
     'size',
     'placement',
@@ -31,8 +34,23 @@ const _componentFields = {
     'animation',
     'animationDuration',
   ],
-  'icon': ['source', 'size', 'placement', 'margin', 'tint'],
-  'text': ['text', 'placement', 'margin', 'tint', 'style', 'split'],
+  'icon': [
+    ..._componentCommon,
+    'source',
+    'size',
+    'placement',
+    'margin',
+    'tint',
+  ],
+  'text': [
+    ..._componentCommon,
+    'text',
+    'placement',
+    'margin',
+    'tint',
+    'style',
+    'split',
+  ],
 };
 const _resetFields = {
   'background': ['show', 'source', 'tint', 'attrs'],
@@ -63,6 +81,20 @@ class PresentationAdmission {
     final seen = <PatchMapTarget>{};
     final patches = <PresentationPatch>[];
     final claims = <PresentationClaim>[];
+    // Only immutable primitive color values can reuse a successful schema
+    // check. Bound the temporary set, discard it on return/throw, and keep
+    // mutable channel objects on the normal detach/validation path.
+    Set<Object>? checkedColors;
+    Object checkedColor(Object? value, String path) {
+      final shareable = value is num || value is String && value.length <= 128;
+      if (shareable && (checkedColors?.contains(value) ?? false)) return value!;
+      final result = color(value, path);
+      if (shareable && (checkedColors?.length ?? 0) < 256) {
+        (checkedColors ??= {}).add(value!);
+      }
+      return result;
+    }
+
     var index = 0;
     for (final update in updates) {
       final path = '\$[$index]';
@@ -101,8 +133,8 @@ class PresentationAdmission {
       }
 
       final allowed = component
-          ? ['show', 'label', 'attrs', ..._componentFields[type]!]
-          : ['show', 'locked', 'label', 'attrs', ..._elementFields[type]!];
+          ? _componentFields[type]!
+          : _elementFields[type]!;
       known(update.values, allowed, '$path.values');
       final operations = <FieldOperation>[];
       for (final entry in update.values.entries) {
@@ -116,7 +148,7 @@ class PresentationAdmission {
         final normalized = switch (key) {
           'show' || 'locked' || 'animation' => boolean(v, p),
           'label' || 'text' => string(v, p),
-          'tint' || 'fill' => color(v, p),
+          'tint' || 'fill' => checkedColor(v, p),
           'attrs' => partialAttrs(v, p, _map(previous(key))),
           'size' => partialSize(
             v,

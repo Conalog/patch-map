@@ -35,12 +35,17 @@ Object? required(Map<String, Object?> value, String key, String path) {
 }
 
 void known(Map<String, Object?> value, Iterable<String> accepted, String path) {
-  final unknown = value.keys.where((key) => !accepted.contains(key)).toList()
-    ..sort();
-  if (unknown.isNotEmpty) {
+  String? unknown;
+  for (final key in value.keys) {
+    if (!accepted.contains(key) &&
+        (unknown == null || key.compareTo(unknown) < 0)) {
+      unknown = key;
+    }
+  }
+  if (unknown != null) {
     throw DatasetException(
       'UNKNOWN_FIELD',
-      '$path.${unknown.first}',
+      '$path.$unknown',
       'field is not in the closed schema',
     );
   }
