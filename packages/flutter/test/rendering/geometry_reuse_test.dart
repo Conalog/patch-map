@@ -51,6 +51,49 @@ void main() {
     },
   );
 
+  test(
+    'bar size and placement share paint while style changes remain isolated',
+    () async {
+      final h = support.Harness(active: false);
+      addTearDown(h.close);
+      final before = h.read([
+        support.item('i', 8, components: [support.background(), support.bar()]),
+      ]);
+      final old = before.nodes.single.components.last;
+      final oldPixels = await support.render(before);
+      final resized = before.geometry.prepare({
+        const PatchMapTarget('i', componentId: 'bar'): patch(old.layout.data, {
+          'size': {'width': 7, 'height': 9},
+          'placement': 'top',
+        }),
+      }, h.text.measure);
+      final next = h.project(resized.snapshot, previous: before);
+      expect(next.nodes.single.components.last.content, same(old.content));
+      expect(await support.render(next), isNot(orderedEquals(oldPixels)));
+      expect(await support.render(before), orderedEquals(oldPixels));
+      expect(
+        await support.render(next),
+        orderedEquals(await support.render(next, reference: true)),
+      );
+      final recolored = next.geometry.prepare({
+        const PatchMapTarget('i', componentId: 'bar'): patch(
+          next.nodes.single.components.last.layout.data,
+          {'tint': 'red'},
+        ),
+      }, h.text.measure);
+      final colored = h.project(recolored.snapshot, previous: next);
+      expect(
+        colored.nodes.single.components.last.content,
+        isNot(same(old.content)),
+      );
+      expect(await support.render(before), orderedEquals(oldPixels));
+      expect(
+        await support.render(colored),
+        orderedEquals(await support.render(colored, reference: true)),
+      );
+    },
+  );
+
   test('same-world bar transform changes retain sibling projections', () async {
     final h = support.Harness(active: false);
     h.text.setActive(false);

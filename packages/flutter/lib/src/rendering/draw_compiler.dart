@@ -34,7 +34,7 @@ final class DrawCompiler {
   final TextPool text;
   final DrawAssetFactory assets;
   final BarMaskHandle? Function(double radius)? barMasks;
-  final _components = <(ComponentLayout, double, Size, double), DrawContent>{};
+  final _components = <Object, DrawContent>{};
 
   DrawNode compile(
     TargetGeometry node, {
@@ -49,20 +49,32 @@ final class DrawCompiler {
     try {
       final item = node.item;
       if (item != null) {
+        double? worldScale;
         for (final layout in item.components) {
-          final worldScale =
-              vectorLength(node.world.a, node.world.b) >
-                  vectorLength(node.world.c, node.world.d)
-              ? vectorLength(node.world.a, node.world.b)
-              : vectorLength(node.world.c, node.world.d);
-          final key = (
-            layout,
-            node.opacity,
-            item.content.size,
-            layout.type == 'icon' || layout.type == 'background'
-                ? worldScale
-                : 0.0,
-          );
+          final data = layout.data;
+          final source = data['source'];
+          final rectangle =
+              layout.type == 'bar' ||
+              layout.type == 'background' &&
+                  source is Map<String, Object?> &&
+                  source['type'] == 'rect';
+          // Rectangle content owns paint/mask resources, not size or placement.
+          // Sharing ends with its last content lease; no historical style cache.
+          final Object key = rectangle
+              ? (
+                  layout.type,
+                  source,
+                  data['tint'],
+                  _opacity(data, node.opacity),
+                )
+              : (
+                  layout,
+                  node.opacity,
+                  item.content.size,
+                  layout.type == 'icon' || layout.type == 'background'
+                      ? worldScale ??= _worldScale(node.world)
+                      : 0.0,
+                );
           final retry = retrySources.contains(
             PatchMapTarget(node.id, componentId: layout.id),
           );
@@ -73,7 +85,6 @@ final class DrawCompiler {
             value = null;
           }
           if (value == null) {
-            final data = layout.data;
             value = switch (layout.type) {
               'text' => TextContent(
                 text,
@@ -248,4 +259,9 @@ Map<String, Object?> _textOpacity(
       'alpha': ((style['alpha'] as num?)?.toDouble() ?? 1) * opacity,
     },
   };
+}
+
+double _worldScale(Affine world) {
+  final x = vectorLength(world.a, world.b), y = vectorLength(world.c, world.d);
+  return x > y ? x : y;
 }
