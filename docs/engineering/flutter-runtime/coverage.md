@@ -113,26 +113,7 @@ The [common-input WebView checkpoint](webview-checkpoint.md) completed 84 reques
 Native API/observed CPU were lower; overview PSS was higher. Deployed equivalence
 and presentation smoothness remain unqualified. Historical code is evidence only.
 
-## Physical-device bar regression follow-up
+## Physical-device experiment comparison
 
-On October20 the SM-S936N manual host (Flutter3.47.6 profile, Impeller Vulkan)
-reproduced 297–343ms for five 10,000-bar requests with CPU sampling enabled.
-The first queued vsync was processed roughly292ms after input but carried a
-pre-input timestamp; the next fresh timestamp could expire a new200ms tween.
-The coordinator now samples monotonic elapsed time at callback execution. A
-stale-vsync regression test and physical-device video show intermediate bar
-heights across the intended transition again. Submission completion still does
-not wait for the animation to finish.
-
-The user-requested `mode-scenes-full-width-v3` host separates number-only changes
-on full bars, text-free bar changes, and mixed changes; every bar is100% of its
-content width. Mode preparation is outside the update clock. Three text-free
-bar requests without CPU sampling or video recording still took331–403ms at
-manual zoom. These are diagnostic observations, not a controlled speedup or a
-full benchmark. Input validation and candidate geometry/render preparation are
-remaining hot paths; removing text alone does not resolve the latency. The
-previous specialized experiment had sub100ms observations with different data
-and preparation contracts, so no exact regression ratio is asserted.
-
-Evidence, source/APK identity, traces and recordings are under
-`.artifacts/performance/flutter/native-bar-regression-device-20261020/`.
+The [matched experiment checkpoint](experiment-parity-checkpoint.md) records the fixed animation skip and remaining preparation regression: fresh-process10,000-bar zoom/pan response54→358ms, CPU301→749ms.
+Number/mixed comparisons require aligned text wrapping. Instrumented native-crash cause and memory attribution remain unresolved; no performance approval is inferred.
