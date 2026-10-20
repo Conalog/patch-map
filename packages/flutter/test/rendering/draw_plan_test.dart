@@ -679,6 +679,62 @@ void main() {
   );
 
   test(
+    'retained static proof invalidates for style, visibility and orientation',
+    () async {
+      final h = Harness(active: false);
+      addTearDown(h.close);
+      final p = h.read([
+        {...item('a', 8), 'contentOrientation': 'follow-item'},
+        {...item('b', 70), 'contentOrientation': 'follow-item'},
+      ]);
+      final oldMesh = p.plan.staticMeshIdentities.single;
+      final bg = component(p.geometry, 'a', 'bg');
+      final record = p.geometry['a']!.data;
+      final changes = <Map<PatchMapTarget, Map<String, Object?>>>[
+        {
+          const PatchMapTarget('a', componentId: 'bg'): {
+            ...bg,
+            'source': <String, Object?>{
+              ...bg['source'] as Map<String, Object?>,
+              'fill': '#f03080',
+              'radius': 8,
+            },
+          },
+        },
+        {
+          const PatchMapTarget('a', componentId: 'bg'): {...bg, 'show': false},
+        },
+        {
+          const PatchMapTarget('a'): {
+            ...record,
+            'attrs': <String, Object?>{
+              ...record['attrs'] as Map<String, Object?>,
+              'alpha': .5,
+            },
+          },
+        },
+        {
+          const PatchMapTarget('a'): {
+            ...record,
+            'contentOrientation': 'upright',
+          },
+        },
+      ];
+      for (final change in changes) {
+        final q = h.project(
+          p.geometry.prepare(change, h.text.measure).snapshot,
+          previous: p,
+        );
+        expect(q.plan.staticMeshIdentities, isNot(contains(same(oldMesh))));
+        compare(
+          await render(q, rotation: .3),
+          await render(q, reference: true, rotation: .3),
+        );
+      }
+    },
+  );
+
+  test(
     'compiler shares mask lease through content and releases at last plan',
     () {
       final h = Harness(active: false);

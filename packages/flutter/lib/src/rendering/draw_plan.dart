@@ -167,18 +167,19 @@ final class RenderPlan {
       }
       for (final index in affected) {
         final old = chunks[index];
-        final members = List<_Member?>.of(old.members);
-        var different = false;
+        List<_Member?>? replacements;
         for (var offset = 0; offset < old.slots.length; offset++) {
           final slot = old.slots[offset];
           if (!changed.contains(slot)) continue;
           final node = pages[slot ~/ geometry.nodes.pageSize]
               .nodes[slot % geometry.nodes.pageSize];
+          if (_sameStaticInputs(previous._node(slot), node)) continue;
           final next = _Member.create(node);
-          if (!_sameMember(members[offset], next)) different = true;
-          members[offset] = next;
+          if (_sameMember(old.members[offset], next)) continue;
+          (replacements ??= List<_Member?>.of(old.members))[offset] = next;
         }
-        if (!different) continue;
+        if (replacements == null) continue;
+        final members = replacements;
         final first = members.first;
         var safe =
             first != null &&
@@ -443,6 +444,40 @@ final class _Member {
       geometry.world,
     );
   }
+}
+
+// This is exactly the input boundary of _Member.create: dynamic paint content
+// does not enter a static proof, while its final conservative envelope does.
+// Inspect the two live publications; the proof stores no previous node/resource.
+bool _sameStaticInputs(DrawNode before, DrawNode after) {
+  if (identical(before, after)) return true;
+  final a = before.geometry, b = after.geometry;
+  if (a.item == null ||
+      b.item == null ||
+      a.id != b.id ||
+      a.visible != b.visible ||
+      a.opacity != b.opacity ||
+      !identical(a.world, b.world) ||
+      a.paintBounds != b.paintBounds ||
+      before.components.length != after.components.length)
+    return false;
+  for (var i = 0; i < before.components.length; i++) {
+    final old = before.components[i], next = after.components[i];
+    if (identical(old, next)) continue;
+    final x = old.layout, y = next.layout;
+    if (x.id != y.id ||
+        x.type != y.type ||
+        x.visible != y.visible ||
+        x.upright != y.upright)
+      return false;
+    if (x.type == 'background' &&
+        (!identical(old.content, next.content) ||
+            !identical(x.transform, y.transform) ||
+            x.box.width != y.box.width ||
+            x.box.height != y.box.height))
+      return false;
+  }
+  return true;
 }
 
 bool _sameSkeleton(_Member a, _Member b) {
