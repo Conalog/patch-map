@@ -76,10 +76,10 @@ final class TextContent extends DrawContent {
 }
 
 final class AssetContent extends DrawContent {
-  AssetContent(this.asset);
+  AssetContent(this.asset) : assets = List.unmodifiable([asset]);
   final DrawAsset asset;
   @override
-  Iterable<DrawAsset> get assets => [asset];
+  final List<DrawAsset> assets;
   @override
   void dispose() => asset.release();
   @override
@@ -106,10 +106,12 @@ final class DrawNode {
               geometry.world.sameTransform(previous.geometry.world)
           ? previous._world
           : _WorldProjection(geometry.world),
-      _componentWorld = _prepareComponentWorlds(
-        geometry,
+      _componentWorld = _prepareComponentWorlds(geometry, components, previous),
+      _assets = _NodeAssets.prepare(
+        geometry.id,
+        content,
         components,
-        previous,
+        previous?._assets,
       ) {
     for (final component in components) {
       component.content.retain();
@@ -141,6 +143,7 @@ final class DrawNode {
   final TargetGeometry geometry;
   final List<DrawComponent> components;
   final DrawContent? content;
+  final _NodeAssets _assets;
   final _WorldProjection _world;
   Float64List get matrix => _world.matrix;
   final List<Affine> _componentWorld;
@@ -161,26 +164,8 @@ final class DrawNode {
     if (_references < 0) throw StateError('unbalanced render node');
   }
 
-  Iterable<DrawAsset> get assets sync* {
-    if (content != null) yield* content!.assets;
-    for (final component in components) {
-      yield* component.content.assets;
-    }
-  }
-
-  Iterable<(DrawAsset, PatchMapTarget)> get assetTargets sync* {
-    for (final asset in content?.assets ?? const <DrawAsset>[]) {
-      yield (asset, PatchMapTarget(geometry.id));
-    }
-    for (final component in components) {
-      for (final asset in component.content.assets) {
-        yield (
-          asset,
-          PatchMapTarget(geometry.id, componentId: component.layout.id),
-        );
-      }
-    }
-  }
+  List<DrawAsset> get assets => _assets.values;
+  List<(DrawAsset, PatchMapTarget)> get assetTargets => _assets.targets;
 
   void paint(
     Canvas canvas, {
@@ -371,6 +356,50 @@ final class DrawNode {
     _upright.remove(layout.id);
     _uprightWorld[layout.id] = (display, world);
     return world;
+  }
+}
+
+/// Immutable reference metadata only. Content leases still own asset lifetime;
+/// readiness, failures and intrinsic dimensions are always read from the asset.
+final class _NodeAssets {
+  const _NodeAssets(this.values, this.targets);
+  static const empty = _NodeAssets([], []);
+  final List<DrawAsset> values;
+  final List<(DrawAsset, PatchMapTarget)> targets;
+
+  static _NodeAssets prepare(
+    String id,
+    DrawContent? content,
+    List<DrawComponent> components,
+    _NodeAssets? previous,
+  ) {
+    List<(DrawAsset, PatchMapTarget)>? targets;
+    for (final asset in content?.assets ?? const <DrawAsset>[]) {
+      (targets ??= []).add((asset, PatchMapTarget(id)));
+    }
+    for (final component in components) {
+      for (final asset in component.content.assets) {
+        (targets ??= []).add((
+          asset,
+          PatchMapTarget(id, componentId: component.layout.id),
+        ));
+      }
+    }
+    if (targets == null) return empty;
+    if (previous != null && targets.length == previous.targets.length) {
+      var same = true;
+      for (var i = 0; i < targets.length; i++) {
+        if (targets[i] != previous.targets[i]) {
+          same = false;
+          break;
+        }
+      }
+      if (same) return previous;
+    }
+    return _NodeAssets(
+      List.unmodifiable(targets.map((entry) => entry.$1)),
+      List.unmodifiable(targets),
+    );
   }
 }
 

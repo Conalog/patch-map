@@ -25,8 +25,15 @@ class PresentationResolver {
   Map<String, Object?> resolvePatch(
     Map<String, Object?> authored,
     Map<String, Object?> current,
-    PresentationPatch patch,
-  ) {
+    PresentationPatch patch, {
+    bool remember = true,
+  }) {
+    final ready = patch.resolution;
+    if (ready != null &&
+        identical(ready.authored, authored) &&
+        identical(ready.base, current)) {
+      return ready.value;
+    }
     var result = current;
     // Only this call owns the root copy. Nested records remain immutable and
     // shared; no partially assigned map is exposed to a caller or publication.
@@ -46,7 +53,11 @@ class PresentationResolver {
       );
       ownedRoot = !identical(result, current);
     }
-    return ownedRoot ? frozen(result) : current;
+    final value = ownedRoot ? frozen(result) : current;
+    if (remember) {
+      patch.resolution = (authored: authored, base: current, value: value);
+    }
+    return value;
   }
 }
 

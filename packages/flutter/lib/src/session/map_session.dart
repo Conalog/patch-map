@@ -284,6 +284,9 @@ final class MapSession {
       authoredRecord(_document!, patch.target),
       before,
       patch,
+      // Consume admission's proof when available. One-time execution (notably
+      // plain numeric text) does not need to retain another memo per record.
+      remember: false,
     );
     return !identical(before, next) ||
             _failedTargets.contains(patch.target.id) ||

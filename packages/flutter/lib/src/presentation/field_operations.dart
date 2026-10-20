@@ -16,6 +16,15 @@ class PresentationPatch {
     : operations = List.unmodifiable(operations);
   final PatchMapTarget target;
   final List<FieldOperation> operations;
+
+  /// A bounded, identity-guarded computation memo, never pending state. Merging
+  /// operations creates a new patch; rebasing against another record misses.
+  ({
+    Map<String, Object?> authored,
+    Map<String, Object?> base,
+    Map<String, Object?> value,
+  })?
+  resolution;
 }
 
 /// A detached claim about a caller-specified path, without request ownership.

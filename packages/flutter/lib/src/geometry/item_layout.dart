@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:ui';
 
 import '../dataset/dataset_values.dart' show DatasetException;
@@ -7,6 +8,37 @@ import 'readable_rect.dart';
 
 /// The text owner supplies measured geometry; layout never owns a Paragraph.
 typedef MeasureText = Size Function(Map<String, Object?> data, Size? content);
+
+/// One admission batch's scalar layouts. Text validation uses placeholder
+/// measurements, so only non-text components may cross into preparation.
+final class ComponentLayoutMemo {
+  final _entries =
+      HashMap<
+        Map<String, Object?>,
+        ({Size size, Rect content, ComponentLayout layout})
+      >.identity();
+
+  ComponentLayout? reuse(
+    Map<String, Object?> data,
+    Size size,
+    Rect content,
+    bool upright,
+  ) {
+    final entry = _entries[data];
+    return entry != null &&
+            entry.size == size &&
+            entry.content == content &&
+            entry.layout.upright == upright
+        ? entry.layout
+        : null;
+  }
+
+  void remember(Size size, Rect content, ComponentLayout layout) {
+    if (layout.type != 'text') {
+      _entries[layout.data] = (size: size, content: content, layout: layout);
+    }
+  }
+}
 
 final class ComponentLayout {
   ComponentLayout(this.data, this.box, this.transform, this.upright);
@@ -45,6 +77,7 @@ final class ItemLayout {
     Map<String, Object?> data,
     MeasureText measureText, {
     ItemLayout? previous,
+    ComponentLayoutMemo? memo,
   }) {
     var size = fixedSize(data['size']! as Map);
     if (previous?.size == size) size = previous!.size;
@@ -55,6 +88,8 @@ final class ItemLayout {
     Map<String, ComponentLayout>? previousById;
     for (final value in orderedRecords(values)) {
       final type = value['type'];
+      final upright =
+          type != 'background' && data['contentOrientation'] == 'upright';
       final index = components.length;
       final indexed = previous != null && index < previous.components.length
           ? previous.components[index]
@@ -74,6 +109,17 @@ final class ItemLayout {
               (type != 'background' &&
                   data['contentOrientation'] == 'upright')) {
         components.add(prior);
+        continue;
+      }
+      final checked = memo?.reuse(value, size, content, upright);
+      if (checked != null) {
+        components.add(
+          prior != null &&
+                  prior.box == checked.box &&
+                  prior.transform.sameTransform(checked.transform)
+              ? ComponentLayout(value, prior.box, prior.transform, upright)
+              : checked,
+        );
         continue;
       }
       Rect box;
@@ -125,14 +171,9 @@ final class ItemLayout {
       if (prior != null && local.sameTransform(prior.transform)) {
         local = prior.transform;
       }
-      components.add(
-        ComponentLayout(
-          value,
-          box,
-          local,
-          type != 'background' && data['contentOrientation'] == 'upright',
-        ),
-      );
+      final component = ComponentLayout(value, box, local, upright);
+      components.add(component);
+      memo?.remember(size, content, component);
     }
     return ItemLayout._(size, content, List.unmodifiable(components));
   }

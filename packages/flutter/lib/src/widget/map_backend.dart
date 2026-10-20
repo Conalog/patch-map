@@ -98,9 +98,11 @@ final class MapBackend extends SessionBackend {
   List<int>? _visible;
   Object? _cameraKey;
   List<int> _ranks = const [];
+  ComponentLayoutMemo? _validatedLayouts;
 
   @override
   void validateDocument(DatasetDocument document) {
+    _validatedLayouts = null;
     validateDatasetColors(document.roots, palette);
     // Pure scalar validation before acceptance; no Paragraph/image preparation.
     final checked = HashSet<Map<String, Object?>>.identity();
@@ -117,6 +119,10 @@ final class MapBackend extends SessionBackend {
     PresentationRecordLookup lookup,
   ) {
     const resolver = PresentationResolver();
+    // Only the latest admission owns this optional memo. Execution consumes it;
+    // merged/rebased records must match identity and owner geometry to reuse it.
+    _validatedLayouts = null;
+    final layouts = ComponentLayoutMemo();
     final records = <PatchMapTarget, Map<String, Object?>>{};
     for (final patch in batch.patches) {
       // Admission has already checked each text/reset value and its address.
@@ -161,11 +167,12 @@ final class MapBackend extends SessionBackend {
         ) {
           TextSpec.fromData(value, content, palette);
           return Size.zero;
-        });
+        }, memo: layouts);
       } else if (target.type == 'text') {
         TextSpec.fromData(data, null, palette);
       }
     }
+    _validatedLayouts = records.isEmpty ? null : layouts;
   }
 
   @override
@@ -257,6 +264,8 @@ final class MapBackend extends SessionBackend {
     final epoch = _epoch;
     final previous = before as RenderPublication,
         resources = previous.resources;
+    final layouts = _validatedLayouts;
+    _validatedLayouts = null;
     final sourceTargets = {
       for (final patch in intent?.patches ?? const <PresentationPatch>[])
         if (patch.operations.any(
@@ -272,6 +281,7 @@ final class MapBackend extends SessionBackend {
         final prepared = previous.geometry.prepare(
           changes,
           resources.text.measure,
+          layoutsMemo: layouts,
         );
         for (final entry in prepared.changed.entries) {
           final node = resources.compiler.compile(
@@ -310,9 +320,11 @@ final class MapBackend extends SessionBackend {
       }
 
       for (final entry in owned.entries) {
+        final oldAssets = previous.node(entry.key).assets;
+        if (identical(oldAssets, entry.value.assets)) continue;
         List<DrawAsset>? pending;
         for (final asset in entry.value.assets) {
-          if (!previous.node(entry.key).assets.contains(asset) &&
+          if (!oldAssets.contains(asset) &&
               !(pending?.contains(asset) ?? false)) {
             (pending ??= []).add(asset);
           }
@@ -422,14 +434,9 @@ final class MapBackend extends SessionBackend {
       }
       Map<DrawAsset, List<PatchMapTarget>>? targets;
       for (final entry in owned.entries) {
-        final old = previous.node(entry.key).assetTargets.toList(),
-            next = entry.value.assetTargets.toList();
-        if (old.length == next.length &&
-            Iterable<int>.generate(
-              old.length,
-            ).every((i) => old[i] == next[i])) {
-          continue;
-        }
+        final old = previous.node(entry.key).assetTargets,
+            next = entry.value.assetTargets;
+        if (identical(old, next)) continue;
         targets ??= Map.of(previous.assetTargets);
         for (final (asset, target) in old) {
           final remaining = targets[asset]!
@@ -447,6 +454,9 @@ final class MapBackend extends SessionBackend {
       }
       Map<(String, int), int>? counts;
       for (final entry in owned.entries) {
+        if (identical(previous.node(entry.key).assets, entry.value.assets)) {
+          continue;
+        }
         final old = previous
             .node(entry.key)
             .assets
@@ -747,6 +757,7 @@ final class MapBackend extends SessionBackend {
 
   @override
   void hide() {
+    _validatedLayouts = null;
     _epoch++;
     _wakeActivity();
     onReplacement();

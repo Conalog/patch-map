@@ -5,20 +5,25 @@ import 'field_operations.dart';
 class PresentationComposer {
   const PresentationComposer();
   PresentationPlan compose(PresentationPlan earlier, PresentationPlan later) {
-    final patches = <PatchMapTarget, List<FieldOperation>>{
-      for (final patch in earlier.patches) patch.target: [...patch.operations],
+    if (earlier.patches.isEmpty) return PresentationPlan(later.patches);
+    if (later.patches.isEmpty) return earlier;
+    final patches = <PatchMapTarget, PresentationPatch>{
+      for (final patch in earlier.patches) patch.target: patch,
     };
     for (final patch in later.patches) {
-      final operations = patches.putIfAbsent(patch.target, () => []);
+      final previous = patches[patch.target];
+      if (previous == null) {
+        patches[patch.target] = patch;
+        continue;
+      }
+      final operations = [...previous.operations];
       for (final next in patch.operations) {
         operations.removeWhere((previous) => _covers(next.path, previous.path));
         operations.add(next);
       }
+      patches[patch.target] = PresentationPatch(patch.target, operations);
     }
-    return PresentationPlan([
-      for (final entry in patches.entries)
-        PresentationPatch(entry.key, entry.value),
-    ]);
+    return PresentationPlan(patches.values);
   }
 }
 

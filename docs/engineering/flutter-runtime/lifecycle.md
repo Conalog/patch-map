@@ -33,9 +33,14 @@ and preparation failures can both be reported. Immutable effective values and
 retained projections are reused when unchanged; avoid allocating a complete
 candidate object for every unchanged input record.
 After complete admission/validation, an idle no-op probe stops at the first
-changed or retryable record. It stores no speculative resolved state: execution
-resolves the composed batch against current values. A complete no-op still
-checks every addressed record before taking the no-frame completion path.
+changed or retryable record. A patch may retain one resolution memo, reusable only
+when both authored and current records are identical. Merging its operations creates
+a new patch; execution still resolves against current values after rebase or failure.
+The backend consumes at most the latest admission batch's non-text layout memo,
+checking component identity and owner size/content/orientation; text placeholders
+never become measured geometry. These are optional computations, not pending state
+or resource leases. A complete no-op still checks every addressed record before
+taking the no-frame completion path.
 
 Prepare and publish related changes as an item-consistent unit. One item's new
 bar must not appear with its old number. A failed item keeps its prior valid

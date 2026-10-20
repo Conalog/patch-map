@@ -159,6 +159,7 @@ final class GeometrySnapshot {
     Map<PatchMapTarget, Map<String, Object?>> changes,
     MeasureText measure, {
     MeasureImage? measureImage,
+    ComponentLayoutMemo? layoutsMemo,
   }) {
     if (changes.isEmpty) return GeometryChange(this, const {});
     final records = <String, Map<String, Object?>>{};
@@ -219,7 +220,12 @@ final class GeometrySnapshot {
             ? before.item
             : layouts.putIfAbsent(
                 data,
-                () => ItemLayout.compile(data, measure, previous: before.item),
+                () => ItemLayout.compile(
+                  data,
+                  measure,
+                  previous: before.item,
+                  memo: layoutsMemo,
+                ),
               );
       }
       final projected = projectTargetGeometry(

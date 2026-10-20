@@ -166,7 +166,13 @@ void main() {
       final completedWithoutImage = done;
       bytes.complete(Uint8List.fromList(utf8.encode(good)));
       final next = await task;
-      (next.publication as RenderPublication).dispose();
+      final after = next.publication as RenderPublication;
+      expect(identical(after.node(0).assets, before.node(0).assets), true);
+      expect(identical(after.assetTargets, before.assetTargets), true);
+      expect(identical(after.assetCounts, before.assetCounts), true);
+      await after.node(0).assets.single.ready;
+      expect(after.node(0).assets.single.intrinsicSize, const Size(20, 10));
+      after.dispose();
       before.dispose();
       h.close();
       expect(completedWithoutImage, true);
