@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import '../api/target.dart';
 import '../dataset/dataset_reader.dart';
 import '../dataset/dataset_values.dart';
@@ -23,7 +25,7 @@ class PresentationResolver {
         patch,
       );
     }
-    return Map.unmodifiable(resolved);
+    return UnmodifiableMapView(resolved);
   }
 
   Map<String, Object?> resolvePatch(
@@ -57,7 +59,9 @@ class PresentationResolver {
       );
       ownedRoot = !identical(result, current);
     }
-    final value = ownedRoot ? frozen(result) : current;
+    // The mutable root is local to this call and is never assigned again after
+    // this handoff. Protect it without copying its entries a second time.
+    final value = ownedRoot ? UnmodifiableMapView(result) : current;
     if (remember) {
       patch.resolution = (authored: authored, base: current, value: value);
     }
@@ -123,7 +127,7 @@ Map<String, Object?> _assign(
     } else {
       result[key] = value;
     }
-    return index == 0 ? result : frozen(result);
+    return index == 0 ? result : UnmodifiableMapView(result);
   }
   Object? old = current[key];
   var introducedStroke = false;
@@ -152,5 +156,5 @@ Map<String, Object?> _assign(
       ? current
       : Map<String, Object?>.of(current);
   result[key] = next;
-  return index == 0 ? result : frozen(result);
+  return index == 0 ? result : UnmodifiableMapView(result);
 }

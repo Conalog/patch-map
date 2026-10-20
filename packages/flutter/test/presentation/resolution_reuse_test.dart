@@ -43,6 +43,47 @@ PresentationBatch _admit(
 ], current: current == null ? null : (_) => current);
 
 void main() {
+  test(
+    'resolved owned maps stay immutable across nested updates and resets',
+    () {
+      final document = _scene();
+      final authored = authoredRecord(document, _text);
+      final first = _resolver.resolve(
+        document,
+        _admit(document, _text, {
+          'text': 'first',
+          'style': {'fontSize': 24, 'fill': 'red'},
+        }),
+      );
+      final firstValue = first[_text]!;
+      final firstStyle = firstValue['style'] as Map<String, Object?>;
+      final later = _resolver.resolve(
+        document,
+        _admit(document, _text, {
+          'text': 'later',
+          'style': {'fontSize': 36, 'fill': 'blue'},
+        }, current: firstValue),
+        current: (_) => firstValue,
+      )[_text]!;
+      final reset = _resolver.resolve(
+        document,
+        _admit(document, _text, {'style': null}, current: later),
+        current: (_) => later,
+      )[_text]!;
+      expect(() => first.clear(), throwsUnsupportedError);
+      expect(() => firstValue['text'] = 'mutated', throwsUnsupportedError);
+      expect(() => firstStyle['fill'] = 'mutated', throwsUnsupportedError);
+      expect(firstValue['text'], 'first');
+      expect(firstStyle['fontSize'], 24);
+      expect(firstStyle['fill'], 'red');
+      expect((later['style'] as Map)['fontSize'], 36);
+      expect((later['style'] as Map)['fill'], 'blue');
+      expect(reset['style'], authored['style']);
+      expect(reset['text'], 'later');
+      expect(authored['text'], 'authored');
+    },
+  );
+
   test('admitted claims share only detached immutable operation paths', () {
     final callerPath = ['style', 'fill'];
     final operation = FieldOperation(
