@@ -35,6 +35,14 @@ class PresentationClaim {
     this.expectedValue, {
     required this.exists,
   }) : path = List.unmodifiable(path);
+
+  /// Operations already own an immutable path; no caller collection is shared.
+  PresentationClaim.fromOperation(
+    this.target,
+    FieldOperation operation,
+    this.expectedValue, {
+    required this.exists,
+  }) : path = operation.path;
   final PatchMapTarget target;
   final List<String> path;
   final Object? expectedValue;

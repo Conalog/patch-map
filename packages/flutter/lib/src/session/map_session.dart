@@ -50,16 +50,14 @@ final class MapSession {
   bool get active => _active && !_closed;
   int get generation => _generation;
   bool get commandsAllowed => !_closed && !_inFilter;
-  Map<String, Object?>? current(PatchMapTarget target) =>
-      _values[target] ??
-      (_document == null ||
-              !_document!.targets.containsKey(target.id) ||
-              target.componentId != null &&
-                  !_document!.targets[target.id]!.components.containsKey(
-                    target.componentId,
-                  )
-          ? null
-          : authoredRecord(_document!, target));
+  Map<String, Object?>? current(PatchMapTarget target) {
+    final value = _values[target];
+    if (value != null) return value;
+    final authored = _document?.targets[target.id];
+    if (authored == null) return null;
+    final component = target.componentId;
+    return component == null ? authored.data : authored.components[component];
+  }
 
   void refreshResources() {
     if (_closed || _document == null || _phase == PatchMapPhase.failed) return;
@@ -127,10 +125,7 @@ final class MapSession {
     }
     final pending = _pending ??= _Pending();
     final result = pending.ledger.add(batch);
-    pending.plan = _composer.compose(pending.plan, batch);
-    pending.index = {
-      for (final patch in pending.plan.patches) patch.target: patch,
-    };
+    _composePending(pending, batch);
     _schedule();
     return result;
   }
@@ -257,14 +252,17 @@ final class MapSession {
   Map<String, Object?>? _latestRecord(PatchMapTarget target) {
     var result = current(target);
     if (result == null) return null;
-    final authored = authoredRecord(_document!, target);
     // A published executing plan is already represented by _values. Replaying
     // it would resurrect fields of an item whose preparation failed.
-    for (final queue in [if (_submission == null) _executing, _pending]) {
-      final patch = queue?.index[target];
-      if (patch != null) {
-        result = _resolver.resolvePatch(authored, result!, patch);
-      }
+    final executing = _submission == null ? _executing?.index[target] : null;
+    final pending = _pending?.index[target];
+    if (executing == null && pending == null) return result;
+    final authored = authoredRecord(_document!, target);
+    if (executing != null) {
+      result = _resolver.resolvePatch(authored, result, executing);
+    }
+    if (pending != null) {
+      result = _resolver.resolvePatch(authored, result, pending);
     }
     return result;
   }
@@ -443,8 +441,13 @@ final class MapSession {
 
   void _mergePending(_Pending older, _Pending newer) {
     older.ledger.absorb(newer.ledger);
-    older.plan = _composer.compose(older.plan, newer.plan);
-    older.index = {for (final patch in older.plan.patches) patch.target: patch};
+    _composePending(older, newer.plan);
+  }
+
+  void _composePending(_Pending pending, PresentationPlan later) {
+    final composed = _composer.composeIndexed(pending.plan, later);
+    pending.plan = composed.plan;
+    pending.index = composed.index;
   }
 
   void _wakeActivity() {

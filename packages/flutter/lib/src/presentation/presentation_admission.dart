@@ -5,7 +5,7 @@ import '../dataset/dataset_styles.dart';
 import '../dataset/dataset_values.dart';
 import 'field_operations.dart';
 import 'partial_values.dart';
-import 'presentation_resolver.dart' show authoredRecord, readAuthoredField;
+import 'presentation_resolver.dart' show readAuthoredField;
 
 /// Lookup of an already-owned effective/raw pending record; never a scene copy.
 typedef PresentationRecordLookup =
@@ -82,8 +82,16 @@ class PresentationAdmission {
           'element target does not exist',
         );
       }
-      final authored = authoredRecord(document, update.target);
-      final component = update.target.componentId != null;
+      final componentId = update.target.componentId;
+      final component = componentId != null;
+      final authored = component ? target.components[componentId] : target.data;
+      if (authored == null) {
+        throw DatasetException(
+          'MISSING_TARGET',
+          update.target.toString(),
+          'component target does not exist',
+        );
+      }
       final type = component ? authored['type']! as String : target.type;
       final concrete = component && target.row != null;
       Map<String, Object?>? baseline;
@@ -176,9 +184,9 @@ class PresentationAdmission {
                     : operation.value,
               );
         claims.add(
-          PresentationClaim(
+          PresentationClaim.fromOperation(
             update.target,
-            operation.path,
+            operation,
             expected.value,
             exists: expected.exists,
           ),

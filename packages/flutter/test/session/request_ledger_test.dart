@@ -90,4 +90,63 @@ void main() {
     expect((await result).interruption, PatchMapInterruption.replaced);
     expect(() => ledger.add(batch([])), throwsStateError);
   });
+
+  test(
+    'sibling claims retain independent owners through absorb and replacement',
+    () async {
+      final older = RequestLedger(), newer = RequestLedger();
+      final first = older.add(
+        batch([
+          claim('i', ['text'], '1'),
+          claim('j', ['text'], '1'),
+        ]),
+      );
+      final second = newer.add(
+        batch([
+          claim('i', ['text'], '1'),
+        ]),
+      );
+      older.absorb(newer);
+      final third = older.add(
+        batch([
+          claim('i', ['text'], '2'),
+        ]),
+      );
+      older.submit(
+        failures: {
+          'j': [const PatchMapFailure('PREP', 'only j failed')],
+        },
+      );
+      final a = await first, b = await second, c = await third;
+      expect(a.outcome, PatchMapOutcome.partialFailure);
+      expect(a.superseded, true);
+      expect(a.failures.single.message, 'only j failed');
+      expect(b.outcome, PatchMapOutcome.applied);
+      expect(b.superseded, true);
+      expect(b.failures, isEmpty);
+      expect(c.outcome, PatchMapOutcome.applied);
+      expect(c.superseded, false);
+      expect(c.failures, isEmpty);
+    },
+  );
+
+  test(
+    'empty failure recording preserves previously attributed failures',
+    () async {
+      final ledger = RequestLedger();
+      final result = ledger.add(
+        batch([
+          claim('i', ['text'], '1'),
+        ]),
+      );
+      ledger.recordFailures({
+        'i': [const PatchMapFailure('PREP', 'failed before submission')],
+      });
+      ledger.recordFailures({});
+      ledger.submit();
+      final completed = await result;
+      expect(completed.outcome, PatchMapOutcome.partialFailure);
+      expect(completed.failures.single.message, 'failed before submission');
+    },
+  );
 }

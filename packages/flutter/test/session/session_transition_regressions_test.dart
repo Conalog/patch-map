@@ -91,6 +91,106 @@ Future<void> ready(MapSession s, Backend b) async {
 
 void main() {
   test(
+    'inactive cross-field validation reads the latest composed pending index',
+    () async {
+      final backend = Backend();
+      final session = make(backend);
+      addTearDown(session.close);
+      const component = PatchMapTarget('i', componentId: 'c');
+      final replacement = session.replace([
+        {
+          'type': 'item',
+          'id': 'i',
+          'size': 20,
+          'components': [
+            {
+              'type': 'text',
+              'id': 'c',
+              'text': '0',
+              'style': {
+                'autoFont': {'min': 1, 'max': 10},
+              },
+            },
+          ],
+        },
+      ]);
+      await flush();
+      session.didSubmit(backend.stamp!);
+      await replacement;
+      session.setActive(false);
+      final first = session.update([
+        const PatchMapUpdate(component, {
+          'style': {
+            'autoFont': {'min': 8},
+          },
+        }),
+      ]);
+      final rejected = await session.update([
+        const PatchMapUpdate(component, {
+          'style': {
+            'autoFont': {'max': 5},
+          },
+        }),
+      ]);
+      expect(rejected.outcome, PatchMapOutcome.rejected);
+      final last = session.update([
+        const PatchMapUpdate(component, {
+          'style': {
+            'autoFont': {'max': 12},
+          },
+        }),
+      ]);
+      session.setActive(true);
+      await flush();
+      expect((backend.lastChanges[component]!['style'] as Map)['autoFont'], {
+        'min': 8,
+        'max': 12,
+      });
+      session.didSubmit(backend.stamp!);
+      expect((await first).outcome, PatchMapOutcome.applied);
+      expect((await last).outcome, PatchMapOutcome.applied);
+    },
+  );
+
+  test(
+    'current lookup preserves authored and missing-address semantics',
+    () async {
+      final backend = Backend();
+      final actual = make(backend);
+      final replacement = actual.replace([
+        {
+          'type': 'item',
+          'id': 'i',
+          'size': 20,
+          'components': [
+            {'type': 'text', 'id': 'c', 'text': '0'},
+          ],
+        },
+      ]);
+      await flush();
+      actual.didSubmit(backend.stamp!);
+      await replacement;
+      const component = PatchMapTarget('i', componentId: 'c');
+      expect(actual.current(const PatchMapTarget('missing')), isNull);
+      expect(
+        actual.current(const PatchMapTarget('i', componentId: 'missing')),
+        isNull,
+      );
+      expect(actual.current(const PatchMapTarget('i'))!['type'], 'item');
+      expect(actual.current(component)!['text'], '0');
+      final updated = actual.update([
+        const PatchMapUpdate(component, {'text': '1'}),
+      ]);
+      await flush();
+      expect(actual.current(component)!['text'], '1');
+      actual.didSubmit(backend.stamp!);
+      await updated;
+      actual.close();
+      expect(actual.current(component), isNull);
+    },
+  );
+
+  test(
     'preparing callback deactivation starts no resource preparation',
     () async {
       final b = Backend();

@@ -43,6 +43,83 @@ PresentationBatch _admit(
 ], current: current == null ? null : (_) => current);
 
 void main() {
+  test('admitted claims share only detached immutable operation paths', () {
+    final callerPath = ['style', 'fill'];
+    final operation = FieldOperation(
+      FieldOperationKind.childrenSet,
+      callerPath,
+      'red',
+    );
+    final shared = PresentationClaim.fromOperation(
+      _text,
+      operation,
+      'red',
+      exists: true,
+    );
+    final external = PresentationClaim(_text, callerPath, 'red', exists: true);
+    callerPath[1] = 'fontSize';
+    expect(shared.path, ['style', 'fill']);
+    expect(external.path, ['style', 'fill']);
+    expect(shared.path, same(operation.path));
+    expect(() => shared.path.clear(), throwsUnsupportedError);
+    expect(() => external.path.clear(), throwsUnsupportedError);
+
+    final admitted = _admit(_scene(), _text, {
+      'style': {'fill': 'red'},
+    });
+    expect(
+      admitted.claims.single.path,
+      same(admitted.patches.single.operations.single.path),
+    );
+    expect(
+      admitted.claims.single.isSatisfiedBy({
+        'style': {'fill': 'red'},
+      }),
+      true,
+    );
+  });
+
+  test(
+    'indexed composition keeps earlier snapshots and reset barriers immutable',
+    () {
+      final document = _scene();
+      const composer = PresentationComposer();
+      final original = composer.composeIndexed(
+        PresentationPlan([]),
+        _admit(document, _text, {'style': null}),
+      );
+      final barBatch = _admit(document, _bar, {
+        'size': {'height': 7},
+      });
+      final withBar = composer.composeIndexed(original.plan, barBatch);
+      final filled = composer.composeIndexed(
+        withBar.plan,
+        _admit(document, _text, {
+          'style': {'fill': 'red'},
+        }),
+      );
+      expect(original.index.keys, [_text]);
+      expect(withBar.index[_text], same(original.index[_text]));
+      expect(filled.index[_bar], same(withBar.index[_bar]));
+      expect(filled.index[_text], isNot(same(withBar.index[_text])));
+      expect(filled.index.values, orderedEquals(filled.plan.patches));
+      final emptyLater = composer.composeIndexed(
+        filled.plan,
+        PresentationPlan([]),
+      );
+      expect(emptyLater.plan, same(filled.plan));
+      expect(emptyLater.index.values, orderedEquals(filled.plan.patches));
+      expect(() => filled.index.clear(), throwsUnsupportedError);
+      expect(() => filled.plan.patches.clear(), throwsUnsupportedError);
+      final before = _resolver.resolve(document, original.plan);
+      final after = _resolver.resolve(document, filled.plan);
+      expect((before[_text]!['style'] as Map)['fill'], isNot('red'));
+      expect((after[_text]!['style'] as Map)['fontSize'], 12);
+      expect((after[_text]!['style'] as Map)['fill'], 'red');
+      expect(after[_bar]!['size'], {'width': 20, 'height': 7});
+    },
+  );
+
   test(
     'reset and later field resolve against the execution base and document',
     () {

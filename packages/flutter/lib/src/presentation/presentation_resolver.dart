@@ -13,14 +13,18 @@ class PresentationResolver {
     DatasetDocument document,
     PresentationPlan batch, {
     Map<String, Object?>? Function(PatchMapTarget)? current,
-  }) => Map.unmodifiable({
-    for (final patch in batch.patches)
-      patch.target: resolvePatch(
-        authoredRecord(document, patch.target),
-        current?.call(patch.target) ?? authoredRecord(document, patch.target),
+  }) {
+    final resolved = <PatchMapTarget, Map<String, Object?>>{};
+    for (final patch in batch.patches) {
+      final authored = authoredRecord(document, patch.target);
+      resolved[patch.target] = resolvePatch(
+        authored,
+        current?.call(patch.target) ?? authored,
         patch,
-      ),
-  });
+      );
+    }
+    return Map.unmodifiable(resolved);
+  }
 
   Map<String, Object?> resolvePatch(
     Map<String, Object?> authored,

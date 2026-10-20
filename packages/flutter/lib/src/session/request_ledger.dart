@@ -19,8 +19,10 @@ final class RequestLedger {
     if (_settled) throw StateError('request ledger is settled');
     final request = _Request();
     _requests.add(request);
+    final owners = [request];
     for (final claim in batch.claims) {
-      _append(claim, [request]);
+      // _ClaimOwners copies this source; sibling claims never share owners.
+      _append(claim, owners);
     }
     return request.completer.future;
   }
@@ -97,7 +99,7 @@ final class RequestLedger {
 
   /// Preserve failures already published even if submission is interrupted.
   void recordFailures(Map<String, List<PatchMapFailure>> failures) {
-    if (_settled) return;
+    if (_settled || failures.isEmpty) return;
     for (final entry in _claims.entries) {
       final errors = failures[entry.key.id];
       if (errors == null || errors.isEmpty) continue;
