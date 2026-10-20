@@ -7,10 +7,15 @@ enum MapLayout { grid, random }
 enum UpdateWorkload { number, bar, mixed }
 
 /// Host JSON only: 100 panels per grid, ordered groups in five columns. Random
-/// varies templates/values, never placement. Both modes keep bar and number
-/// visible together as an integrated maximum-load case, not a consumer replay.
+/// varies templates/values, never placement. Each workload has its own scene:
+/// number uses a full bar, bar omits text, and mixed shows both components.
 final class MapWorkload {
-  MapWorkload(this.layout, {this.count = 10000, this.seed = defaultSeed}) {
+  MapWorkload(
+    this.layout, {
+    this.count = 10000,
+    this.seed = defaultSeed,
+    this.mode = UpdateWorkload.mixed,
+  }) {
     if (count < 0) {
       throw RangeError.value(count, 'count', 'must be nonnegative');
     }
@@ -21,7 +26,7 @@ final class MapWorkload {
     final groups = (count + 99) ~/ 100;
     for (var group = 0; group < groups; group++) {
       final mixed = layout == MapLayout.random;
-      // Keep size/padding paired: three content widths × three percent widths.
+      // Keep size/padding paired; every mode fills the content width.
       final sizeSlot = !mixed
           ? 0
           : switch (group % 10) {
@@ -32,11 +37,6 @@ final class MapWorkload {
       final width = const [40, 32, 52][sizeSlot];
       final height = const [80, 64, 92][sizeSlot];
       final padding = sizeSlot == 1 ? 2 : 3;
-      final widthSlot = !mixed
-          ? group % 3
-          : sizeSlot == 0
-          ? _weightedWidth(random.nextInt(10))
-          : (group ~/ 10) % 3;
       final panels = min(100, count - group * 100);
       final cells = <List<int>>[];
       for (var start = 0; start < panels; start += 10) {
@@ -79,8 +79,10 @@ final class MapWorkload {
                   ? const ['#063559', '#94a3b8', '#64748b'][group % 3]
                   : '#063559',
               radius: mixed ? 1 + group % 4 : 3,
-              widthPercent: widthPercents[widthSlot],
-              heightPercent: mixed
+              mode: mode,
+              heightPercent: mode == UpdateWorkload.number
+                  ? 100
+                  : mixed
                   ? 15 + random.nextInt(76)
                   : 15 + group * 37 % 76,
               color: colors[mixed ? random.nextInt(colors.length) : group % 3],
@@ -103,6 +105,8 @@ final class MapWorkload {
   }
 
   final MapLayout layout;
+  final UpdateWorkload mode;
+  static const fixtureId = 'mode-scenes-full-width-v3';
   final int count, seed;
   late final List<Map<String, Object?>> data;
 
@@ -112,15 +116,8 @@ final class MapWorkload {
   static const defaultSeed = 3476;
   static const groupPitchX = 800, groupPitchY = 1120, groupInset = 64;
   static const panelInsetX = 96, panelInsetY = 32;
-  static const widthPercents = [100, 60, 25];
   static const colors = ['#0c73bf', '#063559', '#636363', '#2ecc71', '#e74c3c'];
   static const _powersOfTen = [1, 10, 100, 1000, 10000, 100000, 1000000];
-
-  static int _weightedWidth(int slot) => slot < 6
-      ? 0
-      : slot < 8
-      ? 1
-      : 2;
 
   static Map<String, Object?> _item({
     required int width,
@@ -130,7 +127,7 @@ final class MapWorkload {
     required int borderWidth,
     required String borderColor,
     required int radius,
-    required int widthPercent,
+    required UpdateWorkload mode,
     required int heightPercent,
     required String color,
     required String text,
@@ -162,33 +159,34 @@ final class MapWorkload {
           'borderColor': '#00000000',
         },
         'tint': color,
-        'size': {'width': '$widthPercent%', 'height': '$heightPercent%'},
+        'size': {'width': '100%', 'height': '$heightPercent%'},
         'placement': 'bottom',
         'animation': true,
         'animationDuration': 200,
         'attrs': {'zIndex': 1},
       },
-      {
-        'type': 'text',
-        'id': 'text',
-        'show': true,
-        'text': text,
-        'placement': 'center',
-        'margin': 4,
-        'tint': 'white',
-        'attrs': {'zIndex': 2},
-        'style': {
-          'fontFamily': 'FiraCode',
-          'fontWeight': 500,
-          'fontSize': 'auto',
-          'autoFont': {'min': 8, 'max': 14},
-          'align': 'center',
-          'fill': 'white',
-          'wordWrap': true,
-          'breakWords': false,
-          'wordWrapWidth': 'auto',
+      if (mode != UpdateWorkload.bar)
+        {
+          'type': 'text',
+          'id': 'text',
+          'show': true,
+          'text': text,
+          'placement': 'center',
+          'margin': 4,
+          'tint': 'white',
+          'attrs': {'zIndex': 2},
+          'style': {
+            'fontFamily': 'FiraCode',
+            'fontWeight': 500,
+            'fontSize': 'auto',
+            'autoFont': {'min': 8, 'max': 14},
+            'align': 'center',
+            'fill': 'white',
+            'wordWrap': true,
+            'breakWords': false,
+            'wordWrapWidth': 'auto',
+          },
         },
-      },
     ],
   };
 

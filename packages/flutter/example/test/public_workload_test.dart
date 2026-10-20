@@ -13,6 +13,45 @@ Future<void> progress(WidgetTester tester) async {
 }
 
 void main() {
+  for (final mode in UpdateWorkload.values) {
+    testWidgets('${mode.name} scene admits its own public updates', (
+      tester,
+    ) async {
+      final controller = PatchMapController();
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: PatchMapView(controller: controller),
+        ),
+      );
+      final scene = MapWorkload(MapLayout.random, count: 4, mode: mode);
+      final draw = controller.draw(scene.data);
+      await progress(tester);
+      expect((await draw).failures, isEmpty);
+      final before = controller.getValue(
+        const PatchMapTarget('grid-0.0.0', componentId: 'bar'),
+      );
+      final update = controller.updateValues(scene.updates(mode, 1));
+      await progress(tester);
+      final result = await update;
+      expect(result.outcome, PatchMapOutcome.applied);
+      expect(result.failures, isEmpty);
+      final bar = controller.getValue(
+        const PatchMapTarget('grid-0.0.0', componentId: 'bar'),
+      )!;
+      expect((bar['size'] as Map)['width'], '100%');
+      if (mode == UpdateWorkload.number) {
+        expect(bar, before);
+        expect((bar['size'] as Map)['height'], '100%');
+      }
+      final text = controller.getValue(
+        const PatchMapTarget('grid-0.0.0', componentId: 'text'),
+      );
+      expect(text, mode == UpdateWorkload.bar ? isNull : isNotNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final layout in MapLayout.values) {
     testWidgets(
       '${layout.name} example data draws and all update kinds are admitted through public API',

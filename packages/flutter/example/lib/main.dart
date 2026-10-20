@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:conalog_patch_map/conalog_patch_map.dart';
 import 'package:flutter/material.dart';
@@ -58,6 +59,7 @@ class _ExperimentState extends State<_Experiment>
   final Measurements _measurements = Measurements();
   MapWorkload? _scene;
   MapLayout _layout = MapLayout.grid;
+  UpdateWorkload _mode = UpdateWorkload.number;
   Size _viewport = Size.zero;
   Timer? _stress;
   late final AnimationController _motion =
@@ -167,40 +169,82 @@ class _ExperimentState extends State<_Experiment>
     return sample;
   }
 
-  Future<void> _replace({bool emit = false}) async {
+  Future<void> _replace({
+    bool emit = false,
+    UpdateWorkload? mode,
+    bool preserveCamera = false,
+    bool record = true,
+  }) async {
     if (_busy || !_controller.isAttached) return;
     final epoch = _epoch;
+    final center = preserveCamera
+        ? _controller.toWorld(_viewport.center(Offset.zero))
+        : null;
+    final origin = _controller.toWorld(Offset.zero);
+    final unit = _controller.toWorld(const Offset(1, 0));
+    final vector = origin != null && unit != null ? unit - origin : null;
+    final scale = vector != null && vector.distance > 0
+        ? 1 / vector.distance
+        : null;
+    final rotation = vector == null ? null : -math.atan2(vector.dy, vector.dx);
     setState(() => _busy = true);
     final generation = Stopwatch()..start();
-    final candidate = MapWorkload(_layout, count: widget.count);
+    final candidate = MapWorkload(
+      _layout,
+      count: widget.count,
+      mode: mode ?? _mode,
+    );
     generation.stop();
     try {
-      final result = await _record(
-        'draw',
-        () => _controller.draw(candidate.data),
-        emit: emit,
-        tags: {
-          'stage': _scene == null ? 'firstPreparation' : 'replacement',
-          'layout': _layout.name,
-          'count': widget.count,
-          'devices': candidate.deviceIds.length,
-          'seed': candidate.seed,
-          ..._cameraMetadata(),
-          'generationUs': generation.elapsedMicroseconds,
-        },
-      );
+      final result = record
+          ? (await _record(
+              'draw',
+              () => _controller.draw(candidate.data),
+              emit: emit,
+              tags: {
+                'stage': _scene == null ? 'firstPreparation' : 'replacement',
+                'layout': _layout.name,
+                'mode': candidate.mode.name,
+                'fixture': MapWorkload.fixtureId,
+                'count': widget.count,
+                'devices': candidate.deviceIds.length,
+                'seed': candidate.seed,
+                ..._cameraMetadata(),
+                'generationUs': generation.elapsedMicroseconds,
+              },
+            )).result
+          : await _controller.draw(candidate.data);
       if (!mounted || epoch != _epoch) return;
-      if (result.result.outcome == PatchMapOutcome.applied ||
-          result.result.outcome == PatchMapOutcome.partialFailure) {
+      if (result.outcome == PatchMapOutcome.applied ||
+          result.outcome == PatchMapOutcome.partialFailure) {
         _scene = candidate;
+        _mode = candidate.mode;
         _sequence = 0;
-        _controller.fit(padding: const EdgeInsets.all(12));
+        if (center != null && scale != null) {
+          _controller.setCamera(
+            center: center,
+            scale: scale,
+            rotation: rotation,
+          );
+        } else {
+          _controller.fit(padding: const EdgeInsets.all(12));
+        }
       }
     } catch (error) {
       if (mounted) setState(() => _status = '$error');
     } finally {
       if (mounted && epoch == _epoch) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _manualUpdate(UpdateWorkload kind) async {
+    if (_busy || _inFlight > 0) return;
+    if (_scene?.mode != kind) {
+      // Scene admission and camera restoration finish before the update clock.
+      await _replace(mode: kind, preserveCamera: true, record: false);
+    }
+    if (!mounted || _scene?.mode != kind) return;
+    await _update(kind);
   }
 
   Future<Measurement?> _update(
@@ -232,6 +276,8 @@ class _ExperimentState extends State<_Experiment>
           'layout': scene.layout.name,
           'view': view,
           'workload': kind.name,
+          'mode': scene.mode.name,
+          'fixture': MapWorkload.fixtureId,
           'sequence': number,
           'items': scene.count,
           'devices': scene.deviceIds.length,
@@ -263,7 +309,7 @@ class _ExperimentState extends State<_Experiment>
     setState(() {
       _stress = Timer.periodic(const Duration(milliseconds: 250), (_) {
         if (_inFlight < 2) {
-          unawaited(_update(UpdateWorkload.values[_sequence % 3]));
+          unawaited(_update(_mode));
         }
       });
     });
@@ -338,7 +384,7 @@ class _ExperimentState extends State<_Experiment>
     logRecord({
       'event': 'metadata',
       'seed': MapWorkload.defaultSeed,
-      'fixture': 'aligned-grid-groups-v2',
+      'fixture': MapWorkload.fixtureId,
       'updatePattern': 'seeded-exact-change-v1',
       'filters': {
         'layout': _layoutFilter,
@@ -349,7 +395,8 @@ class _ExperimentState extends State<_Experiment>
       'changedPercent': _changedPercent,
       'inputCardinality':
           'all panels on every request; mixed has two records per panel',
-      'visibility': 'all numbers and bars; no host text LOD',
+      'visibility':
+          'number: full bar and number; bar: no text; mixed: bar and number',
       'items': widget.count,
       'warmup': _warmup < 2 ? 2 : _warmup,
       'samples': _samples < 1 ? 1 : _samples,
@@ -383,39 +430,33 @@ class _ExperimentState extends State<_Experiment>
       for (final layout in layouts) {
         if (!mounted || epoch != _epoch) return;
         setState(() => _layout = layout);
-        await _replace(emit: true);
-        if (_scene?.layout != layout) {
-          throw StateError('Drawing rejected; benchmark stopped');
-        }
         for (final view in views) {
-          if (view == 'overview') {
-            _controller.fit();
-          } else {
-            final target = _scene!.benchmarkFocusTarget;
-            if (target != null) _controller.focus([target]);
-            _controller.setCamera(scale: .75);
-          }
-          await WidgetsBinding.instance.endOfFrame;
-          if (!mounted || epoch != _epoch) return;
-          logRecord({
-            'event': 'camera',
-            'completion': 'host endOfFrame; no display/GPU completion proof',
-            if (view == 'zoom-pan') 'focusTarget': _scene!.benchmarkFocusTarget,
-            'layout': layout.name,
-            'view': view,
-            ..._cameraMetadata(),
-          });
-          await Future<void>.delayed(const Duration(milliseconds: 350));
           for (final kind in workloads) {
-            if (view == 'zoom-pan') {
-              // Each workload starts over the same panels. An odd sample count
-              // must not move later workloads cumulatively into the grid aisle.
+            await _replace(emit: true, mode: kind);
+            if (!mounted || epoch != _epoch) return;
+            if (_scene?.layout != layout || _scene?.mode != kind) {
+              throw StateError('Drawing rejected; benchmark stopped');
+            }
+            if (view == 'overview') {
+              _controller.fit();
+            } else {
               final target = _scene!.benchmarkFocusTarget;
               if (target != null) _controller.focus([target]);
               _controller.setCamera(scale: .75);
-              await WidgetsBinding.instance.endOfFrame;
-              await Future<void>.delayed(const Duration(milliseconds: 350));
             }
+            await WidgetsBinding.instance.endOfFrame;
+            if (!mounted || epoch != _epoch) return;
+            logRecord({
+              'event': 'camera',
+              'completion': 'host endOfFrame; no display/GPU completion proof',
+              if (view == 'zoom-pan')
+                'focusTarget': _scene!.benchmarkFocusTarget,
+              'layout': layout.name,
+              'view': view,
+              'workload': kind.name,
+              ..._cameraMetadata(),
+            });
+            await Future<void>.delayed(const Duration(milliseconds: 350));
             final responses = <double>[], frames = <double>[];
             final warmup = _warmup < 2 ? 2 : _warmup;
             final samples = _samples < 1 ? 1 : _samples;
@@ -514,9 +555,10 @@ class _ExperimentState extends State<_Experiment>
               ),
               for (final kind in UpdateWorkload.values)
                 FilledButton.tonal(
-                  onPressed: _running || _busy || _scene == null
+                  onPressed:
+                      _running || _busy || _inFlight > 0 || _scene == null
                       ? null
-                      : () => unawaited(_update(kind)),
+                      : () => unawaited(_manualUpdate(kind)),
                   child: Text(kind.name),
                 ),
               TextButton(
@@ -555,7 +597,7 @@ class _ExperimentState extends State<_Experiment>
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  '${widget.count} items | $_status\n'
+                  '${widget.count} items | mode: ${_mode.name} | $_status\n'
                   'Future ${_last?.responseMs.toStringAsFixed(2) ?? "—"} ms | '
                   'window frames ${_last?.frames.length ?? 0} | p95 ${_last?.p95Ms.toStringAsFixed(2) ?? "—"} ms | '
                   'total frames ${_measurements.totalFrames}\n'

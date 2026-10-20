@@ -230,7 +230,7 @@ void main() {
         expect(initialLengths, {1, 2, 3, 4, 5, 6});
         if (layout == MapLayout.grid) {
           expect(sizeCounts, {(40, 80, 3): 10000});
-          expect(widths, {34.0, 20.4, 8.5});
+          expect(widths, {34.0});
           expect(radii, {3});
           expect(bgStyles.length, 1);
           expect(barColors, MapWorkload.colors.take(3).toSet());
@@ -246,7 +246,7 @@ void main() {
             (32, 64, 2): 1000,
             (52, 92, 3): 1000,
           });
-          expect(widths.length, 9);
+          expect(widths, {34.0, 28.0, 46.0});
           expect(radii, {1, 2, 3, 4});
           expect(barColors, MapWorkload.colors.toSet());
           expect(bgStyles.length, 3);
@@ -254,6 +254,40 @@ void main() {
       }
     },
   );
+
+  test('scene modes use full-width bars and only their own components', () {
+    for (final layout in MapLayout.values) {
+      for (final mode in UpdateWorkload.values) {
+        final scene = MapWorkload(layout, mode: mode);
+        expect(scene.mode, mode);
+        for (final root in scene.data) {
+          final template = map(grid(root)['item']);
+          final components = (template['components'] as List).map(map).toList();
+          expect(
+            components.map((c) => c['id']),
+            mode == UpdateWorkload.bar ? ['bg', 'bar'] : ['bg', 'bar', 'text'],
+          );
+          final bar = component(template, 'bar');
+          expect(map(bar['size'])['width'], '100%');
+          expect(bar['animationDuration'], 200);
+          if (mode == UpdateWorkload.number) {
+            expect(map(bar['size'])['height'], '100%');
+          }
+        }
+        final updates = scene.updates(mode, 0);
+        expect(updates.length, mode == UpdateWorkload.mixed ? 20000 : 10000);
+        expect(
+          updates.map((u) => u.target.componentId).toSet(),
+          mode == UpdateWorkload.number
+              ? {'text'}
+              : mode == UpdateWorkload.bar
+              ? {'bar'}
+              : {'bar', 'text'},
+        );
+      }
+    }
+    expect(MapWorkload(MapLayout.grid).mode, UpdateWorkload.mixed);
+  });
 
   test(
     'number/bar/mixed values are valid sparse independent streams and never update devices',

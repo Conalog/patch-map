@@ -27,21 +27,39 @@ The default seed is `MapWorkload.defaultSeed` (3476). `grid` uses 40×80 panels,
 padding 3, gap 4, background radius 6 and border 2. `random` means seeded values
 and template variety inside the same ordered groups, never scattered random
 coordinates: 8,000 panels use (40×80,padding3), 1,000 use (32×64,padding2), and
-1,000 use (52×92,padding3). Initial bar widths are 100/60/25% of content width,
-giving three actual widths in grid and at most nine in random. Random uses four
-bar radii (1–4), five bar colors, and three coupled background radius/border
-styles. Grid uses bar radius 3 and the first three colors. The shared palette is
-`#0c73bf`, `#063559`, `#636363`, `#2ecc71`, `#e74c3c`; backgrounds are `#636363`.
+1,000 use (52×92,padding3). Every bar has 100% content width, giving one actual
+width in grid and three in random. Random uses four bar radii (1–4), five bar
+colors, and three coupled background radius/border styles. Grid uses bar radius
+3 and the first three colors. The shared palette is `#0c73bf`, `#063559`,
+`#636363`, `#2ecc71`, `#e74c3c`; backgrounds are `#636363`.
 
-Every panel shows both its bar and number. Text uses one authored metric style:
-FiraCode weight 500, centered auto font size 8–14, word wrapping with automatic
-width, margin 4 and explicit white tint/fill. Decimal length cycles through 1–6
-digits. Public grid JSON has one template per group, so the first draw shares
-each group's initial number, color, width and height across its 100 cells.
-Updates then address every panel separately with deterministic values; they do
-not change devices. Number/bar/mixed sends 10,000/10,000/20,000 updates. Ordinary
-bar updates change percentage height (15–90%) and tint, preserving initial
-width and radius. Layouts share the same seed+sequence update streams.
+The app starts in **number** mode. Each button prepares its own scene:
+
+- **number**: a fixed 100% width/height bar with a number on top; updates change
+  only the number.
+- **bar**: a 100% width bar with no text component; updates change only its
+  percentage height (15–90%) and tint, retaining the 200 ms animation.
+- **mixed**: a 100% width animated bar and number; updates change height, tint
+  and number together.
+
+Pressing a different mode first draws that scene and restores the camera center,
+scale and rotation, then measures its update. Scene preparation is outside that
+update's `responseMs`. Pressing the current mode only updates values. The metrics
+show the current mode. Stress repeats only that mode. Replace and layout changes
+prepare the selected mode. `MapWorkload` defaults to `mixed` for callers that
+exercise multiple update kinds against one fixture.
+
+Text uses one authored metric style: FiraCode weight 500, centered auto font size
+8–14, word wrapping with automatic width, margin 4 and explicit white tint/fill.
+Decimal length cycles through 1–6 digits. Public grid JSON has one template per
+group, so the first draw shares each group's initial number, color and height
+across its 100 cells. Updates address every panel separately and never devices.
+Number/bar/mixed sends 10,000/10,000/20,000 updates. Layouts share the same
+seed+sequence update streams.
+
+The fixture identifier is `mode-scenes-full-width-v3`. Earlier
+`aligned-grid-groups-v2` results used simultaneous text/bar scenes and varied
+bar widths, so their timings are not comparable as the same workload.
 
 The source references are the prior standalone experiment's
 `integrated-playground3476-optimized-device-20261019/app/lib/main.dart:210–375`,
@@ -49,9 +67,8 @@ The source references are the prior standalone experiment's
 `app/lib/plant_text.dart`. Only application JSON and generation rules are reused;
 the example imports the package's public entry point and no experimental renderer.
 The previous scattered-coordinate random dataset and any measurements from it
-are overlap-stress evidence only, not representative layout results. This case
-is an integrated maximum load with numbers and bars simultaneously visible;
-it does not claim equivalence to consumer view switching or a consumer replay.
+are overlap-stress evidence only, not representative layout results. These modes separate number, bar and combined rendering workloads; they do
+not claim equivalence to a consumer replay.
 
 Overview fits the drawing; Panel zoom uses absolute scale 0.75 (a 40-unit
 panel is 30 logical pixels wide), independent of drawing size. Pan shifts the
@@ -77,6 +94,8 @@ Unknown filters fail explicitly. These selectors reduce repeated matrix work;
 record their values and compare only matching cases.
 
 The sequence waits for a valid viewport and DPR, then runs grid and random.
+For each viewport/workload pair, it prepares a matching mode scene before the
+update warmup and samples. Preparation records carry separate stage tags.
 Automated zoom focuses the same representative central panel before each workload
 at absolute scale 0.75, so an odd sample count does not move later workloads into
 an aisle; manual Panel zoom retains the current center. Each mode uses alternating
