@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import '../geometry/geometry_snapshot.dart';
+import '../geometry/item_layout.dart';
 
 /// Only active bar transitions are visited on a frame. Geometry/layout stays at
 /// accepted target values; interruption samples the displayed rectangle.
@@ -27,20 +28,30 @@ final class BarTransitions {
     for (final slot in changed) {
       final old = before.nodes[slot].item, next = after.nodes[slot].item;
       if (old == null || next == null) continue;
-      final previous = {
-        for (final component in old.components) component.id: component,
-      };
-      for (final component in next.components) {
+      Map<String, ComponentLayout>? previous;
+      for (var index = 0; index < next.components.length; index++) {
+        final component = next.components[index];
         if (component.type != 'bar') continue;
-        final key = (slot, component.id), oldComponent = previous[component.id];
+        final key = (slot, component.id);
         final running = _active[key];
         if (animate &&
             component.data['animation'] == true &&
             running?.to == component.box) {
           continue;
         }
-        final from = rectangle(slot, component.id) ?? oldComponent?.box;
-        _active.remove(key);
+        Rect? from = running?.at(_time);
+        if (from == null) {
+          final indexed = index < old.components.length
+              ? old.components[index]
+              : null;
+          final oldComponent = indexed?.id == component.id
+              ? indexed
+              : (previous ??= {
+                  for (final value in old.components) value.id: value,
+                })[component.id];
+          from = oldComponent?.box;
+        }
+        if (running != null) _active.remove(key);
         if (!animate ||
             component.data['animation'] != true ||
             from == null ||

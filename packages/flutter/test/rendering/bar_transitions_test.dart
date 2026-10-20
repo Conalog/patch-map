@@ -27,6 +27,43 @@ GeometrySnapshot diagram(double height, {bool animate = true}) =>
       (_, _) => Size.zero,
     );
 void main() {
+  test('component reordering still starts each bar at its own prior box', () {
+    GeometrySnapshot bars(List<(String, int)> values) =>
+        GeometrySnapshot.compile(
+          const DatasetReader().read([
+            {
+              'id': 'a',
+              'type': 'item',
+              'size': 100,
+              'components': [
+                for (final value in values)
+                  {
+                    'id': value.$1,
+                    'type': 'bar',
+                    'source': {'type': 'rect', 'fill': '#0080ff'},
+                    'size': {'width': 20, 'height': value.$2},
+                    'animation': true,
+                    'animationDuration': 200,
+                  },
+              ],
+            },
+          ]),
+          (_, _) => Size.zero,
+        );
+    final transitions = BarTransitions();
+    transitions.replace(
+      bars([('first', 20), ('second', 40)]),
+      bars([('second', 80), ('first', 60)]),
+      [0],
+      animate: true,
+    );
+    expect(transitions.rectangle(0, 'first')!.height, 20);
+    expect(transitions.rectangle(0, 'second')!.height, 40);
+    transitions.advance(Duration.zero);
+    transitions.advance(const Duration(milliseconds: 100));
+    expect(transitions.rectangle(0, 'first')!.height, 40);
+    expect(transitions.rectangle(0, 'second')!.height, 60);
+  });
   testWidgets('queued vsync age does not consume a new bar transition', (
     tester,
   ) async {
