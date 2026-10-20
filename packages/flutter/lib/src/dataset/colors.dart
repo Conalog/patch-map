@@ -29,6 +29,10 @@ final class ColorResolver {
   }
 
   final Map<String, Object?> _colors;
+  // Palette values are detached and immutable for this resolver's lifetime.
+  // Bound both entry count and string size; caller-owned collections are never
+  // keys because their channels can change without changing their identity.
+  final _resolved = <Object, Color>{};
 
   /// Whether this exact key/path names a theme color, including an alias.
   bool hasThemeColor(String token) => _lookup(token) != null;
@@ -37,6 +41,11 @@ final class ColorResolver {
   /// unknown tokens, malformed values or alias cycles. Admission and drawing
   /// can share this method without maintaining separate conversion rules.
   Color resolve(Object value) {
+    final cacheable = value is num || value is String && value.length <= 128;
+    if (cacheable) {
+      final ready = _resolved[value];
+      if (ready != null) return ready;
+    }
     Object current = value;
     final visited = <String>{};
     while (current is String) {
@@ -47,7 +56,12 @@ final class ColorResolver {
       }
       current = next;
     }
-    return resolveDirectColor(current);
+    final result = resolveDirectColor(current);
+    if (cacheable) {
+      if (_resolved.length == 256) _resolved.remove(_resolved.keys.first);
+      _resolved[value] = result;
+    }
+    return result;
   }
 
   Object? _lookup(String token) {

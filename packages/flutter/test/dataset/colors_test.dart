@@ -196,6 +196,30 @@ void main() {
   });
 
   test(
+    'resolved colors preserve palette isolation and mutable input validation',
+    () {
+      final first = ColorResolver(colors: {'accent': '#ff0000'});
+      final second = ColorResolver(colors: {'accent': '#0000ff'});
+      expect(first.resolve('accent').toARGB32(), 0xffff0000);
+      expect(second.resolve('accent').toARGB32(), 0xff0000ff);
+      final channels = <String, Object?>{'r': 255, 'g': 0, 'b': 0};
+      expect(first.resolve(channels).toARGB32(), 0xffff0000);
+      channels['r'] = 0;
+      channels['b'] = 255;
+      expect(first.resolve(channels).toARGB32(), 0xff0000ff);
+      channels['b'] = -1;
+      expect(() => first.resolve(channels), throwsFormatException);
+      // Eviction must affect work only, never interpretation or error meaning.
+      for (var i = 0; i < 300; i++) {
+        first.resolve(i);
+      }
+      expect(first.resolve('accent').toARGB32(), 0xffff0000);
+      expect(() => first.resolve('missing.color'), throwsFormatException);
+      expect(() => first.resolve('missing.color'), throwsFormatException);
+    },
+  );
+
+  test(
     'resolver merges default theme and permits nested and flat overrides',
     () {
       final resolver = ColorResolver(
