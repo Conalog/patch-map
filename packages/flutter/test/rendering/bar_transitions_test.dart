@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/geometry/geometry_snapshot.dart';
 import 'package:conalog_patch_map/src/rendering/bar_transitions.dart';
+import 'package:conalog_patch_map/src/frame/frame_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 GeometrySnapshot diagram(double height, {bool animate = true}) =>
@@ -26,6 +27,34 @@ GeometrySnapshot diagram(double height, {bool animate = true}) =>
       (_, _) => Size.zero,
     );
 void main() {
+  testWidgets('queued vsync age does not consume a new bar transition', (
+    tester,
+  ) async {
+    final transitions = BarTransitions();
+    var now = const Duration(milliseconds: 300);
+    final frames = FrameCoordinator(
+      animationClock: () => now,
+      onFrame: transitions.advance,
+      onSubmitted: (_) {},
+      onError: (error, stack) => fail('$error\n$stack'),
+    );
+    transitions.replace(diagram(20), diagram(80), [0], animate: true);
+    frames.invalidate();
+    // This vsync was queued before 300ms of synchronous input preparation.
+    await tester.pump();
+    expect(transitions.rectangle(0, 'b')!.height, 20);
+    now += const Duration(milliseconds: 16);
+    await tester.pump(const Duration(milliseconds: 316));
+    expect(transitions.rectangle(0, 'b')!.height, inExclusiveRange(20, 21));
+    now = const Duration(milliseconds: 400);
+    await tester.pump(const Duration(milliseconds: 84));
+    expect(transitions.rectangle(0, 'b')!.height, 50);
+    now = const Duration(milliseconds: 500);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(transitions.rectangle(0, 'b'), isNull);
+    expect(frames.scheduled, false);
+    frames.dispose();
+  });
   test(
     'bar starts at next frame after idle and follows approved cubic polynomial',
     () {

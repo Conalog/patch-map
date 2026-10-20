@@ -49,6 +49,10 @@ conservative bounds and overlap safety; Canvas is the correctness fallback.
 Contain bars within item bounds, and retain text/SVG overflow and overlap checks.
 Static compatible runs contain at most 100 items. View changes reuse static
 geometry; bar animation changes dynamic data only.
+The frame coordinator samples a monotonic elapsed clock when its callback runs.
+Queued vsync timestamps may precede synchronous admission/preparation; their age
+must not consume a newly published bar's animation duration. The clock does not
+schedule work, and inactive transitions are still cleared on suspension.
 
 The renderer visits visible candidates in paint order. Logical updates still
 cover offscreen items. Only approved deferred work (native Paragraph bodies and

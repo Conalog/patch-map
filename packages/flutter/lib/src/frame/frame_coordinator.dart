@@ -18,14 +18,18 @@ final class FrameCoordinator extends ChangeNotifier {
     required this.onSubmitted,
     required this.onError,
     SchedulerBinding? scheduler,
-  }) : _scheduler = scheduler ?? SchedulerBinding.instance;
+    Duration Function()? animationClock,
+  }) : _scheduler = scheduler ?? SchedulerBinding.instance,
+       _animationClock = animationClock ?? _elapsedClock();
 
   /// Advance displayed transitions. Return true only while more frames are
-  /// needed. The timestamp belongs to Flutter's animation time domain.
+  /// needed. Time is sampled when the callback actually runs. A queued vsync
+  /// may predate synchronous input preparation by more than a whole transition.
   final bool Function(Duration timestamp) onFrame;
   final void Function(PaintSubmission submission) onSubmitted;
   final void Function(Object error, StackTrace stack) onError;
   final SchedulerBinding _scheduler;
+  final Duration Function() _animationClock;
   bool _active = true, _closed = false, _dirty = false;
   int? _scheduled;
   PaintSubmission? _painted;
@@ -65,7 +69,7 @@ final class FrameCoordinator extends ChangeNotifier {
     if (!active) return;
     _dirty = false;
     try {
-      final animate = onFrame(timestamp);
+      final animate = onFrame(_animationClock());
       if (!active) return;
       notifyListeners();
       if (animate) _dirty = true;
@@ -102,4 +106,10 @@ final class FrameCoordinator extends ChangeNotifier {
     _painted = null;
     super.dispose();
   }
+}
+
+Duration Function() _elapsedClock() {
+  // A monotonic clock only: it schedules no timer or independent frame loop.
+  final clock = Stopwatch()..start();
+  return () => clock.elapsed;
 }
