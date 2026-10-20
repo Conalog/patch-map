@@ -116,3 +116,4 @@ Raw samples, source/APK identities, stage patches, CPU samples and compute probe
 `.artifacts/performance/flutter/preparation-sweep3476-device-20261020/`.
 The remaining comparisons and their separate environment record:
 `.artifacts/performance/flutter/preparation-sweep3476-emulator-20261020/`.
+The [physical-device review](final-device-profile-checkpoint.md) records current costs, candidates and unresolved graphics retention.
