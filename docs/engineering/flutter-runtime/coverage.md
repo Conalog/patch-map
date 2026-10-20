@@ -116,4 +116,4 @@ and presentation smoothness remain unqualified. Historical code is evidence only
 ## Physical-device experiment comparison
 
 The [matched experiment checkpoint](experiment-parity-checkpoint.md) records the fixed animation skip and remaining preparation regression: fresh-process10,000-bar zoom/pan response54→358ms, CPU301→749ms.
-Number/mixed historical comparisons need aligned wrapping. [Preparation reuse](update-reuse-checkpoint.md), the [preparation cost sweep](preparation-sweep-checkpoint.md) and [crash mitigation](native-crash-checkpoint.md) have focused evidence; platform qualification remains incomplete.
+Number/mixed historical comparisons need aligned wrapping. [Preparation reuse](update-reuse-checkpoint.md), the [preparation cost sweep](preparation-sweep-checkpoint.md), [field dependencies](field-dependency-checkpoint.md) and [crash mitigation](native-crash-checkpoint.md) have focused evidence; platform qualification remains incomplete.

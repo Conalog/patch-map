@@ -4,6 +4,7 @@ import 'dart:ui';
 import '../api/events.dart';
 import '../geometry/affine.dart';
 import '../geometry/geometry_snapshot.dart';
+import '../geometry/item_data.dart';
 import '../geometry/scene_geometry.dart';
 
 /// Slots and shapes must belong to the supplied publication, including any
@@ -58,7 +59,7 @@ final class InputQuery {
     row: node.target.row,
     column: node.target.column,
     authoredData: node.target.data,
-    effectiveData: node.data,
+    effectiveData: exportItemData(node.data),
   );
 
   bool _allow(PatchMapObject object) {

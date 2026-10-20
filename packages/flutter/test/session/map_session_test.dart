@@ -9,6 +9,7 @@ import 'package:conalog_patch_map/src/presentation/field_operations.dart';
 import 'package:conalog_patch_map/src/presentation/presentation_admission.dart';
 import 'package:conalog_patch_map/src/session/map_session.dart';
 import 'package:conalog_patch_map/src/session/session_backend.dart';
+import 'package:conalog_patch_map/src/presentation/record_delta.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _aText = PatchMapTarget('a', componentId: 'text');
@@ -102,10 +103,12 @@ void main() {
       h.backend.documents.last.complete();
       await _tick();
       expect(
-        h.backend.updates.last.changes[const PatchMapTarget(
-          'new',
-          componentId: 'text',
-        )]!['text'],
+        h
+            .backend
+            .updates
+            .last
+            .changes[const PatchMapTarget('new', componentId: 'text')]!
+            .after['text'],
         'new-value',
       );
       h.backend.updates.last.complete();
@@ -137,7 +140,7 @@ void main() {
       await _tick();
       final first = h.backend.updates.single;
       expect(first.animate, false);
-      expect(first.changes[_aText]!['text'], 'first');
+      expect(first.changes[_aText]!.after['text'], 'first');
       final later = h.session.update(const [
         PatchMapUpdate(_aText, {'text': 'later'}),
       ]);
@@ -152,7 +155,7 @@ void main() {
       await _tick();
       final second = h.backend.updates.last;
       expect(h.backend.updates, hasLength(2));
-      expect(second.changes[_aText]!['text'], 'later');
+      expect(second.changes[_aText]!.after['text'], 'later');
       expect(second.animate, true);
       var laterDone = false;
       later.then((_) => laterDone = true);
@@ -281,9 +284,9 @@ void main() {
       await _tick();
       expect(h.backend.updates, hasLength(2));
       final pending = h.backend.updates.last;
-      expect(pending.changes[_aText]!['text'], '3');
-      expect((pending.changes[_aText]!['style'] as Map)['fontSize'], 30);
-      expect(pending.changes[_aBar]!['size'], {'width': 20, 'height': 7});
+      expect(pending.changes[_aText]!.after['text'], '3');
+      expect((pending.changes[_aText]!.after['style'] as Map)['fontSize'], 30);
+      expect(pending.changes[_aBar]!.after['size'], {'width': 20, 'height': 7});
       pending.complete();
       await _tick();
       h.submit();
@@ -366,7 +369,7 @@ void main() {
       final work = h.backend.updates.single;
       expect(work.animate, false);
       expect(work.changes.keys, [_aText]);
-      expect(work.changes[_aText]!['text'], 'inactive-2');
+      expect(work.changes[_aText]!.after['text'], 'inactive-2');
       work.complete();
       await _tick();
       h.submit();
@@ -403,7 +406,7 @@ void main() {
       expect(h.backend.updates, hasLength(2));
       final resumed = h.backend.updates.last;
       expect(resumed.animate, false);
-      expect(resumed.changes[_aText]!['text'], 'resume-latest');
+      expect(resumed.changes[_aText]!.after['text'], 'resume-latest');
       resumed.complete();
       await _tick();
       expect(h.backend.published, hasLength(2));
@@ -809,7 +812,7 @@ class _UpdateWork {
   final _Backend backend;
   final _Publication before;
   final DatasetDocument document;
-  final Map<PatchMapTarget, Map<String, Object?>> changes;
+  final Map<PatchMapTarget, RecordDelta> changes;
   final int generation;
   final bool animate;
   final completer = Completer<PreparedUpdate>();
@@ -827,7 +830,8 @@ class _UpdateWork {
         : backend.create({
             ...before.values,
             for (final entry in changes.entries)
-              if (!failedItems.contains(entry.key.id)) entry.key: entry.value,
+              if (!failedItems.contains(entry.key.id))
+                entry.key: entry.value.after,
           });
     if (reuse) {
       backend.retain(publication);
@@ -894,7 +898,7 @@ class _Backend extends SessionBackend {
   Future<PreparedUpdate> prepareUpdate(
     SessionPublication before,
     DatasetDocument document,
-    Map<PatchMapTarget, Map<String, Object?>> changes, {
+    Map<PatchMapTarget, RecordDelta> changes, {
     required int generation,
     required bool animate,
     PresentationPlan? intent,

@@ -6,6 +6,7 @@ import '../dataset/dataset_values.dart';
 import '../dataset/dataset_styles.dart' show stroke;
 import 'field_operations.dart';
 import 'partial_values.dart' show dimensionRecord, isStrokePath;
+import 'record_delta.dart';
 
 /// Resolves sparse operations with copy-on-change maps and shared untouched data.
 class PresentationResolver {
@@ -33,17 +34,25 @@ class PresentationResolver {
     Map<String, Object?> current,
     PresentationPatch patch, {
     bool remember = true,
+  }) => resolveDelta(authored, current, patch, remember: remember).after;
+
+  RecordDelta resolveDelta(
+    Map<String, Object?> authored,
+    Map<String, Object?> current,
+    PresentationPatch patch, {
+    bool remember = true,
   }) {
     final ready = patch.resolution;
     if (ready != null &&
         identical(ready.authored, authored) &&
-        identical(ready.base, current)) {
-      return ready.value;
+        identical(ready.delta.before, current)) {
+      return ready.delta;
     }
     var result = current;
     // Only this call owns the root copy. Nested records remain immutable and
     // shared; no partially assigned map is exposed to a caller or publication.
     var ownedRoot = false;
+    final requestedFields = patch.requestedFields;
     for (final operation in patch.operations) {
       final reset = operation.kind == FieldOperationKind.reset;
       final expected = reset
@@ -62,10 +71,20 @@ class PresentationResolver {
     // The mutable root is local to this call and is never assigned again after
     // this handoff. Protect it without copying its entries a second time.
     final value = ownedRoot ? UnmodifiableMapView(result) : current;
-    if (remember) {
-      patch.resolution = (authored: authored, base: current, value: value);
-    }
-    return value;
+    // A lone assignment already proved its group's value differs in _assign.
+    // Only size representation equivalence, whole attrs, and multi-operation
+    // cancellation need another comparison of the final candidate.
+    final singleChangedGroup =
+        ownedRoot &&
+        patch.operations.length == 1 &&
+        requestedFields != RecordFields.size &&
+        requestedFields & (requestedFields - 1) == 0;
+    final fields = singleChangedGroup
+        ? requestedFields
+        : recordChangedFields(current, value, requestedFields);
+    final delta = RecordDelta(before: current, after: value, fields: fields);
+    if (remember) patch.resolution = (authored: authored, delta: delta);
+    return delta;
   }
 }
 

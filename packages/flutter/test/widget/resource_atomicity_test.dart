@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:conalog_patch_map/src/api/target.dart';
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/presentation/field_operations.dart';
+import 'package:conalog_patch_map/src/presentation/record_delta.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'backend_resources_test.dart' as support;
 
@@ -70,11 +71,15 @@ void main() {
         before,
         doc,
         {
-          targetR: r,
-          targetS: Map<String, Object?>.unmodifiable({
-            ...s,
-            'source': 'bad.svg',
-          }),
+          targetR: RecordDelta(before: r, after: r, fields: 0),
+          targetS: RecordDelta(
+            before: s,
+            after: Map<String, Object?>.unmodifiable({
+              ...s,
+              'source': 'bad.svg',
+            }),
+            fields: RecordFields.source,
+          ),
         },
         generation: 1,
         animate: false,

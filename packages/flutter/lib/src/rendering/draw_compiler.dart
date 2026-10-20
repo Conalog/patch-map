@@ -2,11 +2,12 @@ import 'dart:ui';
 
 import '../dataset/colors.dart';
 import '../api/target.dart';
-import '../geometry/affine.dart';
 import '../geometry/layout.dart';
 import '../geometry/scene_geometry.dart';
 import '../resources/text/text_pool.dart';
 import '../resources/bars/bar_masks.dart';
+import '../presentation/record_delta.dart';
+import '../geometry/item_layout.dart';
 import 'draw_objects.dart';
 import 'rectangle_paint.dart';
 import 'relation_paint.dart';
@@ -41,103 +42,85 @@ final class DrawCompiler {
     DrawNode? previous,
     RelationGeometry? relation,
     Set<PatchMapTarget> retrySources = const {},
+    int fields = RecordFields.all,
+    ComponentChanges? componentChanges,
   }) {
     final acquired = <DrawContent>[];
-    final components = <DrawComponent>[];
+    var components = <DrawComponent>[];
+    ComponentChanges? sparseChanges;
+    var reuseAssetMetadata = false;
     DrawContent? content;
     try {
       final item = node.item;
       if (item != null) {
-        double? worldScale;
-        for (final layout in item.components) {
-          final data = layout.data;
-          final source = data['source'];
-          final rectangle =
-              layout.type == 'bar' ||
-              layout.type == 'background' &&
-                  source is Map<String, Object?> &&
-                  source['type'] == 'rect';
-          // Rectangle content owns paint/mask resources, not size or placement.
-          // Sharing ends with its last content lease; no historical style cache.
-          final Object key = rectangle
-              ? (
-                  layout.type,
-                  source,
-                  data['tint'],
-                  _opacity(data, node.opacity),
-                )
-              : (
-                  layout,
-                  node.opacity,
-                  item.content.size,
-                  layout.type == 'icon' || layout.type == 'background'
-                      ? worldScale ??= _worldScale(node.world)
-                      : 0.0,
-                );
-          final retry = retrySources.contains(
-            PatchMapTarget(node.id, componentId: layout.id),
-          );
-          var value = _components[key];
-          if (retry &&
-              value != null &&
-              value.assets.any((asset) => asset.failure != null)) {
-            value = null;
+        final priorItem = previous?.geometry.item;
+        final sameOrder =
+            priorItem != null && identical(item.indices, priorItem.indices);
+        final sparse =
+            previous != null &&
+            priorItem != null &&
+            componentChanges != null &&
+            sameOrder &&
+            item.size == priorItem.size &&
+            item.content == priorItem.content &&
+            node.opacity == previous.geometry.opacity &&
+            fields & RecordFields.contentOrientation == 0;
+        if (sparse) {
+          components = previous.components.toList();
+          sparseChanges = componentChanges;
+          reuseAssetMetadata = true;
+          // Exact changes include requested source retries even when their
+          // resolved fields are unchanged. Retry membership stays a point lookup.
+          for (final entry in componentChanges) {
+            final index = entry.index;
+            final prior = previous.components[index];
+            final component = _component(
+              node,
+              item.components[index],
+              prior,
+              entry.delta.fields,
+              initialLoad,
+              retrySources,
+              acquired,
+              previous.geometry,
+            );
+            if (!identical(component.content, prior.content) &&
+                (component.content.assets.isNotEmpty ||
+                    prior.content.assets.isNotEmpty)) {
+              reuseAssetMetadata = false;
+            }
+            components[index] = component;
           }
-          if (value == null) {
-            value = switch (layout.type) {
-              'text' => TextContent(
-                text,
-                text.acquire(
-                  _textOpacity(data, node.opacity, component: true),
-                  item.content.size,
-                ),
-              ),
-              'bar' => _bar(data, node.opacity),
-              'background' => _background(
-                data,
-                node.opacity,
+        } else {
+          for (final layout in item.components) {
+            final index = sameOrder
+                ? components.length
+                : priorItem?.indices[layout.id];
+            final prior = index == null ? null : previous!.components[index];
+            components.add(
+              _component(
+                node,
+                layout,
+                prior,
+                sameOrder
+                    ? (componentChanges?[components.length]?.fields ??
+                          RecordFields.all)
+                    : RecordFields.all,
                 initialLoad,
-                retry,
+                retrySources,
+                acquired,
+                previous?.geometry,
               ),
-              'icon' => AssetContent(
-                assets(
-                  data['source']!,
-                  _tint(data, node.opacity),
-                  initialLoad: initialLoad,
-                  retry: retry,
-                ),
-              ),
-              _ => throw StateError('Unknown admitted component'),
-            };
-            _components[key] = value;
-            final cached = value;
-            value.onDisposed = () {
-              if (identical(_components[key], cached)) _components.remove(key);
-            };
+            );
           }
-          value.retain();
-          acquired.add(value);
-          final index = components.length;
-          final prior =
-              previous != null &&
-                  index < previous.components.length &&
-                  previous.components[index].layout.id == layout.id
-              ? previous.components[index]
-              : null;
-          components.add(
-            identical(prior?.layout, layout) && identical(prior?.content, value)
-                ? prior!
-                : DrawComponent(layout, value, previous: prior),
-          );
         }
       } else {
-        if (node.target.type == 'image' &&
-            previous?.content != null &&
-            !(retrySources.contains(PatchMapTarget(node.id)) &&
-                previous!.assets.any((asset) => asset.failure != null)) &&
-            identical(node.data['source'], previous!.geometry.data['source']) &&
-            node.data['opacity'] == previous.geometry.data['opacity'] &&
-            node.opacity == previous.geometry.opacity) {
+        if (previous?.content != null &&
+            _reuseElementContent(node, previous!.geometry, fields) &&
+            !_retryFailed(
+              previous.content!,
+              retrySources.contains(PatchMapTarget(node.id)),
+            )) {
           content = previous.content;
         } else {
           content = switch (node.target.type) {
@@ -184,12 +167,87 @@ final class DrawCompiler {
         List.unmodifiable(components),
         content,
         previous: previous,
+        componentChanges: sparseChanges,
+        reuseAssetMetadata: reuseAssetMetadata,
       );
     } finally {
       for (final value in acquired) {
         value.release();
       }
     }
+  }
+
+  DrawComponent _component(
+    TargetGeometry node,
+    ComponentLayout layout,
+    DrawComponent? prior,
+    int fields,
+    bool initialLoad,
+    Set<PatchMapTarget> retrySources,
+    List<DrawContent> acquired,
+    TargetGeometry? previous,
+  ) {
+    final retry = retrySources.contains(
+      PatchMapTarget(node.id, componentId: layout.id),
+    );
+    if (prior != null &&
+        _reuseComponentContent(node, previous!, layout, prior.layout, fields) &&
+        !_retryFailed(prior.content, retry)) {
+      return identical(layout, prior.layout)
+          ? prior
+          : DrawComponent(layout, prior.content, previous: prior);
+    }
+    final data = layout.data;
+    final opacity = _opacity(data, node.opacity);
+    // Content identity excludes placement, transforms, visibility and dimensions
+    // except for text's measured content bounds and margins.
+    final Object key = layout.type == 'text'
+        ? (
+            layout.type,
+            data['text'],
+            data['style'],
+            data['tint'],
+            data['split'],
+            data['overflow'],
+            data['margin'],
+            node.item!.content.size,
+            opacity,
+          )
+        : (layout.type, data['source'], data['tint'], opacity);
+    var value = _components[key];
+    if (value != null && _retryFailed(value, retry)) value = null;
+    if (value == null) {
+      value = switch (layout.type) {
+        'text' => TextContent(
+          text,
+          text.acquire(
+            _textOpacity(data, node.opacity, component: true),
+            node.item!.content.size,
+          ),
+        ),
+        'bar' => _bar(data, node.opacity),
+        'background' => _background(data, node.opacity, initialLoad, retry),
+        'icon' => AssetContent(
+          assets(
+            data['source']!,
+            _tint(data, node.opacity),
+            initialLoad: initialLoad,
+            retry: retry,
+          ),
+        ),
+        _ => throw StateError('Unknown admitted component'),
+      };
+      _components[key] = value;
+      final cached = value;
+      value.onDisposed = () {
+        if (identical(_components[key], cached)) _components.remove(key);
+      };
+    }
+    value.retain();
+    acquired.add(value);
+    return identical(prior?.layout, layout) && identical(prior?.content, value)
+        ? prior!
+        : DrawComponent(layout, value, previous: prior);
   }
 
   DrawContent _background(
@@ -260,7 +318,87 @@ Map<String, Object?> _textOpacity(
   };
 }
 
-double _worldScale(Affine world) {
-  final x = vectorLength(world.a, world.b), y = vectorLength(world.c, world.d);
-  return x > y ? x : y;
+bool _retryFailed(DrawContent content, bool retry) =>
+    retry && content.assets.any((asset) => asset.failure != null);
+
+const _componentPaintFields =
+    RecordFields.source | RecordFields.tint | RecordFields.attrsAlpha;
+const _textFields =
+    RecordFields.text |
+    RecordFields.style |
+    RecordFields.tint |
+    RecordFields.split |
+    RecordFields.overflow |
+    RecordFields.margin |
+    RecordFields.attrsAlpha;
+
+bool _reuseComponentContent(
+  TargetGeometry node,
+  TargetGeometry previous,
+  ComponentLayout layout,
+  ComponentLayout prior,
+  int fields,
+) {
+  if (layout.type != prior.type ||
+      _opacity(layout.data, node.opacity) !=
+          _opacity(prior.data, previous.opacity)) {
+    return false;
+  }
+  final data = layout.data, old = prior.data;
+  if (layout.type == 'text') {
+    if (node.item!.content.size != previous.item!.content.size) return false;
+    return fields & _textFields == 0 ||
+        _sameValues(data, old, const [
+          'text',
+          'style',
+          'tint',
+          'split',
+          'overflow',
+          'margin',
+        ]);
+  }
+  return fields & _componentPaintFields == 0 ||
+      _sameValues(data, old, const ['source', 'tint']);
 }
+
+bool _reuseElementContent(
+  TargetGeometry node,
+  TargetGeometry previous,
+  int fields,
+) {
+  if (node.target.type != previous.target.type ||
+      node.opacity != previous.opacity) {
+    return false;
+  }
+  final data = node.data, old = previous.data;
+  return switch (node.target.type) {
+    'rect' =>
+      fields &
+                  (RecordFields.fill |
+                      RecordFields.stroke |
+                      RecordFields.radius) ==
+              0 ||
+          _sameValues(data, old, const ['fill', 'stroke', 'radius']),
+    'text' =>
+      fields & (_textFields | RecordFields.size) == 0 ||
+          _sameValues(data, old, const [
+            'text',
+            'style',
+            'tint',
+            'split',
+            'overflow',
+            'margin',
+            'size',
+          ]),
+    'image' =>
+      fields & (RecordFields.source | RecordFields.opacity) == 0 ||
+          _sameValues(data, old, const ['source', 'opacity']),
+    _ => false,
+  };
+}
+
+bool _sameValues(
+  Map<String, Object?> a,
+  Map<String, Object?> b,
+  List<String> keys,
+) => keys.every((key) => a[key] == b[key]);

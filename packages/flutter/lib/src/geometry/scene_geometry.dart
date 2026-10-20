@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:ui';
 
 import '../dataset/dataset_reader.dart';
+import '../presentation/record_delta.dart';
 import 'affine.dart';
 import 'item_layout.dart';
 import 'layout.dart';
@@ -68,6 +69,8 @@ TargetGeometry projectTargetGeometry({
   // Proven by the snapshot from unchanged attrs, parent world and grid pitch.
   Affine? retainedWorld,
   List<String> children = const [],
+  int fields = RecordFields.all,
+  ComponentChanges? componentChanges,
 }) {
   final attrs = data['attrs'] as Map<String, Object?>?;
   var world = retainedWorld;
@@ -100,6 +103,36 @@ TargetGeometry projectTargetGeometry({
   final visible = parentVisible && target.active && data['show'] != false;
   final locked = parentLocked || data['locked'] == true;
   final opacity = parentOpacity * ((attrs?['alpha'] as num?)?.toDouble() ?? 1);
+  final geometricFields = switch (target.type) {
+    'rect' => RecordFields.size | RecordFields.stroke,
+    'text' =>
+      RecordFields.size |
+          RecordFields.text |
+          RecordFields.style |
+          RecordFields.overflow |
+          RecordFields.split,
+    'image' => RecordFields.size | RecordFields.source,
+    _ => RecordFields.all,
+  };
+  if (previous != null &&
+      target.type != 'item' &&
+      measureImage == null &&
+      (fields & geometricFields) == 0 &&
+      world.sameTransform(previous.world)) {
+    return TargetGeometry(
+      target: target,
+      data: data,
+      world: previous.world,
+      visible: visible,
+      opacity: opacity,
+      locked: locked,
+      bounds: previous.bounds,
+      paintBounds: previous.paintBounds,
+      localBounds: previous.localBounds,
+      children: children,
+      item: item,
+    );
+  }
   Rect? bounds, paintBounds, localBounds;
   switch (target.type) {
     case 'item':
@@ -115,7 +148,12 @@ TargetGeometry projectTargetGeometry({
           : world.projectRect(localBounds!).bounds;
       paintBounds =
           previous?.item != null &&
-              previous!.item!.sameEnvelope(item) &&
+              previous!.item!.sameEnvelope(
+                item,
+                changed: identical(item.indices, previous.item!.indices)
+                    ? componentChanges
+                    : null,
+              ) &&
               previous.world.sameTransform(world)
           ? previous.paintBounds
           : item.paintBounds(world);

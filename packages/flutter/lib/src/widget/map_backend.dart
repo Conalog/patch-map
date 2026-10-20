@@ -15,10 +15,12 @@ import '../frame/resource_retirement.dart';
 import '../geometry/affine.dart';
 import '../geometry/geometry_snapshot.dart';
 import '../geometry/item_layout.dart';
+import '../geometry/layout.dart';
 import '../geometry/spatial_index.dart';
 import '../presentation/field_operations.dart';
 import '../presentation/presentation_admission.dart';
 import '../presentation/presentation_resolver.dart';
+import '../presentation/record_delta.dart';
 import '../rendering/bar_transitions.dart';
 import '../rendering/draw_objects.dart';
 import '../rendering/render_publication.dart';
@@ -119,60 +121,118 @@ final class MapBackend extends SessionBackend {
     PresentationRecordLookup lookup,
   ) {
     const resolver = PresentationResolver();
-    // Only the latest admission owns this optional memo. Execution consumes it;
-    // merged/rebased records must match identity and owner geometry to reuse it.
     _validatedLayouts = null;
     final layouts = ComponentLayoutMemo();
-    final records = <PatchMapTarget, Map<String, Object?>>{};
+    final owners = <String, RecordDelta>{};
+    final components = <PatchMapTarget, RecordDelta>{};
+    const scalarLayout =
+        ItemLayout.componentGeometryFields & ~RecordFields.text;
+    const ownerLayout = RecordFields.size | RecordFields.padding;
+    const colors =
+        RecordFields.tint |
+        RecordFields.fill |
+        RecordFields.source |
+        RecordFields.style |
+        RecordFields.stroke;
     for (final patch in batch.patches) {
-      // Admission has already checked each text/reset value and its address.
-      // A string alone cannot invalidate the already-admitted style, dimensions
-      // or colors. Avoid rebuilding all sibling layouts for numeric refreshes.
-      if (patch.operations.every(
-        (operation) =>
-            operation.path.length == 1 && operation.path.single == 'text',
-      )) {
-        continue;
-      }
-      final current = lookup(patch.target)!;
-      final next = resolver.resolvePatch(
+      final requested = patch.requestedFields;
+      // Admission already checked independent scalar/string fields. Compound
+      // checks read effective records only when one of their inputs can change.
+      if ((requested & (scalarLayout | ownerLayout | colors)) == 0) continue;
+      final before = lookup(patch.target)!;
+      final delta = resolver.resolveDelta(
         authoredRecord(document, patch.target),
-        current,
+        before,
         patch,
       );
-      if (identical(next, current)) continue;
-      validateRecordColors(next, palette, path: patch.target.toString());
-      records[patch.target] = next;
-    }
-    // Compound item constraints use only addressed raw records, including the
-    // already accepted pending fields. Never walk the whole scene when paused.
-    for (final id in records.keys.map((key) => key.id).toSet()) {
-      final target = document.targets[id]!;
-      final address = PatchMapTarget(id);
-      final data = records[address] ?? lookup(address)!;
-      if (target.type == 'item') {
-        // A changed owner can alter every child's content box. A component-only
-        // patch cannot invalidate an unchanged sibling's admitted style/layout.
-        final ownerChanged = records.containsKey(address);
-        final components = [
-          for (final component in target.components.keys)
-            if (ownerChanged ||
-                records.containsKey(PatchMapTarget(id, componentId: component)))
-              records[PatchMapTarget(id, componentId: component)] ??
-                  lookup(PatchMapTarget(id, componentId: component))!,
+      final fields = delta.fields, next = delta.after;
+      if ((fields & colors) != 0) {
+        // Check only changed schema-owned color groups; owner records must not
+        // recursively revalidate unchanged children/templates.
+        const groups = [
+          (RecordFields.tint, 'tint'),
+          (RecordFields.fill, 'fill'),
+          (RecordFields.source, 'source'),
+          (RecordFields.style, 'style'),
+          (RecordFields.stroke, 'stroke'),
         ];
-        ItemLayout.compile({...data, 'components': components}, (
-          value,
-          content,
-        ) {
-          TextSpec.fromData(value, content, palette);
-          return Size.zero;
-        }, memo: layouts);
-      } else if (target.type == 'text') {
-        TextSpec.fromData(data, null, palette);
+        for (var i = 0; i < groups.length; i++) {
+          final group = groups[i];
+          if ((fields & group.$1) != 0) {
+            validateRecordColors(
+              next,
+              palette,
+              path: patch.target.toString(),
+              field: group.$2,
+            );
+          }
+        }
+      }
+      if (patch.target.componentId != null) {
+        if ((fields & scalarLayout) != 0) {
+          components[patch.target] = delta;
+        }
+      } else {
+        // Preserve all changed owners so compound validation sees final inputs.
+        owners[patch.target.id] = delta;
+        if (next['type'] == 'text' &&
+            (fields &
+                    (RecordFields.style |
+                        RecordFields.size |
+                        RecordFields.margin |
+                        RecordFields.split |
+                        RecordFields.overflow)) !=
+                0) {
+          TextSpec.fromData(next, null, palette);
+        }
       }
     }
-    _validatedLayouts = records.isEmpty ? null : layouts;
+    // Keep changed children in one flat map: a per-item singleton map adds
+    // allocation/GC work to large batches without helping scalar validation.
+    final resized = <String>{
+      for (final entry in owners.entries)
+        if (entry.value.after['type'] == 'item' &&
+            (entry.value.fields & ownerLayout) != 0)
+          entry.key,
+    };
+    void validate(String id, Map<String, Object?> value) {
+      final data = owners[id]?.after ?? lookup(PatchMapTarget(id))!;
+      final prior = current?.geometry[id];
+      final sameSize = identical(data['size'], prior?.data['size']);
+      final sameContent =
+          sameSize && identical(data['padding'], prior?.data['padding']);
+      final size = sameSize
+          ? prior!.item!.size
+          : fixedSize(data['size']! as Map);
+      final content = sameContent
+          ? prior!.item!.content
+          : BoxEdges.fromData(data['padding']! as Map).contentBox(size);
+      final layout = ItemLayout.prepareComponent(
+        value,
+        size,
+        content,
+        value['type'] != 'background' &&
+            data['contentOrientation'] == 'upright',
+        (value, bounds) {
+          TextSpec.fromData(value, bounds, palette);
+          return Size.zero;
+        },
+      );
+      layouts.remember(size, content, layout);
+    }
+
+    for (final entry in components.entries) {
+      if (!resized.contains(entry.key.id)) {
+        validate(entry.key.id, entry.value.after);
+      }
+    }
+    for (final id in resized) {
+      for (final component in document.targets[id]!.components.keys) {
+        final address = PatchMapTarget(id, componentId: component);
+        validate(id, components[address]?.after ?? lookup(address)!);
+      }
+    }
+    _validatedLayouts = components.isEmpty && resized.isEmpty ? null : layouts;
   }
 
   @override
@@ -256,7 +316,7 @@ final class MapBackend extends SessionBackend {
   Future<PreparedUpdate> prepareUpdate(
     SessionPublication before,
     DatasetDocument document,
-    Map<PatchMapTarget, Map<String, Object?>> changes, {
+    Map<PatchMapTarget, RecordDelta> changes, {
     required int generation,
     required bool animate,
     PresentationPlan? intent,
@@ -278,7 +338,7 @@ final class MapBackend extends SessionBackend {
     final failures = <String, List<PatchMapFailure>>{};
     try {
       projection = resources.text.withPreparation(() {
-        final prepared = previous.geometry.prepare(
+        final prepared = previous.geometry.prepareChanges(
           changes,
           resources.text.measure,
           layoutsMemo: layouts,
@@ -290,6 +350,8 @@ final class MapBackend extends SessionBackend {
             previous: previous.node(entry.key),
             relation: prepared.snapshot.relationFor(entry.value.id),
             retrySources: sourceTargets,
+            fields: prepared.fields[entry.key] ?? 0,
+            componentChanges: prepared.componentChanges[entry.key],
           )..retain();
           owned[entry.key] = node;
         }
@@ -496,6 +558,9 @@ final class MapBackend extends SessionBackend {
             ...projection.changed.keys,
           }),
           animate: animate,
+          componentChanges: identical(previous, current)
+              ? projection.componentChanges
+              : const {},
           targets: targets == null
               ? previous.assetTargets
               : Map.unmodifiable(targets),
@@ -583,6 +648,7 @@ final class MapBackend extends SessionBackend {
     int nextRevision,
   ) {
     final next = publication as RenderPublication, previous = current;
+    final componentChanges = next.takeComponentChanges();
     if (nextGeneration != generation || previous == null) {
       transitions.clear();
       spatial.reset([
@@ -601,6 +667,7 @@ final class MapBackend extends SessionBackend {
         next.geometry,
         next.changed,
         animate: next.animate,
+        componentChanges: componentChanges,
       );
     }
     current = next;

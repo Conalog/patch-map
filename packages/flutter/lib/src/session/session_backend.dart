@@ -3,6 +3,7 @@ import '../api/target.dart';
 import '../dataset/dataset_reader.dart';
 import '../presentation/field_operations.dart';
 import '../presentation/presentation_admission.dart';
+import '../presentation/record_delta.dart';
 
 /// An opaque immutable publication, with its native resources owned by backend.
 abstract class SessionPublication {}
@@ -38,7 +39,7 @@ abstract class SessionBackend {
   Future<PreparedUpdate> prepareUpdate(
     SessionPublication before,
     DatasetDocument document,
-    Map<PatchMapTarget, Map<String, Object?>> changes, {
+    Map<PatchMapTarget, RecordDelta> changes, {
     required int generation,
     required bool animate,
     PresentationPlan? intent,

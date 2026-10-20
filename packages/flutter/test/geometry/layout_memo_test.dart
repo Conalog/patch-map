@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:ui';
 
 import 'package:conalog_patch_map/src/api/target.dart';
@@ -5,6 +6,7 @@ import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/geometry/affine.dart';
 import 'package:conalog_patch_map/src/geometry/geometry_snapshot.dart';
 import 'package:conalog_patch_map/src/geometry/item_layout.dart';
+import 'package:conalog_patch_map/src/presentation/record_delta.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _owner = PatchMapTarget('item');
@@ -71,6 +73,82 @@ ItemLayout _validate(
 );
 
 void main() {
+  for (final path in ['compile', 'update']) {
+    test('$path memo hit retains prior equal geometry identities', () {
+      final document = const DatasetReader().read([
+        {
+          'type': 'item',
+          'id': 'item',
+          'size': 80,
+          'padding': 8,
+          'components': [
+            {'type': 'icon', 'id': 'icon', 'source': 'a.png', 'size': 20},
+          ],
+        },
+      ]);
+      final owner = document.targets['item']!.data;
+      Size noText(Map<String, Object?> data, Size? content) =>
+          throw StateError('unexpected text measurement');
+      final before = ItemLayout.compile(owner, noText);
+      final prior = before.components.single;
+      final value = _SizeReadGuard({
+        ...prior.data,
+        'attrs': {
+          ...(prior.data['attrs'] as Map<String, Object?>? ?? const {}),
+          'scale': 1,
+        },
+      });
+      final checked = ItemLayout.prepareComponent(
+        value,
+        before.size,
+        before.content,
+        prior.upright,
+        noText,
+      );
+      expect(checked.box, prior.box);
+      expect(checked.box, isNot(same(prior.box)));
+      expect(checked.transform.sameTransform(prior.transform), isTrue);
+      expect(checked.transform, isNot(same(prior.transform)));
+      final memo = ComponentLayoutMemo()
+        ..remember(before.size, before.content, checked);
+      expect(
+        memo.reuse(value, before.size, before.content, prior.upright),
+        same(checked),
+      );
+      // A fallback preparation would read size again and fail this witness.
+      value.blockSize = true;
+      final after = path == 'compile'
+          ? ItemLayout.compile(
+              {
+                ...owner,
+                'components': [value],
+              },
+              noText,
+              previous: before,
+              memo: memo,
+            )
+          : before.update(
+              owner,
+              ComponentChanges.single(
+                before.indices['icon']!,
+                RecordDelta(
+                  before: prior.data,
+                  after: value,
+                  fields: RecordFields.attrsTransform,
+                ),
+              ),
+              noText,
+              fields: 0,
+              memo: memo,
+            );
+      final effective = after.components.single;
+      expect(effective.data, same(value));
+      expect(effective.box, same(prior.box));
+      expect(effective.transform, same(prior.transform));
+      expect(effective.upright, prior.upright);
+    });
+  }
+
   test(
     'preparation reuses checked bars but measures text beyond validation placeholder',
     () {
@@ -188,4 +266,27 @@ void main() {
     expect(bar.box, const Rect.fromLTWH(10, 40, 80, 30));
     expect(bar.transform.project(Offset.zero), const Offset(19, 40));
   });
+}
+
+class _SizeReadGuard extends MapBase<String, Object?> {
+  _SizeReadGuard(this.valuesMap);
+  final Map<String, Object?> valuesMap;
+  bool blockSize = false;
+  @override
+  Object? operator [](Object? key) {
+    if (blockSize && key == 'size') {
+      throw StateError('memo hit must not prepare component geometry again');
+    }
+    return valuesMap[key];
+  }
+
+  @override
+  Iterable<String> get keys => valuesMap.keys;
+  @override
+  void operator []=(String key, Object? value) =>
+      throw UnsupportedError('immutable');
+  @override
+  Object? remove(Object? key) => throw UnsupportedError('immutable');
+  @override
+  void clear() => throw UnsupportedError('immutable');
 }

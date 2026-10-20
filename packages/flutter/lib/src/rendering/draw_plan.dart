@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import '../geometry/affine.dart';
 import '../geometry/geometry_snapshot.dart';
+import '../presentation/record_delta.dart';
 import 'bar_slices.dart';
 import 'draw_objects.dart';
 import 'rectangle_paint.dart';
@@ -26,6 +27,7 @@ final class RenderPlan {
     List<RenderPage> pages, {
     RenderPlan? previous,
     Iterable<int>? changedSlots,
+    Map<int, ComponentChanges>? componentChanges,
   }) {
     if (previous?._disposed ?? false) {
       throw StateError('Previous render plan is disposed');
@@ -34,7 +36,13 @@ final class RenderPlan {
         changedSlots != null &&
         identical(previous.geometry.topology, geometry.topology) &&
         identical(previous.geometry.paintSlots, geometry.paintSlots)) {
-      return _updateRetained(geometry, pages, previous, changedSlots);
+      return _updateRetained(
+        geometry,
+        pages,
+        previous,
+        changedSlots,
+        componentChanges,
+      );
     }
     final ownedPages = List<RenderPage>.unmodifiable(pages);
     for (final page in ownedPages) {
@@ -147,6 +155,7 @@ final class RenderPlan {
     List<RenderPage> pages,
     RenderPlan previous,
     Iterable<int> changedSlots,
+    Map<int, ComponentChanges>? componentChanges,
   ) {
     final ownedPages = List<RenderPage>.unmodifiable(pages);
     for (final page in ownedPages) {
@@ -173,7 +182,13 @@ final class RenderPlan {
           if (!changed.contains(slot)) continue;
           final node = pages[slot ~/ geometry.nodes.pageSize]
               .nodes[slot % geometry.nodes.pageSize];
-          if (_sameStaticInputs(previous._node(slot), node)) continue;
+          if (_sameStaticInputs(
+            previous._node(slot),
+            node,
+            componentChanges?[slot],
+          )) {
+            continue;
+          }
           final next = _Member.create(node);
           if (_sameMember(old.members[offset], next)) continue;
           (replacements ??= List<_Member?>.of(old.members))[offset] = next;
@@ -449,7 +464,11 @@ final class _Member {
 // This is exactly the input boundary of _Member.create: dynamic paint content
 // does not enter a static proof, while its final conservative envelope does.
 // Inspect the two live publications; the proof stores no previous node/resource.
-bool _sameStaticInputs(DrawNode before, DrawNode after) {
+bool _sameStaticInputs(
+  DrawNode before,
+  DrawNode after,
+  ComponentChanges? changed,
+) {
   if (identical(before, after)) return true;
   final a = before.geometry, b = after.geometry;
   if (a.item == null ||
@@ -462,23 +481,44 @@ bool _sameStaticInputs(DrawNode before, DrawNode after) {
       before.components.length != after.components.length) {
     return false;
   }
-  for (var i = 0; i < before.components.length; i++) {
-    final old = before.components[i], next = after.components[i];
-    if (identical(old, next)) continue;
-    final x = old.layout, y = next.layout;
-    if (x.id != y.id ||
-        x.type != y.type ||
-        x.visible != y.visible ||
-        x.upright != y.upright) {
-      return false;
+  if (changed != null && !identical(a.item!.indices, b.item!.indices)) {
+    return false;
+  }
+  if (changed != null) {
+    for (final entry in changed) {
+      final index = entry.index;
+      if (!_sameStaticComponent(
+        before.components[index],
+        after.components[index],
+      )) {
+        return false;
+      }
     }
-    if (x.type == 'background' &&
-        (!identical(old.content, next.content) ||
-            !identical(x.transform, y.transform) ||
-            x.box.width != y.box.width ||
-            x.box.height != y.box.height)) {
-      return false;
+  } else {
+    for (var i = 0; i < before.components.length; i++) {
+      if (!_sameStaticComponent(before.components[i], after.components[i])) {
+        return false;
+      }
     }
+  }
+  return true;
+}
+
+bool _sameStaticComponent(DrawComponent old, DrawComponent next) {
+  if (identical(old, next)) return true;
+  final x = old.layout, y = next.layout;
+  if (x.id != y.id ||
+      x.type != y.type ||
+      x.visible != y.visible ||
+      x.upright != y.upright) {
+    return false;
+  }
+  if (x.type == 'background' &&
+      (!identical(old.content, next.content) ||
+          !identical(x.transform, y.transform) ||
+          x.box.width != y.box.width ||
+          x.box.height != y.box.height)) {
+    return false;
   }
   return true;
 }

@@ -6,6 +6,7 @@ import '../api/target.dart';
 import '../geometry/item_layout.dart';
 import '../geometry/scene_geometry.dart';
 import '../geometry/readable_rect.dart';
+import '../presentation/record_delta.dart';
 import '../resources/text/text_pool.dart';
 import '../resources/bars/bar_masks.dart';
 import 'bar_slices.dart';
@@ -100,19 +101,32 @@ final class DrawComponent {
 /// Native resources are owned by content leases, geometry by an immutable node.
 /// A render page retains nodes; no publication retains its previous snapshot.
 final class DrawNode {
-  DrawNode(this.geometry, this.components, this.content, {DrawNode? previous})
-    : _world =
-          previous != null &&
-              geometry.world.sameTransform(previous.geometry.world)
-          ? previous._world
-          : _WorldProjection(geometry.world),
-      _componentWorld = _prepareComponentWorlds(geometry, components, previous),
-      _assets = _NodeAssets.prepare(
-        geometry.id,
-        content,
-        components,
-        previous?._assets,
-      ) {
+  DrawNode(
+    this.geometry,
+    this.components,
+    this.content, {
+    DrawNode? previous,
+    ComponentChanges? componentChanges,
+    bool reuseAssetMetadata = false,
+  }) : _world =
+           previous != null &&
+               geometry.world.sameTransform(previous.geometry.world)
+           ? previous._world
+           : _WorldProjection(geometry.world),
+       _componentWorld = _prepareComponentWorlds(
+         geometry,
+         components,
+         previous,
+         componentChanges,
+       ),
+       _assets = reuseAssetMetadata && previous != null
+           ? previous._assets
+           : _NodeAssets.prepare(
+               geometry.id,
+               content,
+               components,
+               previous?._assets,
+             ) {
     for (final component in components) {
       component.content.retain();
     }
@@ -122,21 +136,24 @@ final class DrawNode {
         geometry.item?.size == previous.geometry.item?.size &&
         previous._uprightWorld.isNotEmpty) {
       _uprightRotation = previous._uprightRotation;
-      for (var i = 0; i < components.length; i++) {
-        final layout = components[i].layout;
-        final old = i < previous.components.length
-            ? previous.components[i].layout
-            : null;
-        if (old?.id != layout.id ||
-            old?.box != layout.box ||
-            !identical(old?.transform, layout.transform) ||
-            old?.upright != layout.upright) {
-          continue;
+      for (final entry in previous._uprightWorld.entries) {
+        final index = geometry.item!.indices[entry.key];
+        if (index == null) continue;
+        final component = components[index];
+        final priorIndex = previous.geometry.item!.indices[entry.key];
+        if (priorIndex == null) continue;
+        final prior = previous.components[priorIndex];
+        if (!identical(component, prior)) {
+          final layout = component.layout, old = prior.layout;
+          if (old.box != layout.box ||
+              !identical(old.transform, layout.transform) ||
+              old.upright != layout.upright) {
+            continue;
+          }
         }
-        final ready = previous._uprightWorld[layout.id];
-        if (ready != null) _uprightWorld[layout.id] = ready;
-        final matrix = previous._upright[layout.id];
-        if (matrix != null) _upright[layout.id] = matrix;
+        _uprightWorld[entry.key] = entry.value;
+        final matrix = previous._upright[entry.key];
+        if (matrix != null) _upright[entry.key] = matrix;
       }
     }
   }
@@ -483,6 +500,7 @@ List<Affine> _prepareComponentWorlds(
   TargetGeometry geometry,
   List<DrawComponent> components,
   DrawNode? previous,
+  ComponentChanges? changes,
 ) {
   // Keep nullable predecessors outside the reuse loops. Profile AOT must not
   // read previous component arrays while constructing a fresh publication.
@@ -497,6 +515,25 @@ List<Affine> _prepareComponentWorlds(
       for (final component in components)
         geometry.world.multiply(component.layout.transform),
     ]);
+  }
+  if (changes != null) {
+    List<Affine>? worlds;
+    for (final entry in changes) {
+      final index = entry.index;
+      if (identical(
+        components[index].layout.transform,
+        previous.components[index].layout.transform,
+      )) {
+        continue;
+      }
+      worlds ??= previous._componentWorld.toList();
+      worlds[index] = geometry.world.multiply(
+        components[index].layout.transform,
+      );
+    }
+    return worlds == null
+        ? previous._componentWorld
+        : List.unmodifiable(worlds);
   }
   if (components.length == previous.components.length) {
     var unchanged = true;

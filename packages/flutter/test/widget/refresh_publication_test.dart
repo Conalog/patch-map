@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 import 'package:conalog_patch_map/src/api/target.dart';
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
+import 'package:conalog_patch_map/src/presentation/record_delta.dart';
 import 'package:conalog_patch_map/src/rendering/render_publication.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'backend_resources_test.dart' as support;
@@ -65,10 +66,14 @@ void main() {
                 before,
                 doc,
                 {
-                  PatchMapTarget(id): Map<String, Object?>.unmodifiable({
-                    ...doc.targets[id]!.data,
-                    'attrs': const <String, Object?>{'x': 1},
-                  }),
+                  PatchMapTarget(id): RecordDelta(
+                    before: doc.targets[id]!.data,
+                    after: Map<String, Object?>.unmodifiable({
+                      ...doc.targets[id]!.data,
+                      'attrs': const <String, Object?>{'x': 1},
+                    }),
+                    fields: RecordFields.attrsTransform,
+                  ),
                 },
                 generation: 1,
                 animate: true,
@@ -124,12 +129,14 @@ void main() {
                 refreshed,
                 doc,
                 {
-                  const PatchMapTarget(
-                    'other',
-                  ): Map<String, Object?>.unmodifiable({
-                    ...doc.targets['other']!.data,
-                    'attrs': const <String, Object?>{'x': 5},
-                  }),
+                  const PatchMapTarget('other'): RecordDelta(
+                    before: doc.targets['other']!.data,
+                    after: Map<String, Object?>.unmodifiable({
+                      ...doc.targets['other']!.data,
+                      'attrs': const <String, Object?>{'x': 5},
+                    }),
+                    fields: RecordFields.attrsTransform,
+                  ),
                 },
                 generation: 1,
                 animate: true,

@@ -1,4 +1,5 @@
 import '../api/target.dart';
+import 'record_delta.dart';
 
 /// Reset is a barrier; subsequent child assignments remain ordered after it.
 enum FieldOperationKind { reset, wholeSet, childrenSet }
@@ -17,14 +18,15 @@ class PresentationPatch {
   final PatchMapTarget target;
   final List<FieldOperation> operations;
 
+  /// Operations are immutable; validation and resolution share one path mask.
+  late final int requestedFields = operations.fold<int>(
+    0,
+    (mask, operation) => mask | RecordFields.forPath(operation.path),
+  );
+
   /// A bounded, identity-guarded computation memo, never pending state. Merging
   /// operations creates a new patch; rebasing against another record misses.
-  ({
-    Map<String, Object?> authored,
-    Map<String, Object?> base,
-    Map<String, Object?> value,
-  })?
-  resolution;
+  ({Map<String, Object?> authored, RecordDelta delta})? resolution;
 }
 
 /// A detached claim about a caller-specified path, without request ownership.

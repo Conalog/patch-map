@@ -1,5 +1,6 @@
 import '../api/target.dart';
 import '../geometry/geometry_snapshot.dart';
+import '../presentation/record_delta.dart';
 import '../session/session_backend.dart';
 import 'draw_objects.dart';
 import 'draw_plan.dart';
@@ -12,16 +13,19 @@ final class RenderPublication extends SessionPublication {
     this.resources, {
     this.changed = const [],
     this.animate = false,
+    Map<int, ComponentChanges> componentChanges = const {},
     Map<(String, int), int>? counts,
     Map<DrawAsset, List<PatchMapTarget>>? targets,
     RenderPlan? previousPlan,
-  }) : assetCounts = counts ?? _countAssets(pages),
+  }) : _componentChanges = componentChanges,
+       assetCounts = counts ?? _countAssets(pages),
        assetTargets = targets ?? _assetTargets(pages),
        plan = RenderPlan.build(
          geometry,
          pages,
          previous: previousPlan,
          changedSlots: changed,
+         componentChanges: componentChanges,
        ) {
     resources.retain();
   }
@@ -31,6 +35,17 @@ final class RenderPublication extends SessionPublication {
   final RenderPlan plan;
   final List<int> changed;
   final bool animate;
+  Map<int, ComponentChanges> _componentChanges;
+
+  /// Preparation metadata lives only through the publication handoff. Keeping
+  /// per-item hints in the painted scene promotes transient allocations to old
+  /// space, although neither painting nor later resource refresh uses them.
+  Map<int, ComponentChanges> takeComponentChanges() {
+    final changes = _componentChanges;
+    _componentChanges = const {};
+    return changes;
+  }
+
   final Map<(String, int), int> assetCounts;
   final Map<DrawAsset, List<PatchMapTarget>> assetTargets;
   int references = 1;
@@ -41,6 +56,7 @@ final class RenderPublication extends SessionPublication {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _componentChanges = const {};
     plan.dispose();
     resources.text.trimUnused();
     resources.release();

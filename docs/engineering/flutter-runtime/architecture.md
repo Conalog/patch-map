@@ -65,6 +65,26 @@ transaction. Its identity cache ends on return or throw; value-based handle keys
 still share equivalent independently admitted styles. Text-specific metrics,
 numeric proof and Paragraph ownership remain with the text resource owner.
 
+Presentation resolution produces a `RecordDelta`: the prior/effective raw
+record and actual changed dependency groups. The patch memo is valid only for
+the same authored/prior identities; reset and rebase recompute it. A zero
+dependency mask does not discard a changed raw representation or a source retry.
+Compound validation, local layout, content preparation, static-plan reuse and
+bar transitions consume those dependencies. Item component IDs resolve once to
+retained sorted indices; later stages use those slots. Reordering invalidates
+slot hints. Owner size/padding/orientation, opacity and order changes
+expand work only where required; unchanged sibling records/resources are shared.
+Immutable reference arrays and publication leases still require bookkeeping.
+One compact component-change collection carries these hints through preparation.
+Its first entry is stored inline, additional entries append directly, and an
+index is created only for repeated multi-component lookups. Do not build an
+intermediate per-item map or duplicate the entries. Publication releases them
+after plan/transition preparation. They never form a chain of snapshots.
+`ItemDataView` projects the effective component list in authored order only on
+read. It unwraps older views and keeps one current layout, not revision history.
+The input/query boundary materializes JSON and releases that layout reference
+before exposing event data; unchanged world-only projections preserve identity.
+
 Raw input resolves coordinates and hits against the camera/geometry published
 when that input is processed. Coalesce notifications only, not the geometric
 interpretation of a path against a later camera. Focus/fit reject while the

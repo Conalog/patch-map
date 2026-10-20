@@ -1,10 +1,46 @@
 import 'dart:math' as math;
+import 'dart:collection';
 import 'dart:ui';
 
 import 'package:conalog_patch_map/src/dataset/colors.dart';
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/dataset/dataset_styles.dart' as styles;
 import 'package:flutter_test/flutter_test.dart';
+
+/// The selected color check must not inspect unrelated record groups, even
+/// with containsKey or broad map traversal.
+final class _SelectedRecord extends MapBase<String, Object?> {
+  _SelectedRecord(this.data, this.field);
+  final Map<String, Object?> data;
+  final String field;
+  void _allow(Object? key) {
+    if (key != 'type' && key != field) {
+      throw StateError('unrelated field read: $key');
+    }
+  }
+
+  @override
+  Object? operator [](Object? key) {
+    _allow(key);
+    return data[key];
+  }
+
+  @override
+  bool containsKey(Object? key) {
+    _allow(key);
+    return data.containsKey(key);
+  }
+
+  @override
+  Iterable<String> get keys => throw StateError('record traversal');
+  @override
+  void operator []=(String key, Object? value) =>
+      throw UnsupportedError('read only');
+  @override
+  Object? remove(Object? key) => throw UnsupportedError('read only');
+  @override
+  void clear() => throw UnsupportedError('read only');
+}
 
 void main() {
   test('direct hexadecimal forms preserve RGBA alpha with native rounding', () {
@@ -654,6 +690,184 @@ void main() {
           'style': {'color': 'missingLeaf'},
         }, ColorResolver()),
         throwsA(colorDiagnostic(r'$.style.color')),
+      );
+    },
+  );
+
+  test(
+    'selected color roots reuse schema validation without unrelated reads',
+    () {
+      final palette = ColorResolver();
+      final cases =
+          <
+            ({
+              String type,
+              String field,
+              Object valid,
+              Object invalid,
+              String path,
+            })
+          >[
+            (
+              type: 'icon',
+              field: 'tint',
+              valid: 'red',
+              invalid: 'missingLeaf',
+              path: r'$.tint',
+            ),
+            (
+              type: 'background',
+              field: 'tint',
+              valid: 'red',
+              invalid: 'missingLeaf',
+              path: r'$.tint',
+            ),
+            (
+              type: 'bar',
+              field: 'tint',
+              valid: 'red',
+              invalid: 'missingLeaf',
+              path: r'$.tint',
+            ),
+            (
+              type: 'text',
+              field: 'tint',
+              valid: 'red',
+              invalid: 'missingLeaf',
+              path: r'$.tint',
+            ),
+            (
+              type: 'background',
+              field: 'source',
+              valid: {'type': 'rect', 'fill': 'red'},
+              invalid: {'type': 'rect', 'fill': 'missingLeaf'},
+              path: r'$.source.fill',
+            ),
+            (
+              type: 'bar',
+              field: 'source',
+              valid: {'type': 'rect', 'borderColor': 'red'},
+              invalid: {'type': 'rect', 'borderColor': 'missingLeaf'},
+              path: r'$.source.borderColor',
+            ),
+            (
+              type: 'text',
+              field: 'style',
+              valid: {'fill': 'red'},
+              invalid: {
+                'tagStyles': {
+                  'hot': {
+                    'stroke': {'fill': 'missingLeaf'},
+                  },
+                },
+              },
+              path: r'$.style.tagStyles.hot.stroke.fill',
+            ),
+            (
+              type: 'relations',
+              field: 'style',
+              valid: {'color': 'red'},
+              invalid: {'color': 'missingLeaf'},
+              path: r'$.style.color',
+            ),
+            (
+              type: 'rect',
+              field: 'fill',
+              valid: 'red',
+              invalid: 'missingLeaf',
+              path: r'$.fill',
+            ),
+            (
+              type: 'rect',
+              field: 'stroke',
+              valid: {'color': 'red', 'fill': 'missingLeaf'},
+              invalid: {'color': 'missingLeaf'},
+              path: r'$.stroke.color',
+            ),
+          ];
+      for (final entry in cases) {
+        final values = <String, Object?>{
+          'type': entry.type,
+          'tint': 'missingLeaf',
+          'source': {'fill': 'missingLeaf'},
+          'style': {'fill': 'missingLeaf'},
+          'fill': 'missingLeaf',
+          'stroke': {'color': 'missingLeaf'},
+          entry.field: entry.valid,
+        };
+        styles.validateRecordColors(
+          _SelectedRecord(values, entry.field),
+          palette,
+          field: entry.field,
+        );
+        values[entry.field] = entry.invalid;
+        expect(
+          () => styles.validateRecordColors(
+            _SelectedRecord(values, entry.field),
+            palette,
+            field: entry.field,
+          ),
+          throwsA(colorDiagnostic(entry.path)),
+        );
+      }
+    },
+  );
+
+  test(
+    'selected groups never traverse owners while full validation still does',
+    () {
+      final palette = ColorResolver();
+      final child = <String, Object?>{'type': 'icon', 'tint': 'missingLeaf'};
+      final owners = <(Map<String, Object?>, String)>[
+        (
+          {
+            'type': 'group',
+            'children': [child],
+          },
+          r'$.children[0].tint',
+        ),
+        (
+          {
+            'type': 'grid',
+            'item': {
+              'components': [child],
+            },
+          },
+          r'$.item.components[0].tint',
+        ),
+        (
+          {
+            'type': 'item',
+            'components': [child],
+          },
+          r'$.components[0].tint',
+        ),
+      ];
+      for (final (owner, path) in owners) {
+        for (final field in ['tint', 'source', 'style', 'fill', 'stroke']) {
+          styles.validateRecordColors(
+            _SelectedRecord(owner, field),
+            palette,
+            field: field,
+          );
+        }
+        expect(
+          () => styles.validateRecordColors(owner, palette),
+          throwsA(colorDiagnostic(path)),
+        );
+      }
+      expect(
+        () => styles.validateRecordColors(
+          {
+            'type': 'text',
+            'tint': 'red',
+            'style': {'fill': 'missingLeaf'},
+          },
+          palette,
+          field: 'style',
+          path: r'$.item',
+        ),
+        throwsA(colorDiagnostic(r'$.item.style.fill')),
       );
     },
   );

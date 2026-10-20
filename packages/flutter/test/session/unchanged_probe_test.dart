@@ -2,6 +2,7 @@ import 'package:conalog_patch_map/src/api/result.dart';
 import 'package:conalog_patch_map/src/api/target.dart';
 import 'package:conalog_patch_map/src/api/update.dart';
 import 'package:conalog_patch_map/src/presentation/field_operations.dart';
+import 'package:conalog_patch_map/src/presentation/record_delta.dart';
 import 'package:conalog_patch_map/src/session/session_backend.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -27,6 +28,46 @@ const scene = [
 
 void main() {
   test(
+    'equivalent size representation still publishes its raw query value',
+    () async {
+      final backend = support.Backend();
+      final session = support.make(backend);
+      addTearDown(session.close);
+      const icon = PatchMapTarget('i', componentId: 'icon');
+      final draw = session.replace([
+        {
+          'type': 'item',
+          'id': 'i',
+          'size': 40,
+          'components': [
+            {'type': 'icon', 'id': 'icon', 'source': 'asset.png', 'size': 20},
+          ],
+        },
+      ]);
+      await support.flush();
+      session.didSubmit(backend.stamp!);
+      await draw;
+      final previousStamp = backend.stamp;
+      var completed = false;
+      final update = session.update(const [
+        PatchMapUpdate(icon, {
+          'size': {'value': 20, 'unit': 'px'},
+        }),
+      ]);
+      update.then((_) => completed = true);
+      await support.flush();
+      expect(backend.updates, 1);
+      expect(backend.lastChanges[icon]!.fields, 0);
+      expect(backend.lastChanges[icon]!.before['size'], 20);
+      expect(session.current(icon)!['size'], {'value': 20, 'unit': 'px'});
+      expect(backend.stamp, isNot(same(previousStamp)));
+      expect(completed, false);
+      session.didSubmit(backend.stamp!);
+      expect((await update).outcome, PatchMapOutcome.applied);
+    },
+  );
+
+  test(
     'first change stops no-op probe but later equal failed source still retries',
     () async {
       final backend = RetryBackend();
@@ -43,6 +84,8 @@ void main() {
       expect(backend.checked, isEmpty);
       await support.flush();
       expect(backend.lastChanges.keys, unorderedEquals([text, image]));
+      expect(backend.lastChanges[text]!.fields, RecordFields.text);
+      expect(backend.lastChanges[image]!.fields, 0);
       expect(backend.checked, ['image']);
       current.didSubmit(backend.stamp!);
       expect((await update).outcome, PatchMapOutcome.applied);

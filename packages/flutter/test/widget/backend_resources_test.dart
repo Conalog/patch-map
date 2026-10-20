@@ -7,6 +7,7 @@ import 'package:conalog_patch_map/src/dataset/colors.dart';
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/frame/resource_retirement.dart';
 import 'package:conalog_patch_map/src/geometry/geometry_snapshot.dart';
+import 'package:conalog_patch_map/src/presentation/record_delta.dart';
 import 'package:conalog_patch_map/src/rendering/draw_objects.dart';
 import 'package:conalog_patch_map/src/rendering/render_publication.dart';
 import 'package:conalog_patch_map/src/rendering/render_resources.dart';
@@ -96,6 +97,58 @@ class Harness {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
+    'publication releases dependency hints after starting animation',
+    () async {
+      final h = Harness((_) async => Uint8List(0));
+      final doc = const DatasetReader().read([
+        {
+          'type': 'item',
+          'id': 'panel',
+          'size': {'width': 100, 'height': 80},
+          'components': [
+            {
+              'type': 'bar',
+              'id': 'bar',
+              'source': {'fill': '#ffffff'},
+              'size': {'width': '100%', 'height': '40%'},
+              'animation': true,
+              'placement': 'bottom',
+            },
+          ],
+        },
+      ]);
+      final before = h.initial(doc);
+      h.backend.publish(before, 1, 0);
+      final data = doc.targets['panel']!.components['bar']!;
+      final prepared = await h.backend.prepareUpdate(
+        before,
+        doc,
+        {
+          const PatchMapTarget('panel', componentId: 'bar'): RecordDelta(
+            before: data,
+            after: {
+              ...data,
+              'size': {'width': '100%', 'height': '80%'},
+            },
+            fields: RecordFields.size,
+          ),
+        },
+        generation: 1,
+        animate: true,
+      );
+      final after = prepared.publication as RenderPublication;
+      h.backend.publish(after, 1, 1);
+      expect(after.takeComponentChanges(), isEmpty);
+      expect(
+        h.backend.transitions.rectangle(0, 'bar'),
+        before.geometry.nodes[0].item!.components.single.box,
+      );
+      after.dispose();
+      before.dispose();
+      h.close();
+    },
+  );
+  test(
     'asset observer exception does not reject a successfully prepared resource',
     () async {
       final h = Harness(
@@ -146,13 +199,17 @@ void main() {
             before,
             doc,
             {
-              const PatchMapTarget('a'): {
-                ...record,
-                'attrs': <String, Object?>{
-                  ...(record['attrs'] as Map? ?? const {}),
-                  'x': 10,
+              const PatchMapTarget('a'): RecordDelta(
+                before: record,
+                after: {
+                  ...record,
+                  'attrs': <String, Object?>{
+                    ...(record['attrs'] as Map? ?? const {}),
+                    'x': 10,
+                  },
                 },
-              },
+                fields: RecordFields.attrsTransform,
+              ),
             },
             generation: 1,
             animate: false,
@@ -209,14 +266,22 @@ void main() {
           before,
           doc,
           {
-            const PatchMapTarget('a'): {...a, 'source': 'bad.svg'},
-            const PatchMapTarget('b'): {
-              ...b,
-              'attrs': <String, Object?>{
-                ...(b['attrs'] as Map? ?? const {}),
-                'x': 10,
+            const PatchMapTarget('a'): RecordDelta(
+              before: a,
+              after: {...a, 'source': 'bad.svg'},
+              fields: RecordFields.source,
+            ),
+            const PatchMapTarget('b'): RecordDelta(
+              before: b,
+              after: {
+                ...b,
+                'attrs': <String, Object?>{
+                  ...(b['attrs'] as Map? ?? const {}),
+                  'x': 10,
+                },
               },
-            },
+              fields: RecordFields.attrsTransform,
+            ),
           },
           generation: 1,
           animate: false,
@@ -325,10 +390,14 @@ void main() {
         doc,
         {
           for (var i = 0; i < 16; i++)
-            PatchMapTarget('a$i'): <String, Object?>{
-              ...doc.targets['a$i']!.data,
-              'source': 'new.svg',
-            },
+            PatchMapTarget('a$i'): RecordDelta(
+              before: doc.targets['a$i']!.data,
+              after: <String, Object?>{
+                ...doc.targets['a$i']!.data,
+                'source': 'new.svg',
+              },
+              fields: RecordFields.source,
+            ),
         },
         generation: 1,
         animate: false,

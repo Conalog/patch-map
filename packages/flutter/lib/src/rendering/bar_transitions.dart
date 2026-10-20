@@ -2,17 +2,18 @@ import 'dart:ui';
 
 import '../geometry/geometry_snapshot.dart';
 import '../geometry/item_layout.dart';
+import '../presentation/record_delta.dart';
 
 /// Only active bar transitions are visited on a frame. Geometry/layout stays at
 /// accepted target values; interruption samples the displayed rectangle.
 final class BarTransitions {
   final _active = <(int, String), _Transition>{};
-  Duration _time = Duration.zero;
+  int _time = 0;
   bool advance(Duration time) {
-    _time = time;
+    _time = time.inMicroseconds;
     _active.removeWhere((key, value) {
-      value.start ??= time;
-      return time >= value.start! + value.duration;
+      value.start ??= _time;
+      return _time >= value.start! + value.duration;
     });
     return _active.isNotEmpty;
   }
@@ -24,12 +25,31 @@ final class BarTransitions {
     GeometrySnapshot after,
     Iterable<int> changed, {
     required bool animate,
+    Map<int, ComponentChanges>? componentChanges,
   }) {
     for (final slot in changed) {
       final old = before.nodes[slot].item, next = after.nodes[slot].item;
       if (old == null || next == null) continue;
       Map<String, ComponentLayout>? previous;
-      for (var index = 0; index < next.components.length; index++) {
+      final updates = animate ? (componentChanges?[slot]) : null;
+      final updatesIterator = updates?.iterator;
+      final count = updates?.length ?? next.components.length;
+      for (var position = 0; position < count; position++) {
+        final int index;
+        if (updates == null) {
+          index = position;
+        } else {
+          updatesIterator!.moveNext();
+          final change = updatesIterator.current;
+          if ((change.delta.fields &
+                  (ItemLayout.componentGeometryFields |
+                      RecordFields.animation |
+                      RecordFields.animationDuration)) ==
+              0) {
+            continue;
+          }
+          index = change.index;
+        }
         final component = next.components[index];
         if (component.type != 'bar') continue;
         final key = (slot, component.id);
@@ -58,11 +78,9 @@ final class BarTransitions {
             from == component.box) {
           continue;
         }
-        final duration = Duration(
-          microseconds: ((component.data['animationDuration']! as num) * 1000)
-              .round(),
-        );
-        if (duration == Duration.zero) continue;
+        final duration = ((component.data['animationDuration']! as num) * 1000)
+            .round();
+        if (duration == 0) continue;
         _active[key] = _Transition(from, component.box, duration);
       }
     }
@@ -74,14 +92,11 @@ final class BarTransitions {
 final class _Transition {
   _Transition(this.from, this.to, this.duration);
   final Rect from, to;
-  final Duration duration;
-  Duration? start;
-  Rect at(Duration time) {
+  final int duration;
+  int? start;
+  Rect at(int time) {
     if (start == null) return from;
-    final t = ((time - start!).inMicroseconds / duration.inMicroseconds).clamp(
-      0.0,
-      1.0,
-    );
+    final t = ((time - start!) / duration).clamp(0.0, 1.0);
     return Rect.lerp(
       from,
       to,

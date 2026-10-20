@@ -9,6 +9,7 @@ import '../presentation/field_operations.dart';
 import '../presentation/presentation_admission.dart';
 import '../presentation/presentation_composer.dart';
 import '../presentation/presentation_resolver.dart';
+import '../presentation/record_delta.dart';
 import 'request_ledger.dart';
 import 'session_backend.dart';
 
@@ -267,8 +268,8 @@ final class MapSession {
     return result;
   }
 
-  Map<PatchMapTarget, Map<String, Object?>> _resolve(PresentationPlan plan) {
-    final result = <PatchMapTarget, Map<String, Object?>>{};
+  Map<PatchMapTarget, RecordDelta> _resolve(PresentationPlan plan) {
+    final result = <PatchMapTarget, RecordDelta>{};
     for (final patch in plan.patches) {
       final next = _resolveChange(patch);
       if (next != null) result[patch.target] = next;
@@ -276,9 +277,9 @@ final class MapSession {
     return result;
   }
 
-  Map<String, Object?>? _resolveChange(PresentationPatch patch) {
+  RecordDelta? _resolveChange(PresentationPatch patch) {
     final before = current(patch.target)!;
-    final next = _resolver.resolvePatch(
+    final next = _resolver.resolveDelta(
       authoredRecord(_document!, patch.target),
       before,
       patch,
@@ -286,7 +287,7 @@ final class MapSession {
       // plain numeric text) does not need to retain another memo per record.
       remember: false,
     );
-    return !identical(before, next) ||
+    return !identical(before, next.after) ||
             _failedTargets.contains(patch.target.id) ||
             (_publication != null && backend.needsRetry(_publication!, patch))
         ? next
@@ -363,7 +364,7 @@ final class MapSession {
       while (valid()) {
         final suspension = _suspension;
         final changes = pending == null
-            ? <PatchMapTarget, Map<String, Object?>>{}
+            ? <PatchMapTarget, RecordDelta>{}
             : _resolve(pending.plan);
         var failures = const <String, List<PatchMapFailure>>{};
         if (changes.isNotEmpty) {
@@ -410,7 +411,7 @@ final class MapSession {
           if (failures.containsKey(entry.key.id)) {
             _failedTargets.add(entry.key.id);
           } else {
-            _values[entry.key] = entry.value;
+            _values[entry.key] = entry.value.after;
             _failedTargets.remove(entry.key.id);
           }
         }

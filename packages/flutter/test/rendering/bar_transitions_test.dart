@@ -1,31 +1,36 @@
 import 'dart:ui';
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/geometry/geometry_snapshot.dart';
+import 'package:conalog_patch_map/src/api/target.dart';
+import 'package:conalog_patch_map/src/presentation/record_delta.dart';
 import 'package:conalog_patch_map/src/rendering/bar_transitions.dart';
 import 'package:conalog_patch_map/src/frame/frame_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-GeometrySnapshot diagram(double height, {bool animate = true}) =>
-    GeometrySnapshot.compile(
-      const DatasetReader().read([
+GeometrySnapshot diagram(
+  double height, {
+  bool animate = true,
+  num duration = 200,
+}) => GeometrySnapshot.compile(
+  const DatasetReader().read([
+    {
+      'type': 'item',
+      'id': 'a',
+      'size': 100,
+      'components': [
         {
-          'type': 'item',
-          'id': 'a',
-          'size': 100,
-          'components': [
-            {
-              'type': 'bar',
-              'id': 'b',
-              'source': {'type': 'rect', 'fill': '#00ff00'},
-              'size': {'width': 40, 'height': height},
-              'animation': animate,
-              'animationDuration': 200,
-            },
-          ],
+          'type': 'bar',
+          'id': 'b',
+          'source': {'type': 'rect', 'fill': '#00ff00'},
+          'size': {'width': 40, 'height': height},
+          'animation': animate,
+          'animationDuration': duration,
         },
-      ]),
-      (_, _) => Size.zero,
-    );
+      ],
+    },
+  ]),
+  (_, _) => Size.zero,
+);
 void main() {
   test('component reordering still starts each bar at its own prior box', () {
     GeometrySnapshot bars(List<(String, int)> values) =>
@@ -64,6 +69,64 @@ void main() {
     expect(transitions.rectangle(0, 'first')!.height, 40);
     expect(transitions.rectangle(0, 'second')!.height, 60);
   });
+  test('geometry reorder drops indexed hints before transition sampling', () {
+    final before = GeometrySnapshot.compile(
+      const DatasetReader().read([
+        {
+          'id': 'a',
+          'type': 'item',
+          'size': 100,
+          'components': [
+            for (final (id, height) in [('first', 20), ('second', 40)])
+              {
+                'id': id,
+                'type': 'bar',
+                'source': {},
+                'size': {'width': 20, 'height': height},
+                'animation': true,
+              },
+          ],
+        },
+      ]),
+      (_, _) => Size.zero,
+    );
+    final changes = <PatchMapTarget, RecordDelta>{};
+    for (var i = 0; i < 2; i++) {
+      final old = before['a']!.item!.components[i].data;
+      changes[PatchMapTarget(
+        'a',
+        componentId: old['id']! as String,
+      )] = RecordDelta(
+        before: old,
+        after: {
+          ...old,
+          'size': {'width': 20, 'height': i == 0 ? 60 : 80},
+          'attrs': <String, Object?>{
+            ...(old['attrs'] as Map? ?? const {}),
+            'zIndex': i == 0 ? 2 : 0,
+          },
+        },
+        fields: RecordFields.size | RecordFields.attrsZIndex,
+      );
+    }
+    final change = before.prepareChanges(changes, (_, _) => Size.zero);
+    expect(change.componentChanges, isEmpty);
+    final transitions = BarTransitions();
+    transitions.replace(
+      before,
+      change.snapshot,
+      change.changed.keys,
+      animate: true,
+      componentChanges: change.componentChanges,
+    );
+    expect(transitions.rectangle(0, 'first')!.height, 20);
+    expect(transitions.rectangle(0, 'second')!.height, 40);
+    transitions.advance(Duration.zero);
+    transitions.advance(const Duration(milliseconds: 100));
+    expect(transitions.rectangle(0, 'first')!.height, 40);
+    expect(transitions.rectangle(0, 'second')!.height, 60);
+  });
+
   testWidgets('queued vsync age does not consume a new bar transition', (
     tester,
   ) async {
@@ -132,4 +195,87 @@ void main() {
       expect(transitions.rectangle(0, 'b'), isNull);
     },
   );
+  test(
+    'fractional milliseconds keep microsecond rounding and exact completion',
+    () {
+      final before = diagram(20);
+      for (final (duration, micros) in [
+        (.00049, 0),
+        (.0005, 1),
+        (.00149, 1),
+        (.0015, 2),
+      ]) {
+        final after = diagram(80, duration: duration);
+        final transitions = BarTransitions();
+        transitions.replace(before, after, [0], animate: true);
+        const start = Duration(hours: 12);
+        expect(transitions.advance(start), micros != 0);
+        if (micros == 0) {
+          expect(transitions.rectangle(0, 'b'), isNull);
+          continue;
+        }
+        expect(transitions.rectangle(0, 'b')!.height, 20);
+        if (micros == 2) {
+          expect(
+            transitions.advance(
+              Duration(microseconds: start.inMicroseconds + 1),
+            ),
+            true,
+          );
+          expect(transitions.rectangle(0, 'b')!.height, 50);
+        }
+        expect(
+          transitions.advance(
+            Duration(microseconds: start.inMicroseconds + micros),
+          ),
+          false,
+        );
+        expect(transitions.rectangle(0, 'b'), isNull);
+      }
+    },
+  );
+
+  test(
+    'microsecond retarget starts at next advance and samples the last rectangle',
+    () {
+      final a = diagram(20),
+          b = diagram(80, duration: .004),
+          c = diagram(40, duration: .002);
+      final transitions = BarTransitions();
+      transitions.replace(a, b, [0], animate: true);
+      transitions.advance(const Duration(microseconds: 100));
+      transitions.advance(const Duration(microseconds: 103));
+      expect(transitions.rectangle(0, 'b')!.height, 76.25);
+      transitions.replace(b, c, [0], animate: true);
+      expect(transitions.rectangle(0, 'b')!.height, 76.25);
+      transitions.advance(const Duration(microseconds: 105));
+      expect(transitions.rectangle(0, 'b')!.height, 76.25);
+      transitions.advance(const Duration(microseconds: 106));
+      expect(transitions.rectangle(0, 'b')!.height, 58.125);
+      expect(transitions.advance(const Duration(microseconds: 107)), false);
+      transitions.replace(c, b, [0], animate: true);
+      expect(transitions.rectangle(0, 'b')!.height, 40);
+      transitions.advance(const Duration(microseconds: 200));
+      expect(transitions.rectangle(0, 'b')!.height, 40);
+      transitions.clear();
+      expect(transitions.rectangle(0, 'b'), isNull);
+      expect(transitions.advance(const Duration(microseconds: 201)), false);
+    },
+  );
+
+  test('zero rounded duration and animate false cancel active transitions', () {
+    final a = diagram(20), b = diagram(80);
+    for (final animate in [true, false]) {
+      final transitions = BarTransitions();
+      transitions.replace(a, b, [0], animate: true);
+      transitions.advance(Duration.zero);
+      transitions.advance(const Duration(milliseconds: 100));
+      expect(transitions.rectangle(0, 'b')!.height, 50);
+      transitions.replace(b, diagram(40, duration: animate ? .00049 : 200), [
+        0,
+      ], animate: animate);
+      expect(transitions.rectangle(0, 'b'), isNull);
+      expect(transitions.advance(const Duration(milliseconds: 101)), false);
+    }
+  });
 }

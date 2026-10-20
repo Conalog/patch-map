@@ -37,7 +37,7 @@ void main() {
       reads++;
       return authoredRecord(document, target);
     });
-    expect(reads, 1);
+    expect(reads, 0);
   });
 
   test(

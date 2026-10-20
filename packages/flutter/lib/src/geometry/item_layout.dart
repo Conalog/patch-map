@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:ui';
 
 import '../dataset/dataset_values.dart' show DatasetException;
+import '../presentation/record_delta.dart';
 import 'affine.dart';
 import 'layout.dart';
 import 'readable_rect.dart';
@@ -68,10 +69,18 @@ final class ComponentLayout {
 
 /// Shared item-local layout. Every unchanged cell of a grid can use one copy.
 final class ItemLayout {
-  ItemLayout._(this.size, this.content, this.components);
+  ItemLayout._(
+    this.size,
+    this.content,
+    this.components,
+    this.indices,
+    this.sourceIndices,
+  );
   final Size size;
   final Rect content;
   final List<ComponentLayout> components;
+  final Map<String, int> indices;
+  final Map<String, int> sourceIndices;
 
   factory ItemLayout.compile(
     Map<String, Object?> data,
@@ -117,88 +126,213 @@ final class ItemLayout {
       }
       final checked = memo?.reuse(value, size, content, upright);
       if (checked != null) {
-        components.add(
-          prior != null &&
-                  prior.box == checked.box &&
-                  prior.transform.sameTransform(checked.transform)
-              ? ComponentLayout(value, prior.box, prior.transform, upright)
-              : checked,
-        );
+        components.add(_reuseCheckedGeometry(checked, prior));
         continue;
       }
-      Rect box;
-      if (type == 'background') {
-        box = Offset.zero & size;
-      } else {
-        final componentSize = type == 'text'
-            ? prior != null &&
-                      previous!.content == content &&
-                      _sameTextMeasurement(value, prior.data)
-                  ? prior.box.size
-                  : measureText(value, content.size)
-            : RelativeSize.compile(value['size']!).resolve(content.size);
-        if (!componentSize.isFinite ||
-            componentSize.width < 0 ||
-            componentSize.height < 0) {
-          throw const DatasetException(
-            'INVALID_GEOMETRY',
-            'component',
-            'invalid measured size',
-          );
-        }
-        box =
-            prior != null &&
-                previous!.content == content &&
-                prior.box.width == componentSize.width &&
-                prior.box.height == componentSize.height &&
-                value['placement'] == prior.data['placement'] &&
-                _sameEdges(value['margin'] as Map, prior.data['margin'] as Map)
-            ? prior.box
-            : placeBox(
-                content,
-                componentSize,
-                value['placement']! as String,
-                BoxEdges.fromData(value['margin']! as Map),
-              );
-      }
-      if (prior?.box == box) box = prior!.box;
-      var local =
-          prior != null &&
-              identical(box, prior.box) &&
-              identical(value['attrs'], prior.data['attrs'])
-          ? prior.transform
-          : Affine.identity
-                .translated(box.left, box.top)
-                .multiply(
-                  Affine.fromAttrs(value['attrs'] as Map<String, Object?>?),
-                );
-      if (prior != null && local.sameTransform(prior.transform)) {
-        local = prior.transform;
-      }
-      final component = ComponentLayout(value, box, local, upright);
+      final component = prepareComponent(
+        value,
+        size,
+        content,
+        upright,
+        measureText,
+        previous: prior,
+        previousContent: previous?.content,
+      );
       components.add(component);
       memo?.remember(size, content, component);
     }
-    return ItemLayout._(size, content, List.unmodifiable(components));
+    return ItemLayout._(
+      size,
+      content,
+      List.unmodifiable(components),
+      Map.unmodifiable({
+        for (var i = 0; i < components.length; i++) components[i].id: i,
+      }),
+      Map.unmodifiable({
+        for (var i = 0; i < values.length; i++) values[i]['id']! as String: i,
+      }),
+    );
+  }
+
+  /// Replaces addressed components directly. Owner geometry is an independent
+  /// dependency; only a changed content box/orientation expands work to siblings.
+  ItemLayout update(
+    Map<String, Object?> data,
+    ComponentChanges changes,
+    MeasureText measure, {
+    required int fields,
+    ComponentLayoutMemo? memo,
+  }) {
+    var nextSize = (fields & RecordFields.size) == 0
+        ? size
+        : fixedSize(data['size']! as Map);
+    if (nextSize == size) nextSize = size;
+    var nextContent = (fields & (RecordFields.size | RecordFields.padding)) == 0
+        ? content
+        : BoxEdges.fromData(data['padding']! as Map).contentBox(nextSize);
+    if (nextContent == content) nextContent = content;
+    final ownerChanged =
+        nextSize != size ||
+        nextContent != content ||
+        (fields & RecordFields.contentOrientation) != 0;
+    if (!ownerChanged && changes.isEmpty) return this;
+    final next = List<ComponentLayout>.of(components);
+    var orderChanged = false;
+    void updateAt(int index, RecordDelta? change) {
+      final prior = components[index];
+      final value = change?.after ?? prior.data;
+      final flags = change?.fields ?? 0;
+      final upright =
+          prior.type != 'background' && data['contentOrientation'] == 'upright';
+      final geometry = ownerChanged || (flags & componentGeometryFields) != 0;
+      if (!geometry) {
+        next[index] = identical(value, prior.data)
+            ? prior
+            : ComponentLayout(value, prior.box, prior.transform, prior.upright);
+      } else {
+        final checked = memo?.reuse(value, nextSize, nextContent, upright);
+        next[index] = checked != null
+            ? _reuseCheckedGeometry(checked, prior)
+            : prepareComponent(
+                value,
+                nextSize,
+                nextContent,
+                upright,
+                measure,
+                previous: prior,
+                previousContent: content,
+              );
+      }
+      orderChanged |= (flags & RecordFields.attrsZIndex) != 0;
+    }
+
+    if (ownerChanged) {
+      for (var i = 0; i < components.length; i++) {
+        updateAt(i, changes[i]);
+      }
+    } else {
+      for (final entry in changes) {
+        updateAt(entry.index, entry.delta);
+      }
+    }
+    var nextIndices = indices;
+    if (orderChanged) {
+      double z(ComponentLayout value) =>
+          ((value.data['attrs'] as Map?)?['zIndex'] as num?)?.toDouble() ?? 0;
+      // Authored list order, rather than previous sorted order, breaks ties.
+      next.sort((a, b) {
+        final order = z(a).compareTo(z(b));
+        return order == 0
+            ? sourceIndices[a.id]!.compareTo(sourceIndices[b.id]!)
+            : order;
+      });
+      nextIndices = Map.unmodifiable({
+        for (var i = 0; i < next.length; i++) next[i].id: i,
+      });
+    }
+    return ItemLayout._(
+      nextSize,
+      nextContent,
+      List.unmodifiable(next),
+      nextIndices,
+      sourceIndices,
+    );
+  }
+
+  /// Fields used by local layout, independent of resource and painting fields.
+  static const componentGeometryFields =
+      RecordFields.size |
+      RecordFields.margin |
+      RecordFields.placement |
+      RecordFields.attrsTransform |
+      RecordFields.text |
+      RecordFields.style |
+      RecordFields.split |
+      RecordFields.overflow;
+
+  /// Admission and rendering preparation share one scalar layout authority.
+  static ComponentLayout prepareComponent(
+    Map<String, Object?> value,
+    Size size,
+    Rect content,
+    bool upright,
+    MeasureText measureText, {
+    ComponentLayout? previous,
+    Rect? previousContent,
+  }) {
+    final prior = previous, type = value['type'];
+    Rect box;
+    if (type == 'background') {
+      box = Offset.zero & size;
+    } else {
+      final componentSize = type == 'text'
+          ? prior != null &&
+                    previousContent == content &&
+                    _sameTextMeasurement(value, prior.data)
+                ? prior.box.size
+                : measureText(value, content.size)
+          : RelativeSize.compile(value['size']!).resolve(content.size);
+      if (!componentSize.isFinite ||
+          componentSize.width < 0 ||
+          componentSize.height < 0) {
+        throw const DatasetException(
+          'INVALID_GEOMETRY',
+          'component',
+          'invalid measured size',
+        );
+      }
+      box =
+          prior != null &&
+              previousContent == content &&
+              prior.box.width == componentSize.width &&
+              prior.box.height == componentSize.height &&
+              value['placement'] == prior.data['placement'] &&
+              _sameEdges(value['margin'] as Map, prior.data['margin'] as Map)
+          ? prior.box
+          : placeBox(
+              content,
+              componentSize,
+              value['placement']! as String,
+              BoxEdges.fromData(value['margin']! as Map),
+            );
+    }
+    if (prior?.box == box) box = prior!.box;
+    var local =
+        prior != null &&
+            identical(box, prior.box) &&
+            identical(value['attrs'], prior.data['attrs'])
+        ? prior.transform
+        : Affine.identity
+              .translated(box.left, box.top)
+              .multiply(
+                Affine.fromAttrs(value['attrs'] as Map<String, Object?>?),
+              );
+    if (prior != null && local.sameTransform(prior.transform)) {
+      local = prior.transform;
+    }
+    return ComponentLayout(value, box, local, upright);
   }
 
   /// Bars are contained and never invalidate the text/SVG safety envelope.
-  bool sameEnvelope(ItemLayout other) {
+  bool sameEnvelope(ItemLayout other, {ComponentChanges? changed}) {
     if (size != other.size || components.length != other.components.length) {
       return false;
     }
-    for (var i = 0; i < components.length; i++) {
-      final component = components[i], prior = other.components[i];
-      if (component.id != prior.id ||
-          component.type != prior.type ||
-          component.visible != prior.visible ||
-          component.upright != prior.upright) {
-        return false;
+    if (changed != null && identical(indices, other.indices)) {
+      for (final entry in changed) {
+        final index = entry.index;
+        if (!_sameEnvelopeComponent(
+          components[index],
+          other.components[index],
+        )) {
+          return false;
+        }
       }
-      if (component.type == 'bar') continue;
-      if (component.box != prior.box ||
-          !component.transform.sameTransform(prior.transform)) {
-        return false;
+    } else {
+      for (var i = 0; i < components.length; i++) {
+        if (!_sameEnvelopeComponent(components[i], other.components[i])) {
+          return false;
+        }
       }
     }
     return true;
@@ -229,6 +363,28 @@ final class ItemLayout {
     return result;
   }
 }
+
+bool _sameEnvelopeComponent(ComponentLayout component, ComponentLayout prior) {
+  if (component.id != prior.id ||
+      component.type != prior.type ||
+      component.visible != prior.visible ||
+      component.upright != prior.upright) {
+    return false;
+  }
+  return component.type == 'bar' ||
+      component.box == prior.box &&
+          component.transform.sameTransform(prior.transform);
+}
+
+ComponentLayout _reuseCheckedGeometry(
+  ComponentLayout checked,
+  ComponentLayout? prior,
+) =>
+    prior != null &&
+        prior.box == checked.box &&
+        prior.transform.sameTransform(checked.transform)
+    ? ComponentLayout(checked.data, prior.box, prior.transform, checked.upright)
+    : checked;
 
 /// Stable sibling z-order. Never sort components across item boundaries.
 List<Map<String, Object?>> orderedRecords(List<Map<String, Object?>> values) {

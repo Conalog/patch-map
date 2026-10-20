@@ -82,20 +82,23 @@ void validateDatasetColors(
 /// A backend must use this after composing an update and before accepting it.
 /// attrs, labels, asset descriptor data, filters and other host JSON are not
 /// searched for coincidentally named `color`/`fill` fields.
+/// With [field], checks only that schema-owned top-level color group and never
+/// descends through owner children, grid templates or item components.
 void validateRecordColors(
   Map<String, Object?> value,
   ColorResolver palette, {
   String path = r'$',
+  String? field,
 }) {
   void check(String key) {
-    if (value.containsKey(key)) {
+    if ((field == null || field == key) && value.containsKey(key)) {
       _validateColor(value[key], '$path.$key', palette);
     }
   }
 
   switch (value['type']) {
     case 'group':
-      if (!value.containsKey('children')) return;
+      if (field != null || !value.containsKey('children')) return;
       final children = array(value['children'], '$path.children');
       for (var i = 0; i < children.length; i++) {
         validateRecordColors(
@@ -105,16 +108,17 @@ void validateRecordColors(
         );
       }
     case 'grid':
-      if (!value.containsKey('item')) return;
+      if (field != null || !value.containsKey('item')) return;
       _validateComponentColors(
         record(value['item'], '$path.item'),
         '$path.item',
         palette,
       );
     case 'item':
-      _validateComponentColors(value, path, palette);
+      if (field == null) _validateComponentColors(value, path, palette);
     case 'background' || 'bar':
       check('tint');
+      if (field != null && field != 'source') return;
       final source = value['source'];
       // A source with src is an asset descriptor, even when its data happens
       // to contain fields named fill or borderColor.
@@ -129,6 +133,7 @@ void validateRecordColors(
       check('tint');
     case 'text':
       check('tint');
+      if (field != null && field != 'style') return;
       if (value.containsKey('style')) {
         _validateTextStyleColors(
           record(value['style'], '$path.style'),
@@ -138,6 +143,7 @@ void validateRecordColors(
       }
     case 'rect':
       check('fill');
+      if (field != null && field != 'stroke') return;
       if (value.containsKey('stroke')) {
         // Rect lowering reads only stroke.color. fill/texture/matrix are
         // preserved JSON, not additional admitted rendering/color features.
@@ -147,6 +153,7 @@ void validateRecordColors(
         }
       }
     case 'relations':
+      if (field != null && field != 'style') return;
       final style = value['style'];
       if (style is Map && style.containsKey('color')) {
         _validateColor(style['color'], '$path.style.color', palette);

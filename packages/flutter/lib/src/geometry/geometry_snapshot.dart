@@ -1,9 +1,10 @@
-import 'dart:collection';
 import 'dart:ui';
 
 import '../api/target.dart';
 import '../dataset/dataset_reader.dart';
+import '../presentation/record_delta.dart';
 import 'affine.dart';
+import 'item_data.dart';
 import 'item_layout.dart';
 import 'paged_values.dart';
 import 'relation_geometry.dart';
@@ -161,44 +162,60 @@ final class GeometrySnapshot {
     MeasureImage? measureImage,
     ComponentLayoutMemo? layoutsMemo,
   }) {
+    final deltas = <PatchMapTarget, RecordDelta>{};
+    for (final entry in changes.entries) {
+      final node = this[entry.key.id]!;
+      final before = entry.key.componentId == null
+          ? node.data
+          : node
+                .item!
+                .components[node.item!.indices[entry.key.componentId]!]
+                .data;
+      deltas[entry.key] = RecordDelta(
+        before: before,
+        after: entry.value,
+        fields: recordChangedFields(before, entry.value, RecordFields.all),
+      );
+    }
+    return prepareChanges(
+      deltas,
+      measure,
+      measureImage: measureImage,
+      layoutsMemo: layoutsMemo,
+    );
+  }
+
+  GeometryChange prepareChanges(
+    Map<PatchMapTarget, RecordDelta> changes,
+    MeasureText measure, {
+    MeasureImage? measureImage,
+    ComponentLayoutMemo? layoutsMemo,
+  }) {
     if (changes.isEmpty) return GeometryChange(this, const {});
     final records = <String, Map<String, Object?>>{};
-    final components = <String, Map<String, Map<String, Object?>>>{};
+    final fields = <String, int>{};
+    final componentChanges = <int, ComponentChanges>{};
     for (final entry in changes.entries) {
-      if (!topology.slots.containsKey(entry.key.id)) {
+      final slot = topology.slots[entry.key.id];
+      if (slot == null) {
         throw StateError('admitted geometry target is missing');
       }
       final component = entry.key.componentId;
       if (component == null) {
-        records[entry.key.id] = entry.value;
+        records[entry.key.id] = entry.value.after;
+        fields[entry.key.id] = entry.value.fields;
       } else {
-        (components[entry.key.id] ??= {})[component] = entry.value;
+        final index = nodes[slot].item!.indices[component]!;
+        final addressed = componentChanges[slot];
+        if (addressed == null) {
+          componentChanges[slot] = ComponentChanges.single(index, entry.value);
+        } else {
+          addressed.add(index, entry.value);
+        }
       }
     }
-    for (final id in {...records.keys, ...components.keys}) {
-      final previous = this[id]!;
-      final record = records[id] ?? previous.data;
-      if (previous.target.type == 'item') {
-        // Element and component presentations have distinct addresses. An
-        // element update must not restore its authored component list.
-        final old = previous.data['components']! as List;
-        final replacements = components[id];
-        final values = replacements == null
-            ? old
-            : [
-                for (final value in old.cast<Map<String, Object?>>())
-                  replacements[value['id']] ?? value,
-              ];
-        records[id] = Map.unmodifiable({
-          ...record,
-          'components': replacements == null
-              ? values
-              : List.unmodifiable(values),
-        });
-      }
-    }
+    final nodeFields = <int, int>{};
     final changed = <int, TargetGeometry>{};
-    final layouts = HashMap<Map<String, Object?>, ItemLayout>.identity();
     // Page flags are allocated only when an aggregate contribution changes:
     // logical=1, paint=2, nonrelation endpoint=4. Dynamic-only updates share all
     // three immutable aggregate arrays without visiting their page contents.
@@ -225,30 +242,36 @@ final class GeometrySnapshot {
     void project(int slot) {
       if (changed.containsKey(slot)) return;
       final before = nodes[slot], id = before.id;
-      final data = records[id] ?? before.data;
+      var data = records[id] ?? before.data;
       final parentSlot = topology.parents[slot];
       final parent = parentSlot == null
           ? null
           : changed[parentSlot] ?? nodes[parentSlot];
+      final flags = fields[id] ?? 0;
+      if (flags != 0) nodeFields[slot] = flags;
       ItemLayout? item;
       if (before.item != null) {
-        final unchanged = [
-          'size',
-          'padding',
-          'components',
-          'contentOrientation',
-        ].every((key) => identical(before.data[key], data[key]));
-        item = unchanged
-            ? before.item
-            : layouts.putIfAbsent(
-                data,
-                () => ItemLayout.compile(
-                  data,
-                  measure,
-                  previous: before.item,
-                  memo: layoutsMemo,
-                ),
-              );
+        final addressed =
+            componentChanges[slot] ?? const ComponentChanges.empty();
+        item = before.item!.update(
+          data,
+          addressed,
+          measure,
+          fields: flags,
+          memo: layoutsMemo,
+        );
+        if (item.size == before.item!.size &&
+            item.content == before.item!.content &&
+            (flags & RecordFields.contentOrientation) == 0 &&
+            identical(item.indices, before.item!.indices)) {
+          // Empty is an exact dependency hint too; null requests broad work.
+          componentChanges[slot] = addressed;
+        } else {
+          componentChanges.remove(slot);
+        }
+        if (!identical(data, before.data) || !identical(item, before.item)) {
+          data = ItemDataView(data, item);
+        }
       }
       // World coordinates depend on the parent frame and grid template pitch,
       // not on this cell's independently updated size or bar dimensions.
@@ -281,6 +304,8 @@ final class GeometrySnapshot {
         previous: before,
         retainedWorld: retainedWorld,
         children: before.children,
+        fields: flags,
+        componentChanges: componentChanges[slot],
       );
       changed[slot] = projected;
       // Relation bounds are resolved below; their temporary projection must
@@ -296,8 +321,10 @@ final class GeometrySnapshot {
 
     // Parent-first order prevents duplicate subtree projection when a batch
     // changes both a container and one of its descendants.
-    final roots = records.keys.map((id) => topology.slots[id]!).toList()
-      ..sort();
+    final roots = {
+      for (final id in records.keys) topology.slots[id]!,
+      ...componentChanges.keys,
+    }.toList()..sort();
     for (final slot in roots) {
       project(slot);
     }
@@ -405,14 +432,26 @@ final class GeometrySnapshot {
       _relations.replace(relationChanges),
       _dependencies,
     );
-    return GeometryChange(snapshot, Map.unmodifiable(changed));
+    return GeometryChange(
+      snapshot,
+      Map.unmodifiable(changed),
+      componentChanges: componentChanges,
+      fields: nodeFields,
+    );
   }
 }
 
 final class GeometryChange {
-  const GeometryChange(this.snapshot, this.changed);
+  const GeometryChange(
+    this.snapshot,
+    this.changed, {
+    this.componentChanges = const {},
+    this.fields = const {},
+  });
   final GeometrySnapshot snapshot;
   final Map<int, TargetGeometry> changed;
+  final Map<int, ComponentChanges> componentChanges;
+  final Map<int, int> fields;
 }
 
 /// Structural topology is fixed until replacement. Slots are stable preorder

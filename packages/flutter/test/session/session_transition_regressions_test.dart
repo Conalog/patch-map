@@ -7,6 +7,7 @@ import 'package:conalog_patch_map/src/presentation/field_operations.dart';
 import 'package:conalog_patch_map/src/presentation/presentation_admission.dart';
 import 'package:conalog_patch_map/src/session/map_session.dart';
 import 'package:conalog_patch_map/src/session/session_backend.dart';
+import 'package:conalog_patch_map/src/presentation/record_delta.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class Pub extends SessionPublication {}
@@ -15,7 +16,7 @@ class Backend extends SessionBackend {
   int documents = 0, updates = 0;
   PaintSubmission? stamp;
   Map<String, List<PatchMapFailure>> failures = {};
-  Map<PatchMapTarget, Map<String, Object?>> lastChanges = {};
+  Map<PatchMapTarget, RecordDelta> lastChanges = {};
   @override
   void validateDocument(DatasetDocument d) {}
   @override
@@ -34,7 +35,7 @@ class Backend extends SessionBackend {
   Future<PreparedUpdate> prepareUpdate(
     SessionPublication p,
     DatasetDocument d,
-    Map<PatchMapTarget, Map<String, Object?>> changes, {
+    Map<PatchMapTarget, RecordDelta> changes, {
     required int generation,
     required bool animate,
     PresentationPlan? intent,
@@ -142,10 +143,10 @@ void main() {
       ]);
       session.setActive(true);
       await flush();
-      expect((backend.lastChanges[component]!['style'] as Map)['autoFont'], {
-        'min': 8,
-        'max': 12,
-      });
+      expect(
+        (backend.lastChanges[component]!.after['style'] as Map)['autoFont'],
+        {'min': 8, 'max': 12},
+      );
       session.didSubmit(backend.stamp!);
       expect((await first).outcome, PatchMapOutcome.applied);
       expect((await last).outcome, PatchMapOutcome.applied);
@@ -244,7 +245,7 @@ void main() {
       ]);
       s.setActive(true);
       await flush();
-      final lastText = b.lastChanges[target]!['text'];
+      final lastText = b.lastChanges[target]!.after['text'];
       s.close();
       await a;
       await c;
@@ -364,7 +365,7 @@ void main() {
       session.setActive(true);
       await flush();
       final prepared =
-          (backend.lastChanges[target]!['style'] as Map)['autoFont'];
+          (backend.lastChanges[target]!.after['style'] as Map)['autoFont'];
       session.close();
       await first;
       await next;
