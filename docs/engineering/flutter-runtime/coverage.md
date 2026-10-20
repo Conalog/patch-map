@@ -116,4 +116,4 @@ and presentation smoothness remain unqualified. Historical code is evidence only
 ## Physical-device experiment comparison
 
 The [matched experiment checkpoint](experiment-parity-checkpoint.md) records the fixed animation skip and remaining preparation regression: fresh-process10,000-bar zoom/pan response54→358ms, CPU301→749ms.
-Number/mixed comparisons require aligned text wrapping. Instrumented native-crash cause and memory attribution remain unresolved; no performance approval is inferred.
+Number/mixed comparisons require aligned text wrapping. The AOT null-read crash is [mitigated](native-crash-checkpoint.md); memory attribution remains unresolved. No performance approval is inferred.

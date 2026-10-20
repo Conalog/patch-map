@@ -106,11 +106,10 @@ accounting observations, not peak memory, exclusive package GPU allocation or le
 matrix PSS increases across scenarios; allocator/engine caches and prior-scene resources are not separated.
 Fresh-process runs address the response confound, not the underlying memory attribution.
 
-The instrumented host encountered one native SIGSEGV while replacing the number scene with mixed. Android exit-
-info records native crash/status11. The same APK completed remaining mixed diagnostics after restart. The cause
-remains unresolved; successful retry does not establish stability. No device or instrumentation cause is
-assumed. Three measured samples per condition and one Android device support the large regression finding, not
-small rankings or universal qualification.
+The instrumented host encountered one native SIGSEGV during number-to-mixed replacement. Subsequent
+[symbolication and mitigation](native-crash-checkpoint.md) identified the premature null-field read in AOT
+component projection; this is no longer an unexplained GPU/device failure. Three measured samples per condition
+and one Android device support the large regression finding, not small rankings or universal qualification.
 
 Exact sources, APK identities, runners, raw results, Timeline/CPU traces, screenshots, crash evidence and the
 Korean report are preserved under `.artifacts/performance/flutter/decision- parity3476-device-20261020/`. The

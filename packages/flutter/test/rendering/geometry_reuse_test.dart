@@ -31,6 +31,76 @@ void main() {
     await loader.load();
   });
   test(
+    'fresh number and mixed publications need no previous render node',
+    () async {
+      final h = support.Harness(active: false);
+      h.text.setActive(false);
+      addTearDown(h.close);
+      for (final components in [
+        [support.background(), number()],
+        [support.background(), support.bar(), number()],
+      ]) {
+        // Replacement compiles each new node without a previous publication.
+        final fresh = h.read([support.item('i', 8, components: components)]);
+        expect(fresh.nodes.single.components.length, components.length);
+        expect(
+          await support.render(fresh),
+          orderedEquals(await support.render(fresh, reference: true)),
+        );
+      }
+    },
+  );
+
+  test('same-world bar transform changes retain sibling projections', () async {
+    final h = support.Harness(active: false);
+    h.text.setActive(false);
+    addTearDown(h.close);
+    final before = h.read([
+      support.item(
+        'i',
+        8,
+        components: [support.background(), support.bar(), number()],
+      ),
+    ]);
+    final old = before.nodes.single;
+    final change = before.geometry.prepare({
+      const PatchMapTarget('i', componentId: 'bar'): patch(
+        old.components[1].layout.data,
+        {
+          'attrs': {'x': 5},
+        },
+      ),
+    }, h.text.measure);
+    final next = h.project(change.snapshot, previous: before);
+    final fresh = h.read([
+      support.item(
+        'i',
+        8,
+        components: [
+          support.background(),
+          support.bar(attrs: {'x': 5}),
+          number(),
+        ],
+      ),
+    ]);
+    expect(next.nodes.single.matrix, same(old.matrix));
+    expect(next.nodes.single.components.first, same(old.components.first));
+    expect(next.nodes.single.components.last, same(old.components.last));
+    expect(
+      next.nodes.single.components[1].layout.transform,
+      isNot(same(old.components[1].layout.transform)),
+    );
+    expect(
+      await support.render(next),
+      orderedEquals(await support.render(fresh)),
+    );
+    expect(
+      await support.render(next),
+      orderedEquals(await support.render(next, reference: true)),
+    );
+  });
+
+  test(
     'same-size number has new pixels and handle with shared immutable projections',
     () async {
       final h = support.Harness(active: false);

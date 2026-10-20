@@ -455,9 +455,21 @@ List<Affine> _prepareComponentWorlds(
   List<DrawComponent> components,
   DrawNode? previous,
 ) {
-  final sameWorld =
-      previous != null && geometry.world.sameTransform(previous.geometry.world);
-  if (sameWorld && components.length == previous.components.length) {
+  // Keep nullable predecessors outside the reuse loops. Profile AOT must not
+  // read previous component arrays while constructing a fresh publication.
+  if (previous == null) {
+    return List.unmodifiable([
+      for (final component in components)
+        geometry.world.multiply(component.layout.transform),
+    ]);
+  }
+  if (!geometry.world.sameTransform(previous.geometry.world)) {
+    return List.unmodifiable([
+      for (final component in components)
+        geometry.world.multiply(component.layout.transform),
+    ]);
+  }
+  if (components.length == previous.components.length) {
     var unchanged = true;
     for (var i = 0; i < components.length; i++) {
       if (components[i].layout.id != previous.components[i].layout.id ||
@@ -473,8 +485,7 @@ List<Affine> _prepareComponentWorlds(
   }
   return List.unmodifiable([
     for (var i = 0; i < components.length; i++)
-      if (sameWorld &&
-          i < previous.components.length &&
+      if (i < previous.components.length &&
           components[i].layout.id == previous.components[i].layout.id &&
           identical(
             components[i].layout.transform,
