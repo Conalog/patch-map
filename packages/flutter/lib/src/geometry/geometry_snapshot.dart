@@ -199,6 +199,28 @@ final class GeometrySnapshot {
     }
     final changed = <int, TargetGeometry>{};
     final layouts = HashMap<Map<String, Object?>, ItemLayout>.identity();
+    // Page flags are allocated only when an aggregate contribution changes:
+    // logical=1, paint=2, nonrelation endpoint=4. Dynamic-only updates share all
+    // three immutable aggregate arrays without visiting their page contents.
+    Map<int, int>? dirtyBounds;
+    void trackBounds(int slot, TargetGeometry after) {
+      final before = nodes[slot];
+      if (after.isContainer) return;
+      var flags = 0;
+      if (before.visible != after.visible ||
+          after.visible && before.bounds != after.bounds) {
+        flags |= after.target.type == 'relations' ? 1 : 5;
+      }
+      if (before.visible != after.visible ||
+          after.visible && before.paintBounds != after.paintBounds) {
+        flags |= 2;
+      }
+      if (flags == 0) return;
+      final page = slot ~/ nodes.pageSize;
+      final dirty = dirtyBounds ??= {};
+      dirty[page] = (dirty[page] ?? 0) | flags;
+    }
+
     var orderChanged = false;
     void project(int slot) {
       if (changed.containsKey(slot)) return;
@@ -228,6 +250,23 @@ final class GeometrySnapshot {
                 ),
               );
       }
+      // World coordinates depend on the parent frame and grid template pitch,
+      // not on this cell's independently updated size or bar dimensions.
+      Affine? retainedWorld;
+      if (before.item != null &&
+          identical(data['attrs'], before.data['attrs'])) {
+        final previousParent = parentSlot == null ? null : nodes[parentSlot];
+        if (identical(parent?.world, previousParent?.world)) {
+          final samePitch =
+              before.target.row == null ||
+              identical(parent!.data['gap'], previousParent!.data['gap']) &&
+                  identical(
+                    (parent.data['item']! as Map)['size'],
+                    (previousParent.data['item']! as Map)['size'],
+                  );
+          if (samePitch) retainedWorld = before.world;
+        }
+      }
       final projected = projectTargetGeometry(
         target: before.target,
         data: data,
@@ -240,9 +279,13 @@ final class GeometrySnapshot {
         gridData: parent?.data,
         item: item,
         previous: before,
+        retainedWorld: retainedWorld,
         children: before.children,
       );
       changed[slot] = projected;
+      // Relation bounds are resolved below; their temporary projection must
+      // not mark an unchanged final relation as dirty.
+      if (projected.target.type != 'relations') trackBounds(slot, projected);
       if (_z(before.data) != _z(data)) orderChanged = true;
       if (before.isContainer && _changesInheritance(before, projected)) {
         for (final child in topology.children[slot]) {
@@ -261,20 +304,25 @@ final class GeometrySnapshot {
     // Aggregate nonrelation endpoint pages from the overlay first. Relation
     // compilation reads this same candidate without cloning node pages twice.
     final endpointPages = <int, Rect?>{};
-    for (final page
-        in changed.keys.map((slot) => slot ~/ nodes.pageSize).toSet()) {
-      endpointPages[page] = _aggregate(
-        [
-          for (
-            var i = page * nodes.pageSize;
-            i < page * nodes.pageSize + nodes.pages[page].length;
-            i++
-          )
-            changed[i] ?? nodes[i],
-        ],
-        paint: false,
-        excludeRelations: true,
-      );
+    final dirtyEndpoints = dirtyBounds;
+    if (dirtyEndpoints != null) {
+      for (final entry in dirtyEndpoints.entries) {
+        if ((entry.value & 4) == 0) continue;
+        final page = entry.key;
+        final bounds = _aggregate(
+          [
+            for (
+              var i = page * nodes.pageSize;
+              i < page * nodes.pageSize + nodes.pages[page].length;
+              i++
+            )
+              changed[i] ?? nodes[i],
+          ],
+          paint: false,
+          excludeRelations: true,
+        );
+        if (bounds != _endpointBounds[page]) endpointPages[page] = bounds;
+      }
     }
     TargetGeometry? targetFor(String id) {
       final slot = topology.slots[id];
@@ -314,27 +362,45 @@ final class GeometrySnapshot {
         },
       );
       relationChanges[_relationSlots[id]!] = relation;
-      changed[slot] = _withRelationBounds(targetFor(id)!, relation);
+      final projected = _withRelationBounds(targetFor(id)!, relation);
+      changed[slot] = projected;
+      trackBounds(slot, projected);
     }
     final next = nodes.replace(changed);
-    final newBounds = List<Rect?>.of(_bounds),
-        newPaint = List<Rect?>.of(_paintBounds);
-    final newEndpoints = List<Rect?>.of(_endpointBounds);
-    for (final entry in endpointPages.entries) {
-      newEndpoints[entry.key] = entry.value;
+    List<Rect?>? newBounds, newPaint, newEndpoints;
+    if (endpointPages.isNotEmpty) {
+      newEndpoints = List<Rect?>.of(_endpointBounds);
+      for (final entry in endpointPages.entries) {
+        newEndpoints[entry.key] = entry.value;
+      }
     }
-    final pages = changed.keys.map((slot) => slot ~/ nodes.pageSize).toSet();
-    for (final page in pages) {
-      newBounds[page] = _aggregate(next.pages[page], paint: false);
-      newPaint[page] = _aggregate(next.pages[page], paint: true);
+    final dirtyPages = dirtyBounds;
+    if (dirtyPages != null) {
+      for (final entry in dirtyPages.entries) {
+        final page = entry.key;
+        if ((entry.value & 1) != 0) {
+          final bounds = _aggregate(next.pages[page], paint: false);
+          if (bounds != _bounds[page]) {
+            newBounds ??= List<Rect?>.of(_bounds);
+            newBounds[page] = bounds;
+          }
+        }
+        if ((entry.value & 2) != 0) {
+          final bounds = _aggregate(next.pages[page], paint: true);
+          if (bounds != _paintBounds[page]) {
+            newPaint ??= List<Rect?>.of(_paintBounds);
+            newPaint[page] = bounds;
+          }
+        }
+      }
     }
     final snapshot = GeometrySnapshot._(
       topology,
       next,
       orderChanged ? topology.paintOrder(next) : paintSlots,
-      List.unmodifiable(newBounds),
-      List.unmodifiable(newPaint),
-      List.unmodifiable(newEndpoints),
+      newBounds == null ? _bounds : List.unmodifiable(newBounds),
+      newPaint == null ? _paintBounds : List.unmodifiable(newPaint),
+      newEndpoints == null ? _endpointBounds : List.unmodifiable(newEndpoints),
       _relationSlots,
       _relations.replace(relationChanges),
       _dependencies,

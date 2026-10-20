@@ -94,13 +94,17 @@ final class ItemLayout {
       final indexed = previous != null && index < previous.components.length
           ? previous.components[index]
           : null;
-      final prior = indexed?.id == value['id']
-          ? indexed
-          : (previousById ??= {
-              for (final component
-                  in previous?.components ?? <ComponentLayout>[])
-                component.id: component,
-            })[value['id']];
+      final ComponentLayout? prior;
+      if (previous == null) {
+        prior = null;
+      } else {
+        prior = indexed?.id == value['id']
+            ? indexed
+            : (previousById ??= {
+                for (final component in previous.components)
+                  component.id: component,
+              })[value['id']];
+      }
       if (prior != null &&
           identical(prior.data, value) &&
           previous!.size == size &&

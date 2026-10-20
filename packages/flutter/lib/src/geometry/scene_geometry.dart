@@ -65,25 +65,30 @@ TargetGeometry projectTargetGeometry({
   Map<String, Object?>? gridData,
   ItemLayout? item,
   TargetGeometry? previous,
+  // Proven by the snapshot from unchanged attrs, parent world and grid pitch.
+  Affine? retainedWorld,
   List<String> children = const [],
 }) {
   final attrs = data['attrs'] as Map<String, Object?>?;
-  var local = Affine.fromAttrs(attrs);
-  if (target.row != null) {
-    final grid = gridData!;
-    final template = grid['item']! as Map;
-    final pitch = fixedSize(template['size']! as Map);
-    final gap = grid['gap']! as Map;
-    local = Affine.identity
-        .translated(
-          target.column! * (pitch.width + (gap['x']! as num)),
-          target.row! * (pitch.height + (gap['y']! as num)),
-        )
-        .multiply(local);
-  }
-  var world = parentWorld.multiply(local);
-  if (previous != null && previous.world.sameTransform(world)) {
-    world = previous.world;
+  var world = retainedWorld;
+  if (world == null) {
+    var local = Affine.fromAttrs(attrs);
+    if (target.row != null) {
+      final grid = gridData!;
+      final template = grid['item']! as Map;
+      final pitch = fixedSize(template['size']! as Map);
+      final gap = grid['gap']! as Map;
+      local = Affine.identity
+          .translated(
+            target.column! * (pitch.width + (gap['x']! as num)),
+            target.row! * (pitch.height + (gap['y']! as num)),
+          )
+          .multiply(local);
+    }
+    world = parentWorld.multiply(local);
+    if (previous != null && previous.world.sameTransform(world)) {
+      world = previous.world;
+    }
   }
   if (!world.isFinite) {
     throw DatasetException(
