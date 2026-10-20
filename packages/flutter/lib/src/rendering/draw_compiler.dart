@@ -2,7 +2,6 @@ import 'dart:ui';
 
 import '../dataset/colors.dart';
 import '../api/target.dart';
-import '../geometry/item_layout.dart';
 import '../geometry/affine.dart';
 import '../geometry/layout.dart';
 import '../geometry/scene_geometry.dart';

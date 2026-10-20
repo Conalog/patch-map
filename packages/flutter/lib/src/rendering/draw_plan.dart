@@ -459,8 +459,9 @@ bool _sameStaticInputs(DrawNode before, DrawNode after) {
       a.opacity != b.opacity ||
       !identical(a.world, b.world) ||
       a.paintBounds != b.paintBounds ||
-      before.components.length != after.components.length)
+      before.components.length != after.components.length) {
     return false;
+  }
   for (var i = 0; i < before.components.length; i++) {
     final old = before.components[i], next = after.components[i];
     if (identical(old, next)) continue;
@@ -468,14 +469,16 @@ bool _sameStaticInputs(DrawNode before, DrawNode after) {
     if (x.id != y.id ||
         x.type != y.type ||
         x.visible != y.visible ||
-        x.upright != y.upright)
+        x.upright != y.upright) {
       return false;
+    }
     if (x.type == 'background' &&
         (!identical(old.content, next.content) ||
             !identical(x.transform, y.transform) ||
             x.box.width != y.box.width ||
-            x.box.height != y.box.height))
+            x.box.height != y.box.height)) {
       return false;
+    }
   }
   return true;
 }
