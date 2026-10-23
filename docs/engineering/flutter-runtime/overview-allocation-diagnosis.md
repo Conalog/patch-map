@@ -109,3 +109,5 @@ failed-capture records and cleanup live under
 `.artifacts/performance/flutter/overview-allocation3476-device-20261023/`.
 Proposal 1 is subsequently applied and compared in the
 [origin Offset checkpoint](origin-offset-checkpoint.md).
+Proposal 2 is applied in the [fixed placement slots checkpoint](placement-slots-checkpoint.md);
+its emulator performance comparison remains inconclusive due to host contention.

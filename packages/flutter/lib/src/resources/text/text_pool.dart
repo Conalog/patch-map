@@ -25,7 +25,8 @@ final class TextHandle {
   int get references => _references;
   OwnedTextLayout? _native;
   GlyphAtlas? _atlas;
-  final _placements = <double, _GlyphPlacement>{};
+  // GlyphAtlasCache provides exactly these three fixed densities.
+  _GlyphPlacement? _placement3, _placement6, _placement12;
   ui.Size get size => metrics.size;
   bool get hasParagraph => _native != null;
 }
@@ -251,10 +252,12 @@ final class TextPool {
       paragraphDraws++;
       return;
     }
-    final placement = handle._placements.putIfAbsent(
-      page.density,
-      () => _GlyphPlacement(handle, page),
-    );
+    final placement = switch (page.density) {
+      3 => handle._placement3 ??= _GlyphPlacement(handle, page),
+      6 => handle._placement6 ??= _GlyphPlacement(handle, page),
+      12 => handle._placement12 ??= _GlyphPlacement(handle, page),
+      _ => throw StateError('unsupported glyph density: ${page.density}'),
+    };
     canvas.save();
     canvas.translate(offset.dx, offset.dy);
     canvas.drawRawAtlas(
@@ -285,7 +288,9 @@ final class TextPool {
   void _retire(TextHandle handle) {
     final native = handle._native;
     handle._native = null;
-    handle._placements.clear();
+    handle._placement3 = null;
+    handle._placement6 = null;
+    handle._placement12 = null;
     if (native != null) {
       retirement.enqueue(() {
         native.dispose();

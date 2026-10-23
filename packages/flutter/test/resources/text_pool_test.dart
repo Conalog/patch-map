@@ -611,6 +611,71 @@ void main() {
     },
   );
 
+  testWidgets(
+    'density changes reuse independent placements without pixel drift',
+    (tester) async {
+      await tester.runAsync(() async {
+        final retained = _PoolHarness();
+        final fresh = _PoolHarness(entries: 0);
+        final data = _data('5678');
+        retained.owner.setActive(true);
+        fresh.owner.setActive(true);
+        final handle = retained.acquire(data, _content);
+        final warm = fresh.acquire(data, _content);
+        Future<Uint8List> render(
+          _PoolHarness h,
+          TextHandle value,
+          double demand,
+        ) async {
+          final recorder = ui.PictureRecorder();
+          h.owner.draw(
+            value,
+            ui.Canvas(recorder),
+            const ui.Offset(4, 4),
+            demand,
+          );
+          final picture = recorder.endRecording();
+          final image = await picture.toImage(80, 40);
+          try {
+            return (await image.toByteData())!.buffer.asUint8List();
+          } finally {
+            image.dispose();
+            picture.dispose();
+          }
+        }
+
+        try {
+          await _until(
+            () =>
+                retained.owner.atlases.builds == 1 &&
+                fresh.owner.atlases.builds == 1,
+          );
+          fresh.release(warm);
+          fresh.owner.trimUnused();
+          final creates = retained.owner.paragraphCreates;
+          for (final demand in [6.0, 3.0, 12.0, 6.0, 12.0, 3.0]) {
+            final reference = fresh.acquire(data, _content);
+            try {
+              final pixels = await render(retained, handle, demand);
+              expect(pixels, await render(fresh, reference, demand));
+              expect(pixels.any((byte) => byte != 0), true);
+            } finally {
+              fresh.release(reference);
+              fresh.owner.trimUnused();
+            }
+            expect(fresh.owner.entries, 0);
+          }
+          expect(retained.owner.atlasDraws, 6);
+          expect(retained.owner.paragraphDraws, 0);
+          expect(retained.owner.paragraphCreates, creates);
+        } finally {
+          retained.close();
+          fresh.close();
+        }
+      });
+    },
+  );
+
   testWidgets('ready glyph pages draw without allocating another Paragraph', (
     tester,
   ) async {
