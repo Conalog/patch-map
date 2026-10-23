@@ -100,3 +100,19 @@ The source audit describes the candidate at measurement time, before withdrawal.
 Canonical owners are [verification policy](../verification.md), the text resource
 owner in [runtime architecture](architecture.md), and the existing retained-update
 device host. Production runtime source is unchanged from `62ce45ca` by this trial.
+
+## Follow-up isolation protocol
+
+The follow-up distinguishes rejecting the combined candidate from rejecting reuse itself.
+The 77-input audit and all initial/retained layout counts exclude unrelated source or layout-sharing changes.
+An artifact-only APK separates cached width, cached metrics and numeric dispatch, plus baseline/all-three modes.
+All five modes share compiled code and pass the 48-case pixel oracle; 35 tests and the profile build pass.
+The host has 11 informational analyzer lints; no errors or warnings. Production code is unchanged.
+First profile the exact earlier APK pair, keeping diagnostic timings separate from the main comparison.
+Then use fresh probe processes, prepare every diagram in baseline mode and switch only before updates.
+Retain the existing workload and sampling. Reverse only a suspected factor; add interaction or initial-draw
+variants only when evidence calls for them. The common diagnostic binary does not qualify production speed.
+Observe synchronous admission, resource preparation, commit, paint, GC and submission separately.
+Text counters include the host camera reset, not just measured paint. GC wall time is not process CPU time.
+Protocol, source/APK identities, tests and runners await device reconnection under
+`.artifacts/performance/flutter/numeric-paragraph-factors3476-device-20261023/`.
