@@ -1,3 +1,7 @@
+import 'dart:ui';
+
+import 'retained_update.dart';
+import 'bar_transitions.dart';
 import '../api/target.dart';
 import '../geometry/geometry_snapshot.dart';
 import '../presentation/record_delta.dart';
@@ -20,7 +24,7 @@ final class RenderPublication extends SessionPublication {
   }) : _componentChanges = componentChanges,
        assetCounts = counts ?? _countAssets(pages),
        assetTargets = targets ?? _assetTargets(pages),
-       plan = RenderPlan.build(
+       _plan = RenderPlan.build(
          geometry,
          pages,
          previous: previousPlan,
@@ -32,7 +36,56 @@ final class RenderPublication extends SessionPublication {
   final GeometrySnapshot geometry;
   final List<RenderPage> pages;
   final RenderResources resources;
-  final RenderPlan plan;
+  RenderPlan? _plan;
+  RenderPlan get plan =>
+      _plan ?? (throw StateError('Unpublished retained candidate'));
+  RetainedUpdate? _retained;
+  Map<int, Rect?>? get retainedOldBounds => _retained?.oldBounds;
+
+  RenderPublication.retained(
+    RenderPublication previous,
+    RetainedUpdate update, {
+    required this.animate,
+  }) : geometry = update.geometry,
+       pages = previous.pages,
+       resources = previous.resources,
+       changed = List.unmodifiable(update.slots),
+       _componentChanges = const {},
+       assetCounts = previous.assetCounts,
+       assetTargets = previous.assetTargets,
+       _retained = update {
+    resources.retain();
+    try {
+      _plan = RenderPlan.build(
+        geometry,
+        pages,
+        previous: previous.plan,
+        changedSlots: update.staticProofs.keys,
+        forceChangedProof: true,
+        memberOverrides: update.staticProofs,
+      );
+    } catch (_) {
+      update.dispose();
+      resources.release();
+      rethrow;
+    }
+  }
+
+  bool commitRetained(
+    BarTransitions transitions,
+    void Function(void Function()) retire,
+  ) {
+    final staged = _retained;
+    if (staged == null) return false;
+    staged.commit(transitions, animate, retire);
+    staged.dispose();
+    return true;
+  }
+
+  void finishRetained() {
+    _retained = null;
+  }
+
   final List<int> changed;
   final bool animate;
   Map<int, ComponentChanges> _componentChanges;
@@ -57,7 +110,9 @@ final class RenderPublication extends SessionPublication {
     if (_disposed) return;
     _disposed = true;
     _componentChanges = const {};
-    plan.dispose();
+    _retained?.dispose();
+    _retained = null;
+    _plan?.dispose();
     resources.text.trimUnused();
     resources.release();
   }

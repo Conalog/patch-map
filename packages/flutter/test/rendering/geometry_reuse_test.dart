@@ -127,8 +127,27 @@ void main() {
       ),
     ]);
     expect(next.nodes.single.matrix, same(old.matrix));
-    expect(next.nodes.single.components.first, same(old.components.first));
-    expect(next.nodes.single.components.last, same(old.components.last));
+    expect(
+      next.nodes.single.components.first,
+      isNot(same(old.components.first)),
+    );
+    expect(
+      next.nodes.single.components.first.content,
+      same(old.components.first.content),
+    );
+    expect(
+      next.nodes.single.components.first.matrix,
+      same(old.components.first.matrix),
+    );
+    expect(next.nodes.single.components.last, isNot(same(old.components.last)));
+    expect(
+      next.nodes.single.components.last.content,
+      same(old.components.last.content),
+    );
+    expect(
+      next.nodes.single.components.last.matrix,
+      same(old.components.last.matrix),
+    );
     expect(
       next.nodes.single.components[1].layout.transform,
       isNot(same(old.components[1].layout.transform)),
@@ -167,8 +186,12 @@ void main() {
       final q = h.project(change.snapshot, previous: p), after = q.nodes.single;
       expect(identical(before, after), false);
       expect(identical(before.matrix, after.matrix), true);
-      expect(identical(before.components[0], after.components[0]), true);
-      expect(identical(before.components[1], after.components[1]), true);
+      expect(identical(before.components[0], after.components[0]), false);
+      expect(after.components[0].content, same(before.components[0].content));
+      expect(after.components[0].matrix, same(before.components[0].matrix));
+      expect(identical(before.components[1], after.components[1]), false);
+      expect(after.components[1].content, same(before.components[1].content));
+      expect(after.components[1].matrix, same(before.components[1].matrix));
       expect(identical(before.components.last, after.components.last), false);
       expect(
         identical(before.components.last.matrix, after.components.last.matrix),

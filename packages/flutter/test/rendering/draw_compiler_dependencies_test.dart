@@ -209,7 +209,15 @@ void main() {
       );
       expect(next.components[1].content, same(old.components[1].content));
       for (final index in [0, 2, 3]) {
-        expect(next.components[index], same(old.components[index]));
+        expect(next.components[index], isNot(same(old.components[index])));
+        expect(
+          next.components[index].content,
+          same(old.components[index].content),
+        );
+        expect(
+          next.components[index].matrix,
+          same(old.components[index].matrix),
+        );
       }
       expect(next.assets, same(old.assets));
       expect(next.assetTargets, same(old.assetTargets));
@@ -295,8 +303,12 @@ void main() {
         componentChanges: (ComponentChanges.single(2, _delta(RecordFields.tint))
           ..add(3, _delta(RecordFields.attrsAlpha))),
       );
-      expect(next.components[0], same(old.components[0]));
-      expect(next.components[1], same(old.components[1]));
+      expect(next.components[0], isNot(same(old.components[0])));
+      expect(next.components[0].content, same(old.components[0].content));
+      expect(next.components[0].matrix, same(old.components[0].matrix));
+      expect(next.components[1], isNot(same(old.components[1])));
+      expect(next.components[1].content, same(old.components[1].content));
+      expect(next.components[1].matrix, same(old.components[1].matrix));
       expect(
         next.components[2].content,
         isNot(same(old.components[2].content)),
@@ -352,7 +364,9 @@ void main() {
         isNot(same(old.components[2].content)),
       );
       expect(h.text.keyCreates, keys + 1);
-      expect(next.components[3], same(old.components[3]));
+      expect(next.components[3], isNot(same(old.components[3])));
+      expect(next.components[3].content, same(old.components[3].content));
+      expect(next.components[3].matrix, same(old.components[3].matrix));
     }
     expect(assets, hasLength(1));
   });

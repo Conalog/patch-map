@@ -105,8 +105,8 @@ void main() {
     expect(measure.texts, isEmpty);
     expect(
       identical(
-        _layout(before, 'item', 'number'),
-        _layout(after, 'item', 'number'),
+        _layout(before, 'item', 'number').box,
+        _layout(after, 'item', 'number').box,
       ),
       isTrue,
     );

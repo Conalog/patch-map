@@ -32,8 +32,9 @@ unexpected implementation errors preserve the Future error and original stack. R
 and preparation failures can both be reported. Immutable effective values and
 retained projections are reused when unchanged; avoid allocating a complete
 candidate object for every unchanged input record.
-After complete admission/validation, an idle no-op probe stops at the first
-changed or retryable record. A patch may retain one resolution memo, reusable only
+After complete admission/validation, a validated retained batch reuses its exact
+changed records for the idle no-op check and preparation. Otherwise the no-op
+probe stops at the first changed or retryable record. A patch may retain one resolution memo, reusable only
 when both authored and current records are identical. Merging its operations creates
 a new patch; execution still resolves against current values after rebase or failure.
 The backend consumes at most the latest admission batch's non-text layout memo,
@@ -41,6 +42,16 @@ checking component identity and owner size/content/orientation; text placeholder
 never become measured geometry. These are optional computations, not pending state
 or resource leases. A complete no-op still checks every addressed record before
 taking the no-frame completion path.
+
+A retained candidate owns staged content leases, not a second live scene.
+Preparation and cancellation leave current geometry, drawing and exported values
+unchanged. Publication captures the displayed animation start, detaches a shared
+layout on first write and applies the prepared fields synchronously. Old content
+uses the same safe retirement queue as replacement nodes. Candidate disposal
+releases staged leases; hide, activity changes and refresh invalidate validation
+reuse. An old internal publication may share retained handles after commit and
+must not be treated as a historical value snapshot. Public values remain detached
+immutable snapshots, and request completion still requires the matching paint.
 
 Prepare and publish related changes as an item-consistent unit. One item's new
 bar must not appear with its old number. A failed item keeps its prior valid

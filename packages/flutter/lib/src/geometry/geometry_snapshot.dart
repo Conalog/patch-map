@@ -130,6 +130,39 @@ final class GeometrySnapshot {
     paint: paint,
   );
 
+  /// Candidate aggregates read staged envelopes without mutating live nodes.
+  GeometrySnapshot stageRetainedBounds(Map<int, Rect?> changed) {
+    List<Rect?>? paint;
+    for (final page
+        in changed.keys.map((slot) => slot ~/ nodes.pageSize).toSet()) {
+      Rect? bounds;
+      for (var offset = 0; offset < nodes.pages[page].length; offset++) {
+        final slot = page * nodes.pageSize + offset, node = nodes[slot];
+        if (node.visible && !node.isContainer) {
+          bounds = unionBounds(
+            bounds,
+            changed.containsKey(slot) ? changed[slot] : node.paintBounds,
+          );
+        }
+      }
+      if (bounds != _paintBounds[page]) {
+        paint ??= List.of(_paintBounds);
+        paint[page] = bounds;
+      }
+    }
+    return GeometrySnapshot._(
+      topology,
+      nodes,
+      paintSlots,
+      _bounds,
+      paint == null ? _paintBounds : List.unmodifiable(paint),
+      _endpointBounds,
+      _relationSlots,
+      _relations,
+      _dependencies,
+    );
+  }
+
   /// Resource readiness changes geometry only. No authored/presentation field
   /// is manufactured, and fixed-size/unknown/non-image IDs need no projection.
   GeometryChange reprojectImages(

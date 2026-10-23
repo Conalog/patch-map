@@ -5,7 +5,8 @@ import '../presentation/field_operations.dart';
 import '../presentation/presentation_admission.dart';
 import '../presentation/record_delta.dart';
 
-/// An opaque immutable publication, with its native resources owned by backend.
+/// An opaque publication whose native resources are owned by the backend.
+/// The backend may mutate retained handles only in its publish boundary.
 abstract class SessionPublication {}
 
 final class PreparedUpdate {
@@ -25,6 +26,33 @@ abstract class SessionBackend {
     PresentationBatch batch,
     PresentationRecordLookup current,
   );
+
+  /// Optional validated transaction proof. False uses ordinary validation.
+  bool validateRetainedUpdate(
+    DatasetDocument document,
+    PresentationBatch batch,
+    PresentationRecordLookup lookup,
+    SessionPublication publication,
+    int acceptedGeneration,
+  ) => false;
+
+  /// Returns only a proof bound to the exact current publication and plan.
+  Map<PatchMapTarget, RecordDelta>? validatedChanges(
+    DatasetDocument document,
+    PresentationPlan plan,
+    SessionPublication publication,
+    int acceptedGeneration,
+  ) => null;
+
+  Map<PatchMapTarget, PresentationPatch>? validatedPatchIndex(
+    DatasetDocument document,
+    PresentationPlan plan,
+    SessionPublication publication,
+    int acceptedGeneration,
+  ) => null;
+
+  void releaseValidatedChanges() {}
+
   Future<SessionPublication> prepareDocument(
     DatasetDocument document,
     int generation,

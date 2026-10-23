@@ -43,11 +43,11 @@ final class ComponentLayoutMemo {
 
 final class ComponentLayout {
   ComponentLayout(this.data, this.box, this.transform, this.upright);
-  final Map<String, Object?> data;
-  final Rect box;
+  Map<String, Object?> data;
+  Rect box;
 
   /// Maps a zero-origin component rectangle into its item's coordinates.
-  final Affine transform;
+  Affine transform;
   final bool upright;
   String get id => data['id']! as String;
   String get type => data['type']! as String;
@@ -76,11 +76,25 @@ final class ItemLayout {
     this.indices,
     this.sourceIndices,
   );
+  // True only for a layout with no shared mutable component handles.
+  bool mutationOwned = false;
   final Size size;
   final Rect content;
   final List<ComponentLayout> components;
   final Map<String, int> indices;
   final Map<String, int> sourceIndices;
+
+  /// Retained geometry must never mutate a grid template or sibling handle.
+  ItemLayout detached() => ItemLayout._(
+    size,
+    content,
+    List.unmodifiable([
+      for (final c in components)
+        ComponentLayout(c.data, c.box, c.transform, c.upright),
+    ]),
+    indices,
+    sourceIndices,
+  )..mutationOwned = true;
 
   factory ItemLayout.compile(
     Map<String, Object?> data,
@@ -230,13 +244,14 @@ final class ItemLayout {
         for (var i = 0; i < next.length; i++) next[i].id: i,
       });
     }
-    return ItemLayout._(
+    final result = ItemLayout._(
       nextSize,
       nextContent,
       List.unmodifiable(next),
       nextIndices,
       sourceIndices,
     );
+    return result.detached();
   }
 
   /// Fields used by local layout, independent of resource and painting fields.
@@ -252,6 +267,28 @@ final class ItemLayout {
 
   /// Admission and rendering preparation share one scalar layout authority.
   static ComponentLayout prepareComponent(
+    Map<String, Object?> value,
+    Size size,
+    Rect content,
+    bool upright,
+    MeasureText measureText, {
+    ComponentLayout? previous,
+    Rect? previousContent,
+  }) {
+    final prepared = prepareComponentValues(
+      value,
+      size,
+      content,
+      upright,
+      measureText,
+      previous: previous,
+      previousContent: previousContent,
+    );
+    return ComponentLayout(value, prepared.box, prepared.transform, upright);
+  }
+
+  /// Scalar staging avoids allocating a replacement ComponentLayout handle.
+  static ({Rect box, Affine transform}) prepareComponentValues(
     Map<String, Object?> value,
     Size size,
     Rect content,
@@ -310,7 +347,7 @@ final class ItemLayout {
     if (prior != null && local.sameTransform(prior.transform)) {
       local = prior.transform;
     }
-    return ComponentLayout(value, box, local, upright);
+    return (box: box, transform: local);
   }
 
   /// Bars are contained and never invalidate the text/SVG safety envelope.
@@ -336,6 +373,34 @@ final class ItemLayout {
       }
     }
     return true;
+  }
+
+  /// Conservative envelope from canonical scalar entries, before live mutation.
+  /// Geometry remains the owner of this calculation for retained updates.
+  Rect projectedPaintBounds(
+    Affine world,
+    ({Map<String, Object?> data, Rect box, Affine transform})? Function(int)
+    staged,
+  ) {
+    var result = world.projectRect(Offset.zero & size).bounds;
+    for (var index = 0; index < components.length; index++) {
+      final component = components[index], next = staged(index);
+      final data = next?.data ?? component.data;
+      if (data['show'] == false || component.type == 'bar') continue;
+      final box = next?.box ?? component.box;
+      final authored = world.multiply(next?.transform ?? component.transform);
+      final local = Offset.zero & box.size;
+      var bounds = authored.projectRect(local).bounds;
+      if (component.upright) {
+        final center = authored.project(local.center);
+        final width = box.width * vectorLength(authored.a, authored.b);
+        final height = box.height * vectorLength(authored.c, authored.d);
+        bounds = Rect.fromCircle(center: center, radius: (width + height) / 2);
+      }
+      result = result.expandToInclude(bounds);
+    }
+    validateBounds(result);
+    return result;
   }
 
   /// Camera-independent conservative paint envelope. Bars are contained by the

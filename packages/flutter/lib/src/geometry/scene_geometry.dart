@@ -26,7 +26,7 @@ final class SceneGeometry {
 }
 
 final class TargetGeometry {
-  const TargetGeometry({
+  TargetGeometry({
     required this.target,
     required this.data,
     required this.world,
@@ -40,14 +40,15 @@ final class TargetGeometry {
     this.localBounds,
   });
   final DatasetTarget target;
-  final Map<String, Object?> data;
+  Map<String, Object?> data;
   final Affine world;
   final bool visible, locked;
   final double opacity;
-  final Rect? bounds, paintBounds, localBounds;
+  final Rect? bounds, localBounds;
+  Rect? paintBounds;
   // Immutable structural identities, never stale child projection objects.
   final List<String> children;
-  final ItemLayout? item;
+  ItemLayout? item;
   String get id => target.id;
   bool get isContainer => target.type == 'group' || target.type == 'grid';
 }

@@ -84,8 +84,20 @@ void main() {
         (_, _) => throw StateError('Unrelated text measurement'),
         fields: 0,
       );
-      expect(after.components[0], same(before.components[0]));
-      expect(after.components[2], same(before.components[2]));
+      expect(after.components[0], isNot(same(before.components[0])));
+      expect(after.components[0].data, same(before.components[0].data));
+      expect(after.components[0].box, same(before.components[0].box));
+      expect(
+        after.components[0].transform,
+        same(before.components[0].transform),
+      );
+      expect(after.components[2], isNot(same(before.components[2])));
+      expect(after.components[2].data, same(before.components[2].data));
+      expect(after.components[2].box, same(before.components[2].box));
+      expect(
+        after.components[2].transform,
+        same(before.components[2].transform),
+      );
       expect(after.indices, same(before.indices));
       expect(after.sourceIndices, same(before.sourceIndices));
       expect(after.size, same(before.size));

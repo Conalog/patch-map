@@ -7,10 +7,6 @@ actions. No new state-management or game-engine dependency is required.
 
 ## Files and dependencies
 
-Names below establish responsibilities, not empty files to scaffold in advance.
-Create a file when its implementation exists. Do not use `part` to join the
-runtime into one giant library as the experiment does.
-
 | Directory under `lib/src/` | Ownership and principal files |
 | --- | --- |
 | `api/` | Immutable addresses, command results, event values and public configuration. No renderer handles or mutable input exposure. |
@@ -30,10 +26,8 @@ presentation, geometry, viewport, interaction and resource/render ports.
 Rendering/resources depend on shared values and geometry, not on the widget,
 controller or concrete session. The composition root wires callbacks/ports;
 callbacks are not permission for lower layers to change session state.
-Tests and the example may import the package; production never imports example,
-performance or verification code. Internal Dart libraries remain independently
-testable. Avoid interfaces around every helper; use ports where ownership or
-asynchronous lifetime crosses a real boundary.
+Production never imports example, performance or verification code. Use ports
+where ownership or asynchronous lifetime crosses a real boundary.
 
 ## Lifecycle ownership
 
@@ -74,12 +68,27 @@ bar transitions consume those dependencies. Item component IDs resolve once to
 retained sorted indices; later stages use those slots. Reordering invalidates
 slot hints. Owner size/padding/orientation, opacity and order changes
 expand work only where required; unchanged sibling records/resources are shared.
-Immutable reference arrays and publication leases still require bookkeeping.
-One compact component-change collection carries these hints through preparation.
-Its first entry is stored inline, additional entries append directly, and an
-index is created only for repeated multi-component lookups. Do not build an
-intermediate per-item map or duplicate the entries. Publication releases them
-after plan/transition preparation. They never form a chain of snapshots.
+For an idle, fully submitted session, `RetainedUpdate` carries the validated
+component records and scalar geometry directly into resource preparation. Its
+reuse is bound to the document, publication, generation, revision, activity epoch
+and patch identities. Composed or rebased changes bind their resolved records to
+the same preparation/commit owner; owner/source/order changes keep the general
+projection path. No typed or restricted public input API is required.
+
+Preparation never changes live handles. It acquires content leases, measures
+text from the acquired handle and stages bounds/static-plan changes. The existing
+backend publication boundary then synchronously updates retained draw/geometry
+handles. Initial grid layouts remain shared until the first committed write;
+that write detaches only the changed item's mutable layout. General replacement
+nodes own independent component handles so later mutation cannot change an old
+node's resource lease. Unchanged records, scalar geometry and content are still
+shared. Public getters/events export immutable JSON before exposing it.
+
+Publication leases still require bookkeeping. On the general projection path,
+one compact component-change collection carries hints through preparation.
+Its first entry is inline; additional entries append directly. Index only repeated
+multi-component lookups. Publication releases hints after plan/transition preparation;
+do not duplicate entries or retain snapshot chains.
 `ItemDataView` projects the effective component list in authored order only on
 read. It unwraps older views and keeps one current layout, not revision history.
 The input/query boundary materializes JSON and releases that layout reference

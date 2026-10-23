@@ -101,7 +101,27 @@ final class MapSession {
     final PresentationBatch batch;
     try {
       batch = _admission.admit(_document!, updates, current: _latestRecord);
-      backend.validateUpdate(_document!, batch, _latestRecord);
+      final contextReady =
+          active &&
+          _phase == PatchMapPhase.ready &&
+          _work == null &&
+          _pending == null &&
+          _executing == null &&
+          _submission == null &&
+          _submittedRevision == _revision &&
+          _failedTargets.isEmpty &&
+          !_refresh &&
+          _publication != null;
+      final direct =
+          contextReady &&
+          backend.validateRetainedUpdate(
+            _document!,
+            batch,
+            _latestRecord,
+            _publication!,
+            _generation,
+          );
+      if (!direct) backend.validateUpdate(_document!, batch, _latestRecord);
     } catch (error, stack) {
       return _expected(error)
           ? Future.value(_rejected(error))
@@ -117,7 +137,17 @@ final class MapSession {
       try {
         // Admission already checked every input. Only prove whether this is a
         // no-op here; a changed batch resolves fully against current at execution.
-        if (!batch.patches.any((patch) => _resolveChange(patch) != null)) {
+        final validated = _failedTargets.isEmpty && _publication != null
+            ? backend.validatedChanges(
+                _document!,
+                batch,
+                _publication!,
+                _generation,
+              )
+            : null;
+        if (validated?.isEmpty ??
+            !batch.patches.any((patch) => _resolveChange(patch) != null)) {
+          backend.releaseValidatedChanges();
           return Future.value(PatchMapResult(PatchMapOutcome.unchanged));
         }
       } catch (error, stack) {
@@ -269,6 +299,15 @@ final class MapSession {
   }
 
   Map<PatchMapTarget, RecordDelta> _resolve(PresentationPlan plan) {
+    if (_failedTargets.isEmpty && _publication != null && active) {
+      final validated = backend.validatedChanges(
+        _document!,
+        plan,
+        _publication!,
+        _generation,
+      );
+      if (validated != null) return validated;
+    }
     final result = <PatchMapTarget, RecordDelta>{};
     for (final patch in plan.patches) {
       final next = _resolveChange(patch);
@@ -446,6 +485,22 @@ final class MapSession {
   }
 
   void _composePending(_Pending pending, PresentationPlan later) {
+    if (pending.plan.patches.isEmpty &&
+        _publication != null &&
+        active &&
+        _failedTargets.isEmpty) {
+      final validated = backend.validatedPatchIndex(
+        _document!,
+        later,
+        _publication!,
+        _generation,
+      );
+      if (validated != null) {
+        pending.plan = later;
+        pending.index = validated;
+        return;
+      }
+    }
     final composed = _composer.composeIndexed(pending.plan, later);
     pending.plan = composed.plan;
     pending.index = composed.index;

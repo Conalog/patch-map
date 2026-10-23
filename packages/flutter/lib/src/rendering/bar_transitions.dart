@@ -86,6 +86,24 @@ final class BarTransitions {
     }
   }
 
+  /// Before boxes are captured before retained geometry mutates.
+  void replaceRetained(
+    int slot,
+    String id,
+    Rect before,
+    Rect after,
+    Map<String, Object?> data, {
+    required bool animate,
+  }) {
+    final key = (slot, id), running = _active[key];
+    if (animate && data['animation'] == true && running?.to == after) return;
+    final from = running?.at(_time) ?? before;
+    _active.remove(key);
+    if (!animate || data['animation'] != true || from == after) return;
+    final duration = ((data['animationDuration']! as num) * 1000).round();
+    if (duration != 0) _active[key] = _Transition(from, after, duration);
+  }
+
   void clear() => _active.clear();
 }
 

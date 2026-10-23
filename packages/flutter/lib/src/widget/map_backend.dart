@@ -23,6 +23,7 @@ import '../presentation/presentation_resolver.dart';
 import '../presentation/record_delta.dart';
 import '../rendering/bar_transitions.dart';
 import '../rendering/draw_objects.dart';
+import '../rendering/retained_update.dart';
 import '../rendering/render_publication.dart';
 import '../rendering/render_resources.dart';
 import '../rendering/selection_overlay.dart';
@@ -101,9 +102,11 @@ final class MapBackend extends SessionBackend {
   Object? _cameraKey;
   List<int> _ranks = const [];
   ComponentLayoutMemo? _validatedLayouts;
+  RetainedUpdate? _validatedUpdate;
 
   @override
   void validateDocument(DatasetDocument document) {
+    _validatedUpdate = null;
     _validatedLayouts = null;
     validateDatasetColors(document.roots, palette);
     // Pure scalar validation before acceptance; no Paragraph/image preparation.
@@ -120,6 +123,7 @@ final class MapBackend extends SessionBackend {
     PresentationBatch batch,
     PresentationRecordLookup lookup,
   ) {
+    _validatedUpdate = null;
     const resolver = PresentationResolver();
     _validatedLayouts = null;
     final layouts = ComponentLayoutMemo();
@@ -236,6 +240,81 @@ final class MapBackend extends SessionBackend {
   }
 
   @override
+  bool validateRetainedUpdate(
+    DatasetDocument document,
+    PresentationBatch batch,
+    PresentationRecordLookup lookup,
+    SessionPublication publication,
+    int acceptedGeneration,
+  ) {
+    _validatedUpdate = null;
+    _validatedLayouts = null;
+    if (!_active ||
+        !identical(publication, current) ||
+        acceptedGeneration != generation) {
+      return false;
+    }
+    final proof = RetainedUpdate.validate(
+      document,
+      publication as RenderPublication,
+      generation,
+      revision,
+      _epoch,
+      batch,
+      lookup,
+      palette,
+    );
+    _validatedUpdate = proof;
+    return proof != null;
+  }
+
+  @override
+  Map<PatchMapTarget, RecordDelta>? validatedChanges(
+    DatasetDocument document,
+    PresentationPlan plan,
+    SessionPublication publication,
+    int acceptedGeneration,
+  ) {
+    final proof = _validatedUpdate;
+    if (proof == null) return null;
+    if (!_active ||
+        !identical(publication, current) ||
+        !proof.matches(
+          document,
+          publication as RenderPublication,
+          acceptedGeneration,
+          revision,
+          _epoch,
+          plan,
+        )) {
+      _validatedUpdate = null;
+      return null;
+    }
+    return proof;
+  }
+
+  @override
+  Map<PatchMapTarget, PresentationPatch>? validatedPatchIndex(
+    DatasetDocument document,
+    PresentationPlan plan,
+    SessionPublication publication,
+    int acceptedGeneration,
+  ) {
+    final proof = validatedChanges(
+      document,
+      plan,
+      publication,
+      acceptedGeneration,
+    );
+    return proof is RetainedUpdate ? proof.patchIndex : null;
+  }
+
+  @override
+  void releaseValidatedChanges() {
+    _validatedUpdate = null;
+  }
+
+  @override
   Future<SessionPublication> prepareDocument(
     DatasetDocument document,
     int generation,
@@ -326,6 +405,29 @@ final class MapBackend extends SessionBackend {
         resources = previous.resources;
     final layouts = _validatedLayouts;
     _validatedLayouts = null;
+    if (changes is RetainedUpdate) {
+      final proof = changes;
+      final valid =
+          identical(_validatedUpdate, proof) &&
+          _active &&
+          intent != null &&
+          identical(previous, current) &&
+          proof.matches(
+            document,
+            previous,
+            generation,
+            revision,
+            _epoch,
+            intent,
+          );
+      _validatedUpdate = null;
+      if (valid) {
+        resources.text.withPreparation(proof.prepare);
+        return PreparedUpdate(
+          RenderPublication.retained(previous, proof, animate: animate),
+        );
+      }
+    }
     final sourceTargets = {
       for (final patch in intent?.patches ?? const <PresentationPatch>[])
         if (patch.operations.any(
@@ -333,6 +435,26 @@ final class MapBackend extends SessionBackend {
         ))
           patch.target,
     };
+    if (identical(previous, current) && _active && sourceTargets.isEmpty) {
+      final staged = resources.text.withPreparation(() {
+        final update = RetainedUpdate.fromChanges(
+          document,
+          previous,
+          generation,
+          revision,
+          _epoch,
+          changes,
+          layouts,
+        );
+        update?.prepare();
+        return update;
+      });
+      if (staged != null) {
+        return PreparedUpdate(
+          RenderPublication.retained(previous, staged, animate: animate),
+        );
+      }
+    }
     late GeometryChange projection;
     final owned = <int, DrawNode>{};
     final failures = <String, List<PatchMapFailure>>{};
@@ -578,6 +700,7 @@ final class MapBackend extends SessionBackend {
 
   @override
   Future<SessionPublication> prepareRefresh(SessionPublication before) async {
+    _validatedUpdate = null;
     final pub = before as RenderPublication;
     final ids = Set<String>.of(_intrinsicReady);
     _intrinsicReady.clear();
@@ -648,6 +771,9 @@ final class MapBackend extends SessionBackend {
     int nextRevision,
   ) {
     final next = publication as RenderPublication, previous = current;
+    final retained =
+        previous != null &&
+        next.commitRetained(transitions, retirement.enqueue);
     final componentChanges = next.takeComponentChanges();
     if (nextGeneration != generation || previous == null) {
       transitions.clear();
@@ -658,18 +784,23 @@ final class MapBackend extends SessionBackend {
       _pendingFit = true;
     } else {
       for (final slot in next.changed) {
-        final old = previous.geometry.nodes[slot].paintBounds,
+        final old = retained
+                ? next.retainedOldBounds![slot]
+                : previous.geometry.nodes[slot].paintBounds,
             now = next.geometry.nodes[slot].paintBounds;
         if (old != now) spatial.update(slot, now ?? Rect.zero);
       }
-      transitions.replace(
-        previous.geometry,
-        next.geometry,
-        next.changed,
-        animate: next.animate,
-        componentChanges: componentChanges,
-      );
+      if (!retained) {
+        transitions.replace(
+          previous.geometry,
+          next.geometry,
+          next.changed,
+          animate: next.animate,
+          componentChanges: componentChanges,
+        );
+      }
     }
+    next.finishRetained();
     current = next;
     next.resources.applyCounts(next.assetCounts);
     _reportedFailures.removeWhere(
@@ -824,6 +955,7 @@ final class MapBackend extends SessionBackend {
 
   @override
   void hide() {
+    _validatedUpdate = null;
     _validatedLayouts = null;
     _epoch++;
     _wakeActivity();
@@ -840,6 +972,7 @@ final class MapBackend extends SessionBackend {
 
   @override
   void setActive(bool active) {
+    _validatedUpdate = null;
     _active = active;
     _wakeActivity();
     preparations.setActive(active);

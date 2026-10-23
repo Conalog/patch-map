@@ -171,7 +171,18 @@ void main() {
           .snapshot['item']!
           .item!;
       expect(measured, 1);
-      expect(_component(after, 'bar'), same(_component(validation, 'bar')));
+      expect(
+        _component(after, 'bar'),
+        isNot(same(_component(validation, 'bar'))),
+      );
+      expect(
+        _component(after, 'bar').box,
+        same(_component(validation, 'bar').box),
+      );
+      expect(
+        _component(after, 'bar').transform,
+        same(_component(validation, 'bar').transform),
+      );
       expect(_component(after, 'bar').box, const Rect.fromLTWH(10, 40, 80, 30));
       expect(
         _component(after, 'text').box,

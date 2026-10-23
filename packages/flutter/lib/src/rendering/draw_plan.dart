@@ -28,6 +28,8 @@ final class RenderPlan {
     RenderPlan? previous,
     Iterable<int>? changedSlots,
     Map<int, ComponentChanges>? componentChanges,
+    bool forceChangedProof = false,
+    Map<int, Object?>? memberOverrides,
   }) {
     if (previous?._disposed ?? false) {
       throw StateError('Previous render plan is disposed');
@@ -42,6 +44,8 @@ final class RenderPlan {
         previous,
         changedSlots,
         componentChanges,
+        forceChangedProof,
+        memberOverrides,
       );
     }
     final ownedPages = List<RenderPage>.unmodifiable(pages);
@@ -156,6 +160,8 @@ final class RenderPlan {
     RenderPlan previous,
     Iterable<int> changedSlots,
     Map<int, ComponentChanges>? componentChanges,
+    bool forceChangedProof,
+    Map<int, Object?>? memberOverrides,
   ) {
     final ownedPages = List<RenderPage>.unmodifiable(pages);
     for (final page in ownedPages) {
@@ -182,14 +188,18 @@ final class RenderPlan {
           if (!changed.contains(slot)) continue;
           final node = pages[slot ~/ geometry.nodes.pageSize]
               .nodes[slot % geometry.nodes.pageSize];
-          if (_sameStaticInputs(
-            previous._node(slot),
-            node,
-            componentChanges?[slot],
-          )) {
+          if (!forceChangedProof &&
+              _sameStaticInputs(
+                previous._node(slot),
+                node,
+                componentChanges?[slot],
+              )) {
             continue;
           }
-          final next = _Member.create(node);
+          final next =
+              memberOverrides != null && memberOverrides.containsKey(slot)
+              ? memberOverrides[slot] as _Member?
+              : _Member.create(node);
           if (_sameMember(old.members[offset], next)) continue;
           (replacements ??= List<_Member?>.of(old.members))[offset] = next;
         }
@@ -246,6 +256,13 @@ final class RenderPlan {
       }
     }
   }
+
+  /// Immutable static proof values are prepared before any live handle mutates.
+  static Object? prepareRetainedMember(
+    DrawNode node,
+    Map<int, (Map<String, Object?>, Rect, Affine, DrawContent)> components,
+    Rect? paintBounds,
+  ) => _Member.create(node, overrides: components, paintBounds: paintBounds);
 
   final GeometrySnapshot geometry;
   final List<RenderPage> _pages;
@@ -405,7 +422,11 @@ final class _Member {
   final Rect bounds;
   final Affine world;
 
-  static _Member? create(DrawNode node) {
+  static _Member? create(
+    DrawNode node, {
+    Map<int, (Map<String, Object?>, Rect, Affine, DrawContent)>? overrides,
+    Rect? paintBounds,
+  }) {
     final geometry = node.geometry, item = geometry.item;
     if (item == null ||
         !geometry.visible ||
@@ -416,39 +437,41 @@ final class _Member {
     final backgrounds = <StaticRectangle>[];
     final skeleton = <(String, String, bool, bool)>[];
     var prefix = true;
-    var bounds = geometry.paintBounds!;
+    var bounds = paintBounds ?? geometry.paintBounds!;
+    var index = 0;
     for (final component in node.components) {
-      final layout = component.layout;
-      skeleton.add((layout.id, layout.type, layout.visible, layout.upright));
+      final layout = component.layout, override = overrides?[index++];
+      final data = override?.$1 ?? layout.data;
+      final box = override?.$2 ?? layout.box;
+      final transform = override?.$3 ?? layout.transform;
+      final content = override?.$4 ?? component.content;
+      final visible = data['show'] != false;
+      skeleton.add((layout.id, layout.type, visible, layout.upright));
       if (layout.type != 'background') {
         prefix = false;
         continue;
       }
-      if (!prefix || component.content is! RectangleContent || layout.upright) {
+      if (!prefix || content is! RectangleContent || layout.upright) {
         return null;
       }
-      final paint = (component.content as RectangleContent).style;
+      final paint = content.style;
       // Same centered-border compensation as the exact DrawNode path.
-      final rect = (Offset.zero & layout.box.size).deflate(
-        paint.strokeWidth / 2,
-      );
+      final rect = (Offset.zero & box.size).deflate(paint.strokeWidth / 2);
       final shape = StaticRectangle(
         rect,
-        geometry.world.multiply(layout.transform),
+        geometry.world.multiply(transform),
         paint,
       );
       if (!StaticGeometry.isEligible(shape)) return null;
       backgrounds.add(shape);
-      if (layout.visible) {
+      if (visible) {
         final outer = rect.inflate(paint.strokeWidth / 2);
         bounds = bounds.expandToInclude(shape.world.projectRect(outer).bounds);
       }
     }
     if (backgrounds.isEmpty) return null;
     // Invisible prefix slots use the exact path, preserving their phase index.
-    if (node.components
-        .take(backgrounds.length)
-        .any((c) => !c.layout.visible)) {
+    if (skeleton.take(backgrounds.length).any((c) => !c.$3)) {
       return null;
     }
     return _Member(

@@ -119,6 +119,7 @@ void main() {
       ]);
       final before = h.initial(doc);
       h.backend.publish(before, 1, 0);
+      final oldBox = before.geometry.nodes[0].item!.components.single.box;
       final data = doc.targets['panel']!.components['bar']!;
       final prepared = await h.backend.prepareUpdate(
         before,
@@ -139,10 +140,7 @@ void main() {
       final after = prepared.publication as RenderPublication;
       h.backend.publish(after, 1, 1);
       expect(after.takeComponentChanges(), isEmpty);
-      expect(
-        h.backend.transitions.rectangle(0, 'bar'),
-        before.geometry.nodes[0].item!.components.single.box,
-      );
+      expect(h.backend.transitions.rectangle(0, 'bar'), oldBox);
       after.dispose();
       before.dispose();
       h.close();

@@ -66,7 +66,14 @@ final class DrawCompiler {
             node.opacity == previous.geometry.opacity &&
             fields & RecordFields.contentOrientation == 0;
         if (sparse) {
-          components = previous.components.toList();
+          components = [
+            for (var i = 0; i < previous.components.length; i++)
+              DrawComponent(
+                item.components[i],
+                previous.components[i].content,
+                previous: previous.components[i],
+              ),
+          ];
           sparseChanges = componentChanges;
           reuseAssetMetadata = true;
           // Exact changes include requested source retries even when their
@@ -193,9 +200,7 @@ final class DrawCompiler {
     if (prior != null &&
         _reuseComponentContent(node, previous!, layout, prior.layout, fields) &&
         !_retryFailed(prior.content, retry)) {
-      return identical(layout, prior.layout)
-          ? prior
-          : DrawComponent(layout, prior.content, previous: prior);
+      return DrawComponent(layout, prior.content, previous: prior);
     }
     final data = layout.data;
     final opacity = _opacity(data, node.opacity);
@@ -245,9 +250,55 @@ final class DrawCompiler {
     }
     value.retain();
     acquired.add(value);
-    return identical(prior?.layout, layout) && identical(prior?.content, value)
-        ? prior!
-        : DrawComponent(layout, value, previous: prior);
+    return DrawComponent(layout, value, previous: prior);
+  }
+
+  /// Stages a lease, without allocating replacement draw handles. Source/asset
+  /// changes use the baseline asynchronous preparation path.
+  DrawContent prepareRetainedContent(
+    TargetGeometry node,
+    Map<String, Object?> data,
+    DrawComponent prior,
+    int fields,
+  ) {
+    final type = prior.layout.type;
+    final mask = type == 'text' ? _textFields : _componentPaintFields;
+    if ((fields & mask) == 0) return prior.content..retain();
+    final opacity = _opacity(data, node.opacity);
+    final Object key = type == 'text'
+        ? (
+            type,
+            data['text'],
+            data['style'],
+            data['tint'],
+            data['split'],
+            data['overflow'],
+            data['margin'],
+            node.item!.content.size,
+            opacity,
+          )
+        : (type, data['source'], data['tint'], opacity);
+    var value = _components[key];
+    if (value == null) {
+      value = switch (type) {
+        'text' => TextContent(
+          text,
+          text.acquire(
+            _textOpacity(data, node.opacity, component: true),
+            node.item!.content.size,
+          ),
+        ),
+        'bar' => _bar(data, node.opacity),
+        'background' => _background(data, node.opacity, false, false),
+        _ => throw StateError('Retained asset content requires baseline'),
+      };
+      _components[key] = value;
+      final cached = value;
+      value.onDisposed = () {
+        if (identical(_components[key], cached)) _components.remove(key);
+      };
+    }
+    return value..retain();
   }
 
   DrawContent _background(

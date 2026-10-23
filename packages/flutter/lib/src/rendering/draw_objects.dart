@@ -93,12 +93,30 @@ final class DrawComponent {
     : matrix = identical(layout.transform, previous?.layout.transform)
           ? previous!.matrix
           : layout.transform.toMatrix4().asUnmodifiableView();
-  final ComponentLayout layout;
-  final DrawContent content;
-  final Float64List matrix;
+  ComponentLayout layout;
+  DrawContent content;
+  Float64List matrix;
+  void commitValues(
+    Rect box,
+    Affine transform,
+    DrawContent value,
+    void Function(void Function()) retire,
+  ) {
+    value.retain();
+    if (identical(content, value)) {
+      content.release();
+    } else {
+      retire(content.release);
+    }
+    if (!identical(layout.transform, transform)) {
+      matrix = transform.toMatrix4().asUnmodifiableView();
+    }
+    content = value;
+  }
 }
 
-/// Native resources are owned by content leases, geometry by an immutable node.
+/// Native resources are owned by content leases; geometry is owned by the node.
+/// Retained mutations are staged separately and applied only at publication.
 /// A render page retains nodes; no publication retains its previous snapshot.
 final class DrawNode {
   DrawNode(
@@ -157,13 +175,13 @@ final class DrawNode {
       }
     }
   }
-  final TargetGeometry geometry;
+  TargetGeometry geometry;
   final List<DrawComponent> components;
   final DrawContent? content;
   final _NodeAssets _assets;
   final _WorldProjection _world;
   Float64List get matrix => _world.matrix;
-  final List<Affine> _componentWorld;
+  List<Affine> _componentWorld;
   Affine? get _inverseWorld => _world.inverse;
   Float64List? get _inverseMatrix => _world.inverseMatrix;
   int _references = 0;
@@ -179,6 +197,37 @@ final class DrawNode {
       content?.release();
     }
     if (_references < 0) throw StateError('unbalanced render node');
+  }
+
+  /// First write detaches shared grid layouts only at actual publication.
+  ItemLayout ownRetainedLayout() {
+    final current = geometry.item!;
+    if (current.mutationOwned) return current;
+    final owned = current.detached();
+    geometry.item = owned;
+    for (var index = 0; index < components.length; index++) {
+      components[index].layout = owned.components[index];
+    }
+    return owned;
+  }
+
+  /// Called only in the synchronous session publication handoff.
+  void commitRetainedGeometry(
+    TargetGeometry next,
+    Iterable<(int, bool)> updates,
+  ) {
+    geometry = next;
+    List<Affine>? worlds;
+    for (final (index, transformChanged) in updates) {
+      final component = components[index];
+      if (transformChanged) {
+        worlds ??= _componentWorld.toList();
+        worlds[index] = geometry.world.multiply(component.layout.transform);
+      }
+      _upright.remove(component.layout.id);
+      _uprightWorld.remove(component.layout.id);
+    }
+    if (worlds != null) _componentWorld = List.unmodifiable(worlds);
   }
 
   List<DrawAsset> get assets => _assets.values;
