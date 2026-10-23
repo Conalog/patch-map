@@ -122,45 +122,68 @@ final class TextPool {
       spec = prepared.spec;
       key = prepared.key ??= _key(spec);
     }
+    return _retain(_entries[key] ?? _create(spec, key));
+  }
+
+  /// The caller proved that every non-text preparation input is unchanged.
+  /// Reuse parameters and the style/paint key parts, never fitted metrics or
+  /// glyph placement: the new string still follows ordinary handle creation.
+  TextHandle acquireText(String value, TextHandle previous) {
+    if (_closed) throw StateError('text pool is closed');
+    final key = (value, previous.key.$2, previous.key.$3);
+    keyCreates++;
     var handle = _entries[key];
     if (handle == null) {
-      OwnedTextLayout? native;
-      TextMetrics? metrics;
-      final proof = _numericProofKey(spec);
-      if (proof != null) {
-        metrics = _numeric[proof];
-        if (metrics != null) {
-          metricHits++;
-        } else {
-          metricMisses++;
-        }
-      }
-      if (metrics == null) {
-        native = _resolve(spec);
-        metrics = TextMetrics.fromLayout(native);
-        if (proof != null) {
-          if (_numeric.length >= 256) _numeric.remove(_numeric.keys.first);
-          _numeric[proof] = metrics;
-        }
-      }
-      handle = TextHandle._(
-        key,
-        spec,
-        metrics,
-        native,
-        _eligible(spec, metrics),
-      );
-      _entries[key] = handle;
+      final spec = TextSpec.fromParameters(value, previous.spec.parameters);
+      specCreates++;
+      handle = _create(spec, key);
     }
+    return _retain(handle);
+  }
+
+  TextHandle _create(TextSpec spec, (String, String, String) key) {
+    OwnedTextLayout? native;
+    TextMetrics? metrics;
+    final proof = _numericProofKey(spec);
+    if (proof != null) {
+      metrics = _numeric[proof];
+      if (metrics != null) {
+        metricHits++;
+      } else {
+        metricMisses++;
+      }
+    }
+    if (metrics == null) {
+      native = _resolve(spec);
+      metrics = TextMetrics.fromLayout(native);
+      if (proof != null) {
+        if (_numeric.length >= 256) _numeric.remove(_numeric.keys.first);
+        _numeric[proof] = metrics;
+      }
+    }
+    final handle = TextHandle._(
+      key,
+      spec,
+      metrics,
+      native,
+      _eligible(spec, metrics),
+    );
+    _entries[key] = handle;
+    return handle;
+  }
+
+  TextHandle _retain(TextHandle handle) {
     if (handle._references++ == 0) {
-      if (_unused.remove(key) != null) _unusedUnits -= spec.text.length;
+      if (_unused.remove(handle.key) != null) {
+        _unusedUnits -= handle.spec.text.length;
+      }
       if (handle.atlasEligible) {
         handle._atlas = atlases.acquire((
           family:
-              fontFamilyResolver?.call(spec.fontFamilies.single) ??
-              spec.fontFamilies.single,
+              fontFamilyResolver?.call(handle.spec.fontFamilies.single) ??
+              handle.spec.fontFamilies.single,
           size: handle.metrics.fontSize,
-          weight: spec.fontWeight.value,
+          weight: handle.spec.fontWeight.value,
         ));
       }
     }

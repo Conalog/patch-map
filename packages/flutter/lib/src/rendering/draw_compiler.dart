@@ -203,33 +203,19 @@ final class DrawCompiler {
       return DrawComponent(layout, prior.content, previous: prior);
     }
     final data = layout.data;
+    if (layout.type == 'text') {
+      final value = _textContent(data, node)..retain();
+      acquired.add(value);
+      return DrawComponent(layout, value, previous: prior);
+    }
     final opacity = _opacity(data, node.opacity);
     // Content identity excludes placement, transforms, visibility and dimensions
     // except for text's measured content bounds and margins.
-    final Object key = layout.type == 'text'
-        ? (
-            layout.type,
-            data['text'],
-            data['style'],
-            data['tint'],
-            data['split'],
-            data['overflow'],
-            data['margin'],
-            node.item!.content.size,
-            opacity,
-          )
-        : (layout.type, data['source'], data['tint'], opacity);
+    final key = (layout.type, data['source'], data['tint'], opacity);
     var value = _components[key];
     if (value != null && _retryFailed(value, retry)) value = null;
     if (value == null) {
       value = switch (layout.type) {
-        'text' => TextContent(
-          text,
-          text.acquire(
-            _textOpacity(data, node.opacity, component: true),
-            node.item!.content.size,
-          ),
-        ),
         'bar' => _bar(data, node.opacity),
         'background' => _background(data, node.opacity, initialLoad, retry),
         'icon' => AssetContent(
@@ -264,30 +250,22 @@ final class DrawCompiler {
     final type = prior.layout.type;
     final mask = type == 'text' ? _textFields : _componentPaintFields;
     if ((fields & mask) == 0) return prior.content..retain();
+    if (type == 'text') {
+      // Retained updates keep the owner/content box fixed. Any non-text input
+      // change takes the normal preparation path, including tint/attrs alpha.
+      return _textContent(
+        data,
+        node,
+        previous: (fields & (_textFields & ~RecordFields.text)) == 0
+            ? (prior.content as TextContent).handle
+            : null,
+      )..retain();
+    }
     final opacity = _opacity(data, node.opacity);
-    final Object key = type == 'text'
-        ? (
-            type,
-            data['text'],
-            data['style'],
-            data['tint'],
-            data['split'],
-            data['overflow'],
-            data['margin'],
-            node.item!.content.size,
-            opacity,
-          )
-        : (type, data['source'], data['tint'], opacity);
+    final key = (type, data['source'], data['tint'], opacity);
     var value = _components[key];
     if (value == null) {
       value = switch (type) {
-        'text' => TextContent(
-          text,
-          text.acquire(
-            _textOpacity(data, node.opacity, component: true),
-            node.item!.content.size,
-          ),
-        ),
         'bar' => _bar(data, node.opacity),
         'background' => _background(data, node.opacity, false, false),
         _ => throw StateError('Retained asset content requires baseline'),
@@ -299,6 +277,32 @@ final class DrawCompiler {
       };
     }
     return value..retain();
+  }
+
+  TextContent _textContent(
+    Map<String, Object?> data,
+    TargetGeometry node, {
+    TextHandle? previous,
+  }) {
+    final handle = previous == null
+        ? text.acquire(
+            _textOpacity(data, node.opacity, component: true),
+            node.item!.content.size,
+          )
+        : text.acquireText(data['text'] as String? ?? '', previous);
+    // TextPool already canonicalizes text, style, paint and measured bounds.
+    // Use that identity instead of maintaining another raw-data key for text.
+    final cached = _components[handle];
+    if (cached != null) {
+      text.release(handle); // The cached content already owns its handle lease.
+      return cached as TextContent;
+    }
+    final value = TextContent(text, handle);
+    _components[handle] = value;
+    value.onDisposed = () {
+      if (identical(_components[handle], value)) _components.remove(handle);
+    };
+    return value;
   }
 
   DrawContent _background(

@@ -43,6 +43,9 @@ void main() {
       }
 
       for (final values in [
+        [
+          update('text', {'text': '123456'}),
+        ],
         mixed(),
         [
           update('text', {
@@ -62,6 +65,21 @@ void main() {
             'attrs': {'x': 45, 'rotation': .2},
             'tint': '#ff00ff',
           }),
+        ],
+        [
+          update('text', {
+            'text': 'alpha',
+            'attrs': {'alpha': .5},
+          }),
+        ],
+        [
+          update('text', {'text': 'after alpha'}),
+        ],
+        [
+          update('text', {'text': 'split', 'split': 2}),
+        ],
+        [
+          update('text', {'text': 'after split'}),
         ],
         [
           update('background', {'tint': '#ff0000'}),
@@ -107,6 +125,69 @@ void main() {
         }
         h.backend.retirement.flush();
       }
+    },
+  );
+  test(
+    'retained text reuses parameters only while owner and style stay fixed',
+    () async {
+      final h = await Harness.create();
+      addTearDown(h.close);
+      final pool = h.current.resources.text;
+      TextContent content([String id = 'g.0.0']) =>
+          h.current
+                  .node(h.current.geometry.topology.slots[id]!)
+                  .components[2]
+                  .content
+              as TextContent;
+      final before = content();
+      final count = pool.parameterCreates;
+      h.publish(
+        await h.prepare([
+          update('text', {'text': '22'}),
+          const PatchMapUpdate(PatchMapTarget('g.0.1', componentId: 'text'), {
+            'text': '22',
+          }),
+        ]),
+      );
+      expect(content(), same(content('g.0.1')));
+      expect(
+        content().handle.spec.parameters,
+        same(before.handle.spec.parameters),
+      );
+      expect(pool.parameterCreates, count);
+      expect(before.handle.spec.text, '1');
+      expect(
+        content().handle.references,
+        1,
+      ); // Shared content owns one pool lease.
+
+      final oldParameters = content().handle.spec.parameters;
+      h.publish(
+        await h.prepare([
+          update('text', {'text': '333', 'margin': 4}),
+        ]),
+      );
+      expect(content().handle.spec.parameters, isNot(same(oldParameters)));
+      expect(content().handle.spec.bounds!.width, 32);
+      h.publish(
+        await h.prepare([
+          const PatchMapUpdate(PatchMapTarget('g.0.0'), {
+            'size': {'width': 60},
+            'attrs': {'alpha': .5},
+          }),
+        ]),
+      );
+      final ownerParameters = content().handle.spec.parameters;
+      expect(ownerParameters.bounds!.width, 52);
+      expect(ownerParameters.color.a, closeTo(.5, .01));
+      h.publish(
+        await h.prepare([
+          update('text', {'text': '4444'}),
+        ]),
+      );
+      expect(content().handle.spec.parameters, same(ownerParameters));
+      h.backend.retirement.flush();
+      h.paint();
     },
   );
   test(

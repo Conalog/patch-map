@@ -57,6 +57,41 @@ void main() {
   });
 
   test(
+    'text-only acquisition reuses parameters but measures each new string',
+    () {
+      const bounds = ui.Size(40, 20);
+      final input = data('1', style: {'alpha': .45});
+      final first = pool.acquire(input, bounds);
+      final parameters = first.spec.parameters;
+      final parameterCount = pool.parameterCreates;
+      for (final value in ['123456789012', '한글 text', '1']) {
+        final next = pool.acquireText(value, first);
+        final native = NativeTextLayout(
+          TextSpec.fromData({...input, 'text': value}, bounds, pool.palette),
+        ).resolve();
+        try {
+          expect(next.spec.parameters, same(parameters));
+          expect(pool.parameterCreates, parameterCount);
+          expect(next.size, native.size);
+          expect(next.metrics.fontSize, native.fontSize);
+          expect(next.metrics.lines, native.lineCount);
+          if (value == '1') expect(next, same(first));
+          final count = pool.specCreates;
+          final duplicate = pool.acquireText(value, first);
+          expect(duplicate, same(next));
+          expect(pool.specCreates, count);
+          pool.release(duplicate);
+        } finally {
+          native.dispose();
+          pool.release(next);
+        }
+      }
+      expect(first.references, 1);
+      pool.release(first);
+    },
+  );
+
+  test(
     'scope shares Spec and keys for measure then acquire without retaining handles',
     () {
       final input = data('123456');

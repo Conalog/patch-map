@@ -54,10 +54,10 @@ visible-demand SVG rasterization) is delayed; do not generalize this to all
 offscreen preparation. Text layout/bounds must be available before publication.
 Atlas admissibility depends on validated format and font/style conditions.
 
-Text preparation shares non-text parameters until a synchronous transaction returns or throws.
-Value-based handles share equivalent admitted styles. Text metrics, numeric proof
-and Paragraphs stay with the text owner; deferred bodies reuse proven metrics in the existing layout path
-([checkpoint](numeric-paragraph-shared-checkpoint.md)), without another resolver or cache.
+Text-only retained changes reuse immutable parameters and style/paint key parts from the prior handle;
+other changes use transaction-scoped preparation. Draw content uses the text owner's canonical handle
+([checkpoint](text-parameter-key-reuse-checkpoint.md)). Metrics, numeric proof and Paragraphs stay with that owner;
+deferred bodies reuse proven metrics in the [existing layout path](numeric-paragraph-shared-checkpoint.md), without another resolver or cache.
 
 Presentation resolution produces a `RecordDelta`: the prior/effective raw
 record and actual changed dependency groups. The patch memo is valid only for
