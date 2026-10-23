@@ -93,6 +93,8 @@ cause was not isolated. Do not attribute them to GC or drawing from these data.
 The existing long overview update frame remains unresolved. Further work must
 address that specific concern separately, without mixing another optimization
 into this unit or changing the measured scope after seeing the results.
+The subsequent [frame diagnosis](text-key-frame-diagnosis.md) locates most of the
+frame increase in GC timing; it does not reproduce a stable total-response loss.
 
 Original APK/foreground restored, fixed performance mode disabled, test process,
 forwards and remote traces removed. Artifacts and reproduction scripts:
