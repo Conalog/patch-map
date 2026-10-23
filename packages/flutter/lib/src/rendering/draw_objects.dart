@@ -72,8 +72,12 @@ final class TextContent extends DrawContent {
   @override
   void dispose() => pool.release(handle);
   @override
-  void paint(Canvas canvas, Rect rectangle, double physicalScale) =>
-      pool.draw(handle, canvas, rectangle.topLeft, physicalScale);
+  void paint(Canvas canvas, Rect rectangle, double physicalScale) => pool.draw(
+    handle,
+    canvas,
+    rectangle.left == 0 && rectangle.top == 0 ? Offset.zero : rectangle.topLeft,
+    physicalScale,
+  );
 }
 
 final class AssetContent extends DrawContent {

@@ -107,3 +107,5 @@ is made until a proposed change is separately implemented and compared.
 Raw class lists, traces, matched paint summaries, code-derived site ownership,
 failed-capture records and cleanup live under
 `.artifacts/performance/flutter/overview-allocation3476-device-20261023/`.
+Proposal 1 is subsequently applied and compared in the
+[origin Offset checkpoint](origin-offset-checkpoint.md).

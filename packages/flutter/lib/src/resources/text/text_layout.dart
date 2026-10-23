@@ -54,10 +54,15 @@ final class OwnedTextLayout {
       );
     }
     try {
+      final origin = paintOffset == ui.Offset.zero
+          ? offset
+          : offset == ui.Offset.zero
+          ? paintOffset
+          : offset + paintOffset;
       if (strokeParagraph != null) {
-        canvas.drawParagraph(strokeParagraph!, offset + paintOffset);
+        canvas.drawParagraph(strokeParagraph!, origin);
       }
-      canvas.drawParagraph(paragraph, offset + paintOffset);
+      canvas.drawParagraph(paragraph, origin);
     } finally {
       if (paintOpacity < 1) canvas.restore();
     }
@@ -182,7 +187,9 @@ final class NativeTextLayout {
         measured?.lines ??
             (visibleText.isEmpty ? 0 : chosen.computeLineMetrics().length),
         visibleText,
-        ui.Offset(inset.$1, inset.$2),
+        inset.$1 == 0 && inset.$2 == 0
+            ? ui.Offset.zero
+            : ui.Offset(inset.$1, inset.$2),
         _compositeOpacity,
       );
       chosen = null;
