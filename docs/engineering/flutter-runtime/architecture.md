@@ -57,7 +57,7 @@ Atlas admissibility depends on validated format and font/style conditions.
 Text preparation shares parsed non-text parameters within one synchronous
 transaction. Its identity cache ends on return or throw; value-based handle keys
 still share equivalent independently admitted styles. Text-specific metrics,
-numeric proof and Paragraph ownership remain with the text resource owner.
+numeric proof and Paragraph ownership remain with the text resource owner ([metrics reuse trial](numeric-paragraph-metrics-checkpoint.md), not adopted).
 
 Presentation resolution produces a `RecordDelta`: the prior/effective raw
 record and actual changed dependency groups. The patch memo is valid only for
