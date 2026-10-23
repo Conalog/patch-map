@@ -26,6 +26,46 @@ Size measure(Map<String, Object?> data, Size? _) =>
 
 void main() {
   test(
+    'placement reuses fixed attrs without accumulating translation error',
+    () {
+      for (final attrs in <Map<String, Object?>>[
+        {},
+        {'x': .1, 'y': -.2, 'angle': 137, 'scaleX': -2, 'scaleY': .3},
+        {'x': 1e16, 'y': -1e16, 'rotation': .7, 'scaleX': 0},
+        {'x': -3, 'y': 7, 'angle': 90, 'scaleY': 0},
+      ]) {
+        final source = item('i');
+        (source['components']! as List)[1]['attrs'] = attrs;
+        var current = GeometrySnapshot.compile(
+          const DatasetReader().read([source]),
+          measure,
+        );
+        for (final height in [1, 35, 8, 20]) {
+          final old = current['i']!.item!.components[1];
+          final next = changed(old.data, {
+            'size': {'width': 20, 'height': height},
+            'placement': height.isEven ? 'top' : 'bottom',
+          });
+          current = current.prepare({
+            const PatchMapTarget('i', componentId: 'bar'): next,
+          }, measure).snapshot;
+          final prepared = current['i']!.item!;
+          final actual = prepared.components[1];
+          final fresh = ItemLayout.prepareComponentValues(
+            next,
+            prepared.size,
+            prepared.content,
+            actual.upright,
+            measure,
+          );
+          expect(actual.box, fresh.box);
+          expect(actual.transform.sameTransform(fresh.transform), true);
+        }
+      }
+    },
+  );
+
+  test(
     'same-size text updates data while retaining box transform world and bounds',
     () {
       final before = GeometrySnapshot.compile(

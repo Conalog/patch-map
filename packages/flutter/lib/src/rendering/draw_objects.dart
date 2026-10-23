@@ -90,12 +90,21 @@ final class AssetContent extends DrawContent {
 
 final class DrawComponent {
   DrawComponent(this.layout, this.content, {DrawComponent? previous})
-    : matrix = identical(layout.transform, previous?.layout.transform)
-          ? previous!.matrix
-          : layout.transform.toMatrix4().asUnmodifiableView();
+    : _matrix = identical(layout.transform, previous?.layout.transform)
+          ? previous!._matrix
+          : _ComponentMatrix(layout.transform);
   ComponentLayout layout;
   DrawContent content;
-  Float64List matrix;
+  _ComponentMatrix _matrix;
+  Float64List get matrix => _matrix.value;
+  ReadableRectBasis? _readableBasis;
+
+  ReadableRectBasis readableBasis(Affine authored, double rotation) {
+    final prior = _readableBasis;
+    if (prior != null && prior.matches(authored, rotation)) return prior;
+    return _readableBasis = ReadableRectBasis(authored, rotation);
+  }
+
   void commitValues(
     Rect box,
     Affine transform,
@@ -109,10 +118,18 @@ final class DrawComponent {
       retire(content.release);
     }
     if (!identical(layout.transform, transform)) {
-      matrix = transform.toMatrix4().asUnmodifiableView();
+      _matrix = _ComponentMatrix(transform);
     }
     content = value;
   }
+}
+
+// Share the lazy projection without retaining a previous component/publication.
+// Upright bars submit world-space vertices and never need this local matrix.
+final class _ComponentMatrix {
+  _ComponentMatrix(this.transform);
+  final Affine transform;
+  late final Float64List value = transform.toMatrix4().asUnmodifiableView();
 }
 
 /// Native resources are owned by content leases; geometry is owned by the node.
@@ -389,16 +406,13 @@ final class DrawNode {
       _uprightWorld.clear();
       _uprightRotation = rotation;
     }
-    final layout = components[index].layout;
+    final component = components[index];
+    final layout = component.layout;
     final cached = _uprightWorld[layout.id];
     if (cached != null && cached.$1 == display) return cached.$2;
-    final Affine world;
+    final Affine authored;
     if (display == null) {
-      world = layout.worldTransform(
-        geometry.world,
-        rotation,
-        geometry.item!.size,
-      );
+      authored = _componentWorld[index];
     } else {
       final local = layout.transform;
       final placement = Affine(
@@ -409,16 +423,18 @@ final class DrawNode {
         local.tx + display.left - layout.box.left,
         local.ty + display.top - layout.box.top,
       );
-      final size = geometry.item!.size;
-      world = readableRectTransform(
-        geometry.world.multiply(placement),
-        Offset.zero & display.size,
-        rotation,
-        placementAnchor: layout.type == 'bar'
-            ? geometry.world.project(Offset(size.width / 2, size.height / 2))
-            : null,
-      );
+      authored = geometry.world.multiply(placement);
     }
+    final size = geometry.item!.size;
+    final world = component
+        .readableBasis(authored, rotation)
+        .place(
+          authored,
+          Offset.zero & (display?.size ?? layout.box.size),
+          placementAnchor: layout.type == 'bar'
+              ? geometry.world.project(Offset(size.width / 2, size.height / 2))
+              : null,
+        );
     _upright.remove(layout.id);
     _uprightWorld[layout.id] = (display, world);
     return world;

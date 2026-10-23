@@ -83,6 +83,7 @@ that write detaches only the changed item's mutable layout. General replacement
 nodes own independent component handles so later mutation cannot change an old
 node's resource lease. Unchanged records, scalar geometry and content are still
 shared. Public getters/events export immutable JSON before exposing it.
+Component orientation memoization and lazy matrices follow the [bar transform checkpoint](bar-transform-reuse-checkpoint.md).
 
 Publication leases still require bookkeeping. On the general projection path,
 one compact component-change collection carries hints through preparation.

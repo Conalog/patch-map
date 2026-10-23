@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:conalog_patch_map/src/geometry/affine.dart';
 import 'package:conalog_patch_map/src/api/target.dart';
 import 'package:conalog_patch_map/src/rendering/draw_objects.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +31,62 @@ void main() {
       );
     await loader.load();
   });
+  test(
+    'animated upright placement reuses only the fixed readable basis',
+    () async {
+      final h = support.Harness(active: false);
+      addTearDown(h.close);
+      final source = support.item(
+        'i',
+        40,
+        orientation: 'upright',
+        components: [
+          support.background(),
+          support.bar(attrs: {'angle': 27, 'scaleX': -.7, 'scaleY': 1.2}),
+        ],
+      );
+      final p = h.read([source]);
+      final component = p.nodes.single.components.last;
+      final authored = p.nodes.single.geometry.world.multiply(
+        component.layout.transform,
+      );
+      final basis = component.readableBasis(authored, .3);
+      expect(
+        component.readableBasis(
+          Affine(authored.a, authored.b, authored.c, authored.d, 99, -77),
+          .3,
+        ),
+        same(basis),
+      );
+      for (final height in [1.0, 7.5, 20.0, 0.0]) {
+        final box = Rect.fromLTWH(10, 40 - height, 20, height);
+        final fresh = h.read([source]);
+        expect(
+          await support.render(p, rotation: .3, tween: (_, _) => box),
+          orderedEquals(
+            await support.render(fresh, rotation: .3, tween: (_, _) => box),
+          ),
+        );
+        expect(component.readableBasis(authored, .3), same(basis));
+      }
+      final rotated = component.readableBasis(authored, 2.1);
+      expect(rotated, isNot(same(basis)));
+      final scaled = component.readableBasis(
+        const Affine(0, 0, 2, -3, 0, 0),
+        2.1,
+      );
+      expect(scaled, isNot(same(rotated)));
+      expect(
+        scaled
+            .place(
+              const Affine(0, 0, 2, -3, 0, 0),
+              const Rect.fromLTWH(0, 0, 5, 7),
+            )
+            .isFinite,
+        true,
+      );
+    },
+  );
   test(
     'fresh number and mixed publications need no previous render node',
     () async {

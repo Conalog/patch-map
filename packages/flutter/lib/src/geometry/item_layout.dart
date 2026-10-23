@@ -334,16 +334,32 @@ final class ItemLayout {
             );
     }
     if (prior?.box == box) box = prior!.box;
-    var local =
-        prior != null &&
-            identical(box, prior.box) &&
-            identical(value['attrs'], prior.data['attrs'])
-        ? prior.transform
-        : Affine.identity
-              .translated(box.left, box.top)
-              .multiply(
-                Affine.fromAttrs(value['attrs'] as Map<String, Object?>?),
-              );
+    final attrs = value['attrs'] as Map<String, Object?>?;
+    Affine local;
+    if (prior != null && identical(attrs, prior.data['attrs'])) {
+      if (identical(box, prior.box)) {
+        local = prior.transform;
+      } else {
+        // Placement changes translation only. Keep the already parsed
+        // rotation/scale, but read authored offsets (subtracting the old box
+        // from a rounded translation would lose precision at large positions).
+        final x = (attrs?['x'] as num?)?.toDouble() ?? 0;
+        final y = (attrs?['y'] as num?)?.toDouble() ?? 0;
+        final old = prior.transform;
+        local = Affine(
+          old.a,
+          old.b,
+          old.c,
+          old.d,
+          x + 0 * y + box.left,
+          0 * x + y + box.top,
+        );
+      }
+    } else {
+      local = Affine.identity
+          .translated(box.left, box.top)
+          .multiply(Affine.fromAttrs(attrs));
+    }
     if (prior != null && local.sameTransform(prior.transform)) {
       local = prior.transform;
     }

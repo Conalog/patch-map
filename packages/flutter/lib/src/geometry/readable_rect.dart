@@ -11,50 +11,103 @@ Affine readableRectTransform(
   Rect localBounds,
   double cameraRotation, {
   Offset? placementAnchor,
-}) {
-  final xs = vectorLength(authored.a, authored.b);
-  final ys = vectorLength(authored.c, authored.d);
-  final cos = math.cos(cameraRotation), sin = math.sin(cameraRotation);
-  final xa = xs == 0 ? 1.0 : authored.a / xs;
-  final xb = xs == 0 ? 0.0 : authored.b / xs;
-  final yc = ys == 0 ? -xb : authored.c / ys;
-  final yd = ys == 0 ? xa : authored.d / ys;
-  var a = cos * xa - sin * xb, b = sin * xa + cos * xb;
-  var c = cos * yc - sin * yd, d = sin * yc + cos * yd;
-  final determinant = a * d - b * c;
-  if (determinant < 0) {
-    c = -c;
-    d = -d;
-  } else if (determinant.abs() <= 2.220446049250313e-16) {
-    c = -b;
-    d = a;
-  }
-  if (a < -1e-7 || (a <= 1e-7 && b >= 0)) {
-    a = -a;
-    b = -b;
-    c = -c;
-    d = -d;
-  }
-  final wa = cos * a + sin * b, wb = -sin * a + cos * b;
-  final wc = cos * c + sin * d, wd = -sin * c + cos * d;
-  var center = authored.project(localBounds.center);
-  final originalDeterminant = xa * yd - xb * yc;
-  if (placementAnchor != null &&
-      xs > 0 &&
-      ys > 0 &&
-      originalDeterminant.abs() > 2.220446049250313e-16) {
-    final offset = center - placementAnchor;
-    final ox = (yd * offset.dx - yc * offset.dy) / originalDeterminant;
-    final oy = (-xb * offset.dx + xa * offset.dy) / originalDeterminant;
-    center = placementAnchor + Offset(wa * ox + wc * oy, wb * ox + wd * oy);
-  }
-  final width = localBounds.width * xs, height = localBounds.height * ys;
-  return Affine(
-    wa * xs,
-    wb * xs,
-    wc * ys,
-    wd * ys,
-    center.dx - wa * width / 2 - wc * height / 2,
-    center.dy - wb * width / 2 - wd * height / 2,
+}) => ReadableRectBasis(
+  authored,
+  cameraRotation,
+).place(authored, localBounds, placementAnchor: placementAnchor);
+
+/// Fixed orientation coefficients, reusable while bounds/translation animate.
+/// The caller owns one memo per draw component; this is not a global cache.
+final class ReadableRectBasis {
+  ReadableRectBasis._(
+    this._authored,
+    this._rotation,
+    this.xs,
+    this.ys,
+    this.xa,
+    this.xb,
+    this.yc,
+    this.yd,
+    this.wa,
+    this.wb,
+    this.wc,
+    this.wd,
+    this.originalDeterminant,
   );
+
+  factory ReadableRectBasis(Affine authored, double cameraRotation) {
+    final xs = vectorLength(authored.a, authored.b);
+    final ys = vectorLength(authored.c, authored.d);
+    final cos = math.cos(cameraRotation), sin = math.sin(cameraRotation);
+    final xa = xs == 0 ? 1.0 : authored.a / xs;
+    final xb = xs == 0 ? 0.0 : authored.b / xs;
+    final yc = ys == 0 ? -xb : authored.c / ys;
+    final yd = ys == 0 ? xa : authored.d / ys;
+    var a = cos * xa - sin * xb, b = sin * xa + cos * xb;
+    var c = cos * yc - sin * yd, d = sin * yc + cos * yd;
+    final determinant = a * d - b * c;
+    if (determinant < 0) {
+      c = -c;
+      d = -d;
+    } else if (determinant.abs() <= 2.220446049250313e-16) {
+      c = -b;
+      d = a;
+    }
+    if (a < -1e-7 || (a <= 1e-7 && b >= 0)) {
+      a = -a;
+      b = -b;
+      c = -c;
+      d = -d;
+    }
+    final wa = cos * a + sin * b, wb = -sin * a + cos * b;
+    final wc = cos * c + sin * d, wd = -sin * c + cos * d;
+    return ReadableRectBasis._(
+      authored,
+      cameraRotation,
+      xs,
+      ys,
+      xa,
+      xb,
+      yc,
+      yd,
+      wa,
+      wb,
+      wc,
+      wd,
+      xa * yd - xb * yc,
+    );
+  }
+
+  final Affine _authored;
+  final double _rotation;
+  final double xs, ys, xa, xb, yc, yd, wa, wb, wc, wd, originalDeterminant;
+
+  bool matches(Affine authored, double rotation) =>
+      rotation == _rotation &&
+      authored.a == _authored.a &&
+      authored.b == _authored.b &&
+      authored.c == _authored.c &&
+      authored.d == _authored.d;
+
+  Affine place(Affine authored, Rect localBounds, {Offset? placementAnchor}) {
+    var center = authored.project(localBounds.center);
+    if (placementAnchor != null &&
+        xs > 0 &&
+        ys > 0 &&
+        originalDeterminant.abs() > 2.220446049250313e-16) {
+      final offset = center - placementAnchor;
+      final ox = (yd * offset.dx - yc * offset.dy) / originalDeterminant;
+      final oy = (-xb * offset.dx + xa * offset.dy) / originalDeterminant;
+      center = placementAnchor + Offset(wa * ox + wc * oy, wb * ox + wd * oy);
+    }
+    final width = localBounds.width * xs, height = localBounds.height * ys;
+    return Affine(
+      wa * xs,
+      wb * xs,
+      wc * ys,
+      wd * ys,
+      center.dx - wa * width / 2 - wc * height / 2,
+      center.dy - wb * width / 2 - wd * height / 2,
+    );
+  }
 }
