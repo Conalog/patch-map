@@ -497,4 +497,23 @@ void main() {
       expect(created.every((p) => p.debugDisposed), isTrue);
     },
   );
+
+  test('measured creation failure releases the native Paragraph', () {
+    final value = spec('123');
+    final original = NativeTextLayout(value).resolve();
+    final metrics = TextMetrics.fromLayout(original);
+    original.dispose();
+    ui.Paragraph? failed;
+    expect(
+      () => NativeTextLayout(
+        value,
+        onParagraphCreated: (paragraph) {
+          failed = paragraph;
+          throw StateError('injected');
+        },
+      ).resolve(measured: metrics),
+      throwsStateError,
+    );
+    expect(failed!.debugDisposed, true);
+  });
 }

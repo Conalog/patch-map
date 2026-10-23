@@ -390,6 +390,86 @@ void main() {
     },
   );
 
+  testWidgets(
+    'proved numeric fallback preserves native pixels at cached final width',
+    (tester) async {
+      await tester.runAsync(() async {
+        final h = _PoolHarness();
+        final actualRecorder = ui.PictureRecorder();
+        final expectedRecorder = ui.PictureRecorder();
+        final actual = ui.Canvas(actualRecorder);
+        final expected = ui.Canvas(expectedRecorder);
+        ui.Picture? actualPicture, expectedPicture;
+        ui.Image? actualImage, expectedImage;
+        try {
+          const bounds = [
+            ui.Size(40, 20),
+            ui.Size(84, 24),
+            ui.Size(16, 8),
+            ui.Size(200, 60),
+          ];
+          for (var row = 0; row < bounds.length; row++) {
+            for (var length = 1; length <= 12; length++) {
+              final style = <String, Object?>{'alpha': row.isEven ? 1.0 : .45};
+              final seed = h.acquire(
+                _data('0' * length, style: style),
+                bounds[row],
+              );
+              final value = List.generate(
+                length,
+                (i) => '${(i * 3 + 1) % 10}',
+              ).join();
+              final next = h.acquire(
+                _data(value, style: style, fields: {'tint': '#3580c0'}),
+                bounds[row],
+              );
+              expect(next.hasParagraph, false);
+              final native = NativeTextLayout(
+                next.spec,
+              ).resolve(resolvedFontSize: next.metrics.fontSize);
+              try {
+                expect(next.size, native.size);
+                final offset = ui.Offset(
+                  (length - 1) * 120.0 + 4,
+                  row * 40.0 + 4,
+                );
+                h.owner.draw(next, actual, offset, 1);
+                native.paint(expected, offset);
+                expect(next.hasParagraph, true);
+              } finally {
+                native.dispose();
+                h.release(seed);
+                h.release(next);
+              }
+            }
+          }
+          expect(h.owner.metricHits, 48);
+          expect(h.owner.paragraphDraws, 48);
+          actualPicture = actualRecorder.endRecording();
+          expectedPicture = expectedRecorder.endRecording();
+          actualImage = await actualPicture.toImage(1440, 160);
+          expectedImage = await expectedPicture.toImage(1440, 160);
+          final a = await actualImage.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          );
+          final b = await expectedImage.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          );
+          expect(
+            a!.buffer.asUint8List(),
+            orderedEquals(b!.buffer.asUint8List()),
+          );
+        } finally {
+          actualImage?.dispose();
+          expectedImage?.dispose();
+          (actualPicture ?? actualRecorder.endRecording()).dispose();
+          (expectedPicture ?? expectedRecorder.endRecording()).dispose();
+          h.close();
+        }
+      });
+    },
+  );
+
   test(
     'atlas optimization failure is remembered without repeating native preparation',
     () async {

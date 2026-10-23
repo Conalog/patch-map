@@ -4,7 +4,8 @@ October 23, 2026; baseline `62ce45ca`. **Not adopted:** overview preparation
 improved, but both comparison orders showed slower zoom-pan response and more
 process CPU time. Production source and tests were restored to the baseline.
 This records the initial checkpoint; the [factor diagnosis](numeric-paragraph-factor-diagnosis.md)
-qualifies its causal interpretation. Production rendering remains unchanged.
+qualifies its causal interpretation. The later [shared-path change](numeric-paragraph-shared-checkpoint.md)
+reuses measurements without the separate numeric resolver tested here.
 
 ## Candidate and invariants
 
@@ -107,4 +108,4 @@ device host. Production runtime source is unchanged from `62ce45ca` by this tria
 The [completed factor diagnosis](numeric-paragraph-factor-diagnosis.md) separates width,
 metrics and dispatch in one APK, then controls the process with a crossover.
 It observes additional GC cycles in high-CPU requests and a reversed crossover
-result. Reuse itself is not established as the cause; the production path is unchanged.
+result. Reuse itself is not established as the cause; that diagnosis made no production change.

@@ -5,6 +5,19 @@ import 'package:flutter/widgets.dart' show Characters;
 
 import 'text_spec.dart';
 
+final class TextMetrics {
+  const TextMetrics(this.fontSize, this.size, this.longestLine, this.lines);
+  factory TextMetrics.fromLayout(OwnedTextLayout layout) => TextMetrics(
+    layout.fontSize,
+    layout.size,
+    layout.longestLine,
+    layout.lineCount,
+  );
+  final double fontSize, longestLine;
+  final ui.Size size;
+  final int lines;
+}
+
 /// One resolved layout. The caller owns its native paragraphs until [dispose].
 final class OwnedTextLayout {
   OwnedTextLayout._(
@@ -73,7 +86,12 @@ final class NativeTextLayout {
   /// not receive ownership. A throwing observer still disposes its paragraph.
   final void Function(ui.Paragraph)? onParagraphCreated;
 
-  OwnedTextLayout resolve({double? resolvedFontSize}) {
+  /// [measured] is supplied only after TextPool proves equivalent single-line
+  /// metrics with no insets or overflow fitting. Its size contains the rounded
+  /// Paragraph width, not the content bounds or the unrounded longest line.
+  OwnedTextLayout resolve({double? resolvedFontSize, TextMetrics? measured}) {
+    assert(resolvedFontSize == null || measured == null);
+    resolvedFontSize ??= measured?.fontSize;
     if (resolvedFontSize != null &&
         (!resolvedFontSize.isFinite || resolvedFontSize < 0)) {
       throw ArgumentError.value(resolvedFontSize, 'resolvedFontSize');
@@ -106,7 +124,11 @@ final class NativeTextLayout {
         }
       }
       if (chosen == null) {
-        final candidate = _candidate(text, fontSize);
+        final candidate = _candidate(
+          text,
+          fontSize,
+          measuredWidth: measured?.size.width,
+        );
         chosen = candidate.paragraph;
         chosenText = candidate.text;
       }
@@ -147,15 +169,18 @@ final class NativeTextLayout {
       if (spec.strokeColor != null && spec.strokeWidth > 0) {
         stroke = _paragraph(visibleText, fontSize, stroke: true);
       }
-      final size = visibleText.isEmpty ? ui.Size.zero : _size(chosen);
+      final size =
+          measured?.size ??
+          (visibleText.isEmpty ? ui.Size.zero : _size(chosen));
       final inset = _insets();
       final result = OwnedTextLayout._(
         fontSize,
         chosen,
         stroke,
         size,
-        chosen.longestLine,
-        visibleText.isEmpty ? 0 : chosen.computeLineMetrics().length,
+        measured?.longestLine ?? chosen.longestLine,
+        measured?.lines ??
+            (visibleText.isEmpty ? 0 : chosen.computeLineMetrics().length),
         visibleText,
         ui.Offset(inset.$1, inset.$2),
         _compositeOpacity,
@@ -169,9 +194,16 @@ final class NativeTextLayout {
     }
   }
 
-  ({ui.Paragraph paragraph, String text}) _candidate(String text, double size) {
+  ({ui.Paragraph paragraph, String text}) _candidate(
+    String text,
+    double size, {
+    double? measuredWidth,
+  }) {
     final wrapped = _wrap(text, size);
-    return (paragraph: _paragraph(wrapped, size), text: wrapped);
+    return (
+      paragraph: _paragraph(wrapped, size, measuredWidth: measuredWidth),
+      text: wrapped,
+    );
   }
 
   // Pixi tints the completed text raster. RGB multiplication distributes over
@@ -185,7 +217,12 @@ final class NativeTextLayout {
         : color.withValues(alpha: (color.a / opacity).clamp(0, 1));
   }
 
-  ui.Paragraph _paragraph(String text, double size, {bool stroke = false}) {
+  ui.Paragraph _paragraph(
+    String text,
+    double size, {
+    bool stroke = false,
+    double? measuredWidth,
+  }) {
     final paint = stroke
         ? (ui.Paint()
             ..color = _rasterColor(spec.strokeColor!)
@@ -230,8 +267,11 @@ final class NativeTextLayout {
     var transferred = false;
     try {
       onParagraphCreated?.call(paragraph);
-      paragraph.layout(const ui.ParagraphConstraints(width: double.infinity));
-      final width = paragraph.maxIntrinsicWidth.ceilToDouble();
+      var width = measuredWidth;
+      if (width == null) {
+        paragraph.layout(const ui.ParagraphConstraints(width: double.infinity));
+        width = paragraph.maxIntrinsicWidth.ceilToDouble();
+      }
       paragraph.layout(ui.ParagraphConstraints(width: width));
       transferred = true;
       return paragraph;

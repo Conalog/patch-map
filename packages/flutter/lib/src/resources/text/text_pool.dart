@@ -8,19 +8,6 @@ import 'glyph_atlas.dart';
 import 'text_layout.dart';
 import 'text_spec.dart';
 
-final class TextMetrics {
-  const TextMetrics(this.fontSize, this.size, this.longestLine, this.lines);
-  factory TextMetrics.fromLayout(OwnedTextLayout layout) => TextMetrics(
-    layout.fontSize,
-    layout.size,
-    layout.longestLine,
-    layout.lineCount,
-  );
-  final double fontSize, longestLine;
-  final ui.Size size;
-  final int lines;
-}
-
 /// A shared layout/paint identity. The renderer owns a reference for every use.
 final class TextHandle {
   TextHandle._(
@@ -234,10 +221,9 @@ final class TextPool {
     if (_closed || handle.references <= 0) throw StateError('text is not live');
     final page = handle._atlas?.page(demand);
     if (page == null) {
-      handle._native ??= _resolve(
-        handle.spec,
-        resolvedFontSize: handle.metrics.fontSize,
-      );
+      // Only a numeric proof hit defers its Paragraph. Other formats already
+      // own the native layout that supplied their metrics.
+      handle._native ??= _resolve(handle.spec, measured: handle.metrics);
       handle._native!.paint(canvas, offset);
       paragraphDraws++;
       return;
@@ -261,14 +247,14 @@ final class TextPool {
     atlasDraws++;
   }
 
-  OwnedTextLayout _resolve(TextSpec spec, {double? resolvedFontSize}) {
+  OwnedTextLayout _resolve(TextSpec spec, {TextMetrics? measured}) {
     final layout = NativeTextLayout(
       spec,
       fontFamilyResolver: fontFamilyResolver,
       onParagraphCreated: (_) {
         paragraphCreates++;
       },
-    ).resolve(resolvedFontSize: resolvedFontSize);
+    ).resolve(measured: measured);
     liveParagraphLayouts++;
     return layout;
   }

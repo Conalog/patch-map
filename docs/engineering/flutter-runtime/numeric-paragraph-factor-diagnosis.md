@@ -1,7 +1,8 @@
 # Numeric Paragraph factor diagnosis
 
 October 23, 2026. This follows the [combined candidate trial](numeric-paragraph-metrics-checkpoint.md).
-Production remains at the `62ce45ca` runtime. **No individual skipped operation was
+Production at this checkpoint remained at `62ce45ca`; the later
+[shared-path change](numeric-paragraph-shared-checkpoint.md) reuses metrics without numeric-only dispatch. **No individual skipped operation was
 identified as the cause of a stable regression.** Large process-CPU jumps in the
 new traces include an additional old-generation GC cycle, not additional text
 layout work. This diagnoses observed execution costs; it does not qualify a new
