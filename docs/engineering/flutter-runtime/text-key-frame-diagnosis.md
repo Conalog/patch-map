@@ -93,6 +93,8 @@ diagnostic increase. Exact allocation-level causality and a persistent total
 response penalty remain unproven. Keep those distinctions; do not dismiss the
 frame increase as thermal noise, claim all drawing became slower, or introduce
 forced GC as a product fix. Diagnosis stops here without another optimization.
+The follow-up [paint allocation diagnosis](overview-allocation-diagnosis.md)
+identifies creation sites and proposes bounded changes without implementing them.
 
 Zero final-value mismatches, two exact screenshot pairs below the 120-pixel
 status exclusion, and unchanged source/APK identities. Original APK/foreground
