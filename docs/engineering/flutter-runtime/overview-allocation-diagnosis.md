@@ -68,6 +68,8 @@ by caching the package's style objects.
    observed wrappers/encodings/fallback list total 9,996 creations per paint;
    not all builder internals or native work disappear. Bind reuse to the current
    text owner and do not add an unbounded global style cache.
+   Implemented and compared in the [configuration checkpoint](paragraph-configuration-checkpoint.md);
+   small CPU savings do not establish response, frame or GC improvement.
 4. **Consider shared atlas transforms/colors later.** For matching metrics,
    length, density, alignment and color, immutable transforms/colors can be
    shared while source rectangles remain string-specific. It could remove two

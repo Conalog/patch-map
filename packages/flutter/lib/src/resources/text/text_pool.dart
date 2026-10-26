@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import '../../dataset/colors.dart';
 import '../../frame/resource_retirement.dart';
 import 'glyph_atlas.dart';
+import 'paragraph_configuration.dart';
 import 'text_layout.dart';
 import 'text_spec.dart';
 
@@ -55,6 +56,9 @@ final class TextPool {
   int paragraphCreates = 0, liveParagraphLayouts = 0;
   int specCreates = 0, keyCreates = 0, parameterCreates = 0;
   _TextPreparation? _preparation;
+  late final _paragraphPreparation = ParagraphPreparation(
+    fontFamilyResolver: fontFamilyResolver,
+  );
 
   /// Reuses scalar preparation for immutable admitted data during one synchronous
   /// measure/compile transaction. No handle references or async work are cached.
@@ -276,7 +280,7 @@ final class TextPool {
   OwnedTextLayout _resolve(TextSpec spec, {TextMetrics? measured}) {
     final layout = NativeTextLayout(
       spec,
-      fontFamilyResolver: fontFamilyResolver,
+      preparation: _paragraphPreparation,
       onParagraphCreated: (_) {
         paragraphCreates++;
       },
@@ -311,6 +315,7 @@ final class TextPool {
     _unused.clear();
     _unusedUnits = 0;
     _numeric.clear();
+    _paragraphPreparation.clear();
     atlases.close();
     // Still-pinned candidates release their own handles after async settlement.
   }

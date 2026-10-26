@@ -56,8 +56,8 @@ Atlas admissibility depends on validated format and font/style conditions.
 
 Text-only retained changes reuse immutable parameters and style/paint key parts from the prior handle;
 other changes use transaction-scoped preparation. Draw content uses the text owner's canonical handle
-([checkpoint](text-parameter-key-reuse-checkpoint.md)). Metrics, numeric proof and Paragraphs stay with that owner;
-deferred bodies reuse proven metrics in the [existing layout path](numeric-paragraph-shared-checkpoint.md), without another resolver or cache.
+([checkpoint](text-parameter-key-reuse-checkpoint.md)). Metrics, numeric proof and Paragraphs stay with that owner; deferred bodies reuse [proven metrics](numeric-paragraph-shared-checkpoint.md) without another metrics resolver/cache.
+TextPool owns one recent [native argument configuration](paragraph-configuration-checkpoint.md), cleared on close; distinct strings still own distinct Paragraphs.
 
 Presentation resolution produces a `RecordDelta`: the prior/effective raw
 record and actual changed dependency groups. The patch memo is valid only for

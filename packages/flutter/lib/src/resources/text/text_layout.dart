@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart' show Characters;
 
+import 'paragraph_configuration.dart';
 import 'text_spec.dart';
 
 final class TextMetrics {
@@ -76,16 +77,19 @@ final class OwnedTextLayout {
   }
 }
 
-/// Native shaping and bounded preparation only; no cache, scheduler or pool.
+/// Native shaping and bounded preparation; no native resource cache/scheduler.
 final class NativeTextLayout {
   NativeTextLayout(
     this.spec, {
     this.onParagraphCreated,
-    this.fontFamilyResolver,
-  });
+    String Function(String family)? fontFamilyResolver,
+    ParagraphPreparation? preparation,
+  }) : _configuration =
+           (preparation ??
+                   ParagraphPreparation(fontFamilyResolver: fontFamilyResolver))
+               .forParameters(spec.parameters);
   final TextSpec spec;
-  final String Function(String family)? fontFamilyResolver;
-  String _family(String family) => fontFamilyResolver?.call(family) ?? family;
+  final ParagraphConfiguration _configuration;
 
   /// An optional creation observer for resource accounting/diagnostics. It does
   /// not receive ownership. A throwing observer still disposes its paragraph.
@@ -190,7 +194,7 @@ final class NativeTextLayout {
         inset.$1 == 0 && inset.$2 == 0
             ? ui.Offset.zero
             : ui.Offset(inset.$1, inset.$2),
-        _compositeOpacity,
+        _configuration.paintOpacity,
       );
       chosen = null;
       stroke = null;
@@ -213,63 +217,16 @@ final class NativeTextLayout {
     );
   }
 
-  // Pixi tints the completed text raster. RGB multiplication distributes over
-  // source-over, but object alpha must be applied once after stroke and fill.
-  double get _compositeOpacity =>
-      spec.strokeWidth > 0 && spec.strokeColor != null ? spec.objectOpacity : 1;
-  ui.Color _rasterColor(ui.Color color) {
-    final opacity = _compositeOpacity;
-    return opacity == 1 || opacity == 0
-        ? color
-        : color.withValues(alpha: (color.a / opacity).clamp(0, 1));
-  }
-
   ui.Paragraph _paragraph(
     String text,
     double size, {
     bool stroke = false,
     double? measuredWidth,
   }) {
-    final paint = stroke
-        ? (ui.Paint()
-            ..color = _rasterColor(spec.strokeColor!)
-            ..style = ui.PaintingStyle.stroke
-            ..strokeWidth = spec.strokeWidth
-            ..strokeJoin = spec.strokeJoin
-            ..strokeCap = spec.strokeCap
-            ..strokeMiterLimit = spec.strokeMiterLimit)
-        : null;
-    final builder =
-        ui.ParagraphBuilder(
-            ui.ParagraphStyle(
-              textDirection: ui.TextDirection.ltr,
-              textAlign: spec.align,
-              fontFamily: _family(spec.fontFamilies.first),
-              fontSize: size,
-              fontWeight: spec.fontWeight,
-              fontStyle: spec.fontStyle,
-            ),
-          )
-          ..pushStyle(
-            ui.TextStyle(
-              fontFamily: _family(spec.fontFamilies.first),
-              fontFamilyFallback: spec.fontFamilies
-                  .skip(1)
-                  .map(_family)
-                  .toList(growable: false),
-              fontSize: size,
-              fontWeight: spec.fontWeight,
-              fontStyle: spec.fontStyle,
-              letterSpacing: spec.letterSpacing,
-              height: size > 0 && spec.lineHeight != null
-                  ? spec.lineHeight! / size
-                  : null,
-              color: stroke ? null : _rasterColor(spec.color),
-              foreground: paint,
-              shadows: !stroke && spec.shadow != null ? [spec.shadow!] : null,
-            ),
-          )
-          ..addText(text);
+    _configuration.prepareSize(size);
+    final builder = ui.ParagraphBuilder(_configuration.paragraphStyle)
+      ..pushStyle(_configuration.style(stroke: stroke))
+      ..addText(text);
     final paragraph = builder.build();
     var transferred = false;
     try {
@@ -279,7 +236,7 @@ final class NativeTextLayout {
         paragraph.layout(const ui.ParagraphConstraints(width: double.infinity));
         width = paragraph.maxIntrinsicWidth.ceilToDouble();
       }
-      paragraph.layout(ui.ParagraphConstraints(width: width));
+      paragraph.layout(_configuration.constraints(width));
       transferred = true;
       return paragraph;
     } finally {
