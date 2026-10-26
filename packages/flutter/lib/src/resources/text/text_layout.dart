@@ -57,6 +57,18 @@ final class OwnedTextLayout {
       );
     }
     try {
+      if (opacity < 1 && strokeParagraph != null) {
+        // Impeller text coverage excludes part of the stroked glyph fringe.
+        // Establish the padded ink extent inside the already-clear layer so
+        // its offscreen allocation cannot crop those pixels. Src is required:
+        // transparent srcOver is culled and contributes no coverage.
+        canvas.drawRect(
+          (offset & size).inflate(1),
+          ui.Paint()
+            ..color = const ui.Color(0x00000000)
+            ..blendMode = ui.BlendMode.src,
+        );
+      }
       final origin = paintOffset == ui.Offset.zero
           ? offset
           : offset == ui.Offset.zero

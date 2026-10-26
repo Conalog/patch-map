@@ -52,6 +52,10 @@ Rectangles, relations and bar vertices multiply their existing color alpha.
 Atlas text modulates the draw Paint; Paragraph and asset contents use their
 content-level compositing seam. Shared Paint state is restored; shared text
 keys, Paragraphs, glyph colors and SVG/raster leases are unchanged.
+Outlined Paragraphs at effective opacity below 1 establish their padded ink
+coverage inside that layer before drawing, preventing native glyph-edge clipping.
+This also covers authored translucent outlines; opaque and stroke-free Paragraphs
+and atlas text do not add that draw.
 
 Static chunks retain their original geometry. A visible affected chunk lazily
 builds one variant with the same shapes/order and multiplied colors; unaffected

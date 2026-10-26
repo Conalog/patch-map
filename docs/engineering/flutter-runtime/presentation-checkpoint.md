@@ -71,3 +71,36 @@ audits, `candidate-snapshot.json`, `after-identity.json`, `evidence-sha256.json`
 
 No further broad matrix was run: the remaining release gates stay with
 [delivery coverage](coverage.md).
+
+## Native functional follow-up
+
+Flutter 3.47.6 debug integration passed on SM-S936N/Android 16/Impeller Vulkan
+and Android 34 arm64 emulator/Impeller OpenGLES. The new
+`example/integration_test/presentation_test.dart` exercises the public API with
+real PNG decoding, repeated SVG image sharing, singleton SVG vector drawing,
+outlined Paragraphs, numeric atlas text and an animated bar. Both runs passed
+layer multiplication/removal, live value changes, accepted replacement reset and
+widget removal. Callback-triggered draw/layer/update admission also passed its
+new host widget test. The related paint/text suite passed 20 tests and final
+package analysis reported no issues.
+
+Native readback exposed clipped outlined glyphs under alpha compositing: 32 ink
+pixels disappeared in the emulator fixture. Impeller's text coverage did not
+cover the complete stroke fringe. A transparent `BlendMode.src` rectangle now
+establishes the existing padded ink extent inside the newly cleared layer before
+the stroke and fill. No extra Paragraph or persistent resource is created.
+The same fixture retained all ink after correction on both renderers. Vulkan's
+quarter-alpha text sum ratio was 0.25003; small native antialiasing differences
+remain (bounded by 8/255 per premultiplied channel). SVG/PNG checks use tighter
+bounds, and clear restores baseline within 2/255. Tests await asynchronous atlas
+readiness so that an approved Paragraph-to-atlas transition is not attributed to
+layer clearing. These readbacks are functional evidence, not timing samples.
+
+Artifacts: `.artifacts/flutter/presentation-qa-20261026/`, including
+`device-complete.log`, `emulator-complete.log`, PNGs, `summary.json` and
+`cleanup.json`. The original phone APK was restored and verified by SHA256;
+the task emulator was stopped. Independent review found no P1/P2 issue in the
+correction. The earlier unused-path profile still covers opaque numeric/atlas
+work; it does not measure the added draw for translucent outlined Paragraphs,
+including authored opacity without a presentation layer. No broader performance
+or platform qualification is claimed by this follow-up.

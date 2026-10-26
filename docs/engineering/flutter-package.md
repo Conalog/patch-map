@@ -69,7 +69,10 @@ flutter build ios --simulator --debug --no-codesign --no-pub
 For native smoke checks, run `flutter test --no-pub -d <device-id> integration_test/foundation_test.dart` in the example. This checks host wiring, SVG decode,
 font load and teardown. `integration_test/runtime_test.dart` additionally checks
 public draw/update, changed native pixels, removal and controller reattachment
-using a small representative panel group. These are functional checks, not update
+using a small representative panel group. `integration_test/presentation_test.dart`
+checks keyed alpha, native outlined text, SVG/raster assets and value/replacement
+ordering; its bounded evidence lives in the [presentation checkpoint](flutter-runtime/presentation-checkpoint.md).
+These are functional checks, not update
 performance qualification; the profile playground tracks that separately.
 Integration tests and reports are excluded from the artifact. Flutter3.47.6 can
 automatically migrate the iOS example to iOS15/SPM and change its SDK lock; preserve

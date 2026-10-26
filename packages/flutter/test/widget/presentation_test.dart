@@ -201,6 +201,47 @@ void main() {
     },
   );
 
+  testWidgets(
+    'callback replacement binds layers and updates to the new diagram',
+    (tester) async {
+      final controller = PatchMapController();
+      Future<PatchMapResult>? replacement, update;
+      PatchMapPresentationResult? effect;
+      await tester.pumpWidget(
+        support.host(
+          controller,
+          event: (event) {
+            if (event.kind != PatchMapInputKind.tap) return;
+            replacement = controller.draw(rectangle('new'));
+            effect = controller.setPresentation('next', layer('new', .5));
+            update = controller.updateValues(const [
+              PatchMapUpdate(PatchMapTarget('new'), {'fill': '#00ff00'}),
+            ]);
+          },
+        ),
+      );
+      await draw(tester, controller, rectangle('old'));
+      controller.setPresentation('old', layer('old', .25));
+      await tester.pump();
+      await tester.tapAt(tester.getCenter(find.byType(PatchMapView)));
+      await tester.pump(const Duration(milliseconds: 350));
+      await support.progress(tester);
+      expect(effect?.outcome, PatchMapOutcome.applied);
+      expect((await replacement!).outcome, PatchMapOutcome.applied);
+      expect((await update!).outcome, PatchMapOutcome.applied);
+      expect(controller.getValue(const PatchMapTarget('old')), isNull);
+      expect(await centerPixel(tester), [0, 255, 0, 128]);
+      expect(
+        controller.clearPresentation('old').outcome,
+        PatchMapOutcome.unchanged,
+      );
+      controller.clearPresentation('next');
+      await tester.pump();
+      expect(await centerPixel(tester), [0, 255, 0, 255]);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('alpha zero leaves selection and hit events available', (
     tester,
   ) async {
