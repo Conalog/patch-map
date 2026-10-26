@@ -5,7 +5,6 @@ version 1.0.0-alpha.1. The widget/controller runtime is implemented. Representat
 native behavior, lifecycle and emulator performance checkpoints have run; full
 platform and consumer compatibility qualification remains incomplete.
 `publish_to: none` continues to block registry publication.
-
 ## Consumer setup
 
 Consumer bounds are Dart >=3.11.0 <4.0.0 and Flutter >=3.41.0. Exact CI and
@@ -22,9 +21,8 @@ dependencies:
 ```
 
 The public import is `package:conalog_patch_map/conalog_patch_map.dart`.
-Managed `object`, `device`, `loading`, `warning`, and `wifi` SVG icons and Fira
-Code font assets are included. Equipment aliases such as `inverter`, `combiner`,
-and `edge` must be provided through `symbols`. See [third-party notices](THIRD_PARTY_NOTICES.md).
+Managed SVG icons and Fira Code are bundled; equipment aliases such as `inverter`
+use `symbols`. See [third-party notices](THIRD_PARTY_NOTICES.md).
 For checkout path dependencies, run `npm run assets:prepare -- flutter` from the
 repository root before dependency resolution. Packaged artifacts include assets.
 
@@ -72,12 +70,25 @@ submission, not animation end or physical display presentation.
 
 | Commands | Behavior |
 | --- | --- |
+| `setPresentation(key, layer)` / `clearPresentation(key)` | Replace/remove one independent alpha layer; synchronous admission result |
 | `getValue(target)` | Immutable current effective record; null for a missing target |
 | `fit(targets:, padding:)` | Fit all or named targets; preserve rotation |
 | `focus(ids, padding:)` | Move to targets; preserve scale and rotation |
 | `setCamera(center:, scale:, rotation:)` | World center, logical scale, radians |
 | `toWorld(local)` / `toLocal(world)` | Convert logical-pixel coordinates |
 | `select` / `addSelection` / `removeSelection` / `toggleSelection` / `clearSelection` | Library-owned selection; host chooses actions |
+
+`PatchMapPresentationLayer(scope: addresses, targets: matches, unmatchedAlpha: .2)`
+keeps matched objects unchanged and dims the other scope members. Addresses are
+`PatchMapTarget` lists; at least one finite 0–1 `matchedAlpha`/`unmatchedAlpha` is
+required (omitted means 1). Keys multiply existing alpha independently; setting a
+key replaces it, clearing restores the latest live values. Groups/grids expand
+to descendants, items to components; overlaps count once per key, matched wins.
+Scope addresses must exist; requested addresses outside the exact scope are
+ignored. Results include unique scope/target/matched/ignored counts. Layers leave
+`getValue`, selection and hits unchanged, even at alpha 0. Accepted draw or widget
+removal resets all keys; invalid draw preserves them. Set after accepted draw
+uses the new diagram. Filters cannot mutate layers; inactive layers resume later.
 
 `dragMode` is pan by default; range and paint modes detect objects and report
 callbacks. Input filters only judge candidates: make map changes in result
@@ -90,24 +101,19 @@ attach to another widget without replaying detached commands. One controller
 cannot attach to two live widgets. App background and `active: false` suspend
 preparation/frames while preserving the latest admitted values. `colors` and
 `symbols` are attachment configuration; changing them requires a new widget key.
-Image preparation is asynchronous and does not block the first screen or trigger
-a second ready transition.
+Image preparation is asynchronous; it neither blocks first screen nor changes ready again.
 
 ## Scope and verification
 
 The runtime covers item, grid, group, relations, image, text, rect and the four
 item components (background, bar, icon, text). It retains scene geometry and
 uses CustomPainter, shared text/SVG resources, and internal bar optimizations.
-Editor features, PNG export and per-item screen-reader support are excluded from
-the first release. Advanced text effects and full consumer/platform equivalence
-must not be inferred from synthetic numeric or unit-test results.
+Editor, PNG export and item screen-reader support are excluded from first release.
+Advanced text effects and full platform equivalence are not qualified by synthetic tests.
 
-The package-consuming example exercises regular and varied aligned groups of
-10,000 panels plus devices, with number/bar/mixed updates and navigation. Its
-README explains inputs, measurement boundaries and reproducible profile commands.
-Performance checkpoints establish their recorded scope, not release approval or
-deployed WebView equivalence. See the [delivery coverage](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-runtime/coverage.md)
-for measured outcomes and remaining qualification.
+The example covers 10,000 regular/varied panels, number/bar/mixed updates and navigation.
+Its README documents profile commands; checkpoints do not establish WebView equivalence.
+See [delivery coverage](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-runtime/coverage.md).
 See the repository [development environment](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-package.md),
 [runtime contracts](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-runtime/contracts.md)
 and [release operations](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/releases.md).

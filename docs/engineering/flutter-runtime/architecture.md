@@ -13,7 +13,7 @@ actions. No new state-management or game-engine dependency is required.
 | `widget/` | `patch_map_view.dart` owns session lifetime, controller attachment, Flutter lifecycle and surface size. `patch_map_controller.dart` is a command facade. |
 | `dataset/` | `dataset_reader.dart`, value/style admission and immutable authored models. Full validation/detachment, identity and grid expansion metadata; no Canvas resources. |
 | `session/` | One `map_session.dart` owns accepted generation, current document/presentation and request progression. Separate replacement/update/notification helpers implement bounded responsibilities; they cannot independently publish. |
-| `presentation/` | Field operations, reset-aware pending composition, effective value resolution and dirty dependencies. Keeps authored values separate from live overrides; no frame scheduling. |
+| `presentation/` | Field operations, reset-aware pending composition, effective values, dirty dependencies and [keyed alpha layers](presentation-layers.md). Keeps authored values separate from live overrides; no frame scheduling. |
 | `geometry/` | Numeric dimensions, local/world transforms, component layout, paint/hit envelopes and bounded uniform index. Shared by renderer, viewport and input. Main-isolate calculations. |
 | `viewport/` | Camera, fit/focus, screen padding and coordinate conversion. Holds no copied scene or resource cache. |
 | `interaction/` | One gesture coordinator, item hit resolution and range/paint path accumulation; selection owner and immutable event projection. Host callbacks choose actions. |

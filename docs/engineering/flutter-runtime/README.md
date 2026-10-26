@@ -20,6 +20,8 @@ differences in the contracts. Shared fixtures are inputs, not proof of native
 compatibility. Existing JavaScript qualification must not be weakened to match
 the narrower Flutter first release.
 
+Keyed alpha effects are owned by [presentation layers](presentation-layers.md).
+
 ## Delivery sequence
 
 | Step | Independently reviewable outcome | Required evidence |

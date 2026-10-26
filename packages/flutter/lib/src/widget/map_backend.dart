@@ -18,6 +18,7 @@ import '../geometry/item_layout.dart';
 import '../geometry/layout.dart';
 import '../geometry/spatial_index.dart';
 import '../presentation/field_operations.dart';
+import '../presentation/presentation_layers.dart';
 import '../presentation/presentation_admission.dart';
 import '../presentation/presentation_resolver.dart';
 import '../presentation/record_delta.dart';
@@ -94,6 +95,7 @@ final class MapBackend extends SessionBackend {
   late final RasterImageStore raster;
   final _resources = <RenderResources>{};
   RenderPublication? current;
+  PresentationOpacity? _presentation;
   int generation = 0, revision = 0, _epoch = 0;
   final _reportedFailures = <DrawAsset>{};
   bool _active = true, _closed = false, _pendingFit = false;
@@ -802,6 +804,8 @@ final class MapBackend extends SessionBackend {
     }
     next.finishRetained();
     current = next;
+    final retirePresentation = next.plan.setPresentation(_presentation);
+    if (retirePresentation != null) retirement.enqueue(retirePresentation);
     next.resources.applyCounts(next.assetCounts);
     _reportedFailures.removeWhere(
       (asset) => !next.assetTargets.containsKey(asset),
@@ -954,6 +958,14 @@ final class MapBackend extends SessionBackend {
   }
 
   @override
+  void setPresentation(PresentationOpacity? opacity) {
+    if (identical(_presentation, opacity)) return;
+    _presentation = opacity;
+    final retire = current?.plan.setPresentation(opacity);
+    if (retire != null) retirement.enqueue(retire);
+  }
+
+  @override
   void hide() {
     _validatedUpdate = null;
     _validatedLayouts = null;
@@ -1013,6 +1025,7 @@ final class MapBackend extends SessionBackend {
   void close() {
     if (_closed) return;
     _closed = true;
+    _presentation = null;
     hide();
     for (final resource in _resources.toList()) {
       resource.close();

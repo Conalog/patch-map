@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../api/result.dart';
+import '../api/presentation.dart';
 import '../api/events.dart';
 import '../interaction/input_coordinator.dart';
 import '../interaction/input_query.dart';
@@ -381,6 +382,14 @@ class _PatchMapViewState extends State<PatchMapView>
   PatchMapPhase get phase => session.phase;
   @override
   Future<PatchMapResult> draw(Object? data) => session.replace(data);
+  @override
+  PatchMapPresentationResult setPresentation(
+    String key,
+    PatchMapPresentationLayer layer,
+  ) => session.setPresentation(key, layer);
+  @override
+  PatchMapPresentationResult clearPresentation(String key) =>
+      session.clearPresentation(key);
   @override
   Future<PatchMapResult> update(Iterable<PatchMapUpdate> updates) =>
       session.update(updates);

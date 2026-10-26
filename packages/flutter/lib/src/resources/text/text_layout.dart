@@ -45,13 +45,15 @@ final class OwnedTextLayout {
   bool get isDisposed => _disposed;
   double get paragraphWidth => paragraph.width;
 
-  void paint(ui.Canvas canvas, ui.Offset offset) {
+  void paint(ui.Canvas canvas, ui.Offset offset, {double alphaMultiplier = 1}) {
     if (_disposed) throw StateError('Text layout has been disposed');
-    if (paintOpacity < 1) {
+    final opacity = paintOpacity * alphaMultiplier;
+    if (opacity == 0) return;
+    if (opacity < 1) {
       canvas.saveLayer(
         (offset & size).inflate(1),
         ui.Paint()
-          ..color = const ui.Color(0xffffffff).withValues(alpha: paintOpacity),
+          ..color = const ui.Color(0xffffffff).withValues(alpha: opacity),
       );
     }
     try {
@@ -65,7 +67,7 @@ final class OwnedTextLayout {
       }
       canvas.drawParagraph(paragraph, origin);
     } finally {
-      if (paintOpacity < 1) canvas.restore();
+      if (opacity < 1) canvas.restore();
     }
   }
 

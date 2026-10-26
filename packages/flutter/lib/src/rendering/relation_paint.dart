@@ -49,15 +49,24 @@ final class RelationPaint {
   final List<Path> _paths;
   final Paint _paint;
   final Float64List _matrix;
-  void paint(Canvas canvas) {
-    if (color.a == 0 || geometry.width == 0 || geometry.paths.isEmpty) return;
+  void paint(Canvas canvas, {double alphaMultiplier = 1}) {
+    if (color.a == 0 ||
+        alphaMultiplier == 0 ||
+        geometry.width == 0 ||
+        geometry.paths.isEmpty) {
+      return;
+    }
     canvas.save();
     try {
+      if (alphaMultiplier != 1) {
+        _paint.color = color.withValues(alpha: color.a * alphaMultiplier);
+      }
       canvas.transform(_matrix);
       for (final path in _paths) {
         canvas.drawPath(path, _paint);
       }
     } finally {
+      if (alphaMultiplier != 1) _paint.color = color;
       canvas.restore();
     }
   }

@@ -165,6 +165,18 @@ void main() {
     expect(phases, [PatchMapPhase.preparing, PatchMapPhase.ready]);
     expect(failures, isEmpty);
 
+    final dimmed = controller.setPresentation(
+      'filter',
+      PatchMapPresentationLayer(
+        scope: const [panel],
+        targets: const [],
+        unmatchedAlpha: .2,
+      ),
+    );
+    expect(dimmed.changed, isTrue);
+    expect(dimmed.scopeCount, 1);
+    await _progress(tester);
+
     final updated = await _submitted(
       tester,
       controller.updateValues([
@@ -189,6 +201,17 @@ void main() {
     expect((level['source'] as Map)['radius'], 3);
     expect(() => level['tint'] = '#000000', throwsUnsupportedError);
     expect(controller.phase, PatchMapPhase.ready);
+
+    expect(controller.clearPresentation('filter').changed, isTrue);
+    expect(controller.getValue(number)?['text'], '654321');
+    controller.setPresentation(
+      'memo',
+      PatchMapPresentationLayer(
+        scope: const [panel],
+        targets: const [panel],
+        matchedAlpha: .5,
+      ),
+    );
 
     // Removal must settle a paused pending request and release the binding.
     await tester.pumpWidget(
@@ -234,6 +257,10 @@ void main() {
       ]),
     );
     expect(redrawn.outcome, PatchMapOutcome.applied);
+    expect(
+      controller.clearPresentation('memo').outcome,
+      PatchMapOutcome.unchanged,
+    );
     expect(
       controller.getValue(const PatchMapTarget('fresh'))?['fill'],
       '#ff0000',

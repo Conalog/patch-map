@@ -244,15 +244,17 @@ final class TextPool {
     TextHandle handle,
     ui.Canvas canvas,
     ui.Offset offset,
-    double demand,
-  ) {
+    double demand, {
+    double alphaMultiplier = 1,
+  }) {
     if (_closed || handle.references <= 0) throw StateError('text is not live');
+    if (alphaMultiplier == 0) return;
     final page = handle._atlas?.page(demand);
     if (page == null) {
       // Only a numeric proof hit defers its Paragraph. Other formats already
       // own the native layout that supplied their metrics.
       handle._native ??= _resolve(handle.spec, measured: handle.metrics);
-      handle._native!.paint(canvas, offset);
+      handle._native!.paint(canvas, offset, alphaMultiplier: alphaMultiplier);
       paragraphDraws++;
       return;
     }
@@ -263,17 +265,27 @@ final class TextPool {
       _ => throw StateError('unsupported glyph density: ${page.density}'),
     };
     canvas.save();
-    canvas.translate(offset.dx, offset.dy);
-    canvas.drawRawAtlas(
-      page.image,
-      placement.transforms,
-      placement.rects,
-      placement.colors,
-      ui.BlendMode.modulate,
-      null,
-      _paint,
-    );
-    canvas.restore();
+    final priorColor = alphaMultiplier == 1 ? null : _paint.color;
+    try {
+      if (priorColor != null) {
+        _paint.color = priorColor.withValues(
+          alpha: priorColor.a * alphaMultiplier,
+        );
+      }
+      canvas.translate(offset.dx, offset.dy);
+      canvas.drawRawAtlas(
+        page.image,
+        placement.transforms,
+        placement.rects,
+        placement.colors,
+        ui.BlendMode.modulate,
+        null,
+        _paint,
+      );
+    } finally {
+      if (priorColor != null) _paint.color = priorColor;
+      canvas.restore();
+    }
     atlasDraws++;
   }
 

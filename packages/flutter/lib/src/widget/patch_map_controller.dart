@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show internal;
 import 'package:flutter/painting.dart' show EdgeInsets;
 
 import '../api/result.dart';
+import '../api/presentation.dart';
 import '../api/events.dart';
 import '../api/target.dart';
 import '../api/update.dart';
@@ -18,6 +19,15 @@ final class PatchMapController {
       _binding?.draw(data) ?? _detached();
   Future<PatchMapResult> updateValues(Iterable<PatchMapUpdate> updates) =>
       _binding?.update(updates) ?? _detached();
+
+  /// Replace one captured alpha layer. Acceptance is synchronous; the next
+  /// ordinary frame displays it. Authored/live values and selection stay intact.
+  PatchMapPresentationResult setPresentation(
+    String key,
+    PatchMapPresentationLayer layer,
+  ) => _binding?.setPresentation(key, layer) ?? _presentationDenial();
+  PatchMapPresentationResult clearPresentation(String key) =>
+      _binding?.clearPresentation(key) ?? _presentationDenial();
   Map<String, Object?>? getValue(PatchMapTarget target) =>
       _binding?.value(target);
   PatchMapResult fit({
@@ -65,6 +75,11 @@ abstract class PatchMapBinding {
   PatchMapPhase get phase;
   Future<PatchMapResult> draw(Object? data);
   Future<PatchMapResult> update(Iterable<PatchMapUpdate> updates);
+  PatchMapPresentationResult setPresentation(
+    String key,
+    PatchMapPresentationLayer layer,
+  );
+  PatchMapPresentationResult clearPresentation(String key);
   Map<String, Object?>? value(PatchMapTarget target);
   PatchMapResult fit(Iterable<String>? targets, EdgeInsets padding);
   PatchMapResult focus(Iterable<String> targets, EdgeInsets padding);
@@ -80,3 +95,8 @@ PatchMapResult _denial() => PatchMapResult(
   failures: const [PatchMapFailure('DETACHED', 'No map widget is attached')],
 );
 Future<PatchMapResult> _detached() => Future.value(_denial());
+
+PatchMapPresentationResult _presentationDenial() => PatchMapPresentationResult(
+  PatchMapOutcome.rejected,
+  failures: const [PatchMapFailure('DETACHED', 'No map widget is attached')],
+);

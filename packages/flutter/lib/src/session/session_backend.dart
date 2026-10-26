@@ -2,6 +2,7 @@ import '../api/result.dart';
 import '../api/target.dart';
 import '../dataset/dataset_reader.dart';
 import '../presentation/field_operations.dart';
+import '../presentation/presentation_layers.dart';
 import '../presentation/presentation_admission.dart';
 import '../presentation/record_delta.dart';
 
@@ -80,6 +81,9 @@ abstract class SessionBackend {
   }
 
   void publish(SessionPublication publication, int generation, int revision);
+
+  /// Paint-only state. No effective data, geometry, or publication revision changes.
+  void setPresentation(PresentationOpacity? opacity) {}
   void hide();
   void setActive(bool active);
 

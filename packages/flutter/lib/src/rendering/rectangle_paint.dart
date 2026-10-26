@@ -76,6 +76,21 @@ final class RectanglePaint {
   double? get uniformRadius =>
       radii.every((radius) => radius == radii.first) ? radii.first : null;
 
+  /// Copies only paint alpha; geometry and stroke configuration stay unchanged.
+  RectanglePaint multipliedAlpha(double factor) {
+    if (factor == 1) return this;
+    return RectanglePaint._(
+      fillColor: _alpha(fillColor, factor),
+      strokeColor: _alpha(strokeColor, factor),
+      strokeWidth: strokeWidth,
+      strokeAlignment: strokeAlignment,
+      strokeCap: strokeCap,
+      strokeJoin: strokeJoin,
+      strokeMiterLimit: strokeMiterLimit,
+      radii: radii,
+    );
+  }
+
   /// Fits all corners proportionally, retaining authored ratios like JS.
   RRect roundedRect(Size size) {
     if (!size.isFinite || size.width < 0 || size.height < 0) {
@@ -105,17 +120,25 @@ final class RectanglePaint {
 
   /// Paints local shape only; placement, transforms, opacity inheritance and bar
   /// clipping are supplied by the caller. No retained Canvas/Paint/Path exists.
-  void paint(Canvas canvas, Rect rect) {
+  void paint(Canvas canvas, Rect rect, {double alphaMultiplier = 1}) {
     if (!rect.isFinite) throw ArgumentError.value(rect, 'rect');
-    if (rect.isEmpty) return;
+    if (rect.isEmpty || alphaMultiplier == 0) return;
     final shape = roundedRect(rect.size).shift(rect.topLeft);
     if (fillColor.a > 0) {
-      canvas.drawRRect(shape, Paint()..color = fillColor);
+      canvas.drawRRect(
+        shape,
+        Paint()
+          ..color = alphaMultiplier == 1
+              ? fillColor
+              : _alpha(fillColor, alphaMultiplier),
+      );
     }
     if (strokeWidth <= 0 || strokeColor.a == 0) return;
     final path = Path()..addRRect(shape);
     final stroke = Paint()
-      ..color = strokeColor
+      ..color = alphaMultiplier == 1
+          ? strokeColor
+          : _alpha(strokeColor, alphaMultiplier)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = strokeCap

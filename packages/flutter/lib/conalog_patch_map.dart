@@ -2,6 +2,7 @@
 library;
 
 export 'src/api/result.dart';
+export 'src/api/presentation.dart';
 export 'src/api/target.dart';
 export 'src/api/update.dart';
 export 'src/widget/patch_map_controller.dart' show PatchMapController;

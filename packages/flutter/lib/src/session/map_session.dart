@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import '../api/result.dart';
+import '../api/presentation.dart';
 import '../api/target.dart';
 import '../api/update.dart';
 import '../dataset/dataset_reader.dart';
 import '../frame/frame_coordinator.dart';
 import '../presentation/field_operations.dart';
+import '../presentation/presentation_layers.dart';
 import '../presentation/presentation_admission.dart';
 import '../presentation/presentation_composer.dart';
 import '../presentation/presentation_resolver.dart';
@@ -30,6 +32,7 @@ final class MapSession {
   final _resolver = const PresentationResolver();
   final _composer = const PresentationComposer();
   DatasetDocument? _document;
+  PresentationLayers? _layers;
   SessionPublication? _publication;
   final _values = <PatchMapTarget, Map<String, Object?>>{};
   final _failedTargets = <String>{};
@@ -60,6 +63,53 @@ final class MapSession {
     return component == null ? authored.data : authored.components[component];
   }
 
+  PatchMapPresentationResult setPresentation(
+    String key,
+    PatchMapPresentationLayer layer,
+  ) {
+    final denial = _commandDenial(requireDocument: true);
+    if (denial != null) {
+      return PatchMapPresentationResult(
+        denial.outcome,
+        failures: denial.failures,
+      );
+    }
+    final layers = _layers ??= PresentationLayers();
+    final before = layers.opacity;
+    final result = layers.set(key, layer, _document!);
+    _publishPresentation(before);
+    return result;
+  }
+
+  PatchMapPresentationResult clearPresentation(String key) {
+    final denial = _commandDenial(requireDocument: true);
+    if (denial != null) {
+      return PatchMapPresentationResult(
+        denial.outcome,
+        failures: denial.failures,
+      );
+    }
+    final layers = _layers ??= PresentationLayers();
+    final before = layers.opacity;
+    final result = layers.clear(key);
+    _publishPresentation(before);
+    return result;
+  }
+
+  void _publishPresentation(PresentationOpacity? before) {
+    final after = _layers?.opacity;
+    if (_layers?.layerCount == 0) _layers = null;
+    if (identical(before, after)) return;
+    backend.setPresentation(after);
+    invalidate();
+  }
+
+  void _resetPresentation() {
+    if (_layers == null) return;
+    _layers = null;
+    backend.setPresentation(null);
+  }
+
   void refreshResources() {
     if (_closed || _document == null || _phase == PatchMapPhase.failed) return;
     _refresh = true;
@@ -83,6 +133,7 @@ final class MapSession {
     _revision = 0;
     _submittedRevision = -1;
     _document = candidate;
+    _resetPresentation();
     _values.clear();
     _failedTargets.clear();
     _refresh = false;
@@ -563,6 +614,7 @@ final class MapSession {
     _wakeActivity();
     _interrupt(PatchMapInterruption.detached);
     _document = null;
+    _resetPresentation();
     _values.clear();
     _failedTargets.clear();
     _refresh = false;

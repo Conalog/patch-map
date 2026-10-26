@@ -82,8 +82,9 @@ final class BarSliceBatch {
     BarMasks? masks,
     Rect local,
     Affine world,
-    RectanglePaint paint,
-  ) {
+    RectanglePaint paint, {
+    double alphaMultiplier = 1,
+  }) {
     _requireOpen();
     final width = local.width, height = local.height;
     if (!local.isFinite ||
@@ -94,7 +95,7 @@ final class BarSliceBatch {
       flush(canvas);
       return false;
     }
-    if (width == 0 || height == 0) return true;
+    if (width == 0 || height == 0 || alphaMultiplier == 0) return true;
     final radius = paint.uniformRadius;
     if (masks == null ||
         masks.isDisposed ||
@@ -147,7 +148,11 @@ final class BarSliceBatch {
       _originX = originX;
       _originY = originY;
     }
-    final color = paint.fillColor.toARGB32();
+    final color = alphaMultiplier == 1
+        ? paint.fillColor.toARGB32()
+        : paint.fillColor
+              .withValues(alpha: paint.fillColor.a * alphaMultiplier)
+              .toARGB32();
     if (mode == BarSliceRepresentation.three) {
       final density = BarMaskPlan.density;
       final center = (pad + radius + 1) * density;

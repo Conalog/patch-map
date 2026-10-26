@@ -41,6 +41,31 @@ abstract class DrawContent {
 
   void dispose();
   void paint(Canvas canvas, Rect rectangle, double physicalScale);
+  void paintWithAlpha(
+    Canvas canvas,
+    Rect rectangle,
+    double physicalScale, {
+    double alphaMultiplier = 1,
+  }) {
+    if (alphaMultiplier == 1) {
+      paint(canvas, rectangle, physicalScale);
+      return;
+    }
+    if (alphaMultiplier == 0) return;
+    // Assets may paint beyond their destination. A content-level layer keeps
+    // that overflow and avoids changing overlap between item components.
+    canvas.saveLayer(
+      null,
+      Paint()
+        ..color = const Color(0xffffffff).withValues(alpha: alphaMultiplier),
+    );
+    try {
+      paint(canvas, rectangle, physicalScale);
+    } finally {
+      canvas.restore();
+    }
+  }
+
   Iterable<DrawAsset> get assets => const [];
 }
 
@@ -52,6 +77,13 @@ final class RelationContent extends DrawContent {
   @override
   void paint(Canvas canvas, Rect rectangle, double physicalScale) =>
       drawing.paint(canvas);
+  @override
+  void paintWithAlpha(
+    Canvas canvas,
+    Rect rectangle,
+    double physicalScale, {
+    double alphaMultiplier = 1,
+  }) => drawing.paint(canvas, alphaMultiplier: alphaMultiplier);
 }
 
 final class RectangleContent extends DrawContent {
@@ -63,6 +95,13 @@ final class RectangleContent extends DrawContent {
   @override
   void paint(Canvas canvas, Rect rectangle, double physicalScale) =>
       style.paint(canvas, rectangle);
+  @override
+  void paintWithAlpha(
+    Canvas canvas,
+    Rect rectangle,
+    double physicalScale, {
+    double alphaMultiplier = 1,
+  }) => style.paint(canvas, rectangle, alphaMultiplier: alphaMultiplier);
 }
 
 final class TextContent extends DrawContent {
@@ -77,6 +116,19 @@ final class TextContent extends DrawContent {
     canvas,
     rectangle.left == 0 && rectangle.top == 0 ? Offset.zero : rectangle.topLeft,
     physicalScale,
+  );
+  @override
+  void paintWithAlpha(
+    Canvas canvas,
+    Rect rectangle,
+    double physicalScale, {
+    double alphaMultiplier = 1,
+  }) => pool.draw(
+    handle,
+    canvas,
+    rectangle.left == 0 && rectangle.top == 0 ? Offset.zero : rectangle.topLeft,
+    physicalScale,
+    alphaMultiplier: alphaMultiplier,
   );
 }
 
@@ -268,12 +320,20 @@ final class DrawNode {
     required double physicalScale,
     Rect? Function(String componentId)? barRectangle,
     BarSliceBatch? bars,
+    double alphaMultiplier = 1,
   }) {
-    if (!geometry.visible || geometry.opacity == 0) return;
+    if (!geometry.visible || geometry.opacity == 0 || alphaMultiplier == 0) {
+      return;
+    }
     final item = geometry.item;
     if (content is RelationContent) {
       bars?.flush(canvas);
-      content!.paint(canvas, Rect.zero, physicalScale);
+      content!.paintWithAlpha(
+        canvas,
+        Rect.zero,
+        physicalScale,
+        alphaMultiplier: alphaMultiplier,
+      );
       return;
     }
     if (item == null) {
@@ -294,10 +354,11 @@ final class DrawNode {
                 : Size.zero,
           _ => geometry.localBounds?.size ?? Size.zero,
         };
-        content?.paint(
+        content?.paintWithAlpha(
           canvas,
           Offset.zero & size,
           physicalScale * _scale(geometry.world),
+          alphaMultiplier: alphaMultiplier,
         );
       } finally {
         canvas.restore();
@@ -315,6 +376,7 @@ final class DrawNode {
             ? barRectangle?.call(component.layout.id)
             : null,
         bars: bars,
+        alphaMultiplier: alphaMultiplier,
       );
     }
   }
@@ -328,8 +390,11 @@ final class DrawNode {
     required double physicalScale,
     Rect? displayBox,
     BarSliceBatch? bars,
+    double alphaMultiplier = 1,
   }) {
-    if (!geometry.visible || geometry.opacity == 0) return;
+    if (!geometry.visible || geometry.opacity == 0 || alphaMultiplier == 0) {
+      return;
+    }
     final item = geometry.item!;
     final component = components[index];
     final layout = component.layout;
@@ -365,6 +430,7 @@ final class DrawNode {
             local,
             world,
             content.style,
+            alphaMultiplier: alphaMultiplier,
           )) {
         return;
       }
@@ -406,7 +472,12 @@ final class DrawNode {
         final width = (component.content as RectangleContent).style.strokeWidth;
         destination = destination.deflate(width / 2);
       }
-      component.content.paint(canvas, destination, localScale);
+      component.content.paintWithAlpha(
+        canvas,
+        destination,
+        localScale,
+        alphaMultiplier: alphaMultiplier,
+      );
     } finally {
       canvas.restore();
     }

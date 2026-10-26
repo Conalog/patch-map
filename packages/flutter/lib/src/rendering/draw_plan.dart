@@ -4,6 +4,7 @@ import 'dart:ui';
 import '../geometry/affine.dart';
 import '../geometry/geometry_snapshot.dart';
 import '../presentation/record_delta.dart';
+import '../presentation/presentation_layers.dart';
 import 'bar_slices.dart';
 import 'draw_objects.dart';
 import 'rectangle_paint.dart';
@@ -138,6 +139,7 @@ final class RenderPlan {
         comparisons,
         reused,
       );
+      plan._inheritPresentation(previous);
       transferred = true;
       return plan;
     } finally {
@@ -243,6 +245,7 @@ final class RenderPlan {
         comparisons,
         reused,
       );
+      plan._inheritPresentation(previous);
       transferred = true;
       return plan;
     } finally {
@@ -272,6 +275,46 @@ final class RenderPlan {
   final _bars = BarSliceBatch();
   final int meshBuildCount, overlapComparisonCount, reusedChunkCount;
   bool _disposed = false;
+  PresentationOpacity? _presentation;
+  Map<_Chunk, _PresentationMesh?>? _presentationMeshes;
+
+  /// Detach native variants now; the existing retirement owner releases them
+  /// after submission. Only layers allocate variants, never the ordinary path.
+  void Function()? setPresentation(PresentationOpacity? opacity) {
+    if (identical(_presentation, opacity)) return null;
+    _presentation = opacity;
+    final old = _presentationMeshes;
+    _presentationMeshes = null;
+    if (old == null) return null;
+    return () {
+      for (final mesh in old.values) {
+        mesh?.release();
+      }
+    };
+  }
+
+  int get presentationMeshCount =>
+      _presentationMeshes?.values.whereType<_PresentationMesh>().length ?? 0;
+  Iterable<Object> get presentationMeshIdentities =>
+      _presentationMeshes?.values.whereType<_PresentationMesh>().map(
+        (v) => v.mesh,
+      ) ??
+      const [];
+
+  void _inheritPresentation(RenderPlan? previous) {
+    _presentation = previous?._presentation;
+    final old = previous?._presentationMeshes;
+    if (old == null) return;
+    Map<_Chunk, _PresentationMesh?>? shared;
+    for (final chunk in _chunks) {
+      if (!old.containsKey(chunk)) continue;
+      final entry = old[chunk];
+      entry?.retain();
+      (shared ??= {})[chunk] = entry;
+    }
+    _presentationMeshes = shared;
+  }
+
   bool get isDisposed => _disposed;
   int get chunkCount => _chunks.length;
   int get staticChunkCount => _chunks.where((c) => c.mesh != null).length;
@@ -298,6 +341,18 @@ final class RenderPlan {
     Rect? Function(int slot, String componentId)? barRectangle,
   }) {
     if (_disposed) throw StateError('Render plan is disposed');
+    final presentation = _presentation;
+    if (presentation != null) {
+      _paintPresented(
+        canvas,
+        visibleSlots,
+        cameraRotation,
+        physicalScale,
+        barRectangle,
+        presentation,
+      );
+      return;
+    }
     try {
       var cursor = 0;
       while (cursor < visibleSlots.length) {
@@ -354,13 +409,117 @@ final class RenderPlan {
     }
   }
 
+  // Separate entry keeps the ordinary loop free of per-item layer lookups.
+  void _paintPresented(
+    Canvas canvas,
+    List<int> visibleSlots,
+    double rotation,
+    double scale,
+    Rect? Function(int, String)? rectangle,
+    PresentationOpacity presentation,
+  ) {
+    try {
+      var cursor = 0;
+      while (cursor < visibleSlots.length) {
+        final chunk = _chunkFor(visibleSlots[cursor]);
+        if (chunk == null) {
+          cursor++;
+          continue;
+        }
+        var count = 0;
+        do {
+          _visible[count++] = visibleSlots[cursor++];
+        } while (cursor < visibleSlots.length &&
+            identical(_chunkFor(visibleSlots[cursor]), chunk));
+        if (chunk.mesh == null) {
+          for (var i = 0; i < count; i++) {
+            _paintNode(
+              canvas,
+              _visible[i],
+              rotation,
+              scale,
+              rectangle,
+              presentation: presentation,
+            );
+          }
+          continue;
+        }
+        _bars.flush(canvas);
+        _presentedMesh(chunk, presentation).draw(canvas);
+        final proof = chunk.members.first!;
+        for (
+          var phase = proof.backgrounds.length;
+          phase < proof.skeleton.length;
+          phase++
+        ) {
+          for (var i = 0; i < count; i++) {
+            final slot = _visible[i], node = _node(slot);
+            final layout = node.components[phase].layout;
+            node.paintComponent(
+              canvas,
+              phase,
+              cameraRotation: rotation,
+              physicalScale: scale,
+              bars: _bars,
+              displayBox: layout.type == 'bar'
+                  ? rectangle?.call(slot, layout.id)
+                  : null,
+              alphaMultiplier: presentation.alpha(node.geometry.id, layout.id),
+            );
+          }
+        }
+      }
+    } finally {
+      _bars.flush(canvas);
+    }
+  }
+
+  StaticGeometry _presentedMesh(_Chunk chunk, PresentationOpacity opacity) {
+    final cache = _presentationMeshes ??= {};
+    if (cache.containsKey(chunk)) return cache[chunk]?.mesh ?? chunk.mesh!;
+    var changed = false;
+    for (final member in chunk.members) {
+      for (var i = 0; i < member!.backgrounds.length; i++) {
+        if (opacity.alpha(member.id, member.skeleton[i].$1) != 1) {
+          changed = true;
+          break;
+        }
+      }
+      if (changed) break;
+    }
+    if (!changed) {
+      cache[chunk] = null;
+      return chunk.mesh!;
+    }
+    final shapes = <StaticRectangle>[];
+    for (final member in chunk.members) {
+      for (var i = 0; i < member!.backgrounds.length; i++) {
+        final shape = member.backgrounds[i];
+        shapes.add(
+          StaticRectangle(
+            shape.rect,
+            shape.world,
+            shape.paint.multipliedAlpha(
+              opacity.alpha(member.id, member.skeleton[i].$1),
+            ),
+          ),
+        );
+      }
+    }
+    // Alpha cannot make an eligible shape/16-bit index range ineligible.
+    final mesh = StaticGeometry.tryBuild(shapes)!;
+    cache[chunk] = _PresentationMesh(mesh);
+    return mesh;
+  }
+
   void _paintNode(
     Canvas canvas,
     int slot,
     double rotation,
     double scale,
-    Rect? Function(int, String)? rectangle,
-  ) {
+    Rect? Function(int, String)? rectangle, {
+    PresentationOpacity? presentation,
+  }) {
     final node = _node(slot);
     if (!node.geometry.visible || node.geometry.opacity == 0) return;
     if (node.geometry.item == null) {
@@ -369,6 +528,7 @@ final class RenderPlan {
         cameraRotation: rotation,
         physicalScale: scale,
         bars: _bars,
+        alphaMultiplier: presentation?.alpha(node.geometry.id) ?? 1,
       );
       return;
     }
@@ -380,6 +540,7 @@ final class RenderPlan {
         cameraRotation: rotation,
         physicalScale: scale,
         bars: _bars,
+        alphaMultiplier: presentation?.alpha(node.geometry.id, layout.id) ?? 1,
         displayBox: layout.type == 'bar'
             ? rectangle?.call(slot, layout.id)
             : null,
@@ -391,11 +552,27 @@ final class RenderPlan {
     if (_disposed) return;
     _disposed = true;
     _bars.dispose();
+    setPresentation(null)?.call();
     for (final chunk in _chunks) {
       chunk.release();
     }
     for (final page in _pages) {
       page.release();
+    }
+  }
+}
+
+// Shared only by plans retaining the exact same immutable static chunk and
+// opacity snapshot. No old plan or node is retained by the lease.
+final class _PresentationMesh {
+  _PresentationMesh(this.mesh);
+  final StaticGeometry mesh;
+  int _references = 1;
+  void retain() => _references++;
+  void release() {
+    if (--_references == 0) mesh.dispose();
+    if (_references < 0) {
+      throw StateError('Unbalanced presentation mesh reference');
     }
   }
 }
