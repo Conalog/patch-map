@@ -143,6 +143,8 @@ void main() {
     expect(controller.camera!.rotation, 0);
     await a.moveTo(center - const Offset(95, 40));
     await b.moveTo(center + const Offset(95, 40));
+    await a.moveTo(center - const Offset(110, 60));
+    await b.moveTo(center + const Offset(110, 60));
     await a.up();
     await b.up();
     await tester.pump(const Duration(milliseconds: 350));

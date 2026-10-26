@@ -58,9 +58,22 @@ void main() {
       );
       final before = controller.camera!;
       final world = controller.toWorld(anchor)!;
-      sample(1.019, 4.9);
+      sample(1.019, 9.9);
       expect(controller.camera, before);
-      sample(1.03, 6);
+      // A rebuild changes the next gesture, not the pending thresholds here.
+      await tester.pumpWidget(
+        host(
+          controller,
+          changed: changes.add,
+          gestures: const PatchMapGestureOptions(
+            zoomThreshold: 0,
+            rotationThresholdDegrees: 0,
+          ),
+        ),
+      );
+      sample(1.019, 9.9);
+      expect(controller.camera, before);
+      sample(1.03, 11);
       expect(
         controller.camera,
         before,
@@ -68,7 +81,7 @@ void main() {
       );
       await tester.pump();
       expect(changes, isEmpty);
-      sample(1.06, 8);
+      sample(1.06, 13);
       expect(controller.camera!.scale, closeTo(2 * 1.06 / 1.03, 1e-12));
       expect(
         controller.camera!.rotation,
@@ -77,7 +90,7 @@ void main() {
       expect((controller.toWorld(anchor)! - world).distance, lessThan(1e-9));
       await tester.pump();
       expect(changes.single.sources, {PatchMapCameraChangeSource.gesture});
-      sample(1.01, 4);
+      sample(1.01, 9);
       expect(controller.camera!.scale, closeTo(2 * 1.01 / 1.03, 1e-12));
       expect(
         controller.camera!.rotation,
@@ -86,6 +99,31 @@ void main() {
       expect((controller.toWorld(anchor)! - world).distance, lessThan(1e-9));
       await a.up();
       await b.up();
+      await tester.pump(const Duration(milliseconds: 350));
+      final c = await tester.startGesture(
+        global - const Offset(35, 0),
+        pointer: 3,
+      );
+      final d = await tester.startGesture(
+        global + const Offset(35, 0),
+        pointer: 4,
+      );
+      final immediate = controller.camera!;
+      detector.onScaleStart!(
+        ScaleStartDetails(
+          focalPoint: global,
+          localFocalPoint: anchor,
+          pointerCount: 2,
+        ),
+      );
+      sample(1.005, 1);
+      expect(controller.camera!.scale, closeTo(immediate.scale * 1.005, 1e-12));
+      expect(
+        controller.camera!.rotation,
+        closeTo(immediate.rotation + math.pi / 180, 1e-12),
+      );
+      await c.up();
+      await d.up();
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpWidget(const SizedBox());
     },

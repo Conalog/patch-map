@@ -5,19 +5,41 @@ import '../api/gesture_options.dart';
 /// Adapts one Flutter scale gesture into independent camera targets. This only
 /// retains scalar input baselines; the input coordinator still applies them.
 final class TouchCameraGesture {
-  static const _zoomThreshold = .02;
-  static const _rotationThreshold = 5 * math.pi / 180;
-
   PatchMapGestureOptions _options = const PatchMapGestureOptions();
+  double _zoomLower = 1, _zoomUpper = 1, _rotationThreshold = 0;
   double? _zoomOrigin, _rotationOrigin;
   double _cameraScale = 1, _cameraRotation = 0;
   double _lastRotation = 0, _rotationTravel = 0;
 
   bool get enabled => _options.zoomEnabled || _options.rotationEnabled;
 
-  void start(PatchMapGestureOptions options) {
+  static void validateOptions(PatchMapGestureOptions options) {
+    if (!options.zoomThreshold.isFinite ||
+        options.zoomThreshold < 0 ||
+        options.zoomThreshold >= 1 ||
+        !options.rotationThresholdDegrees.isFinite ||
+        options.rotationThresholdDegrees < 0) {
+      throw ArgumentError(
+        'zoomThreshold must be finite in [0, 1); '
+        'rotationThresholdDegrees must be finite and nonnegative',
+      );
+    }
+  }
+
+  void start(
+    PatchMapGestureOptions options, {
+    required double cameraScale,
+    required double cameraRotation,
+  }) {
+    validateOptions(options);
     _options = options;
-    _zoomOrigin = _rotationOrigin = null;
+    _zoomLower = 1 - options.zoomThreshold;
+    _zoomUpper = 1 + options.zoomThreshold;
+    _rotationThreshold = options.rotationThresholdDegrees * (math.pi / 180);
+    _zoomOrigin = options.zoomThreshold == 0 ? 1 : null;
+    _rotationOrigin = options.rotationThresholdDegrees == 0 ? 0 : null;
+    _cameraScale = cameraScale;
+    _cameraRotation = cameraRotation;
     _lastRotation = _rotationTravel = 0;
   }
 
@@ -29,7 +51,7 @@ final class TouchCameraGesture {
     }
     final origin = _zoomOrigin;
     if (origin == null) {
-      if (factor >= 1 + _zoomThreshold || factor <= 1 - _zoomThreshold) {
+      if (factor >= _zoomUpper || factor <= _zoomLower) {
         _zoomOrigin = factor;
         _cameraScale = currentScale;
       }

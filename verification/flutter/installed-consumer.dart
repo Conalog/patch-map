@@ -24,7 +24,11 @@ Widget _host(
         child: PatchMapView(
           controller: controller,
           active: active,
-          gestures: const PatchMapGestureOptions(rotationEnabled: false),
+          gestures: const PatchMapGestureOptions(
+            rotationEnabled: false,
+            zoomThreshold: .03,
+            rotationThresholdDegrees: 15,
+          ),
           zoomLimits: const PatchMapZoomLimits(minScale: .5, maxScale: 4),
           onPhaseChanged: (phase, _) => phases.add(phase),
           onImageFailure: failures.addAll,

@@ -15,6 +15,8 @@ Future<(TestGesture, TestGesture)> pinch(WidgetTester tester) async {
   // The crossing sample arms each axis; subsequent motion changes the camera.
   await a.moveTo(center - const Offset(90, 35));
   await b.moveTo(center + const Offset(90, 35));
+  await a.moveTo(center - const Offset(110, 60));
+  await b.moveTo(center + const Offset(110, 60));
   await tester.pump();
   return (a, b);
 }
@@ -29,6 +31,48 @@ Future<void> release(
 }
 
 void main() {
+  testWidgets(
+    'invalid thresholds reject initial setup and preserve valid rebuild options',
+    (tester) async {
+      final controller = PatchMapController();
+      await tester.pumpWidget(
+        host(
+          controller,
+          gestures: const PatchMapGestureOptions(zoomThreshold: 1),
+        ),
+      );
+      expect(tester.takeException(), isArgumentError);
+      expect(controller.isAttached, isFalse);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        host(
+          controller,
+          gestures: const PatchMapGestureOptions(rotationEnabled: false),
+        ),
+      );
+      await draw(tester, controller);
+      controller.setCamera(scale: 1, rotation: .3);
+      await tester.pumpWidget(
+        host(
+          controller,
+          gestures: const PatchMapGestureOptions(rotationThresholdDegrees: -1),
+        ),
+      );
+      expect(tester.takeException(), isArgumentError);
+      final pair = await pinch(tester);
+      expect(
+        controller.camera!.rotation,
+        .3,
+        reason: 'prior rotation permission survives invalid options',
+      );
+      expect(controller.camera!.scale, greaterThan(1));
+      await release(tester, pair);
+      await tester.pumpWidget(const SizedBox());
+      expect(tester.takeException(), isNull);
+      expect(controller.isAttached, isFalse);
+    },
+  );
+
   testWidgets('invalid initial limits can be removed and remounted cleanly', (
     tester,
   ) async {
@@ -167,8 +211,8 @@ void main() {
       ),
     );
     final center = tester.getCenter(find.byType(PatchMapView));
-    await pair.$1.moveTo(center - const Offset(110, 55));
-    await pair.$2.moveTo(center + const Offset(110, 55));
+    await pair.$1.moveTo(center - const Offset(140, 90));
+    await pair.$2.moveTo(center + const Offset(140, 90));
     expect(controller.camera!.scale, greaterThan(before.scale));
     expect(controller.camera!.rotation, isNot(before.rotation));
     await release(tester, pair);

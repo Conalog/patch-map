@@ -9,7 +9,9 @@ PatchMapView(
   controller: controller,
   gestures: const PatchMapGestureOptions(
     zoomEnabled: true,
-    rotationEnabled: false,
+    rotationEnabled: true,
+    zoomThreshold: .02,
+    rotationThresholdDegrees: 10,
   ),
   zoomLimits: const PatchMapZoomLimits(minScale: 0.1, maxScale: 8),
 );
@@ -23,15 +25,20 @@ and focus commands remain available. Translation remains available even with
 both flags false; the existing single-pointer `dragMode` still owns pan/range/
 paint behavior. Two-finger translation retains the prior camera behavior.
 
-Touch permissions are captured at `onScaleStart` and retained until that gesture
+Touch permissions and thresholds are captured at `onScaleStart` and retained until that gesture
 ends. A rebuild affects the next gesture; wheel uses the latest flags. Disabled
 wheel input is not registered with Flutter's pointer signal resolver, allowing
 an enclosing scroll surface to handle it. Existing pointer/selection detection
 and interruption rules are unchanged.
 
-Touch zoom activates at a span factor of at least 1.02 or at most 0.98; rotation
-activates at an absolute angle change of at least 5 degrees. These are fixed
-initial defaults, an approved change from immediate touch transformation.
+`zoomThreshold` is a relative span change, default .02 (2%): zoom activates at
+a span factor of at least 1.02 or at most 0.98. `rotationThresholdDegrees` is in
+degrees and defaults to 10; camera commands still use radians. Rotation's default
+was raised from the initial 5-degree trial. Thresholds are configurable through
+widget rebuilds. Zoom requires a finite value in [0, 1); rotation requires a
+finite nonnegative value. Zero disables that axis's threshold and applies the
+first input delta immediately from the gesture-start camera. Permissions still
+take precedence. Nonzero thresholds change the prior immediate touch behavior.
 Each axis activates independently, using the actual crossing sample and current
 camera value as its new baseline. The crossing sample, including overshoot, does
 not transform that axis. Later zoom uses a ratio to its activation span; rotation
@@ -61,14 +68,15 @@ camera observation reports `configuration` only when values actually change.
 Inactivity still defers rendering/notification. Removing limits does not undo
 earlier clamping. Numeric/transform validation precedes committing limits and
 camera state; unrepresentable transforms are rejected by the existing authority.
-Invalid initial limits fail before attachment/resources. Invalid rebuild limits
-report through Flutter's error handler and retain prior camera/limits while the
+Invalid initial options/limits fail before attachment/resources. Invalid rebuild
+values report through Flutter's error handler and retain prior valid settings while the
 widget remains mounted; other valid widget properties can still update. A throwing
 host error reporter is isolated so it cannot interrupt that rebuild.
 
 ## Ownership and verification
 
-The widget captures permissions; `interaction/touch_camera_gesture.dart` adapts
+The widget validates configuration; `interaction/touch_camera_gesture.dart` captures
+permissions/thresholds and adapts
 recognizer samples with scalar baselines, without applying or scheduling camera
 changes. The existing input coordinator applies its targets. `MapCamera` owns bound values,
 validation and limited scale, keeping the same transform/publication authority.
@@ -85,32 +93,22 @@ The extracted public consumer exercises exported options and command clamping;
 `example/integration_test/camera_test.dart` includes disabled native pinch/rotation,
 bounded commands/fit and independent pixel projection.
 
-## Executed checks — 2026-10-26
+## Verification evidence — 2026-10-26
 
-Flutter 3.47.6 host analysis passed. The focused camera/geometry/widget/input/frame
-suite passed 50 tests. After isolating a throwing host error reporter, all nine
-gesture-option tests passed, including the new reporter regression (51 distinct
-focused witnesses in total). No performance gain or native frame-time claim is made.
+The original permissions/bounds and fixed 2%/5-degree implementations passed
+their focused host checks and extracted consumers. Records remain under
+`.artifacts/flutter/gesture-options-qa-20261026/` and
+`.artifacts/flutter/gesture-thresholds-qa-20261026/`. A host AOT scalar probe of the
+fixed thresholds added approximately 0.004–0.006 microseconds per update; this
+excludes recognition/rendering and is not native frame qualification.
 
-The extracted package consumer passed public option resolution, bounded commands
-and its existing draw/update/assets/attachment checks. Its report is
-`.artifacts/flutter/installed-consumer-SPxE7t/report.json`; the final reporter guard
-was subsequently covered by the focused widget tests.
+The fixed-threshold profile app launched successfully on SM-S936N and displayed
+10,000 panels (`.artifacts/flutter/gesture-thresholds-manual-20261026/`). Earlier
+automated native attempts disconnected during installation; native gesture
+assertions and subjective feel are not qualified by the startup check.
 
-Android integration built successfully, but SM-S936N disconnected during both
-installation attempts, before any test executed. New option behavior is therefore
-not yet qualified on a native device. The prior APK was restored and its SHA-256
-verified against the backup. Logs and cleanup evidence are under
-`.artifacts/flutter/gesture-options-qa-20261026/`.
-
-### Touch activation follow-up
-
-The threshold implementation passed analysis and 48 focused host tests. New
-input-adapter and widget witnesses cover independent activation, discarded
-overshoot, anchored deltas, reversals, angle wrapping and zero spans; the existing
-tests retain permissions, lifecycle, camera notification and small-wheel coverage.
-The extracted consumer passed (`.artifacts/flutter/installed-consumer-Y1wmCw/report.json`).
-A paired host AOT scalar probe added approximately 0.004–0.006 microseconds per
-update, excluding recognition/rendering; this is not native frame qualification.
-Evidence: `.artifacts/flutter/gesture-thresholds-qa-20261026/`. No native rerun or
-manual device feel assessment was performed for this follow-up.
+Configurable thresholds/default 10-degree rotation passed analysis and 51 focused
+host tests, including zero thresholds, held-gesture configuration and invalid
+initial/rebuild settings. The extracted consumer resolved the new named options
+and passed (`.artifacts/flutter/installed-consumer-bu7dSY/report.json`). Current
+logs: `.artifacts/flutter/gesture-config-qa-20261026/`.
