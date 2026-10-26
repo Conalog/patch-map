@@ -16,7 +16,8 @@ retains its state. Unchanged reads reuse the snapshot; held snapshots never muta
 submitted map frame. Its `state` is the latest applied snapshot at delivery, and
 its immutable `sources` combines all actual changes in the pending interval:
 `gesture` (drag, wheel, pinch/rotation), `programmatic` (`setCamera`), `fit`,
-`focus`, `replacement` (new-diagram fit), and `resize`. This is not an ordered
+`focus`, `replacement` (new-diagram fit), `resize`, and `configuration` (changed
+[zoom limits](gesture-options.md)). This is not an ordered
 action log. A gesture followed by an app command preserves both causes.
 No-op/rejected commands do not contribute; returning to the last notified state
 before delivery emits nothing. Subscribing does not replay initial/past state;

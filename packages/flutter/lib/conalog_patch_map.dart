@@ -2,6 +2,7 @@
 library;
 
 export 'src/api/camera.dart';
+export 'src/api/gesture_options.dart';
 export 'src/api/result.dart';
 export 'src/api/presentation.dart';
 export 'src/api/target.dart';

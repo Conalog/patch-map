@@ -11,6 +11,8 @@ Widget host(
   ValueChanged<PatchMapPhase>? phase,
   bool active = true,
   Size size = const Size(400, 400),
+  PatchMapGestureOptions gestures = const PatchMapGestureOptions(),
+  PatchMapZoomLimits zoomLimits = const PatchMapZoomLimits(),
 }) => MediaQuery(
   data: MediaQueryData(size: size),
   child: Directionality(
@@ -22,6 +24,8 @@ Widget host(
           controller: controller,
           active: active,
           onCameraChanged: changed,
+          gestures: gestures,
+          zoomLimits: zoomLimits,
           onPhaseChanged: (value, _) => phase?.call(value),
         ),
       ),

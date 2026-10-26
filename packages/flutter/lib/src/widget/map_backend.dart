@@ -8,6 +8,7 @@ import 'package:flutter/services.dart' show rootBundle;
 
 import '../api/result.dart';
 import '../api/camera.dart';
+import '../api/gesture_options.dart';
 import '../api/target.dart';
 import '../dataset/colors.dart';
 import '../dataset/dataset_reader.dart';
@@ -52,7 +53,8 @@ final class MapBackend extends SessionBackend {
     required this.onReplacement,
     this.onUnexpectedAssetFailure,
     this.onResourceRefresh,
-  }) {
+    PatchMapZoomLimits zoomLimits = const PatchMapZoomLimits(),
+  }) : camera = (MapCamera()..setZoomLimits(zoomLimits)) {
     optimizationBudget = ResourceBudget(
       limitBytes: 2 * 1024 * 1024,
       onSpaceAvailable: _optimizationSpace,
@@ -85,7 +87,7 @@ final class MapBackend extends SessionBackend {
   final void Function(Object, StackTrace)? onUnexpectedAssetFailure;
   final void Function()? onResourceRefresh;
   final _intrinsicReady = <String>{};
-  final camera = MapCamera();
+  final MapCamera camera;
   final spatial = SpatialIndex();
   final retirement = ResourceRetirement();
   final preparations = PreparationQueue();

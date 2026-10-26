@@ -24,6 +24,8 @@ Widget _host(
         child: PatchMapView(
           controller: controller,
           active: active,
+          gestures: const PatchMapGestureOptions(rotationEnabled: false),
+          zoomLimits: const PatchMapZoomLimits(minScale: .5, maxScale: 4),
           onPhaseChanged: (phase, _) => phases.add(phase),
           onImageFailure: failures.addAll,
           onCameraChanged: cameraChanged,
@@ -164,6 +166,9 @@ void main() {
     expect(drawn.superseded, isFalse);
     expect(controller.phase, PatchMapPhase.ready);
     expect(controller.camera, isNotNull);
+    controller.setCamera(scale: 20);
+    expect(controller.camera!.scale, 4);
+    await tester.pump();
     cameraChanges.clear();
     controller.setCamera(rotation: .2);
     controller.setCamera(rotation: .3);

@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import '../api/result.dart';
 import '../api/camera.dart';
+import '../api/gesture_options.dart';
 import '../api/presentation.dart';
 import '../api/events.dart';
 import '../interaction/input_coordinator.dart';
@@ -17,6 +18,7 @@ import '../geometry/scene_geometry.dart' show unionBounds;
 import '../resources/asset_registry.dart';
 import '../presentation/field_operations.dart' show presentationEqual;
 import '../session/map_session.dart';
+import '../viewport/camera.dart';
 import 'map_backend.dart';
 import 'patch_map_controller.dart';
 
@@ -38,6 +40,8 @@ class PatchMapView extends StatefulWidget {
     this.onCameraChanged,
     this.eventFilter,
     this.dragMode = PatchMapDragMode.pan,
+    this.gestures = const PatchMapGestureOptions(),
+    this.zoomLimits = const PatchMapZoomLimits(),
     this.loadingBuilder,
     this.errorBuilder,
   });
@@ -53,6 +57,8 @@ class PatchMapView extends StatefulWidget {
   final ValueChanged<PatchMapCameraChange>? onCameraChanged;
   final bool Function(PatchMapObject object)? eventFilter;
   final PatchMapDragMode dragMode;
+  final PatchMapGestureOptions gestures;
+  final PatchMapZoomLimits zoomLimits;
   final WidgetBuilder? loadingBuilder;
   final Widget Function(BuildContext context, PatchMapFailure? failure)?
   errorBuilder;
@@ -77,14 +83,16 @@ class _PatchMapViewState extends State<PatchMapView>
   Offset _recognitionLocal = Offset.zero, _recognitionGlobal = Offset.zero;
   double _gestureScale = 1, _gestureRotation = 0;
   Offset _gestureFocal = Offset.zero;
+  PatchMapGestureOptions _gestureOptions = const PatchMapGestureOptions();
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    MapCamera.validateZoomLimits(widget.zoomLimits);
     _foreground =
         WidgetsBinding.instance.lifecycleState == null ||
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     backend = MapBackend(
+      zoomLimits: widget.zoomLimits,
       palette: ColorResolver(colors: widget.colors),
       registry: AssetRegistry(symbols: widget.symbols),
       invalidate: () => frame.invalidate(),
@@ -94,6 +102,7 @@ class _PatchMapViewState extends State<PatchMapView>
       onAssetFailure: (failures) =>
           session.notify(() => widget.onImageFailure?.call(failures)),
     );
+    WidgetsBinding.instance.addObserver(this);
     backend.camera.observe(widget.onCameraChanged != null);
     frame = FrameCoordinator(
       onFrame: (time) {
@@ -202,6 +211,18 @@ class _PatchMapViewState extends State<PatchMapView>
   @override
   void didUpdateWidget(PatchMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    var zoomChanged = false;
+    try {
+      zoomChanged = backend.camera.setZoomLimits(widget.zoomLimits);
+    } on ArgumentError catch (error, stack) {
+      // Keep the prior valid camera/limits without aborting Flutter's element
+      // update and leaving its inherited-widget dependencies half updated.
+      try {
+        _report(error, stack);
+      } catch (_) {
+        // A host error reporter is terminal; do not report it recursively.
+      }
+    }
     backend.camera.observe(widget.onCameraChanged != null);
     if (!identical(oldWidget.controller, widget.controller)) {
       widget.controller.attach(this);
@@ -219,6 +240,7 @@ class _PatchMapViewState extends State<PatchMapView>
         widget.initialData != null) {
       _observe(session.replace(widget.initialData));
     }
+    if (zoomChanged) frame.invalidate();
     input.dragMode = widget.dragMode;
     _activity();
   }
@@ -296,6 +318,7 @@ class _PatchMapViewState extends State<PatchMapView>
             },
             onPointerSignal: (event) {
               if (event is PointerScrollEvent &&
+                  widget.gestures.zoomEnabled &&
                   phase == PatchMapPhase.ready &&
                   session.active) {
                 GestureBinding.instance.pointerSignalResolver.register(event, (
@@ -335,6 +358,7 @@ class _PatchMapViewState extends State<PatchMapView>
                 epoch: _recognitionEpoch,
               ),
               onScaleStart: (details) {
+                _gestureOptions = widget.gestures;
                 _gestureGeneration = session.generation;
                 _gestureScale = backend.camera.scale;
                 _gestureRotation = backend.camera.rotation;
@@ -348,16 +372,25 @@ class _PatchMapViewState extends State<PatchMapView>
                     !session.active) {
                   return;
                 }
-                input.cameraGesture(
-                  pointerCount: details.pointerCount,
-                  localAnchor: _gestureFocal,
-                  scale: _gestureScale * details.scale,
-                  rotation: _gestureRotation + details.rotation,
-                );
+                if (_gestureOptions.zoomEnabled ||
+                    _gestureOptions.rotationEnabled) {
+                  input.cameraGesture(
+                    pointerCount: details.pointerCount,
+                    localAnchor: _gestureFocal,
+                    scale: _gestureOptions.zoomEnabled
+                        ? _gestureScale * details.scale
+                        : backend.camera.scale,
+                    rotation: _gestureOptions.rotationEnabled
+                        ? _gestureRotation + details.rotation
+                        : backend.camera.rotation,
+                  );
+                }
                 if (!session.active || phase != PatchMapPhase.ready) return;
-                backend.camera.pan(details.localFocalPoint - _gestureFocal);
+                final moved = backend.camera.pan(
+                  details.localFocalPoint - _gestureFocal,
+                );
                 _gestureFocal = details.localFocalPoint;
-                frame.invalidate();
+                if (moved) frame.invalidate();
               },
               child: Stack(
                 fit: StackFit.expand,

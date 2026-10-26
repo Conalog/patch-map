@@ -27,6 +27,8 @@ void main() {
     final changes = <PatchMapCameraChange>[];
     final deliveryFrames = <Duration>[];
     var active = true, reenter = false;
+    var gestures = const PatchMapGestureOptions();
+    var zoomLimits = const PatchMapZoomLimits();
     Widget host() => MediaQuery(
       data: const MediaQueryData(size: Size(300, 240)),
       child: Directionality(
@@ -40,6 +42,8 @@ void main() {
               child: PatchMapView(
                 controller: controller,
                 active: active,
+                gestures: gestures,
+                zoomLimits: zoomLimits,
                 onCameraChanged: (change) {
                   changes.add(change);
                   deliveryFrames.add(
@@ -157,6 +161,44 @@ void main() {
     controller.setCamera(rotation: .8);
     await tester.pumpAndSettle();
     expect(changes, isEmpty);
+
+    gestures = const PatchMapGestureOptions(
+      zoomEnabled: false,
+      rotationEnabled: false,
+    );
+    zoomLimits = const PatchMapZoomLimits(minScale: 1, maxScale: 2);
+    await tester.pumpWidget(host());
+    controller.setCamera(center: const Offset(60, 60), scale: 1, rotation: .2);
+    await tester.pumpAndSettle();
+    final lockedA = await tester.startGesture(
+      center - const Offset(35, 0),
+      pointer: 1,
+    );
+    final lockedB = await tester.startGesture(
+      center + const Offset(35, 0),
+      pointer: 2,
+    );
+    await lockedA.moveTo(center - const Offset(70, 20));
+    await lockedB.moveTo(center + const Offset(70, 20));
+    await lockedA.up();
+    await lockedB.up();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(controller.camera!.scale, 1);
+    expect(controller.camera!.rotation, .2);
+    await verifyInk(controller.camera!);
+    controller.setCamera(scale: 99, rotation: .8);
+    await tester.pumpAndSettle();
+    expect(controller.camera!.scale, 2);
+    expect(controller.camera!.rotation, .8);
+    controller.fit();
+    await tester.pumpAndSettle();
+    expect(controller.camera!.scale, 2);
+    await verifyInk(controller.camera!);
+    gestures = const PatchMapGestureOptions();
+    zoomLimits = const PatchMapZoomLimits();
+    await tester.pumpWidget(host());
+    changes.clear();
 
     controller.setCamera(rotation: .9);
     active = false;

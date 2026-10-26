@@ -33,6 +33,7 @@ enum PatchMapCameraChangeSource {
   focus,
   replacement,
   resize,
+  configuration,
 }
 
 /// Latest applied state, coalesced through the existing frame coordinator.

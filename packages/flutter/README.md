@@ -86,12 +86,12 @@ uses the new diagram. Filters cannot mutate layers; inactive layers resume later
 
 `controller.camera` exposes world center, scale, clockwise radians and logical `viewportSize`;
 it is null when detached/empty/preparing/failed and remains readable when ready but inactive.
-`onCameraChanged` receives `{state, sources}` after a map frame, at most once per frame.
-Sources combine gesture/programmatic/fit/focus/replacement/resize changes; unchanged states do not notify.
+`onCameraChanged` receives `{state, sources}` after a map frame, at most once per frame. Sources combine gesture/programmatic/fit/focus/replacement/resize/configuration changes; unchanged states do not notify.
 Subscribe without replay; read `camera` for current state. Replacement/removal discard old pending notifications;
 inactivity defers them. Callbacks may issue commands; their new changes notify on a later frame.
 These are latest applied values, not display-completion or debounced settled notifications.
-
+`gestures: const PatchMapGestureOptions(zoomEnabled: true, rotationEnabled: false)` independently gates pinch/wheel zoom and touch rotation; commands and translation remain available. Touch flags stay fixed during a gesture; rebuilds affect the next gesture.
+`zoomLimits: const PatchMapZoomLimits(minScale: .1, maxScale: 8)` clamps input, commands and fit. Omitted bounds are unrestricted; finite positive ordered bounds are required. A minimum can prevent fitting the entire drawing. Changed limits clamp current scale without refitting and notify `configuration`.
 `dragMode` is pan by default; range and paint modes detect objects and report
 callbacks. Input filters only judge candidates: make map changes in result
 callbacks. Move callbacks are coalesced per frame while intermediate path hits

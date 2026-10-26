@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/painting.dart' show EdgeInsets;
 
 import '../api/camera.dart';
+import '../api/gesture_options.dart';
 import '../geometry/affine.dart';
 
 /// Camera authority in logical pixels. Resize does not reset world center,
@@ -19,6 +20,49 @@ final class MapCamera {
   PatchMapCameraState? _snapshot, _lastNotified;
   bool _observed = false;
   int _pendingSources = 0;
+  PatchMapZoomLimits _zoomLimits = const PatchMapZoomLimits();
+
+  static void validateZoomLimits(PatchMapZoomLimits limits) {
+    final min = limits.minScale, max = limits.maxScale;
+    if ((min != null && (!min.isFinite || min <= 0)) ||
+        (max != null && (!max.isFinite || max <= 0)) ||
+        (min != null && max != null && min > max)) {
+      throw ArgumentError('zoom limits must be finite, positive and ordered');
+    }
+  }
+
+  /// Validate and prepare before committing either limits or camera values.
+  /// Tightening bounds keeps the world center and angle, without fitting again.
+  bool setZoomLimits(PatchMapZoomLimits limits) {
+    if (limits.minScale == _zoomLimits.minScale &&
+        limits.maxScale == _zoomLimits.maxScale) {
+      return false;
+    }
+    validateZoomLimits(limits);
+    final scale = _limitedScale(_scale, limits);
+    final candidate = scale == _scale
+        ? null
+        : _candidate(_size, _center, scale, _rotation);
+    _zoomLimits = limits;
+    if (candidate == null) return false;
+    _scale = scale;
+    _commit(candidate, PatchMapCameraChangeSource.configuration);
+    return true;
+  }
+
+  double _resolveScale(double value) {
+    if (!value.isFinite || value <= 0) {
+      throw ArgumentError('camera scale must be finite and positive');
+    }
+    return _limitedScale(value, _zoomLimits);
+  }
+
+  static double _limitedScale(double value, PatchMapZoomLimits limits) {
+    final min = limits.minScale, max = limits.maxScale;
+    if (min != null && value < min) return min;
+    if (max != null && value > max) return max;
+    return value;
+  }
 
   PatchMapCameraState get snapshot => _snapshot ??= PatchMapCameraState(
     center: _center,
@@ -91,12 +135,10 @@ final class MapCamera {
     double? rotation,
     PatchMapCameraChangeSource source = PatchMapCameraChangeSource.programmatic,
   }) {
-    final c = center ?? _center, s = scale ?? _scale, r = rotation ?? _rotation;
-    if (!c.dx.isFinite ||
-        !c.dy.isFinite ||
-        !s.isFinite ||
-        s <= 0 ||
-        !r.isFinite) {
+    final c = center ?? _center,
+        s = _resolveScale(scale ?? _scale),
+        r = rotation ?? _rotation;
+    if (!c.dx.isFinite || !c.dy.isFinite || !r.isFinite) {
       throw ArgumentError(
         'camera requires a finite center/rotation and positive scale',
       );
@@ -118,11 +160,13 @@ final class MapCamera {
   /// Keep the world point under [localAnchor] fixed while changing camera size
   /// or angle. Used by pinch/wheel and explicit anchored camera commands.
   bool transformAround(Offset localAnchor, {double? scale, double? rotation}) {
-    final world = localToWorld(localAnchor);
-    final nextScale = scale ?? _scale, nextRotation = rotation ?? _rotation;
-    if (!nextScale.isFinite || nextScale <= 0 || !nextRotation.isFinite) {
+    final nextScale = _resolveScale(scale ?? _scale),
+        nextRotation = rotation ?? _rotation;
+    if (!nextRotation.isFinite) {
       throw ArgumentError('invalid anchored camera transform');
     }
+    if (nextScale == _scale && nextRotation == _rotation) return false;
+    final world = localToWorld(localAnchor);
     final offset = localAnchor - Offset(_size.width / 2, _size.height / 2);
     final cos = math.cos(nextRotation), sin = math.sin(nextRotation);
     final worldOffset =
@@ -165,7 +209,7 @@ final class MapCamera {
         ? double.infinity
         : available.height / rotated.height;
     final candidate = math.min(sx, sy);
-    final nextScale = candidate.isFinite ? candidate : _scale;
+    final nextScale = _resolveScale(candidate.isFinite ? candidate : _scale);
     return set(
       center: _centerFor(worldBounds.center, available.center, nextScale),
       scale: nextScale,
