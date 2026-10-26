@@ -103,6 +103,7 @@ latency costs were deliberately outside the timed intervention.
 Counters/native/history runs pass frequency and thermal gates and final 10,000-item
 value checks. No broader workload, new optimization or release qualification ran.
 Original manual APK/foreground were restored and hash-verified; fixed mode disabled,
-forwards, task remote trace and native-profile data removed. Library remains unchanged.
+forwards, task remote trace and native-profile data removed. Library was unchanged
+during diagnosis; subsequent adoption is recorded in the linked offscreen checkpoint.
 Raw evidence, scripts, instrumented source/APK manifests and cleanup are under
 `.artifacts/performance/flutter/offscreen-preparation3476-device-20261026/fit-raster-diagnosis/`.

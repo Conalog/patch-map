@@ -1,14 +1,14 @@
 # Deferred offscreen output preparation experiment
 
-October 26, 2026. **Experimental candidate; production is unchanged.**
-Baseline library remains `e6b605ac`. The initial comparison deferred adoption over
+October 26, 2026. **Measured output-projection/matrix deferral adopted.**
+Comparison baseline is `e6b605ac`. The initial comparison deferred adoption over
 first-fit frames. The [follow-up diagnosis](fit-raster-diagnosis.md) identifies shared
 engine buffer-allocation sensitivity; the original observations below are preserved.
-This does not change the deferred-work policy in [architecture](architecture.md).
+The user subsequently approved only this scope; [architecture](architecture.md) records it.
 
 ## Scope
 
-Only `rendering/draw_objects.dart` changes in an ignored snapshot. Retained updates
+The measured candidate changes only `rendering/draw_objects.dart`. Retained updates
 invalidate component-world projection slots and local matrix holders. Paint computes
 these from latest published geometry; repeated offscreen updates collapse into one
 computation. General replacement nodes copy the nullable slot array to avoid mutable
@@ -107,10 +107,13 @@ Only two processes per arm and sequential updates are measured. Pending-request
 bursts, iOS/WebView and new GC/allocation or causal CPU profiles are unqualified.
 
 The initial disposition was **defer default adoption** pending first-exposure diagnosis.
-The linked follow-up revises the cause; production adoption remains a separate decision.
+After that diagnosis, the user approved adoption without widening deferred work.
+All 69 library files match the measured candidate byte-for-byte; the existing
+offscreen→fallback→retained→first-paint regression test is transferred with it.
+Adoption passes 38 focused tests and analysis; the native comparisons, pixel checks
+and independent reviews above are reused. No new performance claim or device run.
 
 Original manual APK/foreground were restored and hash-verified. Fixed mode disabled;
-task forwards/remote traces removed. Production library/architecture are unchanged.
-Raw manifests, sources/APKs, results, frames, clock audits, screenshots, checks,
-review and cleanup are under
+task forwards/remote traces removed. Adoption requires no further device changes.
+Raw manifests, sources/APKs, results, frames, clock audits, screenshots, checks, review and cleanup are under
 `.artifacts/performance/flutter/offscreen-preparation3476-device-20261026/`.

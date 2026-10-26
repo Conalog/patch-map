@@ -11,7 +11,8 @@ features. Later decisions supersede earlier discussion proposals.
 
 The [offscreen preparation experiment](offscreen-preparation-checkpoint.md) records
 response/CPU benefits; the [fit raster diagnosis](fit-raster-diagnosis.md) explains
-the first-fit buffer-allocation sensitivity. The candidate is not adopted in the runtime.
+the first-fit buffer-allocation sensitivity. The measured output-projection/matrix
+deferral is adopted; validation, local geometry and publication remain unchanged.
 
 Package setup and SDK gates remain in [Flutter environment](../flutter-package.md).
 JavaScript remains the schema reference, except for explicitly approved Flutter

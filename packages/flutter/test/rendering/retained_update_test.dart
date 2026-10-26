@@ -21,6 +21,102 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
+    'offscreen repeated updates leave only current output projection pending',
+    () async {
+      final h = await Harness.create();
+      addTearDown(h.close);
+      h.current.resources.text.setActive(false);
+      h.backend.camera.set(center: const Offset(10000, 10000), scale: 1);
+      var node = h.current.node(h.slot);
+      for (final height in ['25%', '70%', '40%']) {
+        h.publish(
+          await h.prepare([
+            update('bar', {
+              'size': {'height': height},
+              'placement': 'bottom',
+            }),
+            update('text', {'text': height, 'margin': 3}),
+          ], animate: true),
+        );
+        final count = node.debugPendingProjectionCount;
+        expect(count, greaterThan(0));
+        expect(
+          node.geometry.item!.components
+              .firstWhere((c) => c.id == 'bar')
+              .box
+              .height,
+          60 * double.parse(height.replaceAll('%', '')) / 100,
+        );
+        h.paint();
+        expect(node.debugPendingProjectionCount, count);
+        h.backend.retirement.flush();
+      }
+      // A general same-world projection must copy nullable cache slots, not
+      // retain a mutable array shared with the previous draw node.
+      final prior = node, priorPending = node.debugPendingProjectionCount;
+      h.publish(
+        await h.prepare([
+          const PatchMapUpdate(PatchMapTarget('g.0.0'), {'label': 'new label'}),
+        ]),
+      );
+      node = h.current.node(h.slot);
+      expect(node, isNot(same(prior)));
+      expect(node.debugPendingProjectionCount, priorPending);
+      h.publish(
+        await h.prepare([
+          update('bar', {
+            'size': {'height': '65%'},
+          }),
+        ]),
+      );
+      expect(prior.debugPendingProjectionCount, priorPending);
+      h.paint();
+      expect(node.debugPendingProjectionCount, greaterThan(0));
+      h.backend.onFrame(Duration.zero);
+      h.backend.onFrame(const Duration(seconds: 1));
+      expect(h.backend.transitions.rectangle(h.slot, 'bar'), isNull);
+      h.backend.camera.set(center: const Offset(40, 30), scale: 1);
+      h.paint();
+      expect(node.debugPendingProjectionCount, 0);
+      final document = const DatasetReader().read([
+        {
+          ...exportItemData(node.geometry.data),
+          'id': 'expected',
+          'type': 'item',
+        },
+      ]);
+      final geometry = GeometrySnapshot.compile(
+        document,
+        h.current.resources.text.measure,
+      );
+      final fresh = h.current.resources.compiler.compile(
+        geometry['expected']!,
+        initialLoad: false,
+      );
+      fresh.retain();
+      Future<List<int>> pixels(DrawNode value) async {
+        final recorder = PictureRecorder();
+        value.paint(Canvas(recorder), cameraRotation: .3, physicalScale: 1);
+        final picture = recorder.endRecording();
+        final image = await picture.toImage(180, 180);
+        try {
+          return (await image.toByteData(
+            format: ImageByteFormat.rawRgba,
+          ))!.buffer.asUint8List().toList();
+        } finally {
+          image.dispose();
+          picture.dispose();
+        }
+      }
+
+      try {
+        expect(await pixels(node), orderedEquals(await pixels(fresh)));
+      } finally {
+        fresh.release();
+      }
+    },
+  );
+  test(
     'retained bounds and pixels equal a fresh projection across dependencies',
     () async {
       final h = await Harness.create();

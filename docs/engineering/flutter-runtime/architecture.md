@@ -49,9 +49,9 @@ must not consume a newly published bar's animation duration. The clock does not
 schedule work, and inactive transitions are still cleared on suspension.
 
 The renderer visits visible candidates in paint order. Logical updates still
-cover offscreen items. Only approved deferred work (native Paragraph bodies and
-visible-demand SVG rasterization) is delayed; do not generalize this to all
-offscreen preparation. Text layout/bounds must be available before publication.
+cover offscreen items. Retained commits invalidate output slots, resolved when drawn.
+Each node owns mutable [projection slots](offscreen-preparation-checkpoint.md); replacement nodes copy them.
+Validation, local geometry and text bounds stay eager; Paragraph/SVG raster work remains deferred.
 Atlas admissibility depends on validated format and font/style conditions.
 
 Text-only retained changes reuse immutable parameters and style/paint key parts from the prior handle;

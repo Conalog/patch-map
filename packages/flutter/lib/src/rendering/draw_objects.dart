@@ -99,8 +99,10 @@ final class DrawComponent {
           : _ComponentMatrix(layout.transform);
   ComponentLayout layout;
   DrawContent content;
-  _ComponentMatrix _matrix;
-  Float64List get matrix => _matrix.value;
+  _ComponentMatrix? _matrix;
+  Float64List get matrix =>
+      (_matrix ??= _ComponentMatrix(layout.transform)).value;
+  bool get debugHasMatrixCache => _matrix != null;
   ReadableRectBasis? _readableBasis;
 
   ReadableRectBasis readableBasis(Affine authored, double rotation) {
@@ -122,7 +124,9 @@ final class DrawComponent {
       retire(content.release);
     }
     if (!identical(layout.transform, transform)) {
-      _matrix = _ComponentMatrix(transform);
+      // The new local transform is already validated geometry. Its output-only
+      // holder is needed only if this component is actually submitted.
+      _matrix = null;
     }
     content = value;
   }
@@ -202,7 +206,12 @@ final class DrawNode {
   final _NodeAssets _assets;
   final _WorldProjection _world;
   Float64List get matrix => _world.matrix;
-  List<Affine> _componentWorld;
+  final List<Affine?> _componentWorld;
+  int get debugPendingProjectionCount =>
+      _componentWorld.where((value) => value == null).length;
+  Affine _componentWorldAt(int index) => _componentWorld[index] ??= geometry
+      .world
+      .multiply(components[index].layout.transform);
   Affine? get _inverseWorld => _world.inverse;
   Float64List? get _inverseMatrix => _world.inverseMatrix;
   int _references = 0;
@@ -238,17 +247,16 @@ final class DrawNode {
     Iterable<(int, bool)> updates,
   ) {
     geometry = next;
-    List<Affine>? worlds;
     for (final (index, transformChanged) in updates) {
       final component = components[index];
       if (transformChanged) {
-        worlds ??= _componentWorld.toList();
-        worlds[index] = geometry.world.multiply(component.layout.transform);
+        // The owned slots retain no revision chain. Any number of offscreen
+        // updates collapse into one computation from current published geometry.
+        _componentWorld[index] = null;
       }
       _upright.remove(component.layout.id);
       _uprightWorld.remove(component.layout.id);
     }
-    if (worlds != null) _componentWorld = List.unmodifiable(worlds);
   }
 
   List<DrawAsset> get assets => _assets.values;
@@ -334,7 +342,7 @@ final class DrawNode {
           : _barLocal(layout, displayBox);
       final world = layout.upright
           ? _readableWorld(index, displayBox, cameraRotation)
-          : _componentWorld[index];
+          : _componentWorldAt(index);
       final contained =
           local != null &&
           (layout.upright
@@ -389,7 +397,7 @@ final class DrawNode {
         }
         canvas.transform(component.matrix);
       }
-      final localScale = physicalScale * _scale(_componentWorld[index]);
+      final localScale = physicalScale * _scale(_componentWorldAt(index));
       var destination = Offset.zero & (displayBox?.size ?? layout.box.size);
       // JS background textures compensate the centered border, keeping the
       // outside edge at the item's origin rather than spilling left/up.
@@ -416,7 +424,7 @@ final class DrawNode {
     if (cached != null && cached.$1 == display) return cached.$2;
     final Affine authored;
     if (display == null) {
-      authored = _componentWorld[index];
+      authored = _componentWorldAt(index);
     } else {
       final local = layout.transform;
       final placement = Affine(
@@ -565,7 +573,7 @@ final class _WorldProjection {
       .asUnmodifiableView();
 }
 
-List<Affine> _prepareComponentWorlds(
+List<Affine?> _prepareComponentWorlds(
   TargetGeometry geometry,
   List<DrawComponent> components,
   DrawNode? previous,
@@ -574,19 +582,19 @@ List<Affine> _prepareComponentWorlds(
   // Keep nullable predecessors outside the reuse loops. Profile AOT must not
   // read previous component arrays while constructing a fresh publication.
   if (previous == null) {
-    return List.unmodifiable([
+    return <Affine?>[
       for (final component in components)
         geometry.world.multiply(component.layout.transform),
-    ]);
+    ];
   }
   if (!geometry.world.sameTransform(previous.geometry.world)) {
-    return List.unmodifiable([
+    return <Affine?>[
       for (final component in components)
         geometry.world.multiply(component.layout.transform),
-    ]);
+    ];
   }
   if (changes != null) {
-    List<Affine>? worlds;
+    List<Affine?>? worlds;
     for (final entry in changes) {
       final index = entry.index;
       if (identical(
@@ -600,9 +608,7 @@ List<Affine> _prepareComponentWorlds(
         components[index].layout.transform,
       );
     }
-    return worlds == null
-        ? previous._componentWorld
-        : List.unmodifiable(worlds);
+    return worlds ?? previous._componentWorld.toList();
   }
   if (components.length == previous.components.length) {
     var unchanged = true;
@@ -616,9 +622,9 @@ List<Affine> _prepareComponentWorlds(
         break;
       }
     }
-    if (unchanged) return previous._componentWorld;
+    if (unchanged) return previous._componentWorld.toList();
   }
-  return List.unmodifiable([
+  return <Affine?>[
     for (var i = 0; i < components.length; i++)
       if (i < previous.components.length &&
           components[i].layout.id == previous.components[i].layout.id &&
@@ -629,5 +635,5 @@ List<Affine> _prepareComponentWorlds(
         previous._componentWorld[i]
       else
         geometry.world.multiply(components[i].layout.transform),
-  ]);
+  ];
 }
