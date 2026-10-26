@@ -9,9 +9,9 @@ The historical decision inventory is [decisions.json](decisions.json); it
 records the approved discussion's source headings and hashes, not implemented
 features. Later decisions supersede earlier discussion proposals.
 
-The [offscreen preparation experiment](offscreen-preparation-checkpoint.md)
-records the measured response/CPU benefit and unresolved first-fit frame cost;
-that candidate is not adopted in the runtime.
+The [offscreen preparation experiment](offscreen-preparation-checkpoint.md) records
+response/CPU benefits; the [fit raster diagnosis](fit-raster-diagnosis.md) explains
+the first-fit buffer-allocation sensitivity. The candidate is not adopted in the runtime.
 
 Package setup and SDK gates remain in [Flutter environment](../flutter-package.md).
 JavaScript remains the schema reference, except for explicitly approved Flutter

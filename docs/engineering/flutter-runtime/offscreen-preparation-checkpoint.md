@@ -1,9 +1,10 @@
 # Deferred offscreen output preparation experiment
 
-October 26, 2026. **Experimental candidate; production adoption is deferred.**
-Baseline library remains `e6b605ac`. Response/CPU benefits are present, but immediate
-full-fit first-frame behavior prevents a no-regression conclusion. This does not
-change the deferred-work policy in [architecture](architecture.md).
+October 26, 2026. **Experimental candidate; production is unchanged.**
+Baseline library remains `e6b605ac`. The initial comparison deferred adoption over
+first-fit frames. The [follow-up diagnosis](fit-raster-diagnosis.md) identifies shared
+engine buffer-allocation sensitivity; the original observations below are preserved.
+This does not change the deferred-work policy in [architecture](architecture.md).
 
 ## Scope
 
@@ -105,8 +106,8 @@ settled-pixel checks do not prove all intermediate animation pixels identical.
 Only two processes per arm and sequential updates are measured. Pending-request
 bursts, iOS/WebView and new GC/allocation or causal CPU profiles are unqualified.
 
-Preserve the candidate's response/CPU evidence but **defer default adoption** until
-first-exposure raster behavior is understood, before widening deferred work.
+The initial disposition was **defer default adoption** pending first-exposure diagnosis.
+The linked follow-up revises the cause; production adoption remains a separate decision.
 
 Original manual APK/foreground were restored and hash-verified. Fixed mode disabled;
 task forwards/remote traces removed. Production library/architecture are unchanged.
