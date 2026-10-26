@@ -76,3 +76,14 @@ and `.artifacts/flutter/installed-consumer-Gj1VN8/report.json`. That artifact
 precedes only a camera Dartdoc wording correction; runtime code is unchanged.
 Independent review caught the no-op replacement adoption gap; the implementation
 and regression test above resolve it. No native performance claim is made.
+
+The public-API `example/integration_test/camera_test.dart` subsequently passed
+on SM-S936N, Android 16, Flutter 3.47.6 debug with Impeller Vulkan. Native pixel
+readbacks matched independent projection from the reported camera after commands,
+drag and two-pointer zoom/rotation. A 100-command burst coalesced; recorded frame
+timestamps were unique across deliveries. Reentry, unchanged commands, inactivity,
+replacement adoption and removal also passed. No runtime correction was needed;
+the native harness uses synchronous assertions inside frame callbacks.
+Evidence: `.artifacts/flutter/camera-native-qa-20261026/{device.log,summary.json,cleanup.json}`.
+The original phone APK was restored by hash. This functional run does not measure
+profile performance or establish iOS qualification.
