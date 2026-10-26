@@ -15,11 +15,13 @@ images, placement arrays, string/paint identity, preparation timing, references,
 Paragraph fallback and update publication are unchanged. No other optimization
 is included; production changes are confined to `text_pool.dart`.
 
-The requested structure is applied and functional checks pass. **Performance
-is INCONCLUSIVE:** the emulator comparison suffered substantial, changing host
+The requested structure is applied and functional checks pass. **Emulator performance
+is INCONCLUSIVE:** this comparison suffered substantial, changing host
 memory contention. Lower observed times cannot be attributed to this patch.
 The implementation removes the general Map allocation/lookup, but this unit
 does not claim measured allocation bytes, a speedup or reduced GC jank.
+The subsequent [physical checkpoint](placement-slots-device-checkpoint.md)
+finds a small response/CPU benefit; it does not validate these emulator deltas.
 
 ## Experiment and identity
 
@@ -92,9 +94,9 @@ hashes match the exact measured and tested copy.
 
 The original emulator APK/launcher were restored and the installed APK hash
 verified; test process and forwards were removed. The emulator started by this
-run was then stopped. No physical device was used. Performance qualification
-remains pending an adequately controlled environment; the structural change
-must not be advertised as a measured speedup based on this run.
+run was then stopped. No physical device was used in this checkpoint. This run
+does not qualify performance; the structural change must not be advertised as a
+measured speedup based on these emulator observations.
 
 Raw rows, host counters, GC timelines, test logs, source copies and cleanup:
 `.artifacts/performance/flutter/placement-slots3476-emulator-20261023/`.
