@@ -12,6 +12,9 @@ Future<(TestGesture, TestGesture)> pinch(WidgetTester tester) async {
   final b = await tester.startGesture(center + const Offset(35, 0), pointer: 2);
   await a.moveTo(center - const Offset(70, 20));
   await b.moveTo(center + const Offset(70, 20));
+  // The crossing sample arms each axis; subsequent motion changes the camera.
+  await a.moveTo(center - const Offset(90, 35));
+  await b.moveTo(center + const Offset(90, 35));
   await tester.pump();
   return (a, b);
 }
@@ -201,9 +204,9 @@ void main() {
     expect(parentEvents, 1);
     await tester.pumpWidget(wrapped(true));
     await tester.sendEventToBinding(
-      PointerScrollEvent(position: center, scrollDelta: const Offset(0, -50)),
+      PointerScrollEvent(position: center, scrollDelta: const Offset(0, -.5)),
     );
-    expect(controller.camera!.scale, greaterThan(before.scale));
+    expect(controller.camera!.scale, closeTo(before.scale * 1.001, 1e-12));
     expect(parentEvents, 1);
     await tester.pumpWidget(const SizedBox());
   });

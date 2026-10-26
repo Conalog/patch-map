@@ -10,6 +10,7 @@ import '../api/presentation.dart';
 import '../api/events.dart';
 import '../interaction/input_coordinator.dart';
 import '../interaction/input_query.dart';
+import '../interaction/touch_camera_gesture.dart';
 import '../api/target.dart';
 import '../api/update.dart';
 import '../dataset/colors.dart';
@@ -81,9 +82,8 @@ class _PatchMapViewState extends State<PatchMapView>
   int? _recognitionEpoch, _gestureGeneration;
   final _admittedPointers = <int>{};
   Offset _recognitionLocal = Offset.zero, _recognitionGlobal = Offset.zero;
-  double _gestureScale = 1, _gestureRotation = 0;
   Offset _gestureFocal = Offset.zero;
-  PatchMapGestureOptions _gestureOptions = const PatchMapGestureOptions();
+  final _touchGesture = TouchCameraGesture();
   @override
   void initState() {
     super.initState();
@@ -358,10 +358,8 @@ class _PatchMapViewState extends State<PatchMapView>
                 epoch: _recognitionEpoch,
               ),
               onScaleStart: (details) {
-                _gestureOptions = widget.gestures;
+                _touchGesture.start(widget.gestures);
                 _gestureGeneration = session.generation;
-                _gestureScale = backend.camera.scale;
-                _gestureRotation = backend.camera.rotation;
                 _gestureFocal = details.localFocalPoint;
               },
               onScaleUpdate: (details) {
@@ -372,17 +370,18 @@ class _PatchMapViewState extends State<PatchMapView>
                     !session.active) {
                   return;
                 }
-                if (_gestureOptions.zoomEnabled ||
-                    _gestureOptions.rotationEnabled) {
+                if (_touchGesture.enabled) {
                   input.cameraGesture(
                     pointerCount: details.pointerCount,
                     localAnchor: _gestureFocal,
-                    scale: _gestureOptions.zoomEnabled
-                        ? _gestureScale * details.scale
-                        : backend.camera.scale,
-                    rotation: _gestureOptions.rotationEnabled
-                        ? _gestureRotation + details.rotation
-                        : backend.camera.rotation,
+                    scale: _touchGesture.scale(
+                      details.scale,
+                      backend.camera.scale,
+                    ),
+                    rotation: _touchGesture.rotation(
+                      details.rotation,
+                      backend.camera.rotation,
+                    ),
                   );
                 }
                 if (!session.active || phase != PatchMapPhase.ready) return;

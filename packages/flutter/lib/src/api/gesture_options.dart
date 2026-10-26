@@ -1,6 +1,8 @@
 /// User-input permissions. Explicit controller commands remain available.
 /// A touch gesture captures these flags at its start; wheel input uses the
 /// current flags. Single-pointer pan/range/paint still follows `dragMode`.
+/// Touch zoom starts after a 2% span change; rotation starts after 5 degrees.
+/// Each crossing sample becomes that axis's new baseline without a camera jump.
 final class PatchMapGestureOptions {
   const PatchMapGestureOptions({
     this.zoomEnabled = true,

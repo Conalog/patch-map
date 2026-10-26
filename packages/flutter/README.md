@@ -90,7 +90,7 @@ it is null when detached/empty/preparing/failed and remains readable when ready 
 Subscribe without replay; read `camera` for current state. Replacement/removal discard old pending notifications;
 inactivity defers them. Callbacks may issue commands; their new changes notify on a later frame.
 These are latest applied values, not display-completion or debounced settled notifications.
-`gestures: const PatchMapGestureOptions(zoomEnabled: true, rotationEnabled: false)` independently gates pinch/wheel zoom and touch rotation; commands and translation remain available. Touch flags stay fixed during a gesture; rebuilds affect the next gesture.
+`gestures: const PatchMapGestureOptions(zoomEnabled: true, rotationEnabled: false)` independently gates pinch/wheel zoom and touch rotation. Touch zoom activates after a 2% span change, rotation after 5°; each uses its actual activation sample as a new baseline, then follows further changes together without a jump. Wheel, commands and translation remain immediate. Flags stay fixed during a gesture; rebuilds affect the next gesture.
 `zoomLimits: const PatchMapZoomLimits(minScale: .1, maxScale: 8)` clamps input, commands and fit. Omitted bounds are unrestricted; finite positive ordered bounds are required. A minimum can prevent fitting the entire drawing. Changed limits clamp current scale without refitting and notify `configuration`.
 `dragMode` is pan by default; range and paint modes detect objects and report
 callbacks. Input filters only judge candidates: make map changes in result

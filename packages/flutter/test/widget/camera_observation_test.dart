@@ -127,6 +127,8 @@ void main() {
     );
     await a.moveTo(center - const Offset(70, 15));
     await b.moveTo(center + const Offset(70, 15));
+    await a.moveTo(center - const Offset(95, 40));
+    await b.moveTo(center + const Offset(95, 40));
     await tester.pump();
     expect(changes.single.sources, {PatchMapCameraChangeSource.gesture});
     expect(changes.single.state.scale, greaterThan(1.1));

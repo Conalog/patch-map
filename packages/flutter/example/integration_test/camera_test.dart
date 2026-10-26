@@ -138,6 +138,11 @@ void main() {
     );
     await a.moveTo(center - const Offset(70, 20));
     await b.moveTo(center + const Offset(70, 20));
+    // Threshold overshoot is discarded; the following motion applies deltas.
+    expect(controller.camera!.scale, 1);
+    expect(controller.camera!.rotation, 0);
+    await a.moveTo(center - const Offset(95, 40));
+    await b.moveTo(center + const Offset(95, 40));
     await a.up();
     await b.up();
     await tester.pump(const Duration(milliseconds: 350));

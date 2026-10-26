@@ -29,6 +29,20 @@ wheel input is not registered with Flutter's pointer signal resolver, allowing
 an enclosing scroll surface to handle it. Existing pointer/selection detection
 and interruption rules are unchanged.
 
+Touch zoom activates at a span factor of at least 1.02 or at most 0.98; rotation
+activates at an absolute angle change of at least 5 degrees. These are fixed
+initial defaults, an approved change from immediate touch transformation.
+Each axis activates independently, using the actual crossing sample and current
+camera value as its new baseline. The crossing sample, including overshoot, does
+not transform that axis. Later zoom uses a ratio to its activation span; rotation
+uses the angle difference from its activation angle. Both can then run together.
+An activated axis stays active through small changes and reversals until the
+recognizer gesture ends/restarts; no repeated dead zone is applied. Pending axes
+preserve camera commands. Wheel and two-finger translation remain immediate.
+Wrapped input angles are unwrapped before testing the rotation threshold; a tiny
+movement across atan2's branch cut cannot falsely activate it. A zero finger span
+does not activate zoom or become a divisor. No timer/delay is used.
+
 Zoom limits are optional absolute logical scales; either bound may be null.
 Provided values must be finite, positive and ordered, with equality allowed.
 Camera input itself must still be finite and positive: invalid scale is rejected,
@@ -54,7 +68,9 @@ host error reporter is isolated so it cannot interrupt that rebuild.
 
 ## Ownership and verification
 
-The widget gates/captures user permissions. `MapCamera` owns the bound values,
+The widget captures permissions; `interaction/touch_camera_gesture.dart` adapts
+recognizer samples with scalar baselines, without applying or scheduling camera
+changes. The existing input coordinator applies its targets. `MapCamera` owns bound values,
 validation and limited scale, keeping the same transform/publication authority.
 Backend construction installs limits before resource owners are created.
 No per-item work, extra timer, ticker, listener collection or frame loop is added.
@@ -86,3 +102,15 @@ installation attempts, before any test executed. New option behavior is therefor
 not yet qualified on a native device. The prior APK was restored and its SHA-256
 verified against the backup. Logs and cleanup evidence are under
 `.artifacts/flutter/gesture-options-qa-20261026/`.
+
+### Touch activation follow-up
+
+The threshold implementation passed analysis and 48 focused host tests. New
+input-adapter and widget witnesses cover independent activation, discarded
+overshoot, anchored deltas, reversals, angle wrapping and zero spans; the existing
+tests retain permissions, lifecycle, camera notification and small-wheel coverage.
+The extracted consumer passed (`.artifacts/flutter/installed-consumer-Y1wmCw/report.json`).
+A paired host AOT scalar probe added approximately 0.004–0.006 microseconds per
+update, excluding recognition/rendering; this is not native frame qualification.
+Evidence: `.artifacts/flutter/gesture-thresholds-qa-20261026/`. No native rerun or
+manual device feel assessment was performed for this follow-up.
