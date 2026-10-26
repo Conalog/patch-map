@@ -1,12 +1,41 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:conalog_patch_map/src/api/camera.dart';
 import 'package:conalog_patch_map/src/geometry/affine.dart';
 import 'package:conalog_patch_map/src/viewport/camera.dart';
 import 'package:flutter/painting.dart' show EdgeInsets;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'unobserved changes do not queue events; snapshots detach and cache',
+    () {
+      final camera = MapCamera()..resize(const Size(400, 300));
+      final before = camera.snapshot;
+      for (var i = 1; i <= 10000; i++) {
+        camera.set(center: Offset(i.toDouble(), 20));
+      }
+      expect(camera.takeChange(), isNull);
+      expect(before.center, Offset.zero);
+      expect(identical(camera.snapshot, camera.snapshot), isTrue);
+      camera.observe(true);
+      expect(camera.takeChange(), isNull);
+      camera.set(rotation: .5);
+      camera.pan(const Offset(10, 0));
+      final change = camera.takeChange()!;
+      expect(change.sources, {
+        PatchMapCameraChangeSource.programmatic,
+        PatchMapCameraChangeSource.gesture,
+      });
+      expect(change.state, camera.snapshot);
+      expect(camera.takeChange(), isNull);
+      camera.set(rotation: .7);
+      camera.observe(false);
+      expect(camera.takeChange(), isNull);
+    },
+  );
+
   test('fit preserves rotation and respects asymmetric screen padding', () {
     final camera = MapCamera()
       ..resize(const Size(400, 600))

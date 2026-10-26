@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show internal;
 import 'package:flutter/painting.dart' show EdgeInsets;
 
 import '../api/result.dart';
+import '../api/camera.dart';
 import '../api/presentation.dart';
 import '../api/events.dart';
 import '../api/target.dart';
@@ -15,6 +16,10 @@ final class PatchMapController {
   PatchMapBinding? _binding;
   bool get isAttached => _binding != null;
   PatchMapPhase get phase => _binding?.phase ?? PatchMapPhase.empty;
+
+  /// Latest applied state, or null while detached, empty, preparing or failed.
+  /// An inactive ready widget still exposes its retained camera.
+  PatchMapCameraState? get camera => _binding?.camera;
   Future<PatchMapResult> draw(Object? data) =>
       _binding?.draw(data) ?? _detached();
   Future<PatchMapResult> updateValues(Iterable<PatchMapUpdate> updates) =>
@@ -73,6 +78,7 @@ final class PatchMapController {
 @internal
 abstract class PatchMapBinding {
   PatchMapPhase get phase;
+  PatchMapCameraState? get camera;
   Future<PatchMapResult> draw(Object? data);
   Future<PatchMapResult> update(Iterable<PatchMapUpdate> updates);
   PatchMapPresentationResult setPresentation(

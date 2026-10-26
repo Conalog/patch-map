@@ -7,6 +7,7 @@ import 'package:flutter/painting.dart' show EdgeInsets;
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../api/result.dart';
+import '../api/camera.dart';
 import '../api/target.dart';
 import '../dataset/colors.dart';
 import '../dataset/dataset_reader.dart';
@@ -852,11 +853,20 @@ final class MapBackend extends SessionBackend {
   void _fitReplacement() {
     final bounds = current?.geometry.bounds;
     if (bounds != null && !bounds.isEmpty) {
-      camera.fit(bounds, padding: const EdgeInsets.all(12));
+      camera.fit(
+        bounds,
+        padding: const EdgeInsets.all(12),
+        source: PatchMapCameraChangeSource.replacement,
+      );
     } else {
-      camera.set(center: Offset.zero, scale: 1);
+      camera.set(
+        center: Offset.zero,
+        scale: 1,
+        source: PatchMapCameraChangeSource.replacement,
+      );
     }
     _pendingFit = false;
+    camera.markReplacement();
     _visible = null;
   }
 
@@ -967,6 +977,7 @@ final class MapBackend extends SessionBackend {
 
   @override
   void hide() {
+    camera.discardChanges();
     _validatedUpdate = null;
     _validatedLayouts = null;
     _epoch++;

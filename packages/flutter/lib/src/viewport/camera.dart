@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:flutter/painting.dart' show EdgeInsets;
 
+import '../api/camera.dart';
 import '../geometry/affine.dart';
 
 /// Camera authority in logical pixels. Resize does not reset world center,
@@ -15,6 +16,51 @@ final class MapCamera {
   Affine _worldToLocal = Affine.identity;
   Affine _localToWorld = Affine.identity;
   Float64List _matrix = Affine.identity.toMatrix4();
+  PatchMapCameraState? _snapshot, _lastNotified;
+  bool _observed = false;
+  int _pendingSources = 0;
+
+  PatchMapCameraState get snapshot => _snapshot ??= PatchMapCameraState(
+    center: _center,
+    scale: _scale,
+    rotation: _rotation,
+    viewportSize: _size,
+  );
+
+  /// Observation adds no timer, listener or snapshot allocation per mutation.
+  void observe(bool value) {
+    if (value == _observed) return;
+    _observed = value;
+    _pendingSources = 0;
+    _lastNotified = value ? snapshot : null;
+  }
+
+  void discardChanges() => _pendingSources = 0;
+
+  /// The new diagram adopts this camera even if its fit was already satisfied
+  /// by an unreported old-diagram command. Net-zero delivery is still skipped.
+  void markReplacement() {
+    if (_observed) {
+      _pendingSources |= 1 << PatchMapCameraChangeSource.replacement.index;
+    }
+  }
+
+  /// Drained by the widget's existing submitted-frame callback, before calling
+  /// the host, so a reentrant command belongs to the next frame.
+  PatchMapCameraChange? takeChange() {
+    final sources = _pendingSources;
+    _pendingSources = 0;
+    if (sources == 0) return null;
+    final state = snapshot;
+    if (state == _lastNotified) return null;
+    _lastNotified = state;
+    return PatchMapCameraChange(
+      state: state,
+      sources: PatchMapCameraChangeSource.values.where(
+        (source) => sources & (1 << source.index) != 0,
+      ),
+    );
+  }
 
   Size get size => _size;
   Offset get center => _center;
@@ -35,11 +81,16 @@ final class MapCamera {
     if (value == _size) return false;
     final candidate = _candidate(value, _center, _scale, _rotation);
     _size = value;
-    _commit(candidate);
+    _commit(candidate, PatchMapCameraChangeSource.resize);
     return true;
   }
 
-  bool set({Offset? center, double? scale, double? rotation}) {
+  bool set({
+    Offset? center,
+    double? scale,
+    double? rotation,
+    PatchMapCameraChangeSource source = PatchMapCameraChangeSource.programmatic,
+  }) {
     final c = center ?? _center, s = scale ?? _scale, r = rotation ?? _rotation;
     if (!c.dx.isFinite ||
         !c.dy.isFinite ||
@@ -55,12 +106,13 @@ final class MapCamera {
     _center = c;
     _scale = s;
     _rotation = r;
-    _commit(candidate);
+    _commit(candidate, source);
     return true;
   }
 
   bool pan(Offset localDelta) => set(
     center: _center - (localToWorld(localDelta) - localToWorld(Offset.zero)),
+    source: PatchMapCameraChangeSource.gesture,
   );
 
   /// Keep the world point under [localAnchor] fixed while changing camera size
@@ -83,6 +135,7 @@ final class MapCamera {
       center: world - worldOffset,
       scale: nextScale,
       rotation: nextRotation,
+      source: PatchMapCameraChangeSource.gesture,
     );
   }
 
@@ -91,10 +144,15 @@ final class MapCamera {
     _validateBounds(worldBounds);
     return set(
       center: _centerFor(worldBounds.center, available.center, _scale),
+      source: PatchMapCameraChangeSource.focus,
     );
   }
 
-  bool fit(Rect worldBounds, {EdgeInsets padding = EdgeInsets.zero}) {
+  bool fit(
+    Rect worldBounds, {
+    EdgeInsets padding = EdgeInsets.zero,
+    PatchMapCameraChangeSource source = PatchMapCameraChangeSource.fit,
+  }) {
     final available = _available(padding);
     _validateBounds(worldBounds);
     final rotated = Affine.fromAttrs({
@@ -111,6 +169,7 @@ final class MapCamera {
     return set(
       center: _centerFor(worldBounds.center, available.center, nextScale),
       scale: nextScale,
+      source: source,
     );
   }
 
@@ -176,9 +235,14 @@ final class MapCamera {
     return (forward, inverse, forward.toMatrix4());
   }
 
-  void _commit((Affine, Affine, Float64List) candidate) {
+  void _commit(
+    (Affine, Affine, Float64List) candidate,
+    PatchMapCameraChangeSource source,
+  ) {
     _worldToLocal = candidate.$1;
     _localToWorld = candidate.$2;
     _matrix = candidate.$3;
+    _snapshot = null;
+    if (_observed) _pendingSources |= 1 << source.index;
   }
 }

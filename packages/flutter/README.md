@@ -1,16 +1,12 @@
 # PatchMap for Flutter
 
-`conalog_patch_map` provides an experimental native retained diagram renderer,
-version 1.0.0-alpha.1. The widget/controller runtime is implemented. Representative
-native behavior, lifecycle and emulator performance checkpoints have run; full
-platform and consumer compatibility qualification remains incomplete.
-`publish_to: none` continues to block registry publication.
+`conalog_patch_map` is an experimental native retained renderer, version 1.0.0-alpha.1.
+Widget/controller, native behavior, lifecycle and performance checkpoints are implemented;
+full platform/consumer qualification remains incomplete. `publish_to: none` blocks publication.
 ## Consumer setup
 
-Consumer bounds are Dart >=3.11.0 <4.0.0 and Flutter >=3.41.0. Exact CI and
-service SDK identities live in the repository's [toolchain metadata](https://github.com/Conalog/patch-map/blob/release/1.0/packages/flutter/toolchains.json).
-Current device profiling uses Flutter 3.47.6. That evidence does not replace
-qualification on the declared SDK roles or other platforms.
+Consumer bounds: Dart >=3.11.0 <4.0.0 and Flutter >=3.41.0. CI/service SDK identities are in [toolchain metadata](https://github.com/Conalog/patch-map/blob/release/1.0/packages/flutter/toolchains.json).
+Device profiling uses Flutter 3.47.6; that evidence does not qualify other SDK roles or platforms.
 
 ```yaml
 dependencies:
@@ -20,9 +16,8 @@ dependencies:
     path: ../patch-map/packages/flutter
 ```
 
-The public import is `package:conalog_patch_map/conalog_patch_map.dart`.
-Managed SVG icons and Fira Code are bundled; equipment aliases such as `inverter`
-use `symbols`. See [third-party notices](THIRD_PARTY_NOTICES.md).
+Import `package:conalog_patch_map/conalog_patch_map.dart`. SVG icons and Fira Code are bundled;
+equipment aliases such as `inverter` use `symbols`. See [third-party notices](THIRD_PARTY_NOTICES.md).
 For checkout path dependencies, run `npm run assets:prepare -- flutter` from the
 repository root before dependency resolution. Packaged artifacts include assets.
 
@@ -54,11 +49,9 @@ final result = await controller.updateValues([
 ]);
 ```
 
-`draw(data)` replaces the whole diagram. Accepted replacement hides the previous
-surface, resets selection/gestures and fits the new bounds while keeping rotation.
-Use `loadingBuilder` for the host's spinner. Invalid replacement preserves the
-current drawing. A changed non-null `initialData` identity also requests replacement;
-use `updateValues` for ordinary display-value changes.
+`draw(data)` replaces the diagram, hides the previous surface, resets selection/gestures and fits new bounds while keeping rotation.
+Use `loadingBuilder` for a spinner. Invalid replacement preserves the current drawing.
+A changed non-null `initialData` identity also replaces; use `updateValues` for display-value changes.
 
 Updates retain omitted fields and use the schema's field-specific reset rules.
 Inputs are detached and validated atomically; preparation failures retain the
@@ -71,6 +64,7 @@ submission, not animation end or physical display presentation.
 | Commands | Behavior |
 | --- | --- |
 | `setPresentation(key, layer)` / `clearPresentation(key)` | Replace/remove one independent alpha layer; synchronous admission result |
+| `camera` / widget `onCameraChanged` | Current immutable camera state / frame-coalesced change notification |
 | `getValue(target)` | Immutable current effective record; null for a missing target |
 | `fit(targets:, padding:)` | Fit all or named targets; preserve rotation |
 | `focus(ids, padding:)` | Move to targets; preserve scale and rotation |
@@ -89,6 +83,14 @@ ignored. Results include unique scope/target/matched/ignored counts. Layers leav
 `getValue`, selection and hits unchanged, even at alpha 0. Accepted draw or widget
 removal resets all keys; invalid draw preserves them. Set after accepted draw
 uses the new diagram. Filters cannot mutate layers; inactive layers resume later.
+
+`controller.camera` exposes world center, scale, clockwise radians and logical `viewportSize`;
+it is null when detached/empty/preparing/failed and remains readable when ready but inactive.
+`onCameraChanged` receives `{state, sources}` after a map frame, at most once per frame.
+Sources combine gesture/programmatic/fit/focus/replacement/resize changes; unchanged states do not notify.
+Subscribe without replay; read `camera` for current state. Replacement/removal discard old pending notifications;
+inactivity defers them. Callbacks may issue commands; their new changes notify on a later frame.
+These are latest applied values, not display-completion or debounced settled notifications.
 
 `dragMode` is pan by default; range and paint modes detect objects and report
 callbacks. Input filters only judge candidates: make map changes in result
@@ -111,8 +113,7 @@ uses CustomPainter, shared text/SVG resources, and internal bar optimizations.
 Editor, PNG export and item screen-reader support are excluded from first release.
 Advanced text effects and full platform equivalence are not qualified by synthetic tests.
 
-The example covers 10,000 regular/varied panels, number/bar/mixed updates and navigation.
-Its README documents profile commands; checkpoints do not establish WebView equivalence.
+The example covers 10,000 regular/varied panels, number/bar/mixed updates and navigation; its README documents profile commands. Checkpoints do not establish WebView equivalence.
 See [delivery coverage](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-runtime/coverage.md).
 See the repository [development environment](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-package.md),
 [runtime contracts](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/flutter-runtime/contracts.md)

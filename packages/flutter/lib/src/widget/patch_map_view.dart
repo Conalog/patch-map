@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../api/result.dart';
+import '../api/camera.dart';
 import '../api/presentation.dart';
 import '../api/events.dart';
 import '../interaction/input_coordinator.dart';
@@ -34,6 +35,7 @@ class PatchMapView extends StatefulWidget {
     this.onImageFailure,
     this.onAttached,
     this.onEvent,
+    this.onCameraChanged,
     this.eventFilter,
     this.dragMode = PatchMapDragMode.pan,
     this.loadingBuilder,
@@ -48,6 +50,7 @@ class PatchMapView extends StatefulWidget {
   final void Function(List<PatchMapFailure> failures)? onImageFailure;
   final void Function(PatchMapController controller)? onAttached;
   final void Function(PatchMapInputEvent event)? onEvent;
+  final ValueChanged<PatchMapCameraChange>? onCameraChanged;
   final bool Function(PatchMapObject object)? eventFilter;
   final PatchMapDragMode dragMode;
   final WidgetBuilder? loadingBuilder;
@@ -91,6 +94,7 @@ class _PatchMapViewState extends State<PatchMapView>
       onAssetFailure: (failures) =>
           session.notify(() => widget.onImageFailure?.call(failures)),
     );
+    backend.camera.observe(widget.onCameraChanged != null);
     frame = FrameCoordinator(
       onFrame: (time) {
         input.onFrame();
@@ -99,6 +103,15 @@ class _PatchMapViewState extends State<PatchMapView>
       onSubmitted: (stamp) {
         session.didSubmit(stamp);
         backend.retirement.flush();
+        if (!_disposed &&
+            session.active &&
+            phase == PatchMapPhase.ready &&
+            stamp.generation == session.generation) {
+          final change = backend.camera.takeChange();
+          if (change != null) {
+            session.notify(() => widget.onCameraChanged?.call(change));
+          }
+        }
       },
       onError: (error, stack) => session.fail(error, stack),
     );
@@ -189,6 +202,7 @@ class _PatchMapViewState extends State<PatchMapView>
   @override
   void didUpdateWidget(PatchMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    backend.camera.observe(widget.onCameraChanged != null);
     if (!identical(oldWidget.controller, widget.controller)) {
       widget.controller.attach(this);
       _attachedController?.detach(this);
@@ -380,6 +394,9 @@ class _PatchMapViewState extends State<PatchMapView>
 
   @override
   PatchMapPhase get phase => session.phase;
+  @override
+  PatchMapCameraState? get camera =>
+      phase == PatchMapPhase.ready ? backend.camera.snapshot : null;
   @override
   Future<PatchMapResult> draw(Object? data) => session.replace(data);
   @override

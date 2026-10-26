@@ -11,6 +11,7 @@ Widget _host(
   PatchMapController controller, {
   required List<PatchMapPhase> phases,
   required List<PatchMapFailure> failures,
+  ValueChanged<PatchMapCameraChange>? cameraChanged,
   bool active = true,
 }) => MediaQuery(
   data: const MediaQueryData(size: Size(240, 200)),
@@ -25,6 +26,7 @@ Widget _host(
           active: active,
           onPhaseChanged: (phase, _) => phases.add(phase),
           onImageFailure: failures.addAll,
+          onCameraChanged: cameraChanged,
         ),
       ),
     ),
@@ -94,13 +96,19 @@ void main() {
   ) async {
     final controller = PatchMapController();
     final phases = <PatchMapPhase>[], failures = <PatchMapFailure>[];
+    final cameraChanges = <PatchMapCameraChange>[];
     const panel = PatchMapTarget('panel');
     const number = PatchMapTarget('panel', componentId: 'number');
     const bar = PatchMapTarget('panel', componentId: 'level');
     expect(controller.isAttached, isFalse);
     expect((await controller.draw(const [])).outcome, PatchMapOutcome.rejected);
     await tester.pumpWidget(
-      _host(controller, phases: phases, failures: failures),
+      _host(
+        controller,
+        phases: phases,
+        failures: failures,
+        cameraChanged: cameraChanges.add,
+      ),
     );
     expect(controller.isAttached, isTrue);
     final drawn = await _submitted(
@@ -155,6 +163,16 @@ void main() {
     expect(drawn.failures, isEmpty);
     expect(drawn.superseded, isFalse);
     expect(controller.phase, PatchMapPhase.ready);
+    expect(controller.camera, isNotNull);
+    cameraChanges.clear();
+    controller.setCamera(rotation: .2);
+    controller.setCamera(rotation: .3);
+    await tester.pump();
+    expect(cameraChanges.single.state.rotation, .3);
+    expect(cameraChanges.single.state, controller.camera);
+    expect(cameraChanges.single.sources, {
+      PatchMapCameraChangeSource.programmatic,
+    });
     expect(controller.getValue(panel)?['type'], 'item');
     expect(controller.getValue(number)?['text'], '1234');
     expect(
@@ -234,6 +252,7 @@ void main() {
     expect(interrupted.interruption, PatchMapInterruption.detached);
     expect(controller.isAttached, isFalse);
     expect(controller.phase, PatchMapPhase.empty);
+    expect(controller.camera, isNull);
     expect(controller.getValue(panel), isNull);
     final detached = await controller.updateValues([
       const PatchMapUpdate(number, {'text': 'not replayed'}),
