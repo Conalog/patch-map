@@ -81,6 +81,7 @@ class _ExperimentState extends State<_Experiment>
   String _status = 'Ready; tap an item to toggle selection.';
   Measurement? _last;
   bool _numbersHidden = false;
+  bool _rotationAnimated = true;
   PatchMapPresentationLayer? _hiddenNumberLayer;
 
   bool _pendingStart = false, _startScheduled = false;
@@ -379,6 +380,12 @@ class _ExperimentState extends State<_Experiment>
     }
   }
 
+  void _rotate(double? delta) {
+    final camera = _controller.camera;
+    if (camera == null) return;
+    _controller.rotateTo(delta == null ? 0 : camera.rotation + delta);
+  }
+
   Future<void> _panContinuously(double direction) async {
     final center = _controller.toWorld(_viewport.center(Offset.zero));
     final end = _controller.toWorld(
@@ -639,6 +646,45 @@ class _ExperimentState extends State<_Experiment>
             ],
           ),
         ),
+        if (!_benchmark)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Wrap(
+              spacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('회전 애니메이션'),
+                    Switch(
+                      value: _rotationAnimated,
+                      onChanged: (value) =>
+                          setState(() => _rotationAnimated = value),
+                    ),
+                  ],
+                ),
+                TextButton(
+                  onPressed: _busy || !_attached || _scene == null
+                      ? null
+                      : () => _rotate(-math.pi / 2),
+                  child: const Text('−90°'),
+                ),
+                TextButton(
+                  onPressed: _busy || !_attached || _scene == null
+                      ? null
+                      : () => _rotate(null),
+                  child: const Text('0°'),
+                ),
+                TextButton(
+                  onPressed: _busy || !_attached || _scene == null
+                      ? null
+                      : () => _rotate(math.pi / 2),
+                  child: const Text('+90°'),
+                ),
+              ],
+            ),
+          ),
         SizedBox(
           height: 96,
           child: Stack(
@@ -667,6 +713,9 @@ class _ExperimentState extends State<_Experiment>
               return _attached
                   ? PatchMapView(
                       controller: _controller,
+                      rotationAnimation: PatchMapRotationAnimationOptions(
+                        enabled: _rotationAnimated,
+                      ),
                       onAttached: _onAttached,
                       onCameraChanged: _benchmark
                           ? null
