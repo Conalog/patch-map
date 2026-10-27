@@ -8,6 +8,10 @@ import 'measurement.dart';
 import 'workload.dart';
 
 const _benchmark = bool.fromEnvironment('PATCHMAP_BENCHMARK');
+// Matches patch-webview's detailLodPolicy. This is a host display policy;
+// automated measurements keep their existing fully rendered text workload.
+const _numberHideScale = .45;
+const _numberVisibilityKey = 'example-number-detail';
 const _samples = int.fromEnvironment('PATCHMAP_SAMPLES', defaultValue: 5);
 const _changedPercent = int.fromEnvironment(
   'PATCHMAP_CHANGED_PERCENT',
@@ -76,6 +80,8 @@ class _ExperimentState extends State<_Experiment>
   bool _attached = true, _busy = false, _running = false, _first = true;
   String _status = 'Ready; tap an item to toggle selection.';
   Measurement? _last;
+  bool _numbersHidden = false;
+  PatchMapPresentationLayer? _hiddenNumberLayer;
 
   bool _pendingStart = false, _startScheduled = false;
 
@@ -220,6 +226,10 @@ class _ExperimentState extends State<_Experiment>
         _scene = candidate;
         _mode = candidate.mode;
         _sequence = 0;
+        // A replacement clears package presentation layers, even at the same
+        // camera scale. Rebind only the new scene's concrete text addresses.
+        _numbersHidden = false;
+        _hiddenNumberLayer = null;
         if (center != null && scale != null) {
           _controller.setCamera(
             center: center,
@@ -233,7 +243,42 @@ class _ExperimentState extends State<_Experiment>
     } catch (error) {
       if (mounted) setState(() => _status = '$error');
     } finally {
-      if (mounted && epoch == _epoch) setState(() => _busy = false);
+      if (mounted && epoch == _epoch) {
+        setState(() => _busy = false);
+        _syncNumberVisibility();
+      }
+    }
+  }
+
+  void _syncNumberVisibility() {
+    final scene = _scene;
+    final camera = _controller.camera;
+    if (_benchmark ||
+        !_attached ||
+        _busy ||
+        scene == null ||
+        scene.mode == UpdateWorkload.bar ||
+        scene.ids.isEmpty ||
+        camera == null) {
+      return;
+    }
+    final hidden = camera.scale <= _numberHideScale;
+    if (hidden == _numbersHidden) return;
+    final result = hidden
+        ? _controller.setPresentation(
+            _numberVisibilityKey,
+            _hiddenNumberLayer ??= PatchMapPresentationLayer(
+              scope: scene.ids.map(
+                (id) => PatchMapTarget(id, componentId: 'text'),
+              ),
+              targets: const [],
+              unmatchedAlpha: 0,
+            ),
+          )
+        : _controller.clearPresentation(_numberVisibilityKey);
+    if (result.outcome == PatchMapOutcome.applied ||
+        result.outcome == PatchMapOutcome.unchanged) {
+      _numbersHidden = hidden;
     }
   }
 
@@ -358,7 +403,11 @@ class _ExperimentState extends State<_Experiment>
       _stress = null;
       _attached = !_attached;
       _busy = false;
-      if (!_attached) _scene = null;
+      if (!_attached) {
+        _scene = null;
+        _numbersHidden = false;
+        _hiddenNumberLayer = null;
+      }
     });
   }
 
@@ -619,6 +668,9 @@ class _ExperimentState extends State<_Experiment>
                   ? PatchMapView(
                       controller: _controller,
                       onAttached: _onAttached,
+                      onCameraChanged: _benchmark
+                          ? null
+                          : (_) => _syncNumberVisibility(),
                       onEvent: (event) {
                         if (event.kind == PatchMapInputKind.tap &&
                             event.target != null) {

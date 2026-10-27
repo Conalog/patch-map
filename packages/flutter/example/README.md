@@ -74,6 +74,11 @@ Overview fits the drawing; Panel zoom uses absolute scale 0.75 (a 40-unit
 panel is 30 logical pixels wide), independent of drawing size. Pan shifts the
 camera, and raw drag, wheel and pinch remain available in the map. Tapping an
 item tells the package to toggle its selection through the controller.
+Manual number/mixed modes hide panel numbers at scale <= 0.45 and show them
+above 0.45, matching patch-webview's `detailLodPolicy`. A keyed presentation layer
+affects only text drawing; values continue updating while hidden. Camera changes
+only change the layer when crossing that boundary. Replacement/reattachment
+rebinds its targets. Automated benchmarks keep all text rendered as before.
 Stress submits every 250 ms with at most two outstanding measurement windows,
 skipping ticks under pressure. Replace creates a new generation. Remove
 unmounts the widget; Reconnect attaches the same controller and redraws the

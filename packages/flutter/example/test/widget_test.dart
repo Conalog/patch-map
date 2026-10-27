@@ -1,5 +1,8 @@
+import 'dart:ui' as ui;
+
 import 'package:conalog_patch_map/conalog_patch_map.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patch_map_example/main.dart';
 
@@ -15,7 +18,85 @@ Future<void> advance(WidgetTester tester) async {
   await tester.pump();
 }
 
+Future<int> panelWhitePixels(WidgetTester tester) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find
+        .descendant(
+          of: find.byType(PatchMapView),
+          matching: find.byType(RepaintBoundary),
+        )
+        .first,
+  );
+  return (await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final bytes = (await image.toByteData(
+        format: ui.ImageByteFormat.rawStraightRgba,
+      ))!;
+      var white = 0;
+      for (var y = image.height ~/ 2 - 8; y < image.height ~/ 2 + 8; y++) {
+        for (var x = image.width ~/ 2 - 7; x < image.width ~/ 2 + 7; x++) {
+          final offset = (y * image.width + x) * 4;
+          if (bytes.getUint8(offset) > 180 &&
+              bytes.getUint8(offset + 1) > 180 &&
+              bytes.getUint8(offset + 2) > 180 &&
+              bytes.getUint8(offset + 3) > 100) {
+            white++;
+          }
+        }
+      }
+      return white;
+    } finally {
+      image.dispose();
+    }
+  }))!;
+}
+
 void main() {
+  testWidgets(
+    'manual zoom hides numbers, retains updates and survives mode replacement',
+    (tester) async {
+      await tester.pumpWidget(const PatchMapExampleApp(itemCount: 1));
+      await advance(tester);
+      final controller = tester
+          .widget<PatchMapView>(find.byType(PatchMapView))
+          .controller;
+      // The first panel's world center; its full blue bar remains under the text.
+      controller.setCamera(center: const Offset(180, 136), scale: .45);
+      await tester.pump();
+      await tester.pump();
+      const target = PatchMapTarget('grid-0.0.0', componentId: 'text');
+      final update = controller.updateValues([
+        PatchMapUpdate(target, {'text': '888'}),
+      ]);
+      await advance(tester);
+      expect((await update).outcome, PatchMapOutcome.applied);
+      expect(controller.getValue(target)!['text'], '888');
+      expect(await panelWhitePixels(tester), 0);
+      controller.setCamera(scale: .46);
+      await tester.pump();
+      await tester.pump();
+      expect(await panelWhitePixels(tester), greaterThan(0));
+      expect(controller.getValue(target)!['text'], '888');
+      controller.setCamera(scale: .44);
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.text('bar'));
+      await advance(tester);
+      await tester.tap(find.text('number'));
+      await advance(tester);
+      expect(controller.camera!.scale, closeTo(.44, 1e-9));
+      expect(await panelWhitePixels(tester), 0);
+      controller.setCamera(scale: .46);
+      await tester.pump();
+      await tester.pump();
+      expect(await panelWhitePixels(tester), greaterThan(0));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('automatic preparation waits for a real laid-out frame', (
     tester,
   ) async {
