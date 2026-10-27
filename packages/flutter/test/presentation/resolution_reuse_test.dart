@@ -42,35 +42,43 @@ PresentationBatch _admit(
   PatchMapUpdate(target, values),
 ], current: current == null ? null : (_) => current);
 
+Map<String, Object?> _resolve(
+  DatasetDocument document,
+  PresentationPlan plan, {
+  Map<String, Object?>? current,
+}) {
+  final patch = plan.patches.single;
+  final authored = authoredRecord(document, patch.target);
+  return _resolver.resolvePatch(authored, current ?? authored, patch);
+}
+
 void main() {
   test(
     'resolved owned maps stay immutable across nested updates and resets',
     () {
       final document = _scene();
       final authored = authoredRecord(document, _text);
-      final first = _resolver.resolve(
+      final firstValue = _resolve(
         document,
         _admit(document, _text, {
           'text': 'first',
           'style': {'fontSize': 24, 'fill': 'red'},
         }),
       );
-      final firstValue = first[_text]!;
       final firstStyle = firstValue['style'] as Map<String, Object?>;
-      final later = _resolver.resolve(
+      final later = _resolve(
         document,
         _admit(document, _text, {
           'text': 'later',
           'style': {'fontSize': 36, 'fill': 'blue'},
         }, current: firstValue),
-        current: (_) => firstValue,
-      )[_text]!;
-      final reset = _resolver.resolve(
+        current: firstValue,
+      );
+      final reset = _resolve(
         document,
         _admit(document, _text, {'style': null}, current: later),
-        current: (_) => later,
-      )[_text]!;
-      expect(() => first.clear(), throwsUnsupportedError);
+        current: later,
+      );
       expect(() => firstValue['text'] = 'mutated', throwsUnsupportedError);
       expect(() => firstStyle['fill'] = 'mutated', throwsUnsupportedError);
       expect(firstValue['text'], 'first');
@@ -112,12 +120,6 @@ void main() {
       admitted.claims.single.path,
       same(admitted.patches.single.operations.single.path),
     );
-    expect(
-      admitted.claims.single.isSatisfiedBy({
-        'style': {'fill': 'red'},
-      }),
-      true,
-    );
   });
 
   test(
@@ -152,9 +154,16 @@ void main() {
       expect(emptyLater.index.values, orderedEquals(filled.plan.patches));
       expect(() => filled.index.clear(), throwsUnsupportedError);
       expect(() => filled.plan.patches.clear(), throwsUnsupportedError);
-      final before = _resolver.resolve(document, original.plan);
-      final after = _resolver.resolve(document, filled.plan);
-      expect((before[_text]!['style'] as Map)['fill'], isNot('red'));
+      final before = _resolve(document, original.plan);
+      final after = {
+        for (final patch in filled.plan.patches)
+          patch.target: _resolver.resolvePatch(
+            authoredRecord(document, patch.target),
+            authoredRecord(document, patch.target),
+            patch,
+          ),
+      };
+      expect((before['style'] as Map)['fill'], isNot('red'));
       expect((after[_text]!['style'] as Map)['fontSize'], 12);
       expect((after[_text]!['style'] as Map)['fill'], 'red');
       expect(after[_bar]!['size'], {'width': 20, 'height': 7});
@@ -166,19 +175,20 @@ void main() {
     () {
       final document = _scene();
       final authored = authoredRecord(document, _text);
-      final live = _resolver.resolve(
+      final live = _resolve(
         document,
         _admit(document, _text, {
           'text': 'live',
           'style': {'fontSize': 30},
         }),
-      )[_text]!;
+      );
       final reset = _admit(document, _text, {'style': null}, current: live);
       final fill = _admit(document, _text, {
         'style': {'fill': 'red'},
       }, current: live);
       final patch = const PresentationComposer()
-          .compose(reset, fill)
+          .composeIndexed(reset, fill)
+          .plan
           .patches
           .single;
       final first = _resolver.resolvePatch(authored, live, patch);
@@ -264,17 +274,26 @@ void main() {
         barPatch,
       );
       final earlier = PresentationPlan([textPatch, barPatch]);
-      final merged = const PresentationComposer().compose(
-        earlier,
-        _admit(document, _text, {
-          'style': {'fill': 'red'},
-        }),
-      );
+      final merged = const PresentationComposer()
+          .composeIndexed(
+            earlier,
+            _admit(document, _text, {
+              'style': {'fill': 'red'},
+            }),
+          )
+          .plan;
       final mergedText = merged.patches.singleWhere((p) => p.target == _text);
       final retainedBar = merged.patches.singleWhere((p) => p.target == _bar);
       expect(mergedText, isNot(same(textPatch)));
       expect(retainedBar, same(barPatch));
-      final effective = _resolver.resolve(document, merged);
+      final effective = {
+        for (final patch in merged.patches)
+          patch.target: _resolver.resolvePatch(
+            authoredRecord(document, patch.target),
+            authoredRecord(document, patch.target),
+            patch,
+          ),
+      };
       expect((effective[_text]!['style'] as Map)['fontSize'], 12);
       expect((effective[_text]!['style'] as Map)['fill'], 'red');
       expect(effective[_bar]!['size'], {'width': 20, 'height': 7});

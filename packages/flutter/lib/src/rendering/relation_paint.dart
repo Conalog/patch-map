@@ -26,7 +26,8 @@ final class RelationPaint {
       alpha: source.a * opacity * ((style['alpha'] as num?)?.toDouble() ?? 1),
     );
     final paths = <Path>[];
-    for (final run in geometry.runs) {
+    for (final relation in geometry.paths) {
+      final run = relation.localPoints;
       if (run.length < 2 || run.every((point) => point == run.first)) continue;
       final path = Path();
       path.moveTo(run.first.dx, run.first.dy);

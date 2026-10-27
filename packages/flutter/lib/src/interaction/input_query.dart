@@ -45,7 +45,6 @@ final class InputQuery {
   InputFilter? filter;
   List<int>? _paintSlots;
   Map<int, int> _rank = const {};
-  Object? lastFilterError;
 
   void reset() {
     _paintSlots = null;
@@ -65,8 +64,7 @@ final class InputQuery {
   bool _allow(PatchMapObject object) {
     try {
       return filter?.call(object) ?? true;
-    } catch (error) {
-      lastFilterError = error;
+    } catch (_) {
       return false;
     }
   }
@@ -101,7 +99,6 @@ final class InputQuery {
       final exact = ports.exactGeometry?.call(snapshot, node);
       if (!(exact?.contains(world) ??
           _shapes(
-            snapshot,
             node,
             cameraRotation,
           ).any((shape) => shape.contains(world)))) {
@@ -129,7 +126,6 @@ final class InputQuery {
       final exact = ports.exactGeometry?.call(snapshot, node);
       if (!(exact?.intersects(range) ??
           _shapes(
-            snapshot,
             node,
             cameraRotation,
           ).any((shape) => shape.intersects(range)))) {
@@ -158,7 +154,7 @@ final class InputQuery {
       if (exact != null) {
         first = exact.segmentEntry(from, to);
       } else {
-        for (final shape in _shapes(snapshot, node, cameraRotation)) {
+        for (final shape in _shapes(node, cameraRotation)) {
           final t = shape.segmentEntry(from, to);
           if (t != null) first = first == null ? t : math.min(first, t);
         }
@@ -187,11 +183,7 @@ final class InputQuery {
     return item != null && (item.size.width > 0 || item.size.height > 0);
   }
 
-  Iterable<Quad> _shapes(
-    GeometrySnapshot snapshot,
-    TargetGeometry node,
-    double rotation,
-  ) sync* {
+  Iterable<Quad> _shapes(TargetGeometry node, double rotation) sync* {
     final item = node.item;
     if (item == null) {
       final local = node.localBounds;

@@ -13,10 +13,9 @@ typedef MeasureImage = Size? Function(String id, Map<String, Object?> data);
 
 /// Derived initial geometry, never an alternative authored-data authority.
 final class SceneGeometry {
-  SceneGeometry._(this.targets, this.paintOrder, this.bounds);
+  SceneGeometry._(this.targets, this.paintOrder);
   final Map<String, TargetGeometry> targets;
   final List<TargetGeometry> paintOrder;
-  final Rect? bounds;
 
   factory SceneGeometry.compile(
     DatasetDocument document,
@@ -35,7 +34,6 @@ final class TargetGeometry {
     required this.locked,
     required this.bounds,
     required this.paintBounds,
-    required this.children,
     this.item,
     this.localBounds,
   });
@@ -46,8 +44,6 @@ final class TargetGeometry {
   final double opacity;
   final Rect? bounds, localBounds;
   Rect? paintBounds;
-  // Immutable structural identities, never stale child projection objects.
-  final List<String> children;
   ItemLayout? item;
   String get id => target.id;
   bool get isContainer => target.type == 'group' || target.type == 'grid';
@@ -69,7 +65,6 @@ TargetGeometry projectTargetGeometry({
   TargetGeometry? previous,
   // Proven by the snapshot from unchanged attrs, parent world and grid pitch.
   Affine? retainedWorld,
-  List<String> children = const [],
   int fields = RecordFields.all,
   ComponentChanges? componentChanges,
 }) {
@@ -130,7 +125,6 @@ TargetGeometry projectTargetGeometry({
       bounds: previous.bounds,
       paintBounds: previous.paintBounds,
       localBounds: previous.localBounds,
-      children: children,
       item: item,
     );
   }
@@ -233,7 +227,6 @@ TargetGeometry projectTargetGeometry({
     bounds: bounds,
     paintBounds: paintBounds,
     localBounds: localBounds,
-    children: children,
     item: item,
   );
 }
@@ -251,14 +244,9 @@ class _Builder {
     for (final data in orderedRecords(document.roots)) {
       _element(document.targets[data['id']]!, null);
     }
-    Rect? bounds;
-    for (final node in _ordered) {
-      if (node.visible) bounds = unionBounds(bounds, node.paintBounds);
-    }
     return SceneGeometry._(
       Map.unmodifiable(_targets),
       List.unmodifiable(_ordered),
-      bounds,
     );
   }
 
@@ -295,7 +283,6 @@ class _Builder {
               () => ItemLayout.compile(data, measureText),
             )
           : null,
-      children: List.unmodifiable(childIds),
     );
     for (final id in childIds) {
       _element(document.targets[id]!, result);

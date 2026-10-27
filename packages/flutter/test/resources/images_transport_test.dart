@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:conalog_patch_map/src/frame/resource_retirement.dart';
 import 'package:conalog_patch_map/src/resources/images/image_source.dart';
+import 'package:conalog_patch_map/src/resources/images/image_source_store.dart';
 import 'package:conalog_patch_map/src/resources/images/image_store.dart';
 import 'package:conalog_patch_map/src/resources/images/image_transport.dart';
 import 'package:conalog_patch_map/src/resources/resource_budget.dart';
@@ -129,7 +130,7 @@ void main() {
           outputBudget: ResourceBudget(limitBytes: 256 * 1024 * 1024),
           retirement: ResourceRetirement(),
           schedule: (delay, action) {
-            if (delay == RasterImageStore.attemptDeadline) deadline = action;
+            if (delay == ImageSourceStore.attemptDeadline) deadline = action;
             return () {};
           },
         );

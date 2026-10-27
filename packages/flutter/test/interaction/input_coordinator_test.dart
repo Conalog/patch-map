@@ -6,7 +6,6 @@ import 'package:conalog_patch_map/src/api/target.dart';
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/geometry/affine.dart';
 import 'package:conalog_patch_map/src/geometry/geometry_snapshot.dart';
-import 'package:conalog_patch_map/src/geometry/relation_geometry.dart';
 import 'package:conalog_patch_map/src/interaction/input_coordinator.dart';
 import 'package:conalog_patch_map/src/interaction/input_query.dart';
 import 'package:conalog_patch_map/src/viewport/camera.dart';
@@ -49,7 +48,6 @@ void main() {
       h.input.query.filter = (_) => throw StateError('judgment');
       h.input.hover(2, const Offset(5, 5), const Offset(105, 105));
       expect(h.events.last.target, isNull);
-      expect(h.input.query.lastFilterError, isA<StateError>());
       expect(h.input.selection.selected.single.id, 'front');
     },
   );
@@ -195,9 +193,9 @@ void main() {
       final h = _Harness([_item('a', 0)]);
       h.down(1, const Offset(5, 5));
       h.up(1, const Offset(5, 5));
-      h.input.recognizedTap(const Offset(5, 5), const Offset(105, 105));
-      h.input.recognizedDoubleTap(const Offset(5, 5), const Offset(105, 105));
-      h.input.recognizedLongPress(const Offset(5, 5), const Offset(105, 105));
+      h.input.recognizedTap();
+      h.input.recognizedDoubleTap();
+      h.input.recognizedLongPress();
       expect(h.kinds, [
         PatchMapInputKind.down,
         PatchMapInputKind.up,
@@ -220,11 +218,7 @@ void main() {
       buttons: 2,
     );
     h.move(1, const Offset(30, 5));
-    h.input.recognizedSecondaryTap(
-      const Offset(5, 5),
-      const Offset(105, 105),
-      epoch: h.input.inputEpoch,
-    );
+    h.input.recognizedSecondaryTap(epoch: h.input.inputEpoch);
     expect(h.events.last.kind, PatchMapInputKind.secondaryTap);
     expect(h.events.last.target!.id, 'a');
     expect(h.input.isDragging, isFalse);
@@ -238,27 +232,15 @@ void main() {
     h.up(1, const Offset(5, 5));
     h.input.reset();
     final count = h.events.length;
-    h.input.recognizedTap(
-      const Offset(5, 5),
-      const Offset(105, 105),
-      epoch: epoch,
-    );
-    h.input.recognizedDoubleTap(
-      const Offset(5, 5),
-      const Offset(105, 105),
-      epoch: epoch,
-    );
+    h.input.recognizedTap(epoch: epoch);
+    h.input.recognizedDoubleTap(epoch: epoch);
     expect(h.events.length, count);
     h.down(2, const Offset(5, 5));
     final longPressEpoch = h.input.inputEpoch;
     h.down(3, const Offset(15, 5));
     h.up(3, const Offset(15, 5));
     final beforeLongPress = h.events.length;
-    h.input.recognizedLongPress(
-      const Offset(5, 5),
-      const Offset(105, 105),
-      epoch: longPressEpoch,
-    );
+    h.input.recognizedLongPress(epoch: longPressEpoch);
     expect(h.events.length, beforeLongPress);
   });
 
@@ -277,7 +259,6 @@ void main() {
       expect(h.input.isDragging, isFalse);
       expect(h.events.last.kind, PatchMapInputKind.dragEnd);
       expect(h.events.last.reason, PatchMapEndReason.replaced);
-      expect(h.input.lastCallbackError, isA<StateError>());
       expect(h.frames, 0);
       h.input.onFrame();
       expect(h.events.last.kind, PatchMapInputKind.dragEnd);
@@ -462,7 +443,7 @@ void main() {
       h.input.recognizedDoubleTap,
       h.input.recognizedLongPress,
     ]) {
-      recognize(local, global, epoch: epoch);
+      recognize(epoch: epoch);
       expect(h.events.last.target!.id, 'a');
       expect(h.events.last.position!.world, local);
       expect(h.events.last.position!.local, local);
@@ -557,8 +538,7 @@ void main() {
           'style': {'width': 10, 'cap': 'round'},
         },
       ]);
-      final relation = RelationGeometry.compile(snapshot, snapshot['r']!);
-      expect(relation.cap, 'butt'); // release ignores the admitted cap option.
+      final relation = snapshot.relationFor('r')!;
       final exact = InputHitGeometry(
         contains: relation.contains,
         segmentEntry: relation.segmentEntry,

@@ -5,7 +5,6 @@ import '../dataset/dataset_styles.dart';
 import '../dataset/dataset_values.dart';
 import 'field_operations.dart';
 import 'partial_values.dart';
-import 'presentation_resolver.dart' show readAuthoredField;
 
 /// Lookup of an already-owned effective/raw pending record; never a scene copy.
 typedef PresentationRecordLookup =
@@ -160,7 +159,7 @@ class PresentationAdmission {
           'padding' || 'margin' => partialEdges(v, p),
           'gap' => partialGap(v, p),
           'contentOrientation' => choice(v, p, ['follow-item', 'upright']),
-          'placement' => choice(v, p, presentationPlacements),
+          'placement' => choice(v, p, componentPlacements),
           'overflow' => choice(v, p, ['visible', 'hidden', 'ellipsis']),
           'animationDuration' => number(v, p, min: 0),
           'opacity' => number(v, p, min: 0, max: 1),
@@ -205,7 +204,7 @@ class PresentationAdmission {
       patches.add(patch);
       for (final operation in operations) {
         final expected = operation.kind == FieldOperationKind.reset
-            ? readAuthoredField(authored, operation.path)
+            ? readField(authored, operation.path)
             : (
                 exists: true,
                 value:

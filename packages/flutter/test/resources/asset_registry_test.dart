@@ -407,12 +407,7 @@ void main() {
         );
       }
       expect(
-        () => const ResolvedAsset(
-          'custom://photo.png',
-          'id',
-          {},
-          null,
-        ).byteSource,
+        () => registry.resolve('custom://photo.png'),
         throwsFormatException,
       );
       expect(

@@ -122,15 +122,10 @@ final class RasterImageStore {
        _active = active {
     if (_ownsSources) this.sources.onSpaceAvailable = retryDenied;
   }
-  static const singleSourceBytes = ImageSourceStore.singleSourceBytes,
-      sourceLimitBytes = ImageSourceStore.sourceLimitBytes;
-  static const payloadLimitBytes = ImageSourceStore.payloadLimitBytes,
-      maximumTransfers = ImageSourceStore.maximumTransfers;
   static const preparingLimitBytes = 128 * 1024 * 1024,
       maximumDecodes = 2,
       maximumAxis = 8192,
       maximumPixels = 16777216;
-  static const attemptDeadline = ImageSourceStore.attemptDeadline;
   final ResourceBudget outputBudget;
   final ResourceRetirement retirement;
   final ImageSourceStore sources;

@@ -77,7 +77,7 @@ void main() {
       ]);
       expect(before.endpointBoundsFor('g'), const Rect.fromLTWH(0, 0, 10, 10));
       expect(before.boundsFor('g')!.right, greaterThan(100));
-      final children = before['g']!.children;
+      final topology = before.topology;
       final after = before.prepare({
         const PatchMapTarget('g'): Map.unmodifiable({
           ...before['g']!.data,
@@ -88,7 +88,7 @@ void main() {
         const Offset(25, 5),
         const Offset(105, 5),
       ]);
-      expect(after['g']!.children, same(children));
+      expect(after.topology, same(topology));
       expect(after.endpointBoundsFor('g'), const Rect.fromLTWH(20, 0, 10, 10));
     },
   );

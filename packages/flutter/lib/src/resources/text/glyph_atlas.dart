@@ -12,11 +12,10 @@ final class GlyphPage {
     this.density,
     this.image,
     this.advance,
-    this.height,
     this.cellWidth,
     this.cellHeight,
   );
-  final double density, advance, height;
+  final double density, advance;
   final ui.Image image;
   final int cellWidth, cellHeight;
   static const columns = 8;
@@ -279,7 +278,7 @@ Future<GlyphPage> _buildPage(GlyphStyle style, double density) async {
     }
     picture = recorder.endRecording();
     final image = await picture.toImage(imageWidth, imageHeight);
-    return GlyphPage(density, image, advance, height, width, rowHeight);
+    return GlyphPage(density, image, advance, width, rowHeight);
   } finally {
     picture ??= recorder.endRecording();
     picture.dispose();

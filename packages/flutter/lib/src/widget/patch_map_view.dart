@@ -90,7 +90,6 @@ class _PatchMapViewState extends State<PatchMapView>
   bool _deferInput = false;
   int? _recognitionEpoch, _gestureGeneration;
   final _admittedPointers = <int>{};
-  Offset _recognitionLocal = Offset.zero, _recognitionGlobal = Offset.zero;
   Offset _gestureFocal = Offset.zero;
   final _touchGesture = TouchCameraGesture();
   late PatchMapGestureOptions _gestureOptions;
@@ -342,8 +341,6 @@ class _PatchMapViewState extends State<PatchMapView>
                 buttons: e.buttons,
               );
               _recognitionEpoch = input.inputEpoch;
-              _recognitionLocal = e.localPosition;
-              _recognitionGlobal = e.position;
             },
             onPointerMove: (e) =>
                 input.pointerMove(e.pointer, e.localPosition, e.position),
@@ -382,26 +379,13 @@ class _PatchMapViewState extends State<PatchMapView>
             },
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => input.recognizedTap(
-                _recognitionLocal,
-                _recognitionGlobal,
-                epoch: _recognitionEpoch,
-              ),
-              onDoubleTap: () => input.recognizedDoubleTap(
-                _recognitionLocal,
-                _recognitionGlobal,
-                epoch: _recognitionEpoch,
-              ),
-              onSecondaryTap: () => input.recognizedSecondaryTap(
-                _recognitionLocal,
-                _recognitionGlobal,
-                epoch: _recognitionEpoch,
-              ),
-              onLongPress: () => input.recognizedLongPress(
-                _recognitionLocal,
-                _recognitionGlobal,
-                epoch: _recognitionEpoch,
-              ),
+              onTap: () => input.recognizedTap(epoch: _recognitionEpoch),
+              onDoubleTap: () =>
+                  input.recognizedDoubleTap(epoch: _recognitionEpoch),
+              onSecondaryTap: () =>
+                  input.recognizedSecondaryTap(epoch: _recognitionEpoch),
+              onLongPress: () =>
+                  input.recognizedLongPress(epoch: _recognitionEpoch),
               onScaleStart: (details) {
                 _touchGesture.start(
                   _gestureOptions,

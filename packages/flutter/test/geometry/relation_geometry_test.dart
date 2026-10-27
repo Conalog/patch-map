@@ -33,7 +33,7 @@ Map<String, Object?> relation(
   'attrs': attrs,
 };
 RelationGeometry project(GeometrySnapshot snapshot, [String id = 'r']) =>
-    RelationGeometry.compile(snapshot, snapshot[id]!);
+    snapshot.relationFor(id)!;
 
 void main() {
   test(
@@ -86,7 +86,6 @@ void main() {
             closeTo((local[i] as List)[1] as num, 1e-10),
           );
         }
-        expect(actual.worldStrokeWidths, expected['worldStrokeWidths']);
         expect(actual.isSelfLink, value['name'] == 'self');
         expect(() => actual.localPoints.clear(), throwsUnsupportedError);
         expect(() => geometry.paths.clear(), throwsUnsupportedError);
@@ -176,7 +175,10 @@ void main() {
         ], id: 'dependent'),
         box('unrelated', 200),
       ]);
-      final dependencies = RelationDependencies.compile(snapshot);
+      final dependencies = RelationDependencies.fromNodes(
+        snapshot.topology,
+        snapshot.nodes,
+      );
       expect(dependencies.affectedIds(['a']), {
         'r',
         'containerRelation',

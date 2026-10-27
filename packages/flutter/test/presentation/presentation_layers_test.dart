@@ -200,7 +200,8 @@ void main() {
     expect(owner.opacity!.alpha('rect'), 0.25);
   });
   test('same sets and effective neutral changes preserve opacity identity', () {
-    final document = scene(), owner = PresentationLayers();
+    final document = scene();
+    var owner = PresentationLayers();
     owner.set('key', layer(), document);
     final before = owner.opacity;
     final same = owner.set(
@@ -227,7 +228,7 @@ void main() {
     expect(identical(owner.opacity, zero), true);
     owner.clear('zero');
     expect(owner.opacity!.alpha('rect'), 0.2);
-    owner.reset();
+    owner = PresentationLayers();
     owner.set('identity', layer(unmatchedAlpha: 1), document);
     expect(owner.opacity, isNull);
     expect(owner.layerCount, 1);
@@ -266,7 +267,8 @@ void main() {
     expect(() => result.failures.clear(), throwsUnsupportedError);
   });
   test('missing paint defaults to one and empty scope stays effect free', () {
-    final document = scene(), owner = PresentationLayers();
+    final document = scene();
+    var owner = PresentationLayers();
     owner.set(
       'key',
       layer(
@@ -279,7 +281,7 @@ void main() {
     );
     expect(owner.opacity!.alpha('item', 'text'), 0.3);
     expect(owner.opacity!.alpha('rect'), 1);
-    owner.reset();
+    owner = PresentationLayers();
     final result = owner.set(
       'empty',
       layer(scope: const [], targets: const [PatchMapTarget('missing')]),
@@ -305,18 +307,17 @@ void main() {
     },
   );
   test(
-    'reset releases layers and document binding without changing held values',
+    'owner replacement clears layers and document binding without changing held values',
     () {
-      final owner = PresentationLayers();
+      var owner = PresentationLayers();
       owner.set('key', layer(), scene());
       final held = owner.opacity!;
-      owner.reset();
+      owner = PresentationLayers();
       expect(owner.layerCount, 0);
       expect(owner.opacity, isNull);
       expect(held.alpha('rect'), 0.5);
       expect(owner.set('next', layer(), scene()).changed, true);
-      owner.reset();
-      owner.reset();
+      expect(owner.clear('next').outcome, PatchMapOutcome.applied);
       expect(owner.clear('next').outcome, PatchMapOutcome.unchanged);
     },
   );

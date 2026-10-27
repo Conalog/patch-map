@@ -20,7 +20,6 @@ final class SpatialIndex {
   List<int> _all = const [];
   Rect? _envelope;
 
-  int get bucketCount => _buckets.length;
   int get overflowCount => _overflow.length;
   int get membershipCount =>
       _memberships.values.fold(0, (n, keys) => n + keys.length);

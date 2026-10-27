@@ -34,9 +34,14 @@ void main() {
           for (var i = 0; i < colors.length; i++)
             PatchMapUpdate(target(i), {'tint': colors[i]}),
         ]);
-        final resolved = const PresentationResolver().resolve(scene, batch);
         for (var i = 0; i < colors.length; i++) {
-          expect(resolved[target(i)]!['tint'], colors[i]);
+          final authored = authoredRecord(scene, target(i));
+          final resolved = const PresentationResolver().resolvePatch(
+            authored,
+            authored,
+            batch.patches[i],
+          );
+          expect(resolved['tint'], colors[i]);
         }
         expect(
           () => admission.admit(scene, [
@@ -65,12 +70,17 @@ void main() {
       yield PatchMapUpdate(target(1), {'tint': channels});
     }
 
-    final resolved = const PresentationResolver().resolve(
-      scene,
-      admission.admit(scene, updates()),
-    );
-    expect(resolved[target(0)]!['tint'], {'r': 255, 'g': 0, 'b': 0});
-    expect(resolved[target(1)]!['tint'], {'r': 0, 'g': 255, 'b': 0});
+    final batch = admission.admit(scene, updates());
+    final resolved = [
+      for (final patch in batch.patches)
+        const PresentationResolver().resolvePatch(
+          authoredRecord(scene, patch.target),
+          authoredRecord(scene, patch.target),
+          patch,
+        ),
+    ];
+    expect(resolved[0]['tint'], {'r': 255, 'g': 0, 'b': 0});
+    expect(resolved[1]['tint'], {'r': 0, 'g': 255, 'b': 0});
     channels['r'] = 255;
     expect(
       () => admission.admit(scene, updates(invalid: true)),

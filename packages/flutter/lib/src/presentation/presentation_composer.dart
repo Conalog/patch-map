@@ -6,11 +6,6 @@ import 'field_operations.dart';
 /// Composes one pending batch without losing an ancestor reset/assignment.
 class PresentationComposer {
   const PresentationComposer();
-  PresentationPlan compose(PresentationPlan earlier, PresentationPlan later) {
-    if (earlier.patches.isEmpty) return PresentationPlan(later.patches);
-    if (later.patches.isEmpty) return earlier;
-    return PresentationPlan(_composePatches(earlier, later).values);
-  }
 
   /// The session borrows this index rather than rebuilding the composed map.
   /// Only a read-only view escapes; the mutable map reference stays local.

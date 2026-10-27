@@ -7,7 +7,6 @@ import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/dataset/dataset_styles.dart' as styles;
 import 'package:conalog_patch_map/src/geometry/affine.dart';
 import 'package:conalog_patch_map/src/geometry/geometry_snapshot.dart';
-import 'package:conalog_patch_map/src/geometry/relation_geometry.dart';
 import 'package:conalog_patch_map/src/geometry/selection_geometry.dart';
 import 'package:conalog_patch_map/src/rendering/rectangle_paint.dart';
 import 'package:conalog_patch_map/src/rendering/relation_paint.dart';
@@ -183,7 +182,7 @@ void main() {
     (tester) async {
       for (final self in [false, true]) {
         final baseline = relation({}, self: self);
-        final base = RelationGeometry.compile(baseline, baseline['r']!);
+        final base = baseline.relationFor('r')!;
         final expected = await tester.runAsync(
           () => pixels(
             RelationPaint(base, baseline['r']!.data, palette, .5).paint,
@@ -195,7 +194,7 @@ void main() {
         ]) {
           final actual = relation(extra, self: self);
           styles.validateRecordColors(actual['r']!.data, palette);
-          final projected = RelationGeometry.compile(actual, actual['r']!);
+          final projected = actual.relationFor('r')!;
           expect(projected.paintBounds, base.paintBounds);
           expect(
             projected.paths.single.worldPoints,
@@ -230,7 +229,7 @@ void main() {
           final output = await tester.runAsync(
             () => pixels(
               RelationPaint(
-                RelationGeometry.compile(actual, actual['r']!),
+                actual.relationFor('r')!,
                 actual['r']!.data,
                 palette,
                 .5,

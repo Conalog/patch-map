@@ -10,6 +10,19 @@ class DatasetException implements Exception {
   String toString() => '$code at $path: $message';
 }
 
+const componentPlacements = [
+  'left',
+  'left-top',
+  'left-bottom',
+  'top',
+  'right',
+  'right-top',
+  'right-bottom',
+  'bottom',
+  'center',
+  'none',
+];
+
 const missing = Object();
 Never invalid(String path, String message) =>
     throw DatasetException('INVALID_VALUE', path, message);
@@ -218,20 +231,7 @@ Map<String, Object?> attrs(Object? value, String path) {
   if (input.containsKey('angle') && input.containsKey('rotation')) {
     invalid(path, 'angle and rotation are mutually exclusive');
   }
-  for (final key in [
-    'x',
-    'y',
-    'angle',
-    'rotation',
-    'zIndex',
-    'scaleX',
-    'scaleY',
-  ]) {
-    if (input.containsKey(key)) number(input[key], '$path.$key');
-  }
-  if (input.containsKey('alpha')) {
-    number(input['alpha'], '$path.alpha', min: 0, max: 1);
-  }
+  validateAttrsScalars(input, path);
   for (final key in ['scale', 'skew', 'pivot']) {
     if (!input.containsKey(key)) continue;
     final value = input[key];
@@ -246,4 +246,22 @@ Map<String, Object?> attrs(Object? value, String path) {
     }
   }
   return cloneJson(input, path)! as Map<String, Object?>;
+}
+
+/// Checks only shared scalar fields; full/partial vector rules stay with callers.
+void validateAttrsScalars(Map<String, Object?> input, String path) {
+  for (final key in [
+    'x',
+    'y',
+    'angle',
+    'rotation',
+    'zIndex',
+    'scaleX',
+    'scaleY',
+  ]) {
+    if (input.containsKey(key)) number(input[key], '$path.$key');
+  }
+  if (input.containsKey('alpha')) {
+    number(input['alpha'], '$path.alpha', min: 0, max: 1);
+  }
 }

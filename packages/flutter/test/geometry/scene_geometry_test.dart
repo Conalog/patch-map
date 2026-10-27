@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/geometry/scene_geometry.dart';
+import 'package:conalog_patch_map/src/geometry/geometry_snapshot.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -94,8 +95,11 @@ void main() {
         ],
       },
     ]);
-    final scene = SceneGeometry.compile(document, (_, _) => const Size(80, 10));
-    expect(scene.targets['i']!.bounds, const Rect.fromLTWH(0, 0, 20, 20));
+    final scene = GeometrySnapshot.compile(
+      document,
+      (_, _) => const Size(80, 10),
+    );
+    expect(scene['i']!.bounds, const Rect.fromLTWH(0, 0, 20, 20));
     expect(scene.bounds!.width, 90);
     expect(scene.bounds!.height, 90);
   });
@@ -110,16 +114,16 @@ void main() {
       );
       final document = const DatasetReader().read(input);
       var measures = 0;
-      final scene = SceneGeometry.compile(document, (_, _) {
+      final scene = GeometrySnapshot.compile(document, (_, _) {
         measures++;
         return const Size(10, 10);
       });
-      final cells = scene.targets.values
+      final cells = scene.nodes
           .where((value) => value.target.row != null)
           .toList();
       expect(cells.length, greaterThan(9000));
       expect(measures, lessThan(1000));
-      expect(scene.targets.length, document.targets.length);
+      expect(scene.nodes.length, document.targets.length);
       expect(scene.bounds!.isFinite, true);
     },
   );

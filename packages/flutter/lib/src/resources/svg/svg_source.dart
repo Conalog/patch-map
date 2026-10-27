@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../dataset/dataset_values.dart' show cloneJson, DatasetException;
+import '../canonical_json.dart';
 
 const _builtins = <String, Object?>{
   'object': 'patch-map-builtin://images/object.svg',
@@ -137,7 +138,7 @@ final class SvgSourceResolver {
         builtinSvgAssetPath(canonical) == null) {
       throw SvgSourceException('unresolved-alias', src, 'unknown packaged SVG');
     }
-    final data = _canonicalJson(descriptor.data) as Map<String, Object?>;
+    final data = canonicalResourceJson(descriptor.data) as Map<String, Object?>;
     return SvgSourceSpec._(canonical, data);
   }
 }
@@ -212,17 +213,4 @@ Map<String, Object?> _detach(Object value, String path) {
   } on DatasetException catch (error) {
     throw SvgSourceException('invalid-data', error.path, error.message);
   }
-}
-
-Object? _canonicalJson(Object? value) {
-  if (value is Map<String, Object?>) {
-    final keys = value.keys.toList()..sort();
-    return Map<String, Object?>.unmodifiable({
-      for (final key in keys) key: _canonicalJson(value[key]),
-    });
-  }
-  if (value is List) {
-    return List<Object?>.unmodifiable(value.map(_canonicalJson));
-  }
-  return value;
 }

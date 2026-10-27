@@ -274,11 +274,6 @@ void main() {
       expect(resolver.resolve('black').toARGB32(), 0xff222222);
       expect(resolver.resolve('white').toARGB32(), 0xffffffff);
       expect(resolver.resolve('transparent').toARGB32(), 0);
-      expect(resolver.hasThemeColor('textOnLight'), isTrue);
-      expect(resolver.hasThemeColor('primary.dark'), isTrue);
-      expect(resolver.hasThemeColor('primary'), isFalse);
-      expect(resolver.hasThemeColor('red'), isFalse);
-      expect(resolver.hasThemeColor('missing.token'), isFalse);
       expect(() => resolver.resolve('missing.token'), throwsFormatException);
       expect(ColorResolver().resolve('black').toARGB32(), 0xff1a1a1a);
       expect(resolveDirectColor('black').toARGB32(), 0xff000000);
@@ -298,7 +293,6 @@ void main() {
       );
       expect(resolver.resolve('alias').toARGB32(), 0x8000ff00);
       expect(resolver.resolve('red').toARGB32(), 0x8000ff00);
-      expect(resolver.hasThemeColor('alias'), isTrue);
       expect(resolveDirectColor('red').toARGB32(), 0xffff0000);
     },
   );
@@ -347,7 +341,6 @@ void main() {
     palette.clear();
     expect(resolver.resolve('alias').toARGB32(), 0x80ff0000);
     expect(resolver.resolve('custom.object').toARGB32(), 0xff00ff00);
-    expect(ColorResolver().hasThemeColor('alias'), isFalse);
     expect(ColorResolver().resolve('primary.default').toARGB32(), 0xff0c73bf);
   });
 

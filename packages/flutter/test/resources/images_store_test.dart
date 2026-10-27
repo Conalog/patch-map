@@ -172,12 +172,7 @@ void main() {
           changes++;
         },
       );
-      final spec = RasterImageSource(
-        identity: 'asset',
-        assetKey: 'map.png',
-        width: 999,
-        height: 777,
-      );
+      final spec = RasterImageSource(identity: 'asset', assetKey: 'map.png');
       final first = store.acquire(spec),
           second = store.acquire(spec),
           retained = first.retain();

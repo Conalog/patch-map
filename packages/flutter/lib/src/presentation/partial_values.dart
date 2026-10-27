@@ -1,19 +1,6 @@
 import '../dataset/dataset_styles.dart';
 import '../dataset/dataset_values.dart';
 
-const presentationPlacements = [
-  'left',
-  'left-top',
-  'left-bottom',
-  'top',
-  'right',
-  'right-top',
-  'right-bottom',
-  'bottom',
-  'center',
-  'none',
-];
-
 Map<String, Object?> partialEdges(Object? value, String path) {
   if (value is num) return edges(value, path);
   final input = record(value, path);
@@ -54,20 +41,7 @@ Map<String, Object?> partialAttrs(
   if (angle && rotation) {
     invalid(path, 'angle and rotation are mutually exclusive');
   }
-  for (final key in [
-    'x',
-    'y',
-    'angle',
-    'rotation',
-    'zIndex',
-    'scaleX',
-    'scaleY',
-  ]) {
-    if (input.containsKey(key)) number(input[key], '$path.$key');
-  }
-  if (input.containsKey('alpha')) {
-    number(input['alpha'], '$path.alpha', min: 0, max: 1);
-  }
+  validateAttrsScalars(input, path);
   for (final key in ['scale', 'skew', 'pivot']) {
     if (!input.containsKey(key)) continue;
     final vector = input[key];
@@ -270,9 +244,6 @@ Object partialSource(
       invalid(path, 'cannot merge asset source into a rectangular source');
     }
     return result;
-  }
-  if (baseline.containsKey('src')) {
-    invalid(path, 'cannot merge rectangular source into an asset descriptor');
   }
   return rectTexture(input, path, partial: true);
 }

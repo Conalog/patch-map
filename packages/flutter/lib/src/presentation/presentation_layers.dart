@@ -21,7 +21,7 @@ final class PresentationOpacity {
 }
 
 /// One synchronous owner of keyed logical alpha layers and render membership.
-/// Dataset replacement must call [reset] before admitting the new document.
+/// Dataset replacement discards this owner before admitting the new document.
 final class PresentationLayers {
   final _layers = <String, _Layer>{};
   _MembershipIndex? _index;
@@ -93,7 +93,7 @@ final class PresentationLayers {
       failures.add(
         const PatchMapFailure(
           'INCOMPATIBLE_DOCUMENT',
-          'reset presentation layers before changing documents',
+          'replace presentation layer owner before changing documents',
         ),
       );
     }
@@ -154,12 +154,6 @@ final class PresentationLayers {
       _compose();
     }
     return PatchMapPresentationResult(PatchMapOutcome.applied);
-  }
-
-  void reset() {
-    _layers.clear();
-    _index = null;
-    _opacity = null;
   }
 
   void _compose() {

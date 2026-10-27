@@ -336,7 +336,6 @@ final class GeometrySnapshot {
         item: item,
         previous: before,
         retainedWorld: retainedWorld,
-        children: before.children,
         fields: flags,
         componentChanges: componentChanges[slot],
       );
@@ -643,7 +642,6 @@ TargetGeometry _withRelationBounds(
   locked: node.locked,
   bounds: relation.bounds,
   paintBounds: relation.paintBounds,
-  children: node.children,
   item: node.item,
   localBounds: node.localBounds,
 );

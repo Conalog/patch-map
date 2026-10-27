@@ -16,13 +16,10 @@ final class RelationPath {
     this.targetId,
     Iterable<Offset> local,
     Iterable<Offset> world,
-    Iterable<double> widths,
   ) : localPoints = List.unmodifiable(local),
-      worldPoints = List.unmodifiable(world),
-      worldStrokeWidths = List.unmodifiable(widths);
+      worldPoints = List.unmodifiable(world);
   final String sourceId, targetId;
   final List<Offset> localPoints, worldPoints;
-  final List<double> worldStrokeWidths;
   bool get isSelfLink => sourceId == targetId;
 }
 
@@ -35,28 +32,12 @@ final class RelationGeometry {
     this.world,
     this._inverse,
     this.paths,
-    this.runs,
     this.width,
-    this.cap,
-    this.join,
-    this.miterLimit,
     this.bounds,
     this.paintBounds,
     this.hitQuads,
     this._localQuads,
   );
-
-  factory RelationGeometry.compile(
-    GeometrySnapshot snapshot,
-    TargetGeometry node, {
-    RelationEndpointBounds? endpointBounds,
-  }) {
-    return RelationGeometry.resolve(
-      node,
-      targetFor: (id) => snapshot[id],
-      endpointBounds: endpointBounds ?? snapshot.endpointBoundsFor,
-    );
-  }
 
   /// Overlay-friendly projection for a candidate snapshot. Relation endpoints
   /// intentionally omit other relation nodes, matching release surface lookup.
@@ -84,8 +65,8 @@ final class RelationGeometry {
     final width = (style['width'] as num?)?.toDouble() ?? 1;
     // Only width is geometric in release relation lowering. Other admitted
     // stroke options do not alter its butt caps / miter joins / limit 10.
-    const cap = 'butt', join = 'miter', miterLimit = 10.0;
-    final paths = <RelationPath>[], runs = <List<Offset>>[];
+    const miterLimit = 10.0;
+    final paths = <RelationPath>[];
     final boundsCache = <String, Rect?>{};
     Rect? bounds(String id) => boundsCache.putIfAbsent(id, () {
       final endpoint = targetFor(id);
@@ -115,30 +96,13 @@ final class RelationGeometry {
       final localPoints = [
         for (final point in worldPoints) _snap(inverse.project(point)),
       ];
-      final widths = <double>[];
-      for (var i = 1; i < localPoints.length; i++) {
-        final delta = localPoints[i] - localPoints[i - 1];
-        final length = vectorLength(delta.dx, delta.dy);
-        if (length == 0) {
-          widths.add(width);
-          continue;
-        }
-        final normal = Offset(-delta.dy / length, delta.dx / length);
-        widths.add(
-          width *
-              vectorLength(
-                node.world.a * normal.dx + node.world.c * normal.dy,
-                node.world.b * normal.dx + node.world.d * normal.dy,
-              ),
-        );
-      }
-      paths.add(RelationPath._(fromId, toId, localPoints, worldPoints, widths));
-      runs.add(List.of(localPoints));
+      paths.add(RelationPath._(fromId, toId, localPoints, worldPoints));
     }
     final quads = <Quad>[];
     final half = width / 2;
     if (half > 0) {
-      for (final raw in runs) {
+      for (final path in paths) {
+        final raw = path.localPoints;
         final points = <Offset>[];
         for (final point in raw) {
           if (points.isEmpty || point != points.last) points.add(point);
@@ -213,13 +177,7 @@ final class RelationGeometry {
       node.world,
       inverse,
       List.unmodifiable(paths),
-      List.unmodifiable([
-        for (final run in runs) List<Offset>.unmodifiable(run),
-      ]),
       width,
-      cap,
-      join,
-      miterLimit,
       logicalBounds,
       paintBounds,
       List.unmodifiable(worldQuads),
@@ -230,9 +188,7 @@ final class RelationGeometry {
   final String id;
   final Affine world, _inverse;
   final List<RelationPath> paths;
-  final List<List<Offset>> runs;
-  final double width, miterLimit;
-  final String cap, join;
+  final double width;
   final Rect? bounds, paintBounds;
 
   /// Shared polygon pieces for the default butt-cap/miter-join stroke.
@@ -275,8 +231,6 @@ final class RelationDependencies {
     this._direct,
     this._descendant,
   );
-  factory RelationDependencies.compile(GeometrySnapshot snapshot) =>
-      RelationDependencies.fromNodes(snapshot.topology, snapshot.nodes);
   factory RelationDependencies.fromNodes(
     GeometryTopology topology,
     PagedValues<TargetGeometry> nodes,

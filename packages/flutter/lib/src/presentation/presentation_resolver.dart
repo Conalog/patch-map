@@ -12,23 +12,6 @@ import 'record_delta.dart';
 class PresentationResolver {
   const PresentationResolver();
 
-  Map<PatchMapTarget, Map<String, Object?>> resolve(
-    DatasetDocument document,
-    PresentationPlan batch, {
-    Map<String, Object?>? Function(PatchMapTarget)? current,
-  }) {
-    final resolved = <PatchMapTarget, Map<String, Object?>>{};
-    for (final patch in batch.patches) {
-      final authored = authoredRecord(document, patch.target);
-      resolved[patch.target] = resolvePatch(
-        authored,
-        current?.call(patch.target) ?? authored,
-        patch,
-      );
-    }
-    return UnmodifiableMapView(resolved);
-  }
-
   Map<String, Object?> resolvePatch(
     Map<String, Object?> authored,
     Map<String, Object?> current,
@@ -56,7 +39,7 @@ class PresentationResolver {
     for (final operation in patch.operations) {
       final reset = operation.kind == FieldOperationKind.reset;
       final expected = reset
-          ? readAuthoredField(authored, operation.path)
+          ? readField(authored, operation.path)
           : (exists: true, value: operation.value);
       result = _assign(
         result,
@@ -111,11 +94,6 @@ Map<String, Object?> authoredRecord(
   }
   return component;
 }
-
-({bool exists, Object? value}) readAuthoredField(
-  Map<String, Object?> authored,
-  List<String> path,
-) => readField(authored, path);
 
 Map<String, Object?> _assign(
   Map<String, Object?> current,

@@ -70,7 +70,6 @@ void expectGeneralProjection(GeometrySnapshot scene, String id) {
     parentLocked: parent?.locked ?? false,
     gridData: parent?.data,
     item: node.item,
-    children: node.children,
   );
   expect(node.world.sameTransform(general.world), isTrue, reason: id);
   expect(node.bounds, general.bounds, reason: id);

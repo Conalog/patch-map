@@ -154,7 +154,6 @@ final class DrawComponent {
   _ComponentMatrix? _matrix;
   Float64List get matrix =>
       (_matrix ??= _ComponentMatrix(layout.transform)).value;
-  bool get debugHasMatrixCache => _matrix != null;
   ReadableRectBasis? _readableBasis;
 
   ReadableRectBasis readableBasis(Affine authored, double rotation) {
@@ -164,7 +163,6 @@ final class DrawComponent {
   }
 
   void commitValues(
-    Rect box,
     Affine transform,
     DrawContent value,
     void Function(void Function()) retire,

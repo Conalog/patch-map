@@ -55,7 +55,6 @@ void main() {
             next,
             prepared.size,
             prepared.content,
-            actual.upright,
             measure,
           );
           expect(actual.box, fresh.box);

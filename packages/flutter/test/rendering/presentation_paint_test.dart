@@ -6,7 +6,6 @@ import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/frame/resource_retirement.dart';
 import 'package:conalog_patch_map/src/geometry/affine.dart';
 import 'package:conalog_patch_map/src/geometry/geometry_snapshot.dart';
-import 'package:conalog_patch_map/src/geometry/relation_geometry.dart';
 import 'package:conalog_patch_map/src/rendering/bar_slices.dart';
 import 'package:conalog_patch_map/src/rendering/draw_objects.dart';
 import 'package:conalog_patch_map/src/rendering/rectangle_paint.dart';
@@ -160,7 +159,7 @@ void main() {
         ]),
         (_, _) => Size.zero,
       );
-      final geometry = RelationGeometry.compile(snapshot, snapshot['r']!);
+      final geometry = snapshot.relationFor('r')!;
       final content = RelationContent(
         RelationPaint(geometry, snapshot['r']!.data, ColorResolver(), .5),
       );

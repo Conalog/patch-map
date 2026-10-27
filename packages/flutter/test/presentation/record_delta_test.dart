@@ -373,7 +373,9 @@ void main() {
         _set(['style', 'fill'], 'blue'),
       ]),
     ]);
-    final merged = const PresentationComposer().compose(earlier, later);
+    final merged = const PresentationComposer()
+        .composeIndexed(earlier, later)
+        .plan;
     final delta = _resolver.resolveDelta(authored, live, merged.patches.single);
     expect(delta.fields, 0);
     expect(delta.after, live);

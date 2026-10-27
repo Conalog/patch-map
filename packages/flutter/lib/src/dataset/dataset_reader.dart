@@ -64,18 +64,6 @@ const _components = {
   'icon': ['source', 'size', 'placement', 'margin', 'tint'],
   'text': ['text', 'placement', 'margin', 'tint', 'style', 'split'],
 };
-const _placements = [
-  'left',
-  'left-top',
-  'left-bottom',
-  'top',
-  'right',
-  'right-top',
-  'right-bottom',
-  'bottom',
-  'center',
-  'none',
-];
 
 class _Candidate {
   final _ids = <String>{};
@@ -335,7 +323,13 @@ class _Candidate {
           component.addAll({
             'source': rectTexture(required(input, 'source', p), '$p.source'),
             'size': componentSize(required(input, 'size', p), '$p.size'),
-            'placement': _enum(input, 'placement', p, _placements, 'bottom'),
+            'placement': _enum(
+              input,
+              'placement',
+              p,
+              componentPlacements,
+              'bottom',
+            ),
             'margin': edges(field(input, 'margin'), '$p.margin'),
             'animation': _bool(input, 'animation', p, true),
             'animationDuration': input.containsKey('animationDuration')
@@ -350,7 +344,13 @@ class _Candidate {
           component.addAll({
             'source': assetSource(required(input, 'source', p), '$p.source'),
             'size': componentSize(required(input, 'size', p), '$p.size'),
-            'placement': _enum(input, 'placement', p, _placements, 'center'),
+            'placement': _enum(
+              input,
+              'placement',
+              p,
+              componentPlacements,
+              'center',
+            ),
             'margin': edges(field(input, 'margin'), '$p.margin'),
           });
         case 'text':
@@ -364,7 +364,13 @@ class _Candidate {
             'text': input.containsKey('text')
                 ? string(input['text'], '$p.text')
                 : '',
-            'placement': _enum(input, 'placement', p, _placements, 'center'),
+            'placement': _enum(
+              input,
+              'placement',
+              p,
+              componentPlacements,
+              'center',
+            ),
             'margin': edges(field(input, 'margin'), '$p.margin'),
             'style': textStyle(field(input, 'style'), '$p.style', item: true),
             'split': split,

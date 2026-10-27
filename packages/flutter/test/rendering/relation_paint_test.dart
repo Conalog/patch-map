@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:conalog_patch_map/src/dataset/colors.dart';
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/geometry/geometry_snapshot.dart';
-import 'package:conalog_patch_map/src/geometry/relation_geometry.dart';
 import 'package:conalog_patch_map/src/rendering/relation_paint.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -56,7 +55,7 @@ void main() {
     'native straight stroke preserves alpha and butt endpoint extents',
     (tester) async {
       final snapshot = scene({'width': 4, 'color': '#ff000080', 'alpha': .5});
-      final geometry = RelationGeometry.compile(snapshot, snapshot['r']!);
+      final geometry = snapshot.relationFor('r')!;
       final paint = RelationPaint(
         geometry,
         snapshot['r']!.data,
@@ -78,7 +77,7 @@ void main() {
     final expected = await tester.runAsync(
       () => pixels(
         RelationPaint(
-          RelationGeometry.compile(baseline, baseline['r']!),
+          baseline.relationFor('r')!,
           baseline['r']!.data,
           ColorResolver(),
           1,
@@ -87,7 +86,7 @@ void main() {
     );
     for (final cap in ['round', 'square']) {
       final snapshot = scene({'width': 8, 'color': '#00ff00', 'cap': cap});
-      final geometry = RelationGeometry.compile(snapshot, snapshot['r']!);
+      final geometry = snapshot.relationFor('r')!;
       final data = await tester.runAsync(
         () => pixels(
           RelationPaint(geometry, snapshot['r']!.data, ColorResolver(), 1),
@@ -104,7 +103,7 @@ void main() {
     'self-link is five-point polyline and hidden endpoint paints nothing',
     (tester) async {
       final snapshot = scene({'width': 2, 'color': '#0000ff'}, self: true);
-      final geometry = RelationGeometry.compile(snapshot, snapshot['r']!);
+      final geometry = snapshot.relationFor('r')!;
       expect(geometry.paths.single.worldPoints, [
         const Offset(5, 0),
         const Offset(20, -10),
@@ -126,7 +125,7 @@ void main() {
       final blank = await tester.runAsync(
         () => pixels(
           RelationPaint(
-            RelationGeometry.compile(hidden, hidden['r']!),
+            hidden.relationFor('r')!,
             hidden['r']!.data,
             ColorResolver(),
             1,
@@ -147,7 +146,7 @@ void main() {
         'join': join,
         'miterLimit': 2,
       }, self: true);
-      final geometry = RelationGeometry.compile(snapshot, snapshot['r']!);
+      final geometry = snapshot.relationFor('r')!;
       final data = await tester.runAsync(
         () => pixels(
           RelationPaint(geometry, snapshot['r']!.data, ColorResolver(), 1),
@@ -175,7 +174,7 @@ void main() {
       'fill': {'colorStops': []},
     });
     final paint = RelationPaint(
-      RelationGeometry.compile(snapshot, snapshot['r']!),
+      snapshot.relationFor('r')!,
       snapshot['r']!.data,
       ColorResolver(),
       1,

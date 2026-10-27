@@ -85,16 +85,13 @@ void main() {
   ], current: current == null ? null : (_) => current);
   Map<String, Object?> resolve(
     DatasetDocument document,
-    PresentationPlan batch, {
+    PresentationPlan plan, {
     Map<String, Object?>? current,
-  }) => resolver
-      .resolve(
-        document,
-        batch,
-        current: current == null ? null : (_) => current,
-      )
-      .values
-      .single;
+  }) {
+    final patch = plan.patches.single;
+    final authored = authoredRecord(document, patch.target);
+    return resolver.resolvePatch(authored, current ?? authored, patch);
+  }
 
   test('target equality/hash retains owner-local address identity', () {
     expect(
@@ -161,7 +158,7 @@ void main() {
       final fill = batch(document, text, {
         'style': {'fill': 'red'},
       }, current: overridden);
-      final combined = composer.compose(reset, fill);
+      final combined = composer.composeIndexed(reset, fill).plan;
       expect(combined.patches.single.operations.map((o) => o.kind), [
         FieldOperationKind.reset,
         FieldOperationKind.childrenSet,
@@ -169,9 +166,7 @@ void main() {
       final effective = resolve(document, combined, current: overridden);
       expect((effective['style'] as Map)['fontSize'], 12);
       expect((effective['style'] as Map)['fill'], 'red');
-      expect(reset.claims.first.isSatisfiedBy(effective), false);
-      expect(fill.claims.last.isSatisfiedBy(effective), true);
-      final resetAgain = composer.compose(combined, reset);
+      final resetAgain = composer.composeIndexed(combined, reset).plan;
       expect(resetAgain.patches.single.operations, hasLength(1));
       expect(
         (resolve(document, resetAgain, current: overridden)['style']
@@ -206,7 +201,6 @@ void main() {
     }, current: next);
     final finalRecord = resolve(document, reset, current: next);
     expect(finalRecord['size'], {'width': 11, 'height': 20});
-    expect(reset.claims.single.isSatisfiedBy(finalRecord), true);
     expect(
       () => batch(document, bar, {'size': null}),
       throwsA(isA<DatasetException>()),
@@ -444,35 +438,6 @@ void main() {
   });
 
   test(
-    'repeated same-value claims survive; different later value supersedes',
-    () {
-      final document = scene();
-      final first = batch(document, text, {'text': 'same'});
-      final second = batch(document, text, {'text': 'same'});
-      final same = composer.compose(first, second);
-      final sameRecord = resolve(document, same);
-      expect(
-        [
-          ...first.claims,
-          ...second.claims,
-        ].every((claim) => claim.isSatisfiedBy(sameRecord)),
-        true,
-      );
-      final third = batch(document, text, {'text': 'other'});
-      final different = composer.compose(same, third);
-      final differentRecord = resolve(document, different);
-      expect(
-        [
-          ...first.claims,
-          ...second.claims,
-        ].every((claim) => !claim.isSatisfiedBy(differentRecord)),
-        true,
-      );
-      expect(third.claims.last.isSatisfiedBy(differentRecord), true);
-    },
-  );
-
-  test(
     'ordinary 10000 text updates do not query effective state during admission',
     () {
       final document = const DatasetReader().read([
@@ -573,7 +538,6 @@ void main() {
       expect(admitted.patches.single.operations.single.value, isEmpty);
       final effective = resolve(document, admitted);
       expect(((effective['style'] as Map)['stroke'] as Map)['width'], 1);
-      expect(admitted.claims.single.isSatisfiedBy(effective), true);
     },
   );
   test(
@@ -641,7 +605,14 @@ void main() {
         'gap': {'x': 3},
       }),
     ]);
-    final effective = resolver.resolve(document, admitted);
+    final effective = {
+      for (final patch in admitted.patches)
+        patch.target: resolver.resolvePatch(
+          authoredRecord(document, patch.target),
+          authoredRecord(document, patch.target),
+          patch,
+        ),
+    };
     expect(effective[const PatchMapTarget('group')]!['show'], false);
     expect(effective[const PatchMapTarget('image')]!['source'], {
       'src': 'b.svg',

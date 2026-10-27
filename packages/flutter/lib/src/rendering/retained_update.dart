@@ -139,7 +139,6 @@ final class RetainedUpdate extends MapBase<PatchMapTarget, RecordDelta> {
           delta.after,
           item.size,
           item.content,
-          entry.prior.upright,
           (_, _) => throw StateError('non-text layout'),
           previous: entry.prior,
           previousContent: item.content,
@@ -222,7 +221,6 @@ final class RetainedUpdate extends MapBase<PatchMapTarget, RecordDelta> {
                 delta.after,
                 entry.owner.size,
                 entry.owner.content,
-                entry.prior.upright,
                 (_, _) => throw StateError('non-text layout'),
                 previous: entry.prior,
                 previousContent: entry.owner.content,
@@ -300,7 +298,6 @@ final class RetainedUpdate extends MapBase<PatchMapTarget, RecordDelta> {
               data,
               item.layout.size,
               item.layout.content,
-              prior.upright,
               (_, _) => (entry.content! as TextContent).handle.size,
               previous: prior,
               previousContent: item.layout.content,
@@ -392,12 +389,7 @@ final class RetainedUpdate extends MapBase<PatchMapTarget, RecordDelta> {
       final ownedLayout = item.draw.ownRetainedLayout();
       for (final entry in item.entries) {
         final component = item.draw.components[entry.index];
-        component.commitValues(
-          entry.box,
-          entry.transform,
-          entry.content!,
-          retire,
-        );
+        component.commitValues(entry.transform, entry.content!, retire);
         final owned = ownedLayout.components[entry.index];
         owned.data = entry.delta.after;
         owned.box = entry.box;

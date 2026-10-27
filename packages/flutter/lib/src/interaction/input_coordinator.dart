@@ -53,7 +53,6 @@ final class InputCoordinator {
   _Gesture? _gesture;
   _PendingMove? _pendingMove;
   bool _disposed = false, _active = true;
-  Object? lastCallbackError;
   int _epoch = 0;
   _Recognition? _recognition;
 
@@ -61,7 +60,6 @@ final class InputCoordinator {
   int get inputEpoch => _epoch;
 
   bool get isDragging => _gesture?.mode != null;
-  bool get isDisposed => _disposed;
   PatchMapPosition position(Offset local, Offset global) => PatchMapPosition(
     world: camera.localToWorld(local),
     local: local,
@@ -72,8 +70,8 @@ final class InputCoordinator {
     if (_disposed) return;
     try {
       notify(event);
-    } catch (error) {
-      lastCallbackError = error;
+    } catch (_) {
+      // Host failures do not interrupt input cleanup or frame scheduling.
     }
   }
 
@@ -81,8 +79,8 @@ final class InputCoordinator {
     if (_disposed || !_active) return;
     try {
       onNeedFrame();
-    } catch (error) {
-      lastCallbackError = error;
+    } catch (_) {
+      // Host failures do not interrupt input cleanup or frame scheduling.
     }
   }
 
@@ -272,22 +270,16 @@ final class InputCoordinator {
 
   /// Recognizers must not send onTapDown as a classified tap. Use onTap only;
   /// Flutter's double-tap arena then suppresses the corresponding single taps.
-  /// Recognition uses the epoch's captured raw position/target; the supplied
-  /// recognizer coordinates never re-hit a later camera or publication.
-  void recognizedTap(Offset local, Offset global, {int? epoch}) =>
-      _recognized(PatchMapInputKind.tap, local, global, epoch);
-  void recognizedDoubleTap(Offset local, Offset global, {int? epoch}) =>
-      _recognized(PatchMapInputKind.doubleTap, local, global, epoch);
-  void recognizedSecondaryTap(Offset local, Offset global, {int? epoch}) =>
-      _recognized(PatchMapInputKind.secondaryTap, local, global, epoch);
-  void recognizedLongPress(Offset local, Offset global, {int? epoch}) =>
-      _recognized(PatchMapInputKind.longPress, local, global, epoch);
-  void _recognized(
-    PatchMapInputKind kind,
-    Offset local,
-    Offset global,
-    int? epoch,
-  ) {
+  /// Recognition uses the epoch's captured raw position/target, never a later
+  /// camera or publication.
+  void recognizedTap({int? epoch}) => _recognized(PatchMapInputKind.tap, epoch);
+  void recognizedDoubleTap({int? epoch}) =>
+      _recognized(PatchMapInputKind.doubleTap, epoch);
+  void recognizedSecondaryTap({int? epoch}) =>
+      _recognized(PatchMapInputKind.secondaryTap, epoch);
+  void recognizedLongPress({int? epoch}) =>
+      _recognized(PatchMapInputKind.longPress, epoch);
+  void _recognized(PatchMapInputKind kind, int? epoch) {
     if (_disposed ||
         !_active ||
         _pointers.length > 1 ||

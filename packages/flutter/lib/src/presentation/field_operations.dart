@@ -49,12 +49,6 @@ class PresentationClaim {
   final List<String> path;
   final Object? expectedValue;
   final bool exists;
-
-  bool isSatisfiedBy(Map<String, Object?> effective) {
-    final found = readField(effective, path);
-    return found.exists == exists &&
-        (!exists || presentationEqual(found.value, expectedValue));
-  }
 }
 
 /// A pending value plan contains no request history or completion ownership.

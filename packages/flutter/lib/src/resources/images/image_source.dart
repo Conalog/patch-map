@@ -1,16 +1,14 @@
 const imageSourceByteLimit = 20 * 1024 * 1024;
 
 /// A backend-resolved creation identity. Alias/theme/registry interpretation
-/// belongs to the backend, not this owner. Width/height are authored placement
-/// metadata; decoding preserves the source's intrinsic pixels.
+/// belongs to the backend, not this owner. Decoding preserves the source's
+/// intrinsic pixels.
 final class RasterImageSource {
   RasterImageSource({
     required this.identity,
     this.canonicalUri,
     this.assetKey,
     Map<String, Object?> loaderOptions = const {},
-    this.width,
-    this.height,
   }) : loaderOptions = _detach(loaderOptions) as Map<String, Object?> {
     if ((canonicalUri == null) == (assetKey == null) ||
         (canonicalUri != null &&
@@ -22,17 +20,11 @@ final class RasterImageSource {
         'Exactly one HTTP(S)/data URI or asset key is required',
       );
     }
-    for (final value in [width, height]) {
-      if (value != null && (!value.isFinite || value < 0)) {
-        throw ArgumentError('Authored image dimensions must be nonnegative');
-      }
-    }
   }
   final Object identity;
   final Uri? canonicalUri;
   final String? assetKey;
   final Map<String, Object?> loaderOptions;
-  final double? width, height;
   bool get isNetwork =>
       canonicalUri?.scheme == 'http' || canonicalUri?.scheme == 'https';
 }

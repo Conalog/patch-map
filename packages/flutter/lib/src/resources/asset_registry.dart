@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../dataset/dataset_values.dart' show cloneJson, DatasetException;
+import 'canonical_json.dart';
 import 'images/image_source.dart';
 import 'svg/svg_source.dart';
 
@@ -41,7 +42,7 @@ final class AssetRegistry {
       final registered = _symbols[src]!;
       descriptor = _Descriptor(
         registered.src,
-        _canonicalJson({...registered.data, ...descriptor.data})
+        canonicalResourceJson({...registered.data, ...descriptor.data})
             as Map<String, Object?>,
         descriptor.parser ?? registered.parser,
         descriptor.format ?? registered.format,
@@ -101,21 +102,17 @@ final class AssetRegistry {
 }
 
 final class ResolvedAsset {
-  const ResolvedAsset(this.src, this.identity, this.data, this.svg)
-    : _preparedByteSource = null;
   const ResolvedAsset._(
     this.src,
     this.identity,
     this.data,
     this.svg,
-    this._preparedByteSource,
+    this.byteSource,
   );
   final String src, identity;
   final Map<String, Object?> data;
   final SvgSourceSpec? svg;
-  final RasterImageSource? _preparedByteSource;
-  RasterImageSource get byteSource =>
-      _preparedByteSource ?? _byteSource(src, _jsonRecord(data, 'source.data'));
+  final RasterImageSource byteSource;
 }
 
 final class _Descriptor {
@@ -166,23 +163,11 @@ Map<String, Object?> _jsonRecord(Object? value, String path) {
     throw FormatException('$path must be a JSON object');
   }
   try {
-    return _canonicalJson(cloneJson(value, path)) as Map<String, Object?>;
+    return canonicalResourceJson(cloneJson(value, path))
+        as Map<String, Object?>;
   } on DatasetException catch (error) {
     throw FormatException('${error.path}: ${error.message}');
   }
-}
-
-Object? _canonicalJson(Object? value) {
-  if (value is Map<String, Object?>) {
-    final keys = value.keys.toList()..sort();
-    return Map<String, Object?>.unmodifiable({
-      for (final key in keys) key: _canonicalJson(value[key]),
-    });
-  }
-  if (value is List) {
-    return List<Object?>.unmodifiable(value.map(_canonicalJson));
-  }
-  return value;
 }
 
 void _validateUri(Uri uri, String src, {required bool isSvg}) {

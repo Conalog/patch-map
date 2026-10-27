@@ -34,9 +34,6 @@ final class ColorResolver {
   // keys because their channels can change without changing their identity.
   final _resolved = <Object, Color>{};
 
-  /// Whether this exact key/path names a theme color, including an alias.
-  bool hasThemeColor(String token) => _lookup(token) != null;
-
   /// Resolves a direct color or theme token, throwing [FormatException] on
   /// unknown tokens, malformed values or alias cycles. Admission and drawing
   /// can share this method without maintaining separate conversion rules.

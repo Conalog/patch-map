@@ -279,7 +279,6 @@ final class ItemLayout {
       value,
       size,
       content,
-      upright,
       measureText,
       previous: previous,
       previousContent: previousContent,
@@ -292,7 +291,6 @@ final class ItemLayout {
     Map<String, Object?> value,
     Size size,
     Rect content,
-    bool upright,
     MeasureText measureText, {
     ComponentLayout? previous,
     Rect? previousContent,
@@ -404,16 +402,13 @@ final class ItemLayout {
       final data = next?.data ?? component.data;
       if (data['show'] == false || component.type == 'bar') continue;
       final box = next?.box ?? component.box;
-      final authored = world.multiply(next?.transform ?? component.transform);
-      final local = Offset.zero & box.size;
-      var bounds = authored.projectRect(local).bounds;
-      if (component.upright) {
-        final center = authored.project(local.center);
-        final width = box.width * vectorLength(authored.a, authored.b);
-        final height = box.height * vectorLength(authored.c, authored.d);
-        bounds = Rect.fromCircle(center: center, radius: (width + height) / 2);
-      }
-      result = result.expandToInclude(bounds);
+      result = result.expandToInclude(
+        _componentPaintBounds(
+          world.multiply(next?.transform ?? component.transform),
+          box,
+          component.upright,
+        ),
+      );
     }
     validateBounds(result);
     return result;
@@ -425,24 +420,27 @@ final class ItemLayout {
     var result = world.projectRect(Offset.zero & size).bounds;
     for (final component in components) {
       if (!component.visible || component.type == 'bar') continue;
-      final authored = world.multiply(component.transform);
-      final local = Offset.zero & component.box.size;
-      var bounds = authored.projectRect(local).bounds;
-      if (component.upright) {
-        final center = authored.project(local.center);
-        final width =
-            component.box.width * vectorLength(authored.a, authored.b);
-        final height =
-            component.box.height * vectorLength(authored.c, authored.d);
-        // The sum also covers skew and readable basis changes under rotation.
-        final radius = (width + height) / 2;
-        bounds = Rect.fromCircle(center: center, radius: radius);
-      }
-      result = result.expandToInclude(bounds);
+      result = result.expandToInclude(
+        _componentPaintBounds(
+          world.multiply(component.transform),
+          component.box,
+          component.upright,
+        ),
+      );
     }
     validateBounds(result);
     return result;
   }
+}
+
+Rect _componentPaintBounds(Affine authored, Rect box, bool upright) {
+  final local = Offset.zero & box.size;
+  if (!upright) return authored.projectRect(local).bounds;
+  final center = authored.project(local.center);
+  final width = box.width * vectorLength(authored.a, authored.b);
+  final height = box.height * vectorLength(authored.c, authored.d);
+  // The sum also covers skew and readable basis changes under rotation.
+  return Rect.fromCircle(center: center, radius: (width + height) / 2);
 }
 
 bool _sameEnvelopeComponent(ComponentLayout component, ComponentLayout prior) {

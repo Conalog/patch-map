@@ -1056,9 +1056,6 @@ final class MapBackend extends SessionBackend {
     _closed = true;
     _presentation = null;
     hide();
-    for (final resource in _resources.toList()) {
-      resource.close();
-    }
     _resources.clear();
     preparations.close();
     raster.close();
