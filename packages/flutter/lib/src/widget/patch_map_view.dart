@@ -8,6 +8,7 @@ import '../api/camera.dart';
 import '../api/object_geometry.dart';
 import '../api/gesture_options.dart';
 import '../api/selection_style.dart';
+import '../api/rotation_animation.dart';
 import '../api/presentation.dart';
 import '../api/events.dart';
 import '../interaction/input_coordinator.dart';
@@ -48,6 +49,7 @@ class PatchMapView extends StatefulWidget {
     this.gestures = const PatchMapGestureOptions(),
     this.zoomLimits = const PatchMapZoomLimits(),
     this.selectionStyle = const PatchMapSelectionStyle(),
+    this.rotationAnimation = const PatchMapRotationAnimationOptions(),
     this.loadingBuilder,
     this.errorBuilder,
   });
@@ -66,6 +68,7 @@ class PatchMapView extends StatefulWidget {
   final PatchMapGestureOptions gestures;
   final PatchMapZoomLimits zoomLimits;
   final PatchMapSelectionStyle selectionStyle;
+  final PatchMapRotationAnimationOptions rotationAnimation;
   final WidgetBuilder? loadingBuilder;
   final Widget Function(BuildContext context, PatchMapFailure? failure)?
   errorBuilder;
@@ -97,12 +100,14 @@ class _PatchMapViewState extends State<PatchMapView>
     MapCamera.validateZoomLimits(widget.zoomLimits);
     TouchCameraGesture.validateOptions(widget.gestures);
     selection.SelectionOverlay.validateStyle(widget.selectionStyle);
+    MapCamera.validateRotationAnimation(widget.rotationAnimation);
     _gestureOptions = widget.gestures;
     _foreground =
         WidgetsBinding.instance.lifecycleState == null ||
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     backend = MapBackend(
       zoomLimits: widget.zoomLimits,
+      rotationAnimation: widget.rotationAnimation,
       palette: ColorResolver(colors: widget.colors),
       registry: AssetRegistry(symbols: widget.symbols),
       invalidate: () => frame.invalidate(),
@@ -233,6 +238,13 @@ class _PatchMapViewState extends State<PatchMapView>
   void didUpdateWidget(PatchMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
     try {
+      if (backend.camera.setRotationAnimation(widget.rotationAnimation)) {
+        frame.invalidate();
+      }
+    } on ArgumentError catch (error, stack) {
+      _reportConfigurationError(error, stack);
+    }
+    try {
       if (backend.selectionOverlay.configure(widget.selectionStyle)) {
         frame.invalidate();
       }
@@ -321,6 +333,7 @@ class _PatchMapViewState extends State<PatchMapView>
             behavior: HitTestBehavior.opaque,
             onPointerDown: (e) {
               if (phase != PatchMapPhase.ready || !session.active) return;
+              backend.camera.cancelRotation();
               _admittedPointers.add(e.pointer);
               input.pointerDown(
                 e.pointer,
@@ -356,6 +369,7 @@ class _PatchMapViewState extends State<PatchMapView>
                   resolved,
                 ) {
                   final scroll = resolved as PointerScrollEvent;
+                  backend.camera.cancelRotation();
                   input.wheel(
                     localAnchor: scroll.localPosition,
                     scaleFactor: (1 - scroll.scrollDelta.dy / 500).clamp(
@@ -573,6 +587,9 @@ class _PatchMapViewState extends State<PatchMapView>
           rotation: rotation,
         ),
       );
+  @override
+  PatchMapResult rotateTo(double rotation) =>
+      _cameraCommand(() => backend.camera.rotateTo(rotation));
   @override
   List<PatchMapObject> get selected => input.selection.selected;
   @override

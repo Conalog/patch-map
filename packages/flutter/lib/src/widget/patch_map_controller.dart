@@ -53,6 +53,12 @@ final class PatchMapController {
   }) => _binding?.focus(targets, padding) ?? _denial();
   PatchMapResult setCamera({Offset? center, double? scale, double? rotation}) =>
       _binding?.setCamera(center, scale, rotation) ?? _denial();
+
+  /// Rotate clockwise radians to an absolute orientation by the shortest path.
+  /// Uses the widget's rotationAnimation policy. Result confirms acceptance,
+  /// not animation completion. setCamera remains the immediate alternative.
+  PatchMapResult rotateTo(double rotation) =>
+      _binding?.rotateTo(rotation) ?? _denial();
   List<PatchMapObject> get selected => _binding?.selected ?? const [];
   PatchMapResult select(Iterable<String> ids) =>
       _binding?.select(ids, 'set') ?? _denial();
@@ -99,6 +105,7 @@ abstract class PatchMapBinding {
   PatchMapResult fit(Iterable<String>? targets, EdgeInsets padding);
   PatchMapResult focus(Iterable<String> targets, EdgeInsets padding);
   PatchMapResult setCamera(Offset? center, double? scale, double? rotation);
+  PatchMapResult rotateTo(double rotation);
   List<PatchMapObject> get selected;
   PatchMapResult select(Iterable<String> ids, String mode);
   Offset toWorld(Offset local);

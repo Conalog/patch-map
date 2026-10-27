@@ -26,6 +26,9 @@ Widget _host(
           controller: controller,
           active: active,
           selectionStyle: selectionStyle,
+          rotationAnimation: const PatchMapRotationAnimationOptions(
+            enabled: false,
+          ),
           gestures: const PatchMapGestureOptions(
             rotationEnabled: false,
             zoomThreshold: .03,
@@ -193,6 +196,8 @@ void main() {
     });
     expect(controller.getValue(panel)?['type'], 'item');
     expect(controller.getValue(number)?['text'], '1234');
+    expect(controller.rotateTo(.6).outcome, PatchMapOutcome.applied);
+    expect(controller.camera!.rotation, .6);
     expect(
       controller.getValue(const PatchMapTarget('device'))?['source'],
       'device',

@@ -15,7 +15,7 @@ actions. No new state-management or game-engine dependency is required.
 | `session/` | One `map_session.dart` owns accepted generation, current document/presentation and request progression. Separate replacement/update/notification helpers implement bounded responsibilities; they cannot independently publish. |
 | `presentation/` | Field operations, reset-aware pending composition, effective values, dirty dependencies and [keyed alpha layers](presentation-layers.md). Keeps authored values separate from live overrides; no frame scheduling. |
 | `geometry/` | Dimensions, transforms, layout, paint/hit envelopes and spatial index, shared by renderer/viewport/input. [Object queries](object-geometry.md) reuse published geometry. Main-isolate calculations. |
-| `viewport/` | Camera, fit/focus, screen padding, coordinate conversion and lazy [camera observation](camera-observation.md). Holds no copied scene or resource cache. |
+| `viewport/` | Camera/navigation, [rotation](rotation-animation.md), coordinates and lazy [observation](camera-observation.md). Holds no copied scene or resource cache. |
 | `interaction/` | One gesture coordinator, item hit resolution and range/paint path accumulation; selection owner and immutable event projection. Host callbacks choose actions. |
 | `rendering/` | Render plan, ordered retained item/component projections, static chunks, dynamic bars and the CustomPainter adapter in `widget/patch_map_view.dart`. Consumes effective state; cannot decide update success or mutate authored data. |
 | `resources/` | Text layout/Paragraph/atlas, SVG and external raster owners. Shared by actual creation identity. Each owns temporary work, reservations, references and safe retirement. |

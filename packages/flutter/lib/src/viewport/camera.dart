@@ -6,7 +6,9 @@ import 'package:flutter/painting.dart' show EdgeInsets;
 
 import '../api/camera.dart';
 import '../api/gesture_options.dart';
+import '../api/rotation_animation.dart';
 import '../geometry/affine.dart';
+import 'rotation_transition.dart';
 
 /// Camera authority in logical pixels. Resize does not reset world center,
 /// scale or rotation. It does not own a copy of scene or selection state.
@@ -21,6 +23,67 @@ final class MapCamera {
   bool _observed = false;
   int _pendingSources = 0;
   PatchMapZoomLimits _zoomLimits = const PatchMapZoomLimits();
+  PatchMapRotationAnimationOptions _rotationAnimation =
+      const PatchMapRotationAnimationOptions();
+  RotationTransition? _rotationTransition;
+  bool get rotating => _rotationTransition != null;
+
+  static void validateRotationAnimation(
+    PatchMapRotationAnimationOptions options,
+  ) {
+    if (options.duration.isNegative) {
+      throw ArgumentError('rotation animation duration must be nonnegative');
+    }
+  }
+
+  /// Disabling animation completes the accepted target immediately. Duration
+  /// changes apply to subsequent commands; they do not restart active travel.
+  bool setRotationAnimation(PatchMapRotationAnimationOptions options) {
+    validateRotationAnimation(options);
+    final transition = _rotationTransition;
+    var changed = false;
+    if (transition != null &&
+        (!options.enabled || options.duration == Duration.zero)) {
+      changed = set(rotation: transition.target);
+    }
+    _rotationAnimation = options;
+    return changed;
+  }
+
+  /// Accept a shortest-path rotation while retaining world center and scale.
+  /// Validate the target before interrupting an already accepted trajectory.
+  void rotateTo(double angle) {
+    if (!angle.isFinite) throw ArgumentError('rotation must be finite');
+    _candidate(_size, _center, _scale, angle);
+    final options = _rotationAnimation;
+    final transition = RotationTransition(_rotation, angle, options.duration);
+    if (!options.enabled ||
+        options.duration == Duration.zero ||
+        transition.delta == 0) {
+      set(rotation: angle);
+      return;
+    }
+    // At huge unwrapped angles the incremental trajectory is not representable.
+    if (_rotation + transition.delta == _rotation) {
+      throw ArgumentError(
+        'normalize the current angle before animated rotation',
+      );
+    }
+    _rotationTransition = transition;
+  }
+
+  /// Called only by the backend's existing frame callback. Idle is one null
+  /// check; active travel changes the camera, never scene/resource preparation.
+  bool advanceRotation(Duration time) {
+    final transition = _rotationTransition;
+    if (transition == null) return false;
+    _set(rotation: transition.sample(time), interruptRotation: false);
+    if (transition.finished) _rotationTransition = null;
+    return _rotationTransition != null;
+  }
+
+  /// Interruption retains the last applied angle, without replay on resume.
+  void cancelRotation() => _rotationTransition = null;
 
   static void validateZoomLimits(PatchMapZoomLimits limits) {
     final min = limits.minScale, max = limits.maxScale;
@@ -45,6 +108,7 @@ final class MapCamera {
         : _candidate(_size, _center, scale, _rotation);
     _zoomLimits = limits;
     if (candidate == null) return false;
+    cancelRotation();
     _scale = scale;
     _commit(candidate, PatchMapCameraChangeSource.configuration);
     return true;
@@ -134,6 +198,14 @@ final class MapCamera {
     double? scale,
     double? rotation,
     PatchMapCameraChangeSource source = PatchMapCameraChangeSource.programmatic,
+  }) => _set(center: center, scale: scale, rotation: rotation, source: source);
+
+  bool _set({
+    Offset? center,
+    double? scale,
+    double? rotation,
+    PatchMapCameraChangeSource source = PatchMapCameraChangeSource.programmatic,
+    bool interruptRotation = true,
   }) {
     final c = center ?? _center,
         s = _resolveScale(scale ?? _scale),
@@ -143,8 +215,12 @@ final class MapCamera {
         'camera requires a finite center/rotation and positive scale',
       );
     }
-    if (c == _center && s == _scale && r == _rotation) return false;
+    if (c == _center && s == _scale && r == _rotation) {
+      if (interruptRotation) cancelRotation();
+      return false;
+    }
     final candidate = _candidate(_size, c, s, r);
+    if (interruptRotation) cancelRotation();
     _center = c;
     _scale = s;
     _rotation = r;

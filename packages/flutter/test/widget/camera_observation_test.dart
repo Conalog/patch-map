@@ -13,6 +13,8 @@ Widget host(
   Size size = const Size(400, 400),
   PatchMapGestureOptions gestures = const PatchMapGestureOptions(),
   PatchMapZoomLimits zoomLimits = const PatchMapZoomLimits(),
+  PatchMapRotationAnimationOptions rotationAnimation =
+      const PatchMapRotationAnimationOptions(),
 }) => MediaQuery(
   data: MediaQueryData(size: size),
   child: Directionality(
@@ -26,6 +28,7 @@ Widget host(
           onCameraChanged: changed,
           gestures: gestures,
           zoomLimits: zoomLimits,
+          rotationAnimation: rotationAnimation,
           onPhaseChanged: (value, _) => phase?.call(value),
         ),
       ),

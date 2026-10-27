@@ -15,7 +15,8 @@ retains its state. Unchanged reads reuse the snapshot; held snapshots never muta
 `PatchMapView.onCameraChanged` receives `PatchMapCameraChange` at most once per
 submitted map frame. Its `state` is the latest applied snapshot at delivery, and
 its immutable `sources` combines all actual changes in the pending interval:
-`gesture` (drag, wheel, pinch/rotation), `programmatic` (`setCamera`), `fit`,
+`gesture` (drag, wheel, pinch/rotation), `programmatic` (`setCamera` and
+[rotateTo](rotation-animation.md)), `fit`,
 `focus`, `replacement` (new-diagram fit), `resize`, and `configuration` (changed
 [zoom limits](gesture-options.md)). This is not an ordered
 action log. A gesture followed by an app command preserves both causes.

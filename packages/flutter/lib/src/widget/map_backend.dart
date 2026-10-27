@@ -9,6 +9,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import '../api/result.dart';
 import '../api/camera.dart';
 import '../api/gesture_options.dart';
+import '../api/rotation_animation.dart';
 import '../api/target.dart';
 import '../dataset/colors.dart';
 import '../dataset/dataset_reader.dart';
@@ -54,7 +55,11 @@ final class MapBackend extends SessionBackend {
     this.onUnexpectedAssetFailure,
     this.onResourceRefresh,
     PatchMapZoomLimits zoomLimits = const PatchMapZoomLimits(),
-  }) : camera = (MapCamera()..setZoomLimits(zoomLimits)) {
+    PatchMapRotationAnimationOptions rotationAnimation =
+        const PatchMapRotationAnimationOptions(),
+  }) : camera = (MapCamera()
+         ..setZoomLimits(zoomLimits)
+         ..setRotationAnimation(rotationAnimation)) {
     optimizationBudget = ResourceBudget(
       limitBytes: 2 * 1024 * 1024,
       onSpaceAvailable: _optimizationSpace,
@@ -921,7 +926,12 @@ final class MapBackend extends SessionBackend {
     }
   }
 
-  bool onFrame(Duration timestamp) => transitions.advance(timestamp);
+  bool onFrame(Duration timestamp) {
+    final bars = transitions.advance(timestamp);
+    final rotation = camera.advanceRotation(timestamp);
+    return bars || rotation;
+  }
+
   void _assetChanged(DrawAsset asset) {
     final pub = current, failure = asset.failure;
     if (_closed || pub == null) return;
@@ -979,6 +989,7 @@ final class MapBackend extends SessionBackend {
 
   @override
   void hide() {
+    camera.cancelRotation();
     camera.discardChanges();
     _validatedUpdate = null;
     _validatedLayouts = null;
@@ -1006,7 +1017,10 @@ final class MapBackend extends SessionBackend {
     for (final resource in _resources) {
       resource.setActive(active);
     }
-    if (!active) transitions.clear();
+    if (!active) {
+      transitions.clear();
+      camera.cancelRotation();
+    }
   }
 
   Future<void> _waitActive(int epoch) async {

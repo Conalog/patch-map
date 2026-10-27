@@ -76,6 +76,7 @@ submission, not animation end or physical display presentation.
 | `fit(targets:, padding:)` | Fit all or named targets; preserve rotation |
 | `focus(ids, padding:)` | Move to targets; preserve scale and rotation |
 | `setCamera(center:, scale:, rotation:)` | World center, logical scale, radians |
+| `rotateTo(rotation)` | Absolute radians; configurable shortest-path animation; result confirms acceptance |
 | `toWorld(local)` / `toLocal(world)` | Convert logical-pixel coordinates |
 | `select` / `addSelection` / `removeSelection` / `toggleSelection` / `clearSelection` | Library-owned selection; host chooses actions |
 
@@ -119,6 +120,33 @@ it is null when detached/empty/preparing/failed and remains readable when ready 
 Subscribe without replay; read `camera` for current state. Replacement/removal discard old pending notifications;
 inactivity defers them. Callbacks may issue commands; their new changes notify on a later frame.
 These are latest applied values, not display-completion or debounced settled notifications.
+
+`rotateTo` preserves center/scale and uses a clockwise half-turn when both paths
+are equal. Its default is 180ms cubic ease-out. `setCamera` and touch rotation
+remain immediate; the bar data-animation policy is unchanged.
+
+```dart
+PatchMapView(
+  controller: controller,
+  rotationAnimation: const PatchMapRotationAnimationOptions(
+    enabled: true, // false makes rotateTo immediate; rebuild to toggle live.
+    duration: Duration(milliseconds: 180),
+  ),
+);
+controller.rotateTo(0); // Return to the diagram's original orientation.
+```
+
+Duration must be nonnegative; zero also applies immediately. Disabling during
+travel finishes at the requested angle; changing duration affects the next
+command. A new rotation retargets from the current displayed angle. A touch,
+handled wheel input, accepted `setCamera`/fit/focus, scale clamping, replacement,
+inactivity or removal stops travel at the applied angle. Resume does not replay
+it; resizing alone preserves travel. Invalid requests leave prior travel intact.
+Intermediate angles may cross a full turn; completion stores the exact requested
+angle. Angles too large to represent incremental travel require normalization
+with immediate `setCamera` first. Camera callbacks report `programmatic` changes
+through the existing frame path; no separate animation-completion event is added.
+
 `gestures: const PatchMapGestureOptions(zoomThreshold: .02, zoomThresholdAfterRotation: .05, rotationThresholdDegrees: 15, rotationThresholdAfterZoomDegrees: 25)` configures touch activation. Zoom uses relative span change; rotation uses degrees. An axis that starts first raises only the pending axis's threshold; follow-on values never lower a custom base. Simultaneous base crossings start both. Active axes stay active until gesture restart. Each crossing sample becomes a new baseline without a jump; zero base thresholds apply immediately. Zoom values must be finite in [0, 1), rotation values finite and nonnegative. `zoomEnabled` and `rotationEnabled` independently gate gestures. Settings are captured per gesture. Wheel, commands and translation retain their behavior.
 `zoomLimits: const PatchMapZoomLimits(minScale: .1, maxScale: 8)` clamps input, commands and fit. Omitted bounds are unrestricted; finite positive ordered bounds are required. A minimum can prevent fitting the entire drawing. Changed limits clamp current scale without refitting and notify `configuration`.
 `dragMode` is pan by default; range and paint modes detect objects and report

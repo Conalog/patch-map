@@ -5,6 +5,7 @@ export 'src/api/camera.dart';
 export 'src/api/object_geometry.dart';
 export 'src/api/gesture_options.dart';
 export 'src/api/selection_style.dart';
+export 'src/api/rotation_animation.dart';
 export 'src/api/result.dart';
 export 'src/api/presentation.dart';
 export 'src/api/target.dart';
