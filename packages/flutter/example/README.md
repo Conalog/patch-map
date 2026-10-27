@@ -4,6 +4,15 @@ Android/iOS development host consuming `conalog_patch_map` through its public
 entry point and local `path: ..` dependency. Runtime integration and device qualification
 remain in progress; this app is not a performance qualification result.
 
+For the separate mobile consumer replay, run
+`flutter run -t lib/mobile_replay_main.dart -d DEVICE_ID`.
+It covers equipment states, filter/memo highlight, selection, date replacement
+and sheet focus through the public package API. Captured builder/SVG provenance,
+required input mappings and verification limits are documented in the
+[mobile replay checkpoint](../../../docs/engineering/flutter-runtime/mobile-replay.md).
+Regenerate its fixture with `bun tool/capture_mobile_replay.mjs /path/to/patch-webview`;
+this reads that checkout and writes only `assets/mobile_replay.json` here.
+
 Run commands from this directory. Current-run device evidence belongs in the
 repository's ignored `.artifacts/performance/flutter/` directory and is tied to
 the source and APK hashes recorded there.

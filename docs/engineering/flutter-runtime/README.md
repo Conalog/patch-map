@@ -21,6 +21,8 @@ compatibility. Existing JavaScript qualification must not be weakened to match
 the narrower Flutter first release.
 
 Keyed alpha effects are owned by [presentation layers](presentation-layers.md).
+The [mobile replay](mobile-replay.md) records consumer inputs, host mappings and
+concrete integration differences without modifying patch-mobile.
 
 ## Delivery sequence
 
