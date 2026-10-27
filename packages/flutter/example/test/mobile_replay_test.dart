@@ -97,6 +97,29 @@ Future<int> darkNamePixels(WidgetTester tester, PatchMapController map) async {
 
 void main() {
   testWidgets(
+    'superseded and replaced metrics are not logged as fully applied',
+    (tester) async {
+      final replay = await mount(tester);
+      await submitted(tester, replay.replace(replay.beginDateChange()));
+      final first = replay.metrics(replay.generation, 'noData');
+      final latest = replay.metrics(replay.generation, 'dataText');
+      expect(await submitted(tester, Future.wait([first, latest])), [
+        false,
+        true,
+      ]);
+      expect(replay.log, isNot(contains('METRICS_REFRESH applied: noData')));
+      final old = replay.metrics(replay.generation, 'noData');
+      final replacement = replay.replace(replay.beginDateChange(), next: true);
+      expect(await submitted(tester, Future.wait([old, replacement])), [
+        false,
+        true,
+      ]);
+      expect(replay.log, isNot(contains('METRICS_REFRESH applied: noData')));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
     'inverter name needs explicit native tint to preserve deployed consumer fill',
     (tester) async {
       final replay = await mount(tester);

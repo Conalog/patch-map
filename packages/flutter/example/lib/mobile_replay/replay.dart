@@ -53,10 +53,11 @@ final class MobileReplay {
     record('draw: ${next ? 'B' : 'A'} → updateValues while preparing');
     final drawing = map.draw(fixture.scene(alternate: next));
     final values = map.updateValues(fixture.panelUpdates(alternate: next));
-    final result = await drawing;
-    check(result);
-    check(await values);
+    final results = await Future.wait([drawing, values]);
     if (token != generation) return false;
+    for (final result in results) {
+      check(result);
+    }
     restorePresentation();
     final pending = _pendingSelection;
     _pendingSelection = null;
@@ -72,20 +73,25 @@ final class MobileReplay {
       record('stale metrics ignored: $token');
       return false;
     }
-    check(
-      await map.updateValues(
-        fixture.panelUpdates(state: state, alternate: alternate),
-      ),
+    final result = await map.updateValues(
+      fixture.panelUpdates(state: state, alternate: alternate),
     );
+    if (token != generation || result.superseded) return false;
+    check(result);
     record('METRICS_REFRESH applied: $state');
-    return token == generation;
+    return true;
   }
 
   static void check(PatchMapResult result) {
     if (result.failures.isNotEmpty ||
-        result.outcome == PatchMapOutcome.rejected) {
+        result.superseded ||
+        result.interruption != null ||
+        (result.outcome != PatchMapOutcome.applied &&
+            result.outcome != PatchMapOutcome.unchanged)) {
       throw StateError(
-        result.failures.map((e) => '${e.path}: ${e.message}').join('\n'),
+        '${result.outcome.name}, superseded=${result.superseded}, '
+        'interruption=${result.interruption?.name}: '
+        '${result.failures.map((e) => '${e.path}: ${e.message}').join('\n')}',
       );
     }
   }

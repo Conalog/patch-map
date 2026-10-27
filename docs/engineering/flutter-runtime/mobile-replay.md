@@ -76,8 +76,8 @@ explicit preparation in `example/lib/mobile_replay/fixture.dart`.
 - Strip blueprint envelopes to their drawing data, keep domain metadata/indices,
   map Registry IDs and assemble all equipment components before draw.
 - Register the WebView palette/SVG aliases; arbitrary aliases are not native
-  builtins. Preserve date/request tokens and publish host metrics/Registry only
-  after their corresponding map operation succeeds.
+  builtins. Preserve date/request tokens and reconcile map-linked host state
+  using the [completion synchronization policy](mobile-sync.md).
 - Translate generic selected objects into panel/inverter/Edge/Router business
   payloads, own single-device versus multiple-panel selection and stale replies.
 - Reapply current visibility/highlight and surviving selection after replacement.
@@ -86,7 +86,8 @@ explicit preparation in `example/lib/mobile_replay/fixture.dart`.
   same item. This fixture has base alpha 1 and no support/other decoration.
 - Current mobile initialization order is locale → snapshot → visibility →
   highlight → pending selection. The example starts at resolved draw input;
-  it does not emulate transport, fetching, locale or Registry commit barriers.
+  it does not emulate transport, fetching, locale or full Registry projection.
+  The separate completion replay covers a bounded dual-ready publication barrier.
 
 Primary consumer owners: mobile `dashboard_monitoring_coordinator.dart`,
 `map_highlight_provider.dart`, `webview_events.dart`; WebView

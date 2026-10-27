@@ -13,6 +13,12 @@ required input mappings and verification limits are documented in the
 Regenerate its fixture with `bun tool/capture_mobile_replay.mjs /path/to/patch-webview`;
 this reads that checkout and writes only `assets/mobile_replay.json` here.
 
+For completion synchronization, run `flutter run -t lib/mobile_sync_main.dart -d DEVICE_ID`.
+Four buttons exercise normal, partial, superseded and replacement-interrupted
+results beside two map-linked app rows. See the
+[synchronization checkpoint](../../../docs/engineering/flutter-runtime/mobile-sync.md)
+for the real failure inputs, host responsibilities and bounded verification.
+
 Run commands from this directory. Current-run device evidence belongs in the
 repository's ignored `.artifacts/performance/flutter/` directory and is tied to
 the source and APK hashes recorded there.
