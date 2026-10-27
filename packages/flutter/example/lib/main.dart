@@ -184,16 +184,7 @@ class _ExperimentState extends State<_Experiment>
   }) async {
     if (_busy || !_controller.isAttached) return;
     final epoch = _epoch;
-    final center = preserveCamera
-        ? _controller.toWorld(_viewport.center(Offset.zero))
-        : null;
-    final origin = _controller.toWorld(Offset.zero);
-    final unit = _controller.toWorld(const Offset(1, 0));
-    final vector = origin != null && unit != null ? unit - origin : null;
-    final scale = vector != null && vector.distance > 0
-        ? 1 / vector.distance
-        : null;
-    final rotation = vector == null ? null : -math.atan2(vector.dy, vector.dx);
+    final camera = preserveCamera ? _controller.camera : null;
     setState(() => _busy = true);
     final generation = Stopwatch()..start();
     final candidate = MapWorkload(
@@ -231,11 +222,11 @@ class _ExperimentState extends State<_Experiment>
         // camera scale. Rebind only the new scene's concrete text addresses.
         _numbersHidden = false;
         _hiddenNumberLayer = null;
-        if (center != null && scale != null) {
+        if (camera != null) {
           _controller.setCamera(
-            center: center,
-            scale: scale,
-            rotation: rotation,
+            center: camera.center,
+            scale: camera.scale,
+            rotation: camera.rotation,
           );
         } else {
           _controller.fit(padding: const EdgeInsets.all(12));
@@ -419,17 +410,13 @@ class _ExperimentState extends State<_Experiment>
   }
 
   Map<String, Object?> _cameraMetadata() {
-    final origin = _controller.toWorld(Offset.zero);
-    final unit = _controller.toWorld(const Offset(1, 0));
-    final center = _controller.toWorld(_viewport.center(Offset.zero));
-    final worldUnit = origin != null && unit != null
-        ? (unit - origin).distance
-        : 0.0;
+    final camera = _controller.camera;
+    final center = camera?.center;
     return {
       'viewport': {'width': _viewport.width, 'height': _viewport.height},
       'dpr': MediaQuery.devicePixelRatioOf(context),
       'cameraCenter': center == null ? null : {'x': center.dx, 'y': center.dy},
-      'cameraScale': worldUnit > 0 ? 1 / worldUnit : null,
+      'cameraScale': camera?.scale,
     };
   }
 

@@ -86,9 +86,6 @@ final class Measurements {
     return (frame: endFrame, complete: false);
   }
 
-  double get frameP95Ms =>
-      percentile(_frames.map((frame) => frame.totalSpan.inMicroseconds / 1000));
-
   Future<Measurement> request(
     String id,
     Future<PatchMapResult> Function() submit, {
