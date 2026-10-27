@@ -23,6 +23,14 @@ void main() {
       expect((await drawn).outcome, PatchMapOutcome.applied);
       expect(controller.fit(targets: ['a']).outcome, PatchMapOutcome.applied);
       expect(
+        controller.getGeometry('a')!.bounds,
+        const Rect.fromLTWH(0, 0, 20, 10),
+      );
+      expect(
+        controller.getGeometry('a')!.corners!.bottomRight,
+        const Offset(20, 10),
+      );
+      expect(
         controller.getValue(const PatchMapTarget('a'))!.containsKey('size'),
         false,
       );

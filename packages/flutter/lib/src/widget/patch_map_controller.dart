@@ -5,6 +5,7 @@ import 'package:flutter/painting.dart' show EdgeInsets;
 
 import '../api/result.dart';
 import '../api/camera.dart';
+import '../api/object_geometry.dart';
 import '../api/presentation.dart';
 import '../api/events.dart';
 import '../api/target.dart';
@@ -35,6 +36,13 @@ final class PatchMapController {
       _binding?.clearPresentation(key) ?? _presentationDenial();
   Map<String, Object?>? getValue(PatchMapTarget target) =>
       _binding?.value(target);
+
+  /// Latest published object geometry, independent of the camera transform.
+  /// Returns null for unknown IDs or a detached/empty/preparing/failed map.
+  /// Inactive maps expose the last publication, not queued value changes.
+  /// Grid cells use their concrete IDs; components are not separate objects.
+  /// Reading does not schedule a frame or wait for submission/animation.
+  PatchMapObjectGeometry? getGeometry(String id) => _binding?.geometry(id);
   PatchMapResult fit({
     Iterable<String>? targets,
     EdgeInsets padding = EdgeInsets.zero,
@@ -87,6 +95,7 @@ abstract class PatchMapBinding {
   );
   PatchMapPresentationResult clearPresentation(String key);
   Map<String, Object?>? value(PatchMapTarget target);
+  PatchMapObjectGeometry? geometry(String id);
   PatchMapResult fit(Iterable<String>? targets, EdgeInsets padding);
   PatchMapResult focus(Iterable<String> targets, EdgeInsets padding);
   PatchMapResult setCamera(Offset? center, double? scale, double? rotation);

@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import '../api/result.dart';
 import '../api/camera.dart';
+import '../api/object_geometry.dart';
 import '../api/gesture_options.dart';
 import '../api/presentation.dart';
 import '../api/events.dart';
@@ -16,6 +17,7 @@ import '../api/update.dart';
 import '../dataset/colors.dart';
 import '../frame/frame_coordinator.dart';
 import '../geometry/scene_geometry.dart' show unionBounds;
+import '../geometry/object_geometry.dart';
 import '../resources/asset_registry.dart';
 import '../presentation/field_operations.dart' show presentationEqual;
 import '../session/map_session.dart';
@@ -463,6 +465,15 @@ class _PatchMapViewState extends State<PatchMapView>
       session.update(updates);
   @override
   Map<String, Object?>? value(PatchMapTarget target) => session.current(target);
+  @override
+  PatchMapObjectGeometry? geometry(String id) {
+    if (phase != PatchMapPhase.ready) return null;
+    final published = backend.current;
+    return published == null
+        ? null
+        : readObjectGeometry(published.geometry, id);
+  }
+
   PatchMapResult _cameraCommand(void Function() action) {
     if (!session.commandsAllowed ||
         phase != PatchMapPhase.ready ||

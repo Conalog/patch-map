@@ -66,11 +66,34 @@ submission, not animation end or physical display presentation.
 | `setPresentation(key, layer)` / `clearPresentation(key)` | Replace/remove one independent alpha layer; synchronous admission result |
 | `camera` / widget `onCameraChanged` | Current immutable camera state / frame-coalesced change notification |
 | `getValue(target)` | Immutable current effective record; null for a missing target |
+| `getGeometry(id)` | Immutable published world origin, logical/paint bounds and local-box corners; no layout or frame request |
 | `fit(targets:, padding:)` | Fit all or named targets; preserve rotation |
 | `focus(ids, padding:)` | Move to targets; preserve scale and rotation |
 | `setCamera(center:, scale:, rotation:)` | World center, logical scale, radians |
 | `toWorld(local)` / `toLocal(world)` | Convert logical-pixel coordinates |
 | `select` / `addSelection` / `removeSelection` / `toggleSelection` / `clearSelection` | Library-owned selection; host chooses actions |
+
+`getGeometry` addresses elements and concrete grid cells (`grid-1.0.0`), not
+components. It returns null for an unknown ID or a detached/empty/preparing/failed
+map. Inactive maps expose their last publication; queued updates are not included.
+Held results remain immutable after updates, replacement or removal.
+
+```dart
+final geometry = controller.getGeometry('grid-1.0.0');
+final worldAnchor = geometry?.corners?.bottomLeft;
+final localAnchor = worldAnchor == null ? null : controller.toLocal(worldAnchor);
+// Place an app-owned marker at localAnchor (map-widget logical pixels).
+```
+
+`origin`, `center`, `bounds`, `paintBounds` and `corners` are world coordinates.
+`bounds` is the axis-aligned logical box; `paintBounds` reuses the conservative
+culling/fit envelope, including overflow/strokes, not exact visible pixels.
+Corners preserve local top-left/top-right/bottom-right/bottom-left identities
+through rotation/reflection. Groups/grids aggregate visible descendant bounds;
+they and relation paths have no box corners. Empty aggregates can have null
+bounds/center. Hidden leaves retain logical bounds but have null paint bounds;
+alpha layers and camera culling do not trim geometry. Reads expose published
+layout, not pending input, bar-animation samples or physical display completion.
 
 `PatchMapPresentationLayer(scope: addresses, targets: matches, unmatchedAlpha: .2)`
 keeps matched objects unchanged and dims the other scope members. Addresses are

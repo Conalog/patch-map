@@ -172,6 +172,11 @@ void main() {
     expect(drawn.superseded, isFalse);
     expect(controller.phase, PatchMapPhase.ready);
     expect(controller.camera, isNotNull);
+    final PatchMapObjectGeometry geometry = controller.getGeometry('panel')!;
+    expect(geometry.bounds, const Rect.fromLTWH(0, 0, 40, 80));
+    expect(geometry.center, const Offset(20, 40));
+    expect(geometry.corners!.bottomLeft, const Offset(0, 80));
+    expect(controller.getGeometry('missing'), isNull);
     controller.setCamera(scale: 20);
     expect(controller.camera!.scale, 4);
     await tester.pump();
@@ -264,6 +269,7 @@ void main() {
     expect(controller.isAttached, isFalse);
     expect(controller.phase, PatchMapPhase.empty);
     expect(controller.camera, isNull);
+    expect(controller.getGeometry('panel'), isNull);
     expect(controller.getValue(panel), isNull);
     final detached = await controller.updateValues([
       const PatchMapUpdate(number, {'text': 'not replayed'}),
