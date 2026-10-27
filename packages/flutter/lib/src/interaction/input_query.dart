@@ -44,11 +44,11 @@ final class InputQuery {
   final InputQueryPorts ports;
   InputFilter? filter;
   List<int>? _paintSlots;
-  Map<int, int> _rank = const {};
+  List<int> _rank = const [];
 
   void reset() {
     _paintSlots = null;
-    _rank = const {};
+    _rank = const [];
   }
 
   PatchMapObject object(TargetGeometry node) => PatchMapObject(
@@ -69,16 +69,22 @@ final class InputQuery {
     }
   }
 
-  List<int> _candidates(GeometrySnapshot snapshot, Rect bounds) {
+  Iterable<int> _candidates(GeometrySnapshot snapshot, Rect bounds) {
     if (!identical(_paintSlots, snapshot.paintSlots)) {
       _paintSlots = snapshot.paintSlots;
-      _rank = {
-        for (var i = 0; i < snapshot.paintSlots.length; i++)
-          snapshot.paintSlots[i]: i,
-      };
+      _rank = List.filled(snapshot.nodes.length, -1);
+      for (var i = 0; i < snapshot.paintSlots.length; i++) {
+        _rank[snapshot.paintSlots[i]] = i;
+      }
     }
-    final slots = ports.getSpatialCandidates(snapshot, bounds).toSet().toList();
-    slots.sort((a, b) => (_rank[b] ?? -1).compareTo(_rank[a] ?? -1));
+    final candidates = ports.getSpatialCandidates(snapshot, bounds).toSet();
+    // The index scans all slots for wide queries. They already have one exact
+    // front-to-back order in the publication; no per-query sort/list is needed.
+    if (candidates.length == snapshot.nodes.length) {
+      return snapshot.paintSlots.reversed;
+    }
+    final slots = candidates.toList();
+    slots.sort((a, b) => _rank[b].compareTo(_rank[a]));
     return slots;
   }
 
@@ -87,13 +93,13 @@ final class InputQuery {
     Offset world,
     double cameraRotation,
   ) {
-    for (final slot in _candidates(snapshot, Rect.fromPoints(world, world))) {
+    final bounds = Rect.fromPoints(world, world);
+    for (final slot in _candidates(snapshot, bounds)) {
       final node = snapshot.nodes[slot];
       if (!_acceptsInput(node)) continue;
       // Main entity point/range queries first reject against item size AABB.
       // Paint segments intentionally retain their component overflow surface.
-      if (_hasItemSizeBounds(node) &&
-          !boundsOverlap(node.bounds!, Rect.fromPoints(world, world))) {
+      if (_hasItemSizeBounds(node) && !boundsOverlap(node.bounds!, bounds)) {
         continue;
       }
       final exact = ports.exactGeometry?.call(snapshot, node);
@@ -116,11 +122,11 @@ final class InputQuery {
     double cameraRotation,
   ) {
     final result = <PatchMapObject>[];
-    for (final slot in _candidates(snapshot, range.bounds)) {
+    final bounds = range.bounds;
+    for (final slot in _candidates(snapshot, bounds)) {
       final node = snapshot.nodes[slot];
       if (!_acceptsInput(node)) continue;
-      if (_hasItemSizeBounds(node) &&
-          !boundsOverlap(node.bounds!, range.bounds)) {
+      if (_hasItemSizeBounds(node) && !boundsOverlap(node.bounds!, bounds)) {
         continue;
       }
       final exact = ports.exactGeometry?.call(snapshot, node);
