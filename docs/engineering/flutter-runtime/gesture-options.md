@@ -11,7 +11,9 @@ PatchMapView(
     zoomEnabled: true,
     rotationEnabled: true,
     zoomThreshold: .02,
-    rotationThresholdDegrees: 10,
+    zoomThresholdAfterRotation: .05,
+    rotationThresholdDegrees: 15,
+    rotationThresholdAfterZoomDegrees: 25,
   ),
   zoomLimits: const PatchMapZoomLimits(minScale: 0.1, maxScale: 8),
 );
@@ -31,24 +33,32 @@ wheel input is not registered with Flutter's pointer signal resolver, allowing
 an enclosing scroll surface to handle it. Existing pointer/selection detection
 and interruption rules are unchanged.
 
-`zoomThreshold` is a relative span change, default .02 (2%): zoom activates at
-a span factor of at least 1.02 or at most 0.98. `rotationThresholdDegrees` is in
-degrees and defaults to 10; camera commands still use radians. Rotation's default
-was raised from the initial 5-degree trial. Thresholds are configurable through
-widget rebuilds. Zoom requires a finite value in [0, 1); rotation requires a
-finite nonnegative value. Zero disables that axis's threshold and applies the
-first input delta immediately from the gesture-start camera. Permissions still
-take precedence. Nonzero thresholds change the prior immediate touch behavior.
-Each axis activates independently, using the actual crossing sample and current
-camera value as its new baseline. The crossing sample, including overshoot, does
-not transform that axis. Later zoom uses a ratio to its activation span; rotation
-uses the angle difference from its activation angle. Both can then run together.
-An activated axis stays active through small changes and reversals until the
-recognizer gesture ends/restarts; no repeated dead zone is applied. Pending axes
+Touch defaults are `zoomThreshold: .02` (2% relative span change) and
+`rotationThresholdDegrees: 15`. If rotation activated in an earlier input sample,
+pending zoom uses `zoomThresholdAfterRotation: .05` (5%). If zoom activated first,
+pending rotation uses `rotationThresholdAfterZoomDegrees: 25`. Each follow-on
+threshold is the maximum of its configured value and the base, so it never lowers
+a custom base. Span/angle thresholds stay relative to this recognizer gesture's
+start, without resetting accumulated input when the other axis activates.
+This replaces the prior 2%/10-degree policy, which ignored activation order.
+
+Both axes evaluate the same pre-sample activation state: simultaneous base
+crossings start both, with no call-order preference. A disabled axis cannot
+suppress the other. An active axis remains active through reversals or the other
+axis starting; a new recognizer gesture resets both histories. There is no timer.
+Zoom thresholds require finite values in [0, 1); rotation thresholds require
+finite nonnegative degrees. A zero base stays immediate regardless of follow-on
+settings, applying deltas from the gesture-start camera. Neutral zero-threshold
+input does not mark that axis active or raise the other axis's threshold.
+
+With nonzero thresholds, each crossing sample and current camera value become
+that axis's new baseline. The entire crossing sample, including overshoot, is
+discarded. Later zoom uses a ratio to the activation span; rotation uses the
+angle difference from activation. Both can then run together. Pending axes
 preserve camera commands. Wheel and two-finger translation remain immediate.
-Wrapped input angles are unwrapped before testing the rotation threshold; a tiny
-movement across atan2's branch cut cannot falsely activate it. A zero finger span
-does not activate zoom or become a divisor. No timer/delay is used.
+Wrapped angles are unwrapped before threshold checks; an atan2 branch cut cannot
+falsely activate rotation. Invalid samples cannot activate an axis or poison its
+baseline, and a zero finger span cannot become a divisor.
 
 Zoom limits are optional absolute logical scales; either bound may be null.
 Provided values must be finite, positive and ordered, with equality allowed.
@@ -93,22 +103,14 @@ The extracted public consumer exercises exported options and command clamping;
 `example/integration_test/camera_test.dart` includes disabled native pinch/rotation,
 bounded commands/fit and independent pixel projection.
 
-## Verification evidence — 2026-10-26
+## Verification evidence — 2026-10-27
 
-The original permissions/bounds and fixed 2%/5-degree implementations passed
-their focused host checks and extracted consumers. Records remain under
-`.artifacts/flutter/gesture-options-qa-20261026/` and
-`.artifacts/flutter/gesture-thresholds-qa-20261026/`. A host AOT scalar probe of the
-fixed thresholds added approximately 0.004–0.006 microseconds per update; this
-excludes recognition/rendering and is not native frame qualification.
-
-The fixed-threshold profile app launched successfully on SM-S936N and displayed
-10,000 panels (`.artifacts/flutter/gesture-thresholds-manual-20261026/`). Earlier
-automated native attempts disconnected during installation; native gesture
-assertions and subjective feel are not qualified by the startup check.
-
-Configurable thresholds/default 10-degree rotation passed analysis and 51 focused
-host tests, including zero thresholds, held-gesture configuration and invalid
-initial/rebuild settings. The extracted consumer resolved the new named options
-and passed (`.artifacts/flutter/installed-consumer-bu7dSY/report.json`). Current
-logs: `.artifacts/flutter/gesture-config-qa-20261026/`.
+Analysis and 36 focused tests passed, covering both activation orders, simultaneous crossings, reversal,
+new gestures, zero/disabled axes, custom thresholds, invalid configuration and
+anchored camera updates. Public examples and the extracted consumer use the new
+settings; the extracted artifact consumer passed. Current records: `.artifacts/flutter/gesture-priority-qa-20261027/`.
+A matched host AOT comparison added 0.00035–0.00123 microseconds per input
+sample across pending/active combinations. It isolates this adapter and does not
+qualify native frame performance or subjective gesture feel. No physical device was connected for this
+change. Prior configurable-gesture evidence remains under
+`.artifacts/flutter/gesture-config-qa-20261026/`.

@@ -145,6 +145,11 @@ void main() {
     await b.moveTo(center + const Offset(95, 40));
     await a.moveTo(center - const Offset(110, 60));
     await b.moveTo(center + const Offset(110, 60));
+    // Move beyond the 25-degree rotation threshold after zoom activates.
+    await a.moveTo(center - const Offset(110, 100));
+    await b.moveTo(center + const Offset(110, 100));
+    await a.moveTo(center - const Offset(100, 130));
+    await b.moveTo(center + const Offset(100, 130));
     await a.up();
     await b.up();
     await tester.pump(const Duration(milliseconds: 350));

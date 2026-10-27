@@ -17,6 +17,11 @@ Future<(TestGesture, TestGesture)> pinch(WidgetTester tester) async {
   await b.moveTo(center + const Offset(90, 35));
   await a.moveTo(center - const Offset(110, 60));
   await b.moveTo(center + const Offset(110, 60));
+  // Move beyond the 25-degree rotation threshold after zoom activates.
+  await a.moveTo(center - const Offset(110, 100));
+  await b.moveTo(center + const Offset(110, 100));
+  await a.moveTo(center - const Offset(100, 130));
+  await b.moveTo(center + const Offset(100, 130));
   await tester.pump();
   return (a, b);
 }
@@ -38,7 +43,7 @@ void main() {
       await tester.pumpWidget(
         host(
           controller,
-          gestures: const PatchMapGestureOptions(zoomThreshold: 1),
+          gestures: const PatchMapGestureOptions(zoomThresholdAfterRotation: 1),
         ),
       );
       expect(tester.takeException(), isArgumentError);
@@ -55,7 +60,9 @@ void main() {
       await tester.pumpWidget(
         host(
           controller,
-          gestures: const PatchMapGestureOptions(rotationThresholdDegrees: -1),
+          gestures: const PatchMapGestureOptions(
+            rotationThresholdAfterZoomDegrees: -1,
+          ),
         ),
       );
       expect(tester.takeException(), isArgumentError);

@@ -390,17 +390,17 @@ class _PatchMapViewState extends State<PatchMapView>
                   return;
                 }
                 if (_touchGesture.enabled) {
+                  _touchGesture.update(
+                    factor: details.scale,
+                    angle: details.rotation,
+                    currentScale: backend.camera.scale,
+                    currentRotation: backend.camera.rotation,
+                  );
                   input.cameraGesture(
                     pointerCount: details.pointerCount,
                     localAnchor: _gestureFocal,
-                    scale: _touchGesture.scale(
-                      details.scale,
-                      backend.camera.scale,
-                    ),
-                    rotation: _touchGesture.rotation(
-                      details.rotation,
-                      backend.camera.rotation,
-                    ),
+                    scale: _touchGesture.scale,
+                    rotation: _touchGesture.rotation,
                   );
                 }
                 if (!session.active || phase != PatchMapPhase.ready) return;

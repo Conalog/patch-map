@@ -27,7 +27,9 @@ Widget _host(
           gestures: const PatchMapGestureOptions(
             rotationEnabled: false,
             zoomThreshold: .03,
+            zoomThresholdAfterRotation: .06,
             rotationThresholdDegrees: 15,
+            rotationThresholdAfterZoomDegrees: 25,
           ),
           zoomLimits: const PatchMapZoomLimits(minScale: .5, maxScale: 4),
           onPhaseChanged: (phase, _) => phases.add(phase),

@@ -1,14 +1,17 @@
 /// User-input permissions. Explicit controller commands remain available.
 /// A touch gesture captures these flags at its start; wheel input uses the
 /// current flags. Single-pointer pan/range/paint still follows `dragMode`.
-/// Touch zoom defaults to a 2% span threshold; rotation defaults to 10 degrees.
+/// Touch zoom defaults to 2%, or 5% after rotation starts; rotation defaults to
+/// 15 degrees, or 25 degrees after zoom starts. Active axes stay active.
 /// Each crossing sample becomes that axis's new baseline without a camera jump.
 final class PatchMapGestureOptions {
   const PatchMapGestureOptions({
     this.zoomEnabled = true,
     this.rotationEnabled = true,
     this.zoomThreshold = .02,
-    this.rotationThresholdDegrees = 10,
+    this.zoomThresholdAfterRotation = .05,
+    this.rotationThresholdDegrees = 15,
+    this.rotationThresholdAfterZoomDegrees = 25,
   });
 
   /// Enable pinch and wheel scaling. Two-finger translation remains available.
@@ -21,9 +24,19 @@ final class PatchMapGestureOptions {
   /// Zero applies zoom immediately. Wheel scaling does not use this threshold.
   final double zoomThreshold;
 
+  /// Pending zoom's threshold after rotation starts, finite in [0, 1).
+  /// Uses the larger of this and [zoomThreshold], from the gesture's start span.
+  /// Does not re-gate active zoom; a zero base threshold remains immediate.
+  final double zoomThresholdAfterRotation;
+
   /// Touch rotation threshold in degrees, finite and nonnegative.
   /// Zero applies rotation immediately. Camera commands still use radians.
   final double rotationThresholdDegrees;
+
+  /// Pending rotation's threshold after zoom starts, finite and nonnegative.
+  /// Uses the larger of this and [rotationThresholdDegrees], from gesture start.
+  /// Does not re-gate active rotation; a zero base threshold remains immediate.
+  final double rotationThresholdAfterZoomDegrees;
 }
 
 /// Optional absolute logical-scale bounds, shared by input, commands and fit.

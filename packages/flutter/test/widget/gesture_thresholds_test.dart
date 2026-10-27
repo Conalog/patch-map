@@ -58,7 +58,7 @@ void main() {
       );
       final before = controller.camera!;
       final world = controller.toWorld(anchor)!;
-      sample(1.019, 9.9);
+      sample(1.019, 14.9);
       expect(controller.camera, before);
       // A rebuild changes the next gesture, not the pending thresholds here.
       await tester.pumpWidget(
@@ -71,9 +71,9 @@ void main() {
           ),
         ),
       );
-      sample(1.019, 9.9);
+      sample(1.019, 14.9);
       expect(controller.camera, before);
-      sample(1.03, 11);
+      sample(1.03, 16);
       expect(
         controller.camera,
         before,
@@ -81,7 +81,7 @@ void main() {
       );
       await tester.pump();
       expect(changes, isEmpty);
-      sample(1.06, 13);
+      sample(1.06, 18);
       expect(controller.camera!.scale, closeTo(2 * 1.06 / 1.03, 1e-12));
       expect(
         controller.camera!.rotation,
@@ -90,7 +90,7 @@ void main() {
       expect((controller.toWorld(anchor)! - world).distance, lessThan(1e-9));
       await tester.pump();
       expect(changes.single.sources, {PatchMapCameraChangeSource.gesture});
-      sample(1.01, 9);
+      sample(1.01, 14);
       expect(controller.camera!.scale, closeTo(2 * 1.01 / 1.03, 1e-12));
       expect(
         controller.camera!.rotation,

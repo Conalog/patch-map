@@ -618,9 +618,6 @@ class _ExperimentState extends State<_Experiment>
               return _attached
                   ? PatchMapView(
                       controller: _controller,
-                      gestures: const PatchMapGestureOptions(
-                        rotationThresholdDegrees: 30,
-                      ),
                       onAttached: _onAttached,
                       onEvent: (event) {
                         if (event.kind == PatchMapInputKind.tap &&
