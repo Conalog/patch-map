@@ -69,6 +69,7 @@ final class MapCamera {
         'normalize the current angle before animated rotation',
       );
     }
+    _validateRotationTravel(_size, transition.delta);
     _rotationTransition = transition;
   }
 
@@ -77,7 +78,14 @@ final class MapCamera {
   bool advanceRotation(Duration time) {
     final transition = _rotationTransition;
     if (transition == null) return false;
-    _set(rotation: transition.sample(time), interruptRotation: false);
+    try {
+      _set(rotation: transition.sample(time), interruptRotation: false);
+    } on ArgumentError {
+      // A numeric boundary must never fail the owning map generation. Retain
+      // the last committed transform if platform rounding defeats admission.
+      cancelRotation();
+      return false;
+    }
     if (transition.finished) _rotationTransition = null;
     return _rotationTransition != null;
   }
@@ -188,6 +196,13 @@ final class MapCamera {
     }
     if (value == _size) return false;
     final candidate = _candidate(value, _center, _scale, _rotation);
+    final transition = _rotationTransition;
+    if (transition != null) {
+      _validateRotationTravel(
+        value,
+        RotationTransition.shortestDelta(_rotation, transition.target),
+      );
+    }
     _size = value;
     _commit(candidate, PatchMapCameraChangeSource.resize);
     return true;
@@ -331,6 +346,171 @@ final class MapCamera {
     if (!bounds.isFinite || bounds.width < 0 || bounds.height < 0) {
       throw ArgumentError.value(bounds, 'bounds');
     }
+  }
+
+  /// Admission only: prove the entire arc fits the forward/inverse arithmetic.
+  /// The usual path uses orientation-independent bounds, without trigonometry.
+  /// Only extreme coordinates need the tighter arc extrema. Leave frame samples
+  /// on the existing matrix path; do not repeatedly validate the trajectory.
+  void _validateRotationTravel(Size size, double delta) {
+    if (_rotationEnvelopeFits(size, null, null)) return;
+    final from = math.atan2(math.sin(_rotation), math.cos(_rotation));
+    // Include rounding when the unwrapped scalar is added to its travel delta.
+    final slack = 1e-12 + _rotation.abs() * 1e-15;
+    final start = math.min(from, from + delta) - slack;
+    final end = math.max(from, from + delta) + slack;
+    if (!_rotationEnvelopeFits(size, start, end)) {
+      throw ArgumentError('camera rotation trajectory is not representable');
+    }
+  }
+
+  bool _rotationEnvelopeFits(Size size, double? start, double? end) {
+    // The slack covers coefficient, product, sum and determinant rounding. An
+    // ambiguous floating-point boundary is rejected before changing any state.
+    const slack = 1e-12;
+    final square = _scale * _scale;
+    final determinantMin = square * (1 - slack) - 2 * double.minPositive;
+    final determinantMax = square * (1 + slack) + 2 * double.minPositive;
+    if (determinantMin <= 0 || !determinantMax.isFinite) return false;
+    final cos = _linearMagnitude(1, 0, _scale, start, end) * (1 + slack);
+    final sin = _linearMagnitude(0, 1, _scale, start, end) * (1 + slack);
+    final x = _center.dx.abs(), y = _center.dy.abs();
+    final halfWidth = size.width / 2, halfHeight = size.height / 2;
+    final error = x * (_scale * slack) + y * (_scale * slack);
+    final tx =
+        _linearMagnitude(
+          -_center.dx,
+          _center.dy,
+          _scale,
+          start,
+          end,
+          offset: halfWidth,
+        ) +
+        error;
+    final ty =
+        _linearMagnitude(
+          -_center.dy,
+          -_center.dx,
+          _scale,
+          start,
+          end,
+          offset: halfHeight,
+        ) +
+        error;
+    // _candidate evaluates these partial sums before the final translation.
+    if (!_linearMagnitude(
+          -_center.dx,
+          0,
+          _scale,
+          start,
+          end,
+          offset: halfWidth,
+        ).isFinite ||
+        !_linearMagnitude(
+          0,
+          -_center.dx,
+          _scale,
+          start,
+          end,
+          offset: halfHeight,
+        ).isFinite ||
+        !(cos * x).isFinite ||
+        !(sin * x).isFinite ||
+        !(sin * y).isFinite ||
+        !(cos * y).isFinite ||
+        !tx.isFinite ||
+        !ty.isFinite) {
+      return false;
+    }
+    final inverseCos = cos / determinantMin;
+    final inverseSin = sin / determinantMin;
+    if (!(inverseCos * tx).isFinite ||
+        !(inverseSin * ty).isFinite ||
+        !(inverseSin * tx).isFinite ||
+        !(inverseCos * ty).isFinite) {
+      return false;
+    }
+    // In the inverse sum the center terms cancel to center * scale²/det.
+    // Bound that sum directly, retaining a generous arithmetic error allowance,
+    // rather than rejecting valid large centers by adding both absolute terms.
+    final viewportX = _linearMagnitude(
+      halfWidth,
+      halfHeight,
+      1 / _scale,
+      start,
+      end,
+    );
+    final viewportY = _linearMagnitude(
+      halfHeight,
+      -halfWidth,
+      1 / _scale,
+      start,
+      end,
+    );
+    final inverseError =
+        x * slack + y * slack + math.max(viewportX, viewportY) * slack;
+    final determinantError = math.max(x, y) * (square / determinantMin - 1);
+    final inverseX = _linearMagnitude(
+      -halfWidth,
+      -halfHeight,
+      1 / _scale,
+      start,
+      end,
+      offset: _center.dx,
+    );
+    final inverseY = _linearMagnitude(
+      -halfHeight,
+      halfWidth,
+      1 / _scale,
+      start,
+      end,
+      offset: _center.dy,
+    );
+    return (inverseX + inverseError + determinantError).isFinite &&
+        (inverseY + inverseError + determinantError).isFinite;
+  }
+
+  /// Maximum |offset + factor * (x cos(t) + y sin(t))| over an arc/full turn.
+  /// Normalize coefficients before arithmetic so large finite centers can be
+  /// checked without overflowing the validator itself. There are no samples:
+  /// an arc maximum is at an endpoint or at phase + k*pi.
+  static double _linearMagnitude(
+    double x,
+    double y,
+    double factor,
+    double? start,
+    double? end, {
+    double offset = 0,
+  }) {
+    final magnitude = math.max(math.max(x.abs(), y.abs()), offset.abs());
+    if (magnitude == 0) return 0;
+    final a = x / magnitude, b = y / magnitude;
+    final amplitude = vectorLength(a, b);
+    final constant = offset / magnitude;
+    // Preserve the original multiplication order for unshifted bounds, so a
+    // small factor cannot underflow before a large coordinate restores it.
+    final weight = offset == 0 ? 1.0 : factor;
+    var bound = constant.abs() + amplitude * weight;
+    if (start != null && end != null && end - start < 2 * math.pi) {
+      final phase = math.atan2(b, a);
+      final index = ((start - phase) / math.pi).ceil();
+      final extremum = phase + index * math.pi;
+      bound = math.max(
+        (constant + weight * (a * math.cos(start) + b * math.sin(start))).abs(),
+        (constant + weight * (a * math.cos(end) + b * math.sin(end))).abs(),
+      );
+      if (extremum <= end) {
+        final peak = (index.isEven ? amplitude : -amplitude) * weight;
+        bound = math.max(bound, (constant + peak).abs());
+        if (extremum + math.pi <= end) {
+          bound = math.max(bound, (constant - peak).abs());
+        }
+      }
+    }
+    if (offset != 0) return bound * magnitude;
+    return factor <= 1
+        ? (magnitude * factor) * bound
+        : (bound * factor) * magnitude;
   }
 
   (Affine, Affine, Float64List) _candidate(

@@ -63,6 +63,130 @@ void main() {
     expect(c.rotation, math.pi);
   });
 
+  test('unrepresentable arc rejects before replacing accepted travel', () {
+    final c = camera()..set(center: const Offset(1.4e308, 1.4e308));
+    // Both endpoints fit; the intermediate diagonal translation does not.
+    c.set(rotation: math.pi / 2);
+    c.set(rotation: 0);
+    c.rotateTo(.01);
+    c.advanceRotation(Duration.zero);
+    final state = c.snapshot;
+    final matrix = c.paintMatrix;
+    expect(() => c.rotateTo(math.pi / 2), throwsArgumentError);
+    expect(c.snapshot, same(state));
+    expect(c.paintMatrix, same(matrix));
+    expect(c.rotating, isTrue);
+    c.advanceRotation(const Duration(milliseconds: 40));
+    expect(c.rotation, greaterThan(0));
+    c.advanceRotation(const Duration(milliseconds: 180));
+    expect(c.rotation, .01);
+    expect(c.rotating, isFalse);
+    // Immediate rotation still only needs a representable endpoint.
+    c.setRotationAnimation(
+      const PatchMapRotationAnimationOptions(enabled: false),
+    );
+    c.rotateTo(math.pi / 2);
+    expect(c.rotation, math.pi / 2);
+  });
+
+  test('tiny scaled coefficients cannot hide inverse overflow inside arc', () {
+    final c = MapCamera()
+      ..resize(const Size(2e145, 2e145))
+      ..set(
+        center: Offset(double.maxFinite - 1.2e299, 0),
+        scale: 1e-154,
+        rotation: math.pi,
+      );
+    c.set(rotation: 3 * math.pi / 2);
+    c.set(rotation: math.pi);
+    final state = c.snapshot;
+    expect(() => c.rotateTo(3 * math.pi / 2), throwsArgumentError);
+    expect(c.snapshot, same(state));
+    expect(c.rotating, isFalse);
+  });
+
+  test('large safe arcs and short extreme arcs retain timing and target', () {
+    for (final (center, target) in [
+      (const Offset(1e308, 1e308), math.pi / 2),
+      (const Offset(1.4e308, 1.4e308), .01),
+      (const Offset(-1.4e308, -1.4e308), -.01),
+      (const Offset(1e308, -1e308), -math.pi / 2),
+    ]) {
+      final c = camera()..set(center: center);
+      c.rotateTo(target);
+      c.advanceRotation(Duration.zero);
+      for (var time = 1; time < 180; time++) {
+        expect(c.advanceRotation(Duration(milliseconds: time)), isTrue);
+        expect(c.paintMatrix.every((value) => value.isFinite), isTrue);
+        expect(c.center, center);
+        expect(c.scale, 1);
+      }
+      expect(c.advanceRotation(const Duration(milliseconds: 180)), isFalse);
+      expect(c.rotation, target);
+    }
+  });
+
+  test('resize rejects an unsafe remaining arc without changing travel', () {
+    final c = camera()..set(center: const Offset(0, 1e308));
+    c.rotateTo(math.pi / 2);
+    c.advanceRotation(Duration.zero);
+    final state = c.snapshot;
+    final matrix = c.paintMatrix;
+    expect(
+      () => c.resize(const Size(double.maxFinite, 300)),
+      throwsArgumentError,
+    );
+    expect(c.snapshot, same(state));
+    expect(c.paintMatrix, same(matrix));
+    expect(c.size, const Size(400, 300));
+    expect(c.rotating, isTrue);
+    c.resize(const Size(800, 600));
+    expect(c.rotating, isTrue);
+    c.advanceRotation(const Duration(milliseconds: 40));
+    expect(c.rotation, greaterThan(0));
+    c.advanceRotation(const Duration(milliseconds: 180));
+    expect(c.rotation, math.pi / 2);
+  });
+
+  test(
+    'large viewport accepts representable short arcs in either direction',
+    () {
+      for (final target in [.01, -.01]) {
+        final c = MapCamera()
+          ..resize(const Size(1.4e308, 1.4e308))
+          ..set(scale: .5);
+        c.rotateTo(target);
+        c.advanceRotation(Duration.zero);
+        for (var time = 1; time < 180; time++) {
+          expect(c.advanceRotation(Duration(milliseconds: time)), isTrue);
+          expect(c.paintMatrix.every((value) => value.isFinite), isTrue);
+          expect(c.localToWorld(Offset.zero).isFinite, isTrue);
+        }
+        expect(c.advanceRotation(const Duration(milliseconds: 180)), isFalse);
+        expect(c.rotation, target);
+        expect(c.center, Offset.zero);
+        expect(c.scale, .5);
+      }
+    },
+  );
+
+  test('large center and viewport cancellation preserves a safe short arc', () {
+    final c = MapCamera()
+      ..resize(const Size(1.4e308, 0))
+      ..set(center: const Offset(1e308, 0), scale: .5);
+    c.rotateTo(.01);
+    c.advanceRotation(Duration.zero);
+    for (var time = 1; time < 180; time++) {
+      expect(c.advanceRotation(Duration(milliseconds: time)), isTrue);
+      expect(c.paintMatrix.every((value) => value.isFinite), isTrue);
+      expect(c.localToWorld(Offset.zero).isFinite, isTrue);
+    }
+    expect(c.advanceRotation(const Duration(milliseconds: 180)), isFalse);
+    expect(c.rotation, .01);
+    expect(c.center, const Offset(1e308, 0));
+    expect(c.scale, .5);
+  });
+
   test(
     'retarget starts at displayed angle; invalid commands do not interrupt',
     () {

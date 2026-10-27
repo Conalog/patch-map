@@ -18,14 +18,20 @@ and plant-north interpretation remain host responsibilities.
   applies its target immediately; duration changes affect subsequent commands.
 - A new valid command retargets from the last applied angle without a jump.
   Duration starts at the first actual animation frame, not a stale queued vsync.
-  Finite angles and a representable target transform are required. If the current
-  unwrapped angle cannot represent the travel delta, normalize it with setCamera.
+  Finite angles and a representable target transform are required. Animated
+  travel also requires a representable transform throughout its shortest arc;
+  valid endpoints alone are insufficient at extreme coordinates. Admission uses
+  conservative numeric bounds and rejects ambiguous floating-point boundaries
+  synchronously, preserving any accepted travel. If the current unwrapped angle
+  cannot represent the travel delta, normalize it with setCamera.
 - New pointer-down or handled wheel input interrupts. Accepted setCamera,
   focus/fit (including no-op commands), actual zoom-limit clamping,
   inactivity, failure and removal cancel at the applied angle. Accepted
   replacement cancels travel and resets the new diagram's rotation to zero.
   Invalid commands/replacements preserve travel. Resume never replays it.
   Resize alone preserves travel and existing world-center/scale/rotation rules.
+  A resize that would make the remaining arc unrepresentable rejects before
+  changing either the viewport or travel.
 - Like other synchronous camera commands, the result acknowledges acceptance,
   not submission or animation completion. Existing onCameraChanged delivery
   reports programmatic changes once per submitted map frame. Value update
@@ -42,6 +48,16 @@ without a timer, ticker, listener, copied camera or scheduler. Camera mutations
 validate before cancelling existing travel. Widget composition cancels on input;
 backend lifecycle cancels on hide/inactivity/close.
 
+Rotation admission first checks constant orientation-independent arithmetic
+bounds. Only extreme camera states require the tighter endpoints and analytic
+sinusoid extrema of the commanded arc; no trajectory sampling or recursion is
+used. Inverse translation bounds retain the signs of center and viewport terms
+so their cancellation does not reject otherwise safe short arcs. Resize
+rechecks the remaining arc before committing its new size. These
+checks allocate no retained resources and add no per-frame trajectory work.
+As a final numeric safeguard, a sample that cannot be applied stops travel at
+the last committed camera transform instead of failing the map generation.
+
 The backend's existing onFrame advances both bars and rotation without short
 circuiting either. FrameCoordinator remains the sole scheduler and stops when
 both finish. Idle rotation is one null check; active rotation uses ordinary camera
@@ -52,7 +68,10 @@ Resource/LOD work caused by the changed view follows the existing renderer.
 
 - `test/geometry/rotation_animation_test.dart`: deterministic timing/easing,
   wrap/half-turn/exact target, retarget and validation, live policy changes,
-  interruption, resize, simultaneous bar progression and backend lifecycle.
+  interruption, resize, simultaneous bar progression and backend lifecycle;
+  rejection of overflowing intermediate arcs without interrupting accepted
+  travel, safe large-coordinate/large-viewport short-angle travel, and atomic
+  unsafe resize, including center/viewport cancellation.
 - `test/widget/rotation_animation_test.dart`: public configuration/commands,
   actual frame progression, observation, value submission during travel,
   touch/wheel cancellation, inactivity/replacement/removal, natural completion
