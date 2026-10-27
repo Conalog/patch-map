@@ -833,6 +833,7 @@ final class MapBackend extends SessionBackend {
       }
     }
     next.finishRetained();
+    selectionOverlay.didPublish(next.geometry, next.changed);
     current = next;
     final retirePresentation = next.plan.setPresentation(_presentation);
     if (retirePresentation != null) retirement.enqueue(retirePresentation);
@@ -943,6 +944,9 @@ final class MapBackend extends SessionBackend {
         selectedIds,
         cameraScale: camera.scale,
         cameraRotation: camera.rotation,
+        visibleWorldBounds: selectedIds.isEmpty
+            ? null
+            : camera.visibleWorldBounds,
       );
     } finally {
       canvas.restore();
@@ -1021,6 +1025,7 @@ final class MapBackend extends SessionBackend {
     _wakeActivity();
     onReplacement();
     current = null;
+    selectionOverlay.reset();
     _reportedFailures.clear();
     _intrinsicReady.clear();
     for (final resource in _resources.toList()) {

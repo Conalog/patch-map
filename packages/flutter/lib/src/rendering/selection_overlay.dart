@@ -9,7 +9,8 @@ import '../geometry/selection_geometry.dart';
 
 /// Paint-only selection decoration. Selection IDs, geometry, invalidation and
 /// the world camera remain owned by their existing coordinators. This owner
-/// retains no selection/snapshot/Canvas, creates no listener and schedules no work.
+/// retains only derived geometry for the last painted selection. Publication
+/// invalidates changed targets; this owner never changes selection or schedules work.
 final class SelectionOverlay {
   SelectionOverlay({required this.palette});
   final ColorResolver palette;
@@ -22,12 +23,57 @@ final class SelectionOverlay {
     ..isAntiAlias = true;
   bool _disposed = false;
   int _outlineCount = 0, _resolvedTargetCount = 0;
+  final _envelopes = <String, _SelectionEnvelope>{};
+  GeometrySnapshot? _geometry;
+  double? _rotation;
+  int _visit = 0, _drawableCount = 0;
+  bool _aggregateDirty = true;
+  Rect? _aggregate;
+  Quad? _first;
   PatchMapSelectionStyle _style = const PatchMapSelectionStyle();
   bool get isDisposed => _disposed;
   int get outlineCount => _outlineCount;
   int get resolvedTargetCount => _resolvedTargetCount;
   Object get pathIdentity => _path;
   Object get paintIdentity => _paint;
+
+  /// Retained commits can mutate nodes/layouts without changing their identity.
+  /// The existing publication boundary supplies exactly those changed slots.
+  /// No selection means no added traversal on the ordinary update path.
+  void didPublish(GeometrySnapshot geometry, Iterable<int> changed) {
+    if (_envelopes.isEmpty) return;
+    if (!identical(_geometry?.topology, geometry.topology)) {
+      _clearGeometry();
+      return;
+    }
+    for (final slot in changed) {
+      final entry = _envelopes[geometry.nodes[slot].id];
+      if (entry != null) {
+        entry.ready = false;
+        _aggregateDirty = true;
+      }
+    }
+    _geometry = geometry;
+  }
+
+  void _clearGeometry() {
+    _envelopes.clear();
+    _geometry = null;
+    _rotation = null;
+    _aggregate = null;
+    _first = null;
+    _drawableCount = 0;
+    _aggregateDirty = true;
+  }
+
+  /// Hiding/replacing a document may never paint again. Release derived state
+  /// at that boundary rather than waiting for a future empty selection frame.
+  void reset() {
+    _clearGeometry();
+    _path.reset();
+    _outlineCount = 0;
+    _resolvedTargetCount = 0;
+  }
 
   static void validateStyle(PatchMapSelectionStyle style) {
     if (!style.strokeWidth.isFinite ||
@@ -60,6 +106,10 @@ final class SelectionOverlay {
     if (_style == style) return false;
     validateStyle(style);
     _style = style;
+    if (style.displayMode == PatchMapSelectionDisplayMode.hidden ||
+        style.color.a == 0) {
+      _clearGeometry();
+    }
     _paint
       ..color = style.color
       ..style = style.strokeAlignment == PatchMapSelectionStrokeAlignment.center
@@ -78,6 +128,7 @@ final class SelectionOverlay {
     Iterable<String> selectedIds, {
     required double cameraScale,
     required double cameraRotation,
+    Rect? visibleWorldBounds,
   }) {
     if (_disposed) throw StateError('Selection overlay is disposed');
     if (!cameraScale.isFinite || cameraScale < 0 || !cameraRotation.isFinite) {
@@ -100,43 +151,83 @@ final class SelectionOverlay {
             style.strokeWidth,
           );
     final worldWidth = width / scale;
-    // Transient duplicate suppression only; no retained copy of selection state.
-    final seen = <String>{};
-    Rect? aggregate;
-    Quad? first;
-    var count = 0;
+    if (!identical(_geometry, geometry) || _rotation != cameraRotation) {
+      _clearGeometry();
+      _geometry = geometry;
+      _rotation = cameraRotation;
+    }
+    final visit = ++_visit;
+    // Centered strokes may reach the miter limit; include antialias coverage.
+    // Outside bands under strong shear can extend arbitrarily far, so retain
+    // their existing drawing path rather than imposing an unsafe culling bound.
+    final cull =
+        _style.strokeAlignment == PatchMapSelectionStrokeAlignment.outside
+        ? null
+        : visibleWorldBounds?.inflate(
+            (_style.strokeAlignment == PatchMapSelectionStrokeAlignment.center
+                    ? worldWidth * _paint.strokeMiterLimit
+                    : 0) +
+                1 / scale,
+          );
     try {
       for (final id in selectedIds) {
-        if (!seen.add(id)) continue;
+        final entry = _envelopes.putIfAbsent(id, _SelectionEnvelope.new);
+        if (entry.visit == visit) continue;
+        entry.visit = visit;
         _resolvedTargetCount++;
-        final target = geometry[id];
-        if (target == null) continue;
-        final quad = selectionQuad(
-          target,
-          palette: palette,
-          cameraRotation: cameraRotation,
-        );
+        if (!entry.ready) {
+          final target = geometry[id];
+          entry.quad = target == null
+              ? null
+              : selectionQuad(
+                  target,
+                  palette: palette,
+                  cameraRotation: cameraRotation,
+                );
+          entry.bounds = entry.quad?.bounds;
+          entry.ready = true;
+          _aggregateDirty = true;
+        }
+        final quad = entry.quad;
         if (quad == null) continue;
-        if (mode != PatchMapSelectionDisplayMode.groupOnly) {
+        if (mode != PatchMapSelectionDisplayMode.groupOnly &&
+            (cull == null || boundsOverlap(entry.bounds!, cull))) {
           _appendOutline(quad, worldWidth);
         }
-        if (mode != PatchMapSelectionDisplayMode.elementOnly) {
-          first ??= quad;
-          aggregate = aggregate?.expandToInclude(quad.bounds) ?? quad.bounds;
-        }
-        count++;
       }
-      if (mode != PatchMapSelectionDisplayMode.elementOnly && count > 0) {
-        if (count > 1) {
+      if (_envelopes.length != _resolvedTargetCount) {
+        _envelopes.removeWhere((_, entry) => entry.visit != visit);
+        _aggregateDirty = true;
+      }
+      if (_envelopes.isEmpty) _clearGeometry();
+      if (mode != PatchMapSelectionDisplayMode.elementOnly && _aggregateDirty) {
+        _aggregate = null;
+        _first = null;
+        _drawableCount = 0;
+        for (final entry in _envelopes.values) {
+          if (entry.quad == null) continue;
+          _first ??= entry.quad;
+          _aggregate =
+              _aggregate?.expandToInclude(entry.bounds!) ?? entry.bounds;
+          _drawableCount++;
+        }
+        _aggregateDirty = false;
+      }
+      if (mode != PatchMapSelectionDisplayMode.elementOnly &&
+          _drawableCount > 0) {
+        if (_drawableCount > 1) {
           if (style.strokeAlignment ==
               PatchMapSelectionStrokeAlignment.center) {
-            _path.addRect(aggregate!);
+            _path.addRect(_aggregate!);
             _outlineCount++;
           } else {
-            _appendOutline(Affine.identity.projectRect(aggregate!), worldWidth);
+            _appendOutline(
+              Affine.identity.projectRect(_aggregate!),
+              worldWidth,
+            );
           }
         } else if (mode == PatchMapSelectionDisplayMode.groupOnly) {
-          _appendOutline(first!, worldWidth);
+          _appendOutline(_first!, worldWidth);
         }
       }
       if (_outlineCount > 0) {
@@ -192,8 +283,13 @@ final class SelectionOverlay {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _path.reset();
-    _outlineCount = 0;
-    _resolvedTargetCount = 0;
+    reset();
   }
+}
+
+final class _SelectionEnvelope {
+  bool ready = false;
+  int visit = 0;
+  Quad? quad;
+  Rect? bounds;
 }

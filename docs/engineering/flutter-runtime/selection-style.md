@@ -32,15 +32,28 @@ change. Public usage is documented in the [package README](../../../packages/flu
 
 `api/selection_style.dart` owns immutable values; widget composition validates
 before attachment and sends accepted changes to the existing SelectionOverlay.
-The overlay retains one style, Paint and Path, with no selection copy or new
-listener, timer, resource cache or scheduler. Equal styles do not invalidate.
+The overlay retains one style, Paint and Path, plus derived envelopes for the
+last painted selection. It does not own selection or add a listener, timer,
+native resource or scheduler. Equal styles do not invalidate.
 The existing frame owner handles changed paint and ordinary value submissions.
 `geometry/selection_geometry.dart` owns envelope and parallel-offset calculation.
 
-Only selected IDs are resolved. Hidden/transparent paint skips them entirely.
+Only selected IDs are resolved. Envelopes reuse the shared geometry calculation
+until the existing backend publication boundary invalidates changed slots.
+This explicit handoff also covers retained node/layout mutation; object identity
+alone is not a freshness witness. Unannounced snapshot changes or camera rotation
+discard the memo. Selection removal prunes entries; hidden styles, document hide
+and disposal clear them, including the snapshot reference. Camera translation
+and scale reuse the world envelopes and unchanged aggregate bounds.
+
+Hidden/transparent paint skips selected IDs entirely.
 Element-only avoids aggregate computation. Center uses its existing stroke path;
 noncenter bands share a single winding-filled draw, without per-object layers,
-clips or alpha overdraw. Reusable Path contents are cleared after each paint.
+clips or alpha overdraw. Center/inside individual outlines outside the viewport's
+conservative world bounds are omitted, with stroke/miter and antialias padding.
+Outside bands retain the full drawing path because strong shear can extend them
+beyond a fixed padding. The aggregate always includes the entire selection.
+Reusable Path contents are cleared after each paint.
 
 Focused witnesses:
 
@@ -49,6 +62,8 @@ Focused witnesses:
 - `test/rendering/selection_style_test.dart`: modes, color/width, viewport floor,
   aligned bands, collapsed interiors, shear/reflection, overlapping alpha and
   invalid configuration retaining the prior style.
+- `test/rendering/selection_cache_test.dart`: culled/full pixel equivalence,
+  retained mutation invalidation, offscreen aggregate and hide cleanup.
 - `test/widget/selection_paint_test.dart`: public live changes, pending value
   submission, retained selection/camera, inactivity, replacement and recovery.
 - `verification/flutter/installed-consumer.dart`: exported configuration compiles
