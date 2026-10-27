@@ -858,17 +858,19 @@ final class MapBackend extends SessionBackend {
   }
 
   void _fitReplacement() {
+    // A new diagram starts from an unrotated camera. Ordinary fit commands
+    // retain rotation; reset only at this replacement publication boundary.
+    camera.set(
+      center: Offset.zero,
+      scale: 1,
+      rotation: 0,
+      source: PatchMapCameraChangeSource.replacement,
+    );
     final bounds = current?.geometry.bounds;
     if (bounds != null && !bounds.isEmpty) {
       camera.fit(
         bounds,
         padding: const EdgeInsets.all(12),
-        source: PatchMapCameraChangeSource.replacement,
-      );
-    } else {
-      camera.set(
-        center: Offset.zero,
-        scale: 1,
         source: PatchMapCameraChangeSource.replacement,
       );
     }

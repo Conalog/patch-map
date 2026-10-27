@@ -14,7 +14,8 @@ neither generation nor visible surface.
 
 An accepted replacement hides the old diagram, cancels its request obligations
 with explicit reasons and prepares the new one. Reset selection/gesture and
-translation/scale; retain rotation and fit the new bounds. Images do not block
+translation/scale/rotation; fit the new bounds at zero rotation. Same-diagram
+fit and value updates preserve rotation. Images do not block
 first-frame readiness. Surface loading/failure notifications let the host show
 its spinner/error UI; the painter never restores the old diagram on failure.
 The first-screen update batch is cut when processing of first-screen

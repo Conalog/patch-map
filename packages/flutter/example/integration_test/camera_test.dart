@@ -234,7 +234,7 @@ void main() {
     expect(changes.single.sources, {PatchMapCameraChangeSource.replacement});
     expect(changes.single.state.center, Offset.zero);
     expect(changes.single.state.scale, 1);
-    expect(changes.single.state.rotation, .9);
+    expect(changes.single.state.rotation, 0);
     changes.clear();
     controller.setCamera(rotation: 1);
     await tester.pumpWidget(const SizedBox());

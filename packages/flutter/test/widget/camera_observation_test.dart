@@ -83,6 +83,7 @@ void main() {
     await support.progress(tester);
     expect((await update).outcome, PatchMapOutcome.applied);
     expect(changes, isEmpty, reason: 'data repaint does not change the camera');
+    expect(controller.camera!.rotation, current.rotation);
     await tester.pumpWidget(const SizedBox());
     expect(controller.camera, isNull);
   });
@@ -224,21 +225,30 @@ void main() {
       await tester.pumpWidget(host(controller, changed: changes.add));
       await draw(tester, controller);
       changes.clear();
-      controller.setCamera(scale: 2);
+      controller.setCamera(scale: 2, rotation: .6);
       final invalid = await controller.draw([
         {'type': 'invalid'},
       ]);
       expect(invalid.outcome, PatchMapOutcome.rejected);
+      expect(controller.camera!.rotation, .6);
       await tester.pump();
       expect(changes.single.sources, {PatchMapCameraChangeSource.programmatic});
       changes.clear();
       controller.setCamera(center: const Offset(700, 800));
-      final replacement = controller.draw(support.rectangle('new'));
+      final replacement = controller.draw([
+        {
+          ...support.rectangle('new').single,
+          'size': {'width': 200, 'height': 100},
+          'attrs': {'x': 200, 'y': 100},
+        },
+      ]);
       expect(controller.camera, isNull);
       await support.progress(tester);
       expect((await replacement).outcome, PatchMapOutcome.applied);
       expect(changes.single.sources, {PatchMapCameraChangeSource.replacement});
-      expect(changes.single.state.center, const Offset(50, 50));
+      expect(changes.single.state.center, const Offset(300, 150));
+      expect(changes.single.state.rotation, 0);
+      expect(changes.single.state.scale, closeTo(1.88, 1e-9));
       await tester.pumpWidget(const SizedBox());
     },
   );
@@ -297,6 +307,16 @@ void main() {
         isEmpty,
         reason: 'identical adopted state is still quiet',
       );
+      controller.setCamera(rotation: .9);
+      await tester.pump();
+      changes.clear();
+      final empty = controller.draw(const []);
+      await support.progress(tester);
+      expect((await empty).outcome, PatchMapOutcome.applied);
+      expect(changes.single.sources, {PatchMapCameraChangeSource.replacement});
+      expect(changes.single.state.rotation, 0);
+      expect(changes.single.state.center, Offset.zero);
+      expect(changes.single.state.scale, 1);
       await tester.pumpWidget(const SizedBox());
     },
   );

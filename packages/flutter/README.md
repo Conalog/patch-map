@@ -49,7 +49,8 @@ final result = await controller.updateValues([
 ]);
 ```
 
-`draw(data)` replaces the diagram, hides the previous surface, resets selection/gestures and fits new bounds while keeping rotation.
+`draw(data)` replaces the diagram, hides the previous surface, resets selection/gestures and camera rotation to zero, then fits new bounds.
+Calling `fit()` or updating values in the same diagram preserves rotation.
 Use `loadingBuilder` for a spinner. Invalid replacement preserves the current drawing.
 A changed non-null `initialData` identity also replaces; use `updateValues` for display-value changes.
 
@@ -139,9 +140,10 @@ controller.rotateTo(0); // Return to the diagram's original orientation.
 Duration must be nonnegative; zero also applies immediately. Disabling during
 travel finishes at the requested angle; changing duration affects the next
 command. A new rotation retargets from the current displayed angle. A touch,
-handled wheel input, accepted `setCamera`/fit/focus, scale clamping, replacement,
+handled wheel input, accepted `setCamera`/fit/focus, scale clamping,
 inactivity or removal stops travel at the applied angle. Resume does not replay
-it; resizing alone preserves travel. Invalid requests leave prior travel intact.
+it; resizing alone preserves travel. Replacement cancels travel and resets the
+new diagram to zero rotation. Invalid requests leave prior travel intact.
 Intermediate angles may cross a full turn; completion stores the exact requested
 angle. Angles too large to represent incremental travel require normalization
 with immediate `setCamera` first. Camera callbacks report `programmatic` changes

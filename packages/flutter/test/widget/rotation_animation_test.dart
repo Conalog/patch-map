@@ -124,13 +124,12 @@ void main() {
     expect(controller.camera!.rotation, paused);
     controller.rotateTo(2);
     await step(tester);
-    final angle = controller.camera!.rotation;
     final replacement = controller.draw(support.rectangle('b'));
     expect(controller.rotateTo(0).outcome, PatchMapOutcome.rejected);
     await support.progress(tester);
     await replacement;
     await step(tester);
-    expect(controller.camera!.rotation, angle);
+    expect(controller.camera!.rotation, 0);
     controller.rotateTo(1);
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(host(controller));

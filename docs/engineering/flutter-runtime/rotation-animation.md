@@ -21,8 +21,9 @@ and plant-north interpretation remain host responsibilities.
   Finite angles and a representable target transform are required. If the current
   unwrapped angle cannot represent the travel delta, normalize it with setCamera.
 - New pointer-down or handled wheel input interrupts. Accepted setCamera,
-  focus/fit (including no-op commands), actual zoom-limit clamping, accepted
-  replacement, inactivity, failure and removal cancel at the applied angle.
+  focus/fit (including no-op commands), actual zoom-limit clamping,
+  inactivity, failure and removal cancel at the applied angle. Accepted
+  replacement cancels travel and resets the new diagram's rotation to zero.
   Invalid commands/replacements preserve travel. Resume never replays it.
   Resize alone preserves travel and existing world-center/scale/rotation rules.
 - Like other synchronous camera commands, the result acknowledges acceptance,

@@ -33,7 +33,7 @@ animation-end or raster-completion notification. Reentrant commands from the
 camera callback are notified on a subsequent frame. Callback exceptions use the
 existing host-error boundary and cannot break session/resource cleanup.
 
-Accepted replacement discards pending old-diagram causes. Invalid replacement
+Accepted replacement resets rotation to zero and discards pending old-diagram causes. Invalid replacement
 preserves them. If ready notification accepts another replacement, the prior
 generation cannot emit a camera callback. Inactivity defers pending notification;
 resume delivers the latest state if it differs. Removing the callback clears its
