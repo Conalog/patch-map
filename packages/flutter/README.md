@@ -53,6 +53,12 @@ final result = await controller.updateValues([
 Use `loadingBuilder` for a spinner. Invalid replacement preserves the current drawing.
 A changed non-null `initialData` identity also replaces; use `updateValues` for display-value changes.
 
+Compose each equipment item's finite component set in the host before `draw`.
+Component IDs/types stay fixed until replacement; first release has no component
+add/remove/type-replacement API. Use `show: false` for currently unused members,
+then update their existing IDs. Hidden components still need valid definitions
+and may incur layout/resource preparation, so avoid speculative unused components.
+
 Updates retain omitted fields and use the schema's field-specific reset rules.
 Inputs are detached and validated atomically; preparation failures retain the
 whole previous item while independent items can succeed. The runtime composes
