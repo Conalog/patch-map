@@ -89,3 +89,29 @@ Quad? selectionQuad(
   }
   return target.world.projectRect(envelope);
 }
+
+/// Parallel offset of an affine rectangle in world units. Positive expands;
+/// negative contracts. A collapsed interior has no contour. This preserves
+/// perpendicular border width under rotation, reflection and ancestor shear.
+Quad? offsetSelectionQuad(Quad quad, double distance) {
+  if (distance == 0) return quad;
+  final u = quad.p1 - quad.p0, v = quad.p3 - quad.p0;
+  final ul = vectorLength(u.dx, u.dy), vl = vectorLength(v.dx, v.dy);
+  if (ul == 0 || vl == 0) return null;
+  final sine = cross(u / ul, v / vl).abs();
+  if (sine == 0) return null;
+  final du = distance / (ul * sine), dv = distance / (vl * sine);
+  if (!du.isFinite || !dv.isFinite || du <= -.5 || dv <= -.5) return null;
+  final a = u * du, b = v * dv;
+  final result = Quad(
+    quad.p0 - a - b,
+    quad.p1 + a - b,
+    quad.p2 + a + b,
+    quad.p3 - a + b,
+  );
+  for (var i = 0; i < 4; i++) {
+    final point = result.vertex(i);
+    if (!point.dx.isFinite || !point.dy.isFinite) return null;
+  }
+  return result;
+}

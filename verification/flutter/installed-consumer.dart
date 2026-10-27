@@ -13,6 +13,7 @@ Widget _host(
   required List<PatchMapFailure> failures,
   ValueChanged<PatchMapCameraChange>? cameraChanged,
   bool active = true,
+  PatchMapSelectionStyle selectionStyle = const PatchMapSelectionStyle(),
 }) => MediaQuery(
   data: const MediaQueryData(size: Size(240, 200)),
   child: Directionality(
@@ -24,6 +25,7 @@ Widget _host(
         child: PatchMapView(
           controller: controller,
           active: active,
+          selectionStyle: selectionStyle,
           gestures: const PatchMapGestureOptions(
             rotationEnabled: false,
             zoomThreshold: .03,
@@ -198,6 +200,28 @@ void main() {
     await _progress(tester); // Bundled asynchronous SVG/atlas preparation.
     expect(phases, [PatchMapPhase.preparing, PatchMapPhase.ready]);
     expect(failures, isEmpty);
+
+    controller.select(['panel']);
+    final selectedCamera = controller.camera;
+    await tester.pumpWidget(
+      _host(
+        controller,
+        phases: phases,
+        failures: failures,
+        cameraChanged: cameraChanges.add,
+        selectionStyle: const PatchMapSelectionStyle(
+          color: ui.Color(0xffef4444),
+          strokeWidth: 2,
+          displayMode: PatchMapSelectionDisplayMode.elementOnly,
+          strokeAlignment: PatchMapSelectionStrokeAlignment.outside,
+          strokeScale: PatchMapSelectionStrokeScale.viewport,
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(controller.selected.single.id, 'panel');
+    expect(controller.camera, selectedCamera);
+    expect(controller.getValue(number)?['text'], '1234');
 
     final dimmed = controller.setPresentation(
       'filter',

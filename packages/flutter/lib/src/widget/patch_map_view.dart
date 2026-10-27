@@ -7,6 +7,7 @@ import '../api/result.dart';
 import '../api/camera.dart';
 import '../api/object_geometry.dart';
 import '../api/gesture_options.dart';
+import '../api/selection_style.dart';
 import '../api/presentation.dart';
 import '../api/events.dart';
 import '../interaction/input_coordinator.dart';
@@ -16,6 +17,7 @@ import '../api/target.dart';
 import '../api/update.dart';
 import '../dataset/colors.dart';
 import '../frame/frame_coordinator.dart';
+import '../rendering/selection_overlay.dart' as selection;
 import '../geometry/scene_geometry.dart' show unionBounds;
 import '../geometry/object_geometry.dart';
 import '../resources/asset_registry.dart';
@@ -45,6 +47,7 @@ class PatchMapView extends StatefulWidget {
     this.dragMode = PatchMapDragMode.pan,
     this.gestures = const PatchMapGestureOptions(),
     this.zoomLimits = const PatchMapZoomLimits(),
+    this.selectionStyle = const PatchMapSelectionStyle(),
     this.loadingBuilder,
     this.errorBuilder,
   });
@@ -62,6 +65,7 @@ class PatchMapView extends StatefulWidget {
   final PatchMapDragMode dragMode;
   final PatchMapGestureOptions gestures;
   final PatchMapZoomLimits zoomLimits;
+  final PatchMapSelectionStyle selectionStyle;
   final WidgetBuilder? loadingBuilder;
   final Widget Function(BuildContext context, PatchMapFailure? failure)?
   errorBuilder;
@@ -92,6 +96,7 @@ class _PatchMapViewState extends State<PatchMapView>
     super.initState();
     MapCamera.validateZoomLimits(widget.zoomLimits);
     TouchCameraGesture.validateOptions(widget.gestures);
+    selection.SelectionOverlay.validateStyle(widget.selectionStyle);
     _gestureOptions = widget.gestures;
     _foreground =
         WidgetsBinding.instance.lifecycleState == null ||
@@ -107,6 +112,7 @@ class _PatchMapViewState extends State<PatchMapView>
       onAssetFailure: (failures) =>
           session.notify(() => widget.onImageFailure?.call(failures)),
     );
+    backend.selectionOverlay.configure(widget.selectionStyle);
     WidgetsBinding.instance.addObserver(this);
     backend.camera.observe(widget.onCameraChanged != null);
     frame = FrameCoordinator(
@@ -226,6 +232,14 @@ class _PatchMapViewState extends State<PatchMapView>
   @override
   void didUpdateWidget(PatchMapView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    try {
+      if (backend.selectionOverlay.configure(widget.selectionStyle)) {
+        frame.invalidate();
+      }
+    } on ArgumentError catch (error, stack) {
+      // Keep the last valid decoration; selection and pending updates survive.
+      _reportConfigurationError(error, stack);
+    }
     try {
       TouchCameraGesture.validateOptions(widget.gestures);
       _gestureOptions = widget.gestures;

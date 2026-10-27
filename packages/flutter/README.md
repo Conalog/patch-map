@@ -127,6 +127,33 @@ callbacks. Move callbacks are coalesced per frame while intermediate path hits
 are retained. Interrupted drags have one end event with a reason; widget removal
 does not emit a new callback. No domain fetching or business action is built in.
 
+Configure selection decoration with `selectionStyle`; rebuilding the same widget
+with a new value updates existing selection without replacing data, moving the
+camera or emitting selection changes:
+
+```dart
+PatchMapView(
+  controller: controller,
+  selectionStyle: const PatchMapSelectionStyle(
+    color: Color(0xffef4444),
+    strokeWidth: 2,
+    displayMode: PatchMapSelectionDisplayMode.elementOnly,
+  ),
+);
+```
+
+Defaults remain blue `#2f80ed`, 2 logical pixels, centered, fixed screen width,
+and `all` (individual envelopes plus an aggregate for multiple objects).
+Modes are `all`, `elementOnly`, `groupOnly`, `hidden`; hiding decoration preserves
+selection and hits. `strokeAlignment` supports `center`, `inside`, `outside`.
+`strokeScale: PatchMapSelectionStrokeScale.viewport` shrinks width on zoom-out,
+clamped between `minStrokeWidth` (default 1) and `strokeWidth`. Both widths must
+be finite and positive, with minimum <= base even for fixed mode. Invalid initial
+settings reject attachment; invalid rebuild settings report a Flutter error and
+retain the last valid style. Inactive style changes display on resume. Styles
+persist across diagram replacement, while selection still resets. No editing
+handles or object-transform commands are added.
+
 The widget owns resources. Removal closes its session; the controller can then
 attach to another widget without replaying detached commands. One controller
 cannot attach to two live widgets. App background and `active: false` suspend

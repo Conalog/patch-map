@@ -22,7 +22,7 @@ historical proposals which this current specification supersedes.
 | F11 | App background or explicit inactive map preserves resources but defers comparison/preparation/frames, composing latest input. Inactive replacements retain only latest valid dataset. | Session / resources | Background burst/resume and replacement |
 | F12 | CustomPainter; one frame scheduling owner; calculations/search on main isolate. No per-item widget/ticker/listener. | Frame / rendering | Idle frames and lifetime counts |
 | F13 | Shared geometry for bounds/hit/fit. Item is interaction unit; background-less item uses component intersections. Uniform index: max16 cells/item, overflow list once. With B occupied buckets, T=max(1,min(4096,ceil(B/4))); clipped query visiting Q>=T cells scans once. | Geometry | Large/overflow/rotated items; point/range/path equivalence |
-| F14 | Library detects inputs/items and owns selection; host maps gestures to actions. Filter skips disallowed front objects; direct selection bypasses input filter. | Interaction | Overlap/filter/programmatic selection |
+| F14 | Library owns detection/selection; host maps actions. Filter skips disallowed front objects; direct selection bypasses it. Live decoration preserves selection/data. | Interaction / [selection style](selection-style.md) | Overlap/filter/selection; live style pixels |
 | F15 | Default drag pans; host may choose range or paint mode; mode stays stable during drag. Resolve each raw input using then-published geometry/camera, preserving intermediate path hits; coalesce only move notifications per frame. One end with reason; no extra final move; no end callback on permanent widget removal. | Interaction | Range/paint paths, changing camera/geometry, interruption, removal exception |
 | F16 | Filters are judgment-only; mutations are allowed in result callbacks, admitted then processed after callback exit. Callback exceptions cannot break runtime cleanup. | Session / interaction | Reentry and throwing callback/filter |
 | F17 | Events provide world/local/global logical-pixel coordinates. Fit adjusts scale; focus preserves it; rotation retained. Screen-edge padding is one unified option. Resize preserves world center/scale/rotation. Focus/fit reject while preparing; partial missing targets return applied/missing, all missing preserves camera. | Viewport / API | Rotated fit/padding/resize, preparation state and missing targets |
@@ -39,7 +39,7 @@ Rendering and resource contracts F18–F29 are owned by
 ## Explicit implementation judgments
 
 Use small immutable address/result types and one connected controller facade.
-Precise Dart names are implementation choices; schema field meanings are not.
+Dart names are implementation choices; schema meanings are not.
 No generic per-field `null` reset outside the documented presentation grammar.
 Keep root/component shape validation separate from value comparison, so an
 unchanged record is still checked without allocating a new retained value.

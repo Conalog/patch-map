@@ -19,6 +19,7 @@ Widget host(
   ValueChanged<List<PatchMapFailure>>? imageFailure,
   bool Function(PatchMapObject)? filter,
   PatchMapDragMode dragMode = PatchMapDragMode.pan,
+  PatchMapSelectionStyle selectionStyle = const PatchMapSelectionStyle(),
 }) => MediaQuery(
   data: const MediaQueryData(size: Size(400, 400)),
   child: Directionality(
@@ -35,6 +36,7 @@ Widget host(
           onImageFailure: imageFailure,
           eventFilter: filter,
           dragMode: dragMode,
+          selectionStyle: selectionStyle,
           onPhaseChanged: (value, _) => phase?.call(value),
         ),
       ),
