@@ -415,80 +415,99 @@ final class MapBackend extends SessionBackend {
         resources = previous.resources;
     final layouts = _validatedLayouts;
     _validatedLayouts = null;
-    if (changes is RetainedUpdate) {
-      final proof = changes;
-      final valid =
-          identical(_validatedUpdate, proof) &&
-          _active &&
-          intent != null &&
-          identical(previous, current) &&
-          proof.matches(
+    Set<PatchMapTarget> sourceTargets = const {};
+    try {
+      if (changes is RetainedUpdate) {
+        final proof = changes;
+        final valid =
+            identical(_validatedUpdate, proof) &&
+            _active &&
+            intent != null &&
+            identical(previous, current) &&
+            proof.matches(
+              document,
+              previous,
+              generation,
+              revision,
+              _epoch,
+              intent,
+            );
+        _validatedUpdate = null;
+        if (valid) {
+          resources.text.withPreparation(proof.prepare);
+          return PreparedUpdate(
+            RenderPublication.retained(previous, proof, animate: animate),
+          );
+        }
+      }
+      sourceTargets = {
+        for (final patch in intent?.patches ?? const <PresentationPatch>[])
+          if (patch.operations.any(
+            (operation) => operation.path.first == 'source',
+          ))
+            patch.target,
+      };
+      if (identical(previous, current) && _active && sourceTargets.isEmpty) {
+        final staged = resources.text.withPreparation(() {
+          final update = RetainedUpdate.fromChanges(
             document,
             previous,
             generation,
             revision,
             _epoch,
-            intent,
+            changes,
+            layouts,
           );
-      _validatedUpdate = null;
-      if (valid) {
-        resources.text.withPreparation(proof.prepare);
-        return PreparedUpdate(
-          RenderPublication.retained(previous, proof, animate: animate),
-        );
+          update?.prepare();
+          return update;
+        });
+        if (staged != null) {
+          return PreparedUpdate(
+            RenderPublication.retained(previous, staged, animate: animate),
+          );
+        }
       }
-    }
-    final sourceTargets = {
-      for (final patch in intent?.patches ?? const <PresentationPatch>[])
-        if (patch.operations.any(
-          (operation) => operation.path.first == 'source',
-        ))
-          patch.target,
-    };
-    if (identical(previous, current) && _active && sourceTargets.isEmpty) {
-      final staged = resources.text.withPreparation(() {
-        final update = RetainedUpdate.fromChanges(
-          document,
-          previous,
-          generation,
-          revision,
-          _epoch,
-          changes,
-          layouts,
-        );
-        update?.prepare();
-        return update;
-      });
-      if (staged != null) {
-        return PreparedUpdate(
-          RenderPublication.retained(previous, staged, animate: animate),
-        );
-      }
+    } on DatasetException catch (error) {
+      if (error.code != 'INVALID_GEOMETRY') rethrow;
+      // A rebased world envelope can fail after scalar admission. Retained
+      // preparation releases its staged leases on failure; use the ordinary
+      // projection path to attribute and isolate the failed item below.
     }
     late GeometryChange projection;
     final owned = <int, DrawNode>{};
     final failures = <String, List<PatchMapFailure>>{};
     try {
-      projection = resources.text.withPreparation(() {
-        final prepared = previous.geometry.prepareChanges(
-          changes,
-          resources.text.measure,
-          layoutsMemo: layouts,
-        );
-        for (final entry in prepared.changed.entries) {
-          final node = resources.compiler.compile(
-            entry.value,
-            initialLoad: false,
-            previous: previous.node(entry.key),
-            relation: prepared.snapshot.relationFor(entry.value.id),
-            retrySources: sourceTargets,
-            fields: prepared.fields[entry.key] ?? 0,
-            componentChanges: prepared.componentChanges[entry.key],
-          )..retain();
-          owned[entry.key] = node;
-        }
-        return prepared;
-      });
+      try {
+        projection = resources.text.withPreparation(() {
+          final prepared = previous.geometry.prepareChanges(
+            changes,
+            resources.text.measure,
+            layoutsMemo: layouts,
+          );
+          for (final entry in prepared.changed.entries) {
+            final node = resources.compiler.compile(
+              entry.value,
+              initialLoad: false,
+              previous: previous.node(entry.key),
+              relation: prepared.snapshot.relationFor(entry.value.id),
+              retrySources: sourceTargets,
+              fields: prepared.fields[entry.key] ?? 0,
+              componentChanges: prepared.componentChanges[entry.key],
+            )..retain();
+            owned[entry.key] = node;
+          }
+          return prepared;
+        });
+      } on GeometryPreparationFailure catch (error) {
+        failures[error.targetId] = [
+          PatchMapFailure(
+            error.code,
+            error.message,
+            target: PatchMapTarget(error.targetId),
+            path: error.path,
+          ),
+        ];
+      }
       // Only new/changed asset references block an ordinary item update. The
       // initial diagram never waits for these futures.
       final waiting = <Future<void>>[];
@@ -546,7 +565,7 @@ final class MapBackend extends SessionBackend {
             id,
             () => [
               PatchMapFailure(
-                'IMAGE_PREPARATION',
+                failures.values.first.first.code,
                 'Dependent item preparation failed',
                 target: PatchMapTarget(id),
               ),
@@ -557,6 +576,9 @@ final class MapBackend extends SessionBackend {
           for (final entry in changes.entries)
             if (!denied.contains(entry.key.id)) entry.key: entry.value,
         };
+        if (successful.length == changes.length) {
+          throw StateError('failed projection has no changed owner');
+        }
         if (successful.isEmpty) {
           retain(previous);
           return PreparedUpdate(previous, failures: failures);

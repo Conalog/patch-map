@@ -275,70 +275,76 @@ final class GeometrySnapshot {
     void project(int slot) {
       if (changed.containsKey(slot)) return;
       final before = nodes[slot], id = before.id;
-      var data = records[id] ?? before.data;
-      final parentSlot = topology.parents[slot];
-      final parent = parentSlot == null
-          ? null
-          : changed[parentSlot] ?? nodes[parentSlot];
-      final flags = fields[id] ?? 0;
-      if (flags != 0) nodeFields[slot] = flags;
-      ItemLayout? item;
-      if (before.item != null) {
-        final addressed =
-            componentChanges[slot] ?? const ComponentChanges.empty();
-        item = before.item!.update(
-          data,
-          addressed,
-          measure,
+      late Map<String, Object?> data;
+      late final TargetGeometry projected;
+      try {
+        data = records[id] ?? before.data;
+        final parentSlot = topology.parents[slot];
+        final parent = parentSlot == null
+            ? null
+            : changed[parentSlot] ?? nodes[parentSlot];
+        final flags = fields[id] ?? 0;
+        if (flags != 0) nodeFields[slot] = flags;
+        ItemLayout? item;
+        if (before.item != null) {
+          final addressed =
+              componentChanges[slot] ?? const ComponentChanges.empty();
+          item = before.item!.update(
+            data,
+            addressed,
+            measure,
+            fields: flags,
+            memo: layoutsMemo,
+          );
+          if (item.size == before.item!.size &&
+              item.content == before.item!.content &&
+              (flags & RecordFields.contentOrientation) == 0 &&
+              identical(item.indices, before.item!.indices)) {
+            // Empty is an exact dependency hint too; null requests broad work.
+            componentChanges[slot] = addressed;
+          } else {
+            componentChanges.remove(slot);
+          }
+          if (!identical(data, before.data) || !identical(item, before.item)) {
+            data = ItemDataView(data, item);
+          }
+        }
+        // World coordinates depend on the parent frame and grid template pitch,
+        // not on this cell's independently updated size or bar dimensions.
+        Affine? retainedWorld;
+        if (before.item != null &&
+            identical(data['attrs'], before.data['attrs'])) {
+          final previousParent = parentSlot == null ? null : nodes[parentSlot];
+          if (identical(parent?.world, previousParent?.world)) {
+            final samePitch =
+                before.target.row == null ||
+                identical(parent!.data['gap'], previousParent!.data['gap']) &&
+                    identical(
+                      (parent.data['item']! as Map)['size'],
+                      (previousParent.data['item']! as Map)['size'],
+                    );
+            if (samePitch) retainedWorld = before.world;
+          }
+        }
+        projected = projectTargetGeometry(
+          target: before.target,
+          data: data,
+          measureText: measure,
+          measureImage: measureImage,
+          parentWorld: parent?.world ?? Affine.identity,
+          parentVisible: parent?.visible ?? true,
+          parentLocked: parent?.locked ?? false,
+          parentOpacity: parent?.opacity ?? 1,
+          gridData: parent?.data,
+          item: item,
+          previous: before,
+          retainedWorld: retainedWorld,
           fields: flags,
-          memo: layoutsMemo,
+          componentChanges: componentChanges[slot],
         );
-        if (item.size == before.item!.size &&
-            item.content == before.item!.content &&
-            (flags & RecordFields.contentOrientation) == 0 &&
-            identical(item.indices, before.item!.indices)) {
-          // Empty is an exact dependency hint too; null requests broad work.
-          componentChanges[slot] = addressed;
-        } else {
-          componentChanges.remove(slot);
-        }
-        if (!identical(data, before.data) || !identical(item, before.item)) {
-          data = ItemDataView(data, item);
-        }
+      } on DatasetException catch (error) {
+        throw GeometryPreparationFailure(id, error);
       }
-      // World coordinates depend on the parent frame and grid template pitch,
-      // not on this cell's independently updated size or bar dimensions.
-      Affine? retainedWorld;
-      if (before.item != null &&
-          identical(data['attrs'], before.data['attrs'])) {
-        final previousParent = parentSlot == null ? null : nodes[parentSlot];
-        if (identical(parent?.world, previousParent?.world)) {
-          final samePitch =
-              before.target.row == null ||
-              identical(parent!.data['gap'], previousParent!.data['gap']) &&
-                  identical(
-                    (parent.data['item']! as Map)['size'],
-                    (previousParent.data['item']! as Map)['size'],
-                  );
-          if (samePitch) retainedWorld = before.world;
-        }
-      }
-      final projected = projectTargetGeometry(
-        target: before.target,
-        data: data,
-        measureText: measure,
-        measureImage: measureImage,
-        parentWorld: parent?.world ?? Affine.identity,
-        parentVisible: parent?.visible ?? true,
-        parentLocked: parent?.locked ?? false,
-        parentOpacity: parent?.opacity ?? 1,
-        gridData: parent?.data,
-        item: item,
-        previous: before,
-        retainedWorld: retainedWorld,
-        fields: flags,
-        componentChanges: componentChanges[slot],
-      );
       changed[slot] = projected;
       // Relation bounds are resolved below; their temporary projection must
       // not mark an unchanged final relation as dirty.
@@ -471,6 +477,14 @@ final class GeometrySnapshot {
       fields: nodeFields,
     );
   }
+}
+
+/// Identifies the failed projection without changing schema error diagnostics.
+/// The backend owns item rollback; geometry never publishes a partial snapshot.
+final class GeometryPreparationFailure extends DatasetException {
+  GeometryPreparationFailure(this.targetId, DatasetException cause)
+    : super(cause.code, cause.path, cause.message);
+  final String targetId;
 }
 
 final class GeometryChange {

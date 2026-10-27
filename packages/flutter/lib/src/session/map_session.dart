@@ -260,6 +260,7 @@ final class MapSession {
           // must not be replayed. Carry obligations, not the old value plan.
           old.plan = newer.plan;
           old.index = newer.index;
+          old.rolledBack = newer.rolledBack;
           _pending = old;
         }
         _executing = null;
@@ -384,6 +385,68 @@ final class MapSession {
         : null;
   }
 
+  /// Admission may have used an executing item's values which later rolled
+  /// back. Recheck only that failure lineage, against the resolved final fields
+  /// and published owner geometry. Ordinary successful updates keep their proof.
+  Map<String, List<PatchMapFailure>> _revalidateAfterFailure(
+    _Pending pending,
+    Map<PatchMapTarget, RecordDelta> changes,
+  ) {
+    final rolledBack = pending.rolledBack;
+    if (rolledBack == null) return const {};
+    Map<String, List<PresentationPatch>>? affected;
+    for (final patch in pending.plan.patches) {
+      if (!changes.containsKey(patch.target)) continue;
+      String? id = patch.target.id;
+      while (id != null && !rolledBack.contains(id)) {
+        id = _document!.targets[id]?.parentId;
+      }
+      if (id != null) {
+        (affected ??= {}).putIfAbsent(patch.target.id, () => []).add(patch);
+      }
+    }
+    if (affected == null) return const {};
+    final failures = <String, List<PatchMapFailure>>{};
+    for (final entry in affected.entries) {
+      try {
+        // Reuse admission's compound schema rules on whole touched fields.
+        // Replay neither caller input nor claims: their reset/supersession
+        // meaning remains with the original composed plan and request ledger.
+        _admission.admit(_document!, [
+          for (final patch in entry.value)
+            PatchMapUpdate(patch.target, {
+              for (final operation in patch.operations)
+                if (changes[patch.target]!.after.containsKey(
+                  operation.path.first,
+                ))
+                  operation.path.first:
+                      changes[patch.target]!.after[operation.path.first],
+            }),
+        ], current: (target) => changes[target]?.after ?? current(target));
+        backend.validateUpdate(
+          _document!,
+          PresentationBatch(entry.value, const []),
+          current,
+        );
+      } catch (error) {
+        if (!_expected(error)) rethrow;
+        final failure = _failure(error);
+        failures[entry.key] = [
+          PatchMapFailure(
+            failure.code,
+            failure.message,
+            path: failure.path,
+            target: PatchMapTarget(entry.key),
+          ),
+        ];
+      }
+    }
+    if (failures.isNotEmpty) {
+      changes.removeWhere((target, _) => failures.containsKey(target.id));
+    }
+    return failures;
+  }
+
   void _schedule() {
     if (!active ||
         _queued ||
@@ -456,7 +519,9 @@ final class MapSession {
         final changes = pending == null
             ? <PatchMapTarget, RecordDelta>{}
             : _resolve(pending.plan);
-        var failures = const <String, List<PatchMapFailure>>{};
+        var failures = pending == null
+            ? const <String, List<PatchMapFailure>>{}
+            : _revalidateAfterFailure(pending, changes);
         if (changes.isNotEmpty) {
           final prepared = await backend.prepareUpdate(
             baseline,
@@ -467,7 +532,9 @@ final class MapSession {
             intent: pending?.plan,
           );
           candidate = prepared.publication;
-          failures = prepared.failures;
+          failures = failures.isEmpty
+              ? prepared.failures
+              : {...failures, ...prepared.failures};
         } else {
           candidate = baseline;
           backend.retain(candidate);
@@ -505,6 +572,13 @@ final class MapSession {
             _failedTargets.remove(entry.key.id);
           }
         }
+        if (failures.isNotEmpty) {
+          _failedTargets.addAll(failures.keys);
+          final waiting = _pending;
+          if (waiting != null) {
+            (waiting.rolledBack ??= {}).addAll(failures.keys);
+          }
+        }
         _revision = nextRevision;
         _resumeWithoutAnimation = false;
         _submission = _Submission(
@@ -532,6 +606,9 @@ final class MapSession {
 
   void _mergePending(_Pending older, _Pending newer) {
     older.ledger.absorb(newer.ledger);
+    if (newer.rolledBack != null) {
+      (older.rolledBack ??= {}).addAll(newer.rolledBack!);
+    }
     _composePending(older, newer.plan);
   }
 
@@ -629,6 +706,7 @@ class _Pending {
   PresentationPlan plan = PresentationPlan([]);
   Map<PatchMapTarget, PresentationPatch> index = {};
   final ledger = RequestLedger();
+  Set<String>? rolledBack;
 }
 
 class _Submission {

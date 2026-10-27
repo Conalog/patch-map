@@ -38,6 +38,13 @@ changed records for the idle no-op check and preparation. Otherwise the no-op
 probe stops at the first changed or retryable record. A patch may retain one resolution memo, reusable only
 when both authored and current records are identical. Merging its operations creates
 a new patch; execution still resolves against current values after rebase or failure.
+If earlier preparation rolled back an item or ancestor, revalidate affected
+pending records' final schema and geometry against the surviving publication.
+Invalid rebased items retain their previous state and report partial failure;
+independent items proceed through the same submission and request ledger.
+Updates unaffected by rollback do not repeat admission at execution.
+World-projection failures carry their target into the existing item/ancestor
+rollback path; retained preparation falls back there to isolate invalid geometry.
 The backend consumes at most the latest admission batch's non-text layout memo,
 checking component identity and owner size/content/orientation; text placeholders
 never become measured geometry. These are optional computations, not pending state
