@@ -68,10 +68,42 @@ Without a query there is no added work on draw, update, input or paint.
 - Extracted installed consumer: exported types/query, box coordinates and
   detached behavior, alongside existing asset/draw/update smoke.
 
-These checks establish read semantics, not new native performance claims. The
-rendering/update hot paths remain unchanged, so no device benchmark is required
-for this additive explicit read API.
+These checks establish read semantics. Rendering/update hot paths remain
+unchanged; explicit query costs were subsequently measured below.
 
 Flutter 3.47.6: the six focused geometry/widget/image cases, analysis and docs
 checks passed. Extracted consumer import, runtime tests and pub dry run passed;
 artifact evidence: `.artifacts/flutter/installed-consumer-RJHwIB/report.json`.
+
+## Physical-device query checkpoint
+
+SM-S936N / Android16 / Flutter3.47.6 profile AOT, product commit64b5c66b:
+three alternating cached-reference/query pairs per condition, with 20,000 query
+batches per arm. Both paths consume identical geometry fields. The varied
+10,000-panel example supplies item and group fixtures; a single 100×100 grid
+using its panel template is a separate scaling case.
+
+| Query batch | Median of run mean (microseconds) | Paired extra process CPU per 20,000 batches (ms, median) |
+| --- | ---: | ---: |
+| 1 item | 0.451 | 4 (noise-sensitive: -3 to +8) |
+| 3 items | 1.683 | 24 |
+| 10 items | 2.997 | 42 |
+| 100-item group / grid | 8.993 / 8.045 | 179 / 141 |
+| 10,000-item group / grid | 5.370 / 5.901 | 106 / 112 |
+
+Container cost depends on 128-node aggregate pages and partial edges, not only
+descendant count. Continuous bulk reads trigger young GC (up to 2.892ms here).
+In separate 120-step camera pans at approximately60Hz, query plus `toLocal`
+averaged 0.024ms for10 items, 0.038ms for the large group and 0.041ms for the large
+grid; median run p95 was0.026/0.045/0.047ms. Young GC counts were0–2 per window,
+similar to cached controls, with query-arm pauses at most1.556ms. Whole-process
+CPU differences during rendering varied in sign/size and do not establish a
+small API-specific CPU regression or improvement. Bulk timings isolate that cost.
+
+All60 windows completed with30 matching query/reference checksums. No query-only
+window scheduled a map frame. Heap GC ran outside each window to normalize arms;
+this does not predict long-session GC frequency. Natural CPU scaling remained
+enabled and thermal status stayed0. No runtime optimization was applied. The
+prior manual APK was restored by hash and the temporary adb forward removed.
+Raw results, GC timelines, source/APK identity, methodology and limits:
+`.artifacts/performance/flutter/object-geometry3476-device-20261027/REPORT.ko.md`.
