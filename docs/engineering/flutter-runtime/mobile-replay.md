@@ -61,9 +61,15 @@ host reselection after draw reproduces mobile's surviving-selection policy.
    including dark text on light panel bars. General fill×tint combinations are
    not qualified by that narrow conversion.
 
-These are concrete **host integration requirements**, not an approval to alter
-the native schema or its settled color contract. The captured flows run after
-the explicit preparation in `example/lib/mobile_replay/fixture.dart`.
+**Accepted decision:** handle all three differences when integrating mobile,
+without changing the package schema, update contract or color precedence.
+Prepare valid hidden icon definitions with their intended sizes, emit only
+`overflow`, and explicitly supply component text `tint`. The zero-size hidden
+placeholder in this replay is not a requirement for the production adapter.
+Build these fields with the initial equipment templates and on relevant changes;
+do not add a whole-diagram repair pass to every metrics update. No patch-mobile
+change is authorized at this checkpoint. The captured flows run after the
+explicit preparation in `example/lib/mobile_replay/fixture.dart`.
 
 ## Host responsibilities that remain outside the renderer
 
