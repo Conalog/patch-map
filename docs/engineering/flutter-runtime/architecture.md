@@ -102,11 +102,10 @@ first diagram is preparing; they are not queued. Partial missing addresses are
 reported alongside applied addresses; if none resolve, preserve the camera and
 return the empty-target result.
 
-The optimized experiment supplies tested algorithms, not a package architecture.
-Remove its global singleton, benchmark constants, hard-coded Leaf schema,
-`part` coupling and diagnostic branches during transfer. Preserve algorithm
-provenance and compare output/workload after integration. Never use the manual
-app's scale-based number hiding as an unconditional package text policy.
+Historical experiments supply algorithm and workload evidence; the package's
+owners above define the runtime structure. Preserve algorithm provenance and
+compare equivalent output/workloads when evaluating optimizations. Scale-based
+number hiding remains an explicit host choice, not an unconditional package policy.
 
 ## Review checkpoints
 

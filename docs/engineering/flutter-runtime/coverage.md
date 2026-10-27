@@ -68,7 +68,7 @@ are preserved under
 (`SETTLED.ko.md`, `WITNESS.ko.md`, `HOST-DIAGNOSTIC.ko.md`, `FINAL.ko.md`). Earlier frame/CPU windows
 remain separate; their response stopwatches are valid for their recorded inputs.
 
-The current runtime also passed the Flutter3.47.6 extracted installed-consumer
+The 2026-10-19 checkpoint passed the Flutter3.47.6 extracted installed-consumer
 check (`.artifacts/flutter/installed-consumer-VBTpBN/report.json`). CI SDK3.41.4
 also passed static analysis and the extracted smoke
 (`.artifacts/flutter/installed-consumer-KxgGLI/report.json`) for the same artifact
