@@ -142,22 +142,16 @@ void main() {
   );
 
   test(
-    'range and indexing handle page boundaries and reject invalid ranges eagerly',
+    'iteration and indexing handle page boundaries and reject invalid indices',
     () {
       final values = PagedValues.fromList(List.generate(260, (i) => i));
       expect(values[0], 0);
       expect(values[127], 127);
       expect(values[128], 128);
       expect(values[259], 259);
-      expect(values.range(126, 131), [126, 127, 128, 129, 130]);
-      expect(values.range(258), [258, 259]);
-      expect(values.range(260, 260), isEmpty);
-      expect(values.range(0, 0), isEmpty);
+      expect(values, List.generate(260, (i) => i));
       expect(() => values[-1], throwsRangeError);
       expect(() => values[260], throwsRangeError);
-      expect(() => values.range(-1, 2), throwsRangeError);
-      expect(() => values.range(0, 261), throwsRangeError);
-      expect(() => values.range(3, 2), throwsRangeError);
     },
   );
 
@@ -168,7 +162,6 @@ void main() {
       expect(empty.length, 0);
       expect(empty.pages, isEmpty);
       expect(empty.toList(), isEmpty);
-      expect(empty.range(0), isEmpty);
       expect(identical(empty.replace({}), empty), true);
       expect(() => empty[0], throwsRangeError);
       expect(() => empty.replace({0: 1}), throwsRangeError);

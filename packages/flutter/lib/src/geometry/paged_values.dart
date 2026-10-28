@@ -58,23 +58,6 @@ final class PagedValues<T> extends IterableBase<T> {
     return PagedValues._(UnmodifiableListView(next), length, pageSize);
   }
 
-  /// Reads [start, end), with validation at the call rather than iteration.
-  Iterable<T> range(int start, [int? end]) {
-    final stop = RangeError.checkValidRange(start, end, length);
-    return _range(start, stop);
-  }
-
-  Iterable<T> _range(int start, int end) sync* {
-    var index = start;
-    while (index < end) {
-      final page = pages[index ~/ pageSize];
-      final offset = index % pageSize;
-      final count = math.min(page.length - offset, end - index);
-      yield* page.getRange(offset, offset + count);
-      index += count;
-    }
-  }
-
   @override
-  Iterator<T> get iterator => _range(0, length).iterator;
+  Iterator<T> get iterator => pages.expand((page) => page).iterator;
 }
