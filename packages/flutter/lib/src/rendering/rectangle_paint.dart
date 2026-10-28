@@ -11,10 +11,6 @@ final class RectanglePaint {
     required this.fillColor,
     required this.strokeColor,
     required this.strokeWidth,
-    required this.strokeAlignment,
-    required this.strokeCap,
-    required this.strokeJoin,
-    required this.strokeMiterLimit,
     required List<double> radii,
   }) : radii = List.unmodifiable(radii);
 
@@ -32,10 +28,6 @@ final class RectanglePaint {
         opacity,
       ),
       strokeWidth: stroke == null ? 0 : (stroke['width']! as num).toDouble(),
-      strokeAlignment: .5,
-      strokeCap: StrokeCap.butt,
-      strokeJoin: StrokeJoin.miter,
-      strokeMiterLimit: 10,
       radii: _radii(data['radius'] ?? 0),
     );
   }
@@ -58,18 +50,12 @@ final class RectanglePaint {
       fillColor: color(source['fill'] ?? '#00000000'),
       strokeColor: color(source['borderColor'] ?? '#1a1a1a'),
       strokeWidth: (source['borderWidth'] as num?)?.toDouble() ?? 0,
-      strokeAlignment: .5,
-      strokeCap: StrokeCap.butt,
-      strokeJoin: StrokeJoin.miter,
-      strokeMiterLimit: 10,
       radii: _radii(source['radius'] ?? 0),
     );
   }
 
   final Color fillColor, strokeColor;
-  final double strokeWidth, strokeAlignment, strokeMiterLimit;
-  final StrokeCap strokeCap;
-  final StrokeJoin strokeJoin;
+  final double strokeWidth;
 
   /// Top-left, top-right, bottom-right, bottom-left, before fitting to a size.
   final List<double> radii;
@@ -83,10 +69,6 @@ final class RectanglePaint {
       fillColor: _alpha(fillColor, factor),
       strokeColor: _alpha(strokeColor, factor),
       strokeWidth: strokeWidth,
-      strokeAlignment: strokeAlignment,
-      strokeCap: strokeCap,
-      strokeJoin: strokeJoin,
-      strokeMiterLimit: strokeMiterLimit,
       radii: radii,
     );
   }
@@ -141,9 +123,9 @@ final class RectanglePaint {
           : _alpha(strokeColor, alphaMultiplier)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
-      ..strokeCap = strokeCap
-      ..strokeJoin = strokeJoin
-      ..strokeMiterLimit = strokeMiterLimit;
+      ..strokeCap = StrokeCap.butt
+      ..strokeJoin = StrokeJoin.miter
+      ..strokeMiterLimit = 10;
     canvas.drawPath(path, stroke);
   }
 }

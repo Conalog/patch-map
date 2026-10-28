@@ -106,7 +106,7 @@ final class RenderPlan {
             for (var i = 0; i < members.length && safe; i++) {
               for (var j = i + 1; j < members.length; j++) {
                 comparisons++;
-                if (_touches(members[i]!.bounds, members[j]!.bounds)) {
+                if (boundsOverlap(members[i]!.bounds, members[j]!.bounds)) {
                   safe = false;
                   break;
                 }
@@ -217,7 +217,7 @@ final class RenderPlan {
           for (var i = 0; i < members.length && safe; i++) {
             for (var j = i + 1; j < members.length; j++) {
               comparisons++;
-              if (_touches(members[i]!.bounds, members[j]!.bounds)) {
+              if (boundsOverlap(members[i]!.bounds, members[j]!.bounds)) {
                 safe = false;
                 break;
               }
@@ -614,7 +614,7 @@ final class _Member {
     final backgrounds = <StaticRectangle>[];
     final skeleton = <(String, String, bool, bool)>[];
     var prefix = true;
-    var bounds = paintBounds ?? geometry.paintBounds!;
+    final bounds = paintBounds ?? geometry.paintBounds!;
     var index = 0;
     for (final component in node.components) {
       final layout = component.layout, override = overrides?[index++];
@@ -641,10 +641,6 @@ final class _Member {
       );
       if (!StaticGeometry.isEligible(shape)) return null;
       backgrounds.add(shape);
-      if (visible) {
-        final outer = rect.inflate(paint.strokeWidth / 2);
-        bounds = bounds.expandToInclude(shape.world.projectRect(outer).bounds);
-      }
     }
     if (backgrounds.isEmpty) return null;
     // Invisible prefix slots use the exact path, preserving their phase index.
@@ -750,14 +746,14 @@ bool _sameMember(_Member? a, _Member? b) {
       b == null ||
       a.id != b.id ||
       a.bounds != b.bounds ||
-      !_sameAffine(a.world, b.world) ||
+      !a.world.sameTransform(b.world) ||
       !_sameSkeleton(a, b)) {
     return false;
   }
   for (var i = 0; i < a.backgrounds.length; i++) {
     final x = a.backgrounds[i], y = b.backgrounds[i];
     if (x.rect != y.rect ||
-        !_sameAffine(x.world, y.world) ||
+        !x.world.sameTransform(y.world) ||
         !_samePaint(x.paint, y.paint)) {
       return false;
     }
@@ -765,25 +761,9 @@ bool _sameMember(_Member? a, _Member? b) {
   return true;
 }
 
-bool _sameAffine(Affine a, Affine b) =>
-    a.a == b.a &&
-    a.b == b.b &&
-    a.c == b.c &&
-    a.d == b.d &&
-    a.tx == b.tx &&
-    a.ty == b.ty;
 bool _samePaint(RectanglePaint a, RectanglePaint b) =>
     identical(a, b) ||
     (a.fillColor == b.fillColor &&
         a.strokeColor == b.strokeColor &&
         a.strokeWidth == b.strokeWidth &&
-        a.strokeAlignment == b.strokeAlignment &&
-        a.uniformRadius == b.uniformRadius &&
-        a.strokeJoin == b.strokeJoin &&
-        a.strokeCap == b.strokeCap &&
-        a.strokeMiterLimit == b.strokeMiterLimit);
-bool _touches(Rect a, Rect b) =>
-    a.left <= b.right &&
-    b.left <= a.right &&
-    a.top <= b.bottom &&
-    b.top <= a.bottom;
+        a.uniformRadius == b.uniformRadius);

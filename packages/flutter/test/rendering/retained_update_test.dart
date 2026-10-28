@@ -94,20 +94,6 @@ void main() {
         initialLoad: false,
       );
       fresh.retain();
-      Future<List<int>> pixels(DrawNode value) async {
-        final recorder = PictureRecorder();
-        value.paint(Canvas(recorder), cameraRotation: .3, physicalScale: 1);
-        final picture = recorder.endRecording();
-        final image = await picture.toImage(180, 180);
-        try {
-          return (await image.toByteData(
-            format: ImageByteFormat.rawRgba,
-          ))!.buffer.asUint8List().toList();
-        } finally {
-          image.dispose();
-          picture.dispose();
-        }
-      }
 
       try {
         expect(await pixels(node), orderedEquals(await pixels(fresh)));
@@ -123,20 +109,6 @@ void main() {
       addTearDown(h.close);
       h.current.resources.text.setActive(false);
       final node = h.current.node(h.slot);
-      Future<List<int>> pixels(DrawNode value) async {
-        final recorder = PictureRecorder();
-        value.paint(Canvas(recorder), cameraRotation: .3, physicalScale: 1);
-        final picture = recorder.endRecording();
-        final image = await picture.toImage(180, 180);
-        try {
-          return (await image.toByteData(
-            format: ImageByteFormat.rawRgba,
-          ))!.buffer.asUint8List().toList();
-        } finally {
-          image.dispose();
-          picture.dispose();
-        }
-      }
 
       for (final values in [
         [
@@ -857,5 +829,20 @@ final class Harness {
     final pub = backend.current;
     if (pub != null) backend.retire(pub);
     backend.close();
+  }
+}
+
+Future<List<int>> pixels(DrawNode value) async {
+  final recorder = PictureRecorder();
+  value.paint(Canvas(recorder), cameraRotation: .3, physicalScale: 1);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(180, 180);
+  try {
+    return (await image.toByteData(
+      format: ImageByteFormat.rawRgba,
+    ))!.buffer.asUint8List().toList();
+  } finally {
+    image.dispose();
+    picture.dispose();
   }
 }

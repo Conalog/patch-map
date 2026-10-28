@@ -113,10 +113,6 @@ void main() {
       );
       stroke['width'] = 99;
       expect(style.strokeWidth, 4);
-      expect(style.strokeAlignment, .5);
-      expect(style.strokeJoin, StrokeJoin.miter);
-      expect(style.strokeCap, StrokeCap.butt);
-      expect(style.strokeMiterLimit, 10);
       expect(style.strokeColor.a, closeTo(128 / 255 * .5, 1e-6));
       expect(
         () => style.roundedRect(const Size(double.infinity, 10)),

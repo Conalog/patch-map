@@ -254,12 +254,8 @@ _Shape? _prepare(StaticRectangle shape) {
   final stroke = !rect.isEmpty && width > 0 && paint.strokeColor.a > 0;
   final fitted = math.min(radius, math.min(rect.width, rect.height) / 2);
   if (stroke &&
-      (paint.strokeAlignment != .5 ||
-          width >= math.min(rect.width, rect.height) ||
-          (fitted > 0 && fitted < width / 2) ||
-          (fitted == 0 &&
-              (paint.strokeJoin != StrokeJoin.miter ||
-                  paint.strokeMiterLimit < math.sqrt2)))) {
+      (width >= math.min(rect.width, rect.height) ||
+          (fitted > 0 && fitted < width / 2))) {
     return null;
   }
   // Frobenius norm bounds affine amplification, including shear/reflection.
