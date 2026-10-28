@@ -123,6 +123,12 @@ final class InputQuery {
   ) {
     final result = <PatchMapObject>[];
     final bounds = range.bounds;
+    final rectangularRange =
+        !bounds.isEmpty &&
+        range.p0.dx == range.p3.dx &&
+        range.p1.dx == range.p2.dx &&
+        range.p0.dy == range.p1.dy &&
+        range.p2.dy == range.p3.dy;
     for (final slot in _candidates(snapshot, bounds)) {
       final node = snapshot.nodes[slot];
       if (!_acceptsInput(node)) continue;
@@ -131,10 +137,11 @@ final class InputQuery {
       }
       final exact = ports.exactGeometry?.call(snapshot, node);
       if (!(exact?.intersects(range) ??
-          _shapes(
-            node,
-            cameraRotation,
-          ).any((shape) => shape.intersects(range)))) {
+          (rectangularRange && _isAxisAlignedBackgroundItem(node) ||
+              _shapes(
+                node,
+                cameraRotation,
+              ).any((shape) => shape.intersects(range))))) {
         continue;
       }
       final value = object(node);
@@ -174,6 +181,22 @@ final class InputQuery {
       return t == 0 ? a.order.compareTo(b.order) : t;
     });
     return List.unmodifiable(hits.map((hit) => hit.object));
+  }
+
+  // The item-size rejection in range() has already established overlap.
+  // Only this exact rectangle case can skip the general shape intersection.
+  bool _isAxisAlignedBackgroundItem(TargetGeometry node) {
+    final item = node.item, box = node.bounds;
+    if (item == null ||
+        box == null ||
+        box.isEmpty ||
+        node.world.b != 0 ||
+        node.world.c != 0 ||
+        node.world.a == 0 ||
+        node.world.d == 0) {
+      return false;
+    }
+    return item.components.any((c) => c.visible && c.type == 'background');
   }
 
   bool _acceptsInput(TargetGeometry node) {
