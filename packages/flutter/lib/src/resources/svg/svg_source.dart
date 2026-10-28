@@ -3,7 +3,7 @@ import 'dart:convert';
 import '../../dataset/dataset_values.dart' show cloneJson, DatasetException;
 import '../canonical_json.dart';
 
-const _builtins = <String, Object?>{
+const builtinSvgSources = <String, String>{
   'object': 'patch-map-builtin://images/object.svg',
   'device': 'patch-map-builtin://images/device.svg',
   'loading': 'patch-map-builtin://images/loading.svg',
@@ -66,7 +66,7 @@ final class SvgSourceSpec {
 /// only the five packaged white icons are installed by default.
 final class SvgSourceResolver {
   SvgSourceResolver({Map<String, Object?> symbols = const {}})
-    : _symbols = _detach({..._builtins, ...symbols}, r'$.symbols');
+    : _symbols = _detach({...builtinSvgSources, ...symbols}, r'$.symbols');
   final Map<String, Object?> _symbols;
 
   SvgSourceSpec resolve(Object source) {
@@ -145,7 +145,7 @@ final class SvgSourceResolver {
 
 /// Bundled Flutter asset key; null for sources outside the packaged registry.
 String? builtinSvgAssetPath(String canonicalSrc) {
-  for (final entry in _builtins.entries) {
+  for (final entry in builtinSvgSources.entries) {
     if (entry.value == canonicalSrc) {
       return 'packages/conalog_patch_map/assets/icons/${entry.key}.svg';
     }

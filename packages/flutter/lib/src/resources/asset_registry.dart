@@ -50,13 +50,7 @@ final class AssetRegistry {
     }
     final src = descriptor.src, uri = Uri.parse(descriptor.src);
     final isSvg =
-        const {
-          'object',
-          'device',
-          'loading',
-          'warning',
-          'wifi',
-        }.contains(src) ||
+        builtinSvgSources.containsKey(src) ||
         uri.path.toLowerCase().endsWith('.svg') ||
         (src.length >= 18 &&
             src.substring(0, 18).toLowerCase() == 'data:image/svg+xml') ||
