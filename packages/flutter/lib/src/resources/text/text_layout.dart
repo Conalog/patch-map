@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart' show Characters;
@@ -195,7 +194,7 @@ final class NativeTextLayout {
       final size =
           measured?.size ??
           (visibleText.isEmpty ? ui.Size.zero : _size(chosen));
-      final inset = _insets();
+      final inset = spec.strokeWidth / 2;
       final result = OwnedTextLayout._(
         fontSize,
         chosen,
@@ -205,9 +204,7 @@ final class NativeTextLayout {
         measured?.lines ??
             (visibleText.isEmpty ? 0 : chosen.computeLineMetrics().length),
         visibleText,
-        inset.$1 == 0 && inset.$2 == 0
-            ? ui.Offset.zero
-            : ui.Offset(inset.$1, inset.$2),
+        inset == 0 ? ui.Offset.zero : ui.Offset(inset, inset),
         _configuration.paintOpacity,
       );
       chosen = null;
@@ -268,23 +265,10 @@ final class NativeTextLayout {
 
   // Keep alignment/placement width distinct from the ink/advance longest line.
   ui.Size _size(ui.Paragraph paragraph) {
-    final (left, top, right, bottom) = _insets();
+    final edge = spec.strokeWidth / 2;
     return ui.Size(
-      paragraph.width + left + right,
-      paragraph.height + top + bottom,
-    );
-  }
-
-  (double, double, double, double) _insets() {
-    final edge = spec.padding + spec.strokeWidth / 2;
-    final shadow = spec.shadow;
-    if (shadow == null) return (edge, edge, edge, edge);
-    final blur = shadow.blurRadius * 3;
-    return (
-      edge + math.max(0, blur - shadow.offset.dx),
-      edge + math.max(0, blur - shadow.offset.dy),
-      edge + math.max(0, blur + shadow.offset.dx),
-      edge + math.max(0, blur + shadow.offset.dy),
+      paragraph.width + edge + edge,
+      paragraph.height + edge + edge,
     );
   }
 

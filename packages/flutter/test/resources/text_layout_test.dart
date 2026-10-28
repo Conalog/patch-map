@@ -422,7 +422,6 @@ void main() {
       );
       expect(value.color.toARGB32(), 0x80808080);
       expect(value.strokeColor!.toARGB32(), 0x80808080);
-      expect(value.shadow, isNull);
       expect(value.unsupportedFields, contains('dropShadow'));
       final created = <ui.Paragraph>[];
       final result = NativeTextLayout(

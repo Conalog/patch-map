@@ -386,9 +386,7 @@ bool _simpleFont(TextSpec s) =>
     s.fontStyle == ui.FontStyle.normal &&
     s.letterSpacing == 0 &&
     s.lineHeight == null &&
-    s.padding == 0 &&
     s.strokeWidth == 0 &&
-    s.shadow == null &&
     s.unsupportedFields.isEmpty;
 
 Object? _numericProofKey(TextSpec s) {

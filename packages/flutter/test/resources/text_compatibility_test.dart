@@ -158,8 +158,6 @@ void main() {
           'style': {'fontSize': 32},
         }),
       );
-      expect(styled.shadow, isNull);
-      expect(styled.padding, 0);
       expect(styled.unsupportedFields, containsAll(['padding', 'dropShadow']));
       expect((data['style']! as Map)['padding'], 18);
       expect((data['style']! as Map)['dropShadow'], isNotNull);

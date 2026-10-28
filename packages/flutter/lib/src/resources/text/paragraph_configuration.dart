@@ -18,7 +18,6 @@ final class ParagraphPreparation {
               previous.paintKey == parameters.paintKey &&
               previous.color == parameters.color &&
               previous.strokeColor == parameters.strokeColor &&
-              previous.shadow == parameters.shadow &&
               previous.objectOpacity == parameters.objectOpacity)) {
         return recent;
       }
@@ -112,7 +111,6 @@ final class ParagraphConfiguration {
       leadingDistribution: ui.TextLeadingDistribution.proportional,
       color: stroke ? null : _rasterColor(p.color),
       foreground: paint,
-      shadows: !stroke && p.shadow != null ? [p.shadow!] : null,
     );
   }
 }

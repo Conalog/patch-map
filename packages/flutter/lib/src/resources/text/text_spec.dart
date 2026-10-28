@@ -38,7 +38,6 @@ final class TextSpec {
   int get split => parameters.split;
   double get letterSpacing => parameters.letterSpacing;
   double? get lineHeight => parameters.lineHeight;
-  double get padding => parameters.padding;
   ui.Color get color => parameters.color;
   double get objectOpacity => parameters.objectOpacity;
   ui.Color? get strokeColor => parameters.strokeColor;
@@ -46,7 +45,6 @@ final class TextSpec {
   ui.StrokeJoin get strokeJoin => parameters.strokeJoin;
   ui.StrokeCap get strokeCap => parameters.strokeCap;
   double get strokeMiterLimit => parameters.strokeMiterLimit;
-  ui.Shadow? get shadow => parameters.shadow;
   List<String> get unsupportedFields => parameters.unsupportedFields;
 
   String get metricStyleKey => parameters.metricStyleKey;
@@ -76,7 +74,6 @@ final class TextParameters {
     required this.split,
     required this.letterSpacing,
     required this.lineHeight,
-    required this.padding,
     required this.color,
     required this.objectOpacity,
     required this.strokeColor,
@@ -84,7 +81,6 @@ final class TextParameters {
     required this.strokeJoin,
     required this.strokeCap,
     required this.strokeMiterLimit,
-    required this.shadow,
     required this.unsupportedFields,
   });
 
@@ -261,7 +257,6 @@ final class TextParameters {
       split: (data['split'] as num? ?? 0).toInt(),
       letterSpacing: _metric(style['letterSpacing'] ?? 0, 'letterSpacing'),
       lineHeight: lineHeight > 0 ? lineHeight : null,
-      padding: 0,
       color: color,
       objectOpacity: paint.a * alpha,
       strokeColor: strokeColor,
@@ -281,14 +276,13 @@ final class TextParameters {
         'stroke.miterLimit',
         min: 0,
       ),
-      shadow: null,
       unsupportedFields: List<String>.unmodifiable(diagnostics),
     );
   }
 
   final String whiteSpace, overflow;
   final List<String> fontFamilies;
-  final double fontSize, letterSpacing, padding, strokeWidth, strokeMiterLimit;
+  final double fontSize, letterSpacing, strokeWidth, strokeMiterLimit;
   final double? wrapWidth, lineHeight;
   final bool auto, wordWrap, breakWords;
   final int autoMin, autoMax, split;
@@ -303,7 +297,6 @@ final class TextParameters {
   final ui.Color? strokeColor;
   final ui.StrokeJoin strokeJoin;
   final ui.StrokeCap strokeCap;
-  final ui.Shadow? shadow;
   final List<String> unsupportedFields;
 
   late final String metricStyleKey = jsonEncode([
@@ -325,11 +318,7 @@ final class TextParameters {
     split,
     letterSpacing,
     lineHeight,
-    padding,
     strokeWidth,
-    shadow?.offset.dx,
-    shadow?.offset.dy,
-    shadow?.blurRadius,
     unsupportedFields,
   ]);
 
@@ -340,7 +329,6 @@ final class TextParameters {
     strokeJoin.index,
     strokeCap.index,
     strokeMiterLimit,
-    shadow?.color.toARGB32(),
   ]);
 }
 
