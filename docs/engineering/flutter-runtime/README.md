@@ -57,3 +57,7 @@ input admission through submitted revision, CPU, matched frame timing, logical
 resources and physical/native/graphics memory. A synthetic Flutter run does not
 qualify the deployed WebView or iOS. Run expensive platform matrices at coherent
 milestones, and only repeat affected cases after a change.
+
+Cross-request dimension-string validation and parsed-coefficient sharing are
+[deferred](dimension-sharing-checkpoint.md); the existing package implementation
+remains in use.
