@@ -2,6 +2,7 @@ import 'package:conalog_patch_map/conalog_patch_map.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'patch_map_view_test.dart' as support;
+import 'selection_paint_test.dart' as pixels;
 
 void main() {
   testWidgets('tap detects objects and host callback alone chooses selection', (
@@ -36,6 +37,64 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets(
+    'range callback changes selection, camera and values through real paint',
+    (tester) async {
+      final controller = PatchMapController();
+      Future<PatchMapResult>? update;
+      var moves = 0, completed = false;
+      await tester.pumpWidget(
+        support.host(
+          controller,
+          dragMode: PatchMapDragMode.range,
+          event: (event) {
+            if (event.kind != PatchMapInputKind.dragMove) return;
+            moves++;
+            controller.select(event.objects.map((object) => object.id));
+            controller.setCamera(center: const Offset(50, 50), scale: 2);
+            update = controller
+                .updateValues([
+                  const PatchMapUpdate(PatchMapTarget('a'), {
+                    'fill': '#00aa00',
+                  }),
+                ])
+                .then((result) {
+                  completed = true;
+                  return result;
+                });
+            expect(
+              completed,
+              false,
+              reason: 'callback delivery is not submission',
+            );
+          },
+        ),
+      );
+      final drawn = controller.draw(support.rectangle('a'));
+      await support.progress(tester);
+      await drawn;
+      controller.setCamera(center: const Offset(50, 50), scale: 1);
+      await tester.pump();
+      final center = tester.getCenter(find.byType(PatchMapView));
+      final gesture = await tester.startGesture(center - const Offset(70, 70));
+      await gesture.moveTo(center + const Offset(70, 70));
+      expect(moves, 0);
+      await tester.pump();
+      expect(moves, 1);
+      await support.progress(tester);
+      expect((await update!).outcome, PatchMapOutcome.applied);
+      expect(controller.selected.single.id, 'a');
+      expect(controller.camera!.scale, 2);
+      expect(await pixels.bluePixels(tester), greaterThan(100));
+      expect(
+        await pixels.coloredPixels(tester, const Color(0xff00aa00)),
+        greaterThan(30000),
+      );
+      await gesture.up();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('filter cannot change camera or selection but can reject hit', (
     tester,
   ) async {

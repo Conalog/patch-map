@@ -21,6 +21,7 @@ final class InputCoordinator {
     required SpatialCandidates getSpatialCandidates,
     required this.notify,
     required this.onNeedFrame,
+    required this.onNeedNotification,
     InputFilter? filter,
     InputHitGeometryProvider? exactGeometry,
     this.dragSlop = kTouchSlop,
@@ -44,7 +45,7 @@ final class InputCoordinator {
   final GeometrySnapshot? Function() currentGeometry;
   final MapCamera camera;
   final void Function(PatchMapInputEvent event) notify;
-  final void Function() onNeedFrame;
+  final void Function() onNeedFrame, onNeedNotification;
   final double dragSlop;
   final InputQuery query;
   late final SelectionState selection;
@@ -75,10 +76,10 @@ final class InputCoordinator {
     }
   }
 
-  void _frame() {
+  void _frame({bool paint = true}) {
     if (_disposed || !_active) return;
     try {
-      onNeedFrame();
+      (paint ? onNeedFrame : onNeedNotification)();
     } catch (_) {
       // Host failures do not interrupt input cleanup or frame scheduling.
     }
@@ -147,11 +148,15 @@ final class InputCoordinator {
       // A callback can dispose/reset this coordinator. Do not resurrect work.
       if (!identical(_gesture, gesture) || _disposed) return;
     }
-    _interpret(gesture, p, snapshot);
+    final cameraChanged = _interpret(gesture, p, snapshot);
     if (gesture.mode != null) {
       final needFrame = _pendingMove == null;
       _pendingMove = _PendingMove(gesture, p);
-      if (needFrame) _frame();
+      if (cameraChanged) {
+        _frame();
+      } else if (needFrame) {
+        _frame(paint: false);
+      }
     }
   }
 

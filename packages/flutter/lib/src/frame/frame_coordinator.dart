@@ -31,6 +31,7 @@ final class FrameCoordinator extends ChangeNotifier {
   final SchedulerBinding _scheduler;
   final Duration Function() _animationClock;
   bool _active = true, _closed = false, _dirty = false;
+  bool _notificationPending = false, _inFrame = false;
   int? _scheduled;
   PaintSubmission? _painted;
   bool _postFramePending = false;
@@ -41,6 +42,13 @@ final class FrameCoordinator extends ChangeNotifier {
   void invalidate() {
     if (_closed) return;
     _dirty = true;
+    _schedule();
+  }
+
+  /// Deliver coalesced input without invalidating unchanged drawing commands.
+  void requestNotification() {
+    if (_closed) return;
+    _notificationPending = true;
     _schedule();
   }
 
@@ -60,23 +68,39 @@ final class FrameCoordinator extends ChangeNotifier {
   }
 
   void _schedule() {
-    if (!active || _scheduled != null || !_dirty) return;
+    if (!active ||
+        _inFrame ||
+        _scheduled != null ||
+        (!_dirty && !_notificationPending)) {
+      return;
+    }
     _scheduled = _scheduler.scheduleFrameCallback(_beginFrame);
   }
 
   void _beginFrame(Duration timestamp) {
     _scheduled = null;
     if (!active) return;
+    final paintNeeded = _dirty;
     _dirty = false;
+    _notificationPending = false;
+    _inFrame = true;
     try {
       final animate = onFrame(_animationClock());
       if (!active) return;
-      notifyListeners();
+      // A host callback can invalidate selection, camera or publication. Fold
+      // that work into this frame, but retain any newly queued notification.
+      final paint = paintNeeded || _dirty || animate;
+      _dirty = false;
+      if (paint) notifyListeners();
+      // Carry paint demand through the final animation tick, even when that
+      // tick reports no further animation frames.
       if (animate) _dirty = true;
-      _schedule();
     } catch (error, stack) {
       _dirty = false;
       onError(error, stack);
+    } finally {
+      _inFrame = false;
+      _schedule();
     }
   }
 

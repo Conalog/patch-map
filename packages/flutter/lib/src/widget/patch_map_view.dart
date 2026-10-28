@@ -164,6 +164,7 @@ class _PatchMapViewState extends State<PatchMapView>
       },
       notify: _onInput,
       onNeedFrame: frame.invalidate,
+      onNeedNotification: frame.requestNotification,
       filter: (object) =>
           session.filter(() => widget.eventFilter?.call(object) ?? true),
     )..dragMode = widget.dragMode;

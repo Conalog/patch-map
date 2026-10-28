@@ -62,7 +62,8 @@ void main() {
       h.move(1, const Offset(35, 5));
       h.move(1, const Offset(55, 5));
       expect(h.kinds, [PatchMapInputKind.down, PatchMapInputKind.dragStart]);
-      expect(h.frames, 1);
+      expect(h.frames, 0);
+      expect(h.notifications, 1);
       h.input.onFrame();
       expect(h.events.last.objects.map((value) => value.id), ['a', 'b', 'c']);
       expect(h.input.selection.selected, isEmpty);
@@ -77,6 +78,34 @@ void main() {
       expect(h.events.length, count);
     },
   );
+
+  test('only camera or selection changes demand paint during a drag', () {
+    final h = _Harness([_item('a', 0)]);
+    h.down(1, const Offset(5, 5));
+    h.move(1, const Offset(10, 5));
+    expect(h.frames, 1);
+    expect(h.notifications, 0);
+    h.input.onFrame();
+    h.move(1, const Offset(10, 5));
+    expect(h.frames, 1);
+    expect(h.notifications, 1, reason: 'unchanged pan only notifies');
+    h.move(1, const Offset(11, 5));
+    expect(h.frames, 2, reason: 'later movement upgrades the pending frame');
+    h.up(1, const Offset(11, 5));
+    h.input.dragMode = PatchMapDragMode.range;
+    h.down(2, const Offset(-10, -10));
+    h.move(2, const Offset(20, 20));
+    expect(h.frames, 2);
+    expect(h.notifications, 2);
+    h.extraNotify = (event) {
+      if (event.kind == PatchMapInputKind.dragMove) {
+        h.input.selection.set(event.objects.map((o) => o.id));
+      }
+    };
+    h.input.onFrame();
+    expect(h.input.selection.selected.single.id, 'a');
+    expect(h.frames, 3, reason: 'callback selection change invalidates paint');
+  });
 
   test('range result shrinks; mode remains latched until the next drag', () {
     final h = _Harness([_item('a', 0), _item('b', 20), _item('c', 40)]);
@@ -598,6 +627,7 @@ final class _Harness {
         extraNotify?.call(event);
       },
       onNeedFrame: () => frames++,
+      onNeedNotification: () => notifications++,
       dragSlop: slop ?? kTouchSlop,
     );
   }
@@ -606,7 +636,7 @@ final class _Harness {
   late final InputCoordinator input;
   final events = <PatchMapInputEvent>[];
   void Function(PatchMapInputEvent)? extraNotify;
-  int frames = 0, searches = 0;
+  int frames = 0, notifications = 0, searches = 0;
   List<PatchMapInputKind> get kinds =>
       events.map((event) => event.kind).toList();
   void down(int id, Offset p) =>

@@ -52,6 +52,119 @@ void main() {
     frames.dispose();
   });
 
+  testWidgets(
+    'notification frames skip paint but callback invalidations paint once',
+    (tester) async {
+      var revision = 1, ticks = 0;
+      var invalidateInCallback = false;
+      final stamps = <PaintSubmission>[];
+      late FrameCoordinator frames;
+      frames = FrameCoordinator(
+        onFrame: (_) {
+          ticks++;
+          if (invalidateInCallback) frames.invalidate();
+          return false;
+        },
+        onSubmitted: stamps.add,
+        onError: (error, stack) => fail('$error\n$stack'),
+      );
+      await tester.pumpWidget(
+        CustomPaint(
+          painter: _WitnessPainter(frames, () => revision),
+          size: const Size(100, 100),
+        ),
+      );
+      expect(stamps.length, 1);
+      frames.requestNotification();
+      frames.requestNotification();
+      await tester.pump();
+      expect(ticks, 1);
+      expect(stamps.length, 1);
+      expect(frames.scheduled, false);
+      invalidateInCallback = true;
+      revision++;
+      frames.requestNotification();
+      await tester.pump();
+      expect(stamps.map((s) => s.revision), [1, 2]);
+      expect(frames.scheduled, false);
+      expect(tester.binding.hasScheduledFrame, false);
+      frames.invalidate();
+      frames.requestNotification();
+      await tester.pump();
+      expect(ticks, 3);
+      expect(stamps.length, 3);
+      expect(frames.scheduled, false);
+      frames.dispose();
+    },
+  );
+
+  testWidgets(
+    'animation paints final tick and preserves reentrant notifications',
+    (tester) async {
+      var ticks = 0, paints = 0;
+      late FrameCoordinator frames;
+      frames = FrameCoordinator(
+        onFrame: (_) {
+          ticks++;
+          if (ticks == 2) frames.requestNotification();
+          return ticks == 1;
+        },
+        onSubmitted: (_) => paints++,
+        onError: (error, stack) => fail('$error\n$stack'),
+      );
+      await tester.pumpWidget(
+        CustomPaint(
+          painter: _WitnessPainter(frames, () => ticks),
+          size: const Size(100, 100),
+        ),
+      );
+      frames.invalidate();
+      await tester.pump();
+      expect(paints, 2);
+      await tester.pump();
+      expect(paints, 3, reason: 'final animation tick still paints');
+      await tester.pump();
+      expect(ticks, 3, reason: 'new notification was not swallowed');
+      expect(paints, 3);
+      expect(frames.scheduled, false);
+      frames.dispose();
+    },
+  );
+
+  testWidgets(
+    'notification callback suspension and failure do not lose recovery',
+    (tester) async {
+      var paints = 0, ticks = 0, errors = 0;
+      late FrameCoordinator frames;
+      frames = FrameCoordinator(
+        onFrame: (_) {
+          ticks++;
+          if (ticks == 1) frames.setActive(false);
+          if (ticks == 2) throw StateError('callback');
+          return false;
+        },
+        onSubmitted: (_) {},
+        onError: (_, _) {
+          errors++;
+          frames.invalidate();
+        },
+      )..addListener(() => paints++);
+      frames.requestNotification();
+      await tester.pump();
+      expect(paints, 0);
+      frames.setActive(true);
+      await tester.pump();
+      expect(errors, 1);
+      await tester.pump();
+      expect(paints, 1);
+      expect(frames.scheduled, false);
+      frames.requestNotification();
+      frames.dispose();
+      await tester.pump();
+      expect(ticks, 3);
+    },
+  );
+
   testWidgets('inactive invalidations coalesce and disposal cancels work', (
     tester,
   ) async {

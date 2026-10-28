@@ -43,10 +43,11 @@ conservative bounds and overlap safety; Canvas is the correctness fallback.
 Contain bars within item bounds, and retain text/SVG overflow and overlap checks.
 Static compatible runs contain at most 100 items. View changes reuse static
 geometry; bar animation changes dynamic data only.
-The frame coordinator samples a monotonic elapsed clock when its callback runs.
-Queued vsync timestamps may precede synchronous admission/preparation; their age
-must not consume a newly published bar's animation duration. The clock does not
-schedule work, and inactive transitions are still cleared on suspension.
+The frame coordinator samples monotonic time when its callback runs; queued vsync
+age cannot consume a newly published animation. The clock owns no timer. Inactive
+transitions clear on suspension. The same coordinator delivers coalesced range/paint
+and unchanged-pan notifications without repainting. Raw hits stay eager; selection,
+camera, publication and animation changes still paint, including callback mutations and final animation ticks. Only actual painter witnesses confirm submission.
 
 The renderer visits visible candidates in paint order. Logical updates still
 cover offscreen items. Retained commits invalidate output slots, resolved when drawn.
