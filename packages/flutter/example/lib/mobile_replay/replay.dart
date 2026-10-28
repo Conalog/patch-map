@@ -96,11 +96,11 @@ final class MobileReplay {
     }
   }
 
-  bool allows(PatchMapObject object) =>
-      visibleTypes.contains(kinds[object.id]) &&
-      (!highlightedOnly ||
-          highlighted.isEmpty ||
-          highlighted.contains(object.id));
+  bool allows(PatchMapObject object) => _allowsId(object.id);
+
+  bool _allowsId(String id) =>
+      visibleTypes.contains(kinds[id]) &&
+      (!highlightedOnly || highlighted.isEmpty || highlighted.contains(id));
 
   // Mobile allows multiple panels, but only one inverter/Edge/Router. The
   // package intentionally offers generic selection; the host enforces this.
@@ -115,13 +115,7 @@ final class MobileReplay {
       record('selection rejected: mixed_types / single_only');
       return false;
     }
-    if (existing.any(
-      (id) =>
-          !visibleTypes.contains(kinds[id]) ||
-          highlightedOnly &&
-              highlighted.isNotEmpty &&
-              !highlighted.contains(id),
-    )) {
+    if (existing.any((id) => !_allowsId(id))) {
       return false;
     }
     check(map.select(existing));
