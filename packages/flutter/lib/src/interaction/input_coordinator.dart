@@ -92,33 +92,17 @@ final class InputCoordinator {
     int buttons = 1,
   }) {
     if (_disposed || !_active) return;
-    if (buttons != 1) {
-      final epoch = _cancel(PatchMapEndReason.cancelled);
-      if (_disposed || !_active || _epoch != epoch) return;
-      final p = position(local, global), snapshot = currentGeometry();
-      final target = snapshot == null
-          ? null
-          : query.point(snapshot, p.world, camera.rotation);
-      _recognition = _Recognition(_epoch, p, target);
-      _emit(
-        PatchMapInputEvent(
-          kind: PatchMapInputKind.down,
-          pointer: pointer,
-          position: p,
-          target: target,
-        ),
-      );
-      return;
-    }
-    _pointers.add(pointer);
-    if (_pointers.length > 1) {
-      cancel(PatchMapEndReason.multitouch);
-      return;
+    if (buttons == 1) {
+      _pointers.add(pointer);
+      if (_pointers.length > 1) {
+        cancel(PatchMapEndReason.multitouch);
+        return;
+      }
     }
     final epoch = _cancel(PatchMapEndReason.cancelled);
     if (_disposed || !_active || _epoch != epoch) return;
     final p = position(local, global);
-    _gesture = _Gesture(pointer, p);
+    if (buttons == 1) _gesture = _Gesture(pointer, p);
     final snapshot = currentGeometry();
     final target = snapshot == null
         ? null
@@ -179,6 +163,8 @@ final class InputCoordinator {
                 camera.rotation,
               );
       case PatchMapDragMode.paint:
+      case null when dragMode == PatchMapDragMode.paint:
+        // Include the first raw segment even before paint crosses drag slop.
         if (snapshot != null) {
           for (final value in query.segment(
             snapshot,
@@ -190,17 +176,7 @@ final class InputCoordinator {
           }
         }
       case null:
-        // Keep the first raw segment for paint recognition, even below slop.
-        if (snapshot != null && dragMode == PatchMapDragMode.paint) {
-          for (final value in query.segment(
-            snapshot,
-            gesture.last.world,
-            p.world,
-            camera.rotation,
-          )) {
-            gesture.painted.putIfAbsent(value.id, () => value);
-          }
-        }
+        break;
     }
     gesture.last = p;
     return cameraChanged;
