@@ -61,3 +61,7 @@ milestones, and only repeat affected cases after a change.
 Cross-request dimension-string validation and parsed-coefficient sharing are
 [deferred](dimension-sharing-checkpoint.md); the existing package implementation
 remains in use.
+
+The [resolver-owned record copy checkpoint](record-copy-checkpoint.md) reduced
+copy-specific CPU samples but did not establish end-to-end improvement; that
+candidate is not adopted.
