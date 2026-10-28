@@ -80,6 +80,29 @@ void expectGeneralProjection(GeometrySnapshot scene, String id) {
 }
 
 void main() {
+  for (final count in [2, 129]) {
+    test('initial aggregate rejects overflow across $count finite leaves', () {
+      expect(
+        () => compile([
+          for (var i = 0; i < count; i++)
+            {
+              'type': 'rect',
+              'id': 'r$i',
+              'size': {'width': 1e307, 'height': 10},
+              'attrs': {'x': i == count - 1 ? 1e308 : -1e308},
+            },
+        ]),
+        throwsA(
+          isA<DatasetException>().having(
+            (error) => error.code,
+            'code',
+            'INVALID_GEOMETRY',
+          ),
+        ),
+      );
+    });
+  }
+
   test('container and relation bounds span unchanged and dirty pages', () {
     final before = compile([
       {

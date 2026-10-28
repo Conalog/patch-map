@@ -632,8 +632,8 @@ final class _Member {
         return null;
       }
       final paint = content.style;
-      // Same centered-border compensation as the exact DrawNode path.
-      final rect = (Offset.zero & box.size).deflate(paint.strokeWidth / 2);
+      // Keep the full authored rectangle; the centered border extends outside.
+      final rect = Offset.zero & box.size;
       final shape = StaticRectangle(
         rect,
         geometry.world.multiply(transform),

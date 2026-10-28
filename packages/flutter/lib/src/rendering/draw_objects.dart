@@ -462,14 +462,7 @@ final class DrawNode {
         canvas.transform(component.matrix);
       }
       final localScale = physicalScale * _scale(_componentWorldAt(index));
-      var destination = Offset.zero & (displayBox?.size ?? layout.box.size);
-      // JS background textures compensate the centered border, keeping the
-      // outside edge at the item's origin rather than spilling left/up.
-      if (layout.type == 'background' &&
-          component.content is RectangleContent) {
-        final width = (component.content as RectangleContent).style.strokeWidth;
-        destination = destination.deflate(width / 2);
-      }
+      final destination = Offset.zero & (displayBox?.size ?? layout.box.size);
       component.content.paintWithAlpha(
         canvas,
         destination,

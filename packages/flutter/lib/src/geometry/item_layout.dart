@@ -407,6 +407,7 @@ final class ItemLayout {
           world.multiply(next?.transform ?? component.transform),
           box,
           component.upright,
+          data,
         ),
       );
     }
@@ -425,6 +426,7 @@ final class ItemLayout {
           world.multiply(component.transform),
           component.box,
           component.upright,
+          component.data,
         ),
       );
     }
@@ -433,14 +435,29 @@ final class ItemLayout {
   }
 }
 
-Rect _componentPaintBounds(Affine authored, Rect box, bool upright) {
-  final local = Offset.zero & box.size;
+Rect _componentPaintBounds(
+  Affine authored,
+  Rect box,
+  bool upright,
+  Map<String, Object?> data,
+) {
+  var local = Offset.zero & box.size;
+  final outset = _backgroundOutset(data);
+  if (outset > 0) local = local.inflate(outset);
   if (!upright) return authored.projectRect(local).bounds;
   final center = authored.project(local.center);
   final width = box.width * vectorLength(authored.a, authored.b);
   final height = box.height * vectorLength(authored.c, authored.d);
   // The sum also covers skew and readable basis changes under rotation.
   return Rect.fromCircle(center: center, radius: (width + height) / 2);
+}
+
+double _backgroundOutset(Map<String, Object?> data) {
+  if (data['type'] != 'background') return 0;
+  final source = data['source'];
+  return source is Map && source['type'] == 'rect'
+      ? ((source['borderWidth'] as num?)?.toDouble() ?? 0) / 2
+      : 0;
 }
 
 bool _sameEnvelopeComponent(ComponentLayout component, ComponentLayout prior) {
@@ -452,7 +469,11 @@ bool _sameEnvelopeComponent(ComponentLayout component, ComponentLayout prior) {
   }
   return component.type == 'bar' ||
       component.box == prior.box &&
-          component.transform.sameTransform(prior.transform);
+          component.transform.sameTransform(prior.transform) &&
+          (component.type != 'background' ||
+              identical(component.data['source'], prior.data['source']) ||
+              _backgroundOutset(component.data) ==
+                  _backgroundOutset(prior.data));
 }
 
 ComponentLayout _reuseCheckedGeometry(

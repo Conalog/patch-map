@@ -16,6 +16,12 @@ release/1.0 except explicitly approved main behavior.
   Main leaves that shape transparent; no approved decision specifically changes
   this default, so main's different default is not imported implicitly.
   Rectangular background textures keep their own schema defaults.
+- Rectangular backgrounds retain the full item-sized rectangle with a centered
+  border, as in release/1.0. The half-width outset participates in paint bounds,
+  culling and overlap checks; logical item bounds and input rules stay unchanged.
+  Borders as thick as the item or thicker use the existing Canvas fallback and
+  do not suppress the fill. Source-width updates invalidate the paint envelope;
+  unchanged widths and tint-only updates preserve geometry reuse.
 - Rectangle strokes project only color/width; relation strokes project
   color/alpha/width. Other admitted stroke fields remain without additional
   effects, matching the executed release parser. They must not cause a fatal
