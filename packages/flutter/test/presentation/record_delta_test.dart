@@ -13,7 +13,7 @@ const _resolver = PresentationResolver();
 PresentationPatch _patch(List<FieldOperation> operations) =>
     PresentationPatch(_target, operations);
 FieldOperation _set(List<String> path, Object? value) =>
-    FieldOperation(FieldOperationKind.childrenSet, path, value);
+    FieldOperation(FieldOperationKind.set, path, value);
 
 void main() {
   test(

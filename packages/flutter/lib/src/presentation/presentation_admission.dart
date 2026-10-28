@@ -258,15 +258,7 @@ void _operations(
     return;
   }
   if (atomic || value is! Map<String, Object?>) {
-    output.add(
-      FieldOperation(
-        path.length == 1
-            ? FieldOperationKind.wholeSet
-            : FieldOperationKind.childrenSet,
-        path,
-        value,
-      ),
-    );
+    output.add(FieldOperation(FieldOperationKind.set, path, value));
     return;
   }
   if (value.isEmpty) {
@@ -279,15 +271,7 @@ void _operations(
                 (path.last == 'width' || path.last == 'height'));
     if (sizePartial) return;
     if (baseline is! Map) {
-      output.add(
-        FieldOperation(
-          path.length == 1
-              ? FieldOperationKind.wholeSet
-              : FieldOperationKind.childrenSet,
-          path,
-          value,
-        ),
-      );
+      output.add(FieldOperation(FieldOperationKind.set, path, value));
     }
     return;
   }

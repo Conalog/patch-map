@@ -2,7 +2,7 @@ import '../api/target.dart';
 import 'record_delta.dart';
 
 /// Reset is a barrier; subsequent child assignments remain ordered after it.
-enum FieldOperationKind { reset, wholeSet, childrenSet }
+enum FieldOperationKind { reset, set }
 
 class FieldOperation {
   FieldOperation(this.kind, Iterable<String> path, this.value)

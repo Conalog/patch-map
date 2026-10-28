@@ -73,10 +73,7 @@ final class RequestLedger {
 
   /// Called after the matching publication was submitted. Failures are keyed
   /// by item/element id because related components publish as one unit.
-  void submit({
-    Map<String, List<PatchMapFailure>> failures = const {},
-    bool unchanged = false,
-  }) {
+  void submit({Map<String, List<PatchMapFailure>> failures = const {}}) {
     if (_settled) return;
     recordFailures(failures);
     _settled = true;
@@ -86,8 +83,6 @@ final class RequestLedger {
         PatchMapResult(
           request.failures.isNotEmpty
               ? PatchMapOutcome.partialFailure
-              : unchanged
-              ? PatchMapOutcome.unchanged
               : PatchMapOutcome.applied,
           superseded: request.superseded,
           failures: failures,

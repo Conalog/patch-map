@@ -161,7 +161,7 @@ void main() {
       final combined = composer.composeIndexed(reset, fill).plan;
       expect(combined.patches.single.operations.map((o) => o.kind), [
         FieldOperationKind.reset,
-        FieldOperationKind.childrenSet,
+        FieldOperationKind.set,
       ]);
       final effective = resolve(document, combined, current: overridden);
       expect((effective['style'] as Map)['fontSize'], 12);

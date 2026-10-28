@@ -144,42 +144,17 @@ Map<String, Object?> partialTextStyle(
     defaults: false,
     partial: true,
   );
-  final auto = input['autoFont'];
-  if (auto is Map) {
-    final old = baseline['autoFont'];
-    final min = auto.containsKey('min')
-        ? auto['min']
-        : old is Map
-        ? old['min']
-        : null;
-    final max = auto.containsKey('max')
-        ? auto['max']
-        : old is Map
-        ? old['max']
-        : null;
-    if (min is num && max is num && min > max) {
-      invalid('$path.autoFont', 'autoFont min must not exceed max');
-    }
-  }
-  final tags = input['tagStyles'];
-  if (tags is Map) {
-    // Tag style schemas have already been checked, including cycle detection.
-    // Only cross-field autoFont limits require the corresponding prior tag.
-    final oldTags = baseline['tagStyles'];
-    for (final key in tags.keys) {
-      final tag = tags[key];
-      final old = oldTags is Map ? oldTags[key] : null;
-      _checkTagRanges(tag, old, '$path.tagStyles.$key');
-    }
-  }
+  // Schemas and cycles are already checked. Root and nested tags use the same
+  // cross-field range rule against their corresponding prior style.
+  _checkAutoFontRanges(input, baseline, path);
   return normalized;
 }
 
-void _checkTagRanges(Object? value, Object? baseline, String path) {
+void _checkAutoFontRanges(Object? value, Object? baseline, String path) {
   if (value is! Map) return;
   final auto = value['autoFont'];
-  final old = baseline is Map ? baseline['autoFont'] : null;
   if (auto is Map) {
+    final old = baseline is Map ? baseline['autoFont'] : null;
     final min = auto.containsKey('min')
         ? auto['min']
         : old is Map
@@ -195,10 +170,10 @@ void _checkTagRanges(Object? value, Object? baseline, String path) {
     }
   }
   final tags = value['tagStyles'];
-  final oldTags = baseline is Map ? baseline['tagStyles'] : null;
   if (tags is Map) {
+    final oldTags = baseline is Map ? baseline['tagStyles'] : null;
     for (final key in tags.keys) {
-      _checkTagRanges(
+      _checkAutoFontRanges(
         tags[key],
         oldTags is Map ? oldTags[key] : null,
         '$path.tagStyles.$key',

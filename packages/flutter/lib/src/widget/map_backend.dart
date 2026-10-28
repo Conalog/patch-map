@@ -631,23 +631,7 @@ final class MapBackend extends SessionBackend {
           );
         }
       }
-      final pages = List<RenderPage>.of(previous.pages);
-      final changedPages = owned.keys
-          .map((slot) => slot ~/ previous.geometry.nodes.pageSize)
-          .toSet();
-      for (final page in changedPages) {
-        final start = page * previous.geometry.nodes.pageSize;
-        pages[page] = RenderPage(
-          List.unmodifiable([
-            for (
-              var offset = 0;
-              offset < previous.pages[page].nodes.length;
-              offset++
-            )
-              owned[start + offset] ?? previous.pages[page].nodes[offset],
-          ]),
-        );
-      }
+      final pages = _replacePages(previous, owned);
       Map<DrawAsset, List<PatchMapTarget>>? targets;
       for (final entry in owned.entries) {
         final old = previous.node(entry.key).assetTargets,
@@ -760,23 +744,7 @@ final class MapBackend extends SessionBackend {
           relation: change.snapshot.relationFor(entry.value.id),
         )..retain();
       }
-      final pages = List<RenderPage>.of(pub.pages);
-      for (final page
-          in owned.keys
-              .map((slot) => slot ~/ pub.geometry.nodes.pageSize)
-              .toSet()) {
-        final start = page * pub.geometry.nodes.pageSize;
-        pages[page] = RenderPage(
-          List.unmodifiable([
-            for (
-              var offset = 0;
-              offset < pub.pages[page].nodes.length;
-              offset++
-            )
-              owned[start + offset] ?? pub.pages[page].nodes[offset],
-          ]),
-        );
-      }
+      final pages = _replacePages(pub, owned);
       return RenderPublication(
         change.snapshot,
         List.unmodifiable(pages),
@@ -1093,4 +1061,28 @@ final class MapBackend extends SessionBackend {
     selectionOverlay.dispose();
     retirement.close();
   }
+}
+
+// Replaces only changed pages; borrowed node ownership stays with publications.
+List<RenderPage> _replacePages(
+  RenderPublication previous,
+  Map<int, DrawNode> replacements,
+) {
+  final pages = List<RenderPage>.of(previous.pages);
+  final pageSize = previous.geometry.nodes.pageSize;
+  for (final page
+      in replacements.keys.map((slot) => slot ~/ pageSize).toSet()) {
+    final start = page * pageSize;
+    pages[page] = RenderPage(
+      List.unmodifiable([
+        for (
+          var offset = 0;
+          offset < previous.pages[page].nodes.length;
+          offset++
+        )
+          replacements[start + offset] ?? previous.pages[page].nodes[offset],
+      ]),
+    );
+  }
+  return pages;
 }

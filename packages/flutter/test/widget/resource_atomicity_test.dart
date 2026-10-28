@@ -85,10 +85,10 @@ void main() {
         animate: false,
         intent: PresentationPlan([
           PresentationPatch(targetR, [
-            FieldOperation(FieldOperationKind.wholeSet, ['source'], 'r.png'),
+            FieldOperation(FieldOperationKind.set, ['source'], 'r.png'),
           ]),
           PresentationPatch(targetS, [
-            FieldOperation(FieldOperationKind.wholeSet, ['source'], 'bad.svg'),
+            FieldOperation(FieldOperationKind.set, ['source'], 'bad.svg'),
           ]),
         ]),
       );

@@ -94,11 +94,7 @@ void main() {
 
   test('admitted claims share only detached immutable operation paths', () {
     final callerPath = ['style', 'fill'];
-    final operation = FieldOperation(
-      FieldOperationKind.childrenSet,
-      callerPath,
-      'red',
-    );
+    final operation = FieldOperation(FieldOperationKind.set, callerPath, 'red');
     final shared = PresentationClaim.fromOperation(
       _text,
       operation,
