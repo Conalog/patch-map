@@ -20,6 +20,13 @@ final class TouchCameraGesture {
   double get rotation => _rotation;
 
   static void validateOptions(PatchMapGestureOptions options) {
+    if (options.longPressDuration.isNegative) {
+      throw ArgumentError.value(
+        options.longPressDuration,
+        'longPressDuration',
+        'must be nonnegative',
+      );
+    }
     if (!options.zoomThreshold.isFinite ||
         options.zoomThreshold < 0 ||
         options.zoomThreshold >= 1 ||

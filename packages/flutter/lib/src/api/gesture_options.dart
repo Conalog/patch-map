@@ -12,6 +12,7 @@ final class PatchMapGestureOptions {
     this.zoomThresholdAfterRotation = .05,
     this.rotationThresholdDegrees = 15,
     this.rotationThresholdAfterZoomDegrees = 25,
+    this.longPressDuration = const Duration(milliseconds: 300),
   });
 
   /// Enable pinch and wheel scaling. Two-finger translation remains available.
@@ -37,6 +38,11 @@ final class PatchMapGestureOptions {
   /// Uses the larger of this and [rotationThresholdDegrees], from gesture start.
   /// Does not re-gate active rotation; a zero base threshold remains immediate.
   final double rotationThresholdAfterZoomDegrees;
+
+  /// Hold time before `longPress`, captured when the pointer goes down.
+  /// Must be nonnegative. Zero recognizes on the next timer turn; rebuilding
+  /// with a new duration only affects the next press.
+  final Duration longPressDuration;
 }
 
 /// Optional absolute logical-scale bounds, shared by input, commands and fit.

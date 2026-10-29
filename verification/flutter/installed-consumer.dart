@@ -35,6 +35,7 @@ Widget _host(
             zoomThresholdAfterRotation: .06,
             rotationThresholdDegrees: 15,
             rotationThresholdAfterZoomDegrees: 25,
+            longPressDuration: Duration(milliseconds: 650),
           ),
           zoomLimits: const PatchMapZoomLimits(minScale: .5, maxScale: 4),
           onPhaseChanged: (phase, _) => phases.add(phase),

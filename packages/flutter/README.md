@@ -150,6 +150,14 @@ with immediate `setCamera` first. Camera callbacks report `programmatic` changes
 through the existing frame path; no separate animation-completion event is added.
 
 `gestures: const PatchMapGestureOptions(zoomThreshold: .02, zoomThresholdAfterRotation: .05, rotationThresholdDegrees: 15, rotationThresholdAfterZoomDegrees: 25)` configures touch activation. Zoom uses relative span change; rotation uses degrees. An axis that starts first raises only the pending axis's threshold; follow-on values never lower a custom base. Simultaneous base crossings start both. Active axes stay active until gesture restart. Each crossing sample becomes a new baseline without a jump; zero base thresholds apply immediately. Zoom values must be finite in [0, 1), rotation values finite and nonnegative. `zoomEnabled` and `rotationEnabled` independently gate gestures. Settings are captured per gesture. Wheel, commands and translation retain their behavior.
+
+`PatchMapGestureOptions(longPressDuration: Duration(milliseconds: 300))` sets the
+hold time for `longPress`. The package default is 300ms, replacing Flutter's
+previous 500ms default for this surface. Durations must be nonnegative; zero
+recognizes on the next timer turn. The duration is captured on pointer down, so
+rebuilding only changes subsequent presses. The host still chooses what a long
+press does, including switching `dragMode` to paint/range for the held pointer.
+
 `zoomLimits: const PatchMapZoomLimits(minScale: .1, maxScale: 8)` clamps input, commands and fit. Omitted bounds are unrestricted; finite positive ordered bounds are required. A minimum can prevent fitting the entire drawing. Changed limits clamp current scale without refitting and notify `configuration`.
 `dragMode` is pan by default; range and paint modes detect objects and report
 callbacks. Input filters only judge candidates: make map changes in result

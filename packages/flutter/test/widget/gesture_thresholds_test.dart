@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:conalog_patch_map/conalog_patch_map.dart';
+import 'package:conalog_patch_map/src/widget/map_gesture_detector.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -31,23 +32,23 @@ void main() {
         global + const Offset(35, 0),
         pointer: 2,
       );
-      final detector = tester.widget<GestureDetector>(
+      final detector = tester.widget<MapGestureDetector>(
         find.descendant(
           of: find.byType(PatchMapView),
-          matching: find.byType(GestureDetector),
+          matching: find.byType(MapGestureDetector),
         ),
       );
       // Real pointer admission + controlled recognizer output isolates our
       // threshold from Flutter's separate touch slop. Other widget tests drive
       // actual two-pointer moves through the recognizer as well.
-      detector.onScaleStart!(
+      detector.onScaleStart(
         ScaleStartDetails(
           focalPoint: global,
           localFocalPoint: anchor,
           pointerCount: 2,
         ),
       );
-      void sample(double scale, double degrees) => detector.onScaleUpdate!(
+      void sample(double scale, double degrees) => detector.onScaleUpdate(
         ScaleUpdateDetails(
           focalPoint: global,
           localFocalPoint: anchor,
@@ -109,7 +110,7 @@ void main() {
         pointer: 4,
       );
       final immediate = controller.camera!;
-      detector.onScaleStart!(
+      detector.onScaleStart(
         ScaleStartDetails(
           focalPoint: global,
           localFocalPoint: anchor,

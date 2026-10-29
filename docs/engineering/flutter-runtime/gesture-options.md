@@ -10,16 +10,20 @@ PatchMapView(
   gestures: const PatchMapGestureOptions(
     zoomEnabled: true,
     rotationEnabled: true,
-    zoomThreshold: .02,
-    zoomThresholdAfterRotation: .05,
-    rotationThresholdDegrees: 15,
-    rotationThresholdAfterZoomDegrees: 25,
+    longPressDuration: Duration(milliseconds: 300),
   ),
   zoomLimits: const PatchMapZoomLimits(minScale: 0.1, maxScale: 8),
 );
 ```
 
 ## Contract
+
+Long press defaults to 300ms, replacing this surface's implicit Flutter 500ms default.
+`longPressDuration` must be nonnegative; zero recognizes on the next timer turn.
+Flutter captures the duration on primary pointer down; a rebuild affects the next
+press without restarting the current arena. Flutter owns movement rejection,
+cancellation and disposal; input epochs still suppress stale callbacks on replacement/inactivity.
+The host chooses actions, including switching the held pointer's drag to range/paint.
 
 Both gesture permissions default to true. `zoomEnabled` gates pinch and wheel
 scaling; `rotationEnabled` gates two-finger rotation. Explicit `setCamera`, fit
@@ -85,32 +89,29 @@ host error reporter is isolated so it cannot interrupt that rebuild.
 
 ## Ownership and verification
 
-The widget validates configuration; `interaction/touch_camera_gesture.dart` captures
-permissions/thresholds and adapts
-recognizer samples with scalar baselines, without applying or scheduling camera
-changes. The existing input coordinator applies its targets. `MapCamera` owns bound values,
-validation and limited scale, keeping the same transform/publication authority.
-Backend construction installs limits before resource owners are created.
+The widget validates configuration. `interaction/touch_camera_gesture.dart` adapts
+recognizer samples using captured thresholds/scalar baselines; the input coordinator applies targets.
+`MapCamera` owns limits and clamping; backend construction installs limits before resources.
+`widget/map_gesture_detector.dart` wires Flutter's tap/double-tap/long-press/scale arena
+and updates the hold deadline without replacing an active recognizer. Its semantics
+delegate preserves the surface's existing tap and long-press actions.
 No per-item work, extra timer, ticker, listener collection or frame loop is added.
-Existing frame invalidation and [camera observation](camera-observation.md) are reused.
+Existing invalidation and [camera observation](camera-observation.md) are reused.
 
-Focused witnesses: `test/widget/gesture_options_test.dart` covers independent
-permissions, explicit commands, translation, held-touch rebuild, wheel resolver
-ownership, first fit and live bounds. `test/geometry/zoom_limits_test.dart` covers
-rotated anchored clamping, asymmetric fit padding, invalid bounds/input and atomic
-rejection. Existing camera, frame, input and attachment checks cover defaults.
-The extracted public consumer exercises exported options and command clamping;
-`example/integration_test/camera_test.dart` includes disabled native pinch/rotation,
-bounded commands/fit and independent pixel projection.
+`test/widget/gesture_options_test.dart` covers permissions, commands, translation,
+held-touch rebuilds, wheel resolution, first fit and live bounds. `test/geometry/zoom_limits_test.dart`
+covers rotated anchored clamping, asymmetric padding and atomic rejection. Input/attachment tests cover defaults.
+The extracted consumer exercises exported options/clamping; `example/integration_test/camera_test.dart`
+covers disabled native pinch/rotation, bounded commands/fit and independent pixel projection.
+
+`test/widget/long_press_options_test.dart` covers the 300ms default, custom/zero
+durations, invalid configuration, held-press rebuilds, host paint-mode switching,
+movement/cancellation/replacement/inactivity/removal, and tap recognition.
 
 ## Verification evidence — 2026-10-27
 
-Analysis and 36 focused tests passed, covering both activation orders, simultaneous crossings, reversal,
-new gestures, zero/disabled axes, custom thresholds, invalid configuration and
-anchored camera updates. Public examples and the extracted consumer use the new
-settings; the extracted artifact consumer passed. Current records: `.artifacts/flutter/gesture-priority-qa-20261027/`.
-A matched host AOT comparison added 0.00035–0.00123 microseconds per input
-sample across pending/active combinations. It isolates this adapter and does not
-qualify native frame performance or subjective gesture feel. No physical device was connected for this
-change. Prior configurable-gesture evidence remains under
+Analysis, 36 focused tests and extracted-consumer checks passed; evidence:
+`.artifacts/flutter/gesture-priority-qa-20261027/`. A matched host AOT comparison added
+0.00035–0.00123 microseconds per sample, isolating this adapter, not native frames or
+subjective feel. No physical device was connected. Prior evidence:
 `.artifacts/flutter/gesture-config-qa-20261026/`.

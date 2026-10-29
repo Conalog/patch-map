@@ -26,6 +26,7 @@ import '../presentation/field_operations.dart' show presentationEqual;
 import '../session/map_session.dart';
 import '../viewport/camera.dart';
 import 'map_backend.dart';
+import 'map_gesture_detector.dart';
 import 'patch_map_controller.dart';
 
 /// Native retained diagram surface. Domain data fetching and actions belong to
@@ -378,8 +379,8 @@ class _PatchMapViewState extends State<PatchMapView>
                 });
               }
             },
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
+            child: MapGestureDetector(
+              longPressDuration: _gestureOptions.longPressDuration,
               onTap: () => input.recognizedTap(epoch: _recognitionEpoch),
               onDoubleTap: () =>
                   input.recognizedDoubleTap(epoch: _recognitionEpoch),
