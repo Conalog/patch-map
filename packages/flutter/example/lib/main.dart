@@ -66,15 +66,7 @@ class _ExperimentState extends State<_Experiment>
   UpdateWorkload _mode = UpdateWorkload.number;
   Size _viewport = Size.zero;
   Timer? _stress;
-  late final AnimationController _motion =
-      AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 400),
-      )..addListener(() {
-        _controller.setCamera(
-          center: Offset.lerp(_motionFrom, _motionTo, _motion.value),
-        );
-      });
+  late final AnimationController _motion;
   Offset _motionFrom = Offset.zero, _motionTo = Offset.zero;
   int _sequence = 0, _inFlight = 0, _epoch = 0;
   bool _attached = true, _busy = false, _running = false, _first = true;
@@ -89,6 +81,17 @@ class _ExperimentState extends State<_Experiment>
   @override
   void initState() {
     super.initState();
+    // Construct while the widget is active, including hosts that never pan.
+    // Lazy initialization during dispose would look up a deactivated ancestor.
+    _motion =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 400),
+        )..addListener(() {
+          _controller.setCamera(
+            center: Offset.lerp(_motionFrom, _motionTo, _motion.value),
+          );
+        });
     WidgetsBinding.instance.addObserver(this);
   }
 

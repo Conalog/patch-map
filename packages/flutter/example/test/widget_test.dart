@@ -53,6 +53,16 @@ Future<int> panelWhitePixels(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('unused motion controller can be removed before any pan', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const PatchMapExampleApp(itemCount: 1, autoStart: false),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'manual zoom hides numbers, retains updates and survives mode replacement',
     (tester) async {
