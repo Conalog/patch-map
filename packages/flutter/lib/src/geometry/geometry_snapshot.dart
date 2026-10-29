@@ -72,6 +72,11 @@ final class GeometrySnapshot {
       replacements[slot] = _withRelationBounds(baseNodes[slot], relation);
     }
     final nodes = baseNodes.replace(replacements);
+    final paintBounds = _pageBounds(nodes, paint: true);
+    // Finite leaves can still span an infinite width/height, including across
+    // page boundaries. Reject before replacement acceptance and camera fit.
+    final envelope = paintBounds.fold<Rect?>(null, unionBounds);
+    if (envelope != null) validateBounds(envelope);
     return GeometrySnapshot._(
       topology,
       nodes,
@@ -79,7 +84,7 @@ final class GeometrySnapshot {
         initial.paintOrder.map((node) => topology.slots[node.id]!),
       ),
       relations.isEmpty ? endpoints : _pageBounds(nodes, paint: false),
-      _pageBounds(nodes, paint: true),
+      paintBounds,
       endpoints,
       relationSlots,
       PagedValues<RelationGeometry>.fromList(relations),

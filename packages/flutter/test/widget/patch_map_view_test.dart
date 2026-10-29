@@ -93,6 +93,20 @@ void main() {
       expect(result.outcome, PatchMapOutcome.rejected);
       expect(controller.getValue(const PatchMapTarget('a'))?['id'], 'a');
       expect(controller.toWorld(const Offset(200, 200)), before);
+      final overflow = await controller.draw([
+        for (final x in [-1e308, 1e308])
+          {
+            'type': 'rect',
+            'id': '$x',
+            'size': {'width': 1e307, 'height': 10},
+            'attrs': {'x': x},
+          },
+      ]);
+      expect(overflow.outcome, PatchMapOutcome.rejected);
+      expect(overflow.failures.single.code, 'INVALID_GEOMETRY');
+      expect(controller.phase, PatchMapPhase.ready);
+      expect(controller.getValue(const PatchMapTarget('a'))?['id'], 'a');
+      expect(controller.toWorld(const Offset(200, 200)), before);
       await tester.pumpWidget(const SizedBox());
     },
   );
