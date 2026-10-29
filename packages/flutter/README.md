@@ -199,6 +199,11 @@ preparation/frames while preserving the latest admitted values. `colors` and
 `symbols` are attachment configuration; changing them requires a new widget key.
 Image preparation is asynchronous; it neither blocks first screen nor changes ready again.
 
+`resolveDirectColor(value)` converts a direct CSS, numeric or JSON color value
+using the same parser as the map. Use it when app-side color calculations must
+match authored colors. It does not resolve theme tokens and throws
+`FormatException` for unsupported or invalid values.
+
 ## Scope and verification
 
 The runtime covers item, grid, group, relations, image, text, rect and the four

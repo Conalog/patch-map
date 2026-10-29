@@ -2,7 +2,8 @@ import 'dart:math' as math;
 import 'dart:collection';
 import 'dart:ui';
 
-import 'package:conalog_patch_map/src/dataset/colors.dart';
+import 'package:conalog_patch_map/conalog_patch_map.dart' show resolveDirectColor;
+import 'package:conalog_patch_map/src/dataset/colors.dart' hide resolveDirectColor;
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/dataset/dataset_styles.dart' as styles;
 import 'package:flutter_test/flutter_test.dart';
