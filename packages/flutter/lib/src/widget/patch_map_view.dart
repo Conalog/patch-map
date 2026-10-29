@@ -97,6 +97,13 @@ class _PatchMapViewState extends State<PatchMapView>
   @override
   void initState() {
     super.initState();
+    // A failed initState is not disposed by Flutter. Reject duplicate ownership
+    // before allocating a backend or registering any lifecycle observer.
+    if (widget.controller.isAttached) {
+      throw StateError(
+        'PatchMapController is already attached to a live widget',
+      );
+    }
     MapCamera.validateZoomLimits(widget.zoomLimits);
     TouchCameraGesture.validateOptions(widget.gestures);
     selection.SelectionOverlay.validateStyle(widget.selectionStyle);
