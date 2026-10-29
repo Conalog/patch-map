@@ -51,11 +51,11 @@ Update failure/cleanup paths must account for partial objects and work that
 cannot actually be cancelled. Unknown SVG/parser intermediate memory and
 general Paragraph active memory remain measured risks, not proved global caps.
 
-Current SDK metadata and conformance include capabilities outside Flutter's
-first release. Add explicit Flutter phase coverage; do not remove JS tests or
-claim all conformance targets pass. Actual WebView deployment identity remains
-an external verification input. Baseline source is the previously investigated
-0.10.0 mobile WebView path, not automatically latest release/1.0.
+Conformance includes features beyond Flutter's first release; document phase
+coverage without removing JS tests or claiming all targets pass. Deployed
+WebView identity still needs verification. Investigated mobile WebView 0.10.0
+is a performance reference; native semantics follow release/1.0 and approved
+exceptions below.
 
 Compatibility decisions and executed legacy evidence are owned by
 [compatibility findings](compatibility.md).

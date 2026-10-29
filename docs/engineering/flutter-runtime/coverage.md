@@ -1,7 +1,7 @@
 # Runtime delivery coverage
 
-Progress against the [accepted contracts](contracts.md) and
-[implementation sequence](README.md). Tests establish only the scope they execute.
+Coverage against [contracts](contracts.md) and the [delivery sequence](README.md);
+evidence is scenario-specific.
 
 ## Delivery status
 
@@ -30,8 +30,6 @@ release authority. `checkpoint-01` used scattered coordinates and is classified
 as overlap stress, not a representative plant baseline. `checkpoint-02-corrected`
 uses ordered grids with template/value variety. Neither result is directly
 comparable to the old standalone app's different visibility/viewport policy.
-
-
 The emulator transfer review separates the old experiment's workload from the
 package. The standalone app hid numbers at distant scales and bypassed public
 admission; its timing is not a package baseline. The package now reuses unchanged
@@ -78,7 +76,6 @@ includes the service SDK, iOS performance, deployed WebView equivalence, physica
 GPU memory and long-duration/device lifecycle stress.
 No release or full performance approval is inferred from these checkpoints.
 
-
 ## Native lifetime and platform checkpoint
 
 A separate public-API host completed four profile cycles on the Android emulator:
@@ -112,7 +109,6 @@ Logs and identities are under
 The [common-input WebView checkpoint](webview-checkpoint.md) completed 84 requests.
 Native API/observed CPU were lower; overview PSS was higher. Deployed equivalence
 and presentation smoothness remain unqualified. Historical code is evidence only.
-
 ## Physical-device experiment comparison
 
 The [matched experiment checkpoint](experiment-parity-checkpoint.md) records the fixed animation skip and remaining preparation regression: fresh-process10,000-bar zoom/pan response54→358ms, CPU301→749ms.
