@@ -18,7 +18,7 @@ actions. No new state-management or game-engine dependency is required.
 | `viewport/` | Camera/navigation, [rotation](rotation-animation.md), coordinates and lazy [observation](camera-observation.md). Holds no copied scene or resource cache. |
 | `interaction/` | One gesture coordinator, item hit resolution and range/paint path accumulation; selection owner and immutable event projection. Host callbacks choose actions. |
 | `rendering/` | Render plan, ordered retained item/component projections, static chunks, dynamic bars and the CustomPainter adapter in `widget/patch_map_view.dart`. Consumes effective state; cannot decide update success or mutate authored data. |
-| `resources/` | Text layout/Paragraph/atlas, SVG and external raster owners. Shared by actual creation identity. Each owns temporary work, reservations, references and safe retirement. |
+| `resources/` | Text layout/Paragraph/atlas, SVG and external raster owners. Physical assets share creation identity; mutable SVG visibility/resolution demand belongs to each draw use. Each owner tracks temporary work, reservations, references and safe retirement. |
 | `frame/` | One `frame_coordinator.dart` schedules invalidation/animation and records the generation/revision actually painted. It confirms submission and drains safe retirement; no second canonical scene. |
 
 Dependency direction: widget composition -> session coordination -> dataset,

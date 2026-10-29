@@ -62,6 +62,7 @@ final class RenderResources {
       palette: palette,
       text: text,
       assets: acquireAsset,
+      canShareAsset: (asset) => asset is _RasterAsset,
       barMasks: (radius) => bars?.acquire(radius),
     );
     _active = active;

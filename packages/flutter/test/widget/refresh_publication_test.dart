@@ -49,13 +49,20 @@ void main() {
         },
       ]);
       final original = h.initial(doc);
-      await original.assetTargets.keys.single.ready;
-      final counted = CountedList(original.assetTargets.values.single);
+      await Future.wait(original.assetTargets.keys.map((asset) => asset.ready));
+      // SVG uses own their mutable demand independently of shared physical data.
+      final counted = original.assetTargets.map(
+        (asset, targets) => MapEntry(asset, CountedList(targets)),
+      );
+      expect(
+        counted.values.fold(0, (sum, targets) => sum + targets.length),
+        100,
+      );
       final before = RenderPublication(
         original.geometry,
         original.pages,
         original.resources,
-        targets: {original.assetTargets.keys.single: counted},
+        targets: counted,
         counts: original.assetCounts,
       );
       h.backend.publish(before, 1, 1);
@@ -80,10 +87,15 @@ void main() {
               )).publication
               as RenderPublication;
       expect(next.assetTargets, same(before.assetTargets));
-      counted.reads = 0;
+      for (final targets in counted.values) {
+        targets.reads = 0;
+      }
       h.backend.publish(next, 1, 2);
       await support.tick();
-      final reads = counted.reads;
+      final reads = counted.values.fold(
+        0,
+        (sum, targets) => sum + targets.reads,
+      );
       next.dispose();
       before.dispose();
       original.dispose();

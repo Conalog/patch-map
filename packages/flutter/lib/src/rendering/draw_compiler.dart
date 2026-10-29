@@ -29,10 +29,12 @@ final class DrawCompiler {
     required this.text,
     required this.assets,
     this.barMasks,
+    this.canShareAsset,
   });
   final ColorResolver palette;
   final TextPool text;
   final DrawAssetFactory assets;
+  final bool Function(DrawAsset)? canShareAsset;
   final BarMaskHandle? Function(double radius)? barMasks;
   final _components = <Object, DrawContent>{};
 
@@ -228,11 +230,7 @@ final class DrawCompiler {
         ),
         _ => throw StateError('Unknown admitted component'),
       };
-      _components[key] = value;
-      final cached = value;
-      value.onDisposed = () {
-        if (identical(_components[key], cached)) _components.remove(key);
-      };
+      _cacheImmutableContent(key, value);
     }
     value.retain();
     acquired.add(value);
@@ -270,13 +268,21 @@ final class DrawCompiler {
         'background' => _background(data, node.opacity, false, false),
         _ => throw StateError('Retained asset content requires baseline'),
       };
-      _components[key] = value;
-      final cached = value;
-      value.onDisposed = () {
-        if (identical(_components[key], cached)) _components.remove(key);
-      };
+      _cacheImmutableContent(key, value);
     }
     return value..retain();
+  }
+
+  void _cacheImmutableContent(Object key, DrawContent value) {
+    // Asset leases contain mutable visibility/resolution demand for one use.
+    // Physical vectors and images are still shared by their resource stores.
+    if (value is AssetContent && !(canShareAsset?.call(value.asset) ?? false)) {
+      return;
+    }
+    _components[key] = value;
+    value.onDisposed = () {
+      if (identical(_components[key], value)) _components.remove(key);
+    };
   }
 
   TextContent _textContent(
