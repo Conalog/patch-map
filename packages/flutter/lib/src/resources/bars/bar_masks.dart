@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import '../../frame/resource_retirement.dart';
+import '../preparation_queue.dart';
 import '../resource_budget.dart';
 
 /// Creation identity excludes color, placement and changing bar height. One
@@ -200,6 +201,7 @@ final class _Entry {
   var result = Completer<BarMasks?>();
   BarMasks? masks;
   ResourceBudgetLease? reservation;
+  final cancellation = PreparationCancellation();
 }
 
 /// One generation's resource owner. All image bytes, including reservations and
@@ -211,6 +213,7 @@ final class BarMaskPool {
     required this.budget,
     required this.retirement,
     BarMaskCreator? creator,
+    this.schedule,
     this.onReady,
     bool active = true,
   }) : _creator = creator ?? createBarMasks,
@@ -224,6 +227,7 @@ final class BarMaskPool {
   final ResourceBudget budget;
   final ResourceRetirement retirement;
   final BarMaskCreator _creator;
+  final PreparationScheduler<BarMasks>? schedule;
   void Function()? onReady;
   final _entries = <double, _Entry>{};
   final _queued = <double, _Entry>{};
@@ -284,7 +288,11 @@ final class BarMaskPool {
     if (entry.references > 0 || _closed) return;
     switch (entry.state) {
       case _State.running:
-        // Keep the slot/reservation/entry. A reacquire joins this same job.
+        // A global queue may still be waiting for a native slot. Drop that
+        // unstarted work; actual native work remains charged until settlement.
+        if (schedule != null && entry.cancellation.cancel()) {
+          _cancelUnstarted(entry);
+        }
         break;
       case _State.ready:
         _unused[entry.radius] = entry;
@@ -298,6 +306,15 @@ final class BarMaskPool {
         }
         if (!entry.result.isCompleted) entry.result.complete(null);
     }
+  }
+
+  void _cancelUnstarted(_Entry entry) {
+    entry.state = _State.retired;
+    if (identical(_entries[entry.radius], entry)) _entries.remove(entry.radius);
+    if (!entry.result.isCompleted) entry.result.complete(null);
+    final reservation = entry.reservation;
+    entry.reservation = null;
+    if (reservation != null) _releaseReservation(reservation);
   }
 
   void setActive(bool active) {
@@ -385,7 +402,9 @@ final class BarMaskPool {
     var published = false;
     final reservation = entry.reservation!;
     try {
-      temporary = await _creator(entry.plan!);
+      temporary = await (schedule == null
+          ? _creator(entry.plan!)
+          : schedule!(() => _creator(entry.plan!), entry.cancellation));
       if (temporary.bytes != entry.plan!.estimatedBytes) {
         throw StateError('Bar mask creator returned unexpected dimensions');
       }
@@ -400,6 +419,8 @@ final class BarMaskPool {
         if (!entry.result.isCompleted) entry.result.complete(null);
         _entries.remove(entry.radius);
       }
+    } on PreparationCancelled {
+      _cancelUnstarted(entry);
     } catch (error) {
       // The creator owns partial results until it returns a complete pair.
       // Notification callbacks below never enter this failure-identity path.
@@ -478,7 +499,12 @@ final class BarMaskPool {
     _queued.clear();
     _denied.clear();
     for (final entry in _entries.values.toList(growable: false)) {
-      if (entry.state == _State.running) continue;
+      if (entry.state == _State.running) {
+        if (schedule != null && entry.cancellation.cancel()) {
+          _cancelUnstarted(entry);
+        }
+        continue;
+      }
       if (entry.masks != null) {
         _retire(entry);
       } else {

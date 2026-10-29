@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import '../../frame/resource_retirement.dart';
+import '../preparation_queue.dart';
 import '../resource_budget.dart';
 import 'svg_vectors.dart';
 
@@ -11,8 +12,7 @@ typedef SvgImageRasterizer =
 
 /// Composition may route both bar and SVG creation through one FIFO scheduler.
 /// Without this hook, the local four-job limit does not bound other owners.
-typedef SvgImageScheduler =
-    Future<ui.Image> Function(Future<ui.Image> Function() create);
+typedef SvgImageScheduler = PreparationScheduler<ui.Image>;
 
 /// A caller-owned vector fallback plus a borrowed optional raster image.
 /// The caller retains this lease until its last submitted frame stops borrowing.
@@ -183,7 +183,13 @@ final class SvgImageStore {
 
   void _release(_ImageEntry entry) {
     if (--entry.references != 0) return;
-    if (entry.state == _State.running) return;
+    if (entry.state == _State.running) {
+      if (schedule != null && entry.cancellation.cancel()) {
+        _remove(entry);
+        _releaseCharge(entry);
+      }
+      return;
+    }
     _remove(entry);
   }
 
@@ -250,7 +256,9 @@ final class SvgImageStore {
         return _rasterize(scaled!, entry.width, entry.height);
       }
 
-      temporary = await (schedule == null ? create() : schedule!(create));
+      temporary = await (schedule == null
+          ? create()
+          : schedule!(create, entry.cancellation));
       if (temporary.width != entry.width || temporary.height != entry.height) {
         throw StateError('SVG rasterizer returned unexpected dimensions');
       }
@@ -261,6 +269,9 @@ final class SvgImageStore {
         entry.state = _State.ready;
         published = true;
       }
+    } on PreparationCancelled {
+      // No native operation ran. This is neither an optimization failure nor
+      // a failed creation identity, so the same demand may be acquired again.
     } catch (error) {
       lastCreationError = error;
       _failed.add(entry.key);
@@ -297,8 +308,8 @@ final class SvgImageStore {
 
   void _remove(_ImageEntry entry) {
     if (identical(_entries[entry.key], entry)) _entries.remove(entry.key);
-    _queued.remove(entry.key);
-    _denied.remove(entry.key);
+    if (identical(_queued[entry.key], entry)) _queued.remove(entry.key);
+    if (identical(_denied[entry.key], entry)) _denied.remove(entry.key);
     final image = entry.image;
     entry.image = null;
     if (image != null) {
@@ -322,7 +333,14 @@ final class SvgImageStore {
     _active = false;
     onReady = null;
     for (final entry in _entries.values.toList(growable: false)) {
-      if (entry.state != _State.running) _remove(entry);
+      if (entry.state == _State.running) {
+        if (schedule != null && entry.cancellation.cancel()) {
+          _remove(entry);
+          _releaseCharge(entry);
+        }
+      } else {
+        _remove(entry);
+      }
     }
     _queued.clear();
     _denied.clear();
@@ -342,6 +360,7 @@ final class _ImageEntry {
   _State state = _State.queued;
   ui.Image? image;
   ResourceBudgetLease? reservation;
+  final cancellation = PreparationCancellation();
 }
 
 int? _level(double demand) {

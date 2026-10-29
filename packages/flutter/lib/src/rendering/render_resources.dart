@@ -49,12 +49,8 @@ final class RenderResources {
     svgImages = SvgImageStore(
       budget: optimizationBudget,
       retirement: retirement,
-      schedule: (create) => preparations.schedule(() {
-        if (_closed) {
-          throw StateError('SVG generation closed before rasterization');
-        }
-        return create();
-      }),
+      schedule: (create, cancellation) =>
+          preparations.schedule(create, cancellation: cancellation),
       onReady: invalidate,
       active: active,
     );
@@ -147,10 +143,8 @@ final class RenderResources {
       representativeWidth: representative,
       budget: optimizationBudget,
       retirement: retirement,
-      creator: (plan) => preparations.schedule(() {
-        if (_closed) throw StateError('Bar generation closed before creation');
-        return createBarMasks(plan);
-      }),
+      schedule: (create, cancellation) =>
+          preparations.schedule(create, cancellation: cancellation),
       onReady: invalidate,
       active: _active,
     );
