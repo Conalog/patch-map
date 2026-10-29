@@ -94,7 +94,7 @@ do not duplicate entries or retain snapshot chains.
 `ItemDataView` projects the effective component list in authored order only on
 read. It unwraps older views and keeps one current layout, not revision history.
 The input/query boundary materializes JSON and releases that layout reference
-before exposing event data; unchanged world-only projections preserve identity.
+before exposing event or whole-item query data; unchanged world-only projections preserve identity.
 
 Raw input resolves coordinates and hits against the camera/geometry published
 when that input is processed. Coalesce notifications only, not the geometric

@@ -21,6 +21,7 @@ import '../frame/frame_coordinator.dart';
 import '../rendering/selection_overlay.dart' as selection;
 import '../geometry/scene_geometry.dart' show unionBounds;
 import '../geometry/object_geometry.dart';
+import '../geometry/item_data.dart';
 import '../resources/asset_registry.dart';
 import '../presentation/field_operations.dart' show presentationEqual;
 import '../session/map_session.dart';
@@ -485,7 +486,16 @@ class _PatchMapViewState extends State<PatchMapView>
   Future<PatchMapResult> update(Iterable<PatchMapUpdate> updates) =>
       session.update(updates);
   @override
-  Map<String, Object?>? value(PatchMapTarget target) => session.current(target);
+  Map<String, Object?>? value(PatchMapTarget target) {
+    if (target.componentId == null && phase == PatchMapPhase.ready) {
+      final node = backend.current?.geometry[target.id];
+      if (node?.target.type == 'item') return exportItemData(node!.data);
+    }
+    // Admission keeps its raw record lookup; only public item reads project
+    // current component records, using the same immutable view as events.
+    return session.current(target);
+  }
+
   @override
   PatchMapObjectGeometry? geometry(String id) {
     if (phase != PatchMapPhase.ready) return null;

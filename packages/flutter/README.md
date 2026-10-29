@@ -72,7 +72,7 @@ submission, not animation end or physical display presentation.
 | --- | --- |
 | `setPresentation(key, layer)` / `clearPresentation(key)` | Replace/remove one independent alpha layer; synchronous admission result |
 | `camera` / widget `onCameraChanged` | Current immutable camera state / frame-coalesced change notification |
-| `getValue(target)` | Immutable current effective record; null for a missing target |
+| `getValue(target)` | Immutable current effective record, including current components for a published item; null for a missing target |
 | `getGeometry(id)` | Immutable published world origin, logical/paint bounds and local-box corners; no layout or frame request |
 | `fit(targets:, padding:)` | Fit all or named targets; preserve rotation |
 | `focus(ids, padding:)` | Move to targets; preserve scale and rotation |
