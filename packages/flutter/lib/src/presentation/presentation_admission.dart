@@ -115,7 +115,11 @@ class PresentationAdmission {
       }
       final componentId = update.target.componentId;
       final component = componentId != null;
-      final authored = component ? target.components[componentId] : target.data;
+      final authored = component
+          ? target.type == 'item'
+                ? target.components[componentId]
+                : null
+          : target.data;
       if (authored == null) {
         throw DatasetException(
           'MISSING_TARGET',
