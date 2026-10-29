@@ -58,5 +58,64 @@ void main() {
         await tester.pumpWidget(const SizedBox());
       },
     );
+
+    testWidgets(
+      'empty item content box rejects atomically while active=$active',
+      (tester) async {
+        final controller = PatchMapController();
+        await tester.pumpWidget(support.host(controller));
+        final draw = controller.draw([
+          {'type': 'text', 'id': 'label', 'text': 'old'},
+          {
+            'type': 'item',
+            'id': 'i',
+            'size': 100,
+            'padding': 20,
+            'components': [],
+          },
+        ]);
+        await support.progress(tester);
+        expect((await draw).outcome, PatchMapOutcome.applied);
+        final geometry = controller.getGeometry('i');
+        final value = controller.getValue(const PatchMapTarget('i'));
+        if (!active) {
+          await tester.pumpWidget(support.host(controller, active: false));
+        }
+        for (final values in [
+          <String, Object?>{'size': 10},
+          <String, Object?>{'padding': 60},
+        ]) {
+          final result = await controller.updateValues([
+            const PatchMapUpdate(PatchMapTarget('label'), {'text': 'partial'}),
+            PatchMapUpdate(const PatchMapTarget('i'), values),
+          ]);
+          expect(result.outcome, PatchMapOutcome.rejected);
+          expect(result.failures.single.code, 'INVALID_GEOMETRY');
+          expect(result.failures.single.path, 'padding');
+          expect(controller.getValue(const PatchMapTarget('i')), value);
+          expect(
+            controller.getValue(const PatchMapTarget('label'))?['text'],
+            'old',
+          );
+          expect(controller.getGeometry('i')!.bounds, geometry!.bounds);
+          expect(controller.phase, PatchMapPhase.ready);
+        }
+        if (!active) await tester.pumpWidget(support.host(controller));
+        await support.progress(tester);
+        expect(tester.takeException(), isNull);
+        expect(controller.phase, PatchMapPhase.ready);
+
+        final valid = controller.updateValues([
+          const PatchMapUpdate(PatchMapTarget('i'), {'size': 10, 'padding': 2}),
+        ]);
+        await support.progress(tester);
+        expect((await valid).outcome, PatchMapOutcome.applied);
+        expect(controller.getValue(const PatchMapTarget('i'))?['size'], {
+          'width': 10,
+          'height': 10,
+        });
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
   }
 }

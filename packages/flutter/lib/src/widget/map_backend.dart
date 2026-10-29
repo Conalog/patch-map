@@ -209,7 +209,26 @@ final class MapBackend extends SessionBackend {
             (entry.value.fields & ownerLayout) != 0)
           entry.key,
     };
-    void validate(String id, Map<String, Object?> value) {
+    void validateComponent(
+      Map<String, Object?> value,
+      Size size,
+      Rect content,
+      bool upright,
+    ) {
+      final layout = ItemLayout.prepareComponent(
+        value,
+        size,
+        content,
+        value['type'] != 'background' && upright,
+        (value, bounds) {
+          TextSpec.fromData(value, bounds, palette);
+          return Size.zero;
+        },
+      );
+      layouts.remember(size, content, layout);
+    }
+
+    void validate(String id, Map<String, Object?>? value) {
       final data = owners[id]?.after ?? lookup(PatchMapTarget(id))!;
       final prior = current?.geometry[id];
       final sameSize = identical(data['size'], prior?.data['size']);
@@ -221,18 +240,21 @@ final class MapBackend extends SessionBackend {
       final content = sameContent
           ? prior!.item!.content
           : BoxEdges.fromData(data['padding']! as Map).contentBox(size);
-      final layout = ItemLayout.prepareComponent(
-        value,
-        size,
-        content,
-        value['type'] != 'background' &&
-            data['contentOrientation'] == 'upright',
-        (value, bounds) {
-          TextSpec.fromData(value, bounds, palette);
-          return Size.zero;
-        },
-      );
-      layouts.remember(size, content, layout);
+      final upright = data['contentOrientation'] == 'upright';
+      if (value != null) {
+        validateComponent(value, size, content, upright);
+        return;
+      }
+      // Validate changed owner geometry once, including items with no children.
+      for (final component in document.targets[id]!.components.keys) {
+        final address = PatchMapTarget(id, componentId: component);
+        validateComponent(
+          components[address]?.after ?? lookup(address)!,
+          size,
+          content,
+          upright,
+        );
+      }
     }
 
     for (final entry in components.entries) {
@@ -241,10 +263,7 @@ final class MapBackend extends SessionBackend {
       }
     }
     for (final id in resized) {
-      for (final component in document.targets[id]!.components.keys) {
-        final address = PatchMapTarget(id, componentId: component);
-        validate(id, components[address]?.after ?? lookup(address)!);
-      }
+      validate(id, null);
     }
     _validatedLayouts = components.isEmpty && resized.isEmpty ? null : layouts;
   }
