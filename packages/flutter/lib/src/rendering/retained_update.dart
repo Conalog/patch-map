@@ -47,6 +47,9 @@ final class RetainedUpdate extends MapBase<PatchMapTarget, RecordDelta> {
   Iterable<int> get slots => _items.map((item) => item.slot);
   final oldBounds = <int, Rect?>{};
   final staticProofs = <int, Object?>{};
+  List<int>? _presentationGeometryChanges;
+  Iterable<int> get presentationGeometryChanges =>
+      _presentationGeometryChanges ?? const [];
 
   static RetainedUpdate? validate(
     DatasetDocument document,
@@ -338,6 +341,9 @@ final class RetainedUpdate extends MapBase<PatchMapTarget, RecordDelta> {
                       );
               })
             : item.draw.geometry.paintBounds;
+        if (envelopeChanged && baseline.plan.hasPresentationCache) {
+          (_presentationGeometryChanges ??= []).add(item.slot);
+        }
         if (item.bounds != item.draw.geometry.paintBounds) {
           envelopes[item.slot] = item.bounds;
           staticChanged = true;

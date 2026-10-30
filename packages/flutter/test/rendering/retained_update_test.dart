@@ -714,41 +714,44 @@ final class Harness {
   Map<String, Object?> lastFailures = {};
   RenderPublication get current => backend.current!;
   int get slot => current.geometry.topology.slots['g.0.0']!;
-  static Future<Harness> create() async {
-    final document = const DatasetReader().read([
-      {
-        'type': 'grid',
-        'id': 'g',
-        'cells': [
-          [1, 1],
-        ],
-        'gap': 8,
-        'item': {
-          'size': {'width': 40, 'height': 60},
-          'components': [
-            {
-              'id': 'background',
-              'type': 'background',
-              'source': {'type': 'rect', 'fill': '#ffffff'},
+  static Future<Harness> create({List<Map<String, Object?>>? input}) async {
+    final records =
+        input ??
+        [
+          {
+            'type': 'grid',
+            'id': 'g',
+            'cells': [
+              [1, 1],
+            ],
+            'gap': 8,
+            'item': {
+              'size': {'width': 40, 'height': 60},
+              'components': [
+                {
+                  'id': 'background',
+                  'type': 'background',
+                  'source': {'type': 'rect', 'fill': '#ffffff'},
+                },
+                {
+                  'id': 'bar',
+                  'type': 'bar',
+                  'source': {'type': 'rect', 'fill': '#0000ff'},
+                  'size': {'width': '100%', 'height': '100%'},
+                  'animation': true,
+                  'animationDuration': 400,
+                },
+                {
+                  'id': 'text',
+                  'type': 'text',
+                  'text': '1',
+                  'style': {'fontSize': 12},
+                },
+              ],
             },
-            {
-              'id': 'bar',
-              'type': 'bar',
-              'source': {'type': 'rect', 'fill': '#0000ff'},
-              'size': {'width': '100%', 'height': '100%'},
-              'animation': true,
-              'animationDuration': 400,
-            },
-            {
-              'id': 'text',
-              'type': 'text',
-              'text': '1',
-              'style': {'fontSize': 12},
-            },
-          ],
-        },
-      },
-    ]);
+          },
+        ];
+    final document = const DatasetReader().read(records);
     final backend = MapBackend(
       palette: ColorResolver(),
       registry: AssetRegistry(),

@@ -63,6 +63,7 @@ final class RenderPublication extends SessionPublication {
         changedSlots: update.staticProofs.keys,
         forceChangedProof: true,
         memberOverrides: update.staticProofs,
+        presentationGeometryChanges: update.presentationGeometryChanges,
       );
     } catch (_) {
       update.dispose();

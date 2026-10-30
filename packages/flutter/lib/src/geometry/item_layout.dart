@@ -417,10 +417,16 @@ final class ItemLayout {
 
   /// Camera-independent conservative paint envelope. Bars are contained by the
   /// item clip and deliberately do not enlarge the overflow safety envelope.
-  Rect paintBounds(Affine world) {
+  /// [includeComponent] narrows only a renderer's temporary safety proof. It
+  /// does not alter the layout or the published paint/hit/query envelope.
+  Rect paintBounds(Affine world, {bool Function(String)? includeComponent}) {
     var result = world.projectRect(Offset.zero & size).bounds;
     for (final component in components) {
-      if (!component.visible || component.type == 'bar') continue;
+      if (!component.visible ||
+          component.type == 'bar' ||
+          (includeComponent != null && !includeComponent(component.id))) {
+        continue;
+      }
       result = result.expandToInclude(
         _componentPaintBounds(
           world.multiply(component.transform),

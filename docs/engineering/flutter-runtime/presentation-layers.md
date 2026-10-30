@@ -57,13 +57,25 @@ coverage inside that layer before drawing, preventing native glyph-edge clipping
 This also covers authored translucent outlines; opaque and stroke-free Paragraphs
 and atlas text do not add that draw.
 
-Static chunks retain their original geometry. A visible affected chunk lazily
-builds one variant with the same shapes/order and multiplied colors; unaffected
-backgrounds use the original mesh. Plans share variants only for identical static chunks and opacity snapshots, so
-ordinary text/bar changes do not retessellate unchanged backgrounds. A plan caches
-only its current layer snapshot, not prior keys/versions. Detached variants enter the existing safe retirement
-queue; plan disposal releases any remaining variants. Active effect updates can
-rebuild variants; this is not a claim of constant-cost bulk layer changes.
+Static chunks retain their background geometry independently of whether their
+current overlap proof permits batching. A visible affected chunk lazily checks
+that proof again with components at presentation alpha 0 excluded. This temporary
+envelope always includes the item bounds and all remaining visible overflow;
+it does not replace published bounds or hit/query geometry. Actual overlap,
+partial-alpha overflow and incompatible component order retain per-item drawing.
+The narrowed proof is cached for the current chunk and opacity snapshot, and is
+invalidated by relevant component geometry changes even when the full envelope
+stays equal. Retained updates carry that invalidation before mutating live layouts.
+
+Unchanged backgrounds reuse their vertices across text hiding/reveal and envelope
+changes. A chunk owns at most one current unmodified background geometry; it may
+keep that geometry while overlap temporarily prevents its use. Background shape,
+transform or paint changes replace it. Alpha-adjusted backgrounds lazily build a
+variant with the same shapes/order and multiplied colors. Plans share variants
+only for identical static chunks and opacity snapshots, and cache no prior
+keys/versions. Detached variants enter the existing safe retirement queue; the
+last chunk/variant reference releases its geometry. Active effect updates can
+recheck proofs or rebuild variants; this is not constant-cost bulk layer changing.
 
 With no effective factors, rendering follows the ordinary loop without per-item
 layer lookup, membership traversal or variant allocation. Clearing the last key
@@ -78,10 +90,13 @@ checkpoint before claiming no observable regression.
 - Paint: rectangle/relation/bar/native text/atlas alpha and shared-state recovery;
   per-content overlap and asset overflow preserve the prior compositing boundary.
 - Render plan: 100-item static chunk, one changed member, component-only effect,
-  overlapping items, mesh identity reuse and exact baseline recovery after clear.
+  overlapping items, hidden overflow, retained/general proof invalidation,
+  background mesh reuse/release and exact baseline recovery after clear.
 - Widget/public API: multiple keys, latest live values after clear, invalid/valid
   replacement, draw-then-set, alpha 0 hit/selection, filters, detach/reattach.
 
 Executed results are in the [implementation checkpoint](presentation-checkpoint.md).
-Platform and performance qualification is scoped to that checkpoint;
+The [hidden-overflow batching checkpoint](hidden-presentation-batching-checkpoint.md)
+covers the later Android overview-pan improvement and its visual/memory limits.
+Platform and performance qualification is scoped to those checkpoints;
 this feature does not qualify the full Flutter/mobile/WebView integration.

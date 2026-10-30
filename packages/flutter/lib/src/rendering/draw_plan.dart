@@ -31,6 +31,7 @@ final class RenderPlan {
     Map<int, ComponentChanges>? componentChanges,
     bool forceChangedProof = false,
     Map<int, Object?>? memberOverrides,
+    Iterable<int>? presentationGeometryChanges,
   }) {
     if (previous?._disposed ?? false) {
       throw StateError('Previous render plan is disposed');
@@ -47,6 +48,7 @@ final class RenderPlan {
         componentChanges,
         forceChangedProof,
         memberOverrides,
+        presentationGeometryChanges,
       );
     }
     final ownedPages = List<RenderPage>.unmodifiable(pages);
@@ -113,14 +115,11 @@ final class RenderPlan {
               }
             }
           }
-          StaticGeometry? mesh;
-          if (safe) {
-            mesh = StaticGeometry.tryBuild([
-              for (final value in members) ...value!.backgrounds,
-            ]);
-            if (mesh != null) meshes++;
+          final background = _backgroundGeometry(old, members, safe);
+          if (background != null && !identical(background, old?._background)) {
+            meshes++;
           }
-          chunk = _Chunk(group, List.unmodifiable(members), mesh);
+          chunk = _Chunk(group, List.unmodifiable(members), safe, background);
         }
         final chunkIndex = chunks.length;
         for (var offset = 0; offset < group.length; offset++) {
@@ -164,6 +163,7 @@ final class RenderPlan {
     Map<int, ComponentChanges>? componentChanges,
     bool forceChangedProof,
     Map<int, Object?>? memberOverrides,
+    Iterable<int>? presentationGeometryChanges,
   ) {
     final ownedPages = List<RenderPage>.unmodifiable(pages);
     for (final page in ownedPages) {
@@ -224,14 +224,16 @@ final class RenderPlan {
             }
           }
         }
-        final mesh = safe
-            ? StaticGeometry.tryBuild([
-                for (final member in members) ...member!.backgrounds,
-              ])
-            : null;
-        if (mesh != null) meshes++;
-        final replacement = _Chunk(old.slots, List.unmodifiable(members), mesh)
-          ..retain();
+        final background = _backgroundGeometry(old, members, safe);
+        if (background != null && !identical(background, old._background)) {
+          meshes++;
+        }
+        final replacement = _Chunk(
+          old.slots,
+          List.unmodifiable(members),
+          safe,
+          background,
+        )..retain();
         chunks[index] = replacement;
         old.release();
         reused--;
@@ -245,7 +247,10 @@ final class RenderPlan {
         comparisons,
         reused,
       );
-      plan._inheritPresentation(previous);
+      plan._inheritPresentation(
+        previous,
+        geometryChanges: presentationGeometryChanges,
+      );
       transferred = true;
       return plan;
     } finally {
@@ -276,7 +281,7 @@ final class RenderPlan {
   final int meshBuildCount, overlapComparisonCount, reusedChunkCount;
   bool _disposed = false;
   PresentationOpacity? _presentation;
-  Map<_Chunk, _PresentationMesh?>? _presentationMeshes;
+  Map<_Chunk, _SharedGeometry?>? _presentationMeshes;
 
   /// Detach native variants now; the existing retirement owner releases them
   /// after submission. Only layers allocate variants, never the ordinary path.
@@ -294,25 +299,56 @@ final class RenderPlan {
   }
 
   int get presentationMeshCount =>
-      _presentationMeshes?.values.whereType<_PresentationMesh>().length ?? 0;
+      _presentationMeshes?.values.whereType<_SharedGeometry>().length ?? 0;
+  bool get hasPresentationCache => _presentationMeshes != null;
   Iterable<Object> get presentationMeshIdentities =>
-      _presentationMeshes?.values.whereType<_PresentationMesh>().map(
+      _presentationMeshes?.values.whereType<_SharedGeometry>().map(
         (v) => v.mesh,
       ) ??
       const [];
 
-  void _inheritPresentation(RenderPlan? previous) {
+  void _inheritPresentation(
+    RenderPlan? previous, {
+    Iterable<int>? geometryChanges,
+  }) {
     _presentation = previous?._presentation;
     final old = previous?._presentationMeshes;
     if (old == null) return;
-    Map<_Chunk, _PresentationMesh?>? shared;
+    // Retained publication stages scalar changes before mutating live layouts.
+    // A whole-item envelope can stay equal while a visible component moves
+    // inside an alpha-hidden overflow envelope. Invalidate that narrower proof.
+    Set<_Chunk?>? changed;
+    if (geometryChanges != null) {
+      for (final slot in geometryChanges) {
+        (changed ??= {}).add(previous!._chunkFor(slot));
+      }
+    }
+    Map<_Chunk, _SharedGeometry?>? shared;
     for (final chunk in _chunks) {
       if (!old.containsKey(chunk)) continue;
+      if (chunk.mesh == null &&
+          ((changed?.contains(chunk) ?? false) ||
+              (geometryChanges == null &&
+                  !_samePresentationGeometry(previous!, chunk)))) {
+        continue;
+      }
       final entry = old[chunk];
       entry?.retain();
       (shared ??= {})[chunk] = entry;
     }
     _presentationMeshes = shared;
+  }
+
+  bool _samePresentationGeometry(RenderPlan previous, _Chunk chunk) {
+    for (final slot in chunk.slots) {
+      final before = previous._node(slot).geometry.item;
+      final after = _node(slot).geometry.item;
+      if (!identical(before, after) &&
+          (before == null || after == null || !before.sameEnvelope(after))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool get isDisposed => _disposed;
@@ -431,7 +467,8 @@ final class RenderPlan {
           _visible[count++] = visibleSlots[cursor++];
         } while (cursor < visibleSlots.length &&
             identical(_chunkFor(visibleSlots[cursor]), chunk));
-        if (chunk.mesh == null) {
+        final mesh = _presentedMesh(chunk, presentation);
+        if (mesh == null) {
           for (var i = 0; i < count; i++) {
             _paintNode(
               canvas,
@@ -445,7 +482,7 @@ final class RenderPlan {
           continue;
         }
         _bars.flush(canvas);
-        _presentedMesh(chunk, presentation).draw(canvas);
+        mesh.draw(canvas);
         final proof = chunk.members.first!;
         for (
           var phase = proof.backgrounds.length;
@@ -474,9 +511,13 @@ final class RenderPlan {
     }
   }
 
-  StaticGeometry _presentedMesh(_Chunk chunk, PresentationOpacity opacity) {
+  StaticGeometry? _presentedMesh(_Chunk chunk, PresentationOpacity opacity) {
     final cache = _presentationMeshes ??= {};
-    if (cache.containsKey(chunk)) return cache[chunk]?.mesh ?? chunk.mesh!;
+    if (cache.containsKey(chunk)) return cache[chunk]?.mesh ?? chunk.mesh;
+    if (chunk.mesh == null && !_disjointPresented(chunk, opacity)) {
+      cache[chunk] = null;
+      return null;
+    }
     var changed = false;
     for (final member in chunk.members) {
       for (var i = 0; i < member!.backgrounds.length; i++) {
@@ -488,28 +529,58 @@ final class RenderPlan {
       if (changed) break;
     }
     if (!changed) {
-      cache[chunk] = null;
-      return chunk.mesh!;
+      // Geometry does not depend on the overlap proof. A text reveal can make
+      // batching unsafe without invalidating the unchanged background vertices.
+      final background = chunk._background ??= _buildBackground(chunk.members);
+      if (chunk.mesh != null) {
+        cache[chunk] = null;
+      } else {
+        background?.retain();
+        cache[chunk] = background;
+      }
+      return background?.mesh;
     }
     final shapes = <StaticRectangle>[];
     for (final member in chunk.members) {
       for (var i = 0; i < member!.backgrounds.length; i++) {
         final shape = member.backgrounds[i];
+        final alpha = opacity.alpha(member.id, member.skeleton[i].$1);
         shapes.add(
-          StaticRectangle(
-            shape.rect,
-            shape.world,
-            shape.paint.multipliedAlpha(
-              opacity.alpha(member.id, member.skeleton[i].$1),
-            ),
-          ),
+          alpha == 1
+              ? shape
+              : StaticRectangle(
+                  shape.rect,
+                  shape.world,
+                  shape.paint.multipliedAlpha(alpha),
+                ),
         );
       }
     }
-    // Alpha cannot make an eligible shape/16-bit index range ineligible.
-    final mesh = StaticGeometry.tryBuild(shapes)!;
-    cache[chunk] = _PresentationMesh(mesh);
+    final mesh = StaticGeometry.tryBuild(shapes);
+    cache[chunk] = mesh == null ? null : _SharedGeometry(mesh);
     return mesh;
+  }
+
+  bool _disjointPresented(_Chunk chunk, PresentationOpacity opacity) {
+    final first = chunk.members.first;
+    if (first == null) return false;
+    final bounds = <Rect>[];
+    for (var i = 0; i < chunk.members.length; i++) {
+      final member = chunk.members[i];
+      if (member == null || !_sameSkeleton(first, member)) return false;
+      final node = _node(chunk.slots[i]).geometry;
+      final bound = opacity.affects(member.id)
+          ? node.item!.paintBounds(
+              node.world,
+              includeComponent: (id) => opacity.alpha(member.id, id) != 0,
+            )
+          : member.bounds;
+      for (final other in bounds) {
+        if (boundsOverlap(bound, other)) return false;
+      }
+      bounds.add(bound);
+    }
+    return true;
   }
 
   void _paintNode(
@@ -562,10 +633,10 @@ final class RenderPlan {
   }
 }
 
-// Shared only by plans retaining the exact same immutable static chunk and
-// opacity snapshot. No old plan or node is retained by the lease.
-final class _PresentationMesh {
-  _PresentationMesh(this.mesh);
+// Chunks and current presentation variants share immutable background vertices.
+// The lease owns no old plan, node, or dynamic resource.
+final class _SharedGeometry {
+  _SharedGeometry(this.mesh);
   final StaticGeometry mesh;
   int _references = 1;
   void retain() => _references++;
@@ -578,16 +649,47 @@ final class _PresentationMesh {
 }
 
 final class _Chunk {
-  _Chunk(this.slots, this.members, this.mesh);
+  _Chunk(this.slots, this.members, this._batchSafe, this._background);
   final List<int> slots;
   final List<_Member?> members;
-  final StaticGeometry? mesh;
+  final bool _batchSafe;
+  _SharedGeometry? _background;
+  StaticGeometry? get mesh => _batchSafe ? _background?.mesh : null;
   int _references = 0;
   void retain() => _references++;
   void release() {
-    if (--_references == 0) mesh?.dispose();
+    if (--_references == 0) _background?.release();
     if (_references < 0) throw StateError('Unbalanced static chunk reference');
   }
+}
+
+_SharedGeometry? _buildBackground(List<_Member?> members) {
+  final mesh = StaticGeometry.tryBuild([
+    for (final member in members) ...member!.backgrounds,
+  ]);
+  return mesh == null ? null : _SharedGeometry(mesh);
+}
+
+_SharedGeometry? _backgroundGeometry(
+  _Chunk? previous,
+  List<_Member?> members,
+  bool safe,
+) {
+  final existing = previous?._background;
+  if (existing != null && previous!.members.length == members.length) {
+    var same = true;
+    for (var i = 0; i < members.length; i++) {
+      if (!_sameBackground(previous.members[i], members[i])) {
+        same = false;
+        break;
+      }
+    }
+    if (same) {
+      existing.retain();
+      return existing;
+    }
+  }
+  return safe ? _buildBackground(members) : null;
 }
 
 // Contains only static proof values, never the old DrawNode/dynamic resources.
@@ -748,6 +850,14 @@ bool _sameMember(_Member? a, _Member? b) {
       a.bounds != b.bounds ||
       !a.world.sameTransform(b.world) ||
       !_sameSkeleton(a, b)) {
+    return false;
+  }
+  return _sameBackground(a, b);
+}
+
+bool _sameBackground(_Member? a, _Member? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null || a.backgrounds.length != b.backgrounds.length) {
     return false;
   }
   for (var i = 0; i < a.backgrounds.length; i++) {
