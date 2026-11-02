@@ -24,6 +24,8 @@ Flutter captures the duration on primary pointer down; a rebuild affects the nex
 press without restarting the current arena. Flutter owns movement rejection,
 cancellation and disposal; input epochs still suppress stale callbacks on replacement/inactivity.
 The host chooses actions, including switching the held pointer's drag to range/paint.
+The map rejects a pending hold in the arena on second-pointer down, allowing slow pinch.
+It tracks until all pointers end; remaining fingers cannot rearm. Recognized holds retain their lifecycle.
 
 Both gesture permissions default to true. `zoomEnabled` gates pinch and wheel
 scaling; `rotationEnabled` gates two-finger rotation. Explicit `setCamera`, fit
@@ -104,14 +106,14 @@ covers rotated anchored clamping, asymmetric padding and atomic rejection. Input
 The extracted consumer exercises exported options/clamping; `example/integration_test/camera_test.dart`
 covers disabled native pinch/rotation, bounded commands/fit and independent pixel projection.
 
-`test/widget/long_press_options_test.dart` covers the 300ms default, custom/zero
-durations, invalid configuration, held-press rebuilds, host paint-mode switching,
-movement/cancellation/replacement/inactivity/removal, and tap recognition.
+`test/widget/long_press_options_test.dart` covers default/custom/zero duration, invalid options,
+rebuilds, paint switching, movement/cancel/replacement/inactivity/removal, taps, slow pinch
+across the hold deadline with an update, remaining fingers and subsequent 300ms holds.
 
-## Verification evidence — 2026-10-27
+## Verification evidence
 
-Analysis, 36 focused tests and extracted-consumer checks passed; evidence:
-`.artifacts/flutter/gesture-priority-qa-20261027/`. A matched host AOT comparison added
-0.00035–0.00123 microseconds per sample, isolating this adapter, not native frames or
-subjective feel. No physical device was connected. Prior evidence:
-`.artifacts/flutter/gesture-config-qa-20261026/`.
+2026-11-02: 34 widget tests and SM-S936N profile checks passed: three 10k-update pinches,
+hold/paint selection and hold during update. Evidence: `.artifacts/performance/flutter/pinch-longpress-fix-20261102/`.
+
+2026-10-27: analysis, 36 focused tests and extracted-consumer checks passed (`.artifacts/flutter/gesture-priority-qa-20261027/`; prior: `.artifacts/flutter/gesture-config-qa-20261026/`).
+Matched host AOT added 0.00035–0.00123µs/sample for the adapter only, not native frames or feel. No physical device was connected for that checkpoint.

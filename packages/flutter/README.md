@@ -157,6 +157,9 @@ previous 500ms default for this surface. Durations must be nonnegative; zero
 recognizes on the next timer turn. The duration is captured on pointer down, so
 rebuilding only changes subsequent presses. The host still chooses what a long
 press does, including switching `dragMode` to paint/range for the held pointer.
+A second pointer cancels pending long-press recognition, including its arena
+participation, so a slow pinch is not captured by the hold deadline. Long-press
+recognition restarts only after all tracked pointers have been released.
 
 `zoomLimits: const PatchMapZoomLimits(minScale: .1, maxScale: 8)` clamps input, commands and fit. Omitted bounds are unrestricted; finite positive ordered bounds are required. A minimum can prevent fitting the entire drawing. Changed limits clamp current scale without refitting and notify `configuration`.
 `dragMode` is pan by default; range and paint modes detect objects and report

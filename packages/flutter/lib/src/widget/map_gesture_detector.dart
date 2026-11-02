@@ -90,6 +90,32 @@ class _MapLongPressGestureRecognizer extends LongPressGestureRecognizer {
   _MapLongPressGestureRecognizer({required this.duration, super.debugOwner});
 
   Duration duration;
+  // Flutter's `possible` state also includes an already recognized hold.
+  bool _holdRecognized = false;
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event is PointerDownEvent &&
+        event.pointer != primaryPointer &&
+        !_holdRecognized) {
+      // Reject the hold in the arena, not just its callback, so a slow pinch
+      // can still start after the hold deadline. Keep tracking until all up.
+      resolve(GestureDisposition.rejected);
+    }
+    super.handleEvent(event);
+  }
+
+  @override
+  void didExceedDeadline() {
+    _holdRecognized = true;
+    super.didExceedDeadline();
+  }
+
+  @override
+  void didStopTrackingLastPointer(int pointer) {
+    _holdRecognized = false;
+    super.didStopTrackingLastPointer(pointer);
+  }
 
   // Flutter captures this value when it starts the primary pointer's timer.
   // Updating it keeps the current arena/timer intact and configures the next

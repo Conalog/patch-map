@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Prevent pending long press from capturing a slow two-finger pinch during updates.
 - Default long press to 300ms and expose per-press duration configuration.
 - Expose immutable published object positions, bounds and corners by ID.
 - Prepare independent native package version 1.0.0-alpha.1.

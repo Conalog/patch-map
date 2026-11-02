@@ -187,6 +187,79 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('slow pinch survives the hold deadline and a value update', (
+    tester,
+  ) async {
+    final controller = PatchMapController(), events = <PatchMapInputEvent>[];
+    await tester.pumpWidget(host(controller, events));
+    await draw(tester, controller);
+    final center = tester.getCenter(find.byType(PatchMapView));
+    final scale = controller.camera!.scale;
+    final a = await tester.startGesture(
+      center - const Offset(35, 0),
+      pointer: 1,
+    );
+    final b = await tester.startGesture(
+      center + const Offset(35, 0),
+      pointer: 2,
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    final update = controller.updateValues(const [
+      PatchMapUpdate(PatchMapTarget('a'), {'fill': '#00ff00'}),
+    ]);
+    await support.progress(tester);
+    expect((await update).outcome, PatchMapOutcome.applied);
+    // Neither pointer crosses slop until after the 300ms hold timer.
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(holds(events), isEmpty);
+    for (final span in [70.0, 100.0, 130.0]) {
+      await a.moveTo(center - Offset(span, 0));
+      await b.moveTo(center + Offset(span, 0));
+      await tester.pump();
+    }
+    expect(controller.camera!.scale, greaterThan(scale));
+    expect(controller.getValue(const PatchMapTarget('a'))!['fill'], '#00ff00');
+    await a.up();
+    await b.up();
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final firstHeld in [false, true]) {
+    testWidgets(
+      'multiple pointers reset before the next hold (held=$firstHeld)',
+      (tester) async {
+        final controller = PatchMapController(),
+            events = <PatchMapInputEvent>[];
+        await tester.pumpWidget(host(controller, events));
+        await draw(tester, controller);
+        final center = tester.getCenter(find.byType(PatchMapView));
+        final a = await tester.startGesture(center, pointer: 1);
+        await tester.pump(Duration(milliseconds: firstHeld ? 300 : 100));
+        expect(holds(events).length, firstHeld ? 1 : 0);
+        final b = await tester.startGesture(
+          center + const Offset(20, 0),
+          pointer: 2,
+        );
+        await a.up();
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(holds(events).length, firstHeld ? 1 : 0);
+        final c = await tester.startGesture(center, pointer: 3);
+        await c.cancel();
+        await b.up();
+        events.clear();
+        final next = await tester.startGesture(center, pointer: 4);
+        await tester.pump(const Duration(milliseconds: 299));
+        expect(holds(events), isEmpty);
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(holds(events).single.target!.id, 'a');
+        await next.up();
+        await tester.pumpWidget(const SizedBox());
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final interruption in [
     'move',
     'cancel',
