@@ -83,7 +83,8 @@ GC 전용 진단에서는 A의 흐림 3회 모두 `idle` old-generation marking�
 복원에는 없었다. B는 흐림 3회와 복원 1회에서 있었다. 추가 복원 GC는 첫 제출 후
 약 51ms 뒤 시작했다. 기하 계산이 복원으로 미뤄진 것은 아니며, **일부 추가 worker
 비용은 유휴 GC로 확인됐다.** 진단의 준비 이력이 본 비교와 완전히 같지는 않아 모든
-worker 시간을 GC로 귀속하지 않는다. live heap/속도 변화가 GC 시점을 바꾼다는 것은 추론이다.
+worker 시간을 GC로 귀속하지 않는다. 후속 [GC 원인 분석](presentation-topology-gc-diagnosis.md)은
+young→old 승격이 idle 기준을 넘겨 추가 수집을 시작한 사례를 확인했다.
 
 - GC 후 초기 Dart heap: 108.64→127.07MiB(+18.43MiB).
   반복 후 복원: 106.41→127.02MiB(+20.61MiB). 효과 미사용 중에도 보관 비용이 있다.
