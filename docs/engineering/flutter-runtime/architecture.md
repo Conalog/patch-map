@@ -1,9 +1,8 @@
 # Native runtime ownership
 
-The runtime is a retained renderer, not a domain model or application state
-management framework. It consumes PATCH MAP JSON and presentation values; the
-host owns data fetching, registry/metrics rules, time/date selection and business
-actions. No new state-management or game-engine dependency is required.
+The retained renderer consumes PATCH MAP JSON and presentation values. The host
+owns fetching, registry/metrics rules, time/date selection and business actions.
+No state-management or game-engine dependency is required.
 
 ## Files and dependencies
 
@@ -21,20 +20,18 @@ actions. No new state-management or game-engine dependency is required.
 | `resources/` | Text layout/Paragraph/atlas, SVG and external raster owners. Physical assets share creation identity; mutable SVG visibility/resolution demand belongs to each draw use. Each owner tracks temporary work, reservations, references and safe retirement. |
 | `frame/` | One `frame_coordinator.dart` schedules invalidation/animation and records the generation/revision actually painted. It confirms submission and drains safe retirement; no second canonical scene. |
 
-Dependency direction: widget composition -> session coordination -> dataset,
-presentation, geometry, viewport, interaction and resource/render ports.
-Rendering/resources depend on shared values and geometry, not on the widget,
-controller or concrete session. The composition root wires callbacks/ports;
-callbacks are not permission for lower layers to change session state.
+Dependencies flow from widget composition through session coordination to dataset,
+presentation, geometry, viewport, interaction and resource/render ports. Rendering/resources
+depend on shared values and geometry, not widget/controller/session. Composition wires ports;
+callbacks cannot authorize lower layers to change session state.
 Production never imports example, performance or verification code. Use ports
 where ownership or asynchronous lifetime crosses a real boundary.
 
 ## Lifecycle ownership
 
-[Session and resource lifetime](lifecycle.md) specifies admission, publication,
-completion, inactivity and retirement transitions. Session owns accepted state;
-the frame coordinator confirms the exact painted generation/revision; resource
-owners retain reservations until actual work settles.
+[Session and resource lifetime](lifecycle.md) specifies admission, publication, completion,
+inactivity and retirement. Session owns accepted state; the frame coordinator confirms the
+painted generation/revision; resource owners retain reservations until actual work settles.
 
 ## Rendering and performance boundaries
 
@@ -108,17 +105,15 @@ first diagram is preparing; they are not queued. Partial missing addresses are
 reported alongside applied addresses; if none resolve, preserve the camera and
 return the empty-target result.
 
-Historical experiments supply algorithm and workload evidence; the package's
-owners above define the runtime structure. Preserve algorithm provenance and
-compare equivalent output/workloads when evaluating optimizations. Scale-based
-number hiding remains an explicit host choice, not an unconditional package policy.
+Historical experiments supply algorithm/workload evidence; the owners above define
+runtime structure. Preserve provenance and compare equivalent output/workloads.
+Scale-based number hiding remains an explicit host choice.
 
 ## Review checkpoints
 
-Review concrete transitions, not class count: invalid last input; replace inside
-notification then update; reset then partial override; remove during resource
-creation; inactive latest update; overlapping items; newly visible native text;
-bar width/height tween through slice transitions; and package-only teardown.
-Reopen user policy only for demonstrated contract/scope/quality changes or
-material performance tradeoffs. Routine internal choices remain implementation
-responsibility.
+Review transitions: invalid last input; replace inside notification then update;
+reset then partial override; remove during resource creation; inactive latest update;
+overlapping items; newly visible native text; bar width/height tween through slice
+transitions; and package-only teardown. Reopen user policy only for demonstrated
+contract/scope/quality changes or material performance tradeoffs; routine internal
+choices remain implementation responsibility.
