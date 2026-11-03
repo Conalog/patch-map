@@ -18,7 +18,9 @@ FLUTTER_TOOLCHAIN_ROLE=service FLUTTER_BIN=/service/bin/flutter npm run flutter:
 ```
 
 The selector emits workflow setup outputs; `check ci` checks the installed SDK. An exact pin verifies tooling; consumer lower bounds do not prove every
-version's functional compatibility. Service checks use a temporary copy to resolve their example lock without changing the baseline's committed lock.
+version's functional compatibility. Service checks resolve the example lock in
+a temporary workspace, preserving the baseline lock and the repository-relative
+paths of shared test fixtures.
 
 Current managed-asset dependencies are Flutter, bounded flutter_svg and
 vector_graphics, declared in [pubspec.yaml](../../packages/flutter/pubspec.yaml).
