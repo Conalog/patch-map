@@ -2,7 +2,7 @@
 
 2026-11-03. Regression diagnosis. [원 비교](presentation-topology-checkpoint.md)의
 기존 Perfetto/GC/heap 기록과 A/B 코드를 재분석했다. 제품 코드 변경, 새 최적화,
-실기기 재실행은 없다. 후보는 계속 미적용이다.
+실기기 재실행은 없다. 진단 당시 미적용이었으며 이후의 채택은 원 비교 문서에 기록했다.
 
 ## 결론
 

@@ -70,8 +70,13 @@ stays equal. Retained updates carry that invalidation before mutating live layou
 Unchanged backgrounds reuse their vertices across text hiding/reveal and envelope
 changes. A chunk owns at most one current unmodified background geometry; it may
 keep that geometry while overlap temporarily prevents its use. Background shape,
-transform or paint changes replace it. Alpha-adjusted backgrounds lazily build a
-variant with the same shapes/order and multiplied colors. Plans share variants
+transform or paint changes replace it. Each base background also retains its
+position/index buffers and per-shape color spans, including when no effect is
+active. Positive-alpha variants reuse this topology and create only new colors
+and native vertices. Zero factors, underflow or unavailable topology use the
+existing builder, preserving empty-shape behavior. Variants do not retain a second
+topology; base disposal drops its buffers through the existing chunk owner.
+Plans share variants
 only for identical static chunks and opacity snapshots, and cache no prior
 keys/versions. Detached variants enter the existing safe retirement queue; the
 last chunk/variant reference releases its geometry. Active effect updates can
@@ -100,8 +105,9 @@ The [hidden-overflow batching checkpoint](hidden-presentation-batching-checkpoin
 covers the later Android overview-pan improvement and its visual/memory limits.
 The [mobile mode-switch profile](mobile-overview-mode-switch-checkpoint.md) separates
 consumer input/projection and package preparation costs from overview painting.
-The [background topology experiment](presentation-topology-checkpoint.md) compares
-retaining geometry buffers for alpha changes on Android. It is not adopted:
-faster first submission trades additional retained memory and mixed total CPU cost.
+The [adopted background topology comparison](presentation-topology-checkpoint.md)
+records faster alpha-change submission on Android, additional retained memory
+and mixed total CPU cost. Its [GC diagnosis](presentation-topology-gc-diagnosis.md)
+documents the observed extra idle collection; adoption does not erase that cost.
 Platform and performance qualification is scoped to those checkpoints;
 this feature does not qualify the full Flutter/mobile/WebView integration.

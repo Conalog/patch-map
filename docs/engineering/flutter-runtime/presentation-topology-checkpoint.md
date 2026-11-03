@@ -1,6 +1,6 @@
 # 배경 알파 변경의 기하 정보 재사용 실험
 
-2026-11-03. **실험 완료, 제품 미적용.** [현재 계약](presentation-layers.md)은 유지한다.
+2026-11-03. **실험 후보를 제품에 적용했다.** [현재 계약](presentation-layers.md)은 유지한다.
 
 알파 변경 때 좌표·윤곽·삼각형 인덱스를 재사용하면 첫 프레임 제출과 화면 작성이
 빨라진다. 다만 배열 보관 비용과 일부 제출 후 GC 비용이 생긴다.
@@ -101,7 +101,11 @@ young→old 승격이 idle 기준을 넘겨 추가 수집을 시작한 사례를
 
 응답성 개선 목적이라면 적용할 가치가 있다. 약 20MiB의 추가 보관을 받아들이는 선택이며,
 전체 흐림→복원 CPU 절감이나 모든 조건의 무회귀로 일반화하면 안 된다.
-제품 소스는 기준판을 유지하고 후보 patch만 보관했다. 추가 최적화는 적용하지 않았다.
+사용자 승인에 따라 측정한 B 소스를 그대로 적용했다. 추가 최적화는 섞지 않았다.
+적용한 두 파일의 SHA-256이 `identity.json`의 B와 일치하고, 나머지 라이브러리도
+실험 기준과 같아 기존 성능 근거를 재사용한다. 적용 후 관련 테스트 33개와 집중
+정적 분석·포맷·문서 검증을 확인했으며 실기기 비교를 반복하지 않았다.
+채택 기록: `.artifacts/performance/flutter/presentation-topology-adoption-20261103/`.
 
 원자료와 상세 보고서: `.artifacts/performance/flutter/presentation-topology-20261103/`.
 `PLAN.ko.md`, `identity.json`, `candidate.patch`, A/B source/APK, 실행별 `rows.json`,

@@ -31,10 +31,13 @@ final class StaticGeometry {
     this.triangleCount,
     this.geometryBytes,
     this._originX,
-    this._originY,
-  );
+    this._originY, [
+    this._topology,
+  ]);
 
   Vertices? _vertices;
+  _OpacityTopology? _topology;
+  int get retainedTopologyBytes => _topology?.bytes ?? 0;
   final _paint = Paint()..isAntiAlias = true;
 
   /// Conservative transformed outer-rectangle envelope, including the stroke.
@@ -59,15 +62,22 @@ final class StaticGeometry {
 
   /// All-or-nothing construction. No native handle is created on ineligibility
   /// or when the combined mesh cannot use 16-bit indices. Does not sort shapes.
-  static StaticGeometry? tryBuild(Iterable<StaticRectangle> shapes) {
+  static StaticGeometry? tryBuild(
+    Iterable<StaticRectangle> shapes, {
+    bool retainTopology = false,
+  }) {
     final prepared = <_Shape>[];
+    final shapeIndices = retainTopology ? <int>[] : null;
+    var shapeCount = 0;
     var vertexCount = 0, indexCount = 0;
     Rect? bounds;
     for (final shape in shapes) {
+      final shapeIndex = shapeCount++;
       final value = _prepare(shape);
       if (value == null) return null;
       if (value.empty) continue;
       prepared.add(value);
+      shapeIndices?.add(shapeIndex);
       final n = value.contourCount;
       if (value.fill) {
         vertexCount += n + 1;
@@ -92,6 +102,7 @@ final class StaticGeometry {
     final colors = Int32List(vertexCount);
     final indices = Uint16List(indexCount);
     var vertex = 0, index = 0;
+    final spans = retainTopology ? <(int, int, int, Color)>[] : null;
     void point(_Shape shape, double x, double y, int v, Color color) {
       final world = shape.input.world;
       positions[v * 2] = world.a * x + world.c * y + (world.tx - originX);
@@ -125,9 +136,20 @@ final class StaticGeometry {
       }
     }
 
-    for (final shape in prepared) {
+    for (
+      var preparedIndex = 0;
+      preparedIndex < prepared.length;
+      preparedIndex++
+    ) {
+      final shape = prepared[preparedIndex];
       final input = shape.input, paint = input.paint, n = shape.contourCount;
       if (shape.fill) {
+        spans?.add((
+          shapeIndices![preparedIndex],
+          vertex,
+          vertex + n + 1,
+          paint.fillColor,
+        ));
         point(
           shape,
           input.rect.center.dx,
@@ -144,6 +166,12 @@ final class StaticGeometry {
         vertex += n + 1;
       }
       if (shape.stroke) {
+        spans?.add((
+          shapeIndices![preparedIndex],
+          vertex,
+          vertex + n * 2,
+          paint.strokeColor,
+        ));
         final half = paint.strokeWidth / 2;
         // Sharp miter corners are square. Inflating their radius would silently
         // change them into round joins, as the experimental implementation did.
@@ -186,6 +214,42 @@ final class StaticGeometry {
       positions.lengthInBytes + colors.lengthInBytes + indices.lengthInBytes,
       originX,
       originY,
+      retainTopology
+          ? _OpacityTopology(positions, indices, spans!, shapeCount)
+          : null,
+    );
+  }
+
+  /// Alpha-only variant: reuses topology but owns a new native Vertices handle.
+  /// Zero factors retain the existing builder's empty-shape and bounds behavior.
+  StaticGeometry? withOpacities(List<double> factors) {
+    if (_disposed) throw StateError('Static geometry is disposed');
+    final topology = _topology;
+    if (topology == null || factors.length != topology.shapeCount) return null;
+    for (final factor in factors) {
+      if (!factor.isFinite || factor <= 0 || factor > 1) return null;
+    }
+    final colors = Int32List(vertexCount);
+    for (final span in topology.spans) {
+      final factor = factors[span.$1], original = span.$4;
+      final alpha = original.a * factor;
+      if (alpha == 0) return null;
+      final color = factor == 1 ? original : original.withValues(alpha: alpha);
+      colors.fillRange(span.$2, span.$3, color.toARGB32());
+    }
+    return StaticGeometry._(
+      Vertices.raw(
+        VertexMode.triangles,
+        topology.positions,
+        colors: colors,
+        indices: topology.indices,
+      ),
+      bounds,
+      vertexCount,
+      triangleCount,
+      geometryBytes,
+      _originX,
+      _originY,
     );
   }
 
@@ -210,7 +274,23 @@ final class StaticGeometry {
     _disposed = true;
     _vertices?.dispose();
     _vertices = null;
+    _topology = null;
   }
+}
+
+// Retained only by unmodified background geometry, not by alpha variants.
+final class _OpacityTopology {
+  const _OpacityTopology(
+    this.positions,
+    this.indices,
+    this.spans,
+    this.shapeCount,
+  );
+  final Float32List positions;
+  final Uint16List indices;
+  final List<(int, int, int, Color)> spans;
+  final int shapeCount;
+  int get bytes => positions.lengthInBytes + indices.lengthInBytes;
 }
 
 final class _Shape {

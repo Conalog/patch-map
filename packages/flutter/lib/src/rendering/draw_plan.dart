@@ -540,11 +540,22 @@ final class RenderPlan {
       }
       return background?.mesh;
     }
+    final factors = [
+      for (final member in chunk.members)
+        for (var i = 0; i < member!.backgrounds.length; i++)
+          opacity.alpha(member.id, member.skeleton[i].$1),
+    ];
+    final reused = chunk._background?.mesh.withOpacities(factors);
+    if (reused != null) {
+      cache[chunk] = _SharedGeometry(reused);
+      return reused;
+    }
+    var factorIndex = 0;
     final shapes = <StaticRectangle>[];
     for (final member in chunk.members) {
       for (var i = 0; i < member!.backgrounds.length; i++) {
         final shape = member.backgrounds[i];
-        final alpha = opacity.alpha(member.id, member.skeleton[i].$1);
+        final alpha = factors[factorIndex++];
         shapes.add(
           alpha == 1
               ? shape
@@ -666,7 +677,7 @@ final class _Chunk {
 _SharedGeometry? _buildBackground(List<_Member?> members) {
   final mesh = StaticGeometry.tryBuild([
     for (final member in members) ...member!.backgrounds,
-  ]);
+  ], retainTopology: true);
   return mesh == null ? null : _SharedGeometry(mesh);
 }
 
