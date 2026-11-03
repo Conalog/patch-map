@@ -1,6 +1,6 @@
 # Flutter development environment
 
-`packages/javascript/` owns the existing npm runtime. `packages/flutter/` owns the new native package. The root and `verification/` are private npm workspaces;
+`packages/javascript/` owns the npm runtime. `packages/flutter/` owns the native package. The root and `verification/` are private npm workspaces;
 shared behavior targets live in `conformance/`. The Flutter runtime must not import
 JavaScript or verification tooling. Independent versioning and publication
 belong to [release operations](releases.md).
@@ -34,7 +34,7 @@ and a bounded 2 GiB Gradle heap.
 
 ## Verification and artifact ownership
 
-`flutter:verify` resolves dependencies, checks formatting and analysis, runs example tests, checks pub's dry run, and tests an extracted installed consumer.
+`flutter:verify` resolves dependencies, checks formatting and analysis, runs package and example tests, checks pub's dry run, and tests an extracted installed consumer.
 That consumer checks the public widget/controller through draw, text/bar updates,
 value lookup, removal and controller reattachment, plus actual SVG decode and
 bundled font loading. Its report records toolchain facts, input and artifact

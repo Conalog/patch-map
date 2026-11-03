@@ -70,7 +70,8 @@ npm run js:verify:memory
 
 - JavaScript behavior and failure meaning live under `packages/javascript/docs/`;
   exact shapes come from exported TypeScript declarations. Flutter consumer
-  status lives in its package README until a public runtime is implemented.
+  API usage lives in its [package README](../../packages/flutter/README.md);
+  runtime contracts and qualification belong to the [runtime owner](flutter-runtime/README.md).
 - Internal ownership and gate routing live under `docs/engineering/` and are not
   published in the package.
 - JavaScript package/configuration/docs inputs select npm checks without Flutter

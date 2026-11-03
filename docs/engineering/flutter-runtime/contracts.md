@@ -1,16 +1,15 @@
 # Accepted Flutter contracts and delivery coverage
 
-Status: runtime integration implemented; performance and platform/consumer
-qualification remain in progress as recorded below. These are Flutter first-release contracts, not a
-claim of complete JavaScript API parity. The source decision inventory includes
-historical proposals which this current specification supersedes.
+Status: runtime integration implemented; platform/consumer qualification incomplete.
+These first-release contracts do not claim complete JavaScript API parity.
+This specification supersedes historical proposals in the source decision inventory.
 
 ## Contract groups
 
 | ID | Contract | Owning implementation boundary | Verification obligation |
 | --- | --- | --- | --- |
 | F01 | Renderer only; host owns domain fetching, interpretation and business actions. Editor, PNG export and item screen-reader support are excluded from first release. | Public API / package scope | Package API and consumer replay |
-| F02 | Existing JSON List/Map schema and stable element/grid-cell/component addresses; preserve attrs extension data and schema-specific defaults. All supported authored types remain in scope. | Dataset | Representative item/grid/group/relations/image/text/rect and four component fixtures |
+| F02 | Existing JSON List/Map schema and stable element/grid-cell/component addresses; component updates target concrete items/cells, not grid templates. Preserve attrs extension data and schema-specific defaults. All supported authored types remain in scope. | Dataset | Representative item/grid/group/relations/image/text/rect and four component fixtures; atomic template-component rejection |
 | F03 | Caller values are detached on admission; public item data is read-only and reused. No public scene token or renderer object identity. | Dataset / API | Caller mutation and returned-data mutation isolation |
 | F04 | Whole-input validation before any acceptance; reject invalid updates atomically with target/field diagnostics. Omission retains, explicit resets follow each supported field's existing meaning. | Dataset / presentation | Invalid last record; null/omission tests |
 | F05 | Retain scene and unchanged resources; compare whole values, work only on changed dependencies. One executing update and one reset-aware field-composed pending update. | Session / presentation | Sparse/no-op/full changes, reset barrier, replaced-field attribution |

@@ -12,10 +12,11 @@ collection. An unreferenced opt-in skipped test is retained as skipped; a skippe
 test can never serve as a witness. Supplementary machine reports are listed in
 chronological order; the latest record for an exact file/full test name wins.
 
-This foundation has no public npm/Dart comparison runner or Dart API bindings.
-Implement and verify those producers before supplying their reports. Stored
-fixtures are targets; the current contract manifest explicitly blocks
-qualification until the Flutter public runtime exists.
+The native public runtime exists, but the shared conformance comparison runner
+and complete Dart API bindings remain pending. Implement and verify those
+producers before supplying their reports. Stored fixtures are targets; the
+manifest's foundation stage still blocks qualification. Bounded runtime tests
+and CI success do not remove that block; see [delivery coverage](../../docs/engineering/flutter-runtime/coverage.md).
 
 Create a source snapshot after sources have stabilized:
 

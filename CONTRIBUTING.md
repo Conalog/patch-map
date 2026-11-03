@@ -28,4 +28,5 @@ selects final gates by changed risk.
 Keep pull requests focused. Describe the owned boundary, invariants preserved,
 and checks run. JavaScript behavior changes update the owning page under
 `packages/javascript/docs/` in the same change. Flutter consumer changes update
-its package README; runtime contracts will be added with implemented capabilities.
+its [package README](packages/flutter/README.md) and the affected existing
+[runtime contract owner](docs/engineering/flutter-runtime/README.md).

@@ -109,5 +109,7 @@ The [adopted background topology comparison](presentation-topology-checkpoint.md
 records faster alpha-change submission on Android, additional retained memory
 and mixed total CPU cost. Its [GC diagnosis](presentation-topology-gc-diagnosis.md)
 documents the observed extra idle collection; adoption does not erase that cost.
+Ordinary component visibility uses the separate [show reuse proof](component-show-checkpoint.md);
+it does not change alpha layers' drawing-only contract.
 Platform and performance qualification is scoped to those checkpoints;
 this feature does not qualify the full Flutter/mobile/WebView integration.

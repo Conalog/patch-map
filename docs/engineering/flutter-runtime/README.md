@@ -1,67 +1,43 @@
 # Flutter runtime implementation
 
-Status: runtime and public playground integrated; release qualification pending.
+The native runtime and package-consuming playground are implemented. Current
+verification coverage and remaining release qualification are tracked in
+[delivery coverage](coverage.md); passing CI is not full platform equivalence.
+Consumer setup and public API usage belong to the
+[package README](../../../packages/flutter/README.md).
 
-This is the implementation owner for the native package. Start with
-[architecture](architecture.md), then [contracts](contracts.md) and
-[delivery coverage](coverage.md).
-The historical decision inventory is [decisions.json](decisions.json); it
-records the approved discussion's source headings and hashes, not implemented
-features. Later decisions supersede earlier discussion proposals.
+## Find the owner
 
-The [offscreen preparation experiment](offscreen-preparation-checkpoint.md) records
-response/CPU benefits; the [fit raster diagnosis](fit-raster-diagnosis.md) explains
-the first-fit buffer-allocation sensitivity. The measured output-projection/matrix
-deferral is adopted; validation, local geometry and publication remain unchanged.
+| Work | Existing owner |
+| --- | --- |
+| Internal structure and dependency boundaries | [Architecture](architecture.md) |
+| Approved first-release behavior and scope | [Contracts F01–F17, F30–F35](contracts.md) |
+| Rendering, text, SVG and raster resource policies | [Rendering contracts F18–F29](rendering-contracts.md) |
+| Admission, pending updates, publication, inactivity and retirement | [Session and resource lifetime](lifecycle.md) |
+| Schema defaults and approved JavaScript differences | [Compatibility findings](compatibility.md) |
+| Independent keyed alpha effects | [Presentation layers](presentation-layers.md) |
+| Camera observations and rotation travel | [Camera observation](camera-observation.md), [rotation animation](rotation-animation.md) |
+| Touch permissions, thresholds and zoom limits | [Gesture options](gesture-options.md) |
+| Published object positions and bounds | [Object geometry](object-geometry.md) |
+| Selection decoration | [Selection style](selection-style.md) |
+| Consumer input mapping and completion handling | [Mobile replay](mobile-replay.md), [mobile synchronization](mobile-sync.md) |
+| Executed checks, historical measurements and unresolved risks | [Delivery coverage](coverage.md) |
 
-Package setup and SDK gates remain in [Flutter environment](../flutter-package.md).
-JavaScript remains the schema reference, except for explicitly approved Flutter
-differences in the contracts. Shared fixtures are inputs, not proof of native
-compatibility. Existing JavaScript qualification must not be weakened to match
-the narrower Flutter first release.
+Package setup, SDK identities and CI commands remain in the
+[Flutter environment](../flutter-package.md). Choose changed-risk checks through
+[verification policy](../verification.md). Workload definitions, controls and
+measurement commands belong to the [example README](../../../packages/flutter/example/README.md).
 
-Keyed alpha effects are owned by [presentation layers](presentation-layers.md).
-The [mobile replay](mobile-replay.md) records consumer inputs, host mappings and
-concrete integration differences without modifying patch-mobile.
+## Decision and evidence history
 
-## Delivery sequence
+[decisions.json](decisions.json) preserves the approved discussion's source
+headings and hashes, not a list of implemented features. The current contracts
+supersede earlier proposals. Checkpoint and diagnosis pages preserve their dated
+source, input, environment, findings and limits; follow-up links record later
+adoption or deferral. They do not redefine current API behavior or qualify a
+later package revision automatically.
 
-| Step | Independently reviewable outcome | Required evidence |
-| --- | --- | --- |
-| 1 | Accepted contracts, ownership/dependency design, source decision inventory | Contradiction/coverage review; no runtime claim |
-| 2 | Detached dataset admission and shared geometry | Representative schema/default/identity/layout fixtures; atomic rejection |
-| 3 | Widget/controller and end-to-end replacement/update/publication lifecycle | Widget tests: first paint, invalid final entry, reset merge, generations, inactivity, removal |
-| 4 | Retained rendering and approved text/bar/SVG optimizations | Output/order checks and focused profile comparisons against the experiment |
-| 5 | Complete interaction, network images, failures and lifecycle | Representative input gestures and injected asynchronous failure/late completion checks |
-| 6 | Package-consuming playground and platform/consumer qualification | Same-workload 10,000-item profiles, extracted consumer, Android/iOS and WebView evidence |
-
-Each step adds to the real package; the playground must not acquire a parallel
-renderer. Resource teardown and measurement seams start in step 3, not after
-optimization. Step 4 and step 5 may be implemented in smaller dependency-ordered
-units. A missing supported element must be listed as unfinished, not silently
-converted into a narrower product scope.
-
-## Verification cadence
-
-Use the smallest changed-owner tests while implementing. Run a comparable
-profile checkpoint when an integrated hot path changes, not after every file
-edit. Preserve the optimized October 19 manual app and its source/artifact
-identity as the experimental baseline. Do not compare profile results to debug
-or historical results from another device. Profile SDK is 3.47.6; declared
-consumer/CI/service SDK support remains separately owned and verified.
-
-The playground covers regular/random 10,000-item layouts; 0%, 1%, and 100%
-changes; number/bar/mixed updates; overview and zoom+pan; normal consumer cadence
-and separately labelled rapid stress; replacement and removal. Measure full
-input admission through submitted revision, CPU, matched frame timing, logical
-resources and physical/native/graphics memory. A synthetic Flutter run does not
-qualify the deployed WebView or iOS. Run expensive platform matrices at coherent
-milestones, and only repeat affected cases after a change.
-
-Cross-request dimension-string validation and parsed-coefficient sharing are
-[deferred](dimension-sharing-checkpoint.md); the existing package implementation
-remains in use.
-
-The [resolver-owned record copy checkpoint](record-copy-checkpoint.md) reduced
-copy-specific CPU samples but did not establish end-to-end improvement; that
-candidate is not adopted.
+JavaScript remains the schema reference except for approved Flutter differences.
+Shared fixtures are inputs, not native compatibility evidence. Keep JavaScript
+qualification intact and distinguish bounded native smoke/profile results from
+release qualification.
