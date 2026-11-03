@@ -1,8 +1,10 @@
-# PatchMap 10k native experiment
+# PatchMap 10k native playground
 
 Android/iOS development host consuming `conalog_patch_map` through its public
-entry point and local `path: ..` dependency. Runtime integration and device qualification
-remain in progress; this app is not a performance qualification result.
+entry point and local `path: ..` dependency. The runtime integration is implemented;
+this app and its synthetic workloads are not a full performance qualification result.
+
+## Consumer replay entry points
 
 For the separate mobile consumer replay, run
 `flutter run -t lib/mobile_replay_main.dart -d DEVICE_ID`.
@@ -19,18 +21,26 @@ results beside two map-linked app rows. See the
 [synchronization checkpoint](../../../docs/engineering/flutter-runtime/mobile-sync.md)
 for the real failure inputs, host responsibilities and bounded verification.
 
-Run commands from this directory. Current-run device evidence belongs in the
+## Run the panel playground
+
+Run commands from this directory after the repository's
+[asset preparation](../../../docs/engineering/flutter-package.md).
+Select the Flutter 3.47.6 profile SDK explicitly; CI/service SDK pins have a
+separate role. Current-run device evidence belongs in the
 repository's ignored `.artifacts/performance/flutter/` directory and is tied to
 the source and APK hashes recorded there.
 
 ```sh
-/Users/minholim/devsettings/flutter-3.47.6/bin/flutter pub get
-/Users/minholim/devsettings/flutter-3.47.6/bin/flutter analyze --no-pub
-/Users/minholim/devsettings/flutter-3.47.6/bin/flutter test --no-pub test
-/Users/minholim/devsettings/flutter-3.47.6/bin/flutter run --profile -d DEVICE_ID
+export FLUTTER_BIN=/path/to/flutter-3.47.6/bin/flutter
+"$FLUTTER_BIN" pub get
+"$FLUTTER_BIN" analyze --no-pub
+"$FLUTTER_BIN" test --no-pub test
+"$FLUTTER_BIN" run --profile -d DEVICE_ID
 ```
 
-The grid/random selector now creates 100 ordered panel groups in five columns.
+## Workload and manual controls
+
+The grid/random selector creates 100 ordered panel groups in five columns.
 Each group contains one 10×10 grid and one separate 60×70 SVG image using the
 package's real `device` builtin. There are exactly 10,000 panel IDs plus 100
 device IDs. Group slots are 800×1120 with 64-unit outer insets; panels start at
@@ -76,14 +86,12 @@ The fixture identifier is `mode-scenes-full-width-v3`. Earlier
 `aligned-grid-groups-v2` results used simultaneous text/bar scenes and varied
 bar widths, so their timings are not comparable as the same workload.
 
-The source references are the prior standalone experiment's
-`integrated-playground3476-optimized-device-20261019/app/lib/main.dart:210–375`,
-`app/assets/fixture.json`, and the numeric distribution/text preparation in
-`app/lib/plant_text.dart`. Only application JSON and generation rules are reused;
-the example imports the package's public entry point and no experimental renderer.
-The previous scattered-coordinate random dataset and any measurements from it
-are overlap-stress evidence only, not representative layout results. These modes separate number, bar and combined rendering workloads; they do
-not claim equivalence to a consumer replay.
+The example contains host JSON/generation rules and imports only the public
+package, not the historical experimental renderer. Earlier scattered-coordinate
+results are overlap stress, not representative layouts. Historical comparison
+inputs and limitations are owned by the
+[experiment checkpoint](../../../docs/engineering/flutter-runtime/experiment-parity-checkpoint.md).
+These separated number/bar/mixed workloads do not claim consumer-replay equivalence.
 
 Overview fits the drawing; Panel zoom uses absolute scale 0.75 (a 40-unit
 panel is 30 logical pixels wide), independent of drawing size. Pan shifts the
@@ -108,7 +116,7 @@ current layout. The host owns generators, controls and selection actions.
 ## Automated profile workload
 
 ```sh
-/Users/minholim/devsettings/flutter-3.47.6/bin/flutter run --profile -d DEVICE_ID \
+"$FLUTTER_BIN" run --profile -d DEVICE_ID \
   --dart-define=PATCHMAP_BENCHMARK=true \
   --dart-define=PATCHMAP_WARMUP=2 --dart-define=PATCHMAP_SAMPLES=5 \
   --dart-define=PATCHMAP_CHANGED_PERCENT=100
@@ -138,6 +146,7 @@ sequence so the changed count is exact; manual buttons retain the random bar
 sequence described above. Do not compare these new benchmark inputs directly
 to earlier 100% runs that used random heights/tints with possible equal values.
 
+## Measurement boundaries
 
 `dart:developer` TimelineTask intervals surround each draw/update request.
 One ASCII JSON object per log line is prefixed `PATCHMAP_BENCHMARK `. Records
@@ -186,6 +195,8 @@ First preparation includes resource loading. Warmup is reported separately;
 release/profile, device identity, refresh rate and thermal conditions must be
 recorded by the runner. Existing standalone baseline artifacts remain separate
 and untouched. No speed, memory or rendering-equivalence claim is made here.
+
+## Comparing historical results
 
 Earlier package checkpoints 01–03 used four times the fit scale for zoom-pan;
 this was not equivalent to the prior standalone experiment's panel zoom. Keep

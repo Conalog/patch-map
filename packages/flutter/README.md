@@ -3,6 +3,13 @@
 `conalog_patch_map` is an experimental native retained renderer, version 1.0.0-alpha.1.
 Widget/controller, native behavior, lifecycle and performance checkpoints are implemented;
 full platform/consumer qualification remains incomplete. `publish_to: none` blocks publication.
+
+Start with [setup](#consumer-setup) and [draw/update](#draw-and-update).
+Use [commands and queries](#commands-and-queries), [presentation layers](#presentation-layers),
+[camera](#camera-observation-and-rotation), [gestures](#touch-gestures-and-zoom-limits),
+[selection](#pointer-events-and-selection) or [lifetime](#lifetime-and-callbacks)
+for the relevant integration boundary.
+
 ## Consumer setup
 
 Consumer bounds: Dart >=3.11.0 <4.0.0 and Flutter >=3.41.0. CI/service SDK identities are in [toolchain metadata](https://github.com/Conalog/patch-map/blob/release/1.0/packages/flutter/toolchains.json).
@@ -21,7 +28,7 @@ equipment aliases such as `inverter` use `symbols`. See [third-party notices](TH
 For checkout path dependencies, run `npm run assets:prepare -- flutter` from the
 repository root before dependency resolution. Packaged artifacts include assets.
 
-## Widget and commands
+## Draw and update
 
 Retain one controller in the application's State, and provide a bounded surface:
 
@@ -59,6 +66,10 @@ Component IDs/types stay fixed until replacement; first release has no component
 add/remove/type-replacement API. Use `show: false` for currently unused members,
 then update their existing IDs. Hidden components still need valid definitions
 and may incur layout/resource preparation, so avoid speculative unused components.
+Component updates address concrete items or grid cells, such as
+`PatchMapTarget('grid-1.0.0', componentId: 'number')`. A grid template is not a
+component update target: `PatchMapTarget('grid-1', componentId: 'number')` rejects
+the whole request with `MISSING_TARGET`.
 
 Updates retain omitted fields and use the schema's field-specific reset rules.
 Inputs are detached and validated atomically; preparation failures retain the
@@ -67,6 +78,8 @@ waiting fields to their latest values. Result `outcome`, `failures`, `superseded
 and `interruption` are independent diagnostics. Unexpected implementation errors
 complete the Future with its original error/stack. Completion confirms drawing
 submission, not animation end or physical display presentation.
+
+## Commands and queries
 
 | Commands | Behavior |
 | --- | --- |
@@ -80,6 +93,9 @@ submission, not animation end or physical display presentation.
 | `rotateTo(rotation)` | Absolute radians; configurable shortest-path animation; result confirms acceptance |
 | `toWorld(local)` / `toLocal(world)` | Convert logical-pixel coordinates |
 | `select` / `addSelection` / `removeSelection` / `toggleSelection` / `clearSelection` | Library-owned selection; host chooses actions |
+| `isAttached` / `phase` / `selected` | Attachment status, current map phase and current selected objects |
+
+### Object geometry
 
 `getGeometry` addresses elements and concrete grid cells (`grid-1.0.0`), not
 components. It returns null for an unknown ID or a detached/empty/preparing/failed
@@ -103,6 +119,8 @@ bounds/center. Hidden leaves retain logical bounds but have null paint bounds;
 alpha layers and camera culling do not trim geometry. Reads expose published
 layout, not pending input, bar-animation samples or physical display completion.
 
+## Presentation layers
+
 `PatchMapPresentationLayer(scope: addresses, targets: matches, unmatchedAlpha: .2)`
 keeps matched objects unchanged and dims the other scope members. Addresses are
 `PatchMapTarget` lists; at least one finite 0–1 `matchedAlpha`/`unmatchedAlpha` is
@@ -114,6 +132,8 @@ ignored. Results include unique scope/target/matched/ignored counts. Layers leav
 `getValue`, selection and hits unchanged, even at alpha 0. Accepted draw or widget
 removal resets all keys; invalid draw preserves them. Set after accepted draw
 uses the new diagram. Filters cannot mutate layers; inactive layers resume later.
+
+## Camera observation and rotation
 
 `controller.camera` exposes world center, scale, clockwise radians and logical `viewportSize`;
 it is null when detached/empty/preparing/failed and remains readable when ready but inactive.
@@ -149,11 +169,21 @@ angle. Angles too large to represent incremental travel require normalization
 with immediate `setCamera` first. Camera callbacks report `programmatic` changes
 through the existing frame path; no separate animation-completion event is added.
 
-`gestures: const PatchMapGestureOptions(zoomThreshold: .02, zoomThresholdAfterRotation: .05, rotationThresholdDegrees: 15, rotationThresholdAfterZoomDegrees: 25)` configures touch activation. Zoom uses relative span change; rotation uses degrees. An axis that starts first raises only the pending axis's threshold; follow-on values never lower a custom base. Simultaneous base crossings start both. Active axes stay active until gesture restart. Each crossing sample becomes a new baseline without a jump; zero base thresholds apply immediately. Zoom values must be finite in [0, 1), rotation values finite and nonnegative. `zoomEnabled` and `rotationEnabled` independently gate gestures. Settings are captured per gesture. Wheel, commands and translation retain their behavior.
+## Touch gestures and zoom limits
+
+`gestures: const PatchMapGestureOptions(zoomThreshold: .02, zoomThresholdAfterRotation: .05, rotationThresholdDegrees: 15, rotationThresholdAfterZoomDegrees: 25)` configures touch activation.
+Zoom uses relative span change; rotation uses degrees. An axis that starts first
+raises only the pending axis's threshold; follow-on values never lower a custom
+base. Simultaneous base crossings start both. Active axes stay active until
+gesture restart. Each crossing sample becomes a new baseline without a jump;
+zero base thresholds apply immediately.
+
+Zoom values must be finite in [0, 1), rotation values finite and nonnegative.
+`zoomEnabled` and `rotationEnabled` independently gate gestures. Settings are
+captured per gesture. Wheel, commands and translation retain their behavior.
 
 `PatchMapGestureOptions(longPressDuration: Duration(milliseconds: 300))` sets the
-hold time for `longPress`. The package default is 300ms, replacing Flutter's
-previous 500ms default for this surface. Durations must be nonnegative; zero
+hold time for `longPress`. The package default is 300ms. Durations must be nonnegative; zero
 recognizes on the next timer turn. The duration is captured on pointer down, so
 rebuilding only changes subsequent presses. The host still chooses what a long
 press does, including switching `dragMode` to paint/range for the held pointer.
@@ -162,6 +192,9 @@ participation, so a slow pinch is not captured by the hold deadline. Long-press
 recognition restarts only after all tracked pointers have been released.
 
 `zoomLimits: const PatchMapZoomLimits(minScale: .1, maxScale: 8)` clamps input, commands and fit. Omitted bounds are unrestricted; finite positive ordered bounds are required. A minimum can prevent fitting the entire drawing. Changed limits clamp current scale without refitting and notify `configuration`.
+
+## Pointer events and selection
+
 `dragMode` is pan by default; range and paint modes detect objects and report
 callbacks. Input filters only judge candidates: make map changes in result
 callbacks. Move callbacks are coalesced per frame while intermediate path hits
@@ -195,12 +228,23 @@ retain the last valid style. Inactive style changes display on resume. Styles
 persist across diagram replacement, while selection still resets. No editing
 handles or object-transform commands are added.
 
+## Lifetime and callbacks
+
 The widget owns resources. Removal closes its session; the controller can then
 attach to another widget without replaying detached commands. One controller
 cannot attach to two live widgets. App background and `active: false` suspend
 preparation/frames while preserving the latest admitted values. `colors` and
 `symbols` are attachment configuration; changing them requires a new widget key.
 Image preparation is asynchronous; it neither blocks first screen nor changes ready again.
+
+| Widget callback/builder | Purpose |
+| --- | --- |
+| `onAttached(controller)` | Attachment notification; the drawing may still be preparing |
+| `onPhaseChanged(phase, failure)` | `empty`, `preparing`, `ready` or `failed` state changes |
+| `onImageFailure(failures)` | Asynchronous image failures with target/path diagnostics |
+| `onEvent(event)` | Pointer, drag and selection events |
+| `onCameraChanged(change)` | Frame-coalesced camera state and causes described above |
+| `loadingBuilder` / `errorBuilder` | Host UI for preparation and fatal map failure |
 
 `resolveDirectColor(value)` converts a direct CSS, numeric or JSON color value
 using the same parser as the map. Use it when app-side color calculations must
