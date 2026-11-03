@@ -100,5 +100,8 @@ The [hidden-overflow batching checkpoint](hidden-presentation-batching-checkpoin
 covers the later Android overview-pan improvement and its visual/memory limits.
 The [mobile mode-switch profile](mobile-overview-mode-switch-checkpoint.md) separates
 consumer input/projection and package preparation costs from overview painting.
+The [background topology experiment](presentation-topology-checkpoint.md) compares
+retaining geometry buffers for alpha changes on Android. It is not adopted:
+faster first submission trades additional retained memory and mixed total CPU cost.
 Platform and performance qualification is scoped to those checkpoints;
 this feature does not qualify the full Flutter/mobile/WebView integration.
