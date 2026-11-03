@@ -122,7 +122,7 @@ function asPullRequest(candidate, number, baseFiles) {
 }
 
 test('release planner dependency remains pinned to the verified engine', () => {
-  assert.equal(require('release-please/package.json').version, '17.6.0');
+  assert.equal(require('release-please/package.json').version, '17.11.2');
 });
 
 test('shared-only assets and preparation fixes produce both release candidates once', async () => {

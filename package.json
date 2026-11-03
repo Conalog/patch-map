@@ -31,5 +31,8 @@
     "verify:docs": "node verification/assets/prepare.mjs all && npm run docs --workspace @patch-map/verification --",
     "flutter:verify": "npm run flutter:verify --workspace @patch-map/verification --",
     "assets:prepare": "node verification/assets/prepare.mjs"
+  },
+  "overrides": {
+    "minimatch": "11.0.2"
   }
 }
