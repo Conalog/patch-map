@@ -43,6 +43,11 @@ conservative bounds and overlap safety; Canvas is the correctness fallback.
 Contain bars within item bounds, and retain text/SVG overflow and overlap checks.
 Static compatible runs contain at most 100 items. View changes reuse static
 geometry; bar animation changes dynamic data only.
+Dynamic component `show` is checked during painting, not stored in the static
+skeleton. When visibility leaves the full envelope and background unchanged,
+retain the existing chunk proof. Background visibility and changed text/SVG
+envelopes still invalidate it; narrower alpha-layer proofs retain their separate
+geometry invalidation ([show checkpoint](component-show-checkpoint.md)).
 The frame coordinator samples monotonic time when its callback runs; queued vsync
 age cannot consume a newly published animation. The clock owns no timer. Inactive
 transitions clear on suspension. The same coordinator delivers coalesced range/paint

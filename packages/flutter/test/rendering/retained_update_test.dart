@@ -17,9 +17,106 @@ import 'package:conalog_patch_map/src/interaction/selection_state.dart';
 import 'package:conalog_patch_map/src/resources/asset_registry.dart';
 import 'package:conalog_patch_map/src/widget/map_backend.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'draw_plan_test.dart' as drawing;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'retained dynamic show preserves proof, atomic visibility and item hits',
+    () async {
+      final h = await Harness.create();
+      addTearDown(h.close);
+      h.current.resources.text.setActive(false);
+      final node = h.current.node(h.slot);
+      final mesh = h.current.plan.staticMeshIdentities.single;
+      final bounds = node.geometry.paintBounds;
+      for (final visible in [false, true]) {
+        final next = await h.prepare([
+          update('text', {'show': visible}),
+          update('bar', {'show': visible}),
+        ]);
+        expect(
+          node.components[node.geometry.item!.indices['text']!].layout.visible,
+          !visible,
+        );
+        expect(next.plan.reusedChunkCount, 1);
+        expect(next.plan.overlapComparisonCount, 0);
+        expect(next.plan.staticMeshIdentities.single, same(mesh));
+        h.publish(next);
+        expect(node.geometry.paintBounds, bounds);
+        final query = InputQuery(
+          ports: InputQueryPorts(getSpatialCandidates: (_, _) => [h.slot]),
+        );
+        expect(
+          query.point(h.current.geometry, const Offset(5, 5), 0)?.id,
+          'g.0.0',
+        );
+        expect(
+          node.components[node.geometry.item!.indices['text']!].layout.visible,
+          visible,
+        );
+        expect(
+          h.current.geometry['g.0.1']!.item!.components.last.visible,
+          isTrue,
+        );
+        final projection = drawing.Projection(
+          h.current.geometry,
+          [
+            for (var i = 0; i < h.current.geometry.nodes.length; i++)
+              h.current.node(i),
+          ],
+          h.current.pages,
+          h.current.plan,
+        );
+        drawing.compare(
+          await drawing.render(projection),
+          await drawing.render(projection, reference: true),
+        );
+        h.backend.retirement.flush();
+      }
+    },
+  );
+  test(
+    'retained overflow visibility still invalidates the static proof',
+    () async {
+      final h = await Harness.create();
+      addTearDown(h.close);
+      h.current.resources.text.setActive(false);
+      final bounds = h.current.node(h.slot).geometry.paintBounds;
+      h.publish(
+        await h.prepare([
+          update('text', {
+            'attrs': {'x': 55},
+          }),
+        ]),
+      );
+      expect(h.current.plan.staticChunkCount, 0);
+      for (final visible in [false, true]) {
+        h.publish(
+          await h.prepare([
+            update('text', {'show': visible}),
+          ]),
+        );
+        expect(h.current.plan.overlapComparisonCount, 1);
+        expect(h.current.plan.staticChunkCount, visible ? 0 : 1);
+        expect(h.current.node(h.slot).geometry.paintBounds == bounds, !visible);
+        final projection = drawing.Projection(
+          h.current.geometry,
+          [
+            for (var i = 0; i < h.current.geometry.nodes.length; i++)
+              h.current.node(i),
+          ],
+          h.current.pages,
+          h.current.plan,
+        );
+        drawing.compare(
+          await drawing.render(projection),
+          await drawing.render(projection, reference: true),
+        );
+        h.backend.retirement.flush();
+      }
+    },
+  );
   test(
     'offscreen repeated updates leave only current output projection pending',
     () async {

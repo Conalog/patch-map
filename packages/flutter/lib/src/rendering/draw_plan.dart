@@ -707,7 +707,7 @@ _SharedGeometry? _backgroundGeometry(
 final class _Member {
   _Member(this.id, this.skeleton, this.backgrounds, this.bounds, this.world);
   final String id;
-  final List<(String, String, bool, bool)> skeleton;
+  final List<(String, String, bool)> skeleton;
   final List<StaticRectangle> backgrounds;
   final Rect bounds;
   final Affine world;
@@ -725,7 +725,7 @@ final class _Member {
       return null;
     }
     final backgrounds = <StaticRectangle>[];
-    final skeleton = <(String, String, bool, bool)>[];
+    final skeleton = <(String, String, bool)>[];
     var prefix = true;
     final bounds = paintBounds ?? geometry.paintBounds!;
     var index = 0;
@@ -735,13 +735,17 @@ final class _Member {
       final box = override?.$2 ?? layout.box;
       final transform = override?.$3 ?? layout.transform;
       final content = override?.$4 ?? component.content;
-      final visible = data['show'] != false;
-      skeleton.add((layout.id, layout.type, visible, layout.upright));
+      // Dynamic phases check their live visibility when painted. Only their
+      // envelope/order matters to this proof; hidden backgrounds cannot batch.
+      skeleton.add((layout.id, layout.type, layout.upright));
       if (layout.type != 'background') {
         prefix = false;
         continue;
       }
-      if (!prefix || content is! RectangleContent || layout.upright) {
+      if (!prefix ||
+          data['show'] == false ||
+          content is! RectangleContent ||
+          layout.upright) {
         return null;
       }
       final paint = content.style;
@@ -756,10 +760,6 @@ final class _Member {
       backgrounds.add(shape);
     }
     if (backgrounds.isEmpty) return null;
-    // Invisible prefix slots use the exact path, preserving their phase index.
-    if (skeleton.take(backgrounds.length).any((c) => !c.$3)) {
-      return null;
-    }
     return _Member(
       geometry.id,
       List.unmodifiable(skeleton),
@@ -816,14 +816,12 @@ bool _sameStaticInputs(
 bool _sameStaticComponent(DrawComponent old, DrawComponent next) {
   if (identical(old, next)) return true;
   final x = old.layout, y = next.layout;
-  if (x.id != y.id ||
-      x.type != y.type ||
-      x.visible != y.visible ||
-      x.upright != y.upright) {
+  if (x.id != y.id || x.type != y.type || x.upright != y.upright) {
     return false;
   }
   if (x.type == 'background' &&
-      (!identical(old.content, next.content) ||
+      (x.visible != y.visible ||
+          !identical(old.content, next.content) ||
           !identical(x.transform, y.transform) ||
           x.box.width != y.box.width ||
           x.box.height != y.box.height)) {

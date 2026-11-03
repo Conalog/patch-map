@@ -317,9 +317,9 @@ final class RetainedUpdate extends MapBase<PatchMapTarget, RecordDelta> {
               prior.type != 'bar' &&
               (entry.geometryChanged ||
                   prior.visible != (data['show'] != false));
-          staticChanged |= prior.visible != (data['show'] != false);
           if (prior.type == 'background') {
             staticChanged |=
+                prior.visible != (data['show'] != false) ||
                 entry.geometryChanged ||
                 !identical(
                   entry.content,

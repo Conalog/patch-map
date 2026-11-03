@@ -335,6 +335,88 @@ void main() {
   );
 
   test(
+    'dynamic visibility keeps static proof and paints only visible phases',
+    () async {
+      final h = Harness(active: false);
+      addTearDown(h.close);
+      var p = h.read([
+        item('a', 8, components: [background(), icon('a')]),
+        item('b', 70, components: [background(), icon('b')]),
+      ]);
+      final mesh = p.plan.staticMeshIdentities.single;
+      for (final visible in [false, true]) {
+        final q = h.project(
+          p.geometry.prepare({
+            const PatchMapTarget('a', componentId: 'icon'): {
+              ...component(p.geometry, 'a', 'icon'),
+              'show': visible,
+            },
+          }, h.text.measure).snapshot,
+          previous: p,
+        );
+        expect(q.plan.staticMeshIdentities.single, same(mesh));
+        expect(q.plan.reusedChunkCount, 1);
+        expect(q.plan.overlapComparisonCount, 0);
+        h.events.clear();
+        final actual = await render(q);
+        expect(h.events, [if (visible) 'a', 'b']);
+        compare(actual, await render(q, reference: true));
+        p = q;
+      }
+      final mixed = h.read([
+        item(
+          'a',
+          8,
+          components: [
+            background(),
+            {...icon('a'), 'show': false},
+          ],
+        ),
+        item('b', 70, components: [background(), icon('b')]),
+      ]);
+      expect(mixed.plan.staticChunkCount, 1);
+      compare(await render(mixed), await render(mixed, reference: true));
+    },
+  );
+
+  test(
+    'revealing overflow rechecks ordering and hiding it restores batching',
+    () async {
+      final h = Harness(active: false);
+      addTearDown(h.close);
+      var p = h.read([
+        item(
+          'a',
+          8,
+          components: [
+            background(),
+            {...icon('a', size: 100), 'show': false},
+          ],
+        ),
+        item('b', 70, components: [background(), icon('b')]),
+      ]);
+      expect(p.plan.staticChunkCount, 1);
+      final mesh = p.plan.staticMeshIdentities.single;
+      for (final visible in [true, false]) {
+        final q = h.project(
+          p.geometry.prepare({
+            const PatchMapTarget('a', componentId: 'icon'): {
+              ...component(p.geometry, 'a', 'icon'),
+              'show': visible,
+            },
+          }, h.text.measure).snapshot,
+          previous: p,
+        );
+        expect(q.plan.overlapComparisonCount, 1);
+        expect(q.plan.staticChunkCount, visible ? 0 : 1);
+        if (!visible) expect(q.plan.staticMeshIdentities.single, same(mesh));
+        compare(await render(q), await render(q, reference: true));
+        p = q;
+      }
+    },
+  );
+
+  test(
     'overlap and touching paint envelopes preserve exact item ordering',
     () async {
       for (final x in [30.0, 48.0]) {

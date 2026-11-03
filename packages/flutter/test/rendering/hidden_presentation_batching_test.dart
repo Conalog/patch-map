@@ -189,6 +189,43 @@ void main() {
   );
 
   test(
+    'retained show rechecks alpha-narrowed bounds under an unchanged full envelope',
+    () async {
+      final input = panels();
+      final h = await retained.Harness.create(input: input);
+      addTearDown(h.close);
+      h.current.resources.text.setActive(false);
+      h.backend.setPresentation(hidden(input, 0).opacity);
+      h.publish(
+        await h.prepare([
+          const PatchMapUpdate(PatchMapTarget('g.0.0', componentId: 'small'), {
+            'attrs': {'x': 48},
+            'show': false,
+          }),
+        ]),
+      );
+      h.paint();
+      final bounds = h.current.geometry['g.0.0']!.paintBounds;
+      expect(h.current.plan.presentationMeshCount, 1);
+      for (final visible in [true, false]) {
+        h.publish(
+          await h.prepare([
+            PatchMapUpdate(
+              const PatchMapTarget('g.0.0', componentId: 'small'),
+              {'show': visible},
+            ),
+          ]),
+        );
+        expect(h.current.geometry['g.0.0']!.paintBounds, bounds);
+        expect(h.current.plan.reusedChunkCount, 1);
+        h.paint();
+        expect(h.current.plan.presentationMeshCount, visible ? 0 : 1);
+        h.backend.retirement.flush();
+      }
+    },
+  );
+
+  test(
     'retained publication preserves paint-only reuse but invalidates narrower geometry',
     () async {
       final input = panels();
