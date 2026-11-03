@@ -1,8 +1,8 @@
 # Experiment-to-package performance checkpoint
 
 October20,2026; production snapshot `0153a107`; Flutter3.47.6 profile AOT, SM-S936N, Impeller Vulkan. This is a
-diagnosis, not an optimization or release qualification. The native package has a material input-to-submission
-regression against the accepted October19 specialized experiment in text-free bar updates.
+diagnosis, not an optimization or release qualification. That package snapshot had a material input-to-submission
+regression against the October19 specialized experiment in text-free bar updates. Later work is indexed in [delivery coverage](coverage.md).
 
 The preceding manual-device check fixed a stale-vsync animation skip by sampling monotonic time at callback
 execution. A regression test and video show the200ms transition again; submission still does not await its end.
@@ -80,9 +80,9 @@ The historical experiment already implemented full-input validation, diff, atomi
 completion. Those requirements alone do not explain the regression. Its fixed `Leaf/DisplayValue` structures did
 not cover the package's entire general schema, addressing, reset/merge, partial-failure and lifecycle contract.
 Necessary generality and avoidable repeated derivation are both present. Rendering optimizations survived
-integration, but the preparatory pipeline does not yet limit enough work to the changed dependencies.
+integration, but that snapshot's preparatory pipeline did not limit enough work to the changed dependencies.
 
-Priority proposals are reusable normalization/validation proofs, field-specific dependency invalidation, and
+The diagnosis proposed reusable normalization/validation proofs, field-specific dependency invalidation, and
 reuse of static/resource identity without rebuilding candidate lists. Execution must still resolve queued
 changes against current state; these proposals must not freeze speculative pending state or remove validation,
 atomicity, text/SVG bounds or overlap guarantees. They require a subsequent implementation and matched
@@ -112,5 +112,5 @@ component projection; this is no longer an unexplained GPU/device failure. Three
 and one Android device support the large regression finding, not small rankings or universal qualification.
 
 Exact sources, APK identities, runners, raw results, Timeline/CPU traces, screenshots, crash evidence and the
-Korean report are preserved under `.artifacts/performance/flutter/decision- parity3476-device-20261020/`. The
+Korean report are preserved under `.artifacts/performance/flutter/decision-parity3476-device-20261020/`. The
 original manual profile app was restored after measurement.

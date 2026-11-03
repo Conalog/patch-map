@@ -1,7 +1,7 @@
 # Overview paint allocation diagnosis
 
 October 23, 2026. Follow-up to the [GC timing diagnosis](text-key-frame-diagnosis.md).
-Current parameter/key reuse is retained. This unit proposes changes only;
+The parameter/key reuse candidate was retained. This diagnostic proposed changes only;
 no package source, host implementation, renderer policy or APK was rebuilt.
 
 ## Method and scope
@@ -21,7 +21,7 @@ or emulator evidence substitutes for the physical profile build.
 
 Allocation tracing perturbs execution, including identity hashes and GC timing.
 Do not use diagnostic response times as speed comparisons. Count observations
-and source ownership explain candidates; improvement remains unmeasured.
+and source ownership explain candidates; this diagnostic did not measure improvement.
 The earlier 1,078 paint CPU samples per arm remain the timing evidence: native
 Paragraph work dominates, while GC explains most of the added frame interval.
 
@@ -49,7 +49,7 @@ is justified by those eight allocations. Container traces also show builder
 placeholder/family lists; those engine-owned allocations cannot all be removed
 by caching the package's style objects.
 
-## Proposed order
+## Proposed order at this checkpoint
 
 1. **Avoid redundant origin offsets.** Reuse `Offset.zero` where the local
    destination/inset is proven zero; when adding an offset to zero, reuse the
@@ -102,14 +102,15 @@ process exited; no workaround was attempted. This diagnostic launch is excluded
 from results. The existing APK and foreground were restored after all runs;
 fixed mode was disabled and test processes/forwards were removed.
 
-Successful groups had zero output mismatches. Package hashes still match the
-measured APK. No code tests are repeated for a documentation-only unit; the
-documentation gate is the relevant check. No speedup or GC-elimination claim
-is made until a proposed change is separately implemented and compared.
+Successful groups had zero output mismatches. Package hashes at capture matched
+the measured APK. No code tests were repeated for this documentation-only unit.
+This diagnosis alone establishes no speedup or GC-elimination claim;
+the separately measured follow-ups own those findings.
 Raw class lists, traces, matched paint summaries, code-derived site ownership,
 failed-capture records and cleanup live under
 `.artifacts/performance/flutter/overview-allocation3476-device-20261023/`.
 Proposal 1 is subsequently applied and compared in the
 [origin Offset checkpoint](origin-offset-checkpoint.md).
-Proposal 2 is applied in the [fixed placement slots checkpoint](placement-slots-checkpoint.md);
-its emulator performance comparison remains inconclusive due to host contention.
+Proposal 2 was applied in the [fixed placement slots checkpoint](placement-slots-checkpoint.md).
+Its emulator timing was inconclusive; the [physical-device follow-up](placement-slots-device-checkpoint.md)
+subsequently supported a small benefit. Proposal 3's comparison is linked above.

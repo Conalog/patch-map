@@ -26,7 +26,7 @@ sets its precise timing was not isolated.
 
 Exact existing APKs: baseline `c83c18b5`, candidate `c45eb46f`. SHA-256 values
 are the same as the preceding checkpoint. All 77 source identities, SDK, locks,
-host and flags are preserved; candidate library hashes match the current package.
+host and flags were preserved; candidate library hashes matched the package at capture.
 SM-S936N, Android 16, Flutter 3.47.6 profile AOT/Impeller Vulkan; same regular
 10,000-panel overview, random 1–6-digit strings, full-width bars fixed at 100%.
 

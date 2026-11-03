@@ -2,7 +2,7 @@
 
 October 20, 2026. Review of the completed
 [preparation sweep](preparation-sweep-checkpoint.md), production `14b1554b`,
-documentation baseline `ac00df71`. Production remains unchanged in this review.
+documentation baseline `ac00df71`. Production was unchanged by this review.
 Both additional candidates are isolated, ignored experiment copies.
 
 ## Method and coverage
@@ -21,15 +21,15 @@ animation/raster settlement and the same400ms pan where applicable. FrameTiming
 p95 excludes some synchronous preparation and is not the complete input latency.
 CPU samples are separate diagnostic runs, not pooled with ordinary measurements.
 
-Current matrix:60requests/12final-value checks. Axis candidate:40/8.
+Baseline matrix:60requests/12final-value checks. Axis candidate:40/8.
 Text candidate:50/10 plus reversed20/4. All170 ordinary requests complete their
 timing windows without update failures; all34 final-value checks match.
 Thermal status is0 throughout ordinary samples, but skin temperature varies
 30.8–38.8°C across the session. Status0 does not establish fixed clock speeds.
 
-## Current implementation
+## Measured baseline at `14b1554b`
 
-Medians, milliseconds; these are current-state measurements, not before/after
+Medians, milliseconds; these describe the October 20 snapshot, not before/after
 claims. PSS/graphics are Android process accounting, not exclusive package GPU
 allocations.
 
@@ -65,9 +65,9 @@ Overview bar CPU594→595ms and mixed991→1013ms do not improve; zoom CPU diffe
 are small/mixed, and number response181.0→204.3ms is adverse. No repeatable overall
 benefit is established.
 
-**Proven numeric width overflow: promising for overview, not yet production.**
+**Proven numeric width overflow: not adopted by this review.**
 Live VM inspection found6-digit text at minimum font size8 with measured width30
-inside width26. Current eligibility deliberately uses Paragraph for overflow.
+inside width26. The measured baseline uses Paragraph for overflow.
 Four atlas styles are ready, with zero failures and15.3MiB resident pixels:
 atlas creation failure does not explain this fallback.
 Separate counters after warmup show1665→0new Paragraphs per update in all three
@@ -99,7 +99,7 @@ The enlarged6-digit view shows no observed clipping or placement change;
 qualification before adopting the expanded path. Pixel identity is not claimed.
 Neither candidate establishes reduced graphics memory.
 
-## Removal and remaining priority
+## Removal and priorities identified then
 
 Two diagnostic removal cycles restore every package class live count/bytes to the
 initial empty host. Retained fixture/verification data explain a remaining
@@ -109,10 +109,11 @@ diagnostic and several minutes empty, PSS is979MiB and graphics432MiB.
 These bounded, different-scene cycles neither prove a leak nor establish native
 or GPU retirement. Attribution remains open; the15.3MiB atlas cannot explain it.
 
-Prioritize numeric-fallback qualification and native/graphics allocation
-attribution over another small arithmetic shortcut. Full-input admission/layout
-still costs CPU during zoom; profiles do not justify removing validation or
+This review prioritized numeric-fallback qualification and native/graphics allocation
+attribution over another small arithmetic shortcut. Its full-input admission/layout
+costs did not justify removing validation or
 changing atomicity, animation, frame completion or pending-update contracts.
 This review does not qualify universal60fps, all consumer inputs, iOS or WebView
 superiority. Raw evidence, identities, patches and scripts:
 `.artifacts/performance/flutter/final-profile3476-device-20261020/`.
+Later changes and outstanding qualification are indexed in [delivery coverage](coverage.md).

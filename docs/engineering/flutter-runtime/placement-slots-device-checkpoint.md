@@ -16,7 +16,7 @@ The 10,000-number update still produces a long frame; GC jank is not eliminated.
 SM-S936N, Android 16, Flutter 3.47.6 profile AOT/Impeller Vulkan. Exact existing
 APKs: baseline `8e2bf89d`, candidate `ed56d69a`. Both retain the prior origin
 Offset improvement. No rebuild or new optimization is mixed into this check.
-All 68 current library source hashes match the candidate manifest. Between the
+All 68 library source hashes at capture matched the candidate manifest. Between the
 APKs, only `text_pool.dart` differs; SDK, flags, host and locks match.
 
 The existing parity host owns the same regular grid of 10,000 panels, complete
