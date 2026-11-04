@@ -1004,6 +1004,7 @@ final class MapBackend extends SessionBackend {
 
   @override
   void hide() {
+    final wasVisible = current != null;
     camera.cancelRotation();
     camera.discardChanges();
     _validatedUpdate = null;
@@ -1020,6 +1021,9 @@ final class MapBackend extends SessionBackend {
     }
     _visible = null;
     transitions.clear();
+    // A rebuilt painter can retain its old display list while preparation
+    // waits. Clear it through the same frame owner as ordinary publication.
+    if (wasVisible && !_closed) invalidate();
   }
 
   @override
