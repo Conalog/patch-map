@@ -28,7 +28,6 @@ final class RelationPath {
 /// and hidden/missing endpoints omit their path. No curve/arrow schema exists.
 final class RelationGeometry {
   RelationGeometry._(
-    this.id,
     this.world,
     this._inverse,
     this.paths,
@@ -173,7 +172,6 @@ final class RelationGeometry {
       }
     }
     return RelationGeometry._(
-      node.id,
       node.world,
       inverse,
       List.unmodifiable(paths),
@@ -185,7 +183,6 @@ final class RelationGeometry {
     );
   }
 
-  final String id;
   final Affine world, _inverse;
   final List<RelationPath> paths;
   final double width;
