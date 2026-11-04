@@ -123,6 +123,9 @@ final class InputCoordinator {
     final gesture = _gesture;
     if (gesture == null || gesture.pointer != pointer) return;
     final p = position(local, global), snapshot = currentGeometry();
+    // Result callbacks may change the camera; this sample's world position and
+    // upright hit geometry must still use the same captured camera.
+    final rotation = camera.rotation;
     if (gesture.mode == null &&
         (local - gesture.start.local).distance > dragSlop) {
       gesture.mode = dragMode;
@@ -132,7 +135,7 @@ final class InputCoordinator {
       // A callback can dispose/reset this coordinator. Do not resurrect work.
       if (!identical(_gesture, gesture) || _disposed) return;
     }
-    final cameraChanged = _interpret(gesture, p, snapshot);
+    final cameraChanged = _interpret(gesture, p, snapshot, rotation);
     if (gesture.mode != null) {
       final needFrame = _pendingMove == null;
       _pendingMove = _PendingMove(gesture, p);
@@ -148,6 +151,7 @@ final class InputCoordinator {
     _Gesture gesture,
     PatchMapPosition p,
     GeometrySnapshot? snapshot,
+    double rotation,
   ) {
     var cameraChanged = false;
     switch (gesture.mode) {
@@ -160,7 +164,7 @@ final class InputCoordinator {
             : query.range(
                 snapshot,
                 Affine.identity.projectRect(gesture.range!),
-                camera.rotation,
+                rotation,
               );
       case PatchMapDragMode.paint:
       case null when dragMode == PatchMapDragMode.paint:
@@ -170,7 +174,7 @@ final class InputCoordinator {
             snapshot,
             gesture.last.world,
             p.world,
-            camera.rotation,
+            rotation,
           )) {
             gesture.painted.putIfAbsent(value.id, () => value);
           }
@@ -188,7 +192,7 @@ final class InputCoordinator {
     _pointers.remove(pointer);
     if (gesture == null || gesture.pointer != pointer) return;
     final p = position(local, global), snapshot = currentGeometry();
-    final cameraChanged = _interpret(gesture, p, snapshot);
+    final cameraChanged = _interpret(gesture, p, snapshot, camera.rotation);
     _gesture = null;
     _pendingMove = null;
     if (cameraChanged) _frame();

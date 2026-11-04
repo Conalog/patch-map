@@ -294,6 +294,42 @@ void main() {
     },
   );
 
+  for (final mode in [PatchMapDragMode.paint, PatchMapDragMode.range]) {
+    test('$mode keeps raw-sample rotation across dragStart callbacks', () {
+      final h = _Harness([
+        {
+          'type': 'item',
+          'id': 'i',
+          'size': 100,
+          'contentOrientation': 'upright',
+          'components': [
+            {
+              'type': 'bar',
+              'source': {},
+              'size': {'width': 80, 'height': 10},
+              'placement': 'bottom',
+            },
+          ],
+        },
+      ]);
+      addTearDown(h.input.dispose);
+      h.input.dragMode = mode;
+      h.extraNotify = (event) {
+        if (event.kind == PatchMapInputKind.dragStart) {
+          h.camera.set(rotation: math.pi);
+        }
+      };
+      h.down(1, const Offset(0, 94));
+      h.move(1, const Offset(30, 96));
+      h.input.onFrame();
+      final move = h.events.last;
+      expect(move.kind, PatchMapInputKind.dragMove);
+      expect(move.position!.world, const Offset(30, 96));
+      expect(h.camera.rotation, math.pi);
+      expect(move.objects.map((object) => object.id), ['i']);
+    });
+  }
+
   test('pan fast path does no per-move search and kTouchSlop is default', () {
     final h = _Harness([_item('a', 0)], slop: null);
     expect(h.input.dragSlop, kTouchSlop);
