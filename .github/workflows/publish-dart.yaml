@@ -10,6 +10,8 @@ on:
       - .github/scripts/dart-release.mjs
       - .github/scripts/pub-artifact.mjs
       - verification/flutter/renderer-qualification.mjs
+      - packages/flutter/example/ios/Gemfile
+      - packages/flutter/example/ios/Gemfile.lock
 
 permissions: {}
 
@@ -150,23 +152,21 @@ jobs:
           arch: x86_64
           emulator-port: 5554
           script: node verification/flutter/renderer-qualification.mjs android emulator-5554
-      - name: Install the locked CocoaPods version
-        if: ${{ matrix.platform == 'ios' }}
-        run: |
-          version=$(awk '$1 == "COCOAPODS:" { print $2 }' packages/flutter/example/ios/Podfile.lock)
-          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo 'Expected one CocoaPods version in the iOS example lockfile' >&2
-            exit 1
-          fi
-          gem_home="$RUNNER_TEMP/patch-map-cocoapods"
-          gem install cocoapods --version "$version" --no-document --install-dir "$gem_home" --bindir "$gem_home/bin"
-          test "$(GEM_HOME="$gem_home" GEM_PATH="$gem_home" "$gem_home/bin/pod" --version)" = "$version"
-          echo "Using CocoaPods $version from the iOS example lockfile"
-          echo "$gem_home/bin" >> "$GITHUB_PATH"
-          printf 'GEM_HOME=%s\nGEM_PATH=%s\n' "$gem_home" "$gem_home" >> "$GITHUB_ENV"
       - name: Run iOS renderer checks
         if: ${{ matrix.platform == 'ios' }}
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/packages/flutter/example/ios/Gemfile
+          BUNDLE_PATH: ${{ runner.temp }}/patch-map-cocoapods
+          BUNDLE_FROZEN: 'true'
         run: |
+          bundle install
+          version=$(awk '$1 == "COCOAPODS:" { print $2 }' packages/flutter/example/ios/Podfile.lock)
+          installed=$(bundle exec pod --version)
+          if [ "$installed" != "$version" ]; then
+            echo "CocoaPods $installed does not match Podfile.lock ($version)" >&2
+            exit 1
+          fi
+          echo "Using CocoaPods $installed from the iOS example lockfile"
           device=$(xcrun simctl list devices available --json | jq -er '
             .devices | to_entries | map(select(.key | contains(".iOS-")))
             | sort_by(.key | split("iOS-")[1] | split("-") | map(tonumber)) | reverse
@@ -174,7 +174,7 @@ jobs:
             | .[0].udid // error("No available iPhone simulator")')
           xcrun simctl boot "$device"
           xcrun simctl bootstatus "$device" -b
-          node verification/flutter/renderer-qualification.mjs ios "$device"
+          bundle exec node verification/flutter/renderer-qualification.mjs ios "$device"
       - name: Retain renderer test log
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
