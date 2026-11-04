@@ -84,7 +84,7 @@ test('readiness gates validate repository policy and only the selected consumer 
 test('Dart artifact jobs install only verifier dependencies and preserve publication qualification', () => {
   const dart = readWorkflow('publish-dart');
   const install = 'npm ci --workspace verification --include-workspace-root=false --ignore-scripts';
-  for (const job of [workflow.jobs.flutter, dart.jobs.verify]) {
+  for (const job of [workflow.jobs.flutter, dart.jobs.verify, dart.jobs.renderer, dart.jobs.qualify]) {
     assert.ok(commands(job).includes(install));
     assert.ok(!commands(job).includes('npm ci'));
   }
@@ -92,13 +92,24 @@ test('Dart artifact jobs install only verifier dependencies and preserve publica
   assert.ok(!verify.includes('node verification/conformance/inventory.mjs'));
   assert.ok(!verify.includes('npm run verify:tooling'));
   for (const command of ['npm run flutter:analyze', 'npm run flutter:test', 'npm run flutter:verify:package',
-    'node .github/scripts/dart-release.mjs qualify .release-dart/dart-qualification.json']) {
+    'node .github/scripts/dart-release.mjs prepare']) {
     assert.ok(verify.includes(command), command);
   }
-  const qualification = dart.jobs.verify.steps.find((step) => step.name === 'Require collected Android and iOS renderer qualification');
-  assert.equal(qualification.if, "${{ vars.PUBDEV_PUBLISH_ENABLED == 'true' }}");
-  assert.equal(dart.jobs.publish.needs, 'verify');
-  assert.equal(dart.jobs.publish.if, qualification.if);
+  const { renderer, qualify, publish } = dart.jobs;
+  assert.deepEqual(renderer.strategy.matrix.include.map(({ platform }) => platform), ['android', 'ios']);
+  assert.equal(renderer.needs, 'verify');
+  assert.deepEqual(qualify.needs, ['verify', 'renderer']);
+  assert.ok(commands(qualify).includes('node .github/scripts/dart-release.mjs collect'));
+  assert.deepEqual(publish.needs, ['verify', 'qualify']);
+  assert.equal(publish.environment, 'pub.dev');
+  for (const [event, enabled, runsRenderer, uploads] of [
+    ['pull_request', 'false', true, false], ['pull_request', 'true', true, false],
+    ['push', 'false', false, false], ['push', 'true', true, true],
+  ]) {
+    const context = { github: { event_name: event }, vars: { PUBDEV_PUBLISH_ENABLED: enabled } };
+    assert.equal(selected(renderer.if, context), runsRenderer);
+    assert.equal(selected(publish.if, context), uploads);
+  }
   assert.ok(commands(workflow.jobs.contracts).includes('npm ci'));
   assert.ok(commands(workflow.jobs.contracts).includes('node verification/conformance/inventory.mjs'));
 });

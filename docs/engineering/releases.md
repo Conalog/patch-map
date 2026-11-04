@@ -100,9 +100,10 @@ and the qualification record. After upload, authorize `Conalog/patch-map` with p
 
 ## Retry and partial success
 
-Disabled publication retains `dart-candidate-<SHA>` with the tarball, installed report and source snapshot. For a publishable tag, use that artifact for both
-platform checks, collect and attach the envelope, then rerun the original tag-push execution. `dart-qualified-<SHA>` retains renderer qualification. Source,
-contract or host lock drift requires fresh reports. Record the actual package version, artifact and successful run URL separately from qualification.
+Tag runs retain `dart-candidate-<SHA>` with the tarball, installed report and source snapshot. When publication is enabled, GitHub runs Android and iOS
+renderer tests on that candidate and joins both reports before uploading to pub.dev. `dart-qualified-<SHA>` retains the archive and qualification envelope.
+Workflow PRs exercise the same qualification without publishing. Retry failed jobs on the original tag run and inspect the per-platform renderer logs.
+Record the actual package version, artifact and successful run URL separately from qualification.
 
 Registry writes are independent. On partial success, record each registry's actual state and retry only the failed package: npm accepts the existing tag through
 `publish.yaml`'s `tag` input; Dart reruns its original tag-push run, because pub.dev rejects branch/manual-dispatch publishing. Reuse immutable source and tags.
