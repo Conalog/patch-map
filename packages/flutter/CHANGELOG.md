@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0-alpha.2](https://github.com/Conalog/patch-map/compare/dart-v1.0.0-alpha.1...dart-v1.0.0-alpha.2) (2026-11-04)
+
+
+### Added
+
+* qualify Flutter renderer for pub.dev ([#269](https://github.com/Conalog/patch-map/issues/269)) ([b258769](https://github.com/Conalog/patch-map/commit/b258769b0cf5ffe15cac45e24c7fde66ad38e4d5))
+
 ## 1.0.0-alpha.1 (2026-11-04)
 
 
