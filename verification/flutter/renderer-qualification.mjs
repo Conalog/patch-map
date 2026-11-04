@@ -109,7 +109,10 @@ async function main() {
   const sourceFingerprint = hash(JSON.stringify(inputsBefore));
   console.log(`Starting the ${platform} renderer tests`);
   const result = await new Promise((resolve) => {
-    const args = ['test', '--no-pub', '--machine', '-d', deviceId, `--dart-define=PATCH_MAP_RELEASE_PLATFORM=${platform}`, nativeTest];
+    const args = [
+      'test', '--no-pub', '--machine', '-d', deviceId, `--dart-define=PATCH_MAP_RELEASE_PLATFORM=${platform}`,
+      ...(process.env.PATCH_MAP_RENDERER_VERBOSE === 'true' ? ['--verbose'] : []), nativeTest,
+    ];
     const child = execFile(flutter, args, { cwd, encoding: 'utf8', maxBuffer, timeout: 12 * 60_000, killSignal: 'SIGKILL' },
       (error, stdout, stderr) => resolve({ error, stdout, stderr }));
     child.stdout.pipe(process.stdout, { end: false });

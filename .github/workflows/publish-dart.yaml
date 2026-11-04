@@ -105,7 +105,7 @@ jobs:
           - platform: android
             runner: ubuntu-latest
           - platform: ios
-            runner: macos-latest
+            runner: macos-15
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 35
     permissions:
@@ -158,7 +158,10 @@ jobs:
           BUNDLE_GEMFILE: ${{ github.workspace }}/packages/flutter/example/ios/Gemfile
           BUNDLE_PATH: ${{ runner.temp }}/patch-map-cocoapods
           BUNDLE_FROZEN: 'true'
+          DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+          PATCH_MAP_RENDERER_VERBOSE: 'true'
         run: |
+          xcodebuild -version
           bundle install
           version=$(awk '$1 == "COCOAPODS:" { print $2 }' packages/flutter/example/ios/Podfile.lock)
           installed=$(bundle exec pod --version)
@@ -168,10 +171,9 @@ jobs:
           fi
           echo "Using CocoaPods $installed from the iOS example lockfile"
           device=$(xcrun simctl list devices available --json | jq -er '
-            .devices | to_entries | map(select(.key | contains(".iOS-")))
-            | sort_by(.key | split("iOS-")[1] | split("-") | map(tonumber)) | reverse
-            | [.[] .value[] | select(.isAvailable and (.name | startswith("iPhone ")))]
-            | .[0].udid // error("No available iPhone simulator")')
+            [.devices["com.apple.CoreSimulator.SimRuntime.iOS-26-2"][]?
+             | select(.isAvailable and .name == "iPhone 17 Pro")]
+            | .[0].udid // error("iPhone 17 Pro with iOS 26.2 is unavailable")')
           xcrun simctl boot "$device"
           xcrun simctl bootstatus "$device" -b
           bundle exec node verification/flutter/renderer-qualification.mjs ios "$device"
