@@ -206,26 +206,68 @@ void main() {
   );
 
   test(
-    'unknown length reserves capacity but only buffers received chunks before exact flatten',
+    'unknown length coalesces tiny chunks into pages and flattens exact bytes under the copy budget',
     () async {
+      const pageBytes = 64 * 1024;
       final transfer = _Transfer(null);
       final sources = ImageSourceStore(transferFactory: (_) => transfer);
       final lease = sources.acquireSourceBytes(_url('chunks'));
+      final copies = [
+        sources.tryReserveCopy(20 * 1024 * 1024)!,
+        sources.tryReserveCopy(20 * 1024 * 1024)!,
+        sources.tryReserveCopy(4 * 1024 * 1024)!,
+      ];
       await _drain();
-      expect(sources.sourceBytes, 20 * 1024 * 1024);
+      transfer.stream.add(const []);
+      await _drain();
       expect(sources.bufferedSourceBytes, 0);
-      transfer.stream.add([1, 2]);
-      transfer.stream.add([3]);
+
+      final expected = List.generate(pageBytes + 2, (index) => index % 251);
+      for (var index = 0; index < pageBytes - 1; index++) {
+        if (index % 16 == 0) transfer.stream.add(const []);
+        transfer.stream.add([expected[index]]);
+      }
       await _drain();
-      expect(sources.bufferedSourceBytes, 3);
-      expect(sources.sourceBytes, 20 * 1024 * 1024);
+      expect(sources.bufferedSourceBytes, pageBytes);
+      transfer.stream.add(expected.sublist(pageBytes - 1));
       await transfer.stream.close();
-      expect((await lease.ready).bytes, [1, 2, 3]);
-      expect(sources.sourceBytes, 3);
-      expect(sources.payloadBytes, 3);
+      await _drain();
+      expect(sources.transferCount, 0);
+      expect(sources.sourceBytes, 64 * 1024 * 1024);
+      expect(sources.bufferedSourceBytes, 2 * pageBytes);
+      expect(lease.bytes, isNull);
+
+      for (final copy in copies.reversed) {
+        copy.release();
+      }
+      expect((await lease.ready).bytes, expected);
+      expect(sources.sourceBytes, expected.length);
+      expect(sources.payloadBytes, expected.length);
+      expect(sources.bufferedSourceBytes, expected.length);
       lease.release();
       sources.close();
       expect(sources.sourceBytes, 0);
+      expect(sources.bufferedSourceBytes, 0);
+    },
+  );
+
+  test(
+    'cancelling an unknown body drops its partial page on settlement',
+    () async {
+      final transfer = _Transfer(null);
+      final sources = ImageSourceStore(transferFactory: (_) => transfer);
+      final lease = sources.acquireSourceBytes(_url('cancelled-chunks'));
+      transfer.stream.add([1]);
+      await _drain();
+      expect(sources.bufferedSourceBytes, 64 * 1024);
+      lease.release();
+      expect((await lease.ready).failure!.kind, ImageFailureKind.cancelled);
+      await _drain();
+      expect(sources.sourceBytes, 0);
+      expect(sources.bufferedSourceBytes, 0);
+      expect(sources.transferCount, 0);
+      await transfer.stream.close();
+      sources.close();
     },
   );
 

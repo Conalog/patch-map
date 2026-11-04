@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 
 import '../resource_budget.dart';
@@ -75,7 +76,7 @@ final class _ImageEntry {
   var result = Completer<ImageSourceResult>();
   ImageResourceFailure? failure;
   Uint8List? bytes;
-  List<Uint8List>? chunks;
+  List<Uint8List>? pages;
   ResourceBudgetLease? sourceCharge;
   _TransferAttempt? transfer;
   void Function()? cancelDelay;
@@ -103,6 +104,7 @@ final class ImageSourceStore {
   }
   static const singleSourceBytes = imageSourceByteLimit,
       sourceLimitBytes = 64 * 1024 * 1024;
+  static const _sourcePageBytes = 64 * 1024;
   static const payloadLimitBytes = sourceLimitBytes - singleSourceBytes,
       maximumTransfers = 16;
   static const attemptDeadline = Duration(seconds: 20);
@@ -239,6 +241,7 @@ final class ImageSourceStore {
         _flattenings.remove(entry.source.identity);
         try {
           entry.bytes = _flatten(entry);
+          _setBuffered(entry, entry.bytes!.length);
           _resizeSource(entry, entry.bytes!.length);
           if (_needed(entry)) _ready(entry);
         } catch (error) {
@@ -318,11 +321,11 @@ final class ImageSourceStore {
         entry.bytes = owned;
         _setBuffered(entry, capacity);
       } else {
-        // Unknown streams retain bounded received chunks. Reservation is not
-        // an instruction to eagerly allocate a full 20 MiB buffer.
+        // Coalesce unknown streams into pages so retained allocation depends
+        // on the payload size, regardless of how the transport chunks it.
         final buffer = length == null ? null : Uint8List(length);
         if (buffer != null) _setBuffered(entry, buffer.length);
-        entry.chunks = length == null ? <Uint8List>[] : null;
+        entry.pages = length == null ? <Uint8List>[] : null;
         final result = Completer<void>();
         attempt.readResult = result;
         var used = 0;
@@ -339,13 +342,12 @@ final class ImageSourceStore {
               return;
             }
             if (buffer == null) {
-              entry.chunks!.add(Uint8List.fromList(chunk));
+              _bufferUnknownChunk(entry, chunk, used);
             } else {
               buffer.setRange(used, used + chunk.length, chunk);
             }
             used += chunk.length;
             entry.receivedLength = used;
-            if (buffer == null) _setBuffered(entry, used);
           },
           onError: (Object error, StackTrace stack) {
             if (!result.isCompleted) result.completeError(error, stack);
@@ -418,7 +420,7 @@ final class ImageSourceStore {
         _fail(entry, failure);
       }
     } else {
-      if (entry.chunks != null) {
+      if (entry.pages != null) {
         entry.state = _ImageState.flattenQueued;
         _flattenings[entry.source.identity] = entry;
       } else {
@@ -426,6 +428,25 @@ final class ImageSourceStore {
       }
     }
     _pump();
+  }
+
+  void _bufferUnknownChunk(_ImageEntry entry, List<int> chunk, int used) {
+    final pages = entry.pages!;
+    var copied = 0;
+    while (copied < chunk.length) {
+      if (used == entry.bufferedLength) {
+        final page = Uint8List(min(_sourcePageBytes, singleSourceBytes - used));
+        pages.add(page);
+        _setBuffered(entry, used + page.length);
+      }
+      final page = pages.last;
+      final available = entry.bufferedLength - used;
+      final start = page.length - available;
+      final count = min(available, chunk.length - copied);
+      page.setRange(start, start + count, chunk, copied);
+      copied += count;
+      used += count;
+    }
   }
 
   void _ready(_ImageEntry entry) {
@@ -446,7 +467,7 @@ final class ImageSourceStore {
   void _releaseSource(_ImageEntry entry) {
     _setBuffered(entry, 0);
     entry.bytes = null;
-    entry.chunks = null;
+    entry.pages = null;
     entry.receivedLength = 0;
     final charge = entry.sourceCharge;
     entry.sourceCharge = null;
@@ -529,10 +550,11 @@ final class _TransferAttempt {
 Uint8List _flatten(_ImageEntry entry) {
   final result = Uint8List(entry.receivedLength);
   var offset = 0;
-  for (final chunk in entry.chunks!) {
-    result.setRange(offset, offset + chunk.length, chunk);
-    offset += chunk.length;
+  for (final page in entry.pages!) {
+    final count = min(page.length, result.length - offset);
+    result.setRange(offset, offset + count, page);
+    offset += count;
   }
-  entry.chunks = null;
+  entry.pages = null;
   return result;
 }
