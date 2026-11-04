@@ -17,6 +17,7 @@ const root = new URL('../../', import.meta.url);
 const config = JSON.parse(readFileSync(new URL('release-please-config.json', root), 'utf8'));
 const npmPath = 'packages/javascript';
 const dartPath = 'packages/flutter';
+const dartExampleLock = `${dartPath}/example/pubspec.lock`;
 const npmSha = '6986c632a47d3443ff17903c416291dfe4120340';
 const dartSha = 'b'.repeat(40);
 const commit = (message, files, sha = 'c'.repeat(40)) => ({ message, files, sha });
@@ -33,6 +34,7 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
     '.release-please-manifest.json': JSON.stringify(versions),
     [`${npmPath}/package.json`]: JSON.stringify({ name: '@conalog/patch-map', version: versions[npmPath] }),
     [`${dartPath}/pubspec.yaml`]: 'name: conalog_patch_map\nversion: 1.0.0-alpha.1\n# Enable publication only after the first functional release is qualified.\npublish_to: none\n',
+    [dartExampleLock]: 'packages:\n  conalog_patch_map:\n    dependency: "direct main"\n    description:\n      path: ".."\n      relative: true\n    source: path\n    version: "1.0.0-alpha.1"\n',
     [`${npmPath}/CHANGELOG.md`]: `# Changelog\n\n## ${versions[npmPath]}\n\n- Previous npm release.\n`,
     [`${dartPath}/CHANGELOG.md`]: `# Changelog\n\n## ${dartReleased ? versions[dartPath] : 'Unreleased'}\n\n- Native package foundation.\n`,
     'package-lock.json': JSON.stringify({
@@ -289,10 +291,12 @@ test('later Dart-only fix increments alpha.2 without a new npm candidate', async
   assert.equal(candidates.length, 1);
   const dart = candidateFor(candidates, dartPath);
   assert.equal(dart.version.toString(), '1.0.0-alpha.2');
-  const updatedPubspec = applyUpdates(dart, files)[`${dartPath}/pubspec.yaml`];
+  const updated = applyUpdates(dart, files);
+  const updatedPubspec = updated[`${dartPath}/pubspec.yaml`];
   const version = pubspecField(updatedPubspec, 'version');
   assert.equal(version, dart.version.toString());
   assert.equal(updatedPubspec, files[`${dartPath}/pubspec.yaml`].replace('version: 1.0.0-alpha.1', 'version: 1.0.0-alpha.2'));
+  assert.equal(updated[dartExampleLock], files[dartExampleLock].replace('"1.0.0-alpha.1"', '"1.0.0-alpha.2"'));
   assert.doesNotThrow(() => parseVersion(version));
 });
 
