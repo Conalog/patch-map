@@ -10,6 +10,7 @@ on:
       - .github/scripts/dart-release.mjs
       - .github/scripts/pub-artifact.mjs
       - verification/flutter/renderer-qualification.mjs
+      - verification/flutter/ios-launch/xcrun
       - packages/flutter/example/ios/Gemfile
       - packages/flutter/example/ios/Gemfile.lock
 

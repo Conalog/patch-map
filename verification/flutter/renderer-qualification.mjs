@@ -1,7 +1,8 @@
 import { execFile, spawnSync } from 'node:child_process';
-import { readFile, writeFile, realpath, rm } from 'node:fs/promises';
+import { readFile, writeFile, realpath, rm, mkdtemp, access } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { resolve } from 'node:path';
+import { delimiter, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseDartReport, snapshotNativeSources } from '../conformance/collect-evidence.mjs';
 import { identifyToolchain, readToolchains } from './toolchains.mjs';
@@ -22,12 +23,14 @@ const producers = [
   'verification/flutter/renderer-qualification.mjs', 'verification/flutter/toolchains.mjs',
   'verification/conformance/collect-evidence.mjs', 'verification/conformance/inputs.mjs',
 ];
+const iosLaunchGuard = 'verification/flutter/ios-launch/xcrun';
 
 // The host uses its checked-in lock, independent of the library's unlocked resolution.
 async function rendererSourceInputs(root, platform) {
   const { files } = await snapshotNativeSources(root, platform);
   delete files['packages/flutter/pubspec.lock'];
-  const producerHashes = await Promise.all(producers.map(async (path) => [path, hash(await readFile(resolve(root, path)))]));
+  const inputs = platform === 'ios' ? [...producers, iosLaunchGuard] : producers;
+  const producerHashes = await Promise.all(inputs.map(async (path) => [path, hash(await readFile(resolve(root, path)))]));
   return { files, producers: producerHashes };
 }
 
@@ -108,21 +111,41 @@ async function main() {
   const inputsBefore = await rendererSourceInputs(root, platform);
   const sourceFingerprint = hash(JSON.stringify(inputsBefore));
   console.log(`Starting the ${platform} renderer tests`);
-  const result = await new Promise((resolve) => {
-    const args = [
-      'test', '--no-pub', '--machine', '-d', deviceId, `--dart-define=PATCH_MAP_RELEASE_PLATFORM=${platform}`,
-      ...(process.env.PATCH_MAP_RENDERER_VERBOSE === 'true' ? ['--verbose'] : []), nativeTest,
-    ];
-    const child = execFile(flutter, args, { cwd, encoding: 'utf8', maxBuffer, timeout: 12 * 60_000, killSignal: 'SIGKILL' },
-      (error, stdout, stderr) => resolve({ error, stdout, stderr }));
-    child.stdout.pipe(process.stdout, { end: false });
-    child.stderr.pipe(process.stderr, { end: false });
-  });
+  const launchState = platform === 'ios' ? await mkdtemp(resolve(tmpdir(), 'patch-map-ios-launch-')) : undefined;
+  const env = launchState ? {
+    ...process.env,
+    PATCH_MAP_IOS_DEVICE: deviceId,
+    PATCH_MAP_IOS_LOG_READY: resolve(launchState, 'ready'),
+    PATH: `${resolve(root, 'verification/flutter/ios-launch')}${delimiter}${process.env.PATH ?? ''}`,
+  } : process.env;
+  let result;
+  let launchSynchronized = false;
+  try {
+    result = await new Promise((complete) => {
+      const args = [
+        'test', '--no-pub', '--machine', '-d', deviceId, `--dart-define=PATCH_MAP_RELEASE_PLATFORM=${platform}`,
+        ...(process.env.PATCH_MAP_RENDERER_VERBOSE === 'true' ? ['--verbose'] : []), nativeTest,
+      ];
+      const child = execFile(flutter, args, { cwd, env, encoding: 'utf8', maxBuffer, timeout: 12 * 60_000, killSignal: 'SIGKILL' },
+        (error, stdout, stderr) => complete({ error, stdout, stderr }));
+      child.stdout.pipe(process.stdout, { end: false });
+      child.stderr.pipe(process.stderr, { end: false });
+    });
+    if (launchState && !result.error) {
+      launchSynchronized = await access(resolve(launchState, 'ready.launch')).then(() => true, () => false);
+    }
+  } finally {
+    if (launchState) await rm(launchState, { recursive: true, force: true });
+  }
   const log = resolve(out, `${platform}-renderer.log`);
   await writeFile(log, `${result.stdout}\n${result.stderr}`);
   if (result.error) {
     const reason = result.error.signal ?? result.error.code ?? 'unknown error';
     throw new Error(`${platform} renderer tests failed (${reason}); see ${log}`);
+  }
+  if (launchState) {
+    if (!launchSynchronized) throw new Error(`iOS simulator launch did not use the log stream guard; see ${log}`);
+    console.log('iOS simulator launched after its log stream was ready');
   }
   const machine = result.stdout.split(/\r?\n/u).filter((line) => line.startsWith('{')).map((line) => JSON.parse(line));
   const suites = machine.filter(({ type }) => type === 'suite');
