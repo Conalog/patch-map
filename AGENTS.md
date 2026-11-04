@@ -37,7 +37,7 @@
   Flutter environment is owned by `docs/engineering/flutter-package.md`;
   independent npm and Dart releases are owned by `docs/engineering/releases.md`.
 - Shared contract definitions never substitute for executed cross-runtime or
-  Android/iOS qualification. Flutter foundation publication remains blocked.
+  Android/iOS qualification. The first Dart release qualifies the Flutter renderer.
 
 ## Keep changes focused
 

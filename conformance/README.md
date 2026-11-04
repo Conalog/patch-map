@@ -23,7 +23,9 @@ node verification/conformance/qualify.mjs collected-evidence.json
 The comparator accepts exact matching finite observations. Qualification requires
 every semantic/API assertion, exact installed artifact identities and both native
 platforms' rendering, input, lifecycle, assets, accessibility and capture evidence.
-It always refuses the foundation stage. See [release operations](../docs/engineering/releases.md).
+It always refuses the foundation stage. The first Flutter renderer uses its own
+Android/iOS release qualification without claiming this full comparison passed.
+See [release operations](../docs/engineering/releases.md).
 
 Fixtures and model/text expectations are committed targets. Run reports live
 under ignored `.artifacts/`. Completing comparison runners, bindings and named

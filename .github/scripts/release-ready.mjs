@@ -79,11 +79,9 @@ export function releaseReadiness(scope = 'all', directory = process.cwd()) {
     if (scope === 'dart' || scope === 'all') {
       const pubspec = read(`${dartPath}/pubspec.yaml`);
       const dartVersion = pubspecField(pubspec, 'version');
-      const contract = json('conformance/manifest.json');
-      const foundation = contract.implementationStatus === 'foundation';
       const publishing = /^publish_to:/mu.test(pubspec) ? pubspecField(pubspec, 'publish_to') : undefined;
-      if (foundation ? publishing !== 'none' : publishing !== undefined) {
-        throw new Error('foundation must remain private; qualified Dart packages use the public registry');
+      if (publishing !== undefined && publishing !== 'none') {
+        throw new Error('Dart packages must be private or use the default pub.dev registry');
       }
       parseVersion(dartVersion);
       if (pubspecField(pubspec, 'name') !== 'conalog_patch_map' ||

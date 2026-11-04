@@ -1,8 +1,8 @@
 # PatchMap for Flutter
 
-`conalog_patch_map` is an experimental native retained renderer, version 1.0.0-alpha.1.
-Widget/controller, native behavior, lifecycle and performance checkpoints are implemented;
-full platform/consumer qualification remains incomplete. `publish_to: none` blocks publication.
+`conalog_patch_map` is an experimental native diagram renderer for Flutter on Android and iOS.
+The first release covers the widget/controller, rendering, input and lifecycle documented here.
+Full JavaScript parity and deployed WebView equivalence remain separate work.
 
 Start with [setup](#consumer-setup) and [draw/update](#draw-and-update).
 Use [commands and queries](#commands-and-queries), [presentation layers](#presentation-layers),

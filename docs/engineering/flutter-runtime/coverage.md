@@ -16,7 +16,7 @@ measurement methods and raw results remain with their dated checkpoints.
 | Playground | Public-package regular/varied 10,000-panel workloads and consumer replays | [Example protocol](../../../packages/flutter/example/README.md), [input replay](mobile-replay.md), [result synchronization](mobile-sync.md) |
 | SDK and package tooling | Analysis, tests, package extraction and installed consumer on both recorded roles | CI baseline 3.41.4 and service 3.44.9 passed at the CI snapshot below; this does not qualify every supported SDK/platform |
 | Native hosts | Android and iOS simulator development builds | Both passed at the CI snapshot; builds are distinct from executed native functional/performance qualification |
-| Cross-runtime release qualification | Incomplete; publication remains blocked | Shared conformance bindings/witnesses, platform/consumer equivalence and long-duration memory evidence remain incomplete |
+| Full JS/Dart conformance | Incomplete | Shared bindings/witnesses, platform/consumer equivalence and long-duration memory evidence remain incomplete |
 
 The November 3, 2026 [CI run](https://github.com/Conalog/patch-map/actions/runs/41614561319)
 passed all gates for `f7013232`, including both SDK roles, extracted consumers,
@@ -25,7 +25,7 @@ SDK identities and verification commands remain owned by the
 [Flutter environment](../flutter-package.md). The service SDK tooling gap in the
 initial October checkpoint is closed; service-device performance is not thereby
 qualified. The [conformance manifest](../../../conformance/README.md) retains its
-foundation-stage publication block.
+foundation-stage block for full JS/Dart qualification.
 
 ## Historical integration and platform evidence
 
@@ -67,7 +67,16 @@ contract and architecture owners; each report owns its measured tradeoffs.
 | Presentation rendering | [Layer smoke](presentation-checkpoint.md), [hidden-alpha batching](hidden-presentation-batching-checkpoint.md), [background topology reuse](presentation-topology-checkpoint.md), [GC diagnosis](presentation-topology-gc-diagnosis.md), [component show](component-show-checkpoint.md): bounded adopted evidence, with memory/GC tradeoffs preserved |
 | Consumer comparisons | [Common-input WebView](webview-checkpoint.md), [mobile mode-switch diagnosis](mobile-overview-mode-switch-checkpoint.md): recorded host/workload only, not universal deployed WebView equivalence |
 
-## Remaining qualification
+## Renderer release qualification
+
+The first public renderer requires an installed artifact check and executed
+Android and iOS integration tests on the CI SDK. The release suite covers
+bundled SVG/font assets, public draw and update, hit detection and selection,
+native pixel changes, alpha layers, replacement and teardown. It binds both
+results to the exact artifact and platform source inputs. Use the commands in
+[release operations](../releases.md#external-setup-and-first-dart-publication).
+
+## Remaining broader qualification
 
 - Complete shared conformance API bindings and named executed witnesses without
   weakening JavaScript requirements to match Flutter's narrower first release.

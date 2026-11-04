@@ -80,7 +80,7 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
-      - name: Require collected Android, iOS and shared qualification
+      - name: Require collected Android and iOS renderer qualification
         if: ${{ vars.PUBDEV_PUBLISH_ENABLED == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}

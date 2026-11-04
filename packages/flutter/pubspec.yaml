@@ -1,8 +1,9 @@
 name: conalog_patch_map
-description: Flutter package foundation for native PATCH MAP diagram rendering and interaction.
+description: Native PATCH MAP diagram rendering and interaction for Flutter on Android and iOS.
 version: 1.0.0-alpha.1
-# Enable publication only after the first functional release is qualified.
-publish_to: none
+platforms:
+  android:
+  ios:
 homepage: https://github.com/Conalog/patch-map
 repository: https://github.com/Conalog/patch-map/tree/release/1.0/packages/flutter
 issue_tracker: https://github.com/Conalog/patch-map/issues
