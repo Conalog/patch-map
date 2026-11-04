@@ -20,14 +20,15 @@ Widget host(
   bool Function(PatchMapObject)? filter,
   PatchMapDragMode dragMode = PatchMapDragMode.pan,
   PatchMapSelectionStyle selectionStyle = const PatchMapSelectionStyle(),
+  Size size = const Size(400, 400),
 }) => MediaQuery(
   data: const MediaQueryData(size: Size(400, 400)),
   child: Directionality(
     textDirection: TextDirection.ltr,
     child: Center(
       child: SizedBox(
-        width: 400,
-        height: 400,
+        width: size.width,
+        height: size.height,
         child: PatchMapView(
           controller: controller,
           active: active,
@@ -53,6 +54,47 @@ Future<void> progress(WidgetTester tester, [int frames = 8]) async {
 }
 
 void main() {
+  for (final size in const [
+    Size(1, 100),
+    Size(24, 100),
+    Size(100, 1),
+    Size(100, 24),
+    Size(25, 100),
+    Size(100, 25),
+  ]) {
+    testWidgets('automatic fit accepts a bounded $size surface', (
+      tester,
+    ) async {
+      final controller = PatchMapController();
+      await tester.pumpWidget(host(controller, size: size));
+      final draw = controller.draw(rectangle('a'));
+      await progress(tester);
+      expect((await draw).outcome, PatchMapOutcome.applied);
+      expect(controller.phase, PatchMapPhase.ready);
+      final camera = controller.camera!;
+      final inset = size.shortestSide > 24 ? 24 : 0;
+      expect(camera.scale, closeTo((size.shortestSide - inset) / 100, 1e-12));
+      expect(camera.center, const Offset(50, 50));
+      // Explicit command padding remains strict and cannot change the camera.
+      expect(
+        controller.fit(padding: EdgeInsets.all(size.longestSide)).outcome,
+        PatchMapOutcome.rejected,
+      );
+      expect(controller.camera, camera);
+      await tester.pumpWidget(host(controller));
+      await progress(tester);
+      expect(controller.phase, PatchMapPhase.ready);
+      expect(controller.camera!.scale, camera.scale);
+      expect(controller.camera!.center, camera.center);
+      final update = controller.updateValues([
+        const PatchMapUpdate(PatchMapTarget('a'), {'fill': '#00ff00'}),
+      ]);
+      await progress(tester);
+      expect((await update).outcome, PatchMapOutcome.applied);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
   testWidgets(
     'first draw completes only with an actual submitted package paint',
     (tester) async {

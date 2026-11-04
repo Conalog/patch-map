@@ -880,7 +880,11 @@ final class MapBackend extends SessionBackend {
     if (bounds != null && !bounds.isEmpty) {
       camera.fit(
         bounds,
-        padding: const EdgeInsets.all(12),
+        // A bounded surface may temporarily be smaller than the normal inset.
+        // Keep public fit validation strict; only automatic fitting adapts.
+        padding: camera.size.shortestSide > 24
+            ? const EdgeInsets.all(12)
+            : EdgeInsets.zero,
         source: PatchMapCameraChangeSource.replacement,
       );
     }
