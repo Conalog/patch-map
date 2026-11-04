@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { readFile, writeFile, realpath, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
@@ -66,9 +66,10 @@ async function main() {
   const packageRoot = resolve(root, 'packages/flutter');
   const cwd = resolve(packageRoot, 'example');
   const flutter = process.env.FLUTTER_BIN ?? 'flutter';
+  const maxBuffer = 16 * 1024 * 1024;
   function run(args) {
-    const result = spawnSync(flutter, args, { cwd, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
-    if (result.error) throw result.error;
+    const result = spawnSync(flutter, args, { cwd, encoding: 'utf8', maxBuffer, timeout: 5 * 60_000, killSignal: 'SIGKILL' });
+    if (result.error) throw new Error(`Flutter ${args.join(' ')}: ${result.error.message}\n${result.stdout}\n${result.stderr}`);
     return result;
   }
   function successful(args) {
@@ -79,6 +80,7 @@ async function main() {
   const toolchains = readToolchains(root);
   const toolchain = JSON.parse(successful(['--version', '--machine']));
   identifyToolchain(toolchain, toolchains, 'ci');
+  console.log(`Looking up the ${platform} test device`);
   const device = JSON.parse(successful(['devices', '--machine'])).find(({ id }) => id === deviceId);
   if (!device || !(platform === 'android' ? device.targetPlatform?.startsWith('android-') : device.targetPlatform === 'ios')) {
     throw new Error(`${deviceId} is not an available ${platform} device`);
@@ -91,6 +93,7 @@ async function main() {
       if (hash(await readFile(resolve(packageRoot, path))) !== sha256) throw new Error(`Renderer test package differs from the installed artifact: ${path}`);
     }
   }
+  console.log('Installing the example dependencies from its lockfile');
   successful(['pub', 'get', '--enforce-lockfile']);
   const config = resolve(cwd, '.dart_tool/package_config.json');
   const dependency = (await json(config)).packages.find(({ name }) => name === 'conalog_patch_map');
@@ -99,10 +102,20 @@ async function main() {
   }
   await verifyPackageInputs();
   const sourceFingerprint = await rendererSourceFingerprint(root, platform);
-  const result = run(['test', '--no-pub', '--machine', '-d', deviceId, `--dart-define=PATCH_MAP_RELEASE_PLATFORM=${platform}`, nativeTest]);
+  console.log(`Starting the ${platform} renderer tests`);
+  const result = await new Promise((resolve) => {
+    const args = ['test', '--no-pub', '--machine', '-d', deviceId, `--dart-define=PATCH_MAP_RELEASE_PLATFORM=${platform}`, nativeTest];
+    const child = execFile(flutter, args, { cwd, encoding: 'utf8', maxBuffer, timeout: 12 * 60_000, killSignal: 'SIGKILL' },
+      (error, stdout, stderr) => resolve({ error, stdout, stderr }));
+    child.stdout.pipe(process.stdout, { end: false });
+    child.stderr.pipe(process.stderr, { end: false });
+  });
   const log = resolve(out, `${platform}-renderer.log`);
   await writeFile(log, `${result.stdout}\n${result.stderr}`);
-  if (result.status !== 0) throw new Error(`${platform} renderer tests failed; see ${log}`);
+  if (result.error) {
+    const reason = result.error.signal ?? result.error.code ?? 'unknown error';
+    throw new Error(`${platform} renderer tests failed (${reason}); see ${log}`);
+  }
   const machine = result.stdout.split(/\r?\n/u).filter((line) => line.startsWith('{')).map((line) => JSON.parse(line));
   const suites = machine.filter(({ type }) => type === 'suite');
   if (suites.length !== 1 || resolve(cwd, suites[0].suite.path) !== resolve(root, nativeTestPath)) throw new Error('Unexpected renderer integration test suite');
