@@ -101,7 +101,84 @@ void main() {
         ),
       );
     });
+
+    for (final (retained, axis) in [
+      (false, 'x'),
+      (false, 'y'),
+      (true, 'x'),
+      (true, 'y'),
+    ]) {
+      test(
+        'updated aggregate rejects overflow across $count leaves retained=$retained axis=$axis',
+        () {
+          final before = compile([
+            for (var i = 0; i < count; i++)
+              {'type': 'rect', 'id': 'r$i', 'size': 10},
+          ]);
+          final bounds = before.bounds;
+          expect(
+            () => retained
+                ? before.stageRetainedBounds({
+                    0: axis == 'x'
+                        ? const Rect.fromLTWH(-1e308, 0, 10, 10)
+                        : const Rect.fromLTWH(0, -1e308, 10, 10),
+                    count - 1: axis == 'x'
+                        ? const Rect.fromLTWH(1e308, 0, 10, 10)
+                        : const Rect.fromLTWH(0, 1e308, 10, 10),
+                  })
+                : before.prepare({
+                    for (final index in [0, count - 1])
+                      PatchMapTarget('r$index'): changed(
+                        before['r$index']!.data,
+                        {
+                          'attrs': <String, Object?>{
+                            axis: index == 0 ? -1e308 : 1e308,
+                          },
+                        },
+                      ),
+                  }, measure),
+            throwsA(
+              isA<GeometryPreparationFailure>().having(
+                (error) => error.code,
+                'code',
+                'INVALID_GEOMETRY',
+              ),
+            ),
+          );
+          expect(before.bounds, bounds);
+        },
+      );
+    }
   }
+
+  test('aggregate overflow is attributed to the changed extreme', () {
+    final before = compile([
+      {
+        'type': 'rect',
+        'id': 'fixed',
+        'size': 10,
+        'attrs': {'x': 1e308},
+      },
+      {'type': 'rect', 'id': 'moved', 'size': 10},
+    ]);
+    expect(
+      () => before.prepare({
+        const PatchMapTarget('fixed'): changed(before['fixed']!.data, {
+          'fill': '#ffffff',
+        }),
+        const PatchMapTarget('moved'): changed(before['moved']!.data, {
+          'attrs': <String, Object?>{'x': -1e308},
+        }),
+      }, measure),
+      throwsA(
+        isA<GeometryPreparationFailure>().having(
+          (error) => error.targetId,
+          'target',
+          'moved',
+        ),
+      ),
+    );
+  });
 
   test('container and relation bounds span unchanged and dirty pages', () {
     final before = compile([

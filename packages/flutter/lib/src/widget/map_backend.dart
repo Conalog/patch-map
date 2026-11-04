@@ -518,6 +518,84 @@ final class MapBackend extends SessionBackend {
           }
           return prepared;
         });
+        // Only new/changed asset references block an ordinary item update. The
+        // initial diagram never waits for these futures.
+        final waiting = <Future<void>>[];
+        Future<void> waitAssets(String id, List<DrawAsset> assets) async {
+          try {
+            for (final asset in assets) {
+              await asset.ready;
+            }
+          } catch (error) {
+            if (error is! ImageResourceFailure &&
+                error is! SvgSourceException &&
+                error is! FormatException) {
+              rethrow;
+            }
+            failures[id] = [
+              PatchMapFailure(
+                'IMAGE_PREPARATION',
+                error.toString(),
+                target: PatchMapTarget(id),
+              ),
+            ];
+          }
+        }
+
+        for (final entry in owned.entries) {
+          final oldAssets = previous.node(entry.key).assets;
+          if (identical(oldAssets, entry.value.assets)) continue;
+          List<DrawAsset>? pending;
+          for (final asset in entry.value.assets) {
+            if (!oldAssets.contains(asset) &&
+                !(pending?.contains(asset) ?? false)) {
+              (pending ??= []).add(asset);
+            }
+          }
+          if (pending != null) {
+            waiting.add(waitAssets(entry.value.geometry.id, pending));
+          }
+        }
+        // Pure number/bar updates have no resource futures to allocate or await.
+        if (waiting.isNotEmpty) await Future.wait(waiting);
+        await _waitActive(epoch);
+        if (failures.isEmpty) {
+          // Ordinary image changes wait for their ready intrinsic geometry before
+          // the item's submitted revision. First drawing keeps asynchronous refresh.
+          final readySizes = <String, Size>{};
+          for (final node in owned.values) {
+            final value = node.content;
+            if (node.geometry.target.type == 'image' &&
+                node.geometry.data['size'] == null &&
+                value is AssetContent &&
+                value.asset.intrinsicSize != null) {
+              readySizes[node.geometry.id] = value.asset.intrinsicSize!;
+            }
+          }
+          if (readySizes.isNotEmpty) {
+            final refreshed = projection.snapshot.reprojectImages(
+              readySizes.keys,
+              resources.text.measure,
+              measureImage: (id, data) => readySizes[id],
+            );
+            if (refreshed.changed.isNotEmpty) {
+              for (final entry in refreshed.changed.entries) {
+                final old = owned[entry.key];
+                owned[entry.key] = resources.compiler.compile(
+                  entry.value,
+                  initialLoad: false,
+                  previous: old ?? previous.node(entry.key),
+                  relation: refreshed.snapshot.relationFor(entry.value.id),
+                )..retain();
+                old?.release();
+              }
+              projection = GeometryChange(
+                refreshed.snapshot,
+                Map.unmodifiable({...projection.changed, ...refreshed.changed}),
+              );
+            }
+          }
+        }
       } on GeometryPreparationFailure catch (error) {
         failures[error.targetId] = [
           PatchMapFailure(
@@ -528,47 +606,6 @@ final class MapBackend extends SessionBackend {
           ),
         ];
       }
-      // Only new/changed asset references block an ordinary item update. The
-      // initial diagram never waits for these futures.
-      final waiting = <Future<void>>[];
-      Future<void> waitAssets(String id, List<DrawAsset> assets) async {
-        try {
-          for (final asset in assets) {
-            await asset.ready;
-          }
-        } catch (error) {
-          if (error is! ImageResourceFailure &&
-              error is! SvgSourceException &&
-              error is! FormatException) {
-            rethrow;
-          }
-          failures[id] = [
-            PatchMapFailure(
-              'IMAGE_PREPARATION',
-              error.toString(),
-              target: PatchMapTarget(id),
-            ),
-          ];
-        }
-      }
-
-      for (final entry in owned.entries) {
-        final oldAssets = previous.node(entry.key).assets;
-        if (identical(oldAssets, entry.value.assets)) continue;
-        List<DrawAsset>? pending;
-        for (final asset in entry.value.assets) {
-          if (!oldAssets.contains(asset) &&
-              !(pending?.contains(asset) ?? false)) {
-            (pending ??= []).add(asset);
-          }
-        }
-        if (pending != null) {
-          waiting.add(waitAssets(entry.value.geometry.id, pending));
-        }
-      }
-      // Pure number/bar updates have no resource futures to allocate or await.
-      if (waiting.isNotEmpty) await Future.wait(waiting);
-      await _waitActive(epoch);
       if (failures.isNotEmpty) {
         // A failed inherited projection also rejects the changed ancestor that
         // required it. Retry only the successful independent changes.
@@ -615,41 +652,6 @@ final class MapBackend extends SessionBackend {
           retried.publication,
           failures: {...failures, ...retried.failures},
         );
-      }
-      // Ordinary image changes wait for their ready intrinsic geometry before
-      // the item's submitted revision. First drawing keeps asynchronous refresh.
-      final readySizes = <String, Size>{};
-      for (final node in owned.values) {
-        final value = node.content;
-        if (node.geometry.target.type == 'image' &&
-            node.geometry.data['size'] == null &&
-            value is AssetContent &&
-            value.asset.intrinsicSize != null) {
-          readySizes[node.geometry.id] = value.asset.intrinsicSize!;
-        }
-      }
-      if (readySizes.isNotEmpty) {
-        final refreshed = projection.snapshot.reprojectImages(
-          readySizes.keys,
-          resources.text.measure,
-          measureImage: (id, data) => readySizes[id],
-        );
-        if (refreshed.changed.isNotEmpty) {
-          for (final entry in refreshed.changed.entries) {
-            final old = owned[entry.key];
-            owned[entry.key] = resources.compiler.compile(
-              entry.value,
-              initialLoad: false,
-              previous: old ?? previous.node(entry.key),
-              relation: refreshed.snapshot.relationFor(entry.value.id),
-            )..retain();
-            old?.release();
-          }
-          projection = GeometryChange(
-            refreshed.snapshot,
-            Map.unmodifiable({...projection.changed, ...refreshed.changed}),
-          );
-        }
       }
       final pages = _replacePages(previous, owned);
       Map<DrawAsset, List<PatchMapTarget>>? targets;

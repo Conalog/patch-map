@@ -155,6 +155,7 @@ final class GeometrySnapshot {
         paint[page] = bounds;
       }
     }
+    if (paint != null) _validateUpdatedEnvelope(paint, staged: changed);
     return GeometrySnapshot._(
       topology,
       nodes,
@@ -412,25 +413,32 @@ final class GeometrySnapshot {
     );
     for (final id in affected) {
       final slot = topology.slots[id]!;
-      final relation = RelationGeometry.resolve(
-        targetFor(id)!,
-        targetFor: targetFor,
-        endpointBounds: (id) {
-          final target = targetFor(id);
-          if (target == null || target.target.type == 'relations') return null;
-          if (!target.isContainer) return target.bounds;
-          return _rangeBounds(
-            nodes,
-            topology,
-            id,
-            _endpointBounds,
-            paint: false,
-            excludeRelations: true,
-            changes: changed,
-            pageOverrides: endpointPages,
-          );
-        },
-      );
+      late final RelationGeometry relation;
+      try {
+        relation = RelationGeometry.resolve(
+          targetFor(id)!,
+          targetFor: targetFor,
+          endpointBounds: (id) {
+            final target = targetFor(id);
+            if (target == null || target.target.type == 'relations') {
+              return null;
+            }
+            if (!target.isContainer) return target.bounds;
+            return _rangeBounds(
+              nodes,
+              topology,
+              id,
+              _endpointBounds,
+              paint: false,
+              excludeRelations: true,
+              changes: changed,
+              pageOverrides: endpointPages,
+            );
+          },
+        );
+      } on DatasetException catch (error) {
+        throw _preparationFailure(id, error, changed, roots: roots);
+      }
       relationChanges[_relationSlots[id]!] = relation;
       final projected = _withRelationBounds(targetFor(id)!, relation);
       changed[slot] = projected;
@@ -464,6 +472,9 @@ final class GeometrySnapshot {
         }
       }
     }
+    if (newPaint != null) {
+      _validateUpdatedEnvelope(newPaint, changed: changed, roots: roots);
+    }
     final snapshot = GeometrySnapshot._(
       topology,
       next,
@@ -481,6 +492,147 @@ final class GeometrySnapshot {
       componentChanges: componentChanges,
       fields: nodeFields,
     );
+  }
+
+  void _validateUpdatedEnvelope(
+    List<Rect?> pages, {
+    Map<int, TargetGeometry> changed = const {},
+    Map<int, Rect?> staged = const {},
+    Iterable<int> roots = const [],
+  }) {
+    // Read page summaries only when their contribution changed. No per-item
+    // walk or temporary Rects on valid updates; contained bar changes skip this.
+    var left = double.infinity, top = double.infinity;
+    var right = double.negativeInfinity, bottom = double.negativeInfinity;
+    for (final bounds in pages) {
+      if (bounds == null) continue;
+      if (bounds.left < left) left = bounds.left;
+      if (bounds.top < top) top = bounds.top;
+      if (bounds.right > right) right = bounds.right;
+      if (bounds.bottom > bottom) bottom = bounds.bottom;
+    }
+    if (left == double.infinity) return;
+    final wide = !(right - left).isFinite;
+    final tall = !(bottom - top).isFinite;
+    if (!wide && !tall) return;
+    try {
+      validateBounds(Rect.fromLTRB(left, top, right, bottom));
+    } on DatasetException catch (error) {
+      // The previous envelope was valid. Attribute overflow to a changed leaf
+      // extending an offending extreme, never an unchanged neighbour or a
+      // companion value-only update. The backend also rolls back its ancestors.
+      for (final slot in changed.isEmpty ? staged.keys : changed.keys) {
+        final before = nodes[slot], after = changed[slot] ?? before;
+        if (!after.visible || after.isContainer) continue;
+        final next = staged.containsKey(slot)
+            ? staged[slot]
+            : after.paintBounds;
+        if (next == null) continue;
+        final prior = before.visible ? before.paintBounds : null;
+        if (wide &&
+                (next.left == left &&
+                        (prior == null || next.left < prior.left) ||
+                    next.right == right &&
+                        (prior == null || next.right > prior.right)) ||
+            tall &&
+                (next.top == top && (prior == null || next.top < prior.top) ||
+                    next.bottom == bottom &&
+                        (prior == null || next.bottom > prior.bottom))) {
+          throw _preparationFailure(
+            after.id,
+            error,
+            changed,
+            roots: roots,
+            extremes: (
+              wide && next.left == left,
+              tall && next.top == top,
+              wide && next.right == right,
+              tall && next.bottom == bottom,
+            ),
+          );
+        }
+      }
+      rethrow;
+    }
+  }
+
+  GeometryPreparationFailure _preparationFailure(
+    String id,
+    DatasetException cause,
+    Map<int, TargetGeometry> changed, {
+    required Iterable<int> roots,
+    (bool, bool, bool, bool)? extremes,
+  }) {
+    final slot = topology.slots[id]!, before = nodes[slot];
+    final after = changed[slot] ?? before;
+    if (before.target.type == 'relations' &&
+        before.world.sameTransform(after.world) &&
+        before.visible == after.visible &&
+        (before.data['style']! as Map)['width'] ==
+            (after.data['style']! as Map)['width']) {
+      // A derived path can overflow even though the endpoint itself is valid.
+      // Resolve failure candidates only: sharing a relation does not mean that
+      // every moved endpoint contributed to its overflowing extent.
+      final candidates = roots.where((root) {
+        if (!_dependencies.affectedIds([nodes[root].id]).contains(id)) {
+          return false;
+        }
+        for (var i = root; i < topology.ends[root]; i++) {
+          final old = nodes[i], next = changed[i];
+          if (next != null &&
+              next.target.type != 'relations' &&
+              (old.bounds != next.bounds || old.visible != next.visible)) {
+            return true;
+          }
+        }
+        return false;
+      }).toList();
+      // Remove harmless/redundant roots from the diagnostic overlay cumulatively.
+      // A single-root rollback is insufficient when several endpoints share an
+      // extreme. Nothing in this diagnostic overlay is published.
+      final trialChanges = Map<int, TargetGeometry>.of(changed);
+      TargetGeometry value(int slot) => trialChanges[slot] ?? nodes[slot];
+      for (final candidate in candidates) {
+        for (var i = candidate; i < topology.ends[candidate]; i++) {
+          trialChanges.remove(i);
+        }
+        try {
+          final trial = RelationGeometry.resolve(
+            after,
+            targetFor: (id) {
+              final slot = topology.slots[id];
+              return slot == null ? null : value(slot);
+            },
+            endpointBounds: (id) {
+              final slot = topology.slots[id];
+              if (slot == null) return null;
+              final target = value(slot);
+              if (!target.isContainer) return target.bounds;
+              return _aggregate(
+                [for (var i = slot + 1; i < topology.ends[slot]; i++) value(i)],
+                paint: false,
+                excludeRelations: true,
+              );
+            },
+          ).paintBounds;
+          if (extremes == null || trial == null) {
+            return GeometryPreparationFailure(nodes[candidate].id, cause);
+          }
+          final actual = after.paintBounds!;
+          final (left, top, right, bottom) = extremes;
+          if (left && trial.left > actual.left ||
+              top && trial.top > actual.top ||
+              right && trial.right < actual.right ||
+              bottom && trial.bottom < actual.bottom) {
+            return GeometryPreparationFailure(nodes[candidate].id, cause);
+          }
+        } on DatasetException {
+          // Other changed roots can still make the derived path invalid.
+        }
+      }
+    }
+
+    return GeometryPreparationFailure(id, cause);
   }
 }
 
