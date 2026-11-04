@@ -102,6 +102,7 @@ and the qualification record. After upload, authorize `Conalog/patch-map` with p
 
 Tag runs retain `dart-candidate-<SHA>` with the tarball, installed report and source snapshot. When publication is enabled, GitHub runs Android and iOS
 renderer tests on that candidate and joins both reports before uploading to pub.dev. `dart-qualified-<SHA>` retains the archive and qualification envelope.
+The iOS job uses the CocoaPods version recorded in the example's `Podfile.lock` so dependency installation preserves the tagged build inputs.
 Workflow PRs exercise the same qualification without publishing. Retry failed jobs on the original tag run and inspect the per-platform renderer logs.
 Record the actual package version, artifact and successful run URL separately from qualification.
 
