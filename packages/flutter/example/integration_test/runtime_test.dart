@@ -49,11 +49,12 @@ Future<Uint8List> pixels(GlobalKey key) async {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('native map paints changed values and releases its attachment', (
+  testWidgets('native map selects a tapped item, paints updates and detaches', (
     tester,
   ) async {
     final controller = PatchMapController(), key = GlobalKey();
     final failures = <PatchMapFailure>[];
+    final taps = <String>[];
     Widget host() => MediaQuery(
       data: const MediaQueryData(size: Size(300, 240)),
       child: Directionality(
@@ -67,6 +68,13 @@ void main() {
               child: PatchMapView(
                 controller: controller,
                 onImageFailure: failures.addAll,
+                onEvent: (event) {
+                  final target = event.target;
+                  if (event.kind == PatchMapInputKind.tap && target != null) {
+                    taps.add(target.id);
+                    controller.toggleSelection([target.id]);
+                  }
+                },
               ),
             ),
           ),
@@ -80,6 +88,14 @@ void main() {
       PatchMapOutcome.applied,
     );
     await tester.pumpAndSettle();
+    final item = scene.ids.first;
+    final local = controller.toLocal(controller.getGeometry(item)!.center!)!;
+    final boundary = key.currentContext!.findRenderObject()! as RenderBox;
+    await tester.tapAt(boundary.localToGlobal(local));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(taps, [item]);
+    expect(controller.selected.map((object) => object.id), [item]);
     final before = await pixels(key);
     final bar = PatchMapTarget(scene.ids.first, componentId: 'bar');
     final text = PatchMapTarget(scene.ids.first, componentId: 'text');

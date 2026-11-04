@@ -8,29 +8,40 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertReleaseQualification } from './dart-release.mjs';
 import { assertPublishedContents, archiveFiles } from './pub-artifact.mjs';
+import { rendererChecks, rendererEvidenceSchema } from '../../verification/flutter/renderer-qualification.mjs';
 
 const digest = 'a'.repeat(64);
 function qualifiedInput() {
-  const schemaRevision = 'patch-map-conformance/1';
-  const runtime = { artifactSha256: digest, installedConsumer: true, witnesses: [{ id: 'feature', outcome: 'passed', assertions: ['observed feature'] }] };
-  const platform = { outcome: 'passed', rendering: true, input: true, lifecycle: true, assets: true, accessibility: true, capture: true };
+  const toolchain = { frameworkVersion: '3.41.4', dartSdkVersion: '3.11.1', frameworkRevision: 'framework' };
+  const run = (platform) => ({ artifactSha256: digest, toolchain: structuredClone(toolchain), reportSha256: digest,
+    events: [...rendererChecks(platform).flatMap((name, id) => [
+      { type: 'testStart', test: { id, name, url: 'renderer_release_test.dart' } },
+      { type: 'testDone', testID: id, result: 'success' },
+    ]), { type: 'done', success: true }],
+  });
   return {
-    manifest: { schemaRevision, requirements: [{ id: 'feature', required: true, cases: ['feature'] }], requiredPlatforms: ['android', 'ios'] },
-    inventory: [], fingerprint: 'contract', sourceFingerprint: 'sources', artifactSha256: digest,
+    fingerprints: { android: 'android-source', ios: 'ios-source' }, contract: 'contract', artifactSha256: digest, pubspec: 'version: 1.0.0-alpha.1\n',
+    toolchains: { ci: { flutter: '3.41.4', dart: '3.11.1', frameworkRevision: 'framework' } },
     report: { installedConsumer: true, contractFingerprint: 'contract', artifactSha256: digest },
-    evidence: { schemaRevision, contractFingerprint: 'contract', provenance: { sourceFingerprint: 'sources' },
-      runtimes: { npm: structuredClone(runtime), dart: structuredClone(runtime) },
-      platforms: { android: structuredClone(platform), ios: structuredClone(platform) } },
+    evidence: { schemaRevision: rendererEvidenceSchema, platforms: {
+      android: { ...run('android'), sourceFingerprint: 'android-source', device: { targetPlatform: 'android-arm64', sdk: 'Android 14' } },
+      ios: { ...run('ios'), sourceFingerprint: 'ios-source', device: { targetPlatform: 'ios', sdk: 'iOS 26.3' } },
+    } },
   };
 }
-test('publication requires both platforms, every contract witness, exact source and installed artifact', () => {
+test('renderer publication requires both native runs, exact source and installed artifact', () => {
   assert.equal(assertReleaseQualification(qualifiedInput()).qualified, true);
   for (const mutate of [
-    (input) => { input.evidence.platforms.ios.input = false; },
-    (input) => { input.evidence.runtimes.npm.witnesses = []; },
-    (input) => { input.evidence.provenance.sourceFingerprint = 'old'; },
+    (input) => { delete input.evidence.platforms.ios; },
+    (input) => { input.evidence.platforms.ios.device.targetPlatform = 'android-arm64'; },
+    (input) => { input.evidence.platforms.android.events.pop(); },
+    (input) => { input.evidence.platforms.android.events[1].skipped = true; },
+    (input) => { input.evidence.platforms.android.events = input.evidence.platforms.ios.events; },
+    (input) => { input.evidence.platforms.android.sourceFingerprint = 'old'; },
+    (input) => { input.evidence.platforms.android.toolchain.frameworkRevision = 'other'; },
+    (input) => { input.evidence.schemaRevision = 'patch-map-conformance/1'; },
     (input) => { input.report.installedConsumer = false; },
-    (input) => { input.evidence.runtimes.dart.artifactSha256 = 'b'.repeat(64); },
+    (input) => { input.evidence.platforms.ios.artifactSha256 = 'b'.repeat(64); },
     (input) => { input.artifactSha256 = 'b'.repeat(64); },
   ]) {
     const input = qualifiedInput(); mutate(input);
@@ -90,8 +101,20 @@ with tarfile.open(fileobj=sys.stdout.buffer, mode='w|gz') as tar:
   }
 });
 
-test('foundation cannot qualify even with complete-looking runtime and platform evidence', () => {
+test('private candidates cannot qualify for public registry publication', () => {
   const input = qualifiedInput();
-  input.manifest.implementationStatus = 'foundation';
-  assert.throws(() => assertReleaseQualification(input), /foundation/u);
+  input.pubspec += 'publish_to: none\n';
+  assert.throws(() => assertReleaseQualification(input), /cannot qualify/u);
+});
+
+test('a failed native retry cannot leave the previous qualification available', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'patch-map-renderer-retry-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const output = join(root, '.release-dart');
+  await mkdir(output);
+  const stale = ['android-renderer.json', 'dart-qualification.json', 'compatibility.json'];
+  await Promise.all(stale.map((name) => writeFile(join(output, name), '{}')));
+  const script = fileURLToPath(new URL('../../verification/flutter/renderer-qualification.mjs', import.meta.url));
+  assert.throws(() => execFileSync(process.execPath, [script, 'android', 'missing-device'], { cwd: root, stdio: 'pipe' }), /toolchains\.json/u);
+  for (const name of stale) await assert.rejects(readFile(join(output, name)), { code: 'ENOENT' });
 });

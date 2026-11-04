@@ -95,7 +95,7 @@ test('Dart artifact jobs install only verifier dependencies and preserve publica
     'node .github/scripts/dart-release.mjs qualify .release-dart/dart-qualification.json']) {
     assert.ok(verify.includes(command), command);
   }
-  const qualification = dart.jobs.verify.steps.find((step) => step.name === 'Require collected Android, iOS and shared qualification');
+  const qualification = dart.jobs.verify.steps.find((step) => step.name === 'Require collected Android and iOS renderer qualification');
   assert.equal(qualification.if, "${{ vars.PUBDEV_PUBLISH_ENABLED == 'true' }}");
   assert.equal(dart.jobs.publish.needs, 'verify');
   assert.equal(dart.jobs.publish.if, qualification.if);

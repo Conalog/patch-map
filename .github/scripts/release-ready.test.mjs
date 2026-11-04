@@ -123,7 +123,7 @@ test('readiness rejects unsupported scopes and CLI arguments', async () => {
   }
 });
 
-test('selected runtime validates release versions and Dart foundation publication policy', async () => {
+test('Dart renderer registry readiness is independent of full parity and rejects custom destinations', async () => {
   await withInputs(async ({ directory, inputs, write, pubspec, run }) => {
     const invalid = '1.0.0+build';
     const lock = structuredClone(inputs['package-lock.json']);
@@ -137,10 +137,10 @@ test('selected runtime validates release versions and Dart foundation publicatio
     assert.throws(() => run('dart'), /unsupported release version/u);
     await writeFile(resolve(directory, 'packages/flutter/pubspec.yaml'), pubspec.replace(/^publish_to:.*\n/mu, ''));
     await write('conformance/manifest.json', { ...inputs['conformance/manifest.json'], implementationStatus: 'foundation' });
-    assert.throws(() => run('dart'), /foundation must remain private/u);
-    await write('conformance/manifest.json', { ...inputs['conformance/manifest.json'], implementationStatus: 'qualified' });
     assert.equal(run('dart'), 'true');
     await writeFile(resolve(directory, 'packages/flutter/pubspec.yaml'), `${pubspec.replace(/^publish_to:.*\n/mu, '')}\npublish_to: none\n`);
-    assert.throws(() => run('dart'), /qualified Dart packages use the public registry/u);
+    assert.equal(run('dart'), 'true');
+    await writeFile(resolve(directory, 'packages/flutter/pubspec.yaml'), `${pubspec.replace(/^publish_to:.*\n/mu, '')}\npublish_to: private\n`);
+    assert.throws(() => run('dart'), /default pub.dev registry/u);
   });
 });

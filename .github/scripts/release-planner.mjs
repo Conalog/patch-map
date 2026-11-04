@@ -10,6 +10,7 @@ const { GitHub, Manifest } = require('release-please');
 const { ManifestPlugin } = require('release-please/build/src/plugin.js');
 const { TagName } = require('release-please/build/src/util/tag-name.js');
 const { BranchName } = require('release-please/build/src/util/branch-name.js');
+const { parseDocument, isScalar } = require('yaml');
 const jsPath = 'packages/javascript';
 const dartPath = 'packages/flutter';
 const packagePaths = [jsPath, dartPath];
@@ -143,6 +144,25 @@ class DartPackageVersion extends ManifestPlugin {
           return content.replace(/^version: [^\r\n]+/mu, `version: ${version}`);
         },
       };
+      pullRequest.updates.push({
+        path: `${path}/example/pubspec.lock`,
+        createIfMissing: false,
+        updater: {
+          updateContent(content) {
+            const lock = parseDocument(content);
+            const entry = ['packages', 'conalog_patch_map'];
+            const scalar = lock.getIn([...entry, 'version'], true);
+            if (lock.errors.length || lock.getIn([...entry, 'source']) !== 'path' ||
+              lock.getIn([...entry, 'description', 'path']) !== '..' || !isScalar(scalar) || typeof scalar.value !== 'string') {
+              throw new Error('Example lock must resolve conalog_patch_map from its package directory');
+            }
+            parseVersion(scalar.value);
+            if (scalar.value === version) return content;
+            const [start, end] = scalar.range;
+            return `${content.slice(0, start)}${JSON.stringify(version)}${content.slice(end)}`;
+          },
+        },
+      });
     }
     return candidates;
   }
