@@ -84,6 +84,17 @@ num number(Object? value, String path, {num? min, num? max}) {
   return value;
 }
 
+num animationDuration(Object? value, String path) {
+  final duration = number(value, path, min: 0);
+  // Transitions store rounded microseconds in a signed 64-bit integer. Check
+  // before multiplying an int (wraparound) or rounding a double (saturation).
+  final overflow = duration is int
+      ? duration > 0x7fffffffffffffff ~/ 1000
+      : duration * 1000 >= 9223372036854775808.0;
+  if (overflow) invalid(path, 'duration exceeds integer microsecond range');
+  return duration;
+}
+
 String choice(Object? value, String path, Iterable<String> accepted) {
   if (value is! String || !accepted.contains(value)) {
     invalid(path, 'unsupported value');

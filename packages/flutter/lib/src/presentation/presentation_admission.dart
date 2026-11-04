@@ -165,7 +165,7 @@ class PresentationAdmission {
           'contentOrientation' => choice(v, p, ['follow-item', 'upright']),
           'placement' => choice(v, p, componentPlacements),
           'overflow' => choice(v, p, ['visible', 'hidden', 'ellipsis']),
-          'animationDuration' => number(v, p, min: 0),
+          'animationDuration' => animationDuration(v, p),
           'opacity' => number(v, p, min: 0, max: 1),
           'split' => _integer(v, p),
           'radius' => radius(v, p, partial: previous(key) is Map),

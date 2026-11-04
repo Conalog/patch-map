@@ -263,6 +263,30 @@ void main() {
     },
   );
 
+  test('long valid durations do not overflow the completion timestamp', () {
+    final before = diagram(20), after = diagram(80, duration: 9223372036854775);
+    for (final retained in [false, true]) {
+      final transitions = BarTransitions();
+      if (retained) {
+        transitions.replaceRetained(
+          0,
+          'b',
+          before.nodes[0].item!.components[0].box,
+          after.nodes[0].item!.components[0].box,
+          after.nodes[0].item!.components[0].data,
+          animate: true,
+        );
+      } else {
+        transitions.replace(before, after, [0], animate: true);
+      }
+      expect(transitions.advance(const Duration(microseconds: 10000)), isTrue);
+      expect(transitions.advance(const Duration(microseconds: 10001)), isTrue);
+      expect(transitions.rectangle(0, 'b')!.height, 20);
+      transitions.clear();
+      expect(transitions.advance(const Duration(microseconds: 10002)), isFalse);
+    }
+  });
+
   test('zero rounded duration and animate false cancel active transitions', () {
     final a = diagram(20), b = diagram(80);
     for (final animate in [true, false]) {

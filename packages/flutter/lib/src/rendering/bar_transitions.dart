@@ -13,7 +13,7 @@ final class BarTransitions {
     _time = time.inMicroseconds;
     _active.removeWhere((key, value) {
       value.start ??= _time;
-      return _time >= value.start! + value.duration;
+      return _time - value.start! >= value.duration;
     });
     return _active.isNotEmpty;
   }

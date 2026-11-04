@@ -333,10 +333,9 @@ class _Candidate {
             'margin': edges(field(input, 'margin'), '$p.margin'),
             'animation': _bool(input, 'animation', p, true),
             'animationDuration': input.containsKey('animationDuration')
-                ? number(
+                ? animationDuration(
                     input['animationDuration'],
                     '$p.animationDuration',
-                    min: 0,
                   )
                 : 200,
           });

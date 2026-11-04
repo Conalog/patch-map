@@ -79,6 +79,11 @@ and `interruption` are independent diagnostics. Unexpected implementation errors
 complete the Future with its original error/stack. Completion confirms drawing
 submission, not animation end or physical display presentation.
 
+Bar `animationDuration` is a finite, nonnegative number of milliseconds
+(default 200). Its conversion to rounded microseconds must fit a signed 64-bit
+integer; out-of-range values reject the entire draw/update with `INVALID_VALUE`
+before publication. Fractional milliseconds retain microsecond rounding.
+
 ## Commands and queries
 
 | Commands | Behavior |
