@@ -31,7 +31,8 @@ export function pubspecField(text, name) {
   return matches[0][1];
 }
 
-export function releaseMetadata(runtime, tag, root = process.cwd()) {
+export function releaseMetadata(runtime, tag, root = process.cwd(), { candidate = false } = {}) {
+  if (candidate && runtime !== 'dart') throw new Error('candidate metadata is only supported for Dart');
   const json = (path) => JSON.parse(readFileSync(`${root}/${path}`, 'utf8'));
   const manifest = json('.release-please-manifest.json');
   let version, prefix, path;
@@ -44,7 +45,10 @@ export function releaseMetadata(runtime, tag, root = process.cwd()) {
   } else if (runtime === 'dart') {
     path = 'packages/flutter';
     const pubspec = readFileSync(`${root}/${path}/pubspec.yaml`, 'utf8');
-    if (pubspecField(pubspec, 'name') !== 'conalog_patch_map' || /^publish_to:/mu.test(pubspec)) throw new Error('unexpected Dart publication identity');
+    if (pubspecField(pubspec, 'name') !== 'conalog_patch_map') throw new Error('unexpected Dart package identity');
+    if (/^publish_to:/mu.test(pubspec) && (!candidate || pubspecField(pubspec, 'publish_to') !== 'none')) {
+      throw new Error('Dart publication requires the default pub.dev registry; publish_to: none is allowed only for candidates');
+    }
     version = pubspecField(pubspec, 'version');
     prefix = 'dart-v';
   } else throw new Error('runtime must be npm or dart');
@@ -54,8 +58,11 @@ export function releaseMetadata(runtime, tag, root = process.cwd()) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const [runtime, tag] = process.argv.slice(2);
-  const result = releaseMetadata(runtime, tag);
+  const [runtime, tag, mode, ...extra] = process.argv.slice(2);
+  if ((mode !== undefined && mode !== '--candidate') || extra.length) {
+    throw new Error('usage: release-metadata.mjs npm|dart <tag> [--candidate]');
+  }
+  const result = releaseMetadata(runtime, tag, process.cwd(), { candidate: mode === '--candidate' });
   const output = Object.entries(result).map(([key, value]) => `${key}=${value}\n`).join('');
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, output);
   else process.stdout.write(output);
