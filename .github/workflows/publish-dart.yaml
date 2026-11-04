@@ -51,9 +51,14 @@ jobs:
         id: metadata
         env:
           TAG_NAME: ${{ github.ref_name }}
+          PUBLISH_ENABLED: ${{ vars.PUBDEV_PUBLISH_ENABLED }}
         run: |
           node .github/scripts/release-ready.mjs --scope dart
-          node .github/scripts/release-metadata.mjs dart "$TAG_NAME"
+          if [ "$PUBLISH_ENABLED" = true ]; then
+            node .github/scripts/release-metadata.mjs dart "$TAG_NAME"
+          else
+            node .github/scripts/release-metadata.mjs dart "$TAG_NAME" --candidate
+          fi
       - name: Install dependencies
         run: |
           npm ci --workspace verification --include-workspace-root=false --ignore-scripts
@@ -67,9 +72,6 @@ jobs:
           npm run flutter:verify:package
       - name: Verify installed consumer and prepare exact publication inputs
         run: node .github/scripts/dart-release.mjs prepare
-      - name: Validate pub.dev package
-        working-directory: packages/flutter
-        run: flutter pub publish --dry-run
       - name: Retain candidate and source snapshot for qualification
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

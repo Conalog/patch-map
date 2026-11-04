@@ -73,10 +73,10 @@ is path-filtered; making it universally required would stall version-only PRs. K
 `npm`, allowing `js-v*` environment deployments. Its switches are `NPM_PUBLISH_ENABLED`, `NPM_PRERELEASE_ENABLED`, `NPM_LATEST_ENABLED`; only `true` enables
 publication or its selected channel. See [npm's setup guide](https://docs.npmjs.com/trusted-publishers/).
 
-Keep `PUBDEV_PUBLISH_ENABLED` false/unset during bootstrap. First implement and qualify the functional package, remove its foundation publication blocks in a
-reviewed change, confirm package ownership/availability, then merge alpha.1's release PR. Pub.dev requires the first version's manual upload. On a clean
-checkout of `dart-v1.0.0-alpha.1`, use Node 22 and the recorded CI SDK. Gather actual executed reports with the [existing
-collector](../../verification/conformance/collect-evidence.md):
+Keep `PUBDEV_PUBLISH_ENABLED` false/unset during bootstrap. Complete the missing runtime and conformance work, verify it, and update the foundation
+publication controls in a reviewed change. Confirm package ownership/availability, then merge the release PR for the first publishable version. An existing
+private tag stays on its original commit; use a fresh version. Pub.dev requires the first version's manual upload. Check out the new Dart release tag with
+Node 22 and the CI SDK. Qualify the exact artifact using executed reports from the [collector](../../verification/conformance/collect-evidence.md):
 
 ```sh
 node verification/flutter/toolchains.mjs check ci
@@ -84,7 +84,7 @@ npm ci
 node verification/assets/prepare.mjs flutter
 (cd packages/flutter && flutter pub get)
 node .github/scripts/release-ready.mjs
-node .github/scripts/release-metadata.mjs dart dart-v1.0.0-alpha.1
+node .github/scripts/release-metadata.mjs dart "$(git describe --tags --exact-match --match 'dart-v*')"
 node .github/scripts/dart-release.mjs prepare
 node .github/scripts/dart-release.mjs qualify /absolute/path/to/collected-evidence.json
 node .github/scripts/pub-artifact.mjs extract
@@ -100,11 +100,11 @@ compatibility record. After upload, create environment `pub.dev`, authorize `Con
 
 ## Retry and partial success
 
-The Dart tag run retains `dart-candidate-<SHA>` with the exact tarball, installed report and source snapshot. Collect affected evidence for those inputs, attach
-its envelope and rerun the original tag-push execution. Enabling publication requires the full qualification gate and retains `dart-qualified-<SHA>` with
-compatibility evidence. Source/contract/lock drift requires fresh affected reports; never relabel old evidence. The publisher checks and extracts the qualified
-artifact. `qualified` and `publication: not-recorded` record qualification without establishing publication success: record actual package versions, artifact identity and successful run URL in the
-GitHub Release, separately from the qualified pair.
+With `PUBDEV_PUBLISH_ENABLED` false/unset, Dart tag runs accept private packages with `publish_to: none` and retain `dart-candidate-<SHA>` with the exact
+tarball, installed report and source snapshot. The archive preserves the tagged pubspec, so the private candidate cannot be uploaded. For publishable tags,
+attach the evidence envelope and rerun the original tag-push execution. Publication requires full qualification and retains `dart-qualified-<SHA>` with
+compatibility evidence. Source/contract/lock drift requires fresh reports. The publisher checks and extracts the qualified artifact. Record actual package
+versions, artifact identity and the successful run URL in the GitHub Release separately from `qualified` and `publication: not-recorded`.
 
 Registry writes are independent. On partial success, record each registry's actual state and retry only the failed package: npm accepts the existing tag through
 `publish.yaml`'s `tag` input; Dart reruns its original tag-push run, because pub.dev rejects branch/manual-dispatch publishing. Reuse immutable source and tags.

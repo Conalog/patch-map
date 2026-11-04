@@ -30,6 +30,15 @@ test('publisher requires the exact package, namespace and merged release manifes
     assert.equal(releaseMetadata('npm', 'js-v1.1.0', root)['dist-tag'], 'latest');
     assert.equal(releaseMetadata('dart', 'dart-v1.0.0-alpha.1', root)['release-kind'], 'prerelease');
     for (const [runtime, tag] of [['npm', 'v1.1.0'], ['npm', 'dart-v1.1.0'], ['dart', 'v1.0.0-alpha.1'], ['dart', 'dart-v1.0.0-alpha.2']]) assert.throws(() => releaseMetadata(runtime, tag, root));
+    const dartPubspec = join(root, 'packages/flutter/pubspec.yaml');
+    const candidate = { candidate: true };
+    await writeFile(dartPubspec, 'name: conalog_patch_map\nversion: 1.0.0-alpha.1\npublish_to: none\n');
+    assert.equal(releaseMetadata('dart', 'dart-v1.0.0-alpha.1', root, candidate)['package-version'], '1.0.0-alpha.1');
+    assert.throws(() => releaseMetadata('dart', 'dart-v1.0.0-alpha.1', root), /only for candidates/u);
+    assert.throws(() => releaseMetadata('dart', 'dart-v1.0.0-alpha.2', root, candidate), /must match/u);
+    await writeFile(dartPubspec, 'name: conalog_patch_map\nversion: 1.0.0-alpha.1\npublish_to: private\n');
+    assert.throws(() => releaseMetadata('dart', 'dart-v1.0.0-alpha.1', root, candidate), /default pub.dev registry/u);
+    await writeFile(dartPubspec, 'name: conalog_patch_map\nversion: 1.0.0-alpha.1\n');
     delete manifest['packages/flutter'];
     await save();
     assert.throws(() => releaseMetadata('dart', 'dart-v1.0.0-alpha.1', root), /must match/u);
