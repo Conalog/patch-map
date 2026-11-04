@@ -447,16 +447,16 @@ final class MapSession {
     return failures;
   }
 
+  bool get _canDrain =>
+      active &&
+      _notificationDepth == 0 &&
+      _work == null &&
+      _submission == null &&
+      _phase != PatchMapPhase.failed &&
+      (_replacement || _pending != null || _refresh);
+
   void _schedule() {
-    if (!active ||
-        _queued ||
-        _notificationDepth > 0 ||
-        _work != null ||
-        _submission != null ||
-        _phase == PatchMapPhase.failed ||
-        (!_replacement && _pending == null && !_refresh)) {
-      return;
-    }
+    if (_queued || !_canDrain) return;
     _queued = true;
     scheduleMicrotask(() {
       _queued = false;
@@ -465,14 +465,7 @@ final class MapSession {
   }
 
   Future<void> _drain() async {
-    if (!active ||
-        _notificationDepth > 0 ||
-        _work != null ||
-        _submission != null ||
-        _phase == PatchMapPhase.failed ||
-        (!_replacement && _pending == null && !_refresh)) {
-      return;
-    }
+    if (!_canDrain) return;
     final token = _work = Object(),
         generation = _generation,
         document = _document!;
