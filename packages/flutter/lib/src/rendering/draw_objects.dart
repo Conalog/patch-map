@@ -312,18 +312,17 @@ final class DrawNode {
   List<DrawAsset> get assets => _assets.values;
   List<(DrawAsset, PatchMapTarget)> get assetTargets => _assets.targets;
 
-  void paint(
+  /// Submit a standalone object; item order belongs to DrawPlan.
+  void paintStandalone(
     Canvas canvas, {
-    required double cameraRotation,
     required double physicalScale,
-    Rect? Function(String componentId)? barRectangle,
     BarSliceBatch? bars,
     double alphaMultiplier = 1,
   }) {
+    assert(geometry.item == null);
     if (!geometry.visible || geometry.opacity == 0 || alphaMultiplier == 0) {
       return;
     }
-    final item = geometry.item;
     if (content is RelationContent) {
       bars?.flush(canvas);
       content!.paintWithAlpha(
@@ -334,48 +333,30 @@ final class DrawNode {
       );
       return;
     }
-    if (item == null) {
-      bars?.flush(canvas);
-      canvas.save();
-      try {
-        canvas.transform(matrix);
-        final size = switch (geometry.target.type) {
-          'rect' || 'image' =>
-            geometry.data['size'] is Map
-                ? Size(
-                    ((geometry.data['size'] as Map)['width'] as num).toDouble(),
-                    ((geometry.data['size'] as Map)['height'] as num)
-                        .toDouble(),
-                  )
-                : content is AssetContent
-                ? (content as AssetContent).asset.intrinsicSize ?? Size.zero
-                : Size.zero,
-          _ => geometry.localBounds?.size ?? Size.zero,
-        };
-        content?.paintWithAlpha(
-          canvas,
-          Offset.zero & size,
-          physicalScale * _scale(geometry.world),
-          alphaMultiplier: alphaMultiplier,
-        );
-      } finally {
-        canvas.restore();
-      }
-      return;
-    }
-    for (var index = 0; index < components.length; index++) {
-      final component = components[index];
-      paintComponent(
+    bars?.flush(canvas);
+    canvas.save();
+    try {
+      canvas.transform(matrix);
+      final size = switch (geometry.target.type) {
+        'rect' || 'image' =>
+          geometry.data['size'] is Map
+              ? Size(
+                  ((geometry.data['size'] as Map)['width'] as num).toDouble(),
+                  ((geometry.data['size'] as Map)['height'] as num).toDouble(),
+                )
+              : content is AssetContent
+              ? (content as AssetContent).asset.intrinsicSize ?? Size.zero
+              : Size.zero,
+        _ => geometry.localBounds?.size ?? Size.zero,
+      };
+      content?.paintWithAlpha(
         canvas,
-        index,
-        cameraRotation: cameraRotation,
-        physicalScale: physicalScale,
-        displayBox: component.layout.type == 'bar'
-            ? barRectangle?.call(component.layout.id)
-            : null,
-        bars: bars,
+        Offset.zero & size,
+        physicalScale * _scale(geometry.world),
         alphaMultiplier: alphaMultiplier,
       );
+    } finally {
+      canvas.restore();
     }
   }
 

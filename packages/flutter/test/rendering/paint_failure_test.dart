@@ -23,10 +23,7 @@ void main() {
     // Keep the recorder used by the Canvas explicit for disposal.
     final c = Canvas(rec);
     final before = c.getSaveCount();
-    expect(
-      () => node.paint(c, cameraRotation: 0, physicalScale: 1),
-      throwsStateError,
-    );
+    expect(() => node.paintStandalone(c, physicalScale: 1), throwsStateError);
     final after = c.getSaveCount();
     c.restoreToCount(before);
     rec.endRecording().dispose();

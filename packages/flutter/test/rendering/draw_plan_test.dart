@@ -202,6 +202,30 @@ class Harness {
   }
 }
 
+/// Unbatched, strictly ordered oracle independent of DrawPlan's grouping.
+void paintReferenceNode(
+  DrawNode node,
+  Canvas canvas, {
+  required double cameraRotation,
+  required double physicalScale,
+  Rect? Function(String componentId)? barRectangle,
+}) {
+  if (node.geometry.item == null) {
+    node.paintStandalone(canvas, physicalScale: physicalScale);
+    return;
+  }
+  for (var index = 0; index < node.components.length; index++) {
+    final layout = node.components[index].layout;
+    node.paintComponent(
+      canvas,
+      index,
+      cameraRotation: cameraRotation,
+      physicalScale: physicalScale,
+      displayBox: layout.type == 'bar' ? barRectangle?.call(layout.id) : null,
+    );
+  }
+}
+
 Future<Uint8List> render(
   Projection projection, {
   bool reference = false,
@@ -213,7 +237,8 @@ Future<Uint8List> render(
   final slots = visible ?? projection.geometry.paintSlots;
   if (reference) {
     for (final slot in slots) {
-      projection.nodes[slot].paint(
+      paintReferenceNode(
+        projection.nodes[slot],
         canvas,
         cameraRotation: rotation,
         physicalScale: 1,

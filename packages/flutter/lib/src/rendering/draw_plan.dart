@@ -605,9 +605,8 @@ final class RenderPlan {
     final node = _node(slot);
     if (!node.geometry.visible || node.geometry.opacity == 0) return;
     if (node.geometry.item == null) {
-      node.paint(
+      node.paintStandalone(
         canvas,
-        cameraRotation: rotation,
         physicalScale: scale,
         bars: _bars,
         alphaMultiplier: presentation?.alpha(node.geometry.id) ?? 1,

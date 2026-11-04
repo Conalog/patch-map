@@ -90,7 +90,12 @@ final class _Projection {
 
 Future<Uint8List> _pixels(DrawNode node) async {
   final recorder = PictureRecorder();
-  node.paint(Canvas(recorder), cameraRotation: 0, physicalScale: 1);
+  support.paintReferenceNode(
+    node,
+    Canvas(recorder),
+    cameraRotation: 0,
+    physicalScale: 1,
+  );
   final picture = recorder.endRecording();
   final image = await picture.toImage(80, 80);
   try {

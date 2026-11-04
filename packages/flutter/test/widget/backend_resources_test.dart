@@ -403,9 +403,7 @@ void main() {
       final after = result.publication as RenderPublication;
       h.resources.applyCounts(after.assetCounts);
       final recorder = PictureRecorder();
-      after
-          .node(0)
-          .paint(Canvas(recorder), cameraRotation: 0, physicalScale: 1);
+      after.node(0).paintStandalone(Canvas(recorder), physicalScale: 1);
       recorder.endRecording().dispose();
       final requested = h.resources.svgImages.entryCount;
       after.dispose();

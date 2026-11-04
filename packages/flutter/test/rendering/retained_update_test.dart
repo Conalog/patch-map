@@ -934,7 +934,12 @@ final class Harness {
 
 Future<List<int>> pixels(DrawNode value) async {
   final recorder = PictureRecorder();
-  value.paint(Canvas(recorder), cameraRotation: .3, physicalScale: 1);
+  drawing.paintReferenceNode(
+    value,
+    Canvas(recorder),
+    cameraRotation: .3,
+    physicalScale: 1,
+  );
   final picture = recorder.endRecording();
   final image = await picture.toImage(180, 180);
   try {
