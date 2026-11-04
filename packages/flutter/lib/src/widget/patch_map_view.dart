@@ -192,7 +192,6 @@ class _PatchMapViewState extends State<PatchMapView>
 
   void _onInput(PatchMapInputEvent event) {
     if (_disposed) return;
-    if (event.kind == PatchMapInputKind.selectionChange) frame.invalidate();
     if (_deferInput) {
       final generation = session.generation;
       scheduleMicrotask(() {
