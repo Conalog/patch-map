@@ -15,6 +15,7 @@ Widget host(
   PatchMapController controller,
   GlobalKey boundary, {
   Size size = const Size(200, 160),
+  bool active = true,
 }) => MediaQuery(
   data: const MediaQueryData(size: Size(400, 400)),
   child: Directionality(
@@ -28,6 +29,7 @@ Widget host(
             color: const Color(0xffffffff),
             child: PatchMapView(
               controller: controller,
+              active: active,
               // Transparent host loading UI must not mask a stale map layer.
               loadingBuilder: (_) => const SizedBox.shrink(),
             ),

@@ -205,8 +205,9 @@ final class MapBackend extends SessionBackend {
     // allocation/GC work to large batches without helping scalar validation.
     final resized = <String>{
       for (final entry in owners.entries)
-        if (entry.value.after['type'] == 'item' &&
-            (entry.value.fields & ownerLayout) != 0)
+        // Grid cells carry their type on the target, not the template record.
+        if ((entry.value.fields & ownerLayout) != 0 &&
+            document.targets[entry.key]!.type == 'item')
           entry.key,
     };
     void validateComponent(
