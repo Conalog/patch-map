@@ -128,6 +128,8 @@ jobs:
           flutter-version: ${{ steps.sdk.outputs.flutter-version }}
           channel: ${{ steps.sdk.outputs.flutter-channel }}
           cache: true
+      - name: Verify installed SDK
+        run: node verification/flutter/toolchains.mjs check ci
       - name: Prepare release assets and verifier dependencies
         run: |
           npm ci --workspace verification --include-workspace-root=false --ignore-scripts
