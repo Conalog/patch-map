@@ -1,0 +1,119 @@
+# Native runtime ownership
+
+The retained renderer consumes PATCH MAP JSON and presentation values. The host
+owns fetching, registry/metrics rules, time/date selection and business actions.
+No state-management or game-engine dependency is required.
+
+## Files and dependencies
+
+| Directory under `lib/src/` | Ownership and principal files |
+| --- | --- |
+| `api/` | Immutable addresses, command results, event values and public configuration. No renderer handles or mutable input exposure. |
+| `widget/` | `patch_map_view.dart` owns session lifetime, controller attachment, Flutter lifecycle and surface size. `patch_map_controller.dart` is a command facade. |
+| `dataset/` | `dataset_reader.dart`, value/style admission and immutable authored models. Full validation/detachment, identity and grid expansion metadata; no Canvas resources. |
+| `session/` | `map_session.dart` owns accepted generation, current document/presentation and publication. `request_ledger.dart` tracks completion obligations; it cannot publish. |
+| `presentation/` | Field operations, reset-aware pending composition, effective values, dirty dependencies and [keyed alpha layers](presentation-layers.md). Keeps authored values separate from live overrides; no frame scheduling. |
+| `geometry/` | Shared dimensions, transforms, layout, paint/hit envelopes and spatial index. `GeometrySnapshot` owns topology and aggregate bounds; initial `SceneGeometry` builds nodes. [Object queries](object-geometry.md) reuse published geometry. |
+| `viewport/` | Camera/navigation, [rotation](rotation-animation.md), coordinates and lazy [observation](camera-observation.md). Holds no copied scene or resource cache. |
+| `interaction/` | One gesture coordinator, item hit resolution and range/paint path accumulation; selection owner and immutable event projection. Host callbacks choose actions. |
+| `rendering/` | Render plan, ordered retained item/component projections, static chunks, dynamic bars and the CustomPainter adapter in `widget/patch_map_view.dart`. Consumes effective state; cannot decide update success or mutate authored data. |
+| `resources/` | Text layout/Paragraph/atlas, SVG and external raster owners. Physical assets share creation identity; mutable SVG visibility/resolution demand belongs to each draw use. Each owner tracks temporary work, reservations, references and safe retirement. |
+| `frame/` | One `frame_coordinator.dart` schedules invalidation/animation and records the generation/revision actually painted. It confirms submission and drains safe retirement; no second canonical scene. |
+
+Dependencies flow from widget composition through session coordination to dataset,
+presentation, geometry, viewport, interaction and resource/render ports. Rendering/resources
+depend on shared values and geometry, not widget/controller/session. Composition wires ports;
+callbacks cannot authorize lower layers to change session state.
+Production never imports example, performance or verification code. Use ports
+where ownership or asynchronous lifetime crosses a real boundary.
+
+## Lifecycle ownership
+
+[Session and resource lifetime](lifecycle.md) specifies admission, publication, completion,
+inactivity and retirement. Session owns accepted state; the frame coordinator confirms the
+painted generation/revision; resource owners retain reservations until actual work settles.
+
+## Rendering and performance boundaries
+
+Keep paint order scoped to items and authored sibling order. Geometry provides
+conservative bounds and overlap safety; Canvas is the correctness fallback.
+Contain bars within item bounds, and retain text/SVG overflow and overlap checks.
+Static compatible runs contain at most 100 items. View changes reuse static
+geometry; bar animation changes dynamic data only.
+Dynamic component `show` is checked during painting, not stored in the static
+skeleton. When visibility leaves the full envelope and background unchanged,
+retain the existing chunk proof. Background visibility and changed text/SVG
+envelopes still invalidate it; narrower alpha-layer proofs retain their separate
+geometry invalidation ([show checkpoint](component-show-checkpoint.md)).
+The frame coordinator samples monotonic time when its callback runs; queued vsync
+age cannot consume a newly published animation. The clock owns no timer. Inactive
+transitions clear on suspension. The same coordinator delivers coalesced range/paint
+and unchanged-pan notifications without repainting. Raw hits stay eager; selection,
+camera, publication and animation changes still paint, including callback mutations and final animation ticks. Only actual painter witnesses confirm submission.
+
+The renderer visits visible candidates in paint order. Logical updates still
+cover offscreen items. Retained commits invalidate output slots, resolved when drawn.
+Each node owns mutable [projection slots](offscreen-preparation-checkpoint.md); replacement nodes copy them.
+Validation, local geometry and text bounds stay eager; Paragraph/SVG raster work remains deferred.
+Atlas admissibility depends on validated format and font/style conditions.
+
+Text-only retained changes reuse immutable parameters and style/paint key parts from the prior handle;
+other changes use transaction-scoped preparation. Draw content uses the text owner's canonical handle
+([checkpoint](text-parameter-key-reuse-checkpoint.md)). Metrics, numeric proof and Paragraphs stay with that owner; deferred bodies reuse [proven metrics](numeric-paragraph-shared-checkpoint.md) without another metrics resolver/cache.
+TextPool owns one recent [native argument configuration](paragraph-configuration-checkpoint.md), cleared on close; distinct strings still own distinct Paragraphs.
+
+Presentation resolution produces a `RecordDelta`: the prior/effective raw
+record and actual changed dependency groups. The patch memo is valid only for
+the same authored/prior identities; reset and rebase recompute it. A zero
+dependency mask does not discard a changed raw representation or a source retry.
+Compound validation, local layout, content preparation, static-plan reuse and
+bar transitions consume those dependencies. Item component IDs resolve once to
+retained sorted indices; later stages use those slots. Reordering invalidates
+slot hints. Owner size/padding/orientation, opacity and order changes
+expand work only where required; unchanged sibling records/resources are shared.
+For an idle, fully submitted session, `RetainedUpdate` carries the validated
+component records and scalar geometry directly into resource preparation. Its
+reuse is bound to the document, publication, generation, revision, activity epoch
+and patch identities. Composed or rebased changes bind their resolved records to
+the same preparation/commit owner; owner/source/order changes keep the general
+projection path. No typed or restricted public input API is required.
+
+Preparation never changes live handles. It acquires content leases, measures
+text from the acquired handle and stages bounds/static-plan changes. The existing
+backend publication boundary then synchronously updates retained draw/geometry
+handles. Initial grid layouts remain shared until the first committed write;
+that write detaches only the changed item's mutable layout. General replacement
+nodes own independent component handles so later mutation cannot change an old
+node's resource lease. Unchanged records, scalar geometry and content are still
+shared. Public getters/events export immutable JSON before exposing it.
+Component orientation memoization and lazy matrices follow the [bar transform checkpoint](bar-transform-reuse-checkpoint.md).
+
+Publication leases still require bookkeeping. On the general projection path,
+one compact component-change collection carries hints through preparation.
+Its first entry is inline; additional entries append directly. Index only repeated
+multi-component lookups. Publication releases hints after plan/transition preparation;
+do not duplicate entries or retain snapshot chains.
+`ItemDataView` projects the effective component list in authored order only on
+read. It unwraps older views and keeps one current layout, not revision history.
+The input/query boundary materializes JSON and releases that layout reference
+before exposing event or whole-item query data; unchanged world-only projections preserve identity.
+
+Raw input resolves coordinates and hits against the camera/geometry published
+when that input is processed. Coalesce notifications only, not the geometric
+interpretation of a path against a later camera. Focus/fit reject while the
+first diagram is preparing; they are not queued. Partial missing addresses are
+reported alongside applied addresses; if none resolve, preserve the camera and
+return the empty-target result.
+
+Historical experiments supply algorithm/workload evidence; the owners above define
+runtime structure. Preserve provenance and compare equivalent output/workloads.
+Scale-based number hiding remains an explicit host choice.
+
+## Review checkpoints
+
+Review transitions: invalid last input; replace inside notification then update;
+reset then partial override; remove during resource creation; inactive latest update;
+overlapping items; newly visible native text; bar width/height tween through slice
+transitions; and package-only teardown. Reopen user policy only for demonstrated
+contract/scope/quality changes or material performance tradeoffs; routine internal
+choices remain implementation responsibility.

@@ -1,0 +1,288 @@
+{
+  "source": "packages/javascript/src/geometry/relation-paths.ts",
+  "sha256": "0b2f001d2575226ccb502179da3f645387fd33ce731856e55ae72a6beecfd021",
+  "cases": [
+    {
+      "name": "straight",
+      "affine": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "width": 2,
+      "source": {
+        "id": "a",
+        "center": [
+          5,
+          5
+        ],
+        "worldBounds": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "visible": true
+      },
+      "target": {
+        "id": "b",
+        "center": [
+          105,
+          5
+        ],
+        "worldBounds": [
+          100,
+          0,
+          10,
+          10
+        ],
+        "visible": true
+      },
+      "result": {
+        "entityId": "straight",
+        "relationId": "r",
+        "key": "a>b",
+        "sourceId": "a",
+        "targetId": "b",
+        "kind": "segment",
+        "localPoints": [
+          [
+            5,
+            5
+          ],
+          [
+            105,
+            5
+          ]
+        ],
+        "worldPoints": [
+          [
+            5,
+            5
+          ],
+          [
+            105,
+            5
+          ]
+        ],
+        "worldBounds": [
+          5,
+          5,
+          100,
+          0
+        ],
+        "worldStrokeWidths": [
+          2
+        ],
+        "visible": true,
+        "style": {
+          "color": 4278190335,
+          "width": 2,
+          "opacity": 1,
+          "zIndex": 0,
+          "visible": true
+        }
+      }
+    },
+    {
+      "name": "transformed",
+      "affine": [
+        2,
+        0,
+        0,
+        3,
+        7,
+        -5
+      ],
+      "width": 4,
+      "source": {
+        "id": "a",
+        "center": [
+          5,
+          5
+        ],
+        "worldBounds": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "visible": true
+      },
+      "target": {
+        "id": "b",
+        "center": [
+          105,
+          5
+        ],
+        "worldBounds": [
+          100,
+          0,
+          10,
+          10
+        ],
+        "visible": true
+      },
+      "result": {
+        "entityId": "transformed",
+        "relationId": "r",
+        "key": "a>b",
+        "sourceId": "a",
+        "targetId": "b",
+        "kind": "segment",
+        "localPoints": [
+          [
+            -1,
+            3.333333333333333
+          ],
+          [
+            49,
+            3.333333333333333
+          ]
+        ],
+        "worldPoints": [
+          [
+            5,
+            5
+          ],
+          [
+            105,
+            5
+          ]
+        ],
+        "worldBounds": [
+          5,
+          5,
+          100,
+          0
+        ],
+        "worldStrokeWidths": [
+          12
+        ],
+        "visible": true,
+        "style": {
+          "color": 4278190335,
+          "width": 4,
+          "opacity": 1,
+          "zIndex": 0,
+          "visible": true
+        }
+      }
+    },
+    {
+      "name": "self",
+      "affine": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "width": 2,
+      "source": {
+        "id": "a",
+        "center": [
+          5,
+          5
+        ],
+        "worldBounds": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "visible": true
+      },
+      "target": {
+        "id": "a",
+        "center": [
+          5,
+          5
+        ],
+        "worldBounds": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "visible": true
+      },
+      "result": {
+        "entityId": "self",
+        "relationId": "r",
+        "key": "a>b",
+        "sourceId": "a",
+        "targetId": "a",
+        "kind": "polyline",
+        "localPoints": [
+          [
+            5,
+            0
+          ],
+          [
+            20,
+            -10
+          ],
+          [
+            30,
+            5
+          ],
+          [
+            20,
+            20
+          ],
+          [
+            5,
+            10
+          ]
+        ],
+        "worldPoints": [
+          [
+            5,
+            0
+          ],
+          [
+            20,
+            -10
+          ],
+          [
+            30,
+            5
+          ],
+          [
+            20,
+            20
+          ],
+          [
+            5,
+            10
+          ]
+        ],
+        "worldBounds": [
+          5,
+          -10,
+          25,
+          30
+        ],
+        "worldStrokeWidths": [
+          2,
+          2,
+          2,
+          2
+        ],
+        "visible": true,
+        "style": {
+          "color": 4278190335,
+          "width": 2,
+          "opacity": 1,
+          "zIndex": 0,
+          "visible": true
+        }
+      }
+    }
+  ]
+}

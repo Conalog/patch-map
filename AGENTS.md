@@ -19,9 +19,10 @@
   cleanup path.
 - Exact JavaScript public shapes come from exported TypeScript declarations.
   Owning pages under `packages/javascript/docs/` define JavaScript behavior,
-  ordering, failure meaning, compatibility, and package contents. Flutter has
-  no public runtime API yet. Engineering ownership and verification policy
-  live under `docs/engineering/`.
+  ordering, failure meaning, compatibility, and package contents. Flutter's
+  implemented, unreleased API is documented in `packages/flutter/README.md`;
+  runtime contracts and qualification live in `docs/engineering/flutter-runtime/`.
+  Engineering ownership and verification policy live under `docs/engineering/`.
 - When code and documentation disagree, do not assume code is correct. Decide
   whether the drift is in the document, the implementation, or an unresolved
   product decision before changing either side.

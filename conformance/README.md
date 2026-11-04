@@ -5,8 +5,10 @@ Current JavaScript declaration identities are recorded in `public-api.json`.
 The [JavaScript API docs](../packages/javascript/docs/README.md) remain the current
 JavaScript meaning authority; these targets do not establish Flutter support.
 
-`manifest.json` has `implementationStatus: foundation`. Flutter public runtime,
-API bindings, executed witnesses and Android/iOS functional evidence are pending.
+`manifest.json` retains `implementationStatus: foundation` as a qualification
+block. The [Flutter runtime](../docs/engineering/flutter-runtime/README.md) is
+implemented with bounded tests and platform smoke evidence; that does not complete
+this manifest's API bindings, named cross-runtime witnesses or native requirements.
 Fixtures, reviewed expected observations and codec payloads are target inputs,
 not execution reports or support claims. Collection of executed reports belongs
 to the [evidence collector](../verification/conformance/collect-evidence.md).
@@ -24,7 +26,7 @@ platforms' rendering, input, lifecycle, assets, accessibility and capture eviden
 It always refuses the foundation stage. See [release operations](../docs/engineering/releases.md).
 
 Fixtures and model/text expectations are committed targets. Run reports live
-under ignored `.artifacts/`. Implementing runners, bindings and executable
-witnesses is part of the future runtime work and requires representative consumer
-inputs. Managed package assets belong to `packages/flutter/assets/`, separately
+under ignored `.artifacts/`. Completing comparison runners, bindings and named
+witnesses remains qualification work and requires representative consumer inputs.
+Managed package assets belong to `packages/flutter/assets/`, separately
 from codec and scene test inputs here.

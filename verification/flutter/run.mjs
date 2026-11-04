@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, realpathSync, cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, realpathSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,10 +7,10 @@ import { verifyInstalledDartConsumer } from './installed-consumer.mjs';
 import { prepareAssets } from '../assets/prepare.mjs';
 import { sha256 } from './package.mjs';
 import { readToolchains, assertFvmPin, identifyToolchain } from './toolchains.mjs';
+import { copySdkWorkspace } from './sdk-workspace.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const sourcePackageRoot = join(root, 'packages/flutter');
-let packageRoot = sourcePackageRoot;
+let packageRoot = join(root, 'packages/flutter');
 const mode = process.argv[2] ?? 'verify';
 if (!['analyze', 'test', 'package', 'verify'].includes(mode)) throw new Error('usage: run.mjs [analyze|test|package|verify]');
 const flutter = realpathSync(process.env.FLUTTER_BIN ?? execFileSync('which', ['flutter'], { encoding: 'utf8' }).trim());
@@ -20,17 +20,15 @@ const toolchains = readToolchains(root);
 assertFvmPin(root, toolchains);
 const role = identifyToolchain(sdk, toolchains, process.env.FLUTTER_TOOLCHAIN_ROLE);
 prepareAssets({ root, packageName: 'flutter' });
-let sdkWorkspace;
 if (role !== 'ci') {
-  sdkWorkspace = mkdtempSync(join(tmpdir(), 'patch-map-sdk-'));
-  packageRoot = join(sdkWorkspace, 'package');
-  cpSync(sourcePackageRoot, packageRoot, { recursive: true, filter: (path) => !/(?:^|\/)(?:\.dart_tool|\.fvm|build|\.symlinks)(?:\/|$)/u.test(path) });
+  const sdkWorkspace = mkdtempSync(join(tmpdir(), 'patch-map-sdk-'));
   process.on('exit', () => rmSync(sdkWorkspace, { recursive: true, force: true }));
+  packageRoot = copySdkWorkspace(root, sdkWorkspace);
 }
 const exampleRoot = join(packageRoot, 'example');
 const artifactRoot = join(root, '.artifacts/flutter');
 mkdirSync(artifactRoot, { recursive: true });
-const report = { scope: 'foundation tooling and installed import/SVG/font only', mode, toolchain: sdk, toolchainRole: role, flutter, dart, stages: [], inputHashes: {} };
+const report = { scope: 'package tooling and extracted-artifact public widget/controller runtime plus SVG/font host smoke; not Android/iOS/WebView qualification', mode, toolchain: sdk, toolchainRole: role, flutter, dart, stages: [], inputHashes: {} };
 for (const path of ['pubspec.yaml', '.fvmrc', 'toolchains.json', 'example/pubspec.yaml']) report.inputHashes[path] = sha256(readFileSync(join(packageRoot, path)));
 const reportPath = join(artifactRoot, `verification-${role}-${mode}.json`);
 const save = () => writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);

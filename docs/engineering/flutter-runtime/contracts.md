@@ -1,0 +1,63 @@
+# Accepted Flutter contracts and delivery coverage
+
+Status: runtime integration implemented; platform/consumer qualification incomplete.
+These first-release contracts do not claim complete JavaScript API parity.
+This specification supersedes historical proposals in the source decision inventory.
+
+## Contract groups
+
+| ID | Contract | Owning implementation boundary | Verification obligation |
+| --- | --- | --- | --- |
+| F01 | Renderer only; host owns domain fetching, interpretation and business actions. Editor, PNG export and item screen-reader support are excluded from first release. | Public API / package scope | Package API and consumer replay |
+| F02 | Existing JSON List/Map schema and stable element/grid-cell/component addresses; component updates target concrete items/cells, not grid templates. Preserve attrs extension data and schema-specific defaults. All supported authored types remain in scope. | Dataset | Representative item/grid/group/relations/image/text/rect and four component fixtures; atomic template-component rejection |
+| F03 | Caller values are detached on admission; public item data is read-only and reused. No public scene token or renderer object identity. | Dataset / API | Caller mutation and returned-data mutation isolation |
+| F04 | Whole-input validation before any acceptance; reject invalid updates atomically with target/field diagnostics. Omission retains, explicit resets follow each supported field's existing meaning. | Dataset / presentation | Invalid last record; null/omission tests |
+| F05 | Retain scene and unchanged resources; compare whole values, work only on changed dependencies. One executing update and one reset-aware field-composed pending update. | Session / presentation | Sparse/no-op/full changes, reset barrier, replaced-field attribution |
+| F06 | Consistency is per item. Preparation failure retains the entire prior valid item; other items may publish. Failure and superseded information coexist. | Session / rendering | Mixed number/bar failure injection |
+| F07 | Completion means corresponding engine drawing submission, not animation end/raster/display. Active no-op needs no extra frame only for already submitted values with no earlier executing/pending update; failed-value respecification retries. Replacement/removal terminate pending requests with reasons. | Frame / session | Paint-generation/revision witness; no paint cannot acknowledge |
+| F08 | Valid replacement hides old diagram; latest accepted generation owns subsequent updates. Freeze the first-screen batch when its presentation processing starts; later input waits for the next batch. Invalid replacement preserves old state. Fatal preparation/paint failure settles outstanding work and only a new replacement can recover. | Session | Callback replace+update, competing replacement, fatal failure and late completion |
+| F09 | Replacement resets selection/gesture/rotation and fits new bounds. Same-scene updates preserve camera/selection; fit retains rotation. Image loading does not block first screen or alter ready state again. | Session / viewport | First frame, reset, images arriving later |
+| F10 | Widget State owns lifetime. Controller may reconnect; at most one live attachment; detached commands reject without queueing. | Widget | Rebuild/remount/double attach/dispose |
+| F11 | App background or explicit inactive map preserves resources but defers comparison/preparation/frames, composing latest input. Inactive replacements retain only latest valid dataset. | Session / resources | Background burst/resume and replacement |
+| F12 | CustomPainter; one frame scheduling owner; calculations/search on main isolate. No per-item widget/ticker/listener. | Frame / rendering | Idle frames and lifetime counts |
+| F13 | Shared geometry for bounds/hit/fit. Item is interaction unit; background-less item uses component intersections. Uniform index: max16 cells/item, overflow list once. With B occupied buckets, T=max(1,min(4096,ceil(B/4))); clipped query visiting Q>=T cells scans once. | Geometry | Large/overflow/rotated items; point/range/path equivalence |
+| F14 | Library owns detection/selection; host maps actions. Filter skips disallowed front objects; direct selection bypasses it. Live decoration preserves selection/data. | Interaction / [selection style](selection-style.md) | Overlap/filter/selection; live style pixels |
+| F15 | Default drag pans; host may choose range or paint mode; mode stays stable during drag. Resolve each raw input using then-published geometry/camera, preserving intermediate path hits; coalesce only move notifications per frame. One end with reason; no extra final move; no end callback on permanent widget removal. | Interaction | Range/paint paths, changing camera/geometry, interruption, removal exception |
+| F16 | Filters are judgment-only; mutations are allowed in result callbacks, admitted then processed after callback exit. Callback exceptions cannot break runtime cleanup. | Session / interaction | Reentry and throwing callback/filter |
+| F17 | Events provide world/local/global logical-pixel coordinates. Fit adjusts scale; focus preserves it; rotation retained. Screen-edge padding is one unified option. Resize preserves world center/scale/rotation. Focus/fit reject while preparing; partial missing targets return applied/missing, all missing preserves camera. | Viewport / API | Rotated fit/padding/resize, preparation state and missing targets |
+| F32 | Immutable camera getter; frame-coalesced change causes and configurable rotation animation share one scheduler. | [Observation](camera-observation.md) / [rotation](rotation-animation.md) | Gesture/command/resize, reentry, no-op, replacement and activity |
+| F33 | Independent zoom/rotation permissions; configurable base thresholds 2% / 15°, rising to 5% / 25° only after the other axis starts. Simultaneous crossings activate both; active axes stay active. Rebase at crossing without a jump; zero base applies immediately. Optional common absolute zoom limits. | [Gesture options](gesture-options.md) | Independent input gates/thresholds, anchored/padded clamping, live configuration and commands |
+| F34 | Read-only immutable object geometry by ID from the current publication: world origin, logical/conservative paint bounds and transformed local-box corners. No layout, resources or frame scheduling on read. | [Object geometry queries](object-geometry.md) | Nested/grid transforms, retained results, inactive/replacement state and installed consumer |
+| F35 | First release fixes each item's component IDs/types at draw. Host composes the finite equipment-specific set before draw, hiding currently unused members with show=false; later values update existing components. No component add/remove/type-replacement API. | Dataset / presentation admission | Complete-definition admission, missing-target/unknown-field rejection, visibility updates and [source-generated mobile replay](mobile-replay.md); production-data qualification remains pending |
+| F31 | Independent keyed alpha layers multiply existing alpha, preserve values/selection/hits, and reset only on accepted replacement/removal. Synchronous admission is separate from value submission. | [Presentation layers](presentation-layers.md) | Composition/clear, replacement ordering, pixels, unused-path profile |
+| F30 | CPU and memory are independent goals. Same-workload WebView comparison per user journey and Android/iOS evidence required; synthetic experiments are not product qualification. | Verification | Overview/update/pan/interaction/first frame, platform gates |
+
+Rendering and resource contracts F18–F29 are owned by
+[rendering contracts](rendering-contracts.md).
+
+## Explicit implementation judgments
+
+Use small immutable address/result types and one connected controller facade.
+Dart names are implementation choices; schema meanings are not.
+No generic per-field `null` reset outside the documented presentation grammar.
+Keep root/component shape validation separate from value comparison, so an
+unchanged record is still checked without allocating a new retained value.
+
+Reserve temporary transfer-copy headroom inside the accepted64MiB source budget
+(initial internal plan44MiB ownership plus20MiB copy headroom). This is not a
+new user-confirmed numeric optimum or a bound on codec/native/GPU memory.
+Update failure/cleanup paths must account for partial objects and work that
+cannot actually be cancelled. Unknown SVG/parser intermediate memory and
+general Paragraph active memory remain measured risks, not proved global caps.
+
+Conformance includes features beyond Flutter's first release; document phase
+coverage without removing JS tests or claiming all targets pass. Deployed
+WebView identity still needs verification. Investigated mobile WebView 0.10.0
+is a performance reference; native semantics follow release/1.0 and approved
+exceptions below.
+
+Compatibility decisions and executed legacy evidence are owned by
+[compatibility findings](compatibility.md).
+
+Implementation status and remaining verification are tracked in
+[delivery coverage](coverage.md).

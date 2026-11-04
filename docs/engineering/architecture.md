@@ -39,7 +39,7 @@ authority.
 | --- | --- |
 | `.github/` | pull-request, release, dependency, and workflow policy automation |
 | `packages/javascript/` | JavaScript runtime, editable public docs, release history, packed examples, tests, performance tools, and npm artifact verification |
-| `packages/flutter/` | Flutter package foundation, generated assets, and development hosts; runtime implementation remains pending |
+| `packages/flutter/` | Native runtime, generated assets and development hosts; see [Flutter ownership](flutter-runtime/architecture.md) and [qualification status](flutter-runtime/coverage.md) |
 | `shared/assets/` | canonical package SVG/font sources, font license and native provenance; see [shared assets](shared-assets.md) |
 | `docs/engineering/` | repository-internal architecture, verification, environment and release operations |
 | `conformance/` | shared behavior targets and pending runtime qualification inputs |

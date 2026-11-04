@@ -1,0 +1,3083 @@
+{
+  "schemaVersion": 1,
+  "sourceTitle": "Flutter PatchMap 아키텍처 논의 결정",
+  "sourceRecordedThrough": "2026-10-16",
+  "sourceSha256": "3f874b24f9cb11ef1b31be5a350e1968c31604b6fe6a2276de2f3ee8fcacbdb9",
+  "sourceLineCount": 2133,
+  "meaning": "Historical source inventory. Group mapping is coverage, not adoption of every proposal or execution evidence. contracts.md defines the final contract; later user decisions override earlier notes.",
+  "entries": [
+    {
+      "id": "S001",
+      "heading": "논의 원칙: 기존 정책과 스키마 해석의 차이를 먼저 알림",
+      "sourceLines": [
+        5,
+        15
+      ],
+      "kind": "context",
+      "contractGroups": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F18",
+        "F26"
+      ],
+      "sectionSha256": "2069d4e4dc238029711aea5fc24471f7666540b03d145e453d8cfe65b24d617a"
+    },
+    {
+      "id": "S002",
+      "heading": "확정된 기본 방향",
+      "sourceLines": [
+        16,
+        37
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F18",
+        "F26"
+      ],
+      "sectionSha256": "f84537bc57c4d73dc368e54312342bbd6c031878102f3ab9c96b945a6e0f7513"
+    },
+    {
+      "id": "S003",
+      "heading": "확정: 표시 갱신의 복구 가능한 자원 준비 실패는 대상별 처리",
+      "sourceLines": [
+        38,
+        45
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F18",
+        "F26"
+      ],
+      "sectionSha256": "191d0fc7c2befae0ec66d6826c4770c37b6bba57021c628d0a1796a0dc0c7aa8"
+    },
+    {
+      "id": "S004",
+      "heading": "확정: 첫 이미지 로드의 일시적 네트워크 실패는 제한적 자동 재시도",
+      "sourceLines": [
+        46,
+        53
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F18",
+        "F26"
+      ],
+      "sectionSha256": "307510093ad946669cbacfeea379bfd7173c9b151b2bfaf3deee0878f0022e57"
+    },
+    {
+      "id": "S005",
+      "heading": "확정: 새 도면의 이미지 최종 실패는 나머지 도면 표시를 막지 않음",
+      "sourceLines": [
+        54,
+        63
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F18",
+        "F26"
+      ],
+      "sectionSha256": "9a5035b32b79667a648b979a56cd1840e5fe4afb797d01ce5de60b7fdd75a45b"
+    },
+    {
+      "id": "S006",
+      "heading": "확정: 지도 위젯의 State가 렌더러 수명을 소유하고 자동 정리",
+      "sourceLines": [
+        64,
+        69
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F10",
+        "F11",
+        "F18"
+      ],
+      "sectionSha256": "c5d6234c6fecd8de8f59eaaacdfc47cd20480169c493afcb8718f04753c2932a"
+    },
+    {
+      "id": "S007",
+      "heading": "확정: 앱 백그라운드 중 표시 갱신의 자원 준비를 보류",
+      "sourceLines": [
+        70,
+        77
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F10",
+        "F11",
+        "F18"
+      ],
+      "sectionSha256": "2552422a877379e66328d93eed9f0580b5494ed9328056f7ab0052b2b84b5423"
+    },
+    {
+      "id": "S008",
+      "heading": "확정: 앱 내부에서 완전히 숨겨진 지도도 갱신 보류",
+      "sourceLines": [
+        78,
+        85
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F10",
+        "F11",
+        "F18"
+      ],
+      "sectionSha256": "8f9c37d93cfae8f1d23874bc1194cb9216f02dfc6d39c76d01812ed953055728"
+    },
+    {
+      "id": "S009",
+      "heading": "확정: 비활성 중 전체 도면 교체는 검증 후 최신 하나만 보관",
+      "sourceLines": [
+        86,
+        91
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F10",
+        "F11",
+        "F18"
+      ],
+      "sectionSha256": "b842506bf44946a878c301702a853cfd84e67af487e034ae516257b58c10a29b"
+    },
+    {
+      "id": "S010",
+      "heading": "확정: 연결된 지도 위젯이 없는 컨트롤러 명령은 즉시 거부",
+      "sourceLines": [
+        92,
+        97
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F10",
+        "F11",
+        "F18"
+      ],
+      "sectionSha256": "5fc40dbeba5d96e680adf1cb6d4b3e046b3cb4ca1b9c03b27649807fc49b7b5c"
+    },
+    {
+      "id": "S011",
+      "heading": "확정: 컨트롤러 하나에 지도 위젯 하나만 동시 연결",
+      "sourceLines": [
+        98,
+        101
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F10",
+        "F11",
+        "F18"
+      ],
+      "sectionSha256": "257e754cef4ca58ad033c7a2b8e51c6e264ced69ef7f5adb1cb27c0425c4d5b4"
+    },
+    {
+      "id": "S012",
+      "heading": "확정: bar 크기 애니메이션은 main 동작 유지",
+      "sourceLines": [
+        102,
+        107
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F10",
+        "F11",
+        "F18"
+      ],
+      "sectionSha256": "d4b4124004912551a20db28957195e7d04d8073ed6c6ee3acb8eff83c1dc27fb"
+    },
+    {
+      "id": "S013",
+      "heading": "확정: 화면 밖 대상도 변경된 자원을 즉시 갱신",
+      "sourceLines": [
+        108,
+        119
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F05",
+        "F06",
+        "F22"
+      ],
+      "sectionSha256": "d695d17914e275b24f884dbdd1a739b90c25db0c25d83a4b674fe2b5374b7af5"
+    },
+    {
+      "id": "S014",
+      "heading": "보류: 최종 렌더 객체의 배치 갱신",
+      "sourceLines": [
+        120,
+        144
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F05",
+        "F06",
+        "F22"
+      ],
+      "sectionSha256": "839923a238adfc9b158a27701f454afda078b76fee83b2cec9e394fa5f591a42"
+    },
+    {
+      "id": "S015",
+      "heading": "관련 근거",
+      "sourceLines": [
+        145,
+        153
+      ],
+      "kind": "context",
+      "contractGroups": [
+        "F05",
+        "F06",
+        "F22"
+      ],
+      "sectionSha256": "249e880a0a453d28cb606ffa993c9c62bead92c7dc9364b06164b88ab8ed4c35"
+    },
+    {
+      "id": "S016",
+      "heading": "실험 근거: CustomPainter / 직접 RenderObject / Flame",
+      "sourceLines": [
+        154,
+        164
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F12"
+      ],
+      "sectionSha256": "fd314658cd935209a24062546b0ed5d51380460f488f6d6620e35aafb77f175b"
+    },
+    {
+      "id": "S017",
+      "heading": "확정: Flutter 렌더링 연결에 CustomPainter 사용",
+      "sourceLines": [
+        165,
+        171
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F12"
+      ],
+      "sectionSha256": "2e06db5e12e0240cb00a1a8aff02aaeb33e62e86e14d085f0a7d39f072d1fe78"
+    },
+    {
+      "id": "S018",
+      "heading": "확정: 변경되지 않은 자원 재사용과 필요한 부분만 갱신",
+      "sourceLines": [
+        172,
+        178
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F12"
+      ],
+      "sectionSha256": "bb08903d80bec7f567e71631459d495ed141436976b06111a6f047b9c933826f"
+    },
+    {
+      "id": "S019",
+      "heading": "확정: 선택 상태는 라이브러리가 소유",
+      "sourceLines": [
+        179,
+        185
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "sectionSha256": "99fa8ffcbcec3877ef4314df817d107a3b1070babd1d642688fceea3a571750a"
+    },
+    {
+      "id": "S020",
+      "heading": "확정: 앱이 지정한 조건으로 선택 및 객체 입력 이벤트 대상을 필터",
+      "sourceLines": [
+        186,
+        194
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "sectionSha256": "9c291a21e7e09a19db1aeee6780869e09608e06bd175c2ebda818af4caeaeee9"
+    },
+    {
+      "id": "S021",
+      "heading": "확정: 필터 제외 객체를 건너뛰고 뒤의 허용 입력 대상 탐색",
+      "sourceLines": [
+        195,
+        201
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "sectionSha256": "90b7e717e8ed1b54022fb9edbfb86a81643f3f54f58b97b6a23c415db9090d6c"
+    },
+    {
+      "id": "S022",
+      "heading": "확정: 앱의 직접 선택은 입력 대상 필터와 별개로 허용",
+      "sourceLines": [
+        202,
+        208
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "sectionSha256": "8e9f14ec410fb6e6c65c73b22d167c1d2cd43afa4fef21a3165729880b1a8202"
+    },
+    {
+      "id": "S023",
+      "heading": "확정: 라이브러리 내부 입력 조정 창구 하나",
+      "sourceLines": [
+        209,
+        215
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "sectionSha256": "971ca064f9536e6a8a3d37fee7e6313c009f9b4dd99257a281d5cac34b0d0f4e"
+    },
+    {
+      "id": "S024",
+      "heading": "정정·확정: 입력 인식과 앱의 동작 결정을 분리",
+      "sourceLines": [
+        216,
+        226
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "sectionSha256": "c42b2195cd855398721551fd82d9ecb070f28c754f9f95ee77cb734dbf87bb24"
+    },
+    {
+      "id": "S025",
+      "heading": "재확정: 입력·객체 감지는 라이브러리, 실행 동작은 앱",
+      "sourceLines": [
+        227,
+        233
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "sectionSha256": "635fe9ce0eddc35aaaecb41ec0b46b0f1adaa33acb2c3b28dee8bc4514627ba0"
+    },
+    {
+      "id": "S026",
+      "heading": "확정: 드래그 진행 중 판정 결과를 프레임 단위로 모아 전달",
+      "sourceLines": [
+        234,
+        242
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "sectionSha256": "d0e5fc3ab49f86bdf1b2626ec9f082f2ea67cab65429a4a0513db502164bd880"
+    },
+    {
+      "id": "S027",
+      "heading": "확정: 범위 및 페인트 드래그 결과의 기존 의미 유지",
+      "sourceLines": [
+        243,
+        249
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "sectionSha256": "72f31353dfbb27e589db12b0f505c1f3139cadf9b0bb703e4d9af025317a50f2"
+    },
+    {
+      "id": "S028",
+      "heading": "확정: 정상 종료와 중단을 하나의 end로 전달하고 사유 구분",
+      "sourceLines": [
+        250,
+        258
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "sectionSha256": "d81857e670d0b1317fc20a6e707b8c831c22295b5019c249a00b0f110a3d05ad"
+    },
+    {
+      "id": "S029",
+      "heading": "확정: 기본 드래그는 지도 이동, 앱이 범위형·페인트형으로 전환",
+      "sourceLines": [
+        259,
+        275
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F14",
+        "F15",
+        "F16"
+      ],
+      "sectionSha256": "be7a2816f9b6cc102eedce45d56f5fd1dfd2dea35f2590143dd0deaabde108af"
+    },
+    {
+      "id": "S030",
+      "heading": "실험 근거: 전체 순회 / 균일 격자 / 경계 상자 트리 검색",
+      "sourceLines": [
+        276,
+        290
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F13",
+        "F12"
+      ],
+      "sectionSha256": "3c15c295f9845dd4fafccdfbb34ea31aa34eed4a2743ed55d5c32edbdcd4a990"
+    },
+    {
+      "id": "S031",
+      "heading": "확정: 균일 격자 색인 기본, 전체 도면 범위는 순회",
+      "sourceLines": [
+        291,
+        299
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F13",
+        "F12"
+      ],
+      "sectionSha256": "167533cfe03ea08e2e5f20a857fdb09097c16983cdc91c1df15ebc5750e52fd6"
+    },
+    {
+      "id": "S032",
+      "heading": "확정: 공통 기하 계산부와 명확한 내부 책임 경계",
+      "sourceLines": [
+        300,
+        308
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F13",
+        "F12"
+      ],
+      "sectionSha256": "817a9a66c49776c3f06d4a4e0efa194b2460d353bbf8e273d434bf52e8e9c859"
+    },
+    {
+      "id": "S033",
+      "heading": "실험 근거: 라이브러리 내부 Dart isolate 계산 작업자 (미확정)",
+      "sourceLines": [
+        309,
+        321
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F13",
+        "F12"
+      ],
+      "sectionSha256": "019acada79b76fd6e8b2d7f16fffa46cda394937b3824fb7b18dea6fdf4a0c6d"
+    },
+    {
+      "id": "S034",
+      "heading": "실험 근거: 순수 기하 준비 작업자와 메인 검색/공개 경계 (미확정)",
+      "sourceLines": [
+        322,
+        336
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F13",
+        "F12"
+      ],
+      "sectionSha256": "b34d6c30fd591a23ef607f48372a5e141b1911a4752b83fb858989e92baf7a20"
+    },
+    {
+      "id": "S035",
+      "heading": "확정: 기본 기하 계산과 검색은 메인, 작업자 분리는 보류",
+      "sourceLines": [
+        337,
+        345
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F13",
+        "F12"
+      ],
+      "sectionSha256": "bc9adc26cc199d6c949eeafeaba1feab797fc98ea0571be1a436c2e2ce7a8292"
+    },
+    {
+      "id": "S036",
+      "heading": "정정 및 사용자 범위 명시: item 내부 component는 독립 입력 감지 대상이 아님",
+      "sourceLines": [
+        346,
+        358
+      ],
+      "kind": "context",
+      "contractGroups": [
+        "F13",
+        "F12"
+      ],
+      "sectionSha256": "06530f140ffdccc7816275d157037509d424ac5547bb07192e0989bd2604b37e"
+    },
+    {
+      "id": "S037",
+      "heading": "확정: background 없는 item도 main의 component 교차 판정 유지",
+      "sourceLines": [
+        359,
+        365
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F13",
+        "F12"
+      ],
+      "sectionSha256": "0b778ae21a7d7352532b4f6fa10cc3b974547be88b76dfd80ac054eb87a7ce34"
+    },
+    {
+      "id": "S038",
+      "heading": "확정: 검색 색인의 논리 등록 단위는 item",
+      "sourceLines": [
+        366,
+        372
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F13",
+        "F12"
+      ],
+      "sectionSha256": "7ca7e28a2a1ff290e4917ff1e853306239cae30afd538e2790c9762a2bb56da6"
+    },
+    {
+      "id": "S039",
+      "heading": "실험 근거: 화면 밖 그리기 호출 생략 (채택 미확정)",
+      "sourceLines": [
+        373,
+        389
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F13",
+        "F12"
+      ],
+      "sectionSha256": "5f063f4277ff989d7edf04a702a2d5dcdc15ed826cf5cdcc688b06d076b58138"
+    },
+    {
+      "id": "S040",
+      "heading": "확정: 실제 그리기 범위에 따른 화면 밖 그리기 생략을 기본 정책으로 채택",
+      "sourceLines": [
+        390,
+        398
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F13",
+        "F12"
+      ],
+      "sectionSha256": "d9ef42130ad0edf9464d2fa6d39f270cb3cd6d3ddd7171eb55082d8c243a64ce"
+    },
+    {
+      "id": "S041",
+      "heading": "실험: Paragraph 공유와 숫자 글자 atlas 비교 (2026-10-06)",
+      "sourceLines": [
+        399,
+        413
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "af067a8e4d56519a06f22dcd1f4cae2b36071f1f59927211aab2bb83d49009e5"
+    },
+    {
+      "id": "S042",
+      "heading": "실험: 공유 없는 Flutter 기본 기준선 추가 (2026-10-07)",
+      "sourceLines": [
+        414,
+        429
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "bca1b48d88f9403f2cd57598889340fe6bb5d43979b1f53a05ca23e7e5607b98"
+    },
+    {
+      "id": "S043",
+      "heading": "실험: 숫자 atlas 품질 개선 검토 (2026-10-07)",
+      "sourceLines": [
+        430,
+        445
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "01c350438f4d5e4caa623b2bd4156f778d163b219815c06726caf91a52a868be"
+    },
+    {
+      "id": "S044",
+      "heading": "실험: 보정 atlas 전후 속도 비교 (2026-10-07)",
+      "sourceLines": [
+        446,
+        454
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "1f7cf0ecc49d6359cfeca63e800ab8693a800f68d541866edf5ff1b2c9dc6854"
+    },
+    {
+      "id": "S045",
+      "heading": "결정: 텍스트 화질 보정의 허용 기준 (2026-10-07)",
+      "sourceLines": [
+        455,
+        461
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "9425ebe75502c5e5b6a63ab1f47bffd7a48107d2538e1b8e0bd9811897aef4ef"
+    },
+    {
+      "id": "S046",
+      "heading": "실험: atlas 배율 구간 재사용 (2026-10-07)",
+      "sourceLines": [
+        462,
+        472
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "587b0f4fa4188f7173869d1c8a5aeaa3b41f57ebcd87fd471f80fd4d81071151"
+    },
+    {
+      "id": "S047",
+      "heading": "실험: atlas 저비용 보정 조합 비교 (2026-10-07)",
+      "sourceLines": [
+        473,
+        488
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "ed5ab15ba0e5bb4e095048d670ccf1ae66c027492c2d061440e2d506151b6095"
+    },
+    {
+      "id": "S048",
+      "heading": "결정: 고정 atlas와 필터 보정 (2026-10-07)",
+      "sourceLines": [
+        489,
+        496
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "13848857e5038a801b8532eeea758fed3a0e9795c644b92fb67e9e3c3d44530e"
+    },
+    {
+      "id": "S049",
+      "heading": "결정: 텍스트 렌더링 경로의 내부 자동 선택 (2026-10-07)",
+      "sourceLines": [
+        497,
+        502
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "76721bf7a28ad23a292b3dbf21fa40efdecb247a17339b2ca7f8f334a8cf9a6e"
+    },
+    {
+      "id": "S050",
+      "heading": "결정: 텍스트 자동 선택의 초기 적용 범위 (2026-10-07)",
+      "sourceLines": [
+        503,
+        508
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "16a5fc8b8ed77bc55a9e24f523b786af9d048627b944f16e36b9eb9ad10424e9"
+    },
+    {
+      "id": "S051",
+      "heading": "결정: 텍스트 경로 재평가와 전환 (2026-10-07)",
+      "sourceLines": [
+        509,
+        514
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "e41c87b98d9b27780d0d1ea57542718f02d99b001592fe006567d256a8a4d126"
+    },
+    {
+      "id": "S052",
+      "heading": "결정: 공유 Paragraph의 사용 종료 후 캐시 (2026-10-07)",
+      "sourceLines": [
+        515,
+        520
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "837325f7d21d395082d38abb910c394ae1ea9220b49f6acf18108d623297b9be"
+    },
+    {
+      "id": "S053",
+      "heading": "실험: 고정 6배 atlas와 필터만 적용한 후보 (2026-10-07)",
+      "sourceLines": [
+        521,
+        536
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "640d69b9c67b0dfec426d2c11b9e67eaabcd3aafbc2788e8256d2f5cbc4d9bc1"
+    },
+    {
+      "id": "S054",
+      "heading": "조사: medium 필터의 실기기 출력 차이 원인 (2026-10-07)",
+      "sourceLines": [
+        537,
+        545
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "60769d4e74b0be002e33e4af4170d0165e015c40e28d4855ae4d434e21b13bc7"
+    },
+    {
+      "id": "S055",
+      "heading": "결정: 이후 설계 실험은 Flutter 3.47.6 사용 (2026-10-07)",
+      "sourceLines": [
+        546,
+        556
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "18be16a80d35329d066f2a928d9b6e169e48054c316a89ecf0c06bdc615f78f1"
+    },
+    {
+      "id": "S056",
+      "heading": "실험 기록: 고정6배 — Flutter3.47.6 실기기 (2026-10-07)",
+      "sourceLines": [
+        557,
+        560
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "16b9130a133ee09f8116cccfa5b09c5622bdb1cf834bf3aed60b91fc9304458c"
+    },
+    {
+      "id": "S057",
+      "heading": "실험: 고정 3·6·12배 atlas 내부 선택 (2026-10-08)",
+      "sourceLines": [
+        561,
+        573
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "70e381ec1e54890589b257e0e8cf210ed3d8810937d91583956245eff4530f28"
+    },
+    {
+      "id": "S058",
+      "heading": "결정: 3·6·12배 고정 atlas를 기본 정책으로 채택 (2026-10-08)",
+      "sourceLines": [
+        574,
+        586
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "c6cdabbf0f5f9dfdc570e8d0eed6f57416a79dbf0f8dfc4004ae0e90ca7e5564"
+    },
+    {
+      "id": "S059",
+      "heading": "확인: 텍스트 두 경로와 해상도 정책의 통합 결론 (2026-10-08)",
+      "sourceLines": [
+        587,
+        590
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "3dc553e3e4d9596a587eb0e5b5c88d2503c8cbf7760f3dde88c0732e3be29152"
+    },
+    {
+      "id": "S060",
+      "heading": "논의 개시: atlas의 스타일별 공유 단위 (2026-10-08)",
+      "sourceLines": [
+        591,
+        597
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "3a3ebc622c3ecc9066bf4b99e87a3e4c0f54369b90eac316c77aba94aa5910ba"
+    },
+    {
+      "id": "S061",
+      "heading": "실험: 색상별 이미지와 공통 흰 atlas·색상 배열 공유 (2026-10-08)",
+      "sourceLines": [
+        598,
+        614
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "33a70bd3da4fbcd616aa463006d226ecad4506db6c34aaebfe7ac5858a6f9b2a"
+    },
+    {
+      "id": "S062",
+      "heading": "결정: 공통 흰 atlas와 불변 색상 배열의 가시 항목 연결 (2026-10-08)",
+      "sourceLines": [
+        615,
+        625
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "d50ad1dd31e030198d8cf1064b4df6e2fe174122fc5406dcd9d0c75dfab708ba"
+    },
+    {
+      "id": "S063",
+      "heading": "결정: 글자 모양 기준 atlas 공유와 배치 조건 분리 (2026-10-08)",
+      "sourceLines": [
+        626,
+        634
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "f9274ab7625397ba861eb1a3842fc3a660cbebe142729b39401c7508c22dbd8b"
+    },
+    {
+      "id": "S064",
+      "heading": "결정: 현재 도면 사용 자원 유지와 제한된 미사용 텍스트 캐시 (2026-10-08)",
+      "sourceLines": [
+        635,
+        643
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "42f79b634fab545f92f083f10f0ce249be97978de3c28f1c984d8e6a0ac8e9de"
+    },
+    {
+      "id": "S065",
+      "heading": "실험: 미사용 텍스트 캐시의 용량 기준과 재생성 비용 (2026-10-08)",
+      "sourceLines": [
+        644,
+        660
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "257faa46380b0cb826234b500c101fa84638219594f9dd14f1316b503c42a98c"
+    },
+    {
+      "id": "S066",
+      "heading": "결정: atlas 저장량과 Paragraph 개수·전체 길이의 미사용 캐시 한도 (2026-10-08)",
+      "sourceLines": [
+        661,
+        671
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "9cd64616cb2b8713120c805e504a7759b5017af94b9d27ba60ec4cd1915232cd"
+    },
+    {
+      "id": "S067",
+      "heading": "조사: Flutter 메모리 정리 신호의 전달과 한계 (2026-10-08)",
+      "sourceLines": [
+        672,
+        682
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "aa645250cccda158bd5851501b4c3afe1bbabd6fd64473350deea552012b9108"
+    },
+    {
+      "id": "S068",
+      "heading": "결정: 1차 범위에서 플랫폼 메모리 정리 신호 대응 제외 (2026-10-08)",
+      "sourceLines": [
+        683,
+        689
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21",
+        "F22",
+        "F23"
+      ],
+      "sectionSha256": "078499e5ff00cc1f7749081d701ce7ba378a6773e8945f06b78b988382f587bb"
+    },
+    {
+      "id": "S069",
+      "heading": "실험: 소비 사용 형태의 직접 Canvas / geometry Picture 비교 (2026-10-08)",
+      "sourceLines": [
+        690,
+        704
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "8b1a50efe602e7b523a3c184f1b3b6430192e085ab4769aaae6c080e866faa30"
+    },
+    {
+      "id": "S070",
+      "heading": "결정: 기본 도형 렌더 경로는 직접 Canvas (2026-10-08)",
+      "sourceLines": [
+        705,
+        708
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "de0abb48c468cf8a18a4835cd1041fab51e9719c063d297129282a96ca813a2e"
+    },
+    {
+      "id": "S071",
+      "heading": "다음 논의 입력: 전체 노출의 Canvas 명령 비용 (2026-10-08)",
+      "sourceLines": [
+        709,
+        719
+      ],
+      "kind": "context",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "8f55f7e12da8a7247b5642d9192dc31e34a19a949811511fa682fdbc0365180a"
+    },
+    {
+      "id": "S072",
+      "heading": "실험: 객체별 Canvas 변환 제거 — world 기하 보관 (2026-10-08)",
+      "sourceLines": [
+        720,
+        734
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "fa4c33f9efde89f49da6c959419d394198b74db81df4f42d9fa43c5288c6d978"
+    },
+    {
+      "id": "S073",
+      "heading": "논의 진행 방식: 먼저 프로파일링으로 비용을 확인 (2026-10-08)",
+      "sourceLines": [
+        735,
+        738
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "fa51bd46d3e9f3e4ffb1fcdf6f7d1ed477849683a9df8226a656352aece2511e"
+    },
+    {
+      "id": "S074",
+      "heading": "진단: 직접 Canvas의 실제 CPU 병목 (2026-10-08)",
+      "sourceLines": [
+        739,
+        753
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "2ac6ecd30ba1ce0fea89767edcca177cf7c440be280ef464eda8faff52df545c"
+    },
+    {
+      "id": "S075",
+      "heading": "평가 기준 추가: CPU 사용량 감소를 독립 목표로 취급 (2026-10-08)",
+      "sourceLines": [
+        754,
+        762
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "192f46d965c68c56a17bca2c9cc91b47b0dc02f67dbfd29e17a4a32bc826cbad"
+    },
+    {
+      "id": "S076",
+      "heading": "실험: 반복되는 고정 배경·테두리 이미지 공유, 동적 bar는 Canvas 유지 (2026-10-08)",
+      "sourceLines": [
+        763,
+        781
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "1b93224563deaa00f47ccfb0478773891ad4d0a6f796a59fb1508e4d52c5066d"
+    },
+    {
+      "id": "S077",
+      "heading": "실험: 순서를 유지한 기하 묶음 — Canvas / 배경 이미지 / Vertices (2026-10-08)",
+      "sourceLines": [
+        782,
+        804
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "65cac5e80f6607cda18342862e994389edab3e980732521fd3c1eacf99f013b7"
+    },
+    {
+      "id": "S078",
+      "heading": "정정: 기하 후보 픽셀 FAIL과 실사용 외형의 구분 (2026-10-08)",
+      "sourceLines": [
+        805,
+        813
+      ],
+      "kind": "context",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "a491cd1d4b85f783592240d26f2e23242b281dad27728bc1a069edb92a027a17"
+    },
+    {
+      "id": "S079",
+      "heading": "1만 개 연속 막대 변경 실기기 관찰·프로파일링 (2026-10-08)",
+      "sourceLines": [
+        814,
+        828
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "9310ece4cc11c774b1899125a3ab2a0ecdfe6d5b93959a1ade1b869a2946e97d"
+    },
+    {
+      "id": "S080",
+      "heading": "화면 밖 기하 재생성 지연 비교 실험 (2026-10-12)",
+      "sourceLines": [
+        829,
+        845
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "d14f99bea6465e5bd27316171e347685c3e40383522ca8e2809ba3bdc6069517"
+    },
+    {
+      "id": "S081",
+      "heading": "정적 배경 기하＋Canvas 막대의 확대 이동·연속 갱신 비교 (2026-10-12)",
+      "sourceLines": [
+        846,
+        864
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "6cd5faf69d59edd796d3f0689f3e843dc8e6b40294a2b8f4cd655eadd790abf8"
+    },
+    {
+      "id": "S082",
+      "heading": "확정: 정적 배경·테두리 기하 재사용과 Canvas 막대 분리 (2026-10-12)",
+      "sourceLines": [
+        865,
+        877
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "0c391ba937858e61b63222d9e4a6752bd81d93d273ceada76dfdf02515eb679b"
+    },
+    {
+      "id": "S083",
+      "heading": "정적 기하 묶음 32·100·256개 실기기 비교 (2026-10-12): 기본 크기 미확정",
+      "sourceLines": [
+        878,
+        894
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "4d2ad5ab06e8da0af9d3832f380c7d653c2e176685dc2ca96758feb401ef90f9"
+    },
+    {
+      "id": "S084",
+      "heading": "확정: 정적 기하의 기본 묶음 크기 100개 (2026-10-12)",
+      "sourceLines": [
+        895,
+        905
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "5e86aba11e9c06312e760368bd655e5fc25051daac71320984b58934effefe16"
+    },
+    {
+      "id": "S085",
+      "heading": "100개 정적 기하＋Canvas 막대 메모리 진단 (2026-10-12): 새 정책 미채택",
+      "sourceLines": [
+        906,
+        922
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "2711a8516f022c7067028feb6018f07280ff2140bfea29648c8c933b16639c69"
+    },
+    {
+      "id": "S086",
+      "heading": "공유 모서리 이미지＋단순 사각형 막대 묶음 비교 (2026-10-12): 기본 정책 미확정",
+      "sourceLines": [
+        923,
+        943
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "d4729e92281222f54c5725b48594b61dacce46e325386c4fd93f26e5a5d3fa0d"
+    },
+    {
+      "id": "S087",
+      "heading": "9분할 막대 비교 (2026-10-12): 새 정책 미채택",
+      "sourceLines": [
+        944,
+        964
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "748eaf1830518a3ef4ba5fd1e2f148b0b24ebdeb04a6e5b61244d43a9a206d0f"
+    },
+    {
+      "id": "S088",
+      "heading": "3·9분할 혼용 비교 (2026-10-12): 기본 정책 미채택",
+      "sourceLines": [
+        965,
+        985
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "3aa725f3fde367870c255034379c874211ba8f2cfaea598dbb5005eccef9749d"
+    },
+    {
+      "id": "S089",
+      "heading": "폭별 이미지 공유 4후보 에뮬레이터 비교 (2026-10-12): 기본 정책 미채택",
+      "sourceLines": [
+        986,
+        1002
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "61a59b3d6c6e0cf1587f2120e4a2db357e510078f0cbdfc90862d5771a0a01c2"
+    },
+    {
+      "id": "S090",
+      "heading": "폭별 이미지 공유 4후보 실기기 검증 (2026-10-13): 기본 정책 미채택",
+      "sourceLines": [
+        1003,
+        1019
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "1e216dab7de9958440a0b9f99c42fad1ed377a7e8ed3922ae9f2b7ae24f96eb1"
+    },
+    {
+      "id": "S091",
+      "heading": "여러 빈출 폭 3분할＋나머지 9분할 실기기 비교 (2026-10-13): 조건부 이득, 기본 정책 미채택",
+      "sourceLines": [
+        1020,
+        1040
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F30"
+      ],
+      "sectionSha256": "0290bc7bae0a3f071878fed2baea1d135f59f1ed821848722d852612e41eea77"
+    },
+    {
+      "id": "S092",
+      "heading": "동적 막대 3분할＋9분할 혼용 채택 (2026-10-13)",
+      "sourceLines": [
+        1041,
+        1049
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "c95849b405e72a07e59971d0d3ad67d5aa38941da152d76fa8508a9dc19e8816"
+    },
+    {
+      "id": "S093",
+      "heading": "확정: 초기 최빈 막대 폭을 대표 폭으로 선택하고 도면 교체까지 유지 (2026-10-13)",
+      "sourceLines": [
+        1050,
+        1056
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "def87fdd7dd26c63020a6c78a76c86459dc19e808aed3cd02456eb458ab83591"
+    },
+    {
+      "id": "S094",
+      "heading": "확정: 애니메이션 중 현재 표시 폭으로 3분할·9분할 선택 (2026-10-13)",
+      "sourceLines": [
+        1057,
+        1063
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "1fedbcf8feeb943b680b6131b391fb68196b5a46141d7b931f9287f2e21bb272"
+    },
+    {
+      "id": "S095",
+      "heading": "확정: 막대 분할 이미지의 색·높이 공유와 반경별 구분 (2026-10-13)",
+      "sourceLines": [
+        1064,
+        1070
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "d58539ff9243380ddefddc068e08d8adc32bbc193531c23e4f08374ef130cde7"
+    },
+    {
+      "id": "S096",
+      "heading": "확정: 새 반경은 Canvas로 반영 후 공유 이미지로 전환 (2026-10-13)",
+      "sourceLines": [
+        1071,
+        1079
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "4318e4bcc131fcb403432fccb5b98fac78c11596c914df884bdeb2546028d8b7"
+    },
+    {
+      "id": "S097",
+      "heading": "확정: 막대 공유 이미지의 활성 유지와 제한된 미사용 캐시 (2026-10-13)",
+      "sourceLines": [
+        1080,
+        1086
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "67f986acf0bba2ed1a0a9ec8d838031102cebd277ba6312a65d52822016bccc4"
+    },
+    {
+      "id": "S098",
+      "heading": "막대 미사용 이미지 캐시 한도 비교와 설계 기본값1MiB (2026-10-13)",
+      "sourceLines": [
+        1087,
+        1101
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "9051886163a9fac7f3380c3b9f9a5657415851963e410ef7eb8a7bb2c24792d7"
+    },
+    {
+      "id": "S099",
+      "heading": "사용자 확정: 막대 미사용 캐시 한도1MiB (2026-10-14)",
+      "sourceLines": [
+        1102,
+        1108
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "b941ccd59321ec56688228e0c83479f797aee21b126d771c9db14bdc5c62e673"
+    },
+    {
+      "id": "S100",
+      "heading": "확정: 참조가 사라진 미시작 이미지 준비 요청 제거 (2026-10-14)",
+      "sourceLines": [
+        1109,
+        1117
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "e4c186ddf23b4f92e811a17102d2bbf6ebae454594d19a6e078d38b64643acff"
+    },
+    {
+      "id": "S101",
+      "heading": "공유 막대 이미지 동시 준비1·2·4개 실기기 비교와4개 권고 (2026-10-14)",
+      "sourceLines": [
+        1118,
+        1134
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "e5c43186d0958a548f49324fe558af46a53dcf9c0ccf04cfae55d01c1e2fc9dc"
+    },
+    {
+      "id": "S102",
+      "heading": "사용자 확정: 공유 막대 이미지 동시 준비 최대4개 (2026-10-14)",
+      "sourceLines": [
+        1135,
+        1143
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "c1462276779efc06ab4717f7ea0955139a6bd7b0b65249c60a4cf82650521ebd"
+    },
+    {
+      "id": "S103",
+      "heading": "사용자 확정: 공유 막대 이미지 준비 대기열FIFO (2026-10-14)",
+      "sourceLines": [
+        1144,
+        1152
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "3272914adaeb84c4a75019ad4aabbe4957baa9d3710209ae30a1a10c522d9b25"
+    },
+    {
+      "id": "S104",
+      "heading": "사용자 확정: 최적화용 막대 이미지 생성 실패의 도면 내 재시도 억제 (2026-10-14)",
+      "sourceLines": [
+        1153,
+        1161
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "c2864cd83b1ef04e7d2290573ec28d2a6ff6671874c5ad458dffebf73cdf9af3"
+    },
+    {
+      "id": "S105",
+      "heading": "사용자 확정: 비활성 중 최적화용 막대 이미지 준비 대기열 중지 (2026-10-14)",
+      "sourceLines": [
+        1162,
+        1170
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F19",
+        "F20"
+      ],
+      "sectionSha256": "14b061db98335caf7b3cbede8631084d6636cba17d64313272260399669035ef"
+    },
+    {
+      "id": "S106",
+      "heading": "사용자 확정: 연결 해제된 컨트롤러를 새 지도 위젯에 재연결 허용 (2026-10-14)",
+      "sourceLines": [
+        1171,
+        1179
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F10",
+        "F15"
+      ],
+      "sectionSha256": "ba2a35edd2587f576e8e248f66604abde5ddad4fbba5aaffe0f5de4a035667d2"
+    },
+    {
+      "id": "S107",
+      "heading": "사용자 확정: 드래그 종료는 별도 최종move없이end한번 전달 (2026-10-14)",
+      "sourceLines": [
+        1180,
+        1188
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F10",
+        "F15"
+      ],
+      "sectionSha256": "37d2f530cbc74e3fc0621a2e1588d8e75f739b2daddb22d2c21cca64456d9380"
+    },
+    {
+      "id": "S108",
+      "heading": "사용자 확정: 대체 여부와 일부 실패 정보를 함께 반환 (2026-10-14)",
+      "sourceLines": [
+        1189,
+        1197
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F03",
+        "F06",
+        "F07",
+        "F12",
+        "F15"
+      ],
+      "sectionSha256": "1fe39f5dc9329670a78cee1f9d380293c47c9cbfaf71ea9c924966473bf94c27"
+    },
+    {
+      "id": "S109",
+      "heading": "사용자 확정: 활성 지도의 무변경 갱신은 추가 프레임 없이 완료 (2026-10-14)",
+      "sourceLines": [
+        1198,
+        1206
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F03",
+        "F06",
+        "F07",
+        "F12",
+        "F15"
+      ],
+      "sectionSha256": "60e08baa118880dd8d370e4555435747e31cac308cec7320b1c5fc8180926e62"
+    },
+    {
+      "id": "S110",
+      "heading": "사용자 확정: 도면 교체·위젯 제거의 미완료 갱신은 이유를 담아 중단 종료 (2026-10-14)",
+      "sourceLines": [
+        1207,
+        1215
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F03",
+        "F06",
+        "F07",
+        "F12",
+        "F15"
+      ],
+      "sectionSha256": "3b03c1b5de2cf9de7cb766f383189f0cf3d912aee9f4d7da4db6a29a65dead2a"
+    },
+    {
+      "id": "S111",
+      "heading": "사용자 확정: 위젯 영구 제거의 드래그 종료 콜백 예외 (2026-10-14)",
+      "sourceLines": [
+        1216,
+        1224
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F03",
+        "F06",
+        "F07",
+        "F12",
+        "F15"
+      ],
+      "sectionSha256": "60ad59930d790ed0134fd8c62d681b6ed0a80b28f47ba95f720bfacd2456288d"
+    },
+    {
+      "id": "S112",
+      "heading": "사용자 확정: 외부 도면·표시값 입력과 내부 소유값 분리 (2026-10-14)",
+      "sourceLines": [
+        1225,
+        1233
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F03",
+        "F06",
+        "F07",
+        "F12",
+        "F15"
+      ],
+      "sectionSha256": "61e97fd6c0254d4d51a35d3b493c9e1c40e51829a73be53e4512461bf18542f4"
+    },
+    {
+      "id": "S113",
+      "heading": "사용자 확정: 지도 인스턴스마다 프레임 조정 창구 하나 (2026-10-14)",
+      "sourceLines": [
+        1234,
+        1242
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F03",
+        "F06",
+        "F07",
+        "F12",
+        "F15"
+      ],
+      "sectionSha256": "bd676106ecf697c1c7dbc1a3db4d8bd50be12225763b7dc5601c30e07398f414"
+    },
+    {
+      "id": "S114",
+      "heading": "사용자 확정: 전체 표시 불가 오류는 중지 후 앱의 교체 요청으로 재시도 (2026-10-14)",
+      "sourceLines": [
+        1243,
+        1251
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F08",
+        "F09",
+        "F18"
+      ],
+      "sectionSha256": "35c6da7c30efb93e0d8a3a90cde7bf8f3a157096301d2132219499125b7c1956"
+    },
+    {
+      "id": "S115",
+      "heading": "미확정 확인사항: bar 애니메이션 진행 곡선 (2026-10-14)",
+      "sourceLines": [
+        1252,
+        1258
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F08",
+        "F09",
+        "F18"
+      ],
+      "sectionSha256": "c71a40c0c2fc7fa5aa51d25b3973e4c0e5b95dba3e7b9f412629719788c4c6d2"
+    },
+    {
+      "id": "S116",
+      "heading": "사용자 확정: 막대 애니메이션은 3차 ease-in-out으로 통일 (2026-10-14)",
+      "sourceLines": [
+        1259,
+        1265
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F08",
+        "F09",
+        "F18"
+      ],
+      "sectionSha256": "85039a07df011b07ff5a2648cc6e4a89e4bf34905e011ddb2ab351dfdb072e3c"
+    },
+    {
+      "id": "S117",
+      "heading": "사용자 확정: 전체 도면 교체는 입력 검증 통과 후 시작 (2026-10-14)",
+      "sourceLines": [
+        1266,
+        1272
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F08",
+        "F09",
+        "F18"
+      ],
+      "sectionSha256": "8e7fe5f8e7407b48e8e9eb89602b6f57115bd7c7d5f4f0b82e34a28503408aff"
+    },
+    {
+      "id": "S118",
+      "heading": "사용자 확정: 준비 중 새 유효 도면은 이전 준비를 대체 (2026-10-14)",
+      "sourceLines": [
+        1273,
+        1281
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F08",
+        "F09",
+        "F18"
+      ],
+      "sectionSha256": "c52c82b4502e25a8d643067acd70708bab3848fe35757e66ed1621aa96c7f43c"
+    },
+    {
+      "id": "S119",
+      "heading": "사용자 확정: 첫 화면 표시값 묶음의 접수 경계 (2026-10-14)",
+      "sourceLines": [
+        1282,
+        1290
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F08",
+        "F09",
+        "F18"
+      ],
+      "sectionSha256": "f001e592302f77a583728e44692cf125a6ad77cc190317b9459950bf72955c1b"
+    },
+    {
+      "id": "S120",
+      "heading": "사용자 확정: 도면 입력은 기존 JSON 구조의 List·Map (2026-10-14)",
+      "sourceLines": [
+        1291,
+        1297
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F02",
+        "F03",
+        "F07",
+        "F16"
+      ],
+      "sectionSha256": "0ef49afb83d5084138bdb4e18655ebcbc8f95b8d9cf2590f6acb0ae11d592466"
+    },
+    {
+      "id": "S121",
+      "heading": "사용자 확정: 요청별 Future와 상태·이미지 실패 알림 분리 (2026-10-14)",
+      "sourceLines": [
+        1298,
+        1306
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F02",
+        "F03",
+        "F07",
+        "F16"
+      ],
+      "sectionSha256": "da47d7fef50d0126930378e08d0ce8929aac1fa40f8d82d276cfaf8851a3da71"
+    },
+    {
+      "id": "S122",
+      "heading": "사용자 확정: 예상 가능한 처리 결과는 구조화된 결과로 반환 (2026-10-14)",
+      "sourceLines": [
+        1307,
+        1315
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F02",
+        "F03",
+        "F07",
+        "F16"
+      ],
+      "sectionSha256": "4e1384e2ae14c7076d6dc5167e2044ca87ba4c0fc01c9799c614c0c77522a464"
+    },
+    {
+      "id": "S123",
+      "heading": "사용자 확정: 앱 알림 콜백 예외는 처리 흐름과 분리 (2026-10-14)",
+      "sourceLines": [
+        1316,
+        1322
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F02",
+        "F03",
+        "F07",
+        "F16"
+      ],
+      "sectionSha256": "fae36ae7a2d346d0234bf7ec65a2ef4b3276ed9153f15c8b4ec7f13a6de0133f"
+    },
+    {
+      "id": "S124",
+      "heading": "사용자 확정: 객체 필터 예외는 해당 대상만 이번 감지에서 제외 (2026-10-14)",
+      "sourceLines": [
+        1323,
+        1329
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F02",
+        "F03",
+        "F07",
+        "F16"
+      ],
+      "sectionSha256": "ad52fde41b5cda591d6fa175add3341dfb89d2059b2113950fb5470d72242a89"
+    },
+    {
+      "id": "S125",
+      "heading": "사용자 확정: 알림 콜백 안의 교체·갱신은 접수 후 콜백 종료 뒤 처리 (2026-10-14)",
+      "sourceLines": [
+        1330,
+        1338
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F02",
+        "F03",
+        "F07",
+        "F16"
+      ],
+      "sectionSha256": "88770fd17b9aa84cbb79a1040eb07737bf2cb176bb0e90c24a1c14f5ecfd4249"
+    },
+    {
+      "id": "S126",
+      "heading": "사용자 확정: 대상 주소는 id·선택적 componentId의 불변 Dart 타입 (2026-10-14)",
+      "sourceLines": [
+        1339,
+        1347
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F02",
+        "F03",
+        "F07",
+        "F16"
+      ],
+      "sectionSha256": "0d3cb77820e10958dbeda9c3b843149deb0f2cfb824d4021f2b1e8dc69f5b714"
+    },
+    {
+      "id": "S127",
+      "heading": "사용자 확정: 이벤트·필터는 주소와 읽기전용 item 자료 제공 (2026-10-14)",
+      "sourceLines": [
+        1348,
+        1356
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F02",
+        "F03",
+        "F07",
+        "F16"
+      ],
+      "sectionSha256": "25b6d6310ad873dbdc7c03c68f1e15df2a99cfcaea2dc2161a149c7ad0f71f77"
+    },
+    {
+      "id": "S128",
+      "heading": "사용자 확정: 이벤트에 도면·위젯 내부·앱 화면 좌표 제공 (2026-10-14)",
+      "sourceLines": [
+        1357,
+        1365
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F17",
+        "F30"
+      ],
+      "sectionSha256": "8daf650dee7bb59e0844dc2d68dc8585b811c745548dcb33ee2d75034938a6a1"
+    },
+    {
+      "id": "S129",
+      "heading": "사용자 확정: 지도 위젯 크기 변경은 중앙 위치·배율·회전 유지 (2026-10-14)",
+      "sourceLines": [
+        1366,
+        1374
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F17",
+        "F30"
+      ],
+      "sectionSha256": "23111e07945dac96661a644f8441dbb2f6231b00757d6c8ba5c1bc8b81e2eb3c"
+    },
+    {
+      "id": "S130",
+      "heading": "사용자 확정: WebView 최종 성능 기준은 사용 상황별 평가 (2026-10-14)",
+      "sourceLines": [
+        1375,
+        1383
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F17",
+        "F30"
+      ],
+      "sectionSha256": "41c28107f62d156b6d099b176b62664086620c5fd41533b42c5b12cc6b015fb1"
+    },
+    {
+      "id": "S131",
+      "heading": "사용자 확정: focus·fit 명령 구분 유지 (2026-10-14)",
+      "sourceLines": [
+        1384,
+        1392
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F17",
+        "F30"
+      ],
+      "sectionSha256": "5ecadd910dc426229a4183f7fc8c7137ec6d16a84551487d9e1879e473dbc110"
+    },
+    {
+      "id": "S132",
+      "heading": "사용자 확정: 화면 기준 상하좌우 padding 하나로 통합 (2026-10-14)",
+      "sourceLines": [
+        1393,
+        1401
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F17",
+        "F30"
+      ],
+      "sectionSha256": "b652aeac69b3dee089d7b519ac2f1f5a9c80cce47a6dacc14f03d8bd7e57bd75"
+    },
+    {
+      "id": "S133",
+      "heading": "사용자 확정: 도면 준비 중 focus·fit은 준비 중 결과로 거절 (2026-10-14)",
+      "sourceLines": [
+        1402,
+        1410
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F17",
+        "F30"
+      ],
+      "sectionSha256": "54ac5662f86797422d3b5a84ac0014de6cb5d78355b1966f12c21b442935e20d"
+    },
+    {
+      "id": "S134",
+      "heading": "사용자 확정: focus·fit의 일부 누락 대상은 제외하고 결과로 알림 (2026-10-14)",
+      "sourceLines": [
+        1411,
+        1419
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F17",
+        "F30"
+      ],
+      "sectionSha256": "e153073d4334e07b0b0805fb4aea80c10e0be5afe06ff7cb364e47b597824d6c"
+    },
+    {
+      "id": "S135",
+      "heading": "사용자 확정: 비활성 중 URL 이미지의 새 작업·재시도·추가 준비 보류 (2026-10-14)",
+      "sourceLines": [
+        1420,
+        1428
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F11",
+        "F24",
+        "F26"
+      ],
+      "sectionSha256": "c5607b41952a8f5f9433094dde2469083d1c5172a87289435f0c607d0ae8b9f0"
+    },
+    {
+      "id": "S136",
+      "heading": "사용자 확정: 이미지 재시도 대기는 비활성 경과 시간 포함 (2026-10-14)",
+      "sourceLines": [
+        1429,
+        1437
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F11",
+        "F24",
+        "F26"
+      ],
+      "sectionSha256": "c2b4af66b259c613f5577a782e3d69f3bada83b983b19258b1d67bd7c92a55d0"
+    },
+    {
+      "id": "S137",
+      "heading": "사용자 확정: SVG는 기존 파서의 결과와 자원을 공유 (2026-10-14)",
+      "sourceLines": [
+        1438,
+        1446
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F11",
+        "F24",
+        "F26"
+      ],
+      "sectionSha256": "7eac9fdcda84ec2d366143b97593ff1da226b3c19b4e68a03e18d65b94d6022e"
+    },
+    {
+      "id": "S138",
+      "heading": "실험 기록: SVG 벡터·이미지 공유 실기기 비교 완료, 표현 정책 확정 전 (2026-10-14)",
+      "sourceLines": [
+        1447,
+        1457
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F11",
+        "F24",
+        "F26"
+      ],
+      "sectionSha256": "f4188a7b2760a8f52b0a834df2c965e1c7494c90998407f5dbac2efdb923ecfa"
+    },
+    {
+      "id": "S139",
+      "heading": "사용자 확정: 반복 SVG는 이미지 공유, 후속 실험 앱은 현재 선택 구조로 축소 (2026-10-14)",
+      "sourceLines": [
+        1458,
+        1464
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F11",
+        "F24",
+        "F26"
+      ],
+      "sectionSha256": "61d1197d685bbe33200be4a9a30a2bddd11a409f0998e2227f4de98cf66ebf62"
+    },
+    {
+      "id": "S140",
+      "heading": "사용자 확정: SVG는 고정 해상도 단계 중 화면 픽셀 수요에 맞는 최소 단계 선택 (2026-10-14)",
+      "sourceLines": [
+        1465,
+        1469
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F11",
+        "F24",
+        "F26"
+      ],
+      "sectionSha256": "a8c44b74c9e7aa52f1889323f367d8b48a5e68917721b4f75e51d305d8af43e5"
+    },
+    {
+      "id": "S141",
+      "heading": "사실 정정: 소비 SVG의 실제 프레임 크기와 해상도 구분 (2026-10-14)",
+      "sourceLines": [
+        1470,
+        1476
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F11",
+        "F24",
+        "F26"
+      ],
+      "sectionSha256": "e0be490bdde019b2fa2dc94a51a9a73dc1503cbc4b78c5bf9685c81c6ea34e9d"
+    },
+    {
+      "id": "S142",
+      "heading": "사용자 요청 및 SVG 해상도 비교 실험 결과 (2026-10-14)",
+      "sourceLines": [
+        1477,
+        1487
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F11",
+        "F24",
+        "F26"
+      ],
+      "sectionSha256": "36a876a90febf932e000a26e9472f0130bc6642e8f869f0f70dacbe7cf62621b"
+    },
+    {
+      "id": "S143",
+      "heading": "사용자 확정: SVG 4단계 해상도와 16개 반복 기준의 내부 자동 선택 (2026-10-14)",
+      "sourceLines": [
+        1488,
+        1496
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F11",
+        "F24",
+        "F26"
+      ],
+      "sectionSha256": "5c0b8562fde8114d15a086e87d86c0dd82ce0ba1f277d7ed90eb9c9350da5833"
+    },
+    {
+      "id": "S144",
+      "heading": "사용자 확정: 막대·SVG 최적화 이미지의 총량 예약과 기본 경로 유지 (2026-10-15)",
+      "sourceLines": [
+        1497,
+        1505
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F24",
+        "F25"
+      ],
+      "sectionSha256": "9bd0ec3728a8d6fb03885bf87fab571b11d917f9037aa6812a04cfbd6026c7f6"
+    },
+    {
+      "id": "S145",
+      "heading": "실기기 비교에 따른 기본값 선정: 막대·SVG 이미지 합산 2MiB (2026-10-15)",
+      "sourceLines": [
+        1506,
+        1522
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F24",
+        "F25"
+      ],
+      "sectionSha256": "66e49ad13ed0c337efcc9b74aea69e0a29db6292eea806810ed49d2a20f9c389"
+    },
+    {
+      "id": "S146",
+      "heading": "SVG 동적 해상도·이미지/벡터 전환 실기기 검증 완료 (2026-10-15)",
+      "sourceLines": [
+        1523,
+        1535
+      ],
+      "kind": "context",
+      "contractGroups": [
+        "F24",
+        "F25"
+      ],
+      "sectionSha256": "5181b38319e53f2f3f19644bd0b5506e6f7ea03d023ec39515e7ce8f9eed354b"
+    },
+    {
+      "id": "S147",
+      "heading": "검토 권고: 경계 재생성은 필수 최적화보다 스트레스 한계로 보존 (2026-10-15)",
+      "sourceLines": [
+        1536,
+        1542
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F24",
+        "F25"
+      ],
+      "sectionSha256": "a1df314cd19815074479a08a5b9bbcc97fc28e37b601cabd5e2c1bafde157413"
+    },
+    {
+      "id": "S148",
+      "heading": "사용자 확정: 1차는 기존 SVG 혼합 유지, 경계 재생성 보정 제외 (2026-10-15)",
+      "sourceLines": [
+        1543,
+        1551
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F24",
+        "F25"
+      ],
+      "sectionSha256": "35e9b9e5d949b79feee030b11f54801e5275ba5b79299ead38603224632cf256"
+    },
+    {
+      "id": "S149",
+      "heading": "사용자 확정: SVG 이미지 공유의16개 반복 판정은 전체 도면 기준 (2026-10-15)",
+      "sourceLines": [
+        1552,
+        1558
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F24",
+        "F25"
+      ],
+      "sectionSha256": "ef5c4bc7c832da9f16c74e64ebe93a3f2858742e96fb9449d38f714b7a82b64a"
+    },
+    {
+      "id": "S150",
+      "heading": "사용자 확정: SVG 공유 이미지는 화면에서 필요해질 때 준비 (2026-10-15)",
+      "sourceLines": [
+        1559,
+        1567
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F24",
+        "F25"
+      ],
+      "sectionSha256": "6df465d2e9cefcff4a67fb41eb083221f772e273fa4bb6b1e7f41936c949f96b"
+    },
+    {
+      "id": "S151",
+      "heading": "사용자 확정: 화면에서 필요가 사라진 SVG 이미지 준비 요청 처리 (2026-10-15)",
+      "sourceLines": [
+        1568,
+        1576
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F24",
+        "F25"
+      ],
+      "sectionSha256": "a8477ac76625fa448ca10fd90b71205453765ade0ca71c555a99f0f7d197c129"
+    },
+    {
+      "id": "S152",
+      "heading": "사용자 확정: 예산 부족 SVG의 이미지 준비 재판단 조건 (2026-10-15)",
+      "sourceLines": [
+        1577,
+        1585
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F24",
+        "F25"
+      ],
+      "sectionSha256": "06c3febc30238b3fce349bc23366716979c4b5e188226d78582948e8ca0421c9"
+    },
+    {
+      "id": "S153",
+      "heading": "확정: 텍스트 atlas 활성 총량 제한 도입 보류 (2026-10-15)",
+      "sourceLines": [
+        1586,
+        1602
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F23"
+      ],
+      "sectionSha256": "226488db5dfdd9d3de98e23c261e2861db55e62a7ecd0f5895a2606fef03e228"
+    },
+    {
+      "id": "S154",
+      "heading": "item 경계·돌출·겹침 검사 비교 완료: 공통 구조 유효, 경계 합산 생략의 기본값 확정은 보류 권고 (2026-10-15)",
+      "sourceLines": [
+        1603,
+        1617
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F13",
+        "F19"
+      ],
+      "sectionSha256": "392eb4b53b653beb59a223fca0060cbd0b8965aa0b0feee891b335278a46b495"
+    },
+    {
+      "id": "S155",
+      "heading": "막대 경계 제외 에뮬레이터 비교 완료: 계산 제거 확인, 기존 대비 성능은 미확정 (2026-10-16)",
+      "sourceLines": [
+        1618,
+        1634
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F13",
+        "F19"
+      ],
+      "sectionSha256": "fda6aa7f9d24cb3d66fb339277df192a0ef2db790b77b564c1461d00dac29a9c"
+    },
+    {
+      "id": "S156",
+      "heading": "실기기 비교 완료 및 최종 제안: 내부 막대의 갱신 경계 계산 제외 (2026-10-16)",
+      "sourceLines": [
+        1635,
+        1653
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F13",
+        "F19"
+      ],
+      "sectionSha256": "7db80384d3745ce407b8a8dbaafc1ba275d7bb2c90b7d8c17aa0f8788c06165b"
+    },
+    {
+      "id": "S157",
+      "heading": "사용자 확정: 막대 경계 제외, 텍스트·SVG 경계와 겹침 검사 유지 (2026-10-16)",
+      "sourceLines": [
+        1654,
+        1663
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F13",
+        "F19"
+      ],
+      "sectionSha256": "3ccf5b34116e87b5314a01e5398322cdf80fc9887eb0d7899df37d3f406d2c5c"
+    },
+    {
+      "id": "S158",
+      "heading": "다음 논의 제안: 숫자 atlas 적격성을 문자 목록에서 숫자 형식으로 구체화 (2026-10-16)",
+      "sourceLines": [
+        1664,
+        1670
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F21"
+      ],
+      "sectionSha256": "5fd66cf218798c7aefa8d9a9d1ad64e3099df9ab870a5652034865ac07c82b62"
+    },
+    {
+      "id": "S159",
+      "heading": "사용자 확정: 검증된 숫자 형식만 atlas, 나머지는 공유 Paragraph (2026-10-16)",
+      "sourceLines": [
+        1671,
+        1676
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F21"
+      ],
+      "sectionSha256": "3441c29530af60a0151fc2b5ed485d510831e877d926ba9f3ff6cb8ec9e44c9c"
+    },
+    {
+      "id": "S160",
+      "heading": "다음 논의 제안: 초기화 요청을 보존하는 대기 요청 병합 (2026-10-16)",
+      "sourceLines": [
+        1677,
+        1685
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F05"
+      ],
+      "sectionSha256": "f04f47798889297dea6bee43d1770ebd863bd842e5fc85c2c217af4f0892a9d7"
+    },
+    {
+      "id": "S161",
+      "heading": "사용자 확정: 초기화 표식과 이후 필드별 최신 변경의 대기 병합 (2026-10-16)",
+      "sourceLines": [
+        1686,
+        1693
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F05"
+      ],
+      "sectionSha256": "8828fbe44369193da3a2d12393c4a7c39f7efb8f4412d41f32a9fec5f77994a5"
+    },
+    {
+      "id": "S162",
+      "heading": "다음 논의 제안: 갱신 완료를 해당 변경의 프레임 제출 확인으로 정의 (2026-10-16)",
+      "sourceLines": [
+        1694,
+        1702
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F07"
+      ],
+      "sectionSha256": "3ea1c2eaa2f32405c8579ab9bc6eab8ea80627eb3dc51e0f6be052e83d21c024"
+    },
+    {
+      "id": "S163",
+      "heading": "사용자 확정: 해당 변경의 Flutter 엔진 제출 확인을 갱신 완료로 정의 (2026-10-16)",
+      "sourceLines": [
+        1703,
+        1710
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F07"
+      ],
+      "sectionSha256": "9acd193a4784daa9f64a216f461bbe318ffc3362c7cb98fde3c7a3bf7524582e"
+    },
+    {
+      "id": "S164",
+      "heading": "다음 논의 제안: 콜백 안 교체 직후 갱신의 기준 도면 (2026-10-16)",
+      "sourceLines": [
+        1711,
+        1719
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F08",
+        "F16"
+      ],
+      "sectionSha256": "6c4ef14ee40cf2e7e57e84d33a7e87bf2d506917bd23f321c4875d25057c4f93"
+    },
+    {
+      "id": "S165",
+      "heading": "사용자 확정: 유효한 교체 접수 이후 갱신은 새 도면 기준 (2026-10-16)",
+      "sourceLines": [
+        1720,
+        1727
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F08",
+        "F16"
+      ],
+      "sectionSha256": "1408c3c49f9f13a5ed47e0b6fc53020b38dd6f0fc0575af14678c12e7cc8812d"
+    },
+    {
+      "id": "S166",
+      "heading": "다음 논의 제안: 객체 필터는 판단 전용으로 두고 지도 변경 명령은 알림 콜백에서 수행 (2026-10-16)",
+      "sourceLines": [
+        1728,
+        1738
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F16"
+      ],
+      "sectionSha256": "efff1bd298d84a767fa9b5053fa3f2c7cec6c0651b92a9780203c95f8aee1fed"
+    },
+    {
+      "id": "S167",
+      "heading": "사용자 확정: 객체 필터는 판단 전용, 지도 변경은 결과 콜백에서 수행 (2026-10-16)",
+      "sourceLines": [
+        1739,
+        1746
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F16"
+      ],
+      "sectionSha256": "aa67357919b58f85f71d6dd337aa0e73459af5902cd95722d1dd9d7b9816a238"
+    },
+    {
+      "id": "S168",
+      "heading": "다음 논의 제안: 많은 격자 칸을 차지하는 item은 별도 후보 목록에 보관 (2026-10-16)",
+      "sourceLines": [
+        1747,
+        1755
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F13"
+      ],
+      "sectionSha256": "09c09c6b1626d6b3a11434a6718cb45a86600813722c3a724e629789c107512d"
+    },
+    {
+      "id": "S169",
+      "heading": "사용자 확정: 큰 item의 별도 후보 목록, 등록 한도는 비교 실험으로 결정 (2026-10-16)",
+      "sourceLines": [
+        1756,
+        1761
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F13"
+      ],
+      "sectionSha256": "eef29e28697f713d5c754a12cd84e3f87f912fd0c271fac1876b8d5e0b0d559a"
+    },
+    {
+      "id": "S170",
+      "heading": "다음 논의 제안: 넓은 부분 검색에서도 전체 순회로 전환 (2026-10-16)",
+      "sourceLines": [
+        1762,
+        1770
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F13"
+      ],
+      "sectionSha256": "7460e665c1a54dac66eb0289010780012f8aa4918138fe1ae41d9b7a7372fd88"
+    },
+    {
+      "id": "S171",
+      "heading": "사용자 확정: 넓은 부분 검색도 전체 순회 전환, 두 한도 실기기 비교 (2026-10-16)",
+      "sourceLines": [
+        1771,
+        1775
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F13"
+      ],
+      "sectionSha256": "ae6c9aad0fe4d11b53bd60e3a79fd3bea4487b90f5e732185882b50ddd3f8251"
+    },
+    {
+      "id": "S172",
+      "heading": "위임받은 실기기 비교 완료: 등록 16칸·넓은 검색 1/4 전환 기본값 선정 (2026-10-16)",
+      "sourceLines": [
+        1776,
+        1792
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F13"
+      ],
+      "sectionSha256": "a3f1840e60914e832a7c90de4f5447b51aae5ed0bc806cbc0a6239645150165c"
+    },
+    {
+      "id": "S173",
+      "heading": "사용자 확정: 검색 등록 한도 16칸·넓은 검색 1/4 전환 (2026-10-16)",
+      "sourceLines": [
+        1793,
+        1796
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F13"
+      ],
+      "sectionSha256": "ee1d689a55474a2af78b7320501c869d57008b182a759ae3109f9bc8c9d47d24"
+    },
+    {
+      "id": "S174",
+      "heading": "다음 논의 제안: URL 이미지 통신 시도별 대기 한도 (2026-10-16)",
+      "sourceLines": [
+        1797,
+        1806
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F26"
+      ],
+      "sectionSha256": "debe31a4f000b2025b0372b41dd1c6df062d3a85d4bc4a39b86c6ebc3426b999"
+    },
+    {
+      "id": "S175",
+      "heading": "사용자 확정: URL 이미지의 통신 시도마다 제한시간 적용 (2026-10-16)",
+      "sourceLines": [
+        1807,
+        1810
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F26"
+      ],
+      "sectionSha256": "e3f1fb1c1cea17e627369df661af5587f45482039bf8e4aabe162c0ce2bade1e"
+    },
+    {
+      "id": "S176",
+      "heading": "수치 제안: 통신 시도당 10초 (2026-10-16)",
+      "sourceLines": [
+        1811,
+        1818
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F26"
+      ],
+      "sectionSha256": "cf7d3613e76a13a05ad5f529b9d84969c42be20c42e298037153946835de9032"
+    },
+    {
+      "id": "S177",
+      "heading": "사용자 확정: URL 이미지 통신 시도당 20초 (2026-10-16)",
+      "sourceLines": [
+        1819,
+        1824
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F26"
+      ],
+      "sectionSha256": "5c78281ff4806529ba749de9b47247826ceae6727a5dfa47a30a8ebf1675d976"
+    },
+    {
+      "id": "S178",
+      "heading": "다음 논의 제안: 통신 제한시간에도 비활성 경과 시간 포함 (2026-10-16)",
+      "sourceLines": [
+        1825,
+        1834
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F26"
+      ],
+      "sectionSha256": "15822875eeeb2e15cb258a28268ee6483155c1145bc2811b018e520c4382dc7d"
+    },
+    {
+      "id": "S179",
+      "heading": "사용자 확정: 통신 제한시간 20초에 비활성 시간 포함 (2026-10-16)",
+      "sourceLines": [
+        1835,
+        1840
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F26"
+      ],
+      "sectionSha256": "3c735874b5fcea15a9c8852a0615d25c42bfe280be50d664847b2786401ebfcb"
+    },
+    {
+      "id": "S180",
+      "heading": "다음 논의 제안: 공유 후 실제 URL 이미지 다운로드의 동시 실행 상한 (2026-10-16)",
+      "sourceLines": [
+        1841,
+        1851
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "549bd26606ba423fe7fd428b50482da5b62b3b674b28ddfba99b0405555c22dd"
+    },
+    {
+      "id": "S181",
+      "heading": "사용자 확정: URL 이미지 동시 다운로드 상한 구조 및 사용사례 기반 비교 위임 (2026-10-16)",
+      "sourceLines": [
+        1852,
+        1858
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "16aa5d348374366f2f8efb3bce46e7749c6bffff27ff814775464f2dbaaa7af8"
+    },
+    {
+      "id": "S182",
+      "heading": "위임받은 비교 완료: URL 이미지 동시 다운로드 기본 16개 선정 (2026-10-16)",
+      "sourceLines": [
+        1859,
+        1876
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "115d52687fab9235a7ff5b69b3b6a76201338ce4e50be4c0b31442e53fb97809"
+    },
+    {
+      "id": "S183",
+      "heading": "사용자 확정: URL 이미지 동시 다운로드 16개 (2026-10-16)",
+      "sourceLines": [
+        1877,
+        1882
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "8a6693af9cdac45fd005ccf3abaf1ca81c16af705bd984f15b46b11801522ea1"
+    },
+    {
+      "id": "S184",
+      "heading": "다음 논의 제안: 이미지 원본 바이트 한도를 수신 중 적용 (2026-10-16)",
+      "sourceLines": [
+        1883,
+        1890
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "a6991243af075eef07d963134f2f92ef2ac24c9b134f92ba8420518961abb5d4"
+    },
+    {
+      "id": "S185",
+      "heading": "사용자 확정: 이미지 원본 수신 중 바이트 한도 초과 시 중단 (2026-10-16)",
+      "sourceLines": [
+        1891,
+        1894
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "d9ced16c3a6c76a7f83008fbac8d143b0c3edd6a0071e7d070cb67f6e68da54f"
+    },
+    {
+      "id": "S186",
+      "heading": "수치 제안: 이미지 원본 한 개당 초기 한도 20MiB (2026-10-16)",
+      "sourceLines": [
+        1895,
+        1904
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "ffc8f5be56ece169a54db6a6739d3b31377385824480dcda918e775239bc6523"
+    },
+    {
+      "id": "S187",
+      "heading": "사용자 확정: 개별 이미지 원본 한도 20MiB (2026-10-16)",
+      "sourceLines": [
+        1905,
+        1908
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "6fb159b9119b60a6ed07a4e700a43dfe249b765fee0959dd57295b9dc284ace6"
+    },
+    {
+      "id": "S188",
+      "heading": "다음 논의 제안: 원본 총량은 완료까지의 용량 예약으로 제한, 64MiB를 비교 출발점으로 사용 (2026-10-16)",
+      "sourceLines": [
+        1909,
+        1920
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "34e3f953ffd490348c1ba6eaa07c5a02d1f2f4cfbc1f13053491fd69d37378e9"
+    },
+    {
+      "id": "S189",
+      "heading": "사용자 확정: 지도 위젯 인스턴스당 원본 총량 한도 64MiB (2026-10-16)",
+      "sourceLines": [
+        1921,
+        1926
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "6dc7c22bfefa35ba65aacf83b2fd225a7f933b9f6d2b909bb03b5684bbf32d7a"
+    },
+    {
+      "id": "S190",
+      "heading": "다음 논의 제안: 20MiB 시작 예약과 검증 가능한 응답 길이에 따른 축소 (2026-10-16)",
+      "sourceLines": [
+        1927,
+        1938
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "3276f68725d891a3b3b2b2dc9ff3a2afcbd400b38f4e8d2714296fd00fbcadca"
+    },
+    {
+      "id": "S191",
+      "heading": "사용자 확정: 원본 20MiB 시작 예약 후 확인된 크기로 축소 (2026-10-16)",
+      "sourceLines": [
+        1939,
+        1944
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F27"
+      ],
+      "sectionSha256": "fc424c9acde3f7bcf99383e969f155d045a5ce5e2849f31ceb89fa7cf69ca0e8"
+    },
+    {
+      "id": "S192",
+      "heading": "다음 논의 제안: 래스터 원본의 디코딩 전 축별 크기와 총 픽셀 수 검사 (2026-10-16)",
+      "sourceLines": [
+        1945,
+        1954
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F28"
+      ],
+      "sectionSha256": "6cb8114d2a6d5faab1fbb5ced829127cc04bd3811740896107ae206c707ab0c0"
+    },
+    {
+      "id": "S193",
+      "heading": "사용자 확정: 래스터 디코딩 전 가로·세로와 총 픽셀 수 검사 (2026-10-16)",
+      "sourceLines": [
+        1955,
+        1958
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F28"
+      ],
+      "sectionSha256": "1e7cd4e6e70e13ee71245a5302c6a4f74494790c511c512f586981e5bb8c4d10"
+    },
+    {
+      "id": "S194",
+      "heading": "수치 제안: 래스터 축별 8192px, 전체 16,777,216픽셀 (2026-10-16)",
+      "sourceLines": [
+        1959,
+        1968
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F28"
+      ],
+      "sectionSha256": "a9eedf1a42c4e1e91816ea6f8ef1c887c459a97bd1fdcfd3da3c3463e8d6bb19"
+    },
+    {
+      "id": "S195",
+      "heading": "사용자 확정: 래스터 가로·세로 각각 8192px, 총 16,777,216픽셀 (2026-10-16)",
+      "sourceLines": [
+        1969,
+        1974
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F28"
+      ],
+      "sectionSha256": "35ef9b8ece65d9ba13b4dfc6ce54e810a02c888f274388d8a3b5a8138f845512"
+    },
+    {
+      "id": "S196",
+      "heading": "다음 논의 제안: 래스터 디코딩에 동시 작업 개수와 진행 중 예상 픽셀량 조건 적용 (2026-10-16)",
+      "sourceLines": [
+        1975,
+        1984
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F28"
+      ],
+      "sectionSha256": "5f131093f97de8a48457bda93584687bbeae90ce0033ae693baa9f4bd1e0d3bf"
+    },
+    {
+      "id": "S197",
+      "heading": "사용자 확정: 래스터 디코딩 동시 개수와 진행 중 예상 픽셀 용량의 이중 제한 (2026-10-16)",
+      "sourceLines": [
+        1985,
+        1988
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F28"
+      ],
+      "sectionSha256": "6c232fe71a3925931b0f344a8b49560613e41fcf3a52011c49393ce132fc7b3c"
+    },
+    {
+      "id": "S198",
+      "heading": "수치 제안: 래스터 디코딩 동시 최대 2개, 진행 중 예상 픽셀 용량 128MiB (2026-10-16)",
+      "sourceLines": [
+        1989,
+        2000
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F28"
+      ],
+      "sectionSha256": "d8894412a19d09b2259cb9037ca0368b924f5944c3073af5f0996dd28344a772"
+    },
+    {
+      "id": "S199",
+      "heading": "사용자 확정: 디코딩 동시 최대 2개·진행 중 예상 픽셀량 128MiB·단일 초과 실패 (2026-10-16)",
+      "sourceLines": [
+        2001,
+        2006
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F28"
+      ],
+      "sectionSha256": "ed07a8f1495aa629cd93431dc4511240cdcd96ef8ec3c80f6e03e36632b63c63"
+    },
+    {
+      "id": "S200",
+      "heading": "다음 논의 제안: 래스터 결과 자원의 총량 예약과 부족 시 대상별 실패 (2026-10-16)",
+      "sourceLines": [
+        2007,
+        2018
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F29"
+      ],
+      "sectionSha256": "45cef7d6d28787d37a80a76e9587758caa424d2c90de71bf3595aa32da848330"
+    },
+    {
+      "id": "S201",
+      "heading": "사용자 확정: 래스터 결과 자원의 총량 예약과 부족 시 대상별 실패 (2026-10-16)",
+      "sourceLines": [
+        2019,
+        2024
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F29"
+      ],
+      "sectionSha256": "c1a10aa09d2fc380b0ba559727087bdbec7d98a4c473a02febd215a3ac0ce5c3"
+    },
+    {
+      "id": "S202",
+      "heading": "수치 제안: 래스터 결과 예상 픽셀 총량 256MiB (2026-10-16)",
+      "sourceLines": [
+        2025,
+        2032
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F29"
+      ],
+      "sectionSha256": "3f30cb0c01a8f0b41766a2c8c8ad14a4d81ec768244038efe792e931fd1f7da3"
+    },
+    {
+      "id": "S203",
+      "heading": "사용자 확정: 준비 예약·해제 대기를 포함한 래스터 결과 총량 256MiB (2026-10-16)",
+      "sourceLines": [
+        2033,
+        2038
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F29"
+      ],
+      "sectionSha256": "2eda1f073aa414a3edc31600f44c461c43c9eb2f484f8c36ba446a95f174d0ff"
+    },
+    {
+      "id": "S204",
+      "heading": "다음 논의 제안: 1차 래스터 결과는 마지막 필요 참조 종료 후 안전하게 해제, 별도 미사용 캐시 보류 (2026-10-16)",
+      "sourceLines": [
+        2039,
+        2048
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F29"
+      ],
+      "sectionSha256": "6182066f92af23e68749ad6d431a1f3bc2cd650c9dd21962e86faf5368301ad1"
+    },
+    {
+      "id": "S205",
+      "heading": "사용자 확정: 외부 래스터 결과는 마지막 필요 참조 종료 후 안전하게 해제 (2026-10-16)",
+      "sourceLines": [
+        2049,
+        2054
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F29"
+      ],
+      "sectionSha256": "4d1ea7fd1e3a581f77bc7b767c0cf7571f7474bda838f04968bae5734d717d42"
+    },
+    {
+      "id": "S206",
+      "heading": "다음 논의 제안: 래스터 디코딩 준비 대기열도 등록 순서 FIFO (2026-10-16)",
+      "sourceLines": [
+        2055,
+        2064
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F29"
+      ],
+      "sectionSha256": "8eeb4be6278d1174fae40a13e294c0d2ea5562e13c891640635cbaee708240ef"
+    },
+    {
+      "id": "S207",
+      "heading": "사용자 확정: 래스터 디코딩 준비 대기열 FIFO (2026-10-16)",
+      "sourceLines": [
+        2065,
+        2068
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F29"
+      ],
+      "sectionSha256": "de4246c1896cd31b84d67379903a0e46d5c995af511acfb4ef7c7e4f6a5a8018"
+    },
+    {
+      "id": "S208",
+      "heading": "다음 논의 제안: 원본 64MiB 안에서 20MiB의 임시 바이트 복사 여유 확보 (2026-10-16)",
+      "sourceLines": [
+        2069,
+        2078
+      ],
+      "kind": "proposal-or-open",
+      "contractGroups": [
+        "F27",
+        "F29",
+        "F30"
+      ],
+      "sectionSha256": "10f0291093b7515abe80d265995b95f849c6e4313647a10efa3bb502e4d5aca3"
+    },
+    {
+      "id": "S209",
+      "heading": "사용자 위임: 내부 세부는 자율 판단하고 성능·제품 핵심만 논의 (2026-10-16)",
+      "sourceLines": [
+        2079,
+        2088
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F27",
+        "F29",
+        "F30"
+      ],
+      "sectionSha256": "266ed71a8d8200fdf381d193c362951cf9b3b2e57c68fdf0eacd1397cb215c1d"
+    },
+    {
+      "id": "S210",
+      "heading": "위임에 따른 내부 설계 정리와 남은 핵심 분류 (2026-10-16)",
+      "sourceLines": [
+        2089,
+        2096
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F27",
+        "F29",
+        "F30"
+      ],
+      "sectionSha256": "cb78591acb409255cb4eb01922be11fe9193877dbfadb93ad773fe8b8a383c5b"
+    },
+    {
+      "id": "S211",
+      "heading": "사용자 확정: 지도 PNG 내보내기·item별 스크린리더 지원은 1차 제외 (2026-10-16)",
+      "sourceLines": [
+        2097,
+        2103
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F01"
+      ],
+      "sectionSha256": "49ea911079a675b1a848ffc9f8a99a39e3ea8f6b46faf0c6cfd4b3fbde69fbc4"
+    },
+    {
+      "id": "S212",
+      "heading": "통합 실기기 진단 결과: 전체 입력 준비와 렌더링 병목 (2026-10-16)",
+      "sourceLines": [
+        2104,
+        2120
+      ],
+      "kind": "evidence-or-assessment",
+      "contractGroups": [
+        "F30"
+      ],
+      "sectionSha256": "fc85c9eb28e5a90ca6ac273dc4a8b352c8b9f7eb05bd13001f35d21a03c4b0e0"
+    },
+    {
+      "id": "S213",
+      "heading": "사용자 확정: 숫자 준비 비용 개선 (2026-10-16)",
+      "sourceLines": [
+        2121,
+        2133
+      ],
+      "kind": "decision-record",
+      "contractGroups": [
+        "F22"
+      ],
+      "sectionSha256": "a6635ee79ff978f861a54d306f845e3cf8dd86a74f663d258c241bb6698d5ba5"
+    }
+  ]
+}

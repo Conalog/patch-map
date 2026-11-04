@@ -4,8 +4,8 @@ Private repository workspace for independently released JavaScript and Flutter p
 
 | Owner | Package | Status |
 | --- | --- | --- |
-| `packages/javascript/` | `@conalog/patch-map` | JavaScript renderer, 1.0.0-alpha.9 |
-| `packages/flutter/` | `conalog_patch_map` | Native foundation, 1.0.0-alpha.1; publication blocked |
+| `packages/javascript/` | `@conalog/patch-map` | JavaScript renderer; version in its [manifest](packages/javascript/package.json) |
+| `packages/flutter/` | `conalog_patch_map` | Native runtime implemented; [qualification incomplete](docs/engineering/flutter-runtime/coverage.md), publication blocked |
 | `verification/` | `@patch-map/verification` | Private shared tooling |
 | `conformance/` | Shared behavior targets | Definitions; Flutter runtime witnesses pending |
 
