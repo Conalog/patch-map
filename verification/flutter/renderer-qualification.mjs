@@ -24,11 +24,15 @@ const producers = [
 ];
 
 // The host uses its checked-in lock, independent of the library's unlocked resolution.
-export async function rendererSourceFingerprint(root, platform) {
+async function rendererSourceInputs(root, platform) {
   const { files } = await snapshotNativeSources(root, platform);
   delete files['packages/flutter/pubspec.lock'];
   const producerHashes = await Promise.all(producers.map(async (path) => [path, hash(await readFile(resolve(root, path)))]));
-  return hash(JSON.stringify({ files, producers: producerHashes }));
+  return { files, producers: producerHashes };
+}
+
+export async function rendererSourceFingerprint(root, platform) {
+  return hash(JSON.stringify(await rendererSourceInputs(root, platform)));
 }
 
 function checkedTests(events) {
@@ -101,7 +105,8 @@ async function main() {
     throw new Error('Renderer tests do not resolve the release package');
   }
   await verifyPackageInputs();
-  const sourceFingerprint = await rendererSourceFingerprint(root, platform);
+  const inputsBefore = await rendererSourceInputs(root, platform);
+  const sourceFingerprint = hash(JSON.stringify(inputsBefore));
   console.log(`Starting the ${platform} renderer tests`);
   const result = await new Promise((resolve) => {
     const args = ['test', '--no-pub', '--machine', '-d', deviceId, `--dart-define=PATCH_MAP_RELEASE_PLATFORM=${platform}`, nativeTest];
@@ -133,7 +138,15 @@ async function main() {
     }
   }
   await verifyPackageInputs();
-  if (await rendererSourceFingerprint(root, platform) !== sourceFingerprint) throw new Error(`${platform}: source inputs changed during verification`);
+  const inputsAfter = await rendererSourceInputs(root, platform);
+  if (hash(JSON.stringify(inputsAfter)) !== sourceFingerprint) {
+    const before = { ...inputsBefore.files, ...Object.fromEntries(inputsBefore.producers) };
+    const after = { ...inputsAfter.files, ...Object.fromEntries(inputsAfter.producers) };
+    const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])]
+      .filter((path) => before[path] !== after[path])
+      .map((path) => `${!before[path] ? 'added' : !after[path] ? 'removed' : 'modified'}: ${path}`);
+    throw new Error(`${platform}: source inputs changed during verification\n${changed.join('\n')}`);
+  }
   const receipt = { sourceFingerprint, artifactSha256, toolchain, device: { targetPlatform: device.targetPlatform, sdk: device.sdk, emulator: device.emulator }, events, reportSha256: hash(`${result.stdout}\n${result.stderr}`) };
   verifyRendererRun(receipt, { platform, sourceFingerprint, artifactSha256, toolchains });
   await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
