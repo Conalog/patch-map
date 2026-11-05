@@ -4,6 +4,7 @@ on:
   pull_request_target:
     branches:
       - main
+      - release/1.0
     types: [opened, edited, synchronize, reopened, ready_for_review]
 
 permissions: {}
