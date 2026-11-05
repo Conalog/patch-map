@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 import { parse } from 'yaml';
+import { dartWorkflowPaths } from '../.github/scripts/dart-prequalification.mjs';
 
 const workflow = parse(readFileSync(new URL('../.github/workflows/ci.yaml', import.meta.url), 'utf8'));
 const root = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
@@ -78,13 +79,13 @@ test('readiness gates validate repository policy and only the selected consumer 
   assert.ok(commands(workflow.jobs.flutter).includes('test "$(node .github/scripts/release-ready.mjs --scope dart)" = true'));
   assert.ok(commands(readWorkflow('release-please').jobs.release).includes('node .github/scripts/release-ready.mjs --scope repository'));
   assert.ok(commands(readWorkflow('publish').jobs.metadata).includes('test "$(node .github/scripts/release-ready.mjs --scope js)" = true'));
-  assert.ok(commands(readWorkflow('publish-dart').jobs.verify).includes('node .github/scripts/release-ready.mjs --scope dart'));
+  assert.ok(commands(readWorkflow('publish-dart').jobs.plan).includes('node .github/scripts/release-ready.mjs --scope dart'));
 });
 
 test('Dart artifact jobs install only verifier dependencies and preserve publication qualification', () => {
   const dart = readWorkflow('publish-dart');
   const install = 'npm ci --workspace verification --include-workspace-root=false --ignore-scripts';
-  for (const job of [workflow.jobs.flutter, dart.jobs.verify, dart.jobs.checks, dart.jobs.renderer, dart.jobs.qualify]) {
+  for (const job of [workflow.jobs.flutter, dart.jobs.plan, dart.jobs.verify, dart.jobs.checks, dart.jobs.renderer, dart.jobs.qualify]) {
     assert.ok(commands(job).includes(install));
     assert.ok(!commands(job).includes('npm ci'));
   }
@@ -98,15 +99,19 @@ test('Dart artifact jobs install only verifier dependencies and preserve publica
     assert.ok(commands(checks).includes(command), command);
     assert.ok(!verify.includes(command), command);
   }
-  assert.equal(dart.jobs.verify.needs, undefined);
-  assert.equal(checks.needs, undefined);
-  assert.equal(checks.if, undefined);
+  assert.deepEqual(dart.on.pull_request.paths, [...dartWorkflowPaths, 'packages/flutter/pubspec.yaml']);
+  for (const job of [dart.jobs.verify, checks]) {
+    assert.equal(job.needs, 'plan');
+    for (const [verify, reused, expected] of [['true', '', true], ['true', 'true', false], ['false', '', false]]) {
+      assert.equal(selected(job.if, { needs: { plan: { outputs: { verify, reused } } } }), expected);
+    }
+  }
   assert.deepEqual(renderer.strategy.matrix.include.map(({ platform }) => platform), ['android', 'ios']);
-  assert.equal(renderer.needs, 'verify');
-  assert.deepEqual(qualify.needs, ['verify', 'checks', 'renderer']);
+  assert.deepEqual(renderer.needs, ['plan', 'verify']);
+  assert.deepEqual(qualify.needs, ['plan', 'verify', 'checks', 'renderer']);
   assert.equal(qualify.if, undefined);
   assert.ok(commands(qualify).includes('node .github/scripts/dart-release.mjs collect'));
-  assert.deepEqual(publish.needs, ['verify', 'qualify']);
+  assert.deepEqual(publish.needs, ['plan', 'qualify']);
   assert.equal(publish.environment, 'pub.dev');
   for (const [event, enabled, runsRenderer, uploads] of [
     ['pull_request', 'false', true, false], ['pull_request', 'true', true, false],
@@ -114,7 +119,17 @@ test('Dart artifact jobs install only verifier dependencies and preserve publica
   ]) {
     const context = { github: { event_name: event }, vars: { PUBDEV_PUBLISH_ENABLED: enabled } };
     assert.equal(selected(renderer.if, context), runsRenderer);
-    assert.equal(selected(publish.if, context), uploads);
+    for (const [plan, qualification, reused, cancelled, accepted] of [
+      ['success', 'success', '', false, true],
+      ['success', 'skipped', 'true', false, true],
+      ['success', 'skipped', '', false, false],
+      ['success', 'failure', 'true', false, false],
+      ['failure', 'skipped', 'true', false, false],
+      ['success', 'success', '', true, false],
+    ]) {
+      const needs = { plan: { result: plan, outputs: { reused } }, qualify: { result: qualification } };
+      assert.equal(selected(publish.if, { ...context, needs, cancelled: () => cancelled }), uploads && accepted);
+    }
   }
   assert.ok(commands(workflow.jobs.contracts).includes('npm ci'));
   assert.ok(commands(workflow.jobs.contracts).includes('node verification/conformance/inventory.mjs'));

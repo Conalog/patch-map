@@ -23,7 +23,7 @@ The planner writes Dart's exact version into `pubspec.yaml` and the example's
 path dependency lock while preserving other YAML bytes. Package versions do not
 inherit application build numbers. Pubspec, manifest and tag versions must agree.
 
-Review and merge each generated release PR after `CI`. `feat`, `fix`, `perf` and `deps` feed changelogs; use `BREAKING CHANGE:` for breaking behavior. Validate
+Merge release PRs after `CI` passes, and wait for `Publish Dart` on Dart release PRs. `feat`, `fix`, `perf` and `deps` feed changelogs; use `BREAKING CHANGE:`. Validate
 both implementations and the intended pair before releasing shared behavior. Channels are independent: a transition needs a one-time `Release-As:` footer (e.g.
 `1.0.0-beta.1`) and matching prerelease settings; remove those settings for stable promotion and inspect the generated PR. npm maps prereleases to `next` and
 stable to `latest`, rejecting backward movement; pub.dev has no dist-tags.
@@ -100,10 +100,10 @@ and the qualification record. After upload, authorize `Conalog/patch-map` with p
 
 ## Retry and partial success
 
-Tag runs retain `dart-candidate-<SHA>` with the tarball, installed report and source snapshot. Analysis and unit tests run alongside candidate preparation.
-On enabled tags and workflow PRs, both renderers test the candidate once ready. Qualification also requires source checks and retains `dart-qualified-<SHA>`.
-The iOS job pins macOS 15, Xcode 26.3 and iOS 26.2 and waits for simulator logging before launching the app.
-Keep CocoaPods aligned in `Gemfile.lock` and `Podfile.lock` to preserve tagged build inputs. Workflow PRs qualify without publishing.
+Dart release PRs retain `dart-prequalified-<version>-pr-<number>-<tree>` after source checks and both renderer runs. Enabled tags reuse it only when
+the successful run matches the merged PR and tagged tree and the package bytes and evidence verify. Missing, expired or mismatched evidence triggers full tag verification.
+Full qualification tests both renderers once `dart-candidate-<SHA>` is ready. The iOS job pins macOS 15, Xcode 26.3 and iOS 26.2 and waits for simulator logging.
+Keep CocoaPods aligned in `Gemfile.lock` and `Podfile.lock`. PRs never publish. Tag runs retain the accepted artifact as `dart-qualified-<SHA>`.
 Retry failed jobs on the original tag run. Record the published package version, artifact and successful run URL separately from qualification.
 
 Registry writes are independent. On partial success, record each registry's actual state and retry only the failed package: npm accepts the existing tag through
