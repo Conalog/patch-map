@@ -111,7 +111,8 @@ async function main() {
   const inputsBefore = await rendererSourceInputs(root, platform);
   const sourceFingerprint = hash(JSON.stringify(inputsBefore));
   console.log(`Starting the ${platform} renderer tests`);
-  const launchState = platform === 'ios' ? await mkdtemp(resolve(tmpdir(), 'patch-map-ios-launch-')) : undefined;
+  const iosSimulator = platform === 'ios' && device.emulator === true;
+  const launchState = iosSimulator ? await mkdtemp(resolve(tmpdir(), 'patch-map-ios-launch-')) : undefined;
   const env = launchState ? {
     ...process.env,
     PATCH_MAP_IOS_DEVICE: deviceId,
