@@ -49,24 +49,21 @@ dispatched `browser tests` workflow and is not currently a required check.
 
 Release Please owns version changes, changelog updates, Git tags, and GitHub
 Releases. After releasable changes land on `main`, it creates or updates a
-release pull request. Merging that pull request creates the corresponding
+release pull request. Merging it creates the corresponding legacy
 `v<version>` tag and GitHub Release.
 
-npm publication uses Trusted Publishing and is gated by the repository variable
-`NPM_PUBLISH_ENABLED`. Enabling publication requires all of the following:
+The `release/1.0` branch owns npm publication. A `js-v*` tag triggers
+`Publish npm` through Trusted Publishing. The `npm` environment allows
+`js-v*` tags and the `release/1.0` workflow ref for manual retries. See the
+[release operations guide](https://github.com/Conalog/patch-map/blob/release/1.0/docs/engineering/releases.md)
+for the publisher configuration and channel switches.
 
-1. Create a GitHub environment named `npm` and allow the `main` branch to
-   deploy. The workflow checks out the release tag, but the environment rule is
-   evaluated against the workflow run ref, which is `main` for both automatic
-   publication and the documented manual retry.
-2. Configure `@conalog/patch-map` on npm with `Conalog/patch-map`, workflow
-   `publish.yaml`, environment `npm`, and permission to run `npm publish`.
-3. Set the repository variable `NPM_PUBLISH_ENABLED` to `true`.
+To retry publication, select `release/1.0` as the workflow ref and enter the
+existing `js-v<version>` tag in the `tag` input. For example:
 
-Until the variable is enabled, releases are created without publishing to npm.
-After activation, a failed or previously skipped publication can be retried by
-running the `Publish npm` workflow from `main` and entering the existing
-`v<version>` tag in its `tag` input.
+```sh
+gh workflow run publish.yaml --ref release/1.0 -f 'tag=js-v<version>'
+```
 
 The browser suite is not currently an npm publication gate. Run the manual
 `browser tests` workflow for render coverage; promoting it to required CI is a
