@@ -84,21 +84,27 @@ test('readiness gates validate repository policy and only the selected consumer 
 test('Dart artifact jobs install only verifier dependencies and preserve publication qualification', () => {
   const dart = readWorkflow('publish-dart');
   const install = 'npm ci --workspace verification --include-workspace-root=false --ignore-scripts';
-  for (const job of [workflow.jobs.flutter, dart.jobs.verify, dart.jobs.renderer, dart.jobs.qualify]) {
+  for (const job of [workflow.jobs.flutter, dart.jobs.verify, dart.jobs.checks, dart.jobs.renderer, dart.jobs.qualify]) {
     assert.ok(commands(job).includes(install));
     assert.ok(!commands(job).includes('npm ci'));
   }
   const verify = commands(dart.jobs.verify);
   assert.ok(!verify.includes('node verification/conformance/inventory.mjs'));
   assert.ok(!verify.includes('npm run verify:tooling'));
-  for (const command of ['npm run flutter:analyze', 'npm run flutter:test', 'npm run flutter:verify:package',
-    'node .github/scripts/dart-release.mjs prepare']) {
-    assert.ok(verify.includes(command), command);
+  assert.ok(verify.includes('node .github/scripts/dart-release.mjs prepare'));
+  assert.ok(!Object.values(dart.jobs).flatMap(commands).includes('npm run flutter:verify:package'));
+  const { checks, renderer, qualify, publish } = dart.jobs;
+  for (const command of ['npm run flutter:analyze', 'npm run flutter:test']) {
+    assert.ok(commands(checks).includes(command), command);
+    assert.ok(!verify.includes(command), command);
   }
-  const { renderer, qualify, publish } = dart.jobs;
+  assert.equal(dart.jobs.verify.needs, undefined);
+  assert.equal(checks.needs, undefined);
+  assert.equal(checks.if, undefined);
   assert.deepEqual(renderer.strategy.matrix.include.map(({ platform }) => platform), ['android', 'ios']);
   assert.equal(renderer.needs, 'verify');
-  assert.deepEqual(qualify.needs, ['verify', 'renderer']);
+  assert.deepEqual(qualify.needs, ['verify', 'checks', 'renderer']);
+  assert.equal(qualify.if, undefined);
   assert.ok(commands(qualify).includes('node .github/scripts/dart-release.mjs collect'));
   assert.deepEqual(publish.needs, ['verify', 'qualify']);
   assert.equal(publish.environment, 'pub.dev');

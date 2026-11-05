@@ -80,7 +80,7 @@ function assertSdkWiring(document) {
 test('CI and publishing wire each Flutter installation to the SDK authority', () => {
   const ci = workflow('ci.yaml');
   assert.equal(assertSdkWiring(ci), 2);
-  assert.equal(assertSdkWiring(workflow('publish-dart.yaml')), 3);
+  assert.equal(assertSdkWiring(workflow('publish-dart.yaml')), 4);
   assert.ok(ci.jobs.contracts.steps.every((step) => !step.uses?.startsWith('subosito/') && !step.run?.includes('flutter pub get')));
 });
 
