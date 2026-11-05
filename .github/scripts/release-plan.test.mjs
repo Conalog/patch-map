@@ -10,6 +10,7 @@ import { parseVersion, pubspecField } from './release-metadata.mjs';
 const require = createRequire(new URL('../../verification/package.json', import.meta.url));
 import { createReleaseManifest, localCommitChanges, runIndependentReleases } from './release-planner.mjs';
 const { setLogger } = require('release-please/build/src/util/logger.js');
+const { DuplicateReleaseError } = require('release-please/build/src/errors/index.js');
 const quiet = Object.fromEntries(['info', 'warn', 'error', 'debug', 'trace'].map((level) => [level, () => {}]));
 setLogger(quiet);
 
@@ -58,6 +59,7 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
     commit('feat: already shipped npm feature', [`${npmPath}/src/index.ts`], 'd'.repeat(40)),
   ];
   const calls = [];
+  const historyReads = [];
   const openPullRequests = [];
   const mergedPullRequests = [];
   const github = {
@@ -66,6 +68,11 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
     getGitHubApi() { return { octokit: {
       repos: {
         async getBranch({ branch }) { return { data: { commit: { sha: openPullRequests.find((pr) => pr.headBranchName === branch).fixtureHeadSha } } }; },
+        async getCommit({ ref }) { return { data: { sha: releases.find(({ tagName }) => ref === `refs/tags/${tagName}`)?.sha } }; },
+        async getReleaseByTag({ tag }) {
+          assert.ok(releases.some(({ tagName }) => tagName === tag));
+          return { data: { tag_name: tag, draft: false } };
+        },
         async compareCommitsWithBasehead() { return { data: { behind_by: staleBase ? 1 : 0 } }; },
       },
       paginate: {
@@ -73,6 +80,7 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
           assert.equal(route, 'GET /repos/{owner}/{repo}/commits/{ref}');
           assert.equal(per_page, 100);
           assert.notEqual(ref, npmSha, 'bootstrap lock ownership must not be queried');
+          historyReads.push(ref);
           const pages = commitFilePages[ref] ?? [commits.find(({ sha }) => sha === ref).files.map((filename) => ({ filename }))];
           for (const files of pages) yield { data: { sha: ref, parents: [{ sha: `${ref}-parent` }], files } };
         },
@@ -106,7 +114,7 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
     },
   };
   const manifest = await createReleaseManifest(github, 'release/1.0', packagePath);
-  return { manifest, github, files, versions, calls, commits, openPullRequests, mergedPullRequests };
+  return { manifest, github, files, versions, calls, commits, openPullRequests, mergedPullRequests, releases, historyReads };
 }
 
 function applyUpdates(candidate, original) {
@@ -566,6 +574,69 @@ test('release failures are reported after the independent peer attempt completes
     return true;
   });
   assert.equal(created, 1);
+});
+
+test('retry verifies an already-created release, finishes labels, and plans the next release', async () => {
+  const state = await fixture([commit('fix: prepare prior JS release', [`${npmPath}/src/index.ts`])]);
+  const previous = candidateFor(await state.manifest.buildPullRequests(), npmPath);
+  const merged = asPullRequest(previous, 247);
+  const tag = 'js-v1.0.0-alpha.10';
+  merged.sha = 'e'.repeat(40);
+  state.mergedPullRequests.push(merged);
+  Object.assign(state.files, applyUpdates(previous, state.files));
+  const nextSha = 'f'.repeat(40);
+  state.commits.unshift(
+    commit('fix: plan next JS release', [`${npmPath}/src/next.ts`], nextSha),
+    commit(previous.title.toString(), [`${npmPath}/package.json`, 'package-lock.json'], merged.sha),
+  );
+  const mutations = [];
+  state.github.createRelease = async (release) => {
+    assert.equal(release.tag.toString(), tag);
+    assert.equal(release.sha, merged.sha);
+    if (state.releases.some(({ tagName }) => tagName === tag)) {
+      throw new DuplicateReleaseError(new Error('release already exists'), 'tagName');
+    }
+    state.releases.unshift({ tagName: tag, sha: merged.sha, notes: 'Previous JS release' });
+    return { tagName: tag, url: 'https://example.invalid/release' };
+  };
+  state.github.commentOnIssue = async () => { mutations.push('comment'); };
+  state.github.addIssueLabels = async (labels, number) => {
+    assert.equal(number, 247);
+    if (mutations.length === 1) throw new Error('label update failed');
+    mutations.push('add');
+    merged.labels = [...new Set([...merged.labels, ...labels])];
+  };
+  state.github.removeIssueLabels = async (labels, number) => {
+    assert.equal(number, 247);
+    mutations.push('remove');
+    merged.labels = merged.labels.filter((label) => !labels.includes(label));
+  };
+  state.github.createPullRequest = async (candidate) => {
+    mutations.push(candidate.title);
+    return { number: 248 };
+  };
+
+  await assert.rejects(runIndependentReleases(state.github), ({ errors }) => errors[0].cause.message === 'label update failed');
+  assert.deepEqual(merged.labels, ['autorelease: pending']);
+  assert.deepEqual(mutations, ['comment']);
+  state.releases[0].sha = 'a'.repeat(40);
+  await assert.rejects(runIndependentReleases(state.github), ({ errors }) => /does not match merged PR #247/u.test(errors[0].cause.message));
+  assert.deepEqual(mutations, ['comment'], 'a mismatched tag cannot change labels or advance planning');
+  assert.deepEqual(merged.labels, ['autorelease: pending']);
+
+  state.releases[0].sha = merged.sha;
+  // After the successful tag check, let the label API accept the recovery.
+  state.github.addIssueLabels = async (labels) => {
+    mutations.push('add');
+    merged.labels = [...new Set([...merged.labels, ...labels])];
+  };
+  state.historyReads.length = 0;
+  await runIndependentReleases(state.github);
+  assert.deepEqual(mutations.slice(0, 3), ['comment', 'add', 'remove']);
+  assert.equal(mutations.length, 4);
+  assert.match(mutations[3], /1\.0\.0-alpha\.11$/u);
+  assert.deepEqual(merged.labels, ['autorelease: tagged']);
+  assert.equal(state.historyReads.filter((sha) => sha === nextSha).length, 1, 'both packages share immutable commit reads');
 });
 
 test('both actual Git merge orders regenerate the remaining PR on the peer base without changing notes', async (t) => {

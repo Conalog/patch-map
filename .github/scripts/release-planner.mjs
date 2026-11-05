@@ -8,6 +8,7 @@ import { parseVersion, pubspecField } from './release-metadata.mjs';
 
 const require = createRequire(new URL('../../verification/package.json', import.meta.url));
 const { GitHub, Manifest } = require('release-please');
+const { DuplicateReleaseError } = require('release-please/build/src/errors/index.js');
 const { ManifestPlugin } = require('release-please/build/src/plugin.js');
 const { TagName } = require('release-please/build/src/util/tag-name.js');
 const { BranchName } = require('release-please/build/src/util/branch-name.js');
@@ -137,6 +138,34 @@ function withReleaseConsumers(github, packagePath, readChanges) {
 }
 
 class IndependentManifest extends Manifest {
+  async createReleasesForPullRequest(releases, pullRequest) {
+    const created = [];
+    for (const release of releases) {
+      try {
+        created.push(await this.createRelease(release, pullRequest));
+      } catch (cause) {
+        if (!(cause instanceof DuplicateReleaseError)) throw cause;
+        const tag = release.tag.toString();
+        const { repos } = this.github.getGitHubApi().octokit;
+        const [{ data: existing }, { data: target }] = await Promise.all([
+          repos.getReleaseByTag({ ...this.repository, tag }),
+          repos.getCommit({ ...this.repository, ref: `refs/tags/${tag}` }),
+        ]);
+        if (existing.tag_name !== tag || existing.draft || target.sha !== release.sha) {
+          throw new Error(`Existing release ${tag} does not match merged PR #${pullRequest.number}`, { cause });
+        }
+      }
+    }
+    if (created.length > 0) {
+      const list = created.map(({ tagName, url }) => `- [${tagName}](${url})`).join('\n');
+      await this.github.commentOnIssue(`🤖 Created releases:\n\n${list}\n\n:sunflower:`, pullRequest.number);
+    }
+    // Leave pending in place if adding the tagged label fails, so the next run can recover.
+    await this.github.addIssueLabels(this.releaseLabels, pullRequest.number);
+    await this.github.removeIssueLabels(this.labels, pullRequest.number);
+    return created;
+  }
+
   async maybeUpdateExistingPullRequest(existing, candidate) {
     if (existing.body !== candidate.body.toString()) return super.maybeUpdateExistingPullRequest(existing, candidate);
     // The pinned SDK's PR.sha is GitHub's test-merge SHA, not the branch head.
