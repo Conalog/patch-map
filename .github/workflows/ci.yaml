@@ -21,6 +21,7 @@ jobs:
       full_validation: ${{ steps.changes.outputs.full_validation }}
       contract_validation: ${{ steps.changes.outputs.contract_validation }}
       flutter_validation: ${{ steps.changes.outputs.flutter_validation }}
+      dart_release: ${{ steps.dart-release.outputs.required }}
     steps:
       - name: Checkout comparison base
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,6 +40,10 @@ jobs:
 
       - name: Require release gate commands
         run: test "$(node .github/scripts/release-ready.mjs --scope repository)" = true
+
+      - name: Identify generated Dart release PR
+        id: dart-release
+        run: node .github/scripts/dart-prequalification.mjs identify-pr
 
       - name: Classify pull request changes
         id: changes
@@ -256,10 +261,22 @@ jobs:
         working-directory: packages/flutter/example
         run: flutter build ios --simulator --debug --no-codesign --no-pub
 
+  dart-release:
+    name: Verify Dart release PR
+    needs: classify
+    if: ${{ needs.classify.outputs.dart_release == 'true' }}
+    uses: ./.github/workflows/qualify-dart.yaml
+    with:
+      release-pr: true
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+
   validation:
     name: CI
     if: ${{ always() }}
-    needs: [classify, gate, flutter, contracts, native-example]
+    needs: [classify, gate, flutter, contracts, native-example, dart-release]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -273,6 +290,9 @@ jobs:
           CONTRACT_RESULT: ${{ needs.contracts.result }}
           FLUTTER_RESULT: ${{ needs.flutter.result }}
           NATIVE_RESULT: ${{ needs.native-example.result }}
+          DART_RELEASE: ${{ needs.classify.outputs.dart_release }}
+          DART_RELEASE_RESULT: ${{ needs.dart-release.result }}
+          DART_RELEASE_ARTIFACT_ID: ${{ needs.dart-release.outputs.artifact-id }}
         run: |
           test "$CLASSIFIER_RESULT" = success
           if test "$FULL_VALIDATION" = true; then
@@ -294,4 +314,11 @@ jobs:
           else
             test "$CONTRACT_VALIDATION" = false
             test "$CONTRACT_RESULT" = skipped
+          fi
+          if test "$DART_RELEASE" = true; then
+            test "$DART_RELEASE_RESULT" = success
+            test -n "$DART_RELEASE_ARTIFACT_ID"
+          else
+            test "$DART_RELEASE" = false
+            test "$DART_RELEASE_RESULT" = skipped
           fi

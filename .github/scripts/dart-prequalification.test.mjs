@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { findDartPrequalification, planDartPullRequest } from './dart-prequalification.mjs';
+import { findDartPrequalification, isDartReleasePullRequest, planDartPullRequest } from './dart-prequalification.mjs';
 
 const repository = 'Conalog/patch-map';
 const repo = { full_name: repository, id: 42 };
@@ -19,13 +19,17 @@ const pull = {
 test('Dart release PRs qualify a changed version, while ordinary PRs keep the tooling gate', () => {
   const pubspec = 'packages/flutter/pubspec.yaml';
   const tooling = '.github/workflows/publish-dart.yaml';
-  assert.deepEqual(planDartPullRequest(pull, repository, [pubspec]), { verify: true, prequalify: true });
-  assert.deepEqual(planDartPullRequest(pull, repository, ['README.md']), { verify: false, prequalify: false });
+  assert.equal(isDartReleasePullRequest(pull, repository), true);
+  assert.deepEqual(planDartPullRequest(pull, repository, [pubspec], true), { verify: true, prequalify: true });
+  assert.throws(() => planDartPullRequest(pull, repository, ['README.md'], true), /must change the package pubspec/u);
+  assert.deepEqual(planDartPullRequest(pull, repository, [pubspec, tooling], false), { verify: false, prequalify: false });
   const ordinary = { ...pull, head: { ...pull.head, ref: 'fix/flutter' } };
-  assert.deepEqual(planDartPullRequest(ordinary, repository, [pubspec]), { verify: false, prequalify: false });
-  assert.deepEqual(planDartPullRequest(ordinary, repository, [tooling]), { verify: true, prequalify: false });
+  assert.equal(isDartReleasePullRequest(ordinary, repository), false);
+  assert.deepEqual(planDartPullRequest(ordinary, repository, [pubspec], false), { verify: false, prequalify: false });
+  assert.deepEqual(planDartPullRequest(ordinary, repository, [tooling], false), { verify: true, prequalify: false });
   const fork = { ...pull, head: { ...pull.head, repo: { full_name: 'fork/patch-map' } } };
-  assert.deepEqual(planDartPullRequest(fork, repository, [pubspec]), { verify: false, prequalify: false });
+  assert.equal(isDartReleasePullRequest(fork, repository), false);
+  assert.throws(() => planDartPullRequest(fork, repository, [pubspec], true), /must change the package pubspec/u);
 });
 
 function fixture() {
@@ -35,7 +39,7 @@ function fixture() {
     event: 'pull_request',
     status: 'completed',
     conclusion: 'success',
-    path: '.github/workflows/publish-dart.yaml',
+    path: '.github/workflows/ci.yaml',
     head_branch: pull.head.ref,
     repository: repo,
     head_repository: repo,
@@ -45,7 +49,7 @@ function fixture() {
   };
   const api = async (path) => {
     if (path === `commits/${tagCommit}/pulls`) return pulls;
-    if (path === `actions/workflows/publish-dart.yaml/runs?event=pull_request&status=success&head_sha=${headSha}&per_page=30`) {
+    if (path === `actions/workflows/ci.yaml/runs?event=pull_request&status=success&head_sha=${headSha}&per_page=30`) {
       return { workflow_runs: [run] };
     }
     assert.fail(`Unexpected API route ${path}`);

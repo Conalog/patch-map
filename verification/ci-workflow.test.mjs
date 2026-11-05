@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -71,7 +71,44 @@ test('Flutter verification and native hosts can run independently while the aggr
 });
 
 const readWorkflow = (name) => parse(readFileSync(new URL(`../.github/workflows/${name}.yaml`, import.meta.url), 'utf8'));
-const commands = (job) => job.steps.flatMap((step) => (step.run ?? '').trim().split('\n'));
+const commands = (job) => (job.steps ?? []).flatMap((step) => (step.run ?? '').trim().split('\n'));
+
+test('required CI demands an uploaded qualification only for generated Dart release PRs', () => {
+  const dart = workflow.jobs['dart-release'];
+  const validation = workflow.jobs.validation;
+  assert.equal(dart.uses, './.github/workflows/qualify-dart.yaml');
+  assert.equal(dart.with['release-pr'], true);
+  assert.ok(validation.needs.includes('dart-release'));
+  const [gate] = validation.steps;
+  assert.equal(gate.env.DART_RELEASE_RESULT, '${{ needs.dart-release.result }}');
+  assert.equal(gate.env.DART_RELEASE_ARTIFACT_ID, '${{ needs.dart-release.outputs.artifact-id }}');
+  for (const [required, result, artifact, passed] of [
+    ['false', 'skipped', '', true],
+    ['true', 'success', '42', true],
+    ['true', 'success', '', false],
+    ['true', 'failure', '', false],
+    ['true', 'cancelled', '', false],
+    ['true', 'skipped', '', false],
+    ['', 'skipped', '', false],
+  ]) {
+    assert.equal(selected(dart.if, { needs: { classify: { outputs: { dart_release: required } } } }), required === 'true');
+    const checked = spawnSync('bash', ['-e', '-c', gate.run], { env: {
+      ...process.env,
+      CLASSIFIER_RESULT: 'success',
+      FULL_VALIDATION: 'false',
+      GATES_RESULT: 'skipped',
+      FLUTTER_VALIDATION: 'false',
+      FLUTTER_RESULT: 'skipped',
+      NATIVE_RESULT: 'skipped',
+      CONTRACT_VALIDATION: 'false',
+      CONTRACT_RESULT: 'skipped',
+      DART_RELEASE: required,
+      DART_RELEASE_RESULT: result,
+      DART_RELEASE_ARTIFACT_ID: artifact,
+    } });
+    assert.equal(checked.status === 0, passed, `${required}/${result}/${artifact}`);
+  }
+});
 
 test('readiness gates validate repository policy and only the selected consumer metadata', () => {
   assert.ok(commands(workflow.jobs.classify).includes('test "$(node .github/scripts/release-ready.mjs --scope repository)" = true'));
@@ -79,11 +116,12 @@ test('readiness gates validate repository policy and only the selected consumer 
   assert.ok(commands(workflow.jobs.flutter).includes('test "$(node .github/scripts/release-ready.mjs --scope dart)" = true'));
   assert.ok(commands(readWorkflow('release-please').jobs.release).includes('node .github/scripts/release-ready.mjs --scope repository'));
   assert.ok(commands(readWorkflow('publish').jobs.metadata).includes('test "$(node .github/scripts/release-ready.mjs --scope js)" = true'));
-  assert.ok(commands(readWorkflow('publish-dart').jobs.plan).includes('node .github/scripts/release-ready.mjs --scope dart'));
+  assert.ok(commands(readWorkflow('qualify-dart').jobs.plan).includes('node .github/scripts/release-ready.mjs --scope dart'));
 });
 
 test('Dart artifact jobs install only verifier dependencies and preserve publication qualification', () => {
-  const dart = readWorkflow('publish-dart');
+  const dart = readWorkflow('qualify-dart');
+  const publishDart = readWorkflow('publish-dart');
   const install = 'npm ci --workspace verification --include-workspace-root=false --ignore-scripts';
   for (const job of [workflow.jobs.flutter, dart.jobs.plan, dart.jobs.verify, dart.jobs.checks, dart.jobs.renderer, dart.jobs.qualify]) {
     assert.ok(commands(job).includes(install));
@@ -94,12 +132,20 @@ test('Dart artifact jobs install only verifier dependencies and preserve publica
   assert.ok(!verify.includes('npm run verify:tooling'));
   assert.ok(verify.includes('node .github/scripts/dart-release.mjs prepare'));
   assert.ok(!Object.values(dart.jobs).flatMap(commands).includes('npm run flutter:verify:package'));
-  const { checks, renderer, qualify, publish } = dart.jobs;
+  const { checks, renderer, qualify } = dart.jobs;
+  const { publish } = publishDart.jobs;
   for (const command of ['npm run flutter:analyze', 'npm run flutter:test']) {
     assert.ok(commands(checks).includes(command), command);
     assert.ok(!verify.includes(command), command);
   }
-  assert.deepEqual(dart.on.pull_request.paths, [...dartWorkflowPaths, 'packages/flutter/pubspec.yaml']);
+  assert.deepEqual(publishDart.on.pull_request.paths, dartWorkflowPaths);
+  assert.equal(publishDart.jobs.qualify.uses, './.github/workflows/qualify-dart.yaml');
+  assert.equal(dart.on.workflow_call.outputs['artifact-id'].value, '${{ jobs.qualify.outputs.artifact-id || jobs.plan.outputs.artifact-id }}');
+  for (const job of [dart.jobs.plan, qualify]) {
+    assert.equal(job.outputs['artifact-id'], '${{ steps.retain.outputs.artifact-id }}');
+    assert.match(job.steps.find((step) => step.id === 'retain').uses, /^actions\/upload-artifact@/u);
+  }
+  assert.ok(Object.values(dart.jobs).every((job) => !job.permissions?.['id-token']));
   for (const job of [dart.jobs.verify, checks]) {
     assert.equal(job.needs, 'plan');
     for (const [verify, reused, expected] of [['true', '', true], ['true', 'true', false], ['false', '', false]]) {
@@ -111,7 +157,7 @@ test('Dart artifact jobs install only verifier dependencies and preserve publica
   assert.deepEqual(qualify.needs, ['plan', 'verify', 'checks', 'renderer']);
   assert.equal(qualify.if, undefined);
   assert.ok(commands(qualify).includes('node .github/scripts/dart-release.mjs collect'));
-  assert.deepEqual(publish.needs, ['plan', 'qualify']);
+  assert.equal(publish.needs, 'qualify');
   assert.equal(publish.environment, 'pub.dev');
   for (const [event, enabled, runsRenderer, uploads] of [
     ['pull_request', 'false', true, false], ['pull_request', 'true', true, false],
@@ -119,16 +165,15 @@ test('Dart artifact jobs install only verifier dependencies and preserve publica
   ]) {
     const context = { github: { event_name: event }, vars: { PUBDEV_PUBLISH_ENABLED: enabled } };
     assert.equal(selected(renderer.if, context), runsRenderer);
-    for (const [plan, qualification, reused, cancelled, accepted] of [
-      ['success', 'success', '', false, true],
-      ['success', 'skipped', 'true', false, true],
-      ['success', 'skipped', '', false, false],
-      ['success', 'failure', 'true', false, false],
-      ['failure', 'skipped', 'true', false, false],
-      ['success', 'success', '', true, false],
+    for (const [result, artifact, cancelled, allowed] of [
+      ['success', '42', false, true],
+      ['success', '', false, false],
+      ['failure', '42', false, false],
+      ['skipped', '', false, false],
+      ['success', '42', true, false],
     ]) {
-      const needs = { plan: { result: plan, outputs: { reused } }, qualify: { result: qualification } };
-      assert.equal(selected(publish.if, { ...context, needs, cancelled: () => cancelled }), uploads && accepted);
+      const needs = { qualify: { result, outputs: { 'artifact-id': artifact } } };
+      assert.equal(selected(publish.if, { ...context, needs, cancelled: () => cancelled }), uploads && allowed);
     }
   }
   assert.ok(commands(workflow.jobs.contracts).includes('npm ci'));
@@ -137,7 +182,7 @@ test('Dart artifact jobs install only verifier dependencies and preserve publica
 
 
 test('every readiness invocation in the workflows is accepted by the actual CLI', () => {
-  for (const owner of [workflow, readWorkflow('publish'), readWorkflow('publish-dart'), readWorkflow('release-please')]) {
+  for (const owner of [workflow, readWorkflow('publish'), readWorkflow('qualify-dart'), readWorkflow('release-please')]) {
     for (const job of Object.values(owner.jobs)) {
       for (const command of commands(job)) {
         const match = command.match(/node (\.github\/scripts\/release-ready\.mjs)([^)"\n]*)/u);

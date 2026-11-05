@@ -5,10 +5,11 @@ import { pubspecField, releaseMetadata } from './release-metadata.mjs';
 
 const baseBranch = 'release/1.0';
 const releaseBranch = 'release-please--branches--release/1.0--components--dart';
-const workflowPath = '.github/workflows/publish-dart.yaml';
+const qualificationWorkflow = 'ci.yaml';
 const pubspecPath = 'packages/flutter/pubspec.yaml';
 export const dartWorkflowPaths = [
-  workflowPath,
+  '.github/workflows/publish-dart.yaml',
+  '.github/workflows/qualify-dart.yaml',
   '.github/scripts/dart-release.mjs',
   '.github/scripts/dart-prequalification.mjs',
   '.github/scripts/pub-artifact.mjs',
@@ -20,10 +21,18 @@ export const dartWorkflowPaths = [
 const isSha = (value) => typeof value === 'string' && /^[0-9a-f]{40}$/u.test(value);
 const isId = (value) => Number.isSafeInteger(value) && value > 0;
 
-export function planDartPullRequest(pr, repository, changedPaths) {
-  const prequalify = pr?.base?.ref === baseBranch && pr.head?.ref === releaseBranch
-    && pr.head.repo?.full_name === repository && changedPaths.includes(pubspecPath);
-  return { verify: prequalify || changedPaths.some((path) => dartWorkflowPaths.includes(path)), prequalify };
+export function isDartReleasePullRequest(pr, repository) {
+  return pr?.base?.ref === baseBranch && pr.head?.ref === releaseBranch
+    && pr.head.repo?.full_name === repository;
+}
+
+export function planDartPullRequest(pr, repository, changedPaths, required) {
+  const release = isDartReleasePullRequest(pr, repository);
+  if (required && (!release || !changedPaths.includes(pubspecPath))) {
+    throw new Error('Dart release PR must change the package pubspec');
+  }
+  const verify = required || (!release && changedPaths.some((path) => dartWorkflowPaths.includes(path)));
+  return { verify, prequalify: required };
 }
 
 export async function findDartPrequalification({ api, repository, repositoryId, tagCommit, tagTree }) {
@@ -34,9 +43,9 @@ export async function findDartPrequalification({ api, repository, repositoryId, 
     && pr.head?.ref === releaseBranch && pr.head.repo?.full_name === repository && isSha(pr.head.sha));
   if (matching.length !== 1) return;
   const [pr] = matching;
-  const { workflow_runs: runs } = await api(`actions/workflows/publish-dart.yaml/runs?event=pull_request&status=success&head_sha=${pr.head.sha}&per_page=30`);
+  const { workflow_runs: runs } = await api(`actions/workflows/${qualificationWorkflow}/runs?event=pull_request&status=success&head_sha=${pr.head.sha}&per_page=30`);
   const run = runs.find((run) => isId(run.id) && run.event === 'pull_request' && run.status === 'completed'
-    && run.conclusion === 'success' && run.path === workflowPath && run.head_branch === releaseBranch
+    && run.conclusion === 'success' && run.path === `.github/workflows/${qualificationWorkflow}` && run.head_branch === releaseBranch
     && run.repository?.id === repositoryId && run.head_repository?.id === repositoryId
     && run.head_sha === pr.head.sha && Date.parse(run.updated_at) <= Date.parse(pr.merged_at));
   // GitHub can omit the PR association from a run after merge. The exact
@@ -53,14 +62,18 @@ async function main(command) {
   const output = (key, value) => appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
   const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
   const repository = process.env.GITHUB_REPOSITORY;
-  if (command === 'plan-pr') {
+  if (command === 'identify-pr' || command === 'plan-pr') {
     const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+    if (command === 'identify-pr') {
+      output('required', isDartReleasePullRequest(event.pull_request, repository));
+      return;
+    }
     const { base, head } = event.pull_request;
     if (git('rev-parse', 'HEAD^1') !== base.sha || git('rev-parse', 'HEAD^2') !== head.sha) {
       throw new Error('Unexpected Dart PR merge parents');
     }
     const paths = git('diff', '--no-renames', '--name-only', '-z', 'HEAD^1', 'HEAD').split('\0');
-    const { verify, prequalify } = planDartPullRequest(event.pull_request, repository, paths);
+    const { verify, prequalify } = planDartPullRequest(event.pull_request, repository, paths, process.env.RELEASE_PR === 'true');
     output('verify', verify);
     if (prequalify) {
       const version = pubspecField(readFileSync(pubspecPath, 'utf8'), 'version');
@@ -81,7 +94,7 @@ async function main(command) {
     } catch {
       console.log('Dart release PR evidence could not be queried; using full tag verification');
     }
-  } else throw new Error('usage: dart-prequalification.mjs plan-pr | find');
+  } else throw new Error('usage: dart-prequalification.mjs identify-pr | plan-pr | find');
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) await main(process.argv[2]);

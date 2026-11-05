@@ -1,0 +1,347 @@
+name: Qualify Dart package
+
+on:
+  workflow_call:
+    inputs:
+      release-pr:
+        type: boolean
+        default: false
+    outputs:
+      release-sha:
+        value: ${{ jobs.plan.outputs.release-sha }}
+      package-version:
+        value: ${{ jobs.plan.outputs.package-version }}
+      artifact-id:
+        value: ${{ jobs.qualify.outputs.artifact-id || jobs.plan.outputs.artifact-id }}
+
+permissions: {}
+
+jobs:
+  plan:
+    name: Route Dart release verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      release-sha: ${{ steps.identity.outputs.sha }}
+      package-version: ${{ steps.metadata.outputs.package-version || steps.pr.outputs.package-version }}
+      prequalification-key: ${{ steps.pr.outputs.prequalification-key }}
+      verify: ${{ steps.metadata.outputs.verify || steps.pr.outputs.verify }}
+      reused: ${{ steps.reuse.outputs.reused }}
+      artifact-id: ${{ steps.retain.outputs.artifact-id }}
+    steps:
+      - name: Checkout release inputs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Identify source and verify tag ancestry
+        id: identity
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            git fetch --no-tags origin +refs/heads/release/1.0:refs/remotes/origin/release/1.0
+            git merge-base --is-ancestor HEAD refs/remotes/origin/release/1.0
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Identify Dart release PRs and tooling changes
+        id: pr
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          RELEASE_PR: ${{ inputs.release-pr }}
+        run: node .github/scripts/dart-prequalification.mjs plan-pr
+      - name: Check Dart release readiness
+        if: ${{ github.event_name == 'push' || steps.pr.outputs.verify == 'true' }}
+        run: node .github/scripts/release-ready.mjs --scope dart
+      - name: Validate tag identity
+        id: metadata
+        if: ${{ github.event_name == 'push' }}
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          PUBLISH_ENABLED: ${{ vars.PUBDEV_PUBLISH_ENABLED }}
+        run: |
+          if [ "$PUBLISH_ENABLED" = true ]; then
+            node .github/scripts/release-metadata.mjs dart "$TAG_NAME"
+          else
+            node .github/scripts/release-metadata.mjs dart "$TAG_NAME" --candidate
+          fi
+          echo 'verify=true' >> "$GITHUB_OUTPUT"
+      - name: Find successful pre-merge Dart verification
+        id: lookup
+        if: ${{ github.event_name == 'push' && vars.PUBDEV_PUBLISH_ENABLED == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/dart-prequalification.mjs find
+      - name: Prepare tag inputs for evidence validation
+        if: ${{ steps.lookup.outputs.run-id != '' }}
+        run: |
+          npm ci --workspace verification --include-workspace-root=false --ignore-scripts
+          node verification/assets/prepare.mjs flutter
+      - name: Verify the PR artifact against the tag
+        id: reuse
+        if: ${{ steps.lookup.outputs.run-id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.lookup.outputs.run-id }}
+          PACKAGE_VERSION: ${{ steps.metadata.outputs.package-version }}
+          PREQUALIFICATION_KEY: ${{ steps.lookup.outputs.prequalification-key }}
+        run: |
+          evidence=$(mktemp -d)
+          if gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name "dart-prequalified-$PACKAGE_VERSION-$PREQUALIFICATION_KEY" --dir "$evidence" &&
+             node .github/scripts/dart-release.mjs reuse "$evidence"; then
+            echo "Reusing Dart release PR verification from run $RUN_ID"
+            echo 'reused=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'PR evidence is unavailable or differs from the tag; running full verification'
+          fi
+      - name: Retain revalidated artifact for publication
+        id: retain
+        if: ${{ steps.reuse.outputs.reused == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dart-qualified-${{ steps.identity.outputs.sha }}
+          path: |
+            .release-dart/conalog_patch_map.tar.gz
+            .release-dart/installed-consumer.json
+            .release-dart/compatibility.json
+            .release-dart/dart-qualification.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: true
+
+  verify:
+    name: Verify immutable Dart release
+    needs: plan
+    if: ${{ needs.plan.outputs.verify == 'true' && needs.plan.outputs.reused != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout release inputs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.release-sha }}
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Read SDK role
+        id: sdk
+        run: node verification/flutter/toolchains.mjs ci >> "$GITHUB_OUTPUT"
+      - name: Setup Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: ${{ steps.sdk.outputs.flutter-version }}
+          channel: ${{ steps.sdk.outputs.flutter-channel }}
+      - name: Verify installed SDK
+        run: node verification/flutter/toolchains.mjs check ci
+      - name: Install dependencies
+        run: |
+          npm ci --workspace verification --include-workspace-root=false --ignore-scripts
+          node verification/assets/prepare.mjs flutter
+          cd packages/flutter
+          flutter pub get
+      - name: Verify installed consumer and prepare exact publication inputs
+        run: node .github/scripts/dart-release.mjs prepare
+      - name: Retain candidate and source snapshot for qualification
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dart-candidate-${{ needs.plan.outputs.release-sha }}
+          path: .release-dart/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: true
+
+  checks:
+    name: Analyze and test Dart sources
+    needs: plan
+    if: ${{ needs.plan.outputs.verify == 'true' && needs.plan.outputs.reused != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout release inputs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.release-sha }}
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Read SDK role
+        id: sdk
+        run: node verification/flutter/toolchains.mjs ci >> "$GITHUB_OUTPUT"
+      - name: Setup Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: ${{ steps.sdk.outputs.flutter-version }}
+          channel: ${{ steps.sdk.outputs.flutter-channel }}
+          cache: true
+      - name: Verify installed SDK
+        run: node verification/flutter/toolchains.mjs check ci
+      - name: Install verifier dependencies
+        run: npm ci --workspace verification --include-workspace-root=false --ignore-scripts
+      - name: Analyze and test Dart sources
+        run: |
+          npm run flutter:analyze
+          npm run flutter:test
+
+  renderer:
+    name: Qualify Dart renderer (${{ matrix.platform }})
+    needs: [plan, verify]
+    if: ${{ github.event_name == 'pull_request' || vars.PUBDEV_PUBLISH_ENABLED == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: android
+            runner: ubuntu-latest
+          - platform: ios
+            runner: macos-15
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact candidate source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.release-sha }}
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Read SDK role
+        id: sdk
+        run: node verification/flutter/toolchains.mjs ci >> "$GITHUB_OUTPUT"
+      - name: Setup Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          flutter-version: ${{ steps.sdk.outputs.flutter-version }}
+          channel: ${{ steps.sdk.outputs.flutter-channel }}
+          cache: true
+      - name: Verify installed SDK
+        run: node verification/flutter/toolchains.mjs check ci
+      - name: Prepare release assets and verifier dependencies
+        run: |
+          npm ci --workspace verification --include-workspace-root=false --ignore-scripts
+          node verification/assets/prepare.mjs flutter
+      - name: Download exact candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dart-candidate-${{ needs.plan.outputs.release-sha }}
+          path: .release-dart
+      - name: Enable Android emulator acceleration
+        if: ${{ matrix.platform == 'android' }}
+        run: sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Run Android renderer checks
+        if: ${{ matrix.platform == 'android' }}
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          arch: x86_64
+          emulator-port: 5554
+          script: node verification/flutter/renderer-qualification.mjs android emulator-5554
+      - name: Run iOS renderer checks
+        if: ${{ matrix.platform == 'ios' }}
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/packages/flutter/example/ios/Gemfile
+          BUNDLE_PATH: ${{ runner.temp }}/patch-map-cocoapods
+          BUNDLE_FROZEN: 'true'
+          DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+          PATCH_MAP_RENDERER_VERBOSE: 'true'
+        run: |
+          xcodebuild -version
+          bundle install
+          version=$(awk '$1 == "COCOAPODS:" { print $2 }' packages/flutter/example/ios/Podfile.lock)
+          installed=$(bundle exec pod --version)
+          if [ "$installed" != "$version" ]; then
+            echo "CocoaPods $installed does not match Podfile.lock ($version)" >&2
+            exit 1
+          fi
+          echo "Using CocoaPods $installed from the iOS example lockfile"
+          device=$(xcrun simctl list devices available --json | jq -er '
+            [.devices["com.apple.CoreSimulator.SimRuntime.iOS-26-2"][]?
+             | select(.isAvailable and .name == "iPhone 17 Pro")]
+            | .[0].udid // error("iPhone 17 Pro with iOS 26.2 is unavailable")')
+          xcrun simctl boot "$device"
+          xcrun simctl bootstatus "$device" -b
+          bundle exec node verification/flutter/renderer-qualification.mjs ios "$device"
+      - name: Retain renderer test log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dart-renderer-${{ matrix.platform }}-${{ needs.plan.outputs.release-sha }}
+          path: .release-dart/${{ matrix.platform }}-renderer.*
+          include-hidden-files: true
+          retention-days: 30
+          overwrite: true
+
+  qualify:
+    name: Qualify exact Dart package
+    outputs:
+      artifact-id: ${{ steps.retain.outputs.artifact-id }}
+    needs: [plan, verify, checks, renderer]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact candidate source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.release-sha }}
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Prepare release assets and verifier dependencies
+        run: |
+          npm ci --workspace verification --include-workspace-root=false --ignore-scripts
+          node verification/assets/prepare.mjs flutter
+      - name: Download exact candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dart-candidate-${{ needs.plan.outputs.release-sha }}
+          path: .release-dart
+      - name: Download platform results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dart-renderer-*-${{ needs.plan.outputs.release-sha }}
+          path: .release-dart
+          merge-multiple: true
+      - name: Qualify the archive with both platform results
+        run: node .github/scripts/dart-release.mjs collect
+      - name: Retain qualified release artifact
+        id: retain
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ needs.plan.outputs.prequalification-key != '' && format('dart-prequalified-{0}-{1}', needs.plan.outputs.package-version, needs.plan.outputs.prequalification-key) || format('dart-qualified-{0}', needs.plan.outputs.release-sha) }}
+          path: |
+            .release-dart/conalog_patch_map.tar.gz
+            .release-dart/installed-consumer.json
+            .release-dart/compatibility.json
+            .release-dart/dart-qualification.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+          overwrite: true
