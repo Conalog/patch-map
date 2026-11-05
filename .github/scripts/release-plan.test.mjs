@@ -8,7 +8,7 @@ import test from 'node:test';
 import { parseVersion, pubspecField } from './release-metadata.mjs';
 
 const require = createRequire(new URL('../../verification/package.json', import.meta.url));
-import { createReleaseManifest, runIndependentReleases } from './release-planner.mjs';
+import { createReleaseManifest, localCommitChanges, runIndependentReleases } from './release-planner.mjs';
 const { setLogger } = require('release-please/build/src/util/logger.js');
 const quiet = Object.fromEntries(['info', 'warn', 'error', 'debug', 'trace'].map((level) => [level, () => {}]));
 setLogger(quiet);
@@ -26,7 +26,7 @@ const commit = (message, files, sha = 'c'.repeat(40)) => ({ message, files, sha 
 // run against an in-memory GitHub boundary. No network or repository writes occur.
 // Package artifacts model this fixture's release history, never the checkout's
 // pending release PR. Repository configuration remains the wiring under test.
-async function fixture(changes, { dartReleased = false, jsReleased = false, missingLegacy = false, wrongLegacy = false, missingBoundary = false, betweenReleases = [], historical = [], packagePath, lockHistory = {}, staleBase = false } = {}) {
+async function fixture(changes, { dartReleased = false, jsReleased = false, missingLegacy = false, wrongLegacy = false, missingBoundary = false, betweenReleases = [], historical = [], packagePath, lockHistory = {}, staleBase = false, commitFilePages = {} } = {}) {
   const versions = { [npmPath]: jsReleased ? '1.0.0-alpha.10' : '1.0.0-alpha.9' };
   if (dartReleased) versions[dartPath] = '1.0.0-alpha.1';
   const files = {
@@ -63,11 +63,21 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
   const github = {
     repository: { owner: 'Conalog', repo: 'patch-map' },
     async getFileJson(path, ref) { return path === 'package-lock.json' && lockHistory[ref] ? lockHistory[ref] : JSON.parse(files[path]); },
-    getGitHubApi() { return { octokit: { repos: {
-      async getBranch({ branch }) { return { data: { commit: { sha: openPullRequests.find((pr) => pr.headBranchName === branch).fixtureHeadSha } } }; },
-      async getCommit({ ref }) { assert.notEqual(ref, npmSha, 'bootstrap lock ownership must not be queried'); return { data: { parents: [{ sha: `${ref}-parent` }] } }; },
-      async compareCommitsWithBasehead() { return { data: { behind_by: staleBase ? 1 : 0 } }; },
-    } } }; },
+    getGitHubApi() { return { octokit: {
+      repos: {
+        async getBranch({ branch }) { return { data: { commit: { sha: openPullRequests.find((pr) => pr.headBranchName === branch).fixtureHeadSha } } }; },
+        async compareCommitsWithBasehead() { return { data: { behind_by: staleBase ? 1 : 0 } }; },
+      },
+      paginate: {
+        async *iterator(route, { ref, per_page }) {
+          assert.equal(route, 'GET /repos/{owner}/{repo}/commits/{ref}');
+          assert.equal(per_page, 100);
+          assert.notEqual(ref, npmSha, 'bootstrap lock ownership must not be queried');
+          const pages = commitFilePages[ref] ?? [commits.find(({ sha }) => sha === ref).files.map((filename) => ({ filename }))];
+          for (const files of pages) yield { data: { sha: ref, parents: [{ sha: `${ref}-parent` }], files } };
+        },
+      },
+    } }; },
     async buildChangeSet(updates) {
       const updated = applyUpdates({ updates }, files);
       return new Map(updates.filter(({ path }) => typeof updated[path] === 'string').map(({ path }) => [path, { content: updated[path] }]));
@@ -84,7 +94,7 @@ async function fixture(changes, { dartReleased = false, jsReleased = false, miss
     },
     async *releaseIterator() { yield* releases; },
     async *tagIterator() { yield* releases.map(({ tagName, sha }) => ({ name: tagName, sha })); },
-    async *mergeCommitIterator(_branch, options) { assert.equal(options.backfillFiles, true, 'all ownership scans need complete paths'); yield* commits; },
+    async *mergeCommitIterator(_branch, options) { assert.equal(options.backfillFiles, false, 'avoid the SDK backfill that omits old rename paths'); yield* commits; },
     async *pullRequestIterator(branch, state) {
       assert.equal(branch, 'release/1.0');
       yield* state === 'OPEN' ? openPullRequests : state === 'MERGED' ? mergedPullRequests : [];
@@ -125,6 +135,61 @@ function asPullRequest(candidate, number, baseFiles) {
 
 test('release planner dependency remains pinned to the verified engine', () => {
   assert.equal(require('release-please/package.json').version, '17.11.2');
+});
+
+test('paginated rename paths assign releases to both the source and destination owners', async () => {
+  for (const [previous, destination, owners] of [
+    [`${npmPath}/examples/minimal.ts`, 'verification/legacy/minimal.ts', [npmPath]],
+    [`${dartPath}/lib/widget.dart`, `${npmPath}/examples/widget.dart`, [npmPath, dartPath]],
+    ['shared/assets/fonts/FiraCode-VF.ttf', 'verification/legacy/font.ttf', [dartPath]],
+  ]) {
+    const sha = 'f'.repeat(40);
+    const state = await fixture([commit('fix: move package content', [destination], sha)], {
+      commitFilePages: { [sha]: [[{ filename: 'docs/first-page.md' }], [
+        { status: 'renamed', filename: destination, previous_filename: previous },
+      ]] },
+    });
+    const candidates = await state.manifest.buildPullRequests();
+    assert.equal(candidates.length, owners.length);
+    for (const owner of owners) assert.match(candidateFor(candidates, owner).body.toString(), /move package content/u);
+  }
+});
+
+test('a real merge uses the first parent without pulling in the other parent’s JS changes', async (t) => {
+  const directory = mkdtempSync(join(tmpdir(), 'patch-map-release-history-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const git = (...args) => execFileSync('git', ['-c', 'core.hooksPath=/dev/null',
+    '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', ...args],
+  { cwd: directory, encoding: 'utf8', stdio: 'pipe' }).trim();
+  const jsFile = `${npmPath}/index.ts`;
+  const dartFile = `${dartPath}/old.dart`;
+  const movedFile = `${dartPath}/new.dart`;
+  for (const path of [jsFile, dartFile]) {
+    mkdirSync(dirname(join(directory, path)), { recursive: true });
+    writeFileSync(join(directory, path), 'baseline\n');
+  }
+  git('init', '-qb', 'base');
+  git('add', '.');
+  git('commit', '-qm', 'chore: establish baseline');
+  git('branch', 'dart-change');
+  writeFileSync(join(directory, jsFile), 'JS change already on the base\n');
+  git('commit', '-qam', 'fix: update JS on base');
+  const parent = git('rev-parse', 'HEAD');
+  git('switch', '-q', 'dart-change');
+  git('mv', dartFile, movedFile);
+  git('commit', '-qm', 'fix: move Dart content');
+  git('switch', '-q', 'base');
+  git('merge', '--no-ff', '-qm', 'fix: merge Dart change', 'dart-change');
+  const sha = git('rev-parse', 'HEAD');
+
+  const changes = localCommitChanges(sha, directory);
+  assert.deepEqual(changes, { parent, files: [movedFile, dartFile] });
+  const state = await fixture([commit('fix: move Dart content', [movedFile], sha)]);
+  const manifest = await createReleaseManifest(state.github, undefined, undefined, async (ref) =>
+    ref === sha ? changes : { files: state.commits.find((entry) => entry.sha === ref).files });
+  const candidates = await manifest.buildPullRequests();
+  assert.equal(candidates.length, 1);
+  assert.match(candidateFor(candidates, dartPath).body.toString(), /move Dart content/u);
 });
 
 test('shared-only assets and preparation fixes produce both release candidates once', async () => {

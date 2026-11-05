@@ -36,7 +36,7 @@ affect Dart. Generated package-local copies are not release-planning inputs.
 Dart publishing requires tag/package/manifest identity, branch ancestry, verified artifact bytes and executed Android/iOS renderer qualification. The shared
 conformance gate continues to reject full JS/Dart parity at the foundation stage. Private packages with `publish_to: none` cannot publish.
 
-Package-local changes feed that package's history. Shared product contracts
+Package-local changes feed that package's history, including files moved out of it. Shared product contracts
 under `conformance/` (excluding Markdown guidance) feed both histories; shared assets and their preparation
 retain the consumer-specific routing above. Routing preserves each package's
 published boundary and deduplicates mixed commits once per consumer.
