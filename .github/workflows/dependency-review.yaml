@@ -7,6 +7,13 @@ on:
     paths:
       - package.json
       - package-lock.json
+      - packages/javascript/package.json
+      - verification/package.json
+      - packages/flutter/pubspec.yaml
+      - packages/flutter/example/pubspec.yaml
+      - packages/flutter/example/pubspec.lock
+      - packages/flutter/example/ios/Gemfile
+      - packages/flutter/example/ios/Gemfile.lock
 
 permissions:
   contents: read

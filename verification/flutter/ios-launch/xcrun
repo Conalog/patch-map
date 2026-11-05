@@ -1,0 +1,35 @@
+#!/bin/bash
+# Flutter 3.41 can launch before its unified-log reader is ready. Signal the
+# first stream line before releasing launch, as upstream Flutter #193142 does.
+if [[ "$1" == simctl && "$3" == "$PATCH_MAP_IOS_DEVICE" && -n "$PATCH_MAP_IOS_LOG_READY" ]]; then
+  if [[ "$2" == spawn && "$4" == log && "$5" == stream ]]; then
+    exec 3< <(exec /usr/bin/xcrun "$@")
+    stream_pid=$!
+    copy_pid=
+    trap 'kill "$stream_pid" ${copy_pid:+"$copy_pid"} 2>/dev/null || true' EXIT
+    trap 'exit 143' TERM
+    trap 'exit 130' INT
+    if ! IFS= read -r first_line <&3; then
+      exit 1
+    fi
+    printf '%s\n' "$first_line"
+    : > "$PATCH_MAP_IOS_LOG_READY"
+    /bin/cat <&3 &
+    copy_pid=$!
+    wait "$copy_pid"
+    exit $?
+  fi
+
+  if [[ "$2" == launch ]]; then
+    for ((second = 0; second < 30; second++)); do
+      if [[ -f "$PATCH_MAP_IOS_LOG_READY" ]]; then
+        : > "${PATCH_MAP_IOS_LOG_READY}.launch"
+        exec /usr/bin/xcrun "$@"
+      fi
+      sleep 1
+    done
+    printf '%s\n' 'iOS simulator log stream did not become ready before launch' >&2
+    exit 1
+  fi
+fi
+exec /usr/bin/xcrun "$@"

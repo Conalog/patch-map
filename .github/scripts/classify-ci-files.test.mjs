@@ -335,6 +335,7 @@ test('the CI aggregate accepts intentional package skips and rejects missing req
     CLASSIFIER_RESULT: 'success', FULL_VALIDATION: 'true', GATES_RESULT: 'success',
     FLUTTER_VALIDATION: 'false', FLUTTER_RESULT: 'skipped', NATIVE_RESULT: 'skipped',
     CONTRACT_VALIDATION: 'true', CONTRACT_RESULT: 'success',
+    DART_RELEASE: 'false', DART_RELEASE_RESULT: 'skipped',
   };
   const dart = { ...js, FULL_VALIDATION: 'false', GATES_RESULT: 'skipped',
     FLUTTER_VALIDATION: 'true', FLUTTER_RESULT: 'success', NATIVE_RESULT: 'success' };

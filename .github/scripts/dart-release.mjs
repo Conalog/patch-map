@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { pubspecField } from './release-metadata.mjs';
 import { archiveFiles, assertPublishedContents } from './pub-artifact.mjs';
-import { verifyInstalledDartConsumer } from '../../verification/flutter/installed-consumer.mjs';
+import { publicationFiles, verifyInstalledDartConsumer } from '../../verification/flutter/installed-consumer.mjs';
 import { contractFingerprint } from '../../verification/conformance/compare.mjs';
 import { snapshotSources } from '../../verification/conformance/collect-evidence.mjs';
 import { rendererChecks, rendererEvidenceSchema, rendererPlatforms, rendererSourceFingerprint, verifyRendererRun } from '../../verification/flutter/renderer-qualification.mjs';
@@ -36,9 +36,14 @@ async function main() {
     console.log(`Verified Dart artifact ${report.artifactSha256}`);
     return;
   }
-  if (command !== 'collect' && (command !== 'qualify' || !evidencePath)) {
-    throw new Error('usage: dart-release.mjs prepare | collect | qualify <dart-qualification.json>');
+  const reuse = command === 'reuse';
+  if (command !== 'collect' && (!(command === 'qualify' || reuse) || !evidencePath)) {
+    throw new Error('usage: dart-release.mjs prepare | collect | qualify <dart-qualification.json> | reuse <verified-directory>');
   }
+  const inputDirectory = reuse ? evidencePath : '.release-dart';
+  const artifactPath = resolve(inputDirectory, 'conalog_patch_map.tar.gz');
+  const reportPath = resolve(inputDirectory, 'installed-consumer.json');
+  const nativeEvidencePath = reuse ? resolve(inputDirectory, 'dart-qualification.json') : evidencePath;
   await rm('.release-dart/compatibility.json', { force: true });
   if (command === 'collect') await rm('.release-dart/dart-qualification.json', { force: true });
   const platformEntries = (read) => Promise.all(rendererPlatforms.map(async (platform) => [platform, await read(platform)])).then(Object.fromEntries);
@@ -49,19 +54,33 @@ async function main() {
     if (receipt.reportSha256 !== sha(log)) throw new Error(`${platform}: native test log differs from its receipt`);
     return receipt;
   }
-  const [evidence, report, contract, artifact, pubspec, fingerprints] = await Promise.all([
+  const [evidenceBytes, reportBytes, contract, artifact, pubspec, fingerprints] = await Promise.all([
     command === 'collect' ? platformEntries(readNativeReceipt)
-      .then((platforms) => ({ schemaRevision: rendererEvidenceSchema, platforms })) : json(evidencePath),
-    json('.release-dart/installed-consumer.json'), contractFingerprint(), readFile('.release-dart/conalog_patch_map.tar.gz'),
+      .then((platforms) => Buffer.from(`${JSON.stringify({ schemaRevision: rendererEvidenceSchema, platforms }, null, 2)}\n`))
+      : readFile(nativeEvidencePath),
+    readFile(reportPath), contractFingerprint(), readFile(artifactPath),
     readFile('packages/flutter/pubspec.yaml', 'utf8'), platformEntries((platform) => rendererSourceFingerprint(process.cwd(), platform)),
   ]);
+  const report = JSON.parse(reportBytes);
   const artifactSha256 = sha(artifact);
   const files = archiveFiles(artifact);
   assertPublishedContents(files, report);
   if (files['pubspec.yaml'] !== sha(pubspec)) throw new Error('renderer qualification pubspec differs from the installed artifact');
-  const result = assertReleaseQualification({ evidence, fingerprints, contract, report, artifactSha256, toolchains: readToolchains(), pubspec });
-  const evidenceBytes = command === 'collect' ? `${JSON.stringify(evidence, null, 2)}\n` : await readFile(evidencePath);
-  if (command === 'collect') await writeFile('.release-dart/dart-qualification.json', evidenceBytes);
+  const result = assertReleaseQualification({ evidence: JSON.parse(evidenceBytes), fingerprints, contract, report,
+    artifactSha256, toolchains: readToolchains(), pubspec });
+  if (reuse) {
+    const packageRoot = resolve('packages/flutter');
+    const current = await Promise.all((await publicationFiles(packageRoot)).map(async (path) => ({
+      path, sha256: sha(await readFile(resolve(packageRoot, path))),
+    })));
+    assertPublishedContents(files, { files: current });
+    await mkdir('.release-dart', { recursive: true });
+    await Promise.all([
+      writeFile('.release-dart/conalog_patch_map.tar.gz', artifact),
+      writeFile('.release-dart/installed-consumer.json', reportBytes),
+    ]);
+  }
+  if (command === 'collect' || reuse) await writeFile('.release-dart/dart-qualification.json', evidenceBytes);
   await writeFile('.release-dart/compatibility.json', `${JSON.stringify({
     schemaRevision: 'patch-map-dart-renderer-qualification/1', scope: 'flutter-renderer', ...result,
     contractFingerprint: contract, sourceFingerprints: fingerprints,

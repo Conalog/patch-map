@@ -23,7 +23,7 @@ The planner writes Dart's exact version into `pubspec.yaml` and the example's
 path dependency lock while preserving other YAML bytes. Package versions do not
 inherit application build numbers. Pubspec, manifest and tag versions must agree.
 
-Review and merge each generated release PR after `CI`. `feat`, `fix`, `perf` and `deps` feed changelogs; use `BREAKING CHANGE:` for breaking behavior. Validate
+Merge release PRs after `CI` passes. For generated Dart release PRs, `CI` requires the uploaded renderer qualification. `feat`, `fix`, `perf` and `deps` feed changelogs; use `BREAKING CHANGE:`. Validate
 both implementations and the intended pair before releasing shared behavior. Channels are independent: a transition needs a one-time `Release-As:` footer (e.g.
 `1.0.0-beta.1`) and matching prerelease settings; remove those settings for stable promotion and inspect the generated PR. npm maps prereleases to `next` and
 stable to `latest`, rejecting backward movement; pub.dev has no dist-tags.
@@ -36,7 +36,7 @@ affect Dart. Generated package-local copies are not release-planning inputs.
 Dart publishing requires tag/package/manifest identity, branch ancestry, verified artifact bytes and executed Android/iOS renderer qualification. The shared
 conformance gate continues to reject full JS/Dart parity at the foundation stage. Private packages with `publish_to: none` cannot publish.
 
-Package-local changes feed that package's history. Shared product contracts
+Package-local changes feed that package's history, including files moved out of it. Shared product contracts
 under `conformance/` (excluding Markdown guidance) feed both histories; shared assets and their preparation
 retain the consumer-specific routing above. Routing preserves each package's
 published boundary and deduplicates mixed commits once per consumer.
@@ -67,10 +67,10 @@ boundary; the bootstrap does not replace either package's release history.
 ## External setup and first Dart publication
 
 Configure only with explicit authorization: `RELEASE_PLEASE_TOKEN` must be a fine-grained bot PAT with Contents, Issues and Pull requests write access;
-`GITHUB_TOKEN` cannot trigger downstream tag workflows. Protect `release/1.0` and release tags and require `CI` for every release PR. `Analyze workflow policy`
+`GITHUB_TOKEN` cannot trigger downstream tag workflows. Require `CI` on `release/1.0` and `verify` on `main`, and protect release tags. `Analyze workflow policy`
 is path-filtered; making it universally required would stall version-only PRs. Keep npm Trusted Publishing bound to `Conalog/patch-map`, `publish.yaml` and
-`npm`, allowing `js-v*` environment deployments. Its switches are `NPM_PUBLISH_ENABLED`, `NPM_PRERELEASE_ENABLED`, `NPM_LATEST_ENABLED`; only `true` enables
-publication or its selected channel. See [npm's setup guide](https://docs.npmjs.com/trusted-publishers/).
+`npm`, allowing `js-v*` tags and `release/1.0` manual retries. The `main` workflow handles legacy GitHub release planning.
+The npm publish switches are `NPM_PUBLISH_ENABLED`, `NPM_PRERELEASE_ENABLED`, `NPM_LATEST_ENABLED`. See [npm's setup guide](https://docs.npmjs.com/trusted-publishers/).
 
 Keep `PUBDEV_PUBLISH_ENABLED` false/unset during bootstrap. Confirm package ownership/availability, then merge the release PR for the first publishable
 version. Leave any private tag on its original commit. Pub.dev requires a manual first upload. On the new tag use Node 22, the CI SDK, and one running
@@ -100,12 +100,14 @@ and the qualification record. After upload, authorize `Conalog/patch-map` with p
 
 ## Retry and partial success
 
-Disabled publication retains `dart-candidate-<SHA>` with the tarball, installed report and source snapshot. For a publishable tag, use that artifact for both
-platform checks, collect and attach the envelope, then rerun the original tag-push execution. `dart-qualified-<SHA>` retains renderer qualification. Source,
-contract or host lock drift requires fresh reports. Record the actual package version, artifact and successful run URL separately from qualification.
+Dart release PRs retain `dart-prequalified-<version>-pr-<number>-<tree>` in the required CI run after source checks and both renderer runs. Enabled tags reuse it only when
+the successful run matches the merged PR and tagged tree and the package bytes and evidence verify. Missing, expired or mismatched evidence triggers full tag verification.
+Full qualification tests both renderers once `dart-candidate-<SHA>` is ready. The iOS job pins macOS 15, Xcode 26.3 and iOS 26.2 and waits for simulator logging.
+Keep CocoaPods aligned in `Gemfile.lock` and `Podfile.lock`. PRs never publish. Tag runs retain the accepted artifact as `dart-qualified-<SHA>`.
+Retry failed jobs on the original tag run. Record the published package version, artifact and successful run URL separately from qualification.
 
-Registry writes are independent. On partial success, record each registry's actual state and retry only the failed package: npm accepts the existing tag through
-`publish.yaml`'s `tag` input; Dart reruns its original tag-push run, because pub.dev rejects branch/manual-dispatch publishing. Reuse immutable source and tags.
+Registry writes are independent. On partial success, retry only the failed package. For npm, run `gh workflow run publish.yaml --ref release/1.0 -f tag=js-v<version>`.
+For Dart, rerun the original tag-push run because pub.dev rejects branch/manual-dispatch publishing. Reuse immutable source and tags.
 Already-published versions must match verified contents (and npm's selected dist-tag); mismatches require a new fix version. Preserve source snapshots and
 evidence before workflow retention expires. External setup and hosted release execution remain operator steps; local planner tests mock GitHub.
 

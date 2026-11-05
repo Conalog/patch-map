@@ -51,7 +51,7 @@ const output = (key) => '${{ steps.sdk.outputs.' + key + ' }}';
 function assertSdkWiring(document) {
   let installations = 0;
   for (const [name, job] of Object.entries(document.jobs)) {
-    const setup = job.steps.findIndex((step) => step.uses?.startsWith('subosito/flutter-action@'));
+    const setup = job.steps?.findIndex((step) => step.uses?.startsWith('subosito/flutter-action@')) ?? -1;
     if (setup < 0) continue;
     installations += 1;
     const selector = job.steps.findIndex((step) => step.id === 'sdk');
@@ -80,7 +80,8 @@ function assertSdkWiring(document) {
 test('CI and publishing wire each Flutter installation to the SDK authority', () => {
   const ci = workflow('ci.yaml');
   assert.equal(assertSdkWiring(ci), 2);
-  assert.equal(assertSdkWiring(workflow('publish-dart.yaml')), 2);
+  assert.equal(assertSdkWiring(workflow('qualify-dart.yaml')), 3);
+  assert.equal(assertSdkWiring(workflow('publish-dart.yaml')), 1);
   assert.ok(ci.jobs.contracts.steps.every((step) => !step.uses?.startsWith('subosito/') && !step.run?.includes('flutter pub get')));
 });
 

@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { assetConsumerPaths } from '../../verification/assets/catalog.mjs';
@@ -7,6 +8,7 @@ import { parseVersion, pubspecField } from './release-metadata.mjs';
 
 const require = createRequire(new URL('../../verification/package.json', import.meta.url));
 const { GitHub, Manifest } = require('release-please');
+const { DuplicateReleaseError } = require('release-please/build/src/errors/index.js');
 const { ManifestPlugin } = require('release-please/build/src/plugin.js');
 const { TagName } = require('release-please/build/src/util/tag-name.js');
 const { BranchName } = require('release-please/build/src/util/branch-name.js');
@@ -25,10 +27,63 @@ function releaseConsumerPaths(path) {
   return [];
 }
 
+export function localCommitChanges(sha, cwd = process.cwd()) {
+  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe' });
+  try {
+    const [, parent] = git('rev-list', '--parents', '-n', '1', sha).trim().split(' ');
+    const revisions = parent ? [parent, sha] : [sha];
+    // Compare the resulting tree only with the branch's prior state.
+    // Treat renames as deletion plus addition so both owners see the change.
+    const files = git('diff-tree', '--root', '-r', '--no-commit-id',
+      '--name-only', '--no-renames', '-z', ...revisions, '--').split('\0').filter(Boolean);
+    return { files, parent };
+  } catch {
+    // The branch may have advanced since checkout. Read the immutable SHA from GitHub.
+    return undefined;
+  }
+}
+
+function commitChangesReader(github, readLocal) {
+  const cache = new Map();
+  return async (sha) => {
+    if (cache.has(sha)) return cache.get(sha);
+    if (!/^[a-f0-9]{40}$/u.test(sha)) throw new Error(`Invalid release history commit: ${sha}`);
+    let changes = readLocal?.(sha);
+    if (!changes) {
+      const { octokit } = github.getGitHubApi();
+      const files = new Set();
+      let count = 0;
+      let parent;
+      let seen = false;
+      for await (const { data } of octokit.paginate.iterator('GET /repos/{owner}/{repo}/commits/{ref}', {
+        ...github.repository, ref: sha, per_page: 100,
+      })) {
+        if (data.sha !== sha || !Array.isArray(data.parents) || !Array.isArray(data.files)) {
+          throw new Error(`Incomplete GitHub file list for ${sha}`);
+        }
+        if (!seen) parent = data.parents[0]?.sha;
+        seen = true;
+        for (const file of data.files) {
+          if (!file.filename || (file.status === 'renamed' && !file.previous_filename)) {
+            throw new Error(`Incomplete GitHub file entry for ${sha}`);
+          }
+          files.add(file.filename);
+          if (file.status === 'renamed') files.add(file.previous_filename);
+          count++;
+        }
+      }
+      if (!seen || count >= 3000) throw new Error(`GitHub file list may be incomplete for ${sha}`);
+      changes = { files: [...files], parent };
+    }
+    cache.set(sha, changes);
+    return changes;
+  };
+}
+
 // CommitSplit already owns package-local paths. Only project shared product
 // assets/contracts onto their consumers; tooling and CI impact is not release ownership.
 // This changes planner input only; GitHub files and commit history stay intact.
-function withReleaseConsumers(github, packagePath) {
+function withReleaseConsumers(github, packagePath, readChanges) {
   const lockReads = new Map();
   function readLock(ref) {
     if (!lockReads.has(ref)) lockReads.set(ref, github.getFileJson('package-lock.json', ref));
@@ -48,22 +103,21 @@ function withReleaseConsumers(github, packagePath) {
         }
       };
       if (key === 'mergeCommitIterator') return async function* (...args) {
-        // Ownership needs every file, including large migration/rename PRs.
-        // The SDK's default GraphQL history contains only the first 100 paths.
-        for await (const commit of target.mergeCommitIterator(args[0], { ...args[1], backfillFiles: true })) {
+        // The SDK's GraphQL history omits old rename paths. Read full immutable
+        // commit changes here instead of requesting the SDK's lossy backfill.
+        for await (const commit of target.mergeCommitIterator(args[0], { ...args[1], backfillFiles: false })) {
           // The single-package bootstrap lock has no peer workspace records.
           // Yield the boundary untouched so release-please can stop at its SHA.
           if (commit.sha === legacySha) { yield commit; continue; }
+          const { files, parent } = await readChanges(commit.sha);
           const consumers = new Set();
-          for (const file of commit.files ?? []) {
+          for (const file of files) {
             for (const path of releaseConsumerPaths(file)) consumers.add(path);
           }
-          if (packagePath !== dartPath && commit.files?.includes('package-lock.json') && !commit.files.some((file) => file.startsWith(`${jsPath}/`))) {
+          if (packagePath !== dartPath && files.includes('package-lock.json') && !files.some((file) => file.startsWith(`${jsPath}/`))) {
             // Read immutable first-parent bytes, not the current branch lock.
             // Missing/unresolvable inputs abort planning rather than omit a fix.
             try {
-              const { data } = await target.getGitHubApi().octokit.repos.getCommit({ ...target.repository, ref: commit.sha });
-              const parent = data.parents[0]?.sha;
               if (!parent) throw new Error('Missing lockfile parent');
               const [before, after] = await Promise.all([readLock(parent), readLock(commit.sha)]);
               if (dependencyGraphChanged(before, after, jsPath)) consumers.add(jsPath);
@@ -71,9 +125,9 @@ function withReleaseConsumers(github, packagePath) {
               throw new Error(`Cannot resolve JS lock ownership for ${commit.sha}: ${cause.message}`, { cause });
             }
           }
-          yield consumers.size === 0 ? commit : {
+          yield {
             ...commit,
-            files: [...new Set([...commit.files, ...[...consumers].map((path) => `${path}/CHANGELOG.md`)])],
+            files: [...new Set([...files, ...[...consumers].map((path) => `${path}/CHANGELOG.md`)])],
           };
         }
       };
@@ -84,6 +138,34 @@ function withReleaseConsumers(github, packagePath) {
 }
 
 class IndependentManifest extends Manifest {
+  async createReleasesForPullRequest(releases, pullRequest) {
+    const created = [];
+    for (const release of releases) {
+      try {
+        created.push(await this.createRelease(release, pullRequest));
+      } catch (cause) {
+        if (!(cause instanceof DuplicateReleaseError)) throw cause;
+        const tag = release.tag.toString();
+        const { repos } = this.github.getGitHubApi().octokit;
+        const [{ data: existing }, { data: target }] = await Promise.all([
+          repos.getReleaseByTag({ ...this.repository, tag }),
+          repos.getCommit({ ...this.repository, ref: `refs/tags/${tag}` }),
+        ]);
+        if (existing.tag_name !== tag || existing.draft || target.sha !== release.sha) {
+          throw new Error(`Existing release ${tag} does not match merged PR #${pullRequest.number}`, { cause });
+        }
+      }
+    }
+    if (created.length > 0) {
+      const list = created.map(({ tagName, url }) => `- [${tagName}](${url})`).join('\n');
+      await this.github.commentOnIssue(`🤖 Created releases:\n\n${list}\n\n:sunflower:`, pullRequest.number);
+    }
+    // Leave pending in place if adding the tagged label fails, so the next run can recover.
+    await this.github.addIssueLabels(this.releaseLabels, pullRequest.number);
+    await this.github.removeIssueLabels(this.labels, pullRequest.number);
+    return created;
+  }
+
   async maybeUpdateExistingPullRequest(existing, candidate) {
     if (existing.body !== candidate.body.toString()) return super.maybeUpdateExistingPullRequest(existing, candidate);
     // The pinned SDK's PR.sha is GitHub's test-merge SHA, not the branch head.
@@ -168,9 +250,9 @@ class DartPackageVersion extends ManifestPlugin {
   }
 }
 
-export async function createReleaseManifest(github, branch = 'release/1.0', packagePath) {
+export async function createReleaseManifest(github, branch = 'release/1.0', packagePath, readChanges = commitChangesReader(github)) {
   if (packagePath !== undefined && !packagePaths.includes(packagePath)) throw new Error('Unknown release package');
-  github = withReleaseConsumers(github, packagePath);
+  github = withReleaseConsumers(github, packagePath, readChanges);
   const parsed = await Manifest.fromManifest(github, branch, undefined, undefined, {}, packagePath);
   const manifest = new IndependentManifest(github, branch, parsed.repositoryConfig, parsed.releasedVersions, { ...parsed, plugins: [] });
   manifest.plugins = parsed.plugins;
@@ -181,11 +263,11 @@ export async function createReleaseManifest(github, branch = 'release/1.0', pack
   return manifest;
 }
 
-export async function runIndependentReleases(github, branch = 'release/1.0') {
+export async function runIndependentReleases(github, branch = 'release/1.0', readChanges = commitChangesReader(github)) {
   const failures = [];
   for (const path of packagePaths) {
     try {
-      const manifest = await createReleaseManifest(github, branch, path);
+      const manifest = await createReleaseManifest(github, branch, path, readChanges);
       await manifest.createReleases();
       await manifest.createPullRequests();
     } catch (cause) {
@@ -199,5 +281,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!process.env.RELEASE_TOKEN) throw new Error('RELEASE_TOKEN is required');
   if (process.env.GITHUB_REPOSITORY !== 'Conalog/patch-map') throw new Error('Unexpected release repository');
   const github = await GitHub.create({ owner: 'Conalog', repo: 'patch-map', token: process.env.RELEASE_TOKEN });
-  await runIndependentReleases(github);
+  const shallow = execFileSync('git', ['rev-parse', '--is-shallow-repository'], { encoding: 'utf8' }).trim() === 'true';
+  await runIndependentReleases(github, undefined, commitChangesReader(github, shallow ? undefined : localCommitChanges));
 }
