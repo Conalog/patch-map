@@ -283,7 +283,7 @@ final class DrawNode {
   }
 
   final _upright = <String, Float64List>{};
-  final _uprightWorld = <String, (Rect?, int, int, Affine)>{};
+  final _uprightWorld = <String, (int, int, Affine)>{};
   void retain() => _references++;
   void release() {
     if (--_references == 0) {
@@ -408,14 +408,16 @@ final class DrawNode {
     final layout = component.layout;
     if (!layout.visible) return;
     final isBar = layout.type == 'bar';
+    final readable = layout.upright
+        ? _readableWorld(index, displayBox, cameraRotation, alignedAxes)
+        : null;
+    final destination = Offset.zero & (displayBox?.size ?? layout.box.size);
     if (isBar && bars != null && component.content is RectangleContent) {
       final content = component.content as RectangleContent;
-      final local = layout.upright
-          ? Offset.zero & (displayBox?.size ?? layout.box.size)
+      final local = readable != null || displayBox == null
+          ? destination
           : _barLocal(layout, displayBox);
-      final world = layout.upright
-          ? _readableWorld(index, displayBox, cameraRotation, alignedAxes)
-          : _componentWorldAt(index);
+      final world = readable ?? _componentWorldAt(index);
       final contained =
           local != null &&
           (layout.upright
@@ -457,14 +459,10 @@ final class DrawNode {
           canvas.transform(inverse);
         }
       }
-      if (layout.upright) {
-        final world = _readableWorld(
-          index,
-          displayBox,
-          cameraRotation,
-          alignedAxes,
-        );
-        final transform = _upright[layout.id] ??= world.toMatrix4();
+      if (readable != null) {
+        final transform = displayBox == null
+            ? (_upright[layout.id] ??= readable.toMatrix4())
+            : readable.toMatrix4();
         canvas.transform(transform);
       } else {
         if (!isBar) canvas.transform(matrix);
@@ -477,7 +475,6 @@ final class DrawNode {
         canvas.transform(component.matrix);
       }
       final localScale = physicalScale * _scale(_componentWorldAt(index));
-      final destination = Offset.zero & (displayBox?.size ?? layout.box.size);
       component.content.paintWithAlpha(
         canvas,
         destination,
@@ -498,35 +495,40 @@ final class DrawNode {
     final component = components[index];
     final layout = component.layout;
     final base = _componentWorldAt(index);
-    final placement = display == null && layout.remapsPlacement
-        ? placementAxes(rotation, alignedAxes)
-        : 0;
     final direction = alignedAxes != null && hasPositiveAxisAlignedBasis(base)
         ? alignedAxes
         : component.readableBasis(base, rotation).axes;
-    final cached = _uprightWorld[layout.id];
-    if (cached != null &&
-        cached.$1 == display &&
-        cached.$2 == placement &&
-        cached.$3 == direction) {
-      return cached.$4;
+    if (display != null) {
+      // A tween is sampled for this paint only. Keep its projection out of
+      // the cache for published geometry and reuse it on either paint path.
+      final authored = projectComponentPlacement(
+        base,
+        geometry.world,
+        layout.box,
+        display,
+      );
+      return placeReadableRect(authored, Offset.zero & display.size, direction);
     }
-    final box =
-        display ??
-        orientPlacement(layout.box, geometry.item!.content, placement);
+    final placement = layout.remapsPlacement
+        ? placementAxes(rotation, alignedAxes)
+        : 0;
+    final cached = _uprightWorld[layout.id];
+    if (cached != null && cached.$1 == placement && cached.$2 == direction) {
+      return cached.$3;
+    }
     final authored = projectComponentPlacement(
       base,
       geometry.world,
       layout.box,
-      box,
+      orientPlacement(layout.box, geometry.item!.content, placement),
     );
     final world = placeReadableRect(
       authored,
-      Offset.zero & (display?.size ?? layout.box.size),
+      Offset.zero & layout.box.size,
       direction,
     );
     _upright.remove(layout.id);
-    _uprightWorld[layout.id] = (display, placement, direction, world);
+    _uprightWorld[layout.id] = (placement, direction, world);
     return world;
   }
 }
@@ -577,8 +579,7 @@ final class _NodeAssets {
 
 // A tween moves the placement before component attrs. Express that translation
 // in the existing component basis so submission reuses its retained Affine.
-Rect? _barLocal(ComponentLayout layout, Rect? display) {
-  if (display == null) return Offset.zero & layout.box.size;
+Rect? _barLocal(ComponentLayout layout, Rect display) {
   final m = layout.transform, determinant = m.a * m.d - m.b * m.c;
   if (determinant == 0 || !determinant.isFinite) return null;
   final dx = display.left - layout.box.left, dy = display.top - layout.box.top;

@@ -934,6 +934,31 @@ void main() {
   test('mid-flight retarget captures the displayed rectangle', () async {
     final h = await Harness.create();
     addTearDown(h.close);
+    h.backend.camera.set(
+      center: const Offset(20, 30),
+      scale: 1,
+      rotation: math.pi,
+    );
+
+    Future<List<int>> paintedBarColumn() async {
+      final recorder = PictureRecorder();
+      h.backend.paint(Canvas(recorder), 1);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(300, 300);
+      try {
+        final bytes = (await image.toByteData(
+          format: ImageByteFormat.rawRgba,
+        ))!;
+        return [
+          for (var y = 120; y < 180; y++)
+            if (bytes.getUint32((y * 300 + 140) * 4) == 0x0000ffff) y,
+        ];
+      } finally {
+        image.dispose();
+        picture.dispose();
+      }
+    }
+
     h.publish(
       await h.prepare([
         update('bar', {
@@ -942,9 +967,13 @@ void main() {
       ], animate: true),
     );
     h.backend.onFrame(Duration.zero);
-    h.backend.onFrame(const Duration(milliseconds: 100));
-    final displayed = h.backend.transitions.rectangle(h.slot, 'bar');
-    expect(displayed, isNotNull);
+    const retargetTime = Duration(milliseconds: 200);
+    h.backend.onFrame(retargetTime);
+    final displayed = h.backend.transitions.rectangle(h.slot, 'bar', 3);
+    expect(displayed?.height, 37.5);
+    final before = await paintedBarColumn();
+    expect(before, hasLength(inInclusiveRange(37, 38)));
+    h.backend.camera.rotateTo(0);
     h.publish(
       await h.prepare([
         update('bar', {
@@ -952,7 +981,12 @@ void main() {
         }),
       ], animate: true),
     );
-    expect(h.backend.transitions.rectangle(h.slot, 'bar'), displayed);
+    h.backend.onFrame(retargetTime);
+    expect(h.backend.camera.rotating, isTrue);
+    expect(h.backend.transitions.rectangle(h.slot, 'bar', 3), displayed);
+    expect(await paintedBarColumn(), before);
+    h.backend.onFrame(retargetTime + const Duration(milliseconds: 400));
+    expect(await paintedBarColumn(), hasLength(48));
   });
 }
 

@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/geometry/geometry_snapshot.dart';
+import 'package:conalog_patch_map/src/geometry/item_layout.dart';
 import 'package:conalog_patch_map/src/api/target.dart';
 import 'package:conalog_patch_map/src/presentation/record_delta.dart';
 import 'package:conalog_patch_map/src/rendering/bar_transitions.dart';
@@ -34,6 +35,34 @@ GeometrySnapshot diagram(
   (_, _) => Size.zero,
 );
 void main() {
+  test('tween preserves oriented edges for every axis', () {
+    const from = Rect.fromLTRB(4.1, 32.8, 52.6, 70.2);
+    const to = Rect.fromLTRB(4.1, 15.4, 45.9, 70.2);
+    const content = Rect.fromLTRB(4.1, 4.1, 72.2, 70.2);
+    final transitions = BarTransitions()
+      ..replaceRetained(
+        0,
+        'b',
+        from,
+        to,
+        {'animation': true, 'animationDuration': 200},
+        animate: true,
+        beforeContent: content,
+        afterContent: content,
+      )
+      ..advance(Duration.zero)
+      ..advance(const Duration(milliseconds: 50));
+
+    for (var axes = 0; axes <= 3; axes++) {
+      final expected = orientPlacement(
+        Rect.lerp(from, to, .0625)!,
+        content,
+        axes,
+      );
+      expect(transitions.rectangle(0, 'b', axes), expected);
+    }
+  });
+
   test('bar position tween and retarget use the active camera placement', () {
     final transitions = BarTransitions();
     final bottom = diagram(20);
@@ -52,7 +81,13 @@ void main() {
     transitions.advance(const Duration(milliseconds: 100));
     transitions.advance(const Duration(milliseconds: 200));
     expect(transitions.rectangle(0, 'b', 3)!.center.dy, 30);
+    final displayed = [
+      for (var axes = 0; axes <= 3; axes++) transitions.rectangle(0, 'b', axes),
+    ];
     transitions.replace(manual, top, [0], animate: true);
+    for (var axes = 0; axes <= 3; axes++) {
+      expect(transitions.rectangle(0, 'b', axes), displayed[axes]);
+    }
     expect(transitions.rectangle(0, 'b', 3)!.center.dy, 30);
     transitions.advance(const Duration(milliseconds: 200));
     transitions.advance(const Duration(milliseconds: 300));
