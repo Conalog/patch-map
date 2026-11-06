@@ -1,0 +1,37 @@
+# Double-tap drag zoom
+
+`doubleTapDragZoomEnabled` defaults to false. It requires `zoomEnabled` and
+`PatchMapDragMode.pan`. Both contacts must be primary touches. The first tap
+must complete and the second down must qualify for a normal double tap. For
+zoom the two down positions must also be within 18 local logical pixels.
+The first move beyond the normal drag slop chooses zoom when the vertical
+displacement is at least 1.5 times the horizontal displacement. Otherwise
+that drag continues as pan. A recognized long press takes precedence if it
+arrives before the crossing. A regular double tap still emits `doubleTap`.
+
+Zoom fixes the world point under the second down and preserves rotation.
+The activation sample sets the baseline. After that, 160 logical pixels
+down doubles scale and 160 up halves it, subject to zoom limits. Reversing
+at a limit responds to the next move. Zoom uses the existing frame and
+camera observation path. The first `down`/`up` and second `down` still
+publish; a claimed zoom consumes the remaining touch without classified tap,
+hold or drag events. The up sample does not apply another camera delta.
+
+When another finger joins a claimed zoom, the first valid two-finger
+sample sets the pinch baseline at the current camera. The remaining finger
+cannot resume zoom or pan after either finger lifts. Turning the option or
+zoom permission off, switching away from pan, resizing, replacing the
+diagram or accepting a command that changes center/scale interrupts zoom.
+Pointer cancellation and inactivity retire the touch. Ordinary pinch
+continues to use its existing permissions and thresholds.
+
+## Ownership and verification
+
+The double-tap recognizer keeps Flutter's timing and supplies the actual
+pointer pair to the input coordinator. The scale recognizer takes ownership
+of the second pointer so it remains tracked for pinch. The coordinator reuses
+the anchored camera transform and its existing frame invalidation.
+Zoom adds no per-item work, timer, ticker or frame loop.
+
+`test/widget/double_tap_drag_zoom_test.dart` covers anchored zoom and clamping,
+tap/hold/pan behavior, input modes, stale pairs and both pinch release orders.

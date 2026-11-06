@@ -27,8 +27,8 @@ The host chooses actions, including switching the held pointer's drag to range/p
 The map rejects a pending hold in the arena on second-pointer down, allowing slow pinch.
 It tracks until all pointers end; remaining fingers cannot rearm. Recognized holds retain their lifecycle.
 
-Both gesture permissions default to true. `zoomEnabled` gates pinch and wheel
-scaling; `rotationEnabled` gates two-finger rotation. Explicit `setCamera`, fit
+Both gesture permissions default to true. `zoomEnabled` gates pinch, wheel and
+[one-finger zoom](double-tap-drag-zoom.md); `rotationEnabled` gates two-finger rotation. Explicit `setCamera`, fit
 and focus commands remain available. Translation remains available even with
 both flags false; the existing single-pointer `dragMode` still owns pan/range/
 paint behavior. Two-finger translation retains the prior camera behavior.
@@ -94,8 +94,8 @@ host error reporter is isolated so it cannot interrupt that rebuild.
 The widget validates configuration. `interaction/touch_camera_gesture.dart` adapts
 recognizer samples using captured thresholds/scalar baselines; the input coordinator applies targets.
 `MapCamera` owns limits and clamping; backend construction installs limits before resources.
-`widget/map_gesture_detector.dart` wires Flutter's tap/double-tap/long-press/scale arena
-and updates the hold deadline without replacing an active recognizer. Its semantics
+`widget/map_gesture_detector.dart` wires the Flutter gesture arena and updates
+the hold deadline without replacing an active recognizer. Its semantics
 delegate preserves the surface's existing tap and long-press actions.
 No per-item work, extra timer, ticker, listener collection or frame loop is added.
 Existing invalidation and [camera observation](camera-observation.md) are reused.

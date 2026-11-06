@@ -187,6 +187,13 @@ Zoom values must be finite in [0, 1), rotation values finite and nonnegative.
 `zoomEnabled` and `rotationEnabled` independently gate gestures. Settings are
 captured per gesture. Wheel, commands and translation retain their behavior.
 
+Set `doubleTapDragZoomEnabled: true` in `PatchMapGestureOptions` to enable
+one-finger zoom in `PatchMapDragMode.pan` while zoom is allowed. Tap, press again
+nearby, then drag down to zoom in or up to zoom out around the second press.
+Releasing without dragging still emits `doubleTap`. A long press that wins
+first keeps its usual behavior. Adding a finger during zoom hands off to
+two-finger gestures without resetting the camera.
+
 `PatchMapGestureOptions(longPressDuration: Duration(milliseconds: 300))` sets the
 hold time for `longPress`. The package default is 300ms. Durations must be nonnegative; zero
 recognizes on the next timer turn. The duration is captured on pointer down, so
