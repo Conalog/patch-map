@@ -200,7 +200,7 @@ final class InputCoordinator {
     final scale = camera.scale * math.pow(2, (y - previousY) / 160);
     if (!scale.isFinite || scale <= 0) return;
     try {
-      if (camera.transformAround(gesture.start.local, scale: scale)) _frame();
+      if (camera.zoomAtCenter(scale)) _frame();
     } on ArgumentError {
       // An extreme sample can be finite but outside the transform's range.
     }

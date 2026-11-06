@@ -8,40 +8,43 @@ import 'long_press_options_test.dart' as support;
 const _enabled = PatchMapGestureOptions(doubleTapDragZoomEnabled: true);
 
 void main() {
-  testWidgets(
-    'second vertical drag zooms at its down point and reverses at the limit',
-    (tester) async {
-      final map = await _mount(
-        tester,
-        zoomLimits: const PatchMapZoomLimits(maxScale: 8),
-      );
-      final anchor = map.center + const Offset(25, 0);
-      final initial = map.controller.camera!;
-      final second = await _secondTouch(tester, anchor);
-      await second.moveBy(const Offset(0, 19));
-      expect(map.controller.camera, initial);
-      await second.moveBy(const Offset(0, 160));
-      expect(map.controller.camera!.scale, closeTo(initial.scale * 2, 1e-10));
-      final worldAtAnchor = initial.center.dx + 25 / initial.scale;
-      expect(
-        map.controller.camera!.center.dx + 25 / map.controller.camera!.scale,
-        closeTo(worldAtAnchor, 1e-10),
-      );
-      await second.moveBy(const Offset(0, 160));
-      expect(map.controller.camera!.scale, 8);
-      await second.moveBy(const Offset(0, 160));
-      expect(map.controller.camera!.scale, 8);
-      await second.moveBy(const Offset(0, -160));
-      expect(map.controller.camera!.scale, 4);
-      await second.up();
-      expect(map.kinds, [
-        PatchMapInputKind.down,
-        PatchMapInputKind.up,
-        PatchMapInputKind.down,
-      ]);
-      await _finish(tester);
-    },
-  );
+  testWidgets('off-center second drag zooms at the rotated viewport center', (
+    tester,
+  ) async {
+    final map = await _mount(
+      tester,
+      zoomLimits: const PatchMapZoomLimits(maxScale: 8),
+    );
+    map.controller.setCamera(
+      center: const Offset(123.4, -57.25),
+      scale: 2.3,
+      rotation: .7,
+    );
+    final touch = map.center + const Offset(90, -80);
+    final initial = map.controller.camera!;
+    final second = await _secondTouch(tester, touch);
+    await second.moveBy(const Offset(0, 19));
+    expect(map.controller.camera, initial);
+    await second.moveBy(const Offset(0, 160));
+    expect(map.controller.camera!.scale, closeTo(initial.scale * 2, 1e-10));
+    expect(map.controller.camera!.center, initial.center);
+    expect(map.controller.camera!.rotation, initial.rotation);
+    await second.moveBy(const Offset(0, 160));
+    expect(map.controller.camera!.scale, 8);
+    await second.moveBy(const Offset(0, 160));
+    expect(map.controller.camera!.scale, 8);
+    await second.moveBy(const Offset(0, -160));
+    expect(map.controller.camera!.scale, 4);
+    expect(map.controller.camera!.center, initial.center);
+    expect(map.controller.camera!.rotation, initial.rotation);
+    await second.up();
+    expect(map.kinds, [
+      PatchMapInputKind.down,
+      PatchMapInputKind.up,
+      PatchMapInputKind.down,
+    ]);
+    await _finish(tester);
+  });
 
   for (final releaseFirst in [true, false]) {
     testWidgets(

@@ -192,7 +192,7 @@ captured per gesture. Wheel, commands and translation retain their behavior.
 
 Set `doubleTapDragZoomEnabled: true` in `PatchMapGestureOptions` to enable
 one-finger zoom in `PatchMapDragMode.pan` while zoom is allowed. Tap, press again
-nearby, then drag down to zoom in or up to zoom out around the second press.
+nearby, then drag down to zoom in or up to zoom out around the viewport center.
 Releasing without dragging still emits `doubleTap`. A long press that wins
 first keeps its usual behavior. Adding a finger during zoom hands off to
 two-finger gestures without resetting the camera.

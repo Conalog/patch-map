@@ -20,7 +20,8 @@ final class PatchMapGestureOptions {
   /// Two-finger translation remains available.
   final bool zoomEnabled;
 
-  /// Allow a nearby second touch to zoom vertically in pan mode.
+  /// Allow a nearby second touch to drag vertically and zoom at the viewport
+  /// center in pan mode.
   final bool doubleTapDragZoomEnabled;
 
   /// Enable two-finger rotation; does not gate `setCamera(rotation: ...)`.

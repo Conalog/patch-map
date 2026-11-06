@@ -248,6 +248,12 @@ final class MapCamera {
     source: PatchMapCameraChangeSource.gesture,
   );
 
+  bool zoomAtCenter(double scale) {
+    final nextScale = _resolveScale(scale);
+    return nextScale != _scale &&
+        set(scale: nextScale, source: PatchMapCameraChangeSource.gesture);
+  }
+
   /// Keep the world point under [localAnchor] fixed while changing camera size
   /// or angle. Used by pinch/wheel and explicit anchored camera commands.
   bool transformAround(Offset localAnchor, {double? scale, double? rotation}) {

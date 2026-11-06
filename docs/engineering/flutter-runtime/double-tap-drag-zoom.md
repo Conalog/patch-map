@@ -9,7 +9,7 @@ displacement is at least 1.5 times the horizontal displacement. Otherwise
 that drag continues as pan. A recognized long press takes precedence if it
 arrives before the crossing. A regular double tap still emits `doubleTap`.
 
-Zoom fixes the world point under the second down and preserves rotation.
+Zoom preserves the viewport's world center and rotation.
 The activation sample sets the baseline. After that, 160 logical pixels
 down doubles scale and 160 up halves it, subject to zoom limits. Reversing
 at a limit responds to the next move. Zoom uses the existing frame and
@@ -30,8 +30,8 @@ continues to use its existing permissions and thresholds.
 The double-tap recognizer keeps Flutter's timing and supplies the actual
 pointer pair to the input coordinator. The scale recognizer takes ownership
 of the second pointer so it remains tracked for pinch. The coordinator reuses
-the anchored camera transform and its existing frame invalidation.
+the camera's scale change and existing frame invalidation.
 Zoom adds no per-item work, timer, ticker or frame loop.
 
-`test/widget/double_tap_drag_zoom_test.dart` covers anchored zoom and clamping,
+`test/widget/double_tap_drag_zoom_test.dart` covers centered zoom and clamping,
 tap/hold/pan behavior, input modes, stale pairs and both pinch release orders.
