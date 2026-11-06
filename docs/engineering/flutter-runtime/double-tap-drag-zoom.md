@@ -24,7 +24,8 @@ hold or drag events. The up sample does not apply another camera delta.
 An additional finger while zoom is pending starts the ordinary pinch path.
 When another finger joins a claimed zoom, the first valid two-finger
 sample sets the pinch baseline at the current camera. The remaining finger
-cannot resume zoom or pan after either finger lifts. Turning the option or
+cannot resume zoom or pan after either finger lifts. Later changes to the
+finger count use the ordinary pinch baseline. Turning the option or
 zoom permission off, switching away from pan, resizing, replacing the
 diagram or accepting a command that changes center/scale interrupts zoom.
 Pointer cancellation and inactivity retire the touch. Ordinary pinch

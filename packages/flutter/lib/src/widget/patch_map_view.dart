@@ -98,7 +98,7 @@ class _PatchMapViewState extends State<PatchMapView>
   int? _recognitionEpoch, _gestureGeneration;
   final _admittedPointers = <int>{};
   final _gestureArena = MapGestureArena();
-  bool _pinchFromDoubleTap = false;
+  bool _needsDoubleTapPinchOrigin = false;
   ({double scale, double angle})? _pinchOrigin;
   Offset _gestureFocal = Offset.zero;
   final _touchGesture = TouchCameraGesture();
@@ -337,7 +337,7 @@ class _PatchMapViewState extends State<PatchMapView>
   void _clearAdmittedPointers() {
     _admittedPointers.clear();
     _gestureGeneration = null;
-    _pinchFromDoubleTap = false;
+    _needsDoubleTapPinchOrigin = false;
     _pinchOrigin = null;
     _gestureArena.trackZoomCandidate(null);
   }
@@ -345,9 +345,8 @@ class _PatchMapViewState extends State<PatchMapView>
   void _pointerDown(PointerDownEvent event) {
     if (!_canStartInput) return;
     backend.camera.cancelRotation();
-    if (input.isDoubleTapZooming && event.buttons == kPrimaryButton) {
-      _pinchFromDoubleTap = true;
-    }
+    _needsDoubleTapPinchOrigin =
+        input.isDoubleTapZooming && event.buttons == kPrimaryButton;
     _admittedPointers.add(event.pointer);
     final touch =
         _doubleTapZoomEnabled && event.kind == PointerDeviceKind.touch;
@@ -375,9 +374,8 @@ class _PatchMapViewState extends State<PatchMapView>
   }
 
   void _releasePointer(int pointer) {
-    _admittedPointers.remove(pointer);
+    if (_admittedPointers.remove(pointer)) _needsDoubleTapPinchOrigin = false;
     if (_admittedPointers.isEmpty) {
-      _pinchFromDoubleTap = false;
       _pinchOrigin = null;
       _gestureArena.trackZoomCandidate(null);
     }
@@ -402,15 +400,16 @@ class _PatchMapViewState extends State<PatchMapView>
       return;
     }
     var factor = details.scale, angle = details.rotation;
-    if (_pinchFromDoubleTap) {
-      final origin = _pinchOrigin;
-      if (origin == null) {
-        if (factor.isFinite && factor > 0 && angle.isFinite) {
-          _pinchOrigin = (scale: factor, angle: angle);
-          _gestureFocal = details.localFocalPoint;
-        }
-        return;
+    if (_needsDoubleTapPinchOrigin) {
+      if (factor.isFinite && factor > 0 && angle.isFinite) {
+        _needsDoubleTapPinchOrigin = false;
+        _pinchOrigin = (scale: factor, angle: angle);
+        _gestureFocal = details.localFocalPoint;
       }
+      return;
+    }
+    final origin = _pinchOrigin;
+    if (origin != null) {
       factor /= origin.scale;
       angle -= origin.angle;
     }

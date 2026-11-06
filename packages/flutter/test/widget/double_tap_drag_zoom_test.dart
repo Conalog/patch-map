@@ -46,6 +46,42 @@ void main() {
     await _finish(tester);
   });
 
+  for (final reposition in [false, true]) {
+    testWidgets(
+      'later pinch segments apply the first movement (reposition: $reposition)',
+      (tester) async {
+        final map = await _mount(
+          tester,
+          gestures: const PatchMapGestureOptions(
+            doubleTapDragZoomEnabled: true,
+            zoomThreshold: 0,
+          ),
+        );
+        final row = map.center + const Offset(0, 59);
+        final a = await _secondTouch(tester, map.center);
+        await a.moveBy(const Offset(0, 19));
+        await a.moveBy(const Offset(0, 40));
+        final b = await tester.startGesture(row + const Offset(60, 0));
+        await b.moveBy(const Offset(30, 0));
+        await b.moveBy(const Offset(30, 0));
+        if (reposition) {
+          await b.up();
+          await a.moveBy(const Offset(1, 0));
+        }
+        final c = await tester.startGesture(
+          row + Offset(reposition ? 51 : 180, 0),
+        );
+        final before = map.controller.camera!.scale;
+        await c.moveBy(Offset(reposition ? 10 : 60, 0));
+        expect(map.controller.camera!.scale, closeTo(before * 1.2, 1e-9));
+        await a.up();
+        if (!reposition) await b.up();
+        await c.up();
+        await _finish(tester);
+      },
+    );
+  }
+
   for (final releaseFirst in [true, false]) {
     testWidgets(
       'pending zoom can become a pinch after a hold ($releaseFirst)',
