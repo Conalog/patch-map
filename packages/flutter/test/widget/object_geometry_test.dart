@@ -10,6 +10,77 @@ Future<void> submit(WidgetTester tester, Future<PatchMapResult> request) async {
 }
 
 void main() {
+  testWidgets('relation marker updates change paint bounds independently', (
+    tester,
+  ) async {
+    const target = PatchMapTarget('r');
+    final controller = PatchMapController();
+    await tester.pumpWidget(support.host(controller));
+    await submit(
+      tester,
+      controller.draw([
+        {'type': 'rect', 'id': 'a', 'size': 10},
+        {
+          'type': 'rect',
+          'id': 'b',
+          'size': 10,
+          'attrs': {'x': 30},
+        },
+        {
+          'type': 'relations',
+          'id': 'r',
+          'links': [
+            {'source': 'a', 'target': 'b'},
+          ],
+          'style': {'width': 4, 'startMarker': 'circle'},
+        },
+      ]),
+    );
+    final before = controller.getGeometry('r')!;
+    expect(before.paintBounds, const Rect.fromLTRB(-1, -1, 35, 11));
+    await submit(
+      tester,
+      controller.updateValues(const [
+        PatchMapUpdate(target, {
+          'style': {'endMarker': 'diamond'},
+        }),
+      ]),
+    );
+    final both = controller.getGeometry('r')!;
+    expect(both.paintBounds, const Rect.fromLTRB(-1, -1, 41, 11));
+    expect(both.bounds, before.bounds);
+    expect(
+      controller.getValue(target)!['style'],
+      containsPair('startMarker', 'circle'),
+    );
+
+    final invalid = await controller.updateValues(const [
+      PatchMapUpdate(target, {
+        'style': {'startMarker': 'none', 'endMarker': 'square'},
+      }),
+    ]);
+    expect(invalid.outcome, PatchMapOutcome.rejected);
+    expect(controller.getGeometry('r')!.paintBounds, both.paintBounds);
+
+    await submit(
+      tester,
+      controller.updateValues(const [
+        PatchMapUpdate(target, {
+          'style': {'startMarker': 'none'},
+        }),
+        PatchMapUpdate(PatchMapTarget('b'), {
+          'attrs': {'x': 50},
+        }),
+      ]),
+    );
+    expect(
+      controller.getGeometry('r')!.paintBounds,
+      const Rect.fromLTRB(5, -1, 61, 11),
+    );
+    expect(both.paintBounds, const Rect.fromLTRB(-1, -1, 41, 11));
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('reads are inert, world-based and detached from later updates', (
     tester,
   ) async {

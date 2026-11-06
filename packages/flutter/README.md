@@ -124,6 +124,43 @@ bounds/center. Hidden leaves retain logical bounds but have null paint bounds;
 alpha layers and camera culling do not trim geometry. Reads expose published
 layout, not pending input, bar-animation samples or physical display completion.
 
+## Relation endpoint markers
+
+In Flutter datasets, set `style.startMarker` and `style.endMarker` on a
+`relations` object to decorate its two ends independently. The start marker
+uses the first drawable link's source, and the end marker uses the last
+drawable link's target, in `links` order. Each accepts `circle`, `arrow`,
+`diamond` or `none` (the default).
+
+```dart
+final relation = {
+  'id': 'wiring',
+  'type': 'relations',
+  'links': [
+    {'source': 'panel-1', 'target': 'inverter-1'},
+  ],
+  'style': {'width': 2, 'startMarker': 'circle', 'endMarker': 'arrow'},
+};
+
+// Update just the target marker after drawing the dataset.
+await controller.updateValues(const [
+  PatchMapUpdate(PatchMapTarget('wiring'), {
+    'style': {'endMarker': 'diamond'},
+  }),
+]);
+```
+
+Circles and diamonds are centered on the endpoint. Arrow tips sit at the
+endpoint and point outward along the adjacent segment. Markers use the line's
+color and opacity. The circle diameter, diamond diagonals and arrow base width
+are three times the stroke width. Arrow length uses the same size and is capped
+by the adjacent segment, with half the segment available to each arrow when
+they share a segment. Links with missing or hidden endpoints or no distinct points
+are skipped when choosing the marker positions. A zero-width stroke hides both
+markers. Set either marker to `none` to remove it. Markers extend the paint
+bounds used for culling and camera fit. Logical bounds and hit tests follow the
+underlying path and stroke.
+
 ## Presentation layers
 
 `PatchMapPresentationLayer(scope: addresses, targets: matches, unmatchedAlpha: .2)`
