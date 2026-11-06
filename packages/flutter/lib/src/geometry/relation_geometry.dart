@@ -10,6 +10,8 @@ import 'scene_geometry.dart';
 
 typedef RelationEndpointBounds = Rect? Function(String id);
 
+const _markerSizeInStrokeWidths = 4.0;
+
 final class RelationPath {
   RelationPath._(
     this.sourceId,
@@ -137,26 +139,30 @@ final class RelationGeometry {
 
         final polygons = <Quad>[];
         final circles = <Rect>[];
-        if (index == start) {
-          _addMarker(
-            startMarker,
-            points.first,
-            points[1],
-            width,
-            polygons,
-            circles,
-          );
-        }
-        if (index == end) {
-          _addMarker(
-            endMarker,
-            points.last,
-            points[points.length - 2],
-            width,
-            polygons,
-            circles,
-          );
-        }
+        final startShape = index == start ? startMarker : 'none';
+        final endShape = index == end ? endMarker : 'none';
+        final arrowSegmentShare =
+            points.length == 2 && startShape == 'arrow' && endShape == 'arrow'
+            ? .5
+            : 1.0;
+        final startInset = _addMarker(
+          startShape,
+          points.first,
+          points[1],
+          width,
+          arrowSegmentShare,
+          polygons,
+          circles,
+        );
+        final endInset = _addMarker(
+          endShape,
+          points.last,
+          points[points.length - 2],
+          width,
+          arrowSegmentShare,
+          polygons,
+          circles,
+        );
         for (final polygon in polygons) {
           paintBounds = unionBounds(
             paintBounds,
@@ -169,11 +175,18 @@ final class RelationGeometry {
             node.world.projectRect(circle).bounds,
           );
         }
+        final lastSegmentQuad = firstQuad + points.length - 2;
         paths[index] = RelationPath._withDecoration(path, (
           atStart: index == start,
-          polygons: List.unmodifiable(
-            quads.getRange(firstQuad, quads.length).followedBy(polygons),
-          ),
+          polygons: List.unmodifiable([
+            for (var i = firstQuad; i < quads.length; i++)
+              _insetStrokeQuad(
+                quads[i],
+                i == firstQuad ? startInset : Offset.zero,
+                i == lastSegmentQuad ? endInset : Offset.zero,
+              ),
+            ...polygons,
+          ]),
           circles: List.unmodifiable(circles),
         ));
       }
@@ -289,31 +302,43 @@ void _addStrokeQuads(List<Offset> points, double half, List<Quad> quads) {
   }
 }
 
-void _addMarker(
+Quad _insetStrokeQuad(Quad quad, Offset start, Offset end) =>
+    start == Offset.zero && end == Offset.zero
+    ? quad
+    : Quad(quad.p0 + start, quad.p1 + end, quad.p2 + end, quad.p3 + start);
+
+Offset _addMarker(
   String shape,
   Offset endpoint,
   Offset adjacent,
   double width,
+  double arrowSegmentShare,
   List<Quad> polygons,
   List<Rect> circles,
 ) {
-  final radius = 2 * width;
+  if (shape == 'none') return Offset.zero;
+  final size = width * _markerSizeInStrokeWidths;
+  final radius = width * (_markerSizeInStrokeWidths / 2);
   if (shape == 'circle') {
     circles.add(Rect.fromCircle(center: endpoint, radius: radius));
-    return;
+    return Offset.zero;
   }
   final delta = endpoint - adjacent;
-  final direction = delta / vectorLength(delta.dx, delta.dy);
+  final segmentLength = vectorLength(delta.dx, delta.dy);
+  final direction = delta / segmentLength;
   final side = Offset(-direction.dy, direction.dx) * radius;
   if (shape == 'diamond') {
     final axis = direction * radius;
     polygons.add(
       Quad(endpoint + axis, endpoint + side, endpoint - axis, endpoint - side),
     );
-  } else {
-    final base = endpoint - direction * (4 * width);
-    polygons.add(Quad(endpoint, base + side, base - side, base - side));
+    return Offset.zero;
   }
+  final length = math.min(size, segmentLength * arrowSegmentShare);
+  final base = endpoint - direction * length;
+  polygons.add(Quad(endpoint, base + side, base - side, base - side));
+  // At this distance from the tip, the triangle is as wide as the shaft.
+  return direction * (-length / _markerSizeInStrokeWidths);
 }
 
 /// Compile once per structural replacement. Updates visit changed ancestors and

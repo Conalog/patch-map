@@ -106,6 +106,7 @@ void main() {
     for (final (x, y) in [(10, 25), (15, 25), (25, 25), (32, 25), (32, 29)]) {
       expect(pixel(data, x, y), [255, 0, 0, 32], reason: '$x,$y');
     }
+    expect(pixel(data, 44, 26)[3], 0); // The shaft fits inside the tip.
     expect(pixel(data, 43, 29)[3], 0); // Arrow narrows toward the target.
     expect(pixel(data, 46, 25)[3], 0);
   });
@@ -128,11 +129,33 @@ void main() {
         ),
       ),
     ))!;
+    expect(pixel(data, 15, 26)[3], 0);
     expect(pixel(data, 16, 29)[3], 0);
     expect(pixel(data, 27, 29)[3], 255);
     expect(pixel(data, 49, 25)[3], 255);
     expect(pixel(data, 49, 30)[3], 0);
     expect(pixel(data, 54, 25)[3], 0);
+  });
+
+  testWidgets('two arrows stay inside the length of a short link', (
+    tester,
+  ) async {
+    final snapshot = scene({
+      'width': 4,
+      'startMarker': 'arrow',
+      'endMarker': 'arrow',
+    }, targetX: 6);
+    final geometry = snapshot.relationFor('r')!;
+    final data = (await tester.runAsync(
+      () => pixels(
+        RelationPaint(geometry, snapshot['r']!.data, ColorResolver(), 1),
+      ),
+    ))!;
+    expect(geometry.paintBounds, const Rect.fromLTRB(5, -3, 11, 13));
+    expect(pixel(data, 14, 25)[3], 0);
+    expect(pixel(data, 21, 25)[3], 0);
+    expect(pixel(data, 17, 28)[3], 255);
+    expect(pixel(data, 18, 28)[3], 255);
   });
 
   testWidgets('hidden, coincident and zero-width paths omit markers', (

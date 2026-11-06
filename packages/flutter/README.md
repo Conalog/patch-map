@@ -152,9 +152,10 @@ await controller.updateValues(const [
 
 Circles and diamonds are centered on the endpoint. Arrow tips sit at the
 endpoint and point outward along the adjacent segment. Markers use the line's
-color and opacity. Their local size scales with the stroke width. The circle
-diameter, diamond diagonals and arrow length and base width are all four times
-the stroke width. Links with missing or hidden endpoints or no distinct points
+color and opacity. The circle diameter, diamond diagonals and arrow base width
+are four times the stroke width. Arrow length uses the same size and is capped
+by the adjacent segment, with half the segment available to each arrow when
+they share a segment. Links with missing or hidden endpoints or no distinct points
 are skipped when choosing the marker positions. A zero-width stroke hides both
 markers. Set either marker to `none` to remove it. Markers extend the paint
 bounds used for culling and camera fit. Logical bounds and hit tests follow the
