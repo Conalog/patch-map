@@ -414,6 +414,7 @@ class _PatchMapViewState extends State<PatchMapView>
       factor /= origin.scale;
       angle -= origin.angle;
     }
+    double? appliedRotation;
     if (_touchGesture.enabled) {
       final currentRotation = backend.camera.rotation;
       _touchGesture.update(
@@ -423,21 +424,22 @@ class _PatchMapViewState extends State<PatchMapView>
         currentRotation: currentRotation,
       );
       final rotation = _touchGesture.rotation;
-      final appliedRotation = input.cameraGesture(
+      appliedRotation = input.cameraGesture(
         pointerCount: details.pointerCount,
         localAnchor: _gestureFocal,
         scale: _touchGesture.scale,
         rotation: rotation == currentRotation ? null : rotation,
       );
-      final onGestureRotation = widget.onGestureRotation;
-      if (appliedRotation != null && onGestureRotation != null) {
-        session.notify(() => onGestureRotation(appliedRotation));
-      }
     }
     if (!_canStartInput || _gestureGeneration != session.generation) return;
     final moved = backend.camera.pan(details.localFocalPoint - _gestureFocal);
     _gestureFocal = details.localFocalPoint;
     if (moved) frame.invalidate();
+    final rotation = appliedRotation;
+    final onGestureRotation = widget.onGestureRotation;
+    if (rotation != null && onGestureRotation != null) {
+      session.notify(() => onGestureRotation(rotation));
+    }
   }
 
   @override

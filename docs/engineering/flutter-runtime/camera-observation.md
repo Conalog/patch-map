@@ -26,8 +26,8 @@ read the getter for that. A replacement marks adoption of the new diagram's came
 even if its fit needs no additional transform; equal last-notified state stays quiet.
 
 `PatchMapView.onGestureRotation` receives the applied clockwise angle in radians
-during input dispatch, after touch rotation changes the camera and before the
-frame notification. Zoom, pan and programmatic commands alone do not fire it.
+during input dispatch, after all camera changes from that touch sample and before
+the frame notification. Zoom, pan and programmatic commands alone do not fire it.
 Hosts can release heading tracking immediately using this signal. Callback
 exceptions use the existing host-error boundary.
 
