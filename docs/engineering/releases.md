@@ -12,7 +12,7 @@ each package's public documentation; release automation does not qualify it.
 | `packages/javascript` | npm `@conalog/patch-map` / [package.json](../../packages/javascript/package.json) | `js-v<version>` / `chore: release js <version>` |
 | `packages/flutter` | pub.dev `conalog_patch_map` / [pubspec.yaml](../../packages/flutter/pubspec.yaml) | `dart-v<version>` / `chore: release dart <version>` |
 
-`release-please.yaml` runs on `release/1.0` pushes and plans separate PRs, tags and GitHub Releases. Registry writes and publication
+`release-please.yaml` runs on `release/1.0` pushes and plans separate PRs, tags and GitHub Releases.
 The [npm publishing workflow](../../.github/workflows/publish.yaml) pins Node 24 with its bundled npm CLI for Trusted Publishing.
 CI, release planning and Dart publishing read the exact Node 22 version from [`.nvmrc`](../../.nvmrc). Keep historical `v*` releases; the pinned planner uses npm's actual v1.0.0-alpha.9 boundary until its first prefixed
 release. Dart-only releases leave npm and the root lock version unchanged. Dart starts at alpha.1; its manifest entry appears in the first release PR, not
