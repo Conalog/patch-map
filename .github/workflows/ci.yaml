@@ -15,7 +15,7 @@ concurrency:
 jobs:
   classify:
     name: Shared · Change routing
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       full_validation: ${{ steps.changes.outputs.full_validation }}
@@ -32,7 +32,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           package-manager-cache: false
 
       - name: Test release metadata and change classifier
@@ -76,7 +76,7 @@ jobs:
           - gate: lifecycle
             name: JS · Memory & benchmark smoke
     # Playwright 1.57 supports Ubuntu 24.04 for the Chromium gates.
-    runs-on: ${{ matrix.gate == 'core' && 'ubuntu-latest' || 'ubuntu-24.04' }}
+    runs-on: ${{ matrix.gate == 'core' && 'ubuntu-26.04' || 'ubuntu-24.04' }}
     timeout-minutes: 40
     steps:
       - name: Checkout
@@ -87,7 +87,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Require JavaScript release inputs
@@ -144,7 +144,7 @@ jobs:
       fail-fast: false
       matrix:
         toolchain: [ci, service]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -155,7 +155,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Read SDK role
@@ -190,7 +190,7 @@ jobs:
     name: Shared contract definitions & release tooling
     needs: classify
     if: ${{ needs.classify.outputs.contract_validation == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -201,7 +201,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -222,9 +222,9 @@ jobs:
       matrix:
         include:
           - platform: android
-            runner: ubuntu-latest
+            runner: ubuntu-26.04
           - platform: ios
-            runner: macos-latest
+            runner: macos-15
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
@@ -235,7 +235,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           package-manager-cache: false
       - name: Read SDK role
         id: sdk
@@ -259,10 +259,23 @@ jobs:
         run: |
           flutter config --jdk-dir "${JAVA_HOME_17_X64:?The Android build requires JDK 17}"
           flutter build apk --debug --no-pub
+      - name: Setup Ruby for iOS
+        if: ${{ matrix.platform == 'ios' }}
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
+        with:
+          ruby-version: '3.3.13'
+          working-directory: packages/flutter/example/ios
       - name: Build iOS simulator
         if: ${{ matrix.platform == 'ios' }}
         working-directory: packages/flutter/example
-        run: flutter build ios --simulator --debug --no-codesign --no-pub
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/packages/flutter/example/ios/Gemfile
+          BUNDLE_PATH: ${{ runner.temp }}/patch-map-cocoapods
+          BUNDLE_FROZEN: 'true'
+          DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+        run: |
+          bundle install
+          bundle exec flutter build ios --simulator --debug --no-codesign --no-pub
 
   dart-release:
     name: Verify Dart release PR
@@ -280,7 +293,7 @@ jobs:
     name: CI
     if: ${{ always() }}
     needs: [classify, gate, flutter, contracts, native-example, dart-release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require all gates

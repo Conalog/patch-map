@@ -73,6 +73,16 @@ test('Flutter verification and native hosts can run independently while the aggr
 const readWorkflow = (name) => parse(readFileSync(new URL(`../.github/workflows/${name}.yaml`, import.meta.url), 'utf8'));
 const commands = (job) => (job.steps ?? []).flatMap((step) => (step.run ?? '').trim().split('\n'));
 
+test('PR and npm release Chromium checks run on the Playwright-compatible Ubuntu image', () => {
+  const gate = workflow.jobs.gate;
+  const runner = gate['runs-on'].slice(3, -2).trim();
+  for (const name of ['package', 'lifecycle']) {
+    const matrix = gate.strategy.matrix.include.find(({ gate }) => gate === name);
+    assert.equal(runInNewContext(runner, { matrix }, { timeout: 100 }), 'ubuntu-24.04');
+  }
+  assert.equal(readWorkflow('publish').jobs['packed-consumer']['runs-on'], 'ubuntu-24.04');
+});
+
 test('required CI demands an uploaded qualification only for generated Dart release PRs', () => {
   const dart = workflow.jobs['dart-release'];
   const validation = workflow.jobs.validation;

@@ -50,7 +50,8 @@ checks extracted bytes before resolving the independent consumer.
 
 CI's stable `CI` aggregate includes changed-package JS, Flutter, shared-tooling and Android/iOS host build checks. Flutter analysis, tests and
 installed-consumer checks run on both recorded SDK roles. Native hosts build on the CI baseline; shared contract definitions and release tooling need only Node.
-Host builds do not qualify rendering or devices. iOS simulator builds additionally require the selected Xcode's iOS platform installation.
+Host builds do not qualify rendering or devices. CI's iOS host build and renderer qualification use macOS 15, Xcode 26.3 and Ruby 3.3.13.
+The example's `Gemfile.lock` pins Bundler and CocoaPods. Local simulator builds require the selected Xcode's iOS platform installation.
 
 PR CI caches Flutter SDK and pub downloads with the pinned Flutter action's
 default keys: OS, architecture, SDK version and framework revision separate SDK

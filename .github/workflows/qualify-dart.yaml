@@ -19,7 +19,7 @@ permissions: {}
 jobs:
   plan:
     name: Route Dart release verification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -49,7 +49,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           package-manager-cache: false
       - name: Identify Dart release PRs and tooling changes
         id: pr
@@ -121,7 +121,7 @@ jobs:
     name: Verify immutable Dart release
     needs: plan
     if: ${{ needs.plan.outputs.verify == 'true' && needs.plan.outputs.reused != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -134,7 +134,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           package-manager-cache: false
       - name: Read SDK role
         id: sdk
@@ -168,7 +168,7 @@ jobs:
     name: Analyze and test Dart sources
     needs: plan
     if: ${{ needs.plan.outputs.verify == 'true' && needs.plan.outputs.reused != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -181,7 +181,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           package-manager-cache: false
       - name: Read SDK role
         id: sdk
@@ -210,7 +210,7 @@ jobs:
       matrix:
         include:
           - platform: android
-            runner: ubuntu-latest
+            runner: ubuntu-26.04
           - platform: ios
             runner: macos-15
     runs-on: ${{ matrix.runner }}
@@ -226,7 +226,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           package-manager-cache: false
       - name: Read SDK role
         id: sdk
@@ -251,14 +251,24 @@ jobs:
       - name: Enable Android emulator acceleration
         if: ${{ matrix.platform == 'android' }}
         run: sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Configure JDK 17 for Android
+        if: ${{ matrix.platform == 'android' }}
+        run: flutter config --jdk-dir "${JAVA_HOME_17_X64:?The Android build requires JDK 17}"
       - name: Run Android renderer checks
         if: ${{ matrix.platform == 'android' }}
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 34
           arch: x86_64
+          emulator-build: '16740729' # 37.2.13.0
           emulator-port: 5554
           script: node verification/flutter/renderer-qualification.mjs android emulator-5554
+      - name: Setup Ruby for iOS
+        if: ${{ matrix.platform == 'ios' }}
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
+        with:
+          ruby-version: '3.3.13'
+          working-directory: packages/flutter/example/ios
       - name: Run iOS renderer checks
         if: ${{ matrix.platform == 'ios' }}
         env:
@@ -299,7 +309,7 @@ jobs:
     outputs:
       artifact-id: ${{ steps.retain.outputs.artifact-id }}
     needs: [plan, verify, checks, renderer]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -312,7 +322,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           package-manager-cache: false
       - name: Prepare release assets and verifier dependencies
         run: |
