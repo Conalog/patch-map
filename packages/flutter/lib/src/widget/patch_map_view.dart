@@ -46,6 +46,7 @@ class PatchMapView extends StatefulWidget {
     this.onAttached,
     this.onEvent,
     this.onCameraChanged,
+    this.onGestureRotation,
     this.eventFilter,
     this.dragMode = PatchMapDragMode.pan,
     this.gestures = const PatchMapGestureOptions(),
@@ -65,6 +66,10 @@ class PatchMapView extends StatefulWidget {
   final void Function(PatchMapController controller)? onAttached;
   final void Function(PatchMapInputEvent event)? onEvent;
   final ValueChanged<PatchMapCameraChange>? onCameraChanged;
+
+  /// Reports each angle actually applied by a touch rotation, in clockwise
+  /// radians, during input dispatch before the frame's camera notification.
+  final ValueChanged<double>? onGestureRotation;
   final bool Function(PatchMapObject object)? eventFilter;
   final PatchMapDragMode dragMode;
   final PatchMapGestureOptions gestures;
@@ -410,20 +415,26 @@ class _PatchMapViewState extends State<PatchMapView>
       angle -= origin.angle;
     }
     if (_touchGesture.enabled) {
+      final currentRotation = backend.camera.rotation;
       _touchGesture.update(
         factor: factor,
         angle: angle,
         currentScale: backend.camera.scale,
-        currentRotation: backend.camera.rotation,
+        currentRotation: currentRotation,
       );
-      input.cameraGesture(
+      final rotation = _touchGesture.rotation;
+      final appliedRotation = input.cameraGesture(
         pointerCount: details.pointerCount,
         localAnchor: _gestureFocal,
         scale: _touchGesture.scale,
-        rotation: _touchGesture.rotation,
+        rotation: rotation == currentRotation ? null : rotation,
       );
+      final onGestureRotation = widget.onGestureRotation;
+      if (appliedRotation != null && onGestureRotation != null) {
+        session.notify(() => onGestureRotation(appliedRotation));
+      }
     }
-    if (!_canStartInput) return;
+    if (!_canStartInput || _gestureGeneration != session.generation) return;
     final moved = backend.camera.pan(details.localFocalPoint - _gestureFocal);
     _gestureFocal = details.localFocalPoint;
     if (moved) frame.invalidate();

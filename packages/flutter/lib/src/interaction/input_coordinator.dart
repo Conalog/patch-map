@@ -366,20 +366,29 @@ final class InputCoordinator {
     );
   }
 
-  /// Absolute scale/rotation supplied by the host recognizer's gesture baseline.
+  /// Applies absolute scale and any new rotation. Returns the applied angle
+  /// only when this gesture changed it.
   /// Single-pointer scale callbacks cannot compete with raw pan/range/paint.
-  void cameraGesture({
+  double? cameraGesture({
     required int pointerCount,
     required Offset localAnchor,
     required double scale,
-    required double rotation,
+    required double? rotation,
   }) {
-    if (_disposed || !_active || pointerCount < 2) return;
+    if (_disposed || !_active || pointerCount < 2) return null;
     final epoch = _cancel(PatchMapEndReason.multitouch);
-    if (_disposed || !_active || _epoch != epoch) return;
-    if (camera.transformAround(localAnchor, scale: scale, rotation: rotation)) {
-      _frame();
+    if (_disposed || !_active || _epoch != epoch) return null;
+    final previousRotation = camera.rotation;
+    if (!camera.transformAround(
+      localAnchor,
+      scale: scale,
+      rotation: rotation,
+    )) {
+      return null;
     }
+    final appliedRotation = camera.rotation;
+    _frame();
+    return appliedRotation == previousRotation ? null : appliedRotation;
   }
 
   void wheel({required Offset localAnchor, required double scaleFactor}) {

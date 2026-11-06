@@ -147,6 +147,9 @@ Subscribe without replay; read `camera` for current state. Replacement/removal d
 inactivity defers them. Callbacks may issue commands; their new changes notify on a later frame.
 These are latest applied values, not display-completion or debounced settled notifications.
 
+`onGestureRotation` receives the applied clockwise angle in radians during input dispatch.
+It fires when touch rotation changes the angle, before frame-coalesced observation.
+
 `rotateTo` preserves center/scale and uses a clockwise half-turn when both paths
 are equal. Its default is 180ms cubic ease-out. `setCamera` and touch rotation
 remain immediate; the bar data-animation policy is unchanged.
@@ -256,6 +259,7 @@ Image preparation is asynchronous; it neither blocks first screen nor changes re
 | `onImageFailure(failures)` | Asynchronous image failures with target/path diagnostics |
 | `onEvent(event)` | Pointer, drag and selection events |
 | `onCameraChanged(change)` | Frame-coalesced camera state and causes described above |
+| `onGestureRotation(radians)` | Immediate notification of an applied touch rotation |
 | `loadingBuilder` / `errorBuilder` | Host UI for preparation and fatal map failure |
 
 `resolveDirectColor(value)` converts a direct CSS, numeric or JSON color value

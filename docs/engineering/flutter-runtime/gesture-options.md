@@ -59,9 +59,9 @@ input does not mark that axis active or raise the other axis's threshold.
 
 With nonzero thresholds, each crossing sample and current camera value become
 that axis's new baseline. The entire crossing sample, including overshoot, is
-discarded. Later zoom uses a ratio to the activation span; rotation uses the
-angle difference from activation. Both can then run together. Pending axes
-preserve camera commands. Wheel and two-finger translation remain immediate.
+discarded. Later zoom uses a ratio to the activation span. Rotation uses finger
+travel from activation and rebases onto the current angle after external
+rotation. Wheel and two-finger translation remain immediate.
 Wrapped angles are unwrapped before threshold checks; an atan2 branch cut cannot
 falsely activate rotation. Invalid samples cannot activate an axis or poison its
 baseline, and a zero finger span cannot become a divisor.

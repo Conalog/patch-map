@@ -123,7 +123,13 @@ final class TouchCameraGesture {
     double currentRotation,
     bool zoomWasActive,
   ) {
-    if (!_options.rotationEnabled || !angle.isFinite) return currentRotation;
+    if (!_options.rotationEnabled) return currentRotation;
+    if (_rotationOrigin != null && currentRotation != _rotation) {
+      // Apply only new finger travel on top of an externally changed angle.
+      _cameraRotation = currentRotation;
+      _rotationOrigin = _rotationTravel;
+    }
+    if (!angle.isFinite) return currentRotation;
     // Flutter derives its angle from atan2. Crossing its branch cut must not
     // look like a full turn or activate rotation on a tiny finger movement.
     var delta = angle - _lastRotation;
@@ -146,7 +152,8 @@ final class TouchCameraGesture {
       }
       return currentRotation;
     }
-    if (_rotationTravel != 0) _rotationActive = true;
+    if (delta == 0) return currentRotation;
+    _rotationActive = true;
     return _cameraRotation + (_rotationTravel - origin);
   }
 }
