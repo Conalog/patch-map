@@ -211,6 +211,21 @@ angle. Angles too large to represent incremental travel require normalization
 with immediate `setCamera` first. Camera callbacks report `programmatic` changes
 through the existing frame path; no separate animation-completion event is added.
 
+### Readable text and item content
+
+Standalone text follows its authored position. Its visible orientation preserves
+readable tilt and corrects upside-down or mirrored text as the map turns.
+The measured text box keeps its world center.
+
+Items and grid item templates default to `contentOrientation: 'upright'`.
+Text, icons, and bars use the item's readable axes for placement and their
+own transforms for visible orientation. For example, a top label stays on the
+readable top side after a half turn. The matching margin follows the placement
+edge. Padding and authored offsets use the item coordinates. With
+`placement: 'none'`, only the visible orientation is corrected.
+Set `contentOrientation: 'follow-item'` to use the item's authored orientation
+and layout for all components. Backgrounds follow the map in both modes.
+
 ## Touch gestures and zoom limits
 
 `gestures: const PatchMapGestureOptions(zoomThreshold: .02, zoomThresholdAfterRotation: .05, rotationThresholdDegrees: 15, rotationThresholdAfterZoomDegrees: 25)` configures touch activation.

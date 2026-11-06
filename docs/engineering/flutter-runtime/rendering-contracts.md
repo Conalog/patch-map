@@ -5,7 +5,7 @@ The [architecture](architecture.md) owns internal dependency boundaries.
 
 | ID | Contract | Owning implementation boundary | Verification obligation |
 | --- | --- | --- | --- |
-| F18 | Bar schema alone controls animation (default true/200ms). Width/height and placement change together, cubic ease-in-out; retarget from displayed size. | Rendering / frame | Intermediate frames, retarget, disabled and zero duration |
+| F18 | Bar schema alone controls animation (default true/200ms). Width, height and placement animate together with cubic ease-in-out. Retargeting starts from the displayed position and size for the current camera orientation. | Rendering / frame | Intermediate frames, retarget with rotated placement, disabled and zero duration |
 | F19 | Static geometry max100; representative initial most frequent width fixed until replacement; matching bars use shared3-slice, others9-slice, ineligible/pending paths use Canvas. | Rendering | Overview and zoom+update+pan; order/shape and width transitions |
 | F20 | Bar images share color/height-independent masks by radius; unused cache1MiB, FIFO preparation max4; skip unusable resources and drop unstarted unreferenced jobs. Remember failed creation identities until replacement; Canvas success is not an update failure. | Resources | Single/multiple radius, repeated failure, inactivity and cleanup |
 | F21 | Text uses internally selected shared Paragraph or validated numeric atlas; fixed3/6/12 filtered levels, shape/style sharing independent of color/placement. | Text resources | Numeric grammar/font/shaping; scale/rotation and fallback |

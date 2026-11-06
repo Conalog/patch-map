@@ -140,6 +140,31 @@ List<int> pixel(Uint8List bytes, int x, int y) => [
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('collapsed standalone text keeps its authored selection outline', () {
+    final geometry = snapshot([
+      {
+        'id': 'group',
+        'type': 'group',
+        'attrs': {'angle': 45, 'scaleY': 0},
+        'children': [
+          {
+            'id': 'label',
+            'type': 'text',
+            'text': 'label',
+            'attrs': {'angle': 45},
+          },
+        ],
+      },
+    ]);
+    final label = geometry['label']!;
+    expect(label.world.inverse, isNull);
+    final authored = label.world.projectRect(label.localBounds!);
+    expectQuad(
+      selectionQuad(label, palette: ColorResolver(), cameraRotation: math.pi),
+      vertices(authored),
+    );
+  });
+
   test(
     'release blue centered 2px outline includes background half-stroke outset',
     () async {
@@ -383,7 +408,7 @@ void main() {
       final target = geometry['a']!, layout = target.item!.components.single;
       for (final angle in [0.0, 1.5, 3.0]) {
         final component = layout
-            .worldTransform(target.world, angle, target.item!.size)
+            .worldTransform(target.world, angle, target.item!.content)
             .projectRect(Offset.zero & layout.box.size);
         final inverse = target.world.inverse!;
         var local = const Rect.fromLTWH(0, 0, 20, 20);

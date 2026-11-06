@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:conalog_patch_map/src/dataset/dataset_reader.dart';
 import 'package:conalog_patch_map/src/geometry/geometry_snapshot.dart';
+import 'package:conalog_patch_map/src/geometry/item_layout.dart';
 import 'package:conalog_patch_map/src/api/target.dart';
 import 'package:conalog_patch_map/src/presentation/record_delta.dart';
 import 'package:conalog_patch_map/src/rendering/bar_transitions.dart';
@@ -11,6 +12,7 @@ GeometrySnapshot diagram(
   double height, {
   bool animate = true,
   num duration = 200,
+  String placement = 'bottom',
 }) => GeometrySnapshot.compile(
   const DatasetReader().read([
     {
@@ -23,6 +25,7 @@ GeometrySnapshot diagram(
           'id': 'b',
           'source': {'type': 'rect', 'fill': '#00ff00'},
           'size': {'width': 40, 'height': height},
+          'placement': placement,
           'animation': animate,
           'animationDuration': duration,
         },
@@ -32,6 +35,83 @@ GeometrySnapshot diagram(
   (_, _) => Size.zero,
 );
 void main() {
+  test('tween preserves oriented edges for every axis', () {
+    const from = Rect.fromLTRB(4.1, 32.8, 52.6, 70.2);
+    const to = Rect.fromLTRB(4.1, 15.4, 45.9, 70.2);
+    const content = Rect.fromLTRB(4.1, 4.1, 72.2, 70.2);
+    final transitions = BarTransitions()
+      ..replaceRetained(
+        0,
+        'b',
+        from,
+        to,
+        {'animation': true, 'animationDuration': 200},
+        animate: true,
+        beforeContent: content,
+        afterContent: content,
+      )
+      ..advance(Duration.zero)
+      ..advance(const Duration(milliseconds: 50));
+
+    for (var axes = 0; axes <= 3; axes++) {
+      final expected = orientPlacement(
+        Rect.lerp(from, to, .0625)!,
+        content,
+        axes,
+      );
+      expect(transitions.rectangle(0, 'b', axes), expected);
+    }
+  });
+
+  test('bar position tween and retarget use the active camera placement', () {
+    final transitions = BarTransitions();
+    final bottom = diagram(20);
+    final top = diagram(20, placement: 'top');
+    transitions.replace(bottom, top, [0], animate: true);
+    expect(transitions.rectangle(0, 'b')!.center.dy, 90);
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 10);
+    transitions.advance(Duration.zero);
+    transitions.advance(const Duration(milliseconds: 100));
+    expect(transitions.rectangle(0, 'b')!.center.dy, 50);
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 50);
+
+    final manual = diagram(20, placement: 'none');
+    transitions.replace(top, manual, [0], animate: true);
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 50);
+    transitions.advance(const Duration(milliseconds: 100));
+    transitions.advance(const Duration(milliseconds: 200));
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 30);
+    final displayed = [
+      for (var axes = 0; axes <= 3; axes++) transitions.rectangle(0, 'b', axes),
+    ];
+    transitions.replace(manual, top, [0], animate: true);
+    for (var axes = 0; axes <= 3; axes++) {
+      expect(transitions.rectangle(0, 'b', axes), displayed[axes]);
+    }
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 30);
+    transitions.advance(const Duration(milliseconds: 200));
+    transitions.advance(const Duration(milliseconds: 300));
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 60);
+    transitions.advance(const Duration(milliseconds: 400));
+    expect(transitions.rectangle(0, 'b', 3), isNull);
+  });
+
+  test('unchanged bar placement does not animate symmetric padding', () {
+    final transitions = BarTransitions();
+    const box = Rect.fromLTWH(40, 40, 20, 20);
+    transitions.replaceRetained(
+      0,
+      'bar',
+      box,
+      box,
+      {'animation': true, 'animationDuration': 200},
+      beforeContent: const Rect.fromLTWH(0, 0, 100, 100),
+      afterContent: const Rect.fromLTWH(10, 10, 80, 80),
+      animate: true,
+    );
+    expect(transitions.advance(Duration.zero), isFalse);
+  });
+
   test('component reordering still starts each bar at its own prior box', () {
     GeometrySnapshot bars(List<(String, int)> values) =>
         GeometrySnapshot.compile(
@@ -161,8 +241,10 @@ void main() {
       final transitions = BarTransitions(),
           before = diagram(20),
           after = diagram(80);
+      expect(transitions.isActive, isFalse);
       transitions.advance(const Duration(seconds: 1));
       transitions.replace(before, after, [0], animate: true);
+      expect(transitions.isActive, isTrue);
       expect(transitions.rectangle(0, 'b')!.height, 20);
       transitions.advance(const Duration(seconds: 50));
       expect(transitions.rectangle(0, 'b')!.height, 20);
@@ -174,6 +256,7 @@ void main() {
       transitions.advance(const Duration(milliseconds: 50150));
       expect(transitions.rectangle(0, 'b')!.height, closeTo(76.25, 1e-8));
       expect(transitions.advance(const Duration(milliseconds: 50200)), false);
+      expect(transitions.isActive, isFalse);
       expect(transitions.rectangle(0, 'b'), isNull);
     },
   );
@@ -192,6 +275,7 @@ void main() {
       transitions.advance(const Duration(milliseconds: 120));
       expect(transitions.rectangle(0, 'b')!.height, 50);
       transitions.replace(c, diagram(90, animate: false), [0], animate: true);
+      expect(transitions.isActive, isFalse);
       expect(transitions.rectangle(0, 'b'), isNull);
     },
   );

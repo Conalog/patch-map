@@ -90,6 +90,27 @@ void main() {
   );
 
   test(
+    'full scans are distinguishable from local queries with the same slots',
+    () {
+      final index = SpatialIndex()
+        ..reset([const Rect.fromLTWH(0, 0, 600, 600)]);
+      final local = index.candidates(const Rect.fromLTWH(5, 5, 10, 10));
+      expect(local, [0]);
+      expect(index.isFullScan(local), isFalse);
+      final broad = index.candidates(const Rect.fromLTWH(5, 5, 590, 590));
+      expect(broad, [0]);
+      expect(index.isFullScan(broad), isTrue);
+      expect(
+        index.isFullScan(
+          index.candidates(const Rect.fromLTWH(-1, -1, 602, 602)),
+        ),
+        isTrue,
+      );
+      index.clear();
+      expect(index.isFullScan(index.candidates(Rect.zero)), isFalse);
+    },
+  );
+  test(
     'index preserves scan results for point, broad, huge and moved envelopes',
     () {
       final random = math.Random(349), bounds = <Rect>[];

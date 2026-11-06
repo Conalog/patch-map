@@ -312,7 +312,11 @@ final class RetainedUpdate extends MapBase<PatchMapTarget, RecordDelta> {
             entry.transform,
           );
           entry.geometryChanged =
-              entry.transformChanged || prior.box != entry.box;
+              entry.transformChanged ||
+              prior.box != entry.box ||
+              (prior.upright &&
+                  (prior.data['placement'] == 'none') !=
+                      (data['placement'] == 'none'));
           envelopeChanged |=
               prior.type != 'bar' &&
               (entry.geometryChanged ||
@@ -387,6 +391,13 @@ final class RetainedUpdate extends MapBase<PatchMapTarget, RecordDelta> {
             entry.box,
             entry.delta.after,
             animate: animate,
+            beforeContent: entry.prior.remapsPlacement
+                ? item.layout.content
+                : null,
+            afterContent:
+                entry.prior.upright && entry.delta.after['placement'] != 'none'
+                ? item.layout.content
+                : null,
           );
         }
       }

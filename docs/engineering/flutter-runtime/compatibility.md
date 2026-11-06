@@ -6,7 +6,22 @@ release/1.0 except explicitly approved main behavior.
 ## Schema and layout
 
 - `calc()` dimensions follow main's multi-term percent/pixel semantics. The current JS schema admits these inputs, while the release parser renders them at zero and its separate layout helper supports only two terms. Flutter compiles admitted expressions into one pixel offset and one fractional coefficient; no expression parsing occurs during paint or animation. Invalid derived negative/nonfinite geometry is rejected. This is an intentional correction to release/1.0 output, not a new expression language.
-- `upright` preserves a readable authored angle and removes reflection/upside-down orientation. It does not pin content to screen axes. Bars use the item-center placement anchor; text retains its authored center, as in the shared JS geometry owner.
+- JavaScript `release/1.0` rotates standalone text with the map. Flutter
+  intentionally corrects upside-down or mirrored orientation while keeping
+  the measured text center. For `upright` items and grid cells, the item
+  determines the readable placement axes of text, icons, and bars. Each
+  component uses its own transform to determine its visible direction.
+  Margins follow the remapped edges, and manual `none` placement keeps its
+  authored position.
+  The legacy JavaScript main renderer also considers component rotation when
+  choosing placement edges. Flutter uses the same edges for all components of
+  the card and preserves its existing centered-axis margin rules.
+- Readable content retains authored tilt, including shear. Collapsed or nearly
+  singular transforms use the authored shape. A nonrepresentable alternate
+  placement falls back to its authored position. Item paint bounds cover the
+  possible placements, so item fit and focus can include newly moved content.
+  The renderer samples bar position and size together. Selection and input use
+  the published bar size and their existing clip policies.
 
 - Color resolution follows configured theme lookup and real ColorLike parsing, as in main. Custom leaf tokens used by the actual WebView (such as `statusRed`) are preserved during schema checking and validated with the configured palette before final acceptance. Release's accidental hash-color fallback is not reproduced. RGB/alpha conversion can differ by one quantization unit; exact pixel identity is not claimed.
 

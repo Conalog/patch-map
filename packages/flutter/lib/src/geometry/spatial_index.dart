@@ -70,6 +70,11 @@ final class SpatialIndex {
     _memberships[slot] = keys;
   }
 
+  /// Whether [result] is this index's full-scan result, rather than a local
+  /// bucket query that may happen to contain every slot.
+  bool isFullScan(Iterable<int> result) =>
+      _all.isNotEmpty && identical(result, _all);
+
   Iterable<int> candidates(Rect query) {
     final bounds = _envelope;
     if (!query.isFinite || query.width < 0 || query.height < 0) {

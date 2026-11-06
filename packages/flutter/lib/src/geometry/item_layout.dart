@@ -53,18 +53,82 @@ final class ComponentLayout {
   String get type => data['type']! as String;
   bool get visible => data['show'] != false;
 
-  Affine worldTransform(Affine item, double cameraRotation, Size itemSize) {
+  bool get remapsPlacement => upright && data['placement'] != 'none';
+
+  Affine worldTransform(Affine item, double cameraRotation, Rect content) {
     final authored = item.multiply(transform);
     if (!upright) return authored;
-    return readableRectTransform(
+    final axes = remapsPlacement
+        ? ReadableRectBasis(item, cameraRotation).axes
+        : 0;
+    final placed = projectComponentPlacement(
       authored,
+      item,
+      box,
+      orientPlacement(box, content, axes),
+    );
+    return readableRectTransform(
+      placed,
       Offset.zero & box.size,
       cameraRotation,
-      placementAnchor: type == 'bar'
-          ? item.project(Offset(itemSize.width / 2, itemSize.height / 2))
-          : null,
     );
   }
+}
+
+/// Reflect the placement box, leaving the component's authored offsets alone.
+Rect orientPlacement(Rect box, Rect? content, int axes) {
+  if (axes == 0 || content == null) return box;
+  final left = (axes & readableFlipX) == 0
+      ? box.left
+      : content.left + (content.right - box.right);
+  final top = (axes & readableFlipY) == 0
+      ? box.top
+      : content.top + (content.bottom - box.bottom);
+  if (left == box.left && top == box.top) return box;
+  final right = left + box.width, bottom = top + box.height;
+  if (!right.isFinite ||
+      !bottom.isFinite ||
+      (box.width > 0 && right <= left) ||
+      (box.height > 0 && bottom <= top)) {
+    return box;
+  }
+  return Rect.fromLTRB(left, top, right, bottom);
+}
+
+/// The two camera-dependent placements use the same authored linear transform.
+Affine projectComponentPlacement(
+  Affine authored,
+  Affine item,
+  Rect box,
+  Rect placement,
+) {
+  if (identical(box, placement)) return authored;
+  final dx = placement.left - box.left, dy = placement.top - box.top;
+  final tx = authored.tx + item.a * dx + item.c * dy;
+  final ty = authored.ty + item.b * dx + item.d * dy;
+  if (!tx.isFinite || !ty.isFinite) return authored;
+  final projected = Affine(
+    authored.a,
+    authored.b,
+    authored.c,
+    authored.d,
+    tx,
+    ty,
+  );
+  // Only extreme inputs need a second check. An alternate placement must
+  // never turn a valid authored projection into nonfinite paint coordinates.
+  final extentX =
+      (authored.a * placement.width).abs() +
+      (authored.c * placement.height).abs();
+  final extentY =
+      (authored.b * placement.width).abs() +
+      (authored.d * placement.height).abs();
+  if ((tx.abs() + extentX).isFinite && (ty.abs() + extentY).isFinite) {
+    return projected;
+  }
+  return projected.projectRect(Offset.zero & placement.size).bounds.isFinite
+      ? projected
+      : authored;
 }
 
 /// Shared item-local layout. Every unchanged cell of a grid can use one copy.
@@ -366,7 +430,9 @@ final class ItemLayout {
 
   /// Bars are contained and never invalidate the text/SVG safety envelope.
   bool sameEnvelope(ItemLayout other, {ComponentChanges? changed}) {
-    if (size != other.size || components.length != other.components.length) {
+    if (size != other.size ||
+        content != other.content ||
+        components.length != other.components.length) {
       return false;
     }
     if (changed != null && identical(indices, other.indices)) {
@@ -397,6 +463,7 @@ final class ItemLayout {
     staged,
   ) {
     var result = world.projectRect(Offset.zero & size).bounds;
+    final handedness = readableHandedness(world);
     for (var index = 0; index < components.length; index++) {
       final component = components[index], next = staged(index);
       final data = next?.data ?? component.data;
@@ -408,6 +475,9 @@ final class ItemLayout {
           box,
           component.upright,
           data,
+          world,
+          content,
+          handedness,
         ),
       );
     }
@@ -421,6 +491,7 @@ final class ItemLayout {
   /// does not alter the layout or the published paint/hit/query envelope.
   Rect paintBounds(Affine world, {bool Function(String)? includeComponent}) {
     var result = world.projectRect(Offset.zero & size).bounds;
+    final handedness = readableHandedness(world);
     for (final component in components) {
       if (!component.visible ||
           component.type == 'bar' ||
@@ -433,6 +504,9 @@ final class ItemLayout {
           component.box,
           component.upright,
           component.data,
+          world,
+          content,
+          handedness,
         ),
       );
     }
@@ -446,17 +520,43 @@ Rect _componentPaintBounds(
   Rect box,
   bool upright,
   Map<String, Object?> data,
+  Affine item,
+  Rect content,
+  int handedness,
 ) {
   var local = Offset.zero & box.size;
   final outset = _backgroundOutset(data);
   if (outset > 0) local = local.inflate(outset);
-  if (!upright) return authored.projectRect(local).bounds;
-  final center = authored.project(local.center);
-  final width = box.width * vectorLength(authored.a, authored.b);
-  final height = box.height * vectorLength(authored.c, authored.d);
-  // The sum also covers skew and readable basis changes under rotation.
-  return Rect.fromCircle(center: center, radius: (width + height) / 2);
+  // Paragraph layout omits glyph overhang. Keep the conservative upright
+  // text envelope at both the authored and remapped centers.
+  final textRadius = upright && data['type'] == 'text'
+      ? (box.width * vectorLength(authored.a, authored.b) +
+                box.height * vectorLength(authored.c, authored.d)) /
+            2
+      : null;
+  var bounds = _projectComponentBounds(authored, local, textRadius);
+  if (!upright || data['placement'] == 'none' || handedness == 0) {
+    return bounds;
+  }
+  final first = handedness < 0 ? readableFlipY : 0;
+  for (final axes in [first, first ^ (readableFlipX | readableFlipY)]) {
+    if (axes == 0) continue;
+    final placed = projectComponentPlacement(
+      authored,
+      item,
+      box,
+      orientPlacement(box, content, axes),
+    );
+    final variant = _projectComponentBounds(placed, local, textRadius);
+    if (variant.isFinite) bounds = bounds.expandToInclude(variant);
+  }
+  return bounds;
 }
+
+Rect _projectComponentBounds(Affine world, Rect local, double? textRadius) =>
+    textRadius == null
+    ? world.projectRect(local).bounds
+    : Rect.fromCircle(center: world.project(local.center), radius: textRadius);
 
 double _backgroundOutset(Map<String, Object?> data) {
   if (data['type'] != 'background') return 0;
@@ -470,7 +570,8 @@ bool _sameEnvelopeComponent(ComponentLayout component, ComponentLayout prior) {
   if (component.id != prior.id ||
       component.type != prior.type ||
       component.visible != prior.visible ||
-      component.upright != prior.upright) {
+      component.upright != prior.upright ||
+      component.remapsPlacement != prior.remapsPlacement) {
     return false;
   }
   return component.type == 'bar' ||
