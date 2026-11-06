@@ -251,6 +251,9 @@ jobs:
       - name: Enable Android emulator acceleration
         if: ${{ matrix.platform == 'android' }}
         run: sudo setfacl -m "u:$(id -un):rw" /dev/kvm
+      - name: Configure JDK 17 for Android
+        if: ${{ matrix.platform == 'android' }}
+        run: flutter config --jdk-dir "${JAVA_HOME_17_X64:?The Android build requires JDK 17}"
       - name: Run Android renderer checks
         if: ${{ matrix.platform == 'android' }}
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
