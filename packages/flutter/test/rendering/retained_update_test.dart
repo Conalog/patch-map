@@ -769,7 +769,7 @@ void main() {
       );
     },
   );
-  test('same authored box still updates retained upright placement', () async {
+  test('upright Bar paints through exact tween completion', () async {
     final h = await Harness.create(
       input: [
         {
@@ -795,6 +795,32 @@ void main() {
       ],
     );
     addTearDown(h.close);
+    h.backend.camera.set(
+      center: const Offset(50, 50),
+      scale: 1,
+      rotation: math.pi,
+    );
+
+    Future<List<int>> paintedColors() async {
+      final recorder = PictureRecorder();
+      h.backend.paint(Canvas(recorder), 1);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(300, 300);
+      try {
+        final bytes = (await image.toByteData(
+          format: ImageByteFormat.rawRgba,
+        ))!;
+        return [
+          for (final coordinate in [190, 150, 110])
+            bytes.getUint32((coordinate * 300 + coordinate) * 4),
+        ];
+      } finally {
+        image.dispose();
+        picture.dispose();
+      }
+    }
+
+    const red = 0xff0000ff;
     final geometry = h.current.geometry['g.0.0']!;
     final layout = geometry.item!.components.single;
     final center = Offset(layout.box.width / 2, layout.box.height / 2);
@@ -823,12 +849,16 @@ void main() {
       transition.rectangle(h.slot, 'bar', 3)!.center,
       const Offset(10, 10),
     );
-    transition.advance(Duration.zero);
-    transition.advance(const Duration(milliseconds: 100));
+    expect(await paintedColors(), [red, 0, 0]);
+    h.backend.onFrame(Duration.zero);
+    h.backend.onFrame(const Duration(milliseconds: 100));
     expect(
       transition.rectangle(h.slot, 'bar', 3)!.center,
       const Offset(50, 50),
     );
+    expect(await paintedColors(), [0, red, 0]);
+    expect(h.backend.onFrame(const Duration(milliseconds: 200)), isFalse);
+    expect(await paintedColors(), [0, 0, red]);
   });
 
   test('mid-flight retarget captures the displayed rectangle', () async {

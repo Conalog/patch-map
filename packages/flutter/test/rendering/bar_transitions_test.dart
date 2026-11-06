@@ -206,8 +206,10 @@ void main() {
       final transitions = BarTransitions(),
           before = diagram(20),
           after = diagram(80);
+      expect(transitions.isActive, isFalse);
       transitions.advance(const Duration(seconds: 1));
       transitions.replace(before, after, [0], animate: true);
+      expect(transitions.isActive, isTrue);
       expect(transitions.rectangle(0, 'b')!.height, 20);
       transitions.advance(const Duration(seconds: 50));
       expect(transitions.rectangle(0, 'b')!.height, 20);
@@ -219,6 +221,7 @@ void main() {
       transitions.advance(const Duration(milliseconds: 50150));
       expect(transitions.rectangle(0, 'b')!.height, closeTo(76.25, 1e-8));
       expect(transitions.advance(const Duration(milliseconds: 50200)), false);
+      expect(transitions.isActive, isFalse);
       expect(transitions.rectangle(0, 'b'), isNull);
     },
   );
@@ -237,6 +240,7 @@ void main() {
       transitions.advance(const Duration(milliseconds: 120));
       expect(transitions.rectangle(0, 'b')!.height, 50);
       transitions.replace(c, diagram(90, animate: false), [0], animate: true);
+      expect(transitions.isActive, isFalse);
       expect(transitions.rectangle(0, 'b'), isNull);
     },
   );

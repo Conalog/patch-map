@@ -930,7 +930,7 @@ final class MapBackend extends SessionBackend {
         visibleSlots: visibleSlots(),
         cameraRotation: camera.rotation,
         physicalScale: camera.scale * pixelRatio,
-        barRectangle: transitions.rectangle,
+        barRectangle: transitions.isActive ? transitions.rectangle : null,
       );
       selectionOverlay.paint(
         canvas,

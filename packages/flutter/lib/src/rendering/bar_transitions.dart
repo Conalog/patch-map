@@ -9,13 +9,16 @@ import '../presentation/record_delta.dart';
 final class BarTransitions {
   final _active = <(int, String), _Transition>{};
   int _time = 0;
+
+  bool get isActive => _active.isNotEmpty;
+
   bool advance(Duration time) {
     _time = time.inMicroseconds;
     _active.removeWhere((key, value) {
       value.start ??= _time;
       return _time - value.start! >= value.duration;
     });
-    return _active.isNotEmpty;
+    return isActive;
   }
 
   Rect? rectangle(int slot, String component, [int axes = 0]) =>
