@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import '../geometry/affine.dart';
+import '../geometry/readable_rect.dart';
 import '../geometry/geometry_snapshot.dart';
 import '../presentation/record_delta.dart';
 import '../presentation/presentation_layers.dart';
@@ -374,15 +375,20 @@ final class RenderPlan {
     required List<int> visibleSlots,
     required double cameraRotation,
     required double physicalScale,
-    Rect? Function(int slot, String componentId)? barRectangle,
+    Rect? Function(int slot, String componentId, int axes)? barRectangle,
   }) {
     if (_disposed) throw StateError('Render plan is disposed');
+    final alignedAxes = ReadableRectBasis.resolveAxes(
+      Affine.identity,
+      cameraRotation,
+    );
     final presentation = _presentation;
     if (presentation != null) {
       _paintPresented(
         canvas,
         visibleSlots,
         cameraRotation,
+        alignedAxes,
         physicalScale,
         barRectangle,
         presentation,
@@ -410,6 +416,7 @@ final class RenderPlan {
               canvas,
               _visible[i],
               cameraRotation,
+              alignedAxes,
               physicalScale,
               barRectangle,
             );
@@ -431,10 +438,15 @@ final class RenderPlan {
               canvas,
               phase,
               cameraRotation: cameraRotation,
+              alignedAxes: alignedAxes,
               physicalScale: physicalScale,
               bars: _bars,
               displayBox: layout.type == 'bar'
-                  ? barRectangle?.call(slot, layout.id)
+                  ? barRectangle?.call(
+                      slot,
+                      layout.id,
+                      current.placementAxes(cameraRotation, alignedAxes),
+                    )
                   : null,
             );
           }
@@ -450,8 +462,9 @@ final class RenderPlan {
     Canvas canvas,
     List<int> visibleSlots,
     double rotation,
+    int alignedAxes,
     double scale,
-    Rect? Function(int, String)? rectangle,
+    Rect? Function(int, String, int)? rectangle,
     PresentationOpacity presentation,
   ) {
     try {
@@ -474,6 +487,7 @@ final class RenderPlan {
               canvas,
               _visible[i],
               rotation,
+              alignedAxes,
               scale,
               rectangle,
               presentation: presentation,
@@ -496,10 +510,15 @@ final class RenderPlan {
               canvas,
               phase,
               cameraRotation: rotation,
+              alignedAxes: alignedAxes,
               physicalScale: scale,
               bars: _bars,
               displayBox: layout.type == 'bar'
-                  ? rectangle?.call(slot, layout.id)
+                  ? rectangle?.call(
+                      slot,
+                      layout.id,
+                      node.placementAxes(rotation, alignedAxes),
+                    )
                   : null,
               alphaMultiplier: presentation.alpha(node.geometry.id, layout.id),
             );
@@ -598,8 +617,9 @@ final class RenderPlan {
     Canvas canvas,
     int slot,
     double rotation,
+    int alignedAxes,
     double scale,
-    Rect? Function(int, String)? rectangle, {
+    Rect? Function(int, String, int)? rectangle, {
     PresentationOpacity? presentation,
   }) {
     final node = _node(slot);
@@ -607,6 +627,7 @@ final class RenderPlan {
     if (node.geometry.item == null) {
       node.paintStandalone(
         canvas,
+        cameraRotation: rotation,
         physicalScale: scale,
         bars: _bars,
         alphaMultiplier: presentation?.alpha(node.geometry.id) ?? 1,
@@ -619,11 +640,16 @@ final class RenderPlan {
         canvas,
         i,
         cameraRotation: rotation,
+        alignedAxes: alignedAxes,
         physicalScale: scale,
         bars: _bars,
         alphaMultiplier: presentation?.alpha(node.geometry.id, layout.id) ?? 1,
         displayBox: layout.type == 'bar'
-            ? rectangle?.call(slot, layout.id)
+            ? rectangle?.call(
+                slot,
+                layout.id,
+                node.placementAxes(rotation, alignedAxes),
+              )
             : null,
       );
     }

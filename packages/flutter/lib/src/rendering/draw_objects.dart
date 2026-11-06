@@ -226,9 +226,8 @@ final class DrawNode {
     content?.retain();
     if (previous != null &&
         identical(_world, previous._world) &&
-        geometry.item?.size == previous.geometry.item?.size &&
+        geometry.item?.content == previous.geometry.item?.content &&
         previous._uprightWorld.isNotEmpty) {
-      _uprightRotation = previous._uprightRotation;
       for (final entry in previous._uprightWorld.entries) {
         final index = geometry.item!.indices[entry.key];
         if (index == null) continue;
@@ -240,7 +239,8 @@ final class DrawNode {
           final layout = component.layout, old = prior.layout;
           if (old.box != layout.box ||
               !identical(old.transform, layout.transform) ||
-              old.upright != layout.upright) {
+              old.upright != layout.upright ||
+              old.remapsPlacement != layout.remapsPlacement) {
             continue;
           }
         }
@@ -265,9 +265,25 @@ final class DrawNode {
   Affine? get _inverseWorld => _world.inverse;
   Float64List? get _inverseMatrix => _world.inverseMatrix;
   int _references = 0;
-  double? _uprightRotation;
+  double? _standaloneRotation;
+  Float64List? _standaloneMatrix;
+  ReadableRectBasis? _itemReadableBasis;
+  int placementAxes(double rotation, int? alignedAxes) {
+    if (alignedAxes != null && hasPositiveAxisAlignedBasis(geometry.world)) {
+      return alignedAxes;
+    }
+    final prior = _itemReadableBasis;
+    if (prior != null && prior.matches(geometry.world, rotation)) {
+      return prior.axes;
+    }
+    return (_itemReadableBasis = ReadableRectBasis(
+      geometry.world,
+      rotation,
+    )).axes;
+  }
+
   final _upright = <String, Float64List>{};
-  final _uprightWorld = <String, (Rect?, Affine)>{};
+  final _uprightWorld = <String, (int, int, Affine)>{};
   void retain() => _references++;
   void release() {
     if (--_references == 0) {
@@ -315,6 +331,7 @@ final class DrawNode {
   /// Submit a standalone object; item order belongs to DrawPlan.
   void paintStandalone(
     Canvas canvas, {
+    double cameraRotation = 0,
     required double physicalScale,
     BarSliceBatch? bars,
     double alphaMultiplier = 1,
@@ -336,7 +353,18 @@ final class DrawNode {
     bars?.flush(canvas);
     canvas.save();
     try {
-      canvas.transform(matrix);
+      if (geometry.target.type == 'text') {
+        if (_standaloneRotation != cameraRotation) {
+          _standaloneRotation = cameraRotation;
+          final world = geometry.textWorldTransform(cameraRotation);
+          _standaloneMatrix = identical(world, geometry.world)
+              ? matrix
+              : world.toMatrix4();
+        }
+        canvas.transform(_standaloneMatrix!);
+      } else {
+        canvas.transform(matrix);
+      }
       final size = switch (geometry.target.type) {
         'rect' || 'image' =>
           geometry.data['size'] is Map
@@ -368,6 +396,7 @@ final class DrawNode {
     required double cameraRotation,
     required double physicalScale,
     Rect? displayBox,
+    int? alignedAxes,
     BarSliceBatch? bars,
     double alphaMultiplier = 1,
   }) {
@@ -379,14 +408,16 @@ final class DrawNode {
     final layout = component.layout;
     if (!layout.visible) return;
     final isBar = layout.type == 'bar';
+    final readable = layout.upright
+        ? _readableWorld(index, displayBox, cameraRotation, alignedAxes)
+        : null;
+    final destination = Offset.zero & (displayBox?.size ?? layout.box.size);
     if (isBar && bars != null && component.content is RectangleContent) {
       final content = component.content as RectangleContent;
-      final local = layout.upright
-          ? Offset.zero & (displayBox?.size ?? layout.box.size)
+      final local = readable != null || displayBox == null
+          ? destination
           : _barLocal(layout, displayBox);
-      final world = layout.upright
-          ? _readableWorld(index, displayBox, cameraRotation)
-          : _componentWorldAt(index);
+      final world = readable ?? _componentWorldAt(index);
       final contained =
           local != null &&
           (layout.upright
@@ -428,9 +459,10 @@ final class DrawNode {
           canvas.transform(inverse);
         }
       }
-      if (layout.upright) {
-        final world = _readableWorld(index, displayBox, cameraRotation);
-        final transform = _upright[layout.id] ??= world.toMatrix4();
+      if (readable != null) {
+        final transform = displayBox == null
+            ? (_upright[layout.id] ??= readable.toMatrix4())
+            : readable.toMatrix4();
         canvas.transform(transform);
       } else {
         if (!isBar) canvas.transform(matrix);
@@ -443,7 +475,6 @@ final class DrawNode {
         canvas.transform(component.matrix);
       }
       final localScale = physicalScale * _scale(_componentWorldAt(index));
-      final destination = Offset.zero & (displayBox?.size ?? layout.box.size);
       component.content.paintWithAlpha(
         canvas,
         destination,
@@ -455,43 +486,49 @@ final class DrawNode {
     }
   }
 
-  Affine _readableWorld(int index, Rect? display, double rotation) {
-    if (_uprightRotation != rotation) {
-      _upright.clear();
-      _uprightWorld.clear();
-      _uprightRotation = rotation;
-    }
+  Affine _readableWorld(
+    int index,
+    Rect? display,
+    double rotation,
+    int? alignedAxes,
+  ) {
     final component = components[index];
     final layout = component.layout;
-    final cached = _uprightWorld[layout.id];
-    if (cached != null && cached.$1 == display) return cached.$2;
-    final Affine authored;
-    if (display == null) {
-      authored = _componentWorldAt(index);
-    } else {
-      final local = layout.transform;
-      final placement = Affine(
-        local.a,
-        local.b,
-        local.c,
-        local.d,
-        local.tx + display.left - layout.box.left,
-        local.ty + display.top - layout.box.top,
+    final base = _componentWorldAt(index);
+    final direction = alignedAxes != null && hasPositiveAxisAlignedBasis(base)
+        ? alignedAxes
+        : component.readableBasis(base, rotation).axes;
+    if (display != null) {
+      // A tween is sampled for this paint only. Keep its projection out of
+      // the cache for published geometry and reuse it on either paint path.
+      final authored = projectComponentPlacement(
+        base,
+        geometry.world,
+        layout.box,
+        display,
       );
-      authored = geometry.world.multiply(placement);
+      return placeReadableRect(authored, Offset.zero & display.size, direction);
     }
-    final size = geometry.item!.size;
-    final world = component
-        .readableBasis(authored, rotation)
-        .place(
-          authored,
-          Offset.zero & (display?.size ?? layout.box.size),
-          placementAnchor: layout.type == 'bar'
-              ? geometry.world.project(Offset(size.width / 2, size.height / 2))
-              : null,
-        );
+    final placement = layout.remapsPlacement
+        ? placementAxes(rotation, alignedAxes)
+        : 0;
+    final cached = _uprightWorld[layout.id];
+    if (cached != null && cached.$1 == placement && cached.$2 == direction) {
+      return cached.$3;
+    }
+    final authored = projectComponentPlacement(
+      base,
+      geometry.world,
+      layout.box,
+      orientPlacement(layout.box, geometry.item!.content, placement),
+    );
+    final world = placeReadableRect(
+      authored,
+      Offset.zero & layout.box.size,
+      direction,
+    );
     _upright.remove(layout.id);
-    _uprightWorld[layout.id] = (display, world);
+    _uprightWorld[layout.id] = (placement, direction, world);
     return world;
   }
 }
@@ -542,8 +579,7 @@ final class _NodeAssets {
 
 // A tween moves the placement before component attrs. Express that translation
 // in the existing component basis so submission reuses its retained Affine.
-Rect? _barLocal(ComponentLayout layout, Rect? display) {
-  if (display == null) return Offset.zero & layout.box.size;
+Rect? _barLocal(ComponentLayout layout, Rect display) {
   final m = layout.transform, determinant = m.a * m.d - m.b * m.c;
   if (determinant == 0 || !determinant.isFinite) return null;
   final dx = display.left - layout.box.left, dy = display.top - layout.box.top;

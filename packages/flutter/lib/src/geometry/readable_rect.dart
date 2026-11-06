@@ -3,84 +3,52 @@ import 'dart:ui';
 
 import 'affine.dart';
 
-/// `upright` means readable authored orientation, not screen-axis alignment.
-/// Preserve rotation/skew, remove reflection and correct the unreadable half
-/// plane. This is shared by drawing and interaction geometry.
+const readableFlipX = 1;
+const readableFlipY = 2;
+const _determinantEpsilon = 2.220446049250313e-16;
+
+bool hasPositiveAxisAlignedBasis(Affine world) =>
+    world.b == 0 && world.c == 0 && world.a > 0 && world.d > 0;
+
+/// The sign of the determinant after normalizing the two authored axes.
+int readableHandedness(Affine authored) {
+  final x = vectorLength(authored.a, authored.b);
+  final y = vectorLength(authored.c, authored.d);
+  if (x == 0 || y == 0) return 0;
+  final determinant =
+      (authored.a / x) * (authored.d / y) - (authored.b / x) * (authored.c / y);
+  if (determinant.abs() <= _determinantEpsilon) return 0;
+  return determinant < 0 ? -1 : 1;
+}
+
+/// Readable orientation is a sign change of the authored axes about the box's
+/// center. It preserves the authored footprint, including shear and collapse.
 Affine readableRectTransform(
   Affine authored,
   Rect localBounds,
-  double cameraRotation, {
-  Offset? placementAnchor,
-}) => ReadableRectBasis(
-  authored,
-  cameraRotation,
-).place(authored, localBounds, placementAnchor: placementAnchor);
+  double cameraRotation,
+) => ReadableRectBasis(authored, cameraRotation).place(authored, localBounds);
 
-/// Fixed orientation coefficients, reusable while bounds/translation animate.
-/// The caller owns one memo per draw component; this is not a global cache.
+/// Cached orientation coefficients, reusable while bounds/translation animate.
 final class ReadableRectBasis {
-  ReadableRectBasis._(
-    this._authored,
-    this._rotation,
-    this.xs,
-    this.ys,
-    this.xa,
-    this.xb,
-    this.yc,
-    this.yd,
-    this.wa,
-    this.wb,
-    this.wc,
-    this.wd,
-    this.originalDeterminant,
-  );
-
-  factory ReadableRectBasis(Affine authored, double cameraRotation) {
-    final xs = vectorLength(authored.a, authored.b);
-    final ys = vectorLength(authored.c, authored.d);
-    final cos = math.cos(cameraRotation), sin = math.sin(cameraRotation);
-    final xa = xs == 0 ? 1.0 : authored.a / xs;
-    final xb = xs == 0 ? 0.0 : authored.b / xs;
-    final yc = ys == 0 ? -xb : authored.c / ys;
-    final yd = ys == 0 ? xa : authored.d / ys;
-    var a = cos * xa - sin * xb, b = sin * xa + cos * xb;
-    var c = cos * yc - sin * yd, d = sin * yc + cos * yd;
-    final determinant = a * d - b * c;
-    if (determinant < 0) {
-      c = -c;
-      d = -d;
-    } else if (determinant.abs() <= 2.220446049250313e-16) {
-      c = -b;
-      d = a;
-    }
-    if (a < -1e-7 || (a <= 1e-7 && b >= 0)) {
-      a = -a;
-      b = -b;
-      c = -c;
-      d = -d;
-    }
-    final wa = cos * a + sin * b, wb = -sin * a + cos * b;
-    final wc = cos * c + sin * d, wd = -sin * c + cos * d;
-    return ReadableRectBasis._(
-      authored,
-      cameraRotation,
-      xs,
-      ys,
-      xa,
-      xb,
-      yc,
-      yd,
-      wa,
-      wb,
-      wc,
-      wd,
-      xa * yd - xb * yc,
-    );
-  }
+  ReadableRectBasis(this._authored, this._rotation)
+    : axes = resolveAxes(_authored, _rotation);
 
   final Affine _authored;
   final double _rotation;
-  final double xs, ys, xa, xb, yc, yd, wa, wb, wc, wd, originalDeterminant;
+  final int axes;
+
+  static int resolveAxes(Affine authored, double rotation) {
+    final handedness = readableHandedness(authored);
+    if (handedness == 0) return 0;
+    final length = vectorLength(authored.a, authored.b);
+    final x = authored.a / length, y = authored.b / length;
+    final cos = math.cos(rotation), sin = math.sin(rotation);
+    final a = cos * x - sin * y, b = sin * x + cos * y;
+    final halfTurn = a < -1e-7 || (a <= 1e-7 && b >= 0);
+    final mirror = handedness < 0 ? readableFlipY : 0;
+    return halfTurn ? mirror ^ (readableFlipX | readableFlipY) : mirror;
+  }
 
   bool matches(Affine authored, double rotation) =>
       rotation == _rotation &&
@@ -89,25 +57,26 @@ final class ReadableRectBasis {
       authored.c == _authored.c &&
       authored.d == _authored.d;
 
-  Affine place(Affine authored, Rect localBounds, {Offset? placementAnchor}) {
-    var center = authored.project(localBounds.center);
-    if (placementAnchor != null &&
-        xs > 0 &&
-        ys > 0 &&
-        originalDeterminant.abs() > 2.220446049250313e-16) {
-      final offset = center - placementAnchor;
-      final ox = (yd * offset.dx - yc * offset.dy) / originalDeterminant;
-      final oy = (-xb * offset.dx + xa * offset.dy) / originalDeterminant;
-      center = placementAnchor + Offset(wa * ox + wc * oy, wb * ox + wd * oy);
-    }
-    final width = localBounds.width * xs, height = localBounds.height * ys;
-    return Affine(
-      wa * xs,
-      wb * xs,
-      wc * ys,
-      wd * ys,
-      center.dx - wa * width / 2 - wc * height / 2,
-      center.dy - wb * width / 2 - wd * height / 2,
-    );
-  }
+  Affine place(Affine authored, Rect localBounds) =>
+      placeReadableRect(authored, localBounds, axes);
+}
+
+Affine placeReadableRect(Affine authored, Rect localBounds, int axes) {
+  if (axes == 0 && localBounds.topLeft == Offset.zero) return authored;
+  final flipX = (axes & readableFlipX) != 0;
+  final flipY = (axes & readableFlipY) != 0;
+  final origin = authored.project(
+    Offset(
+      flipX ? localBounds.right : localBounds.left,
+      flipY ? localBounds.bottom : localBounds.top,
+    ),
+  );
+  return Affine(
+    flipX ? -authored.a : authored.a,
+    flipX ? -authored.b : authored.b,
+    flipY ? -authored.c : authored.c,
+    flipY ? -authored.d : authored.d,
+    origin.dx,
+    origin.dy,
+  );
 }

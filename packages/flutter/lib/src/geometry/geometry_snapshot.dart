@@ -568,8 +568,7 @@ final class GeometrySnapshot {
     if (before.target.type == 'relations' &&
         before.world.sameTransform(after.world) &&
         before.visible == after.visible &&
-        (before.data['style']! as Map)['width'] ==
-            (after.data['style']! as Map)['width']) {
+        _sameRelationStyleGeometry(before.data, after.data)) {
       // A derived path can overflow even though the endpoint itself is valid.
       // Resolve failure candidates only: sharing a relation does not mean that
       // every moved endpoint contributed to its overflowing extent.
@@ -634,6 +633,18 @@ final class GeometrySnapshot {
 
     return GeometryPreparationFailure(id, cause);
   }
+}
+
+bool _sameRelationStyleGeometry(
+  Map<String, Object?> before,
+  Map<String, Object?> after,
+) {
+  final oldStyle = before['style']! as Map, newStyle = after['style']! as Map;
+  return oldStyle['width'] == newStyle['width'] &&
+      const [
+        'startMarker',
+        'endMarker',
+      ].every((key) => (oldStyle[key] ?? 'none') == (newStyle[key] ?? 'none'));
 }
 
 /// Identifies the failed projection without changing schema error diagnostics.

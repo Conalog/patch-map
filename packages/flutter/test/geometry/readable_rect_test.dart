@@ -39,19 +39,44 @@ void main() {
     expect(angled.b, closeTo(math.sin(.4), 1e-12));
   });
 
-  test('bar placement flips with readable frame about item center', () {
-    final authored = Affine.fromAttrs({'angle': 180});
-    final anchor = authored.project(const Offset(50, 50));
+  test(
+    'camera angle preserves oblique text and chooses the upward vertical',
+    () {
+      final angles = <(double, double)>[
+        (45, 45),
+        (89.99, 89.99),
+        (90, -90),
+        (90.01, -89.99),
+        (180, 0),
+        (269.99, 89.99),
+        (270, -90),
+        (270.01, -89.99),
+        (-90, -90),
+        (450, -90),
+      ];
+      const box = Rect.fromLTWH(0, 0, 60, 20);
+      for (final (camera, expected) in angles) {
+        final rotation = camera * math.pi / 180;
+        final result = readableRectTransform(Affine.identity, box, rotation);
+        expect(result.project(box.center), box.center);
+        final x = result.a * math.cos(rotation) - result.b * math.sin(rotation);
+        final y = result.a * math.sin(rotation) + result.b * math.cos(rotation);
+        expect(math.atan2(y, x) * 180 / math.pi, closeTo(expected, 1e-8));
+      }
+      final collapsed = const Affine(
+        1,
+        0,
+        0,
+        0,
+        3,
+        5,
+      ).multiply(Affine.fromAttrs({'angle': 45}));
+      expect(readableRectTransform(collapsed, box, math.pi), same(collapsed));
+    },
+  );
+
+  test('reflection is removed without moving the box center', () {
     const box = Rect.fromLTWH(25, 75, 50, 25);
-    final bar = readableRectTransform(
-      authored,
-      box,
-      0,
-      placementAnchor: anchor,
-    );
-    final text = readableRectTransform(authored, box, 0);
-    expect(bar.project(const Offset(25, 12.5)).dy, closeTo(-12.5, 1e-10));
-    expect(text.project(const Offset(25, 12.5)).dy, closeTo(-87.5, 1e-10));
     final reflected = readableRectTransform(
       const Affine(-2, 0, 1, 3, 0, 0),
       box,

@@ -78,7 +78,7 @@ Quad? selectionQuad(
         }
         include(
           component
-              .worldTransform(target.world, cameraRotation, item.size)
+              .worldTransform(target.world, cameraRotation, item.content)
               .projectRect(paint),
         );
       }

@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:conalog_patch_map/conalog_patch_map.dart';
@@ -16,11 +18,153 @@ import 'package:conalog_patch_map/src/interaction/input_query.dart';
 import 'package:conalog_patch_map/src/interaction/selection_state.dart';
 import 'package:conalog_patch_map/src/resources/asset_registry.dart';
 import 'package:conalog_patch_map/src/widget/map_backend.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'draw_plan_test.dart' as drawing;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('item culling keeps FiraCode ink outside the text layout box', () async {
+    final font = FontLoader('FiraCode')
+      ..addFont(
+        File(
+          'assets/fonts/FiraCode-VF.ttf',
+        ).readAsBytes().then(ByteData.sublistView),
+      );
+    await font.load();
+    final h = await Harness.create(
+      input: [
+        {
+          'id': 'i',
+          'type': 'item',
+          'size': 100,
+          'components': [
+            {
+              'id': 'text',
+              'type': 'text',
+              'placement': 'none',
+              'attrs': {'x': -300},
+              'text': '\u2044',
+              'style': {
+                'fontFamily': 'FiraCode',
+                'fontSize': 100,
+                'align': 'left',
+              },
+            },
+          ],
+        },
+      ],
+    );
+    addTearDown(h.close);
+    final backend = h.backend;
+    backend.camera.set(center: const Offset(-351, 65), scale: 3, rotation: 0);
+
+    Future<int> countInk({required bool bypassCulling}) async {
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder);
+      if (bypassCulling) {
+        canvas.transform(backend.camera.paintMatrix);
+        h.current.plan.paint(
+          canvas,
+          visibleSlots: [0],
+          cameraRotation: 0,
+          physicalScale: 3,
+        );
+      } else {
+        backend.paint(canvas, 1);
+      }
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(300, 300);
+      try {
+        final bytes = (await image.toByteData(
+          format: ImageByteFormat.rawRgba,
+        ))!.buffer.asUint8List();
+        var ink = 0;
+        for (var i = 3; i < bytes.length; i += 4) {
+          if (bytes[i] != 0) ink++;
+        }
+        return ink;
+      } finally {
+        image.dispose();
+        picture.dispose();
+      }
+    }
+
+    final unculledInk = await countInk(bypassCulling: true);
+    expect(unculledInk, greaterThan(0));
+    expect(await countInk(bypassCulling: false), unculledInk);
+  });
+
+  test(
+    'rotated full scans and local buckets preserve visible paint order',
+    () async {
+      Map<String, Object?> rect(
+        String id,
+        int x,
+        int y, {
+        int z = 0,
+        bool show = true,
+      }) => {
+        'id': id,
+        'type': 'rect',
+        'size': 24,
+        'show': show,
+        'attrs': {'x': x, 'y': y, 'zIndex': z},
+      };
+      final h = await Harness.create(
+        input: [
+          rect('red', 90, 90, z: 9),
+          rect('blue', 90, 90),
+          rect('green', 90, 90, z: 9),
+          rect('hidden', 90, 90, z: 99, show: false),
+          rect('near', 136, 100),
+          rect('outside', 230, 90),
+          for (var i = 0; i < 64; i++)
+            rect('far-$i', 1200 + (i % 8) * 256, 1200 + (i ~/ 8) * 256),
+        ],
+      );
+      addTearDown(h.close);
+      final backend = h.backend;
+      void verifyOrder(List<String> overlapping) {
+        for (final scale in [.12, 3.0]) {
+          backend.camera.set(
+            center: const Offset(102, 102),
+            scale: scale,
+            rotation: math.pi / 6,
+          );
+          final query = backend.camera.visibleWorldBounds;
+          final candidates = backend.spatial.candidates(query);
+          expect(backend.spatial.isFullScan(candidates), scale == .12);
+          if (scale == 3) {
+            expect(
+              candidates,
+              contains(h.current.geometry.topology.slots['outside']),
+            );
+          }
+          final ids = backend
+              .visibleSlots()
+              .map((slot) => h.current.geometry.nodes[slot].id)
+              .toList();
+          expect(ids.where(['red', 'green', 'blue'].contains), overlapping);
+          expect(ids, contains('near'));
+          expect(ids, isNot(contains('hidden')));
+          expect(ids, isNot(contains('far-63')));
+          if (scale == 3) expect(ids, ['blue', 'near', ...overlapping.skip(1)]);
+        }
+      }
+
+      verifyOrder(['blue', 'red', 'green']);
+      h.publish(
+        await h.prepare([
+          const PatchMapUpdate(PatchMapTarget('red'), {
+            'attrs': {'zIndex': 10},
+          }),
+        ]),
+      );
+      verifyOrder(['blue', 'green', 'red']);
+    },
+  );
+
   test(
     'retained dynamic show preserves proof, atomic visibility and item hits',
     () async {
@@ -768,9 +912,126 @@ void main() {
       );
     },
   );
+  test('upright Bar paints through exact tween completion', () async {
+    final h = await Harness.create(
+      input: [
+        {
+          'type': 'grid',
+          'id': 'g',
+          'cells': [
+            [1, 1],
+          ],
+          'item': {
+            'size': 100,
+            'components': [
+              {
+                'type': 'bar',
+                'id': 'bar',
+                'size': 20,
+                'source': {'fill': '#ff0000'},
+                'placement': 'none',
+                'animationDuration': 200,
+              },
+            ],
+          },
+        },
+      ],
+    );
+    addTearDown(h.close);
+    h.backend.camera.set(
+      center: const Offset(50, 50),
+      scale: 1,
+      rotation: math.pi,
+    );
+
+    Future<List<int>> paintedColors() async {
+      final recorder = PictureRecorder();
+      h.backend.paint(Canvas(recorder), 1);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(300, 300);
+      try {
+        final bytes = (await image.toByteData(
+          format: ImageByteFormat.rawRgba,
+        ))!;
+        return [
+          for (final coordinate in [190, 150, 110])
+            bytes.getUint32((coordinate * 300 + coordinate) * 4),
+        ];
+      } finally {
+        image.dispose();
+        picture.dispose();
+      }
+    }
+
+    const red = 0xff0000ff;
+    final geometry = h.current.geometry['g.0.0']!;
+    final layout = geometry.item!.components.single;
+    final center = Offset(layout.box.width / 2, layout.box.height / 2);
+    expect(
+      layout
+          .worldTransform(geometry.world, math.pi, geometry.item!.content)
+          .project(center),
+      const Offset(10, 10),
+    );
+
+    final next = await h.prepare([
+      update('bar', {'placement': 'left-top'}),
+    ], animate: true);
+    h.publish(next);
+    final published = h.current.geometry['g.0.0']!;
+    final moved = published.item!.components.single;
+    expect(moved.box.topLeft, Offset.zero);
+    expect(
+      moved
+          .worldTransform(published.world, math.pi, published.item!.content)
+          .project(center),
+      const Offset(90, 90),
+    );
+    final transition = h.backend.transitions;
+    expect(
+      transition.rectangle(h.slot, 'bar', 3)!.center,
+      const Offset(10, 10),
+    );
+    expect(await paintedColors(), [red, 0, 0]);
+    h.backend.onFrame(Duration.zero);
+    h.backend.onFrame(const Duration(milliseconds: 100));
+    expect(
+      transition.rectangle(h.slot, 'bar', 3)!.center,
+      const Offset(50, 50),
+    );
+    expect(await paintedColors(), [0, red, 0]);
+    expect(h.backend.onFrame(const Duration(milliseconds: 200)), isFalse);
+    expect(await paintedColors(), [0, 0, red]);
+  });
+
   test('mid-flight retarget captures the displayed rectangle', () async {
     final h = await Harness.create();
     addTearDown(h.close);
+    h.backend.camera.set(
+      center: const Offset(20, 30),
+      scale: 1,
+      rotation: math.pi,
+    );
+
+    Future<List<int>> paintedBarColumn() async {
+      final recorder = PictureRecorder();
+      h.backend.paint(Canvas(recorder), 1);
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(300, 300);
+      try {
+        final bytes = (await image.toByteData(
+          format: ImageByteFormat.rawRgba,
+        ))!;
+        return [
+          for (var y = 120; y < 180; y++)
+            if (bytes.getUint32((y * 300 + 140) * 4) == 0x0000ffff) y,
+        ];
+      } finally {
+        image.dispose();
+        picture.dispose();
+      }
+    }
+
     h.publish(
       await h.prepare([
         update('bar', {
@@ -779,9 +1040,13 @@ void main() {
       ], animate: true),
     );
     h.backend.onFrame(Duration.zero);
-    h.backend.onFrame(const Duration(milliseconds: 100));
-    final displayed = h.backend.transitions.rectangle(h.slot, 'bar');
-    expect(displayed, isNotNull);
+    const retargetTime = Duration(milliseconds: 200);
+    h.backend.onFrame(retargetTime);
+    final displayed = h.backend.transitions.rectangle(h.slot, 'bar', 3);
+    expect(displayed?.height, 37.5);
+    final before = await paintedBarColumn();
+    expect(before, hasLength(inInclusiveRange(37, 38)));
+    h.backend.camera.rotateTo(0);
     h.publish(
       await h.prepare([
         update('bar', {
@@ -789,7 +1054,12 @@ void main() {
         }),
       ], animate: true),
     );
-    expect(h.backend.transitions.rectangle(h.slot, 'bar'), displayed);
+    h.backend.onFrame(retargetTime);
+    expect(h.backend.camera.rotating, isTrue);
+    expect(h.backend.transitions.rectangle(h.slot, 'bar', 3), displayed);
+    expect(await paintedBarColumn(), before);
+    h.backend.onFrame(retargetTime + const Duration(milliseconds: 400));
+    expect(await paintedBarColumn(), hasLength(48));
   });
 }
 

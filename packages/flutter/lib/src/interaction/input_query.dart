@@ -217,7 +217,10 @@ final class InputQuery {
     if (item == null) {
       final local = node.localBounds;
       if (local != null && !local.isEmpty) {
-        yield node.world.projectRect(local);
+        final world = node.target.type == 'text'
+            ? node.textWorldTransform(rotation)
+            : node.world;
+        yield world.projectRect(local);
       }
       return;
     }
@@ -231,7 +234,7 @@ final class InputQuery {
     for (final component in item.components) {
       if (!component.visible || component.box.isEmpty) continue;
       final quad = component
-          .worldTransform(node.world, rotation, item.size)
+          .worldTransform(node.world, rotation, item.content)
           .projectRect(Offset.zero & component.box.size);
       if (component.type != 'bar') {
         yield quad;
