@@ -6,11 +6,13 @@ release/1.0 except explicitly approved main behavior.
 ## Schema and layout
 
 - `calc()` dimensions follow main's multi-term percent/pixel semantics. The current JS schema admits these inputs, while the release parser renders them at zero and its separate layout helper supports only two terms. Flutter compiles admitted expressions into one pixel offset and one fractional coefficient; no expression parsing occurs during paint or animation. Invalid derived negative/nonfinite geometry is rejected. This is an intentional correction to release/1.0 output, not a new expression language.
-- Standalone text keeps its measured center and corrects upside-down or
-  mirrored orientation. For `upright` items and grid cells, the item determines
-  the readable placement axes of text, icons, and bars. Each component uses
-  its own transform to determine its visible direction. Margins follow the
-  remapped edges, and manual `none` placement keeps its authored position.
+- JavaScript `release/1.0` rotates standalone text with the map. Flutter
+  intentionally corrects upside-down or mirrored orientation while keeping
+  the measured text center. For `upright` items and grid cells, the item
+  determines the readable placement axes of text, icons, and bars. Each
+  component uses its own transform to determine its visible direction.
+  Margins follow the remapped edges, and manual `none` placement keeps its
+  authored position.
   The legacy JavaScript main renderer also considers component rotation when
   choosing placement edges. Flutter uses the same edges for all components of
   the card and preserves its existing centered-axis margin rules.
