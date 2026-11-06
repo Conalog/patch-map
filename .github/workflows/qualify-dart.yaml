@@ -260,6 +260,7 @@ jobs:
         with:
           api-level: 34
           arch: x86_64
+          emulator-build: '16740729' # 37.2.13.0
           emulator-port: 5554
           script: node verification/flutter/renderer-qualification.mjs android emulator-5554
       - name: Run iOS renderer checks
