@@ -902,15 +902,18 @@ final class MapBackend extends SessionBackend {
     final key = (camera.center, camera.scale, camera.rotation, camera.size);
     if (_visible != null && _cameraKey == key) return _visible!;
     _cameraKey = key;
-    final query = camera.visibleWorldBounds,
-        candidates = spatial.candidates(query);
-    final slots = candidates.where((slot) {
-      final node = pub.geometry.nodes[slot];
+    final geometry = pub.geometry;
+    final query = camera.visibleWorldBounds;
+    final candidates = spatial.candidates(query);
+    final fullScan = spatial.isFullScan(candidates);
+    final slots = (fullScan ? geometry.paintSlots : candidates).where((slot) {
+      final node = geometry.nodes[slot];
       return node.visible &&
           !node.isContainer &&
           node.paintBounds != null &&
           boundsOverlap(node.paintBounds!, query);
-    }).toList()..sort((a, b) => _ranks[a].compareTo(_ranks[b]));
+    }).toList();
+    if (!fullScan) slots.sort((a, b) => _ranks[a].compareTo(_ranks[b]));
     return _visible = slots;
   }
 

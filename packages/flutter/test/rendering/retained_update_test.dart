@@ -23,6 +23,76 @@ import 'draw_plan_test.dart' as drawing;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
+    'rotated full scans and local buckets preserve visible paint order',
+    () async {
+      Map<String, Object?> rect(
+        String id,
+        int x,
+        int y, {
+        int z = 0,
+        bool show = true,
+      }) => {
+        'id': id,
+        'type': 'rect',
+        'size': 24,
+        'show': show,
+        'attrs': {'x': x, 'y': y, 'zIndex': z},
+      };
+      final h = await Harness.create(
+        input: [
+          rect('red', 90, 90, z: 9),
+          rect('blue', 90, 90),
+          rect('green', 90, 90, z: 9),
+          rect('hidden', 90, 90, z: 99, show: false),
+          rect('near', 136, 100),
+          rect('outside', 230, 90),
+          for (var i = 0; i < 64; i++)
+            rect('far-$i', 1200 + (i % 8) * 256, 1200 + (i ~/ 8) * 256),
+        ],
+      );
+      addTearDown(h.close);
+      final backend = h.backend;
+      void verifyOrder(List<String> overlapping) {
+        for (final scale in [.12, 3.0]) {
+          backend.camera.set(
+            center: const Offset(102, 102),
+            scale: scale,
+            rotation: math.pi / 6,
+          );
+          final query = backend.camera.visibleWorldBounds;
+          final candidates = backend.spatial.candidates(query);
+          expect(backend.spatial.isFullScan(candidates), scale == .12);
+          if (scale == 3) {
+            expect(
+              candidates,
+              contains(h.current.geometry.topology.slots['outside']),
+            );
+          }
+          final ids = backend
+              .visibleSlots()
+              .map((slot) => h.current.geometry.nodes[slot].id)
+              .toList();
+          expect(ids.where(['red', 'green', 'blue'].contains), overlapping);
+          expect(ids, contains('near'));
+          expect(ids, isNot(contains('hidden')));
+          expect(ids, isNot(contains('far-63')));
+          if (scale == 3) expect(ids, ['blue', 'near', ...overlapping.skip(1)]);
+        }
+      }
+
+      verifyOrder(['blue', 'red', 'green']);
+      h.publish(
+        await h.prepare([
+          const PatchMapUpdate(PatchMapTarget('red'), {
+            'attrs': {'zIndex': 10},
+          }),
+        ]),
+      );
+      verifyOrder(['blue', 'green', 'red']);
+    },
+  );
+
+  test(
     'retained dynamic show preserves proof, atomic visibility and item hits',
     () async {
       final h = await Harness.create();
