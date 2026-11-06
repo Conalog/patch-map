@@ -92,6 +92,9 @@ class _PatchMapViewState extends State<PatchMapView>
   bool _deferInput = false;
   int? _recognitionEpoch, _gestureGeneration;
   final _admittedPointers = <int>{};
+  final _gestureArena = MapGestureArena();
+  bool _pinchFromDoubleTap = false;
+  ({double scale, double angle})? _pinchOrigin;
   Offset _gestureFocal = Offset.zero;
   final _touchGesture = TouchCameraGesture();
   late PatchMapGestureOptions _gestureOptions;
@@ -174,9 +177,11 @@ class _PatchMapViewState extends State<PatchMapView>
       notify: _onInput,
       onNeedFrame: frame.invalidate,
       onNeedNotification: frame.requestNotification,
+      claimDoubleTapZoom: _gestureArena.claimZoom,
       filter: (object) =>
           session.filter(() => widget.eventFilter?.call(object) ?? true),
-    )..dragMode = widget.dragMode;
+    );
+    _configureInput();
     widget.controller.attach(this);
     _attachedController = widget.controller;
     _activity();
@@ -206,11 +211,11 @@ class _PatchMapViewState extends State<PatchMapView>
 
   void _resetInput() {
     if (_disposed) return;
-    _admittedPointers.clear();
-    _gestureGeneration = null;
+    _clearAdmittedPointers();
     _deferInput = true;
     try {
       input.reset();
+      _gestureArena.resetDoubleTap();
     } finally {
       _deferInput = false;
     }
@@ -279,6 +284,7 @@ class _PatchMapViewState extends State<PatchMapView>
       widget.controller.attach(this);
       _attachedController?.detach(this);
       _attachedController = widget.controller;
+      input.endDoubleTapZoom();
     }
     if (!presentationEqual(oldWidget.colors, widget.colors) ||
         !presentationEqual(oldWidget.symbols, widget.symbols)) {
@@ -292,8 +298,18 @@ class _PatchMapViewState extends State<PatchMapView>
       _observe(session.replace(widget.initialData));
     }
     if (zoomChanged) frame.invalidate();
-    input.dragMode = widget.dragMode;
+    _configureInput();
     _activity();
+  }
+
+  bool get _doubleTapZoomEnabled =>
+      _gestureOptions.doubleTapDragZoomEnabled && _gestureOptions.zoomEnabled;
+
+  bool get _canStartInput => phase == PatchMapPhase.ready && session.active;
+
+  void _configureInput() {
+    input.dragMode = widget.dragMode;
+    input.configureDoubleTapZoom(_doubleTapZoomEnabled);
   }
 
   @override
@@ -304,13 +320,113 @@ class _PatchMapViewState extends State<PatchMapView>
 
   void _activity() {
     final active = widget.active && _foreground;
-    if (!active) {
-      _admittedPointers.clear();
-      _gestureGeneration = null;
-    }
     input.setActive(active);
+    if (!active) {
+      _clearAdmittedPointers();
+      _gestureArena.resetDoubleTap();
+    }
     session.setActive(active);
     frame.setActive(active);
+  }
+
+  void _clearAdmittedPointers() {
+    _admittedPointers.clear();
+    _gestureGeneration = null;
+    _pinchFromDoubleTap = false;
+    _pinchOrigin = null;
+    _gestureArena.trackZoomCandidate(null);
+  }
+
+  void _pointerDown(PointerDownEvent event) {
+    if (!_canStartInput) return;
+    backend.camera.cancelRotation();
+    if (input.isDoubleTapZooming && event.buttons == kPrimaryButton) {
+      _pinchFromDoubleTap = true;
+    }
+    _admittedPointers.add(event.pointer);
+    final touch =
+        _doubleTapZoomEnabled && event.kind == PointerDeviceKind.touch;
+    input.pointerDown(
+      event.pointer,
+      event.localPosition,
+      event.position,
+      buttons: event.buttons,
+      touch: touch,
+      firstTap: touch ? _gestureArena.firstTapFor(event.pointer) : null,
+    );
+    if (touch && !_canStartInput) input.endDoubleTapZoom();
+    _gestureArena.trackZoomCandidate(input.zoomCandidatePointer);
+    _recognitionEpoch = input.inputEpoch;
+  }
+
+  void _pointerMove(PointerMoveEvent event) {
+    // An accepted replacement can enter preparing before its deferred input
+    // reset. Do not apply a zoom sample to the outgoing camera in that gap.
+    if (_doubleTapZoomEnabled && !_canStartInput) {
+      input.endDoubleTapZoom();
+      return;
+    }
+    input.pointerMove(event.pointer, event.localPosition, event.position);
+  }
+
+  void _releasePointer(int pointer) {
+    _admittedPointers.remove(pointer);
+    if (_admittedPointers.isEmpty) {
+      _pinchFromDoubleTap = false;
+      _pinchOrigin = null;
+      _gestureArena.trackZoomCandidate(null);
+    }
+  }
+
+  void _scaleStart(ScaleStartDetails details) {
+    _touchGesture.start(
+      _gestureOptions,
+      cameraScale: backend.camera.scale,
+      cameraRotation: backend.camera.rotation,
+    );
+    _gestureGeneration = session.generation;
+    _gestureFocal = details.localFocalPoint;
+    _pinchOrigin = null;
+  }
+
+  void _scaleUpdate(ScaleUpdateDetails details) {
+    if (_admittedPointers.length < 2 ||
+        _gestureGeneration != session.generation ||
+        details.pointerCount < 2 ||
+        !_canStartInput) {
+      return;
+    }
+    var factor = details.scale, angle = details.rotation;
+    if (_pinchFromDoubleTap) {
+      final origin = _pinchOrigin;
+      if (origin == null) {
+        if (factor.isFinite && factor > 0 && angle.isFinite) {
+          _pinchOrigin = (scale: factor, angle: angle);
+          _gestureFocal = details.localFocalPoint;
+        }
+        return;
+      }
+      factor /= origin.scale;
+      angle -= origin.angle;
+    }
+    if (_touchGesture.enabled) {
+      _touchGesture.update(
+        factor: factor,
+        angle: angle,
+        currentScale: backend.camera.scale,
+        currentRotation: backend.camera.rotation,
+      );
+      input.cameraGesture(
+        pointerCount: details.pointerCount,
+        localAnchor: _gestureFocal,
+        scale: _touchGesture.scale,
+        rotation: _touchGesture.rotation,
+      );
+    }
+    if (!_canStartInput) return;
+    final moved = backend.camera.pan(details.localFocalPoint - _gestureFocal);
+    _gestureFocal = details.localFocalPoint;
+    if (moved) frame.invalidate();
   }
 
   @override
@@ -333,32 +449,21 @@ class _PatchMapViewState extends State<PatchMapView>
         if (!size.isFinite) {
           throw FlutterError('PatchMapView requires bounded width and height');
         }
+        if (size != backend.camera.size) input.endDoubleTapZoom();
         backend.resize(size);
         final pixelRatio = MediaQuery.devicePixelRatioOf(context);
         return MouseRegion(
           onExit: (e) => input.leave(e.pointer, e.localPosition, e.position),
           child: Listener(
             behavior: HitTestBehavior.opaque,
-            onPointerDown: (e) {
-              if (phase != PatchMapPhase.ready || !session.active) return;
-              backend.camera.cancelRotation();
-              _admittedPointers.add(e.pointer);
-              input.pointerDown(
-                e.pointer,
-                e.localPosition,
-                e.position,
-                buttons: e.buttons,
-              );
-              _recognitionEpoch = input.inputEpoch;
-            },
-            onPointerMove: (e) =>
-                input.pointerMove(e.pointer, e.localPosition, e.position),
+            onPointerDown: _pointerDown,
+            onPointerMove: _pointerMove,
             onPointerUp: (e) {
-              _admittedPointers.remove(e.pointer);
+              _releasePointer(e.pointer);
               input.pointerUp(e.pointer, e.localPosition, e.position);
             },
             onPointerCancel: (e) {
-              _admittedPointers.remove(e.pointer);
+              _releasePointer(e.pointer);
               input.pointerCancel(e.pointer);
             },
             onPointerHover: (e) {
@@ -387,52 +492,20 @@ class _PatchMapViewState extends State<PatchMapView>
               }
             },
             child: MapGestureDetector(
+              arena: _gestureArena,
+              canStart: () => _canStartInput,
               longPressDuration: _gestureOptions.longPressDuration,
               onTap: () => input.recognizedTap(epoch: _recognitionEpoch),
-              onDoubleTap: () =>
-                  input.recognizedDoubleTap(epoch: _recognitionEpoch),
+              onDoubleTap: (pointer) => input.recognizedDoubleTap(
+                epoch: _recognitionEpoch,
+                pointer: pointer,
+              ),
               onSecondaryTap: () =>
                   input.recognizedSecondaryTap(epoch: _recognitionEpoch),
               onLongPress: () =>
                   input.recognizedLongPress(epoch: _recognitionEpoch),
-              onScaleStart: (details) {
-                _touchGesture.start(
-                  _gestureOptions,
-                  cameraScale: backend.camera.scale,
-                  cameraRotation: backend.camera.rotation,
-                );
-                _gestureGeneration = session.generation;
-                _gestureFocal = details.localFocalPoint;
-              },
-              onScaleUpdate: (details) {
-                if (_admittedPointers.length < 2 ||
-                    _gestureGeneration != session.generation ||
-                    details.pointerCount < 2 ||
-                    phase != PatchMapPhase.ready ||
-                    !session.active) {
-                  return;
-                }
-                if (_touchGesture.enabled) {
-                  _touchGesture.update(
-                    factor: details.scale,
-                    angle: details.rotation,
-                    currentScale: backend.camera.scale,
-                    currentRotation: backend.camera.rotation,
-                  );
-                  input.cameraGesture(
-                    pointerCount: details.pointerCount,
-                    localAnchor: _gestureFocal,
-                    scale: _touchGesture.scale,
-                    rotation: _touchGesture.rotation,
-                  );
-                }
-                if (!session.active || phase != PatchMapPhase.ready) return;
-                final moved = backend.camera.pan(
-                  details.localFocalPoint - _gestureFocal,
-                );
-                _gestureFocal = details.localFocalPoint;
-                if (moved) frame.invalidate();
-              },
+              onScaleStart: _scaleStart,
+              onScaleUpdate: _scaleUpdate,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -519,7 +592,11 @@ class _PatchMapViewState extends State<PatchMapView>
       );
     }
     try {
+      final center = backend.camera.center, scale = backend.camera.scale;
       action();
+      if (center != backend.camera.center || scale != backend.camera.scale) {
+        input.endDoubleTapZoom();
+      }
       frame.invalidate();
       return PatchMapResult(PatchMapOutcome.applied);
     } on ArgumentError catch (error) {

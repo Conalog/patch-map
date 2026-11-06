@@ -7,6 +7,7 @@
 final class PatchMapGestureOptions {
   const PatchMapGestureOptions({
     this.zoomEnabled = true,
+    this.doubleTapDragZoomEnabled = false,
     this.rotationEnabled = true,
     this.zoomThreshold = .02,
     this.zoomThresholdAfterRotation = .05,
@@ -15,8 +16,12 @@ final class PatchMapGestureOptions {
     this.longPressDuration = const Duration(milliseconds: 300),
   });
 
-  /// Enable pinch and wheel scaling. Two-finger translation remains available.
+  /// Enable pinch, wheel and opted-in double-tap drag scaling.
+  /// Two-finger translation remains available.
   final bool zoomEnabled;
+
+  /// Allow a nearby second touch to zoom vertically in pan mode.
+  final bool doubleTapDragZoomEnabled;
 
   /// Enable two-finger rotation; does not gate `setCamera(rotation: ...)`.
   final bool rotationEnabled;

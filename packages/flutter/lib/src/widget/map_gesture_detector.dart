@@ -1,11 +1,27 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
+import 'map_double_tap_recognizer.dart';
+
+/// Bridges raw input admission to the two recognizers that share ownership
+/// of a double-tap drag. Raw moves still go through the input coordinator.
+final class MapGestureArena {
+  MapDoubleTapRecognizer? _doubleTap;
+  _MapScaleGestureRecognizer? _scale;
+
+  int? firstTapFor(int pointer) => _doubleTap?.firstTapFor(pointer);
+  void resetDoubleTap() => _doubleTap?.reset();
+  void trackZoomCandidate(int? pointer) => _scale?.trackCandidate(pointer);
+  bool claimZoom(int pointer) => _scale?.claim(pointer) ?? false;
+}
+
 /// The surface's existing recognizer arena, with a configurable hold duration.
 /// Raw pointer admission, hit testing and host actions stay with the map view.
 class MapGestureDetector extends StatelessWidget {
   const MapGestureDetector({
     super.key,
+    required this.arena,
+    required this.canStart,
     required this.longPressDuration,
     required this.onTap,
     required this.onDoubleTap,
@@ -16,8 +32,11 @@ class MapGestureDetector extends StatelessWidget {
     required this.child,
   });
 
+  final MapGestureArena arena;
+  final bool Function() canStart;
   final Duration longPressDuration;
-  final VoidCallback onTap, onDoubleTap, onSecondaryTap, onLongPress;
+  final VoidCallback onTap, onSecondaryTap, onLongPress;
+  final void Function(int pointer) onDoubleTap;
   final GestureScaleStartCallback onScaleStart;
   final GestureScaleUpdateCallback onScaleUpdate;
   final Widget child;
@@ -37,11 +56,12 @@ class MapGestureDetector extends StatelessWidget {
                 ..onTap = onTap
                 ..onSecondaryTap = onSecondaryTap,
             ),
-        DoubleTapGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<DoubleTapGestureRecognizer>(
-              () => DoubleTapGestureRecognizer(debugOwner: this),
+        MapDoubleTapRecognizer:
+            GestureRecognizerFactoryWithHandlers<MapDoubleTapRecognizer>(
+              () => arena._doubleTap = MapDoubleTapRecognizer(debugOwner: this),
               (recognizer) => recognizer
                 ..gestureSettings = settings
+                ..canStart = canStart
                 ..onDoubleTap = onDoubleTap,
             ),
         _MapLongPressGestureRecognizer:
@@ -57,9 +77,9 @@ class MapGestureDetector extends StatelessWidget {
                 ..gestureSettings = settings
                 ..onLongPress = onLongPress,
             ),
-        ScaleGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<ScaleGestureRecognizer>(
-              () => ScaleGestureRecognizer(debugOwner: this),
+        _MapScaleGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<_MapScaleGestureRecognizer>(
+              () => arena._scale = _MapScaleGestureRecognizer(debugOwner: this),
               (recognizer) => recognizer
                 ..gestureSettings = settings
                 ..onStart = onScaleStart
@@ -68,6 +88,38 @@ class MapGestureDetector extends StatelessWidget {
       },
       child: child,
     );
+  }
+}
+
+/// Let scale win the second tap's arena and keep its route for a later pinch.
+/// A separate winner would cause Flutter to drop the held finger from scale.
+class _MapScaleGestureRecognizer extends ScaleGestureRecognizer {
+  _MapScaleGestureRecognizer({super.debugOwner});
+
+  int? _candidate;
+  bool _won = false;
+
+  void trackCandidate(int? pointer) {
+    _candidate = pointer;
+    _won = false;
+  }
+
+  bool claim(int pointer) {
+    if (_candidate != pointer) return false;
+    if (!_won) resolvePointer(pointer, GestureDisposition.accepted);
+    return _won;
+  }
+
+  @override
+  void acceptGesture(int pointer) {
+    if (pointer == _candidate) _won = true;
+    super.acceptGesture(pointer);
+  }
+
+  @override
+  void rejectGesture(int pointer) {
+    if (pointer == _candidate) trackCandidate(null);
+    super.rejectGesture(pointer);
   }
 }
 

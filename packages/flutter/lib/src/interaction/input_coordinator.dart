@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/gestures.dart' show kTouchSlop;
@@ -25,6 +26,7 @@ final class InputCoordinator {
     InputFilter? filter,
     InputHitGeometryProvider? exactGeometry,
     this.dragSlop = kTouchSlop,
+    this.claimDoubleTapZoom,
   }) : query = InputQuery(
          ports: InputQueryPorts(
            getSpatialCandidates: getSpatialCandidates,
@@ -47,9 +49,11 @@ final class InputCoordinator {
   final void Function(PatchMapInputEvent event) notify;
   final void Function() onNeedFrame, onNeedNotification;
   final double dragSlop;
+  final bool Function(int pointer)? claimDoubleTapZoom;
   final InputQuery query;
   late final SelectionState selection;
   PatchMapDragMode dragMode = PatchMapDragMode.pan;
+  bool _doubleTapZoomEnabled = false;
   final _pointers = <int>{};
   _Gesture? _gesture;
   _PendingMove? _pendingMove;
@@ -61,6 +65,22 @@ final class InputCoordinator {
   int get inputEpoch => _epoch;
 
   bool get isDragging => _gesture?.mode != null;
+  bool get isDoubleTapZooming => _gesture?.zoomY != null;
+  bool get _canZoom =>
+      _doubleTapZoomEnabled && dragMode == PatchMapDragMode.pan;
+  int? get zoomCandidatePointer =>
+      _gesture?.zoomCandidate == true ? _gesture!.pointer : null;
+
+  void configureDoubleTapZoom(bool enabled) {
+    _doubleTapZoomEnabled = enabled;
+    if (!_canZoom) endDoubleTapZoom();
+  }
+
+  void endDoubleTapZoom() {
+    if (isDoubleTapZooming) _gesture = null;
+    _gesture?.zoomCandidate = false;
+  }
+
   PatchMapPosition position(Offset local, Offset global) => PatchMapPosition(
     world: camera.localToWorld(local),
     local: local,
@@ -90,6 +110,8 @@ final class InputCoordinator {
     Offset local,
     Offset global, {
     int buttons = 1,
+    bool touch = false,
+    int? firstTap,
   }) {
     if (_disposed || !_active) return;
     if (buttons == 1) {
@@ -99,15 +121,25 @@ final class InputCoordinator {
         return;
       }
     }
+    final previous = _recognition;
+    final zoomCandidate =
+        _canZoom &&
+        touch &&
+        firstTap != null &&
+        previous?.pointer == firstTap &&
+        previous!.zoomTap &&
+        (local - previous.tapStart).distance <= dragSlop;
     final epoch = _cancel(PatchMapEndReason.cancelled);
     if (_disposed || !_active || _epoch != epoch) return;
     final p = position(local, global);
-    if (buttons == 1) _gesture = _Gesture(pointer, p);
+    if (buttons == 1) {
+      _gesture = _Gesture(pointer, p, touch)..zoomCandidate = zoomCandidate;
+    }
     final snapshot = currentGeometry();
     final target = snapshot == null
         ? null
         : query.point(snapshot, p.world, camera.rotation);
-    _recognition = _Recognition(_epoch, p, target);
+    _recognition = _Recognition(_epoch, pointer, p, target, local);
     _emit(
       PatchMapInputEvent(
         kind: PatchMapInputKind.down,
@@ -122,15 +154,30 @@ final class InputCoordinator {
     if (_disposed || !_active || _pointers.length != 1) return;
     final gesture = _gesture;
     if (gesture == null || gesture.pointer != pointer) return;
+    final zoomY = gesture.zoomY;
+    if (zoomY != null) {
+      _zoom(gesture, local.dy, zoomY);
+      return;
+    }
     final p = position(local, global), snapshot = currentGeometry();
     // Result callbacks may change the camera; this sample's world position and
     // upright hit geometry must still use the same captured camera.
     final rotation = camera.rotation;
-    if (gesture.mode == null &&
-        (local - gesture.start.local).distance > dragSlop) {
-      gesture.mode = dragMode;
+    final displacement = gesture.mode == null
+        ? local - gesture.start.local
+        : null;
+    if (displacement != null && displacement.distance > dragSlop) {
       _epoch++;
       _recognition = null;
+      if (gesture.zoomCandidate &&
+          _canZoom &&
+          displacement.dy.abs() >= 1.5 * displacement.dx.abs() &&
+          claimDoubleTapZoom?.call(pointer) == true) {
+        if (identical(_gesture, gesture)) gesture.zoomY = local.dy;
+        return;
+      }
+      if (!identical(_gesture, gesture)) return;
+      gesture.mode = dragMode;
       _emit(_event(gesture, PatchMapInputKind.dragStart, p));
       // A callback can dispose/reset this coordinator. Do not resurrect work.
       if (!identical(_gesture, gesture) || _disposed) return;
@@ -144,6 +191,18 @@ final class InputCoordinator {
       } else if (needFrame) {
         _frame(paint: false);
       }
+    }
+  }
+
+  void _zoom(_Gesture gesture, double y, double previousY) {
+    if (!y.isFinite || y == previousY) return;
+    gesture.zoomY = y;
+    final scale = camera.scale * math.pow(2, (y - previousY) / 160);
+    if (!scale.isFinite || scale <= 0) return;
+    try {
+      if (camera.transformAround(gesture.start.local, scale: scale)) _frame();
+    } on ArgumentError {
+      // An extreme sample can be finite but outside the transform's range.
     }
   }
 
@@ -191,6 +250,10 @@ final class InputCoordinator {
     final gesture = _gesture;
     _pointers.remove(pointer);
     if (gesture == null || gesture.pointer != pointer) return;
+    if (gesture.zoomY != null) {
+      _gesture = null;
+      return;
+    }
     final p = position(local, global), snapshot = currentGeometry();
     final cameraChanged = _interpret(gesture, p, snapshot, camera.rotation);
     _gesture = null;
@@ -209,7 +272,17 @@ final class InputCoordinator {
       final target = snapshot == null
           ? null
           : query.point(snapshot, p.world, camera.rotation);
-      _recognition = _Recognition(_epoch, p, target);
+      _recognition = _Recognition(
+        _epoch,
+        pointer,
+        p,
+        target,
+        gesture.start.local,
+        zoomTap:
+            gesture.touch &&
+            !gesture.holdRecognized &&
+            (local - gesture.start.local).distance <= dragSlop,
+      );
       _emit(
         PatchMapInputEvent(
           kind: PatchMapInputKind.up,
@@ -258,8 +331,12 @@ final class InputCoordinator {
   /// Recognition uses the epoch's captured raw position/target, never a later
   /// camera or publication.
   void recognizedTap({int? epoch}) => _recognized(PatchMapInputKind.tap, epoch);
-  void recognizedDoubleTap({int? epoch}) =>
+  void recognizedDoubleTap({int? epoch, int? pointer}) {
+    if (pointer == null || pointer == _recognition?.pointer) {
       _recognized(PatchMapInputKind.doubleTap, epoch);
+    }
+  }
+
   void recognizedSecondaryTap({int? epoch}) =>
       _recognized(PatchMapInputKind.secondaryTap, epoch);
   void recognizedLongPress({int? epoch}) =>
@@ -274,6 +351,12 @@ final class InputCoordinator {
     }
     final sample = _recognition;
     if (sample == null || sample.epoch != _epoch) return;
+    final gesture = _gesture;
+    if (kind == PatchMapInputKind.longPress && gesture != null) {
+      gesture
+        ..zoomCandidate = false
+        ..holdRecognized = true;
+    }
     _emit(
       PatchMapInputEvent(
         kind: kind,
@@ -387,10 +470,13 @@ final class InputCoordinator {
 }
 
 final class _Gesture {
-  _Gesture(this.pointer, this.start) : last = start;
+  _Gesture(this.pointer, this.start, this.touch) : last = start;
   final int pointer;
   final PatchMapPosition start;
+  final bool touch;
   PatchMapPosition last;
+  bool zoomCandidate = false, holdRecognized = false;
+  double? zoomY;
   PatchMapDragMode? mode;
   Rect? range;
   List<PatchMapObject> objects = const [];
@@ -404,8 +490,17 @@ final class _PendingMove {
 }
 
 final class _Recognition {
-  const _Recognition(this.epoch, this.position, this.target);
-  final int epoch;
+  const _Recognition(
+    this.epoch,
+    this.pointer,
+    this.position,
+    this.target,
+    this.tapStart, {
+    this.zoomTap = false,
+  });
+  final int epoch, pointer;
   final PatchMapPosition position;
   final PatchMapObject? target;
+  final Offset tapStart;
+  final bool zoomTap;
 }
