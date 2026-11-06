@@ -224,7 +224,7 @@ jobs:
           - platform: android
             runner: ubuntu-26.04
           - platform: ios
-            runner: macos-latest
+            runner: macos-15
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
@@ -259,10 +259,23 @@ jobs:
         run: |
           flutter config --jdk-dir "${JAVA_HOME_17_X64:?The Android build requires JDK 17}"
           flutter build apk --debug --no-pub
+      - name: Setup Ruby for iOS
+        if: ${{ matrix.platform == 'ios' }}
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
+        with:
+          ruby-version: '3.3.13'
+          working-directory: packages/flutter/example/ios
       - name: Build iOS simulator
         if: ${{ matrix.platform == 'ios' }}
         working-directory: packages/flutter/example
-        run: flutter build ios --simulator --debug --no-codesign --no-pub
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/packages/flutter/example/ios/Gemfile
+          BUNDLE_PATH: ${{ runner.temp }}/patch-map-cocoapods
+          BUNDLE_FROZEN: 'true'
+          DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+        run: |
+          bundle install
+          bundle exec flutter build ios --simulator --debug --no-codesign --no-pub
 
   dart-release:
     name: Verify Dart release PR

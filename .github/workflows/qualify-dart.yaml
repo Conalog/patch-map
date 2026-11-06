@@ -263,6 +263,12 @@ jobs:
           emulator-build: '16740729' # 37.2.13.0
           emulator-port: 5554
           script: node verification/flutter/renderer-qualification.mjs android emulator-5554
+      - name: Setup Ruby for iOS
+        if: ${{ matrix.platform == 'ios' }}
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
+        with:
+          ruby-version: '3.3.13'
+          working-directory: packages/flutter/example/ios
       - name: Run iOS renderer checks
         if: ${{ matrix.platform == 'ios' }}
         env:
