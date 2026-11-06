@@ -75,7 +75,8 @@ jobs:
             name: JS · Package verification
           - gate: lifecycle
             name: JS · Memory & benchmark smoke
-    runs-on: ubuntu-latest
+    # Playwright 1.57 supports Ubuntu 24.04 for the Chromium gates.
+    runs-on: ${{ matrix.gate == 'core' && 'ubuntu-latest' || 'ubuntu-24.04' }}
     timeout-minutes: 40
     steps:
       - name: Checkout
