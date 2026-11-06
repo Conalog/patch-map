@@ -20,6 +20,8 @@ const _strokeFields = [
   'texture',
   'matrix',
 ];
+const _relationMarkerFields = ['startMarker', 'endMarker'];
+const _relationStyleFields = [..._strokeFields, ..._relationMarkerFields];
 const _textFields = [
   'fontFamily',
   'fontSize',
@@ -304,14 +306,14 @@ Map<String, Object?> rectTexture(
 Map<String, Object?> stroke(
   Object? value,
   String path, {
-  bool compatibility = false,
+  bool relation = false,
   bool partial = false,
 }) {
   final input = identical(value, missing)
       ? <String, Object?>{}
       : record(value, path);
-  known(input, _strokeFields, path);
-  if (input.containsKey('opacity') && !compatibility) {
+  known(input, relation ? _relationStyleFields : _strokeFields, path);
+  if (input.containsKey('opacity') && !relation) {
     throw DatasetException(
       'UNKNOWN_FIELD',
       '$path.opacity',
@@ -355,26 +357,36 @@ Map<String, Object?> stroke(
       ]),
     for (final key in ['fill', 'texture', 'matrix'])
       if (input.containsKey(key)) key: cloneJson(input[key], '$path.$key'),
+    if (relation)
+      for (final key in _relationMarkerFields)
+        if (input.containsKey(key))
+          key: choice(input[key], '$path.$key', const [
+            'none',
+            'circle',
+            'arrow',
+            'diamond',
+          ]),
   };
-  return frozen(
-    partial
-        ? {
-            for (final key in input.keys)
-              (key == 'opacity' ? 'alpha' : key):
-                  normalized[key == 'opacity' ? 'alpha' : key],
-          }
-        : normalized,
-  );
-}
-
-Map<String, Object?> relationStyle(Object? value, String path) {
-  final normalized = stroke(value, path, compatibility: true);
-  // JS normalizeRelationStyle validates the full stroke grammar, then retains
-  // exactly these projected fields. opacity has already normalized to alpha.
+  if (partial) {
+    return frozen({
+      for (final key in input.keys)
+        (key == 'opacity' ? 'alpha' : key):
+            normalized[key == 'opacity' ? 'alpha' : key],
+    });
+  }
+  if (!relation) return frozen(normalized);
   return frozen({
-    for (final key in ['color', 'alpha', 'width']) key: normalized[key],
+    for (final key in const ['color', 'alpha', 'width']) key: normalized[key],
+    for (final key in _relationMarkerFields)
+      if (normalized.containsKey(key)) key: normalized[key],
   });
 }
+
+Map<String, Object?> relationStyle(
+  Object? value,
+  String path, {
+  bool partial = false,
+}) => stroke(value, path, relation: true, partial: partial);
 
 Map<String, Object?> textStyle(
   Object? value,
