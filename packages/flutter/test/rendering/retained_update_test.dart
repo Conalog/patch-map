@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -17,11 +18,83 @@ import 'package:conalog_patch_map/src/interaction/input_query.dart';
 import 'package:conalog_patch_map/src/interaction/selection_state.dart';
 import 'package:conalog_patch_map/src/resources/asset_registry.dart';
 import 'package:conalog_patch_map/src/widget/map_backend.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'draw_plan_test.dart' as drawing;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('item culling keeps FiraCode ink outside the text layout box', () async {
+    final font = FontLoader('FiraCode')
+      ..addFont(
+        File(
+          'assets/fonts/FiraCode-VF.ttf',
+        ).readAsBytes().then(ByteData.sublistView),
+      );
+    await font.load();
+    final h = await Harness.create(
+      input: [
+        {
+          'id': 'i',
+          'type': 'item',
+          'size': 100,
+          'components': [
+            {
+              'id': 'text',
+              'type': 'text',
+              'placement': 'none',
+              'attrs': {'x': -300},
+              'text': '\u2044',
+              'style': {
+                'fontFamily': 'FiraCode',
+                'fontSize': 100,
+                'align': 'left',
+              },
+            },
+          ],
+        },
+      ],
+    );
+    addTearDown(h.close);
+    final backend = h.backend;
+    backend.camera.set(center: const Offset(-351, 65), scale: 3, rotation: 0);
+
+    Future<int> countInk({required bool bypassCulling}) async {
+      final recorder = PictureRecorder();
+      final canvas = Canvas(recorder);
+      if (bypassCulling) {
+        canvas.transform(backend.camera.paintMatrix);
+        h.current.plan.paint(
+          canvas,
+          visibleSlots: [0],
+          cameraRotation: 0,
+          physicalScale: 3,
+        );
+      } else {
+        backend.paint(canvas, 1);
+      }
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(300, 300);
+      try {
+        final bytes = (await image.toByteData(
+          format: ImageByteFormat.rawRgba,
+        ))!.buffer.asUint8List();
+        var ink = 0;
+        for (var i = 3; i < bytes.length; i += 4) {
+          if (bytes[i] != 0) ink++;
+        }
+        return ink;
+      } finally {
+        image.dispose();
+        picture.dispose();
+      }
+    }
+
+    final unculledInk = await countInk(bypassCulling: true);
+    expect(unculledInk, greaterThan(0));
+    expect(await countInk(bypassCulling: false), unculledInk);
+  });
+
   test(
     'rotated full scans and local buckets preserve visible paint order',
     () async {

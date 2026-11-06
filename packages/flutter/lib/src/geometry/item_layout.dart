@@ -527,7 +527,14 @@ Rect _componentPaintBounds(
   var local = Offset.zero & box.size;
   final outset = _backgroundOutset(data);
   if (outset > 0) local = local.inflate(outset);
-  var bounds = authored.projectRect(local).bounds;
+  // Paragraph layout omits glyph overhang. Keep the conservative upright
+  // text envelope at both the authored and remapped centers.
+  final textRadius = upright && data['type'] == 'text'
+      ? (box.width * vectorLength(authored.a, authored.b) +
+                box.height * vectorLength(authored.c, authored.d)) /
+            2
+      : null;
+  var bounds = _projectComponentBounds(authored, local, textRadius);
   if (!upright || data['placement'] == 'none' || handedness == 0) {
     return bounds;
   }
@@ -540,11 +547,16 @@ Rect _componentPaintBounds(
       box,
       orientPlacement(box, content, axes),
     );
-    final variant = placed.projectRect(local).bounds;
+    final variant = _projectComponentBounds(placed, local, textRadius);
     if (variant.isFinite) bounds = bounds.expandToInclude(variant);
   }
   return bounds;
 }
+
+Rect _projectComponentBounds(Affine world, Rect local, double? textRadius) =>
+    textRadius == null
+    ? world.projectRect(local).bounds
+    : Rect.fromCircle(center: world.project(local.center), radius: textRadius);
 
 double _backgroundOutset(Map<String, Object?> data) {
   if (data['type'] != 'background') return 0;

@@ -100,8 +100,8 @@ void main() {
       (_, _) => const Size(80, 10),
     );
     expect(scene['i']!.bounds, const Rect.fromLTWH(0, 0, 20, 20));
-    // The centered label needs only its actual footprint, while the bar is clipped.
-    expect(scene.bounds, const Rect.fromLTRB(-30, 0, 50, 20));
+    // Allow for glyph overhang around the centered label. The bar is clipped.
+    expect(scene.bounds, const Rect.fromLTRB(-35, -35, 55, 55));
   });
 
   test('upright text envelope includes overflow after edge remapping', () {
@@ -125,7 +125,7 @@ void main() {
       (_, _) => const Size(30, 20),
     );
     expect(scene['i']!.bounds, const Rect.fromLTWH(0, 0, 100, 80));
-    expect(scene.bounds, const Rect.fromLTRB(-10, -16, 100, 92));
+    expect(scene.bounds, const Rect.fromLTRB(-20, -31, 110, 107));
   });
 
   test(
