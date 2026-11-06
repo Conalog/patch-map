@@ -100,8 +100,32 @@ void main() {
       (_, _) => const Size(80, 10),
     );
     expect(scene['i']!.bounds, const Rect.fromLTWH(0, 0, 20, 20));
-    expect(scene.bounds!.width, 90);
-    expect(scene.bounds!.height, 90);
+    // The centered label needs only its actual footprint, while the bar is clipped.
+    expect(scene.bounds, const Rect.fromLTRB(-30, 0, 50, 20));
+  });
+
+  test('upright text envelope includes overflow after edge remapping', () {
+    final scene = GeometrySnapshot.compile(
+      const DatasetReader().read([
+        {
+          'type': 'item',
+          'id': 'i',
+          'size': {'width': 100, 'height': 80},
+          'padding': {'left': 5, 'right': 15, 'top': 4, 'bottom': 8},
+          'components': [
+            {
+              'type': 'text',
+              'text': 'label',
+              'placement': 'left-top',
+              'margin': {'left': -15, 'top': -20},
+            },
+          ],
+        },
+      ]),
+      (_, _) => const Size(30, 20),
+    );
+    expect(scene['i']!.bounds, const Rect.fromLTWH(0, 0, 100, 80));
+    expect(scene.bounds, const Rect.fromLTRB(-10, -16, 100, 92));
   });
 
   test(

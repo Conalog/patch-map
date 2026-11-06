@@ -6,6 +6,7 @@ import '../presentation/record_delta.dart';
 import 'affine.dart';
 import 'item_layout.dart';
 import 'layout.dart';
+import 'readable_rect.dart';
 
 /// Intrinsic pixel dimensions only. Asset/native lifetime belongs to the caller.
 /// Return null until ready; authored fixed sizes never invoke this callback.
@@ -46,6 +47,9 @@ final class TargetGeometry {
   Rect? paintBounds;
   ItemLayout? item;
   String get id => target.id;
+  Affine textWorldTransform(double cameraRotation) =>
+      readableRectTransform(world, localBounds!, cameraRotation);
+
   bool get isContainer => target.type == 'group' || target.type == 'grid';
 }
 

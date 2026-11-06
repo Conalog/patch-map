@@ -383,7 +383,7 @@ void main() {
       final target = geometry['a']!, layout = target.item!.components.single;
       for (final angle in [0.0, 1.5, 3.0]) {
         final component = layout
-            .worldTransform(target.world, angle, target.item!.size)
+            .worldTransform(target.world, angle, target.item!.content)
             .projectRect(Offset.zero & layout.box.size);
         final inverse = target.world.inverse!;
         var local = const Rect.fromLTWH(0, 0, 20, 20);

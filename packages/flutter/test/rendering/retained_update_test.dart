@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:conalog_patch_map/conalog_patch_map.dart';
@@ -768,6 +769,68 @@ void main() {
       );
     },
   );
+  test('same authored box still updates retained upright placement', () async {
+    final h = await Harness.create(
+      input: [
+        {
+          'type': 'grid',
+          'id': 'g',
+          'cells': [
+            [1, 1],
+          ],
+          'item': {
+            'size': 100,
+            'components': [
+              {
+                'type': 'bar',
+                'id': 'bar',
+                'size': 20,
+                'source': {'fill': '#ff0000'},
+                'placement': 'none',
+                'animationDuration': 200,
+              },
+            ],
+          },
+        },
+      ],
+    );
+    addTearDown(h.close);
+    final geometry = h.current.geometry['g.0.0']!;
+    final layout = geometry.item!.components.single;
+    final center = Offset(layout.box.width / 2, layout.box.height / 2);
+    expect(
+      layout
+          .worldTransform(geometry.world, math.pi, geometry.item!.content)
+          .project(center),
+      const Offset(10, 10),
+    );
+
+    final next = await h.prepare([
+      update('bar', {'placement': 'left-top'}),
+    ], animate: true);
+    h.publish(next);
+    final published = h.current.geometry['g.0.0']!;
+    final moved = published.item!.components.single;
+    expect(moved.box.topLeft, Offset.zero);
+    expect(
+      moved
+          .worldTransform(published.world, math.pi, published.item!.content)
+          .project(center),
+      const Offset(90, 90),
+    );
+    final transition = h.backend.transitions;
+    expect(
+      transition.rectangle(h.slot, 'bar', 3)!.center,
+      const Offset(10, 10),
+    );
+    transition.advance(Duration.zero);
+    transition.advance(const Duration(milliseconds: 100));
+    expect(
+      transition.rectangle(h.slot, 'bar', 3)!.center,
+      const Offset(50, 50),
+    );
+  });
+
   test('mid-flight retarget captures the displayed rectangle', () async {
     final h = await Harness.create();
     addTearDown(h.close);

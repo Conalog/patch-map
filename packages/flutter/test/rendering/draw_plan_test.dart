@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/services.dart';
 
@@ -211,7 +212,11 @@ void paintReferenceNode(
   Rect? Function(String componentId)? barRectangle,
 }) {
   if (node.geometry.item == null) {
-    node.paintStandalone(canvas, physicalScale: physicalScale);
+    node.paintStandalone(
+      canvas,
+      physicalScale: physicalScale,
+      cameraRotation: cameraRotation,
+    );
     return;
   }
   for (var index = 0; index < node.components.length; index++) {
@@ -232,8 +237,14 @@ Future<Uint8List> render(
   List<int>? visible,
   Rect? Function(int, String)? tween,
   double rotation = 0,
+  bool turnCamera = false,
 }) async {
   final recorder = PictureRecorder(), canvas = Canvas(recorder);
+  if (turnCamera) {
+    canvas.translate(64, 64);
+    canvas.rotate(rotation);
+    canvas.translate(-64, -64);
+  }
   final slots = visible ?? projection.geometry.paintSlots;
   if (reference) {
     for (final slot in slots) {
@@ -251,7 +262,7 @@ Future<Uint8List> render(
       visibleSlots: slots,
       cameraRotation: rotation,
       physicalScale: 1,
-      barRectangle: tween,
+      barRectangle: tween == null ? null : (slot, id, _) => tween(slot, id),
     );
   }
   final picture = recorder.endRecording();
@@ -336,6 +347,67 @@ void main() {
       'FiraCode',
     )..addFont(Future.value(ByteData.sublistView(bytes)))).load();
   });
+
+  test('standalone text stays readable at its turned world center', () async {
+    final h = Harness(active: false);
+    addTearDown(h.close);
+    Map<String, Object?> label(double x, double y) => {
+      'type': 'text',
+      'id': 'label',
+      'text': 'F7',
+      'attrs': {'x': x, 'y': y},
+      'style': {'fontFamily': 'FiraCode', 'fontSize': 24, 'fill': '#204080'},
+    };
+    final scene = h.read([label(12, 18)]);
+    final box = scene.geometry['label']!.localBounds!;
+    final reference = h.read([
+      label(128 - 12 - box.width, 128 - 18 - box.height),
+    ]);
+    compare(
+      await render(scene, rotation: math.pi, turnCamera: true),
+      await render(reference),
+    );
+  });
+
+  test(
+    'half-turned inverter keeps its label and status on their sides',
+    () async {
+      final h = Harness(active: false);
+      addTearDown(h.close);
+      final scene = h.read([
+        item(
+          'inverter',
+          32,
+          y: 32,
+          size: 64,
+          components: [
+            background(),
+            {...icon('status', size: 15), 'placement': 'bottom', 'margin': 4},
+            {
+              ...bar(size: {'width': 30, 'height': 8}),
+              'placement': 'bottom',
+              'margin': 24,
+            },
+            {
+              'id': 'name',
+              'type': 'text',
+              'text': 'INV1',
+              'placement': 'top',
+              'margin': 4,
+              'style': {
+                'fontFamily': 'FiraCode',
+                'fontSize': 16,
+                'fill': '#ffffff',
+              },
+            },
+          ],
+        ),
+      ]);
+      final upright = await render(scene);
+      final rotated = await render(scene, rotation: math.pi, turnCamera: true);
+      compare(rotated, upright, interior: [(64, 84), (64, 57)]);
+    },
+  );
 
   test(
     'safe prefixes draw one retained mesh and visible dynamic phases in order',

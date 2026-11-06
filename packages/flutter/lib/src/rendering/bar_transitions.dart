@@ -18,8 +18,8 @@ final class BarTransitions {
     return _active.isNotEmpty;
   }
 
-  Rect? rectangle(int slot, String component) =>
-      _active[(slot, component)]?.at(_time);
+  Rect? rectangle(int slot, String component, [int axes = 0]) =>
+      _active[(slot, component)]?.at(_time, axes);
   void replace(
     GeometrySnapshot before,
     GeometrySnapshot after,
@@ -31,7 +31,13 @@ final class BarTransitions {
       final old = before.nodes[slot].item, next = after.nodes[slot].item;
       if (old == null || next == null) continue;
       Map<String, ComponentLayout>? previous;
-      final updates = animate ? (componentChanges?[slot]) : null;
+      final updates =
+          animate &&
+              old.content == next.content &&
+              before.nodes[slot].data['contentOrientation'] ==
+                  after.nodes[slot].data['contentOrientation']
+          ? (componentChanges?[slot])
+          : null;
       final updatesIterator = updates?.iterator;
       final count = updates?.length ?? next.components.length;
       for (var position = 0; position < count; position++) {
@@ -52,36 +58,23 @@ final class BarTransitions {
         }
         final component = next.components[index];
         if (component.type != 'bar') continue;
-        final key = (slot, component.id);
-        final running = _active[key];
-        if (animate &&
-            component.data['animation'] == true &&
-            running?.to == component.box) {
-          continue;
-        }
-        Rect? from = running?.at(_time);
-        if (from == null) {
-          final indexed = index < old.components.length
-              ? old.components[index]
-              : null;
-          final oldComponent = indexed?.id == component.id
-              ? indexed
-              : (previous ??= {
-                  for (final value in old.components) value.id: value,
-                })[component.id];
-          from = oldComponent?.box;
-        }
-        if (running != null) _active.remove(key);
-        if (!animate ||
-            component.data['animation'] != true ||
-            from == null ||
-            from == component.box) {
-          continue;
-        }
-        final duration = ((component.data['animationDuration']! as num) * 1000)
-            .round();
-        if (duration == 0) continue;
-        _active[key] = _Transition(from, component.box, duration);
+        final indexed = index < old.components.length
+            ? old.components[index]
+            : null;
+        final oldComponent = indexed?.id == component.id
+            ? indexed
+            : (previous ??= {
+                for (final value in old.components) value.id: value,
+              })[component.id];
+        _replace(
+          (slot, component.id),
+          oldComponent?.box,
+          component.box,
+          component.data,
+          oldComponent?.remapsPlacement == true ? old.content : null,
+          component.remapsPlacement ? next.content : null,
+          animate,
+        );
       }
     }
   }
@@ -94,33 +87,112 @@ final class BarTransitions {
     Rect after,
     Map<String, Object?> data, {
     required bool animate,
-  }) {
-    final key = (slot, id), running = _active[key];
-    if (animate && data['animation'] == true && running?.to == after) return;
-    final from = running?.at(_time) ?? before;
-    _active.remove(key);
-    if (!animate || data['animation'] != true || from == after) return;
+    Rect? beforeContent,
+    Rect? afterContent,
+  }) => _replace(
+    (slot, id),
+    before,
+    after,
+    data,
+    beforeContent,
+    afterContent,
+    animate,
+  );
+
+  void _replace(
+    (int, String) key,
+    Rect? before,
+    Rect after,
+    Map<String, Object?> data,
+    Rect? beforeContent,
+    Rect? afterContent,
+    bool animate,
+  ) {
+    final running = _active[key];
+    final enabled = animate && data['animation'] == true;
+    if (enabled &&
+        running != null &&
+        running.to == after &&
+        _samePlacement(after, running.toContent, afterContent)) {
+      return;
+    }
+    if (running != null) _active.remove(key);
+    if (!enabled) return;
     final duration = ((data['animationDuration']! as num) * 1000).round();
-    if (duration != 0) _active[key] = _Transition(from, after, duration);
+    if (duration == 0) return;
+    final from = running?.at(_time, 0) ?? before;
+    if (from == null) return;
+    final sourceContent = running == null ? beforeContent : running.toContent;
+    final variants = running != null && !running.uniformPlacement
+        ? [for (var axes = 1; axes <= 3; axes++) running.at(_time, axes)]
+        : null;
+    if (from == after &&
+        (variants == null
+            ? _samePlacement(after, sourceContent, afterContent)
+            : variants[0] == orientPlacement(after, afterContent, 1) &&
+                  variants[1] == orientPlacement(after, afterContent, 2) &&
+                  variants[2] == orientPlacement(after, afterContent, 3))) {
+      return;
+    }
+    _active[key] = _Transition(
+      from,
+      after,
+      sourceContent,
+      afterContent,
+      variants,
+      duration,
+    );
+  }
+
+  bool _samePlacement(Rect box, Rect? before, Rect? after) {
+    if (before == after) return true;
+    for (var axes = 1; axes <= 3; axes++) {
+      if (orientPlacement(box, before, axes) !=
+          orientPlacement(box, after, axes)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void clear() => _active.clear();
 }
 
 final class _Transition {
-  _Transition(this.from, this.to, this.duration);
+  _Transition(
+    this.from,
+    this.to,
+    this.fromContent,
+    this.toContent,
+    this.fromVariants,
+    this.duration,
+  );
   final Rect from, to;
+  final Rect? fromContent, toContent;
+  // Only a retarget of a transition between different placement frames needs
+  // to keep an explicit starting rectangle for each flip combination.
+  final List<Rect>? fromVariants;
   final int duration;
   int? start;
-  Rect at(int time) {
-    if (start == null) return from;
-    final t = ((time - start!) / duration).clamp(0.0, 1.0);
-    return Rect.lerp(
-      from,
-      to,
-      (t < .5
-          ? 4 * t * t * t
-          : 1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2),
-    )!;
+
+  bool get uniformPlacement => fromVariants == null && fromContent == toContent;
+
+  Rect at(int time, int axes) {
+    final t = start == null
+        ? 0.0
+        : ((time - start!) / duration).clamp(0.0, 1.0);
+    final progress = t < .5
+        ? 4 * t * t * t
+        : 1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2;
+    if (axes == 0) return progress == 0 ? from : Rect.lerp(from, to, progress)!;
+    if (uniformPlacement) {
+      final box = progress == 0 ? from : Rect.lerp(from, to, progress)!;
+      return orientPlacement(box, toContent, axes);
+    }
+    final beginning =
+        fromVariants?[axes - 1] ?? orientPlacement(from, fromContent, axes);
+    return progress == 0
+        ? beginning
+        : Rect.lerp(beginning, orientPlacement(to, toContent, axes), progress)!;
   }
 }

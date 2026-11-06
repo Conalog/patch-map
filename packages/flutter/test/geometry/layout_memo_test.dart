@@ -245,11 +245,11 @@ void main() {
       expect(effective, isNot(same(checked)));
       expect(effective.transform.project(Offset.zero), entry.value.box.topLeft);
       if (!entry.value.upright) {
-        final world = Affine.fromAttrs({'rotation': .6});
+        final world = Affine.fromAttrs({'angle': 180});
         expect(
           effective
-              .worldTransform(world, 0, after.size)
-              .sameTransform(checked.worldTransform(world, 0, after.size)),
+              .worldTransform(world, 0, after.content)
+              .sameTransform(checked.worldTransform(world, 0, after.content)),
           false,
         );
       }

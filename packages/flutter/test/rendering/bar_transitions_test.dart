@@ -11,6 +11,7 @@ GeometrySnapshot diagram(
   double height, {
   bool animate = true,
   num duration = 200,
+  String placement = 'bottom',
 }) => GeometrySnapshot.compile(
   const DatasetReader().read([
     {
@@ -23,6 +24,7 @@ GeometrySnapshot diagram(
           'id': 'b',
           'source': {'type': 'rect', 'fill': '#00ff00'},
           'size': {'width': 40, 'height': height},
+          'placement': placement,
           'animation': animate,
           'animationDuration': duration,
         },
@@ -32,6 +34,49 @@ GeometrySnapshot diagram(
   (_, _) => Size.zero,
 );
 void main() {
+  test('bar position tween and retarget use the active camera placement', () {
+    final transitions = BarTransitions();
+    final bottom = diagram(20);
+    final top = diagram(20, placement: 'top');
+    transitions.replace(bottom, top, [0], animate: true);
+    expect(transitions.rectangle(0, 'b')!.center.dy, 90);
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 10);
+    transitions.advance(Duration.zero);
+    transitions.advance(const Duration(milliseconds: 100));
+    expect(transitions.rectangle(0, 'b')!.center.dy, 50);
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 50);
+
+    final manual = diagram(20, placement: 'none');
+    transitions.replace(top, manual, [0], animate: true);
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 50);
+    transitions.advance(const Duration(milliseconds: 100));
+    transitions.advance(const Duration(milliseconds: 200));
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 30);
+    transitions.replace(manual, top, [0], animate: true);
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 30);
+    transitions.advance(const Duration(milliseconds: 200));
+    transitions.advance(const Duration(milliseconds: 300));
+    expect(transitions.rectangle(0, 'b', 3)!.center.dy, 60);
+    transitions.advance(const Duration(milliseconds: 400));
+    expect(transitions.rectangle(0, 'b', 3), isNull);
+  });
+
+  test('unchanged bar placement does not animate symmetric padding', () {
+    final transitions = BarTransitions();
+    const box = Rect.fromLTWH(40, 40, 20, 20);
+    transitions.replaceRetained(
+      0,
+      'bar',
+      box,
+      box,
+      {'animation': true, 'animationDuration': 200},
+      beforeContent: const Rect.fromLTWH(0, 0, 100, 100),
+      afterContent: const Rect.fromLTWH(10, 10, 80, 80),
+      animate: true,
+    );
+    expect(transitions.advance(Duration.zero), isFalse);
+  });
+
   test('component reordering still starts each bar at its own prior box', () {
     GeometrySnapshot bars(List<(String, int)> values) =>
         GeometrySnapshot.compile(

@@ -226,9 +226,8 @@ final class DrawNode {
     content?.retain();
     if (previous != null &&
         identical(_world, previous._world) &&
-        geometry.item?.size == previous.geometry.item?.size &&
+        geometry.item?.content == previous.geometry.item?.content &&
         previous._uprightWorld.isNotEmpty) {
-      _uprightRotation = previous._uprightRotation;
       for (final entry in previous._uprightWorld.entries) {
         final index = geometry.item!.indices[entry.key];
         if (index == null) continue;
@@ -240,7 +239,8 @@ final class DrawNode {
           final layout = component.layout, old = prior.layout;
           if (old.box != layout.box ||
               !identical(old.transform, layout.transform) ||
-              old.upright != layout.upright) {
+              old.upright != layout.upright ||
+              old.remapsPlacement != layout.remapsPlacement) {
             continue;
           }
         }
@@ -265,9 +265,25 @@ final class DrawNode {
   Affine? get _inverseWorld => _world.inverse;
   Float64List? get _inverseMatrix => _world.inverseMatrix;
   int _references = 0;
-  double? _uprightRotation;
+  double? _standaloneRotation;
+  Float64List? _standaloneMatrix;
+  ReadableRectBasis? _itemReadableBasis;
+  int placementAxes(double rotation, int? alignedAxes) {
+    if (alignedAxes != null && hasPositiveAxisAlignedBasis(geometry.world)) {
+      return alignedAxes;
+    }
+    final prior = _itemReadableBasis;
+    if (prior != null && prior.matches(geometry.world, rotation)) {
+      return prior.axes;
+    }
+    return (_itemReadableBasis = ReadableRectBasis(
+      geometry.world,
+      rotation,
+    )).axes;
+  }
+
   final _upright = <String, Float64List>{};
-  final _uprightWorld = <String, (Rect?, Affine)>{};
+  final _uprightWorld = <String, (Rect?, int, int, Affine)>{};
   void retain() => _references++;
   void release() {
     if (--_references == 0) {
@@ -315,6 +331,7 @@ final class DrawNode {
   /// Submit a standalone object; item order belongs to DrawPlan.
   void paintStandalone(
     Canvas canvas, {
+    double cameraRotation = 0,
     required double physicalScale,
     BarSliceBatch? bars,
     double alphaMultiplier = 1,
@@ -336,7 +353,18 @@ final class DrawNode {
     bars?.flush(canvas);
     canvas.save();
     try {
-      canvas.transform(matrix);
+      if (geometry.target.type == 'text') {
+        if (_standaloneRotation != cameraRotation) {
+          _standaloneRotation = cameraRotation;
+          final world = geometry.textWorldTransform(cameraRotation);
+          _standaloneMatrix = identical(world, geometry.world)
+              ? matrix
+              : world.toMatrix4();
+        }
+        canvas.transform(_standaloneMatrix!);
+      } else {
+        canvas.transform(matrix);
+      }
       final size = switch (geometry.target.type) {
         'rect' || 'image' =>
           geometry.data['size'] is Map
@@ -368,6 +396,7 @@ final class DrawNode {
     required double cameraRotation,
     required double physicalScale,
     Rect? displayBox,
+    int? alignedAxes,
     BarSliceBatch? bars,
     double alphaMultiplier = 1,
   }) {
@@ -385,7 +414,7 @@ final class DrawNode {
           ? Offset.zero & (displayBox?.size ?? layout.box.size)
           : _barLocal(layout, displayBox);
       final world = layout.upright
-          ? _readableWorld(index, displayBox, cameraRotation)
+          ? _readableWorld(index, displayBox, cameraRotation, alignedAxes)
           : _componentWorldAt(index);
       final contained =
           local != null &&
@@ -429,7 +458,12 @@ final class DrawNode {
         }
       }
       if (layout.upright) {
-        final world = _readableWorld(index, displayBox, cameraRotation);
+        final world = _readableWorld(
+          index,
+          displayBox,
+          cameraRotation,
+          alignedAxes,
+        );
         final transform = _upright[layout.id] ??= world.toMatrix4();
         canvas.transform(transform);
       } else {
@@ -455,43 +489,44 @@ final class DrawNode {
     }
   }
 
-  Affine _readableWorld(int index, Rect? display, double rotation) {
-    if (_uprightRotation != rotation) {
-      _upright.clear();
-      _uprightWorld.clear();
-      _uprightRotation = rotation;
-    }
+  Affine _readableWorld(
+    int index,
+    Rect? display,
+    double rotation,
+    int? alignedAxes,
+  ) {
     final component = components[index];
     final layout = component.layout;
+    final base = _componentWorldAt(index);
+    final placement = display == null && layout.remapsPlacement
+        ? placementAxes(rotation, alignedAxes)
+        : 0;
+    final direction = alignedAxes != null && hasPositiveAxisAlignedBasis(base)
+        ? alignedAxes
+        : component.readableBasis(base, rotation).axes;
     final cached = _uprightWorld[layout.id];
-    if (cached != null && cached.$1 == display) return cached.$2;
-    final Affine authored;
-    if (display == null) {
-      authored = _componentWorldAt(index);
-    } else {
-      final local = layout.transform;
-      final placement = Affine(
-        local.a,
-        local.b,
-        local.c,
-        local.d,
-        local.tx + display.left - layout.box.left,
-        local.ty + display.top - layout.box.top,
-      );
-      authored = geometry.world.multiply(placement);
+    if (cached != null &&
+        cached.$1 == display &&
+        cached.$2 == placement &&
+        cached.$3 == direction) {
+      return cached.$4;
     }
-    final size = geometry.item!.size;
-    final world = component
-        .readableBasis(authored, rotation)
-        .place(
-          authored,
-          Offset.zero & (display?.size ?? layout.box.size),
-          placementAnchor: layout.type == 'bar'
-              ? geometry.world.project(Offset(size.width / 2, size.height / 2))
-              : null,
-        );
+    final box =
+        display ??
+        orientPlacement(layout.box, geometry.item!.content, placement);
+    final authored = projectComponentPlacement(
+      base,
+      geometry.world,
+      layout.box,
+      box,
+    );
+    final world = placeReadableRect(
+      authored,
+      Offset.zero & (display?.size ?? layout.box.size),
+      direction,
+    );
     _upright.remove(layout.id);
-    _uprightWorld[layout.id] = (display, world);
+    _uprightWorld[layout.id] = (display, placement, direction, world);
     return world;
   }
 }
