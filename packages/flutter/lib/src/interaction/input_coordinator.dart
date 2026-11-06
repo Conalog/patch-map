@@ -171,10 +171,19 @@ final class InputCoordinator {
       _recognition = null;
       if (gesture.zoomCandidate &&
           _canZoom &&
-          displacement.dy.abs() >= 1.5 * displacement.dx.abs() &&
-          claimDoubleTapZoom?.call(pointer) == true) {
-        if (identical(_gesture, gesture)) gesture.zoomY = local.dy;
-        return;
+          displacement.dy.abs() >= 1.5 * displacement.dx.abs()) {
+        final claimed = claimDoubleTapZoom?.call(pointer) == true;
+        if (!identical(_gesture, gesture)) return;
+        // Arena callbacks can issue camera commands and cancel the candidate.
+        // Consume that touch so later moves cannot start zoom or pan.
+        if (!gesture.zoomCandidate) {
+          _gesture = null;
+          return;
+        }
+        if (claimed) {
+          gesture.zoomY = local.dy;
+          return;
+        }
       }
       if (!identical(_gesture, gesture)) return;
       gesture.mode = dragMode;

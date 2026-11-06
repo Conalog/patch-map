@@ -361,6 +361,56 @@ void main() {
       await _finish(tester);
     },
   );
+
+  testWidgets('a camera command during zoom claim consumes the held drag', (
+    tester,
+  ) async {
+    final controller = PatchMapController();
+    final events = <PatchMapInputEvent>[];
+    final commands = <PatchMapOutcome>[];
+    const center = Offset(10, 20);
+    var armed = false;
+    await tester.pumpWidget(
+      GestureDetector(
+        onTap: () {},
+        onTapCancel: () {
+          if (armed) {
+            commands.add(
+              controller.setCamera(center: center, scale: 2).outcome,
+            );
+          }
+        },
+        child: support.host(controller, events, gestures: _enabled),
+      ),
+    );
+    await support.draw(tester, controller);
+    final at = tester.getCenter(find.byType(PatchMapView));
+    final second = await _secondTouch(tester, at);
+    await tester.pump(const Duration(milliseconds: 110));
+    armed = true;
+    await second.moveBy(const Offset(0, 19));
+    expect(commands, [PatchMapOutcome.applied]);
+    final commanded = controller.camera!;
+    expect(commanded.center, center);
+    expect(commanded.scale, 2);
+
+    events.clear();
+    await second.moveBy(const Offset(0, 160));
+    await second.moveBy(const Offset(40, 0));
+    await second.up();
+    await tester.pump();
+    expect(controller.camera!.center, commanded.center);
+    expect(controller.camera!.scale, commanded.scale);
+    expect(events, isEmpty);
+    armed = false;
+
+    final next = await tester.startGesture(at);
+    await next.moveBy(const Offset(40, 0));
+    await next.up();
+    expect(controller.camera!.center, isNot(center));
+    expect(controller.camera!.scale, 2);
+    await _finish(tester);
+  });
 }
 
 Future<TestGesture> _secondTouch(WidgetTester tester, Offset at) async {
