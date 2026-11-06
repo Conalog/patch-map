@@ -61,9 +61,21 @@ export function verifyRendererRun(run, { platform, sourceFingerprint, artifactSh
   }
 }
 
+function bootedIosSimulator(devices, deviceId) {
+  const prefix = 'com.apple.CoreSimulator.SimRuntime.iOS-';
+  const match = Object.entries(devices).find(([runtime, simulators]) =>
+    runtime.startsWith(prefix) && simulators.some(({ udid, isAvailable, state }) =>
+      udid === deviceId && isAvailable === true && state === 'Booted'));
+  if (!match) throw new Error(`${deviceId} is not an available booted iOS simulator`);
+  return { targetPlatform: 'ios', sdk: match[0], emulator: true };
+}
+
 async function main() {
-  const [platform, deviceId] = process.argv.slice(2);
-  if (!rendererPlatforms.includes(platform) || !deviceId) throw new Error('usage: renderer-qualification.mjs android|ios <flutter-device-id>');
+  const [platform, deviceId, ...options] = process.argv.slice(2);
+  const selectedIosSimulator = platform === 'ios' && options.length === 1 && options[0] === '--ios-simulator';
+  if (!rendererPlatforms.includes(platform) || !deviceId || (options.length && !selectedIosSimulator)) {
+    throw new Error('usage: renderer-qualification.mjs android|ios <flutter-device-id> [--ios-simulator]');
+  }
   const root = process.cwd();
   const out = resolve(root, '.release-dart');
   const receiptPath = resolve(out, `${platform}-renderer.json`);
@@ -74,21 +86,19 @@ async function main() {
   const cwd = resolve(packageRoot, 'example');
   const flutter = process.env.FLUTTER_BIN ?? 'flutter';
   const maxBuffer = 16 * 1024 * 1024;
-  function run(args) {
-    const result = spawnSync(flutter, args, { cwd, encoding: 'utf8', maxBuffer, timeout: 5 * 60_000, killSignal: 'SIGKILL' });
-    if (result.error) throw new Error(`Flutter ${args.join(' ')}: ${result.error.message}\n${result.stdout}\n${result.stderr}`);
-    return result;
-  }
-  function successful(args) {
-    const result = run(args);
-    if (result.status !== 0) throw new Error(`Flutter ${args.join(' ')} failed:\n${result.stdout}\n${result.stderr}`);
+  function successful(args, command = flutter) {
+    const result = spawnSync(command, args, { cwd, encoding: 'utf8', maxBuffer, timeout: 5 * 60_000, killSignal: 'SIGKILL' });
+    if (result.error) throw new Error(`${command} ${args.join(' ')}: ${result.error.message}\n${result.stdout}\n${result.stderr}`);
+    if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} failed:\n${result.stdout}\n${result.stderr}`);
     return result.stdout;
   }
   const toolchains = readToolchains(root);
   const toolchain = JSON.parse(successful(['--version', '--machine']));
   identifyToolchain(toolchain, toolchains, 'ci');
   console.log(`Looking up the ${platform} test device`);
-  const device = JSON.parse(successful(['devices', '--machine'])).find(({ id }) => id === deviceId);
+  const device = selectedIosSimulator
+    ? bootedIosSimulator(JSON.parse(successful(['simctl', 'list', 'devices', deviceId, '--json'], 'xcrun')).devices, deviceId)
+    : JSON.parse(successful(['devices', '--machine'])).find(({ id }) => id === deviceId);
   if (!device || !(platform === 'android' ? device.targetPlatform?.startsWith('android-') : device.targetPlatform === 'ios')) {
     throw new Error(`${deviceId} is not an available ${platform} device`);
   }

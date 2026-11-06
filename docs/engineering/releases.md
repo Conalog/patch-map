@@ -102,7 +102,7 @@ and the qualification record. After upload, authorize `Conalog/patch-map` with p
 
 Dart release PRs retain `dart-prequalified-<version>-pr-<number>-<tree>` in the required CI run after source checks and both renderer runs. Enabled tags reuse it only when
 the successful run matches the merged PR and tagged tree and the package bytes and evidence verify. Missing, expired or mismatched evidence triggers full tag verification.
-Full qualification tests both renderers once `dart-candidate-<SHA>` is ready. The iOS job pins macOS 15, Xcode 26.3 and iOS 26.2 and waits for simulator logging.
+Full qualification tests both renderers once `dart-candidate-<SHA>` is ready. CI boots its pinned iOS 26.2 simulator on macOS 15 with Xcode 26.3 while setting up the toolchains, then waits for boot and simulator logging.
 Keep CocoaPods aligned in `Gemfile.lock` and `Podfile.lock`. PRs never publish. Tag runs retain the accepted artifact as `dart-qualified-<SHA>`.
 Retry failed jobs on the original tag run. Record the published package version, artifact and successful run URL separately from qualification.
 

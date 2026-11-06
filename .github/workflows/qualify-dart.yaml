@@ -218,6 +218,26 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Start iOS simulator boot
+        id: ios-boot
+        if: ${{ matrix.platform == 'ios' }}
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+        run: |
+          device=$(xcrun simctl list devices available --json | jq -er '
+            [.devices["com.apple.CoreSimulator.SimRuntime.iOS-26-2"][]?
+             | select(.isAvailable and .name == "iPhone 17 Pro")]
+            | .[0].udid // error("iPhone 17 Pro with iOS 26.2 is unavailable")')
+          boot_state=$(mktemp -d "$RUNNER_TEMP/ios-boot.XXXXXX")
+          (
+            status=0
+            { xcrun simctl boot "$device" && xcrun simctl bootstatus "$device" -b; } || status=$?
+            printf '%s\n' "$status" > "$boot_state/exit.tmp"
+            mv "$boot_state/exit.tmp" "$boot_state/exit"
+          ) </dev/null >"$boot_state/boot.log" 2>&1 &
+          echo "boot-pid=$!" >> "$GITHUB_OUTPUT"
+          echo "boot-state=$boot_state" >> "$GITHUB_OUTPUT"
+          echo "device=$device" >> "$GITHUB_OUTPUT"
       - name: Checkout exact candidate source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -276,6 +296,9 @@ jobs:
           BUNDLE_PATH: ${{ runner.temp }}/patch-map-cocoapods
           BUNDLE_FROZEN: 'true'
           DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+          IOS_BOOT_PID: ${{ steps.ios-boot.outputs.boot-pid }}
+          IOS_BOOT_STATE: ${{ steps.ios-boot.outputs.boot-state }}
+          IOS_DEVICE: ${{ steps.ios-boot.outputs.device }}
           PATCH_MAP_RENDERER_VERBOSE: 'true'
         run: |
           xcodebuild -version
@@ -287,13 +310,12 @@ jobs:
             exit 1
           fi
           echo "Using CocoaPods $installed from the iOS example lockfile"
-          device=$(xcrun simctl list devices available --json | jq -er '
-            [.devices["com.apple.CoreSimulator.SimRuntime.iOS-26-2"][]?
-             | select(.isAvailable and .name == "iPhone 17 Pro")]
-            | .[0].udid // error("iPhone 17 Pro with iOS 26.2 is unavailable")')
-          xcrun simctl boot "$device"
-          xcrun simctl bootstatus "$device" -b
-          bundle exec node verification/flutter/renderer-qualification.mjs ios "$device"
+          while [ ! -f "$IOS_BOOT_STATE/exit" ] && kill -0 "$IOS_BOOT_PID" 2>/dev/null; do
+            sleep 1
+          done
+          cat "$IOS_BOOT_STATE/boot.log"
+          test "$(cat "$IOS_BOOT_STATE/exit")" = 0
+          bundle exec node verification/flutter/renderer-qualification.mjs ios "$IOS_DEVICE" --ios-simulator
       - name: Retain renderer test log
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

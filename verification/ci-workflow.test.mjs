@@ -83,6 +83,22 @@ test('PR and npm release Chromium checks run on the Playwright-compatible Ubuntu
   assert.equal(readWorkflow('publish').jobs['packed-consumer']['runs-on'], 'ubuntu-24.04');
 });
 
+test('iOS release qualification starts simulator boot before toolchain setup and waits before testing', () => {
+  const { steps } = readWorkflow('qualify-dart').jobs.renderer;
+  const boot = steps.find(({ id }) => id === 'ios-boot');
+  const renderer = steps.find(({ name }) => name === 'Run iOS renderer checks');
+  assert.equal(boot.if, renderer.if);
+  for (const name of ['Setup Flutter', 'Setup Ruby for iOS']) {
+    const setup = steps.findIndex((step) => step.name === name);
+    assert.ok(steps.indexOf(boot) < setup && setup < steps.indexOf(renderer), name);
+  }
+  assert.equal(renderer.env.IOS_DEVICE, '${{ steps.ios-boot.outputs.device }}');
+  const ready = 'test "$(cat "$IOS_BOOT_STATE/exit")" = 0';
+  const run = 'bundle exec node verification/flutter/renderer-qualification.mjs ios "$IOS_DEVICE" --ios-simulator';
+  const commands = renderer.run.trim().split('\n');
+  assert.ok(commands.indexOf(ready) >= 0 && commands.indexOf(ready) < commands.indexOf(run));
+});
+
 test('required CI demands an uploaded qualification only for generated Dart release PRs', () => {
   const dart = workflow.jobs['dart-release'];
   const validation = workflow.jobs.validation;
