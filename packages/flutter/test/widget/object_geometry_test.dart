@@ -37,7 +37,7 @@ void main() {
       ]),
     );
     final before = controller.getGeometry('r')!;
-    expect(before.paintBounds, const Rect.fromLTRB(-3, -3, 35, 13));
+    expect(before.paintBounds, const Rect.fromLTRB(-1, -1, 35, 11));
     await submit(
       tester,
       controller.updateValues(const [
@@ -47,7 +47,7 @@ void main() {
       ]),
     );
     final both = controller.getGeometry('r')!;
-    expect(both.paintBounds, const Rect.fromLTRB(-3, -3, 43, 13));
+    expect(both.paintBounds, const Rect.fromLTRB(-1, -1, 41, 11));
     expect(both.bounds, before.bounds);
     expect(
       controller.getValue(target)!['style'],
@@ -75,9 +75,9 @@ void main() {
     );
     expect(
       controller.getGeometry('r')!.paintBounds,
-      const Rect.fromLTRB(5, -3, 63, 13),
+      const Rect.fromLTRB(5, -1, 61, 11),
     );
-    expect(both.paintBounds, const Rect.fromLTRB(-3, -3, 43, 13));
+    expect(both.paintBounds, const Rect.fromLTRB(-1, -1, 41, 11));
     await tester.pumpWidget(const SizedBox());
   });
 

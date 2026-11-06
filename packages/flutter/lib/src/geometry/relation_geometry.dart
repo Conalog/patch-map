@@ -10,7 +10,7 @@ import 'scene_geometry.dart';
 
 typedef RelationEndpointBounds = Rect? Function(String id);
 
-const _markerSizeInStrokeWidths = 4.0;
+const _markerSizeInStrokeWidths = 3.0;
 
 final class RelationPath {
   RelationPath._(

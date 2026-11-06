@@ -153,7 +153,7 @@ await controller.updateValues(const [
 Circles and diamonds are centered on the endpoint. Arrow tips sit at the
 endpoint and point outward along the adjacent segment. Markers use the line's
 color and opacity. The circle diameter, diamond diagonals and arrow base width
-are four times the stroke width. Arrow length uses the same size and is capped
+are three times the stroke width. Arrow length uses the same size and is capped
 by the adjacent segment, with half the segment available to each arrow when
 they share a segment. Links with missing or hidden endpoints or no distinct points
 are skipped when choosing the marker positions. A zero-width stroke hides both

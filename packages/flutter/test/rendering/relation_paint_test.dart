@@ -80,10 +80,10 @@ void main() {
         RelationPaint(geometry, snapshot['r']!.data, ColorResolver(), 1),
       ),
     ))!;
-    expect(geometry.paintBounds, const Rect.fromLTRB(1, 1, 39, 9));
-    expect(pixel(data, 12, 25)[3], 255);
+    expect(geometry.paintBounds, const Rect.fromLTRB(2, 2, 38, 8));
+    expect(pixel(data, 13, 25)[3], 255);
     expect(pixel(data, 30, 27)[3], 0);
-    expect(pixel(data, 47, 25)[3], 255);
+    expect(pixel(data, 46, 25)[3], 255);
     expect(geometry.contains(const Offset(2.5, 5.5)), isFalse);
   });
 
@@ -103,7 +103,7 @@ void main() {
         alpha: .5,
       ),
     ))!;
-    for (final (x, y) in [(10, 25), (15, 25), (25, 25), (32, 25), (32, 29)]) {
+    for (final (x, y) in [(10, 25), (15, 25), (25, 25), (34, 25), (34, 28)]) {
       expect(pixel(data, x, y), [255, 0, 0, 32], reason: '$x,$y');
     }
     expect(pixel(data, 44, 26)[3], 0); // The shaft fits inside the tip.
@@ -131,7 +131,7 @@ void main() {
     ))!;
     expect(pixel(data, 15, 26)[3], 0);
     expect(pixel(data, 16, 29)[3], 0);
-    expect(pixel(data, 27, 29)[3], 255);
+    expect(pixel(data, 25, 28)[3], 255);
     expect(pixel(data, 49, 25)[3], 255);
     expect(pixel(data, 49, 30)[3], 0);
     expect(pixel(data, 54, 25)[3], 0);
@@ -151,7 +151,7 @@ void main() {
         RelationPaint(geometry, snapshot['r']!.data, ColorResolver(), 1),
       ),
     ))!;
-    expect(geometry.paintBounds, const Rect.fromLTRB(5, -3, 11, 13));
+    expect(geometry.paintBounds, const Rect.fromLTRB(5, -1, 11, 11));
     expect(pixel(data, 14, 25)[3], 0);
     expect(pixel(data, 21, 25)[3], 0);
     expect(pixel(data, 17, 28)[3], 255);
