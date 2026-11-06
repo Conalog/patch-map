@@ -255,7 +255,9 @@ jobs:
       - name: Build Android
         if: ${{ matrix.platform == 'android' }}
         working-directory: packages/flutter/example
-        run: flutter build apk --debug --no-pub
+        run: |
+          flutter config --jdk-dir "${JAVA_HOME_17_X64:?The Android build requires JDK 17}"
+          flutter build apk --debug --no-pub
       - name: Build iOS simulator
         if: ${{ matrix.platform == 'ios' }}
         working-directory: packages/flutter/example
