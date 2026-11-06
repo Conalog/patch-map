@@ -48,6 +48,36 @@ void main() {
 
   for (final releaseFirst in [true, false]) {
     testWidgets(
+      'pending zoom can become a pinch after a hold ($releaseFirst)',
+      (tester) async {
+        final map = await _mount(tester);
+        final initial = map.controller.camera!;
+        final second = await _secondTouch(tester, map.center);
+        await tester.pump(const Duration(milliseconds: 700));
+        final other = await tester.startGesture(
+          map.center + const Offset(55, 0),
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(map.controller.camera, initial);
+        await other.moveBy(const Offset(30, 0));
+        await other.moveBy(const Offset(30, 0));
+        await other.moveBy(const Offset(30, 0));
+        final pinched = map.controller.camera!;
+        expect(pinched.scale, greaterThan(initial.scale));
+        await (releaseFirst ? second : other).up();
+        await (releaseFirst ? other : second).moveBy(const Offset(0, 70));
+        expect(map.controller.camera, pinched);
+        await (releaseFirst ? other : second).up();
+        expect(map.kinds, [
+          PatchMapInputKind.down,
+          PatchMapInputKind.up,
+          PatchMapInputKind.down,
+        ]);
+        await _finish(tester);
+      },
+    );
+
+    testWidgets(
       'active zoom hands off to pinch and waits for all up ($releaseFirst)',
       (tester) async {
         final map = await _mount(tester);
@@ -81,7 +111,7 @@ void main() {
   }
 
   testWidgets(
-    'plain double tap, both holds and horizontal fallback keep their events',
+    'plain double tap, single hold and horizontal fallback keep their events',
     (tester) async {
       final map = await _mount(tester);
       final initial = map.controller.camera!;
@@ -95,15 +125,8 @@ void main() {
       expect(map.kinds.last, PatchMapInputKind.longPress);
       await singleHold.up();
 
-      final secondHold = await _secondTouch(tester, map.center);
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(map.kinds.last, PatchMapInputKind.longPress);
-      await secondHold.moveBy(const Offset(0, 50));
-      expect(map.kinds.last, PatchMapInputKind.dragStart);
-      await secondHold.up();
-      expect(map.kinds.last, PatchMapInputKind.dragEnd);
-
       final horizontal = await _secondTouch(tester, map.center);
+      await tester.pump(const Duration(milliseconds: 700));
       await horizontal.moveBy(const Offset(20, 10));
       expect(map.kinds.last, PatchMapInputKind.dragStart);
       await horizontal.moveBy(const Offset(0, 60));
@@ -113,6 +136,66 @@ void main() {
       await _finish(tester);
     },
   );
+
+  testWidgets('a late vertical drag still zooms without a long press', (
+    tester,
+  ) async {
+    final map = await _mount(tester);
+    final initial = map.controller.camera!;
+    final second = await _secondTouch(tester, map.center);
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(map.controller.camera, initial);
+    await second.moveBy(const Offset(0, 30));
+    await second.moveBy(const Offset(0, 40));
+    await second.up(timeStamp: const Duration(milliseconds: 700));
+    expect(map.controller.camera!.scale, greaterThan(initial.scale));
+    expect(map.kinds, [
+      PatchMapInputKind.down,
+      PatchMapInputKind.up,
+      PatchMapInputKind.down,
+    ]);
+    await _finish(tester);
+  });
+
+  for (final holdMs in [299, 300, 700]) {
+    testWidgets('stationary second up is classified at ${holdMs}ms', (
+      tester,
+    ) async {
+      final map = await _mount(
+        tester,
+        gestures: const PatchMapGestureOptions(
+          doubleTapDragZoomEnabled: true,
+          longPressDuration: Duration.zero,
+        ),
+      );
+      final initial = map.controller.camera!;
+      final second = await _secondTouch(tester, map.center);
+      await tester.pump(Duration(milliseconds: holdMs));
+      await second.up(timeStamp: Duration(milliseconds: holdMs));
+      expect(map.kinds, [
+        PatchMapInputKind.down,
+        PatchMapInputKind.up,
+        PatchMapInputKind.down,
+        PatchMapInputKind.up,
+        if (holdMs < 300) PatchMapInputKind.doubleTap,
+      ]);
+      expect(map.controller.camera, initial);
+      await _finish(tester);
+    });
+  }
+
+  testWidgets('a nearby hold outside the zoom distance still long presses', (
+    tester,
+  ) async {
+    final map = await _mount(tester);
+    await tester.tapAt(map.center);
+    await tester.pump(const Duration(milliseconds: 60));
+    final second = await tester.startGesture(map.center + const Offset(30, 0));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(map.kinds.last, PatchMapInputKind.longPress);
+    await second.up();
+    await _finish(tester);
+  });
 
   for (final mode in PatchMapDragMode.values) {
     testWidgets(

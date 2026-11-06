@@ -3,15 +3,21 @@ import 'package:flutter/widgets.dart';
 
 import 'map_double_tap_recognizer.dart';
 
-/// Bridges raw input admission to the two recognizers that share ownership
-/// of a double-tap drag. Raw moves still go through the input coordinator.
+/// Bridges raw input admission to the recognizers involved in double-tap zoom.
+/// Raw moves still go through the input coordinator.
 final class MapGestureArena {
   MapDoubleTapRecognizer? _doubleTap;
   _MapScaleGestureRecognizer? _scale;
 
   int? firstTapFor(int pointer) => _doubleTap?.firstTapFor(pointer);
   void resetDoubleTap() => _doubleTap?.reset();
-  void trackZoomCandidate(int? pointer) => _scale?.trackCandidate(pointer);
+  void trackZoomCandidate(int? pointer) {
+    _scale?.trackCandidate(pointer);
+    if (pointer != null) _doubleTap?.markZoomCandidate(pointer);
+  }
+
+  bool isZoomCandidate(int pointer) =>
+      _doubleTap?.isZoomCandidate(pointer) ?? false;
   bool claimZoom(int pointer) => _scale?.claim(pointer) ?? false;
 }
 
@@ -70,6 +76,7 @@ class MapGestureDetector extends StatelessWidget {
             >(
               () => _MapLongPressGestureRecognizer(
                 duration: longPressDuration,
+                isZoomCandidate: arena.isZoomCandidate,
                 debugOwner: this,
               ),
               (recognizer) => recognizer
@@ -139,22 +146,27 @@ class _MapGestureSemantics extends SemanticsGestureDelegate {
 }
 
 class _MapLongPressGestureRecognizer extends LongPressGestureRecognizer {
-  _MapLongPressGestureRecognizer({required this.duration, super.debugOwner});
+  _MapLongPressGestureRecognizer({
+    required this.duration,
+    required this.isZoomCandidate,
+    super.debugOwner,
+  });
 
   Duration duration;
+  final bool Function(int pointer) isZoomCandidate;
   // Flutter's `possible` state also includes an already recognized hold.
   bool _holdRecognized = false;
 
   @override
   void handleEvent(PointerEvent event) {
+    super.handleEvent(event);
     if (event is PointerDownEvent &&
-        event.pointer != primaryPointer &&
-        !_holdRecognized) {
-      // Reject the hold in the arena, not just its callback, so a slow pinch
-      // can still start after the hold deadline. Keep tracking until all up.
+        !_holdRecognized &&
+        (event.pointer != primaryPointer || isZoomCandidate(event.pointer))) {
+      // Flutter initializes the press on routed down before it can be rejected.
+      // Keep tracking until all up while leaving zoom and pinch in the arena.
       resolve(GestureDisposition.rejected);
     }
-    super.handleEvent(event);
   }
 
   @override

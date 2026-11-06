@@ -21,7 +21,7 @@ final class PatchMapGestureOptions {
   final bool zoomEnabled;
 
   /// Allow a nearby second touch to drag vertically and zoom at the viewport
-  /// center in pan mode.
+  /// center in pan mode. An eligible second touch skips long-press recognition.
   final bool doubleTapDragZoomEnabled;
 
   /// Enable two-finger rotation; does not gate `setCamera(rotation: ...)`.

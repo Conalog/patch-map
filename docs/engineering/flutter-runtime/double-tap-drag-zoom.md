@@ -6,8 +6,12 @@ must complete and the second down must qualify for a normal double tap. For
 zoom the two down positions must also be within 18 local logical pixels.
 The first move beyond the normal drag slop chooses zoom when the vertical
 displacement is at least 1.5 times the horizontal displacement. Otherwise
-that drag continues as pan. A recognized long press takes precedence if it
-arrives before the crossing. A regular double tap still emits `doubleTap`.
+that drag continues as pan. The eligible second contact skips long-press
+recognition and can still zoom after a wait. Releasing without dragging
+emits `doubleTap` if the second contact lasted less than 300ms. A longer
+stationary release emits no classified tap or hold. The existing time window
+between the first up and second down still applies. Long presses outside
+the zoom candidate follow the configured duration.
 
 Zoom preserves the viewport's world center and rotation.
 The activation sample sets the baseline. After that, 160 logical pixels
@@ -17,6 +21,7 @@ camera observation path. The first `down`/`up` and second `down` still
 publish; a claimed zoom consumes the remaining touch without classified tap,
 hold or drag events. The up sample does not apply another camera delta.
 
+An additional finger while zoom is pending starts the ordinary pinch path.
 When another finger joins a claimed zoom, the first valid two-finger
 sample sets the pinch baseline at the current camera. The remaining finger
 cannot resume zoom or pan after either finger lifts. Turning the option or

@@ -15,12 +15,17 @@ final class MapDoubleTapRecognizer extends GestureRecognizer {
 
   final _contacts = <int, _TapContact>{};
   _TapContact? _first;
+  _TapContact? _zoomCandidate;
   Timer? _expiry;
 
   GestureBinding get _binding => GestureBinding.instance;
 
   int? firstTapFor(int pointer) =>
       _contacts.containsKey(pointer) ? _first?.pointer : null;
+
+  void markZoomCandidate(int pointer) => _zoomCandidate = _contacts[pointer];
+
+  bool isZoomCandidate(int pointer) => _zoomCandidate?.pointer == pointer;
 
   @override
   bool isPointerAllowed(PointerDownEvent event) {
@@ -31,6 +36,11 @@ final class MapDoubleTapRecognizer extends GestureRecognizer {
 
   @override
   void addAllowedPointer(PointerDownEvent event) {
+    if (_zoomCandidate != null) {
+      // A new contact turns the held second touch into a multitouch sequence.
+      reset();
+      return;
+    }
     final first = _first;
     if (first != null) {
       // A distant press is free to be a single tap without replacing the
@@ -53,6 +63,9 @@ final class MapDoubleTapRecognizer extends GestureRecognizer {
     final contact = _contacts[event.pointer];
     if (contact == null) return;
     if (event is PointerUpEvent) {
+      final lateZoomRelease =
+          identical(contact, _zoomCandidate) &&
+          event.timeStamp - contact.downTime >= kDoubleTapTimeout;
       _untrack(contact);
       final first = _first;
       if (first == null) {
@@ -70,7 +83,9 @@ final class MapDoubleTapRecognizer extends GestureRecognizer {
         contact.entry.resolve(GestureDisposition.accepted);
         _binding.gestureArena.release(first.pointer);
         _rejectContacts();
-        onDoubleTap(event.pointer);
+        // Resolve both arenas even when there is no double tap to report,
+        // so a stationary late release cannot replay either single tap.
+        if (!lateZoomRelease) onDoubleTap(event.pointer);
       }
     } else if (event is PointerCancelEvent ||
         (event is PointerMoveEvent &&
@@ -81,6 +96,7 @@ final class MapDoubleTapRecognizer extends GestureRecognizer {
   }
 
   void _untrack(_TapContact contact) {
+    if (identical(contact, _zoomCandidate)) _zoomCandidate = null;
     final pointer = contact.pointer;
     _contacts.remove(pointer);
     _binding.pointerRouter.removeRoute(pointer, _handle);
@@ -138,9 +154,11 @@ final class MapDoubleTapRecognizer extends GestureRecognizer {
 final class _TapContact {
   _TapContact(PointerDownEvent down, this.entry)
     : pointer = down.pointer,
+      downTime = down.timeStamp,
       position = down.position;
 
   final int pointer;
+  final Duration downTime;
   final Offset position;
   final GestureArenaEntry entry;
   final Timer minimum = Timer(kDoubleTapMinTime, _elapsed);

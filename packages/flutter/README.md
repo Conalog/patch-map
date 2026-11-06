@@ -193,9 +193,11 @@ captured per gesture. Wheel, commands and translation retain their behavior.
 Set `doubleTapDragZoomEnabled: true` in `PatchMapGestureOptions` to enable
 one-finger zoom in `PatchMapDragMode.pan` while zoom is allowed. Tap, press again
 nearby, then drag down to zoom in or up to zoom out around the viewport center.
-Releasing without dragging still emits `doubleTap`. A long press that wins
-first keeps its usual behavior. Adding a finger during zoom hands off to
-two-finger gestures without resetting the camera.
+An eligible second press can wait before dragging and does not become a long
+press. Releasing it without dragging emits `doubleTap` before 300ms, or no
+classified tap or hold from 300ms on. Other long presses keep their usual
+behavior. Adding a finger during zoom hands off to two-finger gestures without
+resetting the camera.
 
 `PatchMapGestureOptions(longPressDuration: Duration(milliseconds: 300))` sets the
 hold time for `longPress`. The package default is 300ms. Durations must be nonnegative; zero
