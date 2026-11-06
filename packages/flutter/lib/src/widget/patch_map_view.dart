@@ -220,7 +220,7 @@ class _PatchMapViewState extends State<PatchMapView>
     _deferInput = true;
     try {
       input.reset();
-      _gestureArena.resetDoubleTap();
+      _gestureArena.reset();
     } finally {
       _deferInput = false;
     }
@@ -328,7 +328,7 @@ class _PatchMapViewState extends State<PatchMapView>
     input.setActive(active);
     if (!active) {
       _clearAdmittedPointers();
-      _gestureArena.resetDoubleTap();
+      _gestureArena.reset();
     }
     session.setActive(active);
     frame.setActive(active);
@@ -339,7 +339,6 @@ class _PatchMapViewState extends State<PatchMapView>
     _gestureGeneration = null;
     _needsDoubleTapPinchOrigin = false;
     _pinchOrigin = null;
-    _gestureArena.trackZoomCandidate(null);
   }
 
   void _pointerDown(PointerDownEvent event) {

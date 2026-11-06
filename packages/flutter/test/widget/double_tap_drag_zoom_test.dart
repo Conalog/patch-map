@@ -411,6 +411,56 @@ void main() {
     expect(controller.camera!.scale, 2);
     await _finish(tester);
   });
+
+  for (final (gesture, quickZoom, startsInactive) in [
+    ('pan', false, false),
+    ('one-finger zoom', true, false),
+    ('touch started while inactive', false, true),
+  ]) {
+    testWidgets(
+      'inactivity excludes the old pointer from the next pinch ($gesture)',
+      (tester) async {
+        final controller = PatchMapController();
+        final events = <PatchMapInputEvent>[];
+        Widget host({required bool active}) => support.host(
+          controller,
+          events,
+          active: active,
+          gestures: PatchMapGestureOptions(
+            doubleTapDragZoomEnabled: quickZoom,
+            zoomThreshold: 0,
+            rotationEnabled: false,
+          ),
+        );
+        await tester.pumpWidget(host(active: true));
+        await support.draw(tester, controller);
+        final at = tester.getCenter(find.byType(PatchMapView));
+        if (startsInactive) await tester.pumpWidget(host(active: false));
+        final old = quickZoom
+            ? await _secondTouch(tester, at)
+            : await tester.startGesture(at);
+        await old.moveBy(const Offset(0, 30));
+        await old.moveBy(const Offset(0, 30));
+        if (!startsInactive) await tester.pumpWidget(host(active: false));
+        await tester.pumpWidget(host(active: true));
+
+        final beforePinch = controller.camera!.scale;
+        final a = await tester.startGesture(at + const Offset(-35, -35));
+        final b = await tester.startGesture(at + const Offset(35, -35));
+        await b.moveBy(const Offset(30, 0));
+        await b.moveBy(const Offset(30, 0));
+        await b.moveBy(const Offset(30, 0));
+        final pinched = controller.camera!;
+        expect(pinched.scale, greaterThan(beforePinch));
+        await old.moveBy(const Offset(-60, 0));
+        await old.up();
+        expect(controller.camera, pinched);
+        await a.up();
+        await b.up();
+        await _finish(tester);
+      },
+    );
+  }
 }
 
 Future<TestGesture> _secondTouch(WidgetTester tester, Offset at) async {

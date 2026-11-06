@@ -10,7 +10,11 @@ final class MapGestureArena {
   _MapScaleGestureRecognizer? _scale;
 
   int? firstTapFor(int pointer) => _doubleTap?.firstTapFor(pointer);
-  void resetDoubleTap() => _doubleTap?.reset();
+  void reset() {
+    _doubleTap?.reset();
+    _scale?.retireContacts();
+  }
+
   void trackZoomCandidate(int? pointer) {
     _scale?.trackCandidate(pointer);
     if (pointer != null) _doubleTap?.markZoomCandidate(pointer);
@@ -86,7 +90,10 @@ class MapGestureDetector extends StatelessWidget {
             ),
         _MapScaleGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<_MapScaleGestureRecognizer>(
-              () => arena._scale = _MapScaleGestureRecognizer(debugOwner: this),
+              () => arena._scale = _MapScaleGestureRecognizer(
+                canStart: canStart,
+                debugOwner: this,
+              ),
               (recognizer) => recognizer
                 ..gestureSettings = settings
                 ..onStart = onScaleStart
@@ -101,10 +108,48 @@ class MapGestureDetector extends StatelessWidget {
 /// Let scale win the second tap's arena and keep its route for a later pinch.
 /// A separate winner would cause Flutter to drop the held finger from scale.
 class _MapScaleGestureRecognizer extends ScaleGestureRecognizer {
-  _MapScaleGestureRecognizer({super.debugOwner});
+  _MapScaleGestureRecognizer({required this.canStart, super.debugOwner});
 
+  final bool Function() canStart;
+  final _contacts = <int, bool>{};
   int? _candidate;
   bool _won = false;
+
+  @override
+  bool isPointerAllowed(PointerDownEvent event) =>
+      canStart() && super.isPointerAllowed(event);
+
+  @override
+  bool isPointerPanZoomAllowed(PointerPanZoomStartEvent event) =>
+      canStart() && super.isPointerPanZoomAllowed(event);
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event is PointerDownEvent || event is PointerPanZoomStartEvent) {
+      _contacts[event.pointer] = event is PointerPanZoomStartEvent;
+    }
+    super.handleEvent(event);
+  }
+
+  @override
+  void stopTrackingPointer(int pointer) {
+    _contacts.remove(pointer);
+    super.stopTrackingPointer(pointer);
+  }
+
+  void retireContacts() {
+    trackCandidate(null);
+    resolve(GestureDisposition.rejected);
+    // Accepted pointers still have routes. End them in this recognizer so
+    // Flutter clears its scale geometry without canceling other widgets.
+    while (_contacts.isNotEmpty) {
+      final pointer = _contacts.keys.first;
+      final event = _contacts[pointer]!
+          ? PointerPanZoomEndEvent(pointer: pointer)
+          : PointerCancelEvent(pointer: pointer);
+      super.handleEvent(event);
+    }
+  }
 
   void trackCandidate(int? pointer) {
     _candidate = pointer;
