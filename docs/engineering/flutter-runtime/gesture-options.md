@@ -33,11 +33,11 @@ and focus commands remain available. Translation remains available even with
 both flags false; the existing single-pointer `dragMode` still owns pan/range/
 paint behavior. Two-finger translation retains the prior camera behavior.
 
-Touch permissions and thresholds are captured at `onScaleStart` and retained until that gesture
-ends. A rebuild affects the next gesture; wheel uses the latest flags. Disabled
-wheel input is not registered with Flutter's pointer signal resolver, allowing
-an enclosing scroll surface to handle it. Existing pointer/selection detection
-and interruption rules are unchanged.
+Pinch and rotation capture their permissions and thresholds at `onScaleStart`.
+A rebuild affects the next pinch or rotation. Wheel uses the current zoom
+permission, and disabling either zoom flag ends one-finger zoom. Disabled wheel
+input is not registered with Flutter's pointer signal resolver, allowing an
+enclosing scroll surface to handle it.
 
 Touch defaults are `zoomThreshold: .02` (2% relative span change) and
 `rotationThresholdDegrees: 15`. If rotation activated in an earlier input sample,

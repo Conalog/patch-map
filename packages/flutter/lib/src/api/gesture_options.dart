@@ -1,6 +1,7 @@
 /// User-input permissions. Explicit controller commands remain available.
-/// A touch gesture captures these flags at its start; wheel input uses the
-/// current flags. Single-pointer pan/range/paint still follows `dragMode`.
+/// Pinch and rotation capture their settings at the start. Wheel uses the
+/// current zoom permission, and disabling either zoom flag ends one-finger
+/// zoom. Single-pointer pan/range/paint follows `dragMode`.
 /// Touch zoom defaults to 2%, or 5% after rotation starts; rotation defaults to
 /// 15 degrees, or 25 degrees after zoom starts. Active axes stay active.
 /// Each crossing sample becomes that axis's new baseline without a camera jump.
