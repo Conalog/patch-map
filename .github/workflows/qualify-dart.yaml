@@ -19,7 +19,7 @@ permissions: {}
 jobs:
   plan:
     name: Route Dart release verification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -121,7 +121,7 @@ jobs:
     name: Verify immutable Dart release
     needs: plan
     if: ${{ needs.plan.outputs.verify == 'true' && needs.plan.outputs.reused != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -168,7 +168,7 @@ jobs:
     name: Analyze and test Dart sources
     needs: plan
     if: ${{ needs.plan.outputs.verify == 'true' && needs.plan.outputs.reused != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -210,7 +210,7 @@ jobs:
       matrix:
         include:
           - platform: android
-            runner: ubuntu-latest
+            runner: ubuntu-26.04
           - platform: ios
             runner: macos-15
     runs-on: ${{ matrix.runner }}
@@ -302,7 +302,7 @@ jobs:
     outputs:
       artifact-id: ${{ steps.retain.outputs.artifact-id }}
     needs: [plan, verify, checks, renderer]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read

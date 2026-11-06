@@ -15,7 +15,7 @@ concurrency:
 jobs:
   classify:
     name: Shared · Change routing
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       full_validation: ${{ steps.changes.outputs.full_validation }}
@@ -76,7 +76,7 @@ jobs:
           - gate: lifecycle
             name: JS · Memory & benchmark smoke
     # Playwright 1.57 supports Ubuntu 24.04 for the Chromium gates.
-    runs-on: ${{ matrix.gate == 'core' && 'ubuntu-latest' || 'ubuntu-24.04' }}
+    runs-on: ${{ matrix.gate == 'core' && 'ubuntu-26.04' || 'ubuntu-24.04' }}
     timeout-minutes: 40
     steps:
       - name: Checkout
@@ -144,7 +144,7 @@ jobs:
       fail-fast: false
       matrix:
         toolchain: [ci, service]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -190,7 +190,7 @@ jobs:
     name: Shared contract definitions & release tooling
     needs: classify
     if: ${{ needs.classify.outputs.contract_validation == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -222,7 +222,7 @@ jobs:
       matrix:
         include:
           - platform: android
-            runner: ubuntu-latest
+            runner: ubuntu-26.04
           - platform: ios
             runner: macos-latest
     runs-on: ${{ matrix.runner }}
@@ -280,7 +280,7 @@ jobs:
     name: CI
     if: ${{ always() }}
     needs: [classify, gate, flutter, contracts, native-example, dart-release]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require all gates

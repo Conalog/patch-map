@@ -36,7 +36,7 @@ jobs:
     needs: qualify
     if: ${{ !cancelled() && github.event_name == 'push' && vars.PUBDEV_PUBLISH_ENABLED == 'true' && needs.qualify.result == 'success' && needs.qualify.outputs['artifact-id'] != '' }}
     environment: pub.dev
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
       contents: read
