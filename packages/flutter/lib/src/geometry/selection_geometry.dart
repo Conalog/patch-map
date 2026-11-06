@@ -50,9 +50,6 @@ Quad? selectionQuad(
   }
 
   if (target.visible && target.opacity > 0) {
-    if (target.target.type == 'text') {
-      include(target.textWorldTransform(cameraRotation).projectRect(local));
-    }
     if (target.target.type == 'rect') {
       final stroke = target.data['stroke'] as Map?;
       final width = (stroke?['width'] as num?)?.toDouble() ?? 0;

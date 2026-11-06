@@ -140,6 +140,31 @@ List<int> pixel(Uint8List bytes, int x, int y) => [
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('collapsed standalone text keeps its authored selection outline', () {
+    final geometry = snapshot([
+      {
+        'id': 'group',
+        'type': 'group',
+        'attrs': {'angle': 45, 'scaleY': 0},
+        'children': [
+          {
+            'id': 'label',
+            'type': 'text',
+            'text': 'label',
+            'attrs': {'angle': 45},
+          },
+        ],
+      },
+    ]);
+    final label = geometry['label']!;
+    expect(label.world.inverse, isNull);
+    final authored = label.world.projectRect(label.localBounds!);
+    expectQuad(
+      selectionQuad(label, palette: ColorResolver(), cameraRotation: math.pi),
+      vertices(authored),
+    );
+  });
+
   test(
     'release blue centered 2px outline includes background half-stroke outset',
     () async {
