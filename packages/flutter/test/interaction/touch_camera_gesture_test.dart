@@ -15,12 +15,12 @@ void sample(
   double factor = 1,
   double degrees = 0,
   double scale = 2,
-  double rotation = .4,
+  double? rotation,
 }) => gesture.update(
   factor: factor,
   angle: radians(degrees),
   currentScale: scale,
-  currentRotation: rotation,
+  currentRotation: rotation ?? gesture.rotation,
 );
 
 void main() {
@@ -121,6 +121,30 @@ void main() {
     expect(gesture.scale, closeTo(7 * 1.03 / 1.02, 1e-12));
     expect(gesture.rotation, closeTo(1 + radians(1), 1e-12));
   });
+
+  for (final threshold in [0.0, 15.0]) {
+    test(
+      'pinch rebases onto an external rotation with threshold $threshold',
+      () {
+        final gesture = begin(
+          PatchMapGestureOptions(rotationThresholdDegrees: threshold),
+        );
+        sample(gesture, degrees: threshold);
+        sample(gesture, factor: 1.1, degrees: threshold, rotation: .7);
+        expect(gesture.rotation, .7);
+        sample(gesture, factor: 1.2, degrees: threshold + 2);
+        expect(gesture.rotation, closeTo(.7 + radians(2), 1e-12));
+        sample(gesture, factor: 1.3, degrees: threshold + 3, rotation: 1.2);
+        expect(gesture.rotation, closeTo(1.2 + radians(1), 1e-12));
+        sample(gesture, factor: 1.4, degrees: threshold + 3);
+        expect(gesture.rotation, closeTo(1.2 + radians(1), 1e-12));
+        sample(gesture, degrees: double.nan, rotation: 1.5);
+        expect(gesture.rotation, 1.5);
+        sample(gesture, degrees: threshold + 4);
+        expect(gesture.rotation, closeTo(1.5 + radians(1), 1e-12));
+      },
+    );
+  }
 
   test('custom follow-on thresholds never lower the configured base', () {
     final gesture = begin(

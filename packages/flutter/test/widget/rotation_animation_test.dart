@@ -18,6 +18,53 @@ Future<void> step(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('camera commands from a touch rotation run after the sample', (
+    tester,
+  ) async {
+    final controller = PatchMapController();
+    const center = Offset(1234, 5678);
+    double? touchAngle;
+    await tester.pumpWidget(
+      host(
+        controller,
+        rotationAnimation: slow,
+        gestureRotated: (angle) {
+          if (touchAngle != null) return;
+          touchAngle = angle;
+          expect(
+            controller.setCamera(center: center).outcome,
+            PatchMapOutcome.applied,
+          );
+          expect(controller.rotateTo(2).outcome, PatchMapOutcome.applied);
+        },
+      ),
+    );
+    await draw(tester, controller);
+    final at = tester.getCenter(find.byType(PatchMapView));
+    final a = await tester.startGesture(at - const Offset(40, 0));
+    final b = await tester.startGesture(at + const Offset(40, 0));
+    for (final offset in const [
+      Offset(70, 15),
+      Offset(95, 40),
+      Offset(110, 60),
+      Offset(110, 100),
+      Offset(100, 130),
+    ]) {
+      await a.moveTo(at - offset);
+      if (touchAngle != null) break;
+      await b.moveTo(at + offset);
+      if (touchAngle != null) break;
+    }
+    expect(touchAngle, isNotNull);
+    expect(controller.camera!.center, center);
+    await step(tester);
+    expect(controller.camera!.rotation, isNot(touchAngle));
+    await a.up();
+    await b.up();
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'rotation accepts before travel, shares notifications and updates; live off applies target',
     (tester) async {

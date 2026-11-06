@@ -8,6 +8,7 @@ import 'patch_map_view_test.dart' as support;
 Widget host(
   PatchMapController controller, {
   ValueChanged<PatchMapCameraChange>? changed,
+  ValueChanged<double>? gestureRotated,
   ValueChanged<PatchMapPhase>? phase,
   bool active = true,
   Size size = const Size(400, 400),
@@ -26,6 +27,7 @@ Widget host(
           controller: controller,
           active: active,
           onCameraChanged: changed,
+          onGestureRotation: gestureRotated,
           gestures: gestures,
           zoomLimits: zoomLimits,
           rotationAnimation: rotationAnimation,
@@ -93,7 +95,10 @@ void main() {
   ) async {
     final controller = PatchMapController();
     final changes = <PatchMapCameraChange>[];
-    await tester.pumpWidget(host(controller, changed: changes.add));
+    final rotations = <double>[];
+    await tester.pumpWidget(
+      host(controller, changed: changes.add, gestureRotated: rotations.add),
+    );
     await draw(tester, controller);
     controller.setCamera(center: Offset.zero, scale: 1, rotation: 0);
     await tester.pump();
@@ -120,6 +125,7 @@ void main() {
       PatchMapCameraChangeSource.programmatic,
     });
     expect(changes.single.state.scale, closeTo(1.1, 1e-9));
+    expect(rotations, isEmpty);
     changes.clear();
     final a = await tester.startGesture(
       center - const Offset(40, 0),
@@ -140,6 +146,9 @@ void main() {
     await b.moveTo(center + const Offset(110, 100));
     await a.moveTo(center - const Offset(100, 130));
     await b.moveTo(center + const Offset(100, 130));
+    expect(changes, isEmpty);
+    expect(rotations, isNotEmpty);
+    expect(rotations.last, controller.camera!.rotation);
     await tester.pump();
     expect(changes.single.sources, {PatchMapCameraChangeSource.gesture});
     expect(changes.single.state.scale, greaterThan(1.1));

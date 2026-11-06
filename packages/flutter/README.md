@@ -184,6 +184,9 @@ Subscribe without replay; read `camera` for current state. Replacement/removal d
 inactivity defers them. Callbacks may issue commands; their new changes notify on a later frame.
 These are latest applied values, not display-completion or debounced settled notifications.
 
+`onGestureRotation` receives the applied clockwise angle in radians during input dispatch.
+It fires when touch rotation changes the angle, before frame-coalesced observation.
+
 `rotateTo` preserves center/scale and uses a clockwise half-turn when both paths
 are equal. Its default is 180ms cubic ease-out. `setCamera` and touch rotation
 remain immediate; the bar data-animation policy is unchanged.
@@ -236,8 +239,18 @@ gesture restart. Each crossing sample becomes a new baseline without a jump;
 zero base thresholds apply immediately.
 
 Zoom values must be finite in [0, 1), rotation values finite and nonnegative.
-`zoomEnabled` and `rotationEnabled` independently gate gestures. Settings are
-captured per gesture. Wheel, commands and translation retain their behavior.
+`zoomEnabled` and `rotationEnabled` independently gate gestures. Pinch and
+rotation capture settings when they start. Wheel uses the current zoom permission.
+
+Set `doubleTapDragZoomEnabled: true` in `PatchMapGestureOptions` to enable
+one-finger zoom in `PatchMapDragMode.pan` while zoom is allowed. Tap, press again
+nearby, then drag down to zoom in or up to zoom out around the viewport center.
+An eligible second press can wait before dragging and does not become a long
+press. Releasing it without dragging emits `doubleTap` before 300ms, or no
+classified tap or hold from 300ms on. Other long presses keep their usual
+behavior. Disabling either zoom option or leaving pan mode ends a one-finger
+zoom. Adding a finger during zoom hands off to two-finger gestures without
+resetting the camera.
 
 `PatchMapGestureOptions(longPressDuration: Duration(milliseconds: 300))` sets the
 hold time for `longPress`. The package default is 300ms. Durations must be nonnegative; zero
@@ -301,6 +314,7 @@ Image preparation is asynchronous; it neither blocks first screen nor changes re
 | `onImageFailure(failures)` | Asynchronous image failures with target/path diagnostics |
 | `onEvent(event)` | Pointer, drag and selection events |
 | `onCameraChanged(change)` | Frame-coalesced camera state and causes described above |
+| `onGestureRotation(radians)` | Immediate notification of an applied touch rotation |
 | `loadingBuilder` / `errorBuilder` | Host UI for preparation and fatal map failure |
 
 `resolveDirectColor(value)` converts a direct CSS, numeric or JSON color value

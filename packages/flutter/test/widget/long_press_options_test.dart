@@ -11,6 +11,7 @@ Widget host(
   PatchMapController controller,
   List<PatchMapInputEvent> events, {
   PatchMapGestureOptions gestures = const PatchMapGestureOptions(),
+  PatchMapZoomLimits zoomLimits = const PatchMapZoomLimits(),
   bool active = true,
   PatchMapDragMode dragMode = PatchMapDragMode.pan,
 }) => MediaQuery(
@@ -24,6 +25,7 @@ Widget host(
         child: PatchMapView(
           controller: controller,
           gestures: gestures,
+          zoomLimits: zoomLimits,
           active: active,
           dragMode: dragMode,
           onEvent: events.add,
